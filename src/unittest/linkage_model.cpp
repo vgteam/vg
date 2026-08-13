@@ -371,5 +371,187 @@ TEST_CASE("Genotype indices round-trip through the collector's decode", "[linkag
     }
 }
 
+//------------------------------------------------------------------------------
+// phasing()
+
+/// Every site free, sized to the chain.
+static vector<size_t> unconstrained(size_t n) {
+    return vector<size_t>(n, LinkageModel::NO_CONSTRAINT);
+}
+
+static size_t count_switches(const vector<LinkageModel::Phase>& ph) {
+    size_t n = 0;
+    for (size_t t = 1; t < ph.size(); ++t) {
+        n += (ph[t].first != ph[t - 1].first) + (ph[t].second != ph[t - 1].second);
+    }
+    return n;
+}
+
+TEST_CASE("Phasing recovers a planted mosaic", "[linkage_model]") {
+    // Haplotypes 0 and 1 spell what the reads want over the first half, 2 and 3 over the second,
+    // so the only path explaining the whole chain switches once per strand in the middle. This is
+    // the property the mosaic output rests on and it cannot be checked against posteriors(),
+    // which never forms a path at all.
+    LinkageModel::Params p;
+    p.weight = 2.0;
+    LinkageModel model(p);
+
+    vector<LinkageModel::Site> sites;
+    for (size_t i = 0; i < 6; ++i) {
+        vector<int> haps = (i < 3) ? vector<int>{0, 1, 0, 0} : vector<int>{0, 0, 0, 1};
+        sites.push_back(biallelic(1000 + i * 100, -20.0, 0.0, -20.0, haps));
+    }
+    auto ph = model.phasing(sites, unconstrained(sites.size()));
+    REQUIRE(ph.size() == sites.size());
+
+    for (size_t t = 0; t < sites.size(); ++t) {
+        const vector<int>& h = sites[t].haplotype_allele;
+        int a = ph[t].first == LinkageModel::WILDCARD ? -1 : h[ph[t].first];
+        int b = ph[t].second == LinkageModel::WILDCARD ? -1 : h[ph[t].second];
+        REQUIRE(((a == 0 && b == 1) || (a == 1 && b == 0) || a < 0 || b < 0));
+    }
+    // One switch per strand, not one per site: the mosaic is piecewise, which is the whole basis
+    // for run-length encoding the output.
+    REQUIRE(count_switches(ph) <= 2);
+}
+
+TEST_CASE("Constrained phasing spells the required genotype everywhere", "[linkage_model]") {
+    // The consistency guarantee the mosaic output exists to provide. If this can fail, the
+    // emitted genome and the emitted VCF can disagree, which is the one thing it must not do.
+    LinkageModel::Params p;
+    p.weight = 2.0;
+    LinkageModel model(p);
+
+    // Haplotype 1 carries allele 1 throughout and haplotype 2 alternates, so the pair (1,2)
+    // spells the constraint at every site with no switch at all. Every site's *reads* are set to
+    // prefer 0/0, so only the constraint can be producing the answer.
+    //
+    // The constraints have to be jointly explicable by some pair, which is not a weakness of the
+    // test but the model working: constraints that flip genotype faster than any panel pair can
+    // follow are better explained by the wildcard than by paying a switch per site, and the model
+    // will correctly say so. Real calls come from the panel, so they do not look like that.
+    size_t n = 6;
+    vector<LinkageModel::Site> sites;
+    vector<size_t> want;
+    for (size_t i = 0; i < n; ++i) {
+        vector<int> haps{0, 1, (int)(i % 2), 0};
+        sites.push_back(biallelic(1000 + i * 100, 0.0, -20.0, -20.0, haps));
+        want.push_back(LinkageModel::genotype_index(1, i % 2));
+    }
+    auto ph = model.phasing(sites, want);
+    REQUIRE(ph.size() == n);
+    for (size_t t = 0; t < n; ++t) {
+        const vector<int>& h = sites[t].haplotype_allele;
+        REQUIRE(ph[t].first != LinkageModel::WILDCARD);
+        REQUIRE(ph[t].second != LinkageModel::WILDCARD);
+        size_t got = LinkageModel::genotype_index((size_t)h[ph[t].first],
+                                                  (size_t)h[ph[t].second]);
+        REQUIRE(got == want[t]);
+    }
+    // And it should find the pair that needs no switching, not merely *a* consistent pair.
+    REQUIRE(count_switches(ph) == 0);
+}
+
+TEST_CASE("A constraint no panel pair can follow routes through the wildcard",
+          "[linkage_model]") {
+    // The other side of the same behaviour, pinned because it looks like a bug when first seen.
+    // Here the constraint flips 1/1, 0/0, 0/1 at 100 bp spacing. A panel explanation would have to
+    // switch both strands twice, at about 10.6 nats a switch, against 4.6 nats per free strand
+    // for the wildcard -- so "explained by nothing in the panel" is genuinely the better answer
+    // and the model returns it rather than forcing an implausible mosaic.
+    LinkageModel::Params p;
+    p.weight = 2.0;
+    LinkageModel model(p);
+    vector<LinkageModel::Site> sites{
+        biallelic(1000, 0.0, -20.0, -20.0, {0, 1, 0, 1}),
+        biallelic(1100, -20.0, 0.0, -20.0, {0, 1, 0, 1}),
+        biallelic(1200, -20.0, -20.0, 0.0, {0, 1, 0, 1}),
+    };
+    vector<size_t> want{
+        LinkageModel::genotype_index(1, 1),
+        LinkageModel::genotype_index(0, 0),
+        LinkageModel::genotype_index(0, 1),
+    };
+    auto ph = model.phasing(sites, want);
+    REQUIRE(ph.size() == 3);
+    bool any_wildcard = false;
+    for (const auto& e : ph) {
+        any_wildcard |= (e.first == LinkageModel::WILDCARD
+                         || e.second == LinkageModel::WILDCARD);
+    }
+    REQUIRE(any_wildcard);
+}
+
+TEST_CASE("Phasing stays feasible where the panel cannot spell the call", "[linkage_model]") {
+    // Panel enumeration makes this unreachable, but --enumerate-support does not, and returning
+    // nothing there would drop a whole chain over one site. The wildcard is what keeps the
+    // constrained problem solvable.
+    LinkageModel::Params p;
+    p.weight = 2.0;
+    LinkageModel model(p);
+
+    vector<LinkageModel::Site> sites{
+        biallelic(1000, 0.0, -20.0, -20.0, {0, 0, 0, 0}),
+        biallelic(1100, 0.0, -20.0, -20.0, {0, 0, 0, 0}),
+    };
+    vector<size_t> want{LinkageModel::genotype_index(1, 1),
+                        LinkageModel::genotype_index(1, 1)};
+    auto ph = model.phasing(sites, want);
+    REQUIRE(ph.size() == 2);
+    REQUIRE(ph[0].first == LinkageModel::WILDCARD);
+    REQUIRE(ph[0].second == LinkageModel::WILDCARD);
+}
+
+TEST_CASE("Window seams do not manufacture switches", "[linkage_model]") {
+    // The failure guarded against here would look like a result rather than a bug: decoded
+    // independently, two windows choose the state at their shared seam twice, so the join shows a
+    // switch at every window boundary -- and that count scales with the site count, which is
+    // exactly the shape a real biological signal would have.
+    //
+    // A chain one haplotype pair explains throughout must phase to zero switches whatever the
+    // window size, so run it with a window far shorter than the chain to force seams.
+    LinkageModel::Params p;
+    p.weight = 2.0;
+    p.window = 5;
+    p.margin = 2;
+    LinkageModel model(p);
+
+    vector<LinkageModel::Site> sites;
+    for (size_t i = 0; i < 40; ++i) {
+        sites.push_back(biallelic(1000 + i * 100, -20.0, 0.0, -20.0, {0, 1, 0, 1}));
+    }
+    auto windowed = model.phasing(sites, unconstrained(sites.size()));
+
+    LinkageModel::Params q = p;
+    q.window = 1000;   // one window, no seams
+    LinkageModel exact(q);
+    auto whole = exact.phasing(sites, unconstrained(sites.size()));
+
+    REQUIRE(windowed.size() == whole.size());
+    REQUIRE(count_switches(windowed) == 0);
+    REQUIRE(count_switches(whole) == 0);
+}
+
+TEST_CASE("Phasing is deterministic", "[linkage_model]") {
+    // Two runs over one input must agree exactly. Ties broken by iteration order are
+    // deterministic; ties broken by anything else would make the emitted genome irreproducible
+    // without moving any accuracy metric.
+    LinkageModel::Params p;
+    p.weight = 2.0;
+    LinkageModel model(p);
+    vector<LinkageModel::Site> sites;
+    for (size_t i = 0; i < 20; ++i) {
+        sites.push_back(biallelic(1000 + i * 137, -3.0, 0.0, -2.0,
+                                  {(int)(i % 2), 1, 0, (int)((i + 1) % 2)}));
+    }
+    auto a = model.phasing(sites, unconstrained(sites.size()));
+    auto b = model.phasing(sites, unconstrained(sites.size()));
+    REQUIRE(a.size() == b.size());
+    for (size_t t = 0; t < a.size(); ++t) {
+        REQUIRE(a[t].first == b[t].first);
+        REQUIRE(a[t].second == b[t].second);
+    }
+}
+
 }
 }

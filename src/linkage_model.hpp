@@ -186,6 +186,40 @@ public:
     /// posterior could be formed.
     vector<vector<double>> posteriors(const vector<Site>& sites) const;
 
+    /// One strand's assignment at one site: an index into the panel, or `WILDCARD`.
+    struct Phase {
+        size_t first = WILDCARD;
+        size_t second = WILDCARD;
+    };
+
+    /// The wildcard haplotype's index, one past the panel. It carries any allele at any site, so
+    /// a strand assigned to it is "explained by nothing in the panel" rather than by a haplotype.
+    static constexpr size_t WILDCARD = (size_t)-1;
+
+    /// Most probable path of haplotype pairs through the chain -- the *phasing*, as distinct from
+    /// `posteriors()`, which decides each site on its own.
+    ///
+    /// The two answer different questions and do not agree in general. A sequence of per-site
+    /// marginal argmaxes need not be spellable by any single pair of haplotypes: that is exactly
+    /// the free-switching this whole layer exists to penalise, and penalising is not forbidding.
+    /// So phasing needs max-product, not sum-product, and it needs its own traceback.
+    ///
+    /// `constraint[t]` is the genotype index the path must spell at site `t`, or `NO_CONSTRAINT`
+    /// to leave the site free. Constraining every site to the called genotype is what makes the
+    /// emitted phasing agree with the emitted VCF, which is the only reason to prefer this
+    /// decoding over the unconstrained one -- unconstrained Viterbi maximises path probability
+    /// and will happily contradict the calls.
+    ///
+    /// Feasible by construction wherever alleles come from the panel: if allele i is carried by
+    /// some haplotype and j by another, the pair spelling (i,j) exists. The wildcard covers the
+    /// rest, so a path is always returned.
+    ///
+    /// Diploid only, like the rest of this class: the states are ordered *pairs*.
+    vector<Phase> phasing(const vector<Site>& sites, const vector<size_t>& constraint) const;
+
+    /// Leaves a site's genotype unconstrained in `phasing()`.
+    static constexpr size_t NO_CONSTRAINT = (size_t)-1;
+
     /// VCF diploid genotype ordering: index of the genotype (i,j).
     static size_t genotype_index(size_t i, size_t j) {
         if (i > j) {
@@ -203,6 +237,12 @@ private:
     /// keeps only the interior.
     void window_posteriors(const vector<Site>& sites, size_t from, size_t to,
                            vector<vector<double>>& out) const;
+
+    /// Max-product over one window, with an optional pinned state so consecutive windows join
+    /// without inventing a switch at the seam. `out` is indexed from `from`.
+    void window_phasing(const vector<Site>& sites, size_t from, size_t to,
+                        const vector<size_t>& constraint,
+                        size_t pin_index, const Phase& pin, vector<Phase>& out) const;
 
     Params params;
 };

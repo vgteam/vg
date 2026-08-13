@@ -121,6 +121,136 @@ static void transition_apply(const vector<double>& in, size_t m, double rho,
     }
 }
 
+namespace {
+
+const double NEG_INF = -numeric_limits<double>::infinity();
+
+/// Best two values along one axis, with both indices, for the leave-one-out maxima the
+/// max-product step needs. `stride` walks a row (1) or a column (m).
+struct Top2 {
+    double best = NEG_INF;
+    double second = NEG_INF;
+    size_t arg = 0;
+    size_t arg2 = 0;
+};
+
+Top2 top2_of(const double* v, size_t n, size_t stride) {
+    Top2 t;
+    for (size_t i = 0; i < n; ++i) {
+        double x = v[i * stride];
+        if (x > t.best) {
+            t.second = t.best;
+            t.arg2 = t.arg;
+            t.best = x;
+            t.arg = i;
+        } else if (x > t.second) {
+            t.second = x;
+            t.arg2 = i;
+        }
+    }
+    return t;
+}
+
+/// One Li-Stephens max-product step, with backpointers.
+///
+/// `transition_apply` sums, and there the factorisation collapses the pairwise loop into four
+/// terms. Maximising does *not* separate the same way, because delta(a,b) couples the strands:
+/// max over (a,b) of delta(a,b) + f(a) + g(b) is not a pair of independent 1-D maxima. But
+/// T(x->y) takes only two values, so the reduction is by cases on which strands stayed:
+///
+///     delta'(a',b') = ln e(a',b') + max of
+///         delta(a',b')                        + 2S      both stayed
+///         max_{b != b'} delta(a',b)           + S + J   strand 1 stayed
+///         max_{a != a'} delta(a,b')           + J + S   strand 2 stayed
+///         max_{a != a', b != b'} delta(a,b)   + 2J      both jumped
+///
+/// Every leave-one-out maximum comes from a top-2 along the relevant axis, so this stays O(m^2)
+/// like the forward step rather than O(m^4). Checked against a literal O(m^4) implementation over
+/// random emissions including infeasible states.
+///
+/// In logs, unlike the forward pass: sum-product needs rescaling per site to avoid underflow,
+/// max-product does not, and in logs the stay-or-jump choice is a comparison of sums.
+void viterbi_step(const vector<double>& in, size_t m, double rho, const vector<double>& emission,
+                  vector<double>& out, vector<uint16_t>& back_a, vector<uint16_t>& back_b) {
+    double stay = 1.0 - rho + rho / (double)m;
+    double jump = rho / (double)m;
+    double S = stay > 0.0 ? log(stay) : NEG_INF;
+    double J = jump > 0.0 ? log(jump) : NEG_INF;
+
+    vector<Top2> rows(m), cols(m);
+    for (size_t a = 0; a < m; ++a) {
+        rows[a] = top2_of(&in[a * m], m, 1);
+    }
+    for (size_t b = 0; b < m; ++b) {
+        cols[b] = top2_of(&in[b], m, m);
+    }
+
+    // rowExcl[a * m + bp] = max over b != bp of in[a][b], with its argument.
+    vector<double> rowExcl(m * m);
+    vector<uint16_t> rowExclArg(m * m);
+    for (size_t a = 0; a < m; ++a) {
+        for (size_t bp = 0; bp < m; ++bp) {
+            bool hit = (rows[a].arg == bp);
+            rowExcl[a * m + bp] = hit ? rows[a].second : rows[a].best;
+            rowExclArg[a * m + bp] = (uint16_t)(hit ? rows[a].arg2 : rows[a].arg);
+        }
+    }
+
+    out.assign(m * m, NEG_INF);
+    back_a.assign(m * m, 0);
+    back_b.assign(m * m, 0);
+
+    for (size_t bp = 0; bp < m; ++bp) {
+        // Both jumped: max over a != a' of rowExcl[a][bp]. One top-2 per arriving b'.
+        Top2 both = top2_of(&rowExcl[bp], m, m);
+        for (size_t ap = 0; ap < m; ++ap) {
+            double e = emission[ap * m + bp];
+            if (!(e > 0.0)) {
+                // An impossible state stays impossible. This is also how a constraint is applied:
+                // the caller zeroes the emission of every state that does not spell the required
+                // genotype, so those simply never become reachable.
+                continue;
+            }
+            double best = NEG_INF;
+            size_t ba = 0, bb = 0;
+
+            double c1 = in[ap * m + bp];
+            if (c1 > NEG_INF) {
+                double v = c1 + S + S;
+                if (v > best) { best = v; ba = ap; bb = bp; }
+            }
+            double c2 = rowExcl[ap * m + bp];
+            if (c2 > NEG_INF) {
+                double v = c2 + S + J;
+                if (v > best) { best = v; ba = ap; bb = rowExclArg[ap * m + bp]; }
+            }
+            bool chit = (cols[bp].arg == ap);
+            double c3 = chit ? cols[bp].second : cols[bp].best;
+            if (c3 > NEG_INF) {
+                double v = c3 + J + S;
+                if (v > best) { best = v; ba = chit ? cols[bp].arg2 : cols[bp].arg; bb = bp; }
+            }
+            bool bhit = (both.arg == ap);
+            double c4 = bhit ? both.second : both.best;
+            if (c4 > NEG_INF) {
+                double v = c4 + J + J;
+                if (v > best) {
+                    best = v;
+                    ba = bhit ? both.arg2 : both.arg;
+                    bb = rowExclArg[ba * m + bp];
+                }
+            }
+            if (best > NEG_INF) {
+                out[ap * m + bp] = best + log(e);
+                back_a[ap * m + bp] = (uint16_t)ba;
+                back_b[ap * m + bp] = (uint16_t)bb;
+            }
+        }
+    }
+}
+
+}   // anonymous namespace
+
 void LinkageModel::window_posteriors(const vector<Site>& sites, size_t from, size_t to,
                                      vector<vector<double>>& out) const {
     size_t n = to - from;
@@ -342,6 +472,206 @@ vector<vector<double>> LinkageModel::posteriors(const vector<Site>& sites) const
         }
     }
     return out;
+}
+
+vector<LinkageModel::Phase> LinkageModel::phasing(const vector<Site>& sites,
+                                                  const vector<size_t>& constraint) const {
+    vector<Phase> out(sites.size());
+    if (sites.empty()) {
+        return out;
+    }
+    size_t n = sites.size();
+    size_t n_hap = 0;
+    for (const Site& s : sites) {
+        n_hap = max(n_hap, s.haplotype_allele.size());
+    }
+    size_t m = n_hap + 1;
+    if (m < 2) {
+        return out;
+    }
+
+    size_t step = max<size_t>(params.window, 1);
+    size_t margin = params.margin;
+
+    // Windowing needs more care here than it does for the posteriors. A marginal posterior is a
+    // per-site quantity, so windows can be decoded independently and their interiors pasted
+    // together. A path is not: decode two windows independently and the state at the seam is
+    // chosen twice, by two runs that never saw each other, so the join manufactures a switch at
+    // every window boundary -- an artifact that would read as a biological result and would scale
+    // with the site count rather than with the genome.
+    //
+    // So each window after the first is *pinned*: the state at one index inside its leading
+    // margin is fixed to what the previous window already decided there. The pin sits in the
+    // margin rather than at the boundary precisely because a margin-deep state was decided with
+    // the full window's context around it, while a boundary state was not.
+    bool have_pin = false;
+    size_t pin_index = 0;
+    Phase pin{};
+
+    for (size_t start = 0; start < n; start += step) {
+        size_t lo = start > margin ? start - margin : 0;
+        size_t hi = min(start + step + margin, n);
+        vector<Phase> local;
+        window_phasing(sites, lo, hi, constraint,
+                       have_pin ? pin_index : (size_t)-1, pin, local);
+        size_t keep_to = min(start + step, n);
+        for (size_t t = start; t < keep_to && t - lo < local.size(); ++t) {
+            out[t] = local[t - lo];
+        }
+        if (keep_to == n) {
+            break;
+        }
+        // Pin the next window at the last index this one is authoritative for.
+        pin_index = keep_to - 1;
+        pin = out[pin_index];
+        have_pin = true;
+    }
+    return out;
+}
+
+void LinkageModel::window_phasing(const vector<Site>& sites, size_t from, size_t to,
+                                  const vector<size_t>& constraint,
+                                  size_t pin_index, const Phase& pin,
+                                  vector<Phase>& out) const {
+    size_t n = to - from;
+    out.assign(n, Phase{});
+    if (n == 0) {
+        return;
+    }
+    size_t n_hap = 0;
+    for (size_t t = from; t < to; ++t) {
+        n_hap = max(n_hap, sites[t].haplotype_allele.size());
+    }
+    size_t m = n_hap + 1;
+
+    // Emissions, with the constraint folded in as zeroes. Zeroing rather than masking keeps the
+    // step's own "impossible stays impossible" test doing double duty, and means a constrained
+    // run and an unconstrained one differ only in this vector.
+    vector<vector<double>> emissions(n), per_genotype(n);
+    for (size_t t = 0; t < n; ++t) {
+        const Site& site = sites[from + t];
+        build_emission(site, n_hap, params.escape, emissions[t], per_genotype[t]);
+        size_t want = (from + t) < constraint.size() ? constraint[from + t] : NO_CONSTRAINT;
+        if (want == NO_CONSTRAINT) {
+            continue;
+        }
+        // Decode the wanted genotype, because a state with one free strand has to be checked
+        // against the individual alleles rather than against the pair.
+        size_t wj = 0;
+        while (genotype_index(0, wj + 1) <= want) {
+            ++wj;
+        }
+        size_t wi = want - (wj * (wj + 1) / 2);
+
+        for (size_t a = 0; a < m; ++a) {
+            int ai = a < site.haplotype_allele.size() ? site.haplotype_allele[a] : -1;
+            for (size_t b = 0; b < m; ++b) {
+                int bi = b < site.haplotype_allele.size() ? site.haplotype_allele[b] : -1;
+                // The wildcard, and a haplotype absent from this site, may carry any allele --
+                // which is what keeps the constrained problem feasible where the panel cannot
+                // spell a call. But "free" means the *free* strand is unconstrained, not that the
+                // state is: a known haplotype carrying neither of the wanted alleles cannot be
+                // rescued by pairing it with a wildcard. Getting that wrong silently emits a
+                // phasing that contradicts the very genotype it was constrained to.
+                bool ok;
+                if (ai >= 0 && bi >= 0) {
+                    ok = genotype_index((size_t)ai, (size_t)bi) == want;
+                } else if (ai >= 0) {
+                    ok = ((size_t)ai == wi || (size_t)ai == wj);
+                } else if (bi >= 0) {
+                    ok = ((size_t)bi == wi || (size_t)bi == wj);
+                } else {
+                    ok = true;
+                }
+                if (!ok) {
+                    emissions[t][a * m + b] = 0.0;
+                    continue;
+                }
+                // Every surviving state implies the *same* genotype, so they must all carry that
+                // genotype's likelihood. build_emission gave the free strands a marginal over
+                // alleles, which is right when the genotype is unknown and wrong here: the
+                // constraint determines what the free strand carries. Left as a marginal it
+                // reliably exceeds the constrained genotype's own likelihood wherever the reads
+                // disagree with the call, so the path would route through the wildcard precisely
+                // at the sites the constraint exists to pin down.
+                //
+                // The escape factor stays, one per free strand, so a genotype the panel can spell
+                // is still preferred over the wildcard explaining it.
+                double e = want < per_genotype[t].size() ? per_genotype[t][want] : 0.0;
+                if (ai < 0) {
+                    e *= params.escape;
+                }
+                if (bi < 0) {
+                    e *= params.escape;
+                }
+                emissions[t][a * m + b] = e;
+            }
+        }
+    }
+
+    // Pin: everything except the pinned state becomes unreachable at that index.
+    if (pin_index != (size_t)-1 && pin_index >= from && pin_index < to) {
+        size_t t = pin_index - from;
+        size_t pa = pin.first == WILDCARD ? n_hap : min(pin.first, n_hap);
+        size_t pb = pin.second == WILDCARD ? n_hap : min(pin.second, n_hap);
+        double keep = emissions[t][pa * m + pb];
+        emissions[t].assign(m * m, 0.0);
+        // If the pinned state is itself impossible here the pin would empty the window, so fall
+        // back to leaving the site free rather than returning nothing.
+        emissions[t][pa * m + pb] = keep > 0.0 ? keep : 1.0;
+    }
+
+    vector<double> delta(m * m, NEG_INF);
+    for (size_t k = 0; k < m * m; ++k) {
+        if (emissions[0][k] > 0.0) {
+            delta[k] = -log((double)(m * m)) + log(emissions[0][k]);
+        }
+    }
+    vector<vector<uint16_t>> back_a(n), back_b(n);
+    for (size_t t = 1; t < n; ++t) {
+        size_t gap = sites[from + t].position > sites[from + t - 1].position
+                         ? sites[from + t].position - sites[from + t - 1].position : 1;
+        vector<double> next;
+        viterbi_step(delta, m, switch_probability(gap), emissions[t], next, back_a[t], back_b[t]);
+        bool any = false;
+        for (double v : next) {
+            if (v > NEG_INF) { any = true; break; }
+        }
+        if (!any) {
+            // No state survives: the constraint and the panel disagree beyond what the wildcard
+            // can absorb. Restart the chain here rather than abandoning the window, so the rest
+            // of it is still phased; the discontinuity is visible as a switch on both strands.
+            for (size_t k = 0; k < m * m; ++k) {
+                next[k] = emissions[t][k] > 0.0 ? log(emissions[t][k]) : NEG_INF;
+                back_a[t][k] = (uint16_t)(k / m);
+                back_b[t][k] = (uint16_t)(k % m);
+            }
+        }
+        delta = std::move(next);
+    }
+
+    size_t best = m * m;
+    double best_v = NEG_INF;
+    for (size_t k = 0; k < m * m; ++k) {
+        if (delta[k] > best_v) {
+            best_v = delta[k];
+            best = k;
+        }
+    }
+    if (best == m * m) {
+        return;
+    }
+    size_t a = best / m, b = best % m;
+    for (size_t t = n; t-- > 0;) {
+        out[t].first = (a == n_hap) ? WILDCARD : a;
+        out[t].second = (b == n_hap) ? WILDCARD : b;
+        if (t > 0) {
+            size_t pa = back_a[t][a * m + b];
+            size_t pb = back_b[t][a * m + b];
+            a = pa;
+            b = pb;
+        }
+    }
 }
 
 //------------------------------------------------------------------------------
