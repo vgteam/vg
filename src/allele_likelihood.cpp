@@ -669,16 +669,14 @@ double GraphAlignedAlleleLikelihoodCalculator::local_read_rate(
         }
     }
 
-    double rate = (reads <= 0.0 || bp == 0)
-                      ? 0.0
-                      : reads / ((double)params.depth_ploidy * (double)bp);
+    double rate = (reads <= 0.0 || bp == 0) ? 0.0 : reads / (double)bp;
     lock_guard<std::mutex> guard(window_bp_mutex);
     window_rate[window_index] = rate;
     return rate;
 }
 
 AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
-    const Snarl& snarl, const vector<SnarlTraversal>& traversals) {
+    const Snarl& snarl, const vector<SnarlTraversal>& traversals, int ploidy) {
 
     last_site_reads = 0;
     last_site_uninformative = 0;
@@ -878,7 +876,10 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
         // Set unconditionally so `DR` is emitted whether or not the term is armed:
         // the observable should be measurable as a ranking signal before the model
         // is allowed to act on it. A zero weight leaves the likelihood untouched.
-        result.set_depth_context(depth_lengths, local_read_rate(ranges),
+        // Per haplotype, from the site's own ploidy rather than an assumed one.
+        int effective_ploidy = ploidy > 0 ? ploidy : params.depth_ploidy;
+        result.set_depth_context(depth_lengths,
+                                 local_read_rate(ranges) / (double)effective_ploidy,
                                  result.mean_read_length_estimate(),
                                  params.depth_weight, params.depth_effective_reads);
     }

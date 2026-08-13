@@ -77,7 +77,7 @@ pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> ReadLikelihoodSnarlCaller::
     }
 
     // Build the reads x alleles matrix for this site.
-    AlleleReadLikelihoods matrix = likelihood_calculator.compute(snarl, traversals);
+    AlleleReadLikelihoods matrix = likelihood_calculator.compute(snarl, traversals, ploidy);
 
     // Per-allele read support and mean absolute fit. Neither enters the genotype
     // likelihood -- the row normalisation divides the absolute fit out, and the mixture

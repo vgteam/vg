@@ -249,26 +249,62 @@ public:
     /**
      * ln P(reads | G), where G is a multiset of allele indices of size ploidy.
      *
-     *   ln P(reads | G) = sum_r ln [ (1 - e_r) * sum_{h in G} (1/|G|) * rel(r,h)
-     *                                + e_r * 1 ]
+     * **This is the objective the caller maximises.** Both terms are on by default,
+     * so a description of only the first describes a configuration nobody runs.
      *
-     * The inner sum marginalises over which haplotype produced the read; for a
-     * homozygous genotype its weights collapse to 1, so hom and het need no
-     * special casing and allele balance comes out of the 1/|G| weighting rather
-     * than a tuned bias parameter.
+     *   ln P(reads | G) =  sum_r ln [ (1 - e_r) * sum_{h in G} w_h * rel(r,h) + e_r ]
+     *                    + w_d * ln Poisson( N_eff ; lambda_G )
      *
-     * The `+ e_r` term is "this read came from somewhere else entirely, where it
-     * fits about as well as its best explanation here". Because rel is in [0,1],
-     * the bracket lies in [e_r, 1], so its log is always finite and bounded below
-     * by ln e_r: no single read can penalise a genotype without limit.
+     * Read term, over reads r overlapping the site:
      *
-     * e_r is genotype-independent, so it cannot favour one genotype over
-     * another; a wrong e_r costs power rather than creating bias.
+     *   rel(r,h)  in [0,1], the read's fit to allele h relative to its own best
+     *             allele here. Exactly 0 means h cannot place the read at all,
+     *             which is evidence against h rather than missing data.
+     *   e_r       clamp( phred_to_prob(MAPQ_r), min_mismap_prob, max_mismap_prob ).
+     *             "This read is not from here", so it explains any genotype
+     *             equally. Genotype-independent, so a wrong e_r costs power
+     *             rather than creating bias -- but see the clamps, which is where
+     *             it stops being only about mismapping.
+     *   w_h       the mixture weight for haplotype h of G, summing to 1 over G.
+     *             Flat 1/|G| under --flat-mixture. By default proportional to
+     *             (U_h + R - 1), where U_h is sequence unique to h among G's
+     *             members and R is the mean read length: the number of read start
+     *             positions that can produce a read able to distinguish h. Flat
+     *             weights assert both haplotypes produced half the reads, which is
+     *             false over a heterozygous deletion and is why large het
+     *             deletions were lost. Equal-length alleles give exactly 1/2, so
+     *             SNVs are unchanged bit for bit.
      *
-     * Reads are assumed independent. Mates overlapping the same site are not,
-     * and the product therefore accumulates confidence like R rather than
-     * sqrt(R), so derived GQ will be over-confident and increasingly so with
-     * depth. Treat GQ/GL as useful for ranking, not as calibrated probabilities.
+     * The bracket lies in [e_r, 1], so its log is finite and bounded below by
+     * ln(e_r): no single read can penalise a genotype without limit. That bound is
+     * the whole reason for the floor, and it is why min_mismap_prob reads as
+     * "P(this read's evidence here is unreliable)" rather than as mismapping alone.
+     *
+     * Depth term, one per site rather than per read:
+     *
+     *   N_eff     sum_r (1 - e_r), the expected number of these reads genuinely
+     *             from this locus. Raw read count under --depth-count-raw.
+     *   lambda_G  rate * sum_{h in G} max(L_h + R - 1, 1), for allele length L_h.
+     *   rate      reads per haplotype per bp, measured over a window of the same
+     *             contig and weighted by the same (1 - e_r), so the correction is
+     *             *relative*: a site whose mapping quality matches its
+     *             neighbourhood's is unaffected.
+     *   w_d       --depth-term, default 0.1.
+     *
+     * The read term has no opinion about reads that are *absent*, which is exactly
+     * the evidence a homozygous deletion presents; the depth term supplies it. Its
+     * weight is small because it is a much cruder statistic than the read term and
+     * is dominated by it wherever reads are informative.
+     *
+     * **Not in this expression:** the linkage layer. `--linkage-weight` re-decides
+     * genotypes *after* calling, from forward-backward posteriors over pairs of
+     * GBWT panel haplotypes, using this quantity as the per-site emission. See
+     * linkage_model.hpp. Nothing here changes when it is on.
+     *
+     * Reads are assumed independent. Mates overlapping the same site are not, and
+     * the product therefore accumulates confidence like R rather than sqrt(R), so
+     * derived GQ will be over-confident and increasingly so with depth. Treat
+     * GQ/GL as useful for ranking, not as calibrated probabilities.
      */
     double genotype_likelihood(const vector<int>& genotype) const;
 
@@ -525,8 +561,12 @@ struct AlleleLikelihoodParams {
     /// only where a site is more or less ambiguously mapped than the sequence
     /// around it.
     bool depth_effective_reads = true;
-    /// Assumed ploidy when converting a window's read count into a per-haplotype
-    /// rate. The caller genotypes diploid.
+    /// Ploidy to assume when the caller does not supply one. Only a fallback: the
+    /// site's own ploidy is passed to `compute` and used in preference, because
+    /// `vg call` varies ploidy by contig (-d, --ploidy-regex) and a haploid region
+    /// scored against a diploid rate gets a lambda that is wrong by the ploidy
+    /// ratio, in a term that is otherwise one of the better-behaved parts of the
+    /// model.
     int depth_ploidy = 2;
 };
 
@@ -538,9 +578,12 @@ public:
     virtual ~AlleleLikelihoodCalculator() = default;
 
     /// Build the matrix for one site. traversals are the candidate alleles, in
-    /// the order the caller will genotype them.
+    /// the order the caller will genotype them. `ploidy` is the site's ploidy, which
+    /// the depth term needs to turn a local read count into a per-haplotype rate;
+    /// `vg call` varies it by contig through -d and --ploidy-regex.
     virtual AlleleReadLikelihoods compute(const Snarl& snarl,
-                                          const vector<SnarlTraversal>& traversals) = 0;
+                                          const vector<SnarlTraversal>& traversals,
+                                          int ploidy) = 0;
 };
 
 /**
@@ -601,7 +644,8 @@ public:
                                            const Params& params = Params());
 
     AlleleReadLikelihoods compute(const Snarl& snarl,
-                                  const vector<SnarlTraversal>& traversals);
+                                  const vector<SnarlTraversal>& traversals,
+                                  int ploidy) override;
 
     /// Reads seen at the last site, before dropping uninformative ones.
     size_t get_last_site_read_count() const { return last_site_reads; }
@@ -679,6 +723,14 @@ protected:
     ///
     /// Returns 0 if the source has no window (an in-memory source answers exactly),
     /// which switches the depth term off rather than inventing a rate.
+    /// Reads per base pair over the window containing these ranges, weighted by
+    /// `1 - e_r` when `depth_effective_reads` is set.
+    ///
+    /// Deliberately **not** divided by ploidy. The window statistic is a property of
+    /// the data; ploidy is a property of how the site is being genotyped. Folding
+    /// the second into the first put a genotyping assumption inside a cache keyed
+    /// only on node range, so a rate computed under one ploidy could be reused under
+    /// another. The division happens at the point of use instead.
     double local_read_rate(const vector<pair<nid_t, nid_t>>& site_ranges) const;
 
     const PathHandleGraph& graph;

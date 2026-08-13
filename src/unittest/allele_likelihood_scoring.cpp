@@ -98,8 +98,9 @@ static Alignment make_matching_alignment(const HandleGraph& graph, const string&
     return aln;
 }
 
-/// Run the calculator over one site with the given reads.
-static AlleleReadLikelihoods score_site(SnpAndDeletionSite& site, const vector<Alignment>& reads) {
+/// Run the calculator over one site with the given reads, at the given ploidy.
+static AlleleReadLikelihoods score_site(SnpAndDeletionSite& site, const vector<Alignment>& reads,
+                                        int ploidy = 2) {
     InMemorySiteReadSource source;
     for (const Alignment& aln : reads) {
         source.add(aln);
@@ -108,7 +109,40 @@ static AlleleReadLikelihoods score_site(SnpAndDeletionSite& site, const vector<A
     MatrixAlignmentScorer plain_scorer;
     GraphAlignedAlleleLikelihoodCalculator calculator(site.graph, *site.manager, source, qual_scorer,
                                                       plain_scorer);
-    return calculator.compute(site.snarl, site.traversals);
+    return calculator.compute(site.snarl, site.traversals, ploidy);
+}
+
+TEST_CASE("The depth rate is per haplotype, so it follows the site's ploidy",
+          "[allele_likelihood][scoring]") {
+    // The same reads over the same site, genotyped haploid and diploid. The window's
+    // read density is a property of the data and does not change; the *per-haplotype*
+    // rate does, by exactly the ploidy ratio, and lambda with it.
+    //
+    // This is a regression test. The ploidy was fixed at 2 inside the rate calculation
+    // and the calculator was never told the site's own, so every haploid region -- chrY,
+    // and chrX under --ploidy-regex -- got a lambda wrong by a factor of two while the
+    // observed read count was right. It survived because the tier-2 evaluation is
+    // autosomes only, and because the two components either side of the seam were both
+    // tested on their own: the depth term is exercised by passing a rate in directly,
+    // and haploid genotyping is exercised without the depth term.
+    SnpAndDeletionSite site;
+    vector<Alignment> reads;
+    for (int i = 0; i < 12; ++i) {
+        reads.push_back(make_matching_alignment(site.graph, "r" + std::to_string(i),
+                                  {{(nid_t)1, false}, {(nid_t)2, false}, {(nid_t)4, false}}));
+    }
+
+    AlleleReadLikelihoods diploid = score_site(site, reads, 2);
+    AlleleReadLikelihoods haploid = score_site(site, reads, 1);
+
+    if (diploid.uses_depth_term()) {
+        vector<int> hom{0, 0};
+        double lambda_diploid = diploid.expected_reads(hom);
+        double lambda_haploid = haploid.expected_reads(hom);
+        REQUIRE(lambda_diploid > 0.0);
+        // Halving the ploidy doubles the per-haplotype rate, and lambda with it.
+        REQUIRE(lambda_haploid == Approx(2.0 * lambda_diploid));
+    }
 }
 
 TEST_CASE("A reverse-strand read scores the same as its forward equivalent",
