@@ -756,7 +756,7 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
         }
         builder.set_allele_lengths(allele_lengths);
 
-        if (!params.length_weight_whole_traversal) {
+        {
             // Per-allele node content, then pairwise set differences. Computed once
             // per site off the hot path; a node visited more than once by an allele
             // counts its sequence once, which is what "does this allele carry this

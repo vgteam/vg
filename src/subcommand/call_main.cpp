@@ -98,9 +98,6 @@ void help_call(char** argv) {
          << "                            in length: it loses large heterozygous deletions and" << endl
          << "                            mis-genotypes large heterozygous insertions. Restores" << endl
          << "                            the pre-correction model exactly" << endl
-         << "      --length-weight-whole-traversal  weight by whole traversal length rather" << endl
-         << "                            than by sequence unique to each allele. Coarser;" << endl
-         << "                            kept so the sharper weight can be measured against it" << endl
          << "      --no-share-quality    report GQ as the raw likelihood ratio, without" << endl
          << "                            scaling it by the fraction of reads the called" << endl
          << "                            genotype explains. GQI always carries the raw value" << endl
@@ -254,7 +251,6 @@ int main_call(int argc, char** argv) {
     double linkage_freq_prior = 5.0;
     bool flat_mixture = false;
     double depth_weight = 0.1;
-    bool length_weight_whole_traversal = false;
     bool depth_count_raw = false;
     double max_mismap_prob = 0.7;
     double min_mismap_prob = 0.02;
@@ -292,7 +288,6 @@ int main_call(int argc, char** argv) {
     constexpr int OPT_NO_SHARE_QUALITY = 1021;
     constexpr int OPT_FLAT_MIXTURE = 1023;
     constexpr int OPT_DEPTH_TERM = 1025;
-    constexpr int OPT_LENGTH_WEIGHT_WHOLE = 1024;
     constexpr int OPT_DEPTH_COUNT_RAW = 1026;
     constexpr int OPT_DEPTH_QUALITY = 1027;
     constexpr int OPT_LINKAGE_WEIGHT = 1028;
@@ -349,7 +344,6 @@ int main_call(int argc, char** argv) {
             {"linkage-weight", required_argument, 0, OPT_LINKAGE_WEIGHT},
             {"linkage-scale", required_argument, 0, OPT_LINKAGE_SCALE},
             {"linkage-freq-prior", required_argument, 0, OPT_LINKAGE_FREQ_PRIOR},
-            {"length-weight-whole-traversal", no_argument, 0, OPT_LENGTH_WEIGHT_WHOLE},
             {"read-min-mapq", required_argument, 0, OPT_READ_MIN_MAPQ},
             {"gam-index", required_argument, 0, OPT_GAM_INDEX},
             {"gaf-base", required_argument, 0, OPT_GAF_BASE},
@@ -530,9 +524,6 @@ int main_call(int argc, char** argv) {
             break;
         case OPT_LINKAGE_FREQ_PRIOR:
             linkage_freq_prior = parse<double>(optarg);
-            break;
-        case OPT_LENGTH_WEIGHT_WHOLE:
-            length_weight_whole_traversal = true;
             break;
         case OPT_NO_SHARE_QUALITY:
             no_share_quality = true;
@@ -1230,7 +1221,6 @@ int main_call(int argc, char** argv) {
             likelihood_params.use_mismap_term = !no_mismap_term;
             likelihood_params.length_weighted_mixture = !flat_mixture;
             likelihood_params.depth_weight = depth_weight;
-            likelihood_params.length_weight_whole_traversal = length_weight_whole_traversal;
             likelihood_params.depth_effective_reads = !depth_count_raw;
             likelihood_params.max_mismap_prob = max_mismap_prob;
             likelihood_params.min_mismap_prob = min_mismap_prob;

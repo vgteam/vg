@@ -494,11 +494,15 @@ struct AlleleLikelihoodParams {
     /// above 1 kb. Correcting it costs nothing measurable elsewhere -- equal-length
     /// alleles give exactly 1/2, so SNV genotype F1 is unchanged to four decimal
     /// places on both graphs tested -- and about 2% of runtime.
+    /// The weight counts sequence *unique* to each allele among the genotype's members,
+    /// not whole traversal length. That choice was measured against the alternative and
+    /// the alternative lost: a traversal includes the site's shared sequence, so at one
+    /// 2648 bp deletion the traversals are 296 and 2945 bp -- a ratio of 6.9 where the
+    /// reads actually split about 14.6. Reads in shared sequence fit every allele
+    /// equally and cancel, so only unique content can move a genotype. There was briefly
+    /// a `--length-weight-whole-traversal` flag to select the older form; it is gone,
+    /// since the comparison is settled and a knob inside a knob is not worth the surface.
     bool length_weighted_mixture = true;
-    /// Use whole traversal length for that weight instead of sequence unique to
-    /// each allele. The first version of the weight; kept so the sharpening can be
-    /// measured against it rather than assumed.
-    bool length_weight_whole_traversal = false;
     /// Weight on ln P(N | G). Zero disables the depth term entirely; the `DR`
     /// diagnostic is still computed, so the observable can be measured before the
     /// model is allowed to act on it.
