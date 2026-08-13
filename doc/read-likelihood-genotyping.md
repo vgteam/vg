@@ -242,12 +242,89 @@ The wildcard is not optional. A state implies a genotype, so without it any geno
 can spell is unreachable — and the graph need not contain the sample being genotyped. Omitting it
 makes the model suppress novel alleles, which presents as a precision gain while destroying recall.
 
-`--linkage-freq-prior F` (default 5) is an **exponent, not a mixing weight**. The state space
-implies an allele-frequency prior, because a genotype spelled by more haplotype pairs receives more
-mass. That implied multiplicity is divided out as `multiplicity^(1−F)`: at `F = 0` it is removed
-entirely, at `F = 1` it is kept exactly as the state space presents it, and above 1 it is amplified
-beyond it. It is the dominant parameter of this layer — at the joint optimum it is most of the total
-gain — and it inverts past about 8, where the prior overwhelms the reads.
+### `--linkage-freq-prior` — the allele-frequency prior
+
+This is the dominant parameter of the linkage layer, and the least self-explanatory, because it
+does not add a prior. It controls **how much of a prior the state space was already imposing.**
+
+**Where the prior comes from.** A genotype is not a state; it is what a state *implies*. The
+posterior for a genotype is therefore the sum over every ordered haplotype pair spelling it — and
+a common allele is carried by many panel haplotypes, so genotypes containing it are spelled by
+many more pairs. Summing states silently weights genotypes by panel allele frequency.
+
+For example, take a 32-haplotype panel where allele 1 is carried by 20 haplotypes and allele 0 by
+12. The number of ordered pairs spelling each genotype is then:
+
+```
+(0,1) → 12·20 + 20·12 = 480       (1,1) → 20·20 = 400       (0,0) → 12·12 = 144
+```
+
+Before a single read is consulted, the state space already prefers `0/1` over `0/0` by 480:144.
+That is a real allele-frequency prior, and it is not optional — it is a consequence of counting
+states at all.
+
+**What the parameter does.** The summed mass is divided back out by `multiplicity^(1−F)`. Writing
+the sum over the pairs spelling a genotype as `multiplicity × mean_pair_mass`, the surviving mass
+is exactly:
+
+```
+posterior mass  =  multiplicity^F  ×  mean_pair_mass      (mass from known-known states)
+```
+
+so `F` is the exponent on the panel count and nothing else. `mean_pair_mass` is the forward–backward
+mass an average such state carries, which is where the reads and the transitions enter.
+
+| `F` | Effect |
+|---|---|
+| `0` | Prior removed entirely. Each genotype counted once, however many pairs spell it. |
+| `1` | Divides by `multiplicity^0 = 1` — a no-op. The state space's own count stands. |
+| `> 1` | Amplified **beyond** what the state space implies. `F` is an exponent, and nothing about it stops at 1. |
+
+The default is `5`. On the example above that takes the `0/1`:`0/0` prior ratio from 3.33 to
+`3.33^5 ≈ 410`, or 6.0 nats. Carrying the same example up the axis shows why the parameter has an
+optimum at all rather than improving indefinitely:
+
+| `F` | prior ratio | nats |
+|---|---|---|
+| 1 | 3.3 | 1.2 |
+| 5 (default) | 411 | 6.0 |
+| 8 | 15,200 | 9.6 |
+| 12 | 1,880,000 | 14.5 |
+
+The prior grows geometrically while the evidence a site carries does not, so past some point it
+stops informing the reads and starts overruling them. That the measured inversion (below) lands
+between 8 and 12 is consistent with this arithmetic; the arithmetic alone does not predict where,
+since it depends on how much the reads at a given site actually say.
+
+**It leaks through two channels, and both are corrected.** Besides pairs of known haplotypes, a
+state pairing a known haplotype with the wildcard also occurs once per haplotype carrying that
+allele — so `carriers[k]`, the number of panel haplotypes carrying allele `k`, weights the
+half-wildcard mass exactly as multiplicity weights the known-known mass. Both are divided by their
+own count to the `1−F`. A test caught this: neutralising only the first left a site whose reads
+were flat still tilted toward the common allele, which is precisely what `F = 0` is supposed to
+prevent. States with *both* strands latent have no multiplicity to correct and are left alone.
+
+**Measured behaviour.** On chr20 and chr6 against 34-haplotype panels, crossed against the
+transition weight, it improves every variant class at every weight, monotonically, through 1 and
+well past it, peaking near 5–8. At the joint optimum (`weight 2`, `freq_prior 5`) it accounts for
+most of the layer's total gain — small-variant genotype F1 +0.0099 on chr20 and +0.0074 on chr6
+against no linkage at all, against +0.0047 and +0.0036 for the transition model alone. Beyond 8 it
+inverts: by 12 the prior overwhelms the reads, SNV F1 falls below the no-linkage baseline and
+structural-variant recall collapses.
+
+The effect is almost entirely small indels — deletions most, insertions next, SNVs flat to within
+0.0002 across the whole axis. That is the mechanism showing through: SNVs are already settled by
+the reads, so a prior has nothing to act on.
+
+**Caveat, not retired.** Every one of those numbers is from a 34-haplotype panel. Multiplicity is a
+far coarser statistic over three haplotypes than over thirty-three, and a large exponent over a
+count that barely varies is not the same operation. On the two 4-haplotype graphs the difference
+between `F = 0` and `F = 5` is under 0.0004 on every class, in both directions — safe there, and
+not useful there.
+
+One structural note for anyone reading the code: `LinkageModel::Params` defaults this to `0`, so a
+model constructed directly is the plain HMM with no prior, which is what the unit tests compare
+against. `vg call` defaults its flag to `5`.
 
 Inference runs over windows of `2000` sites with a `250`-site margin discarded at each end, because
 exact inference over a whole chain would serialise a caller that is otherwise parallel over snarls.
