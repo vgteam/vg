@@ -37,7 +37,7 @@ SUBCMD_DIR = 'src/subcommand'
 """Where to search for subcommand files."""
 SUBCMD_END = '_main.cpp'
 """Suffix for subcommand files."""
-SKIP_SUBCMDS = {'test', 'help'}
+SKIP_SUBCMDS = {'test'}
 """Subcommands to skip in the consistency check."""
 AUTOCOMP_FILES = ['autocomp.bash', 'autocomplete.sh']
 """Where to double-check subcommand autocomplete existence."""

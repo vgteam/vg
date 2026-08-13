@@ -297,5 +297,6 @@ int main_vectorize(int argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_vectorize("vectorize", "transform alignments to simple ML-compatible vectors", main_vectorize);
+static Subcommand vg_vectorize("vectorize", "transform alignments to simple ML-compatible vectors",
+                               help_vectorize, main_vectorize);
 

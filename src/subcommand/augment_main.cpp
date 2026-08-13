@@ -72,6 +72,12 @@ void help_augment(char** argv, ConfigurableParser& parser) {
      parser.print_help(cerr);
 }
 
+// A version taking only argv to make the subcommand registry happy
+void help_augment_default(char** argv) {
+    ConfigurableParser empty_parser;
+    help_augment(argv, empty_parser);
+}
+
 int main_augment(int argc, char** argv) {
     Logger logger("vg augment");
 
@@ -431,4 +437,5 @@ int main_augment(int argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_augment("augment", "augment a graph from an alignment", PIPELINE, 8, main_augment);
+static Subcommand vg_augment("augment", "augment a graph from an alignment",
+                             PIPELINE, 8, help_augment_default, main_augment);

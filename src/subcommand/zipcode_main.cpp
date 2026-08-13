@@ -298,6 +298,7 @@ int main_zipcode(int argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_zipcode("zipcode", "find distances between seeds using zipcodes", DEVELOPMENT, main_zipcode);
+static Subcommand vg_zipcode("zipcode", "find distances between seeds using zipcodes",
+                             DEVELOPMENT, help_zipcode, main_zipcode);
 
 

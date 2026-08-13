@@ -428,5 +428,5 @@ int main_autoindex(int argc, char** argv) {
 
 // Register subcommand
 static Subcommand vg_autoindex("autoindex", "mapping tool-oriented index construction from interchange formats", 
-                               PIPELINE, 1, main_autoindex);
+                               PIPELINE, 1, help_autoindex, main_autoindex);
 

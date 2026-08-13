@@ -1489,5 +1489,6 @@ int main_stats(int argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_stats("stats", "metrics describing graph and alignment properties", TOOLKIT, main_stats);
+static Subcommand vg_stats("stats", "metrics describing graph and alignment properties",
+                           TOOLKIT, help_stats, main_stats);
 

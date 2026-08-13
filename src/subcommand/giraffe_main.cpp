@@ -94,6 +94,8 @@ struct ScoringOptions {
     int8_t full_length_bonus = default_full_length_bonus;
 };
 
+const static std::set<std::string> GIRAFFE_PRESET_NAMES = std::set<std::string>({"chaining-sr", "default", "fast", "hifi", "r10", "srold"});
+
 static std::unique_ptr<GroupedOptionGroup> get_options() {
     std::unique_ptr<GroupedOptionGroup> parser(new GroupedOptionGroup());
     
@@ -657,7 +659,7 @@ template<typename T> void enforce_min_max(const T& low, const std::string& low_o
 
 //----------------------------------------------------------------------------
 
-void help_giraffe(char** argv, const BaseOptionGroup& parser, const std::map<std::string, Preset>& presets, bool full_help) {
+void help_giraffe(char** argv, const BaseOptionGroup& parser, bool full_help) {
     cerr << "usage:" << endl
          << "  " << argv[0] << " giraffe -Z graph.gbz [-d graph.dist [-m graph.withzip.min -z graph.zipcodes]] <input options> [other options] > output.gam" << endl
          << "  " << argv[0] << " giraffe -Z graph.gbz --haplotype-name graph.hapl --kff-name sample.kff <input options> [other options] > output.gam" << endl
@@ -674,12 +676,12 @@ void help_giraffe(char** argv, const BaseOptionGroup& parser, const std::map<std
          << "  -t, --threads N               number of mapping threads to use" << endl
          << "  -b, --parameter-preset NAME   set computational parameters [default]" << endl
          << "                                (";
-    for (auto p = presets.begin(); p != presets.end(); ++p) {
+    for (auto p = GIRAFFE_PRESET_NAMES.begin(); p != GIRAFFE_PRESET_NAMES.end(); ++p) {
         // Announce each preset name, slash-separated
-        cerr << p->first;
+        cerr << *p;
         auto next_p = p;
         ++next_p;
-        if (next_p != presets.end()) {
+        if (next_p != GIRAFFE_PRESET_NAMES.end()) {
             // There's another preset.
             cerr << " / ";
         }
@@ -770,6 +772,12 @@ void help_giraffe(char** argv, const BaseOptionGroup& parser, const std::map<std
         auto helps = parser.get_help();
         print_table(helps, cerr);
     }
+}
+
+// A version taking only argv to make the subcommand registry happy
+void help_giraffe_default(char** argv) {
+    GroupedOptionGroup empty_parser;
+    help_giraffe(argv, empty_parser, false);
 }
 
 //----------------------------------------------------------------------------
@@ -936,6 +944,9 @@ int main_giraffe(int argc, char** argv) {
 
     // Map preset names to presets
     std::map<std::string, Preset> presets;
+    for (const auto& preset_name : GIRAFFE_PRESET_NAMES) {
+        presets[preset_name] = Preset();
+    }
     // We have a fast preset that sets a bunch of stuff
     presets["fast"]
         .add_entry<size_t>("hit-cap", 10)
@@ -1192,7 +1203,7 @@ int main_giraffe(int argc, char** argv) {
     parser->make_short_options(short_options);
 
     if (argc == 2) {
-        help_giraffe(argv, *parser, presets, false);
+        help_giraffe(argv, *parser, false);
         return 1;
     }
 
@@ -1460,7 +1471,7 @@ int main_giraffe(int argc, char** argv) {
             case 'h':
             case '?':
             default:
-                help_giraffe(argv, *parser, presets, true);
+                help_giraffe(argv, *parser, true);
                 exit(1);
                 break;
         }
@@ -2569,4 +2580,5 @@ int main_giraffe(int argc, char** argv) {
 //----------------------------------------------------------------------------
 
 // Register subcommand
-static Subcommand vg_giraffe("giraffe", "fast haplotype-aware read alignment", PIPELINE, 6, main_giraffe);
+static Subcommand vg_giraffe("giraffe", "fast haplotype-aware read alignment",
+                             PIPELINE, 6, help_giraffe_default, main_giraffe);

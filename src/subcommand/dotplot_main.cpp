@@ -120,5 +120,5 @@ int main_dotplot(int argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_dotplot("dotplot", "generate the dotplot matrix from the embedded paths in an xg index", main_dotplot);
+static Subcommand vg_dotplot("dotplot", "generate the dotplot matrix from the embedded paths in an xg index", help_dotplot, main_dotplot);
 

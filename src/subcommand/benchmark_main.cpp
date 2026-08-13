@@ -190,5 +190,6 @@ int main_benchmark(int argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_benchmark("benchmark", "run and report on performance benchmarks", DEVELOPMENT, main_benchmark);
+static Subcommand vg_benchmark("benchmark", "run and report on performance benchmarks",
+                               DEVELOPMENT, help_benchmark, main_benchmark);
 

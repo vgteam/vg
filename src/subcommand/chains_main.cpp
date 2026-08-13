@@ -147,9 +147,6 @@ int main_chains(int argc, char** argv) {
     return 0;
 }
 
-static vg::subcommand::Subcommand vg_chains("chains", "extract handles in top-level chains", 
-                                            vg::subcommand::WIDGET, main_chains);
-
 //----------------------------------------------------------------------------
 
 void help_chains(char** argv) {
@@ -367,3 +364,6 @@ sdsl::int_vector<> normalize_chain(gbwt::vector_type& chain) {
 }
 
 //----------------------------------------------------------------------------
+
+static vg::subcommand::Subcommand vg_chains("chains", "extract handles in top-level chains", 
+                                            vg::subcommand::WIDGET, help_chains, main_chains);

@@ -150,4 +150,4 @@ int main_viz(int argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_viz("viz", "render visualizations of indexed graphs and read sets", main_viz);
+static Subcommand vg_viz("viz", "render visualizations of indexed graphs and read sets", help_viz, main_viz);

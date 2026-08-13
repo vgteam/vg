@@ -34,9 +34,10 @@ std::ostream& operator<<(std::ostream& out, const CommandCategory& category) {
 
 Subcommand::Subcommand(std::string name, std::string description,
     CommandCategory category, int priority,
+    std::function<void(char**)> help_function,
     std::function<int(int, char**)> main_function) : name(name),
     category(category), priority(priority), description(description),
-    main_function(main_function) {
+    help_function(help_function), main_function(main_function) {
     
     // Add this subcommand to the registry
     Subcommand::get_registry()[name] = this;
@@ -44,15 +45,22 @@ Subcommand::Subcommand(std::string name, std::string description,
 
 Subcommand::Subcommand(std::string name, std::string description,
     CommandCategory category, 
+    std::function<void(char**)> help_function,
     std::function<int(int, char**)> main_function) : Subcommand(name,
-    description, category, std::numeric_limits<int>::max(), main_function) {
+    description, category, std::numeric_limits<int>::max(), help_function, main_function) {
     
     // Nothing to do!
 }
 
 Subcommand::Subcommand(std::string name, std::string description,
-    std::function<int(int, char**)> main_function) : Subcommand(name, description, WIDGET, main_function) {
+    std::function<void(char**)> help_function,
+    std::function<int(int, char**)> main_function) : Subcommand(name, 
+        description, WIDGET, help_function, main_function) {
     // Nothing to do!
+}
+
+void Subcommand::add_manpage_part(ManpageSection section, std::string blurb, std::string wiki_link) {
+    manpage_parts.emplace_back(section, blurb, wiki_link);
 }
 
 const std::string& Subcommand::get_name() const {

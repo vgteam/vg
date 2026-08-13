@@ -1103,5 +1103,6 @@ int main_call(int argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_call("call", "call or genotype VCF variants", PIPELINE, 10, main_call);
+static Subcommand vg_call("call", "call or genotype VCF variants",
+                          PIPELINE, 10, help_call, main_call);
 

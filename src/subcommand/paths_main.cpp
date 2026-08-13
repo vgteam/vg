@@ -1088,5 +1088,5 @@ int main_paths(int argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_paths("paths", "traverse paths in the graph", main_paths);
+static Subcommand vg_paths("paths", "traverse paths in the graph", help_paths, main_paths);
 

@@ -158,4 +158,4 @@ int main_trace(int argc, char** argv) {
     return 0;
 }
 
-static Subcommand vg_trace("trace", "trace haplotypes", main_trace);
+static Subcommand vg_trace("trace", "trace haplotypes", help_trace, main_trace);

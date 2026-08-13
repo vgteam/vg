@@ -66,6 +66,42 @@ enum CommandCategory {
     DEPRECATED
 };
 
+/**
+ * The sub-lists on the manpage to organize subcommands
+ */
+enum ManpageSection {
+    // Graph construction and indexing
+    CONSTRUCT_GRAPH,
+    // Read mapping
+    MAP_READS,
+    // Downstream analyses
+    DOWNSTREAM,
+    // Working with read alignments
+    MANIPULATE_ALN,
+    // Graph and read statistics
+    STATS,
+    // Manipulating a graph
+    MANIPULATE_GRAPH,
+    // Conversion between formats
+    CONVERT,
+    // Subgraph extraction
+    EXTRACT_GRAPH,
+    // Extremely specific analyses
+    RARE_NEEDS,
+    // Developer tools
+    DEV_TOOLS
+};
+
+/// Represents a list item in the manpage
+struct manpage_item {
+    /// Sub-list to put this item in
+    ManpageSection section;
+    /// Description of subcommand usage
+    std::string blurb;
+    /// A relevant wiki page (optional)
+    std::string wiki_link;
+};
+
 const static std::map<std::string, std::string> REMOVED_CMD_MESSAGES{
     {"explode", std::string("Please use \"vg chunk -C source.vg -b part_dir/component\" "
                             "for the same* functionality as \"vg explode source.vg part_dir\"\n"
@@ -91,29 +127,38 @@ public:
     
     /**
      * Make and register a subcommand with the given name and description, in
-     * the given category, with the given priority (lower is better), which
-     * calls the given main function when invoked.
+     * the given category, with the given priority (lower is better), 
+     * with the given default help function (used for vg help)
+     * which calls the given main function when invoked.
      */
     Subcommand(std::string name, std::string description,
         CommandCategory category, int priority,
+        std::function<void(char**)> help_function,
         std::function<int(int, char**)> main_function);
     
     /**
      * Make and register a subcommand with the given name and description, in
-     * the given category, with worst priority, which calls the given main
-     * function when invoked.
+     * the given category, with the given help function, with worst priority,
+     * which calls the given main function when invoked.
      */
     Subcommand(std::string name, std::string description,
         CommandCategory category,
+        std::function<void(char**)> help_function,
         std::function<int(int, char**)> main_function);
     
     /**
-     * Make and register a subcommand with the given name and description, in
-     * the WIDGET category, with worst priority, which calls the given main
-     * function when invoked.
+     * Make and register a subcommand with the given name and description,
+     * with the given help function, in the WIDGET category, with worst priority,
+     * which calls the given main function when invoked.
      */
     Subcommand(std::string name, std::string description,
+        std::function<void(char**)> help_function,
         std::function<int(int, char**)> main_function);
+    
+    /**
+     * Register a manpage item for this subcommand
+     */
+    void add_manpage_part(ManpageSection section, std::string blurb, std::string wiki_link = "");
         
     /**
      * Get the name of a subcommand.
@@ -130,6 +175,11 @@ public:
      * it and why.
      */
     const CommandCategory& get_category() const;
+
+    /**
+     * Get the manpage elements for this subcommand
+     */
+    const std::vector<manpage_item>& get_manpage_parts() const;
     
     /**
      * Get the priority level of a subcommand (lower is more important).
@@ -164,7 +214,7 @@ private:
      * Since we can't rely on a static member field being constructed before any
      * static code that creates actual subcommands gets run, we rely on keeping
      * the registry in a static variable inside a static method, so it gets
-     * constructed on first use. Note that at shutdown some of the poinbters in
+     * constructed on first use. Note that at shutdown some of the pointers in
      * the registry may be to already-destructed static objects.
      */
     static std::map<std::string, Subcommand*>& get_registry();
@@ -174,12 +224,12 @@ private:
     std::string description;
     CommandCategory category;
     int priority;
+    std::function<void(char**)> help_function;
     std::function<int(int, char**)> main_function;
-    
-    /**
-     * Get the main function of a subcommand.
-     */
-    const std::function<int(int, char**)>& get_main() const;
+    /// Things to put in the manpage (vg help --man)
+    /// Stored as (section, blurb, wiki link)
+    /// Not shown for DEPRECATED subcommands
+    std::vector<manpage_item> manpage_parts;
 };
 
 }

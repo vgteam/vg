@@ -1088,7 +1088,7 @@ int main_chunk(int argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_chunk("chunk", "split graph or alignment into chunks", main_chunk);
+static Subcommand vg_chunk("chunk", "split graph or alignment into chunks", help_chunk, main_chunk);
 
 // Output name of a chunk
 string chunk_name(const string& out_chunk_prefix, int i, const Region& region, string ext, int gi, bool components) {

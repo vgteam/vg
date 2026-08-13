@@ -314,5 +314,5 @@ int main_simplify(int argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_simplify("simplify", "graph simplification", main_simplify);
+static Subcommand vg_simplify("simplify", "graph simplification", help_simplify, main_simplify);
 

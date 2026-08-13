@@ -585,5 +585,5 @@ int main_filter(int argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_filter("filter", "filter reads and get statistics by read", main_filter);
+static Subcommand vg_filter("filter", "filter reads and get statistics by read", help_filter, main_filter);
 

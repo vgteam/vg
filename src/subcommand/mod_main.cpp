@@ -789,4 +789,5 @@ int main_mod(int argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_mod("mod", "filter, transform, and edit the graph", TOOLKIT, main_mod);
+static Subcommand vg_mod("mod", "filter, transform, and edit the graph",
+                         TOOLKIT, help_mod, main_mod);

@@ -161,4 +161,4 @@ int main_inject(int argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_inject("inject", "lift over alignments for the graph", main_inject);
+static Subcommand vg_inject("inject", "lift over alignments for the graph", help_inject, main_inject);

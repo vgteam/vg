@@ -139,7 +139,7 @@ int main_combine(int argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_combine("combine", "merge multiple graph files together", main_combine);
+static Subcommand vg_combine("combine", "merge multiple graph files together", help_combine, main_combine);
 
 
 // This is the original vg combine logic, which itself mimics using "cat" to join up protobuf files

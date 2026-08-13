@@ -223,5 +223,6 @@ int main_validate(int argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_validate("validate", "validate the semantics of a graph or GAM", DEVELOPMENT, main_validate);
+static Subcommand vg_validate("validate", "validate the semantics of a graph or GAM",
+                              DEVELOPMENT, help_validate, main_validate);
 

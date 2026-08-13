@@ -300,4 +300,4 @@ MinimizerConfig::MinimizerConfig(int argc, char** argv, int max_threads, const L
 
 // Register subcommand
 static vg::subcommand::Subcommand vg_minimizer("minimizer", "build a minimizer index or a syncmer index",
-                                               vg::subcommand::TOOLKIT, main_minimizer);
+                                               vg::subcommand::TOOLKIT, help_minimizer, main_minimizer);

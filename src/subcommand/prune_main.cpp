@@ -460,5 +460,5 @@ int main_prune(int argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_prune("prune", "prune the graph for GCSA2 indexing", TOOLKIT, main_prune);
+static Subcommand vg_prune("prune", "prune the graph for GCSA2 indexing", TOOLKIT, help_prune, main_prune);
 

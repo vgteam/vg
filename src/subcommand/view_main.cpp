@@ -1021,4 +1021,5 @@ int main_view(int argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_view("view", "format conversions for graphs and alignments", TOOLKIT, main_view);
+static Subcommand vg_view("view", "format conversions for graphs and alignments",
+                          TOOLKIT, help_view, main_view);

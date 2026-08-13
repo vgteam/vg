@@ -533,4 +533,4 @@ int main_annotate(int argc, char** argv) {
 }
 
 static Subcommand vg_annotate("annotate", "annotate alignments with graphs and graphs with alignments",
-                              main_annotate);
+                              help_annotate, main_annotate);

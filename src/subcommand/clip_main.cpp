@@ -454,4 +454,4 @@ int main_clip(int argc, char** argv) {
 
 
 // Register subcommand
-static Subcommand vg_clip("clip", "remove BED regions (other other nodes from their snarls) from a graph", main_clip);
+static Subcommand vg_clip("clip", "remove BED regions (other other nodes from their snarls) from a graph", help_clip, main_clip);

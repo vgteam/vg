@@ -945,4 +945,4 @@ int main_surject(int argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_surject("surject", "map alignments onto specific paths", main_surject);
+static Subcommand vg_surject("surject", "map alignments onto specific paths", help_surject, main_surject);

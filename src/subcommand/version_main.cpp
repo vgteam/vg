@@ -67,5 +67,5 @@ int main_version(int argc, char** argv){
     return 0;
 }
 // Register subcommand
-static Subcommand vg_version("version", "version information", DEVELOPMENT, main_version);
+static Subcommand vg_version("version", "version information", DEVELOPMENT, help_version, main_version);
 

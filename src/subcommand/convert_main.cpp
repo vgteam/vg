@@ -793,4 +793,5 @@ void add_and_adjust_paths(const PathHandleGraph* input, MutablePathHandleGraph* 
 //------------------------------------------------------------------------------
 
 // Register subcommand
-static Subcommand vg_convert("convert", "convert graphs between handle-graph compliant formats as well as GFA", main_convert);
+static Subcommand vg_convert("convert", "convert graphs between handle-graph compliant formats as well as GFA",
+                             help_convert, main_convert);

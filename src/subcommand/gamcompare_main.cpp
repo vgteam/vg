@@ -501,4 +501,5 @@ int main_gamcompare(int argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_gamcompare("gamcompare", "compare alignment positions", main_gamcompare);
+static Subcommand vg_gamcompare("gamcompare", "compare alignment positions",
+                                help_gamcompare, main_gamcompare);

@@ -303,4 +303,4 @@ int main_align(int argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_align("align", "local alignment", main_align);
+static Subcommand vg_align("align", "local alignment", help_align, main_align);

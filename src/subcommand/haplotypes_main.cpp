@@ -195,8 +195,6 @@ int main_haplotypes(int argc, char** argv) {
     return 0;
 }
 
-static vg::subcommand::Subcommand vg_haplotypes("haplotypes", "haplotype sampling based on kmer counts", vg::subcommand::TOOLKIT, main_haplotypes);
-
 //----------------------------------------------------------------------------
 
 void help_haplotypes(char** argv, bool developer_options) {
@@ -269,6 +267,11 @@ void help_haplotypes(char** argv, bool developer_options) {
         std::cerr << "      --density                output statistics on kmer presence matrix density" << std::endl;
         std::cerr << std::endl;
     }
+}
+
+// A version taking only argv to make the subcommand registry happy
+void help_haplotypes_default(char** argv) {
+    help_haplotypes(argv, false);
 }
 
 //----------------------------------------------------------------------------
@@ -1403,3 +1406,5 @@ void validate_subgraph(const Logger& logger, const gbwtgraph::GBWTGraph& graph,
 
 //----------------------------------------------------------------------------
 
+static vg::subcommand::Subcommand vg_haplotypes("haplotypes", "haplotype sampling based on kmer counts",
+                                                vg::subcommand::TOOLKIT, help_haplotypes_default, main_haplotypes);

@@ -2440,6 +2440,7 @@ int main_mpmap(int argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_mpmap("mpmap", "splice-aware multipath alignment of short reads", PIPELINE, 7, main_mpmap);
+static Subcommand vg_mpmap("mpmap", "splice-aware multipath alignment of short reads",
+                           PIPELINE, 7, help_mpmap, main_mpmap);
 
 

@@ -269,4 +269,4 @@ int main_primers(int argc, char** argv) {
     return 0;
 }
 
-static Subcommand vg_primers("primers", "filter primers for low variation", main_primers);
+static Subcommand vg_primers("primers", "filter primers for low variation", help_primers, main_primers);

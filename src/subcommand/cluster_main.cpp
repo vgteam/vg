@@ -694,6 +694,6 @@ int main_cluster(int argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_cluster("cluster", "find and cluster mapping seeds", DEVELOPMENT, main_cluster);
+static Subcommand vg_cluster("cluster", "find and cluster mapping seeds", DEVELOPMENT, help_cluster, main_cluster);
 
 

@@ -484,5 +484,6 @@ int main_snarl(int argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_snarl("snarls", "compute snarls and their traversals", TOOLKIT, main_snarl);
+static Subcommand vg_snarl("snarls", "compute snarls and their traversals",
+                           TOOLKIT, help_snarl, main_snarl);
 

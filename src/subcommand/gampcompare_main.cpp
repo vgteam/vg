@@ -312,4 +312,5 @@ int main_gampcompare(int argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_gampcompare("gampcompare", "compare multipath alignment positions", main_gampcompare);
+static Subcommand vg_gampcompare("gampcompare", "compare multipath alignment positions",
+                                 help_gampcompare, main_gampcompare);
