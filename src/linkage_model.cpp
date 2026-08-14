@@ -733,7 +733,7 @@ size_t LinkageCollector::bytes() const {
            + hap_arena.size() * sizeof(int8_t);
 }
 
-vector<LinkageCollector::Change> LinkageCollector::resolve() const {
+vector<LinkageCollector::Change> LinkageCollector::resolve(vector<PhaseCall>* phasing_out) const {
     vector<Change> changes;
     if (!model.active() || entries.empty()) {
         return changes;
@@ -783,9 +783,18 @@ vector<LinkageCollector::Change> LinkageCollector::resolve() const {
         }
 
         vector<vector<double>> posteriors = model.posteriors(sites);
+
+        // The genotype each site ends up with, whether or not linkage moved it. This is what the
+        // phasing is constrained to: phasing the pre-linkage calls would describe a genotype set
+        // that never reaches the VCF.
+        vector<size_t> final_genotype(indices.size(), LinkageModel::NO_CONSTRAINT);
+
         for (size_t t = 0; t < indices.size(); ++t) {
+            const Entry& e = entries[indices[t]];
             const vector<double>& post = posteriors[t];
+            size_t before = LinkageModel::genotype_index(e.called_i, e.called_j);
             if (post.empty()) {
+                final_genotype[t] = before;
                 continue;
             }
             size_t best = 0;
@@ -794,8 +803,8 @@ vector<LinkageCollector::Change> LinkageCollector::resolve() const {
                     best = g;
                 }
             }
-            const Entry& e = entries[indices[t]];
-            if (best == LinkageModel::genotype_index(e.called_i, e.called_j)) {
+            final_genotype[t] = best;
+            if (best == before) {
                 continue;
             }
             // Decode the genotype index back to its allele pair.
@@ -816,6 +825,61 @@ vector<LinkageCollector::Change> LinkageCollector::resolve() const {
             c.posterior = post[best];
             c.explained_share = (double)e.explained_share;
             changes.push_back(c);
+        }
+
+        if (phasing_out == nullptr) {
+            continue;
+        }
+        vector<LinkageModel::Phase> phase = model.phasing(sites, final_genotype);
+        // One phase set per contig. The windows are pinned to each other, so the path is
+        // continuous across the whole chain and the block is the chain -- far longer than a
+        // read-based phaser produces, which is a claim the switch-error benchmark is there to
+        // test rather than something to assert quietly.
+        size_t phase_set = sites.empty() ? 0 : sites.front().position;
+        for (size_t t = 0; t < indices.size() && t < phase.size(); ++t) {
+            const Entry& e = entries[indices[t]];
+            const LinkageModel::Phase& ph = phase[t];
+            // Read the ordered allele pair off the haplotypes the path chose. Where a strand is
+            // on the wildcard the panel does not name its allele, so fall back to the genotype's
+            // own order -- the phase is then unsupported at that strand rather than wrong.
+            size_t want = final_genotype[t];
+            size_t j = 0;
+            while (LinkageModel::genotype_index(0, j) <= want) {
+                ++j;
+            }
+            --j;
+            size_t i = want - (j * (j + 1) / 2);
+
+            int a = -1, b = -1;
+            if (ph.first != LinkageModel::WILDCARD
+                && ph.first < sites[t].haplotype_allele.size()) {
+                a = sites[t].haplotype_allele[ph.first];
+            }
+            if (ph.second != LinkageModel::WILDCARD
+                && ph.second < sites[t].haplotype_allele.size()) {
+                b = sites[t].haplotype_allele[ph.second];
+            }
+            PhaseCall pc;
+            pc.record_key = e.record_key;
+            pc.contig = contig_names[e.contig];
+            pc.position = e.position;
+            pc.hap_first = ph.first;
+            pc.hap_second = ph.second;
+            pc.phase_set = phase_set;
+            if (a >= 0 && b >= 0 && LinkageModel::genotype_index((size_t)a, (size_t)b) == want) {
+                pc.allele_first = (size_t)a;
+                pc.allele_second = (size_t)b;
+            } else if (a >= 0 && ((size_t)a == i || (size_t)a == j)) {
+                pc.allele_first = (size_t)a;
+                pc.allele_second = ((size_t)a == i) ? j : i;
+            } else if (b >= 0 && ((size_t)b == i || (size_t)b == j)) {
+                pc.allele_second = (size_t)b;
+                pc.allele_first = ((size_t)b == i) ? j : i;
+            } else {
+                pc.allele_first = i;
+                pc.allele_second = j;
+            }
+            phasing_out->push_back(pc);
         }
     }
     return changes;

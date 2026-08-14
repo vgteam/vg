@@ -304,6 +304,18 @@ string VCFOutputCaller::vcf_header(const PathHandleGraph& graph, const vector<st
         ss << "##INFO=<ID=RS,Number=1,Type=Integer,Description=\"Reference start position of top-level containing site\">" << endl;
         ss << "##INFO=<ID=RD,Number=1,Type=Integer,Description=\"Reference end position of top-level containing site\">" << endl;
     }
+    if (emit_phasing) {
+        // FORMAT/PS is the VCF standard phase set and is what phasing tools look for. Note the
+        // deliberate name clash with INFO/PS above, which is vg's parent-snarl pointer under -A:
+        // different namespaces, so both are legal in one file, but a reader skimming for "PS"
+        // will find two unrelated things and the descriptions have to say which is which.
+        ss << "##FORMAT=<ID=PS,Number=1,Type=Integer,Description=\"Phase set: the phase of a "
+           << "genotype is comparable only with others carrying the same PS. One phase set per "
+           << "chain, so blocks are chromosome-scale -- much longer than a read-based phaser "
+           << "gives, because the phase comes from the haplotype panel rather than from reads "
+           << "spanning consecutive sites. Not the INFO/PS emitted under -A, which is a parent "
+           << "snarl pointer\">" << endl;
+    }
     ss << "##INFO=<ID=AT,Number=R,Type=String,Description=\"Allele Traversal as path in graph\">" << endl;
     if (allele_merge_threshold < 1.0) {
         ss << "##INFO=<ID=MAT,Number=.,Type=String,Description=\"Merged Allele Traversal: "
@@ -442,6 +454,7 @@ void VCFOutputCaller::write_variants(ostream& out_stream, const SnarlManager* sn
     // (contig, position) uncompressed as the sort key -- so a change can be matched without ever
     // having kept the record itself, and only the records that actually move are re-parsed.
     map<pair<string, size_t>, LinkageCollector::Change> changes;
+    map<pair<string, size_t>, LinkageCollector::PhaseCall> phasings;
     if (linkage_collector != nullptr) {
         // Reported rather than estimated. The retained-bytes figure in the LinkageCollector
         // header comment was arithmetic -- sites times a per-site size -- and `bytes()` exists so
@@ -449,15 +462,30 @@ void VCFOutputCaller::write_variants(ostream& out_stream, const SnarlManager* sn
         // answers the other question the design asserted without checking: this pass is serial,
         // between calling and writing, in a caller that is otherwise parallel over snarls.
         auto start = std::chrono::steady_clock::now();
-        vector<LinkageCollector::Change> resolved = linkage_collector->resolve();
+        vector<LinkageCollector::PhaseCall> phased;
+        vector<LinkageCollector::Change> resolved =
+            linkage_collector->resolve(emit_phasing ? &phased : nullptr);
         double seconds = std::chrono::duration<double>(
             std::chrono::steady_clock::now() - start).count();
         for (const LinkageCollector::Change& c : resolved) {
             changes[make_pair(c.contig, c.position)] = c;
         }
+        size_t unexplained = 0;
+        for (const LinkageCollector::PhaseCall& pc : phased) {
+            phasings[make_pair(pc.contig, pc.position)] = pc;
+            unexplained += (pc.hap_first == LinkageModel::WILDCARD
+                            || pc.hap_second == LinkageModel::WILDCARD);
+        }
         cerr << "[vg call] linkage: " << linkage_collector->num_sites() << " sites, "
              << (linkage_collector->bytes() / (1024.0 * 1024.0)) << " MB retained, "
              << resolved.size() << " genotypes changed, " << seconds << " s" << endl;
+        if (emit_phasing) {
+            // The wildcard count is the honest caveat on a chromosome-length phase block: at
+            // those sites the panel does not name a strand, so the phase either side of them
+            // rests on the transition model alone.
+            cerr << "[vg call] phasing: " << phased.size() << " sites phased, "
+                 << unexplained << " with a strand the panel does not explain" << endl;
+        }
     }
 
     for (const auto& v : all_variants) {
@@ -468,6 +496,14 @@ void VCFOutputCaller::write_variants(ostream& out_stream, const SnarlManager* sn
             auto found = changes.find(v.first);
             if (found != changes.end()) {
                 apply_linkage_change(dest, found->second);
+            }
+        }
+        if (!phasings.empty()) {
+            // After the change, never before: phasing has to describe the genotype that is
+            // actually written out.
+            auto found = phasings.find(v.first);
+            if (found != phasings.end()) {
+                apply_phasing(dest, found->second);
             }
         }
         out_stream << dest << endl;
@@ -597,6 +633,121 @@ void VCFOutputCaller::apply_linkage_change(string& line,
         format += values[i];
     }
     fields[9] = format;
+    line.clear();
+    for (size_t i = 0; i < fields.size(); ++i) {
+        if (i) {
+            line += "\t";
+        }
+        line += fields[i];
+    }
+}
+
+void VCFOutputCaller::apply_phasing(string& line,
+                                    const LinkageCollector::PhaseCall& phase) const {
+    // Same line-editing approach as apply_linkage_change, and for the same reason: every other
+    // field remains the per-site truth. Only GT's separator and order change, and PS is appended.
+    vector<string> fields;
+    {
+        size_t start = 0;
+        while (true) {
+            size_t tab = line.find('\t', start);
+            fields.push_back(line.substr(start, tab == string::npos ? string::npos : tab - start));
+            if (tab == string::npos) {
+                break;
+            }
+            start = tab + 1;
+        }
+    }
+    if (fields.size() < 10) {
+        return;
+    }
+    vector<string> keys, values;
+    {
+        size_t start = 0;
+        while (true) {
+            size_t colon = fields[8].find(':', start);
+            keys.push_back(fields[8].substr(start,
+                                            colon == string::npos ? string::npos : colon - start));
+            if (colon == string::npos) {
+                break;
+            }
+            start = colon + 1;
+        }
+        start = 0;
+        while (true) {
+            size_t colon = fields[9].find(':', start);
+            values.push_back(fields[9].substr(start,
+                                              colon == string::npos ? string::npos : colon - start));
+            if (colon == string::npos) {
+                break;
+            }
+            start = colon + 1;
+        }
+    }
+    if (keys.size() != values.size()) {
+        return;
+    }
+    size_t gt_field = keys.size();
+    for (size_t i = 0; i < keys.size(); ++i) {
+        if (keys[i] == "GT") {
+            gt_field = i;
+        }
+    }
+    if (gt_field == keys.size()) {
+        return;
+    }
+
+    // The phased genotype must be a permutation of the unphased one. Two records can share a
+    // position, and phasing the wrong one -- or phasing a genotype the record does not carry --
+    // would silently emit a call that disagrees with its own likelihoods. Checked rather than
+    // assumed, because the failure is invisible in the output.
+    {
+        string current = values[gt_field];
+        std::replace(current.begin(), current.end(), '|', '/');
+        size_t slash = current.find('/');
+        if (slash == string::npos) {
+            return;
+        }
+        string lhs = current.substr(0, slash);
+        string rhs = current.substr(slash + 1);
+        string want_a = std::to_string(phase.allele_first);
+        string want_b = std::to_string(phase.allele_second);
+        bool same = (lhs == want_a && rhs == want_b) || (lhs == want_b && rhs == want_a);
+        if (!same) {
+            return;
+        }
+    }
+
+    values[gt_field] = std::to_string(phase.allele_first) + "|"
+                       + std::to_string(phase.allele_second);
+
+    // PS identifies the phase block; phase is only comparable within one. Replaces any existing
+    // value rather than appending a second copy, since write_variants can be called on a buffer
+    // that has already been phased in a previous pass.
+    size_t ps_field = keys.size();
+    for (size_t i = 0; i < keys.size(); ++i) {
+        if (keys[i] == "PS") {
+            ps_field = i;
+        }
+    }
+    if (ps_field == keys.size()) {
+        keys.push_back("PS");
+        values.push_back(std::to_string(phase.phase_set));
+    } else {
+        values[ps_field] = std::to_string(phase.phase_set);
+    }
+
+    string fmt_keys, fmt_values;
+    for (size_t i = 0; i < keys.size(); ++i) {
+        if (i) {
+            fmt_keys += ":";
+            fmt_values += ":";
+        }
+        fmt_keys += keys[i];
+        fmt_values += values[i];
+    }
+    fields[8] = fmt_keys;
+    fields[9] = fmt_values;
     line.clear();
     for (size_t i = 0; i < fields.size(); ++i) {
         if (i) {

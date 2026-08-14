@@ -133,6 +133,13 @@ void help_call(char** argv) {
          << "                            off and reproduces the per-site caller exactly. Tuned on" << endl
          << "                            a 34-haplotype panel; roughly neutral on 4 [2]" << endl
          << "      --linkage-scale N     distance scale of the linkage decay, in bp [10000]" << endl
+         << "      --phased              emit phased genotypes (0|1) and a FORMAT/PS phase set," << endl
+         << "                            from the linkage layer's most probable path of haplotype" << endl
+         << "                            pairs. Phase comes from the panel, not from reads" << endl
+         << "                            spanning sites, so a phase set is a whole chain rather" << endl
+         << "                            than a read-length block. Constrained to the genotypes" << endl
+         << "                            actually emitted, so GT stays a permutation of the" << endl
+         << "                            unphased call. Needs --linkage-weight above 0" << endl
          << "      --linkage-freq-prior F" << endl
          << "                            exponent on the panel allele-frequency prior implied by" << endl
          << "                            the state space. Only acts with --linkage-weight. 0" << endl
@@ -227,6 +234,7 @@ int main_call(int argc, char** argv) {
     bool   gbz_paths = false;
     bool   gbz_paths_explicit = false;
     bool   enumerate_support = false;
+    bool   phased_output = false;
     string translation_file_name;
     bool   gbz_translation = false;
     string ref_fasta_filename;
@@ -340,6 +348,7 @@ int main_call(int argc, char** argv) {
     constexpr int OPT_LINKAGE_SCALE = 1030;
     constexpr int OPT_LINKAGE_FREQ_PRIOR = 1031;
     constexpr int OPT_ENUMERATE_SUPPORT = 1032;
+    constexpr int OPT_PHASED = 1033;
     int c;
     optind = 2; // force optind past command positional argument
     while (true) {
@@ -392,6 +401,7 @@ int main_call(int argc, char** argv) {
             {"linkage-scale", required_argument, 0, OPT_LINKAGE_SCALE},
             {"linkage-freq-prior", required_argument, 0, OPT_LINKAGE_FREQ_PRIOR},
             {"enumerate-support", no_argument, 0, OPT_ENUMERATE_SUPPORT},
+            {"phased", no_argument, 0, OPT_PHASED},
             {"read-min-mapq", required_argument, 0, OPT_READ_MIN_MAPQ},
             {"gam-index", required_argument, 0, OPT_GAM_INDEX},
             {"gaf-base", required_argument, 0, OPT_GAF_BASE},
@@ -474,6 +484,9 @@ int main_call(int argc, char** argv) {
             break;
         case OPT_ENUMERATE_SUPPORT:
             enumerate_support = true;
+            break;
+        case OPT_PHASED:
+            phased_output = true;
             break;
         case 'N':
             translation_file_name = require_exists(logger, optarg);
@@ -897,7 +910,8 @@ int main_call(int argc, char** argv) {
             "--gaf-base-binary", "--read-window", "--read-min-mapq", "--no-mismap-term",
             "--depth-term", "--depth-count-raw", "--linkage-weight", "--linkage-scale",
             "--linkage-freq-prior", "--depth-quality", "--flat-mixture", "--no-share-quality",
-            "--mismap-max", "--mismap-min", "--dump-likelihoods", "--enumerate-support"};
+            "--mismap-max", "--mismap-min", "--dump-likelihoods", "--enumerate-support",
+            "--phased"};
         vector<string> offenders;
         for (int i = 1; i < argc; ++i) {
             string arg(argv[i]);
@@ -1609,6 +1623,12 @@ int main_call(int argc, char** argv) {
         // by accident: calls came out byte-identical, but the setup ran and the diagnostic reported
         // "0 sites" on every -z run. Inert on purpose reads better than inert by luck, and it
         // survives someone giving the Poisson path a richer CallInfo later.
+        if (phased_output && linkage_weight <= 0.0) {
+            // Phasing is the linkage layer's Viterbi path, so without the layer there is no path
+            // to emit. Silently writing unphased output would look like the flag had worked.
+            logger.error() << "--phased needs the linkage model, which --linkage-weight 0 "
+                           << "disables" << endl;
+        }
         if (linkage_weight > 0.0 && !(gbwt_index != nullptr && read_likelihood)) {
             if (linkage_weight_explicit) {
                 cerr << "error [vg call]: --linkage-weight needs haplotype enumeration (-z or -g) "
@@ -1669,6 +1689,7 @@ int main_call(int argc, char** argv) {
                 linkage_collector.reset(new LinkageCollector(linkage_params, hap_index.size()));
                 vcf_caller->set_linkage(linkage_collector.get(), gbwt_index,
                                         &linkage_sequence_to_haplotype);
+                vcf_caller->set_emit_phasing(phased_output);
             }
             if (show_progress) {
                 logger.info() << "Linkage: " << hap_index.size() << " panel haplotypes over "

@@ -134,6 +134,11 @@ public:
     void set_linkage(LinkageCollector* collector, const gbwt::GBWT* gbwt,
                      const vector<size_t>* sequence_to_haplotype);
 
+    /// Emit phased genotypes (`0|1`) and a FORMAT/PS phase set, from the linkage layer's Viterbi
+    /// path. Off by default: it changes the GT of every record, which a naive parser may treat
+    /// differently, so it rides with the feature rather than appearing unasked.
+    void set_emit_phasing(bool on) { this->emit_phasing = on; }
+
     /// Sort then write variants in the buffer
     /// snarl_manager needed if include_nested is true
     void write_variants(ostream& out_stream, const SnarlManager* snarl_manager = nullptr);
@@ -191,6 +196,13 @@ protected:
     /// Rewrite one emitted line's GT and GQ for a linkage change, leaving every other field --
     /// AD, DP, GL, GQI, AT -- alone, since those remain the per-site truth.
     void apply_linkage_change(string& line, const LinkageCollector::Change& change) const;
+
+    /// Rewrite one emitted line's GT into phased form and attach its phase set. Applied after
+    /// `apply_linkage_change`, so it phases the genotype that is actually emitted.
+    void apply_phasing(string& line, const LinkageCollector::PhaseCall& phase) const;
+
+    /// Whether to emit phased GT and FORMAT/PS.
+    bool emit_phasing = false;
 
     /// Which allele of `travs` each panel haplotype carries, or -1 where it does not traverse the
     /// site. Asks the GBWT which haplotypes take each traversal.

@@ -317,8 +317,32 @@ public:
                 size_t called_i, size_t called_j, size_t record_key,
                 double explained_share);
 
+    /// One site's phasing: which strand carries which allele, and which panel haplotype explains
+    /// each strand.
+    ///
+    /// The allele pair is ordered, and that order *is* the phase -- `allele_first` sits on the
+    /// same strand as every other `allele_first` in the same phase set. The haplotype indices are
+    /// what the mosaic output serialises; `LinkageModel::WILDCARD` means the panel does not
+    /// explain that strand here.
+    struct PhaseCall {
+        size_t record_key = 0;
+        string contig;
+        size_t position = 0;
+        size_t allele_first = 0;
+        size_t allele_second = 0;
+        size_t hap_first = LinkageModel::WILDCARD;
+        size_t hap_second = LinkageModel::WILDCARD;
+        /// Identifies the phase block. Phase is only comparable within one.
+        size_t phase_set = 0;
+    };
+
     /// Run the model per contig and return only the genotypes that changed.
-    vector<Change> resolve() const;
+    ///
+    /// With `phasing_out`, also returns a phasing of the **final** call set -- the genotypes after
+    /// any change above has been applied, not before. Constraining to the final calls is what
+    /// makes the phasing agree with the VCF; constraining to the pre-linkage calls would phase a
+    /// genotype set that is never emitted.
+    vector<Change> resolve(vector<PhaseCall>* phasing_out = nullptr) const;
 
     /// Retained bytes, for reporting. The point of the compact form is that this stays small, so
     /// it is worth being able to say what it actually is rather than trusting the estimate.
