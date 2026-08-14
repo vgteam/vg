@@ -383,13 +383,47 @@ switch points — so it is run-length encoded, one line per maximal run of one s
 haplotype:
 
 ```
-#H  contig  strand  ref_start  ref_end  start_node  end_node  hap_index  haplotype  sites
-H   chr20   0       603        3605     114819056   114842605  9         recombination#30  60
+#mosaic-version	1
+#graph	chr20_0_chr20.gbz
+#sample	HG002
+#decoding	constrained-viterbi
+#H	contig	strand	ref_start	ref_end	start_node	end_node	hap_index	haplotype	sites
+H	chr20	0	603	3605	114819056	114842605	9	recombination#30	60
 ```
 
-Anchored on **node IDs**, because a node ID is intrinsic to the graph while a reference position is
-a statement about one path. To reconstruct a haplotype, walk the named GBWT sequence from
-`start_node` to `end_node`. `*` means the panel does not explain that strand there.
+Tab-separated. Lines beginning `#` are header or comment; every data line begins `H`.
+
+| column | meaning |
+|---|---|
+| `contig` | reference contig the segment's sites sit on |
+| `strand` | `0` or `1`. Strand identity is consistent along a contig and matches the order of the phased `GT` in the VCF: `strand 0` carries the allele left of the `\|`. |
+| `ref_start` | reference position of the **first site** in the run — not the start of the sequence the segment covers |
+| `ref_end` | reference position of the **last site** in the run |
+| `start_node` | snarl start node of the first site |
+| `end_node` | snarl end node of the last site |
+| `hap_index` | index into the panel numbering the model uses, which is GBWT metadata order over distinct `(sample, phase)` pairs |
+| `haplotype` | `sample#phase` for that index, or `*` where the panel does not explain the strand |
+| `sites` | number of called sites in the run |
+
+**Ordering.** Grouped by contig; within a contig all `strand 0` lines precede all `strand 1` lines;
+within a strand, `ref_start` increases. Segments on one strand partition that contig's sites
+exactly — every site belongs to exactly one segment, so the `sites` column sums to the site count.
+
+**Reconstruction.** Walk the named haplotype's GBWT sequence from `start_node` to `end_node`.
+
+**What the format does not tell you, and cannot.** Consecutive segments do **not** abut. A run ends
+at the last site the outgoing haplotype explains and the next begins at the first site the incoming
+one does, so there is an interval between them — 35 bp in the first chr20 example — that belongs to
+neither line. That is not an oversight in the encoding: the model observes only that a switch
+happened *between two sites*, and has no evidence about where in the intervening sequence the
+recombination fell. A consumer reconstructing sequence has to adopt a rule (extend the outgoing
+haplotype to the next segment's `start_node` is the obvious one) and should know it is choosing,
+not reading.
+
+**`#graph` is a path, not an identity.** It records the graph argument as invoked, so it can be
+relative, and it will not detect a rebuilt graph with different node IDs. Reading a mosaic against
+the wrong GBZ produces a plausible wrong genome rather than an error. A checksum belongs here and
+is not yet implemented.
 
 chr20 at 34 haplotypes gives 3,673 segments over 105,251 sites in **255 KB**. The same two walks
 written out as explicit node lists measure ~40.6 MB — one haplotype is 2,031,992 steps — so the
