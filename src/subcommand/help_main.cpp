@@ -12,6 +12,7 @@
 #include <iostream>
 
 #include "subcommand.hpp"
+#include "../utility.hpp"
 #include "../version.hpp"
 
 using namespace std;
@@ -19,7 +20,7 @@ using namespace vg;
 using namespace vg::subcommand;
 
 void help_help(char** argv) {
-    cerr << "usage: " << argv[0] << " help" << endl
+    cerr << "usage: " << argv[0] << " help <cmd>" << endl
          << "Print out information about all vg subcommands" << endl
          << "  -m, --man          output full Markdown-formatted manpage" << endl
          << "  -h, --help         print this help message to stderr and exit" << endl
@@ -27,6 +28,7 @@ void help_help(char** argv) {
 }
 
 int main_help(int argc, char** argv) {
+    Logger logger("vg help");
 
     bool manpage = false;
     int c;
@@ -58,6 +60,34 @@ int main_help(int argc, char** argv) {
                 help_help(argv);
                 exit(1);
                 break;
+        }
+    }
+
+    if (optind < argc) {
+        // We have a positional argument
+        if (manpage) {
+            logger.error() << "Cannot request both manpage and individual help at once" << endl;
+        }
+        string subcommand_name(argv[optind++]);
+        if (optind < argc) {
+            logger.error() << "Cannot request multiple helptexts at once" << endl;
+        }
+
+        // We have been asked for a specific subcommand's helptext
+        argv[1] = &subcommand_name[0];
+        auto* subcommand = vg::subcommand::Subcommand::get(argc, argv);
+        if (subcommand != nullptr) {
+            subcommand->run_help(argv);
+            return 0;
+        } else if (vg::subcommand::REMOVED_CMD_MESSAGES.count(subcommand_name)) {
+            // We have a special message prepared!
+            logger.error() << subcommand_name << " has been removed:\n"
+                           << vg::subcommand::REMOVED_CMD_MESSAGES.at(subcommand_name) << endl;
+            return 1;
+        } else {
+            // No subcommand found
+            logger.error() << "command " << argv[1] << " not found" << endl;
+            return 1;
         }
     }
 

@@ -13,10 +13,8 @@
  * pulled out of a library if nothing references their symbols).
  *
  * Subcommands are responsible for printing their own help; we can do "vg help"
- * and print all the subcommands that exist (via a help subcommand), but we
- * can't do "vg help subcommand" and have that be equivalent to "vg subcommand
- * --help" (because the help subcommand doesn't know how to get help info on the
- * others).
+ * and print all the subcommands that exist (via a help subcommand), and we
+ * can do "vg help subcommand" by calling a saved help function.
  *
  * We have a subcommand importance/category system, so we can tell people about
  * just the main pipeline and keep the subcommands they don't want out of their
@@ -31,12 +29,20 @@
  *     #include "subcommand.hpp"
  *     using namespace vg::subcommand;
  * 
+ *     void help_frobnicate(char** argv) {
+ *         cerr << "usage: " << argv[0] << " frobnicate" << endl
+ *              << "Foo the bar" << endl
+ *              << "  -b, --bar          the bar to foo" << endl
+ *              << "  -h, --help         print this help message to stderr and exit" << endl
+ *              << endl;
+ *     }
+ * 
  *     int main_frobnicate(int argc, char** argv) {
  *         return 0;
  *     }
  *
  *     static Subcommand vg_frobnicate("frobnicate", "frobnicate nodes and edges",
- *         main_frobnicate);
+ *                                     help_frobnicate, main_frobnicate);
  * 
  * All src/subcommand/{subcommand}_main.cpp files must pass the checks
  * (formatting etc.) in scripts/lint.py as part of an automated test.
