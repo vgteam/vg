@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 23
+plan tests 30
 
 vg construct -r 1mb1kgp/z.fa -v 1mb1kgp/z.vcf.gz >z.vg
 #is $? 0 "construction of a 1 megabase graph from the 1000 Genomes succeeds"
@@ -94,3 +94,90 @@ is $? 0 "vg stats -e finds the right nondeterministic edge sets"
 
 rm -f weird.vg
 rm -f expected.txt loops.txt nondeterministic.txt
+
+
+# Reference coordinates for snarls (--snarl-sample).  All four graphs below share the
+# topology 5(4bp) -> 1(10bp) -> {2(3bp), 3(1bp)} -> 4(7bp) -> 6(5bp), and a 29bp reference
+# path visiting 5,1,2,4,6.  The reported coordinates are 0-based and half-open, and cover
+# only the interior of each snarl: the boundary nodes are excluded, so the two trivial
+# snarls (5,1) and (4,6) come out as empty intervals.
+
+# Forward path: node 5 is at [0,4), 1 at [4,14), 2 at [14,17), 4 at [17,24), 6 at [24,29),
+# so the bubble between 1 and 4 has its interior at [14,17).
+printf "GRCh38#0#chr1#0\t4\t4\t5\t1\n" > expected.txt
+printf "GRCh38#0#chr1#0\t14\t17\t1\t4\n" >> expected.txt
+printf "GRCh38#0#chr1#0\t24\t24\t4\t6\n" >> expected.txt
+sort expected.txt > expected.sorted.txt
+vg stats -R --snarl-sample GRCh38 graphs/snarl_ref_coords.gfa | tail -n +2 | cut -f1-4,6 | sort > coords.txt
+cmp coords.txt expected.sorted.txt
+is "$?" 0 "vg stats --snarl-sample gives half-open interior coordinates on a forward reference path"
+
+# The same graph with the reference path walking every node in reverse.  The path is the
+# reverse complement of the forward case, so each interval mirrors around the 29bp length:
+# the bubble interior [14,17) becomes [29-17, 29-14) = [12,15).
+printf "GRCh38#0#chr1#0\t5\t5\t4\t6\n" > expected.txt
+printf "GRCh38#0#chr1#0\t12\t15\t1\t4\n" >> expected.txt
+printf "GRCh38#0#chr1#0\t25\t25\t5\t1\n" >> expected.txt
+sort expected.txt > expected.sorted.txt
+vg stats -R --snarl-sample GRCh38 graphs/snarl_ref_coords_rev.gfa | tail -n +2 | cut -f1-4,6 | sort > coords.txt
+cmp coords.txt expected.sorted.txt
+is "$?" 0 "vg stats --snarl-sample gives half-open interior coordinates on a reverse reference path"
+
+# A reference path that is a subpath starting at 1000.  Coordinates must be reported against
+# the full contig, and the contig name must not keep the subrange suffix.
+printf "GRCh38#0#chr1#0\t1004\t1004\t5\t1\n" > expected.txt
+printf "GRCh38#0#chr1#0\t1014\t1017\t1\t4\n" >> expected.txt
+printf "GRCh38#0#chr1#0\t1024\t1024\t4\t6\n" >> expected.txt
+sort expected.txt > expected.sorted.txt
+vg stats -R --snarl-sample GRCh38 graphs/snarl_ref_coords_sub.gfa | tail -n +2 | cut -f1-4,6 | sort > coords.txt
+cmp coords.txt expected.sorted.txt
+is "$?" 0 "vg stats --snarl-sample offsets coordinates by the subrange of a forward subpath"
+
+# Both at once: a subpath starting at 1000 that also walks every node in reverse.
+printf "GRCh38#0#chr1#0\t1005\t1005\t4\t6\n" > expected.txt
+printf "GRCh38#0#chr1#0\t1012\t1015\t1\t4\n" >> expected.txt
+printf "GRCh38#0#chr1#0\t1025\t1025\t5\t1\n" >> expected.txt
+sort expected.txt > expected.sorted.txt
+vg stats -R --snarl-sample GRCh38 graphs/snarl_ref_coords_sub_rev.gfa | tail -n +2 | cut -f1-4,6 | sort > coords.txt
+cmp coords.txt expected.sorted.txt
+is "$?" 0 "vg stats --snarl-sample offsets coordinates by the subrange of a reverse subpath"
+
+# Snarls that only touch the reference at one end can't be bracketed, so they get no
+# coordinates at all rather than a made-up empty interval.  These graphs bolt an off-reference
+# bubble 6 -> 10 -> {11,12} -> 13 onto the end of the reference path, putting snarls (6,10)
+# and (10,13) off the reference.  The answer must not depend on which way the path runs: the
+# lone anchor is node 6 either way, and which side of it the bubble attaches to is exactly
+# what we cannot tell.
+printf ".\t.\t.\t10\t13\n" > expected.txt
+printf ".\t.\t.\t6\t10\n" >> expected.txt
+printf "GRCh38#0#chr1#0\t4\t4\t5\t1\n" >> expected.txt
+printf "GRCh38#0#chr1#0\t14\t17\t1\t4\n" >> expected.txt
+printf "GRCh38#0#chr1#0\t24\t24\t4\t6\n" >> expected.txt
+sort expected.txt > expected.sorted.txt
+vg stats -R --snarl-sample GRCh38 graphs/snarl_ref_coords_offref.gfa | tail -n +2 | cut -f1-4,6 | sort > coords.txt
+cmp coords.txt expected.sorted.txt
+is "$?" 0 "vg stats --snarl-sample reports no coordinates for snarls that only reach a forward reference at one end"
+
+printf ".\t.\t.\t10\t13\n" > expected.txt
+printf ".\t.\t.\t6\t10\n" >> expected.txt
+printf "GRCh38#0#chr1#0\t5\t5\t4\t6\n" >> expected.txt
+printf "GRCh38#0#chr1#0\t12\t15\t1\t4\n" >> expected.txt
+printf "GRCh38#0#chr1#0\t25\t25\t5\t1\n" >> expected.txt
+sort expected.txt > expected.sorted.txt
+vg stats -R --snarl-sample GRCh38 graphs/snarl_ref_coords_offref_rev.gfa | tail -n +2 | cut -f1-4,6 | sort > coords.txt
+cmp coords.txt expected.sorted.txt
+is "$?" 0 "vg stats --snarl-sample reports no coordinates for snarls that only reach a reverse reference at one end"
+
+# The same one-anchor situation arises when a contig is split into several subpaths, as in a
+# GBZ from minigraph-cactus: snarl (1,4) straddles the junction between the two W-lines, so
+# its boundaries land on different path handles and it cannot be bracketed.  The snarls that
+# sit wholly within one subpath still get real coordinates, offset onto the full contig.
+printf ".\t.\t.\t1\t4\n" > expected.txt
+printf "GRCh38#0#chr1#0\t1004\t1004\t5\t1\n" >> expected.txt
+printf "GRCh38#0#chr1#0\t1024\t1024\t4\t6\n" >> expected.txt
+sort expected.txt > expected.sorted.txt
+vg stats -R --snarl-sample GRCh38 graphs/snarl_ref_coords_chopped.gfa | tail -n +2 | cut -f1-4,6 | sort > coords.txt
+cmp coords.txt expected.sorted.txt
+is "$?" 0 "vg stats --snarl-sample reports no coordinates for a snarl straddling two subpaths of a contig"
+
+rm -f expected.txt expected.sorted.txt coords.txt

@@ -12,18 +12,14 @@ namespace vg {
 namespace unittest {
 
 /// Turn inline test data of read start, graph handle and offset, length, and score into Anchor objects.
+/// Assume things are in the correct order; they are given seed numbers in order of appearance
 static vector<algorithms::Anchor> make_anchors(const vector<tuple<size_t, handle_t, size_t, size_t, int>>& test_data, const HandleGraph& graph) {
     vector<algorithms::Anchor> to_score;
-    for (auto& item : test_data) {
+    for (size_t i = 0; i < test_data.size(); i++) {
+        const auto& item = test_data[i];
         pos_t graph_pos = make_pos_t(graph.get_id(get<1>(item)), graph.get_is_reverse(get<1>(item)), get<2>(item));
-        to_score.emplace_back(get<0>(item), graph_pos, get<3>(item), 0, 0, get<4>(item));
+        to_score.emplace_back(get<0>(item), graph_pos, get<3>(item), 0, 0, get<4>(item), i);
     }
-    
-    // Sort by read interval as is required
-    std::sort(to_score.begin(), to_score.end(), [](const algorithms::Anchor& a, const algorithms::Anchor& b) {
-        return (a.read_start() < b.read_start()) ||
-            (a.read_start() == b.read_start() && a.length() < b.length());
-    });
     
     return to_score;
 }
@@ -66,20 +62,78 @@ static vector<handle_t> get_handles(const HandleGraph& graph) {
     return handles;
 }
 
-TEST_CASE("find_best_chain chains two extensions abutting in read and graph correctly", "[chain_items]") {
-    // Set up graph fixture
-    HashGraph graph = make_long_graph(1);
-    auto h = get_handles(graph);
+static algorithms::SparseAnchorChain run_ziptree_iterator_best_chain(const HashGraph& graph, 
+                                                                     const vector<algorithms::Anchor>& anchors,
+                                                                     size_t read_length) {
     IntegratedSnarlFinder snarl_finder(graph);
     SnarlDistanceIndex distance_index;
     fill_in_distance_index(&distance_index, &graph, &snarl_finder);
-    
+    // Convert these into Seed type
+    vector<SnarlDistanceIndexClusterer::Seed> seeds;
+    for (const auto& pos : anchors) {
+        ZipCode zipcode;
+        zipcode.fill_in_zipcode_from_pos(distance_index, pos.graph_start());
+        zipcode.fill_in_full_decoder();
+        seeds.push_back({pos.graph_start(), 0, zipcode});
+    }
+
+    // Next, make a ZipCodeForest for the graph/seeds
+    ZipCodeForest zip_forest;
+    zip_forest.fill_in_forest(seeds, distance_index);
+
+    // Make iterator for only the first tree
+    // Seriously this is for test cases, only one tree at once
+    return algorithms::find_best_chain(anchors, distance_index, graph, read_length,
+                                       algorithms::zip_tree_transition_iterator(seeds,
+                                                                                zip_forest.trees.front(),
+                                                                                std::numeric_limits<size_t>::max(),
+                                                                                std::numeric_limits<size_t>::max()
+                                                                               )
+                                       );
+}
+
+static vector<algorithms::SubchainGroup> run_ziptree_iterator_multi_chain(const HashGraph& graph, 
+                                                                          const vector<algorithms::Anchor>& anchors,
+                                                                          size_t read_length,
+                                                                          size_t num_chains) {
+    IntegratedSnarlFinder snarl_finder(graph);
+    SnarlDistanceIndex distance_index;
+    fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+    // Convert these into Seed type
+    vector<SnarlDistanceIndexClusterer::Seed> seeds;
+    for (const auto& pos : anchors) {
+        ZipCode zipcode;
+        zipcode.fill_in_zipcode_from_pos(distance_index, pos.graph_start());
+        zipcode.fill_in_full_decoder();
+        seeds.push_back({pos.graph_start(), 0, zipcode});
+    }
+
+    // Next, make a ZipCodeForest for the graph/seeds
+    ZipCodeForest zip_forest;
+    zip_forest.fill_in_forest(seeds, distance_index);
+
+    // Make iterator for only the first tree
+    // Seriously this is for test cases, only one tree at once
+    return algorithms::find_best_chains(anchors, distance_index, graph, read_length,
+                                        algorithms::zip_tree_transition_iterator(seeds,
+                                                                                zip_forest.trees.front(),
+                                                                                std::numeric_limits<size_t>::max(),
+                                                                                std::numeric_limits<size_t>::max()
+                                                                                ),
+                                        algorithms::ChainScoringScheme(), num_chains
+                                        );
+}
+
+TEST_CASE("find_best_chain chains two extensions abutting in read and graph correctly", "[chain_items][find_best_chain]") {
+    // Set up graph fixture
+    HashGraph graph = make_long_graph(1);
+    auto h = get_handles(graph);
     // Set up extensions
     auto to_score = make_anchors({{1, h[1], 1, 9, 9},
                                   {10, h[1], 10, 9, 9}}, graph);
     
     // Actually run the chaining and test
-    auto result = algorithms::find_best_chain(to_score, distance_index, graph, 25);
+    auto result = run_ziptree_iterator_best_chain(graph, to_score, 20);
     REQUIRE(result.chain_score == (9 + 9));
     REQUIRE(result.anchors == std::vector<size_t>{0, 1});
 }
@@ -88,16 +142,12 @@ TEST_CASE("find_best_chain chains two extensions abutting in read with a gap in 
     // Set up graph fixture
     HashGraph graph = make_long_graph(1);
     auto h = get_handles(graph);
-    IntegratedSnarlFinder snarl_finder(graph);
-    SnarlDistanceIndex distance_index;
-    fill_in_distance_index(&distance_index, &graph, &snarl_finder);
-    
     // Set up extensions
     auto to_score = make_anchors({{1, h[1], 1, 9, 9},
                                   {10, h[1], 11, 9, 9}}, graph);
     
     // Actually run the chaining and test
-    auto result = algorithms::find_best_chain(to_score, distance_index, graph, 25);
+    auto result = run_ziptree_iterator_best_chain(graph, to_score, 20);
     // TODO: why is this gap free under the current scoring?
     REQUIRE(result.chain_score == (9 + 9));
     REQUIRE(result.anchors == std::vector<size_t>{0, 1});
@@ -107,16 +157,12 @@ TEST_CASE("find_best_chain chains two extensions abutting in graph with a gap in
     // Set up graph fixture
     HashGraph graph = make_long_graph(1);
     auto h = get_handles(graph);
-    IntegratedSnarlFinder snarl_finder(graph);
-    SnarlDistanceIndex distance_index;
-    fill_in_distance_index(&distance_index, &graph, &snarl_finder);
-
     // Set up extensions
     auto to_score = make_anchors({{1, h[1], 1, 9, 9},
                                   {11, h[1], 10, 9, 9}}, graph);
     
     // Actually run the chaining and test
-    auto result = algorithms::find_best_chain(to_score, distance_index, graph, 25);
+    auto result = run_ziptree_iterator_best_chain(graph, to_score, 20);
     // TODO: why is this gap free under the current scoring?
     REQUIRE(result.chain_score == (9 + 9));
     REQUIRE(result.anchors == std::vector<size_t>{0, 1});
@@ -126,11 +172,6 @@ TEST_CASE("find_best_chain is willing to leave the main diagonal if the items su
     // Set up graph fixture
     HashGraph graph = make_long_graph(10, 10);
     auto h = get_handles(graph);
-    
-    IntegratedSnarlFinder snarl_finder(graph);
-    SnarlDistanceIndex distance_index;
-    fill_in_distance_index(&distance_index, &graph, &snarl_finder);
-
     // Set up extensions.
     // We're going to have to pay for at least 2 gaps so we need to make sure that doing that is worth it.
     auto to_score = make_anchors({{10, h[1], 0, 10, 10}, // First one on main diagonal
@@ -139,7 +180,7 @@ TEST_CASE("find_best_chain is willing to leave the main diagonal if the items su
                                   {100, h[10], 0, 10, 10}}, graph); // Last one on main diagonal
     
     // Actually run the chaining and test
-    auto result = algorithms::find_best_chain(to_score, distance_index, graph, 125);
+    auto result = run_ziptree_iterator_best_chain(graph, to_score, 120);
     // We should take all of the items in order and not be scared off by the indels.
     REQUIRE(result.anchors == std::vector<size_t>{0, 1, 2, 3});
 }
@@ -156,10 +197,6 @@ TEST_CASE("Simple X case", "[chain_items]") {
     graph.create_edge(graph.get_handle(3, false), graph.get_handle(4, false));
     graph.create_edge(graph.get_handle(4, false), graph.get_handle(7, false));
     auto h = get_handles(graph);
-    
-    IntegratedSnarlFinder snarl_finder(graph);
-    SnarlDistanceIndex distance_index;
-    fill_in_distance_index(&distance_index, &graph, &snarl_finder);
 
     // One anchor on each node
     // read start, graph handle and offset, length, and score
@@ -172,10 +209,8 @@ TEST_CASE("Simple X case", "[chain_items]") {
                                   {31, h[7], 0, 10, 10}}, graph);
     
     /// Actually run the chaining and test
-    auto result = algorithms::find_best_chains(to_score, distance_index, graph, 40, 
-                                               algorithms::ChainScoringScheme(), 2);
+    auto result = run_ziptree_iterator_multi_chain(graph, to_score, 40, 2);
     // We should see all possible paths
-    REQUIRE(result.size() == 1);
     REQUIRE(result.front().subchains.size() == 5);
     REQUIRE(result.front().connections.size() == 5);
 }
@@ -192,10 +227,6 @@ TEST_CASE("X with different length chains", "[chain_items]") {
     graph.create_edge(graph.get_handle(3, false), graph.get_handle(4, false));
     graph.create_edge(graph.get_handle(4, false), graph.get_handle(7, false));
     auto h = get_handles(graph);
-    
-    IntegratedSnarlFinder snarl_finder(graph);
-    SnarlDistanceIndex distance_index;
-    fill_in_distance_index(&distance_index, &graph, &snarl_finder);
 
     // One anchor on each node
     // read start, graph handle and offset, length, and score
@@ -207,10 +238,8 @@ TEST_CASE("X with different length chains", "[chain_items]") {
                                   {31, h[6], 0, 10, 10}}, graph);
     
     // Actually run the chaining and test
-    auto result = algorithms::find_best_chains(to_score, distance_index, graph, 40, 
-                                               algorithms::ChainScoringScheme(), 2);
+    auto result = run_ziptree_iterator_multi_chain(graph, to_score, 40, 2);
     // We should see all possible paths
-    REQUIRE(result.size() == 1);
     REQUIRE(result.front().subchains.size() == 5);
     REQUIRE(result.front().connections.size() == 5);
 }

@@ -488,14 +488,6 @@ using transition_iteratee = std::function<void(const transition_info& transition
 using transition_iterator = std::function<void(const VectorView<Anchor>& to_chain, const SnarlDistanceIndex& distance_index, const HandleGraph& graph, size_t max_indel_bases, const transition_iteratee& callback)>;
 
 /**
- * Return a transition iterator that iterates along the read and uses the given lookback control parameters to filter transitions.
- * Closes over the arguments by value.
- */
-transition_iterator lookback_transition_iterator(size_t max_lookback_bases,
-                                                 size_t min_lookback_items,
-                                                 size_t lookback_item_hard_cap);
-
-/**
  * Return a transition iterator that uses zip code tree iteration to select
  * traversals.
  *
@@ -529,9 +521,9 @@ std::vector<transition_info> generate_zip_tree_transitions(
  * 
  * Helper for generate_zip_tree_transitions() to avoid saving useless stuff.
  */
-void add_transition_if_legal(vector<transition_info>& transitions, 
-                             const VectorView<Anchor>& to_chain, size_t max_read_lookback_bases,
-                             size_t max_indel_bases,size_t from_anchor, size_t to_anchor, size_t graph_distance);
+void add_transition_if_legal(vector<transition_info>& transitions, const VectorView<Anchor>& to_chain,
+                             size_t max_read_lookback_bases, size_t max_indel_bases,
+                             size_t from_anchor, size_t to_anchor, size_t graph_distance);
 
 /**
  * Fill in the given DP table for the explored chain scores ending with each
@@ -554,9 +546,9 @@ void chain_items_dp(vector<vector<TracedScore>>& chain_scores,
                     const VectorView<Anchor>& to_chain,
                     const SnarlDistanceIndex& distance_index,
                     const HandleGraph& graph,
+                    const transition_iterator& for_each_transition,
                     size_t max_predecessors = 5,
                     const ChainScoringScheme& scheme = ChainScoringScheme(),
-                    const transition_iterator& for_each_transition = lookback_transition_iterator(150, 0, 100),
                     size_t max_indel_bases = 100,
                     bool show_work = false);
 
@@ -621,9 +613,9 @@ vector<SubchainGroup> find_best_chains(const VectorView<Anchor>& to_chain,
                                        const SnarlDistanceIndex& distance_index,
                                        const HandleGraph& graph,
                                        size_t read_length,
+                                       const transition_iterator& for_each_transition,
                                        const ChainScoringScheme& scheme = ChainScoringScheme(),
                                        size_t max_chains = 1,
-                                       const transition_iterator& for_each_transition = lookback_transition_iterator(150, 0, 100), 
                                        size_t max_indel_bases = 100,
                                        size_t max_alt_lookback = 5,
                                        size_t extra_tail_grace_window = 100,
@@ -642,8 +634,8 @@ SparseAnchorChain find_best_chain(const VectorView<Anchor>& to_chain,
                                   const SnarlDistanceIndex& distance_index,
                                   const HandleGraph& graph,
                                   size_t read_length,
+                                  const transition_iterator& for_each_transition,
                                   const ChainScoringScheme& scheme = ChainScoringScheme(),
-                                  const transition_iterator& for_each_transition = lookback_transition_iterator(150, 0, 100),
                                   size_t max_indel_bases = 100,
                                   size_t extra_tail_grace_window = 100,
                                   size_t max_alt_lookback = 5);

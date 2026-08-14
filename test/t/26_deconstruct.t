@@ -5,10 +5,10 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 59
+plan tests 119
 
-vg msga -f GRCh38_alts/FASTA/HLA/V-352962.fa -t 1 -k 16 | vg mod -U 10 - | vg mod -c - > hla.vg
-vg index hla.vg -x hla.xg
+vg mod -U 10 msgas/hla_v.vg | vg mod -c - > hla_v.vg
+vg index hla_v.vg -x hla.xg
 
 vg deconstruct hla.xg -p "gi|157734152:29563108-29564082" > hla_decon.vcf
 is $(grep -v "#" hla_decon.vcf | wc -l) 17 "deconstructed hla vcf has correct number of sites"
@@ -33,7 +33,7 @@ is $(grep -v "#" hla_decon_path.vcf | awk -v x="$SAMPLE_COL" '{print $x}' | uniq
 is $(grep "#" hla_decon_path.vcf | grep "568815592") "##contig=<ID=gi|568815592:29791752-29792749,length=998>" "reference contig correctly written"
 
 
-rm -f hla_decon.vcf hla_decon_path.vcf  hla_decon.tsv hla_decon_path.tsv hla.vg hla.xg
+rm -f hla_decon.vcf hla_decon_path.vcf  hla_decon.tsv hla_decon_path.tsv hla_v.vg hla.xg
 
 cp sv/x.inv.gfa inv.gfa
 printf "P\ty\t1+,2-,3+\t9M,20M,21M\n" >> inv.gfa
@@ -151,44 +151,194 @@ printf "L\t1\t+\t9\t+\t0M\n" >> small_cluster.gfa
 printf "P\ty\t1+,2+,4+,6+,7+,9+\t*\n" >> small_cluster.gfa
 printf "P\tz\t1+,9+\t*\n" >> small_cluster.gfa
 vg deconstruct small_cluster.gfa -p x > small_cluster_0.vcf
-vg deconstruct small_cluster.gfa -p x -L 0.3 > small_cluster_3.vcf
+vg deconstruct small_cluster.gfa -p x -L 0.3 --cluster-min-len 0 > small_cluster_3.vcf
 is "$(tail -1 small_cluster_0.vcf | awk '{print $5}')" "GATTTGA,G" "cluster-free deconstruction finds all alt alleles"
 is "$(tail -1 small_cluster_3.vcf | awk '{print $5}')" "G" "clustered deconstruction finds fewer alt alleles"
 is "$(tail -1 small_cluster_3.vcf | awk '{print $10}')" "0:0.333:0" "clustered deconstruction finds correct allele info"
 
-rm -f small_cluster.gfa small_cluster_0.vcf small_cluster_3.vcf
+# --cluster-min-len gates when the site's core length is below the threshold.
+# small_cluster's only snarl has core length 6 bp.
+vg deconstruct small_cluster.gfa -p x -L 0.3 --cluster-min-len 0 > small_cluster_3_off.vcf
+is "$(tail -1 small_cluster_3_off.vcf | awk '{print $5}')" "G" "--cluster-min-len 0 is equivalent to clustering everywhere"
+vg deconstruct small_cluster.gfa -p x -L 0.3 --cluster-min-len 50 > small_cluster_3_50.vcf
+is "$(tail -1 small_cluster_3_50.vcf | awk '{print $5}')" "GATTTGA,G" "--cluster-min-len 50 gates clustering on a small site"
+vg deconstruct small_cluster.gfa -p x -L 0.3 --cluster-min-len 6 > small_cluster_3_6.vcf
+is "$(tail -1 small_cluster_3_6.vcf | awk '{print $5}')" "G" "--cluster-min-len at the site length still clusters"
+vg deconstruct small_cluster.gfa -p x --cluster-min-len 50 2>/dev/null > small_cluster_min_only.vcf
+diff small_cluster_0.vcf small_cluster_min_only.vcf
+is "$?" 0 "--cluster-min-len without -L is a no-op"
+
+rm -f small_cluster.gfa small_cluster_0.vcf small_cluster_3.vcf small_cluster_3_off.vcf small_cluster_3_50.vcf small_cluster_3_6.vcf small_cluster_min_only.vcf
+
+# --cluster-min-len gates on CORE LENGTH -- the longest allele once the prefix and suffix shared by
+# every allele are stripped -- not on the raw snarl interior.  Measuring the interior would gate a
+# 1bp SNP on the size of whatever snarl happens to contain it, and would disagree with vg call,
+# whose records are flattened down to an anchor base.
+core_nalt() { vg deconstruct nesting/$1.gfa -p x -L 0.6 --cluster-min-len $2 2>/dev/null | awk -F'\t' '$1!~/^#/{printf "%d", split($5,a,",")}'; }
+
+is "$(core_nalt core_snp_in_flanks 50)" "2" "a 1bp SNP in a large snarl is not clustered at --cluster-min-len 50"
+is "$(core_nalt core_sv60 50)"         "1" "a 60bp SV is still clustered at --cluster-min-len 50"
+is "$(core_nalt core_del61 50)"        "1" "a 61bp deletion is still clustered (the reference allele is measured)"
+is "$(core_nalt core_ins49 50)"        "2" "a 49bp insertion is not clustered at 50 (the anchor base is not counted)"
+is "$(core_nalt core_ins50 50)"        "1" "a 50bp insertion is clustered at 50"
+# 50 is the DEFAULT, so -L on its own must gate identically.  Every metric assertion in this file
+# passes --cluster-min-len 0 for exactly that reason.
+default_nalt() { vg deconstruct nesting/$1.gfa -p x -L 0.6 2>/dev/null | awk -F'\t' '$1!~/^#/{printf "%d", split($5,a,",")}'; }
+is "$(default_nalt core_snp_in_flanks)" "$(core_nalt core_snp_in_flanks 50)" "-L alone gates a small variant like --cluster-min-len 50"
+is "$(default_nalt core_sv60)"          "$(core_nalt core_sv60 50)"          "-L alone still clusters an SV"
+
+# A PURE DELETION -- a traversal straight from snarl start to snarl end -- used to keep its boundary
+# handles, which made its handle set disjoint from every other allele's by construction.  Its
+# similarity was therefore structurally 0 and no -L could ever merge it.  It is now scored against
+# the site: two deletions that both remove 59 of a 60bp site score 59/60.
+# The ladder is -L 0.99 / 0.983334 / 0.983333 / 0.6 / 0.1, printing the ALT count at each.
+# --cluster-min-len 0 so this ladder measures the METRIC alone: the gate now defaults to 50, which
+# would decide del1_vs_snp1 (a 1bp site) before the similarity was ever consulted.  The gate has its
+# own ladder in core_nalt below.
+dladder() { for L in 0.99 0.983334 0.983333 0.6 0.1 ; do
+    vg deconstruct nesting/$1.gfa -p x -L $L --cluster-min-len 0 2>/dev/null |
+      awk -F'\t' '$1!~/^#/{n=split($5,a,","); if($5=="."||$5=="")n=0; printf "%d",n}' ; done ; }
+
+is "$(dladder del59_vs_del60)"     "22111" "a 59bp and a 60bp deletion cluster, flipping at 59/60"
+is "$(dladder del60_vs_del59ins1)" "22111" "a deletion clusters with a deletion carrying a novel base"
+is "$(dladder del60_vs_snp)"       "22222" "a 60bp deletion never clusters with a 60bp substitution"
+is "$(dladder inv60_vs_del60)"     "22222" "a 60bp inversion never clusters with a 60bp deletion"
+# only a PURE DELETION is scored against the site; scaling every pair by it would make unrelated
+# alleles in a big snarl look alike, which these two pin
+is "$(dladder inv60_in_2kb)"       "22222" "a 2kb snarl does not make an inversion clusterable"
+is "$(dladder unrelated10_in_2kb)" "22222" "a 2kb snarl does not make two unrelated 10bp alleles clusterable"
+# the small-variant case: deleting a base and substituting it are different events, so scoring a
+# pure deletion against the site must not make them look alike
+is "$(dladder del1_vs_snp1)"       "22222" "a 1bp deletion never clusters with a 1bp SNP"
+
+# The flip point itself is pinned by dladder above.  What is left to pin here is that the clustering
+# machinery is entirely invisible at the default: -L 1.0 must match no -L byte for byte, and neither
+# may carry the TS/TL FORMAT fields that any -L < 1.0 adds (see the -L 0.99 run, which does not merge
+# but does emit them).
+vg deconstruct nesting/del59_vs_del60.gfa -p x 2>/dev/null > deldefault.vcf
+vg deconstruct nesting/del59_vs_del60.gfa -p x -L 1.0 2>/dev/null > delnoop.vcf
+diff deldefault.vcf delnoop.vcf
+is "$?" 0 "-L 1.0 is byte-identical to no -L on a pure-deletion site"
+is "$(grep -cE 'GT:TS:TL' deldefault.vcf)" "0" "the default emits no TS/TL, so -L leaves no trace when off"
+is "$(vg deconstruct nesting/del59_vs_del60.gfa -p x -L 0.99 2>/dev/null | grep -cE 'GT:TS:TL')" "1" "-L < 1.0 emits TS/TL even when nothing merges"
+rm -f deldefault.vcf delnoop.vcf
+
+# -L in a nested run is lossy at the parent and precise at the children, exactly as in vg call:
+# the parent gives the collapsed view of a large variant, the child records the detail.
+vg deconstruct nesting/nested_snp_in_ins.gfa -p x -a -L 0.6 --cluster-min-len 0 >/dev/null 2>&1
+is "$?" 0 "-L is allowed in a nested run (-a)"
+# ...but not with -R.  A "*" in a child record means "an upstream deletion covers this site", and
+# clustering can absorb the allele that deletion came from -- which one survives is decided by
+# traversal order, so by path names -- leaving the "*" referring to nothing in the file.  That is a
+# malformed record rather than a lossy one.  vg call refuses -L with -Y for the same reason.
+vg deconstruct nesting/nested_snp_in_ins.gfa -p x -a -R -L 0.6 >/dev/null 2>&1
+is "$?" 1 "-L is rejected with -R/--star-allele"
+vg deconstruct nesting/nested_snp_in_ins.gfa -p x -a -R >/dev/null 2>&1
+is "$?" 0 "-R without -L still works"
+
+# Star alleles (-R) are a marker, not sequence.  They must survive verbatim as "*" in every
+# orientation and at every site type: complement['*'] is 'N', so reverse-complementing one turns it
+# into a real ambiguous base, and prepending the anchor base turns it into "A*"/"AN".
+star_alt() { awk -F'\t' -v id="$2" '$3 == id {print $2" "$4" "$5}' "$1"; }
+
+vg deconstruct nesting/nested_snp_in_del.gfa         -p x -a -R 2>/dev/null > star_fwd.vcf
+vg deconstruct nesting/nested_snp_in_del_rev.gfa     -p x -a -R 2>/dev/null > star_rev.vcf
+vg deconstruct nesting/nested_del_star_indel.gfa     -p x -a -R 2>/dev/null > star_indel.vcf
+vg deconstruct nesting/nested_del_star_indel_rev.gfa -p x -a -R 2>/dev/null > star_rev_indel.vcf
+vg deconstruct nesting/nested_mnp_star.gfa           -p x -a -R 2>/dev/null > star_mnp.vcf
+vg deconstruct nesting/nested_ins_star_only.gfa      -p x -a -R 2>/dev/null > star_emptyref.vcf
+vg deconstruct nesting/insertion_with_three_snps.gfa -p x -a -R 2>/dev/null > star_three.vcf
+vg deconstruct nesting/star_cluster.gfa              -p x -a -R 2>/dev/null > star_cluster.vcf
+vg deconstruct nesting/star_allele_cluster.gfa       -p x -a -R 2>/dev/null > star_allele_cluster.vcf
+
+# The *_rev fixtures are keyed on '<5<2', not '>2>5': a snarl ID is spelled in the orientation the
+# reference traverses it, so a reverse-oriented site reads backwards.  Only the ID differs -- the
+# POS/REF/ALT asserted here are the same shape as the forward case.
+is "$(star_alt star_fwd.vcf       '>2>5')" "3 T A,*"      "star is * at a forward substitution site"
+is "$(star_alt star_rev.vcf       '<5<2')" "3 A T,*"      "star is not reverse complemented into N"
+is "$(star_alt star_indel.vcf     '>2>5')" "2 ATTTT AA,*" "star is not padded with the previous base"
+is "$(star_alt star_rev_indel.vcf '<5<2')" "2 CAAAA CT,*" "star survives reversal and padding together"
+is "$(star_alt star_mnp.vcf       '>2>5')" "3 TT AA,*"    "a star does not force indel padding of the real alleles"
+is "$(star_alt star_emptyref.vcf  '>2>5')" "2 A *"        "empty REF keeps its anchor base with a star-only ALT"
+
+# -R adds star alleles; it must not move or respell the real ones
+diff <(vg deconstruct nesting/nested_mnp_star.gfa -p x -a -R 2>/dev/null | grep -v '^#' | cut -f1,2,4) \
+     <(vg deconstruct nesting/nested_mnp_star.gfa -p x -a    2>/dev/null | grep -v '^#' | cut -f1,2,4)
+is "$?" 0 "-R does not change CHROM/POS/REF of the real alleles"
+
+# Negative sweep over every fixture above: an AT entry of "." identifies a star allele, and AT is
+# Number=R so the mapping is by index, independent of ALT order.
+star_fields() {
+    grep -hv "^#" "$@" | awk -F'\t' '{
+        n = split($5, alts, ",");
+        if (match($8, /AT=[^;]*/)) {
+            split(substr($8, RSTART + 3, RLENGTH - 3), ats, ",");
+            for (i = 1; i <= n; i++) if (ats[i + 1] == ".") print alts[i];
+        }}'
+}
+STAR_VCFS="star_fwd.vcf star_rev.vcf star_indel.vcf star_rev_indel.vcf star_mnp.vcf star_emptyref.vcf star_three.vcf star_cluster.vcf star_allele_cluster.vcf"
+is "$(star_fields $STAR_VCFS | grep -c '')"      "8" "the star allele sweep is not vacuous"
+is "$(star_fields $STAR_VCFS | grep -vc '^\*$')" "0" "every allele whose AT entry is . is spelled exactly *"
+
+rm -f $STAR_VCFS
 
 # Nesting tests now use a two-step process:
 # 1. Compute gref cover with vg paths
-# 2. Run vg deconstruct with -a to use the pre-computed gref paths
+# 2. Run vg deconstruct against the gref reference with -a to use the gref paths
 
 # Test: SNP inside deletion
 vg paths --compute-gref --min-gref-len 0 -x nesting/nested_snp_in_del.gfa -Q x > nested_snp_in_del.gref.pg
-vg deconstruct nested_snp_in_del.gref.pg -p x -a > nested_snp_in_del.vcf
+vg deconstruct nested_snp_in_del.gref.pg -P gref_x -a > nested_snp_in_del.vcf
 grep -v ^# nested_snp_in_del.vcf | awk '{print $4 "\t" $5 "\t" $10}' > nested_snp_in_del.tsv
 printf "CATG\tCAAG,C\t1|2\n" > nested_snp_in_del_truth.tsv
 printf "T\tA\t1|.\n" >> nested_snp_in_del_truth.tsv
 diff nested_snp_in_del.tsv nested_snp_in_del_truth.tsv
 is "$?" 0 "nested deconstruction gets correct allele for snp inside deletion"
 
+# The other half of the CH story.  The reference allele of the deletion spells out the
+# deleted sequence, so the nested SNP has coordinates on the same contig: it stays at LV=1
+# and takes no contig hop.  nested_snp_in_ins below is the same SNP inside an insertion,
+# where it lands on a gref contig at LV=0 with CH=1.  Nothing else distinguishes the two.
+is "$(grep -v ^# nested_snp_in_del.vcf | grep -o 'LV=[0-9]*' | tr '\n' ' ')" "LV=0 LV=1 " "a SNP inside a deletion stays nested on its own contig"
+is "$(grep -v ^# nested_snp_in_del.vcf | grep -o 'CH=[0-9]*' | tr '\n' ' ')" "CH=0 CH=0 " "a SNP inside a deletion takes no contig hop"
+is $(grep -v ^# nested_snp_in_del.vcf | cut -f1 | sort -u | wc -l) 1 "both records are on the base contig"
+
 rm -f nested_snp_in_del.gref.pg nested_snp_in_del.vcf nested_snp_in_del.tsv nested_snp_in_del_truth.tsv
 
 # Test: SNP inside insertion with LV field checks
 vg paths --compute-gref --min-gref-len 0 -x nesting/nested_snp_in_ins.gfa -Q x > nested_snp_in_ins.gref.pg
-vg deconstruct nested_snp_in_ins.gref.pg -P x -a > nested_snp_in_ins.vcf
+vg deconstruct nested_snp_in_ins.gref.pg -P gref_x -a > nested_snp_in_ins.vcf
+is $(grep -c "^##INFO=<ID=LV," nested_snp_in_ins.vcf) 1 "LV is declared in the header"
+is $(grep -c "^##INFO=<ID=CH," nested_snp_in_ins.vcf) 1 "CH is declared in the header"
 grep -v ^# nested_snp_in_ins.vcf | awk '{print $4 "\t" $5 "\t" $10}' > nested_snp_in_ins.tsv
-# With -P x, nested variants are on gref contigs (x_1_alt), parent on x
-# So order is: insertion (on x) then SNP (on x_1_alt)
+# With -P gref_x, nested variants are on gref contigs (gref_x_1_alt), parent on gref_x
+# So order is: insertion (on gref_x) then SNP (on gref_x_1_alt)
 printf "C\tCAAG,CATG\t1|2\n" > nested_snp_in_ins_truth.tsv
 printf "A\tT\t0|1\n" >> nested_snp_in_ins_truth.tsv
 diff nested_snp_in_ins.tsv nested_snp_in_ins_truth.tsv
 is "$?" 0 "nested deconstruction gets correct allele for snp inside insert"
 
-is $(grep LV=0 nested_snp_in_ins.vcf | wc -l) 1 "LV=0 set for base allele of nested insertion"
-is $(grep LV=1 nested_snp_in_ins.vcf | wc -l) 1 "LV=1 set for nested allele of nested insertion"
+# A SNP inside an insertion has no coordinates on the base contig at all, so its record
+# lands on a gref contig, and LV counts only ancestors on the record's own contig.  So the
+# SNP is top-level where it lives (LV=0) and CH=1 records that the step crossed into
+# non-reference sequence.  Compare with nested_snp_in_del, where the same SNP stays on the
+# base contig: LV=1, CH=0.
+is $(grep -v ^# nested_snp_in_ins.vcf | grep -c "LV=0") 2 "both sites are top-level on their own contig"
+is $(grep -v ^# nested_snp_in_ins.vcf | grep -c "CH=1") 1 "the nested allele is one contig hop from the base reference"
+# The LV=0 record on the gref contig must keep PS: vcfbub's rescue of the children of
+# popped bubbles is keyed on it, and it is the only in-VCF link back to the base site.
+is $(grep -v ^# nested_snp_in_ins.vcf | awk -F'\t' '$8 ~ /LV=0/ && $8 ~ /CH=1/ && $8 ~ /PS=/' | wc -l) 1 "a per-contig top-level site on a gref contig still carries PS"
 
-# With -P x, we get multiple contigs (x, x_1_alt, x_2_alt)
-is $(grep -c "^##contig" nested_snp_in_ins.vcf) 3 "nested deconstruction gets all reference contigs in vcf header"
+# The cover selects three contigs here (gref_x, gref_x_1_alt, gref_x_2_alt) but
+# gref_x_2_alt carries no variant, and a reference contig that produced no record is not
+# worth declaring.  So the header has two.
+is $(grep -c "^##contig" nested_snp_in_ins.vcf) 2 "contigs with no records are not declared"
+is $(grep -c "^##contig=<ID=gref_x_2_alt," nested_snp_in_ins.vcf) 0 "the undeclared contig is the one with no records"
+is $(grep -v "^#" nested_snp_in_ins.vcf | cut -f1 | sort -u | wc -l) 2 "every declared contig has records, and every contig with records is declared"
+# The contig set comes from the records, not the snarl tree, so it does not need -a.
+vg deconstruct nested_snp_in_ins.gref.pg -P gref_x > nested_snp_in_ins.flat.vcf
+is $(grep -c "^##contig" nested_snp_in_ins.flat.vcf) 1 "pruning works without -a"
+rm -f nested_snp_in_ins.flat.vcf
 
 rm -f nested_snp_in_ins.gref.pg nested_snp_in_ins.vcf nested_snp_in_ins.tsv nested_snp_in_ins_truth.tsv nested_snp_in_ins_contigs.tsv
 
@@ -196,24 +346,24 @@ rm -f nested_snp_in_ins.gref.pg nested_snp_in_ins.vcf nested_snp_in_ins.tsv nest
 for thread_opt in "-t 1" "-t 2" ""; do
     thread_label=${thread_opt:- default}
     vg paths --compute-gref --min-gref-len 0 $thread_opt -x nesting/nested_snp_in_nested_ins.gfa -Q x > nested_snp_in_nested_ins.gref.pg
-    vg deconstruct nested_snp_in_nested_ins.gref.pg -P x -a > nested_snp_in_nested_ins.vcf
-    is $(grep -v ^# nested_snp_in_nested_ins.vcf | grep LV=0 | wc -l) 1 "level 0 site found in double-nested SNP ($thread_label)"
+    vg deconstruct nested_snp_in_nested_ins.gref.pg -P gref_x -a > nested_snp_in_nested_ins.vcf
+    is $(grep -v ^# nested_snp_in_nested_ins.vcf | awk -F'\t' '$8 ~ /LV=0/ && $8 ~ /CH=0/' | wc -l) 1 "one absolutely top-level site in double-nested SNP ($thread_label)"
     is $(grep -v ^# nested_snp_in_nested_ins.vcf | grep "LV=" | wc -l) 3 "all nested sites found in double-nested SNP ($thread_label)"
-    is $(grep -v ^# nested_snp_in_nested_ins.vcf | grep LV=2 | wc -l) 1 "level 2 site found in double-nested SNP ($thread_label)"
+    is "$(grep -v ^# nested_snp_in_nested_ins.vcf | grep -o 'LV=[0-9]*' | tr '\n' ' ')" "LV=0 LV=0 LV=1 " "per-contig levels in double-nested SNP ($thread_label)"
     rm -f nested_snp_in_nested_ins.gref.pg nested_snp_in_nested_ins.vcf
 done
 
 # Test: Nested site with cycle
 vg paths --compute-gref --min-gref-len 0 -x nesting/nested_snp_in_ins_cycle.gfa -Q x > nested_snp_in_ins_cycle.gref.pg
-vg deconstruct nested_snp_in_ins_cycle.gref.pg -P x -a > nested_snp_in_ins_cycle.vcf
-is $(grep -v ^# nested_snp_in_ins_cycle.vcf | grep LV=0 | wc -l) 1 "level 0 found in nested cycle"
-is $(grep -v ^# nested_snp_in_ins_cycle.vcf | grep LV=1 | wc -l) 1 "level 1 found in nested cycle"
+vg deconstruct nested_snp_in_ins_cycle.gref.pg -P gref_x -a > nested_snp_in_ins_cycle.vcf
+is $(grep -v ^# nested_snp_in_ins_cycle.vcf | awk -F'\t' '$8 ~ /LV=0/ && $8 ~ /CH=0/' | wc -l) 1 "one absolutely top-level site found in nested cycle"
+is $(grep -v ^# nested_snp_in_ins_cycle.vcf | grep -c "CH=1") 1 "the nested site is one contig hop out, in nested cycle"
 rm -f nested_snp_in_ins_cycle.gref.pg nested_snp_in_ins_cycle.vcf
 
 # Test: MNP handling
 vg paths --compute-gref --min-gref-len 0 -x nesting/mnp.gfa -Q x > mnp.gref.pg
-vg deconstruct mnp.gref.pg -p x -a > mnp.vcf
-printf "x\t3\t>2>7\tTCAT\tATTT\n" > mnp_truth.tsv
+vg deconstruct mnp.gref.pg -P gref_x -a > mnp.vcf
+printf "gref_x\t3\t>2>7\tTCAT\tATTT\n" > mnp_truth.tsv
 grep -v ^# mnp.vcf | awk '{print $1 "\t" $2 "\t" $3 "\t" $4 "\t" $5}' > mnp.tsv
 diff  mnp_truth.tsv mnp.tsv
 is "$?" 0 "nested deconstruction handles mnp"
@@ -222,30 +372,30 @@ rm -f mnp.gref.pg mnp.vcf mnp_truth.tsv mnp.tsv
 
 # Test 1: Deep nesting (3+ levels) - triple nested SNP
 vg paths --compute-gref --min-gref-len 0 -x nesting/triple_nested.gfa -Q x > triple_nested.gref.pg
-vg deconstruct triple_nested.gref.pg -P x -a > triple_nested.vcf
-is $(grep -v ^# triple_nested.vcf | grep LV=0 | wc -l) 1 "level 0 site found in triple nested"
+vg deconstruct triple_nested.gref.pg -P gref_x -a > triple_nested.vcf
+is $(grep -v ^# triple_nested.vcf | awk -F'\t' '$8 ~ /LV=0/ && $8 ~ /CH=0/' | wc -l) 1 "one absolutely top-level site in triple nested"
 is $(grep -v ^# triple_nested.vcf | grep "LV=" | wc -l) 5 "all nested sites found in triple nested"
-is $(grep -v ^# triple_nested.vcf | grep LV=2 | wc -l) 1 "level 2 site found in triple nested"
-is $(grep -v ^# triple_nested.vcf | grep LV=3 | wc -l) 1 "level 3 site found in triple nested"
-is $(grep -v ^# triple_nested.vcf | grep LV=4 | wc -l) 1 "level 4 site found in triple nested"
+# One hop into the insertion, then four levels of nesting all on that one gref contig.
+is "$(grep -v ^# triple_nested.vcf | grep -o 'LV=[0-9]*' | tr '\n' ' ')" "LV=0 LV=0 LV=1 LV=2 LV=3 " "LV is the per-contig level in triple nested"
+is "$(grep -v ^# triple_nested.vcf | grep -o 'CH=[0-9]*' | tr '\n' ' ')" "CH=0 CH=1 CH=1 CH=1 CH=1 " "CH counts steps into non-reference sequence"
 rm -f triple_nested.gref.pg triple_nested.vcf
 
 # Test 2: Multiple children at same level - insertion with 2 nested SNPs
 vg paths --compute-gref --min-gref-len 0 -x nesting/insertion_with_three_snps.gfa -Q x > insertion_with_three_snps.gref.pg
-vg deconstruct insertion_with_three_snps.gref.pg -P x -a > multi_child.vcf
+vg deconstruct insertion_with_three_snps.gref.pg -P gref_x -a > multi_child.vcf
 is $(grep -v ^# multi_child.vcf | grep "LV=" | wc -l) 3 "expected number of sites with LV field"
 is $(grep -v ^# multi_child.vcf | grep LV=1 | wc -l) 2 "two child SNPs found at level 1"
 rm -f insertion_with_three_snps.gref.pg multi_child.vcf
 
 # Test 3: NestingInfo field propagation - verify LV field
 vg paths --compute-gref --min-gref-len 0 -x nesting/nested_snp_in_ins.gfa -Q x > field_check.gref.pg
-vg deconstruct field_check.gref.pg -P x -a > field_check.vcf
-is $(grep "LV=0" field_check.vcf | wc -l) 1 "LV=0 field present for top-level site"
+vg deconstruct field_check.gref.pg -P gref_x -a > field_check.vcf
+is $(grep -v ^# field_check.vcf | awk -F'\t' '$8 ~ /LV=0/ && $8 ~ /CH=0/' | wc -l) 1 "LV/CH present and zero for the top-level site"
 rm -f field_check.gref.pg field_check.vcf
 
 # Test 4: Multiple reference traversals with nesting (should reduce to one)
 vg paths --compute-gref --min-gref-len 0 -x nesting/cyclic_ref_nested.gfa -Q x > cyclic_ref_nested.gref.pg
-vg deconstruct cyclic_ref_nested.gref.pg -p x -a > cyclic_ref_nested.vcf
+vg deconstruct cyclic_ref_nested.gref.pg -P gref_x -a > cyclic_ref_nested.vcf
 is $(grep -v ^# cyclic_ref_nested.vcf | wc -l) 1 "cyclic reference with nesting produces single variant"
 rm -f cyclic_ref_nested.gref.pg cyclic_ref_nested.vcf
 
@@ -254,7 +404,77 @@ rm -f cyclic_ref_nested.gref.pg cyclic_ref_nested.vcf
 # With -c 0 to disable context-jaccard (which doesn't work well on tiny graphs), we should get 2 variants
 vg deconstruct nesting/cyclic_ref_multiple_variants.gfa -p x -a -c 0 > cyclic_ref_multi.vcf
 is $(grep -v ^# cyclic_ref_multi.vcf | wc -l) 2 "cyclic reference with -a outputs variant for each reference traversal"
+# Both records share the snarl ID, because the ID names the snarl and not the traversal of
+# it.  Each must still report its own reference interval; a name-keyed lookup used to hand
+# both of them whichever one was written last.
+is "$(grep -v ^# cyclic_ref_multi.vcf | cut -f3 | sort -u | wc -l)" "1" "the two records share one snarl ID"
+is "$(grep -v ^# cyclic_ref_multi.vcf | grep -o 'RS=[0-9]*' | tr '\n' ' ')" "RS=20 RS=44 " "each record keeps its own RS, not the other's"
 rm -f cyclic_ref_multi.vcf
+
+# A gref cover writes the reference twice: under its own name and in the gref
+# namespace.  Whichever of the two you deconstruct against, the other one is not a
+# sample -- it is the same sequence, and genotyping it inflates AC/AF/AN/NS.  A second
+# reference assembly (CHM13 here) has no gref copy and must survive in both.
+vg paths --compute-gref --min-gref-len 1 -x nesting/base_and_gref.gfa -Q GRCh38 > base_and_gref.pg
+vg deconstruct base_and_gref.pg -P GRCh38 -a > base_ref.vcf
+vg deconstruct base_and_gref.pg -P gref_GRCh38 -a > gref_ref.vcf
+
+is $(grep "^#CHROM" base_ref.vcf | cut -f10- | tr '\t' '\n' | grep -c "^gref_") 0 "base-reference vcf has no gref sample columns"
+is $(grep "^#CHROM" gref_ref.vcf | cut -f10- | tr '\t' '\n' | grep -c "^GRCh38") 0 "gref vcf has no base-reference sample column"
+is $(grep "^#CHROM" base_ref.vcf | cut -f10- | wc -w) 3 "base-reference vcf keeps every genuine sample"
+is $(grep "^#CHROM" gref_ref.vcf | cut -f10- | wc -w) 3 "gref vcf keeps every genuine sample"
+is $(grep -v "^#" base_ref.vcf | grep -c "AN=3") 1 "base-reference vcf allele counts are not inflated by the gref copy"
+is $(grep -v "^#" gref_ref.vcf | grep -c "AN=3") 2 "gref vcf allele counts are not inflated by the base reference"
+
+rm -f base_and_gref.pg base_ref.vcf gref_ref.vcf
+
+# A subranged reference must survive into the gref VCF with its coordinates: every region
+# deconstructed, at the same POS as the base VCF.
+vg paths --compute-gref --min-gref-len 1 -x nesting/subranged_ref.gfa -Q GRCh38 > subranged.pg
+vg deconstruct subranged.pg -P GRCh38 -a | grep -v "^#" | cut -f2,4,5 > subranged_base.tsv
+vg deconstruct subranged.pg -P gref_GRCh38 -a | grep -v "^#" | cut -f2,4,5 > subranged_gref.tsv
+is $(cat subranged_gref.tsv | wc -l) 2 "every subpath of a subranged reference is deconstructed in the gref vcf"
+diff subranged_base.tsv subranged_gref.tsv
+is $? 0 "gref vcf keeps the subrange offsets, so positions match the base vcf"
+
+rm -f subranged.pg subranged_base.tsv subranged_gref.tsv
+
+# Selecting one contig's gref reference must not let the base sample back in through its
+# other contigs: it would contribute an all-reference column and inflate AN.
+vg paths --compute-gref --min-gref-len 1 -x nesting/two_contig_gref.gfa -Q GRCh38 > two_contig.pg
+vg deconstruct two_contig.pg -P gref_GRCh38#0#chr1 -a > one_contig.vcf
+is $(grep "^#CHROM" one_contig.vcf | cut -f10- | tr '\t' '\n' | grep -c "^GRCh38$") 0 "base reference is not a sample when only its gref contig is selected"
+is $(grep -v "^#" one_contig.vcf | grep -c "AN=2") 1 "allele counts are not inflated when only one gref contig is selected"
+
+rm -f two_contig.pg one_contig.vcf
+
+# With no -p/-P, every reference-sense path is a reference, including both views of the
+# gref pair.  The record belongs on the base contig: a gref name sorts before the path it
+# was copied from (gref_x < x), so name order alone would put the derived name on it.
+vg paths --compute-gref --min-gref-len 1 -x nesting/nested_snp_in_ins.gfa -Q x > default_ref.pg
+vg deconstruct default_ref.pg -a > default_ref.vcf
+# LV=0 alone is not enough: under per-contig LV several records are top-level.  The one
+# that is top-level in the whole file is the one that also took no contig hop.
+is $(grep -v "^#" default_ref.vcf | awk '$8 ~ /LV=0/ && $8 ~ /CH=0/ {print $1}') "x" "top-level record goes on the base contig, not its gref copy"
+is $(grep -v "^#" default_ref.vcf | grep -c "RC=x;") 2 "nested records point back at the base contig"
+
+rm -f default_ref.pg default_ref.vcf
+
+# The base/gref link has to be recognised even when the reference is haplotype sense --
+# any GFA without an RS header.  Going from a gref name back to the base path by dropping
+# the prefix cannot work there (the phase block is not recoverable), which left the base
+# sample in the VCF and inflated the counts.
+vg paths --compute-gref --min-gref-len 1 -x nesting/two_contig_gref_nors.gfa -Q GRCh38#0#chr1 > nors.pg
+vg deconstruct nors.pg -P gref_GRCh38#0#chr1 -a > nors.vcf
+is $(grep "^#CHROM" nors.vcf | cut -f10- | tr '\t' '\n' | grep -c "^GRCh38$") 0 "base reference is excluded even when it is haplotype sense"
+
+# ... and the sample set must not depend on whether the haplotypes come from a GBWT
+vg gbwt -E -x nors.pg -o nors.gbwt
+diff <(vg deconstruct nors.pg -P gref_GRCh38#0#chr1 -a | grep "^#CHROM") \
+     <(vg deconstruct nors.pg -g nors.gbwt -P gref_GRCh38#0#chr1 -a | grep "^#CHROM")
+is $? 0 "the gbwt sample scan excludes the other view of the reference too"
+
+rm -f nors.pg nors.vcf nors.gbwt
 
 # =============================================================================
 # RC, RS, RD tag tests (reference coordinate tags for nested snarls)
@@ -262,7 +482,19 @@ rm -f cyclic_ref_multi.vcf
 
 # Test: RC, RS, RD headers and tags in deconstruct output
 vg paths --compute-gref --min-gref-len 0 -x nesting/triple_nested.gfa -Q x > rc_decon_test.gref.pg
-vg deconstruct rc_decon_test.gref.pg -P x -a > rc_decon_test.vcf
+vg deconstruct rc_decon_test.gref.pg -P gref_x -a > rc_decon_test.vcf
+
+# A gref fragment whose enclosing snarl only the reference and its own gref copy span.  That
+# parent has no variant, so it never reaches the VCF, and the walk that looks for an ancestor to
+# take RC/RS/RD from finds nothing.  It used to fall back to this record's own contig and
+# position, which on a gref contig is not a reference coordinate at all -- and is indistinguishable
+# from the legitimate case where a record really is top-level on a reference contig.
+vg paths --compute-gref --min-gref-len 1 -x nesting/gref_island_no_parent_record.gfa -Q REF > island.pg
+vg deconstruct island.pg -P gref_REF -a -C > island.vcf
+is $(grep -v "^#" island.vcf | awk '$8 ~ /LV=0/ && $8 ~ /CH=0/ {print $1}') "chr1_1_alt" "the island record has no ancestor in the VCF"
+is $(grep -v "^#" island.vcf | grep -c "RC=chr1;") 1 "a suppressed parent still gives its child a reference coordinate"
+is $(grep -v "^#" island.vcf | grep -c "RC=chr1_1_alt") 0 "no record names its own gref contig as its reference"
+rm -f island.pg island.vcf
 
 # Check for RC, RS, RD headers
 is $(grep -c "##INFO=<ID=RC" rc_decon_test.vcf) 1 "deconstruct: RC header is present in VCF"
@@ -283,8 +515,8 @@ RD_DECON_TAG=$(grep -v "^#" rc_decon_test.vcf | grep -c "RD=")
 is "$RD_DECON_TAG" "$RC_DECON_COUNT" "deconstruct: all variants have RD tag"
 
 # Check that nested variants point to top-level's contig
-NESTED_DECON_RC=$(grep -v "^#" rc_decon_test.vcf | awk -F'\t' '$8 ~ /LV=[1-9]/' | grep -c "RC=x")
+NESTED_DECON_RC=$(grep -v "^#" rc_decon_test.vcf | awk -F'\t' '$8 ~ /LV=[1-9]/' | grep -c "RC=gref_x")
 NESTED_DECON_COUNT=$(grep -v "^#" rc_decon_test.vcf | awk -F'\t' '$8 ~ /LV=[1-9]/' | grep -c "")
-is "$NESTED_DECON_RC" "$NESTED_DECON_COUNT" "deconstruct: all nested variants have RC=x (top-level contig)"
+is "$NESTED_DECON_RC" "$NESTED_DECON_COUNT" "deconstruct: all nested variants have RC=gref_x (top-level contig)"
 
 rm -f rc_decon_test.gref.pg rc_decon_test.vcf

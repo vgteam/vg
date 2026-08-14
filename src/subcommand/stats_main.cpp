@@ -67,7 +67,7 @@ void help_stats(char** argv) {
          << "  -O, --overlap-all        print overlap table for cartesian product of paths" << endl
          << "  -R, --snarls             print statistics for each snarl" << endl
          << "      --snarl-contents     print table of <snarl, depth, parent, node ids>" << endl
-         << "      --snarl-sample NAME  print reference coordinates on given sample" << endl
+         << "      --snarl-sample NAME  print BED-like reference coordinates on given sample" << endl
          << "  -C, --chains             print statistics for each chain" << endl
          << "  -F, --format             graph type {VG-Protobuf, PackedGraph, HashGraph, XG}" << endl
          << "                           Can't detect Protobuf if graph read from stdin" << endl
@@ -1303,7 +1303,12 @@ int main_stats(int argc, char** argv) {
                             travs.push_back(make_pair(end_steps.begin()->second.front(), end_steps.begin()->second.front()));
                         }
                     }
-                    if (travs.empty()) {
+                    if (travs.empty() || travs.front().first == travs.front().second) {
+                        // either we found nothing on the reference at all, or only one end of the snarl
+                        // reached it, in which case the fallback above paired a step with itself.  a lone
+                        // anchor tells us which node the snarl hangs off but not which side of that node
+                        // it attaches to, so there is no interval to report.  say so, rather than invent
+                        // one that would be indistinguishable from a genuinely empty snarl.
                         cout << ".\t.\t.\t";
                     } else {
                         // note: in case of a cycle, we're just taking the first found
@@ -1313,19 +1318,23 @@ int main_stats(int argc, char** argv) {
                         int64_t end_pos = pp_graph->get_position_of_step(end_step);
                         if (end_pos < start_pos) {
                             swap(start_pos, end_pos);
-                            swap(start_step, end_step);                            
+                            swap(start_step, end_step);
                         }
-                        // we don't want the boundaries counting toward the snarl length
-                        // so if the start step is forward in the traversal, then subtract its lefnth
-                        if (!graph->get_is_reverse(graph->get_handle_of_step(start_step))) {
-                            start_pos += graph->get_length(graph->get_handle_of_step(start_step));
-                        }
-                        // and if the last step is backwards in the traversal, subtract its length
-                        if (graph->get_is_reverse(graph->get_handle_of_step(end_step))) {
-                            end_pos -= graph->get_length(graph->get_handle_of_step(end_step));
-                        }
-                        cout << graph->get_path_name(pp_graph->get_path_handle_of_step(start_step)) << "\t" << start_pos << "\t"
-                             << end_pos << "\t";
+                        // we don't want the boundaries counting toward the snarl length.  the two steps
+                        // are distinct and so occupy disjoint stretches of the path, and
+                        // get_position_of_step always gives the leftmost base of a step's visit whatever
+                        // its orientation.  so the interior runs from one past the end of the leftmost
+                        // boundary node up to (but not including) the first base of the rightmost one,
+                        // giving a 0-based, half-open (BED-like) interval.  note that on a cyclic path
+                        // the traversal can wrap past the path origin, in which case the two steps don't
+                        // bracket the interior and the interval isn't meaningful.
+                        start_pos += graph->get_length(graph->get_handle_of_step(start_step));
+                        // report against the base path, so that coordinates on a subpath are still
+                        // relative to the full contig rather than to the start of the subrange
+                        path_handle_t ref_path = pp_graph->get_path_handle_of_step(start_step);
+                        int64_t base_offset = get_path_base_offset(*pp_graph, ref_path);
+                        cout << get_path_base_name(*pp_graph, ref_path) << "\t" << (start_pos + base_offset) << "\t"
+                             << (end_pos + base_offset) << "\t";
 
                         // use this interval for off-reference children
                         snarl_to_ref[snarl] = travs.front();

@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="C" # force a consistent sort order
 
-plan tests 92
+plan tests 93
 
 vg construct -r complex/c.fa -v complex/c.vcf.gz > c.vg
 cat <(vg view c.vg | grep ^S | sort) <(vg view c.vg | grep L | uniq | wc -l) <(vg paths -v c.vg -E) > c.info
@@ -395,6 +395,10 @@ vg convert tiny/tiny.gfaz -p -t 1 | vg convert -f - | sort > tiny.gfaz.roundtrip
 diff tiny.gfaz.roundtrip.gfa tiny.gfaz.roundtrip.auto.gfa
 is $? 0 "GFAZ input is auto-detected through the registry loader"
 
+cat tiny/tiny.gfaz | vg convert -p - -t 1 | vg convert -f - | sort > tiny.gfaz.roundtrip.stdin.gfa
+diff tiny.gfaz.roundtrip.gfa tiny.gfaz.roundtrip.stdin.gfa
+is $? 0 "GFAZ input is loaded directly from an unseekable stream"
+
 vg convert -g tiny/tiny.gfaz -p -t 4 | vg convert -f - | sort > tiny.gfaz.roundtrip.mt.gfa
 diff tiny.gfaz.roundtrip.gfa tiny.gfaz.roundtrip.mt.gfa
 is $? 0 "GFAZ roundtrip output is stable across thread counts"
@@ -409,13 +413,11 @@ is $(wc -l < tiny.gfaz.trans) 0 "GFAZ import writes no translation lines for den
 grep -v "S	6" tiny/tiny.gfa > tiny.unsort.gfa
 grep "S	6" tiny/tiny.gfa >> tiny.unsort.gfa
 cat tiny.unsort.gfa | vg convert -p - 2> tiny.roundtrip3.stderr | vg convert -f - | sort > tiny.roundtrip3.gfa
-cat tiny.roundtrip3.stderr
 diff tiny.roundtrip.gfa tiny.roundtrip3.gfa
 is $? 0 "Streaming an unsorted GFA gives same output as sorted"
 is $(grep -i "warning:\[gfa" tiny.roundtrip3.stderr | wc -l) 1 "Warning given when falling back to temp GFA buffer file"
 
 cat tiny/tiny.gfa | vg convert -p - 2> tiny.roundtrip4.stderr | vg convert -f - | sort > tiny.roundtrip4.gfa
-cat tiny.roundtrip4.stderr
 diff tiny.roundtrip.gfa tiny.roundtrip4.gfa
 is $? 0 "Streaming an sorted GFA gives same output as reading from file"
 is $(cat tiny.roundtrip4.stderr | wc -l) 0 "No warnings given when streamed GFA is sorted"
@@ -428,19 +430,17 @@ cat tiny/tiny.gfa | vg mod -X 3 - | vg ids -s - | sort > tiny.chop3.2.gfa
 diff tiny.chop3.gfa tiny.chop3.2.gfa
 is $? 0 "Modding sorted GFA stream produces same output as going through convert"
 cat tiny.unsort.gfa | vg mod -X 3 - 2> tiny.chop3.3.stderr | vg ids -s - | sort > tiny.chop3.3.gfa
-cat tiny.chop3.3.stderr
 diff tiny.chop3.gfa tiny.chop3.3.gfa
 is $? 0 "Modding unsorted GFA stream produces same output as going through convert"
 is $(grep -i "warning:\[gfa" tiny.chop3.3.stderr | wc -l) 1 "Warning given when falling back to temp GFA buffer file in mod"
 vg mod -X 3 tiny.unsort.gfa 2> tiny.chop3.4.stderr | vg ids -s - | sort > tiny.chop3.4.gfa
-cat tiny.chop3.4.stderr
 diff tiny.chop3.gfa tiny.chop3.4.gfa
 is $? 0 "Modding unsorted GFA file produces same output as going through convert"
 is $(cat tiny.chop3.4.stderr | wc -l) 0 "No warnings given when input GFA file is unsorted"
 
 rm -f tiny.roundtrip.gfa tiny.roundtrip2.gfa tiny.roundtrip3.gfa tiny.roundtrip4.gfa
 rm -f tiny.gfa.input.pg tiny.gfaz.input.pg
-rm -f tiny.gfaz.roundtrip.gfa tiny.gfaz.roundtrip.auto.gfa tiny.gfaz.roundtrip.mt.gfa
+rm -f tiny.gfaz.roundtrip.gfa tiny.gfaz.roundtrip.auto.gfa tiny.gfaz.roundtrip.stdin.gfa tiny.gfaz.roundtrip.mt.gfa
 rm -f tiny.gfaz.input.norm.gfa tiny.gfaz.input.xg tiny.gfaz.trans
 rm -f tiny.roundtrip3.stderr tiny.roundtrip4.stderr
 rm -f tiny.unsort.gfa

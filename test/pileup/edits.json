@@ -1,12 +1,12 @@
-{"sequence": "AAATTTTCTTGAGTTCTAT", "path": {"mapping": [{"rank": 1, "position": {"node_id": 9}, "edit": [{"from_length": 9, "to_length": 9},{"from_length": 1, "to_length": 1, "sequence": "T"},{"from_length": 9, "to_length": 9}]}]}}
-{"sequence": "AAATTTTCTTGAGTTCTAT", "path": {"mapping": [{"rank": 1, "position": {"node_id": 9}, "edit": [{"from_length": 9, "to_length": 9},{"from_length": 1, "to_length": 1, "sequence": "T"},{"from_length": 9, "to_length": 9}]}]}}
-{"sequence": "AAATTTTCTTGAGTTCTAT", "path": {"mapping": [{"rank": 1, "position": {"node_id": 9}, "edit": [{"from_length": 9, "to_length": 9},{"from_length": 1, "to_length": 1, "sequence": "T"},{"from_length": 9, "to_length": 9}]}]}}
-{"sequence": "AAATTTTCTTGAGTTCTAT", "path": {"mapping": [{"rank": 1, "position": {"node_id": 9}, "edit": [{"from_length": 9, "to_length": 9},{"from_length": 1, "to_length": 1, "sequence": "T"},{"from_length": 9, "to_length": 9}]}]}}
-{"sequence": "AAATTTTCTTGAGTTCTAT", "path": {"mapping": [{"rank": 1, "position": {"node_id": 9}, "edit": [{"from_length": 9, "to_length": 9},{"from_length": 1, "to_length": 1, "sequence": "T"},{"from_length": 9, "to_length": 9}]}]}}
-{"sequence": "AAATTTTCTTGAGTTCTAT", "path": {"mapping": [{"rank": 1, "position": {"node_id": 9}, "edit": [{"from_length": 9, "to_length": 9},{"from_length": 1, "to_length": 1, "sequence": "T"},{"from_length": 9, "to_length": 9}]}]}}
-{"sequence": "AAATTTTCTGGAGTTCTAT", "path": {"mapping": [{"rank": 1, "position": {"node_id": 9}, "edit": [{"from_length": 19, "to_length": 19}]}]}}
-{"sequence": "AAATTTTCTGGAGTTCTAT", "path": {"mapping": [{"rank": 1, "position": {"node_id": 9}, "edit": [{"from_length": 19, "to_length": 19}]}]}}
-{"sequence": "AAATTTTCTGGAGTTCTAT", "path": {"mapping": [{"rank": 1, "position": {"node_id": 9}, "edit": [{"from_length": 19, "to_length": 19}]}]}}
-{"sequence": "AAATTTTCTGGAGTTCTAT", "path": {"mapping": [{"rank": 1, "position": {"node_id": 9}, "edit": [{"from_length": 19, "to_length": 19}]}]}}
-{"sequence": "AAATTTTCTGGAGTTCTAT", "path": {"mapping": [{"rank": 1, "position": {"node_id": 9}, "edit": [{"from_length": 19, "to_length": 19}]}]}}
-{"sequence": "AAATTTTCTGGAGTTCTAT", "path": {"mapping": [{"rank": 1, "position": {"node_id": 9}, "edit": [{"from_length": 19, "to_length": 19}]}]}}
+{"name": "seq1", "sequence": "AAATTTTCTTGAGTTCTAT", "path": {"mapping": [{"rank": 1, "position": {"node_id": 9}, "edit": [{"from_length": 9, "to_length": 9},{"from_length": 1, "to_length": 1, "sequence": "T"},{"from_length": 9, "to_length": 9}]}]}}
+{"name": "seq2", "sequence": "AAATTTTCTTGAGTTCTAT", "path": {"mapping": [{"rank": 1, "position": {"node_id": 9}, "edit": [{"from_length": 9, "to_length": 9},{"from_length": 1, "to_length": 1, "sequence": "T"},{"from_length": 9, "to_length": 9}]}]}}
+{"name": "seq3", "sequence": "AAATTTTCTTGAGTTCTAT", "path": {"mapping": [{"rank": 1, "position": {"node_id": 9}, "edit": [{"from_length": 9, "to_length": 9},{"from_length": 1, "to_length": 1, "sequence": "T"},{"from_length": 9, "to_length": 9}]}]}}
+{"name": "seq4", "sequence": "AAATTTTCTTGAGTTCTAT", "path": {"mapping": [{"rank": 1, "position": {"node_id": 9}, "edit": [{"from_length": 9, "to_length": 9},{"from_length": 1, "to_length": 1, "sequence": "T"},{"from_length": 9, "to_length": 9}]}]}}
+{"name": "seq5", "sequence": "AAATTTTCTTGAGTTCTAT", "path": {"mapping": [{"rank": 1, "position": {"node_id": 9}, "edit": [{"from_length": 9, "to_length": 9},{"from_length": 1, "to_length": 1, "sequence": "T"},{"from_length": 9, "to_length": 9}]}]}}
+{"name": "seq6", "sequence": "AAATTTTCTTGAGTTCTAT", "path": {"mapping": [{"rank": 1, "position": {"node_id": 9}, "edit": [{"from_length": 9, "to_length": 9},{"from_length": 1, "to_length": 1, "sequence": "T"},{"from_length": 9, "to_length": 9}]}]}}
+{"name": "seq7", "sequence": "AAATTTTCTGGAGTTCTAT", "path": {"mapping": [{"rank": 1, "position": {"node_id": 9}, "edit": [{"from_length": 19, "to_length": 19}]}]}}
+{"name": "seq8", "sequence": "AAATTTTCTGGAGTTCTAT", "path": {"mapping": [{"rank": 1, "position": {"node_id": 9}, "edit": [{"from_length": 19, "to_length": 19}]}]}}
+{"name": "seq9", "sequence": "AAATTTTCTGGAGTTCTAT", "path": {"mapping": [{"rank": 1, "position": {"node_id": 9}, "edit": [{"from_length": 19, "to_length": 19}]}]}}
+{"name": "seq10", "sequence": "AAATTTTCTGGAGTTCTAT", "path": {"mapping": [{"rank": 1, "position": {"node_id": 9}, "edit": [{"from_length": 19, "to_length": 19}]}]}}
+{"name": "seq11", "sequence": "AAATTTTCTGGAGTTCTAT", "path": {"mapping": [{"rank": 1, "position": {"node_id": 9}, "edit": [{"from_length": 19, "to_length": 19}]}]}}
+{"name": "seq12", "sequence": "AAATTTTCTGGAGTTCTAT", "path": {"mapping": [{"rank": 1, "position": {"node_id": 9}, "edit": [{"from_length": 19, "to_length": 19}]}]}}

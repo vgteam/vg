@@ -1,0 +1,18 @@
+H	VN:Z:1.0
+S	1	AAAA
+S	2	TTTT
+S	3	CCCC
+S	5	GGGG
+S	8	AAAA
+S	9	TTTTTTTT
+L	1	+	2	+	0M
+L	1	+	5	+	0M
+L	1	+	8	+	0M
+L	2	+	3	+	0M
+L	5	+	3	+	0M
+L	3	+	8	+	0M
+L	3	+	9	+	0M
+P	x	1+,8+	*
+P	a#1#y0	1+,2+,3+,8+	*
+P	a#2#y1	1+,5+,3+,8+	*
+P	a#3#y2	1+,5+,3+,9+	*

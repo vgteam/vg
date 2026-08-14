@@ -500,18 +500,31 @@ class MinimizerMapper : public AlignerClient {
     static constexpr size_t default_min_supplementary_size = 40;
     size_t min_supplementary_size = default_min_supplementary_size;
 
-    /// The maximum amount of read separation or overlap between supplementary alignment(s) and the primary alignment
-    static constexpr size_t default_max_supplementary_separation = 10;
+    /// Allow clusters to pass through filters if its independent read coverage is this proportion of the min supplementary size
+    static constexpr double default_min_supplementary_filter_size_proportion = 0.75;
+    double min_supplementary_filter_size_proportion = default_min_supplementary_filter_size_proportion;
+
+    /// The maximum amount of read separation between supplementary alignment(s) and the primary alignment
+    static constexpr size_t default_max_supplementary_separation = 40;
     size_t max_supplementary_separation = default_max_supplementary_separation;
 
+    /// The maximum amount of overlap between supplementary alignment(s) and the primary alignment
+    static constexpr size_t default_max_supplementary_overlap = 10;
+    size_t max_supplementary_overlap = default_max_supplementary_overlap;
+
+    /// The maximum amount of each end of the read that can be left unaligned by the collection of primary and supplementary
+    /// alignment(s)
+    static constexpr size_t default_max_supplementary_uncovered_end = 10;
+    size_t max_supplementary_uncovered_end = default_max_supplementary_uncovered_end;
+
     /// The minimum score of a supplementary as a fraction of the primary alignment score
-    static constexpr double default_min_supplementary_score_fraction = 0.4;
-    size_t min_supplementary_score_fraction = default_min_supplementary_score_fraction;
+    static constexpr double default_min_supplementary_score_fraction = 0.0;
+    double min_supplementary_score_fraction = default_min_supplementary_score_fraction;
 
     /// The minimum fraction of the read that the primary and the supplementaries must jointly align in order for
     /// supplementary alignments to be reported from disjoint graph regions
-    static constexpr double default_min_supplementary_read_coverage = 0.9;
-    size_t min_supplementary_read_coverage = default_min_supplementary_read_coverage;
+    static constexpr double default_min_supplementary_read_coverage = 0.8;
+    double min_supplementary_read_coverage = default_min_supplementary_read_coverage;
 
     /// Apply this sample name
     string sample_name;
