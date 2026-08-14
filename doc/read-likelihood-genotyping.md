@@ -391,9 +391,12 @@ Anchored on **node IDs**, because a node ID is intrinsic to the graph while a re
 a statement about one path. To reconstruct a haplotype, walk the named GBWT sequence from
 `start_node` to `end_node`. `*` means the panel does not explain that strand there.
 
-chr20 at 34 haplotypes gives 3,673 segments over 105,251 sites in **255 KB** — against roughly
-45 MB to write the two paths out explicitly as node lists, a factor of about 180. Whole-genome that
-is megabytes rather than gigabytes.
+chr20 at 34 haplotypes gives 3,673 segments over 105,251 sites in **255 KB**. The same two walks
+written out as explicit node lists measure ~40.6 MB — one haplotype is 2,031,992 steps — so the
+mosaic is smaller by a factor of about 160.
+
+The trade is that the mosaic is written *by reference* and cannot be read without the GBZ it names,
+which is why the header carries the graph. An explicit path list is self-contained and 160x larger.
 
 Diploid only, since the states are ordered *pairs*. Both flags need `--linkage-weight` above 0, and
 asking for either with the layer off is an error rather than a silently unphased file.
