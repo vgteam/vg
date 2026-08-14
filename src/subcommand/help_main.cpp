@@ -83,10 +83,13 @@ int main_help(int argc, char** argv) {
 
         cerr << "## COMMANDS" << endl
              << endl;
-        vg::subcommand::Subcommand::for_each([](const vg::subcommand::Subcommand& command) {
-                
+        vg::subcommand::Subcommand::for_each([&argv](const vg::subcommand::Subcommand& command) {
                 // Print out all helptext
                 cerr << "### " << command.get_name() << ": " << command.get_description() << endl
+                     << endl
+                     << "```" << endl;
+                command.run_help(argv);
+                cerr << "```" << endl
                      << endl;
             });
     } else {

@@ -32,7 +32,6 @@ void help_circularize(char** argv) {
          << "  -a, --head ID           circularize a head and tail node (must provide a tail)" << endl
          << "  -z, --tail ID           circularize a head and tail node (must provide a head)" << endl
          << "  -h, --help              print this help message to stderr and exit" << endl;
-    exit(1);
 }
 
 int main_circularize(int argc, char** argv) {

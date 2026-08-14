@@ -185,6 +185,11 @@ public:
      * Get the priority level of a subcommand (lower is more important).
      */
     const int& get_priority() const;
+
+    /**
+     * Run the subcommand's help function (print to stderr)
+     */
+    const void run_help(char** argv) const;
     
     /**
      * Run the main function of a subcommand. Return the return code.

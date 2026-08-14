@@ -79,6 +79,10 @@ const int& Subcommand::get_priority() const {
     return priority;
 }
 
+const void Subcommand::run_help(char** argv) const {
+    help_function(argv);
+}
+
 const int Subcommand::operator()(int argc, char** argv) const {
     return main_function(argc, argv);
 }
