@@ -432,8 +432,27 @@ mosaic is smaller by a factor of about 160.
 The trade is that the mosaic is written *by reference* and cannot be read without the GBZ it names,
 which is why the header carries the graph. An explicit path list is self-contained and 160x larger.
 
-Diploid only, since the states are ordered *pairs*. Both flags need `--linkage-weight` above 0, and
-asking for either with the layer off is an error rather than a silently unphased file.
+### Haploid contigs
+
+A haploid chain — chrY, or chrX outside the pseudoautosomal regions, in a male sample — is not a
+degenerate diploid one. Its state is a single haplotype rather than a pair, so it gets its own
+decoding: `H+1` states instead of `(H+1)²`, an ordinary Li–Stephens chain, and the textbook
+stay-or-jump max-product step rather than the four-case reduction two coupled strands force.
+
+Set it with `-d 1`, or per contig with `-R 'chrY:1'`. Then:
+
+- `GT` is a single allele. Not `a|a`, which would claim a homozygous diploid call.
+- The mosaic carries **strand 0 only**. A second strand would assert two copies where there is one.
+- There is no phase to infer on one strand, so what the mosaic gives is purely the ancestry: which
+  panel haplotype explains each stretch. On chrY that is the entire answer.
+
+`vg call`'s ploidy is **per contig**, so a within-contig split cannot be expressed. For chrX that
+matters: the pseudoautosomal regions are diploid and the rest is not. The workable approach is two
+runs over the same contig spliced on the PAR boundaries, which leaves a seam where linkage and the
+mosaic restart — an artefact of the run, not biology.
+
+Both flags need `--linkage-weight` above 0, and asking for either with the layer off is an error
+rather than a silently unphased file.
 
 ## Genotype quality and the VCF fields
 
