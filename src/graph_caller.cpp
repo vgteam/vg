@@ -473,8 +473,11 @@ void VCFOutputCaller::write_variants(ostream& out_stream, const SnarlManager* sn
         size_t unexplained = 0;
         for (const LinkageCollector::PhaseCall& pc : phased) {
             phasings[make_pair(pc.contig, pc.position)] = pc;
-            unexplained += (pc.hap_first == LinkageModel::WILDCARD
-                            || pc.hap_second == LinkageModel::WILDCARD);
+            // Count only the strands a chain actually has. On a haploid chain hap_second is the
+            // wildcard by construction, so counting it reported every site as unexplained while
+            // the mosaic was naming real haplotypes throughout.
+            unexplained += (pc.hap_first == LinkageModel::WILDCARD)
+                           || (pc.ploidy == 2 && pc.hap_second == LinkageModel::WILDCARD);
         }
         cerr << "[vg call] linkage: " << linkage_collector->num_sites() << " sites, "
              << (linkage_collector->bytes() / (1024.0 * 1024.0)) << " MB retained, "
@@ -676,7 +679,10 @@ void VCFOutputCaller::write_mosaic(const vector<LinkageCollector::PhaseCall>& ph
         while (j < phasing.size() && phasing[j].contig == phasing[i].contig) {
             ++j;
         }
-        for (int strand = 0; strand < 2; ++strand) {
+        // One strand on a haploid chain. Emitting a second would assert a homozygote where the
+        // sample has one copy, which is the opposite of what the file is for.
+        int strands = (phasing[i].ploidy == 1) ? 1 : 2;
+        for (int strand = 0; strand < strands; ++strand) {
             size_t seg_start = i;
             for (size_t t = i; t < j; ++t) {
                 size_t hap = strand == 0 ? phasing[t].hap_first : phasing[t].hap_second;
@@ -776,8 +782,13 @@ void VCFOutputCaller::apply_phasing(string& line,
         std::replace(current.begin(), current.end(), '|', '/');
         size_t slash = current.find('/');
         if (slash == string::npos) {
-            return;
-        }
+            // Haploid: one allele, and it must be the one the path spells.
+            if (phase.ploidy == 1 && current == std::to_string(phase.allele_first)) {
+                slash = string::npos;   // fall through to the write below
+            } else {
+                return;
+            }
+        } else {
         string lhs = current.substr(0, slash);
         string rhs = current.substr(slash + 1);
         string want_a = std::to_string(phase.allele_first);
@@ -786,10 +797,17 @@ void VCFOutputCaller::apply_phasing(string& line,
         if (!same) {
             return;
         }
+        }
     }
 
-    values[gt_field] = std::to_string(phase.allele_first) + "|"
-                       + std::to_string(phase.allele_second);
+    if (phase.ploidy == 1) {
+        // A haploid GT is one allele and carries no phase; only PS below is meaningful, and only
+        // as a block label. Writing "a|a" here would claim a homozygous diploid call.
+        values[gt_field] = std::to_string(phase.allele_first);
+    } else {
+        values[gt_field] = std::to_string(phase.allele_first) + "|"
+                           + std::to_string(phase.allele_second);
+    }
 
     // PS identifies the phase block; phase is only comparable within one. Replaces any existing
     // value rather than appending a second copy, since write_variants can be called on a buffer
@@ -1613,13 +1631,30 @@ bool VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCa
             const ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo* rl_info =
                 dynamic_cast<const ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo*>(
                     call_info.get());
-            if (rl_info != nullptr && site_genotype.size() == 2
-                && site_genotype[0] >= 0 && site_genotype[1] >= 0) {
+            // Haploid chains are fed too. They used to be dropped here by a `size() == 2` guard,
+            // which silently cost chrY and non-pseudoautosomal chrX both the linkage layer and any
+            // mosaic -- about 5% of a genome, and the part where the mosaic is the whole answer.
+            size_t site_ploidy = site_genotype.size();
+            bool alleles_ok = (site_ploidy == 1 || site_ploidy == 2);
+            for (size_t k = 0; k < site_genotype.size() && alleles_ok; ++k) {
+                alleles_ok = site_genotype[k] >= 0;
+            }
+            if (rl_info != nullptr && alleles_ok) {
                 size_t n_alleles = out_variant.alleles.size();
-                size_t n_gt = n_alleles * (n_alleles + 1) / 2;
+                size_t n_gt = site_ploidy == 1 ? n_alleles : n_alleles * (n_alleles + 1) / 2;
                 vector<double> gls(n_gt, -numeric_limits<double>::infinity());
                 for (const auto& entry : rl_info->genotype_lls) {
-                    if (entry.first.size() != 2) {
+                    if (entry.first.size() != site_ploidy) {
+                        continue;
+                    }
+                    if (site_ploidy == 1) {
+                        // A haploid genotype is one allele, so the likelihood vector is indexed by
+                        // allele rather than by the triangular pair index.
+                        auto it = trav_to_allele.find(entry.first[0]);
+                        if (it == trav_to_allele.end() || (size_t)it->second >= n_alleles) {
+                            continue;
+                        }
+                        gls[(size_t)it->second] = entry.second;
                         continue;
                     }
                     // genotype_lls is keyed by traversal index. Using those as VCF allele indices
@@ -1636,8 +1671,11 @@ bool VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCa
                     }
                     gls[LinkageModel::genotype_index(i, j)] = entry.second;
                 }
-                size_t gi = (size_t)min(site_genotype[0], site_genotype[1]);
-                size_t gj = (size_t)max(site_genotype[0], site_genotype[1]);
+                size_t gi = (size_t)site_genotype[0];
+                size_t gj = site_ploidy == 2 ? (size_t)site_genotype[1] : gi;
+                if (site_ploidy == 2 && gi > gj) {
+                    std::swap(gi, gj);
+                }
                 linkage_collector->record(out_variant.sequenceName, out_variant.position,
                                           n_alleles, gls,
                                           // site_traversals, not called_traversals: the VCF
@@ -1652,7 +1690,7 @@ bool VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCa
                                           std::hash<string>{}(out_variant.id),
                                           // So a rewritten GQ can carry the same discount the
                                           // per-site GQ did. See apply_linkage_change.
-                                          rl_info->explained_share,
+                                          rl_info->explained_share, site_ploidy,
                                           // Snarl boundaries, so the mosaic output can anchor on
                                           // node IDs rather than on reference positions.
                                           (int64_t)snarl.start().node_id(),

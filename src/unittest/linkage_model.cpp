@@ -532,6 +532,116 @@ TEST_CASE("Window seams do not manufacture switches", "[linkage_model]") {
     REQUIRE(count_switches(whole) == 0);
 }
 
+/// A haploid site: one likelihood per allele, indexed by allele rather than by genotype pair.
+static LinkageModel::Site haploid_site(size_t position, double ln_0, double ln_1,
+                                       const vector<int>& haps) {
+    LinkageModel::Site s;
+    s.position = position;
+    s.num_alleles = 2;
+    s.ploidy = 1;
+    s.genotype_ln_likelihood = {ln_0, ln_1};
+    s.haplotype_allele = haps;
+    return s;
+}
+
+TEST_CASE("A haploid chain gets a mosaic", "[linkage_model]") {
+    // chrY and non-pseudoautosomal chrX are haploid, and before this existed they were dropped
+    // from the linkage pass entirely -- no transition model and no mosaic for about 5% of a
+    // genome. The diploid model cannot express them: its state is a pair.
+    //
+    // Haplotype 1 carries the alleles the reads want over the first half and haplotype 3 over the
+    // second, so the one path explaining the chain switches once.
+    LinkageModel::Params p;
+    p.weight = 2.0;
+    LinkageModel model(p);
+
+    vector<LinkageModel::Site> sites;
+    for (size_t i = 0; i < 6; ++i) {
+        vector<int> haps = (i < 3) ? vector<int>{0, 1, 0, 0} : vector<int>{0, 0, 0, 1};
+        sites.push_back(haploid_site(1000 + i * 100, -20.0, 0.0, haps));
+    }
+    vector<size_t> free_all(sites.size(), LinkageModel::NO_CONSTRAINT);
+    auto path = model.haploid_phasing(sites, free_all);
+    REQUIRE(path.size() == sites.size());
+
+    // Every site must be explained by a haplotype carrying the allele the reads chose.
+    for (size_t t = 0; t < sites.size(); ++t) {
+        if (path[t] == LinkageModel::WILDCARD) {
+            continue;
+        }
+        REQUIRE(sites[t].haplotype_allele[path[t]] == 1);
+    }
+    size_t switches = 0;
+    for (size_t t = 1; t < path.size(); ++t) {
+        switches += (path[t] != path[t - 1]);
+    }
+    REQUIRE(switches <= 1);
+}
+
+TEST_CASE("Haploid posteriors are a distribution over alleles", "[linkage_model]") {
+    LinkageModel::Params p;
+    p.weight = 2.0;
+    LinkageModel model(p);
+    vector<LinkageModel::Site> sites{
+        haploid_site(1000, 0.0, -5.0, {0, 1, 0, 1}),
+        haploid_site(1100, -5.0, 0.0, {0, 1, 0, 1}),
+    };
+    auto post = model.haploid_posteriors(sites);
+    REQUIRE(post.size() == 2);
+    for (const auto& row : post) {
+        // One entry per allele, not per genotype pair -- getting that wrong would index a
+        // triangular vector with an allele and silently mis-call.
+        REQUIRE(row.size() == 2);
+        double sum = 0.0;
+        for (double v : row) {
+            REQUIRE(v >= 0.0);
+            sum += v;
+        }
+        REQUIRE(sum == Approx(1.0).margin(1e-9));
+    }
+}
+
+TEST_CASE("Constrained haploid phasing spells the called allele", "[linkage_model]") {
+    // The same consistency guarantee the diploid path gives: the emitted mosaic must agree with
+    // the emitted VCF.
+    LinkageModel::Params p;
+    p.weight = 2.0;
+    LinkageModel model(p);
+    vector<LinkageModel::Site> sites;
+    vector<size_t> want;
+    for (size_t i = 0; i < 6; ++i) {
+        // Haplotype 2 carries allele 1 throughout; the reads prefer allele 0 everywhere, so only
+        // the constraint can produce the answer.
+        sites.push_back(haploid_site(1000 + i * 100, 0.0, -20.0, {0, 0, 1, 0}));
+        want.push_back(1);
+    }
+    auto path = model.haploid_phasing(sites, want);
+    REQUIRE(path.size() == 6);
+    for (size_t t = 0; t < 6; ++t) {
+        REQUIRE(path[t] != LinkageModel::WILDCARD);
+        REQUIRE(sites[t].haplotype_allele[path[t]] == 1);
+    }
+}
+
+TEST_CASE("Haploid window seams do not manufacture switches", "[linkage_model]") {
+    LinkageModel::Params p;
+    p.weight = 2.0;
+    p.window = 5;
+    p.margin = 2;
+    LinkageModel model(p);
+    vector<LinkageModel::Site> sites;
+    for (size_t i = 0; i < 40; ++i) {
+        sites.push_back(haploid_site(1000 + i * 100, -20.0, 0.0, {0, 1, 0, 1}));
+    }
+    vector<size_t> free_all(sites.size(), LinkageModel::NO_CONSTRAINT);
+    auto path = model.haploid_phasing(sites, free_all);
+    size_t switches = 0;
+    for (size_t t = 1; t < path.size(); ++t) {
+        switches += (path[t] != path[t - 1]);
+    }
+    REQUIRE(switches == 0);
+}
+
 TEST_CASE("Phasing is deterministic", "[linkage_model]") {
     // Two runs over one input must agree exactly. Ties broken by iteration order are
     // deterministic; ties broken by anything else would make the emitted genome irreproducible

@@ -165,9 +165,21 @@ public:
         /// Number of alleles, so genotype indices can be decoded.
         size_t num_alleles = 0;
 
-        /// ln P(reads | genotype), in VCF genotype order: index of (i,j) with i <= j is
-        /// j*(j+1)/2 + i.
+        /// ln P(reads | genotype).
+        ///
+        /// At `ploidy` 2 this is in VCF genotype order: index of (i,j) with i <= j is
+        /// j*(j+1)/2 + i. At `ploidy` 1 a genotype *is* an allele, so it is indexed by allele
+        /// directly and has `num_alleles` entries.
         vector<double> genotype_ln_likelihood;
+
+        /// 1 or 2. A whole chain shares one ploidy -- it is a property of the contig, not of the
+        /// site -- but it is carried here because this struct is what the model is handed.
+        ///
+        /// Haploid chains are not a degenerate case to be skipped. chrX outside the
+        /// pseudoautosomal regions and all of chrY are haploid in a male sample, and before this
+        /// existed they were dropped from the linkage pass entirely: no transition model, and no
+        /// mosaic, for about 5% of a genome.
+        size_t ploidy = 2;
 
         /// Allele carried by each panel haplotype, or -1 where the haplotype does not traverse
         /// this site. Absence is not the reference allele: a haplotype whose path ends here
@@ -220,6 +232,25 @@ public:
     /// Leaves a site's genotype unconstrained in `phasing()`.
     static constexpr size_t NO_CONSTRAINT = (size_t)-1;
 
+    /// Posterior over *alleles* per site, for a haploid chain.
+    ///
+    /// The diploid model's state is a pair, so it cannot express a haploid chain at all: there is
+    /// one strand, and a genotype is an allele rather than an unordered pair. That makes the
+    /// haploid case structurally simpler, not a special case of the other -- `H+1` states rather
+    /// than `(H+1)^2`, an ordinary Li-Stephens chain, and no symmetrisation.
+    ///
+    /// `sites[t].genotype_ln_likelihood` is read as one entry per allele here.
+    vector<vector<double>> haploid_posteriors(const vector<Site>& sites) const;
+
+    /// Most probable path of single haplotypes through a haploid chain, one per site.
+    ///
+    /// The haploid analogue of `phasing()`. There is no phase to infer on one strand, so what this
+    /// produces is only the mosaic: which panel haplotype explains each stretch. That is still
+    /// worth having -- it is the whole answer for chrY and for chrX outside the pseudoautosomal
+    /// regions.
+    vector<size_t> haploid_phasing(const vector<Site>& sites,
+                                   const vector<size_t>& constraint) const;
+
     /// VCF diploid genotype ordering: index of the genotype (i,j).
     static size_t genotype_index(size_t i, size_t j) {
         if (i > j) {
@@ -243,6 +274,18 @@ private:
     void window_phasing(const vector<Site>& sites, size_t from, size_t to,
                         const vector<size_t>& constraint,
                         size_t pin_index, const Phase& pin, vector<Phase>& out) const;
+
+    /// Emission over single haplotypes for a haploid site: `e[a]` is the relative likelihood of
+    /// the allele haplotype `a` carries, with the wildcard last.
+    void haploid_emission(const Site& site, size_t n_hap, vector<double>& e,
+                          vector<double>& per_allele) const;
+
+    /// Forward-backward and max-product over one window of a haploid chain.
+    void window_haploid_posteriors(const vector<Site>& sites, size_t from, size_t to,
+                                   vector<vector<double>>& out) const;
+    void window_haploid_phasing(const vector<Site>& sites, size_t from, size_t to,
+                                const vector<size_t>& constraint,
+                                size_t pin_index, size_t pin, vector<size_t>& out) const;
 
     Params params;
 };
@@ -315,7 +358,7 @@ public:
                 const vector<double>& genotype_ln_likelihood,
                 const vector<int>& haplotype_allele,
                 size_t called_i, size_t called_j, size_t record_key,
-                double explained_share,
+                double explained_share, size_t ploidy = 2,
                 int64_t start_node = 0, int64_t end_node = 0);
 
     /// One site's phasing: which strand carries which allele, and which panel haplotype explains
@@ -333,6 +376,8 @@ public:
         size_t allele_second = 0;
         size_t hap_first = LinkageModel::WILDCARD;
         size_t hap_second = LinkageModel::WILDCARD;
+        /// 1 or 2. At 1 only the `_first` fields are meaningful: there is one strand.
+        size_t ploidy = 2;
         /// The site's snarl boundary nodes. The mosaic output anchors on these rather than on
         /// reference positions, because a node ID is intrinsic to the graph while a position is
         /// a statement about one reference path.
@@ -366,6 +411,7 @@ private:
         uint16_t num_alleles = 0;
         uint16_t called_i = 0;
         uint16_t called_j = 0;
+        uint8_t ploidy = 2;
         float explained_share = 1.0f;
         size_t record_key = 0;
         /// Snarl boundary nodes, for the mosaic output's anchors. Costs 16 bytes a site, which

@@ -9,7 +9,7 @@ PATH=../bin:$PATH # for vg
 # FORMAT field shifts every later one, which broke four assertions here that were not
 # testing field order at all -- one of them silently compared BL against a GQ threshold.
 
-plan tests 239
+plan tests 244
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -394,6 +394,21 @@ is $(grep -v "^#" rl_mosaic.tsv | cut -f3 | sort -u | tr -d '\n') "01" "the mosa
 is $(grep -v "^#" rl_mosaic.tsv | awk -F'\t' '$9 == "?" {n++} END {print n+0}') "0" \
    "every mosaic segment names a known haplotype"
 
+# Haploid chains. chrX outside the pseudoautosomal regions and all of chrY are haploid in a male
+# sample, and they used to be dropped from the linkage pass by a guard that only accepted a
+# two-allele genotype -- silently costing them both the transition model and any mosaic. The
+# mosaic must name one strand, not two: a second would assert a homozygote where there is one copy.
+vg call x.gbz --read-likelihood --gam sim.gam -d 1 --phased --mosaic-out rl_hap_mosaic.tsv 2>/dev/null > rl_hap.vcf
+is "$?" "0" "--read-likelihood -d 1 runs with phasing and a mosaic"
+is $(grep -v "^#" rl_hap.vcf | cut -f10 | cut -d: -f1 | grep -cE "[|/]") "0" \
+   "a haploid genotype is a single allele, not a pair"
+is $(grep -v "^#" rl_hap_mosaic.tsv | cut -f3 | sort -u | tr -d '\n') "0" \
+   "a haploid mosaic names one strand"
+is $(if [ $(grep -vc "^#" rl_hap_mosaic.tsv) -gt 0 ]; then echo 1; else echo 0; fi) "1" \
+   "a haploid chain still produces mosaic segments"
+is $(grep -v "^#" rl_hap_mosaic.tsv | awk -F'\t' '$9 == "?" {n++} END {print n+0}') "0" \
+   "every haploid mosaic segment names a known haplotype"
+
 # Phasing is the linkage layer's path, so asking for it with the layer switched off cannot be
 # quietly satisfied by writing unphased output.
 vg call x.gbz --read-likelihood --gam sim.gam --phased --linkage-weight 0 >/dev/null 2>rl_ph_err.txt
@@ -512,7 +527,7 @@ is "$GAFBASE_SAME" "0" "GAF-Base read source produces identical calls to the in-
 is "$GAFBASE_THREADS" "0" "GAF-Base calls do not depend on the thread count$GAFBASE_NOTE"
 is "$GAFBASE_WINDOW" "0" "GAF-Base calls do not depend on the read window size$GAFBASE_NOTE"
 
-rm -f x.vg x.gbz x.gbwt sim.gam x.pack call.vcf callg.vcf callz.vcf callg.6 callz.6 callrl_nopack.vcf callrl_nopack_z.vcf callrl_withpack.vcf nopack_err.txt sim.sorted.gam sim.sorted.gam.gai rl_inmem.vcf rl_indexed.vcf gi_err.txt gb_err.txt gb_excl.txt gb_norl.txt gb_nobin.txt sim.gaf sim.gaf.db x.gbz.db rl_gafmem.vcf rl_gafbase.vcf rl_gafbase_t4.vcf rl_gafbase_w32.vcf rl_autoz_full.vcf rl_autoz.vcf rl_explicit_z.vcf rl_support_full.vcf rl_support.vcf es_nopack.txt es_z.txt es_g.txt nopanel.vg nopanel.gbwt nopanel.gbz nopanel.pack nopanel_err.txt poisson_default.vcf poisson_z.vcf rl_phased.vcf rl_unphased_gt.txt rl_phased_gt.txt rl_ph_err.txt rl_mosaic.tsv
+rm -f x.vg x.gbz x.gbwt sim.gam x.pack call.vcf callg.vcf callz.vcf callg.6 callz.6 callrl_nopack.vcf callrl_nopack_z.vcf callrl_withpack.vcf nopack_err.txt sim.sorted.gam sim.sorted.gam.gai rl_inmem.vcf rl_indexed.vcf gi_err.txt gb_err.txt gb_excl.txt gb_norl.txt gb_nobin.txt sim.gaf sim.gaf.db x.gbz.db rl_gafmem.vcf rl_gafbase.vcf rl_gafbase_t4.vcf rl_gafbase_w32.vcf rl_autoz_full.vcf rl_autoz.vcf rl_explicit_z.vcf rl_support_full.vcf rl_support.vcf es_nopack.txt es_z.txt es_g.txt nopanel.vg nopanel.gbwt nopanel.gbz nopanel.pack nopanel_err.txt poisson_default.vcf poisson_z.vcf rl_phased.vcf rl_unphased_gt.txt rl_phased_gt.txt rl_ph_err.txt rl_mosaic.tsv rl_hap.vcf rl_hap_mosaic.tsv
 
 
 # subpath test

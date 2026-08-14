@@ -674,6 +674,378 @@ void LinkageModel::window_phasing(const vector<Site>& sites, size_t from, size_t
     }
 }
 
+
+//------------------------------------------------------------------------------
+// Haploid chains
+//
+// chrX outside the pseudoautosomal regions, and all of chrY, are haploid in a male sample. The
+// diploid model cannot express them -- its state is a pair -- so before this they were dropped
+// from the linkage pass entirely, silently, taking their mosaic with them. That is about 5% of a
+// genome, and the part where "which haplotype explains this stretch" is the entire answer.
+
+void LinkageModel::haploid_emission(const Site& site, size_t n_hap, vector<double>& e,
+                                    vector<double>& per_allele) const {
+    size_t m = n_hap + 1;
+    size_t n = site.num_alleles;
+
+    // Shift so the best allele is exp(0) = 1, as build_emission does for genotypes: it keeps the
+    // numbers in range without changing any ratio.
+    double best = -numeric_limits<double>::infinity();
+    for (double v : site.genotype_ln_likelihood) {
+        if (std::isfinite(v)) {
+            best = max(best, v);
+        }
+    }
+    per_allele.assign(n, 0.0);
+    for (size_t a = 0; a < n && a < site.genotype_ln_likelihood.size(); ++a) {
+        double v = site.genotype_ln_likelihood[a];
+        per_allele[a] = std::isfinite(v) && std::isfinite(best) ? exp(v - best) : 0.0;
+    }
+
+    double overall = 0.0;
+    for (double v : per_allele) {
+        overall += v;
+    }
+    overall = n ? overall / (double)n : 0.0;
+
+    e.assign(m, 0.0);
+    for (size_t a = 0; a < m; ++a) {
+        int ai = allele_at(site, a, n_hap);
+        // The wildcard, and a haplotype absent from this site, carry an unknown allele: average
+        // over the alleles and pay the escape penalty, exactly as the diploid emission does.
+        e[a] = (ai >= 0) ? per_allele[(size_t)ai] : overall * params.escape;
+    }
+}
+
+void LinkageModel::window_haploid_posteriors(const vector<Site>& sites, size_t from, size_t to,
+                                             vector<vector<double>>& out) const {
+    size_t n = to - from;
+    if (n == 0) {
+        return;
+    }
+    size_t n_hap = 0;
+    size_t n_alleles_max = 0;
+    for (size_t t = from; t < to; ++t) {
+        n_hap = max(n_hap, sites[t].haplotype_allele.size());
+        n_alleles_max = max(n_alleles_max, sites[t].num_alleles);
+    }
+    size_t m = n_hap + 1;
+
+    vector<vector<double>> emissions(n), per_allele(n);
+    for (size_t t = 0; t < n; ++t) {
+        haploid_emission(sites[from + t], n_hap, emissions[t], per_allele[t]);
+    }
+
+    // Forward, rescaled every step; the scale factors are discarded, as in the diploid pass.
+    vector<vector<double>> alpha(n);
+    {
+        vector<double> a(m, 1.0 / (double)m);
+        double sum = 0.0;
+        for (size_t k = 0; k < m; ++k) {
+            a[k] *= emissions[0][k];
+            sum += a[k];
+        }
+        if (sum <= 0.0) {
+            sum = 1.0;
+        }
+        for (double& v : a) {
+            v /= sum;
+        }
+        alpha[0] = a;
+    }
+    for (size_t t = 1; t < n; ++t) {
+        size_t gap = sites[from + t].position > sites[from + t - 1].position
+                         ? sites[from + t].position - sites[from + t - 1].position : 1;
+        double rho = switch_probability(gap);
+        double stay = 1.0 - rho;
+        double jump = rho / (double)m;
+        double total = 0.0;
+        for (double v : alpha[t - 1]) {
+            total += v;
+        }
+        vector<double> next(m, 0.0);
+        double sum = 0.0;
+        for (size_t k = 0; k < m; ++k) {
+            next[k] = (stay * alpha[t - 1][k] + jump * total) * emissions[t][k];
+            sum += next[k];
+        }
+        if (sum <= 0.0) {
+            sum = 1.0;
+        }
+        for (double& v : next) {
+            v /= sum;
+        }
+        alpha[t] = std::move(next);
+    }
+
+    // Backward, combined as we go so only one beta is held.
+    vector<double> beta(m, 1.0);
+    for (size_t t = n; t-- > 0;) {
+        const Site& site = sites[from + t];
+        vector<double>& post = out[from + t];
+        post.assign(site.num_alleles, 0.0);
+
+        // Allele multiplicity is the haploid analogue of the diploid pair count, and is divided
+        // out the same way so that freq_prior = 0 means what it says.
+        vector<size_t> carriers(site.num_alleles, 0);
+        for (size_t h = 0; h < n_hap && h < site.haplotype_allele.size(); ++h) {
+            int allele = site.haplotype_allele[h];
+            if (allele >= 0 && (size_t)allele < site.num_alleles) {
+                carriers[(size_t)allele] += 1;
+            }
+        }
+        vector<double> known(site.num_alleles, 0.0), wild(site.num_alleles, 0.0);
+        for (size_t a = 0; a < m; ++a) {
+            double g = alpha[t][a] * beta[a];
+            if (g <= 0.0) {
+                continue;
+            }
+            int ai = allele_at(site, a, n_hap);
+            if (ai >= 0) {
+                known[(size_t)ai] += g;
+                continue;
+            }
+            // A latent allele is marginalised conditional on the reads, not spread uniformly --
+            // the same correction the diploid pass needed.
+            double norm = 0.0;
+            for (double v : per_allele[t]) {
+                norm += v;
+            }
+            if (norm <= 0.0) {
+                continue;
+            }
+            for (size_t k = 0; k < site.num_alleles; ++k) {
+                wild[k] += g * per_allele[t][k] / norm;
+            }
+        }
+        double total = 0.0;
+        for (size_t k = 0; k < site.num_alleles; ++k) {
+            double v = known[k];
+            if (carriers[k] > 1) {
+                v /= pow((double)carriers[k], 1.0 - params.freq_prior);
+            }
+            post[k] = v + wild[k];
+            total += post[k];
+        }
+        if (total > 0.0) {
+            for (double& v : post) {
+                v /= total;
+            }
+        }
+
+        if (t == 0) {
+            break;
+        }
+        size_t gap = sites[from + t].position > sites[from + t - 1].position
+                         ? sites[from + t].position - sites[from + t - 1].position : 1;
+        double rho = switch_probability(gap);
+        double stay = 1.0 - rho;
+        double jump = rho / (double)m;
+        vector<double> weighted(m);
+        double total_w = 0.0;
+        for (size_t k = 0; k < m; ++k) {
+            weighted[k] = beta[k] * emissions[t][k];
+            total_w += weighted[k];
+        }
+        vector<double> prev(m, 0.0);
+        double sum = 0.0;
+        for (size_t k = 0; k < m; ++k) {
+            prev[k] = stay * weighted[k] + jump * total_w;
+            sum += prev[k];
+        }
+        if (sum <= 0.0) {
+            sum = 1.0;
+        }
+        for (double& v : prev) {
+            v /= sum;
+        }
+        beta = std::move(prev);
+    }
+}
+
+vector<vector<double>> LinkageModel::haploid_posteriors(const vector<Site>& sites) const {
+    vector<vector<double>> out(sites.size());
+    if (sites.empty()) {
+        return out;
+    }
+    size_t n = sites.size();
+    size_t step = max<size_t>(params.window, 1);
+    size_t margin = params.margin;
+    if (n <= step) {
+        window_haploid_posteriors(sites, 0, n, out);
+        return out;
+    }
+    for (size_t start = 0; start < n; start += step) {
+        size_t lo = start > margin ? start - margin : 0;
+        size_t hi = min(start + step + margin, n);
+        vector<vector<double>> local(n);
+        window_haploid_posteriors(sites, lo, hi, local);
+        size_t keep_to = min(start + step, n);
+        for (size_t t = start; t < keep_to; ++t) {
+            out[t] = std::move(local[t]);
+        }
+    }
+    return out;
+}
+
+void LinkageModel::window_haploid_phasing(const vector<Site>& sites, size_t from, size_t to,
+                                          const vector<size_t>& constraint,
+                                          size_t pin_index, size_t pin,
+                                          vector<size_t>& out) const {
+    size_t n = to - from;
+    out.assign(n, WILDCARD);
+    if (n == 0) {
+        return;
+    }
+    size_t n_hap = 0;
+    for (size_t t = from; t < to; ++t) {
+        n_hap = max(n_hap, sites[t].haplotype_allele.size());
+    }
+    size_t m = n_hap + 1;
+
+    vector<vector<double>> emissions(n), per_allele(n);
+    for (size_t t = 0; t < n; ++t) {
+        const Site& site = sites[from + t];
+        haploid_emission(site, n_hap, emissions[t], per_allele[t]);
+        size_t want = (from + t) < constraint.size() ? constraint[from + t] : NO_CONSTRAINT;
+        if (want == NO_CONSTRAINT) {
+            continue;
+        }
+        // Constrain to states carrying the called allele. As in the diploid case, every surviving
+        // state then implies the same call, so they all take that allele's likelihood; a free
+        // strand keeps the escape penalty so the panel is still preferred where it can explain.
+        double e = want < per_allele[t].size() ? per_allele[t][want] : 0.0;
+        for (size_t a = 0; a < m; ++a) {
+            int ai = allele_at(site, a, n_hap);
+            if (ai >= 0 && (size_t)ai != want) {
+                emissions[t][a] = 0.0;
+            } else if (ai >= 0) {
+                emissions[t][a] = e;
+            } else {
+                emissions[t][a] = e * params.escape;
+            }
+        }
+    }
+    if (pin_index != (size_t)-1 && pin_index >= from && pin_index < to) {
+        size_t t = pin_index - from;
+        size_t pa = pin == WILDCARD ? n_hap : min(pin, n_hap);
+        double keep = emissions[t][pa];
+        emissions[t].assign(m, 0.0);
+        emissions[t][pa] = keep > 0.0 ? keep : 1.0;
+    }
+
+    const double NINF = -numeric_limits<double>::infinity();
+    vector<double> delta(m, NINF);
+    for (size_t k = 0; k < m; ++k) {
+        if (emissions[0][k] > 0.0) {
+            delta[k] = -log((double)m) + log(emissions[0][k]);
+        }
+    }
+    vector<vector<uint16_t>> back(n);
+    for (size_t t = 1; t < n; ++t) {
+        size_t gap = sites[from + t].position > sites[from + t - 1].position
+                         ? sites[from + t].position - sites[from + t - 1].position : 1;
+        double rho = switch_probability(gap);
+        rho = min(max(rho, 1e-12), 1.0 - 1e-12);
+        double S = log(1.0 - rho + rho / (double)m);
+        double J = log(rho / (double)m);
+
+        // One strand, so the reduction is the textbook one: stay on the same haplotype, or jump
+        // from whichever was best. No leave-one-out maxima are needed -- that complication in the
+        // diploid step comes entirely from the two strands sharing one delta.
+        size_t arg_best = 0;
+        double best_any = NINF;
+        for (size_t k = 0; k < m; ++k) {
+            if (delta[k] > best_any) {
+                best_any = delta[k];
+                arg_best = k;
+            }
+        }
+        vector<double> next(m, NINF);
+        back[t].assign(m, 0);
+        for (size_t k = 0; k < m; ++k) {
+            if (!(emissions[t][k] > 0.0)) {
+                continue;
+            }
+            double stay = delta[k] > NINF ? delta[k] + S : NINF;
+            double jump = best_any > NINF ? best_any + J : NINF;
+            if (stay >= jump && stay > NINF) {
+                next[k] = stay + log(emissions[t][k]);
+                back[t][k] = (uint16_t)k;
+            } else if (jump > NINF) {
+                next[k] = jump + log(emissions[t][k]);
+                back[t][k] = (uint16_t)arg_best;
+            }
+        }
+        bool any = false;
+        for (double v : next) {
+            if (v > NINF) { any = true; break; }
+        }
+        if (!any) {
+            // Constraint and panel disagree beyond what the wildcard absorbs: restart here rather
+            // than abandoning the window, as the diploid pass does.
+            for (size_t k = 0; k < m; ++k) {
+                next[k] = emissions[t][k] > 0.0 ? log(emissions[t][k]) : NINF;
+                back[t][k] = (uint16_t)k;
+            }
+        }
+        delta = std::move(next);
+    }
+
+    size_t best = m;
+    double best_v = NINF;
+    for (size_t k = 0; k < m; ++k) {
+        if (delta[k] > best_v) {
+            best_v = delta[k];
+            best = k;
+        }
+    }
+    if (best == m) {
+        return;
+    }
+    size_t cur = best;
+    for (size_t t = n; t-- > 0;) {
+        out[t] = (cur == n_hap) ? WILDCARD : cur;
+        if (t > 0) {
+            cur = back[t][cur];
+        }
+    }
+}
+
+vector<size_t> LinkageModel::haploid_phasing(const vector<Site>& sites,
+                                             const vector<size_t>& constraint) const {
+    vector<size_t> out(sites.size(), WILDCARD);
+    if (sites.empty()) {
+        return out;
+    }
+    size_t n = sites.size();
+    size_t step = max<size_t>(params.window, 1);
+    size_t margin = params.margin;
+    bool have_pin = false;
+    size_t pin_index = 0, pin = WILDCARD;
+
+    for (size_t start = 0; start < n; start += step) {
+        size_t lo = start > margin ? start - margin : 0;
+        size_t hi = min(start + step + margin, n);
+        vector<size_t> local;
+        window_haploid_phasing(sites, lo, hi, constraint,
+                               have_pin ? pin_index : (size_t)-1, pin, local);
+        size_t keep_to = min(start + step, n);
+        for (size_t t = start; t < keep_to && t - lo < local.size(); ++t) {
+            out[t] = local[t - lo];
+        }
+        if (keep_to == n) {
+            break;
+        }
+        // Pinned a margin deep into what this window was authoritative for, for the same reason
+        // the diploid pass does it: a boundary state was decided without full context.
+        pin_index = keep_to - 1;
+        pin = out[pin_index];
+        have_pin = true;
+    }
+    return out;
+}
+
 //------------------------------------------------------------------------------
 // LinkageCollector
 
@@ -681,7 +1053,7 @@ void LinkageCollector::record(const string& contig, size_t position, size_t num_
                               const vector<double>& genotype_ln_likelihood,
                               const vector<int>& haplotype_allele,
                               size_t called_i, size_t called_j, size_t record_key,
-                              double explained_share,
+                              double explained_share, size_t ploidy,
                               int64_t start_node, int64_t end_node) {
     if (num_alleles == 0 || genotype_ln_likelihood.empty()) {
         return;
@@ -712,6 +1084,7 @@ void LinkageCollector::record(const string& contig, size_t position, size_t num_
     e.explained_share = (float)explained_share;
     e.start_node = start_node;
     e.end_node = end_node;
+    e.ploidy = (uint8_t)(ploidy == 1 ? 1 : 2);
 
     e.gl_offset = (uint32_t)gl_arena.size();
     for (double v : genotype_ln_likelihood) {
@@ -766,6 +1139,11 @@ vector<LinkageCollector::Change> LinkageCollector::resolve(vector<PhaseCall>* ph
             return entries[a].record_key < entries[b].record_key;
         });
 
+        // A contig is called at one ploidy, so the chain's ploidy is the first entry's. Mixed
+        // ploidy within a contig would mean two runs were merged into one collector, which the
+        // caller never does -- chrX's pseudoautosomal split is two separate runs.
+        size_t chain_ploidy = entries[indices.front()].ploidy;
+
         vector<LinkageModel::Site> sites;
         sites.reserve(indices.size());
         for (size_t idx : indices) {
@@ -773,7 +1151,10 @@ vector<LinkageCollector::Change> LinkageCollector::resolve(vector<PhaseCall>* ph
             LinkageModel::Site s;
             s.position = e.position;
             s.num_alleles = e.num_alleles;
-            size_t n_gt = (size_t)e.num_alleles * ((size_t)e.num_alleles + 1) / 2;
+            s.ploidy = e.ploidy;
+            size_t n_gt = e.ploidy == 1
+                              ? (size_t)e.num_alleles
+                              : (size_t)e.num_alleles * ((size_t)e.num_alleles + 1) / 2;
             s.genotype_ln_likelihood.reserve(n_gt);
             for (size_t g = 0; g < n_gt; ++g) {
                 s.genotype_ln_likelihood.push_back((double)gl_arena[e.gl_offset + g]);
@@ -785,7 +1166,8 @@ vector<LinkageCollector::Change> LinkageCollector::resolve(vector<PhaseCall>* ph
             sites.push_back(std::move(s));
         }
 
-        vector<vector<double>> posteriors = model.posteriors(sites);
+        vector<vector<double>> posteriors = chain_ploidy == 1 ? model.haploid_posteriors(sites)
+                                                             : model.posteriors(sites);
 
         // The genotype each site ends up with, whether or not linkage moved it. This is what the
         // phasing is constrained to: phasing the pre-linkage calls would describe a genotype set
@@ -795,7 +1177,8 @@ vector<LinkageCollector::Change> LinkageCollector::resolve(vector<PhaseCall>* ph
         for (size_t t = 0; t < indices.size(); ++t) {
             const Entry& e = entries[indices[t]];
             const vector<double>& post = posteriors[t];
-            size_t before = LinkageModel::genotype_index(e.called_i, e.called_j);
+            size_t before = e.ploidy == 1 ? (size_t)e.called_i
+                                          : LinkageModel::genotype_index(e.called_i, e.called_j);
             if (post.empty()) {
                 final_genotype[t] = before;
                 continue;
@@ -810,13 +1193,17 @@ vector<LinkageCollector::Change> LinkageCollector::resolve(vector<PhaseCall>* ph
             if (best == before) {
                 continue;
             }
-            // Decode the genotype index back to its allele pair.
-            size_t j = 0;
-            while (LinkageModel::genotype_index(0, j) <= best) {
-                ++j;
+            // Decode the genotype index back to its allele pair. At ploidy 1 the index *is* the
+            // allele, and both slots carry it so the change applies through the same path.
+            size_t i = best, j = best;
+            if (e.ploidy != 1) {
+                j = 0;
+                while (LinkageModel::genotype_index(0, j) <= best) {
+                    ++j;
+                }
+                --j;
+                i = best - (j * (j + 1) / 2);
             }
-            --j;
-            size_t i = best - (j * (j + 1) / 2);
             Change c;
             c.record_key = e.record_key;
             c.contig = contig_names[e.contig];
@@ -833,7 +1220,19 @@ vector<LinkageCollector::Change> LinkageCollector::resolve(vector<PhaseCall>* ph
         if (phasing_out == nullptr) {
             continue;
         }
-        vector<LinkageModel::Phase> phase = model.phasing(sites, final_genotype);
+        // Haploid chains take the single-strand path: one haplotype per site, no phase to infer,
+        // but the mosaic is exactly as meaningful -- it is the whole answer on chrY.
+        vector<LinkageModel::Phase> phase;
+        if (chain_ploidy == 1) {
+            vector<size_t> single = model.haploid_phasing(sites, final_genotype);
+            phase.resize(single.size());
+            for (size_t t = 0; t < single.size(); ++t) {
+                phase[t].first = single[t];
+                phase[t].second = LinkageModel::WILDCARD;
+            }
+        } else {
+            phase = model.phasing(sites, final_genotype);
+        }
         // One phase set per contig. The windows are pinned to each other, so the path is
         // continuous across the whole chain and the block is the chain -- far longer than a
         // read-based phaser produces, which is a claim the switch-error benchmark is there to
@@ -846,12 +1245,15 @@ vector<LinkageCollector::Change> LinkageCollector::resolve(vector<PhaseCall>* ph
             // on the wildcard the panel does not name its allele, so fall back to the genotype's
             // own order -- the phase is then unsupported at that strand rather than wrong.
             size_t want = final_genotype[t];
-            size_t j = 0;
-            while (LinkageModel::genotype_index(0, j) <= want) {
-                ++j;
+            size_t i = want, j = want;
+            if (e.ploidy != 1) {
+                j = 0;
+                while (LinkageModel::genotype_index(0, j) <= want) {
+                    ++j;
+                }
+                --j;
+                i = want - (j * (j + 1) / 2);
             }
-            --j;
-            size_t i = want - (j * (j + 1) / 2);
 
             int a = -1, b = -1;
             if (ph.first != LinkageModel::WILDCARD
@@ -863,6 +1265,7 @@ vector<LinkageCollector::Change> LinkageCollector::resolve(vector<PhaseCall>* ph
                 b = sites[t].haplotype_allele[ph.second];
             }
             PhaseCall pc;
+            pc.ploidy = e.ploidy;
             pc.record_key = e.record_key;
             pc.contig = contig_names[e.contig];
             pc.position = e.position;
@@ -871,7 +1274,13 @@ vector<LinkageCollector::Change> LinkageCollector::resolve(vector<PhaseCall>* ph
             pc.start_node = e.start_node;
             pc.end_node = e.end_node;
             pc.phase_set = phase_set;
-            if (a >= 0 && b >= 0 && LinkageModel::genotype_index((size_t)a, (size_t)b) == want) {
+            if (e.ploidy == 1) {
+                // One strand: the called allele sits on it, and the haplotype is whatever the
+                // path chose. There is no second slot to fill.
+                pc.allele_first = want;
+                pc.allele_second = want;
+            } else if (a >= 0 && b >= 0
+                       && LinkageModel::genotype_index((size_t)a, (size_t)b) == want) {
                 pc.allele_first = (size_t)a;
                 pc.allele_second = (size_t)b;
             } else if (a >= 0 && ((size_t)a == i || (size_t)a == j)) {
