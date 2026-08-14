@@ -315,7 +315,8 @@ public:
                 const vector<double>& genotype_ln_likelihood,
                 const vector<int>& haplotype_allele,
                 size_t called_i, size_t called_j, size_t record_key,
-                double explained_share);
+                double explained_share,
+                int64_t start_node = 0, int64_t end_node = 0);
 
     /// One site's phasing: which strand carries which allele, and which panel haplotype explains
     /// each strand.
@@ -332,6 +333,11 @@ public:
         size_t allele_second = 0;
         size_t hap_first = LinkageModel::WILDCARD;
         size_t hap_second = LinkageModel::WILDCARD;
+        /// The site's snarl boundary nodes. The mosaic output anchors on these rather than on
+        /// reference positions, because a node ID is intrinsic to the graph while a position is
+        /// a statement about one reference path.
+        int64_t start_node = 0;
+        int64_t end_node = 0;
         /// Identifies the phase block. Phase is only comparable within one.
         size_t phase_set = 0;
     };
@@ -362,6 +368,10 @@ private:
         uint16_t called_j = 0;
         float explained_share = 1.0f;
         size_t record_key = 0;
+        /// Snarl boundary nodes, for the mosaic output's anchors. Costs 16 bytes a site, which
+        /// `bytes()` reports rather than leaving to arithmetic.
+        int64_t start_node = 0;
+        int64_t end_node = 0;
     };
 
     LinkageModel::Params params;

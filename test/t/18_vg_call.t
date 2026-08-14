@@ -9,7 +9,7 @@ PATH=../bin:$PATH # for vg
 # FORMAT field shifts every later one, which broke four assertions here that were not
 # testing field order at all -- one of them silently compared BL against a GQ threshold.
 
-plan tests 234
+plan tests 239
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -379,6 +379,21 @@ is $(paste rl_unphased_gt.txt rl_phased_gt.txt | awk '{
      } END { print bad+0 }') "0" \
    "the phased genotype is a permutation of the unphased one at every record"
 
+# The mosaic is the same phasing, run-length encoded. Its value rests entirely on being *shorter*
+# than the site list -- one line per maximal run rather than per site -- so a mosaic with as many
+# segments as sites would mean the encoding had bought nothing and the format is the wrong one.
+vg call x.gbz --read-likelihood --gam sim.gam --mosaic-out rl_mosaic.tsv 2>/dev/null >/dev/null
+is "$?" "0" "--mosaic-out produces output"
+is $(grep -c "^#mosaic-version" rl_mosaic.tsv) "1" "the mosaic declares its version"
+is $(if [ $(grep -vc "^#" rl_mosaic.tsv) -lt $(grep -vc "^#" rl_phased.vcf) ]; then echo 1; else echo 0; fi) "1" \
+   "the mosaic has fewer segments than there are sites"
+# Two strands, so every contig must appear on both -- a mosaic naming only one strand would
+# describe a haploid genome.
+is $(grep -v "^#" rl_mosaic.tsv | cut -f3 | sort -u | tr -d '\n') "01" "the mosaic covers both strands"
+# Segments must name a haplotype the panel actually has, or the file cannot be read back.
+is $(grep -v "^#" rl_mosaic.tsv | awk -F'\t' '$9 == "?" {n++} END {print n+0}') "0" \
+   "every mosaic segment names a known haplotype"
+
 # Phasing is the linkage layer's path, so asking for it with the layer switched off cannot be
 # quietly satisfied by writing unphased output.
 vg call x.gbz --read-likelihood --gam sim.gam --phased --linkage-weight 0 >/dev/null 2>rl_ph_err.txt
@@ -497,7 +512,7 @@ is "$GAFBASE_SAME" "0" "GAF-Base read source produces identical calls to the in-
 is "$GAFBASE_THREADS" "0" "GAF-Base calls do not depend on the thread count$GAFBASE_NOTE"
 is "$GAFBASE_WINDOW" "0" "GAF-Base calls do not depend on the read window size$GAFBASE_NOTE"
 
-rm -f x.vg x.gbz x.gbwt sim.gam x.pack call.vcf callg.vcf callz.vcf callg.6 callz.6 callrl_nopack.vcf callrl_nopack_z.vcf callrl_withpack.vcf nopack_err.txt sim.sorted.gam sim.sorted.gam.gai rl_inmem.vcf rl_indexed.vcf gi_err.txt gb_err.txt gb_excl.txt gb_norl.txt gb_nobin.txt sim.gaf sim.gaf.db x.gbz.db rl_gafmem.vcf rl_gafbase.vcf rl_gafbase_t4.vcf rl_gafbase_w32.vcf rl_autoz_full.vcf rl_autoz.vcf rl_explicit_z.vcf rl_support_full.vcf rl_support.vcf es_nopack.txt es_z.txt es_g.txt nopanel.vg nopanel.gbwt nopanel.gbz nopanel.pack nopanel_err.txt poisson_default.vcf poisson_z.vcf rl_phased.vcf rl_unphased_gt.txt rl_phased_gt.txt rl_ph_err.txt
+rm -f x.vg x.gbz x.gbwt sim.gam x.pack call.vcf callg.vcf callz.vcf callg.6 callz.6 callrl_nopack.vcf callrl_nopack_z.vcf callrl_withpack.vcf nopack_err.txt sim.sorted.gam sim.sorted.gam.gai rl_inmem.vcf rl_indexed.vcf gi_err.txt gb_err.txt gb_excl.txt gb_norl.txt gb_nobin.txt sim.gaf sim.gaf.db x.gbz.db rl_gafmem.vcf rl_gafbase.vcf rl_gafbase_t4.vcf rl_gafbase_w32.vcf rl_autoz_full.vcf rl_autoz.vcf rl_explicit_z.vcf rl_support_full.vcf rl_support.vcf es_nopack.txt es_z.txt es_g.txt nopanel.vg nopanel.gbwt nopanel.gbz nopanel.pack nopanel_err.txt poisson_default.vcf poisson_z.vcf rl_phased.vcf rl_unphased_gt.txt rl_phased_gt.txt rl_ph_err.txt rl_mosaic.tsv
 
 
 # subpath test

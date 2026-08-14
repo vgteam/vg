@@ -139,6 +139,17 @@ public:
     /// differently, so it rides with the feature rather than appearing unasked.
     void set_emit_phasing(bool on) { this->emit_phasing = on; }
 
+    /// Where to write the run-length-encoded mosaic, if anywhere. Implies phasing.
+    void set_mosaic_out(const string& path, const string& graph_name,
+                        const vector<string>& haplotype_names = {}) {
+        this->mosaic_path = path;
+        this->mosaic_graph_name = graph_name;
+        this->mosaic_haplotype_names = haplotype_names;
+        if (!path.empty()) {
+            this->emit_phasing = true;
+        }
+    }
+
     /// Sort then write variants in the buffer
     /// snarl_manager needed if include_nested is true
     void write_variants(ostream& out_stream, const SnarlManager* snarl_manager = nullptr);
@@ -203,6 +214,21 @@ protected:
 
     /// Whether to emit phased GT and FORMAT/PS.
     bool emit_phasing = false;
+
+    /// Destination for the mosaic file, and the graph it is to be read against.
+    string mosaic_path;
+    string mosaic_graph_name;
+    /// Panel index -> "sample#phase". A bare index is meaningless outside the run that produced
+    /// it, so the file carries the name; the index is kept beside it because that is what indexes
+    /// the GBWT metadata the consumer will look the haplotype up in.
+    vector<string> mosaic_haplotype_names;
+
+    /// Collapse the per-site phasing into segments and write them.
+    ///
+    /// Run-length encoding is the whole point: measured on chr20 against a 34-haplotype panel,
+    /// about 2% of sites are switch points, so 105k sites become roughly 2k segments and the file
+    /// is ~140 KB rather than ~7 MB. Whole-genome that is a few megabytes against a few hundred.
+    void write_mosaic(const vector<LinkageCollector::PhaseCall>& phasing) const;
 
     /// Which allele of `travs` each panel haplotype carries, or -1 where it does not traverse the
     /// site. Asks the GBWT which haplotypes take each traversal.

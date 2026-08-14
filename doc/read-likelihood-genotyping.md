@@ -14,6 +14,7 @@ from, every parameter that changes it, and what the reported qualities do and do
 - [Where the fit scores come from](#where-the-fit-scores-come-from)
 - [Which alleles are considered](#which-alleles-are-considered)
 - [The linkage layer](#the-linkage-layer)
+- [Phasing and the mosaic genome](#phasing-and-the-mosaic-genome)
 - [Genotype quality and the VCF fields](#genotype-quality-and-the-vcf-fields)
 - [Parameter reference](#parameter-reference)
 - [What this model does not give you](#what-this-model-does-not-give-you)
@@ -333,6 +334,69 @@ Linkage is spent by 10–30 kb, so this is near-exact.
 The layer needs panel enumeration, and declines silently without it. Asking for it explicitly where
 it cannot run is a hard error rather than a silent no-op. Its benefit is concentrated on panels of
 tens of haplotypes and is close to inert on thin ones.
+
+## Phasing and the mosaic genome
+
+The linkage layer's genotype decoding is *marginal* — each site's posterior is summed over the
+states implying each genotype, and the argmax taken independently. That yields genotypes, but a
+sequence of per-site argmaxes need not be spellable by any single pair of haplotypes, so it is not
+a phasing.
+
+`--phased` runs a second decoding of the same model: **max-product**, giving the single most
+probable path of haplotype pairs through the chain. The order of that pair is the phase.
+
+```
+vg call graph.gbz --read-likelihood --gam reads.gam --phased > calls.vcf
+```
+
+`GT` becomes `0|1`, and `FORMAT/PS` names the phase block. (Note the existing `INFO/PS` under `-A`
+is vg's parent-snarl pointer — a different field in a different namespace.)
+
+**Constrained to the emitted calls.** At each site the states are restricted to those spelling the
+genotype actually written out, so phasing re-orders a call without re-deciding it. Unconstrained
+Viterbi maximises path probability and will contradict the VCF; that is not wanted, so it is not
+what runs. Feasibility is guaranteed under panel enumeration — if allele *i* is carried by some
+haplotype and *j* by another, the pair spelling *i/j* exists — and the wildcard covers the rest.
+Measured, the constraint costs essentially nothing: 0.98× the switches on chr20, 0.96× on chr6.
+
+**Phase comes from the panel, not from reads.** A read-based phaser links two heterozygous sites
+only when a read or fragment spans both, so its blocks are read-length. Here linkage carries as far
+as the transition model allows, so **a phase block is a whole chain** — chromosome-scale. That is a
+much stronger claim than a read-based phaser makes, and switch error has to be read beside it,
+because shorter blocks make switch error small for free.
+
+Measured against the phased T2T-Q100 HG002 truth, with HG002 excluded from the graph:
+
+| graph | panel | switch error | block N50 |
+|---|---|---|---|
+| chr20, 4 haplotypes | 4 | 3.43% | 66.2 Mb |
+| chr20, 34 haplotypes | 34 | 2.30% | 66.2 Mb |
+| chr6, 34 haplotypes | 34 | 1.74% | 172.1 Mb |
+
+Phasing quality is panel quality: the same chromosome with a richer panel loses a third of its
+switch errors. Expect a sample the panel represents poorly to do worse.
+
+### `--mosaic-out FILE`
+
+The same path, written as the genome it implies. The mosaic is piecewise — about 2% of sites are
+switch points — so it is run-length encoded, one line per maximal run of one strand on one panel
+haplotype:
+
+```
+#H  contig  strand  ref_start  ref_end  start_node  end_node  hap_index  haplotype  sites
+H   chr20   0       603        3605     114819056   114842605  9         recombination#30  60
+```
+
+Anchored on **node IDs**, because a node ID is intrinsic to the graph while a reference position is
+a statement about one path. To reconstruct a haplotype, walk the named GBWT sequence from
+`start_node` to `end_node`. `*` means the panel does not explain that strand there.
+
+chr20 at 34 haplotypes gives 3,673 segments over 105,251 sites in **255 KB** — against roughly
+45 MB to write the two paths out explicitly as node lists, a factor of about 180. Whole-genome that
+is megabytes rather than gigabytes.
+
+Diploid only, since the states are ordered *pairs*. Both flags need `--linkage-weight` above 0, and
+asking for either with the layer off is an error rather than a silently unphased file.
 
 ## Genotype quality and the VCF fields
 

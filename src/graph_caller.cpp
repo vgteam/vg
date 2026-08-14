@@ -486,6 +486,9 @@ void VCFOutputCaller::write_variants(ostream& out_stream, const SnarlManager* sn
             cerr << "[vg call] phasing: " << phased.size() << " sites phased, "
                  << unexplained << " with a strand the panel does not explain" << endl;
         }
+        if (!mosaic_path.empty()) {
+            write_mosaic(phased);
+        }
     }
 
     for (const auto& v : all_variants) {
@@ -640,6 +643,73 @@ void VCFOutputCaller::apply_linkage_change(string& line,
         }
         line += fields[i];
     }
+}
+
+void VCFOutputCaller::write_mosaic(const vector<LinkageCollector::PhaseCall>& phasing) const {
+    ofstream out(mosaic_path);
+    if (!out) {
+        cerr << "error [vg call]: could not open " << mosaic_path << " for the mosaic output"
+             << endl;
+        return;
+    }
+
+    // A segment is a maximal run over which one strand stays on one panel haplotype. The consumer
+    // reconstructs a haplotype by walking the named GBWT sequence from start_node to end_node, so
+    // the anchors are node IDs rather than reference positions: a node ID is intrinsic to the
+    // graph, while a position is a statement about one reference path.
+    out << "#mosaic-version\t1\n";
+    out << "#graph\t" << mosaic_graph_name << "\n";
+    out << "#sample\t" << sample_name << "\n";
+    out << "#decoding\tconstrained-viterbi\n";
+    out << "#note\tsegments are maximal runs on one panel haplotype; walk the haplotype "
+        << "from start_node to end_node to reconstruct it. * means the panel does not "
+        << "explain that strand there.\n";
+    out << "#H\tcontig\tstrand\tref_start\tref_end\tstart_node\tend_node"
+        << "\thap_index\thaplotype\tsites\n";
+
+    // The phasing arrives grouped by contig and in reference order, which is how resolve() builds
+    // it. Both strands are emitted, and a switch on either one closes only its own segment.
+    size_t i = 0;
+    size_t total_segments = 0;
+    while (i < phasing.size()) {
+        size_t j = i;
+        while (j < phasing.size() && phasing[j].contig == phasing[i].contig) {
+            ++j;
+        }
+        for (int strand = 0; strand < 2; ++strand) {
+            size_t seg_start = i;
+            for (size_t t = i; t < j; ++t) {
+                size_t hap = strand == 0 ? phasing[t].hap_first : phasing[t].hap_second;
+                size_t prev = strand == 0 ? phasing[seg_start].hap_first
+                                          : phasing[seg_start].hap_second;
+                bool last = (t + 1 == j);
+                bool changes = !last
+                               && (strand == 0 ? phasing[t + 1].hap_first
+                                               : phasing[t + 1].hap_second) != hap;
+                (void)prev;
+                if (last || changes) {
+                    const LinkageCollector::PhaseCall& a = phasing[seg_start];
+                    const LinkageCollector::PhaseCall& b = phasing[t];
+                    out << "H\t" << a.contig << "\t" << strand << "\t"
+                        << a.position << "\t" << b.position << "\t"
+                        << a.start_node << "\t" << b.end_node << "\t";
+                    if (hap == LinkageModel::WILDCARD) {
+                        out << "*\t*";
+                    } else {
+                        out << hap << "\t"
+                            << (hap < mosaic_haplotype_names.size()
+                                    ? mosaic_haplotype_names[hap] : string("?"));
+                    }
+                    out << "\t" << (t - seg_start + 1) << "\n";
+                    ++total_segments;
+                    seg_start = t + 1;
+                }
+            }
+        }
+        i = j;
+    }
+    cerr << "[vg call] mosaic: " << total_segments << " segments over " << phasing.size()
+         << " sites, written to " << mosaic_path << endl;
 }
 
 void VCFOutputCaller::apply_phasing(string& line,
@@ -1582,7 +1652,11 @@ bool VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCa
                                           std::hash<string>{}(out_variant.id),
                                           // So a rewritten GQ can carry the same discount the
                                           // per-site GQ did. See apply_linkage_change.
-                                          rl_info->explained_share);
+                                          rl_info->explained_share,
+                                          // Snarl boundaries, so the mosaic output can anchor on
+                                          // node IDs rather than on reference positions.
+                                          (int64_t)snarl.start().node_id(),
+                                          (int64_t)snarl.end().node_id());
             }
         }
         if (!added) {

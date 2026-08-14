@@ -681,7 +681,8 @@ void LinkageCollector::record(const string& contig, size_t position, size_t num_
                               const vector<double>& genotype_ln_likelihood,
                               const vector<int>& haplotype_allele,
                               size_t called_i, size_t called_j, size_t record_key,
-                              double explained_share) {
+                              double explained_share,
+                              int64_t start_node, int64_t end_node) {
     if (num_alleles == 0 || genotype_ln_likelihood.empty()) {
         return;
     }
@@ -709,6 +710,8 @@ void LinkageCollector::record(const string& contig, size_t position, size_t num_
     e.called_j = (uint16_t)called_j;
     e.record_key = record_key;
     e.explained_share = (float)explained_share;
+    e.start_node = start_node;
+    e.end_node = end_node;
 
     e.gl_offset = (uint32_t)gl_arena.size();
     for (double v : genotype_ln_likelihood) {
@@ -865,6 +868,8 @@ vector<LinkageCollector::Change> LinkageCollector::resolve(vector<PhaseCall>* ph
             pc.position = e.position;
             pc.hap_first = ph.first;
             pc.hap_second = ph.second;
+            pc.start_node = e.start_node;
+            pc.end_node = e.end_node;
             pc.phase_set = phase_set;
             if (a >= 0 && b >= 0 && LinkageModel::genotype_index((size_t)a, (size_t)b) == want) {
                 pc.allele_first = (size_t)a;
