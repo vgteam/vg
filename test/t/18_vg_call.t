@@ -9,7 +9,7 @@ PATH=../bin:$PATH # for vg
 # FORMAT field shifts every later one, which broke four assertions here that were not
 # testing field order at all -- one of them silently compared BL against a GQ threshold.
 
-plan tests 251
+plan tests 256
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -187,6 +187,30 @@ is $(test "${PC_FIRED}" -gt 0 && echo 1 || echo 0) "1" "--ploidy-conflict at a l
 # Marked, never dropped: the flagged run must carry exactly the same records as the plain
 # one. A filter that silently removed calls would change recall without saying so.
 is "$(echo "${PC_VCF}" | wc -l | tr -d ' ')" "$(grep -vc '^#' HGSVC_rl.vcf)" "--ploidy-conflict marks records rather than dropping them"
+
+# --min-confidence marks on GQN. A threshold above 1 must catch everything that has a GQN
+# at all, since GQN is a fraction -- that is the cheapest way to prove it reads the right
+# field and compares in the right direction.
+MC_VCF=$(vg call HGSVC_rl.xg -k HGSVC_rl.pack --read-likelihood --min-confidence 1.1 --gam call/HGSVC_chr22_17119590_17880307.gam -t 1 2>/dev/null | grep -v "^#")
+MC_UNMARKED=$(echo "${MC_VCF}" | awk -F'\t' '{nk=split($9,k,":"); n=0; for(j=1;j<=nk;j++) if(k[j]=="GQN") n=j; split($10,f,":"); if (f[n]!="." && $7 !~ /lowconf/) print}' | wc -l | tr -d ' ')
+is "${MC_UNMARKED}" "0" "--min-confidence above 1 marks every record carrying a GQN"
+
+# A record with no GQN to measure reports '.', which is not low confidence -- it is no
+# measurement. Sweeping those up would filter exactly the sites the model declined to
+# judge, which is the opposite of what a confidence threshold should do.
+MC_DOTMARKED=$(echo "${MC_VCF}" | awk -F'\t' '{nk=split($9,k,":"); n=0; for(j=1;j<=nk;j++) if(k[j]=="GQN") n=j; split($10,f,":"); if (f[n]=="." && $7 ~ /lowconf/) print}' | wc -l | tr -d ' ')
+is "${MC_DOTMARKED}" "0" "a record with no GQN is never marked lowconf"
+
+# Off by default, and marks rather than drops, exactly as ploidy_conflict does.
+MC_DEFAULT=$(grep -v "^#" HGSVC_rl.vcf | awk -F'\t' '$7 ~ /lowconf/' | wc -l | tr -d ' ')
+is "${MC_DEFAULT}" "0" "lowconf does not fire without --min-confidence"
+is "$(echo "${MC_VCF}" | wc -l | tr -d ' ')" "$(grep -vc '^#' HGSVC_rl.vcf)" "--min-confidence marks records rather than dropping them"
+
+# Both filters at once must compose into a semicolon-joined FILTER rather than one
+# silently overwriting the other.
+BOTH_VCF=$(vg call HGSVC_rl.xg -k HGSVC_rl.pack --read-likelihood --min-confidence 1.1 --ploidy-conflict 0.0001 --gam call/HGSVC_chr22_17119590_17880307.gam -t 1 2>/dev/null | grep -v "^#")
+BOTH_JOINED=$(echo "${BOTH_VCF}" | awk -F'\t' '$7=="ploidy_conflict;lowconf"' | wc -l | tr -d ' ')
+is $(test "${BOTH_JOINED}" -gt 0 && echo 1 || echo 0) "1" "a record failing both filters carries both, joined"
 
 # GQN is a fraction of what the site could have achieved, so it is bounded. An
 # unbounded value would mean the denominator had gone wrong -- which is exactly the

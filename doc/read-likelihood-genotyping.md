@@ -588,6 +588,41 @@ The right fix for a region like that is not a filter but the correct ploidy — 
 `--ploidy-regex`, and note that `vg call` currently takes ploidy per contig, so a locus that is
 diploid inside a haploid contig cannot yet be expressed.
 
+### `--min-confidence`, and why there is no default
+
+`GQN` exists so that one threshold can mean the same thing everywhere, and `--min-confidence X`
+is that threshold: records below it are marked `FILTER=lowconf`.
+
+A raw `GQ` threshold cannot do this job, and the failure is not subtle. Requiring `GQ ≥ 10` takes
+a 5x diploid contig's F1 from **0.888 to 0.669**, because at that depth half the true calls sit
+below it. `GQN ≥ 0.05` costs the same arm 0.009.
+
+At `GQN ≥ 0.05`, precision rises on **every** arm measured:
+
+| arm | precision → | recall → | F1 → |
+|---|---|---|---|
+| chr20 5x (diploid) | 0.9712 → 0.9759 | 0.8174 → 0.7993 | 0.8877 → 0.8788 |
+| chr20 30x (diploid) | 0.9828 → 0.9863 | 0.9230 → 0.9139 | 0.9520 → 0.9487 |
+| chrX 2.5x (haploid) | 0.8863 → 0.9256 | 0.8047 → 0.7936 | 0.8435 → 0.8545 |
+| chrX 14.6x (haploid) | 0.9389 → 0.9840 | 0.9280 → 0.9184 | 0.9334 → **0.9501** |
+
+**There is no good default, and that is a finding rather than an omission.** F1 weights precision
+and recall equally, and under that weighting a threshold helps the haploid arms and hurts the
+diploid ones — no single value wins everywhere. What it is worth depends on which error you would
+rather make, which this code cannot know for you. So it ships off.
+
+**It marks rather than drops**, and that is a correctness decision, not a convenience. Records are
+buffered as text and the linkage layer rewrites their genotypes afterwards; a record withheld at
+emission is withheld before linkage ever sees it, and a low-confidence site is exactly the kind
+linkage exists to fix. `bcftools view -f PASS` is one step away for anyone who wants the records
+gone, and cannot be undone by anyone who does not.
+
+**On `--min-confidence` versus `--ploidy-conflict`.** On the arm where both matter most, chrX at
+14.6x, the confidence threshold alone does better than the conflict filter alone (F1 0.9501 against
+0.9355) and better than both together (0.9371), reaching almost the same precision at much better
+recall. They are not redundant — `PC` says *why* a site is bad, and identifies a locus rather than
+a call — but if you are choosing one for accuracy, `--min-confidence` is the stronger.
+
 **`--depth-quality A`** scales `GQ` by `exp(−A · |ln DR|)` at records whose called alleles change
 length by at least 50 bp, so a call whose read count is implausible for the sequence it claims
 ranks lower. Off by default, and affects ranking only. See [`DR`, the depth
@@ -662,6 +697,7 @@ Every flag below requires `--read-likelihood`; `vg call` errors if one is passed
 | `--no-share-quality` | off | Report `GQ` as the raw likelihood ratio, so `GQ == GQI`. |
 | `--depth-quality A` | 0 (off) | Scale `GQ` by `exp(−A·|ln DR|)` at records whose called alleles change length by ≥ 50 bp. |
 | `--ploidy-conflict X` | 0 (off) | Mark records with `PC > X` as `FILTER=ploidy_conflict` — the reads are split in a way this ploidy cannot produce. Marks, never drops. 10 is the measured working value. |
+| `--min-confidence X` | 0 (off) | Mark records with `GQN < X` as `FILTER=lowconf`. 0.05 raises precision on every arm measured. Marks, never drops. No default: it helps haploid F1 and hurts diploid. |
 
 ### Debugging
 

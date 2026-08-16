@@ -261,6 +261,32 @@ public:
      */
     void set_ploidy_conflict(double threshold, double floor = 0.05);
 
+    /**
+     * Mark records whose GQN falls below `threshold` as `FILTER=lowconf`.
+     *
+     * This is the threshold GQN exists to make possible: one number that means the same
+     * thing on a 5x diploid contig and a 15x haploid one. A raw GQ threshold cannot do
+     * it. Measured over a coverage titration, requiring GQ >= 10 takes a 5x diploid
+     * contig's F1 from 0.888 to 0.669, because at that depth half the true calls sit
+     * below it; requiring GQN >= 0.05 costs 0.009 on the same arm and gains 0.017 on a
+     * haploid one.
+     *
+     * At GQN >= 0.05 precision rises on **every** arm measured -- 0.9712 to 0.9759 and
+     * 0.9828 to 0.9863 on diploid, 0.8863 to 0.9256 and 0.9389 to 0.9840 on haploid --
+     * for one to two points of recall.
+     *
+     * **Off by default, and there is no good default to be had.** F1 weights precision
+     * and recall equally, and under that weighting a gate helps the haploid arms and
+     * hurts the diploid ones; no single threshold wins everywhere. What the threshold is
+     * worth depends on which error a caller would rather make, which is not something
+     * this code can know. 0 disables it.
+     *
+     * Marks rather than drops, for the reason given in update_vcf_info: records are
+     * rewritten by the linkage layer after this runs, and a low-confidence site is
+     * exactly the kind that layer exists to fix.
+     */
+    void set_min_confidence(double threshold);
+
 protected:
 
     /// True if two traversals visit exactly the same nodes in the same
@@ -289,6 +315,9 @@ protected:
     /// See set_ploidy_conflict.
     double ploidy_conflict_threshold = 0.0;
     double ploidy_conflict_floor = 0.05;
+
+    /// GQN below which a record is marked lowconf. Zero disables. See set_min_confidence.
+    double min_confidence = 0.0;
 };
 
 }

@@ -42,6 +42,10 @@ void ReadLikelihoodSnarlCaller::set_ploidy_conflict(double threshold, double flo
     this->ploidy_conflict_floor = floor;
 }
 
+void ReadLikelihoodSnarlCaller::set_min_confidence(double threshold) {
+    this->min_confidence = threshold;
+}
+
 void ReadLikelihoodSnarlCaller::set_support_available(bool available) {
     this->support_available = available;
 }
@@ -550,15 +554,37 @@ void ReadLikelihoodSnarlCaller::update_vcf_info(const Snarl& snarl,
         }
     }
 
-    variant.filter = "PASS";
+    // Marked, never dropped, and this is a design decision rather than a convenience.
+    // Records are buffered as text and the linkage layer rewrites their genotypes in
+    // VCFOutputCaller::write_variants, *after* this runs -- so a record withheld here is
+    // withheld before linkage ever sees it, and a low-confidence site is precisely the
+    // kind linkage exists to fix. Dropping is one `bcftools view -f PASS` away for anyone
+    // who wants it, and cannot be undone by anyone who does not.
+    //
+    // A record can fail more than one way, so these accumulate rather than overwrite.
+    vector<string> fails;
     if (info->n_informative == 0) {
-        variant.filter = "noreads";
-    } else if (ploidy_conflict_threshold > 0.0
-               && info->ploidy_conflict > ploidy_conflict_threshold) {
-        // Marked, never dropped. The record and its genotype stand; what this says is
-        // that the pile-up is not one this ploidy can produce, so a consumer that cares
-        // about that can act and one that does not is unaffected.
-        variant.filter = "ploidy_conflict";
+        fails.push_back("noreads");
+    } else {
+        if (ploidy_conflict_threshold > 0.0
+            && info->ploidy_conflict > ploidy_conflict_threshold) {
+            fails.push_back("ploidy_conflict");
+        }
+        if (min_confidence > 0.0 && info->gq_fraction >= 0.0
+            && info->gq_fraction < min_confidence) {
+            // Only where GQN exists. A site with no gap to normalise reports '.', which
+            // is not low confidence -- it is no measurement -- and must not be swept up
+            // by a threshold as though it were zero.
+            fails.push_back("lowconf");
+        }
+    }
+    if (fails.empty()) {
+        variant.filter = "PASS";
+    } else {
+        variant.filter = fails[0];
+        for (size_t i = 1; i < fails.size(); ++i) {
+            variant.filter += ";" + fails[i];
+        }
     }
 }
 
@@ -641,6 +667,12 @@ void ReadLikelihoodSnarlCaller::update_vcf_header(string& header) const {
               "ploidy it was called at -- usually collapsed paralogous copies. The record and its "
               "genotype stand; this marks them rather than dropping them. Off unless "
               "--ploidy-conflict is given\">\n";
+    header += "##FILTER=<ID=lowconf,Description=\"GQN below --min-confidence: the call used less "
+              "of the discrimination this site could offer than required. Unlike a GQ threshold "
+              "this means the same thing at any depth and any ploidy -- requiring GQ >= 10 costs a "
+              "5x diploid contig a third of its F1, where GQN >= 0.05 costs it 0.009 and gains a "
+              "haploid contig 0.017. Marks rather than drops. Off unless --min-confidence is "
+              "given\">\n";
     header += "##FILTER=<ID=noreads,Description=\"No informative read overlaps the site, so the "
               "read-level model has no evidence either way\">\n";
 }
