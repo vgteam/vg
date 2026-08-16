@@ -9,7 +9,7 @@ PATH=../bin:$PATH # for vg
 # FORMAT field shifts every later one, which broke four assertions here that were not
 # testing field order at all -- one of them silently compared BL against a GQ threshold.
 
-plan tests 266
+plan tests 260
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -158,35 +158,8 @@ is "$?" "0" "vg call --read-likelihood runs"
 # Address FORMAT fields by NAME, never by position. This block previously hard-coded
 # "GT:DP:GL:GQ:GP" and read GL from sub-field 3; adding AD, BL and GQI moved GL to 5 and
 # broke three assertions at once, none of which was testing field order.
-RL_MISSING=$(grep -v "^#" HGSVC_rl.vcf | awk -F'\t' '{nk=split($9,k,":"); need="GT DP GL GQ GP AD BL GQI GQN AB PC"; m=split(need,w," "); for(i=1;i<=m;i++){found=0; for(j=1;j<=nk;j++) if(k[j]==w[i]) found=1; if(!found){print; next}}}' | wc -l | tr -d ' ')
+RL_MISSING=$(grep -v "^#" HGSVC_rl.vcf | awk -F'\t' '{nk=split($9,k,":"); need="GT DP GL GQ GP AD BL GQI GQN"; m=split(need,w," "); for(i=1;i<=m;i++){found=0; for(j=1;j<=nk;j++) if(k[j]==w[i]) found=1; if(!found){print; next}}}' | wc -l | tr -d ' ')
 is "${RL_MISSING}" "0" "every read-likelihood record carries the full FORMAT field set"
-
-# AB is a fraction of the supporting reads, so it is bounded. PC is a chi-square, so it
-# is non-negative -- a negative value would mean the one-sided test had picked up a sign.
-ABPC_RANGE=$(grep -v "^#" HGSVC_rl.vcf | awk -F'\t' '{nk=split($9,k,":"); ai=0; pi=0; for(j=1;j<=nk;j++){if(k[j]=="AB") ai=j; if(k[j]=="PC") pi=j} if(ai==0||pi==0){print; next} split($10,f,":"); if (f[ai]!="." && (f[ai]+0 < 0 || f[ai]+0 > 1)) print; else if (f[pi]!="." && f[pi]+0 < 0) print}' | wc -l | tr -d ' ')
-is "${ABPC_RANGE}" "0" "AB is a fraction in [0,1] and PC is never negative"
-
-# A clean call must not be flagged as a ploidy conflict: AB near 0 means the genotype
-# accounts for the pile-up, and PC must then be near 0 whatever the depth.
-CLEAN_CONFLICT=$(grep -v "^#" HGSVC_rl.vcf | awk -F'\t' '{nk=split($9,k,":"); ai=0; pi=0; for(j=1;j<=nk;j++){if(k[j]=="AB") ai=j; if(k[j]=="PC") pi=j} split($10,f,":"); if (f[ai]!="." && f[pi]!="." && f[ai]+0 == 0 && f[pi]+0 > 0) print}' | wc -l | tr -d ' ')
-is "${CLEAN_CONFLICT}" "0" "a call explaining its whole pile-up never registers a ploidy conflict"
-
-# The FILTER is off unless asked for, so the default run must never emit it. This is what
-# keeps the field measurable against a baseline it does not itself move.
-# HGSVC_rl.vcf above was called without the flag, so it is the baseline for both checks.
-PC_DEFAULT=$(grep -v "^#" HGSVC_rl.vcf | awk -F'\t' '$7=="ploidy_conflict"' | wc -l | tr -d ' ')
-is "${PC_DEFAULT}" "0" "ploidy_conflict does not fire without --ploidy-conflict"
-
-# ...and an absurdly low threshold must fire it, or the flag is not wired to anything.
-# Held in a variable rather than written to the test directory: a generated VCF left on
-# disk gets picked up by `git add`, which has already put fixtures in this repo once.
-PC_VCF=$(vg call HGSVC_rl.xg -k HGSVC_rl.pack --read-likelihood --ploidy-conflict 0.0001 --gam call/HGSVC_chr22_17119590_17880307.gam -t 1 2>/dev/null | grep -v "^#")
-PC_FIRED=$(echo "${PC_VCF}" | awk -F'\t' '$7=="ploidy_conflict"' | wc -l | tr -d ' ')
-is $(test "${PC_FIRED}" -gt 0 && echo 1 || echo 0) "1" "--ploidy-conflict at a low threshold marks records"
-
-# Marked, never dropped: the flagged run must carry exactly the same records as the plain
-# one. A filter that silently removed calls would change recall without saying so.
-is "$(echo "${PC_VCF}" | wc -l | tr -d ' ')" "$(grep -vc '^#' HGSVC_rl.vcf)" "--ploidy-conflict marks records rather than dropping them"
 
 # --min-confidence marks on GQN. A threshold above 1 must catch everything that has a GQN
 # at all, since GQN is a fraction -- that is the cheapest way to prove it reads the right
@@ -201,16 +174,10 @@ is "${MC_UNMARKED}" "0" "--min-confidence above 1 marks every record carrying a 
 MC_DOTMARKED=$(echo "${MC_VCF}" | awk -F'\t' '{nk=split($9,k,":"); n=0; for(j=1;j<=nk;j++) if(k[j]=="GQN") n=j; split($10,f,":"); if (f[n]=="." && $7 ~ /lowconf/) print}' | wc -l | tr -d ' ')
 is "${MC_DOTMARKED}" "0" "a record with no GQN is never marked lowconf"
 
-# Off by default, and marks rather than drops, exactly as ploidy_conflict does.
+# Off by default, and marks rather than drops.
 MC_DEFAULT=$(grep -v "^#" HGSVC_rl.vcf | awk -F'\t' '$7 ~ /lowconf/' | wc -l | tr -d ' ')
 is "${MC_DEFAULT}" "0" "lowconf does not fire without --min-confidence"
 is "$(echo "${MC_VCF}" | wc -l | tr -d ' ')" "$(grep -vc '^#' HGSVC_rl.vcf)" "--min-confidence marks records rather than dropping them"
-
-# Both filters at once must compose into a semicolon-joined FILTER rather than one
-# silently overwriting the other.
-BOTH_VCF=$(vg call HGSVC_rl.xg -k HGSVC_rl.pack --read-likelihood --min-confidence 1.1 --ploidy-conflict 0.0001 --gam call/HGSVC_chr22_17119590_17880307.gam -t 1 2>/dev/null | grep -v "^#")
-BOTH_JOINED=$(echo "${BOTH_VCF}" | awk -F'\t' '$7=="ploidy_conflict;lowconf"' | wc -l | tr -d ' ')
-is $(test "${BOTH_JOINED}" -gt 0 && echo 1 || echo 0) "1" "a record failing both filters carries both, joined"
 
 # GQN is a fraction of what the site could have achieved, so it is bounded. An
 # unbounded value would mean the denominator had gone wrong -- which is exactly the

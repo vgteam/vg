@@ -120,20 +120,6 @@ public:
         /// were.
         double gq_fraction = -1.0;
 
-        /// Fraction of supporting reads sitting on alleles the call does not carry.
-        /// 0 means the genotype accounts for the whole pile-up; 0.5 means half the reads
-        /// want something else, which under ploidy 1 is the signature of two diverged
-        /// copies collapsed onto one locus. Negative where there was no support to split.
-        double conflict_share = -1.0;
-
-        /// The same observation tested against sampling noise: a chi-square with one
-        /// degree of freedom for "more reads sit outside the call than its ploidy
-        /// allows". The raw share cannot be thresholded across depths -- two reads out of
-        /// five is unremarkable where fifteen out of thirty is impossible -- and measured
-        /// over a coverage titration the raw share separates true from false calls 2.5x
-        /// better than chance at 5x against 51x at 15x, where this statistic holds
-        /// 10-44x across the same range. Negative where it could not be computed.
-        double ploidy_conflict = -1.0;
     };
 
     virtual pair<vector<int>, unique_ptr<CallInfo>> genotype(const Snarl& snarl,
@@ -233,35 +219,6 @@ public:
     void set_depth_quality(double exponent, size_t min_length = 50);
 
     /**
-     * Arm the `ploidy_conflict` FILTER at this chi-square threshold, and set the error
-     * floor the statistic is tested against.
-     *
-     * What it catches. DR asks whether the read *count* matches the call; this asks
-     * whether the read *split* does. At ploidy p a read should sit on one of the p
-     * haplotypes called, and a competing allele should hold no more than the error
-     * floor. Where it holds much more, the site is not the ploidy it is being called at
-     * -- two diverged copies collapsed onto one locus is the usual cause. That has no
-     * expression at all in the haploid genotype space: a 50/50 pile-up has no ploidy-1
-     * genotype, so the model picks one allele on almost no evidence and emits a
-     * confident-looking false positive. On HG002's chrX two such 200 kb loci produce
-     * 29% of the whole chromosome's false positives.
-     *
-     * Why a chi-square and not the share itself. The share cannot carry a threshold
-     * across depths -- two reads of five is unremarkable where fifteen of thirty is
-     * impossible. Measured over a coverage titration, thresholding the raw share at
-     * 0.35 enriches for false positives 2.5x on a 5x diploid contig and 51x on a 15x
-     * haploid one, which is not a usable filter; the chi-square holds 10-44x across
-     * every arm, at a cost of 0.6-2.3% of true positives.
-     *
-     * **Off by default**, like set_depth_quality and for the same reason: it is shipped
-     * so it can be measured against a baseline it does not itself move. At a threshold
-     * of 10 it flags 66% of the false positives on a 15x haploid contig and 11-17% on a
-     * diploid one. A `threshold` of 0 disables the FILTER; the statistic and the share
-     * are emitted either way.
-     */
-    void set_ploidy_conflict(double threshold, double floor = 0.05);
-
-    /**
      * Mark records whose GQN falls below `threshold` as `FILTER=lowconf`.
      *
      * This is the threshold GQN exists to make possible: one number that means the same
@@ -309,12 +266,6 @@ protected:
     /// allele length change that arms it. Zero exponent disables. See set_depth_quality.
     double depth_quality = 0.0;
     size_t depth_quality_min_length = 50;
-
-    /// Chi-square threshold arming the ploidy_conflict FILTER, and the error floor the
-    /// statistic tests against. Zero threshold disables the FILTER but not the fields.
-    /// See set_ploidy_conflict.
-    double ploidy_conflict_threshold = 0.0;
-    double ploidy_conflict_floor = 0.05;
 
     /// GQN below which a record is marked lowconf. Zero disables. See set_min_confidence.
     double min_confidence = 0.0;
