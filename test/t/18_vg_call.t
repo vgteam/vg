@@ -9,7 +9,7 @@ PATH=../bin:$PATH # for vg
 # FORMAT field shifts every later one, which broke four assertions here that were not
 # testing field order at all -- one of them silently compared BL against a GQ threshold.
 
-plan tests 244
+plan tests 246
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -158,8 +158,20 @@ is "$?" "0" "vg call --read-likelihood runs"
 # Address FORMAT fields by NAME, never by position. This block previously hard-coded
 # "GT:DP:GL:GQ:GP" and read GL from sub-field 3; adding AD, BL and GQI moved GL to 5 and
 # broke three assertions at once, none of which was testing field order.
-RL_MISSING=$(grep -v "^#" HGSVC_rl.vcf | awk -F'\t' '{nk=split($9,k,":"); need="GT DP GL GQ GP AD BL GQI"; m=split(need,w," "); for(i=1;i<=m;i++){found=0; for(j=1;j<=nk;j++) if(k[j]==w[i]) found=1; if(!found){print; next}}}' | wc -l | tr -d ' ')
+RL_MISSING=$(grep -v "^#" HGSVC_rl.vcf | awk -F'\t' '{nk=split($9,k,":"); need="GT DP GL GQ GP AD BL GQI GQN"; m=split(need,w," "); for(i=1;i<=m;i++){found=0; for(j=1;j<=nk;j++) if(k[j]==w[i]) found=1; if(!found){print; next}}}' | wc -l | tr -d ' ')
 is "${RL_MISSING}" "0" "every read-likelihood record carries the full FORMAT field set"
+
+# GQN is a fraction of what the site could have achieved, so it is bounded. An
+# unbounded value would mean the denominator had gone wrong -- which is exactly the
+# failure mode of computing it from the reads' own mismap probabilities rather than
+# from the floor, and that version calibrated worse than not normalising at all.
+GQN_RANGE=$(grep -v "^#" HGSVC_rl.vcf | awk -F'\t' '{nk=split($9,k,":"); n=0; for(j=1;j<=nk;j++) if(k[j]=="GQN") n=j; if(n==0){print; next} split($10,f,":"); if (f[n]==".") next; if (f[n]+0 < 0 || f[n]+0 > 1) print}' | wc -l | tr -d ' ')
+is "${GQN_RANGE}" "0" "GQN is always a fraction in [0,1] or missing"
+
+# A confident call must not be near zero on the normalised scale either: if GQN were
+# constant, or independent of GQ, it would pass the range check and still be useless.
+GQN_FLAT=$(grep -v "^#" HGSVC_rl.vcf | awk -F'\t' '{nk=split($9,k,":"); n=0; for(j=1;j<=nk;j++) if(k[j]=="GQN") n=j; split($10,f,":"); if (f[n]!=".") print f[n]}' | sort -u | wc -l | tr -d ' ')
+is $(test "${GQN_FLAT}" -gt 1 && echo 1 || echo 0) "1" "GQN varies between records rather than being a constant"
 
 # GL must have exactly one entry per genotype of the emitted alleles, or the
 # field is silently mislabelled.

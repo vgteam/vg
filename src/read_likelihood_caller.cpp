@@ -166,6 +166,11 @@ pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> ReadLikelihoodSnarlCaller::
     }
     double best_ll = scored[best_index].second;
 
+    // The runner-up's identity, not just its score: achievable_gap needs to know which
+    // genotype the gap is against, since what a site could have achieved depends on how
+    // the two genotypes differ -- one strand or both.
+    size_t second_best_index = scored.size();
+
     for (size_t i = 0; i < scored.size(); ++i) {
         double ll = scored[i].second;
         call_info->genotype_lls[scored[i].first] = ll;
@@ -173,10 +178,12 @@ pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> ReadLikelihoodSnarlCaller::
         if (i != best_index) {
             if (ll > best_ll) {
                 second_best_ll = best_ll;
+                second_best_index = best_index;
                 best_ll = ll;
                 best_index = i;
             } else if (ll > second_best_ll) {
                 second_best_ll = ll;
+                second_best_index = i;
             }
         }
 
@@ -190,6 +197,26 @@ pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> ReadLikelihoodSnarlCaller::
         call_info->gq = logprob_to_phred(second_best_ll) - logprob_to_phred(best_ll);
     }
     call_info->gq_undiscounted = call_info->gq;
+
+    // The same gap as a fraction of what this site could have produced, which is what
+    // makes it comparable across depth and ploidy. Computed here, from the raw
+    // log-likelihoods, deliberately: GQ is clamped to 256 on the way into the VCF, and
+    // that clamp censors 23% of haploid calls at full depth, so a consumer cannot
+    // reconstruct this from the emitted fields.
+    //
+    // Both sides use natural-log likelihoods, so no phred conversion is needed -- the
+    // ratio is scale-free and taking it in phred would give the same number by a longer
+    // route. The explained-share discount is applied below, once it is known.
+    double achievable_gap = 0.0;
+    if (second_best_index < scored.size() && std::isfinite(best_ll)
+        && std::isfinite(second_best_ll)) {
+        achievable_gap = matrix.achievable_gap(scored[best_index].first,
+                                               scored[second_best_index].first);
+        if (achievable_gap > 0.0) {
+            call_info->gq_fraction =
+                min(1.0, max(0.0, (best_ll - second_best_ll) / achievable_gap));
+        }
+    }
 
     // How much of the pile-up the called genotype accounts for. Reads whose best-fitting
     // allele lies outside the call are counted in *every* genotype's likelihood and so
@@ -212,6 +239,19 @@ pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> ReadLikelihoodSnarlCaller::
         // accumulation can land a hair above the read count, and a share above 1 would
         // *raise* GQ, which this is never allowed to do.
         call_info->explained_share = n ? min(1.0, explained / (double)n) : 1.0;
+
+        // GQN carries the same discount as GQ, and is not merely the raw ratio. The
+        // likelihood gap cannot see reads that fit an allele outside the call, because
+        // those enter every genotype's likelihood and cancel; normalising a quantity
+        // that is blind to them leaves it blind. Measured over the titration the
+        // discount is worth most of the remaining calibration: 0.316 without it against
+        // 0.260 with, where raw GQ scores 0.347. Applied whatever --no-share-quality
+        // says, since that flag is about what GQ reports and GQN is a different field
+        // whose whole purpose is to be comparable.
+        if (call_info->gq_fraction >= 0.0) {
+            call_info->gq_fraction *= call_info->explained_share;
+        }
+
         if (share_discount) {
             call_info->gq *= call_info->explained_share;
         }
@@ -393,6 +433,22 @@ void ReadLikelihoodSnarlCaller::update_vcf_info(const Snarl& snarl,
     variant.samples[sample_name]["GQI"].push_back(
         std::to_string(min((int)256, max((int)0, (int)info->gq_undiscounted))));
 
+    // The depth- and ploidy-normalised quality. Emitted as a fraction rather than
+    // rescaled into phred on purpose: it is a proportion of what this site could have
+    // achieved, and dressing it as a phred score would invite exactly the cross-site
+    // comparison of absolute quality that it exists to replace. "." where there was no
+    // gap to normalise, which is not the same as 0.
+    variant.format.push_back("GQN");
+    {
+        std::ostringstream gqn;
+        if (info->gq_fraction < 0.0) {
+            gqn << ".";
+        } else {
+            gqn << std::fixed << std::setprecision(3) << info->gq_fraction;
+        }
+        variant.samples[sample_name]["GQN"].push_back(gqn.str());
+    }
+
     variant.format.push_back("GP");
     variant.samples[sample_name]["GP"].push_back(std::to_string(info->posterior));
 
@@ -477,6 +533,18 @@ void ReadLikelihoodSnarlCaller::update_vcf_header(string& header) const {
     header += "##FORMAT=<ID=GQI,Number=1,Type=Integer,Description=\"Genotype Quality from the "
               "likelihood ratio alone, with no explained-read-fraction scaling. Equals GQ "
               "when --no-share-quality is in effect\">\n";
+    header += "##FORMAT=<ID=GQN,Number=1,Type=Float,Description=\"Normalised Genotype Quality: "
+              "the likelihood-ratio gap as a fraction, in [0,1], of the gap this site could have "
+              "produced had every read fitted the call perfectly. Unlike GQ it means the same "
+              "thing at any depth and any ploidy, so one threshold works across a 5x diploid and "
+              "a 15x haploid contig. GQ cannot: it scales with depth, and it scales with ploidy "
+              "the other way, because at ploidy 1 the runner-up genotype is a different allele "
+              "outright and every read discriminates fully, where a diploid heterozygote's "
+              "runner-up differs on one strand only. On HG002 that makes hemizygous chrX calls "
+              "run a median GQ of 247 where chr7 diploid homozygotes at the same depth run 46. "
+              "Dividing GQ by depth does not fix this and measurably makes it worse, since it "
+              "corrects the smaller axis and leaves the larger. '.' where there was no gap to "
+              "normalise, which is not 0\">\n";
     header += "##FORMAT=<ID=GP,Number=1,Type=Float,Description=\"Genotype Probability, the "
               "log-scaled posterior of the called genotype under a uniform prior\">\n";
     header += "##FILTER=<ID=noreads,Description=\"No informative read overlaps the site, so the "

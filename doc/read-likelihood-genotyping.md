@@ -462,6 +462,7 @@ rather than a silently unphased file.
 | `GL` | `log10 P(reads \| genotype)` for every genotype, in VCF order. |
 | `GQ` | Phred gap between best and second-best genotype, **scaled by the fraction of reads the call explains**. |
 | `GQI` | The same gap *without* that scaling. Equals `GQ` under `--no-share-quality`. |
+| `GQN` | The same gap as a **fraction of what this site could have achieved**, in `[0,1]`. Unlike `GQ` it means the same thing at any depth and any ploidy — see below. |
 | `GP` | Log-scaled posterior of the called genotype under a uniform prior. |
 | `DP` | Reads overlapping the site. |
 | `AD` | Reads whose best-fitting allele is this one. **Does not sum to `DP`** — see below. |
@@ -473,6 +474,64 @@ every genotype's likelihood and therefore cancels out of the best-versus-second-
 The likelihood ratio simply cannot see it. Scaling by the explained share restores it. The
 consequence is that `GQ` here is a *quality score for ranking*, not a calibrated posterior;
 `GQI` is the pure likelihood ratio for anyone who wants it.
+
+### `GQN`, and why `GQ` is not comparable between sites
+
+`GQ` answers "how much better is the winner than the runner-up", in absolute log-likelihood. That
+quantity is not comparable across sites, and it moves on two axes.
+
+**Depth.** The gap is a sum over reads, so it grows with coverage. Paired on identical sites across
+a coverage titration, the gap per read is close to constant (3.2 at 5x to 3.8 at 30x), so this axis
+is nearly linear — 30 reads give about twice the gap of 15.
+
+**Ploidy, which is the larger axis and the surprising one.** At ploidy 1 the runner-up genotype is a
+different allele outright, so a read that fits the call gives the runner-up nothing but the mismap
+floor. At ploidy 2 a heterozygote's runner-up differs on one strand only, so a read discriminates
+about half as much — *and only half the reads discriminate at all*, since reads from the shared
+allele fit both genotypes. Per read, at the default `--mismap-min 0.02`:
+
+| called | runner-up | achievable gap per read |
+|---|---|---|
+| `{A}` haploid | `{B}` | `−ln(0.02)` = **3.91** nats |
+| `{A,B}` diploid het | `{A,A}` | `½·(ln 0.51 − ln 1) + ½·(ln 0.51 − ln 0.02)` = **1.28** |
+| `{A,A}` diploid hom | `{A,B}` | `−ln(0.51)` = **0.67** |
+
+So a hemizygous call carries roughly six times the `GQ` of a diploid homozygote on identical
+evidence. Measured on HG002, chrX hemizygous calls run a median `GQ` of 247 where chr7 diploid
+homozygotes at the same depth run 46.
+
+`GQN` divides the observed gap by the achievable one, giving *what fraction of the discrimination
+this site could offer did the data actually deliver*. It carries the same explained-share discount
+as `GQ`, for the same reason.
+
+Two details that are easy to get wrong, both of which were got wrong first and fixed by measurement
+over a coverage titration of chr20 (diploid, 5–30x) and chrX (haploid, 2.5–14.6x). The figure quoted
+is the mean spread of observed precision at a claimed score across those arms, lower being better:
+
+- **The denominator is built at the mismap floor, not at the reads' own `e_r`.** An ideal read is
+  well-fitting *and* well-mapped. Using each read's own `e_r` folds the site's unreliability into
+  both sides of the ratio, where it cancels: a window of MAPQ-0 reads offers `−ln(0.7)` = 0.36 per
+  read, so a badly mapped site gets a denominator small enough to make a weak call look strong. That
+  version scored **0.427** — worse than not normalising at all.
+- **Both terms of the heterozygote's difference are kept.** Reads from the allele the runner-up also
+  carries actively favour the runner-up, and dropping them overstates a het's achievable gap by
+  about a quarter (1.62 against 1.28).
+
+| | mean spread |
+|---|---|
+| raw `GQ` | 0.347 |
+| `GQ / DP` | 0.494 |
+| `GQN` with per-read `e_r` | 0.427 |
+| `GQN` at the floor, no explained-share | 0.316 |
+| **`GQN` as shipped** | **0.259** |
+
+**`GQ/DP` is the tempting fix and it is worse than doing nothing.** It halves the spread on the
+diploid series alone (0.101 to 0.050), which is why it has to be checked across ploidies: it
+corrects the smaller axis, leaves the larger one, and compresses the score range so that what
+remains does more damage.
+
+`GQN` is emitted as `.` where there was no gap to normalise — no reads, or a site offering one
+genotype. That is not the same as `0` and should not be filtered as though it were.
 
 **Why `AD` does not sum to `DP`.** Two reasons: a read fitting several alleles equally splits its
 vote, and — much more importantly — only alleles that reached the VCF record get a column, while

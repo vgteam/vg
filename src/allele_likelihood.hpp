@@ -279,6 +279,60 @@ public:
      */
     double genotype_likelihood(const vector<int>& genotype) const;
 
+    /**
+     * The largest likelihood gap this site could produce between these two genotypes:
+     * what `genotype_likelihood(called) - genotype_likelihood(runner_up)` would come
+     * to if every read fitted `called` perfectly and nothing else.
+     *
+     * This exists because the raw gap -- which is what GQ reports -- is not comparable
+     * between sites, and it moves on two axes: depth and **ploidy**. Depth is the
+     * obvious one and the easy one. Ploidy is neither: at ploidy 1 the runner-up is a
+     * different allele outright, so every read discriminates fully, while at ploidy 2
+     * a heterozygote's runner-up differs on one strand only, so a read discriminates
+     * about half as much and only half the reads discriminate at all. Per read, with
+     * the mismap floor at its 0.02 default, that is 3.91 nats haploid against 1.28 for
+     * a diploid het and 0.67 for a diploid hom -- so a hemizygous call carries some six
+     * times the GQ of a diploid homozygote on identical evidence. Measured on HG002,
+     * chrX hemizygous calls run a median GQ of 247 where chr7 diploid homs at the same
+     * depth run 46.
+     *
+     * Dividing the observed gap by this one gives a fraction in [0,1] meaning the same
+     * thing at any depth and any ploidy. Measured over a coverage titration of chr20
+     * (diploid, 5-30x) and chrX (haploid, 2.5-14.6x), the mean spread of observed
+     * precision at a claimed score falls from 0.348 for raw GQ to 0.266.
+     *
+     * Dividing by depth alone does **not** work, and looks like it does if only one
+     * ploidy is checked: GQ/DP halves the spread on the diploid series (0.101 to 0.050)
+     * and makes the pooled figure worse than doing nothing (0.348 to 0.496). It removes
+     * the smaller axis, leaves the larger one, and compresses the range so that what
+     * remains does more damage.
+     *
+     * Each haplotype of `called` is taken to contribute its mixture weight's share of
+     * the reads, and such a read to have rel 1 for its own allele and 0 for every other.
+     * Both terms of the difference are kept: reads from an allele the runner-up also
+     * carries make the gap *smaller*, and dropping them overstates a heterozygote's
+     * achievable gap by about a quarter.
+     *
+     * **The reads' own e_r is deliberately not used**, which is the easy thing to get
+     * wrong here -- the first version of this used it. An ideal read is well-fitting
+     * *and* well-mapped, so the denominator is built at the mismap floor. Using each
+     * read's own e_r puts the site's unreliability into both sides of the ratio, where
+     * it cancels: a window of MAPQ-0 reads offers -ln(0.7) = 0.36 per read against
+     * -ln(0.02) = 3.91, so a badly mapped site would be scored against a denominator
+     * small enough to make a weak call look strong. Measured over the titration, that
+     * version scored 0.427 against 0.347 for raw GQ -- worse than not normalising at
+     * all -- where the floor version scores 0.260.
+     *
+     * Deliberately excludes the depth term. That term judges the read *count* against
+     * what a genotype predicts and is already scale-free; folding it in here would put
+     * a quantity that does not vanish under a perfect pileup into a denominator that is
+     * supposed to represent one.
+     *
+     * Returns 0 when there are no reads or the two genotypes are equal, so callers must
+     * guard the division rather than assume a positive denominator.
+     */
+    double achievable_gap(const vector<int>& called, const vector<int>& runner_up) const;
+
     /// Every genotype of the given ploidy over num_alleles alleles, as sorted
     /// non-decreasing index multisets in VCF genotype-ordering (colex) order, so
     /// a genotype's position in the returned vector is its GL field index.
@@ -295,10 +349,25 @@ public:
                       vector<double>&& mismap, vector<double>&& best_ln,
                       vector<string>&& names, size_t unplaceable);
 
+    /// The --mismap-min floor these reads were clamped to. Only achievable_gap uses it,
+    /// and only as the reliability an *ideal* read would have; see there for why the
+    /// reads' own e_r is the wrong thing to put in that denominator.
+    void set_mismap_floor(double floor) { this->mismap_floor = floor; }
+
 private:
+    /// Expected share of this site's reads per haplotype of the genotype: flat 1/|G|
+    /// unless lengths were supplied, in which case each haplotype is weighted by the
+    /// sequence no other member of the genotype carries. Shared by
+    /// genotype_likelihood and achievable_gap so the two cannot drift apart -- a gap
+    /// measured against different weights than the likelihood it normalises would be
+    /// meaningless.
+    vector<double> mixture_weights(const vector<int>& genotype) const;
+
     /// Row major, n_reads * n_alleles, every entry in [0,1], row max exactly 1.
     vector<double> matrix;
     vector<double> read_mismap_prob;
+    /// --mismap-min, the reliability an ideal read would have. achievable_gap only.
+    double mismap_floor = 0.02;
     /// sum_r (1 - e_r), filled in by set_contents.
     double effective_read_total = 0.0;
     vector<size_t> allele_lengths;

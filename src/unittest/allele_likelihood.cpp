@@ -636,5 +636,67 @@ TEST_CASE("An empty matrix is handled without dividing by zero", "[allele_likeli
     }
 }
 
+TEST_CASE("The achievable gap scales with ploidy, not only with depth",
+          "[allele_likelihood][achievable]") {
+    // The property the normalised quality rests on, pinned because it is the one that
+    // makes a depth-only correction insufficient. A haploid call's runner-up is a
+    // different allele outright, so every read discriminates fully; a diploid
+    // heterozygote's runner-up differs on one strand, so a read discriminates about
+    // half as much and only half the reads discriminate at all.
+    const double E = 0.02;
+    const size_t N = 20;
+    AlleleReadLikelihoodsBuilder builder(2, E, 0.7);
+    for (size_t i = 0; i < N; ++i) {
+        // Every read fits allele 0 and nothing else: the ideal pileup the gap measures.
+        builder.add_read({0.0, NEG_INF}, E);
+    }
+    AlleleReadLikelihoods matrix = builder.build();
+
+    double hap = matrix.achievable_gap({0}, {1});
+    double dip_hom = matrix.achievable_gap({0, 0}, {0, 1});
+    double dip_het = matrix.achievable_gap({0, 1}, {0, 0});
+
+    REQUIRE(hap == Approx(N * -log(E)).epsilon(0.01));
+    REQUIRE(dip_hom == Approx(N * -log(0.5 * (1 - E) + E)).epsilon(0.01));
+    // Both terms of the difference are kept: reads from an allele the runner-up also
+    // carries make the gap *smaller*. Dropping that term -- which is the natural way to
+    // write this -- overstates a heterozygote's achievable gap by about a quarter.
+    double expect_het = N * (0.5 * (log(0.5 * (1 - E) + E) - log(1.0 * (1 - E) + E))
+                             + 0.5 * (log(0.5 * (1 - E) + E) - log(E)));
+    REQUIRE(dip_het == Approx(expect_het).epsilon(0.01));
+
+    // The ordering is the point: on identical reads a hemizygous call can achieve
+    // several times what a diploid homozygote can, which is why their GQs are not
+    // comparable and why dividing both by depth does not make them so.
+    REQUIRE(hap > dip_het);
+    REQUIRE(dip_het > dip_hom);
+    REQUIRE(hap / dip_hom > 4.0);
+
+    // Linear in depth, so the ratio between ploidies does not wash out with coverage.
+    AlleleReadLikelihoodsBuilder deep(2, E, 0.7);
+    for (size_t i = 0; i < 2 * N; ++i) {
+        deep.add_read({0.0, NEG_INF}, E);
+    }
+    REQUIRE(deep.build().achievable_gap({0}, {1}) == Approx(2.0 * hap).epsilon(0.01));
+
+    // Degenerate cases give exactly 0 rather than a negative or a NaN, so a consumer
+    // dividing by this can guard with a single comparison.
+    REQUIRE(matrix.achievable_gap({0}, {0}) == Approx(0.0));
+    REQUIRE(matrix.achievable_gap({}, {1}) == Approx(0.0));
+    REQUIRE(AlleleReadLikelihoodsBuilder(2).build().achievable_gap({0}, {1}) == Approx(0.0));
+
+    // The denominator is built at the mismap *floor*, not at the reads' own e_r. A site
+    // whose reads are all badly mapped must not thereby become easy to satisfy: if the
+    // reads' own e_r were used, these MAPQ-0 reads would give -ln(0.7) = 0.36 apiece and
+    // the achievable gap would collapse to a tenth, making a weak call score near 1.
+    // Measured over the coverage titration that version calibrated worse than applying
+    // no normalisation at all (0.427 against 0.347), so this is pinned.
+    AlleleReadLikelihoodsBuilder badly_mapped(2, E, 0.7);
+    for (size_t i = 0; i < N; ++i) {
+        badly_mapped.add_read({0.0, NEG_INF}, 0.7);   // MAPQ 0, clamped to the ceiling
+    }
+    REQUIRE(badly_mapped.build().achievable_gap({0}, {1}) == Approx(hap).epsilon(0.01));
+}
+
 }
 }

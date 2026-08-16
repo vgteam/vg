@@ -110,6 +110,15 @@ public:
         /// GQ before the explained-share discount, so the discount stays auditable and a
         /// consumer that wants the raw likelihood-ratio quality can still have it.
         double gq_undiscounted = 0;
+
+        /// The likelihood-ratio gap as a fraction of the gap this site could have
+        /// produced -- see AlleleReadLikelihoods::achievable_gap. In [0,1], and unlike GQ
+        /// it means the same thing at any depth and any ploidy, which is what makes a
+        /// single threshold usable across a 5x diploid and a 15x haploid contig.
+        /// Negative when there was no gap to normalise (no reads, or a site offering one
+        /// genotype), which is not the same as 0 and must not be filtered as though it
+        /// were.
+        double gq_fraction = -1.0;
     };
 
     virtual pair<vector<int>, unique_ptr<CallInfo>> genotype(const Snarl& snarl,

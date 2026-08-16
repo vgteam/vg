@@ -83,13 +83,11 @@ static double ln_poisson_pmf(double n, double lambda) {
     return n * log(lambda) - lambda - lgamma(n + 1.0);
 }
 
-double AlleleReadLikelihoods::genotype_likelihood(const vector<int>& genotype) const {
+vector<double> AlleleReadLikelihoods::mixture_weights(const vector<int>& genotype) const {
     if (genotype.empty()) {
-        return 0.0;
+        return {};
     }
-
     double flat = 1.0 / (double)genotype.size();
-    double total = 0.0;
 
     // Expected share of this site's reads per haplotype of the genotype. Flat
     // 1/|G| unless lengths were supplied; see set_length_weights for why the flat
@@ -133,6 +131,16 @@ double AlleleReadLikelihoods::genotype_likelihood(const vector<int>& genotype) c
             weights.assign(genotype.size(), flat);
         }
     }
+    return weights;
+}
+
+double AlleleReadLikelihoods::genotype_likelihood(const vector<int>& genotype) const {
+    if (genotype.empty()) {
+        return 0.0;
+    }
+
+    double total = 0.0;
+    vector<double> weights = mixture_weights(genotype);
 
     for (size_t r = 0; r < n_reads; ++r) {
         // Marginalise over which haplotype of the genotype produced this read.
@@ -160,6 +168,69 @@ double AlleleReadLikelihoods::genotype_likelihood(const vector<int>& genotype) c
     }
 
     return total;
+}
+
+double AlleleReadLikelihoods::achievable_gap(const vector<int>& called,
+                                              const vector<int>& runner_up) const {
+    if (called.empty() || runner_up.empty() || n_reads == 0) {
+        return 0.0;
+    }
+
+    vector<double> w_called = mixture_weights(called);
+    vector<double> w_runner = mixture_weights(runner_up);
+
+    // Per distinct haplotype slot of `called`: what share of an ideal pileup it
+    // contributes, and what mixture each genotype would then show. An ideal read from
+    // allele a has rel 1 for a and 0 elsewhere, so the mixture collapses to the total
+    // weight the genotype places on a -- which is why a homozygote sees 1 and a
+    // heterozygote sees its own strand's weight.
+    struct Slot { double share, mix_called, mix_runner; };
+    vector<Slot> slots;
+    slots.reserve(called.size());
+    for (size_t i = 0; i < called.size(); ++i) {
+        int a = called[i];
+        if (a < 0 || (size_t)a >= n_alleles) {
+            // Star and missing alleles carry no sequence to discriminate on.
+            continue;
+        }
+        double mix_called = 0.0, mix_runner = 0.0;
+        for (size_t j = 0; j < called.size(); ++j) {
+            if (called[j] == a) {
+                mix_called += w_called[j];
+            }
+        }
+        for (size_t j = 0; j < runner_up.size(); ++j) {
+            if (runner_up[j] == a) {
+                mix_runner += w_runner[j];
+            }
+        }
+        slots.push_back({w_called[i], mix_called, mix_runner});
+    }
+    if (slots.empty()) {
+        return 0.0;
+    }
+
+    // The reads' *own* e_r is deliberately not used here, and this is the one thing
+    // about this function that is easy to get wrong -- the first version used it.
+    //
+    // An ideal read is well-fitting *and* well-mapped, so the denominator is built at
+    // the mismap floor. Using each read's own e_r instead folds the site's unreliability
+    // into both sides of the ratio, where it cancels: a window of MAPQ-0 reads has
+    // -ln(0.7) = 0.36 of achievable gap per read against -ln(0.02) = 3.91, so a badly
+    // mapped site is scored against a denominator small enough to make a weak call look
+    // strong. Measured over the titration, the per-read-e_r version scored 0.427 against
+    // 0.347 for raw GQ -- worse than no normalisation at all -- while the floor version
+    // scores 0.260.
+    double e = mismap_floor;
+    double per_read = 0.0;
+    for (const Slot& s : slots) {
+        per_read += s.share * (log((1.0 - e) * s.mix_called + e)
+                               - log((1.0 - e) * s.mix_runner + e));
+    }
+    double total = per_read * (double)n_reads;
+
+    // Identical genotypes give exactly 0, and floating point can drift a hair below.
+    return max(total, 0.0);
 }
 
 vector<vector<int>> AlleleReadLikelihoods::enumerate_genotypes(size_t num_alleles, int ploidy) {
@@ -279,6 +350,7 @@ AlleleReadLikelihoods AlleleReadLikelihoodsBuilder::build() {
     AlleleReadLikelihoods result;
     result.set_contents(n_reads, n_alleles, std::move(matrix), std::move(mismap_probs),
                         std::move(best_lns), std::move(names), unplaceable);
+    result.set_mismap_floor(min_mismap);
     if (!allele_lengths.empty() && read_length_count > 0) {
         result.set_length_weights(allele_lengths, read_length_total / (double)read_length_count);
         result.set_unique_lengths(std::move(unique_lengths));
