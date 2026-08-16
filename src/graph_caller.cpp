@@ -682,20 +682,45 @@ void VCFOutputCaller::apply_linkage_change(string& line,
         return;
     }
 
+    // A haploid record's GT is a bare allele, not a pair, so its expected and replacement strings
+    // have to be written that way. Building "i/j" regardless made the guard below reject every
+    // haploid change: the linkage layer did the work, reported it in the progress line, and then
+    // dropped all of it on the floor. chrY and non-pseudoautosomal chrX got no linkage correction
+    // at all, silently -- and worse, the phasing and the mosaic are built from the *post*-linkage
+    // genotypes, so the mosaic described genotypes the VCF did not contain.
+    //
+    // Ploidy is read off the record rather than off the change, because the record is what is
+    // being patched. At ploidy 1 the collector sets both allele slots to the same value, so either
+    // one is the allele.
+    bool haploid_record = values[gt_field].find('/') == string::npos
+                          && values[gt_field].find('|') == string::npos;
+
     // Guard. Two records can share a (contig, position) -- a nested site under -A, for one -- and
     // patching the wrong one would be silent. Only replace a genotype that is the one the per-site
     // model actually chose at the site this change came from.
     {
-        string expected = std::to_string(change.called_i) + "/" + std::to_string(change.called_j);
-        string expected_alt = std::to_string(change.called_j) + "/" + std::to_string(change.called_i);
         string current = values[gt_field];
         std::replace(current.begin(), current.end(), '|', '/');
-        if (current != expected && current != expected_alt) {
-            return;
+        if (haploid_record) {
+            if (change.called_i != change.called_j
+                || current != std::to_string(change.called_i)) {
+                return;
+            }
+        } else {
+            string expected = std::to_string(change.called_i) + "/"
+                              + std::to_string(change.called_j);
+            string expected_alt = std::to_string(change.called_j) + "/"
+                                  + std::to_string(change.called_i);
+            if (current != expected && current != expected_alt) {
+                return;
+            }
         }
     }
 
-    values[gt_field] = std::to_string(change.allele_i) + "/" + std::to_string(change.allele_j);
+    values[gt_field] = haploid_record
+                           ? std::to_string(change.allele_i)
+                           : std::to_string(change.allele_i) + "/"
+                                 + std::to_string(change.allele_j);
     if (gq_field != keys.size()) {
         // GQ becomes the phred-scaled complement of the posterior, which is what the quality means
         // once a posterior exists -- then discounted by the explained-read share, exactly as the

@@ -9,7 +9,7 @@ PATH=../bin:$PATH # for vg
 # FORMAT field shifts every later one, which broke four assertions here that were not
 # testing field order at all -- one of them silently compared BL against a GQ threshold.
 
-plan tests 265
+plan tests 266
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -494,6 +494,22 @@ is $(if [ $(grep -vc "^#" rl_hap_mosaic.tsv) -gt 0 ]; then echo 1; else echo 0; 
    "a haploid chain still produces mosaic segments"
 is $(grep -v "^#" rl_hap_mosaic.tsv | awk -F'\t' '$9 == "?" {n++} END {print n+0}') "0" \
    "every haploid mosaic segment names a known haplotype"
+
+# A haploid record's GT is a bare allele, and apply_linkage_change used to build the genotype it
+# expected as "i/j" regardless. The guard therefore rejected every haploid change: the linkage
+# layer did the work, said so in the progress line, and dropped all of it -- so chrY and
+# non-pseudoautosomal chrX got no linkage correction, and the mosaic (built from the *post*-linkage
+# genotypes) described genotypes the VCF did not contain.
+#
+# Stated as an implication so it can never pass vacuously: if the layer reports changes, the output
+# must differ from the same run with the layer off.
+vg call x.gbz --read-likelihood --gam sim.gam -d 1 --linkage-weight 0 2>/dev/null | grep -v "^#" > rl_hap_lw0.vcf
+vg call x.gbz --read-likelihood --gam sim.gam -d 1 --linkage-weight 8 --progress 2>rl_hap_lw8.err | grep -v "^#" > rl_hap_lw8.vcf
+HAP_CHANGED=$(grep -o '[0-9]* genotypes changed' rl_hap_lw8.err | awk '{print $1}')
+HAP_CHANGED=${HAP_CHANGED:-0}
+is $(if [ "${HAP_CHANGED}" -eq 0 ] || ! cmp -s rl_hap_lw0.vcf rl_hap_lw8.vcf; then echo 1; else echo 0; fi) "1" \
+   "haploid linkage changes reach the VCF rather than being dropped by the genotype guard"
+rm -f rl_hap_lw0.vcf rl_hap_lw8.vcf rl_hap_lw8.err
 
 # Phasing is the linkage layer's path, so asking for it with the layer switched off cannot be
 # quietly satisfied by writing unphased output.

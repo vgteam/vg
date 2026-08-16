@@ -604,6 +604,14 @@ are BED half-open and 0-based, so `[0, E)` covers VCF POS `1..E`. Anything no in
 the ploidy from `-d`/`--ploidy-regex`. Overlapping intervals are rejected rather than resolved by
 precedence — a BED saying two things about one base has no correct reading.
 
+**Haploid linkage reaches the VCF.** It did not always: a haploid record's `GT` is a bare allele,
+and the code that patched genotypes after the linkage pass built the genotype it expected as
+`"i/j"` regardless, so its guard rejected every haploid change. The layer ran, reported the changes
+in the progress line, and discarded them -- chrY and non-pseudoautosomal chrX received no linkage
+correction at all, and because phasing and the mosaic are built from the *post*-linkage genotypes,
+the mosaic described genotypes the VCF did not contain. Measured after the fix, haploid linkage is
+worth **+0.017 F1** at 2.5x and **+0.008** at 14.6x on chrX.
+
 **Linkage and the mosaic break at every ploidy boundary.** A chain is a maximal run of one ploidy
 on one contig, not a whole contig. That is not a limitation to work around: the transition model
 moves probability between adjacent sites through *pairs* of panel haplotypes, and across a ploidy
