@@ -533,6 +533,69 @@ remains does more damage.
 `GQN` is emitted as `.` where there was no gap to normalise — no reads, or a site offering one
 genotype. That is not the same as `0` and should not be filtered as though it were.
 
+### Using `GQN` — practical guide
+
+**The one rule to take away: do not threshold `GQ` on low-coverage data.** Requiring `GQ ≥ 10`
+takes a 5x diploid contig's F1 from **0.888 to 0.669**, because at that depth roughly half the true
+calls sit below it. `GQ` is an absolute likelihood ratio, so its scale moves with both depth and
+ploidy. `GQN` is the same evidence expressed as a fraction of what the site could have delivered,
+so one number means the same thing everywhere.
+
+Filter with either the caller or `bcftools` — they are equivalent, and the flag only exists so you
+do not have to post-process:
+
+```bash
+vg call ... --read-likelihood --min-confidence 0.05        # marks as FILTER=lowconf
+bcftools view -i 'FMT/GQN>=0.05' calls.vcf.gz              # same threshold, after the fact
+bcftools view -f PASS calls.vcf.gz                         # drop what --min-confidence marked
+```
+
+`--min-confidence` **marks, never drops**, so nothing is lost by using it and a downstream
+`bcftools view -f PASS` completes the job when you want the records gone.
+
+#### What a threshold buys, measured
+
+At `GQN ≥ 0.05`, over a coverage titration of chr20 (diploid) and chrX non-PAR (haploid):
+
+| input | precision | recall | F1 |
+|---|---|---|---|
+| 5x diploid | 0.9712 → **0.9759** | 0.8174 → 0.7993 | 0.8877 → 0.8788 |
+| 30x diploid | 0.9828 → **0.9863** | 0.9230 → 0.9139 | 0.9520 → 0.9487 |
+| 2.5x haploid | 0.8863 → **0.9256** | 0.8047 → 0.7936 | 0.8435 → **0.8545** |
+| 14.6x haploid | 0.9389 → **0.9840** | 0.9280 → 0.9184 | 0.9334 → **0.9501** |
+
+Precision rises on **every** arm for one to two points of recall. F1 improves on the haploid arms
+and falls slightly on the diploid ones.
+
+#### Choosing a threshold
+
+**There is no good default, and that is a finding rather than an omission.** F1 weights precision
+and recall equally; under that weighting a threshold helps haploid contigs and hurts diploid ones,
+so no single value wins everywhere. Which error you would rather make is not something the caller
+can know. Hence:
+
+| your situation | suggestion |
+|---|---|
+| diploid autosomes, any coverage | **no threshold**. Low coverage already costs recall; a filter costs more. |
+| haploid contigs (male chrX/chrY) | **`--min-confidence 0.05`**. Low coverage costs *precision* there, and this is worth +0.017 F1 at 14.6x. |
+| precision matters more than recall | **`--min-confidence 0.05`**, any ploidy. Raises precision everywhere for 1–2% recall. |
+| you were going to filter on `GQ` | use `GQN` instead — see the first paragraph. |
+
+Values above ~0.15 buy little further precision and cost recall steadily; 0.05 is where the curve
+turns on every arm measured.
+
+#### Reading a value
+
+`GQN` is *the fraction of the discrimination this site could offer that the data actually
+delivered*. `0.8` means the reads did 80% of what a perfect pile-up would have done here; `0.02`
+means the site had the potential to be decisive and the reads were not. It is bounded in `[0,1]`
+by construction, so a value near 1 is as good as this site gets — not as good as some other site
+gets, which is exactly the comparison `GQ` cannot support.
+
+Two things it is **not**. It is not a calibrated probability: `GQN = 0.5` does not mean a 50%
+chance of being right. And it is not comparable to `GQ` numerically — they are different scales,
+and `GQI` remains the raw likelihood ratio for anyone who wants it.
+
 **Why `AD` does not sum to `DP`.** Two reasons: a read fitting several alleles equally splits its
 vote, and — much more importantly — only alleles that reached the VCF record get a column, while
 the genotyper scored every allele the site offered. Where many alleles were enumerated and few
