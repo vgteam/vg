@@ -37,6 +37,11 @@ void ReadLikelihoodSnarlCaller::set_depth_quality(double exponent, size_t min_le
     this->depth_quality_min_length = min_length;
 }
 
+void ReadLikelihoodSnarlCaller::set_ploidy_conflict(double threshold, double floor) {
+    this->ploidy_conflict_threshold = threshold;
+    this->ploidy_conflict_floor = floor;
+}
+
 void ReadLikelihoodSnarlCaller::set_support_available(bool available) {
     this->support_available = available;
 }
@@ -255,6 +260,47 @@ pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> ReadLikelihoodSnarlCaller::
         if (share_discount) {
             call_info->gq *= call_info->explained_share;
         }
+
+        // Ploidy consistency. The pile-up a genotype implies is not just a read *count*
+        // -- which is what DR tests -- but a read *split*: at ploidy p a read should sit
+        // on one of the p haplotypes called, and a competing allele should hold no more
+        // than the error floor. Where it holds much more, the site is not the ploidy it
+        // is being called at. Under ploidy 1 that has no expression at all in the
+        // genotype space -- a 50/50 pile-up has no haploid genotype, so the model must
+        // pick one allele on almost no evidence -- which is how two diverged copies
+        // collapsed onto one locus become confident false positives.
+        //
+        // Tested against sampling noise rather than thresholded raw. The share alone
+        // cannot carry a threshold across depths: two reads of five is unremarkable
+        // where fifteen of thirty is impossible. Measured over the titration, a raw
+        // 0.35 share separates true from false calls only 2.5x better than chance on a
+        // 5x diploid contig, where this statistic holds 10-44x across every arm.
+        {
+            double competing = 0.0;
+            for (size_t a = 0; a < call_info->allele_support.size(); ++a) {
+                if (!seen.count((int)a)) {
+                    competing = max(competing, call_info->allele_support[a]);
+                }
+            }
+            // The single best competitor, not the sum: a site offering many near-identical
+            // alleles splits stray reads between them, and summing would fire on allele
+            // multiplicity rather than on a genuine second copy.
+            double total = explained + competing;
+            if (total > 0.0) {
+                call_info->conflict_share = competing / total;
+                double expected = total * ploidy_conflict_floor;
+                double variance = total * ploidy_conflict_floor * (1.0 - ploidy_conflict_floor);
+                if (variance > 0.0 && competing > expected) {
+                    // One-sided: fewer competing reads than the floor allows is a clean
+                    // site, not a conflict, and must never raise the statistic.
+                    double d = competing - expected;
+                    call_info->ploidy_conflict = d * d / variance;
+                } else {
+                    call_info->ploidy_conflict = 0.0;
+                }
+            }
+        }
+
         call_info->depth_ratio = matrix.depth_ratio(called);
 
         // The depth-implausibility discount, gated on called-allele size. See
@@ -449,6 +495,28 @@ void ReadLikelihoodSnarlCaller::update_vcf_info(const Snarl& snarl,
         variant.samples[sample_name]["GQN"].push_back(gqn.str());
     }
 
+    // Allele balance against the call, and the same observation tested against sampling
+    // noise. Emitted whether or not the FILTER is armed, so the signal can be measured
+    // on a run whose output it does not itself change -- the order --depth-quality was
+    // established in.
+    variant.format.push_back("AB");
+    variant.format.push_back("PC");
+    {
+        std::ostringstream ab, pc;
+        if (info->conflict_share < 0.0) {
+            ab << ".";
+        } else {
+            ab << std::fixed << std::setprecision(3) << info->conflict_share;
+        }
+        if (info->ploidy_conflict < 0.0) {
+            pc << ".";
+        } else {
+            pc << std::fixed << std::setprecision(1) << info->ploidy_conflict;
+        }
+        variant.samples[sample_name]["AB"].push_back(ab.str());
+        variant.samples[sample_name]["PC"].push_back(pc.str());
+    }
+
     variant.format.push_back("GP");
     variant.samples[sample_name]["GP"].push_back(std::to_string(info->posterior));
 
@@ -485,6 +553,12 @@ void ReadLikelihoodSnarlCaller::update_vcf_info(const Snarl& snarl,
     variant.filter = "PASS";
     if (info->n_informative == 0) {
         variant.filter = "noreads";
+    } else if (ploidy_conflict_threshold > 0.0
+               && info->ploidy_conflict > ploidy_conflict_threshold) {
+        // Marked, never dropped. The record and its genotype stand; what this says is
+        // that the pile-up is not one this ploidy can produce, so a consumer that cares
+        // about that can act and one that does not is unaffected.
+        variant.filter = "ploidy_conflict";
     }
 }
 
@@ -547,6 +621,26 @@ void ReadLikelihoodSnarlCaller::update_vcf_header(string& header) const {
               "normalise, which is not 0\">\n";
     header += "##FORMAT=<ID=GP,Number=1,Type=Float,Description=\"Genotype Probability, the "
               "log-scaled posterior of the called genotype under a uniform prior\">\n";
+    header += "##FORMAT=<ID=AB,Number=1,Type=Float,Description=\"Allele Balance against the call: "
+              "the fraction of supporting reads sitting on the strongest allele the genotype does "
+              "not carry. 0 means the call accounts for the whole pile-up. Under ploidy 1 a value "
+              "near 0.5 is a pile-up no haploid genotype can produce -- the signature of two "
+              "diverged copies collapsed onto one locus -- and the model must then pick one allele "
+              "on almost no evidence. Under ploidy 2 a value near 0.33 says the same about a third "
+              "copy. Not a threshold on its own: see PC\">\n";
+    header += "##FORMAT=<ID=PC,Number=1,Type=Float,Description=\"Ploidy Conflict: AB tested "
+              "against sampling noise, as a one-sided chi-square with one degree of freedom for "
+              "more reads sitting outside the call than the error floor allows. AB alone cannot "
+              "carry a threshold across depths -- two reads of five is unremarkable where fifteen "
+              "of thirty is impossible -- so this is what the ploidy_conflict FILTER acts on. "
+              "Measured over a coverage titration, thresholding AB at 0.35 enriches for false "
+              "calls 2.5x on a 5x diploid contig against 51x on a 15x haploid one, where PC holds "
+              "10-44x across every arm\">\n";
+    header += "##FILTER=<ID=ploidy_conflict,Description=\"PC above --ploidy-conflict: the reads "
+              "are split in a way this ploidy cannot produce, so the site is probably not the "
+              "ploidy it was called at -- usually collapsed paralogous copies. The record and its "
+              "genotype stand; this marks them rather than dropping them. Off unless "
+              "--ploidy-conflict is given\">\n";
     header += "##FILTER=<ID=noreads,Description=\"No informative read overlaps the site, so the "
               "read-level model has no evidence either way\">\n";
 }

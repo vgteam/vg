@@ -163,6 +163,15 @@ void help_call(char** argv) {
          << "                            read count is implausible for the sequence it claims" << endl
          << "                            ranks lower. Ranking only; no genotype changes. 0 is" << endl
          << "                            off [0]" << endl
+         << "      --ploidy-conflict X   mark records whose reads are split in a way this ploidy" << endl
+         << "                            cannot produce, as FILTER=ploidy_conflict, when the PC" << endl
+         << "                            statistic exceeds X. Catches paralogous copies collapsed" << endl
+         << "                            onto one locus, which under ploidy 1 have no genotype at" << endl
+         << "                            all and so become confident false positives -- two such" << endl
+         << "                            loci carry 29% of chrX's errors. Marks, never drops; no" << endl
+         << "                            genotype changes. AB and PC are emitted either way. 10" << endl
+         << "                            flags 66% of false calls on a 15x haploid contig for" << endl
+         << "                            2% of true ones. 0 is off [0]" << endl
          << "" << endl
          << "  debugging:" << endl
          << "      --dump-likelihoods F  write the per-site read/allele matrix to F as TSV" << endl
@@ -303,6 +312,7 @@ int main_call(int argc, char** argv) {
     bool no_mismap_term = false;
     bool no_share_quality = false;
     double depth_quality = 0.0;
+    double ploidy_conflict = 0.0;
     double linkage_weight = 2.0;
     /// Whether a weight was asked for, as opposed to inherited from the default. The two must
     /// behave differently where linkage is impossible: an explicit request has to fail loudly, and
@@ -351,6 +361,7 @@ int main_call(int argc, char** argv) {
     constexpr int OPT_DEPTH_TERM = 1025;
     constexpr int OPT_DEPTH_COUNT_RAW = 1026;
     constexpr int OPT_DEPTH_QUALITY = 1027;
+    constexpr int OPT_PLOIDY_CONFLICT = 1041;
     constexpr int OPT_LINKAGE_WEIGHT = 1028;
     constexpr int OPT_LINKAGE_SCALE = 1030;
     constexpr int OPT_LINKAGE_FREQ_PRIOR = 1031;
@@ -405,6 +416,7 @@ int main_call(int argc, char** argv) {
             {"depth-term", required_argument, 0, OPT_DEPTH_TERM},
             {"depth-count-raw", no_argument, 0, OPT_DEPTH_COUNT_RAW},
             {"depth-quality", required_argument, 0, OPT_DEPTH_QUALITY},
+            {"ploidy-conflict", required_argument, 0, OPT_PLOIDY_CONFLICT},
             {"linkage-weight", required_argument, 0, OPT_LINKAGE_WEIGHT},
             {"linkage-scale", required_argument, 0, OPT_LINKAGE_SCALE},
             {"linkage-freq-prior", required_argument, 0, OPT_LINKAGE_FREQ_PRIOR},
@@ -591,6 +603,9 @@ int main_call(int argc, char** argv) {
             break;
         case OPT_DEPTH_QUALITY:
             depth_quality = parse<double>(optarg);
+            break;
+        case OPT_PLOIDY_CONFLICT:
+            ploidy_conflict = parse<double>(optarg);
             break;
         case OPT_LINKAGE_WEIGHT:
             linkage_weight = parse<double>(optarg);
@@ -921,7 +936,8 @@ int main_call(int argc, char** argv) {
             "--gam", "--gaf-reads", "--gam-index", "--gaf-base", "--gbz-base",
             "--gaf-base-binary", "--read-window", "--read-min-mapq", "--no-mismap-term",
             "--depth-term", "--depth-count-raw", "--linkage-weight", "--linkage-scale",
-            "--linkage-freq-prior", "--depth-quality", "--flat-mixture", "--no-share-quality",
+            "--linkage-freq-prior", "--depth-quality", "--ploidy-conflict", "--flat-mixture",
+            "--no-share-quality",
             "--mismap-max", "--mismap-min", "--dump-likelihoods", "--enumerate-support",
             "--phased", "--mosaic-out"};
         vector<string> offenders;
@@ -1426,6 +1442,7 @@ int main_call(int argc, char** argv) {
             rl_caller->set_support_available(!support_free);
             rl_caller->set_share_discount(!no_share_quality);
             rl_caller->set_depth_quality(depth_quality);
+            rl_caller->set_ploidy_conflict(ploidy_conflict);
 
             packed_caller = rl_caller;
         } else if (ratio_caller == false) {

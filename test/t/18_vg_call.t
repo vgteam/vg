@@ -9,7 +9,7 @@ PATH=../bin:$PATH # for vg
 # FORMAT field shifts every later one, which broke four assertions here that were not
 # testing field order at all -- one of them silently compared BL against a GQ threshold.
 
-plan tests 246
+plan tests 251
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -158,8 +158,32 @@ is "$?" "0" "vg call --read-likelihood runs"
 # Address FORMAT fields by NAME, never by position. This block previously hard-coded
 # "GT:DP:GL:GQ:GP" and read GL from sub-field 3; adding AD, BL and GQI moved GL to 5 and
 # broke three assertions at once, none of which was testing field order.
-RL_MISSING=$(grep -v "^#" HGSVC_rl.vcf | awk -F'\t' '{nk=split($9,k,":"); need="GT DP GL GQ GP AD BL GQI GQN"; m=split(need,w," "); for(i=1;i<=m;i++){found=0; for(j=1;j<=nk;j++) if(k[j]==w[i]) found=1; if(!found){print; next}}}' | wc -l | tr -d ' ')
+RL_MISSING=$(grep -v "^#" HGSVC_rl.vcf | awk -F'\t' '{nk=split($9,k,":"); need="GT DP GL GQ GP AD BL GQI GQN AB PC"; m=split(need,w," "); for(i=1;i<=m;i++){found=0; for(j=1;j<=nk;j++) if(k[j]==w[i]) found=1; if(!found){print; next}}}' | wc -l | tr -d ' ')
 is "${RL_MISSING}" "0" "every read-likelihood record carries the full FORMAT field set"
+
+# AB is a fraction of the supporting reads, so it is bounded. PC is a chi-square, so it
+# is non-negative -- a negative value would mean the one-sided test had picked up a sign.
+ABPC_RANGE=$(grep -v "^#" HGSVC_rl.vcf | awk -F'\t' '{nk=split($9,k,":"); ai=0; pi=0; for(j=1;j<=nk;j++){if(k[j]=="AB") ai=j; if(k[j]=="PC") pi=j} if(ai==0||pi==0){print; next} split($10,f,":"); if (f[ai]!="." && (f[ai]+0 < 0 || f[ai]+0 > 1)) print; else if (f[pi]!="." && f[pi]+0 < 0) print}' | wc -l | tr -d ' ')
+is "${ABPC_RANGE}" "0" "AB is a fraction in [0,1] and PC is never negative"
+
+# A clean call must not be flagged as a ploidy conflict: AB near 0 means the genotype
+# accounts for the pile-up, and PC must then be near 0 whatever the depth.
+CLEAN_CONFLICT=$(grep -v "^#" HGSVC_rl.vcf | awk -F'\t' '{nk=split($9,k,":"); ai=0; pi=0; for(j=1;j<=nk;j++){if(k[j]=="AB") ai=j; if(k[j]=="PC") pi=j} split($10,f,":"); if (f[ai]!="." && f[pi]!="." && f[ai]+0 == 0 && f[pi]+0 > 0) print}' | wc -l | tr -d ' ')
+is "${CLEAN_CONFLICT}" "0" "a call explaining its whole pile-up never registers a ploidy conflict"
+
+# The FILTER is off unless asked for, so the default run must never emit it. This is what
+# keeps the field measurable against a baseline it does not itself move.
+vg call HGSVC_rl.xg -k HGSVC_rl.pack --read-likelihood --gam call/HGSVC_chr22_17119590_17880307.gam -t 1 2>/dev/null | grep -v "^#" | awk -F'\t' '$7=="ploidy_conflict"' | wc -l | tr -d ' ' > pc_default.txt
+is "$(cat pc_default.txt)" "0" "ploidy_conflict does not fire without --ploidy-conflict"
+
+# ...and an absurdly low threshold must fire it, or the flag is not wired to anything.
+vg call HGSVC_rl.xg -k HGSVC_rl.pack --read-likelihood --ploidy-conflict 0.0001 --gam call/HGSVC_chr22_17119590_17880307.gam -t 1 2>/dev/null > HGSVC_rl_pc.vcf
+PC_FIRED=$(grep -v "^#" HGSVC_rl_pc.vcf | awk -F'\t' '$7=="ploidy_conflict"' | wc -l | tr -d ' ')
+is $(test "${PC_FIRED}" -gt 0 && echo 1 || echo 0) "1" "--ploidy-conflict at a low threshold marks records"
+
+# Marked, never dropped: the flagged run must carry exactly the same records as the plain
+# one. A filter that silently removed calls would change recall without saying so.
+is "$(grep -vc '^#' HGSVC_rl_pc.vcf)" "$(grep -vc '^#' HGSVC_rl.vcf)" "--ploidy-conflict marks records rather than dropping them"
 
 # GQN is a fraction of what the site could have achieved, so it is bounded. An
 # unbounded value would mean the denominator had gone wrong -- which is exactly the

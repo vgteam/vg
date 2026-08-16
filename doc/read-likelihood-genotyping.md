@@ -467,6 +467,8 @@ rather than a silently unphased file.
 | `DP` | Reads overlapping the site. |
 | `AD` | Reads whose best-fitting allele is this one. **Does not sum to `DP`** — see below. |
 | `DR` | `N_eff / λ_G` at the called genotype — see [above](#dr-the-depth-ratio). `1.0` means the read count matches the call. Absent where the ratio is undefined. |
+| `AB` | Fraction of supporting reads sitting on the strongest allele the call does *not* carry. `0` means the genotype accounts for the whole pile-up. |
+| `PC` | `AB` tested against sampling noise — what the `ploidy_conflict` FILTER acts on. See below. |
 | `BL` | Mean over reads of the best raw alignment score any allele gave them. |
 
 **Why `GQ` is scaled.** A read whose best-fitting allele lies *outside* the called genotype enters
@@ -538,6 +540,53 @@ vote, and — much more importantly — only alleles that reached the VCF record
 the genotyper scored every allele the site offered. Where many alleles were enumerated and few
 emitted, most reads best-fit something absent from the record. That shortfall is itself
 informative: it is how much of the evidence the emitted alleles fail to explain.
+
+### `AB`, `PC`, and the `ploidy_conflict` FILTER
+
+`DR` asks whether the read *count* matches the call. `AB` and `PC` ask whether the read *split*
+does — a different question with a different failure behind it.
+
+At ploidy p a read should sit on one of the p haplotypes called, and a competing allele should hold
+no more than the error floor. Where it holds much more, **the site is not the ploidy it is being
+called at**, and the usual cause is two diverged paralogous copies collapsed onto one locus, with
+reads from both piling onto the same place.
+
+Under ploidy 2 this is survivable: a 50/50 split *is* a genotype, so the model calls a
+heterozygote and is at worst half wrong. **Under ploidy 1 there is no such genotype.** A balanced
+pile-up has no haploid explanation at all, so the model must pick one allele on almost no
+evidence — and roughly half the time it picks the wrong one, with a likelihood gap near zero. This
+is not hypothetical: on HG002's chrX, two ~200 kb paralogous loci produce 29% of the whole
+chromosome's false positives, and their false calls have a median `AB` of 0.375.
+
+**Why `PC` and not `AB` directly.** `AB` cannot carry a threshold across depths — two reads of five
+is unremarkable where fifteen of thirty is impossible. `PC` is the same observation as a one-sided
+chi-square against sampling noise. Measured over a coverage titration, thresholding `AB` at 0.35
+enriches for false calls only 2.5× on a 5x diploid contig against 51× on a 15x haploid one, which
+is not a usable filter; `PC` holds 10–44× across every arm.
+
+`--ploidy-conflict X` marks records with `PC > X` as `FILTER=ploidy_conflict`. At `X = 10`,
+dropping the marked records gives:
+
+| arm | precision, all records | precision, PASS only | TP marked |
+|---|---|---|---|
+| chr20 5x (diploid) | 0.9712 | 0.9721 | 0.3% |
+| chr20 30x (diploid) | 0.9828 | 0.9874 | 1.2% |
+| chrX 2.5x (haploid) | 0.8863 | 0.8949 | 1.0% |
+| **chrX 14.6x (haploid)** | **0.9389** | **0.9843** | 3.9% |
+
+The haploid contig at depth is where the pathology lives and where the gain is: +0.045 precision.
+Inside the two paralogous loci it marks 85% of the false calls — and also 41% of the true ones,
+which is the honest behaviour rather than a defect: in a collapsed region even the correct calls
+sit on contaminated pile-ups, and what the filter is really saying is that the *locus* cannot be
+trusted at this ploidy.
+
+**Marks, never drops.** The record and its genotype stand. **Off by default**, like
+`--depth-quality` and for the same reason: `AB` and `PC` are emitted either way, so the signal can
+be measured on a run whose output it does not itself change.
+
+The right fix for a region like that is not a filter but the correct ploidy — see
+`--ploidy-regex`, and note that `vg call` currently takes ploidy per contig, so a locus that is
+diploid inside a haploid contig cannot yet be expressed.
 
 **`--depth-quality A`** scales `GQ` by `exp(−A · |ln DR|)` at records whose called alleles change
 length by at least 50 bp, so a call whose read count is implausible for the sequence it claims
@@ -612,6 +661,7 @@ Every flag below requires `--read-likelihood`; `vg call` errors if one is passed
 |---|---|---|
 | `--no-share-quality` | off | Report `GQ` as the raw likelihood ratio, so `GQ == GQI`. |
 | `--depth-quality A` | 0 (off) | Scale `GQ` by `exp(−A·|ln DR|)` at records whose called alleles change length by ≥ 50 bp. |
+| `--ploidy-conflict X` | 0 (off) | Mark records with `PC > X` as `FILTER=ploidy_conflict` — the reads are split in a way this ploidy cannot produce. Marks, never drops. 10 is the measured working value. |
 
 ### Debugging
 
