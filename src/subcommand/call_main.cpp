@@ -221,6 +221,15 @@ void help_call(char** argv) {
          << "  -o, --ref-offset N        offset in reference path (may repeat; 1 per path)" << endl
          << "  -l, --ref-length N        override reference length for output VCF contig" << endl
          << "  -d, --ploidy N            ploidy of sample. {1, 2} [2]" << endl
+         << "      --ploidy-bed FILE     BED of CHROM START END PLOIDY setting ploidy per region," << endl
+         << "                            overriding -d/-R where an interval covers a site. CHROM is" << endl
+         << "                            the contig as the output VCF spells it (chrX, not" << endl
+         << "                            CHM13#0#chrX); intervals are 0-based half-open and must" << endl
+         << "                            not overlap. Lets one run call a male chrX haploid outside" << endl
+         << "                            the pseudoautosomal regions and diploid inside them, which" << endl
+         << "                            per-contig ploidy cannot express and which otherwise needs" << endl
+         << "                            two runs spliced together. Linkage and the mosaic break at" << endl
+         << "                            each ploidy boundary, as they did at the splice" << endl
          << "  -R, --ploidy-regex RULES  use this comma-separated list of colon-delimited" << endl
          << "                            REGEX:PLOIDY rules to assign ploidies to contigs" << endl
          << "                            not visited by the selected samples, or to all" << endl
@@ -280,6 +289,7 @@ int main_call(int argc, char** argv) {
     int ploidy = 2;
     // copied over from vg sim
     std::vector<std::pair<std::regex, size_t>> ploidy_rules;
+    string ploidy_bed_filename;
 
     bool traversals_only = false;
     bool gaf_output = false;
@@ -372,6 +382,7 @@ int main_call(int argc, char** argv) {
     constexpr int OPT_DEPTH_QUALITY = 1027;
     constexpr int OPT_PLOIDY_CONFLICT = 1041;
     constexpr int OPT_MIN_CONFIDENCE = 1042;
+    constexpr int OPT_PLOIDY_BED = 1043;
     constexpr int OPT_LINKAGE_WEIGHT = 1028;
     constexpr int OPT_LINKAGE_SCALE = 1030;
     constexpr int OPT_LINKAGE_FREQ_PRIOR = 1031;
@@ -408,6 +419,7 @@ int main_call(int argc, char** argv) {
             {"ref-length", required_argument, 0, 'l'},
             {"ploidy", required_argument, 0, 'd'},
             {"ploidy-regex", required_argument, 0, 'R'},
+            {"ploidy-bed", required_argument, 0, OPT_PLOIDY_BED},
             {"gaf", no_argument, 0, 'G'},
             {"traversals", no_argument, 0, 'T'},
             {"trav-padding", required_argument, 0, 'M'},
@@ -620,6 +632,9 @@ int main_call(int argc, char** argv) {
             break;
         case OPT_MIN_CONFIDENCE:
             min_confidence = parse<double>(optarg);
+            break;
+        case OPT_PLOIDY_BED:
+            ploidy_bed_filename = optarg;
             break;
         case OPT_LINKAGE_WEIGHT:
             linkage_weight = parse<double>(optarg);
@@ -1642,6 +1657,17 @@ int main_call(int argc, char** argv) {
                                               genotype_snarls,
                                               make_pair(min_allele_len, max_allele_len)));
         }
+    }
+
+    // Per-region ploidy, if given. Applied to whichever caller was built: every one of them
+    // derives from VCFOutputCaller, which is where the override map and its lookup live.
+    if (!ploidy_bed_filename.empty()) {
+        VCFOutputCaller* ploidy_target = dynamic_cast<VCFOutputCaller*>(graph_caller.get());
+        if (ploidy_target == nullptr) {
+            cerr << "error [vg call]: --ploidy-bed needs a caller that emits VCF" << endl;
+            return 1;
+        }
+        ploidy_target->set_ploidy_regions(ploidy_bed_filename);
     }
 
     // Owned here because write_variants(), at the very end of main, consumes the collector.

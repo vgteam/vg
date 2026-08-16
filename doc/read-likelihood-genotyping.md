@@ -585,8 +585,41 @@ trusted at this ploidy.
 be measured on a run whose output it does not itself change.
 
 The right fix for a region like that is not a filter but the correct ploidy — see
-`--ploidy-regex`, and note that `vg call` currently takes ploidy per contig, so a locus that is
-diploid inside a haploid contig cannot yet be expressed.
+[`--ploidy-bed`](#ploidy-by-region).
+
+### Ploidy by region
+
+`-d` and `--ploidy-regex` set ploidy per *contig*, which cannot express the case that actually
+arises. A male sample's chrX is haploid **except** in the pseudoautosomal regions, where X and Y
+recombine and two copies are present. `--ploidy-bed FILE` takes a BED of `CHROM START END PLOIDY`
+and overrides the contig ploidy wherever an interval covers a site:
+
+```
+chrX	0	2394370	2
+chrX	153926003	154259566	2
+```
+
+`CHROM` matches the contig as the **output VCF** spells it (`chrX`, not `CHM13#0#chrX`). Intervals
+are BED half-open and 0-based, so `[0, E)` covers VCF POS `1..E`. Anything no interval covers keeps
+the ploidy from `-d`/`--ploidy-regex`. Overlapping intervals are rejected rather than resolved by
+precedence — a BED saying two things about one base has no correct reading.
+
+**Linkage and the mosaic break at every ploidy boundary.** A chain is a maximal run of one ploidy
+on one contig, not a whole contig. That is not a limitation to work around: the transition model
+moves probability between adjacent sites through *pairs* of panel haplotypes, and across a ploidy
+change there is no correspondence to carry, exactly as there is none between two contigs. Each side
+gets its own phase set.
+
+**What this replaces.** Before it, calling a male chrX meant running the contig twice at different
+ploidies and splicing the VCFs on the PAR boundaries. Against that two-pass output, one pass with
+the BED above reproduces all **97,068** non-PAR sites genotype for genotype, and switches ploidy
+exactly at the boundaries with nothing leaking either way.
+
+The splice was also quietly wrong. `bcftools view -t "^chrX:153926003-"` does not exclude an
+open-ended range the way `-r` includes one, so 190 haploid records leaked into PAR2 and the
+concatenated VCF carried 190 duplicated positions at contradicting ploidies. Nothing published was
+affected — the T2T-Q100 confident regions end at 153,910,814, before PAR2 begins, so those records
+were never scored — but it is the kind of error a splice invites and a ploidy BED cannot make.
 
 ### `--min-confidence`, and why there is no default
 
@@ -698,6 +731,7 @@ Every flag below requires `--read-likelihood`; `vg call` errors if one is passed
 | `--depth-quality A` | 0 (off) | Scale `GQ` by `exp(−A·|ln DR|)` at records whose called alleles change length by ≥ 50 bp. |
 | `--ploidy-conflict X` | 0 (off) | Mark records with `PC > X` as `FILTER=ploidy_conflict` — the reads are split in a way this ploidy cannot produce. Marks, never drops. 10 is the measured working value. |
 | `--min-confidence X` | 0 (off) | Mark records with `GQN < X` as `FILTER=lowconf`. 0.05 raises precision on every arm measured. Marks, never drops. No default: it helps haploid F1 and hurts diploid. |
+| `--ploidy-bed FILE` | — | BED of `CHROM START END PLOIDY` overriding `-d`/`-R` per region. Linkage and the mosaic break at each boundary. |
 
 ### Debugging
 

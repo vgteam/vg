@@ -406,6 +406,111 @@ vector<int> VCFOutputCaller::panel_alleles(const HandleGraph& graph,
     return out;
 }
 
+void VCFOutputCaller::set_ploidy_regions(const string& bed_path) {
+    ifstream in(bed_path);
+    if (!in) {
+        cerr << "error [vg call]: could not open --ploidy-bed file " << bed_path << endl;
+        exit(1);
+    }
+    string line;
+    size_t line_number = 0;
+    while (getline(in, line)) {
+        ++line_number;
+        if (line.empty() || line[0] == '#' || line.compare(0, 5, "track") == 0
+            || line.compare(0, 7, "browser") == 0) {
+            continue;
+        }
+        istringstream ss(line);
+        string chrom;
+        long long start = -1, end = -1;
+        int ploidy = -1;
+        if (!(ss >> chrom >> start >> end >> ploidy)) {
+            cerr << "error [vg call]: --ploidy-bed " << bed_path << " line " << line_number
+                 << " is not CHROM START END PLOIDY: " << line << endl;
+            exit(1);
+        }
+        if (start < 0 || end < start) {
+            cerr << "error [vg call]: --ploidy-bed " << bed_path << " line " << line_number
+                 << " has a negative or reversed interval: " << line << endl;
+            exit(1);
+        }
+        // The callers implement ploidy 1 and 2 only. Caught here rather than left to reach a
+        // caller as an unsupported ploidy, which aborts in a much less informative place.
+        if (ploidy != 1 && ploidy != 2) {
+            cerr << "error [vg call]: --ploidy-bed " << bed_path << " line " << line_number
+                 << " has ploidy " << ploidy << ", which must be 1 or 2" << endl;
+            exit(1);
+        }
+        if (start == end) {
+            // Covers nothing. Keeping it would leave a region no lookup can ever hit.
+            continue;
+        }
+        ploidy_regions[chrom].push_back({(size_t)start, (size_t)end, ploidy});
+    }
+
+    // Sorted so lookups can binary-search, and checked for overlap while they are in order.
+    for (auto& entry : ploidy_regions) {
+        auto& regions = entry.second;
+        sort(regions.begin(), regions.end(),
+             [](const PloidyRegion& a, const PloidyRegion& b) { return a.start < b.start; });
+        for (size_t i = 1; i < regions.size(); ++i) {
+            if (regions[i].start < regions[i - 1].end) {
+                cerr << "error [vg call]: --ploidy-bed " << bed_path << " has overlapping "
+                     << "intervals on " << entry.first << ": [" << regions[i - 1].start << ","
+                     << regions[i - 1].end << ") and [" << regions[i].start << ","
+                     << regions[i].end << "). Two ploidies for one base has no correct reading, "
+                     << "so this is not resolved by precedence." << endl;
+                exit(1);
+            }
+        }
+    }
+}
+
+int VCFOutputCaller::region_ploidy(const string& ref_path_name, size_t position,
+                                   int fallback) const {
+    if (ploidy_regions.empty()) {
+        return fallback;
+    }
+    // Match on the contig as the VCF spells it, so a BED written against the output works.
+    // Same reduction emit_variant applies when it sets sequenceName.
+    string contig = Paths::strip_subrange(ref_path_name);
+    string locus = PathMetadata::parse_locus_name(contig);
+    if (locus != PathMetadata::NO_LOCUS_NAME) {
+        contig = locus;
+    }
+    auto found = ploidy_regions.find(contig);
+    if (found == ploidy_regions.end()) {
+        return fallback;
+    }
+    const vector<PloidyRegion>& regions = found->second;
+    // First region starting after the position; its predecessor is the only one that can cover,
+    // since the regions are non-overlapping.
+    auto it = upper_bound(regions.begin(), regions.end(), position,
+                          [](size_t p, const PloidyRegion& r) { return p < r.start; });
+    if (it == regions.begin()) {
+        return fallback;
+    }
+    --it;
+    return (position >= it->start && position < it->end) ? it->ploidy : fallback;
+}
+
+int VCFOutputCaller::ploidy_at(const string& ref_path_name, int64_t interval_start,
+                               int64_t ref_offset, int fallback) const {
+    if (ploidy_regions.empty()) {
+        return fallback;
+    }
+    // Same arithmetic emit_variant uses for POS, minus the +1 that makes VCF 1-based: the BED is
+    // 0-based, so the two agree on which base an interval boundary falls on.
+    subrange_t subrange;
+    Paths::strip_subrange(ref_path_name, &subrange);
+    int64_t basepath_offset = subrange == PathMetadata::NO_SUBRANGE ? 0 : (int64_t)subrange.first;
+    int64_t position = interval_start + ref_offset + basepath_offset;
+    if (position < 0) {
+        return fallback;
+    }
+    return region_ploidy(ref_path_name, (size_t)position, fallback);
+}
+
 bool VCFOutputCaller::add_variant(vcflib::Variant& var) const {
     var.setVariantCallFile(output_vcf);
     stringstream ss;
@@ -2724,7 +2829,9 @@ bool LegacyCaller::call_snarl(const Snarl& snarl) {
         // these integers map the called traversals to their positions in the list of all traversals
         // of the top level snarl.  
         vector<int> genotype;
-        int ploidy = ref_ploidies[path_name];
+        int ploidy = ploidy_at(path_name, get<0>(ref_interval),
+                               ref_offsets.count(path_name) ? ref_offsets.at(path_name) : 0,
+                               ref_ploidies[path_name]);
         std::tie(called_traversals, genotype) = top_down_genotype(snarl, *rep_trav_finder, ploidy,
                                                                   path_name, make_pair(get<0>(ref_interval), get<1>(ref_interval)));
     
@@ -3287,7 +3394,9 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
 
     bool ret_val = true;
     vector<int> trav_genotype;  // Declared outside block so we can pass to children
-    int ploidy = ref_ploidies[ref_path_name];
+    int ploidy = ploidy_at(ref_path_name, get<0>(ref_interval),
+                           ref_offsets.count(ref_path_name) ? ref_offsets.at(ref_path_name) : 0,
+                           ref_ploidies[ref_path_name]);
 
     // Constants for bounded traversal set handling
     const int MAX_TRAVS_PER_SET = 10;
@@ -3655,7 +3764,9 @@ bool NestedFlowCaller::call_snarl_recursive(const Snarl& managed_snarl, int max_
         gt_ref_path_name = ref_path_name;
         gt_ref_interval = make_pair(get<0>(ref_interval), get<1>(ref_interval));
         if (max_ploidy == -1) {
-            max_ploidy = ref_ploidies[ref_path_name];
+            max_ploidy = ploidy_at(ref_path_name, get<0>(ref_interval),
+                                   ref_offsets.count(ref_path_name) ? ref_offsets.at(ref_path_name) : 0,
+                                   ref_ploidies[ref_path_name]);
         }        
     } else {
         // if we have no reference infromation, try to get it from the parent snarl
@@ -3820,7 +3931,12 @@ bool NestedFlowCaller::emit_snarl_recursive(const Snarl& managed_snarl, int ploi
     if (record.ref_trav_idx >= 0 && !record.genotype_by_ploidy.empty() && ploidy != 0) {
 
         if (ploidy < 0) {
-            ploidy = ref_ploidies[record.ref_path_name];
+            // Must agree with the ploidy the genotype was decided at, since genotype_by_ploidy is
+            // indexed by it -- hence the record's own interval rather than the contig default.
+            ploidy = ploidy_at(record.ref_path_name, record.ref_path_interval.first,
+                               ref_offsets.count(record.ref_path_name)
+                                   ? ref_offsets.at(record.ref_path_name) : 0,
+                               ref_ploidies[record.ref_path_name]);
         }
         
         pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>>& genotype = record.genotype_by_ploidy[ploidy - 1];

@@ -124,6 +124,42 @@ public:
     /// Returns false if the variant line length exceeds VCFOutputCaller::max_vcf_line_length
     bool add_variant(vcflib::Variant& var) const;
 
+    /**
+     * Per-region ploidy overrides, from a BED of `CHROM START END PLOIDY`.
+     *
+     * `-d` and `--ploidy-regex` set ploidy per *contig*, which cannot express the cases that
+     * actually arise. A male sample's chrX is haploid except in the pseudoautosomal regions,
+     * where X and Y recombine and two copies are present; before this, calling it meant running
+     * chrX twice at different ploidies and splicing the two VCFs on the PAR boundaries. The same
+     * shape appears wherever copy number varies along a contig.
+     *
+     * The CHROM column matches the contig name as it appears in the output VCF -- the locus part
+     * of a PanSN path name, so `chrX` rather than `CHM13#0#chrX`. Intervals are BED half-open and
+     * 0-based, and a position no interval covers keeps the contig's ploidy from `-d` or
+     * `--ploidy-regex`.
+     *
+     * Overlapping intervals are an error rather than a silent last-one-wins: a BED saying two
+     * things about one base has no correct reading, and picking one would move the ambiguity into
+     * the output instead of into the error message.
+     */
+    void set_ploidy_regions(const string& bed_path);
+
+    /// True when any override was loaded. Lookups are skipped when false, so a run without the
+    /// option pays nothing for this.
+    bool has_ploidy_regions() const { return !ploidy_regions.empty(); }
+
+    /// Ploidy at this reference position, or `fallback` where no interval covers it. `position` is
+    /// a 0-based offset along the contig, the same coordinate system as the BED and as the VCF POS
+    /// the site will be emitted at.
+    int region_ploidy(const string& ref_path_name, size_t position, int fallback) const;
+
+    /// region_ploidy for a snarl whose reference interval begins at `interval_start`, applying the
+    /// same offset arithmetic emit_variant uses for POS. Callers pass the interval they already
+    /// computed, so no path lookup is repeated; returns `fallback` untouched when no BED is
+    /// loaded, which keeps a default run free of this entirely.
+    int ploidy_at(const string& ref_path_name, int64_t interval_start, int64_t ref_offset,
+                  int fallback) const;
+
     /// Collect a compact record per site during calling, so genotypes can be re-decided by linkage
     /// once calling is done. Neither pointer is owned; a null collector disables the pass.
     ///
@@ -336,6 +372,15 @@ protected:
 
     /// print up to this many uncalled alleles when doing ref-genotpes in -a mode
     size_t max_uncalled_alleles = 5;
+
+    /// Contig name -> ploidy overrides, sorted by start and guaranteed non-overlapping by
+    /// set_ploidy_regions. Empty unless --ploidy-bed was given. See set_ploidy_regions.
+    struct PloidyRegion {
+        size_t start;   ///< 0-based, inclusive
+        size_t end;     ///< 0-based, exclusive
+        int ploidy;
+    };
+    unordered_map<string, vector<PloidyRegion>> ploidy_regions;
 
     // optional node translation to apply to snarl names in variant IDs
     const unordered_map<nid_t, pair<string, size_t>>* translation;

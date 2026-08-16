@@ -1124,24 +1124,52 @@ vector<LinkageCollector::Change> LinkageCollector::resolve(vector<PhaseCall>* ph
         by_contig[entries[i].contig].push_back(i);
     }
 
-    for (auto& indices : by_contig) {
-        if (indices.size() < 2) {
+    // A chain is a maximal run of one ploidy on one contig, not a whole contig.
+    //
+    // It used to be a whole contig, on the reasoning that a contig is called at one ploidy and
+    // chrX's pseudoautosomal split is two separate runs. --ploidy-bed makes that false: a single
+    // run can now carry diploid pseudoautosomal regions and a haploid interior. Splitting is the
+    // correct answer rather than a workaround -- the transition model moves probability between
+    // adjacent sites through pairs of panel haplotypes, and at a ploidy boundary there is no
+    // correspondence to carry across, exactly as there is none between two contigs. It also
+    // reproduces what the two-pass splice did before, since each side becomes its own chain with
+    // its own phase set.
+    vector<vector<size_t>> chains;
+    for (auto& contig_indices : by_contig) {
+        if (contig_indices.empty()) {
             continue;
         }
         // Position, then the site's own key. Sites arrive in whatever order the threads finished,
         // and two records can share a position, so sorting on position alone leaves their relative
         // order down to scheduling -- which would make the output depend on --threads. The key is
         // derived from the snarl ID, so it is a property of the site rather than of the run.
-        sort(indices.begin(), indices.end(), [&](size_t a, size_t b) {
+        sort(contig_indices.begin(), contig_indices.end(), [&](size_t a, size_t b) {
             if (entries[a].position != entries[b].position) {
                 return entries[a].position < entries[b].position;
             }
             return entries[a].record_key < entries[b].record_key;
         });
+        // Sorted first, so a run is contiguous in reference order rather than in arrival order.
+        size_t run_start = 0;
+        while (run_start < contig_indices.size()) {
+            size_t run_end = run_start + 1;
+            while (run_end < contig_indices.size()
+                   && entries[contig_indices[run_end]].ploidy
+                          == entries[contig_indices[run_start]].ploidy) {
+                ++run_end;
+            }
+            chains.emplace_back(contig_indices.begin() + run_start,
+                                contig_indices.begin() + run_end);
+            run_start = run_end;
+        }
+    }
 
-        // A contig is called at one ploidy, so the chain's ploidy is the first entry's. Mixed
-        // ploidy within a contig would mean two runs were merged into one collector, which the
-        // caller never does -- chrX's pseudoautosomal split is two separate runs.
+    for (auto& indices : chains) {
+        if (indices.size() < 2) {
+            continue;
+        }
+
+        // Every entry in a chain shares a ploidy by construction above.
         size_t chain_ploidy = entries[indices.front()].ploidy;
 
         vector<LinkageModel::Site> sites;

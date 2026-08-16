@@ -9,7 +9,7 @@ PATH=../bin:$PATH # for vg
 # FORMAT field shifts every later one, which broke four assertions here that were not
 # testing field order at all -- one of them silently compared BL against a GQ threshold.
 
-plan tests 256
+plan tests 265
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -245,6 +245,29 @@ is "${GQ_ABOVE_GQI}" "0" "GQ never exceeds GQI"
 vg call HGSVC_rl.xg -k HGSVC_rl.pack --read-likelihood --no-share-quality --gam call/HGSVC_chr22_17119590_17880307.gam -t 1 > HGSVC_rl_nosq.vcf 2>/dev/null
 GQ_NE_GQI=$(grep -v "^#" HGSVC_rl_nosq.vcf | awk -F'\t' '{nk=split($9,k,":"); q=0; qi=0; for(j=1;j<=nk;j++){if(k[j]=="GQ") q=j; if(k[j]=="GQI") qi=j} split($10,f,":"); if (f[q] != f[qi]) print}' | wc -l | tr -d ' ')
 is "${GQ_NE_GQI}" "0" "--no-share-quality makes GQ equal GQI"
+
+# --ploidy-bed: ploidy per region, which -d and -R cannot express. Tested here because it needs a
+# contig with enough sites to have an inside and an outside, and because the read-likelihood path
+# is the one that cares.
+#
+# Mind the two coordinate systems, which this got wrong first: the BED is 0-based half-open and
+# VCF POS is 1-based, so [0,E) covers 0-based 0..E-1 -- VCF POS 1..E. A record at POS == E is
+# therefore *inside* the window.
+vg call HGSVC_rl.xg -k HGSVC_rl.pack --read-likelihood --gam call/HGSVC_chr22_17119590_17880307.gam -t 1 2>/dev/null | grep -v "^#" | awk -F'\t' '{split($10,f,":"); print $1"\t"$2"\t"f[1]}' > dip_gts.txt
+PB_CONTIG=$(awk 'NR==1{print $1}' dip_gts.txt)
+PB_FIRST=$(awk 'NR==1{print $2}' dip_gts.txt)
+PB_LAST=$(awk 'END{print $2}' dip_gts.txt)
+PB_CUT=$(( (PB_FIRST + PB_LAST) / 2 ))
+printf '%s\t0\t%s\t1\n' "${PB_CONTIG}" "${PB_CUT}" > window_ploidy.bed
+vg call HGSVC_rl.xg -k HGSVC_rl.pack --read-likelihood --ploidy-bed window_ploidy.bed --gam call/HGSVC_chr22_17119590_17880307.gam -t 1 2>/dev/null | grep -v "^#" | awk -F'\t' '{split($10,f,":"); print $2"\t"f[1]}' > win_gts.txt
+# Both sides must be non-empty, or the two assertions after them hold vacuously.
+is $(awk -v c="${PB_CUT}" '$1 <= c' win_gts.txt | wc -l | awk '{print ($1>0)?1:0}') "1" "the haploid window contains at least one call"
+is $(awk -v c="${PB_CUT}" '$1 > c' win_gts.txt | wc -l | awk '{print ($1>0)?1:0}') "1" "at least one call falls outside the haploid window"
+IN_WINDOW_DIP=$(awk -v c="${PB_CUT}" '$1 <= c && $2 ~ /[\/|]/' win_gts.txt | wc -l | tr -d ' ')
+is "${IN_WINDOW_DIP}" "0" "--ploidy-bed makes every call inside a haploid window haploid"
+OUT_WINDOW_HAP=$(awk -v c="${PB_CUT}" '$1 > c && $2 !~ /[\/|]/' win_gts.txt | wc -l | tr -d ' ')
+is "${OUT_WINDOW_HAP}" "0" "--ploidy-bed leaves calls outside the window at the -d ploidy"
+rm -f dip_gts.txt win_gts.txt window_ploidy.bed
 
 # --read-likelihood without reads must fail loudly rather than genotype with none.
 vg call HGSVC_rl.xg -k HGSVC_rl.pack --read-likelihood -t 1 > /dev/null 2> rl_err.txt
@@ -861,6 +884,31 @@ vg call small_cluster_call.vg -k small_cluster_call.pack -p x -R 'x:2' >/dev/nul
 is "$?" 0 "-R still accepts ploidy 2"
 vg call small_cluster_call.vg -k small_cluster_call.pack -p x -R 'chrY:3' >/dev/null 2>&1
 is "$?" 0 "-R accepts an unsupported ploidy on a contig that is not being called"
+
+# --ploidy-bed: ploidy per region, which -d and -R cannot express. The BED is validated up front
+# rather than left to fail inside a caller, where the message says nothing about the file.
+printf 'x\t0\t100\t3\n' > bad_ploidy.bed
+vg call small_cluster_call.vg -k small_cluster_call.pack -p x --ploidy-bed bad_ploidy.bed >/dev/null 2>&1
+is "$?" 1 "--ploidy-bed rejects a ploidy the callers do not implement"
+printf 'x\t0\t100\t2\nx\t50\t150\t1\n' > overlap_ploidy.bed
+vg call small_cluster_call.vg -k small_cluster_call.pack -p x --ploidy-bed overlap_ploidy.bed >/dev/null 2>&1
+is "$?" 1 "--ploidy-bed rejects overlapping intervals rather than picking one"
+printf 'x\t100\t50\t2\n' > reversed_ploidy.bed
+vg call small_cluster_call.vg -k small_cluster_call.pack -p x --ploidy-bed reversed_ploidy.bed >/dev/null 2>&1
+is "$?" 1 "--ploidy-bed rejects a reversed interval"
+vg call small_cluster_call.vg -k small_cluster_call.pack -p x --ploidy-bed nosuchfile.bed >/dev/null 2>&1
+is "$?" 1 "--ploidy-bed rejects a missing file"
+
+# A BED covering nothing on the called contig must leave the run exactly as it was: this is what
+# makes the option safe to pass unconditionally in a pipeline.
+printf 'chrNotHere\t0\t100\t1\n' > elsewhere_ploidy.bed
+vg call small_cluster_call.vg -k small_cluster_call.pack -p x --ploidy-bed elsewhere_ploidy.bed 2>/dev/null > ploidy_bed_elsewhere.vcf
+vg call small_cluster_call.vg -k small_cluster_call.pack -p x 2>/dev/null > ploidy_bed_none.vcf
+is "$(grep -v '^#' ploidy_bed_elsewhere.vcf | md5sum | cut -f1 -d' ')" "$(grep -v '^#' ploidy_bed_none.vcf | md5sum | cut -f1 -d' ')" "a --ploidy-bed matching no called contig changes nothing"
+
+
+rm -f bad_ploidy.bed overlap_ploidy.bed reversed_ploidy.bed elsewhere_ploidy.bed
+rm -f ploidy_bed_elsewhere.vcf ploidy_bed_none.vcf
 # -G built a re-indexed traversal vector but kept the original reference index, then indexed the
 # small vector with it.
 vg call small_cluster_call.vg -k small_cluster_call.pack -p x -G > call_gaf.gaf 2>/dev/null
