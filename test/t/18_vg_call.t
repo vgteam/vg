@@ -173,17 +173,20 @@ is "${CLEAN_CONFLICT}" "0" "a call explaining its whole pile-up never registers 
 
 # The FILTER is off unless asked for, so the default run must never emit it. This is what
 # keeps the field measurable against a baseline it does not itself move.
-vg call HGSVC_rl.xg -k HGSVC_rl.pack --read-likelihood --gam call/HGSVC_chr22_17119590_17880307.gam -t 1 2>/dev/null | grep -v "^#" | awk -F'\t' '$7=="ploidy_conflict"' | wc -l | tr -d ' ' > pc_default.txt
-is "$(cat pc_default.txt)" "0" "ploidy_conflict does not fire without --ploidy-conflict"
+# HGSVC_rl.vcf above was called without the flag, so it is the baseline for both checks.
+PC_DEFAULT=$(grep -v "^#" HGSVC_rl.vcf | awk -F'\t' '$7=="ploidy_conflict"' | wc -l | tr -d ' ')
+is "${PC_DEFAULT}" "0" "ploidy_conflict does not fire without --ploidy-conflict"
 
 # ...and an absurdly low threshold must fire it, or the flag is not wired to anything.
-vg call HGSVC_rl.xg -k HGSVC_rl.pack --read-likelihood --ploidy-conflict 0.0001 --gam call/HGSVC_chr22_17119590_17880307.gam -t 1 2>/dev/null > HGSVC_rl_pc.vcf
-PC_FIRED=$(grep -v "^#" HGSVC_rl_pc.vcf | awk -F'\t' '$7=="ploidy_conflict"' | wc -l | tr -d ' ')
+# Held in a variable rather than written to the test directory: a generated VCF left on
+# disk gets picked up by `git add`, which has already put fixtures in this repo once.
+PC_VCF=$(vg call HGSVC_rl.xg -k HGSVC_rl.pack --read-likelihood --ploidy-conflict 0.0001 --gam call/HGSVC_chr22_17119590_17880307.gam -t 1 2>/dev/null | grep -v "^#")
+PC_FIRED=$(echo "${PC_VCF}" | awk -F'\t' '$7=="ploidy_conflict"' | wc -l | tr -d ' ')
 is $(test "${PC_FIRED}" -gt 0 && echo 1 || echo 0) "1" "--ploidy-conflict at a low threshold marks records"
 
 # Marked, never dropped: the flagged run must carry exactly the same records as the plain
 # one. A filter that silently removed calls would change recall without saying so.
-is "$(grep -vc '^#' HGSVC_rl_pc.vcf)" "$(grep -vc '^#' HGSVC_rl.vcf)" "--ploidy-conflict marks records rather than dropping them"
+is "$(echo "${PC_VCF}" | wc -l | tr -d ' ')" "$(grep -vc '^#' HGSVC_rl.vcf)" "--ploidy-conflict marks records rather than dropping them"
 
 # GQN is a fraction of what the site could have achieved, so it is bounded. An
 # unbounded value would mean the denominator had gone wrong -- which is exactly the
