@@ -682,6 +682,29 @@ size_t count_recombinations(const vector<size_t>& chain, const VectorView<Anchor
     return rec_count;
 }
 
+size_t count_total_recombinations(const SubchainGroup& group, const vector<size_t>& subchains_used) {
+    size_t total_rec_count = group.subchains[subchains_used.front()].rec_count;
+    path_flags_t cur_paths = group.subchains[subchains_used.front()].end_paths;
+    for (size_t i = 1; i < subchains_used.size(); i++) {
+        const Subchain& subchain = group.subchains[subchains_used[i]];
+        if ((cur_paths & subchain.start_paths) == 0) {
+            // This inter-subchain connection requires a recombination
+            total_rec_count += 1;
+            // Paths reset to whatever this next subchain wants
+            cur_paths = subchain.end_paths;
+        } else if (subchain.rec_count > 0) {
+            // The subchain itself requires a recombination, so paths reset
+            cur_paths = subchain.end_paths;
+        } else {
+            // No forced recombinations, so paths narrow down to what is OK with the end
+            cur_paths &= subchain.end_paths;
+        }
+        total_rec_count += subchain.rec_count;
+    }
+
+    return total_rec_count;
+}
+
 void chain_items_traceback(const vector<vector<TracedScore>>& chain_scores,
                            const VectorView<Anchor>& to_chain,
                            vector<SparseAnchorChain>& tracebacks,
@@ -1137,6 +1160,7 @@ vector<SubchainGroup> find_best_chains(const VectorView<Anchor>& to_chain,
                     current_paths = new_paths.second;
                 }
             }
+            subchain.end_paths = current_paths;
         }
     }
 

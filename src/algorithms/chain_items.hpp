@@ -560,6 +560,15 @@ void chain_items_dp(vector<vector<TracedScore>>& chain_scores,
 size_t count_recombinations(const vector<size_t>& chain, const VectorView<Anchor>& to_chain);
 
 /**
+ * Count the number of recombination events forced by walking the given
+ * subchains of the given group, in order: those forced inside each subchain
+ * plus those forced by the connections between them.
+ *
+ * Used for rescoring purposes.
+ */
+size_t count_total_recombinations(const SubchainGroup& group, const vector<size_t>& subchains_used);
+
+/**
  * Trace back through in the given DP table from the best chain score.
  *
  * Returns tracebacks that visit disjoint sets of items, in score order, along
