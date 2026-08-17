@@ -463,13 +463,19 @@ is not yet implemented.
 
 chr20 at 34 haplotypes gives 3,675 segments over 105,251 sites in **297 KB**, 92 KB gzipped — 82
 bytes per segment. The same two walks written out as explicit node lists measure ~40.6 MB — one
-haplotype is 2,031,992 steps — so the mosaic is smaller by a factor of about 137. Scaled by site
-count, a whole genome is roughly **8.5 MB**, or 2.6 MB gzipped.
+haplotype is 2,031,992 steps — so the mosaic is smaller by a factor of about 137.
+
+A whole genome, measured rather than projected: **143,365 segments over 4,742,752 sites in 11.05 MB**,
+3.46 MB gzipped, at 80.8 bytes per segment. 99.82% of segments carry a GBWT position and 390 are
+fragment splits. Every diploid contig's two strands agree on their site total and the strand-0 total
+equals the VCF's record count exactly, which is the property that makes the file a description of a
+genome rather than a list of observations.
 
 The trade is that the mosaic is written *by reference* and cannot be read without the GBZ it names,
 which is why the header carries the graph. An explicit path list is self-contained and ~137x larger.
 
-**A few segments carry no position.** On chr20, 10 of 3,675 (0.27%) have `.` in both GBWT columns:
+**A few segments carry no position.** Genome-wide 254 of 143,365 (0.18%), and on chr20 10 of 3,675,
+have `.` in both GBWT columns:
 the named haplotype does not visit the segment's start node in either orientation, which happens
 where the panel explains a strand through a haplotype that enters the region slightly later. All 10
 are in the centromere (26–31 Mb), the same region where node IDs stop tracking reference order.
