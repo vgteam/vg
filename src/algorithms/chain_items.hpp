@@ -568,6 +568,26 @@ size_t count_recombinations(const vector<size_t>& chain, const VectorView<Anchor
  */
 size_t count_total_recombinations(const SubchainGroup& group, const vector<size_t>& subchains_used);
 
+/// An alternative edge which a traceback might want to use
+struct AltEdge {
+    /// Smaller anchor number
+    size_t start_anchor;
+    /// Larger anchor number
+    size_t end_anchor;
+    /// How much of a compromise this edge is
+    size_t score_diff;
+
+    /// Compare for less-than
+    inline bool operator<(const AltEdge& other) const {
+        return score_diff < other.score_diff;
+    }
+
+    /// Compare for greater-than
+    inline bool operator>(const AltEdge& other) const {
+        return score_diff > other.score_diff;
+    }
+};
+
 /**
  * Trace back through in the given DP table from the best chain score.
  *
@@ -579,12 +599,14 @@ size_t count_total_recombinations(const SubchainGroup& group, const vector<size_
  * predecessor was already used, the other stored predecessors will be tried,
  * as long as they are no more worse than max_alt_lookback.
  * 
- * Returns tracebacks and inter-traceback connections via pass-by-ref args
+ * Returns tracebacks and inter-traceback connections via pass-by-ref args.
+ * Tracebacks are SparseAnchorChains, i.e. lists of anchor indexes with a score
+ * attached, and connections are AltEdges, i.e. (start, end, score diff)
  */
 void chain_items_traceback(const vector<vector<TracedScore>>& chain_scores,
                            const VectorView<Anchor>& to_chain,
                            vector<SparseAnchorChain>& tracebacks,
-                           vector<pair<size_t, size_t>>& connections,
+                           vector<AltEdge>& connections,
                            const ChainScoringScheme& scheme = ChainScoringScheme(),
                            size_t max_tracebacks = 1,
                            size_t max_alt_lookback = 10);
@@ -594,7 +616,7 @@ void chain_items_traceback(const vector<vector<TracedScore>>& chain_scores,
  * 
  * Split up tracebacks when possible inter-chain alternatives exist.
  * Save connections between subchains, pulling from edges in tracebacks
- * as well as alternative edges.
+ * as well as up to max_alts alternative edges (ranked by score differential).
  * 
  * If no edges connect the tracebacks then they are returned separately.
  * 
@@ -604,7 +626,8 @@ void chain_items_traceback(const vector<vector<TracedScore>>& chain_scores,
  */
 vector<SubchainGroup> split_up_subchains(const VectorView<Anchor>& to_chain,
                                          const vector<SparseAnchorChain>& original_tracebacks,
-                                         const vector<pair<size_t, size_t>>& connections,
+                                         const vector<AltEdge>& connections,
+                                         size_t max_alts,
                                          size_t read_length,
                                          size_t extra_tail_grace_window);
 
@@ -625,8 +648,9 @@ vector<SubchainGroup> find_best_chains(const VectorView<Anchor>& to_chain,
                                        const transition_iterator& for_each_transition,
                                        const ChainScoringScheme& scheme = ChainScoringScheme(),
                                        size_t max_chains = 1,
-                                       size_t max_indel_bases = 100,
+                                       size_t max_alts = 5,
                                        size_t max_alt_lookback = 5,
+                                       size_t max_indel_bases = 100,
                                        size_t extra_tail_grace_window = 100,
                                        bool show_work = false);
 
@@ -646,8 +670,7 @@ SparseAnchorChain find_best_chain(const VectorView<Anchor>& to_chain,
                                   const transition_iterator& for_each_transition,
                                   const ChainScoringScheme& scheme = ChainScoringScheme(),
                                   size_t max_indel_bases = 100,
-                                  size_t extra_tail_grace_window = 100,
-                                  size_t max_alt_lookback = 5);
+                                  size_t extra_tail_grace_window = 100);
 
 /// Score a chaining gap using the Minimap2 method. See
 /// <https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6137996/> near equation 2.

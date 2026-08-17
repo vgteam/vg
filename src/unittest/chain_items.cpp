@@ -119,7 +119,8 @@ static algorithms::SparseAnchorChain run_ziptree_iterator_best_chain(const HashG
 static vector<algorithms::SubchainGroup> run_ziptree_iterator_multi_chain(const HashGraph& graph, 
                                                                           const vector<algorithms::Anchor>& anchors,
                                                                           size_t read_length,
-                                                                          size_t num_chains) {
+                                                                          size_t num_chains,
+                                                                          size_t max_alts = 2) {
     // Provide more weight for start & end nodes to anchor graph
     std::unordered_map<nid_t, size_t> extra_node_weight;
     extra_node_weight[graph.min_node_id()] = 10000000000;
@@ -148,7 +149,7 @@ static vector<algorithms::SubchainGroup> run_ziptree_iterator_multi_chain(const 
                                                                                 std::numeric_limits<size_t>::max(),
                                                                                 std::numeric_limits<size_t>::max()
                                                                                 ),
-                                        algorithms::ChainScoringScheme(), num_chains
+                                        algorithms::ChainScoringScheme(), num_chains, max_alts
                                         );
 }
 
@@ -229,7 +230,7 @@ TEST_CASE("Simple X case", "[chain_items]") {
                                   {31, h[8], 0, 10, 10}}, graph);
     
     /// Actually run the chaining and test
-    auto result = run_ziptree_iterator_multi_chain(graph, to_score, 40, 2);
+    auto result = run_ziptree_iterator_multi_chain(graph, to_score, 41, 2);
     // We should see all possible paths
     REQUIRE(result.front().subchains.size() == 5);
     REQUIRE(result.front().connections.size() == 5);
@@ -242,15 +243,15 @@ TEST_CASE("X with different length chains", "[chain_items]") {
 
     // One anchor on each node
     // read start, graph handle and offset, length, and score
-    auto to_score = make_anchors({{1, h[2], 0, 10, 10},
-                                  {1, h[3], 0, 10, 10},
-                                  {11, h[4], 0, 10, 10},
-                                  {21, h[5], 0, 10, 10},
-                                  {21, h[6], 0, 10, 10},
-                                  {31, h[7], 0, 10, 10}}, graph);
+    auto to_score = make_anchors({{1, h[2], 0, 10, 5},
+                                  {1, h[3], 0, 10, 5},
+                                  {11, h[4], 0, 10, 5},
+                                  {21, h[5], 0, 10, 5},
+                                  {21, h[6], 0, 10, 5},
+                                  {31, h[7], 0, 10, 5}}, graph);
     
     // Actually run the chaining and test
-    auto result = run_ziptree_iterator_multi_chain(graph, to_score, 40, 2);
+    auto result = run_ziptree_iterator_multi_chain(graph, to_score, 41, 2);
     // We should see all possible paths
     REQUIRE(result.front().subchains.size() == 5);
     REQUIRE(result.front().connections.size() == 5);
@@ -271,18 +272,18 @@ TEST_CASE("X with haplotype paths annotates subchains", "[chain_items]") {
                                   {31, h[7], 0, 10, 10},
                                   {31, h[8], 0, 10, 10}}, graph);
 
-    // Haplotype 0 covers nodes 1 and 5, haplotype 1 covers everything but node
-    // 1, so that the paths supported narrow down along the 5-6 subchain, and
+    // Haplotype 0 covers nodes 2 and 6, haplotype 1 covers everything but node
+    // 2, so that the paths supported narrow down along the 6-7 subchain, and
     // getting from the subchain at 1 to the subchain at 3 needs a recombination.
     std::unordered_map<nid_t, algorithms::path_flags_t> haplotypes {
-        {1, 1}, {2, 2}, {3, 2}, {4, 2}, {5, 3}, {6, 2}, {7, 2}
+        {2, 1}, {3, 2}, {4, 2}, {5, 2}, {6, 3}, {7, 2}, {8, 2}
     };
     for (auto& anchor : to_score) {
         anchor.set_paths(haplotypes.at(id(anchor.graph_start())));
     }
 
     // Actually run the chaining and test
-    auto result = run_ziptree_iterator_multi_chain(graph, to_score, 40, 2);
+    auto result = run_ziptree_iterator_multi_chain(graph, to_score, 41, 2);
     REQUIRE(result.size() == 1);
     auto& group = result.front();
     REQUIRE(group.subchains.size() == 5);
@@ -294,9 +295,9 @@ TEST_CASE("X with haplotype paths annotates subchains", "[chain_items]") {
     }
     REQUIRE(subchain_at.size() == group.subchains.size());
 
-    // The 5-6 subchain starts on both haplotypes but only haplotype 1 makes it
+    // The 6-7 subchain starts on both haplotypes but only haplotype 1 makes it
     // to the end, without any recombination being forced
-    auto& subchain_5 = group.subchains[subchain_at.at(5)];
+    auto& subchain_5 = group.subchains[subchain_at.at(6)];
     REQUIRE(subchain_5.anchors.size() == 2);
     REQUIRE(subchain_5.rec_count == 0);
     REQUIRE(subchain_5.start_paths == 3);
@@ -304,9 +305,9 @@ TEST_CASE("X with haplotype paths annotates subchains", "[chain_items]") {
 
     // And connecting the subchain at 1 to the subchain at 3 needs a
     // recombination, while connecting the one at 2 to it does not
-    auto& subchain_3 = group.subchains[subchain_at.at(3)];
-    REQUIRE((group.subchains[subchain_at.at(1)].end_paths & subchain_3.start_paths) == 0);
-    REQUIRE((group.subchains[subchain_at.at(2)].end_paths & subchain_3.start_paths) != 0);
+    auto& subchain_3 = group.subchains[subchain_at.at(4)];
+    REQUIRE((group.subchains[subchain_at.at(2)].end_paths & subchain_3.start_paths) == 0);
+    REQUIRE((group.subchains[subchain_at.at(3)].end_paths & subchain_3.start_paths) != 0);
 }
 
 TEST_CASE("single internally-recombinant anchor forces a subchain-internal recombination", "[chain_items]") {
@@ -365,27 +366,29 @@ TEST_CASE("subchain with no recombination has equal start and end paths", "[chai
 
 TEST_CASE("recombination_penalty changes which predecessor chain_items_dp picks", "[chain_items]") {
     // Set up graph fixture: two alternative starts converging on one node
-    HashGraph graph = make_disconnected_graph(3, 10);
+    HashGraph graph = make_disconnected_graph(4, 10);
+    graph.create_edge(graph.get_handle(1, false), graph.get_handle(2, false));
     graph.create_edge(graph.get_handle(1, false), graph.get_handle(3, false));
-    graph.create_edge(graph.get_handle(2, false), graph.get_handle(3, false));
+    graph.create_edge(graph.get_handle(2, false), graph.get_handle(4, false));
+    graph.create_edge(graph.get_handle(3, false), graph.get_handle(4, false));
     auto h = get_handles(graph);
 
     IntegratedSnarlFinder snarl_finder(graph);
     SnarlDistanceIndex distance_index;
     fill_in_distance_index(&distance_index, &graph, &snarl_finder);
 
-    auto to_score = make_anchors({{1, h[1], 0, 5, 4},
-                                  {1, h[2], 0, 5, 12},
-                                  {11, h[3], 0, 5, 5}}, graph);
+    auto to_score = make_anchors({{1, h[2], 0, 5, 4},
+                                  {1, h[3], 0, 5, 12},
+                                  {11, h[4], 0, 5, 5}}, graph);
 
     // Index the anchors by the node they are on
     std::unordered_map<nid_t, size_t> anchor_at;
     for (size_t i = 0; i < to_score.size(); i++) {
         anchor_at[id(to_score[i].graph_start())] = i;
     }
-    size_t a = anchor_at.at(1);
-    size_t b = anchor_at.at(2);
-    size_t d = anchor_at.at(3);
+    size_t a = anchor_at.at(2);
+    size_t b = anchor_at.at(3);
+    size_t d = anchor_at.at(4);
 
     // The anchor at 3 shares a haplotype with the low-scoring anchor at 1 but
     // not with the high-scoring anchor at 2
@@ -433,27 +436,29 @@ TEST_CASE("recombination_penalty changes which predecessor chain_items_dp picks"
 
 TEST_CASE("consistency_bonus changes which predecessor chain_items_dp picks despite a lower raw score", "[chain_items]") {
     // Set up graph fixture: two alternative starts converging on one node
-    HashGraph graph = make_disconnected_graph(3, 10);
+    HashGraph graph = make_disconnected_graph(4, 10);
+    graph.create_edge(graph.get_handle(1, false), graph.get_handle(2, false));
     graph.create_edge(graph.get_handle(1, false), graph.get_handle(3, false));
-    graph.create_edge(graph.get_handle(2, false), graph.get_handle(3, false));
+    graph.create_edge(graph.get_handle(2, false), graph.get_handle(4, false));
+    graph.create_edge(graph.get_handle(3, false), graph.get_handle(4, false));
     auto h = get_handles(graph);
 
     IntegratedSnarlFinder snarl_finder(graph);
     SnarlDistanceIndex distance_index;
     fill_in_distance_index(&distance_index, &graph, &snarl_finder);
 
-    auto to_score = make_anchors({{1, h[1], 0, 5, 4},
-                                  {1, h[2], 0, 5, 12},
-                                  {11, h[3], 0, 5, 5}}, graph);
+    auto to_score = make_anchors({{1, h[2], 0, 5, 4},
+                                  {1, h[3], 0, 5, 12},
+                                  {11, h[4], 0, 5, 5}}, graph);
 
     // Index the anchors by the node they are on
     std::unordered_map<nid_t, size_t> anchor_at;
     for (size_t i = 0; i < to_score.size(); i++) {
         anchor_at[id(to_score[i].graph_start())] = i;
     }
-    size_t a = anchor_at.at(1);
-    size_t b = anchor_at.at(2);
-    size_t d = anchor_at.at(3);
+    size_t a = anchor_at.at(2);
+    size_t b = anchor_at.at(3);
+    size_t d = anchor_at.at(4);
 
     to_score[a].set_paths(1);
     to_score[b].set_paths(2);
@@ -532,7 +537,7 @@ TEST_CASE("count_total_recombinations counts recombinations between subchains", 
         anchor.set_paths(haplotypes.at(id(anchor.graph_start())));
     }
 
-    auto result = run_ziptree_iterator_multi_chain(graph, to_score, 40, 2);
+    auto result = run_ziptree_iterator_multi_chain(graph, to_score, 41, 2);
     REQUIRE(result.size() == 1);
     auto& group = result.front();
     REQUIRE(group.subchains.size() == 5);

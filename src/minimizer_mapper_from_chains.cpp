@@ -1475,8 +1475,9 @@ void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeFo
                 for_each_transition,
                 scheme,
                 this->max_chains_per_tree,
-                indel_limit,
+                5, // TODO: make a param
                 this->max_alt_lookback_score,
+                indel_limit,
                 this->extra_tail_grace_window,
                 show_work);
 
