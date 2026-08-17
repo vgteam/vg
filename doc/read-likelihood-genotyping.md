@@ -378,9 +378,9 @@ switch errors. Expect a sample the panel represents poorly to do worse.
 
 ### `--mosaic-out FILE`
 
-The same path, written as the genome it implies. The mosaic is piecewise — about 2% of sites are
-switch points — so it is run-length encoded, one line per maximal run of one strand on one panel
-haplotype:
+The same path, written as the genome it implies. The mosaic is piecewise — 1.75% of chr20's site
+slots begin a new segment — so it is run-length encoded, one line per maximal run of one strand on
+one panel haplotype:
 
 ```
 #mosaic-version	2
@@ -388,14 +388,28 @@ haplotype:
 #sample	HG002
 #reference	CHM13#0#chr20
 #decoding	constrained-viterbi
+#note	ref_start/ref_end are advisory, in the #reference coordinate system; ...
+#note	segments are maximal runs on one panel haplotype; ...
+#note	hap_index is internal to this run; ...
 #haplotype	0	CHM13#0
 #haplotype	9	recombination#30
-	... one line per panel haplotype
+	... one line per panel haplotype, 34 of them on this graph
+#note	gbwt_node/gbwt_offset is the GBWT position of the haplotype at start_node: ...
+#note	a segment never spans a GBWT fragment boundary, ...
 #H	contig	strand	ref_start	ref_end	start_node	end_node	hap_index	haplotype	sites	gbwt_node	gbwt_offset
-H	chr20	0	603	3605	114819056	114842605	9	recombination#30	60	229638112	4
+H	chr20	0	603	3605	114819056	114842605	9	recombination#30	60	229638112	5
 ```
 
 Tab-separated. Lines beginning `#` are header or comment; every data line begins `H`.
+
+**Parsing the header.** Key on the first field, not on line position. `#note` lines carry prose for a
+human and no data — they are truncated above — and they appear both before and after the
+`#haplotype` table rather than in one block, so a parser that counts lines to find the table will
+break. Treat an unrecognised `#` key as a comment and skip it: downstream tools extend this header
+(the whole-genome assembly in the companion eval repo replaces `#graph`/`#reference` with a
+per-contig `#contig` table, because per-contig runs do not share one graph). The keys `vg call`
+itself writes are exactly `#mosaic-version`, `#graph`, `#sample`, `#reference`, `#decoding`, `#note`,
+`#haplotype` and `#H`.
 
 | column | meaning |
 |---|---|
@@ -503,13 +517,14 @@ Set it with `-d 1`, or per contig with `-R 'chrY:1'`. Then:
 - There is no phase to infer on one strand, so what the mosaic gives is purely the ancestry: which
   panel haplotype explains each stretch. On chrY that is the entire answer.
 
-`vg call`'s ploidy is **per contig**, so a within-contig split cannot be expressed. For chrX that
-matters: the pseudoautosomal regions are diploid and the rest is not. The workable approach is two
-runs over the same contig spliced on the PAR boundaries, which leaves a seam where linkage and the
-mosaic restart — an artefact of the run, not biology.
+`-d` and `-R` set ploidy per contig, which cannot express a within-contig split — and for chrX that
+matters, because the pseudoautosomal regions are diploid and the rest is not. Use `--ploidy-bed` to
+give ploidy per *region* and call such a contig in one pass. Linkage and the mosaic still break at
+each ploidy boundary, because a chain is a maximal run of one ploidy, but the break now falls where
+the biology does instead of where a run was spliced.
 
-Both flags need `--linkage-weight` above 0, and asking for either with the layer off is an error
-rather than a silently unphased file.
+`--phased` and `--mosaic-out` both need `--linkage-weight` above 0, and asking for either with the
+layer off is an error rather than a silently unphased file.
 
 ## Genotype quality and the VCF fields
 
@@ -817,7 +832,21 @@ Every flag below requires `--read-likelihood`; `vg call` errors if one is passed
 | `--no-share-quality` | off | Report `GQ` as the raw likelihood ratio, so `GQ == GQI`. |
 | `--depth-quality A` | 0 (off) | Scale `GQ` by `exp(−A·|ln DR|)` at records whose called alleles change length by ≥ 50 bp. |
 | `--min-confidence X` | 0 (off) | Mark records with `GQN < X` as `FILTER=lowconf`. 0.05 raises precision on every arm measured. Marks, never drops. No default: it helps haploid F1 and hurts diploid. |
-| `--ploidy-bed FILE` | — | BED of `CHROM START END PLOIDY` overriding `-d`/`-R` per region. Linkage and the mosaic break at each boundary. |
+
+### Ploidy — does change genotypes
+
+| Flag | Default | Effect |
+|---|---|---|
+| `-d/--ploidy N` | 2 | Ploidy for every contig. |
+| `-R/--ref-ploidy PATH:N` | — | Ploidy for one reference path, overriding `-d`. |
+| `--ploidy-bed FILE` | — | BED of `CHROM START END PLOIDY` setting ploidy per *region*, overriding `-d`/`-R`. Linkage and the mosaic break at each boundary. |
+
+### Phasing and mosaic output — needs `--linkage-weight` above 0
+
+| Flag | Default | Effect |
+|---|---|---|
+| `--phased` | off | Emit phased genotypes (`0\|1`) and a `FORMAT/PS` phase set from the linkage decoding. Asking for it with the linkage layer off is an error, not a silently unphased file. |
+| `--mosaic-out FILE` | — | Write the inferred genome as a run-length-encoded mosaic of panel haplotypes. Implies `--phased`. Format [above](#--mosaic-out-file). |
 
 ### Debugging
 

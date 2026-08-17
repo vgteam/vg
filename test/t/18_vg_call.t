@@ -9,7 +9,7 @@ PATH=../bin:$PATH # for vg
 # FORMAT field shifts every later one, which broke four assertions here that were not
 # testing field order at all -- one of them silently compared BL against a GQ threshold.
 
-plan tests 271
+plan tests 272
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -451,6 +451,14 @@ is $(grep -v "^#" rl_mosaic.tsv | awk -F'\t' '$9 == "?" {n++} END {print n+0}') 
 # v2 exists because v1 was not self-describing enough to read back. Three things were wrong, and
 # each has a test here.
 is $(awk -F'\t' '$1=="#mosaic-version" {print $2}' rl_mosaic.tsv) "2" "the mosaic declares version 2"
+
+# The set of header keys is the format's contract with a parser, and doc/read-likelihood-genotyping.md
+# enumerates it. Adding a key without documenting it is exactly the drift that shipped a header with
+# five undocumented #note lines while the doc's example showed none, so pin the set: if this fails,
+# update the doc's key list in the same commit.
+is "$(grep "^#" rl_mosaic.tsv | cut -f1 | sort -u | paste -sd, -)" \
+   "#H,#decoding,#graph,#haplotype,#mosaic-version,#note,#reference,#sample" \
+   "the mosaic header uses exactly the documented set of keys"
 
 # (1) v1 gave ref_start/ref_end without saying which reference. A graph can carry several, so the
 # coordinates were ambiguous the moment anyone used one that did.
