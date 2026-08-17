@@ -51,6 +51,26 @@ static HashGraph make_long_graph(size_t nodes, size_t length = 32) {
     return graph;
 }
 
+// Make a graph with a generic X structure
+static HashGraph make_x_graph() {
+    // Set up graph fixture
+    HashGraph graph = make_disconnected_graph(9, 10);
+    // 1-3-5-6 diagonal
+    graph.create_edge(graph.get_handle(2, false), graph.get_handle(4, false));
+    graph.create_edge(graph.get_handle(4, false), graph.get_handle(6, false));
+    graph.create_edge(graph.get_handle(6, false), graph.get_handle(7, false));
+    // 2-3-4-7 diagonal
+    graph.create_edge(graph.get_handle(3, false), graph.get_handle(4, false));
+    graph.create_edge(graph.get_handle(4, false), graph.get_handle(5, false));
+    graph.create_edge(graph.get_handle(5, false), graph.get_handle(8, false));
+    // Tying off the ends
+    graph.create_edge(graph.get_handle(1, false), graph.get_handle(2, false));
+    graph.create_edge(graph.get_handle(1, false), graph.get_handle(3, false));
+    graph.create_edge(graph.get_handle(7, false), graph.get_handle(9, false));
+    graph.create_edge(graph.get_handle(8, false), graph.get_handle(9, false));
+    return graph;
+}
+
 /// Get a vector of all handles in the graph by node ID.
 static vector<handle_t> get_handles(const HandleGraph& graph) {
     vector<handle_t> handles;
@@ -65,7 +85,11 @@ static vector<handle_t> get_handles(const HandleGraph& graph) {
 static algorithms::SparseAnchorChain run_ziptree_iterator_best_chain(const HashGraph& graph, 
                                                                      const vector<algorithms::Anchor>& anchors,
                                                                      size_t read_length) {
-    IntegratedSnarlFinder snarl_finder(graph);
+    // Provide more weight for start & end nodes to anchor graph
+    std::unordered_map<nid_t, size_t> extra_node_weight;
+    extra_node_weight[graph.min_node_id()] = 10000000000;
+    extra_node_weight[graph.max_node_id()] = 10000000000;
+    IntegratedSnarlFinder snarl_finder(graph, extra_node_weight);
     SnarlDistanceIndex distance_index;
     fill_in_distance_index(&distance_index, &graph, &snarl_finder);
     // Convert these into Seed type
@@ -96,7 +120,11 @@ static vector<algorithms::SubchainGroup> run_ziptree_iterator_multi_chain(const 
                                                                           const vector<algorithms::Anchor>& anchors,
                                                                           size_t read_length,
                                                                           size_t num_chains) {
-    IntegratedSnarlFinder snarl_finder(graph);
+    // Provide more weight for start & end nodes to anchor graph
+    std::unordered_map<nid_t, size_t> extra_node_weight;
+    extra_node_weight[graph.min_node_id()] = 10000000000;
+    extra_node_weight[graph.max_node_id()] = 10000000000;
+    IntegratedSnarlFinder snarl_finder(graph, extra_node_weight);
     SnarlDistanceIndex distance_index;
     fill_in_distance_index(&distance_index, &graph, &snarl_finder);
     // Convert these into Seed type
@@ -187,26 +215,18 @@ TEST_CASE("find_best_chain is willing to leave the main diagonal if the items su
 
 TEST_CASE("Simple X case", "[chain_items]") {
     // Set up graph fixture
-    HashGraph graph = make_disconnected_graph(7, 10);
-    // 1-3-5-6 diagonal
-    graph.create_edge(graph.get_handle(1, false), graph.get_handle(3, false));
-    graph.create_edge(graph.get_handle(3, false), graph.get_handle(5, false));
-    graph.create_edge(graph.get_handle(5, false), graph.get_handle(6, false));
-    // 2-3-4-7 diagonal
-    graph.create_edge(graph.get_handle(2, false), graph.get_handle(3, false));
-    graph.create_edge(graph.get_handle(3, false), graph.get_handle(4, false));
-    graph.create_edge(graph.get_handle(4, false), graph.get_handle(7, false));
+    HashGraph graph = make_x_graph();
     auto h = get_handles(graph);
 
     // One anchor on each node
     // read start, graph handle and offset, length, and score
-    auto to_score = make_anchors({{1, h[1], 0, 5, 5},
-                                  {1, h[2], 0, 5, 5},
-                                  {11, h[3], 0, 5, 5},
-                                  {21, h[4], 0, 5, 5},
+    auto to_score = make_anchors({{1, h[2], 0, 5, 5},
+                                  {1, h[3], 0, 5, 5},
+                                  {11, h[4], 0, 5, 5},
                                   {21, h[5], 0, 5, 5},
-                                  {31, h[6], 0, 10, 10},
-                                  {31, h[7], 0, 10, 10}}, graph);
+                                  {21, h[6], 0, 5, 5},
+                                  {31, h[7], 0, 10, 10},
+                                  {31, h[8], 0, 10, 10}}, graph);
     
     /// Actually run the chaining and test
     auto result = run_ziptree_iterator_multi_chain(graph, to_score, 40, 2);
@@ -217,25 +237,17 @@ TEST_CASE("Simple X case", "[chain_items]") {
 
 TEST_CASE("X with different length chains", "[chain_items]") {
     // Set up graph fixture
-    HashGraph graph = make_disconnected_graph(7, 10);
-    // 1-3-5-6 diagonal
-    graph.create_edge(graph.get_handle(1, false), graph.get_handle(3, false));
-    graph.create_edge(graph.get_handle(3, false), graph.get_handle(5, false));
-    graph.create_edge(graph.get_handle(5, false), graph.get_handle(6, false));
-    // 2-3-4-7 diagonal
-    graph.create_edge(graph.get_handle(2, false), graph.get_handle(3, false));
-    graph.create_edge(graph.get_handle(3, false), graph.get_handle(4, false));
-    graph.create_edge(graph.get_handle(4, false), graph.get_handle(7, false));
+    HashGraph graph = make_x_graph();
     auto h = get_handles(graph);
 
     // One anchor on each node
     // read start, graph handle and offset, length, and score
-    auto to_score = make_anchors({{1, h[1], 0, 10, 10},
-                                  {1, h[2], 0, 10, 10},
-                                  {11, h[3], 0, 10, 10},
-                                  {21, h[4], 0, 10, 10},
+    auto to_score = make_anchors({{1, h[2], 0, 10, 10},
+                                  {1, h[3], 0, 10, 10},
+                                  {11, h[4], 0, 10, 10},
                                   {21, h[5], 0, 10, 10},
-                                  {31, h[6], 0, 10, 10}}, graph);
+                                  {21, h[6], 0, 10, 10},
+                                  {31, h[7], 0, 10, 10}}, graph);
     
     // Actually run the chaining and test
     auto result = run_ziptree_iterator_multi_chain(graph, to_score, 40, 2);
@@ -246,26 +258,18 @@ TEST_CASE("X with different length chains", "[chain_items]") {
 
 TEST_CASE("X with haplotype paths annotates subchains", "[chain_items]") {
     // Set up graph fixture
-    HashGraph graph = make_disconnected_graph(7, 10);
-    // 1-3-5-6 diagonal
-    graph.create_edge(graph.get_handle(1, false), graph.get_handle(3, false));
-    graph.create_edge(graph.get_handle(3, false), graph.get_handle(5, false));
-    graph.create_edge(graph.get_handle(5, false), graph.get_handle(6, false));
-    // 2-3-4-7 diagonal
-    graph.create_edge(graph.get_handle(2, false), graph.get_handle(3, false));
-    graph.create_edge(graph.get_handle(3, false), graph.get_handle(4, false));
-    graph.create_edge(graph.get_handle(4, false), graph.get_handle(7, false));
+    HashGraph graph = make_x_graph();
     auto h = get_handles(graph);
 
     // One anchor on each node
     // read start, graph handle and offset, length, and score
-    auto to_score = make_anchors({{1, h[1], 0, 5, 5},
-                                  {1, h[2], 0, 5, 5},
-                                  {11, h[3], 0, 5, 5},
-                                  {21, h[4], 0, 5, 5},
+    auto to_score = make_anchors({{1, h[2], 0, 5, 5},
+                                  {1, h[3], 0, 5, 5},
+                                  {11, h[4], 0, 5, 5},
                                   {21, h[5], 0, 5, 5},
-                                  {31, h[6], 0, 10, 10},
-                                  {31, h[7], 0, 10, 10}}, graph);
+                                  {21, h[6], 0, 5, 5},
+                                  {31, h[7], 0, 10, 10},
+                                  {31, h[8], 0, 10, 10}}, graph);
 
     // Haplotype 0 covers nodes 1 and 5, haplotype 1 covers everything but node
     // 1, so that the paths supported narrow down along the 5-6 subchain, and
