@@ -814,7 +814,8 @@ void VCFOutputCaller::write_mosaic(const vector<LinkageCollector::PhaseCall>& ph
     // IDs rather than reference positions: a node ID is intrinsic to the graph, while a position
     // is a statement about one reference path.
     //
-    // Version 2 makes two things explicit that version 1 left to be guessed.
+    // Two things the header has to state outright, because a consumer cannot recover either from
+    // the segment rows alone.
     //
     // **Which reference the positions are in.** The segment rows carry the contig as the VCF
     // spells it -- the locus part of the path name -- and a graph can hold several references

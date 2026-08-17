@@ -430,12 +430,13 @@ within a strand, `ref_start` increases. Segments on one strand partition that co
 exactly — every site belongs to exactly one segment, so the `sites` column sums to the site count.
 
 **Reconstruction, and why the GBWT position is there.** `extract({gbwt_node, gbwt_offset})` gives
-the haplotype's path from that point; follow `LF()` to `end_node`. This is the whole reason v2
-exists. In v1 a consumer holding a segment knew only a node and a haplotype *name*, and finding
-that haplotype's path in the GBWT from a node meant a `locate()` — which needs a document-array
-sample or an r-index, neither of which a plain GBZ carries, and which otherwise degrades to
-scanning the component. v2 pays that cost once, at write time, so every consumer gets an O(1)
-entry point.
+the haplotype's path from that point; follow `LF()` to `end_node`. No search is involved, and that
+is the point of carrying the position at all. A node plus a haplotype *name* is not enough to walk
+from: turning a name into a path in the GBWT at a given node is a `locate()`, which needs a
+document-array sample or an r-index — neither of which a plain GBZ carries — and otherwise degrades
+to scanning the component. This project's chr20 r-index is 86 MB against a 77 MB GBZ, so that index
+costs more than the graph it indexes. Resolving the position once at write time costs the caller a
+few thousand lookups and gives every reader an O(1) entry point instead.
 
 Two consequences follow from the position being a *position*:
 
@@ -456,10 +457,11 @@ crossing files must key on the `sample#phase` name. Note also that a haplotype i
 exactly why a segment can carry a haplotype name and still need a specific fragment's position.
 
 **Reference coordinates are advisory, and named.** `#reference` says which path `ref_start`/
-`ref_end` are measured against, because a graph can carry several references and in v1 the
-coordinates were silently ambiguous the moment a graph did. They remain a convenience for eyeballing
-and for range queries: node IDs are the anchors, and where node order and reference order disagree —
-inside the chr20 centromere, for instance — the reference columns are the ones that mislead.
+`ref_end` are measured against, and it has to: a graph can carry several references — the HPRC
+graphs name both `CHM13` and `GRCh38` as reference samples — so a contig name alone does not fix a
+coordinate system. The coordinates are a convenience for eyeballing and for range queries. Node IDs
+are the anchors, and where node order and reference order disagree — inside the chr20 centromere,
+for instance — the reference columns are the ones that mislead.
 
 **What the format does not tell you, and cannot.** Consecutive segments do **not** abut. A run ends
 at the last site the outgoing haplotype explains and the next begins at the first site the incoming

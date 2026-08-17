@@ -447,9 +447,9 @@ is $(grep -v "^#" rl_mosaic.tsv | cut -f3 | sort -u | tr -d '\n') "01" "the mosa
 is $(grep -v "^#" rl_mosaic.tsv | awk -F'\t' '$9 == "?" {n++} END {print n+0}') "0" \
    "every mosaic segment names a known haplotype"
 
-# --- mosaic v2 --------------------------------------------------------------
-# v2 exists because v1 was not self-describing enough to read back. Three things were wrong, and
-# each has a test here.
+# --- the mosaic is self-describing ------------------------------------------
+# Three properties make the file readable without out-of-band knowledge: it names its reference, it
+# names its haplotypes portably, and it hands the consumer a GBWT position. One test each.
 is $(awk -F'\t' '$1=="#mosaic-version" {print $2}' rl_mosaic.tsv) "2" "the mosaic declares version 2"
 
 # The set of header keys is the format's contract with a parser, and doc/read-likelihood-genotyping.md
@@ -460,13 +460,13 @@ is "$(grep "^#" rl_mosaic.tsv | cut -f1 | sort -u | paste -sd, -)" \
    "#H,#decoding,#graph,#haplotype,#mosaic-version,#note,#reference,#sample" \
    "the mosaic header uses exactly the documented set of keys"
 
-# (1) v1 gave ref_start/ref_end without saying which reference. A graph can carry several, so the
-# coordinates were ambiguous the moment anyone used one that did.
+# (1) ref_start/ref_end need a stated coordinate system: a graph can carry several references, so a
+# contig name alone does not fix one.
 is $(grep -c "^#reference" rl_mosaic.tsv) "1" "the mosaic names the reference its coordinates use"
 
-# (2) v1 identified haplotypes only by hap_index, a position in this run's GBWT metadata that means
-# nothing outside it. v2 carries the portable sample#phase name and a table binding the two, so
-# every index in the body must resolve in the header.
+# (2) hap_index is a position in this run's GBWT metadata and means nothing outside it, so the file
+# also carries the portable sample#phase name and a table binding the two. Every index in the body
+# must resolve in that table.
 is $(grep -c "^#haplotype" rl_mosaic.tsv | awk '{print ($1>0)?1:0}') "1" \
    "the mosaic carries a haplotype table"
 is $(awk -F'\t' '$1=="#haplotype" {name[$2]=$3; next}
@@ -475,8 +475,8 @@ is $(awk -F'\t' '$1=="#haplotype" {name[$2]=$3; next}
    "every segment's hap_index resolves to its named haplotype in the header table"
 
 # (3) The point of the whole format: a consumer holding a segment must be able to find that
-# haplotype in the GBWT without a locate query or an r-index. v2 hands them the GBWT position
-# outright. Both new columns must be present and last.
+# haplotype in the GBWT without a locate query or an r-index, so the file hands them the GBWT
+# position outright. Both position columns must be present and last.
 is $(awk -F'\t' '$1=="#H" {print NF"/"$(NF-1)"/"$NF}' rl_mosaic.tsv) "12/gbwt_node/gbwt_offset" \
    "the header ends with the GBWT position columns"
 is $(awk -F'\t' '/^H\t/ && NF != 12 {n++} END {print n+0}' rl_mosaic.tsv) "0" \
