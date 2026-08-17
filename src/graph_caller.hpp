@@ -176,11 +176,20 @@ public:
     void set_emit_phasing(bool on) { this->emit_phasing = on; }
 
     /// Where to write the run-length-encoded mosaic, if anywhere. Implies phasing.
+    ///
+    /// `reference_paths` are the full path names the run called against, e.g. `CHM13#0#chr20`.
+    /// They are recorded because the segment rows carry only the *locus* part of the name -- the
+    /// contig as the VCF spells it -- and a graph may hold more than one reference. The HPRC
+    /// graphs do: their GBZ tags name both `CHM13` and `GRCh38` as reference samples, and both
+    /// appear in the panel, so a bare `chr20` does not say which assembly a position is measured
+    /// against. Without this the coordinates are ambiguous and nothing in the file says so.
     void set_mosaic_out(const string& path, const string& graph_name,
-                        const vector<string>& haplotype_names = {}) {
+                        const vector<string>& haplotype_names = {},
+                        const vector<string>& reference_paths = {}) {
         this->mosaic_path = path;
         this->mosaic_graph_name = graph_name;
         this->mosaic_haplotype_names = haplotype_names;
+        this->mosaic_reference_paths = reference_paths;
         if (!path.empty()) {
             this->emit_phasing = true;
         }
@@ -254,10 +263,33 @@ protected:
     /// Destination for the mosaic file, and the graph it is to be read against.
     string mosaic_path;
     string mosaic_graph_name;
-    /// Panel index -> "sample#phase". A bare index is meaningless outside the run that produced
-    /// it, so the file carries the name; the index is kept beside it because that is what indexes
-    /// the GBWT metadata the consumer will look the haplotype up in.
+    /// Panel index -> "sample#phase", which is the unit the linkage model works in: a haplotype
+    /// present in several GBWT fragments is one haplotype, so the name deliberately identifies a
+    /// (sample, phase) pair rather than any single GBWT path. Combined with a segment's contig
+    /// that is enough to find the paths again.
+    ///
+    /// The index itself is internal -- it is assigned in GBWT metadata order by the run that
+    /// produced the file and means nothing outside it -- so the header emits the whole mapping and
+    /// the file is self-describing.
     vector<string> mosaic_haplotype_names;
+
+    /// Full reference path names the run called against; see set_mosaic_out.
+    vector<string> mosaic_reference_paths;
+
+    /// GBWT position of `hap`'s fragment at node `node_id`, or gbwt::invalid_edge() if the
+    /// haplotype does not traverse it.
+    ///
+    /// This is what makes a segment walkable without an r-index. A consumer given only a node and
+    /// a haplotype *name* has to turn the name into a position, and that is `locate()`: without an
+    /// r-index or dense DA sampling it walks back to a sample, or scans the path from its start.
+    /// Given the position instead, reconstruction is `extract({node, offset})` and forward `LF()`,
+    /// with no search at all. Resolving it once here costs the writer a few thousand lookups and
+    /// saves every reader an index larger than the graph -- this project's chr20 r-index is 86 MB
+    /// against a 77 MB GBZ.
+    ///
+    /// Both orientations are tried because the recorded node IDs are bare: the snarl boundary is
+    /// stored without the orientation the haplotype traverses it in.
+    gbwt::edge_type mosaic_gbwt_position(int64_t node_id, size_t hap) const;
 
     /// Collapse the per-site phasing into segments and write them.
     ///

@@ -9,7 +9,7 @@ PATH=../bin:$PATH # for vg
 # FORMAT field shifts every later one, which broke four assertions here that were not
 # testing field order at all -- one of them silently compared BL against a GQ threshold.
 
-plan tests 260
+plan tests 271
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -447,6 +447,55 @@ is $(grep -v "^#" rl_mosaic.tsv | cut -f3 | sort -u | tr -d '\n') "01" "the mosa
 is $(grep -v "^#" rl_mosaic.tsv | awk -F'\t' '$9 == "?" {n++} END {print n+0}') "0" \
    "every mosaic segment names a known haplotype"
 
+# --- mosaic v2 --------------------------------------------------------------
+# v2 exists because v1 was not self-describing enough to read back. Three things were wrong, and
+# each has a test here.
+is $(awk -F'\t' '$1=="#mosaic-version" {print $2}' rl_mosaic.tsv) "2" "the mosaic declares version 2"
+
+# (1) v1 gave ref_start/ref_end without saying which reference. A graph can carry several, so the
+# coordinates were ambiguous the moment anyone used one that did.
+is $(grep -c "^#reference" rl_mosaic.tsv) "1" "the mosaic names the reference its coordinates use"
+
+# (2) v1 identified haplotypes only by hap_index, a position in this run's GBWT metadata that means
+# nothing outside it. v2 carries the portable sample#phase name and a table binding the two, so
+# every index in the body must resolve in the header.
+is $(grep -c "^#haplotype" rl_mosaic.tsv | awk '{print ($1>0)?1:0}') "1" \
+   "the mosaic carries a haplotype table"
+is $(awk -F'\t' '$1=="#haplotype" {name[$2]=$3; next}
+     /^H\t/ && $8 != "*" { if (!($8 in name) || name[$8] != $9) bad++ }
+     END {print bad+0}' rl_mosaic.tsv) "0" \
+   "every segment's hap_index resolves to its named haplotype in the header table"
+
+# (3) The point of the whole format: a consumer holding a segment must be able to find that
+# haplotype in the GBWT without a locate query or an r-index. v2 hands them the GBWT position
+# outright. Both new columns must be present and last.
+is $(awk -F'\t' '$1=="#H" {print NF"/"$(NF-1)"/"$NF}' rl_mosaic.tsv) "12/gbwt_node/gbwt_offset" \
+   "the header ends with the GBWT position columns"
+is $(awk -F'\t' '/^H\t/ && NF != 12 {n++} END {print n+0}' rl_mosaic.tsv) "0" \
+   "every segment row carries all 12 columns"
+
+# gbwt_node is an oriented GBWT node, so it encodes start_node as id*2 + is_reverse. If that
+# identity fails the position points somewhere other than the segment it is attached to, which is
+# the one way this column can be silently useless.
+is $(awk -F'\t' '/^H\t/ && $11 != "." && int($11/2) != $6 {n++} END {print n+0}' rl_mosaic.tsv) "0" \
+   "each GBWT position sits on that segment's own start node"
+is $(awk -F'\t' '/^H\t/ && $12 != "." && $12 !~ /^[0-9]+$/ {n++} END {print n+0}' rl_mosaic.tsv) "0" \
+   "every resolved GBWT offset is a non-negative integer"
+is $(awk -F'\t' '/^H\t/ {if (($11==".") != ($12==".")) n++} END {print n+0}' rl_mosaic.tsv) "0" \
+   "gbwt_node and gbwt_offset are either both resolved or both absent"
+# An unresolvable position is allowed -- it means no panel haplotype of that name visits the node --
+# but it must stay the exception, or the column is not doing its job.
+is $(awk -F'\t' '/^H\t/ {t++; if ($11 != ".") p++} END {print (p > t/2) ? 1 : 0}' rl_mosaic.tsv) "1" \
+   "most segments resolve to a GBWT position"
+
+# A segment carrying one GBWT position is a claim that the position walks the whole segment, which
+# fails if the segment crosses a fragment boundary. The caller splits on those boundaries, so
+# splitting can only ever add segments, never lose sites: the site total is the invariant to check.
+vg call x.gbz --read-likelihood --gam sim.gam --mosaic-out rl_mosaic2.tsv 2>/dev/null >/dev/null
+is $(awk -F'\t' '/^H\t/ {n += $10} END {print n+0}' rl_mosaic.tsv) \
+   $(awk -F'\t' '/^H\t/ {n += $10} END {print n+0}' rl_mosaic2.tsv) \
+   "fragment splitting is deterministic and conserves the site total"
+
 # Haploid chains. chrX outside the pseudoautosomal regions and all of chrY are haploid in a male
 # sample, and they used to be dropped from the linkage pass by a guard that only accepted a
 # two-allele genotype -- silently costing them both the transition model and any mosaic. The
@@ -596,7 +645,7 @@ is "$GAFBASE_SAME" "0" "GAF-Base read source produces identical calls to the in-
 is "$GAFBASE_THREADS" "0" "GAF-Base calls do not depend on the thread count$GAFBASE_NOTE"
 is "$GAFBASE_WINDOW" "0" "GAF-Base calls do not depend on the read window size$GAFBASE_NOTE"
 
-rm -f x.vg x.gbz x.gbwt sim.gam x.pack call.vcf callg.vcf callz.vcf callg.6 callz.6 callrl_nopack.vcf callrl_nopack_z.vcf callrl_withpack.vcf nopack_err.txt sim.sorted.gam sim.sorted.gam.gai rl_inmem.vcf rl_indexed.vcf gi_err.txt gb_err.txt gb_excl.txt gb_norl.txt gb_nobin.txt sim.gaf sim.gaf.db x.gbz.db rl_gafmem.vcf rl_gafbase.vcf rl_gafbase_t4.vcf rl_gafbase_w32.vcf rl_autoz_full.vcf rl_autoz.vcf rl_explicit_z.vcf rl_support_full.vcf rl_support.vcf es_nopack.txt es_z.txt es_g.txt nopanel.vg nopanel.gbwt nopanel.gbz nopanel.pack nopanel_err.txt poisson_default.vcf poisson_z.vcf rl_phased.vcf rl_unphased_gt.txt rl_phased_gt.txt rl_ph_err.txt rl_mosaic.tsv rl_hap.vcf rl_hap_mosaic.tsv
+rm -f x.vg x.gbz x.gbwt sim.gam x.pack call.vcf callg.vcf callz.vcf callg.6 callz.6 callrl_nopack.vcf callrl_nopack_z.vcf callrl_withpack.vcf nopack_err.txt sim.sorted.gam sim.sorted.gam.gai rl_inmem.vcf rl_indexed.vcf gi_err.txt gb_err.txt gb_excl.txt gb_norl.txt gb_nobin.txt sim.gaf sim.gaf.db x.gbz.db rl_gafmem.vcf rl_gafbase.vcf rl_gafbase_t4.vcf rl_gafbase_w32.vcf rl_autoz_full.vcf rl_autoz.vcf rl_explicit_z.vcf rl_support_full.vcf rl_support.vcf es_nopack.txt es_z.txt es_g.txt nopanel.vg nopanel.gbwt nopanel.gbz nopanel.pack nopanel_err.txt poisson_default.vcf poisson_z.vcf rl_phased.vcf rl_unphased_gt.txt rl_phased_gt.txt rl_ph_err.txt rl_mosaic.tsv rl_mosaic2.tsv rl_hap.vcf rl_hap_mosaic.tsv
 
 
 # subpath test

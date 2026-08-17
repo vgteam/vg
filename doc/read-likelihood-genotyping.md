@@ -383,12 +383,16 @@ switch points — so it is run-length encoded, one line per maximal run of one s
 haplotype:
 
 ```
-#mosaic-version	1
+#mosaic-version	2
 #graph	chr20_0_chr20.gbz
 #sample	HG002
+#reference	CHM13#0#chr20
 #decoding	constrained-viterbi
-#H	contig	strand	ref_start	ref_end	start_node	end_node	hap_index	haplotype	sites
-H	chr20	0	603	3605	114819056	114842605	9	recombination#30	60
+#haplotype	0	CHM13#0
+#haplotype	9	recombination#30
+	... one line per panel haplotype
+#H	contig	strand	ref_start	ref_end	start_node	end_node	hap_index	haplotype	sites	gbwt_node	gbwt_offset
+H	chr20	0	603	3605	114819056	114842605	9	recombination#30	60	229638112	4
 ```
 
 Tab-separated. Lines beginning `#` are header or comment; every data line begins `H`.
@@ -397,19 +401,51 @@ Tab-separated. Lines beginning `#` are header or comment; every data line begins
 |---|---|
 | `contig` | reference contig the segment's sites sit on |
 | `strand` | `0` or `1`. Strand identity is consistent along a contig and matches the order of the phased `GT` in the VCF: `strand 0` carries the allele left of the `\|`. |
-| `ref_start` | reference position of the **first site** in the run — not the start of the sequence the segment covers |
+| `ref_start` | reference position of the **first site** in the run — not the start of the sequence the segment covers. In the `#reference` coordinate system, and **advisory**. |
 | `ref_end` | reference position of the **last site** in the run |
-| `start_node` | snarl start node of the first site |
-| `end_node` | snarl end node of the last site |
-| `hap_index` | index into the panel numbering the model uses, which is GBWT metadata order over distinct `(sample, phase)` pairs |
-| `haplotype` | `sample#phase` for that index, or `*` where the panel does not explain the strand |
+| `start_node` | snarl start node of the first site. Authoritative. |
+| `end_node` | snarl end node of the last site. Authoritative. |
+| `hap_index` | row in the `#haplotype` table. Internal to this run — see below. |
+| `haplotype` | `sample#phase`, or `*` where the panel does not explain the strand |
 | `sites` | number of called sites in the run |
+| `gbwt_node` | oriented GBWT node at `start_node`: `start_node * 2 + is_reverse`. `.` if unresolvable. |
+| `gbwt_offset` | offset within that node's GBWT record, so `(gbwt_node, gbwt_offset)` is a GBWT position |
 
 **Ordering.** Grouped by contig; within a contig all `strand 0` lines precede all `strand 1` lines;
 within a strand, `ref_start` increases. Segments on one strand partition that contig's sites
 exactly — every site belongs to exactly one segment, so the `sites` column sums to the site count.
 
-**Reconstruction.** Walk the named haplotype's GBWT sequence from `start_node` to `end_node`.
+**Reconstruction, and why the GBWT position is there.** `extract({gbwt_node, gbwt_offset})` gives
+the haplotype's path from that point; follow `LF()` to `end_node`. This is the whole reason v2
+exists. In v1 a consumer holding a segment knew only a node and a haplotype *name*, and finding
+that haplotype's path in the GBWT from a node meant a `locate()` — which needs a document-array
+sample or an r-index, neither of which a plain GBZ carries, and which otherwise degrades to
+scanning the component. v2 pays that cost once, at write time, so every consumer gets an O(1)
+entry point.
+
+Two consequences follow from the position being a *position*:
+
+- **A segment never spans a GBWT fragment boundary.** One position can only walk one fragment, so
+  the caller splits a run wherever the underlying GBWT path ends and another begins. A haplotype
+  present as several fragments therefore yields several segments. On chr20 this splits 2 of 3,675
+  segments — the panel's paths are near-contiguous, so the cost is negligible.
+- **`gbwt_offset` is not portable across graphs.** It is a rank among the sequences visiting that
+  node, and a graph containing more sequences gives the same offset to a different path. The
+  positions are valid against the `#graph` named in the header and nothing else. `start_node` and
+  `end_node`, by contrast, are plain node IDs and travel anywhere those nodes exist.
+
+**`hap_index` is internal; `haplotype` is portable.** `hap_index` is GBWT metadata order over
+distinct `(sample, phase)` pairs in *this* graph, so two runs on two chunks of the same genome will
+number the same haplotypes differently. The `#haplotype` table binds the two for this file; anything
+crossing files must key on the `sample#phase` name. Note also that a haplotype in this sense is a
+`(sample, phase)` pair and deliberately collapses the GBWT fragments that make it up — which is
+exactly why a segment can carry a haplotype name and still need a specific fragment's position.
+
+**Reference coordinates are advisory, and named.** `#reference` says which path `ref_start`/
+`ref_end` are measured against, because a graph can carry several references and in v1 the
+coordinates were silently ambiguous the moment a graph did. They remain a convenience for eyeballing
+and for range queries: node IDs are the anchors, and where node order and reference order disagree —
+inside the chr20 centromere, for instance — the reference columns are the ones that mislead.
 
 **What the format does not tell you, and cannot.** Consecutive segments do **not** abut. A run ends
 at the last site the outgoing haplotype explains and the next begins at the first site the incoming
@@ -425,12 +461,27 @@ relative, and it will not detect a rebuilt graph with different node IDs. Readin
 the wrong GBZ produces a plausible wrong genome rather than an error. A checksum belongs here and
 is not yet implemented.
 
-chr20 at 34 haplotypes gives 3,673 segments over 105,251 sites in **255 KB**. The same two walks
-written out as explicit node lists measure ~40.6 MB — one haplotype is 2,031,992 steps — so the
-mosaic is smaller by a factor of about 160.
+chr20 at 34 haplotypes gives 3,675 segments over 105,251 sites in **297 KB**, 92 KB gzipped — 82
+bytes per segment. The same two walks written out as explicit node lists measure ~40.6 MB — one
+haplotype is 2,031,992 steps — so the mosaic is smaller by a factor of about 137. Scaled by site
+count, a whole genome is roughly **8.5 MB**, or 2.6 MB gzipped.
 
 The trade is that the mosaic is written *by reference* and cannot be read without the GBZ it names,
-which is why the header carries the graph. An explicit path list is self-contained and 160x larger.
+which is why the header carries the graph. An explicit path list is self-contained and ~137x larger.
+
+**A few segments carry no position.** On chr20, 10 of 3,675 (0.27%) have `.` in both GBWT columns:
+the named haplotype does not visit the segment's start node in either orientation, which happens
+where the panel explains a strand through a haplotype that enters the region slightly later. All 10
+are in the centromere (26–31 Mb), the same region where node IDs stop tracking reference order.
+Such a segment still names its haplotype and its node anchors; only the O(1) entry point is missing,
+and a consumer needing it there must fall back to a search.
+
+**Cost.** Resolving positions and splitting on fragment boundaries adds about 3% to a chr20 run
+(150 s against 146 s). The obvious implementation — resolving the haplotype's position at every
+site, or walking `LF()` across the segment to detect a fragment end — costs 2.3x and 1.2x
+respectively. Instead the caller resolves only the two endpoints of a candidate segment and compares
+them; if they disagree it binary-searches for the boundary and recurses. Splits are rare (2 on
+chr20), so the search almost never runs.
 
 ### Haploid contigs
 

@@ -1758,7 +1758,10 @@ int main_call(int argc, char** argv) {
                                         : string("sample") + std::to_string(kv.first.first);
                     hap_names[kv.second] = sample + "#" + std::to_string(kv.first.second);
                 }
-                vcf_caller->set_mosaic_out(mosaic_out, graph_filename, hap_names);
+                // The reference paths this run called against, in full. The mosaic rows carry
+                // only the locus part, and this graph has two reference samples (CHM13 and
+                // GRCh38), so without these the coordinates name no particular assembly.
+                vcf_caller->set_mosaic_out(mosaic_out, graph_filename, hap_names, ref_paths);
             }
             if (show_progress) {
                 logger.info() << "Linkage: " << hap_index.size() << " panel haplotypes over "

@@ -778,6 +778,29 @@ void VCFOutputCaller::apply_linkage_change(string& line,
     }
 }
 
+gbwt::edge_type VCFOutputCaller::mosaic_gbwt_position(int64_t node_id, size_t hap) const {
+    if (linkage_gbwt == nullptr || linkage_sequence_to_haplotype == nullptr) {
+        return gbwt::invalid_edge();
+    }
+    // Forward first: snarl boundaries are stored oriented along the reference, so the reverse
+    // orientation is the exception rather than a coin flip.
+    for (int orientation = 0; orientation < 2; ++orientation) {
+        gbwt::node_type node = gbwt::Node::encode(node_id, orientation == 1);
+        gbwt::SearchState state = linkage_gbwt->find(node);
+        if (state.empty()) {
+            continue;
+        }
+        for (gbwt::size_type i = state.range.first; i <= state.range.second; ++i) {
+            gbwt::size_type seq = linkage_gbwt->locate(node, i);
+            if (seq < linkage_sequence_to_haplotype->size()
+                && (*linkage_sequence_to_haplotype)[seq] == hap) {
+                return gbwt::edge_type(node, i);
+            }
+        }
+    }
+    return gbwt::invalid_edge();
+}
+
 void VCFOutputCaller::write_mosaic(const vector<LinkageCollector::PhaseCall>& phasing) const {
     ofstream out(mosaic_path);
     if (!out) {
@@ -787,23 +810,143 @@ void VCFOutputCaller::write_mosaic(const vector<LinkageCollector::PhaseCall>& ph
     }
 
     // A segment is a maximal run over which one strand stays on one panel haplotype. The consumer
-    // reconstructs a haplotype by walking the named GBWT sequence from start_node to end_node, so
-    // the anchors are node IDs rather than reference positions: a node ID is intrinsic to the
-    // graph, while a position is a statement about one reference path.
-    out << "#mosaic-version\t1\n";
+    // reconstructs a haplotype by walking it from start_node to end_node, so the anchors are node
+    // IDs rather than reference positions: a node ID is intrinsic to the graph, while a position
+    // is a statement about one reference path.
+    //
+    // Version 2 makes two things explicit that version 1 left to be guessed.
+    //
+    // **Which reference the positions are in.** The segment rows carry the contig as the VCF
+    // spells it -- the locus part of the path name -- and a graph can hold several references
+    // under the same locus. The HPRC graphs do: their GBZ tags name CHM13 and GRCh38 both as
+    // reference samples and both appear in the panel, so `chr20` alone does not say whether
+    // position 24 is CHM13 chr20 or GRCh38 chr20. Those are different coordinate systems and a
+    // consumer guessing wrong would see nothing amiss.
+    //
+    // **What a hap_index means.** It is assigned in GBWT metadata order by the run that produced
+    // the file and is meaningless outside it, so the whole mapping is written out. The name is
+    // the portable identifier: a (sample, phase) pair, which is the unit the linkage model works
+    // in -- a haplotype present in several GBWT fragments is one haplotype, so no single GBWT path
+    // name would do. Name plus the segment's contig is enough to find the paths again.
+    out << "#mosaic-version\t2\n";
     out << "#graph\t" << mosaic_graph_name << "\n";
     out << "#sample\t" << sample_name << "\n";
+    for (const string& ref : mosaic_reference_paths) {
+        out << "#reference\t" << ref << "\n";
+    }
     out << "#decoding\tconstrained-viterbi\n";
+    // Positions are derived; the node IDs are not. Said plainly so a consumer knows which to
+    // trust when a file is read against a graph whose reference paths have moved.
+    out << "#note\tref_start/ref_end are advisory, in the #reference coordinate system; "
+        << "start_node/end_node are the authoritative anchors and are intrinsic to the graph.\n";
     out << "#note\tsegments are maximal runs on one panel haplotype; walk the haplotype "
         << "from start_node to end_node to reconstruct it. * means the panel does not "
         << "explain that strand there.\n";
+    out << "#note\thap_index is internal to this run; haplotype (sample#phase) is the portable "
+        << "identifier and names a haplotype, not a single GBWT path.\n";
+    for (size_t h = 0; h < mosaic_haplotype_names.size(); ++h) {
+        out << "#haplotype\t" << h << "\t" << mosaic_haplotype_names[h] << "\n";
+    }
+    out << "#note\tgbwt_node/gbwt_offset is the GBWT position of the haplotype at start_node: "
+        << "extract({gbwt_node, gbwt_offset}) and follow LF() to end_node, with no locate and no "
+        << "r-index. gbwt_node carries the orientation, start_node does not.\n";
+    out << "#note\ta segment never spans a GBWT fragment boundary, so one position walks the "
+        << "whole of it; a haplotype in several fragments yields several segments.\n";
     out << "#H\tcontig\tstrand\tref_start\tref_end\tstart_node\tend_node"
-        << "\thap_index\thaplotype\tsites\n";
+        << "\thap_index\thaplotype\tsites\tgbwt_node\tgbwt_offset\n";
 
     // The phasing arrives grouped by contig and in reference order, which is how resolve() builds
     // it. Both strands are emitted, and a switch on either one closes only its own segment.
     size_t i = 0;
     size_t total_segments = 0;
+
+    // Emit sites [from, to] on one strand, all on haplotype `hap`, as one row per GBWT fragment.
+    //
+    // A row carries one GBWT position, which is a claim that the position walks the whole segment.
+    // That fails across a fragment boundary, so a run is cut wherever the fragment under it changes.
+    // Finding those cuts is the entire cost of the feature, and how it is found matters a great deal
+    // -- measured on chr20 against a 146 s baseline with positions written but no splitting:
+    //
+    //   * Resolving a position at every site: 332 s. Seven million resolves.
+    //   * Following the haplotype with LF from site to site sounds far cheaper and is not: 172 s,
+    //     210 million LF steps. Sites sit about twenty nodes apart in reference terms, but where a
+    //     haplotype runs in the reverse orientation, walking forward moves *away* from the next site
+    //     and burns the whole step budget before giving up. 6,640 of 210,000 transitions did.
+    //   * Resolving only the two *ends* of a run and comparing them: 150 s. Further work is needed
+    //     only where they differ, and then a binary search over the sites finds the boundary in log
+    //     time. On chr20 that is 7,344 resolves and two searches.
+    //
+    // The third is what this does. The first two are recorded because both look obviously cheaper
+    // than they are.
+    //
+    // The limitation this accepts: comparing endpoints detects a fragment that *changes* across a
+    // run, not one that leaves and returns within it. A haplotype re-entering its starting fragment
+    // before the run ends would be emitted as one row, and the position would not walk the middle of
+    // it. Fragments partition a path, so this needs the run to leave and re-enter the same fragment
+    // in reference order; it does not arise on this panel, and detecting it would cost the 2.3x
+    // above.
+    std::function<void(size_t, size_t, int, size_t)> emit_span =
+        [&](size_t from, size_t to, int strand, size_t hap) {
+        gbwt::edge_type pos = (hap == LinkageModel::WILDCARD)
+                                  ? gbwt::invalid_edge()
+                                  : mosaic_gbwt_position(phasing[from].start_node, hap);
+
+        auto emit_row = [&](size_t a_idx, size_t b_idx, gbwt::edge_type p) {
+            const LinkageCollector::PhaseCall& a = phasing[a_idx];
+            const LinkageCollector::PhaseCall& b = phasing[b_idx];
+            out << "H\t" << a.contig << "\t" << strand << "\t"
+                << a.position << "\t" << b.position << "\t"
+                << a.start_node << "\t" << b.end_node << "\t";
+            if (hap == LinkageModel::WILDCARD) {
+                out << "*\t*";
+            } else {
+                out << hap << "\t"
+                    << (hap < mosaic_haplotype_names.size()
+                            ? mosaic_haplotype_names[hap] : string("?"));
+            }
+            out << "\t" << (b_idx - a_idx + 1) << "\t";
+            if (p == gbwt::invalid_edge()) {
+                // No position to give: either the strand is the wildcard, or the panel does not
+                // place this haplotype on this node. '.' rather than a zero, which would read as a
+                // valid offset. On chr20 ten segments are in the latter case, all of them in the
+                // centromere where node IDs stop following reference order.
+                out << ".\t.";
+            } else {
+                out << p.first << "\t" << p.second;
+            }
+            out << "\n";
+            ++total_segments;
+        };
+
+        if (pos == gbwt::invalid_edge() || from == to) {
+            emit_row(from, to, pos);
+            return;
+        }
+        gbwt::edge_type end_pos = mosaic_gbwt_position(phasing[to].start_node, hap);
+        if (end_pos == gbwt::invalid_edge()
+            || linkage_gbwt->locate(pos) == linkage_gbwt->locate(end_pos)) {
+            // Same fragment at both ends, or no way to tell. One row.
+            emit_row(from, to, pos);
+            return;
+        }
+        // The fragment changes somewhere in (from, to]. Binary search for the last site still on
+        // the starting fragment; a site the haplotype does not reach is treated as past the
+        // boundary, which keeps the search monotone.
+        gbwt::size_type seq = linkage_gbwt->locate(pos);
+        size_t lo = from, hi = to;
+        while (hi - lo > 1) {
+            size_t mid = lo + (hi - lo) / 2;
+            gbwt::edge_type p = mosaic_gbwt_position(phasing[mid].start_node, hap);
+            if (p != gbwt::invalid_edge() && linkage_gbwt->locate(p) == seq) {
+                lo = mid;
+            } else {
+                hi = mid;
+            }
+        }
+        emit_row(from, lo, pos);
+        emit_span(hi, to, strand, hap);
+    };
+
     while (i < phasing.size()) {
         size_t j = i;
         while (j < phasing.size() && phasing[j].contig == phasing[i].contig) {
@@ -824,20 +967,13 @@ void VCFOutputCaller::write_mosaic(const vector<LinkageCollector::PhaseCall>& ph
                                                : phasing[t + 1].hap_second) != hap;
                 (void)prev;
                 if (last || changes) {
-                    const LinkageCollector::PhaseCall& a = phasing[seg_start];
-                    const LinkageCollector::PhaseCall& b = phasing[t];
-                    out << "H\t" << a.contig << "\t" << strand << "\t"
-                        << a.position << "\t" << b.position << "\t"
-                        << a.start_node << "\t" << b.end_node << "\t";
-                    if (hap == LinkageModel::WILDCARD) {
-                        out << "*\t*";
-                    } else {
-                        out << hap << "\t"
-                            << (hap < mosaic_haplotype_names.size()
-                                    ? mosaic_haplotype_names[hap] : string("?"));
-                    }
-                    out << "\t" << (t - seg_start + 1) << "\n";
-                    ++total_segments;
+                    // One run of a single haplotype, but possibly several GBWT fragments of it.
+                    // A segment must be walkable from one position, so the run is cut wherever the
+                    // fragment under it changes: emit_span walks the sites, re-resolving whenever
+                    // the position stops belonging to the same fragment, and emits one row per
+                    // fragment. Without this a consumer following LF() from the segment's position
+                    // would hit the endmarker partway and have no way to pick up the rest.
+                    emit_span(seg_start, t, strand, hap);
                     seg_start = t + 1;
                 }
             }
