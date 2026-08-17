@@ -837,8 +837,8 @@ Every flag below requires `--read-likelihood`; `vg call` errors if one is passed
 
 | Flag | Default | Effect |
 |---|---|---|
-| `-d/--ploidy N` | 2 | Ploidy for every contig. |
-| `-R/--ref-ploidy PATH:N` | — | Ploidy for one reference path, overriding `-d`. |
+| `-d/--ploidy N` | 2 | Ploidy of the sample, `{1, 2}`. |
+| `-R/--ploidy-regex RULES` | — | Comma-separated `REGEX:PLOIDY` rules assigning ploidy to contigs by name. Unmatched contigs fall back to `-d`. |
 | `--ploidy-bed FILE` | — | BED of `CHROM START END PLOIDY` setting ploidy per *region*, overriding `-d`/`-R`. Linkage and the mosaic break at each boundary. |
 
 ### Phasing and mosaic output — needs `--linkage-weight` above 0
