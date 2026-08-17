@@ -1469,6 +1469,10 @@ Functions</h2></td></tr>
 <tr class="separator:a03a4b946e48b89b3ec8857b04ded59db"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a2422b98737c90954afcd957a8566857d"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a2422b98737c90954afcd957a8566857d">copy_reference_samples</a> (const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> &amp;source, gbwt::GBWT &amp;destination)</td></tr>
 <tr class="separator:a2422b98737c90954afcd957a8566857d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a5c8bfc561f5dc9d6f65a7bb39131f77f"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a5c8bfc561f5dc9d6f65a7bb39131f77f">append_wrap_fragment</a> (gbwt::vector_type &amp;last_fragment, const gbwt::vector_type &amp;origin_fragment)</td></tr>
+<tr class="separator:a5c8bfc561f5dc9d6f65a7bb39131f77f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a769dd42250f548ec71d86911d5f053e3"><td class="memItemLeft" align="right" valign="top">gbwt::GBWT&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a769dd42250f548ec71d86911d5f053e3">wrap_haplotype_paths</a> (const gbwt::GBWT &amp;source, const std::unordered_set&lt; std::string &gt; &amp;contigs)</td></tr>
+<tr class="separator:a769dd42250f548ec71d86911d5f053e3"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a571047c58b73b78d02a767c3ab6ec222"><td class="memItemLeft" align="right" valign="top">gbwt::GBWT&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a571047c58b73b78d02a767c3ab6ec222">get_gbwt</a> (const std::vector&lt; gbwt::vector_type &gt; &amp;paths)</td></tr>
 <tr class="memdesc:a571047c58b73b78d02a767c3ab6ec222"><td class="mdescLeft">&#160;</td><td class="mdescRight">Transform the paths into a GBWT index. Primarily for testing.  <a href="namespacevg.html#a571047c58b73b78d02a767c3ab6ec222">More...</a><br /></td></tr>
 <tr class="separator:a571047c58b73b78d02a767c3ab6ec222"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -5385,6 +5389,36 @@ template&lt;typename Iter &gt; </div>
       </table>
 </div><div class="memdoc">
 <p>Append the second path onto the end of the first, without combining mappings or simplifying. Modifies and returns a reference to the first path. </p>
+
+</div>
+</div>
+<a id="a5c8bfc561f5dc9d6f65a7bb39131f77f"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a5c8bfc561f5dc9d6f65a7bb39131f77f">&#9670;&nbsp;</a></span>append_wrap_fragment()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::append_wrap_fragment </td>
+          <td>(</td>
+          <td class="paramtype">gbwt::vector_type &amp;&#160;</td>
+          <td class="paramname"><em>last_fragment</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const gbwt::vector_type &amp;&#160;</td>
+          <td class="paramname"><em>origin_fragment</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Append the nodes of <code>origin_fragment</code> onto <code>last_fragment</code>, joining the end of a haplotype back to its start. The two vectors must be distinct.</p>
+<p>Linearizing a circular sequence drops a single adjacency, the one connecting the end of the sequence to its start. Appending the origin fragment onto the last fragment restores it. For an unfragmented haplotype the origin and the last fragment are the same path, so it is appended to itself. </p>
 
 </div>
 </div>
@@ -30124,6 +30158,38 @@ template&lt;typename T &gt; </div>
       </table>
 </div><div class="memdoc">
 <p>Returns the score of the lowest-scoring source-to-sink alignment in the <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a>. Assumes that subpaths are topologically ordered and starts have been identified. </p>
+
+</div>
+</div>
+<a id="a769dd42250f548ec71d86911d5f053e3"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a769dd42250f548ec71d86911d5f053e3">&#9670;&nbsp;</a></span>wrap_haplotype_paths()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">gbwt::GBWT vg::wrap_haplotype_paths </td>
+          <td>(</td>
+          <td class="paramtype">const gbwt::GBWT &amp;&#160;</td>
+          <td class="paramname"><em>source</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::unordered_set&lt; std::string &gt; &amp;&#160;</td>
+          <td class="paramname"><em>contigs</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Rebuild <code>source</code> into a new GBWT in which every haplotype on one of the named <code>contigs</code> has its origin (first) fragment appended onto its last fragment (see <code>append_wrap_fragment</code>), restoring the adjacency that linearization drops from a circular sequence. All other paths are copied verbatim, and the metadata and the reference sample tag are preserved.</p>
+<p>Fragments are grouped into haplotypes using <code>gbwt::FragmentMap</code>, which groups by (sample, contig, phase) and orders fragments by their position along the contig. Every fragment of a haplotype therefore lies on the same contig, and wrapping affects only the last fragment. This means fragmented haplotypes are handled correctly: the wrap joins the true end back to the true start, rather than looping an interior fragment onto itself.</p>
+<p>The origin fragment must contain contig position 0, identified by count 0. VCF-built GBWTs store a dense 0-based fragment identifier in the count field, while GFA W-line GBWTs store the genomic start offset, but in both cases the origin fragment has count 0. If a named contig has a haplotype whose origin fragment is missing (the start was truncated out of the graph), this is an error, as there is no origin node to wrap onto.</p>
+<p>The tail of each wrapped haplotype is assumed to be the true contig end. A truncated end cannot be detected, because the metadata stores no path end coordinate (the GFA W-line end is recomputed as count + length when writing). If the end was truncated, the wrap edge connects the last remaining node to the origin. </p>
 
 </div>
 </div>

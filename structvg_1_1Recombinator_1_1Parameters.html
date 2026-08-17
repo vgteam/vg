@@ -83,6 +83,12 @@ $(function() {
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-types"></a>
 Public Types</h2></td></tr>
+<tr class="memitem:a3898dd0b55cd824c467a2d49a4a53bfa"><td class="memItemLeft" align="right" valign="top">enum &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Recombinator_1_1Parameters.html#a3898dd0b55cd824c467a2d49a4a53bfa">scoring_model_t</a> { <a class="el" href="structvg_1_1Recombinator_1_1Parameters.html#a3898dd0b55cd824c467a2d49a4a53bfaaaf386acfef280c1aa825a7bd9843322e">standard_scoring</a>
+, <a class="el" href="structvg_1_1Recombinator_1_1Parameters.html#a3898dd0b55cd824c467a2d49a4a53bfaad11075637509d31f85329829c9ac8d46">high_coverage_scoring</a>
+, <a class="el" href="structvg_1_1Recombinator_1_1Parameters.html#a3898dd0b55cd824c467a2d49a4a53bfaa11516e95ce144dd7c66da29a3ff8da53">half_coverage_scoring</a>
+ }</td></tr>
+<tr class="memdesc:a3898dd0b55cd824c467a2d49a4a53bfa"><td class="mdescLeft">&#160;</td><td class="mdescRight">Kmer scoring model used for a chain.  <a href="structvg_1_1Recombinator_1_1Parameters.html#a3898dd0b55cd824c467a2d49a4a53bfa">More...</a><br /></td></tr>
+<tr class="separator:a3898dd0b55cd824c467a2d49a4a53bfa"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a57123b9eee2179efef985d785f8c44e4"><td class="memItemLeft" align="right" valign="top">enum &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Recombinator_1_1Parameters.html#a57123b9eee2179efef985d785f8c44e4">preset_t</a> { <a class="el" href="structvg_1_1Recombinator_1_1Parameters.html#a57123b9eee2179efef985d785f8c44e4a7b22070ac7d633aa776868df9225baa9">preset_default</a>
 , <a class="el" href="structvg_1_1Recombinator_1_1Parameters.html#a57123b9eee2179efef985d785f8c44e4a115a5b3be57084265c380192cabde366">preset_haploid</a>
 , <a class="el" href="structvg_1_1Recombinator_1_1Parameters.html#a57123b9eee2179efef985d785f8c44e4a645ffd73f63c0f007f249345c81d4f8a">preset_diploid</a>
@@ -129,6 +135,24 @@ Public Attributes</h2></td></tr>
 <tr class="memitem:a0a32a8c54c0c04d6f629418b2fd3cb15"><td class="memItemLeft" align="right" valign="top">unordered_set&lt; std::string &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Recombinator_1_1Parameters.html#a0a32a8c54c0c04d6f629418b2fd3cb15">banned_samples</a></td></tr>
 <tr class="memdesc:a0a32a8c54c0c04d6f629418b2fd3cb15"><td class="mdescLeft">&#160;</td><td class="mdescRight">Samples whose haplotypes shouldn't be used, even if they score well.  <a href="structvg_1_1Recombinator_1_1Parameters.html#a0a32a8c54c0c04d6f629418b2fd3cb15">More...</a><br /></td></tr>
 <tr class="separator:a0a32a8c54c0c04d6f629418b2fd3cb15"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a579c17d7718d41bb95c17d6b688dc9e7"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1Recombinator_1_1Parameters.html#a3898dd0b55cd824c467a2d49a4a53bfa">scoring_model_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Recombinator_1_1Parameters.html#a579c17d7718d41bb95c17d6b688dc9e7">scoring_model</a> = <a class="el" href="structvg_1_1Recombinator_1_1Parameters.html#a3898dd0b55cd824c467a2d49a4a53bfaaaf386acfef280c1aa825a7bd9843322e">standard_scoring</a></td></tr>
+<tr class="separator:a579c17d7718d41bb95c17d6b688dc9e7"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a135bf28ac2cc08da13ddd15485dce49f"><td class="memItemLeft" align="right" valign="top">std::unordered_set&lt; size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Recombinator_1_1Parameters.html#a135bf28ac2cc08da13ddd15485dce49f">high_coverage_chains</a></td></tr>
+<tr class="memdesc:a135bf28ac2cc08da13ddd15485dce49f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Top-level chains (by offset) to sample using the high-coverage model.  <a href="structvg_1_1Recombinator_1_1Parameters.html#a135bf28ac2cc08da13ddd15485dce49f">More...</a><br /></td></tr>
+<tr class="separator:a135bf28ac2cc08da13ddd15485dce49f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab0df34d3617f7fd0387b31e5dab57669"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Recombinator_1_1Parameters.html#ab0df34d3617f7fd0387b31e5dab57669">high_coverage_num_haplotypes</a> = <a class="el" href="classvg_1_1Recombinator.html#a06515509b2d56e644d5a89d1bab3b239">NUM_HAPLOTYPES</a></td></tr>
+<tr class="memdesc:ab0df34d3617f7fd0387b31e5dab57669"><td class="mdescLeft">&#160;</td><td class="mdescRight">Number of haplotypes to generate for high-coverage chains.  <a href="structvg_1_1Recombinator_1_1Parameters.html#ab0df34d3617f7fd0387b31e5dab57669">More...</a><br /></td></tr>
+<tr class="separator:ab0df34d3617f7fd0387b31e5dab57669"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a93c50bfc40f174eb1acd40633f442a1c"><td class="memItemLeft" align="right" valign="top">std::unordered_set&lt; size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Recombinator_1_1Parameters.html#a93c50bfc40f174eb1acd40633f442a1c">half_coverage_chains</a></td></tr>
+<tr class="memdesc:a93c50bfc40f174eb1acd40633f442a1c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Top-level chains (by offset) to sample using the half-coverage model.  <a href="structvg_1_1Recombinator_1_1Parameters.html#a93c50bfc40f174eb1acd40633f442a1c">More...</a><br /></td></tr>
+<tr class="separator:a93c50bfc40f174eb1acd40633f442a1c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae301cbe75c2669c487eb8aecdf653743"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Recombinator_1_1Parameters.html#ae301cbe75c2669c487eb8aecdf653743">half_coverage_num_haplotypes</a> = 2</td></tr>
+<tr class="memdesc:ae301cbe75c2669c487eb8aecdf653743"><td class="mdescLeft">&#160;</td><td class="mdescRight">Number of haplotypes to generate for half-coverage chains.  <a href="structvg_1_1Recombinator_1_1Parameters.html#ae301cbe75c2669c487eb8aecdf653743">More...</a><br /></td></tr>
+<tr class="separator:ae301cbe75c2669c487eb8aecdf653743"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a116827198956b282747ab1b3a8aef0c8"><td class="memItemLeft" align="right" valign="top">std::unordered_set&lt; size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Recombinator_1_1Parameters.html#a116827198956b282747ab1b3a8aef0c8">excluded_chains</a></td></tr>
+<tr class="separator:a116827198956b282747ab1b3a8aef0c8"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac1afe72971650ddd9235239cae7b3bc3"><td class="memItemLeft" align="right" valign="top">std::unordered_set&lt; std::string &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Recombinator_1_1Parameters.html#ac1afe72971650ddd9235239cae7b3bc3">wrap_contigs</a></td></tr>
+<tr class="separator:ac1afe72971650ddd9235239cae7b3bc3"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p><a class="el" href="structvg_1_1Recombinator_1_1Parameters.html" title="Parameters for generate_haplotypes().">Parameters</a> for <code><a class="el" href="classvg_1_1Recombinator.html#a7f803cd4d08d8c699877e274bc3f5ceb">generate_haplotypes()</a></code>. </p>
@@ -152,6 +176,30 @@ Public Attributes</h2></td></tr>
 <tr><td class="fieldname"><a id="a57123b9eee2179efef985d785f8c44e4a115a5b3be57084265c380192cabde366"></a>preset_haploid&#160;</td><td class="fielddoc"><p>Best practices for haploid sampling. </p>
 </td></tr>
 <tr><td class="fieldname"><a id="a57123b9eee2179efef985d785f8c44e4a645ffd73f63c0f007f249345c81d4f8a"></a>preset_diploid&#160;</td><td class="fielddoc"><p>Best practices for diploid sampling. </p>
+</td></tr>
+</table>
+
+</div>
+</div>
+<a id="a3898dd0b55cd824c467a2d49a4a53bfa"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a3898dd0b55cd824c467a2d49a4a53bfa">&#9670;&nbsp;</a></span>scoring_model_t</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">enum <a class="el" href="structvg_1_1Recombinator_1_1Parameters.html#a3898dd0b55cd824c467a2d49a4a53bfa">vg::Recombinator::Parameters::scoring_model_t</a></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Kmer scoring model used for a chain. </p>
+<table class="fieldtable">
+<tr><th colspan="2">Enumerator</th></tr><tr><td class="fieldname"><a id="a3898dd0b55cd824c467a2d49a4a53bfaaaf386acfef280c1aa825a7bd9843322e"></a>standard_scoring&#160;</td><td class="fielddoc"><p>Standard model: absent, heterozygous, present, and frequent bands are scored according to the diploid/haploid coverage expectation. </p>
+</td></tr>
+<tr><td class="fieldname"><a id="a3898dd0b55cd824c467a2d49a4a53bfaad11075637509d31f85329829c9ac8d46"></a>high_coverage_scoring&#160;</td><td class="fielddoc"><p>High-coverage model. Kmers in the frequent category (count above the homozygous threshold) contribute the present score, while all other kmers contribute the absent score. This is intended for contigs such as chrM, where the true signal is in the frequent component and the haploid/diploid peaks are contamination (e.g. NuMTs or recurrent errors). </p>
+</td></tr>
+<tr><td class="fieldname"><a id="a3898dd0b55cd824c467a2d49a4a53bfaa11516e95ce144dd7c66da29a3ff8da53"></a>half_coverage_scoring&#160;</td><td class="fielddoc"><p>Half-coverage model for heterogametic allosomes. The single true copy sits at ~cov/2, which the standard model labels heterozygous, so that band is rewarded as present. There is no real heterozygous component outside the PAR; the homozygous (~cov) band is paralog / contamination in the body and non-discriminative backbone in the PAR, so it is treated as uninformative (like the frequent band). </p>
 </td></tr>
 </table>
 
@@ -300,6 +348,21 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
+<a id="a116827198956b282747ab1b3a8aef0c8"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a116827198956b282747ab1b3a8aef0c8">&#9670;&nbsp;</a></span>excluded_chains</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">std::unordered_set&lt;size_t&gt; vg::Recombinator::Parameters::excluded_chains</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Top-level chains (by offset) to copy through verbatim instead of personalizing. The reference/generic path and all haplotypes in the chain are preserved. </p>
+
+</div>
+</div>
 <a id="a23a4c5772ec0d526b632b280e91e48ca"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a23a4c5772ec0d526b632b280e91e48ca">&#9670;&nbsp;</a></span>extra_fragments</h2>
 
@@ -312,6 +375,38 @@ Public Attributes</h2></td></tr>
       </table>
 </div><div class="memdoc">
 <p>When using diploid sampling, include the remaining candidates as additional fragments in bad subchains. </p>
+
+</div>
+</div>
+<a id="a93c50bfc40f174eb1acd40633f442a1c"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a93c50bfc40f174eb1acd40633f442a1c">&#9670;&nbsp;</a></span>half_coverage_chains</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">std::unordered_set&lt;size_t&gt; vg::Recombinator::Parameters::half_coverage_chains</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Top-level chains (by offset) to sample using the half-coverage model. </p>
+
+</div>
+</div>
+<a id="ae301cbe75c2669c487eb8aecdf653743"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ae301cbe75c2669c487eb8aecdf653743">&#9670;&nbsp;</a></span>half_coverage_num_haplotypes</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t vg::Recombinator::Parameters::half_coverage_num_haplotypes = 2</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Number of haplotypes to generate for half-coverage chains. </p>
 
 </div>
 </div>
@@ -342,6 +437,38 @@ Public Attributes</h2></td></tr>
       </table>
 </div><div class="memdoc">
 <p>Additive term for adjusting the scores for heterozygous kmers after each haplotype to encourage even sampling of haplotypes with and without that kmer. </p>
+
+</div>
+</div>
+<a id="a135bf28ac2cc08da13ddd15485dce49f"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a135bf28ac2cc08da13ddd15485dce49f">&#9670;&nbsp;</a></span>high_coverage_chains</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">std::unordered_set&lt;size_t&gt; vg::Recombinator::Parameters::high_coverage_chains</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Top-level chains (by offset) to sample using the high-coverage model. </p>
+
+</div>
+</div>
+<a id="ab0df34d3617f7fd0387b31e5dab57669"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ab0df34d3617f7fd0387b31e5dab57669">&#9670;&nbsp;</a></span>high_coverage_num_haplotypes</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t vg::Recombinator::Parameters::high_coverage_num_haplotypes = <a class="el" href="classvg_1_1Recombinator.html#a06515509b2d56e644d5a89d1bab3b239">NUM_HAPLOTYPES</a></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Number of haplotypes to generate for high-coverage chains. </p>
 
 </div>
 </div>
@@ -388,6 +515,36 @@ Public Attributes</h2></td></tr>
       </table>
 </div><div class="memdoc">
 <p>Multiplicative factor for discounting the scores for present kmers after selecting a haplotype with that kmer. </p>
+
+</div>
+</div>
+<a id="a579c17d7718d41bb95c17d6b688dc9e7"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a579c17d7718d41bb95c17d6b688dc9e7">&#9670;&nbsp;</a></span>scoring_model</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="structvg_1_1Recombinator_1_1Parameters.html#a3898dd0b55cd824c467a2d49a4a53bfa">scoring_model_t</a> vg::Recombinator::Parameters::scoring_model = <a class="el" href="structvg_1_1Recombinator_1_1Parameters.html#a3898dd0b55cd824c467a2d49a4a53bfaaaf386acfef280c1aa825a7bd9843322e">standard_scoring</a></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Scoring model for the chain currently being processed. Set per chain from <code>high_coverage_chains</code> / <code>half_coverage_chains</code> before scoring. Diploid sampling is not used with the non-standard models. </p>
+
+</div>
+</div>
+<a id="ac1afe72971650ddd9235239cae7b3bc3"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ac1afe72971650ddd9235239cae7b3bc3">&#9670;&nbsp;</a></span>wrap_contigs</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">std::unordered_set&lt;std::string&gt; vg::Recombinator::Parameters::wrap_contigs</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Contig names whose origin (first) fragment of every generated haplotype should be doubled, creating a self-loop that wraps the end of the sequence back onto its start. Intended for circular contigs such as chrM. Matched against the top-level chain contig name. </p>
 
 </div>
 </div>
