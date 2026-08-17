@@ -257,10 +257,6 @@ TEST_CASE("X with haplotype paths annotates subchains", "[chain_items]") {
     graph.create_edge(graph.get_handle(4, false), graph.get_handle(7, false));
     auto h = get_handles(graph);
 
-    IntegratedSnarlFinder snarl_finder(graph);
-    SnarlDistanceIndex distance_index;
-    fill_in_distance_index(&distance_index, &graph, &snarl_finder);
-
     // One anchor on each node
     // read start, graph handle and offset, length, and score
     auto to_score = make_anchors({{1, h[1], 0, 5, 5},
@@ -282,8 +278,7 @@ TEST_CASE("X with haplotype paths annotates subchains", "[chain_items]") {
     }
 
     // Actually run the chaining and test
-    auto result = algorithms::find_best_chains(to_score, distance_index, graph, 40,
-                                               algorithms::ChainScoringScheme(), 2);
+    auto result = run_ziptree_iterator_multi_chain(graph, to_score, 40, 2);
     REQUIRE(result.size() == 1);
     auto& group = result.front();
     REQUIRE(group.subchains.size() == 5);
@@ -326,7 +321,7 @@ TEST_CASE("single internally-recombinant anchor forces a subchain-internal recom
     // Enters on haplotype 1 and leaves on haplotype 2
     to_score[1].set_paths(2, 4);
 
-    auto result = algorithms::find_best_chains(to_score, distance_index, graph, 20);
+    auto result = run_ziptree_iterator_multi_chain(graph, to_score, 20, 2);
     REQUIRE(result.size() == 1);
     REQUIRE(result.front().subchains.size() == 1);
 
@@ -353,7 +348,7 @@ TEST_CASE("subchain with no recombination has equal start and end paths", "[chai
         anchor.set_paths(1);
     }
 
-    auto result = algorithms::find_best_chains(to_score, distance_index, graph, 20);
+    auto result = run_ziptree_iterator_multi_chain(graph, to_score, 20, 2);
     REQUIRE(result.size() == 1);
     REQUIRE(result.front().subchains.size() == 1);
 
@@ -394,13 +389,28 @@ TEST_CASE("recombination_penalty changes which predecessor chain_items_dp picks"
     to_score[b].set_paths(2);
     to_score[d].set_paths(1);
 
+    // Convert these into Seed type
+    vector<SnarlDistanceIndexClusterer::Seed> seeds;
+    for (const auto& pos : to_score) {
+        ZipCode zipcode;
+        zipcode.fill_in_zipcode_from_pos(distance_index, pos.graph_start());
+        zipcode.fill_in_full_decoder();
+        seeds.push_back({pos.graph_start(), 0, zipcode});
+    }
+
+    // Next, make a ZipCodeForest for the graph/seeds
+    ZipCodeForest zip_forest;
+    zip_forest.fill_in_forest(seeds, distance_index);
+    algorithms::transition_iterator zip_it = algorithms::zip_tree_transition_iterator(
+        seeds, zip_forest.trees.front(), std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max());
+
     algorithms::ChainScoringScheme scheme;
 
     SECTION("without a penalty the higher-scoring recombinant predecessor wins") {
         scheme.recombination_penalty = 0;
 
         vector<vector<algorithms::TracedScore>> chain_scores;
-        algorithms::chain_items_dp(chain_scores, to_score, distance_index, graph, 3, scheme);
+        algorithms::chain_items_dp(chain_scores, to_score, distance_index, graph, zip_it, 3, scheme);
 
         REQUIRE(chain_scores[d].front().source == b);
         REQUIRE(chain_scores[d].front().score == 17);
@@ -410,7 +420,7 @@ TEST_CASE("recombination_penalty changes which predecessor chain_items_dp picks"
         scheme.recombination_penalty = 20;
 
         vector<vector<algorithms::TracedScore>> chain_scores;
-        algorithms::chain_items_dp(chain_scores, to_score, distance_index, graph, 3, scheme);
+        algorithms::chain_items_dp(chain_scores, to_score, distance_index, graph, zip_it, 3, scheme);
 
         REQUIRE(chain_scores[d].front().source == a);
         REQUIRE(chain_scores[d].front().score == 9);
@@ -445,6 +455,21 @@ TEST_CASE("consistency_bonus changes which predecessor chain_items_dp picks desp
     to_score[b].set_paths(2);
     to_score[d].set_paths(1);
 
+    // Convert these into Seed type
+    vector<SnarlDistanceIndexClusterer::Seed> seeds;
+    for (const auto& pos : to_score) {
+        ZipCode zipcode;
+        zipcode.fill_in_zipcode_from_pos(distance_index, pos.graph_start());
+        zipcode.fill_in_full_decoder();
+        seeds.push_back({pos.graph_start(), 0, zipcode});
+    }
+
+    // Next, make a ZipCodeForest for the graph/seeds
+    ZipCodeForest zip_forest;
+    zip_forest.fill_in_forest(seeds, distance_index);
+    algorithms::transition_iterator zip_it = algorithms::zip_tree_transition_iterator(
+        seeds, zip_forest.trees.front(), std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max());
+
     algorithms::ChainScoringScheme scheme;
     scheme.recombination_penalty = 0;
 
@@ -452,7 +477,7 @@ TEST_CASE("consistency_bonus changes which predecessor chain_items_dp picks desp
         scheme.consistency_bonus = 0;
 
         vector<vector<algorithms::TracedScore>> chain_scores;
-        algorithms::chain_items_dp(chain_scores, to_score, distance_index, graph, 3, scheme);
+        algorithms::chain_items_dp(chain_scores, to_score, distance_index, graph, zip_it, 3, scheme);
 
         REQUIRE(chain_scores[d].front().source == b);
         REQUIRE(chain_scores[d].front().score == 17);
@@ -462,7 +487,7 @@ TEST_CASE("consistency_bonus changes which predecessor chain_items_dp picks desp
         scheme.consistency_bonus = 20;
 
         vector<vector<algorithms::TracedScore>> chain_scores;
-        algorithms::chain_items_dp(chain_scores, to_score, distance_index, graph, 3, scheme);
+        algorithms::chain_items_dp(chain_scores, to_score, distance_index, graph, zip_it, 3, scheme);
 
         REQUIRE(chain_scores[d].front().source == a);
         // The bonus only steers the choice; it stays out of the recorded score
@@ -503,8 +528,7 @@ TEST_CASE("count_total_recombinations counts recombinations between subchains", 
         anchor.set_paths(haplotypes.at(id(anchor.graph_start())));
     }
 
-    auto result = algorithms::find_best_chains(to_score, distance_index, graph, 40,
-                                               algorithms::ChainScoringScheme(), 2);
+    auto result = run_ziptree_iterator_multi_chain(graph, to_score, 40, 2);
     REQUIRE(result.size() == 1);
     auto& group = result.front();
     REQUIRE(group.subchains.size() == 5);

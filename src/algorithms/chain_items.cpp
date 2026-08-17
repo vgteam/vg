@@ -415,8 +415,8 @@ void chain_items_dp(vector<vector<TracedScore>>& chain_scores,
                     const VectorView<Anchor>& to_chain,
                     const SnarlDistanceIndex& distance_index,
                     const HandleGraph& graph,
-                    size_t max_predecessors,
                     const transition_iterator& for_each_transition,
+                    size_t max_predecessors,
                     const ChainScoringScheme& scheme,
                     size_t max_indel_bases,
                     bool show_work) {
@@ -1104,9 +1104,9 @@ vector<SubchainGroup> find_best_chains(const VectorView<Anchor>& to_chain,
         
     // We actually need to do DP
     vector<vector<TracedScore>> chain_scores;
-    chain_items_dp(chain_scores, to_chain, distance_index, graph,
+    chain_items_dp(chain_scores, to_chain, distance_index, graph, for_each_transition,
                    3, /// TODO: make into a param
-                   for_each_transition, scheme, max_indel_bases, show_work);
+                   scheme, max_indel_bases, show_work);
     
     // Then do the tracebacks
     vector<SparseAnchorChain> tracebacks;
