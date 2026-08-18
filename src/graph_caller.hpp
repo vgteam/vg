@@ -235,7 +235,8 @@ public:
     ///
     /// Without it such a traversal becomes a long ALT differing from REF at a handful of bases.
     /// 90.6% of vg's same-length structural false positives are that shape, and 55,222 of its
-    /// autosomal SNV false negatives sit inside one. See doc/nested-calling-design.md.
+    /// autosomal SNV false negatives sit inside one. See the nested-calling design note in the
+    /// companion evaluation repository (docs/nested-calling-design.md).
     ///
     /// The manager is not owned and must outlive this caller.
     void set_symbolic_collapsing(const SnarlManager* manager) { this->symbolic_manager = manager; }

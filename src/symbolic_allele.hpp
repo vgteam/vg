@@ -20,7 +20,8 @@
  * that skips a chain, or crosses different ones, stays a genuine allele at this level -- so a real
  * deletion is still reported as a deletion.
  *
- * See doc/nested-calling-design.md for the whole design and the measurements behind it.
+ * The whole design and the measurements behind it are in the companion evaluation repository, as
+ * docs/nested-calling-design.md.
  */
 
 #include <functional>
