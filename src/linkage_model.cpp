@@ -2,6 +2,7 @@
 
 #include <map>
 #include <unordered_map>
+#include <unordered_set>
 
 #include <algorithm>
 #include <cassert>
@@ -1516,7 +1517,8 @@ vector<LinkageCollector::Change> LinkageCollector::resolve(vector<PhaseCall>* ph
                     ni.contig = pc.contig;
                     ni.position = pc.position;
                     ni.record_key = pc.record_key;
-                    ni.diploid = (incoherent == 1);
+                    ni.kind = (incoherent == 1) ? NestedIncoherence::WantsDiploid
+                                                : NestedIncoherence::Unreachable;
                     incoherent_out->push_back(ni);
                 }
                 ++placed_this_sweep;
@@ -1677,6 +1679,83 @@ vector<LinkageCollector::Change> LinkageCollector::resolve(vector<PhaseCall>* ph
                     pc.allele_second = found->second;
                 }
             }
+        }
+    }
+
+    // The mirror check: nested children called at ploidy 2 whose parent no longer crosses them twice.
+    //
+    // These never enter the sweep above, because they are not `nested` -- a child crossed by both
+    // called parent alleles is an ordinary diploid site and belongs in the contig's chain, which is
+    // where it goes. That makes them invisible to every check written for the haploid population,
+    // and they can be wrong in the other direction: linkage moves the parent to a genotype where one
+    // allele crosses and the record then claims two haplotypes at a locus the sample carries once.
+    //
+    // A parent that emitted no record could not have been moved by linkage at all -- it has no entry,
+    // so nothing rewrote it -- and its children are coherent by construction rather than unchecked.
+    // Symbolic collapsing makes most non-leaf parents emit nothing, so that is the bulk of them.
+    if (phasing_out != nullptr) {
+        unordered_map<size_t, const PhaseCall*> parent_of;
+        parent_of.reserve(phasing_out->size() * 2);
+        for (const PhaseCall& pc : *phasing_out) {
+            parent_of[pc.record_key] = &pc;
+        }
+        // Whether the check can fire at all. A zero from a path where no parent ever moved is not a
+        // result, it is an untested branch -- so count the children whose parent's genotype linkage
+        // actually rewrote, and how many of those still cross on both haplotypes.
+        unordered_set<size_t> moved_parents;
+        moved_parents.reserve(changes.size() * 2);
+        for (const Change& c : changes) {
+            moved_parents.insert(c.record_key);
+        }
+        size_t diploid_children = 0, checkable = 0, now_haploid = 0, now_absent = 0;
+        size_t parent_moved = 0, parent_moved_still_two = 0;
+        for (const Entry& e : entries) {
+            if (e.nested || e.parent_crossing == 0) {
+                continue;   // haploid nested sites, and everything that is not a descended child
+            }
+            ++diploid_children;
+            auto found = parent_of.find(e.parent_record_key);
+            if (found == parent_of.end()) {
+                continue;   // no parent record, so no linkage change to be incoherent with
+            }
+            const PhaseCall& parent = *found->second;
+            int crossings = 0;
+            if (parent.allele_first < 64 && ((e.parent_crossing >> parent.allele_first) & 1)) {
+                ++crossings;
+            }
+            if (parent.ploidy == 2 && parent.allele_second < 64
+                && ((e.parent_crossing >> parent.allele_second) & 1)) {
+                ++crossings;
+            }
+            ++checkable;
+            bool moved = moved_parents.count(e.parent_record_key) > 0;
+            parent_moved += moved;
+            if (crossings == 1) {
+                ++now_haploid;
+            } else if (crossings == 0) {
+                ++now_absent;
+            } else if (moved) {
+                ++parent_moved_still_two;
+            }
+            if (crossings < 2 && incoherent_out != nullptr) {
+                NestedIncoherence ni;
+                ni.contig = contig_names[e.contig];
+                ni.position = e.position;
+                ni.record_key = e.record_key;
+                ni.kind = (crossings == 1) ? NestedIncoherence::WantsHaploid
+                                           : NestedIncoherence::Unreachable;
+                incoherent_out->push_back(ni);
+            }
+        }
+        if (diploid_children > 0) {
+#pragma omp critical (cerr)
+            std::cerr << "[vg call] nested: " << diploid_children
+                      << " children called at ploidy 2, " << checkable
+                      << " with a parent record that linkage could have moved; of those "
+                      << now_haploid << " now cross on one haplotype only and " << now_absent
+                      << " on neither (" << parent_moved
+                      << " hang off a parent linkage did move, " << parent_moved_still_two
+                      << " of those still crossing twice)" << std::endl;
         }
     }
 

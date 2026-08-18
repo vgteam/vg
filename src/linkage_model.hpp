@@ -415,13 +415,22 @@ public:
     /// record survives at a ploidy its own parent now contradicts. Reported so the record can say
     /// so rather than read as an ordinary call.
     struct NestedIncoherence {
+        /// Which way the final parent genotype disagrees with the ploidy the child was called at.
+        enum Kind {
+            /// Called haploid; both parent haplotypes cross it, so the locus has two alleles there
+            /// and the record names one.
+            WantsDiploid,
+            /// Called diploid; only one parent haplotype crosses it, so the record claims two
+            /// haplotypes at a locus the sample carries once.
+            WantsHaploid,
+            /// Neither parent haplotype crosses it, at either ploidy: the sample has no copy of the
+            /// chain under its own parent record, so the call has no haplotype to sit on.
+            Unreachable,
+        };
         string contig;
         size_t position = 0;
         size_t record_key = 0;
-        /// True when both parent strands cross the child under the final genotype: the site is
-        /// diploid there and was called haploid, so its genotype under-reports the locus. False
-        /// when neither does, which leaves the call with no haplotype to sit on at all.
-        bool diploid = false;
+        Kind kind = WantsDiploid;
     };
 
     /// Run the model per contig and return only the genotypes that changed.

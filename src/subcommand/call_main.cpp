@@ -1673,6 +1673,16 @@ int main_call(int argc, char** argv) {
             return 1;
         }
         nested_target->set_symbolic_collapsing(snarl_manager.get());
+        // A nested site's ploidy comes from a parent genotype linkage can afterwards invalidate, so
+        // score every ploidy-1 site at ploidy 2 as well and report what it would call there. Costs a
+        // second pass over a matrix that is already built; see INFO/NGT2.
+        {
+            ReadLikelihoodSnarlCaller* rl_caller =
+                dynamic_cast<ReadLikelihoodSnarlCaller*>(snarl_caller.get());
+            if (rl_caller != nullptr) {
+                rl_caller->set_measure_alt_ploidy(true);
+            }
+        }
         if (!phased_output) {
             // The nested pass of the linkage layer hangs off the parent's *phase*: which of the
             // parent's two strands crosses the child is what gives a nested site its haplotype, and

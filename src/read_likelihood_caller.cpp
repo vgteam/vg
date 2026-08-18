@@ -145,6 +145,29 @@ pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> ReadLikelihoodSnarlCaller::
         return make_pair(vector<int>(), std::move(call_info_owner));
     }
 
+    // What this site would call at ploidy 2, for a site being called at ploidy 1.
+    //
+    // Nested descent hands a child ploidy 1 when exactly one parent allele crosses the chain, and
+    // linkage can afterwards move the parent so that both do. Re-genotyping such a child needs the
+    // diploid likelihoods, which are never otherwise computed -- so this computes them here, where
+    // the reads x alleles matrix already exists and nothing has to be re-read or re-scored.
+    //
+    // The rate has to be rescaled. It is the local read rate per *haplotype*, so a matrix built at
+    // ploidy 1 carries twice the rate a diploid genotype should be judged against, and skipping this
+    // would leave lambda wrong by exactly the ploidy ratio.
+    if (measure_alt_ploidy && ploidy == 1 && traversals.size() > 1) {
+        matrix.scale_depth_rate(0.5);
+        vector<pair<vector<int>, double>> diploid = matrix.score_genotypes(2);
+        matrix.scale_depth_rate(2.0);   // restore: the matrix is used again below
+        double best = -numeric_limits<double>::infinity();
+        for (const auto& g : diploid) {
+            if (g.second > best) {
+                best = g.second;
+                call_info->alt_ploidy_best = g.first;
+            }
+        }
+    }
+
     double second_best_ll = -numeric_limits<double>::infinity();
     double total_ll = -numeric_limits<double>::infinity();
 

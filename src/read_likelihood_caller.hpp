@@ -75,6 +75,14 @@ public:
         /// ln P(reads | G) for every genotype scored, keyed by the sorted allele
         /// index multiset so the VCF layer can look up by remapped indices.
         map<vector<int>, double> genotype_lls;
+        /// For a site genotyped at ploidy 1, the genotype it would take at ploidy 2, as traversal
+        /// indices; empty unless that measurement is switched on.
+        ///
+        /// Nested descent gives a child ploidy 1 when one parent allele crosses the chain, and
+        /// linkage can then move the parent so that both do. This says what the site's own reads
+        /// would call there, which is the thing a re-genotype would have to produce -- computed on
+        /// the matrix that is already built, so it costs a few passes over memory and no re-reading.
+        vector<int> alt_ploidy_best;
 
         /// The traversals that were scored, in matrix column order. Kept so the
         /// deduplicated traversals handed to update_vcf_info can be mapped back.
@@ -121,6 +129,14 @@ public:
         double gq_fraction = -1.0;
 
     };
+
+    /// Also score a site genotyped at ploidy 1 at ploidy 2, and report what it would call there in
+    /// `ReadLikelihoodCallInfo::alt_ploidy_best`. Off by default.
+    ///
+    /// Only meaningful for nested sites, whose ploidy comes from a parent genotype that linkage can
+    /// afterwards invalidate. Costs a second pass over the matrix that is already built -- the reads
+    /// are neither re-fetched nor re-scored, since `rel(r,a)` does not depend on ploidy.
+    void set_measure_alt_ploidy(bool on) { this->measure_alt_ploidy = on; }
 
     virtual pair<vector<int>, unique_ptr<CallInfo>> genotype(const Snarl& snarl,
                                                              const vector<SnarlTraversal>& traversals,
@@ -258,6 +274,10 @@ protected:
     /// False when running without a pack file, so the support finder is a
     /// NullTraversalSupportFinder and reports zero for everything.
     bool support_available = true;
+
+    /// See set_measure_alt_ploidy.
+    bool measure_alt_ploidy = false;
+
 
     /// Whether GQ is scaled by the explained-read fraction. See set_share_discount.
     bool share_discount = true;

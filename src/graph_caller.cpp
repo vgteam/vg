@@ -318,6 +318,11 @@ string VCFOutputCaller::vcf_header(const PathHandleGraph& graph, const vector<st
            << "snarl pointer\">" << endl;
     }
     if (symbolic_manager != nullptr) {
+        ss << "##INFO=<ID=NGT2,Number=1,Type=String,Description=\"For a nested site called at "
+           << "ploidy 1, the genotype its own reads would give at ploidy 2, in this record's allele "
+           << "numbering. Present only on nested haploid records. '.' means that genotype uses a "
+           << "traversal this record does not carry, so reaching it would need a new ALT and not "
+           << "just a different GT. Reported, not acted on: see FILTER=nested_diploid\">" << endl;
         // Nested descent chose each child's ploidy from its parent's pre-linkage genotype, and
         // linkage can then rewrite the parent. Where that changes which parent alleles cross the
         // child, the child record outlives the genotype that justified it. Flagged rather than
@@ -326,6 +331,9 @@ string VCFOutputCaller::vcf_header(const PathHandleGraph& graph, const vector<st
         ss << "##FILTER=<ID=nested_diploid,Description=\"Called at ploidy 1 because one parent "
            << "allele crossed this child chain, but after linkage both parent haplotypes cross it. "
            << "The locus is diploid here and this genotype names only one allele\">" << endl;
+        ss << "##FILTER=<ID=nested_haploid,Description=\"Called at ploidy 2 because both parent "
+           << "alleles crossed this child chain, but after linkage only one parent haplotype does. "
+           << "The sample carries one copy of the chain and this genotype names two\">" << endl;
         ss << "##FILTER=<ID=nested_unreachable,Description=\"Called because a parent allele crossed "
            << "this child chain, but after linkage neither parent haplotype does. The sample carries "
            << "no copy of the chain under its own parent record, so this genotype has no haplotype "
@@ -577,7 +585,7 @@ void VCFOutputCaller::write_variants(ostream& out_stream, const SnarlManager* sn
     map<pair<string, size_t>, LinkageCollector::PhaseCall> phasings;
     // Keyed by record key rather than position, because these records are nested: several sites can
     // share a position and only one of them is the child in question.
-    map<size_t, bool> nested_filters;
+    map<size_t, LinkageCollector::NestedIncoherence::Kind> nested_filters;
     if (linkage_collector != nullptr) {
         // Reported rather than estimated. The retained-bytes figure in the LinkageCollector
         // header comment was arithmetic -- sites times a per-site size -- and `bytes()` exists so
@@ -640,16 +648,20 @@ void VCFOutputCaller::write_variants(ostream& out_stream, const SnarlManager* sn
             write_mosaic(phased);
         }
         for (const LinkageCollector::NestedIncoherence& ni : incoherent) {
-            nested_filters[ni.record_key] = ni.diploid;
+            nested_filters[ni.record_key] = ni.kind;
         }
-        if (!incoherent.empty()) {
-            size_t diploid = 0;
+        if (!nested_filters.empty()) {
+            size_t want_diploid = 0, want_haploid = 0, unreachable = 0;
             for (const auto& kv : nested_filters) {
-                diploid += kv.second;
+                switch (kv.second) {
+                    case LinkageCollector::NestedIncoherence::WantsDiploid: ++want_diploid; break;
+                    case LinkageCollector::NestedIncoherence::WantsHaploid: ++want_haploid; break;
+                    default: ++unreachable; break;
+                }
             }
-            cerr << "[vg call] nested: " << nested_filters.size()
-                 << " records flagged, " << diploid << " nested_diploid and "
-                 << (nested_filters.size() - diploid) << " nested_unreachable" << endl;
+            cerr << "[vg call] nested: " << nested_filters.size() << " records flagged, "
+                 << want_diploid << " nested_diploid, " << want_haploid << " nested_haploid, "
+                 << unreachable << " nested_unreachable" << endl;
         }
     }
 
@@ -1065,7 +1077,8 @@ void VCFOutputCaller::write_mosaic(const vector<LinkageCollector::PhaseCall>& ph
          << " sites, written to " << mosaic_path << endl;
 }
 
-void VCFOutputCaller::apply_nested_filter(string& line, bool diploid) const {
+void VCFOutputCaller::apply_nested_filter(string& line,
+                                          LinkageCollector::NestedIncoherence::Kind kind) const {
     // Column 7 of the eight fixed fields. Edited in place for the same reason apply_linkage_change
     // is: re-parsing the record to a vcflib::Variant and reprinting it would reformat every float
     // in the line, which makes an unrelated diff on 90% of records.
@@ -1081,7 +1094,12 @@ void VCFOutputCaller::apply_nested_filter(string& line, bool diploid) const {
     if (end == string::npos) {
         return;
     }
-    const string tag = diploid ? "nested_diploid" : "nested_unreachable";
+    string tag;
+    switch (kind) {
+        case LinkageCollector::NestedIncoherence::WantsDiploid: tag = "nested_diploid"; break;
+        case LinkageCollector::NestedIncoherence::WantsHaploid: tag = "nested_haploid"; break;
+        default: tag = "nested_unreachable"; break;
+    }
     // "." and "PASS" both mean "nothing to say", so the tag replaces them rather than joining them:
     // a FILTER of "PASS;nested_diploid" is a contradiction.
     string current = line.substr(start, end - start);
@@ -2052,6 +2070,33 @@ bool VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCa
         last_emitted.trav_to_allele.clear();
         for (const auto& kv : trav_to_allele) {
             last_emitted.trav_to_allele.emplace(kv.first, kv.second);
+        }
+    }
+
+    // What this nested haploid site would call at ploidy 2.
+    //
+    // Its ploidy came from the parent's genotype before linkage, and linkage can move the parent so
+    // that both haplotypes cross the chain -- at which point the record names one allele where the
+    // locus has two. Re-genotyping it needs the diploid likelihoods, so this reports what they say,
+    // in the record's own allele numbering. "." means the diploid answer uses a traversal this
+    // record does not carry, which is the case a genotype rewrite could not fix on its own.
+    if (nested_context.active) {
+        const ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo* rl_alt =
+            dynamic_cast<const ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo*>(call_info.get());
+        if (rl_alt != nullptr && rl_alt->alt_ploidy_best.size() == 2) {
+            string spelled;
+            for (int t : rl_alt->alt_ploidy_best) {
+                auto it = trav_to_allele.find(t);
+                if (it == trav_to_allele.end()) {
+                    spelled.clear();
+                    break;
+                }
+                if (!spelled.empty()) {
+                    spelled += "/";
+                }
+                spelled += std::to_string(it->second);
+            }
+            out_variant.info["NGT2"].push_back(spelled.empty() ? "." : spelled);
         }
     }
 
@@ -4018,8 +4063,13 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
                 // Linkage needs this to tell whether the ploidy the child is about to be genotyped
                 // at survives the parent's final genotype: linkage can move the parent afterwards,
                 // and a child called haploid because one allele crossed it is wrong if both do.
+                // For every descended child, not only the haploid ones. A child called at ploidy 2
+                // can be invalidated the other way -- linkage moves the parent to a genotype where
+                // only one allele crosses, and the record then claims two haplotypes at a locus the
+                // sample carries once. Nothing detected that while the mask was recorded only for
+                // copies == 1, which is half the question the mask exists to answer.
                 nested_context.parent_crossing =
-                    (copies == 1 && parent_alleles.valid)
+                    parent_alleles.valid
                     ? child_crossing_mask(travs, parent_alleles.trav_to_allele, *child)
                     : 0;
                 call_snarl_internal(*child, ref_path_name,

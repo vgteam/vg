@@ -391,7 +391,9 @@ TEST_CASE("A nested site whose parent no longer crosses it is reported, not quie
         REQUIRE(incoherent.size() == 1);
         REQUIRE(incoherent[0].record_key == CHILD);
         REQUIRE(incoherent[0].position == 1010);
-        REQUIRE(incoherent[0].diploid == c.expect_diploid);
+        REQUIRE(incoherent[0].kind == (c.expect_diploid
+                                       ? LinkageCollector::NestedIncoherence::WantsDiploid
+                                       : LinkageCollector::NestedIncoherence::Unreachable));
 
         const LinkageCollector::PhaseCall* child = nullptr;
         const LinkageCollector::PhaseCall* parent = nullptr;
@@ -459,6 +461,53 @@ TEST_CASE("The phasing comes back in reference order even with nested sites in i
     }
     // Specifically: the nested site sits between its parent and the far site, not after both.
     REQUIRE(phased[1].record_key == 3);
+}
+
+TEST_CASE("A nested site called diploid that its parent now crosses once is flagged",
+          "[linkage_model]") {
+    // The mirror of the case above, and the one with no coverage anywhere else: chr20 produces
+    // 10,248 children called at ploidy 2 and not a single one of them flips this way, so without a
+    // unit test this branch would ship having never run.
+    //
+    // A child crossed by both called parent alleles is an ordinary diploid site and goes into the
+    // contig's chain -- it is not `nested`, so none of the haploid machinery sees it. What makes it
+    // checkable is the crossing mask, which descent now records for every child rather than only the
+    // haploid ones.
+    LinkageModel::Params p;
+    p.weight = 1.0;
+    p.scale = 100000.0;
+    p.rho_min = 1e-4;
+
+    const size_t PARENT = 3, CHILD = 31;
+
+    LinkageCollector collector(p, 2);
+    // A het parent, decisively 0/1.
+    collector.record("chr1", 1000, 2, {-30.0, 0.0, -30.0}, {1, 0}, 0, 1, PARENT,
+                     /*share*/ 1.0, /*ploidy*/ 2, /*start*/ 10, /*end*/ 20);
+    // A child of it called at ploidy 2 -- `nested` false, so it chains normally -- but only the
+    // parent's allele 0 crosses the chain, so one haplotype deletes it.
+    collector.record("chr1", 1010, 2, {-30.0, 0.0, -30.0}, {1, 0}, 0, 1, CHILD,
+                     /*share*/ 1.0, /*ploidy*/ 2, /*start*/ 11, /*end*/ 12,
+                     /*nested*/ false, PARENT, /*slot*/ 0, /*crossing*/ (uint64_t)1 << 0);
+
+    vector<LinkageCollector::PhaseCall> phased;
+    vector<LinkageCollector::NestedIncoherence> incoherent;
+    collector.resolve(&phased, &incoherent);
+
+    REQUIRE(incoherent.size() == 1);
+    REQUIRE(incoherent[0].record_key == CHILD);
+    REQUIRE(incoherent[0].kind == LinkageCollector::NestedIncoherence::WantsHaploid);
+
+    // Still chained and phased as the ordinary diploid site it was called as. Flagging says the
+    // ploidy disagrees with the parent; it does not change the call.
+    bool found = false;
+    for (const auto& pc : phased) {
+        if (pc.record_key == CHILD) {
+            found = true;
+            REQUIRE(pc.ploidy == 2);
+        }
+    }
+    REQUIRE(found);
 }
 
 TEST_CASE("Genotype indices round-trip through the collector's decode", "[linkage_model]") {

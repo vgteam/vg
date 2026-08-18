@@ -319,10 +319,10 @@ protected:
     /// `apply_linkage_change`, so it phases the genotype that is actually emitted.
     void apply_phasing(string& line, const LinkageCollector::PhaseCall& phase) const;
 
-    /// Add `nested_diploid` or `nested_unreachable` to one emitted line's FILTER, leaving the
-    /// genotype and every other field alone. The call is what the reads at that child support; what
-    /// the flag records is that its own parent record no longer agrees about the ploidy there.
-    void apply_nested_filter(string& line, bool diploid) const;
+    /// Add the FILTER for one kind of nested ploidy incoherence, leaving the genotype and every
+    /// other field alone. The call is what the reads at that child support; what the flag records is
+    /// that its own parent record no longer agrees about the ploidy there.
+    void apply_nested_filter(string& line, LinkageCollector::NestedIncoherence::Kind kind) const;
 
     /// Whether to emit phased GT and FORMAT/PS.
     bool emit_phasing = false;

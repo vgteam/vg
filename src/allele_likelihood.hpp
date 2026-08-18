@@ -188,6 +188,18 @@ public:
     /// same way or the two carry a constant scale factor between them.
     ///
     /// Off unless `weight` is positive.
+    /// Rescale the per-haplotype depth rate.
+    ///
+    /// The rate is the local read rate divided by the ploidy the site is being genotyped at, so
+    /// scoring the same matrix at a different ploidy needs it scaled by the ratio -- 0.5 to go from
+    /// haploid to diploid. Exact, not an approximation: nothing else in the matrix depends on
+    /// ploidy, since `rel(r,a)` is a per-read-per-allele fit and lambda_G already sums over the
+    /// genotype's haplotypes. Scoring the other ploidy without this leaves lambda wrong by the
+    /// ploidy ratio, in the one term where that error is invisible in the output.
+    void scale_depth_rate(double factor) {
+        this->depth_rate *= factor;
+    }
+
     void set_depth_context(vector<size_t> traversal_lengths, double rate,
                            double read_length, double weight,
                            bool effective_count = true) {
