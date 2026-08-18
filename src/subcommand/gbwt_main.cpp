@@ -880,7 +880,7 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
             config.gbz_version = 1;
             break;
         case OPT_GBZ_VERSION:
-            config.gbz_version = parse<std::uint32_t>(optarg); // FIXME
+            config.gbz_version = parse<std::uint32_t>(optarg);
             break;
 
         // Build r-index
