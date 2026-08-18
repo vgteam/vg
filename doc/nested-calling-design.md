@@ -114,6 +114,29 @@ read source's fetch window and is deliberately not divided by ploidy; the divisi
 of use. A nested site called at ploidy 1 inside a heterozygous parent therefore gets the right `λ`
 without further work.
 
+**Ordering nested sites for phasing rests on the reference, which constrains the off-reference
+work.** A nested record takes its position from `get_ref_interval` on the reference path, exactly as
+a top-level one does, and chains are built by sorting on `(position, record_key)` and cutting at
+ploidy transitions. So a parent and its children interleave by reference coordinate, and two disjoint
+nested chains are ordered against each other because both are anchored on the same reference.
+
+That is well-defined *only* because v1 descends into chains the reference also crosses. The
+restriction was adopted below for a narrower reason -- REF and POS are ill-defined for the record --
+but it is also what makes an ordering exist at all, and that is the stronger reason. Under
+`--nested-pseudo-ref` there is no reference interval: the existing fallback hands back the *parent's*
+interval, so every off-reference nested site under one parent collapses onto a single position and
+two disjoint chains there are mutually unordered, tie-broken only by a snarl-derived key. Stable is
+not meaningful -- the transition model uses inter-site distance, and distances taken from a shared
+parent position are fictional.
+
+So off-reference nested calling needs an ordering answer as well as a REF/POS answer. Either order
+sites by offset along the parent allele's traversal, mapped back onto the parent's reference span, or
+keep off-reference nested sites out of the chains and emit them unphased.
+
+A related property, pre-existing rather than introduced here but made more common by nesting:
+inter-site distance is measured along the reference while the called haplotype's own path through a
+snarl may be much longer or shorter. Not measured.
+
 **Off-reference nested content: opt-in, off by default.** A chain crossed only by a non-reference
 parent allele has no reference path through it, so REF and POS for a nested record are ill-defined.
 v1 descends only into chains the reference traversal also crosses — which is where the swallowed
