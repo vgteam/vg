@@ -751,10 +751,27 @@ protected:
     ///                               Each set contains all traversals through this child that are
     ///                               consistent with that parent allele. The child genotypes by
     ///                               picking the best pair (one from each set) based on read support.
+    /// `ploidy_override` >= 0 forces the ploidy this snarl is genotyped at, instead of taking it
+    /// from the contig or the --ploidy-bed region. Symbolic nested calling uses it to hand a child
+    /// the number of called parent alleles that actually cross it: a chain crossed by one allele
+    /// and deleted by the other is haploid there, whatever the contig's ploidy says.
     bool call_snarl_internal(const Snarl& snarl,
                              const string& parent_ref_path_name,
                              pair<size_t, size_t> parent_ref_interval,
-                             const ChildTraversalSets* parent_child_trav_sets = nullptr);
+                             const ChildTraversalSets* parent_child_trav_sets = nullptr,
+                             int ploidy_override = -1);
+
+    /// How many of the called parent alleles cross this child snarl, capped at `cap`.
+    ///
+    /// Crossing means the child's start and end both appear in the parent traversal *in order*.
+    /// Testing for them independently, as find_child_traversal_set does, counts a traversal that
+    /// happens to touch both boundaries on unrelated excursions.
+    ///
+    /// A single allele crossing a chain more than once -- a cycle or a tandem duplication -- would
+    /// give a per-haplotype copy number above one. v1 caps rather than modelling that, and says so
+    /// in the log, because the rest of the caller assumes ploidy in {1, 2}.
+    int child_ploidy(const vector<SnarlTraversal>& travs, const vector<int>& genotype,
+                     const Snarl& child, int cap) const;
 
     /// Find all traversals through a child snarl that are consistent with a parent traversal.
     /// "Consistent" means the child's entry/exit points match what's in the parent traversal.

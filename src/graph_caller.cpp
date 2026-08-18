@@ -3333,10 +3333,54 @@ TraversalSet FlowCaller::find_child_traversal_set(const SnarlTraversal& parent_t
     return result;
 }
 
+int FlowCaller::child_ploidy(const vector<SnarlTraversal>& travs, const vector<int>& genotype,
+                             const Snarl& child, int cap) const {
+    const nid_t start = child.start().node_id();
+    const nid_t end = child.end().node_id();
+    int copies = 0;
+    bool capped = false;
+
+    for (int allele : genotype) {
+        if (allele < 0 || allele >= (int)travs.size()) {
+            continue;   // star or missing: that haplotype contributes no copy here
+        }
+        const SnarlTraversal& trav = travs[allele];
+        // Count crossings: an entry at one boundary followed by the other. Order matters -- testing
+        // for the two boundaries independently would count a traversal that touches both on
+        // unrelated excursions, which is the bug in find_child_traversal_set.
+        int crossings = 0;
+        nid_t open = 0;
+        for (int i = 0; i < trav.visit_size(); ++i) {
+            if (trav.visit(i).has_snarl()) {
+                continue;
+            }
+            nid_t node = trav.visit(i).node_id();
+            if (open == 0 && (node == start || node == end)) {
+                open = (node == start) ? end : start;
+            } else if (open != 0 && node == open) {
+                ++crossings;
+                open = 0;
+            }
+        }
+        if (crossings > 1) {
+            capped = true;
+            crossings = 1;   // a cycle or tandem duplication; see the header comment
+        }
+        copies += crossings;
+    }
+    if (capped && show_progress) {
+#pragma omp critical (cerr)
+        cerr << "[vg call] --nested: an allele crosses child snarl " << start << "-" << end
+             << " more than once; counted as one copy" << endl;
+    }
+    return min(copies, cap);
+}
+
 bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
                                       const string& parent_ref_path_name,
                                       pair<size_t, size_t> parent_ref_interval,
-                                      const ChildTraversalSets* parent_child_trav_sets) {
+                                      const ChildTraversalSets* parent_child_trav_sets,
+                                    int ploidy_override) {
 
 
     // todo: In order to experiment with merging consecutive snarls to make longer traversals,
@@ -3578,9 +3622,13 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
 
     bool ret_val = true;
     vector<int> trav_genotype;  // Declared outside block so we can pass to children
-    int ploidy = ploidy_at(ref_path_name, get<0>(ref_interval),
-                           ref_offsets.count(ref_path_name) ? ref_offsets.at(ref_path_name) : 0,
-                           ref_ploidies[ref_path_name]);
+    // A propagated ploidy wins over the contig's or the region BED's: it says how many called
+    // parent alleles actually reach this child, which is the number of copies present here.
+    int ploidy = ploidy_override >= 0
+                 ? ploidy_override
+                 : ploidy_at(ref_path_name, get<0>(ref_interval),
+                             ref_offsets.count(ref_path_name) ? ref_offsets.at(ref_path_name) : 0,
+                             ref_ploidies[ref_path_name]);
 
     // Constants for bounded traversal set handling
     const int MAX_TRAVS_PER_SET = 10;
@@ -3725,6 +3773,54 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
         }
 
         ret_val = trav_genotype.size() == ploidy && added;
+    }
+
+    // Symbolic nested calling: descend into each child the called alleles actually reach, at the
+    // ploidy they reach it with.
+    //
+    // This is deliberately not gated on ret_val. Recursion today is a side effect of emission --
+    // emit_variant returns true even when it wrote nothing -- so a snarl genotyped hom-ref reports
+    // success and its children are never queued. That is what buries nested variants under a parent
+    // that looked resolved. Here descent is a decision about ploidy, not about whether a line was
+    // written, and a symbolically-reference parent is precisely the case where descending matters
+    // most.
+    //
+    // Children are genotyped independently, with no parent traversal sets: constraining a child to
+    // the parent's called alleles is what --top-down does, and it measured worse than the default
+    // on every axis including recall, because a child's true allele is then unreachable whenever
+    // the parent's call is imperfect.
+    // Only where the call succeeded. The driver still descends into the children of a *failed*
+    // snarl under RecurseOnFail, so firing here as well would genotype those children twice; and a
+    // failed snarl has no genotype to derive a child ploidy from anyway. The case this exists for --
+    // a parent called hom-ref, which reports success and today ends the descent -- is covered,
+    // because that is a success.
+    if (ret_val && symbolic_manager != nullptr && !trav_genotype.empty() &&
+        parent_child_trav_sets == nullptr) {
+        const Snarl* managed_ptr = snarl_manager.into_which_snarl(snarl.start().node_id(),
+                                                                  snarl.start().backward());
+        if (managed_ptr != nullptr) {
+            for (const Snarl* child : snarl_manager.children_of(managed_ptr)) {
+                if (child == nullptr || snarl_manager.is_trivial(child, graph)) {
+                    continue;
+                }
+                // v1 descends only where the reference also goes. A chain crossed only by a
+                // non-reference allele has no reference path through it, so REF and POS for its
+                // record are undefined; --nested-pseudo-ref is where that will be handled.
+                if (ref_trav_idx >= 0 && ref_trav_idx < (int)travs.size()) {
+                    vector<int> ref_only(1, ref_trav_idx);
+                    if (child_ploidy(travs, ref_only, *child, 1) == 0) {
+                        continue;
+                    }
+                }
+                int copies = child_ploidy(travs, trav_genotype, *child, ploidy);
+                if (copies <= 0) {
+                    continue;   // no called allele reaches it: a star allele, and nothing to call
+                }
+                call_snarl_internal(*child, ref_path_name,
+                                    make_pair(get<0>(ref_interval), get<1>(ref_interval)),
+                                    nullptr, copies);
+            }
+        }
     }
 
     // In nested mode, recursively call child snarls
