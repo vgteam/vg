@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 187
+plan tests 195
 
 
 # Build vg graphs for two chromosomes
@@ -424,16 +424,34 @@ vg gbwt -g gfa3.gbz --set-reference GRCh37 --set-reference CHM13 -Z gfa2.gbz
 is $? 0 "Samples can be direcly set as references"
 is "$(vg gbwt --tags -Z gfa3.gbz | grep reference_samples | cut -f 2)" "CHM13 GRCh37" "Direct reference assignment works"
 
-# Try writing and reading GBZ v1.
-vg gbwt -Z gfa.gbz -g gfa_v1.gbz --gbz-v1
+# Try writing and reading GBZ v1
+vg gbwt -Z gfa.gbz -g gfa_version.gbz --gbz-version 1
 is $? 0 "GBZ version 1 output"
-is "$(vg describe gfa_v1.gbz | grep -A 1 '^GBZ header' | grep -c 'Version 1')" "1" "Correct version for GBZ v1 output"
-vg gbwt -Z gfa_v1.gbz -g gfa_v2.gbz
-is $? 0 "GBZ v1 can be read and rewritten as GBZ v2"
-cmp gfa.gbz gfa_v2.gbz
-is $? 0 "GBZ v1 was converted to v2 without changes"
+is "$(vg describe gfa_version.gbz | grep -A 1 '^GBZ header' | grep -c 'Version 1')" "1" "Correct version for GBZ v1 output"
+vg gbwt -Z gfa_version.gbz -g gfa_default.gbz
+is $? 0 "GBZ v1 can be read and rewritten as the default GBZ version"
+cmp gfa.gbz gfa_default.gbz
+is $? 0 "GBZ v1 was converted to the default GBZ version without changes"
 
-rm -f gfa.gbz gfa2.gbz gfa3.gbz tags.tsv gfa_v1.gbz gfa_v2.gbz
+# Try writing and reading GBZ v2
+vg gbwt -Z gfa.gbz -g gfa_version.gbz --gbz-version 2
+is $? 0 "GBZ version 2 output"
+is "$(vg describe gfa_version.gbz | grep -A 1 '^GBZ header' | grep -c 'Version 2')" "1" "Correct version for GBZ v2 output"
+vg gbwt -Z gfa_version.gbz -g gfa_default.gbz
+is $? 0 "GBZ v2 can be read and rewritten as the default GBZ version"
+cmp gfa.gbz gfa_default.gbz
+is $? 0 "GBZ v2 was converted to the default GBZ version without changes"
+
+# Try writing and reading GBZ v3
+vg gbwt -Z gfa.gbz -g gfa_version.gbz --gbz-version 3
+is $? 0 "GBZ version 3 output"
+is "$(vg describe gfa_version.gbz | grep -A 1 '^GBZ header' | grep -c 'Version 3')" "1" "Correct version for GBZ v3 output"
+vg gbwt -Z gfa_version.gbz -g gfa_default.gbz
+is $? 0 "GBZ v3 can be read and rewritten as the default GBZ version"
+cmp gfa.gbz gfa_default.gbz
+is $? 0 "GBZ v3 was converted to the default GBZ version without changes"
+
+rm -f gfa.gbz gfa2.gbz gfa3.gbz tags.tsv gfa_version.gbz gfa_default.gbz
 
 # Build a GBZ from a graph with a reference but no haplotype phase number
 vg gbwt -g gfa.gbz -G graphs/gfa_two_part_reference.gfa
