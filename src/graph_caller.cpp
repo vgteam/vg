@@ -1174,9 +1174,24 @@ void VCFOutputCaller::apply_phasing(string& line,
         }
     }
 
-    if (phase.ploidy == 1) {
-        // A haploid GT is one allele and carries no phase; only PS below is meaningful, and only
-        // as a block label. Writing "a|a" here would claim a homozygous diploid call.
+    if (phase.ploidy == 1 && phase.nested_strand >= 0) {
+        // A nested haploid site is one strand of a diploid locus, not a haploid locus: it is called
+        // at ploidy 1 because the parent's *other* allele deletes the chain, so there is no sequence
+        // on that strand to genotype. Written as a phased pair with the empty strand as ".", which
+        // is the only place the VCF can carry which strand the allele is on -- a bare "a" names none,
+        // and that is why the strand lived only in the mosaic and no phasing tool could read it.
+        //
+        // "." rather than "0": the other haplotype does not carry the reference sequence here, it
+        // carries nothing. "*" would say the same thing and say it in ALT, but adding an allele
+        // changes the arity of AD, GL and GQI on the record, and the strand is not known until
+        // phasing, long after those were written.
+        values[gt_field] = phase.nested_strand == 0
+                           ? std::to_string(phase.allele_first) + "|."
+                           : "." + ("|" + std::to_string(phase.allele_first));
+    } else if (phase.ploidy == 1) {
+        // A genuinely haploid locus -- a haploid contig, or a nested site with no strand to name.
+        // One allele, no phase; only PS below is meaningful, and only as a block label. Writing
+        // "a|a" would claim a homozygous diploid call.
         values[gt_field] = std::to_string(phase.allele_first);
     } else {
         values[gt_field] = std::to_string(phase.allele_first) + "|"

@@ -528,6 +528,26 @@ the biology does instead of where a run was spliced.
 `--phased` and `--mosaic-out` both need `--linkage-weight` above 0, and asking for either with the
 layer off is an error rather than a silently unphased file.
 
+### A haploid record on a diploid contig is not the same thing
+
+Under `--nested`, a site inside a chain that only one parent allele crosses is genotyped at ploidy 1 --
+the other haplotype has no sequence there to call, because the parent's other allele deletes the chain.
+That is one strand of a diploid locus, not a haploid locus, and the two must not be written alike:
+
+- A haploid *contig* gets a single allele, as above. There is no other strand.
+- A haploid *nested site* gets `a|.` or `.|a`. The position of the allele in the pair is which strand
+  of the parent it sits on, and `.` marks the strand that carries nothing.
+
+Without the pair there is nowhere in the record to say which strand, and the assignment existed only in
+the mosaic -- where no phasing tool would look for it, and where whatshap could not have read it anyway,
+since it refuses a file of mixed ploidy. `.` rather than `*`: `*` would say "absent because something
+deleted it", which is more precise, but it is an ALT allele and adding one changes the arity of `AD`,
+`GL` and `GQI`, which are written long before the strand is known.
+
+Two nested sites do *not* get a strand, and carry a `FILTER` saying why: `nested_unreachable`, where the
+parent's final genotype crosses the chain on neither haplotype, and `nested_diploid`, where it crosses on
+both. See `##FILTER` in the header of any `--nested` run.
+
 ## Genotype quality and the VCF fields
 
 | Field | Meaning |

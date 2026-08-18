@@ -1499,6 +1499,10 @@ vector<LinkageCollector::Change> LinkageCollector::resolve(vector<PhaseCall>* ph
                     bool second = (slot == 1);
                     pc.hap_first = second ? LinkageModel::WILDCARD : parent.hap_first;
                     pc.hap_second = second ? parent.hap_second : LinkageModel::WILDCARD;
+                    // Recorded rather than left to be inferred from which haplotype is the wildcard:
+                    // the parent's own strand can be a wildcard too, and then both sides are, which
+                    // is indistinguishable from the unreachable case above.
+                    pc.nested_strand = (int8_t)slot;
                 }
                 by_key[pc.record_key] = ParentPhase{pc.phase_set, pc.hap_first, pc.hap_second,
                                                     pc.allele_first, pc.allele_second, pc.ploidy};

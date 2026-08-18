@@ -391,6 +391,15 @@ public:
         /// haplotype on either strand spells either called allele, so `allele_first` is simply the
         /// smaller index and its pairing with `hap_first` is an accident.
         ///
+        /// Which of the parent's two strands this site sits on, for a nested haploid site whose
+        /// strand is determined; -1 for everything else -- a haploid contig, a nested site whose
+        /// parent could not be found, and the incoherent ones that sit on both strands or neither.
+        ///
+        /// A nested site is haploid because the parent's other allele deletes the chain, so it is one
+        /// strand of a diploid locus rather than a haploid locus. That is the difference between it
+        /// and chrY, and the difference the VCF has to carry: a bare `GT` of `1` names no strand, so
+        /// the strand existed only in the mosaic and no phasing tool could see it.
+        int8_t nested_strand = -1;
         /// Matters to anything that reads the pair *as* the phase, which is what a phased `GT`
         /// claims: at these sites the emitted orientation is a placeholder and is indistinguishable
         /// from one the panel actually chose. It is also the leading explanation for why deriving a

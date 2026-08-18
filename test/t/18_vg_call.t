@@ -9,7 +9,7 @@ PATH=../bin:$PATH # for vg
 # FORMAT field shifts every later one, which broke four assertions here that were not
 # testing field order at all -- one of them silently compared BL against a GQ threshold.
 
-plan tests 284
+plan tests 286
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -717,11 +717,20 @@ vg sim -x nest.gbz -n 300 -l 40 -a -s 31 --path "p2#0#chr1#0" > nest_hap.gam 2>/
 vg sim -x nest.gbz -n 300 -l 40 -a -s 37 --path "p2#1#chr1#0" >> nest_hap.gam 2>/dev/null
 vg call nest.gbz --read-likelihood --gam nest_hap.gam -t 1 -s samp --nested --phased 2>/dev/null > nest_hap.vcf
 is "$?" 0 "--nested --phased runs with a heterozygous deletion over nested sites"
-# A nested site reached by only one parent allele is called haploid -- a single bare allele, not a
-# pair. Only one of the two nested snarls emits here: on the surviving haplotype the other carries
-# the reference allele, so it is hom-ref and correctly writes nothing.
+# A nested site reached by only one parent allele is called haploid -- a single allele, not a pair.
+# Only one of the two nested snarls emits here: on the surviving haplotype the other carries the
+# reference allele, so it is hom-ref and correctly writes nothing.
+#
+# Bare, without a strand, and that is the point of this fixture rather than an accident. The parent
+# is called hom for its deletion, which deletes the chain on both haplotypes, so the site is
+# `nested_unreachable` and there is no strand to name. A coherent nested site is written as "a|." or
+# ".|a" instead; this asserts the caller does not invent one where the parent says there is none.
 is $(grep -v "^#" nest_hap.vcf | awk -F'\t' '{split($10,a,":"); print a[1]}' | grep -cvE "[|/]" ) \
    "1" "a nested site reached by one parent allele is called haploid"
+is $(grep -v "^#" nest_hap.vcf | awk -F'\t' '$7 ~ /nested_unreachable/ {n++} END {print n+0}') "1" \
+   "a nested site its parent's final genotype deletes on both haplotypes is flagged"
+is $(grep -v "^#" nest_hap.vcf | awk -F'\t' '{split($10,a,":"); if (a[1] ~ /\|\.$|^\.\|/) n++} END {print n+0}') \
+   "0" "no strand is claimed for a nested site that has none"
 # And the parent still reports its deletion: symbolic collapsing must not swallow a real event.
 is $(grep -v "^#" nest_hap.vcf | awk -F'\t' 'length($4) > 50 {n++} END {print n+0}') "1" \
    "the parent deletion is still emitted alongside the nested call"
