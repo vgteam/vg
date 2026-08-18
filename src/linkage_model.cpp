@@ -1381,6 +1381,12 @@ vector<LinkageCollector::Change> LinkageCollector::resolve(vector<PhaseCall>* ph
         for (const PhaseCall& pc : *phasing_out) {
             by_key[pc.record_key] = ParentPhase{pc.phase_set, pc.hap_first, pc.hap_second};
         }
+        // Which strand each nested site was placed on, so step three can group them. Filled as the
+        // sweeps below resolve parents.
+        map<pair<uint32_t, uint8_t>, vector<size_t>> by_strand;
+        /// record_key -> the allele step three settled on, for sites whose genotype it moved.
+        unordered_map<size_t, size_t> nested_regenotyped;
+
         // Resolve shallowest-first so a nested site whose parent is itself nested finds its parent
         // already placed. Depth is bounded by the snarl hierarchy, so a bounded number of sweeps
         // settles it; anything still unresolved after that keeps the wildcard rather than guessing.
@@ -1413,6 +1419,7 @@ vector<LinkageCollector::Change> LinkageCollector::resolve(vector<PhaseCall>* ph
                 pc.hap_second = second ? parent.hap_second : LinkageModel::WILDCARD;
                 by_key[pc.record_key] = ParentPhase{pc.phase_set, pc.hap_first, pc.hap_second};
                 phasing_out->push_back(pc);
+                by_strand[make_pair(e.contig, e.parent_slot)].push_back(idx);
                 ++placed_this_sweep;
             }
             if (placed_this_sweep == 0) {
@@ -1464,6 +1471,97 @@ vector<LinkageCollector::Change> LinkageCollector::resolve(vector<PhaseCall>* ph
                     }
                 }
                 phasing_out->push_back(pc);
+            }
+        }
+
+        // Step three: linkage genotype correction for the nested sites, in per-strand haploid chains.
+        //
+        // Holding them out of the diploid runs is what restored the phase blocks, but it also cost
+        // them linkage entirely -- genotype changes fell 8,829 to 8,441 on chr20, so they were being
+        // corrected only per-site. Resolving them here gives that back without reintroducing
+        // fragmentation, because the phase set was already fixed in step one.
+        //
+        // Grouped *by strand*, not merely by contig. Nested sites hanging off opposite parent strands
+        // are not on the same haplotype, so chaining them together would link sequences that never
+        // co-occur -- a worse error than not linking at all. Each group is ploidy-uniform by
+        // construction, so the existing haploid model applies unchanged.
+        for (auto& group : by_strand) {
+            vector<size_t>& idxs = group.second;
+            if (idxs.size() < 2) {
+                continue;   // nothing to link against
+            }
+            sort(idxs.begin(), idxs.end(), [&](size_t a, size_t b) {
+                if (entries[a].position != entries[b].position) {
+                    return entries[a].position < entries[b].position;
+                }
+                return entries[a].record_key < entries[b].record_key;
+            });
+            vector<LinkageModel::Site> sites;
+            sites.reserve(idxs.size());
+            for (size_t idx : idxs) {
+                const Entry& e = entries[idx];
+                LinkageModel::Site s;
+                s.position = e.position;
+                s.num_alleles = e.num_alleles;
+                s.ploidy = 1;
+                size_t n_gt = (size_t)e.num_alleles;
+                s.genotype_ln_likelihood.reserve(n_gt);
+                for (size_t g = 0; g < n_gt; ++g) {
+                    s.genotype_ln_likelihood.push_back((double)gl_arena[e.gl_offset + g]);
+                }
+                s.haplotype_allele.reserve(n_haplotypes);
+                for (size_t h = 0; h < n_haplotypes; ++h) {
+                    s.haplotype_allele.push_back((int)hap_arena[e.hap_offset + h]);
+                }
+                sites.push_back(std::move(s));
+            }
+            vector<vector<double>> posteriors = model.haploid_posteriors(sites);
+            for (size_t k = 0; k < idxs.size() && k < posteriors.size(); ++k) {
+                const Entry& e = entries[idxs[k]];
+                const vector<double>& post = posteriors[k];
+                if (post.empty()) {
+                    continue;
+                }
+                size_t best = 0;
+                for (size_t g = 1; g < post.size(); ++g) {
+                    if (post[g] > post[best]) {
+                        best = g;
+                    }
+                }
+                if (best == (size_t)e.called_i) {
+                    continue;
+                }
+                Change c;
+                c.record_key = e.record_key;
+                c.contig = contig_names[e.contig];
+                c.position = e.position;
+                c.called_i = e.called_i;
+                c.called_j = e.called_j;
+                c.allele_i = best;
+                c.allele_j = best;
+                c.posterior = post[best];
+                c.explained_share = (double)e.explained_share;
+                changes.push_back(c);
+                nested_regenotyped[e.record_key] = best;
+            }
+        }
+
+        // The PhaseCalls for these sites were built before step three ran, so they still describe
+        // the pre-linkage allele. apply_phasing refuses a phase that disagrees with the genotype
+        // the record ends up carrying -- correctly, since phasing the wrong allele pair would be
+        // worse than leaving it unphased -- so a stale PhaseCall silently costs the site its PS.
+        // That is what turned 64 unphased records into 466: 402 nested sites whose genotype step
+        // three had moved out from under their own phase.
+        //
+        // Patched here rather than by reordering the passes, because strand assignment needs the
+        // parent's phase while genotype resolution needs the strand, so neither can simply go first.
+        if (!nested_regenotyped.empty()) {
+            for (PhaseCall& pc : *phasing_out) {
+                auto found = nested_regenotyped.find(pc.record_key);
+                if (found != nested_regenotyped.end()) {
+                    pc.allele_first = found->second;
+                    pc.allele_second = found->second;
+                }
             }
         }
     }
