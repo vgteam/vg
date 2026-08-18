@@ -1651,7 +1651,7 @@ void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeFo
                 get_regular_aligner()->scorer->gap_extension,
                 for_each_transition,
                 scheme,
-                this->max_alignments,
+                this->max_chains_per_tree,
                 indel_limit,
                 show_work
             );
