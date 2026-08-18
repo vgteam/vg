@@ -2,7 +2,6 @@
 
 #include <map>
 #include <unordered_map>
-#include <unordered_set>
 
 #include <algorithm>
 #include <cassert>
@@ -1060,7 +1059,8 @@ void LinkageCollector::record(const string& contig, size_t position, size_t num_
                               size_t called_i, size_t called_j, size_t record_key,
                               double explained_share, size_t ploidy,
                               int64_t start_node, int64_t end_node,
-                              bool nested, size_t parent_record_key, size_t parent_slot) {
+                              bool nested, size_t parent_record_key, size_t parent_slot,
+                              uint64_t parent_crossing) {
     if (num_alleles == 0 || genotype_ln_likelihood.empty()) {
         return;
     }
@@ -1093,6 +1093,7 @@ void LinkageCollector::record(const string& contig, size_t position, size_t num_
     e.ploidy = (uint8_t)(ploidy == 1 ? 1 : 2);
     e.nested = nested;
     e.parent_record_key = parent_record_key;
+    e.parent_crossing = parent_crossing;
     e.parent_slot = (uint8_t)parent_slot;
 
     e.gl_offset = (uint32_t)gl_arena.size();
@@ -1118,7 +1119,8 @@ size_t LinkageCollector::bytes() const {
            + hap_arena.size() * sizeof(int8_t);
 }
 
-vector<LinkageCollector::Change> LinkageCollector::resolve(vector<PhaseCall>* phasing_out) const {
+vector<LinkageCollector::Change> LinkageCollector::resolve(vector<PhaseCall>* phasing_out,
+                                                           vector<NestedIncoherence>* incoherent_out) const {
     // Nested sites, collected across every contig and phased after the diploid chains, so their
     // strand can be read off the parent they hang off rather than guessed.
     vector<size_t> deferred_nested;
@@ -1357,8 +1359,11 @@ vector<LinkageCollector::Change> LinkageCollector::resolve(vector<PhaseCall>* ph
                 pc.allele_second = (size_t)b;
                 pc.allele_first = ((size_t)b == i) ? j : i;
             } else {
+                // Neither panel haplotype spells either called allele, so nothing orders the pair.
+                // Sorted order is written, which pairs allele_first with hap_first only by accident.
                 pc.allele_first = i;
                 pc.allele_second = j;
+                pc.order_arbitrary = (i != j);
             }
             phasing_out->push_back(pc);
         }
@@ -1377,12 +1382,25 @@ vector<LinkageCollector::Change> LinkageCollector::resolve(vector<PhaseCall>* ph
     if (phasing_out != nullptr && !deferred_nested.empty()) {
         // By value, not by pointer: this loop appends to `phasing_out`, and any pointer into a
         // vector is invalid the moment it reallocates. Only three fields are needed.
-        struct ParentPhase { size_t phase_set; size_t hap_first; size_t hap_second; };
+        struct ParentPhase {
+            size_t phase_set;
+            size_t hap_first;
+            size_t hap_second;
+            // The phased allele pair, which is what says which strand crosses the child. Carried
+            // alongside the haplotypes because the nested site's slot has to be derived from it.
+            size_t allele_first;
+            size_t allele_second;
+            size_t ploidy;
+        };
         unordered_map<size_t, ParentPhase> by_key;
         by_key.reserve(phasing_out->size() * 2);
         for (const PhaseCall& pc : *phasing_out) {
-            by_key[pc.record_key] = ParentPhase{pc.phase_set, pc.hap_first, pc.hap_second};
+            by_key[pc.record_key] = ParentPhase{pc.phase_set, pc.hap_first, pc.hap_second,
+                                                pc.allele_first, pc.allele_second, pc.ploidy};
         }
+        // How the strand recorded at descent time compares with the one the parent's phase implies.
+        size_t mask_unknown = 0;
+        size_t final_diploid = 0, final_absent = 0;
         // Which strand each nested site was placed on, so step three can group them. Filled as the
         // sweeps below resolve parents.
         map<pair<uint32_t, uint8_t>, vector<size_t>> by_strand;
@@ -1413,15 +1431,90 @@ vector<LinkageCollector::Change> LinkageCollector::resolve(vector<PhaseCall>* ph
                     continue;
                 }
                 const ParentPhase& parent = found->second;
+                // Which of the parent's two strands crosses this child.
+                //
+                // Not `parent_slot`: that indexes the parent's called-traversal order, and by the
+                // time the parent is phased the pair has been sorted by `record` and then oriented
+                // by the Viterbi against the panel haplotypes, so slot 0 and `allele_first` agree
+                // only by luck. For a het parent whose crossing allele is the larger-indexed one
+                // that put the child on the wrong haplotype outright. Re-derived here from the
+                // crossing mask against the pair that was actually phased, which is the only place
+                // where both are known.
+                const uint8_t slot = e.parent_slot;
+                // Whether the *ploidy* the child was called at survives its parent's final genotype.
+                // 0 it does, 1 both strands cross so the locus is diploid, 2 neither does so the
+                // sample has no copy of the chain.
+                //
+                // This asks about the unordered pair, which is why it is answerable where the strand
+                // is not: it needs to know whether the two called alleles both cross, neither cross,
+                // or exactly one does -- never which of them is which. See the note in the design
+                // document on why deriving the *strand* from the same mask measured worse than the
+                // recorded slot and is not done here.
+                int incoherent = 0;
+                if (e.parent_crossing == 0) {
+                    ++mask_unknown;   // descent could not express it, so nothing can be checked
+                } else {
+                    int crossings = 0;
+                    if (parent.allele_first < 64
+                        && ((e.parent_crossing >> parent.allele_first) & 1)) {
+                        ++crossings;
+                    }
+                    // A haploid parent -- a haploid contig, or a nested site one level up -- has one
+                    // allele, and its second slot repeats the first rather than naming a strand.
+                    if (parent.ploidy == 2 && parent.allele_second < 64
+                        && ((e.parent_crossing >> parent.allele_second) & 1)) {
+                        ++crossings;
+                    }
+                    if (crossings == (int)parent.ploidy && parent.ploidy == 2) {
+                        // Both strands cross it under the final genotype, so the locus is diploid
+                        // there and the record names one allele where it has two. Reported rather
+                        // than corrected -- correcting it means re-genotyping at ploidy 2, which the
+                        // retained haploid likelihood vector cannot do.
+                        ++final_diploid;
+                        incoherent = 1;
+                    } else if (crossings == 0) {
+                        // No called parent allele reaches it, so there is no haplotype for this call
+                        // to sit on.
+                        ++final_absent;
+                        incoherent = 2;
+                    }
+                }
                 // Inherit the parent's phase set, so the nested site sits in the parent's block
                 // instead of starting one of its own -- which is the whole point of the exercise.
                 pc.phase_set = parent.phase_set;
-                bool second = (e.parent_slot == 1);
-                pc.hap_first = second ? LinkageModel::WILDCARD : parent.hap_first;
-                pc.hap_second = second ? parent.hap_second : LinkageModel::WILDCARD;
-                by_key[pc.record_key] = ParentPhase{pc.phase_set, pc.hap_first, pc.hap_second};
+                if (incoherent == 1) {
+                    // Crossed on both strands, so naming one would be a narrower claim than the
+                    // parent itself makes. The mosaic gets the called allele on both haplotypes,
+                    // which is what the final parent genotype says is there.
+                    pc.hap_first = parent.hap_first;
+                    pc.hap_second = parent.hap_second;
+                } else if (incoherent == 2) {
+                    // Crossed on neither, so there is no strand to name. The record stays in the
+                    // parent's phase set -- it is still at that locus -- but claiming a haplotype
+                    // for a chain the sample does not carry would write a variant into the emitted
+                    // genome that the parent record deletes.
+                    pc.hap_first = LinkageModel::WILDCARD;
+                    pc.hap_second = LinkageModel::WILDCARD;
+                } else {
+                    bool second = (slot == 1);
+                    pc.hap_first = second ? LinkageModel::WILDCARD : parent.hap_first;
+                    pc.hap_second = second ? parent.hap_second : LinkageModel::WILDCARD;
+                }
+                by_key[pc.record_key] = ParentPhase{pc.phase_set, pc.hap_first, pc.hap_second,
+                                                    pc.allele_first, pc.allele_second, pc.ploidy};
                 phasing_out->push_back(pc);
-                by_strand[make_pair(e.contig, e.parent_slot)].push_back(idx);
+                if (incoherent == 0) {
+                    // Only sites with one strand are grouped: step three chains within a single
+                    // haplotype, and a site on both strands or on neither belongs to no such chain.
+                    by_strand[make_pair(e.contig, slot)].push_back(idx);
+                } else if (incoherent_out != nullptr) {
+                    NestedIncoherence ni;
+                    ni.contig = pc.contig;
+                    ni.position = pc.position;
+                    ni.record_key = pc.record_key;
+                    ni.diploid = (incoherent == 1);
+                    incoherent_out->push_back(ni);
+                }
                 ++placed_this_sweep;
             }
             if (placed_this_sweep == 0) {
@@ -1557,30 +1650,19 @@ vector<LinkageCollector::Change> LinkageCollector::resolve(vector<PhaseCall>* ph
         //
         // Patched here rather than by reordering the passes, because strand assignment needs the
         // parent's phase while genotype resolution needs the strand, so neither can simply go first.
-        // How many nested sites hang off a parent whose genotype linkage moved.
+        // How the nested population fared against the parent genotypes linkage actually chose.
         //
-        // Those are the incoherent ones: descent decided to visit the child, and at what ploidy and
-        // on which strand, from the parent's *pre-linkage* genotype, and nothing revisits that once
-        // linkage rewrites the parent. Counted rather than assumed, because the size of this
-        // population decides whether a two-pass rebuild is worth its cost or whether reconciling at
-        // emission is enough.
-        {
-            unordered_set<size_t> moved;
-            moved.reserve(changes.size() * 2);
-            for (const Change& c : changes) {
-                moved.insert(c.record_key);
-            }
-            size_t stale_parent = 0;
-            for (size_t idx : deferred_nested) {
-                if (moved.count(entries[idx].parent_record_key)) {
-                    ++stale_parent;
-                }
-            }
-            if (stale_parent > 0) {
+        // This used to be a coarser count -- nested sites whose parent's genotype moved at all --
+        // which was an upper bound gathered to decide whether a two-pass rebuild was worth its
+        // cost. It is superseded: the crossing mask says exactly which sites were placed on the
+        // wrong strand and which have the wrong ploidy, so the bound is no longer the best
+        // available number.
+        if (final_diploid > 0 || final_absent > 0) {
 #pragma omp critical (cerr)
-                std::cerr << "[vg call] nested: " << stale_parent << " of " << deferred_nested.size()
-                     << " nested sites hang off a parent whose genotype linkage changed" << std::endl;
-            }
+            std::cerr << "[vg call] nested: " << final_diploid << " sites are diploid and "
+                      << final_absent << " unreachable under the parent genotype linkage settled on, "
+                      << "of " << deferred_nested.size() << " nested sites (" << mask_unknown
+                      << " could not be checked)" << std::endl;
         }
 
         if (!nested_regenotyped.empty()) {
@@ -1592,6 +1674,34 @@ vector<LinkageCollector::Change> LinkageCollector::resolve(vector<PhaseCall>* ph
                 }
             }
         }
+    }
+
+    // Reference order, and only now.
+    //
+    // The nested sites are appended after every chain has been phased, because placing one needs its
+    // parent's phase and the parent can be anywhere in any chain. That leaves `phasing_out` in two
+    // runs -- chain sites in order, then nested sites in order -- and write_mosaic reads it as one
+    // ordered sweep, closing a segment only where the haplotype changes. Out of order, a nested site
+    // 451 kb into chr20 landed in the same run as one 65 Mb along: chr20's mosaic carried five
+    // segments spanning tens of megabases, one of them claiming 284 sites between ref_start 451,374
+    // and ref_end 65,512,343, with start_node and end_node anchors to match. The site totals still
+    // added up, which is what the harness checks, so the file looked complete while being wrong
+    // about where those sites were.
+    //
+    // Sorted here rather than in write_mosaic so every consumer gets one guarantee instead of each
+    // having to know. The key matches the chain sort: position, then the site's own key, so two
+    // records at one position keep an order that is a property of the sites and not of the threads.
+    if (phasing_out != nullptr) {
+        std::sort(phasing_out->begin(), phasing_out->end(),
+                  [](const PhaseCall& a, const PhaseCall& b) {
+                      if (a.contig != b.contig) {
+                          return a.contig < b.contig;
+                      }
+                      if (a.position != b.position) {
+                          return a.position < b.position;
+                      }
+                      return a.record_key < b.record_key;
+                  });
     }
     return changes;
 }

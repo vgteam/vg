@@ -360,7 +360,8 @@ public:
                 size_t called_i, size_t called_j, size_t record_key,
                 double explained_share, size_t ploidy = 2,
                 int64_t start_node = 0, int64_t end_node = 0,
-                bool nested = false, size_t parent_record_key = 0, size_t parent_slot = 0);
+                bool nested = false, size_t parent_record_key = 0, size_t parent_slot = 0,
+                uint64_t parent_crossing = 0);
 
     /// One site's phasing: which strand carries which allele, and which panel haplotype explains
     /// each strand.
@@ -386,6 +387,32 @@ public:
         int64_t end_node = 0;
         /// Identifies the phase block. Phase is only comparable within one.
         size_t phase_set = 0;
+        /// True when nothing ordered the allele pair: the site is heterozygous and no panel
+        /// haplotype on either strand spells either called allele, so `allele_first` is simply the
+        /// smaller index and its pairing with `hap_first` is an accident.
+        ///
+        /// Matters to anything that reads the pair *as* the phase, which is what a phased `GT`
+        /// claims: at these sites the emitted orientation is a placeholder and is indistinguishable
+        /// from one the panel actually chose. It is also the leading explanation for why deriving a
+        /// nested site's strand from the parent's phased pair measured worse than the traversal-order
+        /// slot recorded at descent -- see the Stage 7 notes in the companion evaluation repository.
+        bool order_arbitrary = false;
+    };
+
+    /// A nested site whose ploidy the final parent genotype does not support.
+    ///
+    /// Descent chose the child's ploidy from the parent's *pre-linkage* genotype, and linkage then
+    /// rewrote some parents. Where that changes which parent alleles cross the child, the child's
+    /// record survives at a ploidy its own parent now contradicts. Reported so the record can say
+    /// so rather than read as an ordinary call.
+    struct NestedIncoherence {
+        string contig;
+        size_t position = 0;
+        size_t record_key = 0;
+        /// True when both parent strands cross the child under the final genotype: the site is
+        /// diploid there and was called haploid, so its genotype under-reports the locus. False
+        /// when neither does, which leaves the call with no haplotype to sit on at all.
+        bool diploid = false;
     };
 
     /// Run the model per contig and return only the genotypes that changed.
@@ -394,7 +421,12 @@ public:
     /// any change above has been applied, not before. Constraining to the final calls is what
     /// makes the phasing agree with the VCF; constraining to the pre-linkage calls would phase a
     /// genotype set that is never emitted.
-    vector<Change> resolve(vector<PhaseCall>* phasing_out = nullptr) const;
+    ///
+    /// With `incoherent_out`, also reports the nested sites whose ploidy the final parent genotype
+    /// contradicts. Only filled when `phasing_out` is given, since the parent's phased allele pair
+    /// is what the check is made against.
+    vector<Change> resolve(vector<PhaseCall>* phasing_out = nullptr,
+                           vector<NestedIncoherence>* incoherent_out = nullptr) const;
 
     /// Retained bytes, for reporting. The point of the compact form is that this stays small, so
     /// it is worth being able to say what it actually is rather than trusting the estimate.
@@ -427,6 +459,21 @@ private:
         /// allele crosses it, so the strand it belongs to is determined -- not a best fit -- once the
         /// parent has been phased.
         size_t parent_record_key = 0;
+        /// One bit per parent VCF allele, set where that allele crosses this child chain; 0 means
+        /// descent could not say.
+        ///
+        /// What `resolve` uses it for is checking that the *ploidy* this child was called at survives
+        /// its parent's final genotype: whether both called parent alleles cross it, neither does, or
+        /// exactly one does. That question is about the unordered pair, which is why it is answerable
+        /// where the strand is not -- and the strand is deliberately *not* derived from this. Doing so
+        /// is the obvious reading of the phase and measured worse than `parent_slot` below, which is
+        /// the traversal-order index recorded at descent; see the Stage 7 notes in the companion
+        /// evaluation repository.
+        ///
+        /// Placed next to the key rather than beside `parent_slot`: after an 8-byte member it needs no
+        /// padding, where after a `uint8_t` it costs seven bytes of it -- 16 bytes a site instead of 8,
+        /// which `bytes()` reported as 1.8 MB on chr20 rather than 0.9.
+        uint64_t parent_crossing = 0;
         uint8_t parent_slot = 0;
         float explained_share = 1.0f;
         size_t record_key = 0;

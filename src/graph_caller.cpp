@@ -317,6 +317,20 @@ string VCFOutputCaller::vcf_header(const PathHandleGraph& graph, const vector<st
            << "spanning consecutive sites. Not the INFO/PS emitted under -A, which is a parent "
            << "snarl pointer\">" << endl;
     }
+    if (symbolic_manager != nullptr) {
+        // Nested descent chose each child's ploidy from its parent's pre-linkage genotype, and
+        // linkage can then rewrite the parent. Where that changes which parent alleles cross the
+        // child, the child record outlives the genotype that justified it. Flagged rather than
+        // dropped: the read evidence at the child is real, and it is evidence against the parent's
+        // new genotype as much as the parent is evidence against the child.
+        ss << "##FILTER=<ID=nested_diploid,Description=\"Called at ploidy 1 because one parent "
+           << "allele crossed this child chain, but after linkage both parent haplotypes cross it. "
+           << "The locus is diploid here and this genotype names only one allele\">" << endl;
+        ss << "##FILTER=<ID=nested_unreachable,Description=\"Called because a parent allele crossed "
+           << "this child chain, but after linkage neither parent haplotype does. The sample carries "
+           << "no copy of the chain under its own parent record, so this genotype has no haplotype "
+           << "to sit on\">" << endl;
+    }
     ss << "##INFO=<ID=AT,Number=R,Type=String,Description=\"Allele Traversal as path in graph\">" << endl;
     if (allele_merge_threshold < 1.0) {
         ss << "##INFO=<ID=MAT,Number=.,Type=String,Description=\"Merged Allele Traversal: "
@@ -561,6 +575,9 @@ void VCFOutputCaller::write_variants(ostream& out_stream, const SnarlManager* sn
     // having kept the record itself, and only the records that actually move are re-parsed.
     map<pair<string, size_t>, LinkageCollector::Change> changes;
     map<pair<string, size_t>, LinkageCollector::PhaseCall> phasings;
+    // Keyed by record key rather than position, because these records are nested: several sites can
+    // share a position and only one of them is the child in question.
+    map<size_t, bool> nested_filters;
     if (linkage_collector != nullptr) {
         // Reported rather than estimated. The retained-bytes figure in the LinkageCollector
         // header comment was arithmetic -- sites times a per-site size -- and `bytes()` exists so
@@ -569,21 +586,35 @@ void VCFOutputCaller::write_variants(ostream& out_stream, const SnarlManager* sn
         // between calling and writing, in a caller that is otherwise parallel over snarls.
         auto start = std::chrono::steady_clock::now();
         vector<LinkageCollector::PhaseCall> phased;
+        vector<LinkageCollector::NestedIncoherence> incoherent;
         vector<LinkageCollector::Change> resolved =
-            linkage_collector->resolve(emit_phasing ? &phased : nullptr);
+            linkage_collector->resolve(emit_phasing ? &phased : nullptr,
+                                       emit_phasing ? &incoherent : nullptr);
         double seconds = std::chrono::duration<double>(
             std::chrono::steady_clock::now() - start).count();
         for (const LinkageCollector::Change& c : resolved) {
             changes[make_pair(c.contig, c.position)] = c;
         }
         size_t unexplained = 0;
+        size_t order_arbitrary = 0;
         for (const LinkageCollector::PhaseCall& pc : phased) {
             phasings[make_pair(pc.contig, pc.position)] = pc;
             // Count only the strands a chain actually has. On a haploid chain hap_second is the
             // wildcard by construction, so counting it reported every site as unexplained while
             // the mosaic was naming real haplotypes throughout.
-            unexplained += (pc.hap_first == LinkageModel::WILDCARD)
-                           || (pc.ploidy == 2 && pc.hap_second == LinkageModel::WILDCARD);
+            // A haploid site has one strand and one wildcard, and *which* side holds the
+            // wildcard is not fixed: a haploid contig fills the first, while a nested site hanging
+            // off the parent's second strand fills the second. Testing hap_first alone therefore
+            // reported every nested site on the parent's second strand as unexplained when the
+            // panel named its haplotype perfectly well -- 612 of chr20's 2020, which is why that
+            // count fell to 1408 the moment the strands were derived correctly rather than because
+            // any site became better explained.
+            unexplained += (pc.ploidy == 1)
+                           ? (pc.hap_first == LinkageModel::WILDCARD
+                              && pc.hap_second == LinkageModel::WILDCARD)
+                           : (pc.hap_first == LinkageModel::WILDCARD
+                              || pc.hap_second == LinkageModel::WILDCARD);
+            order_arbitrary += pc.order_arbitrary;
         }
         cerr << "[vg call] linkage: " << linkage_collector->num_sites() << " sites, "
              << (linkage_collector->bytes() / (1024.0 * 1024.0)) << " MB retained, "
@@ -594,9 +625,31 @@ void VCFOutputCaller::write_variants(ostream& out_stream, const SnarlManager* sn
             // rests on the transition model alone.
             cerr << "[vg call] phasing: " << phased.size() << " sites phased, "
                  << unexplained << " with a strand the panel does not explain" << endl;
+            if (order_arbitrary > 0) {
+                // A heterozygous site where no panel haplotype on either strand spells either called
+                // allele. The record still comes out phased and in the block, because it has a
+                // position in it, but which allele went on which strand was decided by sorting the
+                // pair -- so the orientation there is a placeholder, not a call. Reported because a
+                // reader cannot tell these from the rest.
+                cerr << "[vg call] phasing: " << order_arbitrary
+                     << " heterozygous sites carry an allele order the panel does not determine"
+                     << endl;
+            }
         }
         if (!mosaic_path.empty()) {
             write_mosaic(phased);
+        }
+        for (const LinkageCollector::NestedIncoherence& ni : incoherent) {
+            nested_filters[ni.record_key] = ni.diploid;
+        }
+        if (!incoherent.empty()) {
+            size_t diploid = 0;
+            for (const auto& kv : nested_filters) {
+                diploid += kv.second;
+            }
+            cerr << "[vg call] nested: " << nested_filters.size()
+                 << " records flagged, " << diploid << " nested_diploid and "
+                 << (nested_filters.size() - diploid) << " nested_unreachable" << endl;
         }
     }
 
@@ -616,6 +669,20 @@ void VCFOutputCaller::write_variants(ostream& out_stream, const SnarlManager* sn
             auto found = phasings.find(v.first);
             if (found != phasings.end()) {
                 apply_phasing(dest, found->second);
+            }
+        }
+        if (!nested_filters.empty()) {
+            // The record key is the hash of the ID column, which is how the linkage layer keyed it,
+            // so the identity is recoverable from the line itself and nothing extra has to be
+            // carried through the compressed buffer.
+            size_t a = dest.find('\t');
+            size_t b = a == string::npos ? string::npos : dest.find('\t', a + 1);
+            size_t c = b == string::npos ? string::npos : dest.find('\t', b + 1);
+            if (c != string::npos) {
+                auto found = nested_filters.find(std::hash<string>{}(dest.substr(b + 1, c - b - 1)));
+                if (found != nested_filters.end()) {
+                    apply_nested_filter(dest, found->second);
+                }
             }
         }
         out_stream << dest << endl;
@@ -956,7 +1023,19 @@ void VCFOutputCaller::write_mosaic(const vector<LinkageCollector::PhaseCall>& ph
         }
         // One strand on a haploid chain. Emitting a second would assert a homozygote where the
         // sample has one copy, which is the opposite of what the file is for.
-        int strands = (phasing[i].ploidy == 1) ? 1 : 2;
+        //
+        // Over the whole run, not from its first site. A diploid contig can open with a nested
+        // haploid site now that the phasing is sorted into reference order, and reading the ploidy
+        // off phasing[i] would then drop the contig's entire second strand -- silently, since a
+        // one-strand mosaic is exactly what a haploid contig is meant to look like. chr20 happens
+        // to open at position 24 with a diploid record, which is the only reason this was not
+        // already visible.
+        int strands = 1;
+        for (size_t t = i; t < j && strands == 1; ++t) {
+            if (phasing[t].ploidy != 1) {
+                strands = 2;
+            }
+        }
         for (int strand = 0; strand < strands; ++strand) {
             size_t seg_start = i;
             for (size_t t = i; t < j; ++t) {
@@ -984,6 +1063,33 @@ void VCFOutputCaller::write_mosaic(const vector<LinkageCollector::PhaseCall>& ph
     }
     cerr << "[vg call] mosaic: " << total_segments << " segments over " << phasing.size()
          << " sites, written to " << mosaic_path << endl;
+}
+
+void VCFOutputCaller::apply_nested_filter(string& line, bool diploid) const {
+    // Column 7 of the eight fixed fields. Edited in place for the same reason apply_linkage_change
+    // is: re-parsing the record to a vcflib::Variant and reprinting it would reformat every float
+    // in the line, which makes an unrelated diff on 90% of records.
+    size_t start = 0;
+    for (int field = 0; field < 6; ++field) {
+        start = line.find('\t', start);
+        if (start == string::npos) {
+            return;
+        }
+        ++start;
+    }
+    size_t end = line.find('\t', start);
+    if (end == string::npos) {
+        return;
+    }
+    const string tag = diploid ? "nested_diploid" : "nested_unreachable";
+    // "." and "PASS" both mean "nothing to say", so the tag replaces them rather than joining them:
+    // a FILTER of "PASS;nested_diploid" is a contradiction.
+    string current = line.substr(start, end - start);
+    if (current == "." || current == "PASS" || current.empty()) {
+        line.replace(start, end - start, tag);
+    } else if (current.find(tag) == string::npos) {
+        line.replace(start, end - start, current + ";" + tag);
+    }
 }
 
 void VCFOutputCaller::apply_phasing(string& line,
@@ -1694,6 +1800,7 @@ string VCFOutputCaller::trav_string(const HandleGraph& graph, const SnarlTravers
 }
 
 thread_local VCFOutputCaller::NestedContext VCFOutputCaller::nested_context;
+thread_local VCFOutputCaller::EmittedAlleles VCFOutputCaller::last_emitted;
 
 bool VCFOutputCaller::is_symbolically_reference(const vector<SnarlTraversal>& called_traversals,
                                                 int trav_idx, int ref_trav_idx,
@@ -1727,6 +1834,12 @@ bool VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCa
         cerr << "gt[" << i << "]=" << genotype[i] << endl;
     }
 #endif
+
+    // Stale from the previous emit on this thread until this one fills it in. Cleared rather than
+    // left, so a descent after an emit that wrote nothing cannot read the last snarl's mapping.
+    last_emitted.valid = false;
+    last_emitted.num_alleles = 0;
+    last_emitted.trav_to_allele.clear();
 
     if (trav_to_string == nullptr) {
         trav_to_string = [&](const vector<SnarlTraversal>& travs, const vector<int>& travs_genotype, int trav_allele, int genotype_allele, int ref_trav_idx) {
@@ -1914,6 +2027,19 @@ bool VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCa
         out_variant.info["AT"].push_back(".");
     }
 
+    // Hand the traversal-to-allele mapping to symbolic descent, which runs next on this thread and
+    // needs a child's crossing pattern in allele space. Filled whether or not the record survives
+    // add_variant: a parent that collapses to the reference emits nothing and still has children to
+    // descend into, which is the case nested calling exists for.
+    if (symbolic_manager != nullptr) {
+        last_emitted.valid = true;
+        last_emitted.num_alleles = out_variant.alleles.size();
+        last_emitted.trav_to_allele.clear();
+        for (const auto& kv : trav_to_allele) {
+            last_emitted.trav_to_allele.emplace(kv.first, kv.second);
+        }
+    }
+
     if (genotype_snarls || !out_variant.alt.empty()) {
         bool added = add_variant(out_variant);
         if (added && linkage_collector != nullptr) {
@@ -1987,11 +2113,13 @@ bool VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCa
                                           (int64_t)snarl.start().node_id(),
                                           (int64_t)snarl.end().node_id(),
                                           // Nested provenance, so the linkage pass can keep this
-                                          // site out of the diploid chain runs and place it on the
-                                          // parent's strand afterwards.
+                                          // site out of the diploid chain runs, place it on the
+                                          // parent's strand afterwards, and check its ploidy against
+                                          // the genotype the parent finally ends up with.
                                           nested_context.active,
                                           nested_context.parent_record_key,
-                                          nested_context.parent_slot);
+                                          nested_context.parent_slot,
+                                          nested_context.parent_crossing);
             }
         }
         if (!added) {
@@ -3341,6 +3469,47 @@ TraversalSet FlowCaller::find_child_traversal_set(const SnarlTraversal& parent_t
     return result;
 }
 
+int FlowCaller::crossings_of_child(const SnarlTraversal& trav, const Snarl& child) {
+    const nid_t start = child.start().node_id();
+    const nid_t end = child.end().node_id();
+    // Count crossings: an entry at one boundary followed by the other. Order matters -- testing
+    // for the two boundaries independently would count a traversal that touches both on
+    // unrelated excursions, which is the bug in find_child_traversal_set.
+    int crossings = 0;
+    nid_t open = 0;
+    for (int i = 0; i < trav.visit_size(); ++i) {
+        if (trav.visit(i).has_snarl()) {
+            continue;
+        }
+        nid_t node = trav.visit(i).node_id();
+        if (open == 0 && (node == start || node == end)) {
+            open = (node == start) ? end : start;
+        } else if (open != 0 && node == open) {
+            ++crossings;
+            open = 0;
+        }
+    }
+    return crossings;
+}
+
+uint64_t FlowCaller::child_crossing_mask(const vector<SnarlTraversal>& travs,
+                                         const map<int, int>& trav_to_allele,
+                                         const Snarl& child) {
+    uint64_t mask = 0;
+    for (const auto& kv : trav_to_allele) {
+        if (kv.second < 0 || kv.second >= 64) {
+            return 0;   // unknown, not none
+        }
+        if (kv.first < 0 || kv.first >= (int)travs.size()) {
+            continue;
+        }
+        if (crossings_of_child(travs[kv.first], child) > 0) {
+            mask |= (uint64_t)1 << kv.second;
+        }
+    }
+    return mask;
+}
+
 int FlowCaller::child_ploidy(const vector<SnarlTraversal>& travs, const vector<int>& genotype,
                              const Snarl& child, int cap) const {
     const nid_t start = child.start().node_id();
@@ -3352,24 +3521,7 @@ int FlowCaller::child_ploidy(const vector<SnarlTraversal>& travs, const vector<i
         if (allele < 0 || allele >= (int)travs.size()) {
             continue;   // star or missing: that haplotype contributes no copy here
         }
-        const SnarlTraversal& trav = travs[allele];
-        // Count crossings: an entry at one boundary followed by the other. Order matters -- testing
-        // for the two boundaries independently would count a traversal that touches both on
-        // unrelated excursions, which is the bug in find_child_traversal_set.
-        int crossings = 0;
-        nid_t open = 0;
-        for (int i = 0; i < trav.visit_size(); ++i) {
-            if (trav.visit(i).has_snarl()) {
-                continue;
-            }
-            nid_t node = trav.visit(i).node_id();
-            if (open == 0 && (node == start || node == end)) {
-                open = (node == start) ? end : start;
-            } else if (open != 0 && node == open) {
-                ++crossings;
-                open = 0;
-            }
-        }
+        int crossings = crossings_of_child(travs[allele], child);
         if (crossings > 1) {
             capped = true;
             crossings = 1;   // a cycle or tandem duplication; see the header comment
@@ -3807,6 +3959,10 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
         const Snarl* managed_ptr = snarl_manager.into_which_snarl(snarl.start().node_id(),
                                                                   snarl.start().backward());
         if (managed_ptr != nullptr) {
+            // Snapshotted before the loop: each child call runs emit_variant of its own and
+            // overwrites the thread's copy, so reading it inside the loop would describe the
+            // previous child rather than this parent.
+            const EmittedAlleles parent_alleles = last_emitted;
             for (const Snarl* child : snarl_manager.children_of(managed_ptr)) {
                 if (child == nullptr || snarl_manager.is_trivial(child, graph)) {
                     continue;
@@ -3843,6 +3999,14 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
                 nested_context.active = (copies == 1);
                 nested_context.parent_record_key = std::hash<string>{}(print_snarl(snarl, false));
                 nested_context.parent_slot = slot;
+                // Which parent *alleles* cross this child, as opposed to which called traversal.
+                // Linkage needs this to tell whether the ploidy the child is about to be genotyped
+                // at survives the parent's final genotype: linkage can move the parent afterwards,
+                // and a child called haploid because one allele crossed it is wrong if both do.
+                nested_context.parent_crossing =
+                    (copies == 1 && parent_alleles.valid)
+                    ? child_crossing_mask(travs, parent_alleles.trav_to_allele, *child)
+                    : 0;
                 call_snarl_internal(*child, ref_path_name,
                                     make_pair(get<0>(ref_interval), get<1>(ref_interval)),
                                     nullptr, copies);

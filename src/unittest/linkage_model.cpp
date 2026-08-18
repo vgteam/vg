@@ -279,9 +279,13 @@ TEST_CASE("The collector keeps sites compactly and re-decides only what changed"
     collector.record("chr1", 1100, 2, {0.0, -30.0, 0.0}, {1, 1, 0, 0}, 0, 0, /*key*/ 22, /*share*/ 1.0);
 
     REQUIRE(collector.num_sites() == 2);
-    // Two entries, six floats, eight int8s. Anything near a vector-per-site layout would be
-    // several times this.
-    REQUIRE(collector.bytes() < 2 * 48 + 6 * 4 + 8 + 64);
+    // Two entries, six floats, eight int8s, all in flat arenas.
+    //
+    // A bound on per-site overhead rather than the exact figure, which is 80 bytes an entry today:
+    // an exact assertion fails whenever a field is added, which is the wrong reason to fail. What
+    // this catches is a vector-per-site layout -- three vector headers, 72 bytes, plus three heap
+    // allocations for every site.
+    REQUIRE(collector.bytes() < 2 * 128 + 6 * 4 + 8);
 
     auto changes = collector.resolve();
     // Site 1 was already called 1/1 and must not be reported; site 2 was called 0/0 and linkage
@@ -351,6 +355,110 @@ TEST_CASE("The collector sorts by reference position, not arrival order",
         REQUIRE(a[i].allele_j == b[i].allele_j);
         REQUIRE(a[i].posterior == Approx(b[i].posterior).margin(1e-12));
     }
+}
+
+TEST_CASE("A nested site whose parent no longer crosses it is reported, not quietly kept",
+          "[linkage_model]") {
+    // Descent picked the child's ploidy from the parent's pre-linkage genotype. When linkage then
+    // moves the parent to a genotype where *both* alleles cross the child, the locus is diploid and
+    // the haploid call under-reports it; when it moves to one where *neither* does, the sample has
+    // no copy of the chain at all and the call has no haplotype to sit on. Both survive today, and
+    // both are indistinguishable from an ordinary call in the output unless they are flagged.
+    LinkageModel::Params p;
+    p.weight = 1.0;
+    p.scale = 100000.0;
+    p.rho_min = 1e-4;
+
+    const size_t PARENT = 9, CHILD = 91;
+
+    struct Case { int crossing_allele; bool expect_diploid; };
+    const Case cases[] = {{1, true}, {0, false}};
+    for (const Case& c : cases) {
+        LinkageCollector collector(p, 2);
+        // A parent decisively 1/1 -- genotype index 2 of three -- with both panel haplotypes on
+        // allele 1, so neither strand carries allele 0.
+        collector.record("chr1", 1000, 2, {-30.0, -30.0, 0.0}, {1, 1}, 1, 1, PARENT,
+                         /*share*/ 1.0, /*ploidy*/ 2, /*start*/ 10, /*end*/ 20);
+        collector.record("chr1", 1010, 2, {0.0, -30.0}, {0, 0}, 0, 0, CHILD,
+                         /*share*/ 1.0, /*ploidy*/ 1, /*start*/ 11, /*end*/ 12,
+                         /*nested*/ true, PARENT, /*slot*/ 0,
+                         /*crossing*/ (uint64_t)1 << c.crossing_allele);
+
+        vector<LinkageCollector::PhaseCall> phased;
+        vector<LinkageCollector::NestedIncoherence> incoherent;
+        collector.resolve(&phased, &incoherent);
+
+        REQUIRE(incoherent.size() == 1);
+        REQUIRE(incoherent[0].record_key == CHILD);
+        REQUIRE(incoherent[0].position == 1010);
+        REQUIRE(incoherent[0].diploid == c.expect_diploid);
+
+        const LinkageCollector::PhaseCall* child = nullptr;
+        const LinkageCollector::PhaseCall* parent = nullptr;
+        for (const auto& pc : phased) {
+            if (pc.record_key == CHILD) {
+                child = &pc;
+            } else if (pc.record_key == PARENT) {
+                parent = &pc;
+            }
+        }
+        REQUIRE(child != nullptr);
+        REQUIRE(parent != nullptr);
+        // Still in the parent's block either way: the record is at that locus whatever its ploidy
+        // turned out to be, and starting a block of its own would fragment the phasing.
+        REQUIRE(child->phase_set == parent->phase_set);
+        if (c.expect_diploid) {
+            // On both strands, so both name a haplotype rather than one naming it and one holding
+            // a wildcard that would read as "the panel cannot explain this".
+            REQUIRE(child->hap_first == parent->hap_first);
+            REQUIRE(child->hap_second == parent->hap_second);
+            REQUIRE(child->hap_first != LinkageModel::WILDCARD);
+        } else {
+            // On neither, so neither strand may claim the allele: writing it into one would put a
+            // variant in the emitted genome that the parent record deletes.
+            REQUIRE(child->hap_first == LinkageModel::WILDCARD);
+            REQUIRE(child->hap_second == LinkageModel::WILDCARD);
+        }
+    }
+}
+
+TEST_CASE("The phasing comes back in reference order even with nested sites in it",
+          "[linkage_model]") {
+    // The mosaic output reads the phasing as one ordered sweep per contig and closes a segment only
+    // where the haplotype changes, so order is a contract and not a convenience.
+    //
+    // Nested sites break it by construction: placing one needs its parent already phased, so they
+    // are appended after every chain. Unsorted, a nested site early on a contig shares a segment
+    // with one far along it -- chr20 emitted five segments spanning tens of megabases, one claiming
+    // 284 sites between ref_start 451,374 and ref_end 65,512,343. The site totals still added up,
+    // which is what the harness checks, so nothing looked wrong.
+    LinkageModel::Params p;
+    p.weight = 1.0;
+    p.scale = 100000.0;
+    p.rho_min = 1e-4;
+
+    LinkageCollector collector(p, 2);
+    // Two ordinary sites far apart, and a nested child of the first that belongs between them.
+    collector.record("chr1", 1000, 2, {-30.0, 0.0, -30.0}, {1, 0}, 0, 1, /*key*/ 1,
+                     /*share*/ 1.0, /*ploidy*/ 2, /*start*/ 10, /*end*/ 20);
+    collector.record("chr1", 900000, 2, {-30.0, 0.0, -30.0}, {1, 0}, 0, 1, /*key*/ 2,
+                     /*share*/ 1.0, /*ploidy*/ 2, /*start*/ 90, /*end*/ 100);
+    collector.record("chr1", 1010, 2, {0.0, -30.0}, {0, 0}, 0, 0, /*key*/ 3,
+                     /*share*/ 1.0, /*ploidy*/ 1, /*start*/ 11, /*end*/ 12,
+                     /*nested*/ true, /*parent*/ 1, /*slot*/ 0, /*crossing*/ 1);
+
+    vector<LinkageCollector::PhaseCall> phased;
+    collector.resolve(&phased);
+
+    REQUIRE(phased.size() == 3);
+    for (size_t i = 1; i < phased.size(); ++i) {
+        REQUIRE(phased[i - 1].contig <= phased[i].contig);
+        if (phased[i - 1].contig == phased[i].contig) {
+            REQUIRE(phased[i - 1].position < phased[i].position);
+        }
+    }
+    // Specifically: the nested site sits between its parent and the far site, not after both.
+    REQUIRE(phased[1].record_key == 3);
 }
 
 TEST_CASE("Genotype indices round-trip through the collector's decode", "[linkage_model]") {

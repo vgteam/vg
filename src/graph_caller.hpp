@@ -263,8 +263,32 @@ protected:
         bool active = false;
         size_t parent_record_key = 0;
         size_t parent_slot = 0;
+        /// One bit per parent VCF allele, set where that allele crosses this child chain. Zero
+        /// means descent could not express it -- more than 64 alleles at the parent -- and must be
+        /// read as unknown rather than as none.
+        ///
+        /// Linkage uses it to check that the ploidy this child was called at survives the parent's
+        /// *final* genotype, which the slot above cannot answer: the slot names one strand, where the
+        /// question is whether both called parent alleles cross the child, neither does, or one does.
+        /// See LinkageCollector::resolve.
+        uint64_t parent_crossing = 0;
     };
     static thread_local NestedContext nested_context;
+
+    /// What the last emit_variant call on this thread turned each called traversal into, and how
+    /// many alleles the record ended up with.
+    ///
+    /// Symbolic descent needs a child's crossing pattern in VCF allele space, because that is the
+    /// space GT, GL and the linkage layer are written in, and only emit_variant knows the mapping --
+    /// alleles are deduplicated by string and symbolically-reference traversals all collapse onto
+    /// allele 0. Thread-local and read immediately after the emit that filled it, for the same
+    /// reason nested_context is.
+    struct EmittedAlleles {
+        bool valid = false;
+        size_t num_alleles = 0;
+        map<int, int> trav_to_allele;
+    };
+    static thread_local EmittedAlleles last_emitted;
 
     /// Snarl hierarchy for symbolic collapsing, or null to compare alleles by sequence alone.
     const SnarlManager* symbolic_manager = nullptr;
@@ -294,6 +318,11 @@ protected:
     /// Rewrite one emitted line's GT into phased form and attach its phase set. Applied after
     /// `apply_linkage_change`, so it phases the genotype that is actually emitted.
     void apply_phasing(string& line, const LinkageCollector::PhaseCall& phase) const;
+
+    /// Add `nested_diploid` or `nested_unreachable` to one emitted line's FILTER, leaving the
+    /// genotype and every other field alone. The call is what the reads at that child support; what
+    /// the flag records is that its own parent record no longer agrees about the ploidy there.
+    void apply_nested_filter(string& line, bool diploid) const;
 
     /// Whether to emit phased GT and FORMAT/PS.
     bool emit_phasing = false;
@@ -790,6 +819,20 @@ protected:
     /// in the log, because the rest of the caller assumes ploidy in {1, 2}.
     int child_ploidy(const vector<SnarlTraversal>& travs, const vector<int>& genotype,
                      const Snarl& child, int cap) const;
+
+    /// How many times one traversal crosses `child`, by the same in-order rule child_ploidy uses.
+    static int crossings_of_child(const SnarlTraversal& trav, const Snarl& child);
+
+    /// One bit per VCF allele, set where a traversal that became that allele crosses `child`.
+    ///
+    /// Returns 0 -- unknown -- if any allele index is beyond a 64-bit mask, so a caller must not
+    /// read 0 as "no allele crosses". Several traversals can share an allele index; symbolic
+    /// collapsing puts every same-route traversal on allele 0, and those agree on their crossings
+    /// by construction, so any disagreement can only come from two distinct routes that spell the
+    /// same sequence. The bit is set if any of them crosses.
+    static uint64_t child_crossing_mask(const vector<SnarlTraversal>& travs,
+                                        const map<int, int>& trav_to_allele,
+                                        const Snarl& child);
 
     /// Find all traversals through a child snarl that are consistent with a parent traversal.
     /// "Consistent" means the child's entry/exit points match what's in the parent traversal.

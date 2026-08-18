@@ -1673,6 +1673,17 @@ int main_call(int argc, char** argv) {
             return 1;
         }
         nested_target->set_symbolic_collapsing(snarl_manager.get());
+        if (!phased_output) {
+            // The nested pass of the linkage layer hangs off the parent's *phase*: which of the
+            // parent's two strands crosses the child is what gives a nested site its haplotype, and
+            // that is only computed when phasing is on. Without --phased the nested sites still get
+            // their own per-site genotypes and records, but no linkage correction among themselves
+            // and no check that the parent's final genotype still supports the ploidy they were
+            // called at. Said out loud rather than left as a silent difference between two runs that
+            // differ only by --phased.
+            cerr << "[vg call] --nested without --phased: nested sites get no linkage correction "
+                 << "and no ploidy-coherence check, both of which need the parent's phase" << endl;
+        }
     }
 
     // Owned here because write_variants(), at the very end of main, consumes the collector.
