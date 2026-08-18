@@ -86,7 +86,7 @@ var searchData=
   ['gbz_2204',['gbz',['../classvg_1_1GBZGraph.html#ac56a91ab9fe591aa7781cd751fe94ed4',1,'vg::GBZGraph::gbz()'],['../classvg_1_1HaplotypePartitioner.html#a533f084057db81844dd0c02f36fb5498',1,'vg::HaplotypePartitioner::gbz()'],['../classvg_1_1Recombinator.html#a977b21bbcc9ea6520dbc97a5014488e6',1,'vg::Recombinator::gbz()']]],
   ['gbz_5fgraph_2205',['gbz_graph',['../structGraphHandler.html#af157db60196072669180c6bcb73ec0d8',1,'GraphHandler']]],
   ['gbz_5foutput_2206',['gbz_output',['../structHaplotypesConfig.html#af71ee285e699443b559375aeac054eb8',1,'HaplotypesConfig']]],
-  ['gbz_5fv1_2207',['gbz_v1',['../structGBWTConfig.html#aab39f33a140b3a1586c4b7f2a362c380',1,'GBWTConfig']]],
+  ['gbz_5fversion_2207',['gbz_version',['../structGBWTConfig.html#ae04be5be81f8dbb606128bfff95da074',1,'GBWTConfig']]],
   ['gbzgraph_2208',['GBZGraph',['../classvg_1_1GBZGraph.html',1,'vg']]],
   ['gbzgraph_2ehpp_2209',['gbzgraph.hpp',['../gbzgraph_8hpp.html',1,'']]],
   ['gc_5fcontent_5festimate_2210',['gc_content_estimate',['../classvg_1_1AlignerClient.html#a65428f092aaa5d894b709e247cf0121a',1,'vg::AlignerClient']]],
