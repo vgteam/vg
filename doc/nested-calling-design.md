@@ -212,6 +212,28 @@ against arg-max on the four tier-2 arms.
 
 ### Stage 5 — Linkage, phasing and mosaic for nested sites
 
+**Partly measured, and it found an open defect.** Nested sites already flow through the linkage
+layer, because linkage is on by default under `--read-likelihood`; the question was never whether
+they participate but whether they should, and what breaks.
+
+What works: ploidy propagation reaches the output. On chr20, 2,135 records are single-allele
+genotypes -- nested sites called at ploidy 1 because only one parent allele crosses them -- against
+114,831 diploid and 81 unphased. None carry a missing or star allele.
+
+What breaks: **the mosaic's site-total invariant.** The mosaic must account for every emitted record,
+and the harness asserts it. On the default it holds exactly (105,251 sites, 105,251 records); under
+`--nested` it does not (116,789 against 117,047, a gap of 258). So 258 nested records reach the VCF
+without reaching a linkage chain, and the mosaic no longer describes the whole call set.
+
+That has to be resolved before `--nested` can ship, either by bringing those records into the chains
+or by defining precisely which records the mosaic covers and changing the assertion to match. It is
+not a reason to change the design, but it is a reason not to call Stage 5 done.
+
+Still to measure: whether including nested sites *helps* phasing accuracy, which needs a whatshap
+comparison against the default arm.
+
+#### Original plan
+
 Run both ways — nested sites in the linkage chains and out of them — and decide on measured phasing
 accuracy. Whichever wins, the mosaic's site-total invariant must still hold.
 
