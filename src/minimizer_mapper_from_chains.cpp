@@ -1993,7 +1993,7 @@ void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::ve
     
     // Go through the chains in estimated-score order.
     process_until_threshold_b<int>(chain_score_estimates,
-        chain_score_threshold, min_chains, max_alignments, rng, 
+        chain_score_threshold, target_alignment_attempts, max_alignments, rng, 
         [&](size_t processed_num, size_t item_count) -> bool {
             // This chain is good enough.
             // Called in descending score order.
