@@ -493,37 +493,36 @@ using namespace std;
         if (multimap_to_all_paths) {
             vector<tuple<int32_t, path_handle_t, bool>> path_strands;
             if (source_aln) {
-                // give each path strand the alignment score if it is primary or 0 if it is supplementary (to deprioritize)
+                // Rank each path strand by its best non-supplementary surjection.
                 for (const auto& strand_surjections : aln_surjections) {
-                    bool all_supplementary = false;
+                    bool found_non_supplementary = false;
+                    int32_t best_score = numeric_limits<int32_t>::min();
                     for (const auto& surjection : strand_surjections.second) {
                         if (!is_supplementary(surjection.first)) {
-                            all_supplementary = false;
-                            path_strands.emplace_back(surjection.first.score(),
-                                                      strand_surjections.first.first, strand_surjections.first.second);
-                            break;
+                            found_non_supplementary = true;
+                            best_score = max(best_score, surjection.first.score());
                         }
                     }
-                    if (all_supplementary) {
-                        path_strands.emplace_back(0, strand_surjections.first.first, strand_surjections.first.second);
-                    }
+                    path_strands.emplace_back(found_non_supplementary ? best_score : 0,
+                                              strand_surjections.first.first,
+                                              strand_surjections.first.second);
                 }
             }
             else {
-                // give each path strand the primary alignment score if it is primary or 0 if it is supplementary (to deprioritize)
+                // Rank each path strand by its best non-supplementary surjection.
                 for (const auto& strand_surjections : mp_aln_surjections) {
-                    bool all_supplementary = false;
+                    bool found_non_supplementary = false;
+                    int32_t best_score = numeric_limits<int32_t>::min();
                     for (const auto& surjection : strand_surjections.second) {
                         if (!is_supplementary(surjection.first)) {
-                            all_supplementary = false;
-                            path_strands.emplace_back(optimal_alignment_score(surjection.first, allow_negative_scores),
-                                                      strand_surjections.first.first, strand_surjections.first.second);
-                            break;
+                            found_non_supplementary = true;
+                            best_score = max(best_score, optimal_alignment_score(surjection.first,
+                                                                                 allow_negative_scores));
                         }
                     }
-                    if (all_supplementary) {
-                        path_strands.emplace_back(0, strand_surjections.first.first, strand_surjections.first.second);
-                    };
+                    path_strands.emplace_back(found_non_supplementary ? best_score : 0,
+                                              strand_surjections.first.first,
+                                              strand_surjections.first.second);
                 }
             }
             sort(path_strands.begin(), path_strands.end(), greater<decltype(path_strands)::value_type>());
