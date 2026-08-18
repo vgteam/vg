@@ -174,8 +174,17 @@ Map called traversals to symbolic alleles at emission; a traversal symbolically 
 reference collapses to allele 0, and only symbolically distinct ALTs are emitted.
 
 **Gate**: chr20's same-length substitution false positives largely disappear; small-variant F1 does
-not fall. This stage alone should recover SV precision without touching recursion, and is separately
-shippable if later stages stall.
+not fall.
+
+**Measured: the first half holds and the second does not, and the reason matters.** On chr20, SV
+false positives fall 367 -> 282 and SV F1 rises 0.4944 -> 0.5106; small-variant F1 falls 0.9646 ->
+0.9596, losing 912 variants, 585 of them (64%) inside the 660 records the collapse dropped.
+
+Those long alleles were not pure noise. aardvark compares by local haplotype, so it was crediting
+small variants carried *inside* them; collapsing the record removes that correct nested content along
+with the wrong top-level allele. **Stage 2 is therefore not separately shippable**, as an earlier
+draft of this plan claimed. It is demolition, and Stage 3 is the rebuild: the two are halves of one
+change and `--nested` must not ship with only the first.
 
 ### Stage 3 — Ploidy propagation and an explicit recursion contract
 

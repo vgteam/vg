@@ -229,7 +229,27 @@ public:
     /// most contigs are fragments, and on a human chromosome a third of them carry nothing.
     string prune_header_contigs(const string& header, const unordered_set<string>& keep) const;
 
+    /// Turn on symbolic collapsing: a called traversal whose symbolic allele equals the reference
+    /// traversal's is emitted as the reference allele, because it differs from the reference only
+    /// inside child chains and those differences belong to those chains' own records.
+    ///
+    /// Without it such a traversal becomes a long ALT differing from REF at a handful of bases.
+    /// 90.6% of vg's same-length structural false positives are that shape, and 55,222 of its
+    /// autosomal SNV false negatives sit inside one. See doc/nested-calling-design.md.
+    ///
+    /// The manager is not owned and must outlive this caller.
+    void set_symbolic_collapsing(const SnarlManager* manager) { this->symbolic_manager = manager; }
+
 protected:
+
+    /// True when this called traversal takes the same route through the snarl as the reference and
+    /// differs only inside child chains. False whenever symbolic collapsing is off, so the default
+    /// path is unchanged.
+    bool is_symbolically_reference(const vector<SnarlTraversal>& called_traversals,
+                                   int trav_idx, int ref_trav_idx, const Snarl& snarl) const;
+
+    /// Snarl hierarchy for symbolic collapsing, or null to compare alleles by sequence alone.
+    const SnarlManager* symbolic_manager = nullptr;
 
     /// Linkage pass state. Not owned.
     LinkageCollector* linkage_collector = nullptr;

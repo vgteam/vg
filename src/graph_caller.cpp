@@ -3,6 +3,7 @@
 #include <omp.h>
 
 #include "graph_caller.hpp"
+#include "symbolic_allele.hpp"
 #include "read_likelihood_caller.hpp"
 #include "algorithms/expand_context.hpp"
 #include "annotation.hpp"
@@ -1692,6 +1693,20 @@ string VCFOutputCaller::trav_string(const HandleGraph& graph, const SnarlTravers
     return seq;    
 }
 
+bool VCFOutputCaller::is_symbolically_reference(const vector<SnarlTraversal>& called_traversals,
+                                                int trav_idx, int ref_trav_idx,
+                                                const Snarl& snarl) const {
+    // Off unless a snarl hierarchy was supplied, so the default path compares alleles by sequence
+    // exactly as it did before.
+    if (symbolic_manager == nullptr || ref_trav_idx < 0 || trav_idx < 0 ||
+        ref_trav_idx >= (int)called_traversals.size() ||
+        trav_idx >= (int)called_traversals.size()) {
+        return false;
+    }
+    return symbolically_equal(called_traversals[trav_idx], called_traversals[ref_trav_idx],
+                              snarl, *symbolic_manager);
+}
+
 bool VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCaller& snarl_caller,
                                    const Snarl& snarl, const vector<SnarlTraversal>& called_traversals,
                                    const vector<int>& genotype, int ref_trav_idx, const unique_ptr<SnarlCaller::CallInfo>& call_info,
@@ -1749,8 +1764,15 @@ bool VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCa
         } else if (genotype[i] == MISSING_ALLELE_MARKER) {
             // Missing allele: parent doesn't traverse this child, output as '.' in VCF
             site_genotype.push_back(MISSING_ALLELE_MARKER);
-        } else if (genotype[i] == ref_trav_idx) {
+        } else if (genotype[i] == ref_trav_idx || is_symbolically_reference(called_traversals,
+                                                                            genotype[i], ref_trav_idx,
+                                                                            snarl)) {
+            // Either literally the reference traversal, or one that takes the same route through
+            // this snarl and differs only inside child chains. The second kind is the reference
+            // allele *here*; its differences belong to the nested sites that contain them, and
+            // emitting it as a long ALT is what buries them.
             site_genotype.push_back(0);
+            trav_to_allele[genotype[i]] = 0;
         } else {
             string allele_string = trav_to_string(called_traversals, genotype, genotype[i], i, ref_trav_idx);
             if (allele_to_gt.count(allele_string)) {

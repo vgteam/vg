@@ -212,6 +212,10 @@ void help_call(char** argv) {
          << "  -o, --ref-offset N        offset in reference path (may repeat; 1 per path)" << endl
          << "  -l, --ref-length N        override reference length for output VCF contig" << endl
          << "  -d, --ploidy N            ploidy of sample. {1, 2} [2]" << endl
+         << "      --nested              treat a called traversal that differs from the reference" << endl
+         << "                            only inside a nested chain as the reference allele, so its" << endl
+         << "                            differences are left to the nested sites that contain them" << endl
+         << "                            rather than emitted as one long substitution" << endl
          << "      --ploidy-bed FILE     BED of CHROM START END PLOIDY setting ploidy per region," << endl
          << "                            overriding -d/-R where an interval covers a site. CHROM is" << endl
          << "                            the contig as the output VCF spells it (chrX, not" << endl
@@ -288,6 +292,7 @@ int main_call(int argc, char** argv) {
     bool genotype_snarls = false;
     bool top_down = false;
     bool bottom_up = false;
+    bool nested_calling = false;
     bool call_chains = false;
     bool all_snarls = false;
     size_t min_allele_len = 0;
@@ -372,6 +377,7 @@ int main_call(int argc, char** argv) {
     constexpr int OPT_DEPTH_QUALITY = 1027;
     constexpr int OPT_MIN_CONFIDENCE = 1042;
     constexpr int OPT_PLOIDY_BED = 1043;
+    constexpr int OPT_NESTED = 1044;
     constexpr int OPT_LINKAGE_WEIGHT = 1028;
     constexpr int OPT_LINKAGE_SCALE = 1030;
     constexpr int OPT_LINKAGE_FREQ_PRIOR = 1031;
@@ -409,6 +415,7 @@ int main_call(int argc, char** argv) {
             {"ploidy", required_argument, 0, 'd'},
             {"ploidy-regex", required_argument, 0, 'R'},
             {"ploidy-bed", required_argument, 0, OPT_PLOIDY_BED},
+            {"nested", no_argument, 0, OPT_NESTED},
             {"gaf", no_argument, 0, 'G'},
             {"traversals", no_argument, 0, 'T'},
             {"trav-padding", required_argument, 0, 'M'},
@@ -620,6 +627,9 @@ int main_call(int argc, char** argv) {
             break;
         case OPT_PLOIDY_BED:
             ploidy_bed_filename = optarg;
+            break;
+        case OPT_NESTED:
+            nested_calling = true;
             break;
         case OPT_LINKAGE_WEIGHT:
             linkage_weight = parse<double>(optarg);
@@ -1651,6 +1661,18 @@ int main_call(int argc, char** argv) {
             return 1;
         }
         ploidy_target->set_ploidy_regions(ploidy_bed_filename);
+    }
+
+    // Symbolic collapsing. A called traversal that takes the same route through a snarl as the
+    // reference, differing only inside child chains, is the reference allele there; emitting it as
+    // a long ALT is what buries the nested variants it contains.
+    if (nested_calling) {
+        VCFOutputCaller* nested_target = dynamic_cast<VCFOutputCaller*>(graph_caller.get());
+        if (nested_target == nullptr) {
+            cerr << "error [vg call]: --nested needs a caller that emits VCF" << endl;
+            return 1;
+        }
+        nested_target->set_symbolic_collapsing(snarl_manager.get());
     }
 
     // Owned here because write_variants(), at the very end of main, consumes the collector.
