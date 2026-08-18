@@ -200,9 +200,12 @@ until Stage 6 decides.
 count and peak memory stay within the scheduler's `2.25 + 11.2e-6 * records` budget, refitting the
 coefficient if the record count rises materially.
 
-### Stage 4 — Marginalised symbolic likelihood
+### Stage 4 — Marginalised symbolic likelihood — *deferred to last, not yet started*
 
-Only if Stages 2–3 land. Requires a defined `λ` for a symbolic class, per the decision above. A/B
+Only if Stages 2–3 land, which they now have. Deliberately sequenced after Stages 5 and 6: it is the
+one stage that changes the model rather than the output, it needs an answer for `λ` before it can be
+written at all, and everything measured so far is arg-max, so it should be A/B'd against a settled
+baseline rather than a moving one. Requires a defined `λ` for a symbolic class, per the decision above. A/B
 against arg-max on the four tier-2 arms.
 
 **Gate**: het-site accuracy improves without `DR` or the depth term becoming unreportable.
