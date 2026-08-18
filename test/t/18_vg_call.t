@@ -9,7 +9,7 @@ PATH=../bin:$PATH # for vg
 # FORMAT field shifts every later one, which broke four assertions here that were not
 # testing field order at all -- one of them silently compared BL against a GQ threshold.
 
-plan tests 272
+plan tests 277
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -653,7 +653,59 @@ is "$GAFBASE_SAME" "0" "GAF-Base read source produces identical calls to the in-
 is "$GAFBASE_THREADS" "0" "GAF-Base calls do not depend on the thread count$GAFBASE_NOTE"
 is "$GAFBASE_WINDOW" "0" "GAF-Base calls do not depend on the read window size$GAFBASE_NOTE"
 
-rm -f x.vg x.gbz x.gbwt sim.gam x.pack call.vcf callg.vcf callz.vcf callg.6 callz.6 callrl_nopack.vcf callrl_nopack_z.vcf callrl_withpack.vcf nopack_err.txt sim.sorted.gam sim.sorted.gam.gai rl_inmem.vcf rl_indexed.vcf gi_err.txt gb_err.txt gb_excl.txt gb_norl.txt gb_nobin.txt sim.gaf sim.gaf.db x.gbz.db rl_gafmem.vcf rl_gafbase.vcf rl_gafbase_t4.vcf rl_gafbase_w32.vcf rl_autoz_full.vcf rl_autoz.vcf rl_explicit_z.vcf rl_support_full.vcf rl_support.vcf es_nopack.txt es_z.txt es_g.txt nopanel.vg nopanel.gbwt nopanel.gbz nopanel.pack nopanel_err.txt poisson_default.vcf poisson_z.vcf rl_phased.vcf rl_unphased_gt.txt rl_phased_gt.txt rl_ph_err.txt rl_mosaic.tsv rl_mosaic2.tsv rl_hap.vcf rl_hap_mosaic.tsv
+
+# --- nested calling: symbolic alleles and ploidy propagation ------------------
+# The design's whole case in one graph, and it fails on a build without --nested.
+#
+# A top-level snarl (1,6) carries a deletion edge 1->6, and inside it a chain of two nested snarls
+# each carrying a single-base SNP. The sample is heterozygous for both SNPs and carries no deletion,
+# so its two haplotypes cross the chain and differ only inside it.
+#
+# By default the two called traversals differ at two separated bases, so flattening cannot reduce
+# them and the caller emits one 22 bp substitution -- the shape that buries 55,222 SNVs genome-wide,
+# where 90.6% of same-length structural false positives differ at ten bases or fewer. With --nested
+# the traversals are symbolically equal, the top-level record collapses to reference, and each
+# nested snarl is called at the propagated ploidy and emits its SNP.
+rm -f nest.gfa nest.gbz nest.gam nest_default.vcf nest_nested.vcf
+{
+  printf 'H\tVN:Z:1.1\n'
+  printf 'S\t1\tCCTAGGCTTAGGACCTGATCGGATCCAGTA\n'
+  printf 'S\t2\tGGCATTAGCCTTAGACCGAT\n'
+  printf 'S\t3\tA\nS\t4\tT\n'
+  printf 'S\t5\tTTGACCAGTTCAGGACTTAC\n'
+  printf 'S\t7\tC\nS\t8\tG\n'
+  printf 'S\t9\tAACCGGTTACGTTGCAATCG\n'
+  printf 'S\t6\tGGATCCTAGCATTCGGATCCAAGTTCCAGA\n'
+  printf 'L\t1\t+\t2\t+\t0M\nL\t2\t+\t3\t+\t0M\nL\t2\t+\t4\t+\t0M\n'
+  printf 'L\t3\t+\t5\t+\t0M\nL\t4\t+\t5\t+\t0M\n'
+  printf 'L\t5\t+\t7\t+\t0M\nL\t5\t+\t8\t+\t0M\n'
+  printf 'L\t7\t+\t9\t+\t0M\nL\t8\t+\t9\t+\t0M\nL\t9\t+\t6\t+\t0M\n'
+  printf 'L\t1\t+\t6\t+\t0M\n'
+  printf 'P\tGRCh#0#chr1\t1+,2+,3+,5+,7+,9+,6+\t*\n'
+  printf 'W\tp1\t0\tchr1\t0\t122\t>1>2>3>5>7>9>6\n'
+  printf 'W\tp1\t1\tchr1\t0\t122\t>1>2>4>5>8>9>6\n'
+  printf 'W\tp2\t0\tchr1\t0\t60\t>1>6\n'
+  printf 'W\tp2\t1\tchr1\t0\t122\t>1>2>4>5>7>9>6\n'
+  printf 'W\tp3\t0\tchr1\t0\t122\t>1>2>3>5>8>9>6\n'
+  printf 'W\tp3\t1\tchr1\t0\t60\t>1>6\n'
+} > nest.gfa
+vg gbwt -G nest.gfa --gbz-format -g nest.gbz --set-reference GRCh 2>/dev/null
+is "$?" 0 "nested-calling test graph builds"
+vg sim -x nest.gbz -n 300 -l 40 -a -s 17 --path "p1#0#chr1#0" > nest.gam 2>/dev/null
+vg sim -x nest.gbz -n 300 -l 40 -a -s 23 --path "p1#1#chr1#0" >> nest.gam 2>/dev/null
+vg call nest.gbz --read-likelihood --gam nest.gam -t 1 -s samp 2>/dev/null > nest_default.vcf
+vg call nest.gbz --read-likelihood --gam nest.gam -t 1 -s samp --nested 2>/dev/null > nest_nested.vcf
+
+is $(grep -vc "^#" nest_default.vcf) "1" \
+   "by default the two nested SNPs are buried in a single record"
+is $(grep -v "^#" nest_default.vcf | awk '{print length($4)}') "22" \
+   "and that record is a long substitution spanning both of them"
+is $(grep -vc "^#" nest_nested.vcf) "2" \
+   "--nested emits one record per nested SNP instead"
+is $(grep -v "^#" nest_nested.vcf | awk 'length($4) == 1 && length($5) == 1' | wc -l | tr -d ' ') "2" \
+   "--nested emits them as single-base records, not as one compensating substitution"
+
+rm -f nest.gfa nest.gbz nest.gam nest_default.vcf nest_nested.vcf x.vg x.gbz x.gbwt sim.gam x.pack call.vcf callg.vcf callz.vcf callg.6 callz.6 callrl_nopack.vcf callrl_nopack_z.vcf callrl_withpack.vcf nopack_err.txt sim.sorted.gam sim.sorted.gam.gai rl_inmem.vcf rl_indexed.vcf gi_err.txt gb_err.txt gb_excl.txt gb_norl.txt gb_nobin.txt sim.gaf sim.gaf.db x.gbz.db rl_gafmem.vcf rl_gafbase.vcf rl_gafbase_t4.vcf rl_gafbase_w32.vcf rl_autoz_full.vcf rl_autoz.vcf rl_explicit_z.vcf rl_support_full.vcf rl_support.vcf es_nopack.txt es_z.txt es_g.txt nopanel.vg nopanel.gbwt nopanel.gbz nopanel.pack nopanel_err.txt poisson_default.vcf poisson_z.vcf rl_phased.vcf rl_unphased_gt.txt rl_phased_gt.txt rl_ph_err.txt rl_mosaic.tsv rl_mosaic2.tsv rl_hap.vcf rl_hap_mosaic.tsv
 
 
 # subpath test

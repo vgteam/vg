@@ -35,8 +35,15 @@ SymbolicAllele symbolic_allele(const SnarlTraversal& trav, const Snarl& site,
     SymbolicAllele out;
     unordered_map<nid_t, vector<int>> at = index_positions(trav);
 
-    const nid_t site_start = site.start().node_id();
-    const nid_t site_end = site.end().node_id();
+    // The snarl we are projecting, as the manager knows it, so a candidate child can be tested for
+    // being a genuine child of *this* site rather than merely a snarl the traversal walks into.
+    const Snarl* site_ptr = snarl_manager.into_which_snarl(site.start().node_id(),
+                                                           site.start().backward());
+    if (site_ptr != nullptr &&
+        !(site_ptr->start().node_id() == site.start().node_id() &&
+          site_ptr->end().node_id() == site.end().node_id())) {
+        site_ptr = nullptr;
+    }
 
     int i = 0;
     while (i < trav.visit_size()) {
@@ -58,13 +65,16 @@ SymbolicAllele symbolic_allele(const SnarlTraversal& trav, const Snarl& site,
         const Snarl* child = snarl_manager.into_which_snarl(node, v.backward());
         bool symbolised = false;
 
-        if (child != nullptr) {
+        // Only a genuine child of this site may be symbolised. Comparing the *chain's* boundaries
+        // against the site's is not enough: a site that is itself a member of a longer chain sees
+        // that enclosing chain's bounds, which differ from its own, and collapses its own interior
+        // into one symbol -- making every allele equal and silently erasing the variant. A snarl
+        // (5,9) inside a chain spanning 2..9 did exactly that.
+        bool is_child = child != nullptr && site_ptr != nullptr &&
+                        snarl_manager.parent_of(child) == site_ptr;
+        if (is_child) {
             pair<nid_t, nid_t> bounds = chain_bounds(child, snarl_manager);
-            // Never symbolise the site itself: a traversal of a snarl enters at its own start, and
-            // collapsing that would reduce every allele to a single symbol and make them all equal.
-            bool is_own = (bounds.first == site_start && bounds.second == site_end) ||
-                          (bounds.first == site_end && bounds.second == site_start);
-            if (!is_own) {
+            {
                 // Leave the chain at whichever of its boundaries this traversal reaches next; a
                 // chain can be crossed in either direction, so both are candidates.
                 int exit = -1;
