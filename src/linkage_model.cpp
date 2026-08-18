@@ -1165,9 +1165,15 @@ vector<LinkageCollector::Change> LinkageCollector::resolve(vector<PhaseCall>* ph
     }
 
     for (auto& indices : chains) {
-        if (indices.size() < 2) {
+        if (indices.empty()) {
             continue;
         }
+        // A one-site chain has nothing to link to, so linkage cannot move its genotype -- but it
+        // still has to be *phased*, or it never reaches phasing_out and the mosaic stops accounting
+        // for every emitted record. Skipping it outright was invisible while chains were maximal
+        // runs of one ploidy along a contig, which made singletons vanishingly rare. Propagated
+        // ploidy creates them in quantity: an isolated ploidy-1 site between diploid neighbours is
+        // a chain of one, and 258 of them went missing from the chr20 mosaic.
 
         // Every entry in a chain shares a ploidy by construction above.
         size_t chain_ploidy = entries[indices.front()].ploidy;

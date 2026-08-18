@@ -225,9 +225,18 @@ and the harness asserts it. On the default it holds exactly (105,251 sites, 105,
 `--nested` it does not (116,789 against 117,047, a gap of 258). So 258 nested records reach the VCF
 without reaching a linkage chain, and the mosaic no longer describes the whole call set.
 
-That has to be resolved before `--nested` can ship, either by bringing those records into the chains
-or by defining precisely which records the mosaic covers and changing the assertion to match. It is
-not a reason to change the design, but it is a reason not to call Stage 5 done.
+**Found and fixed.** `LinkageCollector::resolve` skipped any chain of fewer than two sites. That is
+right for genotype resolution -- a lone site has nothing to link to -- but it also skipped the
+*phasing* output, so such a site never reached `phasing_out` and the mosaic never counted it. The
+guard was invisible while chains were maximal runs of one ploidy along a contig, which made a
+singleton chain vanishingly rare; propagated ploidy creates them in quantity, because an isolated
+ploidy-1 site between diploid neighbours is a chain of one. The guard now skips only empty chains,
+and both arms account for every record: default 105,251 = 105,251, `--nested` 117,047 = 117,047.
+
+The default path is unchanged, verified field by field on GT/DP/AD/GQ/PS across all 105,251 chr20
+records. (A first comparison appeared to show 104,773 differences; that was `bcftools view -H`
+reformatting floats when round-tripping the bgzipped file against a raw read of the fresh one --
+a comparison artefact, not a behaviour change.)
 
 Still to measure: whether including nested sites *helps* phasing accuracy, which needs a whatshap
 comparison against the default arm.
