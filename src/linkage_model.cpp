@@ -2,11 +2,13 @@
 
 #include <map>
 #include <unordered_map>
+#include <unordered_set>
 
 #include <algorithm>
 #include <cassert>
 #include <cmath>
 #include <limits>
+#include <iostream>
 
 namespace vg {
 
@@ -1555,6 +1557,32 @@ vector<LinkageCollector::Change> LinkageCollector::resolve(vector<PhaseCall>* ph
         //
         // Patched here rather than by reordering the passes, because strand assignment needs the
         // parent's phase while genotype resolution needs the strand, so neither can simply go first.
+        // How many nested sites hang off a parent whose genotype linkage moved.
+        //
+        // Those are the incoherent ones: descent decided to visit the child, and at what ploidy and
+        // on which strand, from the parent's *pre-linkage* genotype, and nothing revisits that once
+        // linkage rewrites the parent. Counted rather than assumed, because the size of this
+        // population decides whether a two-pass rebuild is worth its cost or whether reconciling at
+        // emission is enough.
+        {
+            unordered_set<size_t> moved;
+            moved.reserve(changes.size() * 2);
+            for (const Change& c : changes) {
+                moved.insert(c.record_key);
+            }
+            size_t stale_parent = 0;
+            for (size_t idx : deferred_nested) {
+                if (moved.count(entries[idx].parent_record_key)) {
+                    ++stale_parent;
+                }
+            }
+            if (stale_parent > 0) {
+#pragma omp critical (cerr)
+                std::cerr << "[vg call] nested: " << stale_parent << " of " << deferred_nested.size()
+                     << " nested sites hang off a parent whose genotype linkage changed" << std::endl;
+            }
+        }
+
         if (!nested_regenotyped.empty()) {
             for (PhaseCall& pc : *phasing_out) {
                 auto found = nested_regenotyped.find(pc.record_key);
