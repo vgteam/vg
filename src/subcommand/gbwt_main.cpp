@@ -57,7 +57,7 @@ struct GBWTConfig {
     bool set_pggname = false;
     std::string supergraph_filename;
     bool unset_pggname = false;
-    bool gbz_v1 = false;
+    std::uint32_t gbz_version = 0; // Default.
 
     // Other parameters and flags.
     bool show_progress = false;
@@ -355,7 +355,7 @@ void help_gbwt(char** argv) {
     std::cerr << "Step 5: GBWTGraph construction (requires an input graph and one input GBWT):" << std::endl;
     std::cerr << "  -g, --graph-name FILE   build GBZ graph and store it in FILE" << std::endl;
     std::cerr << "                          (makes -o unnecessary)" << std::endl;
-    std::cerr << "      --gbz-v1            write GBZ version 1" << std::endl;
+    std::cerr << "      --gbz-version N     write GBZ version N (" << gbwtgraph::GBZ::Header::MIN_SERIALIZE_VERSION << " to " << gbwtgraph::GBZ::Header::VERSION << ")" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Step 6: R-index construction (one input GBWT):" << std::endl;
     std::cerr << "  -r, --r-index FILE      build an r-index and store it in FILE" << std::endl;
@@ -461,13 +461,14 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
     constexpr int OPT_SET_REFERENCE = 1301;
     constexpr int OPT_WRAP_CONTIG = 1302;
     constexpr int OPT_PASS_PATHS = 1400;
-    constexpr int OPT_GBZ_V1 = 1500;
+    constexpr int OPT_GBZ_VERSION = 1500;
     constexpr int OPT_TAGS = 1700;
 
     // Deprecated options.
     constexpr int OPT_THREAD_NAMES = 2000;
     constexpr int OPT_COUNT_THREADS = 2001;
     constexpr int OPT_GBZ_FORMAT = 2002;
+    constexpr int OPT_GBZ_V1 = 2003;
 
     // Make a collection of all the known tags and their descriptions. Use an ordered map so that we can do some typo guessing.
     // Values are description and list of prohibited characters.
@@ -557,7 +558,8 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
         // GBZ construction
         { "graph-name", required_argument, 0, 'g' },
         { "gbz-format", no_argument, 0, OPT_GBZ_FORMAT }, // Hidden option enabled by default.
-        { "gbz-v1", no_argument, 0, OPT_GBZ_V1 },
+        { "gbz-v1", no_argument, 0, OPT_GBZ_V1 }, // Hidden and deprecated option.
+        { "gbz-version", required_argument, 0, OPT_GBZ_VERSION },
 
         // R-index
         { "r-index", required_argument, 0, 'r' },
@@ -875,7 +877,10 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
         case OPT_GBZ_FORMAT:
             break;
         case OPT_GBZ_V1:
-            config.gbz_v1 = true;
+            config.gbz_version = 1;
+            break;
+        case OPT_GBZ_VERSION:
+            config.gbz_version = parse<std::uint32_t>(optarg); // FIXME
             break;
 
         // Build r-index
@@ -987,6 +992,10 @@ void validate_gbwt_config(GBWTConfig& config) {
         }
         if (config.input_filenames.size() != 1) {
             config.logger.error() << "GBZ input requires one input arg" << std::endl;
+        }
+        if (config.gbz_version != 0 && (config.gbz_version < gbwtgraph::GBZ::Header::MIN_SERIALIZE_VERSION || config.gbz_version > gbwtgraph::GBZ::Header::VERSION)) {
+            config.logger.error() << "GBZ version must be between " << gbwtgraph::GBZ::Header::MIN_SERIALIZE_VERSION
+                                  << " and " << gbwtgraph::GBZ::Header::VERSION << std::endl;
         }
     } else if (config.build != GBWTConfig::build_none) {
         if (!has_gbwt_output) {
@@ -1671,8 +1680,8 @@ void step_5_gbz(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& config) {
         std::unique_ptr<gbwt::GBWT> gbwt_ptr = std::make_unique<gbwt::GBWT>(std::move(*gbwts.get_compressed()));
         gbwtgraph::GBZ gbz(gbwt_ptr, graphs.naive_graph);
         graphs.clear(); // We no longer need the NaiveGraph.
-        if (config.gbz_v1) {
-            save_gbz_v1(gbz, config.graph_output, config.show_progress);
+        if (config.gbz_version != 0) {
+            save_gbz_version(gbz, config.graph_output, config.gbz_version, config.show_progress);
         } else {
             save_gbz(gbz, config.graph_output, config.show_progress);
         }
@@ -1681,8 +1690,8 @@ void step_5_gbz(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& config) {
         if (gbwts.in_use == GBWTHandler::index_external) {
             // We can serialize the GBZ we already have.
             // Step 3 may have changed the tags, but otherwise the GBWT is unchanged.
-            if (config.gbz_v1) {
-                save_gbz_v1(*(graphs.gbz_graph), config.graph_output, config.show_progress);
+            if (config.gbz_version != 0) {
+                save_gbz_version(*(graphs.gbz_graph), config.graph_output, config.gbz_version, config.show_progress);
             } else {
                 save_gbz(*(graphs.gbz_graph), config.graph_output, config.show_progress);
             }
@@ -1692,8 +1701,8 @@ void step_5_gbz(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& config) {
             // We use the subgraph constructor with the new GBWT.
             gbwtgraph::GBZ gbz(std::move(*gbwts.get_compressed()), *(graphs.gbz_graph));
             graphs.clear(); // We no longer need the GBZ.
-            if (config.gbz_v1) {
-                save_gbz_v1(gbz, config.graph_output, config.show_progress);
+            if (config.gbz_version != 0) {
+                save_gbz_version(gbz, config.graph_output, config.gbz_version, config.show_progress);
             } else {
                 save_gbz(gbz, config.graph_output, config.show_progress);
             }
@@ -1710,8 +1719,8 @@ void step_5_gbz(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& config) {
         );
         graphs.clear(); // We no longer need the graph.
         gbz.compute_pggname(nullptr); // We cannot determine the pggname of a generic HandleGraph efficiently.
-        if (config.gbz_v1) {
-            save_gbz_v1(gbz, config.graph_output, config.show_progress);
+        if (config.gbz_version != 0) {
+            save_gbz_version(gbz, config.graph_output, config.gbz_version, config.show_progress);
         } else {
             save_gbz(gbz, config.graph_output, config.show_progress);
         }
