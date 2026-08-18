@@ -359,7 +359,8 @@ public:
                 const vector<int>& haplotype_allele,
                 size_t called_i, size_t called_j, size_t record_key,
                 double explained_share, size_t ploidy = 2,
-                int64_t start_node = 0, int64_t end_node = 0);
+                int64_t start_node = 0, int64_t end_node = 0,
+                bool nested = false, size_t parent_record_key = 0, size_t parent_slot = 0);
 
     /// One site's phasing: which strand carries which allele, and which panel haplotype explains
     /// each strand.
@@ -412,6 +413,21 @@ private:
         uint16_t called_i = 0;
         uint16_t called_j = 0;
         uint8_t ploidy = 2;
+        /// True when this site's ploidy came from nested descent rather than from the contig or a
+        /// --ploidy-bed region.
+        ///
+        /// The distinction decides whether a chain is cut here. A regional ploidy change -- chrX's
+        /// pseudoautosomal boundary -- must cut: there is no haplotype correspondence across it. A
+        /// nested ploidy-1 site must not: the surrounding diploid phase is continuous, and cutting
+        /// there discards it. Treating the two alike fragmented chr20's autosomal phasing from 22
+        /// blocks to 9,460, collapsing block N50 from 248 Mb to 1.08 Mb.
+        bool nested = false;
+        /// For a nested site, the parent record it hangs off and which of the parent's genotype
+        /// slots crosses this child. A nested site has ploidy 1 precisely because exactly one parent
+        /// allele crosses it, so the strand it belongs to is determined -- not a best fit -- once the
+        /// parent has been phased.
+        size_t parent_record_key = 0;
+        uint8_t parent_slot = 0;
         float explained_share = 1.0f;
         size_t record_key = 0;
         /// Snarl boundary nodes, for the mosaic output's anchors. Costs 16 bytes a site, which

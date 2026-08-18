@@ -1,5 +1,8 @@
 #include "linkage_model.hpp"
 
+#include <map>
+#include <unordered_map>
+
 #include <algorithm>
 #include <cassert>
 #include <cmath>
@@ -1054,7 +1057,8 @@ void LinkageCollector::record(const string& contig, size_t position, size_t num_
                               const vector<int>& haplotype_allele,
                               size_t called_i, size_t called_j, size_t record_key,
                               double explained_share, size_t ploidy,
-                              int64_t start_node, int64_t end_node) {
+                              int64_t start_node, int64_t end_node,
+                              bool nested, size_t parent_record_key, size_t parent_slot) {
     if (num_alleles == 0 || genotype_ln_likelihood.empty()) {
         return;
     }
@@ -1085,6 +1089,9 @@ void LinkageCollector::record(const string& contig, size_t position, size_t num_
     e.start_node = start_node;
     e.end_node = end_node;
     e.ploidy = (uint8_t)(ploidy == 1 ? 1 : 2);
+    e.nested = nested;
+    e.parent_record_key = parent_record_key;
+    e.parent_slot = (uint8_t)parent_slot;
 
     e.gl_offset = (uint32_t)gl_arena.size();
     for (double v : genotype_ln_likelihood) {
@@ -1110,6 +1117,9 @@ size_t LinkageCollector::bytes() const {
 }
 
 vector<LinkageCollector::Change> LinkageCollector::resolve(vector<PhaseCall>* phasing_out) const {
+    // Nested sites, collected across every contig and phased after the diploid chains, so their
+    // strand can be read off the parent they hang off rather than guessed.
+    vector<size_t> deferred_nested;
     vector<Change> changes;
     if (!model.active() || entries.empty()) {
         return changes;
@@ -1150,16 +1160,37 @@ vector<LinkageCollector::Change> LinkageCollector::resolve(vector<PhaseCall>* ph
             return entries[a].record_key < entries[b].record_key;
         });
         // Sorted first, so a run is contiguous in reference order rather than in arrival order.
+        // Nested sites are held back from the runs entirely and phased afterwards, against the
+        // parent they hang off. Letting them into the runs cuts a chain at every one of them,
+        // because a nested ploidy-1 site between diploid neighbours is a ploidy change: chr20's
+        // autosomal phasing went from 22 blocks to 9,460 and block N50 from 248 Mb to 1.08 Mb, and
+        // the switch rate only looked flat because short blocks make switch error cheap.
+        //
+        // A *regional* ploidy change still cuts, which is the case the rule exists for: across
+        // chrX's pseudoautosomal boundary there is no haplotype correspondence to carry, so joining
+        // those runs would be wrong rather than merely fragmented.
+        vector<size_t> nested_here;
+        vector<size_t> chainable;
+        chainable.reserve(contig_indices.size());
+        for (size_t idx : contig_indices) {
+            if (entries[idx].nested) {
+                nested_here.push_back(idx);
+            } else {
+                chainable.push_back(idx);
+            }
+        }
+        deferred_nested.insert(deferred_nested.end(), nested_here.begin(), nested_here.end());
+
         size_t run_start = 0;
-        while (run_start < contig_indices.size()) {
+        while (run_start < chainable.size()) {
             size_t run_end = run_start + 1;
-            while (run_end < contig_indices.size()
-                   && entries[contig_indices[run_end]].ploidy
-                          == entries[contig_indices[run_start]].ploidy) {
+            while (run_end < chainable.size()
+                   && entries[chainable[run_end]].ploidy
+                          == entries[chainable[run_start]].ploidy) {
                 ++run_end;
             }
-            chains.emplace_back(contig_indices.begin() + run_start,
-                                contig_indices.begin() + run_end);
+            chains.emplace_back(chainable.begin() + run_start,
+                                chainable.begin() + run_end);
             run_start = run_end;
         }
     }
@@ -1328,6 +1359,112 @@ vector<LinkageCollector::Change> LinkageCollector::resolve(vector<PhaseCall>* ph
                 pc.allele_second = j;
             }
             phasing_out->push_back(pc);
+        }
+    }
+
+    // Nested sites, phased against the parent they hang off rather than in a chain of their own.
+    //
+    // A nested site has ploidy 1 exactly because one called parent allele crosses the child chain
+    // and the other does not, so which strand it belongs to is *determined* once the parent is
+    // phased -- it is not a fit to be estimated. `parent_slot` records which of the parent's two
+    // genotype slots did the crossing, and the parent's own PhaseCall says which strand that slot
+    // landed on, so the nested allele goes there and the other strand carries the wildcard.
+    //
+    // Done as a separate pass because it needs the parent already phased, and the parent may be
+    // anywhere in any chain.
+    if (phasing_out != nullptr && !deferred_nested.empty()) {
+        // By value, not by pointer: this loop appends to `phasing_out`, and any pointer into a
+        // vector is invalid the moment it reallocates. Only three fields are needed.
+        struct ParentPhase { size_t phase_set; size_t hap_first; size_t hap_second; };
+        unordered_map<size_t, ParentPhase> by_key;
+        by_key.reserve(phasing_out->size() * 2);
+        for (const PhaseCall& pc : *phasing_out) {
+            by_key[pc.record_key] = ParentPhase{pc.phase_set, pc.hap_first, pc.hap_second};
+        }
+        // Resolve shallowest-first so a nested site whose parent is itself nested finds its parent
+        // already placed. Depth is bounded by the snarl hierarchy, so a bounded number of sweeps
+        // settles it; anything still unresolved after that keeps the wildcard rather than guessing.
+        vector<size_t> pending = deferred_nested;
+        for (int sweep = 0; sweep < 8 && !pending.empty(); ++sweep) {
+            vector<size_t> still;
+            size_t placed_this_sweep = 0;
+            for (size_t idx : pending) {
+                const Entry& e = entries[idx];
+                auto found = by_key.find(e.parent_record_key);
+                PhaseCall pc;
+                pc.ploidy = e.ploidy;
+                pc.record_key = e.record_key;
+                pc.contig = contig_names[e.contig];
+                pc.position = e.position;
+                pc.start_node = e.start_node;
+                pc.end_node = e.end_node;
+                pc.allele_first = e.called_i;
+                pc.allele_second = e.called_i;
+                if (found == by_key.end()) {
+                    still.push_back(idx);
+                    continue;
+                }
+                const ParentPhase& parent = found->second;
+                // Inherit the parent's phase set, so the nested site sits in the parent's block
+                // instead of starting one of its own -- which is the whole point of the exercise.
+                pc.phase_set = parent.phase_set;
+                bool second = (e.parent_slot == 1);
+                pc.hap_first = second ? LinkageModel::WILDCARD : parent.hap_first;
+                pc.hap_second = second ? parent.hap_second : LinkageModel::WILDCARD;
+                by_key[pc.record_key] = ParentPhase{pc.phase_set, pc.hap_first, pc.hap_second};
+                phasing_out->push_back(pc);
+                ++placed_this_sweep;
+            }
+            if (placed_this_sweep == 0) {
+                pending = still;
+                break;
+            }
+            pending = still;
+        }
+        // Anything left has no reachable phased parent -- most often because the parent collapsed to
+        // the reference symbolically and so emitted no record to phase. Giving each of those its own
+        // phase set is what fragments the output: it turned chr20's single block into 285.
+        //
+        // Instead, attach it to the block that already covers it. A nested site lies inside its
+        // parent's span, which lies inside the diploid chain, so the nearest preceding phased site on
+        // the same contig is in the right block by construction. The strand stays wildcard on both
+        // sides: without the parent's phase there is nothing to place it on, and asserting one would
+        // be a guess dressed as a call.
+        if (!pending.empty()) {
+            map<string, vector<pair<size_t, size_t>>> block_by_contig;   // contig -> (pos, phase_set)
+            for (const PhaseCall& pc : *phasing_out) {
+                block_by_contig[pc.contig].emplace_back(pc.position, pc.phase_set);
+            }
+            for (auto& kv : block_by_contig) {
+                sort(kv.second.begin(), kv.second.end());
+            }
+            for (size_t idx : pending) {
+                const Entry& e = entries[idx];
+                PhaseCall pc;
+                pc.ploidy = e.ploidy;
+                pc.record_key = e.record_key;
+                pc.contig = contig_names[e.contig];
+                pc.position = e.position;
+                pc.start_node = e.start_node;
+                pc.end_node = e.end_node;
+                pc.allele_first = e.called_i;
+                pc.allele_second = e.called_i;
+                pc.hap_first = LinkageModel::WILDCARD;
+                pc.hap_second = LinkageModel::WILDCARD;
+                pc.phase_set = e.position;
+                auto found = block_by_contig.find(pc.contig);
+                if (found != block_by_contig.end() && !found->second.empty()) {
+                    const vector<pair<size_t, size_t>>& blocks = found->second;
+                    auto it = upper_bound(blocks.begin(), blocks.end(),
+                                          make_pair(pc.position, numeric_limits<size_t>::max()));
+                    if (it != blocks.begin()) {
+                        pc.phase_set = prev(it)->second;
+                    } else if (!blocks.empty()) {
+                        pc.phase_set = blocks.front().second;
+                    }
+                }
+                phasing_out->push_back(pc);
+            }
         }
     }
     return changes;

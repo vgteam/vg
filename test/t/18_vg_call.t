@@ -9,7 +9,7 @@ PATH=../bin:$PATH # for vg
 # FORMAT field shifts every later one, which broke four assertions here that were not
 # testing field order at all -- one of them silently compared BL against a GQ threshold.
 
-plan tests 277
+plan tests 281
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -705,7 +705,35 @@ is $(grep -vc "^#" nest_nested.vcf) "2" \
 is $(grep -v "^#" nest_nested.vcf | awk 'length($4) == 1 && length($5) == 1' | wc -l | tr -d ' ') "2" \
    "--nested emits them as single-base records, not as one compensating substitution"
 
-rm -f nest.gfa nest.gbz nest.gam nest_default.vcf nest_nested.vcf x.vg x.gbz x.gbwt sim.gam x.pack call.vcf callg.vcf callz.vcf callg.6 callz.6 callrl_nopack.vcf callrl_nopack_z.vcf callrl_withpack.vcf nopack_err.txt sim.sorted.gam sim.sorted.gam.gai rl_inmem.vcf rl_indexed.vcf gi_err.txt gb_err.txt gb_excl.txt gb_norl.txt gb_nobin.txt sim.gaf sim.gaf.db x.gbz.db rl_gafmem.vcf rl_gafbase.vcf rl_gafbase_t4.vcf rl_gafbase_w32.vcf rl_autoz_full.vcf rl_autoz.vcf rl_explicit_z.vcf rl_support_full.vcf rl_support.vcf es_nopack.txt es_z.txt es_g.txt nopanel.vg nopanel.gbwt nopanel.gbz nopanel.pack nopanel_err.txt poisson_default.vcf poisson_z.vcf rl_phased.vcf rl_unphased_gt.txt rl_phased_gt.txt rl_ph_err.txt rl_mosaic.tsv rl_mosaic2.tsv rl_hap.vcf rl_hap_mosaic.tsv
+
+# A nested haploid site must not fragment the phase block. Reads from the deletion-bearing haplotype
+# and from one that crosses the chain make the parent heterozygous for the deletion, so only one
+# parent allele reaches the nested snarls and they are called at ploidy 1. Those sites are a ploidy
+# change, and treating them like a regional one -- chrX's pseudoautosomal boundary -- cut the chain at
+# every one: chr20's autosomal phasing went from 22 blocks to 9,460 and block N50 from 248 Mb to
+# 1.08 Mb. Switch error looked flat only because short blocks make it cheap.
+rm -f nest_hap.gam nest_hap.vcf
+vg sim -x nest.gbz -n 300 -l 40 -a -s 31 --path "p2#0#chr1#0" > nest_hap.gam 2>/dev/null
+vg sim -x nest.gbz -n 300 -l 40 -a -s 37 --path "p2#1#chr1#0" >> nest_hap.gam 2>/dev/null
+vg call nest.gbz --read-likelihood --gam nest_hap.gam -t 1 -s samp --nested --phased 2>/dev/null > nest_hap.vcf
+is "$?" 0 "--nested --phased runs with a heterozygous deletion over nested sites"
+# A nested site reached by only one parent allele is called haploid -- a single bare allele, not a
+# pair. Only one of the two nested snarls emits here: on the surviving haplotype the other carries
+# the reference allele, so it is hom-ref and correctly writes nothing.
+is $(grep -v "^#" nest_hap.vcf | awk -F'\t' '{split($10,a,":"); print a[1]}' | grep -cvE "[|/]" ) \
+   "1" "a nested site reached by one parent allele is called haploid"
+# And the parent still reports its deletion: symbolic collapsing must not swallow a real event.
+is $(grep -v "^#" nest_hap.vcf | awk -F'\t' 'length($4) > 50 {n++} END {print n+0}') "1" \
+   "the parent deletion is still emitted alongside the nested call"
+# One phase set across every phased record: the nested haploid sites join the parent's block rather
+# than starting their own.
+is $(grep -v "^#" nest_hap.vcf | awk -F'\t' '{
+       n=split($9,f,":"); for (i=1;i<=n;i++) if (f[i]=="PS") k=i;
+       if (k) { split($10,a,":"); if (a[k] != ".") print a[k] }
+     }' | sort -u | wc -l | tr -d ' ') "1" \
+   "nested haploid sites share one phase set with their parent, not one each"
+
+rm -f nest.gfa nest.gbz nest.gam nest_default.vcf nest_nested.vcf nest_hap.gam nest_hap.vcf x.vg x.gbz x.gbwt sim.gam x.pack call.vcf callg.vcf callz.vcf callg.6 callz.6 callrl_nopack.vcf callrl_nopack_z.vcf callrl_withpack.vcf nopack_err.txt sim.sorted.gam sim.sorted.gam.gai rl_inmem.vcf rl_indexed.vcf gi_err.txt gb_err.txt gb_excl.txt gb_norl.txt gb_nobin.txt sim.gaf sim.gaf.db x.gbz.db rl_gafmem.vcf rl_gafbase.vcf rl_gafbase_t4.vcf rl_gafbase_w32.vcf rl_autoz_full.vcf rl_autoz.vcf rl_explicit_z.vcf rl_support_full.vcf rl_support.vcf es_nopack.txt es_z.txt es_g.txt nopanel.vg nopanel.gbwt nopanel.gbz nopanel.pack nopanel_err.txt poisson_default.vcf poisson_z.vcf rl_phased.vcf rl_unphased_gt.txt rl_phased_gt.txt rl_ph_err.txt rl_mosaic.tsv rl_mosaic2.tsv rl_hap.vcf rl_hap_mosaic.tsv
 
 
 # subpath test

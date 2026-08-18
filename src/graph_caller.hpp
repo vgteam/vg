@@ -249,6 +249,23 @@ protected:
     bool is_symbolically_reference(const vector<SnarlTraversal>& called_traversals,
                                    int trav_idx, int ref_trav_idx, const Snarl& snarl) const;
 
+    /// Which parent a nested call hangs off, for the duration of that call.
+    ///
+    /// A nested site has ploidy 1 exactly when one called parent allele crosses the child chain and
+    /// the other does not, so the strand it belongs to is determined by the parent's phase rather
+    /// than estimated. The linkage layer needs to know the parent's record key and which of its two
+    /// genotype slots did the crossing.
+    ///
+    /// Thread-local rather than a parameter threaded through emit_variant's already long signature:
+    /// descent happens synchronously on the calling thread, so the context is set immediately before
+    /// the child call and cleared after it, and no other thread can observe it.
+    struct NestedContext {
+        bool active = false;
+        size_t parent_record_key = 0;
+        size_t parent_slot = 0;
+    };
+    static thread_local NestedContext nested_context;
+
     /// Snarl hierarchy for symbolic collapsing, or null to compare alleles by sequence alone.
     const SnarlManager* symbolic_manager = nullptr;
 

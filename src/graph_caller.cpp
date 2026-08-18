@@ -1693,6 +1693,8 @@ string VCFOutputCaller::trav_string(const HandleGraph& graph, const SnarlTravers
     return seq;    
 }
 
+thread_local VCFOutputCaller::NestedContext VCFOutputCaller::nested_context;
+
 bool VCFOutputCaller::is_symbolically_reference(const vector<SnarlTraversal>& called_traversals,
                                                 int trav_idx, int ref_trav_idx,
                                                 const Snarl& snarl) const {
@@ -1983,7 +1985,13 @@ bool VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCa
                                           // Snarl boundaries, so the mosaic output can anchor on
                                           // node IDs rather than on reference positions.
                                           (int64_t)snarl.start().node_id(),
-                                          (int64_t)snarl.end().node_id());
+                                          (int64_t)snarl.end().node_id(),
+                                          // Nested provenance, so the linkage pass can keep this
+                                          // site out of the diploid chain runs and place it on the
+                                          // parent's strand afterwards.
+                                          nested_context.active,
+                                          nested_context.parent_record_key,
+                                          nested_context.parent_slot);
             }
         }
         if (!added) {
@@ -3816,9 +3824,29 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
                 if (copies <= 0) {
                     continue;   // no called allele reaches it: a star allele, and nothing to call
                 }
+                // A haploid child hangs off exactly one parent slot, and which one decides the
+                // strand its allele sits on once the parent is phased. Find it: the slot whose
+                // called allele crosses the child.
+                size_t slot = 0;
+                if (copies == 1) {
+                    for (size_t g = 0; g < trav_genotype.size(); ++g) {
+                        vector<int> one(1, trav_genotype[g]);
+                        if (child_ploidy(travs, one, *child, 1) == 1) {
+                            slot = g;
+                            break;
+                        }
+                    }
+                }
+                // Saved and restored rather than assigned: a child may descend further, and its own
+                // children must see *it* as their parent, not this snarl.
+                NestedContext saved = nested_context;
+                nested_context.active = (copies == 1);
+                nested_context.parent_record_key = std::hash<string>{}(print_snarl(snarl, false));
+                nested_context.parent_slot = slot;
                 call_snarl_internal(*child, ref_path_name,
                                     make_pair(get<0>(ref_interval), get<1>(ref_interval)),
                                     nullptr, copies);
+                nested_context = saved;
             }
         }
     }
