@@ -875,6 +875,10 @@ vector<SubchainGroup> split_up_subchains(const VectorView<Anchor>& to_chain,
 
     // Where to search for subchains (we must guarantee they start in read order)
     priority_queue<size_t, vector<size_t>, std::greater<size_t>> trace_from;
+    // Remember where tracebacks start and end
+    // so that we can try really hard to tie their tails back in
+    unordered_set<size_t> traceback_starts;
+    unordered_set<size_t> traceback_ends;
 
     // We want to know what the shortest tails in this group are
     size_t min_left_tail = std::numeric_limits<int32_t>::max();
@@ -886,6 +890,8 @@ vector<SubchainGroup> split_up_subchains(const VectorView<Anchor>& to_chain,
         cerr << "Chain: " << cur_trace.anchors.front();
 #endif
         trace_from.emplace(cur_trace.anchors.front());
+        traceback_starts.emplace(cur_trace.anchors.front());
+        traceback_ends.emplace(cur_trace.anchors.back());
         for (size_t i = 0; i < cur_trace.anchors.size() - 1; i++) {
             // Remember that this pair of anchors can connect
             size_t prev = cur_trace.anchors[i];
@@ -905,6 +911,8 @@ vector<SubchainGroup> split_up_subchains(const VectorView<Anchor>& to_chain,
 
     // Now check in on the extra edges.
     priority_queue<AltEdge, vector<AltEdge>, std::greater<AltEdge>> extra_edges;
+    // Edges that keep a traceback tied into a larger group, thus avoiding long tails
+    vector<AltEdge> must_use_edges;
     for (const auto& edge : connections) {
         if ((outgoing_edges[edge.start_anchor].size() + incoming_edges[edge.start_anchor].size()) > 0
             && (outgoing_edges[edge.end_anchor].size() + incoming_edges[edge.end_anchor].size()) > 0) {
@@ -913,11 +921,17 @@ vector<SubchainGroup> split_up_subchains(const VectorView<Anchor>& to_chain,
 #endif
             // Both sides of this edge are used, so it must connect two different subchains
             // We might want to use this
-            extra_edges.emplace(edge);
+            if (traceback_ends.count(edge.start_anchor) || traceback_starts.count(edge.end_anchor)) {
+                // Using this edge will tie a tail back in to the main path
+                must_use_edges.push_back(edge);
+            } else {
+                // This is just a possibility
+                extra_edges.emplace(edge);
+            }
         }
     }
 
-    if (extra_edges.empty()) {
+    if (extra_edges.empty() && must_use_edges.empty()) {
         // These tracebacks are disjoint; return separately
         vector<SubchainGroup> groups;
         for (const auto& cur_trace : original_tracebacks) {
@@ -928,7 +942,13 @@ vector<SubchainGroup> split_up_subchains(const VectorView<Anchor>& to_chain,
         return groups;
     }
 
-    for (size_t i = 0; !extra_edges.empty() && (i < max_alts || extra_edges.top().score_diff == 0); i++) {
+    for (const auto& edge : must_use_edges) {
+        // Use this extra edge
+        outgoing_edges[edge.start_anchor].emplace(edge.end_anchor);
+        incoming_edges[edge.end_anchor].emplace(edge.start_anchor);
+    }
+
+    for (size_t i = must_use_edges.size(); !extra_edges.empty() && i < max_alts; i++) {
         // Use this extra edge
         AltEdge edge = extra_edges.top();
         outgoing_edges[edge.start_anchor].emplace(edge.end_anchor);
