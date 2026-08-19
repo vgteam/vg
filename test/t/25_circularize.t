@@ -10,12 +10,12 @@ plan tests 7
 vg construct -r tiny/tiny.fa -v tiny/tiny.vcf.gz > linear.vg
 vg circularize -p x linear.vg > circular.vg
 
-is $(vg view -j circular.vg | jq -c '.path[] | select(.is_circular)' | wc -l) 1 "a path may be circularized"
+is $(vg view -j circular.vg | jq -c '.path[] | select(.is_circular)' | wc -l | tr -d ' ') 1 "a path may be circularized"
 
 vg index -x circular.xg circular.vg
 vg convert circular.xg -v  > extracted.vg
 
-is $(vg view -j extracted.vg | jq -c '.path[] | select(.is_circular)' | wc -l) 1 "a circular path survives a round trip to/from xg"
+is $(vg view -j extracted.vg | jq -c '.path[] | select(.is_circular)' | wc -l | tr -d ' ') 1 "a circular path survives a round trip to/from xg"
 
 vg circularize -p y linear.vg
 is $? 1 "Not allowed to circularize a nonexistent path (--path)"

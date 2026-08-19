@@ -9,7 +9,7 @@ plan tests 20
 
 vg construct -m 1000 -r small/x.fa -v small/x.vcf.gz > x.vg
 
-is $(vg align x.vg -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG --full-l-bonus 0 -j | tr ',' '\n' | grep node_id | grep "72\|73\|76\|77" | wc -l) 4 "alignment traverses the correct path"
+is $(vg align x.vg -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG --full-l-bonus 0 -j | tr ',' '\n' | grep node_id | grep "72\|73\|76\|77" | wc -l | tr -d ' ') 4 "alignment traverses the correct path"
 
 is $(vg align x.vg -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG --full-l-bonus 0 -j | jq -r '.score') 48 "alignment score is as expected"
 
@@ -38,11 +38,11 @@ is $(vg align -js GGCTATGTCTGAACTAGGAGGGTAGAAAGAATATTCATTTTGGTTGCCACAAACCATCGAAA
 vg construct -m 1000 -r tiny/tiny.fa >t.vg
 seq=CAAATAAGGCTTGGAAATGTTCTGGAGTTCTATTATATTCCAACTCTCTT
 vg align -s $seq -Q first t.vg | vg augment t.vg - -i -S >t2.vg
-is $(vg align -s $seq -Q query t2.vg | vg augment t2.vg - -i -B -S | vg view - | grep "query" | cut -f 3 | grep -o "[0-9]\+" | wc -l) 4 "align can use query names and outputs GAM"
+is $(vg align -s $seq -Q query t2.vg | vg augment t2.vg - -i -B -S | vg view - | grep "query" | cut -f 3 | grep -o "[0-9]\+" | wc -l | tr -d ' ') 4 "align can use query names and outputs GAM"
 rm t.vg t2.vg
 
 
-is $(vg align -s TATATATATACCCCCCCCC -j cyclic/all.vg | jq -r ".path.mapping[].position.node_id" | tr '\n' ',' | grep "5,6" | wc -l) 1  "alignment to cyclic graphs works"
+is $(vg align -s TATATATATACCCCCCCCC -j cyclic/all.vg | jq -r ".path.mapping[].position.node_id" | tr '\n' ',' | grep "5,6" | wc -l | tr -d ' ') 1  "alignment to cyclic graphs works"
 
 vg align -s ACGT -j cyclic/reverse_self.vg >/dev/null
 is $? 0  "graphs where duplicated nodes need flipping can be used for alignment"
