@@ -9,7 +9,7 @@ PATH=../bin:$PATH # for vg
 # FORMAT field shifts every later one, which broke four assertions here that were not
 # testing field order at all -- one of them silently compared BL against a GQ threshold.
 
-plan tests 286
+plan tests 295
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -415,22 +415,49 @@ is "$?" "1" "explicit --linkage-weight without haplotype enumeration is refused"
 vg call x.gbz --gam sim.gam -z -k x.pack --linkage-weight 1 2>rl_link_err2.txt >/dev/null
 is "$?" "1" "explicit --linkage-weight without --read-likelihood is refused"
 
-# --phased emits the linkage layer's Viterbi path as phased genotypes. The property that makes it
-# safe to turn on is that it re-orders a genotype without re-deciding it, so the phased GT must be
-# a permutation of the unphased one at every record -- if it is not, phasing has silently changed
-# a call, which no amount of downstream checking would catch.
+# Phasing emits the linkage layer's Viterbi path as phased genotypes. The property that made it safe
+# to turn on by default is that it re-orders a genotype without re-deciding it, so the phased GT must
+# be a permutation of the unphased one at every record -- if it is not, phasing has silently changed
+# a call, which no amount of downstream checking would catch. --phased is now the default and named
+# here only for explicitness; --no-phased below is what produces the unphased side of the comparison.
 vg call x.gbz --read-likelihood --gam sim.gam --phased 2>/dev/null > rl_phased.vcf
 is "$?" "0" "--phased produces output"
 is $(grep -c "FORMAT=<ID=PS" rl_phased.vcf) "1" "--phased declares FORMAT/PS in the header"
 is $(grep -v "^#" rl_phased.vcf | cut -f10 | cut -d: -f1 | grep -c "/") "0" \
    "every phased record uses | rather than /"
-vg call x.gbz --read-likelihood --gam sim.gam 2>/dev/null | grep -v "^#" | cut -f1,2,10 | cut -d: -f1 > rl_unphased_gt.txt
+vg call x.gbz --read-likelihood --gam sim.gam --no-phased 2>/dev/null | grep -v "^#" | cut -f1,2,10 | cut -d: -f1 > rl_unphased_gt.txt
 grep -v "^#" rl_phased.vcf | cut -f1,2,10 | cut -d: -f1 > rl_phased_gt.txt
 is $(paste rl_unphased_gt.txt rl_phased_gt.txt | awk '{
        split($3,a,"/"); split($6,b,"|");
        if ((a[1]!=b[1] || a[2]!=b[2]) && (a[1]!=b[2] || a[2]!=b[1])) bad++
      } END { print bad+0 }') "0" \
    "the phased genotype is a permutation of the unphased one at every record"
+
+# The defaults themselves. Phasing and nested calling are on wherever they can run, and the way they
+# handle not being able to run is the part worth pinning: they decline, they do not refuse.
+vg call x.gbz --read-likelihood --gam sim.gam 2>/dev/null > rl_default.vcf
+is "$?" "0" "the default run produces output"
+is $(grep -c "FORMAT=<ID=PS" rl_default.vcf) "1" "phasing is on by default"
+is $(grep -v "^#" rl_default.vcf | cut -f10 | cut -d: -f1 | grep -c "/") "0" \
+   "and the default genotypes are phased"
+is $(grep -v "^#" rl_default.vcf | cut -f10 | cut -d: -f1 | sort -u | tr -d '\n') \
+   $(grep -v "^#" rl_phased.vcf | cut -f10 | cut -d: -f1 | sort -u | tr -d '\n') \
+   "the default and an explicit --phased agree"
+
+vg call x.gbz --read-likelihood --gam sim.gam --no-phased 2>/dev/null > rl_nophase.vcf
+is $(grep -c "FORMAT=<ID=PS" rl_nophase.vcf) "0" "--no-phased declares no FORMAT/PS"
+is $(grep -v "^#" rl_nophase.vcf | cut -f10 | cut -d: -f1 | grep -c "|") "0" \
+   "--no-phased emits unphased genotypes"
+
+# Without a panel there is no linkage layer, so there is no Viterbi path to phase with. That used to
+# be an error whenever phasing was asked for -- correct while it was opt-in, and wrong the moment it
+# became a default, since it would refuse every run without haplotype enumeration. It declines now,
+# and only an explicit --phased still errors (tested above).
+vg call x.vg --read-likelihood --gam sim.gam -k x.pack 2>rl_nopanel_err.txt > rl_nopanel.vcf
+is "$?" "0" "a run with no haplotype panel is not refused by the phasing default"
+is $(grep -c "FORMAT=<ID=PS" rl_nopanel.vcf) "0" "and comes out unphased rather than empty"
+is $(grep -vc "^#" rl_nopanel.vcf | awk '{print ($1 > 0) ? "yes" : "no"}') "yes" \
+   "and still calls variants"
 
 # The mosaic is the same phasing, run-length encoded. Its value rests entirely on being *shorter*
 # than the site list -- one line per maximal run rather than per site -- so a mosaic with as many
@@ -693,17 +720,19 @@ vg gbwt -G nest.gfa --gbz-format -g nest.gbz --set-reference GRCh 2>/dev/null
 is "$?" 0 "nested-calling test graph builds"
 vg sim -x nest.gbz -n 300 -l 40 -a -s 17 --path "p1#0#chr1#0" > nest.gam 2>/dev/null
 vg sim -x nest.gbz -n 300 -l 40 -a -s 23 --path "p1#1#chr1#0" >> nest.gam 2>/dev/null
-vg call nest.gbz --read-likelihood --gam nest.gam -t 1 -s samp 2>/dev/null > nest_default.vcf
-vg call nest.gbz --read-likelihood --gam nest.gam -t 1 -s samp --nested 2>/dev/null > nest_nested.vcf
+# --no-nested is the contrast, not the default. Nested calling is on by default under
+# --read-likelihood now, so this arm has to ask for the old behaviour to demonstrate what it cost.
+vg call nest.gbz --read-likelihood --gam nest.gam -t 1 -s samp --no-nested 2>/dev/null > nest_default.vcf
+vg call nest.gbz --read-likelihood --gam nest.gam -t 1 -s samp 2>/dev/null > nest_nested.vcf
 
 is $(grep -vc "^#" nest_default.vcf) "1" \
-   "by default the two nested SNPs are buried in a single record"
+   "without nested calling the two nested SNPs are buried in a single record"
 is $(grep -v "^#" nest_default.vcf | awk '{print length($4)}') "22" \
    "and that record is a long substitution spanning both of them"
 is $(grep -vc "^#" nest_nested.vcf) "2" \
-   "--nested emits one record per nested SNP instead"
+   "the default emits one record per nested SNP instead"
 is $(grep -v "^#" nest_nested.vcf | awk 'length($4) == 1 && length($5) == 1' | wc -l | tr -d ' ') "2" \
-   "--nested emits them as single-base records, not as one compensating substitution"
+   "and emits them as single-base records, not as one compensating substitution"
 
 
 # A nested haploid site must not fragment the phase block. Reads from the deletion-bearing haplotype
@@ -765,7 +794,7 @@ is $(awk -F'\t' '/^H\t/ {if ($3 in prev && $4 < prev[$3]) bad++; prev[$3]=$4} EN
      nest_hap.mosaic.tsv) "0" \
    "mosaic segments are in reference order within each strand"
 
-rm -f nest.gfa nest.gbz nest.gam nest_default.vcf nest_nested.vcf nest_hap.gam nest_hap.vcf nest_hap.mosaic.tsv x.vg x.gbz x.gbwt sim.gam x.pack call.vcf callg.vcf callz.vcf callg.6 callz.6 callrl_nopack.vcf callrl_nopack_z.vcf callrl_withpack.vcf nopack_err.txt sim.sorted.gam sim.sorted.gam.gai rl_inmem.vcf rl_indexed.vcf gi_err.txt gb_err.txt gb_excl.txt gb_norl.txt gb_nobin.txt sim.gaf sim.gaf.db x.gbz.db rl_gafmem.vcf rl_gafbase.vcf rl_gafbase_t4.vcf rl_gafbase_w32.vcf rl_autoz_full.vcf rl_autoz.vcf rl_explicit_z.vcf rl_support_full.vcf rl_support.vcf es_nopack.txt es_z.txt es_g.txt nopanel.vg nopanel.gbwt nopanel.gbz nopanel.pack nopanel_err.txt poisson_default.vcf poisson_z.vcf rl_phased.vcf rl_unphased_gt.txt rl_phased_gt.txt rl_ph_err.txt rl_mosaic.tsv rl_mosaic2.tsv rl_hap.vcf rl_hap_mosaic.tsv
+rm -f nest.gfa nest.gbz nest.gam nest_default.vcf nest_nested.vcf nest_hap.gam nest_hap.vcf nest_hap.mosaic.tsv x.vg x.gbz x.gbwt sim.gam x.pack call.vcf callg.vcf callz.vcf callg.6 callz.6 callrl_nopack.vcf callrl_nopack_z.vcf callrl_withpack.vcf nopack_err.txt sim.sorted.gam sim.sorted.gam.gai rl_inmem.vcf rl_indexed.vcf gi_err.txt gb_err.txt gb_excl.txt gb_norl.txt gb_nobin.txt sim.gaf sim.gaf.db x.gbz.db rl_gafmem.vcf rl_gafbase.vcf rl_gafbase_t4.vcf rl_gafbase_w32.vcf rl_autoz_full.vcf rl_autoz.vcf rl_explicit_z.vcf rl_support_full.vcf rl_support.vcf es_nopack.txt es_z.txt es_g.txt nopanel.vg nopanel.gbwt nopanel.gbz nopanel.pack nopanel_err.txt poisson_default.vcf poisson_z.vcf rl_phased.vcf rl_default.vcf rl_nophase.vcf rl_nopanel.vcf rl_nopanel_err.txt rl_unphased_gt.txt rl_phased_gt.txt rl_ph_err.txt rl_mosaic.tsv rl_mosaic2.tsv rl_hap.vcf rl_hap_mosaic.tsv
 
 
 # subpath test

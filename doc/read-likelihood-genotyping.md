@@ -342,12 +342,22 @@ states implying each genotype, and the argmax taken independently. That yields g
 sequence of per-site argmaxes need not be spellable by any single pair of haplotypes, so it is not
 a phasing.
 
-`--phased` runs a second decoding of the same model: **max-product**, giving the single most
-probable path of haplotype pairs through the chain. The order of that pair is the phase.
+Phasing runs a second decoding of the same model: **max-product**, giving the single most probable
+path of haplotype pairs through the chain. The order of that pair is the phase. It is on wherever the
+linkage layer runs, so the invocation is just:
 
 ```
-vg call graph.gbz --read-likelihood --gam reads.gam --phased > calls.vcf
+vg call graph.gbz --read-likelihood --gam reads.gam > calls.vcf
 ```
+
+`--no-phased` turns it off. `--phased` still exists and asks for it explicitly, which changes only
+what happens when it cannot be delivered: the default declines quietly, an explicit request errors.
+
+**A caveat that belongs beside every phased number here.** Blocks are chromosome-length, but the
+switch rate is 2.4% per adjacent heterozygous pair, so the orientation re-randomises every forty sites
+or so and blockwise Hamming sits near 48%. A long block says which sites share one `PS`, not that the
+phase is trustworthy across a chromosome. Nested haploid records are worse again -- they contribute a
+41% switch rate against that 2.4% baseline -- so their strand assignment should be read as provisional.
 
 `GT` becomes `0|1`, and `FORMAT/PS` names the phase block. (Note the existing `INFO/PS` under `-A`
 is vg's parent-snarl pointer — a different field in a different namespace.)
@@ -525,12 +535,16 @@ give ploidy per *region* and call such a contig in one pass. Linkage and the mos
 each ploidy boundary, because a chain is a maximal run of one ploidy, but the break now falls where
 the biology does instead of where a run was spliced.
 
-`--phased` and `--mosaic-out` both need `--linkage-weight` above 0, and asking for either with the
-layer off is an error rather than a silently unphased file.
+`--phased` and `--mosaic-out` both need `--linkage-weight` above 0. `--mosaic-out` names a path, so it
+is always an explicit request and always an error with the layer off. Phasing is on by default, so it
+follows the layer: where there is no haplotype panel to decode against, the layer declines and phasing
+declines with it, and the run comes out unphased rather than refusing to start. Asking for `--phased`
+outright against a disabled layer is still an error.
 
 ### A haploid record on a diploid contig is not the same thing
 
-Under `--nested`, a site inside a chain that only one parent allele crosses is genotyped at ploidy 1 --
+Under nested calling -- on by default with `--read-likelihood` -- a site inside a chain that only one
+parent allele crosses is genotyped at ploidy 1 --
 the other haplotype has no sequence there to call, because the parent's other allele deletes the chain.
 That is one strand of a diploid locus, not a haploid locus, and the two must not be written alike:
 
@@ -546,7 +560,7 @@ deleted it", which is more precise, but it is an ALT allele and adding one chang
 
 Two nested sites do *not* get a strand, and carry a `FILTER` saying why: `nested_unreachable`, where the
 parent's final genotype crosses the chain on neither haplotype, and `nested_diploid`, where it crosses on
-both. See `##FILTER` in the header of any `--nested` run.
+both, and `nested_haploid` for the mirror case. See `##FILTER` in any run's header.
 
 ## Genotype quality and the VCF fields
 
@@ -867,7 +881,10 @@ Every flag below requires `--read-likelihood`; `vg call` errors if one is passed
 
 | Flag | Default | Effect |
 |---|---|---|
-| `--phased` | off | Emit phased genotypes (`0\|1`) and a `FORMAT/PS` phase set from the linkage decoding. Asking for it with the linkage layer off is an error, not a silently unphased file. |
+| `--phased` | **on** | Emit phased genotypes (`0\|1`) and a `FORMAT/PS` phase set from the linkage decoding. Declines with the linkage layer when there is no panel to decode against; asking for it *explicitly* with the layer off is an error, not a silently unphased file. |
+| `--no-phased` | — | Turn phasing off: unphased genotypes and no `FORMAT/PS`. |
+| `--nested` | **on** under `--read-likelihood` | Symbolic collapsing and ploidy-propagating descent, so a variant inside a child chain gets its own record instead of being buried in a long ALT. Genome-wide it takes SNV F1 from 0.9752 to 0.9833 and SV F1 from 0.5134 to 0.5467 at no runtime or memory cost. Declines on the support-based caller, where it has never been measured; an explicit `--nested` still works there. |
+| `--no-nested` | — | Genotype each snarl against its own full traversals, with no collapsing and no descent. |
 | `--mosaic-out FILE` | — | Write the inferred genome as a run-length-encoded mosaic of panel haplotypes. Implies `--phased`. Format [above](#--mosaic-out-file). |
 
 ### Debugging

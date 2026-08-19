@@ -139,6 +139,8 @@ void help_call(char** argv) {
          << "                            against the graph rather than a reference. About 2% of" << endl
          << "                            sites are switch points, so this is ~140 KB for chr20" << endl
          << "                            where explicit paths would be ~45 MB. Implies --phased" << endl
+         << "      --no-phased           emit unphased genotypes (0/1) and no FORMAT/PS. Phasing is" << endl
+         << "                            on by default wherever the linkage model runs" << endl
          << "      --phased              emit phased genotypes (0|1) and a FORMAT/PS phase set," << endl
          << "                            from the linkage layer's most probable path of haplotype" << endl
          << "                            pairs. Phase comes from the panel, not from reads" << endl
@@ -212,6 +214,10 @@ void help_call(char** argv) {
          << "  -o, --ref-offset N        offset in reference path (may repeat; 1 per path)" << endl
          << "  -l, --ref-length N        override reference length for output VCF contig" << endl
          << "  -d, --ploidy N            ploidy of sample. {1, 2} [2]" << endl
+         << "      --no-nested           genotype each snarl against its own full traversals, without" << endl
+         << "                            collapsing or descent. Nested calling is on by default under" << endl
+         << "                            --read-likelihood, where it is measured: it takes genome-wide" << endl
+         << "                            SNV F1 from 0.9752 to 0.9833 and SV F1 from 0.5134 to 0.5467" << endl
          << "      --nested              treat a called traversal that differs from the reference" << endl
          << "                            only inside a nested chain as the reference allele, so its" << endl
          << "                            differences are left to the nested sites that contain them" << endl
@@ -261,7 +267,11 @@ int main_call(int argc, char** argv) {
     bool   gbz_paths = false;
     bool   gbz_paths_explicit = false;
     bool   enumerate_support = false;
-    bool   phased_output = false;
+    // On by default: phasing is the linkage layer's Viterbi path, and the layer is already on by
+    // default wherever it can run. Declines with the layer rather than erroring, so a run without a
+    // panel is quietly unphased instead of refusing to start.
+    bool   phased_output = true;
+    bool   phased_explicit = false;
     string mosaic_out;
     string translation_file_name;
     bool   gbz_translation = false;
@@ -292,7 +302,11 @@ int main_call(int argc, char** argv) {
     bool genotype_snarls = false;
     bool top_down = false;
     bool bottom_up = false;
-    bool nested_calling = false;
+    // On by default under --read-likelihood, where it was measured: genome-wide it takes SNV F1
+    // from 0.9752 to 0.9833 and SV F1 from 0.5134 to 0.5467 at no runtime or memory cost. It
+    // declines rather than errors where its preconditions are absent, the way --linkage-weight does.
+    bool nested_calling = true;
+    bool nested_explicit = false;
     bool call_chains = false;
     bool all_snarls = false;
     size_t min_allele_len = 0;
@@ -378,6 +392,8 @@ int main_call(int argc, char** argv) {
     constexpr int OPT_MIN_CONFIDENCE = 1042;
     constexpr int OPT_PLOIDY_BED = 1043;
     constexpr int OPT_NESTED = 1044;
+    constexpr int OPT_NO_NESTED = 1045;
+    constexpr int OPT_NO_PHASED = 1046;
     constexpr int OPT_LINKAGE_WEIGHT = 1028;
     constexpr int OPT_LINKAGE_SCALE = 1030;
     constexpr int OPT_LINKAGE_FREQ_PRIOR = 1031;
@@ -416,6 +432,8 @@ int main_call(int argc, char** argv) {
             {"ploidy-regex", required_argument, 0, 'R'},
             {"ploidy-bed", required_argument, 0, OPT_PLOIDY_BED},
             {"nested", no_argument, 0, OPT_NESTED},
+            {"no-nested", no_argument, 0, OPT_NO_NESTED},
+            {"no-phased", no_argument, 0, OPT_NO_PHASED},
             {"gaf", no_argument, 0, 'G'},
             {"traversals", no_argument, 0, 'T'},
             {"trav-padding", required_argument, 0, 'M'},
@@ -526,6 +544,7 @@ int main_call(int argc, char** argv) {
             break;
         case OPT_PHASED:
             phased_output = true;
+            phased_explicit = true;
             break;
         case OPT_MOSAIC_OUT:
             mosaic_out = optarg;
@@ -630,6 +649,15 @@ int main_call(int argc, char** argv) {
             break;
         case OPT_NESTED:
             nested_calling = true;
+            nested_explicit = true;
+            break;
+        case OPT_NO_NESTED:
+            nested_calling = false;
+            nested_explicit = true;
+            break;
+        case OPT_NO_PHASED:
+            phased_output = false;
+            phased_explicit = true;
             break;
         case OPT_LINKAGE_WEIGHT:
             linkage_weight = parse<double>(optarg);
@@ -1666,12 +1694,26 @@ int main_call(int argc, char** argv) {
     // Symbolic collapsing. A called traversal that takes the same route through a snarl as the
     // reference, differing only inside child chains, is the reference allele there; emitting it as
     // a long ALT is what buries the nested variants it contains.
+    //
+    // On by default under --read-likelihood, and declining rather than erroring elsewhere. It is
+    // only measured there: every arm behind the numbers in doc/read-likelihood-genotyping.md runs
+    // that model, and turning it on for the support-based caller would change the legacy default's
+    // output on no evidence. An explicit --nested still works anywhere, as it did when it was opt-in.
+    if (nested_calling && !nested_explicit && !read_likelihood) {
+        nested_calling = false;
+    }
     if (nested_calling) {
         VCFOutputCaller* nested_target = dynamic_cast<VCFOutputCaller*>(graph_caller.get());
         if (nested_target == nullptr) {
-            cerr << "error [vg call]: --nested needs a caller that emits VCF" << endl;
-            return 1;
+            if (nested_explicit) {
+                cerr << "error [vg call]: --nested needs a caller that emits VCF" << endl;
+                return 1;
+            }
+            nested_calling = false;   // the default declines
         }
+    }
+    if (nested_calling) {
+        VCFOutputCaller* nested_target = dynamic_cast<VCFOutputCaller*>(graph_caller.get());
         nested_target->set_symbolic_collapsing(snarl_manager.get());
         // A nested site's ploidy comes from a parent genotype linkage can afterwards invalidate, so
         // score every ploidy-1 site at ploidy 2 as well and report what it would call there. Costs a
@@ -1683,7 +1725,7 @@ int main_call(int argc, char** argv) {
                 rl_caller->set_measure_alt_ploidy(true);
             }
         }
-        if (!phased_output) {
+        if (!phased_output && phased_explicit) {
             // The nested pass of the linkage layer hangs off the parent's *phase*: which of the
             // parent's two strands crosses the child is what gives a nested site its haplotype, and
             // that is only computed when phasing is on. Without --phased the nested sites still get
@@ -1691,7 +1733,7 @@ int main_call(int argc, char** argv) {
             // and no check that the parent's final genotype still supports the ploidy they were
             // called at. Said out loud rather than left as a silent difference between two runs that
             // differ only by --phased.
-            cerr << "[vg call] --nested without --phased: nested sites get no linkage correction "
+            cerr << "[vg call] nested calling without phasing: nested sites get no linkage correction "
                  << "and no ploidy-coherence check, both of which need the parent's phase" << endl;
         }
     }
@@ -1720,16 +1762,10 @@ int main_call(int argc, char** argv) {
         // by accident: calls came out byte-identical, but the setup ran and the diagnostic reported
         // "0 sites" on every -z run. Inert on purpose reads better than inert by luck, and it
         // survives someone giving the Poisson path a richer CallInfo later.
-        if (!mosaic_out.empty() && linkage_weight <= 0.0) {
-            logger.error() << "--mosaic-out needs the linkage model, which --linkage-weight 0 "
-                           << "disables" << endl;
-        }
-        if (phased_output && linkage_weight <= 0.0) {
-            // Phasing is the linkage layer's Viterbi path, so without the layer there is no path
-            // to emit. Silently writing unphased output would look like the flag had worked.
-            logger.error() << "--phased needs the linkage model, which --linkage-weight 0 "
-                           << "disables" << endl;
-        }
+        // The layer declines first, so everything built on it can see whether it survived. This
+        // used to run after the two checks below, which was harmless only while phasing was opt-in:
+        // with phasing on by default, testing linkage_weight before the decline would refuse every
+        // run without a panel instead of quietly emitting unphased calls.
         if (linkage_weight > 0.0 && !(gbwt_index != nullptr && read_likelihood)) {
             if (linkage_weight_explicit) {
                 cerr << "error [vg call]: --linkage-weight needs haplotype enumeration (-z or -g) "
@@ -1737,6 +1773,22 @@ int main_call(int argc, char** argv) {
                 return 1;
             }
             linkage_weight = 0.0;   // the default declines; only an explicit request is an error
+        }
+        if (!mosaic_out.empty() && linkage_weight <= 0.0) {
+            // Always an explicit request -- a path was named -- so always an error.
+            logger.error() << "--mosaic-out needs the linkage model, which needs haplotype "
+                           << "enumeration (-z or -g) and --read-likelihood" << endl;
+        }
+        if (phased_output && linkage_weight <= 0.0) {
+            // Phasing is the linkage layer's Viterbi path, so without the layer there is no path to
+            // emit. Asked for outright that is an error, because silently writing unphased output
+            // would look like the flag had worked; on by default it declines the same way the layer
+            // itself does.
+            if (phased_explicit) {
+                logger.error() << "--phased needs the linkage model, which needs haplotype "
+                               << "enumeration (-z or -g) and --read-likelihood" << endl;
+            }
+            phased_output = false;
         }
         if (linkage_weight > 0.0) {
             // A haplotype is (sample, phase); a GBWT sequence is one orientation of one path, and
