@@ -84,6 +84,20 @@ public:
         /// the matrix that is already built, so it costs a few passes over memory and no re-reading.
         vector<int> alt_ploidy_best;
 
+        /// The same site derived at the other ploidy, from the same reads-by-alleles matrix.
+        ///
+        /// Nested calling needs both answers from one visit to the reads: a chain's ploidy comes from
+        /// its parent's *settled* genotype, which is not known while the reads are resident, and going
+        /// back to find out is what made post-linkage descent cost half again as much read I/O. This
+        /// carries everything a record needs -- `genotype_lls`, `gq`, `gq_fraction`, `explained_share`,
+        /// `depth_ratio`, `posterior` -- so the record can be built later at whichever ploidy the
+        /// barrier settles on, with no re-reading and no re-scoring.
+        ///
+        /// Null unless `set_measure_alt_ploidy` is on. Owned, and it is the only heavyweight member
+        /// here: it shares the ploidy-independent halves (`scored_traversals`, `allele_support`) by
+        /// copy rather than recomputing them.
+        unique_ptr<ReadLikelihoodCallInfo> alt_ploidy_info;
+
         /// The traversals that were scored, in matrix column order. Kept so the
         /// deduplicated traversals handed to update_vcf_info can be mapped back.
         vector<SnarlTraversal> scored_traversals;

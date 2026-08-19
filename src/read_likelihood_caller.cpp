@@ -137,187 +137,208 @@ pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> ReadLikelihoodSnarlCaller::
         return make_pair(vector<int>(), std::move(call_info_owner));
     }
 
-    // Enumerate every genotype exhaustively. For K alleles and ploidy 2 that is
-    // K(K+1)/2 genotypes, each costing one pass over the reads, so there is no
-    // need for the candidate pruning the Poisson caller does with top_k/top_m.
-    vector<pair<vector<int>, double>> scored = matrix.score_genotypes(ploidy);
-    if (scored.empty()) {
+    // Everything from here down is arithmetic over the reads x alleles matrix, and the matrix does
+    // not depend on ploidy -- only on which traversals were scored. So the derivation is a lambda
+    // that can be run for either ploidy against the same matrix, rather than a block that can only
+    // ever answer the one ploidy the call asked for.
+    //
+    // Nested calling needs both answers from one visit to the reads. A chain's ploidy comes from its
+    // parent's settled genotype, which is not known while the reads are resident, and re-reading to
+    // find out is what made post-linkage descent cost half again as much read I/O. `alt_ploidy_info`
+    // below carries the other answer, so the record can be built later at whichever ploidy turns out
+    // to be the right one.
+    auto derive = [&](int p, ReadLikelihoodCallInfo* info) -> vector<int> {
+        // Enumerate every genotype exhaustively. For K alleles and ploidy 2 that is
+        // K(K+1)/2 genotypes, each costing one pass over the reads, so there is no
+        // need for the candidate pruning the Poisson caller does with top_k/top_m.
+            vector<pair<vector<int>, double>> scored = matrix.score_genotypes(p);
+            if (scored.empty()) {
+                return vector<int>();
+            }
+
+        double second_best_ll = -numeric_limits<double>::infinity();
+        double total_ll = -numeric_limits<double>::infinity();
+
+        // Break exact ties in favour of the all-reference genotype.
+        //
+        // Reads can be present yet completely uninformative between alleles -- every
+        // row flat, so every genotype scores identically. The likelihood genuinely has
+        // no preference there, so something outside it has to choose, and taking
+        // whichever traversal happens to sit at index 0 would emit a confident-looking
+        // non-reference call on no evidence at all. Note traversals[0] is *not*
+        // necessarily the reference; ref_trav_idx says which one is.
+        //
+        // This is a tie-break convention rather than a prior: it fires only on exact
+        // equality, so it cannot move a site where the reads say anything at all.
+        size_t best_index = 0;
+        if (ref_trav_idx >= 0 && (size_t)ref_trav_idx < traversals.size()) {
+            vector<int> ref_genotype(p, ref_trav_idx);
+            for (size_t i = 0; i < scored.size(); ++i) {
+                if (scored[i].first == ref_genotype) {
+                    best_index = i;
+                    break;
+                }
+            }
+        }
+        double best_ll = scored[best_index].second;
+
+        // The runner-up's identity, not just its score: achievable_gap needs to know which
+        // genotype the gap is against, since what a site could have achieved depends on how
+        // the two genotypes differ -- one strand or both.
+        size_t second_best_index = scored.size();
+
+        for (size_t i = 0; i < scored.size(); ++i) {
+            double ll = scored[i].second;
+            info->genotype_lls[scored[i].first] = ll;
+
+            if (i != best_index) {
+                if (ll > best_ll) {
+                    second_best_ll = best_ll;
+                    second_best_index = best_index;
+                    best_ll = ll;
+                    best_index = i;
+                } else if (ll > second_best_ll) {
+                    second_best_ll = ll;
+                    second_best_index = i;
+                }
+            }
+
+            total_ll = (i == 0) ? ll : add_log(total_ll, ll);
+        }
+
+        // GQ is the phred-scaled gap between the best and second best genotype,
+        // matching the existing callers' convention.
+        info->gq = 0;
+        if (std::isfinite(best_ll) && std::isfinite(second_best_ll)) {
+            info->gq = logprob_to_phred(second_best_ll) - logprob_to_phred(best_ll);
+        }
+        info->gq_undiscounted = info->gq;
+
+        // The same gap as a fraction of what this site could have produced, which is what
+        // makes it comparable across depth and ploidy. Computed here, from the raw
+        // log-likelihoods, deliberately: GQ is clamped to 256 on the way into the VCF, and
+        // that clamp censors 23% of haploid calls at full depth, so a consumer cannot
+        // reconstruct this from the emitted fields.
+        //
+        // Both sides use natural-log likelihoods, so no phred conversion is needed -- the
+        // ratio is scale-free and taking it in phred would give the same number by a longer
+        // route. The explained-share discount is applied below, once it is known.
+        double achievable_gap = 0.0;
+        if (second_best_index < scored.size() && std::isfinite(best_ll)
+            && std::isfinite(second_best_ll)) {
+            achievable_gap = matrix.achievable_gap(scored[best_index].first,
+                                                   scored[second_best_index].first);
+            if (achievable_gap > 0.0) {
+                info->gq_fraction =
+                    min(1.0, max(0.0, (best_ll - second_best_ll) / achievable_gap));
+            }
+        }
+
+        // How much of the pile-up the called genotype accounts for. Reads whose best-fitting
+        // allele lies outside the call are counted in *every* genotype's likelihood and so
+        // cancel out of the best-versus-second-best comparison; GQ cannot see them. See
+        // set_share_discount for why this is worth correcting and what it costs.
+        //
+        // Computed from the fractional allele_support rather than the rounded AD, and over
+        // the distinct called alleles, so a homozygote does not count its allele twice.
+        {
+            const vector<int>& called = scored[best_index].first;
+            double explained = 0.0;
+            set<int> seen;
+            for (int a : called) {
+                if (a >= 0 && (size_t)a < info->allele_support.size() && seen.insert(a).second) {
+                    explained += info->allele_support[a];
+                }
+            }
+            size_t n = matrix.num_reads();
+            // Clamped rather than trusted: ties split fractionally and floating-point
+            // accumulation can land a hair above the read count, and a share above 1 would
+            // *raise* GQ, which this is never allowed to do.
+            info->explained_share = n ? min(1.0, explained / (double)n) : 1.0;
+
+            // GQN carries the same discount as GQ, and is not merely the raw ratio. The
+            // likelihood gap cannot see reads that fit an allele outside the call, because
+            // those enter every genotype's likelihood and cancel; normalising a quantity
+            // that is blind to them leaves it blind. Measured over the titration the
+            // discount is worth most of the remaining calibration: 0.316 without it against
+            // 0.260 with, where raw GQ scores 0.347. Applied whatever --no-share-quality
+            // says, since that flag is about what GQ reports and GQN is a different field
+            // whose whole purpose is to be comparable.
+            if (info->gq_fraction >= 0.0) {
+                info->gq_fraction *= info->explained_share;
+            }
+
+            if (share_discount) {
+                info->gq *= info->explained_share;
+            }
+
+            info->depth_ratio = matrix.depth_ratio(called);
+
+            // The depth-implausibility discount, gated on called-allele size. See
+            // set_depth_quality for why it is gated and why it is not on by default.
+            //
+            // Size is measured as the largest length change against the reference
+            // traversal, using the same interior lengths lambda uses -- so it is the change
+            // in sequence a read could actually be recruited by, and it needs no reference
+            // to the VCF alleles, which do not exist yet at this point.
+            if (depth_quality > 0.0 && info->depth_ratio > 0.0 && ref_trav_idx >= 0) {
+                size_t ref_len = matrix.traversal_length((size_t)ref_trav_idx);
+                size_t change = 0;
+                for (int a : called) {
+                    if (a < 0) {
+                        continue;
+                    }
+                    size_t len = matrix.traversal_length((size_t)a);
+                    change = max(change, len > ref_len ? len - ref_len : ref_len - len);
+                }
+                if (change >= depth_quality_min_length) {
+                    info->gq *= exp(-depth_quality * fabs(log(info->depth_ratio)));
+                }
+            }
+        }
+
+        // Posterior under a uniform prior. Deliberately NOT the Poisson caller's
+        // formula, which subtracts ln(number of candidates): under a uniform prior
+        // that term cancels analytically and does not belong. It is nearly harmless
+        // at a fixed candidate count, but this caller enumerates exhaustively, so
+        // the count varies with the number of alleles and the term would make the
+        // reported posterior vary with it too.
+        info->posterior = std::isfinite(total_ll) ? best_ll - total_ll : 0.0;
+
+            return scored[best_index].first;
+    };
+
+    vector<int> best_genotype = derive(ploidy, call_info);
+    if (best_genotype.empty()) {
         return make_pair(vector<int>(), std::move(call_info_owner));
     }
 
-    // What this site would call at ploidy 2, for a site being called at ploidy 1.
-    //
-    // Nested descent hands a child ploidy 1 when exactly one parent allele crosses the chain, and
-    // linkage can afterwards move the parent so that both do. Re-genotyping such a child needs the
-    // diploid likelihoods, which are never otherwise computed -- so this computes them here, where
-    // the reads x alleles matrix already exists and nothing has to be re-read or re-scored.
+    // The same site at the other ploidy, from the matrix that is already built.
     //
     // The rate has to be rescaled. It is the local read rate per *haplotype*, so a matrix built at
-    // ploidy 1 carries twice the rate a diploid genotype should be judged against, and skipping this
-    // would leave lambda wrong by exactly the ploidy ratio.
-    if (measure_alt_ploidy && ploidy == 1 && traversals.size() > 1) {
-        matrix.scale_depth_rate(0.5);
-        vector<pair<vector<int>, double>> diploid = matrix.score_genotypes(2);
-        matrix.scale_depth_rate(2.0);   // restore: the matrix is used again below
-        double best = -numeric_limits<double>::infinity();
-        for (const auto& g : diploid) {
-            if (g.second > best) {
-                best = g.second;
-                call_info->alt_ploidy_best = g.first;
-            }
+    // one ploidy carries the wrong rate for a genotype of the other, and skipping this would leave
+    // lambda wrong by exactly the ploidy ratio.
+    if (measure_alt_ploidy && traversals.size() > 1) {
+        int other = ploidy == 1 ? 2 : 1;
+        matrix.scale_depth_rate((double)ploidy / (double)other);
+        auto alt = make_unique<ReadLikelihoodCallInfo>();
+        // The ploidy-independent half, copied rather than recomputed: allele support and the row
+        // divisor are properties of the matrix, not of the genotype enumeration over it.
+        alt->n_reads = call_info->n_reads;
+        alt->n_informative = call_info->n_informative;
+        alt->n_unplaceable = call_info->n_unplaceable;
+        alt->scored_traversals = call_info->scored_traversals;
+        alt->allele_support = call_info->allele_support;
+        alt->ploidy = other;
+        vector<int> alt_best = derive(other, alt.get());
+        matrix.scale_depth_rate((double)other / (double)ploidy);   // restore
+        if (!alt_best.empty()) {
+            call_info->alt_ploidy_best = alt_best;
+            call_info->alt_ploidy_info = std::move(alt);
         }
     }
 
-    double second_best_ll = -numeric_limits<double>::infinity();
-    double total_ll = -numeric_limits<double>::infinity();
-
-    // Break exact ties in favour of the all-reference genotype.
-    //
-    // Reads can be present yet completely uninformative between alleles -- every
-    // row flat, so every genotype scores identically. The likelihood genuinely has
-    // no preference there, so something outside it has to choose, and taking
-    // whichever traversal happens to sit at index 0 would emit a confident-looking
-    // non-reference call on no evidence at all. Note traversals[0] is *not*
-    // necessarily the reference; ref_trav_idx says which one is.
-    //
-    // This is a tie-break convention rather than a prior: it fires only on exact
-    // equality, so it cannot move a site where the reads say anything at all.
-    size_t best_index = 0;
-    if (ref_trav_idx >= 0 && (size_t)ref_trav_idx < traversals.size()) {
-        vector<int> ref_genotype(ploidy, ref_trav_idx);
-        for (size_t i = 0; i < scored.size(); ++i) {
-            if (scored[i].first == ref_genotype) {
-                best_index = i;
-                break;
-            }
-        }
-    }
-    double best_ll = scored[best_index].second;
-
-    // The runner-up's identity, not just its score: achievable_gap needs to know which
-    // genotype the gap is against, since what a site could have achieved depends on how
-    // the two genotypes differ -- one strand or both.
-    size_t second_best_index = scored.size();
-
-    for (size_t i = 0; i < scored.size(); ++i) {
-        double ll = scored[i].second;
-        call_info->genotype_lls[scored[i].first] = ll;
-
-        if (i != best_index) {
-            if (ll > best_ll) {
-                second_best_ll = best_ll;
-                second_best_index = best_index;
-                best_ll = ll;
-                best_index = i;
-            } else if (ll > second_best_ll) {
-                second_best_ll = ll;
-                second_best_index = i;
-            }
-        }
-
-        total_ll = (i == 0) ? ll : add_log(total_ll, ll);
-    }
-
-    // GQ is the phred-scaled gap between the best and second best genotype,
-    // matching the existing callers' convention.
-    call_info->gq = 0;
-    if (std::isfinite(best_ll) && std::isfinite(second_best_ll)) {
-        call_info->gq = logprob_to_phred(second_best_ll) - logprob_to_phred(best_ll);
-    }
-    call_info->gq_undiscounted = call_info->gq;
-
-    // The same gap as a fraction of what this site could have produced, which is what
-    // makes it comparable across depth and ploidy. Computed here, from the raw
-    // log-likelihoods, deliberately: GQ is clamped to 256 on the way into the VCF, and
-    // that clamp censors 23% of haploid calls at full depth, so a consumer cannot
-    // reconstruct this from the emitted fields.
-    //
-    // Both sides use natural-log likelihoods, so no phred conversion is needed -- the
-    // ratio is scale-free and taking it in phred would give the same number by a longer
-    // route. The explained-share discount is applied below, once it is known.
-    double achievable_gap = 0.0;
-    if (second_best_index < scored.size() && std::isfinite(best_ll)
-        && std::isfinite(second_best_ll)) {
-        achievable_gap = matrix.achievable_gap(scored[best_index].first,
-                                               scored[second_best_index].first);
-        if (achievable_gap > 0.0) {
-            call_info->gq_fraction =
-                min(1.0, max(0.0, (best_ll - second_best_ll) / achievable_gap));
-        }
-    }
-
-    // How much of the pile-up the called genotype accounts for. Reads whose best-fitting
-    // allele lies outside the call are counted in *every* genotype's likelihood and so
-    // cancel out of the best-versus-second-best comparison; GQ cannot see them. See
-    // set_share_discount for why this is worth correcting and what it costs.
-    //
-    // Computed from the fractional allele_support rather than the rounded AD, and over
-    // the distinct called alleles, so a homozygote does not count its allele twice.
-    {
-        const vector<int>& called = scored[best_index].first;
-        double explained = 0.0;
-        set<int> seen;
-        for (int a : called) {
-            if (a >= 0 && (size_t)a < call_info->allele_support.size() && seen.insert(a).second) {
-                explained += call_info->allele_support[a];
-            }
-        }
-        size_t n = matrix.num_reads();
-        // Clamped rather than trusted: ties split fractionally and floating-point
-        // accumulation can land a hair above the read count, and a share above 1 would
-        // *raise* GQ, which this is never allowed to do.
-        call_info->explained_share = n ? min(1.0, explained / (double)n) : 1.0;
-
-        // GQN carries the same discount as GQ, and is not merely the raw ratio. The
-        // likelihood gap cannot see reads that fit an allele outside the call, because
-        // those enter every genotype's likelihood and cancel; normalising a quantity
-        // that is blind to them leaves it blind. Measured over the titration the
-        // discount is worth most of the remaining calibration: 0.316 without it against
-        // 0.260 with, where raw GQ scores 0.347. Applied whatever --no-share-quality
-        // says, since that flag is about what GQ reports and GQN is a different field
-        // whose whole purpose is to be comparable.
-        if (call_info->gq_fraction >= 0.0) {
-            call_info->gq_fraction *= call_info->explained_share;
-        }
-
-        if (share_discount) {
-            call_info->gq *= call_info->explained_share;
-        }
-
-        call_info->depth_ratio = matrix.depth_ratio(called);
-
-        // The depth-implausibility discount, gated on called-allele size. See
-        // set_depth_quality for why it is gated and why it is not on by default.
-        //
-        // Size is measured as the largest length change against the reference
-        // traversal, using the same interior lengths lambda uses -- so it is the change
-        // in sequence a read could actually be recruited by, and it needs no reference
-        // to the VCF alleles, which do not exist yet at this point.
-        if (depth_quality > 0.0 && call_info->depth_ratio > 0.0 && ref_trav_idx >= 0) {
-            size_t ref_len = matrix.traversal_length((size_t)ref_trav_idx);
-            size_t change = 0;
-            for (int a : called) {
-                if (a < 0) {
-                    continue;
-                }
-                size_t len = matrix.traversal_length((size_t)a);
-                change = max(change, len > ref_len ? len - ref_len : ref_len - len);
-            }
-            if (change >= depth_quality_min_length) {
-                call_info->gq *= exp(-depth_quality * fabs(log(call_info->depth_ratio)));
-            }
-        }
-    }
-
-    // Posterior under a uniform prior. Deliberately NOT the Poisson caller's
-    // formula, which subtracts ln(number of candidates): under a uniform prior
-    // that term cancels analytically and does not belong. It is nearly harmless
-    // at a fixed candidate count, but this caller enumerates exhaustively, so
-    // the count varies with the number of alleles and the term would make the
-    // reported posterior vary with it too.
-    call_info->posterior = std::isfinite(total_ll) ? best_ll - total_ll : 0.0;
-
-    return make_pair(scored[best_index].first, std::move(call_info_owner));
+    return make_pair(best_genotype, std::move(call_info_owner));
 }
 
 void ReadLikelihoodSnarlCaller::update_vcf_info(const Snarl& snarl,
