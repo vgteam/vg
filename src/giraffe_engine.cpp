@@ -145,6 +145,36 @@ void apply_blat_preset(MinimizerMapper& m) {
     m.max_chains_per_tree = 20;
 }
 
+/// Count matches / substitutions / indels from a surjected alignment's edits.
+/// vg edit semantics: from_length == to_length with an empty sequence is a run
+/// of matches; equal lengths WITH a sequence is a substitution; to_length only
+/// is an insertion in the read; from_length only is a deletion from the read.
+/// The SAM CIGAR collapses the first two into 'M', so this is the only place
+/// identity can be measured.
+void count_edits(const Alignment& aln, uint64_t& matches, uint64_t& mismatches,
+                 uint64_t& inserted, uint64_t& deleted) {
+    matches = mismatches = inserted = deleted = 0;
+    for (const auto& mapping : aln.path().mapping()) {
+        for (const auto& edit : mapping.edit()) {
+            if (edit.from_length() == edit.to_length()) {
+                if (edit.sequence().empty()) matches += edit.from_length();
+                else                         mismatches += edit.from_length();
+            } else if (edit.from_length() == 0) {
+                inserted += edit.to_length();
+            } else if (edit.to_length() == 0) {
+                deleted += edit.from_length();
+            } else {
+                // Mixed-length edit: the shared prefix is substituted, the
+                // remainder is an indel.
+                const uint64_t common = std::min(edit.from_length(), edit.to_length());
+                mismatches += common;
+                if (edit.to_length() > common) inserted += edit.to_length() - common;
+                else                           deleted  += edit.from_length() - common;
+            }
+        }
+    }
+}
+
 /// Convert a SAM-style cigar vector into a string like "55M". Returns "*"
 /// for the empty CIGAR so the tag is unambiguous in framed output.
 string cigar_to_string(const vector<pair<int, char>>& cigar) {
@@ -258,6 +288,8 @@ HaplotypeSurjectionResult HaplotypeSurjector::surject(
     auto cigar_ops = cigar_against_path(chosen, result.path_reverse, pos_adj,
                                         path_len, /*softclip_suppress=*/0);
     result.cigar = cigar_to_string(cigar_ops);
+    count_edits(chosen, result.matches, result.mismatches,
+                result.inserted, result.deleted);
 
     return result;
 }
@@ -384,7 +416,11 @@ void append_surjection_tags(stringstream& ss, const HaplotypeSurjectionResult& r
        << "\tsr:i:" << (r.path_reverse ? 1 : 0)
        << "\tss:i:" << r.score
        << "\tsm:i:" << r.mapping_quality
-       << "\tsc:Z:" << (r.cigar.empty() ? string("*") : r.cigar);
+       << "\tsc:Z:" << (r.cigar.empty() ? string("*") : r.cigar)
+       << "\tsM:i:" << r.matches
+       << "\tsX:i:" << r.mismatches
+       << "\tsI:i:" << r.inserted
+       << "\tsD:i:" << r.deleted;
 }
 
 } // namespace
@@ -869,6 +905,8 @@ std::vector<std::string> GiraffeEngine::surject_with_anchors(
     auto cigar_ops = cigar_against_path(chosen, surj_result.path_reverse, pos_adj,
                                         plen, /*softclip_suppress=*/0);
     surj_result.cigar = cigar_to_string(cigar_ops);
+    count_edits(chosen, surj_result.matches, surj_result.mismatches,
+                surj_result.inserted, surj_result.deleted);
 
     // 7. Append surjection tags to the original GAF line and return one line.
     //    Matches the schema map_reads + HaplotypeSurjector::surject emits so
@@ -882,6 +920,10 @@ std::vector<std::string> GiraffeEngine::surject_with_anchors(
        << "\tss:i:" << surj_result.score
        << "\tsm:i:" << surj_result.mapping_quality
        << "\tsc:Z:" << (surj_result.cigar.empty() ? string("*") : surj_result.cigar)
+       << "\tsM:i:" << surj_result.matches
+       << "\tsX:i:" << surj_result.mismatches
+       << "\tsI:i:" << surj_result.inserted
+       << "\tsD:i:" << surj_result.deleted
        << "\tan:i:" << anchors.size()
        << "\tap:Z:" << resolved_target;
     report_timing("ok");

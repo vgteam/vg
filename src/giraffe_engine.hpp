@@ -59,6 +59,16 @@ struct HaplotypeSurjectionResult {
     int32_t mapping_quality = 0;
     /// SAM-style CIGAR for the surjected alignment.
     std::string cigar;
+
+    /// Exact edit breakdown of the surjected alignment, counted from the
+    /// alignment's edits rather than the CIGAR: a SAM CIGAR writes both matches
+    /// and substitutions as 'M', so identity cannot be recovered from `cigar`
+    /// alone. `matches` + `mismatches` is the aligned (M) length, which is what
+    /// a PSL needs for its matches / misMatches columns.
+    uint64_t matches = 0;
+    uint64_t mismatches = 0;
+    uint64_t inserted = 0;    ///< bases in the read absent from the target
+    uint64_t deleted = 0;     ///< bases in the target absent from the read
 };
 
 /// Convert a status enum value into a short stable token suitable for
