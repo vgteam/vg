@@ -63,6 +63,11 @@ public:
     /// Snarls are processed in parallel
     virtual void call_top_level_snarls(const HandleGraph& graph, RecurseType recurse_type = RecurseOnFail);
 
+    /// Report what symbolic descent did: the depth histogram, and how many children it skipped and
+    /// why. Stage 0 instrumentation for post-linkage nested descent; see the counters in
+    /// graph_caller.cpp. Inert in a run with no symbolic descent.
+    void report_descent_instrumentation() const;
+
     /// For every chain, cut it up into pieces using max_edges and max_trivial to cap the size of each piece
     /// then make a fake snarl for each chain piece and call it.  If a fake snarl fails to call,
     /// It's child chains will be recursed on (if selected)_

@@ -1,3 +1,4 @@
+#include <atomic>
 #include <chrono>
 
 #include <omp.h>
@@ -13,6 +14,44 @@
 //#define debug
 
 namespace vg {
+
+/// Stage 0 instrumentation for post-linkage nested descent (eval task #52). Two things the current
+/// design cannot answer about itself:
+///
+/// - How deep symbolic descent actually goes. A design that resolves linkage between levels needs
+///   one barrier per level, and the level count has only ever been assumed.
+/// - How many children descent skips because the *pre-linkage* parent genotype crosses them zero
+///   times. Those are dropped at `copies <= 0` and never reconsidered, so a parent linkage moves
+///   onto an allele that does cross the chain leaves a call nobody makes. The post-linkage half of
+///   that count is in `LinkageCollector::resolve`, which is where the final genotype lives.
+///
+/// Namespace-scope, so they are zero-initialised before any dynamic initialisation and no
+/// constructor has to know about them. Reported under --progress and otherwise inert.
+static std::atomic<size_t> g_descent_depth_hist[16];
+static std::atomic<size_t> g_descent_skipped_no_ref(0);
+static std::atomic<size_t> g_descent_skipped_no_copy(0);
+static thread_local int g_descent_depth = 0;
+
+void GraphCaller::report_descent_instrumentation() const {
+    size_t total = 0;
+    for (int d = 0; d < 16; ++d) {
+        total += g_descent_depth_hist[d].load();
+    }
+    if (total == 0) {
+        return;   // no symbolic descent in this run
+    }
+    cerr << "[vg call] descent depth:";
+    for (int d = 1; d < 16; ++d) {
+        size_t n = g_descent_depth_hist[d].load();
+        if (n > 0) {
+            cerr << " " << d << "=" << n;
+        }
+    }
+    cerr << " (" << total << " child calls)" << endl;
+    cerr << "[vg call] descent skipped: " << g_descent_skipped_no_copy.load()
+         << " children no called allele reaches, " << g_descent_skipped_no_ref.load()
+         << " with no reference path through them" << endl;
+}
 
 GraphCaller::GraphCaller(SnarlCaller& snarl_caller,
                          SnarlManager& snarl_manager) :
@@ -151,6 +190,9 @@ void GraphCaller::call_top_level_snarls(const HandleGraph& graph, RecurseType re
         }
     }
     if (show_progress && nested_snarl_count > 0) cerr << "[vg call]: Finished processing " << nested_snarl_count << " nested snarls" << endl;
+    if (show_progress) {
+        report_descent_instrumentation();
+    }
   
 }
 
@@ -4033,11 +4075,22 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
                 if (ref_trav_idx >= 0 && ref_trav_idx < (int)travs.size()) {
                     vector<int> ref_only(1, ref_trav_idx);
                     if (child_ploidy(travs, ref_only, *child, 1) == 0) {
+                        ++g_descent_skipped_no_ref;
                         continue;
                     }
                 }
                 int copies = child_ploidy(travs, trav_genotype, *child, ploidy);
                 if (copies <= 0) {
+                    // A child the *pre-linkage* genotype does not reach is dropped here and never
+                    // looked at again, so nothing has counted how many of them the parent's final
+                    // genotype does reach. Hand the crossing mask to the linkage pass, which is the
+                    // only place that knows the final genotype, and let it answer.
+                    ++g_descent_skipped_no_copy;
+                    if (linkage_collector != nullptr && parent_alleles.valid) {
+                        linkage_collector->record_skipped_child(
+                            std::hash<string>{}(print_snarl(snarl, false)),
+                            child_crossing_mask(travs, parent_alleles.trav_to_allele, *child));
+                    }
                     continue;   // no called allele reaches it: a star allele, and nothing to call
                 }
                 // A haploid child hangs off exactly one parent slot, and which one decides the
@@ -4072,9 +4125,14 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
                     parent_alleles.valid
                     ? child_crossing_mask(travs, parent_alleles.trav_to_allele, *child)
                     : 0;
+                ++g_descent_depth;
+                if (g_descent_depth < 16) {
+                    ++g_descent_depth_hist[g_descent_depth];
+                }
                 call_snarl_internal(*child, ref_path_name,
                                     make_pair(get<0>(ref_interval), get<1>(ref_interval)),
                                     nullptr, copies);
+                --g_descent_depth;
                 nested_context = saved;
             }
         }

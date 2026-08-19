@@ -1120,6 +1120,11 @@ size_t LinkageCollector::bytes() const {
            + hap_arena.size() * sizeof(int8_t);
 }
 
+void LinkageCollector::record_skipped_child(size_t parent_record_key, uint64_t parent_crossing) {
+    std::lock_guard<std::mutex> guard(mutex);
+    skipped_children.emplace_back(parent_record_key, parent_crossing);
+}
+
 vector<LinkageCollector::Change> LinkageCollector::resolve(vector<PhaseCall>* phasing_out,
                                                            vector<NestedIncoherence>* incoherent_out) const {
     // Nested sites, collected across every contig and phased after the diploid chains, so their
@@ -1756,6 +1761,64 @@ vector<LinkageCollector::Change> LinkageCollector::resolve(vector<PhaseCall>* ph
                       << " on neither (" << parent_moved
                       << " hang off a parent linkage did move, " << parent_moved_still_two
                       << " of those still crossing twice)" << std::endl;
+        }
+
+        // Stage 0 instrumentation: the children descent never called, scored against the parent
+        // genotype linkage settled on.
+        //
+        // These are the mirror of the coherence flags above and the one class no counter has ever
+        // covered. A flagged child is a call at the wrong ploidy; one of these is no call at all, so
+        // it cannot be flagged, cannot be filtered, and does not appear in any total. If the
+        // `gained` count below is large then reordering descent after linkage is a recall change
+        // rather than a coherence tidy-up.
+        if (!skipped_children.empty()) {
+            size_t unknown = 0, parent_absent = 0, still_none = 0, gained_one = 0, gained_two = 0;
+            size_t gained_moved = 0;
+            for (const auto& skipped : skipped_children) {
+                if (skipped.second == 0) {
+                    ++unknown;   // descent could not express the mask: more than 64 parent alleles
+                    continue;
+                }
+                auto found = parent_of.find(skipped.first);
+                if (found == parent_of.end()) {
+                    // No phased record for the parent, so linkage never touched its genotype and the
+                    // skip stands. Counted rather than ignored: it is most of the population, and a
+                    // silent drop here would make `gained` look like a rate on the wrong denominator.
+                    ++parent_absent;
+                    continue;
+                }
+                const PhaseCall& parent = *found->second;
+                int crossings = 0;
+                if (parent.allele_first < 64 && ((skipped.second >> parent.allele_first) & 1)) {
+                    ++crossings;
+                }
+                if (parent.ploidy == 2 && parent.allele_second < 64
+                    && ((skipped.second >> parent.allele_second) & 1)) {
+                    ++crossings;
+                }
+                if (crossings == 0) {
+                    ++still_none;
+                } else if (crossings == 1) {
+                    ++gained_one;
+                } else {
+                    ++gained_two;
+                }
+                if (crossings > 0 && moved_parents.count(skipped.first) > 0) {
+                    // The only unambiguous class. Two distinct traversals can flatten to the same
+                    // VCF allele, so a set mask bit does not prove the called traversal crossed --
+                    // but a parent whose genotype linkage rewrote is a real change of allele.
+                    ++gained_moved;
+                }
+            }
+#pragma omp critical (cerr)
+            std::cerr << "[vg call] nested: " << skipped_children.size()
+                      << " child descents skipped for want of a crossing allele; " << parent_absent
+                      << " hang off a parent linkage could not move, " << unknown
+                      << " could not be checked, " << still_none
+                      << " are still uncrossed, and " << (gained_one + gained_two)
+                      << " are crossed by the final parent genotype (" << gained_one
+                      << " once, " << gained_two << " twice, " << gained_moved
+                      << " with a parent linkage actually rewrote)" << std::endl;
         }
     }
 
