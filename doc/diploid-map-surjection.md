@@ -55,7 +55,7 @@ overlapping paths of the requested assembly. Non-supplementary candidates are
 then scored together, one overall primary is selected, and the other
 candidates are marked secondary.
 
-For single reads, the surjection MAPQ is calculated from the competing
+For single reads, the surjection MAPQ (Global Quality) is calculated from the competing
 surjection scores and capped by the MAPQ of the input primary graph alignment.
 For paired reads, the same selection is performed over compatible pairs, as
 described below.
@@ -72,19 +72,6 @@ The output adds these tags:
 Supplementary segments do not compete to become the overall primary.
 Disjoint query intervals may still be emitted as supplementary records when
 supplementary output is enabled.
-
-### Target-path selection and `-F`
-
-Do not pass a reference-only path list with `-F` when the intention is to
-surject onto the named sample's haplotypes. `-F` supplies an explicit target
-path set and can prevent the haplotype paths selected by `--diploid-map` from
-being used.
-
-The diploid acceptance-test candidate therefore sets
-`USE_PATH_LIST_FOR_SURJECTION=false`. The workflow still uses its CHM13 path
-list and `CHM13#0#` prefix for reference preparation and downstream BAM
-normalization, but it does not put `-F` on the candidate `vg surject` command.
-The baseline remains unchanged and continues to use `-F`.
 
 ## Paired-end fragment-length learning
 
@@ -135,30 +122,7 @@ selection and fragment-distribution learning.
 
 ## Simulated-read experiments
 
-The calibration experiments used the KOLF2.1J diploid graph
-`kolf2.1j-dg-sample.gbz`. Correctness was evaluated by reinjecting the
-surjected primary BAM alignments into the KOLF truth graph, annotating graph
-positions, and running:
-
-```sh
-vg gamcompare -T -r 50 evaluated.gam truth.gam > calibration.tsv
-```
-
-Thus, a mapping is counted as correct when it is within 50 bp of the simulated
-truth position. Before comparison, `samtools view -F 0x900` retains primary
-records only; it removes secondary (`0x100`) and supplementary (`0x800`)
-records. This filtering is part of the calibration evaluation, not part of
-`--diploid-map` itself.
-
-The plots group one million eligible records into integer-MAPQ bins. For each
-bin, the x-axis is the mean error probability predicted by MAPQ and the y-axis
-is the observed incorrect-mapping fraction. Vertical bars are 90% likelihood-
-ratio binomial confidence intervals, point size represents reads per bin, and
-the dashed diagonal is perfect calibration. A point above the diagonal is
-overconfident; a point below it is conservative. A value of `1e-7` is added to
-both errors for plotting on logarithmic axes, so bins with zero observed errors
-appear at the lower plotting floor.
-
+The calibration experiments used the KOLF2.1J diploid graph containing the KOLF2.1J haplotypes and CHM13. The HiFi reads were simulated using pbsim2 and Illumina paired-end reads were simulated using ```vg sim```.
 ### Simulated HiFi reads
 
 One million KOLF2.1J HiFi reads were mapped to the diploid graph with the HiFi
