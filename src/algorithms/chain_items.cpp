@@ -908,6 +908,9 @@ vector<SubchainGroup> split_up_subchains(const VectorView<Anchor>& to_chain,
     for (const auto& edge : connections) {
         if ((outgoing_edges[edge.start_anchor].size() + incoming_edges[edge.start_anchor].size()) > 0
             && (outgoing_edges[edge.end_anchor].size() + incoming_edges[edge.end_anchor].size()) > 0) {
+#ifdef debug_chaining
+            cerr << "Aware of extra edge " << edge.start_anchor << " --> " << edge.end_anchor << " score diff " << edge.score_diff << endl;
+#endif
             // Both sides of this edge are used, so it must connect two different subchains
             // We might want to use this
             extra_edges.emplace(edge);
@@ -925,7 +928,7 @@ vector<SubchainGroup> split_up_subchains(const VectorView<Anchor>& to_chain,
         return groups;
     }
 
-    for (size_t i = 0; i < max_alts && !extra_edges.empty(); i++) {
+    for (size_t i = 0; !extra_edges.empty() && (i < max_alts || extra_edges.top().score_diff == 0); i++) {
         // Use this extra edge
         AltEdge edge = extra_edges.top();
         outgoing_edges[edge.start_anchor].emplace(edge.end_anchor);
