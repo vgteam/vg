@@ -614,6 +614,33 @@ void LinkageModel::window_phasing(const vector<Site>& sites, size_t from, size_t
         }
     }
 
+    // Per-site pins, for sites an earlier generation already settled. Same operation as the seam
+    // pin below -- zero every state but one -- applied wherever the site asks for it. A settled
+    // site's phase is already in the VCF, so letting the path re-orient it here would decode this
+    // generation's sites in a frame nothing else uses.
+    for (size_t t = 0; t < n; ++t) {
+        const Site& site = sites[from + t];
+        if (!site.pinned) {
+            continue;
+        }
+        size_t pa = site.pin_first == WILDCARD ? n_hap : min(site.pin_first, n_hap);
+        size_t pb = site.pin_second == WILDCARD ? n_hap : min(site.pin_second, n_hap);
+        if (emissions[t][pa * m + pb] <= 0.0) {
+            // The pinned pair cannot spell this site's constrained genotype, so pinning it would
+            // leave the site with no reachable state and the chain with no path. Leave it merely
+            // constrained. Not expected -- the pin comes from a path that was constrained to the
+            // same genotype -- but a silent dead chain is a bad way to find out otherwise.
+            continue;
+        }
+        for (size_t a = 0; a < m; ++a) {
+            for (size_t b = 0; b < m; ++b) {
+                if (a != pa || b != pb) {
+                    emissions[t][a * m + b] = 0.0;
+                }
+            }
+        }
+    }
+
     // Pin: everything except the pinned state becomes unreachable at that index.
     if (pin_index != (size_t)-1 && pin_index >= from && pin_index < to) {
         size_t t = pin_index - from;
@@ -1061,7 +1088,7 @@ void LinkageCollector::record(const string& contig, size_t position, size_t num_
                               double explained_share, size_t ploidy,
                               int64_t start_node, int64_t end_node,
                               bool nested, size_t parent_record_key, size_t parent_slot,
-                              uint64_t parent_crossing) {
+                              uint64_t parent_crossing, size_t generation) {
     if (num_alleles == 0 || genotype_ln_likelihood.empty()) {
         return;
     }
@@ -1096,6 +1123,7 @@ void LinkageCollector::record(const string& contig, size_t position, size_t num_
     e.parent_record_key = parent_record_key;
     e.parent_crossing = parent_crossing;
     e.parent_slot = (uint8_t)parent_slot;
+    e.generation = (uint8_t)(generation > 255 ? 255 : generation);
 
     e.gl_offset = (uint32_t)gl_arena.size();
     for (double v : genotype_ln_likelihood) {
@@ -1114,6 +1142,22 @@ void LinkageCollector::record(const string& contig, size_t position, size_t num_
     entries.push_back(e);
 }
 
+size_t LinkageCollector::num_sites_at(size_t generation) const {
+    size_t n = 0;
+    for (const Entry& e : entries) {
+        n += (e.generation == generation);
+    }
+    return n;
+}
+
+size_t LinkageCollector::max_generation() const {
+    size_t g = 0;
+    for (const Entry& e : entries) {
+        g = max(g, (size_t)e.generation);
+    }
+    return g;
+}
+
 size_t LinkageCollector::bytes() const {
     return entries.size() * sizeof(Entry)
            + gl_arena.size() * sizeof(float)
@@ -1125,8 +1169,9 @@ void LinkageCollector::record_skipped_child(size_t parent_record_key, uint64_t p
     skipped_children.emplace_back(parent_record_key, parent_crossing);
 }
 
-vector<LinkageCollector::Change> LinkageCollector::resolve(vector<PhaseCall>* phasing_out,
-                                                           vector<NestedIncoherence>* incoherent_out) const {
+vector<LinkageCollector::Change> LinkageCollector::resolve_generation(
+        size_t generation, bool last, vector<PhaseCall>* phasing_out,
+        vector<NestedIncoherence>* incoherent_out) {
     // Nested sites, collected across every contig and phased after the diploid chains, so their
     // strand can be read off the parent they hang off rather than guessed.
     vector<size_t> deferred_nested;
@@ -1135,12 +1180,37 @@ vector<LinkageCollector::Change> LinkageCollector::resolve(vector<PhaseCall>* ph
         return changes;
     }
 
+    // The phase an earlier generation settled on, by record key, so a clamped site can be pinned to
+    // the pair the VCF already carries. Read before the chain loop appends this generation's own.
+    struct PinnedPhase { size_t first; size_t second; };
+    unordered_map<size_t, PinnedPhase> pinned_phase;
+    if (phasing_out != nullptr && generation > 0) {
+        pinned_phase.reserve(phasing_out->size() * 2);
+        for (const PhaseCall& pc : *phasing_out) {
+            pinned_phase[pc.record_key] = PinnedPhase{pc.hap_first, pc.hap_second};
+        }
+    }
+
+    // Default every site this pass considers to its own per-site call, so that whatever a chain or a
+    // sweep fails to reach still has a coherent genotype for a later generation to clamp. Overwritten
+    // below wherever something is actually settled.
+    for (Entry& e : entries) {
+        if (e.generation != generation) {
+            continue;
+        }
+        e.final_i = e.called_i;
+        e.final_j = e.ploidy == 1 ? e.called_i : e.called_j;
+    }
+
     // Group by contig, then sort by reference position. Node-ID order is close to reference order
     // in a reference-first graph but is not guaranteed to be it, and the transition probabilities
     // are computed from the gaps -- so trusting the arrival order would silently feed the model
     // the wrong distances.
     vector<vector<size_t>> by_contig(contig_names.size());
     for (size_t i = 0; i < entries.size(); ++i) {
+        if (entries[i].generation > generation) {
+            continue;   // not called yet: this generation's descent has not reached it
+        }
         by_contig[entries[i].contig].push_back(i);
     }
 
@@ -1184,7 +1254,13 @@ vector<LinkageCollector::Change> LinkageCollector::resolve(vector<PhaseCall>* ph
         chainable.reserve(contig_indices.size());
         for (size_t idx : contig_indices) {
             if (entries[idx].nested) {
-                nested_here.push_back(idx);
+                // Only this generation's. An earlier generation's nested site is already placed on a
+                // strand and already resolved in its own per-strand chain, and it is held out of the
+                // diploid runs by construction -- so there is nothing for it to contribute here, and
+                // re-placing it would rewrite a PhaseCall the VCF has already been told about.
+                if (entries[idx].generation == generation) {
+                    nested_here.push_back(idx);
+                }
             } else {
                 chainable.push_back(idx);
             }
@@ -1238,6 +1314,26 @@ vector<LinkageCollector::Change> LinkageCollector::resolve(vector<PhaseCall>* ph
             for (size_t h = 0; h < n_haplotypes; ++h) {
                 s.haplotype_allele.push_back((int)hap_arena[e.hap_offset + h]);
             }
+            if (e.generation < generation) {
+                // Clamped. A delta emission at the settled genotype, so the site still carries
+                // transition context for its neighbours -- which is why it is in the chain at all --
+                // while being unable to move. build_emission maps a non-finite entry to zero mass,
+                // so this needs nothing from the model.
+                size_t settled = e.ploidy == 1
+                                     ? (size_t)e.final_i
+                                     : LinkageModel::genotype_index(e.final_i, e.final_j);
+                for (size_t g = 0; g < s.genotype_ln_likelihood.size(); ++g) {
+                    s.genotype_ln_likelihood[g] = (g == settled)
+                                                      ? 0.0
+                                                      : -numeric_limits<double>::infinity();
+                }
+                auto pin = pinned_phase.find(e.record_key);
+                if (pin != pinned_phase.end()) {
+                    s.pinned = true;
+                    s.pin_first = pin->second.first;
+                    s.pin_second = pin->second.second;
+                }
+            }
             sites.push_back(std::move(s));
         }
 
@@ -1254,6 +1350,15 @@ vector<LinkageCollector::Change> LinkageCollector::resolve(vector<PhaseCall>* ph
             const vector<double>& post = posteriors[t];
             size_t before = e.ploidy == 1 ? (size_t)e.called_i
                                           : LinkageModel::genotype_index(e.called_i, e.called_j);
+            if (e.generation < generation) {
+                // Clamped: it was settled, reported and emitted at its own generation. Its genotype
+                // still has to reach `final_genotype`, because that is what the phasing below is
+                // constrained to, but it must not produce a second Change.
+                final_genotype[t] = e.ploidy == 1
+                                        ? (size_t)e.final_i
+                                        : LinkageModel::genotype_index(e.final_i, e.final_j);
+                continue;
+            }
             if (post.empty()) {
                 final_genotype[t] = before;
                 continue;
@@ -1265,9 +1370,6 @@ vector<LinkageCollector::Change> LinkageCollector::resolve(vector<PhaseCall>* ph
                 }
             }
             final_genotype[t] = best;
-            if (best == before) {
-                continue;
-            }
             // Decode the genotype index back to its allele pair. At ploidy 1 the index *is* the
             // allele, and both slots carry it so the change applies through the same path.
             size_t i = best, j = best;
@@ -1278,6 +1380,13 @@ vector<LinkageCollector::Change> LinkageCollector::resolve(vector<PhaseCall>* ph
                 }
                 --j;
                 i = best - (j * (j + 1) / 2);
+            }
+            // Settled. A later generation clamps the site here instead of reconsidering it, which is
+            // what makes a parent's genotype final before any of its children is called.
+            entries[indices[t]].final_i = (uint16_t)i;
+            entries[indices[t]].final_j = (uint16_t)j;
+            if (best == before) {
+                continue;
             }
             Change c;
             c.record_key = e.record_key;
@@ -1315,6 +1424,9 @@ vector<LinkageCollector::Change> LinkageCollector::resolve(vector<PhaseCall>* ph
         size_t phase_set = sites.empty() ? 0 : sites.front().position;
         for (size_t t = 0; t < indices.size() && t < phase.size(); ++t) {
             const Entry& e = entries[indices[t]];
+            if (e.generation < generation) {
+                continue;   // its PhaseCall was emitted, and pinned above, at its own generation
+            }
             const LinkageModel::Phase& ph = phase[t];
             // Read the ordered allele pair off the haplotypes the path chose. Where a strand is
             // on the wildcard the panel does not name its allele, so fall back to the genotype's
@@ -1649,6 +1761,8 @@ vector<LinkageCollector::Change> LinkageCollector::resolve(vector<PhaseCall>* ph
                 c.explained_share = (double)e.explained_share;
                 changes.push_back(c);
                 nested_regenotyped[e.record_key] = best;
+                entries[idxs[k]].final_i = (uint16_t)best;
+                entries[idxs[k]].final_j = (uint16_t)best;
             }
         }
 
@@ -1698,7 +1812,7 @@ vector<LinkageCollector::Change> LinkageCollector::resolve(vector<PhaseCall>* ph
     // A parent that emitted no record could not have been moved by linkage at all -- it has no entry,
     // so nothing rewrote it -- and its children are coherent by construction rather than unchecked.
     // Symbolic collapsing makes most non-leaf parents emit nothing, so that is the bulk of them.
-    if (phasing_out != nullptr) {
+    if (phasing_out != nullptr && last) {
         unordered_map<size_t, const PhaseCall*> parent_of;
         parent_of.reserve(phasing_out->size() * 2);
         for (const PhaseCall& pc : *phasing_out) {
@@ -1837,7 +1951,7 @@ vector<LinkageCollector::Change> LinkageCollector::resolve(vector<PhaseCall>* ph
     // Sorted here rather than in write_mosaic so every consumer gets one guarantee instead of each
     // having to know. The key matches the chain sort: position, then the site's own key, so two
     // records at one position keep an order that is a property of the sites and not of the threads.
-    if (phasing_out != nullptr) {
+    if (phasing_out != nullptr && last) {
         std::sort(phasing_out->begin(), phasing_out->end(),
                   [](const PhaseCall& a, const PhaseCall& b) {
                       if (a.contig != b.contig) {

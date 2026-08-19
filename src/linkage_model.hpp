@@ -185,6 +185,19 @@ public:
         /// this site. Absence is not the reference allele: a haplotype whose path ends here
         /// carries no allele, and treating that as reference would invent evidence.
         vector<int> haplotype_allele;
+
+        /// Fix this site's haplotype pair in `phasing()` rather than letting the path choose it.
+        ///
+        /// A generation-wise resolve decodes a later generation's phase against earlier
+        /// generations that are already emitted, and an unpinned Viterbi is free to come back with
+        /// a settled site's strands swapped -- which would write the new sites' phase in a frame
+        /// the VCF does not use. This is the same mechanism the window seams already rely on,
+        /// applied to every settled site instead of to one index per seam.
+        ///
+        /// `(size_t)-1` is `WILDCARD`, spelled out because the constant is declared further down.
+        bool pinned = false;
+        size_t pin_first = (size_t)-1;
+        size_t pin_second = (size_t)-1;
     };
 
     LinkageModel(const Params& params) : params(params) {}
@@ -361,7 +374,7 @@ public:
                 double explained_share, size_t ploidy = 2,
                 int64_t start_node = 0, int64_t end_node = 0,
                 bool nested = false, size_t parent_record_key = 0, size_t parent_slot = 0,
-                uint64_t parent_crossing = 0);
+                uint64_t parent_crossing = 0, size_t generation = 0);
 
     /// One site's phasing: which strand carries which allele, and which panel haplotype explains
     /// each strand.
@@ -456,7 +469,40 @@ public:
     /// contradicts. Only filled when `phasing_out` is given, since the parent's phased allele pair
     /// is what the check is made against.
     vector<Change> resolve(vector<PhaseCall>* phasing_out = nullptr,
-                           vector<NestedIncoherence>* incoherent_out = nullptr) const;
+                           vector<NestedIncoherence>* incoherent_out = nullptr) {
+        return resolve_generation(0, true, phasing_out, incoherent_out);
+    }
+
+    /// Resolve one generation of sites, holding every earlier generation fixed.
+    ///
+    /// Sites of a later generation are not considered at all -- they do not exist yet, because the
+    /// caller has not descended into them. Sites of an *earlier* generation are included in the
+    /// chains but **clamped**: their emission becomes a delta at the genotype they were settled
+    /// at, and their phase is pinned to the pair that was emitted for them. They therefore still
+    /// carry transition context for this generation's sites -- which is the whole reason to include
+    /// them, since a generation on its own is far too sparse for a 10 kb decay -- while being unable
+    /// to move. That is what makes a parent's genotype final before its children are called, and it
+    /// is the greedy step in `--nested-after-linkage`.
+    ///
+    /// Each site's `Change` and `PhaseCall` are produced exactly once, at its own generation.
+    /// `phasing_out` accumulates across calls and must be passed back in each time: a nested site's
+    /// strand is read off the parent's `PhaseCall`, and by this generation the parent belongs to an
+    /// earlier one.
+    ///
+    /// `last` gates the reporting, the mosaic-facing sort of `phasing_out`, and the coherence
+    /// counters, so a run of several generations reports once rather than once per generation.
+    ///
+    /// With every entry at generation 0 -- which is every run without `--nested-after-linkage` --
+    /// this is exactly the single pass it replaces, since nothing is ever clamped or held back.
+    vector<Change> resolve_generation(size_t generation, bool last,
+                                      vector<PhaseCall>* phasing_out = nullptr,
+                                      vector<NestedIncoherence>* incoherent_out = nullptr);
+
+    /// How many sites belong to one generation, for reporting a per-generation pass.
+    size_t num_sites_at(size_t generation) const;
+
+    /// The highest generation any recorded site belongs to.
+    size_t max_generation() const;
 
     /// Retained bytes, for reporting. The point of the compact form is that this stays small, so
     /// it is worth being able to say what it actually is rather than trusting the estimate.
@@ -475,6 +521,14 @@ private:
         uint16_t called_i = 0;
         uint16_t called_j = 0;
         uint8_t ploidy = 2;
+        /// Which resolve pass settles this site: 0 for a top-level site and for anything descended
+        /// inline behind a parent linkage cannot move, k for a child deferred behind k barriers.
+        /// Every entry is 0 without --nested-after-linkage, so the default path resolves in one pass.
+        uint8_t generation = 0;
+        /// The genotype this site was settled at, written back when its own generation resolves so
+        /// that later generations can clamp it. Meaningless before that.
+        uint16_t final_i = 0;
+        uint16_t final_j = 0;
         /// True when this site's ploidy came from nested descent rather than from the contig or a
         /// --ploidy-bed region.
         ///

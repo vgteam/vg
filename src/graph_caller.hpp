@@ -292,11 +292,47 @@ protected:
         bool valid = false;
         size_t num_alleles = 0;
         map<int, int> trav_to_allele;
+        /// True when this record reached the linkage layer, so linkage can move its genotype.
+        ///
+        /// The distinction descent needs, and the only one that matters for coherence: a snarl with
+        /// no entry cannot be rewritten, so its children's ploidy is already final and they can be
+        /// descended into immediately. Symbolic collapsing makes most non-leaf parents emit nothing,
+        /// which is 69% of the children called at ploidy 2.
+        bool recorded = false;
     };
     static thread_local EmittedAlleles last_emitted;
 
     /// Snarl hierarchy for symbolic collapsing, or null to compare alleles by sequence alone.
     const SnarlManager* symbolic_manager = nullptr;
+
+    /// Which resolve pass will settle the sites being recorded right now. Zero unless deferred
+    /// nested descent is running, in which case the driver raises it before each pass.
+    size_t current_generation = 0;
+
+    /// Resolve one generation of the linkage pass, accumulating into the three maps below.
+    ///
+    /// `last` gates the reporting, the mosaic, and building `linkage_phasings` -- all of which want
+    /// the whole accumulated call set rather than one generation of it.
+    void resolve_linkage_generation(size_t generation, bool last);
+
+    /// Resolve the linkage pass if nothing has resolved it yet, as a single generation-0 pass.
+    /// Idempotent, so `write_variants` can call it unconditionally and a driver that already ran the
+    /// generations itself is not undone.
+    void resolve_linkage();
+
+    /// Accumulated across generations, consumed by `write_variants` when it patches the buffer.
+    map<pair<string, size_t>, LinkageCollector::Change> linkage_changes;
+    map<pair<string, size_t>, LinkageCollector::PhaseCall> linkage_phasings;
+    /// Keyed by record key rather than position, because these records are nested: several sites can
+    /// share a position and only one of them is the child in question.
+    map<size_t, LinkageCollector::NestedIncoherence::Kind> linkage_nested_filters;
+    /// Every phased site, in the order the model produced them. The mosaic reads this, and deferred
+    /// descent looks a parent's settled allele pair up in it.
+    vector<LinkageCollector::PhaseCall> linkage_phased;
+    bool linkage_resolved = false;
+    /// Totals for the one-line report, summed over however many generations ran.
+    double linkage_seconds = 0.0;
+    size_t linkage_changed = 0;
 
     /// Linkage pass state. Not owned.
     LinkageCollector* linkage_collector = nullptr;
@@ -742,6 +778,28 @@ public:
 
     virtual bool call_snarl(const Snarl& snarl);
 
+    /// Defer symbolic descent until the linkage pass has settled each parent's genotype.
+    ///
+    /// Descent decides a child's ploidy, its strand, and whether it is called at all from its
+    /// parent's genotype. Inline, that genotype is the *pre-linkage* one, and linkage then rewrites
+    /// parents -- so a child can end up at a ploidy its own parent contradicts, and a child the
+    /// settled parent does carry can go uncalled because the pre-linkage parent did not. Deferring
+    /// makes the decision from the settled genotype instead, which removes both by construction.
+    ///
+    /// Greedy: a parent is settled before any of its children exists, so a child's evidence cannot
+    /// move its parent. That is the trade, and it is deliberate.
+    ///
+    /// Needs the linkage layer and phasing, since the settled allele pair comes from the phasing.
+    /// Sizes the per-thread queues, so call it before calling starts.
+    void set_defer_nested_descent(bool defer);
+
+    /// Resolve, descend, repeat until nothing is queued. One linkage pass per level of the snarl
+    /// tree that descent actually reaches -- six on chr20, with 99.6% of the descents in the first
+    /// three. Does nothing unless deferral is on, and leaves the linkage pass resolved either way,
+    /// so `write_variants` needs no knowledge of which mode ran.
+    void run_deferred_descent();
+
+
     virtual string vcf_header(const PathHandleGraph& graph, const vector<string>& contigs,
                               const vector<size_t>& contig_length_overrides = {}) const;
 
@@ -794,6 +852,38 @@ protected:
 
     /// use * alleles for spanning haplotypes that don't traverse nested sites
     bool star_allele = false;
+
+    /// A child snarl whose descent is waiting on its parent's genotype being settled.
+    ///
+    /// Deliberately does not retain the parent's traversals. Everything descent takes from them is
+    /// already in `crossing_mask` -- one bit per parent VCF allele, set where that allele crosses
+    /// this chain -- and against the parent's settled allele pair that gives both the copy number
+    /// and the strand. Holding traversals across a whole-contig barrier would be exactly the blowup
+    /// the linkage layer's compact `Entry` exists to avoid.
+    struct PendingDescent {
+        const Snarl* child = nullptr;
+        string ref_path_name;
+        int64_t ref_start = 0;
+        int64_t ref_end = 0;
+        size_t parent_record_key = 0;
+        uint64_t crossing_mask = 0;
+        int parent_ploidy = 2;
+    };
+
+    bool defer_nested_descent = false;
+
+    /// Queued per thread, drained between passes: the pass that fills this is parallel over
+    /// node-ID windows, so a single vector would need a lock on the hot path.
+    vector<vector<PendingDescent>> pending_descents;
+
+    /// Call every queued child whose settled parent genotype reaches it, at the ploidy that genotype
+    /// implies. Children queued by *these* calls belong to the next generation. Returns how many
+    /// children were called.
+    size_t descend_pending(size_t generation);
+
+    /// How many children are queued across all threads.
+    size_t pending_descent_count() const;
+
 
     /// Internal implementation of call_snarl that accepts parent context for nested mode
     /// When nested=true, this recursively calls children after processing the current snarl

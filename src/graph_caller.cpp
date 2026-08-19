@@ -592,6 +592,109 @@ bool VCFOutputCaller::add_variant(vcflib::Variant& var) const {
     return true;
 }
 
+void VCFOutputCaller::resolve_linkage() {
+    if (!linkage_resolved) {
+        resolve_linkage_generation(0, true);
+    }
+}
+
+void VCFOutputCaller::resolve_linkage_generation(size_t generation, bool last) {
+    linkage_resolved = true;
+    if (linkage_collector == nullptr) {
+        return;
+    }
+    // Reported rather than estimated. The retained-bytes figure in the LinkageCollector
+    // header comment was arithmetic -- sites times a per-site size -- and `bytes()` exists so
+    // that it can be an observation instead; it had never been called. The elapsed time
+    // answers the other question the design asserted without checking: this pass is serial,
+    // between calling and writing, in a caller that is otherwise parallel over snarls.
+    auto start = std::chrono::steady_clock::now();
+    vector<LinkageCollector::NestedIncoherence> incoherent;
+    // `linkage_phased` accumulates across generations rather than being replaced. The model needs
+    // the earlier generations back: a nested site's strand is read off its parent's PhaseCall, and
+    // a clamped site's phase is pinned to the pair already emitted for it.
+    vector<LinkageCollector::Change> resolved =
+        linkage_collector->resolve_generation(generation, last,
+                                              emit_phasing ? &linkage_phased : nullptr,
+                                              emit_phasing ? &incoherent : nullptr);
+    double seconds = std::chrono::duration<double>(
+        std::chrono::steady_clock::now() - start).count();
+    linkage_seconds += seconds;
+    linkage_changed += resolved.size();
+    for (const LinkageCollector::Change& c : resolved) {
+        linkage_changes[make_pair(c.contig, c.position)] = c;
+    }
+    for (const LinkageCollector::NestedIncoherence& ni : incoherent) {
+        linkage_nested_filters[ni.record_key] = ni.kind;
+    }
+    if (!last) {
+        // One line per intermediate generation, so a deferred-descent run shows its own shape:
+        // how many sites each barrier settled and what it cost.
+        cerr << "[vg call] linkage generation " << generation << ": "
+             << linkage_collector->num_sites_at(generation) << " sites, "
+             << resolved.size() << " genotypes changed, " << seconds << " s" << endl;
+        return;
+    }
+
+    size_t unexplained = 0;
+    size_t order_arbitrary = 0;
+    for (const LinkageCollector::PhaseCall& pc : linkage_phased) {
+        linkage_phasings[make_pair(pc.contig, pc.position)] = pc;
+        // Count only the strands a chain actually has. On a haploid chain hap_second is the
+        // wildcard by construction, so counting it reported every site as unexplained while
+        // the mosaic was naming real haplotypes throughout.
+        // A haploid site has one strand and one wildcard, and *which* side holds the
+        // wildcard is not fixed: a haploid contig fills the first, while a nested site hanging
+        // off the parent's second strand fills the second. Testing hap_first alone therefore
+        // reported every nested site on the parent's second strand as unexplained when the
+        // panel named its haplotype perfectly well -- 612 of chr20's 2020, which is why that
+        // count fell to 1408 the moment the strands were derived correctly rather than because
+        // any site became better explained.
+        unexplained += (pc.ploidy == 1)
+                       ? (pc.hap_first == LinkageModel::WILDCARD
+                          && pc.hap_second == LinkageModel::WILDCARD)
+                       : (pc.hap_first == LinkageModel::WILDCARD
+                          || pc.hap_second == LinkageModel::WILDCARD);
+        order_arbitrary += pc.order_arbitrary;
+    }
+    cerr << "[vg call] linkage: " << linkage_collector->num_sites() << " sites, "
+         << (linkage_collector->bytes() / (1024.0 * 1024.0)) << " MB retained, "
+         << linkage_changed << " genotypes changed, " << linkage_seconds << " s" << endl;
+    if (emit_phasing) {
+        // The wildcard count is the honest caveat on a chromosome-length phase block: at
+        // those sites the panel does not name a strand, so the phase either side of them
+        // rests on the transition model alone.
+        cerr << "[vg call] phasing: " << linkage_phased.size() << " sites phased, "
+             << unexplained << " with a strand the panel does not explain" << endl;
+        if (order_arbitrary > 0) {
+            // A heterozygous site where no panel haplotype on either strand spells either called
+            // allele. The record still comes out phased and in the block, because it has a
+            // position in it, but which allele went on which strand was decided by sorting the
+            // pair -- so the orientation there is a placeholder, not a call. Reported because a
+            // reader cannot tell these from the rest.
+            cerr << "[vg call] phasing: " << order_arbitrary
+                 << " heterozygous sites carry an allele order the panel does not determine"
+                 << endl;
+        }
+    }
+    if (!mosaic_path.empty()) {
+        write_mosaic(linkage_phased);
+    }
+    if (!linkage_nested_filters.empty()) {
+        size_t want_diploid = 0, want_haploid = 0, unreachable = 0;
+        for (const auto& kv : linkage_nested_filters) {
+            switch (kv.second) {
+                case LinkageCollector::NestedIncoherence::WantsDiploid: ++want_diploid; break;
+                case LinkageCollector::NestedIncoherence::WantsHaploid: ++want_haploid; break;
+                default: ++unreachable; break;
+            }
+        }
+        cerr << "[vg call] nested: " << linkage_nested_filters.size() << " records flagged, "
+             << want_diploid << " nested_diploid, " << want_haploid << " nested_haploid, "
+             << unreachable << " nested_unreachable" << endl;
+    }
+}
+
 void VCFOutputCaller::write_variants(ostream& out_stream, const SnarlManager* snarl_manager) {
     assert(include_nested == false || snarl_manager != nullptr);
     if (include_nested) {
@@ -623,109 +726,27 @@ void VCFOutputCaller::write_variants(ostream& out_stream, const SnarlManager* sn
     // Phase two of the linkage pass. The records are already all here, compressed, with
     // (contig, position) uncompressed as the sort key -- so a change can be matched without ever
     // having kept the record itself, and only the records that actually move are re-parsed.
-    map<pair<string, size_t>, LinkageCollector::Change> changes;
-    map<pair<string, size_t>, LinkageCollector::PhaseCall> phasings;
-    // Keyed by record key rather than position, because these records are nested: several sites can
-    // share a position and only one of them is the child in question.
-    map<size_t, LinkageCollector::NestedIncoherence::Kind> nested_filters;
-    if (linkage_collector != nullptr) {
-        // Reported rather than estimated. The retained-bytes figure in the LinkageCollector
-        // header comment was arithmetic -- sites times a per-site size -- and `bytes()` exists so
-        // that it can be an observation instead; it had never been called. The elapsed time
-        // answers the other question the design asserted without checking: this pass is serial,
-        // between calling and writing, in a caller that is otherwise parallel over snarls.
-        auto start = std::chrono::steady_clock::now();
-        vector<LinkageCollector::PhaseCall> phased;
-        vector<LinkageCollector::NestedIncoherence> incoherent;
-        vector<LinkageCollector::Change> resolved =
-            linkage_collector->resolve(emit_phasing ? &phased : nullptr,
-                                       emit_phasing ? &incoherent : nullptr);
-        double seconds = std::chrono::duration<double>(
-            std::chrono::steady_clock::now() - start).count();
-        for (const LinkageCollector::Change& c : resolved) {
-            changes[make_pair(c.contig, c.position)] = c;
-        }
-        size_t unexplained = 0;
-        size_t order_arbitrary = 0;
-        for (const LinkageCollector::PhaseCall& pc : phased) {
-            phasings[make_pair(pc.contig, pc.position)] = pc;
-            // Count only the strands a chain actually has. On a haploid chain hap_second is the
-            // wildcard by construction, so counting it reported every site as unexplained while
-            // the mosaic was naming real haplotypes throughout.
-            // A haploid site has one strand and one wildcard, and *which* side holds the
-            // wildcard is not fixed: a haploid contig fills the first, while a nested site hanging
-            // off the parent's second strand fills the second. Testing hap_first alone therefore
-            // reported every nested site on the parent's second strand as unexplained when the
-            // panel named its haplotype perfectly well -- 612 of chr20's 2020, which is why that
-            // count fell to 1408 the moment the strands were derived correctly rather than because
-            // any site became better explained.
-            unexplained += (pc.ploidy == 1)
-                           ? (pc.hap_first == LinkageModel::WILDCARD
-                              && pc.hap_second == LinkageModel::WILDCARD)
-                           : (pc.hap_first == LinkageModel::WILDCARD
-                              || pc.hap_second == LinkageModel::WILDCARD);
-            order_arbitrary += pc.order_arbitrary;
-        }
-        cerr << "[vg call] linkage: " << linkage_collector->num_sites() << " sites, "
-             << (linkage_collector->bytes() / (1024.0 * 1024.0)) << " MB retained, "
-             << resolved.size() << " genotypes changed, " << seconds << " s" << endl;
-        if (emit_phasing) {
-            // The wildcard count is the honest caveat on a chromosome-length phase block: at
-            // those sites the panel does not name a strand, so the phase either side of them
-            // rests on the transition model alone.
-            cerr << "[vg call] phasing: " << phased.size() << " sites phased, "
-                 << unexplained << " with a strand the panel does not explain" << endl;
-            if (order_arbitrary > 0) {
-                // A heterozygous site where no panel haplotype on either strand spells either called
-                // allele. The record still comes out phased and in the block, because it has a
-                // position in it, but which allele went on which strand was decided by sorting the
-                // pair -- so the orientation there is a placeholder, not a call. Reported because a
-                // reader cannot tell these from the rest.
-                cerr << "[vg call] phasing: " << order_arbitrary
-                     << " heterozygous sites carry an allele order the panel does not determine"
-                     << endl;
-            }
-        }
-        if (!mosaic_path.empty()) {
-            write_mosaic(phased);
-        }
-        for (const LinkageCollector::NestedIncoherence& ni : incoherent) {
-            nested_filters[ni.record_key] = ni.kind;
-        }
-        if (!nested_filters.empty()) {
-            size_t want_diploid = 0, want_haploid = 0, unreachable = 0;
-            for (const auto& kv : nested_filters) {
-                switch (kv.second) {
-                    case LinkageCollector::NestedIncoherence::WantsDiploid: ++want_diploid; break;
-                    case LinkageCollector::NestedIncoherence::WantsHaploid: ++want_haploid; break;
-                    default: ++unreachable; break;
-                }
-            }
-            cerr << "[vg call] nested: " << nested_filters.size() << " records flagged, "
-                 << want_diploid << " nested_diploid, " << want_haploid << " nested_haploid, "
-                 << unreachable << " nested_unreachable" << endl;
-        }
-    }
+    resolve_linkage();
 
     for (const auto& v : all_variants) {
         string dest;
         int ret = zstdutil::DecompressString(v.second, dest);
         assert(ret == 0);
-        if (!changes.empty()) {
-            auto found = changes.find(v.first);
-            if (found != changes.end()) {
+        if (!linkage_changes.empty()) {
+            auto found = linkage_changes.find(v.first);
+            if (found != linkage_changes.end()) {
                 apply_linkage_change(dest, found->second);
             }
         }
-        if (!phasings.empty()) {
+        if (!linkage_phasings.empty()) {
             // After the change, never before: phasing has to describe the genotype that is
             // actually written out.
-            auto found = phasings.find(v.first);
-            if (found != phasings.end()) {
+            auto found = linkage_phasings.find(v.first);
+            if (found != linkage_phasings.end()) {
                 apply_phasing(dest, found->second);
             }
         }
-        if (!nested_filters.empty()) {
+        if (!linkage_nested_filters.empty()) {
             // The record key is the hash of the ID column, which is how the linkage layer keyed it,
             // so the identity is recoverable from the line itself and nothing extra has to be
             // carried through the compressed buffer.
@@ -733,8 +754,9 @@ void VCFOutputCaller::write_variants(ostream& out_stream, const SnarlManager* sn
             size_t b = a == string::npos ? string::npos : dest.find('\t', a + 1);
             size_t c = b == string::npos ? string::npos : dest.find('\t', b + 1);
             if (c != string::npos) {
-                auto found = nested_filters.find(std::hash<string>{}(dest.substr(b + 1, c - b - 1)));
-                if (found != nested_filters.end()) {
+                auto found = linkage_nested_filters.find(
+                    std::hash<string>{}(dest.substr(b + 1, c - b - 1)));
+                if (found != linkage_nested_filters.end()) {
                     apply_nested_filter(dest, found->second);
                 }
             }
@@ -1915,6 +1937,7 @@ bool VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCa
     last_emitted.valid = false;
     last_emitted.num_alleles = 0;
     last_emitted.trav_to_allele.clear();
+    last_emitted.recorded = false;
 
     if (trav_to_string == nullptr) {
         trav_to_string = [&](const vector<SnarlTraversal>& travs, const vector<int>& travs_genotype, int trav_allele, int genotype_allele, int ref_trav_idx) {
@@ -2221,7 +2244,12 @@ bool VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCa
                                           nested_context.active,
                                           nested_context.parent_record_key,
                                           nested_context.parent_slot,
-                                          nested_context.parent_crossing);
+                                          nested_context.parent_crossing,
+                                          // Which resolve pass settles this site. Descent reads it
+                                          // back off `last_emitted` to decide whether this snarl's
+                                          // children can be visited now or must wait for linkage.
+                                          current_generation);
+                last_emitted.recorded = true;
             }
         }
         if (!added) {
@@ -3638,6 +3666,117 @@ int FlowCaller::child_ploidy(const vector<SnarlTraversal>& travs, const vector<i
     return min(copies, cap);
 }
 
+void FlowCaller::set_defer_nested_descent(bool defer) {
+    this->defer_nested_descent = defer;
+    if (defer) {
+        // Sized once, here, rather than lazily inside the parallel region that writes it.
+        size_t threads = max((size_t)get_thread_count(), (size_t)omp_get_max_threads());
+        pending_descents.assign(max(threads, (size_t)1), {});
+    }
+}
+
+size_t FlowCaller::pending_descent_count() const {
+    size_t n = 0;
+    for (const auto& queue : pending_descents) {
+        n += queue.size();
+    }
+    return n;
+}
+
+size_t FlowCaller::descend_pending(size_t generation) {
+    vector<PendingDescent> work;
+    work.reserve(pending_descent_count());
+    for (auto& queue : pending_descents) {
+        std::move(queue.begin(), queue.end(), std::back_inserter(work));
+        queue.clear();
+    }
+    if (work.empty()) {
+        return 0;
+    }
+
+    // The parents' settled allele pairs, by record key. This is the phasing the VCF will carry, so
+    // descent and the emitted parent record cannot disagree about which alleles the sample has.
+    unordered_map<size_t, const LinkageCollector::PhaseCall*> settled;
+    settled.reserve(linkage_phased.size() * 2);
+    for (const LinkageCollector::PhaseCall& pc : linkage_phased) {
+        settled[pc.record_key] = &pc;
+    }
+
+    // Node-ID order, so a read source that fetches by window still sees each window once in this
+    // pass. Without it the pass is random access over the contig and every window is re-fetched.
+    std::sort(work.begin(), work.end(), [](const PendingDescent& a, const PendingDescent& b) {
+        return a.child->start().node_id() < b.child->start().node_id();
+    });
+
+    current_generation = generation;
+    std::atomic<size_t> called(0);
+    std::atomic<size_t> no_parent(0), unknown_mask(0), not_carried(0);
+#pragma omp parallel for schedule(dynamic, 1)
+    for (int i = 0; i < (int)work.size(); ++i) {
+        const PendingDescent& pd = work[i];
+        auto found = settled.find(pd.parent_record_key);
+        if (found == settled.end()) {
+            ++no_parent;   // no phased parent record: nothing to take a ploidy from
+            continue;
+        }
+        if (pd.crossing_mask == 0) {
+            ++unknown_mask;   // descent could not express it, which is unknown rather than none
+            continue;
+        }
+        const LinkageCollector::PhaseCall& parent = *found->second;
+        bool first = parent.allele_first < 64
+                     && ((pd.crossing_mask >> parent.allele_first) & 1);
+        bool second = parent.ploidy == 2 && parent.allele_second < 64
+                      && ((pd.crossing_mask >> parent.allele_second) & 1);
+        int copies = min((int)first + (int)second, pd.parent_ploidy);
+        if (copies <= 0) {
+            ++not_carried;   // the settled genotype does not carry the chain, so no call belongs here
+            continue;
+        }
+        nested_context.active = (copies == 1);
+        nested_context.parent_record_key = pd.parent_record_key;
+        // Which of the parent's strands carries the chain. On this side of the barrier it has to come
+        // from the settled allele pair: the traversal-order slot the inline path records does not
+        // exist here, the traversals having been dropped. The two conventions were measured against
+        // the phased truth and are indistinguishable -- 1,655 switches against 1,661 on chr20 -- so
+        // this is a forced choice that costs nothing.
+        nested_context.parent_slot = first ? 0 : 1;
+        nested_context.parent_crossing = pd.crossing_mask;
+        call_snarl_internal(*pd.child, pd.ref_path_name,
+                            make_pair((size_t)pd.ref_start, (size_t)pd.ref_end), nullptr, copies);
+        nested_context = NestedContext();
+        ++called;
+    }
+    if (show_progress) {
+        cerr << "[vg call] deferred descent: generation " << generation << ", " << work.size()
+             << " queued, " << called.load() << " called, " << not_carried.load()
+             << " not carried by the settled parent genotype";
+        if (no_parent.load() > 0 || unknown_mask.load() > 0) {
+            cerr << ", " << no_parent.load() << " with no phased parent, " << unknown_mask.load()
+                 << " with an unreadable mask";
+        }
+        cerr << endl;
+    }
+    return called.load();
+}
+
+void FlowCaller::run_deferred_descent() {
+    if (!defer_nested_descent) {
+        return;
+    }
+    size_t generation = 0;
+    while (pending_descent_count() > 0) {
+        resolve_linkage_generation(generation, false);
+        ++generation;
+        if (descend_pending(generation) == 0) {
+            // Nothing became callable, so this generation has no sites and the queue those calls
+            // would have filled is empty. The final pass below still owes the reporting.
+            break;
+        }
+    }
+    resolve_linkage_generation(generation, true);
+}
+
 bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
                                       const string& parent_ref_path_name,
                                       pair<size_t, size_t> parent_ref_interval,
@@ -4065,6 +4204,12 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
             // overwrites the thread's copy, so reading it inside the loop would describe the
             // previous child rather than this parent.
             const EmittedAlleles parent_alleles = last_emitted;
+            // Deferral turns on exactly one question: can linkage still move this snarl's genotype?
+            // Only a snarl that reached the linkage layer can be rewritten, so one with no entry has
+            // a final genotype already and its children are visited now, as they always were. That
+            // keeps 69% of the children called at ploidy 2 out of the barrier at no cost in
+            // coherence, and it is what makes the deferred population the 44% that can actually move.
+            const bool defer = defer_nested_descent && parent_alleles.recorded;
             for (const Snarl* child : snarl_manager.children_of(managed_ptr)) {
                 if (child == nullptr || snarl_manager.is_trivial(child, graph)) {
                     continue;
@@ -4078,6 +4223,25 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
                         ++g_descent_skipped_no_ref;
                         continue;
                     }
+                }
+                if (defer) {
+                    // Queued for every child the reference reaches, including the ones no called
+                    // allele reaches. That is the point rather than an oversight: whether an allele
+                    // crosses the chain is a question about the *settled* genotype, and asking it
+                    // here rather than now is what recovers the 296 children per chromosome that
+                    // linkage makes reachable and inline descent silently drops.
+                    PendingDescent pd;
+                    pd.child = child;
+                    pd.ref_path_name = ref_path_name;
+                    pd.ref_start = (int64_t)get<0>(ref_interval);
+                    pd.ref_end = (int64_t)get<1>(ref_interval);
+                    pd.parent_record_key = std::hash<string>{}(print_snarl(snarl, false));
+                    pd.crossing_mask = parent_alleles.valid
+                        ? child_crossing_mask(travs, parent_alleles.trav_to_allele, *child)
+                        : 0;
+                    pd.parent_ploidy = ploidy;
+                    pending_descents[omp_get_thread_num()].push_back(std::move(pd));
+                    continue;
                 }
                 int copies = child_ploidy(travs, trav_genotype, *child, ploidy);
                 if (copies <= 0) {

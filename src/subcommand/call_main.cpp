@@ -218,6 +218,14 @@ void help_call(char** argv) {
          << "                            collapsing or descent. Nested calling is on by default under" << endl
          << "                            --read-likelihood, where it is measured: it takes genome-wide" << endl
          << "                            SNV F1 from 0.9752 to 0.9833 and SV F1 from 0.5134 to 0.5467" << endl
+         << "      --nested-after-linkage" << endl
+         << "                            descend into nested chains only after the linkage pass has" << endl
+         << "                            settled each parent's genotype, instead of from the" << endl
+         << "                            pre-linkage one. Removes by construction the 13.7% of" << endl
+         << "                            haploid nested records whose ploidy their own parent ends" << endl
+         << "                            up contradicting, and calls the children a settled parent" << endl
+         << "                            reaches that the pre-linkage one did not. Greedy: a child's" << endl
+         << "                            evidence can no longer move its parent. Needs --phased" << endl
          << "      --nested              treat a called traversal that differs from the reference" << endl
          << "                            only inside a nested chain as the reference allele, so its" << endl
          << "                            differences are left to the nested sites that contain them" << endl
@@ -307,6 +315,7 @@ int main_call(int argc, char** argv) {
     // declines rather than errors where its preconditions are absent, the way --linkage-weight does.
     bool nested_calling = true;
     bool nested_explicit = false;
+    bool nested_after_linkage = false;
     bool call_chains = false;
     bool all_snarls = false;
     size_t min_allele_len = 0;
@@ -394,6 +403,7 @@ int main_call(int argc, char** argv) {
     constexpr int OPT_NESTED = 1044;
     constexpr int OPT_NO_NESTED = 1045;
     constexpr int OPT_NO_PHASED = 1046;
+    constexpr int OPT_NESTED_AFTER_LINKAGE = 1047;
     constexpr int OPT_LINKAGE_WEIGHT = 1028;
     constexpr int OPT_LINKAGE_SCALE = 1030;
     constexpr int OPT_LINKAGE_FREQ_PRIOR = 1031;
@@ -433,6 +443,7 @@ int main_call(int argc, char** argv) {
             {"ploidy-bed", required_argument, 0, OPT_PLOIDY_BED},
             {"nested", no_argument, 0, OPT_NESTED},
             {"no-nested", no_argument, 0, OPT_NO_NESTED},
+            {"nested-after-linkage", no_argument, 0, OPT_NESTED_AFTER_LINKAGE},
             {"no-phased", no_argument, 0, OPT_NO_PHASED},
             {"gaf", no_argument, 0, 'G'},
             {"traversals", no_argument, 0, 'T'},
@@ -654,6 +665,9 @@ int main_call(int argc, char** argv) {
         case OPT_NO_NESTED:
             nested_calling = false;
             nested_explicit = true;
+            break;
+        case OPT_NESTED_AFTER_LINKAGE:
+            nested_after_linkage = true;
             break;
         case OPT_NO_PHASED:
             phased_output = false;
@@ -991,7 +1005,7 @@ int main_call(int argc, char** argv) {
             "--linkage-freq-prior", "--depth-quality", "--min-confidence", "--flat-mixture",
             "--no-share-quality",
             "--mismap-max", "--mismap-min", "--dump-likelihoods", "--enumerate-support",
-            "--phased", "--mosaic-out"};
+            "--phased", "--mosaic-out", "--nested-after-linkage"};
         vector<string> offenders;
         for (int i = 1; i < argc; ++i) {
             string arg(argv[i]);
@@ -1790,6 +1804,22 @@ int main_call(int argc, char** argv) {
             }
             phased_output = false;
         }
+        if (nested_after_linkage) {
+            // Every precondition is a real dependency rather than a tidiness rule: the settled
+            // genotype comes from the linkage pass, the strand a child hangs on comes from the
+            // phasing, and there is nothing to descend into without nested calling.
+            if (!nested_calling) {
+                cerr << "error [vg call]: --nested-after-linkage needs nested calling, which "
+                     << "--no-nested turns off" << endl;
+                return 1;
+            }
+            if (linkage_weight <= 0.0 || !phased_output) {
+                cerr << "error [vg call]: --nested-after-linkage needs the linkage model and "
+                     << "--phased, which is where a parent's settled genotype and strand come from"
+                     << endl;
+                return 1;
+            }
+        }
         if (linkage_weight > 0.0) {
             // A haplotype is (sample, phase); a GBWT sequence is one orientation of one path, and
             // a haplotype in several fragments owns several paths. Collapse all of them onto one
@@ -1911,6 +1941,22 @@ int main_call(int argc, char** argv) {
         }
     }
 
+    // Deferred nested descent, if asked for. Set before calling starts: it sizes the per-thread
+    // queues the calling pass writes into.
+    FlowCaller* deferring_caller = nullptr;
+    if (nested_after_linkage) {
+        deferring_caller = dynamic_cast<FlowCaller*>(graph_caller.get());
+        if (deferring_caller == nullptr) {
+            cerr << "error [vg call]: --nested-after-linkage needs the flow caller" << endl;
+            return 1;
+        }
+        deferring_caller->set_defer_nested_descent(true);
+        if (show_progress) {
+            logger.info() << "Deferring nested descent until linkage has settled each parent"
+                          << endl;
+        }
+    }
+
     if (!call_chains) {
         // Call each snarl
         if (show_progress) logger.info() << "Calling top-level snarls" << endl;
@@ -1920,6 +1966,12 @@ int main_call(int argc, char** argv) {
         // Todo: this could probably help in some cases when making VCFs too
         if (show_progress) logger.info() << "Calling top-level chains" << endl;
         graph_caller->call_top_level_chains(*graph, max_chain_edges, max_chain_trivial_travs, recurse_type);
+    }
+
+    // Resolve, descend, repeat. Nothing below this needs to know which mode ran: the loop leaves
+    // the linkage pass resolved, and write_variants' own resolve is idempotent.
+    if (deferring_caller != nullptr) {
+        deferring_caller->run_deferred_descent();
     }
 
     // Report the indexed read source's cache behaviour, now that calling is done and
