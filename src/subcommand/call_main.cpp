@@ -218,18 +218,13 @@ void help_call(char** argv) {
          << "                            collapsing or descent. Nested calling is on by default under" << endl
          << "                            --read-likelihood, where it is measured: it takes genome-wide" << endl
          << "                            SNV F1 from 0.9752 to 0.9833 and SV F1 from 0.5134 to 0.5467" << endl
-         << "      --nested-after-linkage" << endl
-         << "                            descend into nested chains only after the linkage pass has" << endl
-         << "                            settled each parent's genotype, instead of from the" << endl
-         << "                            pre-linkage one. Removes by construction the 13.7% of" << endl
-         << "                            haploid nested records whose ploidy their own parent ends" << endl
-         << "                            up contradicting, and calls the children a settled parent" << endl
-         << "                            reaches that the pre-linkage one did not. Greedy: a child's" << endl
-         << "                            evidence can no longer move its parent. Needs --phased" << endl
          << "      --nested              treat a called traversal that differs from the reference" << endl
          << "                            only inside a nested chain as the reference allele, so its" << endl
          << "                            differences are left to the nested sites that contain them" << endl
-         << "                            rather than emitted as one long substitution" << endl
+         << "                            rather than emitted as one long substitution. A chain is" << endl
+         << "                            descended into once its parent's genotype is settled: after" << endl
+         << "                            the linkage pass where linkage can still move it, and" << endl
+         << "                            immediately where it cannot" << endl
          << "      --ploidy-bed FILE     BED of CHROM START END PLOIDY setting ploidy per region," << endl
          << "                            overriding -d/-R where an interval covers a site. CHROM is" << endl
          << "                            the contig as the output VCF spells it (chrX, not" << endl
@@ -315,7 +310,6 @@ int main_call(int argc, char** argv) {
     // declines rather than errors where its preconditions are absent, the way --linkage-weight does.
     bool nested_calling = true;
     bool nested_explicit = false;
-    bool nested_after_linkage = false;
     bool call_chains = false;
     bool all_snarls = false;
     size_t min_allele_len = 0;
@@ -403,7 +397,6 @@ int main_call(int argc, char** argv) {
     constexpr int OPT_NESTED = 1044;
     constexpr int OPT_NO_NESTED = 1045;
     constexpr int OPT_NO_PHASED = 1046;
-    constexpr int OPT_NESTED_AFTER_LINKAGE = 1047;
     constexpr int OPT_LINKAGE_WEIGHT = 1028;
     constexpr int OPT_LINKAGE_SCALE = 1030;
     constexpr int OPT_LINKAGE_FREQ_PRIOR = 1031;
@@ -443,7 +436,6 @@ int main_call(int argc, char** argv) {
             {"ploidy-bed", required_argument, 0, OPT_PLOIDY_BED},
             {"nested", no_argument, 0, OPT_NESTED},
             {"no-nested", no_argument, 0, OPT_NO_NESTED},
-            {"nested-after-linkage", no_argument, 0, OPT_NESTED_AFTER_LINKAGE},
             {"no-phased", no_argument, 0, OPT_NO_PHASED},
             {"gaf", no_argument, 0, 'G'},
             {"traversals", no_argument, 0, 'T'},
@@ -665,9 +657,7 @@ int main_call(int argc, char** argv) {
         case OPT_NO_NESTED:
             nested_calling = false;
             nested_explicit = true;
-            break;
-        case OPT_NESTED_AFTER_LINKAGE:
-            nested_after_linkage = true;
+
             break;
         case OPT_NO_PHASED:
             phased_output = false;
@@ -1005,7 +995,7 @@ int main_call(int argc, char** argv) {
             "--linkage-freq-prior", "--depth-quality", "--min-confidence", "--flat-mixture",
             "--no-share-quality",
             "--mismap-max", "--mismap-min", "--dump-likelihoods", "--enumerate-support",
-            "--phased", "--mosaic-out", "--nested-after-linkage"};
+            "--phased", "--mosaic-out"};
         vector<string> offenders;
         for (int i = 1; i < argc; ++i) {
             string arg(argv[i]);
@@ -1739,17 +1729,6 @@ int main_call(int argc, char** argv) {
                 rl_caller->set_measure_alt_ploidy(true);
             }
         }
-        if (!phased_output && phased_explicit) {
-            // The nested pass of the linkage layer hangs off the parent's *phase*: which of the
-            // parent's two strands crosses the child is what gives a nested site its haplotype, and
-            // that is only computed when phasing is on. Without --phased the nested sites still get
-            // their own per-site genotypes and records, but no linkage correction among themselves
-            // and no check that the parent's final genotype still supports the ploidy they were
-            // called at. Said out loud rather than left as a silent difference between two runs that
-            // differ only by --phased.
-            cerr << "[vg call] nested calling without phasing: nested sites get no linkage correction "
-                 << "and no ploidy-coherence check, both of which need the parent's phase" << endl;
-        }
     }
 
     // Owned here because write_variants(), at the very end of main, consumes the collector.
@@ -1804,20 +1783,45 @@ int main_call(int argc, char** argv) {
             }
             phased_output = false;
         }
-        if (nested_after_linkage) {
-            // Every precondition is a real dependency rather than a tidiness rule: the settled
-            // genotype comes from the linkage pass, the strand a child hangs on comes from the
-            // phasing, and there is nothing to descend into without nested calling.
-            if (!nested_calling) {
-                cerr << "error [vg call]: --nested-after-linkage needs nested calling, which "
-                     << "--no-nested turns off" << endl;
+        if (nested_calling && linkage_weight > 0.0 && !phased_output) {
+            // Linkage on, phasing off: the one configuration nested descent cannot serve.
+            //
+            // A child's ploidy and strand come from its parent's *settled* genotype, and where the
+            // linkage layer runs that genotype is only pinned down once the layer has phased it --
+            // the settled allele pair lives in the phasing. Without it the choices are to descend
+            // from the pre-linkage genotype, which is the incoherence this design exists to remove,
+            // or to defer and then drop every child whose parent cannot be found.
+            //
+            // Declines or errors on the same rule the rest of this option layer uses: an explicit
+            // --nested has to fail loudly, because silently dropping it would look like it worked,
+            // while the default turns itself off and says so. Before this it printed a warning and
+            // carried on, which left a run differing from its neighbour only by --no-phased quietly
+            // emitting nested records at a ploidy their own parents contradicted.
+            if (nested_explicit) {
+                cerr << "error [vg call]: --nested needs --phased where the linkage model runs, "
+                     << "because a nested site's ploidy and strand come from its parent's phased "
+                     << "genotype" << endl;
                 return 1;
             }
-            if (linkage_weight <= 0.0 || !phased_output) {
-                cerr << "error [vg call]: --nested-after-linkage needs the linkage model and "
-                     << "--phased, which is where a parent's settled genotype and strand come from"
-                     << endl;
-                return 1;
+            // Undone on the caller, not just in this flag. The caller was configured for nested
+            // calling further up -- symbolic collapsing on, and the genotyper asked to score every
+            // haploid site at ploidy 2 as well -- because whether phasing would run was not settled
+            // then. Clearing the flag alone would leave symbolic collapsing armed, which is what
+            // *enables* descent, so the run would still descend, inline, from genotypes linkage then
+            // rewrote: precisely the configuration being refused.
+            nested_calling = false;
+            VCFOutputCaller* nested_target = dynamic_cast<VCFOutputCaller*>(graph_caller.get());
+            if (nested_target != nullptr) {
+                nested_target->set_symbolic_collapsing(nullptr);
+            }
+            ReadLikelihoodSnarlCaller* rl_caller =
+                dynamic_cast<ReadLikelihoodSnarlCaller*>(snarl_caller.get());
+            if (rl_caller != nullptr) {
+                rl_caller->set_measure_alt_ploidy(false);
+            }
+            if (show_progress) {
+                logger.info() << "Nested calling declines under --no-phased: a nested site's ploidy "
+                              << "and strand come from its parent's phased genotype" << endl;
             }
         }
         if (linkage_weight > 0.0) {
@@ -1941,19 +1945,17 @@ int main_call(int argc, char** argv) {
         }
     }
 
-    // Deferred nested descent, if asked for. Set before calling starts: it sizes the per-thread
-    // queues the calling pass writes into.
+    // Descend into a nested chain once its parent's genotype is settled. Armed unconditionally
+    // wherever nested calling runs, because it costs nothing where nothing defers: a snarl with no
+    // linkage entry cannot be moved, so its per-site genotype is already final and its children are
+    // visited inline. With no panel at all -- --enumerate-support, or a GBZ holding only reference
+    // paths -- no site is ever recorded and every descent takes that inline path, which is the same
+    // rule rather than a fallback to a different one.
     FlowCaller* deferring_caller = nullptr;
-    if (nested_after_linkage) {
+    if (nested_calling) {
         deferring_caller = dynamic_cast<FlowCaller*>(graph_caller.get());
-        if (deferring_caller == nullptr) {
-            cerr << "error [vg call]: --nested-after-linkage needs the flow caller" << endl;
-            return 1;
-        }
-        deferring_caller->set_defer_nested_descent(true);
-        if (show_progress) {
-            logger.info() << "Deferring nested descent until linkage has settled each parent"
-                          << endl;
+        if (deferring_caller != nullptr) {
+            deferring_caller->set_defer_nested_descent(true);
         }
     }
 

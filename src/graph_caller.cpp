@@ -4209,7 +4209,12 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
             // a final genotype already and its children are visited now, as they always were. That
             // keeps 69% of the children called at ploidy 2 out of the barrier at no cost in
             // coherence, and it is what makes the deferred population the 44% that can actually move.
-            const bool defer = defer_nested_descent && parent_alleles.recorded;
+            // `emit_phasing` belongs in the test even though the option layer refuses the one
+            // configuration that would fail it: deferral reads the settled allele pair out of the
+            // phasing, so without phasing a deferred child is one whose parent cannot be found, and
+            // `descend_pending` would drop it. Kept here so the invariant is a property of this code
+            // rather than of a check somewhere else.
+            const bool defer = defer_nested_descent && emit_phasing && parent_alleles.recorded;
             for (const Snarl* child : snarl_manager.children_of(managed_ptr)) {
                 if (child == nullptr || snarl_manager.is_trivial(child, graph)) {
                     continue;
