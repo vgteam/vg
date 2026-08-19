@@ -218,13 +218,7 @@ false negative, and two fewer genotype false positives.
 
 ## Interpretation and limitations
 
-The acceptance results show no variant-calling regression and a very small
-improvement for the Illumina candidate, but they do not isolate the effect of
-fragment learning alone. The diploid candidate simultaneously changes target
-paths, enables multimapping and joint haplotype selection, learns fragment
-lengths, and uses `--prune-tail-region`.
-
-There is also a preset mismatch in the recorded diploid Illumina input: it uses
+There is  a preset mismatch in the recorded diploid Illumina input: it uses
 `--read-length long`, whereas Adam's Illumina runs use `--read-length short`.
 The table reports the run as executed. A controlled follow-up should rerun the
 diploid candidate with `--read-length short --prune-tail-region --diploid-map
