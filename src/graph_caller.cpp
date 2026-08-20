@@ -48,6 +48,10 @@ static std::atomic<size_t> g_retain_visits(0);
 static std::atomic<size_t> g_retain_gt_entries(0);
 static std::atomic<size_t> g_retain_gt_alleles(0);
 static std::atomic<size_t> g_retain_support(0);
+/// Actual heap bytes, from protobuf's own accounting rather than a per-visit guess. The first
+/// estimate here assumed 48 bytes a visit, which is far under what a separately heap-allocated
+/// message costs, and the byte total it produced was the number the design was justified on.
+static std::atomic<size_t> g_retain_space(0);
 /// Emitted against held back, and for those held back whether it was this chain that no called
 /// allele reached or an ancestor. Separating the two is the only way to tell a design decision from
 /// a propagation bug.
@@ -86,14 +90,15 @@ static void report_retention_instrumentation() {
         // assumption can be re-priced without re-running. Traversals are counted twice on purpose:
         // the candidate list and the CallInfo's own `scored_traversals` copy are both retained.
         size_t visits = g_retain_visits.load();
-        size_t bytes = 2 * visits * 48                       // traversals, and CallInfo's copy
+        size_t bytes = g_retain_space.load()                 // traversals, every copy, measured
                      + g_retain_gt_alleles.load() * 4        // genotype_lls keys
                      + g_retain_gt_entries.load() * 48       // map nodes and their doubles
                      + g_retain_support.load() * 8           // allele_support
                      + chains * 256;                         // per-chain fixed overhead
         cerr << "[vg call] nested retention: " << chains << " chains, "
              << g_retain_travs.load() << " traversals, " << visits << " visits, "
-             << g_retain_gt_entries.load() << " genotype likelihoods, about "
+             << g_retain_gt_entries.load() << " genotype likelihoods, "
+             << (g_retain_space.load() / (1024.0 * 1024.0)) << " MB of them traversals, about "
              << (bytes / (1024.0 * 1024.0)) << " MB if retained to the barrier" << endl;
         cerr << "[vg call] nested split: " << g_retain_emitted.load() << " emitted, "
              << g_retain_held_root.load() << " held back because no called allele reached them, "
@@ -4369,10 +4374,14 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
         // CallInfo, including the other ploidy's answer -- so that the record can be built later
         // instead of now. Counting it costs nothing and settles whether the design is affordable
         // before anything is restructured around it.
+        // Only a nested chain can have its ploidy revised at the barrier, so only a nested chain
+        // needs the other ploidy's answer computed and kept.
         unique_ptr<SnarlCaller::CallInfo> trav_call_info;
+        ReadLikelihoodSnarlCaller::set_want_alt_ploidy(true);
         std::tie(trav_genotype, trav_call_info) = snarl_caller.genotype(
             snarl, travs, ref_trav_idx, ploidy, ref_path_name,
             make_pair(get<0>(ref_interval), get<1>(ref_interval)));
+        ReadLikelihoodSnarlCaller::set_want_alt_ploidy(false);
 
         const bool retain_only = nested_context.retain_only;
         if (retain_only) {
@@ -4386,16 +4395,30 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
         }
         {
             size_t visits = 0;
+            size_t space = 0;
             for (const SnarlTraversal& t : travs) {
                 visits += t.visit_size();
+                space += t.SpaceUsedLong();
             }
             ++g_retain_chains;
             g_retain_travs += travs.size();
             g_retain_visits += visits;
+            g_retain_space += space;
             const ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo* rl =
                 dynamic_cast<const ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo*>(
                     trav_call_info.get());
             if (rl != nullptr) {
+                // Every copy of the traversals counted, not just the candidate list: the CallInfo
+                // keeps its own `scored_traversals`, and the alternate ploidy's CallInfo was given a
+                // third. Three copies a chain is the thing to find out about.
+                for (const SnarlTraversal& t : rl->scored_traversals) {
+                    space += t.SpaceUsedLong();
+                }
+                if (rl->alt_ploidy_info != nullptr) {
+                    for (const SnarlTraversal& t : rl->alt_ploidy_info->scored_traversals) {
+                        space += t.SpaceUsedLong();
+                    }
+                }
                 size_t entries = rl->genotype_lls.size();
                 size_t alleles = 0;
                 for (const auto& kv : rl->genotype_lls) {

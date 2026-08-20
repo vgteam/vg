@@ -11,6 +11,8 @@
 
 namespace vg {
 
+thread_local bool ReadLikelihoodSnarlCaller::want_alt_ploidy = false;
+
 using namespace std;
 
 ReadLikelihoodSnarlCaller::ReadLikelihoodSnarlCaller(const PathHandleGraph& graph,
@@ -318,7 +320,7 @@ pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> ReadLikelihoodSnarlCaller::
     // The rate has to be rescaled. It is the local read rate per *haplotype*, so a matrix built at
     // one ploidy carries the wrong rate for a genotype of the other, and skipping this would leave
     // lambda wrong by exactly the ploidy ratio.
-    if (measure_alt_ploidy && traversals.size() > 1) {
+    if (measure_alt_ploidy && want_alt_ploidy && traversals.size() > 1) {
         int other = ploidy == 1 ? 2 : 1;
         matrix.scale_depth_rate((double)ploidy / (double)other);
         auto alt = make_unique<ReadLikelihoodCallInfo>();

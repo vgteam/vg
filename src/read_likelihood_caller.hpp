@@ -152,6 +152,21 @@ public:
     /// are neither re-fetched nor re-scored, since `rel(r,a)` does not depend on ploidy.
     void set_measure_alt_ploidy(bool on) { this->measure_alt_ploidy = on; }
 
+    /// Ask for the other ploidy's answer on the next `genotype` call, on this thread only.
+    ///
+    /// Only a nested chain can have its ploidy revised: it comes from a parent genotype the linkage
+    /// layer may still move. A top-level site takes its ploidy from the contig or a --ploidy-bed
+    /// region and can never change, so computing an alternate for one is a second pass over the
+    /// matrix and a retained second CallInfo for nothing.
+    ///
+    /// Getting this wrong is not cheap and does not show up where you would look for it. Generalising
+    /// the old `ploidy == 1` gate to every site left all 165,408 of chr20's top-level snarls carrying
+    /// an alternate, which put peak memory up by 1.4 GB while the retention counter -- which only
+    /// counts nested chains -- still read 72 MB.
+    ///
+    /// Thread-local because the sweep is parallel over node-ID windows and this is set per call.
+    static void set_want_alt_ploidy(bool on) { want_alt_ploidy = on; }
+
     virtual pair<vector<int>, unique_ptr<CallInfo>> genotype(const Snarl& snarl,
                                                              const vector<SnarlTraversal>& traversals,
                                                              int ref_trav_idx,
@@ -291,6 +306,8 @@ protected:
 
     /// See set_measure_alt_ploidy.
     bool measure_alt_ploidy = false;
+    /// See set_want_alt_ploidy.
+    static thread_local bool want_alt_ploidy;
 
 
     /// Whether GQ is scaled by the explained-read fraction. See set_share_discount.
