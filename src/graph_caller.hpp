@@ -285,9 +285,11 @@ protected:
         /// carries it. Inherited by its own children: a chain whose existence depends on an ancestor
         /// the sample may not have cannot be emitted either.
         bool retain_only = false;
-        /// True only on the chain that started it, so a propagation bug is distinguishable from the
-        /// design decision it would otherwise hide behind.
-        bool retain_root = false;
+        /// False when the crossing mask could not be computed: the parent emitted nothing on this
+        /// invocation, or carries too many alleles for a 64-bit mask. child_crossing_mask returns 0
+        /// for "unknown", and the barrier must not read that 0 as "no allele crosses" -- so the
+        /// distinction travels beside the mask instead of being conflated with it.
+        bool crossing_known = true;
     };
     static thread_local NestedContext nested_context;
 
@@ -303,13 +305,18 @@ protected:
         bool valid = false;
         size_t num_alleles = 0;
         map<int, int> trav_to_allele;
-        /// True when this record reached the linkage layer, so linkage can move its genotype.
-        ///
-        /// The distinction descent needs, and the only one that matters for coherence: a snarl with
-        /// no entry cannot be rewritten, so its children's ploidy is already final and they can be
-        /// descended into immediately. Symbolic collapsing makes most non-leaf parents emit nothing,
-        /// which is 69% of the children called at ploidy 2.
-        bool recorded = false;
+        /// The contig and POS the record was actually written with -- after
+        /// flatten_common_allele_ends has moved POS -- which is the key add_variant files the line
+        /// under. A linkage entry recorded from anything else (get_ref_position, say) sits at the
+        /// pre-flatten position and write_variants' lookup never finds it.
+        string contig;
+        size_t position = 0;
+        /// Where add_variant buffered the line, so the barrier can retract or replace that exact
+        /// line instead of re-identifying it by hashing the ID column and counting GT separators.
+        /// buffer_thread is -1 when the emit buffered nothing: the line was rejected for length, or
+        /// the record flattened to nothing and emit_variant returned true without writing.
+        int buffer_thread = -1;
+        size_t buffer_index = 0;
     };
     static thread_local EmittedAlleles last_emitted;
 
@@ -338,8 +345,14 @@ protected:
     void resolve_linkage();
 
     /// Accumulated across generations, consumed by `write_variants` when it patches the buffer.
-    map<pair<string, size_t>, LinkageCollector::Change> linkage_changes;
-    map<pair<string, size_t>, LinkageCollector::PhaseCall> linkage_phasings;
+    /// Several records can legitimately share a (contig, position) -- a nested child whose first
+    /// variant base coincides with its parent's anchor base, for one -- so each position holds every
+    /// call made there and the patch is matched to its line by record_key (the hash of the ID
+    /// column). A map keyed by position alone silently kept only the last writer, so one of the two
+    /// records lost its phasing and, when their GT strings coincided, the survivor was applied to
+    /// both lines.
+    map<pair<string, size_t>, vector<LinkageCollector::Change>> linkage_changes;
+    map<pair<string, size_t>, vector<LinkageCollector::PhaseCall>> linkage_phasings;
     /// Keyed by record key rather than position, because these records are nested: several sites can
     /// share a position and only one of them is the child in question.
     map<size_t, LinkageCollector::NestedIncoherence::Kind> linkage_nested_filters;
@@ -347,14 +360,6 @@ protected:
     /// descent looks a parent's settled allele pair up in it.
     vector<LinkageCollector::PhaseCall> linkage_phased;
     bool linkage_resolved = false;
-    /// Record keys whose line must not be written: the settled parent genotype does not carry the
-    /// chain. Checked in the emit loop, which already parses the ID column for the nested filters.
-    set<size_t> dropped_records;
-    /// Keys re-emitted at a different ploidy, and which ploidy the replacement carries.
-    ///
-    /// Both copies share an ID and a position, so a key alone cannot say which line to keep. The
-    /// replacement is the one whose GT has this many alleles; the stale one is dropped.
-    map<size_t, int> replaced_records;
     /// Set while the barrier re-emits, so the second pass does not add a second linkage entry for a
     /// site the barrier has already respecified.
     bool suppress_linkage_record = false;
@@ -379,6 +384,14 @@ protected:
     /// caller is parallel over snarls. Sized once in `set_linkage` so nothing allocates inside
     /// the parallel region.
     mutable vector<gbwt::CachedGBWT> linkage_gbwt_cache;
+
+    /// The node-ID neighbourhood each thread's cache currently covers. CachedGBWT only ever grows
+    /// -- the gbwt header recommends short-lived instances -- and with node-ID-ordered windows a
+    /// thread never revisits a retired window, so without eviction every decompressed record the
+    /// contig ever touched stays resident. When a thread's site moves past this anchor by more than
+    /// the fetch-window width, its cache is cleared: adjacent snarls still share records, which is
+    /// all the cache was measured to help with, and residency is bounded to about one window.
+    mutable vector<nid_t> linkage_gbwt_cache_anchor;
 
     /// Rewrite one emitted line's GT and GQ for a linkage change, leaving every other field --
     /// AD, DP, GL, GQI, AT -- alone, since those remain the per-site truth.
@@ -907,11 +920,19 @@ protected:
         size_t parent_record_key = 0;
         /// One bit per parent VCF allele, set where that allele crosses this chain.
         uint64_t parent_crossing = 0;
+        /// False when parent_crossing could not be computed (the parent emitted nothing during the
+        /// sweep, or has too many alleles for the mask). The barrier recomputes the mask when it
+        /// re-emits the parent; until then an unknown mask must not be read as "nothing crosses".
+        bool crossing_known = true;
         size_t parent_slot = 0;
         uint8_t generation = 0;
         /// Whether a record was written during the sweep. False where no called parent allele reached
         /// it, which is exactly the population the barrier may turn into a call.
         bool emitted = false;
+        /// Where the sweep buffered this record's line (see EmittedAlleles::buffer_thread), so the
+        /// barrier can retract or replace exactly that line. -1 when nothing was buffered.
+        int buffer_thread = -1;
+        size_t buffer_index = 0;
     };
 
     bool defer_nested_descent = false;
@@ -958,14 +979,15 @@ protected:
 
     /// One bit per VCF allele, set where a traversal that became that allele crosses `child`.
     ///
-    /// Returns 0 -- unknown -- if any allele index is beyond a 64-bit mask, so a caller must not
-    /// read 0 as "no allele crosses". Several traversals can share an allele index; symbolic
-    /// collapsing puts every same-route traversal on allele 0, and those agree on their crossings
-    /// by construction, so any disagreement can only come from two distinct routes that spell the
-    /// same sequence. The bit is set if any of them crosses.
+    /// Returns 0 -- unknown -- if any allele index is beyond a 64-bit mask, and sets `*known` to
+    /// false there, so a caller can tell that 0 apart from "no allele crosses" instead of silently
+    /// conflating the two. Several traversals can share an allele index; symbolic collapsing puts
+    /// every same-route traversal on allele 0, and those agree on their crossings by construction,
+    /// so any disagreement can only come from two distinct routes that spell the same sequence.
+    /// The bit is set if any of them crosses.
     static uint64_t child_crossing_mask(const vector<SnarlTraversal>& travs,
                                         const map<int, int>& trav_to_allele,
-                                        const Snarl& child);
+                                        const Snarl& child, bool* known = nullptr);
 
     /// Find all traversals through a child snarl that are consistent with a parent traversal.
     /// "Consistent" means the child's entry/exit points match what's in the parent traversal.

@@ -238,6 +238,14 @@ public:
     /// Mean read length in this site's own matrix, for the depth term's geometry.
     double mean_read_length_estimate() const { return mean_read_length; }
 
+    /// Supply the mean read length on its own, for the depth term's lambda = rate * (L + R - 1).
+    /// set_length_weights also sets it, but only runs under the length-weighted mixture -- and the
+    /// depth term stays armed under --flat-mixture, where leaving R at 0 made lambda ~150x too
+    /// small for an SNV at 150 bp reads and erased the missing-reads signal for indels.
+    void set_mean_read_length(double mean_read_length) {
+        this->mean_read_length = mean_read_length;
+    }
+
     /// True when set_length_weights supplied usable data.
     bool uses_length_weights() const {
         return !allele_lengths.empty() && mean_read_length > 0.0;
@@ -695,12 +703,6 @@ public:
                                   const vector<SnarlTraversal>& traversals,
                                   int ploidy) override;
 
-    /// Reads seen at the last site, before dropping uninformative ones.
-    size_t get_last_site_read_count() const { return last_site_reads; }
-
-    /// Reads dropped at the last site for having no informative overlap.
-    size_t get_last_site_uninformative_count() const { return last_site_uninformative; }
-
 protected:
 
     /// One node visit on an allele, with its sequence materialised.
@@ -789,8 +791,6 @@ protected:
     const EditAlignmentScorer& qual_scorer;
     const EditAlignmentScorer& plain_scorer;
     Params params;
-    size_t last_site_reads = 0;
-    size_t last_site_uninformative = 0;
 };
 
 }

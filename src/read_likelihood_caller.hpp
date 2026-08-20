@@ -93,7 +93,7 @@ public:
         /// `depth_ratio`, `posterior` -- so the record can be built later at whichever ploidy the
         /// barrier settles on, with no re-reading and no re-scoring.
         ///
-        /// Null unless `set_measure_alt_ploidy` is on. Owned, and it is the only heavyweight member
+        /// Null unless the alternate ploidy was requested (see `set_want_alt_ploidy`). Owned, and it is the only heavyweight member
         /// here: it shares the ploidy-independent halves (`scored_traversals`, `allele_support`) by
         /// copy rather than recomputing them.
         unique_ptr<ReadLikelihoodCallInfo> alt_ploidy_info;
@@ -150,7 +150,6 @@ public:
     /// Only meaningful for nested sites, whose ploidy comes from a parent genotype that linkage can
     /// afterwards invalidate. Costs a second pass over the matrix that is already built -- the reads
     /// are neither re-fetched nor re-scored, since `rel(r,a)` does not depend on ploidy.
-    void set_measure_alt_ploidy(bool on) { this->measure_alt_ploidy = on; }
 
     /// Ask for the other ploidy's answer on the next `genotype` call, on this thread only.
     ///
@@ -304,8 +303,6 @@ protected:
     /// NullTraversalSupportFinder and reports zero for everything.
     bool support_available = true;
 
-    /// See set_measure_alt_ploidy.
-    bool measure_alt_ploidy = false;
     /// See set_want_alt_ploidy.
     static thread_local bool want_alt_ploidy;
 

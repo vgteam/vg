@@ -405,82 +405,85 @@ int main_call(int argc, char** argv) {
     constexpr int OPT_MOSAIC_OUT = 1034;
     int c;
     optind = 2; // force optind past command positional argument
+    // Hoisted out of the getopt loop so the requires---read-likelihood scan below can
+    // resolve abbreviated long options exactly the way getopt_long does.
+    static const struct option long_options[] = {
+        {"pack", required_argument, 0, 'k'},
+        {"bias-mode", no_argument, 0, 'B'},
+        {"baseline-error", required_argument, 0, 'e'},
+        {"het-bias", required_argument, 0, 'b'},
+        {"min-support", required_argument, 0, 'm'},
+        {"vcf", required_argument, 0, 'v'},
+        {"genotype-snarls", no_argument, 0, 'a'},
+        {"all-snarls", no_argument, 0, 'A'},
+        {"min-length", required_argument, 0, 'c'},
+        {"max-length", required_argument, 0, 'C'},
+        {"ref-fasta", required_argument, 0, 'f'},
+        {"ins-fasta", required_argument, 0, 'i'},
+        {"sample", required_argument, 0, 's'},            
+        {"snarls", required_argument, 0, 'r'},
+        {"gbwt", required_argument, 0, 'g'},
+        {"gbz", no_argument, 0, 'z'},
+        {"translation", required_argument, 0, 'N'},
+        {"gbz-translation", no_argument, 0, 'O'},
+        {"ref-path", required_argument, 0, 'p'},
+        {"path-prefix", required_argument, 0, 'P'},
+        {"ref-sample", required_argument, 0, 'S'},            
+        {"ref-offset", required_argument, 0, 'o'},
+        {"ref-length", required_argument, 0, 'l'},
+        {"ploidy", required_argument, 0, 'd'},
+        {"ploidy-regex", required_argument, 0, 'R'},
+        {"ploidy-bed", required_argument, 0, OPT_PLOIDY_BED},
+        {"nested", no_argument, 0, OPT_NESTED},
+        {"no-nested", no_argument, 0, OPT_NO_NESTED},
+        {"no-phased", no_argument, 0, OPT_NO_PHASED},
+        {"gaf", no_argument, 0, 'G'},
+        {"traversals", no_argument, 0, 'T'},
+        {"trav-padding", required_argument, 0, 'M'},
+        {"legacy", no_argument, 0, OPT_LEGACY},
+        {"top-down", no_argument, 0, OPT_TOP_DOWN},
+        {"bottom-up", no_argument, 0, OPT_BOTTOM_UP},
+        {"read-likelihood", no_argument, 0, OPT_READ_LIKELIHOOD},
+        {"gam", required_argument, 0, OPT_GAM},
+        {"gaf-reads", required_argument, 0, OPT_GAF},
+        {"dump-likelihoods", required_argument, 0, OPT_DUMP_LIKELIHOODS},
+        {"no-mismap-term", no_argument, 0, OPT_NO_MISMAP_TERM},
+        {"mismap-max", required_argument, 0, OPT_MISMAP_MAX},
+        {"mismap-min", required_argument, 0, OPT_MISMAP_MIN},
+        {"no-share-quality", no_argument, 0, OPT_NO_SHARE_QUALITY},
+        {"flat-mixture", no_argument, 0, OPT_FLAT_MIXTURE},
+        {"depth-term", required_argument, 0, OPT_DEPTH_TERM},
+        {"depth-count-raw", no_argument, 0, OPT_DEPTH_COUNT_RAW},
+        {"depth-quality", required_argument, 0, OPT_DEPTH_QUALITY},
+        {"min-confidence", required_argument, 0, OPT_MIN_CONFIDENCE},
+        {"linkage-weight", required_argument, 0, OPT_LINKAGE_WEIGHT},
+        {"linkage-scale", required_argument, 0, OPT_LINKAGE_SCALE},
+        {"linkage-freq-prior", required_argument, 0, OPT_LINKAGE_FREQ_PRIOR},
+        {"enumerate-support", no_argument, 0, OPT_ENUMERATE_SUPPORT},
+        {"phased", no_argument, 0, OPT_PHASED},
+        {"mosaic-out", required_argument, 0, OPT_MOSAIC_OUT},
+        {"read-min-mapq", required_argument, 0, OPT_READ_MIN_MAPQ},
+        {"gam-index", required_argument, 0, OPT_GAM_INDEX},
+        {"gaf-base", required_argument, 0, OPT_GAF_BASE},
+        {"gbz-base", required_argument, 0, OPT_GBZ_BASE},
+        {"gaf-base-binary", required_argument, 0, OPT_GAF_BASE_BINARY},
+        {"read-window", required_argument, 0, OPT_READ_WINDOW},
+        {"chains", no_argument, 0, 'I'},
+        {"cluster", required_argument, 0, 'L'},
+        {"cluster-min-len", required_argument, 0, OPT_CLUSTER_MIN_LEN},
+        // deprecated: shipped through v1.76 as an accepted no-op.  Kept accepted (and absent
+        // from the helptext, which check_options.py allows) so pipelines carrying it do not die
+        // on an unrecognized option.  Remove after one release.
+        {"cluster-post", no_argument, 0, OPT_CLUSTER_POST},
+        {"star-allele", no_argument, 0, 'Y'},
+        {"threads", required_argument, 0, 't'},
+        {"progress", no_argument, 0, OPT_PROGRESS },
+        {"help", no_argument, 0, 'h'},
+        {0, 0, 0, 0}
+    };
+
     while (true) {
 
-        static const struct option long_options[] = {
-            {"pack", required_argument, 0, 'k'},
-            {"bias-mode", no_argument, 0, 'B'},
-            {"baseline-error", required_argument, 0, 'e'},
-            {"het-bias", required_argument, 0, 'b'},
-            {"min-support", required_argument, 0, 'm'},
-            {"vcf", required_argument, 0, 'v'},
-            {"genotype-snarls", no_argument, 0, 'a'},
-            {"all-snarls", no_argument, 0, 'A'},
-            {"min-length", required_argument, 0, 'c'},
-            {"max-length", required_argument, 0, 'C'},
-            {"ref-fasta", required_argument, 0, 'f'},
-            {"ins-fasta", required_argument, 0, 'i'},
-            {"sample", required_argument, 0, 's'},            
-            {"snarls", required_argument, 0, 'r'},
-            {"gbwt", required_argument, 0, 'g'},
-            {"gbz", no_argument, 0, 'z'},
-            {"translation", required_argument, 0, 'N'},
-            {"gbz-translation", no_argument, 0, 'O'},
-            {"ref-path", required_argument, 0, 'p'},
-            {"path-prefix", required_argument, 0, 'P'},
-            {"ref-sample", required_argument, 0, 'S'},            
-            {"ref-offset", required_argument, 0, 'o'},
-            {"ref-length", required_argument, 0, 'l'},
-            {"ploidy", required_argument, 0, 'd'},
-            {"ploidy-regex", required_argument, 0, 'R'},
-            {"ploidy-bed", required_argument, 0, OPT_PLOIDY_BED},
-            {"nested", no_argument, 0, OPT_NESTED},
-            {"no-nested", no_argument, 0, OPT_NO_NESTED},
-            {"no-phased", no_argument, 0, OPT_NO_PHASED},
-            {"gaf", no_argument, 0, 'G'},
-            {"traversals", no_argument, 0, 'T'},
-            {"trav-padding", required_argument, 0, 'M'},
-            {"legacy", no_argument, 0, OPT_LEGACY},
-            {"top-down", no_argument, 0, OPT_TOP_DOWN},
-            {"bottom-up", no_argument, 0, OPT_BOTTOM_UP},
-            {"read-likelihood", no_argument, 0, OPT_READ_LIKELIHOOD},
-            {"gam", required_argument, 0, OPT_GAM},
-            {"gaf-reads", required_argument, 0, OPT_GAF},
-            {"dump-likelihoods", required_argument, 0, OPT_DUMP_LIKELIHOODS},
-            {"no-mismap-term", no_argument, 0, OPT_NO_MISMAP_TERM},
-            {"mismap-max", required_argument, 0, OPT_MISMAP_MAX},
-            {"mismap-min", required_argument, 0, OPT_MISMAP_MIN},
-            {"no-share-quality", no_argument, 0, OPT_NO_SHARE_QUALITY},
-            {"flat-mixture", no_argument, 0, OPT_FLAT_MIXTURE},
-            {"depth-term", required_argument, 0, OPT_DEPTH_TERM},
-            {"depth-count-raw", no_argument, 0, OPT_DEPTH_COUNT_RAW},
-            {"depth-quality", required_argument, 0, OPT_DEPTH_QUALITY},
-            {"min-confidence", required_argument, 0, OPT_MIN_CONFIDENCE},
-            {"linkage-weight", required_argument, 0, OPT_LINKAGE_WEIGHT},
-            {"linkage-scale", required_argument, 0, OPT_LINKAGE_SCALE},
-            {"linkage-freq-prior", required_argument, 0, OPT_LINKAGE_FREQ_PRIOR},
-            {"enumerate-support", no_argument, 0, OPT_ENUMERATE_SUPPORT},
-            {"phased", no_argument, 0, OPT_PHASED},
-            {"mosaic-out", required_argument, 0, OPT_MOSAIC_OUT},
-            {"read-min-mapq", required_argument, 0, OPT_READ_MIN_MAPQ},
-            {"gam-index", required_argument, 0, OPT_GAM_INDEX},
-            {"gaf-base", required_argument, 0, OPT_GAF_BASE},
-            {"gbz-base", required_argument, 0, OPT_GBZ_BASE},
-            {"gaf-base-binary", required_argument, 0, OPT_GAF_BASE_BINARY},
-            {"read-window", required_argument, 0, OPT_READ_WINDOW},
-            {"chains", no_argument, 0, 'I'},
-            {"cluster", required_argument, 0, 'L'},
-            {"cluster-min-len", required_argument, 0, OPT_CLUSTER_MIN_LEN},
-            // deprecated: shipped through v1.76 as an accepted no-op.  Kept accepted (and absent
-            // from the helptext, which check_options.py allows) so pipelines carrying it do not die
-            // on an unrecognized option.  Remove after one release.
-            {"cluster-post", no_argument, 0, OPT_CLUSTER_POST},
-            {"star-allele", no_argument, 0, 'Y'},
-            {"threads", required_argument, 0, 't'},
-            {"progress", no_argument, 0, OPT_PROGRESS },
-            {"help", no_argument, 0, 'h'},
-            {0, 0, 0, 0}
-        };
 
         int option_index = 0;
 
@@ -995,14 +998,39 @@ int main_call(int argc, char** argv) {
             "--linkage-freq-prior", "--depth-quality", "--min-confidence", "--flat-mixture",
             "--no-share-quality",
             "--mismap-max", "--mismap-min", "--dump-likelihoods", "--enumerate-support",
-            "--phased", "--mosaic-out"};
+            "--phased", "--no-phased", "--mosaic-out"};
         vector<string> offenders;
         for (int i = 1; i < argc; ++i) {
             string arg(argv[i]);
+            if (arg.size() < 3 || arg[0] != '-' || arg[1] != '-') {
+                continue;
+            }
             size_t eq = arg.find('=');
-            string name = eq == string::npos ? arg : arg.substr(0, eq);
+            string name = (eq == string::npos ? arg : arg.substr(0, eq)).substr(2);
+            // Resolved the way getopt_long resolves it: an exact match, or an unambiguous prefix.
+            // Matching whole tokens only let every abbreviated spelling through -- "--mosaic" set
+            // --mosaic-out and sailed past this scan, silently reproducing the very ignored-flag
+            // failure it exists to close.
+            const char* resolved = nullptr;
+            bool ambiguous = false;
+            for (const struct option* o = long_options; o->name != nullptr; ++o) {
+                string oname(o->name);
+                if (oname == name) {
+                    resolved = o->name;
+                    ambiguous = false;
+                    break;
+                }
+                if (oname.compare(0, name.size(), name) == 0) {
+                    ambiguous = resolved != nullptr;
+                    resolved = o->name;
+                }
+            }
+            if (resolved == nullptr || ambiguous) {
+                continue;   // unknown or ambiguous: getopt itself already rejected it
+            }
+            string full = string("--") + resolved;
             for (const string& flag : read_likelihood_only) {
-                if (name == flag) {
+                if (full == flag) {
                     offenders.push_back(flag);
                     break;
                 }
@@ -1719,19 +1747,12 @@ int main_call(int argc, char** argv) {
     if (nested_calling) {
         VCFOutputCaller* nested_target = dynamic_cast<VCFOutputCaller*>(graph_caller.get());
         nested_target->set_symbolic_collapsing(snarl_manager.get());
-        // A nested site's ploidy comes from a parent genotype linkage can afterwards invalidate, so
-        // the genotyper is asked for both ploidies' answers at once, from the matrix it has already
-        // built. The barrier then settles the ploidy and renders the record at it -- which is why
-        // this is load-bearing rather than diagnostic, and why the INFO/NGT2 field that used to
-        // report the second answer is gone: the caller acts on it instead of describing it.
-        // Requested per call by the nested branch; see set_want_alt_ploidy.
-        {
-            ReadLikelihoodSnarlCaller* rl_caller =
-                dynamic_cast<ReadLikelihoodSnarlCaller*>(snarl_caller.get());
-            if (rl_caller != nullptr) {
-                rl_caller->set_measure_alt_ploidy(true);
-            }
-        }
+        // A nested site's ploidy comes from a parent genotype linkage can afterwards invalidate,
+        // so descent asks the genotyper for both ploidies' answers at once, from the matrix it has
+        // already built -- per call, via set_want_alt_ploidy, so nothing needs arming here. The
+        // barrier then settles the ploidy and renders the record at it, which is why the second
+        // answer is load-bearing rather than diagnostic and why the INFO/NGT2 field that used to
+        // report it is gone: the caller acts on it instead of describing it.
     }
 
     // Owned here because write_variants(), at the very end of main, consumes the collector.
@@ -1807,20 +1828,17 @@ int main_call(int argc, char** argv) {
                 return 1;
             }
             // Undone on the caller, not just in this flag. The caller was configured for nested
-            // calling further up -- symbolic collapsing on, and the genotyper asked to score every
-            // haploid site at ploidy 2 as well -- because whether phasing would run was not settled
-            // then. Clearing the flag alone would leave symbolic collapsing armed, which is what
-            // *enables* descent, so the run would still descend, inline, from genotypes linkage then
-            // rewrote: precisely the configuration being refused.
+            // calling further up -- symbolic collapsing on -- because whether phasing would run was
+            // not settled then. Clearing the flag alone would leave symbolic collapsing armed,
+            // which is what *enables* descent, so the run would still descend, inline, from
+            // genotypes linkage then rewrote: precisely the configuration being refused.
             nested_calling = false;
             VCFOutputCaller* nested_target = dynamic_cast<VCFOutputCaller*>(graph_caller.get());
             if (nested_target != nullptr) {
+                // Disarming collapsing is what disarms descent, and descent is the only thing that
+                // ever requests the alternate ploidy (set_want_alt_ploidy is per call), so no
+                // second knob needs unwinding here.
                 nested_target->set_symbolic_collapsing(nullptr);
-            }
-            ReadLikelihoodSnarlCaller* rl_caller =
-                dynamic_cast<ReadLikelihoodSnarlCaller*>(snarl_caller.get());
-            if (rl_caller != nullptr) {
-                rl_caller->set_measure_alt_ploidy(false);
             }
             if (show_progress) {
                 logger.info() << "Nested calling declines under --no-phased: a nested site's ploidy "

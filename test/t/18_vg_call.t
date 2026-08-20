@@ -746,20 +746,24 @@ vg sim -x nest.gbz -n 300 -l 40 -a -s 31 --path "p2#0#chr1#0" > nest_hap.gam 2>/
 vg sim -x nest.gbz -n 300 -l 40 -a -s 37 --path "p2#1#chr1#0" >> nest_hap.gam 2>/dev/null
 vg call nest.gbz --read-likelihood --gam nest_hap.gam -t 1 -s samp --nested --phased 2>/dev/null > nest_hap.vcf
 is "$?" 0 "--nested --phased runs with a heterozygous deletion over nested sites"
-# A nested site reached by only one parent allele is called haploid -- a single allele, not a pair.
-# Only one of the two nested snarls emits here: on the surviving haplotype the other carries the
-# reference allele, so it is hom-ref and correctly writes nothing.
+# What this fixture is really about: a chain its parent's *settled* genotype does not carry.
 #
-# Bare, without a strand, and that is the point of this fixture rather than an accident. The parent
-# is called hom for its deletion, which deletes the chain on both haplotypes, so the site is
-# `nested_unreachable` and there is no strand to name. A coherent nested site is written as "a|." or
-# ".|a" instead; this asserts the caller does not invent one where the parent says there is none.
-is $(grep -v "^#" nest_hap.vcf | awk -F'\t' '{split($10,a,":"); print a[1]}' | grep -cvE "[|/]" ) \
-   "1" "a nested site reached by one parent allele is called haploid"
-is $(grep -v "^#" nest_hap.vcf | awk -F'\t' '$7 ~ /nested_unreachable/ {n++} END {print n+0}') "1" \
-   "a nested site its parent's final genotype deletes on both haplotypes is flagged"
-is $(grep -v "^#" nest_hap.vcf | awk -F'\t' '{split($10,a,":"); if (a[1] ~ /\|\.$|^\.\|/) n++} END {print n+0}') \
-   "0" "no strand is claimed for a nested site that has none"
+# The parent is called hom for the deletion -- wrongly, the reads come from one deleted and one
+# crossing haplotype, and that mis-call is the fixture's whole point rather than a defect in it. A
+# parent that deletes the chain on both haplotypes leaves the nested sites inside it with no
+# haplotype to sit on at all.
+#
+# Descent asks that question of the genotype linkage settled on, before the child is genotyped, so
+# the child is never called: one record, the parent's deletion. Descending first and checking
+# afterwards is what used to emit a nested record here and flag it `nested_unreachable` -- a call
+# on a haplotype the sample does not have, kept and labelled rather than not made. Both assertions
+# below were written against that behaviour and now assert its absence.
+is $(grep -v "^#" nest_hap.vcf | awk -F'\t' '$2 == 30 {split($10,a,":"); print a[1]}') "1|1" \
+   "the parent is called hom for the deletion that spans the nested chain"
+is $(grep -vc "^#" nest_hap.vcf) "1" \
+   "a chain the settled parent genotype deletes on both haplotypes yields no nested record"
+is $(grep -v "^#" nest_hap.vcf | awk -F'\t' '$7 ~ /nested_(diploid|haploid|unreachable)/ {n++} END {print n+0}') \
+   "0" "no record needs a nested coherence FILTER, because the ploidy cannot disagree"
 # And the parent still reports its deletion: symbolic collapsing must not swallow a real event.
 is $(grep -v "^#" nest_hap.vcf | awk -F'\t' 'length($4) > 50 {n++} END {print n+0}') "1" \
    "the parent deletion is still emitted alongside the nested call"

@@ -446,18 +446,6 @@ public:
         Kind kind = WantsDiploid;
     };
 
-    /// A child symbolic descent skipped because the parent genotype it had at the time crossed the
-    /// chain zero times, with the crossing mask over the parent's VCF alleles.
-    ///
-    /// Stage 0 instrumentation for post-linkage nested descent (eval task #52). Descent drops these
-    /// children outright, so a parent that linkage afterwards moves onto an allele that *does* cross
-    /// the chain leaves a call nothing makes -- and nothing has ever counted them, because the
-    /// pre-linkage caller cannot know and the post-linkage pass was never told they existed.
-    /// `resolve` reports how many the final parent genotype reaches.
-    ///
-    /// Safe to call from several threads.
-    void record_skipped_child(size_t parent_record_key, uint64_t parent_crossing);
-
     /// Run the model per contig and return only the genotypes that changed.
     ///
     /// With `phasing_out`, also returns a phasing of the **final** call set -- the genotypes after
@@ -610,9 +598,6 @@ private:
     vector<int8_t> hap_arena;
     vector<string> contig_names;
 
-    /// (parent record key, crossing mask) per child descent skipped for want of a crossing allele.
-    /// Instrumentation only: nothing reads it but the report in `resolve`.
-    vector<pair<size_t, uint64_t>> skipped_children;
 
     mutable std::mutex mutex;
 };

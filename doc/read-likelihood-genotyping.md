@@ -558,9 +558,14 @@ since it refuses a file of mixed ploidy. `.` rather than `*`: `*` would say "abs
 deleted it", which is more precise, but it is an ALT allele and adding one changes the arity of `AD`,
 `GL` and `GQI`, which are written long before the strand is known.
 
-Two nested sites do *not* get a strand, and carry a `FILTER` saying why: `nested_unreachable`, where the
-parent's final genotype crosses the chain on neither haplotype, and `nested_diploid`, where it crosses on
-both, and `nested_haploid` for the mirror case. See `##FILTER` in any run's header.
+A nested site whose parent's final genotype contradicts its ploidy does not keep that ploidy: the
+barrier re-renders the record at the ploidy the settled parent implies, and a chain the settled
+genotype crosses on neither haplotype is removed from the output entirely, because the sample has no
+copy of it for the call to sit on. The three `nested_*` FILTERs in the header (`nested_diploid`,
+`nested_haploid`, `nested_unreachable`) therefore fire zero times on this path -- that is what they
+are for, a live invariant check -- and remain reachable only where the barrier could not act, such
+as a revised record that could not be rendered. Do not use them to find ploidy-incoherent nested
+calls: incoherent calls are corrected or removed before emission, not flagged.
 
 ## Genotype quality and the VCF fields
 
@@ -571,7 +576,7 @@ both, and `nested_haploid` for the mirror case. See `##FILTER` in any run's head
 | `GQ` | Phred gap between best and second-best genotype, **scaled by the fraction of reads the call explains**. |
 | `GQI` | The same gap *without* that scaling. Equals `GQ` under `--no-share-quality`. |
 | `GQN` | The same gap as a **fraction of what this site could have achieved**, in `[0,1]`. Unlike `GQ` it means the same thing at any depth and any ploidy — see below. |
-| `GP` | Log-scaled posterior of the called genotype under a uniform prior. |
+| `GP` | **Natural**-log-scaled posterior of the called genotype under a uniform prior. Nats, not log10: unlike `GL`, exponentiate with `e`, so `-2.303` means `p = 0.1`. |
 | `DP` | Reads overlapping the site. |
 | `AD` | Reads whose best-fitting allele is this one. **Does not sum to `DP`** — see below. |
 | `DR` | `N_eff / λ_G` at the called genotype — see [above](#dr-the-depth-ratio). `1.0` means the read count matches the call. Absent where the ratio is undefined. |
@@ -768,7 +773,11 @@ were never scored — but it is the kind of error a splice invites and a ploidy 
 ### `--min-confidence`, and why there is no default
 
 `GQN` exists so that one threshold can mean the same thing everywhere, and `--min-confidence X`
-is that threshold: records below it are marked `FILTER=lowconf`.
+is that threshold: records below it are marked `FILTER=lowconf`. A site with no informative read at
+all is marked `FILTER=noreads` instead -- the model has no evidence either way there, which is not
+the same as low confidence. Both mark and never drop. A record whose genotype the linkage layer
+rewrites has its `GQN` blanked to `.` and a stale `lowconf` cleared, because both described the
+abandoned genotype.
 
 A raw `GQ` threshold cannot do this job, and the failure is not subtle. Requiring `GQ ≥ 10` takes
 a 5x diploid contig's F1 from **0.888 to 0.669**, because at that depth half the true calls sit
@@ -822,7 +831,11 @@ sample the panel represents poorly.
 
 ## Parameter reference
 
-Every flag below requires `--read-likelihood`; `vg call` errors if one is passed without it.
+The flags introduced by this mode (the read sources, the model terms, the linkage and phasing
+options, `--mosaic-out`, `--dump-likelihoods`, `--enumerate-support`, `--min-confidence`) require
+`--read-likelihood`; `vg call` errors if one is passed without it, including in getopt's abbreviated
+spellings. General options that this mode also uses -- `-d`/`--ploidy`, `-R`/`--ploidy-regex`,
+`--ploidy-bed`, `--nested`/`--no-nested` -- work on the default caller too and are not gated.
 
 ### Reads in — exactly one source required
 
@@ -833,6 +846,7 @@ Every flag below requires `--read-likelihood`; `vg call` errors if one is passed
 | `--gam-index FILE` | — | `.gai` for `--gam` (`vg gamsort -i`), so reads are fetched per site instead of all held in memory. |
 | `--gaf-base FILE` | — | GAF-Base database, queried per site via `gbz-base`. |
 | `--gbz-base FILE` | input graph | Graph to resolve `--gaf-base` queries against. |
+| `--gaf-base-binary FILE` | `gbz-base` on `PATH` | The `gbz-base` executable to spawn for `--gaf-base` queries. |
 | `--read-window N` | 4096 (`--gaf-base`), 256 (`--gam-index`) | Node-ID window per indexed fetch. |
 | `--read-min-mapq N` | 0 | Drop reads below this MAPQ outright. |
 
@@ -851,7 +865,7 @@ Every flag below requires `--read-likelihood`; `vg call` errors if one is passed
 | `--mismap-max P` | 0.7 | Upper clamp on `e_r`. Governs how far a low-MAPQ read is discounted; matters most on haplotype-rich graphs. |
 | `--mismap-min P` | 0.02 | Lower clamp on `e_r`, and so the bound on any one read's veto, `ln(P)`. |
 | `--no-mismap-term` | off | Fix `e_r = --mismap-min` for every read, removing the MAPQ dependence. |
-| `--flat-mixture` | off | `w_h = 1/ploidy` instead of length-weighted. Restores the pre-correction model exactly. |
+| `--flat-mixture` | off | `w_h = 1/ploidy` instead of length-weighted. Restores the pre-correction mixture; the depth term keeps its read-length estimate and is unaffected. |
 
 ### Linkage between sites — needs panel enumeration
 

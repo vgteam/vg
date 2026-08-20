@@ -58,17 +58,13 @@ function<bool(const SnarlTraversal&, int)> ReadLikelihoodSnarlCaller::get_skip_a
     return [](const SnarlTraversal&, int) { return false; };
 }
 
-bool ReadLikelihoodSnarlCaller::traversals_equal(const SnarlTraversal& a, const SnarlTraversal& b) {
-    if (a.visit_size() != b.visit_size()) {
-        return false;
-    }
-    for (int64_t i = 0; i < a.visit_size(); ++i) {
-        if (a.visit(i).node_id() != b.visit(i).node_id() ||
-            a.visit(i).backward() != b.visit(i).backward()) {
-            return false;
-        }
-    }
-    return true;
+bool ReadLikelihoodSnarlCaller::traversals_equal(const SnarlTraversal& a,
+                                                 const SnarlTraversal& b) {
+    // The library operator== also compares Visit names and nested-snarl fields. The traversals
+    // reaching this caller are always expanded node paths, so it is equivalent here -- and strictly
+    // safer than the hand-rolled node-id/orientation loop it replaces, should a finder ever hand
+    // over child-snarl visits.
+    return a == b;
 }
 
 pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> ReadLikelihoodSnarlCaller::genotype(
@@ -320,7 +316,7 @@ pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> ReadLikelihoodSnarlCaller::
     // The rate has to be rescaled. It is the local read rate per *haplotype*, so a matrix built at
     // one ploidy carries the wrong rate for a genotype of the other, and skipping this would leave
     // lambda wrong by exactly the ploidy ratio.
-    if (measure_alt_ploidy && want_alt_ploidy && traversals.size() > 1) {
+    if (want_alt_ploidy && traversals.size() > 1) {
         int other = ploidy == 1 ? 2 : 1;
         matrix.scale_depth_rate((double)ploidy / (double)other);
         auto alt = make_unique<ReadLikelihoodCallInfo>();
@@ -331,6 +327,9 @@ pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> ReadLikelihoodSnarlCaller::
         alt->n_unplaceable = call_info->n_unplaceable;
         alt->scored_traversals = call_info->scored_traversals;
         alt->allele_support = call_info->allele_support;
+        // Also ploidy-independent: the mean best raw fit over reads is a property of the matrix.
+        // Omitting it left the default 0, so every barrier-revised record emitted BL=0.00.
+        alt->mean_best_ln = call_info->mean_best_ln;
         alt->ploidy = other;
         vector<int> alt_best = derive(other, alt.get());
         matrix.scale_depth_rate((double)other / (double)ploidy);   // restore
@@ -463,7 +462,7 @@ void ReadLikelihoodSnarlCaller::update_vcf_info(const Snarl& snarl,
                 break;
             }
             // VCF wants GL log10-scaled.
-            gl_strings.push_back(std::to_string(found->second / 2.30258509299));
+            gl_strings.push_back(std::to_string(ln_to_log10(found->second)));
         }
 
         if (complete && !gl_strings.empty()) {
@@ -501,6 +500,8 @@ void ReadLikelihoodSnarlCaller::update_vcf_info(const Snarl& snarl,
         variant.samples[sample_name]["GQN"].push_back(gqn.str());
     }
 
+    // Natural-log-scaled, unlike GL, which the VCF spec fixes at log10. The header says so; a
+    // consumer applying the log10 convention here would misread e^-2.3 (p=0.1) as 10^-2.3.
     variant.format.push_back("GP");
     variant.samples[sample_name]["GP"].push_back(std::to_string(info->posterior));
 
@@ -611,7 +612,8 @@ void ReadLikelihoodSnarlCaller::update_vcf_header(string& header) const {
               "corrects the smaller axis and leaves the larger. '.' where there was no gap to "
               "normalise, which is not 0\">\n";
     header += "##FORMAT=<ID=GP,Number=1,Type=Float,Description=\"Genotype Probability, the "
-              "log-scaled posterior of the called genotype under a uniform prior\">\n";
+              "natural-log-scaled posterior of the called genotype under a uniform prior. "
+              "Nats, not log10: unlike GL, exponentiate with e, so -2.303 means p=0.1\">\n";
     header += "##FILTER=<ID=lowconf,Description=\"GQN below --min-confidence: the call used less "
               "of the discrimination this site could offer than required. Unlike a GQ threshold "
               "this means the same thing at any depth and any ploidy -- requiring GQ >= 10 costs a "

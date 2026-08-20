@@ -351,6 +351,12 @@ AlleleReadLikelihoods AlleleReadLikelihoodsBuilder::build() {
     result.set_contents(n_reads, n_alleles, std::move(matrix), std::move(mismap_probs),
                         std::move(best_lns), std::move(names), unplaceable);
     result.set_mismap_floor(min_mismap);
+    if (read_length_count > 0) {
+        // Always, not only under the length-weighted mixture: the depth term's
+        // lambda = rate * (L + R - 1) needs R whichever mixture is in use, and gating it on
+        // allele_lengths left R at 0 under --flat-mixture while the term stayed armed.
+        result.set_mean_read_length(read_length_total / (double)read_length_count);
+    }
     if (!allele_lengths.empty() && read_length_count > 0) {
         result.set_length_weights(allele_lengths, read_length_total / (double)read_length_count);
         result.set_unique_lengths(std::move(unique_lengths));
@@ -669,23 +675,17 @@ int32_t GraphAlignedAlleleLikelihoodCalculator::score_read_against_allele(
 double GraphAlignedAlleleLikelihoodCalculator::local_read_rate(
     const vector<pair<nid_t, nid_t>>& site_ranges) const {
 
-    // The neighbourhood the rate is measured over, in node IDs. Prefer the source's own
-    // fetch window so the query lands on a cache entry the site already populated.
-    //
-    // The fallback is not a tuning knob and was demoted from one: it exists so that a
-    // source with no window of its own -- an in-memory source answers every range
-    // exactly -- still produces the same `DR` as an indexed source over the same reads.
-    // Without it the emitted FORMAT fields depended on how the reads were supplied, which
-    // an in-tree test caught immediately. Measured through --read-window on real data, the
-    // width saturates well below the 4096 an indexed source uses: 1024 loses 0.004
-    // structural-variant F1, 16384 gains 0.001. There is nothing here to tune, and every
-    // indexed source supplies a window anyway, so this constant is only ever reached by
-    // in-memory sources and tests.
-    static const size_t FALLBACK_RATE_WINDOW = 4096;
-    size_t span = read_source.get_window_span();
-    if (span == 0) {
-        span = FALLBACK_RATE_WINDOW;
-    }
+    // The neighbourhood the rate is measured over, in node IDs -- one constant for every read
+    // source, deliberately decoupled from the source's fetch window. Taking the fetch window made
+    // DR (and any --depth-quality GQ) depend on how the same reads were supplied: an in-memory
+    // source fell back to 4096 while an indexed GAM's default fetch window is 256, sixteen times
+    // narrower with differently quantized boundaries -- despite an older comment here claiming the
+    // two matched. (The in-tree in-memory-vs-indexed test could not see the difference: its graph
+    // fits inside one 256-ID window, where the two spans cover identical reads.) Measured through
+    // --read-window on real data the width is not worth tuning: 1024 loses 0.004 structural-variant
+    // F1, 16384 gains 0.001.
+    static const size_t RATE_WINDOW = 4096;
+    size_t span = RATE_WINDOW;
     if (site_ranges.empty() || params.depth_ploidy <= 0) {
         return 0.0;
     }
@@ -744,8 +744,6 @@ double GraphAlignedAlleleLikelihoodCalculator::local_read_rate(
 AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
     const Snarl& snarl, const vector<SnarlTraversal>& traversals, int ploidy) {
 
-    last_site_reads = 0;
-    last_site_uninformative = 0;
 
     AlleleReadLikelihoodsBuilder builder(traversals.size(), params.min_mismap_prob,
                                         params.max_mismap_prob);
@@ -888,10 +886,8 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
     vector<double> row(traversals.size());
 
     read_source.for_each_read(ranges, [&](const Alignment& aln) {
-        ++last_site_reads;
 
         if (!get_read_steps(aln, site_nodes, boundary_nodes, read_steps)) {
-            ++last_site_uninformative;
             return;
         }
 
@@ -905,7 +901,6 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
             scored_aln = &flipped;
             if (!get_read_steps(flipped, site_nodes, boundary_nodes, read_steps)) {
                 // Should not happen: flipping preserves which nodes are touched.
-                ++last_site_uninformative;
                 return;
             }
         }

@@ -32,33 +32,6 @@ static std::atomic<size_t> g_descent_skipped_no_ref(0);
 static std::atomic<size_t> g_descent_skipped_no_copy(0);
 static thread_local int g_descent_depth = 0;
 
-/// What retaining a nested chain's genotyping result would cost, measured rather than estimated.
-///
-/// The single-sweep design keeps each nested chain's traversals and CallInfo until its parent's
-/// genotype is settled, then builds the record. That removes the extra read sweeps, and the whole
-/// design rests on the retention being affordable -- an estimate the plan puts at order 100 MB on
-/// chr20. `LinkageCollector::bytes()` exists because the same argument was once arithmetic rather
-/// than observation, so this counts the actual objects before anything is restructured around them.
-///
-/// Sizes are reported as component counts as well as a byte total, so the per-object assumptions can
-/// be revised without re-running.
-static std::atomic<size_t> g_retain_chains(0);
-static std::atomic<size_t> g_retain_travs(0);
-static std::atomic<size_t> g_retain_visits(0);
-static std::atomic<size_t> g_retain_gt_entries(0);
-static std::atomic<size_t> g_retain_gt_alleles(0);
-static std::atomic<size_t> g_retain_support(0);
-/// Actual heap bytes, from protobuf's own accounting rather than a per-visit guess. The first
-/// estimate here assumed 48 bytes a visit, which is far under what a separately heap-allocated
-/// message costs, and the byte total it produced was the number the design was justified on.
-static std::atomic<size_t> g_retain_space(0);
-/// Emitted against held back, and for those held back whether it was this chain that no called
-/// allele reached or an ancestor. Separating the two is the only way to tell a design decision from
-/// a propagation bug.
-static std::atomic<size_t> g_retain_emitted(0);
-static std::atomic<size_t> g_retain_held_root(0);
-static std::atomic<size_t> g_retain_held_inherited(0);
-
 void GraphCaller::report_descent_instrumentation() const {
     size_t total = 0;
     for (int d = 0; d < 16; ++d) {
@@ -80,30 +53,42 @@ void GraphCaller::report_descent_instrumentation() const {
          << " with no reference path through them" << endl;
 }
 
-/// Free rather than a member: it reads only the file-scope counters, and it is called from
-/// VCFOutputCaller::write_variants, which is not a GraphCaller.
-static void report_retention_instrumentation() {
-    size_t chains = g_retain_chains.load();
-    if (chains > 0) {
-        // A protobuf Visit is 8 bytes of node id and a bool inside a message; 48 bytes each is the
-        // conservative figure for one in a vector, and the visit count is reported beside it so the
-        // assumption can be re-priced without re-running. Traversals are counted twice on purpose:
-        // the candidate list and the CallInfo's own `scored_traversals` copy are both retained.
-        size_t visits = g_retain_visits.load();
-        size_t bytes = g_retain_space.load()                 // traversals, every copy, measured
-                     + g_retain_gt_alleles.load() * 4        // genotype_lls keys
-                     + g_retain_gt_entries.load() * 48       // map nodes and their doubles
-                     + g_retain_support.load() * 8           // allele_support
-                     + chains * 256;                         // per-chain fixed overhead
-        cerr << "[vg call] nested retention: " << chains << " chains, "
-             << g_retain_travs.load() << " traversals, " << visits << " visits, "
-             << g_retain_gt_entries.load() << " genotype likelihoods, "
-             << (g_retain_space.load() / (1024.0 * 1024.0)) << " MB of them traversals, about "
-             << (bytes / (1024.0 * 1024.0)) << " MB if retained to the barrier" << endl;
-        cerr << "[vg call] nested split: " << g_retain_emitted.load() << " emitted, "
-             << g_retain_held_root.load() << " held back because no called allele reached them, "
-             << g_retain_held_inherited.load() << " held back because an ancestor was" << endl;
+
+/// Remap traversal-indexed genotype log-likelihoods into the VCF-allele-indexed GL vector the
+/// linkage layer consumes. Shared by the inline record in emit_variant and the barrier's
+/// re-record: the two copies of this loop had already diverged once, and the mapping is the one
+/// whose corruption "changed 34% of confident genotypes".
+static vector<double> remap_genotype_lls(const map<vector<int>, double>& genotype_lls,
+                                         const map<int, int>& trav_to_allele,
+                                         size_t n_alleles, size_t ploidy) {
+    size_t n_gt = ploidy == 1 ? n_alleles : n_alleles * (n_alleles + 1) / 2;
+    vector<double> gls(n_gt, -std::numeric_limits<double>::infinity());
+    for (const auto& entry : genotype_lls) {
+        if (entry.first.size() != ploidy) {
+            continue;
+        }
+        if (ploidy == 1) {
+            // A haploid genotype is one allele, so the likelihood vector is indexed by allele
+            // rather than by the triangular pair index.
+            auto it = trav_to_allele.find(entry.first[0]);
+            if (it == trav_to_allele.end() || (size_t)it->second >= n_alleles) {
+                continue;
+            }
+            gls[(size_t)it->second] = entry.second;
+            continue;
+        }
+        auto a_it = trav_to_allele.find(entry.first[0]);
+        auto b_it = trav_to_allele.find(entry.first[1]);
+        if (a_it == trav_to_allele.end() || b_it == trav_to_allele.end()) {
+            continue;   // a traversal that never became a VCF allele
+        }
+        size_t i = (size_t)a_it->second, j = (size_t)b_it->second;
+        if (i >= n_alleles || j >= n_alleles) {
+            continue;
+        }
+        gls[LinkageModel::genotype_index(i, j)] = entry.second;
     }
+    return gls;
 }
 
 GraphCaller::GraphCaller(SnarlCaller& snarl_caller,
@@ -413,21 +398,24 @@ string VCFOutputCaller::vcf_header(const PathHandleGraph& graph, const vector<st
            << "snarl pointer\">" << endl;
     }
     if (symbolic_manager != nullptr) {
-        // Nested descent chose each child's ploidy from its parent's pre-linkage genotype, and
-        // linkage can then rewrite the parent. Where that changes which parent alleles cross the
-        // child, the child record outlives the genotype that justified it. Flagged rather than
-        // dropped: the read evidence at the child is real, and it is evidence against the parent's
-        // new genotype as much as the parent is evidence against the child.
+        // Nested descent chooses each child's ploidy from its parent's pre-linkage genotype, and
+        // linkage can then rewrite the parent. The barrier settles this before emission: a child at
+        // the wrong ploidy is re-rendered at the settled one, and a child no settled allele carries
+        // is dropped -- so these FILTERs cannot fire on that path and firing zero times is what
+        // they are for. They remain reachable only where the barrier could not act: a chain whose
+        // revised record was unrenderable, or one with no answer kept at the settled ploidy.
         ss << "##FILTER=<ID=nested_diploid,Description=\"Called at ploidy 1 because one parent "
-           << "allele crossed this child chain, but after linkage both parent haplotypes cross it. "
-           << "The locus is diploid here and this genotype names only one allele\">" << endl;
+           << "allele crossed this child chain, but after linkage both parent haplotypes cross it "
+           << "and no diploid answer could be rendered. Rare by construction: a revisable record "
+           << "is re-emitted at the settled ploidy instead of being flagged\">" << endl;
         ss << "##FILTER=<ID=nested_haploid,Description=\"Called at ploidy 2 because both parent "
-           << "alleles crossed this child chain, but after linkage only one parent haplotype does. "
-           << "The sample carries one copy of the chain and this genotype names two\">" << endl;
-        ss << "##FILTER=<ID=nested_unreachable,Description=\"Called because a parent allele crossed "
-           << "this child chain, but after linkage neither parent haplotype does. The sample carries "
-           << "no copy of the chain under its own parent record, so this genotype has no haplotype "
-           << "to sit on\">" << endl;
+           << "alleles crossed this child chain, but after linkage only one parent haplotype does "
+           << "and no haploid answer could be rendered. Rare by construction: a revisable record "
+           << "is re-emitted at the settled ploidy instead of being flagged\">" << endl;
+        ss << "##FILTER=<ID=nested_unreachable,Description=\"Called because a parent allele "
+           << "crossed this child chain, but after linkage neither parent haplotype does, and the "
+           << "record could not be retracted. Rare by construction: such records are normally "
+           << "removed rather than flagged\">" << endl;
     }
     ss << "##INFO=<ID=AT,Number=R,Type=String,Description=\"Allele Traversal as path in graph\">" << endl;
     if (allele_merge_threshold < 1.0) {
@@ -448,12 +436,14 @@ void VCFOutputCaller::set_linkage(LinkageCollector* collector, const gbwt::GBWT*
     this->linkage_gbwt = gbwt;
     this->linkage_sequence_to_haplotype = sequence_to_haplotype;
     this->linkage_gbwt_cache.clear();
+    this->linkage_gbwt_cache_anchor.clear();
     if (gbwt != nullptr) {
         // One per thread, built here so the parallel region never allocates one.
         this->linkage_gbwt_cache.reserve(omp_get_max_threads());
         for (int i = 0; i < omp_get_max_threads(); ++i) {
             this->linkage_gbwt_cache.emplace_back(*gbwt);
         }
+        this->linkage_gbwt_cache_anchor.assign(omp_get_max_threads(), 0);
     }
 }
 
@@ -472,6 +462,31 @@ vector<int> VCFOutputCaller::panel_alleles(const HandleGraph& graph,
     // Falls back to the index itself if set_linkage was never given one to size the vector.
     int thread = omp_get_thread_num();
     const bool cached = (size_t)thread < linkage_gbwt_cache.size();
+
+    // CachedGBWT only grows -- the gbwt header recommends short-lived instances -- and with
+    // node-ID-ordered windows a thread never revisits a retired window, so an uncleared cache
+    // accumulates every decompressed record the contig ever touched. Clearing when the site's
+    // neighbourhood moves past the fetch-window width keeps the hit rate the cache exists for
+    // (adjacent snarls share records) while bounding residency to about one window.
+    //
+    // Measured on chr20, isolated runs of the same binary: 4.17 GB peak without this, 3.83 GB with
+    // it, and the two outputs agree as multisets -- the cache is an accelerator, so anything else
+    // would be a bug. Runtime is unchanged (179.3 s against 175.8 s, inside run-to-run noise).
+    if (cached && (size_t)thread < linkage_gbwt_cache_anchor.size() && !travs.empty()) {
+        static const nid_t CACHE_ANCHOR_SPAN = 4096;
+        nid_t lead = 0;
+        for (int64_t i = 0; i < travs[0].visit_size() && lead == 0; ++i) {
+            lead = travs[0].visit(i).node_id();
+        }
+        if (lead != 0) {
+            nid_t& anchor = linkage_gbwt_cache_anchor[thread];
+            if (anchor == 0 || lead > anchor + CACHE_ANCHOR_SPAN
+                || lead + CACHE_ANCHOR_SPAN < anchor) {
+                linkage_gbwt_cache[thread].clearCache();
+                anchor = lead;
+            }
+        }
+    }
 
     for (size_t a = 0; a < travs.size(); ++a) {
         const SnarlTraversal& trav = travs[a];
@@ -670,7 +685,20 @@ void VCFOutputCaller::resolve_linkage_generation(size_t generation, bool last) {
     linkage_seconds += seconds;
     linkage_changed += resolved.size();
     for (const LinkageCollector::Change& c : resolved) {
-        linkage_changes[make_pair(c.contig, c.position)] = c;
+        // Upsert by record_key: several records can share a position, and a site revised at the
+        // barrier can produce a second Change for the same key.
+        vector<LinkageCollector::Change>& bucket = linkage_changes[make_pair(c.contig, c.position)];
+        bool updated = false;
+        for (LinkageCollector::Change& existing : bucket) {
+            if (existing.record_key == c.record_key) {
+                existing = c;
+                updated = true;
+                break;
+            }
+        }
+        if (!updated) {
+            bucket.push_back(c);
+        }
     }
     for (const LinkageCollector::NestedIncoherence& ni : incoherent) {
         linkage_nested_filters[ni.record_key] = ni.kind;
@@ -686,8 +714,24 @@ void VCFOutputCaller::resolve_linkage_generation(size_t generation, bool last) {
 
     size_t unexplained = 0;
     size_t order_arbitrary = 0;
+    // Rebuilt from scratch each last pass: `linkage_phased` is the full accumulated set, and the
+    // last pass can run more than once when the barrier gains a chain at a deeper generation than
+    // anything recorded before it.
+    linkage_phasings.clear();
     for (const LinkageCollector::PhaseCall& pc : linkage_phased) {
-        linkage_phasings[make_pair(pc.contig, pc.position)] = pc;
+        vector<LinkageCollector::PhaseCall>& bucket =
+            linkage_phasings[make_pair(pc.contig, pc.position)];
+        bool updated = false;
+        for (LinkageCollector::PhaseCall& existing : bucket) {
+            if (existing.record_key == pc.record_key) {
+                existing = pc;
+                updated = true;
+                break;
+            }
+        }
+        if (!updated) {
+            bucket.push_back(pc);
+        }
         // Count only the strands a chain actually has. On a haploid chain hap_second is the
         // wildcard by construction, so counting it reported every site as unexplained while
         // the mosaic was naming real haplotypes throughout.
@@ -776,16 +820,45 @@ void VCFOutputCaller::write_variants(ostream& out_stream, const SnarlManager* sn
     // having kept the record itself, and only the records that actually move are re-parsed.
     resolve_linkage();
 
-    vg::report_retention_instrumentation();
-
     for (const auto& v : all_variants) {
+        if (v.second.empty()) {
+            // A tombstone: the barrier retracted or replaced this line in place, by the handle it
+            // captured at emit time. Identifying stale lines here by re-hashing the ID column and
+            // counting GT separators mistook a phased haploid replacement ("1|.") for a diploid
+            // line, and was gated on sets that could be empty while replacements existed.
+            continue;
+        }
         string dest;
         int ret = zstdutil::DecompressString(v.second, dest);
         assert(ret == 0);
+        // The record key is the hash of the ID column, which is how the linkage layer keyed the
+        // site, so the identity is recoverable from the line itself and nothing extra has to be
+        // carried through the compressed buffer. Computed once, lazily: several records can share
+        // a (contig, position), and every patch below must land on its own record, not the first
+        // line at the position.
+        size_t line_key = 0;
+        bool have_line_key = false;
+        auto id_key = [&]() -> size_t {
+            if (!have_line_key) {
+                size_t a = dest.find('\t');
+                size_t b = a == string::npos ? string::npos : dest.find('\t', a + 1);
+                size_t c = b == string::npos ? string::npos : dest.find('\t', b + 1);
+                if (c != string::npos) {
+                    line_key = std::hash<string>{}(dest.substr(b + 1, c - b - 1));
+                }
+                have_line_key = true;
+            }
+            return line_key;
+        };
         if (!linkage_changes.empty()) {
             auto found = linkage_changes.find(v.first);
             if (found != linkage_changes.end()) {
-                apply_linkage_change(dest, found->second);
+                for (const LinkageCollector::Change& change : found->second) {
+                    if (change.record_key == id_key()) {
+                        apply_linkage_change(dest, change);
+                        break;
+                    }
+                }
             }
         }
         if (!linkage_phasings.empty()) {
@@ -793,46 +866,18 @@ void VCFOutputCaller::write_variants(ostream& out_stream, const SnarlManager* sn
             // actually written out.
             auto found = linkage_phasings.find(v.first);
             if (found != linkage_phasings.end()) {
-                apply_phasing(dest, found->second);
+                for (const LinkageCollector::PhaseCall& phase : found->second) {
+                    if (phase.record_key == id_key()) {
+                        apply_phasing(dest, phase);
+                        break;
+                    }
+                }
             }
         }
-        if (!dropped_records.empty() || !linkage_nested_filters.empty()) {
-            // The record key is the hash of the ID column, which is how the linkage layer keyed it,
-            // so the identity is recoverable from the line itself and nothing extra has to be
-            // carried through the compressed buffer.
-            size_t a = dest.find('\t');
-            size_t b = a == string::npos ? string::npos : dest.find('\t', a + 1);
-            size_t c = b == string::npos ? string::npos : dest.find('\t', b + 1);
-            if (c != string::npos) {
-                size_t key = std::hash<string>{}(dest.substr(b + 1, c - b - 1));
-                auto rep = replaced_records.find(key);
-                if (rep != replaced_records.end()) {
-                    // Two lines share this ID: the one written during the sweep and the replacement
-                    // built at the settled ploidy. Keep the one whose GT has that many alleles.
-                    size_t tab9 = dest.rfind('\t');
-                    string sample = tab9 == string::npos ? string() : dest.substr(tab9 + 1);
-                    size_t colon = sample.find(':');
-                    string gt = colon == string::npos ? sample : sample.substr(0, colon);
-                    int alleles = 1;
-                    for (char ch : gt) {
-                        if (ch == '/' || ch == '|') {
-                            ++alleles;
-                        }
-                    }
-                    if (alleles != rep->second) {
-                        continue;
-                    }
-                }
-                if (dropped_records.count(key) > 0) {
-                    // The settled parent genotype does not carry this chain, so the sample has no
-                    // copy of it and the call has no haplotype to sit on. Dropped rather than
-                    // flagged, which is what `nested_unreachable` did.
-                    continue;
-                }
-                auto found = linkage_nested_filters.find(key);
-                if (found != linkage_nested_filters.end()) {
-                    apply_nested_filter(dest, found->second);
-                }
+        if (!linkage_nested_filters.empty()) {
+            auto found = linkage_nested_filters.find(id_key());
+            if (found != linkage_nested_filters.end()) {
+                apply_nested_filter(dest, found->second);
             }
         }
         out_stream << dest << endl;
@@ -887,6 +932,7 @@ void VCFOutputCaller::apply_linkage_change(string& line,
     size_t gt_field = keys.size();
     size_t gq_field = keys.size();
     size_t gqi_field = keys.size();
+    size_t gqn_field = keys.size();
     for (size_t i = 0; i < keys.size(); ++i) {
         if (keys[i] == "GT") {
             gt_field = i;
@@ -894,6 +940,8 @@ void VCFOutputCaller::apply_linkage_change(string& line,
             gq_field = i;
         } else if (keys[i] == "GQI") {
             gqi_field = i;
+        } else if (keys[i] == "GQN") {
+            gqn_field = i;
         }
     }
     if (gt_field == keys.size()) {
@@ -976,7 +1024,24 @@ void VCFOutputCaller::apply_linkage_change(string& line,
                 // than dropping the change.
             }
         }
-        values[gq_field] = std::to_string((int)min(256.0, max(0.0, round(q))));
+        // Truncated, not rounded, because that is what the per-site emission does -- two records
+        // with the same underlying quality must not print different integers depending on whether
+        // linkage touched one of them.
+        values[gq_field] = std::to_string((int)min(256.0, max(0.0, q)));
+    }
+    if (gqn_field != keys.size()) {
+        // GQN is the per-site likelihood-ratio gap as a fraction of the site's maximum, and it
+        // described the genotype this change just replaced. It is not derivable from the change,
+        // so it is blanked -- '.' means "no measurement", which is now the truth -- rather than
+        // left describing a call the record no longer makes.
+        values[gqn_field] = ".";
+    }
+    // The lowconf FILTER was set from the pre-linkage GQN against --min-confidence, so after a
+    // genotype change it labels the abandoned call. The changed record's confidence is the GQ
+    // written above; the stale flag is cleared rather than left to gate downstream filtering on
+    // the wrong genotype's confidence.
+    if (fields[6] == "lowconf") {
+        fields[6] = "PASS";
     }
 
     string format;
@@ -2012,7 +2077,10 @@ bool VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCa
     last_emitted.valid = false;
     last_emitted.num_alleles = 0;
     last_emitted.trav_to_allele.clear();
-    last_emitted.recorded = false;
+    last_emitted.contig.clear();
+    last_emitted.position = 0;
+    last_emitted.buffer_thread = -1;
+    last_emitted.buffer_index = 0;
 
     if (trav_to_string == nullptr) {
         trav_to_string = [&](const vector<SnarlTraversal>& travs, const vector<int>& travs_genotype, int trav_allele, int genotype_allele, int ref_trav_idx) {
@@ -2211,10 +2279,21 @@ bool VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCa
         for (const auto& kv : trav_to_allele) {
             last_emitted.trav_to_allele.emplace(kv.first, kv.second);
         }
+        // Post-flatten, which is the point: this is the (contig, POS) add_variant keys the line
+        // under, so a linkage entry recorded from these is one write_variants can actually find.
+        // get_ref_position reproduces the pre-flatten value and must not be used for this.
+        last_emitted.contig = out_variant.sequenceName;
+        last_emitted.position = out_variant.position;
     }
 
     if (genotype_snarls || !out_variant.alt.empty()) {
         bool added = add_variant(out_variant);
+        if (added) {
+            // Exactly which buffered line this record became, so the barrier can retract or
+            // replace it without re-deriving its identity from the text.
+            last_emitted.buffer_thread = omp_get_thread_num();
+            last_emitted.buffer_index = output_variants[omp_get_thread_num()].size() - 1;
+        }
         if (added && linkage_collector != nullptr && !suppress_linkage_record) {
             // Phase one of the linkage pass: keep the compact site, not the record. See
             // LinkageCollector for why the CallInfo cannot be retained instead.
@@ -2231,36 +2310,11 @@ bool VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCa
             }
             if (rl_info != nullptr && alleles_ok) {
                 size_t n_alleles = out_variant.alleles.size();
-                size_t n_gt = site_ploidy == 1 ? n_alleles : n_alleles * (n_alleles + 1) / 2;
-                vector<double> gls(n_gt, -numeric_limits<double>::infinity());
-                for (const auto& entry : rl_info->genotype_lls) {
-                    if (entry.first.size() != site_ploidy) {
-                        continue;
-                    }
-                    if (site_ploidy == 1) {
-                        // A haploid genotype is one allele, so the likelihood vector is indexed by
-                        // allele rather than by the triangular pair index.
-                        auto it = trav_to_allele.find(entry.first[0]);
-                        if (it == trav_to_allele.end() || (size_t)it->second >= n_alleles) {
-                            continue;
-                        }
-                        gls[(size_t)it->second] = entry.second;
-                        continue;
-                    }
-                    // genotype_lls is keyed by traversal index. Using those as VCF allele indices
-                    // fed the model a scrambled emission -- it changed 34% of confident genotypes
-                    // against a 0.1% budget, which is what a wrong emission looks like.
-                    auto a_it = trav_to_allele.find(entry.first[0]);
-                    auto b_it = trav_to_allele.find(entry.first[1]);
-                    if (a_it == trav_to_allele.end() || b_it == trav_to_allele.end()) {
-                        continue;   // a traversal that never became a VCF allele
-                    }
-                    size_t i = (size_t)a_it->second, j = (size_t)b_it->second;
-                    if (i >= n_alleles || j >= n_alleles) {
-                        continue;
-                    }
-                    gls[LinkageModel::genotype_index(i, j)] = entry.second;
-                }
+                // genotype_lls is keyed by traversal index. Using those as VCF allele indices
+                // fed the model a scrambled emission -- it changed 34% of confident genotypes
+                // against a 0.1% budget, which is what a wrong emission looks like.
+                vector<double> gls = remap_genotype_lls(rl_info->genotype_lls, trav_to_allele,
+                                                        n_alleles, site_ploidy);
                 size_t gi = (size_t)site_genotype[0];
                 size_t gj = site_ploidy == 2 ? (size_t)site_genotype[1] : gi;
                 if (site_ploidy == 2 && gi > gj) {
@@ -2297,7 +2351,6 @@ bool VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCa
                                           // back off `last_emitted` to decide whether this snarl's
                                           // children can be visited now or must wait for linkage.
                                           current_generation);
-                last_emitted.recorded = true;
             }
         }
         if (!added) {
@@ -3672,11 +3725,20 @@ int FlowCaller::crossings_of_child(const SnarlTraversal& trav, const Snarl& chil
 
 uint64_t FlowCaller::child_crossing_mask(const vector<SnarlTraversal>& travs,
                                          const map<int, int>& trav_to_allele,
-                                         const Snarl& child) {
+                                         const Snarl& child, bool* known) {
+    if (known != nullptr) {
+        *known = true;
+    }
     uint64_t mask = 0;
     for (const auto& kv : trav_to_allele) {
         if (kv.second < 0 || kv.second >= 64) {
-            return 0;   // unknown, not none
+            // Unknown, not none: the mask cannot index this allele. The barrier used to read the
+            // returned 0 as "no allele crosses" and silently exempted every child of a 64+-allele
+            // parent from revision, so the distinction now travels beside the mask.
+            if (known != nullptr) {
+                *known = false;
+            }
+            return 0;
         }
         if (kv.first < 0 || kv.first >= (int)travs.size()) {
             continue;
@@ -3745,23 +3807,41 @@ void FlowCaller::run_deferred_descent() {
     if (linkage_collector != nullptr) {
         generations = linkage_collector->max_generation();
     }
-    // Merged once: the sweep filled these per thread, and the fixup below needs to find a chain by
-    // key and to walk them in generation order.
+    // Merged once: the sweep filled these per thread, and the barrier walks them in generation
+    // order.
     vector<PendingRecord> pending;
     pending.reserve(pending_record_count());
     for (auto& queue : pending_records) {
         std::move(queue.begin(), queue.end(), std::back_inserter(pending));
         queue.clear();
     }
-    unordered_map<size_t, size_t> by_key;
-    by_key.reserve(pending.size() * 2);
-    for (size_t i = 0; i < pending.size(); ++i) {
-        by_key[pending[i].record_key] = i;
-    }
 
-    size_t revised = 0, retracted = 0, gained = 0, unreachable_parent = 0;
+    // Blank the exact line the sweep buffered for a chain, so a retraction leaves nothing and a
+    // replacement leaves exactly one copy. The handle was captured at emit time; identifying the
+    // line later by re-hashing its ID column and counting GT separators mistook a phased haploid
+    // replacement ("1|.") for a diploid line, and its gate could be closed while replacements
+    // existed -- both lines then reached the output.
+    auto blank_buffered_line = [&](PendingRecord& pr) {
+        if (pr.buffer_thread >= 0 && (size_t)pr.buffer_thread < output_variants.size()
+            && pr.buffer_index < output_variants[pr.buffer_thread].size()) {
+            output_variants[pr.buffer_thread][pr.buffer_index].second.clear();
+        }
+        pr.buffer_thread = -1;
+    };
+
+    size_t revised = 0, retracted = 0, gained = 0, crossing_unknown = 0;
+    // `generations` is re-read at the end of each pass rather than snapshotted once: gaining a
+    // chain records a linkage entry at a generation the collector may never have held before, and
+    // a fixed bound would leave that entry -- and every pending chain below it -- outside every
+    // resolve pass: emitted but never settled, never phased, absent from the mosaic.
     for (size_t gen = 0; gen <= generations; ++gen) {
-        resolve_linkage_generation(gen, false);
+        // The final pass carries last=true: it builds the phasing map and the mosaic from the full
+        // accumulated set. If this pass then gains a deeper chain, the bound grows and a later
+        // iteration re-runs that bookkeeping over the fuller set; the phasing map is rebuilt from
+        // scratch there, so nothing is double-counted. The old shape -- a loop of last=false passes
+        // and one extra last=true call -- resolved the final generation twice and appended every
+        // final-generation site's PhaseCall to the mosaic input a second time.
+        resolve_linkage_generation(gen, gen == generations);
 
         // This generation's parents are settled, so every chain hanging off one can be put on the
         // ploidy its parent's *final* genotype implies, before its own generation resolves. That is
@@ -3773,8 +3853,20 @@ void FlowCaller::run_deferred_descent() {
             settled[pc.record_key] = &pc;
         }
         for (PendingRecord& pr : pending) {
-            if (pr.generation != gen + 1 || pr.parent_crossing == 0) {
+            if (pr.generation != gen + 1) {
                 continue;
+            }
+            if (!pr.crossing_known) {
+                // The sweep could not compute this chain's crossing mask: its parent emitted
+                // nothing (a retained chain -- re-emitting the parent below recomputes these), or
+                // the parent carries more alleles than a 64-bit mask can index. Left exactly as
+                // the sweep left it, and counted, because reading an unknown mask as "no allele
+                // crosses" silently exempted these chains from revision.
+                ++crossing_unknown;
+                continue;
+            }
+            if (pr.parent_crossing == 0) {
+                continue;   // no emitted parent allele crosses: no settled genotype can reach it
             }
             auto found = settled.find(pr.parent_record_key);
             if (found == settled.end()) {
@@ -3791,21 +3883,16 @@ void FlowCaller::run_deferred_descent() {
 
             if (copies == 0) {
                 if (pr.emitted) {
-                    // A call on a haplotype the sample turns out not to have. Dropped rather than
-                    // flagged: this is what `nested_unreachable` used to label and keep.
+                    // A call on a haplotype the sample turns out not to have. The buffered line is
+                    // blanked rather than flagged: this is what `nested_unreachable` used to label
+                    // and keep.
                     if (linkage_collector->retract(pr.record_key)) {
                         ++retracted;
                     }
-                    dropped_records.insert(pr.record_key);
+                    blank_buffered_line(pr);
                     pr.emitted = false;
                 }
-                ++unreachable_parent;
                 continue;
-            }
-            if (!pr.emitted) {
-                // The settled parent carries a chain the pre-linkage one did not reach. Nothing was
-                // written for it during the sweep, so this is a call that inline descent never made.
-                ++gained;
             }
             if (copies == pr.ploidy && pr.emitted) {
                 continue;   // the pre-linkage ploidy was right; nothing to do
@@ -3859,95 +3946,110 @@ void FlowCaller::run_deferred_descent() {
             }
             const unique_ptr<SnarlCaller::CallInfo>& info = use_info ? use_info : pr.call_info;
 
-            if (pr.emitted) {
-                replaced_records[pr.record_key] = copies;
-            }
+            const bool was_gained = !pr.emitted;
             suppress_linkage_record = true;
             bool wrote = emit_variant(graph, snarl_caller, pr.snarl, pr.travs, use_genotype,
                                       pr.ref_trav_idx, info, pr.ref_path_name, pr.ref_offset,
                                       genotype_snarls, copies);
             suppress_linkage_record = false;
-            if (wrote) {
-                // Put the site into the linkage layer at its new ploidy, before its own generation
-                // resolves. This is the coherence guarantee: the ploidy a nested record carries is
-                // the one its parent's settled genotype implies, by construction.
-                vector<double> gls;
-                const ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo* used =
-                    dynamic_cast<const ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo*>(info.get());
-                if (used != nullptr) {
-                    size_t n_gt = copies == 1 ? last_emitted.num_alleles
-                                              : last_emitted.num_alleles
-                                                    * (last_emitted.num_alleles + 1) / 2;
-                    gls.assign(n_gt, -numeric_limits<double>::infinity());
-                    for (const auto& entry : used->genotype_lls) {
-                        if ((int)entry.first.size() != copies) {
-                            continue;
-                        }
-                        if (copies == 1) {
-                            auto it = last_emitted.trav_to_allele.find(entry.first[0]);
-                            if (it != last_emitted.trav_to_allele.end()
-                                && (size_t)it->second < last_emitted.num_alleles) {
-                                gls[(size_t)it->second] = entry.second;
-                            }
-                            continue;
-                        }
-                        auto a = last_emitted.trav_to_allele.find(entry.first[0]);
-                        auto b = last_emitted.trav_to_allele.find(entry.first[1]);
-                        if (a == last_emitted.trav_to_allele.end()
-                            || b == last_emitted.trav_to_allele.end()) {
-                            continue;
-                        }
-                        size_t i = (size_t)a->second, j = (size_t)b->second;
-                        if (i < last_emitted.num_alleles && j < last_emitted.num_alleles) {
-                            gls[LinkageModel::genotype_index(i, j)] = entry.second;
-                        }
+            // `wrote` alone is not "a line exists": emit_variant returns true when the record
+            // flattens to nothing, and false when add_variant rejects it. Only a replacement that
+            // actually landed in the buffer may displace the sweep's line -- registering the
+            // replacement first used to delete the site when the re-emit wrote nothing.
+            if (last_emitted.buffer_thread < 0 || !wrote) {
+                continue;
+            }
+            if (pr.emitted) {
+                blank_buffered_line(pr);
+            }
+            pr.buffer_thread = last_emitted.buffer_thread;
+            pr.buffer_index = last_emitted.buffer_index;
+
+            // Put the site into the linkage layer at its new ploidy, before its own generation
+            // resolves. This is the coherence guarantee: the ploidy a nested record carries is
+            // the one its parent's settled genotype implies, by construction.
+            const ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo* used =
+                dynamic_cast<const ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo*>(info.get());
+            if (used != nullptr) {
+                vector<double> gls = remap_genotype_lls(used->genotype_lls,
+                                                        last_emitted.trav_to_allele,
+                                                        last_emitted.num_alleles, (size_t)copies);
+                // The panel, like the GLs and the genotype, must be in the numbering of the record
+                // just emitted. panel_alleles returns indices into the candidate list it is given,
+                // and pr.travs is the full list -- ref often last, uncalled candidates at low
+                // indices -- so those values fed the model a scrambled emission until they were
+                // remapped here, exactly as the inline path's comment warns.
+                vector<int> panel = panel_alleles(graph, pr.travs);
+                for (int& hap_allele : panel) {
+                    if (hap_allele < 0) {
+                        continue;
                     }
-                    size_t gi = 0, gj = 0;
-                    auto g0 = last_emitted.trav_to_allele.find(use_genotype[0]);
-                    gi = g0 != last_emitted.trav_to_allele.end() ? (size_t)g0->second : 0;
-                    gj = gi;
-                    if (copies == 2 && use_genotype.size() == 2) {
-                        auto g1 = last_emitted.trav_to_allele.find(use_genotype[1]);
-                        gj = g1 != last_emitted.trav_to_allele.end() ? (size_t)g1->second : gi;
-                        if (gi > gj) {
-                            std::swap(gi, gj);
-                        }
-                    }
-                    if (!linkage_collector->respecify(pr.record_key, last_emitted.num_alleles, gls,
-                                                      panel_alleles(graph, pr.travs), gi, gj,
-                                                      (size_t)copies, copies == 1, pr.parent_slot,
-                                                      pr.parent_crossing)) {
-                        // Not previously recorded -- a chain nothing was written for during the
-                        // sweep -- so it joins the layer now rather than being revised.
-                        // Contig and position derived exactly as emit_variant derives them, so the
-                        // site sorts into the chain where its record sits. Passing a placeholder
-                        // position would put it at the head of the contig and give it the wrong
-                        // linkage neighbours.
-                        pair<string, int64_t> pos_info =
-                            get_ref_position(graph, pr.snarl, pr.ref_path_name, pr.ref_offset);
-                        string contig = PathMetadata::parse_locus_name(pos_info.first);
-                        if (contig == PathMetadata::NO_LOCUS_NAME) {
-                            contig = pos_info.first;
-                        }
-                        linkage_collector->record(
-                            contig, (size_t)max<int64_t>(pos_info.second, 0),
-                            last_emitted.num_alleles, gls,
-                            panel_alleles(graph, pr.travs), gi, gj, pr.record_key, 1.0,
-                            (size_t)copies, pr.snarl.start().node_id(), pr.snarl.end().node_id(),
-                            copies == 1, pr.parent_record_key,
-                            pr.parent_slot, pr.parent_crossing, pr.generation);
+                    auto mapped = last_emitted.trav_to_allele.find(hap_allele);
+                    hap_allele = mapped != last_emitted.trav_to_allele.end() ? mapped->second : -1;
+                }
+                size_t gi = 0, gj = 0;
+                auto g0 = last_emitted.trav_to_allele.find(use_genotype[0]);
+                gi = g0 != last_emitted.trav_to_allele.end() ? (size_t)g0->second : 0;
+                gj = gi;
+                if (copies == 2 && use_genotype.size() == 2) {
+                    auto g1 = last_emitted.trav_to_allele.find(use_genotype[1]);
+                    gj = g1 != last_emitted.trav_to_allele.end() ? (size_t)g1->second : gi;
+                    if (gi > gj) {
+                        std::swap(gi, gj);
                     }
                 }
-                pr.emitted = true;
+                if (!linkage_collector->respecify(pr.record_key, last_emitted.num_alleles, gls,
+                                                  panel, gi, gj,
+                                                  (size_t)copies, copies == 1, pr.parent_slot,
+                                                  pr.parent_crossing)) {
+                    // Not previously recorded -- a chain nothing was written for during the
+                    // sweep -- so it joins the layer now rather than being revised. The contig and
+                    // POS are the ones the record was just written with, post-flatten: the same
+                    // key add_variant filed the line under, so write_variants' lookup can find the
+                    // entry. get_ref_position reproduces the pre-flatten POS and left every gained
+                    // record unphased.
+                    linkage_collector->record(
+                        last_emitted.contig, last_emitted.position,
+                        last_emitted.num_alleles, gls,
+                        panel, gi, gj, pr.record_key, 1.0,
+                        (size_t)copies, pr.snarl.start().node_id(), pr.snarl.end().node_id(),
+                        copies == 1, pr.parent_record_key,
+                        pr.parent_slot, pr.parent_crossing, pr.generation);
+                }
+            }
+            pr.emitted = true;
+            if (was_gained) {
+                ++gained;
+            } else {
                 ++revised;
             }
+
+            // The record this chain's children were masked against has just changed -- or, for a
+            // gained chain, exists for the first time -- so their crossing masks are recomputed
+            // from the mapping the emit above produced. The sweep-time masks were built from
+            // whatever this thread had last emitted, which for children of a retained chain was a
+            // foreign snarl's mapping.
+            for (PendingRecord& child : pending) {
+                if (child.parent_record_key == pr.record_key) {
+                    bool known = true;
+                    child.parent_crossing = child_crossing_mask(
+                        pr.travs, last_emitted.trav_to_allele, child.snarl, &known);
+                    child.crossing_known = known;
+                }
+            }
+        }
+        if (linkage_collector != nullptr) {
+            generations = max(generations, linkage_collector->max_generation());
         }
     }
-    resolve_linkage_generation(generations, true);
     if (show_progress) {
         cerr << "[vg call] single sweep: " << pending.size() << " nested chains retained over "
-             << (generations + 1) << " generations; " << revised << " to revise, " << gained
-             << " reachable only under the settled parent, " << retracted << " retracted" << endl;
+             << (generations + 1) << " generations; " << revised << " revised, " << gained
+             << " reachable only under the settled parent, " << retracted << " retracted";
+        if (crossing_unknown > 0) {
+            cerr << ", " << crossing_unknown << " with a crossing mask the sweep could not compute";
+        }
+        cerr << endl;
     }
 }
 
@@ -3967,6 +4069,10 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
     // Staged in the nested branch below and completed after the descent loop, because the loop reads
     // `travs` and this record is what finally takes ownership of it.
     unique_ptr<PendingRecord> pending_this;
+    // Whether THIS invocation ran emit_variant, so the descent block below knows the thread-local
+    // last_emitted describes this snarl. A retained chain (and a GAF run) skips the emit, and the
+    // stale mapping -- some other snarl's -- must not be used for its children's crossing masks.
+    bool emitted_this_call = false;
 
 #ifdef debug
     cerr << "call_snarl_internal on " << pb2json(snarl) << " with parent_ref_path=" << parent_ref_path_name
@@ -4328,6 +4434,7 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
         } else if (!gaf_output) {
             added = emit_variant(graph, snarl_caller, snarl, travs, trav_genotype, ref_trav_idx, trav_call_info, ref_path_name,
                                  ref_offsets[ref_path_name], genotype_snarls, ploidy);
+            emitted_this_call = true;
         } else {
             pair<string, int64_t> pos_info = get_ref_position(graph, snarl, ref_path_name, ref_offsets[ref_path_name]);
             emit_gaf_variant(graph, print_snarl(snarl), travs, trav_genotype, ref_trav_idx, pos_info.first, pos_info.second, &support_finder);
@@ -4337,11 +4444,6 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
     } else if (ploidy_override >= 0) {
         // A nested chain: reached by descent, with the ploidy its parent implied.
         //
-        // Genotyped exactly as before. The measurement here is what the single-sweep design would
-        // have to hold on to until this chain's parent is settled -- the candidate traversals and the
-        // CallInfo, including the other ploidy's answer -- so that the record can be built later
-        // instead of now. Counting it costs nothing and settles whether the design is affordable
-        // before anything is restructured around it.
         // Only a nested chain can have its ploidy revised at the barrier, so only a nested chain
         // needs the other ploidy's answer computed and kept.
         unique_ptr<SnarlCaller::CallInfo> trav_call_info;
@@ -4352,59 +4454,6 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
         ReadLikelihoodSnarlCaller::set_want_alt_ploidy(false);
 
         const bool retain_only = nested_context.retain_only;
-        if (retain_only) {
-            if (nested_context.retain_root) {
-                ++g_retain_held_root;
-            } else {
-                ++g_retain_held_inherited;
-            }
-        } else {
-            ++g_retain_emitted;
-        }
-        {
-            size_t visits = 0;
-            size_t space = 0;
-            for (const SnarlTraversal& t : travs) {
-                visits += t.visit_size();
-                space += t.SpaceUsedLong();
-            }
-            ++g_retain_chains;
-            g_retain_travs += travs.size();
-            g_retain_visits += visits;
-            g_retain_space += space;
-            const ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo* rl =
-                dynamic_cast<const ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo*>(
-                    trav_call_info.get());
-            if (rl != nullptr) {
-                // Every copy of the traversals counted, not just the candidate list: the CallInfo
-                // keeps its own `scored_traversals`, and the alternate ploidy's CallInfo was given a
-                // third. Three copies a chain is the thing to find out about.
-                for (const SnarlTraversal& t : rl->scored_traversals) {
-                    space += t.SpaceUsedLong();
-                }
-                if (rl->alt_ploidy_info != nullptr) {
-                    for (const SnarlTraversal& t : rl->alt_ploidy_info->scored_traversals) {
-                        space += t.SpaceUsedLong();
-                    }
-                }
-                size_t entries = rl->genotype_lls.size();
-                size_t alleles = 0;
-                for (const auto& kv : rl->genotype_lls) {
-                    alleles += kv.first.size();
-                }
-                size_t support = rl->allele_support.size();
-                if (rl->alt_ploidy_info != nullptr) {
-                    entries += rl->alt_ploidy_info->genotype_lls.size();
-                    for (const auto& kv : rl->alt_ploidy_info->genotype_lls) {
-                        alleles += kv.first.size();
-                    }
-                    support += rl->alt_ploidy_info->allele_support.size();
-                }
-                g_retain_gt_entries += entries;
-                g_retain_gt_alleles += alleles;
-                g_retain_support += support;
-            }
-        }
 
         assert(trav_genotype.empty() || trav_genotype.size() == ploidy);
         bool added = true;
@@ -4418,6 +4467,7 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
             added = emit_variant(graph, snarl_caller, snarl, travs, trav_genotype, ref_trav_idx,
                                  trav_call_info, ref_path_name, ref_offsets[ref_path_name],
                                  genotype_snarls, ploidy);
+            emitted_this_call = true;
         } else {
             pair<string, int64_t> pos_info = get_ref_position(graph, snarl, ref_path_name,
                                                               ref_offsets[ref_path_name]);
@@ -4441,9 +4491,16 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
             pending_this->record_key = std::hash<string>{}(print_snarl(snarl, false));
             pending_this->parent_record_key = nested_context.parent_record_key;
             pending_this->parent_crossing = nested_context.parent_crossing;
+            pending_this->crossing_known = nested_context.crossing_known;
             pending_this->parent_slot = nested_context.parent_slot;
             pending_this->generation = (uint8_t)min(current_generation, (size_t)255);
             pending_this->emitted = !retain_only;
+            // Where the sweep's line landed, so the barrier can retract or replace exactly that
+            // line. -1 when nothing was buffered: a retained chain, a GAF run, or a rejected line.
+            if (!retain_only && !gaf_output) {
+                pending_this->buffer_thread = last_emitted.buffer_thread;
+                pending_this->buffer_index = last_emitted.buffer_index;
+            }
             pending_this->call_info = std::move(trav_call_info);
         }
         ret_val = trav_genotype.size() == ploidy && added;
@@ -4459,6 +4516,7 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
         if (!gaf_output) {
             added = emit_variant(graph, snarl_caller, snarl, travs, trav_genotype, ref_trav_idx, trav_call_info, ref_path_name,
                                  ref_offsets[ref_path_name], genotype_snarls, ploidy);
+            emitted_this_call = true;
         } else {
             pair<string, int64_t> pos_info = get_ref_position(graph, snarl, ref_path_name, ref_offsets[ref_path_name]);
             emit_gaf_variant(graph, print_snarl(snarl), travs, trav_genotype, ref_trav_idx, pos_info.first, pos_info.second, &support_finder);
@@ -4494,7 +4552,15 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
             // Snapshotted before the loop: each child call runs emit_variant of its own and
             // overwrites the thread's copy, so reading it inside the loop would describe the
             // previous child rather than this parent.
-            const EmittedAlleles parent_alleles = last_emitted;
+            EmittedAlleles parent_alleles = last_emitted;
+            if (!emitted_this_call) {
+                // This snarl never went through emit_variant (a retained chain, or a GAF run), so
+                // last_emitted still holds some other snarl's mapping. Applying a foreign map to
+                // this snarl's traversals produced semantically garbage crossing masks that the
+                // barrier then used to gain, drop, and re-ploidy this snarl's descendants. The
+                // masks are recomputed at the barrier if this chain is ever actually emitted.
+                parent_alleles.valid = false;
+            }
             // Deferral turns on exactly one question: can linkage still move this snarl's genotype?
             // Only a snarl that reached the linkage layer can be rewritten, so one with no entry has
             // a final genotype already and its children are visited now, as they always were. That
@@ -4522,7 +4588,6 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
 
                 int copies = child_ploidy(travs, trav_genotype, *child, ploidy);
                 bool retain_only = nested_context.retain_only;
-                bool retain_root = false;
                 if (copies <= 0) {
                     // No called allele reaches it *yet*. Visited anyway, while the reads for this
                     // window are still resident, because the parent's genotype is not settled and
@@ -4530,16 +4595,10 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
                     // chr20. Going back to the reads at the barrier to find out is what cost five
                     // sweeps of the contig. Nothing about it is emitted unless the barrier says so.
                     ++g_descent_skipped_no_copy;
-                    if (linkage_collector != nullptr && parent_alleles.valid) {
-                        linkage_collector->record_skipped_child(
-                            std::hash<string>{}(print_snarl(snarl, false)),
-                            child_crossing_mask(travs, parent_alleles.trav_to_allele, *child));
-                    }
                     if (!defer_nested_descent) {
                         continue;   // without retention there is nothing to come back to
                     }
                     retain_only = true;
-                    retain_root = true;
                 }
 
                 // A haploid child hangs off exactly one parent slot, and which one decides the
@@ -4562,11 +4621,13 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
                 nested_context.parent_record_key = std::hash<string>{}(print_snarl(snarl, false));
                 nested_context.parent_slot = slot;
                 nested_context.retain_only = retain_only;
-                nested_context.retain_root = retain_root;
+                bool crossing_known = parent_alleles.valid;
                 nested_context.parent_crossing =
                     parent_alleles.valid
-                    ? child_crossing_mask(travs, parent_alleles.trav_to_allele, *child)
+                    ? child_crossing_mask(travs, parent_alleles.trav_to_allele, *child,
+                                          &crossing_known)
                     : 0;
+                nested_context.crossing_known = crossing_known;
                 size_t saved_generation = current_generation;
                 current_generation = saved_generation + 1;
                 ++g_descent_depth;
@@ -4912,6 +4973,12 @@ bool NestedFlowCaller::call_snarl_recursive(const Snarl& managed_snarl, int max_
     }
     // store the reference traversal information, which could be empty
     record.ref_path_name = ref_path_name;
+    // The interval the ploidy above was decided over. emit_snarl_recursive re-derives the emit-time
+    // ploidy from this via ploidy_at, and genotype_by_ploidy is indexed by that ploidy -- the field
+    // was declared but never assigned, so every lookup ran at contig position 0 and a --ploidy-bed
+    // whose region at base 0 differed could index genotype_by_ploidy out of bounds.
+    record.ref_path_interval = make_pair((int64_t)gt_ref_interval.first,
+                                         (int64_t)gt_ref_interval.second);
     record.ref_trav_idx = ref_trav_idx;
 
     // in the snarl graph, snarls a represented by a snarl end point and that's it.  here we fix up the traversals
