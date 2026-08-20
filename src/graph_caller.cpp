@@ -413,11 +413,6 @@ string VCFOutputCaller::vcf_header(const PathHandleGraph& graph, const vector<st
            << "snarl pointer\">" << endl;
     }
     if (symbolic_manager != nullptr) {
-        ss << "##INFO=<ID=NGT2,Number=1,Type=String,Description=\"For a nested site called at "
-           << "ploidy 1, the genotype its own reads would give at ploidy 2, in this record's allele "
-           << "numbering. Present only on nested haploid records. '.' means that genotype uses a "
-           << "traversal this record does not carry, so reaching it would need a new ALT and not "
-           << "just a different GT. Reported, not acted on: see FILTER=nested_diploid\">" << endl;
         // Nested descent chose each child's ploidy from its parent's pre-linkage genotype, and
         // linkage can then rewrite the parent. Where that changes which parent alleles cross the
         // child, the child record outlives the genotype that justified it. Flagged rather than
@@ -2215,33 +2210,6 @@ bool VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCa
         last_emitted.trav_to_allele.clear();
         for (const auto& kv : trav_to_allele) {
             last_emitted.trav_to_allele.emplace(kv.first, kv.second);
-        }
-    }
-
-    // What this nested haploid site would call at ploidy 2.
-    //
-    // Its ploidy came from the parent's genotype before linkage, and linkage can move the parent so
-    // that both haplotypes cross the chain -- at which point the record names one allele where the
-    // locus has two. Re-genotyping it needs the diploid likelihoods, so this reports what they say,
-    // in the record's own allele numbering. "." means the diploid answer uses a traversal this
-    // record does not carry, which is the case a genotype rewrite could not fix on its own.
-    if (nested_context.active) {
-        const ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo* rl_alt =
-            dynamic_cast<const ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo*>(call_info.get());
-        if (rl_alt != nullptr && rl_alt->alt_ploidy_best.size() == 2) {
-            string spelled;
-            for (int t : rl_alt->alt_ploidy_best) {
-                auto it = trav_to_allele.find(t);
-                if (it == trav_to_allele.end()) {
-                    spelled.clear();
-                    break;
-                }
-                if (!spelled.empty()) {
-                    spelled += "/";
-                }
-                spelled += std::to_string(it->second);
-            }
-            out_variant.info["NGT2"].push_back(spelled.empty() ? "." : spelled);
         }
     }
 

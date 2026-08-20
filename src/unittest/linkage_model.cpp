@@ -357,6 +357,94 @@ TEST_CASE("The collector sorts by reference position, not arrival order",
     }
 }
 
+TEST_CASE("respecify moves a site to the ploidy its settled parent implies", "[linkage_model]") {
+    // The coherence guarantee in one function. Descent records a child at the ploidy its parent's
+    // *pre-linkage* genotype implied; the barrier then learns what the settled genotype implies and
+    // moves the entry before its own generation resolves. Without this the child keeps a ploidy its
+    // own parent contradicts, which is what the nested_diploid FILTER used to label.
+    LinkageModel::Params p;
+    p.weight = 1.0;
+    p.scale = 100000.0;
+    p.rho_min = 1e-4;
+
+    const size_t PARENT = 9, CHILD = 91;
+    LinkageCollector collector(p, 2);
+    collector.record("chr1", 1000, 2, {-30.0, -30.0, 0.0}, {1, 1}, 1, 1, PARENT,
+                     1.0, 2, 10, 20);
+    // Recorded haploid, as descent would: one allele, one likelihood per allele.
+    collector.record("chr1", 1010, 2, {0.0, -30.0}, {0, 0}, 0, 0, CHILD,
+                     1.0, 1, 11, 12, true, PARENT, 0, (uint64_t)1 << 1);
+
+    // The settled parent turns out to cross on both haplotypes, so the child is diploid. Its
+    // likelihoods are the triangular vector now, and it is no longer a nested haploid site.
+    REQUIRE(collector.respecify(CHILD, 2, {-30.0, -30.0, 0.0}, {1, 1}, 1, 1, 2,
+                                /*nested*/ false, 0, 0));
+    // An unknown key must say so rather than silently doing nothing.
+    REQUIRE_FALSE(collector.respecify(12345, 2, {0.0, -30.0, -30.0}, {0, 0}, 0, 0, 1, true, 0, 0));
+
+    vector<LinkageCollector::PhaseCall> phased;
+    vector<LinkageCollector::NestedIncoherence> incoherent;
+    collector.resolve(&phased, &incoherent);
+
+    // Nothing to flag: the ploidy the record carries is the one its parent implies.
+    REQUIRE(incoherent.empty());
+    const LinkageCollector::PhaseCall* child = nullptr;
+    for (const auto& pc : phased) {
+        if (pc.record_key == CHILD) {
+            child = &pc;
+        }
+    }
+    REQUIRE(child != nullptr);
+    REQUIRE(child->ploidy == 2);
+    REQUIRE(child->allele_first == 1);
+    REQUIRE(child->allele_second == 1);
+}
+
+TEST_CASE("retract drops a site the settled parent does not carry", "[linkage_model]") {
+    // The other half. Where the settled genotype crosses the chain on neither haplotype the sample
+    // has no copy of it, so there is no site: the entry leaves the chains, the phasing and every
+    // count. Marked rather than erased, because the arenas are flat and every other entry holds
+    // offsets into them -- so the neighbours must survive it untouched.
+    LinkageModel::Params p;
+    p.weight = 1.0;
+    p.scale = 100000.0;
+    p.rho_min = 1e-4;
+
+    const size_t PARENT = 9, CHILD = 91, SIBLING = 92;
+    LinkageCollector collector(p, 2);
+    collector.record("chr1", 1000, 2, {-30.0, -30.0, 0.0}, {1, 1}, 1, 1, PARENT,
+                     1.0, 2, 10, 20);
+    collector.record("chr1", 1010, 2, {0.0, -30.0}, {0, 0}, 0, 0, CHILD,
+                     1.0, 1, 11, 12, true, PARENT, 0, (uint64_t)1 << 0);
+    // A neighbour recorded *after* the retracted one, so its arena offsets sit beyond the hole.
+    collector.record("chr1", 1020, 2, {-30.0, -30.0, 0.0}, {1, 1}, 1, 1, SIBLING,
+                     1.0, 2, 13, 14);
+
+    size_t before = collector.num_sites_at(0);
+    REQUIRE(collector.retract(CHILD));
+    REQUIRE_FALSE(collector.retract(CHILD));        // already gone
+    REQUIRE_FALSE(collector.retract(999));          // never existed
+
+    vector<LinkageCollector::PhaseCall> phased;
+    collector.resolve(&phased, nullptr);
+
+    for (const auto& pc : phased) {
+        REQUIRE(pc.record_key != CHILD);
+    }
+    // The neighbour past the hole is still read correctly, which is the thing marking rather than
+    // erasing is for.
+    const LinkageCollector::PhaseCall* sibling = nullptr;
+    for (const auto& pc : phased) {
+        if (pc.record_key == SIBLING) {
+            sibling = &pc;
+        }
+    }
+    REQUIRE(sibling != nullptr);
+    REQUIRE(sibling->position == 1020);
+    REQUIRE(sibling->allele_first == 1);
+    REQUIRE(collector.num_sites_at(0) < before);
+}
+
 TEST_CASE("A nested site whose parent no longer crosses it is reported, not quietly kept",
           "[linkage_model]") {
     // Descent picked the child's ploidy from the parent's pre-linkage genotype. When linkage then

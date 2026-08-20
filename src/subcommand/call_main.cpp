@@ -1720,8 +1720,11 @@ int main_call(int argc, char** argv) {
         VCFOutputCaller* nested_target = dynamic_cast<VCFOutputCaller*>(graph_caller.get());
         nested_target->set_symbolic_collapsing(snarl_manager.get());
         // A nested site's ploidy comes from a parent genotype linkage can afterwards invalidate, so
-        // score every ploidy-1 site at ploidy 2 as well and report what it would call there. Costs a
-        // second pass over a matrix that is already built; see INFO/NGT2.
+        // the genotyper is asked for both ploidies' answers at once, from the matrix it has already
+        // built. The barrier then settles the ploidy and renders the record at it -- which is why
+        // this is load-bearing rather than diagnostic, and why the INFO/NGT2 field that used to
+        // report the second answer is gone: the caller acts on it instead of describing it.
+        // Requested per call by the nested branch; see set_want_alt_ploidy.
         {
             ReadLikelihoodSnarlCaller* rl_caller =
                 dynamic_cast<ReadLikelihoodSnarlCaller*>(snarl_caller.get());
