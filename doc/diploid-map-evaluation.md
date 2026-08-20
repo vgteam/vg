@@ -167,6 +167,12 @@ For HiFi, the non-diploid changes are essentially neutral for truth-position acc
 
 This does not mean diploid-map has little effect. The large rescue and regression counts show that it frequently selects a different haplotype/path placement; the favorable and unfavorable changes nearly balance for these long reads.
 
+### HiFi MAPQ calibration
+
+![Simulated KOLF2.1J HiFi diploid-surjection MAPQ calibration](figures/surject_r50_5_clean.png)
+
+This plot compares the error probability predicted from the surjected BAM's MAPQ with the measured probability that a read is placed more than 50 bp from its simulated truth position. The dashed diagonal represents perfect calibration, point size represents the number of reads in a MAPQ bin, and vertical bars show uncertainty in the measured error rate. The high-MAPQ bins contain few observed errors, but intermediate bins are irregular and several zero-error bins appear at the plotting floor. The long-read result therefore supports strong accuracy at the high-confidence end without showing uniformly calibrated MAPQ across the full range.
+
 ## KOLF paired short-read comparison
 
 The short-read evaluation contains one million reads, or 500,000 paired fragments.
@@ -211,6 +217,10 @@ This is the clearest evidence for the paired diploid method. Ordinary surjection
 The baseline assigns MAPQ 60 to 903,660 reads, but only 57.68% of those alignments satisfy the 50 bp truth criterion. Diploid-map assigns MAPQ 60 to only 86,808 reads, of which 86,802 are correct (99.993%). It places most ambiguous reads in the MAPQ 1–9 range instead of reporting them as highly confident.
 
 Mean MAPQ falls from 54.85 for baseline to 11.88 for diploid-map, while positional accuracy increases. The lower mean is therefore not a loss of quality; it reflects more conservative and better-separated confidence estimates.
+
+![Simulated KOLF2.1J paired-end diploid-surjection MAPQ calibration after fragment-length learning](figures/surject_r50_after_pe.png)
+
+After paired-end fragment-distribution learning, the central MAPQ bins follow the ideal diagonal more closely than in the HiFi experiment. High-confidence bins have measured error rates broadly consistent with their reported confidence. The lowest predicted-error bins remain conservative or noisy because observed errors are rare and their confidence intervals are wide. Together with the fragment-level truth results, the plot shows that joint mate scoring improves both primary-placement consistency and the interpretation of mapping confidence.
 
 ## KOLF HiFi speed and memory benchmark
 
