@@ -1575,6 +1575,10 @@ vector<LinkageCollector::Change> LinkageCollector::resolve_generation(
         // How the strand recorded at descent time compares with the one the parent's phase implies.
         size_t mask_unknown = 0;
         size_t final_diploid = 0, final_absent = 0;
+        // Nested sites that never found a phased parent, so no strand could be derived for them at
+        // all. Counted because they are the population that comes out with a bare haploid GT, and
+        // the report below used to describe only the sites whose parent *was* found.
+        size_t unplaced = 0;
         // Which strand each nested site was placed on, so step three can group them. Filled as the
         // sweeps below resolve parents.
         map<pair<uint32_t, uint8_t>, vector<size_t>> by_strand;
@@ -1712,6 +1716,7 @@ vector<LinkageCollector::Change> LinkageCollector::resolve_generation(
         // sides: without the parent's phase there is nothing to place it on, and asserting one would
         // be a guess dressed as a call.
         if (!pending.empty()) {
+            unplaced = pending.size();
             map<string, vector<pair<size_t, size_t>>> block_by_contig;   // contig -> (pos, phase_set)
             for (const PhaseCall& pc : *phasing_out) {
                 block_by_contig[pc.contig].emplace_back(pc.position, pc.phase_set);
@@ -1838,12 +1843,15 @@ vector<LinkageCollector::Change> LinkageCollector::resolve_generation(
         // cost. It is superseded: the crossing mask says exactly which sites were placed on the
         // wrong strand and which have the wrong ploidy, so the bound is no longer the best
         // available number.
-        if (final_diploid > 0 || final_absent > 0) {
+        if (final_diploid > 0 || final_absent > 0 || unplaced > 0) {
 #pragma omp critical (cerr)
-            std::cerr << "[vg call] nested: " << final_diploid << " sites are diploid and "
-                      << final_absent << " unreachable under the parent genotype linkage settled on, "
-                      << "of " << deferred_nested.size() << " nested sites (" << mask_unknown
-                      << " could not be checked)" << std::endl;
+            std::cerr << "[vg call] nested strands: " << deferred_nested.size()
+                      << " sites, " << (deferred_nested.size() - final_diploid - final_absent
+                                        - mask_unknown - unplaced)
+                      << " placed on one strand; " << final_diploid << " diploid under the "
+                      << "settled parent, " << final_absent << " unreachable, "
+                      << mask_unknown << " with an uncheckable mask, " << unplaced
+                      << " with no phased parent -- the last four get no strand" << std::endl;
         }
 
         if (!nested_regenotyped.empty()) {
