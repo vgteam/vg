@@ -3770,6 +3770,10 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
     // wants a pointer will crash.
     Snarl snarl = managed_snarl;
 
+    // Staged in the nested branch below and completed after the descent loop, because the loop reads
+    // `travs` and this record is what finally takes ownership of it.
+    unique_ptr<PendingRecord> pending_this;
+
 #ifdef debug
     cerr << "call_snarl_internal on " << pb2json(snarl) << " with parent_ref_path=" << parent_ref_path_name
          << " parent_child_trav_sets=" << (parent_child_trav_sets ? "provided" : "null") << endl;
@@ -4209,25 +4213,26 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
                              pos_info.first, pos_info.second, &support_finder);
         }
 
-        // Kept for the barrier. Moved rather than copied: `travs` and the CallInfo are the whole
-        // weight of this, and emission is finished with both by now.
+        // Kept for the barrier, but staged rather than stored: `travs` must not be moved out here,
+        // because the descent loop further down still reads it to work out which children the called
+        // alleles reach. Moving it here emptied it before that loop ran, so every child came back with
+        // a copy number of zero and whole subtrees were held back -- 2,494 records off chr20, every one
+        // of them nested, top-level untouched. The move happens once descent is done with it.
         if (defer_nested_descent && !pending_records.empty()) {
-            PendingRecord pr;
-            pr.snarl = snarl;
-            pr.ref_path_name = ref_path_name;
-            pr.ref_offset = ref_offsets[ref_path_name];
-            pr.ref_trav_idx = ref_trav_idx;
-            pr.genotype = trav_genotype;
-            pr.ploidy = ploidy;
-            pr.record_key = std::hash<string>{}(print_snarl(snarl, false));
-            pr.parent_record_key = nested_context.parent_record_key;
-            pr.parent_crossing = nested_context.parent_crossing;
-            pr.parent_slot = nested_context.parent_slot;
-            pr.generation = (uint8_t)min(current_generation, (size_t)255);
-            pr.emitted = !retain_only;
-            pr.travs = std::move(travs);
-            pr.call_info = std::move(trav_call_info);
-            pending_records[omp_get_thread_num()].push_back(std::move(pr));
+            pending_this.reset(new PendingRecord());
+            pending_this->snarl = snarl;
+            pending_this->ref_path_name = ref_path_name;
+            pending_this->ref_offset = ref_offsets[ref_path_name];
+            pending_this->ref_trav_idx = ref_trav_idx;
+            pending_this->genotype = trav_genotype;
+            pending_this->ploidy = ploidy;
+            pending_this->record_key = std::hash<string>{}(print_snarl(snarl, false));
+            pending_this->parent_record_key = nested_context.parent_record_key;
+            pending_this->parent_crossing = nested_context.parent_crossing;
+            pending_this->parent_slot = nested_context.parent_slot;
+            pending_this->generation = (uint8_t)min(current_generation, (size_t)255);
+            pending_this->emitted = !retain_only;
+            pending_this->call_info = std::move(trav_call_info);
         }
         ret_val = trav_genotype.size() == ploidy && added;
     } else {
@@ -4364,6 +4369,13 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
                 nested_context = saved;
             }
         }
+    }
+
+    // Descent has finished with `travs`, so the staged record can take it and be stored.
+    if (pending_this != nullptr) {
+        pending_this->travs = std::move(travs);
+        pending_records[omp_get_thread_num()].push_back(std::move(*pending_this));
+        pending_this.reset();
     }
 
     // In nested mode, recursively call child snarls
