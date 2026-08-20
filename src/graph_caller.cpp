@@ -32,6 +32,23 @@ static std::atomic<size_t> g_descent_skipped_no_ref(0);
 static std::atomic<size_t> g_descent_skipped_no_copy(0);
 static thread_local int g_descent_depth = 0;
 
+/// What retaining a nested chain's genotyping result would cost, measured rather than estimated.
+///
+/// The single-sweep design keeps each nested chain's traversals and CallInfo until its parent's
+/// genotype is settled, then builds the record. That removes the extra read sweeps, and the whole
+/// design rests on the retention being affordable -- an estimate the plan puts at order 100 MB on
+/// chr20. `LinkageCollector::bytes()` exists because the same argument was once arithmetic rather
+/// than observation, so this counts the actual objects before anything is restructured around them.
+///
+/// Sizes are reported as component counts as well as a byte total, so the per-object assumptions can
+/// be revised without re-running.
+static std::atomic<size_t> g_retain_chains(0);
+static std::atomic<size_t> g_retain_travs(0);
+static std::atomic<size_t> g_retain_visits(0);
+static std::atomic<size_t> g_retain_gt_entries(0);
+static std::atomic<size_t> g_retain_gt_alleles(0);
+static std::atomic<size_t> g_retain_support(0);
+
 void GraphCaller::report_descent_instrumentation() const {
     size_t total = 0;
     for (int d = 0; d < 16; ++d) {
@@ -51,6 +68,28 @@ void GraphCaller::report_descent_instrumentation() const {
     cerr << "[vg call] descent skipped: " << g_descent_skipped_no_copy.load()
          << " children no called allele reaches, " << g_descent_skipped_no_ref.load()
          << " with no reference path through them" << endl;
+}
+
+/// Free rather than a member: it reads only the file-scope counters, and it is called from
+/// VCFOutputCaller::write_variants, which is not a GraphCaller.
+static void report_retention_instrumentation() {
+    size_t chains = g_retain_chains.load();
+    if (chains > 0) {
+        // A protobuf Visit is 8 bytes of node id and a bool inside a message; 48 bytes each is the
+        // conservative figure for one in a vector, and the visit count is reported beside it so the
+        // assumption can be re-priced without re-running. Traversals are counted twice on purpose:
+        // the candidate list and the CallInfo's own `scored_traversals` copy are both retained.
+        size_t visits = g_retain_visits.load();
+        size_t bytes = 2 * visits * 48                       // traversals, and CallInfo's copy
+                     + g_retain_gt_alleles.load() * 4        // genotype_lls keys
+                     + g_retain_gt_entries.load() * 48       // map nodes and their doubles
+                     + g_retain_support.load() * 8           // allele_support
+                     + chains * 256;                         // per-chain fixed overhead
+        cerr << "[vg call] nested retention: " << chains << " chains, "
+             << g_retain_travs.load() << " traversals, " << visits << " visits, "
+             << g_retain_gt_entries.load() << " genotype likelihoods, about "
+             << (bytes / (1024.0 * 1024.0)) << " MB if retained to the barrier" << endl;
+    }
 }
 
 GraphCaller::GraphCaller(SnarlCaller& snarl_caller,
@@ -727,6 +766,8 @@ void VCFOutputCaller::write_variants(ostream& out_stream, const SnarlManager* sn
     // (contig, position) uncompressed as the sort key -- so a change can be matched without ever
     // having kept the record itself, and only the records that actually move are re-parsed.
     resolve_linkage();
+
+    vg::report_retention_instrumentation();
 
     for (const auto& v : all_variants) {
         string dest;
@@ -4155,6 +4196,63 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
             emit_gaf_variant(graph, print_snarl(snarl), travs, trav_genotype, ref_trav_idx, pos_info.first, pos_info.second, &support_finder);
         }
 
+        ret_val = trav_genotype.size() == ploidy && added;
+    } else if (ploidy_override >= 0) {
+        // A nested chain: reached by descent, with the ploidy its parent implied.
+        //
+        // Genotyped exactly as before. The measurement here is what the single-sweep design would
+        // have to hold on to until this chain's parent is settled -- the candidate traversals and the
+        // CallInfo, including the other ploidy's answer -- so that the record can be built later
+        // instead of now. Counting it costs nothing and settles whether the design is affordable
+        // before anything is restructured around it.
+        unique_ptr<SnarlCaller::CallInfo> trav_call_info;
+        std::tie(trav_genotype, trav_call_info) = snarl_caller.genotype(
+            snarl, travs, ref_trav_idx, ploidy, ref_path_name,
+            make_pair(get<0>(ref_interval), get<1>(ref_interval)));
+
+        {
+            size_t visits = 0;
+            for (const SnarlTraversal& t : travs) {
+                visits += t.visit_size();
+            }
+            ++g_retain_chains;
+            g_retain_travs += travs.size();
+            g_retain_visits += visits;
+            const ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo* rl =
+                dynamic_cast<const ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo*>(
+                    trav_call_info.get());
+            if (rl != nullptr) {
+                size_t entries = rl->genotype_lls.size();
+                size_t alleles = 0;
+                for (const auto& kv : rl->genotype_lls) {
+                    alleles += kv.first.size();
+                }
+                size_t support = rl->allele_support.size();
+                if (rl->alt_ploidy_info != nullptr) {
+                    entries += rl->alt_ploidy_info->genotype_lls.size();
+                    for (const auto& kv : rl->alt_ploidy_info->genotype_lls) {
+                        alleles += kv.first.size();
+                    }
+                    support += rl->alt_ploidy_info->allele_support.size();
+                }
+                g_retain_gt_entries += entries;
+                g_retain_gt_alleles += alleles;
+                g_retain_support += support;
+            }
+        }
+
+        assert(trav_genotype.empty() || trav_genotype.size() == ploidy);
+        bool added = true;
+        if (!gaf_output) {
+            added = emit_variant(graph, snarl_caller, snarl, travs, trav_genotype, ref_trav_idx,
+                                 trav_call_info, ref_path_name, ref_offsets[ref_path_name],
+                                 genotype_snarls, ploidy);
+        } else {
+            pair<string, int64_t> pos_info = get_ref_position(graph, snarl, ref_path_name,
+                                                              ref_offsets[ref_path_name]);
+            emit_gaf_variant(graph, print_snarl(snarl), travs, trav_genotype, ref_trav_idx,
+                             pos_info.first, pos_info.second, &support_finder);
+        }
         ret_val = trav_genotype.size() == ploidy && added;
     } else {
         // Top-level snarl or no parent context - genotype from scratch using support
