@@ -498,6 +498,35 @@ public:
                                       vector<PhaseCall>* phasing_out = nullptr,
                                       vector<NestedIncoherence>* incoherent_out = nullptr);
 
+    /// Move a site to a different ploidy before its generation is resolved.
+    ///
+    /// Nested calling settles a chain's ploidy from its parent's genotype, which is only known once
+    /// the parent's generation has resolved -- by which time the chain has already been recorded at
+    /// the ploidy its parent's *pre-linkage* genotype implied. Where the two disagree this replaces
+    /// the entry's likelihoods and ploidy with the right ones, which the caller has in hand because
+    /// the genotyping kept both.
+    ///
+    /// Only legal before the site's own generation resolves: afterwards its genotype is settled and
+    /// other sites have been clamped against it. Returns false if the key is unknown, so a silent
+    /// no-op cannot pass for a successful revision.
+    ///
+    /// This is what makes the coherence guarantee structural rather than reported. Before it, a child
+    /// kept the ploidy a superseded parent genotype implied and the disagreement was written into the
+    /// record as a FILTER.
+    bool respecify(size_t record_key, size_t num_alleles,
+                   const vector<double>& genotype_ln_likelihood,
+                   const vector<int>& haplotype_allele,
+                   size_t called_i, size_t called_j, size_t ploidy,
+                   bool nested, size_t parent_slot, uint64_t parent_crossing);
+
+    /// Drop a site before its generation resolves: the settled parent genotype does not carry the
+    /// chain at all, so the sample has no copy of it and no call belongs there.
+    ///
+    /// The entry is neutralised rather than erased -- the arenas are flat and offsets into them are
+    /// held by every other entry -- so it is marked and then skipped by chain construction, phasing
+    /// and every counter. Returns false for an unknown key.
+    bool retract(size_t record_key);
+
     /// How many sites belong to one generation, for reporting a per-generation pass.
     size_t num_sites_at(size_t generation) const;
 
@@ -525,6 +554,9 @@ private:
         /// inline behind a parent linkage cannot move, k for a child deferred behind k barriers.
         /// Every entry is 0 without --nested-after-linkage, so the default path resolves in one pass.
         uint8_t generation = 0;
+        /// Dropped by `retract`: the settled parent does not carry this chain. Kept in place because
+        /// the arenas are flat, and skipped everywhere a site is considered.
+        bool retracted = false;
         /// The genotype this site was settled at, written back when its own generation resolves so
         /// that later generations can clamp it. Meaningless before that.
         uint16_t final_i = 0;

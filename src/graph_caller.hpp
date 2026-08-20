@@ -347,6 +347,17 @@ protected:
     /// descent looks a parent's settled allele pair up in it.
     vector<LinkageCollector::PhaseCall> linkage_phased;
     bool linkage_resolved = false;
+    /// Record keys whose line must not be written: the settled parent genotype does not carry the
+    /// chain. Checked in the emit loop, which already parses the ID column for the nested filters.
+    set<size_t> dropped_records;
+    /// Keys re-emitted at a different ploidy, and which ploidy the replacement carries.
+    ///
+    /// Both copies share an ID and a position, so a key alone cannot say which line to keep. The
+    /// replacement is the one whose GT has this many alleles; the stale one is dropped.
+    map<size_t, int> replaced_records;
+    /// Set while the barrier re-emits, so the second pass does not add a second linkage entry for a
+    /// site the barrier has already respecified.
+    bool suppress_linkage_record = false;
     /// Totals for the one-line report, summed over however many generations ran.
     double linkage_seconds = 0.0;
     size_t linkage_changed = 0;

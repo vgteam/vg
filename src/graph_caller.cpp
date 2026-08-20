@@ -796,7 +796,7 @@ void VCFOutputCaller::write_variants(ostream& out_stream, const SnarlManager* sn
                 apply_phasing(dest, found->second);
             }
         }
-        if (!linkage_nested_filters.empty()) {
+        if (!dropped_records.empty() || !linkage_nested_filters.empty()) {
             // The record key is the hash of the ID column, which is how the linkage layer keyed it,
             // so the identity is recoverable from the line itself and nothing extra has to be
             // carried through the compressed buffer.
@@ -804,8 +804,32 @@ void VCFOutputCaller::write_variants(ostream& out_stream, const SnarlManager* sn
             size_t b = a == string::npos ? string::npos : dest.find('\t', a + 1);
             size_t c = b == string::npos ? string::npos : dest.find('\t', b + 1);
             if (c != string::npos) {
-                auto found = linkage_nested_filters.find(
-                    std::hash<string>{}(dest.substr(b + 1, c - b - 1)));
+                size_t key = std::hash<string>{}(dest.substr(b + 1, c - b - 1));
+                auto rep = replaced_records.find(key);
+                if (rep != replaced_records.end()) {
+                    // Two lines share this ID: the one written during the sweep and the replacement
+                    // built at the settled ploidy. Keep the one whose GT has that many alleles.
+                    size_t tab9 = dest.rfind('\t');
+                    string sample = tab9 == string::npos ? string() : dest.substr(tab9 + 1);
+                    size_t colon = sample.find(':');
+                    string gt = colon == string::npos ? sample : sample.substr(0, colon);
+                    int alleles = 1;
+                    for (char ch : gt) {
+                        if (ch == '/' || ch == '|') {
+                            ++alleles;
+                        }
+                    }
+                    if (alleles != rep->second) {
+                        continue;
+                    }
+                }
+                if (dropped_records.count(key) > 0) {
+                    // The settled parent genotype does not carry this chain, so the sample has no
+                    // copy of it and the call has no haplotype to sit on. Dropped rather than
+                    // flagged, which is what `nested_unreachable` did.
+                    continue;
+                }
+                auto found = linkage_nested_filters.find(key);
                 if (found != linkage_nested_filters.end()) {
                     apply_nested_filter(dest, found->second);
                 }
@@ -2218,7 +2242,7 @@ bool VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCa
 
     if (genotype_snarls || !out_variant.alt.empty()) {
         bool added = add_variant(out_variant);
-        if (added && linkage_collector != nullptr) {
+        if (added && linkage_collector != nullptr && !suppress_linkage_record) {
             // Phase one of the linkage pass: keep the compact site, not the record. See
             // LinkageCollector for why the CallInfo cannot be retained instead.
             const ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo* rl_info =
@@ -3748,12 +3772,209 @@ void FlowCaller::run_deferred_descent() {
     if (linkage_collector != nullptr) {
         generations = linkage_collector->max_generation();
     }
-    for (size_t gen = 0; gen <= generations; ++gen) {
-        resolve_linkage_generation(gen, gen == generations);
+    // Merged once: the sweep filled these per thread, and the fixup below needs to find a chain by
+    // key and to walk them in generation order.
+    vector<PendingRecord> pending;
+    pending.reserve(pending_record_count());
+    for (auto& queue : pending_records) {
+        std::move(queue.begin(), queue.end(), std::back_inserter(pending));
+        queue.clear();
     }
+    unordered_map<size_t, size_t> by_key;
+    by_key.reserve(pending.size() * 2);
+    for (size_t i = 0; i < pending.size(); ++i) {
+        by_key[pending[i].record_key] = i;
+    }
+
+    size_t revised = 0, retracted = 0, gained = 0, unreachable_parent = 0;
+    for (size_t gen = 0; gen <= generations; ++gen) {
+        resolve_linkage_generation(gen, false);
+
+        // This generation's parents are settled, so every chain hanging off one can be put on the
+        // ploidy its parent's *final* genotype implies, before its own generation resolves. That is
+        // the whole coherence guarantee, and it is a revision rather than a re-call because the
+        // genotyping kept both ploidies' answers when the reads were resident.
+        unordered_map<size_t, const LinkageCollector::PhaseCall*> settled;
+        settled.reserve(linkage_phased.size() * 2);
+        for (const LinkageCollector::PhaseCall& pc : linkage_phased) {
+            settled[pc.record_key] = &pc;
+        }
+        for (PendingRecord& pr : pending) {
+            if (pr.generation != gen + 1 || pr.parent_crossing == 0) {
+                continue;
+            }
+            auto found = settled.find(pr.parent_record_key);
+            if (found == settled.end()) {
+                // The parent emitted no record, so linkage never touched its genotype: the ploidy
+                // this chain was called at came from a genotype that was already final.
+                continue;
+            }
+            const LinkageCollector::PhaseCall& parent = *found->second;
+            bool first = parent.allele_first < 64
+                         && ((pr.parent_crossing >> parent.allele_first) & 1);
+            bool second = parent.ploidy == 2 && parent.allele_second < 64
+                          && ((pr.parent_crossing >> parent.allele_second) & 1);
+            int copies = (int)first + (int)second;
+
+            if (copies == 0) {
+                if (pr.emitted) {
+                    // A call on a haplotype the sample turns out not to have. Dropped rather than
+                    // flagged: this is what `nested_unreachable` used to label and keep.
+                    if (linkage_collector->retract(pr.record_key)) {
+                        ++retracted;
+                    }
+                    dropped_records.insert(pr.record_key);
+                    pr.emitted = false;
+                }
+                ++unreachable_parent;
+                continue;
+            }
+            if (!pr.emitted) {
+                // The settled parent carries a chain the pre-linkage one did not reach. Nothing was
+                // written for it during the sweep, so this is a call that inline descent never made.
+                ++gained;
+            }
+            if (copies == pr.ploidy && pr.emitted) {
+                continue;   // the pre-linkage ploidy was right; nothing to do
+            }
+
+            // emit_variant indexes its traversal vector directly -- `called_traversals[ref_trav_idx]`
+            // with no bounds check -- and a chain held back during the sweep has never been through
+            // it, so a missing reference traversal or an empty candidate list reaches it here for the
+            // first time. That segfaulted. Anything unrenderable is left alone rather than guessed at.
+            if (pr.travs.empty() || pr.ref_trav_idx < 0
+                || (size_t)pr.ref_trav_idx >= pr.travs.size()) {
+                continue;
+            }
+            bool genotype_in_range = !pr.genotype.empty();
+            for (int allele : pr.genotype) {
+                if (allele >= 0 && (size_t)allele >= pr.travs.size()) {
+                    genotype_in_range = false;
+                }
+            }
+            if (!genotype_in_range) {
+                continue;
+            }
+
+            // Build the record at the ploidy the settled parent implies, from the genotyping kept
+            // when the reads were resident. `alt_ploidy_info` holds the other ploidy's whole answer,
+            // so this needs no re-reading and no re-scoring.
+            ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo* rl =
+                dynamic_cast<ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo*>(pr.call_info.get());
+            unique_ptr<SnarlCaller::CallInfo> use_info;
+            vector<int> use_genotype;
+            if (copies == pr.ploidy) {
+                use_genotype = pr.genotype;
+            } else if (rl != nullptr && rl->alt_ploidy_info != nullptr
+                       && (int)rl->alt_ploidy_info->ploidy == copies
+                       && (int)rl->alt_ploidy_best.size() == copies) {
+                bool ok = true;
+                for (int allele : rl->alt_ploidy_best) {
+                    if (allele < 0 || (size_t)allele >= pr.travs.size()) {
+                        ok = false;
+                    }
+                }
+                if (!ok) {
+                    continue;
+                }
+                use_info.reset(rl->alt_ploidy_info.release());
+                use_genotype = rl->alt_ploidy_best;
+            } else {
+                // No answer at the ploidy wanted -- too few traversals for a second genotype, or the
+                // alternate was never computed. Left as it stands rather than invented.
+                continue;
+            }
+            const unique_ptr<SnarlCaller::CallInfo>& info = use_info ? use_info : pr.call_info;
+
+            if (pr.emitted) {
+                replaced_records[pr.record_key] = copies;
+            }
+            suppress_linkage_record = true;
+            bool wrote = emit_variant(graph, snarl_caller, pr.snarl, pr.travs, use_genotype,
+                                      pr.ref_trav_idx, info, pr.ref_path_name, pr.ref_offset,
+                                      genotype_snarls, copies);
+            suppress_linkage_record = false;
+            if (wrote) {
+                // Put the site into the linkage layer at its new ploidy, before its own generation
+                // resolves. This is the coherence guarantee: the ploidy a nested record carries is
+                // the one its parent's settled genotype implies, by construction.
+                vector<double> gls;
+                const ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo* used =
+                    dynamic_cast<const ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo*>(info.get());
+                if (used != nullptr) {
+                    size_t n_gt = copies == 1 ? last_emitted.num_alleles
+                                              : last_emitted.num_alleles
+                                                    * (last_emitted.num_alleles + 1) / 2;
+                    gls.assign(n_gt, -numeric_limits<double>::infinity());
+                    for (const auto& entry : used->genotype_lls) {
+                        if ((int)entry.first.size() != copies) {
+                            continue;
+                        }
+                        if (copies == 1) {
+                            auto it = last_emitted.trav_to_allele.find(entry.first[0]);
+                            if (it != last_emitted.trav_to_allele.end()
+                                && (size_t)it->second < last_emitted.num_alleles) {
+                                gls[(size_t)it->second] = entry.second;
+                            }
+                            continue;
+                        }
+                        auto a = last_emitted.trav_to_allele.find(entry.first[0]);
+                        auto b = last_emitted.trav_to_allele.find(entry.first[1]);
+                        if (a == last_emitted.trav_to_allele.end()
+                            || b == last_emitted.trav_to_allele.end()) {
+                            continue;
+                        }
+                        size_t i = (size_t)a->second, j = (size_t)b->second;
+                        if (i < last_emitted.num_alleles && j < last_emitted.num_alleles) {
+                            gls[LinkageModel::genotype_index(i, j)] = entry.second;
+                        }
+                    }
+                    size_t gi = 0, gj = 0;
+                    auto g0 = last_emitted.trav_to_allele.find(use_genotype[0]);
+                    gi = g0 != last_emitted.trav_to_allele.end() ? (size_t)g0->second : 0;
+                    gj = gi;
+                    if (copies == 2 && use_genotype.size() == 2) {
+                        auto g1 = last_emitted.trav_to_allele.find(use_genotype[1]);
+                        gj = g1 != last_emitted.trav_to_allele.end() ? (size_t)g1->second : gi;
+                        if (gi > gj) {
+                            std::swap(gi, gj);
+                        }
+                    }
+                    if (!linkage_collector->respecify(pr.record_key, last_emitted.num_alleles, gls,
+                                                      panel_alleles(graph, pr.travs), gi, gj,
+                                                      (size_t)copies, copies == 1, pr.parent_slot,
+                                                      pr.parent_crossing)) {
+                        // Not previously recorded -- a chain nothing was written for during the
+                        // sweep -- so it joins the layer now rather than being revised.
+                        // Contig and position derived exactly as emit_variant derives them, so the
+                        // site sorts into the chain where its record sits. Passing a placeholder
+                        // position would put it at the head of the contig and give it the wrong
+                        // linkage neighbours.
+                        pair<string, int64_t> pos_info =
+                            get_ref_position(graph, pr.snarl, pr.ref_path_name, pr.ref_offset);
+                        string contig = PathMetadata::parse_locus_name(pos_info.first);
+                        if (contig == PathMetadata::NO_LOCUS_NAME) {
+                            contig = pos_info.first;
+                        }
+                        linkage_collector->record(
+                            contig, (size_t)max<int64_t>(pos_info.second, 0),
+                            last_emitted.num_alleles, gls,
+                            panel_alleles(graph, pr.travs), gi, gj, pr.record_key, 1.0,
+                            (size_t)copies, pr.snarl.start().node_id(), pr.snarl.end().node_id(),
+                            copies == 1, pr.parent_record_key,
+                            pr.parent_slot, pr.parent_crossing, pr.generation);
+                    }
+                }
+                pr.emitted = true;
+                ++revised;
+            }
+        }
+    }
+    resolve_linkage_generation(generations, true);
     if (show_progress) {
-        cerr << "[vg call] single sweep: " << pending_record_count()
-             << " nested chains retained over " << (generations + 1) << " generations" << endl;
+        cerr << "[vg call] single sweep: " << pending.size() << " nested chains retained over "
+             << (generations + 1) << " generations; " << revised << " to revise, " << gained
+             << " reachable only under the settled parent, " << retracted << " retracted" << endl;
     }
 }
 

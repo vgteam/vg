@@ -1145,7 +1145,7 @@ void LinkageCollector::record(const string& contig, size_t position, size_t num_
 size_t LinkageCollector::num_sites_at(size_t generation) const {
     size_t n = 0;
     for (const Entry& e : entries) {
-        n += (e.generation == generation);
+        n += (e.generation == generation && !e.retracted);
     }
     return n;
 }
@@ -1162,6 +1162,52 @@ size_t LinkageCollector::bytes() const {
     return entries.size() * sizeof(Entry)
            + gl_arena.size() * sizeof(float)
            + hap_arena.size() * sizeof(int8_t);
+}
+
+bool LinkageCollector::respecify(size_t record_key, size_t num_alleles,
+                                 const vector<double>& genotype_ln_likelihood,
+                                 const vector<int>& haplotype_allele,
+                                 size_t called_i, size_t called_j, size_t ploidy,
+                                 bool nested, size_t parent_slot, uint64_t parent_crossing) {
+    lock_guard<std::mutex> guard(mutex);
+    for (Entry& e : entries) {
+        if (e.record_key != record_key || e.retracted) {
+            continue;
+        }
+        // The likelihood vector for the new ploidy is a different length, so it cannot be written
+        // over the old one in place. Appended to the arena instead and the offset repointed: the
+        // arenas only ever grow, and the abandoned span is a few floats per revised site.
+        e.num_alleles = (uint16_t)num_alleles;
+        e.called_i = (uint16_t)called_i;
+        e.called_j = (uint16_t)called_j;
+        e.ploidy = (uint8_t)(ploidy == 1 ? 1 : 2);
+        e.nested = nested;
+        e.parent_slot = (uint8_t)parent_slot;
+        e.parent_crossing = parent_crossing;
+        e.gl_offset = (uint32_t)gl_arena.size();
+        for (double v : genotype_ln_likelihood) {
+            gl_arena.push_back((float)v);
+        }
+        e.hap_offset = (uint32_t)hap_arena.size();
+        for (size_t h = 0; h < n_haplotypes; ++h) {
+            int allele = h < haplotype_allele.size() ? haplotype_allele[h] : -1;
+            hap_arena.push_back(allele >= 0 && allele < 127 && (size_t)allele < num_alleles
+                                    ? (int8_t)allele : (int8_t)-1);
+        }
+        return true;
+    }
+    return false;
+}
+
+bool LinkageCollector::retract(size_t record_key) {
+    lock_guard<std::mutex> guard(mutex);
+    for (Entry& e : entries) {
+        if (e.record_key == record_key && !e.retracted) {
+            e.retracted = true;
+            return true;
+        }
+    }
+    return false;
 }
 
 void LinkageCollector::record_skipped_child(size_t parent_record_key, uint64_t parent_crossing) {
@@ -1210,6 +1256,9 @@ vector<LinkageCollector::Change> LinkageCollector::resolve_generation(
     for (size_t i = 0; i < entries.size(); ++i) {
         if (entries[i].generation > generation) {
             continue;   // not called yet: this generation's descent has not reached it
+        }
+        if (entries[i].retracted) {
+            continue;   // the settled parent does not carry the chain, so there is no site here
         }
         by_contig[entries[i].contig].push_back(i);
     }
