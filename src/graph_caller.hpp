@@ -277,6 +277,17 @@ protected:
         /// question is whether both called parent alleles cross the child, neither does, or one does.
         /// See LinkageCollector::resolve.
         uint64_t parent_crossing = 0;
+        /// True when this chain, and everything under it, must be genotyped but not emitted.
+        ///
+        /// Set where no called parent allele reaches the chain. It is visited anyway -- its parent's
+        /// genotype is not settled yet, and linkage may still move the parent onto an allele that does
+        /// reach it -- but nothing about it may reach the VCF until the barrier says the sample
+        /// carries it. Inherited by its own children: a chain whose existence depends on an ancestor
+        /// the sample may not have cannot be emitted either.
+        bool retain_only = false;
+        /// True only on the chain that started it, so a propagation bug is distinguishable from the
+        /// design decision it would otherwise hide behind.
+        bool retain_root = false;
     };
     static thread_local NestedContext nested_context;
 
@@ -305,9 +316,15 @@ protected:
     /// Snarl hierarchy for symbolic collapsing, or null to compare alleles by sequence alone.
     const SnarlManager* symbolic_manager = nullptr;
 
-    /// Which resolve pass will settle the sites being recorded right now. Zero unless deferred
-    /// nested descent is running, in which case the driver raises it before each pass.
-    size_t current_generation = 0;
+    /// Which resolve pass will settle the site being recorded right now: its depth in the nested
+    /// tree, since a chain's ploidy depends on its parent's settled genotype.
+    ///
+    /// Thread-local, and it has to be. Descent is synchronous on the calling thread but the sweep is
+    /// parallel over node-ID windows, so as a plain member the save-increment-restore around each
+    /// recursive call races between threads and drifts upward without bound: chr20 reported 124
+    /// generations for a tree six deep, ran 124 resolve passes instead of 7, and clamped the linkage
+    /// layer against generations that do not exist.
+    static thread_local size_t current_generation;
 
     /// Resolve one generation of the linkage pass, accumulating into the three maps below.
     ///
@@ -853,36 +870,46 @@ protected:
     /// use * alleles for spanning haplotypes that don't traverse nested sites
     bool star_allele = false;
 
-    /// A child snarl whose descent is waiting on its parent's genotype being settled.
+    /// One nested chain's genotyping, kept until the barrier can say what ploidy it should have.
     ///
-    /// Deliberately does not retain the parent's traversals. Everything descent takes from them is
-    /// already in `crossing_mask` -- one bit per parent VCF allele, set where that allele crosses
-    /// this chain -- and against the parent's settled allele pair that gives both the copy number
-    /// and the strand. Holding traversals across a whole-contig barrier would be exactly the blowup
-    /// the linkage layer's compact `Entry` exists to avoid.
-    struct PendingDescent {
-        const Snarl* child = nullptr;
+    /// This is what makes the single sweep possible. A chain's ploidy comes from its parent's settled
+    /// genotype, which is not known while the reads are resident, and the previous design went back to
+    /// the reads once per level to find out -- five sweeps of a contig where there had been one, and
+    /// 48.8% more reads fetched. Keeping the genotyping result instead costs 3.18 kB a chain,
+    /// measured: 87 MB for chr20's 27,404 chains against a 3.6 GB peak.
+    ///
+    /// The `CallInfo` carries both ploidies' answers (see `alt_ploidy_info`), so whichever ploidy the
+    /// barrier settles on can be rendered from what is here, with no re-reading and no re-scoring.
+    /// `snarl` is held by value because `call_snarl_internal` works on a local copy it may have
+    /// flipped.
+    struct PendingRecord {
+        Snarl snarl;
         string ref_path_name;
-        int64_t ref_start = 0;
-        int64_t ref_end = 0;
+        int ref_offset = 0;
+        vector<SnarlTraversal> travs;
+        int ref_trav_idx = -1;
+        /// The genotype and the ploidy it was genotyped at: the parent's *pre-linkage* answer.
+        vector<int> genotype;
+        int ploidy = 2;
+        unique_ptr<SnarlCaller::CallInfo> call_info;
+        size_t record_key = 0;
         size_t parent_record_key = 0;
-        uint64_t crossing_mask = 0;
-        int parent_ploidy = 2;
+        /// One bit per parent VCF allele, set where that allele crosses this chain.
+        uint64_t parent_crossing = 0;
+        size_t parent_slot = 0;
+        uint8_t generation = 0;
+        /// Whether a record was written during the sweep. False where no called parent allele reached
+        /// it, which is exactly the population the barrier may turn into a call.
+        bool emitted = false;
     };
 
     bool defer_nested_descent = false;
 
-    /// Queued per thread, drained between passes: the pass that fills this is parallel over
-    /// node-ID windows, so a single vector would need a lock on the hot path.
-    vector<vector<PendingDescent>> pending_descents;
+    /// Filled per thread during the sweep, which is parallel over node-ID windows.
+    vector<vector<PendingRecord>> pending_records;
 
-    /// Call every queued child whose settled parent genotype reaches it, at the ploidy that genotype
-    /// implies. Children queued by *these* calls belong to the next generation. Returns how many
-    /// children were called.
-    size_t descend_pending(size_t generation);
-
-    /// How many children are queued across all threads.
-    size_t pending_descent_count() const;
+    /// How many nested chains were retained across all threads.
+    size_t pending_record_count() const;
 
 
     /// Internal implementation of call_snarl that accepts parent context for nested mode

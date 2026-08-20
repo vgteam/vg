@@ -48,6 +48,12 @@ static std::atomic<size_t> g_retain_visits(0);
 static std::atomic<size_t> g_retain_gt_entries(0);
 static std::atomic<size_t> g_retain_gt_alleles(0);
 static std::atomic<size_t> g_retain_support(0);
+/// Emitted against held back, and for those held back whether it was this chain that no called
+/// allele reached or an ancestor. Separating the two is the only way to tell a design decision from
+/// a propagation bug.
+static std::atomic<size_t> g_retain_emitted(0);
+static std::atomic<size_t> g_retain_held_root(0);
+static std::atomic<size_t> g_retain_held_inherited(0);
 
 void GraphCaller::report_descent_instrumentation() const {
     size_t total = 0;
@@ -89,6 +95,9 @@ static void report_retention_instrumentation() {
              << g_retain_travs.load() << " traversals, " << visits << " visits, "
              << g_retain_gt_entries.load() << " genotype likelihoods, about "
              << (bytes / (1024.0 * 1024.0)) << " MB if retained to the barrier" << endl;
+        cerr << "[vg call] nested split: " << g_retain_emitted.load() << " emitted, "
+             << g_retain_held_root.load() << " held back because no called allele reached them, "
+             << g_retain_held_inherited.load() << " held back because an ancestor was" << endl;
     }
 }
 
@@ -1938,6 +1947,7 @@ string VCFOutputCaller::trav_string(const HandleGraph& graph, const SnarlTravers
 }
 
 thread_local VCFOutputCaller::NestedContext VCFOutputCaller::nested_context;
+thread_local size_t VCFOutputCaller::current_generation = 0;
 thread_local VCFOutputCaller::EmittedAlleles VCFOutputCaller::last_emitted;
 
 bool VCFOutputCaller::is_symbolically_reference(const vector<SnarlTraversal>& called_traversals,
@@ -3712,110 +3722,39 @@ void FlowCaller::set_defer_nested_descent(bool defer) {
     if (defer) {
         // Sized once, here, rather than lazily inside the parallel region that writes it.
         size_t threads = max((size_t)get_thread_count(), (size_t)omp_get_max_threads());
-        pending_descents.assign(max(threads, (size_t)1), {});
+        // resize, not assign: PendingRecord owns a unique_ptr and so is move-only, and
+        // assign(n, {}) would need to copy its prototype into each slot.
+        pending_records.clear();
+        pending_records.resize(max(threads, (size_t)1));
     }
 }
 
-size_t FlowCaller::pending_descent_count() const {
+size_t FlowCaller::pending_record_count() const {
     size_t n = 0;
-    for (const auto& queue : pending_descents) {
+    for (const auto& queue : pending_records) {
         n += queue.size();
     }
     return n;
-}
-
-size_t FlowCaller::descend_pending(size_t generation) {
-    vector<PendingDescent> work;
-    work.reserve(pending_descent_count());
-    for (auto& queue : pending_descents) {
-        std::move(queue.begin(), queue.end(), std::back_inserter(work));
-        queue.clear();
-    }
-    if (work.empty()) {
-        return 0;
-    }
-
-    // The parents' settled allele pairs, by record key. This is the phasing the VCF will carry, so
-    // descent and the emitted parent record cannot disagree about which alleles the sample has.
-    unordered_map<size_t, const LinkageCollector::PhaseCall*> settled;
-    settled.reserve(linkage_phased.size() * 2);
-    for (const LinkageCollector::PhaseCall& pc : linkage_phased) {
-        settled[pc.record_key] = &pc;
-    }
-
-    // Node-ID order, so a read source that fetches by window still sees each window once in this
-    // pass. Without it the pass is random access over the contig and every window is re-fetched.
-    std::sort(work.begin(), work.end(), [](const PendingDescent& a, const PendingDescent& b) {
-        return a.child->start().node_id() < b.child->start().node_id();
-    });
-
-    current_generation = generation;
-    std::atomic<size_t> called(0);
-    std::atomic<size_t> no_parent(0), unknown_mask(0), not_carried(0);
-#pragma omp parallel for schedule(dynamic, 1)
-    for (int i = 0; i < (int)work.size(); ++i) {
-        const PendingDescent& pd = work[i];
-        auto found = settled.find(pd.parent_record_key);
-        if (found == settled.end()) {
-            ++no_parent;   // no phased parent record: nothing to take a ploidy from
-            continue;
-        }
-        if (pd.crossing_mask == 0) {
-            ++unknown_mask;   // descent could not express it, which is unknown rather than none
-            continue;
-        }
-        const LinkageCollector::PhaseCall& parent = *found->second;
-        bool first = parent.allele_first < 64
-                     && ((pd.crossing_mask >> parent.allele_first) & 1);
-        bool second = parent.ploidy == 2 && parent.allele_second < 64
-                      && ((pd.crossing_mask >> parent.allele_second) & 1);
-        int copies = min((int)first + (int)second, pd.parent_ploidy);
-        if (copies <= 0) {
-            ++not_carried;   // the settled genotype does not carry the chain, so no call belongs here
-            continue;
-        }
-        nested_context.active = (copies == 1);
-        nested_context.parent_record_key = pd.parent_record_key;
-        // Which of the parent's strands carries the chain. On this side of the barrier it has to come
-        // from the settled allele pair: the traversal-order slot the inline path records does not
-        // exist here, the traversals having been dropped. The two conventions were measured against
-        // the phased truth and are indistinguishable -- 1,655 switches against 1,661 on chr20 -- so
-        // this is a forced choice that costs nothing.
-        nested_context.parent_slot = first ? 0 : 1;
-        nested_context.parent_crossing = pd.crossing_mask;
-        call_snarl_internal(*pd.child, pd.ref_path_name,
-                            make_pair((size_t)pd.ref_start, (size_t)pd.ref_end), nullptr, copies);
-        nested_context = NestedContext();
-        ++called;
-    }
-    if (show_progress) {
-        cerr << "[vg call] deferred descent: generation " << generation << ", " << work.size()
-             << " queued, " << called.load() << " called, " << not_carried.load()
-             << " not carried by the settled parent genotype";
-        if (no_parent.load() > 0 || unknown_mask.load() > 0) {
-            cerr << ", " << no_parent.load() << " with no phased parent, " << unknown_mask.load()
-                 << " with an unreadable mask";
-        }
-        cerr << endl;
-    }
-    return called.load();
 }
 
 void FlowCaller::run_deferred_descent() {
     if (!defer_nested_descent) {
         return;
     }
-    size_t generation = 0;
-    while (pending_descent_count() > 0) {
-        resolve_linkage_generation(generation, false);
-        ++generation;
-        if (descend_pending(generation) == 0) {
-            // Nothing became callable, so this generation has no sites and the queue those calls
-            // would have filled is empty. The final pass below still owes the reporting.
-            break;
-        }
+    // Descent already happened, inline, during the one sweep the reads were resident for. What is
+    // left is to settle the chains in the order their ploidies depend on: a generation's parents
+    // before its children. Nothing here touches the reads.
+    size_t generations = 0;
+    if (linkage_collector != nullptr) {
+        generations = linkage_collector->max_generation();
     }
-    resolve_linkage_generation(generation, true);
+    for (size_t gen = 0; gen <= generations; ++gen) {
+        resolve_linkage_generation(gen, gen == generations);
+    }
+    if (show_progress) {
+        cerr << "[vg call] single sweep: " << pending_record_count()
+             << " nested chains retained over " << (generations + 1) << " generations" << endl;
+    }
 }
 
 bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
@@ -4210,6 +4149,16 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
             snarl, travs, ref_trav_idx, ploidy, ref_path_name,
             make_pair(get<0>(ref_interval), get<1>(ref_interval)));
 
+        const bool retain_only = nested_context.retain_only;
+        if (retain_only) {
+            if (nested_context.retain_root) {
+                ++g_retain_held_root;
+            } else {
+                ++g_retain_held_inherited;
+            }
+        } else {
+            ++g_retain_emitted;
+        }
         {
             size_t visits = 0;
             for (const SnarlTraversal& t : travs) {
@@ -4243,7 +4192,13 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
 
         assert(trav_genotype.empty() || trav_genotype.size() == ploidy);
         bool added = true;
-        if (!gaf_output) {
+        if (retain_only) {
+            // No called parent allele reaches this chain, so nothing about it may reach the VCF --
+            // yet. It is genotyped and kept because linkage can still move the parent onto an allele
+            // that does reach it, and going back to the reads to find that out is the cost this
+            // design exists to remove.
+            added = true;
+        } else if (!gaf_output) {
             added = emit_variant(graph, snarl_caller, snarl, travs, trav_genotype, ref_trav_idx,
                                  trav_call_info, ref_path_name, ref_offsets[ref_path_name],
                                  genotype_snarls, ploidy);
@@ -4252,6 +4207,27 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
                                                               ref_offsets[ref_path_name]);
             emit_gaf_variant(graph, print_snarl(snarl), travs, trav_genotype, ref_trav_idx,
                              pos_info.first, pos_info.second, &support_finder);
+        }
+
+        // Kept for the barrier. Moved rather than copied: `travs` and the CallInfo are the whole
+        // weight of this, and emission is finished with both by now.
+        if (defer_nested_descent && !pending_records.empty()) {
+            PendingRecord pr;
+            pr.snarl = snarl;
+            pr.ref_path_name = ref_path_name;
+            pr.ref_offset = ref_offsets[ref_path_name];
+            pr.ref_trav_idx = ref_trav_idx;
+            pr.genotype = trav_genotype;
+            pr.ploidy = ploidy;
+            pr.record_key = std::hash<string>{}(print_snarl(snarl, false));
+            pr.parent_record_key = nested_context.parent_record_key;
+            pr.parent_crossing = nested_context.parent_crossing;
+            pr.parent_slot = nested_context.parent_slot;
+            pr.generation = (uint8_t)min(current_generation, (size_t)255);
+            pr.emitted = !retain_only;
+            pr.travs = std::move(travs);
+            pr.call_info = std::move(trav_call_info);
+            pending_records[omp_get_thread_num()].push_back(std::move(pr));
         }
         ret_val = trav_genotype.size() == ploidy && added;
     } else {
@@ -4312,7 +4288,6 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
             // phasing, so without phasing a deferred child is one whose parent cannot be found, and
             // `descend_pending` would drop it. Kept here so the invariant is a property of this code
             // rather than of a check somewhere else.
-            const bool defer = defer_nested_descent && emit_phasing && parent_alleles.recorded;
             for (const Snarl* child : snarl_manager.children_of(managed_ptr)) {
                 if (child == nullptr || snarl_manager.is_trivial(child, graph)) {
                     continue;
@@ -4327,39 +4302,29 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
                         continue;
                     }
                 }
-                if (defer) {
-                    // Queued for every child the reference reaches, including the ones no called
-                    // allele reaches. That is the point rather than an oversight: whether an allele
-                    // crosses the chain is a question about the *settled* genotype, and asking it
-                    // here rather than now is what recovers the 296 children per chromosome that
-                    // linkage makes reachable and inline descent silently drops.
-                    PendingDescent pd;
-                    pd.child = child;
-                    pd.ref_path_name = ref_path_name;
-                    pd.ref_start = (int64_t)get<0>(ref_interval);
-                    pd.ref_end = (int64_t)get<1>(ref_interval);
-                    pd.parent_record_key = std::hash<string>{}(print_snarl(snarl, false));
-                    pd.crossing_mask = parent_alleles.valid
-                        ? child_crossing_mask(travs, parent_alleles.trav_to_allele, *child)
-                        : 0;
-                    pd.parent_ploidy = ploidy;
-                    pending_descents[omp_get_thread_num()].push_back(std::move(pd));
-                    continue;
-                }
+
                 int copies = child_ploidy(travs, trav_genotype, *child, ploidy);
+                bool retain_only = nested_context.retain_only;
+                bool retain_root = false;
                 if (copies <= 0) {
-                    // A child the *pre-linkage* genotype does not reach is dropped here and never
-                    // looked at again, so nothing has counted how many of them the parent's final
-                    // genotype does reach. Hand the crossing mask to the linkage pass, which is the
-                    // only place that knows the final genotype, and let it answer.
+                    // No called allele reaches it *yet*. Visited anyway, while the reads for this
+                    // window are still resident, because the parent's genotype is not settled and
+                    // linkage may move it onto an allele that does reach this chain -- 296 of them on
+                    // chr20. Going back to the reads at the barrier to find out is what cost five
+                    // sweeps of the contig. Nothing about it is emitted unless the barrier says so.
                     ++g_descent_skipped_no_copy;
                     if (linkage_collector != nullptr && parent_alleles.valid) {
                         linkage_collector->record_skipped_child(
                             std::hash<string>{}(print_snarl(snarl, false)),
                             child_crossing_mask(travs, parent_alleles.trav_to_allele, *child));
                     }
-                    continue;   // no called allele reaches it: a star allele, and nothing to call
+                    if (!defer_nested_descent) {
+                        continue;   // without retention there is nothing to come back to
+                    }
+                    retain_only = true;
+                    retain_root = true;
                 }
+
                 // A haploid child hangs off exactly one parent slot, and which one decides the
                 // strand its allele sits on once the parent is phased. Find it: the slot whose
                 // called allele crosses the child.
@@ -4379,27 +4344,23 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
                 nested_context.active = (copies == 1);
                 nested_context.parent_record_key = std::hash<string>{}(print_snarl(snarl, false));
                 nested_context.parent_slot = slot;
-                // Which parent *alleles* cross this child, as opposed to which called traversal.
-                // Linkage needs this to tell whether the ploidy the child is about to be genotyped
-                // at survives the parent's final genotype: linkage can move the parent afterwards,
-                // and a child called haploid because one allele crossed it is wrong if both do.
-                // For every descended child, not only the haploid ones. A child called at ploidy 2
-                // can be invalidated the other way -- linkage moves the parent to a genotype where
-                // only one allele crosses, and the record then claims two haplotypes at a locus the
-                // sample carries once. Nothing detected that while the mask was recorded only for
-                // copies == 1, which is half the question the mask exists to answer.
+                nested_context.retain_only = retain_only;
+                nested_context.retain_root = retain_root;
                 nested_context.parent_crossing =
                     parent_alleles.valid
                     ? child_crossing_mask(travs, parent_alleles.trav_to_allele, *child)
                     : 0;
+                size_t saved_generation = current_generation;
+                current_generation = saved_generation + 1;
                 ++g_descent_depth;
                 if (g_descent_depth < 16) {
                     ++g_descent_depth_hist[g_descent_depth];
                 }
                 call_snarl_internal(*child, ref_path_name,
                                     make_pair(get<0>(ref_interval), get<1>(ref_interval)),
-                                    nullptr, copies);
+                                    nullptr, copies >= 1 ? copies : 2);
                 --g_descent_depth;
+                current_generation = saved_generation;
                 nested_context = saved;
             }
         }
