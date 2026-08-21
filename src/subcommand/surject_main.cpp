@@ -945,4 +945,6 @@ int main_surject(int argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_surject("surject", "map alignments onto specific paths", main_surject);
+static Subcommand vg_surject("surject", "map alignments onto specific paths", WIDGET,
+                             vector<manpage_item>{{CONVERT_FORMAT, "project graph alignments onto a linear reference (gam/gaf->bam/sam/cram)", ""}},
+                             help_surject, main_surject);
