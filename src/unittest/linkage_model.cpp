@@ -35,6 +35,75 @@ static size_t best_genotype(const vector<double>& post) {
     return best;
 }
 
+/// These tests were written against the collector's earlier argument shape: a dense likelihood vector
+/// in genotype-index order and a panel in VCF allele numbering. The collector now takes the
+/// genotyper's own space -- likelihoods keyed by candidate traversal pairs, the panel as traversal
+/// indices -- because symbolic collapsing maps distinct traversals onto one VCF allele, and a parent
+/// whose haplotypes differ only inside its child chains is homozygous in the collapsed numbering and
+/// heterozygous in the real one.
+///
+/// The tests are kept in the old shape on purpose: they exercise the model and the arenas, not the
+/// numbering, and the identity case -- traversal index equals VCF allele -- is where the two agree,
+/// so translating them would add noise without adding coverage. Construction of the compact space
+/// itself is covered separately, against `compact_allele_space`.
+static void record_dense(LinkageCollector& c, const string& contig, size_t position,
+                         size_t num_alleles, const vector<double>& dense_gls,
+                         const vector<int>& panel, size_t called_i, size_t called_j,
+                         size_t record_key, double share, size_t ploidy = 2,
+                         int64_t start_node = 0, int64_t end_node = 0,
+                         bool nested = false, size_t parent_record_key = 0, size_t parent_slot = 0,
+                         uint64_t parent_crossing = 0, size_t generation = 0) {
+    map<vector<int>, double> gls;
+    if (ploidy == 1) {
+        for (size_t a = 0; a < num_alleles && a < dense_gls.size(); ++a) {
+            gls[vector<int>{(int)a}] = dense_gls[a];
+        }
+    } else {
+        for (size_t j = 0; j < num_alleles; ++j) {
+            for (size_t i = 0; i <= j; ++i) {
+                size_t g = LinkageModel::genotype_index(i, j);
+                if (g < dense_gls.size()) {
+                    gls[vector<int>{(int)i, (int)j}] = dense_gls[g];
+                }
+            }
+        }
+    }
+    vector<int> ident(num_alleles);
+    for (size_t i = 0; i < num_alleles; ++i) {
+        ident[i] = (int)i;
+    }
+    c.record(contig, position, gls, panel, (int)called_i, (int)called_j, ident, record_key,
+             share, ploidy, start_node, end_node, nested, parent_record_key, parent_slot,
+             parent_crossing, generation, true);
+}
+
+static bool respecify_dense(LinkageCollector& c, size_t record_key, size_t num_alleles,
+                            const vector<double>& dense_gls, const vector<int>& panel,
+                            size_t called_i, size_t called_j, size_t ploidy,
+                            bool nested, size_t parent_slot, uint64_t parent_crossing) {
+    map<vector<int>, double> gls;
+    if (ploidy == 1) {
+        for (size_t a = 0; a < num_alleles && a < dense_gls.size(); ++a) {
+            gls[vector<int>{(int)a}] = dense_gls[a];
+        }
+    } else {
+        for (size_t j = 0; j < num_alleles; ++j) {
+            for (size_t i = 0; i <= j; ++i) {
+                size_t g = LinkageModel::genotype_index(i, j);
+                if (g < dense_gls.size()) {
+                    gls[vector<int>{(int)i, (int)j}] = dense_gls[g];
+                }
+            }
+        }
+    }
+    vector<int> ident(num_alleles);
+    for (size_t i = 0; i < num_alleles; ++i) {
+        ident[i] = (int)i;
+    }
+    return c.respecify(record_key, gls, panel, (int)called_i, (int)called_j, ident, ploidy,
+                       nested, parent_slot, parent_crossing);
+}
+
 TEST_CASE("Zero weight leaves the per-site genotype untouched", "[linkage_model]") {
     // The inertness property, and it is not decoration: the whole point of a weight is that the
     // shipped default recovers the existing caller exactly. Zero weight makes every transition
@@ -275,8 +344,8 @@ TEST_CASE("The collector keeps sites compactly and re-decides only what changed"
     LinkageCollector collector(p, 4);
 
     // Site 1 decisive for 1/1; site 2 flat, with the panel linking allele 1 to allele 1.
-    collector.record("chr1", 1000, 2, {-30.0, -30.0, 0.0}, {1, 1, 0, 0}, 1, 1, /*key*/ 11, /*share*/ 1.0);
-    collector.record("chr1", 1100, 2, {0.0, -30.0, 0.0}, {1, 1, 0, 0}, 0, 0, /*key*/ 22, /*share*/ 1.0);
+    record_dense(collector, "chr1", 1000, 2, {-30.0, -30.0, 0.0}, {1, 1, 0, 0}, 1, 1, /*key*/ 11, /*share*/ 1.0);
+    record_dense(collector, "chr1", 1100, 2, {0.0, -30.0, 0.0}, {1, 1, 0, 0}, 0, 0, /*key*/ 22, /*share*/ 1.0);
 
     REQUIRE(collector.num_sites() == 2);
     // Two entries, six floats, eight int8s, all in flat arenas.
@@ -303,8 +372,8 @@ TEST_CASE("The collector reports nothing at zero weight", "[linkage_model]") {
     LinkageModel::Params p;
     p.weight = 0.0;
     LinkageCollector collector(p, 4);
-    collector.record("chr1", 1000, 2, {-30.0, -30.0, 0.0}, {1, 1, 0, 0}, 1, 1, 11, /*share*/ 1.0);
-    collector.record("chr1", 1100, 2, {0.0, -30.0, 0.0}, {1, 1, 0, 0}, 0, 0, 22, /*share*/ 1.0);
+    record_dense(collector, "chr1", 1000, 2, {-30.0, -30.0, 0.0}, {1, 1, 0, 0}, 1, 1, 11, /*share*/ 1.0);
+    record_dense(collector, "chr1", 1100, 2, {0.0, -30.0, 0.0}, {1, 1, 0, 0}, 0, 0, 22, /*share*/ 1.0);
     REQUIRE(collector.resolve().empty());
 }
 
@@ -317,12 +386,12 @@ TEST_CASE("The collector does not link across contigs", "[linkage_model]") {
     p.rho_min = 1e-4;
 
     LinkageCollector same(p, 4);
-    same.record("chr1", 1000, 2, {-30.0, -30.0, 0.0}, {1, 1, 0, 0}, 1, 1, 11, /*share*/ 1.0);
-    same.record("chr1", 1100, 2, {0.0, -30.0, 0.0}, {1, 1, 0, 0}, 0, 0, 22, /*share*/ 1.0);
+    record_dense(same, "chr1", 1000, 2, {-30.0, -30.0, 0.0}, {1, 1, 0, 0}, 1, 1, 11, /*share*/ 1.0);
+    record_dense(same, "chr1", 1100, 2, {0.0, -30.0, 0.0}, {1, 1, 0, 0}, 0, 0, 22, /*share*/ 1.0);
 
     LinkageCollector split(p, 4);
-    split.record("chr1", 1000, 2, {-30.0, -30.0, 0.0}, {1, 1, 0, 0}, 1, 1, 11, /*share*/ 1.0);
-    split.record("chr2", 1100, 2, {0.0, -30.0, 0.0}, {1, 1, 0, 0}, 0, 0, 22, /*share*/ 1.0);
+    record_dense(split, "chr1", 1000, 2, {-30.0, -30.0, 0.0}, {1, 1, 0, 0}, 1, 1, 11, /*share*/ 1.0);
+    record_dense(split, "chr2", 1100, 2, {0.0, -30.0, 0.0}, {1, 1, 0, 0}, 0, 0, 22, /*share*/ 1.0);
 
     REQUIRE(same.resolve().size() == 1);
     REQUIRE(split.resolve().empty());
@@ -339,12 +408,12 @@ TEST_CASE("The collector sorts by reference position, not arrival order",
     p.rho_min = 1e-4;
 
     LinkageCollector ordered(p, 4);
-    ordered.record("chr1", 1000, 2, {-30.0, -30.0, 0.0}, {1, 1, 0, 0}, 1, 1, 11, /*share*/ 1.0);
-    ordered.record("chr1", 1100, 2, {0.0, -30.0, 0.0}, {1, 1, 0, 0}, 0, 0, 22, /*share*/ 1.0);
+    record_dense(ordered, "chr1", 1000, 2, {-30.0, -30.0, 0.0}, {1, 1, 0, 0}, 1, 1, 11, /*share*/ 1.0);
+    record_dense(ordered, "chr1", 1100, 2, {0.0, -30.0, 0.0}, {1, 1, 0, 0}, 0, 0, 22, /*share*/ 1.0);
 
     LinkageCollector shuffled(p, 4);
-    shuffled.record("chr1", 1100, 2, {0.0, -30.0, 0.0}, {1, 1, 0, 0}, 0, 0, 22, /*share*/ 1.0);
-    shuffled.record("chr1", 1000, 2, {-30.0, -30.0, 0.0}, {1, 1, 0, 0}, 1, 1, 11, /*share*/ 1.0);
+    record_dense(shuffled, "chr1", 1100, 2, {0.0, -30.0, 0.0}, {1, 1, 0, 0}, 0, 0, 22, /*share*/ 1.0);
+    record_dense(shuffled, "chr1", 1000, 2, {-30.0, -30.0, 0.0}, {1, 1, 0, 0}, 1, 1, 11, /*share*/ 1.0);
 
     auto a = ordered.resolve();
     auto b = shuffled.resolve();
@@ -369,18 +438,18 @@ TEST_CASE("respecify moves a site to the ploidy its settled parent implies", "[l
 
     const size_t PARENT = 9, CHILD = 91;
     LinkageCollector collector(p, 2);
-    collector.record("chr1", 1000, 2, {-30.0, -30.0, 0.0}, {1, 1}, 1, 1, PARENT,
+    record_dense(collector, "chr1", 1000, 2, {-30.0, -30.0, 0.0}, {1, 1}, 1, 1, PARENT,
                      1.0, 2, 10, 20);
     // Recorded haploid, as descent would: one allele, one likelihood per allele.
-    collector.record("chr1", 1010, 2, {0.0, -30.0}, {0, 0}, 0, 0, CHILD,
+    record_dense(collector, "chr1", 1010, 2, {0.0, -30.0}, {0, 0}, 0, 0, CHILD,
                      1.0, 1, 11, 12, true, PARENT, 0, (uint64_t)1 << 1);
 
     // The settled parent turns out to cross on both haplotypes, so the child is diploid. Its
     // likelihoods are the triangular vector now, and it is no longer a nested haploid site.
-    REQUIRE(collector.respecify(CHILD, 2, {-30.0, -30.0, 0.0}, {1, 1}, 1, 1, 2,
+    REQUIRE(respecify_dense(collector, CHILD, 2, {-30.0, -30.0, 0.0}, {1, 1}, 1, 1, 2,
                                 /*nested*/ false, 0, 0));
     // An unknown key must say so rather than silently doing nothing.
-    REQUIRE_FALSE(collector.respecify(12345, 2, {0.0, -30.0, -30.0}, {0, 0}, 0, 0, 1, true, 0, 0));
+    REQUIRE_FALSE(respecify_dense(collector, 12345, 2, {0.0, -30.0, -30.0}, {0, 0}, 0, 0, 1, true, 0, 0));
 
     vector<LinkageCollector::PhaseCall> phased;
     vector<LinkageCollector::NestedIncoherence> incoherent;
@@ -396,8 +465,12 @@ TEST_CASE("respecify moves a site to the ploidy its settled parent implies", "[l
     }
     REQUIRE(child != nullptr);
     REQUIRE(child->ploidy == 2);
-    REQUIRE(child->allele_first == 1);
-    REQUIRE(child->allele_second == 1);
+    // Asserted on the traversal, not the compact allele index. The collector's space is the called
+    // pair plus the panel-carried traversals, so a site whose panel names one traversal has a
+    // one-element space and compact 0 *is* traversal 1. The genome fact -- which traversal each
+    // strand is on -- is what this test is about, and it is what trav_* carries.
+    REQUIRE(child->trav_first == 1);
+    REQUIRE(child->trav_second == 1);
 }
 
 TEST_CASE("retract drops a site the settled parent does not carry", "[linkage_model]") {
@@ -412,12 +485,12 @@ TEST_CASE("retract drops a site the settled parent does not carry", "[linkage_mo
 
     const size_t PARENT = 9, CHILD = 91, SIBLING = 92;
     LinkageCollector collector(p, 2);
-    collector.record("chr1", 1000, 2, {-30.0, -30.0, 0.0}, {1, 1}, 1, 1, PARENT,
+    record_dense(collector, "chr1", 1000, 2, {-30.0, -30.0, 0.0}, {1, 1}, 1, 1, PARENT,
                      1.0, 2, 10, 20);
-    collector.record("chr1", 1010, 2, {0.0, -30.0}, {0, 0}, 0, 0, CHILD,
+    record_dense(collector, "chr1", 1010, 2, {0.0, -30.0}, {0, 0}, 0, 0, CHILD,
                      1.0, 1, 11, 12, true, PARENT, 0, (uint64_t)1 << 0);
     // A neighbour recorded *after* the retracted one, so its arena offsets sit beyond the hole.
-    collector.record("chr1", 1020, 2, {-30.0, -30.0, 0.0}, {1, 1}, 1, 1, SIBLING,
+    record_dense(collector, "chr1", 1020, 2, {-30.0, -30.0, 0.0}, {1, 1}, 1, 1, SIBLING,
                      1.0, 2, 13, 14);
 
     size_t before = collector.num_sites_at(0);
@@ -441,7 +514,7 @@ TEST_CASE("retract drops a site the settled parent does not carry", "[linkage_mo
     }
     REQUIRE(sibling != nullptr);
     REQUIRE(sibling->position == 1020);
-    REQUIRE(sibling->allele_first == 1);
+    REQUIRE(sibling->trav_first == 1);
     REQUIRE(collector.num_sites_at(0) < before);
 }
 
@@ -465,9 +538,9 @@ TEST_CASE("A nested site whose parent no longer crosses it is reported, not quie
         LinkageCollector collector(p, 2);
         // A parent decisively 1/1 -- genotype index 2 of three -- with both panel haplotypes on
         // allele 1, so neither strand carries allele 0.
-        collector.record("chr1", 1000, 2, {-30.0, -30.0, 0.0}, {1, 1}, 1, 1, PARENT,
+        record_dense(collector, "chr1", 1000, 2, {-30.0, -30.0, 0.0}, {1, 1}, 1, 1, PARENT,
                          /*share*/ 1.0, /*ploidy*/ 2, /*start*/ 10, /*end*/ 20);
-        collector.record("chr1", 1010, 2, {0.0, -30.0}, {0, 0}, 0, 0, CHILD,
+        record_dense(collector, "chr1", 1010, 2, {0.0, -30.0}, {0, 0}, 0, 0, CHILD,
                          /*share*/ 1.0, /*ploidy*/ 1, /*start*/ 11, /*end*/ 12,
                          /*nested*/ true, PARENT, /*slot*/ 0,
                          /*crossing*/ (uint64_t)1 << c.crossing_allele);
@@ -529,11 +602,11 @@ TEST_CASE("The phasing comes back in reference order even with nested sites in i
 
     LinkageCollector collector(p, 2);
     // Two ordinary sites far apart, and a nested child of the first that belongs between them.
-    collector.record("chr1", 1000, 2, {-30.0, 0.0, -30.0}, {1, 0}, 0, 1, /*key*/ 1,
+    record_dense(collector, "chr1", 1000, 2, {-30.0, 0.0, -30.0}, {1, 0}, 0, 1, /*key*/ 1,
                      /*share*/ 1.0, /*ploidy*/ 2, /*start*/ 10, /*end*/ 20);
-    collector.record("chr1", 900000, 2, {-30.0, 0.0, -30.0}, {1, 0}, 0, 1, /*key*/ 2,
+    record_dense(collector, "chr1", 900000, 2, {-30.0, 0.0, -30.0}, {1, 0}, 0, 1, /*key*/ 2,
                      /*share*/ 1.0, /*ploidy*/ 2, /*start*/ 90, /*end*/ 100);
-    collector.record("chr1", 1010, 2, {0.0, -30.0}, {0, 0}, 0, 0, /*key*/ 3,
+    record_dense(collector, "chr1", 1010, 2, {0.0, -30.0}, {0, 0}, 0, 0, /*key*/ 3,
                      /*share*/ 1.0, /*ploidy*/ 1, /*start*/ 11, /*end*/ 12,
                      /*nested*/ true, /*parent*/ 1, /*slot*/ 0, /*crossing*/ 1);
 
@@ -570,11 +643,11 @@ TEST_CASE("A nested site called diploid that its parent now crosses once is flag
 
     LinkageCollector collector(p, 2);
     // A het parent, decisively 0/1.
-    collector.record("chr1", 1000, 2, {-30.0, 0.0, -30.0}, {1, 0}, 0, 1, PARENT,
+    record_dense(collector, "chr1", 1000, 2, {-30.0, 0.0, -30.0}, {1, 0}, 0, 1, PARENT,
                      /*share*/ 1.0, /*ploidy*/ 2, /*start*/ 10, /*end*/ 20);
     // A child of it called at ploidy 2 -- `nested` false, so it chains normally -- but only the
     // parent's allele 0 crosses the chain, so one haplotype deletes it.
-    collector.record("chr1", 1010, 2, {-30.0, 0.0, -30.0}, {1, 0}, 0, 1, CHILD,
+    record_dense(collector, "chr1", 1010, 2, {-30.0, 0.0, -30.0}, {1, 0}, 0, 1, CHILD,
                      /*share*/ 1.0, /*ploidy*/ 2, /*start*/ 11, /*end*/ 12,
                      /*nested*/ false, PARENT, /*slot*/ 0, /*crossing*/ (uint64_t)1 << 0);
 

@@ -9,7 +9,7 @@ PATH=../bin:$PATH # for vg
 # FORMAT field shifts every later one, which broke four assertions here that were not
 # testing field order at all -- one of them silently compared BL against a GQ threshold.
 
-plan tests 295
+plan tests 298
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -746,22 +746,26 @@ vg sim -x nest.gbz -n 300 -l 40 -a -s 31 --path "p2#0#chr1#0" > nest_hap.gam 2>/
 vg sim -x nest.gbz -n 300 -l 40 -a -s 37 --path "p2#1#chr1#0" >> nest_hap.gam 2>/dev/null
 vg call nest.gbz --read-likelihood --gam nest_hap.gam -t 1 -s samp --nested --phased 2>/dev/null > nest_hap.vcf
 is "$?" 0 "--nested --phased runs with a heterozygous deletion over nested sites"
-# What this fixture is really about: a chain its parent's *settled* genotype does not carry.
+# What this fixture is really about: whether the parent's genotype is right, because everything
+# inside the chain follows from it.
 #
-# The parent is called hom for the deletion -- wrongly, the reads come from one deleted and one
-# crossing haplotype, and that mis-call is the fixture's whole point rather than a defect in it. A
-# parent that deletes the chain on both haplotypes leaves the nested sites inside it with no
-# haplotype to sit on at all.
+# The reads come from one deleted and one crossing haplotype, so the parent is heterozygous for the
+# deletion. It used to be called hom -- and these assertions pinned that mis-call, with a comment
+# saying so, because a parent that deletes the chain on both haplotypes leaves the nested sites with
+# no haplotype to sit on and the whole subtree went uncalled.
 #
-# Descent asks that question of the genotype linkage settled on, before the child is genotyped, so
-# the child is never called: one record, the parent's deletion. Descending first and checking
-# afterwards is what used to emit a nested record here and flag it `nested_unreachable` -- a call
-# on a haplotype the sample does not have, kept and labelled rather than not made. Both assertions
-# below were written against that behaviour and now assert its absence.
-is $(grep -v "^#" nest_hap.vcf | awk -F'\t' '$2 == 30 {split($10,a,":"); print a[1]}') "1|1" \
-   "the parent is called hom for the deletion that spans the nested chain"
-is $(grep -vc "^#" nest_hap.vcf) "1" \
-   "a chain the settled parent genotype deletes on both haplotypes yields no nested record"
+# Moving the linkage layer into traversal space fixed it. The model now sees the panel-carried
+# traversals that symbolic collapsing had merged into the reference, the parent comes out het, and
+# the consequences are visible in one line each: the chain exists on exactly one strand, so the
+# nested site is reachable, is called at ploidy 1, and names the strand it is on.
+is $(grep -v "^#" nest_hap.vcf | awk -F'\t' '$2 == 30 {split($10,a,":"); print a[1]}') "1|0" \
+   "the parent is called het for the deletion that spans the nested chain"
+is $(grep -vc "^#" nest_hap.vcf) "2" \
+   "a chain one settled parent allele carries yields the parent record and the nested one"
+# The strand is the point: a bare "1" would say the allele exists without saying which haplotype
+# carries it, which is what no phasing tool could read and what the mosaic alone used to know.
+is $(grep -v "^#" nest_hap.vcf | awk -F'\t' '$2 == 51 {split($10,a,":"); print a[1]}') ".|1" \
+   "the nested haploid record names the strand its parent leaves the chain on"
 is $(grep -v "^#" nest_hap.vcf | awk -F'\t' '$7 ~ /nested_(diploid|haploid|unreachable)/ {n++} END {print n+0}') \
    "0" "no record needs a nested coherence FILTER, because the ploidy cannot disagree"
 # And the parent still reports its deletion: symbolic collapsing must not swallow a real event.
@@ -797,6 +801,23 @@ is $(awk -F'\t' '/^H\t/ && $3=="0" {n += $10} END {print n+0}' nest_hap.mosaic.t
 is $(awk -F'\t' '/^H\t/ {if ($3 in prev && $4 < prev[$3]) bad++; prev[$3]=$4} END {print bad+0}' \
      nest_hap.mosaic.tsv) "0" \
    "mosaic segments are in reference order within each strand"
+# No GT may name an allele the record does not carry. The linkage layer settles on a candidate
+# traversal, not on an emitted allele, and those are different numberings: a traversal can have no
+# ALT on its own line, because symbolic collapsing folds some into the reference and the barrier can
+# replace a line with one carrying fewer ALTs than the entry was built against. Writing the number
+# regardless emitted GTs like ".|2" on a record with one ALT -- not a parseable VCF, and invisible to
+# every check that only counted records. Asserted on both nested arms; the phased one is where the
+# genotype and phasing patches both run.
+is $(awk -F'\t' '!/^#/ {n = ($5 == "." || $5 == "") ? 0 : split($5, a, ","); \
+      split($10, f, ":"); m = split(f[1], g, "[|/]"); \
+      for (i = 1; i <= m; i++) if (g[i] != "." && g[i]+0 > n) bad++} END {print bad+0}' \
+     nest_hap.vcf) "0" \
+   "no phased nested GT names an allele the record has no ALT for"
+is $(awk -F'\t' '!/^#/ {n = ($5 == "." || $5 == "") ? 0 : split($5, a, ","); \
+      split($10, f, ":"); m = split(f[1], g, "[|/]"); \
+      for (i = 1; i <= m; i++) if (g[i] != "." && g[i]+0 > n) bad++} END {print bad+0}' \
+     nest_nested.vcf) "0" \
+   "no nested GT names an allele the record has no ALT for"
 
 rm -f nest.gfa nest.gbz nest.gam nest_default.vcf nest_nested.vcf nest_hap.gam nest_hap.vcf nest_hap.mosaic.tsv x.vg x.gbz x.gbwt sim.gam x.pack call.vcf callg.vcf callz.vcf callg.6 callz.6 callrl_nopack.vcf callrl_nopack_z.vcf callrl_withpack.vcf nopack_err.txt sim.sorted.gam sim.sorted.gam.gai rl_inmem.vcf rl_indexed.vcf gi_err.txt gb_err.txt gb_excl.txt gb_norl.txt gb_nobin.txt sim.gaf sim.gaf.db x.gbz.db rl_gafmem.vcf rl_gafbase.vcf rl_gafbase_t4.vcf rl_gafbase_w32.vcf rl_autoz_full.vcf rl_autoz.vcf rl_explicit_z.vcf rl_support_full.vcf rl_support.vcf es_nopack.txt es_z.txt es_g.txt nopanel.vg nopanel.gbwt nopanel.gbz nopanel.pack nopanel_err.txt poisson_default.vcf poisson_z.vcf rl_phased.vcf rl_default.vcf rl_nophase.vcf rl_nopanel.vcf rl_nopanel_err.txt rl_unphased_gt.txt rl_phased_gt.txt rl_ph_err.txt rl_mosaic.tsv rl_mosaic2.tsv rl_hap.vcf rl_hap_mosaic.tsv
 

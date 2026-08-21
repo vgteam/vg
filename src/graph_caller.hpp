@@ -1,6 +1,7 @@
 #ifndef VG_GRAPH_CALLER_HPP_INCLUDED
 #define VG_GRAPH_CALLER_HPP_INCLUDED
 
+#include <atomic>
 #include <iostream>
 #include <algorithm>
 #include <functional>
@@ -393,13 +394,27 @@ protected:
     /// all the cache was measured to help with, and residency is bounded to about one window.
     mutable vector<nid_t> linkage_gbwt_cache_anchor;
 
+    /// Patches declined specifically because they named an allele beyond the record's ALT list, as
+    /// opposed to declined for describing a genotype the record does not carry. The two mean
+    /// different things -- the first is the traversal/VCF numbering gap, the second is a patch that
+    /// found the wrong record -- so they are counted apart.
+    mutable std::atomic<size_t> change_declined_allele{0};
+    mutable std::atomic<size_t> phase_declined_allele{0};
+
     /// Rewrite one emitted line's GT and GQ for a linkage change, leaving every other field --
     /// AD, DP, GL, GQI, AT -- alone, since those remain the per-site truth.
-    void apply_linkage_change(string& line, const LinkageCollector::Change& change) const;
+    ///
+    /// Returns false when the line is left untouched: the genotype being replaced is not the one
+    /// this change was derived from, or the replacement names an allele the record has no ALT for.
+    /// Refusing is always safe -- the line keeps its per-site call, which is a real answer -- and
+    /// the count is reported, because a patch that silently does nothing is how the linkage layer
+    /// once dropped every haploid correction it made.
+    bool apply_linkage_change(string& line, const LinkageCollector::Change& change) const;
 
     /// Rewrite one emitted line's GT into phased form and attach its phase set. Applied after
-    /// `apply_linkage_change`, so it phases the genotype that is actually emitted.
-    void apply_phasing(string& line, const LinkageCollector::PhaseCall& phase) const;
+    /// `apply_linkage_change`, so it phases the genotype that is actually emitted. Returns false
+    /// when the line is left untouched, for the same reasons.
+    bool apply_phasing(string& line, const LinkageCollector::PhaseCall& phase) const;
 
     /// Add the FILTER for one kind of nested ploidy incoherence, leaving the genotype and every
     /// other field alone. The call is what the reads at that child support; what the flag records is
@@ -986,7 +1001,6 @@ protected:
     /// so any disagreement can only come from two distinct routes that spell the same sequence.
     /// The bit is set if any of them crosses.
     static uint64_t child_crossing_mask(const vector<SnarlTraversal>& travs,
-                                        const map<int, int>& trav_to_allele,
                                         const Snarl& child, bool* known = nullptr);
 
     /// Find all traversals through a child snarl that are consistent with a parent traversal.

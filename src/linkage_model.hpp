@@ -13,6 +13,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <map>
 #include <mutex>
 #include <string>
 #include <vector>
@@ -364,17 +365,39 @@ public:
         double explained_share = 1.0;
     };
 
-    /// Record one site. Safe to call from several threads. `haplotype_allele` must have one entry
-    /// per panel haplotype, -1 where the haplotype does not traverse the site; `called_i/j` is the
-    /// genotype the per-site model chose, so a change can be detected without keeping the record.
-    void record(const string& contig, size_t position, size_t num_alleles,
-                const vector<double>& genotype_ln_likelihood,
-                const vector<int>& haplotype_allele,
-                size_t called_i, size_t called_j, size_t record_key,
+    /// Record one genotyped site. Safe to call from several threads.
+    ///
+    /// Everything here is in the genotyper's own space -- candidate traversal indices -- not in VCF
+    /// allele numbering. `haplotype_traversal` has one entry per panel haplotype, the candidate
+    /// traversal it carries or -1 where it does not traverse the site. `called_trav_i/j` is the pair
+    /// the per-site model chose, so a change can be detected without keeping the record.
+    /// `traversal_to_allele` maps candidate traversals to the VCF alleles they were emitted as, for
+    /// rendering only; pass it empty for a site that wrote no line, with `emitted` false.
+    ///
+    /// A site that emitted nothing is still recorded, because it still has an allele pair and that
+    /// pair is what phases its children. Gating entry on "a line was written" is what left a
+    /// symbolically-collapsed parent unphased and its children strandless.
+    void record(const string& contig, size_t position,
+                const map<vector<int>, double>& genotype_ln_likelihood,
+                const vector<int>& haplotype_traversal,
+                int called_trav_i, int called_trav_j,
+                const vector<int>& traversal_to_allele,
+                size_t record_key,
                 double explained_share, size_t ploidy = 2,
                 int64_t start_node = 0, int64_t end_node = 0,
                 bool nested = false, size_t parent_record_key = 0, size_t parent_slot = 0,
-                uint64_t parent_crossing = 0, size_t generation = 0);
+                uint64_t parent_crossing = 0, size_t generation = 0,
+                bool emitted = true);
+
+    /// The compact allele space `record` builds for one site: the called pair plus every traversal
+    /// some panel haplotype carries, deduplicated by traversal and sorted.
+    ///
+    /// Exposed for the unit tests, which is the only way to check the construction without a graph.
+    /// `genotype_ln_likelihood` is keyed by *sorted* candidate-traversal vectors, as the genotyper
+    /// produces it.
+    static vector<int> compact_allele_space(const map<vector<int>, double>& genotype_ln_likelihood,
+                                            const vector<int>& haplotype_traversal,
+                                            int called_trav_i, int called_trav_j);
 
     /// One site's phasing: which strand carries which allele, and which panel haplotype explains
     /// each strand.
@@ -389,6 +412,15 @@ public:
         size_t position = 0;
         size_t allele_first = 0;
         size_t allele_second = 0;
+        /// The candidate traversal on each strand -- the same pair as `allele_*`, in the genotyper's
+        /// numbering rather than the collector's compact one.
+        ///
+        /// This is the genome fact: a crossing mask is expressed in traversal terms, so a child's
+        /// strand has to be derived against these and not against the compact indices, which agree
+        /// only when every allele at the site is panel-carried. It is also what a per-haplotype path
+        /// through the snarl is made of.
+        int trav_first = -1;
+        int trav_second = -1;
         size_t hap_first = LinkageModel::WILDCARD;
         size_t hap_second = LinkageModel::WILDCARD;
         /// 1 or 2. At 1 only the `_first` fields are meaningful: there is one strand.
@@ -501,11 +533,13 @@ public:
     /// This is what makes the coherence guarantee structural rather than reported. Before it, a child
     /// kept the ploidy a superseded parent genotype implied and the disagreement was written into the
     /// record as a FILTER.
-    bool respecify(size_t record_key, size_t num_alleles,
-                   const vector<double>& genotype_ln_likelihood,
-                   const vector<int>& haplotype_allele,
-                   size_t called_i, size_t called_j, size_t ploidy,
-                   bool nested, size_t parent_slot, uint64_t parent_crossing);
+    bool respecify(size_t record_key,
+                   const map<vector<int>, double>& genotype_ln_likelihood,
+                   const vector<int>& haplotype_traversal,
+                   int called_trav_i, int called_trav_j,
+                   const vector<int>& traversal_to_allele,
+                   size_t ploidy, bool nested, size_t parent_slot,
+                   uint64_t parent_crossing);
 
     /// Drop a site before its generation resolves: the settled parent genotype does not carry the
     /// chain at all, so the sample has no copy of it and no call belongs there.
@@ -514,6 +548,12 @@ public:
     /// held by every other entry -- so it is marked and then skipped by chain construction, phasing
     /// and every counter. Returns false for an unknown key.
     bool retract(size_t record_key);
+
+    /// Whether an active (non-retracted) entry exists for this key. The barrier needs to tell
+    /// "this site was never recorded" from "respecify refused a site that is already in the layer":
+    /// in the second case the recorded entry describes a line the barrier has just replaced, so
+    /// leaving it in place would patch the new line with the old line's allele numbering.
+    bool has_entry(size_t record_key) const;
 
     /// How many sites belong to one generation, for reporting a per-generation pass.
     size_t num_sites_at(size_t generation) const;
@@ -534,6 +574,21 @@ private:
         uint32_t contig = 0;
         uint32_t gl_offset = 0;
         uint32_t hap_offset = 0;
+        /// Compact allele -> the candidate traversal it is, and -> the VCF allele it was emitted as.
+        ///
+        /// The site's allele space is a compact set of *distinct traversals*: the called pair plus
+        /// every traversal some panel haplotype carries. That is the genotyper's own space, and it is
+        /// the one the model has to work in, because symbolic collapsing maps distinct traversals
+        /// onto one VCF allele -- so a parent whose haplotypes differ only inside its child chains is
+        /// homozygous in VCF numbering and heterozygous in this one. Only the latter can phase its
+        /// children.
+        ///
+        /// `trav_offset` is the genome fact: it answers "which traversal is this strand on", which is
+        /// what a crossing mask tests and what a haplotype path needs. `allele_offset` is presentation
+        /// only: -1 where a traversal reached the model but no VCF allele was emitted for it, which is
+        /// possible now that the two spaces are not the same.
+        uint32_t trav_offset = 0;
+        uint32_t allele_offset = 0;
         uint16_t num_alleles = 0;
         uint16_t called_i = 0;
         uint16_t called_j = 0;
@@ -549,6 +604,10 @@ private:
         /// that later generations can clamp it. Meaningless before that.
         uint16_t final_i = 0;
         uint16_t final_j = 0;
+        /// Whether this site wrote a VCF line. A genotyped snarl enters the layer either way -- it
+        /// has an allele pair, which is what phasing needs -- but only an emitted one has a record to
+        /// patch, and only its `allele_offset` entries mean anything.
+        bool emitted = true;
         /// True when this site's ploidy came from nested descent rather than from the contig or a
         /// --ploidy-bed region.
         ///
@@ -596,6 +655,11 @@ private:
     vector<Entry> entries;
     vector<float> gl_arena;
     vector<int8_t> hap_arena;
+    /// Per compact allele, the candidate traversal index it stands for. uint16 because a site's
+    /// candidate list is the traversal finder's output, not the panel size.
+    vector<uint16_t> trav_arena;
+    /// Per compact allele, the VCF allele it was emitted as, or -1 for none.
+    vector<int8_t> allele_arena;
     vector<string> contig_names;
 
 

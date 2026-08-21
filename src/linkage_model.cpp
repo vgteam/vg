@@ -1,6 +1,7 @@
 #include "linkage_model.hpp"
 
 #include <map>
+#include <set>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -41,6 +42,61 @@ static inline int allele_at(const LinkageModel::Site& site, size_t h, size_t n_h
     }
     int allele = site.haplotype_allele[h];
     return (allele >= 0 && (size_t)allele < site.num_alleles) ? allele : -1;
+}
+
+/// The VCF allele a compact allele was emitted as, or -1 where none was.
+///
+/// The collector works in the genotyper's traversal space; the VCF numbering is a rendering of it.
+/// -1 is reachable now that the two differ: a traversal the panel carries can reach the model
+/// without the record carrying an ALT for it, in which case there is nothing to write and the change
+/// is skipped rather than guessed at.
+static inline int vcf_allele_of(const vector<int8_t>& allele_arena, size_t allele_offset,
+                                size_t num_alleles, size_t compact) {
+    if (compact >= num_alleles) {
+        return -1;
+    }
+    size_t at = allele_offset + compact;
+    return at < allele_arena.size() ? (int)allele_arena[at] : -1;
+}
+
+/// The VCF alleles a phased GT may name for a settled compact pair.
+///
+/// Phasing re-orders a genotype; it never re-decides one. That is the property that made it safe to
+/// turn on by default, and it is checked again in apply_phasing, which declines any phased GT that
+/// is not a permutation of the line's own. So when the settled pair cannot be rendered -- the model
+/// chose a traversal this record carries no ALT for, and the genotype patch was correctly skipped --
+/// the phase must describe the pair the line still carries, which is the called one. Emitting the
+/// settled pair anyway got the patch declined and cost the record its phase and its phase set
+/// outright: 3 records on the small fixture, 1,627 on chr20.
+///
+/// The called pair is renderable by construction: it came from the genotype the record was emitted
+/// with. Order across a fallback pair is not determined by anything, so callers flag it.
+static inline void render_phase_pair(const vector<int8_t>& allele_arena, size_t allele_offset,
+                                     size_t num_alleles, size_t c_first, size_t c_second,
+                                     size_t called_i, size_t called_j,
+                                     int* out_first, int* out_second, bool* fell_back) {
+    const int v_first = vcf_allele_of(allele_arena, allele_offset, num_alleles, c_first);
+    const int v_second = vcf_allele_of(allele_arena, allele_offset, num_alleles, c_second);
+    if (v_first >= 0 && v_second >= 0) {
+        *out_first = v_first;
+        *out_second = v_second;
+        *fell_back = false;
+        return;
+    }
+    *out_first = vcf_allele_of(allele_arena, allele_offset, num_alleles, called_i);
+    *out_second = vcf_allele_of(allele_arena, allele_offset, num_alleles, called_j);
+    *fell_back = true;
+}
+
+/// The candidate traversal a compact allele stands for. This is the genome fact: what a crossing
+/// mask is tested against, and what a per-haplotype path through the snarl is made of.
+static inline int traversal_of(const vector<uint16_t>& trav_arena, size_t trav_offset,
+                               size_t num_alleles, size_t compact) {
+    if (compact >= num_alleles) {
+        return -1;
+    }
+    size_t at = trav_offset + compact;
+    return at < trav_arena.size() ? (int)trav_arena[at] : -1;
 }
 
 /// Relative P(reads | genotype implied by state) for every ordered pair of panel haplotypes,
@@ -1093,17 +1149,92 @@ vector<size_t> LinkageModel::haploid_phasing(const vector<Site>& sites,
 //------------------------------------------------------------------------------
 // LinkageCollector
 
-void LinkageCollector::record(const string& contig, size_t position, size_t num_alleles,
-                              const vector<double>& genotype_ln_likelihood,
-                              const vector<int>& haplotype_allele,
-                              size_t called_i, size_t called_j, size_t record_key,
+vector<int> LinkageCollector::compact_allele_space(
+        const map<vector<int>, double>& genotype_ln_likelihood,
+        const vector<int>& haplotype_traversal,
+        int called_trav_i, int called_trav_j) {
+    // The reachable set, and nothing more. `build_emission` only ever indexes the likelihood vector
+    // at a pair of *panel-carried* alleles, and the genotype constraint needs only the called pair,
+    // so a traversal that is neither cannot be spelled by any panel pair and cannot affect the
+    // result. Dropping the rest is what keeps this space the same order of size as the emitted-allele
+    // space it replaces, instead of the full candidate list -- a 34-haplotype panel offers ~35
+    // candidates, whose triangular likelihood vector would be 630 entries against today's handful.
+    set<int> needed;
+    if (called_trav_i >= 0) {
+        needed.insert(called_trav_i);
+    }
+    if (called_trav_j >= 0) {
+        needed.insert(called_trav_j);
+    }
+    for (int t : haplotype_traversal) {
+        if (t >= 0) {
+            needed.insert(t);
+        }
+    }
+    // Sorted by candidate index, so the compact numbering is a function of the site alone and not of
+    // the order haplotypes happen to be visited in.
+    return vector<int>(needed.begin(), needed.end());
+}
+
+void LinkageCollector::record(const string& contig, size_t position,
+                              const map<vector<int>, double>& genotype_ln_likelihood,
+                              const vector<int>& haplotype_traversal,
+                              int called_trav_i, int called_trav_j,
+                              const vector<int>& traversal_to_allele,
+                              size_t record_key,
                               double explained_share, size_t ploidy,
                               int64_t start_node, int64_t end_node,
                               bool nested, size_t parent_record_key, size_t parent_slot,
-                              uint64_t parent_crossing, size_t generation) {
-    if (num_alleles == 0 || genotype_ln_likelihood.empty()) {
+                              uint64_t parent_crossing, size_t generation,
+                              bool emitted) {
+    if (genotype_ln_likelihood.empty() || called_trav_i < 0) {
         return;
     }
+    vector<int> space = compact_allele_space(genotype_ln_likelihood, haplotype_traversal,
+                                             called_trav_i, called_trav_j);
+    if (space.empty() || space.size() > 127) {
+        // int8 in the panel arena caps a site at 127 alleles; one that exceeded it would lose
+        // linkage rather than be mis-linked, which is the safe direction.
+        return;
+    }
+    const size_t k = space.size();
+    // candidate traversal -> compact allele
+    map<int, int> compact;
+    for (size_t i = 0; i < k; ++i) {
+        compact[space[i]] = (int)i;
+    }
+    auto compact_of = [&](int trav) -> int {
+        auto it = compact.find(trav);
+        return it == compact.end() ? -1 : it->second;
+    };
+
+    const int ci = compact_of(called_trav_i);
+    const int cj = called_trav_j >= 0 ? compact_of(called_trav_j) : ci;
+    if (ci < 0 || cj < 0) {
+        return;   // cannot happen: the called pair is in the space by construction
+    }
+
+    const size_t site_ploidy = (ploidy == 1 ? 1 : 2);
+    const size_t n_gt = site_ploidy == 1 ? k : k * (k + 1) / 2;
+    vector<float> gls(n_gt, -numeric_limits<float>::infinity());
+    for (const auto& kv : genotype_ln_likelihood) {
+        if (kv.first.size() != site_ploidy) {
+            continue;
+        }
+        if (site_ploidy == 1) {
+            int a = compact_of(kv.first[0]);
+            if (a >= 0) {
+                gls[(size_t)a] = (float)kv.second;
+            }
+            continue;
+        }
+        int a = compact_of(kv.first[0]);
+        int b = compact_of(kv.first[1]);
+        if (a >= 0 && b >= 0) {
+            gls[LinkageModel::genotype_index((size_t)a, (size_t)b)] = (float)kv.second;
+        }
+    }
+
     lock_guard<std::mutex> guard(mutex);
 
     uint32_t contig_id = 0;
@@ -1123,33 +1254,40 @@ void LinkageCollector::record(const string& contig, size_t position, size_t num_
     Entry e;
     e.position = (uint32_t)position;
     e.contig = contig_id;
-    e.num_alleles = (uint16_t)num_alleles;
-    e.called_i = (uint16_t)called_i;
-    e.called_j = (uint16_t)called_j;
+    e.num_alleles = (uint16_t)k;
+    e.called_i = (uint16_t)ci;
+    e.called_j = (uint16_t)cj;
     e.record_key = record_key;
     e.explained_share = (float)explained_share;
     e.start_node = start_node;
     e.end_node = end_node;
-    e.ploidy = (uint8_t)(ploidy == 1 ? 1 : 2);
+    e.ploidy = (uint8_t)site_ploidy;
     e.nested = nested;
+    e.emitted = emitted;
     e.parent_record_key = parent_record_key;
     e.parent_crossing = parent_crossing;
     e.parent_slot = (uint8_t)parent_slot;
     e.generation = (uint8_t)(generation > 255 ? 255 : generation);
 
     e.gl_offset = (uint32_t)gl_arena.size();
-    for (double v : genotype_ln_likelihood) {
+    for (float v : gls) {
         // float, not double: these are log-likelihood differences fed to an exp(), and the
         // ratios that survive are nowhere near float's precision limit. It halves the arena.
-        gl_arena.push_back((float)v);
+        gl_arena.push_back(v);
     }
     e.hap_offset = (uint32_t)hap_arena.size();
     for (size_t h = 0; h < n_haplotypes; ++h) {
-        int allele = h < haplotype_allele.size() ? haplotype_allele[h] : -1;
-        // int8 caps alleles per site at 127, which no snarl this caller emits approaches; a site
-        // that did would lose linkage rather than be mis-linked, since -1 means "absent".
-        hap_arena.push_back(allele >= 0 && allele < 127 && (size_t)allele < num_alleles
-                                ? (int8_t)allele : (int8_t)-1);
+        int trav = h < haplotype_traversal.size() ? haplotype_traversal[h] : -1;
+        int a = trav >= 0 ? compact_of(trav) : -1;
+        hap_arena.push_back(a >= 0 ? (int8_t)a : (int8_t)-1);
+    }
+    e.trav_offset = (uint32_t)trav_arena.size();
+    e.allele_offset = (uint32_t)allele_arena.size();
+    for (size_t i = 0; i < k; ++i) {
+        trav_arena.push_back((uint16_t)space[i]);
+        int allele = (size_t)space[i] < traversal_to_allele.size() ? traversal_to_allele[space[i]]
+                                                                   : -1;
+        allele_arena.push_back(allele >= 0 && allele < 127 ? (int8_t)allele : (int8_t)-1);
     }
     entries.push_back(e);
 }
@@ -1176,37 +1314,102 @@ size_t LinkageCollector::bytes() const {
            + hap_arena.size() * sizeof(int8_t);
 }
 
-bool LinkageCollector::respecify(size_t record_key, size_t num_alleles,
-                                 const vector<double>& genotype_ln_likelihood,
-                                 const vector<int>& haplotype_allele,
-                                 size_t called_i, size_t called_j, size_t ploidy,
-                                 bool nested, size_t parent_slot, uint64_t parent_crossing) {
+bool LinkageCollector::respecify(size_t record_key,
+                                 const map<vector<int>, double>& genotype_ln_likelihood,
+                                 const vector<int>& haplotype_traversal,
+                                 int called_trav_i, int called_trav_j,
+                                 const vector<int>& traversal_to_allele,
+                                 size_t ploidy, bool nested, size_t parent_slot,
+                                 uint64_t parent_crossing) {
+    if (genotype_ln_likelihood.empty() || called_trav_i < 0) {
+        return false;
+    }
+    // The same compact space `record` builds, from the same inputs, so a revised site is described
+    // exactly as a freshly recorded one would be.
+    vector<int> space = compact_allele_space(genotype_ln_likelihood, haplotype_traversal,
+                                            called_trav_i, called_trav_j);
+    if (space.empty() || space.size() > 127) {
+        return false;
+    }
+    const size_t k = space.size();
+    map<int, int> compact;
+    for (size_t i = 0; i < k; ++i) {
+        compact[space[i]] = (int)i;
+    }
+    auto compact_of = [&](int trav) -> int {
+        auto it = compact.find(trav);
+        return it == compact.end() ? -1 : it->second;
+    };
+    const int ci = compact_of(called_trav_i);
+    const int cj = called_trav_j >= 0 ? compact_of(called_trav_j) : ci;
+    if (ci < 0 || cj < 0) {
+        return false;
+    }
+    const size_t site_ploidy = (ploidy == 1 ? 1 : 2);
+    const size_t n_gt = site_ploidy == 1 ? k : k * (k + 1) / 2;
+    vector<float> gls(n_gt, -numeric_limits<float>::infinity());
+    for (const auto& kv : genotype_ln_likelihood) {
+        if (kv.first.size() != site_ploidy) {
+            continue;
+        }
+        if (site_ploidy == 1) {
+            int a = compact_of(kv.first[0]);
+            if (a >= 0) {
+                gls[(size_t)a] = (float)kv.second;
+            }
+            continue;
+        }
+        int a = compact_of(kv.first[0]);
+        int b = compact_of(kv.first[1]);
+        if (a >= 0 && b >= 0) {
+            gls[LinkageModel::genotype_index((size_t)a, (size_t)b)] = (float)kv.second;
+        }
+    }
+
     lock_guard<std::mutex> guard(mutex);
     for (Entry& e : entries) {
         if (e.record_key != record_key || e.retracted) {
             continue;
         }
-        // The likelihood vector for the new ploidy is a different length, so it cannot be written
-        // over the old one in place. Appended to the arena instead and the offset repointed: the
-        // arenas only ever grow, and the abandoned span is a few floats per revised site.
-        e.num_alleles = (uint16_t)num_alleles;
-        e.called_i = (uint16_t)called_i;
-        e.called_j = (uint16_t)called_j;
-        e.ploidy = (uint8_t)(ploidy == 1 ? 1 : 2);
+        // Every vector for the new ploidy is a different length, so none can be written over the old
+        // one in place. Appended and the offsets repointed: the arenas only ever grow, and the
+        // abandoned spans are a few entries per revised site.
+        e.num_alleles = (uint16_t)k;
+        e.called_i = (uint16_t)ci;
+        e.called_j = (uint16_t)cj;
+        e.ploidy = (uint8_t)site_ploidy;
         e.nested = nested;
         e.parent_slot = (uint8_t)parent_slot;
         e.parent_crossing = parent_crossing;
         e.gl_offset = (uint32_t)gl_arena.size();
-        for (double v : genotype_ln_likelihood) {
-            gl_arena.push_back((float)v);
+        for (float v : gls) {
+            gl_arena.push_back(v);
         }
         e.hap_offset = (uint32_t)hap_arena.size();
         for (size_t h = 0; h < n_haplotypes; ++h) {
-            int allele = h < haplotype_allele.size() ? haplotype_allele[h] : -1;
-            hap_arena.push_back(allele >= 0 && allele < 127 && (size_t)allele < num_alleles
-                                    ? (int8_t)allele : (int8_t)-1);
+            int trav = h < haplotype_traversal.size() ? haplotype_traversal[h] : -1;
+            int a = trav >= 0 ? compact_of(trav) : -1;
+            hap_arena.push_back(a >= 0 ? (int8_t)a : (int8_t)-1);
+        }
+        e.trav_offset = (uint32_t)trav_arena.size();
+        e.allele_offset = (uint32_t)allele_arena.size();
+        for (size_t i = 0; i < k; ++i) {
+            trav_arena.push_back((uint16_t)space[i]);
+            int allele = (size_t)space[i] < traversal_to_allele.size()
+                             ? traversal_to_allele[space[i]] : -1;
+            allele_arena.push_back(allele >= 0 && allele < 127 ? (int8_t)allele : (int8_t)-1);
         }
         return true;
+    }
+    return false;
+}
+
+bool LinkageCollector::has_entry(size_t record_key) const {
+    lock_guard<std::mutex> guard(mutex);
+    for (const Entry& e : entries) {
+        if (e.record_key == record_key && !e.retracted) {
+            return true;
+        }
     }
     return false;
 }
@@ -1229,6 +1432,14 @@ vector<LinkageCollector::Change> LinkageCollector::resolve_generation(
     // strand can be read off the parent they hang off rather than guessed.
     vector<size_t> deferred_nested;
     vector<Change> changes;
+    // Genotypes the model settled on that the emitted record carries no ALT for. Reachable only
+    // because the collector's allele space is the genotyper's rather than the VCF's, so it is
+    // counted and reported rather than assumed away.
+    size_t unrenderable = 0;
+    // Records whose phase names the called pair because the settled pair had no ALT. The phase is
+    // still real -- the block and the strand order come from the panel either way -- but the alleles
+    // it names are the line's rather than the model's, so the count belongs in the report.
+    size_t phase_fallback = 0;
     if (!model.active() || entries.empty()) {
         return changes;
     }
@@ -1444,14 +1655,29 @@ vector<LinkageCollector::Change> LinkageCollector::resolve_generation(
             if (best == before) {
                 continue;
             }
+            if (!e.emitted) {
+                continue;   // phased, and it moved, but there is no line to rewrite
+            }
+            // Rendered into VCF numbering here and nowhere else. All four alleles have to survive
+            // the map: a genotype the model settled on can name a traversal the record carries no
+            // ALT for, and the patch cannot add one, so such a change is dropped and counted rather
+            // than written against the wrong allele.
+            const int r_called_i = vcf_allele_of(allele_arena, e.allele_offset, e.num_alleles, e.called_i);
+            const int r_called_j = vcf_allele_of(allele_arena, e.allele_offset, e.num_alleles, e.called_j);
+            const int r_i = vcf_allele_of(allele_arena, e.allele_offset, e.num_alleles, i);
+            const int r_j = vcf_allele_of(allele_arena, e.allele_offset, e.num_alleles, j);
+            if (r_called_i < 0 || r_called_j < 0 || r_i < 0 || r_j < 0) {
+                ++unrenderable;
+                continue;
+            }
             Change c;
             c.record_key = e.record_key;
             c.contig = contig_names[e.contig];
             c.position = e.position;
-            c.called_i = e.called_i;
-            c.called_j = e.called_j;
-            c.allele_i = i;
-            c.allele_j = j;
+            c.called_i = (size_t)r_called_i;
+            c.called_j = (size_t)r_called_j;
+            c.allele_i = (size_t)r_i;
+            c.allele_j = (size_t)r_j;
             c.posterior = post[best];
             c.explained_share = (double)e.explained_share;
             changes.push_back(c);
@@ -1539,6 +1765,26 @@ vector<LinkageCollector::Change> LinkageCollector::resolve_generation(
                 pc.allele_second = j;
                 pc.order_arbitrary = (i != j);
             }
+            // The compact pair is the collector's own numbering. Split it here into the two things that
+            // consume it: the traversal on each strand, which is the genome fact a crossing mask and a
+            // haplotype path are expressed in, and the VCF allele on each strand, which is the only form
+            // apply_phasing can write. Leaving allele_* compact made the phased-GT guard reject the pair and
+            // silently drop the record's phasing -- 1,528 extra strandless records on chr20.
+            {
+                const size_t c_first = pc.allele_first, c_second = pc.allele_second;
+                pc.trav_first = traversal_of(trav_arena, e.trav_offset, e.num_alleles, c_first);
+                pc.trav_second = traversal_of(trav_arena, e.trav_offset, e.num_alleles, c_second);
+                int v_first = -1, v_second = -1;
+                bool fell_back = false;
+                render_phase_pair(allele_arena, e.allele_offset, e.num_alleles, c_first, c_second,
+                                  e.called_i, e.called_j, &v_first, &v_second, &fell_back);
+                pc.allele_first = v_first >= 0 ? (size_t)v_first : LinkageModel::WILDCARD;
+                pc.allele_second = v_second >= 0 ? (size_t)v_second : LinkageModel::WILDCARD;
+                if (fell_back) {
+                    ++phase_fallback;
+                    pc.order_arbitrary = pc.order_arbitrary || (v_first != v_second);
+                }
+            }
             phasing_out->push_back(pc);
         }
     }
@@ -1560,17 +1806,26 @@ vector<LinkageCollector::Change> LinkageCollector::resolve_generation(
             size_t phase_set;
             size_t hap_first;
             size_t hap_second;
-            // The phased allele pair, which is what says which strand crosses the child. Carried
-            // alongside the haplotypes because the nested site's slot has to be derived from it.
+            // The phased pair, in the two numberings that matter. `allele_*` is compact -- the
+            // collector's own space -- and `trav_*` is the candidate traversal each strand is on.
+            //
+            // The crossing mask is in traversal terms, so the mask must be tested against `trav_*`.
+            // Testing it against the compact index is only right when every allele at the site is
+            // panel-carried, which is why the unit tests caught it: a site whose panel names one
+            // allele has a one-element compact space, so compact 0 is traversal 1 and the bit tested
+            // was the wrong one.
             size_t allele_first;
             size_t allele_second;
+            int trav_first;
+            int trav_second;
             size_t ploidy;
         };
         unordered_map<size_t, ParentPhase> by_key;
         by_key.reserve(phasing_out->size() * 2);
         for (const PhaseCall& pc : *phasing_out) {
             by_key[pc.record_key] = ParentPhase{pc.phase_set, pc.hap_first, pc.hap_second,
-                                                pc.allele_first, pc.allele_second, pc.ploidy};
+                                                pc.allele_first, pc.allele_second,
+                                                pc.trav_first, pc.trav_second, pc.ploidy};
         }
         // How the strand recorded at descent time compares with the one the parent's phase implies.
         size_t mask_unknown = 0;
@@ -1582,8 +1837,18 @@ vector<LinkageCollector::Change> LinkageCollector::resolve_generation(
         // Which strand each nested site was placed on, so step three can group them. Filled as the
         // sweeps below resolve parents.
         map<pair<uint32_t, uint8_t>, vector<size_t>> by_strand;
-        /// record_key -> the allele step three settled on, for sites whose genotype it moved.
-        unordered_map<size_t, size_t> nested_regenotyped;
+        /// record_key -> what step three settled on, for sites whose genotype it moved. All three
+        /// spaces are kept because all three are needed and they are not interchangeable: the
+        /// traversal is what a haplotype path walks, the VCF allele is what a GT can name (-1 when
+        /// the record carries no ALT for it), and the compact index is what the arenas are keyed by.
+        struct Regenotyped {
+            size_t compact = 0;
+            int vcf_allele = -1;
+            int traversal = -1;
+            /// The line's own allele, for when the settled one has no ALT -- see render_phase_pair.
+            int called_allele = -1;
+        };
+        unordered_map<size_t, Regenotyped> nested_regenotyped;
 
         // Resolve shallowest-first so a nested site whose parent is itself nested finds its parent
         // already placed. Depth is bounded by the snarl hierarchy, so a bounded number of sweeps
@@ -1633,14 +1898,14 @@ vector<LinkageCollector::Change> LinkageCollector::resolve_generation(
                     ++mask_unknown;   // descent could not express it, so nothing can be checked
                 } else {
                     int crossings = 0;
-                    if (parent.allele_first < 64
-                        && ((e.parent_crossing >> parent.allele_first) & 1)) {
+                    if (parent.trav_first >= 0 && parent.trav_first < 64
+                        && ((e.parent_crossing >> parent.trav_first) & 1)) {
                         ++crossings;
                     }
                     // A haploid parent -- a haploid contig, or a nested site one level up -- has one
                     // allele, and its second slot repeats the first rather than naming a strand.
-                    if (parent.ploidy == 2 && parent.allele_second < 64
-                        && ((e.parent_crossing >> parent.allele_second) & 1)) {
+                    if (parent.ploidy == 2 && parent.trav_second >= 0 && parent.trav_second < 64
+                        && ((e.parent_crossing >> parent.trav_second) & 1)) {
                         ++crossings;
                     }
                     if (crossings == (int)parent.ploidy && parent.ploidy == 2) {
@@ -1682,8 +1947,29 @@ vector<LinkageCollector::Change> LinkageCollector::resolve_generation(
                     // is indistinguishable from the unreachable case above.
                     pc.nested_strand = (int8_t)slot;
                 }
-                by_key[pc.record_key] = ParentPhase{pc.phase_set, pc.hap_first, pc.hap_second,
-                                                    pc.allele_first, pc.allele_second, pc.ploidy};
+                    by_key[pc.record_key] = ParentPhase{
+                    pc.phase_set, pc.hap_first, pc.hap_second,
+                    pc.allele_first, pc.allele_second,
+                    pc.trav_first, pc.trav_second, pc.ploidy};
+                // The compact pair is the collector's own numbering. Split it here into the two things that
+                // consume it: the traversal on each strand, which is the genome fact a crossing mask and a
+                // haplotype path are expressed in, and the VCF allele on each strand, which is the only form
+                // apply_phasing can write. Leaving allele_* compact made the phased-GT guard reject the pair and
+                // silently drop the record's phasing -- 1,528 extra strandless records on chr20.
+                {
+                    const size_t c_first = pc.allele_first, c_second = pc.allele_second;
+                    pc.trav_first = traversal_of(trav_arena, e.trav_offset, e.num_alleles, c_first);
+                    pc.trav_second = traversal_of(trav_arena, e.trav_offset, e.num_alleles, c_second);
+                    int v_first = -1, v_second = -1;
+                    bool fell_back = false;
+                    render_phase_pair(allele_arena, e.allele_offset, e.num_alleles, c_first, c_second,
+                                      e.called_i, e.called_j, &v_first, &v_second, &fell_back);
+                    pc.allele_first = v_first >= 0 ? (size_t)v_first : LinkageModel::WILDCARD;
+                    pc.allele_second = v_second >= 0 ? (size_t)v_second : LinkageModel::WILDCARD;
+                    if (fell_back) {
+                        ++phase_fallback;
+                    }
+                }
                 phasing_out->push_back(pc);
                 if (incoherent == 0) {
                     // Only sites with one strand are grouped: step three chains within a single
@@ -1749,6 +2035,25 @@ vector<LinkageCollector::Change> LinkageCollector::resolve_generation(
                         pc.phase_set = blocks.front().second;
                     }
                 }
+                // The compact pair is the collector's own numbering. Split it here into the two things that
+                // consume it: the traversal on each strand, which is the genome fact a crossing mask and a
+                // haplotype path are expressed in, and the VCF allele on each strand, which is the only form
+                // apply_phasing can write. Leaving allele_* compact made the phased-GT guard reject the pair and
+                // silently drop the record's phasing -- 1,528 extra strandless records on chr20.
+                {
+                    const size_t c_first = pc.allele_first, c_second = pc.allele_second;
+                    pc.trav_first = traversal_of(trav_arena, e.trav_offset, e.num_alleles, c_first);
+                    pc.trav_second = traversal_of(trav_arena, e.trav_offset, e.num_alleles, c_second);
+                    int v_first = -1, v_second = -1;
+                    bool fell_back = false;
+                    render_phase_pair(allele_arena, e.allele_offset, e.num_alleles, c_first, c_second,
+                                      e.called_i, e.called_j, &v_first, &v_second, &fell_back);
+                    pc.allele_first = v_first >= 0 ? (size_t)v_first : LinkageModel::WILDCARD;
+                    pc.allele_second = v_second >= 0 ? (size_t)v_second : LinkageModel::WILDCARD;
+                    if (fell_back) {
+                        ++phase_fallback;
+                    }
+                }
                 phasing_out->push_back(pc);
             }
         }
@@ -1810,20 +2115,42 @@ vector<LinkageCollector::Change> LinkageCollector::resolve_generation(
                 if (best == (size_t)e.called_i) {
                     continue;
                 }
+                // Rendered out of compact traversal space here. `best` indexes the entry's own
+                // allele list, which is *not* the record's ALT list: writing it straight through --
+                // as this block did -- put allele numbers like 5 on a record carrying one ALT, which
+                // is not a parseable VCF. It was the one place stage 1 left the two numberings
+                // touching, and both the genotype patch and the phase patch below read it.
+                const int r_called = vcf_allele_of(allele_arena, e.allele_offset, e.num_alleles,
+                                                   e.called_i);
+                const int r_best = vcf_allele_of(allele_arena, e.allele_offset, e.num_alleles, best);
+                // Recorded whether or not it can be written: it is what the model chose, and the
+                // mosaic and every child's strand are built from it, not from the VCF.
+                Regenotyped rg;
+                rg.compact = best;
+                rg.vcf_allele = r_best;
+                rg.traversal = traversal_of(trav_arena, e.trav_offset, e.num_alleles, best);
+                rg.called_allele = r_called;
+                nested_regenotyped[e.record_key] = rg;
+                entries[idxs[k]].final_i = (uint16_t)best;
+                entries[idxs[k]].final_j = (uint16_t)best;
+                if (!e.emitted) {
+                    continue;   // it moved, but there is no line to rewrite
+                }
+                if (r_called < 0 || r_best < 0) {
+                    ++unrenderable;
+                    continue;
+                }
                 Change c;
                 c.record_key = e.record_key;
                 c.contig = contig_names[e.contig];
                 c.position = e.position;
-                c.called_i = e.called_i;
-                c.called_j = e.called_j;
-                c.allele_i = best;
-                c.allele_j = best;
+                c.called_i = (size_t)r_called;
+                c.called_j = (size_t)r_called;
+                c.allele_i = (size_t)r_best;
+                c.allele_j = (size_t)r_best;
                 c.posterior = post[best];
                 c.explained_share = (double)e.explained_share;
                 changes.push_back(c);
-                nested_regenotyped[e.record_key] = best;
-                entries[idxs[k]].final_i = (uint16_t)best;
-                entries[idxs[k]].final_j = (uint16_t)best;
             }
         }
 
@@ -1843,6 +2170,18 @@ vector<LinkageCollector::Change> LinkageCollector::resolve_generation(
         // cost. It is superseded: the crossing mask says exactly which sites were placed on the
         // wrong strand and which have the wrong ploidy, so the bound is no longer the best
         // available number.
+        if (unrenderable > 0) {
+#pragma omp critical (cerr)
+            std::cerr << "[vg call] linkage: " << unrenderable
+                      << " settled genotypes name a traversal the record carries no ALT for, so the"
+                      << " genotype was left as called" << std::endl;
+        }
+        if (phase_fallback > 0) {
+#pragma omp critical (cerr)
+            std::cerr << "[vg call] phasing: " << phase_fallback
+                      << " records are phased on the alleles the line carries rather than the ones"
+                      << " the model settled on, for the same reason" << std::endl;
+        }
         if (final_diploid > 0 || final_absent > 0 || unplaced > 0) {
 #pragma omp critical (cerr)
             std::cerr << "[vg call] nested strands: " << deferred_nested.size()
@@ -1858,8 +2197,22 @@ vector<LinkageCollector::Change> LinkageCollector::resolve_generation(
             for (PhaseCall& pc : *phasing_out) {
                 auto found = nested_regenotyped.find(pc.record_key);
                 if (found != nested_regenotyped.end()) {
-                    pc.allele_first = found->second;
-                    pc.allele_second = found->second;
+                    // The traversal always; the VCF allele only where the record has one. Writing
+                    // the compact index here is what put allele numbers past the end of the ALT list
+                    // into phased GTs, and the strand carried the same wrong number with it.
+                    pc.trav_first = found->second.traversal;
+                    pc.trav_second = found->second.traversal;
+                    // The settled allele where the record carries it, else the one the line already
+                    // has: a phase that names an allele the record lacks is declined outright, and
+                    // the record loses its strand as well as its genotype.
+                    const int v = found->second.vcf_allele >= 0
+                                      ? found->second.vcf_allele
+                                      : found->second.called_allele;
+                    if (found->second.vcf_allele < 0 && v >= 0) {
+                        ++phase_fallback;
+                    }
+                    pc.allele_first = v >= 0 ? (size_t)v : LinkageModel::WILDCARD;
+                    pc.allele_second = pc.allele_first;
                 }
             }
         }
