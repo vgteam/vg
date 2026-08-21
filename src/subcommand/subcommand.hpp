@@ -77,7 +77,7 @@ enum CommandCategory {
  */
 enum ManpageSection {
     // Graph construction and indexing
-    CONSTRUCT_GRAPH,
+    SET_UP_GRAPH,
     // Read mapping
     MAP_READS,
     // Downstream analyses
@@ -85,11 +85,11 @@ enum ManpageSection {
     // Working with read alignments
     MANIPULATE_ALN,
     // Graph and read statistics
-    STATS,
-    // Manipulating a graph
+    GET_STATS,
+    // Manipulate a graph
     MANIPULATE_GRAPH,
     // Conversion between formats
-    CONVERT,
+    CONVERT_FORMAT,
     // Subgraph extraction
     EXTRACT_GRAPH,
     // Extremely specific analyses
@@ -108,6 +108,19 @@ struct manpage_item {
     std::string wiki_link;
 };
 
+const static std::vector<std::pair<ManpageSection, std::string>> MANPAGE_CATEGORY_HEADERS{
+    {SET_UP_GRAPH, "Graph construction and indexing"},
+    {MAP_READS, "Read mapping"},
+    {DOWNSTREAM, "Downstream analyses"},
+    {MANIPULATE_ALN, "Work with read alignments"},
+    {GET_STATS, "Graph and read statistics"},
+    {MANIPULATE_GRAPH, "Manipulate a graph"},
+    {CONVERT_FORMAT, "Convert between formats"},
+    {EXTRACT_GRAPH, "Subgraph extraction"},
+    {RARE_NEEDS, "Extremely specific analyses"},
+    {DEV_TOOLS, "Developer tools"}
+};
+
 const static std::map<std::string, std::string> REMOVED_CMD_MESSAGES{
     {"explode", std::string("Please use \"vg chunk -C source.vg -b part_dir/component\" "
                             "for the same* functionality as \"vg explode source.vg part_dir\"\n"
@@ -117,7 +130,7 @@ const static std::map<std::string, std::string> REMOVED_CMD_MESSAGES{
                          "from multiple sequence alignments, but VG team members have developed "
                          "improved graph construction algorithms in Cactus and PGGB, "
                          "and several other tools have been developed by other groups.")}
- };
+};
 
 /// Define a way to print the titles of the different categories
 std::ostream& operator<<(std::ostream& out, const CommandCategory& category);
@@ -134,38 +147,37 @@ public:
     /**
      * Make and register a subcommand with the given name and description, in
      * the given category, with the given priority (lower is better), 
+     * with the given manpage entries,
      * with the given default help function (used for vg help)
      * which calls the given main function when invoked.
      */
     Subcommand(std::string name, std::string description,
         CommandCategory category, int priority,
+        std::vector<manpage_item> manpage_entries,
         std::function<void(char**)> help_function,
         std::function<int(int, char**)> main_function);
     
     /**
      * Make and register a subcommand with the given name and description, in
-     * the given category, with the given help function, with worst priority,
+     * the given category, with the given manpage entries,
+     * with the given help function, with worst priority,
      * which calls the given main function when invoked.
      */
     Subcommand(std::string name, std::string description,
         CommandCategory category,
+        std::vector<manpage_item> manpage_entries,
         std::function<void(char**)> help_function,
         std::function<int(int, char**)> main_function);
-    
+
     /**
      * Make and register a subcommand with the given name and description,
-     * with the given help function, in the WIDGET category, with worst priority,
+     * with the given help function, in the DEPRECATED category, with worst priority,
      * which calls the given main function when invoked.
      */
     Subcommand(std::string name, std::string description,
         std::function<void(char**)> help_function,
         std::function<int(int, char**)> main_function);
-    
-    /**
-     * Register a manpage item for this subcommand
-     */
-    void add_manpage_part(ManpageSection section, std::string blurb, std::string wiki_link = "");
-        
+
     /**
      * Get the name of a subcommand.
      */
@@ -185,7 +197,7 @@ public:
     /**
      * Get the manpage elements for this subcommand
      */
-    const std::vector<manpage_item>& get_manpage_parts() const;
+    const std::vector<manpage_item>& get_manpage_entries() const;
     
     /**
      * Get the priority level of a subcommand (lower is more important).
@@ -240,7 +252,7 @@ private:
     /// Things to put in the manpage (vg help --man)
     /// Stored as (section, blurb, wiki link)
     /// Not shown for DEPRECATED subcommands
-    std::vector<manpage_item> manpage_parts;
+    std::vector<manpage_item> manpage_entries;
 };
 
 }

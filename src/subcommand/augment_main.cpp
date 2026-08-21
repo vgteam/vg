@@ -437,5 +437,6 @@ int main_augment(int argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_augment("augment", "augment a graph from an alignment",
-                             PIPELINE, 8, help_augment_default, main_augment);
+static Subcommand vg_augment("augment", "augment a graph from alignments", PIPELINE, 8,
+                             vector<manpage_item>{{MANIPULATE_ALN, "embed alignments into a graph", ""}},
+                             help_augment_default, main_augment);

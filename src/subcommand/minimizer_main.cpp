@@ -40,6 +40,7 @@
 #include <gbwtgraph/index.h>
 
 using namespace vg;
+using namespace vg::subcommand;
 
 //------------------------------------------------------------------------------
 
@@ -299,5 +300,6 @@ MinimizerConfig::MinimizerConfig(int argc, char** argv, int max_threads, const L
 //------------------------------------------------------------------------------
 
 // Register subcommand
-static vg::subcommand::Subcommand vg_minimizer("minimizer", "build a minimizer index or a syncmer index",
-                                               vg::subcommand::TOOLKIT, help_minimizer, main_minimizer);
+static Subcommand vg_minimizer("minimizer", "build a minimizer index or a syncmer index", TOOLKIT,
+                               vector<manpage_item>{{SET_UP_GRAPH, "manually build a minimizer index for mapping", ""}},
+                               help_minimizer, main_minimizer);

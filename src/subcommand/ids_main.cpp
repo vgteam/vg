@@ -195,5 +195,7 @@ int main_ids(int argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_ids("ids", "manipulate node ids", TOOLKIT, help_ids, main_ids);
+static Subcommand vg_ids("ids", "manipulate node ids", TOOLKIT,
+                         vector<manpage_item>{{MANIPULATE_GRAPH, "manipulate graph node ids", ""}},
+                         help_ids, main_ids);
 

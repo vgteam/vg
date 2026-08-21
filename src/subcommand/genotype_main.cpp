@@ -345,4 +345,6 @@ int main_genotype(int argc, char** argv) {
 }
 
 
-static Subcommand vg_genotype("genotype", "genotype (or type) graphs, GAMS, and VCFs", help_genotype, main_genotype);
+static Subcommand vg_genotype("genotype", "genotype (or type) graphs, GAMS, and VCFs", WIDGET,
+                              vector<manpage_item>{{DOWNSTREAM, "alternative, less-tested, FreeBayes-like genotyper", ""}},
+                              help_genotype, main_genotype);

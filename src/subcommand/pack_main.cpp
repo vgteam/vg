@@ -260,5 +260,6 @@ int main_pack(int argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_pack("pack", "convert alignments to a compact coverage index",
-                          PIPELINE, 9, help_pack, main_pack);
+static Subcommand vg_pack("pack", "convert alignments to a compact coverage index", PIPELINE, 9,
+                          vector<manpage_item>{{DOWNSTREAM, "convert alignments to a compact coverage index (used with `vg call`)", ""}},
+                          help_pack, main_pack);

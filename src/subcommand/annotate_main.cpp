@@ -532,5 +532,6 @@ int main_annotate(int argc, char** argv) {
     return 0;
 }
 
-static Subcommand vg_annotate("annotate", "annotate alignments with graphs and graphs with alignments",
+static Subcommand vg_annotate("annotate", "annotate alignments with graphs and graphs with alignments", WIDGET,
+                              vector<manpage_item>{{MANIPULATE_GRAPH, "annotate a graph or alignments", ""}},
                               help_annotate, main_annotate);

@@ -110,12 +110,40 @@ int main_help(int argc, char** argv) {
              << endl
              << "## SYNOPSIS" << endl
              << endl;
+        
+        // Create a place to save manpage entries as {category : [(subcommand, entry)]}
+        map<ManpageSection, vector<pair<std::string, manpage_item>>> manpage_entries;
+        for (const auto& header : MANPAGE_CATEGORY_HEADERS) {
+            manpage_entries.emplace(header.first, vector<pair<std::string, manpage_item>>());
+        }
+        // Look up all entries in order
+        vg::subcommand::Subcommand::for_each([&manpage_entries](const vg::subcommand::Subcommand& command) {
+                // We don't want to advertise deprecated subcommands
+                if (command.get_category() != DEPRECATED) {
+                    for (const auto& entry : command.get_manpage_entries()) {
+                        manpage_entries[entry.section].emplace_back(command.get_name(), entry);
+                    }
+                }
+            });
+        // Print out all categories, with entries ordered within a category
+        for (const auto& header : MANPAGE_CATEGORY_HEADERS) {
+            cerr << "- **" << header.second << "**" << endl;
+            for (const auto& entry : manpage_entries[header.first]) {
+                // Each entry is prefixed by a link to its manpage section
+                cerr << "    - [`vg " << entry.first << "`](#" << entry.first << "): " << entry.second.blurb << ".";
+                if (entry.second.wiki_link != "") {
+                    cerr << " [wiki page](" << entry.second.wiki_link << ")";
+                }
+                cerr << endl;
+            }
+        }
 
         cerr << "## COMMANDS" << endl
              << endl;
         vg::subcommand::Subcommand::for_each([&argv](const vg::subcommand::Subcommand& command) {
                 // Print out all helptext
                 cerr << "### " << command.get_name() << ": " << command.get_description() << endl
+                     << "<a id=\"" << command.get_name() << "\"/>"
                      << endl
                      << "```" << endl;
                 command.run_help(argv);
@@ -158,5 +186,7 @@ int main_help(int argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_help("help", "show all subcommands", PIPELINE, help_help, main_help);
+static Subcommand vg_help("help", "show all subcommands", PIPELINE,
+                          vector<manpage_item>{{DEV_TOOLS, "display all subcommands", ""}},
+                          help_help, main_help);
 

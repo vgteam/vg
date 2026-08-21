@@ -585,5 +585,10 @@ int main_filter(int argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_filter("filter", "filter reads and get statistics by read", help_filter, main_filter);
+static Subcommand vg_filter("filter", "filter reads and get statistics by read", WIDGET,
+                            vector<manpage_item>{{MANIPULATE_ALN, "filter alignments by properties", ""},
+                             {GET_STATS,
+                              "get individual alignment stats (use `--tsv-out`)",
+                              "https://github.com/vgteam/vg/wiki/Getting-alignment-statistics-with-vg-filter"}},
+                            help_filter, main_filter);
 

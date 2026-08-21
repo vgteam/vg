@@ -1489,6 +1489,7 @@ int main_stats(int argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_stats("stats", "metrics describing graph and alignment properties",
-                           TOOLKIT, help_stats, main_stats);
+static Subcommand vg_stats("stats", "metrics describing graph and alignment properties", TOOLKIT,
+                           vector<manpage_item>{{GET_STATS, "get stats about a graph or alignment file", ""}},
+                           help_stats, main_stats);
 

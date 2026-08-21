@@ -151,5 +151,7 @@ int main_circularize(int argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_circularize("circularize", "circularize a path within a graph", help_circularize, main_circularize);
+static Subcommand vg_circularize("circularize", "circularize a path within a graph", WIDGET,
+                                 vector<manpage_item>{{MANIPULATE_GRAPH, "connect head and tail nodes to circularize paths", ""}},
+                                 help_circularize, main_circularize);
 

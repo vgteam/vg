@@ -25,6 +25,7 @@
 #include <gbwtgraph/index.h>
 
 using namespace vg;
+using namespace vg::subcommand;
 
 //----------------------------------------------------------------------------
 
@@ -1406,5 +1407,8 @@ void validate_subgraph(const Logger& logger, const gbwtgraph::GBWTGraph& graph,
 
 //----------------------------------------------------------------------------
 
-static vg::subcommand::Subcommand vg_haplotypes("haplotypes", "haplotype sampling based on kmer counts",
-                                                vg::subcommand::TOOLKIT, help_haplotypes_default, main_haplotypes);
+static Subcommand vg_haplotypes("haplotypes", "haplotype sampling based on kmer counts", TOOLKIT,
+                                vector<manpage_item>{{SET_UP_GRAPH, 
+                                 "haplotype sample a graph (recommended for mapping with giraffe)",
+                                 "https://github.com/vgteam/vg/wiki/Haplotype-Sampling"}},
+                                help_haplotypes_default, main_haplotypes);

@@ -297,6 +297,7 @@ int main_vectorize(int argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_vectorize("vectorize", "transform alignments to simple ML-compatible vectors",
+static Subcommand vg_vectorize("vectorize", "transform alignments to simple ML-compatible vectors", WIDGET,
+                               vector<manpage_item>{{CONVERT_FORMAT, "export GAM alignments to other vector formats", ""}},
                                help_vectorize, main_vectorize);
 

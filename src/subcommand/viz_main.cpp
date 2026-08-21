@@ -150,4 +150,8 @@ int main_viz(int argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_viz("viz", "render visualizations of indexed graphs and read sets", help_viz, main_viz);
+static Subcommand vg_viz("viz", "render visualizations of indexed graphs and read sets", WIDGET,
+                         vector<manpage_item>{{DOWNSTREAM,
+                          "visualize a graph",
+                          "https://github.com/vgteam/vg/wiki/Complex-graph-visualization#using-vg-viz"}},
+                         help_viz, main_viz);

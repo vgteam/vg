@@ -229,5 +229,4 @@ int main_sort(int argc, char *argv[]) {
 }
 
 // Register subcommand
-static Subcommand vg_sort("sort", "sort variant graph by various algorithms",
-                          DEPRECATED, help_sort, main_sort);
+static Subcommand vg_sort("sort", "sort variant graph by various algorithms", help_sort, main_sort);

@@ -2580,5 +2580,8 @@ int main_giraffe(int argc, char** argv) {
 //----------------------------------------------------------------------------
 
 // Register subcommand
-static Subcommand vg_giraffe("giraffe", "fast haplotype-aware read alignment",
-                             PIPELINE, 6, help_giraffe_default, main_giraffe);
+static Subcommand vg_giraffe("giraffe", "fast haplotype-aware read alignment", PIPELINE, 6,
+                             vector<manpage_item>{{MAP_READS,
+                              "fast haplotype-aware read alignment",
+                              "https://github.com/vgteam/vg/wiki/Alignment-with-Giraffe-(index)"}},
+                             help_giraffe_default, main_giraffe);

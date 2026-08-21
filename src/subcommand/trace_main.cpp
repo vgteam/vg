@@ -158,4 +158,6 @@ int main_trace(int argc, char** argv) {
     return 0;
 }
 
-static Subcommand vg_trace("trace", "trace haplotypes", help_trace, main_trace);
+static Subcommand vg_trace("trace", "trace haplotypes", WIDGET,
+                           vector<manpage_item>{{EXTRACT_GRAPH, "extract (sub-)haplotypes from a graph", ""}},
+                           help_trace, main_trace);

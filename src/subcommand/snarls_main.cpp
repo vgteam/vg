@@ -484,6 +484,9 @@ int main_snarl(int argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_snarl("snarls", "compute snarls and their traversals",
-                           TOOLKIT, help_snarl, main_snarl);
+static Subcommand vg_snarl("snarls", "compute snarls and their traversals", TOOLKIT,
+                           vector<manpage_item>{{GET_STATS,
+                             "get a list of snarls within the graph",
+                             "https://github.com/vgteam/vg/wiki/Snarls-and-chains"}},
+                             help_snarl, main_snarl);
 

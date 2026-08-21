@@ -161,4 +161,6 @@ int main_inject(int argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_inject("inject", "lift over alignments for the graph", help_inject, main_inject);
+static Subcommand vg_inject("inject", "lift over alignments for the graph", WIDGET,
+                            vector<manpage_item>{{CONVERT_FORMAT, "project linear reference alignments onto a graph (bam/sam/cram->gam/gaf)", ""}},
+                            help_inject, main_inject);

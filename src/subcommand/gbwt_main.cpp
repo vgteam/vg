@@ -25,6 +25,7 @@
 #include <gbwtgraph/path_cover.h>
 
 using namespace vg;
+using namespace vg::subcommand;
 
 struct GBWTConfig {
     // Build mode also defines the type of input args.
@@ -1917,5 +1918,14 @@ void print_metadata(std::ostream& out, const GBWTHandler& gbwts) {
 //----------------------------------------------------------------------------
 
 // Register subcommand
-static vg::subcommand::Subcommand vg_gbwt("gbwt", "build and manipulate GBWT and GBZ files",
-                                          vg::subcommand::TOOLKIT, help_gbwt, main_gbwt);
+static Subcommand vg_gbwt("gbwt", "build and manipulate GBWT and GBZ files", TOOLKIT,
+                          vector<manpage_item>{{SET_UP_GRAPH, 
+                           "manually build and manipulate GBWTs and indexes (GBWTgraph, GBZ, r-index)",
+                           "https://github.com/vgteam/vg/wiki/VG-GBWT-Subcommand"},
+                           {GET_STATS, 
+                           "get stats about a GBWT",
+                           "https://github.com/vgteam/vg/wiki/VG-GBWT-Subcommand"},
+                           {MANIPULATE_GRAPH, 
+                           "manipulate GBWTs and associated indexes",
+                           "https://github.com/vgteam/vg/wiki/VG-GBWT-Subcommand"}},
+                            help_gbwt, main_gbwt);

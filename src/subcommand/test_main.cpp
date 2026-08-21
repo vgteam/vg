@@ -89,5 +89,9 @@ int main_test(int argc, char** argv){
 }
 
 // Register subcommand
-static Subcommand vg_test("test", "run unit tests", DEVELOPMENT, help_test, main_test);
+static Subcommand vg_test("test", "run unit tests", DEVELOPMENT,
+                          vector<manpage_item>{{DEV_TOOLS, 
+                           "run unit tests",
+                           "https://github.com/vgteam/vg/blob/master/CONTRIBUTING.md"}},
+                          help_test, main_test);
 

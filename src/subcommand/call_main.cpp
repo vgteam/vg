@@ -1103,6 +1103,9 @@ int main_call(int argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_call("call", "call or genotype VCF variants",
-                          PIPELINE, 10, help_call, main_call);
+static Subcommand vg_call("call", "call or genotype VCF variants", PIPELINE, 10,
+                          vector<manpage_item>{{DOWNSTREAM,
+                           "call or genotype VCF variants (uses `vg pack`)", 
+                           "https://github.com/vgteam/vg/wiki/SV-Genotyping-and-variant-calling"}},
+                          help_call, main_call);
 

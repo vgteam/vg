@@ -1011,5 +1011,8 @@ int main_sim(int argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_sim("sim", "simulate reads from a graph", TOOLKIT, help_sim, main_sim);
+static Subcommand vg_sim("sim", "simulate reads from a graph", TOOLKIT,
+                         vector<manpage_item>{{MANIPULATE_ALN, "simulate reads from a graph",
+                          "https://github.com/vgteam/vg/wiki/Simulating-reads-with-vg-sim"}},
+                         help_sim, main_sim);
 
