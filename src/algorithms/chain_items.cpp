@@ -13,7 +13,7 @@
 
 #include <algorithm>
 
-//#define debug_chaining
+#define debug_chaining
 //#define debug_transition
 //#define debug_dp
 
@@ -912,7 +912,8 @@ vector<SubchainGroup> split_up_subchains(const VectorView<Anchor>& to_chain,
     // Now check in on the extra edges.
     priority_queue<AltEdge, vector<AltEdge>, std::greater<AltEdge>> extra_edges;
     // Edges that keep a traceback tied into a larger group, thus avoiding long tails
-    vector<AltEdge> must_use_edges;
+    // Stored as {(edge anchor, right tail) : edge}
+    unordered_map<pair<size_t, bool>, AltEdge> must_use_edges;
     for (const auto& edge : connections) {
         if ((outgoing_edges[edge.start_anchor].size() + incoming_edges[edge.start_anchor].size()) > 0
             && (outgoing_edges[edge.end_anchor].size() + incoming_edges[edge.end_anchor].size()) > 0) {
@@ -921,9 +922,20 @@ vector<SubchainGroup> split_up_subchains(const VectorView<Anchor>& to_chain,
 #endif
             // Both sides of this edge are used, so it must connect two different subchains
             // We might want to use this
-            if (traceback_ends.count(edge.start_anchor) || traceback_starts.count(edge.end_anchor)) {
-                // Using this edge will tie a tail back in to the main path
-                must_use_edges.push_back(edge);
+            if (traceback_ends.count(edge.start_anchor)) {
+                // Using this edge will tie a right tail back in to the main path
+                pair<size_t, bool> right_tie_in = make_pair(edge.start_anchor, true);
+                if (!must_use_edges.count(right_tie_in) || must_use_edges.at(right_tie_in) > edge) {
+                    // It would be better than anything else we've seen for this tie-in
+                    must_use_edges[right_tie_in] = edge;
+                }
+            } else if (traceback_starts.count(edge.end_anchor)) {
+                // Using this edge will tie a left tail back in to the main path
+                pair<size_t, bool> left_tie_in = make_pair(edge.end_anchor, false);
+                if (!must_use_edges.count(left_tie_in) || must_use_edges.at(left_tie_in) > edge) {
+                    // It would be better than anything else we've seen for this tie-in
+                    must_use_edges[left_tie_in] = edge;
+                }
             } else {
                 // This is just a possibility
                 extra_edges.emplace(edge);
@@ -942,7 +954,8 @@ vector<SubchainGroup> split_up_subchains(const VectorView<Anchor>& to_chain,
         return groups;
     }
 
-    for (const auto& edge : must_use_edges) {
+    for (const auto& tie_in : must_use_edges) {
+        AltEdge edge = tie_in.second;
         // Use this extra edge
         outgoing_edges[edge.start_anchor].emplace(edge.end_anchor);
         incoming_edges[edge.end_anchor].emplace(edge.start_anchor);
