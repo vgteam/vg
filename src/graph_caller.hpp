@@ -113,6 +113,29 @@ protected:
     bool show_progress;
 };
 
+/// Where a buffered VCF record sorts.
+///
+/// (contig, POS) alone is not a total order: several records legitimately share a position -- a
+/// nested site under its parent, two snarls flattened onto the same anchor base -- and `std::sort`
+/// is not stable, so ties came out in whatever order the per-thread buffers happened to concatenate
+/// in. Two runs of one binary on chr20 differed in 72 record pairs that way, which makes every
+/// "output must not move" gate unevaluable.
+///
+/// `id` breaks the tie and is intrinsic to the site rather than to the run: on the FlowCaller path
+/// it is `print_snarl(snarl, false)`, the snarl's own boundary nodes. It is NOT intrinsic on the
+/// VCFGenotyper path, where it comes from the input VCF and is commonly ".", so this makes
+/// `vg call` on a graph reproducible and does not make `vg call -v` reproducible.
+struct BufferedRecordKey {
+    string contig;
+    size_t position = 0;
+    string id;
+};
+
+/// Strict weak ordering on BufferedRecordKey. A free function rather than a lambda so a unit test
+/// can assert the ordering property directly, which is the only place the totality of the key is
+/// checked -- the in-tree TAP fixtures produce no ties at all.
+bool buffered_record_key_less(const BufferedRecordKey& a, const BufferedRecordKey& b);
+
 /**
  * Helper class that vcf writers can inherit from to for some common code to output sorted VCF
  */
@@ -559,7 +582,7 @@ protected:
 
     /// output buffers (1/thread) (for sorting)
     /// variants stored as strings (and position key pairs) because vcflib::Variant in-memory struct so huge
-    mutable vector<vector<pair<pair<string, size_t>, string>>> output_variants;
+    mutable vector<vector<pair<BufferedRecordKey, string>>> output_variants;
 
     /// print up to this many uncalled alleles when doing ref-genotpes in -a mode
     size_t max_uncalled_alleles = 5;

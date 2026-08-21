@@ -582,6 +582,16 @@ int VCFOutputCaller::ploidy_at(const string& ref_path_name, int64_t interval_sta
     return region_ploidy(ref_path_name, (size_t)position, fallback);
 }
 
+bool buffered_record_key_less(const BufferedRecordKey& a, const BufferedRecordKey& b) {
+    if (a.contig != b.contig) {
+        return a.contig < b.contig;
+    }
+    if (a.position != b.position) {
+        return a.position < b.position;
+    }
+    return a.id < b.id;
+}
+
 bool VCFOutputCaller::add_variant(vcflib::Variant& var) const {
     var.setVariantCallFile(output_vcf);
     stringstream ss;
@@ -594,7 +604,8 @@ bool VCFOutputCaller::add_variant(vcflib::Variant& var) const {
     assert(ret == 0);
     // the Variant object is too big to keep in memory when there are many genotypes, so we
     // store it in a zstd-compressed string
-    output_variants[omp_get_thread_num()].push_back(make_pair(make_pair(var.sequenceName, var.position), dest));
+    output_variants[omp_get_thread_num()].push_back(
+        make_pair(BufferedRecordKey{var.sequenceName, (size_t)var.position, var.id}, dest));
     return true;
 }
 
@@ -747,7 +758,7 @@ void VCFOutputCaller::write_variants(ostream& out_stream, const SnarlManager* sn
     if (include_nested) {
         update_nesting_info_tags(snarl_manager);
     }
-    vector<pair<pair<string, size_t>, string>> all_variants;
+    vector<pair<BufferedRecordKey, string>> all_variants;
     // Reserve once: doing it inside the loop below reallocates per thread buffer.
     size_t total_variants = 0;
     for (const auto& buf : output_variants) {
@@ -766,10 +777,11 @@ void VCFOutputCaller::write_variants(ostream& out_stream, const SnarlManager* sn
         buf.clear();
         buf.shrink_to_fit();
     }
-    std::sort(all_variants.begin(), all_variants.end(), [](const pair<pair<string, size_t>, string>& v1,
-                                                           const pair<pair<string, size_t>, string>& v2) {
-            return v1.first.first < v2.first.first || (v1.first.first == v2.first.first && v1.first.second < v2.first.second);
-        });
+    std::sort(all_variants.begin(), all_variants.end(),
+              [](const pair<BufferedRecordKey, string>& v1,
+                 const pair<BufferedRecordKey, string>& v2) {
+                  return buffered_record_key_less(v1.first, v2.first);
+              });
     // Phase two of the linkage pass. The records are already all here, compressed, with
     // (contig, position) uncompressed as the sort key -- so a change can be matched without ever
     // having kept the record itself, and only the records that actually move are re-parsed.
@@ -811,7 +823,7 @@ void VCFOutputCaller::write_variants(ostream& out_stream, const SnarlManager* sn
             return line_key;
         };
         if (!linkage_changes.empty()) {
-            auto found = linkage_changes.find(v.first);
+            auto found = linkage_changes.find(make_pair(v.first.contig, v.first.position));
             if (found != linkage_changes.end()) {
                 for (const LinkageCollector::Change& change : found->second) {
                     if (change.record_key == id_key()) {
@@ -826,7 +838,7 @@ void VCFOutputCaller::write_variants(ostream& out_stream, const SnarlManager* sn
         if (!linkage_phasings.empty()) {
             // After the change, never before: phasing has to describe the genotype that is
             // actually written out.
-            auto found = linkage_phasings.find(v.first);
+            auto found = linkage_phasings.find(make_pair(v.first.contig, v.first.position));
             if (found != linkage_phasings.end()) {
                 for (const LinkageCollector::PhaseCall& phase : found->second) {
                     if (phase.record_key == id_key()) {
@@ -1898,7 +1910,7 @@ unordered_set<string> VCFOutputCaller::get_output_contigs() const {
     // there and nothing has to be decompressed.
     for (const auto& thread_buf : output_variants) {
         for (const auto& output_variant_record : thread_buf) {
-            contigs.insert(output_variant_record.first.first);
+            contigs.insert(output_variant_record.first.contig);
         }
     }
     return contigs;
