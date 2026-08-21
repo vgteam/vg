@@ -2197,18 +2197,6 @@ vector<LinkageCollector::Change> LinkageCollector::resolve_generation(
         // cost. It is superseded: the crossing mask says exactly which sites were placed on the
         // wrong strand and which have the wrong ploidy, so the bound is no longer the best
         // available number.
-        if (unrenderable > 0) {
-#pragma omp critical (cerr)
-            std::cerr << "[vg call] linkage: " << unrenderable
-                      << " settled genotypes name a traversal the record carries no ALT for, so the"
-                      << " genotype was left as called" << std::endl;
-        }
-        if (phase_fallback > 0) {
-#pragma omp critical (cerr)
-            std::cerr << "[vg call] phasing: " << phase_fallback
-                      << " records are phased on the alleles the line carries rather than the ones"
-                      << " the model settled on, for the same reason" << std::endl;
-        }
         if (!deferred_nested.empty()) {
 #pragma omp critical (cerr)
             std::cerr << "[vg call] nested strands: " << deferred_nested.size()
@@ -2247,6 +2235,26 @@ vector<LinkageCollector::Change> LinkageCollector::resolve_generation(
         }
     }
 
+
+    // Reported here, at function scope, rather than inside the nested-strand block. Both counters
+    // are incremented from the diploid chain sweep as well, which runs whether or not this
+    // generation has any nested sites -- so reporting them from inside
+    // `phasing_out != nullptr && !deferred_nested.empty()` silently dropped every count from a pass
+    // with no nested sites. On chr20 that undercounted the unrenderable population by 2.9x, 507
+    // against a true 1,465, which is the difference between a curiosity and 23% of the contig's
+    // false positives.
+    if (unrenderable > 0) {
+#pragma omp critical (cerr)
+        std::cerr << "[vg call] linkage: " << unrenderable
+                  << " settled genotypes name a traversal the record carries no ALT for, so the"
+                  << " genotype was left as called" << std::endl;
+    }
+    if (phase_fallback > 0) {
+#pragma omp critical (cerr)
+        std::cerr << "[vg call] phasing: " << phase_fallback
+                  << " records are phased on the alleles the line carries rather than the ones"
+                  << " the model settled on, for the same reason" << std::endl;
+    }
 
     // Reference order, and only now.
     //
