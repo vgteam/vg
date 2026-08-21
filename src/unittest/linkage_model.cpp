@@ -944,6 +944,158 @@ TEST_CASE("Phasing is deterministic", "[linkage_model]") {
 }
 
 
+TEST_CASE("A site below depth 1 inherits its parent's strand, not strand 0",
+          "[linkage_model]") {
+    // A nested parent occupies one haplotype, so everything inside it is on that haplotype. The
+    // identity match cannot discover which: a nested haploid parent has trav_first == trav_second
+    // and ploidy 1, so the match can only ever answer strand 0 -- and on chr20 that put all 448
+    // depth->=2 sites under a strand-1 parent onto the wrong haplotype, while the mosaic read the
+    // parent's wildcard hap_first and simultaneously called them unexplained.
+    LinkageModel::Params p;
+    p.weight = 1.0;
+    p.scale = 100000.0;
+    p.rho_min = 1e-4;
+
+    const size_t TOP = 7, MID = 71, DEEP = 711;
+
+    // Try both parent orientations, since which traversal the Viterbi puts on which haplotype is
+    // its choice and the grandchild must follow whichever it made.
+    for (int which : {0, 1}) {
+        LinkageCollector collector(p, 2);
+        // A het top-level parent with one panel haplotype on each allele.
+        record_dense(collector, "chr1", 1000, 2, {-30.0, 0.0, -30.0}, {1, 0}, 0, 1, TOP,
+                     /*share*/ 1.0, /*ploidy*/ 2, /*start*/ 10, /*end*/ 40);
+        // A nested haploid child hanging off one of the parent's traversals.
+        record_dense(collector, "chr1", 1010, 2, {0.0, -30.0}, {0, 0}, 0, 0, MID,
+                     /*share*/ 1.0, /*ploidy*/ 1, /*start*/ 11, /*end*/ 30,
+                     /*nested*/ true, TOP, /*parent_trav*/ which,
+                     /*crossing*/ (uint64_t)1 << which, /*generation*/ 1);
+        // And a grandchild hanging off the child's own single traversal.
+        record_dense(collector, "chr1", 1020, 2, {0.0, -30.0}, {0, 0}, 0, 0, DEEP,
+                     /*share*/ 1.0, /*ploidy*/ 1, /*start*/ 12, /*end*/ 20,
+                     /*nested*/ true, MID, /*parent_trav*/ 0,
+                     /*crossing*/ (uint64_t)1 << 0, /*generation*/ 2);
+
+        // Each generation in turn, accumulating -- a nested site is only produced by the pass for
+        // its own generation, and a deeper site needs its parent already phased.
+        vector<LinkageCollector::PhaseCall> phased;
+        for (size_t gen = 0; gen <= 2; ++gen) {
+            collector.resolve_generation(gen, gen == 2, &phased);
+        }
+
+        const LinkageCollector::PhaseCall* mid = nullptr;
+        const LinkageCollector::PhaseCall* deep = nullptr;
+        for (const auto& pc : phased) {
+            if (pc.record_key == MID) {
+                mid = &pc;
+            } else if (pc.record_key == DEEP) {
+                deep = &pc;
+            }
+        }
+        REQUIRE(mid != nullptr);
+        REQUIRE(deep != nullptr);
+        REQUIRE(mid->nested_strand >= 0);
+        // The property: the grandchild is on the same haplotype as the site that contains it. Before
+        // this it was always strand 0, so it agreed only when the middle site happened to be there.
+        REQUIRE(deep->nested_strand == mid->nested_strand);
+        // And it names a haplotype rather than inheriting the parent's wildcard slot.
+        const size_t named = deep->nested_strand == 0 ? deep->hap_first : deep->hap_second;
+        REQUIRE(named != LinkageModel::WILDCARD);
+    }
+}
+
+TEST_CASE("Every generation is resolved, not only the first", "[linkage_model]") {
+    // Chain construction skips entries above the generation being resolved, so resolving generation
+    // 0 alone drops every nested site from linkage, from phasing and from the mosaic. The caller
+    // that runs the deferred-descent barrier loops the generations itself, which is why this is
+    // latent rather than live -- but the invariant is that a recorded site is always settled, and it
+    // should not depend on which caller got there first.
+    LinkageModel::Params p;
+    p.weight = 1.0;
+    p.scale = 100000.0;
+    p.rho_min = 1e-4;
+
+    const size_t TOP = 3, DEEP = 31;
+
+    LinkageCollector collector(p, 2);
+    record_dense(collector, "chr1", 1000, 2, {-30.0, 0.0, -30.0}, {1, 0}, 0, 1, TOP,
+                 /*share*/ 1.0, /*ploidy*/ 2, /*start*/ 10, /*end*/ 20);
+    record_dense(collector, "chr1", 1010, 2, {0.0, -30.0}, {0, 0}, 0, 0, DEEP,
+                 /*share*/ 1.0, /*ploidy*/ 1, /*start*/ 11, /*end*/ 12,
+                 /*nested*/ true, TOP, /*parent_trav*/ 0, /*crossing*/ (uint64_t)1 << 0,
+                 /*generation*/ 1);
+
+    // resolve() is generation 0 only, by contract. The generation-1 site must not appear.
+    vector<LinkageCollector::PhaseCall> gen0;
+    collector.resolve(&gen0);
+    bool deep_in_gen0 = false;
+    for (const auto& pc : gen0) {
+        deep_in_gen0 = deep_in_gen0 || pc.record_key == DEEP;
+    }
+    REQUIRE_FALSE(deep_in_gen0);
+    REQUIRE(collector.max_generation() == 1);
+
+    // Resolving the generation it belongs to is what produces it, and that is what any caller
+    // reaching the writer must do for every generation the collector holds.
+    vector<LinkageCollector::PhaseCall> all = gen0;
+    collector.resolve_generation(1, true, &all);
+    bool deep_now = false;
+    for (const auto& pc : all) {
+        deep_now = deep_now || pc.record_key == DEEP;
+    }
+    REQUIRE(deep_now);
+}
+
+TEST_CASE("A nested site drops a haplotype that does not carry the allele it settled on",
+          "[linkage_model]") {
+    // A nested site takes its haplotype from whichever of its parent's strands carries the chain.
+    // That is a claim about the parent's allele, not about this site's: nothing checked that the
+    // named panel haplotype carries what the child actually settled on, and the per-strand pass can
+    // move that allele afterwards.
+    //
+    // Naming the wrong haplotype is worse than naming none. A consumer walking it reads a different
+    // sequence than the record states, and the two outputs then disagree about the same site with
+    // nothing to say which is wrong.
+    LinkageModel::Params p;
+    p.weight = 1.0;
+    p.scale = 100000.0;
+    p.rho_min = 1e-4;
+
+    const size_t PARENT = 4, CHILD = 41;
+
+    LinkageCollector collector(p, 2);
+    // A het parent, decisively 0/1, one panel haplotype on each allele so each strand gets one.
+    record_dense(collector, "chr1", 1000, 2, {-30.0, 0.0, -30.0}, {1, 0}, 0, 1, PARENT,
+                 /*share*/ 1.0, /*ploidy*/ 2, /*start*/ 10, /*end*/ 20);
+    // The child hangs off the parent's traversal 0, so it inherits that strand's haplotype -- panel
+    // haplotype 1, per the parent's {1, 0} above. At the child, BOTH panel haplotypes carry allele 0
+    // while the reads decide allele 1, so whichever haplotype it inherits demonstrably carries
+    // something else.
+    record_dense(collector, "chr1", 1010, 2, {-30.0, 0.0}, {0, 0}, 1, 1, CHILD,
+                 /*share*/ 1.0, /*ploidy*/ 1, /*start*/ 11, /*end*/ 12,
+                 /*nested*/ true, PARENT, /*parent_trav*/ 0, /*crossing*/ (uint64_t)1 << 0);
+
+    vector<LinkageCollector::PhaseCall> phased;
+    collector.resolve(&phased);
+
+    const LinkageCollector::PhaseCall* child = nullptr;
+    for (const auto& pc : phased) {
+        if (pc.record_key == CHILD) {
+            child = &pc;
+        }
+    }
+    REQUIRE(child != nullptr);
+    // It is still placed -- the strand is known, the phase set is the parent's -- and it still names
+    // an allele. What it no longer does is name a haplotype it contradicts.
+    //
+    // Which strand index that is, is deliberately not asserted: the Viterbi decides which of the
+    // parent's traversals lands on which haplotype, so pinning traversal 0 to strand 0 would be
+    // testing an orientation the design specifically does not promise. (It landed on strand 1 here.)
+    REQUIRE(child->nested_strand >= 0);
+    const size_t named = child->nested_strand == 0 ? child->hap_first : child->hap_second;
+    REQUIRE(named == LinkageModel::WILDCARD);
+}
+
 TEST_CASE("A revised site stops being unemitted when the revision writes a line",
           "[linkage_model]") {
     // The whole point of recording unemitted sites is that a collapsed parent can still be phased.

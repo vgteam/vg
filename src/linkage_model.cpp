@@ -1852,18 +1852,43 @@ vector<LinkageCollector::Change> LinkageCollector::resolve_generation(
             // panel-carried, which is why the unit tests caught it: a site whose panel names one
             // allele has a one-element compact space, so compact 0 is traversal 1 and the bit tested
             // was the wrong one.
-            size_t allele_first;
-            size_t allele_second;
-            int trav_first;
-            int trav_second;
-            size_t ploidy;
+            size_t allele_first = 0;
+            size_t allele_second = 0;
+            int trav_first = -1;
+            int trav_second = -1;
+            size_t ploidy = 2;
+            /// Whether the parent's own strand order was determined by the panel or fell through to
+            /// sorting. A child inherits its strand from that order, so an arbitrary parent order
+            /// makes the child's strand arbitrary too -- and saying so is the difference between a
+            /// determined strand and a coin flip presented as one.
+            bool order_arbitrary = false;
+            /// The strand the parent itself sits on, when the parent is a nested haploid site. A
+            /// nested parent occupies ONE haplotype, so everything inside it is on that haplotype --
+            /// which the identity match below cannot discover, because such a parent has
+            /// trav_first == trav_second and ploidy 1, so the match can only ever return strand 0 or
+            /// no strand, never strand 1.
+            int8_t nested_strand = -1;
+            /// Whether this entry came from the accumulated seed at the top of the pass or from an
+            /// in-loop insert during placement. The seed is re-read every pass before placement
+            /// runs, so a stale in-loop value should never be what a child reads -- checked rather
+            /// than argued.
+            bool from_seed = true;
         };
+        // record_key -> entry index, for the nested sites placed below.
+        unordered_map<size_t, size_t> nested_entry_of;
+        // Strands whose inherited haplotype turned out not to carry the settled allele. Split by
+        // whether the site has a VCF line, because only those reach the mosaic -- and without the
+        // split the figure cannot be reconciled against anything, which is the same defect this
+        // stage is fixing in the mosaic's own wildcard column.
+        size_t hap_contradicted = 0, hap_contradicted_emitted = 0;
         unordered_map<size_t, ParentPhase> by_key;
         by_key.reserve(phasing_out->size() * 2);
         for (const PhaseCall& pc : *phasing_out) {
             by_key[pc.record_key] = ParentPhase{pc.phase_set, pc.hap_first, pc.hap_second,
                                                 pc.allele_first, pc.allele_second,
-                                                pc.trav_first, pc.trav_second, pc.ploidy};
+                                                pc.trav_first, pc.trav_second, pc.ploidy,
+                                                pc.order_arbitrary, pc.nested_strand,
+                                                /*from_seed*/ true};
         }
         // Nested sites whose parent settled on a pair not containing the traversal they hang off.
         // The barrier retracts these where it can see them, so a nonzero count here is the residue
@@ -1944,7 +1969,18 @@ vector<LinkageCollector::Change> LinkageCollector::resolve_generation(
                 // the mosaic must say so rather than mark it unexplained.
                 const bool on_both = (e.parent_trav == -2);
                 int strand = -1;
-                if (e.parent_trav >= 0) {
+                if (parent.ploidy == 1 && parent.nested_strand >= 0) {
+                    // The parent is itself a nested haploid site, so it occupies ONE haplotype and
+                    // everything inside it is on that haplotype. Its strand is the answer, and the
+                    // identity match below cannot find it: such a parent has
+                    // trav_first == trav_second and ploidy 1, so the match can only ever return
+                    // strand 0. On chr20 that put all 448 depth->=2 sites under a strand-1 parent on
+                    // the wrong haplotype -- while the mosaic, reading the parent's wildcard
+                    // hap_first, simultaneously reported them as belonging to no haplotype.
+                    if (e.parent_trav >= 0 && parent.trav_first == e.parent_trav) {
+                        strand = parent.nested_strand;
+                    }
+                } else if (e.parent_trav >= 0) {
                     if (parent.trav_first == e.parent_trav) {
                         strand = 0;
                     } else if (parent.ploidy == 2 && parent.trav_second == e.parent_trav) {
@@ -1980,11 +2016,15 @@ vector<LinkageCollector::Change> LinkageCollector::resolve_generation(
                     // the parent's own strand can be a wildcard too, and then both sides are, which
                     // is indistinguishable from having no strand at all.
                     pc.nested_strand = (int8_t)strand;
+                    // The strand came off the parent's pair. If the panel did not determine that
+                    // pair's order, this strand is that coin flip one level down, and it was
+                    // previously reported as determined.
+                    pc.order_arbitrary = pc.order_arbitrary || parent.order_arbitrary;
                 }
-                    by_key[pc.record_key] = ParentPhase{
-                    pc.phase_set, pc.hap_first, pc.hap_second,
-                    pc.allele_first, pc.allele_second,
-                    pc.trav_first, pc.trav_second, pc.ploidy};
+                // Which entry this nested PhaseCall came from, so the haplotype inherited above can
+                // be checked against the allele the site actually settles on -- which is not known
+                // until the per-strand pass below has run.
+                nested_entry_of[pc.record_key] = idx;
                 // The compact pair is the collector's own numbering. Split it here into the two things that
                 // consume it: the traversal on each strand, which is the genome fact a crossing mask and a
                 // haplotype path are expressed in, and the VCF allele on each strand, which is the only form
@@ -2004,6 +2044,19 @@ vector<LinkageCollector::Change> LinkageCollector::resolve_generation(
                         ++phase_fallback;
                     }
                 }
+                // Registered only now. This used to sit above the block that assigns
+                // `pc.trav_first`/`trav_second`, so the entry it left for a deeper site carried the
+                // default -1. Harmless today only by accident -- the seed at the top of every pass
+                // re-reads the accumulated phasing before placement runs, and a parent and child
+                // never resolve in the same pass -- but it made the shallowest-first sweep loop,
+                // which exists precisely to serve depth >= 2, dead code that happened to agree with
+                // the right answer. Measured: 0 of chr20's 2,409 depth >= 2 sites read an in-loop
+                // entry.
+                by_key[pc.record_key] = ParentPhase{
+                    pc.phase_set, pc.hap_first, pc.hap_second,
+                    pc.allele_first, pc.allele_second,
+                    pc.trav_first, pc.trav_second, pc.ploidy,
+                    pc.order_arbitrary, pc.nested_strand, /*from_seed*/ false};
                 phasing_out->push_back(pc);
                 if (strand >= 0) {
                     // Only sites with one strand are grouped: step three chains within a single
@@ -2232,6 +2285,64 @@ vector<LinkageCollector::Change> LinkageCollector::resolve_generation(
                     pc.allele_second = pc.allele_first;
                 }
             }
+        }
+
+        // The inherited haplotype is a claim about the panel, and until now nothing checked it.
+        //
+        // A nested site takes its haplotype from whichever of its parent's strands carries the
+        // chain. That says the parent's allele sits on panel haplotype h; it does not say h carries
+        // the allele *this* site settled on, and the per-strand pass above may just have moved that
+        // allele. So the mosaic could name a haplotype demonstrably carrying something else, which
+        // is worse than naming none: a consumer walking the haplotype would read a different
+        // sequence than the record states.
+        //
+        // Checked against the panel matrix the site was genotyped with, and dropped to the wildcard
+        // where it fails. That deliberately claims less than before, so the panel-unexplained count
+        // rises by exactly this figure.
+        for (PhaseCall& pc : *phasing_out) {
+            auto at = nested_entry_of.find(pc.record_key);
+            if (at == nested_entry_of.end()) {
+                continue;
+            }
+            const Entry& e = entries[at->second];
+            // The allele the site settled on, in compact space: the per-strand pass's answer where
+            // it moved the genotype, otherwise the call it came in with.
+            size_t settled = e.called_i;
+            auto moved = nested_regenotyped.find(pc.record_key);
+            if (moved != nested_regenotyped.end()) {
+                settled = moved->second.compact;
+            }
+            auto carries = [&](size_t hap) {
+                if (hap == LinkageModel::WILDCARD || hap >= n_haplotypes) {
+                    return true;   // nothing claimed, nothing to contradict
+                }
+                const size_t at_hap = e.hap_offset + hap;
+                if (at_hap >= hap_arena.size()) {
+                    return true;
+                }
+                const int carried = (int)hap_arena[at_hap];
+                // A haplotype absent from this site carries no allele here and cannot contradict
+                // the call; only a haplotype that names a *different* allele does.
+                return carried < 0 || (size_t)carried == settled;
+            };
+            if (!carries(pc.hap_first)) {
+                pc.hap_first = LinkageModel::WILDCARD;
+                ++hap_contradicted;
+                hap_contradicted_emitted += pc.emitted;
+            }
+            if (!carries(pc.hap_second)) {
+                pc.hap_second = LinkageModel::WILDCARD;
+                ++hap_contradicted;
+                hap_contradicted_emitted += pc.emitted;
+            }
+        }
+        if (hap_contradicted > 0) {
+#pragma omp critical (cerr)
+            std::cerr << "[vg call] phasing: " << hap_contradicted
+                      << " nested strands named a panel haplotype that does not carry the allele the"
+                      << " site settled on, so the haplotype was dropped ("
+                      << hap_contradicted_emitted << " on a site with a line, which is the number"
+                      << " the mosaic can show)" << std::endl;
         }
     }
 

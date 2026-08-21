@@ -610,8 +610,29 @@ bool VCFOutputCaller::add_variant(vcflib::Variant& var) const {
 }
 
 void VCFOutputCaller::resolve_linkage() {
-    if (!linkage_resolved) {
+    if (linkage_resolved) {
+        return;
+    }
+    if (linkage_collector == nullptr) {
         resolve_linkage_generation(0, true);
+        return;
+    }
+    // Every generation, not just the first. Chain construction skips entries whose generation is
+    // above the one being resolved, so resolving 0 alone dropped every nested site from linkage,
+    // from phasing and from the mosaic. That is latent rather than live -- `call_main` arms deferred
+    // descent for every nested run, and `run_deferred_descent` does loop the generations, leaving
+    // this a no-op via `linkage_resolved` -- but the invariant the header states is that a nested
+    // site is always settled, and it should not depend on which caller got there first.
+    //
+    // `max_generation()` is re-read each pass for the same reason the barrier re-reads it: a pass
+    // can gain a chain at a deeper generation than anything recorded before it, and a bound
+    // snapshotted once would leave that chain emitted but never settled.
+    for (size_t gen = 0;; ++gen) {
+        const size_t deepest = linkage_collector->max_generation();
+        resolve_linkage_generation(gen, gen >= deepest);
+        if (gen >= deepest) {
+            break;
+        }
     }
 }
 
