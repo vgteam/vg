@@ -9,7 +9,7 @@ PATH=../bin:$PATH # for vg
 # FORMAT field shifts every later one, which broke four assertions here that were not
 # testing field order at all -- one of them silently compared BL against a GQ threshold.
 
-plan tests 300
+plan tests 301
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -778,8 +778,14 @@ is $(grep -v "^#" nest_hap.vcf | cut -f10 | cut -d: -f1 | grep -cE '^[0-9]+$') "
 # 289 of chr20's 292 strandless records with an unphased parent.
 is $(grep -c "collapsed sites phased with no line of their own" nest_hap_err.txt) "1" \
    "a site that emits no line is still phased, so its children can inherit a strand"
+# Not "the FILTERs never fire" -- they no longer exist to fire. A nested chain takes its ploidy and
+# its strand from one reading of its parent's settled pair, namely which of that pair's traversals
+# carries the chain, so having one copy and sitting on that traversal's strand are the same
+# statement. Asserted on the header, which is where a reintroduced FILTER would show up first.
+is $(grep -c "ID=nested_diploid\|ID=nested_haploid\|ID=nested_unreachable" nest_hap.vcf) "0" \
+   "the nested coherence FILTERs are gone from the header, not merely unused"
 is $(grep -v "^#" nest_hap.vcf | awk -F'\t' '$7 ~ /nested_(diploid|haploid|unreachable)/ {n++} END {print n+0}') \
-   "0" "no record needs a nested coherence FILTER, because the ploidy cannot disagree"
+   "0" "and no record carries one"
 # And the parent still reports its deletion: symbolic collapsing must not swallow a real event.
 is $(grep -v "^#" nest_hap.vcf | awk -F'\t' 'length($4) > 50 {n++} END {print n+0}') "1" \
    "the parent deletion is still emitted alongside the nested call"

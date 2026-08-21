@@ -268,7 +268,10 @@ protected:
     struct NestedContext {
         bool active = false;
         size_t parent_record_key = 0;
-        size_t parent_slot = 0;
+        /// The parent traversal this child hangs off, or -1 when the parent does not carry it on
+        /// exactly one. The traversal itself, not the strand it sits at: the strand is whichever
+        /// haplotype that traversal is phased onto, looked up when the parent is phased.
+        int parent_trav = -1;
         /// One bit per parent VCF allele, set where that allele crosses this child chain. Zero
         /// means descent could not express it -- more than 64 alleles at the parent -- and must be
         /// read as unknown rather than as none.
@@ -354,9 +357,6 @@ protected:
     /// both lines.
     map<pair<string, size_t>, vector<LinkageCollector::Change>> linkage_changes;
     map<pair<string, size_t>, vector<LinkageCollector::PhaseCall>> linkage_phasings;
-    /// Keyed by record key rather than position, because these records are nested: several sites can
-    /// share a position and only one of them is the child in question.
-    map<size_t, LinkageCollector::NestedIncoherence::Kind> linkage_nested_filters;
     /// Every phased site, in the order the model produced them. The mosaic reads this, and deferred
     /// descent looks a parent's settled allele pair up in it.
     vector<LinkageCollector::PhaseCall> linkage_phased;
@@ -415,11 +415,6 @@ protected:
     /// `apply_linkage_change`, so it phases the genotype that is actually emitted. Returns false
     /// when the line is left untouched, for the same reasons.
     bool apply_phasing(string& line, const LinkageCollector::PhaseCall& phase) const;
-
-    /// Add the FILTER for one kind of nested ploidy incoherence, leaving the genotype and every
-    /// other field alone. The call is what the reads at that child support; what the flag records is
-    /// that its own parent record no longer agrees about the ploidy there.
-    void apply_nested_filter(string& line, LinkageCollector::NestedIncoherence::Kind kind) const;
 
     /// Whether to emit phased GT and FORMAT/PS.
     bool emit_phasing = false;
@@ -933,13 +928,16 @@ protected:
         unique_ptr<SnarlCaller::CallInfo> call_info;
         size_t record_key = 0;
         size_t parent_record_key = 0;
-        /// One bit per parent VCF allele, set where that allele crosses this chain.
+        /// One bit per parent *candidate traversal*, set where that traversal crosses this chain.
         uint64_t parent_crossing = 0;
         /// False when parent_crossing could not be computed (the parent emitted nothing during the
         /// sweep, or has too many alleles for the mask). The barrier recomputes the mask when it
         /// re-emits the parent; until then an unknown mask must not be read as "nothing crosses".
         bool crossing_known = true;
-        size_t parent_slot = 0;
+        /// The parent traversal this chain hangs off, or -1 when the settled parent does not carry
+        /// it on exactly one. Set at descent and re-derived whenever the barrier looks at the chain,
+        /// so it always names a traversal in the parent's current settled pair.
+        int parent_trav = -1;
         uint8_t generation = 0;
         /// Whether a record was written during the sweep. False where no called parent allele reached
         /// it, which is exactly the population the barrier may turn into a call.

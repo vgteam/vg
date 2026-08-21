@@ -385,7 +385,7 @@ public:
                 size_t record_key,
                 double explained_share, size_t ploidy = 2,
                 int64_t start_node = 0, int64_t end_node = 0,
-                bool nested = false, size_t parent_record_key = 0, size_t parent_slot = 0,
+                bool nested = false, size_t parent_record_key = 0, int parent_trav = -1,
                 uint64_t parent_crossing = 0, size_t generation = 0,
                 bool emitted = true);
 
@@ -461,28 +461,12 @@ public:
 
     /// A nested site whose ploidy the final parent genotype does not support.
     ///
-    /// Descent chose the child's ploidy from the parent's *pre-linkage* genotype, and linkage then
-    /// rewrote some parents. Where that changes which parent alleles cross the child, the child's
-    /// record survives at a ploidy its own parent now contradicts. Reported so the record can say
-    /// so rather than read as an ordinary call.
-    struct NestedIncoherence {
-        /// Which way the final parent genotype disagrees with the ploidy the child was called at.
-        enum Kind {
-            /// Called haploid; both parent haplotypes cross it, so the locus has two alleles there
-            /// and the record names one.
-            WantsDiploid,
-            /// Called diploid; only one parent haplotype crosses it, so the record claims two
-            /// haplotypes at a locus the sample carries once.
-            WantsHaploid,
-            /// Neither parent haplotype crosses it, at either ploidy: the sample has no copy of the
-            /// chain under its own parent record, so the call has no haplotype to sit on.
-            Unreachable,
-        };
-        string contig;
-        size_t position = 0;
-        size_t record_key = 0;
-        Kind kind = WantsDiploid;
-    };
+    // There was a `NestedIncoherence` here, with three kinds and three FILTERs, for the case where
+    // the ploidy a nested child was called at disagreed with what its parent's final genotype
+    // implies. It is gone, and not because the disagreement was decided to be acceptable: the child
+    // now takes its ploidy and its strand from one reading of the parent's settled pair -- which of
+    // that pair's traversals carries the chain -- so having one copy and sitting on that traversal's
+    // strand are the same statement. There is nothing left for two derivations to disagree about.
 
     /// Run the model per contig and return only the genotypes that changed.
     ///
@@ -491,12 +475,8 @@ public:
     /// makes the phasing agree with the VCF; constraining to the pre-linkage calls would phase a
     /// genotype set that is never emitted.
     ///
-    /// With `incoherent_out`, also reports the nested sites whose ploidy the final parent genotype
-    /// contradicts. Only filled when `phasing_out` is given, since the parent's phased allele pair
-    /// is what the check is made against.
-    vector<Change> resolve(vector<PhaseCall>* phasing_out = nullptr,
-                           vector<NestedIncoherence>* incoherent_out = nullptr) {
-        return resolve_generation(0, true, phasing_out, incoherent_out);
+    vector<Change> resolve(vector<PhaseCall>* phasing_out = nullptr) {
+        return resolve_generation(0, true, phasing_out);
     }
 
     /// Resolve one generation of sites, holding every earlier generation fixed.
@@ -521,8 +501,7 @@ public:
     /// With every entry at generation 0 -- which is every run without `--nested-after-linkage` --
     /// this is exactly the single pass it replaces, since nothing is ever clamped or held back.
     vector<Change> resolve_generation(size_t generation, bool last,
-                                      vector<PhaseCall>* phasing_out = nullptr,
-                                      vector<NestedIncoherence>* incoherent_out = nullptr);
+                                      vector<PhaseCall>* phasing_out = nullptr);
 
     /// Move a site to a different ploidy before its generation is resolved.
     ///
@@ -544,7 +523,7 @@ public:
                    const vector<int>& haplotype_traversal,
                    int called_trav_i, int called_trav_j,
                    const vector<int>& traversal_to_allele,
-                   size_t ploidy, bool nested, size_t parent_slot,
+                   size_t ploidy, bool nested, int parent_trav,
                    uint64_t parent_crossing);
 
     /// Drop a site before its generation resolves: the settled parent genotype does not carry the
@@ -554,6 +533,13 @@ public:
     /// held by every other entry -- so it is marked and then skipped by chain construction, phasing
     /// and every counter. Returns false for an unknown key.
     bool retract(size_t record_key);
+
+    /// Point a recorded site at the parent traversal that carries it, without touching anything
+    /// else about it. The barrier re-derives this from the parent's settled pair every time it looks
+    /// at a chain, including when the ploidy needs no change and there is nothing to respecify --
+    /// and that case is the common one, so leaving the descent-time value in place would keep a
+    /// figure computed against the parent's pre-linkage genotype. Returns false for an unknown key.
+    bool set_parent_trav(size_t record_key, int parent_trav);
 
     /// Whether an active (non-retracted) entry exists for this key. The barrier needs to tell
     /// "this site was never recorded" from "respecify refused a site that is already in the layer":
@@ -628,22 +614,28 @@ private:
         /// allele crosses it, so the strand it belongs to is determined -- not a best fit -- once the
         /// parent has been phased.
         size_t parent_record_key = 0;
-        /// One bit per parent VCF allele, set where that allele crosses this child chain; 0 means
-        /// descent could not say.
+        /// One bit per parent *candidate traversal*, set where that traversal crosses this child
+        /// chain; 0 means descent could not say.
         ///
-        /// What `resolve` uses it for is checking that the *ploidy* this child was called at survives
-        /// its parent's final genotype: whether both called parent alleles cross it, neither does, or
-        /// exactly one does. That question is about the unordered pair, which is why it is answerable
-        /// where the strand is not -- and the strand is deliberately *not* derived from this. Doing so
-        /// is the obvious reading of the phase and measured worse than `parent_slot` below, which is
-        /// the traversal-order index recorded at descent; see the Stage 7 notes in the companion
-        /// evaluation repository.
+        /// Kept for the descent decision -- whether any traversal the parent could settle on reaches
+        /// this chain -- and no longer consulted when the child is phased. It used to be re-tested
+        /// there against the settled pair to check the child's ploidy, which was a second derivation
+        /// of a fact `parent_trav` already carries, and the two could disagree.
         ///
-        /// Placed next to the key rather than beside `parent_slot`: after an 8-byte member it needs no
-        /// padding, where after a `uint8_t` it costs seven bytes of it -- 16 bytes a site instead of 8,
-        /// which `bytes()` reported as 1.8 MB on chr20 rather than 0.9.
+        /// Placed next to the key rather than beside the narrow members: after an 8-byte member it
+        /// needs no padding, where after a `uint8_t` it costs seven bytes of it -- 16 bytes a site
+        /// instead of 8, which `bytes()` reported as 1.8 MB on chr20 rather than 0.9.
         uint64_t parent_crossing = 0;
-        uint8_t parent_slot = 0;
+        /// The parent traversal this chain hangs off, or -1 when nothing determined one.
+        ///
+        /// The traversal, not the strand index it sat at. Ploidy and strand are then the same fact
+        /// read two ways -- the chain is carried by exactly this one of the parent's two settled
+        /// traversals -- and finding the strand is an identity match against the parent's phased
+        /// pair rather than a separate derivation. It is also orientation-proof: the Viterbi decides
+        /// which of the parent's traversals lands on which haplotype, and it may decide differently
+        /// as later generations enlarge the set, so a stored *index* can go stale where the identity
+        /// of the traversal cannot.
+        int16_t parent_trav = -1;
         float explained_share = 1.0f;
         size_t record_key = 0;
         /// Snarl boundary nodes, for the mosaic output's anchors. Costs 16 bytes a site, which

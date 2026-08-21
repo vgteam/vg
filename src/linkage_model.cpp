@@ -1184,7 +1184,7 @@ void LinkageCollector::record(const string& contig, size_t position,
                               size_t record_key,
                               double explained_share, size_t ploidy,
                               int64_t start_node, int64_t end_node,
-                              bool nested, size_t parent_record_key, size_t parent_slot,
+                              bool nested, size_t parent_record_key, int parent_trav,
                               uint64_t parent_crossing, size_t generation,
                               bool emitted) {
     if (genotype_ln_likelihood.empty() || called_trav_i < 0) {
@@ -1266,7 +1266,7 @@ void LinkageCollector::record(const string& contig, size_t position,
     e.emitted = emitted;
     e.parent_record_key = parent_record_key;
     e.parent_crossing = parent_crossing;
-    e.parent_slot = (uint8_t)parent_slot;
+    e.parent_trav = (int16_t)parent_trav;
     e.generation = (uint8_t)(generation > 255 ? 255 : generation);
 
     e.gl_offset = (uint32_t)gl_arena.size();
@@ -1319,7 +1319,7 @@ bool LinkageCollector::respecify(size_t record_key,
                                  const vector<int>& haplotype_traversal,
                                  int called_trav_i, int called_trav_j,
                                  const vector<int>& traversal_to_allele,
-                                 size_t ploidy, bool nested, size_t parent_slot,
+                                 size_t ploidy, bool nested, int parent_trav,
                                  uint64_t parent_crossing) {
     if (genotype_ln_likelihood.empty() || called_trav_i < 0) {
         return false;
@@ -1379,7 +1379,7 @@ bool LinkageCollector::respecify(size_t record_key,
         e.called_j = (uint16_t)cj;
         e.ploidy = (uint8_t)site_ploidy;
         e.nested = nested;
-        e.parent_slot = (uint8_t)parent_slot;
+        e.parent_trav = (int16_t)parent_trav;
         e.parent_crossing = parent_crossing;
         e.gl_offset = (uint32_t)gl_arena.size();
         for (float v : gls) {
@@ -1400,6 +1400,17 @@ bool LinkageCollector::respecify(size_t record_key,
             allele_arena.push_back(allele >= 0 && allele < 127 ? (int8_t)allele : (int8_t)-1);
         }
         return true;
+    }
+    return false;
+}
+
+bool LinkageCollector::set_parent_trav(size_t record_key, int parent_trav) {
+    lock_guard<std::mutex> guard(mutex);
+    for (Entry& e : entries) {
+        if (e.record_key == record_key && !e.retracted) {
+            e.parent_trav = (int16_t)parent_trav;
+            return true;
+        }
     }
     return false;
 }
@@ -1426,8 +1437,7 @@ bool LinkageCollector::retract(size_t record_key) {
 }
 
 vector<LinkageCollector::Change> LinkageCollector::resolve_generation(
-        size_t generation, bool last, vector<PhaseCall>* phasing_out,
-        vector<NestedIncoherence>* incoherent_out) {
+        size_t generation, bool last, vector<PhaseCall>* phasing_out) {
     // Nested sites, collected across every contig and phased after the diploid chains, so their
     // strand can be read off the parent they hang off rather than guessed.
     vector<size_t> deferred_nested;
@@ -1794,7 +1804,7 @@ vector<LinkageCollector::Change> LinkageCollector::resolve_generation(
     //
     // A nested site has ploidy 1 exactly because one called parent allele crosses the child chain
     // and the other does not, so which strand it belongs to is *determined* once the parent is
-    // phased -- it is not a fit to be estimated. `parent_slot` records which of the parent's two
+    // phased -- it is not a fit to be estimated. `parent_trav` records which of the parent's two
     // genotype slots did the crossing, and the parent's own PhaseCall says which strand that slot
     // landed on, so the nested allele goes there and the other strand carries the wildcard.
     //
@@ -1828,9 +1838,15 @@ vector<LinkageCollector::Change> LinkageCollector::resolve_generation(
                                                 pc.allele_first, pc.allele_second,
                                                 pc.trav_first, pc.trav_second, pc.ploidy};
         }
-        // How the strand recorded at descent time compares with the one the parent's phase implies.
-        size_t mask_unknown = 0;
-        size_t final_diploid = 0, final_absent = 0;
+        // Nested sites whose parent settled on a pair not containing the traversal they hang off.
+        // The barrier retracts these where it can see them, so a nonzero count here is the residue
+        // whose parent moved after it looked -- not a coherence disagreement, which the single
+        // derivation above makes unrepresentable.
+        size_t unplaced_no_strand = 0;
+        // Nested sites the settled parent carries on both its traversals: the locus is diploid
+        // there and the record names one allele. The barrier re-renders these at ploidy 2 wherever
+        // an answer at that ploidy was kept, so this is the residue where none was.
+        size_t carried_on_both = 0;
         // Nested sites that never found a phased parent, so no strand could be derived for them at
         // all. Counted because they are the population that comes out with a bare haploid GT, and
         // the report below used to describe only the sites whose parent *was* found.
@@ -1876,78 +1892,61 @@ vector<LinkageCollector::Change> LinkageCollector::resolve_generation(
                     continue;
                 }
                 const ParentPhase& parent = found->second;
-                // Which of the parent's two strands crosses this child.
+                // Which of the parent's strands carries this chain. One lookup, not a derivation:
+                // the barrier already decided *which traversal* of the parent's settled pair carries
+                // it, and this asks only which haplotype that traversal ended up on.
                 //
-                // Not `parent_slot`: that indexes the parent's called-traversal order, and by the
-                // time the parent is phased the pair has been sorted by `record` and then oriented
-                // by the Viterbi against the panel haplotypes, so slot 0 and `allele_first` agree
-                // only by luck. For a het parent whose crossing allele is the larger-indexed one
-                // that put the child on the wrong haplotype outright. Re-derived here from the
-                // crossing mask against the pair that was actually phased, which is the only place
-                // where both are known.
-                const uint8_t slot = e.parent_slot;
-                // Whether the *ploidy* the child was called at survives its parent's final genotype.
-                // 0 it does, 1 both strands cross so the locus is diploid, 2 neither does so the
-                // sample has no copy of the chain.
+                // That is the whole of stage 3. Ploidy used to come from `child_ploidy` over the
+                // parent's pre-linkage genotype, the strand from a recorded slot index, and their
+                // agreement from a third test of the crossing mask against the settled pair -- three
+                // readings of one fact, which is exactly why they could disagree and why there were
+                // three FILTERs to say so. Here the chain is carried by this traversal, so it has
+                // one copy and sits on that traversal's strand, and the two cannot come apart.
                 //
-                // This asks about the unordered pair, which is why it is answerable where the strand
-                // is not: it needs to know whether the two called alleles both cross, neither cross,
-                // or exactly one does -- never which of them is which. See the note in the design
-                // document on why deriving the *strand* from the same mask measured worse than the
-                // recorded slot and is not done here.
-                int incoherent = 0;
-                if (e.parent_crossing == 0) {
-                    ++mask_unknown;   // descent could not express it, so nothing can be checked
-                } else {
-                    int crossings = 0;
-                    if (parent.trav_first >= 0 && parent.trav_first < 64
-                        && ((e.parent_crossing >> parent.trav_first) & 1)) {
-                        ++crossings;
-                    }
-                    // A haploid parent -- a haploid contig, or a nested site one level up -- has one
-                    // allele, and its second slot repeats the first rather than naming a strand.
-                    if (parent.ploidy == 2 && parent.trav_second >= 0 && parent.trav_second < 64
-                        && ((e.parent_crossing >> parent.trav_second) & 1)) {
-                        ++crossings;
-                    }
-                    if (crossings == (int)parent.ploidy && parent.ploidy == 2) {
-                        // Both strands cross it under the final genotype, so the locus is diploid
-                        // there and the record names one allele where it has two. Reported rather
-                        // than corrected -- correcting it means re-genotyping at ploidy 2, which the
-                        // retained haploid likelihood vector cannot do.
-                        ++final_diploid;
-                        incoherent = 1;
-                    } else if (crossings == 0) {
-                        // No called parent allele reaches it, so there is no haplotype for this call
-                        // to sit on.
-                        ++final_absent;
-                        incoherent = 2;
+                // The traversal rather than the slot index matters: the Viterbi decides which of the
+                // parent's traversals lands on which haplotype, and it may decide differently as
+                // later generations enlarge the set, so an index can go stale where an identity
+                // cannot.
+                // -2 is the parent carrying the chain on *both* its settled traversals: the locus
+                // is diploid there and this record names one allele where it has two. It keeps no
+                // single strand, but it is not strandless either -- both haplotypes carry it -- and
+                // the mosaic must say so rather than mark it unexplained.
+                const bool on_both = (e.parent_trav == -2);
+                int strand = -1;
+                if (e.parent_trav >= 0) {
+                    if (parent.trav_first == e.parent_trav) {
+                        strand = 0;
+                    } else if (parent.ploidy == 2 && parent.trav_second == e.parent_trav) {
+                        strand = 1;
                     }
                 }
                 // Inherit the parent's phase set, so the nested site sits in the parent's block
                 // instead of starting one of its own -- which is the whole point of the exercise.
                 pc.phase_set = parent.phase_set;
-                if (incoherent == 1) {
-                    // Crossed on both strands, so naming one would be a narrower claim than the
-                    // parent itself makes. The mosaic gets the called allele on both haplotypes,
-                    // which is what the final parent genotype says is there.
+                if (on_both) {
+                    // Both haplotypes carry it, so both name one. A wildcard here would read as
+                    // "the panel cannot explain this strand", which is the opposite of the truth:
+                    // the parent explains both. The record's own GT still names one allele, because
+                    // it was genotyped at ploidy 1 and the second copy's allele was never scored --
+                    // the barrier re-renders such a chain at ploidy 2 whenever an answer at that
+                    // ploidy was kept, and this is the residue where none was.
+                    ++carried_on_both;
                     pc.hap_first = parent.hap_first;
                     pc.hap_second = parent.hap_second;
-                } else if (incoherent == 2) {
-                    // Crossed on neither, so there is no strand to name. The record stays in the
-                    // parent's phase set -- it is still at that locus -- but claiming a haplotype
-                    // for a chain the sample does not carry would write a variant into the emitted
-                    // genome that the parent record deletes.
+                } else if (strand < 0) {
+                    // No settled parent traversal carries it, so there is no haplotype to name:
+                    // claiming one would write a variant into the emitted genome that the parent
+                    // record does not carry.
+                    ++unplaced_no_strand;
                     pc.hap_first = LinkageModel::WILDCARD;
                     pc.hap_second = LinkageModel::WILDCARD;
                 } else {
-                    bool second = (slot == 1);
-                    pc.hap_first = second ? LinkageModel::WILDCARD : parent.hap_first;
-                    pc.hap_second = second ? parent.hap_second : LinkageModel::WILDCARD;
+                    pc.hap_first = strand == 1 ? LinkageModel::WILDCARD : parent.hap_first;
+                    pc.hap_second = strand == 1 ? parent.hap_second : LinkageModel::WILDCARD;
                     // Recorded rather than left to be inferred from which haplotype is the wildcard:
                     // the parent's own strand can be a wildcard too, and then both sides are, which
-                    // is indistinguishable from the unreachable case above.
-                    pc.nested_strand = (int8_t)slot;
+                    // is indistinguishable from having no strand at all.
+                    pc.nested_strand = (int8_t)strand;
                 }
                     by_key[pc.record_key] = ParentPhase{
                     pc.phase_set, pc.hap_first, pc.hap_second,
@@ -1973,18 +1972,10 @@ vector<LinkageCollector::Change> LinkageCollector::resolve_generation(
                     }
                 }
                 phasing_out->push_back(pc);
-                if (incoherent == 0) {
+                if (strand >= 0) {
                     // Only sites with one strand are grouped: step three chains within a single
-                    // haplotype, and a site on both strands or on neither belongs to no such chain.
-                    by_strand[make_pair(e.contig, slot)].push_back(idx);
-                } else if (incoherent_out != nullptr) {
-                    NestedIncoherence ni;
-                    ni.contig = pc.contig;
-                    ni.position = pc.position;
-                    ni.record_key = pc.record_key;
-                    ni.kind = (incoherent == 1) ? NestedIncoherence::WantsDiploid
-                                                : NestedIncoherence::Unreachable;
-                    incoherent_out->push_back(ni);
+                    // haplotype, and a site with no strand belongs to no such chain.
+                    by_strand[make_pair(e.contig, (uint8_t)strand)].push_back(idx);
                 }
                 ++placed_this_sweep;
             }
@@ -2185,15 +2176,16 @@ vector<LinkageCollector::Change> LinkageCollector::resolve_generation(
                       << " records are phased on the alleles the line carries rather than the ones"
                       << " the model settled on, for the same reason" << std::endl;
         }
-        if (final_diploid > 0 || final_absent > 0 || unplaced > 0) {
+        if (!deferred_nested.empty()) {
 #pragma omp critical (cerr)
             std::cerr << "[vg call] nested strands: " << deferred_nested.size()
-                      << " sites, " << (deferred_nested.size() - final_diploid - final_absent
-                                        - mask_unknown - unplaced)
-                      << " placed on one strand; " << final_diploid << " diploid under the "
-                      << "settled parent, " << final_absent << " unreachable, "
-                      << mask_unknown << " with an uncheckable mask, " << unplaced
-                      << " with no phased parent -- the last four get no strand" << std::endl;
+                      << " sites, "
+                      << (deferred_nested.size() - carried_on_both - unplaced_no_strand
+                          - unplaced)
+                      << " placed on one strand; " << carried_on_both
+                      << " carried on both parent strands, " << unplaced_no_strand
+                      << " on neither, " << unplaced
+                      << " with no phased parent -- the last two get no strand" << std::endl;
         }
 
         if (!nested_regenotyped.empty()) {
@@ -2221,83 +2213,6 @@ vector<LinkageCollector::Change> LinkageCollector::resolve_generation(
         }
     }
 
-    // The mirror check: nested children called at ploidy 2 whose parent no longer crosses them twice.
-    //
-    // These never enter the sweep above, because they are not `nested` -- a child crossed by both
-    // called parent alleles is an ordinary diploid site and belongs in the contig's chain, which is
-    // where it goes. That makes them invisible to every check written for the haploid population,
-    // and they can be wrong in the other direction: linkage moves the parent to a genotype where one
-    // allele crosses and the record then claims two haplotypes at a locus the sample carries once.
-    //
-    // A parent that emitted no record could not have been moved by linkage at all -- it has no entry,
-    // so nothing rewrote it -- and its children are coherent by construction rather than unchecked.
-    // Symbolic collapsing makes most non-leaf parents emit nothing, so that is the bulk of them.
-    if (phasing_out != nullptr && last) {
-        unordered_map<size_t, const PhaseCall*> parent_of;
-        parent_of.reserve(phasing_out->size() * 2);
-        for (const PhaseCall& pc : *phasing_out) {
-            parent_of[pc.record_key] = &pc;
-        }
-        // Whether the check can fire at all. A zero from a path where no parent ever moved is not a
-        // result, it is an untested branch -- so count the children whose parent's genotype linkage
-        // actually rewrote, and how many of those still cross on both haplotypes.
-        unordered_set<size_t> moved_parents;
-        moved_parents.reserve(changes.size() * 2);
-        for (const Change& c : changes) {
-            moved_parents.insert(c.record_key);
-        }
-        size_t diploid_children = 0, checkable = 0, now_haploid = 0, now_absent = 0;
-        size_t parent_moved = 0, parent_moved_still_two = 0;
-        for (const Entry& e : entries) {
-            if (e.nested || e.parent_crossing == 0) {
-                continue;   // haploid nested sites, and everything that is not a descended child
-            }
-            ++diploid_children;
-            auto found = parent_of.find(e.parent_record_key);
-            if (found == parent_of.end()) {
-                continue;   // no parent record, so no linkage change to be incoherent with
-            }
-            const PhaseCall& parent = *found->second;
-            int crossings = 0;
-            if (parent.allele_first < 64 && ((e.parent_crossing >> parent.allele_first) & 1)) {
-                ++crossings;
-            }
-            if (parent.ploidy == 2 && parent.allele_second < 64
-                && ((e.parent_crossing >> parent.allele_second) & 1)) {
-                ++crossings;
-            }
-            ++checkable;
-            bool moved = moved_parents.count(e.parent_record_key) > 0;
-            parent_moved += moved;
-            if (crossings == 1) {
-                ++now_haploid;
-            } else if (crossings == 0) {
-                ++now_absent;
-            } else if (moved) {
-                ++parent_moved_still_two;
-            }
-            if (crossings < 2 && incoherent_out != nullptr) {
-                NestedIncoherence ni;
-                ni.contig = contig_names[e.contig];
-                ni.position = e.position;
-                ni.record_key = e.record_key;
-                ni.kind = (crossings == 1) ? NestedIncoherence::WantsHaploid
-                                           : NestedIncoherence::Unreachable;
-                incoherent_out->push_back(ni);
-            }
-        }
-        if (diploid_children > 0) {
-#pragma omp critical (cerr)
-            std::cerr << "[vg call] nested: " << diploid_children
-                      << " children called at ploidy 2, " << checkable
-                      << " with a parent record that linkage could have moved; of those "
-                      << now_haploid << " now cross on one haplotype only and " << now_absent
-                      << " on neither (" << parent_moved
-                      << " hang off a parent linkage did move, " << parent_moved_still_two
-                      << " of those still crossing twice)" << std::endl;
-        }
-
-    }
 
     // Reference order, and only now.
     //

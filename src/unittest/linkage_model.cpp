@@ -51,7 +51,7 @@ static void record_dense(LinkageCollector& c, const string& contig, size_t posit
                          const vector<int>& panel, size_t called_i, size_t called_j,
                          size_t record_key, double share, size_t ploidy = 2,
                          int64_t start_node = 0, int64_t end_node = 0,
-                         bool nested = false, size_t parent_record_key = 0, size_t parent_slot = 0,
+                         bool nested = false, size_t parent_record_key = 0, int parent_trav = -1,
                          uint64_t parent_crossing = 0, size_t generation = 0) {
     map<vector<int>, double> gls;
     if (ploidy == 1) {
@@ -73,14 +73,14 @@ static void record_dense(LinkageCollector& c, const string& contig, size_t posit
         ident[i] = (int)i;
     }
     c.record(contig, position, gls, panel, (int)called_i, (int)called_j, ident, record_key,
-             share, ploidy, start_node, end_node, nested, parent_record_key, parent_slot,
+             share, ploidy, start_node, end_node, nested, parent_record_key, parent_trav,
              parent_crossing, generation, true);
 }
 
 static bool respecify_dense(LinkageCollector& c, size_t record_key, size_t num_alleles,
                             const vector<double>& dense_gls, const vector<int>& panel,
                             size_t called_i, size_t called_j, size_t ploidy,
-                            bool nested, size_t parent_slot, uint64_t parent_crossing) {
+                            bool nested, int parent_trav, uint64_t parent_crossing) {
     map<vector<int>, double> gls;
     if (ploidy == 1) {
         for (size_t a = 0; a < num_alleles && a < dense_gls.size(); ++a) {
@@ -101,7 +101,7 @@ static bool respecify_dense(LinkageCollector& c, size_t record_key, size_t num_a
         ident[i] = (int)i;
     }
     return c.respecify(record_key, gls, panel, (int)called_i, (int)called_j, ident, ploidy,
-                       nested, parent_slot, parent_crossing);
+                       nested, parent_trav, parent_crossing);
 }
 
 TEST_CASE("Zero weight leaves the per-site genotype untouched", "[linkage_model]") {
@@ -452,12 +452,10 @@ TEST_CASE("respecify moves a site to the ploidy its settled parent implies", "[l
     REQUIRE_FALSE(respecify_dense(collector, 12345, 2, {0.0, -30.0, -30.0}, {0, 0}, 0, 0, 1, true, 0, 0));
 
     vector<LinkageCollector::PhaseCall> phased;
-    vector<LinkageCollector::NestedIncoherence> incoherent;
-    collector.resolve(&phased, &incoherent);
+    collector.resolve(&phased);
 
     // Nothing to flag: the ploidy the record carries is the one its parent implies.
-    REQUIRE(incoherent.empty());
-    const LinkageCollector::PhaseCall* child = nullptr;
+        const LinkageCollector::PhaseCall* child = nullptr;
     for (const auto& pc : phased) {
         if (pc.record_key == CHILD) {
             child = &pc;
@@ -499,7 +497,7 @@ TEST_CASE("retract drops a site the settled parent does not carry", "[linkage_mo
     REQUIRE_FALSE(collector.retract(999));          // never existed
 
     vector<LinkageCollector::PhaseCall> phased;
-    collector.resolve(&phased, nullptr);
+    collector.resolve(&phased);
 
     for (const auto& pc : phased) {
         REQUIRE(pc.record_key != CHILD);
@@ -518,13 +516,17 @@ TEST_CASE("retract drops a site the settled parent does not carry", "[linkage_mo
     REQUIRE(collector.num_sites_at(0) < before);
 }
 
-TEST_CASE("A nested site whose parent no longer crosses it is reported, not quietly kept",
+TEST_CASE("A nested site takes its strand from the parent traversal that carries it",
           "[linkage_model]") {
-    // Descent picked the child's ploidy from the parent's pre-linkage genotype. When linkage then
-    // moves the parent to a genotype where *both* alleles cross the child, the locus is diploid and
-    // the haploid call under-reports it; when it moves to one where *neither* does, the sample has
-    // no copy of the chain at all and the call has no haplotype to sit on. Both survive today, and
-    // both are indistinguishable from an ordinary call in the output unless they are flagged.
+    // The single derivation, and the reason it replaced three. A nested chain is carried by exactly
+    // one of its parent's settled traversals; that it has one copy and that it sits on that
+    // traversal's strand are the same statement, so nothing can disagree about them.
+    //
+    // What this pins is the identity match. The collector sorts the called pair and the Viterbi then
+    // orients it against the panel, so the *index* a traversal sat at during descent means nothing
+    // by the time the child is placed -- which is why the traversal itself is recorded. Both strands
+    // are exercised, because getting this backwards puts every child on the wrong haplotype and
+    // still produces perfectly well-formed output.
     LinkageModel::Params p;
     p.weight = 1.0;
     p.scale = 100000.0;
@@ -532,29 +534,22 @@ TEST_CASE("A nested site whose parent no longer crosses it is reported, not quie
 
     const size_t PARENT = 9, CHILD = 91;
 
-    struct Case { int crossing_allele; bool expect_diploid; };
-    const Case cases[] = {{1, true}, {0, false}};
+    // Which parent traversal the child hangs off, and whether that traversal is in the settled pair.
+    struct Case { int parent_trav; bool placed; };
+    const Case cases[] = {{0, true}, {1, true}, {7, false}};
     for (const Case& c : cases) {
         LinkageCollector collector(p, 2);
-        // A parent decisively 1/1 -- genotype index 2 of three -- with both panel haplotypes on
-        // allele 1, so neither strand carries allele 0.
-        record_dense(collector, "chr1", 1000, 2, {-30.0, -30.0, 0.0}, {1, 1}, 1, 1, PARENT,
+        // A het parent, decisively 0/1, with one panel haplotype on each allele so the Viterbi has
+        // a strand to put each on.
+        record_dense(collector, "chr1", 1000, 2, {-30.0, 0.0, -30.0}, {1, 0}, 0, 1, PARENT,
                          /*share*/ 1.0, /*ploidy*/ 2, /*start*/ 10, /*end*/ 20);
         record_dense(collector, "chr1", 1010, 2, {0.0, -30.0}, {0, 0}, 0, 0, CHILD,
                          /*share*/ 1.0, /*ploidy*/ 1, /*start*/ 11, /*end*/ 12,
-                         /*nested*/ true, PARENT, /*slot*/ 0,
-                         /*crossing*/ (uint64_t)1 << c.crossing_allele);
+                         /*nested*/ true, PARENT, /*parent_trav*/ c.parent_trav,
+                         /*crossing*/ (uint64_t)1 << 0);
 
         vector<LinkageCollector::PhaseCall> phased;
-        vector<LinkageCollector::NestedIncoherence> incoherent;
-        collector.resolve(&phased, &incoherent);
-
-        REQUIRE(incoherent.size() == 1);
-        REQUIRE(incoherent[0].record_key == CHILD);
-        REQUIRE(incoherent[0].position == 1010);
-        REQUIRE(incoherent[0].kind == (c.expect_diploid
-                                       ? LinkageCollector::NestedIncoherence::WantsDiploid
-                                       : LinkageCollector::NestedIncoherence::Unreachable));
+        collector.resolve(&phased);
 
         const LinkageCollector::PhaseCall* child = nullptr;
         const LinkageCollector::PhaseCall* parent = nullptr;
@@ -567,20 +562,30 @@ TEST_CASE("A nested site whose parent no longer crosses it is reported, not quie
         }
         REQUIRE(child != nullptr);
         REQUIRE(parent != nullptr);
-        // Still in the parent's block either way: the record is at that locus whatever its ploidy
-        // turned out to be, and starting a block of its own would fragment the phasing.
+        // In the parent's block either way: the record is at that locus whether or not a strand
+        // could be named for it, and starting a block of its own would fragment the phasing.
         REQUIRE(child->phase_set == parent->phase_set);
-        if (c.expect_diploid) {
-            // On both strands, so both name a haplotype rather than one naming it and one holding
-            // a wildcard that would read as "the panel cannot explain this".
-            REQUIRE(child->hap_first == parent->hap_first);
-            REQUIRE(child->hap_second == parent->hap_second);
-            REQUIRE(child->hap_first != LinkageModel::WILDCARD);
-        } else {
-            // On neither, so neither strand may claim the allele: writing it into one would put a
-            // variant in the emitted genome that the parent record deletes.
+
+        if (!c.placed) {
+            // The parent settled on a pair that does not contain this traversal, so there is no
+            // haplotype to name. Claiming one would put a variant in the emitted genome that the
+            // parent record does not carry.
+            REQUIRE(child->nested_strand == -1);
             REQUIRE(child->hap_first == LinkageModel::WILDCARD);
             REQUIRE(child->hap_second == LinkageModel::WILDCARD);
+            continue;
+        }
+        // Placed on the strand the carrying traversal was phased onto -- found by asking the
+        // parent's own phased pair, not by trusting an index recorded earlier.
+        REQUIRE(child->nested_strand >= 0);
+        const int want = parent->trav_first == c.parent_trav ? 0 : 1;
+        REQUIRE(child->nested_strand == want);
+        if (want == 0) {
+            REQUIRE(child->hap_first == parent->hap_first);
+            REQUIRE(child->hap_second == LinkageModel::WILDCARD);
+        } else {
+            REQUIRE(child->hap_second == parent->hap_second);
+            REQUIRE(child->hap_first == LinkageModel::WILDCARD);
         }
     }
 }
@@ -622,53 +627,6 @@ TEST_CASE("The phasing comes back in reference order even with nested sites in i
     }
     // Specifically: the nested site sits between its parent and the far site, not after both.
     REQUIRE(phased[1].record_key == 3);
-}
-
-TEST_CASE("A nested site called diploid that its parent now crosses once is flagged",
-          "[linkage_model]") {
-    // The mirror of the case above, and the one with no coverage anywhere else: chr20 produces
-    // 10,248 children called at ploidy 2 and not a single one of them flips this way, so without a
-    // unit test this branch would ship having never run.
-    //
-    // A child crossed by both called parent alleles is an ordinary diploid site and goes into the
-    // contig's chain -- it is not `nested`, so none of the haploid machinery sees it. What makes it
-    // checkable is the crossing mask, which descent now records for every child rather than only the
-    // haploid ones.
-    LinkageModel::Params p;
-    p.weight = 1.0;
-    p.scale = 100000.0;
-    p.rho_min = 1e-4;
-
-    const size_t PARENT = 3, CHILD = 31;
-
-    LinkageCollector collector(p, 2);
-    // A het parent, decisively 0/1.
-    record_dense(collector, "chr1", 1000, 2, {-30.0, 0.0, -30.0}, {1, 0}, 0, 1, PARENT,
-                     /*share*/ 1.0, /*ploidy*/ 2, /*start*/ 10, /*end*/ 20);
-    // A child of it called at ploidy 2 -- `nested` false, so it chains normally -- but only the
-    // parent's allele 0 crosses the chain, so one haplotype deletes it.
-    record_dense(collector, "chr1", 1010, 2, {-30.0, 0.0, -30.0}, {1, 0}, 0, 1, CHILD,
-                     /*share*/ 1.0, /*ploidy*/ 2, /*start*/ 11, /*end*/ 12,
-                     /*nested*/ false, PARENT, /*slot*/ 0, /*crossing*/ (uint64_t)1 << 0);
-
-    vector<LinkageCollector::PhaseCall> phased;
-    vector<LinkageCollector::NestedIncoherence> incoherent;
-    collector.resolve(&phased, &incoherent);
-
-    REQUIRE(incoherent.size() == 1);
-    REQUIRE(incoherent[0].record_key == CHILD);
-    REQUIRE(incoherent[0].kind == LinkageCollector::NestedIncoherence::WantsHaploid);
-
-    // Still chained and phased as the ordinary diploid site it was called as. Flagging says the
-    // ploidy disagrees with the parent; it does not change the call.
-    bool found = false;
-    for (const auto& pc : phased) {
-        if (pc.record_key == CHILD) {
-            found = true;
-            REQUIRE(pc.ploidy == 2);
-        }
-    }
-    REQUIRE(found);
 }
 
 TEST_CASE("Genotype indices round-trip through the collector's decode", "[linkage_model]") {

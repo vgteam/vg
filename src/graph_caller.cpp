@@ -360,26 +360,6 @@ string VCFOutputCaller::vcf_header(const PathHandleGraph& graph, const vector<st
            << "spanning consecutive sites. Not the INFO/PS emitted under -A, which is a parent "
            << "snarl pointer\">" << endl;
     }
-    if (symbolic_manager != nullptr) {
-        // Nested descent chooses each child's ploidy from its parent's pre-linkage genotype, and
-        // linkage can then rewrite the parent. The barrier settles this before emission: a child at
-        // the wrong ploidy is re-rendered at the settled one, and a child no settled allele carries
-        // is dropped -- so these FILTERs cannot fire on that path and firing zero times is what
-        // they are for. They remain reachable only where the barrier could not act: a chain whose
-        // revised record was unrenderable, or one with no answer kept at the settled ploidy.
-        ss << "##FILTER=<ID=nested_diploid,Description=\"Called at ploidy 1 because one parent "
-           << "allele crossed this child chain, but after linkage both parent haplotypes cross it "
-           << "and no diploid answer could be rendered. Rare by construction: a revisable record "
-           << "is re-emitted at the settled ploidy instead of being flagged\">" << endl;
-        ss << "##FILTER=<ID=nested_haploid,Description=\"Called at ploidy 2 because both parent "
-           << "alleles crossed this child chain, but after linkage only one parent haplotype does "
-           << "and no haploid answer could be rendered. Rare by construction: a revisable record "
-           << "is re-emitted at the settled ploidy instead of being flagged\">" << endl;
-        ss << "##FILTER=<ID=nested_unreachable,Description=\"Called because a parent allele "
-           << "crossed this child chain, but after linkage neither parent haplotype does, and the "
-           << "record could not be retracted. Rare by construction: such records are normally "
-           << "removed rather than flagged\">" << endl;
-    }
     ss << "##INFO=<ID=AT,Number=R,Type=String,Description=\"Allele Traversal as path in graph\">" << endl;
     if (allele_merge_threshold < 1.0) {
         ss << "##INFO=<ID=MAT,Number=.,Type=String,Description=\"Merged Allele Traversal: "
@@ -635,14 +615,12 @@ void VCFOutputCaller::resolve_linkage_generation(size_t generation, bool last) {
     // answers the other question the design asserted without checking: this pass is serial,
     // between calling and writing, in a caller that is otherwise parallel over snarls.
     auto start = std::chrono::steady_clock::now();
-    vector<LinkageCollector::NestedIncoherence> incoherent;
     // `linkage_phased` accumulates across generations rather than being replaced. The model needs
     // the earlier generations back: a nested site's strand is read off its parent's PhaseCall, and
     // a clamped site's phase is pinned to the pair already emitted for it.
     vector<LinkageCollector::Change> resolved =
         linkage_collector->resolve_generation(generation, last,
-                                              emit_phasing ? &linkage_phased : nullptr,
-                                              emit_phasing ? &incoherent : nullptr);
+                                              emit_phasing ? &linkage_phased : nullptr);
     double seconds = std::chrono::duration<double>(
         std::chrono::steady_clock::now() - start).count();
     linkage_seconds += seconds;
@@ -662,9 +640,6 @@ void VCFOutputCaller::resolve_linkage_generation(size_t generation, bool last) {
         if (!updated) {
             bucket.push_back(c);
         }
-    }
-    for (const LinkageCollector::NestedIncoherence& ni : incoherent) {
-        linkage_nested_filters[ni.record_key] = ni.kind;
     }
     if (!last) {
         // One line per intermediate generation, so a deferred-descent run shows its own shape:
@@ -765,19 +740,6 @@ void VCFOutputCaller::resolve_linkage_generation(size_t generation, bool last) {
         }
         write_mosaic(written);
     }
-    if (!linkage_nested_filters.empty()) {
-        size_t want_diploid = 0, want_haploid = 0, unreachable = 0;
-        for (const auto& kv : linkage_nested_filters) {
-            switch (kv.second) {
-                case LinkageCollector::NestedIncoherence::WantsDiploid: ++want_diploid; break;
-                case LinkageCollector::NestedIncoherence::WantsHaploid: ++want_haploid; break;
-                default: ++unreachable; break;
-            }
-        }
-        cerr << "[vg call] nested: " << linkage_nested_filters.size() << " records flagged, "
-             << want_diploid << " nested_diploid, " << want_haploid << " nested_haploid, "
-             << unreachable << " nested_unreachable" << endl;
-    }
 }
 
 void VCFOutputCaller::write_variants(ostream& out_stream, const SnarlManager* snarl_manager) {
@@ -874,12 +836,6 @@ void VCFOutputCaller::write_variants(ostream& out_stream, const SnarlManager* sn
                         break;
                     }
                 }
-            }
-        }
-        if (!linkage_nested_filters.empty()) {
-            auto found = linkage_nested_filters.find(id_key());
-            if (found != linkage_nested_filters.end()) {
-                apply_nested_filter(dest, found->second);
             }
         }
         out_stream << dest << endl;
@@ -1309,39 +1265,6 @@ void VCFOutputCaller::write_mosaic(const vector<LinkageCollector::PhaseCall>& ph
     }
     cerr << "[vg call] mosaic: " << total_segments << " segments over " << phasing.size()
          << " sites, written to " << mosaic_path << endl;
-}
-
-void VCFOutputCaller::apply_nested_filter(string& line,
-                                          LinkageCollector::NestedIncoherence::Kind kind) const {
-    // Column 7 of the eight fixed fields. Edited in place for the same reason apply_linkage_change
-    // is: re-parsing the record to a vcflib::Variant and reprinting it would reformat every float
-    // in the line, which makes an unrelated diff on 90% of records.
-    size_t start = 0;
-    for (int field = 0; field < 6; ++field) {
-        start = line.find('\t', start);
-        if (start == string::npos) {
-            return;
-        }
-        ++start;
-    }
-    size_t end = line.find('\t', start);
-    if (end == string::npos) {
-        return;
-    }
-    string tag;
-    switch (kind) {
-        case LinkageCollector::NestedIncoherence::WantsDiploid: tag = "nested_diploid"; break;
-        case LinkageCollector::NestedIncoherence::WantsHaploid: tag = "nested_haploid"; break;
-        default: tag = "nested_unreachable"; break;
-    }
-    // "." and "PASS" both mean "nothing to say", so the tag replaces them rather than joining them:
-    // a FILTER of "PASS;nested_diploid" is a contradiction.
-    string current = line.substr(start, end - start);
-    if (current == "." || current == "PASS" || current.empty()) {
-        line.replace(start, end - start, tag);
-    } else if (current.find(tag) == string::npos) {
-        line.replace(start, end - start, current + ";" + tag);
-    }
 }
 
 bool VCFOutputCaller::apply_phasing(string& line,
@@ -2408,7 +2331,7 @@ bool VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCa
                 // the parent's strand afterwards, and checks its ploidy against the parent's
                 // final genotype.
                 nested_context.active, nested_context.parent_record_key,
-                nested_context.parent_slot, nested_context.parent_crossing,
+                nested_context.parent_trav, nested_context.parent_crossing,
                 current_generation, added);
         }
     }
@@ -3941,6 +3864,19 @@ void FlowCaller::run_deferred_descent() {
                           && ((pr.parent_crossing >> parent.trav_second) & 1);
             int copies = (int)first + (int)second;
 
+            // The one derivation. Which of the parent's settled traversals carries this chain is the
+            // same fact as how many copies of it the sample has, so both come from `first`/`second`
+            // and nothing downstream re-decides either. Recorded even when the ploidy needs no
+            // change: the descent-time value was computed against the parent's *pre-linkage*
+            // genotype, and leaving it stale is what let the phasing pass and the barrier disagree
+            // about a chain neither had any reason to doubt.
+            // -1 means no settled traversal carries the chain; -2 means both do. Both are recorded
+            // here rather than recomputed when the child is phased, which is the point: the count
+            // and the identity come from the same two booleans, so they cannot disagree.
+            pr.parent_trav = copies == 1 ? (first ? parent.trav_first : parent.trav_second)
+                                         : (copies == 2 ? -2 : -1);
+            linkage_collector->set_parent_trav(pr.record_key, pr.parent_trav);
+
             if (copies == 0) {
                 if (pr.emitted) {
                     // A call on a haplotype the sample turns out not to have. The buffered line is
@@ -4046,7 +3982,7 @@ void FlowCaller::run_deferred_descent() {
                 vector<int> panel = panel_alleles(graph, pr.travs);
                 if (!linkage_collector->respecify(pr.record_key, used->genotype_lls, panel,
                                                   called_i, called_j, trav_to_allele_vec,
-                                                  (size_t)copies, copies == 1, pr.parent_slot,
+                                                  (size_t)copies, copies == 1, pr.parent_trav,
                                                   pr.parent_crossing)) {
                     // respecify refuses a site whose compact space it cannot build (no called
                     // traversal, no likelihoods, or more than 127 reachable alleles). If such a site
@@ -4072,7 +4008,7 @@ void FlowCaller::run_deferred_descent() {
                             pr.record_key, 1.0,
                             (size_t)copies, pr.snarl.start().node_id(), pr.snarl.end().node_id(),
                             copies == 1, pr.parent_record_key,
-                            pr.parent_slot, pr.parent_crossing, pr.generation, true);
+                            pr.parent_trav, pr.parent_crossing, pr.generation, true);
                     }
                 }
             }
@@ -4554,7 +4490,7 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
             pending_this->parent_record_key = nested_context.parent_record_key;
             pending_this->parent_crossing = nested_context.parent_crossing;
             pending_this->crossing_known = nested_context.crossing_known;
-            pending_this->parent_slot = nested_context.parent_slot;
+            pending_this->parent_trav = nested_context.parent_trav;
             pending_this->generation = (uint8_t)min(current_generation, (size_t)255);
             pending_this->emitted = !retain_only;
             // Where the sweep's line landed, so the barrier can retract or replace exactly that
@@ -4663,15 +4599,18 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
                     retain_only = true;
                 }
 
-                // A haploid child hangs off exactly one parent slot, and which one decides the
-                // strand its allele sits on once the parent is phased. Find it: the slot whose
-                // called allele crosses the child.
-                size_t slot = 0;
+                // A haploid child hangs off exactly one of the parent's called traversals, and
+                // which one decides the strand its allele sits on once the parent is phased. The
+                // traversal is recorded, not its index in the genotype: `record` sorts the pair and
+                // the Viterbi then orients it against the panel, so an index recorded here means
+                // nothing by the time the child is placed, while the traversal still names the same
+                // path through the parent.
+                int carrying_trav = -1;
                 if (copies == 1) {
                     for (size_t g = 0; g < trav_genotype.size(); ++g) {
                         vector<int> one(1, trav_genotype[g]);
                         if (child_ploidy(travs, one, *child, 1) == 1) {
-                            slot = g;
+                            carrying_trav = trav_genotype[g];
                             break;
                         }
                     }
@@ -4681,7 +4620,7 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
                 NestedContext saved = nested_context;
                 nested_context.active = (copies == 1);
                 nested_context.parent_record_key = std::hash<string>{}(print_snarl(snarl, false));
-                nested_context.parent_slot = slot;
+                nested_context.parent_trav = carrying_trav;
                 nested_context.retain_only = retain_only;
                 bool crossing_known = parent_alleles.valid;
                 // No dependence on the parent having emitted anything: the mask is over this
