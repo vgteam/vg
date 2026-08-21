@@ -1111,7 +1111,7 @@ void VCFOutputCaller::write_mosaic(const vector<LinkageCollector::PhaseCall>& ph
     // the portable identifier: a (sample, phase) pair, which is the unit the linkage model works
     // in -- a haplotype present in several GBWT fragments is one haplotype, so no single GBWT path
     // name would do. Name plus the segment's contig is enough to find the paths again.
-    out << "#mosaic-version\t2\n";
+    out << "#mosaic-version\t3\n";
     out << "#graph\t" << mosaic_graph_name << "\n";
     out << "#sample\t" << sample_name << "\n";
     for (const string& ref : mosaic_reference_paths) {
@@ -1124,7 +1124,9 @@ void VCFOutputCaller::write_mosaic(const vector<LinkageCollector::PhaseCall>& ph
         << "start_node/end_node are the authoritative anchors and are intrinsic to the graph.\n";
     out << "#note\tsegments are maximal runs on one panel haplotype; walk the haplotype "
         << "from start_node to end_node to reconstruct it. * means the panel does not "
-        << "explain that strand there.\n";
+        << "explain that strand there; . means that strand carries no sequence there at all, "
+        << "which is what a nested haploid site's other strand looks like. Version 2 spelled "
+        << "both with *.\n";
     out << "#note\thap_index is internal to this run; haplotype (sample#phase) is the portable "
         << "identifier and names a haplotype, not a single GBWT path.\n";
     for (size_t h = 0; h < mosaic_haplotype_names.size(); ++h) {
@@ -1168,8 +1170,31 @@ void VCFOutputCaller::write_mosaic(const vector<LinkageCollector::PhaseCall>& ph
     // it. Fragments partition a path, so this needs the run to leave and re-enter the same fragment
     // in reference order; it does not arise on this panel, and detecting it would cost the 2.3x
     // above.
-    std::function<void(size_t, size_t, int, size_t)> emit_span =
-        [&](size_t from, size_t to, int strand, size_t hap) {
+    // What a strand actually holds at a site. The file used to spell two different facts with one
+    // character: a nested haploid site's *other* strand has no sequence there at all, while an
+    // unexplained strand has sequence the panel cannot attribute to a haplotype. Conflating them is
+    // why the wildcard count is not a usable metric -- raw wildcard segments rose 437 -> 616 across
+    // the traversal-space work while the count that means only the second thing fell 463 -> 239.
+    //
+    // The discriminator is already on the record: a nested haploid site names the strand its allele
+    // sits on, so the *other* strand is the empty one. It has to reach segmentation and not only the
+    // writer, because a run is cut where the haplotype changes -- and without this a run could mix
+    // both kinds and then have no single character to print.
+    enum class StrandKind { Carried, Empty, Unexplained };
+    auto strand_kind = [&](size_t t, int strand) -> StrandKind {
+        const size_t hap = strand == 0 ? phasing[t].hap_first : phasing[t].hap_second;
+        if (hap != LinkageModel::WILDCARD) {
+            return StrandKind::Carried;
+        }
+        if (phasing[t].nested_strand >= 0 && (int)phasing[t].nested_strand != strand) {
+            return StrandKind::Empty;
+        }
+        return StrandKind::Unexplained;
+    };
+    size_t empty_segments = 0, unexplained_segments = 0;
+
+    std::function<void(size_t, size_t, int, size_t, StrandKind)> emit_span =
+        [&](size_t from, size_t to, int strand, size_t hap, StrandKind kind) {
         gbwt::edge_type pos = (hap == LinkageModel::WILDCARD)
                                   ? gbwt::invalid_edge()
                                   : mosaic_gbwt_position(phasing[from].start_node, hap);
@@ -1181,7 +1206,15 @@ void VCFOutputCaller::write_mosaic(const vector<LinkageCollector::PhaseCall>& ph
                 << a.position << "\t" << b.position << "\t"
                 << a.start_node << "\t" << b.end_node << "\t";
             if (hap == LinkageModel::WILDCARD) {
-                out << "*\t*";
+                // '.' for a strand with no sequence here, matching what the VCF already means by a
+                // '.' in a phased GT; '*' stays "the panel cannot name a haplotype".
+                if (kind == StrandKind::Empty) {
+                    out << ".\t.";
+                    ++empty_segments;
+                } else {
+                    out << "*\t*";
+                    ++unexplained_segments;
+                }
             } else {
                 out << hap << "\t"
                     << (hap < mosaic_haplotype_names.size()
@@ -1227,7 +1260,7 @@ void VCFOutputCaller::write_mosaic(const vector<LinkageCollector::PhaseCall>& ph
             }
         }
         emit_row(from, lo, pos);
-        emit_span(hi, to, strand, hap);
+        emit_span(hi, to, strand, hap, kind);
     };
 
     while (i < phasing.size()) {
@@ -1254,13 +1287,14 @@ void VCFOutputCaller::write_mosaic(const vector<LinkageCollector::PhaseCall>& ph
             size_t seg_start = i;
             for (size_t t = i; t < j; ++t) {
                 size_t hap = strand == 0 ? phasing[t].hap_first : phasing[t].hap_second;
-                size_t prev = strand == 0 ? phasing[seg_start].hap_first
-                                          : phasing[seg_start].hap_second;
+                StrandKind kind = strand_kind(t, strand);
                 bool last = (t + 1 == j);
+                // Cut on the kind too: two adjacent wildcard sites can mean different things, and a
+                // run holding both has no single character to print for its haplotype column.
                 bool changes = !last
-                               && (strand == 0 ? phasing[t + 1].hap_first
-                                               : phasing[t + 1].hap_second) != hap;
-                (void)prev;
+                               && ((strand == 0 ? phasing[t + 1].hap_first
+                                                : phasing[t + 1].hap_second) != hap
+                                   || strand_kind(t + 1, strand) != kind);
                 if (last || changes) {
                     // One run of a single haplotype, but possibly several GBWT fragments of it.
                     // A segment must be walkable from one position, so the run is cut wherever the
@@ -1268,7 +1302,7 @@ void VCFOutputCaller::write_mosaic(const vector<LinkageCollector::PhaseCall>& ph
                     // the position stops belonging to the same fragment, and emits one row per
                     // fragment. Without this a consumer following LF() from the segment's position
                     // would hit the endmarker partway and have no way to pick up the rest.
-                    emit_span(seg_start, t, strand, hap);
+                    emit_span(seg_start, t, strand, hap, kind);
                     seg_start = t + 1;
                 }
             }
@@ -1277,6 +1311,11 @@ void VCFOutputCaller::write_mosaic(const vector<LinkageCollector::PhaseCall>& ph
     }
     cerr << "[vg call] mosaic: " << total_segments << " segments over " << phasing.size()
          << " sites, written to " << mosaic_path << endl;
+    // Reported apart because they are different facts and the sum is the figure the old file
+    // reported as one. The unexplained half is the one comparable to the phasing report's count.
+    cerr << "[vg call] mosaic: " << empty_segments << " segments on a strand with no sequence there, "
+         << unexplained_segments << " the panel cannot name a haplotype for ("
+         << (empty_segments + unexplained_segments) << " were one figure before)" << endl;
 }
 
 bool VCFOutputCaller::apply_phasing(string& line,

@@ -9,7 +9,7 @@ PATH=../bin:$PATH # for vg
 # FORMAT field shifts every later one, which broke four assertions here that were not
 # testing field order at all -- one of them silently compared BL against a GQ threshold.
 
-plan tests 302
+plan tests 303
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -477,7 +477,7 @@ is $(grep -v "^#" rl_mosaic.tsv | awk -F'\t' '$9 == "?" {n++} END {print n+0}') 
 # --- the mosaic is self-describing ------------------------------------------
 # Three properties make the file readable without out-of-band knowledge: it names its reference, it
 # names its haplotypes portably, and it hands the consumer a GBWT position. One test each.
-is $(awk -F'\t' '$1=="#mosaic-version" {print $2}' rl_mosaic.tsv) "2" "the mosaic declares version 2"
+is $(awk -F'\t' '$1=="#mosaic-version" {print $2}' rl_mosaic.tsv) "3" "the mosaic declares version 3"
 
 # The set of header keys is the format's contract with a parser, and doc/read-likelihood-genotyping.md
 # enumerates it. Adding a key without documenting it is exactly the drift that shipped a header with
@@ -830,6 +830,14 @@ is $(awk -F'\t' '/^H\t/ && $3=="0" {n += $10} END {print n+0}' nest_hap.mosaic.t
 is $(awk -F'\t' '/^H\t/ {if ($3 in prev && $4 < prev[$3]) bad++; prev[$3]=$4} END {print bad+0}' \
      nest_hap.mosaic.tsv) "0" \
    "mosaic segments are in reference order within each strand"
+# The haplotype column carries two different facts and version 2 spelled both with *. The nested
+# fixture exercises both: the parent is het so one strand of the nested site carries its allele and
+# the other carries no sequence at all, which is "." -- while "*" is reserved for a strand whose
+# haplotype the panel cannot name. Asserted on the fixture because a count cannot tell them apart,
+# which is exactly the property being fixed. Fails before this change, where "." never appears.
+is $(awk -F'\t' '/^H\t/ && $8=="." {n++} END {if ((n+0) > 0) print "yes"; else print "no"}' \
+     nest_hap.mosaic.tsv) "yes" \
+   "a strand carrying no sequence is written . rather than *"
 # No GT may name an allele the record does not carry. The linkage layer settles on a candidate
 # traversal, not on an emitted allele, and those are different numberings: a traversal can have no
 # ALT on its own line, because symbolic collapsing folds some into the reference and the barrier can
