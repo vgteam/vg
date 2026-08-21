@@ -52,7 +52,8 @@ static void record_dense(LinkageCollector& c, const string& contig, size_t posit
                          size_t record_key, double share, size_t ploidy = 2,
                          int64_t start_node = 0, int64_t end_node = 0,
                          bool nested = false, size_t parent_record_key = 0, int parent_trav = -1,
-                         uint64_t parent_crossing = 0, size_t generation = 0) {
+                         uint64_t parent_crossing = 0, size_t generation = 0,
+                         bool emitted = true) {
     map<vector<int>, double> gls;
     if (ploidy == 1) {
         for (size_t a = 0; a < num_alleles && a < dense_gls.size(); ++a) {
@@ -74,13 +75,15 @@ static void record_dense(LinkageCollector& c, const string& contig, size_t posit
     }
     c.record(contig, position, gls, panel, (int)called_i, (int)called_j, ident, record_key,
              share, ploidy, start_node, end_node, nested, parent_record_key, parent_trav,
-             parent_crossing, generation, true);
+             parent_crossing, generation, emitted);
 }
 
-static bool respecify_dense(LinkageCollector& c, size_t record_key, size_t num_alleles,
+static bool respecify_dense(LinkageCollector& c, size_t record_key,
+                            const string& contig, size_t position, size_t num_alleles,
                             const vector<double>& dense_gls, const vector<int>& panel,
                             size_t called_i, size_t called_j, size_t ploidy,
-                            bool nested, int parent_trav, uint64_t parent_crossing) {
+                            bool nested, int parent_trav, uint64_t parent_crossing,
+                            bool emitted = true) {
     map<vector<int>, double> gls;
     if (ploidy == 1) {
         for (size_t a = 0; a < num_alleles && a < dense_gls.size(); ++a) {
@@ -100,8 +103,8 @@ static bool respecify_dense(LinkageCollector& c, size_t record_key, size_t num_a
     for (size_t i = 0; i < num_alleles; ++i) {
         ident[i] = (int)i;
     }
-    return c.respecify(record_key, gls, panel, (int)called_i, (int)called_j, ident, ploidy,
-                       nested, parent_trav, parent_crossing);
+    return c.respecify(record_key, contig, position, gls, panel, (int)called_i, (int)called_j,
+                       ident, ploidy, nested, parent_trav, parent_crossing, emitted);
 }
 
 TEST_CASE("Zero weight leaves the per-site genotype untouched", "[linkage_model]") {
@@ -446,10 +449,11 @@ TEST_CASE("respecify moves a site to the ploidy its settled parent implies", "[l
 
     // The settled parent turns out to cross on both haplotypes, so the child is diploid. Its
     // likelihoods are the triangular vector now, and it is no longer a nested haploid site.
-    REQUIRE(respecify_dense(collector, CHILD, 2, {-30.0, -30.0, 0.0}, {1, 1}, 1, 1, 2,
+    REQUIRE(respecify_dense(collector, CHILD, "chr1", 1010, 2, {-30.0, -30.0, 0.0}, {1, 1}, 1, 1, 2,
                                 /*nested*/ false, 0, 0));
     // An unknown key must say so rather than silently doing nothing.
-    REQUIRE_FALSE(respecify_dense(collector, 12345, 2, {0.0, -30.0, -30.0}, {0, 0}, 0, 0, 1, true, 0, 0));
+    REQUIRE_FALSE(respecify_dense(collector, 12345, "chr1", 1010, 2, {0.0, -30.0, -30.0}, {0, 0},
+                                  0, 0, 1, true, 0, 0));
 
     vector<LinkageCollector::PhaseCall> phased;
     collector.resolve(&phased);
@@ -937,6 +941,63 @@ TEST_CASE("Phasing is deterministic", "[linkage_model]") {
         REQUIRE(a[t].first == b[t].first);
         REQUIRE(a[t].second == b[t].second);
     }
+}
+
+
+TEST_CASE("A revised site stops being unemitted when the revision writes a line",
+          "[linkage_model]") {
+    // The whole point of recording unemitted sites is that a collapsed parent can still be phased.
+    // But "unemitted" is a property of the *current* record, not of the site, and the barrier is
+    // exactly where it changes: a chain no called parent allele reached during the sweep is recorded
+    // with no line, and becomes a real record once the settled parent turns out to carry it.
+    //
+    // respecify() did not update the flag, so such a chain stayed unemitted for the rest of the run.
+    // Both the genotype patch and the phase patch skip an unemitted entry -- deliberately, there is
+    // normally no line to patch -- so the record came out with neither: no linkage correction and no
+    // phase set, on 75 of chr20's 117,097 records. Nothing in the output said so; the site simply
+    // had a slash where every other record had a bar.
+    LinkageModel::Params p;
+    p.weight = 1.0;
+    p.scale = 100000.0;
+    p.rho_min = 1e-4;
+
+    const size_t A = 1, B = 2;
+
+    LinkageCollector collector(p, 2);
+    // An ordinary neighbour, so there is a chain for the revised site to be phased within.
+    record_dense(collector, "chr1", 1000, 2, {-30.0, 0.0, -30.0}, {1, 0}, 0, 1, A,
+                 /*share*/ 1.0, /*ploidy*/ 2, /*start*/ 10, /*end*/ 20);
+    // Recorded with no line of its own, as a chain nothing was written for during the sweep.
+    record_dense(collector, "chr1", 1010, 2, {-30.0, 0.0, -30.0}, {1, 0}, 0, 1, B,
+                 /*share*/ 1.0, /*ploidy*/ 2, /*start*/ 11, /*end*/ 12,
+                 /*nested*/ false, /*parent*/ 0, /*parent_trav*/ -1, /*crossing*/ 0,
+                 /*generation*/ 0, /*emitted*/ false);
+
+    // The barrier revises it and this time a line is written.
+    // Re-emitted 3 bp along, because changing the emitted allele set moves POS: this is exactly
+    // the case where an entry left at the sweep-time position becomes unreachable by both patches.
+    REQUIRE(respecify_dense(collector, B, "chr1", 1013, 2, {-30.0, 0.0, -30.0}, {1, 0}, 0, 1,
+                            /*ploidy*/ 2, /*nested*/ false, /*parent_trav*/ -1,
+                            /*crossing*/ 0, /*emitted*/ true));
+
+    vector<LinkageCollector::PhaseCall> phased;
+    collector.resolve(&phased);
+
+    const LinkageCollector::PhaseCall* revised = nullptr;
+    for (const auto& pc : phased) {
+        if (pc.record_key == B) {
+            revised = &pc;
+        }
+    }
+    REQUIRE(revised != nullptr);
+    // The assertion that matters: it is patchable. Without it the record is emitted and then
+    // skipped by every patch, which is indistinguishable in the output from never having been
+    // phased at all.
+    REQUIRE(revised->emitted);
+    // And it is patchable at the position the replacement line was actually written to. The patch
+    // indices are keyed on (contig, POS), so an entry still filed at the sweep-time position is
+    // never looked up -- the patches are not declined, they are never offered.
+    REQUIRE(revised->position == 1013);
 }
 
 }

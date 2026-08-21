@@ -9,7 +9,7 @@ PATH=../bin:$PATH # for vg
 # FORMAT field shifts every later one, which broke four assertions here that were not
 # testing field order at all -- one of them silently compared BL against a GQ threshold.
 
-plan tests 301
+plan tests 302
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -778,6 +778,17 @@ is $(grep -v "^#" nest_hap.vcf | cut -f10 | cut -d: -f1 | grep -cE '^[0-9]+$') "
 # 289 of chr20's 292 strandless records with an unphased parent.
 is $(grep -c "collapsed sites phased with no line of their own" nest_hap_err.txt) "1" \
    "a site that emits no line is still phased, so its children can inherit a strand"
+# The invariant the whole nested effort is for, asserted on the progress output because it covers
+# every generation at once rather than only the records that reached the VCF. Each of the four ways
+# a nested chain could fail to get a strand -- carried on both parent strands, carried on neither,
+# no phased parent, or an unresolved generation -- was a real population on chr20 (440, 0, 19 and 0)
+# and each traced back to the same mistake: treating "no VCF line was written" as "nothing to
+# record". A nonzero count here means that has come back.
+is $(awk '/nested strands:/ {for (i=1;i<=NF;i++) if ($i ~ /^[0-9]+$/) v[++n]=$i;
+      split($0, p, "placed on one strand"); split(p[1], q, " ");
+      if ($0 !~ /0 carried on both parent strands \(0 with a line\), 0 on neither \(0 with a line\), 0 with no phased parent/) bad++}
+      END {print bad+0}' nest_hap_err.txt) "0" \
+   "every nested chain is placed on exactly one parent strand"
 # Not "the FILTERs never fire" -- they no longer exist to fire. A nested chain takes its ploidy and
 # its strand from one reading of its parent's settled pair, namely which of that pair's traversals
 # carries the chain, so having one copy and sitting on that traversal's strand are the same

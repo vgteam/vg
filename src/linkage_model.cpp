@@ -1315,12 +1315,13 @@ size_t LinkageCollector::bytes() const {
 }
 
 bool LinkageCollector::respecify(size_t record_key,
+                                 const string& contig, size_t position,
                                  const map<vector<int>, double>& genotype_ln_likelihood,
                                  const vector<int>& haplotype_traversal,
                                  int called_trav_i, int called_trav_j,
                                  const vector<int>& traversal_to_allele,
                                  size_t ploidy, bool nested, int parent_trav,
-                                 uint64_t parent_crossing) {
+                                 uint64_t parent_crossing, bool emitted) {
     if (genotype_ln_likelihood.empty() || called_trav_i < 0) {
         return false;
     }
@@ -1379,6 +1380,32 @@ bool LinkageCollector::respecify(size_t record_key,
         e.called_j = (uint16_t)cj;
         e.ploidy = (uint8_t)site_ploidy;
         e.nested = nested;
+        // Whether a line exists is a property of the revision, not of the original record. A chain
+        // the sweep wrote nothing for is recorded unemitted and may become a real record here; not
+        // updating this left it invisible to both the genotype patch and the phase patch.
+        e.emitted = emitted;
+        // Re-key onto the line that now exists. Re-emitting at a different ploidy changes the
+        // emitted allele set, and POS is advanced by the prefix every allele shares, so the
+        // replacement is filed under a position the sweep's entry does not name. The patch indices
+        // are keyed on (contig, POS), so leaving this alone did not *decline* the patches -- it
+        // meant they were never looked up at all.
+        {
+            uint32_t contig_id = 0;
+            bool found_contig = false;
+            for (size_t i = 0; i < contig_names.size(); ++i) {
+                if (contig_names[i] == contig) {
+                    contig_id = (uint32_t)i;
+                    found_contig = true;
+                    break;
+                }
+            }
+            if (!found_contig) {
+                contig_id = (uint32_t)contig_names.size();
+                contig_names.push_back(contig);
+            }
+            e.contig = contig_id;
+            e.position = (uint32_t)position;
+        }
         e.parent_trav = (int16_t)parent_trav;
         e.parent_crossing = parent_crossing;
         e.gl_offset = (uint32_t)gl_arena.size();
@@ -1847,6 +1874,10 @@ vector<LinkageCollector::Change> LinkageCollector::resolve_generation(
         // there and the record names one allele. The barrier re-renders these at ploidy 2 wherever
         // an answer at that ploidy was kept, so this is the residue where none was.
         size_t carried_on_both = 0;
+        // Split by whether a VCF line exists, because since collapsed sites started being recorded
+        // these counters see line-less entries too, and a figure that mixes records with entries
+        // that were never records cannot be read as a defect count.
+        size_t carried_on_both_emitted = 0, unplaced_no_strand_emitted = 0;
         // Nested sites that never found a phased parent, so no strand could be derived for them at
         // all. Counted because they are the population that comes out with a bare haploid GT, and
         // the report below used to describe only the sites whose parent *was* found.
@@ -1931,6 +1962,7 @@ vector<LinkageCollector::Change> LinkageCollector::resolve_generation(
                     // the barrier re-renders such a chain at ploidy 2 whenever an answer at that
                     // ploidy was kept, and this is the residue where none was.
                     ++carried_on_both;
+                    carried_on_both_emitted += e.emitted;
                     pc.hap_first = parent.hap_first;
                     pc.hap_second = parent.hap_second;
                 } else if (strand < 0) {
@@ -1938,6 +1970,7 @@ vector<LinkageCollector::Change> LinkageCollector::resolve_generation(
                     // claiming one would write a variant into the emitted genome that the parent
                     // record does not carry.
                     ++unplaced_no_strand;
+                    unplaced_no_strand_emitted += e.emitted;
                     pc.hap_first = LinkageModel::WILDCARD;
                     pc.hap_second = LinkageModel::WILDCARD;
                 } else {
@@ -2183,8 +2216,9 @@ vector<LinkageCollector::Change> LinkageCollector::resolve_generation(
                       << (deferred_nested.size() - carried_on_both - unplaced_no_strand
                           - unplaced)
                       << " placed on one strand; " << carried_on_both
-                      << " carried on both parent strands, " << unplaced_no_strand
-                      << " on neither, " << unplaced
+                      << " carried on both parent strands (" << carried_on_both_emitted
+                      << " with a line), " << unplaced_no_strand << " on neither ("
+                      << unplaced_no_strand_emitted << " with a line), " << unplaced
                       << " with no phased parent -- the last two get no strand" << std::endl;
         }
 

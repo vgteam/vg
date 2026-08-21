@@ -3809,6 +3809,49 @@ void FlowCaller::run_deferred_descent() {
         pr.buffer_thread = -1;
     };
 
+    // parent record key -> indices of its pending children, so that dropping a chain can drop
+    // everything under it. Built once: `pending` does not grow during the barrier.
+    unordered_map<size_t, vector<size_t>> children_of;
+    children_of.reserve(pending.size() * 2);
+    for (size_t i = 0; i < pending.size(); ++i) {
+        children_of[pending[i].parent_record_key].push_back(i);
+    }
+    // Drop a chain and its whole subtree: the settled parent does not carry the chain, so the
+    // sample has no copy of it, and nothing nested inside a sequence the sample lacks exists
+    // either. Returns how many entries were actually retracted, for the report.
+    //
+    // Iterative rather than recursive because the depth is data, not a constant, and breadth-first
+    // over an explicit stack cannot blow the C++ stack on a pathological hierarchy.
+    std::function<size_t(size_t)> drop_subtree = [&](size_t root) -> size_t {
+        size_t dropped_here = 0;
+        vector<size_t> stack{root};
+        while (!stack.empty()) {
+            size_t idx = stack.back();
+            stack.pop_back();
+            PendingRecord& victim = pending[idx];
+            if (victim.dropped) {
+                continue;
+            }
+            victim.dropped = true;
+            if (linkage_collector != nullptr && linkage_collector->retract(victim.record_key)) {
+                ++dropped_here;
+            }
+            if (victim.emitted) {
+                blank_buffered_line(victim);
+                victim.emitted = false;
+            }
+            auto kids = children_of.find(victim.record_key);
+            if (kids != children_of.end()) {
+                for (size_t k : kids->second) {
+                    if (k != idx) {
+                        stack.push_back(k);
+                    }
+                }
+            }
+        }
+        return dropped_here;
+    };
+
     size_t revised = 0, retracted = 0, gained = 0, crossing_unknown = 0, stale_respecify = 0;
     // `generations` is re-read at the end of each pass rather than snapshotted once: gaining a
     // chain records a linkage entry at a generation the collector may never have held before, and
@@ -3832,8 +3875,9 @@ void FlowCaller::run_deferred_descent() {
         for (const LinkageCollector::PhaseCall& pc : linkage_phased) {
             settled[pc.record_key] = &pc;
         }
-        for (PendingRecord& pr : pending) {
-            if (pr.generation != gen + 1) {
+        for (size_t i = 0; i < pending.size(); ++i) {
+            PendingRecord& pr = pending[i];
+            if (pr.generation != gen + 1 || pr.dropped) {
                 continue;
             }
             if (!pr.crossing_known) {
@@ -3878,16 +3922,17 @@ void FlowCaller::run_deferred_descent() {
             linkage_collector->set_parent_trav(pr.record_key, pr.parent_trav);
 
             if (copies == 0) {
-                if (pr.emitted) {
-                    // A call on a haplotype the sample turns out not to have. The buffered line is
-                    // blanked rather than flagged: this is what `nested_unreachable` used to label
-                    // and keep.
-                    if (linkage_collector->retract(pr.record_key)) {
-                        ++retracted;
-                    }
-                    blank_buffered_line(pr);
-                    pr.emitted = false;
-                }
+                // A call on a haplotype the sample turns out not to have -- and everything inside
+                // it is on that same absent haplotype, so the whole subtree goes with it.
+                //
+                // Two things here were wrong. The retraction was conditional on a line existing,
+                // which since collapsed sites started being recorded left line-less entries in the
+                // layer at a ploidy their parent contradicts. And it never reached descendants: a
+                // grandchild kept its own line and pointed at an entry that no longer existed,
+                // which is precisely what the phasing pass reports as "no phased parent" -- and it
+                // explains why that count was zero at generation 1, where the parent is top-level
+                // and so was never a pending record that could be retracted.
+                retracted += drop_subtree(i);
                 continue;
             }
             if (copies == pr.ploidy && pr.emitted) {
@@ -3952,14 +3997,23 @@ void FlowCaller::run_deferred_descent() {
             // flattens to nothing, and false when add_variant rejects it. Only a replacement that
             // actually landed in the buffer may displace the sweep's line -- registering the
             // replacement first used to delete the site when the re-emit wrote nothing.
-            if (last_emitted.buffer_thread < 0 || !wrote) {
+            if (!wrote) {
+                // add_variant refused a line it wanted to write. Leave the sweep's line and its
+                // entry exactly as they are.
                 continue;
             }
+            // "No line" is a legitimate replacement, not a failure. At the ploidy its parent
+            // implies, this chain's best genotype can be the reference -- which collapses here and
+            // buffers nothing -- and that answer supersedes the sweep's line just as much as a
+            // written one does. Reading it as nothing-to-do is what left 440 of chr20's nested
+            // chains recorded at the superseded ploidy, still `nested`, for the rest of the run,
+            // where they were then reported as carried on both parent strands.
+            const bool landed = last_emitted.buffer_thread >= 0;
             if (pr.emitted) {
                 blank_buffered_line(pr);
             }
-            pr.buffer_thread = last_emitted.buffer_thread;
-            pr.buffer_index = last_emitted.buffer_index;
+            pr.buffer_thread = landed ? last_emitted.buffer_thread : -1;
+            pr.buffer_index = landed ? last_emitted.buffer_index : 0;
 
             // Put the site into the linkage layer at its new ploidy, before its own generation
             // resolves. This is the coherence guarantee: the ploidy a nested record carries is
@@ -3980,10 +4034,12 @@ void FlowCaller::run_deferred_descent() {
                 int called_i = use_genotype.empty() ? -1 : use_genotype[0];
                 int called_j = use_genotype.size() > 1 ? use_genotype[1] : called_i;
                 vector<int> panel = panel_alleles(graph, pr.travs);
-                if (!linkage_collector->respecify(pr.record_key, used->genotype_lls, panel,
+                if (!linkage_collector->respecify(pr.record_key,
+                                                  last_emitted.contig, last_emitted.position,
+                                                  used->genotype_lls, panel,
                                                   called_i, called_j, trav_to_allele_vec,
                                                   (size_t)copies, copies == 1, pr.parent_trav,
-                                                  pr.parent_crossing)) {
+                                                  pr.parent_crossing, landed)) {
                     // respecify refuses a site whose compact space it cannot build (no called
                     // traversal, no likelihoods, or more than 127 reachable alleles). If such a site
                     // is already in the layer, its entry describes the line this barrier pass has
@@ -4008,11 +4064,11 @@ void FlowCaller::run_deferred_descent() {
                             pr.record_key, 1.0,
                             (size_t)copies, pr.snarl.start().node_id(), pr.snarl.end().node_id(),
                             copies == 1, pr.parent_record_key,
-                            pr.parent_trav, pr.parent_crossing, pr.generation, true);
+                            pr.parent_trav, pr.parent_crossing, pr.generation, landed);
                     }
                 }
             }
-            pr.emitted = true;
+            pr.emitted = landed;
             if (was_gained) {
                 ++gained;
             } else {

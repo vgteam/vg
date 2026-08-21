@@ -939,6 +939,10 @@ protected:
         /// so it always names a traversal in the parent's current settled pair.
         int parent_trav = -1;
         uint8_t generation = 0;
+        /// Set when the settled parent turns out not to carry this chain, directly or through an
+        /// ancestor. Such a chain does not exist in the sample, so neither do its descendants, and
+        /// nothing below it may be revised or emitted afterwards.
+        bool dropped = false;
         /// Whether a record was written during the sweep. False where no called parent allele reached
         /// it, which is exactly the population the barrier may turn into a call.
         bool emitted = false;
