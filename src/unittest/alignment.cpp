@@ -624,33 +624,33 @@ TEST_CASE("Supplementary alignments can identified and processed", "[alignment][
 
         SECTION("Can identify a complete partition of the read") {
 
-            auto supps = identify_supplementaries(alns, read_coverage, separation, score_fraction, min_size);
+            auto supps = identify_supplementaries(alns, read_coverage, separation, separation, separation, score_fraction, min_size);
             sort(supps.begin(), supps.end());
             REQUIRE(supps == vector<size_t>{1, 2});
         }
 
         SECTION("Respects the mininmum size constraint") {
             min_size = 6;
-            auto supps = identify_supplementaries(alns, read_coverage, separation, score_fraction, min_size);
+            auto supps = identify_supplementaries(alns, read_coverage, separation, separation, separation, score_fraction, min_size);
             REQUIRE(supps.size() == 2);
             min_size = 7;
-            supps = identify_supplementaries(alns, read_coverage, separation, score_fraction, min_size);
+            supps = identify_supplementaries(alns, read_coverage, separation, separation, separation, score_fraction, min_size);
             REQUIRE(supps.empty());
         }
 
         SECTION("Respects the mininmum score constraint") {
             score_fraction = 5.0 / 8.0;
-            auto supps = identify_supplementaries(alns, read_coverage, separation, score_fraction, min_size);
+            auto supps = identify_supplementaries(alns, read_coverage, separation, separation, separation, score_fraction, min_size);
             REQUIRE(supps.size() == 2);
             score_fraction = 0.7;
-            supps = identify_supplementaries(alns, read_coverage, separation, score_fraction, min_size);
+            supps = identify_supplementaries(alns, read_coverage, separation, separation, separation, score_fraction, min_size);
             REQUIRE(supps.empty());
         }
 
         SECTION("Respects read coverage constraint") {
 
             read_coverage = 1.0;
-            auto supps = identify_supplementaries(alns, read_coverage, separation, score_fraction, min_size);
+            auto supps = identify_supplementaries(alns, read_coverage, separation, separation, separation, score_fraction, min_size);
             REQUIRE(supps.size() == 2);
 
             auto m = alns[2].mutable_path()->mutable_mapping(0);
@@ -664,18 +664,20 @@ TEST_CASE("Supplementary alignments can identified and processed", "[alignment][
             e2->set_to_length(2);
 
             read_coverage = 0.95;
-            supps = identify_supplementaries(alns, read_coverage, separation, score_fraction, min_size);
+            supps = identify_supplementaries(alns, read_coverage, separation, separation, separation, score_fraction, min_size);
             REQUIRE(supps.size() == 2);
 
             read_coverage = 0.96;
-            supps = identify_supplementaries(alns, read_coverage, separation, score_fraction, min_size);
+            supps = identify_supplementaries(alns, read_coverage, separation, separation, separation, score_fraction, min_size);
             REQUIRE(supps.size() == 0);
         }
 
         SECTION("Respects separation constraint") {
 
             separation = 0;
-            auto supps = identify_supplementaries(alns, read_coverage, separation, score_fraction, min_size);
+            int overlap = 0;
+            int ends_uncovered = 0;
+            auto supps = identify_supplementaries(alns, read_coverage, separation, overlap, ends_uncovered, score_fraction, min_size);
             REQUIRE(supps.size() == 2);
 
             auto m = alns[2].mutable_path()->mutable_mapping(0);
@@ -688,12 +690,15 @@ TEST_CASE("Supplementary alignments can identified and processed", "[alignment][
             e2->set_from_length(2);
             e2->set_to_length(2);
 
-            supps = identify_supplementaries(alns, read_coverage, separation, score_fraction, min_size);
+            separation = 0;
+            supps = identify_supplementaries(alns, read_coverage, separation, overlap, ends_uncovered, score_fraction, min_size);
             REQUIRE(supps.size() == 0);
 
             separation = 1;
-            supps = identify_supplementaries(alns, read_coverage, separation, score_fraction, min_size);
+            supps = identify_supplementaries(alns, read_coverage, separation, overlap, ends_uncovered, score_fraction, min_size);
             REQUIRE(supps.size() == 2);
+
+            separation = 0;
 
             // add a base of overlap
             e1->set_sequence("CAAGTTCTGCTTT");
@@ -702,19 +707,54 @@ TEST_CASE("Supplementary alignments can identified and processed", "[alignment][
             e2->set_to_length(4);
             m->mutable_position()->set_offset(3);
 
-            separation = 0;
-            supps = identify_supplementaries(alns, read_coverage, separation, score_fraction, min_size);
+            overlap = 0;
+            supps = identify_supplementaries(alns, read_coverage, separation, overlap, ends_uncovered, score_fraction, min_size);
             REQUIRE(supps.size() == 0);
 
-            separation = 1;
-            supps = identify_supplementaries(alns, read_coverage, separation, score_fraction, min_size);
+            overlap = 1;
+            supps = identify_supplementaries(alns, read_coverage, separation, overlap, ends_uncovered, score_fraction, min_size);
             REQUIRE(supps.size() == 2);
+
+            overlap = 0;
+
+
             
             // return it to the original state
             e1->set_sequence("CAAGTTCTGCTTTC");
             e1->set_to_length(14);
             e2->set_from_length(3);
             e2->set_to_length(3);
+            
+            // make a soft-clip at the end
+            {
+                auto m2 = alns[2].mutable_path()->mutable_mapping(1);
+                auto e3 = m2->mutable_edit(1);
+                e3->set_from_length(1);
+                e3->set_to_length(1);
+                auto e4 = m2->add_edit();
+                e4->set_from_length(0);
+                e4->set_to_length(1);
+                e4->set_sequence("T");
+            }
+
+            ends_uncovered = 0;
+            supps = identify_supplementaries(alns, read_coverage, separation, overlap, ends_uncovered, score_fraction, min_size);
+            REQUIRE(supps.size() == 0);
+
+            ends_uncovered = 1;
+            supps = identify_supplementaries(alns, read_coverage, separation, overlap, ends_uncovered, score_fraction, min_size);
+            REQUIRE(supps.size() == 2);
+
+            ends_uncovered = 0;
+            
+            // convert back from soft-clip
+            {
+                auto m2 = alns[2].mutable_path()->mutable_mapping(1);
+                auto e3 = m2->mutable_edit(1);
+                e3->set_from_length(2);
+                e3->set_to_length(2);
+                m2->mutable_edit()->RemoveLast();
+            }
 
             // split it into two alignments
 
@@ -740,11 +780,11 @@ TEST_CASE("Supplementary alignments can identified and processed", "[alignment][
             score_fraction = 0.1;
 
             separation = 1;
-            supps = identify_supplementaries(alns, read_coverage, separation, score_fraction, min_size);
+            supps = identify_supplementaries(alns, read_coverage, separation, overlap, ends_uncovered, score_fraction, min_size);
             REQUIRE(supps.size() == 3);
 
             separation = 0;
-            supps = identify_supplementaries(alns, read_coverage, separation, score_fraction, min_size);
+            supps = identify_supplementaries(alns, read_coverage, separation, overlap, ends_uncovered, score_fraction, min_size);
             REQUIRE(supps.size() == 0);
         }
     }
