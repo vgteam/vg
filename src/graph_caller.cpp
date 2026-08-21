@@ -681,7 +681,15 @@ void VCFOutputCaller::resolve_linkage_generation(size_t generation, bool last) {
     // last pass can run more than once when the barrier gains a chain at a deeper generation than
     // anything recorded before it.
     linkage_phasings.clear();
+    size_t phased_unwritten = 0;
     for (const LinkageCollector::PhaseCall& pc : linkage_phased) {
+        if (!pc.emitted) {
+            // Phased, and deliberately so -- its children read their strand off it -- but there is
+            // no line to patch and it is not a record, so it must not enter the patch index, the
+            // mosaic, or any count of records. Counted on its own instead.
+            ++phased_unwritten;
+            continue;
+        }
         vector<LinkageCollector::PhaseCall>& bucket =
             linkage_phasings[make_pair(pc.contig, pc.position)];
         bool updated = false;
@@ -719,8 +727,18 @@ void VCFOutputCaller::resolve_linkage_generation(size_t generation, bool last) {
         // The wildcard count is the honest caveat on a chromosome-length phase block: at
         // those sites the panel does not name a strand, so the phase either side of them
         // rests on the transition model alone.
-        cerr << "[vg call] phasing: " << linkage_phased.size() << " sites phased, "
-             << unexplained << " with a strand the panel does not explain" << endl;
+        cerr << "[vg call] phasing: " << (linkage_phased.size() - phased_unwritten)
+             << " sites phased, " << unexplained
+             << " with a strand the panel does not explain" << endl;
+        if (phased_unwritten > 0) {
+            // Sites that wrote no VCF line and are phased anyway. A parent whose alleles differ
+            // only inside its children collapses to the reference and emits nothing, and its
+            // children still need to know which of its two haplotypes carries the chain. This is
+            // the population that used to be absent from the layer altogether.
+            cerr << "[vg call] phasing: " << phased_unwritten
+                 << " collapsed sites phased with no line of their own, so their children can"
+                 << " inherit a strand" << endl;
+        }
         if (order_arbitrary > 0) {
             // A heterozygous site where no panel haplotype on either strand spells either called
             // allele. The record still comes out phased and in the block, because it has a
@@ -733,7 +751,19 @@ void VCFOutputCaller::resolve_linkage_generation(size_t generation, bool last) {
         }
     }
     if (!mosaic_path.empty()) {
-        write_mosaic(linkage_phased);
+        // Records only. The mosaic's segments are runs over *sites in the call set*, and its site
+        // counts are index arithmetic over the vector it is handed, so a collapsed site with no
+        // line would inflate every run it fell inside and break the invariant that the mosaic
+        // accounts for exactly the emitted records. Tracing a path through those sites is what
+        // stage 5 of the traversal-space plan is for, and it needs more than a row count.
+        vector<LinkageCollector::PhaseCall> written;
+        written.reserve(linkage_phased.size());
+        for (const LinkageCollector::PhaseCall& pc : linkage_phased) {
+            if (pc.emitted) {
+                written.push_back(pc);
+            }
+        }
+        write_mosaic(written);
     }
     if (!linkage_nested_filters.empty()) {
         size_t want_diploid = 0, want_haploid = 0, unreachable = 0;
@@ -2308,72 +2338,90 @@ bool VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCa
         last_emitted.position = out_variant.position;
     }
 
-    if (genotype_snarls || !out_variant.alt.empty()) {
-        bool added = add_variant(out_variant);
+    // Whether this site wants a line at all. A traversal pair differing from the reference only
+    // inside child chains collapses to allele 0 here and leaves `alt` empty -- that is what
+    // symbolic collapsing means -- and such a site is exactly the one whose children need it most.
+    const bool wants_line = genotype_snarls || !out_variant.alt.empty();
+    bool added = false;
+    if (wants_line) {
+        added = add_variant(out_variant);
         if (added) {
             // Exactly which buffered line this record became, so the barrier can retract or
             // replace it without re-deriving its identity from the text.
             last_emitted.buffer_thread = omp_get_thread_num();
             last_emitted.buffer_index = output_variants[omp_get_thread_num()].size() - 1;
         }
-        if (added && linkage_collector != nullptr && !suppress_linkage_record) {
-            // Phase one of the linkage pass: keep the compact site, not the record. See
-            // LinkageCollector for why the CallInfo cannot be retained instead.
-            const ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo* rl_info =
-                dynamic_cast<const ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo*>(
-                    call_info.get());
-            // Haploid chains are fed too. They used to be dropped here by a `size() == 2` guard,
-            // which silently cost chrY and non-pseudoautosomal chrX both the linkage layer and any
-            // mosaic -- about 5% of a genome, and the part where the mosaic is the whole answer.
-            size_t site_ploidy = site_genotype.size();
-            bool alleles_ok = (site_ploidy == 1 || site_ploidy == 2);
-            for (size_t k = 0; k < site_genotype.size() && alleles_ok; ++k) {
-                alleles_ok = site_genotype[k] >= 0;
-            }
-            if (rl_info != nullptr && alleles_ok) {
-                // Traversal space, straight through. genotype_lls is already keyed by candidate
-                // traversal index and panel_alleles already returns them, so there is nothing to
-                // remap -- the collector builds its own compact space from these. The remap that
-                // used to happen here is what made two numberings exist at once, and both the
-                // scrambled-emission bug and the barrier's mirror of it lived in that gap.
-                vector<int> trav_to_allele_vec(called_traversals.size(), -1);
-                for (const auto& kv : trav_to_allele) {
-                    if (kv.first >= 0 && (size_t)kv.first < trav_to_allele_vec.size()) {
-                        trav_to_allele_vec[kv.first] = kv.second;
-                    }
-                }
-                int called_i = genotype.empty() ? -1 : genotype[0];
-                int called_j = genotype.size() > 1 ? genotype[1] : called_i;
-                linkage_collector->record(
-                    out_variant.sequenceName, out_variant.position,
-                    rl_info->genotype_lls,
-                    panel_alleles(graph, called_traversals),
-                    called_i, called_j, trav_to_allele_vec,
-                    // A key intrinsic to the site, so ordering cannot depend on which thread got
-                    // there first.
-                    std::hash<string>{}(out_variant.id),
-                    // So a rewritten GQ can carry the same discount the per-site GQ did.
-                    rl_info->explained_share, site_genotype.size(),
-                    // Snarl boundaries, so the mosaic can anchor on node IDs.
-                    (int64_t)snarl.start().node_id(), (int64_t)snarl.end().node_id(),
-                    // Nested provenance: keeps the site out of the diploid chain runs, places it on
-                    // the parent's strand afterwards, and checks its ploidy against the parent's
-                    // final genotype.
-                    nested_context.active, nested_context.parent_record_key,
-                    nested_context.parent_slot, nested_context.parent_crossing,
-                    current_generation, true);
-            }
-        }
-        if (!added) {
-            stringstream ss;
-            ss << out_variant;
-            cerr << "Warning [vg call]: Skipping variant at " << out_variant.sequenceName << ":" << out_variant.position
-                 << " with ID=" << out_variant.id << " because its line length of " << ss.str().length() << " exceeds vg's limit of "
-                 << VCFOutputCaller::max_vcf_line_length << endl;
-        }
-        return added;
     }
-    return true;
+    // The linkage layer is fed whether or not a line exists, which is the whole of stage 2.
+    //
+    // A parent that collapses to the reference still HAS two alleles; they differ only inside its
+    // children, which is precisely the information those children need to know which of its
+    // haplotypes carries the chain. Entering it only when it wrote a line meant it was absent from
+    // the model entirely, so 289 of chr20's 292 strandless haploid records had no phased parent to
+    // inherit from -- and nothing distinguished that from a strand that was genuinely undecidable.
+    //
+    // Recording it under the *emitted* allele numbering would not have worked and is worth saying
+    // so: collapsing maps every one of its called traversals to allele 0, so it would enter as
+    // 0/0, and a homozygous-reference site has no strand distinction to inherit. It is only in
+    // traversal space that it is a real heterozygous site.
+    if (linkage_collector != nullptr && !suppress_linkage_record) {
+        // Phase one of the linkage pass: keep the compact site, not the record. See
+        // LinkageCollector for why the CallInfo cannot be retained instead.
+        const ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo* rl_info =
+            dynamic_cast<const ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo*>(
+                call_info.get());
+        // Haploid chains are fed too. They used to be dropped here by a `size() == 2` guard,
+        // which silently cost chrY and non-pseudoautosomal chrX both the linkage layer and any
+        // mosaic -- about 5% of a genome, and the part where the mosaic is the whole answer.
+        size_t site_ploidy = site_genotype.size();
+        bool alleles_ok = (site_ploidy == 1 || site_ploidy == 2);
+        for (size_t k = 0; k < site_genotype.size() && alleles_ok; ++k) {
+            alleles_ok = site_genotype[k] >= 0;
+        }
+        if (rl_info != nullptr && alleles_ok) {
+            // Traversal space, straight through. genotype_lls is already keyed by candidate
+            // traversal index and panel_alleles already returns them, so there is nothing to
+            // remap -- the collector builds its own compact space from these. The remap that
+            // used to happen here is what made two numberings exist at once, and both the
+            // scrambled-emission bug and the barrier's mirror of it lived in that gap.
+            vector<int> trav_to_allele_vec(called_traversals.size(), -1);
+            for (const auto& kv : trav_to_allele) {
+                if (kv.first >= 0 && (size_t)kv.first < trav_to_allele_vec.size()) {
+                    trav_to_allele_vec[kv.first] = kv.second;
+                }
+            }
+            int called_i = genotype.empty() ? -1 : genotype[0];
+            int called_j = genotype.size() > 1 ? genotype[1] : called_i;
+            linkage_collector->record(
+                out_variant.sequenceName, out_variant.position,
+                rl_info->genotype_lls,
+                panel_alleles(graph, called_traversals),
+                called_i, called_j, trav_to_allele_vec,
+                // A key intrinsic to the site, so ordering cannot depend on which thread got
+                // there first.
+                std::hash<string>{}(out_variant.id),
+                // So a rewritten GQ can carry the same discount the per-site GQ did.
+                rl_info->explained_share, site_genotype.size(),
+                // Snarl boundaries, so the mosaic can anchor on node IDs.
+                (int64_t)snarl.start().node_id(), (int64_t)snarl.end().node_id(),
+                // Nested provenance: keeps the site out of the diploid chain runs, places it on
+                // the parent's strand afterwards, and checks its ploidy against the parent's
+                // final genotype.
+                nested_context.active, nested_context.parent_record_key,
+                nested_context.parent_slot, nested_context.parent_crossing,
+                current_generation, added);
+        }
+    }
+    if (wants_line && !added) {
+        stringstream ss;
+        ss << out_variant;
+        cerr << "Warning [vg call]: Skipping variant at " << out_variant.sequenceName << ":" << out_variant.position
+             << " with ID=" << out_variant.id << " because its line length of " << ss.str().length() << " exceeds vg's limit of "
+             << VCFOutputCaller::max_vcf_line_length << endl;
+    }
+    // Unchanged contract, and the barrier depends on the distinction: true when the record
+    // flattened to nothing, false only when add_variant refused a line it wanted to write.
+    return wants_line ? added : true;
 }
 
 tuple<int64_t, int64_t, bool, step_handle_t, step_handle_t> VCFOutputCaller::get_ref_interval(

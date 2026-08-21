@@ -9,7 +9,7 @@ PATH=../bin:$PATH # for vg
 # FORMAT field shifts every later one, which broke four assertions here that were not
 # testing field order at all -- one of them silently compared BL against a GQ threshold.
 
-plan tests 298
+plan tests 300
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -744,7 +744,7 @@ is $(grep -v "^#" nest_nested.vcf | awk 'length($4) == 1 && length($5) == 1' | w
 rm -f nest_hap.gam nest_hap.vcf
 vg sim -x nest.gbz -n 300 -l 40 -a -s 31 --path "p2#0#chr1#0" > nest_hap.gam 2>/dev/null
 vg sim -x nest.gbz -n 300 -l 40 -a -s 37 --path "p2#1#chr1#0" >> nest_hap.gam 2>/dev/null
-vg call nest.gbz --read-likelihood --gam nest_hap.gam -t 1 -s samp --nested --phased 2>/dev/null > nest_hap.vcf
+vg call nest.gbz --read-likelihood --gam nest_hap.gam -t 1 -s samp --nested --phased 2>nest_hap_err.txt > nest_hap.vcf
 is "$?" 0 "--nested --phased runs with a heterozygous deletion over nested sites"
 # What this fixture is really about: whether the parent's genotype is right, because everything
 # inside the chain follows from it.
@@ -766,6 +766,18 @@ is $(grep -vc "^#" nest_hap.vcf) "2" \
 # carries it, which is what no phasing tool could read and what the mosaic alone used to know.
 is $(grep -v "^#" nest_hap.vcf | awk -F'\t' '$2 == 51 {split($10,a,":"); print a[1]}') ".|1" \
    "the nested haploid record names the strand its parent leaves the chain on"
+# The invariant the whole nested-strand effort exists to produce, asserted directly rather than
+# through a count that could be satisfied for the wrong reason. A bare "1" says an allele is present
+# without saying which haplotype carries it, which no phasing tool can read; every called allele
+# here must name its strand, whether by a pair or by a pair with an empty side.
+is $(grep -v "^#" nest_hap.vcf | cut -f10 | cut -d: -f1 | grep -cE '^[0-9]+$') "0" \
+   "no record carries a bare haploid genotype: every called allele names the strand it sits on"
+# And the mechanism that makes that possible on a collapsed parent: a site that writes no VCF line
+# is still entered into the linkage layer and phased, because its two alleles differ only inside its
+# children and those children need to know which is which. Gating entry on the line is what left
+# 289 of chr20's 292 strandless records with an unphased parent.
+is $(grep -c "collapsed sites phased with no line of their own" nest_hap_err.txt) "1" \
+   "a site that emits no line is still phased, so its children can inherit a strand"
 is $(grep -v "^#" nest_hap.vcf | awk -F'\t' '$7 ~ /nested_(diploid|haploid|unreachable)/ {n++} END {print n+0}') \
    "0" "no record needs a nested coherence FILTER, because the ploidy cannot disagree"
 # And the parent still reports its deletion: symbolic collapsing must not swallow a real event.
@@ -819,7 +831,7 @@ is $(awk -F'\t' '!/^#/ {n = ($5 == "." || $5 == "") ? 0 : split($5, a, ","); \
      nest_nested.vcf) "0" \
    "no nested GT names an allele the record has no ALT for"
 
-rm -f nest.gfa nest.gbz nest.gam nest_default.vcf nest_nested.vcf nest_hap.gam nest_hap.vcf nest_hap.mosaic.tsv x.vg x.gbz x.gbwt sim.gam x.pack call.vcf callg.vcf callz.vcf callg.6 callz.6 callrl_nopack.vcf callrl_nopack_z.vcf callrl_withpack.vcf nopack_err.txt sim.sorted.gam sim.sorted.gam.gai rl_inmem.vcf rl_indexed.vcf gi_err.txt gb_err.txt gb_excl.txt gb_norl.txt gb_nobin.txt sim.gaf sim.gaf.db x.gbz.db rl_gafmem.vcf rl_gafbase.vcf rl_gafbase_t4.vcf rl_gafbase_w32.vcf rl_autoz_full.vcf rl_autoz.vcf rl_explicit_z.vcf rl_support_full.vcf rl_support.vcf es_nopack.txt es_z.txt es_g.txt nopanel.vg nopanel.gbwt nopanel.gbz nopanel.pack nopanel_err.txt poisson_default.vcf poisson_z.vcf rl_phased.vcf rl_default.vcf rl_nophase.vcf rl_nopanel.vcf rl_nopanel_err.txt rl_unphased_gt.txt rl_phased_gt.txt rl_ph_err.txt rl_mosaic.tsv rl_mosaic2.tsv rl_hap.vcf rl_hap_mosaic.tsv
+rm -f nest.gfa nest.gbz nest.gam nest_default.vcf nest_nested.vcf nest_hap.gam nest_hap.vcf nest_hap_err.txt nest_hap.mosaic.tsv x.vg x.gbz x.gbwt sim.gam x.pack call.vcf callg.vcf callz.vcf callg.6 callz.6 callrl_nopack.vcf callrl_nopack_z.vcf callrl_withpack.vcf nopack_err.txt sim.sorted.gam sim.sorted.gam.gai rl_inmem.vcf rl_indexed.vcf gi_err.txt gb_err.txt gb_excl.txt gb_norl.txt gb_nobin.txt sim.gaf sim.gaf.db x.gbz.db rl_gafmem.vcf rl_gafbase.vcf rl_gafbase_t4.vcf rl_gafbase_w32.vcf rl_autoz_full.vcf rl_autoz.vcf rl_explicit_z.vcf rl_support_full.vcf rl_support.vcf es_nopack.txt es_z.txt es_g.txt nopanel.vg nopanel.gbwt nopanel.gbz nopanel.pack nopanel_err.txt poisson_default.vcf poisson_z.vcf rl_phased.vcf rl_default.vcf rl_nophase.vcf rl_nopanel.vcf rl_nopanel_err.txt rl_unphased_gt.txt rl_phased_gt.txt rl_ph_err.txt rl_mosaic.tsv rl_mosaic2.tsv rl_hap.vcf rl_hap_mosaic.tsv
 
 
 # subpath test

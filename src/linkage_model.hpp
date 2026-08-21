@@ -451,6 +451,12 @@ public:
         /// nested site's strand from the parent's phased pair measured worse than the traversal-order
         /// slot recorded at descent -- see the Stage 7 notes in the companion evaluation repository.
         bool order_arbitrary = false;
+
+        /// Whether a VCF line exists for this site. Sites that wrote none are still phased -- a
+        /// parent whose alleles differ only inside its children has a real pair of haplotypes, and
+        /// its children need to know which is which -- but they are not records, so nothing that
+        /// counts or patches records may include them.
+        bool emitted = true;
     };
 
     /// A nested site whose ploidy the final parent genotype does not support.
