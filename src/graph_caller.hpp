@@ -901,6 +901,11 @@ public:
     /// Sizes the per-thread queues, so call it before calling starts.
     void set_defer_nested_descent(bool defer);
 
+    /// How many render records are staged. Reported under --progress; the assertion that this is
+    /// non-zero on a graph with no nesting at all is what proves the top-level branch stages too.
+    size_t render_record_count() const;
+
+
     /// Resolve, descend, repeat until nothing is queued. One linkage pass per level of the snarl
     /// tree that descent actually reaches -- six on chr20, with 99.6% of the descents in the first
     /// three. Does nothing unless deferral is on, and leaves the linkage pass resolved either way,
@@ -1013,6 +1018,29 @@ protected:
 
     /// Filled per thread during the sweep, which is parallel over node-ID windows.
     vector<vector<PendingRecord>> pending_records;
+
+    /// The same retention, for snarls the barrier does not revise -- top-level ones, whose ploidy
+    /// comes from the contig or the BED and is never re-derived from a parent.
+    ///
+    /// A second container rather than one, because `run_deferred_descent` MOVES `pending_records`
+    /// out and clears it: anything left there is gone by the time a render pass could read it. And
+    /// because its `children_of` index buckets by `parent_record_key`, so every top-level record
+    /// would land under key 0 and be walked as a sibling set.
+    ///
+    /// Nothing reads this yet. It exists so the memory cost of building the record after the
+    /// genotype is decided is paid, and measured, in a commit whose output is byte-identical --
+    /// which is the one risk in that change a reviewer cannot check by reading.
+    vector<vector<PendingRecord>> render_records;
+
+    /// Stage the inputs a record could be rendered from, for a snarl the barrier will not revise.
+    /// Consumes `call_info` but deliberately NOT the traversals: descent still reads those. The
+    /// caller completes the record after descent, exactly as it does for a nested chain.
+    unique_ptr<PendingRecord> stage_render_record(const Snarl& snarl,
+                                                 const vector<int>& trav_genotype, int ref_trav_idx,
+                                                 unique_ptr<SnarlCaller::CallInfo>& call_info,
+                                                 const string& ref_path_name, int ref_offset,
+                                                 int ploidy, bool emitted);
+
 
     /// How many nested chains were retained across all threads.
     size_t pending_record_count() const;

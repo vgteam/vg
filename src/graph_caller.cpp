@@ -3874,6 +3874,8 @@ void FlowCaller::set_defer_nested_descent(bool defer) {
         // assign(n, {}) would need to copy its prototype into each slot.
         pending_records.clear();
         pending_records.resize(max(threads, (size_t)1));
+        render_records.clear();
+        render_records.resize(max(threads, (size_t)1));
     }
 }
 
@@ -3883,6 +3885,47 @@ size_t FlowCaller::pending_record_count() const {
         n += queue.size();
     }
     return n;
+}
+
+size_t FlowCaller::render_record_count() const {
+    size_t n = 0;
+    for (const auto& queue : render_records) {
+        n += queue.size();
+    }
+    return n;
+}
+
+/// Stage the inputs a record could be rendered from, for a snarl the barrier will not revise.
+///
+/// Everything `emit_variant` needs that is not recoverable from the graph: the traversals, the
+/// genotype over them, and the CallInfo -- which is not optional. `update_vcf_info` maps emitted
+/// alleles back to matrix columns by structural comparison of SnarlTraversal objects, indexes GL by
+/// the sorted matrix-column multiset, and derives QUAL by renormalising the all-reference posterior
+/// over that same map. Retaining allele strings alone cannot rebuild any of it.
+unique_ptr<FlowCaller::PendingRecord> FlowCaller::stage_render_record(
+        const Snarl& snarl, const vector<int>& trav_genotype, int ref_trav_idx,
+        unique_ptr<SnarlCaller::CallInfo>& call_info,
+        const string& ref_path_name, int ref_offset, int ploidy, bool emitted) {
+    if (render_records.empty()) {
+        return nullptr;
+    }
+    unique_ptr<PendingRecord> rec(new PendingRecord());
+    rec->snarl = snarl;
+    rec->ref_path_name = ref_path_name;
+    rec->ref_offset = ref_offset;
+    rec->ref_trav_idx = ref_trav_idx;
+    rec->genotype = trav_genotype;
+    rec->ploidy = ploidy;
+    rec->record_key = std::hash<string>{}(print_snarl(snarl, false));
+    rec->generation = 0;
+    rec->emitted = emitted;
+    rec->call_info = std::move(call_info);
+    // `travs` is NOT taken here. Descent runs after every emit branch, top-level included, and reads
+    // `travs` to work out which children the called alleles reach -- so moving it out at emit time
+    // empties it before that loop and every child comes back with a copy number of zero. That is the
+    // failure the nested branch's staging discipline exists to avoid (2,494 chr20 records, commit
+    // 906812957); doing it in the top-level branch cost 12,302. Staged here, completed after descent.
+    return rec;
 }
 
 void FlowCaller::run_deferred_descent() {
@@ -4202,6 +4245,50 @@ void FlowCaller::run_deferred_descent() {
         }
     }
     if (show_progress) {
+        // Exact, not estimated, and deterministic -- which matters because peak RSS cannot resolve a
+        // delta this size: six runs of one binary on chr20 spread 3.39 to 4.42 GB, wider than the
+        // retention itself. Two independent sizing estimates disagreed by 1.9x and both were
+        // guesses; this walks the objects.
+        size_t retained_bytes = 0, retained_visits = 0, retained_gls = 0;
+        auto measure = [&](const PendingRecord& rec) {
+            retained_bytes += sizeof(PendingRecord) + rec.ref_path_name.capacity()
+                              + rec.genotype.capacity() * sizeof(int);
+            retained_bytes += rec.travs.capacity() * sizeof(SnarlTraversal);
+            for (const SnarlTraversal& t : rec.travs) {
+                retained_visits += (size_t)t.visit_size();
+                retained_bytes += (size_t)t.visit_size() * sizeof(Visit);
+            }
+            const auto* rl = dynamic_cast<const ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo*>(
+                rec.call_info.get());
+            if (rl != nullptr) {
+                for (const auto& kv : rl->genotype_lls) {
+                    ++retained_gls;
+                    retained_bytes += 48 + kv.first.capacity() * sizeof(int) + sizeof(double);
+                }
+                if (rl->alt_ploidy_info != nullptr) {
+                    for (const auto& kv : rl->alt_ploidy_info->genotype_lls) {
+                        ++retained_gls;
+                        retained_bytes += 48 + kv.first.capacity() * sizeof(int) + sizeof(double);
+                    }
+                }
+            }
+        };
+        for (const auto& queue : render_records) {
+            for (const auto& rec : queue) {
+                measure(rec);
+            }
+        }
+        for (const auto& rec : pending) {
+            measure(rec);
+        }
+        // "Not revised by the barrier" rather than "top-level": recurse-on-fail reaches children with
+        // no ploidy override, so they take the same path. On chr20 that is 165,408 top-level snarls
+        // plus 26,799 such children.
+        cerr << "[vg call] retained for rendering: " << render_record_count()
+             << " snarls the barrier will not revise, plus " << pending.size()
+             << " nested chains; " << (retained_bytes / (1024.0 * 1024.0)) << " MB over "
+             << retained_visits << " traversal visits and " << retained_gls
+             << " genotype likelihoods" << endl;
         cerr << "[vg call] single sweep: " << pending.size() << " nested chains retained over "
              << (generations + 1) << " generations; " << revised << " revised, " << gained
              << " reachable only under the settled parent, " << retracted << " retracted";
@@ -4232,6 +4319,9 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
     // Staged in the nested branch below and completed after the descent loop, because the loop reads
     // `travs` and this record is what finally takes ownership of it.
     unique_ptr<PendingRecord> pending_this;
+    // The same staging, for a snarl the barrier will not revise. Completed at the same point and for
+    // the same reason: `travs` cannot be moved until descent has finished reading it.
+    unique_ptr<PendingRecord> render_this;
     // Whether THIS invocation ran emit_variant, so the descent block below knows the thread-local
     // last_emitted describes this snarl. A retained chain (and a GAF run) skips the emit, and the
     // stale mapping -- some other snarl's -- must not be used for its children's crossing masks.
@@ -4598,6 +4688,9 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
             added = emit_variant(graph, snarl_caller, snarl, travs, trav_genotype, ref_trav_idx, trav_call_info, ref_path_name,
                                  ref_offsets[ref_path_name], genotype_snarls, ploidy);
             emitted_this_call = true;
+            render_this = stage_render_record(snarl, trav_genotype, ref_trav_idx, trav_call_info,
+                                              ref_path_name, ref_offsets[ref_path_name], ploidy,
+                                              added);
         } else {
             pair<string, int64_t> pos_info = get_ref_position(graph, snarl, ref_path_name, ref_offsets[ref_path_name]);
             emit_gaf_variant(graph, print_snarl(snarl), travs, trav_genotype, ref_trav_idx, pos_info.first, pos_info.second, &support_finder);
@@ -4680,6 +4773,9 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
             added = emit_variant(graph, snarl_caller, snarl, travs, trav_genotype, ref_trav_idx, trav_call_info, ref_path_name,
                                  ref_offsets[ref_path_name], genotype_snarls, ploidy);
             emitted_this_call = true;
+            render_this = stage_render_record(snarl, trav_genotype, ref_trav_idx, trav_call_info,
+                                              ref_path_name, ref_offsets[ref_path_name], ploidy,
+                                              added);
         } else {
             pair<string, int64_t> pos_info = get_ref_position(graph, snarl, ref_path_name, ref_offsets[ref_path_name]);
             emit_gaf_variant(graph, print_snarl(snarl), travs, trav_genotype, ref_trav_idx, pos_info.first, pos_info.second, &support_finder);
@@ -4810,12 +4906,6 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
         }
     }
 
-    // Descent has finished with `travs`, so the staged record can take it and be stored.
-    if (pending_this != nullptr) {
-        pending_this->travs = std::move(travs);
-        pending_records[omp_get_thread_num()].push_back(std::move(*pending_this));
-        pending_this.reset();
-    }
 
     // In nested mode, recursively call child snarls
     if (nested && !trav_genotype.empty()) {
@@ -4857,6 +4947,22 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
             }
         }
     }
+
+    // Both traversal readers are behind us now -- symbolic descent above, and the `-A` recursion
+    // just above, which builds each child's ChildTraversalSets out of `travs[allele_idx]`. Only here
+    // can the staged record take them. Completing it one block earlier broke four -A and --top-down
+    // tests; completing it at emit time cost 12,302 chr20 records. At most one of these is set: a
+    // snarl is either revised by the barrier or it is not.
+    if (pending_this != nullptr) {
+        pending_this->travs = std::move(travs);
+        pending_records[omp_get_thread_num()].push_back(std::move(*pending_this));
+        pending_this.reset();
+    } else if (render_this != nullptr) {
+        render_this->travs = std::move(travs);
+        render_records[omp_get_thread_num()].push_back(std::move(*render_this));
+        render_this.reset();
+    }
+
 
     return ret_val;
 }
