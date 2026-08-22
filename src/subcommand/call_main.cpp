@@ -1994,6 +1994,11 @@ int main_call(int argc, char** argv) {
     // Resolve, descend, repeat. Nothing below this needs to know which mode ran: the loop leaves
     // the linkage pass resolved, and write_variants' own resolve is idempotent.
     if (deferring_caller != nullptr) {
+        // Emit the records the sweep staged rather than wrote, before the barrier runs: `record()`
+        // still lives inside `emit_variant`, so the collector has to be populated before the barrier
+        // resolves anything. Stage 10 moves this after the linkage resolution, which is when
+        // `record()` has to come out of `emit_variant`.
+        deferring_caller->render_retained_records();
         deferring_caller->run_deferred_descent();
     }
 

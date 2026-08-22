@@ -912,6 +912,18 @@ public:
     ///
     /// Needs the linkage layer and phasing, since the settled allele pair comes from the phasing.
     /// Sizes the per-thread queues, so call it before calling starts.
+    /// Emit the records staged during the sweep, in one pass.
+    ///
+    /// Stage 9 of planning/decide-then-render.md, and deliberately the smallest step that proves the
+    /// mechanism: the pass runs immediately after the sweep and BEFORE the barrier, so `record()` is
+    /// still called before the linkage layer resolves and needs no decoupling. Output must not move
+    /// at all, which is only checkable because the buffer sort became total in `abba6f288`.
+    ///
+    /// Stage 10 moves this pass after `resolve_linkage` and renders from the settled genotype; that
+    /// is when `record()` has to leave `emit_variant`, since the barrier would otherwise resolve an
+    /// empty collector.
+    void render_retained_records();
+
     void set_defer_nested_descent(bool defer);
 
     /// How many render records are staged. Reported under --progress; the assertion that this is
@@ -1044,6 +1056,7 @@ protected:
     /// genotype is decided is paid, and measured, in a commit whose output is byte-identical --
     /// which is the one risk in that change a reviewer cannot check by reading.
     vector<vector<PendingRecord>> render_records;
+
 
     /// Stage the inputs a record could be rendered from, for a snarl the barrier will not revise.
     /// Consumes `call_info` but deliberately NOT the traversals: descent still reads those. The

@@ -3928,6 +3928,37 @@ unique_ptr<FlowCaller::PendingRecord> FlowCaller::stage_render_record(
     return rec;
 }
 
+void FlowCaller::render_retained_records() {
+    if (render_records.empty()) {
+        return;
+    }
+    // Thread-locals are the hazard here, not the records. `emit_variant` reads `nested_context` and
+    // `current_generation` when it records the site, and in a batch pass those hold whatever the last
+    // snarl this thread happened to genotype left behind. A stale `nested_context.active` would file a
+    // top-level site as nested -- which does not fail loudly: it would put the site into the nested
+    // strand population instead of the diploid chain, silently. Every record here is one the barrier
+    // does not revise, so the context is reset per record rather than trusted.
+    const size_t n_threads = render_records.size();
+#pragma omp parallel for schedule(dynamic, 1)
+    for (size_t t = 0; t < n_threads; ++t) {
+        NestedContext saved_ctx = nested_context;
+        size_t saved_gen = current_generation;
+        nested_context = NestedContext();
+        current_generation = 0;
+        for (PendingRecord& rec : render_records[t]) {
+            emit_variant(graph, snarl_caller, rec.snarl, rec.travs, rec.genotype, rec.ref_trav_idx,
+                         rec.call_info, rec.ref_path_name, rec.ref_offset, genotype_snarls,
+                         rec.ploidy);
+        }
+        nested_context = saved_ctx;
+        current_generation = saved_gen;
+    }
+    if (show_progress) {
+        cerr << "[vg call] rendered " << render_record_count()
+             << " retained records after the sweep" << endl;
+    }
+}
+
 void FlowCaller::run_deferred_descent() {
     if (!defer_nested_descent) {
         return;
@@ -4685,12 +4716,20 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
         if (use_parent_interval) {
             added = true;
         } else if (!gaf_output) {
-            added = emit_variant(graph, snarl_caller, snarl, travs, trav_genotype, ref_trav_idx, trav_call_info, ref_path_name,
-                                 ref_offsets[ref_path_name], genotype_snarls, ploidy);
-            emitted_this_call = true;
+            // Staged, not emitted: `render_retained_records` writes it after the sweep. `added` is
+            // the value emit_variant would have returned, and the only caller that reads it here is
+            // the ret_val below, which gates recursion -- so it must not become "the line was
+            // written", which is not known yet. A staged record is a record that will be written.
             render_this = stage_render_record(snarl, trav_genotype, ref_trav_idx, trav_call_info,
                                               ref_path_name, ref_offsets[ref_path_name], ploidy,
-                                              added);
+                                              true);
+            added = render_this != nullptr;
+            if (!added) {
+                added = emit_variant(graph, snarl_caller, snarl, travs, trav_genotype, ref_trav_idx,
+                                     trav_call_info, ref_path_name, ref_offsets[ref_path_name],
+                                     genotype_snarls, ploidy);
+            }
+            emitted_this_call = true;
         } else {
             pair<string, int64_t> pos_info = get_ref_position(graph, snarl, ref_path_name, ref_offsets[ref_path_name]);
             emit_gaf_variant(graph, print_snarl(snarl), travs, trav_genotype, ref_trav_idx, pos_info.first, pos_info.second, &support_finder);
@@ -4770,12 +4809,20 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
 
         bool added = true;
         if (!gaf_output) {
-            added = emit_variant(graph, snarl_caller, snarl, travs, trav_genotype, ref_trav_idx, trav_call_info, ref_path_name,
-                                 ref_offsets[ref_path_name], genotype_snarls, ploidy);
-            emitted_this_call = true;
+            // Staged, not emitted: `render_retained_records` writes it after the sweep. `added` is
+            // the value emit_variant would have returned, and the only caller that reads it here is
+            // the ret_val below, which gates recursion -- so it must not become "the line was
+            // written", which is not known yet. A staged record is a record that will be written.
             render_this = stage_render_record(snarl, trav_genotype, ref_trav_idx, trav_call_info,
                                               ref_path_name, ref_offsets[ref_path_name], ploidy,
-                                              added);
+                                              true);
+            added = render_this != nullptr;
+            if (!added) {
+                added = emit_variant(graph, snarl_caller, snarl, travs, trav_genotype, ref_trav_idx,
+                                     trav_call_info, ref_path_name, ref_offsets[ref_path_name],
+                                     genotype_snarls, ploidy);
+            }
+            emitted_this_call = true;
         } else {
             pair<string, int64_t> pos_info = get_ref_position(graph, snarl, ref_path_name, ref_offsets[ref_path_name]);
             emit_gaf_variant(graph, print_snarl(snarl), travs, trav_genotype, ref_trav_idx, pos_info.first, pos_info.second, &support_finder);
