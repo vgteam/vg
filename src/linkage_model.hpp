@@ -346,25 +346,6 @@ public:
         : params(params), model(params), n_haplotypes(num_haplotypes) {}
 
     /// A genotype the linkage pass wants changed, identified by the key the caller supplied.
-    struct Change {
-        size_t record_key = 0;
-        /// Where to apply it. The output buffer already stores (contig, position) uncompressed as
-        /// its sort key, so a change can be matched without keeping the record itself.
-        string contig;
-        size_t position = 0;
-        /// The genotype the per-site model chose. Checked before patching: two records can share a
-        /// position, and patching the wrong one would be silent.
-        size_t called_i = 0;
-        size_t called_j = 0;
-        size_t allele_i = 0;
-        size_t allele_j = 0;
-        double posterior = 0.0;
-        /// The site's explained-read share, carried through so the rewritten GQ can be
-        /// discounted the same way the per-site GQ was. Without it a changed record
-        /// reports an undiscounted quality while every other record reports a discounted
-        /// one, and `GQ <= GQI` -- true everywhere else -- fails on about 5% of records.
-        double explained_share = 1.0;
-    };
 
     /// Record one genotyped site. Safe to call from several threads.
     ///
@@ -476,7 +457,7 @@ public:
     /// makes the phasing agree with the VCF; constraining to the pre-linkage calls would phase a
     /// genotype set that is never emitted.
     ///
-    vector<Change> resolve(vector<PhaseCall>* phasing_out = nullptr) {
+    size_t resolve(vector<PhaseCall>* phasing_out = nullptr) {
         return resolve_generation(0, true, phasing_out);
     }
 
@@ -501,7 +482,18 @@ public:
     ///
     /// With every entry at generation 0 -- which is every run without `--nested-after-linkage` --
     /// this is exactly the single pass it replaces, since nothing is ever clamped or held back.
-    vector<Change> resolve_generation(size_t generation, bool last,
+    /// Posterior and explained-read share for each site the model moved, by record key.
+    ///
+    /// The quality of a moved genotype is not derivable from the read likelihoods alone -- it is the
+    /// phred complement of the HMM posterior, discounted by the explained share and capped at GQI --
+    /// and the posterior exists only here. Exposed rather than pushed into a patch because the record
+    /// is built after the decision, so whoever builds it can ask.
+    const std::unordered_map<size_t, std::pair<double, double>>& moved_quality() const {
+        return moved_quality_by_record;
+    }
+
+    /// Returns how many sites the model moved off their called genotype.
+    size_t resolve_generation(size_t generation, bool last,
                                       vector<PhaseCall>* phasing_out = nullptr);
 
     /// Move a site to a different ploidy before its generation is resolved.
@@ -716,6 +708,9 @@ private:
     vector<int8_t> allele_arena;
     vector<string> contig_names;
 
+
+    /// record key -> (posterior of the settled genotype, explained-read share).
+    std::unordered_map<size_t, std::pair<double, double>> moved_quality_by_record;
 
     mutable std::mutex mutex;
 };

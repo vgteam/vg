@@ -359,14 +359,24 @@ TEST_CASE("The collector keeps sites compactly and re-decides only what changed"
     // allocations for every site.
     REQUIRE(collector.bytes() < 2 * 128 + 6 * 4 + 8);
 
-    auto changes = collector.resolve();
-    // Site 1 was already called 1/1 and must not be reported; site 2 was called 0/0 and linkage
+    const size_t moved = collector.resolve();
+    // Site 1 was already called 1/1 and must not be counted; site 2 was called 0/0 and linkage
     // should move it to 1/1.
-    REQUIRE(changes.size() == 1);
-    REQUIRE(changes[0].record_key == 22);
-    REQUIRE(changes[0].allele_i == 1);
-    REQUIRE(changes[0].allele_j == 1);
-    REQUIRE(changes[0].posterior > 0.5);
+    //
+    // Asserted on the settled genotype rather than on a patch's contents. The record is built from
+    // the settled pair now, so that pair is the observable and the patch it used to describe does
+    // not exist.
+    REQUIRE(moved == 1);
+    int a = -1, b = -1;
+    size_t settled_ploidy = 0;
+    REQUIRE(collector.settled_traversals(22, &a, &b, &settled_ploidy));
+    REQUIRE(settled_ploidy == 2);
+    REQUIRE(a == 1);
+    REQUIRE(b == 1);
+    // And the site that was already right stayed where it was.
+    REQUIRE(collector.settled_traversals(11, &a, &b, &settled_ploidy));
+    REQUIRE(a == 1);
+    REQUIRE(b == 1);
 }
 
 TEST_CASE("The collector reports nothing at zero weight", "[linkage_model]") {
@@ -377,7 +387,7 @@ TEST_CASE("The collector reports nothing at zero weight", "[linkage_model]") {
     LinkageCollector collector(p, 4);
     record_dense(collector, "chr1", 1000, 2, {-30.0, -30.0, 0.0}, {1, 1, 0, 0}, 1, 1, 11, /*share*/ 1.0);
     record_dense(collector, "chr1", 1100, 2, {0.0, -30.0, 0.0}, {1, 1, 0, 0}, 0, 0, 22, /*share*/ 1.0);
-    REQUIRE(collector.resolve().empty());
+    REQUIRE(collector.resolve() == 0);
 }
 
 TEST_CASE("The collector does not link across contigs", "[linkage_model]") {
@@ -396,8 +406,8 @@ TEST_CASE("The collector does not link across contigs", "[linkage_model]") {
     record_dense(split, "chr1", 1000, 2, {-30.0, -30.0, 0.0}, {1, 1, 0, 0}, 1, 1, 11, /*share*/ 1.0);
     record_dense(split, "chr2", 1100, 2, {0.0, -30.0, 0.0}, {1, 1, 0, 0}, 0, 0, 22, /*share*/ 1.0);
 
-    REQUIRE(same.resolve().size() == 1);
-    REQUIRE(split.resolve().empty());
+    REQUIRE(same.resolve() == 1);
+    REQUIRE(split.resolve() == 0);
 }
 
 TEST_CASE("The collector sorts by reference position, not arrival order",
@@ -418,14 +428,17 @@ TEST_CASE("The collector sorts by reference position, not arrival order",
     record_dense(shuffled, "chr1", 1100, 2, {0.0, -30.0, 0.0}, {1, 1, 0, 0}, 0, 0, 22, /*share*/ 1.0);
     record_dense(shuffled, "chr1", 1000, 2, {-30.0, -30.0, 0.0}, {1, 1, 0, 0}, 1, 1, 11, /*share*/ 1.0);
 
-    auto a = ordered.resolve();
-    auto b = shuffled.resolve();
-    REQUIRE(a.size() == b.size());
-    for (size_t i = 0; i < a.size(); ++i) {
-        REQUIRE(a[i].record_key == b[i].record_key);
-        REQUIRE(a[i].allele_i == b[i].allele_i);
-        REQUIRE(a[i].allele_j == b[i].allele_j);
-        REQUIRE(a[i].posterior == Approx(b[i].posterior).margin(1e-12));
+    // Order-independence asserted on the settled genotypes, which is what the caller reads, rather
+    // than on the order of a patch list that no longer exists.
+    REQUIRE(ordered.resolve() == shuffled.resolve());
+    for (size_t key : {(size_t)11, (size_t)22}) {
+        int ai = -1, aj = -1, bi = -1, bj = -1;
+        size_t ap = 0, bp = 0;
+        REQUIRE(ordered.settled_traversals(key, &ai, &aj, &ap));
+        REQUIRE(shuffled.settled_traversals(key, &bi, &bj, &bp));
+        REQUIRE(ai == bi);
+        REQUIRE(aj == bj);
+        REQUIRE(ap == bp);
     }
 }
 

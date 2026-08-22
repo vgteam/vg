@@ -730,7 +730,7 @@ void VCFOutputCaller::finalise_linkage_outputs() {
     }
     cerr << "[vg call] linkage: " << linkage_collector->num_sites() << " sites, "
          << (linkage_collector->bytes() / (1024.0 * 1024.0)) << " MB retained, "
-         << linkage_changed << " genotypes changed, " << linkage_seconds << " s" << endl;
+         << linkage_changed << " genotypes moved by linkage, " << linkage_seconds << " s" << endl;
     if (emit_phasing) {
         // The wildcard count is the honest caveat on a chromosome-length phase block: at
         // those sites the panel does not name a strand, so the phase either side of them
@@ -789,35 +789,23 @@ void VCFOutputCaller::resolve_linkage_generation(size_t generation, bool last) {
     // `linkage_phased` accumulates across generations rather than being replaced. The model needs
     // the earlier generations back: a nested site's strand is read off its parent's PhaseCall, and
     // a clamped site's phase is pinned to the pair already emitted for it.
-    vector<LinkageCollector::Change> resolved =
+    const size_t moved =
         linkage_collector->resolve_generation(generation, last,
                                               emit_phasing ? &linkage_phased : nullptr);
     double seconds = std::chrono::duration<double>(
         std::chrono::steady_clock::now() - start).count();
     linkage_seconds += seconds;
-    linkage_changed += resolved.size();
-    for (const LinkageCollector::Change& c : resolved) {
-        // Upsert by record_key: several records can share a position, and a site revised at the
-        // barrier can produce a second Change for the same key.
-        vector<LinkageCollector::Change>& bucket = linkage_changes[make_pair(c.contig, c.record_key)];
-        bool updated = false;
-        for (LinkageCollector::Change& existing : bucket) {
-            if (existing.record_key == c.record_key) {
-                existing = c;
-                updated = true;
-                break;
-            }
-        }
-        if (!updated) {
-            bucket.push_back(c);
-        }
-    }
+    // How many sites the model moved off the genotype the reads alone chose. This used to be the
+    // number of *patches* produced, which since the record is built from the settled genotype would
+    // now read zero at every generation -- a counter saying linkage changed nothing, about a pass
+    // that decides every genotype in the output.
+    linkage_changed += moved;
     if (!last) {
         // One line per intermediate generation, so a deferred-descent run shows its own shape:
         // how many sites each barrier settled and what it cost.
         cerr << "[vg call] linkage generation " << generation << ": "
              << linkage_collector->num_sites_at(generation) << " sites, "
-             << resolved.size() << " genotypes changed, " << seconds << " s" << endl;
+             << moved << " genotypes moved by linkage, " << seconds << " s" << endl;
         return;
     }
 
@@ -861,7 +849,7 @@ void VCFOutputCaller::write_variants(ostream& out_stream, const SnarlManager* sn
     // Patches that were declined because the line does not carry the genotype the change was
     // derived from, or the allele it names. Counted rather than ignored: a silent no-op here is
     // indistinguishable from a linkage layer that did nothing, which it once was.
-    size_t change_declined = 0, phase_declined = 0;
+    size_t phase_declined = 0;
 
     for (const auto& v : all_variants) {
         if (v.second.empty()) {
@@ -893,22 +881,20 @@ void VCFOutputCaller::write_variants(ostream& out_stream, const SnarlManager* sn
             }
             return line_key;
         };
-        if (!linkage_changes.empty()) {
-            auto found = linkage_changes.find(make_pair(v.first.contig, id_key()));
-            if (found != linkage_changes.end()) {
-                for (const LinkageCollector::Change& change : found->second) {
-                    if (change.record_key == id_key()) {
-                        if (!apply_linkage_change(dest, change)) {
-                            ++change_declined;
-                        }
-                        break;
+        if (linkage_collector != nullptr) {
+            // Quality before phasing, and no genotype patch between them any more: the genotype the
+            // line carries IS the settled one, because the line was built from it.
+            const auto& quality = linkage_collector->moved_quality();
+            if (!quality.empty()) {
+                auto found = quality.find(id_key());
+                if (found != quality.end()) {
+                    if (!apply_linkage_quality(dest, found->second.first, found->second.second)) {
+                        ++quality_declined;
                     }
                 }
             }
         }
         if (!linkage_phasings.empty()) {
-            // After the change, never before: phasing has to describe the genotype that is
-            // actually written out.
             auto found = linkage_phasings.find(make_pair(v.first.contig, id_key()));
             if (found != linkage_phasings.end()) {
                 for (const LinkageCollector::PhaseCall& phase : found->second) {
@@ -941,232 +927,15 @@ void VCFOutputCaller::write_variants(ostream& out_stream, const SnarlManager* sn
         }
         out_stream << dest << endl;
     }
-    if (change_declined > 0 || phase_declined > 0) {
-        cerr << "[vg call] linkage: " << change_declined << " genotype and " << phase_declined
-             << " phase patches declined by the record they matched ("
-             << change_declined_allele << " and " << phase_declined_allele
-             << " for naming an allele the record has no ALT for, the rest for describing a"
-             << " genotype the record does not carry)" << endl;
+    if (phase_declined > 0 || quality_declined.load() > 0) {
+        cerr << "[vg call] linkage: " << phase_declined
+             << " phase and " << quality_declined.load() << " quality rewrites declined by the"
+             << " record they matched (" << phase_declined_allele
+             << " of the phase ones for naming an allele the record has no ALT for, the rest for"
+             << " describing a genotype the record does not carry)" << endl;
     }
 }
 
-bool VCFOutputCaller::apply_linkage_change(string& line,
-                                           const LinkageCollector::Change& change) const {
-    // Edit the emitted line rather than rebuilding the record: everything else about it -- AD, DP,
-    // GL, the traversals in AT -- is still the per-site truth and should not move.
-    vector<string> fields;
-    {
-        size_t start = 0;
-        while (true) {
-            size_t tab = line.find('\t', start);
-            fields.push_back(line.substr(start, tab == string::npos ? string::npos : tab - start));
-            if (tab == string::npos) {
-                break;
-            }
-            start = tab + 1;
-        }
-    }
-    if (fields.size() < 10) {
-        return false;
-    }
-    vector<string> keys, values;
-    {
-        size_t start = 0;
-        while (true) {
-            size_t colon = fields[8].find(':', start);
-            keys.push_back(fields[8].substr(start,
-                                            colon == string::npos ? string::npos : colon - start));
-            if (colon == string::npos) {
-                break;
-            }
-            start = colon + 1;
-        }
-        start = 0;
-        while (true) {
-            size_t colon = fields[9].find(':', start);
-            values.push_back(fields[9].substr(start,
-                                              colon == string::npos ? string::npos : colon - start));
-            if (colon == string::npos) {
-                break;
-            }
-            start = colon + 1;
-        }
-    }
-    if (keys.size() != values.size()) {
-        return false;
-    }
-    size_t gt_field = keys.size();
-    size_t gq_field = keys.size();
-    size_t gqi_field = keys.size();
-    size_t gqn_field = keys.size();
-    for (size_t i = 0; i < keys.size(); ++i) {
-        if (keys[i] == "GT") {
-            gt_field = i;
-        } else if (keys[i] == "GQ") {
-            gq_field = i;
-        } else if (keys[i] == "GQI") {
-            gqi_field = i;
-        } else if (keys[i] == "GQN") {
-            gqn_field = i;
-        }
-    }
-    if (gt_field == keys.size()) {
-        return false;
-    }
-
-    // A haploid record's GT is a bare allele, not a pair, so its expected and replacement strings
-    // have to be written that way. Building "i/j" regardless made the guard below reject every
-    // haploid change: the linkage layer did the work, reported it in the progress line, and then
-    // dropped all of it on the floor. chrY and non-pseudoautosomal chrX got no linkage correction
-    // at all, silently -- and worse, the phasing and the mosaic are built from the *post*-linkage
-    // genotypes, so the mosaic described genotypes the VCF did not contain.
-    //
-    // Ploidy is read off the record rather than off the change, because the record is what is
-    // being patched. At ploidy 1 the collector sets both allele slots to the same value, so either
-    // one is the allele.
-    bool haploid_record = values[gt_field].find('/') == string::npos
-                          && values[gt_field].find('|') == string::npos;
-
-    // Guard. Two records can share a (contig, position) -- a nested site under -A, for one -- and
-    // patching the wrong one would be silent. Only replace a genotype that is the one the per-site
-    // model actually chose at the site this change came from.
-    {
-        string current = values[gt_field];
-        std::replace(current.begin(), current.end(), '|', '/');
-        // Either the genotype this change was derived FROM, or the one it is going TO.
-        //
-        // The second case is new and is not a loosening. Once the record is rendered from the settled
-        // genotype, the line already carries the change's target, and a guard that only recognised
-        // the pre-linkage pair would reject it -- taking the post-linkage QUALITY arithmetic below
-        // down with it. That arithmetic is not decoration: GQ becomes the phred complement of the
-        // posterior, discounted by the explained-read share and capped at GQI, GQN is rewritten and a
-        // stale `lowconf` cleared. Skipping it would silently revert every changed record to per-site
-        // quality, and `GQ <= GQI` (test/t/18_vg_call.t:207) would stop holding on about 5% of them.
-        const string target = haploid_record
-                                  ? std::to_string(change.allele_i)
-                                  : std::to_string(change.allele_i) + "/"
-                                        + std::to_string(change.allele_j);
-        const string target_alt = haploid_record
-                                      ? target
-                                      : std::to_string(change.allele_j) + "/"
-                                            + std::to_string(change.allele_i);
-        const bool at_target = (current == target || current == target_alt);
-        if (haploid_record) {
-            if (!at_target
-                && (change.called_i != change.called_j
-                    || current != std::to_string(change.called_i))) {
-                return false;
-            }
-        } else {
-            string expected = std::to_string(change.called_i) + "/"
-                              + std::to_string(change.called_j);
-            string expected_alt = std::to_string(change.called_j) + "/"
-                                  + std::to_string(change.called_i);
-            if (!at_target && current != expected && current != expected_alt) {
-                return false;
-            }
-        }
-    }
-
-    // Never write an allele the record does not carry. The linkage layer settles on a candidate
-    // traversal, and a traversal need not have an ALT on this line: symbolic collapsing folds some
-    // into the reference, and the barrier can replace a line with one carrying fewer ALTs than the
-    // entry was built against. Writing the number regardless produced a GT indexing past the ALT
-    // list, which is not a VCF -- strict readers reject the record outright.
-    {
-        size_t n_alt = 0;
-        if (!fields[4].empty() && fields[4] != ".") {
-            n_alt = 1;
-            for (char c : fields[4]) {
-                if (c == ',') {
-                    ++n_alt;
-                }
-            }
-        }
-        if (change.allele_i > n_alt || (!haploid_record && change.allele_j > n_alt)) {
-            ++change_declined_allele;
-            return false;
-        }
-    }
-
-    values[gt_field] = haploid_record
-                           ? std::to_string(change.allele_i)
-                           : std::to_string(change.allele_i) + "/"
-                                 + std::to_string(change.allele_j);
-    if (gq_field != keys.size()) {
-        // GQ becomes the phred-scaled complement of the posterior, which is what the quality means
-        // once a posterior exists -- then discounted by the explained-read share, exactly as the
-        // per-site GQ was. GQI is left alone: it is the per-site likelihood ratio, and keeping it
-        // untouched is what makes the before/after pair comparable.
-        //
-        // Two corrections to the raw posterior, both measured over four datasets on AUC and on
-        // false calls surviving at matched recall.
-        //
-        // The share discount applies here for the same reason it applies to the per-site GQ:
-        // reads whose best allele lies outside the call enter every genotype's likelihood and
-        // cancel, so neither the likelihood ratio nor the HMM posterior -- built from that same
-        // emission -- can see them.
-        //
-        // The cap at GQI is the larger effect, and it is not a consistency nicety. The posterior
-        // is computed under a strong prior (the panel frequency exponent defaults to 5), so
-        // `1 - posterior` understates uncertainty -- and it does so exactly where the per-site
-        // evidence was weakest, because that is where the linkage layer acts at all. Capping
-        // re-anchors the reported quality to the read evidence: the linkage pass may lower
-        // confidence and may not raise it above what the reads alone supported. Worth about
-        // +0.003 of AUC and 1-2% fewer surviving false calls, against +0.0001 to +0.0009 for the
-        // share discount alone.
-        //
-        // It also makes `GQ <= GQI` hold on every record. The share discount alone does not,
-        // which was an early misreading: the posterior-based quality is not derived from GQI and
-        // has no arithmetic relation to it, so scaling it by a factor in [0,1] cannot bound it.
-        double q = change.posterior >= 1.0
-                       ? 256.0 : -10.0 * log10(max(1.0 - change.posterior, 1e-26));
-        q *= change.explained_share;
-        if (gqi_field != keys.size()) {
-            try {
-                q = min(q, stod(values[gqi_field]));
-            } catch (const std::exception&) {
-                // GQI absent or unparsable: leave the discounted posterior uncapped rather
-                // than dropping the change.
-            }
-        }
-        // Truncated, not rounded, because that is what the per-site emission does -- two records
-        // with the same underlying quality must not print different integers depending on whether
-        // linkage touched one of them.
-        values[gq_field] = std::to_string((int)min(256.0, max(0.0, q)));
-    }
-    if (gqn_field != keys.size()) {
-        // GQN is the per-site likelihood-ratio gap as a fraction of the site's maximum, and it
-        // described the genotype this change just replaced. It is not derivable from the change,
-        // so it is blanked -- '.' means "no measurement", which is now the truth -- rather than
-        // left describing a call the record no longer makes.
-        values[gqn_field] = ".";
-    }
-    // The lowconf FILTER was set from the pre-linkage GQN against --min-confidence, so after a
-    // genotype change it labels the abandoned call. The changed record's confidence is the GQ
-    // written above; the stale flag is cleared rather than left to gate downstream filtering on
-    // the wrong genotype's confidence.
-    if (fields[6] == "lowconf") {
-        fields[6] = "PASS";
-    }
-
-    string format;
-    for (size_t i = 0; i < values.size(); ++i) {
-        if (i) {
-            format += ":";
-        }
-        format += values[i];
-    }
-    fields[9] = format;
-    line.clear();
-    for (size_t i = 0; i < fields.size(); ++i) {
-        if (i) {
-            line += "\t";
-        }
-        line += fields[i];
-    }
-    return true;
-}
 
 gbwt::edge_type VCFOutputCaller::mosaic_gbwt_position(int64_t node_id, size_t hap) const {
     if (linkage_gbwt == nullptr || linkage_sequence_to_haplotype == nullptr) {
@@ -1424,6 +1193,127 @@ void VCFOutputCaller::write_mosaic(const vector<LinkageCollector::PhaseCall>& ph
     cerr << "[vg call] mosaic: " << empty_segments << " segments on a strand with no sequence there, "
          << unexplained_segments << " the panel cannot name a haplotype for ("
          << (empty_segments + unexplained_segments) << " were one figure before)" << endl;
+}
+
+bool VCFOutputCaller::apply_linkage_quality(string& line, double posterior,
+                                            double explained_share) const {
+    // The quality half of what `apply_linkage_change` used to do, kept when the genotype half
+    // became unnecessary. It is not decoration, and losing it is invisible to F1: GQ is not a
+    // filter here, so a run whose quality silently reverted to the per-site value scores
+    // identically and is differently calibrated. That is exactly what happened when the genotype
+    // patch stopped being produced -- 9,980 records carried posterior-derived quality at stage 9,
+    // 3,524 at stage 10, and none at all once the record was built from the settled genotype.
+    vector<string> fields;
+    {
+        size_t start = 0;
+        while (true) {
+            size_t tab = line.find('\t', start);
+            fields.push_back(line.substr(start, tab == string::npos ? string::npos : tab - start));
+            if (tab == string::npos) {
+                break;
+            }
+            start = tab + 1;
+        }
+    }
+    if (fields.size() < 10) {
+        return false;
+    }
+    vector<string> keys, values;
+    {
+        size_t start = 0;
+        while (true) {
+            size_t colon = fields[8].find(':', start);
+            keys.push_back(fields[8].substr(start,
+                                            colon == string::npos ? string::npos : colon - start));
+            if (colon == string::npos) {
+                break;
+            }
+            start = colon + 1;
+        }
+        start = 0;
+        while (true) {
+            size_t colon = fields[9].find(':', start);
+            values.push_back(fields[9].substr(start,
+                                              colon == string::npos ? string::npos : colon - start));
+            if (colon == string::npos) {
+                break;
+            }
+            start = colon + 1;
+        }
+    }
+    if (keys.size() != values.size()) {
+        return false;
+    }
+    size_t gq_field = keys.size(), gqi_field = keys.size(), gqn_field = keys.size();
+    for (size_t i = 0; i < keys.size(); ++i) {
+        if (keys[i] == "GQ") {
+            gq_field = i;
+        } else if (keys[i] == "GQI") {
+            gqi_field = i;
+        } else if (keys[i] == "GQN") {
+            gqn_field = i;
+        }
+    }
+    if (gq_field != keys.size()) {
+        // GQ becomes the phred-scaled complement of the posterior, then discounted by the
+        // explained-read share exactly as the per-site GQ was: reads whose best allele lies outside
+        // the call enter every genotype's likelihood and cancel, so neither the likelihood ratio nor
+        // the posterior built from that emission can see them.
+        //
+        // The cap at GQI is the larger effect and is not a consistency nicety. The posterior is
+        // computed under a strong prior (the panel frequency exponent defaults to 5), so
+        // `1 - posterior` understates uncertainty, and it does so exactly where the per-site
+        // evidence was weakest -- which is where the linkage layer acts at all. Capping re-anchors
+        // the reported quality to the read evidence: linkage may lower confidence and may not raise
+        // it above what the reads alone supported. Worth about +0.003 AUC and 1-2% fewer surviving
+        // false calls, against +0.0001 to +0.0009 for the share discount alone. It is also what
+        // makes `GQ <= GQI` hold on every record (test/t/18_vg_call.t); the discount alone does not,
+        // because the posterior quality has no arithmetic relation to GQI to be bounded by.
+        double q = posterior >= 1.0 ? 256.0 : -10.0 * log10(max(1.0 - posterior, 1e-26));
+        q *= explained_share;
+        if (gqi_field != keys.size()) {
+            try {
+                q = min(q, stod(values[gqi_field]));
+            } catch (const std::exception&) {
+                // GQI absent or unparsable: leave the discounted posterior uncapped rather than
+                // dropping the quality entirely.
+            }
+        }
+        // Truncated, not rounded, because that is what the per-site emission does -- two records
+        // with the same underlying quality must not print different integers depending on whether
+        // linkage touched one of them.
+        values[gq_field] = std::to_string((int)min(256.0, max(0.0, q)));
+    }
+    if (gqn_field != keys.size()) {
+        // GQN is the per-site likelihood-ratio gap as a fraction of the site's maximum, and it
+        // described the genotype linkage just moved away from. It is not derivable from the
+        // posterior, so it is blanked -- "." means no measurement, which is now the truth -- rather
+        // than left describing a call the record no longer makes.
+        values[gqn_field] = ".";
+    }
+    // `lowconf` was set from the pre-linkage GQN against --min-confidence, so it labels the
+    // abandoned call. The record's confidence is the GQ written above; the stale flag is cleared
+    // rather than left to gate downstream filtering on the wrong genotype's confidence.
+    if (fields[6] == "lowconf") {
+        fields[6] = "PASS";
+    }
+
+    string format;
+    for (size_t i = 0; i < values.size(); ++i) {
+        if (i) {
+            format += ":";
+        }
+        format += values[i];
+    }
+    fields[9] = format;
+    line.clear();
+    for (size_t i = 0; i < fields.size(); ++i) {
+        if (i) {
+            line += "\t";
+        }
+        line += fields[i];
+    }
+    return true;
 }
 
 bool VCFOutputCaller::apply_phasing(string& line,

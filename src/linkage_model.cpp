@@ -1539,22 +1539,21 @@ bool LinkageCollector::retract(size_t record_key) {
     return false;
 }
 
-vector<LinkageCollector::Change> LinkageCollector::resolve_generation(
+size_t LinkageCollector::resolve_generation(
         size_t generation, bool last, vector<PhaseCall>* phasing_out) {
     // Nested sites, collected across every contig and phased after the diploid chains, so their
     // strand can be read off the parent they hang off rather than guessed.
     vector<size_t> deferred_nested;
-    vector<Change> changes;
+    size_t moved = 0;
     // Genotypes the model settled on that the emitted record carries no ALT for. Reachable only
     // because the collector's allele space is the genotyper's rather than the VCF's, so it is
     // counted and reported rather than assumed away.
-    size_t unrenderable = 0;
     // Records whose phase names the called pair because the settled pair had no ALT. The phase is
     // still real -- the block and the strand order come from the panel either way -- but the alleles
     // it names are the line's rather than the model's, so the count belongs in the report.
     size_t phase_fallback = 0;
     if (!model.active() || entries.empty()) {
-        return changes;
+        return moved;
     }
 
     // The phase an earlier generation settled on, by record key, so a clamped site can be pinned to
@@ -1765,35 +1764,20 @@ vector<LinkageCollector::Change> LinkageCollector::resolve_generation(
             // what makes a parent's genotype final before any of its children is called.
             entries[indices[t]].final_i = (uint16_t)i;
             entries[indices[t]].final_j = (uint16_t)j;
-            if (best == before) {
-                continue;
+            if (best != before) {
+                // Counted, not emitted. The settled pair is in `final_i`/`final_j` above and the
+                // record is built from it afterwards, so there is no line to rewrite and no VCF
+                // numbering to render into -- which is why the four vcf_allele_of lookups and the
+                // `unrenderable` counter they fed are gone: they existed only to drop a patch that
+                // named an allele the already-written line had no ALT for.
+                //
+                // The posterior is kept, though. The quality of a moved genotype is the phred
+                // complement of this posterior, discounted and capped, and the posterior exists
+                // nowhere else -- so it is handed out rather than baked into a patch.
+                moved_quality_by_record[e.record_key] =
+                    std::make_pair(post[best], (double)e.explained_share);
+                ++moved;
             }
-            if (!e.emitted) {
-                continue;   // phased, and it moved, but there is no line to rewrite
-            }
-            // Rendered into VCF numbering here and nowhere else. All four alleles have to survive
-            // the map: a genotype the model settled on can name a traversal the record carries no
-            // ALT for, and the patch cannot add one, so such a change is dropped and counted rather
-            // than written against the wrong allele.
-            const int r_called_i = vcf_allele_of(allele_arena, e.allele_offset, e.num_alleles, e.called_i);
-            const int r_called_j = vcf_allele_of(allele_arena, e.allele_offset, e.num_alleles, e.called_j);
-            const int r_i = vcf_allele_of(allele_arena, e.allele_offset, e.num_alleles, i);
-            const int r_j = vcf_allele_of(allele_arena, e.allele_offset, e.num_alleles, j);
-            if (r_called_i < 0 || r_called_j < 0 || r_i < 0 || r_j < 0) {
-                ++unrenderable;
-                continue;
-            }
-            Change c;
-            c.record_key = e.record_key;
-            c.contig = contig_names[e.contig];
-            c.position = e.position;
-            c.called_i = (size_t)r_called_i;
-            c.called_j = (size_t)r_called_j;
-            c.allele_i = (size_t)r_i;
-            c.allele_j = (size_t)r_j;
-            c.posterior = post[best];
-            c.explained_share = (double)e.explained_share;
-            changes.push_back(c);
         }
 
         if (phasing_out == nullptr) {
@@ -2289,24 +2273,12 @@ vector<LinkageCollector::Change> LinkageCollector::resolve_generation(
                 nested_regenotyped[e.record_key] = rg;
                 entries[idxs[k]].final_i = (uint16_t)best;
                 entries[idxs[k]].final_j = (uint16_t)best;
-                if (!e.emitted) {
-                    continue;   // it moved, but there is no line to rewrite
-                }
-                if (r_called < 0 || r_best < 0) {
-                    ++unrenderable;
-                    continue;
-                }
-                Change c;
-                c.record_key = e.record_key;
-                c.contig = contig_names[e.contig];
-                c.position = e.position;
-                c.called_i = (size_t)r_called;
-                c.called_j = (size_t)r_called;
-                c.allele_i = (size_t)r_best;
-                c.allele_j = (size_t)r_best;
-                c.posterior = post[best];
-                c.explained_share = (double)e.explained_share;
-                changes.push_back(c);
+                // As above: the answer is recorded in `nested_regenotyped` and in
+                // `final_i`/`final_j`, and the record is built from it later. No line exists to
+                // patch -- but the posterior is kept, for the quality of the moved genotype.
+                moved_quality_by_record[e.record_key] =
+                    std::make_pair(post[best], (double)e.explained_share);
+                ++moved;
             }
         }
 
@@ -2423,19 +2395,11 @@ vector<LinkageCollector::Change> LinkageCollector::resolve_generation(
     }
 
 
-    // Reported here, at function scope, rather than inside the nested-strand block. Both counters
-    // are incremented from the diploid chain sweep as well, which runs whether or not this
-    // generation has any nested sites -- so reporting them from inside
-    // `phasing_out != nullptr && !deferred_nested.empty()` silently dropped every count from a pass
-    // with no nested sites. On chr20 that undercounted the unrenderable population by 2.9x, 507
-    // against a true 1,465, which is the difference between a curiosity and 23% of the contig's
-    // false positives.
-    if (unrenderable > 0) {
-#pragma omp critical (cerr)
-        std::cerr << "[vg call] linkage: " << unrenderable
-                  << " settled genotypes name a traversal the record carries no ALT for, so the"
-                  << " genotype was left as called" << std::endl;
-    }
+    // `unrenderable` is gone rather than reported as zero. It counted settled genotypes that named
+    // a traversal the already-written line had no ALT for, which a patch could not add -- 1,465 on
+    // chr20 at its peak, 23% of the contig's false positives. With the record built from the settled
+    // genotype the allele list is chosen from that genotype, so the population it counted cannot
+    // exist and a counter that can only read zero is worse than no counter.
     if (phase_fallback > 0) {
 #pragma omp critical (cerr)
         std::cerr << "[vg call] phasing: " << phase_fallback
@@ -2470,7 +2434,7 @@ vector<LinkageCollector::Change> LinkageCollector::resolve_generation(
                       return a.record_key < b.record_key;
                   });
     }
-    return changes;
+    return moved;
 }
 
 }

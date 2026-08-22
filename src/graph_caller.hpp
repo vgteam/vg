@@ -422,13 +422,12 @@ protected:
     /// emitted allele set -- and anything that changes that set, or that computes the position before
     /// flattening, files the patch where nothing looks for it. `respecify` had to be given a contig
     /// and position for exactly this reason, and moving `record()` earlier would have reintroduced it
-    /// from the other side. The failure is also near-invisible: `change_declined`/`phase_declined`
+    /// from the other side. The failure is also near-invisible: `phase_declined`
     /// count patches that were found and refused, so a patch nobody looks up reports zero.
     ///
     /// `record_key` is `hash(print_snarl(snarl, false))` and `id_key()` hashes the ID column, which
     /// is that same string, so the two already agree. The contig stays in the key because one snarl
     /// ID can appear on more than one contig in a multi-reference run.
-    map<pair<string, size_t>, vector<LinkageCollector::Change>> linkage_changes;
     map<pair<string, size_t>, vector<LinkageCollector::PhaseCall>> linkage_phasings;
     /// Every phased site, in the order the model produced them. The mosaic reads this, and deferred
     /// descent looks a parent's settled allele pair up in it.
@@ -471,18 +470,25 @@ protected:
     /// opposed to declined for describing a genotype the record does not carry. The two mean
     /// different things -- the first is the traversal/VCF numbering gap, the second is a patch that
     /// found the wrong record -- so they are counted apart.
-    mutable std::atomic<size_t> change_declined_allele{0};
     mutable std::atomic<size_t> phase_declined_allele{0};
 
-    /// Rewrite one emitted line's GT and GQ for a linkage change, leaving every other field --
-    /// AD, DP, GL, GQI, AT -- alone, since those remain the per-site truth.
+    /// Quality rewrites the record refused -- a malformed FORMAT, essentially. Counted rather than
+    /// silent, because a record that keeps its per-site GQ where the model moved its genotype is
+    /// differently calibrated and nothing else would say so.
+    mutable std::atomic<size_t> quality_declined{0};
+
+
     ///
     /// Returns false when the line is left untouched: the genotype being replaced is not the one
     /// this change was derived from, or the replacement names an allele the record has no ALT for.
     /// Refusing is always safe -- the line keeps its per-site call, which is a real answer -- and
     /// the count is reported, because a patch that silently does nothing is how the linkage layer
     /// once dropped every haploid correction it made.
-    bool apply_linkage_change(string& line, const LinkageCollector::Change& change) const;
+    /// Rewrite a rendered record's quality from the linkage posterior: GQ becomes the phred
+    /// complement, discounted by the explained-read share and capped at GQI, GQN is blanked and a
+    /// stale `lowconf` cleared. The genotype is untouched -- the line already carries the settled
+    /// one, because it was built from it.
+    bool apply_linkage_quality(string& line, double posterior, double explained_share) const;
 
     /// Rewrite one emitted line's GT into phased form and attach its phase set. Applied after
     /// `apply_linkage_change`, so it phases the genotype that is actually emitted. Returns false
