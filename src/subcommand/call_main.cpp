@@ -1973,7 +1973,15 @@ int main_call(int argc, char** argv) {
     // paths -- no site is ever recorded and every descent takes that inline path, which is the same
     // rule rather than a fallback to a different one.
     FlowCaller* deferring_caller = nullptr;
-    if (nested_calling) {
+    // Armed wherever the linkage layer is, not only where nesting is. The layer can be armed with
+    // nesting off -- `--no-nested`, and `--no-phased` too, which turns nesting off for its own
+    // reasons above -- and in that configuration nothing was staged, the render pass was empty, and
+    // patching a line after the fact was the only mechanism there was. Keeping that path alive for
+    // one configuration would leave two ways to write a record, which is the thing this phase exists
+    // to remove; arming here instead means a non-nested run resolves generation 0 over an empty
+    // pending set and renders every record from the settled genotype, which is the same rule rather
+    // than a second one.
+    if (nested_calling || linkage_collector != nullptr) {
         deferring_caller = dynamic_cast<FlowCaller*>(graph_caller.get());
         if (deferring_caller != nullptr) {
             deferring_caller->set_defer_nested_descent(true);
