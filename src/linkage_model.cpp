@@ -62,7 +62,7 @@ static inline int vcf_allele_of(const vector<int8_t>& allele_arena, size_t allel
 /// The VCF alleles a phased GT may name for a settled compact pair.
 ///
 /// Phasing re-orders a genotype; it never re-decides one. That is the property that made it safe to
-/// turn on by default, and it is checked again in apply_phasing, which declines any phased GT that
+/// turn on by default, and it is checked again where the record is phased, which refuses any phased GT that
 /// is not a permutation of the line's own. So when the settled pair cannot be rendered -- the model
 /// chose a traversal this record carries no ALT for, and the genotype patch was correctly skipped --
 /// the phase must describe the pair the line still carries, which is the called one. Emitting the
@@ -1848,7 +1848,7 @@ size_t LinkageCollector::resolve_generation(
             // The compact pair is the collector's own numbering. Split it here into the two things that
             // consume it: the traversal on each strand, which is the genome fact a crossing mask and a
             // haplotype path are expressed in, and the VCF allele on each strand, which is the only form
-            // apply_phasing can write. Leaving allele_* compact made the phased-GT guard reject the pair and
+            // the renderer can write. Leaving allele_* compact made the phased-GT guard reject the pair and
             // silently drop the record's phasing -- 1,528 extra strandless records on chr20.
             {
                 const size_t c_first = pc.allele_first, c_second = pc.allele_second;
@@ -2070,7 +2070,7 @@ size_t LinkageCollector::resolve_generation(
                 // The compact pair is the collector's own numbering. Split it here into the two things that
                 // consume it: the traversal on each strand, which is the genome fact a crossing mask and a
                 // haplotype path are expressed in, and the VCF allele on each strand, which is the only form
-                // apply_phasing can write. Leaving allele_* compact made the phased-GT guard reject the pair and
+                // the renderer can write. Leaving allele_* compact made the phased-GT guard reject the pair and
                 // silently drop the record's phasing -- 1,528 extra strandless records on chr20.
                 {
                     const size_t c_first = pc.allele_first, c_second = pc.allele_second;
@@ -2160,7 +2160,7 @@ size_t LinkageCollector::resolve_generation(
                 // The compact pair is the collector's own numbering. Split it here into the two things that
                 // consume it: the traversal on each strand, which is the genome fact a crossing mask and a
                 // haplotype path are expressed in, and the VCF allele on each strand, which is the only form
-                // apply_phasing can write. Leaving allele_* compact made the phased-GT guard reject the pair and
+                // the renderer can write. Leaving allele_* compact made the phased-GT guard reject the pair and
                 // silently drop the record's phasing -- 1,528 extra strandless records on chr20.
                 {
                     const size_t c_first = pc.allele_first, c_second = pc.allele_second;
@@ -2265,7 +2265,7 @@ size_t LinkageCollector::resolve_generation(
         }
 
         // The PhaseCalls for these sites were built before step three ran, so they still describe
-        // the pre-linkage allele. apply_phasing refuses a phase that disagrees with the genotype
+        // the pre-linkage allele. The renderer refuses a phase that disagrees with the genotype
         // the record ends up carrying -- correctly, since phasing the wrong allele pair would be
         // worse than leaving it unphased -- so a stale PhaseCall silently costs the site its PS.
         // That is what turned 64 unphased records into 466: 402 nested sites whose genotype step

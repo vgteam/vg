@@ -207,8 +207,13 @@ support enumeration automatically.
 
 ## The linkage layer
 
-`--linkage-weight` adds a layer that is **not part of the expression above**. The per-site model
-is unchanged; linkage re-decides genotypes afterwards, using `ln P(reads | G)` as its emission.
+`--linkage-weight` adds a layer that is **not part of the expression above**. The per-site model is
+unchanged; linkage decides the genotype, using `ln P(reads | G)` as its emission.
+
+"Decides", not "re-decides afterwards": the per-site argmax is an input to that decision, not an
+answer the layer edits. Sites are genotyped while their reads are resident and staged; the layer then
+settles every generation, deepest last; and each record is built from the settled genotype. Nothing is
+written before it is decided, so there is no afterwards to revise in.
 
 The motivation: each snarl is genotyped independently, so the emitted call set is a concatenation
 of per-site argmaxes — a pair of haplotypes free to switch panel haplotype at every site at no
@@ -558,14 +563,26 @@ since it refuses a file of mixed ploidy. `.` rather than `*`: `*` would say "abs
 deleted it", which is more precise, but it is an ALT allele and adding one changes the arity of `AD`,
 `GL` and `GQI`, which are written long before the strand is known.
 
-A nested site whose parent's final genotype contradicts its ploidy does not keep that ploidy: the
-barrier re-renders the record at the ploidy the settled parent implies, and a chain the settled
-genotype crosses on neither haplotype is removed from the output entirely, because the sample has no
-copy of it for the call to sit on. The three `nested_*` FILTERs in the header (`nested_diploid`,
-`nested_haploid`, `nested_unreachable`) therefore fire zero times on this path -- that is what they
-are for, a live invariant check -- and remain reachable only where the barrier could not act, such
-as a revised record that could not be rendered. Do not use them to find ploidy-incoherent nested
-calls: incoherent calls are corrected or removed before emission, not flagged.
+A nested site whose parent's final genotype contradicts its ploidy never acquires that ploidy in the
+output, because the record does not exist yet when the contradiction is resolved. Every site is
+genotyped during the read sweep and *staged*; the barrier then settles each generation's genotypes,
+handing each chain the ploidy its settled parent implies; and only then is any record built. A chain
+the settled genotype crosses on neither haplotype is dropped before it becomes a record at all, since
+the sample has no copy of it for a call to sit on.
+
+There are consequently no `nested_*` FILTERs, and there is nothing for them to flag. They were removed
+along with the machinery that made them necessary: when a record was written before its genotype was
+final, the only way to change it afterwards was to patch the line, and a patch can neither add an ALT
+nor withdraw a line -- so a settled genotype naming an allele the line did not carry, or settling on
+the reference, left a record that had to be marked rather than fixed. Deciding before rendering
+removes the class instead of labelling it. On chr20 both populations are now zero by construction
+rather than by inspection: no settled genotype is unrenderable, and no record carries a hom-ref
+genotype.
+
+The same reordering is why the genotype in the VCF is always the one the model settled on. There is no
+second pass that revises it: the allele list, the symbolic-reference test that decides whether a line
+is written at all, `QUAL`, and the arity of `AD`/`GL`/`GQI` are all derived from the settled genotype
+when the record is built.
 
 ## Genotype quality and the VCF fields
 
@@ -776,8 +793,11 @@ were never scored — but it is the kind of error a splice invites and a ploidy 
 is that threshold: records below it are marked `FILTER=lowconf`. A site with no informative read at
 all is marked `FILTER=noreads` instead -- the model has no evidence either way there, which is not
 the same as low confidence. Both mark and never drop. A record whose genotype the linkage layer
-rewrites has its `GQN` blanked to `.` and a stale `lowconf` cleared, because both described the
-abandoned genotype.
+moved off the per-site argmax has its `GQN` blanked to `.` and a stale `lowconf` cleared, because both
+were measured on the genotype the reads alone preferred, which the record no longer carries. Its `GQ`
+becomes the phred complement of the linkage posterior, discounted by the explained-read share and
+capped at the per-site `GQI` -- the layer may lower confidence and may not raise it above what the
+reads on their own supported.
 
 A raw `GQ` threshold cannot do this job, and the failure is not subtle. Requiring `GQ ≥ 10` takes
 a 5x diploid contig's F1 from **0.888 to 0.669**, because at that depth half the true calls sit
