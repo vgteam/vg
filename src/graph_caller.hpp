@@ -936,6 +936,10 @@ public:
     /// every nested revision, retraction and gain would disappear. Two of the arguments it used to
     /// take cannot exist here (the emitted allele map, and whether a line was written) and are
     /// supplied afterwards by `set_allele_map`.
+    /// The pre-flatten (contig, position) a site is filed under in the linkage layer.
+    pair<string, size_t> site_ref_key(const Snarl& snarl, const string& ref_path_name,
+                                      int ref_offset) const;
+
     void record_site(const Snarl& snarl, const vector<SnarlTraversal>& travs,
                      const vector<int>& trav_genotype,
                      const unique_ptr<SnarlCaller::CallInfo>& call_info,

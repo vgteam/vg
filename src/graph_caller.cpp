@@ -3952,6 +3952,21 @@ unique_ptr<FlowCaller::PendingRecord> FlowCaller::stage_render_record(
     return rec;
 }
 
+pair<string, size_t> FlowCaller::site_ref_key(const Snarl& snarl, const string& ref_path_name,
+                                             int ref_offset) const {
+    // Pre-flatten, and locus-spelled. The flattened POS depends on which alleles the line carries,
+    // so it does not exist before the record does; what the model uses position for is ordering and
+    // the transition gaps, which a pre-flatten position serves exactly as well. The locus reduction
+    // matters because `get_ref_position` answers with the base path name, "CHM13#0#chr20", where the
+    // rest of the layer spells it "chr20".
+    pair<string, int64_t> pos_info = get_ref_position(graph, snarl, ref_path_name, ref_offset);
+    const string locus = PathMetadata::parse_locus_name(pos_info.first);
+    if (locus != PathMetadata::NO_LOCUS_NAME) {
+        pos_info.first = locus;
+    }
+    return make_pair(pos_info.first, (size_t)max((int64_t)0, pos_info.second));
+}
+
 void FlowCaller::record_site(const Snarl& snarl, const vector<SnarlTraversal>& travs,
                             const vector<int>& trav_genotype,
                             const unique_ptr<SnarlCaller::CallInfo>& call_info,
@@ -4217,8 +4232,18 @@ void FlowCaller::run_deferred_descent() {
                 retracted += drop_subtree(i);
                 continue;
             }
-            if (copies == pr.ploidy && pr.emitted) {
-                continue;   // the pre-linkage ploidy was right; nothing to do
+            if (copies == pr.ploidy && linkage_collector != nullptr
+                && linkage_collector->has_entry(pr.record_key)) {
+                // The ploidy the chain was called at is the one its parent's settled genotype
+                // implies, so its entry and its staged record are both already right. Nothing to
+                // revise; the render writes it from the settled pair like every other record.
+                //
+                // `has_entry` is not redundant. A chain no called parent allele reached at sweep
+                // time is staged but deliberately NOT recorded (2,713 of them on chr20), so for
+                // those the ploidy matching proves nothing: falling through is what files them in
+                // the layer, via the record() fallback below. Skipping on ploidy alone would render
+                // a nested record that had never entered the linkage layer at all.
+                continue;
             }
 
             // emit_variant indexes its traversal vector directly -- `called_traversals[ref_trav_idx]`
@@ -4267,39 +4292,24 @@ void FlowCaller::run_deferred_descent() {
                 // alternate was never computed. Left as it stands rather than invented.
                 continue;
             }
-            const unique_ptr<SnarlCaller::CallInfo>& info = use_info ? use_info : pr.call_info;
-
-            const bool was_gained = !pr.emitted;
-            suppress_linkage_record = true;
-            bool wrote = emit_variant(graph, snarl_caller, pr.snarl, pr.travs, use_genotype,
-                                      pr.ref_trav_idx, info, pr.ref_path_name, pr.ref_offset,
-                                      genotype_snarls, copies);
-            suppress_linkage_record = false;
-            // `wrote` alone is not "a line exists": emit_variant returns true when the record
-            // flattens to nothing, and false when add_variant rejects it. Only a replacement that
-            // actually landed in the buffer may displace the sweep's line -- registering the
-            // replacement first used to delete the site when the re-emit wrote nothing.
-            if (!wrote) {
-                // add_variant refused a line it wanted to write. Leave the sweep's line and its
-                // entry exactly as they are.
-                continue;
+            // "Gained" now means "was not in the linkage layer", not "had no line": no nested
+            // chain has a line at this point, so the old test was true for every record and reported
+            // 0 revised against 2,950 gained. A chain no called parent allele reached at sweep time
+            // is the one that is genuinely new to the layer here.
+            const bool was_gained = linkage_collector == nullptr
+                                    || !linkage_collector->has_entry(pr.record_key);
+            // Revised, not re-emitted. The chain's ploidy has changed, so the record it will be
+            // rendered from has to change with it -- but the record does not exist yet, and that is
+            // the point: there is no line to blank, no replacement to register, and no patch to
+            // apply. The staged inputs are updated and the render pass builds the line once, at the
+            // end, from whatever the layer finally settles on.
+            pr.genotype = use_genotype;
+            pr.ploidy = copies;
+            if (use_info != nullptr) {
+                pr.call_info = std::move(use_info);
             }
-            // "No line" is a legitimate replacement, not a failure. At the ploidy its parent
-            // implies, this chain's best genotype can be the reference -- which collapses here and
-            // buffers nothing -- and that answer supersedes the sweep's line just as much as a
-            // written one does. Reading it as nothing-to-do is what left 440 of chr20's nested
-            // chains recorded at the superseded ploidy, still `nested`, for the rest of the run,
-            // where they were then reported as carried on both parent strands.
-            const bool landed = last_emitted.buffer_thread >= 0;
-            if (pr.emitted) {
-                blank_buffered_line(pr);
-            }
-            pr.buffer_thread = landed ? last_emitted.buffer_thread : -1;
-            pr.buffer_index = landed ? last_emitted.buffer_index : 0;
+            const unique_ptr<SnarlCaller::CallInfo>& info = pr.call_info;
 
-            // Put the site into the linkage layer at its new ploidy, before its own generation
-            // resolves. This is the coherence guarantee: the ploidy a nested record carries is
-            // the one its parent's settled genotype implies, by construction.
             const ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo* used =
                 dynamic_cast<const ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo*>(info.get());
             if (used != nullptr) {
@@ -4307,21 +4317,22 @@ void FlowCaller::run_deferred_descent() {
                 // a site identically. The remap this block used to do -- GLs, panel and genotype all
                 // pushed into the emitted numbering -- is gone: the collector builds its own compact
                 // space, and pr.travs is the candidate list those indices already refer to.
-                vector<int> trav_to_allele_vec(pr.travs.size(), -1);
-                for (const auto& kv : last_emitted.trav_to_allele) {
-                    if (kv.first >= 0 && (size_t)kv.first < trav_to_allele_vec.size()) {
-                        trav_to_allele_vec[kv.first] = kv.second;
-                    }
-                }
+                // No allele map, for the same reason `record_site` passes none: the emitted allele
+                // list is chosen while the record is built, which has not happened. `set_allele_map`
+                // supplies it at render time.
+                static const vector<int> no_allele_map;
+                const vector<int>& trav_to_allele_vec = no_allele_map;
+                const pair<string, size_t> key =
+                    site_ref_key(pr.snarl, pr.ref_path_name, pr.ref_offset);
                 int called_i = use_genotype.empty() ? -1 : use_genotype[0];
                 int called_j = use_genotype.size() > 1 ? use_genotype[1] : called_i;
                 vector<int> panel = panel_alleles(graph, pr.travs);
                 if (!linkage_collector->respecify(pr.record_key,
-                                                  last_emitted.contig, last_emitted.position,
+                                                  key.first, key.second,
                                                   used->genotype_lls, panel,
                                                   called_i, called_j, trav_to_allele_vec,
                                                   (size_t)copies, copies == 1, pr.parent_trav,
-                                                  pr.parent_crossing, landed)) {
+                                                  pr.parent_crossing, /*emitted*/ false)) {
                     // respecify refuses a site whose compact space it cannot build (no called
                     // traversal, no likelihoods, or more than 127 reachable alleles). If such a site
                     // is already in the layer, its entry describes the line this barrier pass has
@@ -4341,16 +4352,15 @@ void FlowCaller::run_deferred_descent() {
                         // find the entry. get_ref_position reproduces the pre-flatten POS and left
                         // every gained record unphased.
                         linkage_collector->record(
-                            last_emitted.contig, last_emitted.position,
+                            key.first, key.second,
                             used->genotype_lls, panel, called_i, called_j, trav_to_allele_vec,
                             pr.record_key, 1.0,
                             (size_t)copies, pr.snarl.start().node_id(), pr.snarl.end().node_id(),
                             copies == 1, pr.parent_record_key,
-                            pr.parent_trav, pr.parent_crossing, pr.generation, landed);
+                            pr.parent_trav, pr.parent_crossing, pr.generation, /*emitted*/ false);
                     }
                 }
             }
-            pr.emitted = landed;
             if (was_gained) {
                 ++gained;
             } else {
@@ -4431,6 +4441,27 @@ void FlowCaller::run_deferred_descent() {
         }
         cerr << endl;
     }
+
+    // Hand every surviving chain to the render pass. This is what makes the two populations one:
+    // top-level records were already staged and rendered from the settled genotype, and now nested
+    // ones are too, so there is a single place a line is written and a single genotype it is written
+    // from. A dropped chain is not handed over -- its parent's settled genotype does not carry it,
+    // so the sample has no copy of it and it is not a record.
+    //
+    // Appended round-robin rather than all onto one queue: the render pass is parallel over queues,
+    // and 30,416 chains on one thread would serialise it.
+    size_t next_queue = 0;
+    for (PendingRecord& pr : pending) {
+        if (pr.dropped) {
+            continue;
+        }
+        if (render_records.empty()) {
+            render_records.resize(max((size_t)1, (size_t)get_thread_count()));
+        }
+        render_records[next_queue % render_records.size()].push_back(std::move(pr));
+        ++next_queue;
+    }
+    pending.clear();
 }
 
 bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
@@ -4867,10 +4898,25 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
             // one for stage 10 to make on purpose rather than for this motion to make by accident.
             record_site(snarl, travs, trav_genotype, trav_call_info, ref_path_name,
                         ref_offsets[ref_path_name]);
-            added = emit_variant(graph, snarl_caller, snarl, travs, trav_genotype, ref_trav_idx,
-                                 trav_call_info, ref_path_name, ref_offsets[ref_path_name],
-                                 genotype_snarls, ploidy);
-            emitted_this_call = true;
+            // Staged, not emitted -- the same discipline the top-level branch already follows, and
+            // the reason both of stage 10's residual counts were non-zero. Emitting here writes the
+            // line from a genotype the barrier has not settled yet, and once a line exists the only
+            // way to change it is a patch: a patch cannot add an ALT (so a settled genotype naming a
+            // traversal the line has no ALT for is dropped and counted -- the 496 `unrenderable`
+            // events) and it cannot withdraw a line (so a site that settles on the reference keeps a
+            // record with GT 0/0 -- the 1,383). Both counters sit behind `if (!e.emitted) continue`
+            // in the resolver, so neither can fire at all once nothing is written before the barrier.
+            //
+            // `added` is what emit_variant would have returned, and the only thing that reads it is
+            // the ret_val below, which gates recursion -- so a staged record counts as one that will
+            // be written, exactly as at top level.
+            added = defer_nested_descent && !pending_records.empty();
+            if (!added) {
+                added = emit_variant(graph, snarl_caller, snarl, travs, trav_genotype, ref_trav_idx,
+                                     trav_call_info, ref_path_name, ref_offsets[ref_path_name],
+                                     genotype_snarls, ploidy);
+                emitted_this_call = true;
+            }
         } else {
             pair<string, int64_t> pos_info = get_ref_position(graph, snarl, ref_path_name,
                                                               ref_offsets[ref_path_name]);
@@ -4897,13 +4943,10 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
             pending_this->crossing_known = nested_context.crossing_known;
             pending_this->parent_trav = nested_context.parent_trav;
             pending_this->generation = (uint8_t)min(current_generation, (size_t)255);
-            pending_this->emitted = !retain_only;
-            // Where the sweep's line landed, so the barrier can retract or replace exactly that
-            // line. -1 when nothing was buffered: a retained chain, a GAF run, or a rejected line.
-            if (!retain_only && !gaf_output) {
-                pending_this->buffer_thread = last_emitted.buffer_thread;
-                pending_this->buffer_index = last_emitted.buffer_index;
-            }
+            // Nothing is written for a nested chain during the sweep any more, so there is no
+            // line to record the whereabouts of and nothing for the barrier to retract or replace.
+            // The record is written once, by the render pass, from the settled genotype.
+            pending_this->emitted = false;
             pending_this->call_info = std::move(trav_call_info);
         }
         ret_val = trav_genotype.size() == ploidy && added;
