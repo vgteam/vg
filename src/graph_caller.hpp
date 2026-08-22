@@ -113,6 +113,37 @@ protected:
     bool show_progress;
 };
 
+/// Which order a caller wrote its `Number=G` GL vector in.
+///
+/// Two orders are live in this tree and they differ from three alleles up.
+/// `PoissonSupportSnarlCaller` writes i-major -- `for i; for j = i..n` -- while
+/// `ReadLikelihoodSnarlCaller` writes the VCF spec's colexicographic order. At n=3 they disagree at
+/// exactly indices 2 and 3, `(1,1)` against `(0,2)`. Anything that reindexes a GL vector after the
+/// fact has to know which it is holding; the allele-merge fold did not, and assumed i-major in a
+/// comment that named the Poisson caller as the only writer.
+enum class GLLayout {
+    IMajor,
+    Colexicographic,
+};
+
+/// Index of genotype (i, j), i <= j, in a `Number=G` vector of the given layout.
+size_t gl_genotype_index(size_t i, size_t j, size_t n_alleles, GLLayout layout);
+
+/// Max-marginal fold of a diploid GL vector onto a smaller allele set.
+///
+/// `new_index[a]` is the allele `a` becomes. Several old alleles mapping to one new allele means
+/// their genotype classes collapse, and the merged class takes the best of its members -- the merged
+/// allele scores as whichever of the alleles it absorbed fit the reads best.
+///
+/// Extracted from `merge_similar_alleles` so the layout handling is testable without a graph, a
+/// traversal set or a `vcflib::Variant`. That matters because the defect it fixes is invisible in
+/// output: on chr20, 0 of 57 merged records violate the "no genotype is strictly more likely than
+/// the called one" invariant, so the transposition changes the emitted likelihoods without changing
+/// which genotype is the argmax.
+vector<double> fold_genotype_likelihoods(const vector<double>& old_gl,
+                                         const vector<int>& new_index,
+                                         size_t n_new, GLLayout layout);
+
 /// Where a buffered VCF record sorts.
 ///
 /// (contig, POS) alone is not a total order: several records legitimately share a position -- a
@@ -529,11 +560,14 @@ protected:
     /// absorbed allele's reads from AD/DP and from the Poisson caller's total_other_support term.
     /// Rewrites the allele-indexed fields (alleles/alt, AT, AD, GL, GT, MAD) and records what was
     /// merged in the MAT info field.  Returns true if anything merged.
+    /// `gl_layout` must be the order the caller that produced this record's GL actually wrote it
+    /// in. There is no way to recover it from the record.
     bool merge_similar_alleles(const PathPositionHandleGraph& graph,
                                const vector<SnarlTraversal>& site_traversals,
                                vector<int>& site_genotype,
                                const string& sample_name,
-                               vcflib::Variant& out_variant) const;
+                               vcflib::Variant& out_variant,
+                               GLLayout gl_layout) const;
 
     /// print a vcf variant
     /// return value is taken from add_variant (see above)

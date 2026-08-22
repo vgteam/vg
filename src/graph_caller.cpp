@@ -582,6 +582,38 @@ int VCFOutputCaller::ploidy_at(const string& ref_path_name, int64_t interval_sta
     return region_ploidy(ref_path_name, (size_t)position, fallback);
 }
 
+size_t gl_genotype_index(size_t i, size_t j, size_t n_alleles, GLLayout layout) {
+    if (layout == GLLayout::Colexicographic) {
+        // The VCF spec's order: genotypes sorted by their larger allele, then their smaller. Does
+        // not depend on the allele count at all, which is why it is the one a reader can trust.
+        return j * (j + 1) / 2 + i;
+    }
+    // i-major: all genotypes with smaller allele 0, then all with 1, and so on.
+    return i * n_alleles - (i * (i - 1)) / 2 + (j - i);
+}
+
+vector<double> fold_genotype_likelihoods(const vector<double>& old_gl,
+                                         const vector<int>& new_index,
+                                         size_t n_new, GLLayout layout) {
+    const size_t n_old = new_index.size();
+    vector<double> folded(n_new * (n_new + 1) / 2, -std::numeric_limits<double>::infinity());
+    for (size_t i = 0; i < n_old; ++i) {
+        for (size_t j = i; j < n_old; ++j) {
+            const size_t from = gl_genotype_index(i, j, n_old, layout);
+            if (from >= old_gl.size()) {
+                continue;
+            }
+            size_t ni = (size_t)new_index[i], nj = (size_t)new_index[j];
+            if (ni > nj) {
+                std::swap(ni, nj);
+            }
+            double& slot = folded[gl_genotype_index(ni, nj, n_new, layout)];
+            slot = std::max(slot, old_gl[from]);
+        }
+    }
+    return folded;
+}
+
 bool buffered_record_key_less(const BufferedRecordKey& a, const BufferedRecordKey& b) {
     if (a.contig != b.contig) {
         return a.contig < b.contig;
@@ -1687,7 +1719,8 @@ bool VCFOutputCaller::merge_similar_alleles(const PathPositionHandleGraph& graph
                                             const vector<SnarlTraversal>& site_traversals,
                                             vector<int>& site_genotype,
                                             const string& sample_name,
-                                            vcflib::Variant& out_variant) const {
+                                            vcflib::Variant& out_variant,
+                                            GLLayout gl_layout) const {
     if (!(allele_merge_threshold < 1.0)) {
         return false;
     }
@@ -1889,36 +1922,32 @@ bool VCFOutputCaller::merge_similar_alleles(const PathPositionHandleGraph& graph
         }
     }
 
-    // GL is Number=G.  vg emits it i-major -- "for i; for j = i..n" -- which is not the VCF spec's
-    // ordering for 3+ alleles, but the fold has to match what is actually written.  Take the max
-    // over the old genotype classes mapping onto each new one: that is the max-marginal, i.e. the
-    // merged allele scores as whichever of its members fit best.
+    // GL is Number=G, and which order it is in depends on which caller wrote it. The comment that
+    // stood here said vg emits i-major and named PoissonSupportSnarlCaller as the only writer of GL.
+    // That is not true: ReadLikelihoodSnarlCaller::update_vcf_info writes it in
+    // AlleleReadLikelihoods::enumerate_genotypes order, which is the VCF spec's colexicographic one,
+    // and at three alleles the two disagree at indices 2 and 3 -- (1,1) against (0,2). So a merged
+    // record under --read-likelihood had two of its six likelihoods transposed, which silently
+    // max-marginalises the het-with-allele-2 class into the hom-allele-1 class and back.
+    //
+    // The layout comes from the caller rather than being assumed, because the Poisson path really is
+    // i-major and still live: indexing everything through enumerate_genotypes would fix one caller by
+    // corrupting the other.
     auto gl_it = sample.find("GL");
     if (gl_it != sample.end()) {
         size_t n_old = merge_to.size();
-        auto gl_index = [](size_t i, size_t j, size_t n) { return i * n - (i * (i - 1)) / 2 + (j - i); };
         // The diploid layout is the only one that can occur: merging needs at least two distinct
-        // called ALTs, site_genotype has one entry per ploidy, and PoissonSupportSnarlCaller --
-        // whose update_vcf_info is the only writer of GL -- asserts in genotype that ploidy is
-        // 1 or 2.  So n_old is always 3 here.
+        // called ALTs, site_genotype has one entry per ploidy, and both GL writers assert ploidy is
+        // 1 or 2. So n_old is always 3 here.
         assert(gl_it->second.size() == n_old * (n_old + 1) / 2);
         bool gl_usable = true;
-        vector<double> folded((size_t)n_new * (n_new + 1) / 2,
-                              -std::numeric_limits<double>::infinity());
-        for (size_t i = 0; i < n_old && gl_usable; ++i) {
-            for (size_t j = i; j < n_old && gl_usable; ++j) {
-                double v = 0;
-                gl_usable = parse_vcf_double(gl_it->second[gl_index(i, j, n_old)], v);
-                if (!gl_usable) {
-                    break;
-                }
-                size_t ni = new_index[i], nj = new_index[j];
-                if (ni > nj) {
-                    std::swap(ni, nj);
-                }
-                double& slot = folded[gl_index(ni, nj, (size_t)n_new)];
-                slot = std::max(slot, v);
-            }
+        vector<double> old_gl(gl_it->second.size(), 0.0);
+        for (size_t g = 0; g < gl_it->second.size() && gl_usable; ++g) {
+            gl_usable = parse_vcf_double(gl_it->second[g], old_gl[g]);
+        }
+        vector<double> folded;
+        if (gl_usable) {
+            folded = fold_genotype_likelihoods(old_gl, new_index, (size_t)n_new, gl_layout);
         }
         if (gl_usable) {
             vector<string> new_gl(folded.size());
@@ -2296,7 +2325,15 @@ bool VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCa
     // the surviving allele's string, POS and REF are byte-identical to a run without -L (a shorter
     // allele list can share a longer prefix and flatten further).  The missing-allele fixup below
     // still runs after it, and is unaffected: merging is ALT-vs-ALT so it never empties alt.
-    merge_similar_alleles(graph, site_traversals, site_genotype, sample_name, out_variant);
+    // Which order this record's GL is in follows from which caller wrote it, and nothing in the
+    // record says so -- hence passing it rather than sniffing it.
+    const GLLayout gl_layout =
+        dynamic_cast<const ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo*>(call_info.get())
+            != nullptr
+            ? GLLayout::Colexicographic
+            : GLLayout::IMajor;
+    merge_similar_alleles(graph, site_traversals, site_genotype, sample_name, out_variant,
+                          gl_layout);
 #ifdef debug
     for (int i = 0; i < site_traversals.size(); ++i) {
         cerr << " site trav[" << i << "]=" << pb2json(site_traversals[i]) << endl;
