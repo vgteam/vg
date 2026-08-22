@@ -2023,10 +2023,29 @@ size_t LinkageCollector::resolve_generation(
                         strand = parent.nested_strand;
                     }
                 } else if (e.parent_trav >= 0) {
-                    if (parent.trav_first == e.parent_trav) {
-                        strand = 0;
-                    } else if (parent.ploidy == 2 && parent.trav_second == e.parent_trav) {
-                        strand = 1;
+                    // Both assignments require a DIPLOID parent, not just the second one. A strand
+                    // is a claim that the locus has two haplotypes and this allele sits on one of
+                    // them, and that claim is only true where the parent has two copies.
+                    //
+                    // Without the guard on `strand = 0`, a haploid top-level site -- chrX outside the
+                    // pseudoautosomal regions, or chrY -- gives its children strand 0, because the
+                    // first branch above needs `parent.nested_strand >= 0` and a top-level parent has
+                    // none, so this one matches `trav_first` and assigns unconditionally. The child is
+                    // then rendered "a|." , which says the locus is diploid and the other strand
+                    // carries nothing. On a haploid contig there is no other strand to be empty: the
+                    // right rendering is a bare `a`.
+                    //
+                    // Measured: chrX's haploid interior carried 8,056 "1|." records against the
+                    // pre-refactor arm's 1,965, and chrX was the one contig whose F1 fell
+                    // (0.94939 -> 0.93643) while all 22 autosomes rose. Autosomes are unaffected --
+                    // their parents are ploidy 2, and a nested haploid parent reaches the branch
+                    // above instead.
+                    if (parent.ploidy == 2) {
+                        if (parent.trav_first == e.parent_trav) {
+                            strand = 0;
+                        } else if (parent.trav_second == e.parent_trav) {
+                            strand = 1;
+                        }
                     }
                 }
                 // Inherit the parent's phase set, so the nested site sits in the parent's block

@@ -1017,6 +1017,56 @@ TEST_CASE("A site below depth 1 inherits its parent's strand, not strand 0",
     }
 }
 
+TEST_CASE("A child of a haploid locus gets no strand, so it is not written as a half-call",
+          "[linkage_model]") {
+    // A strand is a claim that the locus has two haplotypes and this allele sits on one of them.
+    // Where the parent has one copy because the whole contig is haploid -- chrX outside the
+    // pseudoautosomal regions, or chrY -- that claim is false, and the renderer turns a strand into
+    // "a|.", which says the other haplotype carries nothing here. On a haploid contig there is no
+    // other haplotype to be empty and the record should be a bare `a`.
+    //
+    // This is the case the depth->=2 test above cannot reach: its parent is a het DIPLOID site, so
+    // the strand it hands down is real. The guard that was missing applied only to `strand = 0`
+    // (`strand = 1` was already conditioned on ploidy 2), so a haploid parent matched trav_first and
+    // handed down strand 0 unconditionally. Measured on chrX: 8,056 "1|." records in the haploid
+    // interior against 1,965 before, and chrX was the one contig whose F1 fell while all 22
+    // autosomes rose.
+    LinkageModel::Params p;
+    p.weight = 1.0;
+    p.scale = 100000.0;
+    p.rho_min = 1e-4;
+
+    const size_t TOP = 9, KID = 91;
+
+    LinkageCollector collector(p, 2);
+    // A haploid top-level site: one copy because the contig has one, not because a sibling allele
+    // deleted anything. It has no parent and therefore no strand of its own.
+    record_dense(collector, "chrX", 1000, 2, {0.0, -30.0}, {0, 0}, 0, 0, TOP,
+                 /*share*/ 1.0, /*ploidy*/ 1, /*start*/ 10, /*end*/ 40);
+    // A nested child hanging off its single traversal.
+    record_dense(collector, "chrX", 1010, 2, {0.0, -30.0}, {0, 0}, 0, 0, KID,
+                 /*share*/ 1.0, /*ploidy*/ 1, /*start*/ 11, /*end*/ 30,
+                 /*nested*/ true, TOP, /*parent_trav*/ 0,
+                 /*crossing*/ (uint64_t)1 << 0, /*generation*/ 1);
+
+    vector<LinkageCollector::PhaseCall> phased;
+    for (size_t gen = 0; gen <= 1; ++gen) {
+        collector.resolve_generation(gen, gen == 1, &phased);
+    }
+
+    const LinkageCollector::PhaseCall* kid = nullptr;
+    for (const auto& pc : phased) {
+        if (pc.record_key == KID) {
+            kid = &pc;
+        }
+    }
+    REQUIRE(kid != nullptr);
+    REQUIRE(kid->ploidy == 1);
+    // The whole point: no strand, because the locus has no second haplotype for one to mean
+    // anything against. `nested_strand >= 0` is what makes the renderer write "a|." instead of "a".
+    REQUIRE(kid->nested_strand < 0);
+}
+
 TEST_CASE("Every generation is resolved, not only the first", "[linkage_model]") {
     // Chain construction skips entries above the generation being resolved, so resolving generation
     // 0 alone drops every nested site from linkage, from phasing and from the mosaic. The caller
