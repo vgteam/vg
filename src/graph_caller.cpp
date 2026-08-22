@@ -4874,9 +4874,21 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
                 if (g_descent_depth < 16) {
                     ++g_descent_depth_hist[g_descent_depth];
                 }
+                // Falls back to the PARENT's ploidy, not to a literal 2. `copies` is zero here
+                // only for a chain no called parent allele reaches -- a retained chain, genotyped
+                // now because linkage may still move the parent onto an allele that does reach it --
+                // and it has to be genotyped at some ploidy to have an answer at all. Two is the
+                // parent's ploidy only on a diploid contig. Under `-d 1` (chrY, or chrX outside the
+                // pseudoautosomal regions) it is a ploidy the contig does not have, and a child
+                // cannot carry more copies than its parent: `child_ploidy` caps at exactly this
+                // value, so the fallback should agree with the cap rather than exceed it.
+                //
+                // Either ploidy still yields both answers -- `set_want_alt_ploidy` computes the
+                // other one and the barrier keeps it -- so this changes which of the two is the
+                // primary, not whether the barrier can re-ploidy the chain later.
                 call_snarl_internal(*child, ref_path_name,
                                     make_pair(get<0>(ref_interval), get<1>(ref_interval)),
-                                    nullptr, copies >= 1 ? copies : 2);
+                                    nullptr, copies >= 1 ? copies : ploidy);
                 --g_descent_depth;
                 current_generation = saved_generation;
                 nested_context = saved;
