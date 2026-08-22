@@ -393,7 +393,7 @@ protected:
 
     /// Resolve one generation of the linkage pass, accumulating into the three maps below.
     ///
-    /// `last` gates the reporting, the mosaic, and building `linkage_phasings` -- all of which want
+    /// `last` gates the reporting, the mosaic, and building the mosaic -- all of which want
     /// the whole accumulated call set rather than one generation of it.
     void resolve_linkage_generation(size_t generation, bool last);
 
@@ -428,7 +428,6 @@ protected:
     /// `record_key` is `hash(print_snarl(snarl, false))` and `id_key()` hashes the ID column, which
     /// is that same string, so the two already agree. The contig stays in the key because one snarl
     /// ID can appear on more than one contig in a multi-reference run.
-    map<pair<string, size_t>, vector<LinkageCollector::PhaseCall>> linkage_phasings;
     /// Every phased site, in the order the model produced them. The mosaic reads this, and deferred
     /// descent looks a parent's settled allele pair up in it.
     vector<LinkageCollector::PhaseCall> linkage_phased;
@@ -470,12 +469,26 @@ protected:
     /// opposed to declined for describing a genotype the record does not carry. The two mean
     /// different things -- the first is the traversal/VCF numbering gap, the second is a patch that
     /// found the wrong record -- so they are counted apart.
-    mutable std::atomic<size_t> phase_declined_allele{0};
 
     /// Quality rewrites the record refused -- a malformed FORMAT, essentially. Counted rather than
     /// silent, because a record that keeps its per-site GQ where the model moved its genotype is
     /// differently calibrated and nothing else would say so.
     mutable std::atomic<size_t> quality_declined{0};
+
+    /// Phase by record key, built after the barrier and read while each record is rendered.
+    ///
+    /// Keyed on the record key rather than on (contig, POS) because POS is not an identity here: the
+    /// flattened position depends on which alleles the line carries, so it is not known until the
+    /// record exists.
+    std::unordered_map<size_t, LinkageCollector::PhaseCall> render_phases;
+
+    /// Records phased while being rendered, and phases refused because the record did not carry a
+    /// permutation of the phased pair.
+    mutable std::atomic<size_t> phased_records{0};
+    mutable std::atomic<size_t> phase_declined{0};
+
+    /// Fill `render_phases` from the resolved phasing. Called between the barrier and the render.
+    void build_render_phases();
 
 
     ///
@@ -493,7 +506,6 @@ protected:
     /// Rewrite one emitted line's GT into phased form and attach its phase set. Applied after
     /// `apply_linkage_change`, so it phases the genotype that is actually emitted. Returns false
     /// when the line is left untouched, for the same reasons.
-    bool apply_phasing(string& line, const LinkageCollector::PhaseCall& phase) const;
 
     /// Whether to emit phased GT and FORMAT/PS.
     bool emit_phasing = false;

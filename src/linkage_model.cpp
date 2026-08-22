@@ -1431,24 +1431,6 @@ bool LinkageCollector::respecify(size_t record_key,
     return false;
 }
 
-int LinkageCollector::vcf_allele_of_traversal(size_t record_key, int traversal) const {
-    if (traversal < 0) {
-        return -1;
-    }
-    lock_guard<std::mutex> guard(mutex);
-    for (const Entry& e : entries) {
-        if (e.record_key != record_key || e.retracted) {
-            continue;
-        }
-        for (size_t c = 0; c < e.num_alleles; ++c) {
-            if (traversal_of(trav_arena, e.trav_offset, e.num_alleles, c) == traversal) {
-                return vcf_allele_of(allele_arena, e.allele_offset, e.num_alleles, c);
-            }
-        }
-        return -1;
-    }
-    return -1;
-}
 
 bool LinkageCollector::settled_traversals(size_t record_key, int* first, int* second,
                                          size_t* ploidy) const {
@@ -2400,12 +2382,15 @@ size_t LinkageCollector::resolve_generation(
     // chr20 at its peak, 23% of the contig's false positives. With the record built from the settled
     // genotype the allele list is chosen from that genotype, so the population it counted cannot
     // exist and a counter that can only read zero is worse than no counter.
-    if (phase_fallback > 0) {
-#pragma omp critical (cerr)
-        std::cerr << "[vg call] phasing: " << phase_fallback
-                  << " records are phased on the alleles the line carries rather than the ones"
-                  << " the model settled on, for the same reason" << std::endl;
-    }
+    // `phase_fallback` is no longer reported, because it no longer describes anything the output
+    // shows. It counted PhaseCalls whose settled pair had no ALT in the record's allele map, so the
+    // phase had to be rendered against the line's own alleles instead. Phasing is now applied while
+    // the record is built, from the traversal pair through the map that record was built with, so
+    // `PhaseCall::allele_first/allele_second` are written and never read. Printing a count of a
+    // fallback with no consequence -- 192,045 of chr20's 219,600 sites, every top-level one -- is
+    // noise that reads like a defect. The dead conversion itself is removed with
+    // `render_phase_pair`; it needs a rename rather than a deletion, because `allele_*` carries the
+    // compact pair before that block overwrites it with the VCF one.
 
     // Reference order, and only now.
     //

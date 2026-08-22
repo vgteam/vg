@@ -668,6 +668,26 @@ void VCFOutputCaller::resolve_linkage() {
     }
 }
 
+void VCFOutputCaller::build_render_phases() {
+    // Built between the barrier and the render, from the phasing the barrier accumulated.
+    //
+    // No `emitted` filter here, unlike the mosaic and unlike the patch index this replaces. That
+    // filter existed to keep sites with no VCF line out of a structure keyed to lines, and it is what
+    // forced the whole bookkeeping to run *after* the render -- because "does this site have a line?"
+    // is false for everything while the genotypes are still being decided. A render-time lookup needs
+    // no such filter: a site with no line simply never looks itself up.
+    render_phases.clear();
+    if (!emit_phasing) {
+        return;
+    }
+    render_phases.reserve(linkage_phased.size() * 2);
+    for (const LinkageCollector::PhaseCall& pc : linkage_phased) {
+        // Last writer wins, which is the later generation: a site revised at the barrier gets a
+        // second PhaseCall and the later one describes the genotype it ends up with.
+        render_phases[pc.record_key] = pc;
+    }
+}
+
 void VCFOutputCaller::finalise_linkage_outputs() {
     // Built here, after every record has been rendered, and not while the genotypes are being
     // resolved.
@@ -685,31 +705,17 @@ void VCFOutputCaller::finalise_linkage_outputs() {
     const std::unordered_set<size_t> emitted_records = linkage_collector->emitted_records();
     size_t unexplained = 0;
     size_t order_arbitrary = 0;
-    // Rebuilt from scratch each last pass: `linkage_phased` is the full accumulated set, and the
-    // last pass can run more than once when the barrier gains a chain at a deeper generation than
-    // anything recorded before it.
-    linkage_phasings.clear();
+    // The patch index is gone: phasing is applied while each record is rendered, so there is nothing
+    // here to key to a line. What survives is the mosaic and the counters, both of which genuinely
+    // need to know which sites became records -- read live from `emitted_records`, because a
+    // PhaseCall's own `emitted` is a snapshot taken before any record existed.
     size_t phased_unwritten = 0;
     for (const LinkageCollector::PhaseCall& pc : linkage_phased) {
         if (emitted_records.count(pc.record_key) == 0) {
-            // Phased, and deliberately so -- its children read their strand off it -- but there is
-            // no line to patch and it is not a record, so it must not enter the patch index, the
-            // mosaic, or any count of records. Counted on its own instead.
+            // Phased, and deliberately so -- its children read their strand off it -- but it is not
+            // a record, so it must not enter the mosaic or any count of records. Counted on its own.
             ++phased_unwritten;
             continue;
-        }
-        vector<LinkageCollector::PhaseCall>& bucket =
-            linkage_phasings[make_pair(pc.contig, pc.record_key)];
-        bool updated = false;
-        for (LinkageCollector::PhaseCall& existing : bucket) {
-            if (existing.record_key == pc.record_key) {
-                existing = pc;
-                updated = true;
-                break;
-            }
-        }
-        if (!updated) {
-            bucket.push_back(pc);
         }
         // Count only the strands a chain actually has. On a haploid chain hap_second is the
         // wildcard by construction, so counting it reported every site as unexplained while
@@ -846,10 +852,6 @@ void VCFOutputCaller::write_variants(ostream& out_stream, const SnarlManager* sn
     resolve_linkage();
     finalise_linkage_outputs();
 
-    // Patches that were declined because the line does not carry the genotype the change was
-    // derived from, or the allele it names. Counted rather than ignored: a silent no-op here is
-    // indistinguishable from a linkage layer that did nothing, which it once was.
-    size_t phase_declined = 0;
 
     for (const auto& v : all_variants) {
         if (v.second.empty()) {
@@ -894,45 +896,12 @@ void VCFOutputCaller::write_variants(ostream& out_stream, const SnarlManager* sn
                 }
             }
         }
-        if (!linkage_phasings.empty()) {
-            auto found = linkage_phasings.find(make_pair(v.first.contig, id_key()));
-            if (found != linkage_phasings.end()) {
-                for (const LinkageCollector::PhaseCall& phase : found->second) {
-                    if (phase.record_key == id_key()) {
-                        // The allele numbers are resolved here rather than when the phase was
-                        // decided. The record is now rendered after the linkage layer resolves, so at
-                        // resolve time no allele list existed and every phased pair came out as a
-                        // wildcard -- which apply_phasing correctly declines, unphasing the entire
-                        // output. The traversal is the stable identity across both moments.
-                        LinkageCollector::PhaseCall resolved = phase;
-                        if (linkage_collector != nullptr && resolved.trav_first >= 0) {
-                            const int a = linkage_collector->vcf_allele_of_traversal(
-                                resolved.record_key, resolved.trav_first);
-                            const int b = linkage_collector->vcf_allele_of_traversal(
-                                resolved.record_key, resolved.trav_second);
-                            if (a >= 0) {
-                                resolved.allele_first = (size_t)a;
-                            }
-                            if (b >= 0) {
-                                resolved.allele_second = (size_t)b;
-                            }
-                        }
-                        if (!apply_phasing(dest, resolved)) {
-                            ++phase_declined;
-                        }
-                        break;
-                    }
-                }
-            }
-        }
         out_stream << dest << endl;
     }
-    if (phase_declined > 0 || quality_declined.load() > 0) {
-        cerr << "[vg call] linkage: " << phase_declined
-             << " phase and " << quality_declined.load() << " quality rewrites declined by the"
-             << " record they matched (" << phase_declined_allele
-             << " of the phase ones for naming an allele the record has no ALT for, the rest for"
-             << " describing a genotype the record does not carry)" << endl;
+    if (phase_declined.load() > 0 || quality_declined.load() > 0) {
+        cerr << "[vg call] linkage: " << phase_declined.load()
+             << " phases refused by the record they were rendered onto, and "
+             << quality_declined.load() << " quality rewrites refused" << endl;
     }
 }
 
@@ -1316,168 +1285,6 @@ bool VCFOutputCaller::apply_linkage_quality(string& line, double posterior,
     return true;
 }
 
-bool VCFOutputCaller::apply_phasing(string& line,
-                                    const LinkageCollector::PhaseCall& phase) const {
-    // Same line-editing approach as apply_linkage_change, and for the same reason: every other
-    // field remains the per-site truth. Only GT's separator and order change, and PS is appended.
-    vector<string> fields;
-    {
-        size_t start = 0;
-        while (true) {
-            size_t tab = line.find('\t', start);
-            fields.push_back(line.substr(start, tab == string::npos ? string::npos : tab - start));
-            if (tab == string::npos) {
-                break;
-            }
-            start = tab + 1;
-        }
-    }
-    if (fields.size() < 10) {
-        return false;
-    }
-    vector<string> keys, values;
-    {
-        size_t start = 0;
-        while (true) {
-            size_t colon = fields[8].find(':', start);
-            keys.push_back(fields[8].substr(start,
-                                            colon == string::npos ? string::npos : colon - start));
-            if (colon == string::npos) {
-                break;
-            }
-            start = colon + 1;
-        }
-        start = 0;
-        while (true) {
-            size_t colon = fields[9].find(':', start);
-            values.push_back(fields[9].substr(start,
-                                              colon == string::npos ? string::npos : colon - start));
-            if (colon == string::npos) {
-                break;
-            }
-            start = colon + 1;
-        }
-    }
-    if (keys.size() != values.size()) {
-        return false;
-    }
-    size_t gt_field = keys.size();
-    for (size_t i = 0; i < keys.size(); ++i) {
-        if (keys[i] == "GT") {
-            gt_field = i;
-        }
-    }
-    if (gt_field == keys.size()) {
-        return false;
-    }
-
-    // The phased genotype must be a permutation of the unphased one. Two records can share a
-    // position, and phasing the wrong one -- or phasing a genotype the record does not carry --
-    // would silently emit a call that disagrees with its own likelihoods. Checked rather than
-    // assumed, because the failure is invisible in the output.
-    {
-        string current = values[gt_field];
-        std::replace(current.begin(), current.end(), '|', '/');
-        size_t slash = current.find('/');
-        if (slash == string::npos) {
-            // Haploid: one allele, and it must be the one the path spells.
-            if (phase.ploidy == 1 && current == std::to_string(phase.allele_first)) {
-                slash = string::npos;   // fall through to the write below
-            } else {
-                return false;
-            }
-        } else {
-        string lhs = current.substr(0, slash);
-        string rhs = current.substr(slash + 1);
-        string want_a = std::to_string(phase.allele_first);
-        string want_b = std::to_string(phase.allele_second);
-        bool same = (lhs == want_a && rhs == want_b) || (lhs == want_b && rhs == want_a);
-        if (!same) {
-            return false;
-        }
-        }
-    }
-
-    // Same invariant as apply_linkage_change: only alleles the record actually carries may be
-    // written. A phased GT is built from the settled traversal pair, and a traversal can map to no
-    // ALT on this line, so this is checked here too rather than trusted from upstream.
-    {
-        size_t n_alt = 0;
-        if (!fields[4].empty() && fields[4] != ".") {
-            n_alt = 1;
-            for (char c : fields[4]) {
-                if (c == ',') {
-                    ++n_alt;
-                }
-            }
-        }
-        if (phase.allele_first > n_alt
-            || (phase.ploidy != 1 && phase.allele_second > n_alt)) {
-            ++phase_declined_allele;
-            return false;
-        }
-    }
-
-    if (phase.ploidy == 1 && phase.nested_strand >= 0) {
-        // A nested haploid site is one strand of a diploid locus, not a haploid locus: it is called
-        // at ploidy 1 because the parent's *other* allele deletes the chain, so there is no sequence
-        // on that strand to genotype. Written as a phased pair with the empty strand as ".", which
-        // is the only place the VCF can carry which strand the allele is on -- a bare "a" names none,
-        // and that is why the strand lived only in the mosaic and no phasing tool could read it.
-        //
-        // "." rather than "0": the other haplotype does not carry the reference sequence here, it
-        // carries nothing. "*" would say the same thing and say it in ALT, but adding an allele
-        // changes the arity of AD, GL and GQI on the record, and the strand is not known until
-        // phasing, long after those were written.
-        values[gt_field] = phase.nested_strand == 0
-                           ? std::to_string(phase.allele_first) + "|."
-                           : "." + ("|" + std::to_string(phase.allele_first));
-    } else if (phase.ploidy == 1) {
-        // A genuinely haploid locus -- a haploid contig, or a nested site with no strand to name.
-        // One allele, no phase; only PS below is meaningful, and only as a block label. Writing
-        // "a|a" would claim a homozygous diploid call.
-        values[gt_field] = std::to_string(phase.allele_first);
-    } else {
-        values[gt_field] = std::to_string(phase.allele_first) + "|"
-                           + std::to_string(phase.allele_second);
-    }
-
-    // PS identifies the phase block; phase is only comparable within one. Replaces any existing
-    // value rather than appending a second copy, since write_variants can be called on a buffer
-    // that has already been phased in a previous pass.
-    size_t ps_field = keys.size();
-    for (size_t i = 0; i < keys.size(); ++i) {
-        if (keys[i] == "PS") {
-            ps_field = i;
-        }
-    }
-    if (ps_field == keys.size()) {
-        keys.push_back("PS");
-        values.push_back(std::to_string(phase.phase_set));
-    } else {
-        values[ps_field] = std::to_string(phase.phase_set);
-    }
-
-    string fmt_keys, fmt_values;
-    for (size_t i = 0; i < keys.size(); ++i) {
-        if (i) {
-            fmt_keys += ":";
-            fmt_values += ":";
-        }
-        fmt_keys += keys[i];
-        fmt_values += values[i];
-    }
-    fields[8] = fmt_keys;
-    fields[9] = fmt_values;
-    line.clear();
-    for (size_t i = 0; i < fields.size(); ++i) {
-        if (i) {
-            line += "\t";
-        }
-        line += fields[i];
-    }
-    return true;
-}
 
 static int countAlts(vcflib::Variant& var, int alleleIndex) {
     int alts = 0;
@@ -2249,8 +2056,86 @@ bool VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCa
                     
     genotype_vector.push_back(vcf_gt.str());
 
+    int64_t phase_set_to_write = -1;
+
+    // Phased here, while the traversal-to-allele mapping this record was just built with is still in
+    // hand, rather than by rewriting the line afterwards.
+    //
+    // That mapping is the whole reason phasing used to be a patch. A PhaseCall names a *traversal*
+    // pair; the VCF needs allele numbers; and the map between them did not exist until the record was
+    // built. So the phase was resolved against whatever numbering was available at resolution time --
+    // which under decide-then-render is none at all, making `render_phase_pair` fall back on every one
+    // of chr20's 192,045 top-level sites -- and then patched in against the line. Here the map is
+    // `trav_to_allele`, complete and correct, a few lines above.
+    if (!genotype.empty() && emit_phasing && !render_phases.empty()) {
+        auto found = render_phases.find(std::hash<string>{}(print_snarl(snarl, false)));
+        if (found != render_phases.end()) {
+            const LinkageCollector::PhaseCall& phase = found->second;
+            // `find`, not `operator[]` and not a bounds check against `size()`. This is a
+            // std::map keyed BY traversal, so its size is the number of alleles the record carries,
+            // not a bound on traversal indices -- comparing against it refused 101,947 phases, and
+            // `operator[]` on a miss would have inserted a default 0, writing allele 0 for a
+            // traversal the record does not carry into the very map that `set_allele_map` is then
+            // handed.
+            const auto found_a = trav_to_allele.find(phase.trav_first);
+            const auto found_b = trav_to_allele.find(phase.trav_second);
+            const int a = (phase.trav_first >= 0 && found_a != trav_to_allele.end())
+                              ? found_a->second : -1;
+            const int b = (phase.trav_second >= 0 && found_b != trav_to_allele.end())
+                              ? found_b->second : -1;
+            // The phased genotype must be a permutation of the one this record carries. Checked, not
+            // assumed: phasing that silently substituted a genotype would be invisible in the output,
+            // and two records can share a position.
+            bool same = false;
+            if (phase.ploidy == 1 && site_genotype.size() == 1) {
+                same = (a >= 0 && a == site_genotype[0]);
+            } else if (phase.ploidy == 2 && site_genotype.size() == 2) {
+                same = (a >= 0 && b >= 0)
+                       && ((a == site_genotype[0] && b == site_genotype[1])
+                           || (a == site_genotype[1] && b == site_genotype[0]));
+            }
+
+            if (same) {
+                if (phase.ploidy == 1 && phase.nested_strand >= 0) {
+                    // A nested haploid site is one strand of a diploid locus, not a haploid locus: it
+                    // is called at ploidy 1 because the parent's *other* allele deletes the chain, so
+                    // there is no sequence on that strand to genotype. Written as a phased pair with
+                    // the empty strand as ".", the only place the VCF can carry which strand the
+                    // allele is on -- a bare "a" names none, which is why the strand lived only in the
+                    // mosaic and no phasing tool could read it.
+                    //
+                    // "." rather than "0": the other haplotype does not carry the reference sequence
+                    // here, it carries nothing.
+                    genotype_vector[0] = phase.nested_strand == 0
+                                             ? std::to_string(a) + "|."
+                                             : "." + ("|" + std::to_string(a));
+                } else if (phase.ploidy == 1) {
+                    // A genuinely haploid locus. One allele, no phase; only PS is meaningful, and
+                    // only as a block label. "a|a" would claim a homozygous diploid call.
+                    genotype_vector[0] = std::to_string(a);
+                } else {
+                    genotype_vector[0] = std::to_string(a) + "|" + std::to_string(b);
+                }
+                // PS is added after update_vcf_info below, not here: adding it now would put it
+                // second in FORMAT, ahead of DP/AD/GL, where the patch that used to append it left
+                // it last. Same fields and same values either way, but every line differs, which
+                // costs the byte comparison against the previous arm for no gain.
+                phase_set_to_write = (int64_t)phase.phase_set;
+                ++phased_records;
+            } else {
+                ++phase_declined;
+            }
+        }
+    }
+
     // add some support info
     snarl_caller.update_vcf_info(snarl, site_traversals, site_genotype, call_info, sample_name, out_variant);
+
+    // PS last in FORMAT, which is where appending it as a patch used to leave it.
+    if (phase_set_to_write >= 0) {
+        out_variant.format.push_back("PS");
+        out_variant.samples[sample_name]["PS"].push_back(std::to_string(phase_set_to_write));
+    }
 
     // if genotype_snarls, then we only flatten up to the snarl endpoints
     // (this is when we are in genotyping mode and want consistent calls regardless of the sample)
@@ -3915,6 +3800,9 @@ void FlowCaller::record_site(const Snarl& snarl, const vector<SnarlTraversal>& t
 }
 
 void FlowCaller::render_retained_records() {
+    // The phase, before any record is built: every generation has settled by now, so the phasing is
+    // complete, and each record is phased as it is rendered rather than patched afterwards.
+    build_render_phases();
     if (render_records.empty()) {
         return;
     }

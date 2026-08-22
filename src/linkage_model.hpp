@@ -542,15 +542,6 @@ public:
     /// and every counter. Returns false for an unknown key.
     bool retract(size_t record_key);
 
-    /// Which VCF allele a candidate traversal became at this site, or -1 if it became none.
-    ///
-    /// Needed because the two facts are established at different times once the record is built
-    /// after the decision: the phase is decided when the linkage layer resolves, but which VCF
-    /// allele each traversal is called is decided when the record is rendered, which is later. So a
-    /// phase rendered into allele numbers at resolve time names nothing -- every phased GT came out
-    /// as a wildcard and was declined, which unphased the whole output. The traversal is the stable
-    /// identity; the allele number is looked up when it is needed.
-    int vcf_allele_of_traversal(size_t record_key, int traversal) const;
 
     /// The pair of candidate traversals this site settled on, for a caller that builds the record
     /// after the decision instead of patching one written before it.
