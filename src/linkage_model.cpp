@@ -1972,7 +1972,16 @@ size_t LinkageCollector::resolve_generation(
         size_t unplaced = 0;
         // Which strand each nested site was placed on, so step three can group them. Filled as the
         // sweeps below resolve parents.
-        map<pair<uint32_t, uint8_t>, vector<size_t>> by_strand;
+        // Keyed by (PHASE SET, strand), not (contig, strand). A phase set is exactly the unit
+        // within which a phase is comparable, and a strand only means anything inside one: keying on
+        // the contig put every same-depth site under unrelated parents into one chain, and on a
+        // contig with several chains it merged two unrelated chains' strand 0 into a single haploid
+        // run. Linking sites whose haplotypes have no correspondence is worse than not linking them.
+        map<pair<size_t, uint8_t>, vector<size_t>> by_strand;
+        // For the gate: how many sites would have been pooled across a phase-set boundary under the
+        // old key. Zero is the claim; a count proves the change was not cosmetic.
+        map<pair<uint32_t, uint8_t>, size_t> old_key_groups;
+        size_t crossed_phase_set = 0;
         /// record_key -> what step three settled on, for sites whose genotype it moved. All three
         /// spaces are kept because all three are needed and they are not interchangeable: the
         /// traversal is what a haplotype path walks, the VCF allele is what a GT can name (-1 when
@@ -2143,7 +2152,14 @@ size_t LinkageCollector::resolve_generation(
                 if (strand >= 0) {
                     // Only sites with one strand are grouped: step three chains within a single
                     // haplotype, and a site with no strand belongs to no such chain.
-                    by_strand[make_pair(e.contig, (uint8_t)strand)].push_back(idx);
+                    by_strand[make_pair(pc.phase_set, (uint8_t)strand)].push_back(idx);
+                    // What the old contig-keyed grouping would have done, for the gate below.
+                    auto ok = make_pair(e.contig, (uint8_t)strand);
+                    if (old_key_groups.count(ok) == 0) {
+                        old_key_groups[ok] = pc.phase_set;
+                    } else if (old_key_groups[ok] != pc.phase_set) {
+                        ++crossed_phase_set;
+                    }
                 }
                 ++placed_this_sweep;
             }
@@ -2231,10 +2247,17 @@ size_t LinkageCollector::resolve_generation(
         // are not on the same haplotype, so chaining them together would link sequences that never
         // co-occur -- a worse error than not linking at all. Each group is ploidy-uniform by
         // construction, so the existing haploid model applies unchanged.
+        size_t singleton_groups = 0;
         for (auto& group : by_strand) {
             vector<size_t>& idxs = group.second;
-            if (idxs.size() < 2) {
-                continue;   // nothing to link against
+            // Singletons are NOT skipped. A one-site group has nothing to link against, so linkage
+            // cannot move it on the strength of a neighbour -- but `freq_prior` defaults to 5 and
+            // acts on a chain of one, so the posterior still differs from the raw likelihood and the
+            // site still has to be phased. Skipping it left the genotype at its per-site value and
+            // kept the site out of the phasing entirely. The diploid path fixed exactly this defect
+            // for its own singletons, where it cost 258 chr20 sites their place in the mosaic.
+            if (idxs.size() == 1) {
+                ++singleton_groups;
             }
             sort(idxs.begin(), idxs.end(), [&](size_t a, size_t b) {
                 if (entries[a].position != entries[b].position) {
@@ -2320,6 +2343,15 @@ size_t LinkageCollector::resolve_generation(
         // cost. It is superseded: the crossing mask says exactly which sites were placed on the
         // wrong strand and which have the wrong ploidy, so the bound is no longer the best
         // available number.
+        // Stage 15(a): what the pooling fix changed, printed so it is not taken on faith.
+        if (crossed_phase_set > 0 || singleton_groups > 0) {
+#pragma omp critical (cerr)
+            std::cerr << "[vg call] nested strands: " << by_strand.size()
+                      << " groups keyed by (phase set, strand); " << crossed_phase_set
+                      << " sites the old contig-keyed grouping would have pooled across a phase-set"
+                      << " boundary, " << singleton_groups
+                      << " groups of one now linked and phased instead of skipped" << std::endl;
+        }
         if (!deferred_nested.empty()) {
 #pragma omp critical (cerr)
             std::cerr << "[vg call] nested strands: " << deferred_nested.size()
