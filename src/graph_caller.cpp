@@ -692,7 +692,7 @@ void VCFOutputCaller::resolve_linkage_generation(size_t generation, bool last) {
     for (const LinkageCollector::Change& c : resolved) {
         // Upsert by record_key: several records can share a position, and a site revised at the
         // barrier can produce a second Change for the same key.
-        vector<LinkageCollector::Change>& bucket = linkage_changes[make_pair(c.contig, c.position)];
+        vector<LinkageCollector::Change>& bucket = linkage_changes[make_pair(c.contig, c.record_key)];
         bool updated = false;
         for (LinkageCollector::Change& existing : bucket) {
             if (existing.record_key == c.record_key) {
@@ -730,7 +730,7 @@ void VCFOutputCaller::resolve_linkage_generation(size_t generation, bool last) {
             continue;
         }
         vector<LinkageCollector::PhaseCall>& bucket =
-            linkage_phasings[make_pair(pc.contig, pc.position)];
+            linkage_phasings[make_pair(pc.contig, pc.record_key)];
         bool updated = false;
         for (LinkageCollector::PhaseCall& existing : bucket) {
             if (existing.record_key == pc.record_key) {
@@ -876,7 +876,7 @@ void VCFOutputCaller::write_variants(ostream& out_stream, const SnarlManager* sn
             return line_key;
         };
         if (!linkage_changes.empty()) {
-            auto found = linkage_changes.find(make_pair(v.first.contig, v.first.position));
+            auto found = linkage_changes.find(make_pair(v.first.contig, id_key()));
             if (found != linkage_changes.end()) {
                 for (const LinkageCollector::Change& change : found->second) {
                     if (change.record_key == id_key()) {
@@ -891,7 +891,7 @@ void VCFOutputCaller::write_variants(ostream& out_stream, const SnarlManager* sn
         if (!linkage_phasings.empty()) {
             // After the change, never before: phasing has to describe the genotype that is
             // actually written out.
-            auto found = linkage_phasings.find(make_pair(v.first.contig, v.first.position));
+            auto found = linkage_phasings.find(make_pair(v.first.contig, id_key()));
             if (found != linkage_phasings.end()) {
                 for (const LinkageCollector::PhaseCall& phase : found->second) {
                     if (phase.record_key == id_key()) {

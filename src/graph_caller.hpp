@@ -409,6 +409,19 @@ protected:
     /// column). A map keyed by position alone silently kept only the last writer, so one of the two
     /// records lost its phasing and, when their GT strings coincided, the survivor was applied to
     /// both lines.
+    /// Keyed on (contig, record_key), not (contig, POS).
+    ///
+    /// POS is the wrong key and has now cost two bugs. `flatten_common_allele_ends` advances POS by
+    /// the prefix every allele shares, so the position a record is filed under is a function of its
+    /// emitted allele set -- and anything that changes that set, or that computes the position before
+    /// flattening, files the patch where nothing looks for it. `respecify` had to be given a contig
+    /// and position for exactly this reason, and moving `record()` earlier would have reintroduced it
+    /// from the other side. The failure is also near-invisible: `change_declined`/`phase_declined`
+    /// count patches that were found and refused, so a patch nobody looks up reports zero.
+    ///
+    /// `record_key` is `hash(print_snarl(snarl, false))` and `id_key()` hashes the ID column, which
+    /// is that same string, so the two already agree. The contig stays in the key because one snarl
+    /// ID can appear on more than one contig in a multi-reference run.
     map<pair<string, size_t>, vector<LinkageCollector::Change>> linkage_changes;
     map<pair<string, size_t>, vector<LinkageCollector::PhaseCall>> linkage_phasings;
     /// Every phased site, in the order the model produced them. The mosaic reads this, and deferred
