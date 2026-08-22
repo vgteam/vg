@@ -158,10 +158,13 @@ static void build_emission(const LinkageModel::Site& site, size_t n_hap, double 
 
 /// One Li-Stephens step. T = (1-rho) I + (rho/m) 1, so the sum over previous ordered pairs
 /// collapses to four terms and the step is O(m^2) rather than O(m^4).
-static void transition_apply(const vector<double>& in, size_t m, double rho,
-                             vector<double>& out) {
-    double stay = 1.0 - rho;
-    double jump = rho / (double)m;
+void transition_apply(const vector<double>& in, size_t m,
+                      double rho_a, double rho_b, vector<double>& out) {
+    // One switch probability per strand. The two haplotypes of a diploid sample recombine
+    // independently, so the distance each has travelled since the previous site is its own -- which
+    // is what the haplotype-frame work needs and what a single scalar cannot express.
+    double stay_a = 1.0 - rho_a, stay_b = 1.0 - rho_b;
+    double jump_a = rho_a / (double)m, jump_b = rho_b / (double)m;
     vector<double> row(m, 0.0), col(m, 0.0);
     double total = 0.0;
     for (size_t a = 0; a < m; ++a) {
@@ -175,9 +178,14 @@ static void transition_apply(const vector<double>& in, size_t m, double rho,
     out.assign(m * m, 0.0);
     for (size_t a = 0; a < m; ++a) {
         for (size_t b = 0; b < m; ++b) {
-            out[a * m + b] = stay * stay * in[a * m + b]
-                             + stay * jump * (row[a] + col[b])
-                             + jump * jump * total;
+            // The old grouping `stay * jump * (row[a] + col[b])` cannot survive: once the two
+            // coefficients differ the row and column terms carry different factors and must be
+            // written separately. That re-association is why this cannot be byte-identical even
+            // when both rhos are equal.
+            out[a * m + b] = stay_a * stay_b * in[a * m + b]
+                             + stay_a * jump_b * row[a]
+                             + jump_a * stay_b * col[b]
+                             + jump_a * jump_b * total;
         }
     }
 }
@@ -231,12 +239,20 @@ Top2 top2_of(const double* v, size_t n, size_t stride) {
 ///
 /// In logs, unlike the forward pass: sum-product needs rescaling per site to avoid underflow,
 /// max-product does not, and in logs the stay-or-jump choice is a comparison of sums.
-void viterbi_step(const vector<double>& in, size_t m, double rho, const vector<double>& emission,
+void viterbi_step(const vector<double>& in, size_t m, double rho_a, double rho_b,
+                  const vector<double>& emission,
                   vector<double>& out, vector<uint16_t>& back_a, vector<uint16_t>& back_b) {
-    double stay = 1.0 - rho + rho / (double)m;
-    double jump = rho / (double)m;
-    double S = stay > 0.0 ? log(stay) : NEG_INF;
-    double J = jump > 0.0 ? log(jump) : NEG_INF;
+    // Per strand, as in `transition_apply`. The four candidates below are already the four
+    // stay/jump combinations, so each simply takes the coefficient belonging to its own axis; the
+    // leave-one-out maxima are per-axis already and do not change at all.
+    double stay_a = 1.0 - rho_a + rho_a / (double)m;
+    double stay_b = 1.0 - rho_b + rho_b / (double)m;
+    double jump_a = rho_a / (double)m;
+    double jump_b = rho_b / (double)m;
+    double S_a = stay_a > 0.0 ? log(stay_a) : NEG_INF;
+    double S_b = stay_b > 0.0 ? log(stay_b) : NEG_INF;
+    double J_a = jump_a > 0.0 ? log(jump_a) : NEG_INF;
+    double J_b = jump_b > 0.0 ? log(jump_b) : NEG_INF;
 
     vector<Top2> rows(m), cols(m);
     for (size_t a = 0; a < m; ++a) {
@@ -277,24 +293,24 @@ void viterbi_step(const vector<double>& in, size_t m, double rho, const vector<d
 
             double c1 = in[ap * m + bp];
             if (c1 > NEG_INF) {
-                double v = c1 + S + S;
+                double v = c1 + S_a + S_b;
                 if (v > best) { best = v; ba = ap; bb = bp; }
             }
             double c2 = rowExcl[ap * m + bp];
             if (c2 > NEG_INF) {
-                double v = c2 + S + J;
+                double v = c2 + S_a + J_b;
                 if (v > best) { best = v; ba = ap; bb = rowExclArg[ap * m + bp]; }
             }
             bool chit = (cols[bp].arg == ap);
             double c3 = chit ? cols[bp].second : cols[bp].best;
             if (c3 > NEG_INF) {
-                double v = c3 + J + S;
+                double v = c3 + J_a + S_b;
                 if (v > best) { best = v; ba = chit ? cols[bp].arg2 : cols[bp].arg; bb = bp; }
             }
             bool bhit = (both.arg == ap);
             double c4 = bhit ? both.second : both.best;
             if (c4 > NEG_INF) {
-                double v = c4 + J + J;
+                double v = c4 + J_a + J_b;
                 if (v > best) {
                     best = v;
                     ba = bhit ? both.arg2 : both.arg;
@@ -353,7 +369,10 @@ void LinkageModel::window_posteriors(const vector<Site>& sites, size_t from, siz
         size_t gap = sites[from + t].position > sites[from + t - 1].position
                          ? sites[from + t].position - sites[from + t - 1].position : 1;
         vector<double> moved;
-        transition_apply(alpha[t - 1], m, switch_probability(gap), moved);
+        // Both strands given the same value for now: this stage lands the arithmetic, and the
+        // per-strand distances that will make them differ come with the haplotype frame.
+        const double rho = switch_probability(gap);
+        transition_apply(alpha[t - 1], m, rho, rho, moved);
         double s = 0.0;
         for (size_t k = 0; k < m * m; ++k) {
             moved[k] *= emissions[t][k];
@@ -493,7 +512,8 @@ void LinkageModel::window_posteriors(const vector<Site>& sites, size_t from, siz
             weighted[k] = beta[k] * emissions[t][k];
         }
         vector<double> next;
-        transition_apply(weighted, m, switch_probability(gap), next);
+        const double rho = switch_probability(gap);
+        transition_apply(weighted, m, rho, rho, next);
         double s = 0.0;
         for (double v : next) {
             s += v;
@@ -728,7 +748,8 @@ void LinkageModel::window_phasing(const vector<Site>& sites, size_t from, size_t
         size_t gap = sites[from + t].position > sites[from + t - 1].position
                          ? sites[from + t].position - sites[from + t - 1].position : 1;
         vector<double> next;
-        viterbi_step(delta, m, switch_probability(gap), emissions[t], next, back_a[t], back_b[t]);
+        const double rho = switch_probability(gap);
+        viterbi_step(delta, m, rho, rho, emissions[t], next, back_a[t], back_b[t]);
         bool any = false;
         for (double v : next) {
             if (v > NEG_INF) { any = true; break; }

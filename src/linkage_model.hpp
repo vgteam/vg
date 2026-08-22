@@ -339,6 +339,20 @@ private:
  * `record()`, the global mutex that looks like the obvious contention point, does not register in
  * a profile at all: one sample before the cache, three after.
  */
+/// One step of the forward/backward transition.
+///
+/// Declared here so the arithmetic can be unit-tested directly. `viterbi_step` takes the same pair
+/// but stays in the .cpp's anonymous namespace with the top-2 helpers it depends on; its four
+/// candidates are the four stay/jump combinations, so it is the same generalisation.
+///
+/// Takes a switch probability per
+/// strand: the two haplotypes of a diploid sample recombine independently, so the distance each has
+/// travelled since the previous site is its own. Passing the same value twice reproduces the single
+/// scalar these used to take, up to floating-point re-association -- see the unit tests, which assert
+/// agreement to 1e-12 rather than bit-identity for exactly that reason.
+void transition_apply(const std::vector<double>& in, size_t m, double rho_a, double rho_b,
+                      std::vector<double>& out);
+
 class LinkageCollector {
 public:
 

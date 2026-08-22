@@ -1067,6 +1067,88 @@ TEST_CASE("A child of a haploid locus gets no strand, so it is not written as a 
     REQUIRE(kid->nested_strand < 0);
 }
 
+TEST_CASE("The per-strand transition reduces to the single-rho form when both strands agree",
+          "[linkage_model]") {
+    // The generalisation has to be a generalisation: with one value for both strands it must compute
+    // what the scalar version computed. Asserted to 1e-12 rather than bit-identity, and deliberately
+    // so -- the old grouping `stay * jump * (row[a] + col[b])` cannot be preserved once the two
+    // coefficients differ, so the split into two separately-coefficiented terms is a guaranteed
+    // re-association. Demanding bit-identity here would produce a gate that has to be waived.
+    const size_t m = 5;
+    vector<double> in(m * m);
+    // A fixed, uneven state vector. Deterministic rather than random: a failure has to be
+    // reproducible, and there is nothing about randomness this test needs.
+    for (size_t i = 0; i < m * m; ++i) {
+        in[i] = 0.001 + 0.37 * ((double)((i * 7919) % 101) / 101.0);
+    }
+
+    // The single-rho form as it was, written out locally so the comparison is against the old
+    // arithmetic and not against the new code's own factorisation.
+    auto reference = [&](double rho, vector<double>& out) {
+        double stay = 1.0 - rho;
+        double jump = rho / (double)m;
+        vector<double> row(m, 0.0), col(m, 0.0);
+        double total = 0.0;
+        for (size_t a = 0; a < m; ++a) {
+            for (size_t b = 0; b < m; ++b) {
+                double v = in[a * m + b];
+                row[a] += v;
+                col[b] += v;
+                total += v;
+            }
+        }
+        out.assign(m * m, 0.0);
+        for (size_t a = 0; a < m; ++a) {
+            for (size_t b = 0; b < m; ++b) {
+                out[a * m + b] = stay * stay * in[a * m + b]
+                                 + stay * jump * (row[a] + col[b])
+                                 + jump * jump * total;
+            }
+        }
+    };
+
+    for (double rho : {0.0, 1e-4, 0.013, 0.5, 0.97, 1.0}) {
+        vector<double> want, got;
+        reference(rho, want);
+        transition_apply(in, m, rho, rho, got);
+        REQUIRE(got.size() == want.size());
+        for (size_t i = 0; i < want.size(); ++i) {
+            REQUIRE(got[i] == Approx(want[i]).margin(1e-12));
+        }
+    }
+}
+
+TEST_CASE("The per-strand transition can move one strand and leave the other",
+          "[linkage_model]") {
+    // The point of the pair form, and the case the scalar version could not express at all: one
+    // strand certain to stay, the other certain to jump. The closed form is exact -- strand a keeps
+    // its index, strand b is uniform over m -- so this is checkable without a reference
+    // implementation, and it is what a per-haplotype distance will actually ask for.
+    const size_t m = 4;
+    vector<double> in(m * m, 0.0);
+    // All mass on (2, 1).
+    in[2 * m + 1] = 1.0;
+
+    vector<double> out;
+    transition_apply(in, m, /*rho_a*/ 0.0, /*rho_b*/ 1.0, out);
+    for (size_t a = 0; a < m; ++a) {
+        for (size_t b = 0; b < m; ++b) {
+            // Row 2 spreads uniformly across b; every other row is empty.
+            const double want = (a == 2) ? 1.0 / (double)m : 0.0;
+            REQUIRE(out[a * m + b] == Approx(want).margin(1e-12));
+        }
+    }
+
+    // And the mirror image, so neither axis is privileged by accident.
+    transition_apply(in, m, /*rho_a*/ 1.0, /*rho_b*/ 0.0, out);
+    for (size_t a = 0; a < m; ++a) {
+        for (size_t b = 0; b < m; ++b) {
+            const double want = (b == 1) ? 1.0 / (double)m : 0.0;
+            REQUIRE(out[a * m + b] == Approx(want).margin(1e-12));
+        }
+    }
+}
+
 TEST_CASE("Every generation is resolved, not only the first", "[linkage_model]") {
     // Chain construction skips entries above the generation being resolved, so resolving generation
     // 0 alone drops every nested site from linkage, from phasing and from the mosaic. The caller
