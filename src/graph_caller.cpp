@@ -3613,6 +3613,56 @@ int FlowCaller::crossings_of_child(const SnarlTraversal& trav, const Snarl& chil
     return crossings;
 }
 
+/// The bp offset of a child's start along a parent traversal, and the child's bp span along it.
+///
+/// Stage 14 of planning/decide-then-render.md: the linkage model measures the distance between
+/// adjacent sites along the REFERENCE, but a haplotype that carries an insertion has travelled
+/// further between the same two sites than the reference has, and a haplotype carrying a deletion
+/// has travelled less. This is the distance in the haplotype's own frame.
+///
+/// Returns false where the child's boundaries are not both crossed by this traversal, which is not
+/// an error: a traversal that does not enter the child has no offset along it to report.
+static bool traversal_offset_span(const PathHandleGraph& graph, const SnarlTraversal& trav,
+                                  const Snarl& child, int64_t* offset, int64_t* span) {
+    const nid_t start = child.start().node_id();
+    const nid_t end = child.end().node_id();
+    int64_t walked = 0;
+    int64_t entered_at = -1;
+    nid_t open = 0;
+    for (int i = 0; i < trav.visit_size(); ++i) {
+        if (trav.visit(i).has_snarl()) {
+            continue;
+        }
+        const nid_t node = trav.visit(i).node_id();
+        if (open == 0 && (node == start || node == end)) {
+            open = (node == start) ? end : start;
+            entered_at = walked;
+        } else if (open != 0 && node == open) {
+            // Span measured boundary-to-boundary inclusive of the closing node, matching how the
+            // reference span of a snarl is taken.
+            *offset = entered_at;
+            *span = walked + (int64_t)graph.get_length(graph.get_handle(node)) - entered_at;
+            return true;
+        }
+        walked += (int64_t)graph.get_length(graph.get_handle(node));
+    }
+    return false;
+}
+
+/// Stage 14 instrumentation, inert: does the haplotype frame reorder or re-space adjacent sites?
+///
+/// Aggregated rather than stored. The stage's off-ramp is a decision about whether stage 15 should
+/// carry per-haplotype distances at all, and that decision needs distributions, not per-site fields
+/// -- so nothing is added to `Entry` or to `record()` until the answer says it is worth it.
+static std::atomic<size_t> g_frame_pairs{0};          // adjacent sibling pairs measured
+static std::atomic<size_t> g_frame_reordered{0};      // ... that swap order in the haplotype frame
+static std::atomic<size_t> g_frame_gap_within_5pct{0};
+static std::atomic<size_t> g_frame_gap_measured{0};
+static std::atomic<size_t> g_frame_no_offset{0};      // children with no offset on a called traversal
+static std::atomic<size_t> g_frame_disagree{0};       // diploid parents whose traversals disagree
+static std::atomic<size_t> g_frame_offset_delta_sum{0};
+static std::atomic<size_t> g_frame_offset_delta_max{0};
+
 uint64_t FlowCaller::child_crossing_mask(const vector<SnarlTraversal>& travs,
                                          const Snarl& child, bool* known) {
     if (known != nullptr) {
@@ -4202,6 +4252,29 @@ void FlowCaller::run_deferred_descent() {
         // "Not revised by the barrier" rather than "top-level": recurse-on-fail reaches children with
         // no ploidy override, so they take the same path. On chr20 that is 165,408 top-level snarls
         // plus 26,799 such children.
+        // Stage 14's off-ramp, printed so the decision rests on numbers rather than on whether
+        // the frame sounds like it should matter. The criteria were fixed before the measurement:
+        // if under 1% of adjacent pairs reorder AND 99% of gap ratios sit inside 1.05, the
+        // haplotype frame buys nothing measurable and stage 15 drops its distance half.
+        if (g_frame_pairs.load() > 0) {
+            const double reorder_pct = 100.0 * (double)g_frame_reordered.load()
+                                       / (double)g_frame_pairs.load();
+            const size_t gm = g_frame_gap_measured.load();
+            const double within_pct = gm ? 100.0 * (double)g_frame_gap_within_5pct.load() / (double)gm
+                                         : 0.0;
+            cerr << "[vg call] haplotype frame: " << g_frame_pairs.load()
+                 << " adjacent sibling pairs, " << g_frame_reordered.load()
+                 << " reorder (" << reorder_pct << "%); " << gm
+                 << " gaps measured, " << within_pct << "% within 1.05 of the reference gap"
+                 << endl;
+            cerr << "[vg call] haplotype frame: " << g_frame_disagree.load()
+                 << " children whose two parent traversals disagree on offset (mean |delta| "
+                 << (g_frame_disagree.load()
+                         ? (double)g_frame_offset_delta_sum.load() / (double)g_frame_disagree.load()
+                         : 0.0)
+                 << " bp, max " << g_frame_offset_delta_max.load() << "); "
+                 << g_frame_no_offset.load() << " with no offset on any called traversal" << endl;
+        }
         cerr << "[vg call] retained for rendering: " << render_record_count()
              << " snarls the barrier will not revise, plus " << pending.size()
              << " nested chains; " << (retained_bytes / (1024.0 * 1024.0)) << " MB over "
@@ -4808,6 +4881,76 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
             // phasing, so without phasing a deferred child is one whose parent cannot be found, and
             // `descend_pending` would drop it. Kept here so the invariant is a property of this code
             // rather than of a check somewhere else.
+            // Stage 14, inert: measure whether the haplotype frame would reorder or re-space
+            // these children relative to the reference frame the model currently uses. Done once
+            // per parent, before the descent loop, so it costs one pass over the children and no
+            // extra graph queries beyond node lengths.
+            if (!travs.empty() && ref_trav_idx >= 0 && (size_t)ref_trav_idx < travs.size()) {
+                // (offset along the reference, offset along a called traversal) per child that both
+                // frames can place.
+                vector<pair<int64_t, int64_t>> both;
+                for (const Snarl* child : snarl_manager.children_of(managed_ptr)) {
+                    if (child == nullptr || snarl_manager.is_trivial(child, graph)) {
+                        continue;
+                    }
+                    int64_t ref_off = 0, ref_span = 0;
+                    if (!traversal_offset_span(graph, travs[ref_trav_idx], *child, &ref_off,
+                                               &ref_span)) {
+                        continue;
+                    }
+                    // Along each called traversal. A diploid parent gives two, and where they
+                    // disagree the frame is genuinely ambiguous -- which is the case stage 15's
+                    // consensus rule has to settle.
+                    int64_t first = -1, second = -1;
+                    for (size_t g = 0; g < trav_genotype.size(); ++g) {
+                        const int t = trav_genotype[g];
+                        if (t < 0 || (size_t)t >= travs.size()) {
+                            continue;
+                        }
+                        int64_t off = 0, span = 0;
+                        if (!traversal_offset_span(graph, travs[t], *child, &off, &span)) {
+                            continue;
+                        }
+                        if (first < 0) {
+                            first = off;
+                        } else {
+                            second = off;
+                        }
+                    }
+                    if (first < 0) {
+                        ++g_frame_no_offset;
+                        continue;
+                    }
+                    if (second >= 0 && second != first) {
+                        ++g_frame_disagree;
+                        const size_t d = (size_t)llabs(second - first);
+                        g_frame_offset_delta_sum += d;
+                        size_t prev = g_frame_offset_delta_max.load();
+                        while (d > prev && !g_frame_offset_delta_max.compare_exchange_weak(prev, d)) {
+                        }
+                    }
+                    both.emplace_back(ref_off, first);
+                }
+                // Sort by the reference frame, then ask whether the haplotype frame agrees about
+                // the order of each adjacent pair and about how far apart they are.
+                sort(both.begin(), both.end());
+                for (size_t i = 1; i < both.size(); ++i) {
+                    ++g_frame_pairs;
+                    if (both[i].second < both[i - 1].second) {
+                        ++g_frame_reordered;
+                    }
+                    const int64_t ref_gap = both[i].first - both[i - 1].first;
+                    const int64_t hap_gap = llabs(both[i].second - both[i - 1].second);
+                    if (ref_gap > 0 && hap_gap > 0) {
+                        ++g_frame_gap_measured;
+                        const double ratio = (double)hap_gap / (double)ref_gap;
+                        if (ratio >= 1.0 / 1.05 && ratio <= 1.05) {
+                            ++g_frame_gap_within_5pct;
+                        }
+                    }
+                }
+            }
+
             for (const Snarl* child : snarl_manager.children_of(managed_ptr)) {
                 if (child == nullptr || snarl_manager.is_trivial(child, graph)) {
                     continue;
