@@ -397,6 +397,12 @@ protected:
     /// the whole accumulated call set rather than one generation of it.
     void resolve_linkage_generation(size_t generation, bool last);
 
+    /// Build the patch index and write the mosaic, once every record exists.
+    ///
+    /// Separate from resolution because both read whether a site has a VCF line, and with the record
+    /// built after the decision that is unknown while resolving -- every entry still says unemitted.
+    void finalise_linkage_outputs();
+
     /// Resolve the linkage pass if nothing has resolved it yet, as a single generation-0 pass.
     /// Idempotent, so `write_variants` can call it unconditionally and a driver that already ran the
     /// generations itself is not undone.

@@ -9,7 +9,7 @@ PATH=../bin:$PATH # for vg
 # FORMAT field shifts every later one, which broke four assertions here that were not
 # testing field order at all -- one of them silently compared BL against a GQ threshold.
 
-plan tests 303
+plan tests 304
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -425,11 +425,30 @@ is "$?" "0" "--phased produces output"
 is $(grep -c "FORMAT=<ID=PS" rl_phased.vcf) "1" "--phased declares FORMAT/PS in the header"
 is $(grep -v "^#" rl_phased.vcf | cut -f10 | cut -d: -f1 | grep -c "/") "0" \
    "every phased record uses | rather than /"
-vg call x.gbz --read-likelihood --gam sim.gam --no-phased 2>/dev/null | grep -v "^#" | cut -f1,2,10 | cut -d: -f1 > rl_unphased_gt.txt
-grep -v "^#" rl_phased.vcf | cut -f1,2,10 | cut -d: -f1 > rl_phased_gt.txt
-is $(paste rl_unphased_gt.txt rl_phased_gt.txt | awk '{
-       split($3,a,"/"); split($6,b,"|");
-       if ((a[1]!=b[1] || a[2]!=b[2]) && (a[1]!=b[2] || a[2]!=b[1])) bad++
+# The control is --no-phased with --no-nested on BOTH sides, not --no-phased on its own. Where the
+# linkage layer runs, turning phasing off turns nested calling off with it -- a nested site's ploidy
+# and strand come from its parent's phased genotype, so that configuration is refused further up --
+# which makes a bare --phased against --no-phased a comparison of a nested run with a non-nested one.
+# That held only while the two happened to emit the same records. Once the genotype is decided before
+# the record is built it does not: the nested arm emitted 70 records to the unphased arm's 63, and the
+# check read a real difference in which sites become records as a phasing bug.
+#
+# Joined on the snarl ID rather than paired by line order, because POS is not an identity here: the
+# flattened position depends on which alleles the line carries, so one snarl legitimately moved from
+# POS 10 to POS 9 between the two arms, and pasting by line number then compared different sites and
+# reported 41 of 70 records broken.
+vg call x.gbz --read-likelihood --gam sim.gam --no-nested --phased 2>/dev/null \
+  | grep -v "^#" | awk '{split($10,g,":"); print $3, g[1]}' | sort > rl_phased_gt.txt
+vg call x.gbz --read-likelihood --gam sim.gam --no-nested --no-phased 2>/dev/null \
+  | grep -v "^#" | awk '{split($10,g,":"); print $3, g[1]}' | sort > rl_unphased_gt.txt
+is $(join rl_unphased_gt.txt rl_phased_gt.txt | wc -l | tr -d ' ') \
+   $(cat rl_unphased_gt.txt | wc -l | tr -d ' ') \
+   "phasing changes no record's identity, so every unphased record joins a phased one"
+is $(join rl_unphased_gt.txt rl_phased_gt.txt | awk '{
+       split($2,a,/[\/|]/); split($3,b,/[\/|]/);
+       if (a[1]>a[2]) {t=a[1];a[1]=a[2];a[2]=t}
+       if (b[1]>b[2]) {t=b[1];b[1]=b[2];b[2]=t}
+       if (a[1]!=b[1] || a[2]!=b[2]) bad++
      } END { print bad+0 }') "0" \
    "the phased genotype is a permutation of the unphased one at every record"
 

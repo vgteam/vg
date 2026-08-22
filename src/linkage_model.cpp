@@ -1431,6 +1431,56 @@ bool LinkageCollector::respecify(size_t record_key,
     return false;
 }
 
+int LinkageCollector::vcf_allele_of_traversal(size_t record_key, int traversal) const {
+    if (traversal < 0) {
+        return -1;
+    }
+    lock_guard<std::mutex> guard(mutex);
+    for (const Entry& e : entries) {
+        if (e.record_key != record_key || e.retracted) {
+            continue;
+        }
+        for (size_t c = 0; c < e.num_alleles; ++c) {
+            if (traversal_of(trav_arena, e.trav_offset, e.num_alleles, c) == traversal) {
+                return vcf_allele_of(allele_arena, e.allele_offset, e.num_alleles, c);
+            }
+        }
+        return -1;
+    }
+    return -1;
+}
+
+bool LinkageCollector::settled_traversals(size_t record_key, int* first, int* second,
+                                         size_t* ploidy) const {
+    lock_guard<std::mutex> guard(mutex);
+    for (const Entry& e : entries) {
+        if (e.record_key != record_key || e.retracted) {
+            continue;
+        }
+        const int a = traversal_of(trav_arena, e.trav_offset, e.num_alleles, e.final_i);
+        const int b = traversal_of(trav_arena, e.trav_offset, e.num_alleles, e.final_j);
+        if (a < 0 || b < 0) {
+            return false;
+        }
+        *first = a;
+        *second = b;
+        *ploidy = e.ploidy;
+        return true;
+    }
+    return false;
+}
+
+std::unordered_set<size_t> LinkageCollector::emitted_records() const {
+    lock_guard<std::mutex> guard(mutex);
+    std::unordered_set<size_t> emitted;
+    for (const Entry& e : entries) {
+        if (!e.retracted && e.emitted) {
+            emitted.insert(e.record_key);
+        }
+    }
+    return emitted;
+}
+
 bool LinkageCollector::set_allele_map(size_t record_key,
                                      const vector<int>& traversal_to_allele, bool emitted) {
     lock_guard<std::mutex> guard(mutex);

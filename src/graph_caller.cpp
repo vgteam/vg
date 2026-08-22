@@ -668,52 +668,21 @@ void VCFOutputCaller::resolve_linkage() {
     }
 }
 
-void VCFOutputCaller::resolve_linkage_generation(size_t generation, bool last) {
-    linkage_resolved = true;
+void VCFOutputCaller::finalise_linkage_outputs() {
+    // Built here, after every record has been rendered, and not while the genotypes are being
+    // resolved.
+    //
+    // Both of these read `PhaseCall::emitted` to tell a record from a site that wrote no line,
+    // and once the record is built AFTER the decision that is not known during resolution: every
+    // entry still says unemitted there. Building the patch index then produced an empty map and
+    // unphased the whole output; building the mosaic then would have filled it with the 100k
+    // sites that never become records.
     if (linkage_collector == nullptr) {
         return;
     }
-    // Reported rather than estimated. The retained-bytes figure in the LinkageCollector
-    // header comment was arithmetic -- sites times a per-site size -- and `bytes()` exists so
-    // that it can be an observation instead; it had never been called. The elapsed time
-    // answers the other question the design asserted without checking: this pass is serial,
-    // between calling and writing, in a caller that is otherwise parallel over snarls.
-    auto start = std::chrono::steady_clock::now();
-    // `linkage_phased` accumulates across generations rather than being replaced. The model needs
-    // the earlier generations back: a nested site's strand is read off its parent's PhaseCall, and
-    // a clamped site's phase is pinned to the pair already emitted for it.
-    vector<LinkageCollector::Change> resolved =
-        linkage_collector->resolve_generation(generation, last,
-                                              emit_phasing ? &linkage_phased : nullptr);
-    double seconds = std::chrono::duration<double>(
-        std::chrono::steady_clock::now() - start).count();
-    linkage_seconds += seconds;
-    linkage_changed += resolved.size();
-    for (const LinkageCollector::Change& c : resolved) {
-        // Upsert by record_key: several records can share a position, and a site revised at the
-        // barrier can produce a second Change for the same key.
-        vector<LinkageCollector::Change>& bucket = linkage_changes[make_pair(c.contig, c.record_key)];
-        bool updated = false;
-        for (LinkageCollector::Change& existing : bucket) {
-            if (existing.record_key == c.record_key) {
-                existing = c;
-                updated = true;
-                break;
-            }
-        }
-        if (!updated) {
-            bucket.push_back(c);
-        }
-    }
-    if (!last) {
-        // One line per intermediate generation, so a deferred-descent run shows its own shape:
-        // how many sites each barrier settled and what it cost.
-        cerr << "[vg call] linkage generation " << generation << ": "
-             << linkage_collector->num_sites_at(generation) << " sites, "
-             << resolved.size() << " genotypes changed, " << seconds << " s" << endl;
-        return;
-    }
-
+    // Live, not the snapshot each PhaseCall carries: `linkage_phased` holds copies taken during
+    // resolution, before any line existed, so every copy's `emitted` is false.
+    const std::unordered_set<size_t> emitted_records = linkage_collector->emitted_records();
     size_t unexplained = 0;
     size_t order_arbitrary = 0;
     // Rebuilt from scratch each last pass: `linkage_phased` is the full accumulated set, and the
@@ -722,7 +691,7 @@ void VCFOutputCaller::resolve_linkage_generation(size_t generation, bool last) {
     linkage_phasings.clear();
     size_t phased_unwritten = 0;
     for (const LinkageCollector::PhaseCall& pc : linkage_phased) {
-        if (!pc.emitted) {
+        if (emitted_records.count(pc.record_key) == 0) {
             // Phased, and deliberately so -- its children read their strand off it -- but there is
             // no line to patch and it is not a record, so it must not enter the patch index, the
             // mosaic, or any count of records. Counted on its own instead.
@@ -798,12 +767,60 @@ void VCFOutputCaller::resolve_linkage_generation(size_t generation, bool last) {
         vector<LinkageCollector::PhaseCall> written;
         written.reserve(linkage_phased.size());
         for (const LinkageCollector::PhaseCall& pc : linkage_phased) {
-            if (pc.emitted) {
+            if (emitted_records.count(pc.record_key) != 0) {
                 written.push_back(pc);
             }
         }
         write_mosaic(written);
     }
+}
+
+void VCFOutputCaller::resolve_linkage_generation(size_t generation, bool last) {
+    linkage_resolved = true;
+    if (linkage_collector == nullptr) {
+        return;
+    }
+    // Reported rather than estimated. The retained-bytes figure in the LinkageCollector
+    // header comment was arithmetic -- sites times a per-site size -- and `bytes()` exists so
+    // that it can be an observation instead; it had never been called. The elapsed time
+    // answers the other question the design asserted without checking: this pass is serial,
+    // between calling and writing, in a caller that is otherwise parallel over snarls.
+    auto start = std::chrono::steady_clock::now();
+    // `linkage_phased` accumulates across generations rather than being replaced. The model needs
+    // the earlier generations back: a nested site's strand is read off its parent's PhaseCall, and
+    // a clamped site's phase is pinned to the pair already emitted for it.
+    vector<LinkageCollector::Change> resolved =
+        linkage_collector->resolve_generation(generation, last,
+                                              emit_phasing ? &linkage_phased : nullptr);
+    double seconds = std::chrono::duration<double>(
+        std::chrono::steady_clock::now() - start).count();
+    linkage_seconds += seconds;
+    linkage_changed += resolved.size();
+    for (const LinkageCollector::Change& c : resolved) {
+        // Upsert by record_key: several records can share a position, and a site revised at the
+        // barrier can produce a second Change for the same key.
+        vector<LinkageCollector::Change>& bucket = linkage_changes[make_pair(c.contig, c.record_key)];
+        bool updated = false;
+        for (LinkageCollector::Change& existing : bucket) {
+            if (existing.record_key == c.record_key) {
+                existing = c;
+                updated = true;
+                break;
+            }
+        }
+        if (!updated) {
+            bucket.push_back(c);
+        }
+    }
+    if (!last) {
+        // One line per intermediate generation, so a deferred-descent run shows its own shape:
+        // how many sites each barrier settled and what it cost.
+        cerr << "[vg call] linkage generation " << generation << ": "
+             << linkage_collector->num_sites_at(generation) << " sites, "
+             << resolved.size() << " genotypes changed, " << seconds << " s" << endl;
+        return;
+    }
+
 }
 
 void VCFOutputCaller::write_variants(ostream& out_stream, const SnarlManager* snarl_manager) {
@@ -839,6 +856,7 @@ void VCFOutputCaller::write_variants(ostream& out_stream, const SnarlManager* sn
     // (contig, position) uncompressed as the sort key -- so a change can be matched without ever
     // having kept the record itself, and only the records that actually move are re-parsed.
     resolve_linkage();
+    finalise_linkage_outputs();
 
     // Patches that were declined because the line does not carry the genotype the change was
     // derived from, or the allele it names. Counted rather than ignored: a silent no-op here is
@@ -895,7 +913,25 @@ void VCFOutputCaller::write_variants(ostream& out_stream, const SnarlManager* sn
             if (found != linkage_phasings.end()) {
                 for (const LinkageCollector::PhaseCall& phase : found->second) {
                     if (phase.record_key == id_key()) {
-                        if (!apply_phasing(dest, phase)) {
+                        // The allele numbers are resolved here rather than when the phase was
+                        // decided. The record is now rendered after the linkage layer resolves, so at
+                        // resolve time no allele list existed and every phased pair came out as a
+                        // wildcard -- which apply_phasing correctly declines, unphasing the entire
+                        // output. The traversal is the stable identity across both moments.
+                        LinkageCollector::PhaseCall resolved = phase;
+                        if (linkage_collector != nullptr && resolved.trav_first >= 0) {
+                            const int a = linkage_collector->vcf_allele_of_traversal(
+                                resolved.record_key, resolved.trav_first);
+                            const int b = linkage_collector->vcf_allele_of_traversal(
+                                resolved.record_key, resolved.trav_second);
+                            if (a >= 0) {
+                                resolved.allele_first = (size_t)a;
+                            }
+                            if (b >= 0) {
+                                resolved.allele_second = (size_t)b;
+                            }
+                        }
+                        if (!apply_phasing(dest, resolved)) {
                             ++phase_declined;
                         }
                         break;
@@ -997,9 +1033,28 @@ bool VCFOutputCaller::apply_linkage_change(string& line,
     {
         string current = values[gt_field];
         std::replace(current.begin(), current.end(), '|', '/');
+        // Either the genotype this change was derived FROM, or the one it is going TO.
+        //
+        // The second case is new and is not a loosening. Once the record is rendered from the settled
+        // genotype, the line already carries the change's target, and a guard that only recognised
+        // the pre-linkage pair would reject it -- taking the post-linkage QUALITY arithmetic below
+        // down with it. That arithmetic is not decoration: GQ becomes the phred complement of the
+        // posterior, discounted by the explained-read share and capped at GQI, GQN is rewritten and a
+        // stale `lowconf` cleared. Skipping it would silently revert every changed record to per-site
+        // quality, and `GQ <= GQI` (test/t/18_vg_call.t:207) would stop holding on about 5% of them.
+        const string target = haploid_record
+                                  ? std::to_string(change.allele_i)
+                                  : std::to_string(change.allele_i) + "/"
+                                        + std::to_string(change.allele_j);
+        const string target_alt = haploid_record
+                                      ? target
+                                      : std::to_string(change.allele_j) + "/"
+                                            + std::to_string(change.allele_i);
+        const bool at_target = (current == target || current == target_alt);
         if (haploid_record) {
-            if (change.called_i != change.called_j
-                || current != std::to_string(change.called_i)) {
+            if (!at_target
+                && (change.called_i != change.called_j
+                    || current != std::to_string(change.called_i))) {
                 return false;
             }
         } else {
@@ -1007,7 +1062,7 @@ bool VCFOutputCaller::apply_linkage_change(string& line,
                               + std::to_string(change.called_j);
             string expected_alt = std::to_string(change.called_j) + "/"
                                   + std::to_string(change.called_i);
-            if (current != expected && current != expected_alt) {
+            if (!at_target && current != expected && current != expected_alt) {
                 return false;
             }
         }
@@ -3972,7 +4027,25 @@ void FlowCaller::render_retained_records() {
         nested_context = NestedContext();
         current_generation = 0;
         for (PendingRecord& rec : render_records[t]) {
-            emit_variant(graph, snarl_caller, rec.snarl, rec.travs, rec.genotype, rec.ref_trav_idx,
+            // The settled pair, not the one the reads alone picked. This is the whole point of the
+            // phase: the ALT list, the symbolic-reference test that decides whether a line exists at
+            // all, QUAL, and the arity of AD/GL/GQI are all built by iterating the genotype handed in
+            // -- so handing in the settled one makes every one of them agree with the call instead of
+            // being patched towards it afterwards. A settled traversal is renderable by construction,
+            // because the allele list is chosen from it.
+            vector<int> genotype = rec.genotype;
+            int settled_a = -1, settled_b = -1;
+            size_t settled_ploidy = 0;
+            if (linkage_collector != nullptr
+                && linkage_collector->settled_traversals(rec.record_key, &settled_a, &settled_b,
+                                                         &settled_ploidy)
+                && settled_ploidy == genotype.size()) {
+                genotype.assign(1, settled_a);
+                if (settled_ploidy > 1) {
+                    genotype.push_back(settled_b);
+                }
+            }
+            emit_variant(graph, snarl_caller, rec.snarl, rec.travs, genotype, rec.ref_trav_idx,
                          rec.call_info, rec.ref_path_name, rec.ref_offset, genotype_snarls,
                          rec.ploidy);
         }

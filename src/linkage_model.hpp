@@ -16,6 +16,7 @@
 #include <map>
 #include <mutex>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 namespace vg {
@@ -549,6 +550,26 @@ public:
     /// and every counter. Returns false for an unknown key.
     bool retract(size_t record_key);
 
+    /// Which VCF allele a candidate traversal became at this site, or -1 if it became none.
+    ///
+    /// Needed because the two facts are established at different times once the record is built
+    /// after the decision: the phase is decided when the linkage layer resolves, but which VCF
+    /// allele each traversal is called is decided when the record is rendered, which is later. So a
+    /// phase rendered into allele numbers at resolve time names nothing -- every phased GT came out
+    /// as a wildcard and was declined, which unphased the whole output. The traversal is the stable
+    /// identity; the allele number is looked up when it is needed.
+    int vcf_allele_of_traversal(size_t record_key, int traversal) const;
+
+    /// The pair of candidate traversals this site settled on, for a caller that builds the record
+    /// after the decision instead of patching one written before it.
+    ///
+    /// Decoded out of the compact space here, because a compact index means nothing outside the
+    /// collector -- that conflation is what put allele numbers past the end of an ALT list earlier on
+    /// this branch. `final_i`/`final_j` are initialised to the called pair for every entry at the top
+    /// of its generation's resolve, so an unmoved site returns what it came in with rather than
+    /// nothing. Returns false for an unknown or retracted key.
+    bool settled_traversals(size_t record_key, int* first, int* second, size_t* ploidy) const;
+
     /// Fill in the traversal-to-VCF-allele map for a site already recorded, and say whether a line
     /// exists for it.
     ///
@@ -559,6 +580,15 @@ public:
     ///
     /// Returns false for an unknown key.
     bool set_allele_map(size_t record_key, const vector<int>& traversal_to_allele, bool emitted);
+
+    /// The keys of every record that ended up with a VCF line.
+    ///
+    /// Read live rather than off a PhaseCall, because the phasing vector holds copies taken while
+    /// the genotypes were being resolved and a record's line is built after that: the copy's
+    /// `emitted` is a snapshot that is false for every site. Returned as a set in one pass over the
+    /// entries rather than answered per key, which would be a scan per call over a quarter of a
+    /// million entries.
+    std::unordered_set<size_t> emitted_records() const;
 
     /// Point a recorded site at the parent traversal that carries it, without touching anything
     /// else about it. The barrier re-derives this from the parent's settled pair every time it looks
