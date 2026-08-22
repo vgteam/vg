@@ -1149,6 +1149,44 @@ TEST_CASE("The per-strand transition can move one strand and leave the other",
     }
 }
 
+TEST_CASE("Two strands with different deletion content get different switch probabilities",
+          "[linkage_model]") {
+    // Stage 13's capability, kept after stage 15(b) was reverted for failing its own accuracy
+    // criterion. What 15(b) tried to do -- feed the two strands genuinely different distances,
+    // derived from the indel content each carries -- measured WORSE (JointIndel -0.00061 on chr20
+    // against a required +0.0005), so the plumbing is gone. The arithmetic that would carry it is
+    // still here and still has to be right, because a later stage may supply better distances than
+    // the called-allele approximation could.
+    //
+    // switch_probability is monotone in the gap and the transition treats its two axes
+    // independently: those are the two properties any per-strand distance scheme rests on.
+    LinkageModel::Params p;
+    p.weight = 1.0;
+    p.scale = 10000.0;
+    p.rho_min = 1e-3;
+    LinkageModel model(p);
+
+    const size_t ref_gap = 5000;
+    // switch_probability is monotone in the gap, so the strand that travelled less must be stickier.
+    REQUIRE(model.switch_probability(ref_gap - 4000) < model.switch_probability(ref_gap));
+
+    // And the transition has to use the two differently rather than symmetrising them. All mass on
+    // one state, strand a pinned and strand b loosened: row 1 must keep everything while column 1
+    // must not.
+    const size_t m = 4;
+    vector<double> in(m * m, 0.0);
+    in[1 * m + 1] = 1.0;
+    vector<double> out;
+    transition_apply(in, m, /*rho_a*/ 0.0, /*rho_b*/ 0.8, out);
+    double row1 = 0.0, col1 = 0.0;
+    for (size_t k = 0; k < m; ++k) {
+        row1 += out[1 * m + k];
+        col1 += out[k * m + 1];
+    }
+    REQUIRE(row1 == Approx(1.0).margin(1e-12));
+    REQUIRE(col1 < 0.9);
+}
+
 TEST_CASE("Every generation is resolved, not only the first", "[linkage_model]") {
     // Chain construction skips entries above the generation being resolved, so resolving generation
     // 0 alone drops every nested site from linkage, from phasing and from the mosaic. The caller
