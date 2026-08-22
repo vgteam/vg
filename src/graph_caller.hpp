@@ -922,6 +922,19 @@ public:
     /// Stage 10 moves this pass after `resolve_linkage` and renders from the settled genotype; that
     /// is when `record()` has to leave `emit_variant`, since the barrier would otherwise resolve an
     /// empty collector.
+    /// Record the site into the linkage layer at the point it is genotyped, not the point it is
+    /// emitted.
+    ///
+    /// The barrier resolves the collector, and the render pass runs after the barrier, so a
+    /// `record()` inside `emit_variant` would leave the collector empty when the barrier reads it --
+    /// every nested revision, retraction and gain would disappear. Two of the arguments it used to
+    /// take cannot exist here (the emitted allele map, and whether a line was written) and are
+    /// supplied afterwards by `set_allele_map`.
+    void record_site(const Snarl& snarl, const vector<SnarlTraversal>& travs,
+                     const vector<int>& trav_genotype,
+                     const unique_ptr<SnarlCaller::CallInfo>& call_info,
+                     const string& ref_path_name, int ref_offset);
+
     void render_retained_records();
 
     void set_defer_nested_descent(bool defer);

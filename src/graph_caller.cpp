@@ -2397,52 +2397,21 @@ bool VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCa
     // 0/0, and a homozygous-reference site has no strand distinction to inherit. It is only in
     // traversal space that it is a real heterozygous site.
     if (linkage_collector != nullptr && !suppress_linkage_record) {
-        // Phase one of the linkage pass: keep the compact site, not the record. See
-        // LinkageCollector for why the CallInfo cannot be retained instead.
-        const ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo* rl_info =
-            dynamic_cast<const ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo*>(
-                call_info.get());
-        // Haploid chains are fed too. They used to be dropped here by a `size() == 2` guard,
-        // which silently cost chrY and non-pseudoautosomal chrX both the linkage layer and any
-        // mosaic -- about 5% of a genome, and the part where the mosaic is the whole answer.
-        size_t site_ploidy = site_genotype.size();
-        bool alleles_ok = (site_ploidy == 1 || site_ploidy == 2);
-        for (size_t k = 0; k < site_genotype.size() && alleles_ok; ++k) {
-            alleles_ok = site_genotype[k] >= 0;
-        }
-        if (rl_info != nullptr && alleles_ok) {
-            // Traversal space, straight through. genotype_lls is already keyed by candidate
-            // traversal index and panel_alleles already returns them, so there is nothing to
-            // remap -- the collector builds its own compact space from these. The remap that
-            // used to happen here is what made two numberings exist at once, and both the
-            // scrambled-emission bug and the barrier's mirror of it lived in that gap.
-            vector<int> trav_to_allele_vec(called_traversals.size(), -1);
-            for (const auto& kv : trav_to_allele) {
-                if (kv.first >= 0 && (size_t)kv.first < trav_to_allele_vec.size()) {
-                    trav_to_allele_vec[kv.first] = kv.second;
-                }
+        // The site was recorded at the genotyping site, before any of this ran. All that is left is
+        // the traversal-to-VCF-allele map, which is a function of the allele list chosen just above
+        // and so cannot exist before the record is built, and whether a line was actually written.
+        //
+        // Both exist only to serve the patch path: the map is what renders a settled compact allele
+        // into a number a GT can name, and the flag is what says there is a line to patch at all.
+        // Stage 11 deletes patching and both go with it.
+        vector<int> trav_to_allele_vec(called_traversals.size(), -1);
+        for (const auto& kv : trav_to_allele) {
+            if (kv.first >= 0 && (size_t)kv.first < trav_to_allele_vec.size()) {
+                trav_to_allele_vec[kv.first] = kv.second;
             }
-            int called_i = genotype.empty() ? -1 : genotype[0];
-            int called_j = genotype.size() > 1 ? genotype[1] : called_i;
-            linkage_collector->record(
-                out_variant.sequenceName, out_variant.position,
-                rl_info->genotype_lls,
-                panel_alleles(graph, called_traversals),
-                called_i, called_j, trav_to_allele_vec,
-                // A key intrinsic to the site, so ordering cannot depend on which thread got
-                // there first.
-                std::hash<string>{}(out_variant.id),
-                // So a rewritten GQ can carry the same discount the per-site GQ did.
-                rl_info->explained_share, site_genotype.size(),
-                // Snarl boundaries, so the mosaic can anchor on node IDs.
-                (int64_t)snarl.start().node_id(), (int64_t)snarl.end().node_id(),
-                // Nested provenance: keeps the site out of the diploid chain runs, places it on
-                // the parent's strand afterwards, and checks its ploidy against the parent's
-                // final genotype.
-                nested_context.active, nested_context.parent_record_key,
-                nested_context.parent_trav, nested_context.parent_crossing,
-                current_generation, added);
         }
+        linkage_collector->set_allele_map(std::hash<string>{}(out_variant.id), trav_to_allele_vec,
+                                          added);
     }
     if (wants_line && !added) {
         stringstream ss;
@@ -3928,6 +3897,63 @@ unique_ptr<FlowCaller::PendingRecord> FlowCaller::stage_render_record(
     return rec;
 }
 
+void FlowCaller::record_site(const Snarl& snarl, const vector<SnarlTraversal>& travs,
+                            const vector<int>& trav_genotype,
+                            const unique_ptr<SnarlCaller::CallInfo>& call_info,
+                            const string& ref_path_name, int ref_offset) {
+    if (linkage_collector == nullptr || suppress_linkage_record) {
+        return;
+    }
+    const auto* rl_info =
+        dynamic_cast<const ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo*>(call_info.get());
+    if (rl_info == nullptr) {
+        return;
+    }
+    // The same admission test the emitter used, in traversal space rather than emitted-allele space:
+    // a genotype of one or two alleles, none of them a missing or star marker. Haploid chains are
+    // included -- dropping them once cost chrY and non-pseudoautosomal chrX the linkage layer and
+    // the mosaic entirely, about 5% of a genome and the part where the mosaic is the whole answer.
+    const size_t site_ploidy = trav_genotype.size();
+    if (site_ploidy != 1 && site_ploidy != 2) {
+        return;
+    }
+    for (int allele : trav_genotype) {
+        if (allele < 0) {
+            return;
+        }
+    }
+    // Position is pre-flatten now, and that is fine only because the patch index no longer keys on
+    // it (6d8fef2c3). What the model uses position for is ordering and the transition gaps.
+    pair<string, int64_t> pos_info = get_ref_position(graph, snarl, ref_path_name, ref_offset);
+    // The contig must be spelled the way the VCF spells it, because the patch index keys on it.
+    // `get_ref_position` returns the base path name -- "CHM13#0#chr20" -- while `emit_variant`
+    // additionally reduces it to the locus, "chr20". Recording the unreduced form makes every
+    // lookup miss: chr20 came out with every record unphased and no PS at all, which is what this
+    // motion's byte-identity gate is for.
+    {
+        const string locus = PathMetadata::parse_locus_name(pos_info.first);
+        if (locus != PathMetadata::NO_LOCUS_NAME) {
+            pos_info.first = locus;
+        }
+    }
+    const int called_i = trav_genotype[0];
+    const int called_j = site_ploidy > 1 ? trav_genotype[1] : called_i;
+    // No allele map: the emitted allele list does not exist yet, and it is chosen while the record is
+    // built. `set_allele_map` supplies it afterwards, and stage 11 removes the need for it.
+    static const vector<int> no_allele_map;
+    linkage_collector->record(
+        pos_info.first, (size_t)max((int64_t)0, pos_info.second),
+        rl_info->genotype_lls,
+        panel_alleles(graph, travs),
+        called_i, called_j, no_allele_map,
+        std::hash<string>{}(print_snarl(snarl, false)),
+        rl_info->explained_share, site_ploidy,
+        (int64_t)snarl.start().node_id(), (int64_t)snarl.end().node_id(),
+        nested_context.active, nested_context.parent_record_key,
+        nested_context.parent_trav, nested_context.parent_crossing,
+        current_generation, /*emitted*/ false);
+}
+
 void FlowCaller::render_retained_records() {
     if (render_records.empty()) {
         return;
@@ -4720,6 +4746,8 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
             // the value emit_variant would have returned, and the only caller that reads it here is
             // the ret_val below, which gates recursion -- so it must not become "the line was
             // written", which is not known yet. A staged record is a record that will be written.
+            record_site(snarl, travs, trav_genotype, trav_call_info, ref_path_name,
+                        ref_offsets[ref_path_name]);
             render_this = stage_render_record(snarl, trav_genotype, ref_trav_idx, trav_call_info,
                                               ref_path_name, ref_offsets[ref_path_name], ploidy,
                                               true);
@@ -4759,6 +4787,13 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
             // design exists to remove.
             added = true;
         } else if (!gaf_output) {
+            // Recorded here rather than inside emit_variant, and deliberately NOT on the retain_only
+            // path above: a retained chain is recorded today only if the barrier later gives it a
+            // line, via the fallback record() there. Recording it now would make respecify succeed
+            // where it currently falls through, which moves the `gained` count -- a real change, and
+            // one for stage 10 to make on purpose rather than for this motion to make by accident.
+            record_site(snarl, travs, trav_genotype, trav_call_info, ref_path_name,
+                        ref_offsets[ref_path_name]);
             added = emit_variant(graph, snarl_caller, snarl, travs, trav_genotype, ref_trav_idx,
                                  trav_call_info, ref_path_name, ref_offsets[ref_path_name],
                                  genotype_snarls, ploidy);
@@ -4813,6 +4848,8 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
             // the value emit_variant would have returned, and the only caller that reads it here is
             // the ret_val below, which gates recursion -- so it must not become "the line was
             // written", which is not known yet. A staged record is a record that will be written.
+            record_site(snarl, travs, trav_genotype, trav_call_info, ref_path_name,
+                        ref_offsets[ref_path_name]);
             render_this = stage_render_record(snarl, trav_genotype, ref_trav_idx, trav_call_info,
                                               ref_path_name, ref_offsets[ref_path_name], ploidy,
                                               true);

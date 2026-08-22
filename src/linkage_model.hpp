@@ -549,6 +549,17 @@ public:
     /// and every counter. Returns false for an unknown key.
     bool retract(size_t record_key);
 
+    /// Fill in the traversal-to-VCF-allele map for a site already recorded, and say whether a line
+    /// exists for it.
+    ///
+    /// `record()` moved to the genotyping site, which is before any allele list exists: the emitted
+    /// alleles are chosen while the record is built, and the map is a function of that choice. So the
+    /// entry is created with no map and the emitter supplies one when it writes the line. Both halves
+    /// are needed only by the patch path, and both go away with it.
+    ///
+    /// Returns false for an unknown key.
+    bool set_allele_map(size_t record_key, const vector<int>& traversal_to_allele, bool emitted);
+
     /// Point a recorded site at the parent traversal that carries it, without touching anything
     /// else about it. The barrier re-derives this from the parent's settled pair every time it looks
     /// at a chain, including when the ploidy needs no change and there is nothing to respecify --

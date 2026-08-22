@@ -1431,6 +1431,32 @@ bool LinkageCollector::respecify(size_t record_key,
     return false;
 }
 
+bool LinkageCollector::set_allele_map(size_t record_key,
+                                     const vector<int>& traversal_to_allele, bool emitted) {
+    lock_guard<std::mutex> guard(mutex);
+    for (Entry& e : entries) {
+        if (e.record_key != record_key || e.retracted) {
+            continue;
+        }
+        e.emitted = emitted;
+        // The span already exists, filled with -1 by `record()`. Rewrite it in place rather than
+        // appending: the compact space has not changed, only what each of its alleles is called in
+        // the VCF, so there is nothing to re-point and no arena growth.
+        for (size_t c = 0; c < e.num_alleles; ++c) {
+            const size_t at_trav = e.trav_offset + c;
+            const size_t at_allele = e.allele_offset + c;
+            if (at_trav >= trav_arena.size() || at_allele >= allele_arena.size()) {
+                break;
+            }
+            const size_t trav = trav_arena[at_trav];
+            const int allele = trav < traversal_to_allele.size() ? traversal_to_allele[trav] : -1;
+            allele_arena[at_allele] = allele >= 0 && allele < 127 ? (int8_t)allele : (int8_t)-1;
+        }
+        return true;
+    }
+    return false;
+}
+
 bool LinkageCollector::set_parent_trav(size_t record_key, int parent_trav) {
     lock_guard<std::mutex> guard(mutex);
     for (Entry& e : entries) {
