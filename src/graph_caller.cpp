@@ -30,6 +30,11 @@ namespace vg {
 static std::atomic<size_t> g_descent_depth_hist[16];
 static std::atomic<size_t> g_descent_skipped_no_ref(0);
 static std::atomic<size_t> g_descent_skipped_no_copy(0);
+/// Children a called traversal enters more than once. Visits after the first are masked: one copy for
+/// ploidy, and the first crossing for distance. A chain crossed twice by ONE traversal is one
+/// haplotype carrying two copies, not two haplotypes carrying one each, so it must not become ploidy
+/// 2 -- and representing the second copy at all is stage 17's question, deliberately deferred.
+static std::atomic<size_t> g_child_multi_crossing(0);
 static thread_local int g_descent_depth = 0;
 
 void GraphCaller::report_descent_instrumentation() const {
@@ -48,6 +53,11 @@ void GraphCaller::report_descent_instrumentation() const {
         }
     }
     cerr << " (" << total << " child calls)" << endl;
+    if (g_child_multi_crossing.load() > 0) {
+        cerr << "[vg call] descent: " << g_child_multi_crossing.load()
+             << " children a called traversal enters more than once; visits after the first are"
+             << " masked, so each contributes one copy and its first crossing's distance" << endl;
+    }
     cerr << "[vg call] descent skipped: " << g_descent_skipped_no_copy.load()
          << " children no called allele reaches, " << g_descent_skipped_no_ref.load()
          << " with no reference path through them" << endl;
@@ -3623,30 +3633,57 @@ int FlowCaller::crossings_of_child(const SnarlTraversal& trav, const Snarl& chil
 /// Returns false where the child's boundaries are not both crossed by this traversal, which is not
 /// an error: a traversal that does not enter the child has no offset along it to report.
 static bool traversal_offset_span(const PathHandleGraph& graph, const SnarlTraversal& trav,
-                                  const Snarl& child, int64_t* offset, int64_t* span) {
+                                  const Snarl& child, int64_t* offset, int64_t* span,
+                                  int64_t* total = nullptr, bool* entered_at_start = nullptr) {
     const nid_t start = child.start().node_id();
     const nid_t end = child.end().node_id();
     int64_t walked = 0;
     int64_t entered_at = -1;
+    bool at_start = true;
     nid_t open = 0;
+    bool found = false;
     for (int i = 0; i < trav.visit_size(); ++i) {
         if (trav.visit(i).has_snarl()) {
             continue;
         }
         const nid_t node = trav.visit(i).node_id();
-        if (open == 0 && (node == start || node == end)) {
-            open = (node == start) ? end : start;
-            entered_at = walked;
-        } else if (open != 0 && node == open) {
-            // Span measured boundary-to-boundary inclusive of the closing node, matching how the
-            // reference span of a snarl is taken.
-            *offset = entered_at;
-            *span = walked + (int64_t)graph.get_length(graph.get_handle(node)) - entered_at;
-            return true;
+        if (!found) {
+            if (open == 0 && (node == start || node == end)) {
+                open = (node == start) ? end : start;
+                entered_at = walked;
+                // WHICH boundary was entered. Without this a grandchild under a crossing the parent
+                // makes end-to-start is measured from the wrong end, so its whole subtree is
+                // mirrored and its sibling order reverses. Masked today only because v1 descends
+                // solely where the reference also goes, so every child is flipped onto its reference
+                // path -- and stage 16 removes exactly that gate.
+                at_start = (node == start);
+            } else if (open != 0 && node == open) {
+                // Span measured boundary-to-boundary inclusive of the closing node, matching how the
+                // reference span of a snarl is taken. NOTE this is the child's extent along the
+                // PARENT, not the child's own traversal length.
+                *offset = entered_at;
+                *span = walked + (int64_t)graph.get_length(graph.get_handle(node)) - entered_at;
+                if (entered_at_start != nullptr) {
+                    *entered_at_start = at_start;
+                }
+                found = true;
+                // Visits after the first are masked, by decision: one copy for ploidy and the first
+                // crossing for distance. Representing a second copy is stage 17's question. So the
+                // walk continues only to total the traversal, not to look for another crossing.
+                if (total == nullptr) {
+                    return true;
+                }
+            }
         }
         walked += (int64_t)graph.get_length(graph.get_handle(node));
     }
-    return false;
+    if (total != nullptr) {
+        // The traversal's whole length, so the distance from this child to one under a LATER parent
+        // can be formed as (tail of this traversal) + (anchor gap) + (offset in the next), which is a
+        // pairwise quantity and therefore cannot reorder anything.
+        *total = walked;
+    }
+    return found;
 }
 
 /// Stage 14 instrumentation, inert: does the haplotype frame reorder or re-space adjacent sites?
@@ -3706,10 +3743,13 @@ int FlowCaller::child_ploidy(const vector<SnarlTraversal>& travs, const vector<i
         }
         copies += crossings;
     }
-    if (capped && show_progress) {
-#pragma omp critical (cerr)
-        cerr << "[vg call] --nested: an allele crosses child snarl " << start << "-" << end
-             << " more than once; counted as one copy" << endl;
+    if (capped) {
+        // Counted, not printed per occurrence. Masking visits after the first is a decision, not an
+        // accident (see planning/decide-then-render.md 15'), and the size of what it masks is the
+        // size of the deferred copy-number question -- so it needs a number reported once a run, not
+        // a line per site gated on --progress that has to be grepped out of 24 logs. Measured that
+        // way: 0 on chr20, 242 on chrX.
+        ++g_child_multi_crossing;
     }
     return min(copies, cap);
 }
@@ -3941,6 +3981,27 @@ void FlowCaller::run_deferred_descent() {
     for (size_t i = 0; i < pending.size(); ++i) {
         children_of[pending[i].parent_record_key].push_back(i);
     }
+
+    // record key -> the record itself, over BOTH containers. `children_of` is parent-to-children and
+    // cannot answer the question a frame needs, which is "give me my parent's traversals". And the
+    // parents of generation 1 -- the largest slice of nested sites by far -- are top-level records in
+    // `render_records`, which the barrier otherwise never indexes at all, so a `pending`-only map
+    // would leave exactly that slice with nothing to measure along.
+    // Frames not written, by reason. Counted rather than defaulted: an unset frame must be visible,
+    // because a site that silently keeps a default sorts to the head of its group and hands its
+    // neighbour a nonsense gap.
+    size_t frame_written = 0, frame_no_entry = 0, frame_not_crossed = 0;
+    size_t frame_no_parent = 0, frame_no_single_trav = 0;
+    unordered_map<size_t, PendingRecord*> record_by_key;
+    record_by_key.reserve((pending.size() + render_record_count()) * 2);
+    for (PendingRecord& pr : pending) {
+        record_by_key[pr.record_key] = &pr;
+    }
+    for (auto& queue : render_records) {
+        for (PendingRecord& pr : queue) {
+            record_by_key[pr.record_key] = &pr;
+        }
+    }
     // Drop a chain and its whole subtree: the settled parent does not carry the chain, so the
     // sample has no copy of it, and nothing nested inside a sequence the sample lacks exists
     // either. Returns how many entries were actually retracted, for the report.
@@ -4045,6 +4106,49 @@ void FlowCaller::run_deferred_descent() {
             pr.parent_trav = copies == 1 ? (first ? parent.trav_first : parent.trav_second)
                                          : (copies == 2 ? -2 : -1);
             linkage_collector->set_parent_trav(pr.record_key, pr.parent_trav);
+
+            // Stage 15': where this chain sits along the traversals its parent SETTLED on,
+            // measured now because that is when the parent's genotype is known. One slot per settled
+            // traversal, indexed by the parent's traversal ORDER rather than by strand -- a haploid
+            // parent has trav_first == trav_second, so both slots are written and neither can be read
+            // unset, which is the failure a strand-keyed pair invites.
+            //
+            // Not from the CALLED traversals at descent: `carrying_trav` is set only under
+            // `copies == 1`, so the chains a called allele never reached -- the ones the barrier may
+            // now have moved the parent onto -- would have had nothing to measure along there.
+            {
+                auto parent_rec = record_by_key.find(pr.parent_record_key);
+                if (parent_rec == record_by_key.end()) {
+                    ++frame_no_parent;
+                } else {
+                    const vector<SnarlTraversal>& ptravs = parent_rec->second->travs;
+                    const int settled[2] = {parent.trav_first, parent.trav_second};
+                    bool any = false;
+                    for (int slot = 0; slot < 2; ++slot) {
+                        const int t = settled[slot];
+                        if (t < 0 || (size_t)t >= ptravs.size()) {
+                            continue;
+                        }
+                        int64_t off = 0, span = 0, total = 0;
+                        bool at_start = true;
+                        if (!traversal_offset_span(graph, ptravs[t], pr.snarl, &off, &span, &total,
+                                                   &at_start)) {
+                            continue;   // this settled traversal does not enter the chain
+                        }
+                        if (linkage_collector->set_frame(pr.record_key, slot, (int)off,
+                                                        (int)(off + span), (int)total, !at_start)) {
+                            any = true;
+                        } else {
+                            ++frame_no_entry;
+                        }
+                    }
+                    if (any) {
+                        ++frame_written;
+                    } else {
+                        ++frame_not_crossed;
+                    }
+                }
+            }
 
             if (copies == 0) {
                 // A call on a haplotype the sample turns out not to have -- and everything inside
@@ -4280,6 +4384,12 @@ void FlowCaller::run_deferred_descent() {
              << " nested chains; " << (retained_bytes / (1024.0 * 1024.0)) << " MB over "
              << retained_visits << " traversal visits and " << retained_gls
              << " genotype likelihoods" << endl;
+        cerr << "[vg call] frames: " << frame_written << " nested chains measured along their"
+             << " settled parent traversal; not written: " << frame_no_single_trav
+             << " with no single carrying traversal, " << frame_no_parent
+             << " whose parent record was not found, " << frame_not_crossed
+             << " the settled traversal does not cross, " << frame_no_entry
+             << " with no layer entry" << endl;
         cerr << "[vg call] single sweep: " << pending.size() << " nested chains retained over "
              << (generations + 1) << " generations; " << revised << " revised, " << gained
              << " reachable only under the settled parent, " << retracted << " retracted";

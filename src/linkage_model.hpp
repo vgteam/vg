@@ -594,6 +594,11 @@ public:
     /// figure computed against the parent's pre-linkage genotype. Returns false for an unknown key.
     bool set_parent_trav(size_t record_key, int parent_trav);
 
+    /// Record where a site sits along its parent's settled traversal. Returns false when there is no
+    /// entry for the key -- checked at every call site, because the equivalent silent no-op in
+    /// `set_parent_trav` is exactly how a frame would default to unset and go unnoticed.
+    bool set_frame(size_t record_key, int slot, int offset, int end, int total, bool reversed);
+
     /// Whether an active (non-retracted) entry exists for this key. The barrier needs to tell
     /// "this site was never recorded" from "respecify refused a site that is already in the layer":
     /// in the second case the recorded entry describes a line the barrier has just replaced, so
@@ -616,6 +621,34 @@ private:
 
     struct Entry {
         uint32_t position = 0;
+        /// Where this site sits along its parent's SETTLED traversal, in bp, and how long that
+        /// traversal is. Stage 15': below the top level, order and distance come from these rather
+        /// than from `position`, which under a covering reference will not exist for a nested site.
+        ///
+        /// Tagged by the traversal it was measured along -- `parent_trav` -- not by strand. A haploid
+        /// nested parent has only `trav_first`, so a strand-keyed pair would leave slot 1 unwritten
+        /// while its child's strand may well be 1; the child would then read an unset frame, sort to
+        /// the head of its group and hand its neighbour a spurious multi-megabase gap. That is the
+        /// shape of the 448-site regression recorded at the strand derivation.
+        ///
+        /// `frame_end` is the offset just past the site, so a same-parent gap is
+        /// `offset(next) - frame_end(prev)`; `frame_total` is the parent traversal's whole length, so
+        /// a cross-parent gap is `(frame_total - frame_end) + anchor gap + offset(next)`. Signed, and
+        /// -1 when unset: a frame that arrives unset must fail a check rather than wrap a size_t.
+        /// TWO frames, indexed by the parent's settled traversal ORDER (0 = the parent's first
+        /// settled traversal, 1 = its second), not by strand.
+        ///
+        /// Measured, not assumed: 22,977 of chr20's 30,015 nested chains are carried on BOTH parent
+        /// traversals, so a single frame would cover only 21% of them. Indexing by traversal order
+        /// rather than by strand is what makes the pair safe -- a haploid parent has
+        /// trav_first == trav_second, so both slots are written with the same value and neither can
+        /// be read unset, which is the failure a strand-keyed pair invites.
+        int32_t frame_offset[2] = {-1, -1};
+        int32_t frame_end[2] = {-1, -1};
+        int32_t frame_total[2] = {-1, -1};
+        /// Per slot: the parent entered this site at its END boundary, so offsets inside it run
+        /// against the parent's direction of travel and everything below is mirrored.
+        bool frame_reversed[2] = {false, false};
         uint32_t contig = 0;
         uint32_t gl_offset = 0;
         uint32_t hap_offset = 0;

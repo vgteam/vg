@@ -1510,6 +1510,25 @@ bool LinkageCollector::set_allele_map(size_t record_key,
     return false;
 }
 
+bool LinkageCollector::set_frame(size_t record_key, int slot, int offset, int end, int total,
+                                 bool reversed) {
+    if (slot < 0 || slot > 1) {
+        return false;
+    }
+    lock_guard<std::mutex> guard(mutex);
+    for (Entry& e : entries) {
+        if (e.record_key != record_key || e.retracted) {
+            continue;
+        }
+        e.frame_offset[slot] = (int32_t)offset;
+        e.frame_end[slot] = (int32_t)end;
+        e.frame_total[slot] = (int32_t)total;
+        e.frame_reversed[slot] = reversed;
+        return true;
+    }
+    return false;
+}
+
 bool LinkageCollector::set_parent_trav(size_t record_key, int parent_trav) {
     lock_guard<std::mutex> guard(mutex);
     for (Entry& e : entries) {
