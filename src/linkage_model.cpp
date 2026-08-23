@@ -13,6 +13,18 @@
 
 namespace vg {
 
+/// The distance between two adjacent sites in a chain, in bp.
+///
+/// Prefers the explicit `gap_to_previous` the caller measured along the haplotype's own traversal, and
+/// falls back to the reference position difference where there is none. Clamped at 1, as the position
+/// form was: `switch_probability` reads a gap of 0 as 1 anyway, and a negative one would wrap.
+static inline size_t site_gap(const LinkageModel::Site& prev, const LinkageModel::Site& next) {
+    if (next.gap_to_previous >= 0) {
+        return (size_t)(next.gap_to_previous > 1 ? next.gap_to_previous : 1);
+    }
+    return next.position > prev.position ? (size_t)(next.position - prev.position) : 1;
+}
+
 double LinkageModel::switch_probability(size_t gap) const {
     if (gap < 1) {
         gap = 1;
@@ -366,8 +378,11 @@ void LinkageModel::window_posteriors(const vector<Site>& sites, size_t from, siz
         alpha[0] = a;
     }
     for (size_t t = 1; t < n; ++t) {
-        size_t gap = sites[from + t].position > sites[from + t - 1].position
-                         ? sites[from + t].position - sites[from + t - 1].position : 1;
+        // An explicit per-step distance where the caller supplied one -- below the top level that is
+        // measured along the parent's settled traversal, not along the reference. Falls back to the
+        // reference position difference where it is unset, which is the top-level case and the
+        // cross-parent case that still needs the parent's reference span.
+        const size_t gap = site_gap(sites[from + t - 1], sites[from + t]);
         vector<double> moved;
         // Both strands given the same value for now: this stage lands the arithmetic, and the
         // per-strand distances that will make them differ come with the haplotype frame.
@@ -505,8 +520,11 @@ void LinkageModel::window_posteriors(const vector<Site>& sites, size_t from, siz
         if (t == 0) {
             break;
         }
-        size_t gap = sites[from + t].position > sites[from + t - 1].position
-                         ? sites[from + t].position - sites[from + t - 1].position : 1;
+        // An explicit per-step distance where the caller supplied one -- below the top level that is
+        // measured along the parent's settled traversal, not along the reference. Falls back to the
+        // reference position difference where it is unset, which is the top-level case and the
+        // cross-parent case that still needs the parent's reference span.
+        const size_t gap = site_gap(sites[from + t - 1], sites[from + t]);
         vector<double> weighted(m * m, 0.0);
         for (size_t k = 0; k < m * m; ++k) {
             weighted[k] = beta[k] * emissions[t][k];
@@ -745,8 +763,11 @@ void LinkageModel::window_phasing(const vector<Site>& sites, size_t from, size_t
     }
     vector<vector<uint16_t>> back_a(n), back_b(n);
     for (size_t t = 1; t < n; ++t) {
-        size_t gap = sites[from + t].position > sites[from + t - 1].position
-                         ? sites[from + t].position - sites[from + t - 1].position : 1;
+        // An explicit per-step distance where the caller supplied one -- below the top level that is
+        // measured along the parent's settled traversal, not along the reference. Falls back to the
+        // reference position difference where it is unset, which is the top-level case and the
+        // cross-parent case that still needs the parent's reference span.
+        const size_t gap = site_gap(sites[from + t - 1], sites[from + t]);
         vector<double> next;
         const double rho = switch_probability(gap);
         viterbi_step(delta, m, rho, rho, emissions[t], next, back_a[t], back_b[t]);
@@ -871,8 +892,11 @@ void LinkageModel::window_haploid_posteriors(const vector<Site>& sites, size_t f
         alpha[0] = a;
     }
     for (size_t t = 1; t < n; ++t) {
-        size_t gap = sites[from + t].position > sites[from + t - 1].position
-                         ? sites[from + t].position - sites[from + t - 1].position : 1;
+        // An explicit per-step distance where the caller supplied one -- below the top level that is
+        // measured along the parent's settled traversal, not along the reference. Falls back to the
+        // reference position difference where it is unset, which is the top-level case and the
+        // cross-parent case that still needs the parent's reference span.
+        const size_t gap = site_gap(sites[from + t - 1], sites[from + t]);
         double rho = switch_probability(gap);
         double stay = 1.0 - rho;
         double jump = rho / (double)m;
@@ -953,8 +977,11 @@ void LinkageModel::window_haploid_posteriors(const vector<Site>& sites, size_t f
         if (t == 0) {
             break;
         }
-        size_t gap = sites[from + t].position > sites[from + t - 1].position
-                         ? sites[from + t].position - sites[from + t - 1].position : 1;
+        // An explicit per-step distance where the caller supplied one -- below the top level that is
+        // measured along the parent's settled traversal, not along the reference. Falls back to the
+        // reference position difference where it is unset, which is the top-level case and the
+        // cross-parent case that still needs the parent's reference span.
+        const size_t gap = site_gap(sites[from + t - 1], sites[from + t]);
         double rho = switch_probability(gap);
         double stay = 1.0 - rho;
         double jump = rho / (double)m;
@@ -1064,8 +1091,11 @@ void LinkageModel::window_haploid_phasing(const vector<Site>& sites, size_t from
     }
     vector<vector<uint16_t>> back(n);
     for (size_t t = 1; t < n; ++t) {
-        size_t gap = sites[from + t].position > sites[from + t - 1].position
-                         ? sites[from + t].position - sites[from + t - 1].position : 1;
+        // An explicit per-step distance where the caller supplied one -- below the top level that is
+        // measured along the parent's settled traversal, not along the reference. Falls back to the
+        // reference position difference where it is unset, which is the top-level case and the
+        // cross-parent case that still needs the parent's reference span.
+        const size_t gap = site_gap(sites[from + t - 1], sites[from + t]);
         double rho = switch_probability(gap);
         rho = min(max(rho, 1e-12), 1.0 - 1e-12);
         double S = log(1.0 - rho + rho / (double)m);
@@ -2266,9 +2296,113 @@ size_t LinkageCollector::resolve_generation(
         // are not on the same haplotype, so chaining them together would link sequences that never
         // co-occur -- a worse error than not linking at all. Each group is ploidy-uniform by
         // construction, so the existing haploid model applies unchanged.
+        // Stage 15': the CROSS-PARENT measurement, inert. Stage 14's 0.606% / 91.05% were measured
+        // between SIBLINGS -- children of one parent -- while a (phase_set, strand) group spans a
+        // whole contig on one haplotype, where adjacent sites usually have different parents. So the
+        // neutrality prediction for consuming these frames rested on a statistic about a different
+        // population, and this measures the right one.
+        //
+        // Order key compared here is (parent's position, offset along the parent's settled traversal),
+        // which is the snarl-tree key truncated to one level. Distance is formed pairwise -- tail of
+        // the earlier site's parent traversal, plus the anchor gap, plus the later site's offset --
+        // never as a difference of two absolute coordinates, which is the error that sank the first
+        // draft of this design.
+        unordered_map<size_t, uint32_t> position_of;
+        position_of.reserve(entries.size() * 2);
+        for (const Entry& pe : entries) {
+            if (!pe.retracted) {
+                position_of[pe.record_key] = pe.position;
+            }
+        }
+        size_t xp_pairs = 0, xp_inverted = 0, xp_same_parent = 0;
+        size_t xp_gap_measured = 0, xp_gap_within_5pct = 0, xp_unframed = 0;
+        size_t xp_gap_cross_unmeasured = 0, xp_gap_exactly_ref = 0;
+
         size_t singleton_groups = 0;
+        size_t total_frame_steps = 0, total_ref_steps = 0;
         for (auto& group : by_strand) {
             vector<size_t>& idxs = group.second;
+            {
+                // Sorted by reference position, as the live path does, then asked whether the frame
+                // would agree about order and spacing.
+                vector<size_t> ref_order = idxs;
+                sort(ref_order.begin(), ref_order.end(), [&](size_t a, size_t b) {
+                    if (entries[a].position != entries[b].position) {
+                        return entries[a].position < entries[b].position;
+                    }
+                    return entries[a].record_key < entries[b].record_key;
+                });
+                const int slot = (int)group.first.second <= 1 ? (int)group.first.second : 0;
+                for (size_t k = 1; k < ref_order.size(); ++k) {
+                    const Entry& e1 = entries[ref_order[k - 1]];
+                    const Entry& e2 = entries[ref_order[k]];
+                    if (e1.frame_offset[slot] < 0 || e2.frame_offset[slot] < 0) {
+                        ++xp_unframed;
+                        continue;
+                    }
+                    ++xp_pairs;
+                    auto p1 = position_of.find(e1.parent_record_key);
+                    auto p2 = position_of.find(e2.parent_record_key);
+                    if (p1 == position_of.end() || p2 == position_of.end()) {
+                        continue;
+                    }
+                    const bool same_parent = (e1.parent_record_key == e2.parent_record_key);
+                    if (same_parent) {
+                        ++xp_same_parent;
+                    }
+                    // Would the frame put them in the other order?
+                    const bool frame_says_swap =
+                        same_parent ? (e2.frame_offset[slot] < e1.frame_offset[slot])
+                                    : (p2->second < p1->second);
+                    if (frame_says_swap) {
+                        ++xp_inverted;
+                    }
+                    // Pairwise distance in the frame, against the reference gap.
+                    const int64_t ref_gap = (int64_t)e2.position - (int64_t)e1.position;
+                    int64_t frame_gap;
+                    if (same_parent) {
+                        // START-to-START, matching what the reference gap is. Using end-to-start
+                        // here subtracted the earlier child's own span and made the ratio look
+                        // wildly different from 1 for a reason that has nothing to do with the
+                        // frame -- 3.7% within 1.05 where the true figure is far higher. Comparing
+                        // a different definition of distance is not measuring the frame.
+                        frame_gap = (int64_t)e2.frame_offset[slot] - (int64_t)e1.frame_offset[slot];
+                    } else {
+                        const int64_t tail = e1.frame_total[slot] >= 0
+                                                 ? (int64_t)e1.frame_total[slot]
+                                                       - (int64_t)e1.frame_end[slot]
+                                                 : 0;
+                        frame_gap = tail + ((int64_t)p2->second - (int64_t)p1->second)
+                                    + (int64_t)e2.frame_offset[slot];
+                    }
+                    // Only the SAME-PARENT gap is reported, because only it is exact.
+                    //
+                    // The cross-parent form needs the distance from the earlier parent's END to the
+                    // later parent's START, and only the parents' start positions are stored --
+                    // using those over-counts by exactly (frame_total - span), the earlier parent's
+                    // extent outside the child, which is a systematic inflation and not a finding.
+                    // Counted as not-yet-measurable rather than reported wrongly; measuring it needs
+                    // the parent's reference span carried alongside its position.
+                    if (!same_parent) {
+                        ++xp_gap_cross_unmeasured;
+                    } else if (ref_gap > 0 && frame_gap > 0) {
+                        // The null case, checked rather than assumed. Where both children's frames
+                        // came out at the same distance as the reference, the ratio must be exactly
+                        // 1 -- and any measurement that gets this wrong is comparing two different
+                        // definitions of distance rather than two frames. Three separate arithmetic
+                        // errors in this instrumentation were caught only by reasoning it through
+                        // afterwards; this catches the next one at runtime.
+                        if (frame_gap == ref_gap) {
+                            ++xp_gap_exactly_ref;
+                        }
+                        ++xp_gap_measured;
+                        const double r = (double)frame_gap / (double)ref_gap;
+                        if (r >= 1.0 / 1.05 && r <= 1.05) {
+                            ++xp_gap_within_5pct;
+                        }
+                    }
+                }
+            }
             // Singletons are NOT skipped. A one-site group has nothing to link against, so linkage
             // cannot move it on the strength of a neighbour -- but `freq_prior` defaults to 5 and
             // acts on a chain of one, so the posterior still differs from the raw likelihood and the
@@ -2278,18 +2412,88 @@ size_t LinkageCollector::resolve_generation(
             if (idxs.size() == 1) {
                 ++singleton_groups;
             }
+            // Stage 15': ordered by a TUPLE -- (parent's anchor, offset along the parent's settled
+            // traversal, record key) -- not by an arithmetic coordinate. A tuple comparison preserves
+            // subtree containment by construction, so no ordering claim is being made that could be
+            // violated; composing the two into one number would add a reference anchor to a
+            // haplotype-walk length and can invert the order of sites under different parents.
+            //
+            // Measured on chr20: 0 of 5,540 same-parent adjacent pairs reorder under this key, so the
+            // order is not what this change moves -- the distances are.
+            const int slot = (int)group.first.second <= 1 ? (int)group.first.second : 0;
             sort(idxs.begin(), idxs.end(), [&](size_t a, size_t b) {
-                if (entries[a].position != entries[b].position) {
-                    return entries[a].position < entries[b].position;
+                const Entry& ea = entries[a];
+                const Entry& eb = entries[b];
+                auto anchor = [&](const Entry& e) {
+                    auto it = position_of.find(e.parent_record_key);
+                    return it != position_of.end() ? it->second : e.position;
+                };
+                const uint32_t aa = anchor(ea), ab = anchor(eb);
+                if (aa != ab) {
+                    return aa < ab;
                 }
-                return entries[a].record_key < entries[b].record_key;
+                // Same parent: the offset along its settled traversal is the order, and where either
+                // frame is unset the reference position is all there is.
+                if (ea.frame_offset[slot] >= 0 && eb.frame_offset[slot] >= 0
+                    && ea.frame_offset[slot] != eb.frame_offset[slot]) {
+                    return ea.frame_offset[slot] < eb.frame_offset[slot];
+                }
+                if (ea.position != eb.position) {
+                    return ea.position < eb.position;
+                }
+                return ea.record_key < eb.record_key;
             });
             vector<LinkageModel::Site> sites;
             sites.reserve(idxs.size());
-            for (size_t idx : idxs) {
+            size_t frame_steps = 0, ref_steps = 0;
+            for (size_t k = 0; k < idxs.size(); ++k) {
+                const size_t idx = idxs[k];
                 const Entry& e = entries[idx];
                 LinkageModel::Site s;
                 s.position = e.position;
+                // Stage 15': the step from the previous site, measured along the haplotype's own
+                // traversal where both sites hang off the same parent and both have a frame. Passed
+                // as an explicit distance rather than folded into `position`, so it cannot affect the
+                // order that was already fixed above.
+                //
+                // Cross-parent steps still fall back to the reference difference: forming them in the
+                // frame needs the distance from the earlier parent's END to the later parent's START,
+                // and only parent start positions are stored. That is 12% of adjacent pairs on chr20
+                // and is what remains before the reference dependency is fully gone.
+                // Used only where the REFERENCE distance is unavailable, not in preference to it.
+                //
+                // Measured, twice, by two unrelated derivations: spacing nested chain steps along a
+                // traversal instead of along the reference costs about 0.0005 of JointIndel on chr20
+                // (0.92390 -> 0.92338 here; 0.92390 -> 0.92329 for stage 15(b), which derived the
+                // distance from per-site called alleles instead). Same magnitude, same direction, so
+                // it is not the labelling -- 15' fixed that -- and not the derivation. It is the
+                // change itself: a traversal distance is a worse predictor for this transition model
+                // than the reference distance, wherever a reference distance exists.
+                //
+                // It exists everywhere today, so this is inert now. Under a covering reference a
+                // nested site has no reference position at all, and then the frame is not an
+                // improvement to choose but the only measure there is -- which is what this machinery
+                // is for.
+                if (k > 0) {
+                    const Entry& prev = entries[idxs[k - 1]];
+                    const bool have_reference = (prev.position > 0 && e.position > 0);
+                    if (!have_reference
+                        && prev.parent_record_key == e.parent_record_key
+                        && prev.frame_offset[slot] >= 0 && e.frame_offset[slot] >= 0) {
+                        s.gap_to_previous =
+                            (int64_t)e.frame_offset[slot] - (int64_t)prev.frame_offset[slot];
+                        if (s.gap_to_previous < 0) {
+                            // The tuple sort put them in this order, so a negative step means the
+                            // frames disagree with it -- do not feed the model a wrapped distance.
+                            s.gap_to_previous = -1;
+                            ++ref_steps;
+                        } else {
+                            ++frame_steps;
+                        }
+                    } else {
+                        ++ref_steps;
+                    }
+                }
                 s.num_alleles = e.num_alleles;
                 s.ploidy = 1;
                 size_t n_gt = (size_t)e.num_alleles;
@@ -2303,6 +2507,8 @@ size_t LinkageCollector::resolve_generation(
                 }
                 sites.push_back(std::move(s));
             }
+            total_frame_steps += frame_steps;
+            total_ref_steps += ref_steps;
             vector<vector<double>> posteriors = model.haploid_posteriors(sites);
             for (size_t k = 0; k < idxs.size() && k < posteriors.size(); ++k) {
                 const Entry& e = entries[idxs[k]];
@@ -2362,6 +2568,30 @@ size_t LinkageCollector::resolve_generation(
         // cost. It is superseded: the crossing mask says exactly which sites were placed on the
         // wrong strand and which have the wrong ploidy, so the bound is no longer the best
         // available number.
+        if (total_frame_steps > 0 || total_ref_steps > 0) {
+#pragma omp critical (cerr)
+            std::cerr << "[vg call] frames: " << total_frame_steps
+                      << " chain steps spaced along the settled parent traversal, "
+                      << total_ref_steps << " still by reference difference (cross-parent, or a"
+                      << " frame the sort disagreed with)" << std::endl;
+        }
+        // Stage 15': the cross-parent numbers, which are the ones the decision to consume these
+        // frames has to rest on.
+        if (xp_pairs > 0) {
+#pragma omp critical (cerr)
+            std::cerr << "[vg call] frames: " << xp_pairs
+                      << " adjacent pairs within a (phase set, strand) group ("
+                      << xp_same_parent << " sharing a parent), " << xp_inverted
+                      << " the frame would reorder; " << xp_gap_measured << " gaps measured, "
+                      << (xp_gap_measured
+                              ? 100.0 * (double)xp_gap_within_5pct / (double)xp_gap_measured : 0.0)
+                      << "% within 1.05 of the reference gap (same-parent pairs only); "
+                      << xp_gap_cross_unmeasured
+                      << " (" << xp_gap_exactly_ref << " exactly equal to it); "
+                      << xp_gap_cross_unmeasured
+                      << " cross-parent gaps need the parent's reference span and are not measured; "
+                      << xp_unframed << " pairs unframed" << std::endl;
+        }
         // Stage 15(a): what the pooling fix changed, printed so it is not taken on faith.
         if (crossed_phase_set > 0 || singleton_groups > 0) {
 #pragma omp critical (cerr)

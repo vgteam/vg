@@ -174,6 +174,17 @@ public:
         /// directly and has `num_alleles` entries.
         vector<double> genotype_ln_likelihood;
 
+        /// Distance from the PREVIOUS site in the chain, in bp, or -1 to derive it from `position`.
+        ///
+        /// Stage 15': below the top level the distance comes from the parent's settled traversal, not
+        /// from reference positions, and it is passed as an explicit per-step value rather than as a
+        /// coordinate the model differences. That is deliberate. Composing an absolute per-haplotype
+        /// coordinate means adding a reference anchor to a haplotype-walk length -- two different
+        /// metrics -- which can invert the order of sites under different parents, and the sort then
+        /// hides it because the same key is used for spacing, so every gap comes out non-negative by
+        /// construction. A per-step distance cannot reorder anything, because it is not the sort key.
+        int64_t gap_to_previous = -1;
+
         /// 1 or 2. A whole chain shares one ploidy -- it is a property of the contig, not of the
         /// site -- but it is carried here because this struct is what the model is handed.
         ///
