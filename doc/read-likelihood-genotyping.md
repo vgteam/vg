@@ -238,6 +238,28 @@ a probability at every setting. `--linkage-weight 0` makes every transition unif
 memoryless, and the posterior collapses to the per-site likelihood — the caller is then bit-for-bit
 unchanged.
 
+The two strands are transitioned independently and the joint transition is their product, which is
+what keeps a step at O(m²): the sum over all `(a′,b′)` predecessors collapses into one row sum, one
+column sum and one grand total. A jump redraws a strand's panel haplotype **uniformly over all m**,
+including the one it is already on, so ρ is the probability of forgetting and redrawing rather than of
+changing haplotype — the chance of actually landing elsewhere is `ρ·(m−1)/m`.
+
+**A known limitation of this form.** Because the exponent is applied to a per-step *probability*, ρ
+does not compose across steps: the same span divided into more sites is stickier than the same span
+taken in one — measured at 5.8× for a 1,348 bp span split seven ways at the default weight. The
+model's effective switch rate therefore depends on how many sites are in the chain as well as on
+genomic distance, so a change to which sites enter the layer re-tunes the linkage strength without
+anyone touching a parameter. A form that composes is `1 − ρ = ((1 − ρ_min)·exp(−g/scale))^(1/weight)`;
+adopting it would change what the weight's numeric value means and needs a refit.
+
+**Distance below the top level.** For a nested chain the distance between adjacent sites can be
+measured along the traversal the parent settled on rather than along the reference, which is what a
+haplotype carrying an indel there actually travelled. It is used only where a reference distance does
+not exist, because where both are available the reference distance measures slightly *better* —
+about 0.0005 of indel F1 on chr20, reproduced by two unrelated derivations, with no established
+mechanism. Ordering below the top level comes from a snarl-tree tuple (parent anchor, then offset
+along the parent's traversal) rather than from any arithmetic coordinate, so it cannot invert.
+
 A **wildcard haplotype** may take any allele at any site. States involving it are discounted by
 `escape` (1e-2) in the emission, once per wildcard strand, and its allele is marginalised
 *conditional on the reads* rather than spread uniformly — spreading it uniformly ignores the
