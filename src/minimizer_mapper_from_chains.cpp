@@ -1486,7 +1486,9 @@ void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeFo
                     #pragma omp critical (cerr)
                     cerr << log_name() << "\t[" << aln.name() << "] Found "
                          << group.subchains.size() << " subchains with "
-                         << group.connections.size() << " inter-subchain connections in zip code tree " << item_num
+                         << group.connections.size() << " inter-subchain connections "
+                         << "(max chaining score " << group.max_sparse_chain_score << ") "
+                         << "in zip code tree " << item_num
                          << " running " << anchors_to_chain[anchor_indexes.front()] << " to " << anchors_to_chain[anchor_indexes.back()] << std::endl;
                 }
 
@@ -1509,7 +1511,7 @@ void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeFo
                             {
                                 cerr << log_name() << "\t[" << aln.name() << "] Subchain " << subchain_i
                                      << " and length " << subchain.size()
-                                     << " with " << group.subchains[subchain_i].rec_count << " recombinations "
+                                     << " with " << group.subchains[subchain_i].rec_count << " recombinations"
                                      << " running " << anchor_view[subchain.front()]
                                      << " to " << anchor_view[subchain.back()] << std::endl;
     #ifdef debug_rec
@@ -1565,6 +1567,8 @@ void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeFo
                             minimizer_kept_chain_count.back()[seeds[seed_number].source]++;
                         }
                     }
+                    // Save original for later use
+                    vector<size_t> anchor_nums = subchain;
                     subchain = seed_nums;
 
                     // Remember how we got it
@@ -1591,7 +1595,7 @@ void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeFo
                         if (haplotype_positions) {
                             wanted_senses.insert(PathSense::HAPLOTYPE);
                         }
-                        for (auto& boundary : {anchor_view[subchain.front()].graph_start(), anchor_view[subchain.back()].graph_end()}) {
+                        for (auto& boundary : {anchor_view[anchor_nums.front()].graph_start(), anchor_view[anchor_nums.back()].graph_end()}) {
                             // For each end of the chain
                             auto offsets = algorithms::nearest_offsets_in_paths(this->path_graph, boundary, 100, wanted_senses);
                             for (auto& handle_and_positions : offsets) {
