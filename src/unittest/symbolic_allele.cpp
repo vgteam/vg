@@ -33,6 +33,18 @@ static SnarlTraversal make_trav(const vector<nid_t>& nodes) {
     return t;
 }
 
+/// A traversal over the given node ids, all *reverse* oriented, as the reference traversal of a
+/// snarl the reference path runs backwards through would be.
+static SnarlTraversal make_trav_rev(const vector<nid_t>& nodes) {
+    SnarlTraversal t;
+    for (nid_t n : nodes) {
+        Visit* v = t.add_visit();
+        v->set_node_id(n);
+        v->set_backward(true);
+    }
+    return t;
+}
+
 /// A SnarlManager holding one top-level snarl and the given children of it.
 static unique_ptr<SnarlManager> make_manager(const Snarl& top, const vector<Snarl>& children) {
     vector<Snarl> all;
@@ -325,6 +337,56 @@ TEST_CASE("Passing no range vector leaves symbolic projection unchanged", "[symb
 
     vector<pair<int, int>> ranges;
     REQUIRE(symbolic_allele(t, top, *mgr) == symbolic_allele(t, top, *mgr, &ranges));
+}
+
+TEST_CASE("A reversed snarl resolves to the same snarl and still symbolises its children",
+          "[symbolic_allele]") {
+    // The caller works on a REVERSED copy of any snarl whose reference path runs backwards --
+    // `flip_snarl` swaps the boundaries and reverses each. The reversed copy's start node is
+    // therefore the original END node, and an identity test demanding start-to-start rejects it.
+    // That rejection made `site_ptr` null, `is_child` false at every visit, and the projection a
+    // bare node list with no chain symbols: symbolic collapsing silently off for the whole snarl,
+    // on 7.4% of chr20's sites.
+    Snarl top = make_snarl(1, 5);
+    Snarl child = make_snarl(2, 4);
+    auto mgr = make_manager(top, {child});
+
+    // Exactly what flip_snarl produces from `top`.
+    Snarl flipped;
+    flipped.mutable_start()->set_node_id(5);
+    flipped.mutable_start()->set_backward(true);
+    flipped.mutable_end()->set_node_id(1);
+    flipped.mutable_end()->set_backward(true);
+
+    REQUIRE(symbolic_site_resolvable(top, *mgr));
+    REQUIRE(symbolic_site_resolvable(flipped, *mgr));
+
+    // And the projection through the reversed site must still collapse the child chain, which is
+    // the behaviour the resolution exists to enable rather than merely a property of it.
+    SnarlTraversal backwards = make_trav_rev({5, 4, 3, 2, 1});
+    SymbolicAllele a = symbolic_allele(backwards, flipped, *mgr);
+    bool has_chain = false;
+    for (const SymbolicStep& step : a) {
+        if (step.is_chain()) {
+            has_chain = true;
+        }
+    }
+    REQUIRE(has_chain);
+    REQUIRE(has_child_chain(backwards, flipped, *mgr));
+
+    // Two traversals differing only inside the child are still equal through the reversed site,
+    // which is the whole point and is what was lost.
+    SnarlTraversal other = make_trav_rev({5, 4, 9, 2, 1});
+    REQUIRE(symbolically_equal(backwards, other, flipped, *mgr));
+}
+
+TEST_CASE("A snarl sharing neither boundary is still refused", "[symbolic_allele]") {
+    // Accepting the reversed pairing must not accept an unrelated snarl. Nothing in the manager
+    // has boundaries {7, 8}, so resolution must fail rather than latch onto whatever the boundary
+    // index happens to hold.
+    Snarl top = make_snarl(1, 5);
+    auto mgr = make_manager(top, {});
+    REQUIRE_FALSE(symbolic_site_resolvable(make_snarl(7, 8), *mgr));
 }
 
 TEST_CASE("A traversal with no child chain is its own symbolic form", "[symbolic_allele]") {

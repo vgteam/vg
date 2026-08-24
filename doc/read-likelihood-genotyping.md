@@ -929,9 +929,19 @@ implementation: 487 snarls out of 115,038 records, or 0.42%.
 Two things bound the size of the effect, and both are properties of the graph rather than of this
 code. A single difference block spans every step but the two snarl boundaries, so an ALT that does
 not split is barely changed — and `flatten_common_allele_ends` already trims those ends. And 9,279
-sites on this contig have no symbolic projection at all, because `flip_snarl` reverses a snarl whose
-reference path runs backwards and the reversed copy no longer resolves to the snarl the manager
-knows; symbolic collapsing is inert there, and so is this.
+sites on this contig had no symbolic projection at all, because `flip_snarl` reverses a snarl whose
+reference path runs backwards and the reversed copy failed the identity check that finds the snarl
+in the manager; symbolic collapsing was inert there, and so was this. Fixed separately — the check
+now accepts the boundary pair in either order, since a snarl and its reversal are the same snarl.
+
+Worth being precise about what that defect did and did not break, because the symbolic form itself
+was never wrong. Every `SymbolicStep` carries its own orientation, and a chain symbol's identity is
+the chain's boundary node ids, which are orientation-free. What failed was one guard asking "is this
+the snarl I think it is", answered by comparing boundaries in a fixed order — so a snarl viewed from
+the other end was rejected, no child was recognised, and the projection came out as the plain
+oriented node path. Orientation intact; nothing symbolic in it. Descent was unaffected, because its
+own lookup carries no such check, so those sites emitted child records *and* the parent's redundant
+long ALT. Repairing it therefore removes a duplicate rather than recovering a missing call.
 
 ## What this model does not give you
 

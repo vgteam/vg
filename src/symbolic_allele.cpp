@@ -1,6 +1,7 @@
 #include "symbolic_allele.hpp"
 
 #include <algorithm>
+#include <atomic>
 #include <cstdint>
 
 #include <unordered_map>
@@ -35,15 +36,51 @@ static pair<nid_t, nid_t> chain_bounds(const Snarl* child, const SnarlManager& s
 
 /// The snarl `site` refers to, as the manager knows it, or null when the two disagree. Shared by
 /// projection and by `symbolic_site_resolvable` so the two can never drift apart.
+/// How many sites resolved only through the reversed boundary pairing, i.e. how often the snarl
+/// handed to projection was the reversal `flip_snarl` produces.
+static std::atomic<size_t> g_reversed_sites(0);
+
 static const Snarl* resolve_site(const Snarl& site, const SnarlManager& snarl_manager) {
     const Snarl* site_ptr = snarl_manager.into_which_snarl(site.start().node_id(),
                                                           site.start().backward());
-    if (site_ptr != nullptr &&
-        !(site_ptr->start().node_id() == site.start().node_id() &&
-          site_ptr->end().node_id() == site.end().node_id())) {
-        site_ptr = nullptr;
+    if (site_ptr == nullptr) {
+        return nullptr;
+    }
+    // The point of this test is to confirm we got back *this* snarl rather than some other snarl
+    // reachable by entering that node, so it compares boundary nodes -- but it must accept them in
+    // EITHER order, because a snarl and its reversal are the same snarl.
+    //
+    // `flip_snarl` (graph_caller.cpp) reverses a snarl whose reference path runs backwards, and the
+    // caller then works on that reversed copy: its start node is the original END node. Requiring
+    // start-to-start therefore failed for every such snarl, `site_ptr` came back null, `is_child`
+    // was false at every visit, and the projection degenerated to a bare node list with no chain
+    // symbols at all -- silently turning symbolic collapsing off for 7.4% of chr20's sites, a
+    // feature worth SNV F1 0.9752 -> 0.9833 where it does run.
+    //
+    // Accepting the reversed pairing does not weaken the test. The boundary index maps a snarl's
+    // start and its reversed end to the same snarl (SnarlManager::snarl_boundary_index), so a
+    // reversed match identifies the same snarl by the same two nodes, just entered from the other
+    // side. Everything downstream is orientation-independent: `parent_of` compares canonical
+    // pointers, `chain_bounds` returns node ids, and a chain symbol's direction is taken from which
+    // boundary the traversal meets first rather than from the site's own orientation.
+    const bool forward = site_ptr->start().node_id() == site.start().node_id() &&
+                         site_ptr->end().node_id() == site.end().node_id();
+    const bool reversed = site_ptr->start().node_id() == site.end().node_id() &&
+                          site_ptr->end().node_id() == site.start().node_id();
+    if (!forward && !reversed) {
+        return nullptr;
+    }
+    if (reversed && !forward) {
+        // Counted so that "the reversed case is exercised" is a measurement rather than a hope. A
+        // fixture can contain reverse-oriented path steps without any snarl actually being flipped,
+        // so a green test suite is not by itself evidence that this branch ever runs.
+        ++g_reversed_sites;
     }
     return site_ptr;
+}
+
+size_t symbolic_reversed_site_count() {
+    return g_reversed_sites.load();
 }
 
 bool symbolic_site_resolvable(const Snarl& site, const SnarlManager& snarl_manager) {

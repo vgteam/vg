@@ -102,12 +102,13 @@ void report_atomize_instrumentation() {
     }
     cerr << endl;
 
-    // The number that says whether the existing nested-calling benefit was measured over most of
-    // the genome or only part of it. A flipped snarl resolves to no managed snarl, so no child chain
-    // is recognised and symbolic collapsing does nothing there.
+    // `unresolvable` should now be zero: a reversed snarl resolves through the reversed boundary
+    // pairing. `reversed` says how often that branch ran, which is what makes its coverage a
+    // measurement rather than an assumption.
     cerr << "[vg call] atomize: " << unresolvable
-         << " sites where projection is inert because the snarl does not resolve"
-         << " (flip_snarl; symbolic collapsing is off for these)" << endl;
+         << " sites where projection is inert because the snarl does not resolve, "
+         << symbolic_reversed_site_count()
+         << " resolved as the reversal flip_snarl produces" << endl;
 
     cerr << "[vg call] atomize: " << g_atomize_case_c.load()
          << " ALTs carrying a chain the reference also crosses but the alignment did not match"

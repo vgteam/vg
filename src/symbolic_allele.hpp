@@ -92,6 +92,12 @@ SymbolicAllele symbolic_allele(const SnarlTraversal& trav, const Snarl& site,
 /// backwards, where symbolic collapsing is therefore inert.
 bool symbolic_site_resolvable(const Snarl& site, const SnarlManager& snarl_manager);
 
+/// How many sites so far resolved only through the reversed boundary pairing -- the snarls
+/// `flip_snarl` reverses because the reference path runs backwards through them. Zero means the
+/// reversed branch never ran, which for a test suite is the difference between a passing gate and a
+/// coverage accident.
+size_t symbolic_reversed_site_count();
+
 /// The boundary node pair of the chain `child` belongs to, which is the identity a chain symbol
 /// carries. Exposed so a caller holding a child snarl can find the symbol that child collapses to
 /// without re-deriving the chain itself.
