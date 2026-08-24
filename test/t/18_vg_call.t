@@ -9,7 +9,7 @@ PATH=../bin:$PATH # for vg
 # FORMAT field shifts every later one, which broke four assertions here that were not
 # testing field order at all -- one of them silently compared BL against a GQ threshold.
 
-plan tests 304
+plan tests 309
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -1236,6 +1236,37 @@ vg call ns.vg -k ns_het.pack -A -p x --read-likelihood --gam ns_het.gam 2>/dev/n
 is "$?" "0" "--read-likelihood works with -A independent nested calling"
 is $(grep -v "^#" ns_rl_a.vcf | awk '$4=="CATG" && $5=="C"' | wc -l | tr -d ' ') "1" "-A independent calling finds the deletion"
 is $(grep -c "PS=" ns_rl_a.vcf | tr -d ' ') "0" "-A emits no PS tags, since it does not propagate phase"
+
+# The same graph with the reference path running BACKWARDS through it, which is the only
+# configuration that exercises resolve_site's reversed branch. nested_snp_in_del_rev.gfa is the
+# mirror of nested_snp_in_del.gfa -- identical topology and sequences, x = 6-,5-,3-,2-,1- -- so both
+# snarls (1,6) and (2,5) are reversed relative to the graph and flip_snarl rewrites them.
+#
+# This existed only in 26_deconstruct.t, so nothing in the calling suite ever reached the reversed
+# branch: the reverse-oriented fixtures 18_vg_call.t already used run through the support caller with
+# nested calling off, where symbolic projection is not armed at all. A defect that switched symbolic
+# collapsing off for 7.4% of a real contig's sites was therefore invisible to 304 passing tests.
+vg view -Fv nesting/nested_snp_in_del_rev.gfa > nsr.vg 2>/dev/null
+vg sim -x nsr.vg -P x -n 150 -l 4 -a -s 7 > nsr_het.gam 2>/dev/null
+vg sim -x nsr.vg -P 'a#2#y1#0' -n 150 -l 4 -a -s 8 >> nsr_het.gam 2>/dev/null
+vg pack -x nsr.vg -g nsr_het.gam -o nsr_het.pack 2>/dev/null
+vg call nsr.vg -k nsr_het.pack --top-down -Y -p x --read-likelihood --gam nsr_het.gam 2>nsr_rl.err > nsr_rl.vcf
+
+is $(grep -v "^#" nsr_rl.vcf | wc -l | tr -d ' ') "2" "a backwards reference path still emits both the parent and the child site"
+is $(grep -v "^#" nsr_rl.vcf | awk '$5=="*"' | wc -l | tr -d ' ') "1" "the nested site is a star allele on a backwards reference path too"
+
+# The coverage assertions. Without them "the tests pass" says nothing about whether the reversed
+# branch ran at all, which is exactly how the original defect survived.
+is "$(sed -n 's/.*atomize: \([0-9]*\) sites where projection is inert.*/\1/p' nsr_rl.err | head -1)" "0" "no site is left unresolvable when the reference path runs backwards"
+REV_SITES=$(sed -n 's/.*resolve, \([0-9]*\) resolved as the reversal.*/\1/p' nsr_rl.err | head -1)
+is "$([ "${REV_SITES:-0}" -ge 1 ] && echo yes || echo no)" "yes" "the reversed-snarl branch is exercised end to end"
+
+# And the control: the forward twin must NOT take that branch, or the counter is measuring something
+# other than reversal.
+vg call ns.vg -k ns_het.pack --top-down -Y -p x --read-likelihood --gam ns_het.gam 2>ns_fwd.err >/dev/null
+is "$(sed -n 's/.*resolve, \([0-9]*\) resolved as the reversal.*/\1/p' ns_fwd.err | head -1)" "0" "a forward reference path never takes the reversed branch"
+
+rm -f nsr.vg nsr_het.gam nsr_het.pack nsr_rl.vcf nsr_rl.err ns_fwd.err
 
 # Effective ploidy at a nested site only one parent haplotype traverses.
 # Reads: 100 from x (ref SNP), 30 from y0 (alt SNP), 100 from y1 (deletion). The

@@ -103,9 +103,12 @@ void report_atomize_instrumentation() {
     }
     cerr << endl;
 
-    // `unresolvable` should now be zero: a reversed snarl resolves through the reversed boundary
-    // pairing. `reversed` says how often that branch ran, which is what makes its coverage a
-    // measurement rather than an assumption.
+    // `unresolvable` is expected to be zero for the ordinary path, where every site is a managed
+    // snarl and a reversed one now resolves through the reversed boundary pairing. It is NOT
+    // expected to be zero under -I/--chains, which builds a fake snarl spanning a whole chain
+    // (see the chain-piece construction in this file): that is not a managed snarl, so resolving it
+    // to null is correct rather than a failure of the fix. The second number says how often the
+    // reversed branch ran, which is what makes its coverage a measurement rather than an assumption.
     cerr << "[vg call] atomize: " << unresolvable
          << " sites where projection is inert because the snarl does not resolve, "
          << g_atomize_site_reversed.load()

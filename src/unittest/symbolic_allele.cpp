@@ -381,12 +381,35 @@ TEST_CASE("A reversed snarl resolves to the same snarl and still symbolises its 
 }
 
 TEST_CASE("A snarl sharing neither boundary is still refused", "[symbolic_allele]") {
-    // Accepting the reversed pairing must not accept an unrelated snarl. Nothing in the manager
-    // has boundaries {7, 8}, so resolution must fail rather than latch onto whatever the boundary
-    // index happens to hold.
+    // Nothing in the manager has boundaries {7, 8}, so the LOOKUP fails and resolution stops before
+    // the boundary comparison is reached. Kept for what it is -- a check on the null path -- and
+    // explicitly not a test of the widened comparison, which the next case covers.
     Snarl top = make_snarl(1, 5);
     auto mgr = make_manager(top, {});
     REQUIRE_FALSE(symbolic_site_resolvable(make_snarl(7, 8), *mgr));
+}
+
+TEST_CASE("A resolvable lookup with mismatched boundaries is still refused", "[symbolic_allele]") {
+    // The negative case that actually exercises the widened comparison. Node 1 IS a boundary, so
+    // into_which_snarl succeeds and returns (1,5) -- and the site claims to be (1,4), which matches
+    // neither forward (end 5 != 4) nor reversed (start 1 != 4). Without this the suite only ever
+    // asserted that reversals are accepted, never that impostors are still rejected, because the
+    // other negative case exits at the null-lookup gate and never reaches the predicate at all.
+    Snarl top = make_snarl(1, 5);
+    Snarl child = make_snarl(2, 4);
+    auto mgr = make_manager(top, {child});
+
+    REQUIRE(symbolic_site_resolvable(top, *mgr));
+    REQUIRE_FALSE(symbolic_site_resolvable(make_snarl(1, 4), *mgr));
+
+    // And a half-reversed site -- right nodes, wrong orientation on one boundary -- must also be
+    // refused now that the reversed branch compares whole visits rather than node ids.
+    Snarl half;
+    half.mutable_start()->set_node_id(5);
+    half.mutable_start()->set_backward(true);
+    half.mutable_end()->set_node_id(1);
+    half.mutable_end()->set_backward(false);   // a true reversal would have this backward
+    REQUIRE_FALSE(symbolic_site_resolvable(half, *mgr));
 }
 
 TEST_CASE("A traversal with no child chain is its own symbolic form", "[symbolic_allele]") {

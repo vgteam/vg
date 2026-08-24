@@ -62,10 +62,18 @@ static const Snarl* resolve_site(const Snarl& site, const SnarlManager& snarl_ma
     // side. Everything downstream is orientation-independent: `parent_of` compares canonical
     // pointers, `chain_bounds` returns node ids, and a chain symbol's direction is taken from which
     // boundary the traversal meets first rather than from the site's own orientation.
+    auto same_visit = [](const Visit& a, const Visit& b) {
+        return a.node_id() == b.node_id() && a.backward() == b.backward();
+    };
+    // Node ids only, exactly as before this change: the forward branch is pre-existing behaviour and
+    // tightening it would reject sites that resolve today, which is not this fix's business.
     const bool forward = site_ptr->start().node_id() == site.start().node_id() &&
                          site_ptr->end().node_id() == site.end().node_id();
-    const bool reversed = site_ptr->start().node_id() == site.end().node_id() &&
-                          site_ptr->end().node_id() == site.start().node_id();
+    // Full visits, orientation included. This branch is the only acceptance this change adds, so it
+    // is held to the exact test rather than inheriting the forward branch's laxity: a reversed snarl
+    // is `reverse`-and-swap of the canonical one, and nothing less specific than that should pass.
+    const bool reversed = same_visit(site_ptr->start(), reverse(site.end())) &&
+                          same_visit(site_ptr->end(), reverse(site.start()));
     if (!forward && !reversed) {
         return nullptr;
     }
