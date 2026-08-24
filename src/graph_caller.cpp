@@ -35,6 +35,26 @@ static std::atomic<size_t> g_descent_skipped_no_copy(0);
 /// haplotype carrying two copies, not two haplotypes carrying one each, so it must not become ploidy
 /// 2 -- and representing the second copy at all is stage 17's question, deliberately deferred.
 static std::atomic<size_t> g_child_multi_crossing(0);
+
+// Stage 2 of planning/symbolic-diff-decomposition.md: measure, change nothing. Every counter here
+// answers a question the plan currently answers with an offline Python proxy over INFO/AT, and the
+// proxy cannot see what the caller sees -- notably that projection is inert for a flipped snarl.
+static std::atomic<size_t> g_atomize_records(0);          // records with a symbolic site and a called ALT
+static std::atomic<size_t> g_atomize_site_unresolvable(0); // flip_snarl left projection with no symbols
+static std::atomic<size_t> g_atomize_blocks_hist[16];      // blocks per called ALT, index 15 = 15+
+static std::atomic<size_t> g_atomize_blocks_total(0);
+static std::atomic<size_t> g_atomize_multi_block(0);       // called ALTs a diff splits in two or more
+static std::atomic<size_t> g_atomize_degraded(0);          // DP refused, fell back to one block
+static std::atomic<size_t> g_atomize_case_c(0);            // chain in both alleles, unmatched: the only true double-report
+static std::atomic<size_t> g_atomize_offref_alts(0);       // called ALTs carrying a chain the reference does not cross
+static std::atomic<size_t> g_atomize_offref_bases(0);      // bases those chains account for
+static std::atomic<size_t> g_atomize_alt_bases(0);         // total bases of the ALTs in the line above
+static std::atomic<size_t> g_atomize_small_block_on_sv(0); // a >=50 bp ALT whose diff has a <50 bp block
+// Stage 5: what the emitter actually did, as opposed to what stage 2 says it could do.
+static std::atomic<size_t> g_atomize_split_sites(0);
+static std::atomic<size_t> g_atomize_split_lines(0);
+// Stage 6: chains whose own record is suppressed because a block ALT already spells them.
+static std::atomic<size_t> g_atomize_child_inlined(0);
 static thread_local int g_descent_depth = 0;
 
 void GraphCaller::report_descent_instrumentation() const {
@@ -61,6 +81,64 @@ void GraphCaller::report_descent_instrumentation() const {
     cerr << "[vg call] descent skipped: " << g_descent_skipped_no_copy.load()
          << " children no called allele reaches, " << g_descent_skipped_no_ref.load()
          << " with no reference path through them" << endl;
+}
+
+void report_atomize_instrumentation() {
+    size_t records = g_atomize_records.load();
+    size_t unresolvable = g_atomize_site_unresolvable.load();
+    if (records == 0 && unresolvable == 0) {
+        return;
+    }
+
+    cerr << "[vg call] atomize: " << records << " called ALTs projected, "
+         << g_atomize_blocks_total.load() << " difference blocks, "
+         << g_atomize_multi_block.load() << " ALTs a diff would split (>=2 blocks)" << endl;
+    cerr << "[vg call] atomize blocks/ALT:";
+    for (int b = 0; b < 16; ++b) {
+        size_t n = g_atomize_blocks_hist[b].load();
+        if (n > 0) {
+            cerr << " " << b << (b == 15 ? "+" : "") << "=" << n;
+        }
+    }
+    cerr << endl;
+
+    // The number that says whether the existing nested-calling benefit was measured over most of
+    // the genome or only part of it. A flipped snarl resolves to no managed snarl, so no child chain
+    // is recognised and symbolic collapsing does nothing there.
+    cerr << "[vg call] atomize: " << unresolvable
+         << " sites where projection is inert because the snarl does not resolve"
+         << " (flip_snarl; symbolic collapsing is off for these)" << endl;
+
+    cerr << "[vg call] atomize: " << g_atomize_case_c.load()
+         << " ALTs carrying a chain the reference also crosses but the alignment did not match"
+         << " -- the only population that would be reported twice" << endl;
+
+    size_t offref = g_atomize_offref_alts.load();
+    size_t offref_bases = g_atomize_offref_bases.load();
+    size_t alt_bases = g_atomize_alt_bases.load();
+    cerr << "[vg call] atomize: " << offref
+         << " ALTs carry a chain the reference does not cross, " << offref_bases << " of "
+         << alt_bases << " bases";
+    if (alt_bases > 0) {
+        cerr << " (" << (100.0 * (double)offref_bases / (double)alt_bases) << "%)";
+    }
+    cerr << " -- variation with no record of its own, reachable only inside this allele" << endl;
+
+    if (g_atomize_child_inlined.load() > 0) {
+        cerr << "[vg call] atomize: " << g_atomize_child_inlined.load()
+             << " child chains not descended into because a block ALT already spells them" << endl;
+    }
+    if (g_atomize_split_sites.load() > 0) {
+        cerr << "[vg call] atomize: " << g_atomize_split_sites.load()
+             << " sites emitted as blocks instead of one record, " << g_atomize_split_lines.load()
+             << " lines" << endl;
+    }
+    if (g_atomize_small_block_on_sv.load() > 0 || g_atomize_degraded.load() > 0) {
+        cerr << "[vg call] atomize: " << g_atomize_small_block_on_sv.load()
+             << " ALTs >=50 bp whose diff contains a block under 50 bp (truvari size-filter"
+             << " exposure), " << g_atomize_degraded.load() << " alignments refused as too large"
+             << endl;
+    }
 }
 
 
@@ -371,6 +449,12 @@ string VCFOutputCaller::vcf_header(const PathHandleGraph& graph, const vector<st
            << "snarl pointer\">" << endl;
     }
     ss << "##INFO=<ID=AT,Number=R,Type=String,Description=\"Allele Traversal as path in graph\">" << endl;
+    if (atomize_blocks) {
+        ss << "##INFO=<ID=SB,Number=2,Type=Integer,Description=\"Index and count of this "
+           << "difference block within its snarl. Every block of a snarl reports the same AD, GL "
+           << "and GQ, so a consumer aggregating evidence across records must not count them "
+           << "more than once.\">" << endl;
+    }
     if (allele_merge_threshold < 1.0) {
         ss << "##INFO=<ID=MAT,Number=.,Type=String,Description=\"Merged Allele Traversal: "
            << "ALT alleles merged after genotyping by -L/--cluster, as OLD>NEW:SIMILARITY using "
@@ -631,10 +715,13 @@ bool buffered_record_key_less(const BufferedRecordKey& a, const BufferedRecordKe
     if (a.position != b.position) {
         return a.position < b.position;
     }
-    return a.id < b.id;
+    if (a.id != b.id) {
+        return a.id < b.id;
+    }
+    return a.block < b.block;
 }
 
-bool VCFOutputCaller::add_variant(vcflib::Variant& var) const {
+bool VCFOutputCaller::add_variant(vcflib::Variant& var, size_t block) const {
     var.setVariantCallFile(output_vcf);
     stringstream ss;
     ss << var;
@@ -647,7 +734,7 @@ bool VCFOutputCaller::add_variant(vcflib::Variant& var) const {
     // the Variant object is too big to keep in memory when there are many genotypes, so we
     // store it in a zstd-compressed string
     output_variants[omp_get_thread_num()].push_back(
-        make_pair(BufferedRecordKey{var.sequenceName, (size_t)var.position, var.id}, dest));
+        make_pair(BufferedRecordKey{var.sequenceName, (size_t)var.position, var.id, block}, dest));
     return true;
 }
 
@@ -913,6 +1000,9 @@ void VCFOutputCaller::write_variants(ostream& out_stream, const SnarlManager* sn
              << " phases refused by the record they were rendered onto, and "
              << quality_declined.load() << " quality rewrites refused" << endl;
     }
+    // Here rather than with the descent report: rendering happens after the calling sweep, so a
+    // report printed there sees only the records that emitted inline.
+    report_atomize_instrumentation();
 }
 
 
@@ -1877,6 +1967,101 @@ thread_local VCFOutputCaller::NestedContext VCFOutputCaller::nested_context;
 thread_local size_t VCFOutputCaller::current_generation = 0;
 thread_local VCFOutputCaller::EmittedAlleles VCFOutputCaller::last_emitted;
 
+bool VCFOutputCaller::chain_reported_inline(const Snarl& snarl,
+                                            const vector<SnarlTraversal>& travs,
+                                            const vector<int>& genotype, int ref_trav_idx,
+                                            const Snarl& child) const {
+    // Inert unless block emission is on. With one record per snarl the parent's ALT spans the whole
+    // snarl anyway, so there is no sense in which a chain is "inside a block".
+    if (!atomize_blocks || symbolic_manager == nullptr) {
+        return false;
+    }
+    if (ref_trav_idx < 0 || (size_t)ref_trav_idx >= travs.size() || genotype.empty()) {
+        return false;
+    }
+    // A snarl whose projection has no symbols at all cannot answer this question: every child would
+    // read as "not matched" and the whole subtree would be dropped rather than delegated. That is
+    // the flipped-snarl case, and getting it wrong turns double reporting into non-reporting.
+    if (!symbolic_site_resolvable(snarl, *symbolic_manager)) {
+        return false;
+    }
+
+    const Snarl* managed_child = symbolic_manager->into_which_snarl(child.start().node_id(),
+                                                                   child.start().backward());
+    if (managed_child == nullptr) {
+        return false;
+    }
+    pair<nid_t, nid_t> bounds = chain_bounds_of(managed_child, *symbolic_manager);
+
+    SymbolicAllele sref = symbolic_allele(travs[ref_trav_idx], snarl, *symbolic_manager);
+    // Where the chain sits in the reference projection. If it is nowhere, the reference does not
+    // cross it and the caller's own reference gate has already dealt with that.
+    vector<size_t> chain_steps;
+    for (size_t i = 0; i < sref.size(); ++i) {
+        if (sref[i].is_chain() && sref[i].id == bounds.first && sref[i].end_id == bounds.second) {
+            chain_steps.push_back(i);
+        }
+    }
+    if (chain_steps.empty()) {
+        return false;
+    }
+
+    bool any_crossing = false;
+    for (int allele : genotype) {
+        if (allele < 0 || (size_t)allele >= travs.size()) {
+            continue;
+        }
+        if (allele == ref_trav_idx) {
+            // This haplotype IS the reference here, so every reference step matches, the chain
+            // among them. Delegated, and nothing further to check.
+            return false;
+        }
+        SymbolicAllele salt = symbolic_allele(travs[allele], snarl, *symbolic_manager);
+        bool degraded = false;
+        vector<DiffBlock> blocks = symbolic_diff(sref, salt, &degraded);
+        if (degraded) {
+            return false;   // no reliable block structure, so no reliable conclusion
+        }
+        // This haplotype's OWN crossings, found in its own projection.
+        //
+        // Testing the reference's chain step instead is wrong, and wrong in a way that fires 60x
+        // too often: a haplotype that DELETES the chain puts the reference's step inside a block
+        // while crossing the chain zero times, so it would read as "already reported" when it
+        // contributes no copy at all. Those chains are exactly the ones the caller retains for
+        // possible revision when no called allele reaches them yet, and suppressing them here
+        // deleted 399 records that linkage was still entitled to move.
+        for (size_t j = 0; j < salt.size(); ++j) {
+            if (!salt[j].is_chain() || salt[j].id != bounds.first ||
+                salt[j].end_id != bounds.second) {
+                continue;
+            }
+            any_crossing = true;
+            bool inside = false;
+            for (const DiffBlock& b : blocks) {
+                if ((size_t)b.alt_begin <= j && j < (size_t)b.alt_end) {
+                    inside = true;
+                    break;
+                }
+            }
+            if (!inside) {
+                return false;   // matched on this haplotype: its own record reports it
+            }
+        }
+    }
+
+    if (!any_crossing) {
+        // No called haplotype crosses this chain, so there is no copy for a block ALT to have
+        // spelled and nothing here to suppress. Whether it is visited anyway is the caller's
+        // decision, not this predicate's.
+        return false;
+    }
+
+    // Every crossing by every called haplotype falls inside a difference block, so the block's ALT
+    // already spells the route through it. Reporting it again would be the same variation twice.
+    ++g_atomize_child_inlined;
+    return true;
+}
+
 bool VCFOutputCaller::is_symbolically_reference(const vector<SnarlTraversal>& called_traversals,
                                                 int trav_idx, int ref_trav_idx,
                                                 const Snarl& snarl) const {
@@ -1889,6 +2074,543 @@ bool VCFOutputCaller::is_symbolically_reference(const vector<SnarlTraversal>& ca
     }
     return symbolically_equal(called_traversals[trav_idx], called_traversals[ref_trav_idx],
                               snarl, *symbolic_manager);
+}
+
+
+/// Stage-2 instrumentation for planning/symbolic-diff-decomposition.md. Projects the reference and
+/// each distinct called ALT traversal, aligns them, and tallies. Writes only atomics and reads
+/// nothing it can alter, so a run with this compiled in is byte-identical to one without.
+static void tally_atomize(const PathPositionHandleGraph& graph, const SnarlManager* mgr,
+                          const Snarl& snarl, const vector<SnarlTraversal>& travs,
+                          const vector<int>& genotype, int ref_trav_idx) {
+    if (mgr == nullptr || ref_trav_idx < 0 || (size_t)ref_trav_idx >= travs.size()) {
+        return;
+    }
+    if (!symbolic_site_resolvable(snarl, *mgr)) {
+        // Projection would report a bare node list here, so a block count from it would measure
+        // node-level shredding rather than chain structure. Counted and skipped, not folded in.
+        ++g_atomize_site_unresolvable;
+        return;
+    }
+
+    vector<pair<int, int>> ref_ranges;
+    SymbolicAllele sref = symbolic_allele(travs[ref_trav_idx], snarl, *mgr, &ref_ranges);
+
+    // Which chains the reference itself crosses, so an unmatched chain the reference also visits
+    // (double-reportable) can be told from one it never visits (reportable only inside this allele).
+    set<pair<nid_t, nid_t>> ref_chains;
+    for (const SymbolicStep& s : sref) {
+        if (s.is_chain()) {
+            ref_chains.emplace(s.id, s.end_id);
+        }
+    }
+
+    auto span_bases = [&](const SnarlTraversal& t, const vector<pair<int, int>>& ranges,
+                          int step_begin, int step_end) -> size_t {
+        size_t n = 0;
+        for (int k = step_begin; k < step_end && k < (int)ranges.size(); ++k) {
+            for (int v = ranges[k].first; v < ranges[k].second && v < t.visit_size(); ++v) {
+                const Visit& vis = t.visit(v);
+                if (vis.node_id() > 0) {
+                    n += graph.get_length(graph.get_handle(vis.node_id()));
+                }
+            }
+        }
+        return n;
+    };
+
+    set<int> seen;
+    for (int gt : genotype) {
+        if (gt < 0 || gt == ref_trav_idx || (size_t)gt >= travs.size()) {
+            continue;
+        }
+        if (!seen.insert(gt).second) {
+            continue;
+        }
+
+        vector<pair<int, int>> alt_ranges;
+        SymbolicAllele salt = symbolic_allele(travs[gt], snarl, *mgr, &alt_ranges);
+
+        bool degraded = false;
+        vector<DiffBlock> blocks = symbolic_diff(sref, salt, &degraded);
+        if (degraded) {
+            ++g_atomize_degraded;
+        }
+
+        ++g_atomize_records;
+        g_atomize_blocks_total += blocks.size();
+        ++g_atomize_blocks_hist[std::min<size_t>(blocks.size(), 15)];
+        if (blocks.size() >= 2) {
+            ++g_atomize_multi_block;
+        }
+
+        size_t alt_total = span_bases(travs[gt], alt_ranges, 0, (int)salt.size());
+        bool any_offref = false;
+        bool any_case_c = false;
+        size_t offref_bases = 0;
+        size_t smallest_block = std::numeric_limits<size_t>::max();
+
+        for (const DiffBlock& b : blocks) {
+            size_t rb = span_bases(travs[ref_trav_idx], ref_ranges, b.ref_begin, b.ref_end);
+            size_t ab = span_bases(travs[gt], alt_ranges, b.alt_begin, b.alt_end);
+            smallest_block = std::min(smallest_block, std::max(rb, ab));
+            for (int k = b.alt_begin; k < b.alt_end && k < (int)salt.size(); ++k) {
+                if (!salt[k].is_chain()) {
+                    continue;
+                }
+                if (ref_chains.count(make_pair(salt[k].id, salt[k].end_id))) {
+                    any_case_c = true;
+                } else {
+                    any_offref = true;
+                    offref_bases += span_bases(travs[gt], alt_ranges, k, k + 1);
+                }
+            }
+        }
+        if (any_case_c) {
+            ++g_atomize_case_c;
+        }
+        if (any_offref) {
+            ++g_atomize_offref_alts;
+            g_atomize_offref_bases += offref_bases;
+            g_atomize_alt_bases += alt_total;
+        }
+        // Only a genuine split can move a variant across truvari's 50 bp filter. A single block
+        // spans everything but the two boundary steps, so comparing it against the whole
+        // traversal's length measures how long the boundary nodes are and nothing else -- which is
+        // what the first version of this counter did, reporting 74,885 of 115,996 ALTs as
+        // "exposed" when the real exposure cannot exceed the number of ALTs that split at all.
+        if (blocks.size() >= 2 && alt_total >= 50 &&
+            smallest_block != std::numeric_limits<size_t>::max() && smallest_block < 50) {
+            ++g_atomize_small_block_on_sv;
+        }
+    }
+}
+
+int VCFOutputCaller::emit_block_records(const PathPositionHandleGraph& graph, const Snarl& snarl,
+                                        const vector<SnarlTraversal>& called_traversals,
+                                        const vector<int>& genotype, int ref_trav_idx,
+                                        const string& sample_name, const vcflib::Variant& site,
+                                        const map<int, int>& trav_to_allele,
+                                        int64_t site_position, GLLayout gl_layout,
+                                        bool genotype_snarls) const {
+    // Every refusal below returns -1, meaning "the site record stands". That is the safe direction:
+    // -1 reproduces today's output exactly, so a case this does not understand degrades to the
+    // behaviour it was going to have anyway rather than to a wrong record.
+    if (!atomize_blocks || symbolic_manager == nullptr || genotype_snarls || genotype.empty()) {
+        return -1;
+    }
+    if (ref_trav_idx < 0 || (size_t)ref_trav_idx >= called_traversals.size()) {
+        return -1;
+    }
+    if (!symbolic_site_resolvable(snarl, *symbolic_manager)) {
+        // Projection would see no child chains here, so a diff over it measures node-level
+        // shredding rather than route structure. Counted in the stage-2 instrumentation.
+        return -1;
+    }
+
+    const SnarlTraversal& ref_trav = called_traversals[ref_trav_idx];
+    vector<pair<int, int>> ref_ranges;
+    SymbolicAllele sref = symbolic_allele(ref_trav, snarl, *symbolic_manager, &ref_ranges);
+    const size_t m = sref.size();
+    if (m == 0 || ref_ranges.size() != m) {
+        return -1;
+    }
+
+    // Base offset of every visit boundary of the reference traversal, measured from the snarl's
+    // first base. The reference traversal is consecutive reference-path steps in path order (the
+    // caller asserts that where it builds it), so a cumulative sum of node lengths IS the offset.
+    vector<size_t> ref_visit_off(ref_trav.visit_size() + 1, 0);
+    for (int v = 0; v < ref_trav.visit_size(); ++v) {
+        size_t len = 0;
+        if (ref_trav.visit(v).node_id() > 0) {
+            len = graph.get_length(graph.get_handle(ref_trav.visit(v).node_id()));
+        }
+        ref_visit_off[v + 1] = ref_visit_off[v] + len;
+    }
+
+    auto visit_of_step = [](const vector<pair<int, int>>& ranges, size_t step,
+                            const SnarlTraversal& t) -> int {
+        // The ranges partition the visits contiguously, so the visit index at step boundary k is
+        // ranges[k].first, and one past the end is the traversal length.
+        return step < ranges.size() ? ranges[step].first : t.visit_size();
+    };
+    auto seq_of = [&](const SnarlTraversal& t, int vb, int ve) -> string {
+        string s;
+        for (int v = vb; v < ve && v < t.visit_size(); ++v) {
+            const Visit& vis = t.visit(v);
+            if (vis.node_id() > 0) {
+                s += graph.get_sequence(graph.get_handle(vis.node_id(), vis.backward()));
+            }
+        }
+        return s;
+    };
+
+    struct HapAlign {
+        int trav = -1;
+        SymbolicAllele sym;
+        vector<pair<int, int>> ranges;
+        vector<DiffBlock> blocks;
+        vector<int> alt_before_ref;
+    };
+    vector<HapAlign> haps(genotype.size());
+    for (size_t s = 0; s < genotype.size(); ++s) {
+        haps[s].trav = genotype[s];
+        if (genotype[s] < 0 || (size_t)genotype[s] >= called_traversals.size()) {
+            continue;   // a star or missing allele: nothing to align
+        }
+        if (genotype[s] == ref_trav_idx) {
+            continue;   // the reference itself: every step matches, so no blocks
+        }
+        haps[s].sym = symbolic_allele(called_traversals[genotype[s]], snarl, *symbolic_manager,
+                                      &haps[s].ranges);
+        bool degraded = false;
+        haps[s].blocks = symbolic_diff(sref, haps[s].sym, &degraded, &haps[s].alt_before_ref);
+        if (degraded || haps[s].alt_before_ref.size() != m + 1) {
+            return -1;
+        }
+    }
+
+    // Cluster every haplotype's blocks by overlap of reference step range, treating touching ranges
+    // as overlapping. That is what merges a deletion on one haplotype abutting an insertion on the
+    // other: their ranges share only an endpoint, but they cannot be reported as separate records
+    // because the two alleles would have to disagree about the same reference span.
+    vector<pair<int, int>> ivs;
+    for (const HapAlign& h : haps) {
+        for (const DiffBlock& b : h.blocks) {
+            ivs.emplace_back(b.ref_begin, b.ref_end);
+        }
+    }
+    if (ivs.empty()) {
+        return -1;
+    }
+    sort(ivs.begin(), ivs.end());
+    vector<pair<int, int>> clusters;
+    clusters.push_back(ivs[0]);
+    for (size_t k = 1; k < ivs.size(); ++k) {
+        if (ivs[k].first <= clusters.back().second) {
+            clusters.back().second = std::max(clusters.back().second, ivs[k].second);
+        } else {
+            clusters.push_back(ivs[k]);
+        }
+    }
+
+    // Build every record before writing any, so the decision to split can be taken on the finished
+    // set. A half-written split is the one outcome with no safe fallback.
+    struct Built {
+        vcflib::Variant var;
+        bool wanted = false;
+    };
+    vector<Built> built;
+    built.reserve(clusters.size());
+
+    for (const pair<int, int>& cluster : clusters) {
+        const size_t rb = (size_t)cluster.first;
+        const size_t re = (size_t)cluster.second;
+        int vb = visit_of_step(ref_ranges, rb, ref_trav);
+        int ve = visit_of_step(ref_ranges, re, ref_trav);
+        string ref_str = seq_of(ref_trav, vb, ve);
+
+        // Each haplotype's allele over this same reference span. A haplotype with no block here is
+        // matched throughout, so its span is the aligned one and its string equals the reference's.
+        vector<string> slot_str(genotype.size());
+        vector<bool> slot_marker(genotype.size(), false);
+        for (size_t s = 0; s < genotype.size(); ++s) {
+            if (haps[s].trav < 0) {
+                slot_marker[s] = true;
+                continue;
+            }
+            if (haps[s].trav == ref_trav_idx) {
+                slot_str[s] = ref_str;
+                continue;
+            }
+            int ab = haps[s].alt_before_ref[rb];
+            int ae = haps[s].alt_before_ref[re];
+            for (const DiffBlock& b : haps[s].blocks) {
+                if ((size_t)b.ref_begin <= re && rb <= (size_t)b.ref_end) {
+                    ab = std::min(ab, b.alt_begin);
+                    ae = std::max(ae, b.alt_end);
+                }
+            }
+            const SnarlTraversal& t = called_traversals[haps[s].trav];
+            slot_str[s] = seq_of(t, visit_of_step(haps[s].ranges, (size_t)ab, t),
+                                 visit_of_step(haps[s].ranges, (size_t)ae, t));
+        }
+
+        // VCF has no representation for an empty allele, so an indel borrows the base before it.
+        // One base, which is what flatten_common_allele_ends leaves on every indel it touches, so
+        // the two agree about how an indel is spelled.
+        bool needs_anchor = ref_str.empty();
+        for (size_t s = 0; s < genotype.size(); ++s) {
+            if (!slot_marker[s] && slot_str[s].empty()) {
+                needs_anchor = true;
+            }
+        }
+        int64_t pos = site_position + (int64_t)ref_visit_off[vb];
+        if (needs_anchor) {
+            if (vb <= 0) {
+                return -1;   // no base to the left inside this snarl; the site record stands
+            }
+            string left = seq_of(ref_trav, vb - 1, vb);
+            if (left.empty()) {
+                return -1;
+            }
+            string base(1, left.back());
+            ref_str = base + ref_str;
+            for (size_t s = 0; s < genotype.size(); ++s) {
+                if (!slot_marker[s]) {
+                    slot_str[s] = base + slot_str[s];
+                }
+            }
+            pos -= 1;
+        }
+
+        // Dedup by string, exactly as the site record does, so two haplotypes taking different
+        // routes to the same sequence come out homozygous rather than as two identical ALTs.
+        map<string, int> allele_to_gt;
+        vector<string> alleles;
+        vector<int> site_of_block;
+        allele_to_gt[ref_str] = 0;
+        alleles.push_back(ref_str);
+        site_of_block.push_back(0);
+        vector<int> block_gt(genotype.size(), MISSING_ALLELE_MARKER);
+        for (size_t s = 0; s < genotype.size(); ++s) {
+            if (slot_marker[s]) {
+                continue;
+            }
+            auto found = allele_to_gt.find(slot_str[s]);
+            if (found != allele_to_gt.end()) {
+                block_gt[s] = found->second;
+                continue;
+            }
+            int a = (int)alleles.size();
+            allele_to_gt[slot_str[s]] = a;
+            alleles.push_back(slot_str[s]);
+            // Which site allele this block allele inherits its evidence from: the one the same
+            // haplotype carries at the site. That is the whole of the replication decision.
+            auto sa = trav_to_allele.find(haps[s].trav);
+            site_of_block.push_back(sa != trav_to_allele.end() ? sa->second : 0);
+            block_gt[s] = a;
+        }
+        if (alleles.size() < 2) {
+            continue;   // every haplotype is the reference here; nothing to report
+        }
+
+        Built b;
+        b.var = site;   // inherit INFO, FORMAT and every site-level field
+        b.var.position = pos;
+        b.var.ref = alleles[0];
+        b.var.alt.assign(alleles.begin() + 1, alleles.end());
+        b.var.alleles = alleles;
+        b.var.info["AT"].clear();
+        b.var.info["AT"].resize(alleles.size());
+        b.var.info["SB"] = {std::to_string(built.size()), std::to_string(clusters.size())};
+
+        // AT per block allele, over the visit range this record actually spells.
+        {
+            SnarlTraversal ref_span;
+            for (int v = vb; v < ve && v < ref_trav.visit_size(); ++v) {
+                *ref_span.add_visit() = ref_trav.visit(v);
+            }
+            add_allele_path_to_info(b.var, 0, ref_span, false, false);
+            for (size_t a = 1; a < alleles.size(); ++a) {
+                SnarlTraversal span;
+                for (size_t s = 0; s < genotype.size(); ++s) {
+                    if (slot_marker[s] || block_gt[s] != (int)a) {
+                        continue;
+                    }
+                    const SnarlTraversal& t = called_traversals[haps[s].trav];
+                    int ab = haps[s].trav == ref_trav_idx
+                                 ? vb : visit_of_step(haps[s].ranges,
+                                                      (size_t)haps[s].alt_before_ref[rb], t);
+                    int ae = haps[s].trav == ref_trav_idx
+                                 ? ve : visit_of_step(haps[s].ranges,
+                                                      (size_t)haps[s].alt_before_ref[re], t);
+                    for (const DiffBlock& blk : haps[s].blocks) {
+                        if ((size_t)blk.ref_begin <= re && rb <= (size_t)blk.ref_end) {
+                            ab = std::min(ab, visit_of_step(haps[s].ranges,
+                                                            (size_t)blk.alt_begin, t));
+                            ae = std::max(ae, visit_of_step(haps[s].ranges,
+                                                            (size_t)blk.alt_end, t));
+                        }
+                    }
+                    for (int v = ab; v < ae && v < t.visit_size(); ++v) {
+                        *span.add_visit() = t.visit(v);
+                    }
+                    break;
+                }
+                add_allele_path_to_info(b.var, a, span, false, false);
+            }
+        }
+
+        // GT, inheriting the site's phase rather than dropping it.
+        //
+        // The site's GT is in phased order when it carries a separator, and that order is in SITE
+        // allele space; this record's slots are in genotyper order. So the two are compared by
+        // mapping each slot to the site allele its haplotype carries. Dropping the phase instead
+        // would leave a record carrying PS beside an unphased GT -- a contradiction on its face --
+        // and would score these records against a phased baseline on unequal terms, which is a
+        // confound rather than a conservative choice.
+        bool phased = false;
+        vector<int> slot_order(block_gt.size());
+        for (size_t s = 0; s < block_gt.size(); ++s) {
+            slot_order[s] = (int)s;
+        }
+        if (block_gt.size() == 2 && block_gt[0] >= 0 && block_gt[1] >= 0) {
+            auto site_gt = site.samples.find(sample_name);
+            if (site_gt != site.samples.end()) {
+                auto gt_field = site_gt->second.find("GT");
+                if (gt_field != site_gt->second.end() && !gt_field->second.empty()) {
+                    const string& text = gt_field->second[0];
+                    size_t bar = text.find('|');
+                    if (bar != string::npos) {
+                        int a = -1;
+                        int b2 = -1;
+                        try {
+                            a = std::stoi(text.substr(0, bar));
+                            b2 = std::stoi(text.substr(bar + 1));
+                        } catch (const std::exception&) {
+                            a = -1;
+                        }
+                        auto site_allele_of_slot = [&](size_t sl) {
+                            auto found = trav_to_allele.find(haps[sl].trav);
+                            return found != trav_to_allele.end() ? found->second : -1;
+                        };
+                        int s0 = site_allele_of_slot(0);
+                        int s1 = site_allele_of_slot(1);
+                        if (a >= 0 && s0 >= 0 && s1 >= 0) {
+                            if (s0 == a && s1 == b2) {
+                                phased = true;
+                            } else if (s0 == b2 && s1 == a) {
+                                phased = true;
+                                slot_order[0] = 1;
+                                slot_order[1] = 0;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        {
+            stringstream gt;
+            for (size_t s = 0; s < block_gt.size(); ++s) {
+                int value = block_gt[slot_order[s]];
+                if (value == MISSING_ALLELE_MARKER) {
+                    gt << ".";
+                } else {
+                    gt << value;
+                }
+                if (s + 1 != block_gt.size()) {
+                    gt << (phased ? "|" : "/");
+                }
+            }
+            b.var.samples[sample_name]["GT"] = {gt.str()};
+        }
+        if (!phased) {
+            // PS labels a phase block, so it means nothing on an unphased genotype.
+            b.var.samples[sample_name].erase("PS");
+            b.var.format.erase(std::remove(b.var.format.begin(), b.var.format.end(), "PS"),
+                               b.var.format.end());
+        }
+
+        // AD and GL are looked up through site_of_block rather than recomputed. Every block of a
+        // snarl therefore reports the same evidence, which is honest only about arity: see D2 in
+        // planning/symbolic-diff-decomposition.md. INFO/SB is what makes the replicated set
+        // recoverable by a consumer that must not double-count it.
+        auto& fmt = b.var.samples[sample_name];
+        auto site_fmt = site.samples.find(sample_name);
+        if (site_fmt != site.samples.end()) {
+            auto site_ad = site_fmt->second.find("AD");
+            if (site_ad != site_fmt->second.end()) {
+                vector<string> ad;
+                for (size_t a = 0; a < alleles.size(); ++a) {
+                    size_t si = (size_t)site_of_block[a];
+                    ad.push_back(si < site_ad->second.size() ? site_ad->second[si] : "0");
+                }
+                fmt["AD"] = ad;
+            }
+            auto site_gl = site_fmt->second.find("GL");
+            bool has_marker = std::any_of(block_gt.begin(), block_gt.end(),
+                                          [](int a) { return a < 0; });
+            if (site_gl != site_fmt->second.end() && !has_marker) {
+                const size_t k = alleles.size();
+                const size_t ks = site.alleles.size();
+                vector<string> gl;
+                bool ok = true;
+                if (block_gt.size() == 1) {
+                    gl.resize(k);
+                    for (size_t a = 0; a < k && ok; ++a) {
+                        size_t si = (size_t)site_of_block[a];
+                        ok = si < site_gl->second.size();
+                        if (ok) {
+                            gl[a] = site_gl->second[si];
+                        }
+                    }
+                } else if (block_gt.size() == 2) {
+                    gl.resize(k * (k + 1) / 2);
+                    for (size_t j = 0; j < k && ok; ++j) {
+                        for (size_t i = 0; i <= j && ok; ++i) {
+                            size_t si = (size_t)site_of_block[i];
+                            size_t sj = (size_t)site_of_block[j];
+                            size_t src = gl_genotype_index(std::min(si, sj), std::max(si, sj), ks,
+                                                           gl_layout);
+                            size_t dst = gl_genotype_index(i, j, k, gl_layout);
+                            ok = src < site_gl->second.size() && dst < gl.size();
+                            if (ok) {
+                                gl[dst] = site_gl->second[src];
+                            }
+                        }
+                    }
+                } else {
+                    ok = false;
+                }
+                if (ok) {
+                    fmt["GL"] = gl;
+                } else {
+                    fmt.erase("GL");
+                    b.var.format.erase(std::remove(b.var.format.begin(), b.var.format.end(), "GL"),
+                                       b.var.format.end());
+                }
+            }
+        }
+
+        b.var.updateAlleleIndexes();
+        flatten_common_allele_ends(b.var, true, 0);
+        flatten_common_allele_ends(b.var, false, 0);
+        b.wanted = !b.var.alt.empty();
+        built.push_back(std::move(b));
+    }
+
+    size_t wanted = 0;
+    for (const Built& b : built) {
+        if (b.wanted) {
+            ++wanted;
+        }
+    }
+    if (wanted == 0) {
+        return -1;
+    }
+    // Only take over from the site record where doing so changes the answer: more than one record,
+    // or one record whose allele set is smaller than the site's -- which is the two-haplotypes-
+    // one-route case coming out homozygous instead of as two near-identical ALTs. Everything else
+    // falls through so its bytes are unchanged.
+    bool collapses = wanted == 1 && built.size() == 1 &&
+                     built[0].var.alleles.size() < site.alleles.size();
+    if (wanted < 2 && !collapses) {
+        return -1;
+    }
+
+    int added = 0;
+    size_t block_index = 0;
+    for (Built& b : built) {
+        if (!b.wanted) {
+            continue;
+        }
+        if (add_variant(b.var, block_index)) {
+            ++added;
+        }
+        ++block_index;
+    }
+    return added;
 }
 
 bool VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCaller& snarl_caller,
@@ -1980,6 +2702,8 @@ bool VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCa
         }
     }
 
+    tally_atomize(graph, symbolic_manager, snarl, called_traversals, genotype, ref_trav_idx);
+
     // add on fixed number of uncalled traversals if we're making a ref-call
     // with genotype_snarls set to true
     if (genotype_snarls && site_traversals.size() <= 1) {
@@ -2035,6 +2759,10 @@ bool VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCa
     out_variant.sequenceName = basepath_name;
     // +1 to convert to 1-based VCF
     out_variant.position = get<0>(get_ref_interval(graph, snarl, ref_path_name)) + ref_offset + 1 + basepath_offset;
+    // Kept before flattening moves it. This is the position of the reference traversal's FIRST
+    // base, which is what per-block offsets are measured from; the flattened value is not, because
+    // the shared prefix it removes depends on the emitted allele set.
+    const int64_t site_position_unflattened = out_variant.position;
     out_variant.id = print_snarl(snarl, false);
     out_variant.filter = "PASS";
     out_variant.updateAlleleIndexes();
@@ -2190,6 +2918,15 @@ bool VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCa
         out_variant.alt.push_back("*");
         out_variant.alleles.push_back("*");
         out_variant.info["AT"].push_back(".");
+        // AD is Number=R and update_vcf_info wrote it above, over the allele set as it stood --
+        // one entry, for the reference. Appending an allele without appending its AD entry leaves
+        // the record contradicting its own header, which is what it did before this line existed.
+        // GL needs no matching fixup: it is already omitted whenever the genotype carries a
+        // marker, and MISSING_ALLELE_MARKER is one (read_likelihood_caller.cpp, genotype_has_marker).
+        auto ad_it = out_variant.samples[sample_name].find("AD");
+        if (ad_it != out_variant.samples[sample_name].end()) {
+            ad_it->second.push_back("0");
+        }
     }
 
     // Hand the traversal-to-allele mapping to symbolic descent, which runs next on this thread and
@@ -2208,6 +2945,22 @@ bool VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCa
         // get_ref_position reproduces the pre-flatten value and must not be used for this.
         last_emitted.contig = out_variant.sequenceName;
         last_emitted.position = out_variant.position;
+    }
+
+    // One record per difference block, where that changes the answer. Placed here on purpose: the
+    // site record above is finished, so every field a block does not redefine is inherited from a
+    // record that already passed update_vcf_info, flattening and merging. A return of -1 means this
+    // site was declined, and then the site record below is written exactly as it always was.
+    const int block_lines = emit_block_records(graph, snarl, called_traversals, genotype,
+                                               ref_trav_idx, sample_name, out_variant,
+                                               trav_to_allele, site_position_unflattened,
+                                               gl_layout, genotype_snarls);
+    if (block_lines >= 0) {
+        ++g_atomize_split_sites;
+        g_atomize_split_lines += (size_t)block_lines;
+        // last_emitted above still describes this snarl's traversals, which is what descent reads;
+        // the buffer handle is deliberately left unset, because there is no single line to retract.
+        return block_lines > 0;
     }
 
     // Whether this site wants a line at all. A traversal pair differing from the reference only
@@ -2365,6 +3118,15 @@ void VCFOutputCaller::flatten_common_allele_ends(vcflib::Variant& variant, bool 
     size_t min_allele_len = variant.alleles[0].length();
     for (int i = 1; i < variant.alleles.size(); ++i) {
         min_allele_len = std::min(min_allele_len, variant.alleles[i].length());
+    }
+
+    // An empty allele makes the arithmetic below underflow. max_flatten_len is size_t, and
+    // min_allele_len == 0 turns the "leave one base in the reference" decrement into SIZE_MAX,
+    // after which the backward pass evaluates alleles[j][length() - 1 - i] on an empty string --
+    // an out-of-bounds read, not a wrong answer. The early return above does not save us: a pure
+    // deletion has one ALT, which is empty. There is nothing to zip up in this case anyway.
+    if (min_allele_len == 0) {
+        return;
     }
 
     // the maximum number of bases we want ot zip up, applying override if provided
@@ -5074,6 +5836,15 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
                         ++g_descent_skipped_no_ref;
                         continue;
                     }
+                }
+
+                // The exactly-once rule. Under block emission a chain crossed by every called
+                // haplotype only inside a difference block has already been spelled out by that
+                // block's ALT, so its own record would report the same variation a second time.
+                // Inert with the flag off, and deliberately inert for a snarl whose projection has
+                // no symbols, where the question cannot be answered.
+                if (chain_reported_inline(snarl, travs, trav_genotype, ref_trav_idx, *child)) {
+                    continue;
                 }
 
                 int copies = child_ploidy(travs, trav_genotype, *child, ploidy);

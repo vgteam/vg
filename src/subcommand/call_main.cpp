@@ -225,6 +225,13 @@ void help_call(char** argv) {
          << "                            descended into once its parent's genotype is settled: after" << endl
          << "                            the linkage pass where linkage can still move it, and" << endl
          << "                            immediately where it cannot" << endl
+         << "      --atomize-blocks     align the reference and each called haplotype as symbolic" << endl
+         << "                            alleles and emit one record per difference block, so a snarl" << endl
+         << "                            with two separated differences reports two variants rather" << endl
+         << "                            than one substitution spanning both. Needs the default" << endl
+         << "                            calling path with nested calling; refused with -a. Every" << endl
+         << "                            block of a snarl carries the same AD, GL and GQ, and" << endl
+         << "                            INFO/SB names the block so they are not double-counted" << endl
          << "      --ploidy-bed FILE     BED of CHROM START END PLOIDY setting ploidy per region," << endl
          << "                            overriding -d/-R where an interval covers a site. CHROM is" << endl
          << "                            the contig as the output VCF spells it (chrX, not" << endl
@@ -305,6 +312,7 @@ int main_call(int argc, char** argv) {
     bool genotype_snarls = false;
     bool top_down = false;
     bool bottom_up = false;
+    bool atomize_blocks = false;
     // On by default under --read-likelihood, where it was measured: genome-wide it takes SNV F1
     // from 0.9752 to 0.9833 and SV F1 from 0.5134 to 0.5467 at no runtime or memory cost. It
     // declines rather than errors where its preconditions are absent, the way --linkage-weight does.
@@ -373,6 +381,7 @@ int main_call(int argc, char** argv) {
     constexpr int OPT_CLUSTER_POST = 1003;
     constexpr int OPT_LEGACY = 1004;
     constexpr int OPT_BOTTOM_UP = 1005;
+    constexpr int OPT_ATOMIZE_BLOCKS = 1047;
     constexpr int OPT_TOP_DOWN = 1006;
     constexpr int OPT_READ_LIKELIHOOD = 1007;
     constexpr int OPT_GAM = 1008;
@@ -443,6 +452,7 @@ int main_call(int argc, char** argv) {
         {"legacy", no_argument, 0, OPT_LEGACY},
         {"top-down", no_argument, 0, OPT_TOP_DOWN},
         {"bottom-up", no_argument, 0, OPT_BOTTOM_UP},
+        {"atomize-blocks", no_argument, 0, OPT_ATOMIZE_BLOCKS},
         {"read-likelihood", no_argument, 0, OPT_READ_LIKELIHOOD},
         {"gam", required_argument, 0, OPT_GAM},
         {"gaf-reads", required_argument, 0, OPT_GAF},
@@ -617,6 +627,9 @@ int main_call(int argc, char** argv) {
         case OPT_TOP_DOWN:
             top_down = true;
             break;
+        case OPT_ATOMIZE_BLOCKS:
+            atomize_blocks = true;
+            break;
         case OPT_BOTTOM_UP:
             bottom_up = true;
             break;
@@ -788,6 +801,28 @@ int main_call(int argc, char** argv) {
 
     if (trav_padding > 0 && traversals_only == false) {
         logger.error() << "-M option can only be used in conjunction with -T" << endl;
+    }
+
+    // --atomize-blocks refuses rather than silently declining, and refuses here rather than after
+    // the graph is loaded: these are option-compatibility facts, so making the user wait for a
+    // 22 GB load to be told the combination is invalid is pure waste. A silent decline is also how
+    // a measurement ends up being of something other than what it was labelled.
+    //
+    // -a/--genotype-snarls is the sharpest of the three. Its record set is meant to be
+    // sample-independent, one line per snarl, and the harness reads a `-a -A` run as a snarl
+    // inventory. A block list is a function of the called haplotypes, so it cannot be
+    // sample-independent. Note nested calling is ON by default under --read-likelihood and is NOT
+    // cleared by -a, so this cannot be left to the nested-calling gate further down.
+    if (atomize_blocks) {
+        if (genotype_snarls) {
+            logger.error() << "--atomize-blocks cannot be combined with -a/--genotype-snarls: "
+                           << "a block list depends on the called haplotypes, so the record set "
+                           << "would stop being sample-independent" << endl;
+        }
+        if (legacy || bottom_up || top_down) {
+            logger.error() << "--atomize-blocks needs the default calling path "
+                           << "(not --legacy, --bottom-up or --top-down)" << endl;
+        }
     }
 
     if (!vcf_filename.empty() && genotype_snarls) {
@@ -1744,6 +1779,32 @@ int main_call(int argc, char** argv) {
             nested_calling = false;   // the default declines
         }
     }
+    if (atomize_blocks) {
+        // Refused, not silently declined. Each of these would produce a record set the flag's own
+        // contract does not describe, and a silent decline is how a measurement ends up being of
+        // something other than what it was labelled.
+        //
+        // -a/--genotype-snarls is the sharpest: its record set is meant to be sample-independent,
+        // one line per snarl, and the harness reads a `-a -A` run as a snarl inventory. A block
+        // list is a function of the called haplotypes, so it cannot be sample-independent. Note
+        // that nested calling is ON by default under --read-likelihood and is NOT cleared by -a,
+        // so this cannot be left to the nested-calling gate below.
+        // The two purely-option refusals are checked at option-validation time above, so they
+        // fire before a graph is loaded. What is left here depends on constructed state.
+        if (!nested_calling) {
+            cerr << "error [vg call]: --atomize-blocks needs symbolic nested calling, which is on"
+                 << " by default under --read-likelihood; pass --nested to enable it elsewhere"
+                 << endl;
+            return 1;
+        }
+        VCFOutputCaller* atomize_target = dynamic_cast<VCFOutputCaller*>(graph_caller.get());
+        if (atomize_target == nullptr) {
+            cerr << "error [vg call]: --atomize-blocks needs a caller that emits VCF" << endl;
+            return 1;
+        }
+        atomize_target->set_atomize_blocks(true);
+    }
+
     if (nested_calling) {
         VCFOutputCaller* nested_target = dynamic_cast<VCFOutputCaller*>(graph_caller.get());
         nested_target->set_symbolic_collapsing(snarl_manager.get());

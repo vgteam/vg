@@ -160,12 +160,30 @@ struct BufferedRecordKey {
     string contig;
     size_t position = 0;
     string id;
+    /// Which difference block of its snarl this record is. Zero for every record a snarl emits
+    /// whole, so the ordinary case sorts exactly as it did.
+    ///
+    /// The sort needs this rather than a suffixed ID. Two blocks of one snarl CAN land on the same
+    /// POS -- a deletion on one haplotype abutting an insertion on the other, both anchored on the
+    /// same base -- and with a shared ID the comparator would then be non-antisymmetric, which
+    /// makes std::sort input-order dependent. That is the defect this header already records at
+    /// the tie-break comment above, measured once at 72 differing record pairs between two runs.
+    size_t block = 0;
 };
 
 /// Strict weak ordering on BufferedRecordKey. A free function rather than a lambda so a unit test
 /// can assert the ordering property directly, which is the only place the totality of the key is
 /// checked -- the in-tree TAP fixtures produce no ties at all.
 bool buffered_record_key_less(const BufferedRecordKey& a, const BufferedRecordKey& b);
+
+/// Stage 2 of planning/symbolic-diff-decomposition.md: what a symbolic diff would decompose,
+/// measured from inside the caller rather than from INFO/AT offline. Output-neutral.
+///
+/// Must be called at the END of write_variants, not from the descent report. Most records are
+/// retained and rendered after the calling sweep, so anything printed with the descent report
+/// describes only the sites that emitted inline -- which on chr20 is none of them. That mistake
+/// has been made here once already and produced a plausible-looking meaningless number.
+void report_atomize_instrumentation();
 
 /**
  * Helper class that vcf writers can inherit from to for some common code to output sorted VCF
@@ -182,7 +200,7 @@ public:
 
     /// Add a variant to our buffer
     /// Returns false if the variant line length exceeds VCFOutputCaller::max_vcf_line_length
-    bool add_variant(vcflib::Variant& var) const;
+    bool add_variant(vcflib::Variant& var, size_t block = 0) const;
 
     /**
      * Per-region ploidy overrides, from a BED of `CHROM START END PLOIDY`.
@@ -301,11 +319,29 @@ public:
     /// The manager is not owned and must outlive this caller.
     void set_symbolic_collapsing(const SnarlManager* manager) { this->symbolic_manager = manager; }
 
+    /// Emit one record per difference block between the reference and each called haplotype's
+    /// symbolic allele, instead of one record per snarl. See
+    /// planning/symbolic-diff-decomposition.md. Off by default, and refused outright rather than
+    /// silently declined for the configurations it cannot serve.
+    void set_atomize_blocks(bool on) { this->atomize_blocks = on; }
+
 protected:
 
     /// True when this called traversal takes the same route through the snarl as the reference and
     /// differs only inside child chains. False whenever symbolic collapsing is off, so the default
     /// path is unchanged.
+    /// Whether `child` is already reported by this snarl's own records, because every called
+    /// haplotype crosses it only inside a difference block whose ALT spells the route through it.
+    ///
+    /// This is the exactly-once rule from planning/symbolic-diff-decomposition.md. Its population
+    /// is narrow: a chain the reference does not cross is not descended into at all (the caller
+    /// gates on that separately), and a genotype carrying the reference allele matches the chain by
+    /// definition. What is left is a snarl called with no reference allele where the alignment
+    /// matched the chain on neither haplotype -- loops and reorderings.
+    bool chain_reported_inline(const Snarl& snarl, const vector<SnarlTraversal>& travs,
+                               const vector<int>& genotype, int ref_trav_idx,
+                               const Snarl& child) const;
+
     bool is_symbolically_reference(const vector<SnarlTraversal>& called_traversals,
                                    int trav_idx, int ref_trav_idx, const Snarl& snarl) const;
 
@@ -380,6 +416,9 @@ protected:
 
     /// Snarl hierarchy for symbolic collapsing, or null to compare alleles by sequence alone.
     const SnarlManager* symbolic_manager = nullptr;
+
+    /// Whether to decompose a snarl into one record per difference block.
+    bool atomize_blocks = false;
 
     /// Which resolve pass will settle the site being recorded right now: its depth in the nested
     /// tree, since a chain's ploidy depends on its parent's settled genotype.
@@ -627,6 +666,19 @@ protected:
     /// clean up the alleles to not share common prefixes / suffixes
     /// if len_override given, just do that many bases without thinking
     void flatten_common_allele_ends(vcflib::Variant& variant, bool backward, size_t len_override) const;
+
+    /// Decompose a fully built site record into one record per difference block and file them.
+    ///
+    /// Returns the number of lines written, or -1 meaning "the site record stands" -- which is
+    /// every case this declines, so declining reproduces today's output exactly rather than
+    /// approximately. `site` must be the finished record, after update_vcf_info and flattening,
+    /// because every field a block does not redefine is inherited from it.
+    int emit_block_records(const PathPositionHandleGraph& graph, const Snarl& snarl,
+                           const vector<SnarlTraversal>& called_traversals,
+                           const vector<int>& genotype, int ref_trav_idx,
+                           const string& sample_name, const vcflib::Variant& site,
+                           const map<int, int>& trav_to_allele, int64_t site_position,
+                           GLLayout gl_layout, bool genotype_snarls) const;
 
     /// print a snarl in a consistent form like >3435<12222
     /// if in_brackets set to true,  do (>3435<12222) instead (this is only used for nested caller)

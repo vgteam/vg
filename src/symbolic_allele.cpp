@@ -1,5 +1,8 @@
 #include "symbolic_allele.hpp"
 
+#include <algorithm>
+#include <cstdint>
+
 #include <unordered_map>
 
 namespace vg {
@@ -30,20 +33,45 @@ static pair<nid_t, nid_t> chain_bounds(const Snarl* child, const SnarlManager& s
     return make_pair(child->start().node_id(), child->end().node_id());
 }
 
-SymbolicAllele symbolic_allele(const SnarlTraversal& trav, const Snarl& site,
-                               const SnarlManager& snarl_manager) {
-    SymbolicAllele out;
-    unordered_map<nid_t, vector<int>> at = index_positions(trav);
-
-    // The snarl we are projecting, as the manager knows it, so a candidate child can be tested for
-    // being a genuine child of *this* site rather than merely a snarl the traversal walks into.
+/// The snarl `site` refers to, as the manager knows it, or null when the two disagree. Shared by
+/// projection and by `symbolic_site_resolvable` so the two can never drift apart.
+static const Snarl* resolve_site(const Snarl& site, const SnarlManager& snarl_manager) {
     const Snarl* site_ptr = snarl_manager.into_which_snarl(site.start().node_id(),
-                                                           site.start().backward());
+                                                          site.start().backward());
     if (site_ptr != nullptr &&
         !(site_ptr->start().node_id() == site.start().node_id() &&
           site_ptr->end().node_id() == site.end().node_id())) {
         site_ptr = nullptr;
     }
+    return site_ptr;
+}
+
+bool symbolic_site_resolvable(const Snarl& site, const SnarlManager& snarl_manager) {
+    return resolve_site(site, snarl_manager) != nullptr;
+}
+
+pair<nid_t, nid_t> chain_bounds_of(const Snarl* child, const SnarlManager& snarl_manager) {
+    return chain_bounds(child, snarl_manager);
+}
+
+SymbolicAllele symbolic_allele(const SnarlTraversal& trav, const Snarl& site,
+                               const SnarlManager& snarl_manager,
+                               vector<pair<int, int>>* out_visit_ranges) {
+    SymbolicAllele out;
+    if (out_visit_ranges != nullptr) {
+        out_visit_ranges->clear();
+    }
+    unordered_map<nid_t, vector<int>> at = index_positions(trav);
+
+    // The snarl we are projecting, as the manager knows it, so a candidate child can be tested for
+    // being a genuine child of *this* site rather than merely a snarl the traversal walks into.
+    //
+    // Null here means no child is ever recognised and the projection degenerates to the plain node
+    // list. That is not hypothetical: `flip_snarl` reverses a snarl whose reference path runs
+    // backwards, and the reversed copy's start node is the original END node, so the identity test
+    // below fails and symbolic collapsing is inert for the whole snarl. See
+    // `symbolic_site_resolvable`, which is how that population is counted.
+    const Snarl* site_ptr = resolve_site(site, snarl_manager);
 
     int i = 0;
     while (i < trav.visit_size()) {
@@ -56,6 +84,9 @@ SymbolicAllele symbolic_allele(const SnarlTraversal& trav, const Snarl& site,
             step.end_id = v.snarl().end().node_id();
             step.backward = v.backward();
             out.push_back(step);
+            if (out_visit_ranges != nullptr) {
+                out_visit_ranges->emplace_back(i, i + 1);
+            }
             ++i;
             continue;
         }
@@ -99,6 +130,9 @@ SymbolicAllele symbolic_allele(const SnarlTraversal& trav, const Snarl& site,
                     // The chain is traversed backward when its recorded end is met before its start.
                     step.backward = (node == bounds.second);
                     out.push_back(step);
+                    if (out_visit_ranges != nullptr) {
+                        out_visit_ranges->emplace_back(i, exit);
+                    }
                     // Resume *at* the exit boundary, which belongs to both the chain and whatever
                     // follows it, so it is not consumed.
                     i = exit;
@@ -115,6 +149,9 @@ SymbolicAllele symbolic_allele(const SnarlTraversal& trav, const Snarl& site,
             step.id = node;
             step.backward = v.backward();
             out.push_back(step);
+            if (out_visit_ranges != nullptr) {
+                out_visit_ranges->emplace_back(i, i + 1);
+            }
             ++i;
         }
     }
@@ -135,6 +172,158 @@ bool has_child_chain(const SnarlTraversal& trav, const Snarl& site,
         }
     }
     return false;
+}
+
+vector<DiffBlock> symbolic_diff(const SymbolicAllele& ref, const SymbolicAllele& alt,
+                                bool* out_degraded, vector<int>* out_alt_before_ref) {
+    if (out_degraded != nullptr) {
+        *out_degraded = false;
+    }
+
+    const size_t m = ref.size();
+    const size_t n = alt.size();
+
+    // Filled for every exit path, so a caller never reads a stale or short vector.
+    auto trivial_map = [&](size_t consumed_before_end) {
+        if (out_alt_before_ref == nullptr) {
+            return;
+        }
+        out_alt_before_ref->assign(m + 1, 0);
+        (*out_alt_before_ref)[m] = (int)consumed_before_end;
+    };
+
+    if (m == 0 && n == 0) {
+        trivial_map(0);
+        return {};
+    }
+    if (m == 0 || n == 0) {
+        // Wholly an insertion or wholly a deletion. No alignment to compute, and not a degradation.
+        trivial_map(n);
+        return {DiffBlock{0, (int)m, 0, (int)n}};
+    }
+
+    // The cap is a backstop against a pathological traversal pair stalling a whole run, not a
+    // tuning knob: 4M cells is about 16 MB at 4 bytes each and far above anything the measured
+    // distribution reaches, so crossing it means something is wrong rather than merely large.
+    static const size_t MAX_CELLS = 4000000;
+    if (m * n > MAX_CELLS) {
+        if (out_degraded != nullptr) {
+            *out_degraded = true;
+        }
+        trivial_map(n);
+        return {DiffBlock{0, (int)m, 0, (int)n}};
+    }
+
+    const size_t stride = n + 1;
+    vector<uint32_t> cost(stride * (m + 1));
+    auto at = [&](size_t i, size_t j) -> uint32_t& { return cost[i * stride + j]; };
+
+    for (size_t i = 0; i <= m; ++i) {
+        at(i, 0) = (uint32_t)i;
+    }
+    for (size_t j = 0; j <= n; ++j) {
+        at(0, j) = (uint32_t)j;
+    }
+    for (size_t i = 1; i <= m; ++i) {
+        for (size_t j = 1; j <= n; ++j) {
+            uint32_t diag = at(i - 1, j - 1) + (ref[i - 1] == alt[j - 1] ? 0u : 1u);
+            uint32_t del = at(i - 1, j) + 1u;
+            uint32_t ins = at(i, j - 1) + 1u;
+            at(i, j) = std::min(diag, std::min(del, ins));
+        }
+    }
+
+    // Traceback. The preference order here IS the tie-break contract in the header: diagonal first
+    // (match before substitute, since a match is the zero-cost diagonal), then deletion, then
+    // insertion. Walked backwards, so the ops come out reversed and are flipped below.
+    enum Op { OP_MATCH, OP_SUB, OP_DEL, OP_INS };
+    vector<Op> ops;
+    ops.reserve(m + n);
+    {
+        size_t i = m;
+        size_t j = n;
+        while (i > 0 || j > 0) {
+            if (i > 0 && j > 0) {
+                bool equal = ref[i - 1] == alt[j - 1];
+                if (at(i, j) == at(i - 1, j - 1) + (equal ? 0u : 1u)) {
+                    ops.push_back(equal ? OP_MATCH : OP_SUB);
+                    --i;
+                    --j;
+                    continue;
+                }
+            }
+            if (i > 0 && at(i, j) == at(i - 1, j) + 1u) {
+                ops.push_back(OP_DEL);
+                --i;
+                continue;
+            }
+            // j > 0 necessarily: the row and column initialisations make the remaining move legal.
+            ops.push_back(OP_INS);
+            --j;
+        }
+    }
+    std::reverse(ops.begin(), ops.end());
+
+    if (out_alt_before_ref != nullptr) {
+        // Entry i is the alt index on arrival at reference step i, which is after everything that
+        // consumed reference steps below i but before anything inserted at boundary i. That is the
+        // convention the join needs: an insertion at a boundary belongs to the block that owns the
+        // boundary, not to the reference step after it.
+        out_alt_before_ref->assign(m + 1, 0);
+        size_t ri = 0;
+        size_t ai = 0;
+        for (Op op : ops) {
+            if (op == OP_INS) {
+                ++ai;
+            } else if (op == OP_DEL) {
+                ++ri;
+                (*out_alt_before_ref)[ri] = (int)ai;
+            } else {
+                ++ri;
+                ++ai;
+                (*out_alt_before_ref)[ri] = (int)ai;
+            }
+        }
+    }
+
+    // Aggregate every maximal run of non-match ops into one block. A substitution is a difference,
+    // so it joins the run it sits in rather than splitting it -- which is what makes an interior
+    // mismatch inside a longer difference come out as one record instead of three.
+    vector<DiffBlock> out;
+    size_t ri = 0;
+    size_t ai = 0;
+    size_t k = 0;
+    while (k < ops.size()) {
+        if (ops[k] == OP_MATCH) {
+            ++ri;
+            ++ai;
+            ++k;
+            continue;
+        }
+        DiffBlock block;
+        block.ref_begin = (int)ri;
+        block.alt_begin = (int)ai;
+        while (k < ops.size() && ops[k] != OP_MATCH) {
+            if (ops[k] == OP_SUB) {
+                ++ri;
+                ++ai;
+            } else if (ops[k] == OP_DEL) {
+                ++ri;
+            } else {
+                ++ai;
+            }
+            ++k;
+        }
+        block.ref_end = (int)ri;
+        block.alt_end = (int)ai;
+        out.push_back(block);
+    }
+    return out;
+}
+
+ostream& operator<<(ostream& out, const DiffBlock& block) {
+    return out << "[ref " << block.ref_begin << "," << block.ref_end
+               << " alt " << block.alt_begin << "," << block.alt_end << "]";
 }
 
 ostream& operator<<(ostream& out, const SymbolicAllele& allele) {

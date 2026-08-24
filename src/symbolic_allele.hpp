@@ -25,6 +25,7 @@
  */
 
 #include <functional>
+#include <utility>
 #include <ostream>
 #include <vector>
 
@@ -76,8 +77,25 @@ using SymbolicAllele = vector<SymbolicStep>;
  * the tail would silently make unrelated alleles compare equal, which is the one error mode this
  * must not have.
  */
+/// Optionally reports, for each emitted step, the half-open range of `trav` visits it covers.
+/// The ranges partition [0, visit_size) contiguously and in order, so a step range can be turned
+/// straight into a sequence by concatenating those visits. Note a chain symbol's range is
+/// [entry, exit): the exit boundary node belongs to whatever step comes next, because it is shared
+/// between the chain and its successor.
 SymbolicAllele symbolic_allele(const SnarlTraversal& trav, const Snarl& site,
-                               const SnarlManager& snarl_manager);
+                               const SnarlManager& snarl_manager,
+                               vector<pair<int, int>>* out_visit_ranges = nullptr);
+
+/// Whether `site` resolves to the snarl the manager knows it as, which is the precondition for
+/// recognising any child chain at all. False means projection degenerates to the plain node list
+/// with no symbols -- the case `flip_snarl` produces for a snarl whose reference path runs
+/// backwards, where symbolic collapsing is therefore inert.
+bool symbolic_site_resolvable(const Snarl& site, const SnarlManager& snarl_manager);
+
+/// The boundary node pair of the chain `child` belongs to, which is the identity a chain symbol
+/// carries. Exposed so a caller holding a child snarl can find the symbol that child collapses to
+/// without re-deriving the chain itself.
+pair<nid_t, nid_t> chain_bounds_of(const Snarl* child, const SnarlManager& snarl_manager);
 
 /// True if the two traversals are the same route through `site` at this level of the hierarchy.
 bool symbolically_equal(const SnarlTraversal& a, const SnarlTraversal& b, const Snarl& site,
@@ -89,8 +107,64 @@ bool symbolically_equal(const SnarlTraversal& a, const SnarlTraversal& b, const 
 bool has_child_chain(const SnarlTraversal& trav, const Snarl& site,
                      const SnarlManager& snarl_manager);
 
+/**
+ * One difference between two symbolic alleles: a half-open step range on each side.
+ *
+ * Only differences are reported. The matched runs between them are implicit -- the gap between one
+ * block's end and the next block's start is matched on both sides -- so an empty result means the
+ * two alleles are the same route.
+ *
+ * Either range may be empty: an empty ref range is a pure insertion, an empty alt range a pure
+ * deletion.
+ */
+struct DiffBlock {
+    int ref_begin = 0;
+    int ref_end = 0;
+    int alt_begin = 0;
+    int alt_end = 0;
+
+    bool ref_empty() const { return ref_end == ref_begin; }
+    bool alt_empty() const { return alt_end == alt_begin; }
+
+    bool operator==(const DiffBlock& o) const {
+        return ref_begin == o.ref_begin && ref_end == o.ref_end &&
+               alt_begin == o.alt_begin && alt_end == o.alt_end;
+    }
+};
+
+/**
+ * Align two symbolic alleles and return the difference blocks between them, in reference order.
+ *
+ * The cost model is edit distance **with substitution at cost 1**, not the insert/delete-only model
+ * a plain `diff` uses. That is a deliberate disambiguation rather than a different notion of
+ * distance: under insert/delete-only, [a,b] against [b,b] has two minimal alignments of equal cost,
+ * one giving a single replacement and one giving two replacements separated by a spurious match, and
+ * nothing in "minimum edits" chooses between them. Substitution at 1 beats delete-plus-insert at 2,
+ * so the single-block reading wins strictly. This encodes "prefer fewer, larger blocks", which is
+ * the same preference the block aggregation already expresses.
+ *
+ * Ties remain, and they are broken **deterministically** by preferring, at each traceback step, the
+ * diagonal (match, then substitute) over deletion over insertion. Determinism is the load-bearing
+ * property: an unstable tie-break makes output depend on nothing the caller controls, and this
+ * function's result decides how many records a snarl emits.
+ *
+ * The DP is O(|ref| x |alt|) in time and space. A traversal pair too large for that degrades to one
+ * block spanning both alleles entirely -- which is exactly the whole-allele behaviour that predates
+ * this function, so the caller stays correct rather than merely surviving. `out_degraded`, when
+ * given, is set true in that case and only that case, so the population can be counted instead of
+ * assumed to be empty.
+ */
+/// `out_alt_before_ref`, when given, is filled with |ref| + 1 entries: entry i is the number of alt
+/// steps consumed strictly before reference step i, counting nothing inserted at boundary i. It is
+/// what turns a reference step range into the alt step range aligned to it, which the diploid join
+/// needs in order to express two haplotypes' alleles over one shared reference span.
+vector<DiffBlock> symbolic_diff(const SymbolicAllele& ref, const SymbolicAllele& alt,
+                                bool* out_degraded = nullptr,
+                                vector<int>* out_alt_before_ref = nullptr);
+
 /// For logging and tests.
 ostream& operator<<(ostream& out, const SymbolicAllele& allele);
+ostream& operator<<(ostream& out, const DiffBlock& block);
 
 }
 

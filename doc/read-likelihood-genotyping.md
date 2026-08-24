@@ -850,6 +850,89 @@ length by at least 50 bp, so a call whose read count is implausible for the sequ
 ranks lower. Off by default, and affects ranking only. See [`DR`, the depth
 ratio](#dr-the-depth-ratio) for how to read the value it acts on.
 
+## `--atomize-blocks`: one snarl, several variants
+
+Symbolic collapsing answers one question per haplotype — is this the same *route* through the snarl
+as the reference? A traversal that answers yes becomes allele 0 and its differences descend to the
+child chains that own them. A traversal that answers no becomes a single ALT spanning the whole
+snarl, whatever the shape of the difference.
+
+`--atomize-blocks` replaces that bit with an alignment. The reference and each called haplotype are
+projected to symbolic alleles over the alphabet of *plain nodes plus one symbol per child chain*,
+aligned, and the maximal runs of non-matching steps become difference blocks. Each block is one VCF
+record.
+
+The cost model is edit distance **with substitution at cost 1**, not the insert/delete-only model a
+plain `diff` uses, and the reason is that "minimum edits" does not determine the answer without it.
+Take σ(R) = `[a,b]` against σ(H) = `[b,b]`: matching `b` to the first `b` gives *delete a, match,
+insert b* — two blocks separated by a spurious match — and matching it to the second gives one
+substitution. Both cost 2 under insert/delete-only, so nothing chooses between them, and the choice
+decides how many records the snarl emits. Substitution at 1 beats delete-plus-insert at 2, so the
+one-block reading wins strictly. Remaining ties are broken by preferring the diagonal, then
+deletion, then insertion, walked backwards from the end — an arbitrary rule, but a fixed one, which
+is what output reproducibility needs.
+
+### Reporting each difference exactly once
+
+A chain symbol can appear *inside* a difference block, where the block's ALT spells out the route
+through it — and descent would otherwise emit a record for that chain as well, reporting the same
+variation twice. The rule that prevents it:
+
+> a chain's ploidy at this level counts only its crossings inside **matched** steps
+
+so a chain every called haplotype crosses only inside a block is not descended into. In practice
+this population is tiny — 47 of chr20's 115,996 called ALTs — because the two larger cases are
+already handled elsewhere: a chain the reference does not cross is never descended into at all
+(there is no reference path to call it against), and a genotype carrying the reference allele matches
+every chain by definition.
+
+### What every block of a snarl shares, and why that matters
+
+`AD`, `GL`, `GQ`, `GQI`, `GQN`, `GP`, `DP`, `DR` and `QUAL` are **the site's values, carried onto
+every block**. Arity is correct — each block allele inherits the evidence of the site allele its
+haplotype carries, so `AD` has one entry per allele and `GL` one per genotype — but the *values* are
+replicated, because the likelihood was computed over whole-snarl traversals and there is no
+principled per-block decomposition of it. A consumer that sums or averages evidence across records
+will therefore double-count a split snarl.
+
+`INFO/SB` gives block index and block count so that set is recoverable. The VCF ID stays the snarl
+name, unsuffixed, and is shared by every block of a snarl: several things in `vg` parse the ID back
+to a snarl and two of them abort rather than degrade on a name they do not recognise.
+
+This is why the flag is off by default. It is a measurement instrument, not a production setting.
+
+### Measured effect
+
+chr20, 32-haplotype graph, `readlik` arm, both sides called by the same binary in the same session
+and scored under fresh labels. 487 snarls decompose, into 1,134 records where they previously
+produced 487; 362 child chains are suppressed as already-spelled; net **115,038 → 115,427 records**.
+
+| | off | on | delta |
+|---|---|---|---|
+| aardvark recall, all types | 0.965984 | 0.966206 | **+0.000222** |
+| aardvark F1, all types | 0.972250 | 0.972322 | +0.000072 |
+| aardvark F1, indels | 0.927672 | 0.928057 | **+0.000385** |
+| aardvark F1, SNVs | 0.985193 | 0.985156 | −0.000037 |
+| basepair F1, all types | 0.924542 | 0.924903 | **+0.000361** |
+| basepair bases matched | 378,392 | 378,486 | **+94** |
+| basepair bases claimed | 427,914 | 427,752 | **−162** |
+
+Recall rises in every class. The caller claims fewer bases while matching more of the truth, which
+is the effect the flag exists to produce, stated as directly as this evaluation can state it.
+
+**And the magnitude is roughly an order of magnitude below what this harness resolves.** Differences
+of 0.002–0.01 F1 are what the tier-2 comparisons are used to decide between; +0.0004 is not. So the
+honest summary is that the change is correct, safe, and directionally right, and that on this dataset
+it is not distinguishable from noise. That follows from the population rather than from the
+implementation: 487 snarls out of 115,038 records, or 0.42%.
+
+Two things bound the size of the effect, and both are properties of the graph rather than of this
+code. A single difference block spans every step but the two snarl boundaries, so an ALT that does
+not split is barely changed — and `flatten_common_allele_ends` already trims those ends. And 9,279
+sites on this contig have no symbolic projection at all, because `flip_snarl` reverses a snarl whose
+reference path runs backwards and the reversed copy no longer resolves to the snarl the manager
+knows; symbolic collapsing is inert there, and so is this.
+
 ## What this model does not give you
 
 **`GL`, `GQ` and `GP` are not calibrated probabilities.** Reads are treated as independent. Mates
@@ -941,6 +1024,7 @@ spellings. General options that this mode also uses -- `-d`/`--ploidy`, `-R`/`--
 | `--no-phased` | — | Turn phasing off: unphased genotypes and no `FORMAT/PS`. |
 | `--nested` | **on** under `--read-likelihood` | Symbolic collapsing and ploidy-propagating descent, so a variant inside a child chain gets its own record instead of being buried in a long ALT. Genome-wide it takes SNV F1 from 0.9752 to 0.9833 and SV F1 from 0.5134 to 0.5467 at no runtime or memory cost. Declines on the support-based caller, where it has never been measured; an explicit `--nested` still works there. |
 | `--no-nested` | — | Genotype each snarl against its own full traversals, with no collapsing and no descent. |
+| `--atomize-blocks` | off | Align the reference and each called haplotype as *symbolic* alleles and emit one record per difference block, so a snarl differing from the reference in two separated places reports two variants instead of one substitution spanning both. Refuses `-a`, `--legacy`, `--bottom-up`, `--top-down`, and a caller with no nested calling, rather than declining silently. See [below](#--atomize-blocks-one-snarl-several-variants). |
 | `--mosaic-out FILE` | — | Write the inferred genome as a run-length-encoded mosaic of panel haplotypes. Implies `--phased`. Format [above](#--mosaic-out-file). |
 
 ### Debugging
