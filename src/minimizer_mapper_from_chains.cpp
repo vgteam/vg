@@ -1957,6 +1957,43 @@ void MinimizerMapper::pick_mappings_from_alignments(const Alignment& aln, const 
                                                     std::vector<double>& multiplicity_by_mapping,
                                                     LazyRNG& rng,
                                                     Funnel& funnel) const {
+    // Look for duplicate alignments by using this collection of node IDs and orientations
+    std::unordered_set<std::pair<nid_t, bool>> used_nodes;
+    
+    // Compute the fraction of an alignment that is unique
+    auto get_fraction_unique = [&](size_t alignment_num) {
+        // Work out how much of this alignment is from nodes not claimed by previous alignments
+        size_t from_length_from_used = 0;
+        size_t from_length_total = 0;
+        for (size_t i = 0; i < alignments[alignment_num].path().mapping_size(); i++) {
+            // For every mapping
+            auto& mapping = alignments[alignment_num].path().mapping(i);
+            auto& position = mapping.position();
+            size_t from_length = mapping_from_length(mapping);
+            std::pair<nid_t, bool> key{position.node_id(), position.is_reverse()};
+            if (used_nodes.count(key)) {
+                // Count the from_length on already-used nodes
+                from_length_from_used += from_length;
+            }
+            // And the overall from length
+            from_length_total += from_length;
+        }
+        double unique_node_fraction = from_length_total > 0 ? ((double)(from_length_total - from_length_from_used) / from_length_total) : 1.0;
+        return unique_node_fraction;
+    };
+
+    // Mark the nodes visited by an alignment as used for uniqueness.
+    auto mark_nodes_used = [&](size_t alignment_num) {
+        for (size_t i = 0; i < alignments[alignment_num].path().mapping_size(); i++) {
+            // For every mapping
+            auto& mapping = alignments[alignment_num].path().mapping(i);
+            auto& position = mapping.position();
+            std::pair<nid_t, bool> key{position.node_id(), position.is_reverse()};
+            // Make sure we know we used the oriented node.
+            used_nodes.insert(key);
+        }
+    };
+
     // Grab all the scores in order for MAPQ computation.
     scores.reserve(alignments.size());
     
@@ -1980,10 +2017,44 @@ void MinimizerMapper::pick_mappings_from_alignments(const Alignment& aln, const 
             }
         }
 
+        // Do the unique node fraction filter
+        double unique_node_fraction = get_fraction_unique(alignment_num);
+        if (unique_node_fraction < min_unique_node_fraction) {
+            // If not enough of the alignment is from unique nodes, drop it.
+            if (track_provenance) {
+                funnel.fail("min-unique-node-fraction", alignment_num, unique_node_fraction);
+            }
+            if (show_work) {
+                #pragma omp critical (cerr)
+                {
+                    cerr << log_name() << "alignment " << alignment_num << " rejected because only " << unique_node_fraction << " of it is from nodes not already used" << endl;
+                    if (track_correctness && funnel.was_correct(alignment_num)) {
+                        cerr << log_name() << "\tCORRECT!" << endl;
+                    }
+                }
+            }
+            return false;
+        } else {
+            if (track_provenance) {
+                funnel.pass("min-unique-node-fraction", alignment_num, unique_node_fraction);
+            }
+            if (show_work) {
+                #pragma omp critical (cerr)
+                {
+                    cerr << log_name() << "alignment " << alignment_num << " accepted because " << unique_node_fraction << " of it is from nodes not already used" << endl;
+                    if (track_correctness && funnel.was_correct(alignment_num)) {
+                        cerr << log_name() << "\tCORRECT!" << endl;
+                    }
+                }
+            }
+        }
+
         if (track_provenance) {
             // Tell the funnel
             funnel.pass("max-multimaps", alignment_num);
         }
+
+        mark_nodes_used(alignment_num);
 
         // Remember the score at its rank
         scores.emplace_back(alignments[alignment_num].score());
@@ -2018,6 +2089,40 @@ void MinimizerMapper::pick_mappings_from_alignments(const Alignment& aln, const 
         } else {
             if (track_provenance) {
                 funnel.pass("nonzero-score", alignment_num);
+            }
+        }
+
+        // Go back and do the unique node fraction filter next.
+        // TODO: Deduplicate logging code
+        double unique_node_fraction = get_fraction_unique(alignment_num);
+        if (unique_node_fraction < min_unique_node_fraction) {
+            // If not enough of the alignment is from unique nodes, drop it.
+            if (track_provenance) {
+                funnel.fail("min-unique-node-fraction", alignment_num, unique_node_fraction);
+            }
+            if (show_work) {
+                #pragma omp critical (cerr)
+                {
+                    cerr << log_name() << "alignment " << alignment_num << " rejected because only " << unique_node_fraction << " of it is from nodes not already used" << endl;
+                    if (track_correctness && funnel.was_correct(alignment_num)) {
+                        cerr << log_name() << "\tCORRECT!" << endl;
+                    }
+                }
+            }
+            // If we fail the unique node fraction filter, we won't count as a secondary for MAPQ
+            return;
+        } else {
+            if (track_provenance) {
+                funnel.pass("min-unique-node-fraction", alignment_num, unique_node_fraction);
+            }
+            if (show_work) {
+                #pragma omp critical (cerr)
+                {
+                    cerr << log_name() << "alignment " << alignment_num << " accepted because " << unique_node_fraction << " of it is from nodes not already used" << endl;
+                    if (track_correctness && funnel.was_correct(alignment_num)) {
+                        cerr << log_name() << "\tCORRECT!" << endl;
+                    }
+                }
             }
         }
 
@@ -3004,26 +3109,19 @@ vector<Alignment> MinimizerMapper::do_base_level_alignment(
 
         // Do the unique node fraction filter
         double unique_node_fraction = get_fraction_unique(composed_path);
-        if (unique_node_fraction < min_unique_node_fraction) {
-            // If not enough of the alignment is from unique nodes, drop it.
+        if (unique_node_fraction == 0) {
+            // If this alignment is a duplicate, drop it
             if (show_work) {
                 #pragma omp critical (cerr)
                 {
                     cerr << log_name() << "Possible alignment " << output.size()
-                         << " rejected because only " << unique_node_fraction << " of it is from nodes not already used" << endl;
+                         << " rejected because it has no new nodes used" << endl;
                 }
             }
             // Don't bother saving this alignment; it's a duplicate
             continue;
         } else {
             mark_nodes_used(composed_path);
-            if (show_work) {
-                #pragma omp critical (cerr)
-                {
-                    cerr << log_name() << "Possible alignment " << output.size()
-                         << " accepted because " << unique_node_fraction << " of it is from nodes not already used" << endl;
-                }
-            }
         }
 
         if (track_provenance) {
