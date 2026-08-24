@@ -920,11 +920,33 @@ produced 487; 362 child chains are suppressed as already-spelled; net **115,038 
 Recall rises in every class. The caller claims fewer bases while matching more of the truth, which
 is the effect the flag exists to produce, stated as directly as this evaluation can state it.
 
-**And the magnitude is roughly an order of magnitude below what this harness resolves.** Differences
-of 0.002–0.01 F1 are what the tier-2 comparisons are used to decide between; +0.0004 is not. So the
-honest summary is that the change is correct, safe, and directionally right, and that on this dataset
-it is not distinguishable from noise. That follows from the population rather than from the
-implementation: 487 snarls out of 115,038 records, or 0.42%.
+**Those are all-types figures, and they dilute the effect into noise.** Structural variants are about
+765 of 94,691 truth variants here, so a real structural gain vanishes in the aggregate. Measured
+directly on variants ≥50 bp, with truvari, both arms from the same binary:
+
+| | off | on | delta |
+|---|---|---|---|
+| true positives | 433 | 444 | **+11** |
+| false positives | 444 | 444 | **+0** |
+| false negatives | 332 | 321 | **−11** |
+| recall | 0.5660 | 0.5804 | **+0.0144** |
+| **F1** | **0.5247** | **0.5346** | **+0.0099** |
+
+Eleven more true structural variants with no additional false positives. That is inside the
+0.002–0.01 F1 band the tier-2 comparisons are used to decide between, and above the whole range the
+earlier `--atomize-substitutions` work reached — which fits, since that version handled only
+same-length biallelic records and could never touch a length-changing block.
+
+This figure is deliberately the *unrefined* truvari number, because that is what every other SV
+figure in this project uses. As a diagnostic, `truvari refine` puts the same comparison at 0.6154 →
+0.6387, **+0.0233**: the gain grows under re-alignment rather than shrinking, with false positives
+falling 362 → 349. So the unrefined number is a floor, not an estimate — which is what you would
+expect, since record-level matching penalises a change that splits records, and the 50 bp size floor
+discards any block that falls below it.
+
+So the honest summary is: **below resolution on small variants, and a real gain on structural
+variants** — the population the design was aimed at. 487 snarls of 115,038 records decompose, 0.42%,
+and their effect is concentrated where alleles are long.
 
 Two things bound the size of the effect, and both are properties of the graph rather than of this
 code. A single difference block spans every step but the two snarl boundaries, so an ALT that does
