@@ -655,8 +655,10 @@ void chain_items_dp(vector<vector<TracedScore>>& chain_scores,
             
             // See if this is the best overall
             best_score.max_in(chain_scores, to_anchor);
-            
+
+#ifdef debug_dp
             cerr << "\tBest chain end so far: " << best_score << endl; 
+#endif
         }
 #ifdef debug_chaining
         std::cerr << "[REC INFO] Recombination number for chain: "
