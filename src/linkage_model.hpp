@@ -630,6 +630,9 @@ public:
 
 private:
 
+    /// No entry. Chain terminator for `next_same_key` and the miss value of `live_index`.
+    static constexpr uint32_t NO_ENTRY = (uint32_t)-1;
+
     struct Entry {
         uint32_t position = 0;
         /// Where this site sits along its parent's SETTLED traversal, in bp, and how long that
@@ -734,6 +737,15 @@ private:
         /// of the traversal cannot.
         int16_t parent_trav = -1;
         float explained_share = 1.0f;
+        /// The next entry sharing this record key, or NO_ENTRY.
+        ///
+        /// Every by-key accessor used to scan the whole vector for the first live match. At
+        /// 219 k entries, one `settled_traversals` and one `set_allele_map` per rendered
+        /// record, and a global mutex held across the scan, that was quadratic and
+        /// serialising at once: 31% of a chr20 run, with four threads in `__psynch_mutexwait`
+        /// while the fifth walked 17 MB. The chain keeps first-match-in-insertion-order
+        /// exactly, including duplicate keys, and fits in the padding before `record_key`.
+        uint32_t next_same_key = NO_ENTRY;
         size_t record_key = 0;
         /// Snarl boundary nodes, for the mosaic output's anchors. Costs 16 bytes a site, which
         /// `bytes()` reports rather than leaving to arithmetic.
@@ -756,10 +768,17 @@ private:
     /// Per compact allele, the VCF allele it was emitted as, or -1 for none.
     vector<int8_t> allele_arena;
     vector<string> contig_names;
+    /// record key -> first and last entry carrying it, so a lookup is a hash probe and a
+    /// walk of that key's chain. `last` is what makes appending O(1) rather than a walk.
+    std::unordered_map<size_t, uint32_t> first_by_key;
+    std::unordered_map<size_t, uint32_t> last_by_key;
 
 
     /// record key -> (posterior of the settled genotype, explained-read share).
     std::unordered_map<size_t, std::pair<double, double>> moved_quality_by_record;
+
+    /// The first non-retracted entry with this key, or NO_ENTRY. Call with `mutex` held.
+    uint32_t live_index(size_t record_key) const;
 
     mutable std::mutex mutex;
 };

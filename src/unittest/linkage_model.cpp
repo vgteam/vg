@@ -351,13 +351,15 @@ TEST_CASE("The collector keeps sites compactly and re-decides only what changed"
     record_dense(collector, "chr1", 1100, 2, {0.0, -30.0, 0.0}, {1, 1, 0, 0}, 0, 0, /*key*/ 22, /*share*/ 1.0);
 
     REQUIRE(collector.num_sites() == 2);
-    // Two entries, six floats, eight int8s, all in flat arenas.
+    // Two entries, six floats, eight int8s, all in flat arenas, plus the record-key index at two
+    // hash nodes a site. The index is counted here because `bytes()` counts it: it is real memory,
+    // and a reported figure that omitted it would drift from the measured one by a third.
     //
-    // A bound on per-site overhead rather than the exact figure, which is 80 bytes an entry today:
-    // an exact assertion fails whenever a field is added, which is the wrong reason to fail. What
-    // this catches is a vector-per-site layout -- three vector headers, 72 bytes, plus three heap
-    // allocations for every site.
-    REQUIRE(collector.bytes() < 2 * 128 + 6 * 4 + 8);
+    // A bound on per-site overhead rather than the exact figure, which is 128 bytes an entry and 48
+    // of index today: an exact assertion fails whenever a field is added, which is the wrong reason
+    // to fail. What this catches is a vector-per-site layout -- three vector headers, 72 bytes, plus
+    // three heap allocations for every site -- which would put this at 496 and over the bound.
+    REQUIRE(collector.bytes() < 2 * (128 + 48) + 64);
 
     const size_t moved = collector.resolve();
     // Site 1 was already called 1/1 and must not be counted; site 2 was called 0/0 and linkage

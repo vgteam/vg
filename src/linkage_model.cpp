@@ -1340,7 +1340,26 @@ void LinkageCollector::record(const string& contig, size_t position,
                                                                    : -1;
         allele_arena.push_back(allele >= 0 && allele < 127 ? (int8_t)allele : (int8_t)-1);
     }
+    const uint32_t at = (uint32_t)entries.size();
+    auto last = last_by_key.find(record_key);
+    if (last == last_by_key.end()) {
+        first_by_key[record_key] = at;
+    } else {
+        entries[last->second].next_same_key = at;
+    }
+    last_by_key[record_key] = at;
     entries.push_back(e);
+}
+
+uint32_t LinkageCollector::live_index(size_t record_key) const {
+    auto it = first_by_key.find(record_key);
+    for (uint32_t i = it == first_by_key.end() ? NO_ENTRY : it->second;
+         i != NO_ENTRY; i = entries[i].next_same_key) {
+        if (!entries[i].retracted) {
+            return i;
+        }
+    }
+    return NO_ENTRY;
 }
 
 size_t LinkageCollector::num_sites_at(size_t generation) const {
@@ -1360,9 +1379,16 @@ size_t LinkageCollector::max_generation() const {
 }
 
 size_t LinkageCollector::bytes() const {
+    // Every arena, and the key index beside them. The index is two hash nodes a site, which is
+    // real -- 21 MB on chr20 -- and leaving it out would make the reported figure drift from the
+    // measured one by more than half the total it prints.
     return entries.size() * sizeof(Entry)
            + gl_arena.size() * sizeof(float)
-           + hap_arena.size() * sizeof(int8_t);
+           + hap_arena.size() * sizeof(int8_t)
+           + trav_arena.size() * sizeof(uint16_t)
+           + allele_arena.size() * sizeof(int8_t)
+           + (first_by_key.size() + last_by_key.size())
+                 * (sizeof(std::pair<const size_t, uint32_t>) + sizeof(void*));
 }
 
 bool LinkageCollector::respecify(size_t record_key,
@@ -1419,10 +1445,9 @@ bool LinkageCollector::respecify(size_t record_key,
     }
 
     lock_guard<std::mutex> guard(mutex);
-    for (Entry& e : entries) {
-        if (e.record_key != record_key || e.retracted) {
-            continue;
-        }
+    const uint32_t found = live_index(record_key);
+    if (found != NO_ENTRY) {
+        Entry& e = entries[found];
         // Every vector for the new ploidy is a different length, so none can be written over the old
         // one in place. Appended and the offsets repointed: the arenas only ever grow, and the
         // abandoned spans are a few entries per revised site.
@@ -1486,10 +1511,9 @@ bool LinkageCollector::respecify(size_t record_key,
 bool LinkageCollector::settled_traversals(size_t record_key, int* first, int* second,
                                          size_t* ploidy) const {
     lock_guard<std::mutex> guard(mutex);
-    for (const Entry& e : entries) {
-        if (e.record_key != record_key || e.retracted) {
-            continue;
-        }
+    const uint32_t found = live_index(record_key);
+    if (found != NO_ENTRY) {
+        const Entry& e = entries[found];
         const int a = traversal_of(trav_arena, e.trav_offset, e.num_alleles, e.final_i);
         const int b = traversal_of(trav_arena, e.trav_offset, e.num_alleles, e.final_j);
         if (a < 0 || b < 0) {
@@ -1517,10 +1541,9 @@ std::unordered_set<size_t> LinkageCollector::emitted_records() const {
 bool LinkageCollector::set_allele_map(size_t record_key,
                                      const vector<int>& traversal_to_allele, bool emitted) {
     lock_guard<std::mutex> guard(mutex);
-    for (Entry& e : entries) {
-        if (e.record_key != record_key || e.retracted) {
-            continue;
-        }
+    const uint32_t found = live_index(record_key);
+    if (found != NO_ENTRY) {
+        Entry& e = entries[found];
         e.emitted = emitted;
         // The span already exists, filled with -1 by `record()`. Rewrite it in place rather than
         // appending: the compact space has not changed, only what each of its alleles is called in
@@ -1546,10 +1569,9 @@ bool LinkageCollector::set_frame(size_t record_key, int slot, int offset, int en
         return false;
     }
     lock_guard<std::mutex> guard(mutex);
-    for (Entry& e : entries) {
-        if (e.record_key != record_key || e.retracted) {
-            continue;
-        }
+    const uint32_t found = live_index(record_key);
+    if (found != NO_ENTRY) {
+        Entry& e = entries[found];
         e.frame_offset[slot] = (int32_t)offset;
         e.frame_end[slot] = (int32_t)end;
         e.frame_total[slot] = (int32_t)total;
@@ -1561,34 +1583,27 @@ bool LinkageCollector::set_frame(size_t record_key, int slot, int offset, int en
 
 bool LinkageCollector::set_parent_trav(size_t record_key, int parent_trav) {
     lock_guard<std::mutex> guard(mutex);
-    for (Entry& e : entries) {
-        if (e.record_key == record_key && !e.retracted) {
-            e.parent_trav = (int16_t)parent_trav;
-            return true;
-        }
+    const uint32_t found = live_index(record_key);
+    if (found == NO_ENTRY) {
+        return false;
     }
-    return false;
+    entries[found].parent_trav = (int16_t)parent_trav;
+    return true;
 }
 
 bool LinkageCollector::has_entry(size_t record_key) const {
     lock_guard<std::mutex> guard(mutex);
-    for (const Entry& e : entries) {
-        if (e.record_key == record_key && !e.retracted) {
-            return true;
-        }
-    }
-    return false;
+    return live_index(record_key) != NO_ENTRY;
 }
 
 bool LinkageCollector::retract(size_t record_key) {
     lock_guard<std::mutex> guard(mutex);
-    for (Entry& e : entries) {
-        if (e.record_key == record_key && !e.retracted) {
-            e.retracted = true;
-            return true;
-        }
+    const uint32_t found = live_index(record_key);
+    if (found == NO_ENTRY) {
+        return false;
     }
-    return false;
+    entries[found].retracted = true;
+    return true;
 }
 
 size_t LinkageCollector::resolve_generation(
