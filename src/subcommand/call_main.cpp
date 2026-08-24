@@ -225,13 +225,21 @@ void help_call(char** argv) {
          << "                            descended into once its parent's genotype is settled: after" << endl
          << "                            the linkage pass where linkage can still move it, and" << endl
          << "                            immediately where it cannot" << endl
-         << "      --atomize-blocks     align the reference and each called haplotype as symbolic" << endl
-         << "                            alleles and emit one record per difference block, so a snarl" << endl
-         << "                            with two separated differences reports two variants rather" << endl
-         << "                            than one substitution spanning both. Needs the default" << endl
-         << "                            calling path with nested calling; refused with -a. Every" << endl
-         << "                            block of a snarl carries the same AD, GL and GQ, and" << endl
-         << "                            INFO/SB names the block so they are not double-counted" << endl
+         << "      --atomize-blocks     on by default under --read-likelihood. Aligns the reference" << endl
+         << "                            and each called haplotype as symbolic alleles and emits one" << endl
+         << "                            record per difference block, so a snarl differing in two" << endl
+         << "                            separated places reports two variants rather than one" << endl
+         << "                            substitution spanning both. Worth +0.0099 SV F1 on chr20" << endl
+         << "                            (+0.0233 under truvari refine), 11 more true structural" << endl
+         << "                            variants with no new false positives; small-variant F1 is" << endl
+         << "                            unchanged. Declines on any other calling path, and with -a," << endl
+         << "                            whose record set has to stay sample-independent; asking for" << endl
+         << "                            it there by name is an error rather than a decline." << endl
+         << "                            CAVEAT: every block of a snarl repeats the site's AD, GL," << endl
+         << "                            GQ, GQI, GP and QUAL, so evidence summed across the records" << endl
+         << "                            of one snarl is counted more than once. INFO/SB identifies" << endl
+         << "                            the set. Pass --no-atomize-blocks for one record per snarl" << endl
+         << "      --no-atomize-blocks  one record per snarl, whatever the shape of the difference." << endl
          << "      --ploidy-bed FILE     BED of CHROM START END PLOIDY setting ploidy per region," << endl
          << "                            overriding -d/-R where an interval covers a site. CHROM is" << endl
          << "                            the contig as the output VCF spells it (chrX, not" << endl
@@ -312,7 +320,11 @@ int main_call(int argc, char** argv) {
     bool genotype_snarls = false;
     bool top_down = false;
     bool bottom_up = false;
-    bool atomize_blocks = false;
+    // On by default, and only ever armed where symbolic nested calling is -- which in practice
+    // means --read-likelihood. Every other calling path declines it rather than erroring, so
+    // the support-based default's output is untouched.
+    bool atomize_blocks = true;
+    bool atomize_explicit = false;
     // On by default under --read-likelihood, where it was measured: genome-wide it takes SNV F1
     // from 0.9752 to 0.9833 and SV F1 from 0.5134 to 0.5467 at no runtime or memory cost. It
     // declines rather than errors where its preconditions are absent, the way --linkage-weight does.
@@ -382,6 +394,7 @@ int main_call(int argc, char** argv) {
     constexpr int OPT_LEGACY = 1004;
     constexpr int OPT_BOTTOM_UP = 1005;
     constexpr int OPT_ATOMIZE_BLOCKS = 1047;
+    constexpr int OPT_NO_ATOMIZE_BLOCKS = 1048;
     constexpr int OPT_TOP_DOWN = 1006;
     constexpr int OPT_READ_LIKELIHOOD = 1007;
     constexpr int OPT_GAM = 1008;
@@ -453,6 +466,7 @@ int main_call(int argc, char** argv) {
         {"top-down", no_argument, 0, OPT_TOP_DOWN},
         {"bottom-up", no_argument, 0, OPT_BOTTOM_UP},
         {"atomize-blocks", no_argument, 0, OPT_ATOMIZE_BLOCKS},
+        {"no-atomize-blocks", no_argument, 0, OPT_NO_ATOMIZE_BLOCKS},
         {"read-likelihood", no_argument, 0, OPT_READ_LIKELIHOOD},
         {"gam", required_argument, 0, OPT_GAM},
         {"gaf-reads", required_argument, 0, OPT_GAF},
@@ -629,6 +643,11 @@ int main_call(int argc, char** argv) {
             break;
         case OPT_ATOMIZE_BLOCKS:
             atomize_blocks = true;
+            atomize_explicit = true;
+            break;
+        case OPT_NO_ATOMIZE_BLOCKS:
+            atomize_blocks = false;
+            atomize_explicit = true;
             break;
         case OPT_BOTTOM_UP:
             bottom_up = true;
@@ -803,26 +822,30 @@ int main_call(int argc, char** argv) {
         logger.error() << "-M option can only be used in conjunction with -T" << endl;
     }
 
-    // --atomize-blocks refuses rather than silently declining, and refuses here rather than after
-    // the graph is loaded: these are option-compatibility facts, so making the user wait for a
-    // 22 GB load to be told the combination is invalid is pure waste. A silent decline is also how
-    // a measurement ends up being of something other than what it was labelled.
+    // Block emission is on by default, so these checks must DECLINE rather than refuse when the
+    // setting is implicit -- refusing would break `vg call -a` and `--legacy` for everyone, on a
+    // flag they never passed. Asked for by name, they still refuse, which is the --nested pattern.
     //
-    // -a/--genotype-snarls is the sharpest of the three. Its record set is meant to be
-    // sample-independent, one line per snarl, and the harness reads a `-a -A` run as a snarl
-    // inventory. A block list is a function of the called haplotypes, so it cannot be
-    // sample-independent. Note nested calling is ON by default under --read-likelihood and is NOT
-    // cleared by -a, so this cannot be left to the nested-calling gate further down.
-    if (atomize_blocks) {
-        if (genotype_snarls) {
+    // Checked here rather than after the graph is loaded, because these are option-compatibility
+    // facts and making a user wait for a 22 GB load to be told the combination is invalid is waste.
+    if (atomize_blocks && genotype_snarls) {
+        // -a's record set is meant to be sample-independent -- one line per snarl, and the harness
+        // reads a `-a -A` run as a snarl inventory. A block list is a function of the called
+        // haplotypes, so it cannot be sample-independent. Fatal only if asked for by name;
+        // otherwise the default steps aside, because -a must keep working without a flag.
+        if (atomize_explicit) {
             logger.error() << "--atomize-blocks cannot be combined with -a/--genotype-snarls: "
                            << "a block list depends on the called haplotypes, so the record set "
                            << "would stop being sample-independent" << endl;
         }
-        if (legacy || bottom_up || top_down) {
+        atomize_blocks = false;
+    }
+    if (atomize_blocks && (legacy || bottom_up || top_down)) {
+        if (atomize_explicit) {
             logger.error() << "--atomize-blocks needs the default calling path "
                            << "(not --legacy, --bottom-up or --top-down)" << endl;
         }
+        atomize_blocks = false;
     }
 
     if (!vcf_filename.empty() && genotype_snarls) {
@@ -1792,17 +1815,26 @@ int main_call(int argc, char** argv) {
         // The two purely-option refusals are checked at option-validation time above, so they
         // fire before a graph is loaded. What is left here depends on constructed state.
         if (!nested_calling) {
-            cerr << "error [vg call]: --atomize-blocks needs symbolic nested calling, which is on"
-                 << " by default under --read-likelihood; pass --nested to enable it elsewhere"
-                 << endl;
-            return 1;
+            if (atomize_explicit) {
+                cerr << "error [vg call]: --atomize-blocks needs symbolic nested calling, which is"
+                     << " on by default under --read-likelihood; pass --nested to enable it"
+                     << " elsewhere" << endl;
+                return 1;
+            }
+            atomize_blocks = false;   // the default declines, as --nested does
         }
-        VCFOutputCaller* atomize_target = dynamic_cast<VCFOutputCaller*>(graph_caller.get());
-        if (atomize_target == nullptr) {
-            cerr << "error [vg call]: --atomize-blocks needs a caller that emits VCF" << endl;
-            return 1;
+        VCFOutputCaller* atomize_target =
+            atomize_blocks ? dynamic_cast<VCFOutputCaller*>(graph_caller.get()) : nullptr;
+        if (atomize_blocks && atomize_target == nullptr) {
+            if (atomize_explicit) {
+                cerr << "error [vg call]: --atomize-blocks needs a caller that emits VCF" << endl;
+                return 1;
+            }
+            atomize_blocks = false;
         }
-        atomize_target->set_atomize_blocks(true);
+        if (atomize_blocks) {
+            atomize_target->set_atomize_blocks(true);
+        }
     }
 
     if (nested_calling) {

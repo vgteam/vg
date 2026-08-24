@@ -456,9 +456,17 @@ string VCFOutputCaller::vcf_header(const PathHandleGraph& graph, const vector<st
     ss << "##INFO=<ID=AT,Number=R,Type=String,Description=\"Allele Traversal as path in graph\">" << endl;
     if (atomize_blocks) {
         ss << "##INFO=<ID=SB,Number=2,Type=Integer,Description=\"Index and count of this "
-           << "difference block within its snarl. Every block of a snarl reports the same AD, GL "
-           << "and GQ, so a consumer aggregating evidence across records must not count them "
-           << "more than once.\">" << endl;
+           << "difference block within its snarl: this record is one of several the same snarl "
+           << "emitted, because the reference and the called haplotypes differ from each other in "
+           << "more than one place inside it. All records of one snarl share an ID. "
+           << "DOUBLE COUNTING: the per-sample evidence is the SNARL's, repeated on every block, "
+           << "not apportioned between them -- AD, GL, GQ, GQI, GP and QUAL are identical across "
+           << "the set, because the genotype likelihood was computed over whole-snarl traversals "
+           << "and has no per-block decomposition. DP, DR and BL are per-site read counts and are "
+           << "site-level by definition. So any consumer that sums, averages or otherwise "
+           << "aggregates evidence across records must group by ID first and count each snarl "
+           << "once. Records without SB are unaffected: they are the only record their snarl "
+           << "emitted.\">" << endl;
     }
     if (allele_merge_threshold < 1.0) {
         ss << "##INFO=<ID=MAT,Number=.,Type=String,Description=\"Merged Allele Traversal: "
