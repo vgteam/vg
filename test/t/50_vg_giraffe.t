@@ -199,7 +199,7 @@ is "$(vg view -aj single.gam | jq -c 'select((.fragment_next | not) and (.fragme
 
 vg giraffe x.fa x.vcf.gz -f small/x.fa_1.fastq -f small/x.fa_1.fastq --fragment-mean 300 --fragment-stdev 100 > paired.gam
 is "$(vg view -aj paired.gam | jq -c 'select((.fragment_next | not) and (.fragment_prev | not))' | wc -l | sed 's/^[[:space:]]*//')" "0" "paired reads have cross-references"
-vg surject -x x.giraffe.gbz --bam-output paired.gam > surject.bam
+vg surject --interleaved -x x.giraffe.gbz --bam-output paired.gam > surject.bam
 vg giraffe x.fa x.vcf.gz -f small/x.fa_1.fastq -f small/x.fa_1.fastq --fragment-mean 300 --fragment-stdev 100 --output-format bam > direct.bam
 samtools view direct.bam | cut -f2 | sort | uniq -c > direct.flags
 samtools view surject.bam | cut -f2 | sort | uniq -c > surject.flags
