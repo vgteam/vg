@@ -1731,6 +1731,25 @@ size_t LinkageCollector::resolve_generation(
         if (indices.empty()) {
             continue;
         }
+        // Nothing here belongs to this generation, so the decode has nothing to produce. Every
+        // site is clamped to a delta at its settled genotype, the result loop skips all of them
+        // and so does the phasing loop -- the chain is present only to carry transition context
+        // for a site of this generation, and there is none.
+        //
+        // This is not a rare case, it is the usual one. Only nested sites arrive after generation
+        // 0, and nested sites are held out of these runs by construction, so every generation
+        // after the first re-decoded the whole contig and threw the answer away: five passes over
+        // chr20's 192,045 top-level sites, 5.9 s each, 30 s of a 328 s run.
+        bool any_at_generation = false;
+        for (size_t idx : indices) {
+            if (entries[idx].generation == generation) {
+                any_at_generation = true;
+                break;
+            }
+        }
+        if (!any_at_generation) {
+            continue;
+        }
         // A one-site chain has nothing to link to, so linkage cannot move its genotype -- but it
         // still has to be *phased*, or it never reaches phasing_out and the mosaic stops accounting
         // for every emitted record. Skipping it outright was invisible while chains were maximal
