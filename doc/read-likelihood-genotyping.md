@@ -857,7 +857,7 @@ as the reference? A traversal that answers yes becomes allele 0 and its differen
 child chains that own them. A traversal that answers no becomes a single ALT spanning the whole
 snarl, whatever the shape of the difference.
 
-`--atomize-blocks` replaces that bit with an alignment. The reference and each called haplotype are
+`--atomize-blocks` — on by default under `--read-likelihood` — replaces that bit with an alignment. The reference and each called haplotype are
 projected to symbolic alleles over the alphabet of *plain nodes plus one symbol per child chain*,
 aligned, and the maximal runs of non-matching steps become difference blocks. Each block is one VCF
 record.
@@ -899,7 +899,11 @@ will therefore double-count a split snarl.
 name, unsuffixed, and is shared by every block of a snarl: several things in `vg` parse the ID back
 to a snarl and two of them abort rather than degrade on a name they do not recognise.
 
-This is why the flag is off by default. It is a measurement instrument, not a production setting.
+**This caveat is why the limitation is stated in `INFO/SB`'s own description rather than only here.**
+Records carrying `SB` came from a decomposition and share an ID with their siblings; records without
+it are the only record their snarl emitted and are unaffected. A consumer that aggregates evidence
+must group by ID and count each snarl once. Per-block `AD` and `GL`, by a marginal fold over
+`genotype_lls`, is the work that would retire the caveat, and it is not done.
 
 ### Measured effect
 
@@ -1056,7 +1060,8 @@ spellings. General options that this mode also uses -- `-d`/`--ploidy`, `-R`/`--
 | `--no-phased` | — | Turn phasing off: unphased genotypes and no `FORMAT/PS`. |
 | `--nested` | **on** under `--read-likelihood` | Symbolic collapsing and ploidy-propagating descent, so a variant inside a child chain gets its own record instead of being buried in a long ALT. Genome-wide it takes SNV F1 from 0.9752 to 0.9833 and SV F1 from 0.5134 to 0.5467 at no runtime or memory cost. Declines on the support-based caller, where it has never been measured; an explicit `--nested` still works there. |
 | `--no-nested` | — | Genotype each snarl against its own full traversals, with no collapsing and no descent. |
-| `--atomize-blocks` | off | Align the reference and each called haplotype as *symbolic* alleles and emit one record per difference block, so a snarl differing from the reference in two separated places reports two variants instead of one substitution spanning both. Refuses `-a`, `--legacy`, `--bottom-up`, `--top-down`, and a caller with no nested calling, rather than declining silently. See [below](#--atomize-blocks-one-snarl-several-variants). |
+| `--atomize-blocks` | **on** under `--read-likelihood` | Align the reference and each called haplotype as *symbolic* alleles and emit one record per difference block, so a snarl differing from the reference in two separated places reports two variants instead of one substitution spanning both. Worth +0.0099 SV F1 (+0.0233 under `truvari refine`) with no additional false positives; small-variant F1 unchanged. Declines on any other calling path and with `-a`, whose record set must stay sample-independent; asking for it there by name is an error. Every block of a snarl repeats the site's `AD`/`GL`/`GQ` — see `INFO/SB` and [below](#--atomize-blocks-one-snarl-several-variants). |
+| `--no-atomize-blocks` | — | One record per snarl, whatever the shape of the difference. |
 | `--mosaic-out FILE` | — | Write the inferred genome as a run-length-encoded mosaic of panel haplotypes. Implies `--phased`. Format [above](#--mosaic-out-file). |
 
 ### Debugging
