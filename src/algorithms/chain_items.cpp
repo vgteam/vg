@@ -595,10 +595,8 @@ void chain_items_dp(vector<TracedScore>& chain_scores,
             // For each destination anchor, now that it is finished, see if it is the winner.
             auto& here = to_chain[to_anchor];
 
-            if (show_work) {
-                cerr << "\tBest way to reach #" << to_anchor  << " " << to_chain[to_anchor]
-                     << " is " << chain_scores[to_anchor] << endl;
-            }
+            cerr << "\tBest way to reach #" << to_anchor  << " " << to_chain[to_anchor]
+                 << " is " << chain_scores[to_anchor] << endl;
             
             if (diagram) {
                 // Draw the item in the diagram
@@ -634,11 +632,9 @@ void chain_items_dp(vector<TracedScore>& chain_scores,
             // See if this is the best overall
             best_score.max_in(chain_scores, to_anchor);
             
-            if (show_work) {
 #ifdef debug_dp
-                cerr << "\tBest chain end so far: " << best_score << endl;
+            cerr << "\tBest chain end so far: " << best_score << endl;
 #endif
-            }
 
 #ifdef debug_chaining
             std::cerr << "[REC INFO] Recombination number for chain: " << best_score.rec_num
