@@ -229,9 +229,13 @@ void help_call(char** argv) {
          << "                            and each called haplotype as symbolic alleles and emits one" << endl
          << "                            record per difference block, so a snarl differing in two" << endl
          << "                            separated places reports two variants rather than one" << endl
-         << "                            substitution spanning both. Worth +0.0099 SV F1 on chr20" << endl
-         << "                            (+0.0233 under truvari refine), 11 more true structural" << endl
-         << "                            variants with no new false positives; small-variant F1 is" << endl
+         << "                            substitution spanning both. Worth +0.0043 SV F1 genome-wide" << endl
+         << "                            on HG002 (0.5577 -> 0.5620 over 23 contigs: 48 more true" << endl
+         << "                            SVs, 266 fewer false), though the per-contig spread is wide" << endl
+         << "                            -- +0.010 on chr20 against +0.002 on chr6. Higher under" << endl
+         << "                            truvari refine, which controls for the representation change" << endl
+         << "                            splitting causes, so the record-matching metric understates" << endl
+         << "                            it. Small-variant F1 is" << endl
          << "                            unchanged. Declines on any other calling path, and with -a," << endl
          << "                            whose record set has to stay sample-independent; asking for" << endl
          << "                            it there by name is an error rather than a decline." << endl

@@ -936,10 +936,24 @@ directly on variants ≥50 bp, with truvari, both arms from the same binary:
 | recall | 0.5660 | 0.5804 | **+0.0144** |
 | **F1** | **0.5247** | **0.5346** | **+0.0099** |
 
-Eleven more true structural variants with no additional false positives. That is inside the
-0.002–0.01 F1 band the tier-2 comparisons are used to decide between, and above the whole range the
-earlier `--atomize-substitutions` work reached — which fits, since that version handled only
-same-length biallelic records and could never touch a length-changing block.
+Eleven more true structural variants with no additional false positives.
+
+**chr6 gives a smaller and differently-shaped result, and the genome-wide figure is smaller still.**
+On chr6-34hap — 1,547 truth SVs against chr20's 765, so the better-powered test — the same comparison
+gives F1 0.582043 → 0.583696, **+0.0017**, driven by precision (14 fewer false positives) with recall
+marginally *down* (−2 true positives).
+
+Genome-wide on HG002, 23 scoreable contigs: **SV F1 0.5577 → 0.5620, +0.0043**, from 48 more true
+structural variants and 266 fewer false ones — so both sides improve, unlike either single contig.
+Autosomes alone give 0.5596 → 0.5642. That aggregate is the number to quote; chr20's +0.0099 is the
+favourable tail of a 6× per-contig spread, not the typical case.
+
+Under `truvari refine` the two agree far better — **+0.0233 on chr20 and +0.0121 on chr6** — and
+chr6's ladder shows why. Loosening the distance tolerance alone does nothing there (+0.0017 at
+refdist 500, −0.0002 at 1000, −0.0007 at 2000) while re-alignment gains +0.0121. That is the
+signature of decomposed calls being the same events spelled differently: distance tolerance cannot
+recognise them and sequence re-alignment can. So the record-matching metric systematically
+understates this change, and understates it more where there are more records.
 
 This figure is deliberately the *unrefined* truvari number, because that is what every other SV
 figure in this project uses. As a diagnostic, `truvari refine` puts the same comparison at 0.6154 →
