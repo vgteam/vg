@@ -41,6 +41,7 @@ static std::atomic<size_t> g_child_multi_crossing(0);
 // proxy cannot see what the caller sees -- notably that projection is inert for a flipped snarl.
 static std::atomic<size_t> g_atomize_records(0);          // records with a symbolic site and a called ALT
 static std::atomic<size_t> g_atomize_site_unresolvable(0); // flip_snarl left projection with no symbols
+static std::atomic<size_t> g_atomize_site_reversed(0);     // resolved only via the reversed pairing
 static std::atomic<size_t> g_atomize_blocks_hist[16];      // blocks per called ALT, index 15 = 15+
 static std::atomic<size_t> g_atomize_blocks_total(0);
 static std::atomic<size_t> g_atomize_multi_block(0);       // called ALTs a diff splits in two or more
@@ -107,7 +108,7 @@ void report_atomize_instrumentation() {
     // measurement rather than an assumption.
     cerr << "[vg call] atomize: " << unresolvable
          << " sites where projection is inert because the snarl does not resolve, "
-         << symbolic_reversed_site_count()
+         << g_atomize_site_reversed.load()
          << " resolved as the reversal flip_snarl produces" << endl;
 
     cerr << "[vg call] atomize: " << g_atomize_case_c.load()
@@ -2087,11 +2088,19 @@ static void tally_atomize(const PathPositionHandleGraph& graph, const SnarlManag
     if (mgr == nullptr || ref_trav_idx < 0 || (size_t)ref_trav_idx >= travs.size()) {
         return;
     }
-    if (!symbolic_site_resolvable(snarl, *mgr)) {
+    bool site_reversed = false;
+    if (!symbolic_site_resolvable(snarl, *mgr, &site_reversed)) {
         // Projection would report a bare node list here, so a block count from it would measure
         // node-level shredding rather than chain structure. Counted and skipped, not folded in.
         ++g_atomize_site_unresolvable;
         return;
+    }
+    if (site_reversed) {
+        // Counted HERE, once per record, so it is commensurable with the counter above -- the one
+        // that read 9,279 before the reversed pairing was accepted. Counting inside the resolver
+        // instead would count calls: projection runs per traversal, so a single site would bump it
+        // once per allele per haplotype and the number would look like an over-fire.
+        ++g_atomize_site_reversed;
     }
 
     vector<pair<int, int>> ref_ranges;

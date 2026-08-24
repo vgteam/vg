@@ -1,7 +1,6 @@
 #include "symbolic_allele.hpp"
 
 #include <algorithm>
-#include <atomic>
 #include <cstdint>
 
 #include <unordered_map>
@@ -36,11 +35,11 @@ static pair<nid_t, nid_t> chain_bounds(const Snarl* child, const SnarlManager& s
 
 /// The snarl `site` refers to, as the manager knows it, or null when the two disagree. Shared by
 /// projection and by `symbolic_site_resolvable` so the two can never drift apart.
-/// How many sites resolved only through the reversed boundary pairing, i.e. how often the snarl
-/// handed to projection was the reversal `flip_snarl` produces.
-static std::atomic<size_t> g_reversed_sites(0);
-
-static const Snarl* resolve_site(const Snarl& site, const SnarlManager& snarl_manager) {
+static const Snarl* resolve_site(const Snarl& site, const SnarlManager& snarl_manager,
+                                 bool* out_reversed = nullptr) {
+    if (out_reversed != nullptr) {
+        *out_reversed = false;
+    }
     const Snarl* site_ptr = snarl_manager.into_which_snarl(site.start().node_id(),
                                                           site.start().backward());
     if (site_ptr == nullptr) {
@@ -70,21 +69,15 @@ static const Snarl* resolve_site(const Snarl& site, const SnarlManager& snarl_ma
     if (!forward && !reversed) {
         return nullptr;
     }
-    if (reversed && !forward) {
-        // Counted so that "the reversed case is exercised" is a measurement rather than a hope. A
-        // fixture can contain reverse-oriented path steps without any snarl actually being flipped,
-        // so a green test suite is not by itself evidence that this branch ever runs.
-        ++g_reversed_sites;
+    if (out_reversed != nullptr) {
+        *out_reversed = reversed && !forward;
     }
     return site_ptr;
 }
 
-size_t symbolic_reversed_site_count() {
-    return g_reversed_sites.load();
-}
-
-bool symbolic_site_resolvable(const Snarl& site, const SnarlManager& snarl_manager) {
-    return resolve_site(site, snarl_manager) != nullptr;
+bool symbolic_site_resolvable(const Snarl& site, const SnarlManager& snarl_manager,
+                              bool* out_reversed) {
+    return resolve_site(site, snarl_manager, out_reversed) != nullptr;
 }
 
 pair<nid_t, nid_t> chain_bounds_of(const Snarl* child, const SnarlManager& snarl_manager) {
