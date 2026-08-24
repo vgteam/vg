@@ -1425,8 +1425,12 @@ int main_call(int argc, char** argv) {
             extra_node_weight[graph->get_id(graph->get_handle_of_step(graph->path_back(refpath_handle)))] += EXTRA_WEIGHT;
         }        
         IntegratedSnarlFinder finder(*graph, extra_node_weight);
-        if (show_progress) logger.info() << "Computed snarls" << endl;
+        // After the decomposition, not after the finder's constructor. The finder is cheap and the
+        // decomposition is not: on chr20 it is 46 s of a 197 s run, and printing "Computed snarls"
+        // in front of it left the log claiming the step was done while a single thread spent a
+        // quarter of the wall clock on it.
         snarl_manager = unique_ptr<SnarlManager>(new SnarlManager(std::move(finder.find_snarls_parallel())));
+        if (show_progress) logger.info() << "Computed snarls" << endl;
     }
     
     // Make a Packed Support Caller
