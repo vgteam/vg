@@ -635,12 +635,11 @@ void chain_items_dp(vector<TracedScore>& chain_scores,
 #ifdef debug_dp
             cerr << "\tBest chain end so far: " << best_score << endl;
 #endif
-
-#ifdef debug_chaining
-            std::cerr << "[REC INFO] Recombination number for chain: " << best_score.rec_num
-                      << "\tscore: " << best_score.score << "\tpaths: " << best_score.paths << std::endl;
-#endif
         }
+#ifdef debug_chaining
+        std::cerr << "[REC INFO] Recombination number for chain: " << best_score.rec_num
+                  << "\tscore: " << best_score.score << "\tpaths: " << best_score.paths << std::endl;
+#endif
     }
 }
 
