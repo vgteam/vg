@@ -608,7 +608,7 @@ get-deps:
 deps: $(DEPS) $(LINK_DEPS) $(PRE_LINK_DEPS)
 
 lint: $(SRC_DIR)/*.cpp $(SRC_DIR)/*.hpp $(ALGORITHMS_SRC_DIR)/*.cpp $(ALGORITHMS_SRC_DIR)/*.hpp $(SUBCOMMAND_SRC_DIR)/*.cpp $(SUBCOMMAND_SRC_DIR)/*.hpp $(UNITTEST_SRC_DIR)/*.cpp $(UNITTEST_SRC_DIR)/*.hpp $(UNITTEST_SUPPORT_SRC_DIR)/*.cpp
-	scripts/check_options.py 1>&2
+	scripts/lint.py 1>&2
 
 test: lint $(BIN_DIR)/$(EXE) $(LIB_DIR)/libvg.a test/build_graph $(BIN_DIR)/shuf $(BIN_DIR)/rapper
 	cd test && prove -v t

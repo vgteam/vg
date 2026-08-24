@@ -1003,8 +1003,8 @@ TEST_CASE("MinimizerMapper can make correct anchors from minimizers and their zi
                     REQUIRE(anchors.back().length() == minimizers.at(seeds.at(i).source).length);
                 }
 
-                // For each from anchor and to anchor, remember the read and graph distances.
-                std::unordered_map<std::pair<size_t, size_t>, std::pair<size_t, size_t>> all_transitions;
+                // For each from anchor and to anchor, remember the indel distances.
+                std::unordered_map<std::pair<size_t, size_t>, size_t> all_transitions;
 
                 // Set up to get all the transitions between anchors in the zip code tree
                 auto transition_iterator = algorithms::zip_tree_transition_iterator(seeds, zip_forest.trees.at(0), std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max());
@@ -1016,33 +1016,29 @@ TEST_CASE("MinimizerMapper can make correct anchors from minimizers and their zi
                               << " we cross " << transition.read_distance << " bp of read and " << transition.graph_distance << " bp of graph" << std::endl;
 #endif
                     all_transitions.emplace(std::make_pair(transition.from_anchor, transition.to_anchor), 
-                                            std::make_pair(transition.read_distance, transition.graph_distance));
+                                            transition.indel_size);
                 });
 
                 // Make sure we got the right transitions for these anchors
                 // AAAAAAAAAA
                 // XXX----YYY
                 //   01234
-                REQUIRE(all_transitions.at(std::make_pair(0, 1)).first == 4);
-                REQUIRE(all_transitions.at(std::make_pair(0, 1)).second == 4);
+                REQUIRE(all_transitions.at(std::make_pair(0, 1)) == 0);
 
                 // AAAAAAAAAA
                 // -XXX---YYY
                 //    0123
-                REQUIRE(all_transitions.at(std::make_pair(2, 1)).first == 3);
-                REQUIRE(all_transitions.at(std::make_pair(2, 1)).second == 3);
+                REQUIRE(all_transitions.at(std::make_pair(2, 1)) == 0);
 
                 // AAAAAAAAAA
                 // ---XX--YYY
                 //     012
-                REQUIRE(all_transitions.at(std::make_pair(3, 1)).first == 2);
-                REQUIRE(all_transitions.at(std::make_pair(3, 1)).second == 2);
+                REQUIRE(all_transitions.at(std::make_pair(3, 1)) == 0);
 
                 // AAAAAAAAAA
                 // XXXYY-----
                 //   0
-                REQUIRE(all_transitions.at(std::make_pair(0, 3)).first == 0);
-                REQUIRE(all_transitions.at(std::make_pair(0, 3)).second == 0);
+                REQUIRE(all_transitions.at(std::make_pair(0, 3)) == 0);
 
                 // We shouldn't see any extra transitions, like between overlapping anchors.
                 REQUIRE(all_transitions.size() == 4);

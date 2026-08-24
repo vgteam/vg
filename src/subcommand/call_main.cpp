@@ -18,7 +18,6 @@
 #include "../gbzgraph.hpp"
 #include "../gbwtgraph_helper.hpp"
 #include "../gref.hpp"
-#include "../traversal_clusters.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
 #include <bdsg/overlays/overlay_helper.hpp>
@@ -86,9 +85,15 @@ void help_call(char** argv) {
          << "                            from parent to child snarls (writes LV/PS tags)" << endl
          << "      --bottom-up           bottom-up nested calling with snarl merging" << endl
          << "  -I, --chains              call chains instead of snarls (experimental)" << endl
-         << "  -L, --cluster F           cluster similar traversals with Jaccard >= F [1.0]" << endl
-         << "      --cluster-post        cluster after genotyping (for output grouping only)" << endl
-         << "                            default is to cluster before genotyping" << endl
+         << "  -L, --cluster F           merge called alt alleles whose length-weighted" << endl
+         << "                            similarity is >= F, so 1/2 of two effectively" << endl
+         << "                            identical alleles becomes 1/1 [1.0; experimental]" << endl
+         << "      --cluster-min-len N   only apply -L merging at sites whose core length" << endl
+         << "                            -- the longest allele after stripping the prefix" << endl
+         << "                            and suffix common to all alleles -- is >= N bp" << endl
+         << "                            (0 = every site) [50]" << endl
+         << "                            in a nested run (-A/--top-down) a merged parent" << endl
+         << "                            disagrees with its own child records by design" << endl
          << "  -Y, --star-allele         use * alleles for spanning haplotypes" << endl
          << "                            (requires --top-down)" << endl
          << "      --progress            show progress" << endl
@@ -139,10 +144,15 @@ int main_call(int argc, char** argv) {
     size_t max_allele_len = numeric_limits<size_t>::max();
     bool show_progress = false;
 
-    // Nested calling options (for use with -A)
-    double cluster_threshold = 1.0;
-    bool cluster_post_genotype = false;  // false = cluster before, true = cluster after
+    // Nested calling option (for use with --top-down)
     bool star_allele = false;
+
+    // Post-genotyping alt-allele merging, mirroring vg deconstruct's -L/--cluster-min-len
+    double cluster_threshold = 1.0;
+    // see the note in deconstruct_main.cpp: at 0 the similarity is dominated by sequence every
+    // allele shares, so -L merges small variants it should leave alone.  50 is the SV size cutoff.
+    int64_t cluster_min_allele_len = 50;
+    bool cluster_min_len_set = false;
 
     // constants
     const size_t avg_trav_threshold = 50;
@@ -155,7 +165,8 @@ int main_call(int argc, char** argv) {
     const size_t max_chain_edges = 1000; 
     const size_t max_chain_trivial_travs = 5;
     constexpr int OPT_PROGRESS = 1000;
-    constexpr int OPT_CLUSTER_POST = 1002;
+    constexpr int OPT_CLUSTER_MIN_LEN = 1002;
+    constexpr int OPT_CLUSTER_POST = 1003;
     constexpr int OPT_LEGACY = 1004;
     constexpr int OPT_BOTTOM_UP = 1005;
     constexpr int OPT_TOP_DOWN = 1006;
@@ -197,6 +208,10 @@ int main_call(int argc, char** argv) {
             {"bottom-up", no_argument, 0, OPT_BOTTOM_UP},
             {"chains", no_argument, 0, 'I'},
             {"cluster", required_argument, 0, 'L'},
+            {"cluster-min-len", required_argument, 0, OPT_CLUSTER_MIN_LEN},
+            // deprecated: shipped through v1.76 as an accepted no-op.  Kept accepted (and absent
+            // from the helptext, which check_options.py allows) so pipelines carrying it do not die
+            // on an unrecognized option.  Remove after one release.
             {"cluster-post", no_argument, 0, OPT_CLUSTER_POST},
             {"star-allele", no_argument, 0, 'Y'},
             {"threads", required_argument, 0, 't'},
@@ -299,7 +314,9 @@ int main_call(int argc, char** argv) {
                     // Parse the regex
                     std::regex match(parts[0]);
                     size_t weight = parse<size_t>(parts[1]);
-                    // Save the rule
+                    // Save the rule.  The {1,2} restriction the callers impose is checked where the
+                    // rule is applied, not here: a rule that matches none of the called contigs
+                    // never reaches a caller, and rejecting it would break command lines that work.
                     ploidy_rules.emplace_back(match, weight);
                 } catch (const std::regex_error& e) {
                     // This is not a good regex
@@ -331,7 +348,15 @@ int main_call(int argc, char** argv) {
             call_chains = true;
             break;
         case OPT_CLUSTER_POST:
-            cluster_post_genotype = true;
+            logger.warn() << "--cluster-post is deprecated and ignored: -L/--cluster now always "
+                          << "merges after genotyping" << endl;
+            break;
+        case OPT_CLUSTER_MIN_LEN:
+            cluster_min_allele_len = parse<int64_t>(optarg);
+            cluster_min_len_set = true;
+            if (cluster_min_allele_len < 0) {
+                logger.error() << "--cluster-min-len must be >= 0" << endl;
+            }
             break;
         case 'Y':
             star_allele = true;
@@ -412,7 +437,7 @@ int main_call(int argc, char** argv) {
 
     if ((min_allele_len > 0 || max_allele_len < numeric_limits<size_t>::max())
         && (legacy || !vcf_filename.empty() || bottom_up)) {
-        logger.error() << "-c/-C not supported with -v, -l, or --bottom-up" << endl;
+        logger.error() << "-c/-C not supported with -v, --legacy, or --bottom-up" << endl;
     }
     if (!ref_paths.empty() && !ref_sample.empty()) {
         logger.error() << "-S cannot be used with -p" << endl;
@@ -422,6 +447,60 @@ int main_call(int argc, char** argv) {
     }
     if (!ref_path_prefixes.empty() && !ref_paths.empty()) {
         logger.error() << "-P cannot be used with -p" << endl;
+    }
+
+    // -L/--cluster validation, deliberately ahead of the graph load below: it is all command-line
+    // state, and a typo'd "-L 5" should not cost a multi-gigabyte graph load before it is rejected.
+    // vg deconstruct clamps out-of-range values; we reject them, since -L 5 is a plausible typo for
+    // -L 0.5 and clamping would silently disable merging altogether.
+    if (cluster_threshold < 0.0 || cluster_threshold > 1.0 || std::isnan(cluster_threshold)) {
+        logger.error() << "-L/--cluster threshold must be in range [0.0, 1.0]" << endl;
+    }
+    // only for an explicit --cluster-min-len: the default is nonzero, so testing the value alone
+    // would warn on every run that does not pass -L
+    if (cluster_min_len_set && cluster_min_allele_len > 0 && cluster_threshold >= 1.0) {
+        logger.warn() << "--cluster-min-len has no effect without -L (cluster threshold < 1.0)" << endl;
+    }
+    // -L merges in VCFOutputCaller::emit_variant, which these paths never reach: the VCF genotyper
+    // builds its records by hand and the GAF path has no VCF at all.
+    if (cluster_threshold < 1.0 && !vcf_filename.empty()) {
+        logger.error() << "-L/--cluster cannot be used when genotyping a VCF (-v)" << endl;
+    }
+    if (cluster_threshold < 1.0 && (gaf_output || traversals_only)) {
+        logger.error() << "-L/--cluster cannot be used with GAF output (-G/-T)" << endl;
+    }
+    // the ratio caller's QUAL and its XADL/lowxadl describe a het that no longer exists after a merge
+    if (cluster_threshold < 1.0 && ratio_caller) {
+        logger.error() << "-L/--cluster cannot be used with the ratio caller (-B)" << endl;
+    }
+    // NestedFlowCaller represents a child snarl as a Visit carrying a Snarl rather than a node, which
+    // the clusterer has no handle for, so the merge would be inert at exactly the nested sites
+    // --bottom-up exists for.  (Rejected on master too; the check has only moved ahead of the load.)
+    if (cluster_threshold < 1.0 && bottom_up) {
+        logger.error() << "-L/--cluster cannot be used with --bottom-up mode" << endl;
+    }
+    // -Y writes "*" in a child record to mean "an upstream deletion covers this site".  If the merge
+    // absorbs the parent allele that deletion came from, the "*" refers to nothing in the file.  That
+    // is a malformed record, not merely a lossy one -- unlike the nested case, which is allowed: in a
+    // nested run a merged parent deliberately disagrees with its own child records, the parent giving
+    // the collapsed view of a large variant and the children the precise one.  MAT records it.
+    if (cluster_threshold < 1.0 && star_allele) {
+        logger.error() << "-L/--cluster cannot be used with -Y/--star-allele" << endl;
+    }
+    // LegacyCaller has its own traversal finder and support model; -L has never been run through it
+    if (cluster_threshold < 1.0 && legacy) {
+        logger.error() << "-L/--cluster cannot be used with the legacy caller (--legacy)" << endl;
+    }
+    // the merge needs two distinct called ALT alleles, which a haploid genotype can never have.
+    // -R/--ploidy-regex sets ploidy per contig and we cannot tell here which contigs will be
+    // called, so only -d is worth warning about.
+    if (cluster_threshold < 1.0 && ploidy == 1) {
+        logger.warn() << "-L/--cluster has no effect at ploidy 1 (-d 1)" << endl;
+    }
+    // NestedFlowCaller's Snarl-carrying Visits also break the GAF emitters: --bottom-up -T aborts in
+    // to_mapping, and --bottom-up -G emits a header and no records.
+    if (bottom_up && (gaf_output || traversals_only)) {
+        logger.error() << "--bottom-up cannot be used with GAF output (-G/-T)" << endl;
     }
 
     // Read the graph
@@ -521,13 +600,13 @@ int main_call(int argc, char** argv) {
         logger.error() << "ploidy (-d) must be 2 when using ratio caller (-B)" << endl;
     }
     if (legacy == true && ploidy != 2) {
-        logger.error() << "ploidy (-d) must be 2 when using legacy caller (-L)" << endl;
+        logger.error() << "ploidy (-d) must be 2 when using legacy caller (--legacy)" << endl;
     }
     if (!vcf_filename.empty() && !gbwt_filename.empty()) {
         logger.error() << "GBWT (-g) cannot be used when genotyping VCF (-v)" << endl;
     }
     if (legacy == true && !gbwt_filename.empty()) {
-        logger.error() << "GBWT (-g) cannot be used with legacy caller (-L)" << endl;
+        logger.error() << "GBWT (-g) cannot be used with legacy caller (--legacy)" << endl;
     }
     if (gbz_paths && !gbwt_filename.empty()) {
         logger.error() << "GBWT (-g) cannot be used with GBZ graph (-z): choose one or the other" << endl;
@@ -543,19 +622,10 @@ int main_call(int argc, char** argv) {
     if (star_allele && !top_down) {
         logger.error() << "-Y/--star-allele requires --top-down mode" << endl;
     }
-    if (cluster_post_genotype && cluster_threshold >= 1.0) {
-        logger.error() << "--cluster-post requires -L/--cluster with threshold < 1.0" << endl;
-    }
-    if (cluster_threshold < 0.0 || cluster_threshold > 1.0) {
-        logger.error() << "-L/--cluster threshold must be in range [0.0, 1.0]" << endl;
-    }
 
     // Validation for bottom-up mode
     if (bottom_up && star_allele) {
         logger.error() << "-Y/--star-allele cannot be used with --bottom-up mode" << endl;
-    }
-    if (bottom_up && cluster_threshold < 1.0) {
-        logger.error() << "-L/--cluster cannot be used with --bottom-up mode" << endl;
     }
 
     // in order to add subpath support, we let all ref_paths be subpaths and then convert coordinates
@@ -577,9 +647,9 @@ int main_call(int argc, char** argv) {
         }
     };
 
-    // Process path prefixes to find ref paths
+    // Prefix given: find all paths matching it
     if (!ref_path_prefixes.empty()) {
-        graph->for_each_path_of_sense({PathSense::REFERENCE, PathSense::GENERIC}, [&](const path_handle_t& path_handle) {
+        graph->for_each_path_of_sense({PathSense::REFERENCE, PathSense::GENERIC, PathSense::HAPLOTYPE}, [&](const path_handle_t& path_handle) {
             string path_name = graph->get_path_name(path_handle);
             // Never include alt paths in reference paths
             if (Paths::is_alt(path_name)) {
@@ -593,37 +663,49 @@ int main_call(int argc, char** argv) {
             }
         });
         if (ref_paths.empty()) {
-            logger.error() << "No REFERENCE or GENERIC paths (see vg paths -M) found matching prefix(es)\n"
+            logger.error() << "No non-alt paths found matching prefix(es) (see vg paths --list)" << endl;
+        }
+    }
+
+    // Sample given: find all non-alt paths matching it
+    if (!ref_sample.empty()) {
+        graph->for_each_path_of_sample({ref_sample}, [&](path_handle_t path_handle) {
+            const string& name = graph->get_path_name(path_handle);
+            if (!Paths::is_alt(name)) {
+                ref_paths.push_back(name);
+            }
+        });
+        if (ref_paths.empty()) {
+            logger.error() << "No REFERENCE or HAPLOTYPE paths for sample \"" << ref_sample << "\" found.\n"
+                           << "Use vg paths -M to check which paths exist in this graph\n" 
                            << "Also see: https://github.com/vgteam/vg/wiki/Changing-References" << endl;
         }
     }
 
-    // No paths specified: use them all
+    // No paths specified: use all reference/generic
     if (ref_paths.empty()) {
-        set<string> ref_sample_names;
+        unordered_set<string> ref_sample_names;
         graph->for_each_path_of_sense({PathSense::REFERENCE, PathSense::GENERIC}, [&](path_handle_t path_handle) {
                 const string& name = graph->get_path_name(path_handle);
                 if (!Paths::is_alt(name)) {
-                    string sample_name = graph->get_sample_name(path_handle);
-                    if (ref_sample.empty() || sample_name == ref_sample) {                        
-                        ref_paths.push_back(name);
-                        // keep track of length best we can using maximum coordinate in event of subpaths
-                        
-                        // TODO: We can get the subrange from the graph but not
-                        // the base path name yet, so we do this from the path
-                        // name.
-                        subrange_t subrange;
-                        string base_name = Paths::strip_subrange(name, &subrange);
-                        size_t offset = subrange == PathMetadata::NO_SUBRANGE ? 0 : subrange.first;
-                        size_t& cur_len = basepath_length_map[base_name];
-                        cur_len = max(cur_len, compute_path_length(path_handle) + offset);
-                        if (sample_name != PathMetadata::NO_SAMPLE_NAME) {
-                            ref_sample_names.insert(sample_name);
-                        }
+                    string sample_name = graph->get_sample_name(path_handle);                   
+                    ref_paths.push_back(name);
+                    // keep track of length best we can using maximum coordinate in event of subpaths
+                    
+                    // TODO: We can get the subrange from the graph but not
+                    // the base path name yet, so we do this from the path
+                    // name.
+                    subrange_t subrange;
+                    string base_name = Paths::strip_subrange(name, &subrange);
+                    size_t offset = subrange == PathMetadata::NO_SUBRANGE ? 0 : subrange.first;
+                    size_t& cur_len = basepath_length_map[base_name];
+                    cur_len = max(cur_len, compute_path_length(path_handle) + offset);
+                    if (sample_name != PathMetadata::NO_SAMPLE_NAME) {
+                        ref_sample_names.insert(sample_name);
                     }
                 }
             });
-        if (ref_sample_names.size() > 1 && ref_sample.empty()) {
+        if (ref_sample_names.size() > 1) {
             auto err_msg = logger.error();
             err_msg << "Multiple reference samples detected: [";
             size_t count = 0;
@@ -650,7 +732,7 @@ int main_call(int argc, char** argv) {
         for (const string& ref_path : ref_paths) {
             ref_path_set[ref_path] = false;
         }
-        graph->for_each_path_of_sense({PathSense::REFERENCE, PathSense::GENERIC}, [&](path_handle_t path_handle) {
+        graph->for_each_path_of_sense({PathSense::REFERENCE, PathSense::GENERIC, PathSense::HAPLOTYPE}, [&](path_handle_t path_handle) {
                 const string& name = graph->get_path_name(path_handle);
                 subrange_t subrange;
                 string base_name = Paths::strip_subrange(name, &subrange);
@@ -679,7 +761,7 @@ int main_call(int argc, char** argv) {
         for (const auto& ref_path_used : ref_path_set) {
             if (!ref_path_used.second) {
                 logger.error() << "Path \"" << ref_path_used.first 
-                               << "\" not found in graph as REFERENCE or GENERIC sense (see vg paths -M)\n"
+                               << "\" not found in graph as a non-alt sense (see vg paths -M)\n"
                                << "Also see: https://github.com/vgteam/vg/wiki/Changing-References" << endl;
             }
         }
@@ -689,17 +771,16 @@ int main_call(int argc, char** argv) {
 
     // make sure we have some ref paths
     if (ref_paths.empty()) {
-        if (!ref_sample.empty()) {
-            logger.error() << "No REFERENCE paths for \"" << ref_sample << "\" found.\n" 
-                           << "Also see: https://github.com/vgteam/vg/wiki/Changing-References" << endl;
-        }
         logger.error() << "No reference paths found. "
                        << "Paths must be REFERENCE or GENERIC sense (see vg paths -M)\n"
+                       << "Alternatively, use --ref-path, --path-prefix, or --ref-sample to force a HAPLOTYPE path to be treated as a reference\n"
                        << "Also see: https://github.com/vgteam/vg/wiki/Changing-References" << endl;
     }
 
     // build table of ploidys
     vector<int> ref_path_ploidies;
+    // Paths which aren't REFERENCE/GENERIC sense that we want to call against
+    unordered_set<string> pretend_ref_paths;
     for (const string& ref_path : ref_paths) {
         int path_ploidy = ploidy;
         for (auto& rule : ploidy_rules) {
@@ -708,7 +789,25 @@ int main_call(int argc, char** argv) {
                 break;
             }
         }
+        // the callers only implement ploidy 1 and 2 (see the assert in
+        // PoissonSupportSnarlCaller::genotype), and -d is checked for this below.  An unchecked -R
+        // reaches the caller as an unsupported ploidy and aborts there instead.
+        if (path_ploidy != 1 && path_ploidy != 2) {
+            logger.error() << "ploidy " << path_ploidy << " assigned to path \"" << ref_path
+                           << "\" by -R/--ploidy-regex must be 1 or 2" << endl;
+        }
         ref_path_ploidies.push_back(path_ploidy);
+
+        if (graph->get_sense(graph->get_path_handle(ref_path)) == PathSense::HAPLOTYPE) {
+            pretend_ref_paths.emplace(ref_path);
+        }
+    }
+
+    // Use an overlay so that all ref paths are treated as refs
+    bdsg::ReferencePathOverlayHelper overlay_helper;
+    if (!pretend_ref_paths.empty()) {
+        if (show_progress) logger.info() << "Applying overlay to treat HAPLOTYPE paths as REFERENCE" << endl;
+        graph = overlay_helper.apply(graph, pretend_ref_paths);
     }
 
     // Load or compute the snarls
@@ -904,8 +1003,6 @@ int main_call(int argc, char** argv) {
                                               genotype_snarls,
                                               make_pair(min_allele_len, max_allele_len),
                                               true,  // nested mode enabled
-                                              cluster_threshold,
-                                              cluster_post_genotype,
                                               star_allele));
         } else if (bottom_up) {
             // Use NestedFlowCaller (bottom-up snarl merging, original nested algorithm)
@@ -942,6 +1039,9 @@ int main_call(int argc, char** argv) {
         // Make sure we get the LV/PS tags with -A, --top-down, or --bottom-up
         vcf_caller->set_nested(all_snarls || top_down || bottom_up);
         vcf_caller->set_translation(translation.get());
+        // one call covers FlowCaller (both ctors, so plain vg call gets it too), NestedFlowCaller
+        // and LegacyCaller, since the merge lives on the shared VCFOutputCaller base
+        vcf_caller->set_allele_merge(cluster_threshold, cluster_min_allele_len);
         // Make sure the basepath information we inferred above goes directy to the VCF header
         // (and that it does *not* try to read it from the graph paths)
         vector<string> header_ref_paths;

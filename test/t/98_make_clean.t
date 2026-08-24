@@ -9,7 +9,12 @@ cd ..
 
 make clean
 is "$?" "0" "make clean completes without errors"
-make
+
+CPUS=$(nproc)
+JOBS=$(( CPUS < 16 ? CPUS : 16 ))
+echo "Guessing that it is safe to run $JOBS parallel make jobs"
+make -j "$JOBS"
 is "$?" "0" "we can make after make clean"
+
 bin/vg help
 is "$?" "0" "vg builds successfully"

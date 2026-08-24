@@ -388,14 +388,16 @@ struct transition_info {
     size_t from_anchor;
     // Index of the destination anchor
     size_t to_anchor;
-    // Distance between anchors in the graph
-    size_t graph_distance;
-    // Distance between anchors in the read
-    size_t read_distance;
+    // Forced indel size, i.e. abs(read - graph)
+    size_t indel_size;
     
+    /// Built transition info by calculating indel size
+    inline transition_info(size_t from, size_t to, size_t graph_dist, size_t read_dist)
+        : from_anchor(from), to_anchor(to), indel_size(max(graph_dist, read_dist) - min(graph_dist, read_dist)) {}
+
     /// Build transition info from loose values
-    inline transition_info(size_t from, size_t to, size_t graph_dist, size_t read_dist = std::numeric_limits<size_t>::max())
-        : from_anchor(from), to_anchor(to), graph_distance(graph_dist), read_distance(read_dist) {}
+    inline transition_info(size_t from, size_t to, size_t indel_size)
+        : from_anchor(from), to_anchor(to), indel_size(indel_size) {}
 };
 
 
@@ -472,14 +474,6 @@ using transition_iteratee = std::function<void(const transition_info& transition
 using transition_iterator = std::function<void(const VectorView<Anchor>& to_chain, const SnarlDistanceIndex& distance_index, const HandleGraph& graph, size_t max_indel_bases, const transition_iteratee& callback)>;
 
 /**
- * Return a transition iterator that iterates along the read and uses the given lookback control parameters to filter transitions.
- * Closes over the arguments by value.
- */
-transition_iterator lookback_transition_iterator(size_t max_lookback_bases,
-                                                 size_t min_lookback_items,
-                                                 size_t lookback_item_hard_cap);
-
-/**
  * Return a transition iterator that uses zip code tree iteration to select
  * traversals.
  *
@@ -503,6 +497,7 @@ std::vector<transition_info> generate_zip_tree_transitions(
     const ZipCodeTree& zip_code_tree,
     size_t max_graph_lookback_bases,
     size_t max_read_lookback_bases,
+    size_t max_indel_bases,
     const VectorView<Anchor>& to_chain,
     const std::unordered_map<size_t, size_t>& seed_to_starting, 
     const std::unordered_map<size_t, size_t>& seed_to_ending);
@@ -512,8 +507,8 @@ std::vector<transition_info> generate_zip_tree_transitions(
  * 
  * Helper for generate_zip_tree_transitions() to avoid saving useless stuff.
  */
-void add_transition_if_legal(vector<transition_info>& transitions, 
-                             const VectorView<Anchor>& to_chain, size_t max_read_lookback_bases,
+void add_transition_if_legal(vector<transition_info>& transitions, const VectorView<Anchor>& to_chain,
+                             size_t max_read_lookback_bases, size_t max_indel_bases,
                              size_t from_anchor, size_t to_anchor, size_t graph_distance);
 
 /**
@@ -542,8 +537,8 @@ TracedScore chain_items_dp(vector<TracedScore>& chain_scores,
                            // TODO: We should maybe just take an EditAlignmentScorer here.
                            int gap_open,
                            int gap_extension,
+                           const transition_iterator& for_each_transition,
                            const ChainScoringScheme& scheme = ChainScoringScheme(),
-                           const transition_iterator& for_each_transition = lookback_transition_iterator(150, 0, 100),
                            size_t max_indel_bases = 100,
                            bool show_work = false
                         );
@@ -579,15 +574,15 @@ vector<pair<vector<size_t>, int>> chain_items_traceback(const vector<TracedScore
  * that score, in order, with multiple tracebacks in descending score order.
  */
 ChainsResult find_best_chains(const VectorView<Anchor>& to_chain,
-                                                   const SnarlDistanceIndex& distance_index,
-                                                   const HandleGraph& graph,
-                                                   int gap_open,
-                                                   int gap_extension,
-                                                   const ChainScoringScheme& scheme = ChainScoringScheme(),
-                                                   size_t max_chains = 1,
-                                                   const transition_iterator& for_each_transition = lookback_transition_iterator(150, 0, 100), 
-                                                   size_t max_indel_bases = 100,
-                                                   bool show_work = false);
+                              const SnarlDistanceIndex& distance_index,
+                              const HandleGraph& graph,
+                              int gap_open,
+                              int gap_extension,
+                              const transition_iterator& for_each_transition,
+                              const ChainScoringScheme& scheme = ChainScoringScheme(),
+                              size_t max_chains = 1,
+                              size_t max_indel_bases = 100,
+                              bool show_work = false);
 
 /**
  * Chain up the given group of items. Determines the best score and
@@ -603,18 +598,9 @@ pair<int, vector<size_t>> find_best_chain(const VectorView<Anchor>& to_chain,
                                           const HandleGraph& graph,
                                           int gap_open,
                                           int gap_extension,
+                                          const transition_iterator& for_each_transition,
                                           const ChainScoringScheme& scheme = ChainScoringScheme(),
-                                          const transition_iterator& for_each_transition = lookback_transition_iterator(150, 0, 100),
                                           size_t max_indel_bases = 100);
-                                          
-/**
- * Score the given group of items. Determines the best score that can be
- * obtained by chaining items together.
- *
- * Input items must be sorted by start position in the read.
- */
-int score_best_chain(const VectorView<Anchor>& to_chain, const SnarlDistanceIndex& distance_index, const HandleGraph& graph, int gap_open, int gap_extension);
-
 
 /// Score a chaining gap using the Minimap2 method. See
 /// <https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6137996/> near equation 2.
