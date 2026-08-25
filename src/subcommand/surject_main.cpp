@@ -57,8 +57,8 @@ void help_surject(char** argv) {
          << "                            when outputting HTS formats (SAM/BAM/CRAM)" << endl
          << "  -U, --force-unpaired      surject reads as unpaired even if they appear paired" << endl
          << "  -f, --max-frag-len N      reads with fragment lengths greater than N won't be" << endl
-         << "                            marked properly paired in HTS formats. 0 for unlimited." << endl
-         << "                            (default: unlimited)" << endl
+         << "                            marked properly paired in HTS formats." << endl
+         << "                            0 for unlimited. (default: unlimited)" << endl
          << "  -u, --supplementary       divide into supplementary alignments as necessary" << endl
          << "  -B, --left-align          attempt to left-align indels" << endl
          << "  -l, --subpath-local       let the multipath mapping surjection produce local" << endl
