@@ -546,30 +546,77 @@ void LinkageModel::window_posteriors(const vector<Site>& sites, size_t from, siz
     }
 }
 
-vector<vector<double>> LinkageModel::posteriors(const vector<Site>& sites) const {
-    vector<vector<double>> out(sites.size());
-    if (sites.empty()) {
-        return out;
-    }
-    size_t n = sites.size();
-    size_t step = max<size_t>(params.window, 1);
-    size_t margin = params.margin;
+/// Overlapping windows whose interiors are pasted together.
+///
+/// Correct for a *per-site* quantity and only for that: a marginal posterior at one site does not
+/// depend on where a window edge fell, so windows can be decoded independently and their middles
+/// kept. A path cannot be done this way -- see `windowed_path`.
+///
+/// `window(lo, hi, local)` fills `local` for `[lo, hi)`, indexed from 0 of the whole chain.
+template <typename T, typename Window>
+static void windowed_marginals(size_t n, size_t step, size_t margin, vector<T>& out,
+                               Window window) {
     if (n <= step) {
-        window_posteriors(sites, 0, n, out);
-        return out;
+        window(0, n, out);
+        return;
     }
-    // Overlapping windows, keeping only interiors, so no posterior is read from a position that
-    // can see an artificial window edge.
     for (size_t start = 0; start < n; start += step) {
         size_t lo = start > margin ? start - margin : 0;
         size_t hi = min(start + step + margin, n);
-        vector<vector<double>> local(n);
-        window_posteriors(sites, lo, hi, local);
+        vector<T> local(n);
+        window(lo, hi, local);
         size_t keep_to = min(start + step, n);
         for (size_t t = start; t < keep_to; ++t) {
             out[t] = std::move(local[t]);
         }
     }
+}
+
+/// Overlapping windows chained by a seam pin.
+///
+/// Windowing needs more care here than it does for the marginals. Decode two windows
+/// independently and the state at the seam is chosen twice, by two runs that never saw each other,
+/// so the join manufactures a switch at every window boundary -- an artifact that would read as a
+/// biological result and would scale with the site count rather than with the genome.
+///
+/// So each window after the first is pinned: the state at one index inside its leading margin is
+/// fixed to what the previous window already decided there. The pin sits in the margin rather than
+/// at the boundary precisely because a margin-deep state was decided with the full window's
+/// context around it, while a boundary state was not.
+///
+/// `window(lo, hi, pin_index, pin, local)` fills `local` for `[lo, hi)`, indexed from `lo`.
+template <typename T, typename Window>
+static void windowed_path(size_t n, size_t step, size_t margin, vector<T>& out, Window window) {
+    bool have_pin = false;
+    size_t pin_index = 0;
+    T pin{};
+    for (size_t start = 0; start < n; start += step) {
+        size_t lo = start > margin ? start - margin : 0;
+        size_t hi = min(start + step + margin, n);
+        vector<T> local;
+        window(lo, hi, have_pin ? pin_index : (size_t)-1, pin, local);
+        size_t keep_to = min(start + step, n);
+        for (size_t t = start; t < keep_to && t - lo < local.size(); ++t) {
+            out[t] = local[t - lo];
+        }
+        if (keep_to == n) {
+            break;
+        }
+        pin_index = keep_to - 1;
+        pin = out[pin_index];
+        have_pin = true;
+    }
+}
+
+vector<vector<double>> LinkageModel::posteriors(const vector<Site>& sites) const {
+    vector<vector<double>> out(sites.size());
+    if (sites.empty()) {
+        return out;
+    }
+    windowed_marginals(sites.size(), max<size_t>(params.window, 1), params.margin, out,
+                       [&](size_t lo, size_t hi, vector<vector<double>>& local) {
+                           window_posteriors(sites, lo, hi, local);
+                       });
     return out;
 }
 
@@ -589,42 +636,11 @@ vector<LinkageModel::Phase> LinkageModel::phasing(const vector<Site>& sites,
         return out;
     }
 
-    size_t step = max<size_t>(params.window, 1);
-    size_t margin = params.margin;
-
-    // Windowing needs more care here than it does for the posteriors. A marginal posterior is a
-    // per-site quantity, so windows can be decoded independently and their interiors pasted
-    // together. A path is not: decode two windows independently and the state at the seam is
-    // chosen twice, by two runs that never saw each other, so the join manufactures a switch at
-    // every window boundary -- an artifact that would read as a biological result and would scale
-    // with the site count rather than with the genome.
-    //
-    // So each window after the first is *pinned*: the state at one index inside its leading
-    // margin is fixed to what the previous window already decided there. The pin sits in the
-    // margin rather than at the boundary precisely because a margin-deep state was decided with
-    // the full window's context around it, while a boundary state was not.
-    bool have_pin = false;
-    size_t pin_index = 0;
-    Phase pin{};
-
-    for (size_t start = 0; start < n; start += step) {
-        size_t lo = start > margin ? start - margin : 0;
-        size_t hi = min(start + step + margin, n);
-        vector<Phase> local;
-        window_phasing(sites, lo, hi, constraint,
-                       have_pin ? pin_index : (size_t)-1, pin, local);
-        size_t keep_to = min(start + step, n);
-        for (size_t t = start; t < keep_to && t - lo < local.size(); ++t) {
-            out[t] = local[t - lo];
-        }
-        if (keep_to == n) {
-            break;
-        }
-        // Pin the next window at the last index this one is authoritative for.
-        pin_index = keep_to - 1;
-        pin = out[pin_index];
-        have_pin = true;
-    }
+    windowed_path(n, max<size_t>(params.window, 1), params.margin, out,
+                  [&](size_t lo, size_t hi, size_t pin_index, const Phase& pin,
+                      vector<Phase>& local) {
+                      window_phasing(sites, lo, hi, constraint, pin_index, pin, local);
+                  });
     return out;
 }
 
@@ -1012,23 +1028,10 @@ vector<vector<double>> LinkageModel::haploid_posteriors(const vector<Site>& site
     if (sites.empty()) {
         return out;
     }
-    size_t n = sites.size();
-    size_t step = max<size_t>(params.window, 1);
-    size_t margin = params.margin;
-    if (n <= step) {
-        window_haploid_posteriors(sites, 0, n, out);
-        return out;
-    }
-    for (size_t start = 0; start < n; start += step) {
-        size_t lo = start > margin ? start - margin : 0;
-        size_t hi = min(start + step + margin, n);
-        vector<vector<double>> local(n);
-        window_haploid_posteriors(sites, lo, hi, local);
-        size_t keep_to = min(start + step, n);
-        for (size_t t = start; t < keep_to; ++t) {
-            out[t] = std::move(local[t]);
-        }
-    }
+    windowed_marginals(sites.size(), max<size_t>(params.window, 1), params.margin, out,
+                       [&](size_t lo, size_t hi, vector<vector<double>>& local) {
+                           window_haploid_posteriors(sites, lo, hi, local);
+                       });
     return out;
 }
 
@@ -1169,31 +1172,14 @@ vector<size_t> LinkageModel::haploid_phasing(const vector<Site>& sites,
     if (sites.empty()) {
         return out;
     }
-    size_t n = sites.size();
-    size_t step = max<size_t>(params.window, 1);
-    size_t margin = params.margin;
-    bool have_pin = false;
-    size_t pin_index = 0, pin = WILDCARD;
-
-    for (size_t start = 0; start < n; start += step) {
-        size_t lo = start > margin ? start - margin : 0;
-        size_t hi = min(start + step + margin, n);
-        vector<size_t> local;
-        window_haploid_phasing(sites, lo, hi, constraint,
-                               have_pin ? pin_index : (size_t)-1, pin, local);
-        size_t keep_to = min(start + step, n);
-        for (size_t t = start; t < keep_to && t - lo < local.size(); ++t) {
-            out[t] = local[t - lo];
-        }
-        if (keep_to == n) {
-            break;
-        }
-        // Pinned a margin deep into what this window was authoritative for, for the same reason
-        // the diploid pass does it: a boundary state was decided without full context.
-        pin_index = keep_to - 1;
-        pin = out[pin_index];
-        have_pin = true;
-    }
+    // The unpinned value is WILDCARD here, not a default-constructed T, so the first window is
+    // given the same "no pin" the diploid pass gives it -- window_haploid_phasing reads the index,
+    // not the value, to decide whether there is one.
+    windowed_path(sites.size(), max<size_t>(params.window, 1), params.margin, out,
+                  [&](size_t lo, size_t hi, size_t pin_index, const size_t& pin,
+                      vector<size_t>& local) {
+                      window_haploid_phasing(sites, lo, hi, constraint, pin_index, pin, local);
+                  });
     return out;
 }
 
