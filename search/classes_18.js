@@ -1,11 +1,11 @@
 var searchData=
 [
-  ['zipcode_7840',['ZipCode',['../classvg_1_1ZipCode.html',1,'vg']]],
-  ['zipcodecollection_7841',['ZipCodeCollection',['../classvg_1_1ZipCodeCollection.html',1,'vg']]],
-  ['zipcodeforest_7842',['ZipCodeForest',['../classvg_1_1ZipCodeForest.html',1,'vg']]],
-  ['zipcodetree_7843',['ZipCodeTree',['../classvg_1_1ZipCodeTree.html',1,'vg']]],
-  ['zstd_5fcompress_5fbuf_7844',['zstd_compress_buf',['../classvg_1_1zstd__compress__buf.html',1,'vg']]],
-  ['zstd_5fdecompress_5fbuf_7845',['zstd_decompress_buf',['../classvg_1_1zstd__decompress__buf.html',1,'vg']]],
-  ['zstd_5fifstream_7846',['zstd_ifstream',['../classvg_1_1zstd__ifstream.html',1,'vg']]],
-  ['zstd_5fofstream_7847',['zstd_ofstream',['../classvg_1_1zstd__ofstream.html',1,'vg']]]
+  ['zipcode_7841',['ZipCode',['../classvg_1_1ZipCode.html',1,'vg']]],
+  ['zipcodecollection_7842',['ZipCodeCollection',['../classvg_1_1ZipCodeCollection.html',1,'vg']]],
+  ['zipcodeforest_7843',['ZipCodeForest',['../classvg_1_1ZipCodeForest.html',1,'vg']]],
+  ['zipcodetree_7844',['ZipCodeTree',['../classvg_1_1ZipCodeTree.html',1,'vg']]],
+  ['zstd_5fcompress_5fbuf_7845',['zstd_compress_buf',['../classvg_1_1zstd__compress__buf.html',1,'vg']]],
+  ['zstd_5fdecompress_5fbuf_7846',['zstd_decompress_buf',['../classvg_1_1zstd__decompress__buf.html',1,'vg']]],
+  ['zstd_5fifstream_7847',['zstd_ifstream',['../classvg_1_1zstd__ifstream.html',1,'vg']]],
+  ['zstd_5fofstream_7848',['zstd_ofstream',['../classvg_1_1zstd__ofstream.html',1,'vg']]]
 ];
