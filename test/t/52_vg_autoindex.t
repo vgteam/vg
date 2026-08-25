@@ -11,9 +11,9 @@ rm auto.*
 
 vg autoindex -p auto -w map -r tiny/tiny.fa -v tiny/tiny.vcf.gz --force-unphased
 is $(echo $?) 0 "autoindexing successfully completes indexing for vg map with basic input"
-is $(ls auto.* | wc -l) 3 "autoindexing makes 3 outputs for vg map" 
-is $(ls auto.xg | wc -l) 1 "autoindexing makes an XG for vg map"
-is $(ls auto.gcsa* | wc -l) 2 "autoindexing makes a GCSA2/LCP pair for vg map"
+is $(ls auto.* | wc -l | tr -d ' ') 3 "autoindexing makes 3 outputs for vg map" 
+is $(ls auto.xg | wc -l | tr -d ' ') 1 "autoindexing makes an XG for vg map"
+is $(ls auto.gcsa* | wc -l | tr -d ' ') 2 "autoindexing makes a GCSA2/LCP pair for vg map"
 vg sim -x auto.xg -n 20 -a -l 10 | vg map -d auto -t 1 -G - > /dev/null
 is $(echo $?) 0 "basic autoindexing results can be used by vg map"
 
@@ -44,17 +44,17 @@ rm auto.*
 
 vg autoindex -p auto -w mpmap -w rpvg -r tiny/tiny.fa -v tiny/tiny.vcf.gz -x tiny/tiny.gtf
 is $(echo $?) 0 "autoindexing successfully completes indexing for vg mpmap with unchunked input"
-is $(ls auto.* | wc -l) 6 "autoindexing creates 6 files for mpmap/rpvg"
+is $(ls auto.* | wc -l | tr -d ' ') 6 "autoindexing creates 6 files for mpmap/rpvg"
 vg sim -x auto.spliced.xg -n 20 -a -l 10 | vg mpmap -x auto.spliced.xg -g auto.spliced.gcsa -d auto.spliced.dist -B -t 1 -G - > /dev/null
 is $(echo $?) 0 "basic autoindexing results can be used by vg mpmap"
-is $(vg paths -g auto.haplotx.gbwt -L | wc -l) 6 "haplotype transcript GBWT made by autoindex is valid"
-is $(cat auto.txorigin.tsv | wc -l) 7 "transcript origin table has expected number of rows" 
+is $(vg paths -g auto.haplotx.gbwt -L | wc -l | tr -d ' ') 6 "haplotype transcript GBWT made by autoindex is valid"
+is $(cat auto.txorigin.tsv | wc -l | tr -d ' ') 7 "transcript origin table has expected number of rows" 
 
 rm auto.*
 
 vg autoindex -p auto -w mpmap  -r tiny/tiny.fa -v tiny/tiny.vcf.gz -x tiny/tiny.gtf --force-unphased
 is $(echo $?) 0 "autoindexing successfully completes indexing for vg mpmap with unchunked, unphased input"
-is $(ls auto.* | wc -l) 4 "autoindexing creates 4 files for mpmap/rpvg"
+is $(ls auto.* | wc -l | tr -d ' ') 4 "autoindexing creates 4 files for mpmap/rpvg"
 vg sim -x auto.spliced.xg -n 20 -a -l 10 | vg mpmap -x auto.spliced.xg -g auto.spliced.gcsa -d auto.spliced.dist -B -t 1 -G - > /dev/null
 is $(echo $?) 0 "basic unphased autoindexing results can be used by vg mpmap"
 
@@ -62,7 +62,7 @@ rm auto.*
 
 vg autoindex -p auto -w mpmap -r tiny/tiny.fa -x tiny/tiny.gtf
 is $(echo $?) 0 "autoindexing successfully completes indexing for vg mpmap without variants"
-is $(ls auto.* | wc -l) 4 "autoindexing creates 4 files for mpmap without variants"
+is $(ls auto.* | wc -l | tr -d ' ') 4 "autoindexing creates 4 files for mpmap without variants"
 vg sim -x auto.spliced.xg -n 20 -a -l 10 | vg mpmap -x auto.spliced.xg -g auto.spliced.gcsa -d auto.spliced.dist -B -t 1 -G - > /dev/null
 is $(echo $?) 0 "autoindexing results with no variants can be used by vg mpmap"
 
@@ -70,13 +70,13 @@ rm auto.*
 
 vg autoindex -p auto -w mpmap -w rpvg -r small/x.fa -r small/y.fa -v small/x.vcf.gz -v small/y.vcf.gz -x small/x.gtf -x small/y.gtf
 is $(echo $?) 0 "autoindexing successfully completes indexing for vg mpmap with chunked input"
-is $(ls auto.* | wc -l) 6 "autoindexing creates 6 files for mpmap/rpvg with chunked input"
+is $(ls auto.* | wc -l | tr -d ' ') 6 "autoindexing creates 6 files for mpmap/rpvg with chunked input"
 
 rm auto.*
 
 vg autoindex -p auto -w mpmap -r small/x.fa -r small/y.fa -v small/x.vcf.gz -v small/y.vcf.gz -x small/x.gtf -x small/y.gtf --force-unphased
 is $(echo $?) 0 "autoindexing successfully completes indexing for vg mpmap with unphased chunked input"
-is $(ls auto.* | wc -l) 4 "autoindexing creates 4 files for mpmap/rpvg with chunked input"
+is $(ls auto.* | wc -l | tr -d ' ') 4 "autoindexing creates 4 files for mpmap/rpvg with chunked input"
 vg sim -x auto.spliced.xg -n 20 -a -l 10 | vg mpmap -x auto.spliced.xg -g auto.spliced.gcsa -d auto.spliced.dist -B -t 1 -G - > /dev/null
 is $(echo $?) 0 "autoindexing results with chunked unphased input can be used by vg mpmap"
 
@@ -118,7 +118,7 @@ rm auto.*
 
 vg autoindex -p auto -w giraffe -r tiny/tiny.fa -v tiny/tiny.vcf.gz 
 is $(echo $?) 0 "autoindexing successfully completes indexing for vg giraffe with unchunked input"
-is $(ls auto.* | wc -l) 4 "autoindexing creates 4 inputs for vg giraffe"
+is $(ls auto.* | wc -l | tr -d ' ') 4 "autoindexing creates 4 inputs for vg giraffe"
 is "$(vg describe auto.giraffe.gbz | grep -c 'pggname =')" 1 "GBZ has a graph name"
 is "$(vg describe auto.shortread.withzip.min | grep 'pggname =')" "$(vg describe auto.giraffe.gbz | grep 'pggname =')" "graph name was copied to minimizer index"
 vg construct -r tiny/tiny.fa -v tiny/tiny.vcf.gz > t.vg
@@ -131,7 +131,7 @@ rm t.*
 
 vg autoindex -p auto -w sr-giraffe -r tiny/tiny.fa -v tiny/tiny.vcf.gz 
 is $(echo $?) 0 "autoindexing successfully completes indexing for vg giraffe with unchunked input"
-is $(ls auto.* | wc -l) 4 "autoindexing creates 4 inputs for short read vg giraffe"
+is $(ls auto.* | wc -l | tr -d ' ') 4 "autoindexing creates 4 inputs for short read vg giraffe"
 vg construct -r tiny/tiny.fa -v tiny/tiny.vcf.gz > t.vg
 vg index -x t.xg t.vg
 vg sim -x t.xg -n 20 -a -l 10 | vg giraffe -Z auto.giraffe.gbz -m auto.shortread.withzip.min -z auto.shortread.zipcodes -d auto.dist -G - > /dev/null
@@ -142,7 +142,7 @@ rm t.*
 
 vg autoindex -p auto -w lr-giraffe -r tiny/tiny.fa -v tiny/tiny.vcf.gz 
 is $(echo $?) 0 "autoindexing successfully completes indexing for vg giraffe with unchunked input"
-is $(ls auto.* | wc -l) 4 "autoindexing creates 4 inputs for long read vg giraffe"
+is $(ls auto.* | wc -l | tr -d ' ') 4 "autoindexing creates 4 inputs for long read vg giraffe"
 vg construct -r tiny/tiny.fa -v tiny/tiny.vcf.gz > t.vg
 vg index -x t.xg t.vg
 vg sim -x t.xg -n 20 -a -l 10 | vg giraffe -Z auto.giraffe.gbz -m auto.longread.withzip.min -z auto.longread.zipcodes -d auto.dist -G - > /dev/null
@@ -153,7 +153,7 @@ rm t.*
 
 vg autoindex -p auto -w giraffe -g graphs/gfa_with_w_lines.gfa 
 is $(echo $?) 0 "autoindexing successfully completes indexing for vg giraffe with GFA input with W-lines"
-is $(ls auto.* | wc -l) 4 "autoindexing creates 4 inputs for vg giraffe from GFA input"
+is $(ls auto.* | wc -l | tr -d ' ') 4 "autoindexing creates 4 inputs for vg giraffe from GFA input"
 is "$(vg describe auto.giraffe.gbz | grep -c 'pggname =')" 1 "GBZ has a graph name"
 is "$(vg describe auto.shortread.withzip.min | grep 'pggname =')" "$(vg describe auto.giraffe.gbz | grep 'pggname =')" "graph name was copied to minimizer index"
 vg convert -g graphs/gfa_with_w_lines.gfa -x > g.xg
@@ -188,26 +188,26 @@ vg giraffe -Z auto.giraffe.gbz -m auto.shortread.withzip.min -d auto.dist -f rea
 is "$(vg view -aj read.gam | jq -r '.path.mapping[].position.name')" "Ishmael" "GFA segment names are available in output GAM when no walks exist"
 
 # reduce disk limit to 1MB to trigger it during k-mer generation
-is "$(vg autoindex -p auto -w map --gcsa-size-limit 1000000 -g graphs/linked_cycles.gfa 2>&1 | grep Rewind | wc -l)" 1 "Running out of room during k-mer enumeration triggers a rewind"
+is "$(vg autoindex -p auto -w map --gcsa-size-limit 1000000 -g graphs/linked_cycles.gfa 2>&1 | grep Rewind | wc -l | tr -d ' ')" 1 "Running out of room during k-mer enumeration triggers a rewind"
 is "$(echo $?)" 0 "Indexing is successful after rewinding from k-mer generation"
 
 rm -f auto.gcsa auto.gcsa.lcp
 
 # reduce disk limit to 2MB to trigger it during doubling steps
-is "$(vg autoindex -p auto -w map --gcsa-size-limit 2000000 -g graphs/linked_cycles.gfa 2>&1 | grep Rewind | wc -l)" 1 "Running out of room during GCSA2 indexing triggers a rewind"
+is "$(vg autoindex -p auto -w map --gcsa-size-limit 2000000 -g graphs/linked_cycles.gfa 2>&1 | grep Rewind | wc -l | tr -d ' ')" 1 "Running out of room during GCSA2 indexing triggers a rewind"
 is "$(echo $?)" 0 "Indexing is successful after rewinding from GCSA2 indexing"
 
 rm -f auto.gcsa auto.gcsa.lcp
 
 # use the memory limit to trigger a rewide
-is "$(vg autoindex -p auto -w map -M 512M -g graphs/linked_cycles.gfa 2>&1 | grep Rewind | wc -l)" 1 "Running out of memory during GCSA2 indexing triggers a rewind"
+is "$(vg autoindex -p auto -w map -M 512M -g graphs/linked_cycles.gfa 2>&1 | grep Rewind | wc -l | tr -d ' ')" 1 "Running out of memory during GCSA2 indexing triggers a rewind"
 is "$(echo $?)" 0 "Indexing is successful after rewinding from GCSA2 indexing"
 
 rm auto.*
 
 # index a graph with oversized snarls
 vg index -j auto.dist --snarl-limit 5 graphs/chain-clip.gfa 2> log.txt
-is "$(grep 'oversized snarls' log.txt | wc -l)" 1 "graph has oversized snarls"
+is "$(grep 'oversized snarls' log.txt | wc -l | tr -d ' ')" 1 "graph has oversized snarls"
 vg autoindex -p auto -w lr-giraffe --gfa graphs/chain-clip.gfa
 is "$(echo $?)" 0 "autoindexing successfully completes indexing of graph with oversized snarls"
 

@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 plan tests 10
 
-num_nodes=$(vg construct -r small/x.fa -v small/x.vcf.gz | vg ids -c - | vg view -g - | grep ^S | wc -l)
+num_nodes=$(vg construct -r small/x.fa -v small/x.vcf.gz | vg ids -c - | vg view -g - | grep ^S | wc -l | tr -d ' ')
 
 is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg ids -i 1000 - | vg ids -c - | vg view -g - | grep ^S | cut -f 2 | sort -n | head -1) 1 "minimum node as expected (id compaction correct)"
 
@@ -32,7 +32,7 @@ is $? 0 "can sort and re-number a graph with self loops"
 vg ids -s cyclic/all.vg > sorted.vg
 is $? 0 "can sort and renumber a complex cyclic graph"
 
-is $(vg ids -s ids/unordered.vg | vg view -j - | jq -r -c '.edge[] | select((.from | tonumber) > (.to | tonumber))' | wc -l) 0 "sorting removes back-edges in a DAG"
+is $(vg ids -s ids/unordered.vg | vg view -j - | jq -r -c '.edge[] | select((.from | tonumber) > (.to | tonumber))' | wc -l | tr -d ' ') 0 "sorting removes back-edges in a DAG"
 
 rm sorted.vg
 

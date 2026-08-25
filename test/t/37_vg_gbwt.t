@@ -33,9 +33,9 @@ is $(vg gbwt -c x.gbwt) 2 "chromosome X: 2 paths"
 is $(vg gbwt -C x.gbwt) 1 "chromosome X: 1 contig"
 is $(vg gbwt -H x.gbwt) 2 "chromosome X: 2 haplotypes"
 is $(vg gbwt -S x.gbwt) 1 "chromosome X: 1 sample"
-is $(vg gbwt -T x.gbwt | wc -l) 2 "chromosome X: 2 path names"
-is $(vg gbwt -C -L x.gbwt | wc -l) 1 "chromosome X: 1 contig name"
-is $(vg gbwt -S -L x.gbwt | wc -l) 1 "chromosome X: 1 sample name"
+is $(vg gbwt -T x.gbwt | wc -l | tr -d ' ') 2 "chromosome X: 2 path names"
+is $(vg gbwt -C -L x.gbwt | wc -l | tr -d ' ') 1 "chromosome X: 1 contig name"
+is $(vg gbwt -S -L x.gbwt | wc -l | tr -d ' ') 1 "chromosome X: 1 sample name"
 
 rm -f x.gbwt parse parse_x.gbwt
 rm -f parse_x parse_x_0_1
@@ -371,7 +371,7 @@ vg gbwt -g gfa2.gbz -G graphs/components_walks.gfa
 is $? 0 "GBZ construction from GFA"
 is $(md5sum gfa2.gbz | cut -f 1 -d\ ) 74d119e982352d10a3bd29f23db0ccc3 "GBZ was serialized correctly"
 vg gbwt -Z gfa2.gbz -o /dev/null --translation gfa2.trans
-is $(wc -l < gfa2.trans) 0 "no chopping: 0 translations"
+is $(wc -l | tr -d ' ' < gfa2.trans) 0 "no chopping: 0 translations"
 is "$(vg describe gfa2.gbz | grep -c 'pggname =')" 1 "GBZ contains graph name"
 
 # Build GBZ from grammar-compressed GFA
@@ -387,10 +387,10 @@ is $(vg gbwt -c -Z chopping.gbz) 3 "chopping: 3 paths"
 is $(vg gbwt -C -Z chopping.gbz) 1 "chopping: 1 contig"
 is $(vg gbwt -H -Z chopping.gbz) 3 "chopping: 3 haplotypes"
 is $(vg gbwt -S -Z chopping.gbz) 2 "chopping: 2 samples"
-is $(wc -l < chopping.trans) 9 "chopping: 9 translations"
+is $(wc -l | tr -d ' ' < chopping.trans) 9 "chopping: 9 translations"
 vg gbwt -Z chopping.gbz -o /dev/null --translation from_gbz.trans
 is $? 0 "Translation can be extracted from GBZ"
-is $(wc -l < from_gbz.trans) 8 "from GBZ: 8 translations"
+is $(wc -l | tr -d ' ' < from_gbz.trans) 8 "from GBZ: 8 translations"
 is "$(vg describe chopping.gbz | grep -c 'pggname =')" 1 "GBZ contains graph name"
 is "$(vg describe chopping.gbz | grep -c 'translation =')" 1 "GBZ contains a translation relationship"
 
@@ -401,7 +401,7 @@ is $(vg gbwt -c -Z ref_paths.gbz) 6 "ref paths: 6 paths"
 is $(vg gbwt -C -Z ref_paths.gbz) 2 "ref paths: 2 contigs"
 is $(vg gbwt -H -Z ref_paths.gbz) 3 "ref paths: 3 haplotypes"
 is $(vg gbwt -S -Z ref_paths.gbz) 2 "ref paths: 2 samples"
-is $(wc -l < ref_paths.trans) 0 "ref paths: 0 translations"
+is $(wc -l | tr -d ' ' < ref_paths.trans) 0 "ref paths: 0 translations"
 
 rm -f gfa.gbwt
 rm -f gfa2.trans gfa2.gbz gfa_grammar.gbz
@@ -416,8 +416,8 @@ is $? 0 "GBZ GBWT tag extraction works"
 is "$(grep reference_samples tags.tsv | cut -f2 | tr ' ' '\\n' | sort | tr '\\n' ' ')" "GRCh37 GRCh38" "GBWT tags contain the correct reference samples"
 vg gbwt -g gfa2.gbz -Z gfa.gbz --set-tag "reference_samples=GRCh38 CHM13"
 is $? 0 "GBZ GBWT tag modification works"
-is "$(vg paths -M -S GRCh37 -x gfa2.gbz | grep -v "^#" | cut -f2 | grep HAPLOTYPE | wc -l)" "1" "Changing reference_samples tag can make a reference a haplotype"
-is "$(vg paths -M -S CHM13 -x gfa2.gbz | grep -v "^#" | cut -f2 | grep REFERENCE | wc -l)" "1" "Changing reference_samples tag can make a haplotype a reference"
+is "$(vg paths -M -S GRCh37 -x gfa2.gbz | grep -v "^#" | cut -f2 | grep HAPLOTYPE | wc -l | tr -d ' ')" "1" "Changing reference_samples tag can make a reference a haplotype"
+is "$(vg paths -M -S CHM13 -x gfa2.gbz | grep -v "^#" | cut -f2 | grep REFERENCE | wc -l | tr -d ' ')" "1" "Changing reference_samples tag can make a haplotype a reference"
 vg gbwt -g gfa2.gbz -Z gfa.gbz --set-tag "reference_samples=GRCh38#1 CHM13" 2>/dev/null
 is $? 1 "GBZ GBWT tag modification validation works"
 vg gbwt -g gfa3.gbz --set-reference GRCh37 --set-reference CHM13 -Z gfa2.gbz
@@ -455,7 +455,7 @@ rm -f gfa.gbz gfa2.gbz gfa3.gbz tags.tsv gfa_version.gbz gfa_default.gbz
 
 # Build a GBZ from a graph with a reference but no haplotype phase number
 vg gbwt -g gfa.gbz -G graphs/gfa_two_part_reference.gfa
-is "$(vg paths -M --reference-paths -x gfa.gbz | grep -v "^#" | cut -f4 | grep NO_HAPLOTYPE | wc -l)" "2" "GBZ can represent reference paths without haplotype numbers"
+is "$(vg paths -M --reference-paths -x gfa.gbz | grep -v "^#" | cut -f4 | grep NO_HAPLOTYPE | wc -l | tr -d ' ')" "2" "GBZ can represent reference paths without haplotype numbers"
 
 rm -f gfa.gbz
 

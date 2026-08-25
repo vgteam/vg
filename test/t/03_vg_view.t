@@ -7,12 +7,12 @@ PATH=../bin:$PATH # for vg
 
 plan tests 24
 
-is $(vg construct -m 1000 -r small/x.fa -v small/x.vcf.gz | vg view -d - | wc -l) 505 "view produces the expected number of lines of dot output"
-is $(vg construct -m 1000 -r small/x.fa -v small/x.vcf.gz | vg view -g - | wc -l) 503 "view produces the expected number of lines of GFA output"
+is $(vg construct -m 1000 -r small/x.fa -v small/x.vcf.gz | vg view -d - | wc -l | tr -d ' ') 505 "view produces the expected number of lines of dot output"
+is $(vg construct -m 1000 -r small/x.fa -v small/x.vcf.gz | vg view -g - | wc -l | tr -d ' ') 503 "view produces the expected number of lines of GFA output"
 # This one may throw warnings related to dangling edges because we just take an arbitrary subset of the GFA
-is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg view - | head | vg view -Fv - | vg view - | wc -l) 10 "view converts back and forth between GFA and vg format"
+is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg view - | head | vg view -Fv - | vg view - | wc -l | tr -d ' ') 10 "view converts back and forth between GFA and vg format"
 
-is $(samtools view -u minigiab/NA12878.chr22.tiny.bam | vg view -bG - | vg view -a - | wc -l) $(samtools view -u minigiab/NA12878.chr22.tiny.bam | samtools view - | wc -l) "view can convert BAM to GAM"
+is $(samtools view -u minigiab/NA12878.chr22.tiny.bam | vg view -bG - | vg view -a - | wc -l | tr -d ' ') $(samtools view -u minigiab/NA12878.chr22.tiny.bam | samtools view - | wc -l | tr -d ' ') "view can convert BAM to GAM"
 
 is "$(samtools view -u minigiab/NA12878.chr22.tiny.bam | vg view -bG - | vg view -aj - | jq -c --sort-keys . | sort | md5sum)" "$(samtools view -u minigiab/NA12878.chr22.tiny.bam | vg view -bG - | vg view -aj - | vg view -JGa - | vg view -aj - | jq -c --sort-keys . | sort | md5sum)" "view can round-trip JSON and GAM"
 
@@ -34,31 +34,31 @@ is $? 0 "view can pass through semantically identical VG normally"
 
 rm -f x.vg x.gfa.sorted
 
-is $(samtools view -u minigiab/NA12878.chr22.tiny.bam | vg view -bG - | vg view -a - | jq .sample_name | grep -v '^"1"$' | wc -l ) 0 "view parses sample names"
+is $(samtools view -u minigiab/NA12878.chr22.tiny.bam | vg view -bG - | vg view -a - | jq .sample_name | grep -v '^"1"$' | wc -l | tr -d ' ' ) 0 "view parses sample names"
 
-is $(vg view -f ./small/x.fa_1.fastq  ./small/x.fa_2.fastq | vg view -a - | wc -l) 2000 "view can handle fastq input"
+is $(vg view -f ./small/x.fa_1.fastq  ./small/x.fa_2.fastq | vg view -a - | wc -l | tr -d ' ') 2000 "view can handle fastq input"
 
 is $(vg view -Jv ./cyclic/two_node.json | vg view -j - | jq ".edge | length") 4 "view can translate graphs with 2-node cycles"
 
-is $(vg view -g ./cyclic/all.vg | tr '\t' ' ' | grep "4 + 4 -" | wc -l) 1 "view outputs properly oriented GFA"
+is $(vg view -g ./cyclic/all.vg | tr '\t' ' ' | grep "4 + 4 -" | wc -l | tr -d ' ') 1 "view outputs properly oriented GFA"
 
-is $(vg view -d ./cyclic/all.vg | wc -l) 23 "view produces the expected number of lines of dot output from a cyclic graph"
+is $(vg view -d ./cyclic/all.vg | wc -l | tr -d ' ') 23 "view produces the expected number of lines of dot output from a cyclic graph"
 
 # We need to make a single-chunk graph
 vg construct -r small/x.fa -v small/x.vcf.gz | vg view -v - >x.vg
-is $(cat x.vg x.vg x.vg x.vg | vg view -c - | wc -l) 4 "streaming JSON output produces the expected number of chunks"
+is $(cat x.vg x.vg x.vg x.vg | vg view -c - | wc -l | tr -d ' ') 4 "streaming JSON output produces the expected number of chunks"
 
-is "$(cat x.vg x.vg | vg view -vVD - 2>&1 > /dev/null | grep warning | grep -v deprecated | wc -l)" 0 "duplicate warnings can be suppressed when loading as vg::VG"
+is "$(cat x.vg x.vg | vg view -vVD - 2>&1 > /dev/null | grep warning | grep -v deprecated | wc -l | tr -d ' ')" 0 "duplicate warnings can be suppressed when loading as vg::VG"
 
 rm x.vg
 
 vg view -Fv overlaps/two_snvs_assembly1.gfa >/dev/null 2>errors.txt
 is "${?}" "1" "gfa graphs with overlaps are rejected"
-is "$(cat errors.txt | fgrep "Input GFA is not acceptable" | wc -l)" "1" "GFA import produces a concise error message when overlaps are present"
+is "$(cat errors.txt | fgrep "Input GFA is not acceptable" | wc -l | tr -d ' ')" "1" "GFA import produces a concise error message when overlaps are present"
 
 vg view -Fv overlaps/incorrect_overlap.gfa >/dev/null 2>errors.txt
 is "$?" "1" "GFA import rejects a GFA file with an overlap that goes beyond its sequences"
-is "$(cat errors.txt | fgrep "Input GFA is not acceptable" | wc -l)" "1" "GFA import produces a concise error message in that case"
+is "$(cat errors.txt | fgrep "Input GFA is not acceptable" | wc -l | tr -d ' ')" "1" "GFA import produces a concise error message in that case"
 
 rm -f errors.txt
 
