@@ -446,7 +446,7 @@ struct Subchain {
     path_flags_t end_paths;
 
     /// Create a Subchain without recombination annotations
-    inline Subchain(vector<size_t> anchor_list) : anchors(anchor_list) {}
+    inline Subchain(const vector<size_t>& anchor_list) : anchors(anchor_list) {}
 };
 
 /// Result of finding best chains: a list of subchains and how they
@@ -569,6 +569,20 @@ struct AltEdge {
     size_t end_anchor;
     /// How much of a compromise this edge is
     size_t score_diff;
+
+    /// Build an AltEdge from loose info
+    inline AltEdge(size_t start_anchor, size_t end_anchor, size_t score_diff) 
+        : start_anchor(start_anchor), end_anchor(end_anchor), score_diff(score_diff) {}
+
+    /// Build an AltEdge with worst score
+    inline AltEdge(size_t start_anchor, size_t end_anchor) 
+        : AltEdge(start_anchor, end_anchor, std::numeric_limits<size_t>::max()) {}
+    
+    /// Build an AltEdge with completley default values
+    inline AltEdge() 
+        : AltEdge(std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max()) {}
+    
+    inline bool is_max_score_diff() const { return score_diff == numeric_limits<size_t>::max(); }
 
     /// Compare for less-than
     inline bool operator<(const AltEdge& other) const {
