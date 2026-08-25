@@ -46,10 +46,6 @@ double AlleleReadLikelihoods::best_ln_likelihood(size_t r) const {
     return read_best_ln.at(r);
 }
 
-const string& AlleleReadLikelihoods::read_name(size_t r) const {
-    return read_names.at(r);
-}
-
 double AlleleReadLikelihoods::expected_reads(const vector<int>& genotype) const {
     double total = 0.0;
     for (int allele : genotype) {

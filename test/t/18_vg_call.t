@@ -9,7 +9,7 @@ PATH=../bin:$PATH # for vg
 # FORMAT field shifts every later one, which broke four assertions here that were not
 # testing field order at all -- one of them silently compared BL against a GQ threshold.
 
-plan tests 309
+plan tests 311
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -178,6 +178,25 @@ is "${MC_DOTMARKED}" "0" "a record with no GQN is never marked lowconf"
 MC_DEFAULT=$(grep -v "^#" HGSVC_rl.vcf | awk -F'\t' '$7 ~ /lowconf/' | wc -l | tr -d ' ')
 is "${MC_DEFAULT}" "0" "lowconf does not fire without --min-confidence"
 is "$(echo "${MC_VCF}" | wc -l | tr -d ' ')" "$(grep -vc '^#' HGSVC_rl.vcf)" "--min-confidence marks records rather than dropping them"
+
+# --read-min-mapq drops reads before they reach the model, and until now nothing exercised it:
+# it was flagged as a dead option on the strength of no test and no harness use, and it is not
+# dead -- SiteReadFilter::min_mapq is applied in both read paths. Tested the same way
+# --min-confidence is, by pushing the threshold past what the data can satisfy.
+#
+# The fixture's mapping qualities run 0 to 60, so a floor of 61 must leave the model no reads at
+# all. That direction is the one worth pinning: a comparison the wrong way round would keep
+# exactly the reads the floor is meant to remove and would otherwise look like a working filter.
+MAPQ_NONE=$(vg call HGSVC_rl.xg -k HGSVC_rl.pack --read-likelihood --read-min-mapq 61 --gam call/HGSVC_chr22_17119590_17880307.gam -t 1 2>/dev/null | grep -vc "^#")
+is "${MAPQ_NONE}" "0" "--read-min-mapq above the highest mapping quality leaves no record standing"
+
+# And it bites without being all-or-nothing: total DP falls from 1077 to 290 at a floor of 30.
+# Asserted as an inequality rather than a figure, so a change in the fixture's coverage does not
+# fail a test that is about the filter.
+dp_total() { grep -v "^#" "$1" | awk -F'\t' '{nk=split($9,k,":"); n=0; for(j=1;j<=nk;j++) if(k[j]=="DP") n=j; split($10,f,":"); if(f[n] ~ /^[0-9]+$/) s+=f[n]} END{print s+0}'; }
+vg call HGSVC_rl.xg -k HGSVC_rl.pack --read-likelihood --read-min-mapq 30 --gam call/HGSVC_chr22_17119590_17880307.gam -t 1 > HGSVC_rl_q30.vcf 2>/dev/null
+is "$(awk -v a="$(dp_total HGSVC_rl_q30.vcf)" -v b="$(dp_total HGSVC_rl.vcf)" 'BEGIN{print (a > 0 && a < b) ? "yes" : "no"}')" "yes" \
+   "--read-min-mapq 30 removes read depth without removing all of it"
 
 # GQN is a fraction of what the site could have achieved, so it is bounded. An
 # unbounded value would mean the denominator had gone wrong -- which is exactly the

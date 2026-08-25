@@ -160,10 +160,6 @@ size_t WindowedSiteReadSource::window_of(nid_t id) const {
     return (size_t)(id / (nid_t)window_size);
 }
 
-size_t WindowedSiteReadSource::get_cache_entries() const {
-    return cache_entries;
-}
-
 bool WindowedSiteReadSource::passes_filter(const Alignment& aln) const {
     if (filter.skip_secondary && aln.is_secondary()) {
         ++filtered;

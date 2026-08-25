@@ -231,9 +231,6 @@ protected:
     /// the order in which it filters and counts.
     void count_fetched() const;
 
-    /// How many cache slots each thread gets. For sizing per-thread state.
-    size_t get_cache_entries() const;
-
     SiteReadFilter filter;
 
 private:

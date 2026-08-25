@@ -93,9 +93,6 @@ public:
     /// fit, kept for diagnostics and as a realignment trigger.
     double best_ln_likelihood(size_t r) const;
 
-    /// Name of read r, for the likelihood dump. May be empty.
-    const string& read_name(size_t r) const;
-
     /// How many reads were dropped for placing on no allele at all. A rising
     /// count means the read source is over-fetching, or the reads and the graph
     /// do not match.
