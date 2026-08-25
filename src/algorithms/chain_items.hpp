@@ -316,9 +316,8 @@ public:
 
     /// Put self into this sorted list of TracedScores, if its score justifies
     /// Will not change size of "current", but will just shift things around
-    /// Use the eval_bonuses to look up evaluation bonuses for the current winners
     /// Return whether we are put as the first (i.e. top winner) of the vector
-    bool insert_self(vector<TracedScore>& current, const vector<int>& eval_bonuses, int my_eval_bonus, int nowhere_eval_bonus);
+    bool insert_self(vector<TracedScore>& current, int old_eval_bonus, int my_eval_bonus);
     
     /// Add (or remove) points along a route to somewhere. Return a modified copy.
     TracedScore add_points(int adjustment) const;

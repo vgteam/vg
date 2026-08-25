@@ -66,16 +66,13 @@ TracedScore TracedScore::add_points(int adjustment) const {
     return {this->score + adjustment, this->source, this->paths, this->rec_num};
 }
 
-bool TracedScore::insert_self(vector<TracedScore>& current, const vector<int>& eval_bonuses,
-                              int my_eval_bonus, int nowhere_eval_bonus) {
+bool TracedScore::insert_self(vector<TracedScore>& current, int old_eval_bonus, int my_eval_bonus) {
     // Figure out which index to insert this element at
     int insert_after_index = current.size() - 1;
     while (insert_after_index >= 0) {
         TracedScore& item = current[insert_after_index];
-        int other_eval = (item.source == TracedScore::nowhere()) ? item.score + nowhere_eval_bonus
-                                                                 : item.score + eval_bonuses[item.source];
-        if (other_eval > this->score + my_eval_bonus
-            || (other_eval == this->score + my_eval_bonus && item > *this)) {
+        if (item.score + old_eval_bonus > this->score + my_eval_bonus
+            || (item.score + old_eval_bonus == this->score + my_eval_bonus && item > *this)) {
             // This item beats me, so we need to insert after it
             break;
         }
@@ -85,6 +82,10 @@ bool TracedScore::insert_self(vector<TracedScore>& current, const vector<int>& e
         }
         insert_after_index--;
     }
+
+#ifdef debug_dp
+    cerr << "insert " << this->source << " after index " << insert_after_index << endl;
+#endif
 
     if (insert_after_index == current.size() - 1) {
         // This item shouldn't be used at all
@@ -492,22 +493,12 @@ void chain_items_dp(vector<vector<TracedScore>>& chain_scores,
             here_gvnode = "i" + std::to_string(transition.to_anchor);
         }
         
-        // If we come from nowhere, we get those points.
-        // This also has full path conservation (bonus = scheme.consistency_bonus).
-        {
-            TracedScore from_nowhere = {(int)item_points, TracedScore::nowhere(), here.anchor_end_paths()};
-            int nowhere_bonus = scheme.consistency_bonus;
-            if (from_nowhere.insert_self(chain_scores[transition.to_anchor], eval_bonuses, nowhere_bonus, nowhere_bonus)) {
-                eval_bonuses[transition.to_anchor] = nowhere_bonus;
-            }
-        }
-        
         // For each source we could come from
         auto& source = to_chain[transition.from_anchor];
             
         if (show_work) {
 #ifdef debug_dp
-            cerr << "\t\tCome from score " << chain_scores[transition.from_anchor]
+            cerr << "\t\tCome from score " << chain_scores[transition.from_anchor].front()
                  << " across " << source << " to " << here << endl;
 #endif
         }
@@ -561,8 +552,8 @@ void chain_items_dp(vector<vector<TracedScore>>& chain_scores,
             // Recombination case (no shared paths): bonus stays 0
         }
 
-        if (from_source_score.insert_self(chain_scores[transition.to_anchor], eval_bonuses, 
-                                          eval_bonus_from, scheme.consistency_bonus)) {
+        if (from_source_score.insert_self(chain_scores[transition.to_anchor], 
+                                          eval_bonuses[transition.to_anchor], eval_bonus_from)) {
             eval_bonuses[transition.to_anchor] = eval_bonus_from;
         }
                                         
