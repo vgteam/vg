@@ -1471,14 +1471,10 @@ void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeFo
                 anchor_view,
                 *distance_index,
                 gbwt_graph,
-                aln.sequence().size(),
                 for_each_transition,
                 scheme,
                 this->max_chains_per_tree,
-                this->max_alts,
-                this->max_alt_lookback_score,
                 indel_limit,
-                this->extra_tail_grace_window,
                 show_work);
 
             for (auto& group : new_groups) {

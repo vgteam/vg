@@ -553,13 +553,6 @@ void chain_items_dp(vector<vector<TracedScore>>& chain_scores,
                     bool show_work = false);
 
 /**
- * Count the number of recombination events forced by this chain.
- * 
- * Used for rescoring purposes.
- */
-size_t count_recombinations(const vector<size_t>& chain, const VectorView<Anchor>& to_chain);
-
-/**
  * Count the number of recombination events forced by walking the given
  * subchains of the given group, in order: those forced inside each subchain
  * plus those forced by the connections between them.
@@ -608,28 +601,20 @@ void chain_items_traceback(const vector<vector<TracedScore>>& chain_scores,
                            vector<SparseAnchorChain>& tracebacks,
                            vector<AltEdge>& connections,
                            const ChainScoringScheme& scheme = ChainScoringScheme(),
-                           size_t max_tracebacks = 1,
-                           size_t max_alt_lookback = 10);
+                           size_t max_tracebacks = 1);
 
 /**
  * Generate subchains from multiple tracebacks.
  * 
  * Split up tracebacks when possible inter-chain alternatives exist.
  * Save connections between subchains, pulling from edges in tracebacks
- * as well as up to max_alts alternative edges (ranked by score differential).
+ * and connections.
  * 
  * If no edges connect the tracebacks then they are returned separately.
- * 
- * Trims the tails of tracebacks if they would force a tail which is
- * more than extra_tail_grace_window longer than twice the shortest tail
- * (left/right ends treated separately). Trimmed bits are not saved.
  */
 vector<SubchainGroup> split_up_subchains(const VectorView<Anchor>& to_chain,
                                          const vector<SparseAnchorChain>& original_tracebacks,
-                                         const vector<AltEdge>& connections,
-                                         size_t max_alts,
-                                         size_t read_length,
-                                         size_t extra_tail_grace_window);
+                                         const vector<AltEdge>& connections);
 
 /**
  * Chain up the given group of items. Determines the best scores and
@@ -644,14 +629,10 @@ vector<SubchainGroup> split_up_subchains(const VectorView<Anchor>& to_chain,
 vector<SubchainGroup> find_best_chains(const VectorView<Anchor>& to_chain,
                                        const SnarlDistanceIndex& distance_index,
                                        const HandleGraph& graph,
-                                       size_t read_length,
                                        const transition_iterator& for_each_transition,
                                        const ChainScoringScheme& scheme = ChainScoringScheme(),
                                        size_t max_chains = 1,
-                                       size_t max_alts = 5,
-                                       size_t max_alt_lookback = 5,
                                        size_t max_indel_bases = 100,
-                                       size_t extra_tail_grace_window = 100,
                                        bool show_work = false);
 
 /**
@@ -666,11 +647,9 @@ vector<SubchainGroup> find_best_chains(const VectorView<Anchor>& to_chain,
 SparseAnchorChain find_best_chain(const VectorView<Anchor>& to_chain,
                                   const SnarlDistanceIndex& distance_index,
                                   const HandleGraph& graph,
-                                  size_t read_length,
                                   const transition_iterator& for_each_transition,
                                   const ChainScoringScheme& scheme = ChainScoringScheme(),
-                                  size_t max_indel_bases = 100,
-                                  size_t extra_tail_grace_window = 100);
+                                  size_t max_indel_bases = 100);
 
 /// Score a chaining gap using the Minimap2 method. See
 /// <https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6137996/> near equation 2.
