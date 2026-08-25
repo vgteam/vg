@@ -260,7 +260,7 @@ vg call HGSVC_rl.xg -k HGSVC_rl.pack --read-likelihood -t 1 > /dev/null 2> rl_er
 is "$?" "1" "--read-likelihood without --gam/--gaf is an error"
 is $(grep -c "requires reads" rl_err.txt) "1" "the error explains that reads are required"
 
-rm -f HGSVC_rl.xg HGSVC_rl.pack HGSVC_rl.vcf HGSVC_rl_nosq.vcf HGSVC_rl_default.vcf rl_err.txt
+rm -f HGSVC_rl.xg HGSVC_rl.pack HGSVC_rl.vcf HGSVC_rl_nosq.vcf HGSVC_rl_default.vcf HGSVC_rl_q30.vcf rl_err.txt
 
 vg construct -a -r small/x.fa -v small/x.vcf.gz > x.vg
 vg index -x x.xg x.vg -L
