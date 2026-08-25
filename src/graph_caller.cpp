@@ -778,6 +778,10 @@ void VCFOutputCaller::resolve_linkage() {
     }
 }
 
+size_t VCFOutputCaller::record_key_of(const Snarl& snarl) const {
+    return std::hash<string>{}(print_snarl(snarl, false));
+}
+
 void VCFOutputCaller::build_render_phases() {
     // Built between the barrier and the render, from the phasing the barrier accumulated.
     //
@@ -975,8 +979,10 @@ void VCFOutputCaller::write_variants(ostream& out_stream, const SnarlManager* sn
         int ret = zstdutil::DecompressString(v.second, dest);
         assert(ret == 0);
         // The record key is the hash of the ID column, which is how the linkage layer keyed the
-        // site, so the identity is recoverable from the line itself and nothing extra has to be
-        // carried through the compressed buffer. Computed once, lazily: several records can share
+        // site -- see `record_key_of`, which every producer goes through -- so the identity is
+        // recoverable from the line itself and nothing extra has to be carried through the
+        // compressed buffer. This is the producer that cannot be changed, so it is the one that
+        // fixes the form for the other six. Computed once, lazily: several records can share
         // a (contig, position), and every patch below must land on its own record, not the first
         // line at the position.
         size_t line_key = 0;
@@ -2827,7 +2833,7 @@ bool VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCa
     // of chr20's 192,045 top-level sites -- and then patched in against the line. Here the map is
     // `trav_to_allele`, complete and correct, a few lines above.
     if (!genotype.empty() && emit_phasing && !render_phases.empty()) {
-        auto found = render_phases.find(std::hash<string>{}(print_snarl(snarl, false)));
+        auto found = render_phases.find(record_key_of(snarl));
         if (found != render_phases.end()) {
             const LinkageCollector::PhaseCall& phase = found->second;
             // `find`, not `operator[]` and not a bounds check against `size()`. This is a
@@ -3024,7 +3030,7 @@ bool VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCa
                 trav_to_allele_vec[kv.first] = kv.second;
             }
         }
-        linkage_collector->set_allele_map(std::hash<string>{}(out_variant.id), trav_to_allele_vec,
+        linkage_collector->set_allele_map(record_key_of(snarl), trav_to_allele_vec,
                                           added);
     }
     if (wants_line && !added) {
@@ -4588,7 +4594,7 @@ unique_ptr<FlowCaller::PendingRecord> FlowCaller::stage_render_record(
     rec->ref_trav_idx = ref_trav_idx;
     rec->genotype = trav_genotype;
     rec->ploidy = ploidy;
-    rec->record_key = std::hash<string>{}(print_snarl(snarl, false));
+    rec->record_key = record_key_of(snarl);
     rec->generation = 0;
     rec->emitted = emitted;
     rec->call_info = std::move(call_info);
@@ -4664,7 +4670,7 @@ void FlowCaller::record_site(const Snarl& snarl, const vector<SnarlTraversal>& t
         rl_info->genotype_lls,
         panel_alleles(graph, travs),
         called_i, called_j, no_allele_map,
-        std::hash<string>{}(print_snarl(snarl, false)),
+        record_key_of(snarl),
         rl_info->explained_share, site_ploidy,
         (int64_t)snarl.start().node_id(), (int64_t)snarl.end().node_id(),
         nested_context.active, nested_context.parent_record_key,
@@ -5681,7 +5687,7 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
             pending_this->ref_trav_idx = ref_trav_idx;
             pending_this->genotype = trav_genotype;
             pending_this->ploidy = ploidy;
-            pending_this->record_key = std::hash<string>{}(print_snarl(snarl, false));
+            pending_this->record_key = record_key_of(snarl);
             pending_this->parent_record_key = nested_context.parent_record_key;
             pending_this->parent_crossing = nested_context.parent_crossing;
             pending_this->crossing_known = nested_context.crossing_known;
@@ -5903,7 +5909,7 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
                 // children must see *it* as their parent, not this snarl.
                 NestedContext saved = nested_context;
                 nested_context.active = (copies == 1);
-                nested_context.parent_record_key = std::hash<string>{}(print_snarl(snarl, false));
+                nested_context.parent_record_key = record_key_of(snarl);
                 nested_context.parent_trav = carrying_trav;
                 nested_context.retain_only = retain_only;
                 bool crossing_known = parent_alleles.valid;

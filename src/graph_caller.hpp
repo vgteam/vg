@@ -688,6 +688,22 @@ protected:
     /// The same as above, but print the snarl as if its orientation has been flipped
     string print_flipped_snarl(const Snarl& snarl, bool in_brackets = false) const;
 
+    /// The linkage layer's identity for a site.
+    ///
+    /// It has to be the hash of the printed snarl and not something cheaper, because there is a
+    /// seventh producer that cannot follow a change: `write_variants` recovers a buffered line's
+    /// key by re-hashing the line's own ID column, which `emit_variant` set from `print_snarl`.
+    /// That is what lets a compressed record be matched to its linkage entry with nothing carried
+    /// alongside it, and it is what makes the key survive `--translation`, where both sides print
+    /// the translated form.
+    ///
+    /// Packing the two boundary node IDs directly was tried and is about 0.15 s faster on chr20.
+    /// It also takes that run's 19,472 linkage-quality patches to zero, because the key in the
+    /// file cannot be repacked. Kept as one function instead, so the six call sites and the
+    /// recovery in `write_variants` are a single statement apart rather than six copies of an
+    /// expression that has to agree with a string.
+    size_t record_key_of(const Snarl& snarl) const;
+
     /// do the opposite of above
     /// So a string that looks like AACT(>12<17)TTT would invoke the callback three times with
     /// ("AACT", Snarl), ("", Snarl(12,-17)), ("TTT", Snarl(12,-17))
