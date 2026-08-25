@@ -998,8 +998,16 @@ vector<SubchainGroup> find_best_chains(const VectorView<Anchor>& to_chain,
         return {SubchainGroup()};
     }
 
-    vector<SubchainGroup> subchain_groups = split_up_subchains(
-        to_chain, tracebacks, connections);
+    // Get rid of tracebacks that are much, much worse than the best
+    for (size_t i = 1; i < tracebacks.size(); i++) {
+        if (tracebacks[i].chain_score < tracebacks[0].chain_score / 10) {
+            // Cut off at this point
+            tracebacks.resize(i);
+            break;
+        }
+    }
+
+    vector<SubchainGroup> subchain_groups = split_up_subchains(to_chain, tracebacks, connections);
 
     for (SubchainGroup& group : subchain_groups) {
         for (Subchain& subchain : group.subchains) {
