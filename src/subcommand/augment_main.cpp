@@ -21,7 +21,6 @@
 #include <fstream>
 
 #include "subcommand.hpp"
-#include "../option.hpp"
 #include "../xg.hpp"
 #include "../vg.hpp"
 #include "../augment.hpp"
@@ -39,7 +38,7 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
-void help_augment(char** argv, ConfigurableParser& parser) {
+void help_augment(char** argv) {
     cerr << "usage: " << argv[0] << " augment [options] <graph.vg> [alignment.gam] > augmented_graph.vg" << endl
          << "Embed GAM alignments into a graph to facilitate variant calling" << endl
          << endl
@@ -67,15 +66,6 @@ void help_augment(char** argv, ConfigurableParser& parser) {
          << "loci file options:" << endl
          << "  -l, --include-loci FILE    merge all alleles in loci into the graph" << endl       
          << "  -L, --include-gt FILE      merge only alleles in called genotypes into graph" << endl;
-    
-     // Then report more options
-     parser.print_help(cerr);
-}
-
-// A version taking only argv to make the subcommand registry happy
-void help_augment_default(char** argv) {
-    ConfigurableParser empty_parser;
-    help_augment(argv, empty_parser);
 }
 
 int main_augment(int argc, char** argv) {
@@ -139,39 +129,45 @@ int main_augment(int argc, char** argv) {
     // Print verbose message
     bool verbose = false;
 
-    static const struct option long_options[] = {
-        // Deprecated Options
-        {"augmentation-mode", required_argument, 0, 'a'},
-        // General Options
-        {"translation", required_argument, 0, 'Z'},
-        {"alignment-out", required_argument, 0, 'A'},
-        {"include-paths", no_argument, 0, 'i'},
-        {"cut-softclips", no_argument, 0, 'C'},
-        {"keep-softclips", no_argument, 0, 'S'},
-        {"label-paths", no_argument, 0, 'B'},
-        {"subgraph", no_argument, 0, 's'},
-        {"min-coverage", required_argument, 0, 'm'},
-        {"expected-cov", required_argument, 0, 'c'},
-        {"min-baseq", required_argument, 0, 'q'},
-        {"min-mapq", required_argument, 0, 'Q'},
-        {"max-n", required_argument, 0, 'N'},
-        {"edges-only", no_argument, 0, 'E'},
-        {"gaf", no_argument, 0, 'F'},
-        {"help", no_argument, 0, 'h'},
-        {"progress", no_argument, 0, 'p'},
-        {"verbose", no_argument, 0, 'v'},
-        {"threads", required_argument, 0, 't'},
-        // Loci Options
-        {"include-loci", required_argument, 0, 'l'},
-        {"include-gt", required_argument, 0, 'L'},
-        {0, 0, 0, 0}
-    };
-    static const char* short_options = "a:Z:A:iCSBh?pvt:l:L:sm:c:q:Q:N:EF";
-    optind = 2; // force optind past command positional arguments
+    int c;
+    optind = 2; // force optind past command positional argument
+    while (true) {
+        static struct option long_options[] = {
+            // Deprecated Options
+            {"augmentation-mode", required_argument, 0, 'a'},
+            // General Options
+            {"translation", required_argument, 0, 'Z'},
+            {"alignment-out", required_argument, 0, 'A'},
+            {"include-paths", no_argument, 0, 'i'},
+            {"cut-softclips", no_argument, 0, 'C'},
+            {"keep-softclips", no_argument, 0, 'S'},
+            {"label-paths", no_argument, 0, 'B'},
+            {"subgraph", no_argument, 0, 's'},
+            {"min-coverage", required_argument, 0, 'm'},
+            {"expected-cov", required_argument, 0, 'c'},
+            {"min-baseq", required_argument, 0, 'q'},
+            {"min-mapq", required_argument, 0, 'Q'},
+            {"max-n", required_argument, 0, 'N'},
+            {"edges-only", no_argument, 0, 'E'},
+            {"gaf", no_argument, 0, 'F'},
+            {"help", no_argument, 0, 'h'},
+            {"progress", no_argument, 0, 'p'},
+            {"verbose", no_argument, 0, 'v'},
+            {"threads", required_argument, 0, 't'},
+            // Loci Options
+            {"include-loci", required_argument, 0, 'l'},
+            {"include-gt", required_argument, 0, 'L'},
+            {0, 0, 0, 0}
+        };
 
-    // This is our command-line parser
-    ConfigurableParser parser(short_options, long_options, [&](int c) {
-        // Parse all the options we have defined here.
+        int option_index = 0;
+        c = getopt_long (argc, argv, "a:Z:A:iCSBh?pvt:l:L:sm:c:q:Q:N:EF",
+                         long_options, &option_index);
+
+        /* Detect the end of the options. */
+        if (c == -1)
+            break;
+
         switch (c)
         {
             // Deprecated.
@@ -224,8 +220,7 @@ int main_augment(int argc, char** argv) {
             break;
         case 'h':
         case '?':
-            /* getopt_long already printed an error message. */
-            help_augment(argv, parser);
+            help_augment(argv);
             exit(1);
             break;
         case 'p':
@@ -247,15 +242,12 @@ int main_augment(int argc, char** argv) {
         default:
           abort ();
         }
-    });
-
-    if (argc == 2) {
-        help_augment(argv, parser);
-        return 1;
     }
 
-    // Parse the command line options, updating optind.
-    parser.parse(argc, argv);
+    if (argc == 2) {
+        help_augment(argv);
+        return 1;
+    }
 
     // Parse the two positional arguments
     if (optind + 1 > argc) {
@@ -439,4 +431,4 @@ int main_augment(int argc, char** argv) {
 // Register subcommand
 static Subcommand vg_augment("augment", "augment a graph from alignments", PIPELINE, 8,
                              vector<manpage_item>{{MANIPULATE_ALN, "embed alignments into a graph", ""}},
-                             help_augment_default, main_augment);
+                             help_augment, main_augment);
