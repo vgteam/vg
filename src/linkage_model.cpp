@@ -1227,6 +1227,46 @@ vector<int> LinkageCollector::compact_allele_space(
     return vector<int>(needed.begin(), needed.end());
 }
 
+LinkageCollector::CompactSite LinkageCollector::compact_site(
+        const map<vector<int>, double>& genotype_ln_likelihood,
+        const vector<int>& haplotype_traversal,
+        int called_trav_i, int called_trav_j, size_t ploidy) const {
+    CompactSite cs;
+    cs.space = compact_allele_space(genotype_ln_likelihood, haplotype_traversal,
+                                    called_trav_i, called_trav_j);
+    if (cs.space.empty() || cs.space.size() > 127) {
+        return cs;
+    }
+    cs.ci = cs.compact_of(called_trav_i);
+    cs.cj = called_trav_j >= 0 ? cs.compact_of(called_trav_j) : cs.ci;
+    if (cs.ci < 0 || cs.cj < 0) {
+        return cs;   // cannot happen: the called pair is in the space by construction
+    }
+    const size_t k = cs.space.size();
+    cs.site_ploidy = (ploidy == 1 ? 1 : 2);
+    const size_t n_gt = cs.site_ploidy == 1 ? k : k * (k + 1) / 2;
+    cs.gls.assign(n_gt, -numeric_limits<float>::infinity());
+    for (const auto& kv : genotype_ln_likelihood) {
+        if (kv.first.size() != cs.site_ploidy) {
+            continue;
+        }
+        if (cs.site_ploidy == 1) {
+            int a = cs.compact_of(kv.first[0]);
+            if (a >= 0) {
+                cs.gls[(size_t)a] = (float)kv.second;
+            }
+            continue;
+        }
+        int a = cs.compact_of(kv.first[0]);
+        int b = cs.compact_of(kv.first[1]);
+        if (a >= 0 && b >= 0) {
+            cs.gls[LinkageModel::genotype_index((size_t)a, (size_t)b)] = (float)kv.second;
+        }
+    }
+    cs.ok = true;
+    return cs;
+}
+
 void LinkageCollector::record(const string& contig, size_t position,
                               const map<vector<int>, double>& genotype_ln_likelihood,
                               const vector<int>& haplotype_traversal,
@@ -1241,50 +1281,20 @@ void LinkageCollector::record(const string& contig, size_t position,
     if (genotype_ln_likelihood.empty() || called_trav_i < 0) {
         return;
     }
-    vector<int> space = compact_allele_space(genotype_ln_likelihood, haplotype_traversal,
-                                             called_trav_i, called_trav_j);
-    if (space.empty() || space.size() > 127) {
-        // int8 in the panel arena caps a site at 127 alleles; one that exceeded it would lose
-        // linkage rather than be mis-linked, which is the safe direction.
+    // int8 in the panel arena caps a site at 127 alleles; one that exceeded it would lose linkage
+    // rather than be mis-linked, which is the safe direction. `ok` covers that and the two other
+    // ways a site cannot be described.
+    const CompactSite cs = compact_site(genotype_ln_likelihood, haplotype_traversal,
+                                        called_trav_i, called_trav_j, ploidy);
+    if (!cs.ok) {
         return;
     }
+    const vector<int>& space = cs.space;
+    const vector<float>& gls = cs.gls;
     const size_t k = space.size();
-    // candidate traversal -> compact allele
-    map<int, int> compact;
-    for (size_t i = 0; i < k; ++i) {
-        compact[space[i]] = (int)i;
-    }
-    auto compact_of = [&](int trav) -> int {
-        auto it = compact.find(trav);
-        return it == compact.end() ? -1 : it->second;
-    };
-
-    const int ci = compact_of(called_trav_i);
-    const int cj = called_trav_j >= 0 ? compact_of(called_trav_j) : ci;
-    if (ci < 0 || cj < 0) {
-        return;   // cannot happen: the called pair is in the space by construction
-    }
-
-    const size_t site_ploidy = (ploidy == 1 ? 1 : 2);
-    const size_t n_gt = site_ploidy == 1 ? k : k * (k + 1) / 2;
-    vector<float> gls(n_gt, -numeric_limits<float>::infinity());
-    for (const auto& kv : genotype_ln_likelihood) {
-        if (kv.first.size() != site_ploidy) {
-            continue;
-        }
-        if (site_ploidy == 1) {
-            int a = compact_of(kv.first[0]);
-            if (a >= 0) {
-                gls[(size_t)a] = (float)kv.second;
-            }
-            continue;
-        }
-        int a = compact_of(kv.first[0]);
-        int b = compact_of(kv.first[1]);
-        if (a >= 0 && b >= 0) {
-            gls[LinkageModel::genotype_index((size_t)a, (size_t)b)] = (float)kv.second;
-        }
-    }
+    const int ci = cs.ci, cj = cs.cj;
+    const size_t site_ploidy = cs.site_ploidy;
+    auto compact_of = [&](int trav) { return cs.compact_of(trav); };
 
     lock_guard<std::mutex> guard(mutex);
 
@@ -1403,46 +1413,19 @@ bool LinkageCollector::respecify(size_t record_key,
         return false;
     }
     // The same compact space `record` builds, from the same inputs, so a revised site is described
-    // exactly as a freshly recorded one would be.
-    vector<int> space = compact_allele_space(genotype_ln_likelihood, haplotype_traversal,
-                                            called_trav_i, called_trav_j);
-    if (space.empty() || space.size() > 127) {
+    // exactly as a freshly recorded one would be -- now by construction rather than by two copies
+    // agreeing.
+    const CompactSite cs = compact_site(genotype_ln_likelihood, haplotype_traversal,
+                                        called_trav_i, called_trav_j, ploidy);
+    if (!cs.ok) {
         return false;
     }
+    const vector<int>& space = cs.space;
+    const vector<float>& gls = cs.gls;
     const size_t k = space.size();
-    map<int, int> compact;
-    for (size_t i = 0; i < k; ++i) {
-        compact[space[i]] = (int)i;
-    }
-    auto compact_of = [&](int trav) -> int {
-        auto it = compact.find(trav);
-        return it == compact.end() ? -1 : it->second;
-    };
-    const int ci = compact_of(called_trav_i);
-    const int cj = called_trav_j >= 0 ? compact_of(called_trav_j) : ci;
-    if (ci < 0 || cj < 0) {
-        return false;
-    }
-    const size_t site_ploidy = (ploidy == 1 ? 1 : 2);
-    const size_t n_gt = site_ploidy == 1 ? k : k * (k + 1) / 2;
-    vector<float> gls(n_gt, -numeric_limits<float>::infinity());
-    for (const auto& kv : genotype_ln_likelihood) {
-        if (kv.first.size() != site_ploidy) {
-            continue;
-        }
-        if (site_ploidy == 1) {
-            int a = compact_of(kv.first[0]);
-            if (a >= 0) {
-                gls[(size_t)a] = (float)kv.second;
-            }
-            continue;
-        }
-        int a = compact_of(kv.first[0]);
-        int b = compact_of(kv.first[1]);
-        if (a >= 0 && b >= 0) {
-            gls[LinkageModel::genotype_index((size_t)a, (size_t)b)] = (float)kv.second;
-        }
-    }
+    const int ci = cs.ci, cj = cs.cj;
+    const size_t site_ploidy = cs.site_ploidy;
+    auto compact_of = [&](int trav) { return cs.compact_of(trav); };
 
     lock_guard<std::mutex> guard(mutex);
     const uint32_t found = live_index(record_key);
@@ -1604,6 +1587,35 @@ bool LinkageCollector::retract(size_t record_key) {
     }
     entries[found].retracted = true;
     return true;
+}
+
+/// Split the settled compact pair into the two things that consume it: the traversal on each
+/// strand, which is the genome fact a crossing mask and a haplotype path are expressed in, and the
+/// VCF allele on each strand, which is the only form the renderer can write.
+///
+/// Leaving `allele_*` compact made the phased-GT guard reject the pair and silently drop the
+/// record's phasing -- 1,528 extra strandless records on chr20. It was spelled out three times,
+/// in the diploid chain, the nested-strand pass and the haploid pass, with that warning copied
+/// alongside each.
+///
+/// The three copies had drifted: only the diploid one also widened `order_arbitrary` on a
+/// fallback. The other two are ploidy-1 populations, where the pair is one allele twice and the
+/// test cannot fire, so folding it in changes nothing -- asserted by byte-identity rather than
+/// argued.
+void LinkageCollector::finish_phase_call(PhaseCall& pc, const Entry& e, size_t& fallbacks) const {
+    const size_t c_first = pc.allele_first, c_second = pc.allele_second;
+    pc.trav_first = traversal_of(trav_arena, e.trav_offset, e.num_alleles, c_first);
+    pc.trav_second = traversal_of(trav_arena, e.trav_offset, e.num_alleles, c_second);
+    int v_first = -1, v_second = -1;
+    bool fell_back = false;
+    render_phase_pair(allele_arena, e.allele_offset, e.num_alleles, c_first, c_second,
+                      e.called_i, e.called_j, &v_first, &v_second, &fell_back);
+    pc.allele_first = v_first >= 0 ? (size_t)v_first : LinkageModel::WILDCARD;
+    pc.allele_second = v_second >= 0 ? (size_t)v_second : LinkageModel::WILDCARD;
+    if (fell_back) {
+        ++fallbacks;
+        pc.order_arbitrary = pc.order_arbitrary || (v_first != v_second);
+    }
 }
 
 size_t LinkageCollector::resolve_generation(
@@ -1949,26 +1961,7 @@ size_t LinkageCollector::resolve_generation(
                 pc.allele_second = j;
                 pc.order_arbitrary = (i != j);
             }
-            // The compact pair is the collector's own numbering. Split it here into the two things that
-            // consume it: the traversal on each strand, which is the genome fact a crossing mask and a
-            // haplotype path are expressed in, and the VCF allele on each strand, which is the only form
-            // the renderer can write. Leaving allele_* compact made the phased-GT guard reject the pair and
-            // silently drop the record's phasing -- 1,528 extra strandless records on chr20.
-            {
-                const size_t c_first = pc.allele_first, c_second = pc.allele_second;
-                pc.trav_first = traversal_of(trav_arena, e.trav_offset, e.num_alleles, c_first);
-                pc.trav_second = traversal_of(trav_arena, e.trav_offset, e.num_alleles, c_second);
-                int v_first = -1, v_second = -1;
-                bool fell_back = false;
-                render_phase_pair(allele_arena, e.allele_offset, e.num_alleles, c_first, c_second,
-                                  e.called_i, e.called_j, &v_first, &v_second, &fell_back);
-                pc.allele_first = v_first >= 0 ? (size_t)v_first : LinkageModel::WILDCARD;
-                pc.allele_second = v_second >= 0 ? (size_t)v_second : LinkageModel::WILDCARD;
-                if (fell_back) {
-                    ++phase_fallback;
-                    pc.order_arbitrary = pc.order_arbitrary || (v_first != v_second);
-                }
-            }
+            finish_phase_call(pc, e, phase_fallback);
             phasing_out->push_back(pc);
         }
     }
@@ -2199,25 +2192,7 @@ size_t LinkageCollector::resolve_generation(
                 // be checked against the allele the site actually settles on -- which is not known
                 // until the per-strand pass below has run.
                 nested_entry_of[pc.record_key] = idx;
-                // The compact pair is the collector's own numbering. Split it here into the two things that
-                // consume it: the traversal on each strand, which is the genome fact a crossing mask and a
-                // haplotype path are expressed in, and the VCF allele on each strand, which is the only form
-                // the renderer can write. Leaving allele_* compact made the phased-GT guard reject the pair and
-                // silently drop the record's phasing -- 1,528 extra strandless records on chr20.
-                {
-                    const size_t c_first = pc.allele_first, c_second = pc.allele_second;
-                    pc.trav_first = traversal_of(trav_arena, e.trav_offset, e.num_alleles, c_first);
-                    pc.trav_second = traversal_of(trav_arena, e.trav_offset, e.num_alleles, c_second);
-                    int v_first = -1, v_second = -1;
-                    bool fell_back = false;
-                    render_phase_pair(allele_arena, e.allele_offset, e.num_alleles, c_first, c_second,
-                                      e.called_i, e.called_j, &v_first, &v_second, &fell_back);
-                    pc.allele_first = v_first >= 0 ? (size_t)v_first : LinkageModel::WILDCARD;
-                    pc.allele_second = v_second >= 0 ? (size_t)v_second : LinkageModel::WILDCARD;
-                    if (fell_back) {
-                        ++phase_fallback;
-                    }
-                }
+                finish_phase_call(pc, e, phase_fallback);
                 // Registered only now. This used to sit above the block that assigns
                 // `pc.trav_first`/`trav_second`, so the entry it left for a deeper site carried the
                 // default -1. Harmless today only by accident -- the seed at the top of every pass
@@ -2296,25 +2271,7 @@ size_t LinkageCollector::resolve_generation(
                         pc.phase_set = blocks.front().second;
                     }
                 }
-                // The compact pair is the collector's own numbering. Split it here into the two things that
-                // consume it: the traversal on each strand, which is the genome fact a crossing mask and a
-                // haplotype path are expressed in, and the VCF allele on each strand, which is the only form
-                // the renderer can write. Leaving allele_* compact made the phased-GT guard reject the pair and
-                // silently drop the record's phasing -- 1,528 extra strandless records on chr20.
-                {
-                    const size_t c_first = pc.allele_first, c_second = pc.allele_second;
-                    pc.trav_first = traversal_of(trav_arena, e.trav_offset, e.num_alleles, c_first);
-                    pc.trav_second = traversal_of(trav_arena, e.trav_offset, e.num_alleles, c_second);
-                    int v_first = -1, v_second = -1;
-                    bool fell_back = false;
-                    render_phase_pair(allele_arena, e.allele_offset, e.num_alleles, c_first, c_second,
-                                      e.called_i, e.called_j, &v_first, &v_second, &fell_back);
-                    pc.allele_first = v_first >= 0 ? (size_t)v_first : LinkageModel::WILDCARD;
-                    pc.allele_second = v_second >= 0 ? (size_t)v_second : LinkageModel::WILDCARD;
-                    if (fell_back) {
-                        ++phase_fallback;
-                    }
-                }
+                finish_phase_call(pc, e, phase_fallback);
                 phasing_out->push_back(pc);
             }
         }

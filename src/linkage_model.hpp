@@ -11,6 +11,7 @@
  * measured. That record belongs with the code that implements it and is not duplicated there.
  */
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <map>
@@ -779,6 +780,40 @@ private:
 
     /// The first non-retracted entry with this key, or NO_ENTRY. Call with `mutex` held.
     uint32_t live_index(size_t record_key) const;
+
+    /// Split a settled compact pair into the traversal and the VCF allele on each strand.
+    void finish_phase_call(PhaseCall& pc, const Entry& e, size_t& fallbacks) const;
+
+    /// The compact allele space a site is described in, with the genotype likelihoods folded into
+    /// it. `record` and `respecify` built this identically -- 42 shared lines, 35 of them in two
+    /// contiguous runs -- because a revised site has to be described exactly as a freshly recorded
+    /// one would be. Now they cannot disagree about it.
+    struct CompactSite {
+        /// Compact allele -> candidate traversal, sorted by candidate index, so the numbering is a
+        /// property of the site rather than of the order the genotypes arrived in.
+        vector<int> space;
+        /// Genotype likelihoods over the compact space, in `LinkageModel::genotype_index` layout.
+        vector<float> gls;
+        /// The called pair, compacted. Both are >= 0 whenever `ok`.
+        int ci = -1, cj = -1;
+        size_t site_ploidy = 0;
+        bool ok = false;
+
+        /// Candidate traversal -> compact allele, or -1. `space` is sorted, so this is a search
+        /// rather than the `map<int, int>` both callers used to build and throw away -- one map
+        /// and up to 127 node allocations per site, on every site of the contig.
+        int compact_of(int trav) const {
+            auto it = std::lower_bound(space.begin(), space.end(), trav);
+            return (it == space.end() || *it != trav) ? -1 : (int)(it - space.begin());
+        }
+    };
+
+    /// Build the compact space and fold the likelihoods into it. `ok` is false where the site
+    /// cannot be described: no candidates, more than the 127 an int8 arena can name, or a called
+    /// traversal that is not in its own space.
+    CompactSite compact_site(const map<vector<int>, double>& genotype_ln_likelihood,
+                             const vector<int>& haplotype_traversal,
+                             int called_trav_i, int called_trav_j, size_t ploidy) const;
 
     mutable std::mutex mutex;
 };
