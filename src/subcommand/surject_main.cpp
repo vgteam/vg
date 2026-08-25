@@ -170,9 +170,9 @@ static void smells_paired_error(const Logger& logger, const string& name) {
     #pragma omp critical (cerr)
     logger.error() << "Read " << name << " seems to have been aligned as a "
                    << "paired-end read. Provide either the -i/--interleaved "
-                   << "option and a value for -f/--max-frag-len to surject as "
-                   << "paired-end, or -U/--force-unpaired to interpret as "
-                   << "single-ended." << endl;
+                   << "option (and, ideally, a value for -f/--max-frag-len) "
+                   << "to surject as paired-end, or -U/--force-unpaired "
+                   << "to surject as single-ended anyway." << endl;
 }
 
 /// This is a helper for the cases where we find two alignments
