@@ -1738,15 +1738,34 @@ size_t LinkageCollector::resolve_generation(
         // 0, and nested sites are held out of these runs by construction, so every generation
         // after the first re-decoded the whole contig and threw the answer away: five passes over
         // chr20's 192,045 top-level sites, 5.9 s each, 30 s of a 328 s run.
-        bool any_at_generation = false;
+        // How much of this decode is live, and how much of the rest is pinned.
+        //
+        // Reported because it sizes the one optimisation left in this loop. A per-site pin zeroes
+        // every state but one, so it severs the path: a site of this generation depends only on
+        // the sites between its bracketing pins, and the chain could be cut there and decoded in
+        // pieces. On chr20 that is 209,244 sites decoded for 17,199 live ones at generation 1 and
+        // 211,952 for 22 at generation 4 -- about 20 s of a 187 s run.
+        //
+        // Not done, and the reason is in the two numbers rather than in the idea: it needs the
+        // phase set to keep coming from the whole chain rather than from a piece of it, and it
+        // rests on every pin being accepted, where `window_phasing` may decline one whose pair
+        // cannot spell the site's constrained genotype. Both are checkable; neither is free.
+        size_t live_here = 0, pinned_here = 0;
         for (size_t idx : indices) {
             if (entries[idx].generation == generation) {
-                any_at_generation = true;
-                break;
+                ++live_here;
+            } else if (pinned_phase.count(entries[idx].record_key) != 0) {
+                ++pinned_here;
             }
         }
-        if (!any_at_generation) {
+        if (live_here == 0) {
             continue;
+        }
+        if (generation > 0) {
+#pragma omp critical (cerr)
+            std::cerr << "[vg call] linkage generation " << generation << ": chain decodes "
+                      << indices.size() << " sites for " << live_here << " of its own, "
+                      << pinned_here << " pinned" << std::endl;
         }
         // A one-site chain has nothing to link to, so linkage cannot move its genotype -- but it
         // still has to be *phased*, or it never reaches phasing_out and the mosaic stops accounting
