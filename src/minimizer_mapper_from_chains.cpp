@@ -1699,7 +1699,9 @@ void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::ve
     // Apply the max min chain score limit
     chain_min_score = std::min(chain_min_score, max_min_chain_score);
     vector<int> max_sparse_chain_scores;
+    int best_max_sparse_chain_score = 0;
     for (const auto& group : subchain_groups) {
+        best_max_sparse_chain_score = std::max(best_max_sparse_chain_score, group.max_sparse_chain_score);
         max_sparse_chain_scores.emplace_back(group.max_sparse_chain_score);
     }
 
@@ -1767,9 +1769,16 @@ void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::ve
                 }
                 return false;
             }
+
+            if (max_sparse_chain_scores[processed_num] < best_max_sparse_chain_score - chain_score_threshold
+                && alns_made >= min_chains) {
+                // We've made our target number of alignments, and this score is below the threshold
+                discard_chain_by_score(processed_num);
+                return false;
+            }
         
             if (max_sparse_chain_scores[processed_num] < chain_min_score) {
-                // Actually discard by score
+                // This is so low score we don't want to align even if we have few other candidates
                 discard_chain_by_score(processed_num);
                 return false;
             }
