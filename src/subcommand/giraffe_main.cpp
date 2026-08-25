@@ -94,8 +94,6 @@ struct ScoringOptions {
     int8_t full_length_bonus = default_full_length_bonus;
 };
 
-const static std::set<std::string> GIRAFFE_PRESET_NAMES = std::set<std::string>({"chaining-sr", "default", "fast", "hifi", "r10", "srold"});
-
 static std::unique_ptr<GroupedOptionGroup> get_options() {
     std::unique_ptr<GroupedOptionGroup> parser(new GroupedOptionGroup());
     
@@ -675,18 +673,7 @@ void help_giraffe(char** argv, const BaseOptionGroup& parser, bool full_help) {
          << "  -p, --progress                show progress" << endl
          << "  -t, --threads N               number of mapping threads to use" << endl
          << "  -b, --parameter-preset NAME   set computational parameters [default]" << endl
-         << "                                (";
-    for (auto p = GIRAFFE_PRESET_NAMES.begin(); p != GIRAFFE_PRESET_NAMES.end(); ++p) {
-        // Announce each preset name, slash-separated
-        cerr << *p;
-        auto next_p = p;
-        ++next_p;
-        if (next_p != GIRAFFE_PRESET_NAMES.end()) {
-            // There's another preset.
-            cerr << " / ";
-        }
-    }
-    cerr << ")" << endl
+         << "                                (default / fast / hifi / r10 / srold)" << endl
          << "  -h, --help                    print full help with all available options" << endl;
 
     cerr << "input options:" << endl
@@ -944,9 +931,6 @@ int main_giraffe(int argc, char** argv) {
 
     // Map preset names to presets
     std::map<std::string, Preset> presets;
-    for (const auto& preset_name : GIRAFFE_PRESET_NAMES) {
-        presets[preset_name] = Preset();
-    }
     // We have a fast preset that sets a bunch of stuff
     presets["fast"]
         .add_entry<size_t>("hit-cap", 10)
