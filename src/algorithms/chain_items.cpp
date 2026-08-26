@@ -691,19 +691,20 @@ void chain_items_traceback(const vector<vector<TracedScore>>& chain_scores,
         return chain_scores[a] > chain_scores[b];
     });
     
-    // To see if an item is used we have this vector tracking its chain start
-    vector<size_t> parent_start(chain_scores.size(), TracedScore::nowhere());
+    // We don't want to use an item multiple times
+    vector<bool> is_used(chain_scores.size(), false);
     
     for (auto& trace_from : starts_in_score_order) {
-        if (parent_start[trace_from] != TracedScore::nowhere()) {
-            for (size_t alt_i = 1; alt_i < chain_scores[trace_from].size(); alt_i++) {
-                // Are they different anchors in different chains?
-                if (chain_scores[trace_from][alt_i].source != TracedScore::nowhere()
-                    && parent_start[chain_scores[trace_from][alt_i].source] != parent_start[trace_from]) {
-                    size_t score_diff = chain_scores[trace_from].front().score - chain_scores[trace_from][alt_i].score;
-                    connections.emplace_back(chain_scores[trace_from][alt_i].source, trace_from, score_diff);
-                }
+        // Save alt edges
+        for (size_t alt_i = 1; alt_i < chain_scores[trace_from].size(); alt_i++) {
+            if (chain_scores[trace_from][alt_i].source != TracedScore::nowhere()) {
+                connections.emplace_back(chain_scores[trace_from][alt_i].source,
+                                        trace_from,
+                                        chain_scores[trace_from].front().score - chain_scores[trace_from][alt_i].score);
             }
+        }
+        if (is_used[trace_from]) {
+            // We can't trace back from here
             continue;
         }
         // For each unused item in score order, start a traceback stack (in reverse order)
@@ -723,10 +724,10 @@ void chain_items_traceback(const vector<vector<TracedScore>>& chain_scores,
             std::cerr << "\t\tanchor #" << here << ": " << to_chain[here] << std::endl;
 #endif
             // Mark here as used. Happens once per item, and so limits runtime.
-            parent_start[here] = trace_from;
+            is_used[here] = true;
             size_t next = chain_scores[here].front().source;
             if (next != TracedScore::nowhere()) {
-                if (parent_start[next] != TracedScore::nowhere()) {
+                if (is_used[next]) {
                     // Save this extra edge we tried to use
                     connections.emplace_back(next, here, 0);
 
@@ -741,15 +742,6 @@ void chain_items_traceback(const vector<vector<TracedScore>>& chain_scores,
                 } else {
                     // Add to the traceback
                     cur_anchors.push_back(next);
-                    // Though we want to remember other alts too
-                    for (size_t alt_i = 1; alt_i < chain_scores[here].size(); alt_i++) {
-                        // Are they different anchors in different chains?
-                        if (chain_scores[here][alt_i].source != TracedScore::nowhere()
-                            && parent_start[chain_scores[here][alt_i].source] != parent_start[here]) {
-                            size_t score_diff = chain_scores[here].front().score - chain_scores[here][alt_i].score;
-                            connections.emplace_back(chain_scores[here][alt_i].source, here, score_diff);
-                        }
-                    }
                 }
             }
             here = next;
