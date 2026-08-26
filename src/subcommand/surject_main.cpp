@@ -461,7 +461,8 @@ int main_surject(int argc, char** argv) {
     if (interleaved && !max_frag_len.has_value()) {
         // TODO: Once we get fragment distribution learning, this will be less of a problem. 
         logger.warn() << "Running in paired-end mode without -f/--max-frag-len. "
-                      << "Reads will be assumed to be properly paired at any distance!" << endl;
+                      << "Reads will be assumed to be properly paired at any distance!" << endl
+                      << "Direct surjection with Giraffe uses a max fragment length of (mean + 6 * stdv)." << endl;
     } 
     if (interleaved && force_unpaired) {
         logger.error() << "Cannot use -U/--force-unpaired and -i/--interleaved at the same time. "
