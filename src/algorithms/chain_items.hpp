@@ -305,7 +305,7 @@ public:
     /// What's the default value for an empty table cell?
     /// Use a function instead of a constant because that's easier when we're just a header.
     inline static TracedScore unset() {
-        return {0, nowhere(), 0};
+        return {0, 0, nowhere(), 0};
     }
     
     /// Max in a score from a DP table. If it wins, record provenance.
@@ -316,8 +316,7 @@ public:
 
     /// Put self into this sorted list of TracedScores, if its score justifies
     /// Will not change size of "current", but will just shift things around
-    /// Return whether we are put as the first (i.e. top winner) of the vector
-    bool insert_self(vector<TracedScore>& current, int old_eval_bonus, int my_eval_bonus);
+    void try_to_insert_self(vector<TracedScore>& current) const;
     
     /// Add (or remove) points along a route to somewhere. Return a modified copy.
     TracedScore add_points(int adjustment) const;
@@ -337,21 +336,39 @@ public:
     
     /// Compare for less-than
     inline bool operator<(const TracedScore& other) const {
-        return score < other.score || (score == other.score && source < other.source);
+        if (score + eval_bonus != other.score + other.eval_bonus) {
+            return score + eval_bonus < other.score + other.eval_bonus;
+        } else if (score != other.score) {
+            return score < other.score;
+        } else {
+            return source < other.source;
+        }
     }
     
     /// Compare for greater-than
     inline bool operator>(const TracedScore& other) const {
-        return score > other.score || (score == other.score && source > other.source);
-    }
-    
-    /// Subtraction to yield a difference in points
-    inline int operator-(const TracedScore& other) const {
-        return score - other.score;
+        if (score + eval_bonus != other.score + other.eval_bonus) {
+            return score + eval_bonus > other.score + other.eval_bonus;
+        } else if (score != other.score) {
+            return score > other.score;
+        } else {
+            return source > other.source;
+        }
     }
     
     // Number of points
     int score;
+    // Evaluation-time bonus for haplotype consistency
+    // We want to prefer to come from seeds where the transition preserves
+    // access to matching haplotypes, because we don't want to back ourselves
+    // into a corner where we need a recombination when we don't really have
+    // to. So we cheat on the dynamic programming by adding an "evaluation
+    // bonus" to the scores of the different DP options when comparing them. We
+    // keep this bonus out of the actual recorded scores because we don't want
+    // it raising the scores we actually get the more transitions we take.
+    //
+    // Starting from nowhere means full path conservation, so bonus = scheme.consistency_bonus.
+    int eval_bonus;
     // Index of source score among possibilities/traceback pointer
     size_t source;
     /// Supported paths

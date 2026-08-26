@@ -39,9 +39,9 @@ ostream& operator<<(ostream& out, const Anchor& anchor) {
 
 ostream& operator<<(ostream& out, const TracedScore& value) {
     if (value.source == TracedScore::nowhere()) {
-        return out << value.score << " from nowhere";
+        return out << value.score << " (eval +" << value.eval_bonus << ") from nowhere";
     }
-    return out << value.score << " from #" << value.source;
+    return out << value.score << " (eval +" << value.eval_bonus << ") from #" << value.source;
 }
 
 
@@ -50,6 +50,7 @@ void TracedScore::max_in(const vector<vector<TracedScore>>& options, size_t opti
     if (option.score > this->score || this->source == nowhere()) {
         // This is the new winner.
         this->score = option.score;
+        this->eval_bonus = option.eval_bonus;
         this->source = option_number;
         this->paths = option.paths;
         this->rec_num = option.rec_num;
@@ -63,16 +64,14 @@ TracedScore TracedScore::score_from(const vector<vector<TracedScore>>& options, 
 }
 
 TracedScore TracedScore::add_points(int adjustment) const {
-    return {this->score + adjustment, this->source, this->paths, this->rec_num};
+    return {this->score + adjustment, this->eval_bonus, this->source, this->paths, this->rec_num};
 }
 
-bool TracedScore::insert_self(vector<TracedScore>& current, int old_eval_bonus, int my_eval_bonus) {
+void TracedScore::try_to_insert_self(vector<TracedScore>& current) const {
     // Figure out which index to insert this element at
     int insert_after_index = current.size() - 1;
     while (insert_after_index >= 0) {
-        TracedScore& item = current[insert_after_index];
-        if (item.score + old_eval_bonus > this->score + my_eval_bonus
-            || (item.score + old_eval_bonus == this->score + my_eval_bonus && item > *this)) {
+        if (current[insert_after_index] > *this) {
             // This item beats me, so we need to insert after it
             break;
         }
@@ -83,18 +82,9 @@ bool TracedScore::insert_self(vector<TracedScore>& current, int old_eval_bonus, 
         insert_after_index--;
     }
 
-#ifdef debug_dp
-    cerr << "insert " << this->source << " after index " << insert_after_index << endl;
-#endif
-
-    if (insert_after_index == current.size() - 1) {
-        // This item shouldn't be used at all
-        return false;
+    if (insert_after_index != current.size() - 1) {
+        current[insert_after_index+1] = *this;
     }
-
-    current[insert_after_index+1] = *this;
-    // Did we insert at the front?
-    return insert_after_index == -1;
 }
 
 TracedScore TracedScore::set_shared_paths(const std::pair<size_t,size_t>& new_paths) const {
@@ -116,6 +106,7 @@ TracedScore TracedScore::set_shared_paths(const std::pair<size_t,size_t>& new_pa
     }
     return {
         this->score,
+        this->eval_bonus,
         this->source,
         updated_paths,
         rec_num
@@ -463,11 +454,11 @@ void chain_items_dp(vector<vector<TracedScore>>& chain_scores,
     // each seed in this vector, which runs alongside the DP table.
     //
     // Starting from nowhere means full path conservation, so bonus = scheme.consistency_bonus.
-    std::vector<int> eval_bonuses(to_chain.size(), scheme.consistency_bonus);
     for (size_t i = 0; i < to_chain.size(); i++) {
         // Set up DP table so we can start anywhere with that item's score, with bonus applied.
         chain_scores[i] = std::vector<TracedScore>(max_predecessors,
-            {to_chain[i].score() + scheme.item_bonus, TracedScore::nowhere(), to_chain[i].anchor_end_paths()});
+            {to_chain[i].score() + scheme.item_bonus, scheme.consistency_bonus,
+             TracedScore::nowhere(), to_chain[i].anchor_end_paths()});
     }
 
     // We will run this over every transition in a good DP order.
@@ -541,21 +532,18 @@ void chain_items_dp(vector<vector<TracedScore>>& chain_scores,
         // Evaluate heuristic to preserve path flexibility without inflating actual scoring DP.
         // Bonus = fraction of conserved paths * scheme.consistency_bonus.
         // Bonus is 0 when recombination occurs (no shared paths).
-        int eval_bonus_from = 0;
+        from_source_score.eval_bonus = 0;
         if (scheme.consistency_bonus > 0) {
             int pre_count = __builtin_popcountll(source_score.paths);
             if (pre_count > 0 && (source_score.paths & here.anchor_start_paths()) != 0) {
                 // No recombination: bonus = fraction of paths conserved * penalty
                 int post_count = __builtin_popcountll(from_source_score.paths);
-                eval_bonus_from = (scheme.consistency_bonus * post_count) / pre_count;
+                from_source_score.eval_bonus = (scheme.consistency_bonus * post_count) / pre_count;
             }
             // Recombination case (no shared paths): bonus stays 0
         }
 
-        if (from_source_score.insert_self(chain_scores[transition.to_anchor], 
-                                          eval_bonuses[transition.to_anchor], eval_bonus_from)) {
-            eval_bonuses[transition.to_anchor] = eval_bonus_from;
-        }
+        from_source_score.try_to_insert_self(chain_scores[transition.to_anchor]);
                                         
         if (show_work) {
 #ifdef debug_dp
