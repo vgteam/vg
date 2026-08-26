@@ -38,7 +38,7 @@ using namespace std;
     
     Surjector::Surjector(const PathPositionHandleGraph* graph) : graph(graph), choose_band_padding(algorithms::pad_band_constant(1)) {
         if (!graph) {
-            cerr << "error:[Surjector] Failed to provide an graph to the Surjector" << endl;
+            cerr << "error:[Surjector] Failed to provide a graph to the Surjector" << endl;
             exit(1);
         }
         

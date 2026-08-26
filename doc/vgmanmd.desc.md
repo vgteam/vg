@@ -29,7 +29,6 @@ For more in-depth explanations of tools and workflows, see the [general wiki pag
     - [`vg call`](#call): call or genotype VCF variants. Uses [vg pack](#pack). [wiki page](https://github.com/vgteam/vg/wiki/SV-Genotyping-and-variant-calling)
     - [`vg deconstruct`](#deconstruct): create a VCF from variation in the graph. [wiki page](https://github.com/vgteam/vg/wiki/VCF-export-with-vg-deconstruct)
     - [`vg depth`](#depth): calculate path coverage depth or aggregate alignment coverage Also see [vg pack](#pack)
-    - [`vg genotype`](#genotype): alternative, less-tested, FreeBayes-like genotyper.
     - [`vg pack`](#pack): convert alignments to a compact coverage index. Used with [vg call](#call)
     - [`vg primers`](#primers): filter primers based on variation in a graph. [wiki page](https://github.com/vgteam/vg/wiki/Primer-Filter)
     - [`vg viz`](#viz): visualize a graph. [wiki page](https://github.com/vgteam/vg/wiki/Complex-graph-visualization#using-vg-viz)

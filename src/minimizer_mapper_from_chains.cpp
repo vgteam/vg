@@ -1647,11 +1647,9 @@ void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeFo
                 anchor_view,
                 *distance_index,
                 gbwt_graph,
-                get_regular_aligner()->scorer->gap_open,
-                get_regular_aligner()->scorer->gap_extension,
                 for_each_transition,
                 scheme,
-                this->max_alignments,
+                this->max_chains_per_tree,
                 indel_limit,
                 show_work
             );
@@ -1993,7 +1991,7 @@ void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::ve
     
     // Go through the chains in estimated-score order.
     process_until_threshold_b<int>(chain_score_estimates,
-        chain_score_threshold, min_chains, max_alignments, rng, 
+        chain_score_threshold, target_alignment_attempts, max_alignments, rng, 
         [&](size_t processed_num, size_t item_count) -> bool {
             // This chain is good enough.
             // Called in descending score order.
