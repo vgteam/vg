@@ -976,6 +976,7 @@ vector<SubchainGroup> find_best_chains(const VectorView<Anchor>& to_chain,
                                        const ChainScoringScheme& scheme,
                                        size_t max_chains,
                                        size_t max_indel_bases,
+                                       size_t min_chain_score,
                                        bool show_work) {
 
     if (to_chain.empty()) {
@@ -1001,7 +1002,11 @@ vector<SubchainGroup> find_best_chains(const VectorView<Anchor>& to_chain,
 
     // Get rid of tracebacks that are much, much worse than the best
     for (size_t i = 1; i < tracebacks.size(); i++) {
-        if (tracebacks[i].chain_score < tracebacks[0].chain_score / 10) {
+        if (tracebacks[i].chain_score < min_chain_score) {
+#ifdef debug_chaining
+            cerr << "Cutting down to " << i << " tracebacks because a further one has score "
+                 << tracebacks[i].chain_score << " < " << min_chain_score << endl; 
+#endif
             // Cut off at this point
             tracebacks.resize(i);
             break;
@@ -1061,23 +1066,24 @@ SparseAnchorChain find_best_chain(const VectorView<Anchor>& to_chain,
                                   const HandleGraph& graph,
                                   const transition_iterator& for_each_transition,
                                   const ChainScoringScheme& scheme,
-                                  size_t max_indel_bases) {
-    SubchainGroup group = find_best_chains(to_chain,
-                                           distance_index,
-                                           graph,
-                                           for_each_transition,
-                                           scheme,
-                                           1, // Only one chain needed!
-                                           max_indel_bases
-                                           ).front();
-    if (group.subchains.empty()) {
+                                  size_t max_indel_bases,
+                                  size_t min_chain_score) {
+    vector<SubchainGroup> groups = find_best_chains(to_chain,
+                                                   distance_index,
+                                                   graph,
+                                                   for_each_transition,
+                                                   scheme,
+                                                   1, // Only one chain needed!
+                                                   max_indel_bases,
+                                                   min_chain_score);
+    if (groups.empty() || groups.front().subchains.empty()) {
         // We got nothing
         return SparseAnchorChain();
     }
 
     SparseAnchorChain output;
-    output.anchors = group.subchains.front().anchors;
-    output.chain_score = group.max_sparse_chain_score;
+    output.anchors = groups.front().subchains.front().anchors;
+    output.chain_score = groups.front().max_sparse_chain_score;
     
     return output;
 }
