@@ -55,11 +55,11 @@ static HashGraph make_long_graph(size_t nodes, size_t length = 32) {
 static HashGraph make_x_graph() {
     // Set up graph fixture
     HashGraph graph = make_disconnected_graph(9, 10);
-    // 1-3-5-6 diagonal
+    // 2-4-6-7 diagonal
     graph.create_edge(graph.get_handle(2, false), graph.get_handle(4, false));
     graph.create_edge(graph.get_handle(4, false), graph.get_handle(6, false));
     graph.create_edge(graph.get_handle(6, false), graph.get_handle(7, false));
-    // 2-3-4-7 diagonal
+    // 3-4-5-8 diagonal
     graph.create_edge(graph.get_handle(3, false), graph.get_handle(4, false));
     graph.create_edge(graph.get_handle(4, false), graph.get_handle(5, false));
     graph.create_edge(graph.get_handle(5, false), graph.get_handle(8, false));
@@ -211,12 +211,113 @@ TEST_CASE("find_best_chain is willing to leave the main diagonal if the items su
     REQUIRE(result.anchors == std::vector<size_t>{0, 1, 2, 3});
 }
 
+TEST_CASE("Multi chain on only one good chain", "[chain_items]") {
+    // Set up graph fixture
+    HashGraph graph = make_long_graph(3, 10);
+    auto h = get_handles(graph);
+
+    // One anchor on each node
+    // read start, graph handle and offset, length, and score
+    auto to_score = make_anchors({{1, h[1], 0, 5, 5},
+                                  {11, h[2], 0, 5, 5},
+                                  {21, h[3], 0, 5, 5}}, graph);
+    
+    /// Actually run the chaining and test
+    auto result = run_ziptree_iterator_multi_chain(graph, to_score, 3);
+    // Only one path through
+    REQUIRE(result.front().subchains.size() == 1);
+    REQUIRE(result.front().connections.size() == 0);
+    // Single subchain has both tails
+    REQUIRE(result.front().subchains[0].add_left_tail);
+    REQUIRE(result.front().subchains[0].add_right_tail);
+}
+
+TEST_CASE("Gap between two tracebacks", "[chain_items]") {
+    // Set up graph fixture
+    HashGraph graph = make_long_graph(4, 10);
+    auto h = get_handles(graph);
+
+    // Large indel will force two separate tracebacks
+    // read start, graph handle and offset, length, and score
+    auto to_score = make_anchors({{1, h[1], 0, 5, 5},
+                                  {11, h[2], 0, 5, 5},
+                                  {101, h[3], 0, 5, 1},
+                                  {111, h[4], 0, 5, 1}}, graph);
+    
+    /// Actually run the chaining and test
+    auto result = run_ziptree_iterator_multi_chain(graph, to_score, 3);
+    // Two separate subchains
+    REQUIRE(result.front().subchains.size() == 2);
+    REQUIRE(result.front().connections.size() == 1);
+    // Both have both tails
+    REQUIRE(result.front().subchains[0].add_left_tail);
+    REQUIRE(result.front().subchains[0].add_right_tail);
+    REQUIRE(result.front().subchains[1].add_left_tail);
+    REQUIRE(result.front().subchains[1].add_right_tail);
+}
+
+TEST_CASE("Simple Y case", "[chain_items]") {
+    // Set up graph fixture
+    HashGraph graph = make_x_graph();
+    auto h = get_handles(graph);
+
+    // 4-5-8 and 4-6-7
+    // read start, graph handle and offset, length, and score
+    auto to_score = make_anchors({{11, h[4], 0, 5, 5},
+                                  {21, h[5], 0, 5, 5},
+                                  {21, h[6], 0, 5, 5},
+                                  {31, h[7], 0, 10, 10},
+                                  {31, h[8], 0, 10, 10}}, graph);
+    
+    /// Actually run the chaining and test
+    auto result = run_ziptree_iterator_multi_chain(graph, to_score, 3);
+    // We should see all possible paths
+    REQUIRE(result.front().subchains.size() == 3);
+    REQUIRE(result.front().connections.size() == 2);
+    // First subchains is left tail
+    REQUIRE(result.front().subchains[0].add_left_tail);
+    REQUIRE(!result.front().subchains[0].add_right_tail);
+    // Others are right tails
+    // Last two subchains are right tails
+    REQUIRE(result.front().subchains[1].add_right_tail);
+    REQUIRE(result.front().subchains[2].add_right_tail);
+    // One will be a left tail too because it was its own traceback
+    REQUIRE(result.front().subchains[1].add_left_tail + result.front().subchains[2].add_left_tail == 1);
+}
+
+TEST_CASE("Reverse Y case", "[chain_items]") {
+    // Set up graph fixture
+    HashGraph graph = make_x_graph();
+    auto h = get_handles(graph);
+
+    // 2-4 and 3-4
+    // read start, graph handle and offset, length, and score
+    auto to_score = make_anchors({{1, h[2], 0, 5, 5},
+                                  {1, h[3], 0, 5, 5},
+                                  {11, h[4], 0, 5, 5}}, graph);
+    
+    /// Actually run the chaining and test
+    auto result = run_ziptree_iterator_multi_chain(graph, to_score, 3);
+    // We should see all possible paths
+    REQUIRE(result.front().subchains.size() == 3);
+    REQUIRE(result.front().connections.size() == 2);
+    // First two subchains are left tails
+    REQUIRE(result.front().subchains[0].add_left_tail);
+    REQUIRE(result.front().subchains[1].add_left_tail);
+    // One will be a right tail too because it was its own traceback
+    REQUIRE(result.front().subchains[1].add_right_tail + result.front().subchains[2].add_right_tail == 1);
+    // Last is right tail
+    // Last two subchains are right tails
+    REQUIRE(!result.front().subchains[2].add_left_tail);
+    REQUIRE(result.front().subchains[2].add_right_tail);
+}
+
 TEST_CASE("Simple X case", "[chain_items]") {
     // Set up graph fixture
     HashGraph graph = make_x_graph();
     auto h = get_handles(graph);
 
-    // One anchor on each node
+    // 2-4-6-7 and 3-4-5-8
     // read start, graph handle and offset, length, and score
     auto to_score = make_anchors({{1, h[2], 0, 5, 5},
                                   {1, h[3], 0, 5, 5},
@@ -231,6 +332,19 @@ TEST_CASE("Simple X case", "[chain_items]") {
     // We should see all possible paths
     REQUIRE(result.front().subchains.size() == 5);
     REQUIRE(result.front().connections.size() == 4);
+    // First two subchains are left tails
+    REQUIRE(result.front().subchains[0].add_left_tail);
+    REQUIRE(result.front().subchains[1].add_left_tail);
+    // One will be a right tail too because it was its own traceback
+    REQUIRE(result.front().subchains[0].add_right_tail + result.front().subchains[1].add_right_tail == 1);
+    // Middle is neither
+    REQUIRE(!result.front().subchains[2].add_left_tail);
+    REQUIRE(!result.front().subchains[2].add_right_tail);
+    // Last two subchains are right tails
+    REQUIRE(result.front().subchains[3].add_right_tail);
+    REQUIRE(result.front().subchains[4].add_right_tail);
+    // One will be a left tail too because it was its own traceback
+    REQUIRE(result.front().subchains[3].add_left_tail + result.front().subchains[4].add_left_tail == 1);
 }
 
 TEST_CASE("X with different length chains", "[chain_items]") {

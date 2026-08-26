@@ -785,8 +785,8 @@ vector<SubchainGroup> split_up_subchains(const VectorView<Anchor>& to_chain,
 
     // Where to search for subchains (we must guarantee they start in read order)
     priority_queue<size_t, vector<size_t>, std::greater<size_t>> trace_from;
-    // Stored as {(edge anchor, right tail) : edge}
-    unordered_map<pair<size_t, bool>, AltEdge> extra_edges;
+    // Best tie-ins for each tail end
+    unordered_map<TailAnchor, AltEdge> tail_edges;
 
     // Where we will save results
     vector<SubchainGroup> output;
@@ -795,8 +795,8 @@ vector<SubchainGroup> split_up_subchains(const VectorView<Anchor>& to_chain,
     for (size_t i = 0; i < original_tracebacks.size(); i++) {
         const vector<size_t>& cur_anchors = original_tracebacks[i].anchors;
         // Placeholder tie-ins that we want to fix later
-        extra_edges.emplace(make_pair(cur_anchors.front(), false), AltEdge(TracedScore::nowhere(), cur_anchors.front()));
-        extra_edges.emplace(make_pair(cur_anchors.back(), true), AltEdge(cur_anchors.back(), TracedScore::nowhere()));
+        tail_edges.emplace(original_tracebacks[i].left_tail(), AltEdge(TracedScore::nowhere(), cur_anchors.front()));
+        tail_edges.emplace(original_tracebacks[i].right_tail(), AltEdge(cur_anchors.back(), TracedScore::nowhere()));
 #ifdef debug_chaining
         cerr << "Chain: ";
 #endif
@@ -819,25 +819,25 @@ vector<SubchainGroup> split_up_subchains(const VectorView<Anchor>& to_chain,
 #ifdef debug_chaining
             cerr << "Extra edge " << edge.start_anchor << " --> " << edge.end_anchor << " score diff " << edge.score_diff << endl;
 #endif
-            pair<size_t, bool> right_tie_in = make_pair(edge.start_anchor, true);
-            pair<size_t, bool> left_tie_in = make_pair(edge.end_anchor, false);
-            if (extra_edges.count(right_tie_in) && extra_edges.at(right_tie_in) > edge) {
+            TailAnchor right_tie_in(edge.start_anchor, false);
+            TailAnchor left_tie_in(edge.end_anchor, true);
+            if (tail_edges.count(right_tie_in) && tail_edges.at(right_tie_in) > edge) {
                 // Best right tie-in so far
-                extra_edges[right_tie_in] = edge;
+                tail_edges[right_tie_in] = edge;
             }
-            if (extra_edges.count(left_tie_in) && extra_edges.at(left_tie_in) > edge) {
+            if (tail_edges.count(left_tie_in) && tail_edges.at(left_tie_in) > edge) {
                 // Best left tie-in so far
-                extra_edges[left_tie_in] = edge;
+                tail_edges[left_tie_in] = edge;
             }
         }
     }
 
     // Which of the tracebacks link up?
     vector<bool> is_joined_up(original_tracebacks.size(), false);
-    for (const auto& tie_in : extra_edges) {
+    for (const auto& tie_in : tail_edges) {
         const AltEdge& edge = tie_in.second;
         if (!edge.is_max_score_diff()) {
-        // Use this extra edge
+            // Use this extra edge
             outgoing_edges[edge.start_anchor].emplace(edge.end_anchor);
             incoming_edges[edge.end_anchor].emplace(edge.start_anchor);
             // Remember that these tracebacks are connected
@@ -855,7 +855,7 @@ vector<SubchainGroup> split_up_subchains(const VectorView<Anchor>& to_chain,
 #endif
             // This traceback is disjoint and should be returned separately
             output.emplace_back();
-            output.back().subchains.emplace_back(original_tracebacks[i].anchors);
+            output.back().subchains.emplace_back(original_tracebacks[i].anchors, true);
             output.back().max_sparse_chain_score = original_tracebacks[i].chain_score;
         } else {
             // We'll tie this traceback in to the rest
@@ -914,10 +914,14 @@ vector<SubchainGroup> split_up_subchains(const VectorView<Anchor>& to_chain,
                 // This anchor can't trace outwards at all
                 break;
             }           
-            // If we've reached a decision point, then save all next edges
+            // If we've reached a decision point,
+            // or the end of a traceback, then save all next edges
             // We have reached the end of one subchain
+            size_t next_anchor_id = *outgoing_edges[cur_anchor_id].begin();
             if (outgoing_edges[cur_anchor_id].size() > 1 
-                || incoming_edges[*outgoing_edges[cur_anchor_id].begin()].size() > 1) {
+                || incoming_edges[next_anchor_id].size() > 1
+                || tail_edges.count(TailAnchor(cur_anchor_id, false))
+                || tail_edges.count(TailAnchor(next_anchor_id, true))) {
                 for (const auto& next : outgoing_edges[cur_anchor_id]) {
                     // We need to start a new trace from here
 #ifdef debug_chaining
@@ -929,7 +933,7 @@ vector<SubchainGroup> split_up_subchains(const VectorView<Anchor>& to_chain,
             }
             
             // Otherwise, trace into the next edge
-            cur_anchor_id = *outgoing_edges[cur_anchor_id].begin();
+            cur_anchor_id = next_anchor_id;
             output.back().subchains.back().anchors.emplace_back(cur_anchor_id);
             subchain_id[cur_anchor_id] = cur_subchain_id;
 #ifdef debug_chaining
@@ -941,13 +945,22 @@ vector<SubchainGroup> split_up_subchains(const VectorView<Anchor>& to_chain,
     // Make all inter-subchain connections necessary
     for (size_t i = 0; i < output.back().subchains.size(); i++) {
         // Loop over any way to exit this subchain
-        for (const auto& next : outgoing_edges[output.back().subchains[i].anchors.back()]) {
+        Subchain& cur_subchain = output.back().subchains[i];
+        for (const auto& next : outgoing_edges[cur_subchain.anchors.back()]) {
             if (next != std::numeric_limits<size_t>::max()) {
                 output.back().connections.emplace_back(i, subchain_id[next]);
 #ifdef debug_chaining
                 cerr << "Connect subchains " << i << " -> " << subchain_id[next] << endl;
 #endif
             }
+        }
+
+        // Mark which ones should get tails
+        if (tail_edges.count(cur_subchain.left_tail())) {
+            cur_subchain.add_left_tail = true;
+        }
+        if (tail_edges.count(cur_subchain.right_tail())) {
+            cur_subchain.add_right_tail = true;
         }
     }
 

@@ -440,12 +440,32 @@ struct ChainScoringScheme {
     int consistency_bonus = 0;
 };
 
+/// An oriented tail end of a subchain/traceback
+struct TailAnchor {
+    /// Index of the anchor on this end
+    size_t anchor_index;
+    /// Whether this end is for a left tail or not
+    bool is_left_tail;
+
+    /// Create a TailAnchor with loose values
+    inline TailAnchor(size_t anchor_index, bool is_left_tail) 
+        : anchor_index(anchor_index), is_left_tail(is_left_tail) {}
+
+    bool operator==(const TailAnchor &other) const {
+        return anchor_index == other.anchor_index && is_left_tail == other.is_left_tail;
+    }
+};
+
 /// A single chain result with only anchors in order
 struct SparseAnchorChain {
     /// Score of the sparse chain
     int chain_score = 0;
     /// Anchors in order along the chain
     std::vector<size_t> anchors;
+
+    /// Helpers to get oriented tails
+    inline TailAnchor left_tail() const { return {anchors.front(), true}; }
+    inline TailAnchor right_tail() const { return {anchors.back(), false}; }
 };
 
 /// A list of anchors which unambiguously connect to each other
@@ -460,9 +480,17 @@ struct Subchain {
     /// Haplotypes consistent with the end of this subchain
     /// i.e. can connect to the last anchor without forcing a recombination
     path_flags_t end_paths;
+    /// Should we align left/right tails off of this subchain?
+    bool add_left_tail;
+    bool add_right_tail;
 
     /// Create a Subchain without recombination annotations
-    inline Subchain(const vector<size_t>& anchor_list) : anchors(anchor_list) {}
+    inline Subchain(const vector<size_t>& anchor_list, bool add_tails = false) 
+        : anchors(anchor_list), add_left_tail(add_tails), add_right_tail(add_tails) {}
+    
+    /// Helpers to get oriented tails
+    inline TailAnchor left_tail() const { return {anchors.front(), true}; }
+    inline TailAnchor right_tail() const { return {anchors.back(), false}; }
 };
 
 /// Result of finding best chains: a list of subchains and how they
@@ -699,5 +727,13 @@ size_t get_read_distance(const Anchor& from, const Anchor& to);
                      
 }
 }
+
+template <>
+struct std::hash<vg::algorithms::TailAnchor>
+{
+  std::size_t operator()(const vg::algorithms::TailAnchor& k) const {
+    return (k.is_left_tail + (hash<std::size_t>()(k.anchor_index) << 1)) >> 1;
+  }
+};
 
 #endif
