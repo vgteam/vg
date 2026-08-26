@@ -741,6 +741,15 @@ void chain_items_traceback(const vector<vector<TracedScore>>& chain_scores,
                 } else {
                     // Add to the traceback
                     cur_anchors.push_back(next);
+                    // Though we want to remember other alts too
+                    for (size_t alt_i = 1; alt_i < chain_scores[here].size(); alt_i++) {
+                        // Are they different anchors in different chains?
+                        if (chain_scores[here][alt_i].source != TracedScore::nowhere()
+                            && parent_start[chain_scores[here][alt_i].source] != parent_start[here]) {
+                            size_t score_diff = chain_scores[here].front().score - chain_scores[here][alt_i].score;
+                            connections.emplace_back(chain_scores[here][alt_i].source, here, score_diff);
+                        }
+                    }
                 }
             }
             here = next;
