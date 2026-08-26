@@ -2213,6 +2213,17 @@ static void tally_atomize(const PathPositionHandleGraph& graph, const SnarlManag
     }
 }
 
+/// A nested haploid genotype: one allele on a named strand, with "." on the other.
+///
+/// "." rather than "0" because the other haplotype does not carry the reference sequence here -- it
+/// carries nothing, the parent's other allele having deleted the chain. One place rather than two,
+/// so a site record and the difference blocks it decomposes into cannot drift on how one call is
+/// spelled.
+static string nested_strand_genotype(int allele, int strand) {
+    const string a = std::to_string(allele);
+    return strand == 0 ? a + "|." : "." + ("|" + a);
+}
+
 int VCFOutputCaller::emit_block_records(const PathPositionHandleGraph& graph, const Snarl& snarl,
                                         const vector<SnarlTraversal>& called_traversals,
                                         const vector<int>& genotype, int ref_trav_idx,
@@ -2477,62 +2488,89 @@ int VCFOutputCaller::emit_block_records(const PathPositionHandleGraph& graph, co
         // would leave a record carrying PS beside an unphased GT -- a contradiction on its face --
         // and would score these records against a phased baseline on unequal terms, which is a
         // confound rather than a conservative choice.
-        bool phased = false;
+        //
+        // THREE shapes carry a phase set, and two of them are haploid, which is what this used to
+        // get wrong by testing for a diploid pair before looking at anything else:
+        //
+        //   - "a|b" is a phased diploid pair, and the orientation transfers by slot.
+        //   - "a|." or ".|a" is a nested chain called at ploidy 1: one strand of a diploid locus,
+        //     where the parent's other allele deletes the chain. Which strand is the only thing
+        //     this form carries that a bare "a" does not, and it is the reason the strand reaches
+        //     the VCF at all instead of living only in the mosaic. A block of such a call is a
+        //     piece of the same allele on the same strand, so the strand transfers unchanged.
+        //   - "a" is a genuinely haploid locus (chrY, chrX outside the PARs). No orientation to
+        //     inherit, but PS is a block label and still applies.
+        //
+        // Only a slash-separated GT is unphased, and only there does PS mean nothing.
+        bool keep_phase_set = false;
+        int nested_strand = -1;   // haploid record: which side of "a|." this allele sits on
         vector<int> slot_order(block_gt.size());
         for (size_t s = 0; s < block_gt.size(); ++s) {
             slot_order[s] = (int)s;
         }
-        if (block_gt.size() == 2 && block_gt[0] >= 0 && block_gt[1] >= 0) {
+        const string* site_gt_text = nullptr;
+        {
             auto site_gt = site.samples.find(sample_name);
             if (site_gt != site.samples.end()) {
                 auto gt_field = site_gt->second.find("GT");
                 if (gt_field != site_gt->second.end() && !gt_field->second.empty()) {
-                    const string& text = gt_field->second[0];
-                    size_t bar = text.find('|');
-                    if (bar != string::npos) {
-                        int a = -1;
-                        int b2 = -1;
-                        try {
-                            a = std::stoi(text.substr(0, bar));
-                            b2 = std::stoi(text.substr(bar + 1));
-                        } catch (const std::exception&) {
-                            a = -1;
-                        }
-                        auto site_allele_of_slot = [&](size_t sl) {
-                            auto found = trav_to_allele.find(haps[sl].trav);
-                            return found != trav_to_allele.end() ? found->second : -1;
-                        };
-                        int s0 = site_allele_of_slot(0);
-                        int s1 = site_allele_of_slot(1);
-                        if (a >= 0 && s0 >= 0 && s1 >= 0) {
-                            if (s0 == a && s1 == b2) {
-                                phased = true;
-                            } else if (s0 == b2 && s1 == a) {
-                                phased = true;
-                                slot_order[0] = 1;
-                                slot_order[1] = 0;
-                            }
+                    site_gt_text = &gt_field->second[0];
+                }
+            }
+        }
+        if (site_gt_text != nullptr && site_gt_text->find('/') == string::npos) {
+            const size_t bar = site_gt_text->find('|');
+            if (bar == string::npos) {
+                keep_phase_set = block_gt.size() == 1 && block_gt[0] >= 0;
+            } else {
+                const string left = site_gt_text->substr(0, bar);
+                const string right = site_gt_text->substr(bar + 1);
+                if (block_gt.size() == 1 && block_gt[0] >= 0 && (left == "." || right == ".")) {
+                    keep_phase_set = true;
+                    nested_strand = left == "." ? 1 : 0;
+                } else if (block_gt.size() == 2 && block_gt[0] >= 0 && block_gt[1] >= 0) {
+                    int a = -1;
+                    int b2 = -1;
+                    try {
+                        a = std::stoi(left);
+                        b2 = std::stoi(right);
+                    } catch (const std::exception&) {
+                        a = -1;
+                    }
+                    auto site_allele_of_slot = [&](size_t sl) {
+                        auto found = trav_to_allele.find(haps[sl].trav);
+                        return found != trav_to_allele.end() ? found->second : -1;
+                    };
+                    int s0 = site_allele_of_slot(0);
+                    int s1 = site_allele_of_slot(1);
+                    if (a >= 0 && s0 >= 0 && s1 >= 0) {
+                        if (s0 == a && s1 == b2) {
+                            keep_phase_set = true;
+                        } else if (s0 == b2 && s1 == a) {
+                            keep_phase_set = true;
+                            slot_order[0] = 1;
+                            slot_order[1] = 0;
                         }
                     }
                 }
             }
         }
         {
-            stringstream gt;
-            for (size_t s = 0; s < block_gt.size(); ++s) {
-                int value = block_gt[slot_order[s]];
-                if (value == MISSING_ALLELE_MARKER) {
-                    gt << ".";
-                } else {
-                    gt << value;
-                }
-                if (s + 1 != block_gt.size()) {
-                    gt << (phased ? "|" : "/");
+            string gt;
+            if (nested_strand >= 0) {
+                gt = nested_strand_genotype(block_gt[0], nested_strand);
+            } else {
+                for (size_t s = 0; s < block_gt.size(); ++s) {
+                    const int value = block_gt[slot_order[s]];
+                    gt += value == MISSING_ALLELE_MARKER ? string(".") : std::to_string(value);
+                    if (s + 1 != block_gt.size()) {
+                        gt += keep_phase_set ? '|' : '/';
+                    }
                 }
             }
-            b.var.samples[sample_name]["GT"] = {gt.str()};
+            b.var.samples[sample_name]["GT"] = {gt};
         }
-        if (!phased) {
+        if (!keep_phase_set) {
             // PS labels a phase block, so it means nothing on an unphased genotype.
             b.var.samples[sample_name].erase("PS");
             b.var.format.erase(std::remove(b.var.format.begin(), b.var.format.end(), "PS"),
@@ -2868,12 +2906,7 @@ bool VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCa
                     // the empty strand as ".", the only place the VCF can carry which strand the
                     // allele is on -- a bare "a" names none, which is why the strand lived only in the
                     // mosaic and no phasing tool could read it.
-                    //
-                    // "." rather than "0": the other haplotype does not carry the reference sequence
-                    // here, it carries nothing.
-                    genotype_vector[0] = phase.nested_strand == 0
-                                             ? std::to_string(a) + "|."
-                                             : "." + ("|" + std::to_string(a));
+                    genotype_vector[0] = nested_strand_genotype(a, phase.nested_strand);
                 } else if (phase.ploidy == 1) {
                     // A genuinely haploid locus. One allele, no phase; only PS is meaningful, and
                     // only as a block label. "a|a" would claim a homozygous diploid call.
