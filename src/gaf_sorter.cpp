@@ -1,6 +1,7 @@
 #include "gaf_sorter.hpp"
 
 #include <chrono>
+#include <cmath>
 #include <deque>
 #include <fstream>
 #include <queue>
@@ -428,8 +429,16 @@ bool sort_gaf(const std::string& input_file, const std::string& output_file, con
         std::cerr << "Initial sort finished with " << total_records << " records in " << files.size() << " files" << std::endl;
     }
 
-    // Intermediate merges. If a worker thread fails, we break on join.
+    // Adjust merge width if necessary.
     size_t files_per_merge = std::max(params.files_per_merge, size_t(2));
+    if (params.two_merge_rounds && files.size() > files_per_merge * files_per_merge) {
+        files_per_merge = static_cast<size_t>(std::ceil(std::sqrt(files.size())));
+        if (params.progress) {
+            std::cerr << "Adjusting merge width to " << files_per_merge << std::endl;
+        }
+    }
+
+    // Intermediate merges. If a worker thread fails, we break on join.
     size_t round = 0;
     while (files.size() > files_per_merge) {
         if (params.progress) {
