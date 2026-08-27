@@ -219,7 +219,7 @@ using namespace std;
 
         return surjected;
     }
-    
+
     void Surjector::surject_internal(const Alignment* source_aln, const multipath_alignment_t* source_mp_aln,
                                      vector<Alignment>* alns_out, vector<multipath_alignment_t>* mp_alns_out,
                                      const unordered_set<path_handle_t>& paths,

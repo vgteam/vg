@@ -16,6 +16,7 @@
 #include <queue>
 
 #include "aligner.hpp"
+#include "crash.hpp"
 #include "handle.hpp"
 #include "path.hpp"
 #include <vg/vg.pb.h>
@@ -90,6 +91,39 @@ using namespace std;
                                               vector<tuple<string, int64_t, bool>>& positions_out,
                                               bool allow_negative_scores = false,
                                               bool preserve_deletions = false) const;
+        
+        /// Surject a whole collection of Alignment or multipath_alignment_t
+        /// objects for an unpaired read.
+        ///
+        /// On return, alns contains the surjected versions of the alignments.
+        /// 
+        /// There can be more output surjections than there were input alignments.
+        template<class AlnType>
+        void surject_in_place(vector<AlnType>& alns,
+                              const unordered_set<path_handle_t>& paths,
+                              bool allow_negative_scores = false,
+                              bool preserve_deletions = false) const;
+
+        /// Surject paired-end reads and pull aside supplementary alignments.
+        ///
+        /// Assumes that corresponding entries in alns1 and alns2 are paired
+        /// with each other.
+        ///
+        /// On return, alns1 and alns2 will be corresponding paired
+        /// best surjections, and supplementary_out will be
+        /// supplementary alignments annotated to attach them to the
+        /// appropriate non-supplementary alignments.
+        ///
+        /// A single pair of surjections for each pair from alns1 and alsn2
+        /// will replace that pair. Alternative surjection locations will be
+        /// discarded.  
+        template<class AlnType>
+        void surject_paired_in_place(vector<AlnType>& alns1, vector<AlnType>& alns2,
+                                     vector<AlnType>& supplementary_alns_out,
+                                     const unordered_set<path_handle_t>& paths,
+                                     bool allow_negative_scores = false,
+                                     bool preserve_deletions = false) const;
+        
         
         /// a local type that represents a read interval matched to a portion of the alignment path
         using path_chunk_t = pair<pair<string::const_iterator, string::const_iterator>, path_t>;
@@ -421,6 +455,191 @@ using namespace std;
         /// the graph we're surjecting onto
         const PathPositionHandleGraph* graph = nullptr;
     };
+
+
+    template<class AlnType>
+    void Surjector::surject_in_place(vector<AlnType>& alns,
+                                     const unordered_set<path_handle_t>& paths,
+                                     bool allow_negative_scores,
+                                     bool preserve_deletions) const {
+        for (size_t i = 0, n = alns.size(); i < n; ++i) {
+            // Surject each alignment and annotate with surjected path position
+            auto& aln = alns[i];
+            auto surjected = surject(aln, paths, allow_negative_scores, preserve_deletions);
+            aln = std::move(surjected.front());
+            for (size_t j = 1; j < surjected.size(); ++j) {
+                alns.emplace_back(std::move(surjected[j]));
+            }
+        }
+    }
+    
+    template<class AlnType>
+    void Surjector::surject_paired_in_place(vector<AlnType>& alns1, vector<AlnType>& alns2,
+                                            vector<AlnType>& supplementary_alns_out,
+                                            const unordered_set<path_handle_t>& paths,
+                                            bool allow_negative_scores,
+                                            bool preserve_deletions) const {
+        
+        crash_unless(alns1.size() == alns2.size());
+
+        for (size_t aln_num = 0; aln_num < alns1.size(); ++aln_num) {
+            // Surject the reads.
+            auto surjected1 = surject(alns1[aln_num], paths, allow_negative_scores, preserve_deletions);
+            auto surjected2 = surject(alns2[aln_num], paths, allow_negative_scores, preserve_deletions);
+            crash_unless(!surjected1.empty());
+            crash_unless(!surjected2.empty());
+            // TODO: We're assuming surject() is responsible for making
+            // unmapped alignments when a read dosn't surject. Those we assume
+            // might not have a refpos assigned.
+            if (surjected1.size() > 1 || surjected2.size() > 1) {
+
+                // We have multiple surjections on at least one side.
+                // 
+                // We might have several pairs of placements, or we might have
+                // supplementary alignments that go with non-supplementary
+                // placements, or both.
+                //
+                // We want to pair up non-supplementary placements on
+                // consistent paths and strands, but we need to keep reads
+                // paired when they are improperly paired and not on consistent
+                // paths and strands.
+                
+                
+                // Build maps, for each read, from path and strand to the first
+                // (and thus most primary) surjection on that path and strand.
+                // These are keyed by read 1 actual orientation; we flip the
+                // orientation on the read 2 annotated position.
+                unordered_map<pair<string, bool>, size_t> strand_primary_idx1, strand_primary_idx2;
+                for (size_t i = 0; i < surjected1.size(); ++i) {
+                    if (!is_supplementary(surjected1[i]) && surjected1[i].refpos_size() > 0) {
+                        const auto& pos = surjected1[i].refpos(0);
+                        auto key = make_pair(pos.name(), pos.is_reverse());
+                        auto found = strand_primary_idx1.find(key);
+                        if (found == strand_primary_idx1.end()) {
+                            // This is the first non-supplementary thing on
+                            // this path and strand.
+                            strand_primary_idx1.emplace_hint(found, key, i);
+                        }
+                    }
+                }
+                for (size_t i = 0; i < surjected2.size(); ++i) {
+                    if (!is_supplementary(surjected2[i]) && surjected2[i].refpos_size() > 0) {
+                        const auto& pos = surjected2[i].refpos(0);
+                        auto key = make_pair(pos.name(), !pos.is_reverse());
+                        auto found = strand_primary_idx2.find(key);
+                        if (found == strand_primary_idx2.end()) {
+                            // This is the first non-supplementary thing on
+                            // this path and strand.
+                            strand_primary_idx2.emplace_hint(found, key, i);
+                        }
+                    }
+                }
+
+                // Pick a winning pair
+                int primary_idx1 = -1;
+                int primary_idx2 = -1;
+                std::pair<string, bool> primary_path_strand;
+                int primary_score = std::numeric_limits<int>::min();
+
+                for (auto& kv : strand_primary_idx1) {
+                    auto found = strand_primary_idx2.find(kv.first);
+                    if (found != strand_primary_idx2.end()) {
+                        // This is a possible pair of path-and-strand-consistent, non-supplementary surjections
+                        int pair_score = surjected1[kv.second].score() + surjected2[found->second].score();
+                        if (primary_idx1 == -1 || pair_score > primary_score || pair_score == primary_score && kv.first > primary_path_strand) {
+                            // This pair is deterministically better.
+                            primary_idx1 = kv.second;
+                            primary_idx2 = found->second;
+                            primary_path_strand = kv.first;
+                            primary_score = pair_score;
+                        }
+                    }
+                }
+
+                if (primary_idx1 == -1) {
+                    // We didn't find a consistent pair to win, so pick an inconsistent best pair.
+                    for (size_t i = 0; i < surjected1.size(); ++i) {
+                        if (!is_supplementary(surjected1[i])) {
+                            primary_idx1 = i;
+                            break;
+                        }
+                    }
+                    for (size_t i = 0; i < surjected2.size(); ++i) {
+                        if (!is_supplementary(surjected2[i])) {
+                            primary_idx2 = i;
+                            break;
+                        }
+                    }
+                }
+
+                // Surjection shouldn't give us 100% supplementary alignments.
+                // Otherwise we'd need to generate unmapped alignments
+                // ourselves in the main slots and that would be weird.
+                crash_unless(primary_idx1 != -1);
+                crash_unless(primary_idx2 != -1);
+
+                // annotate supplementaries with primary mate info
+                for (size_t i = 0; i < surjected1.size(); ++i) {
+                    if (is_supplementary(surjected1[i])) {
+                        // We have a supplementary alignment. Try and find a mate it should attach to.
+                        // All supplementary alignments must have a refpos assigned.
+                        crash_unless(surjected1[i].refpos_size() > 0);
+                        const auto& pos = surjected1[i].refpos(0);
+                        auto it = strand_primary_idx2.find(make_pair(pos.name(), pos.is_reverse()));
+                        // There is always a non-supplementary alignment available.
+                        // Prefer the one consistent with this path strand, if any.
+                        const auto& mate = it != strand_primary_idx2.end() ? surjected2[it->second] : surjected2[primary_idx2];
+                        string annotation;
+                        if (mate.refpos_size() > 0) {
+                            // The mate is mapped somewhere
+                            annotation = std::move(mate_info(mate.refpos(0).name(), mate.refpos(0).offset(), mate.refpos(0).is_reverse(), false));
+                        }
+                        else {
+                            // We don't have access to a mapped mate, but we can still record the read 1/2 identity
+                            annotation = std::move(mate_info("", -1, false, false));
+                        }
+                        set_annotation(surjected1[i], "mate_info", annotation);
+
+                        supplementary_alns_out.emplace_back(std::move(surjected1[i]));
+                    }
+                }
+                for (size_t i = 0; i < surjected2.size(); ++i) {
+                    if (is_supplementary(surjected2[i])) {
+                        // We have a supplementary alignment. Try and find a mate it should attach to.
+                        // All supplementary alignments must have a refpos assigned.
+                        crash_unless(surjected2[i].refpos_size() > 0);
+                        const auto& pos = surjected2[i].refpos(0);
+                        // We need to invert the orientation because we're lookign up from read 2.
+                        auto it = strand_primary_idx1.find(make_pair(pos.name(), !pos.is_reverse()));
+                        // There is always a non-supplementary alignment available.
+                        // Prefer the one consistent with this path strand, if any.
+                        const auto& mate = it != strand_primary_idx1.end() ? surjected1[it->second] : surjected1[primary_idx2];
+                        string annotation;
+                        if (mate.refpos_size() > 0) {
+                            // The mate is mapped somewhere
+                            annotation = std::move(mate_info(mate.refpos(0).name(), mate.refpos(0).offset(), mate.refpos(0).is_reverse(), true));
+                        }
+                        else {
+                            // We don't have access to a mapped mate, but we can still record the read 1/2 identity
+                            annotation = std::move(mate_info("", -1, false, true));
+                        }
+                        set_annotation(surjected2[i], "mate_info", annotation);
+
+                        supplementary_alns_out.emplace_back(std::move(surjected2[i]));
+                    }
+                }
+
+                // Install the winning pair.
+                alns1[aln_num] = std::move(surjected1[primary_idx1]);
+                alns2[aln_num] = std::move(surjected2[primary_idx2]);
+            }
+            else {
+                // There is only one surjection per read, so each wins by default.
+                alns1[aln_num] = std::move(surjected1.front());
+                alns2[aln_num] = std::move(surjected2.front());
+            }
+        }
+    }
 
     template<class AlnType>
     string Surjector::path_score_annotations(const unordered_map<pair<path_handle_t, bool>, vector<pair<AlnType, pair<step_handle_t, step_handle_t>>>>& surjections) const {

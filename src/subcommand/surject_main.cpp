@@ -650,73 +650,24 @@ int main_surject(int argc, char** argv) {
                     set_metadata(src1);
                     set_metadata(src2);
                     
-                    // Surject
-                    auto surjected1 = surjector.surject(src1, paths, subpath_global, spliced);
-                    auto surjected2 = surjector.surject(src2, paths, subpath_global, spliced);
-                    
-                    // pair up non-supplementary alignments
-                    unordered_map<pair<string, bool>, size_t> strand_idx1, strand_idx2;
-                    for (size_t i = 0; i < surjected1.size(); ++i) {
-                        if (!is_supplementary(surjected1[i])) {
-                            const auto& pos = surjected1[i].refpos(0);
-                            strand_idx1[make_pair(pos.name(), pos.is_reverse())] = i;
-                        }
+                    // TODO: It's weird to batch up here. Have batch and non-batch versions?
+                    // But this will definitely change when we swap over to surjecting a whole collection of alignments of the same read at once.
+                    std::vector<Alignment> surjected1 {std::move(src1)};
+                    std::vector<Alignment> surjected2 {std::move(src2)};
+                    std::vector<Alignment> supplementary_surjections;
+                    surjector.surject_paired_in_place(surjected1, surjected2, supplementary_surjections, paths, subpath_global, spliced);
+                        
+                    crash_unless(surjected1.size() == surjected2.size());
+                    for (size_t i = 0; i < surjected1.size(); i++) {
+                        // TODO: Use the batched emit here?
+                        #pragma omp critical (cerr)
+                        std::cerr << "Emitting pair of " << surjected1[i].name() << " and " << surjected2[i].name() << std::endl;
+                        alignment_emitter->emit_pair(std::move(surjected1[i]), std::move(surjected2[i]), max_frag_len.value_or(0));
                     }
-                    for (size_t i = 0; i < surjected2.size(); ++i) {
-                        if (!is_supplementary(surjected2[i])) {
-                            const auto& pos = surjected2[i].refpos(0);
-                            strand_idx2[make_pair(pos.name(), pos.is_reverse())] = i;
-                        }
-                    }
-
-                    
-                    for (size_t i = 0; i < surjected1.size(); ++i) {
-                        const auto& pos = surjected1[i].refpos(0);
-                        auto it = strand_idx2.find(make_pair(pos.name(), !pos.is_reverse()));
-                        if (!is_supplementary(surjected1[i]) && it != strand_idx2.end()) {
-                            // the alignments are paired on this strand
-                            alignment_emitter->emit_pair(std::move(surjected1[i]), std::move(surjected2[it->second]), max_frag_len.value_or(0));
-                        }
-                        else {
-                            // supplementary or unpaired
-                            if (is_supplementary(surjected1[i]) && !has_annotation(surjected1[i], "mate_info")) {
-                                // we need to annotate this supplementary with mate info for SAM/BAM conversion
-                                string annotation;
-                                if (!strand_idx2.empty()) {
-                                    // there is a non-supplementary alignment available (prefer the one consistent with this path strand)
-                                    const auto& mate = it != strand_idx2.end() ? surjected2[it->second] : surjected2[strand_idx2.begin()->second];
-                                    annotation = std::move(mate_info(mate.refpos(0).name(), mate.refpos(0).offset(), mate.refpos(0).is_reverse(), false));
-                                }
-                                else {
-                                    // we don't have access to the primary, but we can still record the read 1/2 identity
-                                    annotation = std::move(mate_info("", -1, false, false));
-                                }
-                                set_annotation(surjected1[i], "mate_info", annotation);
-                            }
-                            alignment_emitter->emit_single(std::move(surjected1[i]));
-                        }
-                    }
-                    for (size_t i = 0; i < surjected2.size(); ++i) {
-                        const auto& pos = surjected2[i].refpos(0);
-                        auto it = strand_idx1.find(make_pair(pos.name(), !pos.is_reverse()));
-                        if (is_supplementary(surjected2[i]) || it == strand_idx1.end()) {
-                            // this strand's surjection is unpaired or supplementary
-                            if (is_supplementary(surjected2[i]) && !has_annotation(surjected2[i], "mate_info")) {
-                                // we need to annotate this supplementary with mate info for SAM/BAM conversion
-                                string annotation;
-                                if (!strand_idx1.empty()) {
-                                    // there is a non-supplementary alignment available (prefer the one consistent with this path strand)
-                                    const auto& mate = it != strand_idx1.end() ? surjected1[it->second] : surjected1[strand_idx1.begin()->second];
-                                    annotation = std::move(mate_info(mate.refpos(0).name(), mate.refpos(0).offset(), mate.refpos(0).is_reverse(), true));
-                                }
-                                else {
-                                    // we don't have access to the primary, but we can still record the read 1/2 identity
-                                    annotation = std::move(mate_info("", -1, false, true));
-                                }
-                                set_annotation(surjected2[i], "mate_info", annotation);
-                            }
-                            alignment_emitter->emit_single(std::move(surjected2[i]));
-                        }
+                    for (size_t i = 0; i < supplementary_surjections.size(); i++) {
+                        #pragma omp critical (cerr)
+                        std::cerr << "Emitting single read " << supplementary_surjections[i].name() << std::endl;
+                        alignment_emitter->emit_single(std::move(supplementary_surjections[i]));
                     }
                     
                     total_reads_surjected += 2;
