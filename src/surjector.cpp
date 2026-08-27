@@ -5449,6 +5449,9 @@ using namespace std;
 
     template<>
     bool Surjector::get_is_secondary(const multipath_alignment_t& aln) {
+        if (!aln.has_annotation("secondary")) {
+            return false;
+        }
         auto annotation = aln.get_annotation("secondary");
         assert(annotation.first == multipath_alignment_t::Bool);
         return *((bool*) annotation.second);
