@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <vector>
 #include <list>
+#include <type_traits>
 #include <unordered_map>
 #include <algorithm>
 
@@ -135,6 +136,64 @@ namespace vg {
         vector<uint32_t> _start;
         map<string, pair<anno_type_t, void*>> _annotation;
     };
+
+
+    // Overload the same annotation interface as is used with Protobuf types.
+
+    template<typename AnnotationType>
+    inline void set_annotation(multipath_alignment_t& annotated, const string& name, const AnnotationType& annotation) {
+        annotated.set_annotation(name, annotation);
+    }
+
+    template<typename AnnotationType>
+    inline void set_annotation(multipath_alignment_t* annotated, const string& name, const AnnotationType& annotation) {
+        set_annotation(*annotated, name, annotation);
+    }
+
+    inline void clear_annotation(multipath_alignment_t& annotated, const string& name) {
+        annotated.clear_annotation(name);
+    }
+
+    inline void clear_annotation(multipath_alignment_t* annotated, const string& name) {
+        clear_annotation(*annotated, name);
+    }
+
+    inline bool has_annotation(const multipath_alignment_t& annotated, const string& name) {
+        return annotated.has_annotation(name);
+    }
+
+    inline bool has_annotation(const multipath_alignment_t* annotated, const string& name) {
+        return has_annotation(*annotated, name);
+    }
+
+    template<typename AnnotationType>
+    inline AnnotationType get_annotation(const multipath_alignment_t& annotated, const string& name) {
+        auto anno = annotated.get_annotation(name);
+        if constexpr (std::is_same<AnnotationType, bool>::value) {
+            if (anno.first != multipath_alignment_t::Bool) {
+                throw std::invalid_argument("Cannot read annotation as bool: " + name);
+            }
+            return *((const bool*) anno.second);
+        } else if constexpr (std::is_arithmetic<AnnotationType>::value) {
+            if (anno.first != multipath_alignment_t::Double) {
+                throw std::invalid_argument("Cannot read annotation as number: " + name);
+            }
+            return *((const double*) anno.second);
+        } else if constexpr (std::is_same<AnnotationType, std::string>::value) {
+            if (anno.first != multipath_alignment_t::String) {
+                throw std::invalid_argument("Cannot read annotation as string: " + name);
+            }
+            return *((const string*) anno.second);
+        } else {
+            static_assert(false, "Unsupported annotation type");
+            throw std::logic_error("Attempted to retrieve unsupported annotation type");
+        }
+    }
+
+    template<typename AnnotationType>
+    inline AnnotationType get_annotation(const multipath_alignment_t* annotated, const string& name) {
+        return get_annotation<AnnotationType>(*annotated, name);
+    }
 
     string debug_string(const connection_t& connection);
     string debug_string(const subpath_t& subpath);

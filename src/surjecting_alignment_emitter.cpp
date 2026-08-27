@@ -51,7 +51,7 @@ void SurjectingAlignmentEmitter::emit_pairs(vector<Alignment>&& aln1_batch, vect
     vector<Alignment> aln2_batch_caught(aln2_batch);
     // Surject non-supplementary in place and gather supplementary
     vector<Alignment> supplementary_alns;
-    surjector.surject_paired_in_place(aln1_batch_caught, aln2_batch_caught, supplementary_alns, paths, surject_subpath_global);
+    surjector.surject_paired_in_place(aln1_batch_caught, aln2_batch_caught, supplementary_alns, supplementary_alns, paths, surject_subpath_global);
     // Forward them along
     backing->emit_pairs(std::move(aln1_batch_caught), std::move(aln2_batch_caught), std::move(tlen_limit_batch));
     backing->emit_singles(std::move(supplementary_alns));
@@ -64,7 +64,7 @@ void SurjectingAlignmentEmitter::emit_mapped_pairs(vector<vector<Alignment>>&& a
     vector<vector<Alignment>> supplementary_batch;
     for (size_t i = 0; i < alns1_batch_caught.size(); ++i) {
         supplementary_batch.emplace_back();
-        surjector.surject_paired_in_place(alns1_batch_caught[i], alns2_batch_caught[i], supplementary_batch.back(), paths, surject_subpath_global);
+        surjector.surject_paired_in_place(alns1_batch_caught[i], alns2_batch_caught[i], supplementary_batch.back(), supplementary_batch.back(), paths, surject_subpath_global);
     }
     // Forward it along
     backing->emit_mapped_pairs(std::move(alns1_batch_caught), std::move(alns2_batch_caught), std::move(tlen_limit_batch));

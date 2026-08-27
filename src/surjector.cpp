@@ -126,14 +126,7 @@ using namespace std;
         // Do the surjection
         vector<Alignment> surjected = surject(source, paths, positions, allow_negative_scores, preserve_deletions);
         
-        // Pack all the info into the refpos field
-        for (size_t i = 0; i < surjected.size(); ++i) {
-            surjected[i].clear_refpos();
-            auto* pos = surjected[i].add_refpos();
-            pos->set_name(get<0>(positions[i]));
-            pos->set_offset(get<1>(positions[i]));
-            pos->set_is_reverse(get<2>(positions[i]));
-        }
+        set_refpos(surjected, positions);
     
         return surjected;
     }
@@ -218,6 +211,17 @@ using namespace std;
         }
 
         return surjected;
+    }
+
+    void Surjector::set_refpos(vector<Alignment>& alns, const vector<tuple<string, int64_t, bool>>& positions) const {
+        for (size_t i = 0; i < alns.size(); ++i) {
+            // Pack all the position info into the refpos field
+            alns[i].clear_refpos();
+            auto* pos = alns[i].add_refpos();
+            pos->set_name(get<0>(positions[i]));
+            pos->set_offset(get<1>(positions[i]));
+            pos->set_is_reverse(get<2>(positions[i]));
+        }
     }
 
     void Surjector::surject_internal(const Alignment* source_aln, const multipath_alignment_t* source_mp_aln,
