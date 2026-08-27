@@ -1382,7 +1382,8 @@ void LinkageCollector::record(const string& contig, size_t position,
                               int64_t start_node, int64_t end_node,
                               bool nested, size_t parent_record_key, int parent_trav,
                               uint64_t parent_crossing, size_t generation,
-                              bool emitted, int align_rank) {
+                              bool emitted, int align_rank, int chain_index,
+                              bool chain_backward) {
     if (genotype_ln_likelihood.empty() || called_trav_i < 0) {
         return;
     }
@@ -1439,6 +1440,9 @@ void LinkageCollector::record(const string& contig, size_t position,
     // chains on chr20 that are reachable only under the settled parent with no rank at all, which is
     // the population the ordering exists for. `parent_trav` is an argument for the same reason.
     e.align_rank = (int32_t)align_rank;
+    // A pure graph fact, so it is known at descent and needs none of the barrier's plumbing.
+    e.chain_index = (int32_t)chain_index;
+    e.chain_backward = chain_backward;
     e.generation = (uint8_t)(generation > 255 ? 255 : generation);
 
     e.gl_offset = (uint32_t)gl_arena.size();
@@ -1675,13 +1679,14 @@ bool LinkageCollector::set_frame(size_t record_key, int slot, int offset, int en
     return false;
 }
 
-bool LinkageCollector::set_align_rank(size_t record_key, int rank) {
+bool LinkageCollector::set_align_rank(size_t record_key, int rank, bool chain_backward) {
     lock_guard<std::mutex> guard(mutex);
     const uint32_t found = live_index(record_key);
     if (found == NO_ENTRY) {
         return false;
     }
     entries[found].align_rank = (int32_t)rank;
+    entries[found].chain_backward = chain_backward;
     return true;
 }
 
@@ -2036,11 +2041,27 @@ size_t LinkageCollector::resolve_generation(
                 if (!all_ranked) {
                     ++ao_group_unranked;
                 }
+                bool all_indexed = true;
+                for (size_t idx : kv.second) {
+                    if (entries[idx].chain_index < 0) {
+                        all_indexed = false;
+                        break;
+                    }
+                }
                 sort(kv.second.begin(), kv.second.end(), [&](size_t a, size_t c) {
                     const Entry& ea = entries[a];
                     const Entry& ec = entries[c];
                     if (all_ranked && ea.align_rank != ec.align_rank) {
                         return ea.align_rank < ec.align_rank;
+                    }
+                    // Equal ranks means the same chain, and then the chain's own order decides --
+                    // the alignment cannot, having collapsed the chain to one symbol. Reversed where
+                    // the parent crosses the chain from its end boundary; both operands are in that
+                    // one chain, so they share the flag and either one answers.
+                    if (all_ranked && all_indexed && ea.align_rank == ec.align_rank
+                        && ea.chain_index != ec.chain_index) {
+                        return ea.chain_backward ? ea.chain_index > ec.chain_index
+                                                 : ea.chain_index < ec.chain_index;
                     }
                     if (ea.position != ec.position) {
                         return ea.position < ec.position;
@@ -2861,6 +2882,7 @@ size_t LinkageCollector::resolve_generation(
         size_t total_frame_steps = 0, total_ref_steps = 0;
         // Stage C, in the per-strand haploid chains: alignment order against the key it precedes.
         size_t hao_pairs = 0, hao_reordered = 0, hao_unranked = 0, hao_group_unranked = 0;
+        size_t hao_same_chain_indexed = 0, hao_same_chain_unindexed = 0;
         for (auto& group : by_strand) {
             vector<size_t>& idxs = group.second;
             {
@@ -2987,11 +3009,13 @@ size_t LinkageCollector::resolve_generation(
                     unsigned char& m = missing[e.parent_record_key];
                     if (e.align_rank < 0) { m |= 1; }
                     if (e.frame_offset[slot] < 0) { m |= 2; }
+                    if (e.chain_index < 0) { m |= 4; }
                 }
                 for (const auto& kv : missing) {
                     unsigned char usable = 0;
                     if (!no_align_order && (kv.second & 1) == 0) { usable |= 1; }
                     if ((kv.second & 2) == 0) { usable |= 2; }
+                    if (!no_align_order && (kv.second & 4) == 0) { usable |= 4; }
                     parent_keys[kv.first] = usable;
                     if ((usable & 1) == 0) { ++hao_group_unranked; }
                 }
@@ -3008,6 +3032,14 @@ size_t LinkageCollector::resolve_generation(
                 const unsigned char usable = uk != parent_keys.end() ? uk->second : 0;
                 if ((usable & 1) && ea.align_rank != eb.align_rank) {
                     return ea.align_rank < eb.align_rank;
+                }
+                // Same chain: its own order, not the frame offset. The offset does separate two
+                // snarls of one chain, but as a bp walk along one traversal rather than as anything
+                // intrinsic; the chain index is the exact answer the decomposition already holds.
+                if ((usable & 1) && (usable & 4) && ea.align_rank == eb.align_rank
+                    && ea.chain_index != eb.chain_index) {
+                    return ea.chain_backward ? ea.chain_index > eb.chain_index
+                                             : ea.chain_index < eb.chain_index;
                 }
                 if ((usable & 2) && ea.frame_offset[slot] != eb.frame_offset[slot]) {
                     return ea.frame_offset[slot] < eb.frame_offset[slot];
@@ -3027,7 +3059,18 @@ size_t LinkageCollector::resolve_generation(
                 if (e1.parent_record_key != e2.parent_record_key || e1.parent_record_key == 0) {
                     continue;
                 }
-                if (e1.align_rank < 0 || e2.align_rank < 0 || e1.align_rank == e2.align_rank) {
+                if (e1.align_rank >= 0 && e2.align_rank >= 0 && e1.align_rank == e2.align_rank) {
+                    // Same chain. Separated by the chain index now, where reference position was
+                    // the only thing that could before.
+                    if (e1.chain_index >= 0 && e2.chain_index >= 0
+                        && e1.chain_index != e2.chain_index) {
+                        ++hao_same_chain_indexed;
+                    } else {
+                        ++hao_same_chain_unindexed;
+                    }
+                    continue;
+                }
+                if (e1.align_rank < 0 || e2.align_rank < 0) {
                     ++hao_unranked;
                     continue;
                 }
@@ -3185,7 +3228,10 @@ size_t LinkageCollector::resolve_generation(
                       << " alignment, " << hao_reordered << " of them in a different order than the"
                       << " frame offset and reference position it precedes; " << hao_unranked
                       << " pairs unranked; " << hao_group_unranked
-                      << " parents fell back to reference order entire" << std::endl;
+                      << " parents fell back to reference order entire; "
+                      << hao_same_chain_indexed << " pairs are two snarls of ONE chain and are"
+                      << " ordered by its index, " << hao_same_chain_unindexed
+                      << " of those had no index" << std::endl;
         }
         // Stage 15': the cross-parent numbers, which are the ones the decision to consume these
         // frames has to rest on.

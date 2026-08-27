@@ -379,6 +379,10 @@ protected:
         /// carries it. Inherited by its own children: a chain whose existence depends on an ancestor
         /// the sample may not have cannot be emitted either.
         bool retain_only = false;
+        /// The index of the chain member being descended into, within its chain. Set beside the
+        /// other per-child facts before the recursive call, and read by that child for its own
+        /// entry -- the same way `parent_trav` and `parent_crossing` travel.
+        int chain_index = -1;
         /// False when the crossing mask could not be computed: the parent emitted nothing on this
         /// invocation, or carries too many alleles for a 64-bit mask. child_crossing_mask returns 0
         /// for "unknown", and the barrier must not read that 0 as "no allele crosses" -- so the
@@ -1128,6 +1132,14 @@ protected:
         /// the barrier, or -1. Carried here because the barrier can compute it before the chain has
         /// a layer entry to write it to, and `record` then takes it as an argument.
         int align_rank = -1;
+        /// This snarl's index within its chain, from the decomposition. Unlike `align_rank` this is
+        /// known at descent, so it needs no replay -- it is carried only because the barrier's
+        /// record() fallback builds the entry and must be given it.
+        int chain_index = -1;
+        /// Whether the parent's settled traversal crossed this snarl's chain backward, from
+        /// `SymbolicStep::backward` on the matched chain symbol. A barrier-time fact like
+        /// `align_rank`, so it travels the same way.
+        bool chain_backward = false;
         /// One bit per parent *candidate traversal*, set where that traversal crosses this chain.
         uint64_t parent_crossing = 0;
         /// False when parent_crossing could not be computed (the parent emitted nothing during the

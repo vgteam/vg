@@ -466,7 +466,8 @@ public:
                 int64_t start_node = 0, int64_t end_node = 0,
                 bool nested = false, size_t parent_record_key = 0, int parent_trav = -1,
                 uint64_t parent_crossing = 0, size_t generation = 0,
-                bool emitted = true, int align_rank = -1);
+                bool emitted = true, int align_rank = -1, int chain_index = -1,
+                bool chain_backward = false);
 
     /// The compact allele space `record` builds for one site: the called pair plus every traversal
     /// some panel haplotype carries, deduplicated by traversal and sorted.
@@ -689,7 +690,7 @@ public:
     /// computes a rank BEFORE the block that can create an entry for a chain the sweep never
     /// recorded, so for those the rank has to travel as an argument to `record` instead. That is why
     /// `record` takes one, exactly as it takes `parent_trav`.
-    bool set_align_rank(size_t record_key, int rank);
+    bool set_align_rank(size_t record_key, int rank, bool chain_backward);
 
     /// Whether an active (non-retracted) entry exists for this key. The barrier needs to tell
     /// "this site was never recorded" from "respecify refused a site that is already in the layer":
@@ -757,6 +758,38 @@ private:
         /// those, reference position is not a worse order, it is no order. Computed at the barrier,
         /// where the graph and the parent's settled pair are both in hand.
         int32_t align_rank = -1;
+        /// This snarl's index within the CHAIN it belongs to, or -1.
+        ///
+        /// The alignment rank identifies a chain, not a snarl: `symbolic_allele` collapses a whole
+        /// chain excursion to one symbol, so every snarl of one chain lands in the same alignment
+        /// column and shares a rank. On chr20 that is 3,650 same-parent adjacent pairs in the
+        /// per-strand chains alone -- pairs the alignment cannot order, and which reference position
+        /// was therefore the only thing separating.
+        ///
+        /// A `Chain` is `vector<pair<const Snarl*, bool>>`: an ordered sequence, and a property of
+        /// the GRAPH rather than of any traversal, so both haplotypes agree on it exactly. That
+        /// makes the index the right key here, not a nested alignment -- an alignment inside a chain
+        /// would re-derive an order the decomposition already states, and could contradict it.
+        ///
+        /// Read against `frame_reversed`: a traversal that crosses the chain from its END boundary
+        /// meets the snarls in reverse chain order. All siblings in one chain share that flag,
+        /// because the parent crosses the chain once.
+        int32_t chain_index = -1;
+        /// The parent's settled traversal crossed this snarl's CHAIN from the chain's recorded END
+        /// boundary, so the chain's snarls are met in reverse chain order.
+        ///
+        /// From `SymbolicStep::backward`, which `symbolic_allele` sets as
+        /// `backward = (node == bounds.second)` -- "the chain is traversed backward when its
+        /// recorded end is met before its start". That is the chain-level fact this needs.
+        /// `frame_reversed` is NOT it: that is set from `traversal_offset_span`'s `at_start` against
+        /// the SNARL's own boundaries, so it says the parent entered this snarl at its end, which is
+        /// a different question and measured inert when used for this.
+        ///
+        /// Well defined for the pair, not per strand: `SymbolicStep::operator==` compares `backward`,
+        /// so two haplotypes crossing a chain in opposite directions produce unequal symbols,
+        /// `symbolic_diff` cannot match them, and the chain gets no rank at all. Any chain that HAS
+        /// a rank was therefore crossed the same way by both.
+        bool chain_backward = false;
         uint32_t contig = 0;
         uint32_t gl_offset = 0;
         uint32_t hap_offset = 0;

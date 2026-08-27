@@ -4968,7 +4968,8 @@ void FlowCaller::record_site(const Snarl& snarl, const vector<SnarlTraversal>& t
         (int64_t)snarl.start().node_id(), (int64_t)snarl.end().node_id(),
         nested_context.active, nested_context.parent_record_key,
         nested_context.parent_trav, nested_context.parent_crossing,
-        current_generation, /*emitted*/ false);
+        current_generation, /*emitted*/ false, /*align_rank*/ -1,
+        nested_context.chain_index);
 }
 
 void FlowCaller::render_retained_records() {
@@ -5077,7 +5078,7 @@ void FlowCaller::run_deferred_descent() {
     // Stage C: alignment ranks written, and why one was not.
     size_t rank_written = 0, rank_one_sided = 0, rank_no_symbol = 0, rank_ambiguous = 0;
     size_t rank_no_columns = 0, rank_no_child = 0, rank_deferred = 0;
-    size_t frame_deferred = 0, frame_staged = 0;
+    size_t frame_deferred = 0, frame_staged = 0, rank_backward = 0;
     unordered_map<size_t, PendingRecord*> record_by_key;
     record_by_key.reserve((pending.size() + render_record_count()) * 2);
     for (PendingRecord& pr : pending) {
@@ -5319,17 +5320,25 @@ void FlowCaller::run_deferred_descent() {
                         // Every occurrence, not the first: a chain a traversal crosses twice has
                         // two places in the order and no way to choose, so it gets no rank rather
                         // than an arbitrary one.
+                        // The step's own `backward` comes back with its column: it is the
+                        // chain-level orientation -- "the chain is traversed backward when its
+                        // recorded end is met before its start" -- and the snarls inside a backward
+                        // chain are met in reverse chain order. Matched on id and end_id, NOT on
+                        // backward, which is deliberate: the bounds identify the chain, and the
+                        // direction is what is being read off rather than searched for.
                         auto find_all = [&](const SymbolicAllele& h, const vector<int>& col,
-                                            vector<int>& out) {
+                                            vector<int>& out, vector<char>& back) {
                             for (size_t k = 0; k < h.size(); ++k) {
                                 if (h[k].is_chain() && h[k].id == bounds.first
                                     && h[k].end_id == bounds.second && col[k] >= 0) {
                                     out.push_back(col[k]);
+                                    back.push_back(h[k].backward ? 1 : 0);
                                 }
                             }
                         };
                         vector<int> c1, c2;
-                        find_all(ac.h1, ac.col1, c1);
+                        vector<char> b1, b2;
+                        find_all(ac.h1, ac.col1, c1, b1);
                         // A homozygous or haploid parent aligned against itself: both sides are the
                         // same projection, so searching the second adds nothing. Asked as a flag,
                         // not as a pointer comparison -- `h1` and `h2` are distinct members and
@@ -5339,10 +5348,12 @@ void FlowCaller::run_deferred_descent() {
                             // in the same column. Copied rather than re-searched, so a homozygous
                             // parent counts as a placement and not as one-sided.
                             c2 = c1;
+                            b2 = b1;
                         } else {
-                            find_all(ac.h2, ac.col2, c2);
+                            find_all(ac.h2, ac.col2, c2, b2);
                         }
                         int rank = -1;
+                        bool backward = false;
                         if (c1.size() > 1 || c2.size() > 1) {
                             ++rank_ambiguous;
                         } else if (!c1.empty() && !c2.empty()) {
@@ -5351,12 +5362,17 @@ void FlowCaller::run_deferred_descent() {
                             // there are two defensible orders and this guesses neither.
                             if (c1[0] == c2[0]) {
                                 rank = c1[0];
+                                // Matched, so both haplotypes crossed it the same way --
+                                // `SymbolicStep::operator==` compares `backward`, so a chain crossed
+                                // in opposite directions could not have matched at all.
+                                backward = b1[0] != 0;
                                 ++rank_written;
                             } else {
                                 ++rank_ambiguous;
                             }
                         } else if (!c1.empty() || !c2.empty()) {
                             rank = c1.empty() ? c2[0] : c1[0];
+                            backward = (c1.empty() ? b2[0] : b1[0]) != 0;
                             ++rank_one_sided;
                         } else {
                             ++rank_no_symbol;
@@ -5367,8 +5383,12 @@ void FlowCaller::run_deferred_descent() {
                             // `record` -- so the setter fails for exactly the population the
                             // ordering is for, and the rank has to travel as an argument instead.
                             pr.align_rank = rank;
-                            if (!linkage_collector->set_align_rank(pr.record_key, rank)) {
+                            pr.chain_backward = backward;
+                            if (!linkage_collector->set_align_rank(pr.record_key, rank, backward)) {
                                 ++rank_deferred;
+                            }
+                            if (backward) {
+                                ++rank_backward;
                             }
                         }
                     }
@@ -5515,7 +5535,7 @@ void FlowCaller::run_deferred_descent() {
                             (size_t)copies, pr.snarl.start().node_id(), pr.snarl.end().node_id(),
                             copies == 1, pr.parent_record_key,
                             pr.parent_trav, pr.parent_crossing, pr.generation, /*emitted*/ false,
-                            pr.align_rank);
+                            pr.align_rank, pr.chain_index, pr.chain_backward);
                     }
                 }
             }
@@ -5639,7 +5659,9 @@ void FlowCaller::run_deferred_descent() {
              << rank_no_symbol << " with no chain symbol in either projection, "
              << rank_no_columns << " whose parent would not project or align, "
              << rank_no_child << " with no managed child snarl; " << rank_deferred
-             << " had no layer entry yet and carried the rank into record() instead" << endl;
+             << " had no layer entry yet and carried the rank into record() instead; "
+             << rank_backward << " chains crossed backward, whose snarls are ordered in reverse"
+             << " chain order" << endl;
         cerr << "[vg call] single sweep: " << pending.size() << " nested chains retained over "
              << (generations + 1) << " generations; " << revised << " revised, " << gained
              << " reachable only under the settled parent, " << retracted << " retracted";
@@ -6151,6 +6173,7 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
             pending_this->record_key = record_key_of(snarl);
             pending_this->parent_record_key = nested_context.parent_record_key;
             pending_this->parent_crossing = nested_context.parent_crossing;
+            pending_this->chain_index = nested_context.chain_index;
             pending_this->crossing_known = nested_context.crossing_known;
             pending_this->parent_trav = nested_context.parent_trav;
             pending_this->generation = (uint8_t)min(current_generation, (size_t)255);
@@ -6373,6 +6396,23 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
                 nested_context.parent_record_key = record_key_of(snarl);
                 nested_context.parent_trav = carrying_trav;
                 nested_context.retain_only = retain_only;
+                // Where this snarl sits in its chain. The alignment rank identifies the CHAIN --
+                // every snarl of one chain collapses to a single symbol and so shares a column --
+                // so without this the siblings inside a chain are ordered only by reference
+                // position. A Chain is an ordered sequence and a property of the graph, so both
+                // haplotypes agree on it; no alignment is needed or wanted at this level.
+                nested_context.chain_index = -1;
+                {
+                    const Chain* ch = snarl_manager.chain_of(child);
+                    if (ch != nullptr) {
+                        for (size_t ci = 0; ci < ch->size(); ++ci) {
+                            if ((*ch)[ci].first == child) {
+                                nested_context.chain_index = (int)ci;
+                                break;
+                            }
+                        }
+                    }
+                }
                 bool crossing_known = parent_alleles.valid;
                 // No dependence on the parent having emitted anything: the mask is over this
                 // snarl's own candidate traversals, which exist whether or not a line was written.
