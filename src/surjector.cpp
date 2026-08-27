@@ -5432,6 +5432,28 @@ using namespace std;
         return cigar_against_path(surjected, get<0>(position), get<2>(position), get<1>(position), graph, min_splice_length);
     }
 
+    template<>
+    void Surjector::set_is_secondary(Alignment& aln, bool value) {
+        aln.set_is_secondary(value);
+    }
+
+    template<>
+    void Surjector::set_is_secondary(multipath_alignment_t& aln, bool value) {
+        aln.set_annotation("secondary", value);
+    }
+    
+    template<>
+    bool Surjector::get_is_secondary(const Alignment& aln) {
+        return aln.is_secondary();
+    }
+
+    template<>
+    bool Surjector::get_is_secondary(const multipath_alignment_t& aln) {
+        auto annotation = aln.get_annotation("secondary");
+        assert(annotation.first == multipath_alignment_t::Bool);
+        return *((bool*) annotation.second);
+    }
+
     vector<tuple<Alignment, size_t, size_t>> Surjector::generate_hard_clipped_alignments(const Alignment& source) const {
         
 #ifdef debug_anchored_surject

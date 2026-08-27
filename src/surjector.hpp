@@ -533,6 +533,18 @@ using namespace std;
         template<class AlnType>
         vector<pair<int, char>> get_cigar(const AlnType& surjected, const tuple<string, int64_t, bool>& position, const PathPositionHandleGraph& graph, bool spliced) const;
         
+        /**
+         * Mark a read alignment as primary or secondary.
+         */
+        template<class AlnType>
+        static void set_is_secondary(AlnType& aln, bool value);
+        
+        /**
+         * Check whether a read alignment is primary or secondary.
+         */
+        template<class AlnType>
+        static bool get_is_secondary(const AlnType& aln);
+        
         /// the graph we're surjecting onto
         const PathPositionHandleGraph* graph = nullptr;
     };
@@ -639,6 +651,11 @@ using namespace std;
         std::vector<size_t> source_index;
         
         for (size_t aln_i = 0; aln_i < aln_num; ++aln_i) {
+            // If the reads are paired, they need to be the same kind of primary or secondary-ness.
+            if (get_is_secondary(alns1[aln_i]) != get_is_secondary(alns2[aln_i])) {
+                throw std::runtime_error("Trying to surject paired reads that aren't both consistently primary or secondary");
+            }
+
             // Surject the reads and get the positions 
             vector<tuple<string, int64_t, bool>> positions1, positions2;
             auto surjected1 = surject(alns1[aln_i], paths, positions1, allow_negative_scores, preserve_deletions);
@@ -668,34 +685,26 @@ using namespace std;
                 // paired when they are improperly paired and not on consistent
                 // paths and strands.
                 
-                // Build maps, for each read, from path and strand to the first
-                // (and thus most primary) surjection on that path and strand.
+                // Build maps, for each read, from path and strand to the last
+                // surjection on that path and strand.
+                //
+                // TODO: Why will surject() put what it would get as the only
+                // option for single-path surject last for multipath surject?
+                //
                 // These are keyed by read 1 actual orientation; we flip the
                 // orientation on the read 2 annotated position.
                 unordered_map<pair<string, bool>, size_t> strand_primary_idx1, strand_primary_idx2;
                 for (size_t i = 0; i < surjected1.size(); ++i) {
                     if (!is_supplementary(surjected1[i]) && !get<0>(positions1[i]).empty()) {
                         const auto& pos = positions1[i];
-                        auto key = make_pair(get<0>(pos), get<2>(pos));
-                        auto found = strand_primary_idx1.find(key);
-                        if (found == strand_primary_idx1.end()) {
-                            // This is the first non-supplementary thing on
-                            // this path and strand.
-                            strand_primary_idx1.emplace_hint(found, key, i);
-                        }
+                        strand_primary_idx1[make_pair(get<0>(pos), get<2>(pos))] = i;
                     }
                 }
                 for (size_t i = 0; i < surjected2.size(); ++i) {
                     if (!is_supplementary(surjected2[i]) && !get<0>(positions2[i]).empty()) {
                         const auto& pos = positions2[i];
                         // We need to key by the opposite strand for read 2
-                        auto key = make_pair(get<0>(pos), !get<2>(pos));
-                        auto found = strand_primary_idx2.find(key);
-                        if (found == strand_primary_idx2.end()) {
-                            // This is the first non-supplementary thing on
-                            // this path and strand.
-                            strand_primary_idx2.emplace_hint(found, key, i);
-                        }
+                        strand_primary_idx2[make_pair(get<0>(pos), !get<2>(pos))] = i;
                     }
                 }
 
@@ -717,8 +726,10 @@ using namespace std;
                     if (found != strand_primary_idx2.end()) {
                         // This is a possible pair of path-and-strand-consistent, non-supplementary surjections
                         int pair_score = get_score(surjected1[kv.second]) + get_score(surjected2[found->second]);
-                        if (primary_idx1 == -1 || pair_score > primary_score || pair_score == primary_score && kv.first > primary_path_strand) {
-                            // This pair is deterministically better.
+                        if (primary_idx1 == -1 || pair_score > primary_score || pair_score == primary_score && kv.second > primary_idx1) {
+                            // This pair is deterministically better: better
+                            // score or same score and read1 is later.
+                            
 
                             if (primary_idx1 != -1) {
                                 // Save the pair it is replacing
@@ -816,6 +827,10 @@ using namespace std;
                     }
                 }
 
+                // Promote primary pair to primary if input pair was primary
+                set_is_secondary(surjected1[primary_idx1], get_is_secondary(alns1[aln_i]));
+                set_is_secondary(surjected2[primary_idx2], get_is_secondary(alns2[aln_i]));
+
                 // Install the winning pair.
                 alns1[aln_i] = std::move(surjected1[primary_idx1]);
                 positions1_out[aln_i] = std::move(positions1[primary_idx1]);
@@ -825,8 +840,10 @@ using namespace std;
                 for (auto& indexes : secondary_pairs) {
                     // Ship out all the secondary pairs.
                     alns1.emplace_back(std::move(surjected1[indexes.first]));
+                    set_is_secondary(alns1.back(), true);
                     positions1_out.emplace_back(std::move(positions1[indexes.first]));
                     alns2.emplace_back(std::move(surjected2[indexes.second]));
+                    set_is_secondary(alns2.back(), true);
                     positions2_out.emplace_back(std::move(positions2[indexes.second]));
                     source_index.push_back(aln_i);
                 }
