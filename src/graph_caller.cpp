@@ -57,6 +57,20 @@ static std::atomic<size_t> g_atomize_split_lines(0);
 // Stage 6: chains whose own record is suppressed because a block ALT already spells them.
 static std::atomic<size_t> g_atomize_child_inlined(0);
 
+// --- Haplotype-vs-haplotype structure, for the reference-free phasing design ---------------------
+// Everything the caller does today diffs each haplotype against the REFERENCE. This measures the
+// diff the proposed algorithm needs instead: hap1 against hap2, with no reference involved. The
+// four populations correspond one-to-one with the four steps of that design.
+static std::atomic<size_t> g_hd_sites(0);          // diploid sites with two DISTINCT called travs
+static std::atomic<size_t> g_hd_steps(0);          // symbolic steps summed over both haplotypes
+static std::atomic<size_t> g_hd_lcs(0);            // matched positions: the diploid backbone (step 2)
+static std::atomic<size_t> g_hd_lcs_chains(0);     // chain symbols in the backbone
+static std::atomic<size_t> g_hd_uniq_runs(0);      // maximal unique substrings: haploid chains (step 3)
+static std::atomic<size_t> g_hd_uniq_chains(0);    // chain symbols inside those substrings
+static std::atomic<size_t> g_hd_oo_occ(0);         // chain symbols in BOTH but unmatched (step 4)
+static std::atomic<size_t> g_hd_oo_sites(0);       // sites carrying at least one of those
+static std::atomic<size_t> g_hd_degraded(0);       // DP refused, so no structure to report
+static std::atomic<size_t> g_hd_hist[8];           // out-of-order occurrences per site, 7 = 7+
 
 // Why emit_block_records declined a site, by refusal point. Every one of these means "the site
 // record stands", so this is what "block emission did not fire here" actually consists of -- a
@@ -151,6 +165,39 @@ void report_atomize_instrumentation() {
     if (g_atomize_child_inlined.load() > 0) {
         cerr << "[vg call] atomize: " << g_atomize_child_inlined.load()
              << " child chains not descended into because a block ALT already spells them" << endl;
+    }
+    if (g_hd_sites.load() > 0) {
+        const size_t sites = g_hd_sites.load();
+        cerr << "[vg call] hap-vs-hap: " << sites
+             << " diploid sites with two distinct called traversals, "
+             << g_hd_steps.load() << " symbolic steps over both haplotypes; backbone (LCS) "
+             << g_hd_lcs.load() << " matched positions of which " << g_hd_lcs_chains.load()
+             << " are chain symbols" << endl;
+        cerr << "[vg call] hap-vs-hap: " << g_hd_uniq_runs.load()
+             << " maximal unique substrings (" << (double)g_hd_uniq_runs.load() / (double)sites
+             << " a site) carrying " << g_hd_uniq_chains.load() << " chain symbols" << endl;
+        cerr << "[vg call] hap-vs-hap: " << g_hd_oo_occ.load()
+             << " chain symbols shared by both haplotypes that the alignment could not match, on "
+             << g_hd_oo_sites.load() << " sites (" << (100.0 * (double)g_hd_oo_sites.load()
+                                                      / (double)sites)
+             << "% of them)";
+        if (g_hd_degraded.load() > 0) {
+            cerr << "; " << g_hd_degraded.load() << " sites the DP refused";
+        }
+        cerr << endl;
+        bool any = false;
+        for (size_t k = 1; k < 8; ++k) {
+            if (g_hd_hist[k].load() > 0) {
+                if (!any) {
+                    cerr << "[vg call] hap-vs-hap: unmatched shared chains a site:";
+                    any = true;
+                }
+                cerr << " " << (k == 7 ? "7+" : std::to_string(k)) << "=" << g_hd_hist[k].load();
+            }
+        }
+        if (any) {
+            cerr << endl;
+        }
     }
     {
         // One line, listing only the reasons that fired. A refusal with no population is not news;
@@ -2139,6 +2186,108 @@ bool VCFOutputCaller::is_symbolically_reference(const vector<SnarlTraversal>& ca
 /// Stage-2 instrumentation for planning/symbolic-diff-decomposition.md. Projects the reference and
 /// each distinct called ALT traversal, aligns them, and tallies. Writes only atomics and reads
 /// nothing it can alter, so a run with this compiled in is byte-identical to one without.
+/// Hap1 against hap2, with no reference in it. See the counters above: this is the structure the
+/// reference-free phasing design is built on, measured on the alignment the current code never
+/// computes. Writes only atomics, so a run with this compiled in is byte-identical to one without.
+static void tally_haplotype_diff(const SnarlManager* mgr, const Snarl& snarl,
+                                 const vector<SnarlTraversal>& travs, const vector<int>& genotype) {
+    if (mgr == nullptr || genotype.size() != 2) {
+        return;
+    }
+    const int a = genotype[0], b = genotype[1];
+    if (a < 0 || b < 0 || a == b || (size_t)a >= travs.size() || (size_t)b >= travs.size()) {
+        return;   // hom, or a star/missing slot: no two haplotypes to compare
+    }
+    if (!symbolic_site_resolvable(snarl, *mgr)) {
+        return;
+    }
+    SymbolicAllele h1 = symbolic_allele(travs[a], snarl, *mgr);
+    SymbolicAllele h2 = symbolic_allele(travs[b], snarl, *mgr);
+    if (h1.empty() || h2.empty()) {
+        return;
+    }
+    bool degraded = false;
+    vector<DiffBlock> blocks = symbolic_diff(h1, h2, &degraded);
+    if (degraded) {
+        ++g_hd_degraded;
+        return;
+    }
+    ++g_hd_sites;
+    g_hd_steps += h1.size() + h2.size();
+
+    // The matched runs are the gaps between difference blocks, and they pair position for position:
+    // that pairing IS the longest common subsequence this alignment found.
+    map<pair<pair<nid_t, nid_t>, bool>, size_t> matched_chain;
+    size_t lcs = 0, lcs_chains = 0, uniq_runs = 0, uniq_chains = 0;
+    size_t i = 0, j = 0;
+    auto walk_matched = [&](size_t to_i, size_t to_j) {
+        while (i < to_i && j < to_j) {
+            ++lcs;
+            if (h1[i].is_chain()) {
+                ++lcs_chains;
+                ++matched_chain[make_pair(make_pair(h1[i].id, h1[i].end_id), h1[i].backward)];
+            }
+            ++i;
+            ++j;
+        }
+        i = to_i;
+        j = to_j;
+    };
+    for (const DiffBlock& d : blocks) {
+        walk_matched((size_t)d.ref_begin, (size_t)d.alt_begin);
+        // One maximal unique substring per non-empty side of the block, which is exactly what the
+        // design calls a haploid chain.
+        if (d.ref_end > d.ref_begin) {
+            ++uniq_runs;
+            for (int k = d.ref_begin; k < d.ref_end; ++k) {
+                uniq_chains += h1[k].is_chain() ? 1 : 0;
+            }
+        }
+        if (d.alt_end > d.alt_begin) {
+            ++uniq_runs;
+            for (int k = d.alt_begin; k < d.alt_end; ++k) {
+                uniq_chains += h2[k].is_chain() ? 1 : 0;
+            }
+        }
+        i = (size_t)d.ref_end;
+        j = (size_t)d.alt_end;
+    }
+    walk_matched(h1.size(), h2.size());
+
+    // Step 4: a chain symbol the two haplotypes SHARE that the alignment could not match, because
+    // matching it would have crossed another match. min(n1, n2) copies exist on both sides; the ones
+    // the LCS did not pair are the out-of-order diploid elements.
+    map<pair<pair<nid_t, nid_t>, bool>, pair<size_t, size_t>> counts;
+    for (const SymbolicStep& s : h1) {
+        if (s.is_chain()) {
+            ++counts[make_pair(make_pair(s.id, s.end_id), s.backward)].first;
+        }
+    }
+    for (const SymbolicStep& s : h2) {
+        if (s.is_chain()) {
+            ++counts[make_pair(make_pair(s.id, s.end_id), s.backward)].second;
+        }
+    }
+    size_t out_of_order = 0;
+    for (const auto& kv : counts) {
+        const size_t both = std::min(kv.second.first, kv.second.second);
+        auto m = matched_chain.find(kv.first);
+        const size_t paired = m == matched_chain.end() ? 0 : m->second;
+        if (both > paired) {
+            out_of_order += both - paired;
+        }
+    }
+    g_hd_lcs += lcs;
+    g_hd_lcs_chains += lcs_chains;
+    g_hd_uniq_runs += uniq_runs;
+    g_hd_uniq_chains += uniq_chains;
+    if (out_of_order > 0) {
+        ++g_hd_oo_sites;
+        g_hd_oo_occ += out_of_order;
+        ++g_hd_hist[std::min<size_t>(out_of_order, 7)];
+    }
+}
+
 static void tally_atomize(const PathPositionHandleGraph& graph, const SnarlManager* mgr,
                           const Snarl& snarl, const vector<SnarlTraversal>& travs,
                           const vector<int>& genotype, int ref_trav_idx) {
@@ -2828,6 +2977,7 @@ bool VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCa
     }
 
     tally_atomize(graph, symbolic_manager, snarl, called_traversals, genotype, ref_trav_idx);
+    tally_haplotype_diff(symbolic_manager, snarl, called_traversals, genotype);
 
     // add on fixed number of uncalled traversals if we're making a ref-call
     // with genotype_snarls set to true
