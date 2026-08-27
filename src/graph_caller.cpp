@@ -56,6 +56,25 @@ static std::atomic<size_t> g_atomize_split_sites(0);
 static std::atomic<size_t> g_atomize_split_lines(0);
 // Stage 6: chains whose own record is suppressed because a block ALT already spells them.
 static std::atomic<size_t> g_atomize_child_inlined(0);
+
+
+// Why emit_block_records declined a site, by refusal point. Every one of these means "the site
+// record stands", so this is what "block emission did not fire here" actually consists of -- a
+// question the code could otherwise only be read for. On chr20 two reasons are 99.5% of it and six
+// of the ten never fire at all, which is worth knowing before anyone reworks the refusals.
+static std::atomic<size_t> g_atomize_refuse[10];
+static const char* const g_atomize_refuse_name[10] = {
+    "the genotyper returned no genotype: ploidy 0, or no read the matrix could place",
+    "no reference traversal",
+    "the snarl does not resolve",
+    "the reference projection is empty",
+    "the alignment degraded",
+    "no difference blocks: every called haplotype takes the reference route here",
+    "an indel needs an anchor base and the snarl has none to its left",
+    "the visit left of the anchor has no sequence",
+    "every block spelled the reference's own bases: a route difference with no sequence difference",
+    "one block, saying what the site record already says",
+};
 static thread_local int g_descent_depth = 0;
 
 void GraphCaller::report_descent_instrumentation() const {
@@ -132,6 +151,27 @@ void report_atomize_instrumentation() {
     if (g_atomize_child_inlined.load() > 0) {
         cerr << "[vg call] atomize: " << g_atomize_child_inlined.load()
              << " child chains not descended into because a block ALT already spells them" << endl;
+    }
+    {
+        // One line, listing only the reasons that fired. A refusal with no population is not news;
+        // a refusal that suddenly has one is.
+        size_t total = 0;
+        for (size_t i = 0; i < 10; ++i) {
+            total += g_atomize_refuse[i].load();
+        }
+        if (total > 0) {
+            cerr << "[vg call] atomize: " << total << " sites declined block emission, so the site"
+                 << " record stands:";
+            bool first = true;
+            for (size_t i = 0; i < 10; ++i) {
+                size_t n = g_atomize_refuse[i].load();
+                if (n > 0) {
+                    cerr << (first ? " " : "; ") << n << " " << g_atomize_refuse_name[i];
+                    first = false;
+                }
+            }
+            cerr << endl;
+        }
     }
     if (g_atomize_split_sites.load() > 0) {
         cerr << "[vg call] atomize: " << g_atomize_split_sites.load()
@@ -2234,15 +2274,26 @@ int VCFOutputCaller::emit_block_records(const PathPositionHandleGraph& graph, co
     // Every refusal below returns -1, meaning "the site record stands". That is the safe direction:
     // -1 reproduces today's output exactly, so a case this does not understand degrades to the
     // behaviour it was going to have anyway rather than to a wrong record.
-    if (!atomize_blocks || symbolic_manager == nullptr || genotype_snarls || genotype.empty()) {
+    // Split from the per-site refusal below on purpose. `tally_atomize` bumps the counters that
+    // decide whether the atomize report prints at all, and it is gated on `symbolic_manager`, not
+    // on `atomize_blocks` -- so a `--no-atomize-blocks` run still prints this report. Counting the
+    // configuration here made that run say "70 sites declined: no genotype", which is 100% of them
+    // and means only "the flag is off".
+    if (!atomize_blocks || symbolic_manager == nullptr || genotype_snarls) {
+        return -1;
+    }
+    if (genotype.empty()) {
+        ++g_atomize_refuse[0];
         return -1;
     }
     if (ref_trav_idx < 0 || (size_t)ref_trav_idx >= called_traversals.size()) {
+        ++g_atomize_refuse[1];
         return -1;
     }
     if (!symbolic_site_resolvable(snarl, *symbolic_manager)) {
         // Projection would see no child chains here, so a diff over it measures node-level
         // shredding rather than route structure. Counted in the stage-2 instrumentation.
+        ++g_atomize_refuse[2];
         return -1;
     }
 
@@ -2251,6 +2302,7 @@ int VCFOutputCaller::emit_block_records(const PathPositionHandleGraph& graph, co
     SymbolicAllele sref = symbolic_allele(ref_trav, snarl, *symbolic_manager, &ref_ranges);
     const size_t m = sref.size();
     if (m == 0 || ref_ranges.size() != m) {
+        ++g_atomize_refuse[3];
         return -1;
     }
 
@@ -2308,6 +2360,7 @@ int VCFOutputCaller::emit_block_records(const PathPositionHandleGraph& graph, co
         bool degraded = false;
         haps[s].blocks = symbolic_diff(sref, haps[s].sym, &degraded, &haps[s].alt_before_ref);
         if (degraded || haps[s].alt_before_ref.size() != m + 1) {
+            ++g_atomize_refuse[4];
             return -1;
         }
     }
@@ -2323,6 +2376,7 @@ int VCFOutputCaller::emit_block_records(const PathPositionHandleGraph& graph, co
         }
     }
     if (ivs.empty()) {
+        ++g_atomize_refuse[5];
         return -1;
     }
     sort(ivs.begin(), ivs.end());
@@ -2393,10 +2447,18 @@ int VCFOutputCaller::emit_block_records(const PathPositionHandleGraph& graph, co
         int64_t pos = site_position + (int64_t)ref_visit_off[vb];
         if (needs_anchor) {
             if (vb <= 0) {
-                return -1;   // no base to the left inside this snarl; the site record stands
+                ++g_atomize_refuse[6];
+                // Not only "POS would fall outside the snarl": the next line would call
+                // seq_of(ref_trav, -1, 0), whose loop has no lower bound and would read
+                // ref_trav.visit(-1). Reachable when the snarl's own start node appears twice in
+                // the reference traversal -- a cycle back through the boundary, which
+                // get_ref_interval has its own branch for -- because the tie-break then deletes
+                // the leftmost copy and opens a block at reference step 0.
+                return -1;
             }
             string left = seq_of(ref_trav, vb - 1, vb);
             if (left.empty()) {
+                ++g_atomize_refuse[7];
                 return -1;
             }
             string base(1, left.back());
@@ -2652,6 +2714,7 @@ int VCFOutputCaller::emit_block_records(const PathPositionHandleGraph& graph, co
     }
 
     if (built.empty()) {
+        ++g_atomize_refuse[8];
         return -1;
     }
     // Only take over from the site record where doing so changes the answer: more than one record,
@@ -2660,6 +2723,7 @@ int VCFOutputCaller::emit_block_records(const PathPositionHandleGraph& graph, co
     // falls through so its bytes are unchanged.
     bool collapses = built.size() == 1 && built[0].alleles.size() < site.alleles.size();
     if (built.size() < 2 && !collapses) {
+        ++g_atomize_refuse[9];
         return -1;
     }
 
