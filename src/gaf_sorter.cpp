@@ -44,17 +44,28 @@ void GAFSorterRecord::set_key(key_type type) {
         std::uint32_t min_id = std::numeric_limits<std::uint32_t>::max();
         std::uint32_t max_id = 0;
         std::string_view path = this->get_field(PATH_FIELD);
-        size_t start = 1;
+        size_t start = 0;
         while (start < path.size()) {
+            bool is_reverse;
+            if (path[start] == '<') {
+                is_reverse = true;
+            } else if (path[start] == '>') {
+                is_reverse = false;
+            } else {
+                this->key = MISSING_KEY;
+                return;
+            }
+            start++;
             std::uint32_t id = 0;
             auto result = std::from_chars(path.data() + start, path.data() + path.size(), id);
             if (result.ec != std::errc()) {
                 this->key = MISSING_KEY;
                 return;
             }
+            id = gbwt::Node::encode(id, is_reverse);
             min_id = std::min(min_id, id);
             max_id = std::max(max_id, id);
-            start = (result.ptr - path.data()) + 1;
+            start = (result.ptr - path.data());
         }
         if (min_id == std::numeric_limits<std::uint32_t>::max()) {
             this->key = MISSING_KEY;

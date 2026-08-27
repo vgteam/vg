@@ -48,7 +48,7 @@ struct GAFSorterRecord {
 
     /// Types of keys that can be derived from the value.
     enum key_type {
-        /// (minimum node id, maximum node id) in the path.
+        /// (minimum GBWT node id, maximum GBWT node id) in the path.
         key_node_interval,
         /// Hash of the value for random shuffling.
         key_hash,
