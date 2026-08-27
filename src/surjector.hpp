@@ -694,17 +694,53 @@ using namespace std;
                 // These are keyed by read 1 actual orientation; we flip the
                 // orientation on the read 2 annotated position.
                 unordered_map<pair<string, bool>, size_t> strand_primary_idx1, strand_primary_idx2;
+                // We also track the score
+                unordered_map<pair<string, bool>, int32_t> strand_primary_score1, strand_primary_score2;
                 for (size_t i = 0; i < surjected1.size(); ++i) {
                     if (!is_supplementary(surjected1[i]) && !get<0>(positions1[i]).empty()) {
                         const auto& pos = positions1[i];
-                        strand_primary_idx1[make_pair(get<0>(pos), get<2>(pos))] = i;
+                        auto new_score = get_score(surjected1[i]);
+                        auto key = make_pair(get<0>(pos), get<2>(pos));
+                        auto found = strand_primary_idx1.find(key);
+                        if (found == strand_primary_idx1.end()) {
+                            // This is the first non-supplementary thing on
+                            // this path and strand.
+                            strand_primary_idx1.emplace_hint(found, key, i);
+                            strand_primary_score1.emplace(key, new_score);
+                        } else {
+                            // We need to pick the winner based on score,
+                            // breaking ties by later wins.
+                            auto& old_score = strand_primary_score1[key];
+                            if (old_score <= new_score) {
+                                // Replace it
+                                found->second = i;
+                                old_score = new_score;
+                            }
+                        }
                     }
                 }
                 for (size_t i = 0; i < surjected2.size(); ++i) {
                     if (!is_supplementary(surjected2[i]) && !get<0>(positions2[i]).empty()) {
                         const auto& pos = positions2[i];
+                        auto new_score = get_score(surjected2[i]);
                         // We need to key by the opposite strand for read 2
-                        strand_primary_idx2[make_pair(get<0>(pos), !get<2>(pos))] = i;
+                        auto key = make_pair(get<0>(pos), !get<2>(pos));
+                        auto found = strand_primary_idx2.find(key);
+                        if (found == strand_primary_idx2.end()) {
+                            // This is the first non-supplementary thing on
+                            // this path and strand.
+                            strand_primary_idx2.emplace_hint(found, key, i);
+                            strand_primary_score2.emplace(key, new_score);
+                        } else {
+                            // We need to pick the winner based on score,
+                            // breaking ties by later wins.
+                            auto& old_score = strand_primary_score2[key];
+                            if (old_score <= new_score) {
+                                // Replace it
+                                found->second = i;
+                                old_score = new_score;
+                            }
+                        }
                     }
                 }
 
@@ -725,7 +761,7 @@ using namespace std;
                     auto found = strand_primary_idx2.find(kv.first);
                     if (found != strand_primary_idx2.end()) {
                         // This is a possible pair of path-and-strand-consistent, non-supplementary surjections
-                        int pair_score = get_score(surjected1[kv.second]) + get_score(surjected2[found->second]);
+                        int pair_score = strand_primary_score1[kv.first] + strand_primary_score2[kv.first];
                         if (primary_idx1 == -1 || pair_score > primary_score || pair_score == primary_score && kv.second > primary_idx1) {
                             // This pair is deterministically better: better
                             // score or same score and read1 is later.
