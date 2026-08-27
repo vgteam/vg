@@ -341,7 +341,15 @@ void viterbi_step(const vector<double>& in, size_t m, double rho_a, double rho_b
 }   // anonymous namespace
 
 void LinkageModel::window_posteriors(const vector<Site>& sites, size_t from, size_t to,
-                                     vector<vector<double>>& out) const {
+                                     vector<vector<double>>& out,
+                                     const vector<double>* alpha_in,
+                                     const vector<double>* beta_in,
+                                     vector<vector<double>>* alpha_out,
+                                     vector<vector<double>>* beta_out,
+                                     const vector<char>* harvest_mask) const {
+    auto wanted = [&](size_t i) {
+        return harvest_mask == nullptr || (i < harvest_mask->size() && (*harvest_mask)[i]);
+    };
     size_t n = to - from;
     if (n == 0) {
         return;
@@ -361,7 +369,12 @@ void LinkageModel::window_posteriors(const vector<Site>& sites, size_t from, siz
     // wanted here, never the chain's total likelihood.
     vector<vector<double>> alpha(n);
     {
+        // Uniform unless the caller handed in the message that reaches this window. Uniform says
+        // "nothing is known before here" -- true for a whole chain, false for a segment cut from one.
         vector<double> a(m * m, 1.0 / (double)(m * m));
+        if (alpha_in != nullptr && alpha_in->size() == m * m) {
+            a = *alpha_in;
+        }
         for (size_t k = 0; k < m * m; ++k) {
             a[k] *= emissions[0][k];
         }
@@ -376,6 +389,14 @@ void LinkageModel::window_posteriors(const vector<Site>& sites, size_t from, siz
             v /= s;
         }
         alpha[0] = a;
+        if (alpha_out != nullptr) {
+            alpha_out->assign(sites.size(), vector<double>());
+            if (wanted(from)) {
+                (*alpha_out)[from] = alpha_in != nullptr && alpha_in->size() == m * m
+                                         ? *alpha_in
+                                         : vector<double>(m * m, 1.0 / (double)(m * m));
+            }
+        }
     }
     for (size_t t = 1; t < n; ++t) {
         // An explicit per-step distance where the caller supplied one -- below the top level that is
@@ -388,6 +409,11 @@ void LinkageModel::window_posteriors(const vector<Site>& sites, size_t from, siz
         // per-strand distances that will make them differ come with the haplotype frame.
         const double rho = switch_probability(gap);
         transition_apply(alpha[t - 1], m, rho, rho, moved);
+        if (alpha_out != nullptr && wanted(from + t)) {
+            // The message ENTERING t, before its own emission -- what `alpha_in` consumes, and
+            // symmetric with `beta_out`, which is already the entering message from the right.
+            (*alpha_out)[from + t] = moved;
+        }
         double s = 0.0;
         for (size_t k = 0; k < m * m; ++k) {
             moved[k] *= emissions[t][k];
@@ -403,8 +429,17 @@ void LinkageModel::window_posteriors(const vector<Site>& sites, size_t from, siz
     }
 
     // Backward, combining as we go so only one beta is held at a time.
+    if (beta_out != nullptr) {
+        beta_out->assign(sites.size(), vector<double>());
+    }
     vector<double> beta(m * m, 1.0);
+    if (beta_in != nullptr && beta_in->size() == m * m) {
+        beta = *beta_in;
+    }
     for (size_t t = n; t-- > 0;) {
+        if (beta_out != nullptr && wanted(from + t)) {
+            (*beta_out)[from + t] = beta;
+        }
         const Site& site = sites[from + t];
         vector<double>& post = out[from + t];
         post.assign(site.genotype_ln_likelihood.size(), 0.0);
@@ -606,6 +641,61 @@ static void windowed_path(size_t n, size_t step, size_t margin, vector<T>& out, 
         pin = out[pin_index];
         have_pin = true;
     }
+}
+
+vector<vector<double>> LinkageModel::posteriors_with_context(
+        const vector<Site>& sites, const vector<char>& harvest_mask,
+        vector<vector<double>>& context_out) const {
+    vector<vector<double>> out(sites.size());
+    context_out.assign(sites.size(), vector<double>());
+    if (sites.empty()) {
+        return out;
+    }
+    // The same windowed sweep `posteriors` does, so the posteriors it returns are unchanged; the
+    // context is harvested from each window's KEPT range only, for the same reason the posteriors
+    // are -- a value from a window's margin was decoded without the full context around it.
+    const size_t step = max<size_t>(params.window, 1);
+    const size_t margin = params.margin;
+    const size_t n = sites.size();
+    if (n <= step) {
+        vector<vector<double>> a, b;
+        window_posteriors(sites, 0, n, out, nullptr, nullptr, &a, &b, &harvest_mask);
+        for (size_t i = 0; i < n; ++i) {
+            if (i < a.size() && !a[i].empty() && i < b.size() && !b[i].empty()) {
+                context_out[i] = a[i];
+                for (size_t k = 0; k < context_out[i].size() && k < b[i].size(); ++k) {
+                    context_out[i][k] *= b[i][k];
+                }
+            }
+        }
+        return out;
+    }
+    for (size_t start = 0; start < n; start += step) {
+        const size_t lo = start > margin ? start - margin : 0;
+        const size_t hi = min(start + step + margin, n);
+        vector<vector<double>> local(n), a, b;
+        window_posteriors(sites, lo, hi, local, nullptr, nullptr, &a, &b, &harvest_mask);
+        const size_t keep_to = min(start + step, n);
+        for (size_t t = start; t < keep_to; ++t) {
+            out[t] = std::move(local[t]);
+            if (t < a.size() && !a[t].empty() && t < b.size() && !b[t].empty()) {
+                context_out[t] = a[t];
+                for (size_t k = 0; k < context_out[t].size() && k < b[t].size(); ++k) {
+                    context_out[t][k] *= b[t][k];
+                }
+                double s = 0.0;
+                for (double v : context_out[t]) {
+                    s += v;
+                }
+                if (s > 0.0) {
+                    for (double& v : context_out[t]) {
+                        v /= s;
+                    }
+                }
+            }
+        }
+    }
+    return out;
 }
 
 vector<vector<double>> LinkageModel::posteriors(const vector<Site>& sites) const {
@@ -1604,6 +1694,9 @@ void LinkageCollector::finish_phase_call(PhaseCall& pc, const Entry& e, size_t& 
     }
 }
 
+static std::atomic<size_t> g_grp_no_parent(0), g_grp_no_context(0);
+static std::atomic<size_t> g_grp_no_entry(0), g_grp_ploidy(0);
+
 size_t LinkageCollector::resolve_generation(
         size_t generation, bool last, vector<PhaseCall>* phasing_out) {
     // Nested sites, collected across every contig and phased after the diploid chains, so their
@@ -1668,6 +1761,20 @@ size_t LinkageCollector::resolve_generation(
     // correspondence to carry across, exactly as there is none between two contigs. It also
     // reproduces what the two-pass splice did before, since each side becomes its own chain with
     // its own phase set.
+    // Which sites will be asked for a context message: the parents of everything not yet called.
+    // Built once, because a child's parent may sit in any chain on the contig.
+    unordered_set<size_t> wanted_parents;
+    for (const Entry& e : entries) {
+        if (!e.retracted && e.generation > generation && e.parent_record_key != 0) {
+            wanted_parents.insert(e.parent_record_key);
+        }
+    }
+
+    // Per chain: the message to condition it on (empty = none), and the phase set it belongs to
+    // (SIZE_MAX = take it from the chain's own first site, as a contig chain does).
+    vector<const vector<double>*> chain_context;
+    vector<size_t> chain_phase_set;
+
     vector<vector<size_t>> chains;
     for (auto& contig_indices : by_contig) {
         if (contig_indices.empty()) {
@@ -1721,11 +1828,109 @@ size_t LinkageCollector::resolve_generation(
             }
             chains.emplace_back(chainable.begin() + run_start,
                                 chainable.begin() + run_end);
+            chain_context.push_back(nullptr);
+            chain_phase_set.push_back(numeric_limits<size_t>::max());
             run_start = run_end;
         }
     }
 
-    for (auto& indices : chains) {
+    // A generation's own sites hang off a bounded set of parents, and a parent's context message is
+    // everything the contig chain knows about it. Conditioning each parent's children on that
+    // message and decoding them alone is the tree factorisation: nothing is inserted into anything,
+    // so nothing downstream goes stale, and the cost is the number of children rather than the
+    // length of the contig.
+    //
+    // Only taken when EVERY live site in the generation is covered -- a parent with no stored
+    // context would otherwise have its children decoded with no context at all, which is the
+    // uniform boundary that discards everything.
+    size_t grouped_sites = 0, grouped_groups = 0;
+    // VG_LINKAGE_NO_GROUPING forces the contig-chain path, so one binary can produce both arms of
+    // a comparison and the only difference between them is this.
+    static const bool no_grouping = getenv("VG_LINKAGE_NO_GROUPING") != nullptr;
+    if (generation > 0 && !parent_context.empty() && !no_grouping) {
+        unordered_map<size_t, size_t> index_of_key;
+        index_of_key.reserve(entries.size() * 2);
+        for (size_t i = 0; i < entries.size(); ++i) {
+            if (!entries[i].retracted) {
+                index_of_key[entries[i].record_key] = i;
+            }
+        }
+        map<size_t, vector<size_t>> by_parent;
+        bool all_covered = true;
+        for (const vector<size_t>& indices : chains) {
+            for (size_t idx : indices) {
+                const Entry& e = entries[idx];
+                if (e.generation != generation) {
+                    continue;
+                }
+                auto ctx = parent_context.find(e.parent_record_key);
+                auto par = index_of_key.find(e.parent_record_key);
+                if (e.parent_record_key == 0) {
+                    ++g_grp_no_parent;
+                    all_covered = false;
+                } else if (par == index_of_key.end()) {
+                    ++g_grp_no_entry;
+                    all_covered = false;
+                } else if (entries[par->second].ploidy != e.ploidy) {
+                    ++g_grp_ploidy;
+                    all_covered = false;
+                } else {
+                    // A parent with no stored context still forms a group. Its own emission is in
+                    // the group, so its children link to it and to each other; what is missing is
+                    // the contig's upstream context, not the parent. Counted, because it is a
+                    // weaker decode than the rest and the population should not be invisible.
+                    //
+                    // These arise from children recorded at the barrier AFTER their generation's
+                    // decode -- the chains reachable only under a settled parent -- whose parents
+                    // were therefore never masked for harvesting.
+                    if (ctx == parent_context.end()) {
+                        ++g_grp_no_context;
+                    }
+                    by_parent[e.parent_record_key].push_back(idx);
+                    continue;
+                }
+            }
+        }
+        if (all_covered && !by_parent.empty()) {
+            // The phase set a group belongs to is its parent's, never the group's own first site:
+            // a group is a unit of decoding, a phase block is a unit of meaning, and taking one
+            // from the other is what fragments the output.
+            unordered_map<size_t, size_t> phase_set_of;
+            for (const PhaseCall& pc : (phasing_out != nullptr ? *phasing_out
+                                                              : vector<PhaseCall>())) {
+                phase_set_of[pc.record_key] = pc.phase_set;
+            }
+            vector<vector<size_t>> groups;
+            vector<const vector<double>*> gctx;
+            vector<size_t> gps;
+            for (auto& kv : by_parent) {
+                const size_t pidx = index_of_key[kv.first];
+                vector<size_t> group;
+                group.push_back(pidx);
+                sort(kv.second.begin(), kv.second.end(), [&](size_t a, size_t c) {
+                    if (entries[a].position != entries[c].position) {
+                        return entries[a].position < entries[c].position;
+                    }
+                    return entries[a].record_key < entries[c].record_key;
+                });
+                group.insert(group.end(), kv.second.begin(), kv.second.end());
+                grouped_sites += group.size();
+                ++grouped_groups;
+                groups.push_back(std::move(group));
+                auto found_ctx = parent_context.find(kv.first);
+                gctx.push_back(found_ctx != parent_context.end() ? &found_ctx->second : nullptr);
+                auto ps = phase_set_of.find(kv.first);
+                gps.push_back(ps != phase_set_of.end() ? ps->second
+                                                       : numeric_limits<size_t>::max());
+            }
+            chains.swap(groups);
+            chain_context.swap(gctx);
+            chain_phase_set.swap(gps);
+        }
+    }
+
+    for (size_t chain_i = 0; chain_i < chains.size(); ++chain_i) {
+        vector<size_t>& indices = chains[chain_i];
         if (indices.empty()) {
             continue;
         }
@@ -1819,8 +2024,72 @@ size_t LinkageCollector::resolve_generation(
             sites.push_back(std::move(s));
         }
 
-        vector<vector<double>> posteriors = chain_ploidy == 1 ? model.haploid_posteriors(sites)
-                                                             : model.posteriors(sites);
+        vector<vector<double>> posteriors;
+        if (chain_ploidy == 1) {
+            posteriors = model.haploid_posteriors(sites);
+        } else if (chain_i < chain_context.size() && chain_context[chain_i] != nullptr) {
+            // A child group, conditioned on its parent's context message. One decode over the
+            // group, not over the contig.
+            //
+            // Harvests too. Without this a grouped generation stores nothing, so the NEXT
+            // generation finds no context for its parents and falls back to the contig chain --
+            // grouping at one depth silently disabling it at the next, which is what the coverage
+            // counters showed.
+            vector<char> mask(indices.size(), 0);
+            size_t masked = 0;
+            for (size_t k = 0; k < indices.size(); ++k) {
+                if (wanted_parents.count(entries[indices[k]].record_key) != 0) {
+                    mask[k] = 1;
+                    ++masked;
+                }
+            }
+            vector<vector<double>> ga, gb;
+            model.segment_posteriors(sites, 0, sites.size(), chain_context[chain_i], nullptr,
+                                     posteriors, masked ? &ga : nullptr, masked ? &gb : nullptr,
+                                     masked ? &mask : nullptr);
+            for (size_t k = 0; masked && k < indices.size(); ++k) {
+                if (k >= ga.size() || ga[k].empty() || k >= gb.size() || gb[k].empty()) {
+                    continue;
+                }
+                vector<double> ctx = ga[k];
+                double sum = 0.0;
+                for (size_t j = 0; j < ctx.size() && j < gb[k].size(); ++j) {
+                    ctx[j] *= gb[k][j];
+                    sum += ctx[j];
+                }
+                if (sum > 0.0) {
+                    for (double& v : ctx) {
+                        v /= sum;
+                    }
+                    parent_context[entries[indices[k]].record_key] = std::move(ctx);
+                }
+            }
+        } else if (wanted_parents.empty()) {
+            posteriors = model.posteriors(sites);
+        } else {
+            // Same windowed sweep, harvesting the context message at the parents of sites this
+            // generation has not reached yet. Sparse: the mask is what keeps this from costing
+            // 9.6 kB a site in both directions.
+            vector<char> mask(indices.size(), 0);
+            size_t masked = 0;
+            for (size_t k = 0; k < indices.size(); ++k) {
+                if (wanted_parents.count(entries[indices[k]].record_key) != 0) {
+                    mask[k] = 1;
+                    ++masked;
+                }
+            }
+            if (masked == 0) {
+                posteriors = model.posteriors(sites);
+            } else {
+                vector<vector<double>> context;
+                posteriors = model.posteriors_with_context(sites, mask, context);
+                for (size_t k = 0; k < indices.size() && k < context.size(); ++k) {
+                    if (!context[k].empty()) {
+                        parent_context[entries[indices[k]].record_key] = std::move(context[k]);
+                    }
+                }
+            }
+        }
 
         // The genotype each site ends up with, whether or not linkage moved it. This is what the
         // phasing is constrained to: phasing the pre-linkage calls would describe a genotype set
@@ -1904,6 +2173,10 @@ size_t LinkageCollector::resolve_generation(
         // read-based phaser produces, which is a claim the switch-error benchmark is there to
         // test rather than something to assert quietly.
         size_t phase_set = sites.empty() ? 0 : sites.front().position;
+        if (chain_i < chain_phase_set.size()
+            && chain_phase_set[chain_i] != numeric_limits<size_t>::max()) {
+            phase_set = chain_phase_set[chain_i];
+        }
         for (size_t t = 0; t < indices.size() && t < phase.size(); ++t) {
             const Entry& e = entries[indices[t]];
             if (e.generation < generation) {
@@ -1969,6 +2242,27 @@ size_t LinkageCollector::resolve_generation(
             finish_phase_call(pc, e, phase_fallback);
             phasing_out->push_back(pc);
         }
+    }
+
+    if (!parent_context.empty() && generation == 0) {
+        size_t bytes = 0;
+        for (const auto& kv : parent_context) {
+            bytes += kv.second.capacity() * sizeof(double) + 48;
+        }
+        #pragma omp critical (cerr)
+        std::cerr << "[vg call] linkage generation " << generation << ": context messages held for "
+                  << parent_context.size() << " parents of not-yet-called sites, "
+                  << (bytes / (1024.0 * 1024.0)) << " MB" << std::endl;
+    }
+
+    if (grouped_groups > 0) {
+#pragma omp critical (cerr)
+        std::cerr << "[vg call] linkage generation " << generation << ": decoded " << grouped_sites
+                  << " sites in " << grouped_groups << " per-parent groups instead of the contig"
+                  << " chain; " << g_grp_no_context.load()
+                  << " groups had no stored parent context (children recorded after their"
+                  << " generation's decode), " << g_grp_ploidy.load()
+                  << " declined on a parent/child ploidy difference" << std::endl;
     }
 
     // Nested sites, phased against the parent they hang off rather than in a chain of their own.

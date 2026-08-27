@@ -289,12 +289,61 @@ public:
     /// Per-strand switch probability between two sites `gap` bp apart, after weighting.
     double switch_probability(size_t gap) const;
 
+    /// Posteriors over a whole chain, harvesting the CONTEXT MESSAGE at selected sites.
+    ///
+    /// The context message at a site is alpha ⊙ beta -- everything the chain knows about which
+    /// haplotype pair the sample is on there, excluding the site's own emission. Feed it back as
+    /// `alpha_in` to a chain that begins with that site and the site recovers its own posterior,
+    /// which is what makes it the right object to hand a parent's children.
+    ///
+    /// `harvest_mask` is per site and is not optional in spirit: harvesting everywhere costs
+    /// 9.6 kB per site per direction, which is 3.5 GB over a chr20 chain and was measured doing
+    /// exactly that.
+    vector<vector<double>> posteriors_with_context(const vector<Site>& sites,
+                                                   const vector<char>& harvest_mask,
+                                                   vector<vector<double>>& context_out) const;
+
+    /// Posteriors over one segment of a chain, given the messages reaching its two ends. With the
+    /// true alpha and beta a segment decode agrees with the whole-chain decode: that is the Markov
+    /// property, and it holds for sum-product as much as for max-product.
+    void segment_posteriors(const vector<Site>& sites, size_t from, size_t to,
+                            const vector<double>* alpha_in, const vector<double>* beta_in,
+                            vector<vector<double>>& out,
+                            vector<vector<double>>* alpha_out,
+                            vector<vector<double>>* beta_out,
+                            const vector<char>* harvest_mask = nullptr) const {
+        // Sized here, not left to the caller: `window_posteriors` indexes `out[from + t]` with no
+        // bounds check, and the first public caller that forgot segfaulted immediately. Grown, not
+        // assigned, so several segments can be decoded into one buffer.
+        if (out.size() < sites.size()) {
+            out.resize(sites.size());
+        }
+        window_posteriors(sites, from, to, out, alpha_in, beta_in, alpha_out, beta_out,
+                          harvest_mask);
+    }
+
 private:
 
     /// Exact forward-backward over one window. `out` is filled for the whole window; the caller
     /// keeps only the interior.
+    ///
+    /// `alpha_in` / `beta_in` are the messages over haplotype PAIRS entering the window's two ends,
+    /// m*m entries each in the same (a * m + b) layout as the emissions; uniform when null, which is
+    /// what every existing caller wants. `alpha_out` / `beta_out` harvest the same objects at every
+    /// index -- the message ENTERING it, before its own emission, so a harvested value can be fed
+    /// straight back in as `alpha_in`.
+    ///
+    /// A message is the only sufficient boundary object for cutting a chain. Three cheaper ones were
+    /// each tried and each changed the answer: a settled genotype leaves every pair spelling it live
+    /// (hundreds of states at 34 haplotypes), a settled pair discards the mass on the alternatives
+    /// that are still plausible, and uniform discards everything.
     void window_posteriors(const vector<Site>& sites, size_t from, size_t to,
-                           vector<vector<double>>& out) const;
+                           vector<vector<double>>& out,
+                           const vector<double>* alpha_in = nullptr,
+                           const vector<double>* beta_in = nullptr,
+                           vector<vector<double>>* alpha_out = nullptr,
+                           vector<vector<double>>* beta_out = nullptr,
+                           const vector<char>* harvest_mask = nullptr) const;
 
     /// Max-product over one window, with an optional pinned state so consecutive windows join
     /// without inventing a switch at the seam. `out` is indexed from `from`.
@@ -757,6 +806,15 @@ private:
     LinkageModel::Params params;
     LinkageModel model;
     size_t n_haplotypes;
+
+    /// The context message at each parent of a nested site: alpha ⊙ beta over haplotype pairs,
+    /// everything the chain knows about which pair the sample is on there, excluding the parent's
+    /// own emission. Keyed by record key.
+    ///
+    /// This is the object a child chain is conditioned on. Stored only for parents that actually
+    /// have nested children -- 9.6 kB apiece, so storing it everywhere costs 3.5 GB on a chr20
+    /// chain, which was measured doing exactly that.
+    std::unordered_map<size_t, vector<double>> parent_context;
 
     /// Flat arenas rather than a vector per site: at 80 bytes a site the 48 bytes of overhead two
     /// empty vectors would add is most of the budget.
