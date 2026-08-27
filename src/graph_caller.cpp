@@ -2189,6 +2189,56 @@ bool VCFOutputCaller::is_symbolically_reference(const vector<SnarlTraversal>& ca
 /// Hap1 against hap2, with no reference in it. See the counters above: this is the structure the
 /// reference-free phasing design is built on, measured on the alignment the current code never
 /// computes. Writes only atomics, so a run with this compiled in is byte-identical to one without.
+/// A column index for every step of two aligned symbolic alleles.
+///
+/// The alignment of two traversals is a total order over the union of their steps: a matched pair is
+/// one column, and each side of a difference block gets columns of its own. That order is what a
+/// nested chain's place in the parent's diploid sequence *is*, and unlike reference position it is
+/// defined for a chain only one haplotype crosses.
+///
+/// False when the alignment degraded to one whole-allele block, which orders nothing.
+static bool symbolic_columns(const SymbolicAllele& h1, const SymbolicAllele& h2,
+                             vector<int>& col1, vector<int>& col2) {
+    bool degraded = false;
+    vector<DiffBlock> blocks = symbolic_diff(h1, h2, &degraded);
+    if (degraded) {
+        return false;
+    }
+    col1.assign(h1.size(), -1);
+    col2.assign(h2.size(), -1);
+    int col = 0;
+    size_t i = 0, j = 0;
+    // The matched runs are the gaps between blocks and they pair position for position, which is
+    // the same walk `tally_haplotype_diff` does over the same blocks.
+    auto walk_matched = [&](size_t to_i, size_t to_j) {
+        while (i < to_i && j < to_j) {
+            col1[i] = col;
+            col2[j] = col;
+            ++col;
+            ++i;
+            ++j;
+        }
+        i = to_i;
+        j = to_j;
+    };
+    for (const DiffBlock& d : blocks) {
+        walk_matched((size_t)d.ref_begin, (size_t)d.alt_begin);
+        // Neither side of a block is aligned to the other, so each gets its own columns. First
+        // haplotype first: an arbitrary but fixed choice, and all it decides is the relative order
+        // of two steps that no alignment orders against each other.
+        for (int k = d.ref_begin; k < d.ref_end; ++k) {
+            col1[k] = col++;
+        }
+        for (int k = d.alt_begin; k < d.alt_end; ++k) {
+            col2[k] = col++;
+        }
+        i = (size_t)d.ref_end;
+        j = (size_t)d.alt_end;
+    }
+    walk_matched(h1.size(), h2.size());
+    return true;
+}
+
 static void tally_haplotype_diff(const SnarlManager* mgr, const Snarl& snarl,
                                  const vector<SnarlTraversal>& travs, const vector<int>& genotype) {
     if (mgr == nullptr || genotype.size() != 2) {
@@ -5024,6 +5074,9 @@ void FlowCaller::run_deferred_descent() {
     // neighbour a nonsense gap.
     size_t frame_written = 0, frame_no_entry = 0, frame_not_crossed = 0;
     size_t frame_no_parent = 0, frame_no_single_trav = 0;
+    // Stage C: alignment ranks written, and why one was not.
+    size_t rank_written = 0, rank_one_sided = 0, rank_no_symbol = 0, rank_ambiguous = 0;
+    size_t rank_no_columns = 0, rank_no_child = 0;
     unordered_map<size_t, PendingRecord*> record_by_key;
     record_by_key.reserve((pending.size() + render_record_count()) * 2);
     for (PendingRecord& pr : pending) {
@@ -5093,6 +5146,15 @@ void FlowCaller::run_deferred_descent() {
         for (const LinkageCollector::PhaseCall& pc : linkage_phased) {
             settled[pc.record_key] = &pc;
         }
+        // One entry per parent of a generation-(gen+1) chain: its two settled traversals projected,
+        // and the alignment columns over their union. Cleared with each generation, because only
+        // one generation's parents are ever consulted at a time.
+        struct AlignColumns {
+            SymbolicAllele h1, h2;
+            vector<int> col1, col2;
+            bool ok = false;
+        };
+        unordered_map<size_t, AlignColumns> align_columns;
         for (size_t i = 0; i < pending.size(); ++i) {
             PendingRecord& pr = pending[i];
             if (pr.generation != gen + 1 || pr.dropped) {
@@ -5178,6 +5240,97 @@ void FlowCaller::run_deferred_descent() {
                         ++frame_written;
                     } else {
                         ++frame_not_crossed;
+                    }
+                }
+            }
+
+            // Stage C: where this chain sits in the ALIGNMENT of the parent's two settled
+            // traversals.
+            //
+            // The frames above measure a distance along each traversal separately, which cannot
+            // order two chains when a different haplotype carries each -- the two offsets are in
+            // different frames and there is nothing to compare. The alignment orders them, and it
+            // is the ONLY order that exists for a chain the reference never visits: 9,022 of those
+            // on chr20, under 478 parents carrying two or more.
+            //
+            // One projection and one alignment per parent, memoised. A parent with twenty children
+            // would otherwise be projected and aligned twenty times, and the alignment is
+            // O(|h1| x |h2|).
+            if (symbolic_manager != nullptr && linkage_collector != nullptr) {
+                auto cached = align_columns.find(pr.parent_record_key);
+                if (cached == align_columns.end()) {
+                    AlignColumns ac;
+                    auto parent_rec = record_by_key.find(pr.parent_record_key);
+                    if (parent_rec != record_by_key.end()
+                        && symbolic_site_resolvable(parent_rec->second->snarl,
+                                                    *symbolic_manager)) {
+                        const vector<SnarlTraversal>& ptravs = parent_rec->second->travs;
+                        const int ta = parent.trav_first, tb = parent.trav_second;
+                        if (ta >= 0 && (size_t)ta < ptravs.size()) {
+                            const Snarl& psnarl = parent_rec->second->snarl;
+                            ac.h1 = symbolic_allele(ptravs[ta], psnarl, *symbolic_manager);
+                            // A homozygous parent, or a haploid one, aligns against itself: every
+                            // step matches and the columns are simply the step order. That is the
+                            // right answer rather than a special case.
+                            ac.h2 = (tb >= 0 && (size_t)tb < ptravs.size() && tb != ta)
+                                        ? symbolic_allele(ptravs[tb], psnarl, *symbolic_manager)
+                                        : ac.h1;
+                            ac.ok = !ac.h1.empty()
+                                    && symbolic_columns(ac.h1, ac.h2, ac.col1, ac.col2);
+                        }
+                    }
+                    cached = align_columns.emplace(pr.parent_record_key, std::move(ac)).first;
+                }
+                const AlignColumns& ac = cached->second;
+                if (!ac.ok) {
+                    ++rank_no_columns;
+                } else {
+                    const Snarl* managed_child = symbolic_manager->into_which_snarl(
+                        pr.snarl.start().node_id(), pr.snarl.start().backward());
+                    if (managed_child == nullptr) {
+                        ++rank_no_child;
+                    } else {
+                        const pair<nid_t, nid_t> bounds =
+                            chain_bounds_of(managed_child, *symbolic_manager);
+                        // Every occurrence, not the first: a chain a traversal crosses twice has
+                        // two places in the order and no way to choose, so it gets no rank rather
+                        // than an arbitrary one.
+                        auto find_all = [&](const SymbolicAllele& h, const vector<int>& col,
+                                            vector<int>& out) {
+                            for (size_t k = 0; k < h.size(); ++k) {
+                                if (h[k].is_chain() && h[k].id == bounds.first
+                                    && h[k].end_id == bounds.second) {
+                                    out.push_back(col[k]);
+                                }
+                            }
+                        };
+                        vector<int> c1, c2;
+                        find_all(ac.h1, ac.col1, c1);
+                        if (&ac.h2 != &ac.h1) {
+                            find_all(ac.h2, ac.col2, c2);
+                        }
+                        int rank = -1;
+                        if (c1.size() > 1 || c2.size() > 1) {
+                            ++rank_ambiguous;
+                        } else if (!c1.empty() && !c2.empty()) {
+                            // The alignment matched the shared chain iff both sides landed in one
+                            // column. Where it could not -- the out-of-order diploid population --
+                            // there are two defensible orders and this guesses neither.
+                            if (c1[0] == c2[0]) {
+                                rank = c1[0];
+                                ++rank_written;
+                            } else {
+                                ++rank_ambiguous;
+                            }
+                        } else if (!c1.empty() || !c2.empty()) {
+                            rank = c1.empty() ? c2[0] : c1[0];
+                            ++rank_one_sided;
+                        } else {
+                            ++rank_no_symbol;
+                        }
+                        if (rank >= 0) {
+                            linkage_collector->set_align_rank(pr.record_key, rank);
+                        }
                     }
                 }
             }
@@ -5422,6 +5575,14 @@ void FlowCaller::run_deferred_descent() {
              << " whose parent record was not found, " << frame_not_crossed
              << " the settled traversal does not cross, " << frame_no_entry
              << " with no layer entry" << endl;
+        cerr << "[vg call] alignment ranks: " << rank_written << " nested chains placed by the"
+             << " alignment of both settled traversals, " << rank_one_sided
+             << " carried by one traversal only -- whose place among the OTHER haplotype's chains"
+             << " nothing but the alignment defines; no rank: " << rank_ambiguous
+             << " shared but unmatched or crossed twice, "
+             << rank_no_symbol << " with no chain symbol in either projection, "
+             << rank_no_columns << " whose parent would not project or align, "
+             << rank_no_child << " with no managed child snarl" << endl;
         cerr << "[vg call] single sweep: " << pending.size() << " nested chains retained over "
              << (generations + 1) << " generations; " << revised << " revised, " << gained
              << " reachable only under the settled parent, " << retracted << " retracted";

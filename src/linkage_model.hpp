@@ -672,6 +672,10 @@ public:
     /// `set_parent_trav` is exactly how a frame would default to unset and go unnoticed.
     bool set_frame(size_t record_key, int slot, int offset, int end, int total, bool reversed);
 
+    /// Where this chain sits in the alignment of its parent's two settled traversals. Set at the
+    /// barrier, for the same reason `set_frame` is: the parent's genotype is not known before it.
+    bool set_align_rank(size_t record_key, int rank);
+
     /// Whether an active (non-retracted) entry exists for this key. The barrier needs to tell
     /// "this site was never recorded" from "respecify refused a site that is already in the layer":
     /// in the second case the recorded entry describes a line the barrier has just replaced, so
@@ -725,6 +729,19 @@ private:
         /// Per slot: the parent entered this site at its END boundary, so offsets inside it run
         /// against the parent's direction of travel and everything below is mirrored.
         bool frame_reversed[2] = {false, false};
+        /// Where this chain sits in the ALIGNMENT of the parent's two settled traversals, or -1.
+        ///
+        /// The frames give a distance along each traversal separately; they cannot say which of two
+        /// chains comes first when only one haplotype crosses each, because the two offsets are in
+        /// different frames. The alignment can: a matched pair of steps is one column, a difference
+        /// block's two sides are columns of their own, and that column order is a total order over
+        /// the union of both haplotypes' steps.
+        ///
+        /// This is the order the reference cannot supply. On chr20, 9,022 chains are reached by a
+        /// called allele and not by the reference, and 478 parents carry two or more of them -- for
+        /// those, reference position is not a worse order, it is no order. Computed at the barrier,
+        /// where the graph and the parent's settled pair are both in hand.
+        int32_t align_rank = -1;
         uint32_t contig = 0;
         uint32_t gl_offset = 0;
         uint32_t hap_offset = 0;

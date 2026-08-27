@@ -1659,6 +1659,16 @@ bool LinkageCollector::set_frame(size_t record_key, int slot, int offset, int en
     return false;
 }
 
+bool LinkageCollector::set_align_rank(size_t record_key, int rank) {
+    lock_guard<std::mutex> guard(mutex);
+    const uint32_t found = live_index(record_key);
+    if (found == NO_ENTRY) {
+        return false;
+    }
+    entries[found].align_rank = (int32_t)rank;
+    return true;
+}
+
 bool LinkageCollector::set_parent_trav(size_t record_key, int parent_trav) {
     lock_guard<std::mutex> guard(mutex);
     const uint32_t found = live_index(record_key);
@@ -1866,6 +1876,8 @@ size_t LinkageCollector::resolve_generation(
     // Stage B, per generation: how the diploid nested steps were measured.
     size_t fg_pair = 0, fg_differ = 0, fg_single = 0, fg_one_slot = 0, fg_no_frame = 0;
     size_t fg_cross_parent = 0, fg_negative = 0;
+    // Stage C, per generation: how often the alignment order and the reference order disagree.
+    size_t ao_pairs = 0, ao_reordered = 0, ao_unranked = 0;
     // VG_LINKAGE_NO_GROUPING forces the contig-chain path, so one binary can produce both arms of
     // a comparison and the only difference between them is this.
     static const bool no_grouping = getenv("VG_LINKAGE_NO_GROUPING") != nullptr;
@@ -1884,6 +1896,12 @@ size_t LinkageCollector::resolve_generation(
         const char* v = getenv("VG_LINKAGE_FRAME_GAPS");
         return v != nullptr ? atoi(v) : 0;
     }();
+    // Order a parent's children by the alignment of its two settled traversals instead of by
+    // reference position. On by default: where both orders exist they are predicted to agree, and
+    // where only the alignment exists it is the only order there is.
+    //
+    // VG_LINKAGE_NO_ALIGN_ORDER forces reference order, so one binary produces both arms.
+    static const bool no_align_order = getenv("VG_LINKAGE_NO_ALIGN_ORDER") != nullptr;
     if (generation > 0 && !parent_context.empty() && !no_grouping) {
         unordered_map<size_t, size_t> index_of_key;
         index_of_key.reserve(entries.size() * 2);
@@ -1944,11 +1962,34 @@ size_t LinkageCollector::resolve_generation(
                 const size_t pidx = index_of_key[kv.first];
                 vector<size_t> group;
                 group.push_back(pidx);
-                sort(kv.second.begin(), kv.second.end(), [&](size_t a, size_t c) {
-                    if (entries[a].position != entries[c].position) {
-                        return entries[a].position < entries[c].position;
+                // Stage C: the alignment of the parent's two settled traversals is the order,
+                // where both children have a rank in it. Reference position is the fallback, and
+                // the two are compared rather than one silently replacing the other -- a change
+                // that reorders nothing is worth being able to say so about.
+                for (size_t a = 1; a < kv.second.size(); ++a) {
+                    const Entry& p1 = entries[kv.second[a - 1]];
+                    const Entry& p2 = entries[kv.second[a]];
+                    if (p1.align_rank >= 0 && p2.align_rank >= 0) {
+                        ++ao_pairs;
+                        if ((p1.align_rank < p2.align_rank) != (p1.position < p2.position)
+                            && p1.position != p2.position && p1.align_rank != p2.align_rank) {
+                            ++ao_reordered;
+                        }
+                    } else {
+                        ++ao_unranked;
                     }
-                    return entries[a].record_key < entries[c].record_key;
+                }
+                sort(kv.second.begin(), kv.second.end(), [&](size_t a, size_t c) {
+                    const Entry& ea = entries[a];
+                    const Entry& ec = entries[c];
+                    if (!no_align_order && ea.align_rank >= 0 && ec.align_rank >= 0
+                        && ea.align_rank != ec.align_rank) {
+                        return ea.align_rank < ec.align_rank;
+                    }
+                    if (ea.position != ec.position) {
+                        return ea.position < ec.position;
+                    }
+                    return ea.record_key < ec.record_key;
                 });
                 group.insert(group.end(), kv.second.begin(), kv.second.end());
                 grouped_sites += group.size();
@@ -2358,6 +2399,15 @@ size_t LinkageCollector::resolve_generation(
                   << (bytes / (1024.0 * 1024.0)) << " MB" << std::endl;
     }
 
+    if (ao_pairs + ao_unranked > 0) {
+#pragma omp critical (cerr)
+        std::cerr << "[vg call] linkage generation " << generation << ": " << ao_pairs
+                  << " same-parent adjacent pairs ranked by the settled traversals' alignment, "
+                  << ao_reordered << " of them in a different order than the reference; "
+                  << ao_unranked << " pairs unranked" << (no_align_order ? " (order forced to the"
+                  " reference)" : "") << std::endl;
+    }
+
     if (frame_gap_mode > 0 && (fg_pair + fg_single + fg_one_slot + fg_no_frame
                                + fg_negative + fg_cross_parent) > 0) {
 #pragma omp critical (cerr)
@@ -2727,6 +2777,8 @@ size_t LinkageCollector::resolve_generation(
 
         size_t singleton_groups = 0;
         size_t total_frame_steps = 0, total_ref_steps = 0;
+        // Stage C, in the per-strand haploid chains: alignment order against the key it precedes.
+        size_t hao_pairs = 0, hao_reordered = 0, hao_unranked = 0;
         for (auto& group : by_strand) {
             vector<size_t>& idxs = group.second;
             {
@@ -2839,8 +2891,14 @@ size_t LinkageCollector::resolve_generation(
                 if (aa != ab) {
                     return aa < ab;
                 }
-                // Same parent: the offset along its settled traversal is the order, and where either
-                // frame is unset the reference position is all there is.
+                // Same parent: the alignment of its two settled traversals first -- that is the
+                // one order defined for a chain only one haplotype crosses, which is what these
+                // per-strand chains are made of. Then the offset along the settled traversal, and
+                // where neither exists the reference position is all there is.
+                if (!no_align_order && ea.align_rank >= 0 && eb.align_rank >= 0
+                    && ea.align_rank != eb.align_rank) {
+                    return ea.align_rank < eb.align_rank;
+                }
                 if (ea.frame_offset[slot] >= 0 && eb.frame_offset[slot] >= 0
                     && ea.frame_offset[slot] != eb.frame_offset[slot]) {
                     return ea.frame_offset[slot] < eb.frame_offset[slot];
@@ -2850,6 +2908,30 @@ size_t LinkageCollector::resolve_generation(
                 }
                 return ea.record_key < eb.record_key;
             });
+            // Post-sort, because before it `idxs` is in no meaningful order: how often the
+            // alignment rank -- which now leads the tuple -- put a same-parent pair in a different
+            // order than the frame offset and reference position it precedes. The diploid groups
+            // count the same thing pre-sort; both should read zero wherever both keys exist.
+            for (size_t k = 1; k < idxs.size(); ++k) {
+                const Entry& e1 = entries[idxs[k - 1]];
+                const Entry& e2 = entries[idxs[k]];
+                if (e1.parent_record_key != e2.parent_record_key || e1.parent_record_key == 0) {
+                    continue;
+                }
+                if (e1.align_rank < 0 || e2.align_rank < 0 || e1.align_rank == e2.align_rank) {
+                    ++hao_unranked;
+                    continue;
+                }
+                ++hao_pairs;
+                const bool fallback_agrees =
+                    (e1.frame_offset[slot] >= 0 && e2.frame_offset[slot] >= 0
+                     && e1.frame_offset[slot] != e2.frame_offset[slot])
+                        ? e1.frame_offset[slot] < e2.frame_offset[slot]
+                        : (e1.position != e2.position ? e1.position < e2.position : true);
+                if (!fallback_agrees) {
+                    ++hao_reordered;
+                }
+            }
             vector<LinkageModel::Site> sites;
             sites.reserve(idxs.size());
             size_t frame_steps = 0, ref_steps = 0;
@@ -2983,6 +3065,14 @@ size_t LinkageCollector::resolve_generation(
                       << " chain steps spaced along the settled parent traversal, "
                       << total_ref_steps << " still by reference difference (cross-parent, or a"
                       << " frame the sort disagreed with)" << std::endl;
+        }
+        if (hao_pairs + hao_unranked > 0) {
+#pragma omp critical (cerr)
+            std::cerr << "[vg call] per-strand chains: " << hao_pairs
+                      << " same-parent adjacent pairs ordered by the settled traversals'"
+                      << " alignment, " << hao_reordered << " of them in a different order than the"
+                      << " frame offset and reference position it precedes; " << hao_unranked
+                      << " pairs unranked" << std::endl;
         }
         // Stage 15': the cross-parent numbers, which are the ones the decision to consume these
         // frames has to rest on.
