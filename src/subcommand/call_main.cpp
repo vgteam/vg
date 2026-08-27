@@ -851,6 +851,25 @@ int main_call(int argc, char** argv) {
         }
         atomize_blocks = false;
     }
+    // -I is a sharper incompatibility than the three above, which merely pick a different calling
+    // path. It calls a *fabricated* snarl spanning a whole chain piece, and whether the SnarlManager
+    // recognises that snarl depends on how `break_chain` packed the chain: a piece holding one snarl
+    // is value-identical to the managed snarl and resolves, a piece holding several does not. So
+    // `symbolic_site_resolvable` -- the gate governing symbolic collapsing, is_symbolically_reference,
+    // nested descent and block emission alike -- passes on an arbitrary subset of sites.
+    //
+    // Measured on the 18_vg_call.t `x` fixture: 70 records with a 4 bp longest ALT by default, 1
+    // record with a 997 bp ALT under -I. That is the swallowed-variant shape nested calling exists
+    // to undo, and applying the cure to only some sites is not a defensible middle.
+    if (atomize_blocks && call_chains) {
+        if (atomize_explicit) {
+            logger.error() << "--atomize-blocks cannot be combined with -I/--chains: a chain piece "
+                           << "is called as a fabricated snarl, and only a piece holding a single "
+                           << "snarl resolves, so decomposition would apply to an arbitrary subset "
+                           << "of sites" << endl;
+        }
+        atomize_blocks = false;
+    }
 
     if (!vcf_filename.empty() && genotype_snarls) {
         logger.error() << "-v and -a options cannot be used together" << endl;
@@ -1842,6 +1861,37 @@ int main_call(int argc, char** argv) {
         }
         if (atomize_blocks) {
             atomize_target->set_atomize_blocks(true);
+        }
+    }
+
+    if (nested_calling && call_chains) {
+        // Declined BEFORE the arming below rather than undone after it, and outside the
+        // `if (!gaf_output)` block where the first version of this sat: -I exists for GAF output
+        // (commit 8d34aceab, "call chains instead of snarls when writing GAF"), so a decline that
+        // fires only for VCF misses the mode the flag is actually used in. Measured before the
+        // move: `-I --nested` exited 1 while `-G -I --nested` exited 0 and descended.
+        //
+        // The reason is NOT "no site resolves". That was wrong, and measurably so. `break_chain`
+        // packs a chain into pieces of up to 1,000 edges, and a piece holding exactly ONE snarl
+        // yields a fabricated Snarl value-identical to the managed one, which `resolve_site`
+        // accepts -- so collapsing and descent work there. On the `nestblk` fixture `-G -I` retains
+        // 2 nested chains and emits 6 GAF lines against 4 with --no-nested.
+        //
+        // What is true is worse for being intermittent: whether a site resolves depends on how
+        // `break_chain` happened to pack the chain, which is graph topology against a hard-coded
+        // edge budget, not anything the data says. So nested calling silently works on some sites
+        // and not others within one run, and no output distinguishes the two.
+        if (nested_explicit) {
+            cerr << "error [vg call]: --nested cannot be combined with -I/--chains, which calls a"
+                 << " fabricated snarl spanning a chain piece; only a piece holding a single snarl"
+                 << " resolves, so nested calling would apply to an arbitrary subset of sites"
+                 << endl;
+            return 1;
+        }
+        nested_calling = false;
+        if (show_progress) {
+            logger.info() << "Nested calling declines under -I/--chains: a chain piece is called as"
+                          << " a fabricated snarl, and only a single-snarl piece resolves" << endl;
         }
     }
 
