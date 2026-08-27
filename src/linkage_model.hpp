@@ -456,7 +456,7 @@ public:
                 int64_t start_node = 0, int64_t end_node = 0,
                 bool nested = false, size_t parent_record_key = 0, int parent_trav = -1,
                 uint64_t parent_crossing = 0, size_t generation = 0,
-                bool emitted = true);
+                bool emitted = true, int align_rank = -1);
 
     /// The compact allele space `record` builds for one site: the called pair plus every traversal
     /// some panel haplotype carries, deduplicated by traversal and sorted.
@@ -674,6 +674,11 @@ public:
 
     /// Where this chain sits in the alignment of its parent's two settled traversals. Set at the
     /// barrier, for the same reason `set_frame` is: the parent's genotype is not known before it.
+    ///
+    /// False when there is no live entry to write to, which the caller must not discard: the barrier
+    /// computes a rank BEFORE the block that can create an entry for a chain the sweep never
+    /// recorded, so for those the rank has to travel as an argument to `record` instead. That is why
+    /// `record` takes one, exactly as it takes `parent_trav`.
     bool set_align_rank(size_t record_key, int rank);
 
     /// Whether an active (non-retracted) entry exists for this key. The barrier needs to tell

@@ -1372,7 +1372,7 @@ void LinkageCollector::record(const string& contig, size_t position,
                               int64_t start_node, int64_t end_node,
                               bool nested, size_t parent_record_key, int parent_trav,
                               uint64_t parent_crossing, size_t generation,
-                              bool emitted) {
+                              bool emitted, int align_rank) {
     if (genotype_ln_likelihood.empty() || called_trav_i < 0) {
         return;
     }
@@ -1423,6 +1423,12 @@ void LinkageCollector::record(const string& contig, size_t position,
     e.parent_record_key = parent_record_key;
     e.parent_crossing = parent_crossing;
     e.parent_trav = (int16_t)parent_trav;
+    // Passed in, not set afterwards. The barrier computes a chain's alignment rank before the block
+    // that can create this entry, so a `set_align_rank` call for a chain the sweep never recorded
+    // finds no entry and is discarded -- silently, since its return was ignored. That left the 520
+    // chains on chr20 that are reachable only under the settled parent with no rank at all, which is
+    // the population the ordering exists for. `parent_trav` is an argument for the same reason.
+    e.align_rank = (int32_t)align_rank;
     e.generation = (uint8_t)(generation > 255 ? 255 : generation);
 
     e.gl_offset = (uint32_t)gl_arena.size();

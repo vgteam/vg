@@ -5076,7 +5076,7 @@ void FlowCaller::run_deferred_descent() {
     size_t frame_no_parent = 0, frame_no_single_trav = 0;
     // Stage C: alignment ranks written, and why one was not.
     size_t rank_written = 0, rank_one_sided = 0, rank_no_symbol = 0, rank_ambiguous = 0;
-    size_t rank_no_columns = 0, rank_no_child = 0;
+    size_t rank_no_columns = 0, rank_no_child = 0, rank_deferred = 0;
     unordered_map<size_t, PendingRecord*> record_by_key;
     record_by_key.reserve((pending.size() + render_record_count()) * 2);
     for (PendingRecord& pr : pending) {
@@ -5342,7 +5342,14 @@ void FlowCaller::run_deferred_descent() {
                             ++rank_no_symbol;
                         }
                         if (rank >= 0) {
-                            linkage_collector->set_align_rank(pr.record_key, rank);
+                            // Kept on the record as well as pushed to the layer. A chain the sweep
+                            // never recorded has no entry yet -- it gets one further down, from
+                            // `record` -- so the setter fails for exactly the population the
+                            // ordering is for, and the rank has to travel as an argument instead.
+                            pr.align_rank = rank;
+                            if (!linkage_collector->set_align_rank(pr.record_key, rank)) {
+                                ++rank_deferred;
+                            }
                         }
                     }
                 }
@@ -5487,7 +5494,8 @@ void FlowCaller::run_deferred_descent() {
                             pr.record_key, 1.0,
                             (size_t)copies, pr.snarl.start().node_id(), pr.snarl.end().node_id(),
                             copies == 1, pr.parent_record_key,
-                            pr.parent_trav, pr.parent_crossing, pr.generation, /*emitted*/ false);
+                            pr.parent_trav, pr.parent_crossing, pr.generation, /*emitted*/ false,
+                            pr.align_rank);
                     }
                 }
             }
@@ -5595,7 +5603,8 @@ void FlowCaller::run_deferred_descent() {
              << " shared but unmatched or crossed twice, "
              << rank_no_symbol << " with no chain symbol in either projection, "
              << rank_no_columns << " whose parent would not project or align, "
-             << rank_no_child << " with no managed child snarl" << endl;
+             << rank_no_child << " with no managed child snarl; " << rank_deferred
+             << " had no layer entry yet and carried the rank into record() instead" << endl;
         cerr << "[vg call] single sweep: " << pending.size() << " nested chains retained over "
              << (generations + 1) << " generations; " << revised << " revised, " << gained
              << " reachable only under the settled parent, " << retracted << " retracted";

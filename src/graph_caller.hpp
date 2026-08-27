@@ -1124,6 +1124,10 @@ protected:
         unique_ptr<SnarlCaller::CallInfo> call_info;
         size_t record_key = 0;
         size_t parent_record_key = 0;
+        /// The chain's column in the alignment of its parent's two settled traversals, computed at
+        /// the barrier, or -1. Carried here because the barrier can compute it before the chain has
+        /// a layer entry to write it to, and `record` then takes it as an argument.
+        int align_rank = -1;
         /// One bit per parent *candidate traversal*, set where that traversal crosses this chain.
         uint64_t parent_crossing = 0;
         /// False when parent_crossing could not be computed (the parent emitted nothing during the
