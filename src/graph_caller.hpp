@@ -379,6 +379,12 @@ protected:
         /// carries it. Inherited by its own children: a chain whose existence depends on an ancestor
         /// the sample may not have cannot be emitted either.
         bool retain_only = false;
+        /// Permission to genotype a chain the reference does not cross. Inherited, like
+        /// `retain_only`: everything under such a chain is also off the reference. It is only
+        /// PERMISSION -- whether a given snarl actually has a reference path is re-derived per
+        /// invocation from the graph, because a descendant's own boundaries may sit on a declared
+        /// reference path even when its parent's did not.
+        bool no_reference = false;
         /// The index of the chain member being descended into, within its chain. Set beside the
         /// other per-child facts before the recursive call, and read by that child for its own
         /// entry -- the same way `parent_trav` and `parent_crossing` travel.
@@ -1033,7 +1039,8 @@ public:
     void record_site(const Snarl& snarl, const vector<SnarlTraversal>& travs,
                      const vector<int>& trav_genotype,
                      const unique_ptr<SnarlCaller::CallInfo>& call_info,
-                     const string& ref_path_name, int ref_offset);
+                     const string& ref_path_name, int ref_offset,
+                     bool no_reference = false);
 
     void render_retained_records();
 
@@ -1136,6 +1143,10 @@ protected:
         /// known at descent, so it needs no replay -- it is carried only because the barrier's
         /// record() fallback builds the entry and must be given it.
         int chain_index = -1;
+        /// This snarl has no reference path of its own, so no line may be written for it: REF and
+        /// POS are undefined. It is genotyped and recorded into the linkage layer regardless, which
+        /// is the whole point -- the reads reach it through node-ID ranges, not coordinates.
+        bool no_reference = false;
         /// Whether the parent's settled traversal crossed this snarl's chain backward, from
         /// `SymbolicStep::backward` on the matched chain symbol. A barrier-time fact like
         /// `align_rank`, so it travels the same way.

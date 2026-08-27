@@ -359,7 +359,14 @@ TEST_CASE("The collector keeps sites compactly and re-decides only what changed"
     // of index today: an exact assertion fails whenever a field is added, which is the wrong reason
     // to fail. What this catches is a vector-per-site layout -- three vector headers, 72 bytes, plus
     // three heap allocations for every site -- which would put this at 496 and over the bound.
-    REQUIRE(collector.bytes() < 2 * (128 + 48) + 64);
+    // Raised from +64 to +128 when the traversal-derived ordering added four fields to Entry --
+    // align_rank, chain_index, chain_backward, unpositioned -- taking this from 400 to 428. That is
+    // about 12 bytes a site, 2.6 MB over chr20's 220k entries, against a 4.5 GB peak.
+    //
+    // The bound still does its job, which the comment above states: a vector-per-site layout adds
+    // 72 bytes a site and would put this at 572, far over 480. What it must NOT become is an exact
+    // assertion that fails on every added field.
+    REQUIRE(collector.bytes() < 2 * (128 + 48) + 128);
 
     const size_t moved = collector.resolve();
     // Site 1 was already called 1/1 and must not be counted; site 2 was called 0/0 and linkage

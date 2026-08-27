@@ -29,6 +29,15 @@ namespace vg {
 /// constructor has to know about them. Reported under --progress and otherwise inert.
 static std::atomic<size_t> g_descent_depth_hist[16];
 static std::atomic<size_t> g_descent_skipped_no_ref(0);
+static std::atomic<size_t> g_descent_off_reference(0);
+static std::atomic<size_t> g_no_ref_recorded(0);
+static std::atomic<size_t> g_no_ref_copies[3] = {{0}, {0}, {0}};
+/// Genotype and record chains the reference does not cross, instead of skipping them.
+///
+/// Off by default. Their records cannot be emitted -- REF and POS are undefined -- so what this buys
+/// is their participation in the LINKAGE calculation, which is what the traversal-derived ordering
+/// and distances were built for. An env switch rather than a flag so both arms come from one binary.
+static const bool no_ref_nested = getenv("VG_CALL_NO_REF_NESTED") != nullptr;
 static std::atomic<size_t> g_descent_skipped_no_copy(0);
 /// Children a called traversal enters more than once. Visits after the first are masked: one copy for
 /// ploidy, and the first crossing for distance. A chain crossed twice by ONE traversal is one
@@ -115,6 +124,13 @@ void GraphCaller::report_descent_instrumentation() const {
     cerr << "[vg call] descent skipped: " << g_descent_skipped_no_copy.load()
          << " children no called allele reaches, " << g_descent_skipped_no_ref.load()
          << " with no reference path through them" << endl;
+    if (g_descent_off_reference.load() > 0 || g_no_ref_recorded.load() > 0) {
+        cerr << "[vg call] off-reference nested: " << g_descent_off_reference.load()
+             << " chains the reference does not cross were descended into, "
+             << g_no_ref_recorded.load() << " recorded into the linkage layer with no line;"
+             << " copies 0/1/2 = " << g_no_ref_copies[0].load() << "/"
+             << g_no_ref_copies[1].load() << "/" << g_no_ref_copies[2].load() << endl;
+    }
 }
 
 void report_atomize_instrumentation() {
@@ -4917,7 +4933,8 @@ pair<string, size_t> FlowCaller::site_ref_key(const Snarl& snarl, const string& 
 void FlowCaller::record_site(const Snarl& snarl, const vector<SnarlTraversal>& travs,
                             const vector<int>& trav_genotype,
                             const unique_ptr<SnarlCaller::CallInfo>& call_info,
-                            const string& ref_path_name, int ref_offset) {
+                            const string& ref_path_name, int ref_offset,
+                            bool no_reference) {
     if (linkage_collector == nullptr || suppress_linkage_record) {
         return;
     }
@@ -4941,7 +4958,13 @@ void FlowCaller::record_site(const Snarl& snarl, const vector<SnarlTraversal>& t
     }
     // Position is pre-flatten now, and that is fine only because the patch index no longer keys on
     // it (6d8fef2c3). What the model uses position for is ordering and the transition gaps.
-    pair<string, int64_t> pos_info = get_ref_position(graph, snarl, ref_path_name, ref_offset);
+    // NOT for a chain the reference does not cross: get_ref_position reaches get_ref_interval,
+    // whose `assert(start_steps.size() > 0 && end_steps.size() > 0)` fires on an empty map for any
+    // snarl that path does not thread -- and asserts are live, there is no -DNDEBUG in the Makefile.
+    // The contig name is still taken from the path, which is a string operation and safe.
+    pair<string, int64_t> pos_info =
+        no_reference ? make_pair(ref_path_name, (int64_t)0)
+                     : get_ref_position(graph, snarl, ref_path_name, ref_offset);
     // The contig must be spelled the way the VCF spells it, because the patch index keys on it.
     // `get_ref_position` returns the base path name -- "CHM13#0#chr20" -- while `emit_variant`
     // additionally reduces it to the locus, "chr20". Recording the unreduced form makes every
@@ -4966,10 +4989,14 @@ void FlowCaller::record_site(const Snarl& snarl, const vector<SnarlTraversal>& t
         record_key_of(snarl),
         rl_info->explained_share, site_ploidy,
         (int64_t)snarl.start().node_id(), (int64_t)snarl.end().node_id(),
-        nested_context.active, nested_context.parent_record_key,
+        // `nested` forced true where there is no reference. It is otherwise `copies == 1`, and a
+        // non-nested entry joins the contig's diploid runs, which are sorted by position -- so an
+        // unpositioned entry would sort to the head of the contig and could cut a run there,
+        // damaging sites that have nothing to do with it.
+        nested_context.active || no_reference, nested_context.parent_record_key,
         nested_context.parent_trav, nested_context.parent_crossing,
         current_generation, /*emitted*/ false, /*align_rank*/ -1,
-        nested_context.chain_index);
+        nested_context.chain_index, /*chain_backward*/ false, no_reference);
 }
 
 void FlowCaller::render_retained_records() {
@@ -5684,8 +5711,17 @@ void FlowCaller::run_deferred_descent() {
     // Appended round-robin rather than all onto one queue: the render pass is parallel over queues,
     // and 30,416 chains on one thread would serialise it.
     size_t next_queue = 0;
+    size_t no_ref_unrendered = 0;
     for (PendingRecord& pr : pending) {
         if (pr.dropped) {
+            continue;
+        }
+        if (pr.no_reference) {
+            // No reference path, so no REF and no POS: there is no line to write. Held back here
+            // rather than inside the renderer, because render_retained_records calls emit_variant
+            // for every record it is handed, with no condition -- and set_allele_map would then
+            // overwrite Entry::emitted, putting the site back into populations it must stay out of.
+            ++no_ref_unrendered;
             continue;
         }
         if (render_records.empty()) {
@@ -5693,6 +5729,10 @@ void FlowCaller::run_deferred_descent() {
         }
         render_records[next_queue % render_records.size()].push_back(std::move(pr));
         ++next_queue;
+    }
+    if (no_ref_unrendered > 0 && show_progress) {
+        cerr << "[vg call] off-reference nested: " << no_ref_unrendered
+             << " chains settled and left unrendered, having no reference position to write" << endl;
     }
     pending.clear();
 }
@@ -5787,7 +5827,16 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
     if (common_names.empty()) {
         // No reference path through snarl
         // If we have parent context, we can still process using parent's ref path
-        if (parent_child_trav_sets == nullptr || parent_ref_path_name.empty()) {
+        // Both this and the use_parent_interval test below must be relaxed together. Relaxing only
+        // this one drops through to get_ref_interval with the PARENT's reference path -- a path that
+        // by construction does not visit either of this snarl's boundary nodes -- where
+        // `assert(start_steps.size() > 0 && end_steps.size() > 0)` aborts the process.
+        //
+        // Inert with the switch off: the only caller that passes a null trav-set with a non-empty
+        // parent path is the read-likelihood descent, and its gate admits nothing without a
+        // reference path, so common_names is never empty there.
+        if ((parent_child_trav_sets == nullptr && !nested_context.no_reference)
+            || parent_ref_path_name.empty()) {
 #ifdef debug
             cerr << "  -> returning false: no common ref path and no parent context" << endl;
 #endif
@@ -5820,7 +5869,7 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
     tuple<int64_t, int64_t, bool, step_handle_t, step_handle_t> ref_interval;
     bool use_parent_interval = false;
 
-    if (common_names.empty() && parent_child_trav_sets != nullptr) {
+    if (common_names.empty()) {
         // No direct reference path - use parent's interval and traversals directly
         ref_interval = make_tuple(parent_ref_interval.first, parent_ref_interval.second, false, step_handle_t(), step_handle_t());
         use_parent_interval = true;
@@ -5933,8 +5982,13 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
                 }
             }
         }
-        // If still -1, use first traversal from finder (or 0 if none)
-        if (ref_trav_idx < 0) {
+        // Left at -1 where no parent trav-set named a pseudo-reference. travs[0] is the flow
+        // finder's highest-support traversal, so appointing it REF would invert the genotyper's
+        // tie-break, whose comment says it exists so an exact likelihood tie resolves to reference
+        // rather than to "a confident-looking non-reference call on no evidence". There is no
+        // reference allele here, and -1 says so: both of the genotyper's uses of ref_trav_idx guard
+        // on >= 0, so the tie-break is disabled rather than mis-seeded.
+        if (ref_trav_idx < 0 && parent_child_trav_sets != nullptr) {
             ref_trav_idx = travs.empty() ? -1 : 0;
         }
     } else {
@@ -6114,10 +6168,34 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
         ReadLikelihoodSnarlCaller::set_want_alt_ploidy(false);
 
         const bool retain_only = nested_context.retain_only;
+        // The per-invocation fact, re-derived from the graph rather than inherited: this snarl's own
+        // boundaries are on no declared reference path. A descendant of an off-reference chain whose
+        // own boundaries DO sit on one takes the ordinary positioned branch.
+        const bool no_ref_position = use_parent_interval;
 
         assert(trav_genotype.empty() || trav_genotype.size() == ploidy);
         bool added = true;
-        if (retain_only) {
+        if (no_ref_position) {
+            // Genotyped and recorded, never emitted. A third state, ordered before retain_only and
+            // orthogonal to it: retain_only deliberately skips record_site, which would give exactly
+            // the wrong half of what is wanted here -- absent from the layer, still handed to the
+            // renderer.
+            //
+            // `added = true`, following the retain_only precedent: ret_val below gates descent into
+            // this chain's own children, so reporting "no line" as added=false would silently prune
+            // every grandchild under every off-reference chain, and that branch has no counter.
+            record_site(snarl, travs, trav_genotype, trav_call_info, ref_path_name,
+                        ref_offsets[ref_path_name], /*no_reference*/ true);
+            ++g_no_ref_recorded;
+            {
+                int copies = 0;
+                for (int a : trav_genotype) {
+                    copies += (a >= 0);
+                }
+                g_no_ref_copies[copies < 3 ? copies : 2].fetch_add(1);
+            }
+            added = true;
+        } else if (retain_only) {
             // No called parent allele reaches this chain, so nothing about it may reach the VCF --
             // yet. It is genotyped and kept because linkage can still move the parent onto an allele
             // that does reach it, and going back to the reads to find that out is the cost this
@@ -6174,6 +6252,7 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
             pending_this->parent_record_key = nested_context.parent_record_key;
             pending_this->parent_crossing = nested_context.parent_crossing;
             pending_this->chain_index = nested_context.chain_index;
+            pending_this->no_reference = no_ref_position;
             pending_this->crossing_known = nested_context.crossing_known;
             pending_this->parent_trav = nested_context.parent_trav;
             pending_this->generation = (uint8_t)min(current_generation, (size_t)255);
@@ -6341,12 +6420,24 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
                 // v1 descends only where the reference also goes. A chain crossed only by a
                 // non-reference allele has no reference path through it, so REF and POS for its
                 // record are undefined; --nested-pseudo-ref is where that will be handled.
+                bool child_off_reference = false;
                 if (ref_trav_idx >= 0 && ref_trav_idx < (int)travs.size()) {
                     vector<int> ref_only(1, ref_trav_idx);
                     if (child_ploidy(travs, ref_only, *child, 1) == 0) {
-                        ++g_descent_skipped_no_ref;
-                        continue;
+                        // VG_CALL_NO_REF_NESTED admits these instead of skipping them: genotyped and
+                        // recorded into the linkage layer, but never emitted, because REF and POS for
+                        // such a chain are undefined. One binary, two arms.
+                        if (!no_ref_nested) {
+                            ++g_descent_skipped_no_ref;
+                            continue;
+                        }
+                        child_off_reference = true;
+                        ++g_descent_off_reference;
                     }
+                }
+                // Inherited: everything under a chain the reference does not cross is also off it.
+                if (nested_context.no_reference) {
+                    child_off_reference = true;
                 }
 
                 // The exactly-once rule. Under block emission a chain crossed by every called
@@ -6396,6 +6487,7 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
                 nested_context.parent_record_key = record_key_of(snarl);
                 nested_context.parent_trav = carrying_trav;
                 nested_context.retain_only = retain_only;
+                nested_context.no_reference = child_off_reference;
                 // Where this snarl sits in its chain. The alignment rank identifies the CHAIN --
                 // every snarl of one chain collapses to a single symbol and so shares a column --
                 // so without this the siblings inside a chain are ordered only by reference

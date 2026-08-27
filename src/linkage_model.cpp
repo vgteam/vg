@@ -1383,7 +1383,7 @@ void LinkageCollector::record(const string& contig, size_t position,
                               bool nested, size_t parent_record_key, int parent_trav,
                               uint64_t parent_crossing, size_t generation,
                               bool emitted, int align_rank, int chain_index,
-                              bool chain_backward) {
+                              bool chain_backward, bool unpositioned) {
     if (genotype_ln_likelihood.empty() || called_trav_i < 0) {
         return;
     }
@@ -1443,6 +1443,7 @@ void LinkageCollector::record(const string& contig, size_t position,
     // A pure graph fact, so it is known at descent and needs none of the barrier's plumbing.
     e.chain_index = (int32_t)chain_index;
     e.chain_backward = chain_backward;
+    e.unpositioned = unpositioned;
     e.generation = (uint8_t)(generation > 255 ? 255 : generation);
 
     e.gl_offset = (uint32_t)gl_arena.size();
@@ -2144,6 +2145,7 @@ size_t LinkageCollector::resolve_generation(
             const Entry& e = entries[idx];
             LinkageModel::Site s;
             s.position = e.position;
+            s.unpositioned = e.unpositioned;
             s.num_alleles = e.num_alleles;
             s.ploidy = e.ploidy;
             // Stage B: the step from the previous site measured along the parent's settled
@@ -3092,6 +3094,7 @@ size_t LinkageCollector::resolve_generation(
                 const Entry& e = entries[idx];
                 LinkageModel::Site s;
                 s.position = e.position;
+                s.unpositioned = e.unpositioned;
                 // Stage 15': the step from the previous site, measured along the haplotype's own
                 // traversal where both sites hang off the same parent and both have a frame. Passed
                 // as an explicit distance rather than folded into `position`, so it cannot affect the

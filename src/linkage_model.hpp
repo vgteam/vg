@@ -467,7 +467,7 @@ public:
                 bool nested = false, size_t parent_record_key = 0, int parent_trav = -1,
                 uint64_t parent_crossing = 0, size_t generation = 0,
                 bool emitted = true, int align_rank = -1, int chain_index = -1,
-                bool chain_backward = false);
+                bool chain_backward = false, bool unpositioned = false);
 
     /// The compact allele space `record` builds for one site: the called pair plus every traversal
     /// some panel haplotype carries, deduplicated by traversal and sorted.
@@ -827,6 +827,10 @@ private:
         /// has an allele pair, which is what phasing needs -- but only an emitted one has a record to
         /// patch, and only its `allele_offset` entries mean anything.
         bool emitted = true;
+        /// This site has no reference position: `position` is not a coordinate and must not be
+        /// differenced. Set only for a chain the reference does not cross, which reaches the layer
+        /// only under --nested-no-ref.
+        bool unpositioned = false;
         /// True when this site's ploidy came from nested descent rather than from the contig or a
         /// --ploidy-bed region.
         ///
