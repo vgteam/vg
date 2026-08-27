@@ -1875,7 +1875,7 @@ size_t LinkageCollector::resolve_generation(
     size_t grouped_sites = 0, grouped_groups = 0;
     // Stage B, per generation: how the diploid nested steps were measured.
     size_t fg_pair = 0, fg_differ = 0, fg_single = 0, fg_one_slot = 0, fg_no_frame = 0;
-    size_t fg_cross_parent = 0, fg_negative = 0;
+    size_t fg_cross_parent = 0, fg_mirrored = 0, fg_equals_ref = 0;
     // Stage C, per generation: how often the alignment order and the reference order disagree.
     size_t ao_pairs = 0, ao_reordered = 0, ao_unranked = 0;
     // VG_LINKAGE_NO_GROUPING forces the contig-chain path, so one binary can produce both arms of
@@ -2090,20 +2090,45 @@ size_t LinkageCollector::resolve_generation(
                     ++fg_cross_parent;
                 } else {
                     int64_t g[2] = {-1, -1};
-                    bool any_negative = false;
+                    bool any_mirrored = false;
                     for (int slot = 0; slot < 2; ++slot) {
-                        if (prev.frame_end[slot] >= 0 && e.frame_offset[slot] >= 0) {
+                        if (prev.frame_offset[slot] >= 0 && e.frame_offset[slot] >= 0) {
+                            // START to START, because that is what the reference fallback measures:
+                            // `site_gap` differences two `position` values, and a snarl's position
+                            // is where it begins. Measuring the frame end-to-start instead -- which
+                            // is how `Entry` describes a same-parent gap -- silently changes the
+                            // convention as well as the metric, and for two adjacent siblings the
+                            // two answers are 0 and the whole span of the earlier one.
+                            //
+                            // It also made the gap unmeasurable for most steps. A span is inclusive
+                            // of its closing boundary node and adjacent siblings share that node, so
+                            // end-to-start comes out negative for them: 10,103 of chr20's 18,235
+                            // same-parent steps read as "no frame" and were exempted.
+                            //
+                            // Absolute, because offsets run in TRAVERSAL order while the sites are
+                            // in reference (or alignment) order, and those need not agree in
+                            // direction. A step measured against the traversal's own direction is
+                            // counted, not refused.
                             const int64_t d =
-                                (int64_t)e.frame_offset[slot] - (int64_t)prev.frame_end[slot];
-                            // A negative step means the frames disagree with the order the sites
-                            // are in. Do not feed the model a wrapped distance; fall back and count.
-                            // Counted separately from an unset frame, because this is the population
-                            // stage C exists for: the two measures do not agree on the order.
-                            if (d >= 0) {
-                                g[slot] = d;
-                            } else {
-                                any_negative = true;
+                                (int64_t)e.frame_offset[slot] - (int64_t)prev.frame_offset[slot];
+                            g[slot] = d >= 0 ? d : -d;
+                            if (d < 0) {
+                                any_mirrored = true;
                             }
+                        }
+                    }
+                    if (any_mirrored) {
+                        ++fg_mirrored;
+                    }
+                    // How often the traversal distance and the reference distance are the SAME
+                    // number. Two adjacent siblings share a boundary node, so wherever the parent's
+                    // traversal follows the reference through them the two measures coincide
+                    // exactly, and this arm can only move the steps where they do not. Measured,
+                    // rather than inferred from how a span is taken.
+                    if (g[0] >= 0) {
+                        const int64_t refd = (int64_t)e.position - (int64_t)prev.position;
+                        if (g[0] == (refd >= 0 ? refd : -refd)) {
+                            ++fg_equals_ref;
                         }
                     }
                     if (g[0] >= 0 && g[1] >= 0) {
@@ -2127,8 +2152,6 @@ size_t LinkageCollector::resolve_generation(
                         // single value did.
                         s.gap_to_previous[g[0] >= 0 ? 0 : 1] = g[0] >= 0 ? g[0] : g[1];
                         ++fg_one_slot;
-                    } else if (any_negative) {
-                        ++fg_negative;
                     } else {
                         ++fg_no_frame;
                     }
@@ -2409,17 +2432,18 @@ size_t LinkageCollector::resolve_generation(
     }
 
     if (frame_gap_mode > 0 && (fg_pair + fg_single + fg_one_slot + fg_no_frame
-                               + fg_negative + fg_cross_parent) > 0) {
+                               + fg_cross_parent) > 0) {
 #pragma omp critical (cerr)
         std::cerr << "[vg call] linkage generation " << generation << ": frame gaps mode "
                   << frame_gap_mode << " -- " << (frame_gap_mode == 1 ? fg_single : fg_pair)
                   << " same-parent steps spaced along the settled traversals ("
                   << fg_differ << " where the two strands' distances differ"
                   << (frame_gap_mode == 1 ? ", flattened to their mean" : "") << "), "
-                  << fg_one_slot << " from one traversal only, " << fg_negative
-                  << " where a frame ran backwards against the site order, " << fg_no_frame
+                  << fg_one_slot << " from one traversal only, " << fg_no_frame
                   << " with no frame at all, " << fg_cross_parent
-                  << " cross-parent -- the last three on the reference difference" << std::endl;
+                  << " cross-parent -- the last two on the reference difference; "
+                  << fg_mirrored << " measured against the traversal's own direction, "
+                  << fg_equals_ref << " exactly equal to the reference difference" << std::endl;
     }
 
     if (grouped_groups > 0) {
@@ -2971,6 +2995,9 @@ size_t LinkageCollector::resolve_generation(
                         && prev.frame_offset[slot] >= 0 && e.frame_offset[slot] >= 0) {
                         // Slot 0 only: this is a per-strand haploid chain, so there is one distance
                         // and `site_gap` uses it for both of the pair's strands.
+                        //
+                        // Start to start, matching the reference difference this stands in for. The
+                        // diploid groups measure the same way, for the same reason.
                         s.gap_to_previous[0] =
                             (int64_t)e.frame_offset[slot] - (int64_t)prev.frame_offset[slot];
                         if (s.gap_to_previous[0] < 0) {

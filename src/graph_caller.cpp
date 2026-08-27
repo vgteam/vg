@@ -5153,6 +5153,9 @@ void FlowCaller::run_deferred_descent() {
             SymbolicAllele h1, h2;
             vector<int> col1, col2;
             bool ok = false;
+            /// The parent settled on one traversal twice -- homozygous, or haploid -- so `h2` is a
+            /// copy of `h1` and every step matches itself.
+            bool self_aligned = false;
         };
         unordered_map<size_t, AlignColumns> align_columns;
         for (size_t i = 0; i < pending.size(); ++i) {
@@ -5272,9 +5275,10 @@ void FlowCaller::run_deferred_descent() {
                             // A homozygous parent, or a haploid one, aligns against itself: every
                             // step matches and the columns are simply the step order. That is the
                             // right answer rather than a special case.
-                            ac.h2 = (tb >= 0 && (size_t)tb < ptravs.size() && tb != ta)
-                                        ? symbolic_allele(ptravs[tb], psnarl, *symbolic_manager)
-                                        : ac.h1;
+                            ac.self_aligned = !(tb >= 0 && (size_t)tb < ptravs.size() && tb != ta);
+                            ac.h2 = ac.self_aligned
+                                        ? ac.h1
+                                        : symbolic_allele(ptravs[tb], psnarl, *symbolic_manager);
                             ac.ok = !ac.h1.empty()
                                     && symbolic_columns(ac.h1, ac.h2, ac.col1, ac.col2);
                         }
@@ -5299,14 +5303,23 @@ void FlowCaller::run_deferred_descent() {
                                             vector<int>& out) {
                             for (size_t k = 0; k < h.size(); ++k) {
                                 if (h[k].is_chain() && h[k].id == bounds.first
-                                    && h[k].end_id == bounds.second) {
+                                    && h[k].end_id == bounds.second && col[k] >= 0) {
                                     out.push_back(col[k]);
                                 }
                             }
                         };
                         vector<int> c1, c2;
                         find_all(ac.h1, ac.col1, c1);
-                        if (&ac.h2 != &ac.h1) {
+                        // A homozygous or haploid parent aligned against itself: both sides are the
+                        // same projection, so searching the second adds nothing. Asked as a flag,
+                        // not as a pointer comparison -- `h1` and `h2` are distinct members and
+                        // their addresses always differ, so the pointer test never fired.
+                        if (ac.self_aligned) {
+                            // Both settled traversals ARE this one, so both sides carry the chain
+                            // in the same column. Copied rather than re-searched, so a homozygous
+                            // parent counts as a placement and not as one-sided.
+                            c2 = c1;
+                        } else {
                             find_all(ac.h2, ac.col2, c2);
                         }
                         int rank = -1;
