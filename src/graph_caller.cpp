@@ -2272,9 +2272,13 @@ int VCFOutputCaller::emit_block_records(const PathPositionHandleGraph& graph, co
         // ranges[k].first, and one past the end is the traversal length.
         return step < ranges.size() ? ranges[step].first : t.visit_size();
     };
+    // `max(vb, 0)`, not `vb`: the anchor path below asks for [vb - 1, vb), so a caller that let
+    // vb == 0 through would read visit(-1). The `vb <= 0` refusal is what stops that today, and it
+    // stays -- attributing the decline to the right reason -- but a helper should not depend on one
+    // caller's bounds check to be memory-safe.
     auto seq_of = [&](const SnarlTraversal& t, int vb, int ve) -> string {
         string s;
-        for (int v = vb; v < ve && v < t.visit_size(); ++v) {
+        for (int v = std::max(vb, 0); v < ve && v < t.visit_size(); ++v) {
             const Visit& vis = t.visit(v);
             if (vis.node_id() > 0) {
                 s += graph.get_sequence(graph.get_handle(vis.node_id(), vis.backward()));
