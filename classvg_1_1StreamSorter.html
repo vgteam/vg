@@ -142,10 +142,10 @@ Private Types</h2></td></tr>
 Private Member Functions</h2></td></tr>
 <tr class="memitem:a112c5a39918bb37f4aa3bf1413d31b37"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1StreamSorter.html#a112c5a39918bb37f4aa3bf1413d31b37">open_all</a> (const vector&lt; string &gt; &amp;filenames, list&lt; ifstream &gt; &amp;streams, list&lt; <a class="el" href="classvg_1_1StreamSorter.html#ac3d9f35b14e13610b61a55b57d2f6332">cursor_t</a> &gt; &amp;cursors)</td></tr>
 <tr class="separator:a112c5a39918bb37f4aa3bf1413d31b37"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a1c19cdfb158ff9771e471fbbc2b4ac74"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1StreamSorter.html#a1c19cdfb158ff9771e471fbbc2b4ac74">streaming_merge</a> (list&lt; <a class="el" href="classvg_1_1StreamSorter.html#ac3d9f35b14e13610b61a55b57d2f6332">cursor_t</a> &gt; &amp;cursors, <a class="el" href="classvg_1_1StreamSorter.html#a6454b204b096a5736ce98310aada955d">emitter_t</a> &amp;emitter, size_t expected_messages=0)</td></tr>
-<tr class="separator:a1c19cdfb158ff9771e471fbbc2b4ac74"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a77590f7da1d1418fc00e7bdaec2a76e5"><td class="memItemLeft" align="right" valign="top">vector&lt; string &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1StreamSorter.html#a77590f7da1d1418fc00e7bdaec2a76e5">streaming_merge</a> (const vector&lt; string &gt; &amp;temp_names_in, unordered_map&lt; string, size_t &gt; *messages_per_file=nullptr)</td></tr>
-<tr class="separator:a77590f7da1d1418fc00e7bdaec2a76e5"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a54272f54cc6b029e1feafb5894dce637"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1StreamSorter.html#a54272f54cc6b029e1feafb5894dce637">streaming_merge</a> (list&lt; <a class="el" href="classvg_1_1StreamSorter.html#ac3d9f35b14e13610b61a55b57d2f6332">cursor_t</a> &gt; &amp;cursors, <a class="el" href="classvg_1_1StreamSorter.html#a6454b204b096a5736ce98310aada955d">emitter_t</a> &amp;emitter, size_t &amp;total_messages_emitted)</td></tr>
+<tr class="separator:a54272f54cc6b029e1feafb5894dce637"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a0efcd0014d952abcdde489ea52c67651"><td class="memItemLeft" align="right" valign="top">vector&lt; string &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1StreamSorter.html#a0efcd0014d952abcdde489ea52c67651">streaming_merge</a> (const vector&lt; string &gt; &amp;temp_names_in, size_t total_messages)</td></tr>
+<tr class="separator:a0efcd0014d952abcdde489ea52c67651"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-attribs"></a>
 Private Attributes</h2></td></tr>
@@ -514,8 +514,8 @@ template&lt;typename Message &gt; </div>
 
 </div>
 </div>
-<a id="a77590f7da1d1418fc00e7bdaec2a76e5"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a77590f7da1d1418fc00e7bdaec2a76e5">&#9670;&nbsp;</a></span>streaming_merge() <span class="overload">[1/2]</span></h2>
+<a id="a0efcd0014d952abcdde489ea52c67651"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a0efcd0014d952abcdde489ea52c67651">&#9670;&nbsp;</a></span>streaming_merge() <span class="overload">[1/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -534,8 +534,8 @@ template&lt;typename Message &gt; </div>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">unordered_map&lt; string, size_t &gt; *&#160;</td>
-          <td class="paramname"><em>messages_per_file</em> = <code>nullptr</code>&#160;</td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>total_messages</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -549,13 +549,12 @@ template&lt;typename Message &gt; </div>
   </tr>
 </table>
 </div><div class="memdoc">
-<p>Merge all the given temp input files into one or more temp output files, opening no more than max_fan_in input files at a time. The input files, which must be from <a class="el" href="namespacevg_1_1temp__file.html#a84ef71efd10b4010f206ae8510545f40" title="Create a temporary file starting with the given base name.">temp_file::create()</a>, will be deleted.</p>
-<p>If messages_per_file is specified, it will be used to show progress bars, and will be updated for newly-created files. </p>
+<p>Merge all the given temp input files into one or more temp output files, opening no more than max_fan_in input files at a time. The input files, which must be from <a class="el" href="namespacevg_1_1temp__file.html#a84ef71efd10b4010f206ae8510545f40" title="Create a temporary file starting with the given base name.">temp_file::create()</a>, will be deleted. Creates a progress bar for the merge. </p>
 
 </div>
 </div>
-<a id="a1c19cdfb158ff9771e471fbbc2b4ac74"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a1c19cdfb158ff9771e471fbbc2b4ac74">&#9670;&nbsp;</a></span>streaming_merge() <span class="overload">[2/2]</span></h2>
+<a id="a54272f54cc6b029e1feafb5894dce637"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a54272f54cc6b029e1feafb5894dce637">&#9670;&nbsp;</a></span>streaming_merge() <span class="overload">[2/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -580,8 +579,8 @@ template&lt;typename Message &gt; </div>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>expected_messages</em> = <code>0</code>&#160;</td>
+          <td class="paramtype">size_t &amp;&#160;</td>
+          <td class="paramname"><em>total_messages_emitted</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -595,7 +594,7 @@ template&lt;typename Message &gt; </div>
   </tr>
 </table>
 </div><div class="memdoc">
-<p>Merge all the messages from the given list of cursors into the given emitter. The total expected number of messages can be passed for progress bar purposes. </p>
+<p>Merge all the messages from the given list of cursors into the given emitter. Updates the progress bar and the total number of messages emitted. </p>
 
 </div>
 </div>
