@@ -2338,11 +2338,14 @@ int VCFOutputCaller::emit_block_records(const PathPositionHandleGraph& graph, co
 
     // Build every record before writing any, so the decision to split can be taken on the finished
     // set. A half-written split is the one outcome with no safe fallback.
-    struct Built {
-        vcflib::Variant var;
-        bool wanted = false;
-    };
-    vector<Built> built;
+    // Plain variants, not a {variant, wanted} pair. The `wanted` flag this used to carry was
+    // `!var.alt.empty()`, and it was true for every record ever pushed: `alt` is assigned from
+    // `alleles.begin() + 1 .. end()` only where `alleles.size() >= 2`, and
+    // `flatten_common_allele_ends` cannot change its size -- it returns early on an empty `alt` and
+    // on `min_allele_len == 0`, and otherwise only assigns `alt[i - 1]` by index, with no
+    // push_back, erase or resize anywhere in it. So `wanted == built.size()` identically, and the
+    // two tests below say what they mean once written against `built.size()`.
+    vector<vcflib::Variant> built;
     built.reserve(clusters.size());
 
     for (const pair<int, int>& cluster : clusters) {
@@ -2437,15 +2440,15 @@ int VCFOutputCaller::emit_block_records(const PathPositionHandleGraph& graph, co
             continue;   // every haplotype is the reference here; nothing to report
         }
 
-        Built b;
-        b.var = site;   // inherit INFO, FORMAT and every site-level field
-        b.var.position = pos;
-        b.var.ref = alleles[0];
-        b.var.alt.assign(alleles.begin() + 1, alleles.end());
-        b.var.alleles = alleles;
-        b.var.info["AT"].clear();
-        b.var.info["AT"].resize(alleles.size());
-        b.var.info["SB"] = {std::to_string(built.size()), std::to_string(clusters.size())};
+        vcflib::Variant b_var;
+        b_var = site;   // inherit INFO, FORMAT and every site-level field
+        b_var.position = pos;
+        b_var.ref = alleles[0];
+        b_var.alt.assign(alleles.begin() + 1, alleles.end());
+        b_var.alleles = alleles;
+        b_var.info["AT"].clear();
+        b_var.info["AT"].resize(alleles.size());
+        b_var.info["SB"] = {std::to_string(built.size()), std::to_string(clusters.size())};
 
         // AT per block allele, over the visit range this record actually spells.
         {
@@ -2453,7 +2456,7 @@ int VCFOutputCaller::emit_block_records(const PathPositionHandleGraph& graph, co
             for (int v = vb; v < ve && v < ref_trav.visit_size(); ++v) {
                 *ref_span.add_visit() = ref_trav.visit(v);
             }
-            add_allele_path_to_info(b.var, 0, ref_span, false, false);
+            add_allele_path_to_info(b_var, 0, ref_span, false, false);
             for (size_t a = 1; a < alleles.size(); ++a) {
                 SnarlTraversal span;
                 for (size_t s = 0; s < genotype.size(); ++s) {
@@ -2480,7 +2483,7 @@ int VCFOutputCaller::emit_block_records(const PathPositionHandleGraph& graph, co
                     }
                     break;
                 }
-                add_allele_path_to_info(b.var, a, span, false, false);
+                add_allele_path_to_info(b_var, a, span, false, false);
             }
         }
 
@@ -2572,20 +2575,20 @@ int VCFOutputCaller::emit_block_records(const PathPositionHandleGraph& graph, co
                     }
                 }
             }
-            b.var.samples[sample_name]["GT"] = {gt};
+            b_var.samples[sample_name]["GT"] = {gt};
         }
         if (!keep_phase_set) {
             // PS labels a phase block, so it means nothing on an unphased genotype.
-            b.var.samples[sample_name].erase("PS");
-            b.var.format.erase(std::remove(b.var.format.begin(), b.var.format.end(), "PS"),
-                               b.var.format.end());
+            b_var.samples[sample_name].erase("PS");
+            b_var.format.erase(std::remove(b_var.format.begin(), b_var.format.end(), "PS"),
+                               b_var.format.end());
         }
 
         // AD and GL are looked up through site_of_block rather than recomputed. Every block of a
         // snarl therefore reports the same evidence, which is honest only about arity: see D2 in
         // planning/symbolic-diff-decomposition.md. INFO/SB is what makes the replicated set
         // recoverable by a consumer that must not double-count it.
-        auto& fmt = b.var.samples[sample_name];
+        auto& fmt = b_var.samples[sample_name];
         auto site_fmt = site.samples.find(sample_name);
         if (site_fmt != site.samples.end()) {
             auto site_ad = site_fmt->second.find("AD");
@@ -2636,45 +2639,34 @@ int VCFOutputCaller::emit_block_records(const PathPositionHandleGraph& graph, co
                     fmt["GL"] = gl;
                 } else {
                     fmt.erase("GL");
-                    b.var.format.erase(std::remove(b.var.format.begin(), b.var.format.end(), "GL"),
-                                       b.var.format.end());
+                    b_var.format.erase(std::remove(b_var.format.begin(), b_var.format.end(), "GL"),
+                                       b_var.format.end());
                 }
             }
         }
 
-        b.var.updateAlleleIndexes();
-        flatten_common_allele_ends(b.var, true, 0);
-        flatten_common_allele_ends(b.var, false, 0);
-        b.wanted = !b.var.alt.empty();
-        built.push_back(std::move(b));
+        b_var.updateAlleleIndexes();
+        flatten_common_allele_ends(b_var, true, 0);
+        flatten_common_allele_ends(b_var, false, 0);
+        built.push_back(std::move(b_var));
     }
 
-    size_t wanted = 0;
-    for (const Built& b : built) {
-        if (b.wanted) {
-            ++wanted;
-        }
-    }
-    if (wanted == 0) {
+    if (built.empty()) {
         return -1;
     }
     // Only take over from the site record where doing so changes the answer: more than one record,
     // or one record whose allele set is smaller than the site's -- which is the two-haplotypes-
     // one-route case coming out homozygous instead of as two near-identical ALTs. Everything else
     // falls through so its bytes are unchanged.
-    bool collapses = wanted == 1 && built.size() == 1 &&
-                     built[0].var.alleles.size() < site.alleles.size();
-    if (wanted < 2 && !collapses) {
+    bool collapses = built.size() == 1 && built[0].alleles.size() < site.alleles.size();
+    if (built.size() < 2 && !collapses) {
         return -1;
     }
 
     int added = 0;
     size_t block_index = 0;
-    for (Built& b : built) {
-        if (!b.wanted) {
-            continue;
-        }
-        if (add_variant(b.var, block_index)) {
+    for (vcflib::Variant& b_var : built) {
+        if (add_variant(b_var, block_index)) {
             ++added;
         }
         ++block_index;
