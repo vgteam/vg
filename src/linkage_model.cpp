@@ -1863,9 +1863,27 @@ size_t LinkageCollector::resolve_generation(
     // context would otherwise have its children decoded with no context at all, which is the
     // uniform boundary that discards everything.
     size_t grouped_sites = 0, grouped_groups = 0;
+    // Stage B, per generation: how the diploid nested steps were measured.
+    size_t fg_pair = 0, fg_differ = 0, fg_single = 0, fg_one_slot = 0, fg_no_frame = 0;
+    size_t fg_cross_parent = 0, fg_negative = 0;
     // VG_LINKAGE_NO_GROUPING forces the contig-chain path, so one binary can produce both arms of
     // a comparison and the only difference between them is this.
     static const bool no_grouping = getenv("VG_LINKAGE_NO_GROUPING") != nullptr;
+    // How a nested sibling's distance from the previous one is measured. One binary, three arms:
+    //
+    //   0  reference position difference -- what every diploid chain has always used
+    //   1  the parent's settled traversals, collapsed to ONE scalar (their mean)
+    //   2  the parent's settled traversals, one distance PER STRAND
+    //
+    // 1 exists to separate the two things stage B changes at once. Spacing along a traversal at all
+    // has been measured before -- twice, in the haploid derivation -- and cost about 0.0005 of
+    // JointIndel on chr20 as a single scalar. Arm 1 reproduces that form here, so if 2 loses it is
+    // possible to say whether the loss is traversal spacing or the per-strand split, which a single
+    // on/off switch could not.
+    static const int frame_gap_mode = []() {
+        const char* v = getenv("VG_LINKAGE_FRAME_GAPS");
+        return v != nullptr ? atoi(v) : 0;
+    }();
     if (generation > 0 && !parent_context.empty() && !no_grouping) {
         unordered_map<size_t, size_t> index_of_key;
         index_of_key.reserve(entries.size() * 2);
@@ -2003,12 +2021,78 @@ size_t LinkageCollector::resolve_generation(
 
         vector<LinkageModel::Site> sites;
         sites.reserve(indices.size());
-        for (size_t idx : indices) {
+        for (size_t k = 0; k < indices.size(); ++k) {
+            const size_t idx = indices[k];
             const Entry& e = entries[idx];
             LinkageModel::Site s;
             s.position = e.position;
             s.num_alleles = e.num_alleles;
             s.ploidy = e.ploidy;
+            // Stage B: the step from the previous site measured along the parent's settled
+            // traversals rather than along the reference, one distance per strand.
+            //
+            // Only between two children of the SAME parent. The first entry of a per-parent group is
+            // the parent itself, whose frames are measured along *its* parent's traversal and so are
+            // in a different frame entirely; and a cross-parent step needs the distance from the
+            // earlier parent's end to the later parent's start, which is not stored. Both fall back
+            // to the reference difference, and both are counted.
+            //
+            // Slot 0 is strand a by construction, not by convention: `set_frame` writes slot 0 along
+            // `PhaseCall::trav_first`, and that traversal sits on `hap_first`, which is the first of
+            // the ordered pair the HMM's state is. Nothing re-derives the correspondence.
+            //
+            // Diploid chains only. A haploid chain has one strand, so the per-strand form has nothing
+            // to say there, and the nested per-strand chains already measure their own frame gap.
+            if (frame_gap_mode > 0 && k > 0 && chain_ploidy == 2 && e.parent_record_key != 0) {
+                const Entry& prev = entries[indices[k - 1]];
+                if (prev.parent_record_key != e.parent_record_key) {
+                    ++fg_cross_parent;
+                } else {
+                    int64_t g[2] = {-1, -1};
+                    bool any_negative = false;
+                    for (int slot = 0; slot < 2; ++slot) {
+                        if (prev.frame_end[slot] >= 0 && e.frame_offset[slot] >= 0) {
+                            const int64_t d =
+                                (int64_t)e.frame_offset[slot] - (int64_t)prev.frame_end[slot];
+                            // A negative step means the frames disagree with the order the sites
+                            // are in. Do not feed the model a wrapped distance; fall back and count.
+                            // Counted separately from an unset frame, because this is the population
+                            // stage C exists for: the two measures do not agree on the order.
+                            if (d >= 0) {
+                                g[slot] = d;
+                            } else {
+                                any_negative = true;
+                            }
+                        }
+                    }
+                    if (g[0] >= 0 && g[1] >= 0) {
+                        // Counted in both modes, so mode 1 can say how many steps it flattened.
+                        if (g[0] != g[1]) {
+                            ++fg_differ;
+                        }
+                        if (frame_gap_mode == 1) {
+                            // One scalar for both strands. Written to slot 0 alone -- `site_gap`
+                            // uses a single known slot for both, so this needs no second copy.
+                            s.gap_to_previous[0] = (g[0] + g[1]) / 2;
+                            ++fg_single;
+                        } else {
+                            s.gap_to_previous[0] = g[0];
+                            s.gap_to_previous[1] = g[1];
+                            ++fg_pair;
+                        }
+                    } else if (g[0] >= 0 || g[1] >= 0) {
+                        // One traversal enters this chain and the other does not, or one step came
+                        // out negative. The known distance stands for both strands, which is what a
+                        // single value did.
+                        s.gap_to_previous[g[0] >= 0 ? 0 : 1] = g[0] >= 0 ? g[0] : g[1];
+                        ++fg_one_slot;
+                    } else if (any_negative) {
+                        ++fg_negative;
+                    } else {
+                        ++fg_no_frame;
+                    }
+                }
+            }
             size_t n_gt = e.ploidy == 1
                               ? (size_t)e.num_alleles
                               : (size_t)e.num_alleles * ((size_t)e.num_alleles + 1) / 2;
@@ -2272,6 +2356,20 @@ size_t LinkageCollector::resolve_generation(
         std::cerr << "[vg call] linkage generation " << generation << ": context messages held for "
                   << parent_context.size() << " parents of not-yet-called sites, "
                   << (bytes / (1024.0 * 1024.0)) << " MB" << std::endl;
+    }
+
+    if (frame_gap_mode > 0 && (fg_pair + fg_single + fg_one_slot + fg_no_frame
+                               + fg_negative + fg_cross_parent) > 0) {
+#pragma omp critical (cerr)
+        std::cerr << "[vg call] linkage generation " << generation << ": frame gaps mode "
+                  << frame_gap_mode << " -- " << (frame_gap_mode == 1 ? fg_single : fg_pair)
+                  << " same-parent steps spaced along the settled traversals ("
+                  << fg_differ << " where the two strands' distances differ"
+                  << (frame_gap_mode == 1 ? ", flattened to their mean" : "") << "), "
+                  << fg_one_slot << " from one traversal only, " << fg_negative
+                  << " where a frame ran backwards against the site order, " << fg_no_frame
+                  << " with no frame at all, " << fg_cross_parent
+                  << " cross-parent -- the last three on the reference difference" << std::endl;
     }
 
     if (grouped_groups > 0) {
