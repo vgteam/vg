@@ -36,8 +36,12 @@ static inline std::pair<size_t, size_t> site_gap(const LinkageModel::Site& prev,
     if (b >= 0) {
         return {clamp(b), clamp(b)};
     }
-    if (prev.unpositioned && next.unpositioned) {
-        // Neither site has a coordinate and no frame measured the step, so there is NO distance.
+    if (prev.unpositioned || next.unpositioned) {
+        // EITHER, not both. A mixed pair is the common case -- a parent's children interleave chains
+        // the reference crosses with chains it does not -- and it falls through to the arithmetic
+        // below with a 0 standing in for a coordinate: a positioned prev gives `0 > pos` false and
+        // so a gap of 1, which is the strongest possible link, and an unpositioned prev gives the
+        // next site's whole offset measured from nothing. One coordinate does not make a distance.
         //
         // The clamp below is the wrong answer for that, not a neutral one: 1 bp is
         // `switch_probability`'s minimum rate, which is the strongest possible link -- so two sites
@@ -3120,7 +3124,13 @@ size_t LinkageCollector::resolve_generation(
                 // is for.
                 if (k > 0) {
                     const Entry& prev = entries[idxs[k - 1]];
-                    const bool have_reference = (prev.position > 0 && e.position > 0);
+                    // `unpositioned`, not `position > 0`. Position is an anchor for a chain the
+                    // reference does not cross -- its parent's start -- so it is non-zero and this
+                    // test would pass, the frame would never be consulted, and the model would
+                    // difference two identical anchors. Absence is a fact to be carried, not
+                    // inferred from a coordinate that happens to be zero.
+                    const bool have_reference = (!prev.unpositioned && !e.unpositioned
+                                                 && prev.position > 0 && e.position > 0);
                     if (!have_reference
                         && prev.parent_record_key == e.parent_record_key
                         && prev.frame_offset[slot] >= 0 && e.frame_offset[slot] >= 0) {

@@ -1040,7 +1040,7 @@ public:
                      const vector<int>& trav_genotype,
                      const unique_ptr<SnarlCaller::CallInfo>& call_info,
                      const string& ref_path_name, int ref_offset,
-                     bool no_reference = false);
+                     bool no_reference = false, int64_t anchor_position = 0);
 
     void render_retained_records();
 

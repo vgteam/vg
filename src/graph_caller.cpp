@@ -4934,7 +4934,7 @@ void FlowCaller::record_site(const Snarl& snarl, const vector<SnarlTraversal>& t
                             const vector<int>& trav_genotype,
                             const unique_ptr<SnarlCaller::CallInfo>& call_info,
                             const string& ref_path_name, int ref_offset,
-                            bool no_reference) {
+                            bool no_reference, int64_t anchor_position) {
     if (linkage_collector == nullptr || suppress_linkage_record) {
         return;
     }
@@ -4962,8 +4962,13 @@ void FlowCaller::record_site(const Snarl& snarl, const vector<SnarlTraversal>& t
     // whose `assert(start_steps.size() > 0 && end_steps.size() > 0)` fires on an empty map for any
     // snarl that path does not thread -- and asserts are live, there is no -DNDEBUG in the Makefile.
     // The contig name is still taken from the path, which is a string operation and safe.
+    // An ANCHOR for a chain with no reference position: its parent's reference start. It is a place
+    // in the contig, not a coordinate for this snarl, and `unpositioned` says which -- so the sort
+    // and the phase-set lookup work as they do for any other site, while `site_gap` still refuses to
+    // difference it. Zero instead would put every such entry at the head of the contig, where it
+    // would sit beside a site it has nothing to do with and could cut that run.
     pair<string, int64_t> pos_info =
-        no_reference ? make_pair(ref_path_name, (int64_t)0)
+        no_reference ? make_pair(ref_path_name, anchor_position)
                      : get_ref_position(graph, snarl, ref_path_name, ref_offset);
     // The contig must be spelled the way the VCF spells it, because the patch index keys on it.
     // `get_ref_position` returns the base path name -- "CHM13#0#chr20" -- while `emit_variant`
@@ -4989,11 +4994,12 @@ void FlowCaller::record_site(const Snarl& snarl, const vector<SnarlTraversal>& t
         record_key_of(snarl),
         rl_info->explained_share, site_ploidy,
         (int64_t)snarl.start().node_id(), (int64_t)snarl.end().node_id(),
-        // `nested` forced true where there is no reference. It is otherwise `copies == 1`, and a
-        // non-nested entry joins the contig's diploid runs, which are sorted by position -- so an
-        // unpositioned entry would sort to the head of the contig and could cut a run there,
-        // damaging sites that have nothing to do with it.
-        nested_context.active || no_reference, nested_context.parent_record_key,
+        // `copies == 1` as for any other chain -- NOT forced true. A copies == 2 chain must stay
+        // non-nested so it joins the contig runs and is picked up by the per-parent diploid groups;
+        // forcing it nested sent 65% of this population down the per-strand ploidy-1 path instead.
+        // Safe now only because the anchor above puts it beside its parent rather than at position
+        // zero, which is what forcing it was working around.
+        nested_context.active, nested_context.parent_record_key,
         nested_context.parent_trav, nested_context.parent_crossing,
         current_generation, /*emitted*/ false, /*align_rank*/ -1,
         nested_context.chain_index, /*chain_backward*/ false, no_reference);
@@ -6185,7 +6191,9 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
             // this chain's own children, so reporting "no line" as added=false would silently prune
             // every grandchild under every off-reference chain, and that branch has no counter.
             record_site(snarl, travs, trav_genotype, trav_call_info, ref_path_name,
-                        ref_offsets[ref_path_name], /*no_reference*/ true);
+                        ref_offsets[ref_path_name], /*no_reference*/ true,
+                        // The parent's interval, which `use_parent_interval` put here.
+                        get<0>(ref_interval) + ref_offsets[ref_path_name]);
             ++g_no_ref_recorded;
             {
                 int copies = 0;
