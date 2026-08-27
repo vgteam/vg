@@ -198,6 +198,16 @@ public:
         /// separate derivation.
         int64_t gap_to_previous[2] = {-1, -1};
 
+        /// This site has no reference position at all, so `position` is not a coordinate and must
+        /// not be differenced.
+        ///
+        /// Not inferred from `position == 0`. A position of zero is a legitimate coordinate at the
+        /// head of a contig, and inferring absence from it is the same class of mistake as reading a
+        /// crossing mask's 0 as "no allele crosses". Nothing sets this yet: a nested chain reaches
+        /// the layer only where the reference crosses it, so every site is positioned today, and it
+        /// exists for the population a covering reference admits.
+        bool unpositioned = false;
+
         /// 1 or 2. A whole chain shares one ploidy -- it is a property of the contig, not of the
         /// site -- but it is carried here because this struct is what the model is handed.
         ///

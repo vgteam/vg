@@ -5077,6 +5077,7 @@ void FlowCaller::run_deferred_descent() {
     // Stage C: alignment ranks written, and why one was not.
     size_t rank_written = 0, rank_one_sided = 0, rank_no_symbol = 0, rank_ambiguous = 0;
     size_t rank_no_columns = 0, rank_no_child = 0, rank_deferred = 0;
+    size_t frame_deferred = 0, frame_staged = 0;
     unordered_map<size_t, PendingRecord*> record_by_key;
     record_by_key.reserve((pending.size() + render_record_count()) * 2);
     for (PendingRecord& pr : pending) {
@@ -5204,6 +5205,16 @@ void FlowCaller::run_deferred_descent() {
                                          : (copies == 2 ? -2 : -1);
             linkage_collector->set_parent_trav(pr.record_key, pr.parent_trav);
 
+            // Frames measured before this chain had a layer entry, to be replayed once the
+            // revise block below has given it one. Cleared per record: a frame belongs to the
+            // record it was measured for.
+            struct DeferredFrame {
+                size_t record_key;
+                int slot, offset, end, total;
+                bool reversed;
+            };
+            vector<DeferredFrame> deferred_frames;
+
             // Stage 15': where this chain sits along the traversals its parent SETTLED on,
             // measured now because that is when the parent's genotype is known. One slot per settled
             // traversal, indexed by the parent's traversal ORDER rather than by strand -- a haploid
@@ -5236,7 +5247,16 @@ void FlowCaller::run_deferred_descent() {
                                                         (int)(off + span), (int)total, !at_start)) {
                             any = true;
                         } else {
-                            ++frame_no_entry;
+                            // No entry yet. One may exist by the end of this iteration -- the
+                            // revise block below records a chain the sweep never filed -- so the
+                            // measurement is kept and replayed rather than thrown away. This is the
+                            // same defect `align_rank` had; the rank is one value and travels as an
+                            // argument to `record`, where a frame is thirteen and does not.
+                            deferred_frames.push_back(DeferredFrame{
+                                pr.record_key, slot, (int)off, (int)(off + span), (int)total,
+                                !at_start});
+                            ++frame_staged;
+                            any = true;
                         }
                     }
                     if (any) {
@@ -5505,6 +5525,18 @@ void FlowCaller::run_deferred_descent() {
                 ++revised;
             }
 
+            // The entry exists now if it ever will, so the frames measured before it can land.
+            // Reached only by a record that was not dropped: `copies == 0` takes drop_subtree and
+            // continues above, and a retracted entry is not a live one to write to.
+            for (const DeferredFrame& df : deferred_frames) {
+                if (linkage_collector->set_frame(df.record_key, df.slot, df.offset, df.end,
+                                                 df.total, df.reversed)) {
+                    ++frame_deferred;
+                } else {
+                    ++frame_no_entry;
+                }
+            }
+
             // The record this chain's children were masked against has just changed -- or, for a
             // gained chain, exists for the first time -- so their crossing masks are recomputed
             // from the mapping the emit above produced. The sweep-time masks were built from
@@ -5595,7 +5627,10 @@ void FlowCaller::run_deferred_descent() {
              << " with no single carrying traversal, " << frame_no_parent
              << " whose parent record was not found, " << frame_not_crossed
              << " the settled traversal does not cross, " << frame_no_entry
-             << " with no layer entry" << endl;
+             << " with no layer entry; " << frame_deferred << " of " << frame_staged
+             << " measured before the chain had an entry and replayed once it did, "
+             << (frame_staged - frame_deferred - frame_no_entry)
+             << " discarded with a chain the barrier then dropped" << endl;
         cerr << "[vg call] alignment ranks: " << rank_written << " nested chains placed by the"
              << " alignment of both settled traversals, " << rank_one_sided
              << " carried by one traversal only -- whose place among the OTHER haplotype's chains"

@@ -36,6 +36,16 @@ static inline std::pair<size_t, size_t> site_gap(const LinkageModel::Site& prev,
     if (b >= 0) {
         return {clamp(b), clamp(b)};
     }
+    if (prev.unpositioned && next.unpositioned) {
+        // Neither site has a coordinate and no frame measured the step, so there is NO distance.
+        //
+        // The clamp below is the wrong answer for that, not a neutral one: 1 bp is
+        // `switch_probability`'s minimum rate, which is the strongest possible link -- so two sites
+        // about which nothing is known would be asserted to be perfectly linked. SIZE_MAX gives
+        // rho = 1.0, at which `transition_apply`'s T = (1-rho)I + (rho/m)11' is exactly uniform:
+        // the chain forgets, which is what "unknown" means here.
+        return {numeric_limits<size_t>::max(), numeric_limits<size_t>::max()};
+    }
     const size_t ref = next.position > prev.position ? (size_t)(next.position - prev.position) : 1;
     return {ref, ref};
 }
