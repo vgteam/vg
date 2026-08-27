@@ -660,13 +660,17 @@ int main_surject(int argc, char** argv) {
                     crash_unless(surjected1.size() == surjected2.size());
                     for (size_t i = 0; i < surjected1.size(); i++) {
                         // TODO: Use the batched emit here?
+#ifdef debug
                         #pragma omp critical (cerr)
                         std::cerr << "Emitting pair of " << surjected1[i].name() << " and " << surjected2[i].name() << std::endl;
+#endif
                         alignment_emitter->emit_pair(std::move(surjected1[i]), std::move(surjected2[i]), max_frag_len.value_or(0));
                     }
                     for (size_t i = 0; i < supplementary_surjections.size(); i++) {
+#ifdef debug
                         #pragma omp critical (cerr)
                         std::cerr << "Emitting single read " << supplementary_surjections[i].name() << std::endl;
+#endif
                         alignment_emitter->emit_single(std::move(supplementary_surjections[i]));
                     }
                     
