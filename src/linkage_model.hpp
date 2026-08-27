@@ -175,7 +175,8 @@ public:
         /// directly and has `num_alleles` entries.
         vector<double> genotype_ln_likelihood;
 
-        /// Distance from the PREVIOUS site in the chain, in bp, or -1 to derive it from `position`.
+        /// Distance from the PREVIOUS site in the chain, in bp, PER STRAND, or -1 to derive it from
+        /// `position`. Slot 0 is the first of the ordered haplotype pair, slot 1 the second.
         ///
         /// Stage 15': below the top level the distance comes from the parent's settled traversal, not
         /// from reference positions, and it is passed as an explicit per-step value rather than as a
@@ -184,7 +185,18 @@ public:
         /// metrics -- which can invert the order of sites under different parents, and the sort then
         /// hides it because the same key is used for spacing, so every gap comes out non-negative by
         /// construction. A per-step distance cannot reorder anything, because it is not the sort key.
-        int64_t gap_to_previous = -1;
+        ///
+        /// TWO of them, because the two haplotypes of a diploid sample recombine independently and
+        /// walk different traversals: the bp each has travelled since the previous site is its own,
+        /// which is what `transition_apply`'s per-strand `rho_a`/`rho_b` was written to take and what
+        /// a single scalar cannot express. Where only one slot is set it is used for both, which is
+        /// the behaviour a single value had; where neither is, the reference difference is.
+        ///
+        /// Slot order is the parent's settled-traversal order, which is the same order as its phased
+        /// pair -- `Entry::frame_offset[0]` is measured along `PhaseCall::trav_first`, and that
+        /// traversal sits on `hap_first`, strand a. So the frames index the strands without a
+        /// separate derivation.
+        int64_t gap_to_previous[2] = {-1, -1};
 
         /// 1 or 2. A whole chain shares one ploidy -- it is a property of the contig, not of the
         /// site -- but it is carried here because this struct is what the model is handed.

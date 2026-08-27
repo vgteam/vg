@@ -13,16 +13,31 @@
 
 namespace vg {
 
-/// The distance between two adjacent sites in a chain, in bp.
+/// The distance between two adjacent sites in a chain, in bp, PER STRAND.
 ///
 /// Prefers the explicit `gap_to_previous` the caller measured along the haplotype's own traversal, and
 /// falls back to the reference position difference where there is none. Clamped at 1, as the position
 /// form was: `switch_probability` reads a gap of 0 as 1 anyway, and a negative one would wrap.
-static inline size_t site_gap(const LinkageModel::Site& prev, const LinkageModel::Site& next) {
-    if (next.gap_to_previous >= 0) {
-        return (size_t)(next.gap_to_previous > 1 ? next.gap_to_previous : 1);
+///
+/// One slot set and the other not is not an error and not a reference fallback: it is a step measured
+/// along one haplotype and unmeasurable along the other -- a parent traversal that does not enter the
+/// chain, or a cross-parent step. Using the known distance for both strands is what a single value
+/// did, and it is a better estimate than the reference difference wherever the frame exists at all.
+static inline std::pair<size_t, size_t> site_gap(const LinkageModel::Site& prev,
+                                                const LinkageModel::Site& next) {
+    const int64_t a = next.gap_to_previous[0], b = next.gap_to_previous[1];
+    auto clamp = [](int64_t g) { return (size_t)(g > 1 ? g : 1); };
+    if (a >= 0 && b >= 0) {
+        return {clamp(a), clamp(b)};
     }
-    return next.position > prev.position ? (size_t)(next.position - prev.position) : 1;
+    if (a >= 0) {
+        return {clamp(a), clamp(a)};
+    }
+    if (b >= 0) {
+        return {clamp(b), clamp(b)};
+    }
+    const size_t ref = next.position > prev.position ? (size_t)(next.position - prev.position) : 1;
+    return {ref, ref};
 }
 
 double LinkageModel::switch_probability(size_t gap) const {
@@ -403,12 +418,13 @@ void LinkageModel::window_posteriors(const vector<Site>& sites, size_t from, siz
         // measured along the parent's settled traversal, not along the reference. Falls back to the
         // reference position difference where it is unset, which is the top-level case and the
         // cross-parent case that still needs the parent's reference span.
-        const size_t gap = site_gap(sites[from + t - 1], sites[from + t]);
+        const std::pair<size_t, size_t> gap = site_gap(sites[from + t - 1], sites[from + t]);
         vector<double> moved;
-        // Both strands given the same value for now: this stage lands the arithmetic, and the
-        // per-strand distances that will make them differ come with the haplotype frame.
-        const double rho = switch_probability(gap);
-        transition_apply(alpha[t - 1], m, rho, rho, moved);
+        // One switch probability per strand. Equal wherever the two distances are, which is every
+        // step that falls back to the reference difference or knows only one frame.
+        const double rho_a = switch_probability(gap.first);
+        const double rho_b = switch_probability(gap.second);
+        transition_apply(alpha[t - 1], m, rho_a, rho_b, moved);
         if (alpha_out != nullptr && wanted(from + t)) {
             // The message ENTERING t, before its own emission -- what `alpha_in` consumes, and
             // symmetric with `beta_out`, which is already the entering message from the right.
@@ -559,14 +575,15 @@ void LinkageModel::window_posteriors(const vector<Site>& sites, size_t from, siz
         // measured along the parent's settled traversal, not along the reference. Falls back to the
         // reference position difference where it is unset, which is the top-level case and the
         // cross-parent case that still needs the parent's reference span.
-        const size_t gap = site_gap(sites[from + t - 1], sites[from + t]);
+        const std::pair<size_t, size_t> gap = site_gap(sites[from + t - 1], sites[from + t]);
         vector<double> weighted(m * m, 0.0);
         for (size_t k = 0; k < m * m; ++k) {
             weighted[k] = beta[k] * emissions[t][k];
         }
         vector<double> next;
-        const double rho = switch_probability(gap);
-        transition_apply(weighted, m, rho, rho, next);
+        const double rho_a = switch_probability(gap.first);
+        const double rho_b = switch_probability(gap.second);
+        transition_apply(weighted, m, rho_a, rho_b, next);
         double s = 0.0;
         for (double v : next) {
             s += v;
@@ -873,10 +890,11 @@ void LinkageModel::window_phasing(const vector<Site>& sites, size_t from, size_t
         // measured along the parent's settled traversal, not along the reference. Falls back to the
         // reference position difference where it is unset, which is the top-level case and the
         // cross-parent case that still needs the parent's reference span.
-        const size_t gap = site_gap(sites[from + t - 1], sites[from + t]);
+        const std::pair<size_t, size_t> gap = site_gap(sites[from + t - 1], sites[from + t]);
         vector<double> next;
-        const double rho = switch_probability(gap);
-        viterbi_step(delta, m, rho, rho, emissions[t], next, back_a[t], back_b[t]);
+        const double rho_a = switch_probability(gap.first);
+        const double rho_b = switch_probability(gap.second);
+        viterbi_step(delta, m, rho_a, rho_b, emissions[t], next, back_a[t], back_b[t]);
         bool any = false;
         for (double v : next) {
             if (v > NEG_INF) { any = true; break; }
@@ -1002,8 +1020,9 @@ void LinkageModel::window_haploid_posteriors(const vector<Site>& sites, size_t f
         // measured along the parent's settled traversal, not along the reference. Falls back to the
         // reference position difference where it is unset, which is the top-level case and the
         // cross-parent case that still needs the parent's reference span.
-        const size_t gap = site_gap(sites[from + t - 1], sites[from + t]);
-        double rho = switch_probability(gap);
+        // One strand, so one distance: `site_gap` hands back the same value in both slots wherever
+        // only one is known, which is every haploid step.
+        const double rho = switch_probability(site_gap(sites[from + t - 1], sites[from + t]).first);
         double stay = 1.0 - rho;
         double jump = rho / (double)m;
         double total = 0.0;
@@ -1087,8 +1106,9 @@ void LinkageModel::window_haploid_posteriors(const vector<Site>& sites, size_t f
         // measured along the parent's settled traversal, not along the reference. Falls back to the
         // reference position difference where it is unset, which is the top-level case and the
         // cross-parent case that still needs the parent's reference span.
-        const size_t gap = site_gap(sites[from + t - 1], sites[from + t]);
-        double rho = switch_probability(gap);
+        // One strand, so one distance: `site_gap` hands back the same value in both slots wherever
+        // only one is known, which is every haploid step.
+        const double rho = switch_probability(site_gap(sites[from + t - 1], sites[from + t]).first);
         double stay = 1.0 - rho;
         double jump = rho / (double)m;
         vector<double> weighted(m);
@@ -1188,8 +1208,7 @@ void LinkageModel::window_haploid_phasing(const vector<Site>& sites, size_t from
         // measured along the parent's settled traversal, not along the reference. Falls back to the
         // reference position difference where it is unset, which is the top-level case and the
         // cross-parent case that still needs the parent's reference span.
-        const size_t gap = site_gap(sites[from + t - 1], sites[from + t]);
-        double rho = switch_probability(gap);
+        double rho = switch_probability(site_gap(sites[from + t - 1], sites[from + t]).first);
         rho = min(max(rho, 1e-12), 1.0 - 1e-12);
         double S = log(1.0 - rho + rho / (double)m);
         double J = log(rho / (double)m);
@@ -2770,12 +2789,14 @@ size_t LinkageCollector::resolve_generation(
                     if (!have_reference
                         && prev.parent_record_key == e.parent_record_key
                         && prev.frame_offset[slot] >= 0 && e.frame_offset[slot] >= 0) {
-                        s.gap_to_previous =
+                        // Slot 0 only: this is a per-strand haploid chain, so there is one distance
+                        // and `site_gap` uses it for both of the pair's strands.
+                        s.gap_to_previous[0] =
                             (int64_t)e.frame_offset[slot] - (int64_t)prev.frame_offset[slot];
-                        if (s.gap_to_previous < 0) {
+                        if (s.gap_to_previous[0] < 0) {
                             // The tuple sort put them in this order, so a negative step means the
                             // frames disagree with it -- do not feed the model a wrapped distance.
-                            s.gap_to_previous = -1;
+                            s.gap_to_previous[0] = -1;
                             ++ref_steps;
                         } else {
                             ++frame_steps;
