@@ -140,9 +140,13 @@ using namespace std;
         ///
         /// For Alignment, populates refpos.
         ///
-        /// A single pair of surjections for each pair from alns1 and alsn2
-        /// will replace that pair. Alternative surjection locations will be
-        /// discarded.  
+        ///
+        /// In non-multimapped-surjection mode, each input read pair will
+        /// produce one non-supplementary output surjection.
+        ///
+        /// In multimapped surjection mode, each input read pair can produce
+        /// multiple non-supplementary output surjections, which will be in the
+        /// same order as the input reads.
         template<class AlnType>
         void surject_paired_in_place(vector<AlnType>& alns1, vector<AlnType>& alns2,
                                      vector<AlnType>& supplementary_alns1_out,
@@ -174,9 +178,12 @@ using namespace std;
         ///
         /// For Alignment, does not populate refpos.
         ///
-        /// A single pair of surjections for each pair from alns1 and alsn2
-        /// will replace that pair. Alternative surjection locations will be
-        /// discarded.  
+        /// In non-multimapped-surjection mode, each input read pair will
+        /// produce one non-supplementary output surjection.
+        ///
+        /// In multimapped surjection mode, each input read pair can produce
+        /// multiple non-supplementary output surjections, which will be in the
+        /// same order as the input reads. 
         template<class AlnType>
         void surject_paired_in_place(vector<AlnType>& alns1, vector<AlnType>& alns2,
                                      vector<tuple<string, int64_t, bool>>& positions1_out,
@@ -617,15 +624,25 @@ using namespace std;
                                             bool allow_negative_scores,
                                             bool preserve_deletions) const {
         
+        // TODO: This all needs to be replaced when Sagorika's real surject alternatives logic is merged!!!
+
         crash_unless(alns1.size() == alns2.size());
         positions1_out.resize(alns1.size());
         positions2_out.resize(alns2.size());
+
+        // This holds the number of input pairs
+        size_t aln_num = alns1.size();
+
+        // If we generate any new pairs, we will need to resort later to put
+        // them with the original alignments they came from. This holds, for
+        // each additional pair, the index of the original pair it came from.
+        std::vector<size_t> source_index;
         
-        for (size_t aln_num = 0; aln_num < alns1.size(); ++aln_num) {
+        for (size_t aln_i = 0; aln_i < aln_num; ++aln_i) {
             // Surject the reads and get the positions 
             vector<tuple<string, int64_t, bool>> positions1, positions2;
-            auto surjected1 = surject(alns1[aln_num], paths, positions1, allow_negative_scores, preserve_deletions);
-            auto surjected2 = surject(alns2[aln_num], paths, positions2, allow_negative_scores, preserve_deletions);
+            auto surjected1 = surject(alns1[aln_i], paths, positions1, allow_negative_scores, preserve_deletions);
+            auto surjected2 = surject(alns2[aln_i], paths, positions2, allow_negative_scores, preserve_deletions);
 
             // Each surjection needs a position entry.
             // TODO:Go loog if this is guaranteed and if so drop the runtime checks.
@@ -650,7 +667,6 @@ using namespace std;
                 // consistent paths and strands, but we need to keep reads
                 // paired when they are improperly paired and not on consistent
                 // paths and strands.
-                
                 
                 // Build maps, for each read, from path and strand to the first
                 // (and thus most primary) surjection on that path and strand.
@@ -688,6 +704,13 @@ using namespace std;
                 int primary_idx2 = -1;
                 std::pair<string, bool> primary_path_strand;
                 int primary_score = std::numeric_limits<int>::min();
+                // And track secondary pairs.
+                //
+                // TODO: We only consider secondary surjections on other
+                // path-and-strands, not on the same one. We probably can't
+                // handle that until we really implement
+                // secondaries/supplementary-sets at surjection properly.
+                std::vector<std::pair<size_t, size_t>> secondary_pairs;
 
                 for (auto& kv : strand_primary_idx1) {
                     auto found = strand_primary_idx2.find(kv.first);
@@ -696,10 +719,20 @@ using namespace std;
                         int pair_score = get_score(surjected1[kv.second]) + get_score(surjected2[found->second]);
                         if (primary_idx1 == -1 || pair_score > primary_score || pair_score == primary_score && kv.first > primary_path_strand) {
                             // This pair is deterministically better.
+
+                            if (primary_idx1 != -1) {
+                                // Save the pair it is replacing
+                                secondary_pairs.emplace_back(primary_idx1, primary_idx2);
+                            }
+                            
+                            // Become the new best pair
                             primary_idx1 = kv.second;
                             primary_idx2 = found->second;
                             primary_path_strand = kv.first;
                             primary_score = pair_score;
+                        } else {
+                            // Become a secondary pair.
+                            secondary_pairs.emplace_back(kv.second, found->second);
                         }
                     }
                 }
@@ -784,18 +817,71 @@ using namespace std;
                 }
 
                 // Install the winning pair.
-                alns1[aln_num] = std::move(surjected1[primary_idx1]);
-                positions1_out[aln_num] = std::move(positions1[primary_idx1]);
-                alns2[aln_num] = std::move(surjected2[primary_idx2]);
-                positions2_out[aln_num] = std::move(positions2[primary_idx2]);
+                alns1[aln_i] = std::move(surjected1[primary_idx1]);
+                positions1_out[aln_i] = std::move(positions1[primary_idx1]);
+                alns2[aln_i] = std::move(surjected2[primary_idx2]);
+                positions2_out[aln_i] = std::move(positions2[primary_idx2]);
+                
+                for (auto& indexes : secondary_pairs) {
+                    // Ship out all the secondary pairs.
+                    alns1.emplace_back(std::move(surjected1[indexes.first]));
+                    positions1_out.emplace_back(std::move(positions1[indexes.first]));
+                    alns2.emplace_back(std::move(surjected2[indexes.second]));
+                    positions2_out.emplace_back(std::move(positions2[indexes.second]));
+                    source_index.push_back(aln_i);
+                }
+                
             }
             else {
                 // There is only one surjection per read, so each wins by default.
-                alns1[aln_num] = std::move(surjected1.front());
-                positions1_out[aln_num] = std::move(positions1.front());
-                alns2[aln_num] = std::move(surjected2.front());
-                positions2_out[aln_num] = std::move(positions2.front());
+                alns1[aln_i] = std::move(surjected1.front());
+                positions1_out[aln_i] = std::move(positions1.front());
+                alns2[aln_i] = std::move(surjected2.front());
+                positions2_out[aln_i] = std::move(positions2.front());
             }
+        }
+
+        if (!source_index.empty()) {
+            // We need to re-order alns1, positions1_out, alns2, and
+            // positions2_out to move secondary pairs to right after the
+            // primary pair they came from.
+            
+            // We know source_index is sorted ascending, so we can walk up the
+            // primary and secondary alignments and arrange them in a new set
+            // of vectors.
+            
+            vector<AlnType> new_alns1, new_alns2;
+            vector<tuple<string, int64_t, bool>> new_positions1, new_positions2;
+
+            new_alns1.reserve(alns1.size());
+            new_alns2.reserve(alns2.size());
+            new_positions1.reserve(positions1_out.size());
+            new_positions2.reserve(positions2_out.size());
+
+            size_t secondary_cursor = 0;
+            for (size_t aln_i = 0; aln_i < aln_num; ++aln_i) {
+                // Put this primary pair
+                new_alns1.emplace_back(std::move(alns1[aln_i]));
+                new_positions1.emplace_back(std::move(positions1_out[aln_i]));
+                new_alns2.emplace_back(std::move(alns2[aln_i]));
+                new_positions2.emplace_back(std::move(positions2_out[aln_i]));
+
+                while (secondary_cursor < source_index.size() && source_index[secondary_cursor] == aln_i) {
+                    // Put each secondary that belongs to it.
+                    // We stop when we run out or hit a secondary for the next primary.
+                    new_alns1.emplace_back(std::move(alns1[aln_num + secondary_cursor]));
+                    new_positions1.emplace_back(std::move(positions1_out[aln_num + secondary_cursor]));
+                    new_alns2.emplace_back(std::move(alns2[aln_num + secondary_cursor]));
+                    new_positions2.emplace_back(std::move(positions2_out[aln_num + secondary_cursor]));
+                    ++secondary_cursor;
+                }
+            }
+
+            // Move in the new vectors.
+            alns1 = std::move(new_alns1);
+            positions1_out = std::move(new_positions1);
+            alns2 = std::move(new_alns2);
+            positions2_out = std::move(new_positions2);
         }
     }
 

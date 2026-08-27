@@ -799,6 +799,10 @@ int main_surject(int argc, char** argv) {
                                                           paths,
                                                           subpath_global,
                                                           spliced);
+#ifdef debug
+                        std::cerr << "Surjected read pair to " << surjected1.size() << "/" << surjected2.size() << " paired mappings and "
+                                  << supplementary_surjections1.size()  << "/" << supplementary_surjections2.size() << " supplementary mappings" << std::endl;
+#endif
                             
                         crash_unless(surjected1.size() == surjected2.size());
                         crash_unless(positions1.size() == surjected1.size());
@@ -806,24 +810,39 @@ int main_surject(int argc, char** argv) {
                         crash_unless(supplementary_surjections1.size() == supplementary_positions1.size());
                         crash_unless(supplementary_surjections2.size() == supplementary_positions2.size());
                         
+                        // We need to reswizzle the positions because the
+                        // alignment emitter wants the tuples in a different
+                        // order.
+                        //
+                        // TODO: harmonize!
+                        //
+                        // Be careful because the compiler will let us
+                        // construct from a tuple of the wrong width numbers,
+                        // and bool is a number.
+                        auto reswizzle = [](tuple<string, int64_t, bool>&& in) -> tuple<string, bool, int64_t> {
+                            return std::make_tuple(std::move(get<0>(in)), std::move(get<2>(in)), std::move(get<1>(in)));
+                        };
+                        
                         vector<pair<multipath_alignment_t, multipath_alignment_t>> surjected;
                         vector<pair<tuple<string, bool, int64_t>, tuple<string, bool, int64_t>>> positions;
                         for (size_t i = 0; i < surjected1.size(); i++) {
                             // Put the paired items in paired-up vectors
+#ifdef debug
+                            std::cerr << "Paired mapping at " << get<0>(positions1[i]) << " " << get<1>(positions1[i]) << " " << get<2>(positions1[i])
+                                      << " and " << get<0>(positions2[i]) << " " << get<1>(positions2[i]) << " " << get<2>(positions2[i]) << std::endl;
+#endif
                             surjected.emplace_back(std::move(surjected1[i]), std::move(surjected2[i]));
-                            positions.emplace_back(std::move(positions1[i]), std::move(positions2[i]));
+                            positions.emplace_back(reswizzle(std::move(positions1[i])), reswizzle(std::move(positions2[i])));
                         }
 
-                        // We need to reswizzle the positions because the alignment emitter wants the tuples in a different order.
-                        // TODO: harmonize!
                         vector<tuple<string, bool, int64_t>> positions_unpaired1, positions_unpaired2;
                         positions_unpaired1.reserve(supplementary_positions1.size());
                         for (auto& p : supplementary_positions1) {
-                            positions_unpaired1.emplace_back(std::move(get<0>(p)), std::move(get<2>(p)), std::move(get<1>(p)));
+                            positions_unpaired1.emplace_back(reswizzle(std::move(p)));
                         }
                         positions_unpaired2.reserve(supplementary_positions2.size());
                         for (auto& p : supplementary_positions2) {
-                            positions_unpaired2.emplace_back(std::move(get<0>(p)), std::move(get<2>(p)), std::move(get<1>(p)));
+                            positions_unpaired2.emplace_back(reswizzle(std::move(p)));
                         }
 
                         // write to output
