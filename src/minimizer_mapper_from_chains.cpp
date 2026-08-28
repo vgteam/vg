@@ -12,7 +12,6 @@
 #include "banded_global_aligner.hpp"
 #include "crash.hpp"
 #include "path_subgraph.hpp"
-#include "multipath_alignment.hpp"
 #include "split_strand_graph.hpp"
 #include "subgraph.hpp"
 #include "statistics.hpp"
@@ -2936,66 +2935,49 @@ vector<Alignment> MinimizerMapper::do_base_level_alignment(
     // Note that the extender expects anchoring matches!!!
     WFAExtender wfa_extender(gbwt_graph, aligner, wfa_error_model); 
 
-    multipath_alignment_t mp_aln;
     // We will store Paths for each node/edge in the MP alignment
     // The edges (connection_t) can't store Paths anyhow
     // and the nodes (subpath_t) require annoying conversion
     // We will piece the alignment back together with this memory
     size_t n_subchains = subchain_group.subchains.size();
-    vector<Path> node_paths(n_subchains);
-    unordered_map<pair<size_t, size_t>, Path> edge_paths;
+    // Indexed by subchain
+    vector<ScoredPath> node_paths(n_subchains);
+    // {start : {end : path}}
+    unordered_map<size_t, unordered_map<size_t, ScoredPath>> edge_paths;
     // Tails get stored separately, and each node has both left and right tails
-    vector<Path> left_tail_paths(n_subchains);
-    vector<Path> right_tail_paths(n_subchains);
+    vector<ScoredPath> left_tail_paths(n_subchains);
+    vector<ScoredPath> right_tail_paths(n_subchains);
     // Subchains where we bailed out of link alignments as {subchain ID : last anchor}
     // We will have to ignore any connections which start from them
     unordered_map<size_t, size_t> early_bail_subchains;
 
     // Set up left tails (everything can have a tail, most are just softclips)
     for (size_t i = 0; i < n_subchains; i++) {
-        size_t tail_length = to_chain[subchain_group.subchains[i].anchors.front()].read_start();
-        // Subpath node for just the tail
-        subpath_t* subpath = mp_aln.add_subpath();
-        position_t* position = subpath->mutable_path()->add_mapping()->mutable_position();
-        position->set_node_id(i);
-        position->set_is_reverse(false);
-        position->set_offset(0);
         // Should we try to do the tail alignment?
         if (subchain_group.subchains[i].add_left_tail) {
 #ifdef debug_base_level_alignment
-            cerr << "Doing left tail alignment for subchain " << i << endl;
+            cerr << log_name() << "Doing left tail alignment for subchain " << i << endl;
 #endif
-            ScoredPath left_tail = find_tail_alignment(
+            left_tail_paths[i] =  find_tail_alignment(
                 aln, to_chain[subchain_group.subchains[i].anchors.front()], wfa_extender, true, stats);
-            // Remember the path & score
-            left_tail_paths[i] = left_tail.path;
-            subpath->set_score(left_tail.score);
         }
     } 
 
     // Set up subchain interiors
     for (size_t i = 0; i < subchain_group.subchains.size(); i++) {
-        // Subpath for this subchain
-        subpath_t* subpath = mp_aln.add_subpath();
-        position_t* position = subpath->mutable_path()->add_mapping()->mutable_position();
-        // Fake position shifted to accommodate the tails
-        position->set_node_id(i + n_subchains);
-        position->set_is_reverse(false);
-        position->set_offset(0);
         // Everything internal to the subchain
         ScoredPath inner_links;
         size_t last_anchor;
 #ifdef debug_base_level_alignment
-        cerr << "Doing inner link alignment for subchain " << i << endl;
+        cerr << log_name() << "Doing inner link alignment for subchain " << i << endl;
 #endif
         vg::tie(inner_links, last_anchor) = find_all_inner_chain_links(
             to_chain, aln, subchain_group.subchains[i].anchors, wfa_extender, aligner, stats);
-        node_paths[i] = inner_links.path;
-        subpath->set_score(inner_links.score);
+        node_paths[i] = inner_links;
 
         if (last_anchor != subchain_group.subchains[i].anchors.back()) {
 #ifdef debug_base_level_alignment
-            cerr << "Bailed out of subchain " << i << endl;
+            cerr << log_name() << "Bailed out of subchain " << i << endl;
 #endif
             // Oh no, we bailed out of a too-long chain connection
             early_bail_subchains[i] = last_anchor;
@@ -3009,26 +2991,14 @@ vector<Alignment> MinimizerMapper::do_base_level_alignment(
             // Last anchor was earlier in the subchain
             last_anchor = early_bail_subchains[i];
         }
-        size_t tail_length = aln.sequence().size() - to_chain[last_anchor].read_end();
-
-        // Subpath node for just the tail
-        subpath_t* subpath = mp_aln.add_subpath();
-        position_t* position = subpath->mutable_path()->add_mapping()->mutable_position();
-        // Double-shifted to accommdoate left tails & subchains themselves
-        position->set_node_id(i + n_subchains*2);
-        position->set_is_reverse(false);
-        position->set_offset(0);
 
         // Should we try to do the tail alignment?
         if (subchain_group.subchains[i].add_right_tail || early_bail_subchains.count(i)) {
 #ifdef debug_base_level_alignment
-            cerr << "Doing right tail alignment for subchain " << i << endl;
+            cerr << log_name() << "Doing right tail alignment for subchain " << i << endl;
 #endif      
-            ScoredPath right_tail = find_tail_alignment(
+            right_tail_paths[i] = find_tail_alignment(
                 aln, to_chain[last_anchor], wfa_extender, false, stats);
-            // Remember the path & score
-            right_tail_paths[i] = right_tail.path;
-            subpath->set_score(right_tail.score);
         }
     }
 
@@ -3037,7 +3007,7 @@ vector<Alignment> MinimizerMapper::do_base_level_alignment(
         // Only use edge if we didn't bail out of its source
         if (!early_bail_subchains.count(extra_edge.first)) {
 #ifdef debug_base_level_alignment
-            cerr << "Extra edge " << extra_edge.first << " -> " << extra_edge.second << endl;
+            cerr << log_name() << "Extra edge " << extra_edge.first << " -> " << extra_edge.second << endl;
 #endif
             // Calculate base-level alignment for this connection
             vector<size_t> edge = {subchain_group.subchains[extra_edge.first].anchors.back(),
@@ -3051,33 +3021,44 @@ vector<Alignment> MinimizerMapper::do_base_level_alignment(
             }
 
             // Remember the path
-            edge_paths[extra_edge] = link_aln.path;
-
-            // Create & save edge
-            connection_t* connection = mp_aln.mutable_subpath(extra_edge.first + n_subchains)->add_connection();
-            connection->set_next(extra_edge.second + n_subchains);
-            connection->set_score(link_aln.score);
+            edge_paths[extra_edge.first][extra_edge.second] = link_aln;
         }
     }
 
-    // Set up connections between tails and their subchains
+    // Stupid DFS because we know legal sources and sinks
+    // I can't multipath_alignment_t because I need negative scoring alignments
+    // in the case that when they are rescored they become positive
+    // This vector stores possible subchain lists, from start to end
+    vector<vector<size_t>> unfinished_tracebacks;
+    // Where we store the final lists of subchains, from start to end
+    vector<vector<size_t>> finalized_tracebacks;
+
     for (size_t i = 0; i < n_subchains; i++) {
-        // Left tail to main subchain
+        // If this subchain has a left tail, we can start tracebacks here
         if (subchain_group.subchains[i].add_left_tail) {
-            connection_t* left_connection = mp_aln.mutable_subpath(i)->add_connection();
-            left_connection->set_next(i + n_subchains);
-            left_connection->set_score(0);
-        }
-        // Main subchain to right tail
-        if (subchain_group.subchains[i].add_right_tail || early_bail_subchains.count(i)) {
-            connection_t* right_connection = mp_aln.mutable_subpath(i + n_subchains)->add_connection();
-            right_connection->set_next(i + n_subchains*2);
-            right_connection->set_score(0);
+            unfinished_tracebacks.emplace_back(vector<size_t>{i});
         }
     }
 
-    // Do DP, finding all possible paths through the graph
-    vector<Alignment> tracebacks = optimal_alignments(mp_aln, std::numeric_limits<int32_t>::max());
+    while (!unfinished_tracebacks.empty()) {
+        // Take out an unfinished traceback
+        vector<size_t> cur_traceback = unfinished_tracebacks.back();
+        unfinished_tracebacks.pop_back();
+        size_t last_subchain = cur_traceback.back();
+        // If we're allowed to finish here, save that
+        if (subchain_group.subchains[last_subchain].add_right_tail 
+            || early_bail_subchains.count(last_subchain)) {
+            finalized_tracebacks.push_back(cur_traceback);
+        }
+        // If we can extend this, do that
+        if (edge_paths.count(last_subchain)) {
+            for (const auto& next : edge_paths[last_subchain]) {
+                // Extend this traceback by one
+                unfinished_tracebacks.push_back(cur_traceback);
+                unfinished_tracebacks.back().push_back(next.first);
+            }
+        }
+    }
 
     // Convert back to real alignments
     vector<Alignment> output;
@@ -3117,61 +3098,36 @@ vector<Alignment> MinimizerMapper::do_base_level_alignment(
         }
     };
 
-    for (const auto& trace : tracebacks) {
-        // Should have, at minimum, a left tail, a subchain, and a right tail
-        // If not, then this isn't a full traceback
-        if (trace.path().mapping_size() < 3) {
-            continue;
+    for (const auto& trace : finalized_tracebacks) {
+        if (show_work) {
+            #pragma omp critical (cerr)
+            {
+                cerr << log_name() << "Possible alignment " << output.size() << " used subchains: ";
+                for (const auto& subchain_id : trace) {
+                    cerr << subchain_id << " ";
+                }
+                cerr << endl;
+            }
         }
-
-        // Figure out which subchains were used
-        vector<size_t> subpaths_used;
-        subpaths_used.reserve(trace.path().mapping_size());
-        for (const auto& mapping : trace.path().mapping()) {
-            subpaths_used.push_back(mapping.position().node_id());
-        }
-
-        if (subpaths_used.front() >= n_subchains) {
-            // This traceback didn't hit a left tail; invalid
-            continue;
-        }
-        if (subpaths_used.back() < n_subchains*2) {
-            // This traceback didn't hit a right tail; invalid
-            continue;
-        }
-
-        size_t left_tail_id = subpaths_used.front();
-        size_t right_tail_id = subpaths_used.back() - n_subchains*2;
-        // The rest convert to subchain IDs by subtracting n_subchains
-        vector<size_t> subchains_used;
-        subchains_used.reserve(subpaths_used.size() - 2);
-#ifdef debug_base_level_alignment
-        cerr << "Possible alignment " << output.size() << " uses subchains: ";
-#endif
-        for (size_t i = 1; i < subpaths_used.size() - 1; i++) {
-            subchains_used.push_back(subpaths_used[i] - n_subchains);
-#ifdef debug_base_level_alignment
-            cerr << subchains_used.back() << " ";
-#endif
-        }
-#ifdef debug_base_level_alignment
-        cerr << endl;
-#endif
-
         // Build up total base-level results for this alignment
         // First, we get the left tail used
-        Path composed_path = left_tail_paths[left_tail_id];
+        Path composed_path = left_tail_paths[trace.front()].path;
+        int composed_score = left_tail_paths[trace.front()].score;
         // Then the first subchain
-        append_path(composed_path, node_paths[subchains_used.front()]);
+        append_path(composed_path, node_paths[trace.front()].path);
+        composed_score += node_paths[trace.front()].score;
         // Then the other subchains
-        for (size_t i = 1; i < subchains_used.size(); i++) {
+        for (size_t i = 1; i < trace.size(); i++) {
             // Add path for edge from previous thing
-            append_path(composed_path, edge_paths[make_pair(subchains_used[i-1], subchains_used[i])]);
+            append_path(composed_path, edge_paths[trace[i-1]][trace[i]].path);
+            composed_score += edge_paths[trace[i-1]][trace[i]].score;
             // Add path for current thing
-            append_path(composed_path, node_paths[subchains_used[i]]);
+            append_path(composed_path, node_paths[trace[i]].path);
+            composed_score += node_paths[trace[i]].score;
         }
         // Finally the right tail
-        append_path(composed_path, right_tail_paths[right_tail_id]);
+        append_path(composed_path, right_tail_paths[trace.back()].path);
+        composed_score += right_tail_paths[trace.back()].score;
 
         // Do the unique node fraction filter
         double unique_node_fraction = get_fraction_unique(composed_path);
@@ -3193,15 +3149,15 @@ vector<Alignment> MinimizerMapper::do_base_level_alignment(
         if (track_provenance) {
             // Tell the funnel
             funnel.introduce();
-            funnel.score(funnel.latest(), trace.score());
+            funnel.score(funnel.latest(), composed_score);
             // We come from all the subchains directly
-            funnel.also_merge_group(1, subchains_used.begin(), subchains_used.end());
+            funnel.also_merge_group(1, trace.begin(), trace.end());
         }
 
         if (show_work) {
             #pragma omp critical (cerr)
             {
-                cerr << log_name() << "Composed alignment is length " << path_to_length(composed_path) << " with score of " << trace.score() << endl;
+                cerr << log_name() << "Composed alignment is length " << path_to_length(composed_path) << " with score of " << composed_score << endl;
                 if (composed_path.mapping_size() > 0) {
                     cerr << log_name() << "Composed alignment starts with: " << pb2json(composed_path.mapping(0)) << endl;
                     cerr << log_name() << "Composed alignment ends with: " << pb2json(composed_path.mapping(composed_path.mapping_size() - 1)) << endl;
@@ -3220,7 +3176,7 @@ vector<Alignment> MinimizerMapper::do_base_level_alignment(
         // Penalize score according to the number of recombinations their chains required.
         // This allows alignments that required fewer recombinations in their chains to win.
         // TODO: We'd also eventaully like to count recombinations that we don't know are needed until base-level DP.
-        size_t total_rec_count = algorithms::count_total_recombinations(subchain_group, subchains_used);
+        size_t total_rec_count = algorithms::count_total_recombinations(subchain_group, trace);
         if (rec_penalty != 0) {
             logged_gaps_score -= (rec_penalty_aln == -1 ? rec_penalty : rec_penalty_aln) * total_rec_count;
         }
@@ -3228,7 +3184,7 @@ vector<Alignment> MinimizerMapper::do_base_level_alignment(
         if (show_work) {
             #pragma omp critical (cerr)
             {
-                cerr << log_name() << " Original score: " << trace.score()
+                cerr << log_name() << " Original score: " << composed_score
                                    << " Matches: " << scheme.matches
                                    << " Mismatches: " << scheme.mismatches
                                    << " Gap opens: " << scheme.gap_lengths.size()
@@ -3241,8 +3197,8 @@ vector<Alignment> MinimizerMapper::do_base_level_alignment(
             output.back().set_identity(identity(output.back().path()));
         }
         // Annotate with tail lengths
-        set_annotation(output.back(), "left_tail_length", (double) left_tail_paths[left_tail_id].length()); 
-        set_annotation(output.back(), "right_tail_length", (double) right_tail_paths[right_tail_id].length());
+        set_annotation(output.back(), "left_tail_length", (double) left_tail_paths[trace.front()].path.length()); 
+        set_annotation(output.back(), "right_tail_length", (double) right_tail_paths[trace.back()].path.length());
         set_annotation(output.back(), "chain.rec_count", total_rec_count);
     }
 
