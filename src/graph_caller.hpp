@@ -1034,7 +1034,8 @@ public:
     /// supplied afterwards by `set_allele_map`.
     /// The pre-flatten (contig, position) a site is filed under in the linkage layer.
     pair<string, size_t> site_ref_key(const Snarl& snarl, const string& ref_path_name,
-                                      int ref_offset) const;
+                                      int ref_offset, bool no_reference = false,
+                                      int64_t anchor_position = 0) const;
 
     void record_site(const Snarl& snarl, const vector<SnarlTraversal>& travs,
                      const vector<int>& trav_genotype,
@@ -1147,6 +1148,9 @@ protected:
         /// POS are undefined. It is genotyped and recorded into the linkage layer regardless, which
         /// is the whole point -- the reads reach it through node-ID ranges, not coordinates.
         bool no_reference = false;
+        /// The parent's reference start, standing in for a position this snarl does not have. Used
+        /// wherever a key or an ordering coordinate is needed; never as a distance.
+        int64_t anchor_position = 0;
         /// Whether the parent's settled traversal crossed this snarl's chain backward, from
         /// `SymbolicStep::backward` on the matched chain symbol. A barrier-time fact like
         /// `align_rank`, so it travels the same way.

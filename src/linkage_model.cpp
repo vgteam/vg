@@ -1901,7 +1901,8 @@ size_t LinkageCollector::resolve_generation(
     size_t grouped_sites = 0, grouped_groups = 0;
     // Stage B, per generation: how the diploid nested steps were measured.
     size_t fg_pair = 0, fg_differ = 0, fg_single = 0, fg_one_slot = 0, fg_no_frame = 0;
-    size_t fg_cross_parent = 0, fg_mirrored = 0, fg_equals_ref = 0;
+    size_t fg_cross_parent = 0, fg_mirrored = 0, fg_equals_ref = 0, fg_parent_step = 0;
+    size_t fg_one_both_claimed = 0, fg_one_single_claimed = 0, fg_one_undetermined = 0;
     // Stage C, per generation: how often the alignment order and the reference order disagree.
     size_t ao_pairs = 0, ao_reordered = 0, ao_unranked = 0, ao_group_unranked = 0;
     // VG_LINKAGE_NO_GROUPING forces the contig-chain path, so one binary can produce both arms of
@@ -2169,7 +2170,43 @@ size_t LinkageCollector::resolve_generation(
             // to say there, and the nested per-strand chains already measure their own frame gap.
             if (frame_gap_mode > 0 && k > 0 && chain_ploidy == 2 && e.parent_record_key != 0) {
                 const Entry& prev = entries[indices[k - 1]];
-                if (prev.parent_record_key != e.parent_record_key) {
+                if (prev.record_key == e.parent_record_key) {
+                    // The previous site IS this one's parent -- the first entry of a per-parent
+                    // group, and the only step in a group that is not same-parent.
+                    //
+                    // `frame_offset` is measured from the BEGINNING of the parent's settled
+                    // traversal, so the child's own offset IS the distance from the parent to it.
+                    // There is nothing to compose: the frame_end + frame_total + anchor recipe joins
+                    // two DIFFERENT parents' traversals, which cannot arise inside one group. Getting
+                    // this wrong left one step per group -- 1,591 of them at generation 1 on chr20,
+                    // exactly the group count -- on the reference difference.
+                    int64_t g[2] = {-1, -1};
+                    for (int slot = 0; slot < 2; ++slot) {
+                        if (e.frame_offset[slot] >= 0) {
+                            g[slot] = (int64_t)e.frame_offset[slot];
+                        }
+                    }
+                    if (g[0] >= 0 && g[1] >= 0) {
+                        if (g[0] != g[1]) {
+                            ++fg_differ;
+                        }
+                        if (frame_gap_mode == 1) {
+                            s.gap_to_previous[0] = (g[0] + g[1]) / 2;
+                            ++fg_single;
+                        } else {
+                            s.gap_to_previous[0] = g[0];
+                            s.gap_to_previous[1] = g[1];
+                            ++fg_pair;
+                        }
+                        ++fg_parent_step;
+                    } else if (g[0] >= 0 || g[1] >= 0) {
+                        s.gap_to_previous[g[0] >= 0 ? 0 : 1] = g[0] >= 0 ? g[0] : g[1];
+                        ++fg_one_slot;
+                        ++fg_parent_step;
+                    } else {
+                        ++fg_no_frame;
+                    }
+                } else if (prev.parent_record_key != e.parent_record_key) {
                     ++fg_cross_parent;
                 } else {
                     int64_t g[2] = {-1, -1};
@@ -2233,8 +2270,22 @@ size_t LinkageCollector::resolve_generation(
                         // One traversal enters this chain and the other does not, or one step came
                         // out negative. The known distance stands for both strands, which is what a
                         // single value did.
+                        //
+                        // In a DIPLOID chain this should not happen at all: a chain only one settled
+                        // traversal crosses has one copy, so ploidy 1, so it belongs to the
+                        // per-strand chains. It was 0 here until off-reference chains were admitted
+                        // and is 1,409 with them, so the split below asks which half is wrong -- did
+                        // descent claim both traversals carry it (then a frame failed to measure),
+                        // or did it claim one (then the ploidy is wrong upstream)?
                         s.gap_to_previous[g[0] >= 0 ? 0 : 1] = g[0] >= 0 ? g[0] : g[1];
                         ++fg_one_slot;
+                        if (e.parent_trav == -2) {
+                            ++fg_one_both_claimed;
+                        } else if (e.parent_trav >= 0) {
+                            ++fg_one_single_claimed;
+                        } else {
+                            ++fg_one_undetermined;
+                        }
                     } else {
                         ++fg_no_frame;
                     }
@@ -2528,7 +2579,12 @@ size_t LinkageCollector::resolve_generation(
                   << " with no frame at all, " << fg_cross_parent
                   << " cross-parent -- the last two on the reference difference; "
                   << fg_mirrored << " measured against the traversal's own direction, "
-                  << fg_equals_ref << " exactly equal to the reference difference" << std::endl;
+                  << fg_equals_ref << " exactly equal to the reference difference; "
+                  << fg_parent_step << " parent-to-first-child steps taken from the child's own"
+                  << " offset along the parent's traversal; of the one-slot steps, "
+                  << fg_one_both_claimed << " where descent claimed BOTH traversals carry the chain, "
+                  << fg_one_single_claimed << " where it claimed one, " << fg_one_undetermined
+                  << " undetermined" << std::endl;
     }
 
     if (grouped_groups > 0) {

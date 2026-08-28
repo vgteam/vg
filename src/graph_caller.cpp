@@ -4916,13 +4916,21 @@ unique_ptr<FlowCaller::PendingRecord> FlowCaller::stage_render_record(
 }
 
 pair<string, size_t> FlowCaller::site_ref_key(const Snarl& snarl, const string& ref_path_name,
-                                             int ref_offset) const {
+                                             int ref_offset, bool no_reference,
+                                             int64_t anchor_position) const {
     // Pre-flatten, and locus-spelled. The flattened POS depends on which alleles the line carries,
     // so it does not exist before the record does; what the model uses position for is ordering and
     // the transition gaps, which a pre-flatten position serves exactly as well. The locus reduction
     // matters because `get_ref_position` answers with the base path name, "CHM13#0#chr20", where the
     // rest of the layer spells it "chr20".
-    pair<string, int64_t> pos_info = get_ref_position(graph, snarl, ref_path_name, ref_offset);
+    // The same exemption `record_site` needs, for the same reason: `get_ref_position` reaches
+    // `get_ref_interval`, whose assert fires on any snarl the path does not thread. This is the
+    // OTHER door to it, and opening the barrier's revise block to off-reference records walked
+    // straight through it -- the render guard that had been skipping those records was shielding
+    // this call too, which is not what its comment says it is for.
+    pair<string, int64_t> pos_info =
+        no_reference ? make_pair(ref_path_name, anchor_position)
+                     : get_ref_position(graph, snarl, ref_path_name, ref_offset);
     const string locus = PathMetadata::parse_locus_name(pos_info.first);
     if (locus != PathMetadata::NO_LOCUS_NAME) {
         pos_info.first = locus;
@@ -5112,6 +5120,7 @@ void FlowCaller::run_deferred_descent() {
     size_t rank_written = 0, rank_one_sided = 0, rank_no_symbol = 0, rank_ambiguous = 0;
     size_t rank_no_columns = 0, rank_no_child = 0, rank_deferred = 0;
     size_t frame_deferred = 0, frame_staged = 0, rank_backward = 0;
+    size_t revise_unrenderable = 0, bar_no_crossing = 0, bar_no_settled = 0;
     unordered_map<size_t, PendingRecord*> record_by_key;
     record_by_key.reserve((pending.size() + render_record_count()) * 2);
     for (PendingRecord& pr : pending) {
@@ -5208,12 +5217,20 @@ void FlowCaller::run_deferred_descent() {
                 continue;
             }
             if (pr.parent_crossing == 0) {
+                ++bar_no_crossing;
                 continue;   // no emitted parent allele crosses: no settled genotype can reach it
             }
             auto found = settled.find(pr.parent_record_key);
             if (found == settled.end()) {
                 // The parent emitted no record, so linkage never touched its genotype: the ploidy
                 // this chain was called at came from a genotype that was already final.
+                //
+                // Counted, because that reasoning is exactly true of an OFF-REFERENCE parent, which
+                // emits nothing by construction -- so if these records land here in quantity, every
+                // chain below an off-reference parent is going unrevised. A phased parent is what is
+                // needed, not an emitted one, and the layer holds a PhaseCall for a recorded site
+                // whether or not it wrote a line; whether it actually gets one is what this measures.
+                ++bar_no_settled;
                 continue;
             }
             const LinkageCollector::PhaseCall& parent = *found->second;
@@ -5460,8 +5477,23 @@ void FlowCaller::run_deferred_descent() {
             // with no bounds check -- and a chain held back during the sweep has never been through
             // it, so a missing reference traversal or an empty candidate list reaches it here for the
             // first time. That segfaulted. Anything unrenderable is left alone rather than guessed at.
-            if (pr.travs.empty() || pr.ref_trav_idx < 0
-                || (size_t)pr.ref_trav_idx >= pr.travs.size()) {
+            //
+            // A record with NO reference path is exempt from the ref_trav_idx half of this, and must
+            // be: its ref_trav_idx is -1 by construction -- there is no reference allele to appoint,
+            // and appointing travs[0] would make the best-supported allele REF -- so the guard would
+            // skip every one of them. It guards `emit_variant`, which such a record never reaches
+            // (the render hand-off holds it back), while what the guard was skipping is the ploidy
+            // REVISION, which it does need: `set_parent_trav` above has already written parent_trav,
+            // so skipping the revision leaves the entry at its descent-time ploidy of 2 with a
+            // parent_trav that says one copy -- the disagreement the comment there says is
+            // impossible. 1,386 chains a generation on chr20.
+            //
+            // The empty-travs and genotype-range halves still apply: they guard the record building
+            // below, not the emit.
+            if (pr.travs.empty()
+                || (!pr.no_reference
+                    && (pr.ref_trav_idx < 0 || (size_t)pr.ref_trav_idx >= pr.travs.size()))) {
+                ++revise_unrenderable;
                 continue;
             }
             bool genotype_in_range = !pr.genotype.empty();
@@ -5471,6 +5503,7 @@ void FlowCaller::run_deferred_descent() {
                 }
             }
             if (!genotype_in_range) {
+                ++revise_unrenderable;
                 continue;
             }
 
@@ -5533,7 +5566,8 @@ void FlowCaller::run_deferred_descent() {
                 static const vector<int> no_allele_map;
                 const vector<int>& trav_to_allele_vec = no_allele_map;
                 const pair<string, size_t> key =
-                    site_ref_key(pr.snarl, pr.ref_path_name, pr.ref_offset);
+                    site_ref_key(pr.snarl, pr.ref_path_name, pr.ref_offset, pr.no_reference,
+                                 pr.anchor_position);
                 int called_i = use_genotype.empty() ? -1 : use_genotype[0];
                 int called_j = use_genotype.size() > 1 ? use_genotype[1] : called_i;
                 vector<int> panel = panel_alleles(graph, pr.travs);
@@ -5695,6 +5729,10 @@ void FlowCaller::run_deferred_descent() {
              << " had no layer entry yet and carried the rank into record() instead; "
              << rank_backward << " chains crossed backward, whose snarls are ordered in reverse"
              << " chain order" << endl;
+        cerr << "[vg call] barrier exits: " << bar_no_crossing
+             << " no parent allele crosses, " << bar_no_settled
+             << " parent has no settled phase call, " << revise_unrenderable
+             << " unrenderable so left unrevised" << endl;
         cerr << "[vg call] single sweep: " << pending.size() << " nested chains retained over "
              << (generations + 1) << " generations; " << revised << " revised, " << gained
              << " reachable only under the settled parent, " << retracted << " retracted";
@@ -6261,6 +6299,8 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
             pending_this->parent_crossing = nested_context.parent_crossing;
             pending_this->chain_index = nested_context.chain_index;
             pending_this->no_reference = no_ref_position;
+            pending_this->anchor_position =
+                no_ref_position ? get<0>(ref_interval) + ref_offsets[ref_path_name] : 0;
             pending_this->crossing_known = nested_context.crossing_known;
             pending_this->parent_trav = nested_context.parent_trav;
             pending_this->generation = (uint8_t)min(current_generation, (size_t)255);
