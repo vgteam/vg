@@ -1750,7 +1750,7 @@ void LinkageCollector::finish_phase_call(PhaseCall& pc, const Entry& e, size_t& 
 }
 
 static std::atomic<size_t> g_grp_no_parent(0), g_grp_no_context(0);
-static std::atomic<size_t> g_grp_no_entry(0), g_grp_ploidy(0);
+static std::atomic<size_t> g_grp_no_entry(0), g_grp_ploidy(0), g_grp_vetoed(0);
 
 size_t LinkageCollector::resolve_generation(
         size_t generation, bool last, vector<PhaseCall>* phasing_out) {
@@ -1903,6 +1903,7 @@ size_t LinkageCollector::resolve_generation(
     size_t fg_pair = 0, fg_differ = 0, fg_single = 0, fg_one_slot = 0, fg_no_frame = 0;
     size_t fg_cross_parent = 0, fg_mirrored = 0, fg_equals_ref = 0, fg_parent_step = 0;
     size_t fg_one_both_claimed = 0, fg_one_single_claimed = 0, fg_one_undetermined = 0;
+    size_t unpos_diploid_sites = 0, unpos_steps = 0, unpos_framed = 0, unpos_uniform = 0;
     // Stage C, per generation: how often the alignment order and the reference order disagree.
     size_t ao_pairs = 0, ao_reordered = 0, ao_unranked = 0, ao_group_unranked = 0;
     // VG_LINKAGE_NO_GROUPING forces the contig-chain path, so one binary can produce both arms of
@@ -1938,25 +1939,56 @@ size_t LinkageCollector::resolve_generation(
             }
         }
         map<size_t, vector<size_t>> by_parent;
-        bool all_covered = true;
+        // PER CHAIN, not per generation.
+        //
+        // This was one global flag: a single live site whose parent could not be found sent the
+        // WHOLE generation back to the contig chain. It had already been caught once that way, when
+        // 51 sites vetoed 21,447, and the off-reference population trips it again -- grouping engaged
+        // at generations 1 and 4 on chr20 and not at 2 or 3, and the cost is paid by every other site
+        // in the generation. On the contig chain adjacent sites have different parents, so their step
+        // has no common frame; and where such a step touches a site with no reference position there
+        // is nothing to fall back to, so it goes UNIFORM and severs the chain. That is about 1,100
+        // severed links a generation, against 156 where grouping did engage.
+        //
+        // A chain is an independent decode, so the veto belongs at that scope. A chain whose live
+        // sites can all be grouped is replaced by its groups; one that cannot is kept exactly as it
+        // was. Nothing is lost either way, which is what the global flag was protecting: a site left
+        // out of every group would never be decoded, never settled and never phased.
+        vector<vector<size_t>> kept_chains;
+        size_t vetoed_chains = 0, grouped_chains = 0;
         for (const vector<size_t>& indices : chains) {
+            bool chain_covered = true;
+            for (size_t idx : indices) {
+                const Entry& e = entries[idx];
+                if (e.generation != generation) {
+                    continue;
+                }
+                auto par = index_of_key.find(e.parent_record_key);
+                if (e.parent_record_key == 0) {
+                    ++g_grp_no_parent;
+                    chain_covered = false;
+                } else if (par == index_of_key.end()) {
+                    ++g_grp_no_entry;
+                    chain_covered = false;
+                } else if (entries[par->second].ploidy != e.ploidy) {
+                    ++g_grp_ploidy;
+                    chain_covered = false;
+                }
+            }
+            if (!chain_covered) {
+                kept_chains.push_back(indices);
+                ++vetoed_chains;
+                ++g_grp_vetoed;
+                continue;
+            }
+            ++grouped_chains;
             for (size_t idx : indices) {
                 const Entry& e = entries[idx];
                 if (e.generation != generation) {
                     continue;
                 }
                 auto ctx = parent_context.find(e.parent_record_key);
-                auto par = index_of_key.find(e.parent_record_key);
-                if (e.parent_record_key == 0) {
-                    ++g_grp_no_parent;
-                    all_covered = false;
-                } else if (par == index_of_key.end()) {
-                    ++g_grp_no_entry;
-                    all_covered = false;
-                } else if (entries[par->second].ploidy != e.ploidy) {
-                    ++g_grp_ploidy;
-                    all_covered = false;
-                } else {
+                {
                     // A parent with no stored context still forms a group. Its own emission is in
                     // the group, so its children link to it and to each other; what is missing is
                     // the contig's upstream context, not the parent. Counted, because it is a
@@ -1973,7 +2005,7 @@ size_t LinkageCollector::resolve_generation(
                 }
             }
         }
-        if (all_covered && !by_parent.empty()) {
+        if (!by_parent.empty()) {
             // The phase set a group belongs to is its parent's, never the group's own first site:
             // a group is a unit of decoding, a phase block is a unit of meaning, and taking one
             // from the other is what fragments the output.
@@ -2084,6 +2116,15 @@ size_t LinkageCollector::resolve_generation(
                 gps.push_back(ps != phase_set_of.end() ? ps->second
                                                        : numeric_limits<size_t>::max());
             }
+            // The chains that could not be grouped, carried through unchanged. Without this they
+            // would be replaced by groups that do not contain them and their sites would never be
+            // decoded at all -- which is the failure the global flag existed to prevent, and the
+            // reason relaxing it needs this line and not just a looser test.
+            for (vector<size_t>& kc : kept_chains) {
+                groups.push_back(std::move(kc));
+                gctx.push_back(nullptr);
+                gps.push_back(numeric_limits<size_t>::max());
+            }
             chains.swap(groups);
             chain_context.swap(gctx);
             chain_phase_set.swap(gps);
@@ -2168,7 +2209,16 @@ size_t LinkageCollector::resolve_generation(
             //
             // Diploid chains only. A haploid chain has one strand, so the per-strand form has nothing
             // to say there, and the nested per-strand chains already measure their own frame gap.
+            if (e.unpositioned && e.ploidy == 2) {
+                ++unpos_diploid_sites;
+            }
             if (frame_gap_mode > 0 && k > 0 && chain_ploidy == 2 && e.parent_record_key != 0) {
+                // Does this step touch a site with no reference position? That is the population
+                // whose distance CANNOT fall back, so it is the one where an unframed step goes
+                // uniform and severs the chain rather than merely losing precision.
+                if (e.unpositioned || entries[indices[k - 1]].unpositioned) {
+                    ++unpos_steps;
+                }
                 const Entry& prev = entries[indices[k - 1]];
                 if (prev.record_key == e.parent_record_key) {
                     // The previous site IS this one's parent -- the first entry of a per-parent
@@ -2199,12 +2249,15 @@ size_t LinkageCollector::resolve_generation(
                             ++fg_pair;
                         }
                         ++fg_parent_step;
+                        if (e.unpositioned || prev.unpositioned) { ++unpos_framed; }
                     } else if (g[0] >= 0 || g[1] >= 0) {
                         s.gap_to_previous[g[0] >= 0 ? 0 : 1] = g[0] >= 0 ? g[0] : g[1];
                         ++fg_one_slot;
                         ++fg_parent_step;
+                        if (e.unpositioned || prev.unpositioned) { ++unpos_framed; }
                     } else {
                         ++fg_no_frame;
+                        if (e.unpositioned || prev.unpositioned) { ++unpos_uniform; }
                     }
                 } else if (prev.parent_record_key != e.parent_record_key) {
                     ++fg_cross_parent;
@@ -2266,6 +2319,7 @@ size_t LinkageCollector::resolve_generation(
                             s.gap_to_previous[1] = g[1];
                             ++fg_pair;
                         }
+                        if (e.unpositioned || prev.unpositioned) { ++unpos_framed; }
                     } else if (g[0] >= 0 || g[1] >= 0) {
                         // One traversal enters this chain and the other does not, or one step came
                         // out negative. The known distance stands for both strands, which is what a
@@ -2288,6 +2342,7 @@ size_t LinkageCollector::resolve_generation(
                         }
                     } else {
                         ++fg_no_frame;
+                        if (e.unpositioned || prev.unpositioned) { ++unpos_uniform; }
                     }
                 }
             }
@@ -2567,6 +2622,15 @@ size_t LinkageCollector::resolve_generation(
                   << std::endl;
     }
 
+    if (unpos_diploid_sites > 0) {
+#pragma omp critical (cerr)
+        std::cerr << "[vg call] linkage generation " << generation << ": " << unpos_diploid_sites
+                  << " decoded diploid sites have no reference position; " << unpos_steps
+                  << " steps touch one, of which " << unpos_framed
+                  << " took a traversal distance and " << unpos_uniform
+                  << " had none and went uniform" << std::endl;
+    }
+
     if (frame_gap_mode > 0 && (fg_pair + fg_single + fg_one_slot + fg_no_frame
                                + fg_cross_parent) > 0) {
 #pragma omp critical (cerr)
@@ -2585,6 +2649,15 @@ size_t LinkageCollector::resolve_generation(
                   << fg_one_both_claimed << " where descent claimed BOTH traversals carry the chain, "
                   << fg_one_single_claimed << " where it claimed one, " << fg_one_undetermined
                   << " undetermined" << std::endl;
+    }
+
+    if (generation > 0 && (grouped_groups > 0 || g_grp_vetoed.load() > 0)) {
+#pragma omp critical (cerr)
+        std::cerr << "[vg call] linkage generation " << generation << ": grouping declines so far -- "
+                  << g_grp_no_parent.load() << " sites with no parent key, "
+                  << g_grp_no_entry.load() << " whose parent has no live entry, "
+                  << g_grp_ploidy.load() << " on a parent/child ploidy difference; "
+                  << g_grp_vetoed.load() << " chains kept ungrouped in total" << std::endl;
     }
 
     if (grouped_groups > 0) {
