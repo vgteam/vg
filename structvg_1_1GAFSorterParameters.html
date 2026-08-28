@@ -94,12 +94,15 @@ Public Attributes</h2></td></tr>
 <tr class="memitem:a1e4c71b8dbee8124e63ed510ee95bcda"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GAFSorterParameters.html#a1e4c71b8dbee8124e63ed510ee95bcda">buffer_size</a> = <a class="el" href="structvg_1_1GAFSorterParameters.html#a58af0a99b3a9059b415aaece68e586e7">BUFFER_SIZE</a></td></tr>
 <tr class="memdesc:a1e4c71b8dbee8124e63ed510ee95bcda"><td class="mdescLeft">&#160;</td><td class="mdescRight">Buffer size for reading and writing records.  <a href="structvg_1_1GAFSorterParameters.html#a1e4c71b8dbee8124e63ed510ee95bcda">More...</a><br /></td></tr>
 <tr class="separator:a1e4c71b8dbee8124e63ed510ee95bcda"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ae526f09313ad8989f21aace42a9e0c32"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GAFSorterParameters.html#ae526f09313ad8989f21aace42a9e0c32">stable</a> = false</td></tr>
-<tr class="memdesc:ae526f09313ad8989f21aace42a9e0c32"><td class="mdescLeft">&#160;</td><td class="mdescRight">Use stable sorting.  <a href="structvg_1_1GAFSorterParameters.html#ae526f09313ad8989f21aace42a9e0c32">More...</a><br /></td></tr>
-<tr class="separator:ae526f09313ad8989f21aace42a9e0c32"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ac67be902e633308fc896de87321b9631"><td class="memItemLeft" align="right" valign="top">std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GAFSorterParameters.html#ac67be902e633308fc896de87321b9631">gbwt_file</a></td></tr>
 <tr class="memdesc:ac67be902e633308fc896de87321b9631"><td class="mdescLeft">&#160;</td><td class="mdescRight">GBWT output file, if any.  <a href="structvg_1_1GAFSorterParameters.html#ac67be902e633308fc896de87321b9631">More...</a><br /></td></tr>
 <tr class="separator:ac67be902e633308fc896de87321b9631"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae526f09313ad8989f21aace42a9e0c32"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GAFSorterParameters.html#ae526f09313ad8989f21aace42a9e0c32">stable</a> = false</td></tr>
+<tr class="memdesc:ae526f09313ad8989f21aace42a9e0c32"><td class="mdescLeft">&#160;</td><td class="mdescRight">Use stable sorting.  <a href="structvg_1_1GAFSorterParameters.html#ae526f09313ad8989f21aace42a9e0c32">More...</a><br /></td></tr>
+<tr class="separator:ae526f09313ad8989f21aace42a9e0c32"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a5f12059bb6d5a05b04339e4e54d5c9df"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GAFSorterParameters.html#a5f12059bb6d5a05b04339e4e54d5c9df">two_merge_rounds</a> = false</td></tr>
+<tr class="memdesc:a5f12059bb6d5a05b04339e4e54d5c9df"><td class="mdescLeft">&#160;</td><td class="mdescRight">Guarantee &lt;= 2 merge rounds.  <a href="structvg_1_1GAFSorterParameters.html#a5f12059bb6d5a05b04339e4e54d5c9df">More...</a><br /></td></tr>
+<tr class="separator:a5f12059bb6d5a05b04339e4e54d5c9df"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a6c3275fa24456b51cf4164454b764204"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GAFSorterParameters.html#a6c3275fa24456b51cf4164454b764204">bidirectional_gbwt</a> = false</td></tr>
 <tr class="memdesc:a6c3275fa24456b51cf4164454b764204"><td class="mdescLeft">&#160;</td><td class="mdescRight">Make the GBWT bidirectional.  <a href="structvg_1_1GAFSorterParameters.html#a6c3275fa24456b51cf4164454b764204">More...</a><br /></td></tr>
 <tr class="separator:a6c3275fa24456b51cf4164454b764204"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -362,6 +365,22 @@ Static Public Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Number of parallel sort/merge jobs. </p>
+
+</div>
+</div>
+<a id="a5f12059bb6d5a05b04339e4e54d5c9df"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a5f12059bb6d5a05b04339e4e54d5c9df">&#9670;&nbsp;</a></span>two_merge_rounds</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::GAFSorterParameters::two_merge_rounds = false</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Guarantee &lt;= 2 merge rounds. </p>
 
 </div>
 </div>

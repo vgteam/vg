@@ -1,8 +1,7 @@
 var searchData=
 [
-  ['k_13280',['k',['../classvg_1_1ParallelKFFReader.html#a8060dbef6faaf286f33f3af5be8d32c6',1,'vg::ParallelKFFReader::k()'],['../classvg_1_1MEMAccelerator.html#ab01dc4463ca21d56a9059e38f7e6a2fe',1,'vg::MEMAccelerator::k()'],['../classvg_1_1MinimizerMapper.html#ad208861d506ac43c4a0fb520ce4a6592',1,'vg::MinimizerMapper::k()'],['../structvg_1_1Haplotypes_1_1Header.html#ab0357bc5db25d4ff1590fc540f4f1ffe',1,'vg::Haplotypes::Header::k()'],['../structHaplotypesConfig.html#aaa9163a17295c26ec249d47205be0177',1,'HaplotypesConfig::k()']]],
-  ['k_13281',['K',['../classvg_1_1FlowTraversalFinder.html#a6f3d138926abc87592571c2182faf31e',1,'vg::FlowTraversalFinder']]],
-  ['k_13282',['k',['../structvg_1_1MinimizerIndexParameters.html#a61836874ab669d5ade116995e74f5f7b',1,'vg::MinimizerIndexParameters']]],
+  ['k_13281',['k',['../structvg_1_1MinimizerIndexParameters.html#a61836874ab669d5ade116995e74f5f7b',1,'vg::MinimizerIndexParameters::k()'],['../classvg_1_1ParallelKFFReader.html#a8060dbef6faaf286f33f3af5be8d32c6',1,'vg::ParallelKFFReader::k()'],['../classvg_1_1MEMAccelerator.html#ab01dc4463ca21d56a9059e38f7e6a2fe',1,'vg::MEMAccelerator::k()'],['../classvg_1_1MinimizerMapper.html#ad208861d506ac43c4a0fb520ce4a6592',1,'vg::MinimizerMapper::k()'],['../structvg_1_1Haplotypes_1_1Header.html#ab0357bc5db25d4ff1590fc540f4f1ffe',1,'vg::Haplotypes::Header::k()'],['../structHaplotypesConfig.html#aaa9163a17295c26ec249d47205be0177',1,'HaplotypesConfig::k()']]],
+  ['k_13282',['K',['../classvg_1_1FlowTraversalFinder.html#a6f3d138926abc87592571c2182faf31e',1,'vg::FlowTraversalFinder']]],
   ['keep_5fconflicted_5fgenotypes_13283',['keep_conflicted_genotypes',['../classvg_1_1Deconstructor.html#af67896b3d980c332c69159fecafb2ae2',1,'vg::Deconstructor']]],
   ['keep_5fintermediates_13284',['keep_intermediates',['../classvg_1_1IndexRegistry.html#a1b0ad4bff3fc2a7d514c6e1b46d3ca23',1,'vg::IndexRegistry']]],
   ['key_13285',['key',['../structvg_1_1GAFSorterRecord.html#ab48afd1178be10e80725ad3e4e543db2',1,'vg::GAFSorterRecord']]],
