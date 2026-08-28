@@ -2970,13 +2970,6 @@ vector<Alignment> MinimizerMapper::do_base_level_alignment(
             // Remember the path & score
             left_tail_paths[i] = left_tail.path;
             subpath->set_score(left_tail.score);
-        } else {
-#ifdef debug_base_level_alignment
-            cerr << "Making full-softclip left tail for subchain " << i << endl;
-#endif
-            WFAAlignment softclip_tail = WFAAlignment::make_unlocalized_insertion(0, tail_length, 0);
-            left_tail_paths[i] = softclip_tail.to_path(this->gbwt_graph, aln.sequence());
-            subpath->set_score(softclip_tail.score);
         }
     } 
 
@@ -3036,14 +3029,6 @@ vector<Alignment> MinimizerMapper::do_base_level_alignment(
             // Remember the path & score
             right_tail_paths[i] = right_tail.path;
             subpath->set_score(right_tail.score);
-        } else {
-#ifdef debug_base_level_alignment
-            cerr << "Making full-softclip right tail for subchain " << i << endl;
-#endif
-            WFAAlignment softclip_tail = WFAAlignment::make_unlocalized_insertion(
-                to_chain[last_anchor].read_end(), tail_length, 0);
-            right_tail_paths[i] = softclip_tail.to_path(this->gbwt_graph, aln.sequence());
-            subpath->set_score(softclip_tail.score);
         }
     }
 
@@ -3078,13 +3063,17 @@ vector<Alignment> MinimizerMapper::do_base_level_alignment(
     // Set up connections between tails and their subchains
     for (size_t i = 0; i < n_subchains; i++) {
         // Left tail to main subchain
-        connection_t* left_connection = mp_aln.mutable_subpath(i)->add_connection();
-        left_connection->set_next(i + n_subchains);
-        left_connection->set_score(0);
+        if (subchain_group.subchains[i].add_left_tail) {
+            connection_t* left_connection = mp_aln.mutable_subpath(i)->add_connection();
+            left_connection->set_next(i + n_subchains);
+            left_connection->set_score(0);
+        }
         // Main subchain to right tail
-        connection_t* right_connection = mp_aln.mutable_subpath(i + n_subchains)->add_connection();
-        right_connection->set_next(i + n_subchains*2);
-        right_connection->set_score(0);
+        if (subchain_group.subchains[i].add_right_tail || early_bail_subchains.count(i)) {
+            connection_t* right_connection = mp_aln.mutable_subpath(i + n_subchains)->add_connection();
+            right_connection->set_next(i + n_subchains*2);
+            right_connection->set_score(0);
+        }
     }
 
     // Do DP, finding all possible paths through the graph
@@ -3157,7 +3146,7 @@ vector<Alignment> MinimizerMapper::do_base_level_alignment(
         vector<size_t> subchains_used;
         subchains_used.reserve(subpaths_used.size() - 2);
 #ifdef debug_base_level_alignment
-        cerr << "Alignment " << output.size() << " uses subchains: ";
+        cerr << "Possible alignment " << output.size() << " uses subchains: ";
 #endif
         for (size_t i = 1; i < subpaths_used.size() - 1; i++) {
             subchains_used.push_back(subpaths_used[i] - n_subchains);
