@@ -19,10 +19,6 @@ namespace vg {
 static std::atomic<size_t> g_pin_applied(0), g_pin_declined(0);
 /// V1: mean -log P(neither strand switches) per step, in units of 1e-9, and the step count.
 static std::atomic<size_t> g_margin_neglog(0), g_margin_steps(0);
-/// Step 5: the derived relation against the stored ploidy and parent_trav. Must read zero
-/// disagreements before the stored fields can be deleted.
-static std::atomic<size_t> g_relate_agree(0), g_relate_copies_differ(0);
-static std::atomic<size_t> g_relate_trav_differs(0), g_relate_unknown(0);
 /// Groups whose parent was never offered a pin at all -- no PhaseCall to pin it to.
 static std::atomic<size_t> g_group_parent_unpinned(0), g_group_parent_pinned(0);
 
@@ -1424,7 +1420,7 @@ void LinkageCollector::record(const string& contig, size_t position,
                               size_t record_key,
                               double explained_share, size_t ploidy,
                               int64_t start_node, int64_t end_node,
-                              bool nested, size_t parent_record_key, int parent_trav,
+                              bool nested, size_t parent_record_key,
                               uint64_t parent_crossing, size_t generation,
                               bool emitted, int align_rank, int chain_index,
                               bool chain_backward, bool unpositioned) {
@@ -1477,12 +1473,11 @@ void LinkageCollector::record(const string& contig, size_t position,
     e.emitted = emitted;
     e.parent_record_key = parent_record_key;
     e.parent_crossing = parent_crossing;
-    e.parent_trav = (int16_t)parent_trav;
     // Passed in, not set afterwards. The barrier computes a chain's alignment rank before the block
     // that can create this entry, so a `set_align_rank` call for a chain the sweep never recorded
     // finds no entry and is discarded -- silently, since its return was ignored. That left the 520
     // chains on chr20 that are reachable only under the settled parent with no rank at all, which is
-    // the population the ordering exists for. `parent_trav` is an argument for the same reason.
+    // the population the ordering exists for. The parent's key travels the same way.
     e.align_rank = (int32_t)align_rank;
     // A pure graph fact, so it is known at descent and needs none of the barrier's plumbing.
     e.chain_index = (int32_t)chain_index;
@@ -1567,7 +1562,7 @@ bool LinkageCollector::respecify(size_t record_key,
                                  const vector<int>& haplotype_traversal,
                                  int called_trav_i, int called_trav_j,
                                  const vector<int>& traversal_to_allele,
-                                 size_t ploidy, bool nested, int parent_trav,
+                                 size_t ploidy, bool nested,
                                  uint64_t parent_crossing, bool emitted) {
     if (genotype_ln_likelihood.empty() || called_trav_i < 0) {
         return false;
@@ -1625,8 +1620,7 @@ bool LinkageCollector::respecify(size_t record_key,
             e.contig = contig_id;
             e.position = (uint32_t)position;
         }
-        e.parent_trav = (int16_t)parent_trav;
-        e.parent_crossing = parent_crossing;
+            e.parent_crossing = parent_crossing;
         e.gl_offset = (uint32_t)gl_arena.size();
         for (float v : gls) {
             gl_arena.push_back(v);
@@ -1728,16 +1722,6 @@ bool LinkageCollector::set_align_rank(size_t record_key, int rank, bool chain_ba
     }
     entries[found].align_rank = (int32_t)rank;
     entries[found].chain_backward = chain_backward;
-    return true;
-}
-
-bool LinkageCollector::set_parent_trav(size_t record_key, int parent_trav) {
-    lock_guard<std::mutex> guard(mutex);
-    const uint32_t found = live_index(record_key);
-    if (found == NO_ENTRY) {
-        return false;
-    }
-    entries[found].parent_trav = (int16_t)parent_trav;
     return true;
 }
 
@@ -1996,8 +1980,7 @@ size_t LinkageCollector::resolve_generation(
         map<pair<size_t, size_t>, vector<size_t>> by_parent;
         // What the settled parent implies about a child, computed HERE from the parent's settled
         // pair and the child's crossing mask rather than read from fields a separate pass wrote.
-        // This is the derivation `Entry::ploidy` and `Entry::parent_trav` cache; it is checked
-        // against them below and replaces them at step 6.
+        // This replaced `Entry::parent_trav`, which cached the same fact and could go stale.
         auto relate = [&](const Entry& child, const Entry& parent) {
             const int ta = traversal_of(trav_arena, parent.trav_offset, parent.num_alleles,
                                         parent.final_i);
@@ -2077,25 +2060,6 @@ size_t LinkageCollector::resolve_generation(
                     // were therefore never masked for harvesting.
                     if (ctx == parent_context.end()) {
                         ++g_grp_no_context;
-                    }
-                    // Step 5: derived against stored, as a check only. Nothing consumes the
-                    // derivation yet; it must read zero before step 6 deletes the stored fields.
-                    auto par_it = index_of_key.find(e.parent_record_key);
-                    if (par_it != index_of_key.end()) {
-                        const Relation r = relate(e, entries[par_it->second]);
-                        if (!r.known) {
-                            ++g_relate_unknown;
-                        } else {
-                            if (r.copies != e.ploidy) {
-                                ++g_relate_copies_differ;
-                            }
-                            if (r.carrying_trav != (int)e.parent_trav) {
-                                ++g_relate_trav_differs;
-                            }
-                            if (r.copies == e.ploidy && r.carrying_trav == (int)e.parent_trav) {
-                                ++g_relate_agree;
-                            }
-                        }
                     }
                     by_parent[group_key(e)].push_back(idx);
                     continue;
@@ -2772,15 +2736,6 @@ size_t LinkageCollector::resolve_generation(
                   << ", for 0.01 = " << (mean > 0 ? (-log(0.01) / mean) : -1.0) << std::endl;
     }
 
-    if (g_relate_agree.load() + g_relate_copies_differ.load() + g_relate_trav_differs.load()
-        + g_relate_unknown.load() > 0) {
-#pragma omp critical (cerr)
-        std::cerr << "[vg call] relate(): " << g_relate_agree.load() << " agree with the stored"
-                  << " fields, " << g_relate_copies_differ.load() << " differ on copy count, "
-                  << g_relate_trav_differs.load() << " on the carrying traversal, "
-                  << g_relate_unknown.load() << " unanswerable" << std::endl;
-    }
-
     if (generation > 0 && (g_pin_applied.load() + g_pin_declined.load()) > 0) {
 #pragma omp critical (cerr)
         std::cerr << "[vg call] linkage generation " << generation << ": pins -- "
@@ -2971,7 +2926,9 @@ size_t LinkageCollector::resolve_generation(
                 const LinkageCollector::Relation rel = relate_to_parent(
                     e.parent_crossing, parent.trav_first,
                     parent.ploidy == 2 ? parent.trav_second : -1);
-                const int carrying = rel.known ? rel.carrying_trav : (int)e.parent_trav;
+                // No fallback: measured 0 unanswerable at this site over three contigs, and a
+                // parent whose settled pair cannot be read has no strand to give.
+                const int carrying = rel.carrying_trav;
                 const bool on_both = (carrying == -2);
                 int strand = -1;
                 if (parent.ploidy == 1 && parent.nested_strand >= 0) {

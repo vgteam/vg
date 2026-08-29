@@ -51,8 +51,7 @@ static void record_dense(LinkageCollector& c, const string& contig, size_t posit
                          const vector<int>& panel, size_t called_i, size_t called_j,
                          size_t record_key, double share, size_t ploidy = 2,
                          int64_t start_node = 0, int64_t end_node = 0,
-                         bool nested = false, size_t parent_record_key = 0, int parent_trav = -1,
-                         uint64_t parent_crossing = 0, size_t generation = 0,
+                         bool nested = false, size_t parent_record_key = 0, uint64_t parent_crossing = 0, size_t generation = 0,
                          bool emitted = true) {
     map<vector<int>, double> gls;
     if (ploidy == 1) {
@@ -74,7 +73,7 @@ static void record_dense(LinkageCollector& c, const string& contig, size_t posit
         ident[i] = (int)i;
     }
     c.record(contig, position, gls, panel, (int)called_i, (int)called_j, ident, record_key,
-             share, ploidy, start_node, end_node, nested, parent_record_key, parent_trav,
+             share, ploidy, start_node, end_node, nested, parent_record_key,
              parent_crossing, generation, emitted);
 }
 
@@ -82,7 +81,7 @@ static bool respecify_dense(LinkageCollector& c, size_t record_key,
                             const string& contig, size_t position, size_t num_alleles,
                             const vector<double>& dense_gls, const vector<int>& panel,
                             size_t called_i, size_t called_j, size_t ploidy,
-                            bool nested, int parent_trav, uint64_t parent_crossing,
+                            bool nested, uint64_t parent_crossing,
                             bool emitted = true) {
     map<vector<int>, double> gls;
     if (ploidy == 1) {
@@ -104,7 +103,7 @@ static bool respecify_dense(LinkageCollector& c, size_t record_key,
         ident[i] = (int)i;
     }
     return c.respecify(record_key, contig, position, gls, panel, (int)called_i, (int)called_j,
-                       ident, ploidy, nested, parent_trav, parent_crossing, emitted);
+                       ident, ploidy, nested, parent_crossing, emitted);
 }
 
 TEST_CASE("Zero weight leaves the per-site genotype untouched", "[linkage_model]") {
@@ -467,7 +466,7 @@ TEST_CASE("respecify moves a site to the ploidy its settled parent implies", "[l
                      1.0, 2, 10, 20);
     // Recorded haploid, as descent would: one allele, one likelihood per allele.
     record_dense(collector, "chr1", 1010, 2, {0.0, -30.0}, {0, 0}, 0, 0, CHILD,
-                     1.0, 1, 11, 12, true, PARENT, 0, (uint64_t)1 << 1);
+                     1.0, 1, 11, 12, true, PARENT, /*crossing*/ (uint64_t)1 << 1);
 
     // The settled parent turns out to cross on both haplotypes, so the child is diploid. Its
     // likelihoods are the triangular vector now, and it is no longer a nested haploid site.
@@ -512,7 +511,7 @@ TEST_CASE("retract drops a site the settled parent does not carry", "[linkage_mo
     record_dense(collector, "chr1", 1000, 2, {-30.0, -30.0, 0.0}, {1, 1}, 1, 1, PARENT,
                      1.0, 2, 10, 20);
     record_dense(collector, "chr1", 1010, 2, {0.0, -30.0}, {0, 0}, 0, 0, CHILD,
-                     1.0, 1, 11, 12, true, PARENT, 0, (uint64_t)1 << 0);
+                     1.0, 1, 11, 12, true, PARENT, /*crossing*/ (uint64_t)1 << 0);
     // A neighbour recorded *after* the retracted one, so its arena offsets sit beyond the hole.
     record_dense(collector, "chr1", 1020, 2, {-30.0, -30.0, 0.0}, {1, 1}, 1, 1, SIBLING,
                      1.0, 2, 13, 14);
@@ -560,8 +559,9 @@ TEST_CASE("A nested site takes its strand from the parent traversal that carries
 
     const size_t PARENT = 9, CHILD = 91;
 
-    // Which parent traversal the child hangs off, and whether that traversal is in the settled pair.
-    struct Case { int parent_trav; bool placed; };
+    // Which parent traversal the child hangs off -- stated as the CROSSING MASK, which is what
+    // the placement derives from -- and whether that traversal is in the settled pair.
+    struct Case { int carrying_trav; bool placed; };
     const Case cases[] = {{0, true}, {1, true}, {7, false}};
     for (const Case& c : cases) {
         LinkageCollector collector(p, 2);
@@ -571,8 +571,8 @@ TEST_CASE("A nested site takes its strand from the parent traversal that carries
                          /*share*/ 1.0, /*ploidy*/ 2, /*start*/ 10, /*end*/ 20);
         record_dense(collector, "chr1", 1010, 2, {0.0, -30.0}, {0, 0}, 0, 0, CHILD,
                          /*share*/ 1.0, /*ploidy*/ 1, /*start*/ 11, /*end*/ 12,
-                         /*nested*/ true, PARENT, /*parent_trav*/ c.parent_trav,
-                         /*crossing*/ (uint64_t)1 << 0);
+                         /*nested*/ true, PARENT,
+                         /*crossing*/ (uint64_t)1 << c.carrying_trav);
 
         vector<LinkageCollector::PhaseCall> phased;
         collector.resolve(&phased);
@@ -604,7 +604,7 @@ TEST_CASE("A nested site takes its strand from the parent traversal that carries
         // Placed on the strand the carrying traversal was phased onto -- found by asking the
         // parent's own phased pair, not by trusting an index recorded earlier.
         REQUIRE(child->nested_strand >= 0);
-        const int want = parent->trav_first == c.parent_trav ? 0 : 1;
+        const int want = parent->trav_first == c.carrying_trav ? 0 : 1;
         REQUIRE(child->nested_strand == want);
         if (want == 0) {
             REQUIRE(child->hap_first == parent->hap_first);
@@ -639,7 +639,7 @@ TEST_CASE("The phasing comes back in reference order even with nested sites in i
                      /*share*/ 1.0, /*ploidy*/ 2, /*start*/ 90, /*end*/ 100);
     record_dense(collector, "chr1", 1010, 2, {0.0, -30.0}, {0, 0}, 0, 0, /*key*/ 3,
                      /*share*/ 1.0, /*ploidy*/ 1, /*start*/ 11, /*end*/ 12,
-                     /*nested*/ true, /*parent*/ 1, /*slot*/ 0, /*crossing*/ 1);
+                     /*nested*/ true, /*parent*/ 1, /*crossing*/ 1);
 
     vector<LinkageCollector::PhaseCall> phased;
     collector.resolve(&phased);
@@ -990,12 +990,12 @@ TEST_CASE("A site below depth 1 inherits its parent's strand, not strand 0",
         // A nested haploid child hanging off one of the parent's traversals.
         record_dense(collector, "chr1", 1010, 2, {0.0, -30.0}, {0, 0}, 0, 0, MID,
                      /*share*/ 1.0, /*ploidy*/ 1, /*start*/ 11, /*end*/ 30,
-                     /*nested*/ true, TOP, /*parent_trav*/ which,
+                     /*nested*/ true, TOP,
                      /*crossing*/ (uint64_t)1 << which, /*generation*/ 1);
         // And a grandchild hanging off the child's own single traversal.
         record_dense(collector, "chr1", 1020, 2, {0.0, -30.0}, {0, 0}, 0, 0, DEEP,
                      /*share*/ 1.0, /*ploidy*/ 1, /*start*/ 12, /*end*/ 20,
-                     /*nested*/ true, MID, /*parent_trav*/ 0,
+                     /*nested*/ true, MID,
                      /*crossing*/ (uint64_t)1 << 0, /*generation*/ 2);
 
         // Each generation in turn, accumulating -- a nested site is only produced by the pass for
@@ -1055,7 +1055,7 @@ TEST_CASE("A child of a haploid locus gets no strand, so it is not written as a 
     // A nested child hanging off its single traversal.
     record_dense(collector, "chrX", 1010, 2, {0.0, -30.0}, {0, 0}, 0, 0, KID,
                  /*share*/ 1.0, /*ploidy*/ 1, /*start*/ 11, /*end*/ 30,
-                 /*nested*/ true, TOP, /*parent_trav*/ 0,
+                 /*nested*/ true, TOP,
                  /*crossing*/ (uint64_t)1 << 0, /*generation*/ 1);
 
     vector<LinkageCollector::PhaseCall> phased;
@@ -1214,7 +1214,7 @@ TEST_CASE("Every generation is resolved, not only the first", "[linkage_model]")
                  /*share*/ 1.0, /*ploidy*/ 2, /*start*/ 10, /*end*/ 20);
     record_dense(collector, "chr1", 1010, 2, {0.0, -30.0}, {0, 0}, 0, 0, DEEP,
                  /*share*/ 1.0, /*ploidy*/ 1, /*start*/ 11, /*end*/ 12,
-                 /*nested*/ true, TOP, /*parent_trav*/ 0, /*crossing*/ (uint64_t)1 << 0,
+                 /*nested*/ true, TOP, /*crossing*/ (uint64_t)1 << 0,
                  /*generation*/ 1);
 
     // resolve() is generation 0 only, by contract. The generation-1 site must not appear.
@@ -1265,7 +1265,7 @@ TEST_CASE("A nested site drops a haplotype that does not carry the allele it set
     // something else.
     record_dense(collector, "chr1", 1010, 2, {-30.0, 0.0}, {0, 0}, 1, 1, CHILD,
                  /*share*/ 1.0, /*ploidy*/ 1, /*start*/ 11, /*end*/ 12,
-                 /*nested*/ true, PARENT, /*parent_trav*/ 0, /*crossing*/ (uint64_t)1 << 0);
+                 /*nested*/ true, PARENT, /*crossing*/ (uint64_t)1 << 0);
 
     vector<LinkageCollector::PhaseCall> phased;
     collector.resolve(&phased);
@@ -1314,14 +1314,14 @@ TEST_CASE("A revised site stops being unemitted when the revision writes a line"
     // Recorded with no line of its own, as a chain nothing was written for during the sweep.
     record_dense(collector, "chr1", 1010, 2, {-30.0, 0.0, -30.0}, {1, 0}, 0, 1, B,
                  /*share*/ 1.0, /*ploidy*/ 2, /*start*/ 11, /*end*/ 12,
-                 /*nested*/ false, /*parent*/ 0, /*parent_trav*/ -1, /*crossing*/ 0,
+                 /*nested*/ false, /*parent*/ 0, /*crossing*/ 0,
                  /*generation*/ 0, /*emitted*/ false);
 
     // The barrier revises it and this time a line is written.
     // Re-emitted 3 bp along, because changing the emitted allele set moves POS: this is exactly
     // the case where an entry left at the sweep-time position becomes unreachable by both patches.
     REQUIRE(respecify_dense(collector, B, "chr1", 1013, 2, {-30.0, 0.0, -30.0}, {1, 0}, 0, 1,
-                            /*ploidy*/ 2, /*nested*/ false, /*parent_trav*/ -1,
+                            /*ploidy*/ 2, /*nested*/ false,
                             /*crossing*/ 0, /*emitted*/ true));
 
     vector<LinkageCollector::PhaseCall> phased;

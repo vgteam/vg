@@ -361,7 +361,6 @@ protected:
         /// The parent traversal this child hangs off, or -1 when the parent does not carry it on
         /// exactly one. The traversal itself, not the strand it sits at: the strand is whichever
         /// haplotype that traversal is phased onto, looked up when the parent is phased.
-        int parent_trav = -1;
         /// One bit per parent VCF allele, set where that allele crosses this child chain. Zero
         /// means descent could not express it -- more than 64 alleles at the parent -- and must be
         /// read as unknown rather than as none.
@@ -387,7 +386,7 @@ protected:
         bool no_reference = false;
         /// The index of the chain member being descended into, within its chain. Set beside the
         /// other per-child facts before the recursive call, and read by that child for its own
-        /// entry -- the same way `parent_trav` and `parent_crossing` travel.
+        /// entry -- the same way `parent_crossing` travels.
         int chain_index = -1;
         /// False when the crossing mask could not be computed: the parent emitted nothing on this
         /// invocation, or carries too many alleles for a 64-bit mask. child_crossing_mask returns 0
@@ -1164,7 +1163,6 @@ protected:
         /// The parent traversal this chain hangs off, or -1 when the settled parent does not carry
         /// it on exactly one. Set at descent and re-derived whenever the barrier looks at the chain,
         /// so it always names a traversal in the parent's current settled pair.
-        int parent_trav = -1;
         uint8_t generation = 0;
         /// Set when the settled parent turns out not to carry this chain, directly or through an
         /// ancestor. Such a chain does not exist in the sample, so neither do its descendants, and

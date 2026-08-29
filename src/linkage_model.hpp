@@ -464,7 +464,7 @@ public:
                 size_t record_key,
                 double explained_share, size_t ploidy = 2,
                 int64_t start_node = 0, int64_t end_node = 0,
-                bool nested = false, size_t parent_record_key = 0, int parent_trav = -1,
+                bool nested = false, size_t parent_record_key = 0,
                 uint64_t parent_crossing = 0, size_t generation = 0,
                 bool emitted = true, int align_rank = -1, int chain_index = -1,
                 bool chain_backward = false, bool unpositioned = false);
@@ -629,7 +629,7 @@ public:
                    const vector<int>& haplotype_traversal,
                    int called_trav_i, int called_trav_j,
                    const vector<int>& traversal_to_allele,
-                   size_t ploidy, bool nested, int parent_trav,
+                   size_t ploidy, bool nested,
                    uint64_t parent_crossing, bool emitted);
 
     /// Drop a site before its generation resolves: the settled parent genotype does not carry the
@@ -671,28 +671,25 @@ public:
     /// million entries.
     std::unordered_set<size_t> emitted_records() const;
 
-    /// Point a recorded site at the parent traversal that carries it, without touching anything
-    /// else about it. The barrier re-derives this from the parent's settled pair every time it looks
-    /// at a chain, including when the ploidy needs no change and there is nothing to respecify --
-    /// and that case is the common one, so leaving the descent-time value in place would keep a
-    /// figure computed against the parent's pre-linkage genotype. Returns false for an unknown key.
-    bool set_parent_trav(size_t record_key, int parent_trav);
-
     /// Record where a site sits along its parent's settled traversal. Returns false when there is no
     /// entry for the key -- checked at every call site, because the equivalent silent no-op in
-    /// `set_parent_trav` is exactly how a frame would default to unset and go unnoticed.
+    /// A silently-ignored write is exactly how a frame would default to unset and go unnoticed.
     bool set_frame(size_t record_key, int slot, int offset);
 
     /// What a settled parent implies about one of its children: how many copies the sample carries,
     /// which of the parent's settled traversals carries it when that is one, and whether the
     /// question could be answered at all.
     ///
-    /// DERIVED, never stored. `Entry::ploidy` and `Entry::parent_trav` hold the same fact today,
-    /// written by a barrier pass with five early exits -- so they can go stale, and can go stale
-    /// INCONSISTENTLY WITH EACH OTHER: entries with ploidy 2 and parent_trav >= 0 were measured,
-    /// which the barrier's own comment says cannot happen. A value computed where it is consumed
-    /// cannot do that. This lands as a CHECK against the stored fields before anything depends on
-    /// it.
+    /// DERIVED, never stored. `Entry::parent_trav` used to hold the carrying traversal and
+    /// `Entry::ploidy` the copy count -- the same fact twice, written by a barrier pass with five
+    /// early exits, so they could go stale and could go stale INCONSISTENTLY WITH EACH OTHER:
+    /// entries with ploidy 2 and parent_trav >= 0 were measured, which the barrier's own comment
+    /// says cannot happen. A value computed where it is consumed cannot do that.
+    ///
+    /// Landed first as a check (19,979 derivations on chr20, 52,800 over three contigs, zero
+    /// disagreements), then consumed, then the stored field deleted -- in that order, because a
+    /// check that does not exercise the substituted call site validates something adjacent to what
+    /// is relied on.
     struct Relation {
         uint8_t copies = 0;
         int carrying_trav = -1;   ///< the traversal when copies == 1; -2 when both carry it
@@ -705,7 +702,8 @@ public:
     /// False when there is no live entry to write to, which the caller must not discard: the barrier
     /// computes a rank BEFORE the block that can create an entry for a chain the sweep never
     /// recorded, so for those the rank has to travel as an argument to `record` instead. That is why
-    /// `record` takes one, exactly as it takes `parent_trav`.
+    /// `record` takes one for the same reason it takes the parent's key: a setter cannot reach an
+    /// entry that does not exist yet.
     bool set_align_rank(size_t record_key, int rank, bool chain_backward);
 
     /// Whether an active (non-retracted) entry exists for this key. The barrier needs to tell
@@ -737,7 +735,7 @@ private:
         /// traversal is. Stage 15': below the top level, order and distance come from these rather
         /// than from `position`, which under a covering reference will not exist for a nested site.
         ///
-        /// Tagged by the traversal it was measured along -- `parent_trav` -- not by strand. A haploid
+        /// Tagged by the traversal it was measured along, not by strand. A haploid
         /// nested parent has only `trav_first`, so a strand-keyed pair would leave slot 1 unwritten
         /// while its child's strand may well be 1; the child would then read an unset frame, sort to
         /// the head of its group and hand its neighbour a spurious multi-megabase gap. That is the
@@ -862,22 +860,12 @@ private:
         /// Kept for the descent decision -- whether any traversal the parent could settle on reaches
         /// this chain -- and no longer consulted when the child is phased. It used to be re-tested
         /// there against the settled pair to check the child's ploidy, which was a second derivation
-        /// of a fact `parent_trav` already carries, and the two could disagree.
+        /// of a fact the settled pair already carries, and the two could disagree.
         ///
         /// Placed next to the key rather than beside the narrow members: after an 8-byte member it
         /// needs no padding, where after a `uint8_t` it costs seven bytes of it -- 16 bytes a site
         /// instead of 8, which `bytes()` reported as 1.8 MB on chr20 rather than 0.9.
         uint64_t parent_crossing = 0;
-        /// The parent traversal this chain hangs off, or -1 when nothing determined one.
-        ///
-        /// The traversal, not the strand index it sat at. Ploidy and strand are then the same fact
-        /// read two ways -- the chain is carried by exactly this one of the parent's two settled
-        /// traversals -- and finding the strand is an identity match against the parent's phased
-        /// pair rather than a separate derivation. It is also orientation-proof: the Viterbi decides
-        /// which of the parent's traversals lands on which haplotype, and it may decide differently
-        /// as later generations enlarge the set, so a stored *index* can go stale where the identity
-        /// of the traversal cannot.
-        int16_t parent_trav = -1;
         float explained_share = 1.0f;
         /// The next entry sharing this record key, or NO_ENTRY.
         ///

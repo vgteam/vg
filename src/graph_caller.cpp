@@ -5021,7 +5021,7 @@ void FlowCaller::record_site(const Snarl& snarl, const vector<SnarlTraversal>& t
         // Safe now only because the anchor above puts it beside its parent rather than at position
         // zero, which is what forcing it was working around.
         nested_context.active, nested_context.parent_record_key,
-        nested_context.parent_trav, nested_context.parent_crossing,
+        nested_context.parent_crossing,
         current_generation, /*emitted*/ false, /*align_rank*/ -1,
         nested_context.chain_index, /*chain_backward*/ false, no_reference);
 }
@@ -5265,9 +5265,6 @@ void FlowCaller::run_deferred_descent() {
             // -1 means no settled traversal carries the chain; -2 means both do. Both are recorded
             // here rather than recomputed when the child is phased, which is the point: the count
             // and the identity come from the same two booleans, so they cannot disagree.
-            pr.parent_trav = copies == 1 ? (first ? parent.trav_first : parent.trav_second)
-                                         : (copies == 2 ? -2 : -1);
-            linkage_collector->set_parent_trav(pr.record_key, pr.parent_trav);
 
             // Frames measured before this chain had a layer entry, to be replayed once the
             // revise block below has given it one. Cleared per record: a frame belongs to the
@@ -5284,9 +5281,9 @@ void FlowCaller::run_deferred_descent() {
             // parent has trav_first == trav_second, so both slots are written and neither can be read
             // unset, which is the failure a strand-keyed pair invites.
             //
-            // Not from the CALLED traversals at descent: `carrying_trav` is set only under
-            // `copies == 1`, so the chains a called allele never reached -- the ones the barrier may
-            // now have moved the parent onto -- would have had nothing to measure along there.
+            // Not from the CALLED traversals at descent: the chains a called allele never
+            // reached -- the ones the barrier may now have moved the parent onto -- would have had
+            // nothing to measure along there.
             {
                 auto parent_rec = record_by_key.find(pr.parent_record_key);
                 if (parent_rec == record_by_key.end()) {
@@ -5492,10 +5489,8 @@ void FlowCaller::run_deferred_descent() {
             // and appointing travs[0] would make the best-supported allele REF -- so the guard would
             // skip every one of them. It guards `emit_variant`, which such a record never reaches
             // (the render hand-off holds it back), while what the guard was skipping is the ploidy
-            // REVISION, which it does need: `set_parent_trav` above has already written parent_trav,
-            // so skipping the revision leaves the entry at its descent-time ploidy of 2 with a
-            // parent_trav that says one copy -- the disagreement the comment there says is
-            // impossible. 1,386 chains a generation on chr20.
+            // REVISION, which it does need: skipping it left the entry at its descent-time
+            // ploidy while the settled parent said otherwise. 1,386 chains a generation on chr20.
             //
             // The empty-travs and genotype-range halves still apply: they guard the record building
             // below, not the emit.
@@ -5584,7 +5579,7 @@ void FlowCaller::run_deferred_descent() {
                                                   key.first, key.second,
                                                   used->genotype_lls, panel,
                                                   called_i, called_j, trav_to_allele_vec,
-                                                  (size_t)copies, copies == 1, pr.parent_trav,
+                                                  (size_t)copies, copies == 1,
                                                   pr.parent_crossing, /*emitted*/ false)) {
                     // respecify refuses a site whose compact space it cannot build (no called
                     // traversal, no likelihoods, or more than 127 reachable alleles). If such a site
@@ -5610,7 +5605,7 @@ void FlowCaller::run_deferred_descent() {
                             pr.record_key, 1.0,
                             (size_t)copies, pr.snarl.start().node_id(), pr.snarl.end().node_id(),
                             copies == 1, pr.parent_record_key,
-                            pr.parent_trav, pr.parent_crossing, pr.generation, /*emitted*/ false,
+                            pr.parent_crossing, pr.generation, /*emitted*/ false,
                             pr.align_rank, pr.chain_index, pr.chain_backward);
                     }
                 }
@@ -6343,7 +6338,6 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
             pending_this->anchor_position =
                 no_ref_position ? get<0>(ref_interval) + ref_offsets[ref_path_name] : 0;
             pending_this->crossing_known = nested_context.crossing_known;
-            pending_this->parent_trav = nested_context.parent_trav;
             pending_this->generation = (uint8_t)min(current_generation, (size_t)255);
             // Nothing is written for a nested chain during the sweep any more, so there is no
             // line to record the whereabouts of and nothing for the barrier to retract or replace.
@@ -6484,28 +6478,11 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
                     retain_only = true;
                 }
 
-                // A haploid child hangs off exactly one of the parent's called traversals, and
-                // which one decides the strand its allele sits on once the parent is phased. The
-                // traversal is recorded, not its index in the genotype: `record` sorts the pair and
-                // the Viterbi then orients it against the panel, so an index recorded here means
-                // nothing by the time the child is placed, while the traversal still names the same
-                // path through the parent.
-                int carrying_trav = -1;
-                if (copies == 1) {
-                    for (size_t g = 0; g < trav_genotype.size(); ++g) {
-                        vector<int> one(1, trav_genotype[g]);
-                        if (child_ploidy(travs, one, *child, 1) == 1) {
-                            carrying_trav = trav_genotype[g];
-                            break;
-                        }
-                    }
-                }
                 // Saved and restored rather than assigned: a child may descend further, and its own
                 // children must see *it* as their parent, not this snarl.
                 NestedContext saved = nested_context;
                 nested_context.active = (copies == 1);
                 nested_context.parent_record_key = record_key_of(snarl);
-                nested_context.parent_trav = carrying_trav;
                 nested_context.retain_only = retain_only;
                 nested_context.no_reference = child_off_reference;
                 // Where this snarl sits in its chain. The alignment rank identifies the CHAIN --
