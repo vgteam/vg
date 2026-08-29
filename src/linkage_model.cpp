@@ -13,6 +13,13 @@
 
 namespace vg {
 
+/// Per-site pins offered to window_phasing, and those it refused because the pinned haplotype pair
+/// cannot spell the genotype the site is constrained to. A refused pin on a group's PARENT frees the
+/// whole group's orientation while its haploid siblings stay tied to the parent's phase.
+static std::atomic<size_t> g_pin_applied(0), g_pin_declined(0);
+/// Groups whose parent was never offered a pin at all -- no PhaseCall to pin it to.
+static std::atomic<size_t> g_group_parent_unpinned(0), g_group_parent_pinned(0);
+
 /// The distance between two adjacent sites in a chain, in bp, PER STRAND.
 ///
 /// Prefers the explicit `gap_to_previous` the caller measured along the haplotype's own traversal, and
@@ -861,8 +868,16 @@ void LinkageModel::window_phasing(const vector<Site>& sites, size_t from, size_t
             // leave the site with no reachable state and the chain with no path. Leave it merely
             // constrained. Not expected -- the pin comes from a path that was constrained to the
             // same genotype -- but a silent dead chain is a bad way to find out otherwise.
+            //
+            // COUNTED, because "not expected" was never measured. In a per-parent group the parent
+            // is the ONLY pinned member, so declining its pin leaves the group's Viterbi orientation
+            // free -- while the group's haploid siblings are placed by parent-traversal identity
+            // against the parent's own phase. Two frames with nothing relating them, which is the
+            // incoherence the strand bookkeeping cannot see because each half is self-consistent.
+            ++g_pin_declined;
             continue;
         }
+        ++g_pin_applied;
         for (size_t a = 0; a < m; ++a) {
             for (size_t b = 0; b < m; ++b) {
                 if (a != pa || b != pb) {
@@ -1930,6 +1945,18 @@ size_t LinkageCollector::resolve_generation(
     //
     // VG_LINKAGE_NO_ALIGN_ORDER forces reference order, so one binary produces both arms.
     static const bool no_align_order = getenv("VG_LINKAGE_NO_ALIGN_ORDER") != nullptr;
+    // VG_LINKAGE_PER_CHAIN_GROUPS: decode each nested CHAIN on its own, conditioned on the parent,
+    // instead of decoding all of a parent's children together.
+    //
+    // This is the whole of the "is linkage BETWEEN nested chains worth anything?" question. Within a
+    // chain the snarls stay linked, so recombination inside a chain is still modelled; between two
+    // chains under one parent there is no transition at all, and each is answered from the parent's
+    // context alone. `align_rank` is the chain identity -- every snarl of one chain collapses to one
+    // symbol and so shares a column -- so it is exactly the discriminator this needs.
+    //
+    // If the two arms score the same, inter-chain ordering and inter-chain distance are both dead
+    // weight: order and spacing only matter where a transition crosses them.
+    static const bool per_chain_groups = getenv("VG_LINKAGE_PER_CHAIN_GROUPS") != nullptr;
     if (generation > 0 && !parent_context.empty() && !no_grouping) {
         unordered_map<size_t, size_t> index_of_key;
         index_of_key.reserve(entries.size() * 2);
@@ -1938,7 +1965,19 @@ size_t LinkageCollector::resolve_generation(
                 index_of_key[entries[i].record_key] = i;
             }
         }
-        map<size_t, vector<size_t>> by_parent;
+        // Keyed by (parent, chain-within-parent). The chain half is 0 unless per_chain_groups, so
+        // the default is exactly the previous one-group-per-parent behaviour.
+        map<pair<size_t, size_t>, vector<size_t>> by_parent;
+        auto group_key = [&](const Entry& e) {
+            if (!per_chain_groups) {
+                return make_pair(e.parent_record_key, (size_t)0);
+            }
+            // An unranked chain cannot be pooled with anything, so it becomes its own group rather
+            // than being lumped with every other unranked chain under this parent.
+            const size_t chain = e.align_rank >= 0 ? (size_t)e.align_rank
+                                                   : numeric_limits<size_t>::max() - e.record_key;
+            return make_pair(e.parent_record_key, chain);
+        };
         // PER CHAIN, not per generation.
         //
         // This was one global flag: a single live site whose parent could not be found sent the
@@ -2000,7 +2039,7 @@ size_t LinkageCollector::resolve_generation(
                     if (ctx == parent_context.end()) {
                         ++g_grp_no_context;
                     }
-                    by_parent[e.parent_record_key].push_back(idx);
+                    by_parent[group_key(e)].push_back(idx);
                     continue;
                 }
             }
@@ -2018,7 +2057,7 @@ size_t LinkageCollector::resolve_generation(
             vector<const vector<double>*> gctx;
             vector<size_t> gps;
             for (auto& kv : by_parent) {
-                const size_t pidx = index_of_key[kv.first];
+                const size_t pidx = index_of_key[kv.first.first];
                 vector<size_t> group;
                 group.push_back(pidx);
                 // Stage C: the alignment of the parent's two settled traversals is the order,
@@ -2106,13 +2145,19 @@ size_t LinkageCollector::resolve_generation(
                     }
                     return ea.record_key < ec.record_key;
                 });
+                if (pinned_phase.count(entries[pidx].record_key) != 0) {
+                    ++g_group_parent_pinned;
+                } else {
+                    // No PhaseCall for the parent, so nothing ties this group's orientation to it.
+                    ++g_group_parent_unpinned;
+                }
                 group.insert(group.end(), kv.second.begin(), kv.second.end());
                 grouped_sites += group.size();
                 ++grouped_groups;
                 groups.push_back(std::move(group));
-                auto found_ctx = parent_context.find(kv.first);
+                auto found_ctx = parent_context.find(kv.first.first);
                 gctx.push_back(found_ctx != parent_context.end() ? &found_ctx->second : nullptr);
-                auto ps = phase_set_of.find(kv.first);
+                auto ps = phase_set_of.find(kv.first.first);
                 gps.push_back(ps != phase_set_of.end() ? ps->second
                                                        : numeric_limits<size_t>::max());
             }
@@ -2649,6 +2694,16 @@ size_t LinkageCollector::resolve_generation(
                   << fg_one_both_claimed << " where descent claimed BOTH traversals carry the chain, "
                   << fg_one_single_claimed << " where it claimed one, " << fg_one_undetermined
                   << " undetermined" << std::endl;
+    }
+
+    if (generation > 0 && (g_pin_applied.load() + g_pin_declined.load()) > 0) {
+#pragma omp critical (cerr)
+        std::cerr << "[vg call] linkage generation " << generation << ": pins -- "
+                  << g_pin_applied.load() << " applied, " << g_pin_declined.load()
+                  << " REFUSED (the pinned pair cannot spell the constrained genotype, so that"
+                  << " site's orientation is free); groups whose parent was pinnable: "
+                  << g_group_parent_pinned.load() << ", not pinnable: "
+                  << g_group_parent_unpinned.load() << std::endl;
     }
 
     if (generation > 0 && (grouped_groups > 0 || g_grp_vetoed.load() > 0)) {
