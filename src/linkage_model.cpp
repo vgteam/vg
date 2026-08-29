@@ -1418,10 +1418,7 @@ void LinkageCollector::record(const string& contig, size_t position,
                               size_t record_key,
                               double explained_share, size_t ploidy,
                               int64_t start_node, int64_t end_node,
-                              bool nested, size_t parent_record_key,
-                              uint64_t parent_crossing, size_t generation,
-                              bool emitted, int align_rank, int chain_index,
-                              bool chain_backward, bool unpositioned, size_t chain_key) {
+                              const SiteContext& ctx) {
     if (genotype_ln_likelihood.empty() || called_trav_i < 0) {
         return;
     }
@@ -1467,22 +1464,22 @@ void LinkageCollector::record(const string& contig, size_t position,
     e.start_node = start_node;
     e.end_node = end_node;
     e.ploidy = (uint8_t)site_ploidy;
-    e.nested = nested;
-    e.emitted = emitted;
-    e.parent_record_key = parent_record_key;
-    e.parent_crossing = parent_crossing;
+    e.nested = ctx.nested;
+    e.emitted = ctx.emitted;
+    e.parent_record_key = ctx.parent_record_key;
+    e.parent_crossing = ctx.parent_crossing;
     // Passed in, not set afterwards. The barrier computes a chain's alignment rank before the block
     // that can create this entry, so a `set_align_rank` call for a chain the sweep never recorded
     // finds no entry and is discarded -- silently, since its return was ignored. That left the 520
     // chains on chr20 that are reachable only under the settled parent with no rank at all, which is
     // the population the ordering exists for. The parent's key travels the same way.
-    e.align_rank = (int32_t)align_rank;
+    e.align_rank = (int32_t)ctx.align_rank;
     // A pure graph fact, so it is known at descent and needs none of the barrier's plumbing.
-    e.chain_index = (int32_t)chain_index;
-    e.chain_backward = chain_backward;
-    e.unpositioned = unpositioned;
-    e.chain_key = chain_key;
-    e.generation = (uint8_t)(generation > 255 ? 255 : generation);
+    e.chain_index = (int32_t)ctx.chain_index;
+    e.chain_backward = ctx.chain_backward;
+    e.unpositioned = ctx.unpositioned;
+    e.chain_key = ctx.chain_key;
+    e.generation = (uint8_t)(ctx.generation > 255 ? 255 : ctx.generation);
 
     e.gl_offset = (uint32_t)gl_arena.size();
     for (float v : gls) {
@@ -1799,6 +1796,61 @@ size_t LinkageCollector::resolve_generation(
         }
     }
 
+    // The two conditionings, from one binary.
+    //
+    // A child chain is conditioned on a message from its parent, and by default that message is the
+    // parent's POSTERIOR over ordered haplotype pairs -- the normalised alpha*beta harvested from the
+    // parent's own decode. VG_LINKAGE_HARD_PARENT replaces it with a delta at the pair the parent
+    // SETTLED on, which is what the greedy story says out loud: the parent is decided, and a decided
+    // parent has no residual uncertainty to pass down.
+    //
+    // Applied here rather than where the message is harvested, because the settled pair is a
+    // PhaseCall and those exist only after the parent's generation has been phased -- which is
+    // exactly the state `pinned_phase` was just built from. Overwriting in place is safe: a record's
+    // context is consumed by its own children and by nothing else, so this generation is the only
+    // reader of the entries it rewrites.
+    static const bool hard_parent = getenv("VG_LINKAGE_HARD_PARENT") != nullptr;
+    if (hard_parent && !pinned_phase.empty()) {
+        const size_t m = n_haplotypes;
+        // Three ways this can decline, counted apart. Lumping them together said only that nothing
+        // was clamped, which is the one thing a diagnostic must never say on its own.
+        size_t clamped = 0, no_phase_call = 0, wrong_width = 0, wild = 0, ctx_width = 0;
+        for (auto& kv : parent_context) {
+            ctx_width = kv.second.size();
+            auto pin = pinned_phase.find(kv.first);
+            if (pin == pinned_phase.end()) {
+                ++no_phase_call;
+                continue;
+            }
+            if (kv.second.size() != m * m) {
+                ++wrong_width;
+                continue;
+            }
+            // A WILDCARD strand is not a haplotype: the panel does not explain that side, so there
+            // is no pair to put the delta on and clamping to one would invent the explanation the
+            // wildcard exists to deny.
+            if (pin->second.first >= m || pin->second.second >= m) {
+                ++wild;
+                continue;
+            }
+            const size_t idx = pin->second.first * m + pin->second.second;
+            std::fill(kv.second.begin(), kv.second.end(), 0.0);
+            kv.second[idx] = 1.0;
+            ++clamped;
+        }
+        if (clamped > 0 || no_phase_call > 0 || wrong_width > 0 || wild > 0) {
+#pragma omp critical (cerr)
+            std::cerr << "[vg call] linkage generation " << generation
+                      << ": hard parent conditioning -- " << clamped
+                      << " context messages replaced by a delta at the settled pair; declined: "
+                      << no_phase_call << " with no PhaseCall for the parent, " << wrong_width
+                      << " whose message is not m*m wide (m=" << m << ", m*m=" << (m * m)
+                      << ", message=" << ctx_width << "), " << wild
+                      << " whose settled pair has a wildcard strand; " << pinned_phase.size()
+                      << " phase calls available" << std::endl;
+        }
+    }
+
     // Default every site this pass considers to its own per-site call, so that whatever a chain or a
     // sweep fails to reach still has a coherent genotype for a later generation to clamp. Overwritten
     // below wherever something is actually settled.
@@ -1936,12 +1988,33 @@ size_t LinkageCollector::resolve_generation(
         const char* v = getenv("VG_LINKAGE_FRAME_GAPS");
         return v != nullptr ? atoi(v) : 0;
     }();
+    // Parent-to-child transition arms, independent of `frame_gap_mode`: 0 leaves the step to
+    // whatever that mode does -- which at its default is the reference difference -- while 1 and 2
+    // are the two brackets described where they are applied.
+    static const int parent_gap_mode = []() {
+        const char* v = getenv("VG_LINKAGE_PARENT_GAP");
+        return v != nullptr ? atoi(v) : 0;
+    }();
     // Order a parent's children by the alignment of its two settled traversals instead of by
     // reference position. On by default: where both orders exist they are predicted to agree, and
     // where only the alignment exists it is the only order there is.
     //
     // VG_LINKAGE_NO_ALIGN_ORDER forces reference order, so one binary produces both arms.
     static const bool no_align_order = getenv("VG_LINKAGE_NO_ALIGN_ORDER") != nullptr;
+    // The chain's OWN order -- the snarl's index within its chain, reversed where the parent crosses
+    // the chain from its end boundary. A separate switch from the alignment rank because the two are
+    // separate facts: the rank orders whole chains against each other and comes from an alignment of
+    // the parent's two settled traversals, while the index orders the snarls inside one chain and is
+    // a pure property of the decomposition.
+    //
+    // They have to be separable to be deleted separately. NO_ALIGN_ORDER drops both in the per-strand
+    // pass but only the rank in the diploid groups, so it cannot answer whether the index earns its
+    // keep; this one drops the index in both.
+    static const bool no_chain_order = getenv("VG_LINKAGE_NO_CHAIN_ORDER") != nullptr;
+    // The haploid analogue of the per-chain diploid decode: bucket the per-strand nested pass by the
+    // chain a site belongs to as well as by (phase set, strand), so a haploid nested chain is decoded
+    // alone instead of pooled with every other chain on that strand.
+    static const bool per_chain_strand = getenv("VG_LINKAGE_PER_CHAIN_STRAND") != nullptr;
     // Each nested CHAIN is decoded on its own, conditioned on its parent -- never pooled with its
     // parent's other chains.
     //
@@ -2081,20 +2154,6 @@ size_t LinkageCollector::resolve_generation(
                 const size_t pidx = index_of_key[kv.first.first];
                 vector<size_t> group;
                 group.push_back(pidx);
-                // Stage C: the alignment of the parent's two settled traversals is the order,
-                // where both children have a rank in it. Reference position is the fallback, and
-                // the two are compared rather than one silently replacing the other -- a change
-                // that reorders nothing is worth being able to say so about.
-                for (size_t a = 1; a < kv.second.size(); ++a) {
-                    const Entry& p1 = entries[kv.second[a - 1]];
-                    const Entry& p2 = entries[kv.second[a]];
-                    if (p1.align_rank >= 0 && p2.align_rank >= 0) {
-                        if ((p1.align_rank < p2.align_rank) != (p1.position < p2.position)
-                            && p1.position != p2.position && p1.align_rank != p2.align_rank) {
-                        }
-                    } else {
-                    }
-                }
                 // A TOTAL key per entry, not a chain of skippable comparisons.
                 //
                 // "Compare on this key only if BOTH operands have it, else fall through" is not a
@@ -2133,9 +2192,7 @@ size_t LinkageCollector::resolve_generation(
                         break;
                     }
                 }
-                if (!all_ranked) {
-                }
-                bool all_indexed = true;
+                bool all_indexed = !no_chain_order;
                 for (size_t idx : kv.second) {
                     if (entries[idx].chain_index < 0) {
                         all_indexed = false;
@@ -2268,17 +2325,7 @@ size_t LinkageCollector::resolve_generation(
             // Slot 0 is strand a by construction, not by convention: `set_frame` writes slot 0 along
             // `PhaseCall::trav_first`, and that traversal sits on `hap_first`, which is the first of
             // the ordered pair the HMM's state is. Nothing re-derives the correspondence.
-            //
-            // Diploid chains only. A haploid chain has one strand, so the per-strand form has nothing
-            // to say there, and the nested per-strand chains already measure their own frame gap.
-            if (e.unpositioned && e.ploidy == 2) {
-            }
             if (frame_gap_mode > 0 && k > 0 && chain_ploidy == 2 && e.parent_record_key != 0) {
-                // Does this step touch a site with no reference position? That is the population
-                // whose distance CANNOT fall back, so it is the one where an unframed step goes
-                // uniform and severs the chain rather than merely losing precision.
-                if (e.unpositioned || entries[indices[k - 1]].unpositioned) {
-                }
                 const Entry& prev = entries[indices[k - 1]];
                 if (prev.record_key == e.parent_record_key) {
                     // The previous site IS this one's parent -- the first entry of a per-parent
@@ -2297,8 +2344,6 @@ size_t LinkageCollector::resolve_generation(
                         }
                     }
                     if (g[0] >= 0 && g[1] >= 0) {
-                        if (g[0] != g[1]) {
-                        }
                         if (frame_gap_mode == 1) {
                             s.gap_to_previous[0] = (g[0] + g[1]) / 2;
                         } else {
@@ -2307,12 +2352,12 @@ size_t LinkageCollector::resolve_generation(
                         }
                     } else if (g[0] >= 0 || g[1] >= 0) {
                         s.gap_to_previous[g[0] >= 0 ? 0 : 1] = g[0] >= 0 ? g[0] : g[1];
-                    } else {
                     }
-                } else if (prev.parent_record_key != e.parent_record_key) {
-                } else {
+                } else if (prev.parent_record_key == e.parent_record_key) {
+                    // Same parent, so one frame to measure in. A CROSS-parent step gets no
+                    // frame gap at all -- two parents' traversals share no common frame -- and
+                    // falls back to the reference difference in `site_gap`.
                     int64_t g[2] = {-1, -1};
-                    bool any_mirrored = false;
                     for (int slot = 0; slot < 2; ++slot) {
                         if (prev.frame_offset[slot] >= 0 && e.frame_offset[slot] >= 0) {
                             // START to START, because that is what the reference fallback measures:
@@ -2334,27 +2379,9 @@ size_t LinkageCollector::resolve_generation(
                             const int64_t d =
                                 (int64_t)e.frame_offset[slot] - (int64_t)prev.frame_offset[slot];
                             g[slot] = d >= 0 ? d : -d;
-                            if (d < 0) {
-                                any_mirrored = true;
-                            }
-                        }
-                    }
-                    if (any_mirrored) {
-                    }
-                    // How often the traversal distance and the reference distance are the SAME
-                    // number. Two adjacent siblings share a boundary node, so wherever the parent's
-                    // traversal follows the reference through them the two measures coincide
-                    // exactly, and this arm can only move the steps where they do not. Measured,
-                    // rather than inferred from how a span is taken.
-                    if (g[0] >= 0) {
-                        const int64_t refd = (int64_t)e.position - (int64_t)prev.position;
-                        if (g[0] == (refd >= 0 ? refd : -refd)) {
                         }
                     }
                     if (g[0] >= 0 && g[1] >= 0) {
-                        // Counted in both modes, so mode 1 can say how many steps it flattened.
-                        if (g[0] != g[1]) {
-                        }
                         if (frame_gap_mode == 1) {
                             // One scalar for both strands. Written to slot 0 alone -- `site_gap`
                             // uses a single known slot for both, so this needs no second copy.
@@ -2375,9 +2402,24 @@ size_t LinkageCollector::resolve_generation(
                         // descent claim both traversals carry it (then a frame failed to measure),
                         // or did it claim one (then the ploidy is wrong upstream)?
                         s.gap_to_previous[g[0] >= 0 ? 0 : 1] = g[0] >= 0 ? g[0] : g[1];
-                    } else {
                     }
                 }
+            }
+            // The parent-to-child step, on its own switch. A child chain sits INSIDE its parent's
+            // settled traversal, and whether that containment is a link at all is a separate
+            // question from how a chain's own snarls are spaced -- so it gets its own arm rather
+            // than riding on `frame_gap_mode`, which answers both at once and cannot separate them.
+            //
+            // 1 is UNIFORM: no transition between a parent and its children, so a child chain is
+            // decoded from its emission and its own internal transitions alone. 2 is MINIMAL:
+            // containment read as zero separation, the strongest link the model can express. The
+            // two bracket the space, and the frame arms sit between them -- so a frame arm that
+            // beats neither bracket is measuring nothing.
+            if (parent_gap_mode > 0 && k > 0 && chain_ploidy == 2 && e.parent_record_key != 0
+                && entries[indices[k - 1]].record_key == e.parent_record_key) {
+                const int64_t g = parent_gap_mode == 1 ? numeric_limits<int64_t>::max() : 1;
+                s.gap_to_previous[0] = g;
+                s.gap_to_previous[1] = g;
             }
             size_t n_gt = e.ploidy == 1
                               ? (size_t)e.num_alleles
@@ -2421,12 +2463,6 @@ size_t LinkageCollector::resolve_generation(
         // sites would be needed to reach any target. Top-level chains only -- that is where the
         // windowing runs.
         if (generation == 0) {
-            for (size_t k = 1; k < sites.size(); ++k) {
-                const std::pair<size_t, size_t> gap = site_gap(sites[k - 1], sites[k]);
-                const double ra = model.switch_probability(gap.first);
-                const double rb = model.switch_probability(gap.second);
-                const double stay = max(1e-300, (1.0 - ra) * (1.0 - rb));
-            }
         }
 
         vector<vector<double>> posteriors;
@@ -2780,7 +2816,15 @@ size_t LinkageCollector::resolve_generation(
         // the contig put every same-depth site under unrelated parents into one chain, and on a
         // contig with several chains it merged two unrelated chains' strand 0 into a single haploid
         // run. Linking sites whose haplotypes have no correspondence is worse than not linking them.
-        map<pair<size_t, uint8_t>, vector<size_t>> by_strand;
+        //
+        // The last two components are the chain's identity -- its parent and its own boundary pair
+        // -- and they are ZERO unless VG_LINKAGE_PER_CHAIN_STRAND is set. This is the haploid
+        // analogue of the question step 2 settled for the diploid groups: a (phase set, strand)
+        // group spans a whole contig on one haplotype, so it links chains to each other, and
+        // between-chain linkage was measured worth nothing on the diploid side. With every chain
+        // component zero the key orders exactly as the two-component one did, so the arm is inert
+        // by construction when off.
+        map<tuple<size_t, uint8_t, size_t, size_t>, vector<size_t>> by_strand;
         // For the gate: how many sites would have been pooled across a phase-set boundary under the
         // old key. Zero is the claim; a count proves the change was not cosmetic.
         map<pair<uint32_t, uint8_t>, size_t> old_key_groups;
@@ -2952,7 +2996,10 @@ size_t LinkageCollector::resolve_generation(
                 if (strand >= 0) {
                     // Only sites with one strand are grouped: step three chains within a single
                     // haplotype, and a site with no strand belongs to no such chain.
-                    by_strand[make_pair(pc.phase_set, (uint8_t)strand)].push_back(idx);
+                    by_strand[make_tuple(pc.phase_set, (uint8_t)strand,
+                                         per_chain_strand ? e.parent_record_key : (size_t)0,
+                                         per_chain_strand ? e.chain_key : (size_t)0)]
+                        .push_back(idx);
                     // What the old contig-keyed grouping would have done, for the gate below.
                     auto ok = make_pair(e.contig, (uint8_t)strand);
                     if (old_key_groups.count(ok) == 0) {
@@ -3069,7 +3116,7 @@ size_t LinkageCollector::resolve_generation(
             //
             // Measured on chr20: 0 of 5,540 same-parent adjacent pairs reorder under this key, so the
             // order is not what this change moves -- the distances are.
-            const int slot = (int)group.first.second <= 1 ? (int)group.first.second : 0;
+            const int slot = (int)std::get<1>(group.first) <= 1 ? (int)std::get<1>(group.first) : 0;
             // Same total-key discipline as the diploid groups, and for the same reason: this
             // comparator had TWO skippable keys, the alignment rank and the frame offset, so it was
             // the more exposed of the pair.
@@ -3101,7 +3148,7 @@ size_t LinkageCollector::resolve_generation(
                     unsigned char usable = 0;
                     if (!no_align_order && (kv.second & 1) == 0) { usable |= 1; }
                     if ((kv.second & 2) == 0) { usable |= 2; }
-                    if (!no_align_order && (kv.second & 4) == 0) { usable |= 4; }
+                    if (!no_align_order && !no_chain_order && (kv.second & 4) == 0) { usable |= 4; }
                     parent_keys[kv.first] = usable;
                 }
             }
@@ -3134,36 +3181,6 @@ size_t LinkageCollector::resolve_generation(
                 }
                 return ea.record_key < eb.record_key;
             });
-            // Post-sort, because before it `idxs` is in no meaningful order: how often the
-            // alignment rank -- which now leads the tuple -- put a same-parent pair in a different
-            // order than the frame offset and reference position it precedes. The diploid groups
-            // count the same thing pre-sort; both should read zero wherever both keys exist.
-            for (size_t k = 1; k < idxs.size(); ++k) {
-                const Entry& e1 = entries[idxs[k - 1]];
-                const Entry& e2 = entries[idxs[k]];
-                if (e1.parent_record_key != e2.parent_record_key || e1.parent_record_key == 0) {
-                    continue;
-                }
-                if (e1.align_rank >= 0 && e2.align_rank >= 0 && e1.align_rank == e2.align_rank) {
-                    // Same chain. Separated by the chain index now, where reference position was
-                    // the only thing that could before.
-                    if (e1.chain_index >= 0 && e2.chain_index >= 0
-                        && e1.chain_index != e2.chain_index) {
-                    } else {
-                    }
-                    continue;
-                }
-                if (e1.align_rank < 0 || e2.align_rank < 0) {
-                    continue;
-                }
-                const bool fallback_agrees =
-                    (e1.frame_offset[slot] >= 0 && e2.frame_offset[slot] >= 0
-                     && e1.frame_offset[slot] != e2.frame_offset[slot])
-                        ? e1.frame_offset[slot] < e2.frame_offset[slot]
-                        : (e1.position != e2.position ? e1.position < e2.position : true);
-                if (!fallback_agrees) {
-                }
-            }
             vector<LinkageModel::Site> sites;
             sites.reserve(idxs.size());
             size_t frame_steps = 0, ref_steps = 0;

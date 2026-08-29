@@ -4378,9 +4378,15 @@ bool LegacyCaller::call_snarl(const Snarl& snarl) {
         // these integers map the called traversals to their positions in the list of all traversals
         // of the top level snarl.  
         vector<int> genotype;
+        // `count`/`at`, not `operator[]`, and the line below already spells `ref_offsets` that way.
+        // `operator[]` INSERTS on a missing key, and these reads run on worker threads: two of them
+        // inserting into one std::map at once is a data race on the tree, not merely a surprising
+        // default. The surprising default is real too -- a missing key reads as ploidy 0, and
+        // `genotype` returns nothing below ploidy 1, so the site silently produces no call at all.
         int ploidy = ploidy_at(path_name, get<0>(ref_interval),
                                ref_offsets.count(path_name) ? ref_offsets.at(path_name) : 0,
-                               ref_ploidies[path_name]);
+                               ref_ploidies.count(path_name)
+                                   ? ref_ploidies.at(path_name) : 0);
         std::tie(called_traversals, genotype) = top_down_genotype(snarl, *rep_trav_finder, ploidy,
                                                                   path_name, make_pair(get<0>(ref_interval), get<1>(ref_interval)));
     
@@ -4999,11 +5005,16 @@ void FlowCaller::record_site(const Snarl& snarl, const vector<SnarlTraversal>& t
         // forcing it nested sent 65% of this population down the per-strand ploidy-1 path instead.
         // Safe now only because the anchor above puts it beside its parent rather than at position
         // zero, which is what forcing it was working around.
-        nested_context.active, nested_context.parent_record_key,
-        nested_context.parent_crossing,
-        current_generation, /*emitted*/ false, /*align_rank*/ -1,
-        nested_context.chain_index, /*chain_backward*/ false, no_reference,
-        nested_context.chain_key);
+        LinkageCollector::SiteContext{
+            .nested = nested_context.active,
+            .parent_record_key = nested_context.parent_record_key,
+            .parent_crossing = nested_context.parent_crossing,
+            .generation = current_generation,
+            .emitted = false,
+            .chain_index = nested_context.chain_index,
+            .unpositioned = no_reference,
+            .chain_key = nested_context.chain_key,
+        });
 }
 
 void FlowCaller::render_retained_records() {
@@ -5584,10 +5595,17 @@ void FlowCaller::run_deferred_descent() {
                             used->genotype_lls, panel, called_i, called_j, trav_to_allele_vec,
                             pr.record_key, 1.0,
                             (size_t)copies, pr.snarl.start().node_id(), pr.snarl.end().node_id(),
-                            copies == 1, pr.parent_record_key,
-                            pr.parent_crossing, pr.generation, /*emitted*/ false,
-                            pr.align_rank, pr.chain_index, pr.chain_backward,
-                            /*unpositioned*/ false, pr.chain_key);
+                            LinkageCollector::SiteContext{
+                                .nested = copies == 1,
+                                .parent_record_key = pr.parent_record_key,
+                                .parent_crossing = pr.parent_crossing,
+                                .generation = pr.generation,
+                                .emitted = false,
+                                .align_rank = pr.align_rank,
+                                .chain_index = pr.chain_index,
+                                .chain_backward = pr.chain_backward,
+                                .chain_key = pr.chain_key,
+                            });
                     }
                 }
             }
@@ -5720,9 +5738,15 @@ void FlowCaller::run_deferred_descent() {
     // Appended round-robin rather than all onto one queue: the render pass is parallel over queues,
     // and 30,416 chains on one thread would serialise it.
     size_t next_queue = 0;
-    size_t no_ref_unrendered = 0;
+    size_t no_ref_unrendered = 0, inline_unrendered = 0;
     for (PendingRecord& pr : pending) {
         if (pr.dropped) {
+            continue;
+        }
+        if (pr.reported_inline) {
+            // Settled, phased, and inside the layer -- but an enclosing block's ALT has already
+            // written its variation, so a line here would write it twice.
+            ++inline_unrendered;
             continue;
         }
         if (pr.no_reference) {
@@ -5738,6 +5762,11 @@ void FlowCaller::run_deferred_descent() {
         }
         render_records[next_queue % render_records.size()].push_back(std::move(pr));
         ++next_queue;
+    }
+    if (inline_unrendered > 0 && show_progress) {
+        cerr << "[vg call] block emission: " << inline_unrendered
+             << " chains genotyped, recorded and phased, but left unrendered because an enclosing"
+             << " block's ALT already spells them out" << endl;
     }
     if (no_ref_unrendered > 0 && show_progress) {
         cerr << "[vg call] off-reference nested: " << no_ref_unrendered
@@ -6023,7 +6052,8 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
                  ? ploidy_override
                  : ploidy_at(ref_path_name, get<0>(ref_interval),
                              ref_offsets.count(ref_path_name) ? ref_offsets.at(ref_path_name) : 0,
-                             ref_ploidies[ref_path_name]);
+                             ref_ploidies.count(ref_path_name)
+                                 ? ref_ploidies.at(ref_path_name) : 0);
 
     // Constants for bounded traversal set handling
     const int MAX_TRAVS_PER_SET = 10;
@@ -6212,6 +6242,14 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
             // that does reach it, and going back to the reads to find that out is the cost this
             // design exists to remove.
             added = true;
+        } else if (nested_context.reported_inline) {
+            // An enclosing block's ALT already spells this chain out, so it gets no line of its own
+            // -- but it is genotyped and recorded like any other site, because its allele pair is
+            // what phases everything inside it. Ordered after `retain_only`, which deliberately does
+            // not record: a chain no called allele reaches is recorded by the barrier or not at all.
+            record_site(snarl, travs, trav_genotype, trav_call_info, ref_path_name,
+                        ref_offsets[ref_path_name]);
+            added = true;
         } else if (!gaf_output) {
             // Recorded here rather than inside emit_variant, and deliberately NOT on the retain_only
             // path above: a retained chain is recorded today only if the barrier later gives it a
@@ -6265,6 +6303,7 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
             pending_this->chain_index = nested_context.chain_index;
             pending_this->chain_key = nested_context.chain_key;
             pending_this->no_reference = no_ref_position;
+            pending_this->reported_inline = nested_context.reported_inline;
             pending_this->anchor_position =
                 no_ref_position ? get<0>(ref_interval) + ref_offsets[ref_path_name] : 0;
             pending_this->crossing_known = nested_context.crossing_known;
@@ -6389,9 +6428,15 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
                 // block's ALT, so its own record would report the same variation a second time.
                 // Inert with the flag off, and deliberately inert for a snarl whose projection has
                 // no symbols, where the question cannot be answered.
-                if (chain_reported_inline(snarl, travs, trav_genotype, ref_trav_idx, *child)) {
-                    continue;
-                }
+                //
+                // It suppresses the LINE, not the descent. Skipping the chain here meant it was
+                // never genotyped and never recorded, so nothing inside it reached the linkage layer
+                // and it could not inform its own parent's phase -- an emission rule deciding what
+                // gets inferred. Inherited, because a chain inside one a block spelled out is
+                // spelled out by that block as well.
+                bool child_reported_inline =
+                    nested_context.reported_inline
+                    || chain_reported_inline(snarl, travs, trav_genotype, ref_trav_idx, *child);
 
                 int copies = child_ploidy(travs, trav_genotype, *child, ploidy);
                 bool retain_only = nested_context.retain_only;
@@ -6415,6 +6460,7 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
                 nested_context.parent_record_key = record_key_of(snarl);
                 nested_context.retain_only = retain_only;
                 nested_context.no_reference = child_off_reference;
+                nested_context.reported_inline = child_reported_inline;
                 // Where this snarl sits in its chain. The alignment rank identifies the CHAIN --
                 // every snarl of one chain collapses to a single symbol and so shares a column --
                 // so without this the siblings inside a chain are ordered only by reference
@@ -6716,7 +6762,8 @@ bool NestedFlowCaller::call_snarl_recursive(const Snarl& managed_snarl, int max_
         if (max_ploidy == -1) {
             max_ploidy = ploidy_at(ref_path_name, get<0>(ref_interval),
                                    ref_offsets.count(ref_path_name) ? ref_offsets.at(ref_path_name) : 0,
-                                   ref_ploidies[ref_path_name]);
+                                   ref_ploidies.count(ref_path_name)
+                                       ? ref_ploidies.at(ref_path_name) : 0);
         }        
     } else {
         // if we have no reference infromation, try to get it from the parent snarl
@@ -6892,7 +6939,8 @@ bool NestedFlowCaller::emit_snarl_recursive(const Snarl& managed_snarl, int ploi
             ploidy = ploidy_at(record.ref_path_name, record.ref_path_interval.first,
                                ref_offsets.count(record.ref_path_name)
                                    ? ref_offsets.at(record.ref_path_name) : 0,
-                               ref_ploidies[record.ref_path_name]);
+                               ref_ploidies.count(record.ref_path_name)
+                                   ? ref_ploidies.at(record.ref_path_name) : 0);
         }
         
         pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>>& genotype = record.genotype_by_ploidy[ploidy - 1];

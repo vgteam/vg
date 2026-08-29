@@ -384,6 +384,15 @@ protected:
         /// invocation from the graph, because a descendant's own boundaries may sit on a declared
         /// reference path even when its parent's did not.
         bool no_reference = false;
+        /// Under block emission, an enclosing difference block's ALT has already spelled out this
+        /// chain's variation, so its own line would report the same thing a second time.
+        ///
+        /// That is a fact about EMISSION, and it used to gate DESCENT: the chain was not visited,
+        /// not genotyped and not recorded, so nothing inside it informed its parent's phase either.
+        /// It is genotyped and recorded now, and held back at the render, which is where a decision
+        /// about lines belongs. Inherited: everything inside a chain a block already spelled out is
+        /// spelled out by that block too.
+        bool reported_inline = false;
         /// The index of the chain member being descended into, within its chain. Set beside the
         /// other per-child facts before the recursive call, and read by that child for its own
         /// entry -- the same way `parent_crossing` travels.
@@ -1149,6 +1158,8 @@ protected:
         /// Identity of this snarl's chain, from its boundary pair; the decode's group key.
         size_t chain_key = 0;
         int chain_index = -1;
+        /// See NestedContext::reported_inline. Held back from the render, like `no_reference`.
+        bool reported_inline = false;
         /// This snarl has no reference path of its own, so no line may be written for it: REF and
         /// POS are undefined. It is genotyped and recorded into the linkage layer regardless, which
         /// is the whole point -- the reads reach it through node-ID ranges, not coordinates.

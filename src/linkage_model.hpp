@@ -444,6 +444,31 @@ public:
 
     /// A genotype the linkage pass wants changed, identified by the key the caller supplied.
 
+    /// Where a site sits in the tree, as one named object rather than ten trailing parameters.
+    ///
+    /// The parameters it replaces were all bool, int and size_t, and those convert to one another
+    /// silently -- so a call site that dropped one still compiled, with every later argument
+    /// shifted by one. That happened three times on this branch and the compiler caught none of
+    /// them; designated initialisers make the same mistake a compile error, and a reader can tell
+    /// what an argument means without counting commas.
+    struct SiteContext {
+        /// One copy of the chain, so its likelihoods are haploid.
+        bool nested = false;
+        size_t parent_record_key = 0;
+        /// Bit t set iff the parent's candidate traversal t crosses this chain.
+        uint64_t parent_crossing = 0;
+        size_t generation = 0;
+        /// Whether a VCF line was written for this site. Recorded either way.
+        bool emitted = true;
+        int align_rank = -1;
+        int chain_index = -1;
+        bool chain_backward = false;
+        /// `position` is an anchor in the contig, not a coordinate for this snarl.
+        bool unpositioned = false;
+        /// The chain's own boundary pair, hashed. Its identity, and the group key.
+        size_t chain_key = 0;
+    };
+
     /// Record one genotyped site. Safe to call from several threads.
     ///
     /// Everything here is in the genotyper's own space -- candidate traversal indices -- not in VCF
@@ -451,7 +476,7 @@ public:
     /// traversal it carries or -1 where it does not traverse the site. `called_trav_i/j` is the pair
     /// the per-site model chose, so a change can be detected without keeping the record.
     /// `traversal_to_allele` maps candidate traversals to the VCF alleles they were emitted as, for
-    /// rendering only; pass it empty for a site that wrote no line, with `emitted` false.
+    /// rendering only; pass it empty for a site that wrote no line, with `ctx.emitted` false.
     ///
     /// A site that emitted nothing is still recorded, because it still has an allele pair and that
     /// pair is what phases its children. Gating entry on "a line was written" is what left a
@@ -462,13 +487,9 @@ public:
                 int called_trav_i, int called_trav_j,
                 const vector<int>& traversal_to_allele,
                 size_t record_key,
-                double explained_share, size_t ploidy = 2,
-                int64_t start_node = 0, int64_t end_node = 0,
-                bool nested = false, size_t parent_record_key = 0,
-                uint64_t parent_crossing = 0, size_t generation = 0,
-                bool emitted = true, int align_rank = -1, int chain_index = -1,
-                bool chain_backward = false, bool unpositioned = false,
-                size_t chain_key = 0);
+                double explained_share, size_t ploidy,
+                int64_t start_node, int64_t end_node,
+                const SiteContext& ctx);
 
     /// The compact allele space `record` builds for one site: the called pair plus every traversal
     /// some panel haplotype carries, deduplicated by traversal and sorted.

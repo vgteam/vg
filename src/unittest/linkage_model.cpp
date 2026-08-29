@@ -73,8 +73,14 @@ static void record_dense(LinkageCollector& c, const string& contig, size_t posit
         ident[i] = (int)i;
     }
     c.record(contig, position, gls, panel, (int)called_i, (int)called_j, ident, record_key,
-             share, ploidy, start_node, end_node, nested, parent_record_key,
-             parent_crossing, generation, emitted);
+             share, ploidy, start_node, end_node,
+             LinkageCollector::SiteContext{
+                 .nested = nested,
+                 .parent_record_key = parent_record_key,
+                 .parent_crossing = parent_crossing,
+                 .generation = generation,
+                 .emitted = emitted,
+             });
 }
 
 static bool respecify_dense(LinkageCollector& c, size_t record_key,
