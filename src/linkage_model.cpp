@@ -1468,15 +1468,6 @@ void LinkageCollector::record(const string& contig, size_t position,
     e.emitted = ctx.emitted;
     e.parent_record_key = ctx.parent_record_key;
     e.parent_crossing = ctx.parent_crossing;
-    // Passed in, not set afterwards. The barrier computes a chain's alignment rank before the block
-    // that can create this entry, so a `set_align_rank` call for a chain the sweep never recorded
-    // finds no entry and is discarded -- silently, since its return was ignored. That left the 520
-    // chains on chr20 that are reachable only under the settled parent with no rank at all, which is
-    // the population the ordering exists for. The parent's key travels the same way.
-    e.align_rank = (int32_t)ctx.align_rank;
-    // A pure graph fact, so it is known at descent and needs none of the barrier's plumbing.
-    e.chain_index = (int32_t)ctx.chain_index;
-    e.chain_backward = ctx.chain_backward;
     e.unpositioned = ctx.unpositioned;
     e.chain_key = ctx.chain_key;
     e.generation = (uint8_t)(ctx.generation > 255 ? 255 : ctx.generation);
@@ -1710,16 +1701,6 @@ bool LinkageCollector::set_frame(size_t record_key, int slot, int offset) {
     return false;
 }
 
-bool LinkageCollector::set_align_rank(size_t record_key, int rank, bool chain_backward) {
-    lock_guard<std::mutex> guard(mutex);
-    const uint32_t found = live_index(record_key);
-    if (found == NO_ENTRY) {
-        return false;
-    }
-    entries[found].align_rank = (int32_t)rank;
-    entries[found].chain_backward = chain_backward;
-    return true;
-}
 
 bool LinkageCollector::has_entry(size_t record_key) const {
     lock_guard<std::mutex> guard(mutex);
@@ -2006,34 +1987,24 @@ size_t LinkageCollector::resolve_generation(
         const char* v = getenv("VG_LINKAGE_PARENT_GAP");
         return v != nullptr ? atoi(v) : 0;
     }();
-    // Order a parent's children by the alignment of its two settled traversals instead of by
-    // reference position. On by default: where both orders exist they are predicted to agree, and
-    // where only the alignment exists it is the only order there is.
-    //
-    // VG_LINKAGE_NO_ALIGN_ORDER forces reference order, so one binary produces both arms.
-    static const bool no_align_order = getenv("VG_LINKAGE_NO_ALIGN_ORDER") != nullptr;
-    // The chain's OWN order -- the snarl's index within its chain, reversed where the parent crosses
-    // the chain from its end boundary. A separate switch from the alignment rank because the two are
-    // separate facts: the rank orders whole chains against each other and comes from an alignment of
-    // the parent's two settled traversals, while the index orders the snarls inside one chain and is
-    // a pure property of the decomposition.
-    //
-    // They have to be separable to be deleted separately. NO_ALIGN_ORDER drops both in the per-strand
-    // pass but only the rank in the diploid groups, so it cannot answer whether the index earns its
-    // keep; this one drops the index in both.
-    static const bool no_chain_order = getenv("VG_LINKAGE_NO_CHAIN_ORDER") != nullptr;
     // The haploid analogue of the per-chain diploid decode: bucket the per-strand nested pass by the
     // chain a site belongs to as well as by (phase set, strand), so a haploid nested chain is decoded
     // alone instead of pooled with every other chain on that strand.
     static const bool per_chain_strand = getenv("VG_LINKAGE_PER_CHAIN_STRAND") != nullptr;
+    // The last ordering key with an absence to protect against. On the default path the frame is
+    // read in ONE place that changes anything -- the per-strand comparator -- because the gap it can
+    // also form is reached only where a site has no reference position, and the reference gate keeps
+    // that population out. So this asks of the frame exactly what NO_ALIGN_ORDER and NO_CHAIN_ORDER
+    // asked of the other two keys, and an inert answer retires `frame_offset`, `set_frame` and the
+    // barrier's whole frame-measuring block with it.
+    static const bool no_frame = getenv("VG_LINKAGE_NO_FRAME") != nullptr;
     // Each nested CHAIN is decoded on its own, conditioned on its parent -- never pooled with its
     // parent's other chains.
     //
     // This is the whole of the "is linkage BETWEEN nested chains worth anything?" question. Within a
     // chain the snarls stay linked, so recombination inside a chain is still modelled; between two
     // chains under one parent there is no transition at all, and each is answered from the parent's
-    // context alone. `align_rank` is the chain identity -- every snarl of one chain collapses to one
-    // symbol and so shares a column -- so it is exactly the discriminator this needs.
+    // context alone.
     //
     // MEASURED, on three contigs, by decoding each chain alone against pooling a parent's children:
     // chr20 every small-variant class identical to five decimals with matching TP/FP/FN and SV
@@ -2068,10 +2039,9 @@ size_t LinkageCollector::resolve_generation(
             return relate_to_parent(child.parent_crossing, ta, tb);
         };
 
-        // (parent, chain). `align_rank` is the chain IDENTITY -- every snarl of one chain collapses
-        // to a single symbol in the parent's projection and so shares a column. A chain the
-        // alignment could not identify becomes its own group rather than being pooled with every
-        // other unidentified chain under this parent.
+        // (parent, chain), where the chain half is its boundary pair from the graph. A snarl the
+        // decomposition puts in no chain becomes its own group rather than being pooled with every
+        // other such snarl under this parent.
         auto group_key = [&](const Entry& e) {
             // The chain's own boundary pair, from the graph. Measured against the alignment-rank
             // key it replaces, on three contigs: 6,481 groups partitioned identically and 37
@@ -2165,66 +2135,18 @@ size_t LinkageCollector::resolve_generation(
                 const size_t pidx = index_of_key[kv.first.first];
                 vector<size_t> group;
                 group.push_back(pidx);
-                // A TOTAL key per entry, not a chain of skippable comparisons.
+                // A TOTAL key, not a chain of skippable comparisons.
                 //
                 // "Compare on this key only if BOTH operands have it, else fall through" is not a
                 // strict weak ordering, and std::sort on one is undefined behaviour rather than
-                // merely a different order. With absence spelled as -1 and one absent operand
-                // skipping the key, A(rank -, pos 2), B(rank 1, pos 3), C(rank 2, pos 1) gives
-                // A<B, B<C and C<A: a brute force over small triples finds 204 such cycles here and
-                // 81 in the frame-and-position form that predates the alignment rank, so this was
-                // latent before the rank was added and the rank widened it.
-                //
-                // An absent rank therefore sorts LAST, uniformly, rather than deferring to position.
-                // It is a convention and not a claim -- a chain the alignment could not place has no
-                // defined position among the ones it could -- and its virtue is being consistent.
-                // Sorting absence FIRST is the alternative and is known bad: an entry at the head of
-                // its group hands its neighbour a spurious multi-megabase gap, which is the shape of
-                // the 448-site regression recorded at the strand derivation.
-                // The choice of key is made ONCE for the group, not per pair. Every child here
-                // hangs off the same parent, so either the alignment placed all of them and their
-                // ranks are mutually comparable, or it did not and reference position is the only
-                // order that covers the whole group.
-                //
-                // Deciding per pair is what breaks: an absent rank cannot be compared, so skipping
-                // the key for that pair alone mixes two orders inside one group and is intransitive
-                // -- 204 cycles over small triples, against 81 for the frame-and-position form that
-                // predates the rank. Substituting a sentinel is transitive but displaces the
-                // unplaced chain to one end of its group, which distorts its neighbours' gaps; that
-                // is the shape of the 448-site regression recorded at the strand derivation, and it
-                // moved 241 chr20 lines when tried here.
-                //
-                // All-or-nothing per group is transitive, moves nobody, and degrades to exactly the
-                // previous behaviour wherever the alignment is incomplete.
-                bool all_ranked = !no_align_order;
-                for (size_t idx : kv.second) {
-                    if (entries[idx].align_rank < 0) {
-                        all_ranked = false;
-                        break;
-                    }
-                }
-                bool all_indexed = !no_chain_order;
-                for (size_t idx : kv.second) {
-                    if (entries[idx].chain_index < 0) {
-                        all_indexed = false;
-                        break;
-                    }
-                }
+                // merely a different order: with absence spelled as -1, A(-, 2), B(1, 3), C(2, 1)
+                // gives A<B, B<C and C<A. A brute force over small triples found 204 such cycles
+                // here. Both partial keys are gone now -- measured to order nothing anything reads
+                // -- and what is left is total for every entry, which is why there is no longer a
+                // per-group decision about which key to use.
                 sort(kv.second.begin(), kv.second.end(), [&](size_t a, size_t c) {
                     const Entry& ea = entries[a];
                     const Entry& ec = entries[c];
-                    if (all_ranked && ea.align_rank != ec.align_rank) {
-                        return ea.align_rank < ec.align_rank;
-                    }
-                    // Equal ranks means the same chain, and then the chain's own order decides --
-                    // the alignment cannot, having collapsed the chain to one symbol. Reversed where
-                    // the parent crosses the chain from its end boundary; both operands are in that
-                    // one chain, so they share the flag and either one answers.
-                    if (all_indexed && ea.chain_key == ec.chain_key
-                        && ea.chain_index != ec.chain_index) {
-                        return ea.chain_backward ? ea.chain_index > ec.chain_index
-                                                 : ea.chain_index < ec.chain_index;
-                    }
                     if (ea.position != ec.position) {
                         return ea.position < ec.position;
                     }
@@ -3128,39 +3050,32 @@ size_t LinkageCollector::resolve_generation(
             // Measured on chr20: 0 of 5,540 same-parent adjacent pairs reorder under this key, so the
             // order is not what this change moves -- the distances are.
             const int slot = (int)std::get<1>(group.first) <= 1 ? (int)std::get<1>(group.first) : 0;
-            // Same total-key discipline as the diploid groups, and for the same reason: this
-            // comparator had TWO skippable keys, the alignment rank and the frame offset, so it was
-            // the more exposed of the pair.
-            //
-            // Same parent: the alignment of its two settled traversals first -- that is the one
-            // order defined for a chain only one haplotype crosses, which is what these per-strand
-            // chains are made of. Then the offset along the settled traversal, then the reference
-            // position. An absent rank or an absent offset sorts last within its key.
+            // Same total-key discipline as the diploid groups, and for the same reason. The two
+            // partial keys this comparator carried -- the alignment rank and the chain index -- were
+            // measured to order nothing anything reads, so the frame offset is the only key left
+            // that an entry can lack, and it is decided per PARENT: a key is usable for a pair only
+            // if it is usable for every sibling either of them could be compared against, and the
+            // anchor is what separates one parent's children from another's.
             auto anchor_of = [&](const Entry& e) {
                 auto it = position_of.find(e.parent_record_key);
                 return it != position_of.end() ? it->second : e.position;
             };
-            // This bucket spans parents, so the all-or-nothing decision is per PARENT: a key is
-            // usable for a pair only if it is usable for every sibling either of them could be
-            // compared against, and the anchor is what separates one parent's children from
-            // another's. Both keys are decided this way -- the frame offset has exactly the same
-            // problem as the rank and predates it.
-            unordered_map<size_t, unsigned char> parent_keys;   // bit 0 all ranked, bit 1 all framed
+            auto frame_of = [&](const Entry& e) -> int64_t {
+                return no_frame ? -1 : (int64_t)e.frame_offset[slot];
+            };
+            unordered_map<size_t, bool> parent_framed;
             {
-                unordered_map<size_t, unsigned char> missing;
+                unordered_map<size_t, bool> missing;
                 for (size_t idx : idxs) {
                     const Entry& e = entries[idx];
-                    unsigned char& m = missing[e.parent_record_key];
-                    if (e.align_rank < 0) { m |= 1; }
-                    if (e.frame_offset[slot] < 0) { m |= 2; }
-                    if (e.chain_index < 0) { m |= 4; }
+                    if (frame_of(e) < 0) {
+                        missing[e.parent_record_key] = true;
+                    } else {
+                        missing.emplace(e.parent_record_key, false);
+                    }
                 }
                 for (const auto& kv : missing) {
-                    unsigned char usable = 0;
-                    if (!no_align_order && (kv.second & 1) == 0) { usable |= 1; }
-                    if ((kv.second & 2) == 0) { usable |= 2; }
-                    if (!no_align_order && !no_chain_order && (kv.second & 4) == 0) { usable |= 4; }
-                    parent_keys[kv.first] = usable;
+                    parent_framed[kv.first] = !kv.second;
                 }
             }
             sort(idxs.begin(), idxs.end(), [&](size_t a, size_t b) {
@@ -3171,21 +3086,9 @@ size_t LinkageCollector::resolve_generation(
                     return aa < ab;
                 }
                 // Same anchor, so the same parent, so one lookup answers for both.
-                auto uk = parent_keys.find(ea.parent_record_key);
-                const unsigned char usable = uk != parent_keys.end() ? uk->second : 0;
-                if ((usable & 1) && ea.align_rank != eb.align_rank) {
-                    return ea.align_rank < eb.align_rank;
-                }
-                // Same chain: its own order, not the frame offset. The offset does separate two
-                // snarls of one chain, but as a bp walk along one traversal rather than as anything
-                // intrinsic; the chain index is the exact answer the decomposition already holds.
-                if ((usable & 4) && ea.chain_key == eb.chain_key
-                    && ea.chain_index != eb.chain_index) {
-                    return ea.chain_backward ? ea.chain_index > eb.chain_index
-                                             : ea.chain_index < eb.chain_index;
-                }
-                if ((usable & 2) && ea.frame_offset[slot] != eb.frame_offset[slot]) {
-                    return ea.frame_offset[slot] < eb.frame_offset[slot];
+                auto uk = parent_framed.find(ea.parent_record_key);
+                if (uk != parent_framed.end() && uk->second && frame_of(ea) != frame_of(eb)) {
+                    return frame_of(ea) < frame_of(eb);
                 }
                 if (ea.position != eb.position) {
                     return ea.position < eb.position;
@@ -3235,14 +3138,13 @@ size_t LinkageCollector::resolve_generation(
                                                  && prev.position > 0 && e.position > 0);
                     if (!have_reference
                         && prev.parent_record_key == e.parent_record_key
-                        && prev.frame_offset[slot] >= 0 && e.frame_offset[slot] >= 0) {
+                        && frame_of(prev) >= 0 && frame_of(e) >= 0) {
                         // Slot 0 only: this is a per-strand haploid chain, so there is one distance
                         // and `site_gap` uses it for both of the pair's strands.
                         //
                         // Start to start, matching the reference difference this stands in for. The
                         // diploid groups measure the same way, for the same reason.
-                        s.gap_to_previous[0] =
-                            (int64_t)e.frame_offset[slot] - (int64_t)prev.frame_offset[slot];
+                        s.gap_to_previous[0] = frame_of(e) - frame_of(prev);
                         if (s.gap_to_previous[0] < 0) {
                             // The tuple sort put them in this order, so a negative step means the
                             // frames disagree with it -- do not feed the model a wrapped distance.

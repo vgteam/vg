@@ -395,12 +395,12 @@ protected:
         bool reported_inline = false;
         /// The index of the chain member being descended into, within its chain. Set beside the
         /// other per-child facts before the recursive call, and read by that child for its own
-        /// entry -- the same way `parent_crossing` travels.
         /// Identity of the chain being descended into, from its boundary pair. The decode
         /// groups on this: sibling chains have no transition between them, so a chain must be
-        /// distinguishable from its siblings and nothing more.
+        /// distinguishable from its siblings and nothing more, which is why nothing here says
+        /// where the chain SITS -- neither among its siblings nor within itself. Both orders were
+        /// measured to change no byte of the output on three contigs.
         size_t chain_key = 0;
-        int chain_index = -1;
         /// False when the crossing mask could not be computed: the parent emitted nothing on this
         /// invocation, or carries too many alleles for a 64-bit mask. child_crossing_mask returns 0
         /// for "unknown", and the barrier must not read that 0 as "no allele crosses" -- so the
@@ -1148,16 +1148,8 @@ protected:
         unique_ptr<SnarlCaller::CallInfo> call_info;
         size_t record_key = 0;
         size_t parent_record_key = 0;
-        /// The chain's column in the alignment of its parent's two settled traversals, computed at
-        /// the barrier, or -1. Carried here because the barrier can compute it before the chain has
-        /// a layer entry to write it to, and `record` then takes it as an argument.
-        int align_rank = -1;
-        /// This snarl's index within its chain, from the decomposition. Unlike `align_rank` this is
-        /// known at descent, so it needs no replay -- it is carried only because the barrier's
-        /// record() fallback builds the entry and must be given it.
         /// Identity of this snarl's chain, from its boundary pair; the decode's group key.
         size_t chain_key = 0;
-        int chain_index = -1;
         /// See NestedContext::reported_inline. Held back from the render, like `no_reference`.
         bool reported_inline = false;
         /// This snarl has no reference path of its own, so no line may be written for it: REF and
@@ -1167,10 +1159,6 @@ protected:
         /// The parent's reference start, standing in for a position this snarl does not have. Used
         /// wherever a key or an ordering coordinate is needed; never as a distance.
         int64_t anchor_position = 0;
-        /// Whether the parent's settled traversal crossed this snarl's chain backward, from
-        /// `SymbolicStep::backward` on the matched chain symbol. A barrier-time fact like
-        /// `align_rank`, so it travels the same way.
-        bool chain_backward = false;
         /// One bit per parent *candidate traversal*, set where that traversal crosses this chain.
         uint64_t parent_crossing = 0;
         /// False when parent_crossing could not be computed (the parent emitted nothing during the
