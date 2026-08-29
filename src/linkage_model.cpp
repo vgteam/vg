@@ -17,8 +17,6 @@ namespace vg {
 /// cannot spell the genotype the site is constrained to. A refused pin on a group's PARENT frees the
 /// whole group's orientation while its haploid siblings stay tied to the parent's phase.
 static std::atomic<size_t> g_pin_applied(0), g_pin_declined(0);
-/// V1: mean -log P(neither strand switches) per step, in units of 1e-9, and the step count.
-static std::atomic<size_t> g_margin_neglog(0), g_margin_steps(0);
 /// Groups whose parent was never offered a pin at all -- no PhaseCall to pin it to.
 static std::atomic<size_t> g_group_parent_unpinned(0), g_group_parent_pinned(0);
 
@@ -1919,12 +1917,6 @@ size_t LinkageCollector::resolve_generation(
     // context would otherwise have its children decoded with no context at all, which is the
     // uniform boundary that discards everything.
     size_t grouped_sites = 0, grouped_groups = 0;
-    // Stage B, per generation: how the diploid nested steps were measured.
-    size_t fg_pair = 0, fg_differ = 0, fg_single = 0, fg_one_slot = 0, fg_no_frame = 0;
-    size_t fg_cross_parent = 0, fg_mirrored = 0, fg_equals_ref = 0, fg_parent_step = 0;
-    size_t unpos_diploid_sites = 0, unpos_steps = 0, unpos_framed = 0, unpos_uniform = 0;
-    // Stage C, per generation: how often the alignment order and the reference order disagree.
-    size_t ao_pairs = 0, ao_reordered = 0, ao_unranked = 0, ao_group_unranked = 0;
     // VG_LINKAGE_NO_GROUPING forces the contig-chain path, so one binary can produce both arms of
     // a comparison and the only difference between them is this.
     static const bool no_grouping = getenv("VG_LINKAGE_NO_GROUPING") != nullptr;
@@ -2090,13 +2082,10 @@ size_t LinkageCollector::resolve_generation(
                     const Entry& p1 = entries[kv.second[a - 1]];
                     const Entry& p2 = entries[kv.second[a]];
                     if (p1.align_rank >= 0 && p2.align_rank >= 0) {
-                        ++ao_pairs;
                         if ((p1.align_rank < p2.align_rank) != (p1.position < p2.position)
                             && p1.position != p2.position && p1.align_rank != p2.align_rank) {
-                            ++ao_reordered;
                         }
                     } else {
-                        ++ao_unranked;
                     }
                 }
                 // A TOTAL key per entry, not a chain of skippable comparisons.
@@ -2138,7 +2127,6 @@ size_t LinkageCollector::resolve_generation(
                     }
                 }
                 if (!all_ranked) {
-                    ++ao_group_unranked;
                 }
                 bool all_indexed = true;
                 for (size_t idx : kv.second) {
@@ -2277,14 +2265,12 @@ size_t LinkageCollector::resolve_generation(
             // Diploid chains only. A haploid chain has one strand, so the per-strand form has nothing
             // to say there, and the nested per-strand chains already measure their own frame gap.
             if (e.unpositioned && e.ploidy == 2) {
-                ++unpos_diploid_sites;
             }
             if (frame_gap_mode > 0 && k > 0 && chain_ploidy == 2 && e.parent_record_key != 0) {
                 // Does this step touch a site with no reference position? That is the population
                 // whose distance CANNOT fall back, so it is the one where an unframed step goes
                 // uniform and severs the chain rather than merely losing precision.
                 if (e.unpositioned || entries[indices[k - 1]].unpositioned) {
-                    ++unpos_steps;
                 }
                 const Entry& prev = entries[indices[k - 1]];
                 if (prev.record_key == e.parent_record_key) {
@@ -2305,29 +2291,18 @@ size_t LinkageCollector::resolve_generation(
                     }
                     if (g[0] >= 0 && g[1] >= 0) {
                         if (g[0] != g[1]) {
-                            ++fg_differ;
                         }
                         if (frame_gap_mode == 1) {
                             s.gap_to_previous[0] = (g[0] + g[1]) / 2;
-                            ++fg_single;
                         } else {
                             s.gap_to_previous[0] = g[0];
                             s.gap_to_previous[1] = g[1];
-                            ++fg_pair;
                         }
-                        ++fg_parent_step;
-                        if (e.unpositioned || prev.unpositioned) { ++unpos_framed; }
                     } else if (g[0] >= 0 || g[1] >= 0) {
                         s.gap_to_previous[g[0] >= 0 ? 0 : 1] = g[0] >= 0 ? g[0] : g[1];
-                        ++fg_one_slot;
-                        ++fg_parent_step;
-                        if (e.unpositioned || prev.unpositioned) { ++unpos_framed; }
                     } else {
-                        ++fg_no_frame;
-                        if (e.unpositioned || prev.unpositioned) { ++unpos_uniform; }
                     }
                 } else if (prev.parent_record_key != e.parent_record_key) {
-                    ++fg_cross_parent;
                 } else {
                     int64_t g[2] = {-1, -1};
                     bool any_mirrored = false;
@@ -2358,7 +2333,6 @@ size_t LinkageCollector::resolve_generation(
                         }
                     }
                     if (any_mirrored) {
-                        ++fg_mirrored;
                     }
                     // How often the traversal distance and the reference distance are the SAME
                     // number. Two adjacent siblings share a boundary node, so wherever the parent's
@@ -2368,25 +2342,20 @@ size_t LinkageCollector::resolve_generation(
                     if (g[0] >= 0) {
                         const int64_t refd = (int64_t)e.position - (int64_t)prev.position;
                         if (g[0] == (refd >= 0 ? refd : -refd)) {
-                            ++fg_equals_ref;
                         }
                     }
                     if (g[0] >= 0 && g[1] >= 0) {
                         // Counted in both modes, so mode 1 can say how many steps it flattened.
                         if (g[0] != g[1]) {
-                            ++fg_differ;
                         }
                         if (frame_gap_mode == 1) {
                             // One scalar for both strands. Written to slot 0 alone -- `site_gap`
                             // uses a single known slot for both, so this needs no second copy.
                             s.gap_to_previous[0] = (g[0] + g[1]) / 2;
-                            ++fg_single;
                         } else {
                             s.gap_to_previous[0] = g[0];
                             s.gap_to_previous[1] = g[1];
-                            ++fg_pair;
                         }
-                        if (e.unpositioned || prev.unpositioned) { ++unpos_framed; }
                     } else if (g[0] >= 0 || g[1] >= 0) {
                         // One traversal enters this chain and the other does not, or one step came
                         // out negative. The known distance stands for both strands, which is what a
@@ -2399,10 +2368,7 @@ size_t LinkageCollector::resolve_generation(
                         // descent claim both traversals carry it (then a frame failed to measure),
                         // or did it claim one (then the ploidy is wrong upstream)?
                         s.gap_to_previous[g[0] >= 0 ? 0 : 1] = g[0] >= 0 ? g[0] : g[1];
-                        ++fg_one_slot;
                     } else {
-                        ++fg_no_frame;
-                        if (e.unpositioned || prev.unpositioned) { ++unpos_uniform; }
                     }
                 }
             }
@@ -2453,8 +2419,6 @@ size_t LinkageCollector::resolve_generation(
                 const double ra = model.switch_probability(gap.first);
                 const double rb = model.switch_probability(gap.second);
                 const double stay = max(1e-300, (1.0 - ra) * (1.0 - rb));
-                g_margin_neglog.fetch_add((size_t)(-log(stay) * 1e9));
-                ++g_margin_steps;
             }
         }
 
@@ -2689,52 +2653,9 @@ size_t LinkageCollector::resolve_generation(
                   << (bytes / (1024.0 * 1024.0)) << " MB" << std::endl;
     }
 
-    if (ao_pairs + ao_unranked > 0) {
-#pragma omp critical (cerr)
-        std::cerr << "[vg call] linkage generation " << generation << ": " << ao_pairs
-                  << " same-parent adjacent pairs ranked by the settled traversals' alignment, "
-                  << ao_reordered << " of them in a different order than the reference; "
-                  << ao_unranked << " pairs unranked; " << ao_group_unranked
-                  << " groups fell back to reference order entire, for want of a rank on every"
-                  << " member" << (no_align_order ? " (order forced to the reference)" : "")
-                  << std::endl;
-    }
 
-    if (unpos_diploid_sites > 0) {
-#pragma omp critical (cerr)
-        std::cerr << "[vg call] linkage generation " << generation << ": " << unpos_diploid_sites
-                  << " decoded diploid sites have no reference position; " << unpos_steps
-                  << " steps touch one, of which " << unpos_framed
-                  << " took a traversal distance and " << unpos_uniform
-                  << " had none and went uniform" << std::endl;
-    }
 
-    if (frame_gap_mode > 0 && (fg_pair + fg_single + fg_one_slot + fg_no_frame
-                               + fg_cross_parent) > 0) {
-#pragma omp critical (cerr)
-        std::cerr << "[vg call] linkage generation " << generation << ": frame gaps mode "
-                  << frame_gap_mode << " -- " << (frame_gap_mode == 1 ? fg_single : fg_pair)
-                  << " same-parent steps spaced along the settled traversals ("
-                  << fg_differ << " where the two strands' distances differ"
-                  << (frame_gap_mode == 1 ? ", flattened to their mean" : "") << "), "
-                  << fg_one_slot << " from one traversal only, " << fg_no_frame
-                  << " with no frame at all, " << fg_cross_parent
-                  << " cross-parent -- the last two on the reference difference; "
-                  << fg_mirrored << " measured against the traversal's own direction, "
-                  << fg_equals_ref << " exactly equal to the reference difference; "
-                  << fg_parent_step << " parent-to-first-child steps taken from the child's own"
-                  << " offset along the parent's traversal" << std::endl;
-    }
 
-    if (generation == 0 && g_margin_steps.load() > 0) {
-        const double mean = (g_margin_neglog.load() / 1e9) / (double)g_margin_steps.load();
-#pragma omp critical (cerr)
-        std::cerr << "[vg call] margin: " << g_margin_steps.load() << " top-level steps, mean"
-                  << " -log P(no switch) = " << mean << " per step; correlation retained across "
-                  << params.margin << " sites = " << exp(-(double)params.margin * mean)
-                  << "; sites needed for 0.05 = " << (mean > 0 ? (-log(0.05) / mean) : -1.0)
-                  << ", for 0.01 = " << (mean > 0 ? (-log(0.01) / mean) : -1.0) << std::endl;
-    }
 
     if (generation > 0 && (g_pin_applied.load() + g_pin_declined.load()) > 0) {
 #pragma omp critical (cerr)
@@ -3122,9 +3043,6 @@ size_t LinkageCollector::resolve_generation(
 
         size_t singleton_groups = 0;
         size_t total_frame_steps = 0, total_ref_steps = 0;
-        // Stage C, in the per-strand haploid chains: alignment order against the key it precedes.
-        size_t hao_pairs = 0, hao_reordered = 0, hao_unranked = 0, hao_group_unranked = 0;
-        size_t hao_same_chain_indexed = 0, hao_same_chain_unindexed = 0;
         for (auto& group : by_strand) {
             vector<size_t>& idxs = group.second;
             // Singletons are NOT skipped. A one-site group has nothing to link against, so linkage
@@ -3178,7 +3096,6 @@ size_t LinkageCollector::resolve_generation(
                     if ((kv.second & 2) == 0) { usable |= 2; }
                     if (!no_align_order && (kv.second & 4) == 0) { usable |= 4; }
                     parent_keys[kv.first] = usable;
-                    if ((usable & 1) == 0) { ++hao_group_unranked; }
                 }
             }
             sort(idxs.begin(), idxs.end(), [&](size_t a, size_t b) {
@@ -3225,24 +3142,19 @@ size_t LinkageCollector::resolve_generation(
                     // the only thing that could before.
                     if (e1.chain_index >= 0 && e2.chain_index >= 0
                         && e1.chain_index != e2.chain_index) {
-                        ++hao_same_chain_indexed;
                     } else {
-                        ++hao_same_chain_unindexed;
                     }
                     continue;
                 }
                 if (e1.align_rank < 0 || e2.align_rank < 0) {
-                    ++hao_unranked;
                     continue;
                 }
-                ++hao_pairs;
                 const bool fallback_agrees =
                     (e1.frame_offset[slot] >= 0 && e2.frame_offset[slot] >= 0
                      && e1.frame_offset[slot] != e2.frame_offset[slot])
                         ? e1.frame_offset[slot] < e2.frame_offset[slot]
                         : (e1.position != e2.position ? e1.position < e2.position : true);
                 if (!fallback_agrees) {
-                    ++hao_reordered;
                 }
             }
             vector<LinkageModel::Site> sites;
@@ -3388,18 +3300,6 @@ size_t LinkageCollector::resolve_generation(
                       << " chain steps spaced along the settled parent traversal, "
                       << total_ref_steps << " still by reference difference (cross-parent, or a"
                       << " frame the sort disagreed with)" << std::endl;
-        }
-        if (hao_pairs + hao_unranked > 0) {
-#pragma omp critical (cerr)
-            std::cerr << "[vg call] per-strand chains: " << hao_pairs
-                      << " same-parent adjacent pairs ordered by the settled traversals'"
-                      << " alignment, " << hao_reordered << " of them in a different order than the"
-                      << " frame offset and reference position it precedes; " << hao_unranked
-                      << " pairs unranked; " << hao_group_unranked
-                      << " parents fell back to reference order entire; "
-                      << hao_same_chain_indexed << " pairs are two snarls of ONE chain and are"
-                      << " ordered by its index, " << hao_same_chain_unindexed
-                      << " of those had no index" << std::endl;
         }
         // Stage 15': the cross-parent numbers, which are the ones the decision to consume these
         // frames has to rest on.

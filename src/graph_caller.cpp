@@ -29,10 +29,6 @@ namespace vg {
 /// constructor has to know about them. Reported under --progress and otherwise inert.
 static std::atomic<size_t> g_descent_depth_hist[16];
 static std::atomic<size_t> g_descent_skipped_no_ref(0);
-/// Read evidence at nested chains, split the way the "score only what the reads touch" rule needs.
-static std::atomic<size_t> g_nested_no_reads(0), g_nested_uninformative(0);
-static std::atomic<size_t> g_nested_informative(0), g_nested_no_callinfo(0);
-static std::atomic<size_t> g_nested_reads_total(0), g_nested_informative_total(0);
 static std::atomic<size_t> g_descent_off_reference(0);
 static std::atomic<size_t> g_no_ref_recorded(0);
 static std::atomic<size_t> g_no_ref_copies[3] = {{0}, {0}, {0}};
@@ -124,23 +120,6 @@ void GraphCaller::report_descent_instrumentation() const {
         cerr << "[vg call] descent: " << g_child_multi_crossing.load()
              << " children a called traversal enters more than once; visits after the first are"
              << " masked, so each contributes one copy and its first crossing's distance" << endl;
-    }
-    if ((g_nested_no_reads.load() + g_nested_uninformative.load()
-         + g_nested_informative.load()) > 0) {
-        const size_t no_r = g_nested_no_reads.load();
-        const size_t uninf = g_nested_uninformative.load();
-        const size_t inf = g_nested_informative.load();
-        const size_t tot = no_r + uninf + inf;
-        cerr << "[vg call] nested read evidence: " << tot << " chains genotyped -- " << no_r
-             << " with NO reads at all (" << (100.0 * no_r / (double)tot) << "%), " << uninf
-             << " with reads that do not discriminate (" << (100.0 * uninf / (double)tot) << "%), "
-             << inf << " informative (" << (100.0 * inf / (double)tot) << "%); "
-             << g_nested_reads_total.load() << " reads reached a matrix, "
-             << g_nested_informative_total.load() << " of them at discriminating sites";
-        if (g_nested_no_callinfo.load() > 0) {
-            cerr << "; " << g_nested_no_callinfo.load() << " with no read-likelihood call info";
-        }
-        cerr << endl;
     }
     cerr << "[vg call] descent skipped: " << g_descent_skipped_no_copy.load()
          << " children no called allele reaches, " << g_descent_skipped_no_ref.load()
@@ -6194,58 +6173,6 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
             snarl, travs, ref_trav_idx, ploidy, ref_path_name,
             make_pair(get<0>(ref_interval), get<1>(ref_interval)));
         ReadLikelihoodSnarlCaller::set_want_alt_ploidy(false);
-
-        // Does this nested chain have reads at all, and do any of them discriminate?
-        //
-        // The proposal is to score only what the reads touch. Two populations hide inside that and
-        // they are not equivalent: a chain NO read traverses has nothing to infer and is free to
-        // skip, while a chain with reads that do not discriminate is exactly where linkage earns
-        // its keep -- the unit test for it is named "Linkage decides a site whose reads cannot".
-        // Skipping the first is safe; skipping the second would remove the layer's main benefit.
-        {
-            const auto* rl_probe =
-                dynamic_cast<const ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo*>(
-                    trav_call_info.get());
-            if (rl_probe != nullptr) {
-                // `n_informative` is the number of reads that reached the likelihood matrix --
-                // despite the name it is a count of reads, not of informative ones, and `n_reads`
-                // is never assigned at all (only copied at read_likelihood_caller.cpp:325), so it
-                // is always zero. Asking it produced "100% of chains have no reads" alongside
-                // 676,012 reads counted, which is how the dead field was found.
-                //
-                // Discrimination is asked of the GENOTYPE likelihoods instead: if every genotype is
-                // equally likely the reads that arrived say nothing, whatever their number.
-                const size_t n = rl_probe->n_informative;
-                bool flat = true;
-                double first = 0.0;
-                bool have_first = false;
-                for (const auto& kv : rl_probe->genotype_lls) {
-                    if (!std::isfinite(kv.second)) {
-                        continue;
-                    }
-                    if (!have_first) {
-                        first = kv.second;
-                        have_first = true;
-                    } else if (fabs(kv.second - first) > 1e-9) {
-                        flat = false;
-                        break;
-                    }
-                }
-                if (n == 0) {
-                    ++g_nested_no_reads;
-                } else if (flat) {
-                    ++g_nested_uninformative;
-                } else {
-                    ++g_nested_informative;
-                }
-                g_nested_reads_total += n;
-                if (!flat) {
-                    g_nested_informative_total += n;
-                }
-            } else {
-                ++g_nested_no_callinfo;
-            }
-        }
 
         const bool retain_only = nested_context.retain_only;
         // The per-invocation fact, re-derived from the graph rather than inherited: this snarl's own
