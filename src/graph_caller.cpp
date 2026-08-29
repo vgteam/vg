@@ -6254,9 +6254,20 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
                 // and it could not inform its own parent's phase -- an emission rule deciding what
                 // gets inferred. Inherited, because a chain inside one a block spelled out is
                 // spelled out by that block as well.
+                //
+                // NOT inert on the default path, which is what the first version of this change
+                // assumed: `--atomize-blocks` is ON by default under `--read-likelihood`, and the
+                // rule holds back 391 chains on chr20. VG_CALL_INLINE_SKIPS_DESCENT restores the
+                // old behaviour, so one binary produces both arms and the deletions around this can
+                // still be gated on byte-identity.
+                static const bool inline_skips_descent =
+                    getenv("VG_CALL_INLINE_SKIPS_DESCENT") != nullptr;
                 bool child_reported_inline =
                     nested_context.reported_inline
                     || chain_reported_inline(snarl, travs, trav_genotype, ref_trav_idx, *child);
+                if (inline_skips_descent && child_reported_inline) {
+                    continue;
+                }
 
                 int copies = child_ploidy(travs, trav_genotype, *child, ploidy);
                 bool retain_only = nested_context.retain_only;
