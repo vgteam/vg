@@ -1943,8 +1943,8 @@ size_t LinkageCollector::resolve_generation(
     //
     // VG_LINKAGE_NO_ALIGN_ORDER forces reference order, so one binary produces both arms.
     static const bool no_align_order = getenv("VG_LINKAGE_NO_ALIGN_ORDER") != nullptr;
-    // VG_LINKAGE_PER_CHAIN_GROUPS: decode each nested CHAIN on its own, conditioned on the parent,
-    // instead of decoding all of a parent's children together.
+    // Each nested CHAIN is decoded on its own, conditioned on its parent -- never pooled with its
+    // parent's other chains.
     //
     // This is the whole of the "is linkage BETWEEN nested chains worth anything?" question. Within a
     // chain the snarls stay linked, so recombination inside a chain is still modelled; between two
@@ -1952,9 +1952,15 @@ size_t LinkageCollector::resolve_generation(
     // context alone. `align_rank` is the chain identity -- every snarl of one chain collapses to one
     // symbol and so shares a column -- so it is exactly the discriminator this needs.
     //
-    // If the two arms score the same, inter-chain ordering and inter-chain distance are both dead
-    // weight: order and spacing only matter where a transition crosses them.
-    static const bool per_chain_groups = getenv("VG_LINKAGE_PER_CHAIN_GROUPS") != nullptr;
+    // MEASURED, on three contigs, by decoding each chain alone against pooling a parent's children:
+    // chr20 every small-variant class identical to five decimals with matching TP/FP/FN and SV
+    // -3.3e-4; chr6 +1.8e-6 ALL and SV identical; chr17 -1.3e-5 ALL and SV +8.4e-4. Every movement
+    // is one call and the signs disagree across contigs, and chr17 carries 273 multi-crossing
+    // children where the other two carry none -- so the case with the best chance of mattering did
+    // not. Inter-chain linkage buys nothing.
+    //
+    // That is what licenses deleting inter-chain ORDER and inter-chain DISTANCE: both are only
+    // observable where a transition crosses between chains, and none does.
     if (generation > 0 && !parent_context.empty() && !no_grouping) {
         unordered_map<size_t, size_t> index_of_key;
         index_of_key.reserve(entries.size() * 2);
@@ -1966,12 +1972,11 @@ size_t LinkageCollector::resolve_generation(
         // Keyed by (parent, chain-within-parent). The chain half is 0 unless per_chain_groups, so
         // the default is exactly the previous one-group-per-parent behaviour.
         map<pair<size_t, size_t>, vector<size_t>> by_parent;
+        // (parent, chain). `align_rank` is the chain IDENTITY -- every snarl of one chain collapses
+        // to a single symbol in the parent's projection and so shares a column. A chain the
+        // alignment could not identify becomes its own group rather than being pooled with every
+        // other unidentified chain under this parent.
         auto group_key = [&](const Entry& e) {
-            if (!per_chain_groups) {
-                return make_pair(e.parent_record_key, (size_t)0);
-            }
-            // An unranked chain cannot be pooled with anything, so it becomes its own group rather
-            // than being lumped with every other unranked chain under this parent.
             const size_t chain = e.align_rank >= 0 ? (size_t)e.align_rank
                                                    : numeric_limits<size_t>::max() - e.record_key;
             return make_pair(e.parent_record_key, chain);
