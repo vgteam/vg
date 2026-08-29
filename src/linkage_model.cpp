@@ -1683,15 +1683,42 @@ size_t LinkageCollector::resolve_generation(
     // in a reference-first graph but is not guaranteed to be it, and the transition probabilities
     // are computed from the gaps -- so trusting the arrival order would silently feed the model
     // the wrong distances.
-    vector<vector<size_t>> by_contig(contig_names.size());
-    for (size_t i = 0; i < entries.size(); ++i) {
-        if (entries[i].generation > generation) {
-            continue;   // not called yet: this generation's descent has not reached it
+    //
+    // Only at the TOP LEVEL. Below it the contig runs are not built at all -- every live site is
+    // grouped with its parent instead -- so the only thing this loop produced there was
+    // `deferred_nested`, at the price of collecting and sorting every entry on the contig once per
+    // generation. Those sites are gathered directly below, and sorted on the same key so the order
+    // is the one the runs would have given.
+    vector<vector<size_t>> by_contig;
+    if (generation == 0) {
+        by_contig.resize(contig_names.size());
+        for (size_t i = 0; i < entries.size(); ++i) {
+            if (entries[i].generation > generation) {
+                continue;   // not called yet: this generation's descent has not reached it
+            }
+            if (entries[i].retracted) {
+                continue;   // the settled parent does not carry the chain, so there is no site here
+            }
+            by_contig[entries[i].contig].push_back(i);
         }
-        if (entries[i].retracted) {
-            continue;   // the settled parent does not carry the chain, so there is no site here
+    } else {
+        for (size_t i = 0; i < entries.size(); ++i) {
+            const Entry& e = entries[i];
+            // Only this generation's. An earlier generation's nested site is already placed on a
+            // strand and already resolved in its own per-strand chain.
+            if (!e.retracted && e.nested && e.generation == generation) {
+                deferred_nested.push_back(i);
+            }
         }
-        by_contig[entries[i].contig].push_back(i);
+        sort(deferred_nested.begin(), deferred_nested.end(), [&](size_t a, size_t b) {
+            if (entries[a].contig != entries[b].contig) {
+                return entries[a].contig < entries[b].contig;
+            }
+            if (entries[a].position != entries[b].position) {
+                return entries[a].position < entries[b].position;
+            }
+            return entries[a].record_key < entries[b].record_key;
+        });
     }
 
     // A chain is a maximal run of one ploidy on one contig, not a whole contig.
@@ -1759,14 +1786,6 @@ size_t LinkageCollector::resolve_generation(
             }
         }
         deferred_nested.insert(deferred_nested.end(), nested_here.begin(), nested_here.end());
-
-        // The contig runs are the TOP-LEVEL decode and nothing else. Below it every live site is
-        // grouped with its parent and the groups replace `chains` wholesale, so building runs there
-        // was scaffolding for a fallback that has never been taken -- and building them cost a sort
-        // and a scan of every entry, once per generation.
-        if (generation > 0) {
-            continue;
-        }
 
         size_t run_start = 0;
         while (run_start < chainable.size()) {
