@@ -1811,9 +1811,19 @@ size_t LinkageCollector::resolve_generation(
     // reader of the entries it rewrites.
     static const bool hard_parent = getenv("VG_LINKAGE_HARD_PARENT") != nullptr;
     if (hard_parent && !pinned_phase.empty()) {
-        const size_t m = n_haplotypes;
-        // Three ways this can decline, counted apart. Lumping them together said only that nothing
-        // was clamped, which is the one thing a diagnostic must never say on its own.
+        // The model's state space is n_haplotypes + 1, not n_haplotypes: the extra state IS the
+        // wildcard, the one a strand takes where the panel explains nothing. Reading the width as
+        // n_haplotypes squared declined every message on chr20 -- 1,156 against the 1,225 they
+        // actually are -- and the arm measured nothing while reporting no error.
+        const size_t m = n_haplotypes + 1;
+        // WILDCARD is spelled `(size_t)-1` outside the model and is state `n_haplotypes` inside it.
+        // Translated rather than rejected: a parent whose strand the panel does not explain has
+        // still SETTLED, on the wildcard, and that is the pair the delta belongs on. Left untranslated
+        // it wraps -- `(size_t)-1 * m + b` can land inside the array -- and writes a delta at a pair
+        // nothing chose, which is worse than declining.
+        auto state_of = [&](size_t h) { return h == LinkageModel::WILDCARD ? n_haplotypes : h; };
+        // Counted apart. Lumped together they said only that nothing was clamped, which is the one
+        // thing a diagnostic must never say on its own.
         size_t clamped = 0, no_phase_call = 0, wrong_width = 0, wild = 0, ctx_width = 0;
         for (auto& kv : parent_context) {
             ctx_width = kv.second.size();
@@ -1826,16 +1836,17 @@ size_t LinkageCollector::resolve_generation(
                 ++wrong_width;
                 continue;
             }
-            // A WILDCARD strand is not a haplotype: the panel does not explain that side, so there
-            // is no pair to put the delta on and clamping to one would invent the explanation the
-            // wildcard exists to deny.
-            if (pin->second.first >= m || pin->second.second >= m) {
-                ++wild;
+            const size_t a = state_of(pin->second.first), b = state_of(pin->second.second);
+            if (a >= m || b >= m) {
+                ++wrong_width;
                 continue;
             }
-            const size_t idx = pin->second.first * m + pin->second.second;
+            if (pin->second.first == LinkageModel::WILDCARD
+                || pin->second.second == LinkageModel::WILDCARD) {
+                ++wild;
+            }
             std::fill(kv.second.begin(), kv.second.end(), 0.0);
-            kv.second[idx] = 1.0;
+            kv.second[a * m + b] = 1.0;
             ++clamped;
         }
         if (clamped > 0 || no_phase_call > 0 || wrong_width > 0 || wild > 0) {
@@ -1845,8 +1856,8 @@ size_t LinkageCollector::resolve_generation(
                       << " context messages replaced by a delta at the settled pair; declined: "
                       << no_phase_call << " with no PhaseCall for the parent, " << wrong_width
                       << " whose message is not m*m wide (m=" << m << ", m*m=" << (m * m)
-                      << ", message=" << ctx_width << "), " << wild
-                      << " whose settled pair has a wildcard strand; " << pinned_phase.size()
+                      << ", message=" << ctx_width << "); of those clamped, " << wild
+                      << " onto a pair with a wildcard strand; " << pinned_phase.size()
                       << " phase calls available" << std::endl;
         }
     }
