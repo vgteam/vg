@@ -144,6 +144,25 @@ static inline void render_phase_pair(const vector<int8_t>& allele_arena, size_t 
 
 /// The candidate traversal a compact allele stands for. This is the genome fact: what a crossing
 /// mask is tested against, and what a per-haplotype path through the snarl is made of.
+/// What a settled parent implies about one of its children, from the parent's two settled
+/// traversals and the child's crossing mask. Free, so it serves both callers: the grouping holds the
+/// parent's Entry, the per-strand pass holds its PhaseCall, and both know the settled pair.
+///
+/// The mask is in TRAVERSAL terms, so it must be tested against the traversals and never against a
+/// compact allele index -- the two agree only when every allele at the parent is panel-carried.
+static inline LinkageCollector::Relation relate_to_parent(uint64_t crossing, int ta, int tb) {
+    LinkageCollector::Relation r;
+    if (ta < 0 || crossing == 0) {
+        return r;   // nothing settled, or descent could not compute the mask
+    }
+    r.known = true;
+    const bool first = ta < 64 && ((crossing >> ta) & 1);
+    const bool second = tb >= 0 && tb < 64 && ((crossing >> tb) & 1);
+    r.copies = (uint8_t)((int)first + (int)second);
+    r.carrying_trav = r.copies == 1 ? (first ? ta : tb) : (r.copies == 2 ? -2 : -1);
+    return r;
+}
+
 static inline int traversal_of(const vector<uint16_t>& trav_arena, size_t trav_offset,
                                size_t num_alleles, size_t compact) {
     if (compact >= num_alleles) {
@@ -1919,7 +1938,6 @@ size_t LinkageCollector::resolve_generation(
     // Stage B, per generation: how the diploid nested steps were measured.
     size_t fg_pair = 0, fg_differ = 0, fg_single = 0, fg_one_slot = 0, fg_no_frame = 0;
     size_t fg_cross_parent = 0, fg_mirrored = 0, fg_equals_ref = 0, fg_parent_step = 0;
-    size_t fg_one_both_claimed = 0, fg_one_single_claimed = 0, fg_one_undetermined = 0;
     size_t unpos_diploid_sites = 0, unpos_steps = 0, unpos_framed = 0, unpos_uniform = 0;
     // Stage C, per generation: how often the alignment order and the reference order disagree.
     size_t ao_pairs = 0, ao_reordered = 0, ao_unranked = 0, ao_group_unranked = 0;
@@ -1981,22 +1999,13 @@ size_t LinkageCollector::resolve_generation(
         // This is the derivation `Entry::ploidy` and `Entry::parent_trav` cache; it is checked
         // against them below and replaces them at step 6.
         auto relate = [&](const Entry& child, const Entry& parent) {
-            Relation r;
             const int ta = traversal_of(trav_arena, parent.trav_offset, parent.num_alleles,
                                         parent.final_i);
             const int tb = parent.ploidy == 2
                                ? traversal_of(trav_arena, parent.trav_offset, parent.num_alleles,
                                               parent.final_j)
                                : -1;
-            if (ta < 0 || child.parent_crossing == 0) {
-                return r;   // nothing settled, or descent could not compute the mask
-            }
-            r.known = true;
-            const bool first = ta >= 0 && ta < 64 && ((child.parent_crossing >> ta) & 1);
-            const bool second = tb >= 0 && tb < 64 && ((child.parent_crossing >> tb) & 1);
-            r.copies = (uint8_t)((int)first + (int)second);
-            r.carrying_trav = r.copies == 1 ? (first ? ta : tb) : (r.copies == 2 ? -2 : -1);
-            return r;
+            return relate_to_parent(child.parent_crossing, ta, tb);
         };
 
         // (parent, chain). `align_rank` is the chain IDENTITY -- every snarl of one chain collapses
@@ -2427,13 +2436,6 @@ size_t LinkageCollector::resolve_generation(
                         // or did it claim one (then the ploidy is wrong upstream)?
                         s.gap_to_previous[g[0] >= 0 ? 0 : 1] = g[0] >= 0 ? g[0] : g[1];
                         ++fg_one_slot;
-                        if (e.parent_trav == -2) {
-                            ++fg_one_both_claimed;
-                        } else if (e.parent_trav >= 0) {
-                            ++fg_one_single_claimed;
-                        } else {
-                            ++fg_one_undetermined;
-                        }
                     } else {
                         ++fg_no_frame;
                         if (e.unpositioned || prev.unpositioned) { ++unpos_uniform; }
@@ -2757,10 +2759,7 @@ size_t LinkageCollector::resolve_generation(
                   << fg_mirrored << " measured against the traversal's own direction, "
                   << fg_equals_ref << " exactly equal to the reference difference; "
                   << fg_parent_step << " parent-to-first-child steps taken from the child's own"
-                  << " offset along the parent's traversal; of the one-slot steps, "
-                  << fg_one_both_claimed << " where descent claimed BOTH traversals carry the chain, "
-                  << fg_one_single_claimed << " where it claimed one, " << fg_one_undetermined
-                  << " undetermined" << std::endl;
+                  << " offset along the parent's traversal" << std::endl;
     }
 
     if (generation == 0 && g_margin_steps.load() > 0) {
@@ -2960,7 +2959,20 @@ size_t LinkageCollector::resolve_generation(
                 // is diploid there and this record names one allele where it has two. It keeps no
                 // single strand, but it is not strandless either -- both haplotypes carry it -- and
                 // the mosaic must say so rather than mark it unexplained.
-                const bool on_both = (e.parent_trav == -2);
+                // DERIVED here, not read from the entry. The parent's settled pair is in hand as
+                // `parent.trav_*`, and the child's crossing mask says which of them reaches it --
+                // which is the whole of the question, computed where it is used.
+                // `trav_second` ONLY where the parent is diploid. A haploid parent has
+                // trav_second == trav_first, so passing it unguarded sets both bits of the crossing
+                // test for a chain that one traversal reaches, yielding two copies and a
+                // carried-on-both answer where the truth is one copy on one strand. The Entry-based
+                // form guards this with `parent.ploidy == 2`; the PhaseCall-based form must too, and
+                // the step-5 check could not see the difference because it never took this path.
+                const LinkageCollector::Relation rel = relate_to_parent(
+                    e.parent_crossing, parent.trav_first,
+                    parent.ploidy == 2 ? parent.trav_second : -1);
+                const int carrying = rel.known ? rel.carrying_trav : (int)e.parent_trav;
+                const bool on_both = (carrying == -2);
                 int strand = -1;
                 if (parent.ploidy == 1 && parent.nested_strand >= 0) {
                     // The parent is itself a nested haploid site, so it occupies ONE haplotype and
@@ -2970,10 +2982,10 @@ size_t LinkageCollector::resolve_generation(
                     // strand 0. On chr20 that put all 448 depth->=2 sites under a strand-1 parent on
                     // the wrong haplotype -- while the mosaic, reading the parent's wildcard
                     // hap_first, simultaneously reported them as belonging to no haplotype.
-                    if (e.parent_trav >= 0 && parent.trav_first == e.parent_trav) {
+                    if (carrying >= 0 && parent.trav_first == carrying) {
                         strand = parent.nested_strand;
                     }
-                } else if (e.parent_trav >= 0) {
+                } else if (carrying >= 0) {
                     // Both assignments require a DIPLOID parent, not just the second one. A strand
                     // is a claim that the locus has two haplotypes and this allele sits on one of
                     // them, and that claim is only true where the parent has two copies.
@@ -2992,9 +3004,9 @@ size_t LinkageCollector::resolve_generation(
                     // their parents are ploidy 2, and a nested haploid parent reaches the branch
                     // above instead.
                     if (parent.ploidy == 2) {
-                        if (parent.trav_first == e.parent_trav) {
+                        if (parent.trav_first == carrying) {
                             strand = 0;
-                        } else if (parent.trav_second == e.parent_trav) {
+                        } else if (parent.trav_second == carrying) {
                             strand = 1;
                         }
                     }
