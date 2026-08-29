@@ -1179,7 +1179,7 @@ void VCFOutputCaller::write_mosaic(const vector<LinkageCollector::PhaseCall>& ph
     // the portable identifier: a (sample, phase) pair, which is the unit the linkage model works
     // in -- a haplotype present in several GBWT fragments is one haplotype, so no single GBWT path
     // name would do. Name plus the segment's contig is enough to find the paths again.
-    out << "#mosaic-version\t3\n";
+    out << "#mosaic-version\t4\n";
     out << "#graph\t" << mosaic_graph_name << "\n";
     out << "#sample\t" << sample_name << "\n";
     for (const string& ref : mosaic_reference_paths) {
@@ -1205,8 +1205,14 @@ void VCFOutputCaller::write_mosaic(const vector<LinkageCollector::PhaseCall>& ph
         << "r-index. gbwt_node carries the orientation, start_node does not.\n";
     out << "#note\ta segment never spans a GBWT fragment boundary, so one position walks the "
         << "whole of it; a haplotype in several fragments yields several segments.\n";
+    out << "#note\tnested_sites is how many of a segment's sites lie inside a nested chain, and "
+        << "max_depth how deep the deepest of them is (0 = top level). A recombination inside a "
+        << "nested chain closes a segment exactly as one between top-level sites does, so without "
+        << "these two columns the file cannot tell them apart -- and the nested ones are what "
+        << "nested calling is for. Version 3 had neither.\n";
     out << "#H\tcontig\tstrand\tref_start\tref_end\tstart_node\tend_node"
-        << "\thap_index\thaplotype\tsites\tgbwt_node\tgbwt_offset\n";
+        << "\thap_index\thaplotype\tsites\tgbwt_node\tgbwt_offset"
+        << "\tnested_sites\tmax_depth\n";
 
     // The phasing arrives grouped by contig and in reference order, which is how resolve() builds
     // it. Both strands are emitted, and a switch on either one closes only its own segment.
@@ -1298,6 +1304,15 @@ void VCFOutputCaller::write_mosaic(const vector<LinkageCollector::PhaseCall>& ph
             } else {
                 out << p.first << "\t" << p.second;
             }
+            // Walked rather than carried on the span: a segment is cut by haplotype changes and by
+            // GBWT fragment boundaries, neither of which knows anything about depth, so there is no
+            // running value to keep and the range is the only place the answer lives.
+            size_t nested_sites = 0, max_depth = 0;
+            for (size_t k = a_idx; k <= b_idx && k < phasing.size(); ++k) {
+                nested_sites += (phasing[k].depth > 0);
+                max_depth = max(max_depth, (size_t)phasing[k].depth);
+            }
+            out << "\t" << nested_sites << "\t" << max_depth;
             out << "\n";
             ++total_segments;
         };

@@ -551,6 +551,15 @@ public:
         /// slot recorded at descent -- see the Stage 7 notes in the companion evaluation repository.
         bool order_arbitrary = false;
 
+        /// How deep in the snarl tree this site sits: 0 for a top-level chain, 1 for a chain nested
+        /// directly inside one, and so on.
+        ///
+        /// The mosaic carries it so that a recombination INSIDE a nested chain can be told from one
+        /// between top-level sites. Both already appear as a segment boundary -- the haplotype
+        /// changes either way -- but a consumer reading the file has no way to know which it is
+        /// looking at, and the nested ones are the whole point of nested calling.
+        uint8_t depth = 0;
+
         /// Whether a VCF line exists for this site. Sites that wrote none are still phased -- a
         /// parent whose alleles differ only inside its children has a real pair of haplotypes, and
         /// its children need to know which is which -- but they are not records, so nothing that

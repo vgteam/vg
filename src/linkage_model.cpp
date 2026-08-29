@@ -2582,6 +2582,7 @@ size_t LinkageCollector::resolve_generation(
             }
             PhaseCall pc;
             pc.ploidy = e.ploidy;
+            pc.depth = e.generation;
             pc.emitted = e.emitted;
             pc.record_key = e.record_key;
             pc.contig = contig_names[e.contig];
@@ -2787,6 +2788,7 @@ size_t LinkageCollector::resolve_generation(
                 auto found = by_key.find(e.parent_record_key);
                 PhaseCall pc;
                 pc.ploidy = e.ploidy;
+                pc.depth = e.generation;
                 pc.emitted = e.emitted;
                 pc.record_key = e.record_key;
                 pc.contig = contig_names[e.contig];
@@ -2971,6 +2973,7 @@ size_t LinkageCollector::resolve_generation(
                 const Entry& e = entries[idx];
                 PhaseCall pc;
                 pc.ploidy = e.ploidy;
+                pc.depth = e.generation;
                 pc.emitted = e.emitted;
                 pc.record_key = e.record_key;
                 pc.contig = contig_names[e.contig];
