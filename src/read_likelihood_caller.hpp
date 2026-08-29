@@ -65,7 +65,6 @@ public:
         /// ln posterior of the called genotype under a uniform prior.
         double posterior = 0;
         /// Reads seen at the site, and how many were informative enough to keep.
-        size_t n_reads = 0;
         size_t n_informative = 0;
         /// Reads dropped for placing on no allele at all.
         size_t n_unplaceable = 0;

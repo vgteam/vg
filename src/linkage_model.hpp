@@ -681,7 +681,7 @@ public:
     /// Record where a site sits along its parent's settled traversal. Returns false when there is no
     /// entry for the key -- checked at every call site, because the equivalent silent no-op in
     /// `set_parent_trav` is exactly how a frame would default to unset and go unnoticed.
-    bool set_frame(size_t record_key, int slot, int offset, int end, int total, bool reversed);
+    bool set_frame(size_t record_key, int slot, int offset);
 
     /// Where this chain sits in the alignment of its parent's two settled traversals. Set at the
     /// barrier, for the same reason `set_frame` is: the parent's genotype is not known before it.
@@ -740,11 +740,6 @@ private:
         /// trav_first == trav_second, so both slots are written with the same value and neither can
         /// be read unset, which is the failure a strand-keyed pair invites.
         int32_t frame_offset[2] = {-1, -1};
-        int32_t frame_end[2] = {-1, -1};
-        int32_t frame_total[2] = {-1, -1};
-        /// Per slot: the parent entered this site at its END boundary, so offsets inside it run
-        /// against the parent's direction of travel and everything below is mirrored.
-        bool frame_reversed[2] = {false, false};
         /// Where this chain sits in the ALIGNMENT of the parent's two settled traversals, or -1.
         ///
         /// The frames give a distance along each traversal separately; they cannot say which of two

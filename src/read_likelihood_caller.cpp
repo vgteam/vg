@@ -322,7 +322,6 @@ pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> ReadLikelihoodSnarlCaller::
         auto alt = make_unique<ReadLikelihoodCallInfo>();
         // The ploidy-independent half, copied rather than recomputed: allele support and the row
         // divisor are properties of the matrix, not of the genotype enumeration over it.
-        alt->n_reads = call_info->n_reads;
         alt->n_informative = call_info->n_informative;
         alt->n_unplaceable = call_info->n_unplaceable;
         alt->scored_traversals = call_info->scored_traversals;

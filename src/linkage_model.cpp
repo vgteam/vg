@@ -17,6 +17,8 @@ namespace vg {
 /// cannot spell the genotype the site is constrained to. A refused pin on a group's PARENT frees the
 /// whole group's orientation while its haploid siblings stay tied to the parent's phase.
 static std::atomic<size_t> g_pin_applied(0), g_pin_declined(0);
+/// V1: mean -log P(neither strand switches) per step, in units of 1e-9, and the step count.
+static std::atomic<size_t> g_margin_neglog(0), g_margin_steps(0);
 /// Groups whose parent was never offered a pin at all -- no PhaseCall to pin it to.
 static std::atomic<size_t> g_group_parent_unpinned(0), g_group_parent_pinned(0);
 
@@ -1681,8 +1683,7 @@ bool LinkageCollector::set_allele_map(size_t record_key,
     return false;
 }
 
-bool LinkageCollector::set_frame(size_t record_key, int slot, int offset, int end, int total,
-                                 bool reversed) {
+bool LinkageCollector::set_frame(size_t record_key, int slot, int offset) {
     if (slot < 0 || slot > 1) {
         return false;
     }
@@ -1691,9 +1692,6 @@ bool LinkageCollector::set_frame(size_t record_key, int slot, int offset, int en
     if (found != NO_ENTRY) {
         Entry& e = entries[found];
         e.frame_offset[slot] = (int32_t)offset;
-        e.frame_end[slot] = (int32_t)end;
-        e.frame_total[slot] = (int32_t)total;
-        e.frame_reversed[slot] = reversed;
         return true;
     }
     return false;
@@ -2425,6 +2423,24 @@ size_t LinkageCollector::resolve_generation(
             sites.push_back(std::move(s));
         }
 
+        // V1: how much pair correlation survives a margin of a given length.
+        //
+        // Per step the probability that neither strand switches is (1-rho_a)(1-rho_b), so over N
+        // steps it is exp(-N * mean(-log((1-rho_a)(1-rho_b)))). Accumulating the mean per step
+        // answers both questions at once: what the shipped 250-site margin retains, and how many
+        // sites would be needed to reach any target. Top-level chains only -- that is where the
+        // windowing runs.
+        if (generation == 0) {
+            for (size_t k = 1; k < sites.size(); ++k) {
+                const std::pair<size_t, size_t> gap = site_gap(sites[k - 1], sites[k]);
+                const double ra = model.switch_probability(gap.first);
+                const double rb = model.switch_probability(gap.second);
+                const double stay = max(1e-300, (1.0 - ra) * (1.0 - rb));
+                g_margin_neglog.fetch_add((size_t)(-log(stay) * 1e9));
+                ++g_margin_steps;
+            }
+        }
+
         vector<vector<double>> posteriors;
         if (chain_ploidy == 1) {
             posteriors = model.haploid_posteriors(sites);
@@ -2694,6 +2710,16 @@ size_t LinkageCollector::resolve_generation(
                   << fg_one_both_claimed << " where descent claimed BOTH traversals carry the chain, "
                   << fg_one_single_claimed << " where it claimed one, " << fg_one_undetermined
                   << " undetermined" << std::endl;
+    }
+
+    if (generation == 0 && g_margin_steps.load() > 0) {
+        const double mean = (g_margin_neglog.load() / 1e9) / (double)g_margin_steps.load();
+#pragma omp critical (cerr)
+        std::cerr << "[vg call] margin: " << g_margin_steps.load() << " top-level steps, mean"
+                  << " -log P(no switch) = " << mean << " per step; correlation retained across "
+                  << params.margin << " sites = " << exp(-(double)params.margin * mean)
+                  << "; sites needed for 0.05 = " << (mean > 0 ? (-log(0.05) / mean) : -1.0)
+                  << ", for 0.01 = " << (mean > 0 ? (-log(0.01) / mean) : -1.0) << std::endl;
     }
 
     if (generation > 0 && (g_pin_applied.load() + g_pin_declined.load()) > 0) {
@@ -3064,9 +3090,6 @@ size_t LinkageCollector::resolve_generation(
                 position_of[pe.record_key] = pe.position;
             }
         }
-        size_t xp_pairs = 0, xp_inverted = 0, xp_same_parent = 0;
-        size_t xp_gap_measured = 0, xp_gap_within_5pct = 0, xp_unframed = 0;
-        size_t xp_gap_cross_unmeasured = 0, xp_gap_exactly_ref = 0;
 
         size_t singleton_groups = 0;
         size_t total_frame_steps = 0, total_ref_steps = 0;
@@ -3075,87 +3098,6 @@ size_t LinkageCollector::resolve_generation(
         size_t hao_same_chain_indexed = 0, hao_same_chain_unindexed = 0;
         for (auto& group : by_strand) {
             vector<size_t>& idxs = group.second;
-            {
-                // Sorted by reference position, as the live path does, then asked whether the frame
-                // would agree about order and spacing.
-                vector<size_t> ref_order = idxs;
-                sort(ref_order.begin(), ref_order.end(), [&](size_t a, size_t b) {
-                    if (entries[a].position != entries[b].position) {
-                        return entries[a].position < entries[b].position;
-                    }
-                    return entries[a].record_key < entries[b].record_key;
-                });
-                const int slot = (int)group.first.second <= 1 ? (int)group.first.second : 0;
-                for (size_t k = 1; k < ref_order.size(); ++k) {
-                    const Entry& e1 = entries[ref_order[k - 1]];
-                    const Entry& e2 = entries[ref_order[k]];
-                    if (e1.frame_offset[slot] < 0 || e2.frame_offset[slot] < 0) {
-                        ++xp_unframed;
-                        continue;
-                    }
-                    ++xp_pairs;
-                    auto p1 = position_of.find(e1.parent_record_key);
-                    auto p2 = position_of.find(e2.parent_record_key);
-                    if (p1 == position_of.end() || p2 == position_of.end()) {
-                        continue;
-                    }
-                    const bool same_parent = (e1.parent_record_key == e2.parent_record_key);
-                    if (same_parent) {
-                        ++xp_same_parent;
-                    }
-                    // Would the frame put them in the other order?
-                    const bool frame_says_swap =
-                        same_parent ? (e2.frame_offset[slot] < e1.frame_offset[slot])
-                                    : (p2->second < p1->second);
-                    if (frame_says_swap) {
-                        ++xp_inverted;
-                    }
-                    // Pairwise distance in the frame, against the reference gap.
-                    const int64_t ref_gap = (int64_t)e2.position - (int64_t)e1.position;
-                    int64_t frame_gap;
-                    if (same_parent) {
-                        // START-to-START, matching what the reference gap is. Using end-to-start
-                        // here subtracted the earlier child's own span and made the ratio look
-                        // wildly different from 1 for a reason that has nothing to do with the
-                        // frame -- 3.7% within 1.05 where the true figure is far higher. Comparing
-                        // a different definition of distance is not measuring the frame.
-                        frame_gap = (int64_t)e2.frame_offset[slot] - (int64_t)e1.frame_offset[slot];
-                    } else {
-                        const int64_t tail = e1.frame_total[slot] >= 0
-                                                 ? (int64_t)e1.frame_total[slot]
-                                                       - (int64_t)e1.frame_end[slot]
-                                                 : 0;
-                        frame_gap = tail + ((int64_t)p2->second - (int64_t)p1->second)
-                                    + (int64_t)e2.frame_offset[slot];
-                    }
-                    // Only the SAME-PARENT gap is reported, because only it is exact.
-                    //
-                    // The cross-parent form needs the distance from the earlier parent's END to the
-                    // later parent's START, and only the parents' start positions are stored --
-                    // using those over-counts by exactly (frame_total - span), the earlier parent's
-                    // extent outside the child, which is a systematic inflation and not a finding.
-                    // Counted as not-yet-measurable rather than reported wrongly; measuring it needs
-                    // the parent's reference span carried alongside its position.
-                    if (!same_parent) {
-                        ++xp_gap_cross_unmeasured;
-                    } else if (ref_gap > 0 && frame_gap > 0) {
-                        // The null case, checked rather than assumed. Where both children's frames
-                        // came out at the same distance as the reference, the ratio must be exactly
-                        // 1 -- and any measurement that gets this wrong is comparing two different
-                        // definitions of distance rather than two frames. Three separate arithmetic
-                        // errors in this instrumentation were caught only by reasoning it through
-                        // afterwards; this catches the next one at runtime.
-                        if (frame_gap == ref_gap) {
-                            ++xp_gap_exactly_ref;
-                        }
-                        ++xp_gap_measured;
-                        const double r = (double)frame_gap / (double)ref_gap;
-                        if (r >= 1.0 / 1.05 && r <= 1.05) {
-                            ++xp_gap_within_5pct;
-                        }
-                    }
-                }
-            }
             // Singletons are NOT skipped. A one-site group has nothing to link against, so linkage
             // cannot move it on the strength of a neighbour -- but `freq_prior` defaults to 5 and
             // acts on a chain of one, so the posterior still differs from the raw likelihood and the
@@ -3432,21 +3374,6 @@ size_t LinkageCollector::resolve_generation(
         }
         // Stage 15': the cross-parent numbers, which are the ones the decision to consume these
         // frames has to rest on.
-        if (xp_pairs > 0) {
-#pragma omp critical (cerr)
-            std::cerr << "[vg call] frames: " << xp_pairs
-                      << " adjacent pairs within a (phase set, strand) group ("
-                      << xp_same_parent << " sharing a parent), " << xp_inverted
-                      << " the frame would reorder; " << xp_gap_measured << " gaps measured, "
-                      << (xp_gap_measured
-                              ? 100.0 * (double)xp_gap_within_5pct / (double)xp_gap_measured : 0.0)
-                      << "% within 1.05 of the reference gap (same-parent pairs only); "
-                      << xp_gap_cross_unmeasured
-                      << " (" << xp_gap_exactly_ref << " exactly equal to it); "
-                      << xp_gap_cross_unmeasured
-                      << " cross-parent gaps need the parent's reference span and are not measured; "
-                      << xp_unframed << " pairs unframed" << std::endl;
-        }
         // Stage 15(a): what the pooling fix changed, printed so it is not taken on faith.
         if (crossed_phase_set > 0 || singleton_groups > 0) {
 #pragma omp critical (cerr)
