@@ -9,7 +9,7 @@ PATH=../bin:$PATH # for vg
 # FORMAT field shifts every later one, which broke four assertions here that were not
 # testing field order at all -- one of them silently compared BL against a GQ threshold.
 
-plan tests 315
+plan tests 317
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -515,7 +515,7 @@ is $(grep -v "^#" rl_mosaic.tsv | awk -F'\t' '$9 == "?" {n++} END {print n+0}') 
 # --- the mosaic is self-describing ------------------------------------------
 # Three properties make the file readable without out-of-band knowledge: it names its reference, it
 # names its haplotypes portably, and it hands the consumer a GBWT position. One test each.
-is $(awk -F'\t' '$1=="#mosaic-version" {print $2}' rl_mosaic.tsv) "3" "the mosaic declares version 3"
+is $(awk -F'\t' '$1=="#mosaic-version" {print $2}' rl_mosaic.tsv) "4" "the mosaic declares version 4"
 
 # The set of header keys is the format's contract with a parser, and doc/read-likelihood-genotyping.md
 # enumerates it. Adding a key without documenting it is exactly the drift that shipped a header with
@@ -541,11 +541,18 @@ is $(awk -F'\t' '$1=="#haplotype" {name[$2]=$3; next}
 
 # (3) The point of the whole format: a consumer holding a segment must be able to find that
 # haplotype in the GBWT without a locate query or an r-index, so the file hands them the GBWT
-# position outright. Both position columns must be present and last.
-is $(awk -F'\t' '$1=="#H" {print NF"/"$(NF-1)"/"$NF}' rl_mosaic.tsv) "12/gbwt_node/gbwt_offset" \
-   "the header ends with the GBWT position columns"
-is $(awk -F'\t' '/^H\t/ && NF != 12 {n++} END {print n+0}' rl_mosaic.tsv) "0" \
-   "every segment row carries all 12 columns"
+# position outright. Version 4 appends nested_sites and max_depth AFTER them, so the position pair
+# is no longer last and is pinned by index instead.
+is $(awk -F'\t' '$1=="#H" {print NF"/"$10"/"$11}' rl_mosaic.tsv) "14/gbwt_node/gbwt_offset" \
+   "the header carries the GBWT position columns at 10 and 11"
+is $(awk -F'\t' '$1=="#H" {print $(NF-1)"/"$NF}' rl_mosaic.tsv) "nested_sites/max_depth" \
+   "and ends with the nested-depth columns version 4 added"
+is $(awk -F'\t' '/^H\t/ && NF != 14 {n++} END {print n+0}' rl_mosaic.tsv) "0" \
+   "every segment row carries all 14 columns"
+# nested_sites can never exceed the segment's own site count, and a segment with no nested site must
+# report depth 0. Both are properties of the counting rather than of this fixture's numbers.
+is $(awk -F'\t' '/^H\t/ && ($13 > $9 || ($13 == 0 && $14 != 0)) {n++} END {print n+0}' rl_mosaic.tsv) "0" \
+   "nested_sites never exceeds the segment's sites, and depth is 0 where none are nested"
 
 # gbwt_node is an oriented GBWT node, so it encodes start_node as id*2 + is_reverse. If that
 # identity fails the position points somewhere other than the segment it is attached to, which is

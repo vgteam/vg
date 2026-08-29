@@ -20,42 +20,25 @@ static std::atomic<size_t> g_pin_applied(0), g_pin_declined(0);
 /// Groups whose parent was never offered a pin at all -- no PhaseCall to pin it to.
 static std::atomic<size_t> g_group_parent_unpinned(0), g_group_parent_pinned(0);
 
-/// The distance between two adjacent sites in a chain, in bp, PER STRAND.
+/// The distance between two adjacent sites in a chain, in bp.
 ///
-/// Prefers the explicit `gap_to_previous` the caller measured along the haplotype's own traversal, and
-/// falls back to the reference position difference where there is none. Clamped at 1, as the position
-/// form was: `switch_probability` reads a gap of 0 as 1 anyway, and a negative one would wrap.
+/// A pair, because `transition_apply` takes a switch probability per strand -- the two haplotypes of
+/// a diploid sample recombine independently. Both halves are the same number today: the explicit
+/// per-strand distance this used to prefer came from the haplotype frame, and the frame was measured
+/// to change no byte of the output on three contigs, so nothing sets one any more.
 ///
-/// One slot set and the other not is not an error and not a reference fallback: it is a step measured
-/// along one haplotype and unmeasurable along the other -- a parent traversal that does not enter the
-/// chain, or a cross-parent step. Using the known distance for both strands is what a single value
-/// did, and it is a better estimate than the reference difference wherever the frame exists at all.
+/// Clamped at 1: `switch_probability` reads a gap of 0 as 1 anyway, and a negative one would wrap.
 static inline std::pair<size_t, size_t> site_gap(const LinkageModel::Site& prev,
                                                 const LinkageModel::Site& next) {
-    const int64_t a = next.gap_to_previous[0], b = next.gap_to_previous[1];
-    auto clamp = [](int64_t g) { return (size_t)(g > 1 ? g : 1); };
-    if (a >= 0 && b >= 0) {
-        return {clamp(a), clamp(b)};
-    }
-    if (a >= 0) {
-        return {clamp(a), clamp(a)};
-    }
-    if (b >= 0) {
-        return {clamp(b), clamp(b)};
-    }
     if (prev.unpositioned || next.unpositioned) {
         // EITHER, not both. A mixed pair is the common case -- a parent's children interleave chains
-        // the reference crosses with chains it does not -- and it falls through to the arithmetic
-        // below with a 0 standing in for a coordinate: a positioned prev gives `0 > pos` false and
-        // so a gap of 1, which is the strongest possible link, and an unpositioned prev gives the
-        // next site's whole offset measured from nothing. One coordinate does not make a distance.
-        //
-        // The clamp below is the wrong answer for that, not a neutral one: 1 bp is
-        // `switch_probability`'s minimum rate, which is the strongest possible link -- so two sites
-        // about which nothing is known would be asserted to be perfectly linked. SIZE_MAX gives
-        // rho = 1.0, at which `transition_apply`'s T = (1-rho)I + (rho/m)11' is exactly uniform:
-        // the chain forgets, which is what "unknown" means here.
-        return {numeric_limits<size_t>::max(), numeric_limits<size_t>::max()};
+        // the reference crosses with chains it does not -- and differencing an anchor against a real
+        // coordinate is not a distance. SIZE_MAX gives rho = 1.0, at which `transition_apply`'s
+        // T = (1-rho)I + (rho/m)11' is exactly uniform: the chain forgets, which is what "unknown"
+        // means here. A clamp to 1 would be the opposite claim -- perfect linkage between two sites
+        // about which nothing is known.
+        const size_t unknown = numeric_limits<size_t>::max();
+        return {unknown, unknown};
     }
     const size_t ref = next.position > prev.position ? (size_t)(next.position - prev.position) : 1;
     return {ref, ref};
@@ -1687,19 +1670,6 @@ bool LinkageCollector::set_allele_map(size_t record_key,
     return false;
 }
 
-bool LinkageCollector::set_frame(size_t record_key, int slot, int offset) {
-    if (slot < 0 || slot > 1) {
-        return false;
-    }
-    lock_guard<std::mutex> guard(mutex);
-    const uint32_t found = live_index(record_key);
-    if (found != NO_ENTRY) {
-        Entry& e = entries[found];
-        e.frame_offset[slot] = (int32_t)offset;
-        return true;
-    }
-    return false;
-}
 
 
 bool LinkageCollector::has_entry(size_t record_key) const {
@@ -1965,39 +1935,10 @@ size_t LinkageCollector::resolve_generation(
     // VG_LINKAGE_NO_GROUPING forces the contig-chain path, so one binary can produce both arms of
     // a comparison and the only difference between them is this.
     static const bool no_grouping = getenv("VG_LINKAGE_NO_GROUPING") != nullptr;
-    // How a nested sibling's distance from the previous one is measured. One binary, three arms:
-    //
-    //   0  reference position difference -- what every diploid chain has always used
-    //   1  the parent's settled traversals, collapsed to ONE scalar (their mean)
-    //   2  the parent's settled traversals, one distance PER STRAND
-    //
-    // 1 exists to separate the two things stage B changes at once. Spacing along a traversal at all
-    // has been measured before -- twice, in the haploid derivation -- and cost about 0.0005 of
-    // JointIndel on chr20 as a single scalar. Arm 1 reproduces that form here, so if 2 loses it is
-    // possible to say whether the loss is traversal spacing or the per-strand split, which a single
-    // on/off switch could not.
-    static const int frame_gap_mode = []() {
-        const char* v = getenv("VG_LINKAGE_FRAME_GAPS");
-        return v != nullptr ? atoi(v) : 0;
-    }();
-    // Parent-to-child transition arms, independent of `frame_gap_mode`: 0 leaves the step to
-    // whatever that mode does -- which at its default is the reference difference -- while 1 and 2
-    // are the two brackets described where they are applied.
-    static const int parent_gap_mode = []() {
-        const char* v = getenv("VG_LINKAGE_PARENT_GAP");
-        return v != nullptr ? atoi(v) : 0;
-    }();
     // The haploid analogue of the per-chain diploid decode: bucket the per-strand nested pass by the
     // chain a site belongs to as well as by (phase set, strand), so a haploid nested chain is decoded
     // alone instead of pooled with every other chain on that strand.
     static const bool per_chain_strand = getenv("VG_LINKAGE_PER_CHAIN_STRAND") != nullptr;
-    // The last ordering key with an absence to protect against. On the default path the frame is
-    // read in ONE place that changes anything -- the per-strand comparator -- because the gap it can
-    // also form is reached only where a site has no reference position, and the reference gate keeps
-    // that population out. So this asks of the frame exactly what NO_ALIGN_ORDER and NO_CHAIN_ORDER
-    // asked of the other two keys, and an inert answer retires `frame_offset`, `set_frame` and the
-    // barrier's whole frame-measuring block with it.
-    static const bool no_frame = getenv("VG_LINKAGE_NO_FRAME") != nullptr;
     // Each nested CHAIN is decoded on its own, conditioned on its parent -- never pooled with its
     // parent's other chains.
     //
@@ -2258,102 +2199,6 @@ size_t LinkageCollector::resolve_generation(
             // Slot 0 is strand a by construction, not by convention: `set_frame` writes slot 0 along
             // `PhaseCall::trav_first`, and that traversal sits on `hap_first`, which is the first of
             // the ordered pair the HMM's state is. Nothing re-derives the correspondence.
-            if (frame_gap_mode > 0 && k > 0 && chain_ploidy == 2 && e.parent_record_key != 0) {
-                const Entry& prev = entries[indices[k - 1]];
-                if (prev.record_key == e.parent_record_key) {
-                    // The previous site IS this one's parent -- the first entry of a per-parent
-                    // group, and the only step in a group that is not same-parent.
-                    //
-                    // `frame_offset` is measured from the BEGINNING of the parent's settled
-                    // traversal, so the child's own offset IS the distance from the parent to it.
-                    // There is nothing to compose: the frame_end + frame_total + anchor recipe joins
-                    // two DIFFERENT parents' traversals, which cannot arise inside one group. Getting
-                    // this wrong left one step per group -- 1,591 of them at generation 1 on chr20,
-                    // exactly the group count -- on the reference difference.
-                    int64_t g[2] = {-1, -1};
-                    for (int slot = 0; slot < 2; ++slot) {
-                        if (e.frame_offset[slot] >= 0) {
-                            g[slot] = (int64_t)e.frame_offset[slot];
-                        }
-                    }
-                    if (g[0] >= 0 && g[1] >= 0) {
-                        if (frame_gap_mode == 1) {
-                            s.gap_to_previous[0] = (g[0] + g[1]) / 2;
-                        } else {
-                            s.gap_to_previous[0] = g[0];
-                            s.gap_to_previous[1] = g[1];
-                        }
-                    } else if (g[0] >= 0 || g[1] >= 0) {
-                        s.gap_to_previous[g[0] >= 0 ? 0 : 1] = g[0] >= 0 ? g[0] : g[1];
-                    }
-                } else if (prev.parent_record_key == e.parent_record_key) {
-                    // Same parent, so one frame to measure in. A CROSS-parent step gets no
-                    // frame gap at all -- two parents' traversals share no common frame -- and
-                    // falls back to the reference difference in `site_gap`.
-                    int64_t g[2] = {-1, -1};
-                    for (int slot = 0; slot < 2; ++slot) {
-                        if (prev.frame_offset[slot] >= 0 && e.frame_offset[slot] >= 0) {
-                            // START to START, because that is what the reference fallback measures:
-                            // `site_gap` differences two `position` values, and a snarl's position
-                            // is where it begins. Measuring the frame end-to-start instead -- which
-                            // is how `Entry` describes a same-parent gap -- silently changes the
-                            // convention as well as the metric, and for two adjacent siblings the
-                            // two answers are 0 and the whole span of the earlier one.
-                            //
-                            // It also made the gap unmeasurable for most steps. A span is inclusive
-                            // of its closing boundary node and adjacent siblings share that node, so
-                            // end-to-start comes out negative for them: 10,103 of chr20's 18,235
-                            // same-parent steps read as "no frame" and were exempted.
-                            //
-                            // Absolute, because offsets run in TRAVERSAL order while the sites are
-                            // in reference (or alignment) order, and those need not agree in
-                            // direction. A step measured against the traversal's own direction is
-                            // counted, not refused.
-                            const int64_t d =
-                                (int64_t)e.frame_offset[slot] - (int64_t)prev.frame_offset[slot];
-                            g[slot] = d >= 0 ? d : -d;
-                        }
-                    }
-                    if (g[0] >= 0 && g[1] >= 0) {
-                        if (frame_gap_mode == 1) {
-                            // One scalar for both strands. Written to slot 0 alone -- `site_gap`
-                            // uses a single known slot for both, so this needs no second copy.
-                            s.gap_to_previous[0] = (g[0] + g[1]) / 2;
-                        } else {
-                            s.gap_to_previous[0] = g[0];
-                            s.gap_to_previous[1] = g[1];
-                        }
-                    } else if (g[0] >= 0 || g[1] >= 0) {
-                        // One traversal enters this chain and the other does not, or one step came
-                        // out negative. The known distance stands for both strands, which is what a
-                        // single value did.
-                        //
-                        // In a DIPLOID chain this should not happen at all: a chain only one settled
-                        // traversal crosses has one copy, so ploidy 1, so it belongs to the
-                        // per-strand chains. It was 0 here until off-reference chains were admitted
-                        // and is 1,409 with them, so the split below asks which half is wrong -- did
-                        // descent claim both traversals carry it (then a frame failed to measure),
-                        // or did it claim one (then the ploidy is wrong upstream)?
-                        s.gap_to_previous[g[0] >= 0 ? 0 : 1] = g[0] >= 0 ? g[0] : g[1];
-                    }
-                }
-            }
-            // The parent-to-child step, on its own switch. A child chain sits INSIDE its parent's
-            // settled traversal, and whether that containment is a link at all is a separate
-            // question from how a chain's own snarls are spaced -- so it gets its own arm rather
-            // than riding on `frame_gap_mode`, which answers both at once and cannot separate them.
-            //
-            // 1 is UNIFORM: no transition between a parent and its children, so a child chain is
-            // decoded from its emission and its own internal transitions alone. 2 is MINIMAL:
-            // containment read as zero separation, the strongest link the model can express. The
-            // two bracket the space, and the frame arms sit between them -- so a frame arm that
-            // beats neither bracket is measuring nothing.
-            if (parent_gap_mode > 0 && k > 0 && chain_ploidy == 2 && e.parent_record_key != 0
-                && entries[indices[k - 1]].record_key == e.parent_record_key) {
-                const int64_t g = parent_gap_mode == 1 ? numeric_limits<int64_t>::max() : 1;
-                s.gap_to_previous[0] = g;
-                s.gap_to_previous[1] = g;
-            }
             size_t n_gt = e.ploidy == 1
                               ? (size_t)e.num_alleles
                               : (size_t)e.num_alleles * ((size_t)e.num_alleles + 1) / 2;
@@ -3032,7 +2877,6 @@ size_t LinkageCollector::resolve_generation(
         }
 
         size_t singleton_groups = 0;
-        size_t total_frame_steps = 0, total_ref_steps = 0;
         for (auto& group : by_strand) {
             vector<size_t>& idxs = group.second;
             // Singletons are NOT skipped. A one-site group has nothing to link against, so linkage
@@ -3055,43 +2899,25 @@ size_t LinkageCollector::resolve_generation(
             const int slot = (int)std::get<1>(group.first) <= 1 ? (int)std::get<1>(group.first) : 0;
             // Same total-key discipline as the diploid groups, and for the same reason. The two
             // partial keys this comparator carried -- the alignment rank and the chain index -- were
-            // measured to order nothing anything reads, so the frame offset is the only key left
-            // that an entry can lack, and it is decided per PARENT: a key is usable for a pair only
-            // if it is usable for every sibling either of them could be compared against, and the
-            // anchor is what separates one parent's children from another's.
+            // Total on every entry now. This comparator carried three keys an entry could lack --
+            // the alignment rank, the chain index and the frame offset -- and each needed an
+            // all-or-nothing decision per parent to stay transitive, because "compare on this key
+            // only if BOTH operands have it" is not a strict weak ordering and std::sort on one is
+            // undefined behaviour. All three were measured to order nothing anything reads, so the
+            // decision has nothing left to decide.
+            //
+            // The anchor still leads: it is the parent's position, and it keeps one parent's
+            // children together rather than interleaving them with another's.
             auto anchor_of = [&](const Entry& e) {
                 auto it = position_of.find(e.parent_record_key);
                 return it != position_of.end() ? it->second : e.position;
             };
-            auto frame_of = [&](const Entry& e) -> int64_t {
-                return no_frame ? -1 : (int64_t)e.frame_offset[slot];
-            };
-            unordered_map<size_t, bool> parent_framed;
-            {
-                unordered_map<size_t, bool> missing;
-                for (size_t idx : idxs) {
-                    const Entry& e = entries[idx];
-                    if (frame_of(e) < 0) {
-                        missing[e.parent_record_key] = true;
-                    } else {
-                        missing.emplace(e.parent_record_key, false);
-                    }
-                }
-                for (const auto& kv : missing) {
-                    parent_framed[kv.first] = !kv.second;
-                }
-            }
             sort(idxs.begin(), idxs.end(), [&](size_t a, size_t b) {
                 const Entry& ea = entries[a];
                 const Entry& eb = entries[b];
                 const uint32_t aa = anchor_of(ea), ab = anchor_of(eb);
                 if (aa != ab) {
                     return aa < ab;
-                }
-                // Same anchor, so the same parent, so one lookup answers for both.
-                auto uk = parent_framed.find(ea.parent_record_key);
-                if (uk != parent_framed.end() && uk->second && frame_of(ea) != frame_of(eb)) {
-                    return frame_of(ea) < frame_of(eb);
                 }
                 if (ea.position != eb.position) {
                     return ea.position < eb.position;
@@ -3100,66 +2926,12 @@ size_t LinkageCollector::resolve_generation(
             });
             vector<LinkageModel::Site> sites;
             sites.reserve(idxs.size());
-            size_t frame_steps = 0, ref_steps = 0;
             for (size_t k = 0; k < idxs.size(); ++k) {
                 const size_t idx = idxs[k];
                 const Entry& e = entries[idx];
                 LinkageModel::Site s;
                 s.position = e.position;
                 s.unpositioned = e.unpositioned;
-                // Stage 15': the step from the previous site, measured along the haplotype's own
-                // traversal where both sites hang off the same parent and both have a frame. Passed
-                // as an explicit distance rather than folded into `position`, so it cannot affect the
-                // order that was already fixed above.
-                //
-                // Cross-parent steps still fall back to the reference difference: forming them in the
-                // frame needs the distance from the earlier parent's END to the later parent's START,
-                // and only parent start positions are stored. That is 12% of adjacent pairs on chr20
-                // and is what remains before the reference dependency is fully gone.
-                // Used only where the REFERENCE distance is unavailable, not in preference to it.
-                //
-                // Measured, twice, by two unrelated derivations: spacing nested chain steps along a
-                // traversal instead of along the reference costs about 0.0005 of JointIndel on chr20
-                // (0.92390 -> 0.92338 here; 0.92390 -> 0.92329 for stage 15(b), which derived the
-                // distance from per-site called alleles instead). Same magnitude, same direction, so
-                // it is not the labelling -- 15' fixed that -- and not the derivation. It is the
-                // change itself: a traversal distance is a worse predictor for this transition model
-                // than the reference distance, wherever a reference distance exists.
-                //
-                // It exists everywhere today, so this is inert now. Under a covering reference a
-                // nested site has no reference position at all, and then the frame is not an
-                // improvement to choose but the only measure there is -- which is what this machinery
-                // is for.
-                if (k > 0) {
-                    const Entry& prev = entries[idxs[k - 1]];
-                    // `unpositioned`, not `position > 0`. Position is an anchor for a chain the
-                    // reference does not cross -- its parent's start -- so it is non-zero and this
-                    // test would pass, the frame would never be consulted, and the model would
-                    // difference two identical anchors. Absence is a fact to be carried, not
-                    // inferred from a coordinate that happens to be zero.
-                    const bool have_reference = (!prev.unpositioned && !e.unpositioned
-                                                 && prev.position > 0 && e.position > 0);
-                    if (!have_reference
-                        && prev.parent_record_key == e.parent_record_key
-                        && frame_of(prev) >= 0 && frame_of(e) >= 0) {
-                        // Slot 0 only: this is a per-strand haploid chain, so there is one distance
-                        // and `site_gap` uses it for both of the pair's strands.
-                        //
-                        // Start to start, matching the reference difference this stands in for. The
-                        // diploid groups measure the same way, for the same reason.
-                        s.gap_to_previous[0] = frame_of(e) - frame_of(prev);
-                        if (s.gap_to_previous[0] < 0) {
-                            // The tuple sort put them in this order, so a negative step means the
-                            // frames disagree with it -- do not feed the model a wrapped distance.
-                            s.gap_to_previous[0] = -1;
-                            ++ref_steps;
-                        } else {
-                            ++frame_steps;
-                        }
-                    } else {
-                        ++ref_steps;
-                    }
-                }
                 s.num_alleles = e.num_alleles;
                 s.ploidy = 1;
                 size_t n_gt = (size_t)e.num_alleles;
@@ -3173,8 +2945,6 @@ size_t LinkageCollector::resolve_generation(
                 }
                 sites.push_back(std::move(s));
             }
-            total_frame_steps += frame_steps;
-            total_ref_steps += ref_steps;
             vector<vector<double>> posteriors = model.haploid_posteriors(sites);
             for (size_t k = 0; k < idxs.size() && k < posteriors.size(); ++k) {
                 const Entry& e = entries[idxs[k]];
@@ -3234,13 +3004,6 @@ size_t LinkageCollector::resolve_generation(
         // cost. It is superseded: the crossing mask says exactly which sites were placed on the
         // wrong strand and which have the wrong ploidy, so the bound is no longer the best
         // available number.
-        if (total_frame_steps > 0 || total_ref_steps > 0) {
-#pragma omp critical (cerr)
-            std::cerr << "[vg call] frames: " << total_frame_steps
-                      << " chain steps spaced along the settled parent traversal, "
-                      << total_ref_steps << " still by reference difference (cross-parent, or a"
-                      << " frame the sort disagreed with)" << std::endl;
-        }
         // Stage 15': the cross-parent numbers, which are the ones the decision to consume these
         // frames has to rest on.
         // Stage 15(a): what the pooling fix changed, printed so it is not taken on faith.

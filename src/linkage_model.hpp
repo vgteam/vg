@@ -175,28 +175,6 @@ public:
         /// directly and has `num_alleles` entries.
         vector<double> genotype_ln_likelihood;
 
-        /// Distance from the PREVIOUS site in the chain, in bp, PER STRAND, or -1 to derive it from
-        /// `position`. Slot 0 is the first of the ordered haplotype pair, slot 1 the second.
-        ///
-        /// Stage 15': below the top level the distance comes from the parent's settled traversal, not
-        /// from reference positions, and it is passed as an explicit per-step value rather than as a
-        /// coordinate the model differences. That is deliberate. Composing an absolute per-haplotype
-        /// coordinate means adding a reference anchor to a haplotype-walk length -- two different
-        /// metrics -- which can invert the order of sites under different parents, and the sort then
-        /// hides it because the same key is used for spacing, so every gap comes out non-negative by
-        /// construction. A per-step distance cannot reorder anything, because it is not the sort key.
-        ///
-        /// TWO of them, because the two haplotypes of a diploid sample recombine independently and
-        /// walk different traversals: the bp each has travelled since the previous site is its own,
-        /// which is what `transition_apply`'s per-strand `rho_a`/`rho_b` was written to take and what
-        /// a single scalar cannot express. Where only one slot is set it is used for both, which is
-        /// the behaviour a single value had; where neither is, the reference difference is.
-        ///
-        /// Slot order is the parent's settled-traversal order, which is the same order as its phased
-        /// pair -- `Entry::frame_offset[0]` is measured along `PhaseCall::trav_first`, and that
-        /// traversal sits on `hap_first`, strand a. So the frames index the strands without a
-        /// separate derivation.
-        int64_t gap_to_previous[2] = {-1, -1};
 
         /// This site has no reference position at all, so `position` is not a coordinate and must
         /// not be differenced.
@@ -699,10 +677,6 @@ public:
     /// million entries.
     std::unordered_set<size_t> emitted_records() const;
 
-    /// Record where a site sits along its parent's settled traversal. Returns false when there is no
-    /// entry for the key -- checked at every call site, because the equivalent silent no-op in
-    /// A silently-ignored write is exactly how a frame would default to unset and go unnoticed.
-    bool set_frame(size_t record_key, int slot, int offset);
 
     /// What a settled parent implies about one of its children: how many copies the sample carries,
     /// which of the parent's settled traversals carries it when that is one, and whether the
@@ -750,29 +724,6 @@ private:
 
     struct Entry {
         uint32_t position = 0;
-        /// Where this site sits along its parent's SETTLED traversal, in bp, and how long that
-        /// traversal is. Stage 15': below the top level, order and distance come from these rather
-        /// than from `position`, which under a covering reference will not exist for a nested site.
-        ///
-        /// Tagged by the traversal it was measured along, not by strand. A haploid
-        /// nested parent has only `trav_first`, so a strand-keyed pair would leave slot 1 unwritten
-        /// while its child's strand may well be 1; the child would then read an unset frame, sort to
-        /// the head of its group and hand its neighbour a spurious multi-megabase gap. That is the
-        /// shape of the 448-site regression recorded at the strand derivation.
-        ///
-        /// `frame_end` is the offset just past the site, so a same-parent gap is
-        /// `offset(next) - frame_end(prev)`; `frame_total` is the parent traversal's whole length, so
-        /// a cross-parent gap is `(frame_total - frame_end) + anchor gap + offset(next)`. Signed, and
-        /// -1 when unset: a frame that arrives unset must fail a check rather than wrap a size_t.
-        /// TWO frames, indexed by the parent's settled traversal ORDER (0 = the parent's first
-        /// settled traversal, 1 = its second), not by strand.
-        ///
-        /// Measured, not assumed: 22,977 of chr20's 30,015 nested chains are carried on BOTH parent
-        /// traversals, so a single frame would cover only 21% of them. Indexing by traversal order
-        /// rather than by strand is what makes the pair safe -- a haploid parent has
-        /// trav_first == trav_second, so both slots are written with the same value and neither can
-        /// be read unset, which is the failure a strand-keyed pair invites.
-        int32_t frame_offset[2] = {-1, -1};
         /// Identity of this snarl's chain, from its boundary pair. The group key: sibling chains
         /// have no transition between them, so a chain needs only to be distinguishable from its
         /// siblings -- which the graph answers directly, with no alignment.
