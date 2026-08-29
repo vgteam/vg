@@ -1760,6 +1760,14 @@ size_t LinkageCollector::resolve_generation(
         }
         deferred_nested.insert(deferred_nested.end(), nested_here.begin(), nested_here.end());
 
+        // The contig runs are the TOP-LEVEL decode and nothing else. Below it every live site is
+        // grouped with its parent and the groups replace `chains` wholesale, so building runs there
+        // was scaffolding for a fallback that has never been taken -- and building them cost a sort
+        // and a scan of every entry, once per generation.
+        if (generation > 0) {
+            continue;
+        }
+
         size_t run_start = 0;
         while (run_start < chainable.size()) {
             size_t run_end = run_start + 1;
@@ -1863,41 +1871,39 @@ size_t LinkageCollector::resolve_generation(
         // sites can all be grouped is replaced by its groups; one that cannot is kept exactly as it
         // was. Nothing is lost either way, which is what the global flag was protecting: a site left
         // out of every group would never be decoded, never settled and never phased.
-        vector<vector<size_t>> kept_chains;
-        size_t vetoed_chains = 0, grouped_chains = 0;
-        for (const vector<size_t>& indices : chains) {
-            bool chain_covered = true;
-            for (size_t idx : indices) {
-                const Entry& e = entries[idx];
-                if (e.generation != generation) {
-                    continue;
-                }
-                auto par = index_of_key.find(e.parent_record_key);
-                if (e.parent_record_key == 0) {
-                    ++g_grp_no_parent;
-                    chain_covered = false;
-                } else if (par == index_of_key.end()) {
-                    ++g_grp_no_entry;
-                    chain_covered = false;
-                } else if (entries[par->second].ploidy != e.ploidy) {
-                    ++g_grp_ploidy;
-                    chain_covered = false;
-                }
-            }
-            if (!chain_covered) {
-                kept_chains.push_back(indices);
-                ++vetoed_chains;
-                ++g_grp_vetoed;
+        // Every live site of this generation, straight from the entries, grouped with its parent.
+        //
+        // This used to walk the contig runs and veto a WHOLE run if any one of its sites could not
+        // be grouped, sending that run to the contig chain. Two things were wrong with it. The scope
+        // was wrong -- a site that cannot be grouped is better decoded alone than chained to
+        // unrelated sites under different parents, which is what the contig chain does and what the
+        // comment there says costs about 1,100 severed links a generation. And it has never fired:
+        // 0 sites with no parent key, 0 whose parent has no live entry, 0 on a parent/child ploidy
+        // difference, on chr20, chr6 and chr17.
+        //
+        // Group membership is order-independent because every group is sorted afterwards, on
+        // (position, record key), which is total.
+        vector<vector<size_t>> ungrouped;
+        for (size_t idx = 0; idx < entries.size(); ++idx) {
+            const Entry& e = entries[idx];
+            if (e.retracted || e.nested || e.generation != generation) {
                 continue;
             }
-            ++grouped_chains;
-            for (size_t idx : indices) {
-                const Entry& e = entries[idx];
-                if (e.generation != generation) {
-                    continue;
-                }
+            auto par = index_of_key.find(e.parent_record_key);
+            if (e.parent_record_key == 0) {
+                ++g_grp_no_parent;
+            } else if (par == index_of_key.end()) {
+                ++g_grp_no_entry;
+            } else if (entries[par->second].ploidy != e.ploidy) {
+                ++g_grp_ploidy;
+            } else {
                 by_parent[group_key(e)].push_back(idx);
+                continue;
             }
+            // Decoded alone rather than dropped. What the veto was protecting is that a site left
+            // out of every group is never decoded, never settled and never phased.
+            ++g_grp_vetoed;
+            ungrouped.push_back(vector<size_t>{idx});
         }
         if (!by_parent.empty()) {
             // The phase set a group belongs to is its parent's, never the group's own first site:
@@ -1986,7 +1992,7 @@ size_t LinkageCollector::resolve_generation(
             // would be replaced by groups that do not contain them and their sites would never be
             // decoded at all -- which is the failure the global flag existed to prevent, and the
             // reason relaxing it needs this line and not just a looser test.
-            for (vector<size_t>& kc : kept_chains) {
+            for (vector<size_t>& kc : ungrouped) {
                 groups.push_back(std::move(kc));
                 gctx.push_back(nullptr);
                 gps.push_back(numeric_limits<size_t>::max());
