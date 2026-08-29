@@ -683,6 +683,22 @@ public:
     /// `set_parent_trav` is exactly how a frame would default to unset and go unnoticed.
     bool set_frame(size_t record_key, int slot, int offset);
 
+    /// What a settled parent implies about one of its children: how many copies the sample carries,
+    /// which of the parent's settled traversals carries it when that is one, and whether the
+    /// question could be answered at all.
+    ///
+    /// DERIVED, never stored. `Entry::ploidy` and `Entry::parent_trav` hold the same fact today,
+    /// written by a barrier pass with five early exits -- so they can go stale, and can go stale
+    /// INCONSISTENTLY WITH EACH OTHER: entries with ploidy 2 and parent_trav >= 0 were measured,
+    /// which the barrier's own comment says cannot happen. A value computed where it is consumed
+    /// cannot do that. This lands as a CHECK against the stored fields before anything depends on
+    /// it.
+    struct Relation {
+        uint8_t copies = 0;
+        int carrying_trav = -1;   ///< the traversal when copies == 1; -2 when both carry it
+        bool known = false;       ///< false when the parent's settled pair could not be read
+    };
+
     /// Where this chain sits in the alignment of its parent's two settled traversals. Set at the
     /// barrier, for the same reason `set_frame` is: the parent's genotype is not known before it.
     ///
