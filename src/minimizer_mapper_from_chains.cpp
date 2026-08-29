@@ -3061,48 +3061,13 @@ vector<Alignment> MinimizerMapper::do_base_level_alignment(
     }
 
     // Convert back to real alignments
-    vector<Alignment> output;
-
-    // Look for duplicate alignments by using this collection of node IDs and orientations
-    std::unordered_set<std::pair<nid_t, bool>> used_nodes;
-    // Compute the fraction of an alignment that is unique
-    auto get_fraction_unique = [&](const Path& new_path) {
-        // Work out how much of this alignment is from nodes not claimed by previous alignments
-        size_t from_length_from_used = 0;
-        size_t from_length_total = 0;
-        for (size_t i = 0; i < new_path.mapping_size(); i++) {
-            // For every mapping
-            auto& mapping = new_path.mapping(i);
-            auto& position = mapping.position();
-            size_t from_length = mapping_from_length(mapping);
-            std::pair<nid_t, bool> key{position.node_id(), position.is_reverse()};
-            if (used_nodes.count(key)) {
-                // Count the from_length on already-used nodes
-                from_length_from_used += from_length;
-            }
-            // And the overall from length
-            from_length_total += from_length;
-        }
-        double unique_node_fraction = from_length_total > 0 ? ((double)(from_length_total - from_length_from_used) / from_length_total) : 1.0;
-        return unique_node_fraction;
-    };
-
-    // Mark the nodes visited by an alignment as used for uniqueness.
-    auto mark_nodes_used = [&](const Path& new_path) {
-        for (size_t i = 0; i < new_path.mapping_size(); i++) {
-            // For every mapping
-            auto& position = new_path.mapping(i).position();
-            std::pair<nid_t, bool> key{position.node_id(), position.is_reverse()};
-            // Make sure we know we used the oriented node.
-            used_nodes.insert(key);
-        }
-    };
+    vector<Alignment> alignments;
 
     for (const auto& trace : finalized_tracebacks) {
         if (show_work) {
             #pragma omp critical (cerr)
             {
-                cerr << log_name() << "Possible alignment " << output.size() << " used subchains: ";
+                cerr << log_name() << "Alignment used subchains: ";
                 for (const auto& subchain_id : trace) {
                     cerr << subchain_id << " ";
                 }
@@ -3129,23 +3094,6 @@ vector<Alignment> MinimizerMapper::do_base_level_alignment(
         append_path(composed_path, right_tail_paths[trace.back()].path);
         composed_score += right_tail_paths[trace.back()].score;
 
-        // Do the unique node fraction filter
-        double unique_node_fraction = get_fraction_unique(composed_path);
-        if (unique_node_fraction == 0) {
-            // If this alignment is a duplicate, drop it
-            if (show_work) {
-                #pragma omp critical (cerr)
-                {
-                    cerr << log_name() << "Possible alignment " << output.size()
-                         << " rejected because it has no new nodes used" << endl;
-                }
-            }
-            // Don't bother saving this alignment; it's a duplicate
-            continue;
-        } else {
-            mark_nodes_used(composed_path);
-        }
-
         if (track_provenance) {
             // Tell the funnel
             funnel.introduce();
@@ -3166,12 +3114,12 @@ vector<Alignment> MinimizerMapper::do_base_level_alignment(
         }
 
         // Stick into alignment
-        output.emplace_back(aln);
-        *(output.back()).mutable_path() = std::move(simplify(composed_path, false));
+        alignments.emplace_back(aln);
+        *(alignments.back()).mutable_path() = std::move(simplify(composed_path, false));
         // Rescore with log-gap penalties
-        LoggedGapAlignmentScorer scheme(output.back());
+        LoggedGapAlignmentScorer scheme(alignments.back());
         // Score the alignment
-        int32_t logged_gaps_score = scheme.score_alignment(output.back());
+        int32_t logged_gaps_score = scheme.score_alignment(alignments.back());
 
         // Penalize score according to the number of recombinations their chains required.
         // This allows alignments that required fewer recombinations in their chains to win.
@@ -3192,24 +3140,57 @@ vector<Alignment> MinimizerMapper::do_base_level_alignment(
                                    << " New score: " << logged_gaps_score << endl;
             }
         }
-        output.back().set_score(logged_gaps_score);
-        if (!output.back().sequence().empty()) {
-            output.back().set_identity(identity(output.back().path()));
+        alignments.back().set_score(logged_gaps_score);
+        if (!alignments.back().sequence().empty()) {
+            alignments.back().set_identity(identity(alignments.back().path()));
         }
         // Annotate with tail lengths
-        set_annotation(output.back(), "left_tail_length", (double) left_tail_paths[trace.front()].path.length()); 
-        set_annotation(output.back(), "right_tail_length", (double) right_tail_paths[trace.back()].path.length());
-        set_annotation(output.back(), "chain.rec_count", total_rec_count);
+        set_annotation(alignments.back(), "left_tail_length", (double) left_tail_paths[trace.front()].path.length()); 
+        set_annotation(alignments.back(), "right_tail_length", (double) right_tail_paths[trace.back()].path.length());
+        set_annotation(alignments.back(), "chain.rec_count", total_rec_count);
+    }
+
+    if (show_work) {
+        #pragma omp critical (cerr)
+        cerr << "Sorting alignments by score order..." << endl;
     }
 
     // Sort by new score
-    std::sort(output.begin(), output.end(), 
+    std::sort(alignments.begin(), alignments.end(), 
     [](const Alignment& a, const Alignment& b) {
         // Return true if a has the higher score and belongs first
         return a.score() > b.score();
     });
+
+    // Now we're going to toss anything that has no unique nodes
+    // This might happen if we had trivial subchain detours
+    vector<Alignment> non_duplicate_alignments;
+    non_duplicate_alignments.reserve(alignments.size());
+    // Node ID & orientation
+    std::unordered_set<std::pair<nid_t, bool>> used_nodes;
+
+    for (const auto& cur_aln : alignments) {
+        bool has_new_node = false;
+        for (const auto& mapping : cur_aln.path().mapping()) {
+            auto& position = mapping.position();
+            std::pair<nid_t, bool> key{position.node_id(), position.is_reverse()};
+            if (!used_nodes.count(key)) {
+                used_nodes.emplace(key);
+                has_new_node = true;
+            }
+        }
+        if (has_new_node) {
+            non_duplicate_alignments.push_back(cur_aln);
+        } else if (show_work) {
+            #pragma omp critical (cerr)
+            {
+                cerr << log_name() << "Possible alignment " << non_duplicate_alignments.size()
+                     << " rejected because it has no new nodes used" << endl;
+            }
+        }
+    }
     
-    return output;
+    return non_duplicate_alignments;
 }
 
 void MinimizerMapper::wfa_alignment_to_alignment(const WFAAlignment& wfa_alignment, Alignment& alignment) const {
