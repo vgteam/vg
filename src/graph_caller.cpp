@@ -5002,7 +5002,8 @@ void FlowCaller::record_site(const Snarl& snarl, const vector<SnarlTraversal>& t
         nested_context.active, nested_context.parent_record_key,
         nested_context.parent_crossing,
         current_generation, /*emitted*/ false, /*align_rank*/ -1,
-        nested_context.chain_index, /*chain_backward*/ false, no_reference);
+        nested_context.chain_index, /*chain_backward*/ false, no_reference,
+        nested_context.chain_key);
 }
 
 void FlowCaller::render_retained_records() {
@@ -5585,7 +5586,8 @@ void FlowCaller::run_deferred_descent() {
                             (size_t)copies, pr.snarl.start().node_id(), pr.snarl.end().node_id(),
                             copies == 1, pr.parent_record_key,
                             pr.parent_crossing, pr.generation, /*emitted*/ false,
-                            pr.align_rank, pr.chain_index, pr.chain_backward);
+                            pr.align_rank, pr.chain_index, pr.chain_backward,
+                            /*unpositioned*/ false, pr.chain_key);
                     }
                 }
             }
@@ -6261,6 +6263,7 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
             pending_this->parent_record_key = nested_context.parent_record_key;
             pending_this->parent_crossing = nested_context.parent_crossing;
             pending_this->chain_index = nested_context.chain_index;
+            pending_this->chain_key = nested_context.chain_key;
             pending_this->no_reference = no_ref_position;
             pending_this->anchor_position =
                 no_ref_position ? get<0>(ref_interval) + ref_offsets[ref_path_name] : 0;
@@ -6427,6 +6430,15 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
                                 break;
                             }
                         }
+                    }
+                    // The chain's IDENTITY, which is all the decode needs of it now that sibling
+                    // chains have no transition between them. Taken from the graph -- the chain's
+                    // own boundary pair -- rather than from an alignment column, because ordering
+                    // chains against each other was the only thing the alignment was for.
+                    {
+                        const pair<nid_t, nid_t> cb = chain_bounds_of(child, snarl_manager);
+                        nested_context.chain_key =
+                            (size_t)((uint64_t)cb.first * 1000003ULL) ^ (size_t)(uint64_t)cb.second;
                     }
                 }
                 bool crossing_known = parent_alleles.valid;

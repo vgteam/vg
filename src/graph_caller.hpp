@@ -387,6 +387,10 @@ protected:
         /// The index of the chain member being descended into, within its chain. Set beside the
         /// other per-child facts before the recursive call, and read by that child for its own
         /// entry -- the same way `parent_crossing` travels.
+        /// Identity of the chain being descended into, from its boundary pair. The decode
+        /// groups on this: sibling chains have no transition between them, so a chain must be
+        /// distinguishable from its siblings and nothing more.
+        size_t chain_key = 0;
         int chain_index = -1;
         /// False when the crossing mask could not be computed: the parent emitted nothing on this
         /// invocation, or carries too many alleles for a 64-bit mask. child_crossing_mask returns 0
@@ -1142,6 +1146,8 @@ protected:
         /// This snarl's index within its chain, from the decomposition. Unlike `align_rank` this is
         /// known at descent, so it needs no replay -- it is carried only because the barrier's
         /// record() fallback builds the entry and must be given it.
+        /// Identity of this snarl's chain, from its boundary pair; the decode's group key.
+        size_t chain_key = 0;
         int chain_index = -1;
         /// This snarl has no reference path of its own, so no line may be written for it: REF and
         /// POS are undefined. It is genotyped and recorded into the linkage layer regardless, which

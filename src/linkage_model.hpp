@@ -467,7 +467,8 @@ public:
                 bool nested = false, size_t parent_record_key = 0,
                 uint64_t parent_crossing = 0, size_t generation = 0,
                 bool emitted = true, int align_rank = -1, int chain_index = -1,
-                bool chain_backward = false, bool unpositioned = false);
+                bool chain_backward = false, bool unpositioned = false,
+                size_t chain_key = 0);
 
     /// The compact allele space `record` builds for one site: the called pair plus every traversal
     /// some panel haplotype carries, deduplicated by traversal and sorted.
@@ -784,6 +785,10 @@ private:
         /// meets the snarls in reverse chain order. All siblings in one chain share that flag,
         /// because the parent crosses the chain once.
         int32_t chain_index = -1;
+        /// Identity of this snarl's chain, from its boundary pair. The group key: sibling chains
+        /// have no transition between them, so a chain needs only to be distinguishable from its
+        /// siblings -- which the graph answers directly, with no alignment.
+        size_t chain_key = 0;
         /// The parent's settled traversal crossed this snarl's CHAIN from the chain's recorded END
         /// boundary, so the chain's snarls are met in reverse chain order.
         ///
