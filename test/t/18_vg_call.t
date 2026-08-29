@@ -543,15 +543,15 @@ is $(awk -F'\t' '$1=="#haplotype" {name[$2]=$3; next}
 # haplotype in the GBWT without a locate query or an r-index, so the file hands them the GBWT
 # position outright. Version 4 appends nested_sites and max_depth AFTER them, so the position pair
 # is no longer last and is pinned by index instead.
-is $(awk -F'\t' '$1=="#H" {print NF"/"$10"/"$11}' rl_mosaic.tsv) "14/gbwt_node/gbwt_offset" \
-   "the header carries the GBWT position columns at 10 and 11"
+is $(awk -F'\t' '$1=="#H" {print NF"/"$11"/"$12}' rl_mosaic.tsv) "14/gbwt_node/gbwt_offset" \
+   "the header carries the GBWT position columns at 11 and 12"
 is $(awk -F'\t' '$1=="#H" {print $(NF-1)"/"$NF}' rl_mosaic.tsv) "nested_sites/max_depth" \
    "and ends with the nested-depth columns version 4 added"
 is $(awk -F'\t' '/^H\t/ && NF != 14 {n++} END {print n+0}' rl_mosaic.tsv) "0" \
    "every segment row carries all 14 columns"
 # nested_sites can never exceed the segment's own site count, and a segment with no nested site must
 # report depth 0. Both are properties of the counting rather than of this fixture's numbers.
-is $(awk -F'\t' '/^H\t/ && ($13 > $9 || ($13 == 0 && $14 != 0)) {n++} END {print n+0}' rl_mosaic.tsv) "0" \
+is $(awk -F'\t' '/^H\t/ && ($13 > $10 || ($13 == 0 && $14 != 0)) {n++} END {print n+0}' rl_mosaic.tsv) "0" \
    "nested_sites never exceeds the segment's sites, and depth is 0 where none are nested"
 
 # gbwt_node is an oriented GBWT node, so it encodes start_node as id*2 + is_reverse. If that
