@@ -1706,6 +1706,14 @@ size_t LinkageCollector::resolve_generation(
     // its own phase set.
     // Per chain: the message to condition it on (empty = none), and the phase set it belongs to
     // (SIZE_MAX = take it from the chain's own first site, as a contig chain does).
+    //
+    // `deltas` owns what `chain_context` points at, so it is declared HERE and not beside the loop
+    // that fills it: the pointers are read by the decode below, which is outside that loop's scope.
+    // Declared inside it, the deque was destroyed while `chain_context` still pointed into it -- a
+    // use-after-free that reads correctly almost every time, because freed heap usually still holds
+    // the bytes, and would have been a genuinely intermittent wrong answer. A deque and not a
+    // vector, so that pushing another cannot move the ones already pointed at.
+    std::deque<vector<double>> deltas;
     vector<const vector<double>*> chain_context;
     vector<size_t> chain_phase_set;
 
@@ -1901,9 +1909,6 @@ size_t LinkageCollector::resolve_generation(
                 phase_set_of[pc.record_key] = pc.phase_set;
             }
             vector<vector<size_t>> groups;
-            // Owns the deltas `gctx` points at under direct construction. A deque, not a vector:
-            // pushing must not move what is already pointed at.
-            std::deque<vector<double>> deltas;
             vector<const vector<double>*> gctx;
             vector<size_t> gps;
             for (auto& kv : by_parent) {
