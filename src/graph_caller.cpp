@@ -4266,6 +4266,21 @@ LegacyCaller::~LegacyCaller() {
     }
 }
 
+/// Look a reference path up in one of the per-caller maps without INSERTING on a miss.
+///
+/// `operator[]` inserts, and these maps are read from OpenMP worker threads: two of them missing the
+/// same key at once is a data race on the std::map's tree, not merely the surprising default a miss
+/// returns. That default is real too -- a missing ploidy reads as 0 and `genotype` returns nothing
+/// below 1, so the site silently produces no call at all.
+static inline size_t ref_offset_of(const map<string, size_t>& offsets, const string& path) {
+    auto it = offsets.find(path);
+    return it != offsets.end() ? it->second : 0;
+}
+static inline int ref_ploidy_of(const map<string, int>& ploidies, const string& path) {
+    auto it = ploidies.find(path);
+    return it != ploidies.end() ? it->second : 0;
+}
+
 bool LegacyCaller::call_snarl(const Snarl& snarl) {
 
     // if we can't handle the snarl, then the GraphCaller framework will recurse on its children
@@ -4358,9 +4373,8 @@ bool LegacyCaller::call_snarl(const Snarl& snarl) {
         // default. The surprising default is real too -- a missing key reads as ploidy 0, and
         // `genotype` returns nothing below ploidy 1, so the site silently produces no call at all.
         int ploidy = ploidy_at(path_name, get<0>(ref_interval),
-                               ref_offsets.count(path_name) ? ref_offsets.at(path_name) : 0,
-                               ref_ploidies.count(path_name)
-                                   ? ref_ploidies.at(path_name) : 0);
+                               ref_offset_of(ref_offsets, path_name),
+                               ref_ploidy_of(ref_ploidies, path_name));
         std::tie(called_traversals, genotype) = top_down_genotype(snarl, *rep_trav_finder, ploidy,
                                                                   path_name, make_pair(get<0>(ref_interval), get<1>(ref_interval)));
     
@@ -5211,6 +5225,11 @@ void FlowCaller::run_deferred_descent() {
             // so this needs no re-reading and no re-scoring.
             ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo* rl =
                 dynamic_cast<ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo*>(pr.call_info.get());
+            // Captured BEFORE the swap below, which releases the original CallInfo. The entry the
+            // sweep filed carries this value, and `alt_ploidy_info` does not copy it -- it is one of
+            // the ploidy-dependent fields the alternate leaves at its default -- so reading it off
+            // the replacement would silently rewrite it to 1.0 on every chain whose ploidy moved.
+            const double sweep_share = rl != nullptr ? rl->explained_share : 1.0;
             unique_ptr<SnarlCaller::CallInfo> use_info;
             vector<int> use_genotype;
             if (copies == pr.ploidy) {
@@ -5270,43 +5289,44 @@ void FlowCaller::run_deferred_descent() {
                 int called_i = use_genotype.empty() ? -1 : use_genotype[0];
                 int called_j = use_genotype.size() > 1 ? use_genotype[1] : called_i;
                 vector<int> panel = panel_alleles(graph, pr.travs);
-                if (!linkage_collector->respecify(pr.record_key,
-                                                  key.first, key.second,
-                                                  used->genotype_lls, panel,
-                                                  called_i, called_j, trav_to_allele_vec,
-                                                  (size_t)copies, copies == 1,
-                                                  pr.parent_crossing, /*emitted*/ false)) {
-                    // respecify refuses a site whose compact space it cannot build (no called
-                    // traversal, no likelihoods, or more than 127 reachable alleles). If such a site
-                    // is already in the layer, its entry describes the line this barrier pass has
-                    // just tombstoned, and its allele numbering belongs to that dead line -- so
-                    // leaving it would patch the *replacement* with the old numbering, which is how
-                    // a GT naming an allele the record has no ALT for gets written. Dropped instead:
-                    // an unpatched record is a per-site call, which is a correct answer, where a
-                    // mis-numbered one is not a VCF.
-                    if (linkage_collector->has_entry(pr.record_key)) {
-                        linkage_collector->retract(pr.record_key);
+                // Retract and re-record, rather than a second entry point that rewrites an
+                // entry in place.
+                //
+                // `respecify` existed because the sweep files a nested chain at the ploidy its
+                // parent's PRE-linkage genotype implied, and the barrier then knows better. It did
+                // the same work as `record` -- the same compact space from the same inputs -- while
+                // silently preserving six fields `record` is told afresh, which is exactly what made
+                // it a second thing to keep in step. Those six are passed here instead, so there is
+                // one way a site enters the layer.
+                //
+                // Retract first: `live_index` walks the key's chain and returns the first entry that
+                // is not retracted, so the replacement is live and the old one is a tombstone.
+                const bool had_entry = linkage_collector->has_entry(pr.record_key);
+                if (had_entry) {
+                    linkage_collector->retract(pr.record_key);
+                }
+                linkage_collector->record(
+                    key.first, key.second, used->genotype_lls, panel,
+                    called_i, called_j, trav_to_allele_vec,
+                    pr.record_key, sweep_share,
+                    (size_t)copies, pr.snarl.start().node_id(), pr.snarl.end().node_id(),
+                    LinkageCollector::SiteContext{
+                        .nested = copies == 1,
+                        .parent_record_key = pr.parent_record_key,
+                        .parent_crossing = pr.parent_crossing,
+                        .generation = pr.generation,
+                        .emitted = false,
+                        .chain_key = pr.chain_key,
+                    });
+                if (!linkage_collector->has_entry(pr.record_key)) {
+                    // `record` builds nothing for a site whose compact space it cannot describe -- no
+                    // called traversal, no likelihoods, or more than the 127 alleles an int8 arena
+                    // can name. The old entry is already a tombstone, which is the right outcome and
+                    // the one `respecify`'s refusal path reached the long way round: an unpatched
+                    // record is a per-site call, which is a correct answer, where one carrying a
+                    // dead line's allele numbering is not a VCF.
+                    if (had_entry) {
                         ++stale_respecify;
-                    } else {
-                        // Not previously recorded -- a chain nothing was written for during the
-                        // sweep -- so it joins the layer now rather than being revised. The contig
-                        // and POS are the ones the record was just written with, post-flatten: the
-                        // same key add_variant filed the line under, so write_variants' lookup can
-                        // find the entry. get_ref_position reproduces the pre-flatten POS and left
-                        // every gained record unphased.
-                        linkage_collector->record(
-                            key.first, key.second,
-                            used->genotype_lls, panel, called_i, called_j, trav_to_allele_vec,
-                            pr.record_key, 1.0,
-                            (size_t)copies, pr.snarl.start().node_id(), pr.snarl.end().node_id(),
-                            LinkageCollector::SiteContext{
-                                .nested = copies == 1,
-                                .parent_record_key = pr.parent_record_key,
-                                .parent_crossing = pr.parent_crossing,
-                                .generation = pr.generation,
-                                .emitted = false,
-                                .chain_key = pr.chain_key,
-                            });
                     }
                 }
             }
@@ -5721,16 +5741,15 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
     int ploidy = ploidy_override >= 0
                  ? ploidy_override
                  : ploidy_at(ref_path_name, get<0>(ref_interval),
-                             ref_offsets.count(ref_path_name) ? ref_offsets.at(ref_path_name) : 0,
-                             ref_ploidies.count(ref_path_name)
-                                 ? ref_ploidies.at(ref_path_name) : 0);
+                             ref_offset_of(ref_offsets, ref_path_name),
+                             ref_ploidy_of(ref_ploidies, ref_path_name));
 
     // Constants for bounded traversal set handling
     const int MAX_TRAVS_PER_SET = 10;
 
     if (traversals_only) {
         assert(gaf_output);
-        pair<string, int64_t> pos_info = get_ref_position(graph, snarl, ref_path_name, ref_offsets[ref_path_name]);
+        pair<string, int64_t> pos_info = get_ref_position(graph, snarl, ref_path_name, ref_offset_of(ref_offsets, ref_path_name));
         emit_gaf_traversals(graph, print_snarl(snarl), travs, ref_trav_idx, pos_info.first, pos_info.second, &support_finder);
     } else if (parent_child_trav_sets != nullptr && !parent_child_trav_sets->empty()) {
         // Genotype using bounded search over traversal sets from parent
@@ -5847,19 +5866,19 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
             // the ret_val below, which gates recursion -- so it must not become "the line was
             // written", which is not known yet. A staged record is a record that will be written.
             record_site(snarl, travs, trav_genotype, trav_call_info, ref_path_name,
-                        ref_offsets[ref_path_name]);
+                        ref_offset_of(ref_offsets, ref_path_name));
             render_this = stage_render_record(snarl, trav_genotype, ref_trav_idx, trav_call_info,
-                                              ref_path_name, ref_offsets[ref_path_name], ploidy,
+                                              ref_path_name, ref_offset_of(ref_offsets, ref_path_name), ploidy,
                                               true);
             added = render_this != nullptr;
             if (!added) {
                 added = emit_variant(graph, snarl_caller, snarl, travs, trav_genotype, ref_trav_idx,
-                                     trav_call_info, ref_path_name, ref_offsets[ref_path_name],
+                                     trav_call_info, ref_path_name, ref_offset_of(ref_offsets, ref_path_name),
                                      genotype_snarls, ploidy);
             }
             emitted_this_call = true;
         } else {
-            pair<string, int64_t> pos_info = get_ref_position(graph, snarl, ref_path_name, ref_offsets[ref_path_name]);
+            pair<string, int64_t> pos_info = get_ref_position(graph, snarl, ref_path_name, ref_offset_of(ref_offsets, ref_path_name));
             emit_gaf_variant(graph, print_snarl(snarl), travs, trav_genotype, ref_trav_idx, pos_info.first, pos_info.second, &support_finder);
         }
 
@@ -5894,9 +5913,9 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
             // this chain's own children, so reporting "no line" as added=false would silently prune
             // every grandchild under every off-reference chain, and that branch has no counter.
             record_site(snarl, travs, trav_genotype, trav_call_info, ref_path_name,
-                        ref_offsets[ref_path_name], /*no_reference*/ true,
+                        ref_offset_of(ref_offsets, ref_path_name), /*no_reference*/ true,
                         // The parent's interval, which `use_parent_interval` put here.
-                        get<0>(ref_interval) + ref_offsets[ref_path_name]);
+                        get<0>(ref_interval) + ref_offset_of(ref_offsets, ref_path_name));
             ++g_no_ref_recorded;
             {
                 int copies = 0;
@@ -5918,7 +5937,7 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
             // what phases everything inside it. Ordered after `retain_only`, which deliberately does
             // not record: a chain no called allele reaches is recorded by the barrier or not at all.
             record_site(snarl, travs, trav_genotype, trav_call_info, ref_path_name,
-                        ref_offsets[ref_path_name]);
+                        ref_offset_of(ref_offsets, ref_path_name));
             added = true;
         } else if (!gaf_output) {
             // Recorded here rather than inside emit_variant, and deliberately NOT on the retain_only
@@ -5927,7 +5946,7 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
             // where it currently falls through, which moves the `gained` count -- a real change, and
             // one for stage 10 to make on purpose rather than for this motion to make by accident.
             record_site(snarl, travs, trav_genotype, trav_call_info, ref_path_name,
-                        ref_offsets[ref_path_name]);
+                        ref_offset_of(ref_offsets, ref_path_name));
             // Staged, not emitted -- the same discipline the top-level branch already follows, and
             // the reason both of stage 10's residual counts were non-zero. Emitting here writes the
             // line from a genotype the barrier has not settled yet, and once a line exists the only
@@ -5943,13 +5962,13 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
             added = defer_nested_descent && !pending_records.empty();
             if (!added) {
                 added = emit_variant(graph, snarl_caller, snarl, travs, trav_genotype, ref_trav_idx,
-                                     trav_call_info, ref_path_name, ref_offsets[ref_path_name],
+                                     trav_call_info, ref_path_name, ref_offset_of(ref_offsets, ref_path_name),
                                      genotype_snarls, ploidy);
                 emitted_this_call = true;
             }
         } else {
             pair<string, int64_t> pos_info = get_ref_position(graph, snarl, ref_path_name,
-                                                              ref_offsets[ref_path_name]);
+                                                              ref_offset_of(ref_offsets, ref_path_name));
             emit_gaf_variant(graph, print_snarl(snarl), travs, trav_genotype, ref_trav_idx,
                              pos_info.first, pos_info.second, &support_finder);
         }
@@ -5963,7 +5982,7 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
             pending_this.reset(new PendingRecord());
             pending_this->snarl = snarl;
             pending_this->ref_path_name = ref_path_name;
-            pending_this->ref_offset = ref_offsets[ref_path_name];
+            pending_this->ref_offset = ref_offset_of(ref_offsets, ref_path_name);
             pending_this->ref_trav_idx = ref_trav_idx;
             pending_this->genotype = trav_genotype;
             pending_this->ploidy = ploidy;
@@ -5974,7 +5993,7 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
             pending_this->no_reference = no_ref_position;
             pending_this->reported_inline = nested_context.reported_inline;
             pending_this->anchor_position =
-                no_ref_position ? get<0>(ref_interval) + ref_offsets[ref_path_name] : 0;
+                no_ref_position ? get<0>(ref_interval) + ref_offset_of(ref_offsets, ref_path_name) : 0;
             pending_this->crossing_known = nested_context.crossing_known;
             pending_this->generation = (uint8_t)min(current_generation, (size_t)255);
             // Nothing is written for a nested chain during the sweep any more, so there is no
@@ -5999,19 +6018,19 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
             // the ret_val below, which gates recursion -- so it must not become "the line was
             // written", which is not known yet. A staged record is a record that will be written.
             record_site(snarl, travs, trav_genotype, trav_call_info, ref_path_name,
-                        ref_offsets[ref_path_name]);
+                        ref_offset_of(ref_offsets, ref_path_name));
             render_this = stage_render_record(snarl, trav_genotype, ref_trav_idx, trav_call_info,
-                                              ref_path_name, ref_offsets[ref_path_name], ploidy,
+                                              ref_path_name, ref_offset_of(ref_offsets, ref_path_name), ploidy,
                                               true);
             added = render_this != nullptr;
             if (!added) {
                 added = emit_variant(graph, snarl_caller, snarl, travs, trav_genotype, ref_trav_idx,
-                                     trav_call_info, ref_path_name, ref_offsets[ref_path_name],
+                                     trav_call_info, ref_path_name, ref_offset_of(ref_offsets, ref_path_name),
                                      genotype_snarls, ploidy);
             }
             emitted_this_call = true;
         } else {
-            pair<string, int64_t> pos_info = get_ref_position(graph, snarl, ref_path_name, ref_offsets[ref_path_name]);
+            pair<string, int64_t> pos_info = get_ref_position(graph, snarl, ref_path_name, ref_offset_of(ref_offsets, ref_path_name));
             emit_gaf_variant(graph, print_snarl(snarl), travs, trav_genotype, ref_trav_idx, pos_info.first, pos_info.second, &support_finder);
         }
 
@@ -6424,9 +6443,8 @@ bool NestedFlowCaller::call_snarl_recursive(const Snarl& managed_snarl, int max_
         gt_ref_interval = make_pair(get<0>(ref_interval), get<1>(ref_interval));
         if (max_ploidy == -1) {
             max_ploidy = ploidy_at(ref_path_name, get<0>(ref_interval),
-                                   ref_offsets.count(ref_path_name) ? ref_offsets.at(ref_path_name) : 0,
-                                   ref_ploidies.count(ref_path_name)
-                                       ? ref_ploidies.at(ref_path_name) : 0);
+                                   ref_offset_of(ref_offsets, ref_path_name),
+                                   ref_ploidy_of(ref_ploidies, ref_path_name));
         }        
     } else {
         // if we have no reference infromation, try to get it from the parent snarl
@@ -6600,10 +6618,8 @@ bool NestedFlowCaller::emit_snarl_recursive(const Snarl& managed_snarl, int ploi
             // Must agree with the ploidy the genotype was decided at, since genotype_by_ploidy is
             // indexed by it -- hence the record's own interval rather than the contig default.
             ploidy = ploidy_at(record.ref_path_name, record.ref_path_interval.first,
-                               ref_offsets.count(record.ref_path_name)
-                                   ? ref_offsets.at(record.ref_path_name) : 0,
-                               ref_ploidies.count(record.ref_path_name)
-                                   ? ref_ploidies.at(record.ref_path_name) : 0);
+                               ref_offset_of(ref_offsets, record.ref_path_name),
+                               ref_ploidy_of(ref_ploidies, record.ref_path_name));
         }
         
         pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>>& genotype = record.genotype_by_ploidy[ploidy - 1];
@@ -6649,7 +6665,7 @@ bool NestedFlowCaller::emit_snarl_recursive(const Snarl& managed_snarl, int ploi
 
         if (!gaf_output) {
             bool added = emit_variant(graph, snarl_caller, managed_snarl, record.travs, genotype.first, record.ref_trav_idx, genotype.second, record.ref_path_name,
-                                 ref_offsets[record.ref_path_name], genotype_snarls, ploidy, trav_to_flat_string);
+                                 ref_offset_of(ref_offsets, record.ref_path_name), genotype_snarls, ploidy, trav_to_flat_string);
             if (!added) {
                 return false;
             }

@@ -88,7 +88,9 @@ static bool respecify_dense(LinkageCollector& c, size_t record_key,
                             const vector<double>& dense_gls, const vector<int>& panel,
                             size_t called_i, size_t called_j, size_t ploidy,
                             bool nested, uint64_t parent_crossing,
-                            bool emitted = true) {
+                            bool emitted = true,
+                            int64_t start_node = 0, int64_t end_node = 0,
+                            size_t parent_record_key = 0) {
     map<vector<int>, double> gls;
     if (ploidy == 1) {
         for (size_t a = 0; a < num_alleles && a < dense_gls.size(); ++a) {
@@ -108,8 +110,20 @@ static bool respecify_dense(LinkageCollector& c, size_t record_key,
     for (size_t i = 0; i < num_alleles; ++i) {
         ident[i] = (int)i;
     }
-    return c.respecify(record_key, contig, position, gls, panel, (int)called_i, (int)called_j,
-                       ident, ploidy, nested, parent_crossing, emitted);
+    // What the barrier does: retract the entry the sweep filed at the pre-linkage ploidy, then
+    // record the site afresh at the settled one. There is no second entry point any more.
+    if (c.has_entry(record_key)) {
+        c.retract(record_key);
+    }
+    c.record(contig, position, gls, panel, (int)called_i, (int)called_j, ident, record_key,
+             /*share*/ 1.0, ploidy, start_node, end_node,
+             LinkageCollector::SiteContext{
+                 .nested = nested,
+                 .parent_record_key = parent_record_key,
+                 .parent_crossing = parent_crossing,
+                 .emitted = emitted,
+             });
+    return c.has_entry(record_key);
 }
 
 TEST_CASE("Zero weight leaves the per-site genotype untouched", "[linkage_model]") {
@@ -478,9 +492,12 @@ TEST_CASE("respecify moves a site to the ploidy its settled parent implies", "[l
     // likelihoods are the triangular vector now, and it is no longer a nested haploid site.
     REQUIRE(respecify_dense(collector, CHILD, "chr1", 1010, 2, {-30.0, -30.0, 0.0}, {1, 1}, 1, 1, 2,
                                 /*nested*/ false, 0, 0));
-    // An unknown key must say so rather than silently doing nothing.
-    REQUIRE_FALSE(respecify_dense(collector, 12345, "chr1", 1010, 2, {0.0, -30.0, -30.0}, {0, 0},
-                                  0, 0, 1, true, 0, 0));
+    // An unknown key is RECORDED, not refused. `respecify` used to refuse it and the barrier then
+    // called `record` itself; there is one path now, and this is how a chain reachable only under a
+    // settled parent -- 520 of them on chr20 -- enters the layer at all.
+    REQUIRE(respecify_dense(collector, 12345, "chr1", 1010, 2, {0.0, -30.0, -30.0}, {0, 0},
+                            0, 0, 1, true, 0, 0));
+    REQUIRE(collector.has_entry(12345));
 
     vector<LinkageCollector::PhaseCall> phased;
     collector.resolve(&phased);

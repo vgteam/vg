@@ -582,44 +582,6 @@ public:
     size_t resolve_generation(size_t generation, bool last,
                                       vector<PhaseCall>* phasing_out = nullptr);
 
-    /// Move a site to a different ploidy before its generation is resolved.
-    ///
-    /// Nested calling settles a chain's ploidy from its parent's genotype, which is only known once
-    /// the parent's generation has resolved -- by which time the chain has already been recorded at
-    /// the ploidy its parent's *pre-linkage* genotype implied. Where the two disagree this replaces
-    /// the entry's likelihoods and ploidy with the right ones, which the caller has in hand because
-    /// the genotyping kept both.
-    ///
-    /// Only legal before the site's own generation resolves: afterwards its genotype is settled and
-    /// other sites have been clamped against it. Returns false if the key is unknown, so a silent
-    /// no-op cannot pass for a successful revision.
-    ///
-    /// This is what makes the coherence guarantee structural rather than reported. Before it, a child
-    /// kept the ploidy a superseded parent genotype implied and the disagreement was written into the
-    /// record as a FILTER.
-    ///
-    /// `contig` and `position` must be the ones the replacement line was actually filed under, which
-    /// is *not* always where the sweep filed the old one: re-emitting at a different ploidy changes
-    /// the emitted allele set, and `flatten_common_allele_ends` advances POS by the prefix every
-    /// allele shares, so POS moves with the ALT list. The patch indices are keyed on (contig, POS),
-    /// so an entry left at the sweep-time position is simply never looked up -- the genotype patch
-    /// and the phase patch are not declined, they are never offered.
-    ///
-    /// `emitted` is not optional and must describe the line the caller has *just* written, because a
-    /// revision routinely changes it: a chain no called parent allele reached during the sweep is
-    /// recorded unemitted, and the barrier is exactly where it can become a real record. Leaving the
-    /// recorded value alone meant such a chain kept `emitted == false` for the rest of the run, and
-    /// both the genotype patch and the phase patch skip an unemitted entry -- so it was emitted with
-    /// no linkage correction and no phase set at all, on 75 of chr20's records.
-    bool respecify(size_t record_key,
-                   const string& contig, size_t position,
-                   const map<vector<int>, double>& genotype_ln_likelihood,
-                   const vector<int>& haplotype_traversal,
-                   int called_trav_i, int called_trav_j,
-                   const vector<int>& traversal_to_allele,
-                   size_t ploidy, bool nested,
-                   uint64_t parent_crossing, bool emitted);
-
     /// Drop a site before its generation resolves: the settled parent genotype does not carry the
     /// chain at all, so the sample has no copy of it and no call belongs there.
     ///
