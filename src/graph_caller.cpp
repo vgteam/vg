@@ -5087,11 +5087,16 @@ void FlowCaller::run_deferred_descent() {
         return dropped_here;
     };
 
-    size_t revised = 0, retracted = 0, gained = 0, crossing_unknown = 0, stale_respecify = 0;
+    size_t revised = 0, retracted = 0, gained = 0, crossing_unknown = 0, unspecifiable = 0;
     // `generations` is re-read at the end of each pass rather than snapshotted once: gaining a
     // chain records a linkage entry at a generation the collector may never have held before, and
     // a fixed bound would leave that entry -- and every pending chain below it -- outside every
     // resolve pass: emitted but never settled, never phased, absent from the mosaic.
+    // A LEVEL-ORDER walk of the snarl tree, and it has to be level-order rather than depth-first.
+    // Each group's decode depends only on its parent's settled state, so the two orders would agree
+    // -- except that the per-strand haploid pass inside `resolve_linkage_generation` pools a whole
+    // contig's nested haploid sites on one strand, and M4 measured that pooling worth two structural
+    // variants on chr20 and two on chr6. Depth-first would present it one subtree at a time.
     for (size_t gen = 0; gen <= generations; ++gen) {
         // The final pass carries last=true: it builds the phasing map and the mosaic from the full
         // accumulated set. If this pass then gains a deeper chain, the bound grows and a later
@@ -5253,12 +5258,13 @@ void FlowCaller::run_deferred_descent() {
                 // alternate was never computed. Left as it stands rather than invented.
                 continue;
             }
-            // "Gained" now means "was not in the linkage layer", not "had no line": no nested
-            // chain has a line at this point, so the old test was true for every record and reported
-            // 0 revised against 2,950 gained. A chain no called parent allele reached at sweep time
-            // is the one that is genuinely new to the layer here.
-            const bool was_gained = linkage_collector == nullptr
-                                    || !linkage_collector->has_entry(pr.record_key);
+            // Was this chain in the layer before? It answers two questions that used to be asked
+            // separately: whether the site is being revised or is new here, and whether there is an
+            // old entry to tombstone. "New" means "was not in the layer", not "had no line" -- no
+            // nested chain has a line at this point, so the line-based test was true for every
+            // record and reported 0 revised against 2,950 gained.
+            const bool had_entry = linkage_collector != nullptr
+                                   && linkage_collector->has_entry(pr.record_key);
             // Revised, not re-emitted. The chain's ploidy has changed, so the record it will be
             // rendered from has to change with it -- but the record does not exist yet, and that is
             // the point: there is no line to blank, no replacement to register, and no patch to
@@ -5301,14 +5307,23 @@ void FlowCaller::run_deferred_descent() {
                 //
                 // Retract first: `live_index` walks the key's chain and returns the first entry that
                 // is not retracted, so the replacement is live and the old one is a tombstone.
-                const bool had_entry = linkage_collector->has_entry(pr.record_key);
                 if (had_entry) {
                     linkage_collector->retract(pr.record_key);
                 }
                 linkage_collector->record(
                     key.first, key.second, used->genotype_lls, panel,
                     called_i, called_j, trav_to_allele_vec,
-                    pr.record_key, sweep_share,
+                    // The share the ENTRY carried, and 1.0 for a chain that had none.
+                    //
+                    // This reproduces two paths that disagreed. `respecify` preserved the entry's
+                    // `explained_share`, which is the sweep's; the `record` fallback beside it, for
+                    // a chain not yet in the layer, passed a hard 1.0. The layer hands this value
+                    // to `apply_linkage_quality`, where it discounts GQ -- so the disagreement was
+                    // visible, on 5 chr20 records, and invisible to F1, which does not read quality
+                    // fields. Kept exactly as it was so that deleting `respecify` proves equivalent;
+                    // whether a gained chain should carry its real share is a separate question with
+                    // a separate answer.
+                    pr.record_key, had_entry ? sweep_share : 1.0,
                     (size_t)copies, pr.snarl.start().node_id(), pr.snarl.end().node_id(),
                     LinkageCollector::SiteContext{
                         .nested = copies == 1,
@@ -5326,14 +5341,14 @@ void FlowCaller::run_deferred_descent() {
                     // record is a per-site call, which is a correct answer, where one carrying a
                     // dead line's allele numbering is not a VCF.
                     if (had_entry) {
-                        ++stale_respecify;
+                        ++unspecifiable;
                     }
                 }
             }
-            if (was_gained) {
-                ++gained;
-            } else {
+            if (had_entry) {
                 ++revised;
+            } else {
+                ++gained;
             }
 
             // The record this chain's children were masked against has just changed -- or, for a
@@ -5412,9 +5427,9 @@ void FlowCaller::run_deferred_descent() {
         if (crossing_unknown > 0) {
             cerr << ", " << crossing_unknown << " with a crossing mask the sweep could not compute";
         }
-        if (stale_respecify > 0) {
-            cerr << ", " << stale_respecify << " dropped from the layer because the replacement "
-                 << "record could not be respecified";
+        if (unspecifiable > 0) {
+            cerr << ", " << unspecifiable << " dropped from the layer because the site's "
+                 << "compact allele space could not be built";
         }
         cerr << endl;
     }
