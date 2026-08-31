@@ -200,6 +200,23 @@ public:
         /// carries no allele, and treating that as reference would invent evidence.
         vector<int> haplotype_allele;
 
+        /// The panel haplotype this site's PARENT occupies on this site's strand, or WILDCARD, and
+        /// which parent that is.
+        ///
+        /// Set only for nested haploid sites, and read only under VG_LINKAGE_HAPLOID_PARENT. A
+        /// diploid nested chain is conditioned on a delta at its parent's settled PAIR; a haploid
+        /// one gets nothing today, because its bucket spans many parents and there is no single
+        /// boundary message for the whole run. `parent_key` is what lets a run of sites under one
+        /// parent be told from the next run without a second pass.
+        size_t parent_haplotype = (size_t)-1;
+        /// True at the first site, in decode order, of each nested haploid CHAIN.
+        ///
+        /// Not derived by comparing consecutive sites' parents: a parent may carry two haploid child
+        /// chains, and the bucket is ordered by (parent anchor, position), which does not guarantee
+        /// that one chain's sites are contiguous when two chains' reference intervals overlap.
+        /// Computed by first occurrence of the (parent, chain) pair instead.
+        bool first_of_chain = false;
+
         /// Fix this site's haplotype pair in `phasing()` rather than letting the path choose it.
         ///
         /// A generation-wise resolve decodes a later generation's phase against earlier
@@ -267,7 +284,13 @@ public:
     /// than `(H+1)^2`, an ordinary Li-Stephens chain, and no symmetrisation.
     ///
     /// `sites[t].genotype_ln_likelihood` is read as one entry per allele here.
-    vector<vector<double>> haploid_posteriors(const vector<Site>& sites) const;
+    /// `alpha_in` is the message entering the chain, over SINGLE haplotypes in the same layout as
+    /// the haploid emissions, or null for uniform. The exact analogue of what `segment_posteriors`
+    /// takes for a diploid nested chain: a prior on the message, which the site's own emission then
+    /// multiplies and may argue back against. Masking the emission instead is a strictly stronger
+    /// operation and is not the same experiment.
+    vector<vector<double>> haploid_posteriors(const vector<Site>& sites,
+                                              const vector<double>* alpha_in = nullptr) const;
 
     /// Most probable path of single haplotypes through a haploid chain, one per site.
     ///
@@ -340,7 +363,8 @@ private:
 
     /// Forward-backward and max-product over one window of a haploid chain.
     void window_haploid_posteriors(const vector<Site>& sites, size_t from, size_t to,
-                                   vector<vector<double>>& out) const;
+                                   vector<vector<double>>& out,
+                                   const vector<double>* alpha_in = nullptr) const;
     void window_haploid_phasing(const vector<Site>& sites, size_t from, size_t to,
                                 const vector<size_t>& constraint,
                                 size_t pin_index, size_t pin, vector<size_t>& out) const;
