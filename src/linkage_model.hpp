@@ -200,23 +200,6 @@ public:
         /// carries no allele, and treating that as reference would invent evidence.
         vector<int> haplotype_allele;
 
-        /// The panel haplotype this site's PARENT occupies on this site's strand, or WILDCARD, and
-        /// which parent that is.
-        ///
-        /// Set only for nested haploid sites, and read only under VG_LINKAGE_HAPLOID_PARENT. A
-        /// diploid nested chain is conditioned on a delta at its parent's settled PAIR; a haploid
-        /// one gets nothing today, because its bucket spans many parents and there is no single
-        /// boundary message for the whole run. `parent_key` is what lets a run of sites under one
-        /// parent be told from the next run without a second pass.
-        size_t parent_haplotype = (size_t)-1;
-        /// True at the first site, in decode order, of each nested haploid CHAIN.
-        ///
-        /// Not derived by comparing consecutive sites' parents: a parent may carry two haploid child
-        /// chains, and the bucket is ordered by (parent anchor, position), which does not guarantee
-        /// that one chain's sites are contiguous when two chains' reference intervals overlap.
-        /// Computed by first occurrence of the (parent, chain) pair instead.
-        bool first_of_chain = false;
-
         /// Fix this site's haplotype pair in `phasing()` rather than letting the path choose it.
         ///
         /// A generation-wise resolve decodes a later generation's phase against earlier
@@ -286,9 +269,15 @@ public:
     /// `sites[t].genotype_ln_likelihood` is read as one entry per allele here.
     /// `alpha_in` is the message entering the chain, over SINGLE haplotypes in the same layout as
     /// the haploid emissions, or null for uniform. The exact analogue of what `segment_posteriors`
-    /// takes for a diploid nested chain: a prior on the message, which the site's own emission then
-    /// multiplies and may argue back against. Masking the emission instead is a strictly stronger
-    /// operation and is not the same experiment.
+    /// takes for a diploid nested chain.
+    ///
+    /// A prior in FORM, and worth being precise about how much that softens it, because it is easy
+    /// to over-claim. The collector supplies a point mass at the parent's settled state, so a state
+    /// the message excludes has zero mass and no emission can restore it. What the reads can do is
+    /// recombine AWAY from it over the length of the chain -- one transition step costs about
+    /// rho/m -- so on a chain the message is an entry condition the reads may leave, while on a
+    /// ONE-SITE chain it decides the answer outright. Measured: 79, 71 and 97 extra genotypes moved
+    /// on chr20, chr6 and chr17, and 2,599 on chrX, where it took SV F1 up 2.0e-2.
     vector<vector<double>> haploid_posteriors(const vector<Site>& sites,
                                               const vector<double>* alpha_in = nullptr) const;
 
@@ -298,8 +287,18 @@ public:
     /// produces is only the mosaic: which panel haplotype explains each stretch. That is still
     /// worth having -- it is the whole answer for chrY and for chrX outside the pseudoautosomal
     /// regions.
+    ///
+    /// `alpha_in` is the entering message, with exactly the meaning and the strength it has in
+    /// `haploid_posteriors` -- see there.
+    ///
+    /// The two MUST be given the same message. The posteriors decide the genotype and the phasing
+    /// decides which panel haplotype the mosaic reports for it; conditioning one and not the other
+    /// named a haplotype chosen in complete ignorance of the parent the genotype had just been
+    /// settled against, which is how a nested site came to report a haplotype the parent's strand
+    /// does not follow.
     vector<size_t> haploid_phasing(const vector<Site>& sites,
-                                   const vector<size_t>& constraint) const;
+                                   const vector<size_t>& constraint,
+                                   const vector<double>* alpha_in = nullptr) const;
 
     /// VCF diploid genotype ordering: index of the genotype (i,j).
     static size_t genotype_index(size_t i, size_t j) {
@@ -367,7 +366,8 @@ private:
                                    const vector<double>* alpha_in = nullptr) const;
     void window_haploid_phasing(const vector<Site>& sites, size_t from, size_t to,
                                 const vector<size_t>& constraint,
-                                size_t pin_index, size_t pin, vector<size_t>& out) const;
+                                size_t pin_index, size_t pin, vector<size_t>& out,
+                                const vector<double>* alpha_in = nullptr) const;
 
     Params params;
 };

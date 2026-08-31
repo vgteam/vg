@@ -931,53 +931,6 @@ void LinkageModel::haploid_emission(const Site& site, size_t n_hap, vector<doubl
     }
 }
 
-/// Condition a haploid window's emissions on the parent each site hangs off.
-///
-/// Nested haploid sites get NO parent conditioning today. A diploid nested chain is a chain, so it
-/// has one entry point and takes a delta at its parent's settled pair there; a haploid bucket is
-/// keyed on (phase set, strand) and spans many parents, so there is no single boundary message for
-/// it. What there is instead is per-site evidence: the parent occupies one panel haplotype on this
-/// strand, and the child sits inside the parent's traversal.
-///
-/// Two arms, because "conditioning" could mean either and they say different things:
-///
-///   1  at the FIRST site of each same-parent run. The analogue of what a diploid nested chain
-///      gets: the run enters on the parent's haplotype and may recombine away from it afterwards.
-///   2  at EVERY site. The strong form, and it forbids recombination inside the parent outright --
-///      which is the thing nested calling is meant to be able to report, so a gain here would be
-///      worth as much for what it says as for what it scores.
-///
-/// Declines where the parent's haplotype explains nothing at the child site: zeroing every state
-/// would leave no mass at all, which is an assertion rather than a conditioning.
-static void condition_on_parent(const vector<LinkageModel::Site>& sites, size_t from, size_t n,
-                                size_t m, vector<vector<double>>& emissions) {
-    static const int mode = []() {
-        const char* v = getenv("VG_LINKAGE_HAPLOID_PARENT");
-        return v != nullptr ? atoi(v) : 0;
-    }();
-    if (mode <= 0 || mode > 2) {
-        return;   // mode 3 conditions the entering message instead; see haploid_posteriors
-    }
-    for (size_t t = 0; t < n; ++t) {
-        const LinkageModel::Site& site = sites[from + t];
-        const size_t h = site.parent_haplotype;
-        if (h == LinkageModel::WILDCARD || h >= m || t >= emissions.size()) {
-            continue;
-        }
-        if (mode == 1 && !site.first_of_chain) {
-            continue;   // conditioning enters a chain once, at its first site
-        }
-        if (emissions[t][h] <= 0.0) {
-            continue;
-        }
-        for (size_t k = 0; k < m; ++k) {
-            if (k != h) {
-                emissions[t][k] = 0.0;
-            }
-        }
-    }
-}
-
 void LinkageModel::window_haploid_posteriors(const vector<Site>& sites, size_t from, size_t to,
                                              vector<vector<double>>& out,
                                              const vector<double>* alpha_in) const {
@@ -997,7 +950,6 @@ void LinkageModel::window_haploid_posteriors(const vector<Site>& sites, size_t f
     for (size_t t = 0; t < n; ++t) {
         haploid_emission(sites[from + t], n_hap, emissions[t], per_allele[t]);
     }
-    condition_on_parent(sites, from, n, m, emissions);
 
     // Forward, rescaled every step; the scale factors are discarded, as in the diploid pass.
     vector<vector<double>> alpha(n);
@@ -1158,7 +1110,8 @@ vector<vector<double>> LinkageModel::haploid_posteriors(const vector<Site>& site
 void LinkageModel::window_haploid_phasing(const vector<Site>& sites, size_t from, size_t to,
                                           const vector<size_t>& constraint,
                                           size_t pin_index, size_t pin,
-                                          vector<size_t>& out) const {
+                                          vector<size_t>& out,
+                                          const vector<double>* alpha_in) const {
     size_t n = to - from;
     out.assign(n, WILDCARD);
     if (n == 0) {
@@ -1193,10 +1146,6 @@ void LinkageModel::window_haploid_phasing(const vector<Site>& sites, size_t from
             }
         }
     }
-    // The same arm the posteriors path applies, so a conditioned genotype and its phase agree.
-    // After the called-allele constraint, not before: the parent's haplotype may not carry the
-    // allele the site settled on, and `condition_on_parent` declines rather than zeroing the row.
-    condition_on_parent(sites, from, n, m, emissions);
     // As in the diploid caller: test before zeroing, and skip the pin outright when the pinned
     // state conflicts with this window's constraints, rather than pinning the forbidden state.
     if (pin_index != (size_t)-1 && pin_index >= from && pin_index < to) {
@@ -1211,9 +1160,36 @@ void LinkageModel::window_haploid_phasing(const vector<Site>& sites, size_t from
 
     const double NINF = -numeric_limits<double>::infinity();
     vector<double> delta(m, NINF);
+    // The entering message replaces the uniform start where there is one. It multiplies the first
+    // site's emission rather than replacing it, but the collector supplies a POINT MASS, so on this
+    // window that is a choice of state and not a nudge -- see `haploid_posteriors` for how much the
+    // chain's own transitions soften it downstream. Uniform where the caller supplies none, or
+    // where the message is the wrong length for this state space.
+    const bool have_alpha = alpha_in != nullptr && alpha_in->size() == m;
     for (size_t k = 0; k < m; ++k) {
-        if (emissions[0][k] > 0.0) {
-            delta[k] = -log((double)m) + log(emissions[0][k]);
+        if (emissions[0][k] <= 0.0) {
+            continue;
+        }
+        const double prior = have_alpha ? (*alpha_in)[k] : 1.0 / (double)m;
+        if (prior > 0.0) {
+            delta[k] = log(prior) + log(emissions[0][k]);
+        }
+    }
+    // Every state the message allows is also forbidden by the emission, so the message and the
+    // reads disagree outright. Fall back to the reads: a decode with no live state returns
+    // WILDCARD everywhere, which reports "the panel cannot explain this strand" for a strand the
+    // panel explains perfectly well once the parent's claim is dropped.
+    if (have_alpha) {
+        bool any = false;
+        for (size_t k = 0; k < m && !any; ++k) {
+            any = delta[k] > NINF;
+        }
+        if (!any) {
+            for (size_t k = 0; k < m; ++k) {
+                if (emissions[0][k] > 0.0) {
+                    delta[k] = -log((double)m) + log(emissions[0][k]);
+                }
+            }
         }
     }
     vector<vector<uint16_t>> back(n);
@@ -1290,7 +1266,8 @@ void LinkageModel::window_haploid_phasing(const vector<Site>& sites, size_t from
 }
 
 vector<size_t> LinkageModel::haploid_phasing(const vector<Site>& sites,
-                                             const vector<size_t>& constraint) const {
+                                             const vector<size_t>& constraint,
+                                             const vector<double>* alpha_in) const {
     vector<size_t> out(sites.size(), WILDCARD);
     if (sites.empty()) {
         return out;
@@ -1301,7 +1278,11 @@ vector<size_t> LinkageModel::haploid_phasing(const vector<Site>& sites,
     windowed_path(sites.size(), max<size_t>(params.window, 1), params.margin, out,
                   [&](size_t lo, size_t hi, size_t pin_index, const size_t& pin,
                       vector<size_t>& local) {
-                      window_haploid_phasing(sites, lo, hi, constraint, pin_index, pin, local);
+                      // Only the window that begins the chain, as in `haploid_posteriors`: a later
+                      // window's left end is an interior seam and the margin carries the chain
+                      // across it.
+                      window_haploid_phasing(sites, lo, hi, constraint, pin_index, pin, local,
+                                             lo == 0 ? alpha_in : nullptr);
                   });
     return out;
 }
@@ -1615,7 +1596,11 @@ static std::atomic<size_t> g_grp_no_parent(0);
 /// Is conditioning a nested haploid site on its parent well posed at all? See the strand pass.
 static std::atomic<size_t> g_hpd_no_parent(0), g_hpd_arbitrary(0), g_hpd_wildcard(0);
 static std::atomic<size_t> g_hpd_absent(0), g_hpd_agrees(0), g_hpd_disagrees(0);
-static std::atomic<size_t> g_grp_no_entry(0), g_grp_ploidy(0), g_grp_vetoed(0);
+static std::atomic<size_t> g_grp_no_entry(0), g_grp_vetoed(0);
+// Where nested HAPLOID chains ended up. The per-strand pass reported this and it is how the
+// population is gated: all 44,139 of its "no strand" sites were chrX's and none were autosomal, so
+// a bug confined to one of these buckets is invisible to any autosome-only check.
+static std::atomic<size_t> g_nest_strand(0), g_nest_one_hap(0), g_nest_unnameable(0);
 
 /// Which of its parent's two strands a nested haploid chain sits on, or -1.
 ///
@@ -1655,9 +1640,6 @@ static inline int nested_strand_of(int carrying, size_t parent_ploidy, int paren
 
 size_t LinkageCollector::resolve_generation(
         size_t generation, bool last, vector<PhaseCall>* phasing_out) {
-    // Nested sites, collected across every contig and phased after the diploid chains, so their
-    // strand can be read off the parent they hang off rather than guessed.
-    vector<size_t> deferred_nested;
     size_t moved = 0;
     // Genotypes the model settled on that the emitted record carries no ALT for. Reachable only
     // because the collector's allele space is the genotyper's rather than the VCF's, so it is
@@ -1681,6 +1663,7 @@ size_t LinkageCollector::resolve_generation(
         int trav_second;
         size_t ploidy;
         int nested_strand;
+        bool order_arbitrary;
     };
     unordered_map<size_t, PinnedPhase> pinned_phase;
     if (phasing_out != nullptr && generation > 0) {
@@ -1688,16 +1671,27 @@ size_t LinkageCollector::resolve_generation(
         for (const PhaseCall& pc : *phasing_out) {
             pinned_phase[pc.record_key] = PinnedPhase{pc.hap_first, pc.hap_second,
                                                       pc.trav_first, pc.trav_second,
-                                                      pc.ploidy, (int)pc.nested_strand};
+                                                      pc.ploidy, (int)pc.nested_strand,
+                                                      pc.order_arbitrary};
         }
     }
-    // D3: route nested haploid chains through the same (parent, chain) grouping the diploid ones
-    // use, instead of holding them out into the per-strand pass. Measured genome-wide as neutral
-    // (ALL +6e-8, SV -3.7e-4, P = 0.46), so this is a simplification rather than a trade.
-    static const bool unified_nested = getenv("VG_LINKAGE_UNIFIED_NESTED") != nullptr;
-    // A nested haploid chain's strand, by record key, so the PhaseCall the chain loop emits can
-    // name it. Derived once where the parent's settled pair is in hand.
-    unordered_map<size_t, int> unified_strand;
+    // Where a nested haploid chain sits, by record key, so the PhaseCall the chain loop emits can
+    // name it. Derived once where the parent's settled pair is in hand, which is the only place
+    // both facts are available.
+    struct NestedPlacement {
+        int strand = -1;
+        bool order_arbitrary = false;   // the parent's: this strand IS that coin flip, one level down
+        // Whether naming a panel haplotype for this site is legitimate at all.
+        //
+        // Two different reasons a strand can be absent, and they want opposite renderings. Under a
+        // HAPLOID parent there is no strand to choose because there is only one -- the child sits on
+        // it, and the haplotype is nameable. Under a DIPLOID parent whose settled pair does not
+        // carry the chain there is no strand because the sample has no copy of this locus at all,
+        // and naming a haplotype there asserts a mosaic path through sequence the parent record
+        // does not carry.
+        bool nameable = true;
+    };
+    unordered_map<size_t, NestedPlacement> unified_strand;
 
     // Default every site this pass considers to its own per-site call, so that whatever a chain or a
     // sweep fails to reach still has a coherent genotype for a later generation to clamp. Overwritten
@@ -1715,11 +1709,8 @@ size_t LinkageCollector::resolve_generation(
     // are computed from the gaps -- so trusting the arrival order would silently feed the model
     // the wrong distances.
     //
-    // Only at the TOP LEVEL. Below it the contig runs are not built at all -- every live site is
-    // grouped with its parent instead -- so the only thing this loop produced there was
-    // `deferred_nested`, at the price of collecting and sorting every entry on the contig once per
-    // generation. Those sites are gathered directly below, and sorted on the same key so the order
-    // is the one the runs would have given.
+    // Only at the TOP LEVEL. Below it there are no contig runs to build: every live site is nested,
+    // and a nested site is grouped with its parent instead.
     vector<vector<size_t>> by_contig;
     if (generation == 0) {
         by_contig.resize(contig_names.size());
@@ -1732,24 +1723,6 @@ size_t LinkageCollector::resolve_generation(
             }
             by_contig[entries[i].contig].push_back(i);
         }
-    } else {
-        for (size_t i = 0; i < entries.size(); ++i) {
-            const Entry& e = entries[i];
-            // Only this generation's. An earlier generation's nested site is already placed on a
-            // strand and already resolved in its own per-strand chain.
-            if (!e.retracted && e.nested && e.generation == generation && !unified_nested) {
-                deferred_nested.push_back(i);
-            }
-        }
-        sort(deferred_nested.begin(), deferred_nested.end(), [&](size_t a, size_t b) {
-            if (entries[a].contig != entries[b].contig) {
-                return entries[a].contig < entries[b].contig;
-            }
-            if (entries[a].position != entries[b].position) {
-                return entries[a].position < entries[b].position;
-            }
-            return entries[a].record_key < entries[b].record_key;
-        });
     }
 
     // A chain is a maximal run of one ploidy on one contig, not a whole contig.
@@ -1800,34 +1773,18 @@ size_t LinkageCollector::resolve_generation(
         // A *regional* ploidy change still cuts, which is the case the rule exists for: across
         // chrX's pseudoautosomal boundary there is no haplotype correspondence to carry, so joining
         // those runs would be wrong rather than merely fragmented.
-        vector<size_t> nested_here;
-        vector<size_t> chainable;
-        chainable.reserve(contig_indices.size());
-        for (size_t idx : contig_indices) {
-            if (entries[idx].nested) {
-                // Only this generation's. An earlier generation's nested site is already placed on a
-                // strand and already resolved in its own per-strand chain, and it is held out of the
-                // diploid runs by construction -- so there is nothing for it to contribute here, and
-                // re-placing it would rewrite a PhaseCall the VCF has already been told about.
-                if (entries[idx].generation == generation && !unified_nested) {
-                    nested_here.push_back(idx);
-                }
-            } else {
-                chainable.push_back(idx);
-            }
-        }
-        deferred_nested.insert(deferred_nested.end(), nested_here.begin(), nested_here.end());
-
+        // Every entry here is top level -- `by_contig` is built at generation 0 only, and a
+        // top-level snarl has no parent to be nested in -- so the whole contig is chainable.
         size_t run_start = 0;
-        while (run_start < chainable.size()) {
+        while (run_start < contig_indices.size()) {
             size_t run_end = run_start + 1;
-            while (run_end < chainable.size()
-                   && entries[chainable[run_end]].ploidy
-                          == entries[chainable[run_start]].ploidy) {
+            while (run_end < contig_indices.size()
+                   && entries[contig_indices[run_end]].ploidy
+                          == entries[contig_indices[run_start]].ploidy) {
                 ++run_end;
             }
-            chains.emplace_back(chainable.begin() + run_start,
-                                chainable.begin() + run_end);
+            chains.emplace_back(contig_indices.begin() + run_start,
+                                contig_indices.begin() + run_end);
             chain_context.push_back(nullptr);
             chain_phase_set.push_back(numeric_limits<size_t>::max());
             run_start = run_end;
@@ -1936,7 +1893,7 @@ size_t LinkageCollector::resolve_generation(
         vector<vector<size_t>> ungrouped;
         for (size_t idx = 0; idx < entries.size(); ++idx) {
             const Entry& e = entries[idx];
-            if (e.retracted || (e.nested && !unified_nested) || e.generation != generation) {
+            if (e.retracted || e.generation != generation) {
                 continue;
             }
             auto par = index_of_key.find(e.parent_record_key);
@@ -1944,12 +1901,6 @@ size_t LinkageCollector::resolve_generation(
                 ++g_grp_no_parent;
             } else if (par == index_of_key.end()) {
                 ++g_grp_no_entry;
-            } else if (!e.nested && entries[par->second].ploidy != e.ploidy) {
-                // The ploidy match is a requirement of PUTTING THE PARENT IN THE GROUP: a chain is a
-                // maximal run of one ploidy, so a diploid parent cannot share a chain with a haploid
-                // child. A nested haploid group does not contain its parent -- the parent reaches it
-                // as an entering message instead -- so the requirement does not apply there.
-                ++g_grp_ploidy;
             } else {
                 by_parent[group_key(e)].push_back(idx);
                 continue;
@@ -1973,14 +1924,21 @@ size_t LinkageCollector::resolve_generation(
             vector<size_t> gps;
             for (auto& kv : by_parent) {
                 const size_t pidx = index_of_key[kv.first.first];
-                // A HAPLOID group does not contain its parent. A chain is a maximal run of one
-                // ploidy, so a diploid parent cannot sit in a chain of ploidy-1 children; the parent
-                // reaches the chain as its entering message instead, which is the whole of what it
-                // was contributing by being prepended.
-                const bool haploid_group =
-                    !kv.second.empty() && entries[kv.second.front()].ploidy == 1;
+                // The parent joins the group IFF its ploidy matches the children's.
+                //
+                // That is the pre-existing rule -- a chain is a maximal run of one ploidy -- applied
+                // uniformly instead of as a special case, and it makes chrX ordinary. On chrX's
+                // haploid interior a nested chain is a haploid child of a HAPLOID parent, so the
+                // ploidies match and the parent is prepended exactly as it is for a diploid parent
+                // and diploid children. Only the mixed case -- a haploid child of a diploid parent,
+                // which is the autosomal nested-haploid population -- leaves the parent out, and
+                // then the parent reaches the group as its entering message instead, which is all it
+                // was contributing by being in it.
+                const size_t group_ploidy =
+                    kv.second.empty() ? entries[pidx].ploidy : entries[kv.second.front()].ploidy;
+                const bool parent_in_group = entries[pidx].ploidy == group_ploidy;
                 vector<size_t> group;
-                if (!haploid_group) {
+                if (parent_in_group) {
                     group.push_back(pidx);
                 }
                 // A TOTAL key, not a chain of skippable comparisons.
@@ -2039,7 +1997,7 @@ size_t LinkageCollector::resolve_generation(
                 auto pin = pinned_phase.find(kv.first.first);
                 if (pin == pinned_phase.end()) {
                     gctx.push_back(nullptr);
-                } else if (haploid_group) {
+                } else if (group_ploidy == 1) {
                     // ONE haplotype, not a pair: the chain sits on one of the parent's two strands,
                     // and which one is `nested_strand_of`. A haploid parent records its single
                     // haplotype in `hap_first` and `hap_second` is meaningless at ploidy 1, so the
@@ -2056,8 +2014,13 @@ size_t LinkageCollector::resolve_generation(
                     // DECLINE where the haplotype does not traverse the child: a named haplotype
                     // carrying no allele here is not evidence about which haplotype the sample is
                     // on, and all the mass would land on the latent-allele escape.
+                    // A strand is only needed to CHOOSE between two haplotypes. A haploid parent
+                    // has one, so it needs no strand -- and a top-level haploid parent has none to
+                    // give: `nested_strand` is a nested site's field, and chrX's interior sites are
+                    // not nested. Requiring strand >= 0 there declined the whole contig.
                     const size_t st = state_of(hap);
-                    bool traversed = strand >= 0 && hap != LinkageModel::WILDCARD
+                    const bool have_hap = pin->second.ploidy == 1 || strand >= 0;
+                    bool traversed = have_hap && hap != LinkageModel::WILDCARD
                                      && st < n_haplotypes
                                      && (int)hap_arena[child.hap_offset + hap] >= 0;
                     if (traversed) {
@@ -2067,10 +2030,16 @@ size_t LinkageCollector::resolve_generation(
                     } else {
                         gctx.push_back(nullptr);
                     }
+                    for (size_t idx : kv.second) {
+                        unified_strand[entries[idx].record_key] = NestedPlacement{
+                            strand, strand >= 0 ? pin->second.order_arbitrary : false, have_hap};
+                    }
                     if (strand >= 0) {
-                        for (size_t idx : kv.second) {
-                            unified_strand[entries[idx].record_key] = strand;
-                        }
+                        g_nest_strand += kv.second.size();
+                    } else if (have_hap) {
+                        g_nest_one_hap += kv.second.size();
+                    } else {
+                        g_nest_unnameable += kv.second.size();
                     }
                 } else if (state_of(pin->second.first) >= m || state_of(pin->second.second) >= m) {
                     gctx.push_back(nullptr);
@@ -2309,7 +2278,7 @@ size_t LinkageCollector::resolve_generation(
         // but the mosaic is exactly as meaningful -- it is the whole answer on chrY.
         vector<LinkageModel::Phase> phase;
         if (chain_ploidy == 1) {
-            vector<size_t> single = model.haploid_phasing(sites, final_genotype);
+            vector<size_t> single = model.haploid_phasing(sites, final_genotype, ctx);
             phase.resize(single.size());
             for (size_t t = 0; t < single.size(); ++t) {
                 phase[t].first = single[t];
@@ -2363,18 +2332,40 @@ size_t LinkageCollector::resolve_generation(
             // grouping rather than the per-strand pass. It is a nested-specific fact -- the chain
             // occupies ONE of its parent's two haplotypes -- and nothing in a chain decode can
             // derive it, so it is carried from where the parent's settled pair was in hand.
+            int nested_slot = -1;
+            bool nameable = true;
             {
                 auto us = unified_strand.find(e.record_key);
                 if (us != unified_strand.end()) {
-                    pc.nested_strand = (int8_t)us->second;
+                    pc.nested_strand = (int8_t)us->second.strand;
+                    nested_slot = us->second.strand;
+                    nameable = us->second.nameable;
+                    // The strand came off the parent's pair. If the panel did not determine that
+                    // pair's order, this strand is that coin flip one level down, and reporting it
+                    // as determined overstates what the panel said.
+                    pc.order_arbitrary = pc.order_arbitrary || us->second.order_arbitrary;
                 }
             }
             pc.emitted = e.emitted;
             pc.record_key = e.record_key;
             pc.contig = contig_names[e.contig];
             pc.position = e.position;
-            pc.hap_first = ph.first;
-            pc.hap_second = ph.second;
+            // WHICH SLOT, not just which haplotype. A haploid decode returns one haplotype and
+            // the render used to drop it in `hap_first` unconditionally -- but the mosaic reads the
+            // slot NAMED BY `nested_strand` and treats the other as the empty one, so a chain on
+            // the parent's second strand came out carried on the strand it is not on and
+            // unexplained on the strand it is. About half of the ~6,800 strand-placed nested sites
+            // per contig, and invisible to F1 because it is a mosaic-only field.
+            if (!nameable) {
+                pc.hap_first = LinkageModel::WILDCARD;
+                pc.hap_second = LinkageModel::WILDCARD;
+            } else if (nested_slot == 1) {
+                pc.hap_first = LinkageModel::WILDCARD;
+                pc.hap_second = ph.first;
+            } else {
+                pc.hap_first = ph.first;
+                pc.hap_second = ph.second;
+            }
             pc.start_node = e.start_node;
             pc.end_node = e.end_node;
             pc.phase_set = phase_set;
@@ -2419,8 +2410,7 @@ size_t LinkageCollector::resolve_generation(
 #pragma omp critical (cerr)
         std::cerr << "[vg call] linkage generation " << generation << ": grouping declines so far -- "
                   << g_grp_no_parent.load() << " sites with no parent key, "
-                  << g_grp_no_entry.load() << " whose parent has no live entry, "
-                  << g_grp_ploidy.load() << " on a parent/child ploidy difference; "
+                  << g_grp_no_entry.load() << " whose parent has no live entry; "
                   << g_grp_vetoed.load() << " chains kept ungrouped in total" << std::endl;
     }
 
@@ -2428,8 +2418,18 @@ size_t LinkageCollector::resolve_generation(
 #pragma omp critical (cerr)
         std::cerr << "[vg call] linkage generation " << generation << ": decoded " << grouped_sites
                   << " sites in " << grouped_groups << " per-parent groups instead of the contig"
-                  << " chain; " << g_grp_ploidy.load()
-                  << " declined on a parent/child ploidy difference" << std::endl;
+                  << " chain" << std::endl;
+    }
+
+    if (generation > 0
+        && (g_nest_strand.load() + g_nest_one_hap.load() + g_nest_unnameable.load()) > 0) {
+#pragma omp critical (cerr)
+        std::cerr << "[vg call] nested strands: " << g_nest_strand.load()
+                  << " on one of a diploid parent's two strands, " << g_nest_one_hap.load()
+                  << " on a haploid parent's single haplotype (no strand to choose), "
+                  << g_nest_unnameable.load()
+                  << " unreached by the parent's settled pair -- those name no haplotype"
+                  << std::endl;
     }
 
     // Nested sites, phased against the parent they hang off rather than in a chain of their own.
@@ -2442,697 +2442,6 @@ size_t LinkageCollector::resolve_generation(
     //
     // Done as a separate pass because it needs the parent already phased, and the parent may be
     // anywhere in any chain.
-    if (phasing_out != nullptr && !deferred_nested.empty()) {
-        // By value, not by pointer: this loop appends to `phasing_out`, and any pointer into a
-        // vector is invalid the moment it reallocates. Only three fields are needed.
-        struct ParentPhase {
-            size_t phase_set;
-            size_t hap_first;
-            size_t hap_second;
-            // The phased pair, in the two numberings that matter. `allele_*` is compact -- the
-            // collector's own space -- and `trav_*` is the candidate traversal each strand is on.
-            //
-            // The crossing mask is in traversal terms, so the mask must be tested against `trav_*`.
-            // Testing it against the compact index is only right when every allele at the site is
-            // panel-carried, which is why the unit tests caught it: a site whose panel names one
-            // allele has a one-element compact space, so compact 0 is traversal 1 and the bit tested
-            // was the wrong one.
-            size_t allele_first = 0;
-            size_t allele_second = 0;
-            int trav_first = -1;
-            int trav_second = -1;
-            size_t ploidy = 2;
-            /// Whether the parent's own strand order was determined by the panel or fell through to
-            /// sorting. A child inherits its strand from that order, so an arbitrary parent order
-            /// makes the child's strand arbitrary too -- and saying so is the difference between a
-            /// determined strand and a coin flip presented as one.
-            bool order_arbitrary = false;
-            /// The strand the parent itself sits on, when the parent is a nested haploid site. A
-            /// nested parent occupies ONE haplotype, so everything inside it is on that haplotype --
-            /// which the identity match below cannot discover, because such a parent has
-            /// trav_first == trav_second and ploidy 1, so the match can only ever return strand 0 or
-            /// no strand, never strand 1.
-            int8_t nested_strand = -1;
-            /// Whether this entry came from the accumulated seed at the top of the pass or from an
-            /// in-loop insert during placement. The seed is re-read every pass before placement
-            /// runs, so a stale in-loop value should never be what a child reads -- checked rather
-            /// than argued.
-            bool from_seed = true;
-        };
-        // record_key -> entry index, for the nested sites placed below.
-        unordered_map<size_t, size_t> nested_entry_of;
-        // Strands whose inherited haplotype turned out not to carry the settled allele. Split by
-        // whether the site has a VCF line, because only those reach the mosaic -- and without the
-        // split the figure cannot be reconciled against anything, which is the same defect this
-        // stage is fixing in the mosaic's own wildcard column.
-        size_t hap_contradicted = 0, hap_contradicted_emitted = 0;
-        unordered_map<size_t, ParentPhase> by_key;
-        by_key.reserve(phasing_out->size() * 2);
-        for (const PhaseCall& pc : *phasing_out) {
-            by_key[pc.record_key] = ParentPhase{pc.phase_set, pc.hap_first, pc.hap_second,
-                                                pc.allele_first, pc.allele_second,
-                                                pc.trav_first, pc.trav_second, pc.ploidy,
-                                                pc.order_arbitrary, pc.nested_strand,
-                                                /*from_seed*/ true};
-        }
-        // Nested sites whose parent settled on a pair not containing the traversal they hang off.
-        // The barrier retracts these where it can see them, so a nonzero count here is the residue
-        // whose parent moved after it looked -- not a coherence disagreement, which the single
-        // derivation above makes unrepresentable.
-        size_t unplaced_no_strand = 0;
-        // Nested sites the settled parent carries on both its traversals: the locus is diploid
-        // there and the record names one allele. The barrier re-renders these at ploidy 2 wherever
-        // an answer at that ploidy was kept, so this is the residue where none was.
-        size_t carried_on_both = 0;
-        // Split by whether a VCF line exists, because since collapsed sites started being recorded
-        // these counters see line-less entries too, and a figure that mixes records with entries
-        // that were never records cannot be read as a defect count.
-        size_t carried_on_both_emitted = 0, unplaced_no_strand_emitted = 0;
-        // Nested sites that never found a phased parent, so no strand could be derived for them at
-        // all. Counted because they are the population that comes out with a bare haploid GT, and
-        // the report below used to describe only the sites whose parent *was* found.
-        size_t unplaced = 0;
-        // Which strand each nested site was placed on, so step three can group them. Filled as the
-        // sweeps below resolve parents.
-        // Keyed by (PHASE SET, strand), not (contig, strand). A phase set is exactly the unit
-        // within which a phase is comparable, and a strand only means anything inside one: keying on
-        // the contig put every same-depth site under unrelated parents into one chain, and on a
-        // contig with several chains it merged two unrelated chains' strand 0 into a single haploid
-        // run. Linking sites whose haplotypes have no correspondence is worse than not linking them.
-        //
-        // The last two components are the chain's identity -- its parent and its own boundary pair
-        // -- and they are ZERO unless VG_LINKAGE_PER_CHAIN_STRAND is set. This is the haploid
-        // analogue of the question step 2 settled for the diploid groups: a (phase set, strand)
-        // group spans a whole contig on one haplotype, so it links chains to each other, and
-        // between-chain linkage was measured worth nothing on the diploid side. With every chain
-        // component zero the key orders exactly as the two-component one did, so the arm is inert
-        // by construction when off.
-        map<tuple<size_t, uint8_t, size_t, size_t>, vector<size_t>> by_strand;
-        // For the gate: how many sites would have been pooled across a phase-set boundary under the
-        // old key. Zero is the claim; a count proves the change was not cosmetic.
-        map<pair<uint32_t, uint8_t>, size_t> old_key_groups;
-        size_t crossed_phase_set = 0;
-        /// record_key -> what step three settled on, for sites whose genotype it moved. All three
-        /// spaces are kept because all three are needed and they are not interchangeable: the
-        /// traversal is what a haplotype path walks, the VCF allele is what a GT can name (-1 when
-        /// the record carries no ALT for it), and the compact index is what the arenas are keyed by.
-        struct Regenotyped {
-            size_t compact = 0;
-            int vcf_allele = -1;
-            int traversal = -1;
-            /// The line's own allele, for when the settled one has no ALT -- see render_phase_pair.
-            int called_allele = -1;
-        };
-        unordered_map<size_t, Regenotyped> nested_regenotyped;
-
-        // Resolve shallowest-first so a nested site whose parent is itself nested finds its parent
-        // already placed. Depth is bounded by the snarl hierarchy, so a bounded number of sweeps
-        // settles it; anything still unresolved after that keeps the wildcard rather than guessing.
-        vector<size_t> pending = deferred_nested;
-        for (int sweep = 0; sweep < 8 && !pending.empty(); ++sweep) {
-            vector<size_t> still;
-            size_t placed_this_sweep = 0;
-            for (size_t idx : pending) {
-                const Entry& e = entries[idx];
-                auto found = by_key.find(e.parent_record_key);
-                PhaseCall pc;
-                pc.ploidy = e.ploidy;
-                pc.depth = e.generation;
-                pc.emitted = e.emitted;
-                pc.record_key = e.record_key;
-                pc.contig = contig_names[e.contig];
-                pc.position = e.position;
-                pc.start_node = e.start_node;
-                pc.end_node = e.end_node;
-                pc.allele_first = e.called_i;
-                pc.allele_second = e.called_i;
-                if (found == by_key.end()) {
-                    still.push_back(idx);
-                    continue;
-                }
-                const ParentPhase& parent = found->second;
-                // Which of the parent's strands carries this chain. One lookup, not a derivation:
-                // the barrier already decided *which traversal* of the parent's settled pair carries
-                // it, and this asks only which haplotype that traversal ended up on.
-                //
-                // That is the whole of stage 3. Ploidy used to come from `child_ploidy` over the
-                // parent's pre-linkage genotype, the strand from a recorded slot index, and their
-                // agreement from a third test of the crossing mask against the settled pair -- three
-                // readings of one fact, which is exactly why they could disagree and why there were
-                // three FILTERs to say so. Here the chain is carried by this traversal, so it has
-                // one copy and sits on that traversal's strand, and the two cannot come apart.
-                //
-                // The traversal rather than the slot index matters: the Viterbi decides which of the
-                // parent's traversals lands on which haplotype, and it may decide differently as
-                // later generations enlarge the set, so an index can go stale where an identity
-                // cannot.
-                // -2 is the parent carrying the chain on *both* its settled traversals: the locus
-                // is diploid there and this record names one allele where it has two. It keeps no
-                // single strand, but it is not strandless either -- both haplotypes carry it -- and
-                // the mosaic must say so rather than mark it unexplained.
-                // DERIVED here, not read from the entry. The parent's settled pair is in hand as
-                // `parent.trav_*`, and the child's crossing mask says which of them reaches it --
-                // which is the whole of the question, computed where it is used.
-                // `trav_second` ONLY where the parent is diploid. A haploid parent has
-                // trav_second == trav_first, so passing it unguarded sets both bits of the crossing
-                // test for a chain that one traversal reaches, yielding two copies and a
-                // carried-on-both answer where the truth is one copy on one strand. The Entry-based
-                // form guards this with `parent.ploidy == 2`; the PhaseCall-based form must too, and
-                // the step-5 check could not see the difference because it never took this path.
-                const LinkageCollector::Relation rel = relate_to_parent(
-                    e.parent_crossing, parent.trav_first,
-                    parent.ploidy == 2 ? parent.trav_second : -1);
-                // No fallback: measured 0 unanswerable at this site over three contigs, and a
-                // parent whose settled pair cannot be read has no strand to give.
-                const int carrying = rel.carrying_trav;
-                const bool on_both = (carrying == -2);
-                const int strand = nested_strand_of(carrying, parent.ploidy, parent.trav_first,
-                                                    parent.trav_second, parent.nested_strand);
-                // Inherit the parent's phase set, so the nested site sits in the parent's block
-                // instead of starting one of its own -- which is the whole point of the exercise.
-                pc.phase_set = parent.phase_set;
-                if (on_both) {
-                    // Both haplotypes carry it, so both name one. A wildcard here would read as
-                    // "the panel cannot explain this strand", which is the opposite of the truth:
-                    // the parent explains both. The record's own GT still names one allele, because
-                    // it was genotyped at ploidy 1 and the second copy's allele was never scored --
-                    // the barrier re-renders such a chain at ploidy 2 whenever an answer at that
-                    // ploidy was kept, and this is the residue where none was.
-                    ++carried_on_both;
-                    carried_on_both_emitted += e.emitted;
-                    pc.hap_first = parent.hap_first;
-                    pc.hap_second = parent.hap_second;
-                } else if (strand < 0) {
-                    // No settled parent traversal carries it, so there is no haplotype to name:
-                    // claiming one would write a variant into the emitted genome that the parent
-                    // record does not carry.
-                    ++unplaced_no_strand;
-                    unplaced_no_strand_emitted += e.emitted;
-                    pc.hap_first = LinkageModel::WILDCARD;
-                    pc.hap_second = LinkageModel::WILDCARD;
-                } else {
-                    pc.hap_first = strand == 1 ? LinkageModel::WILDCARD : parent.hap_first;
-                    pc.hap_second = strand == 1 ? parent.hap_second : LinkageModel::WILDCARD;
-                    // Recorded rather than left to be inferred from which haplotype is the wildcard:
-                    // the parent's own strand can be a wildcard too, and then both sides are, which
-                    // is indistinguishable from having no strand at all.
-                    pc.nested_strand = (int8_t)strand;
-                    // The strand came off the parent's pair. If the panel did not determine that
-                    // pair's order, this strand is that coin flip one level down, and it was
-                    // previously reported as determined.
-                    pc.order_arbitrary = pc.order_arbitrary || parent.order_arbitrary;
-                }
-                // Which entry this nested PhaseCall came from, so the haplotype inherited above can
-                // be checked against the allele the site actually settles on -- which is not known
-                // until the per-strand pass below has run.
-                nested_entry_of[pc.record_key] = idx;
-                finish_phase_call(pc, e, phase_fallback);
-                // Registered only now. This used to sit above the block that assigns
-                // `pc.trav_first`/`trav_second`, so the entry it left for a deeper site carried the
-                // default -1. Harmless today only by accident -- the seed at the top of every pass
-                // re-reads the accumulated phasing before placement runs, and a parent and child
-                // never resolve in the same pass -- but it made the shallowest-first sweep loop,
-                // which exists precisely to serve depth >= 2, dead code that happened to agree with
-                // the right answer. Measured: 0 of chr20's 2,409 depth >= 2 sites read an in-loop
-                // entry.
-                by_key[pc.record_key] = ParentPhase{
-                    pc.phase_set, pc.hap_first, pc.hap_second,
-                    pc.allele_first, pc.allele_second,
-                    pc.trav_first, pc.trav_second, pc.ploidy,
-                    pc.order_arbitrary, pc.nested_strand, /*from_seed*/ false};
-                phasing_out->push_back(pc);
-                if (strand >= 0) {
-                    // Only sites with one strand are grouped: step three chains within a single
-                    // haplotype, and a site with no strand belongs to no such chain.
-                    by_strand[make_tuple(pc.phase_set, (uint8_t)strand,
-                                         per_chain_strand ? e.parent_record_key : (size_t)0,
-                                         per_chain_strand ? e.chain_key : (size_t)0)]
-                        .push_back(idx);
-                    // What the old contig-keyed grouping would have done, for the gate below.
-                    auto ok = make_pair(e.contig, (uint8_t)strand);
-                    if (old_key_groups.count(ok) == 0) {
-                        old_key_groups[ok] = pc.phase_set;
-                    } else if (old_key_groups[ok] != pc.phase_set) {
-                        ++crossed_phase_set;
-                    }
-                }
-                ++placed_this_sweep;
-            }
-            if (placed_this_sweep == 0) {
-                pending = still;
-                break;
-            }
-            pending = still;
-        }
-        // Anything left has no reachable phased parent -- most often because the parent collapsed to
-        // the reference symbolically and so emitted no record to phase. Giving each of those its own
-        // phase set is what fragments the output: it turned chr20's single block into 285.
-        //
-        // Instead, attach it to the block that already covers it. A nested site lies inside its
-        // parent's span, which lies inside the diploid chain, so the nearest preceding phased site on
-        // the same contig is in the right block by construction. The strand stays wildcard on both
-        // sides: without the parent's phase there is nothing to place it on, and asserting one would
-        // be a guess dressed as a call.
-        if (!pending.empty()) {
-            unplaced = pending.size();
-            map<string, vector<pair<size_t, size_t>>> block_by_contig;   // contig -> (pos, phase_set)
-            for (const PhaseCall& pc : *phasing_out) {
-                block_by_contig[pc.contig].emplace_back(pc.position, pc.phase_set);
-            }
-            for (auto& kv : block_by_contig) {
-                sort(kv.second.begin(), kv.second.end());
-            }
-            for (size_t idx : pending) {
-                const Entry& e = entries[idx];
-                PhaseCall pc;
-                pc.ploidy = e.ploidy;
-                pc.depth = e.generation;
-                pc.emitted = e.emitted;
-                pc.record_key = e.record_key;
-                pc.contig = contig_names[e.contig];
-                pc.position = e.position;
-                pc.start_node = e.start_node;
-                pc.end_node = e.end_node;
-                pc.allele_first = e.called_i;
-                pc.allele_second = e.called_i;
-                pc.hap_first = LinkageModel::WILDCARD;
-                pc.hap_second = LinkageModel::WILDCARD;
-                pc.phase_set = e.position;
-                auto found = block_by_contig.find(pc.contig);
-                if (found != block_by_contig.end() && !found->second.empty()) {
-                    const vector<pair<size_t, size_t>>& blocks = found->second;
-                    auto it = upper_bound(blocks.begin(), blocks.end(),
-                                          make_pair(pc.position, numeric_limits<size_t>::max()));
-                    if (it != blocks.begin()) {
-                        pc.phase_set = prev(it)->second;
-                    } else if (!blocks.empty()) {
-                        pc.phase_set = blocks.front().second;
-                    }
-                }
-                finish_phase_call(pc, e, phase_fallback);
-                phasing_out->push_back(pc);
-            }
-        }
-
-        // Step three: linkage genotype correction for the nested sites, in per-strand haploid chains.
-        //
-        // Holding them out of the diploid runs is what restored the phase blocks, but it also cost
-        // them linkage entirely -- genotype changes fell 8,829 to 8,441 on chr20, so they were being
-        // corrected only per-site. Resolving them here gives that back without reintroducing
-        // fragmentation, because the phase set was already fixed in step one.
-        //
-        // Grouped *by strand*, not merely by contig. Nested sites hanging off opposite parent strands
-        // are not on the same haplotype, so chaining them together would link sequences that never
-        // co-occur -- a worse error than not linking at all. Each group is ploidy-uniform by
-        // construction, so the existing haploid model applies unchanged.
-        // Stage 15': the CROSS-PARENT measurement, inert. Stage 14's 0.606% / 91.05% were measured
-        // between SIBLINGS -- children of one parent -- while a (phase_set, strand) group spans a
-        // whole contig on one haplotype, where adjacent sites usually have different parents. So the
-        // neutrality prediction for consuming these frames rested on a statistic about a different
-        // population, and this measures the right one.
-        //
-        // Order key compared here is (parent's position, offset along the parent's settled traversal),
-        // which is the snarl-tree key truncated to one level. Distance is formed pairwise -- tail of
-        // the earlier site's parent traversal, plus the anchor gap, plus the later site's offset --
-        // never as a difference of two absolute coordinates, which is the error that sank the first
-        // draft of this design.
-        unordered_map<size_t, uint32_t> position_of;
-        position_of.reserve(entries.size() * 2);
-        for (const Entry& pe : entries) {
-            if (!pe.retracted) {
-                position_of[pe.record_key] = pe.position;
-            }
-        }
-
-        size_t singleton_groups = 0;
-        for (auto& group : by_strand) {
-            vector<size_t>& idxs = group.second;
-            // Singletons are NOT skipped. A one-site group has nothing to link against, so linkage
-            // cannot move it on the strength of a neighbour -- but `freq_prior` defaults to 5 and
-            // acts on a chain of one, so the posterior still differs from the raw likelihood and the
-            // site still has to be phased. Skipping it left the genotype at its per-site value and
-            // kept the site out of the phasing entirely. The diploid path fixed exactly this defect
-            // for its own singletons, where it cost 258 chr20 sites their place in the mosaic.
-            if (idxs.size() == 1) {
-                ++singleton_groups;
-            }
-            // Stage 15': ordered by a TUPLE -- (parent's anchor, offset along the parent's settled
-            // traversal, record key) -- not by an arithmetic coordinate. A tuple comparison preserves
-            // subtree containment by construction, so no ordering claim is being made that could be
-            // violated; composing the two into one number would add a reference anchor to a
-            // haplotype-walk length and can invert the order of sites under different parents.
-            //
-            // Measured on chr20: 0 of 5,540 same-parent adjacent pairs reorder under this key, so the
-            // order is not what this change moves -- the distances are.
-            const int slot = (int)std::get<1>(group.first) <= 1 ? (int)std::get<1>(group.first) : 0;
-            // Same total-key discipline as the diploid groups, and for the same reason. The two
-            // partial keys this comparator carried -- the alignment rank and the chain index -- were
-            // Total on every entry now. This comparator carried three keys an entry could lack --
-            // the alignment rank, the chain index and the frame offset -- and each needed an
-            // all-or-nothing decision per parent to stay transitive, because "compare on this key
-            // only if BOTH operands have it" is not a strict weak ordering and std::sort on one is
-            // undefined behaviour. All three were measured to order nothing anything reads, so the
-            // decision has nothing left to decide.
-            //
-            // The anchor still leads: it is the parent's position, and it keeps one parent's
-            // children together rather than interleaving them with another's.
-            auto anchor_of = [&](const Entry& e) {
-                auto it = position_of.find(e.parent_record_key);
-                return it != position_of.end() ? it->second : e.position;
-            };
-            sort(idxs.begin(), idxs.end(), [&](size_t a, size_t b) {
-                const Entry& ea = entries[a];
-                const Entry& eb = entries[b];
-                const uint32_t aa = anchor_of(ea), ab = anchor_of(eb);
-                if (aa != ab) {
-                    return aa < ab;
-                }
-                if (ea.position != eb.position) {
-                    return ea.position < eb.position;
-                }
-                return ea.record_key < eb.record_key;
-            });
-            vector<LinkageModel::Site> sites;
-            sites.reserve(idxs.size());
-            set<pair<size_t, size_t>> seen_chain;
-            for (size_t k = 0; k < idxs.size(); ++k) {
-                const size_t idx = idxs[k];
-                const Entry& e = entries[idx];
-                LinkageModel::Site s;
-                s.position = e.position;
-                s.unpositioned = e.unpositioned;
-                s.num_alleles = e.num_alleles;
-                s.ploidy = 1;
-                size_t n_gt = (size_t)e.num_alleles;
-                s.genotype_ln_likelihood.reserve(n_gt);
-                for (size_t g = 0; g < n_gt; ++g) {
-                    s.genotype_ln_likelihood.push_back((double)gl_arena[e.gl_offset + g]);
-                }
-                s.haplotype_allele.reserve(n_haplotypes);
-                for (size_t h = 0; h < n_haplotypes; ++h) {
-                    s.haplotype_allele.push_back((int)hap_arena[e.hap_offset + h]);
-                }
-                // Which haplotype the parent sits on, on THIS strand. Read only by the
-                // VG_LINKAGE_HAPLOID_PARENT arms; costs two words a site otherwise.
-                {
-                    auto pp = by_key.find(e.parent_record_key);
-                    // Is conditioning on this parent even WELL POSED? Four ways it is not, counted
-                    // rather than assumed, because every one of them silently degrades the arm:
-                    //
-                    //   no PhaseCall      nothing to condition on
-                    //   order arbitrary   the site is heterozygous and no panel haplotype spells
-                    //                     either called allele, so which strand got `hap_first` is
-                    //                     an accident -- conditioning strand 0 on it is a coin flip
-                    //   wildcard          the panel does not explain that strand at all
-                    //   absent            the haplotype is named, but does NOT traverse the child.
-                    //                     Pinning there asserts the sample is on a haplotype that
-                    //                     does not pass through this site, which forces the latent
-                    //                     allele and is not a conditioning at all.
-                    //
-                    // And where it IS well posed: does the parent's haplotype carry the allele the
-                    // site chose on its own reads?
-                    if (pp == by_key.end()) {
-                        ++g_hpd_no_parent;
-                    } else {
-                        const size_t hh = pp->second.ploidy == 1
-                                              ? pp->second.hap_first
-                                              : (std::get<1>(group.first) == 0
-                                                     ? pp->second.hap_first
-                                                     : pp->second.hap_second);
-                        if (pp->second.order_arbitrary) {
-                            ++g_hpd_arbitrary;
-                        }
-                        if (hh == LinkageModel::WILDCARD || hh >= n_haplotypes) {
-                            ++g_hpd_wildcard;
-                        } else {
-                            const int pa = (int)hap_arena[e.hap_offset + hh];
-                            if (pa < 0) {
-                                ++g_hpd_absent;
-                            } else if ((size_t)pa == (size_t)e.called_i) {
-                                ++g_hpd_agrees;
-                            } else {
-                                ++g_hpd_disagrees;
-                            }
-                        }
-                    }
-                    if (pp != by_key.end()) {
-                        // A HAPLOID parent occupies one haplotype and records it in `hap_first`;
-                        // `hap_second` is meaningless at ploidy 1. Its child's strand comes from
-                        // `parent.nested_strand`, which is a strand of an ANCESTOR's frame, not an
-                        // index into the parent's own pair -- so indexing the pair by it read
-                        // WILDCARD for every strand-1 child of a haploid parent and silently
-                        // skipped conditioning there. Up to ~1,200 of chr20's 2,519 sites below
-                        // depth 1 are in that population.
-                        s.parent_haplotype =
-                            pp->second.ploidy == 1
-                                ? pp->second.hap_first
-                                : (std::get<1>(group.first) == 0 ? pp->second.hap_first
-                                                                 : pp->second.hap_second);
-                    }
-                    // A nested haploid chain sits inside ONE parent on ONE strand, so (parent,
-                    // chain) is its identity and its first site in decode order is where a
-                    // conditioning message would enter it.
-                    s.first_of_chain = seen_chain.insert(
-                        make_pair(e.parent_record_key, e.chain_key)).second;
-                }
-                sites.push_back(std::move(s));
-            }
-            // Mode 3 is the true diploid analogue: a DELTA as the message ENTERING the chain,
-            // exactly what `segment_posteriors` takes for a diploid nested chain. The site's own
-            // emission then multiplies it and may argue back. Modes 1 and 2 mask the emission
-            // instead, which forbids the site from disagreeing at all -- strictly stronger, and the
-            // reason they biased every conditioned site onto its panel haplotype's allele.
-            //
-            // Only meaningful when the bucket IS one chain, so it is paired with
-            // VG_LINKAGE_PER_CHAIN_STRAND; a pooled bucket has no single entering message.
-            static const int entering_mode = []() {
-                const char* v = getenv("VG_LINKAGE_HAPLOID_PARENT");
-                return v != nullptr ? atoi(v) : 0;
-            }();
-            vector<double> entering;
-            const vector<double>* alpha_in = nullptr;
-            if (entering_mode == 3 && !sites.empty()) {
-                const size_t hh = sites.front().parent_haplotype;
-                const size_t mm = n_haplotypes + 1;
-                // DECLINE where the parent's haplotype does not traverse the child.
-                //
-                // A named haplotype that carries no allele here is not evidence about which
-                // haplotype the sample is on -- it is a haplotype that does not pass through this
-                // site. Pinning there puts all the mass on a state whose only emission is the
-                // latent-allele escape, which is not a conditioning but an assertion that the site
-                // is unexplained. 102 of chr20's 6,836 nested haploid sites are in that population,
-                // and forcing them was a defect in this arm rather than a property of the design.
-                const bool traversed =
-                    hh != LinkageModel::WILDCARD && hh < n_haplotypes
-                    && !sites.front().haplotype_allele.empty()
-                    && hh < sites.front().haplotype_allele.size()
-                    && sites.front().haplotype_allele[hh] >= 0;
-                if (traversed) {
-                    // SOFTNESS, before building machinery to get the real thing.
-                    //
-                    // A one-hot discards what the Li-Stephens process actually computed: the
-                    // parent's posterior over haplotypes, which knows whether hh is a confident
-                    // call or one of several near-ties. Collapsing that to "certainly hh" is not
-                    // the hypothesis "condition on the parent" -- it is "pin the child to the
-                    // parent's argmax". For the 54% of haploid nested chains that are a single
-                    // site the difference is total: alpha[0] = prior * emission, so a one-hot
-                    // leaves every other haplotype at zero mass whatever the reads say.
-                    //
-                    // VG_LINKAGE_HAPLOID_WEIGHT w puts mass w on the parent's haplotype and
-                    // spreads 1-w over the rest. w = 1 is the one-hot already measured (neutral);
-                    // w = 1/m is uniform, which is the shipped arm. If some intermediate w beats
-                    // both, hardness was the problem and the parent's per-site posterior is worth
-                    // harvesting for real -- a per-strand marginal is m = 35 doubles per parent
-                    // against the m*m = 1,225 of the pair message deleted earlier today.
-                    static const double w = []() {
-                        const char* v = getenv("VG_LINKAGE_HAPLOID_WEIGHT");
-                        double x = v != nullptr ? atof(v) : 1.0;
-                        return x > 0.0 && x <= 1.0 ? x : 1.0;
-                    }();
-                    const double rest = mm > 1 ? (1.0 - w) / (double)(mm - 1) : 0.0;
-                    entering.assign(mm, rest);
-                    entering[hh] = w;
-                    alpha_in = &entering;
-                }
-            }
-            vector<vector<double>> posteriors = model.haploid_posteriors(sites, alpha_in);
-            for (size_t k = 0; k < idxs.size() && k < posteriors.size(); ++k) {
-                const Entry& e = entries[idxs[k]];
-                const vector<double>& post = posteriors[k];
-                if (post.empty()) {
-                    continue;
-                }
-                size_t best = 0;
-                for (size_t g = 1; g < post.size(); ++g) {
-                    if (post[g] > post[best]) {
-                        best = g;
-                    }
-                }
-                if (best == (size_t)e.called_i) {
-                    continue;
-                }
-                // Rendered out of compact traversal space here. `best` indexes the entry's own
-                // allele list, which is *not* the record's ALT list: writing it straight through --
-                // as this block did -- put allele numbers like 5 on a record carrying one ALT, which
-                // is not a parseable VCF. It was the one place stage 1 left the two numberings
-                // touching, and both the genotype patch and the phase patch below read it.
-                const int r_called = vcf_allele_of(allele_arena, e.allele_offset, e.num_alleles,
-                                                   e.called_i);
-                const int r_best = vcf_allele_of(allele_arena, e.allele_offset, e.num_alleles, best);
-                // Recorded whether or not it can be written: it is what the model chose, and the
-                // mosaic and every child's strand are built from it, not from the VCF.
-                Regenotyped rg;
-                rg.compact = best;
-                rg.vcf_allele = r_best;
-                rg.traversal = traversal_of(trav_arena, e.trav_offset, e.num_alleles, best);
-                rg.called_allele = r_called;
-                nested_regenotyped[e.record_key] = rg;
-                entries[idxs[k]].final_i = (uint16_t)best;
-                entries[idxs[k]].final_j = (uint16_t)best;
-                // As above: the answer is recorded in `nested_regenotyped` and in
-                // `final_i`/`final_j`, and the record is built from it later. No line exists to
-                // patch -- but the posterior is kept, for the quality of the moved genotype.
-                moved_quality_by_record[e.record_key] =
-                    std::make_pair(post[best], (double)e.explained_share);
-                ++moved;
-            }
-        }
-
-        // The PhaseCalls for these sites were built before step three ran, so they still describe
-        // the pre-linkage allele. The renderer refuses a phase that disagrees with the genotype
-        // the record ends up carrying -- correctly, since phasing the wrong allele pair would be
-        // worse than leaving it unphased -- so a stale PhaseCall silently costs the site its PS.
-        // That is what turned 64 unphased records into 466: 402 nested sites whose genotype step
-        // three had moved out from under their own phase.
-        //
-        // Patched here rather than by reordering the passes, because strand assignment needs the
-        // parent's phase while genotype resolution needs the strand, so neither can simply go first.
-        // How the nested population fared against the parent genotypes linkage actually chose.
-        //
-        // This used to be a coarser count -- nested sites whose parent's genotype moved at all --
-        // which was an upper bound gathered to decide whether a two-pass rebuild was worth its
-        // cost. It is superseded: the crossing mask says exactly which sites were placed on the
-        // wrong strand and which have the wrong ploidy, so the bound is no longer the best
-        // available number.
-        // Stage 15': the cross-parent numbers, which are the ones the decision to consume these
-        // frames has to rest on.
-        // Stage 15(a): what the pooling fix changed, printed so it is not taken on faith.
-        if (crossed_phase_set > 0 || singleton_groups > 0) {
-#pragma omp critical (cerr)
-            std::cerr << "[vg call] nested strands: " << by_strand.size()
-                      << " groups keyed by (phase set, strand); " << crossed_phase_set
-                      << " sites the old contig-keyed grouping would have pooled across a phase-set"
-                      << " boundary, " << singleton_groups
-                      << " groups of one now linked and phased instead of skipped" << std::endl;
-        }
-        if (g_hpd_agrees.load() + g_hpd_disagrees.load() + g_hpd_absent.load()
-            + g_hpd_wildcard.load() + g_hpd_no_parent.load() > 0) {
-#pragma omp critical (cerr)
-            std::cerr << "[vg call] haploid parent conditioning, is it well posed: "
-                      << g_hpd_agrees.load() << " the parent's haplotype carries the allele the"
-                      << " reads chose, " << g_hpd_disagrees.load() << " it carries a different"
-                      << " one; NOT well posed: " << g_hpd_absent.load()
-                      << " the haplotype does not traverse the child at all, "
-                      << g_hpd_wildcard.load() << " the panel does not explain that strand, "
-                      << g_hpd_no_parent.load() << " no PhaseCall; of all of them "
-                      << g_hpd_arbitrary.load() << " have a parent whose strand order is arbitrary"
-                      << std::endl;
-        }
-        if (!deferred_nested.empty()) {
-#pragma omp critical (cerr)
-            std::cerr << "[vg call] nested strands: " << deferred_nested.size()
-                      << " sites, "
-                      << (deferred_nested.size() - carried_on_both - unplaced_no_strand
-                          - unplaced)
-                      << " placed on one strand; " << carried_on_both
-                      << " carried on both parent strands (" << carried_on_both_emitted
-                      << " with a line), " << unplaced_no_strand << " on neither ("
-                      << unplaced_no_strand_emitted << " with a line), " << unplaced
-                      << " with no phased parent -- the last two get no strand" << std::endl;
-        }
-
-        if (!nested_regenotyped.empty()) {
-            for (PhaseCall& pc : *phasing_out) {
-                auto found = nested_regenotyped.find(pc.record_key);
-                if (found != nested_regenotyped.end()) {
-                    // The traversal always; the VCF allele only where the record has one. Writing
-                    // the compact index here is what put allele numbers past the end of the ALT list
-                    // into phased GTs, and the strand carried the same wrong number with it.
-                    pc.trav_first = found->second.traversal;
-                    pc.trav_second = found->second.traversal;
-                    // The settled allele where the record carries it, else the one the line already
-                    // has: a phase that names an allele the record lacks is declined outright, and
-                    // the record loses its strand as well as its genotype.
-                    const int v = found->second.vcf_allele >= 0
-                                      ? found->second.vcf_allele
-                                      : found->second.called_allele;
-                    if (found->second.vcf_allele < 0 && v >= 0) {
-                        ++phase_fallback;
-                    }
-                    pc.allele_first = v >= 0 ? (size_t)v : LinkageModel::WILDCARD;
-                    pc.allele_second = pc.allele_first;
-                }
-            }
-        }
-
-        // The inherited haplotype is a claim about the panel, and until now nothing checked it.
-        //
-        // A nested site takes its haplotype from whichever of its parent's strands carries the
-        // chain. That says the parent's allele sits on panel haplotype h; it does not say h carries
-        // the allele *this* site settled on, and the per-strand pass above may just have moved that
-        // allele. So the mosaic could name a haplotype demonstrably carrying something else, which
-        // is worse than naming none: a consumer walking the haplotype would read a different
-        // sequence than the record states.
-        //
-        // Checked against the panel matrix the site was genotyped with, and dropped to the wildcard
-        // where it fails. That deliberately claims less than before, so the panel-unexplained count
-        // rises by exactly this figure.
-        for (PhaseCall& pc : *phasing_out) {
-            auto at = nested_entry_of.find(pc.record_key);
-            if (at == nested_entry_of.end()) {
-                continue;
-            }
-            const Entry& e = entries[at->second];
-            // The allele the site settled on, in compact space: the per-strand pass's answer where
-            // it moved the genotype, otherwise the call it came in with.
-            size_t settled = e.called_i;
-            auto moved = nested_regenotyped.find(pc.record_key);
-            if (moved != nested_regenotyped.end()) {
-                settled = moved->second.compact;
-            }
-            auto carries = [&](size_t hap) {
-                if (hap == LinkageModel::WILDCARD || hap >= n_haplotypes) {
-                    return true;   // nothing claimed, nothing to contradict
-                }
-                const size_t at_hap = e.hap_offset + hap;
-                if (at_hap >= hap_arena.size()) {
-                    return true;
-                }
-                const int carried = (int)hap_arena[at_hap];
-                // A haplotype absent from this site carries no allele here and cannot contradict
-                // the call; only a haplotype that names a *different* allele does.
-                return carried < 0 || (size_t)carried == settled;
-            };
-            if (!carries(pc.hap_first)) {
-                pc.hap_first = LinkageModel::WILDCARD;
-                ++hap_contradicted;
-                hap_contradicted_emitted += pc.emitted;
-            }
-            if (!carries(pc.hap_second)) {
-                pc.hap_second = LinkageModel::WILDCARD;
-                ++hap_contradicted;
-                hap_contradicted_emitted += pc.emitted;
-            }
-        }
-        if (hap_contradicted > 0) {
-#pragma omp critical (cerr)
-            std::cerr << "[vg call] phasing: " << hap_contradicted
-                      << " nested strands named a panel haplotype that does not carry the allele the"
-                      << " site settled on, so the haplotype was dropped ("
-                      << hap_contradicted_emitted << " on a site with a line, which is the number"
-                      << " the mosaic can show)" << std::endl;
-        }
-    }
 
 
     // `unrenderable` is gone rather than reported as zero. It counted settled genotypes that named

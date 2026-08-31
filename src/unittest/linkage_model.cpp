@@ -595,10 +595,12 @@ TEST_CASE("A nested site takes its strand from the parent traversal that carries
         record_dense(collector, "chr1", 1010, 2, {0.0, -30.0}, {0, 0}, 0, 0, CHILD,
                          /*share*/ 1.0, /*ploidy*/ 1, /*start*/ 11, /*end*/ 12,
                          /*nested*/ true, PARENT,
-                         /*crossing*/ (uint64_t)1 << c.carrying_trav);
+                         /*crossing*/ (uint64_t)1 << c.carrying_trav, /*generation*/ 1);
 
         vector<LinkageCollector::PhaseCall> phased;
-        collector.resolve(&phased);
+        for (size_t gen = 0; gen <= 1; ++gen) {
+            collector.resolve_generation(gen, gen == 1, &phased);
+        }
 
         const LinkageCollector::PhaseCall* child = nullptr;
         const LinkageCollector::PhaseCall* parent = nullptr;
@@ -662,10 +664,12 @@ TEST_CASE("The phasing comes back in reference order even with nested sites in i
                      /*share*/ 1.0, /*ploidy*/ 2, /*start*/ 90, /*end*/ 100);
     record_dense(collector, "chr1", 1010, 2, {0.0, -30.0}, {0, 0}, 0, 0, /*key*/ 3,
                      /*share*/ 1.0, /*ploidy*/ 1, /*start*/ 11, /*end*/ 12,
-                     /*nested*/ true, /*parent*/ 1, /*crossing*/ 1);
+                     /*nested*/ true, /*parent*/ 1, /*crossing*/ 1, /*generation*/ 1);
 
     vector<LinkageCollector::PhaseCall> phased;
-    collector.resolve(&phased);
+    for (size_t gen = 0; gen <= 1; ++gen) {
+        collector.resolve_generation(gen, gen == 1, &phased);
+    }
 
     REQUIRE(phased.size() == 3);
     for (size_t i = 1; i < phased.size(); ++i) {
@@ -1261,16 +1265,18 @@ TEST_CASE("Every generation is resolved, not only the first", "[linkage_model]")
     REQUIRE(deep_now);
 }
 
-TEST_CASE("A nested site drops a haplotype that does not carry the allele it settled on",
+TEST_CASE("A nested site never names a haplotype that contradicts the allele it settled on",
           "[linkage_model]") {
-    // A nested site takes its haplotype from whichever of its parent's strands carries the chain.
-    // That is a claim about the parent's allele, not about this site's: nothing checked that the
-    // named panel haplotype carries what the child actually settled on, and the per-strand pass can
-    // move that allele afterwards.
-    //
     // Naming the wrong haplotype is worse than naming none. A consumer walking it reads a different
     // sequence than the record states, and the two outputs then disagree about the same site with
     // nothing to say which is wrong.
+    //
+    // This is the INVARIANT, not one implementation of it, because the two implementations satisfy
+    // it from opposite directions. The per-strand pass COPIED the parent's haplotype onto the child
+    // and so had to blank it whenever the child's allele disagreed. The unified path DECODES the
+    // child's own haplotype with the parent's as an entering message, so the emission has already
+    // zeroed every panel state that spells a different allele and a named haplotype cannot
+    // disagree -- and where none can spell it, only the wildcard survives.
     LinkageModel::Params p;
     p.weight = 1.0;
     p.scale = 100000.0;
@@ -1282,16 +1288,18 @@ TEST_CASE("A nested site drops a haplotype that does not carry the allele it set
     // A het parent, decisively 0/1, one panel haplotype on each allele so each strand gets one.
     record_dense(collector, "chr1", 1000, 2, {-30.0, 0.0, -30.0}, {1, 0}, 0, 1, PARENT,
                  /*share*/ 1.0, /*ploidy*/ 2, /*start*/ 10, /*end*/ 20);
-    // The child hangs off the parent's traversal 0, so it inherits that strand's haplotype -- panel
+    // The child hangs off the parent's traversal 0, so it enters on that strand's haplotype -- panel
     // haplotype 1, per the parent's {1, 0} above. At the child, BOTH panel haplotypes carry allele 0
-    // while the reads decide allele 1, so whichever haplotype it inherits demonstrably carries
-    // something else.
+    // while the READS decide allele 1, so the parent's haplotype and the reads want different
+    // answers and one of them has to give.
     record_dense(collector, "chr1", 1010, 2, {-30.0, 0.0}, {0, 0}, 1, 1, CHILD,
                  /*share*/ 1.0, /*ploidy*/ 1, /*start*/ 11, /*end*/ 12,
-                 /*nested*/ true, PARENT, /*crossing*/ (uint64_t)1 << 0);
+                 /*nested*/ true, PARENT, /*crossing*/ (uint64_t)1 << 0, /*generation*/ 1);
 
     vector<LinkageCollector::PhaseCall> phased;
-    collector.resolve(&phased);
+    for (size_t gen = 0; gen <= 1; ++gen) {
+        collector.resolve_generation(gen, gen == 1, &phased);
+    }
 
     const LinkageCollector::PhaseCall* child = nullptr;
     for (const auto& pc : phased) {
@@ -1307,8 +1315,23 @@ TEST_CASE("A nested site drops a haplotype that does not carry the allele it set
     // parent's traversals lands on which haplotype, so pinning traversal 0 to strand 0 would be
     // testing an orientation the design specifically does not promise. (It landed on strand 1 here.)
     REQUIRE(child->nested_strand >= 0);
+    // The slot the strand names holds the haplotype and the other is empty. The mosaic reads it
+    // that way -- `strand_kind` calls the unnamed side of a nested site "empty" rather than
+    // "unexplained" precisely because of this -- so a decode that always filled slot 0 reported
+    // every second-strand chain as carried on the strand it is not on.
     const size_t named = child->nested_strand == 0 ? child->hap_first : child->hap_second;
-    REQUIRE(named == LinkageModel::WILDCARD);
+    const size_t other = child->nested_strand == 0 ? child->hap_second : child->hap_first;
+    REQUIRE(other == LinkageModel::WILDCARD);
+    // The invariant. Both panel haplotypes spell allele 0 here, so a named haplotype obliges the
+    // record to say allele 0 -- and it does: the entering message wins over an e^30 read preference
+    // for allele 1, which is the same conditioning that moved 2,599 extra chrX genotypes and took
+    // its SV F1 up 2.0e-2. A wildcard would be the other lawful answer; naming haplotype 1 while
+    // the record said allele 1 would not be.
+    if (named != LinkageModel::WILDCARD) {
+        REQUIRE(named < 2);                        // one of the two panel haplotypes
+        REQUIRE(child->allele_first == 0);         // which is the allele both of them spell
+        REQUIRE(child->allele_second == 0);        // ploidy 1: one strand, one allele
+    }
 }
 
 TEST_CASE("A revised site stops being unemitted when the revision writes a line",
