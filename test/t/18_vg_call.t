@@ -9,7 +9,7 @@ PATH=../bin:$PATH # for vg
 # FORMAT field shifts every later one, which broke four assertions here that were not
 # testing field order at all -- one of them silently compared BL against a GQ threshold.
 
-plan tests 317
+plan tests 318
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -824,16 +824,27 @@ is $(grep -v "^#" nest_hap.vcf | cut -f10 | cut -d: -f1 | grep -cE '^[0-9]+$') "
 is $(grep -c "collapsed sites phased with no line of their own" nest_hap_err.txt) "1" \
    "a site that emits no line is still phased, so its children can inherit a strand"
 # The invariant the whole nested effort is for, asserted on the progress output because it covers
-# every generation at once rather than only the records that reached the VCF. Each of the four ways
-# a nested chain could fail to get a strand -- carried on both parent strands, carried on neither,
-# no phased parent, or an unresolved generation -- was a real population on chr20 (440, 0, 19 and 0)
-# and each traced back to the same mistake: treating "no VCF line was written" as "nothing to
-# record". A nonzero count here means that has come back.
-is $(awk '/nested strands:/ {for (i=1;i<=NF;i++) if ($i ~ /^[0-9]+$/) v[++n]=$i;
-      split($0, p, "placed on one strand"); split(p[1], q, " ");
-      if ($0 !~ /0 carried on both parent strands \(0 with a line\), 0 on neither \(0 with a line\), 0 with no phased parent/) bad++}
+# every generation at once rather than only the records that reached the VCF. It traces back to one
+# mistake, made repeatedly: treating "no VCF line was written" as "nothing to record".
+#
+# The failure modes are not what they were, so neither is the assertion. The per-strand pass had
+# four -- carried on both parent strands, carried on neither, no phased parent, an unresolved
+# generation -- and three of them stopped existing when nested chains moved into the ordinary
+# (parent, chain) grouping. "Carried on both" measured 0 on every contig; "no phased parent" is no
+# longer a failure because the group is formed and decoded either way; and "on neither" split in
+# two. Under a HAPLOID parent there is no strand to choose because there is only one, and the
+# haplotype is nameable -- that is chrX's ordinary case, all 44,139 of it, and counting it as a
+# failure is what the old wording did. Under a DIPLOID parent whose settled pair does not reach the
+# chain, the sample has no copy of the locus and nothing may be named. That last one is the only
+# remaining way to fail, and it is what this asserts.
+is $(awk '/nested strands:/ {if ($0 !~ /, 0 unreached by the parent.s settled pair/) bad++}
       END {print bad+0}' nest_hap_err.txt) "0" \
-   "every nested chain is placed on exactly one parent strand"
+   "every nested chain is reached by its parent's settled pair"
+# The awk above is vacuously true if the report never prints, which the version it replaces also
+# was. Asserted separately so a report that stops being emitted fails loudly instead of silently
+# passing every run.
+is $(awk '/nested strands:/ {n++} END {print (n > 0) ? "yes" : "no"}' nest_hap_err.txt) "yes" \
+   "the nested-strand report is emitted at all, so the assertion above is not vacuous"
 # Not "the FILTERs never fire" -- they no longer exist to fire. A nested chain takes its ploidy and
 # its strand from one reading of its parent's settled pair, namely which of that pair's traversals
 # carries the chain, so having one copy and sitting on that traversal's strand are the same
