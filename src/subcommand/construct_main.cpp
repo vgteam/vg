@@ -348,5 +348,9 @@ int main_construct(int argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_construct("construct", "graph construction", PIPELINE, 2, main_construct);
+static Subcommand vg_construct("construct", "graph construction", PIPELINE, 2, 
+                               vector<manpage_item>{{SET_UP_GRAPH, 
+                                "manually construct a graph from a reference and variants",
+                                "https://github.com/vgteam/vg/wiki/Construction-Examples"}},
+                                help_construct, main_construct);
 

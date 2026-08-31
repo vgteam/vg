@@ -11,7 +11,6 @@
 #include <iostream>
 
 #include "subcommand.hpp"
-#include "../option.hpp"
 #include "../xg.hpp"
 #include "../vg.hpp"
 #include <vg/io/stream.hpp>
@@ -107,5 +106,5 @@ int main_concat(int argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_concat("concat", "concatenate graphs tail-to-head", DEPRECATED, main_concat);
+static Subcommand vg_concat("concat", "concatenate graphs tail-to-head", help_concat, main_concat);
 

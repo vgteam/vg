@@ -657,7 +657,7 @@ template<typename T> void enforce_min_max(const T& low, const std::string& low_o
 
 //----------------------------------------------------------------------------
 
-void help_giraffe(char** argv, const BaseOptionGroup& parser, const std::map<std::string, Preset>& presets, bool full_help) {
+void help_giraffe(char** argv, const BaseOptionGroup& parser, bool full_help) {
     cerr << "usage:" << endl
          << "  " << argv[0] << " giraffe -Z graph.gbz [-d graph.dist [-m graph.withzip.min -z graph.zipcodes]] <input options> [other options] > output.gam" << endl
          << "  " << argv[0] << " giraffe -Z graph.gbz --haplotype-name graph.hapl --kff-name sample.kff <input options> [other options] > output.gam" << endl
@@ -673,18 +673,7 @@ void help_giraffe(char** argv, const BaseOptionGroup& parser, const std::map<std
          << "  -p, --progress                show progress" << endl
          << "  -t, --threads N               number of mapping threads to use" << endl
          << "  -b, --parameter-preset NAME   set computational parameters [default]" << endl
-         << "                                (";
-    for (auto p = presets.begin(); p != presets.end(); ++p) {
-        // Announce each preset name, slash-separated
-        cerr << p->first;
-        auto next_p = p;
-        ++next_p;
-        if (next_p != presets.end()) {
-            // There's another preset.
-            cerr << " / ";
-        }
-    }
-    cerr << ")" << endl
+         << "                                (default / fast / hifi / r10 / srold)" << endl
          << "  -h, --help                    print full help with all available options" << endl;
 
     cerr << "input options:" << endl
@@ -770,6 +759,12 @@ void help_giraffe(char** argv, const BaseOptionGroup& parser, const std::map<std
         auto helps = parser.get_help();
         print_table(helps, cerr);
     }
+}
+
+// A version taking only argv to make the subcommand registry happy
+void help_giraffe_default(char** argv) {
+    GroupedOptionGroup empty_parser;
+    help_giraffe(argv, empty_parser, false);
 }
 
 //----------------------------------------------------------------------------
@@ -1192,7 +1187,7 @@ int main_giraffe(int argc, char** argv) {
     parser->make_short_options(short_options);
 
     if (argc == 2) {
-        help_giraffe(argv, *parser, presets, false);
+        help_giraffe(argv, *parser, false);
         return 1;
     }
 
@@ -1460,7 +1455,7 @@ int main_giraffe(int argc, char** argv) {
             case 'h':
             case '?':
             default:
-                help_giraffe(argv, *parser, presets, true);
+                help_giraffe(argv, *parser, true);
                 exit(1);
                 break;
         }
@@ -2569,4 +2564,8 @@ int main_giraffe(int argc, char** argv) {
 //----------------------------------------------------------------------------
 
 // Register subcommand
-static Subcommand vg_giraffe("giraffe", "fast haplotype-aware read alignment", PIPELINE, 6, main_giraffe);
+static Subcommand vg_giraffe("giraffe", "fast haplotype-aware read alignment", PIPELINE, 6,
+                             vector<manpage_item>{{MAP_READS,
+                              "fast haplotype-aware read alignment",
+                              "https://github.com/vgteam/vg/wiki/Alignment-with-Giraffe-(index)"}},
+                             help_giraffe_default, main_giraffe);
