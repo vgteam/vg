@@ -890,19 +890,21 @@ TEST_CASE("A haploid chain gets a mosaic", "[linkage_model]") {
         sites.push_back(haploid_site(1000 + i * 100, -20.0, 0.0, haps));
     }
     vector<size_t> free_all(sites.size(), LinkageModel::NO_CONSTRAINT);
-    auto path = model.haploid_phasing(sites, free_all);
+    auto path = model.phasing(sites, free_all, /*ploidy*/ 1);
     REQUIRE(path.size() == sites.size());
 
     // Every site must be explained by a haplotype carrying the allele the reads chose.
     for (size_t t = 0; t < sites.size(); ++t) {
-        if (path[t] == LinkageModel::WILDCARD) {
+        // One strand, so `second` is the wildcard everywhere and only `first` says anything.
+        REQUIRE(path[t].second == LinkageModel::WILDCARD);
+        if (path[t].first == LinkageModel::WILDCARD) {
             continue;
         }
-        REQUIRE(sites[t].haplotype_allele[path[t]] == 1);
+        REQUIRE(sites[t].haplotype_allele[path[t].first] == 1);
     }
     size_t switches = 0;
     for (size_t t = 1; t < path.size(); ++t) {
-        switches += (path[t] != path[t - 1]);
+        switches += (path[t].first != path[t - 1].first);
     }
     REQUIRE(switches <= 1);
 }
@@ -915,7 +917,7 @@ TEST_CASE("Haploid posteriors are a distribution over alleles", "[linkage_model]
         haploid_site(1000, 0.0, -5.0, {0, 1, 0, 1}),
         haploid_site(1100, -5.0, 0.0, {0, 1, 0, 1}),
     };
-    auto post = model.haploid_posteriors(sites);
+    auto post = model.posteriors(sites, /*ploidy*/ 1);
     REQUIRE(post.size() == 2);
     for (const auto& row : post) {
         // One entry per allele, not per genotype pair -- getting that wrong would index a
@@ -944,11 +946,11 @@ TEST_CASE("Constrained haploid phasing spells the called allele", "[linkage_mode
         sites.push_back(haploid_site(1000 + i * 100, 0.0, -20.0, {0, 0, 1, 0}));
         want.push_back(1);
     }
-    auto path = model.haploid_phasing(sites, want);
+    auto path = model.phasing(sites, want, /*ploidy*/ 1);
     REQUIRE(path.size() == 6);
     for (size_t t = 0; t < 6; ++t) {
-        REQUIRE(path[t] != LinkageModel::WILDCARD);
-        REQUIRE(sites[t].haplotype_allele[path[t]] == 1);
+        REQUIRE(path[t].first != LinkageModel::WILDCARD);
+        REQUIRE(sites[t].haplotype_allele[path[t].first] == 1);
     }
 }
 
@@ -963,10 +965,10 @@ TEST_CASE("Haploid window seams do not manufacture switches", "[linkage_model]")
         sites.push_back(haploid_site(1000 + i * 100, -20.0, 0.0, {0, 1, 0, 1}));
     }
     vector<size_t> free_all(sites.size(), LinkageModel::NO_CONSTRAINT);
-    auto path = model.haploid_phasing(sites, free_all);
+    auto path = model.phasing(sites, free_all, /*ploidy*/ 1);
     size_t switches = 0;
     for (size_t t = 1; t < path.size(); ++t) {
-        switches += (path[t] != path[t - 1]);
+        switches += (path[t].first != path[t - 1].first);
     }
     REQUIRE(switches == 0);
 }

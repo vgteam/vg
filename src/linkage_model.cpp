@@ -659,25 +659,58 @@ static void windowed_path(size_t n, size_t step, size_t margin, vector<T>& out, 
     }
 }
 
-vector<vector<double>> LinkageModel::posteriors(const vector<Site>& sites) const {
+vector<vector<double>> LinkageModel::posteriors(const vector<Site>& sites, size_t ploidy,
+                                                const vector<double>* alpha_in) const {
     vector<vector<double>> out(sites.size());
     if (sites.empty()) {
         return out;
     }
     windowed_marginals(sites.size(), max<size_t>(params.window, 1), params.margin, out,
                        [&](size_t lo, size_t hi, vector<vector<double>>& local) {
-                           window_posteriors(sites, lo, hi, local);
+                           // Only the window that actually begins the chain gets the entering
+                           // message; a later window's left end is an interior seam, and the
+                           // margin is what carries the chain across it.
+                           const vector<double>* enter = lo == 0 ? alpha_in : nullptr;
+                           if (ploidy == 1) {
+                               window_haploid_posteriors(sites, lo, hi, local, enter);
+                           } else {
+                               window_posteriors(sites, lo, hi, local, enter);
+                           }
                        });
     return out;
 }
 
 vector<LinkageModel::Phase> LinkageModel::phasing(const vector<Site>& sites,
-                                                  const vector<size_t>& constraint) const {
+                                                  const vector<size_t>& constraint, size_t ploidy,
+                                                  const vector<double>* alpha_in) const {
     vector<Phase> out(sites.size());
     if (sites.empty()) {
         return out;
     }
     size_t n = sites.size();
+    if (ploidy == 1) {
+        // One strand, so the path is over single haplotypes and `second` stays the wildcard
+        // throughout -- there is no second strand for it to describe. Decoded into its own vector
+        // rather than into `out` because the seam pin is a haplotype here and a PAIR at ploidy 2,
+        // and `windowed_path` pins whatever type it is carrying.
+        //
+        // No `m < 2` guard, deliberately: the ploidy-2 path needs one because a pair state space
+        // of fewer than two states cannot spell a heterozygote, and one strand has no such floor.
+        vector<size_t> single(n, WILDCARD);
+        windowed_path(n, max<size_t>(params.window, 1), params.margin, single,
+                      [&](size_t lo, size_t hi, size_t pin_index, const size_t& pin,
+                          vector<size_t>& local) {
+                          // Only the window that begins the chain, as in `posteriors`: a later
+                          // window's left end is an interior seam and the margin carries the chain
+                          // across it.
+                          window_haploid_phasing(sites, lo, hi, constraint, pin_index, pin, local,
+                                                 lo == 0 ? alpha_in : nullptr);
+                      });
+        for (size_t t = 0; t < n; ++t) {
+            out[t].first = single[t];
+        }
+        return out;
+    }
     size_t n_hap = 0;
     for (const Site& s : sites) {
         n_hap = max(n_hap, s.haplotype_allele.size());
@@ -1090,23 +1123,6 @@ void LinkageModel::window_haploid_posteriors(const vector<Site>& sites, size_t f
     }
 }
 
-vector<vector<double>> LinkageModel::haploid_posteriors(const vector<Site>& sites,
-                                                       const vector<double>* alpha_in) const {
-    vector<vector<double>> out(sites.size());
-    if (sites.empty()) {
-        return out;
-    }
-    windowed_marginals(sites.size(), max<size_t>(params.window, 1), params.margin, out,
-                       [&](size_t lo, size_t hi, vector<vector<double>>& local) {
-                           // Only the window that actually begins the chain gets the entering
-                           // message; a later window's left end is an interior seam, and the
-                           // margin is what carries the chain across it.
-                           window_haploid_posteriors(sites, lo, hi, local,
-                                                     lo == 0 ? alpha_in : nullptr);
-                       });
-    return out;
-}
-
 void LinkageModel::window_haploid_phasing(const vector<Site>& sites, size_t from, size_t to,
                                           const vector<size_t>& constraint,
                                           size_t pin_index, size_t pin,
@@ -1162,7 +1178,7 @@ void LinkageModel::window_haploid_phasing(const vector<Site>& sites, size_t from
     vector<double> delta(m, NINF);
     // The entering message replaces the uniform start where there is one. It multiplies the first
     // site's emission rather than replacing it, but the collector supplies a POINT MASS, so on this
-    // window that is a choice of state and not a nudge -- see `haploid_posteriors` for how much the
+    // window that is a choice of state and not a nudge -- see `posteriors` for how much the
     // chain's own transitions soften it downstream. Uniform where the caller supplies none, or
     // where the message is the wrong length for this state space.
     const bool have_alpha = alpha_in != nullptr && alpha_in->size() == m;
@@ -1263,28 +1279,6 @@ void LinkageModel::window_haploid_phasing(const vector<Site>& sites, size_t from
             cur = back[t][cur];
         }
     }
-}
-
-vector<size_t> LinkageModel::haploid_phasing(const vector<Site>& sites,
-                                             const vector<size_t>& constraint,
-                                             const vector<double>* alpha_in) const {
-    vector<size_t> out(sites.size(), WILDCARD);
-    if (sites.empty()) {
-        return out;
-    }
-    // The unpinned value is WILDCARD here, not a default-constructed T, so the first window is
-    // given the same "no pin" the diploid pass gives it -- window_haploid_phasing reads the index,
-    // not the value, to decide whether there is one.
-    windowed_path(sites.size(), max<size_t>(params.window, 1), params.margin, out,
-                  [&](size_t lo, size_t hi, size_t pin_index, const size_t& pin,
-                      vector<size_t>& local) {
-                      // Only the window that begins the chain, as in `haploid_posteriors`: a later
-                      // window's left end is an interior seam and the margin carries the chain
-                      // across it.
-                      window_haploid_phasing(sites, lo, hi, constraint, pin_index, pin, local,
-                                             lo == 0 ? alpha_in : nullptr);
-                  });
-    return out;
 }
 
 //------------------------------------------------------------------------------
@@ -2190,13 +2184,13 @@ size_t LinkageCollector::resolve_generation(
         vector<vector<double>> posteriors;
         // ONE context for both ploidies. A group's message is a delta built from its parent's
         // PhaseCall: over ordered PAIRS for a diploid group, over SINGLE haplotypes for a haploid
-        // one. The two decodes take different-sized messages and each already ignores one of the
-        // wrong size -- `haploid_posteriors` wants m, `window_posteriors` wants m*m -- so nothing
-        // here has to dispatch on ploidy to build or pass it.
+        // one. Each decode ignores a message of the wrong size for its state space, so nothing here
+        // has to dispatch on ploidy to build or pass it -- and `posteriors` and `phasing` are told
+        // the ploidy and pick the state space themselves.
         const vector<double>* ctx =
             chain_i < chain_context.size() ? chain_context[chain_i] : nullptr;
         if (chain_ploidy == 1) {
-            posteriors = model.haploid_posteriors(sites, ctx);
+            posteriors = model.posteriors(sites, 1, ctx);
         } else if (ctx != nullptr) {
             // A child group, conditioned on its parent's settled pair. One decode over the group,
             // not over the contig.
@@ -2207,7 +2201,7 @@ size_t LinkageCollector::resolve_generation(
             // grouping at one depth to silently disable it at the next.
             model.segment_posteriors(sites, 0, sites.size(), ctx, nullptr, posteriors);
         } else {
-            posteriors = model.posteriors(sites);
+            posteriors = model.posteriors(sites, 2);
         }
 
         // The genotype each site ends up with, whether or not linkage moved it. This is what the
@@ -2274,19 +2268,12 @@ size_t LinkageCollector::resolve_generation(
         if (phasing_out == nullptr) {
             continue;
         }
-        // Haploid chains take the single-strand path: one haplotype per site, no phase to infer,
-        // but the mosaic is exactly as meaningful -- it is the whole answer on chrY.
-        vector<LinkageModel::Phase> phase;
-        if (chain_ploidy == 1) {
-            vector<size_t> single = model.haploid_phasing(sites, final_genotype, ctx);
-            phase.resize(single.size());
-            for (size_t t = 0; t < single.size(); ++t) {
-                phase[t].first = single[t];
-                phase[t].second = LinkageModel::WILDCARD;
-            }
-        } else {
-            phase = model.phasing(sites, final_genotype);
-        }
+        // Haploid chains take the single-strand path inside `phasing`: one haplotype per site, no
+        // phase to infer, but the mosaic is exactly as meaningful -- it is the whole answer on chrY.
+        // The SAME message the posteriors above were given, which is the whole reason there is one
+        // entry point rather than two.
+        vector<LinkageModel::Phase> phase =
+            model.phasing(sites, final_genotype, chain_ploidy, ctx);
         // One phase set per contig. The windows are pinned to each other, so the path is
         // continuous across the whole chain and the block is the chain -- far longer than a
         // read-based phaser produces, which is a claim the switch-error benchmark is there to

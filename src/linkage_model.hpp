@@ -223,7 +223,32 @@ public:
     /// Posterior over genotypes per site, in the same order as `genotype_ln_likelihood`.
     /// `sites` must be one chain in reference order. Returns an empty vector per site where no
     /// posterior could be formed.
-    vector<vector<double>> posteriors(const vector<Site>& sites) const;
+    ///
+    /// `ploidy` selects the state space: single panel haplotypes at 1, ordered pairs at 2.
+    /// `alpha_in` is the message entering the chain, in that state space -- see below.
+    ///
+    /// ONE DOOR for both ploidies, and that is the point of the parameter. The two decodes share
+    /// their SHAPE and almost none of their code -- 40% of lines, longest common run 5, because m
+    /// against m*m changes every index -- so they stay separate functions behind it rather than
+    /// becoming one function with a ploidy branch in its innermost loop. What the single entry
+    /// point buys is that a parameter cannot be added to one ploidy and forgotten on the other,
+    /// which is how this layer acquired both of its drift bugs: `haploid_posteriors` had no
+    /// `alpha_in` at all, and the haploid phasing had none while the haploid posteriors did, so the
+    /// mosaic named haplotypes chosen in ignorance of the parent the genotype was settled against.
+    ///
+    /// A prior in FORM, and worth being precise about how much that softens it, because it is easy
+    /// to over-claim. The collector supplies a point mass at the parent's settled state, so a state
+    /// the message excludes has zero mass and no emission can restore it. What the reads can do is
+    /// recombine AWAY from it over the length of the chain -- one transition step costs about
+    /// rho/m -- so on a chain the message is an entry condition the reads may leave, while on a
+    /// ONE-SITE chain it decides the answer outright. Measured: 79, 71 and 97 extra genotypes moved
+    /// on chr20, chr6 and chr17, and 2,599 on chrX, where it took SV F1 up 2.0e-2.
+    ///
+    /// Softening it further buys nothing: conditioning on the parent's full posterior over the
+    /// haplotypes carrying its settled allele, rather than on the argmax of that posterior, is
+    /// byte-identical on chr20 and chrX across 6,676 groups.
+    vector<vector<double>> posteriors(const vector<Site>& sites, size_t ploidy = 2,
+                                      const vector<double>* alpha_in = nullptr) const;
 
     /// One strand's assignment at one site: an index into the panel, or `WILDCARD`.
     struct Phase {
@@ -253,8 +278,25 @@ public:
     /// some haplotype and j by another, the pair spelling (i,j) exists. The wildcard covers the
     /// rest, so a path is always returned.
     ///
-    /// Diploid only, like the rest of this class: the states are ordered *pairs*.
-    vector<Phase> phasing(const vector<Site>& sites, const vector<size_t>& constraint) const;
+    /// At `ploidy` 1 there is no phase to infer -- one strand, one haplotype -- so what comes back
+    /// is only the mosaic, with `second` the wildcard at every site. That is still the whole answer
+    /// on chrY and on chrX outside the pseudoautosomal regions.
+    ///
+    /// ONE DOOR for both ploidies, and that is the point of the parameter. The two decodes share
+    /// their SHAPE and almost none of their code -- 40% of lines, longest common run 5, because m
+    /// against m*m changes every index -- so they stay separate functions behind it rather than
+    /// becoming one function with a ploidy branch in its innermost loop. What the single entry
+    /// point buys is that a parameter cannot be added to one ploidy and forgotten on the other,
+    /// which is how this layer acquired both of its drift bugs: `haploid_posteriors` had no
+    /// `alpha_in` at all, and the haploid phasing had none while the haploid posteriors did, so the
+    /// mosaic named haplotypes chosen in ignorance of the parent the genotype was settled against.
+    ///
+    /// `alpha_in` reaches the ploidy-1 path only. A ploidy-2 group is decoded with its parent
+    /// PREPENDED and pinned, so the parent's pair is already fixed in the path; a haploid child of
+    /// a diploid parent cannot be, because a chain is a maximal run of one ploidy, and the message
+    /// is how the parent reaches it instead.
+    vector<Phase> phasing(const vector<Site>& sites, const vector<size_t>& constraint,
+                          size_t ploidy = 2, const vector<double>* alpha_in = nullptr) const;
 
     /// Leaves a site's genotype unconstrained in `phasing()`.
     static constexpr size_t NO_CONSTRAINT = (size_t)-1;
@@ -266,40 +308,6 @@ public:
     /// haploid case structurally simpler, not a special case of the other -- `H+1` states rather
     /// than `(H+1)^2`, an ordinary Li-Stephens chain, and no symmetrisation.
     ///
-    /// `sites[t].genotype_ln_likelihood` is read as one entry per allele here.
-    /// `alpha_in` is the message entering the chain, over SINGLE haplotypes in the same layout as
-    /// the haploid emissions, or null for uniform. The exact analogue of what `segment_posteriors`
-    /// takes for a diploid nested chain.
-    ///
-    /// A prior in FORM, and worth being precise about how much that softens it, because it is easy
-    /// to over-claim. The collector supplies a point mass at the parent's settled state, so a state
-    /// the message excludes has zero mass and no emission can restore it. What the reads can do is
-    /// recombine AWAY from it over the length of the chain -- one transition step costs about
-    /// rho/m -- so on a chain the message is an entry condition the reads may leave, while on a
-    /// ONE-SITE chain it decides the answer outright. Measured: 79, 71 and 97 extra genotypes moved
-    /// on chr20, chr6 and chr17, and 2,599 on chrX, where it took SV F1 up 2.0e-2.
-    vector<vector<double>> haploid_posteriors(const vector<Site>& sites,
-                                              const vector<double>* alpha_in = nullptr) const;
-
-    /// Most probable path of single haplotypes through a haploid chain, one per site.
-    ///
-    /// The haploid analogue of `phasing()`. There is no phase to infer on one strand, so what this
-    /// produces is only the mosaic: which panel haplotype explains each stretch. That is still
-    /// worth having -- it is the whole answer for chrY and for chrX outside the pseudoautosomal
-    /// regions.
-    ///
-    /// `alpha_in` is the entering message, with exactly the meaning and the strength it has in
-    /// `haploid_posteriors` -- see there.
-    ///
-    /// The two MUST be given the same message. The posteriors decide the genotype and the phasing
-    /// decides which panel haplotype the mosaic reports for it; conditioning one and not the other
-    /// named a haplotype chosen in complete ignorance of the parent the genotype had just been
-    /// settled against, which is how a nested site came to report a haplotype the parent's strand
-    /// does not follow.
-    vector<size_t> haploid_phasing(const vector<Site>& sites,
-                                   const vector<size_t>& constraint,
-                                   const vector<double>* alpha_in = nullptr) const;
-
     /// VCF diploid genotype ordering: index of the genotype (i,j).
     static size_t genotype_index(size_t i, size_t j) {
         if (i > j) {
