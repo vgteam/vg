@@ -947,11 +947,13 @@ vector<SubchainGroup> split_up_subchains(const VectorView<Anchor>& to_chain,
             }
         }
 
-        // Mark which ones should get tails
-        if (tail_edges.count(cur_subchain.left_tail())) {
+        // Mark which ones should get tails (anything that wasn't tied in)
+        if (tail_edges.count(cur_subchain.left_tail()) 
+            && tail_edges[cur_subchain.left_tail()].is_max_score_diff()) {
             cur_subchain.add_left_tail = true;
         }
-        if (tail_edges.count(cur_subchain.right_tail())) {
+        if (tail_edges.count(cur_subchain.right_tail())
+            && tail_edges[cur_subchain.right_tail()].is_max_score_diff()) {
             cur_subchain.add_right_tail = true;
         }
     }
