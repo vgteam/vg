@@ -77,6 +77,7 @@ $(function() {
 <div class="textblock"><code>#include &lt;stdio.h&gt;</code><br />
 <code>#include &lt;vector&gt;</code><br />
 <code>#include &lt;list&gt;</code><br />
+<code>#include &lt;type_traits&gt;</code><br />
 <code>#include &lt;unordered_map&gt;</code><br />
 <code>#include &lt;algorithm&gt;</code><br />
 <code>#include &lt;vg/vg.pb.h&gt;</code><br />
@@ -104,6 +105,26 @@ Namespaces</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
 Functions</h2></td></tr>
+<tr class="memitem:a2df2bf8040972c8c3281f417f0486868"><td class="memTemplParams" colspan="2">template&lt;typename AnnotationType &gt; </td></tr>
+<tr class="memitem:a2df2bf8040972c8c3281f417f0486868"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg.html#a2df2bf8040972c8c3281f417f0486868">vg::set_annotation</a> (multipath_alignment_t &amp;annotated, const string &amp;name, const AnnotationType &amp;annotation)</td></tr>
+<tr class="separator:a2df2bf8040972c8c3281f417f0486868"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:adb1e42f64ccb009426256590d9b8d0b8"><td class="memTemplParams" colspan="2">template&lt;typename AnnotationType &gt; </td></tr>
+<tr class="memitem:adb1e42f64ccb009426256590d9b8d0b8"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg.html#adb1e42f64ccb009426256590d9b8d0b8">vg::set_annotation</a> (multipath_alignment_t *annotated, const string &amp;name, const AnnotationType &amp;annotation)</td></tr>
+<tr class="separator:adb1e42f64ccb009426256590d9b8d0b8"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a6dcc03d80ce9f8d8dc9b3c2564674546"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a6dcc03d80ce9f8d8dc9b3c2564674546">vg::clear_annotation</a> (multipath_alignment_t &amp;annotated, const string &amp;name)</td></tr>
+<tr class="separator:a6dcc03d80ce9f8d8dc9b3c2564674546"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a5b908b60660603900782b9cd9d67dcc1"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a5b908b60660603900782b9cd9d67dcc1">vg::clear_annotation</a> (multipath_alignment_t *annotated, const string &amp;name)</td></tr>
+<tr class="separator:a5b908b60660603900782b9cd9d67dcc1"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a5610e496acecbdb9728ef324c5e8f1d5"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a5610e496acecbdb9728ef324c5e8f1d5">vg::has_annotation</a> (const multipath_alignment_t &amp;annotated, const string &amp;name)</td></tr>
+<tr class="separator:a5610e496acecbdb9728ef324c5e8f1d5"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab9d68a2f8ac8e26d3c85abf3e2a69300"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ab9d68a2f8ac8e26d3c85abf3e2a69300">vg::has_annotation</a> (const multipath_alignment_t *annotated, const string &amp;name)</td></tr>
+<tr class="separator:ab9d68a2f8ac8e26d3c85abf3e2a69300"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab5f21867edcd7d08d52a22e7eec14268"><td class="memTemplParams" colspan="2">template&lt;typename AnnotationType &gt; </td></tr>
+<tr class="memitem:ab5f21867edcd7d08d52a22e7eec14268"><td class="memTemplItemLeft" align="right" valign="top">AnnotationType&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg.html#ab5f21867edcd7d08d52a22e7eec14268">vg::get_annotation</a> (const multipath_alignment_t &amp;annotated, const string &amp;name)</td></tr>
+<tr class="separator:ab5f21867edcd7d08d52a22e7eec14268"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a173873a1f29252f5689faa2a4ecbae8d"><td class="memTemplParams" colspan="2">template&lt;typename AnnotationType &gt; </td></tr>
+<tr class="memitem:a173873a1f29252f5689faa2a4ecbae8d"><td class="memTemplItemLeft" align="right" valign="top">AnnotationType&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg.html#a173873a1f29252f5689faa2a4ecbae8d">vg::get_annotation</a> (const multipath_alignment_t *annotated, const string &amp;name)</td></tr>
+<tr class="separator:a173873a1f29252f5689faa2a4ecbae8d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae72a83063f59506e0fcd76304b85d842"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ae72a83063f59506e0fcd76304b85d842">vg::debug_string</a> (const <a class="el" href="classvg_1_1connection__t.html">connection_t</a> &amp;connection)</td></tr>
 <tr class="separator:ae72a83063f59506e0fcd76304b85d842"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a8401a5ba093820ee017f9db390058087"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a8401a5ba093820ee017f9db390058087">vg::debug_string</a> (const <a class="el" href="classvg_1_1subpath__t.html">subpath_t</a> &amp;subpath)</td></tr>

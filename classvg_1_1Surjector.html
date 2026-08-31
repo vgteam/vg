@@ -94,7 +94,6 @@ Inheritance diagram for vg::Surjector:</div>
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-types"></a>
 Public Types</h2></td></tr>
 <tr class="memitem:a3ce06e344f93607bd066fd58d33fc7e0"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#a3ce06e344f93607bd066fd58d33fc7e0">path_chunk_t</a> = pair&lt; pair&lt; string::const_iterator, string::const_iterator &gt;, <a class="el" href="classvg_1_1path__t.html">path_t</a> &gt;</td></tr>
-<tr class="memdesc:a3ce06e344f93607bd066fd58d33fc7e0"><td class="mdescLeft">&#160;</td><td class="mdescRight">a local type that represents a read interval matched to a portion of the alignment path  <a href="classvg_1_1Surjector.html#a3ce06e344f93607bd066fd58d33fc7e0">More...</a><br /></td></tr>
 <tr class="separator:a3ce06e344f93607bd066fd58d33fc7e0"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
@@ -109,6 +108,20 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:aeefee1b3aab525cf4d45479a4ae5c7e3"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af4dc2199ac1212f45076d27a8303b512"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#af4dc2199ac1212f45076d27a8303b512">surject</a> (const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;source, const unordered_set&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &gt; &amp;paths, vector&lt; tuple&lt; string, int64_t, bool &gt;&gt; &amp;positions_out, bool allow_negative_scores=false, bool preserve_deletions=false) const</td></tr>
 <tr class="separator:af4dc2199ac1212f45076d27a8303b512"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a28ec4a7ce8bb092ff2314dcf4c675cbf"><td class="memTemplParams" colspan="2">template&lt;class AlnType &gt; </td></tr>
+<tr class="memitem:a28ec4a7ce8bb092ff2314dcf4c675cbf"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#a28ec4a7ce8bb092ff2314dcf4c675cbf">surject_in_place</a> (vector&lt; AlnType &gt; &amp;alns, const unordered_set&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &gt; &amp;paths, bool allow_negative_scores=false, bool preserve_deletions=false) const</td></tr>
+<tr class="separator:a28ec4a7ce8bb092ff2314dcf4c675cbf"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a52b778ed0f348961621dcabc870864c4"><td class="memTemplParams" colspan="2">template&lt;class AlnType &gt; </td></tr>
+<tr class="memitem:a52b778ed0f348961621dcabc870864c4"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#a52b778ed0f348961621dcabc870864c4">surject_in_place</a> (vector&lt; AlnType &gt; &amp;alns, vector&lt; tuple&lt; string, int64_t, bool &gt;&gt; &amp;positions_out, const unordered_set&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &gt; &amp;paths, bool allow_negative_scores=false, bool preserve_deletions=false) const</td></tr>
+<tr class="separator:a52b778ed0f348961621dcabc870864c4"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1513c01031806f842f5838ecf7469a17"><td class="memTemplParams" colspan="2">template&lt;class AlnType &gt; </td></tr>
+<tr class="memitem:a1513c01031806f842f5838ecf7469a17"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#a1513c01031806f842f5838ecf7469a17">surject_paired_in_place</a> (vector&lt; AlnType &gt; &amp;alns1, vector&lt; AlnType &gt; &amp;alns2, vector&lt; AlnType &gt; &amp;supplementary_alns1_out, vector&lt; AlnType &gt; &amp;supplementary_alns2_out, const unordered_set&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &gt; &amp;paths, bool allow_negative_scores=false, bool preserve_deletions=false) const</td></tr>
+<tr class="separator:a1513c01031806f842f5838ecf7469a17"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac28c8a3b5917163038e9f74fe367b24d"><td class="memTemplParams" colspan="2">template&lt;class AlnType &gt; </td></tr>
+<tr class="memitem:ac28c8a3b5917163038e9f74fe367b24d"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#ac28c8a3b5917163038e9f74fe367b24d">surject_paired_in_place</a> (vector&lt; AlnType &gt; &amp;alns1, vector&lt; AlnType &gt; &amp;alns2, vector&lt; tuple&lt; string, int64_t, bool &gt;&gt; &amp;positions1_out, vector&lt; tuple&lt; string, int64_t, bool &gt;&gt; &amp;positions2_out, vector&lt; AlnType &gt; &amp;supplementary_alns1_out, vector&lt; AlnType &gt; &amp;supplementary_alns2_out, vector&lt; tuple&lt; string, int64_t, bool &gt;&gt; &amp;supplementary_positions1_out, vector&lt; tuple&lt; string, int64_t, bool &gt;&gt; &amp;supplementary_positions2_out, const unordered_set&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &gt; &amp;paths, bool allow_negative_scores=false, bool preserve_deletions=false) const</td></tr>
+<tr class="separator:ac28c8a3b5917163038e9f74fe367b24d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:abd402ababe325d0a8b8faa853a047328"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#abd402ababe325d0a8b8faa853a047328">set_refpos</a> (vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &amp;alns, const vector&lt; tuple&lt; string, int64_t, bool &gt;&gt; &amp;positions) const</td></tr>
+<tr class="separator:abd402ababe325d0a8b8faa853a047328"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aafe9672e0a82c6540c4d1360070725ec"><td class="memItemLeft" align="right" valign="top">template&lt;&gt; </td></tr>
 <tr class="memitem:aafe9672e0a82c6540c4d1360070725ec"><td class="memTemplItemLeft" align="right" valign="top">int32_t&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#aafe9672e0a82c6540c4d1360070725ec">get_score</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln)</td></tr>
 <tr class="separator:aafe9672e0a82c6540c4d1360070725ec"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -127,6 +140,18 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:aa960d891ea079958367cd174836a6b8e"><td class="memItemLeft" align="right" valign="top">template&lt;&gt; </td></tr>
 <tr class="memitem:aa960d891ea079958367cd174836a6b8e"><td class="memTemplItemLeft" align="right" valign="top">vector&lt; pair&lt; int, char &gt; &gt;&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#aa960d891ea079958367cd174836a6b8e">get_cigar</a> (const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;surjected, const tuple&lt; string, int64_t, bool &gt; &amp;position, const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;<a class="el" href="classvg_1_1Surjector.html#a118010284d37b604a7bcd7eb8dd13537">graph</a>, bool spliced) const</td></tr>
 <tr class="separator:aa960d891ea079958367cd174836a6b8e"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a0ffdd07b94489abde5811756cabcae81"><td class="memItemLeft" align="right" valign="top">template&lt;&gt; </td></tr>
+<tr class="memitem:a0ffdd07b94489abde5811756cabcae81"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#a0ffdd07b94489abde5811756cabcae81">set_is_secondary</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, bool value)</td></tr>
+<tr class="separator:a0ffdd07b94489abde5811756cabcae81"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a7cefbb9d1ef8e1661989f3e44fbd3e8d"><td class="memItemLeft" align="right" valign="top">template&lt;&gt; </td></tr>
+<tr class="memitem:a7cefbb9d1ef8e1661989f3e44fbd3e8d"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#a7cefbb9d1ef8e1661989f3e44fbd3e8d">set_is_secondary</a> (<a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;aln, bool value)</td></tr>
+<tr class="separator:a7cefbb9d1ef8e1661989f3e44fbd3e8d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a150f02e97c82314d8d2357d9d59dceda"><td class="memItemLeft" align="right" valign="top">template&lt;&gt; </td></tr>
+<tr class="memitem:a150f02e97c82314d8d2357d9d59dceda"><td class="memTemplItemLeft" align="right" valign="top">bool&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#a150f02e97c82314d8d2357d9d59dceda">get_is_secondary</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln)</td></tr>
+<tr class="separator:a150f02e97c82314d8d2357d9d59dceda"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a6909b59c90d60b9d7deb912787bf44f0"><td class="memItemLeft" align="right" valign="top">template&lt;&gt; </td></tr>
+<tr class="memitem:a6909b59c90d60b9d7deb912787bf44f0"><td class="memTemplItemLeft" align="right" valign="top">bool&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#a6909b59c90d60b9d7deb912787bf44f0">get_is_secondary</a> (const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;aln)</td></tr>
+<tr class="separator:a6909b59c90d60b9d7deb912787bf44f0"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="inherit_header pub_methods_classvg_1_1AlignerClient"><td colspan="2" onclick="javascript:toggleInherit('pub_methods_classvg_1_1AlignerClient')"><img src="closed.png" alt="-"/>&#160;Public Member Functions inherited from <a class="el" href="classvg_1_1AlignerClient.html">vg::AlignerClient</a></td></tr>
 <tr class="memitem:a1fde3e4537147030d153d403fd04ec77 inherit pub_methods_classvg_1_1AlignerClient"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AlignerClient.html#a1fde3e4537147030d153d403fd04ec77">set_alignment_scores</a> (int8_t match, int8_t mismatch, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus)</td></tr>
 <tr class="memdesc:a1fde3e4537147030d153d403fd04ec77 inherit pub_methods_classvg_1_1AlignerClient"><td class="mdescLeft">&#160;</td><td class="mdescRight">Set all the aligner scoring parameters and create the stored aligner instances.  <a href="classvg_1_1AlignerClient.html#a1fde3e4537147030d153d403fd04ec77">More...</a><br /></td></tr>
@@ -137,16 +162,12 @@ Public Member Functions</h2></td></tr>
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-attribs"></a>
 Public Attributes</h2></td></tr>
 <tr class="memitem:aff0ca9cc154747c421ba325fa7048507"><td class="memItemLeft" align="right" valign="top">std::unique_ptr&lt; <a class="el" href="classvg_1_1Aligner.html">Aligner</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#aff0ca9cc154747c421ba325fa7048507">dp_aligner</a></td></tr>
-<tr class="memdesc:aff0ca9cc154747c421ba325fa7048507"><td class="mdescLeft">&#160;</td><td class="mdescRight">When doing DP alignments, we use slightly adjusted alignment scores, which need to live in their own <a class="el" href="classvg_1_1Aligner.html">Aligner</a>.  <a href="classvg_1_1Surjector.html#aff0ca9cc154747c421ba325fa7048507">More...</a><br /></td></tr>
 <tr class="separator:aff0ca9cc154747c421ba325fa7048507"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a9750e6f815ccbcb8ee14be2469f61886"><td class="memItemLeft" align="right" valign="top">int8_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#a9750e6f815ccbcb8ee14be2469f61886">dp_score_scale</a> = 10</td></tr>
-<tr class="memdesc:a9750e6f815ccbcb8ee14be2469f61886"><td class="mdescLeft">&#160;</td><td class="mdescRight">When doing DP alignments, we multiply scores by this factor before slightly increasing gap open. (Changes won't take effect until <a class="el" href="classvg_1_1Surjector.html#af039b6915be8799a74c3b75e25b0873d">set_alignment_scores()</a> is called.)  <a href="classvg_1_1Surjector.html#a9750e6f815ccbcb8ee14be2469f61886">More...</a><br /></td></tr>
 <tr class="separator:a9750e6f815ccbcb8ee14be2469f61886"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0499e86d68aa7e47be96b18bf34a099c"><td class="memItemLeft" align="right" valign="top">int8_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#a0499e86d68aa7e47be96b18bf34a099c">dp_gap_open_extra_cost</a> = 0</td></tr>
-<tr class="memdesc:a0499e86d68aa7e47be96b18bf34a099c"><td class="mdescLeft">&#160;</td><td class="mdescRight">When doing DP alignment, we increase gap open score by this much. (Changes won't take effect until <a class="el" href="classvg_1_1Surjector.html#af039b6915be8799a74c3b75e25b0873d">set_alignment_scores()</a> is called.)  <a href="classvg_1_1Surjector.html#a0499e86d68aa7e47be96b18bf34a099c">More...</a><br /></td></tr>
 <tr class="separator:a0499e86d68aa7e47be96b18bf34a099c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a9046bb2c7267f996a6636518e2747b89"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#a9046bb2c7267f996a6636518e2747b89">min_splice_length</a> = 20</td></tr>
-<tr class="memdesc:a9046bb2c7267f996a6636518e2747b89"><td class="mdescLeft">&#160;</td><td class="mdescRight">the minimum length deletion that the spliced algorithm will interpret as a splice event  <a href="classvg_1_1Surjector.html#a9046bb2c7267f996a6636518e2747b89">More...</a><br /></td></tr>
 <tr class="separator:a9046bb2c7267f996a6636518e2747b89"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ace7092128b309c97f00fc688d3311c14"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#ace7092128b309c97f00fc688d3311c14">dominated_path_chunk_diff</a> = 10</td></tr>
 <tr class="separator:ace7092128b309c97f00fc688d3311c14"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -359,6 +380,12 @@ Static Protected Member Functions</h2></td></tr>
 <tr class="memitem:a1a2ff0e63ab5c747529e56c38338e0d7"><td class="memTemplParams" colspan="2">template&lt;class AlnType &gt; </td></tr>
 <tr class="memitem:a1a2ff0e63ab5c747529e56c38338e0d7"><td class="memTemplItemLeft" align="right" valign="top">static size_t&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#a1a2ff0e63ab5c747529e56c38338e0d7">count_mismatches</a> (const AlnType &amp;surjected)</td></tr>
 <tr class="separator:a1a2ff0e63ab5c747529e56c38338e0d7"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a75b80d1b8712b6a710b39989717f904d"><td class="memTemplParams" colspan="2">template&lt;class AlnType &gt; </td></tr>
+<tr class="memitem:a75b80d1b8712b6a710b39989717f904d"><td class="memTemplItemLeft" align="right" valign="top">static void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#a75b80d1b8712b6a710b39989717f904d">set_is_secondary</a> (AlnType &amp;aln, bool value)</td></tr>
+<tr class="separator:a75b80d1b8712b6a710b39989717f904d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af5001a3e96c2a604fa181ba388757089"><td class="memTemplParams" colspan="2">template&lt;class AlnType &gt; </td></tr>
+<tr class="memitem:af5001a3e96c2a604fa181ba388757089"><td class="memTemplItemLeft" align="right" valign="top">static bool&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#af5001a3e96c2a604fa181ba388757089">get_is_secondary</a> (const AlnType &amp;aln)</td></tr>
+<tr class="separator:af5001a3e96c2a604fa181ba388757089"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-attribs"></a>
 Protected Attributes</h2></td></tr>
@@ -391,7 +418,6 @@ Additional Inherited Members</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-
 <p>a local type that represents a read interval matched to a portion of the alignment path </p>
 
 </div>
@@ -1507,6 +1533,75 @@ template&lt;&gt; </div>
 
 </div>
 </div>
+<a id="a150f02e97c82314d8d2357d9d59dceda"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a150f02e97c82314d8d2357d9d59dceda">&#9670;&nbsp;</a></span>get_is_secondary() <span class="overload">[1/3]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;&gt; </div>
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::Surjector::get_is_secondary </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
+          <td class="paramname"><em>aln</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="af5001a3e96c2a604fa181ba388757089"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#af5001a3e96c2a604fa181ba388757089">&#9670;&nbsp;</a></span>get_is_secondary() <span class="overload">[2/3]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;class AlnType &gt; </div>
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">static bool vg::Surjector::get_is_secondary </td>
+          <td>(</td>
+          <td class="paramtype">const AlnType &amp;&#160;</td>
+          <td class="paramname"><em>aln</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Check whether a read alignment is primary or secondary. </p>
+
+</div>
+</div>
+<a id="a6909b59c90d60b9d7deb912787bf44f0"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a6909b59c90d60b9d7deb912787bf44f0">&#9670;&nbsp;</a></span>get_is_secondary() <span class="overload">[3/3]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;&gt; </div>
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::Surjector::get_is_secondary </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>aln</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="aafe9672e0a82c6540c4d1360070725ec"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#aafe9672e0a82c6540c4d1360070725ec">&#9670;&nbsp;</a></span>get_score() <span class="overload">[1/3]</span></h2>
 
@@ -2220,6 +2315,105 @@ template&lt;class AlnType &gt; </div>
 
 </div>
 </div>
+<a id="a0ffdd07b94489abde5811756cabcae81"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a0ffdd07b94489abde5811756cabcae81">&#9670;&nbsp;</a></span>set_is_secondary() <span class="overload">[1/3]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;&gt; </div>
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::Surjector::set_is_secondary </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
+          <td class="paramname"><em>aln</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>value</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a75b80d1b8712b6a710b39989717f904d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a75b80d1b8712b6a710b39989717f904d">&#9670;&nbsp;</a></span>set_is_secondary() <span class="overload">[2/3]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;class AlnType &gt; </div>
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">static void vg::Surjector::set_is_secondary </td>
+          <td>(</td>
+          <td class="paramtype">AlnType &amp;&#160;</td>
+          <td class="paramname"><em>aln</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>value</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Mark a read alignment as primary or secondary. </p>
+
+</div>
+</div>
+<a id="a7cefbb9d1ef8e1661989f3e44fbd3e8d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a7cefbb9d1ef8e1661989f3e44fbd3e8d">&#9670;&nbsp;</a></span>set_is_secondary() <span class="overload">[3/3]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;&gt; </div>
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::Surjector::set_is_secondary </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>aln</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>value</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="ac4e7823cc2ce4b65bb8910ef2c1dcbee"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#ac4e7823cc2ce4b65bb8910ef2c1dcbee">&#9670;&nbsp;</a></span>set_path_position()</h2>
 
@@ -2297,6 +2491,35 @@ template&lt;class AlnType &gt; </div>
 </div><div class="memdoc">
 
 <p>use the graph position bounds and the path range bounds to assign a path position to a surjected read </p>
+
+</div>
+</div>
+<a id="abd402ababe325d0a8b8faa853a047328"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#abd402ababe325d0a8b8faa853a047328">&#9670;&nbsp;</a></span>set_refpos()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::Surjector::set_refpos </td>
+          <td>(</td>
+          <td class="paramtype">vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>alns</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const vector&lt; tuple&lt; string, int64_t, bool &gt;&gt; &amp;&#160;</td>
+          <td class="paramname"><em>positions</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Populate refpos on Alignments from a separate collection of positions. </p>
 
 </div>
 </div>
@@ -2506,6 +2729,7 @@ template&lt;class AlnType &gt; </div>
       </table>
 </div><div class="memdoc">
 <p>Extract the portions of an alignment that are on a chosen set of paths and try to align realign the portions thaet are off of the chosen paths to the intervening path segments to obtain an alignment that is fully restricted to the paths.</p>
+<p>Does not populate the alignment's refpos.</p>
 <p>Also returns the path name, position, and strand of the new alignment.</p>
 <p>Optionally either allow softclips so that the alignment has a nonnegative score on the path or require the full-length alignment, possibly creating a negative score.</p>
 <p>Also optionally leaves deletions against the reference path in the final alignment (useful for splicing). </p>
@@ -2556,6 +2780,104 @@ template&lt;class AlnType &gt; </div>
       </table>
 </div><div class="memdoc">
 <p>Same semantics as with alignments except that connections are always preserved as splices. The output consists of a multipath alignment with a single path, separated by splices (either from large deletions or from connections) </p>
+
+</div>
+</div>
+<a id="a28ec4a7ce8bb092ff2314dcf4c675cbf"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a28ec4a7ce8bb092ff2314dcf4c675cbf">&#9670;&nbsp;</a></span>surject_in_place() <span class="overload">[1/2]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;class AlnType &gt; </div>
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::Surjector::surject_in_place </td>
+          <td>(</td>
+          <td class="paramtype">vector&lt; AlnType &gt; &amp;&#160;</td>
+          <td class="paramname"><em>alns</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const unordered_set&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>paths</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>allow_negative_scores</em> = <code>false</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>preserve_deletions</em> = <code>false</code>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Surject a whole collection of <a class="el" href="structvg_1_1Alignment.html">Alignment</a> or <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> objects for an unpaired read.</p>
+<p>On return, alns contains the surjected versions of the alignments.</p>
+<p>For <a class="el" href="structvg_1_1Alignment.html">Alignment</a>, populates refpos.</p>
+<p>There can be more output surjections than there were input alignments. </p>
+
+</div>
+</div>
+<a id="a52b778ed0f348961621dcabc870864c4"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a52b778ed0f348961621dcabc870864c4">&#9670;&nbsp;</a></span>surject_in_place() <span class="overload">[2/2]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;class AlnType &gt; </div>
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::Surjector::surject_in_place </td>
+          <td>(</td>
+          <td class="paramtype">vector&lt; AlnType &gt; &amp;&#160;</td>
+          <td class="paramname"><em>alns</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">vector&lt; tuple&lt; string, int64_t, bool &gt;&gt; &amp;&#160;</td>
+          <td class="paramname"><em>positions_out</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const unordered_set&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>paths</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>allow_negative_scores</em> = <code>false</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>preserve_deletions</em> = <code>false</code>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Surject a whole collection of <a class="el" href="structvg_1_1Alignment.html">Alignment</a> or <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> objects for an unpaired read.</p>
+<p>On return, alns contains the surjected versions of the alignments, and positions_out contains their linear start positions.</p>
+<p>For <a class="el" href="structvg_1_1Alignment.html">Alignment</a>, does not populate refpos.</p>
+<p>There can be more output surjections than there were input alignments. </p>
 
 </div>
 </div>
@@ -2628,6 +2950,165 @@ template&lt;class AlnType &gt; </div>
   </tr>
 </table>
 </div><div class="memdoc">
+
+</div>
+</div>
+<a id="a1513c01031806f842f5838ecf7469a17"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a1513c01031806f842f5838ecf7469a17">&#9670;&nbsp;</a></span>surject_paired_in_place() <span class="overload">[1/2]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;class AlnType &gt; </div>
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::Surjector::surject_paired_in_place </td>
+          <td>(</td>
+          <td class="paramtype">vector&lt; AlnType &gt; &amp;&#160;</td>
+          <td class="paramname"><em>alns1</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">vector&lt; AlnType &gt; &amp;&#160;</td>
+          <td class="paramname"><em>alns2</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">vector&lt; AlnType &gt; &amp;&#160;</td>
+          <td class="paramname"><em>supplementary_alns1_out</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">vector&lt; AlnType &gt; &amp;&#160;</td>
+          <td class="paramname"><em>supplementary_alns2_out</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const unordered_set&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>paths</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>allow_negative_scores</em> = <code>false</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>preserve_deletions</em> = <code>false</code>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Surject paired-end reads and pull aside supplementary alignments.</p>
+<p>Assumes that corresponding entries in alns1 and alns2 are paired with each other.</p>
+<p>On return, alns1 and alns2 will be corresponding paired best surjections, and supplementary_alns1_out and supplementary_alns2_out will be supplementary alignments of each read annotated to attach them to the appropriate non-supplementary alignments.</p>
+<p>All out vectors must be empty when passed in. You may pass one vector for both supplementary_alns1_out and supplementary_alns2_out.</p>
+<p>For <a class="el" href="structvg_1_1Alignment.html">Alignment</a>, populates refpos.</p>
+<p>In non-multimapped-surjection mode, each input read pair will produce one non-supplementary output surjection.</p>
+<p>In multimapped surjection mode, each input read pair can produce multiple non-supplementary output surjections, which will be in the same order as the input reads. </p>
+
+</div>
+</div>
+<a id="ac28c8a3b5917163038e9f74fe367b24d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ac28c8a3b5917163038e9f74fe367b24d">&#9670;&nbsp;</a></span>surject_paired_in_place() <span class="overload">[2/2]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;class AlnType &gt; </div>
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::Surjector::surject_paired_in_place </td>
+          <td>(</td>
+          <td class="paramtype">vector&lt; AlnType &gt; &amp;&#160;</td>
+          <td class="paramname"><em>alns1</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">vector&lt; AlnType &gt; &amp;&#160;</td>
+          <td class="paramname"><em>alns2</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">vector&lt; tuple&lt; string, int64_t, bool &gt;&gt; &amp;&#160;</td>
+          <td class="paramname"><em>positions1_out</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">vector&lt; tuple&lt; string, int64_t, bool &gt;&gt; &amp;&#160;</td>
+          <td class="paramname"><em>positions2_out</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">vector&lt; AlnType &gt; &amp;&#160;</td>
+          <td class="paramname"><em>supplementary_alns1_out</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">vector&lt; AlnType &gt; &amp;&#160;</td>
+          <td class="paramname"><em>supplementary_alns2_out</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">vector&lt; tuple&lt; string, int64_t, bool &gt;&gt; &amp;&#160;</td>
+          <td class="paramname"><em>supplementary_positions1_out</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">vector&lt; tuple&lt; string, int64_t, bool &gt;&gt; &amp;&#160;</td>
+          <td class="paramname"><em>supplementary_positions2_out</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const unordered_set&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>paths</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>allow_negative_scores</em> = <code>false</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>preserve_deletions</em> = <code>false</code>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Surject paired-end reads and pull aside supplementary alignments.</p>
+<p>Assumes that corresponding entries in alns1 and alns2 are paired with each other.</p>
+<p>On return, alns1 and alns2 will be corresponding paired best surjections, positions1_out and positions2_out will be their surjected linear positions, supplementary_alns1_out and supplementary_alns2_out will be supplementary alignments of each read annotated to attach them to the appropriate non-supplementary alignments, and supplementary_positions1_out and supplementary_positions2_out will be their positions.</p>
+<p>All out vectors must be empty when passed in. You may pass one vector for both supplementary_alns1_out and supplementary_alns2_out, and you may pass one vector for both supplementary_positions1_out and supplementary_positions2_out, but you probably want to use either a combined vector for both or separate vectors for both so you can find the position that goes with each alignment.</p>
+<p>For <a class="el" href="structvg_1_1Alignment.html">Alignment</a>, does not populate refpos.</p>
+<p>In non-multimapped-surjection mode, each input read pair will produce one non-supplementary output surjection.</p>
+<p>In multimapped surjection mode, each input read pair can produce multiple non-supplementary output surjections, which will be in the same order as the input reads. <br  />
+ </p>
 
 </div>
 </div>
@@ -2885,8 +3366,7 @@ template&lt;class AlnType &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
-
-<p>When doing DP alignments, we use slightly adjusted alignment scores, which need to live in their own <a class="el" href="classvg_1_1Aligner.html">Aligner</a>. </p>
+<p>When doing DP alignments, we use slightly adjusted alignment scores, which need to live in their own <a class="el" href="classvg_1_1Aligner.html">Aligner</a> </p>
 
 </div>
 </div>
@@ -2901,7 +3381,6 @@ template&lt;class AlnType &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
-
 <p>When doing DP alignment, we increase gap open score by this much. (Changes won't take effect until <a class="el" href="classvg_1_1Surjector.html#af039b6915be8799a74c3b75e25b0873d">set_alignment_scores()</a> is called.) </p>
 
 </div>
@@ -2917,7 +3396,6 @@ template&lt;class AlnType &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
-
 <p>When doing DP alignments, we multiply scores by this factor before slightly increasing gap open. (Changes won't take effect until <a class="el" href="classvg_1_1Surjector.html#af039b6915be8799a74c3b75e25b0873d">set_alignment_scores()</a> is called.) </p>
 
 </div>
@@ -3183,7 +3661,6 @@ template&lt;class AlnType &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
-
 <p>the minimum length deletion that the spliced algorithm will interpret as a splice event </p>
 
 </div>
