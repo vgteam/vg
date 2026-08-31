@@ -3152,7 +3152,7 @@ vector<Alignment> MinimizerMapper::do_base_level_alignment(
 
     if (show_work) {
         #pragma omp critical (cerr)
-        cerr << "Sorting alignments by score order..." << endl;
+        cerr << log_name() << "Sorting alignments by score order..." << endl;
     }
 
     // Sort by new score
