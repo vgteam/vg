@@ -322,6 +322,7 @@ int main_surject(int argc, char** argv) {
         case 'd':
             reference_assembly_names.insert(optarg);
             diploid_map = true;
+            // Retain surjections to both haplotype paths.
             multimap = true;
             break;
 
@@ -564,6 +565,7 @@ int main_surject(int argc, char** argv) {
 
         if (interleaved) {
             if (diploid_map) {
+                // Process grouped alternative placements for each paired-end fragment.
                 PairedSurjector paired_surjector(surjector, xgidx);
 
                 auto emit_result = [&](PairedSurjector::result_t&& result) {
@@ -640,6 +642,7 @@ int main_surject(int argc, char** argv) {
                     }
                 };
 
+                // Wait for fragment-length learning before processing fragments in parallel.
                 auto ready_for_parallel = [&]() {
                     return paired_surjector.ready_for_parallel();
                 };
@@ -655,6 +658,7 @@ int main_surject(int argc, char** argv) {
                         *xgidx, file_name, process_fragment, ready_for_parallel);
                 }
 
+                // Replay fragments buffered during fragment-length learning.
                 auto buffered = paired_surjector.finalize_fragment_length_distribution();
                 if (show_progress) {
                     logger.info() << "Fragment length estimate: "
@@ -836,11 +840,8 @@ int main_surject(int argc, char** argv) {
                 }
             };
 
-            // For --diploid-map, all graph placements sharing a read name (the
-            // primary placement plus any secondaries already in the input) need
-            // to be surjected and compared together, so that haplotype quality
-            // and the single overall primary are chosen across all of them, not
-            // independently per input record.
+            // Group all graph placements for a read so haplotype and global
+            // primary selection are performed jointly.
             std::function<void(std::vector<Alignment>&)> set_lambda = [&](std::vector<Alignment>& placements) {
                 try {
                     if (placements.empty()) {
@@ -862,13 +863,10 @@ int main_surject(int argc, char** argv) {
                         }
                         set_metadata(placement);
 
-                        // multimap_to_all_paths is forced on for diploid mode, so this
-                        // already returns one surjection per overlapping haplotype path
-                        // for this one graph placement.
+                        // Diploid mode retains surjections to all overlapping haplotype paths.
                         vector<Alignment> surjected = surjector.surject(placement, paths, subpath_global, spliced);
 
-                        // Assign hp/hq by comparing this graph placement's
-                        // haplotype-path surjections with each other.
+                        // Compute hp/hq within this graph placement.
                         surjector.annotate_hap_tags(placement, surjected);
 
                         all_surjected.insert(all_surjected.end(),
@@ -876,9 +874,7 @@ int main_surject(int argc, char** argv) {
                                              std::make_move_iterator(surjected.end()));
                     }
 
-                    // Global Quality and single overall primary, chosen across every
-                    // haplotype-path surjection from every graph placement pooled
-                    // together.
+                    // Compute GlobalQ and select one primary across all graph placements.
                     surjector.annotate_global_mapq_and_primary(placements.front(), all_surjected);
 
                     alignment_emitter->emit_singles(std::move(all_surjected));

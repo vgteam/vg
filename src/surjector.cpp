@@ -133,8 +133,7 @@ using namespace std;
             return 60;
         }
 
-        // compute_first_mapping_quality scores the first candidate, so place
-        // the selected candidate first while preserving the other scores.
+        // Put the selected score first because MAPQ is computed for the first candidate.
         std::vector<double> reordered;
         reordered.reserve(scores.size());
         reordered.push_back(scores[best_idx]);
@@ -150,6 +149,7 @@ using namespace std;
             reordered, fast_approximation);
     }
 
+    // Add or replace the requested SAM tag while preserving all others.
     void Surjector::set_sam_tag_annotation(Alignment& aln,
                                             const std::string& tag,
                                             char type,
@@ -188,6 +188,7 @@ using namespace std;
         set_annotation<std::string>(aln, "tags", new_tags);
     }
 
+    // Choose the best haplotype surjection and annotate all candidates with hp and hq.
     void Surjector::annotate_hap_tags(
         const Alignment& source,
         std::vector<Alignment>& alns) const {
@@ -216,6 +217,7 @@ using namespace std;
         std::vector<size_t> score_order(scores.size());
         std::iota(score_order.begin(), score_order.end(), 0);
         LazyRNG rng([&]() { return source.sequence(); });
+        // Select the highest-scoring haplotype candidate, shuffling ties.
         sort_shuffling_ties(score_order.begin(), score_order.end(),
                             [&](size_t a, size_t b) { return scores[a] > scores[b]; }, rng);
         const size_t best_k = score_order.front();
@@ -240,6 +242,7 @@ using namespace std;
         }
     }
 
+    // Choose the overall primary and annotate all candidates with GlobalQ and aq (vg giraffe MAPQ).
     void Surjector::annotate_global_mapq_and_primary(
         const Alignment& source,
         std::vector<Alignment>& alns) const {
@@ -298,6 +301,7 @@ using namespace std;
         }
     }
 
+    // Score a read pair using alignment scores and, when available, fragment-length likelihood.
     double Surjector::score_alignment_pair(const Alignment& source,
                                            const Alignment& first,
                                            const Alignment& second,
@@ -319,6 +323,7 @@ using namespace std;
         return score;
     }
 
+    // Initialize paired surjection and fragment-length learning.
     PairedSurjector::PairedSurjector(Surjector& surjector,
                                      const PathPositionHandleGraph* graph,
                                      size_t maximum_sample_size,
@@ -334,6 +339,7 @@ using namespace std;
 
     PairedSurjector::~PairedSurjector() = default;
 
+    // Processing can parallelize once fragment-length learning finishes or is abandoned.
     bool PairedSurjector::ready_for_parallel() const {
         return fragment_length_distribution->is_finalized() || learning_abandoned;
     }
@@ -350,6 +356,7 @@ using namespace std;
         return fragment_length_distribution->curr_sample_size();
     }
 
+    // Finalize the current fragment-length estimate if usable; otherwise disable fragment scoring.
     void PairedSurjector::finalize_learning() {
         if (ready_for_parallel()) {
             fragment_scoring_available = fragment_length_distribution->is_finalized();
@@ -375,6 +382,7 @@ using namespace std;
         return std::move(ambiguous_fragment_buffer);
     }
 
+    // Compute the template length for two surjections on the same path.
     int64_t PairedSurjector::compute_template_length(const Alignment& first,
                                                      const Alignment& second) const {
         if (first.refpos_size() == 0 || second.refpos_size() == 0) {
@@ -401,6 +409,7 @@ using namespace std;
         return llabs(static_cast<int64_t>(lengths.first));
     }
 
+    // Select the highest-scoring candidate, shuffling ties deterministically.
     size_t PairedSurjector::choose_best(const Alignment& first_source,
                                         const Alignment& second_source,
                                         const vector<double>& scores) const {
@@ -412,6 +421,7 @@ using namespace std;
         return order.front();
     }
 
+    // Evaluate all paired surjections for a fragment and choose local and global winners.
     bool PairedSurjector::surject(fragment_group_t&& placements,
                                   const unordered_set<path_handle_t>& paths,
                                   bool allow_negative_scores,
@@ -439,6 +449,7 @@ using namespace std;
             placement.second = surjector.surject(placement.source_second, paths,
                                                  allow_negative_scores, preserve_deletions);
 
+            // Pair non-supplementary surjections on the same path and opposite strands.
             unordered_map<path_strand_t, vector<size_t>> second_by_path;
             for (size_t j = 0; j < placement.second.size(); ++j) {
                 if (!is_supplementary(placement.second[j]) && placement.second[j].refpos_size()) {
@@ -471,6 +482,7 @@ using namespace std;
             work.emplace_back(std::move(placement));
         }
 
+        // Pool compatible pairs across graph placements for global selection.
         vector<double> global_scores;
         vector<pair<size_t, size_t>> global_index;
         for (size_t p = 0; p < work.size(); ++p) {
@@ -481,13 +493,7 @@ using namespace std;
         }
 
         if (global_scores.empty()) {
-            // None of the surjected alignments form a compatible pair. Fall
-            // back to emitting the two read ends as singles.
-            //
-            // Pool surjections across all input graph placements before
-            // selecting primaries. Otherwise, every input placement chooses
-            // its own primary, producing multiple primary BAM records for the
-            // same read end.
+            // No compatible pair: select one primary independently for each read end.
             vector<Alignment> first_surjections;
             vector<Alignment> second_surjections;
 
@@ -501,8 +507,7 @@ using namespace std;
             second_surjections.reserve(second_count);
 
             for (auto& placement : work) {
-                // Haplotype competition remains local to one input graph
-                // placement.
+                // Haplotype competition remains local to one input graph placement.
                 surjector.annotate_hap_tags(placement.source_first, placement.first);
                 surjector.annotate_hap_tags(placement.source_second, placement.second);
                 for (auto& aln : placement.first) {
@@ -513,8 +518,7 @@ using namespace std;
                 }
             }
 
-            // Choose exactly one primary across all graph placements for each
-            // read end.
+            // Choose exactly one primary across all graph placements for each read end.
             surjector.annotate_global_mapq_and_primary(
                 work.front().source_first, first_surjections);
             surjector.annotate_global_mapq_and_primary(
@@ -533,6 +537,7 @@ using namespace std;
             return true;
         }
 
+        // Select the best pair across all graph placements.
         size_t best_global = choose_best(work.front().source_first,
                                          work.front().source_second, global_scores);
         size_t best_placement = global_index[best_global].first;
@@ -540,6 +545,7 @@ using namespace std;
         auto& winning_placement = work[best_placement];
         auto& winning_candidate = winning_placement.candidates[best_candidate];
 
+        // Learn fragment length from confident pairs and buffer ambiguous fragments.
         if (!ready_for_parallel()) {
             bool can_train = winning_placement.source_first.mapping_quality() == 60
                 && winning_placement.source_second.mapping_quality() == 60
@@ -560,13 +566,16 @@ using namespace std;
             }
         }
 
+        // Compute confidence in the winning pair across all candidates.
         int32_t global_mapq = surjector.compute_mapping_quality_from_scores(
             winning_placement.source_first, global_scores, best_global);
         global_mapq = max<int32_t>(0, min<int32_t>(60, global_mapq));
+        // GlobalQ cannot exceed either mate's original mapping confidence.
         global_mapq = min(global_mapq,
                           min(winning_placement.source_first.mapping_quality(),
                               winning_placement.source_second.mapping_quality()));
 
+        // Initialize all non-supplementary candidates as secondary.
         for (auto& placement : work) {
             for (auto& aln : placement.first) {
                 if (!is_supplementary(aln)) {
@@ -585,6 +594,7 @@ using namespace std;
                 }
             }
 
+            // Compute haplotype confidence within each graph placement.
             if (!placement.candidates.empty()) {
                 vector<double> local_scores;
                 for (const auto& candidate : placement.candidates) {
@@ -614,9 +624,11 @@ using namespace std;
             }
         }
 
+        // Promote the globally winning pair to primary.
         winning_placement.first[winning_candidate.first].set_is_secondary(false);
         winning_placement.second[winning_candidate.second].set_is_secondary(false);
 
+        // Keep the best compatible pair on each path.
         for (auto& placement : work) {
             map<string, size_t> best_per_path;
             for (size_t c = 0; c < placement.candidates.size(); ++c) {
@@ -630,6 +642,7 @@ using namespace std;
                 }
             }
 
+            // Attach supplementary alignments to the best available mate on the same path.
             for (auto& aln : placement.first) {
                 if (is_supplementary(aln) && !has_annotation(aln, "mate_info")) {
                     const Alignment* mate = nullptr;
@@ -662,6 +675,7 @@ using namespace std;
                             : mate_info("", -1, false, true));
                 }
             }
+            // Emit each selected surjection in at most one pair.
             vector<bool> paired_first(placement.first.size(), false);
             vector<bool> paired_second(placement.second.size(), false);
             for (const auto& path_candidate : best_per_path) {
@@ -3991,6 +4005,8 @@ using namespace std;
                 }
 #endif
                 auto normal_aligner = get_aligner(!source.quality().empty());
+
+                // The full-chunk shortcut is only valid for substitution-free anchors.
                 bool chunk_has_substitution = false;
                 if (mp_aln_path_chunks->size() == 1) {
                     const auto& chunk_path = mp_aln_path_chunks->front().second;
@@ -4001,7 +4017,7 @@ using namespace std;
                         }
                     }
                 }
-                // check whether it's necessary to do any alignment in this interval
+                // Skip realignment only when one substitution-free chunk covers the full interval.
                 if (mp_aln_path_chunks->size() == 1 &&
                     !chunk_has_substitution &&
                     mp_aln_path_chunks->front().first.first == mp_aln_source->sequence().begin() &&

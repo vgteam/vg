@@ -93,32 +93,30 @@ class FragmentLengthDistribution;
                                               bool allow_negative_scores = false,
                                               bool preserve_deletions = false) const;
 
-        /// Compute mapping quality for the candidate at best_idx relative to the
-        /// other candidate scores.
+        /// Compute MAPQ for the selected candidate relative to the competing scores.
         int32_t compute_mapping_quality_from_scores(const Alignment& source,
                                                     const std::vector<double>& scores,
                                                     size_t best_idx,
                                                     bool fast_approximation = false) const;
 
-        /// Mark the best non-supplementary haplotype surjection with hp:Z:pri_hap,
-        /// mark the others with hp:Z:sec_hap, and record haplotype quality in hq.
+        /// Choose the best non-supplementary haplotype surjection and annotate
+        /// candidates with hp and hq.
         void annotate_hap_tags(const Alignment& source,
                                std::vector<Alignment>& alns) const;
 
-        /// Choose one overall primary from all non-supplementary surjections,
-        /// mark the remaining candidates secondary, and compute their Global Quality.
-        /// The source primary's original Giraffe MAPQ is retained in aq.
+        /// Choose one overall primary across non-supplementary surjections and
+        /// annotate candidates with GlobalQ and aq.
         void annotate_global_mapq_and_primary(const Alignment& source,
                                               std::vector<Alignment>& alns) const;
 
-        /// Set a SAM-style tag, replacing an existing tag with the same name.
+        /// Add or replace a SAM-style tag while preserving all other tags.
         static void set_sam_tag_annotation(Alignment& aln,
                                            const std::string& tag,
                                            char type,
                                            const std::string& value);
 
-        /// Score two surjections together, optionally including a Gaussian
-        /// fragment-length likelihood in the aligner's scoring units.
+        /// Score a read pair using alignment scores and, when available,
+        /// fragment-length likelihood.
         double score_alignment_pair(const Alignment& source,
                                     const Alignment& first,
                                     const Alignment& second,
@@ -322,16 +320,9 @@ class FragmentLengthDistribution;
         template<class AlnType>
         string path_score_annotations(const unordered_map<pair<path_handle_t, bool>, vector<pair<AlnType, pair<step_handle_t, step_handle_t>>>>& surjections) const;
         
-        // helpers to choose one alignment as primary and classify the alternatives
-        /// Select the highest-scoring surjection as primary.
-        ///
-        /// Non-primary surjections that overlap the primary's query interval by more
-        /// than disjoint_interval_allowable_overlap are retained as secondary.
-        /// Disjoint surjections are retained as supplementary when
-        /// report_supplementary is enabled and are otherwise omitted.
-        ///
-        /// Modifies surjections in place by annotating retained alternatives and
-        /// removing supplementaries that were not requested.
+        /// Select the highest-scoring surjection as primary, classify overlapping
+        /// alternatives as secondary, and retain disjoint alternatives as supplementary
+        /// when supplementary flag is enabled.
         template<class AlnType>
         void choose_primary_internal(vector<pair<AlnType, pair<step_handle_t, step_handle_t>>>& surjections,
                                      const function<void(AlnType&)>& annotate_supplementary,
@@ -474,8 +465,8 @@ class FragmentLengthDistribution;
         const PathPositionHandleGraph* graph = nullptr;
     };
 
-    /// Surject and classify all paired graph placements for one fragment while
-    /// learning the fragment-length distribution needed for paired scoring.
+    /// Surject paired graph placements, score compatible pairs, and select
+    /// haplotype and global primaries using alignment and fragment-length evidence.
     class PairedSurjector {
     public:
         using alignment_pair_t = pair<Alignment, Alignment>;
@@ -494,6 +485,7 @@ class FragmentLengthDistribution;
                         size_t maximum_buffered_fragments = 50000);
         ~PairedSurjector();
 
+        /// Surject and score all alternative placements for one paired-end fragment.
         bool surject(fragment_group_t&& placements,
                      const unordered_set<path_handle_t>& paths,
                      bool allow_negative_scores,
@@ -501,13 +493,16 @@ class FragmentLengthDistribution;
                      uint64_t maximum_fragment_length,
                      result_t& result);
 
+        /// Return true when fragment-length learning no longer requires serial processing.
         bool ready_for_parallel() const;
+        /// Finish fragment-length learning and return buffered fragments for replay.
         vector<fragment_group_t> finalize_fragment_length_distribution();
         double fragment_length_mean() const;
         double fragment_length_stddev() const;
         size_t fragment_length_sample_size() const;
 
     private:
+        /// One compatible pair of mate surjections.
         struct pair_candidate_t {
             size_t first = 0;
             size_t second = 0;
@@ -515,6 +510,7 @@ class FragmentLengthDistribution;
             double score = 0.0;
         };
 
+        /// Surjections and compatible pairs from one input graph placement.
         struct placement_t {
             Alignment source_first;
             Alignment source_second;
