@@ -461,7 +461,8 @@ int main_surject(int argc, char** argv) {
     if (interleaved && !max_frag_len.has_value()) {
         // TODO: Once we get fragment distribution learning, this will be less of a problem. 
         logger.warn() << "Running in paired-end mode without -f/--max-frag-len. "
-                      << "Reads will be assumed to be properly paired at any distance!" << endl;
+                      << "Reads will be assumed to be properly paired at any distance!" << endl
+                      << "Direct surjection with Giraffe uses a max fragment length of (mean + 6 * stdv)." << endl;
     } 
     if (interleaved && force_unpaired) {
         logger.error() << "Cannot use -U/--force-unpaired and -i/--interleaved at the same time. "
@@ -649,73 +650,28 @@ int main_surject(int argc, char** argv) {
                     set_metadata(src1);
                     set_metadata(src2);
                     
-                    // Surject
-                    auto surjected1 = surjector.surject(src1, paths, subpath_global, spliced);
-                    auto surjected2 = surjector.surject(src2, paths, subpath_global, spliced);
-                    
-                    // pair up non-supplementary alignments
-                    unordered_map<pair<string, bool>, size_t> strand_idx1, strand_idx2;
-                    for (size_t i = 0; i < surjected1.size(); ++i) {
-                        if (!is_supplementary(surjected1[i])) {
-                            const auto& pos = surjected1[i].refpos(0);
-                            strand_idx1[make_pair(pos.name(), pos.is_reverse())] = i;
-                        }
+                    // TODO: It's weird to batch up here. Have batch and non-batch versions?
+                    // But this will definitely change when we swap over to surjecting a whole collection of alignments of the same read at once.
+                    std::vector<Alignment> surjected1 {std::move(src1)};
+                    std::vector<Alignment> surjected2 {std::move(src2)};
+                    std::vector<Alignment> supplementary_surjections;
+                    surjector.surject_paired_in_place(surjected1, surjected2, supplementary_surjections, supplementary_surjections, paths, subpath_global, spliced);
+                        
+                    crash_unless(surjected1.size() == surjected2.size());
+                    for (size_t i = 0; i < surjected1.size(); i++) {
+                        // TODO: Use the batched emit here?
+#ifdef debug
+                        #pragma omp critical (cerr)
+                        std::cerr << "Emitting pair of " << surjected1[i].name() << " and " << surjected2[i].name() << std::endl;
+#endif
+                        alignment_emitter->emit_pair(std::move(surjected1[i]), std::move(surjected2[i]), max_frag_len.value_or(0));
                     }
-                    for (size_t i = 0; i < surjected2.size(); ++i) {
-                        if (!is_supplementary(surjected2[i])) {
-                            const auto& pos = surjected2[i].refpos(0);
-                            strand_idx2[make_pair(pos.name(), pos.is_reverse())] = i;
-                        }
-                    }
-
-                    
-                    for (size_t i = 0; i < surjected1.size(); ++i) {
-                        const auto& pos = surjected1[i].refpos(0);
-                        auto it = strand_idx2.find(make_pair(pos.name(), !pos.is_reverse()));
-                        if (!is_supplementary(surjected1[i]) && it != strand_idx2.end()) {
-                            // the alignments are paired on this strand
-                            alignment_emitter->emit_pair(std::move(surjected1[i]), std::move(surjected2[it->second]), max_frag_len.value_or(0));
-                        }
-                        else {
-                            // supplementary or unpaired
-                            if (is_supplementary(surjected1[i]) && !has_annotation(surjected1[i], "mate_info")) {
-                                // we need to annotate this supplementary with mate info for SAM/BAM conversion
-                                string annotation;
-                                if (!strand_idx2.empty()) {
-                                    // there is a non-supplementary alignment available (prefer the one consistent with this path strand)
-                                    const auto& mate = it != strand_idx2.end() ? surjected2[it->second] : surjected2[strand_idx2.begin()->second];
-                                    annotation = std::move(mate_info(mate.refpos(0).name(), mate.refpos(0).offset(), mate.refpos(0).is_reverse(), false));
-                                }
-                                else {
-                                    // we don't have access to the primary, but we can still record the read 1/2 identity
-                                    annotation = std::move(mate_info("", -1, false, false));
-                                }
-                                set_annotation(surjected1[i], "mate_info", annotation);
-                            }
-                            alignment_emitter->emit_single(std::move(surjected1[i]));
-                        }
-                    }
-                    for (size_t i = 0; i < surjected2.size(); ++i) {
-                        const auto& pos = surjected2[i].refpos(0);
-                        auto it = strand_idx1.find(make_pair(pos.name(), !pos.is_reverse()));
-                        if (is_supplementary(surjected2[i]) || it == strand_idx1.end()) {
-                            // this strand's surjection is unpaired or supplementary
-                            if (is_supplementary(surjected2[i]) && !has_annotation(surjected2[i], "mate_info")) {
-                                // we need to annotate this supplementary with mate info for SAM/BAM conversion
-                                string annotation;
-                                if (!strand_idx1.empty()) {
-                                    // there is a non-supplementary alignment available (prefer the one consistent with this path strand)
-                                    const auto& mate = it != strand_idx1.end() ? surjected1[it->second] : surjected1[strand_idx1.begin()->second];
-                                    annotation = std::move(mate_info(mate.refpos(0).name(), mate.refpos(0).offset(), mate.refpos(0).is_reverse(), true));
-                                }
-                                else {
-                                    // we don't have access to the primary, but we can still record the read 1/2 identity
-                                    annotation = std::move(mate_info("", -1, false, true));
-                                }
-                                set_annotation(surjected2[i], "mate_info", annotation);
-                            }
-                            alignment_emitter->emit_single(std::move(surjected2[i]));
-                        }
+                    for (size_t i = 0; i < supplementary_surjections.size(); i++) {
+#ifdef debug
+                        #pragma omp critical (cerr)
+                        std::cerr << "Emitting single read " << supplementary_surjections[i].name() << std::endl;
+#endif
+                        alignment_emitter->emit_single(std::move(supplementary_surjections[i]));
                     }
                     
                     total_reads_surjected += 2;
@@ -829,102 +785,71 @@ int main_surject(int argc, char** argv) {
                         multipath_alignment_t mp_src1, mp_src2;
                         from_proto_multipath_alignment(src1, mp_src1);
                         from_proto_multipath_alignment(src2, mp_src2);
+
+                        // TODO: It's weird to batch up here. Have batch and non-batch versions?
+                        // But this will definitely change when we swap over to surjecting a whole collection of alignments of the same read at once.
+                        std::vector<multipath_alignment_t> surjected1 {std::move(mp_src1)};
+                        std::vector<multipath_alignment_t> surjected2 {std::move(mp_src2)};
+                        std::vector<multipath_alignment_t> supplementary_surjections1, supplementary_surjections2;
+                        vector<tuple<string, int64_t, bool>> positions1, positions2, supplementary_positions1, supplementary_positions2;
+                        surjector.surject_paired_in_place(surjected1, surjected2,
+                                                          positions1, positions2,
+                                                          supplementary_surjections1, supplementary_surjections2,
+                                                          supplementary_positions1, supplementary_positions2,
+                                                          paths,
+                                                          subpath_global,
+                                                          spliced);
+#ifdef debug
+                        std::cerr << "Surjected read pair to " << surjected1.size() << "/" << surjected2.size() << " paired mappings and "
+                                  << supplementary_surjections1.size()  << "/" << supplementary_surjections2.size() << " supplementary mappings" << std::endl;
+#endif
+                            
+                        crash_unless(surjected1.size() == surjected2.size());
+                        crash_unless(positions1.size() == surjected1.size());
+                        crash_unless(positions2.size() == surjected2.size());
+                        crash_unless(supplementary_surjections1.size() == supplementary_positions1.size());
+                        crash_unless(supplementary_surjections2.size() == supplementary_positions2.size());
                         
+                        // We need to reswizzle the positions because the
+                        // alignment emitter wants the tuples in a different
+                        // order.
+                        //
+                        // TODO: harmonize!
+                        //
+                        // Be careful because the compiler will let us
+                        // construct from a tuple of the wrong width numbers,
+                        // and bool is a number.
+                        auto reswizzle = [](tuple<string, int64_t, bool>&& in) -> tuple<string, bool, int64_t> {
+                            return std::make_tuple(std::move(get<0>(in)), std::move(get<2>(in)), std::move(get<1>(in)));
+                        };
                         
-                        vector<pair<tuple<string, bool, int64_t>, tuple<string, bool, int64_t>>> positions;
                         vector<pair<multipath_alignment_t, multipath_alignment_t>> surjected;
-                        
+                        vector<pair<tuple<string, bool, int64_t>, tuple<string, bool, int64_t>>> positions;
+                        for (size_t i = 0; i < surjected1.size(); i++) {
+                            // Put the paired items in paired-up vectors
+#ifdef debug
+                            std::cerr << "Paired mapping at " << get<0>(positions1[i]) << " " << get<1>(positions1[i]) << " " << get<2>(positions1[i])
+                                      << " and " << get<0>(positions2[i]) << " " << get<1>(positions2[i]) << " " << get<2>(positions2[i]) << std::endl;
+#endif
+                            surjected.emplace_back(std::move(surjected1[i]), std::move(surjected2[i]));
+                            positions.emplace_back(reswizzle(std::move(positions1[i])), reswizzle(std::move(positions2[i])));
+                        }
+
                         vector<tuple<string, bool, int64_t>> positions_unpaired1, positions_unpaired2;
-                        vector<multipath_alignment_t> surjected_unpaired1, surjected_unpaired2;
-                        
-                        // TODO: highly repetitive with the version above for Alignments
-                        // surject and record path positions
-                        vector<tuple<string, int64_t, bool>> positions1, positions2;
-                        auto surjected1 = surjector.surject(mp_src1, paths, positions1, subpath_global, spliced);
-                        auto surjected2 = surjector.surject(mp_src2, paths, positions2, subpath_global, spliced);
+                        positions_unpaired1.reserve(supplementary_positions1.size());
+                        for (auto& p : supplementary_positions1) {
+                            positions_unpaired1.emplace_back(reswizzle(std::move(p)));
+                        }
+                        positions_unpaired2.reserve(supplementary_positions2.size());
+                        for (auto& p : supplementary_positions2) {
+                            positions_unpaired2.emplace_back(reswizzle(std::move(p)));
+                        }
 
-                        // pair up non-supplementary alignments
-                        unordered_map<pair<string, bool>, size_t> strand_idx1, strand_idx2;
-                        for (size_t i = 0; i < surjected1.size(); ++i) {
-                            if (!is_supplementary(surjected1[i])) {
-                                strand_idx1[make_pair(get<0>(positions1[i]), get<2>(positions1[i]))] = i;
-                            }
-                        }
-                        for (size_t i = 0; i < surjected2.size(); ++i) {
-                            if (!is_supplementary(surjected2[i])) {
-                                strand_idx2[make_pair(get<0>(positions2[i]), get<2>(positions2[i]))] = i;
-                            }
-                        }
-                        
-                        for (size_t i = 0; i < surjected1.size(); ++i) {
-                            auto it = strand_idx2.find(make_pair(get<0>(positions1[i]), !get<2>(positions1[i])));
-                            if (!is_supplementary(surjected1[i]) && it != strand_idx2.end() && get<1>(positions1[i]) >= 0) {
-                                // the alignments are paired on this strand
-                                surjected.emplace_back(std::move(surjected1[i]), std::move(surjected2[it->second]));
-                                
-                                // reorder the positions to deal with the mismatch in the interfaces
-                                // note: we don't move() path names so we can check against them later
-                                positions.emplace_back();
-                                get<0>(positions.back().first) = get<0>(positions1[i]);
-                                get<1>(positions.back().first) = get<2>(positions1[i]);
-                                get<2>(positions.back().first) = get<1>(positions1[i]);
-                                get<0>(positions.back().second) = get<0>(positions2[it->second]); 
-                                get<1>(positions.back().second) = get<2>(positions2[it->second]);
-                                get<2>(positions.back().second) = get<1>(positions2[it->second]);
-                            }
-                            else {
-                                // supplementary or unpaired
-                                if (is_supplementary(surjected1[i]) && !surjected1[i].has_annotation("mate_info")) {
-                                    string annotation;
-                                    if (!strand_idx2.empty()) {
-                                        size_t idx = it != strand_idx2.end() ? it->second : strand_idx2.begin()->second;
-                                        annotation = std::move(mate_info(get<0>(positions2[idx]), get<1>(positions2[idx]), get<2>(positions2[idx]), false));
-                                    }
-                                    else {
-                                        annotation = std::move(mate_info("", -1, false, false));
-                                    }
-                                    surjected1[i].set_annotation("mate_info", annotation);
-                                }
-                                surjected_unpaired1.emplace_back(std::move(surjected1[i]));
-                                
-                                // reorder the position to deal with the mismatch in the interfaces
-                                positions_unpaired1.emplace_back();
-                                get<0>(positions_unpaired1.back()) = get<0>(positions1[i]);
-                                get<1>(positions_unpaired1.back()) = get<2>(positions1[i]);
-                                get<2>(positions_unpaired1.back()) = get<1>(positions1[i]);
-                            }
-                        }
-                        for (size_t i = 0; i < surjected2.size(); ++i) {
-                            auto it = strand_idx1.find(make_pair(get<0>(positions2[i]), !get<2>(positions2[i])));
-                            if (is_supplementary(surjected2[i]) || it == strand_idx1.end()) {
-                                // this strand's surjection is unpaired or supplementary
-                                if (is_supplementary(surjected2[i]) && !surjected2[i].has_annotation("mate_info")) {
-                                    string annotation;
-                                    if (!strand_idx1.empty()) {
-                                        size_t idx = it != strand_idx1.end() ? it->second : strand_idx1.begin()->second;
-                                        annotation = std::move(mate_info(get<0>(positions1[idx]), get<1>(positions1[idx]), get<2>(positions1[idx]), true));
-                                    }
-                                    else {
-                                        annotation = std::move(mate_info("", -1, false, true));
-                                    }
-                                    surjected2[i].set_annotation("mate_info", annotation);
-                                }
-
-                                surjected_unpaired2.emplace_back(std::move(surjected2[i]));
-                                
-                                // reorder the position to deal with the mismatch in the interfaces
-                                positions_unpaired2.emplace_back();
-                                get<0>(positions_unpaired2.back()) = std::move(get<0>(positions2[i]));
-                                get<1>(positions_unpaired2.back()) = get<2>(positions2[i]);
-                                get<2>(positions_unpaired2.back()) = get<1>(positions2[i]);
-                            }
-                        }
-                        
                         // write to output
                         vector<int64_t> tlen_limits(surjected.size(), max_frag_len.value_or(0));
                         mp_alignment_emitter.emit_pairs(src1.name(), src2.name(), std::move(surjected), &positions, &tlen_limits);
                         mp_alignment_emitter.emit_paired_independent(src1.name(), src2.name(),
-                                                                     std::move(surjected_unpaired1), std::move(surjected_unpaired2),
+                                                                     std::move(supplementary_surjections1), std::move(supplementary_surjections2),
                                                                      &positions_unpaired1, &positions_unpaired2);
                         
                         total_reads_surjected += 2;
