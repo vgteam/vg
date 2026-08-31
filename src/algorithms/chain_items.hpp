@@ -324,9 +324,11 @@ public:
     /// Update the paths supported by this score and return a modified copy
     TracedScore set_shared_paths(const std::pair<size_t,size_t>& new_paths) const;
 
+    inline int eval_score() const { return score + eval_bonus; }
+
     /// Compare for equality
     inline bool operator==(const TracedScore& other) const {
-        return score == other.score && source == other.source;
+        return score == other.score && eval_bonus == other.eval_bonus && source == other.source;
     }
     
     /// Compare for inequality
@@ -336,8 +338,8 @@ public:
     
     /// Compare for less-than
     inline bool operator<(const TracedScore& other) const {
-        if (score + eval_bonus != other.score + other.eval_bonus) {
-            return score + eval_bonus < other.score + other.eval_bonus;
+        if (eval_score()!= other.eval_score()) {
+            return eval_score() < other.eval_score();
         } else if (score != other.score) {
             return score < other.score;
         } else {
@@ -347,8 +349,8 @@ public:
     
     /// Compare for greater-than
     inline bool operator>(const TracedScore& other) const {
-        if (score + eval_bonus != other.score + other.eval_bonus) {
-            return score + eval_bonus > other.score + other.eval_bonus;
+        if (eval_score() != other.eval_score()) {
+            return eval_score() > other.eval_score();
         } else if (score != other.score) {
             return score > other.score;
         } else {

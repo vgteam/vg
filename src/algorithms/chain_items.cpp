@@ -698,9 +698,9 @@ void chain_items_traceback(const vector<vector<TracedScore>>& chain_scores,
         // Save alt edges
         for (size_t alt_i = 1; alt_i < chain_scores[trace_from].size(); alt_i++) {
             if (chain_scores[trace_from][alt_i].source != TracedScore::nowhere()) {
-                connections.emplace_back(chain_scores[trace_from][alt_i].source,
-                                        trace_from,
-                                        chain_scores[trace_from].front().score - chain_scores[trace_from][alt_i].score);
+                connections.emplace_back(
+                    chain_scores[trace_from][alt_i].source, trace_from,
+                    chain_scores[trace_from].front().eval_score() - chain_scores[trace_from][alt_i].eval_score());
             }
         }
         if (is_used[trace_from]) {
