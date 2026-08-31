@@ -993,11 +993,12 @@ vector<SubchainGroup> find_best_chains(const VectorView<Anchor>& to_chain,
     }
 
     // Get rid of tracebacks that are much, much worse than the best
+    int min_passing_score = std::max((int) min_chain_score, tracebacks.front().chain_score / 25);
     for (size_t i = 1; i < tracebacks.size(); i++) {
-        if (tracebacks[i].chain_score < min_chain_score) {
+        if (tracebacks[i].chain_score < min_passing_score) {
 #ifdef debug_chaining
             cerr << "Cutting down to " << i << " tracebacks because a further one has score "
-                 << tracebacks[i].chain_score << " < " << min_chain_score << endl; 
+                 << tracebacks[i].chain_score << " < " << min_passing_score << endl; 
 #endif
             // Cut off at this point
             tracebacks.resize(i);
