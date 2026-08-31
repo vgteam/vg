@@ -123,8 +123,9 @@ static inline void render_phase_pair(const vector<int8_t>& allele_arena, size_t 
 /// The candidate traversal a compact allele stands for. This is the genome fact: what a crossing
 /// mask is tested against, and what a per-haplotype path through the snarl is made of.
 /// What a settled parent implies about one of its children, from the parent's two settled
-/// traversals and the child's crossing mask. Free, so it serves both callers: the grouping holds the
-/// parent's Entry, the per-strand pass holds its PhaseCall, and both know the settled pair.
+/// traversals and the child's crossing mask. Takes the traversals rather than the parent, so it can
+/// be called from wherever the settled pair is in hand -- today only the grouping, which reads them
+/// off the parent's Entry.
 ///
 /// The mask is in TRAVERSAL terms, so it must be tested against the traversals and never against a
 /// compact allele index -- the two agree only when every allele at the parent is panel-carried.
@@ -1562,14 +1563,13 @@ bool LinkageCollector::retract(size_t record_key) {
 /// VCF allele on each strand, which is the only form the renderer can write.
 ///
 /// Leaving `allele_*` compact made the phased-GT guard reject the pair and silently drop the
-/// record's phasing -- 1,528 extra strandless records on chr20. It was spelled out three times,
-/// in the diploid chain, the nested-strand pass and the haploid pass, with that warning copied
-/// alongside each.
-///
-/// The three copies had drifted: only the diploid one also widened `order_arbitrary` on a
-/// fallback. The other two are ploidy-1 populations, where the pair is one allele twice and the
-/// test cannot fire, so folding it in changes nothing -- asserted by byte-identity rather than
-/// argued.
+/// record's phasing -- 1,528 extra strandless records on chr20. It was spelled out three times, in
+/// the diploid chain, the nested-strand pass and the haploid pass, with that warning copied
+/// alongside each, and the three had drifted: only the diploid one also widened `order_arbitrary`
+/// on a fallback. Folding them in changed nothing, because the other two were ploidy-1 populations
+/// where the pair is one allele twice and the test cannot fire -- asserted by byte-identity rather
+/// than argued. Two of the three call sites have since gone with the per-strand pass; this is the
+/// one door that is left, which is why there is nothing to drift against any more.
 void LinkageCollector::finish_phase_call(PhaseCall& pc, const Entry& e, size_t& fallbacks) const {
     const size_t c_first = pc.allele_first, c_second = pc.allele_second;
     pc.trav_first = traversal_of(trav_arena, e.trav_offset, e.num_alleles, c_first);
@@ -1587,13 +1587,10 @@ void LinkageCollector::finish_phase_call(PhaseCall& pc, const Entry& e, size_t& 
 }
 
 static std::atomic<size_t> g_grp_no_parent(0);
-/// Is conditioning a nested haploid site on its parent well posed at all? See the strand pass.
-static std::atomic<size_t> g_hpd_no_parent(0), g_hpd_arbitrary(0), g_hpd_wildcard(0);
-static std::atomic<size_t> g_hpd_absent(0), g_hpd_agrees(0), g_hpd_disagrees(0);
 static std::atomic<size_t> g_grp_no_entry(0), g_grp_vetoed(0);
-// Where nested HAPLOID chains ended up. The per-strand pass reported this and it is how the
-// population is gated: all 44,139 of its "no strand" sites were chrX's and none were autosomal, so
-// a bug confined to one of these buckets is invisible to any autosome-only check.
+// Where nested HAPLOID chains ended up. Reported because it is how the population is gated: all
+// 44,139 "no strand" sites across chr20, chr6, chr17 and chrX were chrX's and none were autosomal,
+// so a bug confined to one of these buckets is invisible to any autosome-only check.
 static std::atomic<size_t> g_nest_strand(0), g_nest_one_hap(0), g_nest_unnameable(0);
 
 /// Which of its parent's two strands a nested haploid chain sits on, or -1.
@@ -1798,10 +1795,6 @@ size_t LinkageCollector::resolve_generation(
     // VG_LINKAGE_NO_GROUPING forces the contig-chain path, so one binary can produce both arms of
     // a comparison and the only difference between them is this.
     static const bool no_grouping = getenv("VG_LINKAGE_NO_GROUPING") != nullptr;
-    // The haploid analogue of the per-chain diploid decode: bucket the per-strand nested pass by the
-    // chain a site belongs to as well as by (phase set, strand), so a haploid nested chain is decoded
-    // alone instead of pooled with every other chain on that strand.
-    static const bool per_chain_strand = getenv("VG_LINKAGE_PER_CHAIN_STRAND") != nullptr;
     // Each nested CHAIN is decoded on its own, conditioned on its parent -- never pooled with its
     // parent's other chains.
     //
@@ -2315,8 +2308,7 @@ size_t LinkageCollector::resolve_generation(
             PhaseCall pc;
             pc.ploidy = e.ploidy;
             pc.depth = e.generation;
-            // The strand a nested haploid chain sits on, when the chain came through the unified
-            // grouping rather than the per-strand pass. It is a nested-specific fact -- the chain
+            // The strand a nested haploid chain sits on. A nested-specific fact -- the chain
             // occupies ONE of its parent's two haplotypes -- and nothing in a chain decode can
             // derive it, so it is carried from where the parent's settled pair was in hand.
             int nested_slot = -1;

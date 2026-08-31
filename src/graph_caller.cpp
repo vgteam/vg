@@ -5092,11 +5092,18 @@ void FlowCaller::run_deferred_descent() {
     // chain records a linkage entry at a generation the collector may never have held before, and
     // a fixed bound would leave that entry -- and every pending chain below it -- outside every
     // resolve pass: emitted but never settled, never phased, absent from the mosaic.
-    // A LEVEL-ORDER walk of the snarl tree, and it has to be level-order rather than depth-first.
-    // Each group's decode depends only on its parent's settled state, so the two orders would agree
-    // -- except that the per-strand haploid pass inside `resolve_linkage_generation` pools a whole
-    // contig's nested haploid sites on one strand, and M4 measured that pooling worth two structural
-    // variants on chr20 and two on chr6. Depth-first would present it one subtree at a time.
+    // A LEVEL-ORDER walk of the snarl tree. It no longer HAS to be: the reason it did was the
+    // per-strand haploid pass, which pooled a whole contig's nested haploid sites on one strand and
+    // so could not be handed one subtree at a time, and that pass is gone -- nested haploid chains
+    // now go through the same per-parent grouping the diploid ones use. Every group is keyed on a
+    // single parent and its decode depends only on that parent's settled state, so depth-first and
+    // level-order would now agree.
+    //
+    // Left as a loop deliberately. A recursion would change the ORDER in which groups are decoded
+    // and nothing about their content, which is a change of shape with nothing measurable behind
+    // it; and generation 0 is a contig-wide run either way, so the recursion would not even be
+    // uniform. Written down because the constraint that used to justify this is no longer real, and
+    // a reader should not have to rediscover that the option has reopened.
     for (size_t gen = 0; gen <= generations; ++gen) {
         // The final pass carries last=true: it builds the phasing map and the mosaic from the full
         // accumulated set. If this pass then gains a deeper chain, the bound grows and a later
