@@ -837,9 +837,10 @@ is $(grep -c "collapsed sites phased with no line of their own" nest_hap_err.txt
 # failure is what the old wording did. Under a DIPLOID parent whose settled pair does not reach the
 # chain, the sample has no copy of the locus and nothing may be named. That last one is the only
 # remaining way to fail, and it is what this asserts.
-is $(awk '/nested strands:/ {if ($0 !~ /, 0 unreached by the parent.s settled pair/) bad++}
+is $(awk '/nested strands:/ {if ($0 !~ /, 0 carried on both parent strands, /) bad++;
+      if ($0 !~ /, 0 whose parent.s settled pair could not be read/) bad++}
       END {print bad+0}' nest_hap_err.txt) "0" \
-   "every nested chain is reached by its parent's settled pair"
+   "no nested chain is on both parent strands or under an unreadable settled pair"
 # The awk above is vacuously true if the report never prints, which the version it replaces also
 # was. Asserted separately so a report that stops being emitted fails loudly instead of silently
 # passing every run.

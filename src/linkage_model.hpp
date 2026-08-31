@@ -795,6 +795,17 @@ private:
     /// Flat arenas rather than a vector per site: at 80 bytes a site the 48 bytes of overhead two
     /// empty vectors would add is most of the budget.
     vector<Entry> entries;
+    /// Entry indices by generation, in append order.
+    ///
+    /// `resolve_generation(k)` is interested in the entries of generation k and scanned all of them
+    /// to find them: 1.33M entry visits across generations 1-6 on chr20 to reach 27,126 live ones,
+    /// and generation 6 walking 221,971 entries for the 2 that are its own. Costed at 75.2 ms over
+    /// the seven calls -- 0.9% of the linkage layer, so this is shape rather than speed.
+    ///
+    /// Append order is preserved, which is what makes it a drop-in: `Entry::generation` is set in
+    /// `record()` before the push and never mutated, so the index holds exactly the indices the
+    /// scans selected, in exactly the order they selected them.
+    vector<vector<uint32_t>> by_generation;
     vector<float> gl_arena;
     vector<int8_t> hap_arena;
     /// Per compact allele, the candidate traversal index it stands for. uint16 because a site's

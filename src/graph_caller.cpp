@@ -5099,11 +5099,18 @@ void FlowCaller::run_deferred_descent() {
     // single parent and its decode depends only on that parent's settled state, so depth-first and
     // level-order would now agree.
     //
-    // Left as a loop deliberately. A recursion would change the ORDER in which groups are decoded
-    // and nothing about their content, which is a change of shape with nothing measurable behind
-    // it; and generation 0 is a contig-wide run either way, so the recursion would not even be
-    // uniform. Written down because the constraint that used to justify this is no longer real, and
-    // a reader should not have to rediscover that the option has reopened.
+    // Left as a loop, and now for a measured reason rather than a taste one. `resolve_generation`
+    // does O(all recorded sites) of work per call -- it rebuilds `pinned_phase` from the whole
+    // accumulated phasing -- so the cost is per CALL, not per site decoded. On chr20 that is 50 ms
+    // across seven calls. A per-subtree recursion makes one call per subtree root, of which chr20
+    // has thousands, so the same preamble would run thousands of times: order 20 s, against 50 ms
+    // now, and against an 8 s linkage layer. The recursion is not a cleanup at this interface; it
+    // is a rewrite of that interface to be subtree-scoped, and what that rewrite would save is the
+    // 50 ms.
+    //
+    // Recorded because the constraint that USED to justify level-order -- the per-strand haploid
+    // pass pooling a whole contig -- is gone, and a reader who notices that should not conclude the
+    // recursion is therefore free.
     for (size_t gen = 0; gen <= generations; ++gen) {
         // The final pass carries last=true: it builds the phasing map and the mosaic from the full
         // accumulated set. If this pass then gains a deeper chain, the bound grows and a later

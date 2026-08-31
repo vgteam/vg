@@ -1336,6 +1336,57 @@ TEST_CASE("A nested site never names a haplotype that contradicts the allele it 
     }
 }
 
+TEST_CASE("A nested haploid chain its parent carries TWICE names no haplotype",
+          "[linkage_model]") {
+    // The one reachable way a nested chain under a diploid parent ends up on no strand, and the
+    // only case that exercises `nameable == false`.
+    //
+    // Not "the parent does not carry it" -- that is `copies == 0`, and the barrier retracts the
+    // whole subtree before the generation is grouped, so it never reaches the collector alive. This
+    // is `copies == 2`: BOTH of the parent's settled traversals cross the chain, while the chain is
+    // still at ploidy 1 because the barrier could not re-render it and so skipped the revision.
+    //
+    // Naming nothing is conservative rather than right -- both haplotypes carry it, so both could be
+    // named -- and it is asserted at the conservative answer deliberately, because the population is
+    // empty on every contig measured and a rendering invented for it would be untested by anything
+    // but this.
+    LinkageModel::Params p;
+    p.weight = 1.0;
+    p.scale = 100000.0;
+    p.rho_min = 1e-4;
+
+    const size_t PARENT = 6, CHILD = 61;
+
+    LinkageCollector collector(p, 2);
+    // A het parent, decisively 0/1, one panel haplotype on each allele so each strand gets one.
+    record_dense(collector, "chr1", 1000, 2, {-30.0, 0.0, -30.0}, {1, 0}, 0, 1, PARENT,
+                 /*share*/ 1.0, /*ploidy*/ 2, /*start*/ 10, /*end*/ 20);
+    // Crossing BOTH of the parent's traversals, at ploidy 1.
+    record_dense(collector, "chr1", 1010, 2, {0.0, -30.0}, {0, 0}, 0, 0, CHILD,
+                 /*share*/ 1.0, /*ploidy*/ 1, /*start*/ 11, /*end*/ 12,
+                 /*nested*/ true, PARENT,
+                 /*crossing*/ ((uint64_t)1 << 0) | ((uint64_t)1 << 1), /*generation*/ 1);
+
+    vector<LinkageCollector::PhaseCall> phased;
+    for (size_t gen = 0; gen <= 1; ++gen) {
+        collector.resolve_generation(gen, gen == 1, &phased);
+    }
+
+    const LinkageCollector::PhaseCall* child = nullptr;
+    for (const auto& pc : phased) {
+        if (pc.record_key == CHILD) {
+            child = &pc;
+        }
+    }
+    REQUIRE(child != nullptr);
+    // No single strand, because it is on both.
+    REQUIRE(child->nested_strand == -1);
+    // And no haplotype on either side. A named haplotype here would put the chain on one of the
+    // parent's two strands, which is the one thing known to be false about it.
+    REQUIRE(child->hap_first == LinkageModel::WILDCARD);
+    REQUIRE(child->hap_second == LinkageModel::WILDCARD);
+}
+
 TEST_CASE("A revised site stops being unemitted when the revision writes a line",
           "[linkage_model]") {
     // The whole point of recording unemitted sites is that a collapsed parent can still be phased.

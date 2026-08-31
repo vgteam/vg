@@ -1442,6 +1442,10 @@ void LinkageCollector::record(const string& contig, size_t position,
         entries[last->second].next_same_key = at;
     }
     last_by_key[record_key] = at;
+    if (e.generation >= by_generation.size()) {
+        by_generation.resize((size_t)e.generation + 1);
+    }
+    by_generation[e.generation].push_back(at);
     entries.push_back(e);
 }
 
@@ -1591,7 +1595,11 @@ static std::atomic<size_t> g_grp_no_entry(0), g_grp_vetoed(0);
 // Where nested HAPLOID chains ended up. Reported because it is how the population is gated: all
 // 44,139 "no strand" sites across chr20, chr6, chr17 and chrX were chrX's and none were autosomal,
 // so a bug confined to one of these buckets is invisible to any autosome-only check.
-static std::atomic<size_t> g_nest_strand(0), g_nest_one_hap(0), g_nest_unnameable(0);
+static std::atomic<size_t> g_nest_strand(0), g_nest_one_hap(0);
+// The two ways a nested haploid chain under a DIPLOID parent ends up on no strand. Counted apart
+// because they are different facts with different right answers, and both are empty on every contig
+// measured -- so if either ever fires, which one it is decides what to do about it.
+static std::atomic<size_t> g_nest_both(0), g_nest_unreadable(0);
 
 /// Which of its parent's two strands a nested haploid chain sits on, or -1.
 ///
@@ -1656,6 +1664,16 @@ size_t LinkageCollector::resolve_generation(
         int nested_strand;
         bool order_arbitrary;
     };
+    // Rebuilt from the whole accumulated phasing on every call, which is the O(generations * sites)
+    // term this function has left: 49.6 ms of chr20's 50.3 ms preamble, against 0.7 ms for the
+    // entry scans now that `by_generation` indexes them.
+    //
+    // Left alone deliberately. An append cursor into `phasing_out` would make it incremental, but
+    // a `last` call SORTS that vector in place and the caller may call again afterwards when a
+    // deeper chain grows the generation bound -- so the cursor would be silently invalidated by a
+    // reorder, to save 50 ms of a 170 s run. It is also the only thing standing between this and a
+    // per-subtree scoping; that is recorded at the generation loop, which is where the decision to
+    // stay level-order lives.
     unordered_map<size_t, PinnedPhase> pinned_phase;
     if (phasing_out != nullptr && generation > 0) {
         pinned_phase.reserve(phasing_out->size() * 2);
@@ -1674,23 +1692,43 @@ size_t LinkageCollector::resolve_generation(
         bool order_arbitrary = false;   // the parent's: this strand IS that coin flip, one level down
         // Whether naming a panel haplotype for this site is legitimate at all.
         //
-        // Two different reasons a strand can be absent, and they want opposite renderings. Under a
-        // HAPLOID parent there is no strand to choose because there is only one -- the child sits on
-        // it, and the haplotype is nameable. Under a DIPLOID parent whose settled pair does not
-        // carry the chain there is no strand because the sample has no copy of this locus at all,
-        // and naming a haplotype there asserts a mosaic path through sequence the parent record
-        // does not carry.
+        // Under a HAPLOID parent there is no strand to CHOOSE because there is only one -- the child
+        // sits on it and the haplotype is nameable. That is chrX's ordinary case.
+        //
+        // Under a DIPLOID parent, `nested_strand_of` returns -1 for three situations that
+        // `relate_to_parent` spells differently, and only two of them can arrive here:
+        //
+        //   copies == 0, neither settled traversal carries the chain. NOT reachable: the barrier
+        //     retracts the whole subtree (`drop_subtree`) before this generation is grouped, so a
+        //     live entry always has a parent that carries it. An earlier version of this comment
+        //     claimed this was the case being guarded, and it was the one case that cannot occur.
+        //   copies == 2, BOTH carry it. Reachable only when the chain kept a ploidy of 1 that its
+        //     parent's settled pair contradicts -- the barrier could not re-render it, so the
+        //     revision to ploidy 2 was skipped (387 such chains on chr20, 1,812 on chrX, none of
+        //     them this).
+        //   the settled pair could not be read at all.
+        //
+        // All of them name nothing, which for copies == 2 is CONSERVATIVE rather than right: both
+        // haplotypes carry the chain, so both could be named, and the per-strand pass did exactly
+        // that. Not reproduced here because the population is empty -- 0 on chr20, chr6, chr17 and
+        // chrX under the old pass's own counter, and 0 on chr20 and chrX under this one -- and
+        // building a rendering for a case nobody has observed is how the last three of these got
+        // their behaviour wrong. The counters are split so that a nonzero says which.
         bool nameable = true;
     };
     unordered_map<size_t, NestedPlacement> unified_strand;
 
+    // This generation's entries, in append order -- the same indices the full scans selected, in
+    // the same order, so substituting the index for a scan cannot reorder anything.
+    static const vector<uint32_t> no_entries;
+    const vector<uint32_t>& this_generation =
+        generation < by_generation.size() ? by_generation[generation] : no_entries;
+
     // Default every site this pass considers to its own per-site call, so that whatever a chain or a
     // sweep fails to reach still has a coherent genotype for a later generation to clamp. Overwritten
     // below wherever something is actually settled.
-    for (Entry& e : entries) {
-        if (e.generation != generation) {
-            continue;
-        }
+    for (uint32_t idx : this_generation) {
+        Entry& e = entries[idx];
         e.final_i = e.called_i;
         e.final_j = e.ploidy == 1 ? e.called_i : e.called_j;
     }
@@ -1705,10 +1743,7 @@ size_t LinkageCollector::resolve_generation(
     vector<vector<size_t>> by_contig;
     if (generation == 0) {
         by_contig.resize(contig_names.size());
-        for (size_t i = 0; i < entries.size(); ++i) {
-            if (entries[i].generation > generation) {
-                continue;   // not called yet: this generation's descent has not reached it
-            }
+        for (uint32_t i : this_generation) {
             if (entries[i].retracted) {
                 continue;   // the settled parent does not carry the chain, so there is no site here
             }
@@ -1878,9 +1913,9 @@ size_t LinkageCollector::resolve_generation(
         // Group membership is order-independent because every group is sorted afterwards, on
         // (position, record key), which is total.
         vector<vector<size_t>> ungrouped;
-        for (size_t idx = 0; idx < entries.size(); ++idx) {
+        for (uint32_t idx : this_generation) {
             const Entry& e = entries[idx];
-            if (e.retracted || e.generation != generation) {
+            if (e.retracted) {
                 continue;
             }
             auto par = index_of_key.find(e.parent_record_key);
@@ -2025,8 +2060,10 @@ size_t LinkageCollector::resolve_generation(
                         g_nest_strand += kv.second.size();
                     } else if (have_hap) {
                         g_nest_one_hap += kv.second.size();
+                    } else if (carrying == -2) {
+                        g_nest_both += kv.second.size();
                     } else {
-                        g_nest_unnameable += kv.second.size();
+                        g_nest_unreadable += kv.second.size();
                     }
                 } else if (state_of(pin->second.first) >= m || state_of(pin->second.second) >= m) {
                     gctx.push_back(nullptr);
@@ -2401,14 +2438,16 @@ size_t LinkageCollector::resolve_generation(
     }
 
     if (generation > 0
-        && (g_nest_strand.load() + g_nest_one_hap.load() + g_nest_unnameable.load()) > 0) {
+        && (g_nest_strand.load() + g_nest_one_hap.load() + g_nest_both.load()
+            + g_nest_unreadable.load()) > 0) {
 #pragma omp critical (cerr)
         std::cerr << "[vg call] nested strands: " << g_nest_strand.load()
                   << " on one of a diploid parent's two strands, " << g_nest_one_hap.load()
                   << " on a haploid parent's single haplotype (no strand to choose), "
-                  << g_nest_unnameable.load()
-                  << " unreached by the parent's settled pair -- those name no haplotype"
-                  << std::endl;
+                  << g_nest_both.load() << " carried on both parent strands, "
+                  << g_nest_unreadable.load()
+                  << " whose parent's settled pair could not be read -- the last two name no"
+                  << " haplotype" << std::endl;
     }
 
     // Nested sites, phased against the parent they hang off rather than in a chain of their own.
