@@ -1672,14 +1672,32 @@ size_t LinkageCollector::resolve_generation(
 
     // The phase an earlier generation settled on, by record key, so a clamped site can be pinned to
     // the pair the VCF already carries. Read before the chain loop appends this generation's own.
-    struct PinnedPhase { size_t first; size_t second; };
+    // Everything a child needs of its settled parent: the haplotype pair, and -- for a nested
+    // HAPLOID child, which sits on one of the two -- what `nested_strand_of` needs to say which.
+    struct PinnedPhase {
+        size_t first;
+        size_t second;
+        int trav_first;
+        int trav_second;
+        size_t ploidy;
+        int nested_strand;
+    };
     unordered_map<size_t, PinnedPhase> pinned_phase;
     if (phasing_out != nullptr && generation > 0) {
         pinned_phase.reserve(phasing_out->size() * 2);
         for (const PhaseCall& pc : *phasing_out) {
-            pinned_phase[pc.record_key] = PinnedPhase{pc.hap_first, pc.hap_second};
+            pinned_phase[pc.record_key] = PinnedPhase{pc.hap_first, pc.hap_second,
+                                                      pc.trav_first, pc.trav_second,
+                                                      pc.ploidy, (int)pc.nested_strand};
         }
     }
+    // D3: route nested haploid chains through the same (parent, chain) grouping the diploid ones
+    // use, instead of holding them out into the per-strand pass. Measured genome-wide as neutral
+    // (ALL +6e-8, SV -3.7e-4, P = 0.46), so this is a simplification rather than a trade.
+    static const bool unified_nested = getenv("VG_LINKAGE_UNIFIED_NESTED") != nullptr;
+    // A nested haploid chain's strand, by record key, so the PhaseCall the chain loop emits can
+    // name it. Derived once where the parent's settled pair is in hand.
+    unordered_map<size_t, int> unified_strand;
 
     // Default every site this pass considers to its own per-site call, so that whatever a chain or a
     // sweep fails to reach still has a coherent genotype for a later generation to clamp. Overwritten
@@ -1719,7 +1737,7 @@ size_t LinkageCollector::resolve_generation(
             const Entry& e = entries[i];
             // Only this generation's. An earlier generation's nested site is already placed on a
             // strand and already resolved in its own per-strand chain.
-            if (!e.retracted && e.nested && e.generation == generation) {
+            if (!e.retracted && e.nested && e.generation == generation && !unified_nested) {
                 deferred_nested.push_back(i);
             }
         }
@@ -1791,7 +1809,7 @@ size_t LinkageCollector::resolve_generation(
                 // strand and already resolved in its own per-strand chain, and it is held out of the
                 // diploid runs by construction -- so there is nothing for it to contribute here, and
                 // re-placing it would rewrite a PhaseCall the VCF has already been told about.
-                if (entries[idx].generation == generation) {
+                if (entries[idx].generation == generation && !unified_nested) {
                     nested_here.push_back(idx);
                 }
             } else {
@@ -1918,7 +1936,7 @@ size_t LinkageCollector::resolve_generation(
         vector<vector<size_t>> ungrouped;
         for (size_t idx = 0; idx < entries.size(); ++idx) {
             const Entry& e = entries[idx];
-            if (e.retracted || e.nested || e.generation != generation) {
+            if (e.retracted || (e.nested && !unified_nested) || e.generation != generation) {
                 continue;
             }
             auto par = index_of_key.find(e.parent_record_key);
@@ -1926,7 +1944,11 @@ size_t LinkageCollector::resolve_generation(
                 ++g_grp_no_parent;
             } else if (par == index_of_key.end()) {
                 ++g_grp_no_entry;
-            } else if (entries[par->second].ploidy != e.ploidy) {
+            } else if (!e.nested && entries[par->second].ploidy != e.ploidy) {
+                // The ploidy match is a requirement of PUTTING THE PARENT IN THE GROUP: a chain is a
+                // maximal run of one ploidy, so a diploid parent cannot share a chain with a haploid
+                // child. A nested haploid group does not contain its parent -- the parent reaches it
+                // as an entering message instead -- so the requirement does not apply there.
                 ++g_grp_ploidy;
             } else {
                 by_parent[group_key(e)].push_back(idx);
@@ -1951,8 +1973,16 @@ size_t LinkageCollector::resolve_generation(
             vector<size_t> gps;
             for (auto& kv : by_parent) {
                 const size_t pidx = index_of_key[kv.first.first];
+                // A HAPLOID group does not contain its parent. A chain is a maximal run of one
+                // ploidy, so a diploid parent cannot sit in a chain of ploidy-1 children; the parent
+                // reaches the chain as its entering message instead, which is the whole of what it
+                // was contributing by being prepended.
+                const bool haploid_group =
+                    !kv.second.empty() && entries[kv.second.front()].ploidy == 1;
                 vector<size_t> group;
-                group.push_back(pidx);
+                if (!haploid_group) {
+                    group.push_back(pidx);
+                }
                 // A TOTAL key, not a chain of skippable comparisons.
                 //
                 // "Compare on this key only if BOTH operands have it, else fall through" is not a
@@ -2007,8 +2037,42 @@ size_t LinkageCollector::resolve_generation(
                     return h == LinkageModel::WILDCARD ? n_haplotypes : h;
                 };
                 auto pin = pinned_phase.find(kv.first.first);
-                if (pin == pinned_phase.end()
-                    || state_of(pin->second.first) >= m || state_of(pin->second.second) >= m) {
+                if (pin == pinned_phase.end()) {
+                    gctx.push_back(nullptr);
+                } else if (haploid_group) {
+                    // ONE haplotype, not a pair: the chain sits on one of the parent's two strands,
+                    // and which one is `nested_strand_of`. A haploid parent records its single
+                    // haplotype in `hap_first` and `hap_second` is meaningless at ploidy 1, so the
+                    // pair is indexed only where there is a pair to index.
+                    const Entry& child = entries[kv.second.front()];
+                    const int carrying = relate(child, entries[pidx]).carrying_trav;
+                    const int strand = nested_strand_of(carrying, pin->second.ploidy,
+                                                        pin->second.trav_first,
+                                                        pin->second.trav_second,
+                                                        pin->second.nested_strand);
+                    const size_t hap = pin->second.ploidy == 1
+                                           ? pin->second.first
+                                           : (strand == 1 ? pin->second.second : pin->second.first);
+                    // DECLINE where the haplotype does not traverse the child: a named haplotype
+                    // carrying no allele here is not evidence about which haplotype the sample is
+                    // on, and all the mass would land on the latent-allele escape.
+                    const size_t st = state_of(hap);
+                    bool traversed = strand >= 0 && hap != LinkageModel::WILDCARD
+                                     && st < n_haplotypes
+                                     && (int)hap_arena[child.hap_offset + hap] >= 0;
+                    if (traversed) {
+                        deltas.emplace_back(m, 0.0);
+                        deltas.back()[st] = 1.0;
+                        gctx.push_back(&deltas.back());
+                    } else {
+                        gctx.push_back(nullptr);
+                    }
+                    if (strand >= 0) {
+                        for (size_t idx : kv.second) {
+                            unified_strand[entries[idx].record_key] = strand;
+                        }
+                    }
+                } else if (state_of(pin->second.first) >= m || state_of(pin->second.second) >= m) {
                     gctx.push_back(nullptr);
                 } else {
                     deltas.emplace_back(m * m, 0.0);
@@ -2295,6 +2359,16 @@ size_t LinkageCollector::resolve_generation(
             PhaseCall pc;
             pc.ploidy = e.ploidy;
             pc.depth = e.generation;
+            // The strand a nested haploid chain sits on, when the chain came through the unified
+            // grouping rather than the per-strand pass. It is a nested-specific fact -- the chain
+            // occupies ONE of its parent's two haplotypes -- and nothing in a chain decode can
+            // derive it, so it is carried from where the parent's settled pair was in hand.
+            {
+                auto us = unified_strand.find(e.record_key);
+                if (us != unified_strand.end()) {
+                    pc.nested_strand = (int8_t)us->second;
+                }
+            }
             pc.emitted = e.emitted;
             pc.record_key = e.record_key;
             pc.contig = contig_names[e.contig];
