@@ -1120,11 +1120,6 @@ void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeFo
         }
     }
 
-    // Compute lower limit on chain score to actually investigate
-    int chain_min_score = (int) (min_chain_score_per_base * aln.sequence().size());
-    // Apply the max min chain score limit
-    chain_min_score = std::min(chain_min_score, max_min_chain_score);
-
     process_until_threshold_c<double>(zip_code_forest.trees.size(), [&](size_t i) -> double {
             return tree_coverages[i];
         }, [&](size_t a, size_t b) -> bool {
@@ -1479,7 +1474,6 @@ void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeFo
                 scheme,
                 this->max_chains_per_tree,
                 indel_limit,
-                chain_min_score,
                 show_work);
 
             for (auto& group : new_groups) {

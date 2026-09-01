@@ -249,10 +249,11 @@ TEST_CASE("Gap between two tracebacks", "[chain_items]") {
     // Two separate subchains
     REQUIRE(result.front().subchains.size() == 2);
     REQUIRE(result.front().connections.size() == 1);
-    // Both have both tails
+    // Top traceback always gets its tails
     REQUIRE(result.front().subchains[0].add_left_tail);
     REQUIRE(result.front().subchains[0].add_right_tail);
-    REQUIRE(result.front().subchains[1].add_left_tail);
+    // Second has been tied in so is missing its left tail
+    REQUIRE(!result.front().subchains[1].add_left_tail);
     REQUIRE(result.front().subchains[1].add_right_tail);
 }
 
@@ -281,8 +282,9 @@ TEST_CASE("Simple Y case", "[chain_items]") {
     // Last two subchains are right tails
     REQUIRE(result.front().subchains[1].add_right_tail);
     REQUIRE(result.front().subchains[2].add_right_tail);
-    // One will be a left tail too because it was its own traceback
-    REQUIRE(result.front().subchains[1].add_left_tail + result.front().subchains[2].add_left_tail == 1);
+    // They are not left tails; second got tied in
+    REQUIRE(!result.front().subchains[1].add_left_tail);
+    REQUIRE(!result.front().subchains[2].add_left_tail);
 }
 
 TEST_CASE("Reverse Y case", "[chain_items]") {
@@ -304,8 +306,9 @@ TEST_CASE("Reverse Y case", "[chain_items]") {
     // First two subchains are left tails
     REQUIRE(result.front().subchains[0].add_left_tail);
     REQUIRE(result.front().subchains[1].add_left_tail);
-    // One will be a right tail too because it was its own traceback
-    REQUIRE(result.front().subchains[1].add_right_tail + result.front().subchains[2].add_right_tail == 1);
+    // They are not right tails; second was tied in
+    REQUIRE(!result.front().subchains[0].add_right_tail);
+    REQUIRE(!result.front().subchains[1].add_right_tail);
     // Last is right tail
     // Last two subchains are right tails
     REQUIRE(!result.front().subchains[2].add_left_tail);
@@ -335,16 +338,18 @@ TEST_CASE("Simple X case", "[chain_items]") {
     // First two subchains are left tails
     REQUIRE(result.front().subchains[0].add_left_tail);
     REQUIRE(result.front().subchains[1].add_left_tail);
-    // One will be a right tail too because it was its own traceback
-    REQUIRE(result.front().subchains[0].add_right_tail + result.front().subchains[1].add_right_tail == 1);
+    // They are not right tails; second was tied in
+    REQUIRE(!result.front().subchains[0].add_right_tail);
+    REQUIRE(!result.front().subchains[1].add_right_tail);
     // Middle is neither
     REQUIRE(!result.front().subchains[2].add_left_tail);
     REQUIRE(!result.front().subchains[2].add_right_tail);
     // Last two subchains are right tails
     REQUIRE(result.front().subchains[3].add_right_tail);
     REQUIRE(result.front().subchains[4].add_right_tail);
-    // One will be a left tail too because it was its own traceback
-    REQUIRE(result.front().subchains[3].add_left_tail + result.front().subchains[4].add_left_tail == 1);
+    // They are not left tails; second was tied in
+    REQUIRE(!result.front().subchains[3].add_left_tail);
+    REQUIRE(!result.front().subchains[4].add_left_tail);
 }
 
 TEST_CASE("X with different length chains", "[chain_items]") {

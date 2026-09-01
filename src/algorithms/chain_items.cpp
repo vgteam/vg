@@ -765,25 +765,14 @@ void chain_items_traceback(const vector<vector<TracedScore>>& chain_scores,
     }
 }
 
-/// TODO: break this function up it's getting really big
-vector<SubchainGroup> split_up_subchains(const VectorView<Anchor>& to_chain,
-                                         const vector<SparseAnchorChain>& original_tracebacks,
-                                         const vector<AltEdge>& connections) {
+unordered_map<TailAnchor, AltEdge> filter_alt_edges(const VectorView<Anchor>& to_chain,
+                                                    const vector<SparseAnchorChain>& original_tracebacks,
+                                                    const vector<AltEdge>& connections) {
+    unordered_map<TailAnchor, AltEdge> tail_edges;
     // For each anchor (by index), which traceback was it originally in?
     vector<size_t> home_trace(to_chain.size(), numeric_limits<size_t>::max());
-    // For each anchor (by index), which other anchors can it connect to?
-    vector<unordered_set<size_t>> outgoing_edges(to_chain.size());
-    vector<unordered_set<size_t>> incoming_edges(to_chain.size());
 
-    // Where to search for subchains (we must guarantee they start in read order)
-    priority_queue<size_t, vector<size_t>, std::greater<size_t>> trace_from;
-    // Best tie-ins for each tail end
-    unordered_map<TailAnchor, AltEdge> tail_edges;
-
-    // Where we will save results
-    vector<SubchainGroup> output;
-
-    // Remember which anchors are used
+    // First, find all the tails we want to try to tie in
     for (size_t i = 0; i < original_tracebacks.size(); i++) {
         const vector<size_t>& cur_anchors = original_tracebacks[i].anchors;
         // Placeholder tie-ins that we want to fix later
@@ -816,13 +805,34 @@ vector<SubchainGroup> split_up_subchains(const VectorView<Anchor>& to_chain,
             if (tail_edges.count(right_tie_in) && tail_edges.at(right_tie_in) > edge) {
                 // Best right tie-in so far
                 tail_edges[right_tie_in] = edge;
+                tail_edges[right_tie_in].start_parent = home_trace[edge.start_anchor];
+                tail_edges[right_tie_in].end_parent = home_trace[edge.end_anchor];
             }
             if (tail_edges.count(left_tie_in) && tail_edges.at(left_tie_in) > edge) {
                 // Best left tie-in so far
                 tail_edges[left_tie_in] = edge;
+                tail_edges[left_tie_in].start_parent = home_trace[edge.start_anchor];
+                tail_edges[left_tie_in].end_parent = home_trace[edge.end_anchor];
             }
         }
     }
+
+    return tail_edges;
+}
+
+/// TODO: break this function up it's getting really big
+vector<SubchainGroup> split_up_subchains(const VectorView<Anchor>& to_chain,
+                                         const vector<SparseAnchorChain>& original_tracebacks,
+                                         const unordered_map<TailAnchor, AltEdge>& tail_edges) {
+    // For each anchor (by index), which other anchors can it connect to?
+    vector<unordered_set<size_t>> outgoing_edges(to_chain.size());
+    vector<unordered_set<size_t>> incoming_edges(to_chain.size());
+
+    // Where to search for subchains (we must guarantee they start in read order)
+    priority_queue<size_t, vector<size_t>, std::greater<size_t>> trace_from;
+
+    // Where we will save results
+    vector<SubchainGroup> output;
 
     // Which of the tracebacks link up?
     vector<bool> is_joined_up(original_tracebacks.size(), false);
@@ -833,8 +843,8 @@ vector<SubchainGroup> split_up_subchains(const VectorView<Anchor>& to_chain,
             outgoing_edges[edge.start_anchor].emplace(edge.end_anchor);
             incoming_edges[edge.end_anchor].emplace(edge.start_anchor);
             // Remember that these tracebacks are connected
-            is_joined_up[home_trace[edge.start_anchor]] = true;
-            is_joined_up[home_trace[edge.end_anchor]] = true;
+            is_joined_up[edge.start_parent] = true;
+            is_joined_up[edge.end_parent] = true;
         }
     }
 
@@ -947,13 +957,15 @@ vector<SubchainGroup> split_up_subchains(const VectorView<Anchor>& to_chain,
             }
         }
 
-        // Mark which ones should get tails (anything that wasn't tied in)
+        // Mark which ones should get tails (any non-best traceback not tied in)
         if (tail_edges.count(cur_subchain.left_tail()) 
-            && tail_edges[cur_subchain.left_tail()].is_max_score_diff()) {
+            && (tail_edges.at(cur_subchain.left_tail()).is_max_score_diff()
+                || tail_edges.at(cur_subchain.left_tail()).end_parent == 0)) {
             cur_subchain.add_left_tail = true;
         }
         if (tail_edges.count(cur_subchain.right_tail())
-            && tail_edges[cur_subchain.right_tail()].is_max_score_diff()) {
+            && (tail_edges.at(cur_subchain.right_tail()).is_max_score_diff()
+                || tail_edges.at(cur_subchain.right_tail()).start_parent == 0)) {
             cur_subchain.add_right_tail = true;
         }
     }
@@ -970,7 +982,6 @@ vector<SubchainGroup> find_best_chains(const VectorView<Anchor>& to_chain,
                                        const ChainScoringScheme& scheme,
                                        size_t max_chains,
                                        size_t max_indel_bases,
-                                       size_t min_chain_score,
                                        bool show_work) {
 
     if (to_chain.empty()) {
@@ -994,21 +1005,36 @@ vector<SubchainGroup> find_best_chains(const VectorView<Anchor>& to_chain,
         return {SubchainGroup()};
     }
 
-    // Get rid of tracebacks that are much, much worse than the best
-    int min_passing_score = std::max((int) min_chain_score, tracebacks.front().chain_score / 20);
-    for (size_t i = 1; i < tracebacks.size(); i++) {
-        if (tracebacks[i].chain_score < min_passing_score) {
+    unordered_map<TailAnchor, AltEdge> tail_edges = filter_alt_edges(to_chain, tracebacks, connections);
+
+    // Get rid of tracebacks that we don't want to use
+    for (size_t i = tracebacks.size() - 1; i > 0; i--) {
+        // Calculate the score if this traceback was allowed its optimal path
+        int full_score = tracebacks[i].chain_score;
+        if (!tail_edges[tracebacks[i].left_tail()].is_max_score_diff()) {
+            // Left tail tied in; add in score for its Y trunk
+            full_score += chain_scores[tracebacks[i].anchors.front()].front().score;
+        }
+        if (!tail_edges[tracebacks[i].right_tail()].is_max_score_diff()) {
+            AltEdge& tie_in_edge = tail_edges[tracebacks[i].right_tail()];
+            // Right tail tied in; calculate score using its reverse-Y trunk
+            full_score = tracebacks[tie_in_edge.end_parent].chain_score;
+            // Subtract whatever compromise we had to make to take this fork
+            full_score -= chain_scores[tie_in_edge.end_anchor].front().score;
+            full_score += tracebacks[i].chain_score;
+        }
+
+        if (full_score < tracebacks.front().chain_score / 5) {
 #ifdef debug_chaining
-            cerr << "Cutting down to " << i << " tracebacks because a further one has score "
-                 << tracebacks[i].chain_score << " < " << min_passing_score << endl; 
+            cerr << "Removing traceback at index " << i << " because it has optimal score "
+                 << full_score << " < " << (tracebacks.front().chain_score / 5) << endl; 
 #endif
             // Cut off at this point
-            tracebacks.resize(i);
-            break;
+            tracebacks.erase(tracebacks.begin() + i);
         }
     }
 
-    vector<SubchainGroup> subchain_groups = split_up_subchains(to_chain, tracebacks, connections);
+    vector<SubchainGroup> subchain_groups = split_up_subchains(to_chain, tracebacks, tail_edges);
 
     for (SubchainGroup& group : subchain_groups) {
         for (Subchain& subchain : group.subchains) {
@@ -1061,16 +1087,14 @@ SparseAnchorChain find_best_chain(const VectorView<Anchor>& to_chain,
                                   const HandleGraph& graph,
                                   const transition_iterator& for_each_transition,
                                   const ChainScoringScheme& scheme,
-                                  size_t max_indel_bases,
-                                  size_t min_chain_score) {
+                                  size_t max_indel_bases) {
     vector<SubchainGroup> groups = find_best_chains(to_chain,
                                                    distance_index,
                                                    graph,
                                                    for_each_transition,
                                                    scheme,
                                                    1, // Only one chain needed!
-                                                   max_indel_bases,
-                                                   min_chain_score);
+                                                   max_indel_bases);
     if (groups.empty() || groups.front().subchains.empty()) {
         // We got nothing
         return SparseAnchorChain();

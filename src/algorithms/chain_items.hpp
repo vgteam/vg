@@ -615,6 +615,10 @@ struct AltEdge {
     size_t end_anchor;
     /// How much of a compromise this edge is
     size_t score_diff;
+    /// Parent ID for start anchor (e.g. traceback index)
+    size_t start_parent = std::numeric_limits<size_t>::max();
+    /// Parent ID of end anchor
+    size_t end_parent = std::numeric_limits<size_t>::max();
 
     /// Build an AltEdge from loose info
     inline AltEdge(size_t start_anchor, size_t end_anchor, size_t score_diff) 
@@ -664,17 +668,29 @@ void chain_items_traceback(const vector<vector<TracedScore>>& chain_scores,
                            size_t max_tracebacks = 1);
 
 /**
+ * Filter AltEdges to those which tie in a traceback end.
+ * 
+ * A tie-in will either trace backwards from a traceback start,
+ * or trace forwards from a traceback end. They are stored in
+ * a lookup table based on the tail anchor being tied in.
+ * 
+ * If there are multiple tie-ins for a given tail, then
+ * the most optimal one (which sacrifices the least score)
+ * will be used
+ */
+unordered_map<TailAnchor, AltEdge> filter_alt_edges(const VectorView<Anchor>& to_chain,
+                                                    const vector<SparseAnchorChain>& original_tracebacks,
+                                                    const vector<AltEdge>& connections);
+
+/**
  * Generate subchains from multiple tracebacks.
  * 
  * Split up tracebacks when possible inter-chain alternatives exist.
- * Save connections between subchains, pulling from edges in tracebacks
- * and connections.
- * 
  * If no edges connect the tracebacks then they are returned separately.
  */
 vector<SubchainGroup> split_up_subchains(const VectorView<Anchor>& to_chain,
                                          const vector<SparseAnchorChain>& original_tracebacks,
-                                         const vector<AltEdge>& connections);
+                                         const unordered_map<TailAnchor, AltEdge>& tail_edges);
 
 /**
  * Chain up the given group of items. Determines the best scores and
@@ -693,7 +709,6 @@ vector<SubchainGroup> find_best_chains(const VectorView<Anchor>& to_chain,
                                        const ChainScoringScheme& scheme = ChainScoringScheme(),
                                        size_t max_chains = 1,
                                        size_t max_indel_bases = 100,
-                                       size_t min_chain_score = 0,
                                        bool show_work = false);
 
 /**
@@ -710,8 +725,7 @@ SparseAnchorChain find_best_chain(const VectorView<Anchor>& to_chain,
                                   const HandleGraph& graph,
                                   const transition_iterator& for_each_transition,
                                   const ChainScoringScheme& scheme = ChainScoringScheme(),
-                                  size_t max_indel_bases = 100,
-                                  size_t min_chain_score = 0);
+                                  size_t max_indel_bases = 100);
 
 /// Score a chaining gap using the Minimap2 method. See
 /// <https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6137996/> near equation 2.
