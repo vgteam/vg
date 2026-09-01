@@ -1005,6 +1005,19 @@ vector<SubchainGroup> find_best_chains(const VectorView<Anchor>& to_chain,
         return {SubchainGroup()};
     }
 
+    // Get rid of tracebacks that are much, much worse than the best
+    for (size_t i = 1; i < tracebacks.size(); i++) {
+        if (tracebacks[i].chain_score < tracebacks.front().chain_score / 20) {
+#ifdef debug_chaining
+            cerr << "Cutting down to " << i << " tracebacks because a further one has score "
+                 << tracebacks[i].chain_score << " < " << tracebacks.front().chain_score / 20 << endl; 
+#endif
+            // Cut off at this point
+            tracebacks.resize(i);
+            break;
+        }
+    }
+
     unordered_map<TailAnchor, AltEdge> tail_edges = filter_alt_edges(to_chain, tracebacks, connections);
 
     // Get rid of tracebacks that we don't want to use
