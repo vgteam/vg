@@ -252,13 +252,11 @@ genomic distance, so a change to which sites enter the layer re-tunes the linkag
 anyone touching a parameter. A form that composes is `1 − ρ = ((1 − ρ_min)·exp(−g/scale))^(1/weight)`;
 adopting it would change what the weight's numeric value means and needs a refit.
 
-**Distance below the top level.** For a nested chain the distance between adjacent sites can be
-measured along the traversal the parent settled on rather than along the reference, which is what a
-haplotype carrying an indel there actually travelled. It is used only where a reference distance does
-not exist, because where both are available the reference distance measures slightly *better* —
-about 0.0005 of indel F1 on chr20, reproduced by two unrelated derivations, with no established
-mechanism. Ordering below the top level comes from a snarl-tree tuple (parent anchor, then offset
-along the parent's traversal) rather than from any arithmetic coordinate, so it cannot invert.
+**Distance below the top level.** The step between adjacent sites is the reference difference,
+below the top level as at it. Measuring it along the parent's settled traversal instead was built
+and tested across three arms spanning no-link to perfect-link, and came out unmeasurable — the two
+alternatives disagree in sign between chr20 and chr6 — so the machinery was removed rather than kept
+behind a switch. A site with no reference position transitions uniformly.
 
 A **wildcard haplotype** may take any allele at any site. States involving it are discounted by
 `escape` (1e-2) in the emission, once per wildcard strand, and its allele is marginalised
@@ -420,7 +418,7 @@ slots begin a new segment — so it is run-length encoded, one line per maximal 
 one panel haplotype:
 
 ```
-#mosaic-version	2
+#mosaic-version	4
 #graph	chr20_0_chr20.gbz
 #sample	HG002
 #reference	CHM13#0#chr20
@@ -433,8 +431,9 @@ one panel haplotype:
 	... one line per panel haplotype, 34 of them on this graph
 #note	gbwt_node/gbwt_offset is the GBWT position of the haplotype at start_node: ...
 #note	a segment never spans a GBWT fragment boundary, ...
-#H	contig	strand	ref_start	ref_end	start_node	end_node	hap_index	haplotype	sites	gbwt_node	gbwt_offset
-H	chr20	0	603	3605	114819056	114842605	9	recombination#30	60	229638112	5
+#note	nested_sites is how many of a segment's sites lie inside a nested chain, ...
+#H	contig	strand	ref_start	ref_end	start_node	end_node	hap_index	haplotype	sites	gbwt_node	gbwt_offset	nested_sites	max_depth
+H	chr20	0	22	533	114818871	114819028	4	recombination#19	16	229637742	19	11	2
 ```
 
 Tab-separated. Lines beginning `#` are header or comment; every data line begins `H`.
@@ -447,6 +446,10 @@ break. Treat an unrecognised `#` key as a comment and skip it: downstream tools 
 per-contig `#contig` table, because per-contig runs do not share one graph). The keys `vg call`
 itself writes are exactly `#mosaic-version`, `#graph`, `#sample`, `#reference`, `#decoding`, `#note`,
 `#haplotype` and `#H`.
+
+**Format version.** `#mosaic-version` is `4`. Versions 3 and 4 appended columns to the END of the
+data row, so a parser that indexes the columns it knows by position reads an older file and a newer
+one identically.
 
 | column | meaning |
 |---|---|
@@ -461,6 +464,8 @@ itself writes are exactly `#mosaic-version`, `#graph`, `#sample`, `#reference`, 
 | `sites` | number of called sites in the run |
 | `gbwt_node` | oriented GBWT node at `start_node`: `start_node * 2 + is_reverse`. `.` if unresolvable. |
 | `gbwt_offset` | offset within that node's GBWT record, so `(gbwt_node, gbwt_offset)` is a GBWT position |
+| `nested_sites` | how many of the segment's sites lie inside a nested chain rather than at the top level |
+| `max_depth` | depth of the deepest of them, `0` at the top level. A recombination inside a nested chain is a segment boundary like any other, and these two columns are what tell you it was one. |
 
 **Ordering.** Grouped by contig; within a contig all `strand 0` lines precede all `strand 1` lines;
 within a strand, `ref_start` increases. Segments on one strand partition that contig's sites
@@ -514,9 +519,9 @@ relative, and it will not detect a rebuilt graph with different node IDs. Readin
 the wrong GBZ produces a plausible wrong genome rather than an error. A checksum belongs here and
 is not yet implemented.
 
-chr20 at 34 haplotypes gives 3,675 segments over 105,251 sites in **297 KB**, 92 KB gzipped — 82
+chr20 at 34 haplotypes gives 7,877 segments over 228,548 sites in **650 KB**, 187 KB gzipped — 84
 bytes per segment. The same two walks written out as explicit node lists measure ~40.6 MB — one
-haplotype is 2,031,992 steps — so the mosaic is smaller by a factor of about 137.
+haplotype is 2,031,992 steps — so the mosaic is smaller by a factor of about 62.
 
 A whole genome, measured rather than projected: **143,365 segments over 4,742,752 sites in 11.05 MB**,
 3.46 MB gzipped, at 80.8 bytes per segment. 99.82% of segments carry a GBWT position and 390 are
@@ -1074,7 +1079,7 @@ spellings. General options that this mode also uses -- `-d`/`--ploidy`, `-R`/`--
 | `--no-phased` | — | Turn phasing off: unphased genotypes and no `FORMAT/PS`. |
 | `--nested` | **on** under `--read-likelihood` | Symbolic collapsing and ploidy-propagating descent, so a variant inside a child chain gets its own record instead of being buried in a long ALT. Genome-wide it takes SNV F1 from 0.9752 to 0.9833 and SV F1 from 0.5134 to 0.5467 at no runtime or memory cost. Declines on the support-based caller, where it has never been measured; an explicit `--nested` still works there. |
 | `--no-nested` | — | Genotype each snarl against its own full traversals, with no collapsing and no descent. |
-| `--atomize-blocks` | **on** under `--read-likelihood` | Align the reference and each called haplotype as *symbolic* alleles and emit one record per difference block, so a snarl differing from the reference in two separated places reports two variants instead of one substitution spanning both. Worth +0.0099 SV F1 (+0.0233 under `truvari refine`) with no additional false positives; small-variant F1 unchanged. Declines on any other calling path and with `-a`, whose record set must stay sample-independent; asking for it there by name is an error. Every block of a snarl repeats the site's `AD`/`GL`/`GQ` — see `INFO/SB` and [below](#--atomize-blocks-one-snarl-several-variants). |
+| `--atomize-blocks` | **on** under `--read-likelihood` | Align the reference and each called haplotype as *symbolic* alleles and emit one record per difference block, so a snarl differing from the reference in two separated places reports two variants instead of one substitution spanning both. Worth +0.0043 SV F1 genome-wide (0.5577 → 0.5620 over 23 contigs; higher under `truvari refine`, and the per-contig spread is wide); small-variant F1 unchanged. Declines on any other calling path and with `-a`, whose record set must stay sample-independent; asking for it there by name is an error. Every block of a snarl repeats the site's `AD`/`GL`/`GQ` — see `INFO/SB` and [below](#--atomize-blocks-one-snarl-several-variants). |
 | `--no-atomize-blocks` | — | One record per snarl, whatever the shape of the difference. |
 | `--mosaic-out FILE` | — | Write the inferred genome as a run-length-encoded mosaic of panel haplotypes. Implies `--phased`. Format [above](#--mosaic-out-file). |
 
