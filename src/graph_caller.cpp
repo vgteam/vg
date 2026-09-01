@@ -38,6 +38,13 @@ static std::atomic<size_t> g_no_ref_copies[3] = {{0}, {0}, {0}};
 /// is their participation in the LINKAGE calculation, which is what the traversal-derived ordering
 /// and distances were built for. An env switch rather than a flag so both arms come from one binary.
 static const bool no_ref_nested = getenv("VG_CALL_NO_REF_NESTED") != nullptr;
+// Mosaic segments naming a haplotype the graph does not carry across them, so there is no GBWT
+// position to walk from. Clipping is ordinary -- only 2 of chr20's 34 panel haplotypes are
+// contiguous -- so this is reported, not asserted to be zero.
+static std::atomic<size_t> g_mosaic_unwalkable(0);
+// Of those, the ones that are only a HEAD: the run resolved from a later site, so the walkable
+// remainder is emitted separately instead of being lost with the head.
+static std::atomic<size_t> g_mosaic_head_clipped(0);
 static std::atomic<size_t> g_descent_skipped_no_copy(0);
 /// Children a called traversal enters more than once. Visits after the first are masked: one copy for
 /// ploidy, and the first crossing for distance. A chain crossed twice by ONE traversal is one
@@ -1207,10 +1214,16 @@ void VCFOutputCaller::write_mosaic(const vector<LinkageCollector::PhaseCall>& ph
             }
             out << "\t" << (b_idx - a_idx + 1) << "\t";
             if (p == gbwt::invalid_edge()) {
-                // No position to give: either the strand is the wildcard, or the panel does not
-                // place this haplotype on this node. '.' rather than a zero, which would read as a
-                // valid offset. On chr20 ten segments are in the latter case, all of them in the
-                // centromere where node IDs stop following reference order.
+                // No position to give: either the strand is the wildcard, or the haplotype is not
+                // in the graph across this run. '.' rather than a zero, which would read as a valid
+                // offset.
+                //
+                // 62 segments on chr20 are the latter, and NOT the centromere -- an earlier version
+                // of this comment said ten, all central, and both halves were wrong. They spread
+                // from 1.9 Mb to 65.5 Mb, and 41 of them are GRCh38#0, which the graph stores in 9
+                // clipped subpaths. Only 2 of the 34 panel haplotypes are contiguous across chr20,
+                // so a run whose haplotype is absent from the graph is the ordinary case, not an
+                // anomaly.
                 out << ".\t.";
             } else {
                 out << p.first << "\t" << p.second;
@@ -1228,7 +1241,43 @@ void VCFOutputCaller::write_mosaic(const vector<LinkageCollector::PhaseCall>& ph
             ++total_segments;
         };
 
+        if (pos == gbwt::invalid_edge() && hap != LinkageModel::WILDCARD && from != to) {
+            // The run's FIRST site is not in the graph for this haplotype, but a later one may be.
+            //
+            // This used to give up on the whole run, which is the asymmetry that mattered: when the
+            // LAST site fails to resolve the code keeps the first position and merely declines to
+            // split, but when the first fails it abandoned a run that was walkable from its second
+            // site onwards. Measured on chr20: of 43 multi-site runs whose head does not resolve, 38
+            // are genuinely clipped across their whole length -- only 2 of the 34 panel haplotypes
+            // are contiguous on this graph -- but 5 had a resolvable tail, 90 sites, thrown away.
+            //
+            // That is worse than a lost shortcut once an unwalkable segment is patched with the
+            // reference: patching those 90 sites would assert the sample follows the reference
+            // across sequence whose haplotype we actually know.
+            size_t first_ok = from;
+            while (first_ok <= to
+                   && mosaic_gbwt_position(phasing[first_ok].start_node, hap)
+                          == gbwt::invalid_edge()) {
+                ++first_ok;
+            }
+            if (first_ok > to) {
+                emit_row(from, to, pos);        // clipped across the whole run
+                ++g_mosaic_unwalkable;
+                return;
+            }
+            // The unresolvable head, as small as it really is, then the walkable remainder.
+            if (first_ok > from) {
+                emit_row(from, first_ok - 1, gbwt::invalid_edge());
+                ++g_mosaic_unwalkable;
+                ++g_mosaic_head_clipped;
+            }
+            emit_span(first_ok, to, strand, hap, kind);
+            return;
+        }
         if (pos == gbwt::invalid_edge() || from == to) {
+            if (pos == gbwt::invalid_edge() && hap != LinkageModel::WILDCARD) {
+                ++g_mosaic_unwalkable;
+            }
             emit_row(from, to, pos);
             return;
         }
@@ -1310,6 +1359,13 @@ void VCFOutputCaller::write_mosaic(const vector<LinkageCollector::PhaseCall>& ph
     cerr << "[vg call] mosaic: " << empty_segments << " segments on a strand with no sequence there, "
          << unexplained_segments << " the panel cannot name a haplotype for ("
          << (empty_segments + unexplained_segments) << " were one figure before)" << endl;
+    // A named haplotype the graph does not carry across the segment, so there is no position to walk
+    // from. Ordinary rather than alarming -- only 2 of chr20's 34 panel haplotypes are contiguous --
+    // but it is what a consumer has to patch or break at, so it is a number and not a silence.
+    cerr << "[vg call] mosaic: " << g_mosaic_unwalkable.load()
+         << " segments name a haplotype the graph does not carry across them, of which "
+         << g_mosaic_head_clipped.load() << " are a clipped head whose remainder is walkable"
+         << endl;
 }
 
 bool VCFOutputCaller::apply_linkage_quality(string& line, double posterior,
