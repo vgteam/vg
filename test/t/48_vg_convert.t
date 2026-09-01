@@ -10,11 +10,11 @@ export LC_ALL="C" # force a consistent sort order
 plan tests 93
 
 vg construct -r complex/c.fa -v complex/c.vcf.gz > c.vg
-cat <(vg view c.vg | grep ^S | sort) <(vg view c.vg | grep L | uniq | wc -l | tr -d ' ') <(vg paths -v c.vg -E) > c.info
+cat <(vg view c.vg | grep ^S | sort) <(vg view c.vg | grep L | uniq | wc -l) <(vg paths -v c.vg -E) > c.info
 
 vg convert c.vg -x > c.xg
 vg convert c.xg -v > c1.vg
-cat <(vg view c1.vg | grep ^S | sort) <(vg view c1.vg | grep L | uniq | wc -l | tr -d ' ') <(vg paths -v c1.vg -E) > c1.info
+cat <(vg view c1.vg | grep ^S | sort) <(vg view c1.vg | grep L | uniq | wc -l) <(vg paths -v c1.vg -E) > c1.info
 diff c.info c1.info
 is "$?" 0 "vg convert maintains same nodes throughout xg conversion"
 
@@ -22,7 +22,7 @@ rm -f c.xg c1.vg c1.info
 
 vg convert c.vg -a > c.hg
 vg convert c.hg -v > c1.vg
-cat <(vg view c1.vg | grep ^S | sort) <(vg view c1.vg | grep L | uniq | wc -l | tr -d ' ') <(vg paths -v c1.vg -E) > c1.info
+cat <(vg view c1.vg | grep ^S | sort) <(vg view c1.vg | grep L | uniq | wc -l) <(vg paths -v c1.vg -E) > c1.info
 diff c.info c1.info
 is "$?" 0 "vg convert maintains same nodes throughout hash-graph conversion"
 
@@ -30,7 +30,7 @@ rm -f c.hg c1.vg c1.info
 
 vg convert c.vg -p > c.pg
 vg convert c.pg -v > c1.vg
-cat <(vg view c1.vg | grep ^S | sort) <(vg view c1.vg | grep L | uniq | wc -l | tr -d ' ') <(vg paths -v c1.vg -E) > c1.info
+cat <(vg view c1.vg | grep ^S | sort) <(vg view c1.vg | grep L | uniq | wc -l) <(vg paths -v c1.vg -E) > c1.info
 diff c.info c1.info
 is "$?" 0 "vg convert maintains same nodes throughout packed-graph conversion"
 
@@ -38,7 +38,7 @@ rm -f c.pg c1.vg c1.info
 
 vg convert c.vg -f > c.gfa
 vg convert -g c.gfa -v > c1.vg
-cat <(vg view c1.vg | grep ^S | sort) <(vg view c1.vg | grep L | uniq | wc -l | tr -d ' ') <(vg paths -v c1.vg -E) > c1.info
+cat <(vg view c1.vg | grep ^S | sort) <(vg view c1.vg | grep L | uniq | wc -l) <(vg paths -v c1.vg -E) > c1.info
 diff c.info c1.info
 is "$?" 0 "vg convert maintains same nodes throughout gfa conversion"
 
@@ -48,16 +48,16 @@ rm -f c.vg c.gfa c1.vg c1.info
 vg construct -r small/x.fa -v small/x.vcf.gz > x.vg
 vg view x.vg > x.gfa
 
-is "$(vg convert -a x.vg | vg view - | wc -l | tr -d ' ')" "$(wc -l | tr -d ' ' < x.gfa)" "hash graph conversion looks good"
-is "$(vg convert -p x.vg | vg view - | wc -l | tr -d ' ')" "$(wc -l | tr -d ' ' < x.gfa)" "packed graph conversion looks good"
-is "$(vg convert -v x.vg | vg view - | wc -l | tr -d ' ')" "$(wc -l | tr -d ' ' < x.gfa)" "vg conversion looks good"
-is "$(vg convert -f x.vg | vg convert -g - | vg view - | wc -l | tr -d ' ')" "$(wc -l | tr -d ' ' < x.gfa)" "gfa conversion looks good"
-is "$(vg convert -x x.vg | vg find -n 1 -c 300 -x - | vg view - | wc -l | tr -d ' ')" "$(wc -l | tr -d ' ' < x.gfa)" "xg conversion looks good"
+is "$(vg convert -a x.vg | vg view - | wc -l)" "$(wc -l < x.gfa)" "hash graph conversion looks good"
+is "$(vg convert -p x.vg | vg view - | wc -l)" "$(wc -l < x.gfa)" "packed graph conversion looks good"
+is "$(vg convert -v x.vg | vg view - | wc -l)" "$(wc -l < x.gfa)" "vg conversion looks good"
+is "$(vg convert -f x.vg | vg convert -g - | vg view - | wc -l)" "$(wc -l < x.gfa)" "gfa conversion looks good"
+is "$(vg convert -x x.vg | vg find -n 1 -c 300 -x - | vg view - | wc -l)" "$(wc -l < x.gfa)" "xg conversion looks good"
 
-is "$(vg convert -g -a x.gfa | vg view - | wc -l | tr -d ' ')" "$(wc -l | tr -d ' ' < x.gfa)" "on disk gfa conversion looks good"
-is "$(cat x.gfa | vg convert -g -a - | vg view - | wc -l | tr -d ' ')" "$(wc -l | tr -d ' ' < x.gfa)" "streaming gfa conversion looks good"
-is "$(vg convert -g -x x.gfa | vg find -n 1 -c 300 -x - | vg view - | wc -l | tr -d ' ')" "$(wc -l | tr -d ' ' < x.gfa)" "gfa to xg conversion looks good"
-is "$(vg convert -g -f x.gfa | vg convert -g - | vg find -n 1 -c 300 -x - | vg view - | wc -l | tr -d ' ')" "$(wc -l | tr -d ' ' < x.gfa)" "gfa to gfa conversion looks good"
+is "$(vg convert -g -a x.gfa | vg view - | wc -l)" "$(wc -l < x.gfa)" "on disk gfa conversion looks good"
+is "$(cat x.gfa | vg convert -g -a - | vg view - | wc -l)" "$(wc -l < x.gfa)" "streaming gfa conversion looks good"
+is "$(vg convert -g -x x.gfa | vg find -n 1 -c 300 -x - | vg view - | wc -l)" "$(wc -l < x.gfa)" "gfa to xg conversion looks good"
+is "$(vg convert -g -f x.gfa | vg convert -g - | vg find -n 1 -c 300 -x - | vg view - | wc -l)" "$(wc -l < x.gfa)" "gfa to gfa conversion looks good"
 
 rm x.vg x.gfa
 rm -f c.vg c.pg c1.vg c.info c1.info
@@ -206,7 +206,7 @@ is "$?" 0 "3rd column of gfa id translation file contains all gfa nodes"
 rm -f  gfa-id-mapping.tsv rgfa_nodes gfa_nodes rgfa_translated_nodes gfa_translated_nodes
 
 vg convert -g tiny/tiny.gfa -v | vg convert - -f -P x > tiny.gfa.rgfa
-is "$(grep ^P tiny.gfa.rgfa | wc -l | tr -d ' ')" 0 "rgfa output wrote no P-lines"
+is "$(grep ^P tiny.gfa.rgfa | wc -l)" 0 "rgfa output wrote no P-lines"
 vg convert -g tiny/tiny.gfa -v | vg convert - -f | sort > tiny.gfa.gfa
 vg convert -g tiny.gfa.rgfa -f | sort > tiny.gfa.rgfa.gfa
 diff tiny.gfa.gfa tiny.gfa.rgfa.gfa
@@ -281,10 +281,10 @@ is $? 0 "GBZ to XG conversion creates the correct haplotype paths"
 # GBZ to HashGraph and XG while dropping haplotypes
 vg convert -x --drop-haplotypes components.gbz > no_haplotypes.xg
 is $? 0 "GBZ to XG conversion while dropping haplotypes"
-is "$(vg paths -L -x no_haplotypes.xg | wc -l | tr -d ' ')" "2" "No haplotypes in the converted graph"
+is "$(vg paths -L -x no_haplotypes.xg | wc -l)" "2" "No haplotypes in the converted graph"
 vg convert -xa --drop-haplotypes components.gbz > no_haplotypes.hg
 is $? 0 "GBZ to HashGraph conversion while dropping haplotypes"
-is "$(vg paths -L -x no_haplotypes.hg | wc -l | tr -d ' ')" "2" "No haplotypes in the converted graph"
+is "$(vg paths -L -x no_haplotypes.hg | wc -l)" "2" "No haplotypes in the converted graph"
 
 # GBZ to GFA with paths and walks (needs 1 thread)
 vg convert --gbwtgraph-algorithm -f -t 1 components.gbz | grep -v "^H.*NM:Z" > gbz.gfa
@@ -362,12 +362,12 @@ is "${?}" "0" "rGFA -> HashGraph -> GBZ -> GFA conversion preserves path metadat
 # and cover the same paths, like in HPRC release graphs.
 vg convert -a graphs/components_paths_rgfa.gfa > components_paths_rgfa.hg
 is "${?}" "0" "GFA -> HashGraph conversion works with redundant paths"
-is "$(vg paths --list -x components_paths_rgfa.hg | wc -l | tr -d ' ')" "1" "GFA -> HashGraph conversion with redundant paths keeps one copy of the redundant path"
+is "$(vg paths --list -x components_paths_rgfa.hg | wc -l)" "1" "GFA -> HashGraph conversion with redundant paths keeps one copy of the redundant path"
 
 # We should be able to handle pseudo-PanSN paths where there is no haplotype
 vg convert -a graphs/gfa_two_part_reference.gfa > gfa_two_part_reference.hg
 is "${?}" "0" "GFA -> HashGraph conversion works with two-part reference path names"
-is "$(vg paths -M -x gfa_two_part_reference.hg | grep REFERENCE | wc -l | tr -d ' ')" "2" "GFA -> HashGraph conversion with with two-part reference path names gets the right paths"
+is "$(vg paths -M -x gfa_two_part_reference.hg | grep REFERENCE | wc -l)" "2" "GFA -> HashGraph conversion with with two-part reference path names gets the right paths"
 
 rm -f paths.truth.txt paths.gbz.txt paths.gfa.txt paths.hg.txt
 rm -f gfa_with_reference.gbz rgfa_with_reference.gbz gfa_with_reference.hg components_paths_rgfa.hg gfa_two_part_reference.hg rgfa_with_reference.hg extracted.gfa 
@@ -408,19 +408,19 @@ diff <(vg paths -v tiny.gfa.input.pg -E | sort) <(vg paths -v tiny.gfaz.input.xg
 is $? 0 "GFAZ conversion through XG preserves path sequences from equivalent GFA input"
 
 vg convert -g tiny/tiny.gfaz -T tiny.gfaz.trans -p > /dev/null
-is $(wc -l | tr -d ' ' < tiny.gfaz.trans) 0 "GFAZ import writes no translation lines for dense numeric segment IDs"
+is $(wc -l < tiny.gfaz.trans) 0 "GFAZ import writes no translation lines for dense numeric segment IDs"
 
 grep -v "S	6" tiny/tiny.gfa > tiny.unsort.gfa
 grep "S	6" tiny/tiny.gfa >> tiny.unsort.gfa
 cat tiny.unsort.gfa | vg convert -p - 2> tiny.roundtrip3.stderr | vg convert -f - | sort > tiny.roundtrip3.gfa
 diff tiny.roundtrip.gfa tiny.roundtrip3.gfa
 is $? 0 "Streaming an unsorted GFA gives same output as sorted"
-is $(grep -i "warning:\[gfa" tiny.roundtrip3.stderr | wc -l | tr -d ' ') 1 "Warning given when falling back to temp GFA buffer file"
+is $(grep -i "warning:\[gfa" tiny.roundtrip3.stderr | wc -l) 1 "Warning given when falling back to temp GFA buffer file"
 
 cat tiny/tiny.gfa | vg convert -p - 2> tiny.roundtrip4.stderr | vg convert -f - | sort > tiny.roundtrip4.gfa
 diff tiny.roundtrip.gfa tiny.roundtrip4.gfa
 is $? 0 "Streaming an sorted GFA gives same output as reading from file"
-is $(cat tiny.roundtrip4.stderr | wc -l | tr -d ' ') 0 "No warnings given when streamed GFA is sorted"
+is $(cat tiny.roundtrip4.stderr | wc -l) 0 "No warnings given when streamed GFA is sorted"
 
 vg convert -g tiny/tiny.gfa | vg mod - -X 3 | vg convert -f - | vg ids -s - | sort > tiny.chop3.gfa
 vg mod -X 3 tiny/tiny.gfa | vg ids -s - | sort > tiny.chop3.1.gfa
@@ -432,11 +432,11 @@ is $? 0 "Modding sorted GFA stream produces same output as going through convert
 cat tiny.unsort.gfa | vg mod -X 3 - 2> tiny.chop3.3.stderr | vg ids -s - | sort > tiny.chop3.3.gfa
 diff tiny.chop3.gfa tiny.chop3.3.gfa
 is $? 0 "Modding unsorted GFA stream produces same output as going through convert"
-is $(grep -i "warning:\[gfa" tiny.chop3.3.stderr | wc -l | tr -d ' ') 1 "Warning given when falling back to temp GFA buffer file in mod"
+is $(grep -i "warning:\[gfa" tiny.chop3.3.stderr | wc -l) 1 "Warning given when falling back to temp GFA buffer file in mod"
 vg mod -X 3 tiny.unsort.gfa 2> tiny.chop3.4.stderr | vg ids -s - | sort > tiny.chop3.4.gfa
 diff tiny.chop3.gfa tiny.chop3.4.gfa
 is $? 0 "Modding unsorted GFA file produces same output as going through convert"
-is $(cat tiny.chop3.4.stderr | wc -l | tr -d ' ') 0 "No warnings given when input GFA file is unsorted"
+is $(cat tiny.chop3.4.stderr | wc -l) 0 "No warnings given when input GFA file is unsorted"
 
 rm -f tiny.roundtrip.gfa tiny.roundtrip2.gfa tiny.roundtrip3.gfa tiny.roundtrip4.gfa
 rm -f tiny.gfa.input.pg tiny.gfaz.input.pg

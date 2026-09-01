@@ -11,18 +11,18 @@ vg construct -r 1mb1kgp/z.fa -v 1mb1kgp/z.vcf.gz >z.vg
 #is $? 0 "construction of a 1 megabase graph from the 1000 Genomes succeeds"
 
 nodes=$(vg stats -z z.vg | head -1 | cut -f 2)
-real_nodes=$(vg view -j z.vg | jq -c '.node[]' | wc -l | tr -d ' ')
+real_nodes=$(vg view -j z.vg | jq -c '.node[]' | wc -l)
 is $nodes $real_nodes "vg stats reports the expected number of nodes"
 
 edges=$(vg stats -z z.vg | tail -1 | cut -f 2)
-real_edges=$(vg view -j z.vg | jq -c '.edge[]' | wc -l | tr -d ' ')
+real_edges=$(vg view -j z.vg | jq -c '.edge[]' | wc -l)
 is $edges $real_edges "vg stats reports the expected number of edges"
 
 graph_length=$(vg stats -l z.vg | tail -1 | cut -f 2)
 real_length=$(vg view -j z.vg | jq -r '.node[].sequence' | tr -d '\n' | wc -c)
 is $graph_length $real_length "vg stats reports the expected graph length"
 
-subgraph_count=$(vg stats -s z.vg | wc -l | tr -d ' ')
+subgraph_count=$(vg stats -s z.vg | wc -l)
 is $subgraph_count 1 "vg stats reports the correct number of subgraphs"
 
 subgraph_length=$(vg stats -s z.vg | head -1 | cut -f 2)
@@ -49,7 +49,7 @@ vg construct -v tiny/tiny.vcf.gz -r tiny/tiny.fa | vg view -g - > tiny_names.gfa
 printf "P\tref.1\t1+,3+,5+,6+,8+,9+,11+,12+,14+,15+\t8M,1M,1M,3M,1M,19M,1M,4M,1M,11M\n" >> tiny_names.gfa
 printf "P\talt1.1\t1+,2+,4+,6+,8+,9+,11+,12+,14+,15+\t8M,1M,1M,3M,1M,19M,1M,4M,1M,11M\n" >> tiny_names.gfa
 vg view -Fv tiny_names.gfa > tiny_names.vg 
-is $(vg stats -O tiny_names.vg | wc -l | tr -d ' ') 113 "a path overlap description of a test graph has the expected length"
+is $(vg stats -O tiny_names.vg | wc -l) 113 "a path overlap description of a test graph has the expected length"
 rm -f tiny_names.gfa tiny_names.vg
 
 is "$(vg stats -F graphs/atgc.vg)" "format: VG-Protobuf" "vg stats -F detects format of old protobuf graph"

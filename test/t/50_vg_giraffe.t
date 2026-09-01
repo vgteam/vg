@@ -86,7 +86,7 @@ rm -f x.longread.zipcodes
 rm -Rf grid-out
 mkdir grid-out
 vg giraffe -Z x.giraffe.gbz -f reads/small.middle.ref.fq --output-basename grid-out/file --hard-hit-cap 5:6
-is "$(ls grid-out/*.gam | wc -l | tr -d ' ')" "2" "Grid search works end-inclusive"
+is "$(ls grid-out/*.gam | wc -l)" "2" "Grid search works end-inclusive"
 rm -Rf grid-out
 
 vg giraffe -Z x.giraffe.gbz -f reads/small.middle.ref.fq --full-l-bonus 0 > mapped-nobonus.gam
@@ -238,7 +238,7 @@ vg construct -r small/x.fa > x.vg
 vg sim -a -p 200 -v 10 -l 50 -n 1000 -s 12345 -x x.vg >x.gam
 
 vg giraffe xy.fa xy.vcf.gz -G x.gam -o SAM -i --fragment-mean 200 --fragment-stdev 10 --distance-limit 50 >xy.sam
-X_HITS="$(cat xy.sam | grep -v "^@" | cut -f3 | grep x | wc -l | tr -d ' ')"
+X_HITS="$(cat xy.sam | grep -v "^@" | cut -f3 | grep x | wc -l)"
 if [ "${X_HITS}" -lt 1200 ] && [ "${X_HITS}" -gt 800 ] ; then
     IN_RANGE="1"
 else
@@ -247,7 +247,7 @@ fi
 is "${IN_RANGE}" "1" "paired reads are evenly split between equivalent mappings"
 
 vg giraffe xy.fa xy.vcf.gz -G x.gam -o SAM >xy.sam
-X_HITS="$(cat xy.sam | grep -v "^@" | cut -f3 | grep x | wc -l | tr -d ' ')"
+X_HITS="$(cat xy.sam | grep -v "^@" | cut -f3 | grep x | wc -l)"
 if [ "${X_HITS}" -lt 1200 ] && [ "${X_HITS}" -gt 800 ] ; then
     IN_RANGE="1"
 else
@@ -261,7 +261,7 @@ is $? "0" "provenance tracking succeeds for unpaired reads"
 vg giraffe xy.fa xy.vcf.gz -G x.gam --track-provenance --track-correctness -o json >xy.json
 is $? "0" "correctness tracking succeeds for unpaired reads"
 
-is "$(cat xy.json | grep "correct-minimizer-coverage" | wc -l | tr -d ' ')" "2000" "unpaired reads are annotated with minimizer coverage"
+is "$(cat xy.json | grep "correct-minimizer-coverage" | wc -l)" "2000" "unpaired reads are annotated with minimizer coverage"
 
 vg giraffe xy.fa xy.vcf.gz -G x.gam -i --fragment-mean 200 --fragment-stdev 10 --distance-limit 50 --track-provenance --discard
 is $? "0" "provenance tracking succeeds for paired reads"
@@ -330,7 +330,7 @@ vg giraffe -Z 1mb1kgp.giraffe.gbz -f reads/1mb1kgp_longread.fq >longread.gam -U 
 is "$(vg view -aj longread.gam | jq -r '.score')" "7948" "A long read can be correctly aligned"
 is "$(vg view -aj longread.gam | jq -c '.path.mapping[].edit[] | select(.sequence)' | wc -l | sed 's/^[[:space:]]*//')" "2" "A long read has the correct edits found"
 is "$(vg view -aj longread.gam | jq -c '. | select(.annotation["filter_3_cluster-coverage_cluster_passed_size_total"] <= 300)' | wc -l | sed 's/^[[:space:]]*//')" "1" "Long read minimizer set is correctly restricted"
-is "$(vg view -aj longread.gam | jq -c '.refpos[]' | wc -l | tr -d ' ')" "$(vg view -aj longread.gam | jq -c '.path.mapping[]' | wc -l | tr -d ' ')" "Giraffe sets refpos for each reference node"
+is "$(vg view -aj longread.gam | jq -c '.refpos[]' | wc -l)" "$(vg view -aj longread.gam | jq -c '.path.mapping[]' | wc -l)" "Giraffe sets refpos for each reference node"
 is "$(vg view --extract-tag PARAMS_JSON longread.gam | jq '.["track-provenance"]')" "true" "Giraffe embeds parameters in GAM"
 
 rm -f longread.gam 1mb1kgp.vg 1mb1kgp.dist 1mb1kgp.giraffe.gbz 1mb1kgp.shortread.withzip.min 1mb1kgp.shortread.zipcodes log.txt

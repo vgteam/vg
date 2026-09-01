@@ -13,10 +13,10 @@ plan tests 0
 #vg sim -l 10 -x tiny.xg tiny.vg > tiny.reads
 
 ## Can we handle streaming alignments?
-#is $(vg map -x tiny.xg -g tiny.gcsa -r tiny.reads | vg vectorize -x tiny.xg - | wc -l | tr -d ' ') 10 "Streaming produces the correct number of vectors."
+#is $(vg map -x tiny.xg -g tiny.gcsa -r tiny.reads | vg vectorize -x tiny.xg - | wc -l) 10 "Streaming produces the correct number of vectors."
 
 ## Can we read from a file?
-#is $(vg vectorize -x tiny.xg tiny.reads | wc -l | tr -d ' ') 10 "Reading from file produces the expected number of vectors."
+#is $(vg vectorize -x tiny.xg tiny.reads | wc -l) 10 "Reading from file produces the expected number of vectors."
 
 
 ## Test that vectorize correctly vectorizes a small alignment in a_hot format

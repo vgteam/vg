@@ -7,5 +7,5 @@ PATH=../bin:$PATH # for vg
 
 plan tests 1
 
-YEETS="$(find ../src -iname "*.[ch]pp" | xargs grep "yeet" | wc -l | tr -d ' ')"
+YEETS="$(find ../src -iname "*.[ch]pp" | xargs grep "yeet" | wc -l)"
 is "${YEETS}" 0 "code quality is acceptable"

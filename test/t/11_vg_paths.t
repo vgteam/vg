@@ -18,27 +18,27 @@ vg gbwt -v small/x.vcf.gz -o x.gbwt -x x.vg
 is "$(vg paths --list -v x2.vg)" "x" "path listing works from vg"
 is "$(vg paths --list -x x.xg)" "x" "path listing works from XG"
 is "$(vg paths --list -x x.xg -G)" "x" "generic path listing works from XG"
-is $(vg paths --list -g x.gbwt | wc -l | tr -d ' ') 2 "thread listing works from GBWT"
-is $(vg paths --list -g x.gbwt -H | wc -l | tr -d ' ') 2 "haplotype thread listing works from GBWT"
+is $(vg paths --list -g x.gbwt | wc -l) 2 "thread listing works from GBWT"
+is $(vg paths --list -g x.gbwt -H | wc -l) 2 "haplotype thread listing works from GBWT"
 
 # Select threads by name
-is $(vg paths --list -Q "1#0#x#" -g x.gbwt | wc -l | tr -d ' ') 1 "thread selection by name prefix works correctly"
-is $(vg paths --list -S 1 -g x.gbwt | wc -l | tr -d ' ') 2 "thread selection by sample name works correctly"
+is $(vg paths --list -Q "1#0#x#" -g x.gbwt | wc -l) 1 "thread selection by name prefix works correctly"
+is $(vg paths --list -S 1 -g x.gbwt | wc -l) 2 "thread selection by sample name works correctly"
 vg paths --list -S 2 -g x.gbwt > out.txt 2> err.txt
-is $(cat out.txt | wc -l | tr -d ' ') 0 "no threads are reported for invalid samples"
-is $(grep "no matching" err.txt | wc -l | tr -d ' ') 1 "warning provided when 0 threads are matched"
+is $(cat out.txt | wc -l) 0 "no threads are reported for invalid samples"
+is $(grep "no matching" err.txt | wc -l) 1 "warning provided when 0 threads are matched"
 
 # Exclude sample from selection
-is $(vg paths --list -g x.gbwt --exclude-sample 1 2>/dev/null | wc -l | tr -d ' ') 0 "excluding sample removes all matching threads from GBWT listing"
-is $(vg paths --list -g x.gbwt --exclude-sample nonexistent | wc -l | tr -d ' ') 2 "excluding nonexistent sample has no effect on GBWT listing"
-is $(vg paths --list -Q "1#0#x#" -g x.gbwt --exclude-sample 1 2>/dev/null | wc -l | tr -d ' ') 0 "exclude-sample combined with -Q prefix selection works"
-is $(vg paths --list -x x.xg --exclude-sample nonexistent | wc -l | tr -d ' ') 1 "excluding nonexistent sample has no effect on graph path listing"
+is $(vg paths --list -g x.gbwt --exclude-sample 1 2>/dev/null | wc -l) 0 "excluding sample removes all matching threads from GBWT listing"
+is $(vg paths --list -g x.gbwt --exclude-sample nonexistent | wc -l) 2 "excluding nonexistent sample has no effect on GBWT listing"
+is $(vg paths --list -Q "1#0#x#" -g x.gbwt --exclude-sample 1 2>/dev/null | wc -l) 0 "exclude-sample combined with -Q prefix selection works"
+is $(vg paths --list -x x.xg --exclude-sample nonexistent | wc -l) 1 "excluding nonexistent sample has no effect on graph path listing"
 
 # Extract threads as alignments
-is $(vg paths -x x.xg -g x.gbwt -X | vg view -a -  | wc -l | tr -d ' ') 2 "vg paths may be used to extract threads"
+is $(vg paths -x x.xg -g x.gbwt -X | vg view -a -  | wc -l) 2 "vg paths may be used to extract threads"
 
 # Extract threads as GAF alignments
-is $(vg paths -x x.xg -g x.gbwt -A | grep -v "^@" | wc -l | tr -d ' ') 2 "vg paths may be used to extract threads as GAF"
+is $(vg paths -x x.xg -g x.gbwt -A | grep -v "^@" | wc -l) 2 "vg paths may be used to extract threads as GAF"
 
 # Extract paths as fasta
 vg paths -x x.xg -Q x -F > x_from_xg.fa
@@ -47,10 +47,10 @@ is $? 0 "Fasta extracted from xg is the same as the input fasta"
 vg paths -v x.vg -Q x -F > x_from_vg.fa
 diff x_from_vg.fa small/x.fa
 is $? 0 "Fasta extracted from vg is the same as the input fasta"
-is $(vg paths -x x.xg -g x.gbwt -F | wc -l | tr -d ' ') 28 "Fasta extracted from threads has correct number of lines"
+is $(vg paths -x x.xg -g x.gbwt -F | wc -l) 28 "Fasta extracted from threads has correct number of lines"
 vg paths --paths-by fakename -v x.vg -F > out.txt 2> err.txt
-is $(cat out.txt | wc -l | tr -d ' ') 0 "no paths are reported for invalid path name"
-is $(grep "no matching" err.txt | wc -l | tr -d ' ') 1 "warning provided when 0 paths are matched"
+is $(cat out.txt | wc -l) 0 "no paths are reported for invalid path name"
+is $(grep "no matching" err.txt | wc -l) 1 "warning provided when 0 paths are matched"
 
 touch empty.fa
 vg construct -r empty.fa > empty.vg
@@ -58,27 +58,27 @@ vg gbwt --index-paths -x empty.vg -o empty.gbwt
 
 vg paths --list -g empty.gbwt 2> err.txt
 is $? 1 "vg paths exits with error when no paths are found"
-is $(grep "does not contain" err.txt | wc -l | tr -d ' ') 1 "useful error provided when no paths are found in gbwt"
+is $(grep "does not contain" err.txt | wc -l) 1 "useful error provided when no paths are found in gbwt"
 
 vg paths --list -x empty.vg 2> err.txt
 is $? 1 "vg paths exits with error when no paths are found"
-is $(grep "does not contain" err.txt | wc -l | tr -d ' ') 1 "useful error provided when no paths are found in vg"
+is $(grep "does not contain" err.txt | wc -l) 1 "useful error provided when no paths are found in vg"
 
-is $(vg paths -v msgas/s.vg -r -Q s1 | vg view - | grep ^P | cut -f 3 | sort | uniq | wc -l | tr -d ' ') 1 "a single path may be retained"
+is $(vg paths -v msgas/s.vg -r -Q s1 | vg view - | grep ^P | cut -f 3 | sort | uniq | wc -l) 1 "a single path may be retained"
 
 is $(vg paths -v msgas/s.vg -r -Q s1 | vg view - | grep -v ^P | md5sum | cut -f 1 -d\ ) $(vg view msgas/s.vg | grep -v ^P | md5sum | cut -f 1 -d\ ) "path filtering does not modify the graph"
 
-is $(vg construct -a -r tiny/tiny.fa -v tiny/tiny.vcf.gz | vg paths -d -a -v - | vg paths -L -v - | wc -l | tr -d ' ') 1 "alt allele paths can be dropped"
+is $(vg construct -a -r tiny/tiny.fa -v tiny/tiny.vcf.gz | vg paths -d -a -v - | vg paths -L -v - | wc -l) 1 "alt allele paths can be dropped"
 
 rm -f x.xg x.gbwt x.vg x2.vg x_from_xg.fa x_from_vg.fa
 
 is $(vg paths -cv msgas/q.vg | awk '{print NF; exit}') 4 "vg path coverage has correct number of columns"
-is $(vg paths -cv msgas/q.vg | wc -l | tr -d ' ') 4 "vg path coverage has correct number of rows"
+is $(vg paths -cv msgas/q.vg | wc -l) 4 "vg path coverage has correct number of rows"
 
 # note: coverage doesn't include cycles at moment, so s2 path will not have full length
 vg paths -Q s2 -v msgas/q.vg -d | vg paths -cv - | grep -v ^Path | awk '{print $1 "\t" $2}' > q.cov.len
 vg paths -Q s2 -v msgas/q.vg -d | vg paths -Ev - > q.len
-is $(cat q.len | wc -l | tr -d ' ') 2 "vg paths found correct number of lengths"
+is $(cat q.len | wc -l) 2 "vg paths found correct number of lengths"
 diff q.cov.len q.len
 is $? 0 "vg path coverage reports correct lengths in first column"
 
@@ -126,7 +126,7 @@ vg gbwt --gbz-format -x x.pg x.gbwt -g x.gbz
 vg paths --list -x x.gbz >out.txt
 
 is "${?}" "0" "vg paths can list paths from a GBZ with only haplotypes"
-is "$(cat out.txt | wc -l | tr -d ' ')" "1" "vg paths sees the haplotype path in a GBZ with only haplotypes"
+is "$(cat out.txt | wc -l)" "1" "vg paths sees the haplotype path in a GBZ with only haplotypes"
 diff <(vg paths -x tiny/tiny.gfa -F | sort) <(vg paths -x tiny/tiny.gfaz -F | sort)
 is "${?}" "0" "vg paths emits matching path FASTA for equivalent GFA and GFAZ inputs"
 
@@ -138,32 +138,32 @@ vg paths -x nesting/nested_snp_in_ins.gfa -Q x --compute-gref --min-gref-len 1 >
 vg validate gref_test.vg
 is $? 0 "gref computation produces valid graph"
 
-is $(vg paths -x gref_test.vg -L | grep "_alt$" | wc -l | tr -d ' ') 2 "gref computation creates expected number of gref paths"
+is $(vg paths -x gref_test.vg -L | grep "_alt$" | wc -l) 2 "gref computation creates expected number of gref paths"
 
-is $(vg paths -x gref_test.vg -L | grep "^x$" | wc -l | tr -d ' ') 1 "original reference path is preserved after gref computation"
+is $(vg paths -x gref_test.vg -L | grep "^x$" | wc -l) 1 "original reference path is preserved after gref computation"
 
 is $(vg paths -x gref_test.vg -L | grep -c "^gref_x$") 1 "reference path is copied into the gref namespace"
 
 # Test gref naming convention matches pattern gref_x_{N}_alt
-is $(vg paths -x gref_test.vg -L | grep -E "^gref_x_[0-9]+_alt$" | wc -l | tr -d ' ') 2 "gref paths follow naming convention gref_{path}_{N}_alt"
+is $(vg paths -x gref_test.vg -L | grep -E "^gref_x_[0-9]+_alt$" | wc -l) 2 "gref paths follow naming convention gref_{path}_{N}_alt"
 
 # Test with triple_nested.gfa which has more complex structure
 vg paths -x nesting/triple_nested.gfa -Q x --compute-gref --min-gref-len 1 > triple_gref.vg
 vg validate triple_gref.vg
 is $? 0 "gref computation works on complex nested structure"
 
-is $(vg paths -x triple_gref.vg -L | grep "_alt$" | wc -l | tr -d ' ') 2 "correct number of gref paths for triple nested graph"
+is $(vg paths -x triple_gref.vg -L | grep "_alt$" | wc -l) 2 "correct number of gref paths for triple nested graph"
 
 # Test minimum length filter
 vg paths -x nesting/triple_nested.gfa -Q x --compute-gref --min-gref-len 100 > triple_gref_long.vg
-is $(vg paths -x triple_gref_long.vg -L | grep "_alt$" | wc -l | tr -d ' ') 0 "min-gref-len filters out short fragments"
+is $(vg paths -x triple_gref_long.vg -L | grep "_alt$" | wc -l) 0 "min-gref-len filters out short fragments"
 
 # Test second pass coverage of dangling nodes (nodes outside snarls but on haplotype paths)
 vg paths -x nesting/dangling_node.gfa -Q x --compute-gref --min-gref-len 1 > dangling_gref.vg
 vg validate dangling_gref.vg
 is $? 0 "gref computation handles dangling nodes outside snarls"
 
-is $(vg paths -x dangling_gref.vg -L | grep "_alt$" | wc -l | tr -d ' ') 2 "gref second pass covers dangling nodes"
+is $(vg paths -x dangling_gref.vg -L | grep "_alt$" | wc -l) 2 "gref second pass covers dangling nodes"
 
 # Verify the dangling node (node 5, 8bp) is covered by checking gref path lengths include 8bp
 # Note: use -E with grep instead of -Q since gref paths are filtered from prefix matching
@@ -198,7 +198,7 @@ is $? 0 "cross-path merge: gref computation produces valid graph"
 
 # Cross-path merge should combine snarl interval [2,3,4] + dangling [9] into one path on hap3
 # Without merging: 3 gref paths. With merging: 2 gref paths.
-is $(vg paths -x cross_merge_test.vg -L | grep "_alt$" | wc -l | tr -d ' ') 2 "cross-path left merge reduces gref path count"
+is $(vg paths -x cross_merge_test.vg -L | grep "_alt$" | wc -l) 2 "cross-path left merge reduces gref path count"
 
 # Test cross-path interval merging (right merge: new interval absorbs following from different path)
 vg paths -x nesting/cross_path_merge_right.gfa -Q x --compute-gref --min-gref-len 1 > cross_merge_right_test.vg
@@ -206,7 +206,7 @@ vg validate cross_merge_right_test.vg
 is $? 0 "cross-path right merge: gref computation produces valid graph"
 
 # Cross-path merge should combine dangling [9] + snarl interval [2,3,4] into one path on hap3
-is $(vg paths -x cross_merge_right_test.vg -L | grep "_alt$" | wc -l | tr -d ' ') 2 "cross-path right merge reduces gref path count"
+is $(vg paths -x cross_merge_right_test.vg -L | grep "_alt$" | wc -l) 2 "cross-path right merge reduces gref path count"
 
 # A haplotype that walks the whole reference path with extra sequence before it must not
 # be able to swallow the rank-0 reference interval during cross-path merging.  When it
@@ -216,7 +216,7 @@ vg paths -x nesting/hap_extends_ref_start.gfa -Q x --compute-gref --min-gref-len
 vg validate ref_start_test.vg
 is $? 0 "haplotype extending past reference start: gref computation produces valid graph"
 
-is $(vg paths -x ref_start_test.vg -L | grep "_alt$" | wc -l | tr -d ' ') 2 "haplotype extending past reference start covers both off-reference nodes"
+is $(vg paths -x ref_start_test.vg -L | grep "_alt$" | wc -l) 2 "haplotype extending past reference start covers both off-reference nodes"
 
 is $(vg paths -x ref_start_test.vg -L | grep -cE "^gref_x_[0-9]+_alt$") 2 "gref paths stay named after the reference, not the haplotype that spans it"
 
@@ -229,7 +229,7 @@ vg paths -x nesting/hap_extends_ref_end.gfa -Q x --compute-gref --min-gref-len 1
 vg validate ref_end_test.vg
 is $? 0 "haplotype extending past reference end: gref computation produces valid graph"
 
-is $(vg paths -x ref_end_test.vg -L | grep "_alt$" | wc -l | tr -d ' ') 2 "haplotype extending past reference end covers both off-reference nodes"
+is $(vg paths -x ref_end_test.vg -L | grep "_alt$" | wc -l) 2 "haplotype extending past reference end covers both off-reference nodes"
 
 is $(vg paths -x ref_end_test.vg -L | grep -cE "^gref_x_[0-9]+_alt$") 2 "gref paths after reference end stay named after the reference"
 
@@ -244,7 +244,7 @@ vg paths -x nesting/orientation_flip.gfa -Q x --compute-gref --min-gref-len 1 --
 vg validate flip_test.vg
 is $? 0 "orientation flip: gref computation produces valid graph"
 
-is $(vg paths -x flip_test.vg -L | grep "_alt$" | wc -l | tr -d ' ') 2 "intervals on either side of an orientation flip are kept separate"
+is $(vg paths -x flip_test.vg -L | grep "_alt$" | wc -l) 2 "intervals on either side of an orientation flip are kept separate"
 
 is "$(vg paths -x flip_test.vg -E | grep "_alt" | awk '{sum+=$2} END {print sum+0}')" "32" "no sequence is dropped at an orientation flip"
 
@@ -262,7 +262,7 @@ is $(vg paths -x unanchored_test.vg -M | grep "_alt" | cut -f2 | sort -u) "REFER
 
 is $(vg paths -x unanchored_test.vg -M | grep "_alt" | cut -f5 | grep -c "#") 0 "gref path names never leave a separator inside the locus"
 
-is $(vg paths -x unanchored_test.vg -S gref_GRCh38 -L | wc -l | tr -d ' ') 2 "the anchored fragment and its base copy share the reference's gref sample"
+is $(vg paths -x unanchored_test.vg -S gref_GRCh38 -L | wc -l) 2 "the anchored fragment and its base copy share the reference's gref sample"
 
 is $(vg paths -x unanchored_test.vg -L | grep -cE "^gref_HG[12]#1#ctgZ_[0-9]+_alt$") 2 "fragments with no reference to reach are namespaced under the path they came from"
 

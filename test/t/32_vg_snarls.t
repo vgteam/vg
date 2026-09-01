@@ -9,8 +9,8 @@ plan tests 42
 
 vg view -J -v snarls/snarls.json > snarls.vg
 vg snarls -t 1 snarls.vg -r st.pb > snarls.pb
-is $(vg view -R snarls.pb | wc -l | tr -d ' ') 3 "vg snarls made right number of protobuf Snarls"
-is $(vg view -E st.pb | wc -l | tr -d ' ') 6 "vg snarls made right number of protobuf SnarlTraversals"
+is $(vg view -R snarls.pb | wc -l) 3 "vg snarls made right number of protobuf Snarls"
+is $(vg view -E st.pb | wc -l) 6 "vg snarls made right number of protobuf SnarlTraversals"
 is $(vg view -R snarls.pb | jq -r '[(.start.node_id | tonumber), (.end.node_id | tonumber)] | min' | tr '\n' ',') "1,3,7," "vg snarls made snarls in the right order"
 
 vg snarls -l -t 1 snarls.vg > /dev/null 2> error.txt
@@ -48,8 +48,8 @@ is $? 0 "vg snarls with --max-nodes changed matches full snarls"
 rm -f snarls.pb st.pb leaf_only.pb top_level.pb any.pb small.pb error.txt
 
 vg index snarls.vg -x snarls.xg
-is $(vg snarls snarls.xg -r st.pb | vg view -R - | wc -l | tr -d ' ') 3 "vg snarls on xg made right number of protobuf Snarls"
-is $(vg view -E st.pb | wc -l | tr -d ' ') 6 "vg snarls on xg made right number of protobuf SnarlTraversals"
+is $(vg snarls snarls.xg -r st.pb | vg view -R - | wc -l) 3 "vg snarls on xg made right number of protobuf Snarls"
+is $(vg view -E st.pb | wc -l) 6 "vg snarls on xg made right number of protobuf SnarlTraversals"
 
 rm -f snarls.vg snarls.xg st.pb
 
@@ -121,15 +121,15 @@ vg construct -r small/xy.fa -v small/xy.vcf.gz -R x > x.vg
 vg construct -r small/xy.fa -v small/xy.vcf.gz -R y > y.vg
 vg snarls x.vg > xy.snarls
 vg snarls y.vg >> xy.snarls
-is $(vg snarls xy.vg | vg view -R - | wc -l | tr -d ' ') 35 "correct number of snarls when parallelizing on compoents"
-is $(vg snarls xy.vg | vg view -R - | wc -l | tr -d ' ') $(vg view -R xy.snarls | wc -l | tr -d ' ') "same number of snarls when parallelizing on components"
+is $(vg snarls xy.vg | vg view -R - | wc -l) 35 "correct number of snarls when parallelizing on compoents"
+is $(vg snarls xy.vg | vg view -R - | wc -l) $(vg view -R xy.snarls | wc -l) "same number of snarls when parallelizing on components"
 rm -f xy.vg xy.snarls x.vg y.vg
 
 # Find trivial snarls from a GBZ
 vg gbwt -g graph.gbz --gbz-format -G graphs/components_walks.gfa
 vg snarls -T graph.gbz > graph.snarls
 is $? 0 "GBZ graphs can be used for finding snarls"
-is $(vg view -R graph.snarls | wc -l | tr -d ' ') 5 "correct number of snarls in the GFA W-line example"
+is $(vg view -R graph.snarls | wc -l) 5 "correct number of snarls in the GFA W-line example"
 rm -f graph.gbz graph.snarls
 
 # Check snarl output order in a more complex case.
@@ -153,12 +153,12 @@ is "$(vg snarls --named-coordinates graphs/components_walks_named.gfa | vg view 
 # Find traversals from a chopped GBZ-ified GFA in node ID space
 vg autoindex -p index -g graphs/big_snarl_named.gfa -w giraffe
 vg snarls index.giraffe.gbz --traversals traversals.dat >/dev/null
-is "$(vg view -Ej traversals.dat | jq -c 'select(.visit | length > 2) | .visit[] | select(.node_id // .name)' | wc -l | tr -d ' ')" "7" "In node ID space traversal visits 7 nodes"
-is "$(vg view -Ej traversals.dat | jq -c 'select(.visit | length > 2) | .visit[] | select(.snarl)' | wc -l | tr -d ' ')" "4" "In node ID space traversal visits 4 trivial snarls"
+is "$(vg view -Ej traversals.dat | jq -c 'select(.visit | length > 2) | .visit[] | select(.node_id // .name)' | wc -l)" "7" "In node ID space traversal visits 7 nodes"
+is "$(vg view -Ej traversals.dat | jq -c 'select(.visit | length > 2) | .visit[] | select(.snarl)' | wc -l)" "4" "In node ID space traversal visits 4 trivial snarls"
 
 # And in GFA space
 vg snarls index.giraffe.gbz --traversals traversals.dat --named-coordinates >/dev/null
-is "$(vg view -Ej traversals.dat | jq -c 'select(.visit | length > 2) | .visit[] | select(.node_id // .name)' | wc -l | tr -d ' ')" "3" "In segment name space traversal visits 3 segments"
-is "$(vg view -Ej traversals.dat | jq -c 'select(.visit | length > 2) | .visit[] | select(.snarl)' | wc -l | tr -d ' ')" "0" "In segment name space traversal visits 0 trivial snarls"
+is "$(vg view -Ej traversals.dat | jq -c 'select(.visit | length > 2) | .visit[] | select(.node_id // .name)' | wc -l)" "3" "In segment name space traversal visits 3 segments"
+is "$(vg view -Ej traversals.dat | jq -c 'select(.visit | length > 2) | .visit[] | select(.snarl)' | wc -l)" "0" "In segment name space traversal visits 0 trivial snarls"
 
 rm -f index.* traversals.dat

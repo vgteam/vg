@@ -42,12 +42,12 @@ vg construct -r small/x.fa -v small/x.vcf.gz -a > x.vg
 vg index -x x.xg x.vg
 is $? 0 "building an XG index of a graph with haplotypes"
 
-is $(vg paths -x x.xg -L | wc -l | tr -d ' ') 1 "xg index does not contain alt paths by default"
+is $(vg paths -x x.xg -L | wc -l) 1 "xg index does not contain alt paths by default"
 
 vg index -x x-ap.xg x.vg -L
 is $? 0 "building an XG index of a graph with haplotypes and alt paths included"
 
-is $(vg paths -x x-ap.xg -L | wc -l | tr -d ' ') $(vg paths -v x.vg -L | wc -l | tr -d ' ') "xg index does contains alt paths with index -L"
+is $(vg paths -x x-ap.xg -L | wc -l) $(vg paths -v x.vg -L | wc -l) "xg index does contains alt paths with index -L"
 
 vg index -g x.gcsa x.vg
 is $? 0 "building a GCSA index of a graph with haplotypes"
@@ -64,7 +64,7 @@ is $? 0 "building all indexes at once, while leaving alt paths in xg"
 cmp x.gcsa x2-ap.gcsa && cmp x.gcsa.lcp x2-ap.gcsa.lcp
 is $? 0 "the indexes are identical with -L"
 
-is $(vg paths -x x2-ap.xg -L | wc -l | tr -d ' ') $(vg paths -v x.vg -L | wc -l | tr -d ' ') "xg index does contains alt paths with index -L all at once"
+is $(vg paths -x x2-ap.xg -L | wc -l) $(vg paths -v x.vg -L | wc -l) "xg index does contains alt paths with index -L all at once"
 
 rm -f x.vg
 rm -f x.xg x-ap.xg x.gcsa x.gcsa.lcp
@@ -165,25 +165,25 @@ is $? 0 "can index kmers for backward nodes"
 rm -rf r.xg r.gcsa
 
 
-is $(vg index -g x.gcsa -k 16 -V <(vg view -Fv cyclic/two_node.gfa) 2>&1 |  grep 'Index verification complete' | wc -l | tr -d ' ') 1 "GCSA2 index works on cyclic graphs with heads and tails"
+is $(vg index -g x.gcsa -k 16 -V <(vg view -Fv cyclic/two_node.gfa) 2>&1 |  grep 'Index verification complete' | wc -l) 1 "GCSA2 index works on cyclic graphs with heads and tails"
 
-is $(vg index -g x.gcsa -k 16 -V cyclic/no_heads.vg 2>&1 |  grep 'Index verification complete' | wc -l | tr -d ' ') 1 "GCSA2 index works on cyclic graphs with no heads or tails"
+is $(vg index -g x.gcsa -k 16 -V cyclic/no_heads.vg 2>&1 |  grep 'Index verification complete' | wc -l) 1 "GCSA2 index works on cyclic graphs with no heads or tails"
 
-is $(vg index -g x.gcsa -k 16 -V cyclic/self_loops.vg 2>&1 |  grep 'Index verification complete' | wc -l | tr -d ' ') 1 "GCSA2 index works on cyclic graphs with self loops"
+is $(vg index -g x.gcsa -k 16 -V cyclic/self_loops.vg 2>&1 |  grep 'Index verification complete' | wc -l) 1 "GCSA2 index works on cyclic graphs with self loops"
 
-is $(vg index -g x.gcsa -k 16 -V cyclic/all.vg 2>&1 |  grep 'Index verification complete' | wc -l | tr -d ' ') 1 "GCSA2 index works on general cyclic graphs"
+is $(vg index -g x.gcsa -k 16 -V cyclic/all.vg 2>&1 |  grep 'Index verification complete' | wc -l) 1 "GCSA2 index works on general cyclic graphs"
 
 rm -f x.gcsa x.gcsa.lcp
 
-is $(vg construct -r tiny/tiny.fa -v tiny/tiny.vcf.gz | vg index -g t.gcsa -k 16 -V - 2>&1 |  grep 'Index verification complete' | wc -l | tr -d ' ') 1 "GCSA2 indexing of a tiny graph works"
+is $(vg construct -r tiny/tiny.fa -v tiny/tiny.vcf.gz | vg index -g t.gcsa -k 16 -V - 2>&1 |  grep 'Index verification complete' | wc -l) 1 "GCSA2 indexing of a tiny graph works"
 
-is $(vg construct -r tiny/tiny.fa | vg index -g t.gcsa -k 16 -V - 2>&1 | grep 'Index verification complete' | wc -l | tr -d ' ') 1 "GCSA2 indexing succeeds on a single-node graph"
+is $(vg construct -r tiny/tiny.fa | vg index -g t.gcsa -k 16 -V - 2>&1 | grep 'Index verification complete' | wc -l) 1 "GCSA2 indexing succeeds on a single-node graph"
 
-is $(vg index -g t.gcsa reversing/cactus.vg -k 16 -V 2>&1 | grep 'Index verification complete' | wc -l | tr -d ' ') 1 "GCSA2 indexing succeeds on graph with heads but no tails"
+is $(vg index -g t.gcsa reversing/cactus.vg -k 16 -V 2>&1 | grep 'Index verification complete' | wc -l) 1 "GCSA2 indexing succeeds on graph with heads but no tails"
 
 vg construct -m 1025 -r 1mb1kgp/z.fa > big.vg
 
-is $(vg index -g big.gcsa big.vg -k 16 2>&1 | head -n10 | grep 'Found kmer with offset' | wc -l | tr -d ' ') 1 "a useful error message is produced when nodes are too large"
+is $(vg index -g big.gcsa big.vg -k 16 2>&1 | head -n10 | grep 'Found kmer with offset' | wc -l) 1 "a useful error message is produced when nodes are too large"
 
 rm -f big.vg
 
@@ -215,8 +215,8 @@ vg gbwt -g graph.gbz --gbz-format -G graphs/components_walks.gfa
 vg index -j graph.dist graph.gbz
 is $? 0 "distance index construction from GBZ"
 
-is $(vg index -j graph.dist --snarl-limit 1 graph.gbz 2>&1 | grep 'distance index uses oversized snarls' | wc -l | tr -d ' ') 1 "Warn when creating graph with oversized snarls"
-is $(vg index -j graph.dist --snarl-limit 2 graph.gbz 2>&1 | grep 'distance index uses oversized snarls' | wc -l | tr -d ' ') 0 "Don't warn for exactly equal --size-limit"
+is $(vg index -j graph.dist --snarl-limit 1 graph.gbz 2>&1 | grep 'distance index uses oversized snarls' | wc -l) 1 "Warn when creating graph with oversized snarls"
+is $(vg index -j graph.dist --snarl-limit 2 graph.gbz 2>&1 | grep 'distance index uses oversized snarls' | wc -l) 0 "Don't warn for exactly equal --size-limit"
 
 cat graph.gbz | vg index -j graph.dist -
 is $? 0 "distance index construction from piped GBZ"

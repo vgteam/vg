@@ -14,8 +14,8 @@ printf "gi|568815551:1054737-1055734\t0\t1000\n" > region.bed
 vg clip hla_v.vg -b region.bed > clip_flat.vg
 vg validate clip_flat.vg
 is "$?" 0 "clipped graph is valid"
-for i in `vg view clip_flat.vg | grep '^S' | awk '{print $1}'` ; do vg view clip_flat.vg -n $i | grep ^P | grep "gi|568815551:1054737-1055734"; done | wc -l | tr -d ' ' > step_count
-vg view clip_flat.vg | grep ^S | wc -l | tr -d ' ' > node_count
+for i in `vg view clip_flat.vg | grep '^S' | awk '{print $1}'` ; do vg view clip_flat.vg -n $i | grep ^P | grep "gi|568815551:1054737-1055734"; done | wc -l > step_count
+vg view clip_flat.vg | grep ^S | wc -l > node_count
 diff step_count node_count
 is "$?" 0 "every step in clipped graph belongs to reference path"
 is "$(vg paths -Ev hla_v.vg -Q "gi|568815551:1054737-1055734" | awk '{ print $2 }')" "$(vg stats -l clip_flat.vg | awk '{ print $2 }')" "clipped graph has same length as ref path"
@@ -27,7 +27,7 @@ printf "gi|157734152:29563108-29564082\t90\t92\n" > region.bed
 vg clip hla_v.vg -b region.bed > clip.vg
 vg validate clip.vg
 is "$?" 0 "clipped graph is valid"
-is "$(vg view clip.vg | grep ^S | wc -l | tr -d ' ')" "49" "Just one node filtered"
+is "$(vg view clip.vg | grep ^S | wc -l)" "49" "Just one node filtered"
 
 rm -f region.bed clip.vg
 
@@ -36,7 +36,7 @@ printf "gi|568815564:1054403-1055400\t150\t153\n" > region.bed
 vg clip hla_v.vg -b region.bed > clip.vg
 vg validate clip.vg
 is "$?" 0 "clipped graph is valid"
-is "$(vg view clip.vg | grep ^L | wc -l | tr -d ' ')" "65" "Just one edge filtered"
+is "$(vg view clip.vg | grep ^L | wc -l)" "65" "Just one edge filtered"
 
 rm -f region.bed clip.vg
 
@@ -44,7 +44,7 @@ rm -f region.bed clip.vg
 vg clip hla_v.vg -d 4 -P "gi|568815551:1054737-1055734" > clip.vg
 vg validate clip.vg
 is "$?" 0 "clipped graph is valid"
-is "$(vg view clip.vg | grep ^S | wc -l | tr -d ' ')" "49" "Just one node filtered"
+is "$(vg view clip.vg | grep ^S | wc -l)" "49" "Just one node filtered"
 
 rm -f clip.vg
 
@@ -65,7 +65,7 @@ printf "gi|568815551:1054737-1055734\t600\t650\n" > region.bed
 vg clip hla_v.vg -b region.bed -d 4 > clip.vg
 vg validate clip.vg
 is "$?" 0 "clipped graph is valid"
-is "$(vg view clip.vg | grep ^S | wc -l | tr -d ' ')" "49" "Just one node filtered"
+is "$(vg view clip.vg | grep ^S | wc -l)" "49" "Just one node filtered"
 
 rm -f region.bed clip.vg
 
@@ -99,7 +99,7 @@ is "$(vg clip tiny-stubs.gfa -sS -P x | vg stats -HT - | sort -nk 2 | awk '{prin
 rm -f tiny.gfa tiny-stubs.gfa region.bed tiny-nostubs.gfa
 
 vg clip graphs/snarl-clip.gfa -A 2 -d 2 -P x > sc-A2d2.gfa
-is "$(vg find -x sc-A2d2.gfa -n 4 | wc -l | tr -d ' ')" "0" "Node 4 correctly clipped with snarl length and depth filter"
+is "$(vg find -x sc-A2d2.gfa -n 4 | wc -l)" "0" "Node 4 correctly clipped with snarl length and depth filter"
 is "$(vg stats sc-A2d2.gfa -N)" "14" "No other nodes were clipped with snarl length and depth filter"
 
 rm -f sc-A2d2.gfa

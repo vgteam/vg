@@ -55,6 +55,6 @@ is $? 0 "construction with zipcode payload and mandatory path information"
 vg gbwt -P -x x.vg -g x_cover.gbz
 vg minimizer -t 1 -o x.mi -z x.zipcodes --rec-mode -d x.dist x_cover.gbz 2>error.txt
 is $? "1" "construction with mandatory path information fails on a path cover GBZ"
-is $(grep 'path cover' error.txt | wc -l | tr -d ' ') "1" "error message references path cover as the problem"
+is $(grep 'path cover' error.txt | wc -l) "1" "error message references path cover as the problem"
 
 rm -f x.vg x.dist x.mi x.zipcodes x.gbz x_cover.gbz error.txt

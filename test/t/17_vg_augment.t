@@ -15,7 +15,7 @@ vg view -J -a -G pileup/edits.json > edits.gam
 vg augment tiny.vg edits.gam -A edits-embedded.gam > augmented.vg
 
 # We want 3 edits with no sequence per read, and we have 12 reads in this file.
-is "$(vg view -aj edits-embedded.gam | jq -c '.path.mapping[].edit[].sequence' | grep null | wc -l | tr -d ' ')" "36" "direct augmentation embeds reads fully for well-supported SNPs"
+is "$(vg view -aj edits-embedded.gam | jq -c '.path.mapping[].edit[].sequence' | grep null | wc -l)" "36" "direct augmentation embeds reads fully for well-supported SNPs"
 is "$(vg stats -N augmented.vg)" "18" "adding a well-supported SNP by direct augmentation adds 3 more nodes"
 
 # Run again but with packed logic.  output should be identical with min threshold of 1
@@ -26,7 +26,7 @@ is "$(vg stats -N augmented.m1.vg)" "18" "adding a well-supported SNP by direct 
 vg convert tiny.vg -G edits.gam > edits.gaf
 vg augment tiny.vg edits.gaf -F -A edits-embedded.gaf > augmented.gaf.vg
 vg convert augmented.gaf.vg -F edits-embedded.gaf > edits-embedded.gaf.gam
-is "$(vg view -aj edits-embedded.gaf.gam | jq -c '.path.mapping[].edit[].sequence' | grep null | wc -l | tr -d ' ')" "36" "direct augmentation embeds with GAF reads fully for well-supported SNPs"
+is "$(vg view -aj edits-embedded.gaf.gam | jq -c '.path.mapping[].edit[].sequence' | grep null | wc -l)" "36" "direct augmentation embeds with GAF reads fully for well-supported SNPs"
 is "$(vg stats -N augmented.gaf.vg)" "18" "adding a well-supported SNP by direct augmentation with GAF adds 3 more nodes"
 
 rm -f edits.gam edits-embedded.gam augmented.vg augmented.m1.vg edits.gaf edits-embedded.gaf augmented.gaf.vg edits-embedded.gaf.gam
@@ -36,7 +36,7 @@ vg view -J -a -G pileup/edit.json > edit.gam
 vg augment tiny.vg edit.gam -A edit-embedded.gam > augmented.vg
 
 # This file only has one read.
-is "$(vg view -aj edit-embedded.gam | jq -c '.path.mapping[].edit[].sequence' | grep null | wc -l | tr -d ' ')" "3" "direct augmentation embeds reads fully for probable errors"
+is "$(vg view -aj edit-embedded.gam | jq -c '.path.mapping[].edit[].sequence' | grep null | wc -l)" "3" "direct augmentation embeds reads fully for probable errors"
 is "$(vg stats -N augmented.vg)" "18" "adding a probable error by direct augmentation adds 3 more nodes"
 
 rm -f edit.gam edit-embedded.gam augmented.vg
@@ -53,20 +53,20 @@ is $? 1 "not allowed to augment with a nameless path"
 grep "attempting to embed a path with no name" error.txt
 is $? 0 "problem is explained"
 
-is $(vg map --seq-name seq -s CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG -d t.idx | vg augment t.vg - -i | vg view - | grep ^S | wc -l | tr -d ' ') 1 "path inclusion does not modify the graph when alignment is a perfect match"
+is $(vg map --seq-name seq -s CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG -d t.idx | vg augment t.vg - -i | vg view - | grep ^S | wc -l) 1 "path inclusion does not modify the graph when alignment is a perfect match"
 
-is $(vg map --seq-name seq -s CAAATAAGGCTTGGAAATTTTCTGGAGTTCTAATATATTCCAACTCTCTG -d t.idx | vg augment t.vg - -i -m 2 | vg view - | grep ^S | wc -l | tr -d ' ') 1 "path inclusion does not modify the graph when alignment has a SNP but doesnt meet the coverage threshold"
+is $(vg map --seq-name seq -s CAAATAAGGCTTGGAAATTTTCTGGAGTTCTAATATATTCCAACTCTCTG -d t.idx | vg augment t.vg - -i -m 2 | vg view - | grep ^S | wc -l) 1 "path inclusion does not modify the graph when alignment has a SNP but doesnt meet the coverage threshold"
 
 is $(vg map --seq-name seq -s CAAATAAGGCTTGGAAATTTTCTGGAGTTCTAATATATTCCAACTCTCTG -V read -d t.idx | vg augment t.vg - -i -m 2 -A read_aug.gam | vg view - | grep ^P | awk '{print $3}' | uniq) "1+" "path inclusion does not modify the included path when alignment has a SNP but doesnt meet the coverage threshold"
 
-is $(vg view -a read_aug.gam | jq . | grep edit | wc -l | tr -d ' ') 1 "output GAM has single edit when SNP was filtered out due to coverage"
+is $(vg view -a read_aug.gam | jq . | grep edit | wc -l) 1 "output GAM has single edit when SNP was filtered out due to coverage"
 
-is $(vg map --seq-name seq -s CAAATAAGGCTTGGAAAGGGTTTCTGGAGTTCTATTATATTCCAACTCTCTG -d t.idx | vg augment t.vg - -i | vg view - | grep ^S | wc -l | tr -d ' ') 5 "path inclusion with a complex variant introduces the right number of nodes"
+is $(vg map --seq-name seq -s CAAATAAGGCTTGGAAAGGGTTTCTGGAGTTCTATTATATTCCAACTCTCTG -d t.idx | vg augment t.vg - -i | vg view - | grep ^S | wc -l) 5 "path inclusion with a complex variant introduces the right number of nodes"
 
 # checks that we get a node with the id 4, which is the ref-matching dual to the deletion
-is $(vg map --seq-name seq -s CAAAAAGGCTTGGAAAGGGTTTCTGGAGTTCTATTATATTCCAACTCTCTG -d t.idx | vg augment t.vg - -i | vg view - | grep ^S | grep 4 | grep T | wc -l | tr -d ' ') 1 "path inclusion works for deletions"
+is $(vg map --seq-name seq -s CAAAAAGGCTTGGAAAGGGTTTCTGGAGTTCTATTATATTCCAACTCTCTG -d t.idx | vg augment t.vg - -i | vg view - | grep ^S | grep 4 | grep T | wc -l) 1 "path inclusion works for deletions"
 
-is $(vg map --seq-name seq -s CAAATAAGGCTTGGAAATTTTCTGCAGTTCTATTATATTCCAACTCTCTG -d t.idx | vg augment t.vg - -i | vg view - | grep ^S | wc -l | tr -d ' ') 4 "SNPs can be included in the graph"
+is $(vg map --seq-name seq -s CAAATAAGGCTTGGAAATTTTCTGCAGTTCTATTATATTCCAACTCTCTG -d t.idx | vg augment t.vg - -i | vg view - | grep ^S | wc -l) 4 "SNPs can be included in the graph"
 
 rm t.vg
 rm -rf t.idx.xg t.idx.gcsa read_aug.gam error.txt
@@ -78,14 +78,14 @@ is $(vg augment -i -S t.vg t.gam | vg view - | grep ^S | grep $(vg augment -i -S
 vg align --seq-name seq -s AAATTTTCTGGAGTTCTAT t.vg >> t.gam
 vg find -x t.vg -n 9 -c 1 > n9.vg
 vg augment n9.vg t.gam -s -A n9_aug.gam > /dev/null
-is $(vg view -a n9_aug.gam | wc -l | tr -d ' ') "1" "augment -s works as desired"
+is $(vg view -a n9_aug.gam | wc -l) "1" "augment -s works as desired"
 rm -rf t.vg t.gam n9.vg n9_aug.gam
 
 vg construct -m 1000 -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg -g x.gcsa -k 16 x.vg
 vg map -x x.xg -g x.gcsa -G small/x-s1337-n100-e0.01-i0.005.gam -t 1 >x.gam
 vg augment -Z x.trans -i -S x.vg x.gam >x.mod.vg
-is $(vg view -Z x.trans | wc -l | tr -d ' ') 1290 "the expected graph translation is exported when the graph is edited"
+is $(vg view -Z x.trans | wc -l) 1290 "the expected graph translation is exported when the graph is edited"
 rm -rf x.vg x.xg x.gcsa x.reads x.gam x.mod.vg x.trans
 
 vg construct -m 1000 -r tiny/tiny.fa >flat.vg
@@ -94,7 +94,7 @@ vg index -x 2snp.xg 2snp.vg
 vg sim -s 2323 -l 30 -x 2snp.xg -n 30 -a >2snp.sim
 vg index -x flat.xg -g flat.gcsa -k 16 flat.vg
 vg map -g flat.gcsa -x flat.xg -G 2snp.sim -k 8 >2snp.gam
-is $(vg augment flat.vg 2snp.gam -i -S | vg paths -d -v - | vg mod -n - | vg view - | grep ^S | wc -l | tr -d ' ') 7 "editing the graph with many SNP-containing alignments does not introduce duplicate identical nodes"
+is $(vg augment flat.vg 2snp.gam -i -S | vg paths -d -v - | vg mod -n - | vg view - | grep ^S | wc -l) 7 "editing the graph with many SNP-containing alignments does not introduce duplicate identical nodes"
 
 vg view flat.vg| sed 's/CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG/CAAATAAGGCTTGGAAATTATCTGGAGTTCTATTATATCCCAACTCTCTG/' | vg view -Fv - >2err.vg
 vg sim -s 2323 -l 30 -x 2err.vg -n 10 -a >2err.sim
@@ -120,9 +120,9 @@ echo "+" >> qual.fq
 echo "BBBBBBBBBBBKBBBBBBBBBBBBBBBBBB+BBBBBBBBBBBBBBBBBBB" >> qual.fq
 vg map -g flat.gcsa -x flat.xg -f qual.fq -k 8 > 2qual.gam
 # sanity check:
-is $(vg augment flat.vg 2qual.gam -m 2 | vg view - | grep ^S | wc -l | tr -d ' ') 7 "augmenting with 2snps makes correct number of nodes"
+is $(vg augment flat.vg 2qual.gam -m 2 | vg view - | grep ^S | wc -l) 7 "augmenting with 2snps makes correct number of nodes"
 # test quality filter
-is $(vg augment flat.vg 2qual.gam -m 2 -q 30 | vg view - | grep ^S | wc -l | tr -d ' ') 4 "low-quality snp is filtered"
+is $(vg augment flat.vg 2qual.gam -m 2 -q 30 | vg view - | grep ^S | wc -l) 4 "low-quality snp is filtered"
 
 vg augment flat.vg 2snp.gam | vg view - | grep S | awk '{print $3}' | sort > vg_augment.nodes
 vg convert flat.vg -p > flat.pg
@@ -177,24 +177,24 @@ is "$?" 0 "augmenting between nodes N filter works as expected on reverse strand
 rm -f t.augr1.vg t.augr1.nodes t.augr1f.vg t.augr1f.nodes t.augr1nf.vg t.augr1nf.nodes
 
 vg map --seq-name seq -s CAAATAAGGCTTGGAGGNGGAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG -d t.idx | vg augment t.vg - -N 1 -m 0 > t.aug1.vg
-is $(vg view t.aug1.vg | grep ^S | awk '{print $3}' | grep ^GGNGG | wc -l | tr -d ' ') 1 "augmenting within node without filters works as expected"
+is $(vg view t.aug1.vg | grep ^S | awk '{print $3}' | grep ^GGNGG | wc -l) 1 "augmenting within node without filters works as expected"
 
 vg map --seq-name seq -s CAAATAAGGCTTGGAGGNGGAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG -d t.idx | vg augment t.vg - -N 0.5 -m 1 > t.aug1.vg
-is $(vg view t.aug1.vg | grep ^S | awk '{print $3}' | grep ^GGNGG | wc -l | tr -d ' ') 1 "augmenting within node with inactive filters works as expected"
+is $(vg view t.aug1.vg | grep ^S | awk '{print $3}' | grep ^GGNGG | wc -l) 1 "augmenting within node with inactive filters works as expected"
 
 vg map --seq-name seq -s CAAATAAGGCTTGGAGGNGGAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG -d t.idx | vg augment t.vg - -N 0.1  > t.aug1.vg
-is $(vg view t.aug1.vg | grep ^S | awk '{print $3}' | grep ^GGNGG | wc -l | tr -d ' ') 0 "augmenting within node with N filter  works as expected"
+is $(vg view t.aug1.vg | grep ^S | awk '{print $3}' | grep ^GGNGG | wc -l) 0 "augmenting within node with N filter  works as expected"
 
 rm -f t.aug.nodes t.aug1.vg t.aug1.nodes t.aug1f.vg t.aug1f.nodes t.aug1nf.vg t.aug1nf.nodes
 
 vg map --seq-name seq -s CAGAGAGTTGGAATATAATAGAACTCCAGAAAATTCCNCCTCCAAGCCTTATTTG -d t.idx | vg augment t.vg - -N 1 -m 0 > t.aug1.vg
-is $(vg view t.aug1.vg | grep ^S | awk '{print $3}' | grep ^GGNGG | wc -l | tr -d ' ') 1 "augmenting within node without filters works as expected on reverse strand"
+is $(vg view t.aug1.vg | grep ^S | awk '{print $3}' | grep ^GGNGG | wc -l) 1 "augmenting within node without filters works as expected on reverse strand"
 
 vg map --seq-name seq -s CAGAGAGTTGGAATATAATAGAACTCCAGAAAATTCCNCCTCCAAGCCTTATTTG -d t.idx | vg augment t.vg - -N 0.5 -m 1 > t.aug1.vg
-is $(vg view t.aug1.vg | grep ^S | awk '{print $3}' | grep ^GGNGG | wc -l | tr -d ' ') 1 "augmenting within node with inactive filters works as expected on reverse strand"
+is $(vg view t.aug1.vg | grep ^S | awk '{print $3}' | grep ^GGNGG | wc -l) 1 "augmenting within node with inactive filters works as expected on reverse strand"
 
 vg map --seq-name seq -s CAGAGAGTTGGAATATAATAGAACTCCAGAAAATTCCNCCTCCAAGCCTTATTTG -d t.idx | vg augment t.vg - -N 0.1  > t.aug1.vg
-is $(vg view t.aug1.vg | grep ^S | awk '{print $3}' | grep ^GGNGG | wc -l | tr -d ' ') 0 "augmenting within node with N filter  works as expected on reverse strand"
+is $(vg view t.aug1.vg | grep ^S | awk '{print $3}' | grep ^GGNGG | wc -l) 0 "augmenting within node with N filter  works as expected on reverse strand"
 
 rm -f t.augr1.vg t.augr1.nodes t.augr1f.vg t.augr1f.nodes t.augr1nf.vg t.augr1nf.nodes
 

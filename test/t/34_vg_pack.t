@@ -14,7 +14,7 @@ vg sim -l 30 -x 2snp.xg -n 30 -a >2snp.sim
 vg index -x flat.xg -g flat.gcsa -k 16 flat.vg
 vg map -g flat.gcsa -x flat.xg -G 2snp.sim -k 8 >2snp.gam
 vg pack -x flat.xg -o 2snp.gam.cx -g 2snp.gam -e
-is $(vg pack -x flat.xg -di 2snp.gam.cx -e | tail -n+2 | cut -f 5 | grep -v ^0$ | wc -l | tr -d ' ') 2 "allele observation packing detects 2 SNPs"
+is $(vg pack -x flat.xg -di 2snp.gam.cx -e | tail -n+2 | cut -f 5 | grep -v ^0$ | wc -l) 2 "allele observation packing detects 2 SNPs"
 
 # we replace the comparison to the pileup output, to a snapshot of what it used to be (as pileup is gone)
 vg pack -x flat.xg -o 2snp.gam.snapshot.cx -g pileup/2snp.gam -e

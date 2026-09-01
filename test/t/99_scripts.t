@@ -19,7 +19,7 @@ vg giraffe --track-provenance -Z x.gbz -m x.shortread.withzip.min -z x.shortread
 ../scripts/giraffe-facts.py mapped1.gam facts-out >facts.txt
 
 is "$?" "0" "giraffe-facts.py processes Giraffe output successfully"
-is "$(grep cluster-coverage facts.txt | wc -l | tr -d ' ')" "1" "giraffe-facts.py lists filters used when provenance is tracked"
+is "$(grep cluster-coverage facts.txt | wc -l)" "1" "giraffe-facts.py lists filters used when provenance is tracked"
 rm -f x.vg x-haps.gbwt x-paths.gbwt x-merged.gbwt x.gbz x.giraffe.gbz x.dist x.shortread.withzip.min x.shortread.zipcodes facts.txt mapped1.gam
 rm -Rf facts-out
 

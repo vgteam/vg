@@ -16,12 +16,12 @@ vg pack -x flat.xg -o 2snp.gam.cx -g 2snp.gam
 # total read bases (30 * 30) / total graph bases 50 = 18
 is $(vg depth flat.vg -g 2snp.gam | awk '{print $1}') 18 "vg depth gets correct depth from gam"
 is $(vg depth flat.xg -k 2snp.gam.cx -b 100000 | awk '{print int($4)}') 18 "vg depth gets correct depth from pack"
-is $(vg depth flat.xg -k 2snp.gam.cx -b 10 | wc -l | tr -d ' ') 5 "vg depth gets correct number of bins"
+is $(vg depth flat.xg -k 2snp.gam.cx -b 10 | wc -l) 5 "vg depth gets correct number of bins"
 vg convert flat.vg -G 2snp.gam | gzip > 2snp.gaf.gz
 is $(vg depth flat.vg -a 2snp.gaf.gz | awk '{print $1}') 18 "vg depth gets correct depth from gaf"
 vg augment flat.vg 2snp.gam -i > flat-aug.vg
-is $(vg depth flat-aug.vg | awk '{print $1}' | uniq | wc -l | tr -d ' ') $(vg paths -Lv flat-aug.vg | wc -l | tr -d ' ') "vg depth of paths reports all paths"
-is $(vg depth flat-aug.vg -P x | awk '{print $1}' | uniq | wc -l | tr -d ' ') 1 "vg depth of paths reports just path with selected prefix"
+is $(vg depth flat-aug.vg | awk '{print $1}' | uniq | wc -l) $(vg paths -Lv flat-aug.vg | wc -l) "vg depth of paths reports all paths"
+is $(vg depth flat-aug.vg -P x | awk '{print $1}' | uniq | wc -l) 1 "vg depth of paths reports just path with selected prefix"
 rm -f flat.vg flat.gcsa flat.xg 2snp.vg 2snp.sim 2snp.gam 2snp.gam.cx 2snp.gaf.gz flat-aug.vg
 
 # Build a GBZ with a generic reference 'x' and two haplotype paths from x.vcf samples

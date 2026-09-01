@@ -601,7 +601,10 @@ is $(grep -v "^#" rl_hap_mosaic.tsv | awk -F'\t' '$9 == "?" {n++} END {print n+0
 # must differ from the same run with the layer off.
 vg call x.gbz --read-likelihood --gam sim.gam -d 1 --linkage-weight 0 2>/dev/null | grep -v "^#" > rl_hap_lw0.vcf
 vg call x.gbz --read-likelihood --gam sim.gam -d 1 --linkage-weight 8 --progress 2>rl_hap_lw8.err | grep -v "^#" > rl_hap_lw8.vcf
-HAP_CHANGED=$(grep -o '[0-9]* genotypes changed' rl_hap_lw8.err | awk '{print $1}')
+# "genotypes moved by linkage", not "genotypes changed": the progress line was reworded and this
+# grep kept matching nothing, so HAP_CHANGED defaulted to 0, the implication's antecedent was never
+# true, and the assertion passed on every run without testing anything.
+HAP_CHANGED=$(grep -o '[0-9]* genotypes moved by linkage' rl_hap_lw8.err | awk '{print $1}')
 HAP_CHANGED=${HAP_CHANGED:-0}
 is $(if [ "${HAP_CHANGED}" -eq 0 ] || ! cmp -s rl_hap_lw0.vcf rl_hap_lw8.vcf; then echo 1; else echo 0; fi) "1" \
    "haploid linkage changes reach the VCF rather than being dropped by the genotype guard"
