@@ -748,12 +748,10 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     mappings.reserve(min(alignments.size(), max_multimaps));
     //The scores of the mappings
     vector<double> scores;
-    //The multiplicities of mappings
-    vector<double> multiplicity_by_mapping;
    
     // Collect the chosen mappings, or create the unmapped-read mapping.
     pick_mappings_from_alignments(aln, alignments, multiplicity_by_alignment, alignments_to_source,
-                                  mappings, scores, multiplicity_by_mapping, rng, funnel);
+                                  mappings, scores, rng, funnel);
     
     if (track_provenance) {
         funnel.substage("mapq");
@@ -1958,7 +1956,6 @@ void MinimizerMapper::pick_mappings_from_alignments(const Alignment& aln, const 
                                                     const std::vector<size_t>& alignments_to_source,
                                                     std::vector<Alignment>& mappings,
                                                     std::vector<double>& scores,
-                                                    std::vector<double>& multiplicity_by_mapping,
                                                     LazyRNG& rng,
                                                     Funnel& funnel) const {
     // Look for duplicate alignments by using this collection of node IDs and orientations
@@ -2065,9 +2062,6 @@ void MinimizerMapper::pick_mappings_from_alignments(const Alignment& aln, const 
         
         // Remember the output alignment
         mappings.emplace_back(std::move(alignments[alignment_num]));
-
-        // Remember the multiplicity
-        multiplicity_by_mapping.emplace_back(multiplicity_by_alignment[alignment_num]);
         
         if (track_provenance) {
             // Tell the funnel
@@ -2132,7 +2126,6 @@ void MinimizerMapper::pick_mappings_from_alignments(const Alignment& aln, const 
 
         // Remember the score at its rank even if it won't be output as a multimapping
         scores.emplace_back(alignments[alignment_num].score());
-        multiplicity_by_mapping.emplace_back(multiplicity_by_alignment[alignment_num]);
         
         if (track_provenance) {
             funnel.fail("max-multimaps", alignment_num);
@@ -2156,7 +2149,6 @@ void MinimizerMapper::pick_mappings_from_alignments(const Alignment& aln, const 
 
         scores.emplace_back(0);
         mappings.emplace_back(aln);
-        multiplicity_by_mapping.emplace_back(0);
         
         if (track_provenance) {
             // Tell the funnel

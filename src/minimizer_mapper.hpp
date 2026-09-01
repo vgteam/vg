@@ -935,7 +935,7 @@ protected:
     void pick_mappings_from_alignments(const Alignment& aln, const std::vector<Alignment>& alignments, 
                                        const std::vector<double>& multiplicity_by_alignment, const std::vector<size_t>& alignments_to_source,
                                        std::vector<Alignment>& mappings,
-                                       std::vector<double>& scores, std::vector<double>& multiplicity_by_mapping,
+                                       std::vector<double>& scores,
                                        LazyRNG& rng, Funnel& funnel) const;
 
     /**
