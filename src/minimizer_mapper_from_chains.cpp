@@ -750,7 +750,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     vector<double> scores;
    
     // Collect the chosen mappings, or create the unmapped-read mapping.
-    pick_mappings_from_alignments(aln, alignments, multiplicity_by_alignment, alignments_to_source,
+    pick_mappings_from_alignments(aln, alignments, alignments_to_source,
                                   mappings, scores, rng, funnel);
     
     if (track_provenance) {
@@ -792,7 +792,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         {
             cerr << log_name() << "Scaled scores:";
             for (size_t i = 0; i < scaled_scores.size(); i++) {
-                cerr << " " << scaled_scores[i];
+                cerr << " " << scaled_scores[i] << " (multiplicity " << multiplicity_by_alignment[i] << ")";
                 if (i + 1 < scaled_scores.size()) {
                     cerr << ",";
                 }
@@ -1952,7 +1952,6 @@ void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::ve
 }
 
 void MinimizerMapper::pick_mappings_from_alignments(const Alignment& aln, const std::vector<Alignment>& alignments, 
-                                                    const std::vector<double>& multiplicity_by_alignment,
                                                     const std::vector<size_t>& alignments_to_source,
                                                     std::vector<Alignment>& mappings,
                                                     std::vector<double>& scores,

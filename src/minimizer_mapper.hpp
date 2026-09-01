@@ -933,7 +933,7 @@ protected:
      * If no alignments have a positive score, responsible for creating an unmapped mapping.
      */
     void pick_mappings_from_alignments(const Alignment& aln, const std::vector<Alignment>& alignments, 
-                                       const std::vector<double>& multiplicity_by_alignment, const std::vector<size_t>& alignments_to_source,
+                                       const std::vector<size_t>& alignments_to_source,
                                        std::vector<Alignment>& mappings,
                                        std::vector<double>& scores,
                                        LazyRNG& rng, Funnel& funnel) const;
