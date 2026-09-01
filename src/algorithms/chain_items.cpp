@@ -1007,10 +1007,10 @@ vector<SubchainGroup> find_best_chains(const VectorView<Anchor>& to_chain,
 
     // Get rid of tracebacks that are much, much worse than the best
     for (size_t i = 1; i < tracebacks.size(); i++) {
-        if (tracebacks[i].chain_score < tracebacks.front().chain_score / 20) {
+        if (tracebacks[i].chain_score < tracebacks.front().chain_score / 10) {
 #ifdef debug_chaining
             cerr << "Cutting down to " << i << " tracebacks because a further one has score "
-                 << tracebacks[i].chain_score << " < " << tracebacks.front().chain_score / 20 << endl; 
+                 << tracebacks[i].chain_score << " < " << tracebacks.front().chain_score / 10 << endl; 
 #endif
             // Cut off at this point
             tracebacks.resize(i);
@@ -1037,10 +1037,10 @@ vector<SubchainGroup> find_best_chains(const VectorView<Anchor>& to_chain,
             full_score += tracebacks[i].chain_score;
         }
 
-        if (full_score < tracebacks.front().chain_score / 5) {
+        if (full_score < tracebacks.front().chain_score / 3) {
 #ifdef debug_chaining
             cerr << "Removing traceback at index " << i << " because it has optimal score "
-                 << full_score << " < " << (tracebacks.front().chain_score / 5) << endl; 
+                 << full_score << " < " << (tracebacks.front().chain_score / 3) << endl; 
 #endif
             // Cut off at this point
             tracebacks.erase(tracebacks.begin() + i);
