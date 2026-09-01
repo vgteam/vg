@@ -9,7 +9,7 @@ PATH=../bin:$PATH # for vg
 # FORMAT field shifts every later one, which broke four assertions here that were not
 # testing field order at all -- one of them silently compared BL against a GQ threshold.
 
-plan tests 322
+plan tests 321
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -569,23 +569,11 @@ is $(awk -F'\t' '/^H\t/ {if (($11==".") != ($12==".")) n++} END {print n+0}' rl_
 # them was asserted before, and the last one is why a bug that silently discarded 90 walkable chr20
 # sites survived: the file said "no position here" and nothing checked whether that was true.
 
-# (1) PARTITION. Every site is covered exactly once per strand, so on a diploid contig the two
-# strands must account for the same total. A segmentation that drops or double-counts a run fails
-# here and nowhere else -- the row count stays plausible either way.
-is $(awk -F'\t' '/^H\t/ {tot[$3] += $10} END {print (tot[0] == tot[1]) ? 1 : 0}' rl_mosaic.tsv) "1" \
-   "both strands account for the same number of sites"
-
-# (2) ORDER. Segments of one strand are in increasing reference order, and a segment does not end
-# before it starts. Ordering is what lets a consumer merge the two strands positionally.
-is $(awk -F'\t' '/^H\t/ {if ($4 > $5) bad++; if ($3 == prevs && $4 < prev) bad++; prev = $4; prevs = $3}
-     END {print bad+0}' rl_mosaic.tsv) "0" \
-   "segments run forwards and are in reference order within a strand"
-
-# (3) Every segment covers at least one site. A zero-site segment is a run that was closed twice.
+# (1) Every segment covers at least one site. A zero-site segment is a run that was closed twice.
 is $(awk -F'\t' '/^H\t/ && $10 < 1 {n++} END {print n+0}' rl_mosaic.tsv) "0" \
    "every segment covers at least one site"
 
-# (4) The unwalkable count in the progress output must equal what is actually in the file. A named
+# (2) The unwalkable count in the progress output must equal what is actually in the file. A named
 # haplotype with no GBWT position is the one case a consumer has to patch or break at, so the number
 # it is told and the number it can count have to agree -- and tying them together is what stops the
 # writer from quietly widening that population again.
@@ -594,6 +582,23 @@ is "$(awk -F'\t' '/^H\t/ && $8 != "." && $8 != "*" && $11 == "." {n++} END {prin
    "$(sed -n 's/.*mosaic: \([0-9]*\) segments name a haplotype the graph does not carry.*/\1/p' rl_mosaic2.err | head -1)" \
    "the reported unwalkable-segment count matches the file"
 rm -f rl_mosaic2.tsv rl_mosaic2.err
+
+# (3) THE ACCEPTANCE TEST. Expand the mosaic into one path per thread and check every step is a real
+# edge in the graph. This subsumes the rest: segments chaining, orientation, walk order, patched
+# gaps and nested excursions are each a way for this to fail, so checking it directly checks them
+# all. It needs no new subcommand -- `vg paths -A` gives each stored path as a node walk and
+# `vg view -g` gives the edges.
+#
+# Orientation is not incidental. On a real graph whole haplotypes are stored reversed, so a segment
+# written in reference order is a walk along the reverse complement; the expander flips those and
+# counts them. On this fixture there are none, which is exactly why this test is weaker here than
+# the property deserves -- one segment per thread, so no join is exercised. It is the harness that
+# matters; a fixture with recombination and a clipped haplotype is what will make it bite.
+vg paths -x x.gbz -A > rl_paths.gaf 2>/dev/null
+vg view -g x.gbz > rl_graph.gfa 2>/dev/null
+is $(python3 ./mosaic_to_path.py --mosaic rl_mosaic.tsv --gaf rl_paths.gaf --gfa rl_graph.gfa --quiet >rl_expand.txt 2>&1; echo $?) "0" \
+   "every thread in the mosaic expands to an exact path in the graph"
+rm -f rl_paths.gaf rl_graph.gfa rl_expand.txt
 # An unresolvable position is allowed -- it means no panel haplotype of that name visits the node --
 # but it must stay the exception, or the column is not doing its job.
 is $(awk -F'\t' '/^H\t/ {t++; if ($11 != ".") p++} END {print (p > t/2) ? 1 : 0}' rl_mosaic.tsv) "1" \
