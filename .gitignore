@@ -52,3 +52,10 @@ debug_main.cpp
 /*.gfa
 .vscode/*
 .cache/*
+
+# Outputs of the test suite itself, not fixtures: 18_vg_call.t builds x_subs.vg/.pack at :975-977
+# and `vg autoindex` writes the x.shortread.* pair at :302. All four were committed once by accident.
+test/x_subs.vg
+test/x_subs.pack
+test/x.shortread.withzip.min
+test/x.shortread.zipcodes
