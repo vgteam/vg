@@ -2249,7 +2249,9 @@ void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::ve
                                      seeds[chains[chain_i].back()],
                                      seeds[chains[chain_j].front()],
                                      seeds[chains[chain_j].back()])) {
-                --chain_count_by_alignment[i];
+                // chain i is basically chain j, so don't count it against chain j
+                crash_unless(chain_count_by_alignment[j] > 0);
+                --chain_count_by_alignment[j];
             }
         }
     }
