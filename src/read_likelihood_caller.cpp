@@ -116,7 +116,6 @@ pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> ReadLikelihoodSnarlCaller::
     call_info->mean_best_ln = best_ln_n ? best_ln_total / (double)best_ln_n : 0.0;
 
     call_info->n_informative = matrix.num_reads();
-    call_info->n_unplaceable = matrix.num_unplaceable();
     call_info->scored_traversals.assign(traversals.begin(), traversals.end());
 
     if (dump_stream != nullptr) {
@@ -323,7 +322,6 @@ pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> ReadLikelihoodSnarlCaller::
         // The ploidy-independent half, copied rather than recomputed: allele support and the row
         // divisor are properties of the matrix, not of the genotype enumeration over it.
         alt->n_informative = call_info->n_informative;
-        alt->n_unplaceable = call_info->n_unplaceable;
         alt->scored_traversals = call_info->scored_traversals;
         alt->allele_support = call_info->allele_support;
         // Also ploidy-independent: the mean best raw fit over reads is a property of the matrix.

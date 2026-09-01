@@ -45,41 +45,20 @@ static std::atomic<size_t> g_descent_skipped_no_copy(0);
 /// 2 -- and representing the second copy at all is stage 17's question, deliberately deferred.
 static std::atomic<size_t> g_child_multi_crossing(0);
 
-// Stage 2 of planning/symbolic-diff-decomposition.md: measure, change nothing. Every counter here
+// Measure, change nothing. Every counter here
 // answers a question the plan currently answers with an offline Python proxy over INFO/AT, and the
 // proxy cannot see what the caller sees -- notably that projection is inert for a flipped snarl.
-static std::atomic<size_t> g_atomize_records(0);          // records with a symbolic site and a called ALT
+// Sites that reached tally_atomize at all, so the report can tell "nothing refused" from
+// "this never ran" -- the two look identical in a counter that only counts refusals.
+static std::atomic<size_t> g_atomize_sites(0);
 static std::atomic<size_t> g_atomize_site_unresolvable(0); // flip_snarl left projection with no symbols
 static std::atomic<size_t> g_atomize_site_reversed(0);     // resolved only via the reversed pairing
-static std::atomic<size_t> g_atomize_blocks_hist[16];      // blocks per called ALT, index 15 = 15+
-static std::atomic<size_t> g_atomize_blocks_total(0);
-static std::atomic<size_t> g_atomize_multi_block(0);       // called ALTs a diff splits in two or more
-static std::atomic<size_t> g_atomize_degraded(0);          // DP refused, fell back to one block
-static std::atomic<size_t> g_atomize_case_c(0);            // chain in both alleles, unmatched: the only true double-report
-static std::atomic<size_t> g_atomize_offref_alts(0);       // called ALTs carrying a chain the reference does not cross
-static std::atomic<size_t> g_atomize_offref_bases(0);      // bases those chains account for
-static std::atomic<size_t> g_atomize_alt_bases(0);         // total bases of the ALTs in the line above
-static std::atomic<size_t> g_atomize_small_block_on_sv(0); // a >=50 bp ALT whose diff has a <50 bp block
 // Stage 5: what the emitter actually did, as opposed to what stage 2 says it could do.
 static std::atomic<size_t> g_atomize_split_sites(0);
 static std::atomic<size_t> g_atomize_split_lines(0);
 // Stage 6: chains whose own record is suppressed because a block ALT already spells them.
 static std::atomic<size_t> g_atomize_child_inlined(0);
 
-// --- Haplotype-vs-haplotype structure, for the reference-free phasing design ---------------------
-// Everything the caller does today diffs each haplotype against the REFERENCE. This measures the
-// diff the proposed algorithm needs instead: hap1 against hap2, with no reference involved. The
-// four populations correspond one-to-one with the four steps of that design.
-static std::atomic<size_t> g_hd_sites(0);          // diploid sites with two DISTINCT called travs
-static std::atomic<size_t> g_hd_steps(0);          // symbolic steps summed over both haplotypes
-static std::atomic<size_t> g_hd_lcs(0);            // matched positions: the diploid backbone (step 2)
-static std::atomic<size_t> g_hd_lcs_chains(0);     // chain symbols in the backbone
-static std::atomic<size_t> g_hd_uniq_runs(0);      // maximal unique substrings: haploid chains (step 3)
-static std::atomic<size_t> g_hd_uniq_chains(0);    // chain symbols inside those substrings
-static std::atomic<size_t> g_hd_oo_occ(0);         // chain symbols in BOTH but unmatched (step 4)
-static std::atomic<size_t> g_hd_oo_sites(0);       // sites carrying at least one of those
-static std::atomic<size_t> g_hd_degraded(0);       // DP refused, so no structure to report
-static std::atomic<size_t> g_hd_hist[8];           // out-of-order occurrences per site, 7 = 7+
 
 // Why emit_block_records declined a site, by refusal point. Every one of these means "the site
 // record stands", so this is what "block emission did not fire here" actually consists of -- a
@@ -134,23 +113,15 @@ void GraphCaller::report_descent_instrumentation() const {
 }
 
 void report_atomize_instrumentation() {
-    size_t records = g_atomize_records.load();
     size_t unresolvable = g_atomize_site_unresolvable.load();
-    if (records == 0 && unresolvable == 0) {
+    // Keyed on "did this run at all", not on any refusal counter. 18_vg_call.t reads the two
+    // numbers on the line below and asserts one of them is ZERO on the forward control, so a
+    // condition that goes quiet when nothing refused would make that assertion read an empty
+    // string and pass vacuously.
+    if (g_atomize_sites.load() == 0) {
         return;
     }
 
-    cerr << "[vg call] atomize: " << records << " called ALTs projected, "
-         << g_atomize_blocks_total.load() << " difference blocks, "
-         << g_atomize_multi_block.load() << " ALTs a diff would split (>=2 blocks)" << endl;
-    cerr << "[vg call] atomize blocks/ALT:";
-    for (int b = 0; b < 16; ++b) {
-        size_t n = g_atomize_blocks_hist[b].load();
-        if (n > 0) {
-            cerr << " " << b << (b == 15 ? "+" : "") << "=" << n;
-        }
-    }
-    cerr << endl;
 
     // `unresolvable` is expected to be zero for the ordinary path, where every site is a managed
     // snarl and a reversed one now resolves through the reversed boundary pairing. It is NOT
@@ -163,57 +134,10 @@ void report_atomize_instrumentation() {
          << g_atomize_site_reversed.load()
          << " resolved as the reversal flip_snarl produces" << endl;
 
-    cerr << "[vg call] atomize: " << g_atomize_case_c.load()
-         << " ALTs carrying a chain the reference also crosses but the alignment did not match"
-         << " -- the only population that would be reported twice" << endl;
-
-    size_t offref = g_atomize_offref_alts.load();
-    size_t offref_bases = g_atomize_offref_bases.load();
-    size_t alt_bases = g_atomize_alt_bases.load();
-    cerr << "[vg call] atomize: " << offref
-         << " ALTs carry a chain the reference does not cross, " << offref_bases << " of "
-         << alt_bases << " bases";
-    if (alt_bases > 0) {
-        cerr << " (" << (100.0 * (double)offref_bases / (double)alt_bases) << "%)";
-    }
-    cerr << " -- variation with no record of its own, reachable only inside this allele" << endl;
 
     if (g_atomize_child_inlined.load() > 0) {
         cerr << "[vg call] atomize: " << g_atomize_child_inlined.load()
              << " child chains not descended into because a block ALT already spells them" << endl;
-    }
-    if (g_hd_sites.load() > 0) {
-        const size_t sites = g_hd_sites.load();
-        cerr << "[vg call] hap-vs-hap: " << sites
-             << " diploid sites with two distinct called traversals, "
-             << g_hd_steps.load() << " symbolic steps over both haplotypes; backbone (LCS) "
-             << g_hd_lcs.load() << " matched positions of which " << g_hd_lcs_chains.load()
-             << " are chain symbols" << endl;
-        cerr << "[vg call] hap-vs-hap: " << g_hd_uniq_runs.load()
-             << " maximal unique substrings (" << (double)g_hd_uniq_runs.load() / (double)sites
-             << " a site) carrying " << g_hd_uniq_chains.load() << " chain symbols" << endl;
-        cerr << "[vg call] hap-vs-hap: " << g_hd_oo_occ.load()
-             << " chain symbols shared by both haplotypes that the alignment could not match, on "
-             << g_hd_oo_sites.load() << " sites (" << (100.0 * (double)g_hd_oo_sites.load()
-                                                      / (double)sites)
-             << "% of them)";
-        if (g_hd_degraded.load() > 0) {
-            cerr << "; " << g_hd_degraded.load() << " sites the DP refused";
-        }
-        cerr << endl;
-        bool any = false;
-        for (size_t k = 1; k < 8; ++k) {
-            if (g_hd_hist[k].load() > 0) {
-                if (!any) {
-                    cerr << "[vg call] hap-vs-hap: unmatched shared chains a site:";
-                    any = true;
-                }
-                cerr << " " << (k == 7 ? "7+" : std::to_string(k)) << "=" << g_hd_hist[k].load();
-            }
-        }
-        if (any) {
-            cerr << endl;
-        }
     }
     {
         // One line, listing only the reasons that fired. A refusal with no population is not news;
@@ -240,12 +164,6 @@ void report_atomize_instrumentation() {
         cerr << "[vg call] atomize: " << g_atomize_split_sites.load()
              << " sites emitted as blocks instead of one record, " << g_atomize_split_lines.load()
              << " lines" << endl;
-    }
-    if (g_atomize_small_block_on_sv.load() > 0 || g_atomize_degraded.load() > 0) {
-        cerr << "[vg call] atomize: " << g_atomize_small_block_on_sv.load()
-             << " ALTs >=50 bp whose diff contains a block under 50 bp (truvari size-filter"
-             << " exposure), " << g_atomize_degraded.load() << " alignments refused as too large"
-             << endl;
     }
 }
 
@@ -1071,13 +989,6 @@ void VCFOutputCaller::write_variants(ostream& out_stream, const SnarlManager* sn
 
 
     for (const auto& v : all_variants) {
-        if (v.second.empty()) {
-            // A tombstone: the barrier retracted or replaced this line in place, by the handle it
-            // captured at emit time. Identifying stale lines here by re-hashing the ID column and
-            // counting GT separators mistook a phased haploid replacement ("1|.") for a diploid
-            // line, and was gated on sets that could be empty while replacements existed.
-            continue;
-        }
         string dest;
         int ret = zstdutil::DecompressString(v.second, dest);
         assert(ret == 0);
@@ -2214,126 +2125,16 @@ bool VCFOutputCaller::is_symbolically_reference(const vector<SnarlTraversal>& ca
 }
 
 
-/// Stage-2 instrumentation for planning/symbolic-diff-decomposition.md. Projects the reference and
+/// Instrumentation for block emission. Projects the reference and
 /// each distinct called ALT traversal, aligns them, and tallies. Writes only atomics and reads
 /// nothing it can alter, so a run with this compiled in is byte-identical to one without.
-/// Hap1 against hap2, with no reference in it. See the counters above: this is the structure the
-/// reference-free phasing design is built on, measured on the alignment the current code never
-/// computes. Writes only atomics, so a run with this compiled in is byte-identical to one without.
-/// A column index for every step of two aligned symbolic alleles.
-///
-/// The alignment of two traversals is a total order over the union of their steps: a matched pair is
-/// one column, and each side of a difference block gets columns of its own. That order is what a
-/// nested chain's place in the parent's diploid sequence *is*, and unlike reference position it is
-/// defined for a chain only one haplotype crosses.
-///
-/// False when the alignment degraded to one whole-allele block, which orders nothing.
-
-static void tally_haplotype_diff(const SnarlManager* mgr, const Snarl& snarl,
-                                 const vector<SnarlTraversal>& travs, const vector<int>& genotype) {
-    if (mgr == nullptr || genotype.size() != 2) {
-        return;
-    }
-    const int a = genotype[0], b = genotype[1];
-    if (a < 0 || b < 0 || a == b || (size_t)a >= travs.size() || (size_t)b >= travs.size()) {
-        return;   // hom, or a star/missing slot: no two haplotypes to compare
-    }
-    if (!symbolic_site_resolvable(snarl, *mgr)) {
-        return;
-    }
-    SymbolicAllele h1 = symbolic_allele(travs[a], snarl, *mgr);
-    SymbolicAllele h2 = symbolic_allele(travs[b], snarl, *mgr);
-    if (h1.empty() || h2.empty()) {
-        return;
-    }
-    bool degraded = false;
-    vector<DiffBlock> blocks = symbolic_diff(h1, h2, &degraded);
-    if (degraded) {
-        ++g_hd_degraded;
-        return;
-    }
-    ++g_hd_sites;
-    g_hd_steps += h1.size() + h2.size();
-
-    // The matched runs are the gaps between difference blocks, and they pair position for position:
-    // that pairing IS the longest common subsequence this alignment found.
-    map<pair<pair<nid_t, nid_t>, bool>, size_t> matched_chain;
-    size_t lcs = 0, lcs_chains = 0, uniq_runs = 0, uniq_chains = 0;
-    size_t i = 0, j = 0;
-    auto walk_matched = [&](size_t to_i, size_t to_j) {
-        while (i < to_i && j < to_j) {
-            ++lcs;
-            if (h1[i].is_chain()) {
-                ++lcs_chains;
-                ++matched_chain[make_pair(make_pair(h1[i].id, h1[i].end_id), h1[i].backward)];
-            }
-            ++i;
-            ++j;
-        }
-        i = to_i;
-        j = to_j;
-    };
-    for (const DiffBlock& d : blocks) {
-        walk_matched((size_t)d.ref_begin, (size_t)d.alt_begin);
-        // One maximal unique substring per non-empty side of the block, which is exactly what the
-        // design calls a haploid chain.
-        if (d.ref_end > d.ref_begin) {
-            ++uniq_runs;
-            for (int k = d.ref_begin; k < d.ref_end; ++k) {
-                uniq_chains += h1[k].is_chain() ? 1 : 0;
-            }
-        }
-        if (d.alt_end > d.alt_begin) {
-            ++uniq_runs;
-            for (int k = d.alt_begin; k < d.alt_end; ++k) {
-                uniq_chains += h2[k].is_chain() ? 1 : 0;
-            }
-        }
-        i = (size_t)d.ref_end;
-        j = (size_t)d.alt_end;
-    }
-    walk_matched(h1.size(), h2.size());
-
-    // Step 4: a chain symbol the two haplotypes SHARE that the alignment could not match, because
-    // matching it would have crossed another match. min(n1, n2) copies exist on both sides; the ones
-    // the LCS did not pair are the out-of-order diploid elements.
-    map<pair<pair<nid_t, nid_t>, bool>, pair<size_t, size_t>> counts;
-    for (const SymbolicStep& s : h1) {
-        if (s.is_chain()) {
-            ++counts[make_pair(make_pair(s.id, s.end_id), s.backward)].first;
-        }
-    }
-    for (const SymbolicStep& s : h2) {
-        if (s.is_chain()) {
-            ++counts[make_pair(make_pair(s.id, s.end_id), s.backward)].second;
-        }
-    }
-    size_t out_of_order = 0;
-    for (const auto& kv : counts) {
-        const size_t both = std::min(kv.second.first, kv.second.second);
-        auto m = matched_chain.find(kv.first);
-        const size_t paired = m == matched_chain.end() ? 0 : m->second;
-        if (both > paired) {
-            out_of_order += both - paired;
-        }
-    }
-    g_hd_lcs += lcs;
-    g_hd_lcs_chains += lcs_chains;
-    g_hd_uniq_runs += uniq_runs;
-    g_hd_uniq_chains += uniq_chains;
-    if (out_of_order > 0) {
-        ++g_hd_oo_sites;
-        g_hd_oo_occ += out_of_order;
-        ++g_hd_hist[std::min<size_t>(out_of_order, 7)];
-    }
-}
-
 static void tally_atomize(const PathPositionHandleGraph& graph, const SnarlManager* mgr,
                           const Snarl& snarl, const vector<SnarlTraversal>& travs,
                           const vector<int>& genotype, int ref_trav_idx) {
     if (mgr == nullptr || ref_trav_idx < 0 || (size_t)ref_trav_idx >= travs.size()) {
         return;
     }
+    ++g_atomize_sites;
     bool site_reversed = false;
     if (!symbolic_site_resolvable(snarl, *mgr, &site_reversed)) {
         // Projection would report a bare node list here, so a block count from it would measure
@@ -2349,97 +2150,6 @@ static void tally_atomize(const PathPositionHandleGraph& graph, const SnarlManag
         ++g_atomize_site_reversed;
     }
 
-    vector<pair<int, int>> ref_ranges;
-    SymbolicAllele sref = symbolic_allele(travs[ref_trav_idx], snarl, *mgr, &ref_ranges);
-
-    // Which chains the reference itself crosses, so an unmatched chain the reference also visits
-    // (double-reportable) can be told from one it never visits (reportable only inside this allele).
-    set<pair<nid_t, nid_t>> ref_chains;
-    for (const SymbolicStep& s : sref) {
-        if (s.is_chain()) {
-            ref_chains.emplace(s.id, s.end_id);
-        }
-    }
-
-    auto span_bases = [&](const SnarlTraversal& t, const vector<pair<int, int>>& ranges,
-                          int step_begin, int step_end) -> size_t {
-        size_t n = 0;
-        for (int k = step_begin; k < step_end && k < (int)ranges.size(); ++k) {
-            for (int v = ranges[k].first; v < ranges[k].second && v < t.visit_size(); ++v) {
-                const Visit& vis = t.visit(v);
-                if (vis.node_id() > 0) {
-                    n += graph.get_length(graph.get_handle(vis.node_id()));
-                }
-            }
-        }
-        return n;
-    };
-
-    set<int> seen;
-    for (int gt : genotype) {
-        if (gt < 0 || gt == ref_trav_idx || (size_t)gt >= travs.size()) {
-            continue;
-        }
-        if (!seen.insert(gt).second) {
-            continue;
-        }
-
-        vector<pair<int, int>> alt_ranges;
-        SymbolicAllele salt = symbolic_allele(travs[gt], snarl, *mgr, &alt_ranges);
-
-        bool degraded = false;
-        vector<DiffBlock> blocks = symbolic_diff(sref, salt, &degraded);
-        if (degraded) {
-            ++g_atomize_degraded;
-        }
-
-        ++g_atomize_records;
-        g_atomize_blocks_total += blocks.size();
-        ++g_atomize_blocks_hist[std::min<size_t>(blocks.size(), 15)];
-        if (blocks.size() >= 2) {
-            ++g_atomize_multi_block;
-        }
-
-        size_t alt_total = span_bases(travs[gt], alt_ranges, 0, (int)salt.size());
-        bool any_offref = false;
-        bool any_case_c = false;
-        size_t offref_bases = 0;
-        size_t smallest_block = std::numeric_limits<size_t>::max();
-
-        for (const DiffBlock& b : blocks) {
-            size_t rb = span_bases(travs[ref_trav_idx], ref_ranges, b.ref_begin, b.ref_end);
-            size_t ab = span_bases(travs[gt], alt_ranges, b.alt_begin, b.alt_end);
-            smallest_block = std::min(smallest_block, std::max(rb, ab));
-            for (int k = b.alt_begin; k < b.alt_end && k < (int)salt.size(); ++k) {
-                if (!salt[k].is_chain()) {
-                    continue;
-                }
-                if (ref_chains.count(make_pair(salt[k].id, salt[k].end_id))) {
-                    any_case_c = true;
-                } else {
-                    any_offref = true;
-                    offref_bases += span_bases(travs[gt], alt_ranges, k, k + 1);
-                }
-            }
-        }
-        if (any_case_c) {
-            ++g_atomize_case_c;
-        }
-        if (any_offref) {
-            ++g_atomize_offref_alts;
-            g_atomize_offref_bases += offref_bases;
-            g_atomize_alt_bases += alt_total;
-        }
-        // Only a genuine split can move a variant across truvari's 50 bp filter. A single block
-        // spans everything but the two boundary steps, so comparing it against the whole
-        // traversal's length measures how long the boundary nodes are and nothing else -- which is
-        // what the first version of this counter did, reporting 74,885 of 115,996 ALTs as
-        // "exposed" when the real exposure cannot exceed the number of ALTs that split at all.
-        if (blocks.size() >= 2 && alt_total >= 50 &&
-            smallest_block != std::numeric_limits<size_t>::max() && smallest_block < 50) {
-            ++g_atomize_small_block_on_sv;
-        }
-    }
 }
 
 /// A nested haploid genotype: one allele on a named strand, with "." on the other.
@@ -2836,8 +2546,8 @@ int VCFOutputCaller::emit_block_records(const PathPositionHandleGraph& graph, co
         }
 
         // AD and GL are looked up through site_of_block rather than recomputed. Every block of a
-        // snarl therefore reports the same evidence, which is honest only about arity: see D2 in
-        // planning/symbolic-diff-decomposition.md. INFO/SB is what makes the replicated set
+        // snarl therefore reports the same evidence, which is honest only about arity.
+        // INFO/SB is what makes the replicated set
         // recoverable by a consumer that must not double-count it.
         auto& fmt = b_var.samples[sample_name];
         auto site_fmt = site.samples.find(sample_name);
@@ -2949,12 +2659,6 @@ bool VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCa
     // Stale from the previous emit on this thread until this one fills it in. Cleared rather than
     // left, so a descent after an emit that wrote nothing cannot read the last snarl's mapping.
     last_emitted.valid = false;
-    last_emitted.num_alleles = 0;
-    last_emitted.trav_to_allele.clear();
-    last_emitted.contig.clear();
-    last_emitted.position = 0;
-    last_emitted.buffer_thread = -1;
-    last_emitted.buffer_index = 0;
 
     if (trav_to_string == nullptr) {
         trav_to_string = [&](const vector<SnarlTraversal>& travs, const vector<int>& travs_genotype, int trav_allele, int genotype_allele, int ref_trav_idx) {
@@ -3017,7 +2721,6 @@ bool VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCa
     }
 
     tally_atomize(graph, symbolic_manager, snarl, called_traversals, genotype, ref_trav_idx);
-    tally_haplotype_diff(symbolic_manager, snarl, called_traversals, genotype);
 
     // add on fixed number of uncalled traversals if we're making a ref-call
     // with genotype_snarls set to true
@@ -3169,7 +2872,6 @@ bool VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCa
                 // it last. Same fields and same values either way, but every line differs, which
                 // costs the byte comparison against the previous arm for no gain.
                 phase_set_to_write = (int64_t)phase.phase_set;
-                ++phased_records;
             } else {
                 ++phase_declined;
             }
@@ -3245,16 +2947,6 @@ bool VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCa
     // descend into, which is the case nested calling exists for.
     if (symbolic_manager != nullptr) {
         last_emitted.valid = true;
-        last_emitted.num_alleles = out_variant.alleles.size();
-        last_emitted.trav_to_allele.clear();
-        for (const auto& kv : trav_to_allele) {
-            last_emitted.trav_to_allele.emplace(kv.first, kv.second);
-        }
-        // Post-flatten, which is the point: this is the (contig, POS) add_variant keys the line
-        // under, so a linkage entry recorded from these is one write_variants can actually find.
-        // get_ref_position reproduces the pre-flatten value and must not be used for this.
-        last_emitted.contig = out_variant.sequenceName;
-        last_emitted.position = out_variant.position;
     }
 
     // One record per difference block, where that changes the answer. Placed here on purpose: the
@@ -3280,12 +2972,6 @@ bool VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCa
     bool added = false;
     if (wants_line) {
         added = add_variant(out_variant);
-        if (added) {
-            // Exactly which buffered line this record became, so the barrier can retract or
-            // replace it without re-deriving its identity from the text.
-            last_emitted.buffer_thread = omp_get_thread_num();
-            last_emitted.buffer_index = output_variants[omp_get_thread_num()].size() - 1;
-        }
     }
     // The linkage layer is fed whether or not a line exists, which is the whole of stage 2.
     //
@@ -4716,12 +4402,6 @@ int FlowCaller::crossings_of_child(const SnarlTraversal& trav, const Snarl& chil
 }
 
 
-/// Stage 14 instrumentation, inert: does the haplotype frame reorder or re-space adjacent sites?
-///
-/// Aggregated rather than stored. The stage's off-ramp is a decision about whether stage 15 should
-/// carry per-haplotype distances at all, and that decision needs distributions, not per-site fields
-/// -- so nothing is added to `Entry` or to `record()` until the answer says it is worth it.
-
 uint64_t FlowCaller::child_crossing_mask(const vector<SnarlTraversal>& travs,
                                          const Snarl& child, bool* known) {
     if (known != nullptr) {
@@ -4749,8 +4429,6 @@ uint64_t FlowCaller::child_crossing_mask(const vector<SnarlTraversal>& travs,
 
 int FlowCaller::child_ploidy(const vector<SnarlTraversal>& travs, const vector<int>& genotype,
                              const Snarl& child, int cap) const {
-    const nid_t start = child.start().node_id();
-    const nid_t end = child.end().node_id();
     int copies = 0;
     bool capped = false;
 
@@ -4767,7 +4445,7 @@ int FlowCaller::child_ploidy(const vector<SnarlTraversal>& travs, const vector<i
     }
     if (capped) {
         // Counted, not printed per occurrence. Masking visits after the first is a decision, not an
-        // accident (see planning/decide-then-render.md 15'), and the size of what it masks is the
+        // accident, and the size of what it masks is the
         // size of the deferred copy-number question -- so it needs a number reported once a run, not
         // a line per site gated on --progress that has to be grepped out of 24 logs. Measured that
         // way: 0 on chr20, 242 on chrX.
@@ -4816,7 +4494,7 @@ size_t FlowCaller::render_record_count() const {
 unique_ptr<FlowCaller::PendingRecord> FlowCaller::stage_render_record(
         const Snarl& snarl, const vector<int>& trav_genotype, int ref_trav_idx,
         unique_ptr<SnarlCaller::CallInfo>& call_info,
-        const string& ref_path_name, int ref_offset, int ploidy, bool emitted) {
+        const string& ref_path_name, int ref_offset, int ploidy) {
     if (render_records.empty()) {
         return nullptr;
     }
@@ -4829,7 +4507,6 @@ unique_ptr<FlowCaller::PendingRecord> FlowCaller::stage_render_record(
     rec->ploidy = ploidy;
     rec->record_key = record_key_of(snarl);
     rec->generation = 0;
-    rec->emitted = emitted;
     rec->call_info = std::move(call_info);
     // `travs` is NOT taken here. Descent runs after every emit branch, top-level included, and reads
     // `travs` to work out which children the called alleles reach -- so moving it out at emit time
@@ -5014,19 +4691,6 @@ void FlowCaller::run_deferred_descent() {
         queue.clear();
     }
 
-    // Blank the exact line the sweep buffered for a chain, so a retraction leaves nothing and a
-    // replacement leaves exactly one copy. The handle was captured at emit time; identifying the
-    // line later by re-hashing its ID column and counting GT separators mistook a phased haploid
-    // replacement ("1|.") for a diploid line, and its gate could be closed while replacements
-    // existed -- both lines then reached the output.
-    auto blank_buffered_line = [&](PendingRecord& pr) {
-        if (pr.buffer_thread >= 0 && (size_t)pr.buffer_thread < output_variants.size()
-            && pr.buffer_index < output_variants[pr.buffer_thread].size()) {
-            output_variants[pr.buffer_thread][pr.buffer_index].second.clear();
-        }
-        pr.buffer_thread = -1;
-    };
-
     // parent record key -> indices of its pending children, so that dropping a chain can drop
     // everything under it. Built once: `pending` does not grow during the barrier.
     unordered_map<size_t, vector<size_t>> children_of;
@@ -5070,10 +4734,6 @@ void FlowCaller::run_deferred_descent() {
             victim.dropped = true;
             if (linkage_collector != nullptr && linkage_collector->retract(victim.record_key)) {
                 ++dropped_here;
-            }
-            if (victim.emitted) {
-                blank_buffered_line(victim);
-                victim.emitted = false;
             }
             auto kids = children_of.find(victim.record_key);
             if (kids != children_of.end()) {
@@ -5422,10 +5082,6 @@ void FlowCaller::run_deferred_descent() {
         // "Not revised by the barrier" rather than "top-level": recurse-on-fail reaches children with
         // no ploidy override, so they take the same path. On chr20 that is 165,408 top-level snarls
         // plus 26,799 such children.
-        // Stage 14's off-ramp, printed so the decision rests on numbers rather than on whether
-        // the frame sounds like it should matter. The criteria were fixed before the measurement:
-        // if under 1% of adjacent pairs reorder AND 99% of gap ratios sit inside 1.05, the
-        // haplotype frame buys nothing measurable and stage 15 drops its distance half.
         cerr << "[vg call] retained for rendering: " << render_record_count()
              << " snarls the barrier will not revise, plus " << pending.size()
              << " nested chains; " << (retained_bytes / (1024.0 * 1024.0)) << " MB over "
@@ -5897,8 +5553,7 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
             record_site(snarl, travs, trav_genotype, trav_call_info, ref_path_name,
                         ref_offset_of(ref_offsets, ref_path_name));
             render_this = stage_render_record(snarl, trav_genotype, ref_trav_idx, trav_call_info,
-                                              ref_path_name, ref_offset_of(ref_offsets, ref_path_name), ploidy,
-                                              true);
+                                              ref_path_name, ref_offset_of(ref_offsets, ref_path_name), ploidy);
             added = render_this != nullptr;
             if (!added) {
                 added = emit_variant(graph, snarl_caller, snarl, travs, trav_genotype, ref_trav_idx,
@@ -6025,10 +5680,6 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
                 no_ref_position ? get<0>(ref_interval) + ref_offset_of(ref_offsets, ref_path_name) : 0;
             pending_this->crossing_known = nested_context.crossing_known;
             pending_this->generation = (uint8_t)min(current_generation, (size_t)255);
-            // Nothing is written for a nested chain during the sweep any more, so there is no
-            // line to record the whereabouts of and nothing for the barrier to retract or replace.
-            // The record is written once, by the render pass, from the settled genotype.
-            pending_this->emitted = false;
             pending_this->call_info = std::move(trav_call_info);
         }
         ret_val = trav_genotype.size() == ploidy && added;
@@ -6049,8 +5700,7 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
             record_site(snarl, travs, trav_genotype, trav_call_info, ref_path_name,
                         ref_offset_of(ref_offsets, ref_path_name));
             render_this = stage_render_record(snarl, trav_genotype, ref_trav_idx, trav_call_info,
-                                              ref_path_name, ref_offset_of(ref_offsets, ref_path_name), ploidy,
-                                              true);
+                                              ref_path_name, ref_offset_of(ref_offsets, ref_path_name), ploidy);
             added = render_this != nullptr;
             if (!added) {
                 added = emit_variant(graph, snarl_caller, snarl, travs, trav_genotype, ref_trav_idx,
@@ -6110,7 +5760,7 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
             // `emit_phasing` belongs in the test even though the option layer refuses the one
             // configuration that would fail it: deferral reads the settled allele pair out of the
             // phasing, so without phasing a deferred child is one whose parent cannot be found, and
-            // `descend_pending` would drop it. Kept here so the invariant is a property of this code
+            // dropping the subtree would drop it. Kept here so the invariant is a property of this code
             // rather than of a check somewhere else.
 
             for (const Snarl* child : snarl_manager.children_of(managed_ptr)) {
@@ -6154,17 +5804,11 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
                 //
                 // NOT inert on the default path, which is what the first version of this change
                 // assumed: `--atomize-blocks` is ON by default under `--read-likelihood`, and the
-                // rule holds back 391 chains on chr20. VG_CALL_INLINE_SKIPS_DESCENT restores the
-                // old behaviour, so one binary produces both arms and the deletions around this can
-                // still be gated on byte-identity.
-                static const bool inline_skips_descent =
-                    getenv("VG_CALL_INLINE_SKIPS_DESCENT") != nullptr;
+                // rule held back 391 chains on chr20 -- every one of which is now genotyped,
+                // recorded and phased, and suppressed at the render hand-off instead.
                 bool child_reported_inline =
                     nested_context.reported_inline
                     || chain_reported_inline(snarl, travs, trav_genotype, ref_trav_idx, *child);
-                if (inline_skips_descent && child_reported_inline) {
-                    continue;
-                }
 
                 int copies = child_ploidy(travs, trav_genotype, *child, ploidy);
                 bool retain_only = nested_context.retain_only;

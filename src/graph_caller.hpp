@@ -176,7 +176,7 @@ struct BufferedRecordKey {
 /// checked -- the in-tree TAP fixtures produce no ties at all.
 bool buffered_record_key_less(const BufferedRecordKey& a, const BufferedRecordKey& b);
 
-/// Stage 2 of planning/symbolic-diff-decomposition.md: what a symbolic diff would decompose,
+/// What a symbolic diff would decompose,
 /// measured from inside the caller rather than from INFO/AT offline. Output-neutral.
 ///
 /// Must be called at the END of write_variants, not from the descent report. Most records are
@@ -224,7 +224,6 @@ public:
 
     /// True when any override was loaded. Lookups are skipped when false, so a run without the
     /// option pays nothing for this.
-    bool has_ploidy_regions() const { return !ploidy_regions.empty(); }
 
     /// Ploidy at this reference position, or `fallback` where no interval covers it. `position` is
     /// a 0-based offset along the contig, the same coordinate system as the BED and as the VCF POS
@@ -249,8 +248,10 @@ public:
                      const vector<size_t>* sequence_to_haplotype);
 
     /// Emit phased genotypes (`0|1`) and a FORMAT/PS phase set, from the linkage layer's Viterbi
-    /// path. Off by default: it changes the GT of every record, which a naive parser may treat
-    /// differently, so it rides with the feature rather than appearing unasked.
+    /// path.
+    ///
+    /// On wherever the linkage layer runs, and declines with it. An explicit --phased against a
+    /// disabled layer is an error rather than a silently unphased file.
     void set_emit_phasing(bool on) { this->emit_phasing = on; }
 
     /// Where to write the run-length-encoded mosaic, if anywhere. Implies phasing.
@@ -320,21 +321,19 @@ public:
     void set_symbolic_collapsing(const SnarlManager* manager) { this->symbolic_manager = manager; }
 
     /// Emit one record per difference block between the reference and each called haplotype's
-    /// symbolic allele, instead of one record per snarl. See
-    /// planning/symbolic-diff-decomposition.md. Off by default, and refused outright rather than
-    /// silently declined for the configurations it cannot serve.
+    /// symbolic allele, instead of one record per snarl.
+    ///
+    /// On by default under --read-likelihood. Declines silently on the calling paths that cannot
+    /// serve it, and an explicit --atomize-blocks there is an error rather than a no-op.
     void set_atomize_blocks(bool on) { this->atomize_blocks = on; }
 
 protected:
 
-    /// True when this called traversal takes the same route through the snarl as the reference and
-    /// differs only inside child chains. False whenever symbolic collapsing is off, so the default
-    /// path is unchanged.
     /// Whether `child` is already reported by this snarl's own records, because every called
     /// haplotype crosses it only inside a difference block whose ALT spells the route through it.
     ///
-    /// This is the exactly-once rule from planning/symbolic-diff-decomposition.md. Its population
-    /// is narrow: a chain the reference does not cross is not descended into at all (the caller
+    /// This is the exactly-once rule that block emission needs. Its population is narrow: a chain
+    /// the reference does not cross is not descended into at all (the caller
     /// gates on that separately), and a genotype carrying the reference allele matches the chain by
     /// definition. What is left is a snarl called with no reference allele where the alignment
     /// matched the chain on neither haplotype -- loops and reorderings.
@@ -342,6 +341,9 @@ protected:
                                const vector<int>& genotype, int ref_trav_idx,
                                const Snarl& child) const;
 
+    /// True when this called traversal takes the same route through the snarl as the reference and
+    /// differs only inside child chains. False whenever symbolic collapsing is off, so the
+    /// support-caller path is unchanged.
     bool is_symbolically_reference(const vector<SnarlTraversal>& called_traversals,
                                    int trav_idx, int ref_trav_idx, const Snarl& snarl) const;
 
@@ -358,17 +360,17 @@ protected:
     struct NestedContext {
         bool active = false;
         size_t parent_record_key = 0;
-        /// The parent traversal this child hangs off, or -1 when the parent does not carry it on
-        /// exactly one. The traversal itself, not the strand it sits at: the strand is whichever
-        /// haplotype that traversal is phased onto, looked up when the parent is phased.
-        /// One bit per parent VCF allele, set where that allele crosses this child chain. Zero
-        /// means descent could not express it -- more than 64 alleles at the parent -- and must be
-        /// read as unknown rather than as none.
+        /// One bit per parent candidate TRAVERSAL, set where that traversal crosses this child
+        /// chain. Zero with `crossing_known` false means descent could not express it -- more than
+        /// 64 traversals at the parent -- and must be read as unknown rather than as none.
         ///
-        /// Linkage uses it to check that the ploidy this child was called at survives the parent's
-        /// *final* genotype, which the slot above cannot answer: the slot names one strand, where the
-        /// question is whether both called parent alleles cross the child, neither does, or one does.
-        /// See LinkageCollector::resolve.
+        /// Traversals, not VCF alleles: the two agree only when every allele at the parent is
+        /// panel-carried, and testing the allele index instead retracted 3,615 chains on chr20
+        /// against a true 190.
+        ///
+        /// Linkage reads it to decide how many copies of the chain the parent's *final* genotype
+        /// carries -- both traversals, one, or neither -- which is the same fact as which strand the
+        /// chain sits on. See LinkageCollector::resolve.
         uint64_t parent_crossing = 0;
         /// True when this chain, and everything under it, must be genotyped but not emitted.
         ///
@@ -393,8 +395,6 @@ protected:
         /// about lines belongs. Inherited: everything inside a chain a block already spelled out is
         /// spelled out by that block too.
         bool reported_inline = false;
-        /// The index of the chain member being descended into, within its chain. Set beside the
-        /// other per-child facts before the recursive call, and read by that child for its own
         /// Identity of the chain being descended into, from its boundary pair. The decode
         /// groups on this: sibling chains have no transition between them, so a chain must be
         /// distinguishable from its siblings and nothing more, which is why nothing here says
@@ -417,22 +417,12 @@ protected:
     /// alleles are deduplicated by string and symbolically-reference traversals all collapse onto
     /// allele 0. Thread-local and read immediately after the emit that filled it, for the same
     /// reason nested_context is.
+    /// Whether the last emit on this thread described a real record, so a child descending from it
+    /// can tell "my parent's traversals are in hand" from "last_emitted still holds some other
+    /// snarl". That is the whole of what survives: the allele map, contig, POS and buffer handle
+    /// this once carried were each written on every emit and read by nothing.
     struct EmittedAlleles {
         bool valid = false;
-        size_t num_alleles = 0;
-        map<int, int> trav_to_allele;
-        /// The contig and POS the record was actually written with -- after
-        /// flatten_common_allele_ends has moved POS -- which is the key add_variant files the line
-        /// under. A linkage entry recorded from anything else (get_ref_position, say) sits at the
-        /// pre-flatten position and write_variants' lookup never finds it.
-        string contig;
-        size_t position = 0;
-        /// Where add_variant buffered the line, so the barrier can retract or replace that exact
-        /// line instead of re-identifying it by hashing the ID column and counting GT separators.
-        /// buffer_thread is -1 when the emit buffered nothing: the line was rejected for length, or
-        /// the record flattened to nothing and emit_variant returned true without writing.
-        int buffer_thread = -1;
-        size_t buffer_index = 0;
     };
     static thread_local EmittedAlleles last_emitted;
 
@@ -526,11 +516,6 @@ protected:
     /// all the cache was measured to help with, and residency is bounded to about one window.
     mutable vector<nid_t> linkage_gbwt_cache_anchor;
 
-    /// Patches declined specifically because they named an allele beyond the record's ALT list, as
-    /// opposed to declined for describing a genotype the record does not carry. The two mean
-    /// different things -- the first is the traversal/VCF numbering gap, the second is a patch that
-    /// found the wrong record -- so they are counted apart.
-
     /// Quality rewrites the record refused -- a malformed FORMAT, essentially. Counted rather than
     /// silent, because a record that keeps its per-site GQ where the model moved its genotype is
     /// differently calibrated and nothing else would say so.
@@ -545,28 +530,17 @@ protected:
 
     /// Records phased while being rendered, and phases refused because the record did not carry a
     /// permutation of the phased pair.
-    mutable std::atomic<size_t> phased_records{0};
     mutable std::atomic<size_t> phase_declined{0};
 
     /// Fill `render_phases` from the resolved phasing. Called between the barrier and the render.
     void build_render_phases();
 
 
-    ///
-    /// Returns false when the line is left untouched: the genotype being replaced is not the one
-    /// this change was derived from, or the replacement names an allele the record has no ALT for.
-    /// Refusing is always safe -- the line keeps its per-site call, which is a real answer -- and
-    /// the count is reported, because a patch that silently does nothing is how the linkage layer
-    /// once dropped every haploid correction it made.
     /// Rewrite a rendered record's quality from the linkage posterior: GQ becomes the phred
     /// complement, discounted by the explained-read share and capped at GQI, GQN is blanked and a
     /// stale `lowconf` cleared. The genotype is untouched -- the line already carries the settled
     /// one, because it was built from it.
     bool apply_linkage_quality(string& line, double posterior, double explained_share) const;
-
-    /// Rewrite one emitted line's GT into phased form and attach its phase set. Applied after
-    /// `apply_linkage_change`, so it phases the genotype that is actually emitted. Returns false
-    /// when the line is left untouched, for the same reasons.
 
     /// Whether to emit phased GT and FORMAT/PS.
     bool emit_phasing = false;
@@ -1026,16 +1000,11 @@ public:
     ///
     /// Needs the linkage layer and phasing, since the settled allele pair comes from the phasing.
     /// Sizes the per-thread queues, so call it before calling starts.
-    /// Emit the records staged during the sweep, in one pass.
-    ///
-    /// Stage 9 of planning/decide-then-render.md, and deliberately the smallest step that proves the
-    /// mechanism: the pass runs immediately after the sweep and BEFORE the barrier, so `record()` is
-    /// still called before the linkage layer resolves and needs no decoupling. Output must not move
-    /// at all, which is only checkable because the buffer sort became total in `abba6f288`.
-    ///
-    /// Stage 10 moves this pass after `resolve_linkage` and renders from the settled genotype; that
-    /// is when `record()` has to leave `emit_variant`, since the barrier would otherwise resolve an
-    /// empty collector.
+    /// The pre-flatten (contig, position) a site is filed under in the linkage layer.
+    pair<string, size_t> site_ref_key(const Snarl& snarl, const string& ref_path_name,
+                                      int ref_offset, bool no_reference = false,
+                                      int64_t anchor_position = 0) const;
+
     /// Record the site into the linkage layer at the point it is genotyped, not the point it is
     /// emitted.
     ///
@@ -1044,17 +1013,17 @@ public:
     /// every nested revision, retraction and gain would disappear. Two of the arguments it used to
     /// take cannot exist here (the emitted allele map, and whether a line was written) and are
     /// supplied afterwards by `set_allele_map`.
-    /// The pre-flatten (contig, position) a site is filed under in the linkage layer.
-    pair<string, size_t> site_ref_key(const Snarl& snarl, const string& ref_path_name,
-                                      int ref_offset, bool no_reference = false,
-                                      int64_t anchor_position = 0) const;
-
     void record_site(const Snarl& snarl, const vector<SnarlTraversal>& travs,
                      const vector<int>& trav_genotype,
                      const unique_ptr<SnarlCaller::CallInfo>& call_info,
                      const string& ref_path_name, int ref_offset,
                      bool no_reference = false, int64_t anchor_position = 0);
 
+    /// Emit the records staged during the sweep, in one pass.
+    ///
+    /// Runs after the barrier and renders each record from the settled genotype, which is why
+    /// `record()` lives at genotyping time rather than in `emit_variant`: the barrier would
+    /// otherwise resolve an empty collector.
     void render_retained_records();
 
     void set_defer_nested_descent(bool defer);
@@ -1175,11 +1144,6 @@ protected:
         bool dropped = false;
         /// Whether a record was written during the sweep. False where no called parent allele reached
         /// it, which is exactly the population the barrier may turn into a call.
-        bool emitted = false;
-        /// Where the sweep buffered this record's line (see EmittedAlleles::buffer_thread), so the
-        /// barrier can retract or replace exactly that line. -1 when nothing was buffered.
-        int buffer_thread = -1;
-        size_t buffer_index = 0;
     };
 
     bool defer_nested_descent = false;
@@ -1208,7 +1172,7 @@ protected:
                                                  const vector<int>& trav_genotype, int ref_trav_idx,
                                                  unique_ptr<SnarlCaller::CallInfo>& call_info,
                                                  const string& ref_path_name, int ref_offset,
-                                                 int ploidy, bool emitted);
+                                                 int ploidy);
 
 
     /// How many nested chains were retained across all threads.
@@ -1248,14 +1212,16 @@ protected:
     /// How many times one traversal crosses `child`, by the same in-order rule child_ploidy uses.
     static int crossings_of_child(const SnarlTraversal& trav, const Snarl& child);
 
-    /// One bit per VCF allele, set where a traversal that became that allele crosses `child`.
+    /// One bit per candidate TRAVERSAL: bit i is set where `travs[i]` crosses `child`.
     ///
-    /// Returns 0 -- unknown -- if any allele index is beyond a 64-bit mask, and sets `*known` to
-    /// false there, so a caller can tell that 0 apart from "no allele crosses" instead of silently
-    /// conflating the two. Several traversals can share an allele index; symbolic collapsing puts
-    /// every same-route traversal on allele 0, and those agree on their crossings by construction,
-    /// so any disagreement can only come from two distinct routes that spell the same sequence.
-    /// The bit is set if any of them crosses.
+    /// Traversals, not VCF alleles. The two agree only when every allele at the parent is
+    /// panel-carried, and indexing by allele instead retracted 3,615 chains on chr20 against a true
+    /// 190 -- the mask is tested against the parent's settled traversals, so it has to be in their
+    /// space.
+    ///
+    /// Returns 0 -- unknown -- when there are more than 64 traversals, and sets `*known` to false
+    /// there, so a caller can tell that 0 apart from "no traversal crosses" instead of silently
+    /// conflating the two.
     static uint64_t child_crossing_mask(const vector<SnarlTraversal>& travs,
                                         const Snarl& child, bool* known = nullptr);
 

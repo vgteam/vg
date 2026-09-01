@@ -181,9 +181,9 @@ public:
         ///
         /// Not inferred from `position == 0`. A position of zero is a legitimate coordinate at the
         /// head of a contig, and inferring absence from it is the same class of mistake as reading a
-        /// crossing mask's 0 as "no allele crosses". Nothing sets this yet: a nested chain reaches
-        /// the layer only where the reference crosses it, so every site is positioned today, and it
-        /// exists for the population a covering reference admits.
+        /// crossing mask's 0 as "no allele crosses". Set for a chain the reference does not cross,
+        /// which reaches the layer only when VG_CALL_NO_REF_NESTED is set -- so on an ordinary run
+        /// every site is positioned and this is uniformly false.
         bool unpositioned = false;
 
         /// 1 or 2. A whole chain shares one ploidy -- it is a property of the contig, not of the
@@ -559,8 +559,6 @@ public:
         bool emitted = true;
     };
 
-    /// A nested site whose ploidy the final parent genotype does not support.
-    ///
     // There was a `NestedIncoherence` here, with three kinds and three FILTERs, for the case where
     // the ploidy a nested child was called at disagreed with what its parent's final genotype
     // implies. It is gone, and not because the disagreement was decided to be acceptable: the child
@@ -588,9 +586,9 @@ public:
     /// carry transition context for this generation's sites -- which is the whole reason to include
     /// them, since a generation on its own is far too sparse for a 10 kb decay -- while being unable
     /// to move. That is what makes a parent's genotype final before its children are called, and it
-    /// is the greedy step in `--nested-after-linkage`.
+    /// is the greedy step the nested design rests on.
     ///
-    /// Each site's `Change` and `PhaseCall` are produced exactly once, at its own generation.
+    /// Each site's `PhaseCall` is produced exactly once, at its own generation.
     /// `phasing_out` accumulates across calls and must be passed back in each time: a nested site's
     /// strand is read off the parent's `PhaseCall`, and by this generation the parent belongs to an
     /// earlier one.
@@ -598,7 +596,7 @@ public:
     /// `last` gates the reporting, the mosaic-facing sort of `phasing_out`, and the coherence
     /// counters, so a run of several generations reports once rather than once per generation.
     ///
-    /// With every entry at generation 0 -- which is every run without `--nested-after-linkage` --
+    /// With every entry at generation 0 -- which is every run with no nesting to descend into --
     /// this is exactly the single pass it replaces, since nothing is ever clamped or held back.
     /// Posterior and explained-read share for each site the model moved, by record key.
     ///
@@ -676,7 +674,7 @@ public:
 
 
     /// Whether an active (non-retracted) entry exists for this key. The barrier needs to tell
-    /// "this site was never recorded" from "respecify refused a site that is already in the layer":
+    /// "this site was never recorded" from "an entry is already in the layer for it":
     /// in the second case the recorded entry describes a line the barrier has just replaced, so
     /// leaving it in place would patch the new line with the old line's allele numbering.
     bool has_entry(size_t record_key) const;
@@ -728,7 +726,7 @@ private:
         uint8_t ploidy = 2;
         /// Which resolve pass settles this site: 0 for a top-level site and for anything descended
         /// inline behind a parent linkage cannot move, k for a child deferred behind k barriers.
-        /// Every entry is 0 without --nested-after-linkage, so the default path resolves in one pass.
+        /// Every entry is 0 where nothing nests, so such a contig resolves in one pass.
         uint8_t generation = 0;
         /// Dropped by `retract`: the settled parent does not carry this chain. Kept in place because
         /// the arenas are flat, and skipped everywhere a site is considered.
@@ -743,7 +741,7 @@ private:
         bool emitted = true;
         /// This site has no reference position: `position` is not a coordinate and must not be
         /// differenced. Set only for a chain the reference does not cross, which reaches the layer
-        /// only under --nested-no-ref.
+        /// only when the VG_CALL_NO_REF_NESTED environment variable is set.
         bool unpositioned = false;
         /// True when this site's ploidy came from nested descent rather than from the contig or a
         /// --ploidy-bed region.
@@ -827,10 +825,10 @@ private:
     uint32_t live_index(size_t record_key) const;
 
     /// Split a settled compact pair into the traversal and the VCF allele on each strand.
-    void finish_phase_call(PhaseCall& pc, const Entry& e, size_t& fallbacks) const;
+    void finish_phase_call(PhaseCall& pc, const Entry& e) const;
 
     /// The compact allele space a site is described in, with the genotype likelihoods folded into
-    /// it. `record` and `respecify` built this identically -- 42 shared lines, 35 of them in two
+    /// it. This was built identically in two places -- 42 shared lines, 35 of them in two
     /// contiguous runs -- because a revised site has to be described exactly as a freshly recorded
     /// one would be. Now they cannot disagree about it.
     struct CompactSite {

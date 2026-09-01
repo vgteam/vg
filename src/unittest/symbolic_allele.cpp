@@ -372,7 +372,6 @@ TEST_CASE("A reversed snarl resolves to the same snarl and still symbolises its 
         }
     }
     REQUIRE(has_chain);
-    REQUIRE(has_child_chain(backwards, flipped, *mgr));
 
     // Two traversals differing only inside the child are still equal through the reversed site,
     // which is the whole point and is what was lost.
@@ -422,7 +421,6 @@ TEST_CASE("A traversal with no child chain is its own symbolic form", "[symbolic
     for (const SymbolicStep& s : a) {
         REQUIRE_FALSE(s.is_chain());
     }
-    REQUIRE_FALSE(has_child_chain(t, top, *mgr));
 }
 
 TEST_CASE("Traversals differing only inside a child chain are symbolically equal",
@@ -435,8 +433,6 @@ TEST_CASE("Traversals differing only inside a child chain are symbolically equal
 
     SnarlTraversal via_a = make_trav({1, 2, 3, 4, 5});
     SnarlTraversal via_b = make_trav({1, 2, 30, 4, 5});
-
-    REQUIRE(has_child_chain(via_a, top, *mgr));
     REQUIRE(symbolically_equal(via_a, via_b, top, *mgr));
 
     // The form is [1, chain(2..4), 4, 5]: the exit boundary is emitted as a plain node because it
@@ -462,7 +458,6 @@ TEST_CASE("A traversal that skips a child chain stays symbolically distinct", "[
     SnarlTraversal skips = make_trav({1, 5});
 
     REQUIRE_FALSE(symbolically_equal(crosses, skips, top, *mgr));
-    REQUIRE_FALSE(has_child_chain(skips, top, *mgr));
 }
 
 TEST_CASE("The site's own boundaries are never collapsed", "[symbolic_allele]") {

@@ -252,13 +252,11 @@ TEST_CASE("A window with no reads is still cached, so it is not fetched twice",
 
 TEST_CASE("A read touching any node of a multi-node range is returned once",
           "[site_read_source]") {
-    // get_reads is the vector-returning convenience wrapper; check it agrees with the
-    // callback form, since tests and diagnostics use it.
+    // A range spanning several nodes must yield each touching read exactly once, not once
+    // per node it touches -- double-counting here would inflate every allele's read support.
     FakeWindowedSource source({{"a", 10}, {"b", 20}}, 100);
 
-    vector<Alignment> reads = source.get_reads({{10, 20}});
-
-    REQUIRE(reads.size() == 2);
+    REQUIRE(names_for(source, {{10, 20}}).size() == 2);
 }
 
 TEST_CASE("Paired mates sharing a read name are both kept", "[site_read_source]") {

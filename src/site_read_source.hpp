@@ -75,9 +75,6 @@ public:
     virtual void for_each_read(const vector<pair<nid_t, nid_t>>& ranges,
                                const function<void(const Alignment&)>& iteratee) const = 0;
 
-    /// Convenience wrapper collecting for_each_read into a vector. Copies, so
-    /// prefer for_each_read on the hot path; this is for tests and diagnostics.
-    vector<Alignment> get_reads(const vector<pair<nid_t, nid_t>>& ranges) const;
 
     /// How many reads this source holds or can see, for logging. May be 0 if
     /// the backend cannot cheaply say.
@@ -91,7 +88,6 @@ public:
     /// get it from the same cache entry the site already populated. That is what
     /// makes a local depth rate free: the reads are fetched either way, and a
     /// window is wide enough to be a meaningful denominator where a snarl is not.
-    virtual size_t get_window_span() const { return 0; }
 };
 
 /**
@@ -202,7 +198,6 @@ public:
     /// collapsed to. The gap between the two is over-fetching.
     size_t get_straddle_wanted() const;
 
-    size_t get_window_span() const override { return window_size; }
 
 protected:
 

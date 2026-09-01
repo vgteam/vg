@@ -26,13 +26,6 @@ namespace vg {
 
 using namespace std;
 
-vector<Alignment> SiteReadSource::get_reads(const vector<pair<nid_t, nid_t>>& ranges) const {
-    vector<Alignment> found;
-    for_each_read(ranges, [&](const Alignment& aln) {
-        found.push_back(aln);
-    });
-    return found;
-}
 
 void InMemorySiteReadSource::add_read(const Alignment& aln, const Filter& filter) {
     if (filter.skip_secondary && aln.is_secondary()) {

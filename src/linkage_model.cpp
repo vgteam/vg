@@ -1574,7 +1574,7 @@ bool LinkageCollector::retract(size_t record_key) {
 /// where the pair is one allele twice and the test cannot fire -- asserted by byte-identity rather
 /// than argued. Two of the three call sites have since gone with the per-strand pass; this is the
 /// one door that is left, which is why there is nothing to drift against any more.
-void LinkageCollector::finish_phase_call(PhaseCall& pc, const Entry& e, size_t& fallbacks) const {
+void LinkageCollector::finish_phase_call(PhaseCall& pc, const Entry& e) const {
     const size_t c_first = pc.allele_first, c_second = pc.allele_second;
     pc.trav_first = traversal_of(trav_arena, e.trav_offset, e.num_alleles, c_first);
     pc.trav_second = traversal_of(trav_arena, e.trav_offset, e.num_alleles, c_second);
@@ -1585,7 +1585,6 @@ void LinkageCollector::finish_phase_call(PhaseCall& pc, const Entry& e, size_t& 
     pc.allele_first = v_first >= 0 ? (size_t)v_first : LinkageModel::WILDCARD;
     pc.allele_second = v_second >= 0 ? (size_t)v_second : LinkageModel::WILDCARD;
     if (fell_back) {
-        ++fallbacks;
         pc.order_arbitrary = pc.order_arbitrary || (v_first != v_second);
     }
 }
@@ -1646,7 +1645,6 @@ size_t LinkageCollector::resolve_generation(
     // Records whose phase names the called pair because the settled pair had no ALT. The phase is
     // still real -- the block and the strand order come from the panel either way -- but the alleles
     // it names are the line's rather than the model's, so the count belongs in the report.
-    size_t phase_fallback = 0;
     if (!model.active() || entries.empty()) {
         return moved;
     }
@@ -1827,9 +1825,6 @@ size_t LinkageCollector::resolve_generation(
     // context would otherwise have its children decoded with no context at all, which is the
     // uniform boundary that discards everything.
     size_t grouped_sites = 0, grouped_groups = 0;
-    // VG_LINKAGE_NO_GROUPING forces the contig-chain path, so one binary can produce both arms of
-    // a comparison and the only difference between them is this.
-    static const bool no_grouping = getenv("VG_LINKAGE_NO_GROUPING") != nullptr;
     // Each nested CHAIN is decoded on its own, conditioned on its parent -- never pooled with its
     // parent's other chains.
     //
@@ -1847,7 +1842,7 @@ size_t LinkageCollector::resolve_generation(
     //
     // That is what licenses deleting inter-chain ORDER and inter-chain DISTANCE: both are only
     // observable where a transition crosses between chains, and none does.
-    if (generation > 0 && !pinned_phase.empty() && !no_grouping) {
+    if (generation > 0 && !pinned_phase.empty()) {
         unordered_map<size_t, size_t> index_of_key;
         index_of_key.reserve(entries.size() * 2);
         for (size_t i = 0; i < entries.size(); ++i) {
@@ -2155,18 +2150,6 @@ size_t LinkageCollector::resolve_generation(
             s.unpositioned = e.unpositioned;
             s.num_alleles = e.num_alleles;
             s.ploidy = e.ploidy;
-            // Stage B: the step from the previous site measured along the parent's settled
-            // traversals rather than along the reference, one distance per strand.
-            //
-            // Only between two children of the SAME parent. The first entry of a per-parent group is
-            // the parent itself, whose frames are measured along *its* parent's traversal and so are
-            // in a different frame entirely; and a cross-parent step needs the distance from the
-            // earlier parent's end to the later parent's start, which is not stored. Both fall back
-            // to the reference difference, and both are counted.
-            //
-            // Slot 0 is strand a by construction, not by convention: `set_frame` writes slot 0 along
-            // `PhaseCall::trav_first`, and that traversal sits on `hap_first`, which is the first of
-            // the ordered pair the HMM's state is. Nothing re-derives the correspondence.
             size_t n_gt = e.ploidy == 1
                               ? (size_t)e.num_alleles
                               : (size_t)e.num_alleles * ((size_t)e.num_alleles + 1) / 2;
@@ -2199,16 +2182,6 @@ size_t LinkageCollector::resolve_generation(
                 }
             }
             sites.push_back(std::move(s));
-        }
-
-        // V1: how much pair correlation survives a margin of a given length.
-        //
-        // Per step the probability that neither strand switches is (1-rho_a)(1-rho_b), so over N
-        // steps it is exp(-N * mean(-log((1-rho_a)(1-rho_b)))). Accumulating the mean per step
-        // answers both questions at once: what the shipped 250-site margin retains, and how many
-        // sites would be needed to reach any target. Top-level chains only -- that is where the
-        // windowing runs.
-        if (generation == 0) {
         }
 
         vector<vector<double>> posteriors;
@@ -2407,7 +2380,7 @@ size_t LinkageCollector::resolve_generation(
                 pc.allele_second = j;
                 pc.order_arbitrary = (i != j);
             }
-            finish_phase_call(pc, e, phase_fallback);
+            finish_phase_call(pc, e);
             phasing_out->push_back(pc);
         }
     }
@@ -2422,7 +2395,11 @@ size_t LinkageCollector::resolve_generation(
                   << g_group_parent_unpinned.load() << std::endl;
     }
 
-    if (generation > 0 && (grouped_groups > 0 || g_grp_vetoed.load() > 0)) {
+    // Only when something actually declined. These have never fired on any contig measured, so
+    // printing them every generation is a line that says "zero" forever and trains the reader to
+    // skip it -- which is the opposite of what a counter kept as an alarm is for.
+    if (generation > 0
+        && (g_grp_no_parent.load() + g_grp_no_entry.load() + g_grp_vetoed.load()) > 0) {
 #pragma omp critical (cerr)
         std::cerr << "[vg call] linkage generation " << generation << ": grouping declines so far -- "
                   << g_grp_no_parent.load() << " sites with no parent key, "

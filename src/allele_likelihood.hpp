@@ -430,8 +430,6 @@ public:
     void add_read(const vector<double>& raw_ln_likelihood, double mismap_prob,
                   const string& name = "", size_t read_length = 0);
 
-    size_t num_reads_added() const { return rows.size(); }
-    size_t num_unplaceable() const { return unplaceable; }
 
 
     /// Allele lengths for the length-weighted mixture, indexed by allele. The

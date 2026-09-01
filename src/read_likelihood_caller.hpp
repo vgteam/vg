@@ -67,7 +67,6 @@ public:
         /// Reads seen at the site, and how many were informative enough to keep.
         size_t n_informative = 0;
         /// Reads dropped for placing on no allele at all.
-        size_t n_unplaceable = 0;
         /// The ploidy this site was genotyped at.
         int ploidy = 2;
 

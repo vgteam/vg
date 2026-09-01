@@ -136,9 +136,9 @@ void help_call(char** argv) {
          << "      --mosaic-out FILE     write the inferred genome as a mosaic of panel" << endl
          << "                            haplotypes: one line per maximal run of one strand on" << endl
          << "                            one haplotype, anchored on node IDs so it is read back" << endl
-         << "                            against the graph rather than a reference. About 2% of" << endl
-         << "                            sites are switch points, so this is ~140 KB for chr20" << endl
-         << "                            where explicit paths would be ~45 MB. Implies --phased" << endl
+         << "                            against the graph rather than a reference. Only switch" << endl
+         << "                            points are stored, so it is smaller than explicit paths" << endl
+         << "                            by about two orders of magnitude. Implies --phased" << endl
          << "      --no-phased           emit unphased genotypes (0/1) and no FORMAT/PS. Phasing is" << endl
          << "                            on by default wherever the linkage model runs" << endl
          << "      --phased              emit phased genotypes (0|1) and a FORMAT/PS phase set," << endl

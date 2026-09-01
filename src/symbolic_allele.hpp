@@ -112,8 +112,6 @@ bool symbolically_equal(const SnarlTraversal& a, const SnarlTraversal& b, const 
 /// Whether any allele's traversal crosses a child chain, i.e. whether `site` is a non-leaf snarl
 /// with something to symbolise. Leaf snarls are unaffected by any of this and on chr20 are 98.5%
 /// of emitted records.
-bool has_child_chain(const SnarlTraversal& trav, const Snarl& site,
-                     const SnarlManager& snarl_manager);
 
 /**
  * One difference between two symbolic alleles: a half-open step range on each side.

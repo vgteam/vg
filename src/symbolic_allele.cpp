@@ -201,16 +201,6 @@ bool symbolically_equal(const SnarlTraversal& a, const SnarlTraversal& b, const 
     return symbolic_allele(a, site, snarl_manager) == symbolic_allele(b, site, snarl_manager);
 }
 
-bool has_child_chain(const SnarlTraversal& trav, const Snarl& site,
-                     const SnarlManager& snarl_manager) {
-    SymbolicAllele allele = symbolic_allele(trav, site, snarl_manager);
-    for (const SymbolicStep& step : allele) {
-        if (step.is_chain()) {
-            return true;
-        }
-    }
-    return false;
-}
 
 vector<DiffBlock> symbolic_diff(const SymbolicAllele& ref, const SymbolicAllele& alt,
                                 bool* out_degraded, vector<int>* out_alt_before_ref) {
