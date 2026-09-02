@@ -53,6 +53,16 @@ The easiest way to get vg is to download one of our release builds for Linux. We
 
 **For MacOS**, see [Building on MacOS](#building-on-macos).
 
+## Pre-requisite
+
+Before doing these steps make sure to check your Clang version is greater than 21.0: 
+
+    clang -v
+
+Otherwise update Clang:
+
+    sudo softwareupdate --install "Command Line Tools for Xcode 26.6-26.6"
+
 ### Building on Linux
 
 If you don't want to or can't use a pre-built release of vg, or if you want to become a vg developer, you can build it from source instead.
