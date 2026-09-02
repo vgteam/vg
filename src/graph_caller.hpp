@@ -600,10 +600,12 @@ protected:
     /// every path twice, forward and reverse-complemented, so asking "where does hap visit node N"
     /// has two answers and nothing local chooses between them. Asking "where does hap get to,
     /// following the walk I am already on" has one.
-    bool mosaic_follow(gbwt::node_type from, int64_t to_node, size_t hap,
-                       gbwt::edge_type* out_start, gbwt::node_type* out_end) const;
+    bool mosaic_follow(gbwt::edge_type start, int64_t to_node, gbwt::node_type* out_end) const;
     /// Where `hap` sits at one ORIENTED node, or invalid.
     gbwt::edge_type mosaic_position_at(gbwt::node_type node, size_t hap) const;
+    /// (oriented node, haplotype) -> GBWT position. The mosaic is written serially, so one map with
+    /// no locking is enough; it lives only for that pass.
+    mutable std::unordered_map<uint64_t, gbwt::edge_type> mosaic_position_cache;
     gbwt::edge_type mosaic_gbwt_position(int64_t node_id, size_t hap) const;
 
     /// Collapse the per-site phasing into segments and write them.
