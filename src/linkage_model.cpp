@@ -2355,6 +2355,18 @@ size_t LinkageCollector::resolve_generation(
                 pc.hap_first = ph.first;
                 pc.hap_second = ph.second;
             }
+            if (e.ploidy == 2 && (ph.first == LinkageModel::WILDCARD
+                                  || ph.second == LinkageModel::WILDCARD)) {
+                std::string v;
+                for (size_t h = 0; h < n_haplotypes; ++h) {
+                    v += " " + std::to_string((int)hap_arena[e.hap_offset + h]);
+                }
+#pragma omp critical (cerr)
+                std::cerr << "[HV] pos=" << e.position
+                          << " final=" << (int)e.final_i << "/" << (int)e.final_j
+                          << " wc=" << (ph.first == LinkageModel::WILDCARD ? 0 : 1)
+                          << " haps:" << v << std::endl;
+            }
             pc.start_node = e.start_node;
             pc.end_node = e.end_node;
             pc.phase_set = phase_set;

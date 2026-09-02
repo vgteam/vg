@@ -418,7 +418,10 @@ slots begin a new segment — so it is run-length encoded, one line per maximal 
 one panel haplotype:
 
 ```
-#mosaic-version	4
+#mosaic-version	5
+#patch	reference
+#nested	kept
+#unexplained	connected
 #graph	chr20_0_chr20.gbz
 #sample	HG002
 #reference	CHM13#0#chr20
@@ -431,9 +434,10 @@ one panel haplotype:
 	... one line per panel haplotype, 34 of them on this graph
 #note	gbwt_node/gbwt_offset is the GBWT position of the haplotype at start_node: ...
 #note	a segment never spans a GBWT fragment boundary, ...
-#note	nested_sites is how many of a segment's sites lie inside a nested chain, ...
-#H	contig	strand	ref_start	ref_end	start_node	end_node	hap_index	haplotype	sites	gbwt_node	gbwt_offset	nested_sites	max_depth
-H	chr20	0	22	533	114818871	114819028	4	recombination#19	16	229637742	19	11	2
+#note	start_node and end_node are ORIENTED node ids, id * 2 + is_reverse ...
+#H	contig	strand	fragment	ref_start	ref_end	start_node	end_node	hap_index	haplotype	sites	gbwt_offset
+H	chr20	0	0	22	533	229637742	229638340	4	recombination#19	16	19
+H	chr20	0	0	945	2268	229638340	229641408	9	recombination#30	14	9
 ```
 
 Tab-separated. Lines beginning `#` are header or comment; every data line begins `H`.
@@ -447,9 +451,32 @@ per-contig `#contig` table, because per-contig runs do not share one graph). The
 itself writes are exactly `#mosaic-version`, `#graph`, `#sample`, `#reference`, `#decoding`, `#note`,
 `#haplotype` and `#H`.
 
-**Format version.** `#mosaic-version` is `4`. Versions 3 and 4 appended columns to the END of the
-data row, so a parser that indexes the columns it knows by position reads an older file and a newer
-one identically.
+**Format version.** `#mosaic-version` is `5`, and unlike 3 and 4 it is **not** a compatible
+extension: `end_node` changed meaning and the column set changed, so a version 4 reader must refuse
+a version 5 file.
+
+**A strand is one walk.** `end_node` is the *next* segment's `start_node`, so consecutive segments of
+one fragment meet at the same oriented node and concatenate -- counting each junction once -- into a
+single path. That is the invariant the format exists for; version 4 met it at 3% of boundaries.
+`(contig, strand, fragment)` is the path identity, and one path per strand is the normal case.
+
+**Which haplotype covers the stretch between two segments' sites is arbitrary.** No called site lies
+in it, so nothing distinguishes the earlier haplotype from the later, and a recombination anywhere
+inside is equally consistent. Extending the earlier one is a convention: the crossover is
+*bracketed* by that stretch, not located within it.
+
+**Three options, each recorded in the header so a consumer never infers which way the file was
+written:**
+
+| header | default | the other setting |
+|---|---|---|
+| `#patch` | `reference` -- a gap no panel haplotype spans is filled with the reference, marked `ref` | `none` (`--no-mosaic-patch-gaps`) leaves the gap and breaks the fragment |
+| `#nested` | `kept` -- a haplotype switch inside a nested chain is its own segment | `merged` (`--no-mosaic-nested`) folds it into the enclosing run: fewer switches, the parent's route through the child snarl |
+| `#unexplained` | `connected` -- a stretch the panel cannot explain is crossed by carrying the flanking haplotype through | `broken` (`--mosaic-break-unexplained`) emits an unwalkable `*` row alone in its own fragment |
+
+The last two are approximations, and deliberately so: each reconstructs the carried haplotype's
+sequence across a few sites rather than the called alleles, in exchange for a contiguous path. On
+chr20 that is 12,225 sites for `#nested merged` and 21 for `#unexplained connected`.
 
 | column | meaning |
 |---|---|
@@ -463,9 +490,14 @@ one identically.
 | `haplotype` | `sample#phase`, or `*` where the panel does not explain the strand |
 | `sites` | number of called sites in the run |
 | `gbwt_node` | oriented GBWT node at `start_node`: `start_node * 2 + is_reverse`. `.` if unresolvable. |
-| `gbwt_offset` | offset within that node's GBWT record, so `(gbwt_node, gbwt_offset)` is a GBWT position |
-| `nested_sites` | how many of the segment's sites lie inside a nested chain rather than at the top level |
-| `max_depth` | depth of the deepest of them, `0` at the top level. A recombination inside a nested chain is a segment boundary like any other, and these two columns are what tell you it was one. |
+| `gbwt_offset` | offset within that node's GBWT record, so `(start_node, gbwt_offset)` is a GBWT position outright -- `extract()` it and follow `LF()` to `end_node`, with no locate and no r-index |
+
+`hap_index` takes four values. An **integer** names a panel haplotype by its `#haplotype` row.
+**`ref`** marks a stretch the reference was substituted across: with `sites` = `.` it filled a gap
+between segments, and with a site count it replaced a haplotype the graph does not carry across that
+segment. **`*`** appears only under `#unexplained broken` and is the one row kind that is not
+walkable. `nested_sites` and `max_depth` were version 4 diagnostics and are gone; they are derivable
+from the VCF's per-record depths.
 
 **Ordering.** Grouped by contig; within a contig all `strand 0` lines precede all `strand 1` lines;
 within a strand, `ref_start` increases. Segments on one strand partition that contig's sites

@@ -264,11 +264,16 @@ public:
     /// against. Without this the coordinates are ambiguous and nothing in the file says so.
     void set_mosaic_out(const string& path, const string& graph_name,
                         const vector<string>& haplotype_names = {},
-                        const vector<string>& reference_paths = {}) {
+                        const vector<string>& reference_paths = {},
+                        bool patch_gaps = true, bool keep_nested = true,
+                        bool connect_unexplained = true) {
         this->mosaic_path = path;
         this->mosaic_graph_name = graph_name;
         this->mosaic_haplotype_names = haplotype_names;
         this->mosaic_reference_paths = reference_paths;
+        this->mosaic_patch_gaps = patch_gaps;
+        this->mosaic_keep_nested = keep_nested;
+        this->mosaic_connect_unexplained = connect_unexplained;
         if (!path.empty()) {
             this->emit_phasing = true;
         }
@@ -560,6 +565,18 @@ protected:
 
     /// Full reference path names the run called against; see set_mosaic_out.
     vector<string> mosaic_reference_paths;
+    /// Fill a gap no panel haplotype can be carried across with the reference, so a strand stays
+    /// one walk. On by default; the fill is marked `ref` in the file, never passed off as evidenced.
+    bool mosaic_patch_gaps = true;
+    /// Keep a haplotype switch that happens inside a nested chain as its own segment. On by
+    /// default. Off merges the runs across it, which follows the parent's haplotype through the
+    /// child snarl rather than the child's own route -- structurally valid, fewer switches, and
+    /// lossy at the sequence level. Recorded in the file's #nested header.
+    bool mosaic_keep_nested = true;
+    /// Carry the flanking haplotype through a stretch the panel cannot explain, instead of
+    /// emitting an unwalkable row and breaking the path. On by default: 4 segments on chr20, and
+    /// it trades the called alleles across those sites for a contiguous path.
+    bool mosaic_connect_unexplained = true;
 
     /// GBWT position of `hap`'s fragment at node `node_id`, or gbwt::invalid_edge() if the
     /// haplotype does not traverse it.

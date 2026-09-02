@@ -133,6 +133,15 @@ void help_call(char** argv) {
          << "                            off and reproduces the per-site caller exactly. Tuned on" << endl
          << "                            a 34-haplotype panel; roughly neutral on 4 [2]" << endl
          << "      --linkage-scale N     distance scale of the linkage decay, in bp [10000]" << endl
+         << "      --mosaic-break-unexplained  break the path where the panel cannot explain a" << endl
+         << "                            stretch, instead of carrying the flanking haplotype" << endl
+         << "                            through it. Connecting is the default and is rare" << endl
+         << "      --no-mosaic-nested    merge haplotype switches that happen inside a nested" << endl
+         << "                            chain into the enclosing run: fewer switches, still one" << endl
+         << "                            contiguous walk, but the parent's route through the child" << endl
+         << "      --no-mosaic-patch-gaps  leave a gap where no panel haplotype can be carried" << endl
+         << "                            across it, instead of filling it with the reference." << endl
+         << "                            Patching is on by default and marked `ref` in the file" << endl
          << "      --mosaic-out FILE     write the inferred genome as a mosaic of panel" << endl
          << "                            haplotypes: one line per maximal run of one strand on" << endl
          << "                            one haplotype, anchored on node IDs so it is read back" << endl
@@ -295,6 +304,18 @@ int main_call(int argc, char** argv) {
     bool   phased_output = true;
     bool   phased_explicit = false;
     string mosaic_out;
+    // Fill a gap no panel haplotype can be carried across with the reference, so a strand stays one
+    // walk. On by default: it is the only path contiguous across such a region -- on chr20 all 37
+    // remaining boundaries -- and the fill is marked `ref` in the file rather than passed off as an
+    // evidenced haplotype. Off leaves the gap, for a consumer that would rather see a discontinuity
+    // than an assertion.
+    bool mosaic_patch_gaps = true;
+    // Keep a switch inside a nested chain as its own segment. Off merges across it: fewer
+    // switches, still one contiguous walk, and the parent's route through the child snarl.
+    bool mosaic_keep_nested = true;
+    // Carry the flanking haplotype through a stretch the panel cannot explain rather than
+    // breaking the path there. On by default; rare, and it keeps threads contiguous.
+    bool mosaic_connect_unexplained = true;
     string translation_file_name;
     bool   gbz_translation = false;
     string ref_fasta_filename;
@@ -429,6 +450,10 @@ int main_call(int argc, char** argv) {
     constexpr int OPT_ENUMERATE_SUPPORT = 1032;
     constexpr int OPT_PHASED = 1033;
     constexpr int OPT_MOSAIC_OUT = 1034;
+    constexpr int OPT_NO_MOSAIC_PATCH = 1053;
+    constexpr int OPT_MOSAIC_PATCH = 1054;
+    constexpr int OPT_NO_MOSAIC_NESTED = 1055;
+    constexpr int OPT_MOSAIC_BREAK_UNEXPL = 1056;
     int c;
     optind = 2; // force optind past command positional argument
     // Hoisted out of the getopt loop so the requires---read-likelihood scan below can
@@ -490,6 +515,10 @@ int main_call(int argc, char** argv) {
         {"enumerate-support", no_argument, 0, OPT_ENUMERATE_SUPPORT},
         {"phased", no_argument, 0, OPT_PHASED},
         {"mosaic-out", required_argument, 0, OPT_MOSAIC_OUT},
+        {"mosaic-patch-gaps", no_argument, 0, OPT_MOSAIC_PATCH},
+        {"no-mosaic-patch-gaps", no_argument, 0, OPT_NO_MOSAIC_PATCH},
+        {"no-mosaic-nested", no_argument, 0, OPT_NO_MOSAIC_NESTED},
+        {"mosaic-break-unexplained", no_argument, 0, OPT_MOSAIC_BREAK_UNEXPL},
         {"read-min-mapq", required_argument, 0, OPT_READ_MIN_MAPQ},
         {"gam-index", required_argument, 0, OPT_GAM_INDEX},
         {"gaf-base", required_argument, 0, OPT_GAF_BASE},
@@ -579,6 +608,18 @@ int main_call(int argc, char** argv) {
         case OPT_PHASED:
             phased_output = true;
             phased_explicit = true;
+            break;
+        case OPT_MOSAIC_BREAK_UNEXPL:
+            mosaic_connect_unexplained = false;
+            break;
+        case OPT_NO_MOSAIC_NESTED:
+            mosaic_keep_nested = false;
+            break;
+        case OPT_MOSAIC_PATCH:
+            mosaic_patch_gaps = true;
+            break;
+        case OPT_NO_MOSAIC_PATCH:
+            mosaic_patch_gaps = false;
             break;
         case OPT_MOSAIC_OUT:
             mosaic_out = optarg;
@@ -2062,7 +2103,9 @@ int main_call(int argc, char** argv) {
                 // The reference paths this run called against, in full. The mosaic rows carry
                 // only the locus part, and this graph has two reference samples (CHM13 and
                 // GRCh38), so without these the coordinates name no particular assembly.
-                vcf_caller->set_mosaic_out(mosaic_out, graph_filename, hap_names, ref_paths);
+                vcf_caller->set_mosaic_out(mosaic_out, graph_filename, hap_names, ref_paths,
+                                           mosaic_patch_gaps, mosaic_keep_nested,
+                                           mosaic_connect_unexplained);
             }
             if (show_progress) {
                 logger.info() << "Linkage: " << hap_index.size() << " panel haplotypes over "

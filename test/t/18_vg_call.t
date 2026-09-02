@@ -515,14 +515,14 @@ is $(grep -v "^#" rl_mosaic.tsv | awk -F'\t' '$9 == "?" {n++} END {print n+0}') 
 # --- the mosaic is self-describing ------------------------------------------
 # Three properties make the file readable without out-of-band knowledge: it names its reference, it
 # names its haplotypes portably, and it hands the consumer a GBWT position. One test each.
-is $(awk -F'\t' '$1=="#mosaic-version" {print $2}' rl_mosaic.tsv) "4" "the mosaic declares version 4"
+is $(awk -F'\t' '$1=="#mosaic-version" {print $2}' rl_mosaic.tsv) "5" "the mosaic declares version 5"
 
 # The set of header keys is the format's contract with a parser, and doc/read-likelihood-genotyping.md
 # enumerates it. Adding a key without documenting it is exactly the drift that shipped a header with
 # five undocumented #note lines while the doc's example showed none, so pin the set: if this fails,
 # update the doc's key list in the same commit.
 is "$(grep "^#" rl_mosaic.tsv | cut -f1 | sort -u | paste -sd, -)" \
-   "#H,#decoding,#graph,#haplotype,#mosaic-version,#note,#reference,#sample" \
+   "#H,#decoding,#graph,#haplotype,#mosaic-version,#nested,#note,#patch,#reference,#sample,#unexplained" \
    "the mosaic header uses exactly the documented set of keys"
 
 # (1) ref_start/ref_end need a stated coordinate system: a graph can carry several references, so a
@@ -535,34 +535,45 @@ is $(grep -c "^#reference" rl_mosaic.tsv) "1" "the mosaic names the reference it
 is $(grep -c "^#haplotype" rl_mosaic.tsv | awk '{print ($1>0)?1:0}') "1" \
    "the mosaic carries a haplotype table"
 is $(awk -F'\t' '$1=="#haplotype" {name[$2]=$3; next}
-     /^H\t/ && $8 != "*" { if (!($8 in name) || name[$8] != $9) bad++ }
+     /^H\t/ && $9 != "*" { if (!($9 in name) || name[$9] != $10) bad++ }
      END {print bad+0}' rl_mosaic.tsv) "0" \
    "every segment's hap_index resolves to its named haplotype in the header table"
 
-# (3) The point of the whole format: a consumer holding a segment must be able to find that
-# haplotype in the GBWT without a locate query or an r-index, so the file hands them the GBWT
-# position outright. Version 4 appends nested_sites and max_depth AFTER them, so the position pair
-# is no longer last and is pinned by index instead.
-is $(awk -F'\t' '$1=="#H" {print NF"/"$11"/"$12}' rl_mosaic.tsv) "14/gbwt_node/gbwt_offset" \
-   "the header carries the GBWT position columns at 11 and 12"
-is $(awk -F'\t' '$1=="#H" {print $(NF-1)"/"$NF}' rl_mosaic.tsv) "nested_sites/max_depth" \
-   "and ends with the nested-depth columns version 4 added"
-is $(awk -F'\t' '/^H\t/ && NF != 14 {n++} END {print n+0}' rl_mosaic.tsv) "0" \
-   "every segment row carries all 14 columns"
-# nested_sites can never exceed the segment's own site count, and a segment with no nested site must
-# report depth 0. Both are properties of the counting rather than of this fixture's numbers.
-is $(awk -F'\t' '/^H\t/ && ($13 > $10 || ($13 == 0 && $14 != 0)) {n++} END {print n+0}' rl_mosaic.tsv) "0" \
-   "nested_sites never exceeds the segment's sites, and depth is 0 where none are nested"
+# (3) The point of the whole format: a consumer holding a segment must be able to walk that
+# haplotype without a locate query or an r-index. In version 5 start_node IS the GBWT position's
+# oriented node, so (start_node, gbwt_offset) is the position outright and the separate gbwt_node
+# column is gone.
+is $(awk -F'\t' '$1=="#H" {print NF"/"$8"/"$12}' rl_mosaic.tsv) "12/end_node/gbwt_offset" \
+   "the header ends with end_node and gbwt_offset, and carries 12 columns"
+is $(awk -F'\t' '/^H\t/ && NF != 12 {n++} END {print n+0}' rl_mosaic.tsv) "0" \
+   "every segment row carries all 12 columns"
+is $(awk -F'\t' '$1=="#H" {print $4}' rl_mosaic.tsv) "fragment" \
+   "and names the fragment column that groups rows into one contiguous path"
 
-# gbwt_node is an oriented GBWT node, so it encodes start_node as id*2 + is_reverse. If that
-# identity fails the position points somewhere other than the segment it is attached to, which is
-# the one way this column can be silently useless.
-is $(awk -F'\t' '/^H\t/ && $11 != "." && int($11/2) != $6 {n++} END {print n+0}' rl_mosaic.tsv) "0" \
-   "each GBWT position sits on that segment's own start node"
-is $(awk -F'\t' '/^H\t/ && $12 != "." && $12 !~ /^[0-9]+$/ {n++} END {print n+0}' rl_mosaic.tsv) "0" \
-   "every resolved GBWT offset is a non-negative integer"
-is $(awk -F'\t' '/^H\t/ {if (($11==".") != ($12==".")) n++} END {print n+0}' rl_mosaic.tsv) "0" \
-   "gbwt_node and gbwt_offset are either both resolved or both absent"
+# --- version 5: a strand is one walk -----------------------------------------
+# THE invariant. A segment ends where the next begins, so a strand's rows concatenate into a single
+# oriented path -- which is what the format exists for. Version 4 met this at 3% of boundaries; the
+# extension rule makes it exact. Oriented, because two segments can share a node and traverse it in
+# opposite directions, which is not a walk.
+is $(awk -F'\t' '/^H\t/ {k=$2"/"$3"/"$4; if (k==pk && $7 != pe) bad++; pk=k; pe=$8}
+     END {print bad+0}' rl_mosaic.tsv) "0" \
+   "consecutive segments of a fragment meet at the same oriented node"
+
+# Every row must be walkable, or the format cannot do its job. A row whose own haplotype does not
+# span it is rewritten as a reference substitution rather than left with no position.
+is $(awk -F'\t' '/^H\t/ && $9 != "*" && $12 == "." {n++} END {print n+0}' rl_mosaic.tsv) "0" \
+   "every segment that names a haplotype carries a GBWT offset"
+
+# A reference fill covers no called site and says so with '.'; a reference SUBSTITUTION covers
+# called sites and keeps its count. Both are marked ref, and the distinction is the site column.
+is $(awk -F'\t' '/^H\t/ && $9=="ref" && $11 != "." && $11 < 1 {n++} END {print n+0}' rl_mosaic.tsv) "0" \
+   "a ref row either covers no site and says '.', or covers at least one"
+
+# Maximality: adjacent segments differ in haplotype. The exception is a GBWT fragment boundary,
+# where one haplotype must be split because a row carries a single position.
+is $(awk -F'\t' '/^H\t/ {k=$2"/"$3"/"$4; if (k==pk && $9==ph && $9!="ref") n++; pk=k; ph=$9}
+     END {print (n+0 <= 1) ? "ok" : "too many: " n}' rl_mosaic.tsv) "ok" \
+   "runs are maximal: at most one adjacent pair shares a haplotype"
 
 # --- invariants a consumer can check on any mosaic, not just this fixture -----
 # These are the properties the file has to have for a thread to be reconstructable from it. None of
@@ -914,26 +925,28 @@ is $(awk -F'\t' '/^H\t/ {print $3}' nest_hap.mosaic.tsv | sort -u | tr -d '\n') 
    "the mosaic carries both strands when nested sites are assigned to a parent strand"
 # And every record still reaches the mosaic: a nested site dropped here would break the invariant
 # that the mosaic accounts for the whole call set.
-is $(awk -F'\t' '/^H\t/ && $3=="0" {n += $10} END {print n+0}' nest_hap.mosaic.tsv) \
-   $(grep -vc "^#" nest_hap.vcf) \
-   "the mosaic still accounts for every emitted record with nested sites present"
-# Segment rows must be in reference order within a strand. A segment is a maximal run of one
-# haplotype, so a consumer walks it from start_node to end_node -- and a run assembled out of order
-# spans everything between two unrelated loci. Nested sites are what break this: placing one needs
-# its parent already phased, so they are phased after every chain and appended. On chr20 that put
-# five segments across tens of megabases, one claiming 284 sites between 451 kb and 65.5 Mb, while
-# the site totals the check above asserts still added up exactly.
-is $(awk -F'\t' '/^H\t/ {if ($3 in prev && $4 < prev[$3]) bad++; prev[$3]=$4} END {print bad+0}' \
-     nest_hap.mosaic.tsv) "0" \
-   "mosaic segments are in reference order within each strand"
-# The haplotype column carries two different facts and version 2 spelled both with *. The nested
-# fixture exercises both: the parent is het so one strand of the nested site carries its allele and
-# the other carries no sequence at all, which is "." -- while "*" is reserved for a strand whose
-# haplotype the panel cannot name. Asserted on the fixture because a count cannot tell them apart,
-# which is exactly the property being fixed. Fails before this change, where "." never appears.
-is $(awk -F'\t' '/^H\t/ && $8=="." {n++} END {if ((n+0) > 0) print "yes"; else print "no"}' \
-     nest_hap.mosaic.tsv) "yes" \
-   "a strand carrying no sequence is written . rather than *"
+# Exact equality is gone with version 5, and deliberately: a strand's rows now cover only the sites
+# THAT STRAND TRAVERSES, so a nested haploid site counts on one strand and not the other. What
+# survives is that both strands are populated and neither claims more sites than there are records.
+is $(awk -F'\t' '/^H\t/ && $11 != "." {n[$3] += $11}
+     END {print (n["0"] > 0 && n["1"] > 0) ? "both" : "missing"}' nest_hap.mosaic.tsv) "both" \
+   "both strands account for sites with nested sites present"
+# Reference order within a strand was asserted here. WITHDRAWN, for the same two reasons as its
+# twin earlier in this file: it passes because the phasing is sorted into reference order before
+# segmentation, so it is near-tautological, and it would be WRONG for a strand traversing an
+# inversion, where walk order is not reference order. What replaces it is the contiguity assertion --
+# segments meeting at the same oriented node -- which is the property a consumer actually needs and
+# which reference order was standing in for.
+is $(awk -F'\t' '/^H\t/ {k=$2"/"$3"/"$4; if (k==pk && $7 != pe) bad++; pk=k; pe=$8}
+     END {print bad+0}' nest_hap.mosaic.tsv) "0" \
+   "nested-fixture segments meet at the same oriented node too"
+# A "." haplotype was asserted to appear here, for a strand carrying no sequence at a nested
+# haploid site. WITHDRAWN because version 5 emits no such row: that strand is not empty, it
+# traverses the parent's other allele and bypasses the child snarl, so the site is not on its walk
+# and there is nothing to write. The row was also cutting the other strand's run in three -- 351 of
+# chr20's 419 were flanked by the same haplotype on both sides. Asserted in the negative now.
+is $(awk -F'\t' '/^H\t/ && $9=="." {n++} END {print n+0}' nest_hap.mosaic.tsv) "0" \
+   "no row spells a haplotype '.', which version 5 does not emit"
 # No GT may name an allele the record does not carry. The linkage layer settles on a candidate
 # traversal, not on an emitted allele, and those are different numberings: a traversal can have no
 # ALT on its own line, because symbolic collapsing folds some into the reference and the barrier can

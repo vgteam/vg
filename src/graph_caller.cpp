@@ -45,6 +45,15 @@ static std::atomic<size_t> g_mosaic_unwalkable(0);
 // Of those, the ones that are only a HEAD: the run resolved from a later site, so the walkable
 // remainder is emitted separately instead of being lost with the head.
 static std::atomic<size_t> g_mosaic_head_clipped(0);
+// Segment boundaries the run's own haplotype could be carried across, so the segment ends where
+// the next begins and the thread is contiguous there. And the ones it could not, which are what a
+// reference patch or a thread break has to cover.
+static std::atomic<size_t> g_mosaic_extended(0);
+static std::atomic<size_t> g_mosaic_gap_left(0);
+static std::atomic<size_t> g_mosaic_patched(0);
+// Rows whose own haplotype does not span them, rewritten as a reference substitution.
+static std::atomic<size_t> g_mosaic_row_to_ref(0);
+static std::atomic<size_t> g_mosaic_extended_left(0);
 static std::atomic<size_t> g_descent_skipped_no_copy(0);
 /// Children a called traversal enters more than once. Visits after the first are masked: one copy for
 /// ploidy, and the first crossing for distance. A chain crossed twice by ONE traversal is one
@@ -1052,6 +1061,18 @@ gbwt::edge_type VCFOutputCaller::mosaic_gbwt_position(int64_t node_id, size_t ha
     }
     // Forward first: snarl boundaries are stored oriented along the reference, so the reverse
     // orientation is the exception rather than a coin flip.
+    //
+    // KNOWN LIMITATION, measured rather than suspected. A GBWT built bidirectionally stores each
+    // path in BOTH orientations, so a haplotype traversing this node only in reverse still matches
+    // the FORWARD node -- through its reverse-complement copy -- and forward-first then hands back a
+    // position from which the segment's other end is upstream. Five of chr20's 7,145 mosaic rows
+    // (0.07%) state a forward orientation the haplotype does not walk, and the round-trip check in
+    // test/mosaic_to_path.py is what found them.
+    //
+    // Resolving the anchor toward the row's END node fixes those five, and was tried: it also
+    // breaks two junctions, because a row's end orientation and both extension tests resolve the
+    // same node independently and must be changed together or not at all. That is a coherent piece
+    // of work rather than a one-line fix, and it is not done here.
     for (int orientation = 0; orientation < 2; ++orientation) {
         gbwt::node_type node = gbwt::Node::encode(node_id, orientation == 1);
         gbwt::SearchState state = linkage_gbwt->find(node);
@@ -1097,30 +1118,51 @@ void VCFOutputCaller::write_mosaic(const vector<LinkageCollector::PhaseCall>& ph
     // the portable identifier: a (sample, phase) pair, which is the unit the linkage model works
     // in -- a haplotype present in several GBWT fragments is one haplotype, so no single GBWT path
     // name would do. Name plus the segment's contig is enough to find the paths again.
-    out << "#mosaic-version\t4\n";
+    out << "#mosaic-version\t5\n";
     out << "#graph\t" << mosaic_graph_name << "\n";
     out << "#sample\t" << sample_name << "\n";
     for (const string& ref : mosaic_reference_paths) {
         out << "#reference\t" << ref << "\n";
     }
     out << "#decoding\tconstrained-viterbi\n";
+    out << "#patch\t" << (mosaic_patch_gaps ? "reference" : "none") << "\n";
+    out << "#nested\t" << (mosaic_keep_nested ? "kept" : "merged") << "\n";
+    out << "#unexplained\t" << (mosaic_connect_unexplained ? "connected" : "broken") << "\n";
     // Positions are derived; the node IDs are not. Said plainly so a consumer knows which to
     // trust when a file is read against a graph whose reference paths have moved.
     out << "#note\tref_start/ref_end are advisory, in the #reference coordinate system; "
         << "start_node/end_node are the authoritative anchors and are intrinsic to the graph.\n";
-    out << "#note\tsegments are maximal runs on one panel haplotype; walk the haplotype "
-        << "from start_node to end_node to reconstruct it. * means the panel does not "
-        << "explain that strand there; . means that strand carries no sequence there at all, "
-        << "which is what a nested haploid site's other strand looks like. Version 2 spelled "
-        << "both with *.\n";
+    out << "#note\tsegments are maximal runs on one panel haplotype; walk the haplotype from "
+        << "start_node to end_node to reconstruct it. * means the strand traverses this and the "
+        << "panel cannot name a haplotype for it. Versions 2-4 also used . for a strand carrying "
+        << "no sequence at a record; version 5 has no such rows -- that strand traverses its "
+        << "parent's other allele and bypasses the child snarl, so the site is not on its walk.\n";
+    out << "#note\thap_index ref marks a stretch FILLED WITH THE REFERENCE because no panel "
+        << "haplotype could be carried across it. It is walkable like any other row, and carries . "
+        << "for sites/nested_sites/max_depth because it covers no called site. On this kind of graph "
+        << "such gaps are pericentromeric and the reference is a poor proxy for the sample there, so "
+        << "the fill is marked rather than blended in; its span is start_node..end_node. "
+        << "--no-mosaic-patch-gaps leaves the gap instead.\n";
+    out << "#note\tend_node is the NEXT segment's start_node, so consecutive segments of one "
+        << "strand meet at a shared node and the strand is ONE WALK: concatenate them, counting "
+        << "each junction once. This is the whole point of version 5, and why a version 4 reader "
+        << "must not read a version 5 file -- it would under-read every segment.\n";
+    out << "#note\tWhich haplotype covers the stretch between two segments' sites is ARBITRARY: no "
+        << "called site lies in it, so nothing distinguishes the earlier haplotype from the later "
+        << "one and a recombination anywhere inside is equally consistent. Extending the earlier "
+        << "one is a convention. The crossover is BRACKETED by that stretch, not located within "
+        << "it, and a consumer reading the boundary as the crossover point will over-trust it.\n";
     out << "#note\thap_index is internal to this run; haplotype (sample#phase) is the portable "
         << "identifier and names a haplotype, not a single GBWT path.\n";
     for (size_t h = 0; h < mosaic_haplotype_names.size(); ++h) {
         out << "#haplotype\t" << h << "\t" << mosaic_haplotype_names[h] << "\n";
     }
-    out << "#note\tgbwt_node/gbwt_offset is the GBWT position of the haplotype at start_node: "
-        << "extract({gbwt_node, gbwt_offset}) and follow LF() to end_node, with no locate and no "
-        << "r-index. gbwt_node carries the orientation, start_node does not.\n";
+    out << "#note\tstart_node and end_node are ORIENTED node ids, id * 2 + is_reverse. Node "
+        << "identity alone does not make a walk: two segments can share a node and traverse it in "
+        << "opposite directions. (start_node, gbwt_offset) is therefore the GBWT position "
+        << "outright -- extract() it and follow LF() to end_node, with no locate and no r-index. "
+        << "Versions up to 4 gave an unoriented start_node beside a separate oriented gbwt_node; "
+        << "the two collapsed into one column here.\n";
     out << "#note\ta segment never spans a GBWT fragment boundary, so one position walks the "
         << "whole of it; a haplotype in several fragments yields several segments.\n";
     out << "#note\tnested_sites is how many of a segment's sites lie inside a nested chain, and "
@@ -1128,9 +1170,8 @@ void VCFOutputCaller::write_mosaic(const vector<LinkageCollector::PhaseCall>& ph
         << "nested chain closes a segment exactly as one between top-level sites does, so without "
         << "these two columns the file cannot tell them apart -- and the nested ones are what "
         << "nested calling is for. Version 3 had neither.\n";
-    out << "#H\tcontig\tstrand\tref_start\tref_end\tstart_node\tend_node"
-        << "\thap_index\thaplotype\tsites\tgbwt_node\tgbwt_offset"
-        << "\tnested_sites\tmax_depth\n";
+    out << "#H\tcontig\tstrand\tfragment\tref_start\tref_end\tstart_node\tend_node"
+        << "\thap_index\thaplotype\tsites\tgbwt_offset\n";
 
     // The phasing arrives grouped by contig and in reference order, which is how resolve() builds
     // it. Both strands are emitted, and a switch on either one closes only its own segment.
@@ -1183,37 +1224,243 @@ void VCFOutputCaller::write_mosaic(const vector<LinkageCollector::PhaseCall>& ph
         }
         return StrandKind::Unexplained;
     };
-    size_t empty_segments = 0, unexplained_segments = 0;
+    size_t unexplained_segments = 0;
+    // The sites THIS STRAND ACTUALLY TRAVERSES, as indices into `phasing`, in reference order.
+    //
+    // Not every record on the contig. A nested haploid chain sits on one of its parent's two
+    // strands; the other strand traverses the parent's other allele, which bypasses the child snarl
+    // entirely -- possibly across a deletion edge -- so that site is not on its walk at all. The
+    // file used to emit a row for it anyway, spelled '.', which is a VCF notion ("no allele on this
+    // strand at this record") rather than a graph one, and it CUT the other strand's run in three:
+    // 419 such rows on chr20, 351 of them flanked by the same haplotype on both sides, so 84% were
+    // interrupting a walk where nothing had happened. Segmenting over the strand's own sites removes
+    // the rows and merges the runs.
+    //
+    // Positions into this vector are what `emit_span` and `emit_row` index by; `site()` maps one
+    // back to a `phasing` index.
+    // The reference's own index in the panel, so a gap neither haplotype can cross can be tested
+    // against it. Looked up by NAME rather than assumed to be 0: the index is assigned in GBWT
+    // metadata order, and that the calling reference lands first is an accident of this graph.
+    // `mosaic_reference_paths` holds full path names (CHM13#0#chr20); the panel names a haplotype
+    // as sample#phase (CHM13#0), so the contig field is dropped before matching.
+    size_t reference_hap = LinkageModel::WILDCARD;
+    for (const string& full : mosaic_reference_paths) {
+        size_t h1 = full.find('#');
+        size_t h2 = h1 == string::npos ? string::npos : full.find('#', h1 + 1);
+        const string base = h2 == string::npos ? full : full.substr(0, h2);
+        for (size_t k = 0; k < mosaic_haplotype_names.size(); ++k) {
+            if (mosaic_haplotype_names[k] == base) {
+                reference_hap = k;
+                break;
+            }
+        }
+        if (reference_hap != LinkageModel::WILDCARD) {
+            break;
+        }
+    }
+    cerr << "[vg call] mosaic: reference "
+         << (reference_hap == LinkageModel::WILDCARD
+                 ? string("is NOT a panel haplotype, so gaps cannot be patched with it")
+                 : "is panel haplotype " + std::to_string(reference_hap))
+         << endl;
+
+    const bool patch_gaps = mosaic_patch_gaps;
+    const bool keep_nested = mosaic_keep_nested;
+    const bool connect_unexplained = mosaic_connect_unexplained;
+    // Which contiguous walk a row belongs to. (contig, strand, fragment) IS the path identity: a
+    // loader emits one path per distinct triple and concatenates its rows. Incremented only where a
+    // gap is left unfilled, so with patching on there is one fragment per strand and the whole
+    // strand is one path.
+    size_t fragment = 0;
+    vector<size_t> strand_sites;
+    auto site = [&](size_t pos) -> const LinkageCollector::PhaseCall& {
+        return phasing[strand_sites[pos]];
+    };
+    // An EXTEND LEFT earned by the previous row: this segment begins at the previous segment's last
+    // node rather than at its own first site, and its GBWT position moves with it. Cleared per
+    // strand, because the row after a strand's last is the next strand's first and must not inherit
+    // it.
+    int64_t pending_from_node = -1;
+    gbwt::edge_type pending_from_pos = gbwt::invalid_edge();
 
     std::function<void(size_t, size_t, int, size_t, StrandKind)> emit_span =
         [&](size_t from, size_t to, int strand, size_t hap, StrandKind kind) {
         gbwt::edge_type pos = (hap == LinkageModel::WILDCARD)
                                   ? gbwt::invalid_edge()
-                                  : mosaic_gbwt_position(phasing[from].start_node, hap);
+                                  : mosaic_gbwt_position(site(from).start_node, hap);
 
         auto emit_row = [&](size_t a_idx, size_t b_idx, gbwt::edge_type p) {
-            const LinkageCollector::PhaseCall& a = phasing[a_idx];
-            const LinkageCollector::PhaseCall& b = phasing[b_idx];
-            out << "H\t" << a.contig << "\t" << strand << "\t"
-                << a.position << "\t" << b.position << "\t"
-                << a.start_node << "\t" << b.end_node << "\t";
-            if (hap == LinkageModel::WILDCARD) {
-                // '.' for a strand with no sequence here, matching what the VCF already means by a
-                // '.' in a phased GT; '*' stays "the panel cannot name a haplotype".
-                if (kind == StrandKind::Empty) {
-                    out << ".\t.";
-                    ++empty_segments;
-                } else {
-                    out << "*\t*";
-                    ++unexplained_segments;
+            const LinkageCollector::PhaseCall& a = site(a_idx);
+            const LinkageCollector::PhaseCall& b = site(b_idx);
+            // EXTEND RIGHT. A segment ends where the next one begins, not at its own last site's
+            // snarl end -- otherwise everything between one segment's last site and the next
+            // segment's first site is named by nothing, which on chr20 was 17.2 Mb, 27% of the
+            // contig, at a median of 1,041 bp a gap.
+            //
+            // Which haplotype covers that stretch is arbitrary: there are no called sites in it, so
+            // no evidence distinguishes this segment's haplotype from the next one's, and a
+            // recombination anywhere inside it is equally consistent. Extending rightward is
+            // therefore a convention, not an inference -- the crossover is bracketed by the gap,
+            // not located within it. Stated in the header for the same reason.
+            //
+            // The extension has to be EARNED: the haplotype must actually reach the next segment's
+            // first node, on the same GBWT fragment, or the walk a consumer makes from this row's
+            // position runs off the end of it. Where it is not earned the row keeps its own last
+            // site's end node and the gap is counted, to be patched or broken by the caller.
+            // A left extension earned by the previous row moves this segment's start back, and its
+            // position with it -- the two must agree, or the position no longer sits on the node the
+            // row names.
+            int64_t from_node = a.start_node;
+            if (pending_from_node >= 0) {
+                from_node = pending_from_node;
+                p = pending_from_pos;
+            }
+            pending_from_node = -1;
+
+            int64_t to_node = b.end_node;
+            // A gap this row could not close, and the reference stretch that fills it. Decided here,
+            // where the gap is known, and written immediately after this row -- `out` is sequential,
+            // so the fill lands between the two segments it joins with no restructuring.
+            int64_t patch_to = -1;
+            gbwt::edge_type patch_pos = gbwt::invalid_edge();
+            size_t patch_from_pos = 0, patch_to_pos = 0;
+            bool boundary_open = false;
+            if (b_idx + 1 < strand_sites.size()) {
+                const int64_t next_start = site(b_idx + 1).start_node;
+                // EXTEND RIGHT needs this segment to be walkable -- there is no walk to extend
+                // otherwise -- so it is the one attempt the position guards.
+                bool right = false;
+                if (p != gbwt::invalid_edge()) {
+                    const gbwt::edge_type np = mosaic_gbwt_position(next_start, hap);
+                    // The next segment's haplotype must enter the junction the same way this one
+                    // leaves it. Node identity alone let 5 chr20 junctions through that are
+                    // traversed in opposite directions -- shared node, opposite orientation, which
+                    // is not a walk. `mosaic_gbwt_position` already returns the oriented node, so
+                    // this is comparing a value that was being discarded.
+                    const size_t nh2 = strand == 0 ? site(b_idx + 1).hap_first
+                                                   : site(b_idx + 1).hap_second;
+                    const gbwt::edge_type entry = nh2 == LinkageModel::WILDCARD
+                                                      ? gbwt::invalid_edge()
+                                                      : mosaic_gbwt_position(next_start, nh2);
+                    right = np != gbwt::invalid_edge()
+                            && linkage_gbwt->locate(np) == linkage_gbwt->locate(p)
+                            && (entry == gbwt::invalid_edge() || entry.first == np.first);
                 }
+                if (right) {
+                    to_node = next_start;
+                    ++g_mosaic_extended;
+                } else {
+                    // EXTEND LEFT: the same operation from the other end. This segment's haplotype
+                    // cannot be carried forward, so try carrying the NEXT segment's haplotype back
+                    // to this segment's last node instead. Measured before being built rather than
+                    // assumed: it closes 109 of chr20's 1,026 remaining boundaries, so it earns its
+                    // place -- and it closes them with a panel haplotype instead of a reference
+                    // assertion, which is the whole reason to prefer it to patching.
+                    const size_t nh = strand == 0 ? site(b_idx + 1).hap_first
+                                                  : site(b_idx + 1).hap_second;
+                    bool closed = false;
+                    if (nh != LinkageModel::WILDCARD) {
+                        const gbwt::edge_type here = mosaic_gbwt_position(b.end_node, nh);
+                        const gbwt::edge_type there = mosaic_gbwt_position(next_start, nh);
+                        const gbwt::edge_type mine = mosaic_gbwt_position(b.end_node, hap);
+                        if (here != gbwt::invalid_edge() && there != gbwt::invalid_edge()
+                            && linkage_gbwt->locate(here) == linkage_gbwt->locate(there)
+                            && (mine == gbwt::invalid_edge() || mine.first == here.first)) {
+                            pending_from_node = b.end_node;
+                            pending_from_pos = here;
+                            ++g_mosaic_extended_left;
+                            closed = true;
+                        }
+                    }
+                    if (!closed) {
+                        // Neither haplotype spans it. The reference does, on this graph, at all 37
+                        // of chr20's remaining boundaries -- it is one of only two paths contiguous
+                        // across the contig, which is exactly why it is the fallback. It is also a
+                        // poor proxy for the sample: 17 of those 37 sit at over ten times average
+                        // node density and the worst two at ~10,000x, so the fill is a contiguous
+                        // path and substantively a guess. The row says what it filled and how far,
+                        // and the judgement is the reader's.
+                        if (patch_gaps && reference_hap != LinkageModel::WILDCARD) {
+                            const gbwt::edge_type rl =
+                                mosaic_gbwt_position(b.end_node, reference_hap);
+                            const gbwt::edge_type rr =
+                                mosaic_gbwt_position(next_start, reference_hap);
+                            if (rl != gbwt::invalid_edge() && rr != gbwt::invalid_edge()
+                                && linkage_gbwt->locate(rl) == linkage_gbwt->locate(rr)) {
+                                patch_to = next_start;
+                                patch_pos = rl;
+                                patch_from_pos = b.position;
+                                patch_to_pos = site(b_idx + 1).position;
+                                ++g_mosaic_patched;
+                            }
+                        }
+                        if (patch_to < 0) {
+                            ++g_mosaic_gap_left;
+                            boundary_open = true;
+                        }
+                    }
+                }
+            }
+            // A row is written as ITS HAPLOTYPE only if that haplotype spans the row's whole
+            // node range on one GBWT fragment. Otherwise it is not walkable, and an unwalkable row
+            // is useless in a format whose purpose is loading paths -- so it becomes a reference
+            // substitution, marked `ref` like a gap fill but KEEPING its site count, because it
+            // does cover called sites (a gap fill covers none and carries '.'). 69 rows on chr20:
+            // 62 whose haplotype the graph does not carry across them at all, and 7 whose extended
+            // end landed on a different fragment from their start.
+            gbwt::edge_type row_pos = p;
+            bool as_ref = false;
+            if (hap != LinkageModel::WILDCARD) {
+                const gbwt::edge_type at_end = mosaic_gbwt_position(to_node, hap);
+                const bool spans = p != gbwt::invalid_edge() && at_end != gbwt::invalid_edge()
+                                   && linkage_gbwt->locate(p) == linkage_gbwt->locate(at_end);
+                if (!spans && patch_gaps && reference_hap != LinkageModel::WILDCARD) {
+                    const gbwt::edge_type r0 = mosaic_gbwt_position(from_node, reference_hap);
+                    const gbwt::edge_type r1 = mosaic_gbwt_position(to_node, reference_hap);
+                    if (r0 != gbwt::invalid_edge() && r1 != gbwt::invalid_edge()
+                        && linkage_gbwt->locate(r0) == linkage_gbwt->locate(r1)) {
+                        row_pos = r0;
+                        as_ref = true;
+                        ++g_mosaic_row_to_ref;
+                    }
+                }
+            }
+            // ORIENTED node ids, `id * 2 + is_reverse` -- vg's own encoding, and the same space
+            // gbwt_node used to be given in. Node identity alone is not enough for a path: two
+            // segments can share a node and traverse it in OPPOSITE directions, which is not a
+            // walk, and 5 junctions on chr20 did exactly that. The orientation comes from the
+            // position we already resolve, so `gbwt_node` became exactly `start_node` and is gone.
+            // Where there is no position -- an unexplained row, which is not walkable anyway -- the
+            // reference orientation is used, which is how snarl boundaries are stored.
+            const auto oriented = [&](int64_t node, const gbwt::edge_type& at) -> gbwt::node_type {
+                return at != gbwt::invalid_edge() ? at.first : gbwt::Node::encode(node, false);
+            };
+            const gbwt::edge_type end_at =
+                (as_ref || hap == LinkageModel::WILDCARD)
+                    ? (as_ref ? mosaic_gbwt_position(to_node, reference_hap) : gbwt::invalid_edge())
+                    : mosaic_gbwt_position(to_node, hap);
+            out << "H\t" << a.contig << "\t" << strand << "\t" << fragment << "\t"
+                << a.position << "\t" << b.position << "\t"
+                << oriented(from_node, row_pos) << "\t" << oriented(to_node, end_at) << "\t";
+            if (as_ref) {
+                out << "ref\t"
+                    << (reference_hap < mosaic_haplotype_names.size()
+                            ? mosaic_haplotype_names[reference_hap] : string("?"));
+            } else if (hap == LinkageModel::WILDCARD) {
+                // The strand traverses this and the panel cannot name a haplotype for it. There
+                // used to be a second case spelled '.' -- a strand with no sequence at the record --
+                // but that was a VCF notion in a graph file: such a strand is not empty, it
+                // traverses the parent's other allele and bypasses the child snarl, so the site is
+                // not on its walk and it has no row here at all.
+                out << "*\t*";
+                ++unexplained_segments;
             } else {
                 out << hap << "\t"
                     << (hap < mosaic_haplotype_names.size()
                             ? mosaic_haplotype_names[hap] : string("?"));
             }
             out << "\t" << (b_idx - a_idx + 1) << "\t";
-            if (p == gbwt::invalid_edge()) {
+            if (row_pos == gbwt::invalid_edge()) {
                 // No position to give: either the strand is the wildcard, or the haplotype is not
                 // in the graph across this run. '.' rather than a zero, which would read as a valid
                 // offset.
@@ -1224,21 +1471,42 @@ void VCFOutputCaller::write_mosaic(const vector<LinkageCollector::PhaseCall>& ph
                 // clipped subpaths. Only 2 of the 34 panel haplotypes are contiguous across chr20,
                 // so a run whose haplotype is absent from the graph is the ordinary case, not an
                 // anomaly.
-                out << ".\t.";
+                out << ".";
             } else {
-                out << p.first << "\t" << p.second;
+                out << row_pos.second;
             }
-            // Walked rather than carried on the span: a segment is cut by haplotype changes and by
-            // GBWT fragment boundaries, neither of which knows anything about depth, so there is no
-            // running value to keep and the range is the only place the answer lives.
-            size_t nested_sites = 0, max_depth = 0;
-            for (size_t k = a_idx; k <= b_idx && k < phasing.size(); ++k) {
-                nested_sites += (phasing[k].depth > 0);
-                max_depth = max(max_depth, (size_t)phasing[k].depth);
-            }
-            out << "\t" << nested_sites << "\t" << max_depth;
             out << "\n";
             ++total_segments;
+
+            // The reference fill, between the two segments it joins. `ref` rather than a panel
+            // index, so a consumer can tell an asserted stretch from an evidenced one; and '.' for
+            // sites/nested_sites/max_depth, because it covers no called site. Its span is already
+            // in start_node..end_node and ref_start..ref_end, so weighing a 22 bp fill against a
+            // kilobase of satellite needs no extra column.
+            if (patch_to >= 0) {
+                const gbwt::edge_type pe = mosaic_gbwt_position(patch_to, reference_hap);
+                out << "H\t" << a.contig << "\t" << strand << "\t" << fragment << "\t"
+                    << patch_from_pos << "\t" << patch_to_pos << "\t"
+                    << patch_pos.first << "\t" << oriented(patch_to, pe) << "\t"
+                    << "ref\t"
+                    << (reference_hap < mosaic_haplotype_names.size()
+                            ? mosaic_haplotype_names[reference_hap] : string("?"))
+                    << "\t.\t" << patch_pos.second << "\n";
+                ++total_segments;
+            }
+            // Only a boundary genuinely left open ends the fragment. Not an extend-LEFT: that
+            // closes the boundary by moving the NEXT row's start back, so this row's to_node is
+            // untouched and the two cases are indistinguishable from here -- which split chr20 into
+            // 411 fragments instead of 2, and hid those boundaries from the contiguity check that
+            // groups by fragment.
+            if (boundary_open) {
+                ++fragment;
+            }
+            // An unexplained row is not walkable, so in break mode it stands alone: the fragment
+            // advances after it, and a consumer skips a fragment whose rows carry no position.
+            if (hap == LinkageModel::WILDCARD) {
+                ++fragment;
+            }
         };
 
         if (pos == gbwt::invalid_edge() && hap != LinkageModel::WILDCARD && from != to) {
@@ -1256,7 +1524,7 @@ void VCFOutputCaller::write_mosaic(const vector<LinkageCollector::PhaseCall>& ph
             // across sequence whose haplotype we actually know.
             size_t first_ok = from;
             while (first_ok <= to
-                   && mosaic_gbwt_position(phasing[first_ok].start_node, hap)
+                   && mosaic_gbwt_position(site(first_ok).start_node, hap)
                           == gbwt::invalid_edge()) {
                 ++first_ok;
             }
@@ -1281,7 +1549,7 @@ void VCFOutputCaller::write_mosaic(const vector<LinkageCollector::PhaseCall>& ph
             emit_row(from, to, pos);
             return;
         }
-        gbwt::edge_type end_pos = mosaic_gbwt_position(phasing[to].start_node, hap);
+        gbwt::edge_type end_pos = mosaic_gbwt_position(site(to).start_node, hap);
         if (end_pos == gbwt::invalid_edge()
             || linkage_gbwt->locate(pos) == linkage_gbwt->locate(end_pos)) {
             // Same fragment at both ends, or no way to tell. One row.
@@ -1295,7 +1563,7 @@ void VCFOutputCaller::write_mosaic(const vector<LinkageCollector::PhaseCall>& ph
         size_t lo = from, hi = to;
         while (hi - lo > 1) {
             size_t mid = lo + (hi - lo) / 2;
-            gbwt::edge_type p = mosaic_gbwt_position(phasing[mid].start_node, hap);
+            gbwt::edge_type p = mosaic_gbwt_position(site(mid).start_node, hap);
             if (p != gbwt::invalid_edge() && linkage_gbwt->locate(p) == seq) {
                 lo = mid;
             } else {
@@ -1327,17 +1595,52 @@ void VCFOutputCaller::write_mosaic(const vector<LinkageCollector::PhaseCall>& ph
             }
         }
         for (int strand = 0; strand < strands; ++strand) {
-            size_t seg_start = i;
+            pending_from_node = -1;
+            fragment = 0;
+            // A site this strand does not traverse is not on its walk, so it is not in its list.
+            strand_sites.clear();
             for (size_t t = i; t < j; ++t) {
-                size_t hap = strand == 0 ? phasing[t].hap_first : phasing[t].hap_second;
-                StrandKind kind = strand_kind(t, strand);
-                bool last = (t + 1 == j);
+                if (strand_kind(t, strand) == StrandKind::Empty) {
+                    continue;
+                }
+                // A haplotype switch INSIDE a nested chain is a real deviation -- the constrained
+                // Viterbi only leaves the parent's haplotype where that haplotype cannot spell the
+                // child's called allele, 1,430 times on chr20 over 12,225 sites -- but it is
+                // structurally compatible with the parent's traversal, and for a consumer counting
+                // recombinations it is noise. Dropping the nested sites merges the runs across them,
+                // so the walk stays contiguous and follows the parent's haplotype through the child
+                // snarl instead of the child's own route. Which was done is in the header.
+                if (!keep_nested && phasing[t].depth > 0) {
+                    continue;
+                }
+                // A stretch the panel cannot explain at few enough recombinations -- the wildcard.
+                // NOT "no haplotype carries this allele": every allele here has carriers, up to 28
+                // of the 34. What the panel lacks is a LOW-RECOMBINATION PATH through the stretch,
+                // so no panel walk represents it and a row naming one would be unwalkable. Verified
+                // on chr20: in all four such runs, no fixed pair of haplotypes explains every site.
+                //
+                // Connected by default: the flanking haplotype is carried straight through, keeping
+                // the strand one contiguous path. That reconstructs the carried haplotype's sequence
+                // across those sites rather than the called alleles, so it is an approximation --
+                // but it is 4 segments and 21 sites on chr20, and a contiguous path is worth more to
+                // a consumer than an exact hole. --mosaic-break-unexplained gives the hole instead.
+                if (connect_unexplained
+                    && strand_kind(t, strand) == StrandKind::Unexplained) {
+                    continue;
+                }
+                strand_sites.push_back(t);
+            }
+            size_t seg_start = 0;
+            for (size_t t = 0; t < strand_sites.size(); ++t) {
+                size_t hap = strand == 0 ? site(t).hap_first : site(t).hap_second;
+                StrandKind kind = strand_kind(strand_sites[t], strand);
+                bool last = (t + 1 == strand_sites.size());
                 // Cut on the kind too: two adjacent wildcard sites can mean different things, and a
                 // run holding both has no single character to print for its haplotype column.
                 bool changes = !last
-                               && ((strand == 0 ? phasing[t + 1].hap_first
-                                                : phasing[t + 1].hap_second) != hap
-                                   || strand_kind(t + 1, strand) != kind);
+                               && ((strand == 0 ? site(t + 1).hap_first
+                                                : site(t + 1).hap_second) != hap
+                                   || strand_kind(strand_sites[t + 1], strand) != kind);
                 if (last || changes) {
                     // One run of a single haplotype, but possibly several GBWT fragments of it.
                     // A segment must be walkable from one position, so the run is cut wherever the
@@ -1356,16 +1659,20 @@ void VCFOutputCaller::write_mosaic(const vector<LinkageCollector::PhaseCall>& ph
          << " sites, written to " << mosaic_path << endl;
     // Reported apart because they are different facts and the sum is the figure the old file
     // reported as one. The unexplained half is the one comparable to the phasing report's count.
-    cerr << "[vg call] mosaic: " << empty_segments << " segments on a strand with no sequence there, "
-         << unexplained_segments << " the panel cannot name a haplotype for ("
-         << (empty_segments + unexplained_segments) << " were one figure before)" << endl;
+    cerr << "[vg call] mosaic: " << unexplained_segments
+         << " segments the panel cannot name a haplotype for" << endl;
     // A named haplotype the graph does not carry across the segment, so there is no position to walk
     // from. Ordinary rather than alarming -- only 2 of chr20's 34 panel haplotypes are contiguous --
     // but it is what a consumer has to patch or break at, so it is a number and not a silence.
+    cerr << "[vg call] mosaic: " << g_mosaic_extended.load()
+         << " segment boundaries closed by extending right, " << g_mosaic_extended_left.load()
+         << " by extending left instead, " << g_mosaic_patched.load()
+         << " filled with the reference because neither haplotype could be carried across, "
+         << g_mosaic_gap_left.load() << " left as a gap" << endl;
     cerr << "[vg call] mosaic: " << g_mosaic_unwalkable.load()
          << " segments name a haplotype the graph does not carry across them, of which "
-         << g_mosaic_head_clipped.load() << " are a clipped head whose remainder is walkable"
-         << endl;
+         << g_mosaic_head_clipped.load() << " are a clipped head whose remainder is walkable; "
+         << g_mosaic_row_to_ref.load() << " rewritten as a reference substitution" << endl;
 }
 
 bool VCFOutputCaller::apply_linkage_quality(string& line, double posterior,
