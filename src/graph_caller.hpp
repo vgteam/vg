@@ -591,6 +591,19 @@ protected:
     ///
     /// Both orientations are tried because the recorded node IDs are bare: the snarl boundary is
     /// stored without the orientation the haplotype traverses it in.
+    /// How far a walk may run before it is abandoned. Only ever walked in the direction already
+    /// established, so this bounds a genuinely long segment rather than a wrong-way attempt.
+    static const size_t MOSAIC_WALK_LIMIT = 1u << 17;
+    /// Follow `hap` from an ORIENTED node to `to_node`, and report where it arrives.
+    ///
+    /// The direction is the caller's, already established -- that is the whole point. A GBWT stores
+    /// every path twice, forward and reverse-complemented, so asking "where does hap visit node N"
+    /// has two answers and nothing local chooses between them. Asking "where does hap get to,
+    /// following the walk I am already on" has one.
+    bool mosaic_follow(gbwt::node_type from, int64_t to_node, size_t hap,
+                       gbwt::edge_type* out_start, gbwt::node_type* out_end) const;
+    /// Where `hap` sits at one ORIENTED node, or invalid.
+    gbwt::edge_type mosaic_position_at(gbwt::node_type node, size_t hap) const;
     gbwt::edge_type mosaic_gbwt_position(int64_t node_id, size_t hap) const;
 
     /// Collapse the per-site phasing into segments and write them.
