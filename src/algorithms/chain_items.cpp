@@ -850,29 +850,33 @@ vector<SubchainGroup> split_up_subchains(const VectorView<Anchor>& to_chain,
 
     // Save edges that are part of an original traceback
     int max_joined_chain_score = 0;
+    bool joining_up = false;
     for (size_t i = 0; i < original_tracebacks.size(); i++) {
-        if (!is_joined_up[i]) {
+        if (!original_tracebacks[i].anchors.empty()) {
+            if (!is_joined_up[i]) {
 #ifdef debug_chaining
-            cerr << "Saving traceback " << i << " as its own SubchainGroup" << endl;
+                cerr << "Saving traceback " << i << " as its own SubchainGroup" << endl;
 #endif
-            // This traceback is disjoint and should be returned separately
-            output.emplace_back();
-            output.back().subchains.emplace_back(original_tracebacks[i].anchors, true);
-            output.back().max_sparse_chain_score = original_tracebacks[i].chain_score;
-        } else {
-            // We'll tie this traceback in to the rest
-            max_joined_chain_score = std::max(max_joined_chain_score, original_tracebacks[i].chain_score);
-            const vector<size_t>& cur_anchors = original_tracebacks[i].anchors;
-            trace_from.emplace(cur_anchors.front());
-            for (size_t i = 0; i < cur_anchors.size() - 1; i++) {
-                // Remember that this pair of anchors can connect
-                incoming_edges[cur_anchors[i+1]].emplace(cur_anchors[i]);
-                outgoing_edges[cur_anchors[i]].emplace(cur_anchors[i+1]);
+                // This traceback is disjoint and should be returned separately
+                output.emplace_back();
+                output.back().subchains.emplace_back(original_tracebacks[i].anchors, true);
+                output.back().max_sparse_chain_score = original_tracebacks[i].chain_score;
+            } else {
+                joining_up = true;
+                // We'll tie this traceback in to the rest
+                max_joined_chain_score = std::max(max_joined_chain_score, original_tracebacks[i].chain_score);
+                const vector<size_t>& cur_anchors = original_tracebacks[i].anchors;
+                trace_from.emplace(cur_anchors.front());
+                for (size_t i = 0; i < cur_anchors.size() - 1; i++) {
+                    // Remember that this pair of anchors can connect
+                    incoming_edges[cur_anchors[i+1]].emplace(cur_anchors[i]);
+                    outgoing_edges[cur_anchors[i]].emplace(cur_anchors[i+1]);
+                }
             }
         }
     }
 
-    if (output.size() == original_tracebacks.size()) {
+    if (!joining_up) {
         // Everything was disjoint; return right away
         return output;
     }
@@ -1043,7 +1047,7 @@ vector<SubchainGroup> find_best_chains(const VectorView<Anchor>& to_chain,
                  << full_score << " < " << (tracebacks.front().chain_score / 3) << endl; 
 #endif
             // Cut off at this point
-            tracebacks.erase(tracebacks.begin() + i);
+            tracebacks[i] = SparseAnchorChain();
         }
     }
 

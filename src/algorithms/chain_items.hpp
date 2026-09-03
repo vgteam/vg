@@ -687,6 +687,8 @@ unordered_map<TailAnchor, AltEdge> filter_alt_edges(const VectorView<Anchor>& to
  * 
  * Split up tracebacks when possible inter-chain alternatives exist.
  * If no edges connect the tracebacks then they are returned separately.
+ * 
+ * Knows to ignore SparseAnchorChains which have no anchors
  */
 vector<SubchainGroup> split_up_subchains(const VectorView<Anchor>& to_chain,
                                          const vector<SparseAnchorChain>& original_tracebacks,
