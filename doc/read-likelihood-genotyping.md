@@ -461,24 +461,57 @@ one fragment meet at the same oriented node and concatenate -- counting each jun
 single path. That is the invariant the format exists for; version 4 met it at 3% of boundaries.
 `(contig, strand, fragment)` is the path identity, and one path per strand is the normal case.
 
-**A fragment is a path or it is nothing.** Two things break a walk, and both end the fragment rather
-than being written into it:
+**A parent/child haplotype change has TWO boundaries, and both belong to the child.** A nested snarl
+is *contained* in its parent, not sequential with it, so the parent's walk is
 
-- *A row that spans no graph.* A nested snarl is CONTAINED in its parent, not sequential with it, so
-  a recombination at a nested site can open a segment whose start the right-extension then moves to
-  the container's end -- past the row's own sites. chr20 had two, at 32,599,461 and 32,599,482,
-  claiming two and four called sites across no graph at all, and they were the only rows the round
-  trip could not expand. The ROW is dropped and its SITES are kept: removing the sites instead moved
-  run boundaries elsewhere and took chr20 from 3 fragments to 7.
-- *A row the carried direction cannot walk.* chr20 has one, an inversion at 32,709,971-32,717,434 --
-  node 119177446 down to 119168165, backwards in node id, which the haplotype traverses REVERSE at
-  both ends. The carry is authoritative precisely so a row cannot pick an orientation that breaks
-  contiguity, but where the row would otherwise carry no position at all there is nothing left to
-  break, so the other direction is tried and the row stands alone in its own fragment. It cannot
-  join its neighbours -- that is what an inversion boundary is, and X+ followed by X- is not a walk.
+    Ps -> ... -> Cs -> [child] -> Ce -> ... -> Pe
 
-The result on chr20 is 9 fragments, every junction met, no row without a position, and every
-fragment expanding to an exact walk in the graph.
+and a switch between the parent's haplotype and the child's happens at `Cs` going in and `Ce` coming
+out. Those two are the only nodes the two haplotypes share: they are snarl boundaries, so every
+traversal of that snarl passes through them, and the two haplotypes diverge strictly between them.
+`Pe` is never a boundary for a row that precedes the child -- a row ending there has already walked
+past it.
+
+The rule is stated by DEPTH so it composes to any nesting, rather than as a special case:
+
+| at a run boundary | the run ends at |
+|---|---|
+| the next site is *deeper* and inside this one -- entering a child | the child's `start_node` |
+| the next site is *shallower* -- leaving a child | this row's own `end_node`, and the next row starts there |
+| otherwise (siblings, same depth) | the ordinary extend-right / extend-left / patch rules |
+
+A parent holding several children needs nothing extra: the run enters once at the first child's
+`Cs`, walks the children as siblings by ordinary extension, and leaves once at the last child's `Ce`.
+chr20 has such a parent at 65,510,619, snarl 120829831->120830356, holding sites at 65,510,623,
+65,510,767, 65,510,884 and 65,510,910. Getting this wrong put the child run's start at the parent's
+END, past every one of its own sites: 584 boundaries on chr20, 510 on chrX. Two of them collapsed
+far enough to be caught by the round trip; the rest were silently backwards.
+
+The *leaving* half matters substantively rather than conventionally. Extending the child rightwards
+instead would hand it the stretch from `Ce` to `Pe`, which the PARENT's called allele governs --
+unlike the gap between two top-level segments, where no site's allele covers the stretch and the
+choice really is arbitrary.
+
+**A fragment is a path or it is nothing.** A row whose walk cannot continue in the direction the
+fragment has reached is tried once more with the carry ignored, taking the reference fallback as
+well as its own haplotype, because a walk in the other direction is worth more than a hole. Such a
+row breaks the fragment BEFORE it -- its start contradicts the carry, so it cannot join its
+predecessor -- but not after: it is walkable, so the next row's carry logic joins it or declines.
+An inversion is the usual cause, `X+` followed by `X-` being no walk. Only a row with no position at
+all stands completely alone.
+
+That last retry is not an edge case. chr20:31,838,050 names `recombination#24`, which is CLIPPED
+across that site: four GBWT fragments with a 43-step hole, and all three of the row's nodes inside
+it. This is not a fault in the phasing -- the panel records a clipped haplotype as "carries no allele
+here" (`-1`), and the emission weights it `marginal * escape` rather than forbidding it, so linkage
+carries the haplotype across its own gap, which is what Li-Stephens should do at a site with no
+evidence. But the phasing's answer is a haplotype LABEL, well defined even where the haplotype is
+absent, and the mosaic needs a WALK, which is not. The two come apart exactly in clipping gaps, and
+the reference substitution is the mechanism for it -- 158 rows on chr20. This row reached it only
+once the retry stopped being constrained by the carry.
+
+The result on chr20 is 5 fragments, every junction met, no row without a position, and every
+fragment expanding to an exact walk in the graph; on chrX, 3.
 
 **Which haplotype covers the stretch between two segments' sites is arbitrary.** No called site lies
 in it, so nothing distinguishes the earlier haplotype from the later, and a recombination anywhere

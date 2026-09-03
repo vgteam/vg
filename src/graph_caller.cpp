@@ -53,10 +53,11 @@ static std::atomic<size_t> g_mosaic_gap_left(0);
 static std::atomic<size_t> g_mosaic_patched(0);
 // Rows whose own haplotype does not span them, rewritten as a reference substitution.
 static std::atomic<size_t> g_mosaic_row_to_ref(0);
+// Run boundaries between a parent and a child snarl, stated at the child's own boundary nodes.
+static std::atomic<size_t> g_mosaic_nested_enter(0);
+static std::atomic<size_t> g_mosaic_nested_leave(0);
 // Rows the carried direction could not walk but the other could -- an inversion boundary.
 static std::atomic<size_t> g_mosaic_direction_broken(0);
-// Rows that would span no graph at all -- a nested site cutting a segment inside its own parent.
-static std::atomic<size_t> g_mosaic_zero_extent(0);
 static std::atomic<size_t> g_mosaic_extended_left(0);
 static std::atomic<size_t> g_descent_skipped_no_copy(0);
 /// Children a called traversal enters more than once. Visits after the first are masked: one copy for
@@ -1392,7 +1393,32 @@ void VCFOutputCaller::write_mosaic(const vector<LinkageCollector::PhaseCall>& ph
             size_t patch_from_pos = 0, patch_to_pos = 0;
             bool boundary_open = false;
             if (b_idx + 1 < strand_sites.size()) {
-                const int64_t next_start = site(b_idx + 1).start_node;
+                const LinkageCollector::PhaseCall& nx = site(b_idx + 1);
+                const int64_t next_start = nx.start_node;
+                // THE HIERARCHY. A nested snarl is CONTAINED in its parent, not sequential with it,
+                // so the parent's walk is Ps -> ... -> Cs -> [child] -> Ce -> ... -> Pe and a
+                // haplotype change between a parent and a child has TWO boundaries, not one: Cs
+                // where the walk enters the child, Ce where it leaves. Both belong to the CHILD.
+                //
+                // They are the only nodes the two haplotypes share. Cs and Ce are snarl boundaries,
+                // so every traversal of that snarl passes through them -- the parent's haplotype and
+                // the child's diverge strictly between them and re-converge on them. That is what
+                // makes them the handoff points, and it is why Pe is never one: a row ending at the
+                // parent's end has already walked past the child.
+                //
+                // Stating it by DEPTH rather than by case makes it compose to any nesting: entering
+                // is "the next site is deeper and inside me", leaving is "the next site is
+                // shallower". A parent with four children in a row -- chr20 has one at 65,510,619,
+                // snarl 120829831->120830356 holding sites at 65,510,623 / 65,510,767 / 65,510,884
+                // / 65,510,910 -- enters once, walks the four as siblings by ordinary extension,
+                // and leaves once.
+                const bool entering = nx.depth > b.depth
+                                      // Node ids run backwards through an inversion, where
+                                      // containment cannot be read off them; those are not nested.
+                                      && b.start_node < b.end_node
+                                      && next_start >= b.start_node
+                                      && nx.end_node <= b.end_node;
+                const bool leaving = nx.depth < b.depth;
                 // EXTEND RIGHT needs this segment to be walkable -- there is no walk to extend
                 // otherwise -- so it is the one attempt the position guards.
                 bool right = false;
@@ -1412,7 +1438,29 @@ void VCFOutputCaller::write_mosaic(const vector<LinkageCollector::PhaseCall>& ph
                             && linkage_gbwt->locate(np) == linkage_gbwt->locate(p)
                             && (entry == gbwt::invalid_edge() || entry.first == np.first);
                 }
-                if (right) {
+                if (entering) {
+                    // The row ends where the child's snarl begins. Not an EARNED extension but a
+                    // CORRECTION: b.end_node is the parent's end, which the walk does not reach
+                    // until after the child, so a row ending there overshoots its own sites. This
+                    // is what left the child's run starting at the parent's end -- past all of its
+                    // sites -- and two of those collapsed to a row spanning no graph at all.
+                    to_node = next_start;
+                    ++g_mosaic_nested_enter;
+                } else if (leaving) {
+                    // The row ends at the child's own snarl end, and the next row starts THERE, so
+                    // the stretch from Ce to the parent's end is covered by the parent's haplotype
+                    // rather than the child's. Extending the child rightwards instead would hand it
+                    // ground the parent's called allele governs -- unlike the gap between two
+                    // top-level segments, which no site's allele covers and where the choice really
+                    // is arbitrary.
+                    to_node = b.end_node;
+                    pending_from_node = b.end_node;
+                    const size_t nh = strand == 0 ? nx.hap_first : nx.hap_second;
+                    pending_from_pos = nh == LinkageModel::WILDCARD
+                                           ? gbwt::invalid_edge()
+                                           : mosaic_gbwt_position(b.end_node, nh);
+                    ++g_mosaic_nested_leave;
+                } else if (right) {
                     to_node = next_start;
                     ++g_mosaic_extended;
                 } else {
@@ -1467,24 +1515,6 @@ void VCFOutputCaller::write_mosaic(const vector<LinkageCollector::PhaseCall>& ph
                     }
                 }
             }
-            // A ZERO-EXTENT row is not a row. It arises where a nested site cuts a segment: a
-            // nested snarl is CONTAINED in its parent, not sequential with it, so the child spans no
-            // new ground, and EXTEND RIGHT then sets this row's far end to the next segment's start
-            // -- which is the node this row already begins on. chr20 had two, at 32,599,461 and
-            // 32,599,482, whose snarls 119145524->119145526 and 119145526->119145529 sit inside the
-            // preceding site's 119145514->119145530: the row claimed two called sites across no
-            // graph at all, and were the only two rows the round trip could not expand.
-            //
-            // Dropping the ROW rather than the SITES is what makes this safe. The sites stay in the
-            // strand's list, so every other run boundary is where it was -- removing them instead
-            // moved boundaries elsewhere and took chr20 from 3 fragments to 7. And the walk is
-            // untouched: the next row starts on this very node, so the previous row still joins it.
-            // What is lost is the naming of a switch that occupies no ground, inside a nested snarl
-            // whose traversal is compatible with the parent's by construction.
-            if (from_node == to_node) {
-                ++g_mosaic_zero_extent;
-                return;
-            }
             // A row is written as ITS HAPLOTYPE only if that haplotype spans the row's whole
             // node range on one GBWT fragment. Otherwise it is not walkable, and an unwalkable row
             // is useless in a format whose purpose is loading paths -- so it becomes a reference
@@ -1530,6 +1560,12 @@ void VCFOutputCaller::write_mosaic(const vector<LinkageCollector::PhaseCall>& ph
             gbwt::node_type row_end = gbwt::Node::encode(to_node, false);
             bool as_ref = false;
             bool walkable = false;
+            // Whether the carry constrains this row AT ALL. It does not for a strand's first row,
+            // nor where an extension moved the start. Only when it does can ignoring it be a break
+            // rather than a free choice of seed -- otherwise the ordinary attempt, which seeds both
+            // orientations, would already have succeeded.
+            const bool carry_applies = carry != gbwt::ENDMARKER
+                                       && (int64_t)gbwt::Node::id(carry) == from_node;
             if (hap != LinkageModel::WILDCARD) {
                 walkable = start_and_walk(hap, &row_pos, &row_end);
                 if (!walkable && patch_gaps && reference_hap != LinkageModel::WILDCARD
@@ -1552,17 +1588,48 @@ void VCFOutputCaller::write_mosaic(const vector<LinkageCollector::PhaseCall>& ph
             if (!walkable && hap != LinkageModel::WILDCARD
                 && start_and_walk(hap, &row_pos, &row_end, true)) {
                 walkable = true;
-                direction_broken = true;
-                ++g_mosaic_direction_broken;
+                direction_broken = carry_applies && row_pos.first != carry;
+                if (direction_broken) {
+                    ++g_mosaic_direction_broken;
+                }
+            }
+            // And the REFERENCE without the carry either, which is the same last resort applied to
+            // the same fallback. Without it a row lost a reference walk that was demonstrably there:
+            // chr20:31,838,050 names recombination#24, which is CLIPPED across that site -- 4 GBWT
+            // fragments with a 43-step hole, and all three of the row's nodes inside it. That is not
+            // a fault in the phasing: the panel records a clipped haplotype as "carries no allele
+            // here" (-1), the emission weights it `marginal * escape` rather than forbidding it, so
+            // linkage carries the haplotype across its own gap, which is what Li-Stephens should do
+            // at a site with no evidence. The mosaic needs a WALK, though, and there is none -- so
+            // the row becomes a reference substitution like the other 157 on chr20. It only failed
+            // to because the substitution was tried through the carry, which pointed at node
+            // 117926769 REVERSE (inherited from an inverted row) where the reference visits it only
+            // forward. The reference walks the row's exact span, one fragment, 12 steps.
+            if (!walkable && patch_gaps && hap != LinkageModel::WILDCARD
+                && reference_hap != LinkageModel::WILDCARD
+                && start_and_walk(reference_hap, &row_pos, &row_end, true)) {
+                as_ref = true;
+                walkable = true;
+                ++g_mosaic_row_to_ref;
+                direction_broken = carry_applies && row_pos.first != carry;
+                if (direction_broken) {
+                    ++g_mosaic_direction_broken;
+                }
             }
             if (!walkable) {
                 row_pos = gbwt::invalid_edge();
                 row_end = gbwt::Node::encode(to_node, false);
             }
             carry = walkable ? row_end : gbwt::ENDMARKER;
-            // A positionless row STANDS ALONE -- the fragment breaks before it as well as after.
-            // Breaking only after still left it as the last row of the preceding fragment, where a
-            // consumer expanding that fragment runs into it and has nothing to walk.
+            // The break goes BEFORE a direction-broken row, not after it. Its start contradicts the
+            // carry, so it cannot join its PREDECESSOR -- that is the whole meaning of the flag. On
+            // the right there is nothing to break: the row is walkable, so `carry` is set from its
+            // own end and the next row's carry logic joins it or declines. Breaking after as well
+            // left every such row isolated, and a direction-broken row following an ordinary one
+            // would have been appended to that fragment with a junction that is not a walk.
+            //
+            // A positionless row stands alone: it breaks on both sides, because a consumer
+            // expanding either neighbour's fragment would run into it with nothing to walk.
             if (hap == LinkageModel::WILDCARD || !walkable || direction_broken) {
                 ++fragment;
             }
@@ -1663,7 +1730,7 @@ void VCFOutputCaller::write_mosaic(const vector<LinkageCollector::PhaseCall>& ph
             // such walk -- but leaving it inside the fragment left a hole no consumer could cross,
             // and it is the whole of what the chr20 round trip could not expand. A fragment is a
             // path or it is nothing, so the fragment ends here and a new one starts after it.
-            if (hap == LinkageModel::WILDCARD || !walkable || direction_broken) {
+            if (hap == LinkageModel::WILDCARD || !walkable) {
                 ++fragment;
             }
         };
@@ -1829,9 +1896,9 @@ void VCFOutputCaller::write_mosaic(const vector<LinkageCollector::PhaseCall>& ph
          << " by extending left instead, " << g_mosaic_patched.load()
          << " filled with the reference because neither haplotype could be carried across, "
          << g_mosaic_gap_left.load() << " left as a gap" << endl;
-    cerr << "[vg call] mosaic: " << g_mosaic_zero_extent.load()
-         << " rows dropped as spanning no graph (a nested site cutting a segment inside its parent)"
-         << endl;
+    cerr << "[vg call] mosaic: " << g_mosaic_nested_enter.load()
+         << " boundaries where the walk enters a child snarl, " << g_mosaic_nested_leave.load()
+         << " where it leaves one -- both stated at the CHILD's boundary node" << endl;
     cerr << "[vg call] mosaic: " << g_mosaic_direction_broken.load()
          << " rows walked against the carried direction, each standing alone (inversions)" << endl;
     cerr << "[vg call] mosaic: " << g_mosaic_unwalkable.load()
