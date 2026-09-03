@@ -303,8 +303,8 @@ class MinimizerMapper : public AlignerClient {
     
     /// If a chain's score is smaller than the best 
     /// chain's score by more than this much, don't align it
-    static constexpr double default_chain_score_threshold = 100;
-    double chain_score_threshold = default_chain_score_threshold;
+    static constexpr size_t default_chain_score_threshold = 100;
+    size_t chain_score_threshold = default_chain_score_threshold;
     
     /// Disregard the chain score thresholds when they would give us
     /// fewer than this many chains aligned.

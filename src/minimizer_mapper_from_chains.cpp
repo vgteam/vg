@@ -792,7 +792,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         {
             cerr << log_name() << "Scaled scores:";
             for (size_t i = 0; i < scaled_scores.size(); i++) {
-                cerr << " " << scaled_scores[i] << " (multiplicity " << multiplicity_by_alignment[i] << ")";
+                cerr << " " << scaled_scores[i];
                 if (i + 1 < scaled_scores.size()) {
                     cerr << ",";
                 }
@@ -3159,22 +3159,26 @@ vector<Alignment> MinimizerMapper::do_base_level_alignment(
     std::unordered_set<std::pair<nid_t, bool>> used_nodes;
 
     for (const auto& cur_aln : alignments) {
-        bool has_new_node = false;
+        size_t from_length_from_used = 0;
+        size_t from_length_total = 0;
         for (const auto& mapping : cur_aln.path().mapping()) {
             auto& position = mapping.position();
             std::pair<nid_t, bool> key{position.node_id(), position.is_reverse()};
-            if (!used_nodes.count(key)) {
+            if (used_nodes.count(key)) {
+                from_length_from_used += mapping_from_length(mapping);
+            } else {
                 used_nodes.emplace(key);
-                has_new_node = true;
             }
+            from_length_total += mapping_from_length(mapping);
         }
-        if (has_new_node) {
+        double unique_node_fraction = from_length_total > 0 ? ((double)(from_length_total - from_length_from_used) / from_length_total) : 1.0;
+        if (unique_node_fraction >= min_unique_node_fraction) {
             non_duplicate_alignments.push_back(cur_aln);
         } else if (show_work) {
             #pragma omp critical (cerr)
             {
                 cerr << log_name() << "Possible alignment " << non_duplicate_alignments.size()
-                     << " rejected because it has no new nodes used" << endl;
+                     << " rejected because only " << unique_node_fraction << " of it is from nodes not already used" << endl;
             }
         }
     }

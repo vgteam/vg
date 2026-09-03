@@ -480,8 +480,7 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         "chain-score-threshold",
         &MinimizerMapper::chain_score_threshold,
         MinimizerMapper::default_chain_score_threshold,
-        "only align chains if their score is within this many points of the best score",
-        double_is_nonnegative
+        "only align chains if their score is within this many points of the best score"
     );
     chaining_opts.add_range(
         "min-chains",
@@ -984,7 +983,7 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<double>("gap-scale", 0.27579)
         .add_entry<int>("rec-penalty", 2)
         .add_entry<int>("rec-consistency-bonus", 12)
-        .add_entry<double>("chain-score-threshold", 234.0)
+        .add_entry<size_t>("chain-score-threshold", 234)
         .add_entry<size_t>("min-chains", 2)
         .add_entry<double>("min-chain-score-per-base", 0.24)
         .add_entry<size_t>("max-chains-per-tree", 3)
@@ -997,6 +996,7 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<size_t>("max-tail-gap", 150)
         .add_entry<size_t>("max-middle-gap", 500)
         .add_entry<size_t>("max-dp-cells", 8000000000)
+        .add_entry<double>("min-unique-node-fraction", 0.1)
         .add_entry<int>("wfa-distance", 33)
         .add_entry<double>("wfa-distance-per-base", 0.195722)
         .add_entry<int>("wfa-max-distance", 240)
@@ -1043,7 +1043,7 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<double>("gap-scale", 0.06759721757973396)
         .add_entry<int>("rec-penalty", 2)
         .add_entry<int>("rec-consistency-bonus", 13)
-        .add_entry<double>("chain-score-threshold", 160.0)
+        .add_entry<size_t>("chain-score-threshold", 160)
         .add_entry<size_t>("min-chains", 2)
         .add_entry<size_t>("max-chains-per-tree", 3)
         // Lowering this can reduce wrong reads in mapping experiments, but
@@ -1059,6 +1059,7 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<size_t>("max-tail-gap", 150)
         .add_entry<size_t>("max-middle-gap", 500)
         .add_entry<size_t>("max-dp-cells", 8000000000)
+        .add_entry<double>("min-unique-node-fraction", 0.1)
         .add_entry<int>("wfa-distance", 33)
         .add_entry<double>("wfa-distance-per-base", 0.195722)
         .add_entry<int>("wfa-max-distance", 240)
@@ -1103,7 +1104,7 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<double>("max-graph-lookback-bases-per-base", 0)
         .add_entry<size_t>("max-indel-bases", 1600)
         .add_entry<double>("max-indel-bases-per-base", 0)
-        .add_entry<double>("chain-score-threshold", 100.0)
+        .add_entry<size_t>("chain-score-threshold", 100)
         .add_entry<double>("min-chain-score-per-base", 0.01)
         .add_entry<int>("max-min-chain-score", 200.0)
         .add_entry<int>("item-bonus", 0)
