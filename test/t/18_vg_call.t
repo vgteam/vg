@@ -612,7 +612,7 @@ is $(python3 ./mosaic_to_path.py --mosaic rl_mosaic.tsv --gaf rl_paths.gaf --gfa
 rm -f rl_paths.gaf rl_graph.gfa rl_expand.txt
 # An unresolvable position is allowed -- it means no panel haplotype of that name visits the node --
 # but it must stay the exception, or the column is not doing its job.
-is $(awk -F'\t' '/^H\t/ {t++; if ($11 != ".") p++} END {print (p > t/2) ? 1 : 0}' rl_mosaic.tsv) "1" \
+is $(awk -F'\t' '/^H\t/ {t++; if ($12 != ".") p++} END {print (p > t/2) ? 1 : 0}' rl_mosaic.tsv) "1" \
    "most segments resolve to a GBWT position"
 
 # A segment carrying one GBWT position is a claim that the position walks the whole segment, which

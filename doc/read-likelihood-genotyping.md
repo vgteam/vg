@@ -434,6 +434,7 @@ one panel haplotype:
 	... one line per panel haplotype, 34 of them on this graph
 #note	gbwt_node/gbwt_offset is the GBWT position of the haplotype at start_node: ...
 #note	a segment never spans a GBWT fragment boundary, ...
+#note	a fragment is a PATH: its rows join end to start, on the same oriented node, ...
 #note	start_node and end_node are ORIENTED node ids, id * 2 + is_reverse ...
 #H	contig	strand	fragment	ref_start	ref_end	start_node	end_node	hap_index	haplotype	sites	gbwt_offset
 H	chr20	0	0	22	533	229637742	229638340	4	recombination#19	16	19
@@ -459,6 +460,25 @@ a version 5 file.
 one fragment meet at the same oriented node and concatenate -- counting each junction once -- into a
 single path. That is the invariant the format exists for; version 4 met it at 3% of boundaries.
 `(contig, strand, fragment)` is the path identity, and one path per strand is the normal case.
+
+**A fragment is a path or it is nothing.** Two things break a walk, and both end the fragment rather
+than being written into it:
+
+- *A row that spans no graph.* A nested snarl is CONTAINED in its parent, not sequential with it, so
+  a recombination at a nested site can open a segment whose start the right-extension then moves to
+  the container's end -- past the row's own sites. chr20 had two, at 32,599,461 and 32,599,482,
+  claiming two and four called sites across no graph at all, and they were the only rows the round
+  trip could not expand. The ROW is dropped and its SITES are kept: removing the sites instead moved
+  run boundaries elsewhere and took chr20 from 3 fragments to 7.
+- *A row the carried direction cannot walk.* chr20 has one, an inversion at 32,709,971-32,717,434 --
+  node 119177446 down to 119168165, backwards in node id, which the haplotype traverses REVERSE at
+  both ends. The carry is authoritative precisely so a row cannot pick an orientation that breaks
+  contiguity, but where the row would otherwise carry no position at all there is nothing left to
+  break, so the other direction is tried and the row stands alone in its own fragment. It cannot
+  join its neighbours -- that is what an inversion boundary is, and X+ followed by X- is not a walk.
+
+The result on chr20 is 9 fragments, every junction met, no row without a position, and every
+fragment expanding to an exact walk in the graph.
 
 **Which haplotype covers the stretch between two segments' sites is arbitrary.** No called site lies
 in it, so nothing distinguishes the earlier haplotype from the later, and a recombination anywhere

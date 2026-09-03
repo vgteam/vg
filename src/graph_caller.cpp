@@ -53,6 +53,10 @@ static std::atomic<size_t> g_mosaic_gap_left(0);
 static std::atomic<size_t> g_mosaic_patched(0);
 // Rows whose own haplotype does not span them, rewritten as a reference substitution.
 static std::atomic<size_t> g_mosaic_row_to_ref(0);
+// Rows the carried direction could not walk but the other could -- an inversion boundary.
+static std::atomic<size_t> g_mosaic_direction_broken(0);
+// Rows that would span no graph at all -- a nested site cutting a segment inside its own parent.
+static std::atomic<size_t> g_mosaic_zero_extent(0);
 static std::atomic<size_t> g_mosaic_extended_left(0);
 static std::atomic<size_t> g_descent_skipped_no_copy(0);
 /// Children a called traversal enters more than once. Visits after the first are masked: one copy for
@@ -1220,11 +1224,10 @@ void VCFOutputCaller::write_mosaic(const vector<LinkageCollector::PhaseCall>& ph
         << "the two collapsed into one column here.\n";
     out << "#note\ta segment never spans a GBWT fragment boundary, so one position walks the "
         << "whole of it; a haplotype in several fragments yields several segments.\n";
-    out << "#note\tnested_sites is how many of a segment's sites lie inside a nested chain, and "
-        << "max_depth how deep the deepest of them is (0 = top level). A recombination inside a "
-        << "nested chain closes a segment exactly as one between top-level sites does, so without "
-        << "these two columns the file cannot tell them apart -- and the nested ones are what "
-        << "nested calling is for. Version 3 had neither.\n";
+    out << "#note\ta fragment is a PATH: its rows join end to start, on the same oriented node, "
+        << "and expand to an exact walk in the graph. A row that cannot be walked in the direction "
+        << "the fragment has reached stands alone in a fragment of its own -- an inversion boundary "
+        << "is the usual reason, and X+ followed by X- is not a walk.\n";
     out << "#H\tcontig\tstrand\tfragment\tref_start\tref_end\tstart_node\tend_node"
         << "\thap_index\thaplotype\tsites\tgbwt_offset\n";
 
@@ -1464,6 +1467,24 @@ void VCFOutputCaller::write_mosaic(const vector<LinkageCollector::PhaseCall>& ph
                     }
                 }
             }
+            // A ZERO-EXTENT row is not a row. It arises where a nested site cuts a segment: a
+            // nested snarl is CONTAINED in its parent, not sequential with it, so the child spans no
+            // new ground, and EXTEND RIGHT then sets this row's far end to the next segment's start
+            // -- which is the node this row already begins on. chr20 had two, at 32,599,461 and
+            // 32,599,482, whose snarls 119145524->119145526 and 119145526->119145529 sit inside the
+            // preceding site's 119145514->119145530: the row claimed two called sites across no
+            // graph at all, and were the only two rows the round trip could not expand.
+            //
+            // Dropping the ROW rather than the SITES is what makes this safe. The sites stay in the
+            // strand's list, so every other run boundary is where it was -- removing them instead
+            // moved boundaries elsewhere and took chr20 from 3 fragments to 7. And the walk is
+            // untouched: the next row starts on this very node, so the previous row still joins it.
+            // What is lost is the naming of a switch that occupies no ground, inside a nested snarl
+            // whose traversal is compatible with the parent's by construction.
+            if (from_node == to_node) {
+                ++g_mosaic_zero_extent;
+                return;
+            }
             // A row is written as ITS HAPLOTYPE only if that haplotype spans the row's whole
             // node range on one GBWT fragment. Otherwise it is not walkable, and an unwalkable row
             // is useless in a format whose purpose is loading paths -- so it becomes a reference
@@ -1479,12 +1500,14 @@ void VCFOutputCaller::write_mosaic(const vector<LinkageCollector::PhaseCall>& ph
             // first and is right for all but the first row of a strand; only when it does not apply
             // is the other orientation resolved, and each resolve is reused for the walk.
             const auto start_and_walk = [&](size_t h, gbwt::edge_type* pos,
-                                            gbwt::node_type* end) -> bool {
+                                            gbwt::node_type* end,
+                                            bool ignore_carry = false) -> bool {
                 // The carry is AUTHORITATIVE where it applies. If this haplotype cannot be followed
                 // from the direction the strand has reached, the row does not continue the walk and
                 // must say so -- picking another orientation would produce a walkable row that is
                 // not contiguous with the one before it, which is the whole thing being avoided.
-                if (carry != gbwt::ENDMARKER && (int64_t)gbwt::Node::id(carry) == from_node) {
+                if (!ignore_carry && carry != gbwt::ENDMARKER
+                    && (int64_t)gbwt::Node::id(carry) == from_node) {
                     const gbwt::edge_type at = mosaic_position_at(carry, h);
                     if (at == gbwt::invalid_edge() || !mosaic_follow(at, to_node, end)) {
                         return false;
@@ -1516,11 +1539,33 @@ void VCFOutputCaller::write_mosaic(const vector<LinkageCollector::PhaseCall>& ph
                     ++g_mosaic_row_to_ref;
                 }
             }
+            // LAST RESORT: try the row WITHOUT the carry's direction. The carry is authoritative
+            // precisely so a row cannot silently pick an orientation that breaks contiguity -- but
+            // where the row is about to be positionless there is nothing left to break, and a walk
+            // in the other direction is worth more than a hole. chr20's one case is an INVERSION at
+            // 32,709,971-32,717,434: node 119177446 down to 119168165, backwards in node id, which
+            // the haplotype traverses REVERSE at both ends. Stating it forward with no position was
+            // a claim the graph does not support; taking the reverse walk makes the row a real
+            // 1,872-step path. It cannot join the row before it -- that is what an inversion
+            // boundary IS, X+ then X- is not a walk -- so the fragment breaks around it either way.
+            bool direction_broken = false;
+            if (!walkable && hap != LinkageModel::WILDCARD
+                && start_and_walk(hap, &row_pos, &row_end, true)) {
+                walkable = true;
+                direction_broken = true;
+                ++g_mosaic_direction_broken;
+            }
             if (!walkable) {
                 row_pos = gbwt::invalid_edge();
                 row_end = gbwt::Node::encode(to_node, false);
             }
             carry = walkable ? row_end : gbwt::ENDMARKER;
+            // A positionless row STANDS ALONE -- the fragment breaks before it as well as after.
+            // Breaking only after still left it as the last row of the preceding fragment, where a
+            // consumer expanding that fragment runs into it and has nothing to walk.
+            if (hap == LinkageModel::WILDCARD || !walkable || direction_broken) {
+                ++fragment;
+            }
             // ORIENTED node ids, `id * 2 + is_reverse` -- vg's own encoding, and the same space
             // gbwt_node used to be given in. Node identity alone is not enough for a path: two
             // segments can share a node and traverse it in OPPOSITE directions, which is not a
@@ -1609,9 +1654,16 @@ void VCFOutputCaller::write_mosaic(const vector<LinkageCollector::PhaseCall>& ph
             if (boundary_open) {
                 ++fragment;
             }
-            // An unexplained row is not walkable, so in break mode it stands alone: the fragment
-            // advances after it, and a consumer skips a fragment whose rows carry no position.
-            if (hap == LinkageModel::WILDCARD) {
+            // A row with NO POSITION ends the fragment, whatever made it positionless. The
+            // unexplained case was already here; the other is a row whose haplotype the graph does
+            // not walk in the direction the row states, and which the reference could not stand in
+            // for either. chr20 has one, at 32,709,971-32,717,434, and it is an INVERSION: node
+            // 119177446 down to 119168165, backwards in node id, and the haplotype visits both ends
+            // REVERSE where the row states forward. The writer is right to decline it -- there is no
+            // such walk -- but leaving it inside the fragment left a hole no consumer could cross,
+            // and it is the whole of what the chr20 round trip could not expand. A fragment is a
+            // path or it is nothing, so the fragment ends here and a new one starts after it.
+            if (hap == LinkageModel::WILDCARD || !walkable || direction_broken) {
                 ++fragment;
             }
         };
@@ -1777,6 +1829,11 @@ void VCFOutputCaller::write_mosaic(const vector<LinkageCollector::PhaseCall>& ph
          << " by extending left instead, " << g_mosaic_patched.load()
          << " filled with the reference because neither haplotype could be carried across, "
          << g_mosaic_gap_left.load() << " left as a gap" << endl;
+    cerr << "[vg call] mosaic: " << g_mosaic_zero_extent.load()
+         << " rows dropped as spanning no graph (a nested site cutting a segment inside its parent)"
+         << endl;
+    cerr << "[vg call] mosaic: " << g_mosaic_direction_broken.load()
+         << " rows walked against the carried direction, each standing alone (inversions)" << endl;
     cerr << "[vg call] mosaic: " << g_mosaic_unwalkable.load()
          << " segments name a haplotype the graph does not carry across them, of which "
          << g_mosaic_head_clipped.load() << " are a clipped head whose remainder is walkable; "

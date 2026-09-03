@@ -64,6 +64,41 @@ def read_edges(gfa):
     return e
 
 
+def pick_copy(w, starts, ends, srev, erev, resume):
+    """Pick which visit to the start and end nodes this segment means.
+
+    The file states the orientation at both ends, so a copy whose orientation disagrees is not the
+    one meant. Among those that agree, take the pair nearest the point the walk has reached -- the
+    segments of a fragment are given in walk order, so that is the copy the previous segment hands
+    over to. Returns (None, None) when no pair qualifies, which is a real failure and is counted.
+    """
+    best = None
+    for i in starts:
+        if w[i][1] != srev:
+            continue
+        for j in ends:
+            if w[j][1] != erev:
+                continue
+            # Distance from where the walk stands, then span, so a segment does not leap across
+            # the contig to a distant repeat copy when a near one fits.
+            cost = (abs(i - resume), abs(j - i))
+            if best is None or cost < best[0]:
+                best = (cost, i, j)
+    if best is None:
+        # Orientation may legitimately be the reverse-complement reading of the whole fragment, in
+        # which case both ends flip together. Try that before giving up.
+        for i in starts:
+            if w[i][1] == srev:
+                continue
+            for j in ends:
+                if w[j][1] == erev:
+                    continue
+                cost = (abs(i - resume), abs(j - i))
+                if best is None or cost < best[0]:
+                    best = (cost, i, j)
+    return (best[1], best[2]) if best else (None, None)
+
+
 def haplotype_walk(walks, name, _cache={}):
     """Fragments of one haplotype, each with a node->offset index.
 
@@ -75,7 +110,18 @@ def haplotype_walk(walks, name, _cache={}):
     out = [w for n, w in walks.items() if n == name or n.startswith(name + '#')
            or n.split('[')[0] == name]
     out.sort(key=len, reverse=True)
-    _cache[name] = [(w, {n: i for i, (n, _) in enumerate(w)}) for w in out]
+    # EVERY occurrence, not just the last. A haplotype can visit a node more than once -- a
+    # tandem repeat, an inversion re-entering -- and `{n: i for ...}` silently keeps the final
+    # visit, so a segment anchored on an earlier one was sliced from the wrong copy. That is the
+    # checker's own ambiguity, not the file's: the file names the copy, by stating the orientation
+    # at both ends and by listing segments in walk order.
+    occ = []
+    for w in out:
+        d = defaultdict(list)
+        for i, (n, _) in enumerate(w):
+            d[n].append(i)
+        occ.append((w, d))
+    _cache[name] = occ
     return _cache[name]
 
 
@@ -103,6 +149,7 @@ def main():
     total_steps = 0
     for (contig, strand, frag), segs in sorted(threads.items()):
         path = []
+        pick_copy.at = 0          # each fragment starts its own walk
         for f in segs:
             # v5: contig strand fragment ref_start ref_end start_node end_node
             #     hap_index haplotype sites gbwt_offset
@@ -118,9 +165,15 @@ def main():
                 fail['haplotype not found in the graph'] += 1
                 continue
             piece = None
+            # Where the previous segment left off, so the copy chosen here is the one the walk
+            # actually reaches rather than whichever happens to be last in the fragment.
+            resume = getattr(pick_copy, 'at', 0)
             for w, idx in frags:
                 if start in idx and end in idx:
-                    i, j = idx[start], idx[end]
+                    i, j = pick_copy(w, idx[start], idx[end], srev, erev, resume)
+                    if i is None:
+                        continue
+                    pick_copy.at = j
                     if i <= j:
                         piece = w[i:j + 1]
                     else:
@@ -135,6 +188,8 @@ def main():
                     # it too. They have to agree, or the row's oriented anchors are not the walk's.
                     if piece and (piece[0][1] != srev or piece[-1][1] != erev):
                         orient_mismatch[0] += 1
+                        print(f"  ORIENT  {f}  walk_start={piece[0]} walk_end={piece[-1]} "
+                              f"stated=({start},{srev})->({end},{erev})", file=sys.stderr)
                     break
             if piece is None:
                 fail['segment endpoints not both on one fragment of its haplotype'] += 1
@@ -144,11 +199,15 @@ def main():
                     fail['segments abut by an edge rather than sharing a node'] += 1
                 else:
                     fail['segments do not join'] += 1
+                    print(f"  NOJOIN  {f}  prev_end={path[-1]} this_start={piece[0]}",
+                          file=sys.stderr)
             path.extend(piece if not path else piece[1:])
         for i in range(len(path) - 1):
             total_steps += 1
             if edges is not None and (path[i], path[i + 1]) not in edges:
                 fail['step is not an edge in the graph'] += 1
+                print(f"  NOEDGE  {contig} strand {strand} frag {frag} step {i}: "
+                      f"{path[i]} -> {path[i+1]}", file=sys.stderr)
         if not a.quiet:
             print(f"  {contig} strand {strand} fragment {frag}: "
                   f"{len(segs)} segments -> {len(path)} node steps")
