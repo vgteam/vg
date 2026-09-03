@@ -9,7 +9,7 @@ PATH=../bin:$PATH # for vg
 # FORMAT field shifts every later one, which broke four assertions here that were not
 # testing field order at all -- one of them silently compared BL against a GQ threshold.
 
-plan tests 321
+plan tests 333
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -1967,3 +1967,143 @@ is "$NESTED_RC_X" "$NESTED_COUNT" "All nested variants have RC=x (top-level cont
 
 rm -f rc_test.gfa rc_test.gam rc_test.pack rc_test.vcf
 
+
+
+# --- the mosaic writer's structural cases, in one small graph -----------------
+# The existing mosaic tests run on x.gbz, where every thread is a single segment: no join is
+# exercised, so nothing the writer does between segments is tested. Everything that mattered on
+# chr20 -- nested parent/child boundaries, an inversion, a clipped haplotype -- was reachable only
+# through a 22 GB read database. This graph puts three of those in 396 bp:
+#
+#   (7,14)  a PARENT snarl -- the 7->14 deletion edge makes it one -- holding a chain of TWO child
+#           snarls, (8,11) and (11,20), anchored on both sides so neither shares a boundary with the
+#           parent. A parent with several children is the case the enter/leave rules exist for.
+#   (14,16) an INVERSION over a stretch that CONTAINS A SITE, (30,33). A haplotype that inverts
+#           traverses that site's own boundaries in REVERSE, so a row anchored on them disagrees
+#           with the direction the fragment arrived in -- which is what makes the walk break.
+#   pC      a CLIPPED haplotype: two GBWT fragments with a hole over the whole nested parent.
+#
+# Node ids are deliberately NOT ordered along the walk here -- node 16 closes a snarl holding nodes
+# 30..33 -- because real graphs usually are, and testing containment by node id therefore passed on
+# chr20 by luck while silently failing wherever ids run backwards, as they always do in an inversion.
+rm -f fx.gfa fx_sim.gfa fx.gbz fx_sim.gbz fx.gam fx.mosaic.tsv fx.paths.gaf fx.graph.gfa
+{
+  printf 'H\tVN:Z:1.1\n'
+  printf 'S\t1\tCCTAGGCTTAGGACCTGATCGGATCCAGTACCGTTAAGCA\n'
+  printf 'S\t2\tA\nS\t3\tT\n'
+  printf 'S\t4\tGGCATTAGCCTTAGACCGATTGCAAGTCCAGGTTACCGAT\n'
+  printf 'S\t5\tC\nS\t6\tG\n'
+  printf 'S\t7\tTTGACCAGTTCAGGACTTACGGCATTCGGATCCAAGTTCC\n'
+  printf 'S\t8\tAACCGGTTACGTTGCAATCGGTTACCAGTT\n'
+  printf 'S\t9\tA\nS\t10\tG\n'
+  printf 'S\t11\tGGATCCTAGCATTCGGATCCAAGTTCCAGA\n'
+  printf 'S\t12\tC\nS\t13\tT\n'
+  printf 'S\t20\tCCAGGTTACCGATTGCAAGTCCTTAGGCTA\n'
+  printf 'S\t14\tACGTTGCAATCGGTTACCAGTTAAGGCCTTAGCATTCGGA\n'
+  printf 'S\t30\tAGGCTTACCGATTGCAAGTCCAGGTTACCG\n'
+  printf 'S\t31\tA\nS\t32\tC\n'
+  printf 'S\t33\tTTGCAATCGGTTACCAGTTAAGGCCTTAGC\n'
+  printf 'S\t16\tCATTCGGATCCAAGTTCCAGATTGACCAGTTCAGGACTTA\n'
+  printf 'S\t17\tA\nS\t18\tG\n'
+  printf 'S\t19\tGGCCTTAGCATTCGGATCCAAGTTCCAGATTGACCAGTTC\n'
+  printf 'L\t1\t+\t2\t+\t0M\nL\t1\t+\t3\t+\t0M\nL\t2\t+\t4\t+\t0M\nL\t3\t+\t4\t+\t0M\n'
+  printf 'L\t4\t+\t5\t+\t0M\nL\t4\t+\t6\t+\t0M\nL\t5\t+\t7\t+\t0M\nL\t6\t+\t7\t+\t0M\n'
+  printf 'L\t7\t+\t8\t+\t0M\n'
+  printf 'L\t8\t+\t9\t+\t0M\nL\t8\t+\t10\t+\t0M\nL\t9\t+\t11\t+\t0M\nL\t10\t+\t11\t+\t0M\n'
+  printf 'L\t11\t+\t12\t+\t0M\nL\t11\t+\t13\t+\t0M\nL\t12\t+\t20\t+\t0M\nL\t13\t+\t20\t+\t0M\n'
+  printf 'L\t20\t+\t14\t+\t0M\nL\t7\t+\t14\t+\t0M\n'
+  printf 'L\t14\t+\t30\t+\t0M\nL\t30\t+\t31\t+\t0M\nL\t30\t+\t32\t+\t0M\n'
+  printf 'L\t31\t+\t33\t+\t0M\nL\t32\t+\t33\t+\t0M\nL\t33\t+\t16\t+\t0M\n'
+  printf 'L\t14\t+\t33\t-\t0M\nL\t30\t-\t16\t+\t0M\n'
+  printf 'L\t16\t+\t17\t+\t0M\nL\t16\t+\t18\t+\t0M\nL\t17\t+\t19\t+\t0M\nL\t18\t+\t19\t+\t0M\n'
+  printf 'P\tREF#0#chr1\t1+,2+,4+,5+,7+,8+,9+,11+,12+,20+,14+,30+,31+,33+,16+,17+,19+\t*\n'
+  printf 'W\tpA\t0\tchr1\t0\t396\t>1>2>4>5>7>8>9>11>12>20>14>30>31>33>16>17>19\n'
+  printf 'W\tpA\t1\tchr1\t0\t396\t>1>3>4>5>7>8>10>11>12>20>14>30>31>33>16>17>19\n'
+  printf 'W\tpB\t0\tchr1\t0\t396\t>1>2>4>6>7>8>9>11>13>20>14<33<31<30>16>17>19\n'
+  printf 'W\tpB\t1\tchr1\t0\t396\t>1>2>4>5>7>8>9>11>12>20>14>30>31>33>16>18>19\n'
+  printf 'W\tpD\t0\tchr1\t0\t336\t>1>2>4>5>7>14>30>31>33>16>17>19\n'
+  printf 'W\tpD\t1\tchr1\t0\t396\t>1>3>4>6>7>8>9>11>12>20>14>30>31>33>16>17>19\n'
+  # pE carries the sample's route THROUGH THE PARENT -- both child alts together. Without it the
+  # parent has no traversal to settle on that spells the sample's children, its pin forces them
+  # both to reference, and every nested site vanishes from the call set.
+  printf 'W\tpE\t0\tchr1\t0\t396\t>1>2>4>5>7>8>10>11>13>20>14>30>31>33>16>17>19\n'
+  # hR inverts and carries the site inside the inversion as alt.
+  printf 'W\thR\t0\tchr1\t0\t396\t>1>2>4>5>7>8>9>11>12>20>14<33<32<30>16>18>19\n'
+  # pC is CLIPPED: a hole over the whole nested parent.
+  printf 'W\tpC\t0\tchr1\t0\t122\t>1>3>4>6>7\n'
+  printf 'W\tpC\t0\tchr1\t214\t396\t>14<33<32<30>16>18>19\n'
+} > fx.gfa
+# The sample must NOT be in the panel, or the model just names it and every strand is one segment.
+# So: one graph with the truth walks for `vg sim`, one without for `vg call`, same node ids.
+cp fx.gfa fx_sim.gfa
+printf 'W\tT\t0\tchr1\t0\t396\t>1>3>4>6>7>8>10>11>13>20>14<33<32<30>16>18>19\n' >> fx_sim.gfa
+printf 'W\tT\t1\tchr1\t0\t396\t>1>2>4>5>7>8>9>11>12>20>14>30>31>33>16>17>19\n' >> fx_sim.gfa
+vg gbwt -G fx.gfa --gbz-format -g fx.gbz --set-reference REF 2>/dev/null
+is "$?" 0 "mosaic structural fixture builds"
+vg gbwt -G fx_sim.gfa --gbz-format -g fx_sim.gbz --set-reference REF 2>/dev/null >/dev/null
+
+# The graph has to actually have the shapes before the writer can be tested on them.
+vg snarls fx.gbz 2>/dev/null > fx.snarls
+is $(vg view -R fx.snarls 2>/dev/null | grep -c '"parent"') "3" \
+   "the fixture has three nested snarls: two children in one parent, and one inside the inversion"
+is $(vg paths -x fx.gbz -L 2>/dev/null | grep -c "^pC#0#chr1#") "2" \
+   "the clipped haplotype is stored as two GBWT fragments, so it has a hole"
+
+vg sim -x fx_sim.gbz -n 600 -l 40 -a -s 17 --path "T#0#chr1#0" >  fx.gam 2>/dev/null
+vg sim -x fx_sim.gbz -n 600 -l 40 -a -s 23 --path "T#1#chr1#0" >> fx.gam 2>/dev/null
+# --linkage-scale is the decay distance in bp and defaults to 10 kb, which over 396 bp makes every
+# recombination effectively free to avoid: the model then explains the sample by flipping single
+# alleles rather than switching haplotype, and the mosaic collapses to one segment per strand. A
+# scale on the order of the site spacing is what makes this graph behave like a real contig. The
+# result is stable over 30..60.
+vg call fx.gbz --read-likelihood --gam fx.gam -t 1 -s samp --phased --linkage-scale 40 \
+    --mosaic-out fx.mosaic.tsv --progress >/dev/null 2>fx.err
+is "$?" 0 "vg call runs on the mosaic structural fixture"
+
+# --- the hierarchy rules -----------------------------------------------------
+# A parent/child haplotype change has two boundaries and both belong to the child: Cs going in, Ce
+# coming out. Getting this wrong put the child run's start at the PARENT's end, past every one of
+# its own sites -- 584 such boundaries on chr20, of which only two collapsed far enough for the
+# round trip to catch them.
+is $(awk '/enters a child/ {print ($0 ~ /: [1-9][0-9]* boundaries/) ? 1 : 0}' fx.err) "1" \
+   "a run boundary where the walk ENTERS a child snarl is exercised"
+is $(awk '/enters a child/ {print ($0 ~ /, [1-9][0-9]* where it leaves/) ? 1 : 0}' fx.err) "1" \
+   "and one where it LEAVES a child snarl"
+
+# --- the inversion -----------------------------------------------------------
+# A row whose start contradicts the direction the fragment arrived in cannot join its predecessor:
+# X+ followed by X- is not a walk. It is retried without the carry and breaks the fragment before
+# itself.
+is $(awk '/carried direction/ {print ($0 ~ /: [1-9][0-9]* rows/) ? 1 : 0}' fx.err) "1" \
+   "a row that can only be walked against the carried direction is exercised"
+# The same node in both orientations across a fragment boundary -- the inversion boundary itself.
+is $(awk -F'\t' '/^H\t/ {n++; s[n]=$3; f[n]=$4; a[n]=$7; b[n]=$8}
+     END {for (i=1; i<n; i++) if (s[i]==s[i+1] && int(b[i]/2)==int(a[i+1]/2) && b[i]!=a[i+1]) {
+            print (f[i] != f[i+1]) ? 1 : 0; exit }
+          print "no such pair"}' fx.mosaic.tsv) "1" \
+   "where consecutive rows enter one node from opposite sides, the fragment breaks between them"
+
+# --- what a consumer relies on ----------------------------------------------
+# A join is the thing x.gbz cannot test: one segment per thread there, so no junction exists.
+is $(awk -F'\t' '/^H\t/ {c[$2"/"$3"/"$4]++} END {m=0; for (k in c) if (c[k]>m) m=c[k]; print (m>1)?1:0}' \
+     fx.mosaic.tsv) "1" \
+   "at least one fragment holds several segments, so a junction is exercised at all"
+# Inside a fragment every junction meets on the SAME ORIENTED node, or it is not a path.
+is $(awk -F'\t' '/^H\t/ {k=$2"/"$3"/"$4; if (k==pk && $7 != pb) bad++; pk=k; pb=$8}
+     END {print bad+0}' fx.mosaic.tsv) "0" \
+   "consecutive segments of a fragment meet at the same oriented node"
+# A row with no position states its nodes but not a walk, so it must not sit inside one.
+is $(awk -F'\t' '/^H\t/ {k=$2"/"$3"/"$4; n[k]++; if ($12==".") d[k]++}
+     END {for (k in n) if (d[k] && n[k]>1) bad++; print bad+0}' fx.mosaic.tsv) "0" \
+   "no positionless row shares a fragment with rows that do claim a walk"
+
+# THE ACCEPTANCE TEST, now with something to chew on: nested boundaries, an inversion, a fragment
+# break and a junction. Every fragment must expand to an exact walk in the graph.
+vg paths -x fx.gbz -A > fx.paths.gaf 2>/dev/null
+vg view -g fx.gbz > fx.graph.gfa 2>/dev/null
+is $(python3 ./mosaic_to_path.py --mosaic fx.mosaic.tsv --gaf fx.paths.gaf --gfa fx.graph.gfa \
+       --quiet >fx.expand.txt 2>&1; echo $?) "0" \
+   "every fragment of the structural fixture expands to an exact path in the graph"
+
+rm -f fx.gfa fx_sim.gfa fx.gbz fx_sim.gbz fx.gam fx.snarls fx.err fx.mosaic.tsv \
+      fx.paths.gaf fx.graph.gfa fx.expand.txt

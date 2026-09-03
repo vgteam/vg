@@ -1412,12 +1412,16 @@ void VCFOutputCaller::write_mosaic(const vector<LinkageCollector::PhaseCall>& ph
                 // snarl 120829831->120830356 holding sites at 65,510,623 / 65,510,767 / 65,510,884
                 // / 65,510,910 -- enters once, walks the four as siblings by ordinary extension,
                 // and leaves once.
-                const bool entering = nx.depth > b.depth
-                                      // Node ids run backwards through an inversion, where
-                                      // containment cannot be read off them; those are not nested.
-                                      && b.start_node < b.end_node
-                                      && next_start >= b.start_node
-                                      && nx.end_node <= b.end_node;
+                // DEPTH ALONE decides it, with no node-id comparison. Sites arrive in reference
+                // order and a parent is always recorded, even when it collapses to reference, so a
+                // site deeper than the one before it is inside that one: its own parent is a
+                // shallower site that must precede it, and anything between the two would itself be
+                // inside the parent and so not shallower. Testing node-id containment as well
+                // looked safer and was strictly worse -- it silently fails whenever ids are not
+                // ordered along the walk, which an inversion never is -- and it was suppressing
+                // 171 of chr20's 213 entering boundaries and 251 of chrX's 267. The fixture graph in
+                // 18_vg_call.t is numbered out of walk order on purpose to keep it that way.
+                const bool entering = nx.depth > b.depth;
                 const bool leaving = nx.depth < b.depth;
                 // EXTEND RIGHT needs this segment to be walkable -- there is no walk to extend
                 // otherwise -- so it is the one attempt the position guards.

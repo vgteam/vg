@@ -476,15 +476,23 @@ The rule is stated by DEPTH so it composes to any nesting, rather than as a spec
 
 | at a run boundary | the run ends at |
 |---|---|
-| the next site is *deeper* and inside this one -- entering a child | the child's `start_node` |
+| the next site is *deeper* -- entering a child | the child's `start_node` |
 | the next site is *shallower* -- leaving a child | this row's own `end_node`, and the next row starts there |
 | otherwise (siblings, same depth) | the ordinary extend-right / extend-left / patch rules |
+
+Depth alone decides it, with no node-id comparison. Sites arrive in reference order and a parent is
+always recorded, even when it collapses to reference, so a site deeper than the one before it is
+inside that one: its own parent is a shallower site that must precede it, and anything between the
+two would itself be inside the parent and so not shallower. Testing node-id containment as well
+looked safer and was strictly worse -- it silently fails wherever ids are not ordered along the walk,
+which an inversion never is, and it was suppressing 171 of chr20's 213 entering boundaries and 251 of
+chrX's 267.
 
 A parent holding several children needs nothing extra: the run enters once at the first child's
 `Cs`, walks the children as siblings by ordinary extension, and leaves once at the last child's `Ce`.
 chr20 has such a parent at 65,510,619, snarl 120829831->120830356, holding sites at 65,510,623,
 65,510,767, 65,510,884 and 65,510,910. Getting this wrong put the child run's start at the parent's
-END, past every one of its own sites: 584 boundaries on chr20, 510 on chrX. Two of them collapsed
+END, past every one of its own sites: 755 boundaries on chr20, 761 on chrX. Two of them collapsed
 far enough to be caught by the round trip; the rest were silently backwards.
 
 The *leaving* half matters substantively rather than conventionally. Extending the child rightwards
@@ -510,8 +518,24 @@ absent, and the mosaic needs a WALK, which is not. The two come apart exactly in
 the reference substitution is the mechanism for it -- 158 rows on chr20. This row reached it only
 once the retry stopped being constrained by the carry.
 
-The result on chr20 is 5 fragments, every junction met, no row without a position, and every
-fragment expanding to an exact walk in the graph; on chrX, 3.
+The result on chr20 is 3 fragments, every junction met, no row without a position, and every
+fragment expanding to an exact walk in the graph; on chrX, 5.
+
+**The fixture graph.** `test/t/18_vg_call.t` builds a 396 bp graph carrying three of these shapes at
+once: a parent snarl holding a chain of TWO children, an inversion over a stretch that contains a
+site of its own, and a haplotype clipped into two GBWT fragments with a hole over the whole nested
+parent. It exists because the old mosaic fixture gave one segment per thread, so no junction was
+tested at all, and everything above was reachable only through a 22 GB read database.
+
+Two details of it are load-bearing. The sample is simulated from walks held in a *second* graph with
+the same node ids, because a truth haplotype that is itself in the panel is simply named and every
+strand collapses to one segment. And `--linkage-scale`, the decay distance, defaults to 10 kb, which
+over 396 bp makes recombination effectively free to avoid: the model then explains the sample by
+flipping single alleles rather than switching haplotype. A scale on the order of the site spacing is
+what makes a small graph behave like a contig.
+
+Its node ids are deliberately NOT ordered along the walk -- node 16 closes a snarl holding nodes
+30..33 -- which is what caught the node-id containment test described above.
 
 **Which haplotype covers the stretch between two segments' sites is arbitrary.** No called site lies
 in it, so nothing distinguishes the earlier haplotype from the later, and a recombination anywhere
