@@ -1056,14 +1056,23 @@ vector<SubchainGroup> find_best_chains(const VectorView<Anchor>& to_chain,
     });
 
     // Now delete any tracebacks which have too low optimal score
-    for (size_t i = filtering_scheme.min_chains; i < tracebacks.size(); i++) {
-        if (traceback_optimal_scores[i].second < tracebacks.front().chain_score - filtering_scheme.chain_score_threshold) {
+    for (size_t i = 0; i < tracebacks.size(); i++) {
+        size_t cur_traceback_index = traceback_optimal_scores[i].first;
+        int cur_opt_score = traceback_optimal_scores[i].second;
+        if (cur_opt_score < tracebacks.front().chain_score / 5) {
 #ifdef debug_chaining
-            cerr << "Removing traceback " << traceback_optimal_scores[i].first << " because its optimal score "
-                 << traceback_optimal_scores[i].second << " < top score " << tracebacks.front().chain_score
+            cerr << "Removing traceback " << cur_traceback_index << " because its optimal score "
+                 << cur_opt_score << " < top score " << tracebacks.front().chain_score << " / 5 " << endl; 
+#endif
+            tracebacks[cur_traceback_index] = SparseAnchorChain();
+        } else if (i >= filtering_scheme.min_chains
+            && cur_opt_score < tracebacks.front().chain_score - filtering_scheme.chain_score_threshold) {
+#ifdef debug_chaining
+            cerr << "Removing traceback " << cur_traceback_index << " because its optimal score "
+                 << cur_opt_score << " < top score " << tracebacks.front().chain_score
                  << " - chain score threshold " << filtering_scheme.chain_score_threshold << endl; 
 #endif
-            tracebacks[traceback_optimal_scores[i].first] = SparseAnchorChain();
+            tracebacks[cur_traceback_index] = SparseAnchorChain();
         }
     }
 
