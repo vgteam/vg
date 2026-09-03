@@ -59,3 +59,7 @@ test/x_subs.vg
 test/x_subs.pack
 test/x.shortread.withzip.min
 test/x.shortread.zipcodes
+
+# Python bytecode from the test suite's helper scripts (test/mosaic_to_path.py).
+__pycache__/
+*.pyc
