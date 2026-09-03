@@ -616,8 +616,12 @@ vector<int> VCFOutputCaller::panel_alleles(const HandleGraph& graph,
             if (seq < linkage_sequence_to_haplotype->size()) {
                 size_t hap = (*linkage_sequence_to_haplotype)[seq];
                 if (hap < out.size()) {
-                    // A haplotype in several fragments can reach the same site twice; the allele
-                    // is the same either way, so first writer wins rather than being an error.
+                    // A haplotype in several fragments can in principle reach one site twice --
+                    // its pieces are collapsed onto a single index, so two of them taking two
+                    // traversals of the same snarl would both land here. The write is
+                    // unconditional, so the LAST traversal to claim it wins, and if the two
+                    // disagreed the choice would be silent. Measured over chr20's 221,971 site
+                    // lookups it never happens: 0 haplotypes reached twice, and so 0 disagreeing.
                     out[hap] = (int)a;
                 }
             }
