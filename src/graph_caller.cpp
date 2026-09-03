@@ -1193,20 +1193,18 @@ void VCFOutputCaller::write_mosaic(const vector<LinkageCollector::PhaseCall>& ph
     out << "#note\tref_start/ref_end are advisory, in the #reference coordinate system; "
         << "start_node/end_node are the authoritative anchors and are intrinsic to the graph.\n";
     out << "#note\tsegments are maximal runs on one panel haplotype; walk the haplotype from "
-        << "start_node to end_node to reconstruct it. * means the strand traverses this and the "
-        << "panel cannot name a haplotype for it. Versions 2-4 also used . for a strand carrying "
-        << "no sequence at a record; version 5 has no such rows -- that strand traverses its "
-        << "parent's other allele and bypasses the child snarl, so the site is not on its walk.\n";
+        << "start_node to end_node to reconstruct it. * means the strand traverses this stretch "
+        << "and the panel cannot name a haplotype for it. A site a strand does not traverse is "
+        << "simply absent from that strand's rows.\n";
     out << "#note\thap_index ref marks a stretch FILLED WITH THE REFERENCE because no panel "
-        << "haplotype could be carried across it. It is walkable like any other row, and carries . "
-        << "for sites/nested_sites/max_depth because it covers no called site. On this kind of graph "
-        << "such gaps are pericentromeric and the reference is a poor proxy for the sample there, so "
-        << "the fill is marked rather than blended in; its span is start_node..end_node. "
-        << "--no-mosaic-patch-gaps leaves the gap instead.\n";
+        << "haplotype could be carried across it. It is walkable like any other row. With sites=. "
+        << "it filled a boundary between two segments and covers no called site; with a site count "
+        << "it replaced a haplotype the graph does not carry across that segment. Either way the "
+        << "reference is a poor proxy for the sample, so the fill is marked rather than blended in; "
+        << "its span is start_node..end_node. --no-mosaic-patch-gaps leaves the gap instead.\n";
     out << "#note\tend_node is the NEXT segment's start_node, so consecutive segments of one "
         << "strand meet at a shared node and the strand is ONE WALK: concatenate them, counting "
-        << "each junction once. This is the whole point of version 5, and why a version 4 reader "
-        << "must not read a version 5 file -- it would under-read every segment.\n";
+        << "each junction once. (contig, strand, fragment) is the identity of that walk.\n";
     out << "#note\tWhich haplotype covers the stretch between two segments' sites is ARBITRARY: no "
         << "called site lies in it, so nothing distinguishes the earlier haplotype from the later "
         << "one and a recombination anywhere inside is equally consistent. Extending the earlier "
@@ -1220,15 +1218,15 @@ void VCFOutputCaller::write_mosaic(const vector<LinkageCollector::PhaseCall>& ph
     out << "#note\tstart_node and end_node are ORIENTED node ids, id * 2 + is_reverse. Node "
         << "identity alone does not make a walk: two segments can share a node and traverse it in "
         << "opposite directions. (start_node, gbwt_offset) is therefore the GBWT position "
-        << "outright -- extract() it and follow LF() to end_node, with no locate and no r-index. "
-        << "Versions up to 4 gave an unoriented start_node beside a separate oriented gbwt_node; "
-        << "the two collapsed into one column here.\n";
+        << "outright -- extract() it and follow LF() to end_node, with no locate and no "
+        << "r-index.\n";
     out << "#note\ta segment never spans a GBWT fragment boundary, so one position walks the "
         << "whole of it; a haplotype in several fragments yields several segments.\n";
     out << "#note\ta fragment is a PATH: its rows join end to start, on the same oriented node, "
         << "and expand to an exact walk in the graph. A row that cannot be walked in the direction "
-        << "the fragment has reached stands alone in a fragment of its own -- an inversion boundary "
-        << "is the usual reason, and X+ followed by X- is not a walk.\n";
+        << "the fragment has reached starts a new fragment instead -- an inversion boundary is the "
+        << "usual reason, and X+ followed by X- is not a walk. A row with no position at all "
+        << "(gbwt_offset .) is alone in its fragment, so it never sits inside a walk.\n";
     out << "#H\tcontig\tstrand\tfragment\tref_start\tref_end\tstart_node\tend_node"
         << "\thap_index\thaplotype\tsites\tgbwt_offset\n";
 

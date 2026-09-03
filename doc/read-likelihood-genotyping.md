@@ -379,10 +379,10 @@ vg call graph.gbz --read-likelihood --gam reads.gam > calls.vcf
 what happens when it cannot be delivered: the default declines quietly, an explicit request errors.
 
 **A caveat that belongs beside every phased number here.** Blocks are chromosome-length, but the
-switch rate is 2.4% per adjacent heterozygous pair, so the orientation re-randomises every forty sites
-or so and blockwise Hamming sits near 48%. A long block says which sites share one `PS`, not that the
-phase is trustworthy across a chromosome. Nested haploid records are worse again -- they contribute a
-41% switch rate against that 2.4% baseline -- so their strand assignment should be read as provisional.
+switch rate is a few percent per adjacent heterozygous pair (see the table below), so the orientation
+re-randomises every few dozen sites and blockwise Hamming sits near 48%. A long block says which
+sites share one `PS`, not that the phase is trustworthy across a chromosome. Nested haploid records
+are worse again, at a 41% switch rate, so their strand assignment should be read as provisional.
 
 `GT` becomes `0|1`, and `FORMAT/PS` names the phase block. (Note the existing `INFO/PS` under `-A`
 is vg's parent-snarl pointer — a different field in a different namespace.)
@@ -413,248 +413,136 @@ switch errors. Expect a sample the panel represents poorly to do worse.
 
 ### `--mosaic-out FILE`
 
-The same path, written as the genome it implies. The mosaic is piecewise — 1.75% of chr20's site
-slots begin a new segment — so it is run-length encoded, one line per maximal run of one strand on
-one panel haplotype:
+The phased result written as **what the sample is, in panel terms**: each strand is a walk through
+the graph, described as a sequence of maximal runs on one panel haplotype. Only the switch points
+are stored, so the file is a description of a genome rather than a list of observations, and it is
+about sixty times smaller than writing the two walks out as explicit node lists.
+
+Implies `--phased`. Tab-separated; lines beginning `#` are header, every data line begins `H`.
 
 ```
 #mosaic-version	5
-#patch	reference
-#nested	kept
-#unexplained	connected
-#graph	chr20_0_chr20.gbz
+#graph	chr20.gbz
 #sample	HG002
 #reference	CHM13#0#chr20
 #decoding	constrained-viterbi
-#note	ref_start/ref_end are advisory, in the #reference coordinate system; ...
-#note	segments are maximal runs on one panel haplotype; ...
-#note	hap_index is internal to this run; ...
+#patch	reference
+#nested	kept
+#unexplained	connected
+#note	...prose for a human, no data...
 #haplotype	0	CHM13#0
 #haplotype	9	recombination#30
-	... one line per panel haplotype, 34 of them on this graph
-#note	gbwt_node/gbwt_offset is the GBWT position of the haplotype at start_node: ...
-#note	a segment never spans a GBWT fragment boundary, ...
-#note	a fragment is a PATH: its rows join end to start, on the same oriented node, ...
-#note	start_node and end_node are ORIENTED node ids, id * 2 + is_reverse ...
+	... one line per panel haplotype
 #H	contig	strand	fragment	ref_start	ref_end	start_node	end_node	hap_index	haplotype	sites	gbwt_offset
 H	chr20	0	0	22	533	229637742	229638340	4	recombination#19	16	19
 H	chr20	0	0	945	2268	229638340	229641408	9	recombination#30	14	9
 ```
 
-Tab-separated. Lines beginning `#` are header or comment; every data line begins `H`.
+**Parsing the header.** Key on the first field, never on line position: `#note` lines carry prose and
+appear both before and after the `#haplotype` table. Treat an unrecognised `#` key as a comment and
+skip it, because downstream tools extend this header. The keys `vg call` writes are exactly
+`#mosaic-version`, `#graph`, `#sample`, `#reference`, `#decoding`, `#patch`, `#nested`,
+`#unexplained`, `#note`, `#haplotype` and `#H`.
 
-**Parsing the header.** Key on the first field, not on line position. `#note` lines carry prose for a
-human and no data — they are truncated above — and they appear both before and after the
-`#haplotype` table rather than in one block, so a parser that counts lines to find the table will
-break. Treat an unrecognised `#` key as a comment and skip it: downstream tools extend this header
-(the whole-genome assembly in the companion eval repo replaces `#graph`/`#reference` with a
-per-contig `#contig` table, because per-contig runs do not share one graph). The keys `vg call`
-itself writes are exactly `#mosaic-version`, `#graph`, `#sample`, `#reference`, `#decoding`, `#note`,
-`#haplotype` and `#H`.
+#### Columns
 
-**Format version.** `#mosaic-version` is `5`, and unlike 3 and 4 it is **not** a compatible
-extension: `end_node` changed meaning and the column set changed, so a version 4 reader must refuse
-a version 5 file.
+| # | column | meaning |
+|---|---|---|
+| 1 | `H` | record type; every data line |
+| 2 | `contig` | reference contig the segment's sites sit on |
+| 3 | `strand` | `0` or `1`, consistent along a contig and matching the phased `GT`: `strand 0` carries the allele left of the `\|` |
+| 4 | `fragment` | which walk this row belongs to. `(contig, strand, fragment)` is the path identity |
+| 5 | `ref_start` | reference position of the **first site** in the run. Advisory |
+| 6 | `ref_end` | reference position of the **last site** in the run. Advisory |
+| 7 | `start_node` | **oriented** node the walk enters at, `id * 2 + is_reverse`. Authoritative |
+| 8 | `end_node` | **oriented** node the walk leaves at. Authoritative |
+| 9 | `hap_index` | row in the `#haplotype` table, or `ref`, or `*` — see below |
+| 10 | `haplotype` | `sample#phase`, the portable name |
+| 11 | `sites` | number of called sites in the run, or `.` for a gap fill |
+| 12 | `gbwt_offset` | offset within `start_node`'s GBWT record, so `(start_node, gbwt_offset)` is a GBWT position outright. `.` if unresolvable |
 
-**A strand is one walk.** `end_node` is the *next* segment's `start_node`, so consecutive segments of
-one fragment meet at the same oriented node and concatenate -- counting each junction once -- into a
-single path. That is the invariant the format exists for; version 4 met it at 3% of boundaries.
-`(contig, strand, fragment)` is the path identity, and one path per strand is the normal case.
+`hap_index` takes three kinds of value. An **integer** names a panel haplotype by its `#haplotype`
+row. **`ref`** marks a stretch the reference was substituted across — with `sites` = `.` it filled a
+gap between two segments, and with a site count it replaced a haplotype the graph does not carry
+across that segment. **`*`** appears only under `#unexplained broken` and is the one row kind that is
+not walkable.
 
-**A parent/child haplotype change has TWO boundaries, and both belong to the child.** A nested snarl
-is *contained* in its parent, not sequential with it, so the parent's walk is
+#### The guarantees
 
-    Ps -> ... -> Cs -> [child] -> Ce -> ... -> Pe
+- **A fragment is a path.** `end_node` is the next row's `start_node`, on the same oriented node, so
+  concatenating a fragment's rows — counting each shared node once — gives one walk that expands to
+  an exact path in the graph. `test/mosaic_to_path.py` checks exactly this, and is run by the test
+  suite.
+- **Orientation is part of the anchor.** Node identity alone is not a walk: two segments can share a
+  node and traverse it in opposite directions. A row whose walk cannot continue in the direction the
+  fragment has reached ends the fragment instead of being written into it, so a new fragment starts.
+  An inversion boundary is the usual reason.
+- **A haplotype switch inside a nested snarl is stated at the child's boundaries**, entering and
+  leaving, because those are the only nodes the parent's haplotype and the child's both visit.
+- **Ordering.** Grouped by contig; within a contig all `strand 0` rows precede all `strand 1`;
+  within a strand `ref_start` increases.
+- **The sites partition.** Every called site belongs to exactly one segment, so the `sites` column
+  sums to the contig's site count, and the strand-0 total equals the VCF's record count.
 
-and a switch between the parent's haplotype and the child's happens at `Cs` going in and `Ce` coming
-out. Those two are the only nodes the two haplotypes share: they are snarl boundaries, so every
-traversal of that snarl passes through them, and the two haplotypes diverge strictly between them.
-`Pe` is never a boundary for a row that precedes the child -- a row ending there has already walked
-past it.
+#### Reconstructing a walk
 
-The rule is stated by DEPTH so it composes to any nesting, rather than as a special case:
+`(start_node, gbwt_offset)` is a GBWT position: `extract()` it and follow `LF()` to `end_node`. No
+search, no `locate()`, no r-index. That is why the position is carried at all — a node plus a
+haplotype *name* is not enough to walk from, since turning a name into a path at a given node needs a
+document-array sample or an r-index, and a plain GBZ carries neither. This project's chr20 r-index is
+86 MB against a 77 MB GBZ, so that index would cost more than the graph it indexes.
 
-| at a run boundary | the run ends at |
-|---|---|
-| the next site is *deeper* -- entering a child | the child's `start_node` |
-| the next site is *shallower* -- leaving a child | this row's own `end_node`, and the next row starts there |
-| otherwise (siblings, same depth) | the ordinary extend-right / extend-left / patch rules |
+Two consequences:
 
-Depth alone decides it, with no node-id comparison. Sites arrive in reference order and a parent is
-always recorded, even when it collapses to reference, so a site deeper than the one before it is
-inside that one: its own parent is a shallower site that must precede it, and anything between the
-two would itself be inside the parent and so not shallower. Testing node-id containment as well
-looked safer and was strictly worse -- it silently fails wherever ids are not ordered along the walk,
-which an inversion never is, and it was suppressing 171 of chr20's 213 entering boundaries and 251 of
-chrX's 267.
+- **A segment never spans a GBWT fragment boundary**, because one position can only walk one
+  fragment. A haplotype stored as several fragments therefore yields several segments.
+- **`gbwt_offset` is not portable across graphs.** It is a rank among the sequences visiting that
+  node, so a graph containing more sequences gives the same offset to a different path. The positions
+  are valid only against the `#graph` named in the header. `start_node` and `end_node` are plain
+  oriented node IDs and travel anywhere those nodes exist.
 
-A parent holding several children needs nothing extra: the run enters once at the first child's
-`Cs`, walks the children as siblings by ordinary extension, and leaves once at the last child's `Ce`.
-chr20 has such a parent at 65,510,619, snarl 120829831->120830356, holding sites at 65,510,623,
-65,510,767, 65,510,884 and 65,510,910. Getting this wrong put the child run's start at the parent's
-END, past every one of its own sites: 755 boundaries on chr20, 761 on chrX. Two of them collapsed
-far enough to be caught by the round trip; the rest were silently backwards.
+#### Options, each recorded in the header
 
-The *leaving* half matters substantively rather than conventionally. Extending the child rightwards
-instead would hand it the stretch from `Ce` to `Pe`, which the PARENT's called allele governs --
-unlike the gap between two top-level segments, where no site's allele covers the stretch and the
-choice really is arbitrary.
-
-**A fragment is a path or it is nothing.** A row whose walk cannot continue in the direction the
-fragment has reached is tried once more with the carry ignored, taking the reference fallback as
-well as its own haplotype, because a walk in the other direction is worth more than a hole. Such a
-row breaks the fragment BEFORE it -- its start contradicts the carry, so it cannot join its
-predecessor -- but not after: it is walkable, so the next row's carry logic joins it or declines.
-An inversion is the usual cause, `X+` followed by `X-` being no walk. Only a row with no position at
-all stands completely alone.
-
-That last retry is not an edge case. chr20:31,838,050 names `recombination#24`, which is CLIPPED
-across that site: four GBWT fragments with a 43-step hole, and all three of the row's nodes inside
-it. This is not a fault in the phasing -- the panel records a clipped haplotype as "carries no allele
-here" (`-1`), and the emission weights it `marginal * escape` rather than forbidding it, so linkage
-carries the haplotype across its own gap, which is what Li-Stephens should do at a site with no
-evidence. But the phasing's answer is a haplotype LABEL, well defined even where the haplotype is
-absent, and the mosaic needs a WALK, which is not. The two come apart exactly in clipping gaps, and
-the reference substitution is the mechanism for it -- 158 rows on chr20. This row reached it only
-once the retry stopped being constrained by the carry.
-
-The result on chr20 is 3 fragments, every junction met, no row without a position, and every
-fragment expanding to an exact walk in the graph; on chrX, 5.
-
-**The fixture graph.** `test/t/18_vg_call.t` builds a 396 bp graph carrying three of these shapes at
-once: a parent snarl holding a chain of TWO children, an inversion over a stretch that contains a
-site of its own, and a haplotype clipped into two GBWT fragments with a hole over the whole nested
-parent. It exists because the old mosaic fixture gave one segment per thread, so no junction was
-tested at all, and everything above was reachable only through a 22 GB read database.
-
-Two details of it are load-bearing. The sample is simulated from walks held in a *second* graph with
-the same node ids, because a truth haplotype that is itself in the panel is simply named and every
-strand collapses to one segment. And `--linkage-scale`, the decay distance, defaults to 10 kb, which
-over 396 bp makes recombination effectively free to avoid: the model then explains the sample by
-flipping single alleles rather than switching haplotype. A scale on the order of the site spacing is
-what makes a small graph behave like a contig.
-
-Its node ids are deliberately NOT ordered along the walk -- node 16 closes a snarl holding nodes
-30..33 -- which is what caught the node-id containment test described above.
-
-**Which haplotype covers the stretch between two segments' sites is arbitrary.** No called site lies
-in it, so nothing distinguishes the earlier haplotype from the later, and a recombination anywhere
-inside is equally consistent. Extending the earlier one is a convention: the crossover is
-*bracketed* by that stretch, not located within it.
-
-**Three options, each recorded in the header so a consumer never infers which way the file was
-written:**
+A consumer never has to infer which way the file was written.
 
 | header | default | the other setting |
 |---|---|---|
-| `#patch` | `reference` -- a gap no panel haplotype spans is filled with the reference, marked `ref` | `none` (`--no-mosaic-patch-gaps`) leaves the gap and breaks the fragment |
-| `#nested` | `kept` -- a haplotype switch inside a nested chain is its own segment | `merged` (`--no-mosaic-nested`) folds it into the enclosing run: fewer switches, the parent's route through the child snarl |
-| `#unexplained` | `connected` -- a stretch the panel cannot explain is crossed by carrying the flanking haplotype through | `broken` (`--mosaic-break-unexplained`) emits an unwalkable `*` row alone in its own fragment |
+| `#patch` | `reference` — a gap no panel haplotype spans is filled with the reference, marked `ref` | `none` (`--no-mosaic-patch-gaps`) leaves the gap and breaks the fragment |
+| `#nested` | `kept` — a haplotype switch inside a nested chain is its own segment | `merged` (`--no-mosaic-nested`) folds it into the enclosing run: fewer switches, and the parent's route through the child snarl |
+| `#unexplained` | `connected` — a stretch the panel cannot explain is crossed by carrying the flanking haplotype through | `broken` (`--mosaic-break-unexplained`) emits an unwalkable `*` row alone in its own fragment |
 
-The last two are approximations, and deliberately so: each reconstructs the carried haplotype's
-sequence across a few sites rather than the called alleles, in exchange for a contiguous path. On
-chr20 that is 12,225 sites for `#nested merged` and 21 for `#unexplained connected`.
+The last two trade exactness for a contiguous path: each reconstructs the carried haplotype's
+sequence across a few sites rather than the called alleles. On chr20 that is 12,225 sites for
+`#nested merged` and 21 for `#unexplained connected`.
 
-| column | meaning |
-|---|---|
-| `contig` | reference contig the segment's sites sit on |
-| `strand` | `0` or `1`. Strand identity is consistent along a contig and matches the order of the phased `GT` in the VCF: `strand 0` carries the allele left of the `\|`. |
-| `ref_start` | reference position of the **first site** in the run — not the start of the sequence the segment covers. In the `#reference` coordinate system, and **advisory**. |
-| `ref_end` | reference position of the **last site** in the run |
-| `start_node` | snarl start node of the first site. Authoritative. |
-| `end_node` | snarl end node of the last site. Authoritative. |
-| `hap_index` | row in the `#haplotype` table. Internal to this run — see below. |
-| `haplotype` | `sample#phase`, or `*` where the panel does not explain the strand |
-| `sites` | number of called sites in the run |
-| `gbwt_node` | oriented GBWT node at `start_node`: `start_node * 2 + is_reverse`. `.` if unresolvable. |
-| `gbwt_offset` | offset within that node's GBWT record, so `(start_node, gbwt_offset)` is a GBWT position outright -- `extract()` it and follow `LF()` to `end_node`, with no locate and no r-index |
+#### What the file does not tell you
 
-`hap_index` takes four values. An **integer** names a panel haplotype by its `#haplotype` row.
-**`ref`** marks a stretch the reference was substituted across: with `sites` = `.` it filled a gap
-between segments, and with a site count it replaced a haplotype the graph does not carry across that
-segment. **`*`** appears only under `#unexplained broken` and is the one row kind that is not
-walkable. `nested_sites` and `max_depth` were version 4 diagnostics and are gone; they are derivable
-from the VCF's per-record depths.
+- **Consecutive segments do not abut in sequence.** A run ends at the last site the outgoing
+  haplotype explains and the next begins at the first site the incoming one does, leaving an interval
+  that belongs to neither row. This is not a gap in the encoding: the model observes only that a
+  switch happened *between two sites* and has no evidence about where in between the recombination
+  fell. Extending the outgoing haplotype to the next `start_node` is the obvious rule, and a consumer
+  adopting it should know it is choosing, not reading.
+- **Where the reference stands in, it is a guess.** 217 rows on chr20 — 181 replacing a haplotype the
+  graph does not carry across them, 36 filling a boundary neither flanking haplotype spans. The fills
+  are the weaker of the two: 17 sit at over ten times average node density. Each row says what it
+  filled and how far.
+- **`ref_start`/`ref_end` are advisory.** `#reference` names the coordinate system, and it must: a
+  graph can carry several references. Where node order and reference order disagree — inside a
+  centromere, for instance — these are the columns that mislead.
+- **`hap_index` is internal to the run.** It is GBWT metadata order over distinct `(sample, phase)`
+  pairs in *this* graph, so two runs on two chunks of the same genome number the same haplotypes
+  differently. Anything crossing files must key on the `sample#phase` name.
+- **`#graph` is a path, not an identity.** It records the graph argument as invoked, so reading a
+  mosaic against a rebuilt graph with different node IDs produces a plausible wrong genome rather
+  than an error. A checksum belongs here and is not yet implemented.
 
-**Ordering.** Grouped by contig; within a contig all `strand 0` lines precede all `strand 1` lines;
-within a strand, `ref_start` increases. Segments on one strand partition that contig's sites
-exactly — every site belongs to exactly one segment, so the `sites` column sums to the site count.
+#### Size
 
-**Reconstruction, and why the GBWT position is there.** `extract({gbwt_node, gbwt_offset})` gives
-the haplotype's path from that point; follow `LF()` to `end_node`. No search is involved, and that
-is the point of carrying the position at all. A node plus a haplotype *name* is not enough to walk
-from: turning a name into a path in the GBWT at a given node is a `locate()`, which needs a
-document-array sample or an r-index — neither of which a plain GBZ carries — and otherwise degrades
-to scanning the component. This project's chr20 r-index is 86 MB against a 77 MB GBZ, so that index
-costs more than the graph it indexes. Resolving the position once at write time costs the caller a
-few thousand lookups and gives every reader an O(1) entry point instead.
-
-Two consequences follow from the position being a *position*:
-
-- **A segment never spans a GBWT fragment boundary.** One position can only walk one fragment, so
-  the caller splits a run wherever the underlying GBWT path ends and another begins. A haplotype
-  present as several fragments therefore yields several segments. On chr20 this splits 2 of 3,675
-  segments — the panel's paths are near-contiguous, so the cost is negligible.
-- **`gbwt_offset` is not portable across graphs.** It is a rank among the sequences visiting that
-  node, and a graph containing more sequences gives the same offset to a different path. The
-  positions are valid against the `#graph` named in the header and nothing else. `start_node` and
-  `end_node`, by contrast, are plain node IDs and travel anywhere those nodes exist.
-
-**`hap_index` is internal; `haplotype` is portable.** `hap_index` is GBWT metadata order over
-distinct `(sample, phase)` pairs in *this* graph, so two runs on two chunks of the same genome will
-number the same haplotypes differently. The `#haplotype` table binds the two for this file; anything
-crossing files must key on the `sample#phase` name. Note also that a haplotype in this sense is a
-`(sample, phase)` pair and deliberately collapses the GBWT fragments that make it up — which is
-exactly why a segment can carry a haplotype name and still need a specific fragment's position.
-
-**Reference coordinates are advisory, and named.** `#reference` says which path `ref_start`/
-`ref_end` are measured against, and it has to: a graph can carry several references — the HPRC
-graphs name both `CHM13` and `GRCh38` as reference samples — so a contig name alone does not fix a
-coordinate system. The coordinates are a convenience for eyeballing and for range queries. Node IDs
-are the anchors, and where node order and reference order disagree — inside the chr20 centromere,
-for instance — the reference columns are the ones that mislead.
-
-**What the format does not tell you, and cannot.** Consecutive segments do **not** abut. A run ends
-at the last site the outgoing haplotype explains and the next begins at the first site the incoming
-one does, so there is an interval between them — 35 bp in the first chr20 example — that belongs to
-neither line. That is not an oversight in the encoding: the model observes only that a switch
-happened *between two sites*, and has no evidence about where in the intervening sequence the
-recombination fell. A consumer reconstructing sequence has to adopt a rule (extend the outgoing
-haplotype to the next segment's `start_node` is the obvious one) and should know it is choosing,
-not reading.
-
-**`#graph` is a path, not an identity.** It records the graph argument as invoked, so it can be
-relative, and it will not detect a rebuilt graph with different node IDs. Reading a mosaic against
-the wrong GBZ produces a plausible wrong genome rather than an error. A checksum belongs here and
-is not yet implemented.
-
-chr20 at 34 haplotypes gives 7,877 segments over 228,548 sites in **650 KB**, 187 KB gzipped — 84
-bytes per segment. The same two walks written out as explicit node lists measure ~40.6 MB — one
-haplotype is 2,031,992 steps — so the mosaic is smaller by a factor of about 62.
-
-A whole genome, measured rather than projected: **143,365 segments over 4,742,752 sites in 11.05 MB**,
-3.46 MB gzipped, at 80.8 bytes per segment. 99.82% of segments carry a GBWT position and 390 are
-fragment splits. Every diploid contig's two strands agree on their site total and the strand-0 total
-equals the VCF's record count exactly, which is the property that makes the file a description of a
-genome rather than a list of observations.
-
-The trade is that the mosaic is written *by reference* and cannot be read without the GBZ it names,
-which is why the header carries the graph. An explicit path list is self-contained and ~137x larger.
-
-**A few segments carry no position.** Genome-wide 254 of 143,365 (0.18%), and on chr20 10 of 3,675,
-have `.` in both GBWT columns:
-the named haplotype does not visit the segment's start node in either orientation, which happens
-where the panel explains a strand through a haplotype that enters the region slightly later. All 10
-are in the centromere (26–31 Mb), the same region where node IDs stop tracking reference order.
-Such a segment still names its haplotype and its node anchors; only the O(1) entry point is missing,
-and a consumer needing it there must fall back to a search.
-
-**Cost.** Resolving positions and splitting on fragment boundaries adds about 3% to a chr20 run
-(150 s against 146 s). The obvious implementation — resolving the haplotype's position at every
-site, or walking `LF()` across the segment to detect a fragment end — costs 2.3x and 1.2x
-respectively. Instead the caller resolves only the two endpoints of a candidate segment and compares
-them; if they disagree it binary-searches for the boundary and recurses. Splits are rare (2 on
-chr20), so the search almost never runs.
+chr20 at 34 haplotypes: 7,144 segments over 226,233 site slots in **515 KB**, 133 KB gzipped, 74
+bytes per segment. The same two walks as explicit node lists are ~40 MB, one haplotype being
+2,031,992 steps. The trade is that the mosaic is written *by reference* and cannot be read without
+the GBZ it names, which is why the header carries the graph.
 
 ### Haploid contigs
 
