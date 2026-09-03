@@ -308,8 +308,8 @@ class MinimizerMapper : public AlignerClient {
     
     /// Disregard the chain score thresholds when they would give us
     /// fewer than this many chains aligned.
-    static constexpr int default_min_chains = 4;
-    int min_chains = default_min_chains;
+    static constexpr size_t default_min_chains = 4;
+    size_t min_chains = default_min_chains;
 
     /// Allow up to this many chains per tree
     static constexpr size_t default_max_chains_per_tree = 1;

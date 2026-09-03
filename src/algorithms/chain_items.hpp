@@ -427,8 +427,6 @@ struct transition_info {
 
 
 /// Represents the scoring scheme for chains, to determine which are best.
-/// Doesn't cover the parameters that really belong to an alignment scoring
-/// scheme (like gap open and extend).
 struct ChainScoringScheme {
     /// Score bonus for each item collected
     int item_bonus = 0;
@@ -440,6 +438,19 @@ struct ChainScoringScheme {
     /// scores) of this many points when matching haplotype paths are
     /// preserved, scaled by fraction of haplotypes preserved.
     int consistency_bonus = 0;
+};
+
+/// Represents the chain filtering scheme, dictating how we judge
+/// the tracebacks that are found
+/// Default values are suitable for a single-chain traceback, i.e. find_best_chain()
+struct ChainFilteringScheme {
+    /// How many tracebacks do we want to find?
+    size_t max_chains = 1;
+    /// What's the minimum number of chains we want to align later?
+    size_t min_chains = 1;
+    /// What's the chain score drop we're willing to take once
+    /// once we already have min_chains worth of tracebacks?
+    size_t chain_score_threshold = 0;
 };
 
 /// An oriented tail end of a subchain/traceback
@@ -594,7 +605,7 @@ void chain_items_dp(vector<vector<TracedScore>>& chain_scores,
                     const HandleGraph& graph,
                     const transition_iterator& for_each_transition,
                     size_t max_predecessors = 5,
-                    const ChainScoringScheme& scheme = ChainScoringScheme(),
+                    const ChainScoringScheme& scoring_scheme = ChainScoringScheme(),
                     size_t max_indel_bases = 100,
                     bool show_work = false);
 
@@ -664,7 +675,7 @@ void chain_items_traceback(const vector<vector<TracedScore>>& chain_scores,
                            const VectorView<Anchor>& to_chain,
                            vector<SparseAnchorChain>& tracebacks,
                            vector<AltEdge>& connections,
-                           const ChainScoringScheme& scheme = ChainScoringScheme(),
+                           const ChainScoringScheme& scoring_scheme = ChainScoringScheme(),
                            size_t max_tracebacks = 1);
 
 /**
@@ -687,8 +698,6 @@ unordered_map<TailAnchor, AltEdge> filter_alt_edges(const VectorView<Anchor>& to
  * 
  * Split up tracebacks when possible inter-chain alternatives exist.
  * If no edges connect the tracebacks then they are returned separately.
- * 
- * Knows to ignore SparseAnchorChains which have no anchors
  */
 vector<SubchainGroup> split_up_subchains(const VectorView<Anchor>& to_chain,
                                          const vector<SparseAnchorChain>& original_tracebacks,
@@ -708,8 +717,8 @@ vector<SubchainGroup> find_best_chains(const VectorView<Anchor>& to_chain,
                                        const SnarlDistanceIndex& distance_index,
                                        const HandleGraph& graph,
                                        const transition_iterator& for_each_transition,
-                                       const ChainScoringScheme& scheme = ChainScoringScheme(),
-                                       size_t max_chains = 1,
+                                       const ChainScoringScheme& scoring_scheme = ChainScoringScheme(),
+                                       const ChainFilteringScheme& filtering_scheme = ChainFilteringScheme(),
                                        size_t max_indel_bases = 100,
                                        bool show_work = false);
 
@@ -726,7 +735,7 @@ SparseAnchorChain find_best_chain(const VectorView<Anchor>& to_chain,
                                   const SnarlDistanceIndex& distance_index,
                                   const HandleGraph& graph,
                                   const transition_iterator& for_each_transition,
-                                  const ChainScoringScheme& scheme = ChainScoringScheme(),
+                                  const ChainScoringScheme& scoring_scheme = ChainScoringScheme(),
                                   size_t max_indel_bases = 100);
 
 /// Score a chaining gap using the Minimap2 method. See

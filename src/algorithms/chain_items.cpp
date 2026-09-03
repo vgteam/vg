@@ -409,7 +409,7 @@ void chain_items_dp(vector<vector<TracedScore>>& chain_scores,
                     const HandleGraph& graph,
                     const transition_iterator& for_each_transition,
                     size_t max_predecessors,
-                    const ChainScoringScheme& scheme,
+                    const ChainScoringScheme& scoring_scheme,
                     size_t max_indel_bases,
                     bool show_work) {
 
@@ -427,8 +427,8 @@ void chain_items_dp(vector<vector<TracedScore>>& chain_scores,
         cerr << "Chaining group of " << to_chain.size() << " items" << endl;
     }
 
-    crash_unless(scheme.recombination_penalty >= 0);
-    crash_unless(scheme.consistency_bonus >= 0);
+    crash_unless(scoring_scheme.recombination_penalty >= 0);
+    crash_unless(scoring_scheme.consistency_bonus >= 0);
 
 
     // Compute a base seed average length.
@@ -453,11 +453,11 @@ void chain_items_dp(vector<vector<TracedScore>>& chain_scores,
     // We store the bonus used to select the current winning predecessor for
     // each seed in this vector, which runs alongside the DP table.
     //
-    // Starting from nowhere means full path conservation, so bonus = scheme.consistency_bonus.
+    // Starting from nowhere means full path conservation, so bonus = scoring_scheme.consistency_bonus.
     for (size_t i = 0; i < to_chain.size(); i++) {
         // Set up DP table so we can start anywhere with that item's score, with bonus applied.
         chain_scores[i] = std::vector<TracedScore>(max_predecessors,
-            {to_chain[i].score() + scheme.item_bonus, scheme.consistency_bonus,
+            {to_chain[i].score() + scoring_scheme.item_bonus, scoring_scheme.consistency_bonus,
              TracedScore::nowhere(), to_chain[i].anchor_end_paths()});
     }
 
@@ -477,7 +477,7 @@ void chain_items_dp(vector<vector<TracedScore>>& chain_scores,
         auto& here = to_chain[transition.to_anchor];
         
         // How many points is it worth to collect?
-        auto item_points = here.score() + scheme.item_bonus;
+        auto item_points = here.score() + scoring_scheme.item_bonus;
         
         std::string here_gvnode;
         if (diagram) {
@@ -517,10 +517,10 @@ void chain_items_dp(vector<vector<TracedScore>>& chain_scores,
         //
         // But we account for anchor length in the item points, so don't use it
         // here.
-        int jump_points = -score_chain_gap(transition.indel_size, base_seed_length) * scheme.gap_scale;
+        int jump_points = -score_chain_gap(transition.indel_size, base_seed_length) * scoring_scheme.gap_scale;
 
         // add recombination penalty if necessary
-        jump_points -= check_recombination(chain_scores[transition.from_anchor].front(), here) * scheme.recombination_penalty;
+        jump_points -= check_recombination(chain_scores[transition.from_anchor].front(), here) * scoring_scheme.recombination_penalty;
             
         // Get the score we are coming from
         TracedScore source_score = TracedScore::score_from(chain_scores, transition.from_anchor);
@@ -530,15 +530,15 @@ void chain_items_dp(vector<vector<TracedScore>>& chain_scores,
                                                     .set_shared_paths(here.anchor_paths());
         
         // Evaluate heuristic to preserve path flexibility without inflating actual scoring DP.
-        // Bonus = fraction of conserved paths * scheme.consistency_bonus.
+        // Bonus = fraction of conserved paths * scoring.consistency_bonus.
         // Bonus is 0 when recombination occurs (no shared paths).
         from_source_score.eval_bonus = 0;
-        if (scheme.consistency_bonus > 0) {
+        if (scoring_scheme.consistency_bonus > 0) {
             int pre_count = __builtin_popcountll(source_score.paths);
             if (pre_count > 0 && (source_score.paths & here.anchor_start_paths()) != 0) {
                 // No recombination: bonus = fraction of paths conserved * penalty
                 int post_count = __builtin_popcountll(from_source_score.paths);
-                from_source_score.eval_bonus = (scheme.consistency_bonus * post_count) / pre_count;
+                from_source_score.eval_bonus = (scoring_scheme.consistency_bonus * post_count) / pre_count;
             }
             // Recombination case (no shared paths): bonus stays 0
         }
@@ -603,7 +603,7 @@ void chain_items_dp(vector<vector<TracedScore>>& chain_scores,
             
             if (diagram) {
                 // Draw the item in the diagram
-                auto item_points = here.score() + scheme.item_bonus;
+                auto item_points = here.score() + scoring_scheme.item_bonus;
                 std::string here_gvnode = "i" + std::to_string(to_anchor);
                 std::stringstream label_stream;
                 label_stream << "#" << to_anchor << " " << here << " = " << item_points
@@ -675,7 +675,7 @@ void chain_items_traceback(const vector<vector<TracedScore>>& chain_scores,
                            const VectorView<Anchor>& to_chain,
                            vector<SparseAnchorChain>& tracebacks,
                            vector<AltEdge>& connections,
-                           const ChainScoringScheme& scheme,
+                           const ChainScoringScheme& scoring_scheme,
                            size_t max_tracebacks) {
     tracebacks.reserve(chain_scores.size());
     connections.reserve(chain_scores.size());
@@ -735,7 +735,7 @@ void chain_items_traceback(const vector<vector<TracedScore>>& chain_scores,
                     // Take away all the points we got for coming from there and being ourselves.
                     tracebacks.back().chain_score -= chain_scores[here].front().score;
                     // But then re-add our score for just us
-                    tracebacks.back().chain_score += (to_chain[here].score() + scheme.item_bonus);
+                    tracebacks.back().chain_score += (to_chain[here].score() + scoring_scheme.item_bonus);
                     // TODO: Score this more simply.
                     // TODO: find the edge to nowhere???
                     break;
@@ -838,7 +838,10 @@ vector<SubchainGroup> split_up_subchains(const VectorView<Anchor>& to_chain,
     vector<bool> is_joined_up(original_tracebacks.size(), false);
     for (const auto& tie_in : tail_edges) {
         const AltEdge& edge = tie_in.second;
-        if (!edge.is_max_score_diff()) {
+        // Filter to edges which tie in tracebacks which still exist
+        if (!edge.is_max_score_diff() 
+            && !original_tracebacks[edge.start_parent].anchors.empty()
+            && !original_tracebacks[edge.end_parent].anchors.empty()) {
             // Use this extra edge
             outgoing_edges[edge.start_anchor].emplace(edge.end_anchor);
             incoming_edges[edge.end_anchor].emplace(edge.start_anchor);
@@ -983,8 +986,8 @@ vector<SubchainGroup> find_best_chains(const VectorView<Anchor>& to_chain,
                                        const SnarlDistanceIndex& distance_index,
                                        const HandleGraph& graph,
                                        const transition_iterator& for_each_transition,
-                                       const ChainScoringScheme& scheme,
-                                       size_t max_chains,
+                                       const ChainScoringScheme& scoring_scheme,
+                                       const ChainFilteringScheme& filtering_scheme,
                                        size_t max_indel_bases,
                                        bool show_work) {
 
@@ -997,12 +1000,12 @@ vector<SubchainGroup> find_best_chains(const VectorView<Anchor>& to_chain,
     vector<vector<TracedScore>> chain_scores;
     chain_items_dp(chain_scores, to_chain, distance_index, graph, for_each_transition,
                    3, /// TODO: make into a param
-                   scheme, max_indel_bases, show_work);
+                   scoring_scheme, max_indel_bases, show_work);
     
     // Then do the tracebacks
     vector<SparseAnchorChain> tracebacks;
     vector<AltEdge> connections;
-    chain_items_traceback(chain_scores, to_chain, tracebacks, connections, scheme, max_chains);
+    chain_items_traceback(chain_scores, to_chain, tracebacks, connections, scoring_scheme, filtering_scheme.max_chains);
     
     if (tracebacks.empty()) {
         // Somehow we got nothing
@@ -1024,8 +1027,10 @@ vector<SubchainGroup> find_best_chains(const VectorView<Anchor>& to_chain,
 
     unordered_map<TailAnchor, AltEdge> tail_edges = filter_alt_edges(to_chain, tracebacks, connections);
 
-    // Get rid of tracebacks that we don't want to use
-    for (size_t i = tracebacks.size() - 1; i > 0; i--) {
+    // Calculate optimal scores for each traceback, allowing overlap
+    // (traceback index, theoretical optimal score)
+    vector<pair<size_t, int>> traceback_optimal_scores;
+    for (size_t i = 0; i < tracebacks.size(); i++) {
         // Calculate the score if this traceback was allowed its optimal path
         int full_score = tracebacks[i].chain_score;
         if (!tail_edges[tracebacks[i].left_tail()].is_max_score_diff()) {
@@ -1040,14 +1045,25 @@ vector<SubchainGroup> find_best_chains(const VectorView<Anchor>& to_chain,
             full_score -= chain_scores[tie_in_edge.end_anchor].front().score;
             full_score += tracebacks[i].chain_score;
         }
+        traceback_optimal_scores.emplace_back(i, full_score);
+    }
 
-        if (full_score < tracebacks.front().chain_score / 3) {
+    // Sort the tracebacks by optimal score
+    std::sort(traceback_optimal_scores.begin(), traceback_optimal_scores.end(), 
+    [](const pair<size_t, int>& a, const pair<size_t, int>& b) {
+        // Return true if a has the larger score and belongs first
+        return a.second > b.second;
+    });
+
+    // Now delete any tracebacks which have too low optimal score
+    for (size_t i = filtering_scheme.min_chains; i < tracebacks.size(); i++) {
+        if (traceback_optimal_scores[i].second < tracebacks.front().chain_score - filtering_scheme.chain_score_threshold) {
 #ifdef debug_chaining
-            cerr << "Removing traceback at index " << i << " because it has optimal score "
-                 << full_score << " < " << (tracebacks.front().chain_score / 3) << endl; 
+            cerr << "Removing traceback " << traceback_optimal_scores[i].first << " because its optimal score "
+                 << traceback_optimal_scores[i].second << " < top score " << tracebacks.front().chain_score
+                 << " - chain score threshold " << filtering_scheme.chain_score_threshold << endl; 
 #endif
-            // Cut off at this point
-            tracebacks[i] = SparseAnchorChain();
+            tracebacks[traceback_optimal_scores[i].first] = SparseAnchorChain();
         }
     }
 
@@ -1103,14 +1119,14 @@ SparseAnchorChain find_best_chain(const VectorView<Anchor>& to_chain,
                                   const SnarlDistanceIndex& distance_index,
                                   const HandleGraph& graph,
                                   const transition_iterator& for_each_transition,
-                                  const ChainScoringScheme& scheme,
+                                  const ChainScoringScheme& scoring_scheme,
                                   size_t max_indel_bases) {
     vector<SubchainGroup> groups = find_best_chains(to_chain,
                                                    distance_index,
                                                    graph,
                                                    for_each_transition,
-                                                   scheme,
-                                                   1, // Only one chain needed!
+                                                   scoring_scheme,
+                                                   ChainFilteringScheme(),
                                                    max_indel_bases);
     if (groups.empty() || groups.front().subchains.empty()) {
         // We got nothing

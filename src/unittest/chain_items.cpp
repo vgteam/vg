@@ -140,13 +140,16 @@ static vector<algorithms::SubchainGroup> run_ziptree_iterator_multi_chain(const 
 
     // Make iterator for only the first tree
     // Seriously this is for test cases, only one tree at once
+    algorithms::ChainFilteringScheme filtering_scheme;
+    filtering_scheme.max_chains = num_chains;
+    filtering_scheme.min_chains = num_chains;
     return algorithms::find_best_chains(anchors, distance_index, graph,
                                         algorithms::zip_tree_transition_iterator(seeds,
                                                                                 zip_forest.trees.front(),
                                                                                 std::numeric_limits<size_t>::max(),
                                                                                 std::numeric_limits<size_t>::max()
                                                                                 ),
-                                        algorithms::ChainScoringScheme(), num_chains
+                                        algorithms::ChainScoringScheme(), filtering_scheme
                                         );
 }
 

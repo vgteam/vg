@@ -1455,22 +1455,26 @@ void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeFo
                 graph_lookback_limit,
                 read_lookback_limit
             );
-            // TODO: Should we just inherit from ChainScoringScheme? Or should
-            // we set one up as a member?
-            algorithms::ChainScoringScheme scheme {
+            // TODO: Should we just inherit these? Or set ones up as members?
+            algorithms::ChainScoringScheme scoring_scheme {
                 this->item_bonus,
                 this->gap_scale,
                 this->rec_penalty,
                 // TODO: Do this once at setup?
                 this->rec_consistency_bonus == -1 ? this->rec_penalty : this->rec_consistency_bonus,
             };
+            algorithms::ChainFilteringScheme filtering_scheme {
+                this->max_chains_per_tree,
+                this->min_chains,
+                this->chain_score_threshold,
+            };
             vector<algorithms::SubchainGroup> new_groups = algorithms::find_best_chains(
                 anchor_view,
                 *distance_index,
                 gbwt_graph,
                 for_each_transition,
-                scheme,
-                this->max_chains_per_tree,
+                scoring_scheme,
+                filtering_scheme,
                 indel_limit,
                 show_work);
 
