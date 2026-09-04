@@ -3407,13 +3407,26 @@ using namespace std;
                 }
 #endif
                 auto normal_aligner = get_aligner(!source.quality().empty());
+                bool chunk_has_substitution = false;
+                if (mp_aln_path_chunks->size() == 1) {
+                    const auto& chunk_path = mp_aln_path_chunks->front().second;
+                    for (size_t i = 0; i < chunk_path.mapping_size() && !chunk_has_substitution; ++i) {
+                        for (const auto& edit : chunk_path.mapping(i).edit()) {
+                            chunk_has_substitution = chunk_has_substitution ||
+                                (edit.from_length() != 0 && edit.to_length() != 0 && !edit.sequence().empty());
+                        }
+                    }
+                }
                 // check whether it's necessary to do any alignment in this interval
                 if (mp_aln_path_chunks->size() == 1 &&
+                    !chunk_has_substitution &&
                     mp_aln_path_chunks->front().first.first == mp_aln_source->sequence().begin() &&
                     mp_aln_path_chunks->front().first.second == mp_aln_source->sequence().end()) {
 #ifdef debug_anchored_surject
                     cerr << "chunk constitutes full alignment of this interval, no need for multipath alignment" << endl;
 #endif
+                    surjected_aln.set_sequence(mp_aln_source->sequence());
+                    surjected_aln.set_quality(mp_aln_source->quality());
                     to_proto_path(mp_aln_path_chunks->front().second, *surjected_aln.mutable_path());
                     surjected_aln.set_score(normal_aligner->scorer->score_contiguous_alignment(surjected_aln));
                     // TODO: it should be possible to rely on the ref chunks here rather than using the path scan later
