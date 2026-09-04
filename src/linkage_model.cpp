@@ -1852,7 +1852,7 @@ size_t LinkageCollector::resolve_generation(
         }
         // Keyed by (parent, chain-within-parent). The chain half is 0 unless per_chain_groups, so
         // the default is exactly the previous one-group-per-parent behaviour.
-        map<pair<size_t, size_t>, vector<size_t>> by_parent;
+        map<tuple<size_t, size_t, size_t>, vector<size_t>> by_parent;
         // What the settled parent implies about a child, computed HERE from the parent's settled
         // pair and the child's crossing mask rather than read from fields a separate pass wrote.
         // This replaced `Entry::parent_trav`, which cached the same fact and could go stale.
@@ -1878,7 +1878,22 @@ size_t LinkageCollector::resolve_generation(
             const size_t chain = e.chain_key != 0
                                      ? e.chain_key
                                      : numeric_limits<size_t>::max() - e.record_key;
-            return make_pair(e.parent_record_key, chain);
+            // PLOIDY IS PART OF THE KEY, and it has to be. A group is decoded as one chain at one
+            // ploidy -- `chain_ploidy` below reads it off `indices.front()` and applies it to every
+            // member -- so a group holding both ploidies decodes half of them in the wrong state
+            // space. That is not a wrong answer, it is a heap overflow: a ploidy-1 site's
+            // `genotype_ln_likelihood` has `num_alleles` entries, the diploid marginals index the
+            // parallel `known`/`wild` accumulators at `genotype_index(ai, bi)`, and that runs to
+            // n(n+1)/2 - 1.
+            //
+            // Siblings under one parent in one chain need not share a ploidy: ploidy here is how
+            // many of the parent's settled alleles cross the child, so one child crossed by both
+            // haplotypes sits beside one crossed by a single haplotype. On the default path the
+            // population happened to be homogeneous and this never fired. Admitting the chains the
+            // reference does not cross mixes it -- their copies split 249/572/699 across 0/1/2 on
+            // chr20 -- and the corruption is then detected by malloc, deterministically, an
+            // allocation or two later and nowhere near the write.
+            return make_tuple(e.parent_record_key, chain, e.ploidy);
         };
         // PER CHAIN, not per generation.
         //
@@ -1940,7 +1955,7 @@ size_t LinkageCollector::resolve_generation(
             vector<const vector<double>*> gctx;
             vector<size_t> gps;
             for (auto& kv : by_parent) {
-                const size_t pidx = index_of_key[kv.first.first];
+                const size_t pidx = index_of_key[std::get<0>(kv.first)];
                 // The parent joins the group IFF its ploidy matches the children's.
                 //
                 // That is the pre-existing rule -- a chain is a maximal run of one ploidy -- applied
@@ -1951,8 +1966,9 @@ size_t LinkageCollector::resolve_generation(
                 // which is the autosomal nested-haploid population -- leaves the parent out, and
                 // then the parent reaches the group as its entering message instead, which is all it
                 // was contributing by being in it.
+                // Every member shares this now, because the key says so.
                 const size_t group_ploidy =
-                    kv.second.empty() ? entries[pidx].ploidy : entries[kv.second.front()].ploidy;
+                    kv.second.empty() ? entries[pidx].ploidy : std::get<2>(kv.first);
                 const bool parent_in_group = entries[pidx].ploidy == group_ploidy;
                 vector<size_t> group;
                 if (parent_in_group) {
@@ -2011,7 +2027,7 @@ size_t LinkageCollector::resolve_generation(
                 auto state_of = [&](size_t h) {
                     return h == LinkageModel::WILDCARD ? n_haplotypes : h;
                 };
-                auto pin = pinned_phase.find(kv.first.first);
+                auto pin = pinned_phase.find(std::get<0>(kv.first));
                 if (pin == pinned_phase.end()) {
                     gctx.push_back(nullptr);
                 } else if (group_ploidy == 1) {
@@ -2068,7 +2084,7 @@ size_t LinkageCollector::resolve_generation(
                                   + state_of(pin->second.second)] = 1.0;
                     gctx.push_back(&deltas.back());
                 }
-                auto ps = phase_set_of.find(kv.first.first);
+                auto ps = phase_set_of.find(std::get<0>(kv.first));
                 gps.push_back(ps != phase_set_of.end() ? ps->second
                                                        : numeric_limits<size_t>::max());
             }
@@ -2137,8 +2153,15 @@ size_t LinkageCollector::resolve_generation(
         // ploidy creates them in quantity: an isolated ploidy-1 site between diploid neighbours is
         // a chain of one, and 258 of them went missing from the chr20 mosaic.
 
-        // Every entry in a chain shares a ploidy by construction above.
+        // Every entry in a chain shares a ploidy by construction above -- ASSERTED, not assumed.
+        // When it was only assumed, a mixed group decoded its minority members in the wrong state
+        // space and overflowed the `known`/`wild` accumulators, which malloc reported as heap
+        // corruption an allocation later and several frames away. Cheap: one pass over a group.
         size_t chain_ploidy = entries[indices.front()].ploidy;
+        for (size_t idx : indices) {
+            assert(entries[idx].ploidy == chain_ploidy
+                   && "a decode chain must be homogeneous in ploidy");
+        }
 
         vector<LinkageModel::Site> sites;
         sites.reserve(indices.size());
