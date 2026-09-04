@@ -1440,7 +1440,11 @@ int main_call(int argc, char** argv) {
     // Prefix-selected covers are the normal case (`-P gref_CHM13#0#chr20_`), so this tests the
     // resolved path list rather than the flags.
     for (const string& ref_path : ref_paths) {
-        if (GrefCover::is_gref_derived(ref_path)) {
+        // A FRAGMENT, not merely a gref-derived name. The gref copy of a base contig is just the
+        // reference under another name and makes nothing new reportable, so selecting it alone must
+        // not turn the descent on -- on a graph that ships only the gref view of its reference,
+        // which is the ordinary case, that would enable it for every run including the control.
+        if (GrefCover::is_gref_name(ref_path)) {
             enable_off_reference_nesting();
             if (show_progress) {
                 logger.info() << "gref reference selected: descending into chains the reference "
@@ -2074,27 +2078,48 @@ int main_call(int argc, char** argv) {
             // index, or the panel would double-count a fragmented haplotype and treat its pieces
             // as independent evidence.
             const gbwt::Metadata& meta = gbwt_index->metadata;
+            // Which base samples the graph carries in their own right, so a gref copy of one can be
+            // told from a gref copy of one that is absent.
+            unordered_set<string> base_samples;
+            for (gbwt::size_type i = 0; i < meta.sample_names.size(); ++i) {
+                const string s = meta.sample(i);
+                if (!GrefCover::is_gref_derived(s)) {
+                    base_samples.insert(s);
+                }
+            }
             map<pair<size_t, size_t>, size_t> hap_index;
             linkage_sequence_to_haplotype.assign(gbwt_index->sequences(), 0);
             for (gbwt::size_type path = 0; path < meta.paths(); ++path) {
                 const gbwt::PathName& name = meta.path(path);
-                // A gref cover is not a haplotype, and it reaches this loop because the panel is
-                // built from every GBWT path regardless of sense. Its fragments all carry sample
-                // "gref_<REF>" and phase 0, so the whole cover would collapse onto ONE panel index:
-                // an individual stitched greedily from whichever donor had the longest uncovered
-                // run at each site. Letting Li-Stephens copy from that chimera moved 8.82% of
-                // chr20's genotypes and lost 298 sites, and it was the ONLY cause -- the 13,711
+                // The cover's FRAGMENTS are not a haplotype, and they reach this loop because the
+                // panel is built from every GBWT path regardless of sense. They all carry sample
+                // "gref_<REF>" and phase 0, so they would collapse onto ONE panel index: an
+                // individual stitched greedily from whichever donor had the longest uncovered run at
+                // each site. Letting Li-Stephens copy from that chimera moved 8.82% of chr20's
+                // genotypes and lost 298 sites, and it was the ONLY cause -- the 13,711
                 // off-reference chains gref makes reportable left the contig byte-identical.
+                //
+                // The gref COPY OF A BASE CONTIG is a different thing: it is the reference, renamed,
+                // one contig with one walk. It is kept unless the base path is also in the graph, so
+                // the reference sits in the panel exactly ONCE either way. Both layouts occur --
+                // `GrefCover::apply()` documents writing the reference twice, but a graph can ship
+                // carrying only the gref view, and then dropping it would take a real haplotype out
+                // of the panel. Measured on hprc-v2.1-mc-chm13-eval.gref.HG002.hap32.gbz, which has
+                // no CHM13 path at all: keeping it is the difference between panel 34 and 33.
                 //
                 // WILDCARD rather than skipping: the vector defaults to 0, so a gref sequence left
                 // unwritten would reach panel_alleles as haplotype 0 and write the cover's allele
                 // into a real haplotype's slot. panel_alleles' `hap < out.size()` guard drops it.
-                //
-                // CHM13#0 and GRCh38#0 stay in: they are reference-sense too, but they are real
-                // haplotypes, and the panel has always carried them.
                 const string path_sample = (size_t)name.sample < meta.sample_names.size()
                                                ? meta.sample(name.sample) : string();
-                if (GrefCover::is_gref_derived(path_sample)) {
+                const string path_contig = (size_t)name.contig < meta.contig_names.size()
+                                               ? meta.contig(name.contig) : string();
+                const bool gref_fragment = GrefCover::is_gref_derived(path_sample)
+                                           && GrefCover::is_gref_name(path_contig);
+                const bool gref_shadowing_base =
+                    GrefCover::is_gref_derived(path_sample) && !gref_fragment
+                    && base_samples.count(path_sample.substr(GrefCover::gref_prefix.size())) > 0;
+                if (gref_fragment || gref_shadowing_base) {
                     for (gbwt::size_type orientation = 0; orientation < 2; ++orientation) {
                         gbwt::size_type seq = gbwt::Path::encode(path, orientation);
                         if (seq < linkage_sequence_to_haplotype.size()) {
