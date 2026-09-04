@@ -304,6 +304,10 @@ public:
     /// Assume writing nested snarls is enabled
     void set_nested(bool nested);
 
+    /// How deep in non-reference sequence each gref contig sits, keyed by locus. INFO/CH is at
+    /// least this for a record on that contig, whatever its ancestors did.
+    void set_gref_levels(map<string, int> levels);
+
     /// Enable post-genotyping merging of near-identical called ALT alleles, so that a 1/2 call of
     /// two effectively-identical alleles collapses to 1/1 with a single ALT.  Uses the same
     /// similarity metric and the same core-length gate as "vg deconstruct -L/--cluster-min-len" (a
@@ -783,6 +787,8 @@ protected:
 
     // need to write LV/PS info tags
     bool include_nested;
+    /// Locus -> gref nesting level, the floor for that contig's INFO/CH. Empty without a cover.
+    map<string, int> gref_levels;
 
     // post-genotyping ALT merging (vg call -L / --cluster-min-len).  Deliberately NOT named
     // cluster_threshold / cluster_min_allele_len: Deconstructor derives from this class and already

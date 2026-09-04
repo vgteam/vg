@@ -1455,6 +1455,95 @@ int main_call(int argc, char** argv) {
         }
     }
 
+    // How deep in non-reference sequence each selected gref contig sits, so INFO/CH can say so
+    // without depending on which of a record's ancestors happened to be emitted.
+    //
+    // The cover is node-disjoint, so the node a fragment's first node hangs off belongs to exactly
+    // one gref interval, and that interval is its parent -- which is `assign_nesting()`'s rule
+    // ("walk up until reaching a snarl whose boundary nodes are owned by some gref interval")
+    // answered locally instead of over the snarl tree. A fragment off the base reference is 1, one
+    // inside a level-1 fragment is 2, and the base contig itself is 0.
+    //
+    // Keyed by LOCUS, because that is what reaches the VCF's CHROM column.
+    map<string, int> gref_levels;
+    if (off_reference_nesting_enabled() && graph != nullptr) {
+        auto gref_owner = [&](handle_t h) {
+            string owner;
+            graph->for_each_step_on_handle(h, [&](const step_handle_t& step) {
+                const string n = graph->get_path_name(graph->get_path_handle_of_step(step));
+                if (GrefCover::is_gref_derived(n)) {
+                    owner = n;
+                    return false;
+                }
+                return true;
+            });
+            return owner;
+        };
+        map<string, int> by_path;
+        unordered_set<string> in_progress;
+        std::function<int(const string&)> level_of = [&](const string& path_name) -> int {
+            if (!GrefCover::is_gref_name(path_name)) {
+                return 0;   // a base contig, or the gref copy of one: the outermost system
+            }
+            auto seen = by_path.find(path_name);
+            if (seen != by_path.end()) {
+                return seen->second;
+            }
+            if (!in_progress.insert(path_name).second) {
+                return 1;   // a cover is a tree, so this cannot happen; do not hang if it does
+            }
+            int level = 0;
+            if (graph->has_path(path_name)) {
+                const path_handle_t p = graph->get_path_handle(path_name);
+                if (!graph->is_empty(p)) {
+                    // Either end will do: a fragment is a maximal run of uncovered nodes, so both
+                    // of its neighbours are boundary nodes of the same enclosing snarl.
+                    for (bool left : {true, false}) {
+                        const handle_t end = graph->get_handle_of_step(
+                            left ? graph->path_begin(p) : graph->path_back(p));
+                        graph->follow_edges(end, left, [&](const handle_t& next) {
+                            const string owner = gref_owner(next);
+                            if (!owner.empty() && owner != path_name) {
+                                level = level_of(owner) + 1;
+                                return false;
+                            }
+                            return true;
+                        });
+                        if (level > 0) {
+                            break;
+                        }
+                    }
+                }
+            }
+            if (level == 0) {
+                // Its neighbours are in no interval -- short runs the length filter dropped. It is
+                // still a fragment, so it is still at least one layer in.
+                level = 1;
+            }
+            in_progress.erase(path_name);
+            by_path[path_name] = level;
+            return level;
+        };
+        for (const string& ref_path : ref_paths) {
+            const int level = level_of(ref_path);
+            if (level > 0) {
+                const string locus = PathMetadata::parse_locus_name(ref_path);
+                gref_levels[locus != PathMetadata::NO_LOCUS_NAME ? locus : ref_path] = level;
+            }
+        }
+        if (show_progress && !gref_levels.empty()) {
+            map<int, size_t> hist;
+            for (const auto& kv : gref_levels) {
+                ++hist[kv.second];
+            }
+            auto& l = logger.info() << "gref nesting levels:";
+            for (const auto& kv : hist) {
+                l << " " << kv.first << ":" << kv.second;
+            }
+            l << endl;
+        }
+    }
+
     // build table of ploidys
     vector<int> ref_path_ploidies;
     // Paths which aren't REFERENCE/GENERIC sense that we want to call against
@@ -1993,6 +2082,7 @@ int main_call(int argc, char** argv) {
         // measure, not to fold into gref support.
         vcf_caller->set_nested(all_snarls || top_down || bottom_up
                                || off_reference_nesting_enabled());
+        vcf_caller->set_gref_levels(std::move(gref_levels));
         vcf_caller->set_translation(translation.get());
 
         // Linkage pass. Needs both -z and --read-likelihood: the panel matrix comes from asking

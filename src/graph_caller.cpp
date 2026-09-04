@@ -491,7 +491,7 @@ string VCFOutputCaller::vcf_header(const PathHandleGraph& graph, const vector<st
     }
     if (include_nested) {
         ss << "##INFO=<ID=LV,Number=1,Type=Integer,Description=\"Level in the snarl tree counting only ancestors whose record is on this record's own reference contig (0=top level for this contig)\">" << endl;
-        ss << "##INFO=<ID=CH,Number=1,Type=Integer,Description=\"Number of ancestors in the VCF whose record is on a different reference contig than the one below it, ie nesting steps between VCF reference contigs\">" << endl;
+        ss << "##INFO=<ID=CH,Number=1,Type=Integer,Description=\"Nesting steps between VCF reference contigs: how many coordinate-system changes separate this record from a linear reference. Under a gref cover this is the level of the record's own contig, so it does not depend on which of its ancestors carry a record in this file\">" << endl;
         ss << "##INFO=<ID=PS,Number=1,Type=String,Description=\"ID of variant corresponding to parent snarl\">" << endl;
         ss << "##INFO=<ID=RC,Number=1,Type=String,Description=\"Reference contig of top-level containing site\">" << endl;
         ss << "##INFO=<ID=RS,Number=1,Type=Integer,Description=\"Reference start position of top-level containing site\">" << endl;
@@ -2174,6 +2174,10 @@ void VCFOutputCaller::set_translation(const unordered_map<nid_t, pair<string, si
 
 void VCFOutputCaller::set_nested(bool nested) {
     include_nested = nested;
+}
+
+void VCFOutputCaller::set_gref_levels(map<string, int> levels) {
+    this->gref_levels = std::move(levels);
 }
 
 void VCFOutputCaller::set_allele_merge(double threshold, int64_t min_len) {
@@ -4259,8 +4263,30 @@ void VCFOutputCaller::update_nesting_info_tags(const SnarlManager* snarl_manager
             // contigs, the whole-file count is not what a level filter wants.  No gref-contig
             // record was ever at LV=0 under the old definition, so `vcfbub -l 0` deleted every
             // one of them.
+            // CH must not depend on which ANCESTORS happened to be emitted. The hop count walks up
+            // the snarl tree and counts only ancestors that carry a record here, so a record on a
+            // gref fragment whose enclosing base-contig site produced no line came out at CH=0 --
+            // indistinguishable from a record on the linear reference. On a gref-covered chr20 that
+            // was 29,843 of 41,669 off-reference records, which made the documented filter
+            // (`bcftools view -i 'INFO/CH==1'`) select a quarter of what it should.
+            //
+            // The contig's own gref level answers it directly: a fragment IS one layer into an
+            // insertion, and `gref.hpp` already states that a fragment's level equals INFO/CH of
+            // every record on it. Taken as a FLOOR rather than a replacement, so wherever the
+            // ancestor chain is complete the hop count still wins and nothing moves, and every
+            // record on a base contig stays at 0.
+            //
+            // The cost is that CH >= 1 no longer implies an in-VCF parent, so it no longer implies
+            // PS. That coupling was an accident of counting only emitted ancestors.
+            size_t gref_level = 0;
+            {
+                auto it = gref_levels.find(toks[0]);
+                if (it != gref_levels.end() && it->second > 0) {
+                    gref_level = (size_t)it->second;
+                }
+            }
             string nesting_tags = ";LV=" + std::to_string(contig_level);
-            nesting_tags += ";CH=" + std::to_string(contig_hops);
+            nesting_tags += ";CH=" + std::to_string(max(contig_hops, gref_level));
             if (!parent_name.empty()) {
                 // Not "if (lv != 0)": those were equivalent only while LV was the absolute
                 // count.  A record can now legitimately be at LV=0 and still have a parent on

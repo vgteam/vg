@@ -9,7 +9,7 @@ PATH=../bin:$PATH # for vg
 # FORMAT field shifts every later one, which broke four assertions here that were not
 # testing field order at all -- one of them silently compared BL against a GQ threshold.
 
-plan tests 344
+plan tests 346
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -1257,6 +1257,12 @@ is "$(rlg_row rlg_gref.vcf chr1_1_alt | wc -l | tr -d ' ')" "1" "with one it is,
 is "$(rlg_row rlg_gref.vcf chr1_1_alt | cut -f4,5)" "$(printf 'G\tT')" "and it is the SNP, not the insertion again"
 is "$(rlg_row rlg_gref.vcf chr1_1_alt | cut -f10 | cut -d: -f1)" "0|1" "phased het, the truth pair differing only inside the insertion"
 is "$(rlg_row rlg_gref.vcf chr1_1_alt | cut -f8 | grep -c 'CH=1')" "1" "INFO/CH marks it one insertion layer deep, which is the wiki filter"
+# CH comes from the CONTIG's gref level, not from which of a record's ancestors happen to carry a
+# record here.  Counting only emitted ancestors left records on a fragment whose enclosing
+# base-contig site produced no line at CH=0 -- indistinguishable from the linear reference, and on
+# a gref-covered chr20 that was 29,843 of 41,669 off-reference records.
+is "$(awk -F'\t' '!/^#/ && $1!="chr1" && $8 ~ /CH=0/' rlg_gref.vcf | wc -l | tr -d ' ')" "0" "no record on a gref fragment is marked as being on the linear reference"
+is "$(grep -o 'gref nesting levels:.*' rlg_gref.err)" "gref nesting levels: 1:1 2:1" "fragment levels are read off the graph, and the level-2 fragment inside the insertion is seen as such"
 is "$(rlg_row rlg_gref.vcf chr1_1_alt | cut -f8 | grep -c 'PS=>1>6')" "1" "and INFO/PS names the enclosing top-level snarl"
 is "$(grep -c 'descending into chains the reference does not cross' rlg_gref.err)" "1" "selecting a gref reference self-enables the descent, with no env var"
 is "$(rlg_row rlg_gref.vcf chr1 | cut -f1,2,4,5)" "$(rlg_row rlg_base.vcf chr1 | cut -f1,2,4,5)" "the top-level record on the base contig is unchanged"
