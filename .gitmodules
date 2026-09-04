@@ -126,10 +126,10 @@
 	url = https://github.com/babyplutokurt/GFAz.git
 [submodule "deps/cairo"]
 	path = deps/cairo
-	url = git://anongit.freedesktop.org/git/cairo
+	url = https://gitlab.freedesktop.org/cairo/cairo.git
 [submodule "deps/pixman"]
 	path = deps/pixman
-	url = git://anongit.freedesktop.org/git/pixman
+	url = https://gitlab.freedesktop.org/pixman/pixman.git
 [submodule "deps/elfutils"]
 	path = deps/elfutils
 	url = https://github.com/vgteam/elfutils.git

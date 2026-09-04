@@ -126,14 +126,7 @@ using namespace std;
         // Do the surjection
         vector<Alignment> surjected = surject(source, paths, positions, allow_negative_scores, preserve_deletions);
         
-        // Pack all the info into the refpos field
-        for (size_t i = 0; i < surjected.size(); ++i) {
-            surjected[i].clear_refpos();
-            auto* pos = surjected[i].add_refpos();
-            pos->set_name(get<0>(positions[i]));
-            pos->set_offset(get<1>(positions[i]));
-            pos->set_is_reverse(get<2>(positions[i]));
-        }
+        set_refpos(surjected, positions);
     
         return surjected;
     }
@@ -219,7 +212,18 @@ using namespace std;
 
         return surjected;
     }
-    
+
+    void Surjector::set_refpos(vector<Alignment>& alns, const vector<tuple<string, int64_t, bool>>& positions) const {
+        for (size_t i = 0; i < alns.size(); ++i) {
+            // Pack all the position info into the refpos field
+            alns[i].clear_refpos();
+            auto* pos = alns[i].add_refpos();
+            pos->set_name(get<0>(positions[i]));
+            pos->set_offset(get<1>(positions[i]));
+            pos->set_is_reverse(get<2>(positions[i]));
+        }
+    }
+
     void Surjector::surject_internal(const Alignment* source_aln, const multipath_alignment_t* source_mp_aln,
                                      vector<Alignment>* alns_out, vector<multipath_alignment_t>* mp_alns_out,
                                      const unordered_set<path_handle_t>& paths,
@@ -5426,6 +5430,31 @@ using namespace std;
     vector<pair<int, char>> Surjector::get_cigar(const multipath_alignment_t& surjected, const tuple<string, int64_t, bool>& position, 
                                                  const PathPositionHandleGraph& graph, bool spliced) const {
         return cigar_against_path(surjected, get<0>(position), get<2>(position), get<1>(position), graph, min_splice_length);
+    }
+
+    template<>
+    void Surjector::set_is_secondary(Alignment& aln, bool value) {
+        aln.set_is_secondary(value);
+    }
+
+    template<>
+    void Surjector::set_is_secondary(multipath_alignment_t& aln, bool value) {
+        aln.set_annotation("secondary", value);
+    }
+    
+    template<>
+    bool Surjector::get_is_secondary(const Alignment& aln) {
+        return aln.is_secondary();
+    }
+
+    template<>
+    bool Surjector::get_is_secondary(const multipath_alignment_t& aln) {
+        if (!aln.has_annotation("secondary")) {
+            return false;
+        }
+        auto annotation = aln.get_annotation("secondary");
+        assert(annotation.first == multipath_alignment_t::Bool);
+        return *((bool*) annotation.second);
     }
 
     vector<tuple<Alignment, size_t, size_t>> Surjector::generate_hard_clipped_alignments(const Alignment& source) const {
