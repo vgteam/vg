@@ -1381,18 +1381,16 @@ void LinkageCollector::record(const string& contig, size_t position,
 
     lock_guard<std::mutex> guard(mutex);
 
-    uint32_t contig_id = 0;
-    bool found = false;
-    for (size_t i = 0; i < contig_names.size(); ++i) {
-        if (contig_names[i] == contig) {
-            contig_id = (uint32_t)i;
-            found = true;
-            break;
+    uint32_t contig_id;
+    {
+        auto it = contig_index.find(contig);
+        if (it != contig_index.end()) {
+            contig_id = it->second;
+        } else {
+            contig_id = (uint32_t)contig_names.size();
+            contig_names.push_back(contig);
+            contig_index.emplace(contig, contig_id);
         }
-    }
-    if (!found) {
-        contig_id = (uint32_t)contig_names.size();
-        contig_names.push_back(contig);
     }
 
     Entry e;
@@ -2377,18 +2375,6 @@ size_t LinkageCollector::resolve_generation(
             } else {
                 pc.hap_first = ph.first;
                 pc.hap_second = ph.second;
-            }
-            if (e.ploidy == 2 && (ph.first == LinkageModel::WILDCARD
-                                  || ph.second == LinkageModel::WILDCARD)) {
-                std::string v;
-                for (size_t h = 0; h < n_haplotypes; ++h) {
-                    v += " " + std::to_string((int)hap_arena[e.hap_offset + h]);
-                }
-#pragma omp critical (cerr)
-                std::cerr << "[HV] pos=" << e.position
-                          << " final=" << (int)e.final_i << "/" << (int)e.final_j
-                          << " wc=" << (ph.first == LinkageModel::WILDCARD ? 0 : 1)
-                          << " haps:" << v << std::endl;
             }
             pc.start_node = e.start_node;
             pc.end_node = e.end_node;

@@ -812,6 +812,11 @@ private:
     /// Per compact allele, the VCF allele it was emitted as, or -1 for none.
     vector<int8_t> allele_arena;
     vector<string> contig_names;
+    /// Reverse of `contig_names`, so `record()` does not scan it. The scan was free while a run held
+    /// one contig; a gref cover makes every fragment its own contig -- 12,765 genome-wide -- and the
+    /// scan is inside the collector's global mutex, so it serialises every recording thread against
+    /// the contig count.
+    unordered_map<string, uint32_t> contig_index;
     /// record key -> first and last entry carrying it, so a lookup is a hash probe and a
     /// walk of that key's chain. `last` is what makes appending O(1) rather than a walk.
     std::unordered_map<size_t, uint32_t> first_by_key;
