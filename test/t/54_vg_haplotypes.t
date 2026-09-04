@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 80
+plan tests 92
 
 # The test graph consists of two subgraphs of the HPRC Minigraph-Cactus v1.1 graph:
 # - GRCh38#chr6:31498145-31511124 (micb)
@@ -165,6 +165,49 @@ is $(vg gbwt -S -Z diploid3.gbz) 2 "1 generated + 1 reference samples"
 is $(vg gbwt -C -Z diploid3.gbz) 2 "2 contigs"
 is $(vg gbwt -H -Z diploid3.gbz) 3 "2 generated + 1 reference haplotypes"
 
+# Sampling with a gref reference. Build a gref version of the test graph in
+# place: --compute-gref needs a mutable graph, so round-trip through packed
+# format. -l 1 keeps every fragment so the length filter has something to act on.
+vg convert -g -p haplotype-sampling/micb-kir3dl1.gfa > plain.pg
+vg paths -x plain.pg --compute-gref -Q GRCh38 -l 1 > gref.pg
+is $? 0 "computing a gref cover on the test graph"
+vg convert -f gref.pg > gref.gfa
+vg gbwt -G gref.gfa --gbz-format -g gref.gbz -r gref.ri
+vg index -j gref.dist gref.gbz
+vg haplotypes --validate --subchain-length 300 -H gref.hapl gref.gbz
+is $? 0 "generating haplotype information for the gref graph"
+
+# Same GBZ, same haplotype information, same kmers: only the reference sample differs.
+vg haplotypes --validate -i gref.hapl -k haplotype-sampling/HG003.kff --include-reference \
+    --set-reference GRCh38 --min-gref-len 1 -g gref_base.gbz gref.gbz
+is $? 0 "sampling the gref graph with the base reference"
+vg haplotypes --validate -i gref.hapl -k haplotype-sampling/HG003.kff --include-reference \
+    --set-reference gref_GRCh38 --min-gref-len 1 -g gref_ref.gbz gref.gbz
+is $? 0 "sampling the gref graph with the gref reference"
+
+# The gref reference must not change the topology: same nodes and same edges.
+for g in gref_base gref_ref; do
+    vg convert --no-translation -f $g.gbz | awk '$1=="S"{print $2"\t"$3}' | sort > $g.nodes
+    vg convert --no-translation -f $g.gbz | awk '$1=="L"{print $2,$3,$4,$5}' | sort > $g.edges
+done
+cmp gref_base.nodes gref_ref.nodes
+is $? 0 "the gref reference gives the same node set as the base reference"
+cmp gref_base.edges gref_ref.edges
+is $? 0 "the gref reference gives the same edge set as the base reference"
+
+# The gref fragments survive, clipped, and only with the gref reference.
+is $(vg paths -L -x gref_base.gbz | grep -c '_alt') 0 "no gref fragments without the gref reference"
+is $([ $(vg paths -L -x gref_ref.gbz | grep -c '_alt') -gt 0 ] && echo 1 || echo 0) 1 "gref fragments survive with the gref reference"
+is $(vg paths -L -x gref_ref.gbz | grep -c '_alt\[') 4 "4 gref fragments are clipped into subranges"
+is $(vg paths -L -x gref_ref.gbz | grep '_alt' | sed 's/\[[0-9]*\]$//' | sort -u \
+     | comm -23 - <(vg paths -L -x gref.gbz | grep '_alt' | sort -u) | wc -l) 0 "every surviving gref fragment names an input fragment"
+
+# The length filter drops fragments without touching the topology.
+vg haplotypes --validate -i gref.hapl -k haplotype-sampling/HG003.kff --include-reference \
+    --set-reference gref_GRCh38 --min-gref-len 1000000 -g gref_long.gbz gref.gbz
+is $(vg paths -L -x gref_long.gbz | grep -c '_alt') 0 "--min-gref-len drops short gref fragments"
+is "$(vg stats -N gref_long.gbz) $(vg stats -E gref_long.gbz)" "$(vg stats -N gref_base.gbz) $(vg stats -E gref_base.gbz)" "dropping gref fragments keeps the topology"
+
 # Giraffe integration, guessed output name
 rm -f full.HG003.* default.gam
 vg giraffe --progress -Z full.gbz --haplotype-name full.hapl --kff-name haplotype-sampling/HG003.kff \
@@ -254,6 +297,8 @@ rm -f halfcov.gbz halfcov6.gbz halfcov_pansn.gbz bothcov_log.txt
 rm -f exclude.gbz exclude_pansn.gbz exclude_log.txt
 rm -f wrap.gbz wrap_base.gbz wrap_pansn.gbz wrap_log.txt wrap_exclude_log.txt
 rm -f diploid.gbz diploid2.gbz diploid3.gbz
+rm -f plain.pg gref.pg gref.gfa gref.gbz gref.ri gref.dist gref.hapl
+rm -f gref_base.gbz gref_base.nodes gref_base.edges gref_ref.gbz gref_ref.nodes gref_ref.edges gref_long.gbz
 rm -f full.HG003.* default.gam
 rm -f sampled.003HG.* specified.gam
 rm -f GRCh38.HG003.* HG003_GRCh38.gam
