@@ -306,17 +306,17 @@ class MinimizerMapper : public AlignerClient {
     static constexpr size_t default_chain_score_threshold = 100;
     size_t chain_score_threshold = default_chain_score_threshold;
     
-    /// Disregard the chain score thresholds when they would give us
-    /// fewer than this many chains aligned.
-    static constexpr size_t default_min_chains = 4;
-    size_t min_chains = default_min_chains;
+    /// Disregard the chain_score_threshold (but NOT the min_chain_score)
+    /// when they would give us fewer than this many chains aligned.
+    static constexpr size_t default_target_alignment_attempts = 4;
+    size_t target_alignment_attempts = default_target_alignment_attempts;
 
     /// Allow up to this many chains per tree
     static constexpr size_t default_max_chains_per_tree = 1;
     size_t max_chains_per_tree = default_max_chains_per_tree;
     
-    /// Even if we would have fewer than min_chains results, don't
-    /// process anything with a score smaller than this, per read base.
+    /// Even if we would have fewer than target_alignment_attempts results,
+    /// don't process anything with a score smaller than this, per read base.
     static constexpr double default_min_chain_score_per_base = 0.01;
     double min_chain_score_per_base = default_min_chain_score_per_base;
 

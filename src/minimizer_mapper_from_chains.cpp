@@ -1465,7 +1465,7 @@ void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeFo
             };
             algorithms::ChainFilteringScheme filtering_scheme {
                 this->max_chains_per_tree,
-                this->min_chains,
+                this->target_alignment_attempts,
                 this->chain_score_threshold,
             };
             vector<algorithms::SubchainGroup> new_groups = algorithms::find_best_chains(
@@ -1745,7 +1745,7 @@ void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::ve
     
     // Go through the chains in estimated-score order.
     process_until_threshold_b<int>(max_sparse_chain_scores,
-        chain_score_threshold, min_chains, max_alignments, rng, 
+        chain_score_threshold, target_alignment_attempts, max_alignments, rng, 
         [&](size_t processed_num, size_t item_count) -> bool {
             // This subchain group is good enough.
             // Called in descending score order.
@@ -1772,7 +1772,7 @@ void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::ve
             }
 
             if (max_sparse_chain_scores[processed_num] < best_max_sparse_chain_score - chain_score_threshold
-                && alns_made >= min_chains) {
+                && alns_made >= target_alignment_attempts) {
                 // We've made our target number of alignments, and this score is below the threshold
                 discard_chain_by_score(processed_num);
                 return false;

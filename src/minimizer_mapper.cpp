@@ -2803,14 +2803,15 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
             }
         }
         
-        //Annotate top pair with its fragment distance, properly-paired-ness, fragment length distrubution, and secondary scores
+        // Annotate top pair with its fragment distance, properly-paired-ness, fragment length distrubution, and secondary scores
         bool properly_paired = distances.front() == std::numeric_limits<int64_t>::max() ? false :
             (std::abs(distances.front()-fragment_length_distr.mean()) <= 6.0*fragment_length_distr.std_dev()) ;
         string distribution = "-I " + to_string(fragment_length_distr.mean()) + " -D " + to_string(fragment_length_distr.std_dev());
         for (auto r : {0, 1}) {
             set_annotation(mappings[r].front(), "fragment_length", distance_to_annotation(distances.front()));
             set_annotation(mappings[r].front(), "proper_pair", properly_paired);
-            set_annotation(mappings[r].front(),"fragment_length_distribution", distribution);
+            // GAM actually has a fragment_length_distribution field.
+            mappings[r].front().set_fragment_length_distribution(distribution);
             set_annotation(mappings[r].front(),"secondary_scores", scores);
         }
     }

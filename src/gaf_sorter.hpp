@@ -7,7 +7,6 @@
  * NOTE: There is an equivalent standalone tool included with GBZ-base.
  *
  * TODO: Asynchronous I/O.
- * TODO: Option for automatic detection of merge width to guarantee <= 2 rounds.
  * TODO: Option for giving approximate batch size in bytes.
  */
 
@@ -48,7 +47,7 @@ struct GAFSorterRecord {
 
     /// Types of keys that can be derived from the value.
     enum key_type {
-        /// (minimum node id, maximum node id) in the path.
+        /// (minimum GBWT node id, maximum GBWT node id) in the path.
         key_node_interval,
         /// Hash of the value for random shuffling.
         key_hash,
@@ -237,11 +236,14 @@ struct GAFSorterParameters {
     /// Buffer size for reading and writing records.
     size_t buffer_size = BUFFER_SIZE;
 
+    /// GBWT output file, if any.
+    std::string gbwt_file;
+
     /// Use stable sorting.
     bool stable = false;
 
-    /// GBWT output file, if any.
-    std::string gbwt_file;
+    /// Guarantee <= 2 merge rounds.
+    bool two_merge_rounds = false;
 
     /// Make the GBWT bidirectional.
     bool bidirectional_gbwt = false;

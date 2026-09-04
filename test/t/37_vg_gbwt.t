@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 168
+plan tests 195
 
 
 # Build vg graphs for two chromosomes
@@ -424,19 +424,89 @@ vg gbwt -g gfa3.gbz --set-reference GRCh37 --set-reference CHM13 -Z gfa2.gbz
 is $? 0 "Samples can be direcly set as references"
 is "$(vg gbwt --tags -Z gfa3.gbz | grep reference_samples | cut -f 2)" "CHM13 GRCh37" "Direct reference assignment works"
 
-# Try writing and reading GBZ v1.
-vg gbwt -Z gfa.gbz -g gfa_v1.gbz --gbz-v1
+# Try writing and reading GBZ v1
+vg gbwt -Z gfa.gbz -g gfa_version.gbz --gbz-version 1
 is $? 0 "GBZ version 1 output"
-is "$(vg describe gfa_v1.gbz | grep -A 1 '^GBZ header' | grep -c 'Version 1')" "1" "Correct version for GBZ v1 output"
-vg gbwt -Z gfa_v1.gbz -g gfa_v2.gbz
-is $? 0 "GBZ v1 can be read and rewritten as GBZ v2"
-cmp gfa.gbz gfa_v2.gbz
-is $? 0 "GBZ v1 was converted to v2 without changes"
+is "$(vg describe gfa_version.gbz | grep -A 1 '^GBZ header' | grep -c 'Version 1')" "1" "Correct version for GBZ v1 output"
+vg gbwt -Z gfa_version.gbz -g gfa_default.gbz
+is $? 0 "GBZ v1 can be read and rewritten as the default GBZ version"
+cmp gfa.gbz gfa_default.gbz
+is $? 0 "GBZ v1 was converted to the default GBZ version without changes"
 
-rm -f gfa.gbz gfa2.gbz gfa3.gbz tags.tsv gfa_v1.gbz gfa_v2.gbz
+# Try writing and reading GBZ v2
+vg gbwt -Z gfa.gbz -g gfa_version.gbz --gbz-version 2
+is $? 0 "GBZ version 2 output"
+is "$(vg describe gfa_version.gbz | grep -A 1 '^GBZ header' | grep -c 'Version 2')" "1" "Correct version for GBZ v2 output"
+vg gbwt -Z gfa_version.gbz -g gfa_default.gbz
+is $? 0 "GBZ v2 can be read and rewritten as the default GBZ version"
+cmp gfa.gbz gfa_default.gbz
+is $? 0 "GBZ v2 was converted to the default GBZ version without changes"
+
+# Try writing and reading GBZ v3
+vg gbwt -Z gfa.gbz -g gfa_version.gbz --gbz-version 3
+is $? 0 "GBZ version 3 output"
+is "$(vg describe gfa_version.gbz | grep -A 1 '^GBZ header' | grep -c 'Version 3')" "1" "Correct version for GBZ v3 output"
+vg gbwt -Z gfa_version.gbz -g gfa_default.gbz
+is $? 0 "GBZ v3 can be read and rewritten as the default GBZ version"
+cmp gfa.gbz gfa_default.gbz
+is $? 0 "GBZ v3 was converted to the default GBZ version without changes"
+
+rm -f gfa.gbz gfa2.gbz gfa3.gbz tags.tsv gfa_version.gbz gfa_default.gbz
 
 # Build a GBZ from a graph with a reference but no haplotype phase number
 vg gbwt -g gfa.gbz -G graphs/gfa_two_part_reference.gfa
 is "$(vg paths -M --reference-paths -x gfa.gbz | grep -v "^#" | cut -f4 | grep NO_HAPLOTYPE | wc -l)" "2" "GBZ can represent reference paths without haplotype numbers"
 
 rm -f gfa.gbz
+
+# Wrapping contigs: append each haplotype's origin fragment onto its last
+# fragment, restoring the end-to-start adjacency of a circular sequence.
+# components_walks.gfa has two contigs (A, B), each with a single unfragmented
+# count==0 haplotype walk, so the origin and the last fragment coincide and the
+# path is exactly doubled.
+vg gbwt -g wrap_src.gbz -G graphs/components_walks.gfa
+is $? 0 "built a GBZ with haplotype walks for wrapping"
+
+vg gbwt -Z wrap_src.gbz --wrap-contig A -g wrap_gbz.gbz
+is $? 0 "wrapping a contig in a GBZ succeeds"
+is "$(vg paths -E -x wrap_gbz.gbz | awk '$1 == "sample#1#A#0" {print $2}')" "10" "the wrapped haplotype on contig A is doubled (5 -> 10)"
+is "$(vg paths -E -x wrap_gbz.gbz | awk '$1 == "sample#1#B#0" {print $2}')" "5" "haplotypes on the unwrapped contig B are unchanged"
+is "$(vg view -g wrap_gbz.gbz | grep -c "$(printf '^L\t17\t+\t11\t+')")" "1" "the GBZ graph gains the wrap edge from the end of A back to its start"
+
+# The bare GBWT can be wrapped without a graph.
+vg gbwt -o wrap_src.gbwt -G graphs/components_walks.gfa
+vg gbwt wrap_src.gbwt --wrap-contig A -o wrap_bare.gbwt
+is $? 0 "wrapping a contig in a bare GBWT succeeds"
+is "$(vg gbwt -M wrap_bare.gbwt)" "$(vg gbwt -M wrap_src.gbwt)" "wrapping preserves the path/sample/haplotype/contig metadata"
+
+# Wrapping multiple contigs at once.
+vg gbwt -Z wrap_src.gbz --wrap-contig A --wrap-contig B -g wrap_both.gbz
+is $? 0 "wrapping multiple contigs succeeds"
+is "$(vg paths -E -x wrap_both.gbz | awk '$1 == "sample#1#A#0" {print $2}')" "10" "contig A is doubled when wrapping both"
+is "$(vg paths -E -x wrap_both.gbz | awk '$1 == "sample#1#B#0" {print $2}')" "10" "contig B is doubled when wrapping both"
+
+# Wrapping requires an output GBWT.
+vg gbwt -Z wrap_src.gbz --wrap-contig A 2> wrap_err.txt
+is $? 1 "wrapping without an output fails"
+is "$(grep -c "wrapping contigs requires" wrap_err.txt)" "1" "an appropriate error message is printed"
+
+# A fragmented haplotype is wrapped by appending its origin (first) fragment
+# onto its last fragment, not by doubling the origin. wrap_fragmented.gfa has a
+# single haplotype on contig A split into two fragments (count 0: nodes 11,12,13;
+# count 3: nodes 14,15,16). The origin fragment must stay length 3, and the last
+# fragment must grow to 6 (its 3 nodes plus the 3 origin nodes).
+vg gbwt -g wrap_frag.gbz -G graphs/wrap_fragmented.gfa
+is $? 0 "built a GBZ with a fragmented haplotype for wrapping"
+vg gbwt -Z wrap_frag.gbz --wrap-contig A -g wrap_frag_out.gbz
+is $? 0 "wrapping a fragmented haplotype succeeds"
+is "$(vg paths -E -x wrap_frag_out.gbz | awk '$1 == "sample#1#A#0" {print $2}')" "3" "the origin fragment is left unchanged (length 3)"
+is "$(vg paths -E -x wrap_frag_out.gbz | awk '$1 == "sample#1#A#3" {print $2}')" "6" "the origin is appended onto the last fragment (3 -> 6)"
+is "$(vg view -g wrap_frag_out.gbz | grep -c "$(printf '^L\t16\t+\t11\t+')")" "1" "the wrap edge joins the end of the last fragment back to the origin start"
+
+# A haplotype whose origin (count 0) fragment is absent cannot be wrapped.
+vg gbwt -g wrap_nz.gbz -G graphs/wrap_nonzero_offset.gfa
+vg gbwt -Z wrap_nz.gbz --wrap-contig A -g /dev/null 2> wrap_nz_err.txt
+is $? 1 "wrapping a contig with no origin fragment fails"
+is "$(grep -c "has no origin fragment" wrap_nz_err.txt)" "1" "an appropriate error message is printed"
+
+rm -f wrap_src.gbz wrap_gbz.gbz wrap_both.gbz wrap_src.gbwt wrap_bare.gbwt wrap_nz.gbz wrap_err.txt wrap_nz_err.txt wrap_frag.gbz wrap_frag_out.gbz
