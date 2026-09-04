@@ -511,6 +511,9 @@ protected:
     LinkageCollector* linkage_collector = nullptr;
     const gbwt::GBWT* linkage_gbwt = nullptr;
     const vector<size_t>* linkage_sequence_to_haplotype = nullptr;
+    /// Panel size, so `panel_alleles` can size its row by the haplotypes it indexes rather than by
+    /// the GBWT sequence count, which is a different and much larger number under a gref cover.
+    size_t linkage_panel_size = 0;
 
     /// One decompressed-record cache per thread, for the panel lookups.
     ///

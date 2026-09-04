@@ -541,6 +541,7 @@ void VCFOutputCaller::set_linkage(LinkageCollector* collector, const gbwt::GBWT*
     this->linkage_collector = collector;
     this->linkage_gbwt = gbwt;
     this->linkage_sequence_to_haplotype = sequence_to_haplotype;
+    this->linkage_panel_size = collector != nullptr ? collector->panel_size() : 0;
     this->linkage_gbwt_cache.clear();
     this->linkage_gbwt_cache_anchor.clear();
     if (gbwt != nullptr) {
@@ -562,7 +563,16 @@ vector<int> VCFOutputCaller::panel_alleles(const HandleGraph& graph,
     // -1 means "this haplotype carries no allele here", which is not the same as carrying the
     // reference: a haplotype whose path ends inside the site genuinely has nothing to say, and
     // recording it as reference would invent evidence.
-    out.assign(linkage_sequence_to_haplotype->size(), -1);
+    //
+    // Sized by the PANEL, not by `linkage_sequence_to_haplotype`. The row is only ever indexed by a
+    // haplotype index, so the sequence count was always the wrong width -- 8x too wide on a graph
+    // with no cover, which is why it went unnoticed. A gref cover makes it scale with the thing
+    // being added: 5,368 entries for a 2,546-fragment cover, 8,426 for 4,074, and 25,530 for the
+    // full 12,764, against the 34 it needs. That is 33 KB allocated and freed per site instead of
+    // 136 bytes, on every one of chr20's ~220,000 sites across every thread.
+    const size_t row = linkage_panel_size > 0 ? linkage_panel_size
+                                              : linkage_sequence_to_haplotype->size();
+    out.assign(row, -1);
 
     // The cache, not the index: same results, but records stay decompressed between sites.
     // Falls back to the index itself if set_linkage was never given one to size the vector.

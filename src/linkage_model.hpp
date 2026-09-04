@@ -434,6 +434,10 @@ public:
     LinkageCollector(const LinkageModel::Params& params, size_t num_haplotypes)
         : params(params), model(params), n_haplotypes(num_haplotypes) {}
 
+    /// How many panel haplotypes this collector was built for. The width of every per-haplotype
+    /// row it hands out or takes in.
+    size_t panel_size() const { return n_haplotypes; }
+
     /// A genotype the linkage pass wants changed, identified by the key the caller supplied.
 
     /// Where a site sits in the tree, as one named object rather than ten trailing parameters.
