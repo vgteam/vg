@@ -9,7 +9,7 @@ PATH=../bin:$PATH # for vg
 # FORMAT field shifts every later one, which broke four assertions here that were not
 # testing field order at all -- one of them silently compared BL against a GQ threshold.
 
-plan tests 333
+plan tests 344
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -1217,6 +1217,54 @@ is "$(nlg_field nlg_L.vcf gref_x 8 | grep -c 'MAT=')" "1" "and says so in MAT"
 # the merge is parent-only: the nested record on the gref fragment keeps the precise variant
 is "$(nlg_field nlg_L.vcf gref_x_1_alt 1-11)" "$(nlg_field nlg_plain.vcf gref_x_1_alt 1-11)" "the child record on the gref fragment is untouched by the merge"
 rm -f nlg.gfa nlg.pg nlg_a.gam nlg_b.gam nlg.gam nlg.pack nlg_plain.vcf nlg_L.vcf
+
+# The same shape under --read-likelihood, which reaches those chains by descent rather than by
+# --top-down.  A gref cover is what makes them reportable: the reference bypasses the insertion, so
+# without one the SNP inside it has no REF and no POS and is genotyped and thrown away.  Needs a
+# GBZ, because allele enumeration comes from the panel; the truth pair lives in a second graph so
+# the sample's own walks are not in the panel it is called against.
+A20=$(printf 'A%.0s' $(seq 20)); C60=$(printf 'C%.0s' $(seq 60))
+A60=$(printf 'A%.0s' $(seq 60)); T20=$(printf 'T%.0s' $(seq 20))
+{ printf "H\tVN:Z:1.1\n"
+  printf "S\t1\t$A20\nS\t2\t$C60\nS\t3\tG\nS\t4\tT\nS\t5\t$A60\nS\t6\t$T20\n"
+  printf "L\t1\t+\t6\t+\t0M\nL\t1\t+\t2\t+\t0M\nL\t2\t+\t3\t+\t0M\nL\t2\t+\t4\t+\t0M\n"
+  printf "L\t3\t+\t5\t+\t0M\nL\t4\t+\t5\t+\t0M\nL\t5\t+\t6\t+\t0M\n"
+  printf "P\tx#0#chr1\t1+,6+\t*\n"
+  printf "W\ts1\t0\tchr1\t0\t161\t>1>2>3>5>6\n"
+  printf "W\ts1\t1\tchr1\t0\t161\t>1>2>4>5>6\n"
+  printf "W\ts2\t0\tchr1\t0\t161\t>1>2>3>5>6\n"
+  printf "W\ts2\t1\tchr1\t0\t40\t>1>6\n"; } > rlg.gfa
+vg gbwt -G rlg.gfa --gbz-format -g rlg.gbz --set-reference x 2>/dev/null
+vg convert -p rlg.gbz > rlg.pg 2>/dev/null
+vg paths --compute-gref -Q x --min-gref-len 1 -x rlg.pg > rlg.gref.pg 2>/dev/null
+vg convert -f rlg.gref.pg > rlg.gref.gfa 2>/dev/null
+vg gbwt -G rlg.gref.gfa --gbz-format -g rlg.gref.gbz 2>/dev/null
+cp rlg.gref.gfa rlg_sim.gfa
+printf 'W\tT\t0\tchr1\t0\t161\t>1>2>3>5>6\n' >> rlg_sim.gfa
+printf 'W\tT\t1\tchr1\t0\t161\t>1>2>4>5>6\n' >> rlg_sim.gfa
+vg gbwt -G rlg_sim.gfa --gbz-format -g rlg_sim.gbz 2>/dev/null
+vg sim -x rlg_sim.gbz -n 300 -l 30 -a -s 11 --path "T#0#chr1#0" >  rlg.gam 2>/dev/null
+vg sim -x rlg_sim.gbz -n 300 -l 30 -a -s 13 --path "T#1#chr1#0" >> rlg.gam 2>/dev/null
+vg call rlg.gref.gbz --read-likelihood --gam rlg.gam -t 1 -s samp --phased \
+    -p x#0#chr1 > rlg_base.vcf 2>/dev/null
+# No env var: selecting a gref reference is itself the signal to descend into off-reference chains.
+vg call rlg.gref.gbz --read-likelihood --gam rlg.gam -t 1 -s samp --phased \
+    -P x#0#chr1 -P 'gref_x#0#chr1_' --linkage-scale 40 --progress \
+    --mosaic-out rlg.mosaic.tsv > rlg_gref.vcf 2> rlg_gref.err
+rlg_row() { awk -F'\t' -v c="$2" '$1==c && $1!~/^#/' "$1"; }
+is "$(rlg_row rlg_base.vcf chr1_1_alt | wc -l | tr -d ' ')" "0" "without a gref reference the SNP inside the insertion is not reported"
+is "$(rlg_row rlg_gref.vcf chr1_1_alt | wc -l | tr -d ' ')" "1" "with one it is, on the gref fragment contig"
+is "$(rlg_row rlg_gref.vcf chr1_1_alt | cut -f4,5)" "$(printf 'G\tT')" "and it is the SNP, not the insertion again"
+is "$(rlg_row rlg_gref.vcf chr1_1_alt | cut -f10 | cut -d: -f1)" "0|1" "phased het, the truth pair differing only inside the insertion"
+is "$(rlg_row rlg_gref.vcf chr1_1_alt | cut -f8 | grep -c 'CH=1')" "1" "INFO/CH marks it one insertion layer deep, which is the wiki filter"
+is "$(rlg_row rlg_gref.vcf chr1_1_alt | cut -f8 | grep -c 'PS=>1>6')" "1" "and INFO/PS names the enclosing top-level snarl"
+is "$(grep -c 'descending into chains the reference does not cross' rlg_gref.err)" "1" "selecting a gref reference self-enables the descent, with no env var"
+is "$(rlg_row rlg_gref.vcf chr1 | cut -f1,2,4,5)" "$(rlg_row rlg_base.vcf chr1 | cut -f1,2,4,5)" "the top-level record on the base contig is unchanged"
+is "$(grep -c '^##contig' rlg_gref.vcf)" "2" "only the fragment that carries a call is declared, not the whole cover"
+is "$(grep -c '^#reference' rlg.mosaic.tsv)" "1" "the mosaic header names the base reference once"
+is "$(grep -c '^#gref-fragments' rlg.mosaic.tsv)" "1" "and counts the cover's fragments instead of listing every one"
+rm -f rlg.gfa rlg.gbz rlg.pg rlg.gref.pg rlg.gref.gfa rlg.gref.gbz rlg_sim.gfa rlg_sim.gbz \
+      rlg.gam rlg_base.vcf rlg_gref.vcf rlg_gref.err rlg.mosaic.tsv
 
 # --bottom-up had zero coverage anywhere in the suite.  It aborted on any nested graph whose
 # reference traversal crosses a child snarl, because a child-snarl Visit carries no node.

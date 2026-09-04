@@ -22,6 +22,18 @@
 
 namespace vg {
 
+/// Descend into nested chains the selected references do not cross.
+///
+/// Off unless a gref cover is in play (or VG_CALL_NO_REF_NESTED is set). Such a chain has no REF and
+/// no POS against a linear reference, so without a cover its record cannot be written and the
+/// descent buys only its participation in the linkage calculation. A gref fragment gives it a contig
+/// of its own, and then it is reportable like any other site.
+void enable_off_reference_nesting();
+
+/// Whether the above is in effect, so the caller can turn on what only makes sense alongside it.
+bool off_reference_nesting_enabled();
+
+
 using namespace std;
 
 using vg::io::AlignmentEmitter;

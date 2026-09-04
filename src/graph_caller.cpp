@@ -36,8 +36,22 @@ static std::atomic<size_t> g_no_ref_copies[3] = {{0}, {0}, {0}};
 ///
 /// Off by default. Their records cannot be emitted -- REF and POS are undefined -- so what this buys
 /// is their participation in the LINKAGE calculation, which is what the traversal-derived ordering
-/// and distances were built for. An env switch rather than a flag so both arms come from one binary.
-static const bool no_ref_nested = getenv("VG_CALL_NO_REF_NESTED") != nullptr;
+/// and distances were built for.
+///
+/// SELF-ENABLING under a gref cover, where those chains DO get a position: a gref fragment gives the
+/// inside of an insertion a contig of its own, which is precisely the REF and POS this was missing.
+/// `enable_off_reference_nesting()` is how `vg call` turns it on once it knows a gref path was
+/// selected. The env switch stays, because it is the only way to get the linkage-only arm on a graph
+/// with no cover, and that is what the two-arm comparisons are built on.
+static bool no_ref_nested = getenv("VG_CALL_NO_REF_NESTED") != nullptr;
+
+void enable_off_reference_nesting() {
+    no_ref_nested = true;
+}
+
+bool off_reference_nesting_enabled() {
+    return no_ref_nested;
+}
 // Mosaic segments naming a haplotype the graph does not carry across them, so there is no GBWT
 // position to walk from. Clipping is ordinary -- only 2 of chr20's 34 panel haplotypes are
 // contiguous -- so this is reported, not asserted to be zero.
@@ -1185,8 +1199,21 @@ void VCFOutputCaller::write_mosaic(const vector<LinkageCollector::PhaseCall>& ph
     out << "#mosaic-version\t5\n";
     out << "#graph\t" << mosaic_graph_name << "\n";
     out << "#sample\t" << sample_name << "\n";
+    // Fragments are counted, not listed. A gref cover names one contig per fragment -- 2,546 on a
+    // 32-haplotype chr20 and 12,765 genome-wide -- and listing them would put more header on the
+    // file than data: 2,547 header lines against 8,631 rows, on a format whose header is otherwise
+    // 52 lines. Nothing is lost, because a fragment appears in the `contig` column of every row that
+    // uses it, and the count is kept so a reader can tell a cover was in play.
+    size_t gref_fragments = 0;
     for (const string& ref : mosaic_reference_paths) {
+        if (GrefCover::is_gref_name(ref)) {
+            ++gref_fragments;
+            continue;
+        }
         out << "#reference\t" << ref << "\n";
+    }
+    if (gref_fragments > 0) {
+        out << "#gref-fragments\t" << gref_fragments << "\n";
     }
     out << "#decoding\tconstrained-viterbi\n";
     out << "#patch\t" << (mosaic_patch_gaps ? "reference" : "none") << "\n";
@@ -1306,6 +1333,14 @@ void VCFOutputCaller::write_mosaic(const vector<LinkageCollector::PhaseCall>& ph
     // as sample#phase (CHM13#0), so the contig field is dropped before matching.
     size_t reference_hap = LinkageModel::WILDCARD;
     for (const string& full : mosaic_reference_paths) {
+        // Never a gref path. The cover is stitched greedily from whichever donor had the longest
+        // uncovered run, so as a "haplotype" to fill gaps with it is a chimera of many donors --
+        // and it is not in the panel anyway, since `vg call` now keeps it out. Skipping it here
+        // makes that explicit rather than load-bearing at a distance: without it, the answer
+        // depended on which -P came first, because this takes the FIRST entry that matches.
+        if (GrefCover::is_gref_derived(full)) {
+            continue;
+        }
         size_t h1 = full.find('#');
         size_t h2 = h1 == string::npos ? string::npos : full.find('#', h1 + 1);
         const string base = h2 == string::npos ? full : full.substr(0, h2);

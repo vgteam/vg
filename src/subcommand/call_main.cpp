@@ -1431,6 +1431,26 @@ int main_call(int argc, char** argv) {
                        << "Also see: https://github.com/vgteam/vg/wiki/Changing-References" << endl;
     }
 
+    // A gref cover changes what "nested" can mean. Chains the linear reference does not cross are
+    // skipped by default because their records have no REF and no POS -- but a gref fragment IS a
+    // contig, with its own coordinates, covering exactly the inserted sequence those chains live in.
+    // So selecting one is the signal to descend into them: it is the thing that makes them
+    // reportable, and asking for the cover and then not using it has no other reading.
+    //
+    // Prefix-selected covers are the normal case (`-P gref_CHM13#0#chr20_`), so this tests the
+    // resolved path list rather than the flags.
+    for (const string& ref_path : ref_paths) {
+        if (GrefCover::is_gref_derived(ref_path)) {
+            enable_off_reference_nesting();
+            if (show_progress) {
+                logger.info() << "gref reference selected: descending into chains the reference "
+                              << "does not cross, and reporting them against their gref contig"
+                              << endl;
+            }
+            break;
+        }
+    }
+
     // build table of ploidys
     vector<int> ref_path_ploidies;
     // Paths which aren't REFERENCE/GENERIC sense that we want to call against
@@ -1956,8 +1976,19 @@ int main_call(int argc, char** argv) {
         // Init The VCF       
         VCFOutputCaller* vcf_caller = dynamic_cast<VCFOutputCaller*>(graph_caller.get());
         assert(vcf_caller != nullptr);
-        // Make sure we get the LV/PS tags with -A, --top-down, or --bottom-up
-        vcf_caller->set_nested(all_snarls || top_down || bottom_up);
+        // Make sure we get the LV/PS tags with -A, --top-down, or --bottom-up -- and under a gref
+        // cover, where a record's contig no longer says where it sits. On a linear reference every
+        // record is on the contig and nesting is a detail; with a cover, a record on
+        // gref_CHM13#0#chr20_4_alt is INSIDE an insertion, and LV/CH/PS are how a consumer says so.
+        // The gref wiki's own filtering recipe is `bcftools view -i 'INFO/CH==1'`, and without this
+        // it selected nothing.
+        //
+        // NOT on for every --read-likelihood run. Its descent emits nested records on the ordinary
+        // path too and they are equally untagged, so there is a case for it -- but it would add INFO
+        // to every nested record of every existing run, which is a change to make deliberately and
+        // measure, not to fold into gref support.
+        vcf_caller->set_nested(all_snarls || top_down || bottom_up
+                               || off_reference_nesting_enabled());
         vcf_caller->set_translation(translation.get());
 
         // Linkage pass. Needs both -z and --read-likelihood: the panel matrix comes from asking
@@ -2047,6 +2078,31 @@ int main_call(int argc, char** argv) {
             linkage_sequence_to_haplotype.assign(gbwt_index->sequences(), 0);
             for (gbwt::size_type path = 0; path < meta.paths(); ++path) {
                 const gbwt::PathName& name = meta.path(path);
+                // A gref cover is not a haplotype, and it reaches this loop because the panel is
+                // built from every GBWT path regardless of sense. Its fragments all carry sample
+                // "gref_<REF>" and phase 0, so the whole cover would collapse onto ONE panel index:
+                // an individual stitched greedily from whichever donor had the longest uncovered
+                // run at each site. Letting Li-Stephens copy from that chimera moved 8.82% of
+                // chr20's genotypes and lost 298 sites, and it was the ONLY cause -- the 13,711
+                // off-reference chains gref makes reportable left the contig byte-identical.
+                //
+                // WILDCARD rather than skipping: the vector defaults to 0, so a gref sequence left
+                // unwritten would reach panel_alleles as haplotype 0 and write the cover's allele
+                // into a real haplotype's slot. panel_alleles' `hap < out.size()` guard drops it.
+                //
+                // CHM13#0 and GRCh38#0 stay in: they are reference-sense too, but they are real
+                // haplotypes, and the panel has always carried them.
+                const string path_sample = (size_t)name.sample < meta.sample_names.size()
+                                               ? meta.sample(name.sample) : string();
+                if (GrefCover::is_gref_derived(path_sample)) {
+                    for (gbwt::size_type orientation = 0; orientation < 2; ++orientation) {
+                        gbwt::size_type seq = gbwt::Path::encode(path, orientation);
+                        if (seq < linkage_sequence_to_haplotype.size()) {
+                            linkage_sequence_to_haplotype[seq] = LinkageModel::WILDCARD;
+                        }
+                    }
+                    continue;
+                }
                 auto key = make_pair((size_t)name.sample, (size_t)name.phase);
                 auto found = hap_index.find(key);
                 size_t index;
