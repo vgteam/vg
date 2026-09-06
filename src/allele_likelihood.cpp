@@ -297,7 +297,7 @@ AlleleReadLikelihoodsBuilder::AlleleReadLikelihoodsBuilder(size_t num_alleles, d
     : n_alleles(num_alleles), min_mismap(min_mismap), max_mismap(max_mismap) {
 }
 
-void AlleleReadLikelihoodsBuilder::add_read(const vector<double>& raw_ln_likelihood,
+bool AlleleReadLikelihoodsBuilder::add_read(const vector<double>& raw_ln_likelihood,
                                             double mismap_prob, const string& name,
                                             size_t read_length) {
     assert(raw_ln_likelihood.size() == n_alleles);
@@ -316,7 +316,7 @@ void AlleleReadLikelihoodsBuilder::add_read(const vector<double>& raw_ln_likelih
         // genotype at the site. Drop it and count it: a rising count means the
         // read source is over-fetching, or the reads and graph do not match.
         ++unplaceable;
-        return;
+        return false;
     }
 
     rows.emplace_back();
@@ -333,6 +333,7 @@ void AlleleReadLikelihoodsBuilder::add_read(const vector<double>& raw_ln_likelih
     mismap_probs.push_back(min(max(mismap_prob, min_mismap), max_mismap));
     best_lns.push_back(best);
     names.push_back(name);
+    return true;
 }
 
 AlleleReadLikelihoods AlleleReadLikelihoodsBuilder::build() {
@@ -878,6 +879,28 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
         return (int64_t)graph.get_length(graph.get_handle(node_id));
     };
 
+    // Anchor evidence, when anchors are armed. Filled per read alongside the matrix rows, and in
+    // the same order: `add_read` drops a read that placed on nothing, so the evidence follows what
+    // it kept rather than what was offered.
+    unique_ptr<AnchorSiteEvidence> anchor_evidence;
+    if (params.collect_anchors) {
+        anchor_evidence = make_unique<AnchorSiteEvidence>();
+        anchor_evidence->n_alleles = traversals.size();
+        anchor_evidence->start_node = snarl.start().node_id();
+        anchor_evidence->end_node = snarl.end().node_id();
+        anchor_evidence->length_weighted = params.length_weighted_mixture;
+        // The alleles as spelled, for the mixture weights the per-read score uses. Computed here
+        // whatever the mixture setting, because the score's weighting is its own decision.
+        anchor_evidence->allele_length.reserve(allele_steps.size());
+        for (const auto& steps : allele_steps) {
+            size_t len = 0;
+            for (const AlleleStep& step : steps) {
+                len += step.sequence.size();
+            }
+            anchor_evidence->allele_length.push_back((uint32_t)len);
+        }
+    }
+
     vector<ReadStep> read_steps;
     vector<double> row(traversals.size());
 
@@ -924,10 +947,41 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
                             ? phred_to_prob((double)aln.mapping_quality())
                             : params.min_mismap_prob;
 
-        builder.add_read(row, mismap, aln.name(), aln.sequence().size());
+        if (!builder.add_read(row, mismap, aln.name(), aln.sequence().size())) {
+            return;
+        }
+
+        if (anchor_evidence != nullptr) {
+            // Resolved against `aln`, NOT `scored_aln`. The flipped copy exists so the read can be
+            // compared to alleles that read the other way; its sequence is reverse-complemented and
+            // its offsets are in that frame, so pinning against it would report positions in a read
+            // the read file does not contain. The strand field is what expresses orientation here.
+            AnchorRead record;
+            record.name = aln.name();
+            record.mismap = (float)mismap;
+            record.start_pin = resolve_anchor_pin(aln, graph, snarl.start().node_id(),
+                                                  snarl.start().backward(), true,
+                                                  anchor_counters());
+            record.end_pin = resolve_anchor_pin(aln, graph, snarl.end().node_id(),
+                                                snarl.end().backward(), false,
+                                                anchor_counters());
+            anchor_evidence->reads.push_back(std::move(record));
+        }
     });
 
     AlleleReadLikelihoods result = builder.build();
+    if (anchor_evidence != nullptr) {
+        // The rows the builder kept, in the order it kept them, so row r is reads[r].
+        anchor_evidence->mean_read_length = (float)result.mean_read_length_estimate();
+        anchor_evidence->rel.resize(result.num_reads() * result.num_alleles());
+        for (size_t r = 0; r < result.num_reads(); ++r) {
+            anchor_evidence->reads[r].mismap = (float)result.mismap_prob(r);
+            for (size_t a = 0; a < result.num_alleles(); ++a) {
+                anchor_evidence->rel[r * result.num_alleles() + a] = (float)result.rel(r, a);
+            }
+        }
+        result.anchor_evidence = std::move(anchor_evidence);
+    }
     if (!depth_lengths.empty()) {
         // Set unconditionally so `DR` is emitted whether or not the term is armed:
         // the observable should be measurable as a ranking signal before the model

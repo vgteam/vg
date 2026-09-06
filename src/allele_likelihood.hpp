@@ -33,6 +33,8 @@
 #include "site_read_source.hpp"
 #include "snarls.hpp"
 
+#include "anchor.hpp"
+
 namespace vg {
 
 using namespace std;
@@ -361,6 +363,10 @@ public:
     /// Write the matrix as TSV for debugging. One row per read.
     void dump(ostream& out, const string& site_name) const;
 
+    /// The site's anchor evidence, filled only when anchors were armed. Owned; moved out by the
+    /// caller into the CallInfo it retains, so nothing here outlives the site.
+    unique_ptr<AnchorSiteEvidence> anchor_evidence;
+
     /// Populate the matrix. Only for AlleleReadLikelihoodsBuilder.
     void set_contents(size_t n_reads, size_t n_alleles, vector<double>&& matrix,
                       vector<double>&& mismap, vector<double>&& best_ln,
@@ -427,7 +433,9 @@ public:
     /// contain -inf for alleles that cannot place the read.
     /// read_length feeds the mean R used by the length-weighted mixture. Zero
     /// means "unknown"; if every read is unknown the mixture stays flat.
-    void add_read(const vector<double>& raw_ln_likelihood, double mismap_prob,
+    /// Returns false when the read placed on no allele at all and was dropped, so a caller
+    /// accumulating anything alongside the rows can stay in step with them.
+    bool add_read(const vector<double>& raw_ln_likelihood, double mismap_prob,
                   const string& name = "", size_t read_length = 0);
 
 
@@ -619,6 +627,12 @@ struct AlleleLikelihoodParams {
     /// ratio, in a term that is otherwise one of the better-behaved parts of the
     /// model.
     int depth_ploidy = 2;
+
+    /// Collect per-read anchor evidence while the reads are resident. Off unless --anchors-out.
+    ///
+    /// The pin is resolved to a (strand, offset) here, where the alignment is live; deferring that
+    /// to the render pass is the one change that would force the alignments to stay in memory.
+    bool collect_anchors = false;
 };
 
 /**

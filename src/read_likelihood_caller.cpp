@@ -117,6 +117,10 @@ pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> ReadLikelihoodSnarlCaller::
 
     call_info->n_informative = matrix.num_reads();
     call_info->scored_traversals.assign(traversals.begin(), traversals.end());
+    // Retained rather than acted on here: the anchors are built at render time, from the genotype
+    // the linkage layer and the nested barrier finally settle on rather than from the reads' first
+    // guess. Nothing is re-read to do it.
+    call_info->anchor_evidence = std::move(matrix.anchor_evidence);
 
     if (dump_stream != nullptr) {
         stringstream site_name;

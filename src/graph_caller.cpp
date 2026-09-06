@@ -1178,6 +1178,45 @@ gbwt::edge_type VCFOutputCaller::mosaic_gbwt_position(int64_t node_id, size_t ha
     return gbwt::invalid_edge();
 }
 
+void VCFOutputCaller::collect_anchors_for(const Snarl& snarl, const vector<int>& genotype,
+                                          const unique_ptr<SnarlCaller::CallInfo>& call_info,
+                                          bool is_leaf) {
+    if (anchor_path.empty() || anchor_writer == nullptr || call_info == nullptr) {
+        return;
+    }
+    if (anchor_params.leaf_only && !is_leaf) {
+        return;
+    }
+    const auto* info =
+        dynamic_cast<const ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo*>(call_info.get());
+    if (info == nullptr || info->anchor_evidence == nullptr) {
+        // A genotype derived from a parent rather than scored here, or a run whose caller is not the
+        // read-likelihood one. There are no per-read responsibilities to partition on.
+        return;
+    }
+    vector<AnchorWriter::Anchor> anchors;
+    build_site_anchors(*info->anchor_evidence, genotype, print_snarl(snarl), info->gq_fraction,
+                       info->explained_share, anchor_params, anchor_counters(), anchors);
+    for (AnchorWriter::Anchor& anchor : anchors) {
+        anchor_writer->add(std::move(anchor));
+    }
+}
+
+void VCFOutputCaller::write_anchors() {
+    if (anchor_path.empty() || anchor_writer == nullptr) {
+        return;
+    }
+    size_t anchors = anchor_writer->anchor_count();
+    size_t rows = anchor_writer->read_row_count();
+    if (!anchor_writer->write(anchor_path, anchor_graph_name, sample_name, anchor_reads_source,
+                              anchor_mismap_min, anchor_params)) {
+        return;
+    }
+    cerr << "[vg call] anchors: " << anchors << " written over " << rows
+         << " read placements to " << anchor_path << endl;
+    anchor_counters().report(cerr);
+}
+
 void VCFOutputCaller::write_mosaic(const vector<LinkageCollector::PhaseCall>& phasing) const {
     ofstream out(mosaic_path);
     if (!out) {
@@ -5291,6 +5330,30 @@ void FlowCaller::record_site(const Snarl& snarl, const vector<SnarlTraversal>& t
         });
 }
 
+bool FlowCaller::snarl_is_leaf(const Snarl& snarl) const {
+    // Through `manage`, NOT by taking the address of this Snarl.
+    //
+    // `SnarlManager::record` is a reinterpret_cast from Snarl* to SnarlRecord*, so it is only
+    // meaningful for a Snarl the manager itself owns -- the Snarl is the record's first member.
+    // Every Snarl reaching this pass is a *copy* held in a PendingRecord, so `children_of(&copy)`
+    // reads whatever happens to follow that copy in memory as a child list. It does not crash and it
+    // does not warn; it silently answered "has children" for everything, which read as a leaf-only
+    // filter that always selected nothing.
+    //
+    // And `manage` THROWS rather than returning null for a snarl the manager does not own -- a
+    // nested chain reached by recursion is not always in it. Calling this unconditionally therefore
+    // took out nested calling itself, in runs that had not asked for anchors at all; the TAP suite
+    // caught it as three failures in the nested block. So it is guarded here, and asked for only
+    // when `--anchors-leaf-only` will use the answer.
+    try {
+        const Snarl* managed = snarl_manager.manage(snarl);
+        return managed != nullptr && snarl_manager.children_of(managed).empty();
+    } catch (const std::runtime_error&) {
+        // No answer available. Treated as a leaf so the filter does not silently drop the site.
+        return true;
+    }
+}
+
 void FlowCaller::render_retained_records() {
     // The phase, before any record is built: every generation has settled by now, so the phasing is
     // complete, and each record is phased as it is rendered rather than patched afterwards.
@@ -5330,6 +5393,10 @@ void FlowCaller::render_retained_records() {
                     genotype.push_back(settled_b);
                 }
             }
+            // Before emit_variant, which hands the CallInfo on to update_vcf_info: the anchors want
+            // the settled genotype, and this is the one place it exists alongside the evidence.
+            collect_anchors_for(rec.snarl, genotype, rec.call_info,
+                                anchors_want_leaf_test() ? snarl_is_leaf(rec.snarl) : true);
             emit_variant(graph, snarl_caller, rec.snarl, rec.travs, genotype, rec.ref_trav_idx,
                          rec.call_info, rec.ref_path_name, rec.ref_offset, genotype_snarls,
                          rec.ploidy);
@@ -5599,6 +5666,18 @@ void FlowCaller::run_deferred_descent() {
                 }
                 use_info.reset(rl->alt_ploidy_info.release());
                 use_genotype = rl->alt_ploidy_best;
+                // Carried across the swap, like `sweep_share` above and for the same reason: the
+                // alternate copies only the ploidy-independent fields it knows about, and the anchor
+                // evidence is one it does not. Losing it here would silently drop every anchor at
+                // every chain whose ploidy the barrier moved -- a whole population, with no error.
+                {
+                    auto* alt =
+                        dynamic_cast<ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo*>(
+                            use_info.get());
+                    if (alt != nullptr) {
+                        alt->anchor_evidence = std::move(rl->anchor_evidence);
+                    }
+                }
             } else {
                 // No answer at the ploidy wanted -- too few traversals for a second genotype, or the
                 // alternate was never computed. Left as it stands rather than invented.
@@ -5735,6 +5814,9 @@ void FlowCaller::run_deferred_descent() {
                     ++retained_gls;
                     retained_bytes += 48 + kv.first.capacity() * sizeof(int) + sizeof(double);
                 }
+                if (rl->anchor_evidence != nullptr) {
+                    retained_bytes += rl->anchor_evidence->bytes();
+                }
                 if (rl->alt_ploidy_info != nullptr) {
                     for (const auto& kv : rl->alt_ploidy_info->genotype_lls) {
                         ++retained_gls;
@@ -5792,7 +5874,10 @@ void FlowCaller::run_deferred_descent() {
         }
         if (pr.reported_inline) {
             // Settled, phased, and inside the layer -- but an enclosing block's ALT has already
-            // written its variation, so a line here would write it twice.
+            // written its variation, so a line here would write it twice. It is still a genotyped
+            // site, and an anchor is a different file, so it still anchors.
+            collect_anchors_for(pr.snarl, pr.genotype, pr.call_info,
+                                anchors_want_leaf_test() ? snarl_is_leaf(pr.snarl) : true);
             ++inline_unrendered;
             continue;
         }
@@ -5801,6 +5886,11 @@ void FlowCaller::run_deferred_descent() {
             // rather than inside the renderer, because render_retained_records calls emit_variant
             // for every record it is handed, with no condition -- and set_allele_map would then
             // overwrite Entry::emitted, putting the site back into populations it must stay out of.
+            //
+            // Anchors do not care: a pin is keyed on a node ID and needs neither REF nor POS. These
+            // are the off-reference sites, which is where an assembler most needs help.
+            collect_anchors_for(pr.snarl, pr.genotype, pr.call_info,
+                                anchors_want_leaf_test() ? snarl_is_leaf(pr.snarl) : true);
             ++no_ref_unrendered;
             continue;
         }

@@ -142,6 +142,31 @@ void help_call(char** argv) {
          << "      --no-mosaic-patch-gaps  leave a gap where no panel haplotype can be carried" << endl
          << "                            across it, instead of filling it with the reference." << endl
          << "                            Patching is on by default and marked `ref` in the file" << endl
+         << "      --anchors-out FILE    write pangenome-guided assembly anchors to FILE. An" << endl
+         << "                            anchor is a zero-length pin at a snarl boundary, holding" << endl
+         << "                            the reads that cross it partitioned by which called" << endl
+         << "                            allele they fit. Implies --read-likelihood" << endl
+         << "      --anchors-end-pin-min-new N  emit the end pin only where it holds at least N" << endl
+         << "                            reads the start pin does not. Both pins carry the SAME" << endl
+         << "                            partition, so where their read sets agree the two are" << endl
+         << "                            joined by all the same reads and the end pin can offer no" << endl
+         << "                            linkage the start pin does not [0, always emit it]" << endl
+         << "      --anchors-het-only    only heterozygous sites. By default homozygous and" << endl
+         << "                            haploid ones are emitted too: they carry no haplotype" << endl
+         << "                            information, but an anchor graph is built out of" << endl
+         << "                            contiguity as much as out of phasing" << endl
+         << "      --anchors-leaf-only   only leaf snarls [every genotyped site]" << endl
+         << "      --anchors-min-reads N minimum reads per anchor [2]" << endl
+         << "      --anchors-min-gqn F   minimum site GQN for its partition to be trusted [0]" << endl
+         << "      --anchors-min-read-score F  minimum per-read assignment phred. 3 is the" << endl
+         << "                            measured knee -- ~2 points of purity for ~9% of reads --" << endl
+         << "                            but 0 by default, since a read with no MAPQ cannot clear" << endl
+         << "                            any positive threshold. Bounded" << endl
+         << "                            above by --mismap-min: at 0.02 a perfectly" << endl
+         << "                            discriminating read on a balanced het scores 14, not 60 [0]" << endl
+         << "      --anchors-keep-off-call  keep reads whose best-fitting allele is not a called" << endl
+         << "                            one. Off by default: for assembly anchors purity beats" << endl
+         << "                            yield, and such a read fits neither called allele" << endl
          << "      --mosaic-out FILE     write the inferred genome as a mosaic of panel" << endl
          << "                            haplotypes: one line per maximal run of one strand on" << endl
          << "                            one haplotype, anchored on node IDs so it is read back" << endl
@@ -304,6 +329,8 @@ int main_call(int argc, char** argv) {
     bool   phased_output = true;
     bool   phased_explicit = false;
     string mosaic_out;
+    string anchors_out;
+    AnchorParams anchor_params;
     // Fill a gap no panel haplotype can be carried across with the reference, so a strand stays one
     // walk. On by default: it is the only path contiguous across such a region -- on chr20 all 37
     // remaining boundaries -- and the fill is marked `ref` in the file rather than passed off as an
@@ -450,6 +477,14 @@ int main_call(int argc, char** argv) {
     constexpr int OPT_ENUMERATE_SUPPORT = 1032;
     constexpr int OPT_PHASED = 1033;
     constexpr int OPT_MOSAIC_OUT = 1034;
+    constexpr int OPT_ANCHORS_OUT = 1060;
+    constexpr int OPT_ANCHORS_HET_ONLY = 1061;
+    constexpr int OPT_ANCHORS_LEAF_ONLY = 1062;
+    constexpr int OPT_ANCHORS_MIN_READS = 1063;
+    constexpr int OPT_ANCHORS_MIN_GQN = 1064;
+    constexpr int OPT_ANCHORS_MIN_SCORE = 1065;
+    constexpr int OPT_ANCHORS_KEEP_OFF_CALL = 1066;
+    constexpr int OPT_ANCHORS_END_PIN_MIN_NEW = 1067;
     constexpr int OPT_NO_MOSAIC_PATCH = 1053;
     constexpr int OPT_MOSAIC_PATCH = 1054;
     constexpr int OPT_NO_MOSAIC_NESTED = 1055;
@@ -515,6 +550,14 @@ int main_call(int argc, char** argv) {
         {"enumerate-support", no_argument, 0, OPT_ENUMERATE_SUPPORT},
         {"phased", no_argument, 0, OPT_PHASED},
         {"mosaic-out", required_argument, 0, OPT_MOSAIC_OUT},
+        {"anchors-out", required_argument, 0, OPT_ANCHORS_OUT},
+        {"anchors-het-only", no_argument, 0, OPT_ANCHORS_HET_ONLY},
+        {"anchors-leaf-only", no_argument, 0, OPT_ANCHORS_LEAF_ONLY},
+        {"anchors-min-reads", required_argument, 0, OPT_ANCHORS_MIN_READS},
+        {"anchors-min-gqn", required_argument, 0, OPT_ANCHORS_MIN_GQN},
+        {"anchors-min-read-score", required_argument, 0, OPT_ANCHORS_MIN_SCORE},
+        {"anchors-keep-off-call", no_argument, 0, OPT_ANCHORS_KEEP_OFF_CALL},
+        {"anchors-end-pin-min-new", required_argument, 0, OPT_ANCHORS_END_PIN_MIN_NEW},
         {"mosaic-patch-gaps", no_argument, 0, OPT_MOSAIC_PATCH},
         {"no-mosaic-patch-gaps", no_argument, 0, OPT_NO_MOSAIC_PATCH},
         {"no-mosaic-nested", no_argument, 0, OPT_NO_MOSAIC_NESTED},
@@ -620,6 +663,31 @@ int main_call(int argc, char** argv) {
             break;
         case OPT_NO_MOSAIC_PATCH:
             mosaic_patch_gaps = false;
+            break;
+        case OPT_ANCHORS_OUT:
+            anchors_out = optarg;
+            anchor_params.enabled = true;
+            break;
+        case OPT_ANCHORS_HET_ONLY:
+            anchor_params.het_only = true;
+            break;
+        case OPT_ANCHORS_LEAF_ONLY:
+            anchor_params.leaf_only = true;
+            break;
+        case OPT_ANCHORS_MIN_READS:
+            anchor_params.min_reads = parse<size_t>(optarg);
+            break;
+        case OPT_ANCHORS_MIN_GQN:
+            anchor_params.min_gqn = parse<double>(optarg);
+            break;
+        case OPT_ANCHORS_MIN_SCORE:
+            anchor_params.min_read_score = parse<double>(optarg);
+            break;
+        case OPT_ANCHORS_END_PIN_MIN_NEW:
+            anchor_params.end_pin_min_new = parse<size_t>(optarg);
+            break;
+        case OPT_ANCHORS_KEEP_OFF_CALL:
+            anchor_params.keep_off_call = true;
             break;
         case OPT_MOSAIC_OUT:
             mosaic_out = optarg;
@@ -1120,7 +1188,9 @@ int main_call(int argc, char** argv) {
             "--linkage-freq-prior", "--depth-quality", "--min-confidence", "--flat-mixture",
             "--no-share-quality",
             "--mismap-max", "--mismap-min", "--dump-likelihoods", "--enumerate-support",
-            "--phased", "--no-phased", "--mosaic-out"};
+            "--phased", "--no-phased", "--mosaic-out", "--anchors-out", "--anchors-het-only",
+            "--anchors-leaf-only", "--anchors-min-reads", "--anchors-min-gqn",
+            "--anchors-min-read-score", "--anchors-keep-off-call", "--anchors-end-pin-min-new"};
         vector<string> offenders;
         for (int i = 1; i < argc; ++i) {
             string arg(argv[i]);
@@ -1743,6 +1813,7 @@ int main_call(int argc, char** argv) {
             likelihood_params.depth_effective_reads = !depth_count_raw;
             likelihood_params.max_mismap_prob = max_mismap_prob;
             likelihood_params.min_mismap_prob = min_mismap_prob;
+            likelihood_params.collect_anchors = anchor_params.enabled;
 
             likelihood_calculator.reset(new GraphAlignedAlleleLikelihoodCalculator(
                 *graph, *snarl_manager, *read_source, *qual_scorer, *plain_scorer,
@@ -2108,6 +2179,13 @@ int main_call(int argc, char** argv) {
             }
             linkage_weight = 0.0;   // the default declines; only an explicit request is an error
         }
+        if (!anchors_out.empty() && !read_likelihood) {
+            // Always an explicit request -- a path was named -- so always an error rather than a
+            // silent downgrade. The partition is the per-read/per-allele responsibility, which only
+            // the read-likelihood caller computes.
+            logger.error() << "--anchors-out needs --read-likelihood: the anchor partition is the "
+                           << "read/allele likelihood matrix, which no other caller builds" << endl;
+        }
         if (!mosaic_out.empty() && linkage_weight <= 0.0) {
             // Always an explicit request -- a path was named -- so always an error.
             logger.error() << "--mosaic-out needs the linkage model, which needs haplotype "
@@ -2283,6 +2361,16 @@ int main_call(int argc, char** argv) {
                               << gbwt_index->sequences() << " GBWT sequences" << endl;
             }
         }
+        if (!anchors_out.empty()) {
+            // The read source, named in full so a consumer can tell which reads the offsets index
+            // into -- the offsets are in the read AS SEQUENCED, so the file they came from is the
+            // one an assembler must be given.
+            string reads_source = !gaf_base_filename.empty()
+                                      ? gaf_base_filename
+                                      : (!gaf_filename.empty() ? gaf_filename : gam_filename);
+            vcf_caller->set_anchors_out(anchors_out, anchor_params, graph_filename, reads_source,
+                                        min_mismap_prob);
+        }
         // one call covers FlowCaller (both ctors, so plain vg call gets it too), NestedFlowCaller
         // and LegacyCaller, since the merge lives on the shared VCFOutputCaller base
         vcf_caller->set_allele_merge(cluster_threshold, cluster_min_allele_len);
@@ -2372,6 +2460,15 @@ int main_call(int argc, char** argv) {
         // a record built from the settled genotype needs no patch, which is what stage 11 removes.
         deferring_caller->run_deferred_descent();
         deferring_caller->render_retained_records();
+    }
+
+    // After both passes, so every settled record has had its chance to contribute. Written here
+    // rather than from write_variants because it is not a VCF and shares none of its machinery.
+    {
+        auto* anchor_caller = dynamic_cast<VCFOutputCaller*>(graph_caller.get());
+        if (anchor_caller != nullptr) {
+            anchor_caller->write_anchors();
+        }
     }
 
     // Report the indexed read source's cache behaviour, now that calling is done and

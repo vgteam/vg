@@ -100,6 +100,15 @@ public:
         /// deduplicated traversals handed to update_vcf_info can be mapped back.
         vector<SnarlTraversal> scored_traversals;
 
+        /// Per-read anchor evidence, when --anchors-out is armed; null otherwise.
+        ///
+        /// Ploidy-independent, like `scored_traversals` and `allele_support`: where a pin sits in a
+        /// read and how well the read fits each allele are properties of the matrix, not of the
+        /// genotype enumerated over it. The barrier can replace this whole CallInfo with
+        /// `alt_ploidy_info` when a chain's settled ploidy differs, so this must be carried across
+        /// that swap -- the same hazard `explained_share` documents there.
+        unique_ptr<AnchorSiteEvidence> anchor_evidence;
+
         /// Reads whose best-fitting allele is each scored allele, in matrix column
         /// order. A read fitting several alleles equally splits its vote between them
         /// rather than going to the lowest index: at multi-allelic sites many reads are

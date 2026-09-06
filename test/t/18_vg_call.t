@@ -9,7 +9,7 @@ PATH=../bin:$PATH # for vg
 # FORMAT field shifts every later one, which broke four assertions here that were not
 # testing field order at all -- one of them silently compared BL against a GQ threshold.
 
-plan tests 346
+plan tests 367
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -1015,6 +1015,140 @@ is $(grep -v "^#" nestblk.vcf | cut -f10 | cut -d: -f1 | grep -cE '^[0-9]+$') "0
    "and every block names the strand it sits on, not a bare haploid genotype"
 is $(grep -v "^#" nestblk.vcf | awk -F'\t' '$9 !~ /(^|:)PS(:|$)/' | wc -l | tr -d ' ') "0" \
    "and keeps the phase set, which a split record used to drop"
+
+# --- assembly anchors -------------------------------------------------------
+# An anchor is a zero-length pin at a snarl boundary, holding the reads that cross it partitioned
+# by which called allele they fit. The invariant that matters is that a pinned position in a read
+# appears in exactly one anchor; everything else here supports being able to believe that one.
+vg call x.gbz --read-likelihood --gam sim.gam --anchors-out rl_anchors.tsv -t 1 \
+    > rl_anchors.vcf 2> rl_anchors.err
+is "$?" "0" "--anchors-out produces output"
+is $(grep -c "^#anchors-version" rl_anchors.tsv) "1" "the anchor file declares its version"
+# Self-describing, and pinned: a consumer that sees no anchor at a site must be able to tell a
+# threshold from an absence, so the filter values are part of the file rather than of the shell
+# history that produced it.
+is "$(grep "^#" rl_anchors.tsv | cut -f1 | sort -u | paste -sd, -)" \
+   "#H,#anchors-version,#filters,#graph,#mismap-min,#note,#read,#reads,#reads-interned,#sample,#sites" \
+   "the anchor header uses exactly the documented set of keys"
+is $(grep -c "^A" rl_anchors.tsv | awk '{print ($1>0)?1:0}') "1" "it holds anchors"
+
+# THE guarantee. Two pins can only meet at one junction of a read's walk, and each (node, side) has
+# exactly one owning snarl, so a repeat here means the pin geometry is wrong.
+is $(awk -F'\t' '/^R/{print $2"\t"$3"\t"$4}' rl_anchors.tsv | sort | uniq -d | wc -l | tr -d ' ') "0" \
+   "no (read, strand, offset) is pinned by more than one anchor"
+
+# The file is written in node order, so nothing downstream has to sort it.
+is $(awk -F'\t' '/^A/{print $2}' rl_anchors.tsv | sort -c -n 2>&1 | wc -l | tr -d ' ') "0" \
+   "anchors are written in node order"
+
+# A read may sit on only one side of a site's partition, or the partition means nothing.
+is $(awk -F'\t' 'BEGIN{k=""} /^A/{k=$2"|"$3} /^R/{print k"\t"$2}' rl_anchors.tsv \
+     | sort | uniq -d | wc -l | tr -d ' ') "0" \
+   "the two slots of a site have disjoint read sets"
+
+# Every R row needs the A row above it, since it does not repeat the key.
+is $(awk -F'\t' '/^[AR]/{if ($1=="A") seen=1; if ($1=="R" && !seen) bad++} END{print bad+0}' \
+     rl_anchors.tsv) "0" "no read row precedes its anchor row"
+
+# The in-process invariant: each pin checked against the graph's own base while the read was live.
+is $(grep -c "pins verified against the graph, 0 failed" rl_anchors.err) "1" \
+   "every pin verifies against the graph"
+
+# Homozygous and haploid sites are emitted by default -- they partition nothing but they link reads,
+# and an anchor graph needs contiguity too. Excluding them must actually remove some, or the flag is
+# inert, and the file must say which set it holds.
+vg call x.gbz --read-likelihood --gam sim.gam --anchors-out rl_anchors_hom.tsv --anchors-het-only -t 1 \
+    2>/dev/null >/dev/null
+is $(if [ $(grep -c "^A" rl_anchors_hom.tsv) -lt $(grep -c "^A" rl_anchors.tsv) ]; then echo 1; else echo 0; fi) "1" \
+   "--anchors-het-only drops the homozygous sites the default includes"
+is $(awk -F'\t' '$1=="#sites"{print $2}' rl_anchors.tsv) "het+hom" \
+   "and the default file says which set it holds"
+is $(awk -F'\t' '$1=="#sites"{print $2}' rl_anchors_hom.tsv) "het" \
+   "as does the restricted one"
+
+# Dropping an end pin that holds no reads the start pin lacks. Three things: that it fires, that what
+# survives is the START boundary rather than an arbitrary half, and -- the one that matters -- that no
+# read placement is lost, since a dropped end pin is by definition one whose reads are all at the start.
+rm -f rl_anchors_sp.tsv
+vg call x.gbz --read-likelihood --gam sim.gam --anchors-out rl_anchors_sp.tsv \
+    --anchors-end-pin-min-new 1 -t 1 2>/dev/null >/dev/null
+is $(if [ $(grep -c "^A" rl_anchors_sp.tsv) -lt $(grep -c "^A" rl_anchors.tsv) ]; then echo 1; else echo 0; fi) "1" \
+   "--anchors-end-pin-min-new drops anchors the default emits"
+is $(python3 -c '
+import re
+from collections import defaultdict
+# Every surviving end anchor must hold a read its own slot\047s start anchor does not -- that is the
+# criterion, checked against the output. Read NAMES shared by two alignments are excluded: a mate at
+# the start pin and a mate at the end pin look like one read reaching both, so on paired data the
+# check is confounded rather than violated. See the plan, section 9.
+S = defaultdict(set); E = defaultdict(set); cur = None; role = None
+in_anchor = set(); seen = {}; shared = set()
+for line in open("rl_anchors_sp.tsv"):
+    if line.startswith("#"):
+        continue
+    f = line.rstrip("\n").split("\t")
+    if f[0] == "A":
+        ends = re.findall(r"[<>](\d+)", f[2])
+        role = "S" if int(f[1]) == int(ends[0]) else "E"
+        cur = (f[2], f[3]); in_anchor = set()
+    else:
+        rid = f[1]
+        if rid in in_anchor:
+            shared.add(rid)
+        in_anchor.add(rid)
+        k = (cur[0], rid)
+        if k in seen and seen[k] != cur[1]:
+            shared.add(rid)
+        seen[k] = cur[1]
+        (S if role == "S" else E)[cur].add(rid)
+print(sum(1 for k in E if not (E[k] - S[k]) and not (E[k] & shared)))
+') "0" \
+   "and every surviving end pin holds a read its start pin does not"
+# Every read still appears somewhere: the dropped pins were redundant by construction.
+is $(comm -13 <(awk -F'\t' '/^#read/{print $3}' rl_anchors_sp.tsv | sort -u) \
+              <(awk -F'\t' '/^#read/{print $3}' rl_anchors.tsv | sort -u) | wc -l | tr -d ' ') "0" \
+   "and no read is lost from the file by dropping them"
+
+# A filter that can actually fire, and provably so: the per-read score is bounded above by the
+# mismap floor, so nothing can reach 100.
+rm -f rl_anchors_none.tsv
+vg call x.gbz --read-likelihood --gam sim.gam --anchors-out rl_anchors_none.tsv \
+    --anchors-min-read-score 100 -t 1 2>/dev/null >/dev/null
+is $(grep -c "^A" rl_anchors_none.tsv) "0" "--anchors-min-read-score 100 empties the file"
+rm -f rl_anchors_gqn.tsv
+vg call x.gbz --read-likelihood --gam sim.gam --anchors-out rl_anchors_gqn.tsv \
+    --anchors-min-gqn 1.0 -t 1 2>/dev/null >/dev/null
+is $(grep -c "^A" rl_anchors_gqn.tsv) "0" "--anchors-min-gqn 1.0 empties the file"
+
+# The partition is the read/allele likelihood matrix, which no other caller builds.
+vg call x.gbz -k x.pack --anchors-out rl_anchors_err.tsv > /dev/null 2> rl_anchors_err.txt
+is "$?" "1" "--anchors-out without --read-likelihood is an error"
+
+# The sweep is parallel over node-ID windows, so the file must not depend on the schedule.
+vg call x.gbz --read-likelihood --gam sim.gam --anchors-out rl_anchors_t4.tsv -t 4 \
+    2>/dev/null >/dev/null
+is $(grep -v "^#" rl_anchors.tsv | diff - <(grep -v "^#" rl_anchors_t4.tsv) > /dev/null && echo 1 || echo 0) "1" \
+   "the anchor set is identical at -t 1 and -t 4"
+
+# The configuration most likely to break silently: no panel, so no linkage layer, so the pass that
+# renders retained records is armed for a different reason than usual. If anchors ever stop being
+# emitted here it will not show up anywhere else.
+rm -f rl_anchors_nopanel.tsv
+vg call x.vg -k x.pack --read-likelihood --gam sim.gam --anchors-out rl_anchors_nopanel.tsv \
+    --enumerate-support -t 1 2>/dev/null >/dev/null
+is $(if [ $(grep -c "^A" rl_anchors_nopanel.tsv) -gt 0 ]; then echo 1; else echo 0; fi) "1" \
+   "anchors are still emitted with no panel and no linkage layer"
+
+# The written file re-checked from outside vg, against the reads it indexes rather than against the
+# graph -- the version that would catch a mistake shared between the collector and its own check.
+vg view -X sim.gam > rl_anchors_reads.fq 2>/dev/null
+is $(python3 ../scripts/check_anchors.py --anchors rl_anchors.tsv --reads rl_anchors_reads.fq \
+       --quiet > /dev/null 2>&1; echo $?) "0" \
+   "the anchor file validates against the read file it indexes"
+
+rm -f rl_anchors.tsv rl_anchors.vcf rl_anchors.err rl_anchors_hom.tsv rl_anchors_none.tsv \
+      rl_anchors_gqn.tsv rl_anchors_err.tsv rl_anchors_err.txt rl_anchors_t4.tsv rl_anchors_reads.fq \
+      rl_anchors_nopanel.tsv rl_anchors_sp.tsv
 
 rm -f nestblk.gfa nestblk.gbz nestblk.gam nestblk.vcf nest.gfa nest.gbz nest.gam nest_default.vcf nest_nested.vcf nest_hap.gam nest_hap.vcf nest_hap_err.txt nest_hap.mosaic.tsv x.vg x.gbz x.gbwt sim.gam x.pack call.vcf callg.vcf callz.vcf callg.6 callz.6 callrl_nopack.vcf callrl_nopack_z.vcf callrl_withpack.vcf nopack_err.txt sim.sorted.gam sim.sorted.gam.gai rl_inmem.vcf rl_indexed.vcf gi_err.txt gb_err.txt gb_excl.txt gb_norl.txt gb_nobin.txt sim.gaf sim.gaf.db x.gbz.db rl_gafmem.vcf rl_gafbase.vcf rl_gafbase_t4.vcf rl_gafbase_w32.vcf rl_autoz_full.vcf rl_autoz.vcf rl_explicit_z.vcf rl_support_full.vcf rl_support.vcf es_nopack.txt es_z.txt es_g.txt nopanel.vg nopanel.gbwt nopanel.gbz nopanel.pack nopanel_err.txt poisson_default.vcf poisson_z.vcf rl_phased.vcf rl_default.vcf rl_nophase.vcf rl_nopanel.vcf rl_nopanel_err.txt rl_unphased_gt.txt rl_phased_gt.txt rl_ph_err.txt rl_mosaic.tsv rl_mosaic2.tsv rl_hap.vcf rl_hap_mosaic.tsv
 

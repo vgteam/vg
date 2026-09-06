@@ -14,6 +14,7 @@
 #include "linkage_model.hpp"
 #include "snarls.hpp"
 #include "traversal_finder.hpp"
+#include "anchor.hpp"
 #include "snarl_caller.hpp"
 #include "region.hpp"
 #include "zstdutil.hpp"
@@ -265,6 +266,45 @@ public:
     /// On wherever the linkage layer runs, and declines with it. An explicit --phased against a
     /// disabled layer is an error rather than a silently unphased file.
     void set_emit_phasing(bool on) { this->emit_phasing = on; }
+
+    /// Write assembly anchors to `path`, with `params` deciding which sites and reads qualify.
+    ///
+    /// Kept beside the mosaic because it is the same kind of thing: a node-ID-keyed side file
+    /// written once every record has settled, self-describing, and joinable to the VCF by snarl ID.
+    void set_anchors_out(const string& path, const AnchorParams& params,
+                         const string& graph_name, const string& reads_source,
+                         double mismap_min) {
+        this->anchor_path = path;
+        this->anchor_params = params;
+        this->anchor_graph_name = graph_name;
+        this->anchor_reads_source = reads_source;
+        this->anchor_mismap_min = mismap_min;
+        if (!path.empty()) {
+            // Per-thread queues, because both passes that fill it are parallel over node-ID windows.
+            // One queue per OpenMP thread, indexed by thread number inside the writer.
+            this->anchor_writer = make_unique<AnchorWriter>((size_t)max(1, get_thread_count()));
+        }
+    }
+
+    /// Turn one settled site into anchors, if anchors are armed. Called once per record, from
+    /// whichever pass settles it: the render for records that get a line, and the barrier's handover
+    /// for those that do not. A record with no reference path still anchors -- a pin is keyed on a
+    /// node ID and needs neither REF nor POS -- which is the whole reason this is not folded into
+    /// `emit_variant`.
+    /// `is_leaf` is supplied by the caller rather than looked up, because the snarl manager lives
+    /// on GraphCaller and this base class does not have one.
+    void collect_anchors_for(const Snarl& snarl, const vector<int>& genotype,
+                             const unique_ptr<SnarlCaller::CallInfo>& call_info, bool is_leaf);
+
+    /// Write the anchor file and report the counters. No-op unless anchors are armed.
+    void write_anchors();
+
+    /// Whether anything actually needs a snarl's leaf status. Only `--anchors-leaf-only` does, and
+    /// answering it is neither free nor total (see `FlowCaller::snarl_is_leaf`), so it is asked only
+    /// when it will be used.
+    bool anchors_want_leaf_test() const {
+        return !anchor_path.empty() && anchor_params.leaf_only;
+    }
 
     /// Where to write the run-length-encoded mosaic, if anywhere. Implies phasing.
     ///
@@ -568,6 +608,17 @@ protected:
 
     /// Whether to emit phased GT and FORMAT/PS.
     bool emit_phasing = false;
+
+    /// Destination for the anchor file, what qualifies for it, and the provenance its header
+    /// records. The writer itself is created once the thread count is known.
+    string anchor_path;
+    AnchorParams anchor_params;
+    string anchor_graph_name;
+    string anchor_reads_source;
+    unique_ptr<AnchorWriter> anchor_writer;
+    /// The mismap floor the per-read anchor score is bounded by, for the header. Set alongside the
+    /// path so a consumer can tell what a score of 14 means without knowing how the run was invoked.
+    double anchor_mismap_min = 0.0;
 
     /// Destination for the mosaic file, and the graph it is to be read against.
     string mosaic_path;
@@ -1078,6 +1129,10 @@ public:
     /// `record()` lives at genotyping time rather than in `emit_variant`: the barrier would
     /// otherwise resolve an empty collector.
     void render_retained_records();
+
+    /// Whether this snarl has no children, resolved through the manager's own copy. See the
+    /// implementation for why the obvious `children_of(&snarl)` is not safe here.
+    bool snarl_is_leaf(const Snarl& snarl) const;
 
     void set_defer_nested_descent(bool defer);
 
