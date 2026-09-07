@@ -121,7 +121,7 @@ def main():
             if line.startswith("#"):
                 continue
             fields = line.rstrip("\n").split("\t")
-            if fields[0] == "A" and len(fields) == 6:
+            if fields[0] == "A" and len(fields) == 7:
                 current = (int(fields[1]), fields[2], int(fields[3]))
                 in_anchor = set()
             elif fields[0] == "R" and current is not None and len(fields) == 5:
@@ -159,8 +159,8 @@ def main():
                 continue
             fields = line.split("\t")
             if fields[0] == "A":
-                if len(fields) != 6:
-                    fail(f"line {lineno}: an A row has {len(fields)} fields, expected 6")
+                if len(fields) != 7:
+                    fail(f"line {lineno}: an A row has {len(fields)} fields, expected 7")
                     continue
                 node, snarl, slot = int(fields[1]), fields[2], int(fields[3])
                 if last_node is not None and node < last_node:
@@ -215,9 +215,9 @@ def main():
 
     if version is None:
         fail("no #anchors-version header, so the format is unknown")
-    elif version != "2":
-        fail(f"#anchors-version {version} is not the one this script understands (2)")
-    if version == "2" and not id_name:
+    elif version != "3":
+        fail(f"#anchors-version {version} is not the one this script understands (3)")
+    if version == "3" and not id_name:
         fail("no #read table, but version 2 interns every read name")
 
     if shared_names:

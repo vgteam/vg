@@ -9,7 +9,7 @@ PATH=../bin:$PATH # for vg
 # FORMAT field shifts every later one, which broke four assertions here that were not
 # testing field order at all -- one of them silently compared BL against a GQ threshold.
 
-plan tests 367
+plan tests 368
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -1036,6 +1036,14 @@ is $(grep -c "^A" rl_anchors.tsv | awk '{print ($1>0)?1:0}') "1" "it holds ancho
 # exactly one owning snarl, so a repeat here means the pin geometry is wrong.
 is $(awk -F'\t' '/^R/{print $2"\t"$3"\t"$4}' rl_anchors.tsv | sort | uniq -d | wc -l | tr -d ' ') "0" \
    "no (read, strand, offset) is pinned by more than one anchor"
+
+# The allele column exists so a consumer can tell which candidate traversal a slot partitions to.
+# It is NOT the VCF ALT number and must never be read as one, so what is checked is the property
+# that distinguishes them: at a site with two slots the alleles differ, because two slots carrying
+# one allele is a homozygote, and a homozygote is collapsed to a single slot before it is written.
+is $(awk -F'\t' '/^A/{k=$2"|"$3; n[k]++; a[k]=a[k]" "$5} END{for(i in n) if(n[i]==2){split(a[i],p," "); if(p[1]==p[2]) bad++}} END{print bad+0}' \
+     rl_anchors.tsv) "0" \
+   "where a site has two slots, they name different candidate alleles"
 
 # The file is written in node order, so nothing downstream has to sort it.
 is $(awk -F'\t' '/^A/{print $2}' rl_anchors.tsv | sort -c -n 2>&1 | wc -l | tr -d ' ') "0" \

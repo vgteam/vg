@@ -125,7 +125,7 @@ def main():
             elif not line.startswith("#"):
                 break
     if not id_name:
-        sys.exit(f"error: {args.anchors} has no #read table; expected an anchors-version 2 file")
+        sys.exit(f"error: {args.anchors} has no #read table; expected an anchors-version 3 file")
 
     keep_nodes = None
     if args.nodes:
@@ -147,7 +147,9 @@ def main():
         if not (args.min_coverage <= len(kept_reads) <= args.max_coverage):
             dropped_cov += 1
             return
-        node, snarl, slot = current
+        node, snarl, slot, allele = current
+        # The id keeps slot, not allele: slot is what joins to the VCF's GT, and two slots of a
+        # heterozygote can carry the same allele only at a site that should have collapsed.
         out.append([f"{snarl}_{node}_{slot}", kept_reads[:]])
 
     with open(args.anchors) as handle:
@@ -159,8 +161,9 @@ def main():
                 flush()
                 kept_reads = []
                 node, snarl, slot = int(fields[1]), fields[2], int(fields[3])
-                gqn = None if fields[4] == "." else float(fields[4])
-                explained = float(fields[5])
+                allele = int(fields[4])
+                gqn = None if fields[5] == "." else float(fields[5])
+                explained = float(fields[6])
                 skip = False
                 if keep_nodes is not None and node not in keep_nodes:
                     skip = True
@@ -174,7 +177,7 @@ def main():
                     dropped_site += 1
                     current = None
                 else:
-                    current = (node, snarl, slot)
+                    current = (node, snarl, slot, allele)
             elif fields[0] == "R" and current is not None:
                 read_id = fields[1]
                 name = id_name.get(read_id)

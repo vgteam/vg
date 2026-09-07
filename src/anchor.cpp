@@ -353,6 +353,7 @@ void build_site_anchors(const AnchorSiteEvidence& evidence, const vector<int>& g
         start_anchors[i].node = evidence.start_node;
         start_anchors[i].snarl = snarl_id;
         start_anchors[i].slot = (int)i;
+        start_anchors[i].allele = slot_allele[i];
         start_anchors[i].gqn = gqn;
         start_anchors[i].explained = explained;
         end_anchors[i] = start_anchors[i];
@@ -578,7 +579,7 @@ bool AnchorWriter::write(const string& path, const string& graph_name, const str
         cerr << "error [vg call]: could not open " << path << " for the anchor output" << endl;
         return false;
     }
-    out << "#anchors-version\t2\n";
+    out << "#anchors-version\t3\n";
     out << "#graph\t" << graph_name << "\n";
     out << "#sample\t" << sample << "\n";
     out << "#reads\t" << reads_source << "\n";
@@ -603,17 +604,22 @@ bool AnchorWriter::write(const string& path, const string& graph_name, const str
     out << "#note\tno (read, strand, offset) appears in more than one anchor -- for distinct "
            "alignments. A read NAME shared by two alignments (paired-end mates share one) can "
            "repeat a position; the shared_name counter reports how many such reads there were.\n";
+    out << "#note\tslot indexes the settled PHASED pair, so slot i is field i of that snarl's GT in "
+        << "the VCF -- slot 0 the left allele, slot 1 the right. A homozygous site collapses to one "
+        << "slot holding every read, and carries no haplotype information to join on\n";
+    out << "#note\tallele is the index into the site's candidate traversal set, which is NOT the "
+        << "VCF ALT number: the ALT list is chosen after anchors are built. Use slot to join to GT\n";
     out << "#note\tgqn and explained are the site's, so they repeat across its slots. Anything else "
            "about the site is in the VCF, joinable on the snarl column, which is its ID.\n";
     out << "#reads-interned\t" << name_id.size() << "\n";
-    out << "#H\tA\tnode\tsnarl\tslot\tgqn\texplained\n";
+    out << "#H\tA\tnode\tsnarl\tslot\tallele\tgqn\texplained\n";
     out << "#H\tR\tread_id\tstrand\toffset\tscore\n";
     for (const auto& entry : name_id) {
         out << "#read\t" << entry.second << "\t" << entry.first << "\n";
     }
     out << std::fixed;
     for (const Anchor& a : all) {
-        out << "A\t" << a.node << "\t" << a.snarl << "\t" << a.slot << "\t";
+        out << "A\t" << a.node << "\t" << a.snarl << "\t" << a.slot << "\t" << a.allele << "\t";
         if (a.gqn < 0.0) {
             out << ".";
         } else {

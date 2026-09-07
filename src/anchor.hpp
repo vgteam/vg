@@ -241,7 +241,18 @@ public:
     struct Anchor {
         nid_t node = 0;
         string snarl;
+        /// Which haplotype of the settled genotype this anchor partitions to, and which candidate
+        /// traversal that haplotype is.
+        ///
+        /// `slot` is an index into the settled *phased* pair, so slot i is field i of the record's
+        /// `GT` at the same snarl id -- slot 0 the left allele, slot 1 the right. A homozygote
+        /// collapses to one slot holding every read, and then there is no haplotype information to
+        /// join on. `allele` is the index into the site's candidate traversal set, which is NOT the
+        /// VCF's ALT numbering: the ALT list is chosen later, in emit_variant, and anchors are built
+        /// before it. Two slots carrying the same `allele` is what a homozygote looks like before
+        /// collapsing; it cannot otherwise happen.
         int slot = 0;
+        int allele = -1;
         double gqn = -1.0;
         double explained = 1.0;
         vector<ReadRow> reads;
