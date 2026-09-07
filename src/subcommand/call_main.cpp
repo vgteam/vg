@@ -129,6 +129,12 @@ void help_call(char** argv) {
          << "                            capping one read's veto at ln(P). Covers local" << endl
          << "                            misalignment, which MAPQ does not measure. Mainly" << endl
          << "                            an indel knob; interacts with --mismap-max [0.02]" << endl
+         << "      --preset NAME         a fitted parameter set for one read type. `ont`:" << endl
+         << "                            --gap-open 1 --gap-extend 1 --mismap-min 0.05, which on" << endl
+         << "                            43x ONT chr20 moves indel GT F1 0.749 -> 0.816 and ALL" << endl
+         << "                            0.926 -> 0.945 at no cost to SNVs, reproducing at +0.061" << endl
+         << "                            on a held-out contig and +0.069 at matched 30x coverage." << endl
+         << "                            An explicit flag overrides the preset either side of it" << endl
          << "      --gap-open N          read scorer's gap-open penalty [6]" << endl
          << "      --gap-extend N        read scorer's gap-extension penalty [1]. Together these" << endl
          << "                            set how hard a read votes against an allele that differs" << endl
@@ -445,6 +451,11 @@ int main_call(int argc, char** argv) {
     // IS a single-base homopolymer indel.
     int gap_open = default_gap_open;
     int gap_extend = default_gap_extension;
+    // Which of the preset's values the user set for themselves. The preset is applied after the
+    // whole option loop, so `--preset ont --gap-open 3` and `--gap-open 3 --preset ont` mean the
+    // same thing: an explicit flag always wins, whichever side of the preset it is written on.
+    string preset;
+    bool gap_open_explicit = false, gap_extend_explicit = false, mismap_min_explicit = false;
     double min_confidence = 0.0;
     double linkage_weight = 2.0;
     /// Whether a weight was asked for, as opposed to inherited from the default. The two must
@@ -496,6 +507,7 @@ int main_call(int argc, char** argv) {
     constexpr int OPT_DEPTH_TERM = 1025;
     constexpr int OPT_DEPTH_COUNT_RAW = 1026;
     constexpr int OPT_DEPTH_QUALITY = 1027;
+    constexpr int OPT_PRESET = 1072;
     constexpr int OPT_GAP_OPEN = 1070;
     constexpr int OPT_GAP_EXTEND = 1071;
     constexpr int OPT_MIN_CONFIDENCE = 1042;
@@ -575,6 +587,7 @@ int main_call(int argc, char** argv) {
         {"depth-term", required_argument, 0, OPT_DEPTH_TERM},
         {"depth-count-raw", no_argument, 0, OPT_DEPTH_COUNT_RAW},
         {"depth-quality", required_argument, 0, OPT_DEPTH_QUALITY},
+        {"preset", required_argument, 0, OPT_PRESET},
         {"gap-open", required_argument, 0, OPT_GAP_OPEN},
         {"gap-extend", required_argument, 0, OPT_GAP_EXTEND},
         {"min-confidence", required_argument, 0, OPT_MIN_CONFIDENCE},
@@ -823,7 +836,11 @@ int main_call(int argc, char** argv) {
         case OPT_DEPTH_COUNT_RAW:
             depth_count_raw = true;
             break;
+        case OPT_PRESET:
+            preset = optarg;
+            break;
         case OPT_GAP_OPEN:
+            gap_open_explicit = true;
             gap_open = parse<int>(optarg);
             if (gap_open < 1 || gap_open > 127) {
                 cerr << "error [vg call]: --gap-open must be between 1 and 127" << endl;
@@ -831,6 +848,7 @@ int main_call(int argc, char** argv) {
             }
             break;
         case OPT_GAP_EXTEND:
+            gap_extend_explicit = true;
             gap_extend = parse<int>(optarg);
             if (gap_extend < 1 || gap_extend > 127) {
                 cerr << "error [vg call]: --gap-extend must be between 1 and 127" << endl;
@@ -876,6 +894,7 @@ int main_call(int argc, char** argv) {
             max_mismap_prob = parse<double>(optarg);
             break;
         case OPT_MISMAP_MIN:
+            mismap_min_explicit = true;
             min_mismap_prob = parse<double>(optarg);
             break;
         case OPT_READ_MIN_MAPQ:
@@ -989,6 +1008,29 @@ int main_call(int argc, char** argv) {
     //
     // Checked here rather than after the graph is loaded, because these are option-compatibility
     // facts and making a user wait for a 22 GB load to be told the combination is invalid is waste.
+    if (!preset.empty()) {
+        // Applied after the option loop, so an explicit flag wins wherever it is written.
+        //
+        // `ont` is fitted on chr20 of HG002 at 43x against the T2T-Q100 benchmark and validated on
+        // chr6 of the same read set and at 30x; it is not a default because the same values cost
+        // 150 bp reads 0.0037 indel F1. See the gap-penalty help above for why a long read wants a
+        // different gap scale, and note the two values are near-additive rather than alternatives.
+        if (preset == "ont") {
+            if (!gap_open_explicit) {
+                gap_open = 1;
+            }
+            if (!gap_extend_explicit) {
+                gap_extend = 1;
+            }
+            if (!mismap_min_explicit) {
+                min_mismap_prob = 0.05;
+            }
+        } else {
+            cerr << "error [vg call]: unknown --preset '" << preset << "'; known presets: ont"
+                 << endl;
+            return 1;
+        }
+    }
     if (atomize_blocks && genotype_snarls) {
         // -a's record set is meant to be sample-independent -- one line per snarl, and the harness
         // reads a `-a -A` run as a snarl inventory. A block list is a function of the called
@@ -1234,7 +1276,7 @@ int main_call(int argc, char** argv) {
             "--gaf-base-binary", "--read-window", "--read-min-mapq", "--no-mismap-term",
             "--depth-term", "--depth-count-raw", "--linkage-weight", "--linkage-scale",
             "--linkage-freq-prior", "--depth-quality", "--min-confidence", "--flat-mixture",
-            "--gap-open", "--gap-extend",
+            "--gap-open", "--gap-extend", "--preset",
             "--no-share-quality",
             "--mismap-max", "--mismap-min", "--dump-likelihoods", "--enumerate-support",
             "--phased", "--no-phased", "--mosaic-out", "--anchors-out", "--anchors-het-only",
