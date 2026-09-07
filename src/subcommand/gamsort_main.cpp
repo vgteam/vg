@@ -51,6 +51,7 @@ void help_gamsort(char** argv) {
                                         << "[" << GAFSorterParameters::RECORDS_PER_FILE << "]" << std::endl;
     std::cerr << "  -m, --merge-width N     number of files to merge at once "
                                         << "[" << GAFSorterParameters::FILES_PER_MERGE << "]" << std::endl;
+    std::cerr << "      --two-merge-rounds  adjust --merge-width to guarantee <= 2 merge rounds" << std::endl;
     std::cerr << "  -S, --stable            use stable sorting" << std::endl;
     std::cerr << "  -g, --gbwt-output FILE  write a GBWT index of the paths to FILE" << std::endl;
     std::cerr << "  -b, --bidirectional     make the GBWT index bidirectional" << std::endl;
@@ -75,6 +76,8 @@ int main_gamsort(int argc, char **argv) {
     // GAF sorting options.
     GAFSorterParameters gaf_params;
 
+    constexpr int OPT_TWO_MERGE_ROUNDS = 1000;
+
     int c;
     optind = 2; // force optind past command positional argument
     while (true)
@@ -88,6 +91,7 @@ int main_gamsort(int argc, char **argv) {
             { "gaf-input", no_argument, 0, 'G' },
             { "chunk-size", required_argument, 0, 'c' },
             { "merge-width", required_argument, 0, 'm' },
+            { "two-merge-rounds", no_argument, 0, OPT_TWO_MERGE_ROUNDS },
             { "stable", no_argument, 0, 'S' },
             { "gbwt-output", required_argument, 0, 'g' },
             { "bidirectional", no_argument, 0, 'b' },
@@ -133,6 +137,9 @@ int main_gamsort(int argc, char **argv) {
             break;
         case 'm':
             gaf_params.files_per_merge = parse<size_t>(optarg);
+            break;
+        case OPT_TWO_MERGE_ROUNDS:
+            gaf_params.two_merge_rounds = true;
             break;
         case 'S':
             gaf_params.stable = true;

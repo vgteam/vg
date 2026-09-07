@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 78
+plan tests 81
 
 vg construct -r small/x.fa >j.vg
 vg index -x j.xg j.vg
@@ -192,11 +192,11 @@ is "$(vg surject -x j.vg -b --graph-aln r.gam | samtools view | grep 'GR:Z:' | w
 
 rm -f h.vg h.gcsa r.gam r.sam x.sub.fa j.vg j.gcsa j.gcsa.lcp j.sub.vg j.sub.gcsa j.sub.gcsa.lcp r.sub.gam r.sub.sam r.sub.sam path_info.tsv
 
-vg surject -s -x surject/perpendicular.vg surject/perpendicular.gam > perpendicular.sam
+vg surject -U -s -x surject/perpendicular.vg surject/perpendicular.gam > perpendicular.sam
 is "$?" 0 "vg surject does not crash when surjecting a read that grazes the reference with a deletion"
 is "$(cat perpendicular.sam | grep -v "^@" | cut -f2)" "4" "vg surject leaves a read that grazes the reference with a deletion unmapped"
 
-vg surject -s --prune-low-cplx -x surject/perpendicular.vg surject/perpendicular.gam > perpendicular.sam
+vg surject -U -s --prune-low-cplx -x surject/perpendicular.vg surject/perpendicular.gam > perpendicular.sam
 is "$?" 0 "vg surject does not crash when surjecting a read that grazes the reference with a deletion and pruning low complexity anchors"
 is "$(cat perpendicular.sam | grep -v "^@" | cut -f2)" "4" "vg surject leaves a read that grazes the reference with a deletion unmapped when pruning low complexity anchors"
 
@@ -209,12 +209,22 @@ vg sim -x x.xg -n 20 -l 40 -p 60 -v 10 -a --random-seed 123 > x.gam
 vg mpmap -x x.xg -g x.gcsa -n dna --suppress-mismapping -B -G x.gam -i -F GAM -I 60 -D 10 -t 1 > mapped.gam
 vg mpmap -x x.xg -g x.gcsa -n dna --suppress-mismapping -B -G x.gam -i -F GAMP -I 60 -D 10 -t 1 > mapped.gamp
 
-is "$(vg surject -x x.xg -s -t 1 mapped.gam | grep -v '@' | wc -l)" 40 "GAM surject can return only primaries"
-is "$(vg surject -x x.xg -M -s -t 1 mapped.gam | grep -v '@' | wc -l)" 80 "GAM surject can return multimappings"
+vg surject -x x.xg -s -t 1 mapped.gam >/dev/null 2>/dev/null
+is "$?" "1" "GAM surject produces an error when given paired reads when not in interleaved mode"
+
+vg surject -x x.xg -m -s -t 1 mapped.gamp >/dev/null 2>/dev/null
+is "$?" "1" "GAMP surject produces an error when given paired reads when not in interleaved mode"
+
+vg convert x.xg -G mapped.gam -t 1 >mapped.gaf
+vg surject -x x.xg -G -s -t 1 mapped.gaf >/dev/null 2>/dev/null
+is "$?" 1 "GAF surject produces an error when given paired reads when not in interleaved mode"
+
+is "$(vg surject -x x.xg -U -s -t 1 mapped.gam | grep -v '@' | wc -l)" 40 "GAM surject can return only primaries"
+is "$(vg surject -x x.xg -M -U -s -t 1 mapped.gam | grep -v '@' | wc -l)" 80 "GAM surject can return multimappings"
 is "$(vg surject -x x.xg -M -i -s -t 1 mapped.gam | grep -v '@' | wc -l)" 80 "GAM surject can return paired multimappings"
-is "$(vg surject -x x.xg -s -m -t 1 mapped.gamp | grep -v '@' | wc -l)" 40 "GAMP surject can return only primaries"
-is "$(vg surject -x x.xg -M -m -s -t 1 mapped.gamp | grep -v '@' | wc -l)" 80 "GAMP surject can return multimappings"
-is "$(vg surject -x x.xg -M -m -s -i -t 1 mapped.gamp | grep -v '@' | wc -l)" 80 "GAMP surject can return multimappings"
+is "$(vg surject -x x.xg -U -s -m -t 1 mapped.gamp | grep -v '@' | wc -l)" 40 "GAMP surject can return only primaries"
+is "$(vg surject -x x.xg -M -U -m -s -t 1 mapped.gamp | grep -v '@' | wc -l)" 80 "GAMP surject can return multimappings"
+is "$(vg surject -x x.xg -M -i -m -s -i -t 1 mapped.gamp | grep -v '@' | wc -l)" 80 "GAMP surject can return paired multimappings"
 
 vg construct -r tiny/tiny.fa > tiny.vg
 vg surject -x tiny.vg -s -t 1 mapped.gam >/dev/null 2>err.txt

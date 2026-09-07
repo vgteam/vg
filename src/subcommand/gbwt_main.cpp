@@ -57,7 +57,7 @@ struct GBWTConfig {
     bool set_pggname = false;
     std::string supergraph_filename;
     bool unset_pggname = false;
-    bool gbz_v1 = false;
+    std::uint32_t gbz_version = 0; // Default.
 
     // Other parameters and flags.
     bool show_progress = false;
@@ -84,6 +84,7 @@ struct GBWTConfig {
     // Sample names and metadata
     std::set<std::string> to_remove; // Sample names to remove.
     std::map<std::string, std::string> tags_to_set; // Tag changes to apply to the GBWT
+    std::unordered_set<std::string> wrap_contigs; // Contigs whose haplotype origin fragments to double (circular wrap).
     
     GBWTConfig() {
         this->merge_parameters.setMergeJobs(default_merge_jobs());
@@ -194,8 +195,8 @@ int main_gbwt(int argc, char** argv) {
         step_2_merge_gbwts(gbwts, config);
     }
 
-    // Edit the GBWT (remove samples, apply tags).
-    if (!config.to_remove.empty() || !config.tags_to_set.empty()) {
+    // Edit the GBWT (remove samples, apply tags, wrap contigs).
+    if (!config.to_remove.empty() || !config.tags_to_set.empty() || !config.wrap_contigs.empty()) {
         step_3_alter_gbwt(gbwts, graphs, config);
     }
 
@@ -335,6 +336,9 @@ void help_gbwt(char** argv) {
     std::cerr << "  -R, --remove-sample X   remove sample X from the index (may repeat)" << std::endl;
     std::cerr << "      --set-tag K=V       set a GBWT tag (may repeat)" << std::endl;
     std::cerr << "      --set-reference X   set sample X as the reference (may repeat)" << std::endl;
+    std::cerr << "      --wrap-contig NAME  double the origin (count 0) fragment of each haplotype" << std::endl;
+    std::cerr << "                          on contig NAME so its end wraps onto its start" << std::endl;
+    std::cerr << "                          (for circular contigs such as chrM; may repeat)" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Step 4: Path cover GBWT construction " << std::endl;
     std::cerr << "(requires an input graph, -o, and one of { -a, -l, -P }):" << std::endl;
@@ -351,7 +355,7 @@ void help_gbwt(char** argv) {
     std::cerr << "Step 5: GBWTGraph construction (requires an input graph and one input GBWT):" << std::endl;
     std::cerr << "  -g, --graph-name FILE   build GBZ graph and store it in FILE" << std::endl;
     std::cerr << "                          (makes -o unnecessary)" << std::endl;
-    std::cerr << "      --gbz-v1            write GBZ version 1" << std::endl;
+    std::cerr << "      --gbz-version N     write GBZ version N (" << gbwtgraph::GBZ::Header::MIN_SERIALIZE_VERSION << " to " << gbwtgraph::GBZ::Header::VERSION << ")" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Step 6: R-index construction (one input GBWT):" << std::endl;
     std::cerr << "  -r, --r-index FILE      build an r-index and store it in FILE" << std::endl;
@@ -455,14 +459,16 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
     constexpr int OPT_MERGE_JOBS = 1204;
     constexpr int OPT_SET_TAG = 1300;
     constexpr int OPT_SET_REFERENCE = 1301;
+    constexpr int OPT_WRAP_CONTIG = 1302;
     constexpr int OPT_PASS_PATHS = 1400;
-    constexpr int OPT_GBZ_V1 = 1500;
+    constexpr int OPT_GBZ_VERSION = 1500;
     constexpr int OPT_TAGS = 1700;
 
     // Deprecated options.
     constexpr int OPT_THREAD_NAMES = 2000;
     constexpr int OPT_COUNT_THREADS = 2001;
     constexpr int OPT_GBZ_FORMAT = 2002;
+    constexpr int OPT_GBZ_V1 = 2003;
 
     // Make a collection of all the known tags and their descriptions. Use an ordered map so that we can do some typo guessing.
     // Values are description and list of prohibited characters.
@@ -537,6 +543,7 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
 
         // Alter GBWT
         { "remove-sample", required_argument, 0, 'R' },
+        { "wrap-contig", required_argument, 0, OPT_WRAP_CONTIG },
         { "set-tag", required_argument, 0, OPT_SET_TAG },
         { "set-reference", required_argument, 0, OPT_SET_REFERENCE },
 
@@ -551,7 +558,8 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
         // GBZ construction
         { "graph-name", required_argument, 0, 'g' },
         { "gbz-format", no_argument, 0, OPT_GBZ_FORMAT }, // Hidden option enabled by default.
-        { "gbz-v1", no_argument, 0, OPT_GBZ_V1 },
+        { "gbz-v1", no_argument, 0, OPT_GBZ_V1 }, // Hidden and deprecated option.
+        { "gbz-version", required_argument, 0, OPT_GBZ_VERSION },
 
         // R-index
         { "r-index", required_argument, 0, 'r' },
@@ -785,6 +793,9 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
         case 'R':
             config.to_remove.insert(optarg);
             break;
+        case OPT_WRAP_CONTIG:
+            config.wrap_contigs.insert(optarg);
+            break;
         case OPT_SET_TAG:
             {
                 string tag_name, tag_value;
@@ -866,7 +877,10 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
         case OPT_GBZ_FORMAT:
             break;
         case OPT_GBZ_V1:
-            config.gbz_v1 = true;
+            config.gbz_version = 1;
+            break;
+        case OPT_GBZ_VERSION:
+            config.gbz_version = parse<std::uint32_t>(optarg);
             break;
 
         // Build r-index
@@ -979,6 +993,10 @@ void validate_gbwt_config(GBWTConfig& config) {
         if (config.input_filenames.size() != 1) {
             config.logger.error() << "GBZ input requires one input arg" << std::endl;
         }
+        if (config.gbz_version != 0 && (config.gbz_version < gbwtgraph::GBZ::Header::MIN_SERIALIZE_VERSION || config.gbz_version > gbwtgraph::GBZ::Header::VERSION)) {
+            config.logger.error() << "GBZ version must be between " << gbwtgraph::GBZ::Header::MIN_SERIALIZE_VERSION
+                                  << " and " << gbwtgraph::GBZ::Header::VERSION << std::endl;
+        }
     } else if (config.build != GBWTConfig::build_none) {
         if (!has_gbwt_output) {
             // If we build our GBWT by doing anything other than loading it
@@ -1031,6 +1049,12 @@ void validate_gbwt_config(GBWTConfig& config) {
     if (!config.tags_to_set.empty()) {
         if (!(config.input_filenames.size() == 1 || config.merge != GBWTConfig::merge_none) || !has_gbwt_output) {
             config.logger.error() << "setting tags requires one input GBWT and output GBWT" << std::endl;
+        }
+    }
+
+    if (!config.wrap_contigs.empty()) {
+        if (!(one_input_gbwt || config.build == GBWTConfig::build_gbz || config.merge != GBWTConfig::merge_none) || !has_gbwt_output) {
+            config.logger.error() << "wrapping contigs requires one input GBWT and output GBWT or GBZ" << std::endl;
         }
     }
 
@@ -1553,12 +1577,40 @@ void set_tags(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& config) {
     report_time_memory("Tags set", start, config);
 }
 
+void wrap_gbwt_contigs(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& config) {
+    double start = gbwt::readTimer();
+    if (config.show_progress) {
+        config.logger.info() << "Wrapping " << config.wrap_contigs.size()
+                             << " contig(s) in the index" << std::endl;
+    }
+
+    gbwts.use_compressed();
+    gbwt::GBWT* index = gbwts.get_compressed();
+    gbwt::GBWT wrapped;
+    try {
+        wrapped = wrap_haplotype_paths(*index, config.wrap_contigs);
+    } catch (const std::runtime_error& e) {
+        config.logger.error() << e.what() << std::endl;
+    }
+
+    // We take ownership of the wrapped GBWT instead of using it as an external
+    // index. For GBZ output, this makes step_5_gbz rebuild the GBWTGraph from
+    // the wrapped GBWT, so that the new edges are reflected in the graph.
+    gbwts.use(wrapped);
+    gbwts.unbacked(); // We modified the GBWT.
+
+    report_time_memory("Contigs wrapped", start, config);
+}
+
 void step_3_alter_gbwt(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& config) {
     if (!config.to_remove.empty()) {
         remove_samples(gbwts, config);
     }
     if (!config.tags_to_set.empty()) {
         set_tags(gbwts, graphs, config);
+    }
+    if (!config.wrap_contigs.empty()) {
+        wrap_gbwt_contigs(gbwts, graphs, config);
     }
 }
 
@@ -1628,8 +1680,8 @@ void step_5_gbz(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& config) {
         std::unique_ptr<gbwt::GBWT> gbwt_ptr = std::make_unique<gbwt::GBWT>(std::move(*gbwts.get_compressed()));
         gbwtgraph::GBZ gbz(gbwt_ptr, graphs.naive_graph);
         graphs.clear(); // We no longer need the NaiveGraph.
-        if (config.gbz_v1) {
-            save_gbz_v1(gbz, config.graph_output, config.show_progress);
+        if (config.gbz_version != 0) {
+            save_gbz_version(gbz, config.graph_output, config.gbz_version, config.show_progress);
         } else {
             save_gbz(gbz, config.graph_output, config.show_progress);
         }
@@ -1638,8 +1690,8 @@ void step_5_gbz(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& config) {
         if (gbwts.in_use == GBWTHandler::index_external) {
             // We can serialize the GBZ we already have.
             // Step 3 may have changed the tags, but otherwise the GBWT is unchanged.
-            if (config.gbz_v1) {
-                save_gbz_v1(*(graphs.gbz_graph), config.graph_output, config.show_progress);
+            if (config.gbz_version != 0) {
+                save_gbz_version(*(graphs.gbz_graph), config.graph_output, config.gbz_version, config.show_progress);
             } else {
                 save_gbz(*(graphs.gbz_graph), config.graph_output, config.show_progress);
             }
@@ -1649,8 +1701,8 @@ void step_5_gbz(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& config) {
             // We use the subgraph constructor with the new GBWT.
             gbwtgraph::GBZ gbz(std::move(*gbwts.get_compressed()), *(graphs.gbz_graph));
             graphs.clear(); // We no longer need the GBZ.
-            if (config.gbz_v1) {
-                save_gbz_v1(gbz, config.graph_output, config.show_progress);
+            if (config.gbz_version != 0) {
+                save_gbz_version(gbz, config.graph_output, config.gbz_version, config.show_progress);
             } else {
                 save_gbz(gbz, config.graph_output, config.show_progress);
             }
@@ -1667,8 +1719,8 @@ void step_5_gbz(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& config) {
         );
         graphs.clear(); // We no longer need the graph.
         gbz.compute_pggname(nullptr); // We cannot determine the pggname of a generic HandleGraph efficiently.
-        if (config.gbz_v1) {
-            save_gbz_v1(gbz, config.graph_output, config.show_progress);
+        if (config.gbz_version != 0) {
+            save_gbz_version(gbz, config.graph_output, config.gbz_version, config.show_progress);
         } else {
             save_gbz(gbz, config.graph_output, config.show_progress);
         }

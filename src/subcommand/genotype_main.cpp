@@ -18,6 +18,7 @@ const string DEFAULT_TRAVERSAL_FINDER = "adaptive";
 void help_genotype(char** argv) {
     cerr << "usage: " << argv[0] << " genotype [options] <graph.vg> alignments.gam > <calls.vcf>" << endl
          << "Compute genotypes from a graph and a collection of reads" << endl
+         << "DEPRECATED: please use vg call instead" << endl
          << endl
          << "options:" << endl
          << "  -j, --json                   output in JSON" << endl
@@ -345,4 +346,4 @@ int main_genotype(int argc, char** argv) {
 }
 
 
-static Subcommand vg_genotype("genotype", "genotype (or type) graphs, GAMS, and VCFs", main_genotype);
+static Subcommand vg_genotype("genotype", "genotype (or type) graphs, GAMS, and VCFs", DEPRECATED, main_genotype);

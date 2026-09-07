@@ -27,14 +27,10 @@ struct GAFInfo {
     gbwt::vector_type forward_path;
     size_t id;
     std::uint32_t min_node, max_node;
-    std::uint32_t first_node;
-    bool first_is_reverse;
 
     GAFInfo(size_t id, size_t nodes) :
         id(id),
-        min_node(std::numeric_limits<std::uint32_t>::max()), max_node(0),
-        first_node(std::numeric_limits<std::uint32_t>::max()),
-        first_is_reverse(false) {
+        min_node(std::numeric_limits<std::uint32_t>::max()), max_node(0) {
 
         // Name, query length, query start, query end;
         std::string nd = std::to_string(nodes);
@@ -49,13 +45,10 @@ struct GAFInfo {
         for (size_t i = 0; i < nodes; i++) {
             std::uint32_t node = rng() % 1000 + 1;
             bool reverse = rng() % 2;
-            this->forward_path.push_back(gbwt::Node::encode(node, reverse));
-            this->min_node = std::min(this->min_node, node);
-            this->max_node = std::max(this->max_node, node);
-            if (i == 0) {
-                this->first_node = node;
-                this->first_is_reverse = reverse;
-            }
+            std::uint32_t gbwt_node = gbwt::Node::encode(node, reverse);
+            this->forward_path.push_back(gbwt_node);
+            this->min_node = std::min(this->min_node, gbwt_node);
+            this->max_node = std::max(this->max_node, gbwt_node);
             this->line += (reverse ? "<" : ">") + std::to_string(node);
         }
         if (is_reverse) {

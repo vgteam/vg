@@ -9,7 +9,7 @@ PATH=../bin:$PATH # for vg
 # FORMAT field shifts every later one, which broke four assertions here that were not
 # testing field order at all -- one of them silently compared BL against a GQ threshold.
 
-plan tests 368
+plan tests 371
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -2303,3 +2303,25 @@ is $(python3 ./mosaic_to_path.py --mosaic fx.mosaic.tsv --gaf fx.paths.gaf --gfa
 
 rm -f fx.gfa fx_sim.gfa fx.gbz fx_sim.gbz fx.gam fx.snarls fx.err fx.mosaic.tsv \
       fx.paths.gaf fx.graph.gfa fx.expand.txt
+# Same case as in 26_deconstruct.t: a gref fragment whose enclosing snarl produces no record, so
+# there is no ancestor in the VCF to take RC/RS/RD from.  vg call reaches it less often than
+# deconstruct does, because it builds traversals from the graph rather than from the embedded
+# paths, so the parent usually has something to report -- here support is given only along the
+# island, which leaves the parent with no alt.  Both tools have to answer with the reference
+# coordinate rather than the record's own gref contig.
+vg paths --compute-gref --min-gref-len 1 -x nesting/gref_island_no_parent_record.gfa -Q REF > island_call.pg
+vg paths -x island_call.pg -X -Q SAMP > island_call.gam
+vg pack -x island_call.pg -g island_call.gam -o island_call.pack
+vg call island_call.pg -k island_call.pack -A -p gref_REF#0#chr1 -p gref_REF#0#chr1_1_alt -p gref_REF#0#chr1_2_alt > island_call.vcf 2>/dev/null
+# CH=1, not 0: this branch takes CH as the greater of the in-VCF ancestor hops and the record's own
+# gref contig level.  Counting only emitted ancestors put a record whose parent produced no line at
+# CH=0 -- indistinguishable from one on the linear reference -- which on a gref-covered chr20 was
+# 29,843 of 41,669 off-reference records and made the documented `bcftools view -i 'INFO/CH==1'`
+# filter select a quarter of what it should.  The island is one coordinate-system step out, and now
+# says so.  LV=0 is unchanged: it is still the level within the record's own contig.
+is "$(grep -v "^#" island_call.vcf | awk '$8 ~ /LV=0/ && $8 ~ /CH=1/ {print $1}')" "chr1_1_alt" "call: the island record is one contig hop out and has no ancestor in the VCF"
+is $(grep -v "^#" island_call.vcf | grep -c "RC=chr1;") 1 "call: a suppressed parent still gives its child a reference coordinate"
+is $(grep -v "^#" island_call.vcf | grep -c "RC=chr1_1_alt") 0 "call: no record names its own gref contig as its reference"
+
+rm -f island_call.pg island_call.gam island_call.pack island_call.vcf
+

@@ -482,12 +482,15 @@ Alignment target_alignment(const PathPositionHandleGraph* graph, const path_hand
 
 /// Returns indexes into an vector-like container of Alignments that correspond to supplementary alignments to the primary
 ///  min_read_coverage      Require the supplementaries and primary to cover this fraction of the read
-///  max_separation         Require the separation or overlap between supplementaries to be at most this many bases
+///  max_separation         Require the separation between supplementaries to be at most this many bases
+///  max_overlap            Require the overlap between supplementaries to be at most this many bases
+///  max_uncovered_end      Require the collection of supplementaries to leave at most this many bases uncovered on each end
 ///  min_score_fraction     Require each supplementary to have this fraction of the primary's score
 ///  min_size               Require each supplementary to align at least this many bases
 template<class AlignmentVector>
-vector<size_t> identify_supplementaries(const AlignmentVector& alignments, double min_read_coverage, size_t max_separation, 
-                                        double min_score_fraction, size_t min_size, size_t primary_idx = 0) {
+vector<size_t> identify_supplementaries(const AlignmentVector& alignments, double min_read_coverage, size_t max_separation,
+                                        size_t max_overlap, size_t max_uncovered_end, double min_score_fraction, size_t min_size, 
+                                        size_t primary_idx = 0) {
 
     assert(min_read_coverage >= 0.0 && min_read_coverage <= 1.0 && min_score_fraction >= 0.0 && min_score_fraction <= 1.0);
 
@@ -502,12 +505,13 @@ vector<size_t> identify_supplementaries(const AlignmentVector& alignments, doubl
 
         // do sparse DP over part of the read to determine which set of intervals achieves the highest read coverage, subject
         // to the constraints
-        auto do_dp = [&](vector<tuple<size_t, size_t, size_t>>& intervals, size_t begin, size_t end) -> vector<size_t> {
+        // the DP assumes that the primary interval is to the left and the end of the sequence is to the right
+        auto do_dp = [&](vector<tuple<int64_t, int64_t, size_t>>& intervals, int64_t begin, int64_t end, bool* success) -> vector<size_t> {
 
             std::sort(intervals.begin(), intervals.end());  
 
             // map from (end index -> (total coverage, final interval))
-            map<size_t, pair<size_t, size_t>> dp;
+            map<int64_t, pair<size_t, size_t>> dp;
             vector<size_t> backpointer(intervals.size(), numeric_limits<size_t>::max());
 
             for (size_t i = 0; i < intervals.size(); ++i) {
@@ -517,7 +521,7 @@ vector<size_t> identify_supplementaries(const AlignmentVector& alignments, doubl
                 // look for the best feasible previous DP entry
                 // TODO: this could have better worst-case guarantees with a key-value RMQ
                 auto max_it = dp.end();
-                for (auto it = dp.lower_bound(get<0>(interval) - max_separation); it != dp.end() && it->first <= get<0>(interval) + max_separation; ++it) {
+                for (auto it = dp.lower_bound(get<0>(interval) - max_separation); it != dp.end() && it->first <= get<0>(interval) + max_overlap; ++it) {
                     if (max_it == dp.end() || max_it->second.first - max<int64_t>(max_it->first - get<0>(interval), 0) < it->second.first) {
                         max_it = it;
                     } 
@@ -548,14 +552,26 @@ vector<size_t> identify_supplementaries(const AlignmentVector& alignments, doubl
 
             // traceback the optimum
             vector<size_t> traceback;
-            auto final_it = dp.lower_bound(max<int64_t>(begin, end - max_separation));
-            if (final_it != dp.end()) {
+            auto final_it = dp.end();
+            auto it = dp.lower_bound(max<int64_t>(begin, end - max_uncovered_end));
+            while (it != dp.end()) {
+                if (final_it == dp.end() || it->second.first >= final_it->second.first) {
+                    final_it = it;
+                }
+                ++it;
+            }
+            if (final_it != dp.end()) { 
                 // there is a feasible solution
                 traceback.emplace_back(final_it->second.second);
                 while (backpointer[traceback.back()] != numeric_limits<size_t>::max()) {
                     traceback.emplace_back(backpointer[traceback.back()]);
                 }
                 reverse(traceback.begin(), traceback.end());
+
+                *success = true;
+            }
+            else {
+                *success = false;
             }
 
             return traceback;
@@ -566,7 +582,7 @@ vector<size_t> identify_supplementaries(const AlignmentVector& alignments, doubl
         if (primary_interval.second - primary_interval.first >= min_size && alignments[primary_idx].score() >= min_score) {
 
             // records of (begin read pos, end read pos, idx of alignment)
-            vector<tuple<size_t, size_t, size_t>> left_side, right_side;
+            vector<tuple<int64_t, int64_t, size_t>> left_side, right_side;
 
             for (size_t i = 0; i < alignments.size(); ++i) {
                 if (i == primary_idx) {
@@ -575,23 +591,31 @@ vector<size_t> identify_supplementaries(const AlignmentVector& alignments, doubl
                 auto interval = aligned_interval(alignments[i]);
                 // filter to alignments that meet the minimum thresholds
                 if (alignments[i].score() >= min_score && interval.second - interval.first >= min_size) {
-                    if (interval.second <= primary_interval.first + max_separation) {
-                        left_side.emplace_back(interval.first, interval.second, i);
+                    if (interval.second <= primary_interval.first + max_overlap) {
+                        // negate the positions so that we can iterate left-to-right in the DP
+                        left_side.emplace_back(-interval.second, -interval.first, i);
                     }
-                    else if (interval.first >= primary_interval.second - max_separation) {
+                    else if (interval.first >= primary_interval.second - max_overlap) {
                         right_side.emplace_back(interval.first, interval.second, i);
                     }
                 }
             }
 
-            // do DP on each side and combine the tracebacks        
+            // do DP on each side and combine the tracebacks 
+
+            bool left_success = false, right_success = false;
             vector<tuple<size_t, size_t, size_t>> full_traceback;
-            for (auto i : do_dp(left_side, 0, primary_interval.first)) {
-                full_traceback.push_back(left_side[i]);
+            // negate the interval of iteration so we can iterate left-to-right
+            for (auto i : do_dp(left_side, -primary_interval.first, 0, &left_success)) {
+                auto& interval = left_side[i];
+                full_traceback.emplace_back(-get<1>(interval), -get<0>(interval), get<2>(interval));
             }
+            // the negated interval is ordered in reverse, flip it back
+            std::reverse(full_traceback.begin(), full_traceback.end());
             full_traceback.emplace_back(primary_interval.first, primary_interval.second, primary_idx);
-            for (auto i : do_dp(right_side, primary_interval.second, seq_size)) {
-                full_traceback.push_back(right_side[i]);
+            for (auto i : do_dp(right_side, primary_interval.second, seq_size, &right_success)) {
+                auto interval = right_side[i];
+                full_traceback.emplace_back(get<0>(interval), get<1>(interval), get<2>(interval));
             }
 
             // compute the total read coverage with sweep line algorithm
@@ -599,6 +623,7 @@ vector<size_t> identify_supplementaries(const AlignmentVector& alignments, doubl
                 // TODO: is this even possible? maybe in some weird cases where the max separation is larger than the min size
                 sort(full_traceback.begin(), full_traceback.end());
             }
+
             size_t total_cov = 0;
             pair<size_t, size_t> curr_interval(0, 0);
             for (const auto& interval : full_traceback) {
@@ -612,11 +637,10 @@ vector<size_t> identify_supplementaries(const AlignmentVector& alignments, doubl
                 }
             }
             total_cov += (curr_interval.second - curr_interval.first);
-            if (aligned_interval(alignments[get<2>(full_traceback.front())]).first <= max_separation &&
-                aligned_interval(alignments[get<2>(full_traceback.back())]).second >= max<int64_t>(seq_size - max_separation, 0) &&
+            if ((left_success || primary_interval.first <= max_uncovered_end) &&
+                (right_success || seq_size - primary_interval.second <= max_uncovered_end) &&
                 total_cov >= min_total_cov) {
                 // the supplementaries and primary jointly cover the entire read, the result of DP is feasible
-                
                 for (auto& interval : full_traceback) {
                     if (get<2>(interval) != primary_idx) {
                         supplementaries.push_back(get<2>(interval));

@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 89
+plan tests 90
 
 vg construct -a -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg x.vg
@@ -197,8 +197,14 @@ rm -rf mapped1.gam mapped1.json mapped2.gam mapped2.json mapped.sync.gam mapped.
 vg giraffe x.fa x.vcf.gz -f small/x.fa_1.fastq > single.gam
 is "$(vg view -aj single.gam | jq -c 'select((.fragment_next | not) and (.fragment_prev | not))' | wc -l | sed 's/^[[:space:]]*//')" "1000" "unpaired reads lack cross-references"
 
-vg giraffe x.fa x.vcf.gz -f small/x.fa_1.fastq -f small/x.fa_1.fastq --fragment-mean 300 --fragment-stdev 100 > paired.gam
+vg giraffe x.fa x.vcf.gz -f small/x.fa_1.fastq -f small/x.fa_2.fastq --fragment-mean 300 --fragment-stdev 100 > paired.gam
 is "$(vg view -aj paired.gam | jq -c 'select((.fragment_next | not) and (.fragment_prev | not))' | wc -l | sed 's/^[[:space:]]*//')" "0" "paired reads have cross-references"
+vg surject --interleaved -x x.giraffe.gbz --bam-output paired.gam -f 900 > surject.bam
+vg giraffe x.fa x.vcf.gz -f small/x.fa_1.fastq -f small/x.fa_2.fastq --fragment-mean 300 --fragment-stdev 100 --output-format bam > direct.bam
+samtools view direct.bam | cut -f2 | sort | uniq -c > direct.flags
+samtools view surject.bam | cut -f2 | sort | uniq -c > surject.flags
+diff direct.flags surject.flags
+is $? 0 "SAM flags are the same between giraffe and surject"
 
 # Test paired surjected mapping
 vg giraffe x.fa x.vcf.gz --show-work -iG <(vg view -a small/x-s13241-n1-p500-v300.gam | sed 's%_1%/1%' | sed 's%_2%/2%' | vg view -JaG - ) --output-format SAM >surjected.sam
@@ -216,7 +222,8 @@ is "$(cat surjected.sam | grep -v '^@' | cut -f 1 | sort | uniq | wc -l | sed 's
 is "$(cat surjected.sam | grep -v '^@' | cut -f 7)" "$(printf '*\n*')" "surjection of unpaired reads to SAM produces absent partner contigs"
 is "$(cat surjected.sam | grep -v '^@' | sort -k4 | cut -f 2)" "$(printf '0\n16')" "surjection of unpaired reads to SAM produces correct flags"
 
-rm -f x.vg x.gbwt x.xg x.min x.shortread.withzip.min x.shortread.zipcodes x.dist x.fa x.fa.fai x.vcf.gz x.vcf.gz.tbi single.gam paired.gam surjected.sam
+rm -f x.vg x.gbwt x.xg x.min x.shortread.withzip.min x.shortread.zipcodes x.dist x.fa x.fa.fai x.vcf.gz x.vcf.gz.tbi 
+rm -f single.gam paired.gam surjected.sam surject.bam direct.bam direct.flags surject.flags
 rm -f x.giraffe.gbz
 
 rm -f xy.vg xy.gbwt xy.xg xy.shortread.zipcodes xy.shortread.withzip.min xy.dist xy.fa xy.fa.fai xy.vcf.gz xy.vcf.gz.tbi

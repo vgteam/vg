@@ -1120,8 +1120,15 @@ bool Deconstructor::deconstruct_site(const handle_t& snarl_start, const handle_t
                 cerr << "Warning [vg deconstruct]: Skipping variant at " << v.sequenceName << ":" << v.position
                      << " with ID=" << v.id << " because its line length of " << ss.str().length() << " exceeds vg's limit of "
                      << VCFOutputCaller::max_vcf_line_length << endl;
-                return false;            
+                return false;
             }
+        } else if (include_nested) {
+            // No variant here, but a nested record may still need this site's reference interval
+            // for its RC/RS/RD: we are the only thing standing between it and the reference, and
+            // once we return there is nothing left that knows where this snarl sits.  Keeping the
+            // whole record would be far too expensive, so keep just the interval.
+            suppressed_ref_info[omp_get_thread_num()][v.id] =
+                {v.sequenceName, static_cast<size_t>(v.position), v.ref.length()};
         }
     }
     return true;
@@ -1321,12 +1328,7 @@ string Deconstructor::get_vcf_header() {
     stream << "##INFO=<ID=NS,Number=1,Type=Integer,Description=\"Number of samples with data\">" << endl;
     stream << "##INFO=<ID=AN,Number=1,Type=Integer,Description=\"Total number of alleles in called genotypes\">" << endl;
     if (include_nested) {
-        stream << "##INFO=<ID=LV,Number=1,Type=Integer,Description=\"Level in the snarl tree counting only ancestors whose record is on this record's own reference contig (0=top level for this contig)\">" << endl;
-        stream << "##INFO=<ID=CH,Number=1,Type=Integer,Description=\"Number of ancestors in the VCF whose record is on a different reference contig than the one below it, ie nesting steps into non-reference sequence\">" << endl;
-        stream << "##INFO=<ID=PS,Number=1,Type=String,Description=\"ID of variant corresponding to parent snarl\">" << endl;
-        stream << "##INFO=<ID=RC,Number=1,Type=String,Description=\"Reference contig of top-level containing site\">" << endl;
-        stream << "##INFO=<ID=RS,Number=1,Type=Integer,Description=\"Reference start position of top-level containing site\">" << endl;
-        stream << "##INFO=<ID=RD,Number=1,Type=Integer,Description=\"Reference end position of top-level containing site\">" << endl;
+        stream << nesting_info_headers();
     }
     if (untangle_allele_traversals) {
         stream << "##INFO=<ID=UT,Number=R,Type=String,Description=\"Untangled allele Traversal with reference node start and end positions, format: [>|<][id]_[start|.]_[end|.], with '.' indicating non-reference nodes.\">" << endl;

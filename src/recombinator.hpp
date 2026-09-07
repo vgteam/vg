@@ -533,6 +533,9 @@ public:
         /// Number of reference paths included.
         size_t ref_paths = 0;
 
+        /// Number of paths copied verbatim from excluded chains.
+        size_t copied_paths = 0;
+
         /// Number of kmers selected.
         size_t kmers = 0;
 
@@ -596,6 +599,55 @@ public:
 
         /// Samples whose haplotypes shouldn't be used, even if they score well.
         unordered_set<std::string> banned_samples;
+
+        /// Kmer scoring model used for a chain.
+        enum scoring_model_t {
+            /// Standard model: absent, heterozygous, present, and frequent bands
+            /// are scored according to the diploid/haploid coverage expectation.
+            standard_scoring,
+            /// High-coverage model. Kmers in the frequent category (count above
+            /// the homozygous threshold) contribute the present score, while all
+            /// other kmers contribute the absent score. This is intended for
+            /// contigs such as chrM, where the true signal is in the frequent
+            /// component and the haploid/diploid peaks are contamination (e.g.
+            /// NuMTs or recurrent errors).
+            high_coverage_scoring,
+            /// Half-coverage model for heterogametic allosomes. The single true
+            /// copy sits at ~cov/2, which the standard model labels heterozygous,
+            /// so that band is rewarded as present. There is no real heterozygous
+            /// component outside the PAR; the homozygous (~cov) band is paralog /
+            /// contamination in the body and non-discriminative backbone in the
+            /// PAR, so it is treated as uninformative (like the frequent band).
+            half_coverage_scoring
+        };
+
+        /// Scoring model for the chain currently being processed. Set per chain
+        /// from `high_coverage_chains` / `half_coverage_chains` before scoring.
+        /// Diploid sampling is not used with the non-standard models.
+        scoring_model_t scoring_model = standard_scoring;
+
+        /// Top-level chains (by offset) to sample using the high-coverage model.
+        std::unordered_set<size_t> high_coverage_chains;
+
+        /// Number of haplotypes to generate for high-coverage chains.
+        size_t high_coverage_num_haplotypes = NUM_HAPLOTYPES;
+
+        /// Top-level chains (by offset) to sample using the half-coverage model.
+        std::unordered_set<size_t> half_coverage_chains;
+
+        /// Number of haplotypes to generate for half-coverage chains.
+        size_t half_coverage_num_haplotypes = 2;
+
+        /// Top-level chains (by offset) to copy through verbatim instead of
+        /// personalizing. The reference/generic path and all haplotypes in the
+        /// chain are preserved.
+        std::unordered_set<size_t> excluded_chains;
+
+        /// Contig names whose origin (first) fragment of every generated
+        /// haplotype should be doubled, creating a self-loop that wraps the end
+        /// of the sequence back onto its start. Intended for circular contigs
+        /// such as chrM. Matched against the top-level chain contig name.
+        std::unordered_set<std::string> wrap_contigs;
 
         // TODO: Should we use extra_fragments?
         /// Preset parameters for common use cases.
@@ -666,6 +718,11 @@ private:
         const hash_map<Haplotypes::Subchain::kmer_type, size_t>& kmer_counts,
         gbwt::GBWTBuilder& builder, gbwtgraph::MetadataBuilder& metadata,
         const Parameters& parameters, double coverage) const;
+
+    // Copy the given chain through verbatim, preserving the reference/generic
+    // path and all haplotypes without personalization.
+    Statistics copy_chain(const Haplotypes::TopLevelChain& chain,
+        gbwt::GBWTBuilder& builder, gbwtgraph::MetadataBuilder& metadata) const;
 };
 
 //------------------------------------------------------------------------------

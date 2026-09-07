@@ -18,6 +18,7 @@
 #include <thread>
 #include <vector>
 #include <unordered_map>
+#include <unordered_set>
 
 #include <getopt.h>
 #include <omp.h>
@@ -111,6 +112,10 @@ struct HaplotypesConfig {
     HaplotypePartitioner::Parameters partitioner_parameters;
     Recombinator::Parameters recombinator_parameters;
     gbwtgraph::sample_name_set reference_samples; // Overrides those specified in the graph.
+    std::vector<std::string> high_coverage_contigs; // Contig/path names to sample as high-coverage.
+    std::vector<std::string> half_coverage_contigs; // Contig/path names to sample as half-coverage.
+    std::vector<std::string> excluded_contigs; // Contig/path names to exclude from personalization.
+    std::vector<std::string> wrap_contigs; // Contig/path names whose origin fragment to double (circular wrap).
 
     // For subchain statistics.
     std::string ref_sample;
@@ -254,6 +259,21 @@ void help_haplotypes(char** argv, bool developer_options) {
     std::cerr << "      --include-reference      include named and reference paths in the output" << std::endl;
     std::cerr << "      --set-reference NAME     use sample X as a reference sample (may repeat)" << std::endl;
     std::cerr << "      --ban-sample NAME        don't use NAME haplotypes, no matter the score" << std::endl;
+    std::cerr << "      --high-cov-contig NAME   sample contig/path NAME with the high-coverage" << std::endl;
+    std::cerr << "                               model: frequent kmers are the signal, no diploid" << std::endl;
+    std::cerr << "                               sampling (may repeat)" << std::endl;
+    std::cerr << "      --high-cov-num-haps N    number of haplotypes for high-coverage contigs "
+                                             << "[" << haplotypes_defaults::n() << "]" << std::endl;
+    std::cerr << "      --half-cov-contig NAME   sample contig/path NAME with the half-coverage" << std::endl;
+    std::cerr << "                               model: for heterogametic allosomes, no diploid" << std::endl;
+    std::cerr << "                               sampling (may repeat)" << std::endl;
+    std::cerr << "      --half-cov-num-haps N    number of haplotypes for half-coverage contigs" << std::endl;
+    std::cerr << "                               [2]" << std::endl;
+    std::cerr << "      --exclude-contig NAME    copy the chain for contig/path NAME through" << std::endl;
+    std::cerr << "                               verbatim instead of personalizing it (may repeat)" << std::endl;
+    std::cerr << "      --wrap NAME              double the origin fragment of each haplotype on" << std::endl;
+    std::cerr << "                               contig/path NAME so its end wraps onto its start" << std::endl;
+    std::cerr << "                               (for circular contigs such as chrM; may repeat)" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Other options:" << std::endl;
     std::cerr << "  -v, --verbosity N            verbosity level [0]" << std::endl;
@@ -291,6 +311,12 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
     constexpr int OPT_INCLUDE_REFERENCE = 1310;
     constexpr int OPT_SET_REFERENCE = 1311;
     constexpr int OPT_BAN_SAMPLE = 1312;
+    constexpr int OPT_HIGH_COVERAGE_CONTIG = 1313;
+    constexpr int OPT_HIGH_COVERAGE_NUM_HAPLOTYPES = 1314;
+    constexpr int OPT_HALF_COVERAGE_CONTIG = 1315;
+    constexpr int OPT_HALF_COVERAGE_NUM_HAPLOTYPES = 1316;
+    constexpr int OPT_EXCLUDE_CONTIG = 1317;
+    constexpr int OPT_WRAP = 1318;
     constexpr int OPT_VALIDATE = 1400;
     constexpr int OPT_STATISTICS = 1500;
     constexpr int OPT_DENSITY = 1600;
@@ -320,6 +346,12 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
         { "include-reference", no_argument, 0, OPT_INCLUDE_REFERENCE },
         { "set-reference", required_argument, 0, OPT_SET_REFERENCE },
         { "ban-sample", required_argument, 0, OPT_BAN_SAMPLE },
+        { "high-cov-contig", required_argument, 0, OPT_HIGH_COVERAGE_CONTIG },
+        { "high-cov-num-haps", required_argument, 0, OPT_HIGH_COVERAGE_NUM_HAPLOTYPES },
+        { "half-cov-contig", required_argument, 0, OPT_HALF_COVERAGE_CONTIG },
+        { "half-cov-num-haps", required_argument, 0, OPT_HALF_COVERAGE_NUM_HAPLOTYPES },
+        { "exclude-contig", required_argument, 0, OPT_EXCLUDE_CONTIG },
+        { "wrap", required_argument, 0, OPT_WRAP },
         { "verbosity", required_argument, 0, 'v' },
         { "threads", required_argument, 0, 't' },
         { "validate", no_argument, 0,  OPT_VALIDATE },
@@ -450,6 +482,30 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
             break;
         case OPT_BAN_SAMPLE:
             this->recombinator_parameters.banned_samples.insert(optarg);
+            break;
+        case OPT_HIGH_COVERAGE_CONTIG:
+            this->high_coverage_contigs.push_back(optarg);
+            break;
+        case OPT_HIGH_COVERAGE_NUM_HAPLOTYPES:
+            this->recombinator_parameters.high_coverage_num_haplotypes = parse<size_t>(optarg);
+            if (this->recombinator_parameters.high_coverage_num_haplotypes == 0) {
+                this->logger.error() << "number of high-coverage haplotypes cannot be 0" << std::endl;
+            }
+            break;
+        case OPT_HALF_COVERAGE_CONTIG:
+            this->half_coverage_contigs.push_back(optarg);
+            break;
+        case OPT_HALF_COVERAGE_NUM_HAPLOTYPES:
+            this->recombinator_parameters.half_coverage_num_haplotypes = parse<size_t>(optarg);
+            if (this->recombinator_parameters.half_coverage_num_haplotypes == 0) {
+                this->logger.error() << "number of half-coverage haplotypes cannot be 0" << std::endl;
+            }
+            break;
+        case OPT_EXCLUDE_CONTIG:
+            this->excluded_contigs.push_back(optarg);
+            break;
+        case OPT_WRAP:
+            this->wrap_contigs.push_back(optarg);
             break;
 
         case 'v':
@@ -645,12 +701,44 @@ size_t threads_to_jobs(size_t threads) {
 void validate_subgraph(const Logger& logger, const gbwtgraph::GBWTGraph& graph, 
                        const gbwtgraph::GBWTGraph& subgraph, HaplotypePartitioner::Verbosity verbosity);
 
+// Resolves each contig/path name to the offset of the top-level chain it belongs to.
+// Accepts a plain contig name (matched against chain contig names) or a PanSN-style
+// path name (validated against the graph metadata). Exits with an error if a name
+// cannot be resolved to exactly one chain.
+std::unordered_set<size_t> resolve_chains_by_name(const gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes,
+                                                  const std::vector<std::string>& names, const Logger& logger);
+
 void sample_haplotypes(const gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes, const HaplotypesConfig& config) {
     omp_set_num_threads(threads_to_jobs(config.threads));
     Recombinator recombinator(gbz, haplotypes, config.verbosity);
+
+    // Resolve any high-coverage / half-coverage / excluded contigs/paths to chain offsets.
+    Recombinator::Parameters parameters = config.recombinator_parameters;
+    if (!config.high_coverage_contigs.empty()) {
+        parameters.high_coverage_chains = resolve_chains_by_name(gbz, haplotypes, config.high_coverage_contigs, config.logger);
+    }
+    if (!config.half_coverage_contigs.empty()) {
+        parameters.half_coverage_chains = resolve_chains_by_name(gbz, haplotypes, config.half_coverage_contigs, config.logger);
+    }
+    if (!config.excluded_contigs.empty()) {
+        parameters.excluded_chains = resolve_chains_by_name(gbz, haplotypes, config.excluded_contigs, config.logger);
+    }
+    if (!config.wrap_contigs.empty()) {
+        // Resolve wrap names to chains for validation and PanSN handling, then
+        // record the chain contig names, which is what the recombinator matches.
+        std::unordered_set<size_t> wrap_chains = resolve_chains_by_name(gbz, haplotypes, config.wrap_contigs, config.logger);
+        for (size_t chain_id : wrap_chains) {
+            if (parameters.excluded_chains.find(chain_id) != parameters.excluded_chains.end()) {
+                config.logger.error() << "contig " << haplotypes.chains[chain_id].contig_name
+                                      << " cannot be both wrapped and excluded" << std::endl;
+            }
+            parameters.wrap_contigs.insert(haplotypes.chains[chain_id].contig_name);
+        }
+    }
+
     gbwt::GBWT merged;
     try {
-        merged = recombinator.generate_haplotypes(config.kmer_input, config.recombinator_parameters);
+        merged = recombinator.generate_haplotypes(config.kmer_input, parameters);
     } catch (const std::runtime_error& e) {
         config.logger.error() << e.what() << std::endl;
     }
@@ -830,6 +918,80 @@ gbwt::size_type path_for_sample_contig(
                        << sample_name << ", contig " << contig_name << std::endl;
     }
     return paths.front();
+}
+
+// Returns the offset of the unique top-level chain that the given path crosses,
+// or haplotypes.components() if the path is not in exactly one chain.
+size_t chain_for_path(const gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes, gbwt::size_type path_id) {
+    size_t result = haplotypes.components();
+    for (size_t chain_id = 0; chain_id < haplotypes.components(); chain_id++) {
+        if (seq_for_chain(gbz, haplotypes, path_id, chain_id) != gbwt::invalid_sequence()) {
+            if (result != haplotypes.components()) {
+                return haplotypes.components(); // Path is in more than one chain.
+            }
+            result = chain_id;
+        }
+    }
+    return result;
+}
+
+std::unordered_set<size_t> resolve_chains_by_name(const gbwtgraph::GBZ& gbz, const Haplotypes& haplotypes,
+                                                  const std::vector<std::string>& names, const Logger& logger) {
+    // Map each canonical contig name stored in the top-level chains to the
+    // chains carrying it, so that plain contig names resolve in one lookup.
+    std::unordered_map<std::string, std::vector<size_t>> chains_by_contig;
+    for (size_t chain_id = 0; chain_id < haplotypes.components(); chain_id++) {
+        chains_by_contig[haplotypes.chains[chain_id].contig_name].push_back(chain_id);
+    }
+
+    std::unordered_set<size_t> result;
+    for (const std::string& name : names) {
+        PathSense sense;
+        std::string sample_name, locus_name;
+        size_t haplotype, phase_block;
+        handlegraph::subrange_t subrange;
+        PathMetadata::parse_path_name(name, sense, sample_name, locus_name, haplotype, phase_block, subrange);
+
+        if (sample_name == PathMetadata::NO_SAMPLE_NAME) {
+            // Plain contig name: match against chain contig names.
+            auto iter = chains_by_contig.find(locus_name);
+            size_t matches = (iter == chains_by_contig.end() ? 0 : iter->second.size());
+            if (matches != 1) {
+                logger.error() << "found " << matches << " chains for contig " << name << std::endl;
+            }
+            result.insert(iter->second.front());
+        } else {
+            // PanSN-style name: validate the full path and its chain.
+            gbwt::size_type sample_id = gbz.index.metadata.sample(sample_name);
+            if (sample_id >= gbz.index.metadata.samples()) {
+                logger.error() << "sample " << sample_name << " not found (from " << name << ")" << std::endl;
+            }
+            gbwt::size_type contig_id = gbz.index.metadata.contig(locus_name);
+            if (contig_id >= gbz.index.metadata.contigs()) {
+                logger.error() << "contig " << locus_name << " not found (from " << name << ")" << std::endl;
+            }
+            std::vector<gbwt::size_type> matching;
+            for (gbwt::size_type path_id : gbz.index.metadata.findPaths(sample_id, contig_id)) {
+                if (haplotype == PathMetadata::NO_HAPLOTYPE || gbz.index.metadata.path(path_id).phase == haplotype) {
+                    matching.push_back(path_id);
+                }
+            }
+            if (matching.size() != 1) {
+                logger.error() << "found " << matching.size() << " paths for " << name << std::endl;
+            }
+            gbwt::size_type path_id = matching.front();
+            size_t chain_id = chain_for_path(gbz, haplotypes, path_id);
+            if (chain_id >= haplotypes.components()) {
+                logger.error() << "could not map " << name << " to a single top-level chain" << std::endl;
+            }
+            if (haplotypes.chains[chain_id].contig_name != locus_name) {
+                logger.error() << "contig " << locus_name << " does not match chain contig name "
+                               << haplotypes.chains[chain_id].contig_name << " (from " << name << ")" << std::endl;
+            }
+            result.insert(chain_id);
+        }
+    }
+    return result;
 }
 
 //----------------------------------------------------------------------------

@@ -183,9 +183,9 @@ void save_gbz(const gbwtgraph::GBZ& gbz, const std::string& filename, bool show_
     }
 }
 
-void save_gbz_v1(const gbwtgraph::GBZ& gbz, const std::string& filename, bool show_progress) {
+void save_gbz_version(const gbwtgraph::GBZ& gbz, const std::string& filename, std::uint32_t version, bool show_progress) {
     if (show_progress) {
-        std::cerr << "Saving GBZ (version 1) to " << filename << std::endl;
+        std::cerr << "Saving GBZ (version " << version << ") to " << filename << std::endl;
     }
     try {
         std::ofstream out(filename, std::ios_base::binary);
@@ -193,10 +193,10 @@ void save_gbz_v1(const gbwtgraph::GBZ& gbz, const std::string& filename, bool sh
             throw sdsl::simple_sds::CannotOpenFile(filename, true);
         }
         out.exceptions(std::ofstream::badbit | std::ofstream::failbit);
-        gbz.simple_sds_serialize_v1(out);
+        gbz.simple_sds_serialize_version(out, version);
         out.close();
     } catch (const std::runtime_error& e) {
-        std::cerr << "error: [save_gbz_v1()] cannot save GBZ (version 1) to " << filename << ": " << e.what() << std::endl;
+        std::cerr << "error: [save_gbz_version()] cannot save GBZ (version " << version << ") to " << filename << ": " << e.what() << std::endl;
         std::exit(EXIT_FAILURE);
     }
 }
