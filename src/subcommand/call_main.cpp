@@ -83,9 +83,10 @@ void help_call(char** argv) {
          << "  -B, --bias-mode           use old ratio-based genotyping algorithm" << endl
          << "                            as opposed to probablistic model" << endl
          << "read-likelihood calling options (all require --read-likelihood):" << endl
-         << "  the model, every term and every parameter below: doc/read-likelihood-genotyping.md" << endl
+         << "  every term and parameter below: doc/read-likelihood-genotyping.md" << endl
          << "      --read-likelihood     genotype from an explicit P(reads|genotype) model" << endl
-         << "                            instead of aggregate depth (needs one read source below)" << endl
+         << "                            instead of aggregate depth (needs one read source" << endl
+         << "                            below)" << endl
          << "" << endl
          << "  reads in (one source required):" << endl
          << "      --gam FILE            read alignments for --read-likelihood" << endl
@@ -104,20 +105,22 @@ void help_call(char** argv) {
          << "  allele enumeration:" << endl
          << "      --enumerate-support   enumerate candidate alleles from read support rather" << endl
          << "                            than from the GBZ haplotype panel. The panel is the" << endl
-         << "                            default here, as -z gives elsewhere: it measured better" << endl
-         << "                            on every small-variant class tested and needs no pack" << endl
-         << "                            file. This flag opts out, and then -k/--pack is needed" << endl
-         << "                            again. Worth it where the sample's variation is poorly" << endl
-         << "                            represented in the panel, since panel enumeration can" << endl
-         << "                            never spell an allele no haplotype carries. A panel of" << endl
-         << "                            under 2 haplotypes falls back to support on its own" << endl
+         << "                            default here, as -z gives elsewhere: it measured" << endl
+         << "                            better on every small-variant class tested and needs" << endl
+         << "                            no pack file. This flag opts out, and then -k/--pack" << endl
+         << "                            is needed again. Worth it where the sample's" << endl
+         << "                            variation is poorly represented in the panel, since" << endl
+         << "                            panel enumeration can never spell an allele no" << endl
+         << "                            haplotype carries. A panel of under 2 haplotypes" << endl
+         << "                            falls back to support on its own" << endl
          << "" << endl
          << "  model terms:" << endl
-         << "      --depth-term W        add W * ln P(N reads | genotype) to the likelihood, so" << endl
-         << "                            a genotype is also judged on whether it predicts the" << endl
-         << "                            number of reads seen. The rate is measured over the read" << endl
-         << "                            source's own fetch window, so it costs no extra I/O." << endl
-         << "                            0 disables it; DR is emitted either way [0.1]" << endl
+         << "      --depth-term W        add W * ln P(N reads | genotype) to the likelihood," << endl
+         << "                            so a genotype is also judged on whether it predicts" << endl
+         << "                            the number of reads seen. The rate is measured over" << endl
+         << "                            the read source's own fetch window, so it costs no" << endl
+         << "                            extra I/O. 0 disables it; DR is emitted either way" << endl
+         << "                            [0.1]" << endl
          << "      --depth-count-raw     count every read as one read of depth, instead of as" << endl
          << "                            1 - e_r, the probability it came from this locus" << endl
          << "      --no-mismap-term      disable the MAPQ-derived mismapping term" << endl
@@ -125,113 +128,130 @@ void help_call(char** argv) {
          << "                            probability. Governs how much a read's placement" << endl
          << "                            ambiguity counts, so it matters most on graphs with" << endl
          << "                            many similar haplotypes [0.7]" << endl
-         << "      --mismap-min P        lower clamp: floor on how unreliable any read may be," << endl
-         << "                            capping one read's veto at ln(P). Covers local" << endl
-         << "                            misalignment, which MAPQ does not measure. Mainly" << endl
-         << "                            an indel knob; interacts with --mismap-max [0.02]" << endl
-         << "      --preset NAME         a fitted parameter set for one read type. `ont`:" << endl
-         << "                            --gap-open 1 --gap-extend 1 --mismap-min 0.05, which on" << endl
-         << "                            43x ONT chr20 moves indel GT F1 0.749 -> 0.816 and ALL" << endl
-         << "                            0.926 -> 0.945 at no cost to SNVs, reproducing at +0.061" << endl
-         << "                            on a held-out contig and +0.069 at matched 30x coverage." << endl
-         << "                            An explicit flag overrides the preset either side of it" << endl
+         << "      --mismap-min P        lower clamp: floor on how unreliable any read may" << endl
+         << "                            be, capping one read's veto at ln(P). Covers local" << endl
+         << "                            misalignment, which MAPQ does not measure. Mainly an" << endl
+         << "                            indel knob; interacts with --mismap-max [0.02]" << endl
+         << "      --preset NAME         a fitted parameter set for one read type." << endl
+         << "                            `ont`: --gap-open 1 --gap-extend 1 --mismap-min" << endl
+         << "                            0.05, which on 43x ONT chr20 moves indel GT F1 0.749" << endl
+         << "                            -> 0.816 and ALL 0.926 -> 0.945 at no cost to SNVs," << endl
+         << "                            reproducing at +0.061 on a held-out contig and" << endl
+         << "                            +0.069 at matched 30x coverage. An explicit flag" << endl
+         << "                            overrides the preset either side of it" << endl
          << "      --gap-open N          read scorer's gap-open penalty [6]" << endl
-         << "      --gap-extend N        read scorer's gap-extension penalty [1]. Together these" << endl
-         << "                            set how hard a read votes against an allele that differs" << endl
-         << "                            from it by an indel, and they are the one scoring" << endl
-         << "                            primitive base quality never softens. At 6/1 a 1 bp" << endl
-         << "                            difference is a saturated vote, which suits a read whose" << endl
-         << "                            errors are substitutions and not a read whose modal error" << endl
-         << "                            is a single-base indel" << endl
-         << "      --flat-mixture        weight each haplotype of a genotype equally (1/ploidy)" << endl
-         << "                            instead of by the reads it is expected to contribute." << endl
-         << "                            The flat weight is wrong wherever the alleles differ" << endl
-         << "                            in length: it loses large heterozygous deletions and" << endl
-         << "                            mis-genotypes large heterozygous insertions. Restores" << endl
-         << "                            the pre-correction model exactly" << endl
+         << "      --gap-extend N        read scorer's gap-extension penalty [1]. Together" << endl
+         << "                            these set how hard a read votes against an allele" << endl
+         << "                            that differs from it by an indel, and they are the" << endl
+         << "                            one scoring primitive base quality never softens. At" << endl
+         << "                            6/1 a 1 bp difference is a saturated vote, which" << endl
+         << "                            suits a read whose errors are substitutions and not" << endl
+         << "                            a read whose modal error is a single-base indel" << endl
+         << "      --flat-mixture        weight each haplotype of a genotype equally" << endl
+         << "                            (1/ploidy) instead of by the reads it is expected to" << endl
+         << "                            contribute. The flat weight is wrong wherever the" << endl
+         << "                            alleles differ in length: it loses large" << endl
+         << "                            heterozygous deletions and mis-genotypes large" << endl
+         << "                            heterozygous insertions. Restores the pre-correction" << endl
+         << "                            model exactly" << endl
          << "" << endl
-         << "  linkage between sites (needs panel enumeration, so off under --enumerate-support):" << endl
-         << "      --linkage-weight W    re-decide genotypes with a Li-Stephens model over the" << endl
-         << "                            GBWT haplotypes, so consecutive calls are judged against" << endl
-         << "                            combinations the panel carries. Declines quietly where" << endl
-         << "                            enumeration is absent, unless asked for explicitly. 0 is" << endl
-         << "                            off and reproduces the per-site caller exactly. Tuned on" << endl
-         << "                            a 34-haplotype panel; roughly neutral on 4 [2]" << endl
+         << "  linkage between sites (needs panel enumeration, so off" << endl
+         << "  under --enumerate-support):" << endl
+         << "      --linkage-weight W    re-decide genotypes with a Li-Stephens model over" << endl
+         << "                            the GBWT haplotypes, so consecutive calls are judged" << endl
+         << "                            against combinations the panel carries. Declines" << endl
+         << "                            quietly where enumeration is absent, unless asked" << endl
+         << "                            for explicitly. 0 is off and reproduces the per-site" << endl
+         << "                            caller exactly. Tuned on a 34-haplotype panel;" << endl
+         << "                            roughly neutral on 4 [2]" << endl
          << "      --linkage-scale N     distance scale of the linkage decay, in bp [10000]" << endl
-         << "      --mosaic-break-unexplained  break the path where the panel cannot explain a" << endl
+         << "      --mosaic-break-unexplained" << endl
+         << "                            break the path where the panel cannot explain a" << endl
          << "                            stretch, instead of carrying the flanking haplotype" << endl
          << "                            through it. Connecting is the default and is rare" << endl
          << "      --no-mosaic-nested    merge haplotype switches that happen inside a nested" << endl
-         << "                            chain into the enclosing run: fewer switches, still one" << endl
-         << "                            contiguous walk, but the parent's route through the child" << endl
-         << "      --no-mosaic-patch-gaps  leave a gap where no panel haplotype can be carried" << endl
+         << "                            chain into the enclosing run: fewer switches, still" << endl
+         << "                            one contiguous walk, but the parent's route through" << endl
+         << "                            the child" << endl
+         << "      --no-mosaic-patch-gaps" << endl
+         << "                            leave a gap where no panel haplotype can be carried" << endl
          << "                            across it, instead of filling it with the reference." << endl
-         << "                            Patching is on by default and marked `ref` in the file" << endl
+         << "                            Patching is on by default and marked `ref` in the" << endl
+         << "                            file" << endl
          << "      --anchors-out FILE    write pangenome-guided assembly anchors to FILE. An" << endl
-         << "                            anchor is a zero-length pin at a snarl boundary, holding" << endl
-         << "                            the reads that cross it partitioned by which called" << endl
-         << "                            allele they fit. Implies --read-likelihood" << endl
-         << "      --anchors-end-pin-min-new N  emit the end pin only where it holds at least N" << endl
-         << "                            reads the start pin does not. Both pins carry the SAME" << endl
-         << "                            partition, so where their read sets agree the two are" << endl
-         << "                            joined by all the same reads and the end pin can offer no" << endl
-         << "                            linkage the start pin does not [0, always emit it]" << endl
+         << "                            anchor is a zero-length pin at a snarl boundary," << endl
+         << "                            holding the reads that cross it partitioned by which" << endl
+         << "                            called allele they fit. Implies --read-likelihood" << endl
+         << "      --anchors-end-pin-min-new N" << endl
+         << "                            emit the end pin only where it holds at least N" << endl
+         << "                            reads the start pin does not. Both pins carry the" << endl
+         << "                            SAME partition, so where their read sets agree the" << endl
+         << "                            two are joined by all the same reads and the end pin" << endl
+         << "                            can offer no linkage the start pin does not [0," << endl
+         << "                            always emit it]" << endl
          << "      --anchors-het-only    only heterozygous sites. By default homozygous and" << endl
-         << "                            haploid ones are emitted too: they carry no haplotype" << endl
-         << "                            information, but an anchor graph is built out of" << endl
-         << "                            contiguity as much as out of phasing" << endl
+         << "                            haploid ones are emitted too: they carry no" << endl
+         << "                            haplotype information, but an anchor graph is built" << endl
+         << "                            out of contiguity as much as out of phasing" << endl
          << "      --anchors-leaf-only   only leaf snarls [every genotyped site]" << endl
          << "      --anchors-min-reads N minimum reads per anchor [2]" << endl
          << "      --anchors-min-gqn F   minimum site GQN for its partition to be trusted [0]" << endl
-         << "      --anchors-min-read-score F  minimum per-read assignment phred. 3 is the" << endl
-         << "                            measured knee -- ~2 points of purity for ~9% of reads --" << endl
-         << "                            but 0 by default, since a read with no MAPQ cannot clear" << endl
-         << "                            any positive threshold. Bounded" << endl
-         << "                            above by --mismap-min: at 0.02 a perfectly" << endl
-         << "                            discriminating read on a balanced het scores 14, not 60 [0]" << endl
-         << "      --anchors-keep-off-call  keep reads whose best-fitting allele is not a called" << endl
-         << "                            one. Off by default: for assembly anchors purity beats" << endl
-         << "                            yield, and such a read fits neither called allele" << endl
+         << "      --anchors-min-read-score F" << endl
+         << "                            minimum per-read assignment phred. 3 is the measured" << endl
+         << "                            knee -- ~2 points of purity for ~9% of reads -- but" << endl
+         << "                            0 by default, since a read with no MAPQ cannot clear" << endl
+         << "                            any positive threshold. Bounded above" << endl
+         << "                            by --mismap-min: at 0.02 a perfectly discriminating" << endl
+         << "                            read on a balanced het scores 14, not 60 [0]" << endl
+         << "      --anchors-keep-off-call" << endl
+         << "                            keep reads whose best-fitting allele is not a called" << endl
+         << "                            one. Off by default: for assembly anchors purity" << endl
+         << "                            beats yield, and such a read fits neither called" << endl
+         << "                            allele" << endl
          << "      --mosaic-out FILE     write the inferred genome as a mosaic of panel" << endl
-         << "                            haplotypes: one line per maximal run of one strand on" << endl
-         << "                            one haplotype, anchored on node IDs so it is read back" << endl
-         << "                            against the graph rather than a reference. Only switch" << endl
-         << "                            points are stored, so it is smaller than explicit paths" << endl
-         << "                            by about two orders of magnitude. Implies --phased" << endl
-         << "      --no-phased           emit unphased genotypes (0/1) and no FORMAT/PS. Phasing is" << endl
-         << "                            on by default wherever the linkage model runs" << endl
-         << "      --phased              emit phased genotypes (0|1) and a FORMAT/PS phase set," << endl
-         << "                            from the linkage layer's most probable path of haplotype" << endl
-         << "                            pairs. Phase comes from the panel, not from reads" << endl
-         << "                            spanning sites, so a phase set is a whole chain rather" << endl
-         << "                            than a read-length block. Constrained to the genotypes" << endl
-         << "                            actually emitted, so GT stays a permutation of the" << endl
-         << "                            unphased call. Needs --linkage-weight above 0" << endl
+         << "                            haplotypes: one line per maximal run of one strand" << endl
+         << "                            on one haplotype, anchored on node IDs so it is read" << endl
+         << "                            back against the graph rather than a reference. Only" << endl
+         << "                            switch points are stored, so it is smaller than" << endl
+         << "                            explicit paths by about two orders of magnitude." << endl
+         << "                            Implies --phased" << endl
+         << "      --no-phased           emit unphased genotypes (0/1) and no FORMAT/PS." << endl
+         << "                            Phasing is on by default wherever the linkage model" << endl
+         << "                            runs" << endl
+         << "      --phased              emit phased genotypes (0|1) and a FORMAT/PS phase" << endl
+         << "                            set, from the linkage layer's most probable path of" << endl
+         << "                            haplotype pairs. Phase comes from the panel, not" << endl
+         << "                            from reads spanning sites, so a phase set is a whole" << endl
+         << "                            chain rather than a read-length block. Constrained" << endl
+         << "                            to the genotypes actually emitted, so GT stays a" << endl
+         << "                            permutation of the unphased call." << endl
+         << "                            Needs --linkage-weight above 0" << endl
          << "      --linkage-freq-prior F" << endl
-         << "                            exponent on the panel allele-frequency prior implied by" << endl
-         << "                            the state space. Only acts with --linkage-weight. 0" << endl
-         << "                            removes it, 1 keeps it as the states present it, and" << endl
-         << "                            above 1 amplifies it; measured best near 5 on a 34-" << endl
-         << "                            haplotype panel, inverting past 8. Mostly an indel" << endl
-         << "                            effect [5]" << endl
+         << "                            exponent on the panel allele-frequency prior implied" << endl
+         << "                            by the state space. Only acts with --linkage-weight." << endl
+         << "                            0 removes it, 1 keeps it as the states present it," << endl
+         << "                            and above 1 amplifies it; measured best near 5 on a" << endl
+         << "                            34- haplotype panel, inverting past 8. Mostly an" << endl
+         << "                            indel effect [5]" << endl
          << "" << endl
          << "  quality reporting (ranking only; these never change a genotype):" << endl
          << "      --no-share-quality    report GQ as the raw likelihood ratio, without" << endl
          << "                            scaling it by the fraction of reads the called" << endl
          << "                            genotype explains. GQI always carries the raw value" << endl
-         << "      --depth-quality A     scale GQ by exp(-A * |ln DR|) at records whose called" << endl
-         << "                            alleles change length by 50 bp or more, so a call whose" << endl
-         << "                            read count is implausible for the sequence it claims" << endl
-         << "                            ranks lower. Ranking only; no genotype changes. 0 is" << endl
-         << "                            off [0]" << endl
+         << "      --depth-quality A     scale GQ by exp(-A * |ln DR|) at records whose" << endl
+         << "                            called alleles change length by 50 bp or more, so a" << endl
+         << "                            call whose read count is implausible for the" << endl
+         << "                            sequence it claims ranks lower. Ranking only; no" << endl
+         << "                            genotype changes. 0 is off [0]" << endl
          << "      --min-confidence X    mark records whose GQN is below X as FILTER=lowconf." << endl
-         << "                            GQN is a fraction of what the site could achieve, so one" << endl
-         << "                            threshold means the same thing at any depth and ploidy;" << endl
-         << "                            a raw GQ threshold does not, and GQ >= 10 costs a 5x" << endl
-         << "                            diploid contig a third of its F1. 0.05 raises precision" << endl
-         << "                            on every arm measured, for 1-2% of recall. Marks, never" << endl
-         << "                            drops. There is no good default: it helps haploid F1 and" << endl
-         << "                            hurts diploid, so the choice is yours. 0 is off [0]" << endl
+         << "                            GQN is a fraction of what the site could achieve, so" << endl
+         << "                            one threshold means the same thing at any depth and" << endl
+         << "                            ploidy; a raw GQ threshold does not, and GQ >= 10" << endl
+         << "                            costs a 5x diploid contig a third of its F1. 0.05" << endl
+         << "                            raises precision on every arm measured, for 1-2% of" << endl
+         << "                            recall. Marks, never drops. There is no good" << endl
+         << "                            default: it helps haploid F1 and hurts diploid, so" << endl
+         << "                            the choice is yours. 0 is off [0]" << endl
          << "" << endl
          << "  debugging:" << endl
          << "      --dump-likelihoods F  write the per-site read/allele matrix to F as TSV" << endl
@@ -273,45 +293,52 @@ void help_call(char** argv) {
          << "  -o, --ref-offset N        offset in reference path (may repeat; 1 per path)" << endl
          << "  -l, --ref-length N        override reference length for output VCF contig" << endl
          << "  -d, --ploidy N            ploidy of sample. {1, 2} [2]" << endl
-         << "      --no-nested           genotype each snarl against its own full traversals, without" << endl
-         << "                            collapsing or descent. Nested calling is on by default under" << endl
-         << "                            --read-likelihood, where it is measured: it takes genome-wide" << endl
-         << "                            SNV F1 from 0.9752 to 0.9833 and SV F1 from 0.5134 to 0.5467" << endl
-         << "      --nested              treat a called traversal that differs from the reference" << endl
-         << "                            only inside a nested chain as the reference allele, so its" << endl
-         << "                            differences are left to the nested sites that contain them" << endl
-         << "                            rather than emitted as one long substitution. A chain is" << endl
-         << "                            descended into once its parent's genotype is settled: after" << endl
-         << "                            the linkage pass where linkage can still move it, and" << endl
+         << "      --no-nested           genotype each snarl against its own full traversals," << endl
+         << "                            without collapsing or descent. Nested calling is on" << endl
+         << "                            by default under --read-likelihood, where it is" << endl
+         << "                            measured: it takes genome-wide SNV F1 from 0.9752 to" << endl
+         << "                            0.9833 and SV F1 from 0.5134 to 0.5467" << endl
+         << "      --nested              treat a called traversal that differs from the" << endl
+         << "                            reference only inside a nested chain as the" << endl
+         << "                            reference allele, so its differences are left to the" << endl
+         << "                            nested sites that contain them rather than emitted" << endl
+         << "                            as one long substitution. A chain is descended into" << endl
+         << "                            once its parent's genotype is settled: after the" << endl
+         << "                            linkage pass where linkage can still move it, and" << endl
          << "                            immediately where it cannot" << endl
-         << "      --atomize-blocks     on by default under --read-likelihood. Aligns the reference" << endl
-         << "                            and each called haplotype as symbolic alleles and emits one" << endl
-         << "                            record per difference block, so a snarl differing in two" << endl
-         << "                            separated places reports two variants rather than one" << endl
-         << "                            substitution spanning both. Worth +0.0043 SV F1 genome-wide" << endl
-         << "                            on HG002 (0.5577 -> 0.5620 over 23 contigs: 48 more true" << endl
-         << "                            SVs, 266 fewer false), though the per-contig spread is wide" << endl
-         << "                            -- +0.010 on chr20 against +0.002 on chr6. Higher under" << endl
-         << "                            truvari refine, which controls for the representation change" << endl
-         << "                            splitting causes, so the record-matching metric understates" << endl
-         << "                            it. Small-variant F1 is" << endl
-         << "                            unchanged. Declines on any other calling path, and with -a," << endl
-         << "                            whose record set has to stay sample-independent; asking for" << endl
-         << "                            it there by name is an error rather than a decline." << endl
-         << "                            CAVEAT: every block of a snarl repeats the site's AD, GL," << endl
-         << "                            GQ, GQI, GP and QUAL, so evidence summed across the records" << endl
-         << "                            of one snarl is counted more than once. INFO/SB identifies" << endl
-         << "                            the set. Pass --no-atomize-blocks for one record per snarl" << endl
-         << "      --no-atomize-blocks  one record per snarl, whatever the shape of the difference." << endl
-         << "      --ploidy-bed FILE     BED of CHROM START END PLOIDY setting ploidy per region," << endl
-         << "                            overriding -d/-R where an interval covers a site. CHROM is" << endl
-         << "                            the contig as the output VCF spells it (chrX, not" << endl
-         << "                            CHM13#0#chrX); intervals are 0-based half-open and must" << endl
-         << "                            not overlap. Lets one run call a male chrX haploid outside" << endl
-         << "                            the pseudoautosomal regions and diploid inside them, which" << endl
-         << "                            per-contig ploidy cannot express and which otherwise needs" << endl
-         << "                            two runs spliced together. Linkage and the mosaic break at" << endl
-         << "                            each ploidy boundary, as they did at the splice" << endl
+         << "      --atomize-blocks      on by default under --read-likelihood. Aligns the" << endl
+         << "                            reference and each called haplotype as symbolic" << endl
+         << "                            alleles and emits one record per difference block," << endl
+         << "                            so a snarl differing in two separated places reports" << endl
+         << "                            two variants rather than one substitution spanning" << endl
+         << "                            both. Worth +0.0043 SV F1 genome-wide on HG002" << endl
+         << "                            (0.5577 -> 0.5620 over 23 contigs: 48 more true SVs," << endl
+         << "                            266 fewer false), though the per-contig spread is" << endl
+         << "                            wide -- +0.010 on chr20 against +0.002 on chr6." << endl
+         << "                            Higher under truvari refine, which controls for the" << endl
+         << "                            representation change splitting causes, so the" << endl
+         << "                            record-matching metric understates it. Small-variant" << endl
+         << "                            F1 is unchanged. Declines on any other calling path," << endl
+         << "                            and with -a, whose record set has to stay" << endl
+         << "                            sample-independent; asking for it there by name is" << endl
+         << "                            an error rather than a decline. CAVEAT: every block" << endl
+         << "                            of a snarl repeats the site's AD, GL, GQ, GQI, GP" << endl
+         << "                            and QUAL, so evidence summed across the records of" << endl
+         << "                            one snarl is counted more than once. INFO/SB" << endl
+         << "                            identifies the set. Pass --no-atomize-blocks for one" << endl
+         << "                            record per snarl" << endl
+         << "      --no-atomize-blocks   one record per snarl, whatever the shape of the" << endl
+         << "                            difference." << endl
+         << "      --ploidy-bed FILE     BED of CHROM START END PLOIDY setting ploidy per" << endl
+         << "                            region, overriding -d/-R where an interval covers a" << endl
+         << "                            site. CHROM is the contig as the output VCF spells" << endl
+         << "                            it (chrX, not CHM13#0#chrX); intervals are 0-based" << endl
+         << "                            half-open and must not overlap. Lets one run call a" << endl
+         << "                            male chrX haploid outside the pseudoautosomal" << endl
+         << "                            regions and diploid inside them, which per-contig" << endl
+         << "                            ploidy cannot express and which otherwise needs two" << endl
+         << "                            runs spliced together. Linkage and the mosaic break" << endl
+         << "                            at each ploidy boundary, as they did at the splice" << endl
          << "  -R, --ploidy-regex RULES  use this comma-separated list of colon-delimited" << endl
          << "                            REGEX:PLOIDY rules to assign ploidies to contigs" << endl
          << "                            not visited by the selected samples, or to all" << endl
