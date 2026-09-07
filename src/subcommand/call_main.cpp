@@ -33,11 +33,22 @@ const string DEFAULT_SAMPLE_NAME = "SAMPLE";
 
 /// Default --read-window per backend. A GAF-Base query costs a process spawn, so it
 /// wants a window big enough to amortise one; an indexed GAM query is a seek into an
-/// already-open file, and a large window there just over-fetches. Measured on HG002
-/// chr20 (GAF-Base): 256 -> 180 s, 1024 -> 114 s, 4096 -> 96 s, 16384 -> 101 s at
-/// 6.0 GB against 3.9 GB. 4096 is the best wall clock and the memory is still bounded.
+/// already-open file, and a large window there just over-fetches.
+///
+/// The GAF-Base default is set by long reads, because they are what a narrow window
+/// punishes: a window has to be much wider than a read's node-ID span or every read
+/// straddling a boundary is fetched twice. Measured on chr20, 44x ONT (33 kb mean) with
+/// anchors: 4096 -> 293 s and 1.62 fetches per read, 8192 -> 265 s, 16384 -> 182 s and
+/// 1.44, 32768 -> 195 s, 65536 -> 295 s at 10.7 GB. 30x Illumina over the same window
+/// range moves from 156 s to 154 s, so the wider window costs short reads nothing.
+///
+/// It is not output-neutral, and the reason is worth stating: a window wider than
+/// `max_query_nodes` is fetched as several concurrent queries whose results are
+/// concatenated, which reorders the reads a site sees and so reorders a floating-point
+/// sum. On chr20 short reads that moves `GL` in the sixth decimal for 3,402 of 115,410
+/// records and changes **no genotype at all**; on ONT the output is byte-identical.
 const size_t DEFAULT_GAM_INDEX_WINDOW = 256;
-const size_t DEFAULT_GAF_BASE_WINDOW = 4096;
+const size_t DEFAULT_GAF_BASE_WINDOW = 16384;
 
 /// Count the distinct haplotypes a GBZ's GBWT can offer GBWTTraversalFinder.
 ///
@@ -87,7 +98,7 @@ void help_call(char** argv) {
          << "                            GBZ-Base or GBZ [the input graph]" << endl
          << "      --gaf-base-binary P   gbz-base executable to run [gbz-base]" << endl
          << "      --read-window N       node-ID window for indexed read fetches" << endl
-         << "                            [4096 for --gaf-base, 256 for --gam-index]" << endl
+         << "                            [16384 for --gaf-base, 256 for --gam-index]" << endl
          << "      --read-min-mapq N     ignore reads with MAPQ below N [0]" << endl
          << "" << endl
          << "  allele enumeration:" << endl
@@ -2486,13 +2497,14 @@ int main_call(int argc, char** argv) {
                           << hits << "/" << total << " site queries served from cache"
                           << (total > 0 ? " (" + std::to_string((int)(100.0 * hits / total)) + "%)" : "")
                           << endl;
-            // Selectivity. A window holds far more reads than any one site wants, so
-            // the gap between these two is work spent rejecting reads, and it is what
-            // to watch when tuning --read-window.
+            // Candidates a site query looked at against reads it delivered. Inside a
+            // window a candidate is one node-index entry, so a ratio near 1 means sites
+            // name few nodes each read touches and a high one means long reads crossing
+            // a site repeatedly; a straddling query examines whole reads instead.
             size_t seen = windowed->get_scanned_count();
             size_t used = windowed->get_delivered_count();
             logger.info() << (gaf_base != nullptr ? "GAF-Base: " : "Indexed GAM: ")
-                          << seen << " reads considered, " << used << " delivered"
+                          << seen << " read candidates examined, " << used << " delivered"
                           << (seen > 0 ? " (" + std::to_string((int)(100.0 * used / seen)) + "%)" : "")
                           << endl;
             // Sites too big for one window are fetched uncached, by their exact node

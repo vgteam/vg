@@ -82,13 +82,13 @@ TEST_CASE("A forward read pins at the base before each junction", "[anchor]") {
     // 1 -> 2 -> 4, all forward: "AAAACCCC" "T" "GGGGTTTT".
     Alignment aln = matching_read(site.graph, "fwd", {{1, false}, {2, false}, {4, false}});
 
-    AnchorPlacement s = resolve_anchor_pin(aln, site.graph, 1, false, true, counters);
+    AnchorPlacement s = resolve_anchor_pin(SiteRead{&aln}, site.graph, 1, false, true, counters);
     REQUIRE(s.placed());
     // The pin follows node 1's last base, which is read index 7.
     REQUIRE(s.offset == 7);
     REQUIRE(s.strand == 0);
 
-    AnchorPlacement e = resolve_anchor_pin(aln, site.graph, 4, false, false, counters);
+    AnchorPlacement e = resolve_anchor_pin(SiteRead{&aln}, site.graph, 4, false, false, counters);
     REQUIRE(e.placed());
     // The pin precedes node 4's first base at read index 9, so the last base BEFORE it is node 2's
     // single base at index 8 -- inside the site, which is where the entry pin's upstream side is.
@@ -104,7 +104,7 @@ TEST_CASE("A reverse read pins on the same graph positions with strand 1", "[anc
     Alignment aln = matching_read(site.graph, "rev", {{4, true}, {2, true}, {1, true}});
     REQUIRE(aln.sequence() == "AAAACCCCAGGGGTTTT");
 
-    AnchorPlacement s = resolve_anchor_pin(aln, site.graph, 1, false, true, counters);
+    AnchorPlacement s = resolve_anchor_pin(SiteRead{&aln}, site.graph, 1, false, true, counters);
     REQUIRE(s.placed());
     // Node 1's last base in the SITE's direction is its node-forward index 7, which this read places
     // at index 9 -- the first base of its node-1 mapping, because it reads the node backwards.
@@ -113,7 +113,7 @@ TEST_CASE("A reverse read pins on the same graph positions with strand 1", "[anc
     // And the read base there is the complement of the graph's, which is what the invariant checks.
     REQUIRE(aln.sequence()[9] == 'G');
 
-    AnchorPlacement e = resolve_anchor_pin(aln, site.graph, 4, false, false, counters);
+    AnchorPlacement e = resolve_anchor_pin(SiteRead{&aln}, site.graph, 4, false, false, counters);
     REQUIRE(e.placed());
     // Node 4's first base in the site's direction sits at read index 7; upstream in the site's
     // direction is LATER in this read, so the offset steps forward rather than back.
@@ -136,10 +136,10 @@ TEST_CASE("A soft clip shifts the offset without moving the pin", "[anchor]") {
     *first->mutable_edit(0) = clip;
     aln.set_sequence("GGG" + aln.sequence());
 
-    AnchorPlacement s = resolve_anchor_pin(aln, site.graph, 1, false, true, counters);
+    AnchorPlacement s = resolve_anchor_pin(SiteRead{&aln}, site.graph, 1, false, true, counters);
     REQUIRE(s.placed());
     REQUIRE(s.offset == 10);
-    AnchorPlacement e = resolve_anchor_pin(aln, site.graph, 4, false, false, counters);
+    AnchorPlacement e = resolve_anchor_pin(SiteRead{&aln}, site.graph, 4, false, false, counters);
     REQUIRE(e.placed());
     REQUIRE(e.offset == 11);
     REQUIRE(counters.verify_failed.load() == 0);
@@ -157,7 +157,7 @@ TEST_CASE("An insertion at the junction falls after the pin", "[anchor]") {
     ins->set_sequence("CC");
     aln.set_sequence("AAAACCCCT" "CC" "GGGGTTTT");
 
-    AnchorPlacement e = resolve_anchor_pin(aln, site.graph, 4, false, false, counters);
+    AnchorPlacement e = resolve_anchor_pin(SiteRead{&aln}, site.graph, 4, false, false, counters);
     REQUIRE(e.placed());
     // Node 4's first base is now at read index 11, but indices 9 and 10 consume no node base, so
     // the pin steps over them to node 2's base at 8 rather than reporting an inserted base.
@@ -181,7 +181,7 @@ TEST_CASE("A mismatch at the pin is still placeable and still verified", "[ancho
     sub->set_sequence("A");
     aln.set_sequence("AAAACCCA" "T" "GGGGTTTT");
 
-    AnchorPlacement s = resolve_anchor_pin(aln, site.graph, 1, false, true, counters);
+    AnchorPlacement s = resolve_anchor_pin(SiteRead{&aln}, site.graph, 1, false, true, counters);
     REQUIRE(s.placed());
     REQUIRE(s.offset == 7);
     // The base legitimately differs from the graph, so the edit's own sequence is the reference the
@@ -206,7 +206,7 @@ TEST_CASE("A deletion over the pin's node base refuses the pin rather than walki
     del->set_to_length(0);
     aln.set_sequence("AAAACCC" "T" "GGGGTTTT");
 
-    AnchorPlacement s = resolve_anchor_pin(aln, site.graph, 1, false, true, counters);
+    AnchorPlacement s = resolve_anchor_pin(SiteRead{&aln}, site.graph, 1, false, true, counters);
     // Refused, NOT resolved to the previous base. On a 1 bp boundary node walking back would step
     // straight past the node and land on the neighbouring snarl's pin position.
     REQUIRE(!s.placed());
@@ -218,12 +218,12 @@ TEST_CASE("A read that does not reach the junction is refused", "[anchor]") {
     AnchorCounters counters;
     // Starts at node 4, so nothing of it lies upstream of the entry pin.
     Alignment aln = matching_read(site.graph, "starts_here", {{4, false}});
-    AnchorPlacement e = resolve_anchor_pin(aln, site.graph, 4, false, false, counters);
+    AnchorPlacement e = resolve_anchor_pin(SiteRead{&aln}, site.graph, 4, false, false, counters);
     REQUIRE(!e.placed());
     REQUIRE(counters.no_neighbour.load() == 1);
 
     // And a read that never visits the node at all.
-    AnchorPlacement s = resolve_anchor_pin(aln, site.graph, 1, false, true, counters);
+    AnchorPlacement s = resolve_anchor_pin(SiteRead{&aln}, site.graph, 1, false, true, counters);
     REQUIRE(!s.placed());
     REQUIRE(counters.no_visit.load() == 1);
 }
@@ -234,8 +234,8 @@ TEST_CASE("A read spanning the deletion edge lands both pins on one position", "
     // 1 -> 4 directly: the allele that deletes the whole site, so the read has no bases inside it.
     Alignment aln = matching_read(site.graph, "spanner", {{1, false}, {4, false}});
 
-    AnchorPlacement s = resolve_anchor_pin(aln, site.graph, 1, false, true, counters);
-    AnchorPlacement e = resolve_anchor_pin(aln, site.graph, 4, false, false, counters);
+    AnchorPlacement s = resolve_anchor_pin(SiteRead{&aln}, site.graph, 1, false, true, counters);
+    AnchorPlacement e = resolve_anchor_pin(SiteRead{&aln}, site.graph, 4, false, false, counters);
     REQUIRE(s.placed());
     REQUIRE(e.placed());
     // This is the one case where two pins of one snarl coincide in a read, and it is why
@@ -258,7 +258,7 @@ TEST_CASE("A deleted node upstream of an entry pin refuses it, rather than stepp
     del->set_to_length(0);
     aln.set_sequence("AAAACCCC" "GGGGTTTT");
 
-    AnchorPlacement e = resolve_anchor_pin(aln, site.graph, 4, false, false, counters);
+    AnchorPlacement e = resolve_anchor_pin(SiteRead{&aln}, site.graph, 4, false, false, counters);
     // Node 4's first base is at read index 8, and the base before it in READ order is node 1's last
     // base at index 7 -- but that is a whole node further upstream in the GRAPH, and index 7 is
     // where the snarl's own start pin sits. Reporting it would put one read position in two anchors,
@@ -267,7 +267,7 @@ TEST_CASE("A deleted node upstream of an entry pin refuses it, rather than stepp
     REQUIRE(counters.no_neighbour.load() == 1);
 
     // The start pin is unaffected: its reference base is inside its own node.
-    AnchorPlacement s = resolve_anchor_pin(aln, site.graph, 1, false, true, counters);
+    AnchorPlacement s = resolve_anchor_pin(SiteRead{&aln}, site.graph, 1, false, true, counters);
     REQUIRE(s.placed());
     REQUIRE(s.offset == 7);
 }
@@ -285,7 +285,7 @@ TEST_CASE("An entry pin steps one node, not one aligned base", "[anchor]") {
     ins->set_sequence("AAA");
     aln.set_sequence("AAAACCCCT" "AAA" "GGGGTTTT");
 
-    AnchorPlacement e = resolve_anchor_pin(aln, site.graph, 4, false, false, counters);
+    AnchorPlacement e = resolve_anchor_pin(SiteRead{&aln}, site.graph, 4, false, false, counters);
     REQUIRE(e.placed());
     REQUIRE(e.offset == 8);        // node 2's base, not index 11
     REQUIRE(counters.verify_failed.load() == 0);

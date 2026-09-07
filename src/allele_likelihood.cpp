@@ -406,21 +406,43 @@ GraphAlignedAlleleLikelihoodCalculator::get_allele_steps(const SnarlTraversal& t
 /// constant `total - to`, and the sliced sequence is shifted by exactly the same constant. Base for
 /// base, `revcomp(read)[full] == revcomp(read[from:to])[sliced]`. Only read_offset and read_length
 /// are ever used to index the sequence, so nothing else can see the difference.
-static Alignment site_span_of(const Alignment& aln, const unordered_set<nid_t>& site_nodes) {
+static Alignment site_span_of(const SiteRead& read, const unordered_set<nid_t>& site_nodes) {
+    const Alignment& aln = *read.aln;
     const Path& path = aln.path();
     int64_t first = -1, last = -1;
-    size_t offset = 0, from = 0, to = 0;
-    for (int64_t i = 0; i < path.mapping_size(); ++i) {
-        size_t to_length = (size_t)mapping_to_length(path.mapping(i));
-        if (site_nodes.count(path.mapping(i).position().node_id())) {
+    size_t from = 0, to = 0;
+    if (read.indexed()) {
+        // The source has already found the site's mappings, and the read offset before
+        // each. Both ends come straight out of that, without touching the rest of the
+        // read -- which for an ONT alignment is thousands of mappings the site does not
+        // want. The index lists mappings in the queried ranges, which are exactly the
+        // site's nodes, so no second membership test is needed.
+        for (size_t k = 0; k < read.mapping_count; ++k) {
+            int64_t i = (int64_t)read.mappings[k];
+            if (!site_nodes.count(path.mapping(i).position().node_id())) {
+                continue;
+            }
             if (first < 0) {
                 first = i;
-                from = offset;
+                from = read.read_offsets[i];
             }
             last = i;
-            to = offset + to_length;
+            to = (size_t)read.read_offsets[i] + (size_t)mapping_to_length(path.mapping(i));
         }
-        offset += to_length;
+    } else {
+        size_t offset = 0;
+        for (int64_t i = 0; i < path.mapping_size(); ++i) {
+            size_t to_length = (size_t)mapping_to_length(path.mapping(i));
+            if (site_nodes.count(path.mapping(i).position().node_id())) {
+                if (first < 0) {
+                    first = i;
+                    from = offset;
+                }
+                last = i;
+                to = offset + to_length;
+            }
+            offset += to_length;
+        }
     }
     if (first < 0) {
         // The caller has already established that the read touches the site, so this cannot happen;
@@ -446,37 +468,49 @@ static Alignment site_span_of(const Alignment& aln, const unordered_set<nid_t>& 
 }
 
 bool GraphAlignedAlleleLikelihoodCalculator::get_read_steps(
-    const Alignment& aln, const unordered_set<nid_t>& site_nodes,
+    const SiteRead& read, const unordered_set<nid_t>& site_nodes,
     const unordered_set<nid_t>& boundary_nodes, vector<ReadStep>& steps_out) const {
 
     steps_out.clear();
+    const Alignment& aln = *read.aln;
     const Path& path = aln.path();
 
-    // Track the read offset across every mapping, including those outside the
-    // site: otherwise the offsets of the ones inside would be wrong.
-    size_t read_offset = 0;
     bool touches_interior = false;
 
-    for (int64_t i = 0; i < path.mapping_size(); ++i) {
+    auto take = [&](int64_t i, size_t read_offset) {
         const Mapping& mapping = path.mapping(i);
-        size_t to_length = (size_t)mapping_to_length(mapping);
         nid_t node_id = mapping.position().node_id();
-
-        if (site_nodes.count(node_id)) {
-            ReadStep step;
-            step.node_id = node_id;
-            step.backward = mapping.position().is_reverse();
-            step.read_offset = read_offset;
-            step.read_length = to_length;
-            step.mapping = &mapping;
-            steps_out.push_back(step);
-
-            if (!boundary_nodes.count(node_id)) {
-                touches_interior = true;
-            }
+        if (!site_nodes.count(node_id)) {
+            return;
         }
+        ReadStep step;
+        step.node_id = node_id;
+        step.backward = mapping.position().is_reverse();
+        step.read_offset = read_offset;
+        step.read_length = (size_t)mapping_to_length(mapping);
+        step.mapping = &mapping;
+        steps_out.push_back(step);
 
-        read_offset += to_length;
+        if (!boundary_nodes.count(node_id)) {
+            touches_interior = true;
+        }
+    };
+
+    if (read.indexed()) {
+        // Only the mappings the source found inside the queried ranges, with their read
+        // offsets already summed. Read order is preserved: the index hands them over in
+        // ascending mapping order.
+        for (size_t k = 0; k < read.mapping_count; ++k) {
+            take((int64_t)read.mappings[k], read.read_offsets[read.mappings[k]]);
+        }
+    } else {
+        // Track the read offset across every mapping, including those outside the
+        // site: otherwise the offsets of the ones inside would be wrong.
+        size_t read_offset = 0;
+        for (int64_t i = 0; i < path.mapping_size(); ++i) {
+            take(i, read_offset);
+            read_offset += (size_t)mapping_to_length(path.mapping(i));
+        }
     }
 
     if (steps_out.empty()) {
@@ -765,7 +799,7 @@ double GraphAlignedAlleleLikelihoodCalculator::local_read_rate(
     // and not the other would put a constant scale factor between N and lambda and
     // bias every DR in the same direction, which is not a signal.
     double reads = 0.0;
-    read_source.for_each_read({{first, last}}, [&](const Alignment& aln) {
+    read_source.for_each_alignment({{first, last}}, [&](const Alignment& aln) {
         if (!params.depth_effective_reads) {
             reads += 1.0;
             return;
@@ -956,9 +990,10 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
     vector<ReadStep> read_steps;
     vector<double> row(traversals.size());
 
-    read_source.for_each_read(ranges, [&](const Alignment& aln) {
+    read_source.for_each_read(ranges, [&](const SiteRead& read) {
+        const Alignment& aln = *read.aln;
 
-        if (!get_read_steps(aln, site_nodes, boundary_nodes, read_steps)) {
+        if (!get_read_steps(read, site_nodes, boundary_nodes, read_steps)) {
             return;
         }
 
@@ -971,9 +1006,13 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
         Alignment flipped;
         const Alignment* scored_aln = &aln;
         if (read_is_reverse_of_alleles(read_steps, allele_orientations)) {
-            flipped = reverse_complement_alignment(site_span_of(aln, site_nodes), node_length);
+            flipped = reverse_complement_alignment(site_span_of(read, site_nodes), node_length);
             scored_aln = &flipped;
-            if (!get_read_steps(flipped, site_nodes, boundary_nodes, read_steps)) {
+            // The slice is a fresh alignment holding only the site's mappings, so there is
+            // no index for it and none is wanted: walking it is already walking the site.
+            SiteRead flipped_read;
+            flipped_read.aln = &flipped;
+            if (!get_read_steps(flipped_read, site_nodes, boundary_nodes, read_steps)) {
                 // Should not happen: flipping preserves which nodes are touched.
                 return;
             }
@@ -1014,10 +1053,10 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
             AnchorRead record;
             record.name = aln.name();
             record.mismap = (float)mismap;
-            record.start_pin = resolve_anchor_pin(aln, graph, snarl.start().node_id(),
+            record.start_pin = resolve_anchor_pin(read, graph, snarl.start().node_id(),
                                                   snarl.start().backward(), true,
                                                   anchor_counters());
-            record.end_pin = resolve_anchor_pin(aln, graph, snarl.end().node_id(),
+            record.end_pin = resolve_anchor_pin(read, graph, snarl.end().node_id(),
                                                 snarl.end().backward(), false,
                                                 anchor_counters());
             anchor_evidence->reads.push_back(std::move(record));

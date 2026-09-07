@@ -49,6 +49,7 @@
 #include <vector>
 
 #include "handle.hpp"
+#include "site_read_source.hpp"
 #include "vg/vg.pb.h"
 
 namespace vg {
@@ -129,7 +130,7 @@ struct AnchorCounters {
  * visits the node in reverse, must equal the graph's base. One comparison, and it catches every
  * off-by-one and every strand inversion. `counters.verify_failed` must read zero.
  */
-AnchorPlacement resolve_anchor_pin(const Alignment& aln, const HandleGraph& graph,
+AnchorPlacement resolve_anchor_pin(const SiteRead& read, const HandleGraph& graph,
                                    nid_t node_id, bool site_backward, bool exit_pin,
                                    AnchorCounters& counters);
 

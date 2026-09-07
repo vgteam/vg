@@ -53,6 +53,40 @@ struct SiteReadFilter {
 };
 
 /**
+ * A read handed to a site query, with enough of an index to work on it without
+ * re-walking the whole alignment.
+ *
+ * The index exists because a site's work is proportional to the read's *overlap* with
+ * the site, while finding that overlap by scanning is proportional to the read's
+ * *length*. On a 150 bp read the two are the same thing. On a 33 kb ONT read, which
+ * carries some 3,000 mappings and is handed to the ~85 sites it spans, the scan is the
+ * run time: four separate passes over every mapping -- selecting the site's steps,
+ * slicing the site's stretch out for the reverse-complement, and resolving each of the
+ * two anchor pins -- for a site that wants a handful of them.
+ *
+ * `mappings` and `read_offsets` are a hint, not a definition. A source that cannot
+ * index cheaply leaves them null, and consumers must then fall back to walking the
+ * alignment; a consumer must never treat a null index as "this read touches nothing".
+ */
+struct SiteRead {
+    /// The alignment itself. Valid only for the duration of the callback.
+    const Alignment* aln = nullptr;
+
+    /// Ascending indices of the mappings whose node lies in the queried ranges, or
+    /// null if this source does not index.
+    const uint32_t* mappings = nullptr;
+    size_t mapping_count = 0;
+
+    /// Read offset -- summed `to_length` -- before each mapping, indexed by mapping
+    /// index and one longer than the path, or null if this source does not index.
+    const uint32_t* read_offsets = nullptr;
+
+    /// Whether the index is present. Both halves are supplied together or not at all,
+    /// so consumers have one condition to branch on.
+    bool indexed() const { return mappings != nullptr && read_offsets != nullptr; }
+};
+
+/**
  * Random-access source of read alignments by graph locality.
  *
  * Implementations must be safe for concurrent read access: GraphCaller visits
@@ -73,7 +107,15 @@ public:
     /// given inclusive node ID ranges. Each read is visited at most once, even
     /// if it touches several of the ranges. Must be safe to call concurrently.
     virtual void for_each_read(const vector<pair<nid_t, nid_t>>& ranges,
-                               const function<void(const Alignment&)>& iteratee) const = 0;
+                               const function<void(const SiteRead&)>& iteratee) const = 0;
+
+    /// The same, for consumers with no use for the index. Separately named rather
+    /// than overloaded: a lambda converts to either `function` type, so an overload
+    /// would make every call site ambiguous.
+    void for_each_alignment(const vector<pair<nid_t, nid_t>>& ranges,
+                            const function<void(const Alignment&)>& iteratee) const {
+        for_each_read(ranges, [&](const SiteRead& read) { iteratee(*read.aln); });
+    }
 
 
     /// How many reads this source holds or can see, for logging. May be 0 if
@@ -122,8 +164,12 @@ public:
     /// makes the scoring unit-testable.
     void add(const Alignment& aln, const Filter& filter = Filter());
 
+    /// Reads come through unindexed: this source keeps every read for the whole run,
+    /// so a persistent per-read index would add several bytes per mapping to a peak
+    /// that is already the reason to prefer an on-demand backend. Consumers fall back
+    /// to walking the alignment, which is what they did before the index existed.
     void for_each_read(const vector<pair<nid_t, nid_t>>& ranges,
-                       const function<void(const Alignment&)>& iteratee) const;
+                       const function<void(const SiteRead&)>& iteratee) const;
 
     size_t get_read_count() const;
 
@@ -168,7 +214,7 @@ class WindowedSiteReadSource : public SiteReadSource {
 public:
 
     void for_each_read(const vector<pair<nid_t, nid_t>>& ranges,
-                       const function<void(const Alignment&)>& iteratee) const final;
+                       const function<void(const SiteRead&)>& iteratee) const final;
 
     /// Reads actually fetched from the backend so far, across all threads. Not the
     /// size of the read set, which an on-demand backend never knows.
@@ -182,11 +228,13 @@ public:
     size_t get_cache_hits() const;
     size_t get_cache_misses() const;
 
-    /// Reads considered while answering site queries, against reads actually handed
-    /// to the caller. A window holds far more reads than any one site wants, so the
-    /// ratio between these is the selectivity of the window size -- and the amount of
-    /// work spent rejecting reads. Both are counted per site query, so a read in a
-    /// window visited by many sites counts many times.
+    /// Index entries examined while answering site queries, against reads actually
+    /// handed to the caller. A site's query walks the window's node index over the
+    /// ranges it asked about, and one read can appear under several of those nodes,
+    /// so the ratio between these is how much of the index a site re-reads -- close to
+    /// 1 for short reads, higher for long ones that cross a site many times. Both are
+    /// counted per site query, so a read in a window visited by many sites counts
+    /// many times.
     size_t get_scanned_count() const;
     size_t get_delivered_count() const;
 
@@ -230,15 +278,38 @@ protected:
 
 private:
 
+    /// One mapping of one read in a window, as the window's index holds it.
+    struct IndexEntry {
+        nid_t node = 0;
+        uint32_t read = 0;
+        uint32_t mapping = 0;
+        bool operator<(const IndexEntry& other) const {
+            if (node != other.node) return node < other.node;
+            if (read != other.read) return read < other.read;
+            return mapping < other.mapping;
+        }
+    };
+
     /// One cached window fetch.
     struct CacheEntry {
         size_t window = 0;
         bool valid = false;
         vector<Alignment> reads;
-        /// Parallel to reads: the lowest and highest node ID each one visits. Held
-        /// separately so a site can reject most of the window by scanning 16 bytes a
-        /// read rather than walking each alignment's mappings.
-        vector<pair<nid_t, nid_t>> bounds;
+
+        /// Every mapping in the window, sorted by node ID, so a site finds the reads it
+        /// wants -- and *which* of their mappings it wants -- by binary search instead of
+        /// asking each read in turn whether it touches the site. The distinction is
+        /// entirely one of read length: a 33 kb ONT read carries some 3,000 mappings, and
+        /// testing it against a site walks half of them on average, so the scan that
+        /// costs a short read a few hundred comparisons per window costs a long read
+        /// millions. Built once per fetch and reused by every site inside the window.
+        vector<IndexEntry> node_index;
+
+        /// Read offset before each mapping, for every read in the window end to end:
+        /// read r occupies `[offset_start[r], offset_start[r + 1])`, which is one entry
+        /// longer than its path so the last mapping's end is readable too.
+        vector<uint32_t> offsets;
+        vector<uint32_t> offset_start;
     };
 
     /// Per-thread cache. Mutable because for_each_read is logically const but may
@@ -251,16 +322,16 @@ private:
 
     CacheState& cache_state() const;
 
-    /// Hand the entry's reads that touch the ranges to the caller, counting both how
-    /// many were considered and how many got through. [min_id, max_id] must bracket
-    /// the ranges; it is used only to reject reads cheaply, never to accept them.
-    void deliver(const CacheEntry& entry, nid_t min_id, nid_t max_id,
+    /// Hand the entry's reads that touch the ranges to the caller, in the order they
+    /// were fetched. Reads are found through the entry's node index, which is exact:
+    /// a read is listed under node n precisely when it has a mapping onto n, so this
+    /// selects the same set touches() would and needs no second adjudication.
+    void deliver(const CacheEntry& entry,
                  const vector<pair<nid_t, nid_t>>& ranges,
-                 const function<void(const Alignment&)>& iteratee) const;
+                 const function<void(const SiteRead&)>& iteratee) const;
 
-    /// The lowest and highest node ID the read visits. A read with no mappings gets
-    /// an empty span that no site can overlap.
-    static pair<nid_t, nid_t> node_id_span(const Alignment& aln);
+    /// Append this read's mappings to a window's index and its read-offset table.
+    static void index_read(const Alignment& aln, uint32_t read_index, CacheEntry& entry);
 
     /// Which window a node ID falls in.
     size_t window_of(nid_t id) const;
@@ -390,19 +461,43 @@ public:
 
 private:
 
-    /// Per-thread GAF output file. Reused across queries rather than created per
-    /// query, since creating one is a filesystem round trip.
+    /// Per-thread GAF output files, one per query the thread can have in flight.
+    /// Reused across queries rather than created per query, since creating one is a
+    /// filesystem round trip.
     struct ThreadState {
-        string gaf_path;
+        vector<string> gaf_paths;
     };
 
     ThreadState& thread_state() const;
 
+    /// This thread's output file for the given in-flight slot, created on first use.
+    const string& gaf_path(ThreadState& state, size_t slot) const;
+
+    /// One `gbz-base query` child, spawned and not yet reaped.
+    struct PendingQuery {
+        pid_t pid = 0;
+        /// By value, not a pointer into the thread's slot table: spawning a later slot
+        /// can grow that vector and move what a pointer was aimed at.
+        string gaf_path;
+        string err_path;
+    };
+
     void fetch_span(const vector<pair<nid_t, nid_t>>& ranges,
                     const function<void(Alignment&)>& iteratee) const;
 
-    /// Run `gbz-base query` for these node IDs and parse the GAF it writes,
-    /// applying the filter. Returns the number of records parsed. Throws on failure.
+    /// Start `gbz-base query` for these node IDs, writing to this thread's slot-th
+    /// output file. Does not wait: the caller reaps it with reap_query, which is what
+    /// lets a query that has to be split run its pieces at the same time rather than
+    /// one after another. Throws if the child cannot be started.
+    PendingQuery spawn_query(ThreadState& state, size_t slot,
+                             const vector<nid_t>& nodes) const;
+
+    /// Wait for a spawned query and parse the GAF it wrote, applying the filter.
+    /// Returns the number of records parsed. Throws if the child failed.
+    size_t reap_query(PendingQuery& pending,
+                      const function<void(Alignment&)>& iteratee) const;
+
+    /// Spawn and reap in one step. Throws on failure.
     size_t run_query(ThreadState& state, const vector<nid_t>& nodes,
                      const function<void(Alignment&)>& iteratee) const;
 

@@ -744,7 +744,7 @@ protected:
     /// That is NOT the same as a read failing to place on *some* allele, which
     /// is informative and must be kept. Conflating the two would systematically
     /// destroy deletion and structural variant genotyping.
-    bool get_read_steps(const Alignment& aln, const unordered_set<nid_t>& site_nodes,
+    bool get_read_steps(const SiteRead& read, const unordered_set<nid_t>& site_nodes,
                         const unordered_set<nid_t>& boundary_nodes,
                         vector<ReadStep>& steps_out) const;
 

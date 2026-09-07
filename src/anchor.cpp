@@ -58,46 +58,76 @@ void AnchorCounters::report(ostream& out) const {
 // Pin resolution
 ////////////////////////////////////////////////////////////////////////////////
 
-AnchorPlacement resolve_anchor_pin(const Alignment& aln, const HandleGraph& graph,
+/// The first and last read base of one mapping that consumes a node base, or -1 for a mapping that
+/// consumes none -- a node deleted outright in this read.
+///
+/// Per MAPPING rather than as one merged run over the read, because the entry pin has to step
+/// exactly one node along the read's walk, and a merged run cannot tell "the previous node's last
+/// base" from "the last base before a stretch of deleted nodes".
+struct MappingExtent {
+    int64_t first_consuming = -1;
+    int64_t last_consuming = -1;
+};
+
+static MappingExtent extent_of(const Mapping& m, size_t read_start) {
+    MappingExtent out;
+    size_t read_pos = read_start;
+    for (int64_t j = 0; j < m.edit_size(); ++j) {
+        const Edit& e = m.edit(j);
+        if (e.from_length() > 0 && e.to_length() > 0 && e.from_length() == e.to_length()) {
+            if (out.first_consuming < 0) {
+                out.first_consuming = (int64_t)read_pos;
+            }
+            out.last_consuming = (int64_t)(read_pos + (size_t)e.to_length() - 1);
+        }
+        read_pos += (size_t)e.to_length();
+    }
+    return out;
+}
+
+AnchorPlacement resolve_anchor_pin(const SiteRead& read, const HandleGraph& graph,
                                    nid_t node_id, bool site_backward, bool exit_pin,
                                    AnchorCounters& counters) {
     AnchorPlacement out;
+    const Alignment& aln = *read.aln;
     const Path& path = aln.path();
 
-    // One pass over the alignment: find the pin node's mapping, and record where each mapping's
-    // node-consuming read bases begin and end, which is what the entry pin steps along.
+    // Find the pin node's mapping and where in the read it starts. The pin node is one of the
+    // site's boundaries, so every visit to it is listed in the site's index when there is one --
+    // which matters, since the count is what refuses an ambiguous repeat visit.
     int64_t hit = -1;
     size_t hit_read_start = 0;
     size_t visits = 0;
-    size_t read_pos = 0;
-    // Per mapping, the first and last read base that consumes a node base, or -1 for a mapping that
-    // consumes none -- a node deleted outright in this read. Recorded per MAPPING rather than as one
-    // merged run over the read, because the entry pin has to step exactly one node along the read's
-    // walk, and a merged run cannot tell "the previous node's last base" from "the last base before
-    // a stretch of deleted nodes".
-    struct MappingExtent {
-        int64_t first_consuming = -1;
-        int64_t last_consuming = -1;
-    };
-    vector<MappingExtent> extents((size_t)path.mapping_size());
-    for (int64_t i = 0; i < path.mapping_size(); ++i) {
-        const Mapping& m = path.mapping(i);
-        size_t mapping_read_start = read_pos;
-        for (int64_t j = 0; j < m.edit_size(); ++j) {
-            const Edit& e = m.edit(j);
-            if (e.from_length() > 0 && e.to_length() > 0
-                && e.from_length() == e.to_length()) {
-                if (extents[i].first_consuming < 0) {
-                    extents[i].first_consuming = (int64_t)read_pos;
-                }
-                extents[i].last_consuming = (int64_t)(read_pos + (size_t)e.to_length() - 1);
+    // Read start of the mapping before the pin's, needed only by the entry pin. Tracked here rather
+    // than recovered later because the unindexed walk passes it once and cannot go back.
+    size_t before_read_start = 0;
+    if (read.indexed()) {
+        for (size_t k = 0; k < read.mapping_count; ++k) {
+            int64_t i = (int64_t)read.mappings[k];
+            if (path.mapping(i).position().node_id() != node_id) {
+                continue;
             }
-            read_pos += (size_t)e.to_length();
-        }
-        if (m.position().node_id() == node_id) {
             ++visits;
             hit = i;
-            hit_read_start = mapping_read_start;
+            hit_read_start = read.read_offsets[i];
+        }
+        if (hit > 0) {
+            before_read_start = read.read_offsets[hit - 1];
+        }
+    } else {
+        size_t read_pos = 0;
+        for (int64_t i = 0; i < path.mapping_size(); ++i) {
+            const Mapping& m = path.mapping(i);
+            if (m.position().node_id() == node_id) {
+                ++visits;
+                hit = i;
+                hit_read_start = read_pos;
+            }
+            read_pos += (size_t)mapping_to_length(m);
+        }
+        if (hit > 0) {
+            before_read_start = hit_read_start
+                                - (size_t)mapping_to_length(path.mapping(hit - 1));
         }
     }
 
@@ -212,12 +242,15 @@ AnchorPlacement resolve_anchor_pin(const Alignment& aln, const HandleGraph& grap
     // are skipped, because they consume no node base; a neighbouring mapping that consumes no node
     // base AT ALL means the graph step upstream is deleted here, and the read is refused instead.
     const int64_t neighbour = (out.strand == 0) ? hit - 1 : hit + 1;
-    if (neighbour < 0 || neighbour >= (int64_t)extents.size()) {
+    if (neighbour < 0 || neighbour >= (int64_t)path.mapping_size()) {
         // The read begins (or ends) here, so it does not cross the pin.
         ++counters.no_neighbour;
         return out;
     }
-    const MappingExtent& adjacent = extents[(size_t)neighbour];
+    const size_t neighbour_read_start =
+        (out.strand == 0) ? before_read_start
+                          : hit_read_start + (size_t)mapping_to_length(path.mapping(hit));
+    const MappingExtent adjacent = extent_of(path.mapping(neighbour), neighbour_read_start);
     const int64_t candidate =
         (out.strand == 0) ? adjacent.last_consuming : adjacent.first_consuming;
     if (candidate < 0 || candidate >= (int64_t)aln.sequence().size()) {

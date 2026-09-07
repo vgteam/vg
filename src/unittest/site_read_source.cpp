@@ -106,7 +106,7 @@ private:
 static vector<string> names_for(const SiteReadSource& source,
                                 const vector<pair<nid_t, nid_t>>& ranges) {
     vector<string> names;
-    source.for_each_read(ranges, [&](const Alignment& aln) {
+    source.for_each_alignment(ranges, [&](const Alignment& aln) {
         names.push_back(aln.name());
     });
     return names;
