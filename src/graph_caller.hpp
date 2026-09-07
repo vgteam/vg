@@ -606,12 +606,6 @@ protected:
     void build_render_phases();
 
 
-    /// Rewrite a rendered record's quality from the linkage posterior: GQ becomes the phred
-    /// complement, discounted by the explained-read share and capped at GQI, GQN is re-derived for
-    /// the settled genotype, and `lowconf` re-decided from it. The genotype is untouched -- the
-    /// line already carries the settled one, because it was built from it.
-    bool apply_linkage_quality(string& line, double posterior, double explained_share) const;
-
     /// `--min-confidence`, so a record whose GQN the linkage layer re-derived can be re-labelled
     /// against the same threshold the per-site emission used. Held here because the threshold lives
     /// on the read-likelihood caller and this rewrite happens in the output layer.

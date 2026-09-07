@@ -17,6 +17,11 @@
 
 namespace vg {
 
+/// Defined below, near the linkage machinery it belongs to; declared here because its only caller
+/// is write_variants, which comes first in this file.
+static bool apply_linkage_quality(string& line, double posterior, double explained_share,
+                                  double linkage_min_confidence);
+
 /// Stage 0 instrumentation for post-linkage nested descent (eval task #52). Two things the current
 /// design cannot answer about itself:
 ///
@@ -1067,7 +1072,8 @@ void VCFOutputCaller::write_variants(ostream& out_stream, const SnarlManager* sn
             if (!quality.empty()) {
                 auto found = quality.find(id_key());
                 if (found != quality.end()) {
-                    if (!apply_linkage_quality(dest, found->second.first, found->second.second)) {
+                    if (!apply_linkage_quality(dest, found->second.first, found->second.second,
+                                              linkage_min_confidence)) {
                         ++quality_declined;
                     }
                 }
@@ -1995,8 +2001,12 @@ void VCFOutputCaller::write_mosaic(const vector<LinkageCollector::PhaseCall>& ph
          << g_mosaic_row_to_ref.load() << " rewritten as a reference substitution" << endl;
 }
 
-bool VCFOutputCaller::apply_linkage_quality(string& line, double posterior,
-                                            double explained_share) const {
+/// Rewrite one rendered record's quality from the linkage posterior. A free function rather than a
+/// member: its entire footprint on the class was `linkage_min_confidence`, which is now a
+/// parameter, and VCFOutputCaller is a base class five other classes inherit -- keeping a
+/// 229-line method there for the sake of one double widened all of them for nothing.
+static bool apply_linkage_quality(string& line, double posterior, double explained_share,
+                                  double linkage_min_confidence) {
     // The quality half of what `apply_linkage_change` used to do, kept when the genotype half
     // became unnecessary. It is not decoration, and losing it is invisible to F1: GQ is not a
     // filter here, so a run whose quality silently reverted to the per-site value scores
