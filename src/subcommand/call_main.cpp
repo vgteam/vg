@@ -129,6 +129,14 @@ void help_call(char** argv) {
          << "                            capping one read's veto at ln(P). Covers local" << endl
          << "                            misalignment, which MAPQ does not measure. Mainly" << endl
          << "                            an indel knob; interacts with --mismap-max [0.02]" << endl
+         << "      --gap-open N          read scorer's gap-open penalty [6]" << endl
+         << "      --gap-extend N        read scorer's gap-extension penalty [1]. Together these" << endl
+         << "                            set how hard a read votes against an allele that differs" << endl
+         << "                            from it by an indel, and they are the one scoring" << endl
+         << "                            primitive base quality never softens. At 6/1 a 1 bp" << endl
+         << "                            difference is a saturated vote, which suits a read whose" << endl
+         << "                            errors are substitutions and not a read whose modal error" << endl
+         << "                            is a single-base indel" << endl
          << "      --flat-mixture        weight each haplotype of a genotype equally (1/ploidy)" << endl
          << "                            instead of by the reads it is expected to contribute." << endl
          << "                            The flat weight is wrong wherever the alleles differ" << endl
@@ -426,6 +434,17 @@ int main_call(int argc, char** argv) {
     bool no_mismap_term = false;
     bool no_share_quality = false;
     double depth_quality = 0.0;
+    // The read scorer's gap penalties. Exposed because they are the only primitive the
+    // quality-adjusted scorer does NOT override -- score_gap is absent from
+    // QualAdjAlignmentScorer's override list, so a gap is scored quality-blind -- and
+    // because at the shipped 6/1 a 1 bp indel difference is worth 7 units, which at
+    // log base 1.3833 nats/unit is a likelihood ratio of 6.2e-5: past the -ln(0.02)/1.3833
+    // = 2.83-unit window the mismap floor leaves visible, so every indel difference of a
+    // single base is a saturated vote whatever the base qualities say. That is the right
+    // answer for a 0.1%-substitution read and the wrong one for a read whose modal error
+    // IS a single-base homopolymer indel.
+    int gap_open = default_gap_open;
+    int gap_extend = default_gap_extension;
     double min_confidence = 0.0;
     double linkage_weight = 2.0;
     /// Whether a weight was asked for, as opposed to inherited from the default. The two must
@@ -477,6 +496,8 @@ int main_call(int argc, char** argv) {
     constexpr int OPT_DEPTH_TERM = 1025;
     constexpr int OPT_DEPTH_COUNT_RAW = 1026;
     constexpr int OPT_DEPTH_QUALITY = 1027;
+    constexpr int OPT_GAP_OPEN = 1070;
+    constexpr int OPT_GAP_EXTEND = 1071;
     constexpr int OPT_MIN_CONFIDENCE = 1042;
     constexpr int OPT_PLOIDY_BED = 1043;
     constexpr int OPT_NESTED = 1044;
@@ -554,6 +575,8 @@ int main_call(int argc, char** argv) {
         {"depth-term", required_argument, 0, OPT_DEPTH_TERM},
         {"depth-count-raw", no_argument, 0, OPT_DEPTH_COUNT_RAW},
         {"depth-quality", required_argument, 0, OPT_DEPTH_QUALITY},
+        {"gap-open", required_argument, 0, OPT_GAP_OPEN},
+        {"gap-extend", required_argument, 0, OPT_GAP_EXTEND},
         {"min-confidence", required_argument, 0, OPT_MIN_CONFIDENCE},
         {"linkage-weight", required_argument, 0, OPT_LINKAGE_WEIGHT},
         {"linkage-scale", required_argument, 0, OPT_LINKAGE_SCALE},
@@ -799,6 +822,20 @@ int main_call(int argc, char** argv) {
             break;
         case OPT_DEPTH_COUNT_RAW:
             depth_count_raw = true;
+            break;
+        case OPT_GAP_OPEN:
+            gap_open = parse<int>(optarg);
+            if (gap_open < 1 || gap_open > 127) {
+                cerr << "error [vg call]: --gap-open must be between 1 and 127" << endl;
+                return 1;
+            }
+            break;
+        case OPT_GAP_EXTEND:
+            gap_extend = parse<int>(optarg);
+            if (gap_extend < 1 || gap_extend > 127) {
+                cerr << "error [vg call]: --gap-extend must be between 1 and 127" << endl;
+                return 1;
+            }
             break;
         case OPT_DEPTH_QUALITY:
             depth_quality = parse<double>(optarg);
@@ -1197,6 +1234,7 @@ int main_call(int argc, char** argv) {
             "--gaf-base-binary", "--read-window", "--read-min-mapq", "--no-mismap-term",
             "--depth-term", "--depth-count-raw", "--linkage-weight", "--linkage-scale",
             "--linkage-freq-prior", "--depth-quality", "--min-confidence", "--flat-mixture",
+            "--gap-open", "--gap-extend",
             "--no-share-quality",
             "--mismap-max", "--mismap-min", "--dump-likelihoods", "--enumerate-support",
             "--phased", "--no-phased", "--mosaic-out", "--anchors-out", "--anchors-het-only",
@@ -1814,8 +1852,12 @@ int main_call(int argc, char** argv) {
             // Two scorers: quality-adjusted for reads that have base qualities,
             // plain for reads that do not. Picking per read avoids either
             // fabricating qualities or mis-scoring.
-            qual_scorer.reset(new QualAdjAlignmentScorer());
-            plain_scorer.reset(new MatrixAlignmentScorer());
+            qual_scorer.reset(new QualAdjAlignmentScorer(default_score_matrix,
+                                                        (int8_t)gap_open,
+                                                        (int8_t)gap_extend));
+            plain_scorer.reset(new MatrixAlignmentScorer(default_score_matrix,
+                                                        (int8_t)gap_open,
+                                                        (int8_t)gap_extend));
 
             AlleleLikelihoodParams likelihood_params;
             likelihood_params.use_mismap_term = !no_mismap_term;
@@ -2054,6 +2096,15 @@ int main_call(int argc, char** argv) {
     // output on no evidence. An explicit --nested still works anywhere, as it did when it was opt-in.
     if (nested_calling && !nested_explicit && !read_likelihood) {
         nested_calling = false;
+    }
+    {
+        // The confidence threshold also to the output layer: a record whose GQN the linkage layer
+        // re-derives has to be re-labelled against the same number the per-site emission used,
+        // rather than cleared to PASS regardless.
+        VCFOutputCaller* confidence_target = dynamic_cast<VCFOutputCaller*>(graph_caller.get());
+        if (confidence_target != nullptr) {
+            confidence_target->set_linkage_min_confidence(min_confidence);
+        }
     }
     if (nested_calling) {
         VCFOutputCaller* nested_target = dynamic_cast<VCFOutputCaller*>(graph_caller.get());

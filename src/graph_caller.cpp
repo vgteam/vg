@@ -1,5 +1,7 @@
 #include <atomic>
 #include <chrono>
+#include <cstdio>
+#include <limits>
 
 #include <omp.h>
 
@@ -2047,6 +2049,7 @@ bool VCFOutputCaller::apply_linkage_quality(string& line, double posterior,
         return false;
     }
     size_t gq_field = keys.size(), gqi_field = keys.size(), gqn_field = keys.size();
+    size_t gl_field = keys.size(), gt_field = keys.size();
     for (size_t i = 0; i < keys.size(); ++i) {
         if (keys[i] == "GQ") {
             gq_field = i;
@@ -2054,6 +2057,28 @@ bool VCFOutputCaller::apply_linkage_quality(string& line, double posterior,
             gqi_field = i;
         } else if (keys[i] == "GQN") {
             gqn_field = i;
+        } else if (keys[i] == "GL") {
+            gl_field = i;
+        } else if (keys[i] == "GT") {
+            gt_field = i;
+        }
+    }
+
+    // The scale GQN is a fraction of, recovered before anything is overwritten. GQN was
+    // gap/achievable and GQI was that same gap in phred, so their ratio is the achievable gap --
+    // which is what makes a post-linkage GQN possible at all from a rendered line, with no access
+    // to the likelihood matrix. Zero or unparsable means it cannot be recovered, and GQN then stays
+    // "." rather than being invented.
+    double achievable_phred = 0.0;
+    if (gqi_field != keys.size() && gqn_field != keys.size()) {
+        try {
+            double gqn_pre = stod(values[gqn_field]);
+            double gqi_pre = stod(values[gqi_field]);
+            if (gqn_pre > 0.0 && gqi_pre > 0.0) {
+                achievable_phred = gqi_pre / gqn_pre;
+            }
+        } catch (const std::exception&) {
+            // GQN "." at a site with no gap to normalise, or GQI absent. Nothing to recover.
         }
     }
     if (gq_field != keys.size()) {
@@ -2086,17 +2111,103 @@ bool VCFOutputCaller::apply_linkage_quality(string& line, double posterior,
         // linkage touched one of them.
         values[gq_field] = std::to_string((int)min(256.0, max(0.0, q)));
     }
-    if (gqn_field != keys.size()) {
-        // GQN is the per-site likelihood-ratio gap as a fraction of the site's maximum, and it
-        // described the genotype linkage just moved away from. It is not derivable from the
-        // posterior, so it is blanked -- "." means no measurement, which is now the truth -- rather
-        // than left describing a call the record no longer makes.
-        values[gqn_field] = ".";
+    // GQN, re-derived for the genotype the record now carries.
+    //
+    // The pre-linkage value described the genotype linkage moved away from, so leaving it would
+    // describe a call the record no longer makes. Blanking it -- which is what this did -- is
+    // honest but leaves `--min-confidence`, the caller's only filter, structurally unable to see
+    // this population: measured on chr20 ONT, the moved records run a 37.8% false-positive rate
+    // against 8.6% overall, 4.4x enriched, and carry 13.2% of every small-variant false positive.
+    // A filter blind to its own worst subset is worse than a signed number.
+    //
+    // So: the same fraction, for the settled genotype. The margin is the called genotype's
+    // likelihood against the best alternative, over the achievable gap recovered above. It is
+    // NEGATIVE exactly when linkage moved the call against the reads, which is the discriminating
+    // fact and the reason not to report the absolute value. Still "." when GL is absent, when the
+    // genotype cannot be read, or when the scale could not be recovered.
+    bool gqn_known = false;
+    double gqn_new = 0.0;
+    if (gqn_field != keys.size() && gl_field != keys.size() && gt_field != keys.size()
+        && achievable_phred > 0.0) {
+        vector<double> gl;
+        bool parsed = true;
+        {
+            size_t start = 0;
+            while (parsed) {
+                size_t comma = values[gl_field].find(',', start);
+                string tok = values[gl_field].substr(
+                    start, comma == string::npos ? string::npos : comma - start);
+                try {
+                    gl.push_back(stod(tok));
+                } catch (const std::exception&) {
+                    parsed = false;
+                }
+                if (comma == string::npos) {
+                    break;
+                }
+                start = comma + 1;
+            }
+        }
+        // The called genotype's index in the VCF's GL order, j(j+1)/2 + i for i <= j. Missing or
+        // half-missing genotypes are skipped: a haploid record's GL is indexed by allele, and
+        // conflating the two orders is how a plausible wrong number gets written.
+        vector<int> called;
+        if (parsed) {
+            size_t start = 0;
+            while (true) {
+                size_t sep = values[gt_field].find_first_of("/|", start);
+                string tok = values[gt_field].substr(
+                    start, sep == string::npos ? string::npos : sep - start);
+                if (tok == "." || tok.empty()) {
+                    called.clear();
+                    break;
+                }
+                try {
+                    called.push_back(std::stoi(tok));
+                } catch (const std::exception&) {
+                    called.clear();
+                    break;
+                }
+                if (sep == string::npos) {
+                    break;
+                }
+                start = sep + 1;
+            }
+        }
+        if (parsed && called.size() == 2 && !gl.empty()) {
+            int i = min(called[0], called[1]);
+            int j = max(called[0], called[1]);
+            size_t idx = (size_t)(j * (j + 1) / 2 + i);
+            if (idx < gl.size()) {
+                double best_other = -std::numeric_limits<double>::infinity();
+                for (size_t g = 0; g < gl.size(); ++g) {
+                    if (g != idx) {
+                        best_other = max(best_other, gl[g]);
+                    }
+                }
+                if (best_other > -std::numeric_limits<double>::infinity()) {
+                    double margin_phred = 10.0 * (gl[idx] - best_other);
+                    gqn_new = min(1.0, max(-1.0, margin_phred / achievable_phred));
+                    gqn_known = true;
+                }
+            }
+        }
     }
-    // `lowconf` was set from the pre-linkage GQN against --min-confidence, so it labels the
-    // abandoned call. The record's confidence is the GQ written above; the stale flag is cleared
-    // rather than left to gate downstream filtering on the wrong genotype's confidence.
-    if (fields[6] == "lowconf") {
+    if (gqn_field != keys.size()) {
+        if (gqn_known) {
+            char buf[32];
+            snprintf(buf, sizeof(buf), "%.3f", gqn_new);
+            values[gqn_field] = buf;
+        } else {
+            values[gqn_field] = ".";
+        }
+    }
+    // `lowconf` was set from the pre-linkage GQN, so it labels the abandoned call and cannot simply
+    // stand. Re-decided against the re-derived GQN where there is one, and cleared where there is
+    // not -- rather than cleared unconditionally, which is what made the flag blind above.
+    if (gqn_known && linkage_min_confidence > 0.0) {
+        fields[6] = gqn_new < linkage_min_confidence ? "lowconf" : "PASS";
+    } else if (fields[6] == "lowconf") {
         fields[6] = "PASS";
     }
 

@@ -267,6 +267,12 @@ public:
     /// disabled layer is an error rather than a silently unphased file.
     void set_emit_phasing(bool on) { this->emit_phasing = on; }
 
+    /// `--min-confidence`, so a record whose GQN the linkage layer re-derives is re-labelled
+    /// against the same threshold the per-site emission used.
+    void set_linkage_min_confidence(double threshold) {
+        this->linkage_min_confidence = threshold;
+    }
+
     /// Write assembly anchors to `path`, with `params` deciding which sites and reads qualify.
     ///
     /// Kept beside the mosaic because it is the same kind of thing: a node-ID-keyed side file
@@ -601,10 +607,15 @@ protected:
 
 
     /// Rewrite a rendered record's quality from the linkage posterior: GQ becomes the phred
-    /// complement, discounted by the explained-read share and capped at GQI, GQN is blanked and a
-    /// stale `lowconf` cleared. The genotype is untouched -- the line already carries the settled
-    /// one, because it was built from it.
+    /// complement, discounted by the explained-read share and capped at GQI, GQN is re-derived for
+    /// the settled genotype, and `lowconf` re-decided from it. The genotype is untouched -- the
+    /// line already carries the settled one, because it was built from it.
     bool apply_linkage_quality(string& line, double posterior, double explained_share) const;
+
+    /// `--min-confidence`, so a record whose GQN the linkage layer re-derived can be re-labelled
+    /// against the same threshold the per-site emission used. Held here because the threshold lives
+    /// on the read-likelihood caller and this rewrite happens in the output layer.
+    double linkage_min_confidence = 0.0;
 
     /// Whether to emit phased GT and FORMAT/PS.
     bool emit_phasing = false;

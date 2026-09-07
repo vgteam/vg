@@ -611,7 +611,13 @@ void ReadLikelihoodSnarlCaller::update_vcf_header(string& header) const {
               "run a median GQ of 247 where chr7 diploid homozygotes at the same depth run 46. "
               "Dividing GQ by depth does not fix this and measurably makes it worse, since it "
               "corrects the smaller axis and leaves the larger. '.' where there was no gap to "
-              "normalise, which is not 0\">\n";
+              "normalise, which is not 0. NEGATIVE, and so in [-1,1] rather than [0,1], on a "
+              "record the linkage layer moved: there GQN is the settled genotype's margin over "
+              "the best alternative on the same scale, and a negative value says the panel "
+              "overrode the reads. Those records are the caller's highest false-positive density "
+              "-- 37.8% against 8.6% overall on 44x ONT chr20 -- so they are reported as a signed "
+              "number rather than blanked, which is what left --min-confidence unable to see "
+              "them\">\n";
     header += "##FORMAT=<ID=GP,Number=1,Type=Float,Description=\"Genotype Probability, the "
               "natural-log-scaled posterior of the called genotype under a uniform prior. "
               "Nats, not log10: unlike GL, exponentiate with e, so -2.303 means p=0.1\">\n";
