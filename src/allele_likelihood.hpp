@@ -790,12 +790,38 @@ protected:
     /// the second into the first put a genotyping assumption inside a cache keyed
     /// only on node range, so a rate computed under one ploidy could be reused under
     /// another. The division happens at the point of use instead.
-    double local_read_rate(const vector<pair<nid_t, nid_t>>& site_ranges) const;
+    /// Reads that BEGIN in the window a site falls in, per bp of that window's sequence, and
+    /// their mean length.
+    ///
+    /// Both halves are what the depth term's geometry actually asks for, and both were wrong in
+    /// the same direction before -- invisibly at 150 bp and by a factor of 3.25 at 33 kb.
+    ///
+    /// `lambda = rate * (L + R - 1)` is the expected number of reads whose START position places
+    /// them over an interval of length L. So `rate` has to be starts per bp: counting reads
+    /// *overlapping* the window instead inflates it by `1 + R/W`, which is nothing when a read is
+    /// 150 bp against a ~50 kb window and 1.7x when the read is 33 kb. And `R` has to be the
+    /// population mean length, while the mean over the reads delivered to a site is *size-biased*:
+    /// a long read overlaps more sites, so it is sampled more often, and the site mean estimates
+    /// `E[L^2]/E[L]`. On this ONT set that is 78,165 bp against a population mean of 33,449 --
+    /// 2.34x. The two together predicted the measured median DR of 0.308 against 0.985 on short
+    /// reads, and at fixed read length both errors are exactly zero, which is why 151 bp never
+    /// showed them.
+    ///
+    /// Counting reads that begin in the window fixes both with one mechanism: it is the start
+    /// count the rate needs, and those reads are each sampled once wherever they start, so their
+    /// mean is unbiased. A read's first mapping is its start as sequenced and lies in exactly one
+    /// window, and the window fetch returns every read overlapping it -- so every read starting in
+    /// the window is seen, and the count is exact rather than an estimate.
+    struct WindowReadStats {
+        double start_rate = 0.0;
+        double mean_read_length = 0.0;
+    };
+    WindowReadStats local_read_stats(const vector<pair<nid_t, nid_t>>& site_ranges) const;
 
     const PathHandleGraph& graph;
     SnarlManager& snarl_manager;
     const SiteReadSource& read_source;
-    mutable unordered_map<size_t, double> window_rate;
+    mutable unordered_map<size_t, WindowReadStats> window_rate;
     mutable std::mutex window_bp_mutex;
     const EditAlignmentScorer& qual_scorer;
     const EditAlignmentScorer& plain_scorer;

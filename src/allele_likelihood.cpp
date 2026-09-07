@@ -755,7 +755,8 @@ int32_t GraphAlignedAlleleLikelihoodCalculator::score_read_against_allele(
     return score;
 }
 
-double GraphAlignedAlleleLikelihoodCalculator::local_read_rate(
+GraphAlignedAlleleLikelihoodCalculator::WindowReadStats
+GraphAlignedAlleleLikelihoodCalculator::local_read_stats(
     const vector<pair<nid_t, nid_t>>& site_ranges) const {
 
     // The neighbourhood the rate is measured over, in node IDs -- one constant for every read
@@ -770,7 +771,7 @@ double GraphAlignedAlleleLikelihoodCalculator::local_read_rate(
     static const size_t RATE_WINDOW = 4096;
     size_t span = RATE_WINDOW;
     if (site_ranges.empty() || params.depth_ploidy <= 0) {
-        return 0.0;
+        return WindowReadStats();
     }
     // The window the source would have fetched to answer this site's own query.
     nid_t lo = site_ranges.front().first;
@@ -799,7 +800,22 @@ double GraphAlignedAlleleLikelihoodCalculator::local_read_rate(
     // and not the other would put a constant scale factor between N and lambda and
     // bias every DR in the same direction, which is not a signal.
     double reads = 0.0;
+    double length_total = 0.0;
+    size_t length_count = 0;
     read_source.for_each_alignment({{first, last}}, [&](const Alignment& aln) {
+        // Only reads that BEGIN here. The fetch hands over everything overlapping the window, and
+        // counting all of it is an overlap rate where the geometry wants a start rate; it is also
+        // what makes the length mean size-biased. One test fixes both.
+        const Path& path = aln.path();
+        if (path.mapping_size() == 0) {
+            return;
+        }
+        nid_t start_node = path.mapping(0).position().node_id();
+        if (start_node < first || start_node > last) {
+            return;
+        }
+        length_total += (double)aln.sequence().size();
+        ++length_count;
         if (!params.depth_effective_reads) {
             reads += 1.0;
             return;
@@ -818,10 +834,12 @@ double GraphAlignedAlleleLikelihoodCalculator::local_read_rate(
         }
     }
 
-    double rate = (reads <= 0.0 || bp == 0) ? 0.0 : reads / (double)bp;
+    WindowReadStats stats;
+    stats.start_rate = (reads <= 0.0 || bp == 0) ? 0.0 : reads / (double)bp;
+    stats.mean_read_length = length_count > 0 ? length_total / (double)length_count : 0.0;
     lock_guard<std::mutex> guard(window_bp_mutex);
-    window_rate[window_index] = rate;
-    return rate;
+    window_rate[window_index] = stats;
+    return stats;
 }
 
 AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
@@ -1082,9 +1100,15 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
         // is allowed to act on it. A zero weight leaves the likelihood untouched.
         // Per haplotype, from the site's own ploidy rather than an assumed one.
         int effective_ploidy = ploidy > 0 ? ploidy : params.depth_ploidy;
+        WindowReadStats stats = local_read_stats(ranges);
         result.set_depth_context(depth_lengths,
-                                 local_read_rate(ranges) / (double)effective_ploidy,
-                                 result.mean_read_length_estimate(),
+                                 stats.start_rate / (double)effective_ploidy,
+                                 // The window's population mean, not the site's size-biased one.
+                                 // Falls back to the site mean where no read began in the window,
+                                 // which is a small window at the end of a contig rather than a
+                                 // condition worth a branch elsewhere.
+                                 stats.mean_read_length > 0.0 ? stats.mean_read_length
+                                                              : result.mean_read_length_estimate(),
                                  params.depth_weight, params.depth_effective_reads);
     }
     return result;
