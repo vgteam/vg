@@ -123,7 +123,10 @@ public:
     /// indels are unchanged bit for bit. And it is symmetric in the direction of
     /// the imbalance, so it addresses insertions and deletions with one rule.
     ///
-    /// `allele_lengths` is indexed by allele, `mean_read_length` is R. Passing an
+    /// `allele_lengths` is indexed by allele, `mean_read_length` is R -- which must be the
+    /// POPULATION mean read length, not the mean over the reads at one site. The site mean is
+    /// size-biased -- it estimates `E[L^2]/E[L]` --; `compute` overrides this field with a
+    /// window-derived population mean immediately after `build`. Passing an
     /// empty vector, or a zero R, falls back to the flat 1/|G|.
     void set_length_weights(vector<size_t> allele_lengths, double mean_read_length) {
         this->allele_lengths = std::move(allele_lengths);

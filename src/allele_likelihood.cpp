@@ -1082,6 +1082,22 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
     });
 
     AlleleReadLikelihoods result = builder.build();
+
+    // R, for every consumer of it, from one place. The builder can only offer the mean over the
+    // reads delivered to THIS site, and that estimator is size-biased -- a long read overlaps more
+    // sites, so it is sampled more often, and the site mean estimates E[L^2]/E[L] rather than E[L]
+    // (78,165 against 33,449 bp on a 33 kb ONT set; equal at fixed read length, which is why this
+    // was invisible on 150 bp reads). Every use of R here is Lander-Waterman geometry -- how much
+    // sequence can produce a read that overlaps something -- and all of it wants the population
+    // mean. Three consumers: the depth term's lambda below, the mixture weights
+    // (`set_length_weights`, via this same field), and the anchor slot weights, which read it back
+    // through `mean_read_length_estimate` a few lines down. Fixing only the depth term would leave
+    // the three disagreeing about one quantity.
+    WindowReadStats stats = local_read_stats(ranges);
+    if (stats.mean_read_length > 0.0) {
+        result.set_mean_read_length(stats.mean_read_length);
+    }
+
     if (anchor_evidence != nullptr) {
         // The rows the builder kept, in the order it kept them, so row r is reads[r].
         anchor_evidence->mean_read_length = (float)result.mean_read_length_estimate();
@@ -1100,7 +1116,6 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
         // is allowed to act on it. A zero weight leaves the likelihood untouched.
         // Per haplotype, from the site's own ploidy rather than an assumed one.
         int effective_ploidy = ploidy > 0 ? ploidy : params.depth_ploidy;
-        WindowReadStats stats = local_read_stats(ranges);
         result.set_depth_context(depth_lengths,
                                  stats.start_rate / (double)effective_ploidy,
                                  // The window's population mean, not the site's size-biased one.
