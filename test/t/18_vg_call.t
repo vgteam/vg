@@ -721,17 +721,22 @@ is $(grep -c "requires --gam" gi_err.txt) "1" "--gam-index without --gam is refu
 vg call x.vg -k x.pack --read-likelihood --gam sim.sorted.gam --gbz-base x.gbz -t 1 >/dev/null 2>gb_err.txt
 is $(grep -c "requires --gaf-base" gb_err.txt) "1" "--gbz-base without --gaf-base is refused"
 
-vg call x.vg -k x.pack --read-likelihood --gam sim.sorted.gam --gaf-base sim.gaf.db -t 1 >/dev/null 2>gb_excl.txt
+# These three check flag VALIDATION, which happens after option parsing, so the path only has to
+# exist -- it is never opened.  It has to exist at all now because --gaf-base goes through
+# require_exists(), which rejects a missing file before any flag combination is considered.
+touch gb_placeholder.db
+vg call x.vg -k x.pack --read-likelihood --gam sim.sorted.gam --gaf-base gb_placeholder.db -t 1 >/dev/null 2>gb_excl.txt
 is $(grep -c "mutually exclusive" gb_excl.txt) "1" "--gaf-base and --gam together are refused"
 
-vg call x.vg -k x.pack --gaf-base sim.gaf.db -t 1 >/dev/null 2>gb_norl.txt
+vg call x.vg -k x.pack --gaf-base gb_placeholder.db -t 1 >/dev/null 2>gb_norl.txt
 is $(grep -c "only applies to --read-likelihood" gb_norl.txt) "1" "--gaf-base without --read-likelihood is refused"
 
 # A missing gbz-base is the user's setup, not a vg bug: it must be an error with a fix
 # in it, not a crash telling them to file an issue.
-vg call x.vg -k x.pack --read-likelihood --gaf-base sim.gaf.db --gaf-base-binary /nonexistent/gbz-base -t 1 >/dev/null 2>gb_nobin.txt
+vg call x.vg -k x.pack --read-likelihood --gaf-base gb_placeholder.db --gaf-base-binary /nonexistent/gbz-base -t 1 >/dev/null 2>gb_nobin.txt
 is $(grep -c "could not execute" gb_nobin.txt) "1" "a missing gbz-base binary is reported with a remedy"
 is $(grep -c "VG has crashed" gb_nobin.txt) "0" "a missing gbz-base binary is not reported as a vg crash"
+rm -f gb_placeholder.db
 
 # The equivalence test: the same reads, reached through a database instead of held in
 # memory, must give the same calls. Compared against the in-memory *GAF* rather than the
@@ -1079,9 +1084,9 @@ is $(awk -F'\t' '$1=="#sites"{print $2}' rl_anchors_hom.tsv) "het" \
 # read placement is lost, since a dropped end pin is by definition one whose reads are all at the start.
 rm -f rl_anchors_sp.tsv
 vg call x.gbz --read-likelihood --gam sim.gam --anchors-out rl_anchors_sp.tsv \
-    --anchors-end-pin-min-new 1 -t 1 2>/dev/null >/dev/null
+    --anchors-end-new 1 -t 1 2>/dev/null >/dev/null
 is $(if [ $(grep -c "^A" rl_anchors_sp.tsv) -lt $(grep -c "^A" rl_anchors.tsv) ]; then echo 1; else echo 0; fi) "1" \
-   "--anchors-end-pin-min-new drops anchors the default emits"
+   "--anchors-end-new drops anchors the default emits"
 is $(python3 -c '
 import re
 from collections import defaultdict
@@ -1121,8 +1126,8 @@ is $(comm -13 <(awk -F'\t' '/^#read/{print $3}' rl_anchors_sp.tsv | sort -u) \
 # mismap floor, so nothing can reach 100.
 rm -f rl_anchors_none.tsv
 vg call x.gbz --read-likelihood --gam sim.gam --anchors-out rl_anchors_none.tsv \
-    --anchors-min-read-score 100 -t 1 2>/dev/null >/dev/null
-is $(grep -c "^A" rl_anchors_none.tsv) "0" "--anchors-min-read-score 100 empties the file"
+    --anchors-min-q 100 -t 1 2>/dev/null >/dev/null
+is $(grep -c "^A" rl_anchors_none.tsv) "0" "--anchors-min-q 100 empties the file"
 rm -f rl_anchors_gqn.tsv
 vg call x.gbz --read-likelihood --gam sim.gam --anchors-out rl_anchors_gqn.tsv \
     --anchors-min-gqn 1.0 -t 1 2>/dev/null >/dev/null

@@ -182,8 +182,7 @@ void help_call(char** argv) {
          << "                            anchor is a zero-length pin at a snarl boundary," << endl
          << "                            holding the reads that cross it partitioned by which" << endl
          << "                            called allele they fit. Implies --read-likelihood" << endl
-         << "      --anchors-end-pin-min-new N" << endl
-         << "                            emit the end pin only where it holds at least N" << endl
+         << "      --anchors-end-new N   emit the end pin only where it holds at least N" << endl
          << "                            reads the start pin does not. Both pins carry the" << endl
          << "                            SAME partition, so where their read sets agree the" << endl
          << "                            two are joined by all the same reads and the end pin" << endl
@@ -194,10 +193,9 @@ void help_call(char** argv) {
          << "                            haplotype information, but an anchor graph is built" << endl
          << "                            out of contiguity as much as out of phasing" << endl
          << "      --anchors-leaf-only   only leaf snarls [every genotyped site]" << endl
-         << "      --anchors-min-reads N minimum reads per anchor [2]" << endl
+         << "      --anchors-reads N     minimum reads per anchor [2]" << endl
          << "      --anchors-min-gqn F   minimum site GQN for its partition to be trusted [0]" << endl
-         << "      --anchors-min-read-score F" << endl
-         << "                            minimum per-read assignment phred. 3 is the measured" << endl
+         << "      --anchors-min-q F     minimum per-read assignment phred. 3 is the measured" << endl
          << "                            knee -- ~2 points of purity for ~9% of reads -- but" << endl
          << "                            0 by default, since a read with no MAPQ cannot clear" << endl
          << "                            any positive threshold. Bounded above" << endl
@@ -226,8 +224,7 @@ void help_call(char** argv) {
          << "                            to the genotypes actually emitted, so GT stays a" << endl
          << "                            permutation of the unphased call." << endl
          << "                            Needs --linkage-weight above 0" << endl
-         << "      --linkage-freq-prior F" << endl
-         << "                            exponent on the panel allele-frequency prior implied" << endl
+         << "      --linkage-prior F     exponent on the panel allele-frequency prior implied" << endl
          << "                            by the state space. Only acts with --linkage-weight." << endl
          << "                            0 removes it, 1 keeps it as the states present it," << endl
          << "                            and above 1 amplifies it; measured best near 5 on a" << endl
@@ -620,18 +617,18 @@ int main_call(int argc, char** argv) {
         {"min-confidence", required_argument, 0, OPT_MIN_CONFIDENCE},
         {"linkage-weight", required_argument, 0, OPT_LINKAGE_WEIGHT},
         {"linkage-scale", required_argument, 0, OPT_LINKAGE_SCALE},
-        {"linkage-freq-prior", required_argument, 0, OPT_LINKAGE_FREQ_PRIOR},
+        {"linkage-prior", required_argument, 0, OPT_LINKAGE_FREQ_PRIOR},
         {"enumerate-support", no_argument, 0, OPT_ENUMERATE_SUPPORT},
         {"phased", no_argument, 0, OPT_PHASED},
         {"mosaic-out", required_argument, 0, OPT_MOSAIC_OUT},
         {"anchors-out", required_argument, 0, OPT_ANCHORS_OUT},
         {"anchors-het-only", no_argument, 0, OPT_ANCHORS_HET_ONLY},
         {"anchors-leaf-only", no_argument, 0, OPT_ANCHORS_LEAF_ONLY},
-        {"anchors-min-reads", required_argument, 0, OPT_ANCHORS_MIN_READS},
+        {"anchors-reads", required_argument, 0, OPT_ANCHORS_MIN_READS},
         {"anchors-min-gqn", required_argument, 0, OPT_ANCHORS_MIN_GQN},
-        {"anchors-min-read-score", required_argument, 0, OPT_ANCHORS_MIN_SCORE},
+        {"anchors-min-q", required_argument, 0, OPT_ANCHORS_MIN_SCORE},
         {"anchors-keep-off-call", no_argument, 0, OPT_ANCHORS_KEEP_OFF_CALL},
-        {"anchors-end-pin-min-new", required_argument, 0, OPT_ANCHORS_END_PIN_MIN_NEW},
+        {"anchors-end-new", required_argument, 0, OPT_ANCHORS_END_PIN_MIN_NEW},
         {"mosaic-patch-gaps", no_argument, 0, OPT_MOSAIC_PATCH},
         {"no-mosaic-patch-gaps", no_argument, 0, OPT_NO_MOSAIC_PATCH},
         {"no-mosaic-nested", no_argument, 0, OPT_NO_MOSAIC_NESTED},
@@ -843,13 +840,13 @@ int main_call(int argc, char** argv) {
             read_likelihood = true;
             break;
         case OPT_GAM:
-            gam_filename = optarg;
+            gam_filename = require_exists(logger, optarg);
             break;
         case OPT_GAF:
-            gaf_filename = optarg;
+            gaf_filename = require_exists(logger, optarg);
             break;
         case OPT_DUMP_LIKELIHOODS:
-            dump_likelihoods_filename = optarg;
+            dump_likelihoods_filename = ensure_writable(logger, optarg);
             break;
         case OPT_NO_MISMAP_TERM:
             no_mismap_term = true;
@@ -889,7 +886,7 @@ int main_call(int argc, char** argv) {
             min_confidence = parse<double>(optarg);
             break;
         case OPT_PLOIDY_BED:
-            ploidy_bed_filename = optarg;
+            ploidy_bed_filename = require_exists(logger, optarg);
             break;
         case OPT_NESTED:
             nested_calling = true;
@@ -928,13 +925,13 @@ int main_call(int argc, char** argv) {
             read_min_mapq = parse<int>(optarg);
             break;
         case OPT_GAM_INDEX:
-            gam_index_filename = optarg;
+            gam_index_filename = require_exists(logger, optarg);
             break;
         case OPT_GAF_BASE:
-            gaf_base_filename = optarg;
+            gaf_base_filename = require_exists(logger, optarg);
             break;
         case OPT_GBZ_BASE:
-            gbz_base_filename = optarg;
+            gbz_base_filename = require_exists(logger, optarg);
             break;
         case OPT_GAF_BASE_BINARY:
             gaf_base_binary = optarg;
@@ -1302,13 +1299,13 @@ int main_call(int argc, char** argv) {
             "--gam", "--gaf-reads", "--gam-index", "--gaf-base", "--gbz-base",
             "--gaf-base-binary", "--read-window", "--read-min-mapq", "--no-mismap-term",
             "--depth-term", "--depth-count-raw", "--linkage-weight", "--linkage-scale",
-            "--linkage-freq-prior", "--depth-quality", "--min-confidence", "--flat-mixture",
+            "--linkage-prior", "--depth-quality", "--min-confidence", "--flat-mixture",
             "--gap-open", "--gap-extend", "--preset",
             "--no-share-quality",
             "--mismap-max", "--mismap-min", "--dump-likelihoods", "--enumerate-support",
             "--phased", "--no-phased", "--mosaic-out", "--anchors-out", "--anchors-het-only",
-            "--anchors-leaf-only", "--anchors-min-reads", "--anchors-min-gqn",
-            "--anchors-min-read-score", "--anchors-keep-off-call", "--anchors-end-pin-min-new"};
+            "--anchors-leaf-only", "--anchors-reads", "--anchors-min-gqn",
+            "--anchors-min-q", "--anchors-keep-off-call", "--anchors-end-new"};
         vector<string> offenders;
         for (int i = 1; i < argc; ++i) {
             string arg(argv[i]);

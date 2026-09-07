@@ -268,7 +268,7 @@ The wildcard is not optional. A state implies a genotype, so without it any geno
 can spell is unreachable — and the graph need not contain the sample being genotyped. Omitting it
 makes the model suppress novel alleles, which presents as a precision gain while destroying recall.
 
-### `--linkage-freq-prior` — the allele-frequency prior
+### `--linkage-prior` — the allele-frequency prior
 
 This is the dominant parameter of the linkage layer, and the least self-explanatory, because it
 does not add a prior. It controls **how much of a prior the state space was already imposing.**
@@ -1050,7 +1050,7 @@ spellings. General options that this mode also uses -- `-d`/`--ploidy`, `-R`/`--
 |---|---|---|
 | `--linkage-weight W` | 2 | Exponent tempering the switch probability. 0 is off and reproduces the per-site caller exactly. |
 | `--linkage-scale N` | 10000 | Distance scale of the linkage decay, in bp. Nearly flat from 10–40 kb. |
-| `--linkage-freq-prior F` | 5 | Exponent on the state space's implied allele-frequency prior. 0 removes it, 1 keeps it as presented, and it inverts past ~8. |
+| `--linkage-prior F` | 5 | Exponent on the state space's implied allele-frequency prior. 0 removes it, 1 keeps it as presented, and it inverts past ~8. |
 
 ### Quality reporting — ranking only, never changes a genotype
 
