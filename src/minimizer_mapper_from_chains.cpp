@@ -1947,7 +1947,7 @@ void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::ve
                 }
             }
         }, discard_chain_by_score);
-    
+     
     for (size_t i = 0 ; i < multiplicity_by_alignment.size() ; ++i) {
         multiplicity_by_alignment[i] += (chain_count_by_alignment[i] >= alignments.size()
                                       ? ((double)chain_count_by_alignment[i] - (double) alignments.size())
