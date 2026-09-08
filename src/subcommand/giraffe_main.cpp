@@ -982,7 +982,7 @@ int main_giraffe(int argc, char** argv) {
         .add_entry<double>("gap-scale", 0.27579)
         .add_entry<int>("rec-penalty", 2)
         .add_entry<int>("rec-consistency-bonus", 12)
-        .add_entry<double>("chain-score-threshold", 234.0)
+        .add_entry<size_t>("chain-score-threshold", 234)
         .add_entry<int>("target-alignment-attempts", 2)
         .add_entry<double>("min-chain-score-per-base", 0.24)
         .add_entry<size_t>("max-chains-per-tree", 3)
