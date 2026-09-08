@@ -88,14 +88,26 @@ LD_CAIRO_LIB_FLAGS = $(shell PKG_CONFIG_PATH=$(CWD)/$(LIB_DIR)/pkgconfig:$(PKG_C
 # By default it has no suffix
 BOOST_SUFFIX=""
 # We define some more libraries to link against at the end, in static linking mode if possible, so we can use faster non-PIC code. These have both .so/.dylib and .a versions available.
-LD_STATIC_LIB_FLAGS := -lvgio -lhts -ldeflate -lz -lbz2 -llzma
+LD_STATIC_LIB_FLAGS := -lvgio -lhts -ldeflate
 # Some of our static libraries depend on libraries that may not always be avilable in static form.
 LD_STATIC_LIB_DEPS := -lpthread -lm
 # Use pkg-config to find dependencies.
 # Always use --static so that we have the -l flags for transitive dependencies, in case we're doing a full static build.
 # But only force static linking of the dependencies we want to use non-PIC code for, for speed.
 LD_LIB_FLAGS += $(shell $(PKG_CONFIG) --libs --static $(PKG_CONFIG_DEPS))
+# System libraries vg would otherwise static-link (zlib, bzip2, xz/lzma, protobuf,
+# jansson). On RHEL-family systems the static (.a) versions are not installed by
+# default and live in separate -static packages that are often unavailable, so
+# there we link them dynamically against the .so that IS present; vg's own
+# libraries (vgio/hts/deflate, above) stay static. On RHEL the dynamic system
+# libs go in LD_STATIC_LIB_DEPS so they appear AFTER libvgio in the link order.
+ifeq ($(wildcard /etc/redhat-release),)
+LD_STATIC_LIB_FLAGS += -lz -lbz2 -llzma
 LD_STATIC_LIB_FLAGS += $(shell $(PKG_CONFIG) --libs --static $(PKG_CONFIG_STATIC_DEPS))
+else
+LD_STATIC_LIB_DEPS += -lz -lbz2 -llzma
+LD_STATIC_LIB_DEPS += $(shell $(PKG_CONFIG) --libs $(PKG_CONFIG_STATIC_DEPS))
+endif
 # Some libraries need to be linked only into the binary
 LD_EXE_LIB_FLAGS := 
 # We also use plain LDFLAGS to point at system library directories that we want
