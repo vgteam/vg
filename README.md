@@ -146,9 +146,17 @@ The first step is to clone the vg repository:
     git clone --recursive https://github.com/vgteam/vg.git
     cd vg
 
-#### Mac: Install Dependencies
+#### Mac: Install and Update Dependencies
 
 VG depends on a number of packages being installed on the system where it is being built. Dependencies can be installed using either [MacPorts](https://www.macports.org/install.php) or [Homebrew](http://brew.sh/).
+
+Before doing these steps make sure to check your Clang version is greater than 21.0: 
+
+    clang -v
+
+Otherwise update Clang:
+
+    sudo softwareupdate --install "Command Line Tools for Xcode 26.6-26.6"
 
 ##### Using MacPorts
 
