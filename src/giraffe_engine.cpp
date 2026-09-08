@@ -66,16 +66,18 @@ bool HaplotypeSurjector::path_is_indexed(const string& path_name) const {
 
 namespace {
 
-/// Apply the "blat" preset to a MinimizerMapper.
+/// Apply the "hifi" preset to a MinimizerMapper.
 ///
-/// Mirrors the "blat" entry in giraffe_main.cpp's `presets` map (defined
-/// next to "hifi"). Inherits all of "hifi"'s long-read code-path values and
-/// then applies the BLAT overrides flagged below. Keep this in sync with
-/// the preset definition in giraffe_main.cpp — the engine does not use the
-/// CLI parser, so the values are duplicated here for direct field
-/// assignment.
-void apply_blat_preset(MinimizerMapper& m) {
-    // ---- inherited from "hifi" (long-read code path) ----
+/// A faithful copy of the "hifi" entry in giraffe_main.cpp's `presets` map.
+/// The engine does not use the CLI parser, so the values are duplicated here
+/// for direct field assignment; keep them in sync with that map.
+///
+/// This was previously inlined into apply_blat_preset as an "inherited from
+/// hifi" block, and it had DRIFTED: item_bonus 20 vs hifi's 2, gap_scale 0.2
+/// vs 0.27579, max_min_chain_score 100 vs 46, and four hifi parameters were
+/// not set at all. Splitting it out means "blat" is now literally hifi plus a
+/// short list of deltas, so the two cannot drift apart again.
+void apply_hifi_preset(MinimizerMapper& m) {
     m.align_from_chains = true;
     m.use_explored_cap = false;
     m.max_unique_min = 79;
@@ -86,6 +88,7 @@ void apply_blat_preset(MinimizerMapper& m) {
     m.minimizer_score_fraction = 1.0;
     m.hard_hit_cap = 13614;
     m.gapless_extension_limit = 0;
+    m.mapq_score_scale = 0.001;
     m.zipcode_tree_score_threshold = 100.0;
     m.pad_zipcode_tree_score_threshold = 50.0;
     m.zipcode_tree_coverage_threshold = 0.5;
@@ -96,12 +99,18 @@ void apply_blat_preset(MinimizerMapper& m) {
     m.max_graph_lookback_bases_per_base = 0.10501002120802233;
     m.max_indel_bases = 5000;
     m.max_indel_bases_per_base = 2.45;
-    m.item_bonus = 20;
-    // item_scale removed upstream (chaining no longer scales item scores); it
-    // was set to its default of 1.0 here, so dropping it is behavior-neutral.
-    m.gap_scale = 0.2;
-    m.max_min_chain_score = 100;
+    m.item_bonus = 2;
+    m.gap_scale = 0.27579;
+    m.rec_penalty = 2;
+    m.rec_consistency_bonus = 12;
+    m.chain_score_threshold = 234.0;
+    m.min_chains = 2;
+    m.min_chain_score_per_base = 0.24;
+    m.max_chains_per_tree = 3;
+    m.max_min_chain_score = 46;
+    m.min_indel_avoid_bases = 50;
     m.max_skipped_bases = 1000;
+    m.max_alignments = 3;
     m.max_chain_connection = 233;
     m.max_tail_length = 68;
     m.max_tail_gap = 150;
@@ -113,14 +122,28 @@ void apply_blat_preset(MinimizerMapper& m) {
     m.wfa_max_mismatches = 2;
     m.wfa_max_mismatches_per_base = 0.05;
     m.wfa_max_max_mismatches = 15;
-    // watchdog-timeout / batch-size / prune-low-cplx live on
-    // GiraffeMainOptions in vg, not on MinimizerMapper; they're
-    // program-level concerns we don't need in the engine.
+    m.rec_penalty_aln = 28;
+    // watchdog-timeout / batch-size / prune-low-cplx live on GiraffeMainOptions
+    // in vg, not on MinimizerMapper; they are program-level concerns.
+}
+
+/// Apply the "blat" preset: hifi, plus overrides that report many hits per
+/// query instead of one best.
+///
+/// NOTE ON MAPQ: these overrides are the reason MAPQ collapses to 0. MAPQ is a
+/// softmax over the scores of every alignment the mapper SCORED (max_alignments,
+/// not max_multimaps, governs that), so scoring 100 candidates instead of 3 —
+/// and admitting far weaker chains into that set — spreads the probability mass
+/// and drives P(best) toward 1/N. That is arithmetic, not a bug, but it means
+/// BLAT mode and meaningful MAPQ are mutually exclusive.
+void apply_blat_preset(MinimizerMapper& m) {
+    apply_hifi_preset(m);
 
     // ---- BLAT-specific overrides ----
-    // BLAT: keep mapq off (hifi sets 0.001; explicit here so future
-    // hifi changes don't silently flip it).
-    m.mapq_score_scale = 0.001;
+    // mapq_score_scale is IDENTICAL to hifi's 0.001 -- it is not a BLAT
+    // override at all, and it does not "turn mapq off". It rescales long-read
+    // scores (~50,000 for a 50 kb read) into the softmax's working range. The
+    // MAPQ collapse comes from the candidate-count overrides below.
     // BLAT: report many hits per read instead of one best.
     // hifi: max_alignments=3, max_multimaps not set (=1).
     // blat: 100 each so we surface every haplotype/paralog hit.
@@ -128,11 +151,11 @@ void apply_blat_preset(MinimizerMapper& m) {
     m.max_multimaps = 100;
     m.max_alignments = 100;
     // BLAT: loosen chain filtering so secondary hits aren't pruned.
-    // hifi: chain_score_threshold=200 (chains within 200 of best).
+    // hifi: chain_score_threshold=234.0.
     // blat: 1000 — admit much weaker chains relative to the best.
     m.chain_score_threshold = 1000.0;
     // BLAT: drop the per-base chain score floor.
-    // hifi: 0.1 (chain must score >= 0.1 per read base).
+    // hifi: 0.24 (chain must score >= 0.24 per read base).
     // blat: 0.05 — let noisy/partial matches survive.
     m.min_chain_score_per_base = 0.05;
     // BLAT: always try many chains, even when one dominates.
@@ -464,7 +487,25 @@ void GiraffeEngine::load(const GiraffeEnginePaths& paths, const GiraffeEngineCon
     // Benedict, the long-read code path is intended to replace the
     // short-read path and works well enough for short reads too. Applied
     // before explicit overrides so config.max_multimaps (if > 0) wins.
-    apply_blat_preset(*mapper);
+    // Preset selection. "blat" surfaces every haplotype/paralog hit but scores
+    // up to 100 candidates per read, which drives MAPQ to 0 by construction.
+    // "hifi" is plain long-read Giraffe: real MAPQ, but only the best few
+    // alignments. Selectable at run time so the two can be compared without
+    // rebuilding vg.
+    const char* preset_env = std::getenv("PANGENOME_GIRAFFE_PRESET");
+    const std::string preset = preset_env ? preset_env : "hifi";
+    if (preset == "blat") {
+        apply_blat_preset(*mapper);
+    } else {
+        if (preset != "hifi") {
+            cerr << "[giraffe-engine] unknown PANGENOME_GIRAFFE_PRESET \""
+                 << preset << "\"; using \"hifi\"" << endl;
+        }
+        apply_hifi_preset(*mapper);
+    }
+    cerr << "[giraffe-engine] mapping preset: "
+         << (preset == "blat" ? "blat" : "hifi") << endl;
+    // Explicit override wins over whichever preset was applied.
     if (config.max_multimaps > 0) {
         mapper->max_multimaps = config.max_multimaps;
     }
