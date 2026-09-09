@@ -1065,11 +1065,13 @@ vector<SubchainGroup> find_best_chains(const VectorView<Anchor>& to_chain,
     for (size_t i = 0; i < tracebacks.size(); i++) {
         size_t cur_traceback_index = traceback_optimal_scores[i].first;
         int cur_opt_score = traceback_optimal_scores[i].second;
+        bool remove = false;
         if (cur_opt_score < tracebacks.front().chain_score / 5) {
 #ifdef debug_chaining
             cerr << "Saving traceback " << cur_traceback_index << " as its own SubchainGroup because its optimal score "
                  << cur_opt_score << " < top score " << tracebacks.front().chain_score << " / 5 " << endl; 
 #endif
+            remove = true;
             extra_groups.emplace_back();
             extra_groups.back().subchains.emplace_back(tracebacks[cur_traceback_index].anchors, true);
             extra_groups.back().max_sparse_chain_score = tracebacks[cur_traceback_index].chain_score;
@@ -1080,6 +1082,16 @@ vector<SubchainGroup> find_best_chains(const VectorView<Anchor>& to_chain,
                  << cur_opt_score << " < top score " << tracebacks.front().chain_score
                  << " - chain score threshold " << filtering_scheme.chain_score_threshold << endl; 
 #endif
+            remove = true;
+        } else if (tracebacks[cur_traceback_index].anchors.size() == 1 && cur_opt_score != tracebacks.front().chain_score) {
+#ifdef debug_chaining
+            cerr << "Saving traceback " << cur_traceback_index << " as its own SubchainGroup because its optimal score "
+                 << cur_opt_score << " != top score " << tracebacks.front().chain_score
+                 << " and it's a single-anchor traceback (probably spurious)" << endl; 
+#endif
+            remove = true;
+        }
+        if (remove) {
             extra_groups.emplace_back();
             extra_groups.back().subchains.emplace_back(tracebacks[cur_traceback_index].anchors, true);
             extra_groups.back().max_sparse_chain_score = tracebacks[cur_traceback_index].chain_score;
