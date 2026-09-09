@@ -159,6 +159,38 @@ oldest-supported-compiler-job:
     # the requirement bump.
     COMPILER_VERSION: 10
 
+# Ensure vg builds after a `git clean`
+git-clean-job:
+  interruptible: true
+  stage: test
+  cache:
+    key: git-clean-cache-gcc-$COMPILER_VERSION
+    paths:
+      - deps/
+      - include/
+      - lib/
+      - bin/
+      - obj/
+  before_script:
+    - sudo apt-get -q -y update
+    - sudo apt-get install -y gcc-${COMPILER_VERSION} g++-${COMPILER_VERSION}
+    - sudo rm -f /usr/bin/gcc && sudo ln -s /usr/bin/gcc-${COMPILER_VERSION} /usr/bin/gcc
+    - sudo rm -f /usr/bin/g++ && sudo ln -s /usr/bin/g++-${COMPILER_VERSION} /usr/bin/g++
+    # We need to make sure we get the right submodule files for this version
+    # and don't clobber sources with the cache. We want to have a dirty state
+    # with the correct source files.
+    - scripts/restore-deps.sh
+  script:
+    - THREADS=8
+    - make get-deps
+    - make -j${THREADS}
+    - git clean
+    - make -j${THREADS}
+  after_script: []
+  variables:
+    VG_FULL_TRACEBACK: "1"
+    GIT_SUBMODULE_STRATEGY: none
+    COMPILER_VERSION: 11
 
 # We define one job to do the Docker container build
 build-job:
