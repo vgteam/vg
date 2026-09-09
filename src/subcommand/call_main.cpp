@@ -140,6 +140,17 @@ void help_call(char** argv) {
          << "                            +0.069 at matched 30x coverage. An explicit flag" << endl
          << "                            overrides the preset either side of it" << endl
          << "      --gap-open N          read scorer's gap-open penalty [6]" << endl
+         << "      --read-phasing        phase from the reads that span consecutive hets," << endl
+         << "                            not from the haplotype panel alone. On under" << endl
+         << "                            `--preset ont`; top-level sites only" << endl
+         << "      --no-read-phasing     leave the phase to the haplotype panel" << endl
+         << "      --phase-min-q N       a site below this per-read confidence may not" << endl
+         << "                            carry a phase link [9.5]" << endl
+         << "      --phase-break N       break the chain below this many log10 units [10]" << endl
+         << "      --phase-relink N      reliable sites either side of a break [3]" << endl
+         << "      --phase-hang N        neighbours to hang an unreliable site from [4]" << endl
+         << "      --phase-prior N       weight of the panel when hanging a site [3]" << endl
+         << "      --phase-cap N         clamp one pair's contribution, 0 to disable [0]" << endl
          << "      --gap-extend N        read scorer's gap-extension penalty [1]. Together" << endl
          << "                            these set how hard a read votes against an allele" << endl
          << "                            that differs from it by an indel, and they are the" << endl
@@ -475,6 +486,12 @@ int main_call(int argc, char** argv) {
     // IS a single-base homopolymer indel.
     int gap_open = default_gap_open;
     int gap_extend = default_gap_extension;
+    // Charge a gap's open against the read's own confidence at it. Off by default because it moves
+    // genotypes, and because the functional form is still being chosen by measurement.
+    // Read-backed phasing. Off by default: with it off the phase is the panel's, byte for byte.
+    bool read_phasing = false;
+    bool read_phasing_explicit = false;
+    ReadPhasingParams read_phasing_params;
     // Which of the preset's values the user set for themselves. The preset is applied after the
     // whole option loop, so `--preset ont --gap-open 3` and `--gap-open 3 --preset ont` mean the
     // same thing: an explicit flag always wins, whichever side of the preset it is written on.
@@ -534,6 +551,14 @@ int main_call(int argc, char** argv) {
     constexpr int OPT_PRESET = 1072;
     constexpr int OPT_GAP_OPEN = 1070;
     constexpr int OPT_GAP_EXTEND = 1071;
+    constexpr int OPT_READ_PHASING = 1074;
+    constexpr int OPT_NO_READ_PHASING = 1081;
+    constexpr int OPT_PHASE_MIN_Q = 1075;
+    constexpr int OPT_PHASE_BREAK = 1076;
+    constexpr int OPT_PHASE_RELINK = 1077;
+    constexpr int OPT_PHASE_HANG = 1078;
+    constexpr int OPT_PHASE_PRIOR = 1079;
+    constexpr int OPT_PHASE_CAP = 1080;
     constexpr int OPT_MIN_CONFIDENCE = 1042;
     constexpr int OPT_PLOIDY_BED = 1043;
     constexpr int OPT_NESTED = 1044;
@@ -614,6 +639,14 @@ int main_call(int argc, char** argv) {
         {"preset", required_argument, 0, OPT_PRESET},
         {"gap-open", required_argument, 0, OPT_GAP_OPEN},
         {"gap-extend", required_argument, 0, OPT_GAP_EXTEND},
+        {"read-phasing", no_argument, 0, OPT_READ_PHASING},
+        {"no-read-phasing", no_argument, 0, OPT_NO_READ_PHASING},
+        {"phase-min-q", required_argument, 0, OPT_PHASE_MIN_Q},
+        {"phase-break", required_argument, 0, OPT_PHASE_BREAK},
+        {"phase-relink", required_argument, 0, OPT_PHASE_RELINK},
+        {"phase-hang", required_argument, 0, OPT_PHASE_HANG},
+        {"phase-prior", required_argument, 0, OPT_PHASE_PRIOR},
+        {"phase-cap", required_argument, 0, OPT_PHASE_CAP},
         {"min-confidence", required_argument, 0, OPT_MIN_CONFIDENCE},
         {"linkage-weight", required_argument, 0, OPT_LINKAGE_WEIGHT},
         {"linkage-scale", required_argument, 0, OPT_LINKAGE_SCALE},
@@ -871,6 +904,32 @@ int main_call(int argc, char** argv) {
                 return 1;
             }
             break;
+        case OPT_READ_PHASING:
+            read_phasing = true;
+            read_phasing_explicit = true;
+            break;
+        case OPT_NO_READ_PHASING:
+            read_phasing = false;
+            read_phasing_explicit = true;
+            break;
+        case OPT_PHASE_MIN_Q:
+            read_phasing_params.reliability = parse<double>(optarg);
+            break;
+        case OPT_PHASE_BREAK:
+            read_phasing_params.break_threshold = parse<double>(optarg);
+            break;
+        case OPT_PHASE_RELINK:
+            read_phasing_params.relink = parse<size_t>(optarg);
+            break;
+        case OPT_PHASE_HANG:
+            read_phasing_params.hang = parse<size_t>(optarg);
+            break;
+        case OPT_PHASE_PRIOR:
+            read_phasing_params.panel_weight = parse<double>(optarg);
+            break;
+        case OPT_PHASE_CAP:
+            read_phasing_params.cap = parse<double>(optarg);
+            break;
         case OPT_GAP_EXTEND:
             gap_extend_explicit = true;
             gap_extend = parse<int>(optarg);
@@ -1040,6 +1099,15 @@ int main_call(int argc, char** argv) {
         // 150 bp reads 0.0037 indel F1. See the gap-penalty help above for why a long read wants a
         // different gap scale, and note the two values are near-additive rather than alternatives.
         if (preset == "ont") {
+            if (!read_phasing_explicit) {
+                // On for long reads because the reads carry the answer and the panel does not: at
+                // 33 kb against a 349 bp median het spacing, 99.96% of adjacent het pairs share a
+                // read. chr20 switch error 3.7942% -> 0.5180% and chr6, held out at these same
+                // values, 3.1849% -> 0.3447%, with the genotypes provably unmoved. Not a global
+                // default: at 151 bp most adjacent pairs are not spanned by one read, and that
+                // case is unmeasured.
+                read_phasing = true;
+            }
             if (!gap_open_explicit) {
                 gap_open = 1;
             }
@@ -1301,6 +1369,9 @@ int main_call(int argc, char** argv) {
             "--depth-term", "--depth-count-raw", "--linkage-weight", "--linkage-scale",
             "--linkage-prior", "--depth-quality", "--min-confidence", "--flat-mixture",
             "--gap-open", "--gap-extend", "--preset",
+            "--read-phasing", "--no-read-phasing", "--phase-min-q", "--phase-break",
+            "--phase-relink",
+            "--phase-hang", "--phase-prior", "--phase-cap",
             "--no-share-quality",
             "--mismap-max", "--mismap-min", "--dump-likelihoods", "--enumerate-support",
             "--phased", "--no-phased", "--mosaic-out", "--anchors-out", "--anchors-het-only",
@@ -1933,6 +2004,7 @@ int main_call(int argc, char** argv) {
             likelihood_params.max_mismap_prob = max_mismap_prob;
             likelihood_params.min_mismap_prob = min_mismap_prob;
             likelihood_params.collect_anchors = anchor_params.enabled;
+            likelihood_params.collect_read_phasing = read_phasing;
 
             likelihood_calculator.reset(new GraphAlignedAlleleLikelihoodCalculator(
                 *graph, *snarl_manager, *read_source, *qual_scorer, *plain_scorer,
@@ -2501,6 +2573,7 @@ int main_call(int argc, char** argv) {
         }
         // one call covers FlowCaller (both ctors, so plain vg call gets it too), NestedFlowCaller
         // and LegacyCaller, since the merge lives on the shared VCFOutputCaller base
+        vcf_caller->set_read_phasing(read_phasing, read_phasing_params);
         vcf_caller->set_allele_merge(cluster_threshold, cluster_min_allele_len);
         // Make sure the basepath information we inferred above goes directy to the VCF header
         // (and that it does *not* try to read it from the graph paths)

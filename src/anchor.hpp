@@ -289,6 +289,15 @@ private:
  * and makes that flag directly meaningful here: read it as "P(this read's evidence at this site is
  * unreliable)".
  */
+/// The mixture weights the per-read responsibilities use, for a settled slot-to-allele mapping.
+///
+/// Shared with read-backed phasing rather than reimplemented there: the weights decide how a read is
+/// split between the two haplotypes, so two copies that drifted apart would make the anchor file and
+/// the phase disagree about the same read.
+vector<double> site_slot_weights(const vector<uint32_t>& allele_length, size_t n_alleles,
+                                 float mean_read_length, bool length_weighted,
+                                 const vector<int>& slot_allele);
+
 void build_site_anchors(const AnchorSiteEvidence& evidence, const vector<int>& genotype,
                         const string& snarl_id, double gqn, double explained,
                         const AnchorParams& params, AnchorCounters& counters,

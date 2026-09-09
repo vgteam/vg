@@ -15,6 +15,7 @@
 #include "snarls.hpp"
 #include "traversal_finder.hpp"
 #include "anchor.hpp"
+#include "read_phasing.hpp"
 #include "snarl_caller.hpp"
 #include "region.hpp"
 #include "zstdutil.hpp"
@@ -301,6 +302,24 @@ public:
     /// on GraphCaller and this base class does not have one.
     void collect_anchors_for(const Snarl& snarl, const vector<int>& genotype,
                              const unique_ptr<SnarlCaller::CallInfo>& call_info, bool is_leaf);
+
+    /// The settled pair reordered onto its haplotypes, for the anchors.
+    ///
+    /// `LinkageCollector::settled_traversals` decodes an unordered genotype index -- the triangular
+    /// `genotype_index(i, j)` -- so it hands back `final_i <= final_j` and the phase is simply not in
+    /// it. The phase is resolved separately into `render_phases`, which is where `emit_variant` reads
+    /// it. Anchors stamp `slot` from the order they are given and the file's header promises the GT's
+    /// field order, so the reorder has to happen before `collect_anchors_for`, not inside it.
+    ///
+    /// Returns the genotype unchanged when there is no phasing, no entry, or no exact reversal.
+    vector<int> phase_ordered_genotype(size_t record_key, const vector<int>& genotype) const;
+
+    /// Arm read-backed phasing. See read_phasing.hpp for what it does and why its shape is what
+    /// it is. Requires the linkage layer, since it rewrites the phase that layer settled.
+    void set_read_phasing(bool on, const ReadPhasingParams& params) {
+        read_phasing = on;
+        read_phasing_params = params;
+    }
 
     /// Write the anchor file and report the counters. No-op unless anchors are armed.
     void write_anchors();
@@ -597,6 +616,11 @@ protected:
     /// flattened position depends on which alleles the line carries, so it is not known until the
     /// record exists.
     std::unordered_map<size_t, LinkageCollector::PhaseCall> render_phases;
+
+    /// Read-backed phasing: on, its parameters, and what it did. See read_phasing.hpp.
+    bool read_phasing = false;
+    ReadPhasingParams read_phasing_params;
+    ReadPhasingCounters read_phasing_counters;
 
     /// Records phased while being rendered, and phases refused because the record did not carry a
     /// permutation of the phased pair.
@@ -1158,6 +1182,17 @@ public:
     /// Runs after the barrier and renders each record from the settled genotype, which is why
     /// `record()` lives at genotyping time rather than in `emit_variant`: the barrier would
     /// otherwise resolve an empty collector.
+    /// Decide every het site's phase from the reads, and rewrite the settled phase to match.
+    ///
+    /// Called from `render_retained_records` before `build_render_phases`, so everything downstream
+    /// -- the GT's field order, the anchor `slot` column, the mosaic -- follows from one decision
+    /// rather than being patched in three places. Genotypes are NOT touched: only the order of an
+    /// already-settled pair changes, which is what makes the genotype-neutrality gate checkable.
+    ///
+    /// Here rather than on VCFOutputCaller because it needs `render_records`, which is where the
+    /// retained per-read evidence lives.
+    void apply_read_phasing();
+
     void render_retained_records();
 
     /// Whether this snarl has no children, resolved through the manager's own copy. See the

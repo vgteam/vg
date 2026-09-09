@@ -987,6 +987,14 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
     // the same order: `add_read` drops a read that placed on nothing, so the evidence follows what
     // it kept rather than what was offered.
     unique_ptr<AnchorSiteEvidence> anchor_evidence;
+    // Read phasing needs the same `rel` rows and nothing else -- no name, no pin. Built only when
+    // anchors are NOT armed, because the anchor evidence already carries everything it wants.
+    unique_ptr<PhaseReadEvidence> phase_evidence;
+    if (params.collect_read_phasing && !params.collect_anchors) {
+        phase_evidence = make_unique<PhaseReadEvidence>();
+        phase_evidence->n_alleles = traversals.size();
+        phase_evidence->length_weighted = params.length_weighted_mixture;
+    }
     if (params.collect_anchors) {
         anchor_evidence = make_unique<AnchorSiteEvidence>();
         anchor_evidence->n_alleles = traversals.size();
@@ -1002,6 +1010,16 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
                 len += step.sequence.size();
             }
             anchor_evidence->allele_length.push_back((uint32_t)len);
+        }
+    }
+    if (phase_evidence != nullptr) {
+        phase_evidence->allele_length.reserve(allele_steps.size());
+        for (const auto& steps : allele_steps) {
+            size_t len = 0;
+            for (const AlleleStep& step : steps) {
+                len += step.sequence.size();
+            }
+            phase_evidence->allele_length.push_back((uint32_t)len);
         }
     }
 
@@ -1063,6 +1081,11 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
             return;
         }
 
+        if (phase_evidence != nullptr) {
+            // Hashed here, where the name is in hand, and never stored: the string is the whole
+            // reason the anchor evidence is too heavy to retain for phasing.
+            phase_evidence->read_key.push_back((uint64_t)std::hash<string>{}(aln.name()));
+        }
         if (anchor_evidence != nullptr) {
             // Resolved against `aln`, NOT `scored_aln`. The flipped copy exists so the read can be
             // compared to alleles that read the other way; its sequence is reverse-complemented and
@@ -1109,6 +1132,29 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
             }
         }
         result.anchor_evidence = std::move(anchor_evidence);
+    }
+    if (phase_evidence != nullptr) {
+        // Same rows in the same order, so row r is read_key[r]: the keys are pushed inside the
+        // callback, after `add_read` has accepted the read, so a read it drops contributes neither.
+        phase_evidence->mean_read_length = (float)result.mean_read_length_estimate();
+        // Fail CLOSED on a row-count mismatch rather than resizing into one. `resize` here would
+        // truncate or zero-pad, and a zero key is a key -- every padded read would collide and be
+        // silently treated as the same fragment at every site. Dropping the site's evidence costs
+        // one site's phase; mis-keying costs a wrong haplotype with nothing to show for it.
+        if (phase_evidence->read_key.size() != result.num_reads()) {
+            phase_evidence.reset();
+        }
+    }
+    if (phase_evidence != nullptr) {
+        phase_evidence->mismap.resize(result.num_reads());
+        phase_evidence->rel.resize(result.num_reads() * result.num_alleles());
+        for (size_t r = 0; r < result.num_reads(); ++r) {
+            phase_evidence->mismap[r] = (float)result.mismap_prob(r);
+            for (size_t a = 0; a < result.num_alleles(); ++a) {
+                phase_evidence->rel[r * result.num_alleles() + a] = (float)result.rel(r, a);
+            }
+        }
+        result.phase_evidence = std::move(phase_evidence);
     }
     if (!depth_lengths.empty()) {
         // Set unconditionally so `DR` is emitted whether or not the term is armed:

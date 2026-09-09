@@ -215,10 +215,12 @@ def main():
 
     if version is None:
         fail("no #anchors-version header, so the format is unknown")
-    elif version != "3":
-        fail(f"#anchors-version {version} is not the one this script understands (3)")
-    if version == "3" and not id_name:
-        fail("no #read table, but version 2 interns every read name")
+    elif version != "4":
+        # v3 is refused rather than tolerated: it has these columns but its `slot` is in allele
+        # order, so it reads cleanly and joins wrongly.
+        fail(f"#anchors-version {version} is not the one this script understands (4)")
+    if version == "4" and not id_name:
+        fail("no #read table, but every version from 2 on interns every read name")
 
     if shared_names:
         print(f"WARN {len(shared_names)} read names are carried by more than one alignment "

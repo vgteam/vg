@@ -34,6 +34,7 @@
 #include "snarls.hpp"
 
 #include "anchor.hpp"
+#include "read_phasing.hpp"
 
 namespace vg {
 
@@ -370,6 +371,10 @@ public:
     /// caller into the CallInfo it retains, so nothing here outlives the site.
     unique_ptr<AnchorSiteEvidence> anchor_evidence;
 
+    /// The site's phasing evidence, filled only when read phasing was armed AND anchors were not:
+    /// the anchor evidence is a superset, so building both would retain `rel` twice. Same ownership.
+    unique_ptr<PhaseReadEvidence> phase_evidence;
+
     /// Populate the matrix. Only for AlleleReadLikelihoodsBuilder.
     void set_contents(size_t n_reads, size_t n_alleles, vector<double>&& matrix,
                       vector<double>&& mismap, vector<double>&& best_ln,
@@ -636,6 +641,12 @@ struct AlleleLikelihoodParams {
     /// The pin is resolved to a (strand, offset) here, where the alignment is live; deferring that
     /// to the render pass is the one change that would force the alignments to stay in memory.
     bool collect_anchors = false;
+
+    /// Retain the same per-read evidence for read-backed phasing. Off unless --read-phasing.
+    ///
+    /// Separate from `collect_anchors` because phasing needs the `rel` rows and nothing else: the
+    /// pins are the expensive half of that struct and a phase decision has no use for them.
+    bool collect_read_phasing = false;
 };
 
 /**

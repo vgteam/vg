@@ -1182,6 +1182,25 @@ gbwt::edge_type VCFOutputCaller::mosaic_gbwt_position(int64_t node_id, size_t ha
     return gbwt::invalid_edge();
 }
 
+vector<int> VCFOutputCaller::phase_ordered_genotype(size_t record_key,
+                                                    const vector<int>& genotype) const {
+    vector<int> ordered = genotype;
+    if (!emit_phasing || ordered.size() != 2) {
+        return ordered;
+    }
+    const auto found = render_phases.find(record_key);
+    // Only on an exact reversal. A PhaseCall that is not a permutation of the settled pair is a
+    // disagreement to leave alone rather than to reorder into -- the same reasoning as the `same`
+    // check in emit_variant, which refuses to apply such a phase at all. A homozygote satisfies both
+    // arms and the swap is then a no-op.
+    if (found != render_phases.end() && found->second.ploidy == 2
+        && found->second.trav_first == ordered[1]
+        && found->second.trav_second == ordered[0]) {
+        std::swap(ordered[0], ordered[1]);
+    }
+    return ordered;
+}
+
 void VCFOutputCaller::collect_anchors_for(const Snarl& snarl, const vector<int>& genotype,
                                           const unique_ptr<SnarlCaller::CallInfo>& call_info,
                                           bool is_leaf) {
@@ -5569,7 +5588,199 @@ bool FlowCaller::snarl_is_leaf(const Snarl& snarl) const {
     }
 }
 
+void FlowCaller::apply_read_phasing() {
+    if (!read_phasing || linkage_collector == nullptr || linkage_phased.empty()) {
+        return;
+    }
+    // Index the phasing by record key, last writer wins -- the same rule `build_render_phases` uses,
+    // because a site revised at a later generation carries two PhaseCalls and the later one
+    // describes the genotype it ends up with.
+    std::unordered_map<size_t, size_t> phase_index;
+    for (size_t i = 0; i < linkage_phased.size(); ++i) {
+        phase_index[linkage_phased[i].record_key] = i;
+    }
+
+    vector<PhaseSite> sites;
+    for (auto& queue : render_records) {
+        for (PendingRecord& rec : queue) {
+            const auto found = phase_index.find(rec.record_key);
+            if (found == phase_index.end()) {
+                continue;
+            }
+            const LinkageCollector::PhaseCall& pc = linkage_phased[found->second];
+            if (pc.ploidy != 2 || pc.trav_first < 0 || pc.trav_second < 0
+                || pc.trav_first == pc.trav_second) {
+                // Homozygous, haploid, or unplaced: no two strands to tell apart, so no phase for a
+                // read to have an opinion about.
+                continue;
+            }
+            const auto* info = dynamic_cast<
+                const ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo*>(rec.call_info.get());
+            if (info == nullptr) {
+                continue;
+            }
+            // Two retention shapes reach here and only one code path follows. `PhaseReadEvidence`
+            // is what a phasing-only run keeps; when anchors are armed their evidence is a superset
+            // and is converted to the light shape rather than duplicating the responsibility
+            // arithmetic below for a second layout.
+            const PhaseReadEvidence* pe = info->phase_evidence.get();
+            PhaseReadEvidence converted;
+            if (pe == nullptr && info->anchor_evidence != nullptr) {
+                const AnchorSiteEvidence& ev = *info->anchor_evidence;
+                converted.n_alleles = ev.n_alleles;
+                converted.allele_length = ev.allele_length;
+                converted.mean_read_length = ev.mean_read_length;
+                converted.length_weighted = ev.length_weighted;
+                converted.rel = ev.rel;
+                converted.read_key.reserve(ev.reads.size());
+                converted.mismap.reserve(ev.reads.size());
+                for (const AnchorRead& r : ev.reads) {
+                    converted.read_key.push_back((uint64_t)std::hash<string>{}(r.name));
+                    converted.mismap.push_back(r.mismap);
+                }
+                pe = &converted;
+            }
+            if (pe == nullptr || pe->n_alleles == 0 || pe->num_reads() == 0) {
+                continue;
+            }
+            const size_t a0 = (size_t)pc.trav_first, a1 = (size_t)pc.trav_second;
+            if (a0 >= pe->n_alleles || a1 >= pe->n_alleles) {
+                // The PhaseCall names a traversal this site's matrix does not carry. Skipped rather
+                // than clamped: reading the wrong column would invent a phase from another allele.
+                continue;
+            }
+            // Slot order is the PhaseCall's order, so slot 0 is strand 0 -- the same convention the
+            // anchor file's `slot` column carries and the GT's first field.
+            const vector<double> weight =
+                site_slot_weights(pe->allele_length, pe->n_alleles, pe->mean_read_length,
+                                  pe->length_weighted, vector<int>{(int)a0, (int)a1});
+            PhaseSite site;
+            site.record_key = rec.record_key;
+            site.phase_set = pc.phase_set;
+            site.position = pc.position;
+            double score_sum = 0.0;
+            for (size_t r = 0; r < pe->num_reads(); ++r) {
+                const double e = (double)pe->mismap[r];
+                const double r0 = (1.0 - e) * weight[0] * (double)pe->rel_at(r, a0);
+                const double r1 = (1.0 - e) * weight[1] * (double)pe->rel_at(r, a1);
+                const double inside = r0 + r1;
+                if (inside <= 0.0) {
+                    // The read fits neither settled allele. It says nothing about their order.
+                    continue;
+                }
+                site.read_key.push_back(pe->read_key[r]);
+                site.q0.push_back((float)(r0 / inside));
+                site.p.push_back((float)(inside / (inside + e)));
+                const double win = max(r0, r1) / (inside + e);
+                const double rest = max(1.0 - win, 1e-12);
+                score_sum += -10.0 * std::log10(rest);
+            }
+            if (site.read_key.empty()) {
+                continue;
+            }
+            site.reliability = score_sum / (double)site.read_key.size();
+            sites.push_back(std::move(site));
+        }
+    }
+    if (sites.empty()) {
+        return;
+    }
+
+    const unordered_set<size_t> flips =
+        read_phase_flips(sites, read_phasing_params, read_phasing_counters);
+
+    // Apply by swapping the settled pair's order. The genotype is the same two traversals either
+    // way, which is exactly why this cannot move a call: only which strand carries which.
+    // Nested sites are re-oriented too, and that was checked rather than assumed. Under `-A` a
+    // phase change is re-spelled by the block path, so 1,467 of chr20's 8,829 nested records come out
+    // with different GT allele NUMBERS -- while ALL, SNV, indel and SV F1 all move by less than
+    // 1e-5. The allele-multiset neutrality gate that holds exactly at top level is the wrong gate
+    // there: under `-A` blocks legitimately encode phase into ALT spellings, so the gate is accuracy.
+    // Restricting the re-orientation to top-level sites instead costs 154 switches on chr20
+    // (0.5180% -> 0.7822%), and letting nested sites merely bridge the chain recovers almost none of
+    // it (0.7650%) -- the value is in orienting them, not in spanning them.
+    for (size_t key : flips) {
+        const auto found = phase_index.find(key);
+        if (found == phase_index.end()) {
+            continue;
+        }
+        LinkageCollector::PhaseCall& pc = linkage_phased[found->second];
+        std::swap(pc.trav_first, pc.trav_second);
+        std::swap(pc.allele_first, pc.allele_second);
+        std::swap(pc.hap_first, pc.hap_second);
+    }
+
+    // Carry the swap down the nesting tree.
+    //
+    // A nested site's `nested_strand` is an INDEX INTO ITS PARENT'S strand pair, derived by
+    // `nested_strand_of` while the barrier resolved the generation -- before any of this ran. Swap a
+    // parent here and that index still names the slot it named before the swap, which is now the
+    // other haplotype. The phasing is flat by design and that is fine; what must not happen is the
+    // nesting tree being left describing a frame that no longer exists.
+    //
+    // Nothing re-derives it downstream: `emit_variant` renders `a|.` straight from this field, and
+    // the mosaic's per-strand accounting reads it. Both are invisible to F1 and to switch error --
+    // whatshap never assesses a half-missing record -- which is exactly why this needs doing here
+    // rather than being noticed later.
+    //
+    // Top-down by generation, so a parent is always resolved before its children. Two rules, and
+    // they are just `nested_strand_of` read backwards:
+    //   * under a DIPLOID parent the strand is that parent's trav order, so it inverts iff the
+    //     parent was swapped;
+    //   * under a HAPLOID parent the strand IS the parent's own `nested_strand`, so it inverts iff
+    //     that inverted -- which is why this has to cascade rather than look one level up.
+    struct NestedLink {
+        size_t key = 0;
+        size_t parent = 0;
+        uint8_t generation = 0;
+    };
+    vector<NestedLink> links;
+    for (const auto& queue : render_records) {
+        for (const PendingRecord& rec : queue) {
+            if (phase_index.count(rec.record_key) != 0) {
+                links.push_back({rec.record_key, rec.parent_record_key, rec.generation});
+            }
+        }
+    }
+    std::stable_sort(links.begin(), links.end(),
+                     [](const NestedLink& a, const NestedLink& b) {
+                         return a.generation < b.generation;
+                     });
+    std::unordered_map<size_t, bool> frame_flipped;
+    frame_flipped.reserve(links.size() * 2);
+    for (const NestedLink& link : links) {
+        LinkageCollector::PhaseCall& pc = linkage_phased[phase_index[link.key]];
+        bool parent_flipped = false;
+        const auto at = frame_flipped.find(link.parent);
+        if (at != frame_flipped.end()) {
+            parent_flipped = at->second;
+        }
+        bool strand_moved = false;
+        if (pc.nested_strand >= 0 && parent_flipped) {
+            pc.nested_strand = pc.nested_strand == 0 ? 1 : 0;
+            strand_moved = true;
+            ++read_phasing_counters.strands_rederived;
+        }
+        // What "strand 0" means at this site, for its own children. A diploid site defines it by its
+        // own settled pair; a haploid one has no pair of its own and passes the parent's through.
+        frame_flipped[link.key] =
+            pc.ploidy == 2 ? (flips.count(link.key) != 0) : strand_moved;
+    }
+
+    const ReadPhasingCounters& c = read_phasing_counters;
+    cerr << "[vg call] read phasing: " << c.sites << " het sites, " << c.reliable
+         << " reliable, " << c.chains << " blocks, " << c.breaks << " chain breaks ("
+         << c.breaks_no_reads << " with no spanning read), " << c.hung
+         << " sites hung off the chain (" << c.hung_no_reads << " with no read), " << c.flipped
+         << " re-phased against the panel, " << c.strands_rederived
+         << " nested strands carried with their parent" << endl;
+}
+
 void FlowCaller::render_retained_records() {
+    // The reads' turn first: `apply_read_phasing` rewrites the settled phase, and
+    // `build_render_phases` then indexes whatever it left behind. Order matters and only this way
+    // round -- the other way would index the panel's phase and discard the reads' answer.
+    apply_read_phasing();
     // The phase, before any record is built: every generation has settled by now, so the phasing is
     // complete, and each record is phased as it is rendered rather than patched afterwards.
     build_render_phases();
@@ -5610,7 +5821,15 @@ void FlowCaller::render_retained_records() {
             }
             // Before emit_variant, which hands the CallInfo on to update_vcf_info: the anchors want
             // the settled genotype, and this is the one place it exists alongside the evidence.
-            collect_anchors_for(rec.snarl, genotype, rec.call_info,
+            //
+            // Phase-ordered, which the settled pair is not: it comes back sorted from an unordered
+            // genotype index. Stamping `slot` from the sorted order made every anchor-to-haplotype
+            // join a coin flip, and nothing in the VCF could see it -- on chr20's ONT calls not one
+            // het site of 60,544 carried the reversed order that a 50/50 split of `0|1` against
+            // `1|0` demands. `genotype` itself is deliberately left alone: emit_variant iterates it
+            // to build the ALT list, AD, GL and QUAL, so permuting it here would reorder the record.
+            collect_anchors_for(rec.snarl, phase_ordered_genotype(rec.record_key, genotype),
+                                rec.call_info,
                                 anchors_want_leaf_test() ? snarl_is_leaf(rec.snarl) : true);
             emit_variant(graph, snarl_caller, rec.snarl, rec.travs, genotype, rec.ref_trav_idx,
                          rec.call_info, rec.ref_path_name, rec.ref_offset, genotype_snarls,
@@ -5891,6 +6110,10 @@ void FlowCaller::run_deferred_descent() {
                             use_info.get());
                     if (alt != nullptr) {
                         alt->anchor_evidence = std::move(rl->anchor_evidence);
+                        // And the phasing evidence, for the same reason. Missing this dropped the
+                        // phase at 17 of chr20's sites -- exactly the chains whose ploidy moved --
+                        // and the only symptom was a re-phased count 1,057 lower, with no error.
+                        alt->phase_evidence = std::move(rl->phase_evidence);
                     }
                 }
             } else {
@@ -6032,6 +6255,9 @@ void FlowCaller::run_deferred_descent() {
                 if (rl->anchor_evidence != nullptr) {
                     retained_bytes += rl->anchor_evidence->bytes();
                 }
+                if (rl->phase_evidence != nullptr) {
+                    retained_bytes += rl->phase_evidence->bytes();
+                }
                 if (rl->alt_ploidy_info != nullptr) {
                     for (const auto& kv : rl->alt_ploidy_info->genotype_lls) {
                         ++retained_gls;
@@ -6091,7 +6317,8 @@ void FlowCaller::run_deferred_descent() {
             // Settled, phased, and inside the layer -- but an enclosing block's ALT has already
             // written its variation, so a line here would write it twice. It is still a genotyped
             // site, and an anchor is a different file, so it still anchors.
-            collect_anchors_for(pr.snarl, pr.genotype, pr.call_info,
+            collect_anchors_for(pr.snarl, phase_ordered_genotype(pr.record_key, pr.genotype),
+                                pr.call_info,
                                 anchors_want_leaf_test() ? snarl_is_leaf(pr.snarl) : true);
             ++inline_unrendered;
             continue;
@@ -6104,7 +6331,8 @@ void FlowCaller::run_deferred_descent() {
             //
             // Anchors do not care: a pin is keyed on a node ID and needs neither REF nor POS. These
             // are the off-reference sites, which is where an assembler most needs help.
-            collect_anchors_for(pr.snarl, pr.genotype, pr.call_info,
+            collect_anchors_for(pr.snarl, phase_ordered_genotype(pr.record_key, pr.genotype),
+                                pr.call_info,
                                 anchors_want_leaf_test() ? snarl_is_leaf(pr.snarl) : true);
             ++no_ref_unrendered;
             continue;

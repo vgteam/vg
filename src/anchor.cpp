@@ -280,6 +280,35 @@ size_t AnchorSiteEvidence::bytes() const {
 // Building anchors from a settled genotype
 ////////////////////////////////////////////////////////////////////////////////
 
+vector<double> site_slot_weights(const vector<uint32_t>& allele_length, size_t n_alleles,
+                                 float mean_read_length, bool length_weighted,
+                                 const vector<int>& slot_allele) {
+    // Expected share of the site's reads per haplotype, from the alleles' spelled lengths: the
+    // number of read start positions yielding a read overlapping the site from an allele of length L
+    // is L + R - 1. Flat when the lengths are unavailable or --flat-mixture is in force.
+    const size_t n_slots = slot_allele.size();
+    vector<double> weight(n_slots, n_slots ? 1.0 / (double)n_slots : 0.0);
+    if (length_weighted && mean_read_length > 0.0
+        && allele_length.size() == n_alleles && n_slots > 1) {
+        double total = 0.0;
+        vector<double> raw(n_slots, 0.0);
+        for (size_t i = 0; i < n_slots; ++i) {
+            raw[i] = (double)allele_length[slot_allele[i]]
+                     + (double)mean_read_length - 1.0;
+            if (raw[i] < 1.0) {
+                raw[i] = 1.0;
+            }
+            total += raw[i];
+        }
+        if (total > 0.0) {
+            for (size_t i = 0; i < n_slots; ++i) {
+                weight[i] = raw[i] / total;
+            }
+        }
+    }
+    return weight;
+}
+
 void build_site_anchors(const AnchorSiteEvidence& evidence, const vector<int>& genotype,
                         const string& snarl_id, double gqn, double explained,
                         const AnchorParams& params, AnchorCounters& counters,
@@ -319,28 +348,9 @@ void build_site_anchors(const AnchorSiteEvidence& evidence, const vector<int>& g
     }
     const size_t n_slots = slot_allele.size();
 
-    // Expected share of the site's reads per haplotype, from the alleles' spelled lengths: the
-    // number of read start positions yielding a read overlapping the site from an allele of length L
-    // is L + R - 1. Flat when the lengths are unavailable or --flat-mixture is in force.
-    vector<double> weight(n_slots, 1.0 / (double)n_slots);
-    if (evidence.length_weighted && evidence.mean_read_length > 0.0
-        && evidence.allele_length.size() == evidence.n_alleles && n_slots > 1) {
-        double total = 0.0;
-        vector<double> raw(n_slots, 0.0);
-        for (size_t i = 0; i < n_slots; ++i) {
-            raw[i] = (double)evidence.allele_length[slot_allele[i]]
-                     + (double)evidence.mean_read_length - 1.0;
-            if (raw[i] < 1.0) {
-                raw[i] = 1.0;
-            }
-            total += raw[i];
-        }
-        if (total > 0.0) {
-            for (size_t i = 0; i < n_slots; ++i) {
-                weight[i] = raw[i] / total;
-            }
-        }
-    }
+    const vector<double> weight = site_slot_weights(
+        evidence.allele_length, evidence.n_alleles, evidence.mean_read_length,
+        evidence.length_weighted, slot_allele);
 
     // Two anchors per slot: one at each pin. The end pin is skipped where the site's two boundaries
     // are the same node, since the anchors would then be indistinguishable.
@@ -579,7 +589,11 @@ bool AnchorWriter::write(const string& path, const string& graph_name, const str
         cerr << "error [vg call]: could not open " << path << " for the anchor output" << endl;
         return false;
     }
-    out << "#anchors-version\t3\n";
+    // 4, not 3: v3's `slot` column was written in allele order while this header promised the
+    // GT's field order, so every join from an anchor to a haplotype was a coin flip. The
+    // columns are unchanged -- only the meaning of `slot` is now the documented one -- but a
+    // v3 file cannot be phased and a consumer has to be able to tell.
+    out << "#anchors-version\t4\n";
     out << "#graph\t" << graph_name << "\n";
     out << "#sample\t" << sample << "\n";
     out << "#reads\t" << reads_source << "\n";

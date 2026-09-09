@@ -9,7 +9,7 @@ PATH=../bin:$PATH # for vg
 # FORMAT field shifts every later one, which broke four assertions here that were not
 # testing field order at all -- one of them silently compared BL against a GQ threshold.
 
-plan tests 371
+plan tests 379
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -1063,6 +1063,97 @@ is $(awk -F'\t' 'BEGIN{k=""} /^A/{k=$2"|"$3} /^R/{print k"\t"$2}' rl_anchors.tsv
 is $(awk -F'\t' '/^[AR]/{if ($1=="A") seen=1; if ($1=="R" && !seen) bad++} END{print bad+0}' \
      rl_anchors.tsv) "0" "no read row precedes its anchor row"
 
+# Read-backed phasing. The fixture cannot exercise the DECISION -- `vg sim` reads carry no mapping
+# quality, so the mismapping escape sits at its maximum and every site's per-read confidence comes
+# out around 0.84 phred against the 9.87 mean of real chr20 ONT data -- so `--phase-min-q 0` is what
+# makes the three stages run at all here. What is checked is that they run, that they leave the
+# genotypes alone, and that with the feature off nothing moves.
+rm -f rl_phase_off.vcf rl_phase_on.vcf rl_phase_forced.vcf
+vg call x.gbz --read-likelihood --phased --gam sim.gam -t 1 2>/dev/null > rl_phase_off.vcf
+vg call x.gbz --read-likelihood --phased --gam sim.gam --read-phasing -t 1 \
+    2>/dev/null > rl_phase_on.vcf
+is $(if diff -q rl_phase_off.vcf rl_phase_on.vcf >/dev/null; then echo 1; else echo 0; fi) "1" \
+   "--read-phasing changes nothing where no site clears the confidence threshold"
+
+vg call x.gbz --read-likelihood --phased --gam sim.gam --read-phasing --phase-min-q 0 -t 1 \
+    2>rl_phase_forced.err > rl_phase_forced.vcf
+is "$?" "0" "--read-phasing runs with every site admitted"
+is $(grep -c "read phasing:" rl_phase_forced.err) "1" "it reports what it did"
+is $(if [ $(grep "read phasing:" rl_phase_forced.err | sed 's/.*: \([0-9]*\) het sites.*/\1/') -gt 10 ]; then echo 1; else echo 0; fi) "1" \
+   "and the sites it considered reached it, so the report is not of an empty pass"
+
+# THE guarantee, and the only reason this can be turned on: a phase decision reorders a settled pair
+# and never substitutes one. Keyed on the snarl ID, because a record's POS depends on its genotype.
+is $(python3 -c '
+import sys
+def load(p):
+    out = {}
+    for line in open(p):
+        if line.startswith("#"): continue
+        f = line.rstrip("\n").split("\t")
+        if len(f) < 10: continue
+        k = f[8].split(":"); v = f[9].split(":")
+        if "GT" not in k: continue
+        out.setdefault(f[2], []).append(tuple(sorted(v[k.index("GT")].replace("|","/").split("/"))))
+    return out
+a = load("rl_phase_off.vcf"); b = load("rl_phase_forced.vcf")
+bad = 0
+for key in set(a) & set(b):
+    if len(a[key]) == 1 and len(b[key]) == 1 and a[key][0] != b[key][0]:
+        bad += 1
+print(bad)
+') "0" "read phasing reorders genotypes and never changes them"
+# `slot` IS the phase, and it is the only thing in the file that carries it. This is checked because
+# it once silently was not: `LinkageCollector::settled_traversals` decodes an unordered genotype
+# index -- `genotype_index(i, j)` is triangular, so it returns the pair sorted -- and the phase was
+# applied only later, inside emit_variant. The anchors were handed the sorted pair, so `slot` came
+# out in allele order while the header promised the GT's field order. Every anchor-to-haplotype join
+# was then a coin flip. On this fixture 23 of the 34 comparable sites came out reversed; on chr20's
+# ONT calls not one het site of 60,544 carried the reversed order that a 50/50 split of `0|1`
+# against `1|0` demands, which is what gives the bug away. Nothing in the VCF moves either way --
+# the record is byte-identical -- so no other assertion here can see it.
+#
+# Compared through AD, which is indexed by VCF allele number, and NOT through the anchor `allele`
+# column: that is a candidate-traversal index, it is not the ALT number, and it is not monotone in
+# the ALT numbering (one site on this fixture inverts it).
+rm -f rl_anchors_ph.tsv rl_anchors_ph.vcf
+vg call x.gbz --read-likelihood --phased --gam sim.gam --anchors-out rl_anchors_ph.tsv -t 1 \
+    2>/dev/null > rl_anchors_ph.vcf
+is "$?" "0" "--anchors-out works alongside --phased"
+
+PHASE_SLOTS=$(awk -F'\t' '
+  NR==FNR {
+    if ($0 ~ /^#/) next
+    nf = split($9, k, ":"); nv = split($10, v, ":"); gt = ""; ad = ""
+    for (i = 1; i <= nf; i++) { if (k[i] == "GT") gt = v[i]; if (k[i] == "AD") ad = v[i] }
+    if (gt !~ /\|/ || ad == "") next
+    split(gt, g, "|")
+    if (g[1] == "." || g[2] == "." || g[1] == g[2]) next
+    n = split(ad, d, ",")
+    if (g[1] + 1 > n || g[2] + 1 > n) next
+    want0[$3] = d[g[1] + 1]; want1[$3] = d[g[2] + 1]
+    next
+  }
+  $1 == "A" { cur = ""; if ($3 in want0) { cur = $3; slot = $4 }; next }
+  # Distinct read ids: a site is pinned at both boundaries, so a raw row count doubles it.
+  $1 == "R" && cur != "" { key = cur "|" slot "|" $2; if (!(key in seen)) { seen[key] = 1; cnt[cur "|" slot]++ } }
+  END {
+    for (site in want0) {
+      c0 = cnt[site "|0"]; c1 = cnt[site "|1"]
+      if (c0 == 0 || c1 == 0) continue
+      if (c0 + c1 != want0[site] + want1[site]) continue   # off-call reads dropped; not comparable
+      ++total
+      if (c0 != want0[site] || c1 != want1[site]) ++bad
+    }
+    print total+0, bad+0
+  }' rl_anchors_ph.vcf rl_anchors_ph.tsv)
+
+# Reachability first: a zero mismatch count from an empty comparison looks exactly like a pass.
+is $(if [ $(echo "$PHASE_SLOTS" | cut -d' ' -f1) -gt 20 ]; then echo 1; else echo 0; fi) "1" \
+   "the phased anchor file offers het sites whose slot read counts are comparable to AD"
+is $(echo "$PHASE_SLOTS" | cut -d' ' -f2) "0" \
+   "slot i holds the reads of GT field i, so an anchor joins to a haplotype"
+
 # The in-process invariant: each pin checked against the graph's own base while the read was live.
 is $(grep -c "pins verified against the graph, 0 failed" rl_anchors.err) "1" \
    "every pin verifies against the graph"
@@ -1161,7 +1252,8 @@ is $(python3 ../scripts/check_anchors.py --anchors rl_anchors.tsv --reads rl_anc
 
 rm -f rl_anchors.tsv rl_anchors.vcf rl_anchors.err rl_anchors_hom.tsv rl_anchors_none.tsv \
       rl_anchors_gqn.tsv rl_anchors_err.tsv rl_anchors_err.txt rl_anchors_t4.tsv rl_anchors_reads.fq \
-      rl_anchors_nopanel.tsv rl_anchors_sp.tsv
+      rl_anchors_nopanel.tsv rl_anchors_sp.tsv rl_anchors_ph.tsv rl_anchors_ph.vcf \
+      rl_phase_off.vcf rl_phase_on.vcf rl_phase_forced.vcf rl_phase_forced.err
 
 rm -f nestblk.gfa nestblk.gbz nestblk.gam nestblk.vcf nest.gfa nest.gbz nest.gam nest_default.vcf nest_nested.vcf nest_hap.gam nest_hap.vcf nest_hap_err.txt nest_hap.mosaic.tsv x.vg x.gbz x.gbwt sim.gam x.pack call.vcf callg.vcf callz.vcf callg.6 callz.6 callrl_nopack.vcf callrl_nopack_z.vcf callrl_withpack.vcf nopack_err.txt sim.sorted.gam sim.sorted.gam.gai rl_inmem.vcf rl_indexed.vcf gi_err.txt gb_err.txt gb_excl.txt gb_norl.txt gb_nobin.txt sim.gaf sim.gaf.db x.gbz.db rl_gafmem.vcf rl_gafbase.vcf rl_gafbase_t4.vcf rl_gafbase_w32.vcf rl_autoz_full.vcf rl_autoz.vcf rl_explicit_z.vcf rl_support_full.vcf rl_support.vcf es_nopack.txt es_z.txt es_g.txt nopanel.vg nopanel.gbwt nopanel.gbz nopanel.pack nopanel_err.txt poisson_default.vcf poisson_z.vcf rl_phased.vcf rl_default.vcf rl_nophase.vcf rl_nopanel.vcf rl_nopanel_err.txt rl_unphased_gt.txt rl_phased_gt.txt rl_ph_err.txt rl_mosaic.tsv rl_mosaic2.tsv rl_hap.vcf rl_hap_mosaic.tsv
 

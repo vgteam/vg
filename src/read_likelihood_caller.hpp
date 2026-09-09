@@ -108,6 +108,7 @@ public:
         /// `alt_ploidy_info` when a chain's settled ploidy differs, so this must be carried across
         /// that swap -- the same hazard `explained_share` documents there.
         unique_ptr<AnchorSiteEvidence> anchor_evidence;
+        unique_ptr<PhaseReadEvidence> phase_evidence;
 
         /// Reads whose best-fitting allele is each scored allele, in matrix column
         /// order. A read fitting several alleles equally splits its vote between them

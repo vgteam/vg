@@ -121,6 +121,7 @@ pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> ReadLikelihoodSnarlCaller::
     // the linkage layer and the nested barrier finally settle on rather than from the reads' first
     // guess. Nothing is re-read to do it.
     call_info->anchor_evidence = std::move(matrix.anchor_evidence);
+    call_info->phase_evidence = std::move(matrix.phase_evidence);
 
     if (dump_stream != nullptr) {
         stringstream site_name;
