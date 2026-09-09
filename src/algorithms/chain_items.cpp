@@ -1055,6 +1055,9 @@ vector<SubchainGroup> find_best_chains(const VectorView<Anchor>& to_chain,
         return a.second > b.second;
     });
 
+    // We'll save tracebacks we delete here, in case they're useful later
+    vector<SubchainGroup> extra_groups;
+
     // Now delete any tracebacks which have too low optimal score
     size_t min_chain_score = tracebacks.front().chain_score > filtering_scheme.chain_score_threshold ?
         tracebacks.front().chain_score - filtering_scheme.chain_score_threshold
@@ -1064,21 +1067,28 @@ vector<SubchainGroup> find_best_chains(const VectorView<Anchor>& to_chain,
         int cur_opt_score = traceback_optimal_scores[i].second;
         if (cur_opt_score < tracebacks.front().chain_score / 5) {
 #ifdef debug_chaining
-            cerr << "Removing traceback " << cur_traceback_index << " because its optimal score "
+            cerr << "Saving traceback " << cur_traceback_index << " as its own SubchainGroup because its optimal score "
                  << cur_opt_score << " < top score " << tracebacks.front().chain_score << " / 5 " << endl; 
 #endif
+            extra_groups.emplace_back();
+            extra_groups.back().subchains.emplace_back(tracebacks[cur_traceback_index].anchors, true);
+            extra_groups.back().max_sparse_chain_score = tracebacks[cur_traceback_index].chain_score;
             tracebacks[cur_traceback_index] = SparseAnchorChain();
         } else if (i >= filtering_scheme.min_chains && cur_opt_score < min_chain_score) {
 #ifdef debug_chaining
-            cerr << "Removing traceback " << cur_traceback_index << " because its optimal score "
+            cerr << "Saving traceback " << cur_traceback_index << " as its own SubchainGroup because its optimal score "
                  << cur_opt_score << " < top score " << tracebacks.front().chain_score
                  << " - chain score threshold " << filtering_scheme.chain_score_threshold << endl; 
 #endif
+            extra_groups.emplace_back();
+            extra_groups.back().subchains.emplace_back(tracebacks[cur_traceback_index].anchors, true);
+            extra_groups.back().max_sparse_chain_score = tracebacks[cur_traceback_index].chain_score;
             tracebacks[cur_traceback_index] = SparseAnchorChain();
         }
     }
 
     vector<SubchainGroup> subchain_groups = split_up_subchains(to_chain, tracebacks, tail_edges);
+    subchain_groups.insert(subchain_groups.end(), extra_groups.begin(), extra_groups.end());
 
     for (SubchainGroup& group : subchain_groups) {
         for (Subchain& subchain : group.subchains) {
