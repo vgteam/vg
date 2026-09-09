@@ -159,12 +159,12 @@ oldest-supported-compiler-job:
     # the requirement bump.
     COMPILER_VERSION: 10
 
-# Ensure vg builds after a `git clean`
-git-clean-job:
+# Ensure vg builds after a `make clean`
+make-clean-job:
   interruptible: true
   stage: test
   cache:
-    key: git-clean-cache-gcc-$COMPILER_VERSION
+    key: make-clean-cache-gcc-$COMPILER_VERSION
     paths:
       - deps/
       - include/
@@ -184,7 +184,7 @@ git-clean-job:
     - THREADS=8
     - make get-deps
     - make -j${THREADS}
-    - git clean
+    - make clean
     - make -j${THREADS}
   after_script: []
   variables:
