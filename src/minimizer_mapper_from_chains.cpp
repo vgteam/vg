@@ -1736,11 +1736,11 @@ void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::ve
     // Track total count of alignments made (we will make at most max_alignments)
     size_t alns_made = 0;
 
-    // Track what node ID, orientation, read-minus-node offset tuples were used
-    // in previously generated alignments, so we can fish out alignments to
-    // different placements.
+    // Track what positions were used in previously generated alignments, so we
+    // can fish out alignments to different placements.
     // Use pairs since we can't hash tuples.
-    std::unordered_set<std::pair<std::pair<nid_t, bool>, int64_t>> used_matchings;
+    // {((node ID, orientation), read-minus-node) : alignment number}
+    std::unordered_map<std::pair<std::pair<nid_t, bool>, int64_t>, size_t> used_matchings;
 
     
     // Go through the chains in estimated-score order.
@@ -1801,6 +1801,50 @@ void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::ve
                 funnel.pass("min-chain-score-per-base||max-min-chain-score", processed_num, max_sparse_chain_scores[processed_num]);
                 funnel.pass("max-alignments", processed_num);
                 funnel.processing_input(processed_num);
+            }
+
+            for (auto& seed_num : subchain_groups.at(processed_num).all_anchor_ids()) {
+                // Look at the individual pin points and their associated read-node offset
+                size_t read_pos = minimizers[seeds.at(seed_num).source].pin_offset();
+                pos_t graph_pos = seeds.at(seed_num).pos;
+
+                nid_t node_id = id(graph_pos);
+                bool orientation = is_rev(graph_pos);
+                int64_t read_minus_node_offset = (int64_t)read_pos - (int64_t)offset(graph_pos);
+                auto matching = std::make_pair(std::make_pair(node_id, orientation), read_minus_node_offset);
+                if (used_matchings.count(matching)) {
+                    if (track_provenance) {
+                        funnel.fail("no-chain-overlap", processed_num);
+                    }
+                    if (show_work) {
+                        #pragma omp critical (cerr)
+                        {
+                            cerr << log_name() << "Subchain group " << processed_num << " overlaps a previous alignment at read pos " << read_pos << " and graph pos " << graph_pos << " with matching " << matching.first.first << ", " << matching.first.second << ", " << matching.second << endl;
+                        }
+                    }
+                    // Don't count this chain against the other one, since it's overlapping
+                    crash_unless(chain_count_by_alignment[used_matchings.at(matching)] > 0);
+                    chain_count_by_alignment[used_matchings.at(matching)]--;
+                    return false;
+                } else {
+#ifdef debug
+                    if (show_work) {
+                        #pragma omp critical (cerr)
+                        {
+                            cerr << log_name() << "Subchain group " << processed_num << " uniquely places read pos " << read_pos << " at graph pos " << graph_pos << " with matching " << matching.first.first << ", " << matching.first.second << ", " << matching.second << endl;
+                        }
+                    }
+#endif
+                }
+            }
+            if (show_work) {
+                #pragma omp critical (cerr)
+                {
+                    cerr << log_name() << "Subchain group " << processed_num << " overlaps none of the " << used_matchings.size() << " read-node matchings used in previous alignments" << endl;
+                }
+            }
+            if (track_provenance) {
+                funnel.pass("no-chain-overlap", processed_num);
             }
 
             // Collect the top alignments. Make sure we have at least one always, starting with unaligned.
@@ -1873,7 +1917,7 @@ void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::ve
                             }
 #endif
 
-                            used_matchings.emplace(std::move(matching));
+                            used_matchings.emplace(std::move(matching), chain_count_by_alignment.size() - 1);
                         }
                         read_pos += edit.to_length();
                         graph_offset += edit.from_length();

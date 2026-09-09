@@ -515,6 +515,14 @@ struct SubchainGroup {
     std::vector<pair<size_t, size_t>> connections;
     /// The maximum score of any chain
     int max_sparse_chain_score = 0;
+
+    vector<size_t> all_anchor_ids() const {
+        vector<size_t> anchors;
+        for (const auto& cur_subchain : subchains) {
+            anchors.insert(anchors.begin(), cur_subchain.anchors.begin(), cur_subchain.anchors.end());
+        }
+        return anchors;
+    }
 };
 
 /**
