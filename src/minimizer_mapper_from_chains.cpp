@@ -1771,7 +1771,8 @@ void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::ve
                 return false;
             }
 
-            if (max_sparse_chain_scores[processed_num] < best_max_sparse_chain_score - chain_score_threshold
+            if (best_max_sparse_chain_score > chain_score_threshold
+                && max_sparse_chain_scores[processed_num] < best_max_sparse_chain_score - chain_score_threshold
                 && alns_made >= target_alignment_attempts) {
                 // We've made our target number of alignments, and this score is below the threshold
                 discard_chain_by_score(processed_num);
