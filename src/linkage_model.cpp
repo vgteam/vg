@@ -1524,7 +1524,13 @@ bool LinkageCollector::set_allele_map(size_t record_key,
     const uint32_t found = live_index(record_key);
     if (found != NO_ENTRY) {
         Entry& e = entries[found];
-        e.emitted = emitted;
+        // MONOTONE, not an assignment. "Is there a VCF line for this site" only ever becomes true,
+        // and under `-A` a record can be reached by more than one render path -- so an assignment
+        // makes the final value depend on which thread took the mutex last. The mutex makes that
+        // safe, not deterministic.
+        if (emitted && !e.emitted) {
+            e.emitted = true;
+        }
         // The span already exists, filled with -1 by `record()`. Rewrite it in place rather than
         // appending: the compact space has not changed, only what each of its alleles is called in
         // the VCF, so there is nothing to re-point and no arena growth.
@@ -2491,7 +2497,22 @@ size_t LinkageCollector::resolve_generation(
     // having to know. The key matches the chain sort: position, then the site's own key, so two
     // records at one position keep an order that is a property of the sites and not of the threads.
     if (phasing_out != nullptr && last) {
-        std::sort(phasing_out->begin(), phasing_out->end(),
+        // STABLE, and that is load-bearing rather than tidiness. A site revised at the barrier
+        // carries TWO PhaseCalls with the same record_key, and both `build_render_phases` and the
+        // barrier's `settled` map index by key with last-writer-wins, documented as "the later
+        // generation". Two calls for one record compare EQUAL under this comparator -- same contig,
+        // same position, same key -- so an unstable sort picks between them arbitrarily and the
+        // consumer can get the earlier generation's ploidy and strand instead of the settled one.
+        //
+        // That made `vg call -A` irreproducible: the same binary with the same flags, run twice,
+        // differed at 1,458 of 8,829 nested records, moving them between phased half-missing `a|.`
+        // and unphased diploid `a/b` -- which is exactly the pair of fields the two generations
+        // disagree about. Top-level sites are resolved once, carry one PhaseCall, and were never
+        // affected, which is why every non-nested gate on this branch stayed byte-identical.
+        //
+        // `stable_sort` preserves append order among equals, and `phasing_out` is appended one
+        // generation at a time, so the later generation stays last by construction.
+        std::stable_sort(phasing_out->begin(), phasing_out->end(),
                   [](const PhaseCall& a, const PhaseCall& b) {
                       if (a.contig != b.contig) {
                           return a.contig < b.contig;
