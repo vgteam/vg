@@ -20,43 +20,7 @@ namespace unittest {
 
 namespace {
 
-/*
-  Builds a subchain with the given kmer presence matrix, which is given as one
-  string of '0' and '1' characters per sequence. The kmers and the sequences are
-  dummy values, as the iterators only care about their number.
-*/
-Haplotypes::Subchain build_subchain(const std::vector<std::string>& matrix, size_t kmer_count) {
-    Haplotypes::Subchain result;
-    result.type = Haplotypes::Subchain::normal;
-    result.start = gbwt::Node::encode(1, false);
-    result.end = gbwt::Node::encode(2, false);
-
-    for (size_t kmer_id = 0; kmer_id < kmer_count; kmer_id++) {
-        result.kmers.push_back(kmer_id + 1);
-    }
-    result.kmer_counts = sdsl::int_vector<0>(kmer_count, 0, 64);
-    for (size_t i = 0; i < matrix.size(); i++) {
-        result.sequences.push_back({ static_cast<std::uint32_t>(i), 0 });
-    }
-
-    result.kmers_present = sdsl::bit_vector(matrix.size() * kmer_count, 0);
-    for (size_t i = 0; i < matrix.size(); i++) {
-        REQUIRE(matrix[i].length() == kmer_count);
-        for (size_t j = 0; j < kmer_count; j++) {
-            if (matrix[i][j] == '1') {
-                result.kmers_present[i * kmer_count + j] = 1;
-                result.kmer_counts[j]++;
-            }
-        }
-    }
-
-    return result;
-}
-
-/*
-  Builds an uncompressed kmer presence matrix from one string of '0' and '1'
-  characters per sequence, using the same convention as `build_subchain`.
-*/
+// Converts a matrix of `0` and `1` characters into a concatenated bitvector.
 sdsl::bit_vector build_bitvector(const std::vector<std::string>& rows, size_t num_kmers) {
     sdsl::bit_vector result(rows.size() * num_kmers, 0);
     for (size_t i = 0; i < rows.size(); i++) {
@@ -70,11 +34,32 @@ sdsl::bit_vector build_bitvector(const std::vector<std::string>& rows, size_t nu
     return result;
 }
 
-/*
-  Generates `clusters` random rows of length `num_kmers` and follows each of them with
-  `children` copies with `mutations` flipped bits. The rows are returned in cluster
-  order, which is also the order the compression is expected to choose.
-*/
+// TODO: Later tests may require the other fields as well.
+// Builds a `Subchain` with the given kmer presence matrix, given as a vector of
+// strings of '0' and '1' characters. Uses dummy values for the other fields.
+Haplotypes::Subchain build_subchain(const std::vector<std::string>& rows, size_t kmer_count) {
+    Haplotypes::Subchain result;
+    result.type = Haplotypes::Subchain::normal;
+    result.start = gbwt::Node::encode(1, false);
+    result.end = gbwt::Node::encode(2, false);
+
+    for (size_t kmer_id = 0; kmer_id < kmer_count; kmer_id++) {
+        result.kmers.push_back(kmer_id + 1);
+    }
+    result.kmer_counts = sdsl::int_vector<0>(kmer_count, 0, 64);
+    for (size_t i = 0; i < rows.size(); i++) {
+        result.sequences.push_back({ static_cast<std::uint32_t>(i), 0 });
+    }
+
+    result.kmers_present = build_bitvector(rows, kmer_count);
+
+    return result;
+}
+
+// Generates a random matrix of `0` and `1` values. There are `num_kmers`
+// columns and `clusters * children` rows. Each cluster consists of `children`
+// rows with `mutations` random mutations relative to the parent, which is
+// not in the matrix.
 std::vector<std::string> clustered_rows(
     size_t clusters, size_t children, size_t num_kmers, size_t mutations, std::uint64_t seed
 ) {
@@ -85,7 +70,6 @@ std::vector<std::string> clustered_rows(
         for (size_t kmer_id = 0; kmer_id < num_kmers; kmer_id++) {
             parent[kmer_id] = (rng() % 2 == 0 ? '0' : '1');
         }
-        result.push_back(parent);
         for (size_t child = 0; child < children; child++) {
             std::string sequence = parent;
             for (size_t i = 0; i < mutations; i++) {
@@ -95,6 +79,8 @@ std::vector<std::string> clustered_rows(
             result.push_back(sequence);
         }
     }
+
+    std::shuffle(result.begin(), result.end(), rng);
     return result;
 }
 
@@ -104,10 +90,7 @@ double kmer_weight(size_t kmer_id) {
     return static_cast<double>(kmer_id % 7) - 3.0;
 }
 
-/*
-  Checks every query in the matrix against the reference rows. Does not assume anything
-  about the number of `kmer_score` calls in `score_sequences`, as that is unspecified.
-*/
+// Checks `KmerPresenceMatrix` queries and iterators agains the original rows.
 void check_queries(
     const std::string& name, const KmerPresenceMatrix& matrix,
     const std::vector<std::string>& rows, size_t num_kmers
@@ -211,11 +194,8 @@ void check_queries(
     }
 }
 
-/*
-  Builds the matrix from the reference rows, checks every query in it, and then checks
-  that the queries still give the same answers after a serialization round trip.
-  Returns the matrix for further checks.
-*/
+// Builds and returns a `KmerPresenceMatrix` from the rows. Checks queries, iterators,
+// and serialization.
 KmerPresenceMatrix check_matrix(
     const std::string& name, const std::vector<std::string>& rows, size_t num_kmers, bool compress
 ) {
@@ -228,8 +208,11 @@ KmerPresenceMatrix check_matrix(
 
     KmerPresenceMatrix loaded;
     loaded.simple_sds_load(stream);
-    REQUIRE(loaded.get_num_parents() == matrix.get_num_parents());
-    check_queries(name + " (loaded)", loaded, rows, num_kmers);
+    bool success = (loaded == matrix);
+    if (!success) {
+        std::cerr << name << ": loaded matrix does not match original" << std::endl;
+    }
+    REQUIRE(success);
 
     return matrix;
 }
@@ -246,31 +229,35 @@ TEST_CASE("Empty kmer presence matrix", "[haplotypes]") {
     }
 
     SECTION("no sequences, no kmers") {
+        std::string base_name = "no sequences, no kmers";
         for (bool compress : { false, true }) {
-            KmerPresenceMatrix matrix = check_matrix("no sequences, no kmers", {}, 0, compress);
+            std::string name = base_name + (compress ? " (compressed)" : " (uncompressed)");
+            KmerPresenceMatrix matrix = check_matrix(name, {}, 0, compress);
             REQUIRE(matrix.get_num_parents() == 0);
         }
     }
 
     SECTION("no sequences") {
+        std::string base_name = "no sequences";
         for (bool compress : { false, true }) {
+            std::string name = base_name + (compress ? " (compressed)" : " (uncompressed)");
             // The number of kmers is normalized to 0, as it cannot be recovered.
             KmerPresenceMatrix matrix(0, 5, sdsl::bit_vector(), compress);
             REQUIRE(matrix.get_num_kmers() == 0);
-            check_queries("no sequences", matrix, {}, 0);
+            check_queries(name, matrix, {}, 0);
         }
     }
 
     SECTION("no kmers") {
+        std::string base_name = "no kmers";
         for (bool compress : { false, true }) {
-            KmerPresenceMatrix matrix = check_matrix("no kmers", { "", "", "" }, 0, compress);
+            std::string name = base_name + (compress ? " (compressed)" : " (uncompressed)");
+            KmerPresenceMatrix matrix = check_matrix(name, { "", "", "" }, 0, compress);
             // Without kmers, all sequences are identical and form a single cluster.
             REQUIRE(matrix.get_num_parents() == (compress ? 1 : 3));
         }
     }
 }
-
-//------------------------------------------------------------------------------
 
 TEST_CASE("Uncompressed kmer presence matrix", "[haplotypes]") {
     std::vector<std::string> rows {
@@ -296,8 +283,6 @@ TEST_CASE("Uncompressed kmer presence matrix", "[haplotypes]") {
     }
 }
 
-//------------------------------------------------------------------------------
-
 TEST_CASE("Compressed kmer presence matrix", "[haplotypes]") {
     SECTION("identical sequences") {
         std::vector<std::string> rows(8, std::string(128, '0'));
@@ -322,7 +307,7 @@ TEST_CASE("Compressed kmer presence matrix", "[haplotypes]") {
 
     SECTION("distinct sequences") {
         // Random rows differ in around half of the kmers, which is far too many.
-        std::vector<std::string> rows = clustered_rows(16, 0, 64, 0, 0x12345678);
+        std::vector<std::string> rows = clustered_rows(16, 1, 64, 0, 0x12345678);
         KmerPresenceMatrix matrix = check_matrix("distinct", rows, 64, true);
         REQUIRE(matrix.get_num_parents() == rows.size());
     }
@@ -339,7 +324,7 @@ TEST_CASE("Compressed kmer presence matrix", "[haplotypes]") {
     }
 
     SECTION("duplicates of distinct sequences") {
-        std::vector<std::string> distinct = clustered_rows(4, 0, 64, 0, 0x87654321);
+        std::vector<std::string> distinct = clustered_rows(4, 1, 64, 0, 0x87654321);
         std::vector<std::string> rows;
         for (size_t i = 0; i < 3; i++) {
             rows.insert(rows.end(), distinct.begin(), distinct.end());
@@ -348,8 +333,6 @@ TEST_CASE("Compressed kmer presence matrix", "[haplotypes]") {
         REQUIRE(matrix.get_num_parents() == distinct.size());
     }
 }
-
-//------------------------------------------------------------------------------
 
 TEST_CASE("Kmer presence matrix dimensions", "[haplotypes]") {
     // These exercise the 64-bit block boundaries in the queries and in the compression.
@@ -365,8 +348,6 @@ TEST_CASE("Kmer presence matrix dimensions", "[haplotypes]") {
         }
     }
 }
-
-//------------------------------------------------------------------------------
 
 TEST_CASE("Invalid kmer presence matrix", "[haplotypes]") {
     SECTION("wrong matrix size") {
@@ -414,8 +395,6 @@ TEST_CASE("Iterating over the kmers in a sequence", "[haplotypes]") {
         }
     }
 }
-
-//------------------------------------------------------------------------------
 
 TEST_CASE("Scoring the haplotypes in a subchain", "[haplotypes]") {
     std::vector<std::string> matrix {

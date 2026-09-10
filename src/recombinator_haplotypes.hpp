@@ -42,6 +42,11 @@ public:
     KmerPresenceMatrix& operator=(const KmerPresenceMatrix& other) = default;
     KmerPresenceMatrix& operator=(KmerPresenceMatrix&& other) noexcept = default;
 
+    bool operator==(const KmerPresenceMatrix& other) const;
+    bool operator!=(const KmerPresenceMatrix& other) const {
+        return !(*this == other);
+    }
+
     /// Returns the size of the matrix (the number of cells in it).
     size_t size() const {
         return this->num_sequences * this->num_kmers;

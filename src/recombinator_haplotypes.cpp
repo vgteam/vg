@@ -43,16 +43,22 @@ size_t row_distance(
     return result;
 }
 
-// Returns the largest Hamming distance `d` for which it is worth storing a sequence
-// as a child instead of a parent.
-//
-// An Elias-Fano encoded bitvector uses around `log2(gap) + 2.5` bits per set bit, and
-// the average gap between the flipped bits in a child is around `num_kmers / d`. Hence
-// storing the child is worthwhile when `d * (log2(num_kmers / d) + 2.5) <= num_kmers`,
-// while an explicit parent always takes `num_kmers` bits. The predicate is monotone
-// over `d` in `[0, num_kmers]`, because the cost is at least `2.5 * d` and therefore
-// always too high once `d > 0.4 * num_kmers`. We can hence binary search for the
-// threshold.
+/*
+    Returns the largest Hamming distance `d` for which it is worth storing a sequence
+    as a child instead of a parent.
+
+    An Elias-Fano encoded bitvector uses around `log2(gap) + 2.5` bits per set bit, and
+    the average gap between the flipped bits in a child is around `num_kmers / d`. But
+    because we concatenate the child bitvectors, the relevant gap measure is the
+    average over all children in all clusters.
+
+    TODO: In some situations, we could get better compression with a lower max distance
+    and more clusters. Does that happen in practice and is the effect significant?
+    Maybe we could expose a threshold multiplier as a parameter.
+
+    NOTE: We could also improve compression a bit by selecting the final parents only
+    after we have determined the clusters.
+*/
 size_t max_child_distance(size_t num_kmers) {
     if (num_kmers == 0) {
         return 0;
@@ -103,10 +109,7 @@ KmerPresenceMatrix::KmerPresenceMatrix(size_t num_sequences, size_t num_kmers, s
         return;
     }
 
-    // Greedy leader clustering: compare each sequence to the parents chosen so far and
-    // attach it to the closest one within the threshold. This takes
-    // `O(num_sequences * num_parents * num_kmers / 64)` time in the worst case, but the
-    // early exits make it much faster when the sequences form a few large clusters.
+    // Greedy clustering: assign each sequence to the first parent within the threshold.
     size_t threshold = max_child_distance(this->num_kmers);
     std::vector<size_t> parent_of_cluster;
     std::vector<std::vector<size_t>> children_of_cluster;
@@ -126,7 +129,6 @@ KmerPresenceMatrix::KmerPresenceMatrix(size_t num_sequences, size_t num_kmers, s
             parent_of_cluster.push_back(sequence);
             children_of_cluster.emplace_back();
         } else {
-            // A distance below the limit was never truncated, so `best_distance` is exact.
             children_of_cluster[best_cluster].push_back(sequence);
             total_flips += best_distance;
         }
@@ -135,8 +137,6 @@ KmerPresenceMatrix::KmerPresenceMatrix(size_t num_sequences, size_t num_kmers, s
     size_t num_children = this->num_sequences - num_parents;
 
     // Store the sequences in cluster order, with the parent of each cluster first.
-    // This is also the order of the children in `children`, because
-    // `child_rank(rank) == rank - parent_rank(rank) - 1`.
     size_t rank = 0;
     for (size_t cluster = 0; cluster < num_parents; cluster++) {
         auto add_sequence = [&](size_t sequence) {
@@ -163,10 +163,6 @@ KmerPresenceMatrix::KmerPresenceMatrix(size_t num_sequences, size_t num_kmers, s
     }
 
     // Build the children by marking the bits that differ from the parent.
-    // NOTE: If there are no differences at all, `sd_vector` falls back to a low part of
-    // width 1, and the high part takes around `num_children * num_kmers / 2` bits. That
-    // is still half of the corresponding explicit bitvectors, but it is not proportional
-    // to the number of set bits.
     if (num_children == 0 || this->num_kmers == 0) {
         this->children = sdsl::sd_vector<>();
         return;
@@ -185,13 +181,29 @@ KmerPresenceMatrix::KmerPresenceMatrix(size_t num_sequences, size_t num_kmers, s
                 while (word != 0) {
                     size_t offset = sdsl::bits::lo(word);
                     builder.set_unsafe(child_start + kmer_id + offset);
-                    word &= word - 1;
+                    word &= word - 1; // Clear the lowest set bit.
                 }
             }
             child++;
         }
     }
     this->children = sdsl::sd_vector<>(builder);
+}
+
+bool KmerPresenceMatrix::operator==(const KmerPresenceMatrix& other) const {
+    if (this->num_sequences != other.num_sequences || this->num_kmers != other.num_kmers) {
+        return false;
+    }
+    if (this->arrays != other.arrays) {
+        return false;
+    }
+    if (this->parents != other.parents) {
+        return false;
+    }
+    if (this->children != other.children) {
+        return false;
+    }
+    return true;
 }
 
 size_t KmerPresenceMatrix::get_num_present(size_t sequence) const {
@@ -338,6 +350,7 @@ void KmerPresenceMatrix::simple_sds_load(std::istream& in) {
         throw sdsl::simple_sds::InvalidData("KmerPresenceMatrix: inconsistent matrix size");
     }
 
+    // FIXME: is this too slow?
     // The queries use the arrays for indexing into `parents` and `children` without
     // further checks, so we validate the structure before trusting it.
     for (size_t rank = 0; rank < this->num_sequences; rank++) {
