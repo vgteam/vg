@@ -5885,14 +5885,13 @@ bool FlowCaller::apply_regenotyping() {
     if (!regenotype || linkage_collector == nullptr || linkage_phased.empty()) {
         return false;
     }
-    // `Lambda` first, over every site the phasing pass could speak for. One pass, into a table
-    // keyed by read: the previous design budgeted a read-to-sites transpose of ~2.5 M placements,
-    // and it is not needed, because the quantity is a scalar per read.
-    LambdaTable lambda;
-    accumulate_lambda(phase_sites, phase_flips, lambda, regenotype_counters);
-
-    // Per round, so the report describes the round rather than the sum of every round before it.
-    // The calibration table and the fitted temper are not reset: they are set once, below.
+    // Reset FIRST, before anything writes to the counters. Per round, so the report describes the
+    // round rather than the sum of every round before it -- and placed here because
+    // `accumulate_lambda` fills the read counts, so resetting after it wiped them and the line
+    // reported "0 reads carry a strand log-odds" on a contig with 73,294 of them.
+    //
+    // The calibration table and the fitted temper survive: they are set once, on the first round,
+    // and the fit is deliberately not repeated.
     const double keep_temper = regenotype_counters.fitted_temper;
     const auto keep_abs = regenotype_counters.fit_abs_lambda;
     const auto keep_obs = regenotype_counters.fit_observed;
@@ -5904,6 +5903,12 @@ bool FlowCaller::apply_regenotyping() {
     regenotype_counters.fit_observed = keep_obs;
     regenotype_counters.fit_predicted = keep_pred;
     regenotype_counters.fit_count = keep_n;
+
+    // `Lambda` over every site the phasing pass could speak for. One pass, into a table keyed by
+    // read: the previous design budgeted a read-to-sites transpose of ~2.5 M placements, and it is
+    // not needed, because the quantity is a scalar per read.
+    LambdaTable lambda;
+    accumulate_lambda(phase_sites, phase_flips, lambda, regenotype_counters);
 
     double temper = regenotype_params.temper;
     if (temper < 0.0) {
