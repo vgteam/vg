@@ -74,7 +74,7 @@ TEST_CASE("a temper of zero leaves every genotype likelihood bit-identical",
         LambdaTable lambda = confident(ev);
         map<vector<int>, double> gl = flat_gl();
         const map<vector<int>, double> before = gl;
-        phase_aware_correction(ev, lambda, {}, 0.0, params, gl, counters);
+        phase_aware_correction(ev, lambda, {}, 0.0, 1.0, params, gl, counters);
         for (const auto& kv : before) {
             REQUIRE(gl.at(kv.first) == kv.second);
         }
@@ -94,7 +94,7 @@ TEST_CASE("homozygous likelihoods never move, at any temper", "[regenotype]") {
     LambdaTable lambda = confident(ev);
     for (double tau : {0.25, 1.0, 50.0}) {
         map<vector<int>, double> gl = flat_gl();
-        phase_aware_correction(ev, lambda, {}, tau, params, gl, counters);
+        phase_aware_correction(ev, lambda, {}, tau, 1.0, params, gl, counters);
         REQUIRE(gl.at({0, 0}) == -50.0);
         REQUIRE(gl.at({1, 1}) == -50.0);
         REQUIRE(gl.at({0, 1}) > -20.0);   // and the het does move
@@ -122,7 +122,7 @@ TEST_CASE("a read that spans nothing else contributes exactly nothing", "[regeno
     }
     map<vector<int>, double> gl = flat_gl();
     const map<vector<int>, double> before = gl;
-    phase_aware_correction(ev, lambda, {}, 2.0, params, gl, counters);
+    phase_aware_correction(ev, lambda, {}, 2.0, 1.0, params, gl, counters);
     for (const auto& kv : before) {
         REQUIRE(gl.at(kv.first) == kv.second);
     }
@@ -255,7 +255,7 @@ TEST_CASE("the correction rewards a phase-coherent split and punishes an incoher
 
     LambdaTable coherent = confident(ev);
     map<vector<int>, double> gl_coherent = flat_gl();
-    phase_aware_correction(ev, coherent, {}, 1.0, params, gl_coherent, counters);
+    phase_aware_correction(ev, coherent, {}, 1.0, 1.0, params, gl_coherent, counters);
 
     // Same magnitudes, strand assignment uncorrelated with the allele carried.
     LambdaTable incoherent = confident(ev);
@@ -263,13 +263,133 @@ TEST_CASE("the correction rewards a phase-coherent split and punishes an incoher
         incoherent[ev.read_key[i]].lambda = ((i / 2) % 2 == 0) ? 4.0 : -4.0;
     }
     map<vector<int>, double> gl_incoherent = flat_gl();
-    phase_aware_correction(ev, incoherent, {}, 1.0, params, gl_incoherent, counters);
+    phase_aware_correction(ev, incoherent, {}, 1.0, 1.0, params, gl_incoherent, counters);
 
     const double het_gap_coherent = gl_coherent.at({0, 1}) - gl_coherent.at({0, 0});
     const double het_gap_incoherent = gl_incoherent.at({0, 1}) - gl_incoherent.at({0, 0});
     const double het_gap_before = -20.0 - -50.0;
     REQUIRE(het_gap_coherent > het_gap_before);
     REQUIRE(het_gap_incoherent < het_gap_coherent);
+}
+
+TEST_CASE("the per-read escape is exactly nothing at temper 0, whatever the ceiling",
+          "[regenotype]") {
+    // The escape has to leave the byte-identity gate alone, and it does so for a reason that does
+    // not depend on the fitted value: at tau = 0 the sigmoid is 1/2 for any ceiling, so the
+    // probability is 1/2 and its logit is 0.
+    for (double c : {1.0, 0.99, 0.95, 0.5, 0.01}) {
+        for (double lam : {0.0, 17.3, -1215.0, 1e9, -1e-9}) {
+            REQUIRE(calibrated_log_odds(lam, 0.0, c) == 0.0);
+        }
+    }
+}
+
+TEST_CASE("the per-read escape caps how confident a read may be", "[regenotype]") {
+    // The point of the ceiling. At c = 1 a read at |Lambda| = 1215 and the fitted temper asserts
+    // a strand at odds of e^60, which the calibration says is wrong -- observed agreement there
+    // is 0.973, not 1. The escape holds it to something the data supports.
+    const double tau = 0.0498438;
+    const double wild = calibrated_log_odds(1215.0, tau, 1.0);
+    const double held = calibrated_log_odds(1215.0, tau, 0.95);
+    REQUIRE(wild > 20.0);
+    REQUIRE(held < 5.0);
+    REQUIRE(std::isfinite(wild));   // clamped off 1, or the logit is infinite
+    // Monotone in the evidence, and still ordered the same way.
+    REQUIRE(calibrated_log_odds(102.0, tau, 0.95) < held);
+    REQUIRE(calibrated_log_odds(-1215.0, tau, 0.95) == Approx(-held).epsilon(1e-12));
+}
+
+TEST_CASE("the haploid inclusion weight is the identity at temper 0", "[regenotype]") {
+    // The parameterisation exists for this. Written as the read's POSTERIOR for this strand the
+    // inclusion would be 1/2 at tau = 0 and half of every read's weight would vanish on a run
+    // that is meant to change nothing; capped at 1 it is exactly 1 there.
+    RegenotypeParams params;
+    RegenotypeCounters counters;
+    PhaseReadEvidence ev = evidence(30, 10, 12000);
+    LambdaTable lambda = confident(ev);
+    map<vector<int>, double> gl = {{{0}, -20.0}, {{1}, -35.0}};
+    const map<vector<int>, double> before = gl;
+    for (int sign : {1, -1}) {
+        gl = before;
+        haploid_inclusion_correction(ev, lambda, {}, 0.0, 0.95, sign, params, gl, counters);
+        for (const auto& kv : before) {
+            REQUIRE(gl.at(kv.first) == kv.second);
+        }
+    }
+}
+
+TEST_CASE("the haploid inclusion weight only removes evidence, never adds it", "[regenotype]") {
+    // A read that fits the allele perfectly contributes the same whether it is included or not,
+    // so excluding reads cannot manufacture support; a read that fits it not at all stops
+    // penalising the allele as it is excluded, which is the entire mechanism.
+    RegenotypeParams params;
+    RegenotypeCounters counters;
+    // ASYMMETRIC support -- 25 reads for allele 0, 5 for allele 1 -- because the property under
+    // test is that excluding reads removes their DISCRIMINATING power. With the symmetric fixture
+    // used elsewhere both alleles shift by the same amount and the gap is preserved, which says
+    // nothing.
+    PhaseReadEvidence ev;
+    ev.n_alleles = 2;
+    ev.allele_length = {10, 10};
+    ev.mean_read_length = 15000.0f;
+    ev.length_weighted = true;
+    for (size_t i = 0; i < 30; ++i) {
+        ev.read_key.push_back((uint64_t)(i + 1));
+        ev.mismap.push_back(0.02f);
+        const bool carries_1 = i >= 25;
+        ev.rel.push_back(carries_1 ? 0.0f : 1.0f);
+        ev.rel.push_back(carries_1 ? 1.0f : 0.0f);
+    }
+    // Every read placed on the OTHER strand, so every one of them is discounted.
+    LambdaTable lambda;
+    for (size_t i = 0; i < ev.num_reads(); ++i) {
+        ReadLambda rl;
+        rl.lambda = -60.0;
+        rl.sites = 8;
+        rl.phase_set = 1;
+        lambda[ev.read_key[i]] = rl;
+    }
+    // The likelihoods have to BE the read term, as the sweep's are, or the test is incoherent:
+    // the correction subtracts the read term, so feeding it numbers unrelated to `rel` leaves
+    // whatever arbitrary residue was invented. An earlier version of this test did exactly that
+    // and read the resulting nonsense as the gap inverting.
+    auto read_term = [&](int a) {
+        double t = 0.0;
+        for (size_t r = 0; r < ev.num_reads(); ++r) {
+            const double e = (double)ev.mismap[r];
+            t += std::log((1.0 - e) * (double)ev.rel_at(r, (size_t)a) + e);
+        }
+        return t;
+    };
+    map<vector<int>, double> gl = {{{0}, read_term(0)}, {{1}, read_term(1)}};
+    const double gap_before = gl.at({0}) - gl.at({1});
+    REQUIRE(std::abs(gap_before) > 10.0);   // and the alleles really are discriminated to start
+    haploid_inclusion_correction(ev, lambda, {}, 1.0, 1.0, +1, params, gl, counters);
+    // Both alleles rise: nothing is penalised any more by reads that do not belong here. Note the
+    // correction is a DELTA on whatever the sweep's likelihood was, so the result is not bounded
+    // above by zero -- an earlier version of this test asserted that and was simply wrong.
+    REQUIRE(gl.at({0}) > read_term(0));
+    REQUIRE(gl.at({1}) > read_term(1));
+    // And the discriminating power goes with them. With every read excluded the two alleles are
+    // separated only by whatever the sweep already believed, so the gap collapses toward it.
+    // Every read excluded, so every read term is log(1) = 0 and the two alleles are no longer
+    // told apart at all.
+    REQUIRE(std::abs(gl.at({0}) - gl.at({1})) < 1e-9);
+
+    // Whereas with every read placed ON this strand, nothing is excluded and nothing moves.
+    LambdaTable here;
+    for (size_t i = 0; i < ev.num_reads(); ++i) {
+        ReadLambda rl;
+        rl.lambda = +60.0;
+        rl.sites = 8;
+        rl.phase_set = 1;
+        here[ev.read_key[i]] = rl;
+    }
+    map<vector<int>, double> kept = {{{0}, read_term(0)}, {{1}, read_term(1)}};
+    const map<vector<int>, double> kept_before = kept;
+    haploid_inclusion_correction(ev, here, {}, 1.0, 1.0, +1, params, kept, counters);
+    REQUIRE(kept.at({0}) == kept_before.at({0}));
+    REQUIRE(kept.at({1}) == kept_before.at({1}));
 }
 
 TEST_CASE("a globally sign-flipped Lambda is invisible, and that is why these tests exist",
@@ -286,8 +406,8 @@ TEST_CASE("a globally sign-flipped Lambda is invisible, and that is why these te
         kv.second.lambda = -kv.second.lambda;
     }
     map<vector<int>, double> a = flat_gl(), b = flat_gl();
-    phase_aware_correction(ev, normal, {}, 1.0, params, a, counters);
-    phase_aware_correction(ev, flipped, {}, 1.0, params, b, counters);
+    phase_aware_correction(ev, normal, {}, 1.0, 1.0, params, a, counters);
+    phase_aware_correction(ev, flipped, {}, 1.0, 1.0, params, b, counters);
     REQUIRE(a.at({0, 1}) == Approx(b.at({0, 1})).epsilon(1e-12));
 }
 

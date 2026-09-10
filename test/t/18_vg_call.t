@@ -9,7 +9,7 @@ PATH=../bin:$PATH # for vg
 # FORMAT field shifts every later one, which broke four assertions here that were not
 # testing field order at all -- one of them silently compared BL against a GQ threshold.
 
-plan tests 395
+plan tests 399
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -1159,6 +1159,30 @@ is $(grep -c "re-genotyping" rl_rg_preoff.err) "0" "--no-regenotype turns it bac
 vg call x.gbz --read-likelihood --phased --gam sim.gam --preset ont --no-read-phasing -t 1 \
     >/dev/null 2>rl_rg_nph.err
 is "$?" "0" "--preset ont --no-read-phasing declines re-genotyping instead of failing"
+
+# The two extensions. Both are built so that temper 0 stays the identity, and that is the whole
+# design constraint: the haploid weight is the read's odds ratio CAPPED at 1 rather than its
+# posterior for the strand, because a posterior is 1/2 at temper 0 and would discard half of every
+# read's weight on a run meant to change nothing; and the escape's probability is 1/2 at temper 0
+# for any ceiling, so its logit is 0 whatever the ceiling turns out to be.
+rm -f rl_rg_ext.vcf rl_rg_ext.err rl_rg_ceil0.err rl_rg_ceilhi.err rl_rg_nohap.err
+vg call x.gbz --read-likelihood --phased --gam sim.gam --read-phasing --phase-min-q 0 \
+    --regenotype --regeno-temper 0 --regeno-haploid --regeno-ceiling 0.9 -t 1 \
+    2>rl_rg_ext.err > rl_rg_ext.vcf
+is $(if cmp -s rl_rg_off.vcf rl_rg_ext.vcf; then echo 1; else echo 0; fi) "1" \
+   "temper 0 is the identity with the haploid weight and the per-read escape both armed"
+
+vg call x.gbz --read-likelihood --phased --gam sim.gam --read-phasing --phase-min-q 0 \
+    --regenotype --no-regeno-haploid -t 1 >/dev/null 2>rl_rg_nohap.err
+is "$?" "0" "--no-regeno-haploid turns the haploid weight off"
+
+# A ceiling is a probability. 1 is no cap and is the default; 0 and above 1 are not meaningful.
+vg call x.gbz --read-likelihood --phased --gam sim.gam --read-phasing --regenotype \
+    --regeno-ceiling 0 -t 1 >/dev/null 2>rl_rg_ceil0.err
+is "$?" "1" "--regeno-ceiling 0 is refused"
+vg call x.gbz --read-likelihood --phased --gam sim.gam --read-phasing --regenotype \
+    --regeno-ceiling 1.5 -t 1 >/dev/null 2>rl_rg_ceilhi.err
+is "$?" "1" "and so is a ceiling above 1"
 
 # The one combination the correction genuinely cannot be made safe in. `--top-down` builds each
 # child's ChildTraversalSets out of its parent's CALLED genotype, and those sets decide the child's

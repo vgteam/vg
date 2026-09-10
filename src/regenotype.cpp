@@ -75,8 +75,29 @@ void merge_counters(const RegenotypeCounters& from, RegenotypeCounters& into) {
     into.moved_het_to_hom += from.moved_het_to_hom;
     into.moved_het_to_het += from.moved_het_to_het;
     into.order_reversed += from.order_reversed;
+    into.haploid_sites += from.haploid_sites;
+    into.haploid_would_move += from.haploid_would_move;
     // `fitted_temper` and the calibration vectors are deliberately not merged: they describe one
     // fit, done once before any of this is parallel, and adding them up would say nothing.
+}
+
+double calibrated_log_odds(double lambda, double temper, double ceiling) {
+    const double x = temper * lambda;
+    if (!(x != 0.0)) {
+        // Exactly 0 at `tau = 0`, and by this branch rather than by the arithmetic below rounding
+        // to it. Also catches -0.0, which is the temper-0 case for a negative Lambda.
+        return 0.0;
+    }
+    const double c = ceiling >= 1.0 ? 1.0 : (ceiling <= 0.0 ? 0.0 : ceiling);
+    // sigmoid without the overflow: at |x| in the hundreds `exp(-x)` is inf on one side.
+    const double sig = x >= 0.0 ? 1.0 / (1.0 + exp(-x)) : exp(x) / (1.0 + exp(x));
+    double p = c * sig + 0.5 * (1.0 - c);
+    // Clamped off the ends. With `c == 1` and `tau * Lambda == 60.75` -- an ordinary read at the
+    // fitted temper -- `p` rounds to exactly 1 and the logit is infinite. The un-escaped tilt
+    // never had this hazard because it stayed in the odds domain; the logit introduces it.
+    const double eps = 1e-12;
+    p = min(1.0 - eps, max(eps, p));
+    return log(p / (1.0 - p));
 }
 
 double site_read_log_odds(double q0, double p) {
@@ -128,9 +149,9 @@ void accumulate_lambda(const vector<PhaseSite>& sites, const unordered_set<size_
     }
 }
 
-double fit_temper(const vector<PhaseSite>& sites, const unordered_set<size_t>& flipped,
-                  const LambdaTable& lambda, const RegenotypeParams& params,
-                  RegenotypeCounters& counters) {
+void fit_calibration(const vector<PhaseSite>& sites, const unordered_set<size_t>& flipped,
+                     const LambdaTable& lambda, const RegenotypeParams& params,
+                     double& temper, double& ceiling, RegenotypeCounters& counters) {
     // Every (read, site) pair where the rest of the read has an opinion and this site has an
     // observation to check it against. `loo` is the prediction, `own` the observation.
     struct Obs { double abs_loo; bool agree; };
@@ -152,7 +173,10 @@ double fit_temper(const vector<PhaseSite>& sites, const unordered_set<size_t>& f
     }
     if (obs.size() < params.fit_min_per_bin) {
         counters.fitted_temper = 0.0;
-        return 0.0;
+        counters.fitted_ceiling = 1.0;
+        temper = 0.0;
+        ceiling = 1.0;
+        return;
     }
     // Equal-count bins over |Lambda|, so a long tail does not get one bin to itself.
     std::sort(obs.begin(), obs.end(), [](const Obs& a, const Obs& b) {
@@ -177,34 +201,61 @@ double fit_temper(const vector<PhaseSite>& sites, const unordered_set<size_t>& f
     // tau such that sigmoid(tau * |Lambda|) matches the observed agreement, weighted by bin size.
     // A grid then a refinement: the objective is smooth and one-dimensional, and a closed form
     // would have to assume the link is exactly logistic, which is the thing being tested.
-    auto cost = [&](double tau) {
-        double c = 0.0;
+    // Two parameters now, because one cannot fit the shape: agreement climbs through the whole
+    // range and never reaches 1, while a logistic saturates by |Lambda| = 100 at any temper. The
+    // ceiling is the per-read error floor, and fitting it is what lets the curve match both ends
+    // instead of the lowest bin only.
+    auto cost = [&](double tau, double ceil) {
+        double acc = 0.0;
         for (const Bin& b : bins) {
             const double x = tau * b.mean_abs;
-            const double predicted = 1.0 / (1.0 + exp(-x));
+            const double sig = x >= 0.0 ? 1.0 / (1.0 + exp(-x)) : exp(x) / (1.0 + exp(x));
+            const double predicted = ceil * sig + 0.5 * (1.0 - ceil);
             const double d = predicted - b.observed;
-            c += (double)b.n * d * d;
+            acc += (double)b.n * d * d;
         }
-        return c;
+        return acc;
     };
-    double best = 0.0, best_cost = cost(0.0);
-    for (int i = 1; i <= 200; ++i) {
-        const double tau = i * 0.01;
-        const double c = cost(tau);
-        if (c < best_cost) {
-            best_cost = c;
-            best = tau;
+    double best = 0.0, best_ceiling = 1.0, best_cost = cost(0.0, 1.0);
+    // A grid over both, then a coordinate refinement. The surface is smooth and two-dimensional;
+    // a closed form would have to assume the link really is logistic, which is the thing under
+    // test.
+    for (int ci = 50; ci <= 100; ++ci) {
+        const double ceil = ci * 0.01;
+        for (int i = 1; i <= 200; ++i) {
+            const double tau = i * 0.01;
+            const double c = cost(tau, ceil);
+            if (c < best_cost) {
+                best_cost = c;
+                best = tau;
+                best_ceiling = ceil;
+            }
         }
     }
     for (double step = 0.005; step > 1e-4; step *= 0.5) {
-        for (int s = -1; s <= 1; s += 2) {
-            const double tau = best + s * step;
-            if (tau < 0.0) {
-                continue;
+        for (int sgn = -1; sgn <= 1; sgn += 2) {
+            const double tau = best + sgn * step;
+            if (tau >= 0.0 && cost(tau, best_ceiling) < best_cost) {
+                best_cost = cost(tau, best_ceiling);
+                best = tau;
             }
-            const double c = cost(tau);
-            if (c < best_cost) {
-                best_cost = c;
+            const double ceil = best_ceiling + sgn * step;
+            if (ceil > 0.0 && ceil <= 1.0 && cost(best, ceil) < best_cost) {
+                best_cost = cost(best, ceil);
+                best_ceiling = ceil;
+            }
+        }
+    }
+    if (params.ceiling >= 0.0) {
+        // Pinned by hand: refit the temper against it rather than keeping a temper fitted with a
+        // ceiling the caller has overridden.
+        best_ceiling = min(1.0, params.ceiling);
+        best = 0.0;
+        best_cost = cost(0.0, best_ceiling);
+        for (int i = 1; i <= 200; ++i) {
+            const double tau = i * 0.01;
+            if (cost(tau, best_ceiling) < best_cost) {
+                best_cost = cost(tau, best_ceiling);
                 best = tau;
             }
         }
@@ -216,17 +267,121 @@ double fit_temper(const vector<PhaseSite>& sites, const unordered_set<size_t>& f
     for (const Bin& b : bins) {
         counters.fit_abs_lambda.push_back(b.mean_abs);
         counters.fit_observed.push_back(b.observed);
-        counters.fit_predicted.push_back(1.0 / (1.0 + exp(-best * b.mean_abs)));
+        const double sx = best * b.mean_abs;
+        const double sg = sx >= 0.0 ? 1.0 / (1.0 + exp(-sx)) : exp(sx) / (1.0 + exp(sx));
+        counters.fit_predicted.push_back(best_ceiling * sg + 0.5 * (1.0 - best_ceiling));
         counters.fit_count.push_back(b.n);
     }
     counters.fitted_temper = best;
-    return best;
+    counters.fitted_ceiling = best_ceiling;
+    temper = best;
+    ceiling = best_ceiling;
+}
+
+/// Shared with the mixture correction: the per-read leave-one-out strand log-odds.
+static bool read_loo(const PhaseReadEvidence& ev, const LambdaTable& lambda,
+                     const unordered_map<uint64_t, double>& own, const RegenotypeParams& params,
+                     vector<double>& loo) {
+    loo.assign(ev.num_reads(), 0.0);
+    bool any = false;
+    for (size_t r = 0; r < ev.num_reads(); ++r) {
+        auto found = lambda.find(ev.read_key[r]);
+        if (found == lambda.end() || found->second.multi_block) {
+            continue;
+        }
+        double v = found->second.lambda;
+        auto mine = own.find(ev.read_key[r]);
+        if (mine != own.end()) {
+            v -= mine->second;
+        }
+        if (params.shuffle) {
+            v = (ev.read_key[r] & 1ULL) ? -fabs(v) : fabs(v);
+        }
+        loo[r] = v;
+        if (fabs(v) > 1e-9) {
+            any = true;
+        }
+    }
+    return any;
+}
+
+bool haploid_inclusion_correction(const PhaseReadEvidence& ev, const LambdaTable& lambda,
+                                  const unordered_map<uint64_t, double>& own, double temper,
+                                  double ceiling, int strand_sign,
+                                  const RegenotypeParams& params, map<vector<int>, double>& gl,
+                                  RegenotypeCounters& counters) {
+    if (gl.empty() || ev.n_alleles == 0 || ev.num_reads() == 0 || strand_sign == 0) {
+        return false;
+    }
+    vector<double> loo;
+    if (!read_loo(ev, lambda, own, params, loo)) {
+        return false;
+    }
+    ++counters.haploid_sites;
+
+    // Per read: how much of it belongs to this chain's strand. Capped at 1, so a read the phase
+    // places here is whole and one placed on the other strand is discounted by its odds.
+    vector<double> incl(ev.num_reads(), 1.0);
+    for (size_t r = 0; r < ev.num_reads(); ++r) {
+        const double x = strand_sign * calibrated_log_odds(loo[r], temper, ceiling);
+        incl[r] = x >= 0.0 ? 1.0 : exp(x);
+    }
+
+    const vector<int>* before = nullptr;
+    double before_ll = -std::numeric_limits<double>::infinity();
+    for (const auto& kv : gl) {
+        if (kv.second > before_ll) {
+            before_ll = kv.second;
+            before = &kv.first;
+        }
+    }
+
+    size_t corrected = 0;
+    for (auto& kv : gl) {
+        const vector<int>& g = kv.first;
+        if (g.size() != 1) {
+            // This is the ploidy-1 space. A diploid entry here is not ours to touch.
+            continue;
+        }
+        const int a = g[0];
+        if (a < 0 || (size_t)a >= ev.n_alleles) {
+            continue;
+        }
+        double s_incl = 0.0, s_base = 0.0;
+        for (size_t r = 0; r < ev.num_reads(); ++r) {
+            const double e = (double)ev.mismap[r];
+            const double ra = (double)ev.rel_at(r, (size_t)a);
+            // `(1 - e) * incl * rel + e + (1 - e) * (1 - incl)`, written so that `incl == 1`
+            // reduces to the same expression as the baseline term below rather than to an
+            // arithmetically equal one -- which is what makes `tau = 0` exact.
+            s_incl += log((1.0 - e) * (incl[r] * ra + 1.0 - incl[r]) + e);
+            s_base += log((1.0 - e) * (1.0 * ra + 1.0 - 1.0) + e);
+        }
+        kv.second += s_incl - s_base;
+        ++corrected;
+    }
+    if (corrected == 0) {
+        return false;
+    }
+    const vector<int>* after = nullptr;
+    double after_ll = -std::numeric_limits<double>::infinity();
+    for (const auto& kv : gl) {
+        if (kv.second > after_ll) {
+            after_ll = kv.second;
+            after = &kv.first;
+        }
+    }
+    if (before == nullptr || after == nullptr || *before == *after) {
+        return false;
+    }
+    ++counters.haploid_would_move;
+    return true;
 }
 
 bool phase_aware_correction(const PhaseReadEvidence& ev, const LambdaTable& lambda,
                             const unordered_map<uint64_t, double>& own, double temper,
-                            const RegenotypeParams& params, map<vector<int>, double>& gl,
-                            RegenotypeCounters& counters) {
+                            double ceiling, const RegenotypeParams& params,
+                            map<vector<int>, double>& gl, RegenotypeCounters& counters) {
     if (gl.empty() || ev.n_alleles == 0 || ev.num_reads() == 0) {
         return false;
     }
@@ -269,7 +424,7 @@ bool phase_aware_correction(const PhaseReadEvidence& ev, const LambdaTable& lamb
         return false;
     }
     for (size_t r = 0; r < ev.num_reads(); ++r) {
-        tilt[r] = read_tilt(temper * loo[r]);
+        tilt[r] = read_tilt(calibrated_log_odds(loo[r], temper, ceiling));
     }
 
     // The sweep's own argmax, to say afterwards whether the correction moved it.

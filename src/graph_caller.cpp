@@ -5910,7 +5910,20 @@ bool FlowCaller::apply_regenotyping() {
     LambdaTable lambda;
     accumulate_lambda(phase_sites, phase_flips, lambda, regenotype_counters);
 
+    // Which strand of its parent each nested haploid chain sits on, and whether a record is one.
+    // `nested_strand` is derived in the barrier against the parent's settled pair and cascaded
+    // when that pair flips, so by here it is in the same frame as `Lambda`: strand 0 of the block.
+    unordered_map<size_t, int> haploid_strand;
+    if (regenotype_params.haploid_include) {
+        for (const LinkageCollector::PhaseCall& pc : linkage_phased) {
+            if (pc.ploidy == 1 && pc.nested_strand >= 0) {
+                haploid_strand[pc.record_key] = pc.nested_strand == 0 ? 1 : -1;
+            }
+        }
+    }
+
     double temper = regenotype_params.temper;
+    double ceiling = regenotype_params.ceiling < 0.0 ? 1.0 : regenotype_params.ceiling;
     if (temper < 0.0) {
         // Fitted ONCE, on the first round, and held for the iteration.
         //
@@ -5923,12 +5936,14 @@ bool FlowCaller::apply_regenotyping() {
         // available, the one the panel settled before any correction touched it.
         if (regenotype_counters.fitted_temper > 0.0) {
             temper = regenotype_counters.fitted_temper;
+            ceiling = regenotype_counters.fitted_ceiling;
         } else {
-            temper = fit_temper(phase_sites, phase_flips, lambda, regenotype_params,
-                                regenotype_counters);
+            fit_calibration(phase_sites, phase_flips, lambda, regenotype_params, temper, ceiling,
+                            regenotype_counters);
         }
     } else {
         regenotype_counters.fitted_temper = temper;
+        regenotype_counters.fitted_ceiling = ceiling;
     }
 
     // Where to find a site's own PhaseSite, so the leave-one-out can subtract this site's term
@@ -6048,9 +6063,13 @@ bool FlowCaller::apply_regenotyping() {
                 scratch = info->genotype_lls;
             }
             map<vector<int>, double>& target = keep ? info->genotype_lls : scratch;
+            const auto hap = haploid_strand.find(rec.record_key);
             const bool site_moved =
-                phase_aware_correction(*pe, lambda, own, temper, regenotype_params, target,
-                                       counters);
+                hap != haploid_strand.end()
+                    ? haploid_inclusion_correction(*pe, lambda, own, temper, ceiling, hap->second,
+                                                   regenotype_params, target, counters)
+                    : phase_aware_correction(*pe, lambda, own, temper, ceiling,
+                                             regenotype_params, target, counters);
             if (keep && site_moved) {
                 // GL now describes the corrected likelihoods, so GQ has to as well. `derive` set
                 // it from the uncorrected pair before any of this ran, and leaving it would emit
@@ -6090,7 +6109,7 @@ bool FlowCaller::apply_regenotyping() {
                     alt.genotype_lls = *alt.uncorrected_lls;
                 }
                 RegenotypeCounters ignored;
-                phase_aware_correction(*pe, lambda, own, temper, regenotype_params,
+                phase_aware_correction(*pe, lambda, own, temper, ceiling, regenotype_params,
                                        alt.genotype_lls, ignored);
             }
             if (!site_moved) {
@@ -6153,13 +6172,19 @@ bool FlowCaller::apply_regenotyping() {
     }
 
     const RegenotypeCounters& c = regenotype_counters;
-    cerr << "[vg call] re-genotyping: temper " << temper << ", " << c.reads_with_lambda
+    cerr << "[vg call] re-genotyping: temper " << temper << ", ceiling " << ceiling << ", "
+         << c.reads_with_lambda
          << " reads carry a strand log-odds (" << c.reads_singleton
          << " span one site, so are inert; " << c.reads_multi_block << " span two blocks), "
          << c.sites_corrected << " of " << c.sites_considered << " sites corrected, "
          << c.sites_would_move << " would move (" << c.moved_hom_to_het << " hom->het, "
          << c.moved_het_to_hom << " het->hom, " << c.moved_het_to_het << " het->het), "
          << c.order_reversed << " where the reads prefer the other order" << endl;
+    if (regenotype_params.haploid_include) {
+        cerr << "[vg call] re-genotyping: " << c.haploid_sites
+             << " nested haploid chains weighted by whether the reads belong to their strand, "
+             << c.haploid_would_move << " would move" << endl;
+    }
     if (!c.fit_count.empty()) {
         cerr << "[vg call] re-genotyping calibration, |Lambda| / observed / predicted / n:";
         for (size_t i = 0; i < c.fit_count.size(); ++i) {

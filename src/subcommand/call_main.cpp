@@ -164,6 +164,13 @@ void help_call(char** argv) {
          << "                            neither, and more rounds score slightly worse. 1" << endl
          << "                            scores the correction without acting on it" << endl
          << "      --regeno-ledger FILE  write one line per site the correction would move" << endl
+         << "      --regeno-ceiling N    cap on how often a read's strand log-odds is right." << endl
+         << "                            1 (the default) is no cap. A negative value fits it," << endl
+         << "                            which calibrates better and calls worse" << endl
+         << "      --no-regeno-haploid   stop weighting a nested HAPLOID chain's reads by" << endl
+         << "                            whether the phase places them on its strand. On by" << endl
+         << "                            default: there is no mixture to reweight there, so" << endl
+         << "                            it is the only part of this that reaches SVs" << endl
          << "      --regeno-shuffle      DEBUG. Randomise each read's strand sign, keeping" << endl
          << "                            the magnitude, so peakedness survives and only the" << endl
          << "                            phase information is destroyed" << endl
@@ -587,6 +594,9 @@ int main_call(int argc, char** argv) {
     constexpr int OPT_PHASE_CAP = 1080;
     constexpr int OPT_REGENOTYPE = 1082;
     constexpr int OPT_NO_REGENOTYPE = 1087;
+    constexpr int OPT_REGENO_CEILING = 1088;
+    constexpr int OPT_REGENO_HAPLOID = 1089;
+    constexpr int OPT_NO_REGENO_HAPLOID = 1090;
     constexpr int OPT_REGENO_TEMPER = 1083;
     constexpr int OPT_REGENO_PASSES = 1084;
     constexpr int OPT_REGENO_SHUFFLE = 1085;
@@ -681,6 +691,9 @@ int main_call(int argc, char** argv) {
         {"phase-cap", required_argument, 0, OPT_PHASE_CAP},
         {"regenotype", no_argument, 0, OPT_REGENOTYPE},
         {"no-regenotype", no_argument, 0, OPT_NO_REGENOTYPE},
+        {"regeno-ceiling", required_argument, 0, OPT_REGENO_CEILING},
+        {"regeno-haploid", no_argument, 0, OPT_REGENO_HAPLOID},
+        {"no-regeno-haploid", no_argument, 0, OPT_NO_REGENO_HAPLOID},
         {"regeno-temper", required_argument, 0, OPT_REGENO_TEMPER},
         {"regeno-passes", required_argument, 0, OPT_REGENO_PASSES},
         {"regeno-shuffle", no_argument, 0, OPT_REGENO_SHUFFLE},
@@ -991,6 +1004,19 @@ int main_call(int argc, char** argv) {
             break;
         case OPT_REGENO_SHUFFLE:
             regenotype_params.shuffle = true;
+            break;
+        case OPT_REGENO_CEILING:
+            regenotype_params.ceiling = parse<double>(optarg);
+            if (regenotype_params.ceiling <= 0.0 || regenotype_params.ceiling > 1.0) {
+                logger.error() << "--regeno-ceiling must be in (0, 1]; 1 is the un-escaped tilt"
+                               << endl;
+            }
+            break;
+        case OPT_REGENO_HAPLOID:
+            regenotype_params.haploid_include = true;
+            break;
+        case OPT_NO_REGENO_HAPLOID:
+            regenotype_params.haploid_include = false;
             break;
         case OPT_REGENO_LEDGER:
             regenotype_ledger = optarg;
@@ -1450,6 +1476,7 @@ int main_call(int argc, char** argv) {
             "--gap-open", "--gap-extend", "--preset",
             "--read-phasing", "--no-read-phasing", "--phase-min-q", "--phase-break",
             "--regenotype", "--no-regenotype", "--regeno-temper", "--regeno-passes",
+            "--regeno-ceiling", "--regeno-haploid", "--no-regeno-haploid",
             "--regeno-shuffle", "--regeno-ledger",
             "--phase-relink",
             "--phase-hang", "--phase-prior", "--phase-cap",
