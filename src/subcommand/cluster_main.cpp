@@ -694,6 +694,8 @@ int main_cluster(int argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_cluster("cluster", "find and cluster mapping seeds", DEVELOPMENT, main_cluster);
+static Subcommand vg_cluster("cluster", "find and cluster mapping seeds", DEVELOPMENT,
+                             vector<manpage_item>{{RARE_NEEDS, "run only the seed-clustering step of an alignment", ""}},
+                             help_cluster, main_cluster);
 
 

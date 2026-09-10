@@ -162,4 +162,6 @@ int main_mask(int argc, char** argv) {
 
 
 // Register subcommand
-static Subcommand vg_mask("mask", "mask out sequences in a graph with N's", main_mask);
+static Subcommand vg_mask("mask", "mask out sequences in a graph with N's", WIDGET,
+                          vector<manpage_item>{{MANIPULATE_GRAPH, "N-mask regions of a graph", ""}},
+                          help_mask, main_mask);

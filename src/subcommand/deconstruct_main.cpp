@@ -468,5 +468,9 @@ int main_deconstruct(int argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_deconstruct("deconstruct", "create a VCF from variation in the graph", TOOLKIT, main_deconstruct);
+static Subcommand vg_deconstruct("deconstruct", "create a VCF from variation in the graph", TOOLKIT,
+                                 vector<manpage_item>{{DOWNSTREAM,
+                                  "create a VCF from variation in the graph",
+                                  "https://github.com/vgteam/vg/wiki/VCF-export-with-vg-deconstruct"}},
+                                 help_deconstruct, main_deconstruct);
 

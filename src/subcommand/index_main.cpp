@@ -639,4 +639,8 @@ int main_index(int argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_construct("index", "index graphs or alignments for random access or mapping", PIPELINE, 4, main_index);
+static Subcommand vg_construct("index", "index graphs or alignments for random access or mapping", PIPELINE, 4,
+                               vector<manpage_item>{{SET_UP_GRAPH, 
+                                "manually build individual indexes (xg, distance, GCSA, etc.)",
+                                "https://github.com/vgteam/vg/wiki/Index-Construction"}},
+                               help_index, main_index);

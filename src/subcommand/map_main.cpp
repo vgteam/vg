@@ -1333,4 +1333,6 @@ int main_map(int argc, char** argv) {
 
 }
 
-static Subcommand vg_map("map", "MEM-based read alignment", PIPELINE, 5, main_map);
+static Subcommand vg_map("map", "MEM-based read alignment", PIPELINE, 5,
+                         vector<manpage_item>{{MAP_READS, "MEM-based read alignment", ""}},
+                         help_map, main_map);

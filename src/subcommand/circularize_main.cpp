@@ -32,7 +32,6 @@ void help_circularize(char** argv) {
          << "  -a, --head ID           circularize a head and tail node (must provide a tail)" << endl
          << "  -z, --tail ID           circularize a head and tail node (must provide a head)" << endl
          << "  -h, --help              print this help message to stderr and exit" << endl;
-    exit(1);
 }
 
 int main_circularize(int argc, char** argv) {
@@ -152,5 +151,7 @@ int main_circularize(int argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_circularize("circularize", "circularize a path within a graph", main_circularize);
+static Subcommand vg_circularize("circularize", "circularize a path within a graph", WIDGET,
+                                 vector<manpage_item>{{MANIPULATE_GRAPH, "connect head and tail nodes to circularize paths", ""}},
+                                 help_circularize, main_circularize);
 

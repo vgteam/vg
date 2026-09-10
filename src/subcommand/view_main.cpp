@@ -1021,4 +1021,6 @@ int main_view(int argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_view("view", "format conversions for graphs and alignments", TOOLKIT, main_view);
+static Subcommand vg_view("view", "format conversions for graphs and alignments", TOOLKIT,
+                          vector<manpage_item>{{CONVERT_FORMAT, "convert between non-handle graph formats and alignment formats (dot, json, turtle...)", ""}},
+                          help_view, main_view);

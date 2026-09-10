@@ -354,5 +354,7 @@ int main_depth(int argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_depth("depth", "estimate sequencing depth", main_depth);
+static Subcommand vg_depth("depth", "estimate sequencing depth", WIDGET,
+                           vector<manpage_item>{{DOWNSTREAM, "calculate path coverage depth or aggregate alignment coverage (also see `vg pack`)", ""}},
+                           help_depth, main_depth);
 
