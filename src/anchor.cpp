@@ -413,7 +413,16 @@ void build_site_anchors(const AnchorSiteEvidence& evidence, const vector<int>& g
             double resp = (1.0 - mismap) * weight[i]
                           * (double)evidence.rel_at(r, (size_t)slot_allele[i]);
             total += resp;
-            if (resp > best_resp) {
+            // Ties break on the ALLELE, not on the slot position. `slot_allele` is in phase order,
+            // so a positional tie-break makes the partition depend on the phase -- and read phasing
+            // reorders it. On chr20 that moved one read at a handful of sites, which is invisible
+            // until the losing slot falls under `--anchors-reads` and the whole slot disappears: a
+            // het site then writes one collapsed anchor and reads as a homozygote. The allele index
+            // is a property of the site, so this is the same partition whichever way the pair is
+            // ordered. Exact equality is the right test -- these are ties in the literal sense, the
+            // same `rel` value against both alleles, not a near-miss.
+            if (resp > best_resp
+                || (resp == best_resp && slot_allele[i] < slot_allele[best_slot])) {
                 best_resp = resp;
                 best_slot = i;
             }
