@@ -142,7 +142,7 @@ void help_call(char** argv) {
          << "      --gap-open N          read scorer's gap-open penalty [6]" << endl
          << "      --read-phasing        phase from the reads that span consecutive hets," << endl
          << "                            not from the haplotype panel alone. On under" << endl
-         << "                            `--preset ont`; top-level sites only" << endl
+         << "                            `--preset ont`" << endl
          << "      --no-read-phasing     leave the phase to the haplotype panel" << endl
          << "      --phase-min-q N       a site below this per-read confidence may not" << endl
          << "                            carry a phase link [9.5]" << endl
@@ -151,6 +151,22 @@ void help_call(char** argv) {
          << "      --phase-hang N        neighbours to hang an unreliable site from [4]" << endl
          << "      --phase-prior N       weight of the panel when hanging a site [3]" << endl
          << "      --phase-cap N         clamp one pair's contribution, 0 to disable [0]" << endl
+         << "      --regenotype          let the reads' phase decide the genotype, not only" << endl
+         << "                            the order of an already-settled pair. Needs" << endl
+         << "                            `--read-phasing`; on under `--preset ont`" << endl
+         << "      --no-regenotype       leave the genotype to the per-site likelihoods" << endl
+         << "      --regeno-temper N     how hard to believe a read's strand. 0 reproduces" << endl
+         << "                            the uncorrected caller byte for byte; the default" << endl
+         << "                            is fitted from the run's own data, with no truth" << endl
+         << "      --regeno-passes N     cap on barrier passes [2], i.e. one correction" << endl
+         << "                            round. The iteration stops early if the genotypes" << endl
+         << "                            settle or start repeating a state; on chr20 they do" << endl
+         << "                            neither, and more rounds score slightly worse. 1" << endl
+         << "                            scores the correction without acting on it" << endl
+         << "      --regeno-ledger FILE  write one line per site the correction would move" << endl
+         << "      --regeno-shuffle      DEBUG. Randomise each read's strand sign, keeping" << endl
+         << "                            the magnitude, so peakedness survives and only the" << endl
+         << "                            phase information is destroyed" << endl
          << "      --gap-extend N        read scorer's gap-extension penalty [1]. Together" << endl
          << "                            these set how hard a read votes against an allele" << endl
          << "                            that differs from it by an indel, and they are the" << endl
@@ -491,6 +507,16 @@ int main_call(int argc, char** argv) {
     // Read-backed phasing. Off by default: with it off the phase is the panel's, byte for byte.
     bool read_phasing = false;
     bool read_phasing_explicit = false;
+    bool regenotype = false;
+    bool regenotype_explicit = false;
+    RegenotypeParams regenotype_params;
+    // Two barrier passes, i.e. ONE correction round, and that is a measured default rather than a
+    // cautious one. The iteration is implemented and runs to a fixed point when there is one;
+    // on chr20 there is not -- it enters a period-3 limit cycle at round 7 -- and eleven rounds
+    // score WORSE than one: ALL F1 0.95136 against 0.95150, SV 0.56234 against 0.56577. Raise it
+    // to watch the iteration; leave it here to get the answer.
+    size_t regenotype_passes = 2;
+    string regenotype_ledger;
     ReadPhasingParams read_phasing_params;
     // Which of the preset's values the user set for themselves. The preset is applied after the
     // whole option loop, so `--preset ont --gap-open 3` and `--gap-open 3 --preset ont` mean the
@@ -559,6 +585,12 @@ int main_call(int argc, char** argv) {
     constexpr int OPT_PHASE_HANG = 1078;
     constexpr int OPT_PHASE_PRIOR = 1079;
     constexpr int OPT_PHASE_CAP = 1080;
+    constexpr int OPT_REGENOTYPE = 1082;
+    constexpr int OPT_NO_REGENOTYPE = 1087;
+    constexpr int OPT_REGENO_TEMPER = 1083;
+    constexpr int OPT_REGENO_PASSES = 1084;
+    constexpr int OPT_REGENO_SHUFFLE = 1085;
+    constexpr int OPT_REGENO_LEDGER = 1086;
     constexpr int OPT_MIN_CONFIDENCE = 1042;
     constexpr int OPT_PLOIDY_BED = 1043;
     constexpr int OPT_NESTED = 1044;
@@ -647,6 +679,12 @@ int main_call(int argc, char** argv) {
         {"phase-hang", required_argument, 0, OPT_PHASE_HANG},
         {"phase-prior", required_argument, 0, OPT_PHASE_PRIOR},
         {"phase-cap", required_argument, 0, OPT_PHASE_CAP},
+        {"regenotype", no_argument, 0, OPT_REGENOTYPE},
+        {"no-regenotype", no_argument, 0, OPT_NO_REGENOTYPE},
+        {"regeno-temper", required_argument, 0, OPT_REGENO_TEMPER},
+        {"regeno-passes", required_argument, 0, OPT_REGENO_PASSES},
+        {"regeno-shuffle", no_argument, 0, OPT_REGENO_SHUFFLE},
+        {"regeno-ledger", required_argument, 0, OPT_REGENO_LEDGER},
         {"min-confidence", required_argument, 0, OPT_MIN_CONFIDENCE},
         {"linkage-weight", required_argument, 0, OPT_LINKAGE_WEIGHT},
         {"linkage-scale", required_argument, 0, OPT_LINKAGE_SCALE},
@@ -930,6 +968,33 @@ int main_call(int argc, char** argv) {
         case OPT_PHASE_CAP:
             read_phasing_params.cap = parse<double>(optarg);
             break;
+        case OPT_REGENOTYPE:
+            regenotype = true;
+            regenotype_explicit = true;
+            break;
+        case OPT_NO_REGENOTYPE:
+            regenotype = false;
+            regenotype_explicit = true;
+            break;
+        case OPT_REGENO_TEMPER:
+            regenotype_params.temper = parse<double>(optarg);
+            if (regenotype_params.temper < 0) {
+                logger.error() << "--regeno-temper must be >= 0; it is a temper, not a switch."
+                               << " 0 reproduces --no-regenotype exactly" << endl;
+            }
+            break;
+        case OPT_REGENO_PASSES:
+            regenotype_passes = parse<size_t>(optarg);
+            if (regenotype_passes < 1 || regenotype_passes > 20) {
+                logger.error() << "--regeno-passes must be between 1 and 20" << endl;
+            }
+            break;
+        case OPT_REGENO_SHUFFLE:
+            regenotype_params.shuffle = true;
+            break;
+        case OPT_REGENO_LEDGER:
+            regenotype_ledger = optarg;
+            break;
         case OPT_GAP_EXTEND:
             gap_extend_explicit = true;
             gap_extend = parse<int>(optarg);
@@ -1116,6 +1181,20 @@ int main_call(int argc, char** argv) {
             }
             if (!mismap_min_explicit) {
                 min_mismap_prob = 0.05;
+            }
+            if (!regenotype_explicit) {
+                // The reads' phase decides the genotype, not only the order of a settled pair.
+                // chr20 ALL F1 0.94477 -> 0.95151 and indel 0.81568 -> 0.83725, with precision
+                // AND recall both up; chr6, held out and fitting its own temper, 0.95342 ->
+                // 0.95960 and 0.83781 -> 0.86019. The 6,350 sites it moves on chr20 run a 40.6%
+                // false-positive rate against a 6.7% background, so it aims at what is broken,
+                // and the shuffled-sign control -- same |Lambda|, phase destroyed -- loses 0.107
+                // F1, so the gain is the phase and not a change in peakedness.
+                //
+                // Costs +13.2% wall and about +110 MB of retention. Requires read phasing, which
+                // this preset also turns on; see the decline below for the one combination that
+                // leaves it off.
+                regenotype = true;
             }
         } else {
             cerr << "error [vg call]: unknown --preset '" << preset << "'; known presets: ont"
@@ -1370,6 +1449,8 @@ int main_call(int argc, char** argv) {
             "--linkage-prior", "--depth-quality", "--min-confidence", "--flat-mixture",
             "--gap-open", "--gap-extend", "--preset",
             "--read-phasing", "--no-read-phasing", "--phase-min-q", "--phase-break",
+            "--regenotype", "--no-regenotype", "--regeno-temper", "--regeno-passes",
+            "--regeno-shuffle", "--regeno-ledger",
             "--phase-relink",
             "--phase-hang", "--phase-prior", "--phase-cap",
             "--no-share-quality",
@@ -2235,6 +2316,73 @@ int main_call(int argc, char** argv) {
     if (nested_calling && !nested_explicit && !read_likelihood) {
         nested_calling = false;
     }
+    // -A and symbolic nested calling are two different ways to reach a child snarl, and running
+    // both visits every nested snarl TWICE. `-A` sets RecurseAlways, so GraphCaller queues each
+    // child as its own snarl and it lands at generation 0; the symbolic descent then retains the
+    // same child as a generation-1 chain. Both hash the same print_snarl string, so both take the
+    // same record_key -- and LinkageCollector::live_index returns the FIRST non-retracted entry
+    // for a key, so which of the two describes the site depends on insertion order, which is
+    // thread assignment. Measured on the nestblk fixture at -t 1: six VCF lines in three identical
+    // pairs, the top-level record absent, and nested chains called `1|1` where --nested gives
+    // `1|.`.
+    //
+    // --top-down resolves the same conflict the other way, taking RecurseNever with the note that
+    // "FlowCaller handles recursion internally". -A cannot: its contract is that every snarl is an
+    // INDEPENDENT record, which is precisely a statement that the nesting relationship is not
+    // used, and the descent's pruning would make "all snarls" untrue.
+    //
+    // -A is from 2021 and predates both the descent and its default, so this restores what -A did
+    // before nested calling became automatic under --read-likelihood.
+    // Refused rather than declined: `--regenotype` without read phasing is not a weaker version
+    // of the feature, it is the identity. `Lambda` comes from the phasing chain, and with no chain
+    // every read's strand log-odds is zero, every tilted weight is the site's own weight, and the
+    // correction is exactly zero at every site. Running it would burn a pass to change nothing
+    // while the flag says otherwise.
+    // Refused under --top-down, and this is the one place the nested story genuinely breaks.
+    //
+    // The read-likelihood descent hands a child `nullptr` for its traversal sets, so the child
+    // enumerates its own candidates and a parent moving changes only its PLOIDY -- which the
+    // barrier re-derives. `--top-down` is the other path: it builds `ChildTraversalSets` from
+    // `trav_genotype`, the parent's CALLED genotype, and those sets decide the child's ploidy,
+    // are merged into its candidate list, and supply its pseudo-reference. Move the parent there
+    // and the child was never scored against the alleles the parent now carries -- which no
+    // amount of re-resolving repairs, because the columns were never in `rel`.
+    //
+    // --bottom-up is refused for a duller reason: it builds NestedFlowCaller, which is not a
+    // FlowCaller, so `render_retained_records` never runs and the flag would do nothing at all.
+    if (regenotype && (top_down || bottom_up)) {
+        cerr << "error [vg call]: --regenotype cannot be combined with "
+             << (top_down ? "--top-down" : "--bottom-up") << "; "
+             << (top_down
+                 ? "--top-down derives each child's candidate traversals from its parent's called"
+                   " genotype, so moving a parent leaves children scored against alleles it no"
+                   " longer carries, and nothing downstream can repair that"
+                 : "--bottom-up uses a caller that does not run the render pass this needs, so the"
+                   " flag would be silently inert")
+             << endl;
+        return 1;
+    }
+    if (regenotype && !read_phasing) {
+        if (regenotype_explicit) {
+            cerr << "error [vg call]: --regenotype needs --read-phasing; the correction is"
+                 << " computed from the phasing chain, so without one it is the identity" << endl;
+            return 1;
+        }
+        // Armed by the preset, and the same preset's phasing has been switched off by hand --
+        // `--preset ont --no-read-phasing`. Declining is right: the user turned off the thing this
+        // is computed from, and erroring on a flag they never typed would make a documented
+        // combination fail.
+        regenotype = false;
+    }
+    if (nested_calling && all_snarls) {
+        if (nested_explicit) {
+            cerr << "error [vg call]: -A/--all-snarls calls every snarl independently while"
+                 << " --nested calls children through their parent; they are alternatives, not a"
+                 << " combination" << endl;
+            return 1;
+        }
+        nested_calling = false;   // the default declines, as it does for the support caller
+    }
     {
         // The confidence threshold also to the output layer: a record whose GQN the linkage layer
         // re-derives has to be re-labelled against the same number the per-site emission used,
@@ -2574,6 +2722,8 @@ int main_call(int argc, char** argv) {
         // one call covers FlowCaller (both ctors, so plain vg call gets it too), NestedFlowCaller
         // and LegacyCaller, since the merge lives on the shared VCFOutputCaller base
         vcf_caller->set_read_phasing(read_phasing, read_phasing_params);
+        vcf_caller->set_regenotype(regenotype, regenotype_params, regenotype_passes,
+                                   regenotype_ledger);
         vcf_caller->set_allele_merge(cluster_threshold, cluster_min_allele_len);
         // Make sure the basepath information we inferred above goes directy to the VCF header
         // (and that it does *not* try to read it from the graph paths)

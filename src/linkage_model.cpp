@@ -1437,6 +1437,12 @@ void LinkageCollector::record(const string& contig, size_t position,
     if (last == last_by_key.end()) {
         first_by_key[record_key] = at;
     } else {
+        // Counted before the append, while the chain still describes what was already there. See
+        // `num_duplicate_live_keys`: a second LIVE entry under one key is what makes the
+        // retract-then-record idiom promote a stale sibling instead of the replacement.
+        if (live_index(record_key) != NO_ENTRY) {
+            ++duplicate_live_keys;
+        }
         entries[last->second].next_same_key = at;
     }
     last_by_key[record_key] = at;
@@ -1554,6 +1560,83 @@ bool LinkageCollector::set_allele_map(size_t record_key,
 bool LinkageCollector::has_entry(size_t record_key) const {
     lock_guard<std::mutex> guard(mutex);
     return live_index(record_key) != NO_ENTRY;
+}
+
+bool LinkageCollector::rescore(size_t record_key,
+                               const map<vector<int>, double>& genotype_ln_likelihood,
+                               const vector<int>& haplotype_traversal,
+                               int called_trav_i, int called_trav_j) {
+    lock_guard<std::mutex> guard(mutex);
+    const uint32_t found = live_index(record_key);
+    if (found == NO_ENTRY) {
+        return false;
+    }
+    Entry& e = entries[found];
+    const CompactSite cs = compact_site(genotype_ln_likelihood, haplotype_traversal,
+                                        called_trav_i, called_trav_j, e.ploidy);
+    if (!cs.ok) {
+        return false;
+    }
+    // Whether the allele space moved. It can: `compact_allele_space` is the panel-carried
+    // traversals UNION the called pair, so a correction that moves the call onto an allele no
+    // panel haplotype carries adds one to the space, and moving off such an allele takes one away.
+    // That is exactly the novel-allele case, so refusing it would make the re-score silently
+    // decline at the sites most worth re-scoring.
+    bool same_space = cs.space.size() == e.num_alleles;
+    for (size_t i = 0; same_space && i < cs.space.size(); ++i) {
+        same_space = trav_arena[e.trav_offset + i] == (uint16_t)cs.space[i];
+    }
+    const size_t n_gt = cs.gls.size();
+    if (same_space) {
+        // In place. `gl_arena` stores no length -- a reader recomputes it from `num_alleles` --
+        // so this is only safe because the shape is provably unchanged.
+        const size_t expect = e.ploidy == 1 ? (size_t)e.num_alleles
+                                            : (size_t)e.num_alleles * ((size_t)e.num_alleles + 1) / 2;
+        if (n_gt != expect) {
+            return false;
+        }
+        for (size_t i = 0; i < n_gt; ++i) {
+            gl_arena[e.gl_offset + i] = cs.gls[i];
+        }
+    } else {
+        // Appended, not overwritten, and the offsets repointed. The arenas are append-only and a
+        // slice is fixed-size, so a space of a different width has nowhere to go in place; the old
+        // slice is left where it is and simply stops being referenced. That wastes a few bytes per
+        // moved site and keeps every other entry's offsets valid, which rewriting the arena would
+        // not.
+        //
+        // What is deliberately NOT rewritten is everything describing where the site sits: its
+        // generation, parent key, crossing mask, chain key, nestedness and ploidy. That is the
+        // difference between this and the deleted `respecify`, which preserved fields `record` is
+        // told afresh and so drifted from it. Here the preservation is the point -- an allele
+        // space changing does not move a site in the tree.
+        e.gl_offset = (uint32_t)gl_arena.size();
+        for (float v : cs.gls) {
+            gl_arena.push_back(v);
+        }
+        e.hap_offset = (uint32_t)hap_arena.size();
+        for (size_t h = 0; h < n_haplotypes; ++h) {
+            const int trav = h < haplotype_traversal.size() ? haplotype_traversal[h] : -1;
+            const int a = trav >= 0 ? cs.compact_of(trav) : -1;
+            hap_arena.push_back(a >= 0 ? (int8_t)a : (int8_t)-1);
+        }
+        e.trav_offset = (uint32_t)trav_arena.size();
+        e.allele_offset = (uint32_t)allele_arena.size();
+        for (size_t i = 0; i < cs.space.size(); ++i) {
+            trav_arena.push_back((uint16_t)cs.space[i]);
+            // No allele map, for the same reason the barrier's own re-record passes none: the
+            // emitted allele list is chosen while the record is built, and `set_allele_map`
+            // supplies it at render time.
+            allele_arena.push_back((int8_t)-1);
+        }
+        e.num_alleles = (uint16_t)cs.space.size();
+    }
+    // The per-site call moves with the likelihoods. `final_*` is left alone: it is the decode's
+    // output and `resolve_generation` resets it from `called_*` on its next pass, which is the
+    // pass this rescore exists to feed.
+    e.called_i = (uint16_t)cs.ci;
+    e.called_j = (uint16_t)cs.cj;
+    return true;
 }
 
 bool LinkageCollector::retract(size_t record_key) {

@@ -624,6 +624,28 @@ public:
     /// and every counter. Returns false for an unknown key.
     bool retract(size_t record_key);
 
+    /// Replace a live entry's genotype likelihoods, leaving everything else exactly as it was.
+    ///
+    /// NOT a return of `respecify`, which was deleted because it silently preserved six fields
+    /// `record` is told afresh and so became a second thing to keep in step. That one existed to
+    /// change a chain's PLOIDY, which rebuilds the compact allele space from different inputs --
+    /// a genuinely different site, and one `record` should describe. This changes only the
+    /// numbers attached to an unchanged space, which `record` cannot express: reconstructing the
+    /// full call would mean rebuilding a `SiteContext` out of a thread-local that is long gone by
+    /// the time anything wants to re-score.
+    ///
+    /// A changed allele space is handled rather than refused, and it does happen: the space is
+    /// the panel-carried traversals UNION the called pair, so a correction that moves the call
+    /// onto an allele no panel haplotype carries widens it by one. Refusing would decline exactly
+    /// at the novel alleles, which is where a re-score is most worth having. The new slices are
+    /// APPENDED and the offsets repointed, because the arenas are append-only and a slice is
+    /// fixed width; overwriting a wider vector in place would leave every site after it reading
+    /// its neighbour's floats, with no length stored anywhere to catch it.
+    ///
+    /// Returns false only for a key with no live entry, or a space that will not compact.
+    bool rescore(size_t record_key, const map<vector<int>, double>& genotype_ln_likelihood,
+                 const vector<int>& haplotype_traversal, int called_trav_i, int called_trav_j);
+
 
     /// The pair of candidate traversals this site settled on, for a caller that builds the record
     /// after the decision instead of patching one written before it.
@@ -694,6 +716,20 @@ public:
     size_t bytes() const;
 
     size_t num_sites() const { return entries.size(); }
+
+    /// How many times `record()` filed a site whose key ALREADY had a live entry.
+    ///
+    /// `live_index` returns the first non-retracted entry for a key, and `retract` retracts only
+    /// that one -- so on a key with two live entries, retracting promotes the stale sibling and a
+    /// freshly recorded replacement is never seen. Every caller of the retract-then-record idiom
+    /// depends on keys being unique, and nothing enforced it: `-A` filed every nested snarl twice,
+    /// once from the child queue and once from the symbolic descent, and the resulting entry pair
+    /// resolved by insertion order, which is thread assignment.
+    ///
+    /// Reported rather than asserted. A duplicate key is not always wrong -- a chain spanning
+    /// several snarls can legitimately carry one ID -- but it is always something the retract path
+    /// cannot handle, so it has to be visible rather than inferred from a downstream oddity.
+    size_t num_duplicate_live_keys() const { return duplicate_live_keys; }
 
 private:
 
@@ -825,6 +861,8 @@ private:
     /// walk of that key's chain. `last` is what makes appending O(1) rather than a walk.
     std::unordered_map<size_t, uint32_t> first_by_key;
     std::unordered_map<size_t, uint32_t> last_by_key;
+    /// See `num_duplicate_live_keys`.
+    size_t duplicate_live_keys = 0;
 
 
     /// record key -> (posterior of the settled genotype, explained-read share).

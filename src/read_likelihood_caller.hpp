@@ -110,6 +110,16 @@ public:
         unique_ptr<AnchorSiteEvidence> anchor_evidence;
         unique_ptr<PhaseReadEvidence> phase_evidence;
 
+        /// `genotype_lls` as the sweep computed them, before any phase-aware correction.
+        ///
+        /// Kept the first time a correction is applied, and every later round corrects THIS rather
+        /// than the last round's answer. Re-estimation replaces an estimate; it does not stack on
+        /// top of one, and a loop that added correction after correction would be maximising a
+        /// different objective each time round and could not converge to anything meaningful.
+        ///
+        /// Null until re-genotyping touches the site, so an ordinary run pays nothing.
+        unique_ptr<map<vector<int>, double>> uncorrected_lls;
+
         /// Reads whose best-fitting allele is each scored allele, in matrix column
         /// order. A read fitting several alleles equally splits its vote between them
         /// rather than going to the lowest index: at multi-allelic sites many reads are

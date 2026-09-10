@@ -9,7 +9,7 @@ PATH=../bin:$PATH # for vg
 # FORMAT field shifts every later one, which broke four assertions here that were not
 # testing field order at all -- one of them silently compared BL against a GQ threshold.
 
-plan tests 379
+plan tests 395
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -1103,6 +1103,75 @@ for key in set(a) & set(b):
         bad += 1
 print(bad)
 ') "0" "read phasing reorders genotypes and never changes them"
+# Phase-aware re-genotyping. `--read-phasing` reorders a settled pair and never substitutes one;
+# this spends the same evidence on the genotype. The fixture cannot exercise the DECISION -- every
+# `vg sim` read here spans one site, so its leave-one-out strand log-odds is zero and the
+# correction is provably the identity for it -- but that inertness is itself the property worth
+# pinning, because it is what makes the feature degenerate harmlessly on short reads rather than
+# do something unmeasured.
+rm -f rl_rg_off.vcf rl_rg_t0.vcf rl_rg_t0.err rl_rg_bad.err rl_rg_passes.err rl_rg_cap.err rl_rg_pre.err rl_rg_preoff.err rl_rg_nph.err
+vg call x.gbz --read-likelihood --phased --gam sim.gam --read-phasing --phase-min-q 0 -t 1 \
+    2>/dev/null > rl_rg_off.vcf
+vg call x.gbz --read-likelihood --phased --gam sim.gam --read-phasing --phase-min-q 0 \
+    --regenotype --regeno-temper 0 -t 1 2>rl_rg_t0.err > rl_rg_t0.vcf
+is "$?" "0" "--regenotype runs"
+
+# THE gate, and it holds by construction rather than by tolerance: at temper 0 the tilted weights
+# ARE the site's own slot weights, so the corrected and uncorrected mixtures are the same
+# arithmetic on the same values and cancel bit for bit. One differing byte is a bug, not rounding.
+is $(if cmp -s rl_rg_off.vcf rl_rg_t0.vcf; then echo 1; else echo 0; fi) "1" \
+   "--regeno-temper 0 reproduces --no-regenotype byte for byte"
+
+# And it ran, rather than being skipped -- which byte-identity alone cannot tell you. The report
+# says how many sites the correction was actually evaluated at and how many it would move; at
+# temper 0 the second must be zero while the first is not.
+is $(grep -c "re-genotyping: temper" rl_rg_t0.err) "1" "it reports what it did"
+is $(grep "re-genotyping: temper" rl_rg_t0.err | sed 's/.*, \([0-9]*\) would move.*/\1/') "0" \
+   "and moves nothing at temper 0"
+
+# Refused rather than silently inert: with no phasing chain there is no strand log-odds, every
+# tilted weight collapses to the site's own, and the correction is the identity at every site.
+vg call x.gbz --read-likelihood --phased --gam sim.gam --regenotype -t 1 \
+    >/dev/null 2>rl_rg_bad.err
+is "$?" "1" "--regenotype without --read-phasing is refused"
+is $(grep -c "needs --read-phasing" rl_rg_bad.err) "1" "and says why"
+
+# The cap is a safety net on an iteration that stops itself, so a large value is legal and only
+# a nonsensical one is refused. `--regeno-passes 1` is the report-only mode tested above.
+vg call x.gbz --read-likelihood --phased --gam sim.gam --read-phasing --regenotype \
+    --regeno-passes 0 -t 1 >/dev/null 2>rl_rg_passes.err
+is "$?" "1" "--regeno-passes 0 is refused"
+vg call x.gbz --read-likelihood --phased --gam sim.gam --read-phasing --regenotype \
+    --regeno-passes 21 -t 1 >/dev/null 2>rl_rg_cap.err
+is "$?" "1" "and so is a cap above the ceiling"
+
+# On under --preset ont, with two escapes that must behave differently. --no-regenotype turns it
+# off; --no-read-phasing takes away the thing it is computed from, and must DECLINE rather than
+# error, because the user never typed --regenotype and a documented combination should not fail.
+rm -f rl_rg_pre.err rl_rg_preoff.err rl_rg_nph.err
+vg call x.gbz --read-likelihood --phased --gam sim.gam --preset ont --phase-min-q 0 -t 1 \
+    >/dev/null 2>rl_rg_pre.err
+is $(if [ $(grep -c "re-genotyping" rl_rg_pre.err) -gt 0 ]; then echo 1; else echo 0; fi) "1" \
+   "--preset ont turns re-genotyping on"
+vg call x.gbz --read-likelihood --phased --gam sim.gam --preset ont --phase-min-q 0 \
+    --no-regenotype -t 1 >/dev/null 2>rl_rg_preoff.err
+is $(grep -c "re-genotyping" rl_rg_preoff.err) "0" "--no-regenotype turns it back off"
+vg call x.gbz --read-likelihood --phased --gam sim.gam --preset ont --no-read-phasing -t 1 \
+    >/dev/null 2>rl_rg_nph.err
+is "$?" "0" "--preset ont --no-read-phasing declines re-genotyping instead of failing"
+
+# The one combination the correction genuinely cannot be made safe in. `--top-down` builds each
+# child's ChildTraversalSets out of its parent's CALLED genotype, and those sets decide the child's
+# ploidy, are merged into its candidate list and supply its pseudo-reference -- so moving a parent
+# leaves the child scored against alleles the parent no longer carries, and no amount of
+# re-resolving repairs that, because the columns were never in the matrix. The read-likelihood
+# descent is not affected: it passes children a null traversal set, so they enumerate their own.
+rm -f rl_rg_td.err rl_rg_bu.err
+vg call x.gbz --read-likelihood --phased --gam sim.gam --read-phasing --regenotype \
+    --top-down -t 1 >/dev/null 2>rl_rg_td.err
+is "$?" "1" "--regenotype with --top-down is refused"
+is $(grep -c "no longer carries" rl_rg_td.err) "1" "and says which way the staleness runs"
+
 # `slot` IS the phase, and it is the only thing in the file that carries it. This is checked because
 # it once silently was not: `LinkageCollector::settled_traversals` decodes an unordered genotype
 # index -- `genotype_index(i, j)` is triangular, so it returns the pair sorted -- and the phase was
@@ -1670,6 +1739,25 @@ vg call ns.vg -k ns_het.pack -A -p x --read-likelihood --gam ns_het.gam 2>/dev/n
 is "$?" "0" "--read-likelihood works with -A independent nested calling"
 is $(grep -v "^#" ns_rl_a.vcf | awk '$4=="CATG" && $5=="C"' | wc -l | tr -d ' ') "1" "-A independent calling finds the deletion"
 is $(grep -c "PS=" ns_rl_a.vcf | tr -d ' ') "0" "-A emits no PS tags, since it does not propagate phase"
+
+# -A and the symbolic descent are two different ways to reach a child snarl, and both were on. -A
+# sets RecurseAlways, so GraphCaller queues each child as its own snarl; nested calling -- ON by
+# default under --read-likelihood since 956864c18 -- retained the same child as a nested chain.
+# Both hash the same print_snarl string, so both took the same record_key, and
+# LinkageCollector::live_index returns the first non-retracted entry for a key. Every nested snarl
+# came out twice, the top-level record vanished, and which of the pair described the site depended
+# on insertion order, i.e. on thread assignment -- which is what made `-A` differ from itself run
+# to run at ~1,450 nested records while `-t 1` stayed byte-identical.
+is $(grep -v "^#" ns_rl_a.vcf | awk '{print $1"\t"$2"\t"$3}' | sort | uniq -d | wc -l | tr -d ' ') "0" \
+   "-A emits each snarl once, not once per way of reaching it"
+
+# Refused rather than silently resolved: -A says every snarl is an independent record, --nested says
+# children are called through their parent, and there is no output that is both.
+vg call ns.vg -k ns_het.pack -A --nested -p x --read-likelihood --gam ns_het.gam \
+    >/dev/null 2>ns_rl_a_nested.err
+is "$?" "1" "-A with an explicit --nested is refused"
+is $(grep -c "alternatives, not a combination" ns_rl_a_nested.err | tr -d ' ') "1" \
+   "and says why"
 
 # The same graph with the reference path running BACKWARDS through it, which is the only
 # configuration that exercises resolve_site's reversed branch. nested_snp_in_del_rev.gfa is the

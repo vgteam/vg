@@ -4,6 +4,7 @@
 #include <atomic>
 #include <iostream>
 #include <algorithm>
+#include <array>
 #include <functional>
 #include <cmath>
 #include <limits>
@@ -16,6 +17,7 @@
 #include "traversal_finder.hpp"
 #include "anchor.hpp"
 #include "read_phasing.hpp"
+#include "regenotype.hpp"
 #include "snarl_caller.hpp"
 #include "region.hpp"
 #include "zstdutil.hpp"
@@ -321,6 +323,17 @@ public:
         read_phasing_params = params;
     }
 
+    /// Arm phase-aware re-genotyping. See regenotype.hpp. Requires read phasing, which is what
+    /// supplies the per-read strand evidence -- without it there is no `Lambda` and the
+    /// correction is the identity.
+    void set_regenotype(bool on, const RegenotypeParams& params, size_t passes,
+                        const string& ledger) {
+        regenotype = on;
+        regenotype_params = params;
+        regenotype_passes = passes;
+        regenotype_ledger = ledger;
+    }
+
     /// Write the anchor file and report the counters. No-op unless anchors are armed.
     void write_anchors();
 
@@ -621,6 +634,30 @@ protected:
     bool read_phasing = false;
     ReadPhasingParams read_phasing_params;
     ReadPhasingCounters read_phasing_counters;
+
+    /// What the phasing pass built, kept so re-genotyping does not rebuild it.
+    ///
+    /// `phase_sites` is every diploid het site's per-read evidence reduced to the settled pair,
+    /// and `phase_flips` is the set of record keys whose order the reads reversed. Re-genotyping
+    /// needs both: the sites for the per-read strand log-odds, and the flips because a site in
+    /// them describes the panel's frame rather than the settled one, so its contribution enters
+    /// with the opposite sign. Kept rather than rebuilt because rebuilding means re-deriving the
+    /// same responsibility arithmetic from a second walk of the same evidence -- and getting the
+    /// sign convention right twice.
+    vector<PhaseSite> phase_sites;
+    unordered_set<size_t> phase_flips;
+
+    /// Phase-aware re-genotyping: on, its parameters, and what it did. See regenotype.hpp.
+    bool regenotype = false;
+    RegenotypeParams regenotype_params;
+    RegenotypeCounters regenotype_counters;
+    /// Barrier passes. 1 scores the correction and reports it without acting on it, which is what
+    /// makes the arithmetic measurable before the second pass is trusted.
+    size_t regenotype_passes = 2;
+    /// Where to write the would-move ledger, or empty for none. One line per site whose corrected
+    /// argmax differs from the sweep's, so "are the sites this wants to move the ones that are
+    /// currently wrong?" can be answered against the truth before any of it is acted on.
+    string regenotype_ledger;
 
     /// Records phased while being rendered, and phases refused because the record did not carry a
     /// permutation of the phased pair.
@@ -1193,6 +1230,21 @@ public:
     /// retained per-read evidence lives.
     void apply_read_phasing();
 
+    /// Re-score every retained site's genotype likelihoods with the reads' phase.
+    ///
+    /// Runs after `apply_read_phasing`, which is what supplies `phase_sites` and `phase_flips`.
+    /// Returns true if any site's corrected argmax names a different unordered genotype -- i.e.
+    /// whether a second barrier pass would have anything to settle.
+    bool apply_regenotyping();
+
+    /// Feed the corrected likelihoods back to the linkage layer and settle again.
+    ///
+    /// The correction rewrites likelihoods, never genotypes: the layer still decides, exactly as
+    /// it does on the first pass, so the panel keeps its say at the low-information sites where
+    /// it earns it. Overriding the genotype directly would throw that away precisely where it
+    /// matters most.
+    void regenotype_resettle();
+
     void render_retained_records();
 
     /// Whether this snarl has no children, resolved through the manager's own copy. See the
@@ -1211,6 +1263,14 @@ public:
     /// three. Does nothing unless deferral is on, and leaves the linkage pass resolved either way,
     /// so `write_variants` needs no knowledge of which mode ran.
     void run_deferred_descent();
+
+    /// Hand every surviving chain to the render pass. Once, after the LAST barrier pass.
+    ///
+    /// Split out of `run_deferred_descent` so that function can be re-run: settling is a function
+    /// of the likelihoods and can happen any number of times, while the hand-off is a one-way
+    /// move of ownership and collects anchors, which must happen exactly once.
+    void hand_off_deferred_records();
+
 
 
     virtual string vcf_header(const PathHandleGraph& graph, const vector<string>& contigs,
@@ -1317,7 +1377,47 @@ protected:
         bool dropped = false;
         /// Whether a record was written during the sweep. False where no called parent allele reached
         /// it, which is exactly the population the barrier may turn into a call.
+        /// `panel_alleles(graph, travs)`, memoised.
+        ///
+        /// That lookup walks the GBWT once per traversal and keeps its own decompression cache;
+        /// it was measured at 3.5x the read-scoring inner loop when profiled. Calling it per
+        /// record per re-genotyping round, from a serial loop on one thread's cache, made it the
+        /// dominant cost of a round. `travs` is fixed at the sweep and nothing after it writes
+        /// them, so the answer cannot change between rounds.
+        vector<int> panel_cache;
+        bool panel_cached = false;
+
     };
+
+    /// Every record the render will produce, wherever it currently lives.
+    ///
+    /// Between a barrier pass and the hand-off, nested chains sit in `deferred_pending` and
+    /// everything else in `render_records`; afterwards they are all in `render_records`. The
+    /// phasing and the correction both run in that window and must see both, without having to
+    /// know which is which -- and must keep seeing the same set across a re-genotyping round, or
+    /// the second pass would phase a different population from the first.
+    vector<PendingRecord*> records_for_render();
+
+    /// `panel_alleles` for a record, computed once and kept. See `PendingRecord::panel_cache`.
+    const vector<int>& cached_panel_alleles(PendingRecord& rec);
+
+    /// The settled pair and ploidy per record, for measuring whether a re-genotyping round moved
+    /// anything. `{trav_first, trav_second, ploidy}`.
+    unordered_map<size_t, std::array<int, 3>> settled_snapshot();
+    /// How many records settled differently from `before`, counting a chain that gained or lost a
+    /// settled answer as moved.
+    size_t settled_changed(const unordered_map<size_t, std::array<int, 3>>& before);
+    /// An order-independent digest of a snapshot, for spotting a state the iteration has been in
+    /// before -- which is a limit cycle, not slow progress.
+    static size_t snapshot_digest(const unordered_map<size_t, std::array<int, 3>>& snap);
+
+    /// The nested chains the barrier settles, merged out of `pending_records` on the first pass
+    /// and kept until `hand_off_deferred_records` moves them to the renderer. A member rather than
+    /// a local because the barrier runs once per re-genotyping round.
+    vector<PendingRecord> deferred_pending;
+    /// How many times the barrier has run, so a second pass knows to re-derive rather than inherit.
+    size_t barrier_passes_run = 0;
+
 
     bool defer_nested_descent = false;
 

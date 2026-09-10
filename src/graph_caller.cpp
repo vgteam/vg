@@ -924,6 +924,15 @@ void VCFOutputCaller::finalise_linkage_outputs() {
     cerr << "[vg call] linkage: " << linkage_collector->num_sites() << " sites, "
          << (linkage_collector->bytes() / (1024.0 * 1024.0)) << " MB retained, "
          << linkage_changed << " genotypes moved by linkage, " << linkage_seconds << " s" << endl;
+    if (linkage_collector->num_duplicate_live_keys() > 0) {
+        // Not necessarily a statement about this run's output -- two live entries under one key
+        // resolve by insertion order and one of them is usually right. It is a statement that
+        // `retract` cannot address those sites, because it retracts the first live entry and
+        // promotes the second. Silent until it happens.
+        cerr << "[vg call] linkage: " << linkage_collector->num_duplicate_live_keys()
+             << " sites recorded onto a key that already had a live entry; the retract path cannot"
+             << " address these" << endl;
+    }
     if (emit_phasing) {
         // The wildcard count is the honest caveat on a chromosome-length phase block: at
         // those sites the panel does not name a strand, so the phase either side of them
@@ -5588,10 +5597,99 @@ bool FlowCaller::snarl_is_leaf(const Snarl& snarl) const {
     }
 }
 
+unordered_map<size_t, array<int, 3>> FlowCaller::settled_snapshot() {
+    // The settled pair and ploidy per record -- the answer itself, not any of the things derived
+    // from it. Convergence is a statement about what the caller would emit.
+    unordered_map<size_t, array<int, 3>> out;
+    if (linkage_collector == nullptr) {
+        return out;
+    }
+    for (const PendingRecord* recp : records_for_render()) {
+        int a = -1, b = -1;
+        size_t ploidy = 0;
+        if (linkage_collector->settled_traversals(recp->record_key, &a, &b, &ploidy)) {
+            out[recp->record_key] = {a, b, (int)ploidy};
+        }
+    }
+    return out;
+}
+
+size_t FlowCaller::snapshot_digest(const unordered_map<size_t, array<int, 3>>& snap) {
+    // Order-independent, because the snapshot is a hash map: combine each record's contribution
+    // with a commutative mix rather than a sequential one, or the digest would depend on the
+    // bucket order and two identical states could hash differently.
+    size_t acc = snap.size() * 1000003ULL;
+    for (const auto& kv : snap) {
+        size_t h = kv.first;
+        h = h * 1000003ULL + (size_t)(kv.second[0] + 3);
+        h = h * 1000003ULL + (size_t)(kv.second[1] + 3);
+        h = h * 1000003ULL + (size_t)kv.second[2];
+        acc ^= h + 0x9e3779b97f4a7c15ULL + (acc << 6) + (acc >> 2);
+    }
+    return acc;
+}
+
+size_t FlowCaller::settled_changed(const unordered_map<size_t, array<int, 3>>& before) {
+    const unordered_map<size_t, array<int, 3>> after = settled_snapshot();
+    size_t moved = 0;
+    for (const auto& kv : after) {
+        auto found = before.find(kv.first);
+        if (found == before.end() || found->second != kv.second) {
+            ++moved;
+        }
+    }
+    // A record that had a settled answer and now has none has moved too -- a retracted chain is a
+    // change in the output, not an absence of one.
+    for (const auto& kv : before) {
+        if (after.count(kv.first) == 0) {
+            ++moved;
+        }
+    }
+    return moved;
+}
+
+const vector<int>& FlowCaller::cached_panel_alleles(PendingRecord& rec) {
+    if (!rec.panel_cached) {
+        rec.panel_cache = panel_alleles(graph, rec.travs);
+        rec.panel_cached = true;
+    }
+    return rec.panel_cache;
+}
+
+vector<FlowCaller::PendingRecord*> FlowCaller::records_for_render() {
+    vector<PendingRecord*> out;
+    out.reserve(render_record_count() + deferred_pending.size());
+    for (auto& queue : render_records) {
+        for (PendingRecord& rec : queue) {
+            out.push_back(&rec);
+        }
+    }
+    for (PendingRecord& rec : deferred_pending) {
+        // Exactly the three the hand-off holds back, and it has to be exactly those or this
+        // reports a different population from the one that gets rendered. A dropped chain is not
+        // a record at all -- its parent's settled genotype does not carry it. A `reported_inline`
+        // one is already spelled out by an enclosing block's ALT, and a `no_reference` one has no
+        // REF or POS to write. All three still sit in the vector, because a later pass can
+        // un-drop a chain or change whether a block spells it out.
+        //
+        // Tested dynamically rather than snapshotted: `reported_inline` is re-derived every
+        // barrier pass, so which records are held back can change between rounds.
+        if (rec.dropped || rec.reported_inline || rec.no_reference) {
+            continue;
+        }
+        out.push_back(&rec);
+    }
+    return out;
+}
+
 void FlowCaller::apply_read_phasing() {
     if (!read_phasing || linkage_collector == nullptr || linkage_phased.empty()) {
         return;
     }
+    // Reset, because re-genotyping calls this a second time on the settled genotypes and the
+    // report has to describe the phase the output actually carries rather than the sum of two
+    // passes. A single-pass run is unaffected: these start at zero.
+    read_phasing_counters = ReadPhasingCounters();
     // Index the phasing by record key, last writer wins -- the same rule `build_render_phases` uses,
     // because a site revised at a later generation carries two PhaseCalls and the later one
     // describes the genotype it ends up with.
@@ -5600,9 +5698,13 @@ void FlowCaller::apply_read_phasing() {
         phase_index[linkage_phased[i].record_key] = i;
     }
 
-    vector<PhaseSite> sites;
-    for (auto& queue : render_records) {
-        for (PendingRecord& rec : queue) {
+    // Into the member, not a local: re-genotyping needs exactly these, and rebuilding them means
+    // deriving the same responsibility arithmetic a second time and getting the sign right twice.
+    vector<PhaseSite>& sites = phase_sites;
+    sites.clear();
+    for (PendingRecord* recp : records_for_render()) {
+        {
+            PendingRecord& rec = *recp;
             const auto found = phase_index.find(rec.record_key);
             if (found == phase_index.end()) {
                 continue;
@@ -5686,8 +5788,8 @@ void FlowCaller::apply_read_phasing() {
         return;
     }
 
-    const unordered_set<size_t> flips =
-        read_phase_flips(sites, read_phasing_params, read_phasing_counters);
+    phase_flips = read_phase_flips(sites, read_phasing_params, read_phasing_counters);
+    const unordered_set<size_t>& flips = phase_flips;
 
     // Apply by swapping the settled pair's order. The genotype is the same two traversals either
     // way, which is exactly why this cannot move a call: only which strand carries which.
@@ -5735,11 +5837,14 @@ void FlowCaller::apply_read_phasing() {
         uint8_t generation = 0;
     };
     vector<NestedLink> links;
-    for (const auto& queue : render_records) {
-        for (const PendingRecord& rec : queue) {
-            if (phase_index.count(rec.record_key) != 0) {
-                links.push_back({rec.record_key, rec.parent_record_key, rec.generation});
-            }
+    // Through `records_for_render`, like the collection above: between a barrier pass and the
+    // hand-off the nested records -- which are the entire point of this cascade -- are in
+    // `deferred_pending` and not in `render_records`. Walking the queues here reported zero
+    // strands carried, because it was looking at the population that has no parent.
+    for (const PendingRecord* recp : records_for_render()) {
+        const PendingRecord& rec = *recp;
+        if (phase_index.count(rec.record_key) != 0) {
+            links.push_back({rec.record_key, rec.parent_record_key, rec.generation});
         }
     }
     std::stable_sort(links.begin(), links.end(),
@@ -5776,11 +5881,436 @@ void FlowCaller::apply_read_phasing() {
          << " nested strands carried with their parent" << endl;
 }
 
+bool FlowCaller::apply_regenotyping() {
+    if (!regenotype || linkage_collector == nullptr || linkage_phased.empty()) {
+        return false;
+    }
+    // `Lambda` first, over every site the phasing pass could speak for. One pass, into a table
+    // keyed by read: the previous design budgeted a read-to-sites transpose of ~2.5 M placements,
+    // and it is not needed, because the quantity is a scalar per read.
+    LambdaTable lambda;
+    accumulate_lambda(phase_sites, phase_flips, lambda, regenotype_counters);
+
+    // Per round, so the report describes the round rather than the sum of every round before it.
+    // The calibration table and the fitted temper are not reset: they are set once, below.
+    const double keep_temper = regenotype_counters.fitted_temper;
+    const auto keep_abs = regenotype_counters.fit_abs_lambda;
+    const auto keep_obs = regenotype_counters.fit_observed;
+    const auto keep_pred = regenotype_counters.fit_predicted;
+    const auto keep_n = regenotype_counters.fit_count;
+    regenotype_counters = RegenotypeCounters();
+    regenotype_counters.fitted_temper = keep_temper;
+    regenotype_counters.fit_abs_lambda = keep_abs;
+    regenotype_counters.fit_observed = keep_obs;
+    regenotype_counters.fit_predicted = keep_pred;
+    regenotype_counters.fit_count = keep_n;
+
+    double temper = regenotype_params.temper;
+    if (temper < 0.0) {
+        // Fitted ONCE, on the first round, and held for the iteration.
+        //
+        // The temper says how far a read's accumulated strand log-odds can be believed, which is a
+        // property of how reliable the reads are -- not of which genotypes are currently called.
+        // Refitting it every round makes it a second thing the iteration is estimating, fitted on
+        // data the previous round's temper shaped, and that is a feedback loop of its own: it
+        // wandered 0.0498, 0.0675, 0.0698, 0.0686, 0.0694 while the genotypes underneath it
+        // oscillated. Fitting on the FIRST round is also fitting on the most independent phase
+        // available, the one the panel settled before any correction touched it.
+        if (regenotype_counters.fitted_temper > 0.0) {
+            temper = regenotype_counters.fitted_temper;
+        } else {
+            temper = fit_temper(phase_sites, phase_flips, lambda, regenotype_params,
+                                regenotype_counters);
+        }
+    } else {
+        regenotype_counters.fitted_temper = temper;
+    }
+
+    // Where to find a site's own PhaseSite, so the leave-one-out can subtract this site's term
+    // from each of its reads' accumulated log-odds. The subtraction is what keeps a site from
+    // confirming itself, so it has to be this site's contribution and not an average.
+    unordered_map<size_t, const PhaseSite*> site_by_key;
+    site_by_key.reserve(phase_sites.size() * 2);
+    for (const PhaseSite& ps : phase_sites) {
+        site_by_key[ps.record_key] = &ps;
+    }
+
+    ofstream ledger;
+    const bool want_ledger = !regenotype_ledger.empty();
+    if (want_ledger) {
+        ledger.open(regenotype_ledger);
+        if (!ledger) {
+            cerr << "error [vg call]: cannot write --regeno-ledger " << regenotype_ledger << endl;
+            exit(1);
+        }
+        ledger << "#regeno-ledger-version\t1" << endl;
+        ledger << "#temper\t" << temper << endl;
+        ledger << "#snarl\tcontig\tposition\tploidy\tcalled\tproposed\tdelta_ln\treads" << endl;
+    }
+
+    // Parallel over the render queues, which are already the sweep's own per-thread partition, so
+    // no two threads touch one record. Everything shared is read-only from here: `lambda`,
+    // `site_by_key`, `phase_flips`. What is not shared is kept per thread and merged afterwards --
+    // the counters by sum, the ledger rows in QUEUE ORDER, so the file is the same whatever order
+    // the threads finish in.
+    // Strided over one flat list rather than one queue per thread: the queues no longer hold every
+    // record once the barrier is re-runnable, and striding also spreads the work evenly, which
+    // per-queue did not -- the sweep's partition is by thread id, not by cost.
+    const vector<PendingRecord*> all_records = records_for_render();
+    const size_t n_queues = max<size_t>(1, render_records.size());
+    vector<RegenotypeCounters> thread_counters(n_queues);
+    // Sorted before writing, not emitted in queue order. Which queue a record sits in is decided
+    // by `omp_get_thread_num()` during the sweep, so the partition is thread scheduling and not a
+    // property of the data -- the ledger came out with the same 6,350 rows in a different order
+    // from run to run, and had done since before any of this was parallel. The VCF does not show
+    // it because the record buffer is sorted on the way out; a diagnostic written straight from
+    // the queues has nothing doing that for it.
+    struct LedgerRow { string contig; size_t position; string snarl; string text; };
+    vector<vector<LedgerRow>> thread_ledger(n_queues);
+    vector<size_t> thread_moved(n_queues, 0);
+#pragma omp parallel for schedule(dynamic, 1)
+    for (size_t qi = 0; qi < n_queues; ++qi) {
+        RegenotypeCounters& counters = thread_counters[qi];
+        unordered_map<uint64_t, double> own;
+        size_t moved = 0;
+        for (size_t ri = qi; ri < all_records.size(); ri += n_queues) {
+            PendingRecord& rec = *all_records[ri];
+            auto* info = dynamic_cast<ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo*>(
+                rec.call_info.get());
+            if (info == nullptr) {
+                continue;
+            }
+            const PhaseReadEvidence* pe = info->phase_evidence.get();
+            PhaseReadEvidence converted;
+            if (pe == nullptr && info->anchor_evidence != nullptr) {
+                // Anchors keep a superset and no PhaseReadEvidence is built, so under
+                // `--anchors-out` this is the only shape available. Converted rather than a second
+                // code path, as `apply_read_phasing` does -- and it is a stack local there, so
+                // nothing may hold a pointer into it past this iteration.
+                const AnchorSiteEvidence& ev = *info->anchor_evidence;
+                converted.n_alleles = ev.n_alleles;
+                converted.allele_length = ev.allele_length;
+                converted.mean_read_length = ev.mean_read_length;
+                converted.length_weighted = ev.length_weighted;
+                converted.rel = ev.rel;
+                converted.read_key.reserve(ev.reads.size());
+                converted.mismap.reserve(ev.reads.size());
+                for (const AnchorRead& r : ev.reads) {
+                    converted.read_key.push_back((uint64_t)std::hash<string>{}(r.name));
+                    converted.mismap.push_back(r.mismap);
+                }
+                pe = &converted;
+            }
+            if (pe == nullptr || pe->n_alleles == 0 || pe->num_reads() == 0) {
+                continue;
+            }
+            // This site's own term, or none. A homozygote has no PhaseSite -- there are no two
+            // strands to order -- and for it the leave-one-out is automatic, because it
+            // contributed nothing to Lambda in the first place. That is also the case that lets a
+            // hom be corrected into a het.
+            own.clear();
+            auto found_site = site_by_key.find(rec.record_key);
+            if (found_site != site_by_key.end()) {
+                site_own_log_odds(*found_site->second, phase_flips.count(rec.record_key) != 0,
+                                  own);
+            }
+
+            // Copied only when something will read it. This is a whole genotype-likelihood map
+            // per site -- 1.12 M malloc/free pairs a round across chr20 -- for a diagnostic that
+            // is off by default, and at `--regeno-passes 1`, whose entire purpose is to keep
+            // nothing, it was the largest thing the pass allocated.
+            map<vector<int>, double> before;
+            if (want_ledger) {
+                before = info->genotype_lls;
+            }
+            // At one pass the correction is scored and reported and nothing is kept. It has to be
+            // that way for the gate to mean anything: `genotype_lls` is what `update_vcf_info`
+            // writes GL from, so correcting in place would rewrite GL -- and QUAL with it -- at
+            // every site while the genotypes stood still. Measured before this was here: 229,720
+            // changed lines on chr20, every one of them a likelihood, not one of them a call.
+            const bool keep = regenotype_passes >= 2;
+            map<vector<int>, double> scratch;
+            if (keep) {
+                // From the sweep's own likelihoods every round, not from the last round's. The
+                // first round stashes them; later rounds restore before correcting.
+                if (info->uncorrected_lls == nullptr) {
+                    info->uncorrected_lls.reset(
+                        new map<vector<int>, double>(info->genotype_lls));
+                } else {
+                    info->genotype_lls = *info->uncorrected_lls;
+                }
+            } else {
+                scratch = info->genotype_lls;
+            }
+            map<vector<int>, double>& target = keep ? info->genotype_lls : scratch;
+            const bool site_moved =
+                phase_aware_correction(*pe, lambda, own, temper, regenotype_params, target,
+                                       counters);
+            if (keep && site_moved) {
+                // GL now describes the corrected likelihoods, so GQ has to as well. `derive` set
+                // it from the uncorrected pair before any of this ran, and leaving it would emit
+                // a quality describing a genotype the record no longer carries -- the same
+                // failure `apply_linkage_quality` exists to prevent for linkage's own moves, and
+                // one F1 is blind to.
+                //
+                // GQN is deliberately NOT touched: its denominator is `achievable_gap`, which
+                // shares `mixture_weights` with its numerator so the two cannot drift, and
+                // feeding it a per-read tilt would stop it representing an ideal pileup -- which
+                // is the whole reason it is comparable across depth and ploidy.
+                double best_ll = -numeric_limits<double>::infinity();
+                double second_ll = -numeric_limits<double>::infinity();
+                for (const auto& kv : info->genotype_lls) {
+                    if (kv.second > best_ll) {
+                        second_ll = best_ll;
+                        best_ll = kv.second;
+                    } else if (kv.second > second_ll) {
+                        second_ll = kv.second;
+                    }
+                }
+                if (std::isfinite(best_ll) && std::isfinite(second_ll)) {
+                    info->gq = logprob_to_phred(second_ll) - logprob_to_phred(best_ll);
+                }
+            }
+            // Both ploidies, for the same reason the sweep genotypes both: the barrier can move a
+            // chain from ploidy 1 to 2, and one corrected in pass 1 only at the ploidy it happened
+            // to hold would arrive at its new one uncorrected, purely because of the order the
+            // passes run in. The ploidy-1 direction needs nothing -- one slot, so the correction
+            // is identically zero -- but the call is made anyway rather than special-cased, so
+            // there is one rule instead of two.
+            if (keep && info->alt_ploidy_info != nullptr) {
+                auto& alt = *info->alt_ploidy_info;
+                if (alt.uncorrected_lls == nullptr) {
+                    alt.uncorrected_lls.reset(new map<vector<int>, double>(alt.genotype_lls));
+                } else {
+                    alt.genotype_lls = *alt.uncorrected_lls;
+                }
+                RegenotypeCounters ignored;
+                phase_aware_correction(*pe, lambda, own, temper, regenotype_params,
+                                       alt.genotype_lls, ignored);
+            }
+            if (!site_moved) {
+                continue;
+            }
+            ++moved;
+            if (want_ledger) {
+                auto best_of = [](const map<vector<int>, double>& gl) {
+                    const vector<int>* b = nullptr;
+                    double v = -numeric_limits<double>::infinity();
+                    for (const auto& kv : gl) {
+                        if (kv.second > v) { v = kv.second; b = &kv.first; }
+                    }
+                    return std::make_pair(b, v);
+                };
+                auto spell = [](const vector<int>* g) {
+                    string out;
+                    if (g == nullptr) {
+                        return string(".");
+                    }
+                    for (size_t i = 0; i < g->size(); ++i) {
+                        out += (i ? "/" : "") + std::to_string((*g)[i]);
+                    }
+                    return out;
+                };
+                const auto a = best_of(before);
+                const auto b = best_of(target);
+                const string snarl_id = print_snarl(rec.snarl);
+                std::ostringstream row;
+                row << snarl_id << "\t" << rec.ref_path_name << "\t"
+                    << rec.ref_offset << "\t" << rec.ploidy << "\t" << spell(a.first) << "\t"
+                    << spell(b.first) << "\t" << (b.second - a.second) << "\t"
+                    << pe->num_reads();
+                thread_ledger[qi].push_back(
+                    LedgerRow{rec.ref_path_name, (size_t)rec.ref_offset, snarl_id, row.str()});
+            }
+        }
+        thread_moved[qi] = moved;
+    }
+    size_t moved = 0;
+    vector<LedgerRow> rows;
+    for (size_t qi = 0; qi < n_queues; ++qi) {
+        merge_counters(thread_counters[qi], regenotype_counters);
+        moved += thread_moved[qi];
+        std::move(thread_ledger[qi].begin(), thread_ledger[qi].end(), std::back_inserter(rows));
+    }
+    if (ledger.is_open()) {
+        // The snarl ID breaks the tie, and it has to: two records can share a reference position,
+        // and sorting on position alone would leave their order to whichever queue got there
+        // first -- which is the thing being fixed.
+        std::sort(rows.begin(), rows.end(), [](const LedgerRow& x, const LedgerRow& y) {
+            if (x.contig != y.contig) return x.contig < y.contig;
+            if (x.position != y.position) return x.position < y.position;
+            return x.snarl < y.snarl;
+        });
+        for (const LedgerRow& row : rows) {
+            ledger << row.text << endl;
+        }
+        ledger.close();
+    }
+
+    const RegenotypeCounters& c = regenotype_counters;
+    cerr << "[vg call] re-genotyping: temper " << temper << ", " << c.reads_with_lambda
+         << " reads carry a strand log-odds (" << c.reads_singleton
+         << " span one site, so are inert; " << c.reads_multi_block << " span two blocks), "
+         << c.sites_corrected << " of " << c.sites_considered << " sites corrected, "
+         << c.sites_would_move << " would move (" << c.moved_hom_to_het << " hom->het, "
+         << c.moved_het_to_hom << " het->hom, " << c.moved_het_to_het << " het->het), "
+         << c.order_reversed << " where the reads prefer the other order" << endl;
+    if (!c.fit_count.empty()) {
+        cerr << "[vg call] re-genotyping calibration, |Lambda| / observed / predicted / n:";
+        for (size_t i = 0; i < c.fit_count.size(); ++i) {
+            cerr << "  " << c.fit_abs_lambda[i] << " " << c.fit_observed[i] << " "
+                 << c.fit_predicted[i] << " " << c.fit_count[i];
+        }
+        cerr << endl;
+    }
+    return moved > 0;
+}
+
+void FlowCaller::regenotype_resettle() {
+    if (linkage_collector == nullptr) {
+        return;
+    }
+    // Feed the corrected likelihoods back, then let the barrier do everything else.
+    //
+    // This function used to re-resolve the generations itself, which quietly meant a second,
+    // poorer implementation of the barrier: it settled the genotypes and did none of the child
+    // reassessment -- no re-ploidy, no crossing masks, no exactly-once suppression, no dropping or
+    // reinstating of subtrees. 1,490 chr20 chains were left describing a parent genotype that no
+    // longer existed. Calling `run_deferred_descent` instead means there is one implementation of
+    // "settle, then reassess every child against its parent's new pair", and a re-genotyping round
+    // gets exactly what the first pass got.
+    size_t rescored = 0, refused = 0;
+    for (PendingRecord* recp : records_for_render()) {
+        PendingRecord& rec = *recp;
+        const auto* info = dynamic_cast<const ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo*>(
+            rec.call_info.get());
+        if (info == nullptr || info->genotype_lls.empty()) {
+            continue;
+        }
+        // The corrected argmax, which is what `called_*` must become: the layer decodes against
+        // the per-site call, and leaving it at the uncorrected one would hand the decode a
+        // starting point the likelihoods no longer support.
+        const vector<int>* best = nullptr;
+        double best_ll = -numeric_limits<double>::infinity();
+        for (const auto& kv : info->genotype_lls) {
+            if (kv.second > best_ll) {
+                best_ll = kv.second;
+                best = &kv.first;
+            }
+        }
+        if (best == nullptr || best->empty()) {
+            continue;
+        }
+        const int called_i = (*best)[0];
+        const int called_j = best->size() > 1 ? (*best)[1] : called_i;
+        if (linkage_collector->rescore(rec.record_key, info->genotype_lls,
+                                       cached_panel_alleles(rec), called_i, called_j)) {
+            ++rescored;
+        } else {
+            // The key has no live entry -- a chain this round has not reinstated yet -- or the
+            // corrected likelihoods will not compact. A space that merely CHANGED is handled:
+            // `rescore` appends new arena slices and repoints, because refusing there would
+            // decline exactly at the novel alleles.
+            ++refused;
+        }
+    }
+    cerr << "[vg call] re-genotyping: " << rescored << " sites re-scored into the layer, "
+         << refused << " refused for want of a live entry or a compactable space" << endl;
+    // And now the barrier again, in full.
+    run_deferred_descent();
+}
+
 void FlowCaller::render_retained_records() {
     // The reads' turn first: `apply_read_phasing` rewrites the settled phase, and
     // `build_render_phases` then indexes whatever it left behind. Order matters and only this way
     // round -- the other way would index the panel's phase and discard the reads' answer.
     apply_read_phasing();
+    // The reads' second turn: the phase decides the genotype, not only the order of a pair that
+    // was already settled. At `--regeno-passes 1` this scores the correction and reports it
+    // without acting on it, which is what makes the arithmetic measurable on its own.
+    // Coordinate ascent, run to a fixed point rather than a fixed count. Each round: the phase
+    // as it currently stands gives every read a strand log-odds, the correction re-scores every
+    // site's likelihoods from the SWEEP's originals, the barrier settles the result and reassesses
+    // every nested child against its parent's new pair, and the phase is derived again from the
+    // genotypes that came out. Convergence is measured on the settled genotypes themselves --
+    // the only thing that matters is whether the answer stopped moving.
+    //
+    // A round that moves nothing is the fixed point. A run that reaches the cap has not converged
+    // and says so, rather than quietly presenting round N as the answer: an iteration that will
+    // not settle is telling you the model is wrong, and a fixed count hides that.
+    if (regenotype && regenotype_passes >= 2) {
+        // Every state the iteration has been in, so a cycle is named rather than mistaken for slow
+        // progress. MEASURED on chr20: with the temper held fixed this enters a **period-3 limit
+        // cycle** at round 7 and repeats it exactly -- 403/258/0, 132/45/13, 341/0/290 revised,
+        // gained and retracted, forever. A cap alone would have reported "still moving 832" and
+        // invited someone to raise it.
+        //
+        // Why it cycles is not a bug to find. The correction maximises a per-site profile
+        // likelihood given the read phase, but the phase is a CHAIN -- with breaks, relinks, hung
+        // sites and a panel prior -- and the barrier's drop and reinstate of a subtree is a
+        // discrete state change. A parent flips, its child is dropped, the child's sites leave the
+        // chain, the strand log-odds of the reads there move, the parent flips back. There is no
+        // single function being ascended, so there is nothing that must increase.
+        vector<size_t> seen_states;
+        for (size_t round = 1; round < regenotype_passes; ++round) {
+            const auto before = settled_snapshot();
+            if (round == 1) {
+                seen_states.push_back(snapshot_digest(before));
+            }
+            if (!apply_regenotyping()) {
+                if (round == 1) {
+                    cerr << "[vg call] re-genotyping: no site's likelihoods move; nothing to settle"
+                         << endl;
+                }
+                break;
+            }
+            regenotype_resettle();
+            apply_read_phasing();
+            const auto after = settled_snapshot();
+            const size_t moved = settled_changed(before);
+            cerr << "[vg call] re-genotyping round " << round << ": " << moved
+                 << " settled genotypes moved" << endl;
+            if (moved == 0) {
+                cerr << "[vg call] re-genotyping: converged after " << round << " rounds" << endl;
+                break;
+            }
+            const size_t digest = snapshot_digest(after);
+            for (size_t i = 0; i < seen_states.size(); ++i) {
+                if (seen_states[i] == digest) {
+                    cerr << "[vg call] re-genotyping: LIMIT CYCLE of period "
+                         << (seen_states.size() - i) << ", entered at round " << (i + 1)
+                         << ". The iteration does not converge and no round of a cycle is more"
+                         << " the answer than another; stopping here and reporting it rather than"
+                         << " presenting round " << round << " as a fixed point" << endl;
+                    goto regeno_done;
+                }
+            }
+            seen_states.push_back(digest);
+            if (round + 1 == regenotype_passes) {
+                if (regenotype_passes == 2) {
+                    // The default, and stopping here is the measured choice rather than a
+                    // failure: on chr20 the iteration does not converge, and eleven rounds score
+                    // slightly WORSE than one. Say that, rather than shouting NOT CONVERGED at
+                    // every ordinary run.
+                    cerr << "[vg call] re-genotyping: one correction round applied; the iteration"
+                         << " was not run further (--regeno-passes)" << endl;
+                } else {
+                    cerr << "[vg call] re-genotyping: NOT CONVERGED and no repeated state seen --"
+                         << " still moving " << moved << " genotypes at the round cap of "
+                         << (regenotype_passes - 1) << ". A cycle longer than the rounds run"
+                         << " cannot be detected, so raise the cap before concluding there is"
+                         << " none" << endl;
+                }
+            }
+        }
+    regeno_done:;
+    } else {
+        // One pass: score the correction, report it, keep nothing.
+        apply_regenotyping();
+    }
+    // Every barrier pass is behind us, so ownership can move to the renderer -- once, which is
+    // also what keeps the anchors it collects from being collected twice.
+    hand_off_deferred_records();
     // The phase, before any record is built: every generation has settled by now, so the phasing is
     // complete, and each record is phased as it is rendered rather than patched afterwards.
     build_render_phases();
@@ -5855,14 +6385,37 @@ void FlowCaller::run_deferred_descent() {
     if (linkage_collector != nullptr) {
         generations = linkage_collector->max_generation();
     }
-    // Merged once: the sweep filled these per thread, and the barrier walks them in generation
-    // order.
-    vector<PendingRecord> pending;
-    pending.reserve(pending_record_count());
+    // Merged on the first pass only: the sweep filled these per thread, and the barrier walks them
+    // in generation order. `deferred_pending` is a member and survives the call, because the
+    // barrier is re-runnable -- re-genotyping changes the likelihoods and then needs every child
+    // reassessed against its parent's new settled pair, which is this function's whole job and
+    // must not be a second implementation of it.
+    vector<PendingRecord>& pending = deferred_pending;
+    pending.reserve(pending.size() + pending_record_count());
     for (auto& queue : pending_records) {
         std::move(queue.begin(), queue.end(), std::back_inserter(pending));
         queue.clear();
     }
+
+    // Re-entry. Everything a pass concludes is derived from the settled genotypes it started from,
+    // so on a second pass all of it has to be derived again rather than inherited.
+    //
+    // Clearing `dropped` is the one that matters and is easy to miss. A chain retracted because no
+    // settled parent allele reached it is not permanently absent: a correction can move the parent
+    // onto an allele that does reach it, and the chain has to come back. Cleared here, the
+    // generation loop simply re-decides -- `copies == 0` re-drops the ones still uncrossed, and
+    // for the rest `has_entry` is false so the revise branch records them afresh. No reinstate
+    // path of its own.
+    if (barrier_passes_run > 0) {
+        for (PendingRecord& pr : pending) {
+            pr.dropped = false;
+        }
+        // Appended per resolve, never replaced, and the mosaic does not survive a duplicate.
+        linkage_phased.clear();
+        // Accumulated per resolve too, so a second pass would otherwise report the sum of both.
+        linkage_changed = 0;
+    }
+    ++barrier_passes_run;
 
     // parent record key -> indices of its pending children, so that dropping a chain can drop
     // everything under it. Built once: `pending` does not grow during the barrier.
@@ -5877,7 +6430,8 @@ void FlowCaller::run_deferred_descent() {
     // parents of generation 1 -- the largest slice of nested sites by far -- are top-level records in
     // `render_records`, which the barrier otherwise never indexes at all, so a `pending`-only map
     // would leave exactly that slice with nothing to measure along.
-    size_t revise_unrenderable = 0, bar_no_crossing = 0, bar_no_settled = 0;
+    size_t revise_unrenderable = 0, bar_no_crossing = 0, bar_no_settled = 0, bar_ploidy_unscored = 0;
+    size_t bar_inline_rederived = 0;
     unordered_map<size_t, PendingRecord*> record_by_key;
     record_by_key.reserve((pending.size() + render_record_count()) * 2);
     for (PendingRecord& pr : pending) {
@@ -6098,27 +6652,49 @@ void FlowCaller::run_deferred_descent() {
                 if (!ok) {
                     continue;
                 }
-                use_info.reset(rl->alt_ploidy_info.release());
+                // EXCHANGED, not consumed. This used to `release()` the alternate and let the
+                // primary be destroyed, so a chain that moved from ploidy 1 to 2 could never move
+                // back -- the ploidy-1 answer no longer existed. With one barrier pass that was
+                // invisible, because nothing asked twice. With the barrier re-runnable it is not:
+                // 70 chr20 chains asked for a ploidy that had been thrown away, and the only
+                // symptom was a counter. Swapping the two keeps both answers on the record for
+                // good, so a chain can follow its parent however often the parent moves, and the
+                // "no answer at that ploidy" branch below becomes reachable only for a chain that
+                // never had a second answer at all.
                 use_genotype = rl->alt_ploidy_best;
-                // Carried across the swap, like `sweep_share` above and for the same reason: the
-                // alternate copies only the ploidy-independent fields it knows about, and the anchor
-                // evidence is one it does not. Losing it here would silently drop every anchor at
-                // every chain whose ploidy the barrier moved -- a whole population, with no error.
-                {
-                    auto* alt =
-                        dynamic_cast<ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo*>(
-                            use_info.get());
-                    if (alt != nullptr) {
-                        alt->anchor_evidence = std::move(rl->anchor_evidence);
-                        // And the phasing evidence, for the same reason. Missing this dropped the
-                        // phase at 17 of chr20's sites -- exactly the chains whose ploidy moved --
-                        // and the only symptom was a re-phased count 1,057 lower, with no error.
-                        alt->phase_evidence = std::move(rl->phase_evidence);
-                    }
-                }
+                const vector<int> demoted_genotype = pr.genotype;
+                unique_ptr<SnarlCaller::CallInfo> demoted = std::move(pr.call_info);
+                // `rl` still points at it -- `demoted` owns what `pr.call_info` did.
+                unique_ptr<ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo> promoted(
+                    rl->alt_ploidy_info.release());
+                // The ploidy-independent halves travel with whichever answer is in front. The
+                // alternate copies only the fields it knows about, and these are not among them:
+                // losing the anchor evidence silently dropped every anchor at every chain whose
+                // ploidy moved, and losing the phase evidence dropped the phase at 17 chr20 sites,
+                // showing up only as a re-phased count 1,057 lower.
+                promoted->anchor_evidence = std::move(rl->anchor_evidence);
+                promoted->phase_evidence = std::move(rl->phase_evidence);
+                // And the demoted answer becomes the new alternate, carrying the genotype it was
+                // called at, so a move back finds exactly what this move found.
+                promoted->alt_ploidy_best = demoted_genotype;
+                promoted->alt_ploidy_info.reset(
+                    static_cast<ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo*>(
+                        demoted.release()));
+                use_info = std::move(promoted);
             } else {
-                // No answer at the ploidy wanted -- too few traversals for a second genotype, or the
-                // alternate was never computed. Left as it stands rather than invented.
+                // No answer at that ploidy, and now this means only one thing: the sweep never
+                // computed a second answer for this chain, because it offered too few traversals
+                // for a second genotype to differ. Since the exchange above keeps both answers,
+                // a chain that HAS two can always reach either.
+                //
+                // Left as it stands rather than invented.
+                //
+                // Counted, because the chain then carries a ploidy its settled parent contradicts
+                // and nothing downstream says so. The sweep keeps exactly two answers per chain,
+                // so anything that moves parents more often, or further, than linkage does will
+                // grow this population -- which is why it is worth a number before such a thing
+                // exists rather than after.
+                ++bar_ploidy_unscored;
                 continue;
             }
             // Was this chain in the layer before? It answers two questions that used to be asked
@@ -6157,7 +6733,7 @@ void FlowCaller::run_deferred_descent() {
                                  pr.anchor_position);
                 int called_i = use_genotype.empty() ? -1 : use_genotype[0];
                 int called_j = use_genotype.size() > 1 ? use_genotype[1] : called_i;
-                vector<int> panel = panel_alleles(graph, pr.travs);
+                const vector<int>& panel = cached_panel_alleles(pr);
                 // Retract and re-record, rather than a second entry point that rewrites an
                 // entry in place.
                 //
@@ -6219,11 +6795,40 @@ void FlowCaller::run_deferred_descent() {
             // from the mapping the emit above produced. The sweep-time masks were built from
             // whatever this thread had last emitted, which for children of a retained chain was a
             // foreign snarl's mapping.
-            for (PendingRecord& child : pending) {
-                if (child.parent_record_key == pr.record_key) {
+            // Through `children_of`, which was built thirty lines above for exactly this and
+            // answers it in O(children). Scanning `pending` instead made this O(revised x
+            // records) -- about 5,000 x 18,561 = 93 M record visits and 22 GB streamed on chr20's
+            // first pass, and it runs again every re-genotyping round.
+            const auto kids = children_of.find(pr.record_key);
+            for (size_t ci : kids == children_of.end() ? vector<size_t>() : kids->second) {
+                {
+                    PendingRecord& child = pending[ci];
                     bool known = true;
                     child.parent_crossing = child_crossing_mask(pr.travs, child.snarl, &known);
                     child.crossing_known = known;
+                    // And the exactly-once rule, for the same reason and in the same place.
+                    //
+                    // `reported_inline` suppresses a child's own line where an enclosing block's
+                    // ALT already spells the chain out, and it was decided at sweep time from the
+                    // parent's PRE-linkage genotype -- then never revisited. A parent the barrier
+                    // moves onto alleles that no longer spell the child out left the child
+                    // suppressed anyway, and one moved the other way left a chain reported twice.
+                    // Nothing downstream recomputed it: the flag was read once, at the render
+                    // hand-off, out of a field written during the sweep.
+                    //
+                    // Inherited from the parent as it is at descent, so a chain inside one a block
+                    // spelled out stays spelled out. Correct here because the barrier walks
+                    // generations in order: `pr.reported_inline` was itself updated when *its*
+                    // parent was revised, so the inheritance is one generation behind the
+                    // revision and never reads a stale ancestor.
+                    const bool was = child.reported_inline;
+                    child.reported_inline =
+                        pr.reported_inline
+                        || chain_reported_inline(pr.snarl, pr.travs, pr.genotype, pr.ref_trav_idx,
+                                                 child.snarl);
+                    if (was != child.reported_inline) {
+                        ++bar_inline_rederived;
+                    }
                 }
             }
         }
@@ -6239,7 +6844,8 @@ void FlowCaller::run_deferred_descent() {
         size_t retained_bytes = 0, retained_visits = 0, retained_gls = 0;
         auto measure = [&](const PendingRecord& rec) {
             retained_bytes += sizeof(PendingRecord) + rec.ref_path_name.capacity()
-                              + rec.genotype.capacity() * sizeof(int);
+                              + rec.genotype.capacity() * sizeof(int)
+                              + rec.panel_cache.capacity() * sizeof(int);
             retained_bytes += rec.travs.capacity() * sizeof(SnarlTraversal);
             for (const SnarlTraversal& t : rec.travs) {
                 retained_visits += (size_t)t.visit_size();
@@ -6258,6 +6864,33 @@ void FlowCaller::run_deferred_descent() {
                 if (rl->phase_evidence != nullptr) {
                     retained_bytes += rl->phase_evidence->bytes();
                 }
+                // The four things re-genotyping added, because this counter is the only
+                // instrument that can see them: peak RSS on this workload spreads 3.39 to
+                // 4.42 GB across six runs of one binary, which is wider than everything below
+                // put together, so an unmeasured 100-odd MB would simply never be noticed.
+                auto gl_bytes = [](const map<vector<int>, double>& gl) {
+                    size_t n = 0;
+                    for (const auto& kv : gl) {
+                        n += 48 + kv.first.capacity() * sizeof(int) + sizeof(double);
+                    }
+                    return n;
+                };
+                if (rl->uncorrected_lls != nullptr) {
+                    retained_bytes += gl_bytes(*rl->uncorrected_lls);
+                }
+                retained_bytes += rl->scored_traversals.capacity() * sizeof(SnarlTraversal)
+                                  + rl->allele_support.capacity() * sizeof(double);
+                if (rl->alt_ploidy_info != nullptr) {
+                    // Kept for good now that the ploidy change is an exchange rather than a
+                    // consume, so its own halves are retained too, not just its likelihoods.
+                    const auto& alt = *rl->alt_ploidy_info;
+                    retained_bytes += alt.scored_traversals.capacity() * sizeof(SnarlTraversal)
+                                      + alt.allele_support.capacity() * sizeof(double);
+                    if (alt.uncorrected_lls != nullptr) {
+                        retained_bytes += gl_bytes(*alt.uncorrected_lls);
+                    }
+                }
+
                 if (rl->alt_ploidy_info != nullptr) {
                     for (const auto& kv : rl->alt_ploidy_info->genotype_lls) {
                         ++retained_gls;
@@ -6277,6 +6910,11 @@ void FlowCaller::run_deferred_descent() {
         // "Not revised by the barrier" rather than "top-level": recurse-on-fail reaches children with
         // no ploidy override, so they take the same path. On chr20 that is 165,408 top-level snarls
         // plus 26,799 such children.
+        for (const PhaseSite& ps : phase_sites) {
+            retained_bytes += sizeof(PhaseSite) + ps.read_key.capacity() * sizeof(uint64_t)
+                              + ps.q0.capacity() * sizeof(float) + ps.p.capacity() * sizeof(float);
+        }
+        retained_bytes += phase_flips.size() * (sizeof(size_t) + 16);
         cerr << "[vg call] retained for rendering: " << render_record_count()
              << " snarls the barrier will not revise, plus " << pending.size()
              << " nested chains; " << (retained_bytes / (1024.0 * 1024.0)) << " MB over "
@@ -6285,7 +6923,13 @@ void FlowCaller::run_deferred_descent() {
         cerr << "[vg call] barrier exits: " << bar_no_crossing
              << " no parent allele crosses, " << bar_no_settled
              << " parent has no settled phase call, " << revise_unrenderable
-             << " unrenderable so left unrevised" << endl;
+             << " unrenderable so left unrevised, " << bar_ploidy_unscored
+             << " stranded at a ploidy the sweep never scored" << endl;
+        if (bar_inline_rederived > 0) {
+            cerr << "[vg call] barrier: " << bar_inline_rederived
+                 << " children whose exactly-once suppression changed with their parent's"
+                 << " settled genotype" << endl;
+        }
         cerr << "[vg call] single sweep: " << pending.size() << " nested chains retained over "
              << (generations + 1) << " generations; " << revised << " revised, " << gained
              << " reachable only under the settled parent, " << retracted << " retracted";
@@ -6299,6 +6943,13 @@ void FlowCaller::run_deferred_descent() {
         cerr << endl;
     }
 
+}
+
+void FlowCaller::hand_off_deferred_records() {
+    if (!defer_nested_descent) {
+        return;
+    }
+    vector<PendingRecord>& pending = deferred_pending;
     // Hand every surviving chain to the render pass. This is what makes the two populations one:
     // top-level records were already staged and rendered from the settled genotype, and now nested
     // ones are too, so there is a single place a line is written and a single genotype it is written
