@@ -2325,10 +2325,16 @@ int main_call(int argc, char** argv) {
         }
     }
 
+    // Every caller built above derives from VCFOutputCaller, and `graph_caller` is not assigned
+    // again below this point, so the cast is done once. Null means a caller that emits no VCF,
+    // which several of the options below treat as "the default declines" rather than as an error --
+    // so the per-option null handling stays exactly where it is.
+    VCFOutputCaller* const vcf_out = dynamic_cast<VCFOutputCaller*>(graph_caller.get());
+
     // Per-region ploidy, if given. Applied to whichever caller was built: every one of them
     // derives from VCFOutputCaller, which is where the override map and its lookup live.
     if (!ploidy_bed_filename.empty()) {
-        VCFOutputCaller* ploidy_target = dynamic_cast<VCFOutputCaller*>(graph_caller.get());
+        VCFOutputCaller* ploidy_target = vcf_out;
         if (ploidy_target == nullptr) {
             cerr << "error [vg call]: --ploidy-bed needs a caller that emits VCF" << endl;
             return 1;
@@ -2418,13 +2424,13 @@ int main_call(int argc, char** argv) {
         // The confidence threshold also to the output layer: a record whose GQN the linkage layer
         // re-derives has to be re-labelled against the same number the per-site emission used,
         // rather than cleared to PASS regardless.
-        VCFOutputCaller* confidence_target = dynamic_cast<VCFOutputCaller*>(graph_caller.get());
+        VCFOutputCaller* confidence_target = vcf_out;
         if (confidence_target != nullptr) {
             confidence_target->set_linkage_min_confidence(min_confidence);
         }
     }
     if (nested_calling) {
-        VCFOutputCaller* nested_target = dynamic_cast<VCFOutputCaller*>(graph_caller.get());
+        VCFOutputCaller* nested_target = vcf_out;
         if (nested_target == nullptr) {
             if (nested_explicit) {
                 cerr << "error [vg call]: --nested needs a caller that emits VCF" << endl;
@@ -2455,7 +2461,7 @@ int main_call(int argc, char** argv) {
             atomize_blocks = false;   // the default declines, as --nested does
         }
         VCFOutputCaller* atomize_target =
-            atomize_blocks ? dynamic_cast<VCFOutputCaller*>(graph_caller.get()) : nullptr;
+            atomize_blocks ? vcf_out : nullptr;
         if (atomize_blocks && atomize_target == nullptr) {
             if (atomize_explicit) {
                 cerr << "error [vg call]: --atomize-blocks needs a caller that emits VCF" << endl;
@@ -2500,7 +2506,7 @@ int main_call(int argc, char** argv) {
     }
 
     if (nested_calling) {
-        VCFOutputCaller* nested_target = dynamic_cast<VCFOutputCaller*>(graph_caller.get());
+        VCFOutputCaller* nested_target = vcf_out;
         nested_target->set_symbolic_collapsing(snarl_manager.get());
         // A nested site's ploidy comes from a parent genotype linkage can afterwards invalidate,
         // so descent asks the genotyper for both ploidies' answers at once, from the matrix it has
@@ -2517,7 +2523,7 @@ int main_call(int argc, char** argv) {
     string header;
     if (!gaf_output) {
         // Init The VCF       
-        VCFOutputCaller* vcf_caller = dynamic_cast<VCFOutputCaller*>(graph_caller.get());
+        VCFOutputCaller* vcf_caller = vcf_out;
         assert(vcf_caller != nullptr);
         // Make sure we get the LV/PS tags with -A, --top-down, or --bottom-up -- and under a gref
         // cover, where a record's contig no longer says where it sits. On a linear reference every
@@ -2607,7 +2613,7 @@ int main_call(int argc, char** argv) {
             // which is what *enables* descent, so the run would still descend, inline, from
             // genotypes linkage then rewrote: precisely the configuration being refused.
             nested_calling = false;
-            VCFOutputCaller* nested_target = dynamic_cast<VCFOutputCaller*>(graph_caller.get());
+            VCFOutputCaller* nested_target = vcf_out;
             if (nested_target != nullptr) {
                 // Disarming collapsing is what disarms descent, and descent is the only thing that
                 // ever requests the alternate ploidy (set_want_alt_ploidy is per call), so no
@@ -2847,7 +2853,7 @@ int main_call(int argc, char** argv) {
     // After both passes, so every settled record has had its chance to contribute. Written here
     // rather than from write_variants because it is not a VCF and shares none of its machinery.
     {
-        auto* anchor_caller = dynamic_cast<VCFOutputCaller*>(graph_caller.get());
+        auto* anchor_caller = vcf_out;
         if (anchor_caller != nullptr) {
             anchor_caller->write_anchors();
         }
@@ -2900,7 +2906,7 @@ int main_call(int argc, char** argv) {
 
     if (!gaf_output) {
         // Output VCF
-        VCFOutputCaller* vcf_caller = dynamic_cast<VCFOutputCaller*>(graph_caller.get());
+        VCFOutputCaller* vcf_caller = vcf_out;
         assert(vcf_caller != nullptr);
         // Prune here rather than where the header string was built: the contig set is only
         // known once calling is done, and write_variants below drains the buffer it reads.

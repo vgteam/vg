@@ -305,6 +305,7 @@ public:
     void collect_anchors_for(const Snarl& snarl, const vector<int>& genotype, int haploid_slot,
                              const unique_ptr<SnarlCaller::CallInfo>& call_info, bool is_leaf);
 
+
     /// The settled pair reordered onto its haplotypes, for the anchors.
     ///
     /// `LinkageCollector::settled_traversals` decodes an unordered genotype index -- the triangular
@@ -1460,6 +1461,11 @@ protected:
 
 
     /// How many nested chains were retained across all threads.
+    /// `collect_anchors_for` for a staged record, with the phase order, the haploid slot and the
+    /// leaf test derived from it. Three call sites spelled the same five arguments; the genotype is
+    /// a parameter because the renderer passes the settled pair rather than the record's own.
+    void collect_anchors_for_record(const PendingRecord& rec, const vector<int>& genotype);
+
     size_t pending_record_count() const;
 
 

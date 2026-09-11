@@ -268,6 +268,9 @@ static bool read_loo(const PhaseReadEvidence& ev, const LambdaTable& lambda,
             v -= mine->second;
         }
         if (params.shuffle) {
+            // Sign randomised from the read key, keeping |Lambda|: the peakedness distribution is
+            // preserved exactly and only the phase content is destroyed. Deterministic, so the
+            // arm is reproducible.
             v = (ev.read_key[r] & 1ULL) ? -fabs(v) : fabs(v);
         }
         loo[r] = v;
@@ -363,30 +366,9 @@ bool phase_aware_correction(const PhaseReadEvidence& ev, const LambdaTable& lamb
     // Per read, the leave-one-out log-odds and the tilt it implies -- once, rather than per
     // candidate genotype. The tilt is the expensive half and the genotype loop below does not
     // change it.
-    vector<double> loo(ev.num_reads(), 0.0);
+    vector<double> loo;
+    const bool any_opinion = read_loo(ev, lambda, own, params, loo);
     vector<ReadTilt> tilt(ev.num_reads());
-    bool any_opinion = false;
-    for (size_t r = 0; r < ev.num_reads(); ++r) {
-        auto found = lambda.find(ev.read_key[r]);
-        if (found == lambda.end() || found->second.multi_block) {
-            continue;
-        }
-        double v = found->second.lambda;
-        auto mine = own.find(ev.read_key[r]);
-        if (mine != own.end()) {
-            v -= mine->second;
-        }
-        if (params.shuffle) {
-            // Sign randomised from the read key, keeping |Lambda|: the peakedness distribution is
-            // preserved exactly and only the phase content is destroyed. Deterministic, so the
-            // arm is reproducible.
-            v = (ev.read_key[r] & 1ULL) ? -fabs(v) : fabs(v);
-        }
-        loo[r] = v;
-        if (fabs(v) > 1e-9) {
-            any_opinion = true;
-        }
-    }
     if (!any_opinion) {
         // Every read here spans nothing else in its block. Provably inert; skip the arithmetic
         // rather than compute a column of zeroes.

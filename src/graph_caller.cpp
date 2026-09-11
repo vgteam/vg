@@ -19,6 +19,35 @@ namespace vg {
 
 /// Defined below, near the linkage machinery it belongs to; declared here because its only caller
 /// is write_variants, which comes first in this file.
+/// Split on a single delimiter, KEEPING empty fields.
+///
+/// Not `utility.hpp`'s `split_delims`, which drops them: every index into a VCF line is positional,
+/// so an empty field that vanishes silently shifts every field after it.
+static void split_keep_empty(const string& text, char delim, vector<string>& out) {
+    out.clear();
+    size_t start = 0;
+    while (true) {
+        const size_t at = text.find(delim, start);
+        out.push_back(text.substr(start, at == string::npos ? string::npos : at - start));
+        if (at == string::npos) {
+            return;
+        }
+        start = at + 1;
+    }
+}
+
+/// The inverse of `split_keep_empty`.
+static string join_with(const vector<string>& parts, char delim) {
+    string out;
+    for (size_t i = 0; i < parts.size(); ++i) {
+        if (i) {
+            out += delim;
+        }
+        out += parts[i];
+    }
+    return out;
+}
+
 static bool apply_linkage_quality(string& line, double posterior, double explained_share,
                                   double linkage_min_confidence);
 
@@ -1231,6 +1260,13 @@ int VCFOutputCaller::phase_haploid_slot(size_t record_key, const vector<int>& ge
     return (int)found->second.nested_strand;
 }
 
+void FlowCaller::collect_anchors_for_record(const PendingRecord& rec,
+                                            const vector<int>& genotype) {
+    collect_anchors_for(rec.snarl, phase_ordered_genotype(rec.record_key, genotype),
+                        phase_haploid_slot(rec.record_key, genotype), rec.call_info,
+                        anchors_want_leaf_test() ? snarl_is_leaf(rec.snarl) : true);
+}
+
 void VCFOutputCaller::collect_anchors_for(const Snarl& snarl, const vector<int>& genotype,
                                           int haploid_slot,
                                           const unique_ptr<SnarlCaller::CallInfo>& call_info,
@@ -2065,43 +2101,13 @@ static bool apply_linkage_quality(string& line, double posterior, double explain
     // patch stopped being produced -- 9,980 records carried posterior-derived quality at stage 9,
     // 3,524 at stage 10, and none at all once the record was built from the settled genotype.
     vector<string> fields;
-    {
-        size_t start = 0;
-        while (true) {
-            size_t tab = line.find('\t', start);
-            fields.push_back(line.substr(start, tab == string::npos ? string::npos : tab - start));
-            if (tab == string::npos) {
-                break;
-            }
-            start = tab + 1;
-        }
-    }
+    split_keep_empty(line, '\t', fields);
     if (fields.size() < 10) {
         return false;
     }
     vector<string> keys, values;
-    {
-        size_t start = 0;
-        while (true) {
-            size_t colon = fields[8].find(':', start);
-            keys.push_back(fields[8].substr(start,
-                                            colon == string::npos ? string::npos : colon - start));
-            if (colon == string::npos) {
-                break;
-            }
-            start = colon + 1;
-        }
-        start = 0;
-        while (true) {
-            size_t colon = fields[9].find(':', start);
-            values.push_back(fields[9].substr(start,
-                                              colon == string::npos ? string::npos : colon - start));
-            if (colon == string::npos) {
-                break;
-            }
-            start = colon + 1;
-        }
-    }
+    split_keep_empty(fields[8], ':', keys);
+    split_keep_empty(fields[9], ':', values);
     if (keys.size() != values.size()) {
         return false;
     }
@@ -2268,21 +2274,8 @@ static bool apply_linkage_quality(string& line, double posterior, double explain
         fields[6] = "PASS";
     }
 
-    string format;
-    for (size_t i = 0; i < values.size(); ++i) {
-        if (i) {
-            format += ":";
-        }
-        format += values[i];
-    }
-    fields[9] = format;
-    line.clear();
-    for (size_t i = 0; i < fields.size(); ++i) {
-        if (i) {
-            line += "\t";
-        }
-        line += fields[i];
-    }
+    fields[9] = join_with(values, ':');
+    line = join_with(fields, '\t');
     return true;
 }
 
@@ -5445,20 +5438,23 @@ void FlowCaller::set_defer_nested_descent(bool defer) {
     }
 }
 
-size_t FlowCaller::pending_record_count() const {
+/// Total over the per-thread queues. Both record vectors are the same shape, so both counters are
+/// this.
+template <typename Queues>
+static size_t total_queued(const Queues& queues) {
     size_t n = 0;
-    for (const auto& queue : pending_records) {
+    for (const auto& queue : queues) {
         n += queue.size();
     }
     return n;
 }
 
+size_t FlowCaller::pending_record_count() const {
+    return total_queued(pending_records);
+}
+
 size_t FlowCaller::render_record_count() const {
-    size_t n = 0;
-    for (const auto& queue : render_records) {
-        n += queue.size();
-    }
-    return n;
+    return total_queued(render_records);
 }
 
 /// Stage the inputs a record could be rendered from, for a snarl the barrier will not revise.
@@ -5553,27 +5549,20 @@ void FlowCaller::record_site(const Snarl& snarl, const vector<SnarlTraversal>& t
     // and the phase-set lookup work as they do for any other site, while `site_gap` still refuses to
     // difference it. Zero instead would put every such entry at the head of the contig, where it
     // would sit beside a site it has nothing to do with and could cut that run.
-    pair<string, int64_t> pos_info =
-        no_reference ? make_pair(ref_path_name, anchor_position)
-                     : get_ref_position(graph, snarl, ref_path_name, ref_offset);
-    // The contig must be spelled the way the VCF spells it, because the patch index keys on it.
-    // `get_ref_position` returns the base path name -- "CHM13#0#chr20" -- while `emit_variant`
-    // additionally reduces it to the locus, "chr20". Recording the unreduced form makes every
-    // lookup miss: chr20 came out with every record unphased and no PS at all, which is what this
-    // motion's byte-identity gate is for.
-    {
-        const string locus = PathMetadata::parse_locus_name(pos_info.first);
-        if (locus != PathMetadata::NO_LOCUS_NAME) {
-            pos_info.first = locus;
-        }
-    }
+    // `site_ref_key` is this exact derivation -- the no-reference choice, the locus reduction and
+    // the clamp -- and it is what the barrier's revise path uses. Shared rather than repeated: the
+    // contig must be spelled the way the VCF spells it, because the patch index keys on it, and
+    // recording `get_ref_position`'s unreduced "CHM13#0#chr20" instead of "chr20" made every lookup
+    // miss, leaving chr20 with every record unphased and no PS at all.
+    const pair<string, size_t> ref_key =
+        site_ref_key(snarl, ref_path_name, ref_offset, no_reference, anchor_position);
     const int called_i = trav_genotype[0];
     const int called_j = site_ploidy > 1 ? trav_genotype[1] : called_i;
     // No allele map: the emitted allele list does not exist yet, and it is chosen while the record is
     // built. `set_allele_map` supplies it afterwards, and stage 11 removes the need for it.
     static const vector<int> no_allele_map;
     linkage_collector->record(
-        pos_info.first, (size_t)max((int64_t)0, pos_info.second),
+        ref_key.first, ref_key.second,
         rl_info->genotype_lls,
         panel_alleles(graph, travs),
         called_i, called_j, no_allele_map,
@@ -5705,6 +5694,38 @@ vector<FlowCaller::PendingRecord*> FlowCaller::records_for_render() {
     return out;
 }
 
+/// The light per-read shape both read-phase passes need, from whichever the site retained.
+///
+/// A phasing-only run keeps `PhaseReadEvidence`; under `--anchors-out` the site keeps the anchor
+/// superset instead and no light copy is built, so it is converted here rather than duplicating
+/// the responsibility arithmetic for a second layout. `scratch` is the caller's, and must outlive
+/// the returned pointer -- in `apply_regenotyping` that means a loop local inside the parallel
+/// region, never a static.
+static const PhaseReadEvidence* phase_evidence_of(
+        const ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo& info,
+        PhaseReadEvidence& scratch) {
+    const PhaseReadEvidence* pe = info.phase_evidence.get();
+    if (pe == nullptr && info.anchor_evidence != nullptr) {
+        const AnchorSiteEvidence& ev = *info.anchor_evidence;
+        scratch.n_alleles = ev.n_alleles;
+        scratch.allele_length = ev.allele_length;
+        scratch.mean_read_length = ev.mean_read_length;
+        scratch.length_weighted = ev.length_weighted;
+        scratch.rel = ev.rel;
+        scratch.read_key.reserve(ev.reads.size());
+        scratch.mismap.reserve(ev.reads.size());
+        for (const AnchorRead& r : ev.reads) {
+            scratch.read_key.push_back((uint64_t)std::hash<string>{}(r.name));
+            scratch.mismap.push_back(r.mismap);
+        }
+        pe = &scratch;
+    }
+    if (pe != nullptr && (pe->n_alleles == 0 || pe->num_reads() == 0)) {
+        return nullptr;
+    }
+    return pe;
+}
+
 void FlowCaller::apply_read_phasing() {
     if (!read_phasing || linkage_collector == nullptr || linkage_phased.empty()) {
         return;
@@ -5744,28 +5765,9 @@ void FlowCaller::apply_read_phasing() {
             if (info == nullptr) {
                 continue;
             }
-            // Two retention shapes reach here and only one code path follows. `PhaseReadEvidence`
-            // is what a phasing-only run keeps; when anchors are armed their evidence is a superset
-            // and is converted to the light shape rather than duplicating the responsibility
-            // arithmetic below for a second layout.
-            const PhaseReadEvidence* pe = info->phase_evidence.get();
             PhaseReadEvidence converted;
-            if (pe == nullptr && info->anchor_evidence != nullptr) {
-                const AnchorSiteEvidence& ev = *info->anchor_evidence;
-                converted.n_alleles = ev.n_alleles;
-                converted.allele_length = ev.allele_length;
-                converted.mean_read_length = ev.mean_read_length;
-                converted.length_weighted = ev.length_weighted;
-                converted.rel = ev.rel;
-                converted.read_key.reserve(ev.reads.size());
-                converted.mismap.reserve(ev.reads.size());
-                for (const AnchorRead& r : ev.reads) {
-                    converted.read_key.push_back((uint64_t)std::hash<string>{}(r.name));
-                    converted.mismap.push_back(r.mismap);
-                }
-                pe = &converted;
-            }
-            if (pe == nullptr || pe->n_alleles == 0 || pe->num_reads() == 0) {
+            const PhaseReadEvidence* pe = phase_evidence_of(*info, converted);
+            if (pe == nullptr) {
                 continue;
             }
             const size_t a0 = (size_t)pc.trav_first, a1 = (size_t)pc.trav_second;
@@ -6023,28 +6025,11 @@ bool FlowCaller::apply_regenotyping() {
             if (info == nullptr) {
                 continue;
             }
-            const PhaseReadEvidence* pe = info->phase_evidence.get();
+            // `converted` is this iteration's, inside the parallel region: nothing may hold a
+            // pointer into it past the iteration.
             PhaseReadEvidence converted;
-            if (pe == nullptr && info->anchor_evidence != nullptr) {
-                // Anchors keep a superset and no PhaseReadEvidence is built, so under
-                // `--anchors-out` this is the only shape available. Converted rather than a second
-                // code path, as `apply_read_phasing` does -- and it is a stack local there, so
-                // nothing may hold a pointer into it past this iteration.
-                const AnchorSiteEvidence& ev = *info->anchor_evidence;
-                converted.n_alleles = ev.n_alleles;
-                converted.allele_length = ev.allele_length;
-                converted.mean_read_length = ev.mean_read_length;
-                converted.length_weighted = ev.length_weighted;
-                converted.rel = ev.rel;
-                converted.read_key.reserve(ev.reads.size());
-                converted.mismap.reserve(ev.reads.size());
-                for (const AnchorRead& r : ev.reads) {
-                    converted.read_key.push_back((uint64_t)std::hash<string>{}(r.name));
-                    converted.mismap.push_back(r.mismap);
-                }
-                pe = &converted;
-            }
-            if (pe == nullptr || pe->n_alleles == 0 || pe->num_reads() == 0) {
+            const PhaseReadEvidence* pe = phase_evidence_of(*info, converted);
+            if (pe == nullptr) {
                 continue;
             }
             // This site's own term, or none. A homozygote has no PhaseSite -- there are no two
@@ -6413,9 +6398,7 @@ void FlowCaller::render_retained_records() {
             // het site of 60,544 carried the reversed order that a 50/50 split of `0|1` against
             // `1|0` demands. `genotype` itself is deliberately left alone: emit_variant iterates it
             // to build the ALT list, AD, GL and QUAL, so permuting it here would reorder the record.
-            collect_anchors_for(rec.snarl, phase_ordered_genotype(rec.record_key, genotype),
-                                phase_haploid_slot(rec.record_key, genotype), rec.call_info,
-                                anchors_want_leaf_test() ? snarl_is_leaf(rec.snarl) : true);
+            collect_anchors_for_record(rec, genotype);
             emit_variant(graph, snarl_caller, rec.snarl, rec.travs, genotype, rec.ref_trav_idx,
                          rec.call_info, rec.ref_path_name, rec.ref_offset, genotype_snarls,
                          rec.ploidy);
@@ -6855,8 +6838,12 @@ void FlowCaller::run_deferred_descent() {
             // records) -- about 5,000 x 18,561 = 93 M record visits and 22 GB streamed on chr20's
             // first pass, and it runs again every re-genotyping round.
             const auto kids = children_of.find(pr.record_key);
-            for (size_t ci : kids == children_of.end() ? vector<size_t>() : kids->second) {
-                {
+            if (kids != children_of.end()) {
+                // Not `kids == end() ? vector<size_t>() : kids->second` in the range-for: the
+                // conditional's second operand is a prvalue, so the composite is one too and the
+                // child list is COPIED for every revised record -- on the path whose whole point,
+                // two comments up, is not being O(revised x records).
+                for (size_t ci : kids->second) {
                     PendingRecord& child = pending[ci];
                     bool known = true;
                     child.parent_crossing = child_crossing_mask(pr.travs, child.snarl, &known);
@@ -7023,9 +7010,7 @@ void FlowCaller::hand_off_deferred_records() {
             // Settled, phased, and inside the layer -- but an enclosing block's ALT has already
             // written its variation, so a line here would write it twice. It is still a genotyped
             // site, and an anchor is a different file, so it still anchors.
-            collect_anchors_for(pr.snarl, phase_ordered_genotype(pr.record_key, pr.genotype),
-                                phase_haploid_slot(pr.record_key, pr.genotype), pr.call_info,
-                                anchors_want_leaf_test() ? snarl_is_leaf(pr.snarl) : true);
+            collect_anchors_for_record(pr, pr.genotype);
             ++inline_unrendered;
             continue;
         }
@@ -7037,9 +7022,7 @@ void FlowCaller::hand_off_deferred_records() {
             //
             // Anchors do not care: a pin is keyed on a node ID and needs neither REF nor POS. These
             // are the off-reference sites, which is where an assembler most needs help.
-            collect_anchors_for(pr.snarl, phase_ordered_genotype(pr.record_key, pr.genotype),
-                                phase_haploid_slot(pr.record_key, pr.genotype), pr.call_info,
-                                anchors_want_leaf_test() ? snarl_is_leaf(pr.snarl) : true);
+            collect_anchors_for_record(pr, pr.genotype);
             ++no_ref_unrendered;
             continue;
         }
@@ -7332,6 +7315,7 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
 
     bool ret_val = true;
     vector<int> trav_genotype;  // Declared outside block so we can pass to children
+
     // A propagated ploidy wins over the contig's or the region BED's: it says how many called
     // parent alleles actually reach this child, which is the number of copies present here.
     int ploidy = ploidy_override >= 0
@@ -7339,6 +7323,39 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
                  : ploidy_at(ref_path_name, get<0>(ref_interval),
                              ref_offset_of(ref_offsets, ref_path_name),
                              ref_ploidy_of(ref_ploidies, ref_path_name));
+
+    // What both the parent-traversal-set branch and the top-level branch do with the genotype they
+    // arrived at, byte for byte. `trav_call_info` is the one piece that differs -- each branch
+    // declares its own -- so it is a parameter; everything else here is function scope. `snarl` is
+    // captured by reference and `flip_snarl` may rewrite it, which is correct: that happens above,
+    // before either caller runs.
+    auto stage_or_emit = [&](unique_ptr<SnarlCaller::CallInfo>& trav_call_info) -> bool {
+        bool added;
+        if (!gaf_output) {
+            // Staged, not emitted: `render_retained_records` writes it after the sweep. `added` is
+            // the value emit_variant would have returned, and the only caller that reads it is the
+            // ret_val at the call site, which gates recursion -- so it must not become "the line
+            // was written", which is not known yet. A staged record is a record that will be
+            // written.
+            record_site(snarl, travs, trav_genotype, trav_call_info, ref_path_name,
+                        ref_offset_of(ref_offsets, ref_path_name));
+            render_this = stage_render_record(snarl, trav_genotype, ref_trav_idx, trav_call_info,
+                                              ref_path_name, ref_offset_of(ref_offsets, ref_path_name), ploidy);
+            added = render_this != nullptr;
+            if (!added) {
+                added = emit_variant(graph, snarl_caller, snarl, travs, trav_genotype, ref_trav_idx,
+                                     trav_call_info, ref_path_name, ref_offset_of(ref_offsets, ref_path_name),
+                                     genotype_snarls, ploidy);
+            }
+            emitted_this_call = true;
+        } else {
+            added = true;
+            pair<string, int64_t> pos_info = get_ref_position(graph, snarl, ref_path_name, ref_offset_of(ref_offsets, ref_path_name));
+            emit_gaf_variant(graph, print_snarl(snarl), travs, trav_genotype, ref_trav_idx, pos_info.first, pos_info.second, &support_finder);
+        }
+        return added;
+    };
+
 
     // Constants for bounded traversal set handling
     const int MAX_TRAVS_PER_SET = 10;
@@ -7456,25 +7473,8 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
         // Only emit VCF if snarl is on reference path
         if (use_parent_interval) {
             added = true;
-        } else if (!gaf_output) {
-            // Staged, not emitted: `render_retained_records` writes it after the sweep. `added` is
-            // the value emit_variant would have returned, and the only caller that reads it here is
-            // the ret_val below, which gates recursion -- so it must not become "the line was
-            // written", which is not known yet. A staged record is a record that will be written.
-            record_site(snarl, travs, trav_genotype, trav_call_info, ref_path_name,
-                        ref_offset_of(ref_offsets, ref_path_name));
-            render_this = stage_render_record(snarl, trav_genotype, ref_trav_idx, trav_call_info,
-                                              ref_path_name, ref_offset_of(ref_offsets, ref_path_name), ploidy);
-            added = render_this != nullptr;
-            if (!added) {
-                added = emit_variant(graph, snarl_caller, snarl, travs, trav_genotype, ref_trav_idx,
-                                     trav_call_info, ref_path_name, ref_offset_of(ref_offsets, ref_path_name),
-                                     genotype_snarls, ploidy);
-            }
-            emitted_this_call = true;
         } else {
-            pair<string, int64_t> pos_info = get_ref_position(graph, snarl, ref_path_name, ref_offset_of(ref_offsets, ref_path_name));
-            emit_gaf_variant(graph, print_snarl(snarl), travs, trav_genotype, ref_trav_idx, pos_info.first, pos_info.second, &support_finder);
+            added = stage_or_emit(trav_call_info);
         }
 
         ret_val = trav_genotype.size() == ploidy && added;
@@ -7603,26 +7603,7 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
         assert(trav_genotype.empty() || trav_genotype.size() == ploidy);
 
         bool added = true;
-        if (!gaf_output) {
-            // Staged, not emitted: `render_retained_records` writes it after the sweep. `added` is
-            // the value emit_variant would have returned, and the only caller that reads it here is
-            // the ret_val below, which gates recursion -- so it must not become "the line was
-            // written", which is not known yet. A staged record is a record that will be written.
-            record_site(snarl, travs, trav_genotype, trav_call_info, ref_path_name,
-                        ref_offset_of(ref_offsets, ref_path_name));
-            render_this = stage_render_record(snarl, trav_genotype, ref_trav_idx, trav_call_info,
-                                              ref_path_name, ref_offset_of(ref_offsets, ref_path_name), ploidy);
-            added = render_this != nullptr;
-            if (!added) {
-                added = emit_variant(graph, snarl_caller, snarl, travs, trav_genotype, ref_trav_idx,
-                                     trav_call_info, ref_path_name, ref_offset_of(ref_offsets, ref_path_name),
-                                     genotype_snarls, ploidy);
-            }
-            emitted_this_call = true;
-        } else {
-            pair<string, int64_t> pos_info = get_ref_position(graph, snarl, ref_path_name, ref_offset_of(ref_offsets, ref_path_name));
-            emit_gaf_variant(graph, print_snarl(snarl), travs, trav_genotype, ref_trav_idx, pos_info.first, pos_info.second, &support_finder);
-        }
+        added = stage_or_emit(trav_call_info);
 
         ret_val = trav_genotype.size() == ploidy && added;
     }
