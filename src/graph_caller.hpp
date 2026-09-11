@@ -302,7 +302,7 @@ public:
     /// `emit_variant`.
     /// `is_leaf` is supplied by the caller rather than looked up, because the snarl manager lives
     /// on GraphCaller and this base class does not have one.
-    void collect_anchors_for(const Snarl& snarl, const vector<int>& genotype,
+    void collect_anchors_for(const Snarl& snarl, const vector<int>& genotype, int haploid_slot,
                              const unique_ptr<SnarlCaller::CallInfo>& call_info, bool is_leaf);
 
     /// The settled pair reordered onto its haplotypes, for the anchors.
@@ -315,6 +315,20 @@ public:
     ///
     /// Returns the genotype unchanged when there is no phasing, no entry, or no exact reversal.
     vector<int> phase_ordered_genotype(size_t record_key, const vector<int>& genotype) const;
+
+    /// Which haplotype a one-allele genotype sits on, for the anchors: 0 or 1.
+    ///
+    /// The haploid counterpart of `phase_ordered_genotype`, and it has to be a separate call
+    /// because a one-element `vector<int>` has nowhere to put the answer -- reordering a pair
+    /// expresses the phase, reordering a single allele expresses nothing. A nested haploid chain is
+    /// one strand of a diploid locus, which is why it has a strand at all; `emit_variant` writes it
+    /// as `a|.` or `.|a` from the same `nested_strand`, so this is what makes the anchor's slot and
+    /// the record's GT field agree.
+    ///
+    /// Returns 0 -- the safe default, and what a genuinely haploid locus wants -- when there is no
+    /// phasing, no entry, a ploidy other than 1, no nested strand, or a phase that names a
+    /// different allele than the one this site settled on.
+    int phase_haploid_slot(size_t record_key, const vector<int>& genotype) const;
 
     /// Arm read-backed phasing. See read_phasing.hpp for what it does and why its shape is what
     /// it is. Requires the linkage layer, since it rewrites the phase that layer settled.

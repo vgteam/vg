@@ -9,7 +9,7 @@ PATH=../bin:$PATH # for vg
 # FORMAT field shifts every later one, which broke four assertions here that were not
 # testing field order at all -- one of them silently compared BL against a GQ threshold.
 
-plan tests 399
+plan tests 403
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -508,9 +508,14 @@ is $(if [ $(grep -vc "^#" rl_mosaic.tsv) -lt $(grep -vc "^#" rl_phased.vcf) ]; t
 # Two strands, so every contig must appear on both -- a mosaic naming only one strand would
 # describe a haploid genome.
 is $(grep -v "^#" rl_mosaic.tsv | cut -f3 | sort -u | tr -d '\n') "01" "the mosaic covers both strands"
-# Segments must name a haplotype the panel actually has, or the file cannot be read back.
-is $(grep -v "^#" rl_mosaic.tsv | awk -F'\t' '$9 == "?" {n++} END {print n+0}') "0" \
-   "every mosaic segment names a known haplotype"
+# Segments must name a haplotype the panel actually has, or the file cannot be read back. Checked
+# against the file's own #haplotype table rather than for a sentinel: `?` is not one the writer
+# emits -- hap_index ($9) is an integer or `ref`, and the unnamed case is `*` in haplotype ($10),
+# which is legitimate -- so testing for it passed on every file ever written.
+is $(awk -F'\t' '$1 == "#haplotype" {h[$3] = 1; next} /^H\t/ {t++; if ($10 != "*" && !($10 in h)) n++} END {print n+0}' rl_mosaic.tsv) "0" \
+   "every mosaic segment names a haplotype the file declares"
+is $(awk -F'\t' '$1 == "#haplotype" {n++} END {print (n > 0) ? 1 : 0}' rl_mosaic.tsv) "1" \
+   "the mosaic declares a haplotype table for that check to test against"
 
 # --- the mosaic is self-describing ------------------------------------------
 # Three properties make the file readable without out-of-band knowledge: it names its reference, it
@@ -581,7 +586,7 @@ is $(awk -F'\t' '/^H\t/ {k=$2"/"$3"/"$4; if (k==pk && $9==ph && $9!="ref") n++; 
 # sites survived: the file said "no position here" and nothing checked whether that was true.
 
 # (1) Every segment covers at least one site. A zero-site segment is a run that was closed twice.
-is $(awk -F'\t' '/^H\t/ && $10 < 1 {n++} END {print n+0}' rl_mosaic.tsv) "0" \
+is $(awk -F'\t' '/^H\t/ && $9 != "ref" && ($11 == "." || $11 + 0 < 1) {n++} END {print n+0}' rl_mosaic.tsv) "0" \
    "every segment covers at least one site"
 
 # (2) The unwalkable count in the progress output must equal what is actually in the file. A named
@@ -589,7 +594,7 @@ is $(awk -F'\t' '/^H\t/ && $10 < 1 {n++} END {print n+0}' rl_mosaic.tsv) "0" \
 # it is told and the number it can count have to agree -- and tying them together is what stops the
 # writer from quietly widening that population again.
 vg call x.gbz --read-likelihood --gam sim.gam --mosaic-out rl_mosaic2.tsv --progress 2>rl_mosaic2.err >/dev/null
-is "$(awk -F'\t' '/^H\t/ && $8 != "." && $8 != "*" && $11 == "." {n++} END {print n+0}' rl_mosaic2.tsv)" \
+is "$(awk -F'\t' '/^H\t/ && $10 != "." && $10 != "*" && $12 == "." {n++} END {print n+0}' rl_mosaic2.tsv)" \
    "$(sed -n 's/.*mosaic: \([0-9]*\) segments name a haplotype the graph does not carry.*/\1/p' rl_mosaic2.err | head -1)" \
    "the reported unwalkable-segment count matches the file"
 rm -f rl_mosaic2.tsv rl_mosaic2.err
@@ -619,9 +624,13 @@ is $(awk -F'\t' '/^H\t/ {t++; if ($12 != ".") p++} END {print (p > t/2) ? 1 : 0}
 # fails if the segment crosses a fragment boundary. The caller splits on those boundaries, so
 # splitting can only ever add segments, never lose sites: the site total is the invariant to check.
 vg call x.gbz --read-likelihood --gam sim.gam --mosaic-out rl_mosaic2.tsv 2>/dev/null >/dev/null
-is $(awk -F'\t' '/^H\t/ {n += $10} END {print n+0}' rl_mosaic.tsv) \
-   $(awk -F'\t' '/^H\t/ {n += $10} END {print n+0}' rl_mosaic2.tsv) \
+is $(awk -F'\t' '/^H\t/ {n += $11} END {print n+0}' rl_mosaic.tsv) \
+   $(awk -F'\t' '/^H\t/ {n += $11} END {print n+0}' rl_mosaic2.tsv) \
    "fragment splitting is deterministic and conserves the site total"
+# Reachability: summing the wrong column gives 0 on both sides and the comparison holds whatever
+# splitting did. That is how the wrong column survived, so the total must be shown to be non-zero.
+is $(awk -F'\t' '/^H\t/ {n += $11} END {print (n > 0) ? 1 : 0}' rl_mosaic.tsv) "1" \
+   "the mosaic site total is non-zero, so conserving it means something"
 
 # Haploid chains. chrX outside the pseudoautosomal regions and all of chrY are haploid in a male
 # sample, and they used to be dropped from the linkage pass by a guard that only accepted a
@@ -1247,6 +1256,39 @@ is $(if [ $(echo "$PHASE_SLOTS" | cut -d' ' -f1) -gt 20 ]; then echo 1; else ech
 is $(echo "$PHASE_SLOTS" | cut -d' ' -f2) "0" \
    "slot i holds the reads of GT field i, so an anchor joins to a haplotype"
 
+# The half-called sites the comparison above skips -- `g[1] == "." || g[2] == "."` -- are exactly
+# where the same bug survived the v3 -> v4 fix. A nested haploid chain sits on ONE strand of a
+# diploid locus, so its single slot is a haplotype, and v4 stamped it 0 whichever strand that was:
+# every `.|a` site named the wrong one. Nothing in the VCF carries the slot, so no other assertion
+# here can see it, and F1 cannot either -- the VCF is byte-identical across the fix.
+#
+# x.gbz cannot test this: it has no chain that only one parent allele crosses, so it produces no
+# half-called site at all and the check would pass on an empty comparison. nest.gbz does -- p2#0 is
+# `>1>6`, deleting the whole middle, so against p2#1 the two nested SNP sites exist on one strand
+# only. It is still alive here; line ~1385 is what removes it.
+vg call nest.gbz --read-likelihood --gam nest_hap.gam -t 1 -s samp --nested --phased \
+    --anchors-out nest_hap_anchors.tsv 2>/dev/null > nest_hap_anchors.vcf
+HAP_SLOTS=$(awk -F'\t' '
+  NR==FNR {
+    if ($0 ~ /^#/) next
+    nf = split($9, k, ":"); gt = ""; split($10, v, ":")
+    for (i = 1; i <= nf; i++) { if (k[i] == "GT") gt = v[i] }
+    if (gt !~ /\|/) next
+    split(gt, g, "|")
+    if (g[1] == "." && g[2] != ".") want[$3] = 1
+    else if (g[2] == "." && g[1] != ".") want[$3] = 0
+    next
+  }
+  $1 == "A" && ($3 in want) { ++total; if ($4 != want[$3]) ++bad }
+  END { print total+0, bad+0 }' nest_hap_anchors.vcf nest_hap_anchors.tsv)
+
+# Reachability first: a zero mismatch count from an empty comparison looks exactly like a pass, and
+# on x.gbz that is precisely what it was.
+is $(if [ $(echo "$HAP_SLOTS" | cut -d' ' -f1) -gt 0 ]; then echo 1; else echo 0; fi) "1" \
+   "the nested fixture offers half-called sites to check the haploid slot against"
+is $(echo "$HAP_SLOTS" | cut -d' ' -f2) "0" \
+   "a nested haploid site's slot is the strand its GT names, not always 0"
+
 # The in-process invariant: each pin checked against the graph's own base while the read was live.
 is $(grep -c "pins verified against the graph, 0 failed" rl_anchors.err) "1" \
    "every pin verifies against the graph"
@@ -1348,7 +1390,7 @@ rm -f rl_anchors.tsv rl_anchors.vcf rl_anchors.err rl_anchors_hom.tsv rl_anchors
       rl_anchors_nopanel.tsv rl_anchors_sp.tsv rl_anchors_ph.tsv rl_anchors_ph.vcf \
       rl_phase_off.vcf rl_phase_on.vcf rl_phase_forced.vcf rl_phase_forced.err
 
-rm -f nestblk.gfa nestblk.gbz nestblk.gam nestblk.vcf nest.gfa nest.gbz nest.gam nest_default.vcf nest_nested.vcf nest_hap.gam nest_hap.vcf nest_hap_err.txt nest_hap.mosaic.tsv x.vg x.gbz x.gbwt sim.gam x.pack call.vcf callg.vcf callz.vcf callg.6 callz.6 callrl_nopack.vcf callrl_nopack_z.vcf callrl_withpack.vcf nopack_err.txt sim.sorted.gam sim.sorted.gam.gai rl_inmem.vcf rl_indexed.vcf gi_err.txt gb_err.txt gb_excl.txt gb_norl.txt gb_nobin.txt sim.gaf sim.gaf.db x.gbz.db rl_gafmem.vcf rl_gafbase.vcf rl_gafbase_t4.vcf rl_gafbase_w32.vcf rl_autoz_full.vcf rl_autoz.vcf rl_explicit_z.vcf rl_support_full.vcf rl_support.vcf es_nopack.txt es_z.txt es_g.txt nopanel.vg nopanel.gbwt nopanel.gbz nopanel.pack nopanel_err.txt poisson_default.vcf poisson_z.vcf rl_phased.vcf rl_default.vcf rl_nophase.vcf rl_nopanel.vcf rl_nopanel_err.txt rl_unphased_gt.txt rl_phased_gt.txt rl_ph_err.txt rl_mosaic.tsv rl_mosaic2.tsv rl_hap.vcf rl_hap_mosaic.tsv
+rm -f nest_hap_anchors.tsv nest_hap_anchors.vcf nestblk.gfa nestblk.gbz nestblk.gam nestblk.vcf nest.gfa nest.gbz nest.gam nest_default.vcf nest_nested.vcf nest_hap.gam nest_hap.vcf nest_hap_err.txt nest_hap.mosaic.tsv x.vg x.gbz x.gbwt sim.gam x.pack call.vcf callg.vcf callz.vcf callg.6 callz.6 callrl_nopack.vcf callrl_nopack_z.vcf callrl_withpack.vcf nopack_err.txt sim.sorted.gam sim.sorted.gam.gai rl_inmem.vcf rl_indexed.vcf gi_err.txt gb_err.txt gb_excl.txt gb_norl.txt gb_nobin.txt sim.gaf sim.gaf.db x.gbz.db rl_gafmem.vcf rl_gafbase.vcf rl_gafbase_t4.vcf rl_gafbase_w32.vcf rl_autoz_full.vcf rl_autoz.vcf rl_explicit_z.vcf rl_support_full.vcf rl_support.vcf es_nopack.txt es_z.txt es_g.txt nopanel.vg nopanel.gbwt nopanel.gbz nopanel.pack nopanel_err.txt poisson_default.vcf poisson_z.vcf rl_phased.vcf rl_default.vcf rl_nophase.vcf rl_nopanel.vcf rl_nopanel_err.txt rl_unphased_gt.txt rl_phased_gt.txt rl_ph_err.txt rl_mosaic.tsv rl_mosaic2.tsv rl_hap.vcf rl_hap_mosaic.tsv
 
 
 # subpath test

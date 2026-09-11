@@ -247,7 +247,16 @@ public:
         /// `slot` is an index into the settled *phased* pair, so slot i is field i of the record's
         /// `GT` at the same snarl id -- slot 0 the left allele, slot 1 the right. A homozygote
         /// collapses to one slot holding every read, and then there is no haplotype information to
-        /// join on. `allele` is the index into the site's candidate traversal set, which is NOT the
+        /// join on.
+        ///
+        /// A nested HAPLOID site collapses to one slot too, but for the opposite reason, and its
+        /// slot is *not* always 0: the chain sits on one strand of a diploid locus because the
+        /// parent's other allele deletes it, so its single slot IS a haplotype -- the one
+        /// `nested_strand` names, which the VCF writes as `a|.` or `.|a`. Slot 0 for a `.|a` site
+        /// would name the wrong haplotype, and nothing in the VCF could see it. That was v4's
+        /// remaining half of the bug the v3 -> v4 bump was made for.
+        ///
+        /// `allele` is the index into the site's candidate traversal set, which is NOT the
         /// VCF's ALT numbering: the ALT list is chosen later, in emit_variant, and anchors are built
         /// before it. Two slots carrying the same `allele` is what a homozygote looks like before
         /// collapsing; it cannot otherwise happen.
@@ -298,8 +307,11 @@ vector<double> site_slot_weights(const vector<uint32_t>& allele_length, size_t n
                                  float mean_read_length, bool length_weighted,
                                  const vector<int>& slot_allele);
 
+/// `haploid_slot` is which strand a one-allele `genotype` sits on, 0 or 1, and is ignored for any
+/// other genotype size. Supplied by the caller because `nested_strand` lives on the phasing record,
+/// which this layer has no access to -- the same reason the pair arrives already phase-ordered.
 void build_site_anchors(const AnchorSiteEvidence& evidence, const vector<int>& genotype,
-                        const string& snarl_id, double gqn, double explained,
+                        const string& snarl_id, double gqn, double explained, int haploid_slot,
                         const AnchorParams& params, AnchorCounters& counters,
                         vector<AnchorWriter::Anchor>& out);
 

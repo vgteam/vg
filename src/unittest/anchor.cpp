@@ -332,7 +332,7 @@ TEST_CASE("A coincident read is kept at one pin only", "[anchor]") {
     params.min_reads = 1;
     AnchorCounters counters;
     vector<AnchorWriter::Anchor> out;
-    build_site_anchors(ev, {0, 1}, ">1>4", 0.9, 1.0, params, counters, out);
+    build_site_anchors(ev, {0, 1}, ">1>4", 0.9, 1.0, 0, params, counters, out);
 
     REQUIRE(counters.coincident.load() == 4);
     // Only the two start anchors survive; every end anchor lost all its reads.
@@ -358,7 +358,7 @@ TEST_CASE("The two slots of a site partition the reads, and score is mismap-boun
     params.min_reads = 1;
     AnchorCounters counters;
     vector<AnchorWriter::Anchor> out;
-    build_site_anchors(ev, {0, 1}, ">1>4", 0.9, 1.0, params, counters, out);
+    build_site_anchors(ev, {0, 1}, ">1>4", 0.9, 1.0, 0, params, counters, out);
 
     REQUIRE(out.size() == 4);   // two slots at each of two pins
     size_t total = 0;
@@ -390,12 +390,12 @@ TEST_CASE("An end pin holding no reads of its own is dropped", "[anchor]") {
     AnchorCounters counters;
 
     vector<AnchorWriter::Anchor> out;
-    build_site_anchors(ev, {0, 1}, ">1>4", 0.9, 1.0, params, counters, out);
+    build_site_anchors(ev, {0, 1}, ">1>4", 0.9, 1.0, 0, params, counters, out);
     REQUIRE(out.size() == 4);            // two slots at each of two pins
 
     out.clear();
     params.end_pin_min_new = 1;
-    build_site_anchors(ev, {0, 1}, ">1>4", 0.9, 1.0, params, counters, out);
+    build_site_anchors(ev, {0, 1}, ">1>4", 0.9, 1.0, 0, params, counters, out);
     REQUIRE(out.size() == 2);            // two slots, start pin only
     for (const auto& anchor : out) {
         REQUIRE(anchor.node == ev.start_node);
@@ -423,7 +423,7 @@ TEST_CASE("An end pin reached by a read the start pin misses is kept", "[anchor]
     AnchorCounters counters;
 
     vector<AnchorWriter::Anchor> out;
-    build_site_anchors(ev, {0, 1}, ">1>4", 0.9, 1.0, params, counters, out);
+    build_site_anchors(ev, {0, 1}, ">1>4", 0.9, 1.0, 0, params, counters, out);
 
     // Read 3 sits in slot 1, so it is slot 1's end anchor that earns its place. Slot 0's end anchor
     // is entirely redundant and goes -- the decision is per slot, and a site-level one would have
@@ -443,7 +443,7 @@ TEST_CASE("An end pin reached by a read the start pin misses is kept", "[anchor]
     // carrying a whole anchor's worth of otherwise-redundant rows.
     out.clear();
     params.end_pin_min_new = 2;
-    build_site_anchors(ev, {0, 1}, ">1>4", 0.9, 1.0, params, counters, out);
+    build_site_anchors(ev, {0, 1}, ">1>4", 0.9, 1.0, 0, params, counters, out);
     REQUIRE(out.size() == 2);
 }
 
@@ -465,14 +465,73 @@ TEST_CASE("A homozygous site is emitted unless excluded", "[anchor]") {
     vector<AnchorWriter::Anchor> out;
     // By default a homozygous site still anchors: one anchor per pin, both slots collapsed into one.
     // It partitions nothing, but it links reads, and an anchor graph needs contiguity too.
-    build_site_anchors(ev, {0, 0}, ">1>4", 0.9, 1.0, params, counters, out);
+    build_site_anchors(ev, {0, 0}, ">1>4", 0.9, 1.0, 0, params, counters, out);
     REQUIRE(out.size() == 2);
     REQUIRE(out[0].slot == 0);
     REQUIRE(out[0].reads.size() == 4);
 
     out.clear();
     params.het_only = true;
-    build_site_anchors(ev, {0, 0}, ">1>4", 0.9, 1.0, params, counters, out);
+    build_site_anchors(ev, {0, 0}, ">1>4", 0.9, 1.0, 0, params, counters, out);
+    REQUIRE(out.empty());
+}
+
+TEST_CASE("A nested haploid site takes the slot its strand names", "[anchor]") {
+    // One allele, not two: a nested chain the parent's other allele deletes, so there is nothing to
+    // genotype on the other strand. It collapses to one slot like a homozygote, but that slot is a
+    // haplotype -- the VCF writes the site as `a|.` or `.|a` from the same strand -- and stamping
+    // it 0 either way is what v4 did, silently naming the wrong haplotype on every `.|a` site.
+    vector<AnchorPlacement> starts, ends;
+    for (int i = 0; i < 4; ++i) {
+        AnchorPlacement s;
+        s.offset = 10 + i;
+        starts.push_back(s);
+        AnchorPlacement e;
+        e.offset = 30 + i;
+        ends.push_back(e);
+    }
+    AnchorSiteEvidence ev = two_allele_evidence({0, 0, 0, 0}, starts, ends);
+
+    AnchorCounters counters;
+    AnchorParams params;
+    params.min_reads = 1;
+
+    vector<AnchorWriter::Anchor> out;
+    build_site_anchors(ev, {0}, ">1>4", 0.9, 1.0, 0, params, counters, out);
+    REQUIRE(out.size() == 2);            // one per pin
+    REQUIRE(out[0].slot == 0);
+    REQUIRE(out[1].slot == 0);
+    REQUIRE(out[0].reads.size() == 4);   // the single slot holds every read either way
+
+    out.clear();
+    build_site_anchors(ev, {0}, ">1>4", 0.9, 1.0, 1, params, counters, out);
+    REQUIRE(out.size() == 2);
+    REQUIRE(out[0].slot == 1);
+    REQUIRE(out[1].slot == 1);
+    REQUIRE(out[0].reads.size() == 4);   // strand changes the label, not the partition
+
+    // The strand is meaningless for a pair and must not leak into one: a diploid site's slots are
+    // its GT's field order, which `phase_ordered_genotype` has already applied. Its own evidence,
+    // with the reads actually split between the alleles -- against the all-allele-0 fixture above,
+    // slot 1 would hold nothing and `min_reads` would drop it before the slot could be checked.
+    AnchorSiteEvidence split = two_allele_evidence({0, 0, 1, 1}, starts, ends);
+    out.clear();
+    build_site_anchors(split, {0, 1}, ">1>4", 0.9, 1.0, 1, params, counters, out);
+    REQUIRE(out.size() == 4);
+    int seen0 = 0, seen1 = 0;
+    for (const AnchorWriter::Anchor& a : out) {
+        REQUIRE(a.slot >= 0);
+        REQUIRE(a.slot <= 1);
+        a.slot == 0 ? ++seen0 : ++seen1;
+    }
+    REQUIRE(seen0 == 2);
+    REQUIRE(seen1 == 2);
+
+    // --anchors-het-only still drops it, strand or no strand: its one slot holds every read, so it
+    // partitions nothing, which is the property that switch selects on. Only the slot changed.
+    out.clear();
+    params.het_only = true;
+    build_site_anchors(ev, {0}, ">1>4", 0.9, 1.0, 1, params, counters, out);
     REQUIRE(out.empty());
 }
 

@@ -215,11 +215,13 @@ def main():
 
     if version is None:
         fail("no #anchors-version header, so the format is unknown")
-    elif version != "4":
-        # v3 is refused rather than tolerated: it has these columns but its `slot` is in allele
-        # order, so it reads cleanly and joins wrongly.
-        fail(f"#anchors-version {version} is not the one this script understands (4)")
-    if version == "4" and not id_name:
+    elif version != "5":
+        # v3 and v4 are refused rather than tolerated: both have these columns and both get `slot`
+        # wrong in a way that reads cleanly and joins wrongly. v3 wrote it in allele order for
+        # every site; v4 fixed the diploid pair and still wrote 0 for both strands of a nested
+        # haploid site, so every `.|a` site named the wrong haplotype.
+        fail(f"#anchors-version {version} is not the one this script understands (5)")
+    if version == "5" and not id_name:
         fail("no #read table, but every version from 2 on interns every read name")
 
     if shared_names:

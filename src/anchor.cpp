@@ -310,7 +310,7 @@ vector<double> site_slot_weights(const vector<uint32_t>& allele_length, size_t n
 }
 
 void build_site_anchors(const AnchorSiteEvidence& evidence, const vector<int>& genotype,
-                        const string& snarl_id, double gqn, double explained,
+                        const string& snarl_id, double gqn, double explained, int haploid_slot,
                         const AnchorParams& params, AnchorCounters& counters,
                         vector<AnchorWriter::Anchor>& out) {
 
@@ -323,6 +323,12 @@ void build_site_anchors(const AnchorSiteEvidence& evidence, const vector<int>& g
             return;
         }
     }
+    // A one-allele genotype is a HAPLOID call, not a homozygote, and `hom` below cannot tell them
+    // apart: its loop starts at 1, so a single allele leaves it true. That is right for
+    // `--anchors-het-only`, which drops both -- a haploid site's one slot holds every read, so it
+    // partitions nothing either -- and wrong for the slot, which for a haploid site is a haplotype.
+    // Hence a separate flag rather than a change to `hom`.
+    const bool haploid = genotype.size() == 1;
     bool hom = true;
     for (size_t i = 1; i < genotype.size(); ++i) {
         if (genotype[i] != genotype[0]) {
@@ -348,6 +354,13 @@ void build_site_anchors(const AnchorSiteEvidence& evidence, const vector<int>& g
     }
     const size_t n_slots = slot_allele.size();
 
+    // Where the one slot lands. A homozygote's is slot 0 and names no haplotype; a nested haploid
+    // site's names the strand `nested_strand` gave, so slot 0 would be wrong for every `.|a` site
+    // -- 1,523 of chr20's 2,417 half-called sites, and invisible to F1 because no VCF field carries
+    // it. Clamped rather than trusted: a slot outside {0,1} would break the file's own promise that
+    // slot indexes a GT field.
+    const int base_slot = (haploid && haploid_slot == 1) ? 1 : 0;
+
     const vector<double> weight = site_slot_weights(
         evidence.allele_length, evidence.n_alleles, evidence.mean_read_length,
         evidence.length_weighted, slot_allele);
@@ -362,7 +375,7 @@ void build_site_anchors(const AnchorSiteEvidence& evidence, const vector<int>& g
     for (size_t i = 0; i < n_slots; ++i) {
         start_anchors[i].node = evidence.start_node;
         start_anchors[i].snarl = snarl_id;
-        start_anchors[i].slot = (int)i;
+        start_anchors[i].slot = (int)i + base_slot;
         start_anchors[i].allele = slot_allele[i];
         start_anchors[i].gqn = gqn;
         start_anchors[i].explained = explained;
@@ -598,11 +611,14 @@ bool AnchorWriter::write(const string& path, const string& graph_name, const str
         cerr << "error [vg call]: could not open " << path << " for the anchor output" << endl;
         return false;
     }
-    // 4, not 3: v3's `slot` column was written in allele order while this header promised the
-    // GT's field order, so every join from an anchor to a haplotype was a coin flip. The
-    // columns are unchanged -- only the meaning of `slot` is now the documented one -- but a
-    // v3 file cannot be phased and a consumer has to be able to tell.
-    out << "#anchors-version\t4\n";
+    // 5, not 4: v3's `slot` column was written in allele order while this header promised the
+    // GT's field order, so every join from an anchor to a haplotype was a coin flip. v4 fixed
+    // that for the diploid pair and left the HAPLOID half of it standing -- a nested chain sits
+    // on one strand of a diploid locus, and its single slot was stamped 0 whichever strand that
+    // was, so every `.|a` site named the wrong haplotype. 1,523 of chr20's 2,417 half-called
+    // sites, and no VCF field carries the slot, so nothing downstream could see it. The columns
+    // are unchanged again; only `slot` finally means what all three headers have promised.
+    out << "#anchors-version\t5\n";
     out << "#graph\t" << graph_name << "\n";
     out << "#sample\t" << sample << "\n";
     out << "#reads\t" << reads_source << "\n";
@@ -630,6 +646,10 @@ bool AnchorWriter::write(const string& path, const string& graph_name, const str
     out << "#note\tslot indexes the settled PHASED pair, so slot i is field i of that snarl's GT in "
         << "the VCF -- slot 0 the left allele, slot 1 the right. A homozygous site collapses to one "
         << "slot holding every read, and carries no haplotype information to join on\n";
+    out << "#note\ta nested HAPLOID site also holds one slot, but it is a haplotype: the chain is "
+        << "on one strand of a diploid locus because the parent's other allele deletes it. Its slot "
+        << "is the strand, matching the non-'.' field of the site's a|. or .|a GT. From v5 -- v4 "
+        << "wrote 0 for both strands\n";
     out << "#note\tallele is the index into the site's candidate traversal set, which is NOT the "
         << "VCF ALT number: the ALT list is chosen after anchors are built. Use slot to join to GT\n";
     out << "#note\tgqn and explained are the site's, so they repeat across its slots. Anything else "

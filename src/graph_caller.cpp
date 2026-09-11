@@ -1210,7 +1210,29 @@ vector<int> VCFOutputCaller::phase_ordered_genotype(size_t record_key,
     return ordered;
 }
 
+int VCFOutputCaller::phase_haploid_slot(size_t record_key, const vector<int>& genotype) const {
+    if (!emit_phasing || genotype.size() != 1) {
+        return 0;
+    }
+    const auto found = render_phases.find(record_key);
+    if (found == render_phases.end() || found->second.ploidy != 1
+        || found->second.nested_strand < 0) {
+        // No nested strand means a genuinely haploid locus -- chrY, or a haploid --ploidy-bed
+        // region -- where there is no second haplotype for slot 1 to mean anything against.
+        return 0;
+    }
+    // Only where the phase names the very allele this site settled on. The same refusal
+    // `phase_ordered_genotype` makes on a non-reversal and `emit_variant` makes in its `same`
+    // check: a PhaseCall that is not about this genotype must not decide which haplotype this
+    // site's reads are stamped with.
+    if (found->second.trav_first != genotype[0]) {
+        return 0;
+    }
+    return (int)found->second.nested_strand;
+}
+
 void VCFOutputCaller::collect_anchors_for(const Snarl& snarl, const vector<int>& genotype,
+                                          int haploid_slot,
                                           const unique_ptr<SnarlCaller::CallInfo>& call_info,
                                           bool is_leaf) {
     if (anchor_path.empty() || anchor_writer == nullptr || call_info == nullptr) {
@@ -1228,7 +1250,8 @@ void VCFOutputCaller::collect_anchors_for(const Snarl& snarl, const vector<int>&
     }
     vector<AnchorWriter::Anchor> anchors;
     build_site_anchors(*info->anchor_evidence, genotype, print_snarl(snarl), info->gq_fraction,
-                       info->explained_share, anchor_params, anchor_counters(), anchors);
+                       info->explained_share, haploid_slot, anchor_params, anchor_counters(),
+                       anchors);
     for (AnchorWriter::Anchor& anchor : anchors) {
         anchor_writer->add(std::move(anchor));
     }
@@ -6389,7 +6412,7 @@ void FlowCaller::render_retained_records() {
             // `1|0` demands. `genotype` itself is deliberately left alone: emit_variant iterates it
             // to build the ALT list, AD, GL and QUAL, so permuting it here would reorder the record.
             collect_anchors_for(rec.snarl, phase_ordered_genotype(rec.record_key, genotype),
-                                rec.call_info,
+                                phase_haploid_slot(rec.record_key, genotype), rec.call_info,
                                 anchors_want_leaf_test() ? snarl_is_leaf(rec.snarl) : true);
             emit_variant(graph, snarl_caller, rec.snarl, rec.travs, genotype, rec.ref_trav_idx,
                          rec.call_info, rec.ref_path_name, rec.ref_offset, genotype_snarls,
@@ -6999,7 +7022,7 @@ void FlowCaller::hand_off_deferred_records() {
             // written its variation, so a line here would write it twice. It is still a genotyped
             // site, and an anchor is a different file, so it still anchors.
             collect_anchors_for(pr.snarl, phase_ordered_genotype(pr.record_key, pr.genotype),
-                                pr.call_info,
+                                phase_haploid_slot(pr.record_key, pr.genotype), pr.call_info,
                                 anchors_want_leaf_test() ? snarl_is_leaf(pr.snarl) : true);
             ++inline_unrendered;
             continue;
@@ -7013,7 +7036,7 @@ void FlowCaller::hand_off_deferred_records() {
             // Anchors do not care: a pin is keyed on a node ID and needs neither REF nor POS. These
             // are the off-reference sites, which is where an assembler most needs help.
             collect_anchors_for(pr.snarl, phase_ordered_genotype(pr.record_key, pr.genotype),
-                                pr.call_info,
+                                phase_haploid_slot(pr.record_key, pr.genotype), pr.call_info,
                                 anchors_want_leaf_test() ? snarl_is_leaf(pr.snarl) : true);
             ++no_ref_unrendered;
             continue;
