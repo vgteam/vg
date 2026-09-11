@@ -1982,11 +1982,11 @@ void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::ve
     // Track how many tree chains were used
     std::unordered_map<size_t, size_t> chains_per_tree;
 
-    // Track what node ID, orientation, read-minus-node offset tuples were used
-    // in previously generated alignments, so we can fish out alignments to
-    // different placements.
+    // Track what positions were used in previously generated alignments, so we
+    // can fish out alignments to different placements.
     // Use pairs since we can't hash tuples.
-    std::unordered_set<std::pair<std::pair<nid_t, bool>, int64_t>> used_matchings;
+    // {((node ID, orientation), read-minus-node) : (chain number, alignment number)}
+    std::unordered_map<std::pair<std::pair<nid_t, bool>, int64_t>, std::pair<size_t, size_t>> used_matchings;
 
     
     // Go through the chains in estimated-score order.
@@ -2034,6 +2034,11 @@ void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::ve
                         {
                             cerr << log_name() << "Chain " << processed_num << " overlaps a previous alignment at read pos " << read_pos << " and graph pos " << graph_pos << " with matching " << matching.first.first << ", " << matching.first.second << ", " << matching.second << endl;
                         }
+                    }
+                    if (chain_score_estimates[processed_num] == chain_score_estimates[used_matchings.at(matching).first]) {
+                        // Don't count this chain against the other one, since it's overlapping
+                        crash_unless(chain_count_by_alignment[used_matchings.at(matching).second] > 0);
+                        chain_count_by_alignment[used_matchings.at(matching).second]--;
                     }
                     return false;
                 } else {
@@ -2163,7 +2168,7 @@ void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::ve
                             }
 #endif
 
-                            used_matchings.emplace(std::move(matching));
+                            used_matchings.emplace(std::move(matching), std::make_pair(processed_num, chain_count_by_alignment.size() - 1));
                         }
                         read_pos += edit.to_length();
                         graph_offset += edit.from_length();
