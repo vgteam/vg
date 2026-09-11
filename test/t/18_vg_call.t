@@ -9,7 +9,7 @@ PATH=../bin:$PATH # for vg
 # FORMAT field shifts every later one, which broke four assertions here that were not
 # testing field order at all -- one of them silently compared BL against a GQ threshold.
 
-plan tests 403
+plan tests 406
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -1288,6 +1288,39 @@ is $(if [ $(echo "$HAP_SLOTS" | cut -d' ' -f1) -gt 0 ]; then echo 1; else echo 0
    "the nested fixture offers half-called sites to check the haploid slot against"
 is $(echo "$HAP_SLOTS" | cut -d' ' -f2) "0" \
    "a nested haploid site's slot is the strand its GT names, not always 0"
+
+# reliability is a DERIVED column -- the mean of the site's own R-row scores -- so it must agree
+# with them exactly, or a consumer that filters on it is filtering on something else. Checked
+# against the file's own rows, with a read counted once across both pins and both slots, which is
+# the part a naive average gets wrong.
+REL_OK=$(awk -F'\t' '
+  function flush(  k, n, t) {
+    if (snarl == "") return
+    n = 0; t = 0
+    for (k in score) { n++; t += score[k] }
+    if (n > 0) { want[snarl] = t / n }
+    delete score
+  }
+  $1 == "A" { if ($3 != snarl) { flush(); snarl = $3 }; got[$3] = $8; if ($8 == ".") dot++; next }
+  $1 == "R" { score[$2] = $5; next }
+  END {
+    flush()
+    for (s in want) {
+      total++
+      d = want[s] - got[s]; if (d < 0) d = -d
+      # Not equality: the column is the UNROUNDED mean and the R rows are written to one decimal,
+      # so re-averaging them lands within ~0.05 (chr20 max 0.046 over 169,358 sites).
+      if (d > 0.06) bad++
+    }
+    print total+0, bad+0, dot+0
+  }' rl_anchors.tsv)
+
+is $(if [ $(echo "$REL_OK" | cut -d' ' -f1) -gt 20 ]; then echo 1; else echo 0; fi) "1" \
+   "the anchor file offers sites to check reliability against their own read rows"
+is $(echo "$REL_OK" | cut -d' ' -f2) "0" \
+   "reliability is the mean of the site's per-read scores, deduped across pins and slots"
+is $(echo "$REL_OK" | cut -d' ' -f3) "0" \
+   "no emitted anchor carries the no-reads reliability sentinel"
 
 # The in-process invariant: each pin checked against the graph's own base while the read was live.
 is $(grep -c "pins verified against the graph, 0 failed" rl_anchors.err) "1" \

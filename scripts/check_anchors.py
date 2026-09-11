@@ -121,7 +121,7 @@ def main():
             if line.startswith("#"):
                 continue
             fields = line.rstrip("\n").split("\t")
-            if fields[0] == "A" and len(fields) == 7:
+            if fields[0] == "A" and len(fields) == 8:
                 current = (int(fields[1]), fields[2], int(fields[3]))
                 in_anchor = set()
             elif fields[0] == "R" and current is not None and len(fields) == 5:
@@ -159,8 +159,8 @@ def main():
                 continue
             fields = line.split("\t")
             if fields[0] == "A":
-                if len(fields) != 7:
-                    fail(f"line {lineno}: an A row has {len(fields)} fields, expected 7")
+                if len(fields) != 8:
+                    fail(f"line {lineno}: an A row has {len(fields)} fields, expected 8")
                     continue
                 node, snarl, slot = int(fields[1]), fields[2], int(fields[3])
                 if last_node is not None and node < last_node:
@@ -215,13 +215,14 @@ def main():
 
     if version is None:
         fail("no #anchors-version header, so the format is unknown")
-    elif version != "5":
+    elif version != "6":
         # v3 and v4 are refused rather than tolerated: both have these columns and both get `slot`
         # wrong in a way that reads cleanly and joins wrongly. v3 wrote it in allele order for
         # every site; v4 fixed the diploid pair and still wrote 0 for both strands of a nested
-        # haploid site, so every `.|a` site named the wrong haplotype.
-        fail(f"#anchors-version {version} is not the one this script understands (5)")
-    if version == "5" and not id_name:
+        # haploid site, so every `.|a` site named the wrong haplotype. v5 is correct but has seven
+        # A-row columns, not eight, so the width check below would reject it with a worse message.
+        fail(f"#anchors-version {version} is not the one this script understands (6)")
+    if version == "6" and not id_name:
         fail("no #read table, but every version from 2 on interns every read name")
 
     if shared_names:

@@ -9,6 +9,7 @@
 /// arithmetic was never right.
 ///
 
+#include <map>
 #include <string>
 #include <vector>
 
@@ -474,6 +475,53 @@ TEST_CASE("A homozygous site is emitted unless excluded", "[anchor]") {
     params.het_only = true;
     build_site_anchors(ev, {0, 0}, ">1>4", 0.9, 1.0, 0, params, counters, out);
     REQUIRE(out.empty());
+}
+
+TEST_CASE("A site's reliability is the mean score of the reads it emitted", "[anchor]") {
+    // Site-level, so every anchor of the site carries the same value, and it is computed over the
+    // reads that actually reached the file -- a consumer averaging the R rows must get the same
+    // number back, which is the only reason to write a derivable column at all.
+    vector<AnchorPlacement> starts, ends;
+    for (int i = 0; i < 4; ++i) {
+        AnchorPlacement s;
+        s.offset = 10 + i;
+        starts.push_back(s);
+        AnchorPlacement e;
+        e.offset = 30 + i;
+        ends.push_back(e);
+    }
+    AnchorSiteEvidence ev = two_allele_evidence({0, 0, 1, 1}, starts, ends);
+
+    AnchorCounters counters;
+    AnchorParams params;
+    params.min_reads = 1;
+    vector<AnchorWriter::Anchor> out;
+    build_site_anchors(ev, {0, 1}, ">1>4", 0.9, 1.0, 0, params, counters, out);
+    REQUIRE(out.size() == 4);
+
+    // Every row of the site agrees, and none is the "no reads" sentinel.
+    for (const AnchorWriter::Anchor& a : out) {
+        REQUIRE(a.reliability == Approx(out[0].reliability));
+        REQUIRE(a.reliability >= 0.0);
+    }
+
+    // And it equals the mean over the site's DISTINCT reads -- each counted once, though every
+    // one of them appears at two pins.
+    std::map<string, double> per_read;
+    size_t rows = 0;
+    for (const AnchorWriter::Anchor& a : out) {
+        for (const AnchorWriter::ReadRow& r : a.reads) {
+            per_read[r.name] = r.score;
+            ++rows;
+        }
+    }
+    REQUIRE(per_read.size() == 4);
+    REQUIRE(rows == 8);                  // four reads, two pins each: the dedupe is not a no-op
+    double sum = 0.0;
+    for (const auto& e : per_read) {
+        sum += e.second;
+    }
+    REQUIRE(out[0].reliability == Approx(sum / 4.0));
 }
 
 TEST_CASE("A nested haploid site takes the slot its strand names", "[anchor]") {

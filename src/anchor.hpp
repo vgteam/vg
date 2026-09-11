@@ -264,6 +264,18 @@ public:
         int allele = -1;
         double gqn = -1.0;
         double explained = 1.0;
+        /// The site's mean per-read `score`, over the reads it actually emitted, each read once.
+        ///
+        /// Site-level like `gqn` and `explained`, so it repeats across the site's anchors. It is
+        /// the same quantity `--phase-min-q` thresholds -- `PhaseSite::reliability` in
+        /// read_phasing.hpp -- and it is low exactly where the reads cannot tell the site's alleles
+        /// apart, which on ONT means a 1 bp indel. Derivable from the R rows, and written anyway
+        /// for two reasons: deriving it costs a pass over every read row plus knowing to count a
+        /// read once across both pins and both slots -- and the R rows are written to one decimal,
+        /// so a derived value is only accurate to about 0.05 where this one is exact.
+        ///
+        /// -1 where the site emitted no read, which cannot happen for an anchor that is written.
+        double reliability = -1.0;
         vector<ReadRow> reads;
     };
 

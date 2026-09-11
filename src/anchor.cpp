@@ -505,6 +505,7 @@ void build_site_anchors(const AnchorSiteEvidence& evidence, const vector<int>& g
         }
     }
 
+    const size_t out_begin = out.size();
     for (size_t i = 0; i < n_slots; ++i) {
         if (start_anchors[i].reads.size() >= params.min_reads) {
             out.push_back(std::move(start_anchors[i]));
@@ -519,6 +520,40 @@ void build_site_anchors(const AnchorSiteEvidence& evidence, const vector<int>& g
         }
         if (!drop_end && end_anchors[i].reads.size() >= params.min_reads) {
             out.push_back(std::move(end_anchors[i]));
+        }
+    }
+
+    // The site's reliability: the mean per-read score over the reads it EMITTED, each read once.
+    //
+    // Computed from `out` rather than accumulated in the loop above, so that it averages exactly
+    // the reads a consumer can see. The filters decided just above are the reason: a slot under
+    // `--anchors-reads` disappears with all of its reads, and an end pin can be dropped while its
+    // start pin stays, so the set of reads that reach the file is not the set the loop walked.
+    //
+    // The same READS, but not quite the same NUMBER: R rows are written at one decimal place, so
+    // re-averaging them off the file lands within about 0.05 of this (chr20: median 0.010, p99
+    // 0.029, max 0.046 over 169,358 sites) rather than on it. This value is the unrounded mean,
+    // which is the better one to have; a consumer comparing the two needs a tolerance, not an
+    // equality.
+    //
+    // Keyed on the read NAME, which dedupes a read across both pins and both slots -- and dedupes
+    // paired mates into one observation, the same identity `PhaseSite` uses, since a fragment lies
+    // on one haplotype.
+    if (out.size() > out_begin) {
+        unordered_map<string, float> per_read;
+        for (size_t i = out_begin; i < out.size(); ++i) {
+            for (const AnchorWriter::ReadRow& row : out[i].reads) {
+                per_read.emplace(row.name, row.score);
+            }
+        }
+        double sum = 0.0;
+        for (const auto& entry : per_read) {
+            sum += (double)entry.second;
+        }
+        const double site_reliability =
+            per_read.empty() ? -1.0 : sum / (double)per_read.size();
+        for (size_t i = out_begin; i < out.size(); ++i) {
+            out[i].reliability = site_reliability;
         }
     }
 }
@@ -611,6 +646,10 @@ bool AnchorWriter::write(const string& path, const string& graph_name, const str
         cerr << "error [vg call]: could not open " << path << " for the anchor output" << endl;
         return false;
     }
+    // 6, not 5: `reliability` is a new column, and the `score` it averages is now documented. A
+    // consumer that indexes A-row fields positionally is unaffected -- the column is appended --
+    // but one that checks the row width is not, and the two the tree ships both did.
+    //
     // 5, not 4: v3's `slot` column was written in allele order while this header promised the
     // GT's field order, so every join from an anchor to a haplotype was a coin flip. v4 fixed
     // that for the diploid pair and left the HAPLOID half of it standing -- a nested chain sits
@@ -618,7 +657,7 @@ bool AnchorWriter::write(const string& path, const string& graph_name, const str
     // was, so every `.|a` site named the wrong haplotype. 1,523 of chr20's 2,417 half-called
     // sites, and no VCF field carries the slot, so nothing downstream could see it. The columns
     // are unchanged again; only `slot` finally means what all three headers have promised.
-    out << "#anchors-version\t5\n";
+    out << "#anchors-version\t6\n";
     out << "#graph\t" << graph_name << "\n";
     out << "#sample\t" << sample << "\n";
     out << "#reads\t" << reads_source << "\n";
@@ -654,8 +693,21 @@ bool AnchorWriter::write(const string& path, const string& graph_name, const str
         << "VCF ALT number: the ALT list is chosen after anchors are built. Use slot to join to GT\n";
     out << "#note\tgqn and explained are the site's, so they repeat across its slots. Anything else "
            "about the site is in the VCF, joinable on the snarl column, which is its ID.\n";
+    out << "#note\tscore is the read's phred-scaled complement of the winning slot's share of its "
+        << "own responsibility, the mismapping probability included in the denominator. So its "
+        << "CEILING is phred(--mismap-min) -- "
+        << std::fixed << std::setprecision(2)
+        << (mismap_min > 0.0 ? -10.0 * log10(mismap_min) : 99.0) << std::defaultfloat
+        << " on this run -- not 60 or 99, and a read cannot score above it however cleanly it "
+        << "fits. 99 means the winner took the whole share and no cap applied\n";
+    out << "#note\treliability is the site's mean score over the reads it emitted, each read once "
+        << "across both pins and both slots -- the same quantity --phase-min-q thresholds, default "
+        << "9.5. It is low exactly where the reads cannot tell the site's alleles apart, which on "
+        << "ONT means a 1 bp indel. Site-level, so it repeats across the site's rows. It is the "
+        << "UNROUNDED mean, while the R rows it averages are written to one decimal, so "
+        << "re-deriving it from them lands within about 0.05 rather than exactly. From v6\n";
     out << "#reads-interned\t" << name_id.size() << "\n";
-    out << "#H\tA\tnode\tsnarl\tslot\tallele\tgqn\texplained\n";
+    out << "#H\tA\tnode\tsnarl\tslot\tallele\tgqn\texplained\treliability\n";
     out << "#H\tR\tread_id\tstrand\toffset\tscore\n";
     for (const auto& entry : name_id) {
         out << "#read\t" << entry.second << "\t" << entry.first << "\n";
@@ -668,7 +720,13 @@ bool AnchorWriter::write(const string& path, const string& graph_name, const str
         } else {
             out << std::setprecision(3) << a.gqn;
         }
-        out << "\t" << std::setprecision(3) << a.explained << "\n";
+        out << "\t" << std::setprecision(3) << a.explained << "\t";
+        if (a.reliability < 0.0) {
+            out << ".";
+        } else {
+            out << std::setprecision(2) << a.reliability;
+        }
+        out << "\n";
         for (const ReadRow& r : a.reads) {
             out << "R\t" << name_id[r.name] << "\t" << (int)r.strand << "\t" << r.offset << "\t"
                 << std::setprecision(1) << r.score << "\n";
