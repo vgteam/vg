@@ -98,7 +98,8 @@ struct PhaseSite {
 struct ReadPhasingParams {
     /// A site below this is not allowed to carry a link. Fitted on chr20; the distribution is tight
     /// (median 10.09, 25th percentile 9.95) so this is sensitive and wants re-fitting whenever the
-    /// per-read scores move -- `--qual-gap` moves them.
+    /// per-read scores move. `--mismap-min` moves them directly: the score's ceiling is phred of
+    /// it, 13.01 at the preset's 0.05 against 16.99 at the 0.02 default.
     double reliability = 9.5;
     /// Break the chain below this many log10 units of evidence.
     double break_threshold = 10.0;

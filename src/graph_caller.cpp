@@ -2870,7 +2870,7 @@ string VCFOutputCaller::trav_string(const HandleGraph& graph, const SnarlTravers
 
 thread_local VCFOutputCaller::NestedContext VCFOutputCaller::nested_context;
 thread_local size_t VCFOutputCaller::current_generation = 0;
-thread_local VCFOutputCaller::EmittedAlleles VCFOutputCaller::last_emitted;
+thread_local bool VCFOutputCaller::last_emit_valid = false;
 
 bool VCFOutputCaller::chain_reported_inline(const Snarl& snarl,
                                             const vector<SnarlTraversal>& travs,
@@ -3515,7 +3515,7 @@ bool VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCa
 
     // Stale from the previous emit on this thread until this one fills it in. Cleared rather than
     // left, so a descent after an emit that wrote nothing cannot read the last snarl's mapping.
-    last_emitted.valid = false;
+    last_emit_valid = false;
 
     if (trav_to_string == nullptr) {
         trav_to_string = [&](const vector<SnarlTraversal>& travs, const vector<int>& travs_genotype, int trav_allele, int genotype_allele, int ref_trav_idx) {
@@ -3803,7 +3803,7 @@ bool VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCa
     // add_variant: a parent that collapses to the reference emits nothing and still has children to
     // descend into, which is the case nested calling exists for.
     if (symbolic_manager != nullptr) {
-        last_emitted.valid = true;
+        last_emit_valid = true;
     }
 
     // One record per difference block, where that changes the answer. Placed here on purpose: the
@@ -3851,7 +3851,7 @@ bool VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCa
     // so: collapsing maps every one of its called traversals to allele 0, so it would enter as
     // 0/0, and a homozygous-reference site has no strand distinction to inherit. It is only in
     // traversal space that it is a real heterozygous site.
-    if (linkage_collector != nullptr && !suppress_linkage_record) {
+    if (linkage_collector != nullptr) {
         // The site was recorded at the genotyping site, before any of this ran. All that is left is
         // the traversal-to-VCF-allele map, which is a function of the allele list chosen just above
         // and so cannot exist before the record is built, and whether a line was actually written.
@@ -5521,7 +5521,7 @@ void FlowCaller::record_site(const Snarl& snarl, const vector<SnarlTraversal>& t
                             const unique_ptr<SnarlCaller::CallInfo>& call_info,
                             const string& ref_path_name, int ref_offset,
                             bool no_reference, int64_t anchor_position) {
-    if (linkage_collector == nullptr || suppress_linkage_record) {
+    if (linkage_collector == nullptr) {
         return;
     }
     const auto* rl_info =
@@ -6208,7 +6208,9 @@ bool FlowCaller::apply_regenotyping() {
              << " nested haploid chains weighted by whether the reads belong to their strand, "
              << c.haploid_would_move << " would move" << endl;
     }
-    if (!c.fit_count.empty()) {
+    if (show_progress && !c.fit_count.empty()) {
+        // Behind --progress: it is a dozen bins of four numbers each, which is a calibration
+        // diagnostic rather than a result, and the one-line summaries above are the report.
         cerr << "[vg call] re-genotyping calibration, |Lambda| / observed / predicted / n:";
         for (size_t i = 0; i < c.fit_count.size(); ++i) {
             cerr << "  " << c.fit_abs_lambda[i] << " " << c.fit_observed[i] << " "
@@ -7652,15 +7654,14 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
             // Snapshotted before the loop: each child call runs emit_variant of its own and
             // overwrites the thread's copy, so reading it inside the loop would describe the
             // previous child rather than this parent.
-            EmittedAlleles parent_alleles = last_emitted;
-            if (!emitted_this_call) {
-                // This snarl never went through emit_variant (a retained chain, or a GAF run), so
-                // last_emitted still holds some other snarl's mapping. Applying a foreign map to
-                // this snarl's traversals produced semantically garbage crossing masks that the
-                // barrier then used to gain, drop, and re-ploidy this snarl's descendants. The
-                // masks are recomputed at the barrier if this chain is ever actually emitted.
-                parent_alleles.valid = false;
-            }
+            //
+            // The `emitted_this_call` conjunct is the case where this snarl never went through
+            // emit_variant at all (a retained chain, or a GAF run), so the thread's flag still
+            // describes some other snarl. Applying a foreign map to this snarl's traversals
+            // produced semantically garbage crossing masks that the barrier then used to gain,
+            // drop and re-ploidy this snarl's descendants. The masks are recomputed at the barrier
+            // if this chain is ever actually emitted.
+            const bool parent_alleles_valid = last_emit_valid && emitted_this_call;
             // Deferral turns on exactly one question: can linkage still move this snarl's genotype?
             // Only a snarl that reached the linkage layer can be rewritten, so one with no entry has
             // a final genotype already and its children are visited now, as they always were. That
@@ -7751,7 +7752,7 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
                     nested_context.chain_key =
                         (size_t)((uint64_t)cb.first * 1000003ULL) ^ (size_t)(uint64_t)cb.second;
                 }
-                bool crossing_known = parent_alleles.valid;
+                bool crossing_known = parent_alleles_valid;
                 // No dependence on the parent having emitted anything: the mask is over this
                 // snarl's own candidate traversals, which exist whether or not a line was written.
                 // That is what made the old mask unavailable for a collapsed parent.

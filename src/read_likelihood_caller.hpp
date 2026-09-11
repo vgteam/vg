@@ -34,8 +34,11 @@ using namespace std;
  * NestedFlowCaller and LegacyCaller all dynamic_cast their caller to
  * SupportBasedSnarlCaller to reach get_support_finder(), and dereference the
  * result without a null check. That support finder supplies the node and edge
- * weights FlowTraversalFinder uses to *enumerate* alleles. So the pack file
- * stays required -- for enumeration, not for genotyping.
+ * weights FlowTraversalFinder uses to *enumerate* alleles.
+ *
+ * That was once why a pack file stayed required -- for enumeration, not for genotyping. It is not
+ * required any more: panel enumeration is the default under --read-likelihood, and it walks the
+ * GBZ's haplotypes instead of the flow finder, so `-k` is needed only for --enumerate-support.
  *
  * ## Relationship to the VCF layer
  *

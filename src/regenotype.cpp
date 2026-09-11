@@ -201,10 +201,13 @@ void fit_calibration(const vector<PhaseSite>& sites, const unordered_set<size_t>
     // tau such that sigmoid(tau * |Lambda|) matches the observed agreement, weighted by bin size.
     // A grid then a refinement: the objective is smooth and one-dimensional, and a closed form
     // would have to assume the link is exactly logistic, which is the thing being tested.
-    // Two parameters now, because one cannot fit the shape: agreement climbs through the whole
-    // range and never reaches 1, while a logistic saturates by |Lambda| = 100 at any temper. The
-    // ceiling is the per-read error floor, and fitting it is what lets the curve match both ends
-    // instead of the lowest bin only.
+    // The ceiling is a per-read error floor, and it is PINNED rather than fitted: fitting it does
+    // match the shape better -- agreement climbs through the whole range and never reaches 1,
+    // which a logistic cannot do at any temper -- and it makes the caller worse, ALL F1 -0.0014
+    // and indel -0.0047. The errors that create the floor are correlated, because they are
+    // mismapping, and the site-level escape already answers that; shrinking every read's
+    // confidence uniformly is the wrong response. So `--regeno-ceiling` sets it and the temper is
+    // fitted against whatever it is set to, which at the default 1 is the plain logistic.
     auto cost = [&](double tau, double ceil) {
         double acc = 0.0;
         for (const Bin& b : bins) {
@@ -216,48 +219,18 @@ void fit_calibration(const vector<PhaseSite>& sites, const unordered_set<size_t>
         }
         return acc;
     };
-    double best = 0.0, best_ceiling = 1.0, best_cost = cost(0.0, 1.0);
-    // A grid over both, then a coordinate refinement. The surface is smooth and two-dimensional;
-    // a closed form would have to assume the link really is logistic, which is the thing under
-    // test.
-    for (int ci = 50; ci <= 100; ++ci) {
-        const double ceil = ci * 0.01;
-        for (int i = 1; i <= 200; ++i) {
-            const double tau = i * 0.01;
-            const double c = cost(tau, ceil);
-            if (c < best_cost) {
-                best_cost = c;
-                best = tau;
-                best_ceiling = ceil;
-            }
-        }
-    }
-    for (double step = 0.005; step > 1e-4; step *= 0.5) {
-        for (int sgn = -1; sgn <= 1; sgn += 2) {
-            const double tau = best + sgn * step;
-            if (tau >= 0.0 && cost(tau, best_ceiling) < best_cost) {
-                best_cost = cost(tau, best_ceiling);
-                best = tau;
-            }
-            const double ceil = best_ceiling + sgn * step;
-            if (ceil > 0.0 && ceil <= 1.0 && cost(best, ceil) < best_cost) {
-                best_cost = cost(best, ceil);
-                best_ceiling = ceil;
-            }
-        }
-    }
-    if (params.ceiling >= 0.0) {
-        // Pinned by hand: refit the temper against it rather than keeping a temper fitted with a
-        // ceiling the caller has overridden.
-        best_ceiling = min(1.0, params.ceiling);
-        best = 0.0;
-        best_cost = cost(0.0, best_ceiling);
-        for (int i = 1; i <= 200; ++i) {
-            const double tau = i * 0.01;
-            if (cost(tau, best_ceiling) < best_cost) {
-                best_cost = cost(tau, best_ceiling);
-                best = tau;
-            }
+    // A grid over the temper alone, against the pinned ceiling. One dimension, and deliberately
+    // only the grid: a 0.01 step is the resolution this is fitted at, and the sweep is far flatter
+    // than that near the optimum. (A coordinate refinement to 1e-4 used to sit here, inherited
+    // from a two-dimensional fit whose result was then discarded unread; restoring it moves the
+    // temper and so moves genotypes, which the byte-identity gate catches.)
+    const double best_ceiling = min(1.0, params.ceiling);
+    double best = 0.0, best_cost = cost(0.0, best_ceiling);
+    for (int i = 1; i <= 200; ++i) {
+        const double tau = i * 0.01;
+        if (cost(tau, best_ceiling) < best_cost) {
+            best_cost = cost(tau, best_ceiling);
+            best = tau;
         }
     }
     counters.fit_abs_lambda.clear();

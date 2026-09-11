@@ -531,13 +531,11 @@ protected:
     /// allele 0. Thread-local and read immediately after the emit that filled it, for the same
     /// reason nested_context is.
     /// Whether the last emit on this thread described a real record, so a child descending from it
-    /// can tell "my parent's traversals are in hand" from "last_emitted still holds some other
-    /// snarl". That is the whole of what survives: the allele map, contig, POS and buffer handle
-    /// this once carried were each written on every emit and read by nothing.
-    struct EmittedAlleles {
-        bool valid = false;
-    };
-    static thread_local EmittedAlleles last_emitted;
+    /// can tell "my parent's traversals are in hand" from "this still describes some other snarl".
+    /// That is the whole of what survives: the allele map, contig, POS and buffer handle this once
+    /// carried were each written on every emit and read by nothing, so it is a bool rather than the
+    /// one-field struct it decayed into.
+    static thread_local bool last_emit_valid;
 
     /// Snarl hierarchy for symbolic collapsing, or null to compare alleles by sequence alone.
     const SnarlManager* symbolic_manager = nullptr;
@@ -596,9 +594,6 @@ protected:
     /// descent looks a parent's settled allele pair up in it.
     vector<LinkageCollector::PhaseCall> linkage_phased;
     bool linkage_resolved = false;
-    /// Set while the barrier re-emits, so the second pass does not add a second linkage entry for a
-    /// site the barrier has already respecified.
-    bool suppress_linkage_record = false;
     /// Totals for the one-line report, summed over however many generations ran.
     double linkage_seconds = 0.0;
     size_t linkage_changed = 0;
@@ -1446,9 +1441,11 @@ protected:
     /// because its `children_of` index buckets by `parent_record_key`, so every top-level record
     /// would land under key 0 and be walked as a sibling set.
     ///
-    /// Nothing reads this yet. It exists so the memory cost of building the record after the
-    /// genotype is decided is paid, and measured, in a commit whose output is byte-identical --
-    /// which is the one risk in that change a reviewer cannot check by reading.
+    /// Read by `records_for_render`, which applies the hand-off's three filters to it, and
+    /// through that by the barrier, the read phaser and the re-genotyping sweep. It began life
+    /// unread, so that the memory cost of building the record after the genotype is decided was
+    /// paid and measured in a commit whose output was byte-identical -- the one risk in that
+    /// change a reviewer could not check by reading.
     vector<vector<PendingRecord>> render_records;
 
 

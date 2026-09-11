@@ -29,7 +29,10 @@ using namespace std;
 
 
 void InMemorySiteReadSource::add_read(const Alignment& aln, const Filter& filter) {
-    if (filter.skip_secondary && aln.is_secondary()) {
+    // Secondary and unmapped are dropped unconditionally, and the first of those is not what vg's
+    // pack path does: a secondary alignment of a read already counted would break the per-read
+    // independence the genotype likelihood assumes. Only `min_mapq` between them is tunable.
+    if (aln.is_secondary()) {
         ++filtered_count;
         return;
     }
@@ -37,7 +40,7 @@ void InMemorySiteReadSource::add_read(const Alignment& aln, const Filter& filter
         ++filtered_count;
         return;
     }
-    if (filter.skip_unmapped && aln.path().mapping_size() == 0) {
+    if (aln.path().mapping_size() == 0) {
         ++filtered_count;
         return;
     }
@@ -157,7 +160,7 @@ size_t WindowedSiteReadSource::window_of(nid_t id) const {
 }
 
 bool WindowedSiteReadSource::passes_filter(const Alignment& aln) const {
-    if (filter.skip_secondary && aln.is_secondary()) {
+    if (aln.is_secondary()) {
         ++filtered;
         return false;
     }
@@ -165,7 +168,7 @@ bool WindowedSiteReadSource::passes_filter(const Alignment& aln) const {
         ++filtered;
         return false;
     }
-    if (filter.skip_unmapped && aln.path().mapping_size() == 0) {
+    if (aln.path().mapping_size() == 0) {
         ++filtered;
         return false;
     }

@@ -134,11 +134,14 @@ void help_call(char** argv) {
          << "                            indel knob; interacts with --mismap-max [0.02]" << endl
          << "      --preset NAME         a fitted parameter set for one read type." << endl
          << "                            `ont`: --gap-open 1 --gap-extend 1 --mismap-min" << endl
-         << "                            0.05, which on 43x ONT chr20 moves indel GT F1 0.749" << endl
-         << "                            -> 0.816 and ALL 0.926 -> 0.945 at no cost to SNVs," << endl
+         << "                            0.05 --read-phasing --regenotype. The scorer values" << endl
+         << "                            move indel GT F1 0.749 -> 0.816 and ALL 0.926 ->" << endl
+         << "                            0.945 on 43x ONT chr20 at no cost to SNVs," << endl
          << "                            reproducing at +0.061 on a held-out contig and" << endl
-         << "                            +0.069 at matched 30x coverage. An explicit flag" << endl
-         << "                            overrides the preset either side of it" << endl
+         << "                            +0.069 at matched 30x. The two read-phase flags then" << endl
+         << "                            cut switch error 3.79% -> 0.52% and take ALL F1 to" << endl
+         << "                            0.952. An explicit flag overrides the preset either" << endl
+         << "                            side of it" << endl
          << "      --gap-open N          read scorer's gap-open penalty [6]" << endl
          << "      --read-phasing        phase from the reads that span consecutive hets," << endl
          << "                            not from the haplotype panel alone. On under" << endl
@@ -165,8 +168,9 @@ void help_call(char** argv) {
          << "                            scores the correction without acting on it" << endl
          << "      --regeno-ledger FILE  write one line per site the correction would move" << endl
          << "      --regeno-ceiling N    cap on how often a read's strand log-odds is right." << endl
-         << "                            1 (the default) is no cap. A negative value fits it," << endl
-         << "                            which calibrates better and calls worse" << endl
+         << "                            1 (the default) is no cap. Fitting it instead" << endl
+         << "                            calibrates better and calls worse, so it is set" << endl
+         << "                            by hand and the temper is fitted against it" << endl
          << "      --no-regeno-haploid   stop weighting a nested HAPLOID chain's reads by" << endl
          << "                            whether the phase places them on its strand. On by" << endl
          << "                            default: there is no mixture to reweight there, so" << endl
@@ -215,7 +219,7 @@ void help_call(char** argv) {
          << "      --anchors-out FILE    write pangenome-guided assembly anchors to FILE. An" << endl
          << "                            anchor is a zero-length pin at a snarl boundary," << endl
          << "                            holding the reads that cross it partitioned by which" << endl
-         << "                            called allele they fit. Implies --read-likelihood" << endl
+         << "                            called allele they fit. Requires --read-likelihood" << endl
          << "      --anchors-end-new N   emit the end pin only where it holds at least N" << endl
          << "                            reads the start pin does not. Both pins carry the" << endl
          << "                            SAME partition, so where their read sets agree the" << endl
@@ -509,9 +513,8 @@ int main_call(int argc, char** argv) {
     // IS a single-base homopolymer indel.
     int gap_open = default_gap_open;
     int gap_extend = default_gap_extension;
-    // Charge a gap's open against the read's own confidence at it. Off by default because it moves
-    // genotypes, and because the functional form is still being chosen by measurement.
     // Read-backed phasing. Off by default: with it off the phase is the panel's, byte for byte.
+    // On under --preset ont.
     bool read_phasing = false;
     bool read_phasing_explicit = false;
     bool regenotype = false;
@@ -1464,8 +1467,9 @@ int main_call(int argc, char** argv) {
     // --flat-mixture and the rest were accepted and dropped.
     //
     // Read from argv rather than from an `explicit` bool per option. Most of these have non-zero
-    // defaults, so "was it set" is not recoverable from the parsed value, and eighteen more
-    // tracking bools would be worse than one scan. Tokens are matched whole, or up to an '=',
+    // defaults, so "was it set" is not recoverable from the parsed value, and a tracking bool for
+    // each of the thirty-odd options listed below would be worse than one scan. The nine that do
+    // carry one carry it because the preset has to know, not because this scan could not tell. Tokens are matched whole, or up to an '=',
     // so a filename containing one of these strings cannot trigger it.
     if (!read_likelihood) {
         static const vector<string> read_likelihood_only = {

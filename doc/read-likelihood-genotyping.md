@@ -378,11 +378,16 @@ vg call graph.gbz --read-likelihood --gam reads.gam > calls.vcf
 `--no-phased` turns it off. `--phased` still exists and asks for it explicitly, which changes only
 what happens when it cannot be delivered: the default declines quietly, an explicit request errors.
 
-**A caveat that belongs beside every phased number here.** Blocks are chromosome-length, but the
-switch rate is a few percent per adjacent heterozygous pair (see the table below), so the orientation
-re-randomises every few dozen sites and blockwise Hamming sits near 48%. A long block says which
-sites share one `PS`, not that the phase is trustworthy across a chromosome. Nested haploid records
-are worse again, at a 41% switch rate, so their strand assignment should be read as provisional.
+**A caveat that belongs beside every phased number from the panel alone.** Blocks are
+chromosome-length, but the panel's switch rate is a few percent per adjacent heterozygous pair (see
+the table below), so the orientation re-randomises every few dozen sites and blockwise Hamming sits
+near 48%. A long block says which sites share one `PS`, not that the phase is trustworthy across a
+chromosome.
+
+With long reads this is the problem [`--read-phasing`](#--read-phasing-the-phase-from-the-reads)
+solves, and it changes the numbers by an order of magnitude. Everything in the rest of this section
+describes the panel decoding, which is still what runs when the reads cannot span consecutive
+heterozygous sites.
 
 `GT` becomes `0|1`, and `FORMAT/PS` names the phase block. (Note the existing `INFO/PS` under `-A`
 is vg's parent-snarl pointer — a different field in a different namespace.)
@@ -394,11 +399,15 @@ what runs. Feasibility is guaranteed under panel enumeration — if allele *i* i
 haplotype and *j* by another, the pair spelling *i/j* exists — and the wildcard covers the rest.
 Measured, the constraint costs essentially nothing: 0.98× the switches on chr20, 0.96× on chr6.
 
-**Phase comes from the panel, not from reads.** A read-based phaser links two heterozygous sites
-only when a read or fragment spans both, so its blocks are read-length. Here linkage carries as far
-as the transition model allows, so **a phase block is a whole chain** — chromosome-scale. That is a
-much stronger claim than a read-based phaser makes, and switch error has to be read beside it,
-because shorter blocks make switch error small for free.
+**By default the phase comes from the panel, not from reads.** A read-based phaser links two
+heterozygous sites only when a read or fragment spans both, so its blocks are read-length. Here
+linkage carries as far as the transition model allows, so **a phase block is a whole chain** —
+chromosome-scale. That is a much stronger claim than a read-based phaser makes, and switch error
+has to be read beside it, because shorter blocks make switch error small for free.
+
+`--read-phasing` keeps the chromosome-scale blocks and takes the *orientation* from the reads
+instead; it is described [below](#--read-phasing-the-phase-from-the-reads) and is on by default
+under `--preset ont`.
 
 Measured against the phased T2T-Q100 HG002 truth, with HG002 excluded from the graph:
 
@@ -410,6 +419,49 @@ Measured against the phased T2T-Q100 HG002 truth, with HG002 excluded from the g
 
 Phasing quality is panel quality: the same chromosome with a richer panel loses a third of its
 switch errors. Expect a sample the panel represents poorly to do worse.
+
+### `--read-phasing` — the phase from the reads
+
+On wherever the reads are long enough to span consecutive heterozygous sites, which in practice
+means `--preset ont` turns it on and nothing else does. It keeps the panel's chromosome-scale
+blocks and replaces only the *orientation* of each site within them.
+
+The case for it is a coverage fact. At a 349 bp median heterozygous spacing, a 33 kb read spans
+95 sites, and **99.96% of adjacent heterozygous pairs share at least one read**. Where that holds
+the reads answer the question the panel is guessing at.
+
+**Three stages, and adjacency is deliberately not the axis.**
+
+1. Chain *consecutive reliable* sites, stepping over the unreliable ones, and break the chain where
+   the link is weak.
+2. Relink each break over a few reliable sites either side.
+3. Hang the unreliable sites off the settled chain. A misplacement there is a **flip** — two
+   junction errors that do not propagate — rather than a switch, which propagates forever.
+
+That shape is what the measurement forced. At the junctions stage 1 breaks, the adjacent link is
+**15.06%** wrong; the same junction decided by the nearest *reliable* site either side is **0.97%**
+wrong; the nearest site regardless of quality is **14.93%**, indistinguishable from adjacent.
+Reaching further buys nothing — stepping over bad sites is the entire effect.
+
+A site is reliable when its mean per-read confidence clears `--phase-min-q` (default 9.5). That
+quantity is low exactly where the reads cannot tell the site's alleles apart, which on ONT means a
+1 bp indel: **97.4%** of 1 bp indel heterozygous sites fall below the threshold against **4.6%** of
+SNVs. It is the same number the anchor file writes as `reliability`.
+
+| chr20 ONT 44x | switch error |
+|---|---|
+| panel only | 3.7942% |
+| `--read-phasing` | **0.5180%** |
+| chr6, held out at the same parameters | 3.1849% → **0.3447%** |
+
+**It does not move a genotype.** The evidence is a read's *allele responsibility*, which depends on
+the settled genotype and not on the phase, so re-orienting a site relabels its slots and nothing
+else. Verified as byte-identical `GT` across the flag. Re-deciding the genotype from the phase is a
+separate feature, [`--regenotype`](#--regenotype--the-reads-phase-decides-the-genotype).
+
+**Cost.** About +2.8 GB peak RSS on chr6, from retaining per-read evidence to the barrier. The
+threshold is coupled to `--mismap-min`, because the per-read score's ceiling is phred of it, so
+`--read-phasing` outside the preset runs in an unfitted regime and wants `--phase-min-q` re-chosen.
 
 ### `--mosaic-out FILE`
 
@@ -607,6 +659,156 @@ The same reordering is why the genotype in the VCF is always the one the model s
 second pass that revises it: the allele list, the symbolic-reference test that decides whether a line
 is written at all, `QUAL`, and the arity of `AD`/`GL`/`GQI` are all derived from the settled genotype
 when the record is built.
+
+## `--regenotype` — the reads' phase decides the genotype
+
+On by default under `--preset ont`, `--no-regenotype` to turn it off, and off everywhere else.
+Where `--read-phasing` re-orients a settled pair, this lets the phase re-decide the pair.
+
+**The correction.** The genotype likelihood weights each read's two alleles by the site's mixture
+weights `w_0, w_1` — the same weights for every read, because the model has no way to know which
+haplotype a read came from. But once the other sites are phased, it does: a read that crosses 40
+other heterozygous sites carries a strand log-odds `Λ_r` from all of them. So the site's weight is
+replaced by a per-read one,
+
+```
+π_r^0 = w_0 e^(τΛ_r) / (w_0 e^(τΛ_r) + w_1)
+```
+
+and `Λ_r` is computed leave-one-out, from every site the read touches *except* this one, so the
+site cannot vote on its own genotype.
+
+**Applied as a delta, not a re-derivation**: `ll'(g) = ll(g) + max_order S_π(g) − S_w(g)`. The
+depth term, the `−ln n!` normaliser and the row divisors all cancel, so nothing outside the mixture
+can drift.
+
+Three properties hold by construction, and all three are asserted in the tests:
+
+* `--regeno-temper 0` is **exactly** the identity — byte-identical output to not passing the flag.
+* A read spanning no other site has `Λ = 0` after leave-one-out, so its term cancels.
+* Homozygous likelihoods never move: with one allele there is nothing to reweight.
+
+**`τ` is fitted, without truth.** Bin reads by `|Λ|`; in each bin ask how often a read's implied
+strand agrees with what the other reads settled. Choose `τ` so `sigmoid(τ|Λ|)` matches. It comes out
+near 0.05 — `Λ` sums ~40 sites as if independent and is wildly overconfident, which is what the
+temper is for. `--regeno-temper N` pins it; the default `-1` means fit.
+
+| | ALL F1 | indel F1 |
+|---|---|---|
+| chr20, off | 0.94477 | 0.81568 |
+| chr20, on | **0.95151** | **0.83725** |
+| chr6 held out, off | 0.95342 | 0.83781 |
+| chr6 held out, on | **0.95960** | **0.86019** |
+
+It aims at what is broken: the 6,350 chr20 sites it moves run a **40.6%** false-positive rate
+against a 6.7% background. And the signal is the phase, not the magnitude — a control that shuffles
+each read's strand sign while keeping `|Λ|` loses 0.107 F1.
+
+**It runs as an EM.** Re-genotyping changes settled genotypes, which changes the phase, which
+changes `Λ`. `--regeno-passes` (default 2) caps the barrier passes; `τ` is fitted once rather than
+per round, since a second estimated quantity per round does not converge. Beyond two passes the
+iteration can enter a limit cycle — chr20 reaches a period-6 cycle at round 8 — which is detected
+and reported rather than presented as a fixed point.
+
+**Nested haploid chains get a different correction.** With one slot the mixture is `π = 1` and there
+is nothing to reweight, so the question becomes whether a read belongs to this strand at all: a
+nested chain sits on one of its parent's two haplotypes and reads from the other do not traverse it.
+Each read's weight becomes `incl = min(1, exp(x))` for `x` its tempered strand log-odds signed by
+the chain's strand, which can only *remove* wrong evidence, never manufacture right evidence. On by
+default, `--no-regeno-haploid` to disable. It moves SV F1 and nothing else (+0.0022 chr20, +0.0006
+chr6 held out), which is what the mechanism predicts, since every nested haploid chain sits inside a
+called structural allele.
+
+**`--regeno-ceiling` is off, and the reason is worth recording.** A two-parameter link,
+`P(agree) = c·sigmoid(τ|Λ|) + (1−c)/2`, calibrates the observed agreement much better than one
+parameter — the curve saturates around 0.97 rather than reaching 1, which a logistic cannot fit —
+and it makes the caller **worse** (ALL F1 −0.0014, indel −0.0047). The errors creating that ceiling
+are correlated, because they are mismapping, which the site-level escape already handles; shrinking
+every read's confidence uniformly is the wrong response to correlated error. The flag and the
+fitted calibration table stay as a diagnostic; the default is 1, no cap.
+
+## Assembly anchors (`--anchors-out`)
+
+For pangenome-guided assembly: at each called site, the reads crossing it partitioned by which
+called haplotype they fit, written as **zero-length pins**. A pin is a point *between* two
+positions, so there is no anchor sequence, no minimum length, and no way for two members to
+disagree about what the anchor spells.
+
+A pin is at one **end** of a boundary node, not at the node. Two snarls sharing a boundary node in
+a chain pin at opposite ends and never collide, whatever the node's length: on chr20 all 529,304
+pins land on 529,304 distinct `(node, side)` sites, and dropping the side collides 37.3% of them.
+
+Requires `--read-likelihood` — it is an error without it, not an implication.
+
+### Format
+
+`#anchors-version 6`. Tab-separated, two row types, and a read row belongs to the anchor row above
+it and does not repeat its key. The file is written in node order; do not sort it.
+
+```
+#H  A  node  snarl  slot  allele  gqn  explained  reliability
+#H  R  read_id  strand  offset  score
+```
+
+| A row | meaning |
+|---|---|
+| `node` | the boundary node the pin is on |
+| `snarl` | the site's ID, which is also the VCF `ID` column — **the join key, because POS is not one** |
+| `slot` | which haplotype: slot *i* is field *i* of that snarl's `GT` |
+| `allele` | index into the site's **candidate traversal set**, *not* the VCF ALT number |
+| `gqn`, `explained` | the site's, repeated across its rows |
+| `reliability` | the site's mean per-read `score`, repeated across its rows |
+
+`slot` took two format bumps to be true. v2 and v3 wrote it in *allele* order, so it carried no
+phase at all; v4 fixed the diploid pair and still wrote 0 for both strands of a nested haploid
+site, so every `.|a` site named the wrong haplotype — 3,886 sites on chr20, of which 2,334 have no
+VCF line at all. v5 fixed that and v6 added `reliability`. Each bump exists because the older file
+parses cleanly and joins wrongly, so `check_anchors.py` refuses anything but the current version.
+
+| R row | meaning |
+|---|---|
+| `read_id` | an index into the `#read` table in the header, which is the file's only copy of each name — 32.8% of the file before interning |
+| `strand` | which way the read crosses the site |
+| `offset` | 0-based index, in the read **as sequenced**, of the last base before the pin |
+| `score` | the read's confidence in its slot |
+
+**`score` has a ceiling, and it is not 60.** It is the phred complement of the winning slot's share
+of the read's own responsibility, with the mismapping probability in the denominator — so a read
+cannot score above **phred(`--mismap-min`)** however cleanly it fits: 13.01 under `--preset ont`,
+16.99 at the 0.02 default. On chr20 52% of read rows sit exactly at the ceiling. 99 is the sentinel
+for a winner that took the whole share.
+
+**`reliability` is the filter column.** It is the mean of `score` over the site's reads, each read
+counted once across both pins and both slots, and it is the same quantity `--phase-min-q`
+thresholds at 9.5. It is written rather than left to be derived because the R rows are rounded to
+one decimal, so a derived value is only good to about 0.05 (chr20 median 0.010, max 0.046).
+
+### Which anchors to trust
+
+Not all heterozygous anchors are equally good, and the two site-level columns are complementary.
+Measured on chr20 ONT 44x against the GIAB truth, over 59,919 labelled heterozygous sites with a
+4.49% baseline false-positive rate:
+
+| filter | kept | FP rate | FPs removed |
+|---|---|---|---|
+| `reliability >= 9.5` | 85.3% | 1.28% | 75.7% |
+| `gqn >= 0.5` | 76.0% | 0.73% | 87.6% |
+| **`reliability >= 9.5` and `gqn >= 0.3`** | **81.4%** | **0.78%** | **85.8%** |
+
+9.5 is a knee rather than a convention: tightening to 10.0 *raises* the residual FP rate, because
+heterozygous SNV reliability tops out at 10.26 and the cut starts taking the SNV bulk. Allele
+balance was measured as a third signal and is not worth using — at a 0.35 minor-slot fraction it
+keeps 89% and removes only 38%.
+
+Filtering costs almost no linkage. With 43.1 heterozygous sites per read at this depth, the
+survivors stay richly connected: singleton anchors stay at 0–1 across every threshold. What it
+costs is block length — connected components over shared reads go from 2 (N50 43,774) to 10
+(N50 20,891) at the recommended filter — and the loss is concentrated at about a dozen junctions
+around the centromere where the dropped sites were the only bridge. Re-admitting 709 of them, 1.22%
+of the kept set, rebuilds 13 of the 15 broken junctions.
+
+Because the threshold is tied to `--mismap-min` through the score's ceiling, refit it if you change
+that flag.
 
 ## Genotype quality and the VCF fields
 
@@ -985,6 +1187,46 @@ oriented node path. Orientation intact; nothing symbolic in it. Descent was unaf
 own lookup carries no such check, so those sites emitted child records *and* the parent's redundant
 long ALT. Repairing it therefore removes a duplicate rather than recovering a missing call.
 
+## Long reads: `--preset ont`
+
+The short-read defaults give the wrong answer in one place at 33 kb, and `--preset ont` is the
+fitted correction. It sets five things, and an explicit flag either side of it wins:
+
+```
+--gap-open 1 --gap-extend 1 --mismap-min 0.05 --read-phasing --regenotype
+```
+
+**Why the gap penalties.** The read scorer's default gap-open of 6 is a substitution-era number.
+On ONT the modal error *is* a single-base homopolymer indel, and against the 2.83-unit window the
+mismap floor leaves visible, a gap of 6 makes every single-base indel difference a saturated vote
+whatever the base qualities say. 60% of ONT indel false positives are one homopolymer cell. Setting
+the gap penalties to 1 makes that vote proportionate.
+
+**Why the mismap floor.** It damps rather than clamps: it is a floor on how unreliable any read may
+be, which covers local misalignment that MAPQ does not measure. At 0.05 it is worth most of the
+indel gain.
+
+| chr20 ONT 43x | indel GT F1 | ALL F1 |
+|---|---|---|
+| short-read defaults | 0.749 | 0.926 |
+| the three scorer values | **0.816** | **0.945** |
+| held-out contig | +0.061 | |
+| matched 30x | +0.069 | |
+
+Then `--read-phasing` and `--regenotype`, described above, cut switch error from 3.79% to 0.52%
+and take ALL F1 to 0.952 and indel to 0.837.
+
+**Not a global default, deliberately.** The same gap values cost 150 bp reads 0.0037 indel F1,
+because with no homopolymer error mode to model, a cheap gap is just a weaker aligner. And
+`--read-phasing` needs reads that span consecutive heterozygous sites; at 151 bp most adjacent
+pairs are not spanned by one read, which is a case that has not been measured.
+
+**What the evidence is, plainly.** The preset is fitted on one sample — chr20 of HG002 at 43x, on a
+16-haplotype graph, against a *draft* benchmark whose own README flags errors in homopolymers and
+tandem repeats, which is the exact epicentre of the finding — and validated on chr6 of the same
+read set and at matched 30x coverage. It has never been checked against a second sample.
+`--gap-open` and `--gap-extend` stand on their own if you would rather not take a fitted preset.
+
 ## What this model does not give you
 
 **`GL`, `GQ` and `GP` are not calibrated probabilities.** Reads are treated as independent. Mates
@@ -1024,7 +1266,7 @@ spellings. General options that this mode also uses -- `-d`/`--ploidy`, `-R`/`--
 | `--gaf-base FILE` | — | GAF-Base database, queried per site via `gbz-base`. |
 | `--gbz-base FILE` | input graph | Graph to resolve `--gaf-base` queries against. |
 | `--gaf-base-binary FILE` | `gbz-base` on `PATH` | The `gbz-base` executable to spawn for `--gaf-base` queries. |
-| `--read-window N` | 4096 (`--gaf-base`), 256 (`--gam-index`) | Node-ID window per indexed fetch. |
+| `--read-window N` | 16384 (`--gaf-base`), 256 (`--gam-index`) | Node-ID window per indexed fetch. Genotype-neutral: it moves `GL` in the sixth decimal through read order, so gate a comparison on `GT`, not on bytes. |
 | `--read-min-mapq N` | 0 | Drop reads below this MAPQ outright. |
 
 ### Allele enumeration
@@ -1079,6 +1321,53 @@ spellings. General options that this mode also uses -- `-d`/`--ploidy`, `-R`/`--
 | `--atomize-blocks` | **on** under `--read-likelihood` | Align the reference and each called haplotype as *symbolic* alleles and emit one record per difference block, so a snarl differing from the reference in two separated places reports two variants instead of one substitution spanning both. Worth +0.0043 SV F1 genome-wide (0.5577 → 0.5620 over 23 contigs; higher under `truvari refine`, and the per-contig spread is wide); small-variant F1 unchanged. Declines on any other calling path and with `-a`, whose record set must stay sample-independent; asking for it there by name is an error. Every block of a snarl repeats the site's `AD`/`GL`/`GQ` — see `INFO/SB` and [below](#--atomize-blocks-one-snarl-several-variants). |
 | `--no-atomize-blocks` | — | One record per snarl, whatever the shape of the difference. |
 | `--mosaic-out FILE` | — | Write the inferred genome as a run-length-encoded mosaic of panel haplotypes. Implies `--phased`. Format [above](#--mosaic-out-file). |
+
+### Long reads
+
+| Flag | Default | Effect |
+|---|---|---|
+| `--preset ont` | — | `--gap-open 1 --gap-extend 1 --mismap-min 0.05 --read-phasing --regenotype`. An explicit flag either side of it wins. [Above](#long-reads---preset-ont). |
+| `--gap-open N` | 6 | Read scorer's gap-open penalty. The default is a substitution-era number; 1 is right where the modal error is a homopolymer indel. |
+| `--gap-extend N` | 1 | Read scorer's gap-extension penalty. |
+
+### Phasing from reads — needs the linkage layer
+
+| Flag | Default | Effect |
+|---|---|---|
+| `--read-phasing` | **on** under `--preset ont`, off otherwise | Take each site's orientation from the reads that span consecutive heterozygous sites, keeping the panel's chromosome-scale blocks. Genotype-neutral. [Above](#--read-phasing--the-phase-from-the-reads). |
+| `--no-read-phasing` | — | Leave the phase to the panel. |
+| `--phase-min-q N` | 9.5 | A site below this mean per-read confidence may not carry a link; it is hung off the chain instead. Coupled to `--mismap-min`, which sets the score's ceiling, so refit it if you change that. |
+| `--phase-break N` | 10 | Break the chain below this many log10 units of evidence. |
+| `--phase-relink N` | 3 | Reliable sites either side of a break to relink over. 8 is a wash and 15 hurt. |
+| `--phase-hang N` | 4 | Decided neighbours to hang an unreliable site from. |
+| `--phase-prior N` | 3 | Weight of the panel's own answer when hanging a site — the one place the panel still earns its keep, worth 0.501% → 0.477%. |
+| `--phase-cap N` | 0 (off) | Clamp one pair's contribution. 40 independent reads give 10^40 against a measured read-only error of 10^-2.4, so the independence assumption is wrong by orders of magnitude. |
+
+### Re-genotyping from the phase — needs `--read-phasing`
+
+| Flag | Default | Effect |
+|---|---|---|
+| `--regenotype` | **on** under `--preset ont`, off otherwise | Let each read's strand log-odds replace the site's mixture weights, so the phase re-decides the genotype. [Above](#--regenotype--the-reads-phase-decides-the-genotype). |
+| `--no-regenotype` | — | Leave the genotype to the per-site likelihoods. |
+| `--regeno-temper N` | −1 (fit) | How hard to believe a read's strand. **0 reproduces the uncorrected caller byte for byte**; a negative value fits it against leave-one-out agreement. |
+| `--regeno-passes N` | 2 | Cap on barrier passes. Above 2 the EM can enter a limit cycle, which is detected and reported rather than presented as a fixed point. |
+| `--no-regeno-haploid` | — | Stop weighting a nested haploid chain's reads by whether the phase places them on its strand. On by default; moves SV F1 and nothing else. |
+| `--regeno-ceiling N` | 1 (no cap) | Cap on how often a read's strand log-odds is right. Fitting it calibrates better and calls worse, so it is set by hand and the temper is fitted against it. |
+| `--regeno-ledger FILE` | — | One line per site the correction would move. |
+| `--regeno-shuffle` | — | **Debug.** Randomise each read's strand sign, keeping \|Λ\| — the control that shows the gain is the phase and not the magnitude. |
+
+### Assembly anchors — needs `--read-likelihood`
+
+| Flag | Default | Effect |
+|---|---|---|
+| `--anchors-out FILE` | — | Write read/allele partitions as zero-length pins. Format [above](#assembly-anchors---anchors-out). |
+| `--anchors-reads N` | 2 | Minimum reads per anchor slot. |
+| `--anchors-min-gqn F` | 0 | Minimum site `GQN`. With `--phase-min-q` this is the filter pair worth using. |
+| `--anchors-min-q F` | 0 | Minimum **per-read** score. Note this drops reads, not sites: at an unreliable site it discards the reads that were honest about being uncertain and keeps a residue that looks confidently partitioned. |
+| `--anchors-het-only` | — | Only heterozygous sites. Drops homozygous and nested haploid sites, both of which hold every read in one slot and so partition nothing. |
+| `--anchors-leaf-only` | — | Only leaf snarls. |
+| `--anchors-keep-off-call` | — | Keep reads whose best-fitting allele is not a called one. |
+| `--anchors-end-new N` | 0 | Emit the end pin only where it holds at least N reads the start pin does not. Both pins carry the same partition. |
 
 ### Debugging
 

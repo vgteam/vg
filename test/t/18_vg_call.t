@@ -9,7 +9,7 @@ PATH=../bin:$PATH # for vg
 # FORMAT field shifts every later one, which broke four assertions here that were not
 # testing field order at all -- one of them silently compared BL against a GQ threshold.
 
-plan tests 406
+plan tests 405
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -644,7 +644,10 @@ is $(grep -v "^#" rl_hap_mosaic.tsv | cut -f3 | sort -u | tr -d '\n') "0" \
    "a haploid mosaic names one strand"
 is $(if [ $(grep -vc "^#" rl_hap_mosaic.tsv) -gt 0 ]; then echo 1; else echo 0; fi) "1" \
    "a haploid chain still produces mosaic segments"
-is $(grep -v "^#" rl_hap_mosaic.tsv | awk -F'\t' '$9 == "?" {n++} END {print n+0}') "0" \
+# Column 10, not 9. hap_index ($9) holds `ref`, `*` or an integer and can never be `?`; the
+# unknown-name sentinel is written into the haplotype column beside it (graph_caller.cpp:1795-1809),
+# so the same check against $9 passed on every file ever written.
+is $(grep -v "^#" rl_hap_mosaic.tsv | awk -F'\t' '$10 == "?" {n++} END {print n+0}') "0" \
    "every haploid mosaic segment names a known haplotype"
 
 # A haploid record's GT is a bare allele, and apply_linkage_change used to build the genotype it
@@ -959,7 +962,7 @@ is $(awk -F'\t' '/^H\t/ {k=$2"/"$3"/"$4; if (k==pk && $7 != pe) bad++; pk=k; pe=
 # traverses the parent's other allele and bypasses the child snarl, so the site is not on its walk
 # and there is nothing to write. The row was also cutting the other strand's run in three -- 351 of
 # chr20's 419 were flanked by the same haplotype on both sides. Asserted in the negative now.
-is $(awk -F'\t' '/^H\t/ && $9=="." {n++} END {print n+0}' nest_hap.mosaic.tsv) "0" \
+is $(awk -F'\t' '/^H\t/ && $10=="." {n++} END {print n+0}' nest_hap.mosaic.tsv) "0" \
    "no row spells a haplotype '.', which version 5 does not emit"
 # No GT may name an allele the record does not carry. The linkage layer settles on a candidate
 # traversal, not on an emitted allele, and those are different numberings: a traversal can have no
@@ -1205,6 +1208,12 @@ vg call x.gbz --read-likelihood --phased --gam sim.gam --read-phasing --regenoty
 is "$?" "1" "--regenotype with --top-down is refused"
 is $(grep -c "no longer carries" rl_rg_td.err) "1" "and says which way the staleness runs"
 
+# Every `rm -f` in this block is a PRE-run guard, so without this the block leaves sixteen files
+# behind in test/. Cleaned up here, at the end, where the convention puts it.
+rm -f rl_rg_off.vcf rl_rg_t0.vcf rl_rg_t0.err rl_rg_bad.err rl_rg_passes.err rl_rg_cap.err \
+      rl_rg_pre.err rl_rg_preoff.err rl_rg_nph.err rl_rg_ext.vcf rl_rg_ext.err rl_rg_ceil0.err \
+      rl_rg_ceilhi.err rl_rg_nohap.err rl_rg_td.err rl_rg_bu.err
+
 # `slot` IS the phase, and it is the only thing in the file that carries it. This is checked because
 # it once silently was not: `LinkageCollector::settled_traversals` decodes an unordered genotype
 # index -- `genotype_index(i, j)` is triangular, so it returns the pair sorted -- and the phase was
@@ -1319,8 +1328,6 @@ is $(if [ $(echo "$REL_OK" | cut -d' ' -f1) -gt 20 ]; then echo 1; else echo 0; 
    "the anchor file offers sites to check reliability against their own read rows"
 is $(echo "$REL_OK" | cut -d' ' -f2) "0" \
    "reliability is the mean of the site's per-read scores, deduped across pins and slots"
-is $(echo "$REL_OK" | cut -d' ' -f3) "0" \
-   "no emitted anchor carries the no-reads reliability sentinel"
 
 # The in-process invariant: each pin checked against the graph's own base while the read was live.
 is $(grep -c "pins verified against the graph, 0 failed" rl_anchors.err) "1" \

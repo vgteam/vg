@@ -109,10 +109,6 @@ pair<nid_t, nid_t> chain_bounds_of(const Snarl* child, const SnarlManager& snarl
 bool symbolically_equal(const SnarlTraversal& a, const SnarlTraversal& b, const Snarl& site,
                         const SnarlManager& snarl_manager);
 
-/// Whether any allele's traversal crosses a child chain, i.e. whether `site` is a non-leaf snarl
-/// with something to symbolise. Leaf snarls are unaffected by any of this and on chr20 are 98.5%
-/// of emitted records.
-
 /**
  * One difference between two symbolic alleles: a half-open step range on each side.
  *

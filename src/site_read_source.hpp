@@ -44,12 +44,6 @@ using namespace std;
 struct SiteReadFilter {
     /// Drop reads with mapping quality below this. The `vg pack -Q` equivalent.
     int min_mapq = 0;
-    /// Drop alignments flagged secondary. Nothing in vg's pack path does this,
-    /// but a secondary alignment of a read already counted would break the
-    /// per-read independence the genotype likelihood assumes.
-    bool skip_secondary = true;
-    /// Drop reads with no mappings at all.
-    bool skip_unmapped = true;
 };
 
 /**
