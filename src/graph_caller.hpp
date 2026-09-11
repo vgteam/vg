@@ -380,6 +380,9 @@ public:
         this->mosaic_keep_nested = keep_nested;
         this->mosaic_connect_unexplained = connect_unexplained;
         if (!path.empty()) {
+            // The mosaic is the phased result, so phasing is on wherever one is asked for. Never a
+            // silent override of `--no-phased`: the option layer refuses that pair outright, so by
+            // the time this runs phasing is either already on or the run has stopped.
             this->emit_phasing = true;
         }
     }

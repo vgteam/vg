@@ -84,9 +84,10 @@ void help_call(char** argv) {
          << "                            as opposed to probablistic model" << endl
          << "read-likelihood calling options (all require --read-likelihood):" << endl
          << "  every term and parameter below: doc/read-likelihood-genotyping.md" << endl
-         << "      --read-likelihood     genotype from an explicit P(reads|genotype) model" << endl
-         << "                            instead of aggregate depth (needs one read source" << endl
-         << "                            below)" << endl
+         << "      --read-likelihood     OFF by default; everything in this section needs" << endl
+         << "                            it. Genotype from an explicit P(reads|genotype)" << endl
+         << "                            model instead of aggregate depth (needs one read" << endl
+         << "                            source below)" << endl
          << "" << endl
          << "  reads in (one source required):" << endl
          << "      --gam FILE            read alignments for --read-likelihood" << endl
@@ -122,8 +123,10 @@ void help_call(char** argv) {
          << "                            extra I/O. 0 disables it; DR is emitted either way" << endl
          << "                            [0.1]" << endl
          << "      --depth-count-raw     count every read as one read of depth, instead of as" << endl
-         << "                            1 - e_r, the probability it came from this locus" << endl
-         << "      --no-mismap-term      disable the MAPQ-derived mismapping term" << endl
+         << "                            1 - e_r, the probability it came from this locus." << endl
+         << "                            Off by default" << endl
+         << "      --no-mismap-term      disable the MAPQ-derived mismapping term, which is" << endl
+         << "                            on by default" << endl
          << "      --mismap-max P        upper clamp on the MAPQ-derived mismapping" << endl
          << "                            probability. Governs how much a read's placement" << endl
          << "                            ambiguity counts, so it matters most on graphs with" << endl
@@ -132,7 +135,8 @@ void help_call(char** argv) {
          << "                            be, capping one read's veto at ln(P). Covers local" << endl
          << "                            misalignment, which MAPQ does not measure. Mainly an" << endl
          << "                            indel knob; interacts with --mismap-max [0.02]" << endl
-         << "      --preset NAME         a fitted parameter set for one read type." << endl
+         << "      --preset NAME         a fitted parameter set for one read type. None by" << endl
+         << "                            default, so the values below are short-read ones." << endl
          << "                            `ont`: --gap-open 1 --gap-extend 1 --mismap-min" << endl
          << "                            0.05 --read-phasing --regenotype. The scorer values" << endl
          << "                            move indel GT F1 0.749 -> 0.816 and ALL 0.926 ->" << endl
@@ -144,9 +148,10 @@ void help_call(char** argv) {
          << "                            side of it" << endl
          << "      --gap-open N          read scorer's gap-open penalty [6]" << endl
          << "      --read-phasing        phase from the reads that span consecutive hets," << endl
-         << "                            not from the haplotype panel alone. On under" << endl
-         << "                            `--preset ont`" << endl
-         << "      --no-read-phasing     leave the phase to the haplotype panel" << endl
+         << "                            not from the haplotype panel alone. OFF by" << endl
+         << "                            default, ON under `--preset ont`" << endl
+         << "      --no-read-phasing     leave the phase to the panel. The default already" << endl
+         << "                            does; this is for turning the preset's back off" << endl
          << "      --phase-min-q N       a site below this per-read confidence may not" << endl
          << "                            carry a phase link [9.5]" << endl
          << "      --phase-break N       break the chain below this many log10 units [10]" << endl
@@ -156,8 +161,10 @@ void help_call(char** argv) {
          << "      --phase-cap N         clamp one pair's contribution, 0 to disable [0]" << endl
          << "      --regenotype          let the reads' phase decide the genotype, not only" << endl
          << "                            the order of an already-settled pair. Needs" << endl
-         << "                            `--read-phasing`; on under `--preset ont`" << endl
-         << "      --no-regenotype       leave the genotype to the per-site likelihoods" << endl
+         << "                            `--read-phasing`. OFF by default, ON under" << endl
+         << "                            `--preset ont`" << endl
+         << "      --no-regenotype       leave the genotype to the per-site likelihoods. The" << endl
+         << "                            default already does; this turns the preset's off" << endl
          << "      --regeno-temper N     how hard to believe a read's strand. 0 reproduces" << endl
          << "                            the uncorrected caller byte for byte; the default" << endl
          << "                            is fitted from the run's own data, with no truth" << endl
@@ -175,9 +182,9 @@ void help_call(char** argv) {
          << "                            whether the phase places them on its strand. On by" << endl
          << "                            default: there is no mixture to reweight there, so" << endl
          << "                            it is the only part of this that reaches SVs" << endl
-         << "      --regeno-shuffle      DEBUG. Randomise each read's strand sign, keeping" << endl
-         << "                            the magnitude, so peakedness survives and only the" << endl
-         << "                            phase information is destroyed" << endl
+         << "      --regeno-shuffle      DEBUG, off by default. Randomise each read's strand" << endl
+         << "                            sign, keeping the magnitude, so peakedness survives" << endl
+         << "                            and only the phase information is destroyed" << endl
          << "      --gap-extend N        read scorer's gap-extension penalty [1]. Together" << endl
          << "                            these set how hard a read votes against an allele" << endl
          << "                            that differs from it by an indel, and they are the" << endl
@@ -191,7 +198,7 @@ void help_call(char** argv) {
          << "                            alleles differ in length: it loses large" << endl
          << "                            heterozygous deletions and mis-genotypes large" << endl
          << "                            heterozygous insertions. Restores the pre-correction" << endl
-         << "                            model exactly" << endl
+         << "                            model exactly. Off by default" << endl
          << "" << endl
          << "  linkage between sites (needs panel enumeration, so off" << endl
          << "  under --enumerate-support):" << endl
@@ -210,7 +217,7 @@ void help_call(char** argv) {
          << "      --no-mosaic-nested    merge haplotype switches that happen inside a nested" << endl
          << "                            chain into the enclosing run: fewer switches, still" << endl
          << "                            one contiguous walk, but the parent's route through" << endl
-         << "                            the child" << endl
+         << "                            the child. Keeping them is the default" << endl
          << "      --no-mosaic-patch-gaps" << endl
          << "                            leave a gap where no panel haplotype can be carried" << endl
          << "                            across it, instead of filling it with the reference." << endl
@@ -236,9 +243,10 @@ void help_call(char** argv) {
          << "      --anchors-min-q F     minimum per-read assignment phred. 3 is the measured" << endl
          << "                            knee -- ~2 points of purity for ~9% of reads -- but" << endl
          << "                            0 by default, since a read with no MAPQ cannot clear" << endl
-         << "                            any positive threshold. Bounded above" << endl
-         << "                            by --mismap-min: at 0.02 a perfectly discriminating" << endl
-         << "                            read on a balanced het scores 14, not 60 [0]" << endl
+         << "                            any positive threshold. Its CEILING is" << endl
+         << "                            phred(--mismap-min) -- 16.99 at the 0.02 default," << endl
+         << "                            13.01 under --preset ont -- not 60, and on chr20" << endl
+         << "                            half the read rows sit exactly on it [0]" << endl
          << "      --anchors-keep-off-call" << endl
          << "                            keep reads whose best-fitting allele is not a called" << endl
          << "                            one. Off by default: for assembly anchors purity" << endl
@@ -250,18 +258,24 @@ void help_call(char** argv) {
          << "                            back against the graph rather than a reference. Only" << endl
          << "                            switch points are stored, so it is smaller than" << endl
          << "                            explicit paths by about two orders of magnitude." << endl
-         << "                            Implies --phased" << endl
+         << "                            Implies --phased, and refuses --no-phased rather" << endl
+         << "                            than overriding it" << endl
          << "      --no-phased           emit unphased genotypes (0/1) and no FORMAT/PS." << endl
          << "                            Phasing is on by default wherever the linkage model" << endl
          << "                            runs" << endl
-         << "      --phased              emit phased genotypes (0|1) and a FORMAT/PS phase" << endl
-         << "                            set, from the linkage layer's most probable path of" << endl
-         << "                            haplotype pairs. Phase comes from the panel, not" << endl
-         << "                            from reads spanning sites, so a phase set is a whole" << endl
-         << "                            chain rather than a read-length block. Constrained" << endl
-         << "                            to the genotypes actually emitted, so GT stays a" << endl
-         << "                            permutation of the unphased call." << endl
-         << "                            Needs --linkage-weight above 0" << endl
+         << "      --phased              ON BY DEFAULT wherever the linkage model runs. Emits" << endl
+         << "                            phased genotypes (0|1) and a FORMAT/PS phase set," << endl
+         << "                            from that layer's most probable path of haplotype" << endl
+         << "                            pairs, constrained to the genotypes actually" << endl
+         << "                            emitted, so GT stays a permutation of the unphased" << endl
+         << "                            call. A phase set is a whole chain rather than a" << endl
+         << "                            read-length block, because the order comes from the" << endl
+         << "                            panel -- or from the reads under --read-phasing," << endl
+         << "                            which keeps the chain-length blocks. Passing this" << endl
+         << "                            flag changes ONE thing: without the linkage model" << endl
+         << "                            the default declines quietly, while an explicit" << endl
+         << "                            request is an error. Use it in a pipeline where" << endl
+         << "                            unphased output is a failure rather than a fallback" << endl
          << "      --linkage-prior F     exponent on the panel allele-frequency prior implied" << endl
          << "                            by the state space. Only acts with --linkage-weight." << endl
          << "                            0 removes it, 1 keeps it as the states present it," << endl
@@ -272,7 +286,8 @@ void help_call(char** argv) {
          << "  quality reporting (ranking only; these never change a genotype):" << endl
          << "      --no-share-quality    report GQ as the raw likelihood ratio, without" << endl
          << "                            scaling it by the fraction of reads the called" << endl
-         << "                            genotype explains. GQI always carries the raw value" << endl
+         << "                            genotype explains. The scaling is on by default," << endl
+         << "                            and GQI always carries the raw value either way" << endl
          << "      --depth-quality A     scale GQ by exp(-A * |ln DR|) at records whose" << endl
          << "                            called alleles change length by 50 bp or more, so a" << endl
          << "                            call whose read count is implausible for the" << endl
@@ -2575,6 +2590,15 @@ int main_call(int argc, char** argv) {
             // Always an explicit request -- a path was named -- so always an error.
             logger.error() << "--mosaic-out needs the linkage model, which needs haplotype "
                            << "enumeration (-z or -g) and --read-likelihood" << endl;
+        }
+        if (!mosaic_out.empty() && phased_explicit && !phased_output) {
+            // Both are explicit and they contradict: a mosaic IS the phasing, written per strand,
+            // so it cannot be produced without one. `set_mosaic_out` turns phasing back on, which
+            // means the pair used to run with `--no-phased` quietly ignored -- the one place this
+            // option layer let an explicit flag be overridden instead of refused.
+            logger.error() << "--mosaic-out and --no-phased contradict: the mosaic is the phased "
+                           << "result, one walk per strand, so there is nothing to write without "
+                           << "the phasing" << endl;
         }
         if (phased_output && linkage_weight <= 0.0) {
             // Phasing is the linkage layer's Viterbi path, so without the layer there is no path to

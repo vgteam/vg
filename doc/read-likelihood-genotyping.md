@@ -1314,13 +1314,13 @@ spellings. General options that this mode also uses -- `-d`/`--ploidy`, `-R`/`--
 
 | Flag | Default | Effect |
 |---|---|---|
-| `--phased` | **on** | Emit phased genotypes (`0\|1`) and a `FORMAT/PS` phase set from the linkage decoding. Declines with the linkage layer when there is no panel to decode against; asking for it *explicitly* with the layer off is an error, not a silently unphased file. |
-| `--no-phased` | — | Turn phasing off: unphased genotypes and no `FORMAT/PS`. |
+| `--phased` | **on** wherever the linkage layer runs | Emit phased genotypes (`0\|1`) and a `FORMAT/PS` phase set from the linkage decoding. Passing it changes exactly one thing: with the layer unavailable the default declines quietly and an explicit request is an **error**. Worth setting in a pipeline where unphased output is a failure rather than a fallback — otherwise it is a no-op. |
+| `--no-phased` | — | Turn phasing off: unphased genotypes and no `FORMAT/PS`. Note it also **disables nested calling** where the linkage layer runs — a child's ploidy and strand come from its parent's settled pair, which lives in the phasing — so it is not a clean control for a phasing experiment. |
 | `--nested` | **on** under `--read-likelihood` | Symbolic collapsing and ploidy-propagating descent, so a variant inside a child chain gets its own record instead of being buried in a long ALT. Genome-wide it takes SNV F1 from 0.9752 to 0.9833 and SV F1 from 0.5134 to 0.5467 at no runtime or memory cost. Declines on the support-based caller, where it has never been measured; an explicit `--nested` still works there. |
 | `--no-nested` | — | Genotype each snarl against its own full traversals, with no collapsing and no descent. |
 | `--atomize-blocks` | **on** under `--read-likelihood` | Align the reference and each called haplotype as *symbolic* alleles and emit one record per difference block, so a snarl differing from the reference in two separated places reports two variants instead of one substitution spanning both. Worth +0.0043 SV F1 genome-wide (0.5577 → 0.5620 over 23 contigs; higher under `truvari refine`, and the per-contig spread is wide); small-variant F1 unchanged. Declines on any other calling path and with `-a`, whose record set must stay sample-independent; asking for it there by name is an error. Every block of a snarl repeats the site's `AD`/`GL`/`GQ` — see `INFO/SB` and [below](#--atomize-blocks-one-snarl-several-variants). |
 | `--no-atomize-blocks` | — | One record per snarl, whatever the shape of the difference. |
-| `--mosaic-out FILE` | — | Write the inferred genome as a run-length-encoded mosaic of panel haplotypes. Implies `--phased`. Format [above](#--mosaic-out-file). |
+| `--mosaic-out FILE` | — | Write the inferred genome as a run-length-encoded mosaic of panel haplotypes. Implies `--phased`, and **refuses** `--no-phased` rather than overriding it. Format [above](#--mosaic-out-file). |
 
 ### Long reads
 
