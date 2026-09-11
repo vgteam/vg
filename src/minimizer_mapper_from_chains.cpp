@@ -1739,8 +1739,8 @@ void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::ve
     // Track what positions were used in previously generated alignments, so we
     // can fish out alignments to different placements.
     // Use pairs since we can't hash tuples.
-    // {((node ID, orientation), read-minus-node) : alignment number}
-    std::unordered_map<std::pair<std::pair<nid_t, bool>, int64_t>, size_t> used_matchings;
+    // {((node ID, orientation), read-minus-node) : (chain number, alignment number)}
+    std::unordered_map<std::pair<std::pair<nid_t, bool>, int64_t>, std::pair<size_t, size_t>> used_matchings;
 
     
     // Go through the chains in estimated-score order.
@@ -1822,10 +1822,12 @@ void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::ve
                             cerr << log_name() << "Subchain group " << processed_num << " overlaps a previous alignment at read pos " << read_pos << " and graph pos " << graph_pos << " with matching " << matching.first.first << ", " << matching.first.second << ", " << matching.second << endl;
                         }
                     }
-                    // Don't count this chain against the other one, since it's overlapping
-                    crash_unless(chain_count_by_alignment[used_matchings.at(matching)] > 0);
-                    chain_count_by_alignment[used_matchings.at(matching)]--;
-                    return false;
+                    if (max_sparse_chain_scores[processed_num] == max_sparse_chain_scores[used_matchings.at(matching).first]) {
+                        // Don't count this chain against the other one, since it's overlapping
+                        crash_unless(chain_count_by_alignment[used_matchings.at(matching).second] > 0);
+                        chain_count_by_alignment[used_matchings.at(matching).second]--;
+                        return false;
+                    }
                 } else {
 #ifdef debug
                     if (show_work) {
@@ -1917,7 +1919,7 @@ void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::ve
                             }
 #endif
 
-                            used_matchings.emplace(std::move(matching), chain_count_by_alignment.size() - 1);
+                            used_matchings.emplace(std::move(matching), std::make_pair(processed_num, chain_count_by_alignment.size() - 1));
                         }
                         read_pos += edit.to_length();
                         graph_offset += edit.from_length();
