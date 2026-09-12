@@ -1,16 +1,23 @@
 #ifndef VG_GRAPH_CALLER_HPP_INCLUDED
 #define VG_GRAPH_CALLER_HPP_INCLUDED
 
+#include <atomic>
 #include <iostream>
 #include <algorithm>
+#include <array>
 #include <functional>
 #include <cmath>
 #include <limits>
 #include <unordered_set>
 #include <tuple>
+#include <gbwt/cached_gbwt.h>
 #include "handle.hpp"
+#include "linkage_model.hpp"
 #include "snarls.hpp"
 #include "traversal_finder.hpp"
+#include "anchor.hpp"
+#include "read_phasing.hpp"
+#include "regenotype.hpp"
 #include "snarl_caller.hpp"
 #include "region.hpp"
 #include "zstdutil.hpp"
@@ -18,6 +25,18 @@
 #include "gref.hpp"
 
 namespace vg {
+
+/// Descend into nested chains the selected references do not cross.
+///
+/// Off unless a gref cover is in play (or VG_CALL_NO_REF_NESTED is set). Such a chain has no REF and
+/// no POS against a linear reference, so without a cover its record cannot be written and the
+/// descent buys only its participation in the linkage calculation. A gref fragment gives it a contig
+/// of its own, and then it is reportable like any other site.
+void enable_off_reference_nesting();
+
+/// Whether the above is in effect, so the caller can turn on what only makes sense alongside it.
+bool off_reference_nesting_enabled();
+
 
 using namespace std;
 
@@ -61,6 +80,11 @@ public:
     /// Snarls are processed in parallel
     virtual void call_top_level_snarls(const HandleGraph& graph, RecurseType recurse_type = RecurseOnFail);
 
+    /// Report what symbolic descent did: the depth histogram, and how many children it skipped and
+    /// why. Stage 0 instrumentation for post-linkage nested descent; see the counters in
+    /// graph_caller.cpp. Inert in a run with no symbolic descent.
+    void report_descent_instrumentation() const;
+
     /// For every chain, cut it up into pieces using max_edges and max_trivial to cap the size of each piece
     /// then make a fake snarl for each chain piece and call it.  If a fake snarl fails to call,
     /// It's child chains will be recursed on (if selected)_
@@ -75,6 +99,15 @@ public:
     /// toggle progress messages
     void set_show_progress(bool show_progress);
 
+    /// Visit top-level snarls in node-ID order, grouped into windows of window_size
+    /// node IDs, instead of the default arbitrary order.
+    ///
+    /// For read sources that fetch by node-ID range: ordered access lets them touch
+    /// each window exactly once and release it, rather than re-querying per site. Off
+    /// by default, because it changes the visit order of code the default caller
+    /// shares and that path's output must stay byte-identical.
+    void set_node_id_ordering(bool ordered, size_t window_size);
+
 protected:
 
     /// Break up a chain into bits that we want to call using size heuristics
@@ -88,9 +121,85 @@ protected:
     /// Our snarls
     SnarlManager& snarl_manager;
 
+    /// See set_node_id_ordering.
+    bool node_id_ordering = false;
+    size_t node_id_window = 256;
+
     /// Toggle progress messages
     bool show_progress;
 };
+
+/// Which order a caller wrote its `Number=G` GL vector in.
+///
+/// Two orders are live in this tree and they differ from three alleles up.
+/// `PoissonSupportSnarlCaller` writes i-major -- `for i; for j = i..n` -- while
+/// `ReadLikelihoodSnarlCaller` writes the VCF spec's colexicographic order. At n=3 they disagree at
+/// exactly indices 2 and 3, `(1,1)` against `(0,2)`. Anything that reindexes a GL vector after the
+/// fact has to know which it is holding; the allele-merge fold did not, and assumed i-major in a
+/// comment that named the Poisson caller as the only writer.
+enum class GLLayout {
+    IMajor,
+    Colexicographic,
+};
+
+/// Index of genotype (i, j), i <= j, in a `Number=G` vector of the given layout.
+size_t gl_genotype_index(size_t i, size_t j, size_t n_alleles, GLLayout layout);
+
+/// Max-marginal fold of a diploid GL vector onto a smaller allele set.
+///
+/// `new_index[a]` is the allele `a` becomes. Several old alleles mapping to one new allele means
+/// their genotype classes collapse, and the merged class takes the best of its members -- the merged
+/// allele scores as whichever of the alleles it absorbed fit the reads best.
+///
+/// Extracted from `merge_similar_alleles` so the layout handling is testable without a graph, a
+/// traversal set or a `vcflib::Variant`. That matters because the defect it fixes is invisible in
+/// output: on chr20, 0 of 57 merged records violate the "no genotype is strictly more likely than
+/// the called one" invariant, so the transposition changes the emitted likelihoods without changing
+/// which genotype is the argmax.
+vector<double> fold_genotype_likelihoods(const vector<double>& old_gl,
+                                         const vector<int>& new_index,
+                                         size_t n_new, GLLayout layout);
+
+/// Where a buffered VCF record sorts.
+///
+/// (contig, POS) alone is not a total order: several records legitimately share a position -- a
+/// nested site under its parent, two snarls flattened onto the same anchor base -- and `std::sort`
+/// is not stable, so ties came out in whatever order the per-thread buffers happened to concatenate
+/// in. Two runs of one binary on chr20 differed in 72 record pairs that way, which makes every
+/// "output must not move" gate unevaluable.
+///
+/// `id` breaks the tie and is intrinsic to the site rather than to the run: on the FlowCaller path
+/// it is `print_snarl(snarl, false)`, the snarl's own boundary nodes. It is NOT intrinsic on the
+/// VCFGenotyper path, where it comes from the input VCF and is commonly ".", so this makes
+/// `vg call` on a graph reproducible and does not make `vg call -v` reproducible.
+struct BufferedRecordKey {
+    string contig;
+    size_t position = 0;
+    string id;
+    /// Which difference block of its snarl this record is. Zero for every record a snarl emits
+    /// whole, so the ordinary case sorts exactly as it did.
+    ///
+    /// The sort needs this rather than a suffixed ID. Two blocks of one snarl CAN land on the same
+    /// POS -- a deletion on one haplotype abutting an insertion on the other, both anchored on the
+    /// same base -- and with a shared ID the comparator would then be non-antisymmetric, which
+    /// makes std::sort input-order dependent. That is the defect this header already records at
+    /// the tie-break comment above, measured once at 72 differing record pairs between two runs.
+    size_t block = 0;
+};
+
+/// Strict weak ordering on BufferedRecordKey. A free function rather than a lambda so a unit test
+/// can assert the ordering property directly, which is the only place the totality of the key is
+/// checked -- the in-tree TAP fixtures produce no ties at all.
+bool buffered_record_key_less(const BufferedRecordKey& a, const BufferedRecordKey& b);
+
+/// What a symbolic diff would decompose,
+/// measured from inside the caller rather than from INFO/AT offline. Output-neutral.
+///
+/// Must be called at the END of write_variants, not from the descent report. Most records are
+/// retained and rendered after the calling sweep, so anything printed with the descent report
+/// describes only the sites that emitted inline -- which on chr20 is none of them. That mistake
+/// has been made here once already and produced a plausible-looking meaningless number.
+void report_atomize_instrumentation();
 
 /**
  * Helper class that vcf writers can inherit from to for some common code to output sorted VCF
@@ -107,7 +216,176 @@ public:
 
     /// Add a variant to our buffer
     /// Returns false if the variant line length exceeds VCFOutputCaller::max_vcf_line_length
-    bool add_variant(vcflib::Variant& var) const;
+    bool add_variant(vcflib::Variant& var, size_t block = 0) const;
+
+    /**
+     * Per-region ploidy overrides, from a BED of `CHROM START END PLOIDY`.
+     *
+     * `-d` and `--ploidy-regex` set ploidy per *contig*, which cannot express the cases that
+     * actually arise. A male sample's chrX is haploid except in the pseudoautosomal regions,
+     * where X and Y recombine and two copies are present; before this, calling it meant running
+     * chrX twice at different ploidies and splicing the two VCFs on the PAR boundaries. The same
+     * shape appears wherever copy number varies along a contig.
+     *
+     * The CHROM column matches the contig name as it appears in the output VCF -- the locus part
+     * of a PanSN path name, so `chrX` rather than `CHM13#0#chrX`. Intervals are BED half-open and
+     * 0-based, and a position no interval covers keeps the contig's ploidy from `-d` or
+     * `--ploidy-regex`.
+     *
+     * Overlapping intervals are an error rather than a silent last-one-wins: a BED saying two
+     * things about one base has no correct reading, and picking one would move the ambiguity into
+     * the output instead of into the error message.
+     */
+    void set_ploidy_regions(const string& bed_path);
+
+    /// True when any override was loaded. Lookups are skipped when false, so a run without the
+    /// option pays nothing for this.
+
+    /// Ploidy at this reference position, or `fallback` where no interval covers it. `position` is
+    /// a 0-based offset along the contig, the same coordinate system as the BED and as the VCF POS
+    /// the site will be emitted at.
+    int region_ploidy(const string& ref_path_name, size_t position, int fallback) const;
+
+    /// region_ploidy for a snarl whose reference interval begins at `interval_start`, applying the
+    /// same offset arithmetic emit_variant uses for POS. Callers pass the interval they already
+    /// computed, so no path lookup is repeated; returns `fallback` untouched when no BED is
+    /// loaded, which keeps a default run free of this entirely.
+    int ploidy_at(const string& ref_path_name, int64_t interval_start, int64_t ref_offset,
+                  int fallback) const;
+
+    /// Collect a compact record per site during calling, so genotypes can be re-decided by linkage
+    /// once calling is done. Neither pointer is owned; a null collector disables the pass.
+    ///
+    /// The GBWT is needed because the panel matrix -- which allele each haplotype carries at a
+    /// site -- comes from asking which haplotypes traverse each allele. That only exists under -z,
+    /// where the alleles are haplotype-derived in the first place; without it there is no panel to
+    /// link against.
+    void set_linkage(LinkageCollector* collector, const gbwt::GBWT* gbwt,
+                     const vector<size_t>* sequence_to_haplotype);
+
+    /// Emit phased genotypes (`0|1`) and a FORMAT/PS phase set, from the linkage layer's Viterbi
+    /// path.
+    ///
+    /// On wherever the linkage layer runs, and declines with it. An explicit --phased against a
+    /// disabled layer is an error rather than a silently unphased file.
+    void set_emit_phasing(bool on) { this->emit_phasing = on; }
+
+    /// `--min-confidence`, so a record whose GQN the linkage layer re-derives is re-labelled
+    /// against the same threshold the per-site emission used.
+    void set_linkage_min_confidence(double threshold) {
+        this->linkage_min_confidence = threshold;
+    }
+
+    /// Write assembly anchors to `path`, with `params` deciding which sites and reads qualify.
+    ///
+    /// Kept beside the mosaic because it is the same kind of thing: a node-ID-keyed side file
+    /// written once every record has settled, self-describing, and joinable to the VCF by snarl ID.
+    void set_anchors_out(const string& path, const AnchorParams& params,
+                         const string& graph_name, const string& reads_source,
+                         double mismap_min) {
+        this->anchor_path = path;
+        this->anchor_params = params;
+        this->anchor_graph_name = graph_name;
+        this->anchor_reads_source = reads_source;
+        this->anchor_mismap_min = mismap_min;
+        if (!path.empty()) {
+            // Per-thread queues, because both passes that fill it are parallel over node-ID windows.
+            // One queue per OpenMP thread, indexed by thread number inside the writer.
+            this->anchor_writer = make_unique<AnchorWriter>((size_t)max(1, get_thread_count()));
+        }
+    }
+
+    /// Turn one settled site into anchors, if anchors are armed. Called once per record, from
+    /// whichever pass settles it: the render for records that get a line, and the barrier's handover
+    /// for those that do not. A record with no reference path still anchors -- a pin is keyed on a
+    /// node ID and needs neither REF nor POS -- which is the whole reason this is not folded into
+    /// `emit_variant`.
+    /// `is_leaf` is supplied by the caller rather than looked up, because the snarl manager lives
+    /// on GraphCaller and this base class does not have one.
+    void collect_anchors_for(const Snarl& snarl, const vector<int>& genotype, int haploid_slot,
+                             const unique_ptr<SnarlCaller::CallInfo>& call_info, bool is_leaf);
+
+
+    /// The settled pair reordered onto its haplotypes, for the anchors.
+    ///
+    /// `LinkageCollector::settled_traversals` decodes an unordered genotype index -- the triangular
+    /// `genotype_index(i, j)` -- so it hands back `final_i <= final_j` and the phase is simply not in
+    /// it. The phase is resolved separately into `render_phases`, which is where `emit_variant` reads
+    /// it. Anchors stamp `slot` from the order they are given and the file's header promises the GT's
+    /// field order, so the reorder has to happen before `collect_anchors_for`, not inside it.
+    ///
+    /// Returns the genotype unchanged when there is no phasing, no entry, or no exact reversal.
+    vector<int> phase_ordered_genotype(size_t record_key, const vector<int>& genotype) const;
+
+    /// Which haplotype a one-allele genotype sits on, for the anchors: 0 or 1.
+    ///
+    /// The haploid counterpart of `phase_ordered_genotype`, and it has to be a separate call
+    /// because a one-element `vector<int>` has nowhere to put the answer -- reordering a pair
+    /// expresses the phase, reordering a single allele expresses nothing. A nested haploid chain is
+    /// one strand of a diploid locus, which is why it has a strand at all; `emit_variant` writes it
+    /// as `a|.` or `.|a` from the same `nested_strand`, so this is what makes the anchor's slot and
+    /// the record's GT field agree.
+    ///
+    /// Returns 0 -- the safe default, and what a genuinely haploid locus wants -- when there is no
+    /// phasing, no entry, a ploidy other than 1, no nested strand, or a phase that names a
+    /// different allele than the one this site settled on.
+    int phase_haploid_slot(size_t record_key, const vector<int>& genotype) const;
+
+    /// Arm read-backed phasing. See read_phasing.hpp for what it does and why its shape is what
+    /// it is. Requires the linkage layer, since it rewrites the phase that layer settled.
+    void set_read_phasing(bool on, const ReadPhasingParams& params) {
+        read_phasing = on;
+        read_phasing_params = params;
+    }
+
+    /// Arm phase-aware re-genotyping. See regenotype.hpp. Requires read phasing, which is what
+    /// supplies the per-read strand evidence -- without it there is no `Lambda` and the
+    /// correction is the identity.
+    void set_regenotype(bool on, const RegenotypeParams& params, size_t passes,
+                        const string& ledger) {
+        regenotype = on;
+        regenotype_params = params;
+        regenotype_passes = passes;
+        regenotype_ledger = ledger;
+    }
+
+    /// Write the anchor file and report the counters. No-op unless anchors are armed.
+    void write_anchors();
+
+    /// Whether anything actually needs a snarl's leaf status. Only `--anchors-leaf-only` does, and
+    /// answering it is neither free nor total (see `FlowCaller::snarl_is_leaf`), so it is asked only
+    /// when it will be used.
+    bool anchors_want_leaf_test() const {
+        return !anchor_path.empty() && anchor_params.leaf_only;
+    }
+
+    /// Where to write the run-length-encoded mosaic, if anywhere. Implies phasing.
+    ///
+    /// `reference_paths` are the full path names the run called against, e.g. `CHM13#0#chr20`.
+    /// They are recorded because the segment rows carry only the *locus* part of the name -- the
+    /// contig as the VCF spells it -- and a graph may hold more than one reference. The HPRC
+    /// graphs do: their GBZ tags name both `CHM13` and `GRCh38` as reference samples, and both
+    /// appear in the panel, so a bare `chr20` does not say which assembly a position is measured
+    /// against. Without this the coordinates are ambiguous and nothing in the file says so.
+    void set_mosaic_out(const string& path, const string& graph_name,
+                        const vector<string>& haplotype_names = {},
+                        const vector<string>& reference_paths = {},
+                        bool patch_gaps = true, bool keep_nested = true,
+                        bool connect_unexplained = true) {
+        this->mosaic_path = path;
+        this->mosaic_graph_name = graph_name;
+        this->mosaic_haplotype_names = haplotype_names;
+        this->mosaic_reference_paths = reference_paths;
+        this->mosaic_patch_gaps = patch_gaps;
+        this->mosaic_keep_nested = keep_nested;
+        this->mosaic_connect_unexplained = connect_unexplained;
+        if (!path.empty()) {
+            // The mosaic is the phased result, so phasing is on wherever one is asked for. Never a
+            // silent override of `--no-phased`: the option layer refuses that pair outright, so by
+            // the time this runs phasing is either already on or the run has stopped.
+            this->emit_phasing = true;
+        }
+    }
 
     /// Sort then write variants in the buffer
     /// snarl_manager needed if include_nested is true
@@ -121,6 +399,10 @@ public:
 
     /// Assume writing nested snarls is enabled
     void set_nested(bool nested);
+
+    /// How deep in non-reference sequence each gref contig sits, keyed by locus. INFO/CH is at
+    /// least this for a record on that contig, whatever its ancestors did.
+    void set_gref_levels(map<string, int> levels);
 
     /// Enable post-genotyping merging of near-identical called ALT alleles, so that a 1/2 call of
     /// two effectively-identical alleles collapses to 1/1 with a single ALT.  Uses the same
@@ -143,7 +425,349 @@ public:
     /// most contigs are fragments, and on a human chromosome a third of them carry nothing.
     string prune_header_contigs(const string& header, const unordered_set<string>& keep) const;
 
+    /// Turn on symbolic collapsing: a called traversal whose symbolic allele equals the reference
+    /// traversal's is emitted as the reference allele, because it differs from the reference only
+    /// inside child chains and those differences belong to those chains' own records.
+    ///
+    /// Without it such a traversal becomes a long ALT differing from REF at a handful of bases.
+    /// 90.6% of vg's same-length structural false positives are that shape, and 55,222 of its
+    /// autosomal SNV false negatives sit inside one. See the nested-calling design note in the
+    /// companion evaluation repository (docs/nested-calling-design.md).
+    ///
+    /// The manager is not owned and must outlive this caller.
+    void set_symbolic_collapsing(const SnarlManager* manager) { this->symbolic_manager = manager; }
+
+    /// Emit one record per difference block between the reference and each called haplotype's
+    /// symbolic allele, instead of one record per snarl.
+    ///
+    /// On by default under --read-likelihood. Declines silently on the calling paths that cannot
+    /// serve it, and an explicit --atomize-blocks there is an error rather than a no-op.
+    void set_atomize_blocks(bool on) { this->atomize_blocks = on; }
+
 protected:
+
+    /// Whether `child` is already reported by this snarl's own records, because every called
+    /// haplotype crosses it only inside a difference block whose ALT spells the route through it.
+    ///
+    /// This is the exactly-once rule that block emission needs. Its population is narrow: a chain
+    /// the reference does not cross is not descended into at all (the caller
+    /// gates on that separately), and a genotype carrying the reference allele matches the chain by
+    /// definition. What is left is a snarl called with no reference allele where the alignment
+    /// matched the chain on neither haplotype -- loops and reorderings.
+    bool chain_reported_inline(const Snarl& snarl, const vector<SnarlTraversal>& travs,
+                               const vector<int>& genotype, int ref_trav_idx,
+                               const Snarl& child) const;
+
+    /// True when this called traversal takes the same route through the snarl as the reference and
+    /// differs only inside child chains. False whenever symbolic collapsing is off, so the
+    /// support-caller path is unchanged.
+    bool is_symbolically_reference(const vector<SnarlTraversal>& called_traversals,
+                                   int trav_idx, int ref_trav_idx, const Snarl& snarl) const;
+
+    /// Which parent a nested call hangs off, for the duration of that call.
+    ///
+    /// A nested site has ploidy 1 exactly when one called parent allele crosses the child chain and
+    /// the other does not, so the strand it belongs to is determined by the parent's phase rather
+    /// than estimated. The linkage layer needs to know the parent's record key and which of its two
+    /// genotype slots did the crossing.
+    ///
+    /// Thread-local rather than a parameter threaded through emit_variant's already long signature:
+    /// descent happens synchronously on the calling thread, so the context is set immediately before
+    /// the child call and cleared after it, and no other thread can observe it.
+    struct NestedContext {
+        bool active = false;
+        size_t parent_record_key = 0;
+        /// One bit per parent candidate TRAVERSAL, set where that traversal crosses this child
+        /// chain. Zero with `crossing_known` false means descent could not express it -- more than
+        /// 64 traversals at the parent -- and must be read as unknown rather than as none.
+        ///
+        /// Traversals, not VCF alleles: the two agree only when every allele at the parent is
+        /// panel-carried, and testing the allele index instead retracted 3,615 chains on chr20
+        /// against a true 190.
+        ///
+        /// Linkage reads it to decide how many copies of the chain the parent's *final* genotype
+        /// carries -- both traversals, one, or neither -- which is the same fact as which strand the
+        /// chain sits on. See LinkageCollector::resolve.
+        uint64_t parent_crossing = 0;
+        /// True when this chain, and everything under it, must be genotyped but not emitted.
+        ///
+        /// Set where no called parent allele reaches the chain. It is visited anyway -- its parent's
+        /// genotype is not settled yet, and linkage may still move the parent onto an allele that does
+        /// reach it -- but nothing about it may reach the VCF until the barrier says the sample
+        /// carries it. Inherited by its own children: a chain whose existence depends on an ancestor
+        /// the sample may not have cannot be emitted either.
+        bool retain_only = false;
+        /// Permission to genotype a chain the reference does not cross. Inherited, like
+        /// `retain_only`: everything under such a chain is also off the reference. It is only
+        /// PERMISSION -- whether a given snarl actually has a reference path is re-derived per
+        /// invocation from the graph, because a descendant's own boundaries may sit on a declared
+        /// reference path even when its parent's did not.
+        bool no_reference = false;
+        /// Under block emission, an enclosing difference block's ALT has already spelled out this
+        /// chain's variation, so its own line would report the same thing a second time.
+        ///
+        /// That is a fact about EMISSION, and it used to gate DESCENT: the chain was not visited,
+        /// not genotyped and not recorded, so nothing inside it informed its parent's phase either.
+        /// It is genotyped and recorded now, and held back at the render, which is where a decision
+        /// about lines belongs. Inherited: everything inside a chain a block already spelled out is
+        /// spelled out by that block too.
+        bool reported_inline = false;
+        /// Identity of the chain being descended into, from its boundary pair. The decode
+        /// groups on this: sibling chains have no transition between them, so a chain must be
+        /// distinguishable from its siblings and nothing more, which is why nothing here says
+        /// where the chain SITS -- neither among its siblings nor within itself. Both orders were
+        /// measured to change no byte of the output on three contigs.
+        size_t chain_key = 0;
+        /// False when the crossing mask could not be computed: the parent emitted nothing on this
+        /// invocation, or carries too many alleles for a 64-bit mask. child_crossing_mask returns 0
+        /// for "unknown", and the barrier must not read that 0 as "no allele crosses" -- so the
+        /// distinction travels beside the mask instead of being conflated with it.
+        bool crossing_known = true;
+    };
+    static thread_local NestedContext nested_context;
+
+    /// What the last emit_variant call on this thread turned each called traversal into, and how
+    /// many alleles the record ended up with.
+    ///
+    /// Symbolic descent needs a child's crossing pattern in VCF allele space, because that is the
+    /// space GT, GL and the linkage layer are written in, and only emit_variant knows the mapping --
+    /// alleles are deduplicated by string and symbolically-reference traversals all collapse onto
+    /// allele 0. Thread-local and read immediately after the emit that filled it, for the same
+    /// reason nested_context is.
+    /// Whether the last emit on this thread described a real record, so a child descending from it
+    /// can tell "my parent's traversals are in hand" from "this still describes some other snarl".
+    /// That is the whole of what survives: the allele map, contig, POS and buffer handle this once
+    /// carried were each written on every emit and read by nothing, so it is a bool rather than the
+    /// one-field struct it decayed into.
+    static thread_local bool last_emit_valid;
+
+    /// Snarl hierarchy for symbolic collapsing, or null to compare alleles by sequence alone.
+    const SnarlManager* symbolic_manager = nullptr;
+
+    /// Whether to decompose a snarl into one record per difference block.
+    bool atomize_blocks = false;
+
+    /// Which resolve pass will settle the site being recorded right now: its depth in the nested
+    /// tree, since a chain's ploidy depends on its parent's settled genotype.
+    ///
+    /// Thread-local, and it has to be. Descent is synchronous on the calling thread but the sweep is
+    /// parallel over node-ID windows, so as a plain member the save-increment-restore around each
+    /// recursive call races between threads and drifts upward without bound: chr20 reported 124
+    /// generations for a tree six deep, ran 124 resolve passes instead of 7, and clamped the linkage
+    /// layer against generations that do not exist.
+    static thread_local size_t current_generation;
+
+    /// Resolve one generation of the linkage pass, accumulating into the three maps below.
+    ///
+    /// `last` gates the reporting, the mosaic, and building the mosaic -- all of which want
+    /// the whole accumulated call set rather than one generation of it.
+    void resolve_linkage_generation(size_t generation, bool last);
+
+    /// Build the patch index and write the mosaic, once every record exists.
+    ///
+    /// Separate from resolution because both read whether a site has a VCF line, and with the record
+    /// built after the decision that is unknown while resolving -- every entry still says unemitted.
+    void finalise_linkage_outputs();
+
+    /// Resolve the linkage pass if nothing has resolved it yet, as a single generation-0 pass.
+    /// Idempotent, so `write_variants` can call it unconditionally and a driver that already ran the
+    /// generations itself is not undone.
+    void resolve_linkage();
+
+    /// Accumulated across generations, consumed by `write_variants` when it patches the buffer.
+    /// Several records can legitimately share a (contig, position) -- a nested child whose first
+    /// variant base coincides with its parent's anchor base, for one -- so each position holds every
+    /// call made there and the patch is matched to its line by record_key (the hash of the ID
+    /// column). A map keyed by position alone silently kept only the last writer, so one of the two
+    /// records lost its phasing and, when their GT strings coincided, the survivor was applied to
+    /// both lines.
+    /// Keyed on (contig, record_key), not (contig, POS).
+    ///
+    /// POS is the wrong key and has now cost two bugs. `flatten_common_allele_ends` advances POS by
+    /// the prefix every allele shares, so the position a record is filed under is a function of its
+    /// emitted allele set -- and anything that changes that set, or that computes the position before
+    /// flattening, files the patch where nothing looks for it. `respecify` had to be given a contig
+    /// and position for exactly this reason, and moving `record()` earlier would have reintroduced it
+    /// from the other side. The failure is also near-invisible: `phase_declined`
+    /// count patches that were found and refused, so a patch nobody looks up reports zero.
+    ///
+    /// `record_key` is `hash(print_snarl(snarl, false))` and `id_key()` hashes the ID column, which
+    /// is that same string, so the two already agree. The contig stays in the key because one snarl
+    /// ID can appear on more than one contig in a multi-reference run.
+    /// Every phased site, in the order the model produced them. The mosaic reads this, and deferred
+    /// descent looks a parent's settled allele pair up in it.
+    vector<LinkageCollector::PhaseCall> linkage_phased;
+    bool linkage_resolved = false;
+    /// Totals for the one-line report, summed over however many generations ran.
+    double linkage_seconds = 0.0;
+    size_t linkage_changed = 0;
+
+    /// Linkage pass state. Not owned.
+    LinkageCollector* linkage_collector = nullptr;
+    const gbwt::GBWT* linkage_gbwt = nullptr;
+    const vector<size_t>* linkage_sequence_to_haplotype = nullptr;
+    /// Panel size, so `panel_alleles` can size its row by the haplotypes it indexes rather than by
+    /// the GBWT sequence count, which is a different and much larger number under a gref cover.
+    size_t linkage_panel_size = 0;
+
+    /// One decompressed-record cache per thread, for the panel lookups.
+    ///
+    /// Profiling put `panel_alleles` at roughly three and a half times the self cost of
+    /// `score_read_against_allele` -- the per-read likelihood inner loop it exists to annotate --
+    /// and three of its five heaviest frames were GBWT record lookup and decompression rather
+    /// than the DA sampling intrinsic to `locate`. Every site re-walks records from scratch, and
+    /// adjacent snarls share most of them.
+    ///
+    /// Per thread, not shared: `CachedGBWT` is a mutable cache with no internal locking and the
+    /// caller is parallel over snarls. Sized once in `set_linkage` so nothing allocates inside
+    /// the parallel region.
+    mutable vector<gbwt::CachedGBWT> linkage_gbwt_cache;
+
+    /// The node-ID neighbourhood each thread's cache currently covers. CachedGBWT only ever grows
+    /// -- the gbwt header recommends short-lived instances -- and with node-ID-ordered windows a
+    /// thread never revisits a retired window, so without eviction every decompressed record the
+    /// contig ever touched stays resident. When a thread's site moves past this anchor by more than
+    /// the fetch-window width, its cache is cleared: adjacent snarls still share records, which is
+    /// all the cache was measured to help with, and residency is bounded to about one window.
+    mutable vector<nid_t> linkage_gbwt_cache_anchor;
+
+    /// Quality rewrites the record refused -- a malformed FORMAT, essentially. Counted rather than
+    /// silent, because a record that keeps its per-site GQ where the model moved its genotype is
+    /// differently calibrated and nothing else would say so.
+    mutable std::atomic<size_t> quality_declined{0};
+
+    /// Phase by record key, built after the barrier and read while each record is rendered.
+    ///
+    /// Keyed on the record key rather than on (contig, POS) because POS is not an identity here: the
+    /// flattened position depends on which alleles the line carries, so it is not known until the
+    /// record exists.
+    std::unordered_map<size_t, LinkageCollector::PhaseCall> render_phases;
+
+    /// Read-backed phasing: on, its parameters, and what it did. See read_phasing.hpp.
+    bool read_phasing = false;
+    ReadPhasingParams read_phasing_params;
+    ReadPhasingCounters read_phasing_counters;
+
+    /// What the phasing pass built, kept so re-genotyping does not rebuild it.
+    ///
+    /// `phase_sites` is every diploid het site's per-read evidence reduced to the settled pair,
+    /// and `phase_flips` is the set of record keys whose order the reads reversed. Re-genotyping
+    /// needs both: the sites for the per-read strand log-odds, and the flips because a site in
+    /// them describes the panel's frame rather than the settled one, so its contribution enters
+    /// with the opposite sign. Kept rather than rebuilt because rebuilding means re-deriving the
+    /// same responsibility arithmetic from a second walk of the same evidence -- and getting the
+    /// sign convention right twice.
+    vector<PhaseSite> phase_sites;
+    unordered_set<size_t> phase_flips;
+
+    /// Phase-aware re-genotyping: on, its parameters, and what it did. See regenotype.hpp.
+    bool regenotype = false;
+    RegenotypeParams regenotype_params;
+    RegenotypeCounters regenotype_counters;
+    /// Barrier passes. 1 scores the correction and reports it without acting on it, which is what
+    /// makes the arithmetic measurable before the second pass is trusted.
+    size_t regenotype_passes = 2;
+    /// Where to write the would-move ledger, or empty for none. One line per site whose corrected
+    /// argmax differs from the sweep's, so "are the sites this wants to move the ones that are
+    /// currently wrong?" can be answered against the truth before any of it is acted on.
+    string regenotype_ledger;
+
+    /// Records phased while being rendered, and phases refused because the record did not carry a
+    /// permutation of the phased pair.
+    mutable std::atomic<size_t> phase_declined{0};
+
+    /// Fill `render_phases` from the resolved phasing. Called between the barrier and the render.
+    void build_render_phases();
+
+
+    /// `--min-confidence`, so a record whose GQN the linkage layer re-derived can be re-labelled
+    /// against the same threshold the per-site emission used. Held here because the threshold lives
+    /// on the read-likelihood caller and this rewrite happens in the output layer.
+    double linkage_min_confidence = 0.0;
+
+    /// Whether to emit phased GT and FORMAT/PS.
+    bool emit_phasing = false;
+
+    /// Destination for the anchor file, what qualifies for it, and the provenance its header
+    /// records. The writer itself is created once the thread count is known.
+    string anchor_path;
+    AnchorParams anchor_params;
+    string anchor_graph_name;
+    string anchor_reads_source;
+    unique_ptr<AnchorWriter> anchor_writer;
+    /// The mismap floor the per-read anchor score is bounded by, for the header. Set alongside the
+    /// path so a consumer can tell what a score of 14 means without knowing how the run was invoked.
+    double anchor_mismap_min = 0.0;
+
+    /// Destination for the mosaic file, and the graph it is to be read against.
+    string mosaic_path;
+    string mosaic_graph_name;
+    /// Panel index -> "sample#phase", which is the unit the linkage model works in: a haplotype
+    /// present in several GBWT fragments is one haplotype, so the name deliberately identifies a
+    /// (sample, phase) pair rather than any single GBWT path. Combined with a segment's contig
+    /// that is enough to find the paths again.
+    ///
+    /// The index itself is internal -- it is assigned in GBWT metadata order by the run that
+    /// produced the file and means nothing outside it -- so the header emits the whole mapping and
+    /// the file is self-describing.
+    vector<string> mosaic_haplotype_names;
+
+    /// Full reference path names the run called against; see set_mosaic_out.
+    vector<string> mosaic_reference_paths;
+    /// Fill a gap no panel haplotype can be carried across with the reference, so a strand stays
+    /// one walk. On by default; the fill is marked `ref` in the file, never passed off as evidenced.
+    bool mosaic_patch_gaps = true;
+    /// Keep a haplotype switch that happens inside a nested chain as its own segment. On by
+    /// default. Off merges the runs across it, which follows the parent's haplotype through the
+    /// child snarl rather than the child's own route -- structurally valid, fewer switches, and
+    /// lossy at the sequence level. Recorded in the file's #nested header.
+    bool mosaic_keep_nested = true;
+    /// Carry the flanking haplotype through a stretch the panel cannot explain, instead of
+    /// emitting an unwalkable row and breaking the path. On by default: 4 segments on chr20, and
+    /// it trades the called alleles across those sites for a contiguous path.
+    bool mosaic_connect_unexplained = true;
+
+    /// GBWT position of `hap`'s fragment at node `node_id`, or gbwt::invalid_edge() if the
+    /// haplotype does not traverse it.
+    ///
+    /// This is what makes a segment walkable without an r-index. A consumer given only a node and
+    /// a haplotype *name* has to turn the name into a position, and that is `locate()`: without an
+    /// r-index or dense DA sampling it walks back to a sample, or scans the path from its start.
+    /// Given the position instead, reconstruction is `extract({node, offset})` and forward `LF()`,
+    /// with no search at all. Resolving it once here costs the writer a few thousand lookups and
+    /// saves every reader an index larger than the graph -- this project's chr20 r-index is 86 MB
+    /// against a 77 MB GBZ.
+    ///
+    /// Both orientations are tried because the recorded node IDs are bare: the snarl boundary is
+    /// stored without the orientation the haplotype traverses it in.
+    /// How far a walk may run before it is abandoned. Only ever walked in the direction already
+    /// established, so this bounds a genuinely long segment rather than a wrong-way attempt.
+    static const size_t MOSAIC_WALK_LIMIT = 1u << 17;
+    /// Follow `hap` from an ORIENTED node to `to_node`, and report where it arrives.
+    ///
+    /// The direction is the caller's, already established -- that is the whole point. A GBWT stores
+    /// every path twice, forward and reverse-complemented, so asking "where does hap visit node N"
+    /// has two answers and nothing local chooses between them. Asking "where does hap get to,
+    /// following the walk I am already on" has one.
+    bool mosaic_follow(gbwt::edge_type start, int64_t to_node, gbwt::node_type* out_end) const;
+    /// Where `hap` sits at one ORIENTED node, or invalid.
+    gbwt::edge_type mosaic_position_at(gbwt::node_type node, size_t hap) const;
+    /// (oriented node, haplotype) -> GBWT position. The mosaic is written serially, so one map with
+    /// no locking is enough; it lives only for that pass.
+    mutable std::unordered_map<uint64_t, gbwt::edge_type> mosaic_position_cache;
+    gbwt::edge_type mosaic_gbwt_position(int64_t node_id, size_t hap) const;
+
+    /// Collapse the per-site phasing into segments and write them.
+    ///
+    /// Run-length encoding is the whole point: measured on chr20 against a 34-haplotype panel,
+    /// about 2% of sites are switch points, so 105k sites become roughly 2k segments and the file
+    /// is ~140 KB rather than ~7 MB. Whole-genome that is a few megabytes against a few hundred.
+    void write_mosaic(const vector<LinkageCollector::PhaseCall>& phasing) const;
+
+    /// Which allele of `travs` each panel haplotype carries, or -1 where it does not traverse the
+    /// site. Asks the GBWT which haplotypes take each traversal.
+    vector<int> panel_alleles(const HandleGraph& graph,
+                              const vector<SnarlTraversal>& travs) const;
 
     /// add a traversal to the VCF info field in the format of a GFA W-line or GAF path
     void add_allele_path_to_info(const HandleGraph* graph, vcflib::Variant& v, int allele,
@@ -189,11 +813,14 @@ protected:
     /// absorbed allele's reads from AD/DP and from the Poisson caller's total_other_support term.
     /// Rewrites the allele-indexed fields (alleles/alt, AT, AD, GL, GT, MAD) and records what was
     /// merged in the MAT info field.  Returns true if anything merged.
+    /// `gl_layout` must be the order the caller that produced this record's GL actually wrote it
+    /// in. There is no way to recover it from the record.
     bool merge_similar_alleles(const PathPositionHandleGraph& graph,
                                const vector<SnarlTraversal>& site_traversals,
                                vector<int>& site_genotype,
                                const string& sample_name,
-                               vcflib::Variant& out_variant) const;
+                               vcflib::Variant& out_variant,
+                               GLLayout gl_layout) const;
 
     /// print a vcf variant
     /// return value is taken from add_variant (see above)
@@ -217,6 +844,19 @@ protected:
     /// if len_override given, just do that many bases without thinking
     void flatten_common_allele_ends(vcflib::Variant& variant, bool backward, size_t len_override) const;
 
+    /// Decompose a fully built site record into one record per difference block and file them.
+    ///
+    /// Returns the number of lines written, or -1 meaning "the site record stands" -- which is
+    /// every case this declines, so declining reproduces today's output exactly rather than
+    /// approximately. `site` must be the finished record, after update_vcf_info and flattening,
+    /// because every field a block does not redefine is inherited from it.
+    int emit_block_records(const PathPositionHandleGraph& graph, const Snarl& snarl,
+                           const vector<SnarlTraversal>& called_traversals,
+                           const vector<int>& genotype, int ref_trav_idx,
+                           const string& sample_name, const vcflib::Variant& site,
+                           const map<int, int>& trav_to_allele, int64_t site_position,
+                           GLLayout gl_layout, bool genotype_snarls) const;
+
     /// print a snarl in a consistent form like >3435<12222
     /// if in_brackets set to true,  do (>3435<12222) instead (this is only used for nested caller)
     // The nesting INFO headers (LV/CH/PS/RC/RS/RD), for both vg call and vg deconstruct.
@@ -232,6 +872,22 @@ protected:
     string print_snarl(const Snarl& snarl, bool in_brackets = false) const;
     /// The same as above, but print the snarl as if its orientation has been flipped
     string print_flipped_snarl(const Snarl& snarl, bool in_brackets = false) const;
+
+    /// The linkage layer's identity for a site.
+    ///
+    /// It has to be the hash of the printed snarl and not something cheaper, because there is a
+    /// seventh producer that cannot follow a change: `write_variants` recovers a buffered line's
+    /// key by re-hashing the line's own ID column, which `emit_variant` set from `print_snarl`.
+    /// That is what lets a compressed record be matched to its linkage entry with nothing carried
+    /// alongside it, and it is what makes the key survive `--translation`, where both sides print
+    /// the translated form.
+    ///
+    /// Packing the two boundary node IDs directly was tried and is about 0.15 s faster on chr20.
+    /// It also takes that run's 19,472 linkage-quality patches to zero, because the key in the
+    /// file cannot be repacked. Kept as one function instead, so the six call sites and the
+    /// recovery in `write_variants` are a single statement apart rather than six copies of an
+    /// expression that has to agree with a string.
+    size_t record_key_of(const Snarl& snarl) const;
 
     /// do the opposite of above
     /// So a string that looks like AACT(>12<17)TTT would invoke the callback three times with
@@ -250,7 +906,7 @@ protected:
 
     /// output buffers (1/thread) (for sorting)
     /// variants stored as strings (and position key pairs) because vcflib::Variant in-memory struct so huge
-    mutable vector<vector<pair<pair<string, size_t>, string>>> output_variants;
+    mutable vector<vector<pair<BufferedRecordKey, string>>> output_variants;
 
     /// Reference interval of a site that was visited but not emitted, because every traversal
     /// through it was the reference (or absent) and so it had no variant to report.  Such a site
@@ -272,11 +928,22 @@ protected:
     /// print up to this many uncalled alleles when doing ref-genotpes in -a mode
     size_t max_uncalled_alleles = 5;
 
+    /// Contig name -> ploidy overrides, sorted by start and guaranteed non-overlapping by
+    /// set_ploidy_regions. Empty unless --ploidy-bed was given. See set_ploidy_regions.
+    struct PloidyRegion {
+        size_t start;   ///< 0-based, inclusive
+        size_t end;     ///< 0-based, exclusive
+        int ploidy;
+    };
+    unordered_map<string, vector<PloidyRegion>> ploidy_regions;
+
     // optional node translation to apply to snarl names in variant IDs
     const unordered_map<nid_t, pair<string, size_t>>* translation;
 
     // need to write LV/PS info tags
     bool include_nested;
+    /// Locus -> gref nesting level, the floor for that contig's INFO/CH. Empty without a cover.
+    map<string, int> gref_levels;
 
     // post-genotyping ALT merging (vg call -L / --cluster-min-len).  Deliberately NOT named
     // cluster_threshold / cluster_min_allele_len: Deconstructor derives from this class and already
@@ -528,6 +1195,97 @@ public:
 
     virtual bool call_snarl(const Snarl& snarl);
 
+    /// Defer symbolic descent until the linkage pass has settled each parent's genotype.
+    ///
+    /// Descent decides a child's ploidy, its strand, and whether it is called at all from its
+    /// parent's genotype. Inline, that genotype is the *pre-linkage* one, and linkage then rewrites
+    /// parents -- so a child can end up at a ploidy its own parent contradicts, and a child the
+    /// settled parent does carry can go uncalled because the pre-linkage parent did not. Deferring
+    /// makes the decision from the settled genotype instead, which removes both by construction.
+    ///
+    /// Greedy: a parent is settled before any of its children exists, so a child's evidence cannot
+    /// move its parent. That is the trade, and it is deliberate.
+    ///
+    /// Needs the linkage layer and phasing, since the settled allele pair comes from the phasing.
+    /// Sizes the per-thread queues, so call it before calling starts.
+    /// The pre-flatten (contig, position) a site is filed under in the linkage layer.
+    pair<string, size_t> site_ref_key(const Snarl& snarl, const string& ref_path_name,
+                                      int ref_offset, bool no_reference = false,
+                                      int64_t anchor_position = 0) const;
+
+    /// Record the site into the linkage layer at the point it is genotyped, not the point it is
+    /// emitted.
+    ///
+    /// The barrier resolves the collector, and the render pass runs after the barrier, so a
+    /// `record()` inside `emit_variant` would leave the collector empty when the barrier reads it --
+    /// every nested revision, retraction and gain would disappear. Two of the arguments it used to
+    /// take cannot exist here (the emitted allele map, and whether a line was written) and are
+    /// supplied afterwards by `set_allele_map`.
+    void record_site(const Snarl& snarl, const vector<SnarlTraversal>& travs,
+                     const vector<int>& trav_genotype,
+                     const unique_ptr<SnarlCaller::CallInfo>& call_info,
+                     const string& ref_path_name, int ref_offset,
+                     bool no_reference = false, int64_t anchor_position = 0);
+
+    /// Emit the records staged during the sweep, in one pass.
+    ///
+    /// Runs after the barrier and renders each record from the settled genotype, which is why
+    /// `record()` lives at genotyping time rather than in `emit_variant`: the barrier would
+    /// otherwise resolve an empty collector.
+    /// Decide every het site's phase from the reads, and rewrite the settled phase to match.
+    ///
+    /// Called from `render_retained_records` before `build_render_phases`, so everything downstream
+    /// -- the GT's field order, the anchor `slot` column, the mosaic -- follows from one decision
+    /// rather than being patched in three places. Genotypes are NOT touched: only the order of an
+    /// already-settled pair changes, which is what makes the genotype-neutrality gate checkable.
+    ///
+    /// Here rather than on VCFOutputCaller because it needs `render_records`, which is where the
+    /// retained per-read evidence lives.
+    void apply_read_phasing();
+
+    /// Re-score every retained site's genotype likelihoods with the reads' phase.
+    ///
+    /// Runs after `apply_read_phasing`, which is what supplies `phase_sites` and `phase_flips`.
+    /// Returns true if any site's corrected argmax names a different unordered genotype -- i.e.
+    /// whether a second barrier pass would have anything to settle.
+    bool apply_regenotyping();
+
+    /// Feed the corrected likelihoods back to the linkage layer and settle again.
+    ///
+    /// The correction rewrites likelihoods, never genotypes: the layer still decides, exactly as
+    /// it does on the first pass, so the panel keeps its say at the low-information sites where
+    /// it earns it. Overriding the genotype directly would throw that away precisely where it
+    /// matters most.
+    void regenotype_resettle();
+
+    void render_retained_records();
+
+    /// Whether this snarl has no children, resolved through the manager's own copy. See the
+    /// implementation for why the obvious `children_of(&snarl)` is not safe here.
+    bool snarl_is_leaf(const Snarl& snarl) const;
+
+    void set_defer_nested_descent(bool defer);
+
+    /// How many render records are staged. Reported under --progress; the assertion that this is
+    /// non-zero on a graph with no nesting at all is what proves the top-level branch stages too.
+    size_t render_record_count() const;
+
+
+    /// Resolve, descend, repeat until nothing is queued. One linkage pass per level of the snarl
+    /// tree that descent actually reaches -- six on chr20, with 99.6% of the descents in the first
+    /// three. Does nothing unless deferral is on, and leaves the linkage pass resolved either way,
+    /// so `write_variants` needs no knowledge of which mode ran.
+    void run_deferred_descent();
+
+    /// Hand every surviving chain to the render pass. Once, after the LAST barrier pass.
+    ///
+    /// Split out of `run_deferred_descent` so that function can be re-run: settling is a function
+    /// of the likelihoods and can happen any number of times, while the hand-off is a one-way
+    /// move of ownership and collects anchors, which must happen exactly once.
+    void hand_off_deferred_records();
+
+
+
     virtual string vcf_header(const PathHandleGraph& graph, const vector<string>& contigs,
                               const vector<size_t>& contig_length_overrides = {}) const;
 
@@ -581,6 +1339,139 @@ protected:
     /// use * alleles for spanning haplotypes that don't traverse nested sites
     bool star_allele = false;
 
+    /// One nested chain's genotyping, kept until the barrier can say what ploidy it should have.
+    ///
+    /// This is what makes the single sweep possible. A chain's ploidy comes from its parent's settled
+    /// genotype, which is not known while the reads are resident, and the previous design went back to
+    /// the reads once per level to find out -- five sweeps of a contig where there had been one, and
+    /// 48.8% more reads fetched. Keeping the genotyping result instead costs 3.18 kB a chain,
+    /// measured: 87 MB for chr20's 27,404 chains against a 3.6 GB peak.
+    ///
+    /// The `CallInfo` carries both ploidies' answers (see `alt_ploidy_info`), so whichever ploidy the
+    /// barrier settles on can be rendered from what is here, with no re-reading and no re-scoring.
+    /// `snarl` is held by value because `call_snarl_internal` works on a local copy it may have
+    /// flipped.
+    struct PendingRecord {
+        Snarl snarl;
+        string ref_path_name;
+        int ref_offset = 0;
+        vector<SnarlTraversal> travs;
+        int ref_trav_idx = -1;
+        /// The genotype and the ploidy it was genotyped at: the parent's *pre-linkage* answer.
+        vector<int> genotype;
+        int ploidy = 2;
+        unique_ptr<SnarlCaller::CallInfo> call_info;
+        size_t record_key = 0;
+        size_t parent_record_key = 0;
+        /// Identity of this snarl's chain, from its boundary pair; the decode's group key.
+        size_t chain_key = 0;
+        /// See NestedContext::reported_inline. Held back from the render, like `no_reference`.
+        bool reported_inline = false;
+        /// This snarl has no reference path of its own, so no line may be written for it: REF and
+        /// POS are undefined. It is genotyped and recorded into the linkage layer regardless, which
+        /// is the whole point -- the reads reach it through node-ID ranges, not coordinates.
+        bool no_reference = false;
+        /// The parent's reference start, standing in for a position this snarl does not have. Used
+        /// wherever a key or an ordering coordinate is needed; never as a distance.
+        int64_t anchor_position = 0;
+        /// One bit per parent *candidate traversal*, set where that traversal crosses this chain.
+        uint64_t parent_crossing = 0;
+        /// False when parent_crossing could not be computed (the parent emitted nothing during the
+        /// sweep, or has too many alleles for the mask). The barrier recomputes the mask when it
+        /// re-emits the parent; until then an unknown mask must not be read as "nothing crosses".
+        bool crossing_known = true;
+        /// The parent traversal this chain hangs off, or -1 when the settled parent does not carry
+        /// it on exactly one. Set at descent and re-derived whenever the barrier looks at the chain,
+        /// so it always names a traversal in the parent's current settled pair.
+        uint8_t generation = 0;
+        /// Set when the settled parent turns out not to carry this chain, directly or through an
+        /// ancestor. Such a chain does not exist in the sample, so neither do its descendants, and
+        /// nothing below it may be revised or emitted afterwards.
+        bool dropped = false;
+        /// Whether a record was written during the sweep. False where no called parent allele reached
+        /// it, which is exactly the population the barrier may turn into a call.
+        /// `panel_alleles(graph, travs)`, memoised.
+        ///
+        /// That lookup walks the GBWT once per traversal and keeps its own decompression cache;
+        /// it was measured at 3.5x the read-scoring inner loop when profiled. Calling it per
+        /// record per re-genotyping round, from a serial loop on one thread's cache, made it the
+        /// dominant cost of a round. `travs` is fixed at the sweep and nothing after it writes
+        /// them, so the answer cannot change between rounds.
+        vector<int> panel_cache;
+        bool panel_cached = false;
+
+    };
+
+    /// Every record the render will produce, wherever it currently lives.
+    ///
+    /// Between a barrier pass and the hand-off, nested chains sit in `deferred_pending` and
+    /// everything else in `render_records`; afterwards they are all in `render_records`. The
+    /// phasing and the correction both run in that window and must see both, without having to
+    /// know which is which -- and must keep seeing the same set across a re-genotyping round, or
+    /// the second pass would phase a different population from the first.
+    vector<PendingRecord*> records_for_render();
+
+    /// `panel_alleles` for a record, computed once and kept. See `PendingRecord::panel_cache`.
+    const vector<int>& cached_panel_alleles(PendingRecord& rec);
+
+    /// The settled pair and ploidy per record, for measuring whether a re-genotyping round moved
+    /// anything. `{trav_first, trav_second, ploidy}`.
+    unordered_map<size_t, std::array<int, 3>> settled_snapshot();
+    /// How many records settled differently from `before`, counting a chain that gained or lost a
+    /// settled answer as moved.
+    size_t settled_changed(const unordered_map<size_t, std::array<int, 3>>& before);
+    /// An order-independent digest of a snapshot, for spotting a state the iteration has been in
+    /// before -- which is a limit cycle, not slow progress.
+    static size_t snapshot_digest(const unordered_map<size_t, std::array<int, 3>>& snap);
+
+    /// The nested chains the barrier settles, merged out of `pending_records` on the first pass
+    /// and kept until `hand_off_deferred_records` moves them to the renderer. A member rather than
+    /// a local because the barrier runs once per re-genotyping round.
+    vector<PendingRecord> deferred_pending;
+    /// How many times the barrier has run, so a second pass knows to re-derive rather than inherit.
+    size_t barrier_passes_run = 0;
+
+
+    bool defer_nested_descent = false;
+
+    /// Filled per thread during the sweep, which is parallel over node-ID windows.
+    vector<vector<PendingRecord>> pending_records;
+
+    /// The same retention, for snarls the barrier does not revise -- top-level ones, whose ploidy
+    /// comes from the contig or the BED and is never re-derived from a parent.
+    ///
+    /// A second container rather than one, because `run_deferred_descent` MOVES `pending_records`
+    /// out and clears it: anything left there is gone by the time a render pass could read it. And
+    /// because its `children_of` index buckets by `parent_record_key`, so every top-level record
+    /// would land under key 0 and be walked as a sibling set.
+    ///
+    /// Read by `records_for_render`, which applies the hand-off's three filters to it, and
+    /// through that by the barrier, the read phaser and the re-genotyping sweep. It began life
+    /// unread, so that the memory cost of building the record after the genotype is decided was
+    /// paid and measured in a commit whose output was byte-identical -- the one risk in that
+    /// change a reviewer could not check by reading.
+    vector<vector<PendingRecord>> render_records;
+
+
+    /// Stage the inputs a record could be rendered from, for a snarl the barrier will not revise.
+    /// Consumes `call_info` but deliberately NOT the traversals: descent still reads those. The
+    /// caller completes the record after descent, exactly as it does for a nested chain.
+    unique_ptr<PendingRecord> stage_render_record(const Snarl& snarl,
+                                                 const vector<int>& trav_genotype, int ref_trav_idx,
+                                                 unique_ptr<SnarlCaller::CallInfo>& call_info,
+                                                 const string& ref_path_name, int ref_offset,
+                                                 int ploidy);
+
+
+    /// How many nested chains were retained across all threads.
+    /// `collect_anchors_for` for a staged record, with the phase order, the haploid slot and the
+    /// leaf test derived from it. Three call sites spelled the same five arguments; the genotype is
+    /// a parameter because the renderer passes the settled pair rather than the record's own.
+    void collect_anchors_for_record(const PendingRecord& rec, const vector<int>& genotype);
+
+    size_t pending_record_count() const;
+
+
     /// Internal implementation of call_snarl that accepts parent context for nested mode
     /// When nested=true, this recursively calls children after processing the current snarl
     /// @param parent_ref_path_name Reference path from parent (for off-reference snarls)
@@ -589,10 +1480,43 @@ protected:
     ///                               Each set contains all traversals through this child that are
     ///                               consistent with that parent allele. The child genotypes by
     ///                               picking the best pair (one from each set) based on read support.
+    /// `ploidy_override` >= 0 forces the ploidy this snarl is genotyped at, instead of taking it
+    /// from the contig or the --ploidy-bed region. Symbolic nested calling uses it to hand a child
+    /// the number of called parent alleles that actually cross it: a chain crossed by one allele
+    /// and deleted by the other is haploid there, whatever the contig's ploidy says.
     bool call_snarl_internal(const Snarl& snarl,
                              const string& parent_ref_path_name,
                              pair<size_t, size_t> parent_ref_interval,
-                             const ChildTraversalSets* parent_child_trav_sets = nullptr);
+                             const ChildTraversalSets* parent_child_trav_sets = nullptr,
+                             int ploidy_override = -1);
+
+    /// How many of the called parent alleles cross this child snarl, capped at `cap`.
+    ///
+    /// Crossing means the child's start and end both appear in the parent traversal *in order*.
+    /// Testing for them independently, as find_child_traversal_set does, counts a traversal that
+    /// happens to touch both boundaries on unrelated excursions.
+    ///
+    /// A single allele crossing a chain more than once -- a cycle or a tandem duplication -- would
+    /// give a per-haplotype copy number above one. v1 caps rather than modelling that, and says so
+    /// in the log, because the rest of the caller assumes ploidy in {1, 2}.
+    int child_ploidy(const vector<SnarlTraversal>& travs, const vector<int>& genotype,
+                     const Snarl& child, int cap) const;
+
+    /// How many times one traversal crosses `child`, by the same in-order rule child_ploidy uses.
+    static int crossings_of_child(const SnarlTraversal& trav, const Snarl& child);
+
+    /// One bit per candidate TRAVERSAL: bit i is set where `travs[i]` crosses `child`.
+    ///
+    /// Traversals, not VCF alleles. The two agree only when every allele at the parent is
+    /// panel-carried, and indexing by allele instead retracted 3,615 chains on chr20 against a true
+    /// 190 -- the mask is tested against the parent's settled traversals, so it has to be in their
+    /// space.
+    ///
+    /// Returns 0 -- unknown -- when there are more than 64 traversals, and sets `*known` to false
+    /// there, so a caller can tell that 0 apart from "no traversal crosses" instead of silently
+    /// conflating the two.
+    static uint64_t child_crossing_mask(const vector<SnarlTraversal>& travs,
+                                        const Snarl& child, bool* known = nullptr);
 
     /// Find all traversals through a child snarl that are consistent with a parent traversal.
     /// "Consistent" means the child's entry/exit points match what's in the parent traversal.

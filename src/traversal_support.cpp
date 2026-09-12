@@ -464,6 +464,33 @@ void TraversalSupportFinder::apply_min_bp_edge_override(const vector<SnarlTraver
     }
 }
 
+NullTraversalSupportFinder::NullTraversalSupportFinder(const HandleGraph& graph, SnarlManager& snarl_manager) :
+    TraversalSupportFinder(graph, snarl_manager) {
+}
+
+NullTraversalSupportFinder::~NullTraversalSupportFinder() {
+}
+
+Support NullTraversalSupportFinder::get_edge_support(const edge_t& edge) const {
+    return Support();
+}
+
+Support NullTraversalSupportFinder::get_edge_support(id_t from, bool from_reverse, id_t to, bool to_reverse) const {
+    return Support();
+}
+
+Support NullTraversalSupportFinder::get_min_node_support(id_t node) const {
+    return Support();
+}
+
+Support NullTraversalSupportFinder::get_avg_node_support(id_t node) const {
+    return Support();
+}
+
+size_t NullTraversalSupportFinder::get_avg_node_mapq(id_t node) const {
+    return 0;
+}
+
 PackedTraversalSupportFinder::PackedTraversalSupportFinder(const Packer& packer, SnarlManager& snarl_manager) :
     TraversalSupportFinder(*dynamic_cast<const HandleGraph*>(packer.get_graph()), snarl_manager),
     packer(packer) {
