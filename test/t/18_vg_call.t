@@ -526,7 +526,11 @@ is $(awk -F'\t' '$1=="#mosaic-version" {print $2}' rl_mosaic.tsv) "5" "the mosai
 # enumerates it. Adding a key without documenting it is exactly the drift that shipped a header with
 # five undocumented #note lines while the doc's example showed none, so pin the set: if this fails,
 # update the doc's key list in the same commit.
-is "$(grep "^#" rl_mosaic.tsv | cut -f1 | sort -u | paste -sd, -)" \
+#
+# LC_ALL=C because the expected string is an ORDER as well as a set. `#H` sorts first under C
+# collation and between `#graph` and `#haplotype` under en_US.UTF-8, so without it this passes on a
+# developer machine with no locale set and fails on a runner that has one.
+is "$(grep "^#" rl_mosaic.tsv | cut -f1 | LC_ALL=C sort -u | paste -sd, -)" \
    "#H,#decoding,#graph,#haplotype,#mosaic-version,#nested,#note,#patch,#reference,#sample,#unexplained" \
    "the mosaic header uses exactly the documented set of keys"
 
@@ -1044,7 +1048,7 @@ is $(grep -c "^#anchors-version" rl_anchors.tsv) "1" "the anchor file declares i
 # Self-describing, and pinned: a consumer that sees no anchor at a site must be able to tell a
 # threshold from an absence, so the filter values are part of the file rather than of the shell
 # history that produced it.
-is "$(grep "^#" rl_anchors.tsv | cut -f1 | sort -u | paste -sd, -)" \
+is "$(grep "^#" rl_anchors.tsv | cut -f1 | LC_ALL=C sort -u | paste -sd, -)" \
    "#H,#anchors-version,#filters,#graph,#mismap-min,#note,#read,#reads,#reads-interned,#sample,#sites" \
    "the anchor header uses exactly the documented set of keys"
 is $(grep -c "^A" rl_anchors.tsv | awk '{print ($1>0)?1:0}') "1" "it holds anchors"
@@ -1384,8 +1388,8 @@ print(sum(1 for k in E if not (E[k] - S[k]) and not (E[k] & shared)))
 ') "0" \
    "and every surviving end pin holds a read its start pin does not"
 # Every read still appears somewhere: the dropped pins were redundant by construction.
-is $(comm -13 <(awk -F'\t' '/^#read/{print $3}' rl_anchors_sp.tsv | sort -u) \
-              <(awk -F'\t' '/^#read/{print $3}' rl_anchors.tsv | sort -u) | wc -l | tr -d ' ') "0" \
+is $(comm -13 <(awk -F'\t' '/^#read/{print $3}' rl_anchors_sp.tsv | LC_ALL=C sort -u) \
+              <(awk -F'\t' '/^#read/{print $3}' rl_anchors.tsv | LC_ALL=C sort -u) | wc -l | tr -d ' ') "0" \
    "and no read is lost from the file by dropping them"
 
 # A filter that can actually fire, and provably so: the per-read score is bounded above by the
