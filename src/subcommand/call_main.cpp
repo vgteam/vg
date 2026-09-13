@@ -554,6 +554,7 @@ int main_call(int argc, char** argv) {
     // same thing: an explicit flag always wins, whichever side of the preset it is written on.
     string preset;
     double insertion_gap_nats = 0.0;
+    bool insertion_nats_explicit = false;
     bool gap_open_explicit = false, gap_extend_explicit = false, mismap_min_explicit = false;
     double min_confidence = 0.0;
     double linkage_weight = 2.0;
@@ -1099,6 +1100,7 @@ int main_call(int argc, char** argv) {
             min_mismap_prob = parse<double>(optarg);
             break;
         case OPT_INSERTION_GAP_NATS:
+            insertion_nats_explicit = true;
             insertion_gap_nats = parse<double>(optarg);
             break;
         case OPT_READ_MIN_MAPQ:
@@ -1237,6 +1239,24 @@ int main_call(int argc, char** argv) {
             }
             if (!mismap_min_explicit) {
                 min_mismap_prob = 0.05;
+            }
+            if (!insertion_nats_explicit) {
+                // ONT's basecaller miscounts a homopolymer run in one direction more often than
+                // the other -- 43.6% insertion against 25.5% deletion at runs >= 13 -- while the
+                // affine gap charges a read's extra base and its missing base alike. So a read's
+                // extra bases are weaker evidence than the model treats them as, and insertions
+                // are over-called: at runs >= 5, one-base insertion precision is 0.759 against
+                // 0.810 for deletions, with recall equal.
+                //
+                // 0.9 was predicted at 0.7-1.05 from the measured error rates before being swept,
+                // and the chr20 optimum is interior at 0.9. chr20 indel F1 0.85452 -> 0.86237 and
+                // chr6, held out, 0.87483 -> 0.88005, SNV F1 unchanged on both. 92.5% of the
+                // false positives it removes are in runs >= 5 even though the term cannot see a
+                // homopolymer, because that is where the insertion gaps are.
+                //
+                // Not a global default: it is fitted on a long-read error mode, and 150 bp reads
+                // are unmeasured at any non-zero value.
+                insertion_gap_nats = 0.9;
             }
             if (!regenotype_explicit) {
                 // The reads' phase decides the genotype, not only the order of a settled pair.
