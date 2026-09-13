@@ -81,6 +81,10 @@ constexpr double badness() {
     return Recombinator::BADNESS_THRESHOLD;
 }
 
+constexpr size_t min_gref_len() {
+    return Recombinator::MIN_GREF_LENGTH;
+}
+
 }; // namespace haplotypes_defaults
 
 //----------------------------------------------------------------------------
@@ -256,8 +260,11 @@ void help_haplotypes(char** argv, bool developer_options) {
     std::cerr << "                               in --diploid-sampling" << std::endl;
     std::cerr << "      --badness F              threshold for badness of a subchain "
                                              << "[" << haplotypes_defaults::badness() << "]" << std::endl;
-    std::cerr << "      --include-reference      include named and reference paths in the output" << std::endl;
+    std::cerr << "      --include-reference      include named and reference paths in the output;" << std::endl;
+    std::cerr << "                               gref fragments are clipped to the sampled graph" << std::endl;
     std::cerr << "      --set-reference NAME     use sample X as a reference sample (may repeat)" << std::endl;
+    std::cerr << "      --min-gref-len N         minimum length of a clipped gref fragment "
+                                             << "[" << haplotypes_defaults::min_gref_len() << "]" << std::endl;
     std::cerr << "      --ban-sample NAME        don't use NAME haplotypes, no matter the score" << std::endl;
     std::cerr << "      --high-cov-contig NAME   sample contig/path NAME with the high-coverage" << std::endl;
     std::cerr << "                               model: frequent kmers are the signal, no diploid" << std::endl;
@@ -317,6 +324,7 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
     constexpr int OPT_HALF_COVERAGE_NUM_HAPLOTYPES = 1316;
     constexpr int OPT_EXCLUDE_CONTIG = 1317;
     constexpr int OPT_WRAP = 1318;
+    constexpr int OPT_MIN_GREF_LEN = 1319;
     constexpr int OPT_VALIDATE = 1400;
     constexpr int OPT_STATISTICS = 1500;
     constexpr int OPT_DENSITY = 1600;
@@ -345,6 +353,7 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
         { "badness", required_argument, 0, OPT_BADNESS },
         { "include-reference", no_argument, 0, OPT_INCLUDE_REFERENCE },
         { "set-reference", required_argument, 0, OPT_SET_REFERENCE },
+        { "min-gref-len", required_argument, 0, OPT_MIN_GREF_LEN },
         { "ban-sample", required_argument, 0, OPT_BAN_SAMPLE },
         { "high-cov-contig", required_argument, 0, OPT_HIGH_COVERAGE_CONTIG },
         { "high-cov-num-haps", required_argument, 0, OPT_HIGH_COVERAGE_NUM_HAPLOTYPES },
@@ -479,6 +488,12 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
             break;
         case OPT_SET_REFERENCE:
             this->reference_samples.insert(optarg);
+            break;
+        case OPT_MIN_GREF_LEN:
+            this->recombinator_parameters.min_gref_length = parse<size_t>(optarg);
+            if (this->recombinator_parameters.min_gref_length == 0) {
+                this->logger.error() << "minimum gref fragment length cannot be 0" << std::endl;
+            }
             break;
         case OPT_BAN_SAMPLE:
             this->recombinator_parameters.banned_samples.insert(optarg);
