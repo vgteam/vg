@@ -9,7 +9,7 @@ PATH=../bin:$PATH # for vg
 # FORMAT field shifts every later one, which broke four assertions here that were not
 # testing field order at all -- one of them silently compared BL against a GQ threshold.
 
-plan tests 405
+plan tests 407
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -699,9 +699,22 @@ is "$?" "1" "--flat-mixture without --read-likelihood is refused"
 vg call x.vg -k x.pack --mismap-min=0.4 2>/dev/null >/dev/null
 is "$?" "1" "--mismap-min=VALUE without --read-likelihood is refused"
 
+# --insertion-nats is read-likelihood-only too. It was omitted from the list when it was
+# added, so it was silently accepted and dropped -- which is the exact failure the list
+# exists to stop, and nothing else exercises this flag by name.
+vg call x.vg -k x.pack --insertion-nats 0.9 2>/dev/null >/dev/null
+is "$?" "1" "--insertion-nats without --read-likelihood is refused"
+
 # And it must not fire when the mode *is* on: this run differs only in --read-likelihood.
 vg call x.vg --read-likelihood --gam sim.gam -k x.pack --depth-term 0.5 2>/dev/null | grep -v "^#" > rl_dt.vcf
 is $(if [ $(wc -l < rl_dt.vcf | tr -d ' ') -gt 0 ]; then echo 1; else echo 0; fi) "1" "read-likelihood options are accepted with --read-likelihood"
+
+# And that the flag actually parses under the mode, not merely that the refusal fires. A
+# typo in the option table would leave the refusal working (it scans argv) while the flag
+# itself was unrecognised.
+vg call x.vg --read-likelihood --gam sim.gam -k x.pack --insertion-nats 0.9 2>/dev/null | grep -v "^#" > rl_ins.vcf
+is $(if [ $(wc -l < rl_ins.vcf | tr -d ' ') -gt 0 ]; then echo 1; else echo 0; fi) "1" "--insertion-nats is accepted and parsed with --read-likelihood"
+rm -f rl_ins.vcf
 
 rm -f rl_dt.vcf rl_t1.vcf rl_t4.vcf rl_link_t1.vcf rl_link_t4.vcf rl_link_off.vcf rl_link_off_t4.vcf rl_link_default.vcf rl_nolink_pack.vcf rl_nolink_pack0.vcf rl_link_err.txt rl_link_err2.txt
 

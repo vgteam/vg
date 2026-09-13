@@ -1504,7 +1504,7 @@ int main_call(int argc, char** argv) {
             "--gaf-base-binary", "--read-window", "--read-min-mapq", "--no-mismap-term",
             "--depth-term", "--depth-count-raw", "--linkage-weight", "--linkage-scale",
             "--linkage-prior", "--depth-quality", "--min-confidence", "--flat-mixture",
-            "--gap-open", "--gap-extend", "--preset",
+            "--gap-open", "--gap-extend", "--insertion-nats", "--preset",
             "--read-phasing", "--no-read-phasing", "--phase-min-q", "--phase-break",
             "--regenotype", "--no-regenotype", "--regeno-temper", "--regeno-passes",
             "--regeno-ceiling", "--regeno-haploid", "--no-regeno-haploid",
