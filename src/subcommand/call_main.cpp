@@ -135,12 +135,12 @@ void help_call(char** argv) {
          << "                            be, capping one read's veto at ln(P). Covers local" << endl
          << "                            misalignment, which MAPQ does not measure. Mainly an" << endl
          << "                            indel knob; interacts with --mismap-max [0.02]" << endl
-         << "      --insertion-gap-nats X  add X nats to every gap where the READ carries" << endl
-         << "                            bases the allele lacks, correcting the affine gap's" << endl
-         << "                            direction-blindness. Positive makes extra bases argue" << endl
-         << "                            less against the shorter allele. In nats because one" << endl
-         << "                            score unit is 1.3833 and the correction is finer" << endl
-         << "                            than that. Off by default [0]" << endl
+         << "      --insertion-nats X    add X nats to every gap where the READ carries" << endl
+         << "                            bases the allele lacks, correcting the affine" << endl
+         << "                            gap's direction-blindness. Positive makes extra" << endl
+         << "                            bases argue less against the shorter allele. In" << endl
+         << "                            nats because one score unit is 1.3833 and the" << endl
+         << "                            correction is finer than that. Off by default [0]" << endl
          << "      --preset NAME         a fitted parameter set for one read type. None by" << endl
          << "                            default, so the values below are short-read ones." << endl
          << "                            `ont`: --gap-open 1 --gap-extend 1 --mismap-min" << endl
@@ -699,7 +699,7 @@ int main_call(int argc, char** argv) {
         {"no-mismap-term", no_argument, 0, OPT_NO_MISMAP_TERM},
         {"mismap-max", required_argument, 0, OPT_MISMAP_MAX},
         {"mismap-min", required_argument, 0, OPT_MISMAP_MIN},
-        {"insertion-gap-nats", required_argument, 0, OPT_INSERTION_GAP_NATS},
+        {"insertion-nats", required_argument, 0, OPT_INSERTION_GAP_NATS},
         {"no-share-quality", no_argument, 0, OPT_NO_SHARE_QUALITY},
         {"flat-mixture", no_argument, 0, OPT_FLAT_MIXTURE},
         {"depth-term", required_argument, 0, OPT_DEPTH_TERM},
