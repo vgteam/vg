@@ -268,6 +268,121 @@ TEST_CASE("A one-base indel costs the same whichever side carries it",
     }
 }
 
+/// A site with several alternative interior paths between two boundary nodes, and a
+/// configurable tail. Each allele is a list of interior node sequences; an empty list is a
+/// bypass. Node ids run in construction order and the tail is last.
+struct MultiAlleleSite {
+    bdsg::HashGraph graph;
+    Snarl snarl;
+    vector<SnarlTraversal> traversals;
+    unique_ptr<SnarlManager> manager;
+    vector<vector<pair<nid_t, bool>>> read_paths;
+
+    MultiAlleleSite(const vector<vector<string>>& alleles, const string& tail) {
+        handle_t head = graph.create_handle("AAAACCCC", 1);
+        nid_t next = 2;
+        vector<vector<nid_t>> interiors;
+        vector<handle_t> lasts;
+        for (const vector<string>& a : alleles) {
+            vector<nid_t> ids;
+            handle_t prev = head;
+            for (const string& seq : a) {
+                handle_t h = graph.create_handle(seq, next);
+                graph.create_edge(prev, h);
+                prev = h;
+                ids.push_back(next);
+                ++next;
+            }
+            interiors.push_back(ids);
+            lasts.push_back(prev);
+        }
+        nid_t tail_id = next;
+        handle_t tail_h = graph.create_handle(tail, tail_id);
+        for (handle_t l : lasts) {
+            graph.create_edge(l, tail_h);
+        }
+
+        snarl.mutable_start()->set_node_id(1);
+        snarl.mutable_end()->set_node_id(tail_id);
+        snarl.set_type(ULTRABUBBLE);
+        snarl.set_start_end_reachable(true);
+        vector<Snarl> snarls{snarl};
+        manager.reset(new SnarlManager(snarls.begin(), snarls.end()));
+
+        traversals.resize(alleles.size());
+        read_paths.resize(alleles.size());
+        for (size_t i = 0; i < alleles.size(); ++i) {
+            vector<nid_t> path{1};
+            path.insert(path.end(), interiors[i].begin(), interiors[i].end());
+            path.push_back(tail_id);
+            for (nid_t id : path) {
+                Visit* v = traversals[i].add_visit();
+                v->set_node_id(id);
+                v->set_backward(false);
+                read_paths[i].push_back({id, false});
+            }
+        }
+    }
+};
+
+TEST_CASE("No read's allele preference depends on the flank's length",
+          "[allele_likelihood][scoring]") {
+    // The systematic version of the anchor-desync regression above. That test pins one
+    // configuration; this one asserts the invariant across many, because the walk is
+    // greedy and single-pass and the fixed desync was only one way for a greedy walk to
+    // pick a bad correspondence.
+    //
+    // The invariant: rel is normalised by each read's own best allele, and lengthening a
+    // node EVERY allele shares adds the same match credit to all of them. So no rel value
+    // may move. Any walk that charges shared flank against one allele and not another --
+    // which is exactly what the desync did -- breaks it.
+    const vector<vector<vector<string>>> configurations = {
+        {{"T"}, {"G"}},                          // SNP
+        {{"T"}, {}},                             // one-base insertion against a bypass
+        {{"T", "C"}, {}},                        // two adjacent inserted nodes
+        {{"T", "C"}, {"T"}},                     // one extra node beside a shared one
+        {{"TTTT"}, {"T"}},                       // unequal-length substituted nodes
+        {{"T", "C", "G"}, {"T", "G"}},           // an extra node in the middle
+        {{"T", "C"}, {"C", "T"}},                // same nodes, different order
+        {{}, {"A"}, {"AA"}, {"AAA"}},            // a homopolymer ladder, four alleles
+    };
+
+    for (size_t c = 0; c < configurations.size(); ++c) {
+        MultiAlleleSite shortf(configurations[c], "GGGGTTTT");
+        MultiAlleleSite longf(configurations[c], "GGGGTTTT" + string(40, 'A'));
+
+        vector<Alignment> short_reads, long_reads;
+        for (size_t i = 0; i < configurations[c].size(); ++i) {
+            short_reads.push_back(make_matching_alignment(
+                shortf.graph, "r" + std::to_string(i), shortf.read_paths[i]));
+            long_reads.push_back(make_matching_alignment(
+                longf.graph, "r" + std::to_string(i), longf.read_paths[i]));
+        }
+
+        InMemorySiteReadSource short_src, long_src;
+        for (const Alignment& a : short_reads) short_src.add(a);
+        for (const Alignment& a : long_reads) long_src.add(a);
+        QualAdjAlignmentScorer qs;
+        MatrixAlignmentScorer ps;
+        GraphAlignedAlleleLikelihoodCalculator short_calc(shortf.graph, *shortf.manager,
+                                                          short_src, qs, ps);
+        GraphAlignedAlleleLikelihoodCalculator long_calc(longf.graph, *longf.manager,
+                                                         long_src, qs, ps);
+        AlleleReadLikelihoods sm = short_calc.compute(shortf.snarl, shortf.traversals, 2);
+        AlleleReadLikelihoods lm = long_calc.compute(longf.snarl, longf.traversals, 2);
+
+        INFO("configuration " << c);
+        REQUIRE(sm.num_reads() == lm.num_reads());
+        REQUIRE(sm.num_alleles() == lm.num_alleles());
+        for (size_t r = 0; r < sm.num_reads(); ++r) {
+            for (size_t a = 0; a < sm.num_alleles(); ++a) {
+                INFO("config " << c << " read " << r << " allele " << a);
+                REQUIRE(sm.rel(r, a) == Approx(lm.rel(r, a)));
+            }
+        }
+    }
+}
+
 TEST_CASE("A read spanning a deletion is kept and prefers the deletion allele",
           "[allele_likelihood][scoring]") {
     // The bug this pins: a read traversing straight from one boundary node to the
