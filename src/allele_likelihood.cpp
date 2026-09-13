@@ -671,7 +671,19 @@ int32_t GraphAlignedAlleleLikelihoodCalculator::score_read_against_allele(
     bool have_anchor = false;
     size_t bases_accounted = 0;
 
-    for (const ReadStep& read_step : read_steps) {
+    // Last read position visiting each (node, orientation). The walk below has to ask
+    // "is the allele's current node still to come in the read?", which is the mirror of
+    // the anchor search's "is the read's node still to come in the allele?". Both
+    // sequences are topologically ordered, so a later visit means the allele node is not
+    // this read node's counterpart.
+    unordered_map<int64_t, size_t> read_last_visit;
+    read_last_visit.reserve(read_steps.size() * 2);
+    for (size_t i = 0; i < read_steps.size(); ++i) {
+        read_last_visit[((int64_t)read_steps[i].node_id << 1) | (int64_t)read_steps[i].backward] = i;
+    }
+
+    for (size_t read_index = 0; read_index < read_steps.size(); ++read_index) {
+        const ReadStep& read_step = read_steps[read_index];
         // Look for this read node ahead in the allele. Anchoring on shared node
         // visits is what makes this a read-off of the alignment the graph already
         // asserts rather than an alignment we invent.
@@ -713,6 +725,23 @@ int32_t GraphAlignedAlleleLikelihoodCalculator::score_read_against_allele(
         // node this allele lacks, or the two substituted nodes for one another.
         if (allele_index < allele_steps.size()) {
             const AlleleStep& allele_step = allele_steps[allele_index];
+
+            // Does the read visit this allele node later on? Then it is not this read
+            // node's counterpart -- the read took a node the allele simply lacks, which is
+            // an insertion, not a substitution. Consuming the allele node here would burn
+            // the anchor the read is about to need: its own visit would find the allele
+            // exhausted and be charged a second time, so ONE inserted base cost a
+            // substitution plus two gaps. The same event costs a single gap when it is the
+            // allele that carries the extra node, and an indel must cost the same from
+            // either side. Charge the insertion and leave allele_index where it is.
+            auto later = read_last_visit.find(((int64_t)allele_step.node_id << 1)
+                                              | (int64_t)allele_step.backward);
+            if (later != read_last_visit.end() && later->second > read_index) {
+                score += read_scorer.score_gap(read_step.read_length);
+                bases_accounted += read_step.read_length;
+                continue;
+            }
+
             size_t shared = min(read_step.read_length, allele_step.sequence.size());
 
             // Score the overlapping extent base by base, so an equal-length

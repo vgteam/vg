@@ -41,11 +41,14 @@ struct SnpAndDeletionSite {
     vector<SnarlTraversal> traversals;   // ref (1,2,4), alt (1,3,4), deletion (1,4)
     unique_ptr<SnarlManager> manager;
 
-    SnpAndDeletionSite() {
+    /// `tail` is node 4's sequence. It is a parameter only so a test can vary the
+    /// flank length while holding the variant fixed; every existing caller gets the
+    /// original graph.
+    SnpAndDeletionSite(const string& tail = "GGGGTTTT") {
         handle_t h1 = graph.create_handle("AAAACCCC", 1);
         handle_t h2 = graph.create_handle("T", 2);
         handle_t h3 = graph.create_handle("G", 3);
-        handle_t h4 = graph.create_handle("GGGGTTTT", 4);
+        handle_t h4 = graph.create_handle(tail, 4);
 
         graph.create_edge(h1, h2);
         graph.create_edge(h2, h4);
@@ -179,6 +182,89 @@ TEST_CASE("A reverse-strand read scores the same as its forward equivalent",
         AlleleReadLikelihoods fwd_only = score_site(site, {forward, forward});
         REQUIRE(fwd_only.genotype_likelihood({0, 0}) == Approx(matrix.genotype_likelihood({0, 0})));
         REQUIRE(fwd_only.genotype_likelihood({1, 1}) == Approx(matrix.genotype_likelihood({1, 1})));
+    }
+}
+
+TEST_CASE("A one-base indel costs the same whichever side carries it",
+          "[allele_likelihood][scoring]") {
+    // The bug this pins: the walk in score_read_against_allele searches *ahead in the
+    // allele* for each read node, but when it finds none it assumes the read node
+    // SUBSTITUTES for the allele's current node and consumes that node. When the read
+    // node is instead a pure insertion -- the allele simply lacks it -- consuming the
+    // allele node desynchronises the walk. The allele node the read would have matched
+    // is burned against the wrong read node, and the read's real visit to it then falls
+    // through to the allele-exhausted branch and is charged a second time.
+    //
+    // Concretely, the read (1,2,4) against the deletion allele (1,4) was scored as
+    // mismatch(T vs G) + gap(7) + gap(8) -- node 4's whole length charged twice, once as
+    // a length difference against node 2 and once as an unplaceable read node -- instead
+    // of the single one-base gap the event actually is. On real ONT data the same 1 bp
+    // event cost 1 score unit in one direction and 67-68 in the other, and 22% of read
+    // rows have a best allele carrying a gap.
+    //
+    // The invariant asserted here is direction symmetry, which needs no knowledge of
+    // gap_open or the log base: one inserted base and one deleted base are the same
+    // event seen from the two sides, so they must carry the same penalty.
+    SnpAndDeletionSite site;
+
+    // Read takes the SNP node; the deletion allele (index 2) lacks it -> 1 bp insertion.
+    Alignment spanning = make_matching_alignment(site.graph, "spanning",
+                                                 {{1, false}, {2, false}, {4, false}});
+    // Read skips it; the reference allele (index 0) carries it -> 1 bp deletion.
+    Alignment deleting = make_matching_alignment(site.graph, "deleting", {{1, false}, {4, false}});
+
+    AlleleReadLikelihoods matrix = score_site(site, {spanning, deleting});
+    REQUIRE(matrix.num_reads() == 2);
+
+    SECTION("each read matches its own allele exactly") {
+        REQUIRE(matrix.rel(0, 0) == Approx(1.0));   // spanning read vs reference
+        REQUIRE(matrix.rel(1, 2) == Approx(1.0));   // deleting read vs deletion
+    }
+
+    SECTION("the insertion costs a few score units, not tens") {
+        // A bare `> 0.0` would NOT gate this: before the fix the value was a denormal
+        // around 1e-23, which prints as 0.0 but is not zero. 1e-10 is about 17 score
+        // units at the model's 1.3833 nats per unit -- far above the handful a one-base
+        // event can justify, and far below the ~38 the bug charged.
+        REQUIRE(matrix.rel(0, 2) > 1e-10);
+    }
+
+    SECTION("and costs within one match unit of the deletion, not the flank's length") {
+        // The two are not exactly equal: an inserted base exists in the read and could
+        // have been matched, so it forgoes `match` credit that a deleted base never had.
+        // That residual is one score unit and belongs to the score model, not the walk.
+        // What the walk must not do is charge the FLANK, which is what the bug did.
+        REQUIRE(matrix.rel(0, 2) < matrix.rel(1, 0));
+        REQUIRE(matrix.rel(0, 2) > 0.1 * matrix.rel(1, 0));
+    }
+
+    SECTION("and does not grow with the length of the flanking node") {
+        // The sharpest statement of the bug, and parameter-free. It charged node 4's
+        // whole length twice -- once as a length difference against node 2, once as an
+        // unplaceable read node -- so the cost of a ONE BASE insertion scaled with the
+        // flank. A walk that charges the event itself cannot care how long the flank is.
+        SnpAndDeletionSite long_site("GGGGTTTT" + string(32, 'A'));
+        Alignment long_spanning = make_matching_alignment(
+            long_site.graph, "spanning", {{1, false}, {2, false}, {4, false}});
+        Alignment long_deleting = make_matching_alignment(
+            long_site.graph, "deleting", {{1, false}, {4, false}});
+        AlleleReadLikelihoods long_matrix = score_site(long_site, {long_spanning, long_deleting});
+
+        REQUIRE(long_matrix.rel(0, 2) == Approx(matrix.rel(0, 2)));
+        REQUIRE(long_matrix.rel(1, 0) == Approx(matrix.rel(1, 0)));
+    }
+
+    SECTION("equal-length substituted nodes are still charged as a substitution") {
+        // Regression guard for the fix itself: the discriminator must not divert the
+        // genuine substitution case, where the allele's node really is the read node's
+        // counterpart and consuming it is right.
+        Alignment other_snp = make_matching_alignment(site.graph, "othersnp",
+                                                      {{1, false}, {3, false}, {4, false}});
+        AlleleReadLikelihoods snp_matrix = score_site(site, {other_snp});
+        REQUIRE(snp_matrix.rel(0, 1) == Approx(1.0));   // its own allele
+        // One mismatched base against the other SNP allele, and both flanks still matched,
+        // so it must score well above the deletion allele, which differs by a whole node.
+        REQUIRE(snp_matrix.rel(0, 0) > snp_matrix.rel(0, 2));
     }
 }
 
