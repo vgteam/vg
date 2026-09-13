@@ -578,7 +578,8 @@ bool GraphAlignedAlleleLikelihoodCalculator::read_is_reverse_of_alleles(
 }
 
 int32_t GraphAlignedAlleleLikelihoodCalculator::score_shared_node(
-    const Alignment& aln, const ReadStep& step, const EditAlignmentScorer& read_scorer) const {
+    const Alignment& aln, const ReadStep& step, const EditAlignmentScorer& read_scorer,
+    double& nat_adjust) const {
 
     int32_t score = 0;
     const string& seq = aln.sequence();
@@ -610,8 +611,11 @@ int32_t GraphAlignedAlleleLikelihoodCalculator::score_shared_node(
             // Deletion relative to the graph.
             score += read_scorer.score_gap(from_len - to_len);
         } else {
-            // Insertion relative to the graph.
+            // Insertion relative to the graph: the read carries bases the allele lacks.
+            // This is the dominant gap path on ONT -- a homopolymer stutter inside a node
+            // both the read and the allele visit.
             score += read_scorer.score_gap(to_len - from_len);
+            nat_adjust += params.insertion_gap_nats;
         }
 
         read_pos += to_len;
@@ -659,7 +663,7 @@ int32_t GraphAlignedAlleleLikelihoodCalculator::score_substitution(
 int32_t GraphAlignedAlleleLikelihoodCalculator::score_read_against_allele(
     const Alignment& aln, const vector<ReadStep>& read_steps,
     const vector<AlleleStep>& allele_steps, const EditAlignmentScorer& read_scorer,
-    bool& placed_out) const {
+    bool& placed_out, double& nat_adjust) const {
 
     placed_out = !allele_steps.empty();
     if (!placed_out) {
@@ -714,7 +718,7 @@ int32_t GraphAlignedAlleleLikelihoodCalculator::score_read_against_allele(
                 }
             }
 
-            score += score_shared_node(aln, read_step, read_scorer);
+            score += score_shared_node(aln, read_step, read_scorer, nat_adjust);
             bases_accounted += read_step.read_length;
             have_anchor = true;
             allele_index = found + 1;
@@ -738,6 +742,7 @@ int32_t GraphAlignedAlleleLikelihoodCalculator::score_read_against_allele(
                                               | (int64_t)allele_step.backward);
             if (later != read_last_visit.end() && later->second > read_index) {
                 score += read_scorer.score_gap(read_step.read_length);
+                nat_adjust += params.insertion_gap_nats;
                 bases_accounted += read_step.read_length;
                 continue;
             }
@@ -756,6 +761,9 @@ int32_t GraphAlignedAlleleLikelihoodCalculator::score_read_against_allele(
                                     : allele_step.sequence.size() - read_step.read_length;
             if (difference > 0) {
                 score += read_scorer.score_gap(difference);
+                if (read_step.read_length > allele_step.sequence.size()) {
+                    nat_adjust += params.insertion_gap_nats;
+                }
             }
 
             bases_accounted += read_step.read_length;
@@ -767,6 +775,7 @@ int32_t GraphAlignedAlleleLikelihoodCalculator::score_read_against_allele(
             // allele over fewer read bases than its competitors and fabricate a
             // likelihood ratio out of the length difference alone.
             score += read_scorer.score_gap(read_step.read_length);
+            nat_adjust += params.insertion_gap_nats;
             bases_accounted += read_step.read_length;
         }
     }
@@ -1092,9 +1101,13 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
 
         for (size_t a = 0; a < traversals.size(); ++a) {
             bool placed = false;
+            double nat_adjust = 0.0;
             int32_t score = score_read_against_allele(*scored_aln, read_steps, allele_steps[a],
-                                                      read_scorer, placed);
-            row[a] = placed ? log_base * (double)score : -numeric_limits<double>::infinity();
+                                                      read_scorer, placed, nat_adjust);
+            // nat_adjust carries corrections the int32 score cannot express; see
+            // AlleleLikelihoodParams::insertion_gap_nats. It is zero by default.
+            row[a] = placed ? log_base * (double)score + nat_adjust
+                            : -numeric_limits<double>::infinity();
         }
 
         // MAPQ is a phred probability that the read is in the wrong place. vg's

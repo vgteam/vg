@@ -135,6 +135,12 @@ void help_call(char** argv) {
          << "                            be, capping one read's veto at ln(P). Covers local" << endl
          << "                            misalignment, which MAPQ does not measure. Mainly an" << endl
          << "                            indel knob; interacts with --mismap-max [0.02]" << endl
+         << "      --insertion-gap-nats X  add X nats to every gap where the READ carries" << endl
+         << "                            bases the allele lacks, correcting the affine gap's" << endl
+         << "                            direction-blindness. Positive makes extra bases argue" << endl
+         << "                            less against the shorter allele. In nats because one" << endl
+         << "                            score unit is 1.3833 and the correction is finer" << endl
+         << "                            than that. Off by default [0]" << endl
          << "      --preset NAME         a fitted parameter set for one read type. None by" << endl
          << "                            default, so the values below are short-read ones." << endl
          << "                            `ont`: --gap-open 1 --gap-extend 1 --mismap-min" << endl
@@ -547,6 +553,7 @@ int main_call(int argc, char** argv) {
     // whole option loop, so `--preset ont --gap-open 3` and `--gap-open 3 --preset ont` mean the
     // same thing: an explicit flag always wins, whichever side of the preset it is written on.
     string preset;
+    double insertion_gap_nats = 0.0;
     bool gap_open_explicit = false, gap_extend_explicit = false, mismap_min_explicit = false;
     double min_confidence = 0.0;
     double linkage_weight = 2.0;
@@ -594,6 +601,7 @@ int main_call(int argc, char** argv) {
     constexpr int OPT_GAF_BASE_BINARY = 1017;
     constexpr int OPT_MISMAP_MAX = 1019;
     constexpr int OPT_MISMAP_MIN = 1020;
+    constexpr int OPT_INSERTION_GAP_NATS = 1091;
     constexpr int OPT_NO_SHARE_QUALITY = 1021;
     constexpr int OPT_FLAT_MIXTURE = 1023;
     constexpr int OPT_DEPTH_TERM = 1025;
@@ -691,6 +699,7 @@ int main_call(int argc, char** argv) {
         {"no-mismap-term", no_argument, 0, OPT_NO_MISMAP_TERM},
         {"mismap-max", required_argument, 0, OPT_MISMAP_MAX},
         {"mismap-min", required_argument, 0, OPT_MISMAP_MIN},
+        {"insertion-gap-nats", required_argument, 0, OPT_INSERTION_GAP_NATS},
         {"no-share-quality", no_argument, 0, OPT_NO_SHARE_QUALITY},
         {"flat-mixture", no_argument, 0, OPT_FLAT_MIXTURE},
         {"depth-term", required_argument, 0, OPT_DEPTH_TERM},
@@ -1088,6 +1097,9 @@ int main_call(int argc, char** argv) {
         case OPT_MISMAP_MIN:
             mismap_min_explicit = true;
             min_mismap_prob = parse<double>(optarg);
+            break;
+        case OPT_INSERTION_GAP_NATS:
+            insertion_gap_nats = parse<double>(optarg);
             break;
         case OPT_READ_MIN_MAPQ:
             read_min_mapq = parse<int>(optarg);
@@ -2130,6 +2142,7 @@ int main_call(int argc, char** argv) {
             likelihood_params.depth_effective_reads = !depth_count_raw;
             likelihood_params.max_mismap_prob = max_mismap_prob;
             likelihood_params.min_mismap_prob = min_mismap_prob;
+            likelihood_params.insertion_gap_nats = insertion_gap_nats;
             likelihood_params.collect_anchors = anchor_params.enabled;
             likelihood_params.collect_read_phasing = read_phasing;
 

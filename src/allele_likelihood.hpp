@@ -485,6 +485,25 @@ private:
  * member initializers can be used in a defaulted argument.
  */
 struct AlleleLikelihoodParams {
+    /// Real-valued nats added to each gap where the READ carries bases the allele
+    /// lacks. Zero by default, which is exactly the old behaviour.
+    ///
+    /// Why nats and not score units: the alignment score is an int32, so the finest
+    /// change `--gap-open` can express is one unit = 1.3833 nats. The measured
+    /// correction at long homopolymers is about 0.4 units, which the integer path
+    /// cannot represent at all -- a plausible part of why `--qual-gap` failed, since
+    /// its "absolute" form moved 2 units where the preset had fitted 1. So this is
+    /// applied after the score-to-nats conversion, where fractions exist.
+    ///
+    /// Why insertions only: ONT's basecaller miscounts homopolymer runs directionally
+    /// -- 43.6% insertion against 25.5% deletion at runs >= 13 -- while the affine gap
+    /// charges one constant either way. Measured on chr20, HP >= 5 one-base indels had
+    /// insertion precision 0.667 against deletion 0.818 before the anchor-walk fix and
+    /// 0.759 against 0.810 after it, with recall equal in both directions. A positive
+    /// value here makes a read's extra bases argue less strongly against the shorter
+    /// allele, which is the direction that reduces spurious insertion calls.
+    double insertion_gap_nats = 0.0;
+
     /// Clamps on the MAPQ-derived mismapping probability. See the builder.
     ///
     /// The *floor* is the more consequential of the two on real data, and its
@@ -769,8 +788,10 @@ protected:
                                    const unordered_map<nid_t, bool>& allele_orientations) const;
 
     /// Score the read's own edits on a node the read and the allele share.
+    /// `nat_adjust` accumulates real-valued corrections that cannot be expressed in the
+    /// integer score; the caller adds it after converting the score to nats.
     int32_t score_shared_node(const Alignment& aln, const ReadStep& step,
-                              const EditAlignmentScorer& read_scorer) const;
+                              const EditAlignmentScorer& read_scorer, double& nat_adjust) const;
 
     /// Score read bases against allele bases of the same length, base by base,
     /// charging each mismatch its own quality.
@@ -782,7 +803,7 @@ protected:
     int32_t score_read_against_allele(const Alignment& aln, const vector<ReadStep>& read_steps,
                                       const vector<AlleleStep>& allele_steps,
                                       const EditAlignmentScorer& read_scorer,
-                                      bool& placed_out) const;
+                                      bool& placed_out, double& nat_adjust) const;
 
     /// Reads per position per haplotype, measured over the read source's own fetch
     /// window around this site.
