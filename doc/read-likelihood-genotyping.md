@@ -184,6 +184,58 @@ bounded-shift correction and full WFA realignment were implemented and measured;
 because the row normalisation divides out any improvement common to a site's alleles, and optimal
 realignment changed which allele a read preferred in 40 cases out of 91,914.
 
+### Insertions, substitutions, and the walk's anchors
+
+Walking the read against an allele means deciding, for each read node the allele does not match,
+which of two things happened: the two **substituted** nodes for one another, or the read visited a
+node the allele simply **lacks**. The walk answers it with two symmetric lookaheads. Searching
+ahead in the allele for the read's node finds a shared anchor, and any allele nodes skipped between
+two anchors are a deletion. Searching ahead in the *read* for the allele's current node answers the
+mirror question: if the allele's node is still to come, it is not this read node's counterpart, and
+the read node is an insertion.
+
+Both sequences are topologically ordered, so those two questions decide the case between them. The
+second one is load-bearing rather than defensive. Without it a pure insertion is treated as a
+substitution and consumes the allele node, which burns the anchor the read is about to need; the
+read's own visit to that node then finds the allele exhausted and is charged a second time, so the
+flanking node's whole length is billed twice for a one-base event. At the default `gap_open 6` that
+made a one-base insertion score `rel = 0` — "this allele cannot place the read" — where the
+identical one-base deletion cost a single gap.
+
+### Gap costs are not probabilities
+
+A substitution's cost is a genuine log-odds: `QualAdjAlignmentScorer` builds a per-quality table
+from `err = 10^(−q/10)`, so the evidential weight of a mismatched base moves with its quality. A
+gap's is not. `score_gap`'s entire signature is `(size_t gap_length)` — no sequence, no read offset,
+no quality — and the affine penalty it returns is exponentiated with the same `log_base` that was
+solved to normalise the **substitution matrix alone**. There is no gap state in that partition
+function, so nothing normalises `exp(log_base × gap_score)`.
+
+Two consequences worth knowing. Tuning `--gap-open` moves the score-to-nats conversion against a
+normalisation that does not move with it, so it is a scale knob and not only a gap knob. And the
+score is an `int32`, so the finest distinction any gap parameter can draw is one score unit —
+about 1.38 nats.
+
+### `--insertion-nats` — the direction the affine gap cannot see
+
+The affine gap charges one constant whichever side carries the extra bases. Some sequencing
+chemistries do not err symmetrically: ONT's basecaller miscounts homopolymer runs far more often in
+one direction than the other, so a read's extra bases are weaker evidence than its missing bases,
+and a model that charges them equally over-calls insertions.
+
+`--insertion-nats X` adds `X` nats to every gap where the read carries bases the allele lacks. It is
+applied after the score-to-nats conversion, because the correction is a fraction of a score unit and
+the integer path cannot represent it. Positive values make extra bases argue less strongly against
+the shorter allele.
+
+It is **off by default and is not part of `--preset ont`**. It redistributes error as well as
+removing it: suppressing spurious insertions also makes shorter alleles easier to call in general,
+because a reference-supporting read scored against a deletion allele likewise carries extra bases.
+On HG002 ONT it removes far more insertion false positives than it costs in true positives, and
+raises deletion false positives while cutting deletion false negatives. A single scalar also cannot
+correct the precision and recall asymmetries at once; a run-length-conditional cost could, and is
+the better end state.
+
 ## Which alleles are considered
 
 The model scores whatever the traversal finder enumerates. Two sources:
