@@ -697,6 +697,180 @@ vector<int64_t> GraphAlignedAlleleLikelihoodCalculator::sorted_allele_keys(
     return keys;
 }
 
+// The greedy walk: one left-to-right pass, anchoring on shared node visits and never revising a
+// pairing once made. This is the DEFAULT, and it is the right default for short reads.
+//
+// The exact walk below buys +0.0042 chr20 / +0.0035 chr6 ONT indel F1 for +17% CPU, which is a
+// good trade on long reads. On short reads the same machinery buys +0.0006 indel -- on BOTH
+// contigs -- and nothing on SNVs, for 3.10x the CPU, because a 150 bp read barely diverges from an
+// allele and there is almost nothing for an optimal correspondence to resolve. So --realign is off
+// unless asked for, and --preset ont asks for it.
+int32_t GraphAlignedAlleleLikelihoodCalculator::score_read_against_allele_greedy(
+    const Alignment& aln, const vector<ReadStep>& read_steps,
+    const vector<AlleleStep>& allele_steps, const EditAlignmentScorer& read_scorer,
+    bool& placed_out, double& nat_adjust) const {
+
+    placed_out = !allele_steps.empty();
+    if (!placed_out) {
+        return 0;
+    }
+
+    int32_t score = 0;
+    size_t allele_index = 0;
+    bool have_anchor = false;
+    size_t bases_accounted = 0;
+
+    // Last read position visiting each (node, orientation). The walk below has to ask
+    // "is the allele's current node still to come in the read?", which is the mirror of
+    // the anchor search's "is the read's node still to come in the allele?". Both
+    // sequences are topologically ordered, so a later visit means the allele node is not
+    // this read node's counterpart.
+    unordered_map<int64_t, size_t> read_last_visit;
+    read_last_visit.reserve(read_steps.size() * 2);
+    for (size_t i = 0; i < read_steps.size(); ++i) {
+        read_last_visit[((int64_t)read_steps[i].node_id << 1) | (int64_t)read_steps[i].backward] = i;
+    }
+
+    for (size_t read_index = 0; read_index < read_steps.size(); ++read_index) {
+        const ReadStep& read_step = read_steps[read_index];
+        // Look for this read node ahead in the allele. Anchoring on shared node
+        // visits is what makes this a read-off of the alignment the graph already
+        // asserts rather than an alignment we invent.
+        size_t found = numeric_limits<size_t>::max();
+        for (size_t j = allele_index; j < allele_steps.size(); ++j) {
+            if (allele_steps[j].node_id == read_step.node_id &&
+                allele_steps[j].backward == read_step.backward) {
+                found = j;
+                break;
+            }
+        }
+
+        if (found != numeric_limits<size_t>::max()) {
+            if (have_anchor) {
+                // Allele nodes between the previous anchor and this one are
+                // sequence the allele has and the read skipped: a deletion.
+                //
+                // Only *internal* skips count. Allele sequence before the first
+                // anchor or after the last is simply outside the read's window,
+                // and charging for it would penalise a read for being short --
+                // the very length artefact the window invariant exists to stop.
+                size_t deleted = 0;
+                for (size_t j = allele_index; j < found; ++j) {
+                    deleted += allele_steps[j].sequence.size();
+                }
+                if (deleted > 0) {
+                    score += read_scorer.score_gap(deleted);
+                }
+            }
+
+            score += score_shared_node(aln, read_step, read_scorer, nat_adjust);
+            bases_accounted += read_step.read_length;
+            have_anchor = true;
+            allele_index = found + 1;
+            continue;
+        }
+
+        // The allele has no matching node from here on. Either the read took a
+        // node this allele lacks, or the two substituted nodes for one another.
+        if (allele_index < allele_steps.size()) {
+            const AlleleStep& allele_step = allele_steps[allele_index];
+
+            // Does the read visit this allele node later on? Then it is not this read
+            // node's counterpart -- the read took a node the allele simply lacks, which is
+            // an insertion, not a substitution. Consuming the allele node here would burn
+            // the anchor the read is about to need: its own visit would find the allele
+            // exhausted and be charged a second time, so ONE inserted base cost a
+            // substitution plus two gaps. The same event costs a single gap when it is the
+            // allele that carries the extra node, and an indel must cost the same from
+            // either side. Charge the insertion and leave allele_index where it is.
+            auto later = read_last_visit.find(((int64_t)allele_step.node_id << 1)
+                                              | (int64_t)allele_step.backward);
+            if (later != read_last_visit.end() && later->second > read_index) {
+                score += read_scorer.score_gap(read_step.read_length);
+                nat_adjust += params.insertion_gap_nats;
+                bases_accounted += read_step.read_length;
+                continue;
+            }
+
+            size_t shared = min(read_step.read_length, allele_step.sequence.size());
+
+            // Score the overlapping extent base by base, so an equal-length
+            // substituted node (the common SNP case) is charged as mismatches
+            // rather than as a pair of gaps.
+            score += score_substitution(aln, read_step.read_offset, shared, allele_step.sequence, 0,
+                                        read_scorer);
+
+            // Whatever length the two disagree by is an indel.
+            size_t difference = read_step.read_length > allele_step.sequence.size()
+                                    ? read_step.read_length - allele_step.sequence.size()
+                                    : allele_step.sequence.size() - read_step.read_length;
+            if (difference > 0) {
+                score += read_scorer.score_gap(difference);
+                if (read_step.read_length > allele_step.sequence.size()) {
+                    nat_adjust += params.insertion_gap_nats;
+                }
+            }
+
+            bases_accounted += read_step.read_length;
+            ++allele_index;
+        } else {
+            // The allele is exhausted but the read continues. Those read bases
+            // cannot be placed on this allele, so they are charged as an
+            // insertion. They are NOT dropped: omitting them would score this
+            // allele over fewer read bases than its competitors and fabricate a
+            // likelihood ratio out of the length difference alone.
+            score += read_scorer.score_gap(read_step.read_length);
+            nat_adjust += params.insertion_gap_nats;
+            bases_accounted += read_step.read_length;
+        }
+    }
+
+    // The window invariant: every read base inside the site was accounted for,
+    // whatever the allele. If this ever fires, some allele is being scored over a
+    // different span than its competitors and the likelihoods are miscalibrated
+    // in a way that still produces plausible-looking VCF.
+    size_t window_bases = 0;
+    for (const ReadStep& read_step : read_steps) {
+        window_bases += read_step.read_length;
+    }
+    assert(bases_accounted == window_bases);
+
+    return score;
+}
+
+// The optimal walk (--realign, and --preset ont). Chooses the correspondence between the read's
+// node visits and the allele's by dynamic programming rather than in one greedy pass. It does NOT
+// re-align bases: base-level edits are still read off the mapper's alignment, and what is searched
+// for is which read VISIT pairs with which allele VISIT. That distinction is why this is
+// affordable where base-level realignment is not -- WFA over the same windows was measured at 24x
+// this walk's CPU without finishing chr20 ONT. See doc/read-likelihood-genotyping.md,
+// "The two walks".
+//
+// Four states over the m x n grid of read visits against allele visits, m and n being VISITS, not
+// bases:
+//
+//   P  no shared visit matched yet -- the leading flank. Allele visits are FREE here, because
+//      allele sequence outside the read's window is not the read's to explain, and charging it
+//      would penalise a read for being short. Read visits are still charged. A match closes the
+//      flank (P -> M); a leading substitution does not.
+//   M  this read visit paired with this allele visit.
+//   I  inside a run of read visits the allele lacks.
+//   D  inside a run of allele visits the read lacks.
+//
+// Pairing cost, three cases: the same node visit costs the read's own edits inside it; two nodes
+// where NEITHER appears anywhere in the other sequence is a genuine substitution; anything else is
+// forbidden, which is the anchor rule -- a visit the two share may not be paired with a different
+// node, though it may still be gapped. Both halves of that were measured: allowing the
+// substitution costs 0.063 indel F1, and forbidding the gap costs a further 0.0071.
+//
+// Where this differs from the greedy walk in COST, not merely in correspondence: greedy charges a
+// fresh gap open per inserted read visit, while I opens once and extends, so a k-visit insertion
+// run differs by (k-1)*(gap_open - gap_extend). That is exactly zero at --preset ont, where both
+// are 1, and non-zero at the short-read defaults of 6 and 1.
+//
+// The answer is the best final-row cell over P, M or I, never D -- D has charged trailing allele
+// bases that lie outside the read's window. P is a legal terminal state, so a read that matches
+// nothing still scores finitely.
 int32_t GraphAlignedAlleleLikelihoodCalculator::score_read_against_allele(
     const Alignment& aln, const vector<ReadStep>& read_steps,
     const vector<AlleleStep>& allele_steps, const ReadScratch& scratch,
@@ -771,13 +945,13 @@ int32_t GraphAlignedAlleleLikelihoodCalculator::score_read_against_allele(
 
     // Band the DP on big sites. A read and an allele differ over a handful of nodes, so the
     // correspondence hugs the diagonal the shared visits define; exploring the whole m x n
-    // rectangle is wasted on a traversal of thousands of nodes. Unbanded this walk cost +77%
-    // wall on chr20 ONT against the greedy one it replaces, and 1.79x the CPU on short reads,
+    // rectangle is wasted on a traversal of thousands of nodes. Unbanded this walk cost 1.93x the
+    // CPU on short reads -- measured with the per-read hoisting held constant on both arms --
     // nearly all of it in that tail.
     //
-    // The centre of the band for read row i is interpolated between the shared visits either
-    // side of it, so the band follows the alignment rather than the i == j diagonal, which an
-    // indel would immediately push it off. Small sites -- the overwhelming majority, median
+    // The centre for read row i is projected back along the diagonal from the NEXT shared visit,
+    // falling forward from the last one once none remains ahead -- so the band follows the anchors
+    // rather than the i == j diagonal, which an indel would immediately push it off. Small sites -- the overwhelming majority, median
     // three nodes -- are left exhaustive, so the common case is untouched.
     //
     // It is an approximation, and measured as one: against the unbanded walk it moves a single
@@ -1226,15 +1400,22 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
             scored_aln->quality().empty() ? plain_scorer : qual_scorer;
         double log_base = read_scorer.get_log_base();
 
-        // Depends on the read alone, so it is computed here rather than per allele.
-        prepare_read_scratch(*scored_aln, read_steps, read_scorer, read_scratch);
+        // Depends on the read alone, so it is computed here rather than per allele. Only the
+        // exact walk consumes it, and building it is not free, so skip it for the greedy one.
+        if (params.realign) {
+            prepare_read_scratch(*scored_aln, read_steps, read_scorer, read_scratch);
+        }
 
         for (size_t a = 0; a < traversals.size(); ++a) {
             bool placed = false;
             double nat_adjust = 0.0;
-            int32_t score = score_read_against_allele(*scored_aln, read_steps, allele_steps[a],
-                                                      read_scratch, allele_keys[a],
-                                                      read_scorer, placed, nat_adjust);
+            int32_t score =
+                params.realign
+                    ? score_read_against_allele(*scored_aln, read_steps, allele_steps[a],
+                                                read_scratch, allele_keys[a], read_scorer,
+                                                placed, nat_adjust)
+                    : score_read_against_allele_greedy(*scored_aln, read_steps, allele_steps[a],
+                                                       read_scorer, placed, nat_adjust);
             // nat_adjust carries corrections the int32 score cannot express; see
             // AlleleLikelihoodParams::insertion_gap_nats. It is zero by default.
             row[a] = placed ? log_base * (double)score + nat_adjust

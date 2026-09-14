@@ -9,7 +9,7 @@ PATH=../bin:$PATH # for vg
 # FORMAT field shifts every later one, which broke four assertions here that were not
 # testing field order at all -- one of them silently compared BL against a GQ threshold.
 
-plan tests 407
+plan tests 410
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -715,6 +715,19 @@ is $(if [ $(wc -l < rl_dt.vcf | tr -d ' ') -gt 0 ]; then echo 1; else echo 0; fi
 vg call x.vg --read-likelihood --gam sim.gam -k x.pack --insertion-nats 0.9 2>/dev/null | grep -v "^#" > rl_ins.vcf
 is $(if [ $(wc -l < rl_ins.vcf | tr -d ' ') -gt 0 ]; then echo 1; else echo 0; fi) "1" "--insertion-nats is accepted and parsed with --read-likelihood"
 rm -f rl_ins.vcf
+
+# --realign selects the optimal read-to-allele walk over the greedy default. It is
+# read-likelihood-only for the same reason the scoring flags are, and it is off by default,
+# so the greedy path is what an unflagged run exercises -- assert both directions here.
+vg call x.vg -k x.pack --realign 2>/dev/null >/dev/null
+is "$?" "1" "--realign without --read-likelihood is refused"
+
+vg call x.vg -k x.pack --no-realign 2>/dev/null >/dev/null
+is "$?" "1" "--no-realign without --read-likelihood is refused"
+
+vg call x.vg --read-likelihood --gam sim.gam -k x.pack --realign 2>/dev/null | grep -v "^#" > rl_ra.vcf
+is $(if [ $(wc -l < rl_ra.vcf | tr -d ' ') -gt 0 ]; then echo 1; else echo 0; fi) "1" "--realign is accepted and parsed with --read-likelihood"
+rm -f rl_ra.vcf
 
 rm -f rl_dt.vcf rl_t1.vcf rl_t4.vcf rl_link_t1.vcf rl_link_t4.vcf rl_link_off.vcf rl_link_off_t4.vcf rl_link_default.vcf rl_nolink_pack.vcf rl_nolink_pack0.vcf rl_link_err.txt rl_link_err2.txt
 

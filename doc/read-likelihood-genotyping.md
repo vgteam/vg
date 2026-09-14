@@ -169,26 +169,158 @@ and the ratio is undefined.
 
 ## Where the fit scores come from
 
-The raw `ln P(read | allele)` is read off the **alignment the mapper already produced**, not
-recomputed by dynamic programming. For each allele the read's path is walked against the allele's
-path: on shared nodes the read's own edits are scored, and where the paths diverge the read's
-bases are scored against the allele's bases directly. A read that cannot be placed on an allele
-at all scores `−∞` there, which normalises to `rel = 0`.
+The raw `ln P(read | allele)` is read off the **alignment the mapper already produced**, never by
+re-aligning bases. For each allele the read's path is walked against the allele's path: on shared
+nodes the read's own edits are scored, and where the paths diverge the read's bases are scored
+against the allele's bases directly. A read that cannot be placed on an allele at all scores `−∞`
+there, which normalises to `rel = 0`.
+
+Base-level edits are read off the mapper's alignment and bases are never re-aligned. What the walk
+chooses is the correspondence between **node visits**: which read visit pairs with which allele
+visit. The default is greedy and single-pass; `--realign` searches that correspondence space with a
+dynamic program instead of committing to the first anchor it finds. It is on under `--preset ont`
+and off otherwise. See [The two walks](#the-two-walks).
 
 This is what makes the model fast enough to score every enumerated allele exhaustively with no
 pruning and no read subsampling — the cost is roughly 10²–10³× below alignment.
 
 It is also the model's main approximation. Reading an alignment off against a different allele is
-not the same as aligning to it, and the two differ whenever the alleles differ by a shift. Both a
-bounded-shift correction and full WFA realignment were implemented and measured; neither paid,
-because the row normalisation divides out any improvement common to a site's alleles, and optimal
-realignment changed which allele a read preferred in 40 cases out of 91,914.
+not the same as aligning to it, and the two differ whenever the alleles differ by a shift.
 
-### Insertions, substitutions, and the walk's anchors
+**Base-level** realignment was implemented and measured twice and does not pay. A bounded-shift
+correction and full WFA both changed which allele a read preferred in 40 cases out of 91,914,
+because the row normalisation divides out any improvement common to a site's alleles. WFA was
+re-tested against the current walk and abandoned on cost: it is O(n·s) in the *penalty*, and
+reproducing vg's four-parameter scoring exactly inflates penalties roughly tenfold, so a chr20 ONT
+call had consumed 24× the walk's CPU without finishing. The mode with linear memory (BiWFA) refuses
+the ends-free form this needs.
+
+`--realign` is a different thing and should not be confused with those: it re-chooses the
+correspondence between **node visits**, using the anchors graph construction already established,
+and never re-aligns bases. That is why it is affordable where base-level realignment is not.
+
+### The two walks
+
+Both the read and the allele are **sequences of node visits**. Scoring one against the other means
+choosing a correspondence: which read visit pairs with which allele visit, and which visits on
+either side are unpaired. Everything below is about choosing that correspondence. What a given
+correspondence *costs* is identical under both walks.
+
+The **greedy walk** (default) makes one left-to-right pass, taking the first anchor it finds and
+never revising. The **optimal walk** (`--realign`, and `--preset ont`) searches the correspondence
+space and takes the best-scoring one, subject to banding at large sites (below).
+
+The two walks agree on what a correspondence costs for deletions and for a single inserted visit.
+They differ on a **run** of two or more consecutive inserted read visits: greedy charges a fresh
+gap open for each (`score_gap(read_length)` per visit, never coalesced), while the optimal walk's
+`I` state opens once and then extends. The gap is `(k−1) × (gap_open − gap_extend)` for a
+`k`-visit run — so it is **exactly zero under `--preset ont`**, where `gap_open` and `gap_extend`
+are both 1, and real on short reads at the default 6 and 1. On the ONT arm, therefore, the two
+walks differ in the correspondence they choose and in nothing else.
+
+#### The cost of pairing one read visit with one allele visit
+
+Three cases, and the third is the one that carries the design:
+
+| | cost |
+|---|---|
+| **same node visit** (same id and orientation) | the read's own edits inside that node, `score_shared_node` |
+| **neither node appears in the other sequence** | a genuine substitution: bases scored pairwise over the overlapping extent, plus an affine gap for any length difference |
+| **otherwise** | **forbidden** |
+
+The third case is the anchor rule. If the read's node occurs *somewhere* in the allele, or the
+allele's node occurs somewhere in the read, then these two visits are not each other's
+counterparts and may not be paired. A node the two share is the alignment the graph already
+asserts — graph construction did the base comparison — so letting the correspondence decline it
+and substitute elsewhere costs **0.063 indel F1** on chr20 ONT, because an insertion allele can
+then explain reads that do not carry the insertion.
+
+A shared visit may still be **gapped**, and that distinction is load-bearing. Forcing every shared
+visit to be *matched* — which is what a plain intersection of the two paths does — costs a further
+**0.0071 indel F1**, because a read whose own bases inside a shared node are bad, typically an ONT
+homopolymer run, is sometimes better explained by gapping the node than by paying for those edits.
+So: **a shared visit may not be substituted away, but may be skipped.**
+
+#### The optimal walk
+
+A dynamic program over the `m × n` grid of read visits against allele visits, with four states per
+cell, `m` and `n` being **node visits, not bases**:
+
+| state | meaning |
+|---|---|
+| `P` | no shared visit matched yet — the leading flank |
+| `M` | this read visit paired with this allele visit |
+| `I` | inside a run of read visits the allele lacks (insertion) |
+| `D` | inside a run of allele visits the read lacks (deletion) |
+
+`P` exists because **allele sequence outside the read's window is free**. Charging it would
+penalise a read for being short, which is the length artefact the window invariant exists to
+prevent. So the first row is initialised to zero at every column — any allele prefix may be
+consumed at no cost — and within `P` the allele may be consumed freely while read bases are still
+charged as insertions. A *match* closes the flank (`P → M`); a leading *substitution* does not.
+
+`I` and `D` are each reachable from the other. Base-level alignment conventionally forbids that
+adjacency as a duplicate of a substitution, but here "substitution" means base-level scoring of two
+*different nodes*, which is a different quantity — forbidding it lost real optima on 7,887
+short-read cells.
+
+Gaps in `I` and `D` are **affine and charged in bases**, never a unit cost per node — a node is not
+an alignment column. `D` charges the skipped allele node's own sequence length; `I` charges the
+read bases that visit consumes, which is not the node's length whenever the read carries an edit
+there.
+
+The leading flank is the exception. `I` is not reachable from `P`, so read visits consumed before
+the first anchor are each charged a full `score_gap` — a run of them does not coalesce, exactly as
+under the greedy walk. Only once an anchor has been matched do insertion runs become affine.
+
+The answer is the best cell in the final row over `P`, `M` or `I` — **never `D`**, which has
+charged trailing allele bases that lie outside the read's window. `P` is a legal terminal state, so
+a read that matches nothing still receives a finite score rather than `−∞`.
+
+Every read visit is consumed by exactly one transition, so every read base inside the site is
+accounted for whatever the allele — the invariant that stops one allele being scored over a
+different span than its competitors.
+
+#### Banding
+
+When `m × n > 20000` each row is restricted to ±64 columns around a centre projected back along the
+diagonal from the **next** shared visit — and forward from the last one, once no shared visit
+remains ahead. So the band follows the anchors rather than the `i == j` diagonal, which any indel
+would immediately push it off. Small sites — the overwhelming majority,
+median three nodes — are left exhaustive.
+
+This is an approximation and is measured as one: against the unbanded walk it moves **one chr20
+record of 115,255**, leaving indel F1 identical. Without it the short-read arm costs **1.93× the
+CPU**, so it is doing real work despite reaching few sites.
+
+#### What it costs and what it buys
+
+Per-read work (each visit's own edit score, and the sorted node-key vector the anchor rule needs)
+is computed once per read, and per-allele work once per allele per site, rather than once per
+`(read, allele)` pair — of which chr20 ONT has 15.6M and the short-read arm 24.6M.
+
+| chr20 / chr6, alone, `-t 6` | greedy | `--realign` |
+|---|---|---|
+| ONT indel F1 | 0.86237 | **0.86659** |
+| ONT indel F1, chr6 held out | 0.88005 | **0.88351** |
+| ONT CPU | 1268s | 1483s (**1.17×**) |
+| short-read indel F1 | 0.92858 | 0.92918 |
+| short-read indel F1, chr6 | 0.93971 | 0.94035 |
+| short-read CPU | 748s | 2318s (**3.10×**) |
+
+SNV F1 is flat everywhere; peak RSS moves by less than run-to-run noise. **This is why `--realign`
+is on for ONT and off by default.** A 150 bp read barely diverges from an allele, so there is
+almost nothing for an optimal correspondence to resolve: both contigs agree it buys +0.0006 indel
+for roughly three times the compute. A long read diverges over many visits, where a single greedy
+pass that cannot revise a pairing gives up real accuracy.
+
+### Insertions, substitutions, and the greedy walk's anchors
 
 Walking the read against an allele means deciding, for each read node the allele does not match,
 which of two things happened: the two **substituted** nodes for one another, or the read visited a
-node the allele simply **lacks**. The walk answers it with two symmetric lookaheads. Searching
+node the allele simply **lacks**. The optimal walk answers it by enumeration — both readings are
+states in the DP and the better-scoring one wins. The greedy walk, having only one pass, answers it
+with two symmetric lookaheads. Searching
 ahead in the allele for the read's node finds a shared anchor, and any allele nodes skipped between
 two anchors are a deletion. Searching ahead in the *read* for the allele's current node answers the
 mirror question: if the allele's node is still to come, it is not this read node's counterpart, and
@@ -228,7 +360,7 @@ applied after the score-to-nats conversion, because the correction is a fraction
 the integer path cannot represent it. Positive values make extra bases argue less strongly against
 the shorter allele.
 
-It is **off by default and is not part of `--preset ont`**. It redistributes error as well as
+It is **off by default, and `--preset ont` sets it to 0.9**. It redistributes error as well as
 removing it: suppressing spurious insertions also makes shorter alleles easier to call in general,
 because a reference-supporting read scored against a deletion allele likewise carries extra bases.
 On HG002 ONT it removes far more insertion false positives than it costs in true positives, and
@@ -436,7 +568,7 @@ the table below), so the orientation re-randomises every few dozen sites and blo
 near 48%. A long block says which sites share one `PS`, not that the phase is trustworthy across a
 chromosome.
 
-With long reads this is the problem [`--read-phasing`](#--read-phasing-the-phase-from-the-reads)
+With long reads this is the problem [`--read-phasing`](#--read-phasing--the-phase-from-the-reads)
 solves, and it changes the numbers by an order of magnitude. Everything in the rest of this section
 describes the panel decoding, which is still what runs when the reads cannot span consecutive
 heterozygous sites.
@@ -458,7 +590,7 @@ chromosome-scale. That is a much stronger claim than a read-based phaser makes, 
 has to be read beside it, because shorter blocks make switch error small for free.
 
 `--read-phasing` keeps the chromosome-scale blocks and takes the *orientation* from the reads
-instead; it is described [below](#--read-phasing-the-phase-from-the-reads) and is on by default
+instead; it is described [below](#--read-phasing--the-phase-from-the-reads) and is on by default
 under `--preset ont`.
 
 Measured against the phased T2T-Q100 HG002 truth, with HG002 excluded from the graph:
@@ -1242,10 +1374,11 @@ long ALT. Repairing it therefore removes a duplicate rather than recovering a mi
 ## Long reads: `--preset ont`
 
 The short-read defaults give the wrong answer in one place at 33 kb, and `--preset ont` is the
-fitted correction. It sets five things, and an explicit flag either side of it wins:
+fitted correction. It sets seven things, and an explicit flag either side of it wins:
 
 ```
---gap-open 1 --gap-extend 1 --mismap-min 0.05 --read-phasing --regenotype
+--gap-open 1 --gap-extend 1 --mismap-min 0.05 --realign --insertion-nats 0.9 \
+    --read-phasing --regenotype
 ```
 
 **Why the gap penalties.** The read scorer's default gap-open of 6 is a substitution-era number.
@@ -1253,6 +1386,18 @@ On ONT the modal error *is* a single-base homopolymer indel, and against the 2.8
 mismap floor leaves visible, a gap of 6 makes every single-base indel difference a saturated vote
 whatever the base qualities say. 60% of ONT indel false positives are one homopolymer cell. Setting
 the gap penalties to 1 makes that vote proportionate.
+
+**Why `--realign`.** A long read diverges from an allele over many node visits, and a greedy
+single-pass correspondence cannot revise a pairing once made. Optimising it is worth +0.0042 indel
+F1 on chr20 and +0.0035 on chr6, held out, for +17% CPU. It is not a global default because a
+150 bp read barely diverges: short reads gain +0.0006 on both contigs for roughly three times the
+compute. See [The two walks](#the-two-walks).
+
+**Why `--insertion-nats 0.9`.** ONT's basecaller miscounts homopolymer runs asymmetrically, so a
+read's extra bases are weaker evidence than its missing bases. The optimum is flat between 0.9 and
+1.2 — re-swept under `--realign`, 1.2 scores +0.00045 over 0.9 against 0.0026–0.0039 between
+neighbouring grid points — so 0.9 stands and should not be re-tuned on a difference that small.
+See [`--insertion-nats`](#--insertion-nats--the-direction-the-affine-gap-cannot-see).
 
 **Why the mismap floor.** It damps rather than clamps: it is a floor on how unreliable any read may
 be, which covers local misalignment that MAPQ does not measure. At 0.05 it is worth most of the
@@ -1378,7 +1523,7 @@ spellings. General options that this mode also uses -- `-d`/`--ploidy`, `-R`/`--
 
 | Flag | Default | Effect |
 |---|---|---|
-| `--preset ont` | — | `--gap-open 1 --gap-extend 1 --mismap-min 0.05 --read-phasing --regenotype`. An explicit flag either side of it wins. [Above](#long-reads---preset-ont). |
+| `--preset ont` | — | `--gap-open 1 --gap-extend 1 --mismap-min 0.05 --realign --insertion-nats 0.9 --read-phasing --regenotype`. An explicit flag either side of it wins. [Above](#long-reads---preset-ont). |
 | `--gap-open N` | 6 | Read scorer's gap-open penalty. The default is a substitution-era number; 1 is right where the modal error is a homopolymer indel. |
 | `--gap-extend N` | 1 | Read scorer's gap-extension penalty. |
 

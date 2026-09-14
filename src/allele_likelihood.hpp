@@ -504,6 +504,12 @@ struct AlleleLikelihoodParams {
     /// allele, which is the direction that reduces spurious insertion calls.
     double insertion_gap_nats = 0.0;
 
+    /// Resolve the read-to-allele node correspondence with an optimal walk rather than a
+    /// greedy one. Worth +0.0042 chr20 / +0.0035 chr6 ONT indel F1 for +19% CPU, and only
+    /// +0.0009 indel for 4.28x the CPU on short reads, so it is off unless asked for.
+    /// `--preset ont` turns it on.
+    bool realign = false;
+
     /// Clamps on the MAPQ-derived mismapping probability. See the builder.
     ///
     /// The *floor* is the more consequential of the two on real data, and its
@@ -822,6 +828,14 @@ protected:
     /// The allele's (node, orientation) keys, sorted for binary search. Once per allele
     /// per site, for the same reason as ReadScratch.
     static vector<int64_t> sorted_allele_keys(const vector<AlleleStep>& allele_steps);
+
+    /// Score one read against one allele with a single greedy left-to-right pass. The
+    /// default, and the right one for short reads: see AlleleLikelihoodParams::realign.
+    int32_t score_read_against_allele_greedy(const Alignment& aln,
+                                             const vector<ReadStep>& read_steps,
+                                             const vector<AlleleStep>& allele_steps,
+                                             const EditAlignmentScorer& read_scorer,
+                                             bool& placed_out, double& nat_adjust) const;
 
     /// Score one read against one allele over the read's window.
     int32_t score_read_against_allele(const Alignment& aln, const vector<ReadStep>& read_steps,

@@ -141,6 +141,12 @@ void help_call(char** argv) {
          << "                            bases argue less against the shorter allele. In" << endl
          << "                            nats because one score unit is 1.3833 and the" << endl
          << "                            correction is finer than that. Off by default [0]" << endl
+         << "      --realign             resolve the read-to-allele node correspondence" << endl
+         << "                            optimally rather than greedily. Worth +0.004 indel" << endl
+         << "                            F1 on ONT for +17% CPU; on short reads it buys" << endl
+         << "                            +0.0006 for 3.1x the CPU, so it is off unless" << endl
+         << "                            asked for. `--preset ont` turns it on [off]" << endl
+         << "      --no-realign          force the greedy walk even under a preset" << endl
          << "      --preset NAME         a fitted parameter set for one read type. None by" << endl
          << "                            default, so the values below are short-read ones." << endl
          << "                            `ont`: --gap-open 1 --gap-extend 1 --mismap-min" << endl
@@ -555,6 +561,8 @@ int main_call(int argc, char** argv) {
     string preset;
     double insertion_gap_nats = 0.0;
     bool insertion_nats_explicit = false;
+    bool realign = false;
+    bool realign_explicit = false;
     bool gap_open_explicit = false, gap_extend_explicit = false, mismap_min_explicit = false;
     double min_confidence = 0.0;
     double linkage_weight = 2.0;
@@ -603,6 +611,8 @@ int main_call(int argc, char** argv) {
     constexpr int OPT_MISMAP_MAX = 1019;
     constexpr int OPT_MISMAP_MIN = 1020;
     constexpr int OPT_INSERTION_GAP_NATS = 1091;
+    constexpr int OPT_REALIGN = 1092;
+    constexpr int OPT_NO_REALIGN = 1093;
     constexpr int OPT_NO_SHARE_QUALITY = 1021;
     constexpr int OPT_FLAT_MIXTURE = 1023;
     constexpr int OPT_DEPTH_TERM = 1025;
@@ -701,6 +711,8 @@ int main_call(int argc, char** argv) {
         {"mismap-max", required_argument, 0, OPT_MISMAP_MAX},
         {"mismap-min", required_argument, 0, OPT_MISMAP_MIN},
         {"insertion-nats", required_argument, 0, OPT_INSERTION_GAP_NATS},
+        {"realign", no_argument, 0, OPT_REALIGN},
+        {"no-realign", no_argument, 0, OPT_NO_REALIGN},
         {"no-share-quality", no_argument, 0, OPT_NO_SHARE_QUALITY},
         {"flat-mixture", no_argument, 0, OPT_FLAT_MIXTURE},
         {"depth-term", required_argument, 0, OPT_DEPTH_TERM},
@@ -1103,6 +1115,14 @@ int main_call(int argc, char** argv) {
             insertion_nats_explicit = true;
             insertion_gap_nats = parse<double>(optarg);
             break;
+        case OPT_REALIGN:
+            realign_explicit = true;
+            realign = true;
+            break;
+        case OPT_NO_REALIGN:
+            realign_explicit = true;
+            realign = false;
+            break;
         case OPT_READ_MIN_MAPQ:
             read_min_mapq = parse<int>(optarg);
             break;
@@ -1257,6 +1277,19 @@ int main_call(int argc, char** argv) {
                 // Not a global default: it is fitted on a long-read error mode, and 150 bp reads
                 // are unmeasured at any non-zero value.
                 insertion_gap_nats = 0.9;
+            }
+            if (!realign_explicit) {
+                // Optimal rather than greedy read-to-allele correspondence. The greedy walk
+                // picks the pairing in one left-to-right pass and can never revise it; on ONT,
+                // where a read diverges from the allele over many nodes, that costs real
+                // accuracy. chr20 indel F1 0.86237 -> 0.86659 and chr6, held out, 0.88005 ->
+                // 0.88351, SNV F1 flat on both, for +17% CPU (1268s -> 1483s).
+                //
+                // Long reads only. A 150 bp read barely diverges from an allele, so there is
+                // almost nothing for an optimal correspondence to resolve: short reads gain
+                // +0.0006 indel on BOTH chr20 and chr6, and nothing on SNVs, for 3.10x
+                // the CPU.
+                realign = true;
             }
             if (!regenotype_explicit) {
                 // The reads' phase decides the genotype, not only the order of a settled pair.
@@ -1524,7 +1557,8 @@ int main_call(int argc, char** argv) {
             "--gaf-base-binary", "--read-window", "--read-min-mapq", "--no-mismap-term",
             "--depth-term", "--depth-count-raw", "--linkage-weight", "--linkage-scale",
             "--linkage-prior", "--depth-quality", "--min-confidence", "--flat-mixture",
-            "--gap-open", "--gap-extend", "--insertion-nats", "--preset",
+            "--gap-open", "--gap-extend", "--insertion-nats", "--realign",
+            "--no-realign", "--preset",
             "--read-phasing", "--no-read-phasing", "--phase-min-q", "--phase-break",
             "--regenotype", "--no-regenotype", "--regeno-temper", "--regeno-passes",
             "--regeno-ceiling", "--regeno-haploid", "--no-regeno-haploid",
@@ -2163,6 +2197,7 @@ int main_call(int argc, char** argv) {
             likelihood_params.max_mismap_prob = max_mismap_prob;
             likelihood_params.min_mismap_prob = min_mismap_prob;
             likelihood_params.insertion_gap_nats = insertion_gap_nats;
+            likelihood_params.realign = realign;
             likelihood_params.collect_anchors = anchor_params.enabled;
             likelihood_params.collect_read_phasing = read_phasing;
 

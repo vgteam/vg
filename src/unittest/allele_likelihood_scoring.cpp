@@ -102,16 +102,22 @@ static Alignment make_matching_alignment(const HandleGraph& graph, const string&
 }
 
 /// Run the calculator over one site with the given reads, at the given ploidy.
+///
+/// `realign` selects the walk: false is the greedy default, true the optimal one that
+/// `--realign` and `--preset ont` turn on. The invariants below must hold for BOTH -- they are
+/// properties of the scoring model, not of how the correspondence is searched for.
 static AlleleReadLikelihoods score_site(SnpAndDeletionSite& site, const vector<Alignment>& reads,
-                                        int ploidy = 2) {
+                                        int ploidy = 2, bool realign = false) {
     InMemorySiteReadSource source;
     for (const Alignment& aln : reads) {
         source.add(aln);
     }
     QualAdjAlignmentScorer qual_scorer;
     MatrixAlignmentScorer plain_scorer;
+    AlleleLikelihoodParams params;
+    params.realign = realign;
     GraphAlignedAlleleLikelihoodCalculator calculator(site.graph, *site.manager, source, qual_scorer,
-                                                      plain_scorer);
+                                                      plain_scorer, params);
     return calculator.compute(site.snarl, site.traversals, ploidy);
 }
 
@@ -401,21 +407,27 @@ TEST_CASE("No read's allele preference depends on the flank's length",
         for (const Alignment& a : long_reads) long_src.add(a);
         QualAdjAlignmentScorer qs;
         MatrixAlignmentScorer ps;
+        // Both walks: greedy is the default and the optimal one is what --realign selects.
+        for (bool realign : {false, true}) {
+        AlleleLikelihoodParams params;
+        params.realign = realign;
         GraphAlignedAlleleLikelihoodCalculator short_calc(shortf.graph, *shortf.manager,
-                                                          short_src, qs, ps);
+                                                          short_src, qs, ps, params);
         GraphAlignedAlleleLikelihoodCalculator long_calc(longf.graph, *longf.manager,
-                                                         long_src, qs, ps);
+                                                         long_src, qs, ps, params);
         AlleleReadLikelihoods sm = short_calc.compute(shortf.snarl, shortf.traversals, 2);
         AlleleReadLikelihoods lm = long_calc.compute(longf.snarl, longf.traversals, 2);
 
-        INFO("configuration " << c);
+        INFO("configuration " << c << (realign ? " (--realign)" : " (greedy)"));
         REQUIRE(sm.num_reads() == lm.num_reads());
         REQUIRE(sm.num_alleles() == lm.num_alleles());
         for (size_t r = 0; r < sm.num_reads(); ++r) {
             for (size_t a = 0; a < sm.num_alleles(); ++a) {
-                INFO("config " << c << " read " << r << " allele " << a);
+                INFO("config " << c << " read " << r << " allele " << a
+                                << (realign ? " (--realign)" : " (greedy)"));
                 REQUIRE(sm.rel(r, a) == Approx(lm.rel(r, a)));
             }
+        }
         }
     }
 }
@@ -458,10 +470,13 @@ TEST_CASE("Every read is placeable against every allele, whatever the node layou
         for (const Alignment& a : reads) src.add(a);
         QualAdjAlignmentScorer qs;
         MatrixAlignmentScorer ps;
-        GraphAlignedAlleleLikelihoodCalculator calc(site.graph, *site.manager, src, qs, ps);
+        for (bool realign : {false, true}) {
+        AlleleLikelihoodParams params;
+        params.realign = realign;
+        GraphAlignedAlleleLikelihoodCalculator calc(site.graph, *site.manager, src, qs, ps, params);
         AlleleReadLikelihoods m = calc.compute(site.snarl, site.traversals, 2);
 
-        INFO("configuration " << c);
+        INFO("configuration " << c << (realign ? " (--realign)" : " (greedy)"));
         REQUIRE(m.num_reads() == configurations[c].size());
         for (size_t r = 0; r < m.num_reads(); ++r) {
             // A read built to follow allele r's own path matches it exactly, so it is that
@@ -470,10 +485,40 @@ TEST_CASE("Every read is placeable against every allele, whatever the node layou
             INFO("config " << c << " read " << r << " against its own allele");
             REQUIRE(m.rel(r, r) == Approx(1.0));
             for (size_t a = 0; a < m.num_alleles(); ++a) {
-                INFO("config " << c << " read " << r << " allele " << a);
+                INFO("config " << c << " read " << r << " allele " << a
+                                << (realign ? " (--realign)" : " (greedy)"));
                 REQUIRE(m.rel(r, a) > 0.0);
             }
         }
+        }
+    }
+}
+
+TEST_CASE("The optimal walk keeps the indel invariants the greedy one has",
+          "[allele_likelihood][scoring]") {
+    // --realign changes how the read-to-allele correspondence is SEARCHED for, not what a
+    // correspondence costs. So the properties pinned for the greedy walk have to survive it,
+    // and the anchor-desync regression above -- direction symmetry of a one-base indel -- is
+    // the sharpest of them, being parameter-free.
+    SnpAndDeletionSite site;
+    Alignment spanning = make_matching_alignment(site.graph, "spanning",
+                                                 {{1, false}, {2, false}, {4, false}});
+    Alignment deleting = make_matching_alignment(site.graph, "deleting", {{1, false}, {4, false}});
+
+    AlleleReadLikelihoods greedy = score_site(site, {spanning, deleting}, 2, false);
+    AlleleReadLikelihoods exact = score_site(site, {spanning, deleting}, 2, true);
+
+    for (const auto& named : {make_pair("greedy", &greedy), make_pair("--realign", &exact)}) {
+        const AlleleReadLikelihoods& m = *named.second;
+        INFO(named.first);
+        // Each read matches its own allele exactly.
+        REQUIRE(m.rel(0, 0) == Approx(1.0));
+        REQUIRE(m.rel(1, 2) == Approx(1.0));
+        // A one-base insertion costs a few score units, not tens, and stays within one match
+        // unit of the one-base deletion: the same event seen from the two sides.
+        REQUIRE(m.rel(0, 2) > 1e-10);
+        REQUIRE(m.rel(0, 2) < m.rel(1, 0));
+        REQUIRE(m.rel(0, 2) > 0.1 * m.rel(1, 0));
     }
 }
 
