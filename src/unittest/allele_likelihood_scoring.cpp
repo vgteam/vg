@@ -325,6 +325,43 @@ struct MultiAlleleSite {
     }
 };
 
+TEST_CASE("Allele sequence between two anchors is charged, outside them is not",
+          "[allele_likelihood][scoring]") {
+    // Whether an allele node must be paid for depends on where it sits relative to the read's
+    // matched node visits, and getting that wrong is silent. A draft of this walk let the
+    // correspondence stop early and leave allele nodes unconsumed anywhere, so a read spanning
+    // a deletion scored the reference allele at rel = 1.0 -- preferring neither -- and the
+    // homozygous deletion stopped being callable at all. Nothing else in the suite caught it.
+    //
+    // Between two matched visits the allele's extra nodes are sequence the read skipped: a
+    // deletion, and charged. Before the first match or after the last they are simply beyond
+    // the read's window, and charging them would penalise a read for being short.
+    SnpAndDeletionSite site;
+
+    SECTION("an internal skip is a deletion and is charged") {
+        // Reads node 1 then node 4, skipping the SNP node the reference allele carries. Both
+        // flanks ARE anchors here, so node 2 is strictly internal.
+        Alignment deleting = make_matching_alignment(site.graph, "del", {{1, false}, {4, false}});
+        AlleleReadLikelihoods matrix = score_site(site, {deleting});
+        REQUIRE(matrix.rel(0, 2) == Approx(1.0));   // the deletion allele, matched exactly
+        REQUIRE(matrix.rel(0, 0) < 1.0);            // reference: one node deleted, charged
+        REQUIRE(matrix.rel(0, 1) < 1.0);
+    }
+
+    SECTION("and allele sequence past the last anchor is not") {
+        // Stops after the SNP node, so the reference allele's node 4 lies beyond the read's
+        // last anchor. That is outside the window and must cost nothing -- the reference
+        // allele has to stay a perfect fit. (A read touching only a boundary node is dropped
+        // as uninformative before it reaches scoring, so the read has to enter the site.)
+        Alignment partial = make_matching_alignment(site.graph, "partial",
+                                                    {{1, false}, {2, false}});
+        AlleleReadLikelihoods matrix = score_site(site, {partial});
+        REQUIRE(matrix.num_reads() == 1);
+        REQUIRE(matrix.rel(0, 0) == Approx(1.0));   // reference: node 4 unreached, not charged
+        REQUIRE(matrix.rel(0, 2) < 1.0);            // deletion allele lacks node 2: charged
+    }
+}
+
 TEST_CASE("No read's allele preference depends on the flank's length",
           "[allele_likelihood][scoring]") {
     // The systematic version of the anchor-desync regression above. That test pins one
@@ -378,6 +415,63 @@ TEST_CASE("No read's allele preference depends on the flank's length",
             for (size_t a = 0; a < sm.num_alleles(); ++a) {
                 INFO("config " << c << " read " << r << " allele " << a);
                 REQUIRE(sm.rel(r, a) == Approx(lm.rel(r, a)));
+            }
+        }
+    }
+}
+
+TEST_CASE("Every read is placeable against every allele, whatever the node layout",
+          "[allele_likelihood][scoring]") {
+    // An unplaceable read contributes -inf, which normalises to a relative likelihood of
+    // exactly 0 -- and 0 is indistinguishable from "scored, and hopeless". So a walk that
+    // cannot reach an allele at all fails silently: the genotype simply never considers it.
+    //
+    // Every defect in the walk's state machine has surfaced here first, and in several cases
+    // only here. Restricting which allele columns a read step may reach -- an optimisation
+    // tried and reverted -- produced exactly this, as did forbidding the transitions that let
+    // a read cross a deleted node. Neither moved any other assertion in this file.
+    //
+    // So: every read must reach every allele. A read may of course prefer one strongly, but a
+    // relative likelihood of 0 means the walk could not get there at all.
+    const vector<vector<vector<string>>> configurations = {
+        {{"T"}, {"G"}},                          // SNP
+        {{"T"}, {}},                             // one-base insertion against a bypass
+        {{"T", "C"}, {}},                        // two adjacent inserted nodes
+        {{"T", "C"}, {"T"}},                     // one extra node beside a shared one
+        {{"TTTT"}, {"T"}},                       // unequal-length substituted nodes
+        {{"T", "C", "G"}, {"T", "G"}},           // an extra node in the middle
+        {{"T", "C"}, {"C", "T"}},                // same nodes, different order
+        {{}, {"A"}, {"AA"}, {"AAA"}},            // a homopolymer ladder, four alleles
+        {{"ACGTACGTAC"}, {}},                    // a ten-base deletion to walk across
+        {{"AC", "GT", "AC", "GT"}, {"AC", "GT"}},// two nodes deleted from a run of four
+        {{"A", "C", "G", "T"}, {"T", "G", "C", "A"}},   // four nodes, reversed order
+    };
+
+    for (size_t c = 0; c < configurations.size(); ++c) {
+        MultiAlleleSite site(configurations[c], "GGGGTTTT");
+        vector<Alignment> reads;
+        for (size_t i = 0; i < configurations[c].size(); ++i) {
+            reads.push_back(make_matching_alignment(site.graph, "r" + std::to_string(i),
+                                                    site.read_paths[i]));
+        }
+        InMemorySiteReadSource src;
+        for (const Alignment& a : reads) src.add(a);
+        QualAdjAlignmentScorer qs;
+        MatrixAlignmentScorer ps;
+        GraphAlignedAlleleLikelihoodCalculator calc(site.graph, *site.manager, src, qs, ps);
+        AlleleReadLikelihoods m = calc.compute(site.snarl, site.traversals, 2);
+
+        INFO("configuration " << c);
+        REQUIRE(m.num_reads() == configurations[c].size());
+        for (size_t r = 0; r < m.num_reads(); ++r) {
+            // A read built to follow allele r's own path matches it exactly, so it is that
+            // read's best allele and rel is 1 by construction. If the bounds were to forbid
+            // the very pairing the read was built from, this is where it shows.
+            INFO("config " << c << " read " << r << " against its own allele");
+            REQUIRE(m.rel(r, r) == Approx(1.0));
+            for (size_t a = 0; a < m.num_alleles(); ++a) {
+                INFO("config " << c << " read " << r << " allele " << a);
+                REQUIRE(m.rel(r, a) > 0.0);
             }
         }
     }

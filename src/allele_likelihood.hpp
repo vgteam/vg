@@ -799,9 +799,35 @@ protected:
                                const string& allele_bases, size_t allele_offset,
                                const EditAlignmentScorer& read_scorer) const;
 
+    /// Everything the read-versus-allele walk needs that depends on the READ alone.
+    ///
+    /// Scoring the read's own edits inside a node, and sorting its node keys for the
+    /// membership test, do not mention the allele -- so doing them inside the allele loop
+    /// repeated identical work once per traversal. The walk runs 15.6M times on chr20 ONT and
+    /// 24.6M times on the short-read arm, so that repetition was most of its cost.
+    struct ReadScratch {
+        /// Per read step: the score of the read's own edits on that node, and the
+        /// real-valued nats the integer score cannot carry.
+        vector<int32_t> own;
+        vector<double> own_nats;
+        /// The read's (node, orientation) keys, sorted for binary search.
+        vector<int64_t> keys;
+    };
+
+    /// Fill `scratch` for one read. Once per read, not once per (read, allele).
+    void prepare_read_scratch(const Alignment& aln, const vector<ReadStep>& read_steps,
+                              const EditAlignmentScorer& read_scorer,
+                              ReadScratch& scratch) const;
+
+    /// The allele's (node, orientation) keys, sorted for binary search. Once per allele
+    /// per site, for the same reason as ReadScratch.
+    static vector<int64_t> sorted_allele_keys(const vector<AlleleStep>& allele_steps);
+
     /// Score one read against one allele over the read's window.
     int32_t score_read_against_allele(const Alignment& aln, const vector<ReadStep>& read_steps,
                                       const vector<AlleleStep>& allele_steps,
+                                      const ReadScratch& scratch,
+                                      const vector<int64_t>& allele_keys,
                                       const EditAlignmentScorer& read_scorer,
                                       bool& placed_out, double& nat_adjust) const;
 
