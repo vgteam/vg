@@ -2344,7 +2344,6 @@ MinimizerMapper::ScoredPath MinimizerMapper::find_tail_alignment(
     if (tail_wfa_aln) {
         tail_wfa_aln.check_lengths(this->gbwt_graph);
             
-#ifdef debug_base_level_alignment
         if (show_work) {
             #pragma omp critical (cerr)
             {
@@ -2352,7 +2351,7 @@ MinimizerMapper::ScoredPath MinimizerMapper::find_tail_alignment(
                      << tail_wfa_aln.length << "bp with score of " << tail_wfa_aln.score << endl;
             }
         }
-#endif
+
         output.path = tail_wfa_aln.to_path(this->gbwt_graph, aln.sequence());
         output.score = tail_wfa_aln.score;
         return output;
@@ -2360,14 +2359,12 @@ MinimizerMapper::ScoredPath MinimizerMapper::find_tail_alignment(
 
     // Is the tail too long to align?
     if (tail_length > this->max_tail_dp_length) {
-#ifdef debug_base_level_alignment
         #pragma omp critical (cerr)
         {
             cerr << "warning[MinimizerMapper::find_tail_alignment]: Refusing to align "
                  << tail_length << " bp " << tail_side << " tail against "
                  << anchor_pos << " in " << aln.name() << endl;
         }
-#endif
                 
         // Make a softclip for it.
         tail_wfa_aln = WFAAlignment::make_unlocalized_insertion(is_left_tail ? 0 : tail_anchor.read_end(), tail_length, 0);
@@ -2378,14 +2375,12 @@ MinimizerMapper::ScoredPath MinimizerMapper::find_tail_alignment(
 
     // ---- Fall back on alignment against graph ----
             
-#ifdef debug_base_level_alignment
     if (show_work) {
         #pragma omp critical (cerr)
         {
             cerr << log_name() << "Long " << tail_side << " tail fallback alignment" << endl;
         }
     }
-#endif
                 
     Alignment tail_fallback_aln;
     tail_fallback_aln.set_sequence(tail_seq);
@@ -2789,7 +2784,6 @@ MinimizerMapper::ScoredPath MinimizerMapper::find_link_alignment(
         output.score = link_aln.score();
     }
 
-#ifdef debug_base_level_alignment
     if (show_work) {
         #pragma omp critical (cerr)
         {
@@ -2798,7 +2792,6 @@ MinimizerMapper::ScoredPath MinimizerMapper::find_link_alignment(
                  << link_alignment_source << " with score of " << output.score << std::endl;
         }
     }
-#endif
     return output;
 }
 
