@@ -163,6 +163,17 @@ def main():
                     fail(f"line {lineno}: an A row has {len(fields)} fields, expected 8")
                     continue
                 node, snarl, slot = int(fields[1]), fields[2], int(fields[3])
+                # v7: gqn is signed in [-1, 1], and `.` means the site offered no gap to normalise.
+                # A negative number is a value, not a sentinel -- that distinction is the whole
+                # point of the version, so check it here rather than trust it.
+                if fields[5] != ".":
+                    try:
+                        gqn = float(fields[5])
+                    except ValueError:
+                        fail(f"line {lineno}: gqn {fields[5]!r} is neither a number nor '.'")
+                    else:
+                        if not -1.0 <= gqn <= 1.0:
+                            fail(f"line {lineno}: gqn {gqn} is outside [-1, 1]")
                 if last_node is not None and node < last_node:
                     fail(f"line {lineno}: node {node} follows {last_node}, so the file is not in "
                          "node order")
@@ -215,14 +226,18 @@ def main():
 
     if version is None:
         fail("no #anchors-version header, so the format is unknown")
-    elif version != "6":
+    elif version != "7":
         # v3 and v4 are refused rather than tolerated: both have these columns and both get `slot`
         # wrong in a way that reads cleanly and joins wrongly. v3 wrote it in allele order for
         # every site; v4 fixed the diploid pair and still wrote 0 for both strands of a nested
         # haploid site, so every `.|a` site named the wrong haplotype. v5 is correct but has seven
         # A-row columns, not eight, so the width check below would reject it with a worse message.
-        fail(f"#anchors-version {version} is not the one this script understands (6)")
-    if version == "6" and not id_name:
+        # v6 is refused on the same standard: it wrote `.` for any negative gqn, because -1 was the
+        # "no gap to normalise" sentinel, so on the records the linkage layer moved -- the ones
+        # carrying a 37.8% false-positive rate -- the signed value silently became "unknown". Same
+        # columns, same widths, joins wrongly.
+        fail(f"#anchors-version {version} is not the one this script understands (7)")
+    if version == "7" and not id_name:
         fail("no #read table, but every version from 2 on interns every read name")
 
     if shared_names:

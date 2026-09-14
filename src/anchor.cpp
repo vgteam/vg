@@ -338,9 +338,10 @@ void build_site_anchors(const AnchorSiteEvidence& evidence, const vector<int>& g
     if (hom && params.het_only) {
         return;
     }
-    // A negative GQN means the site offered no gap to normalise, which is not the same as zero and
-    // must not be filtered as though it were.
-    if (params.min_gqn > 0.0 && (gqn < 0.0 || gqn < params.min_gqn)) {
+    // NaN means the site offered no gap to normalise, which is not the same as zero and must not be
+    // filtered as though it were. A NEGATIVE gqn is a real value -- linkage overrode the reads --
+    // and is legitimately below any positive threshold, so it filters on its own merits.
+    if (params.min_gqn > 0.0 && (std::isnan(gqn) || gqn < params.min_gqn)) {
         return;
     }
 
@@ -657,7 +658,7 @@ bool AnchorWriter::write(const string& path, const string& graph_name, const str
     // was, so every `.|a` site named the wrong haplotype. 1,523 of chr20's 2,417 half-called
     // sites, and no VCF field carries the slot, so nothing downstream could see it. The columns
     // are unchanged again; only `slot` finally means what all three headers have promised.
-    out << "#anchors-version\t6\n";
+    out << "#anchors-version\t7\n";
     out << "#graph\t" << graph_name << "\n";
     out << "#sample\t" << sample << "\n";
     out << "#reads\t" << reads_source << "\n";
@@ -691,6 +692,10 @@ bool AnchorWriter::write(const string& path, const string& graph_name, const str
         << "wrote 0 for both strands\n";
     out << "#note\tallele is the index into the site's candidate traversal set, which is NOT the "
         << "VCF ALT number: the ALT list is chosen after anchors are built. Use slot to join to GT\n";
+    out << "#note\tgqn is SIGNED in [-1,1] and matches the VCF's GQN, including on the records the "
+           "linkage layer moved: negative means linkage called against the reads, which is the "
+           "population that carries a 37.8% false-positive rate against 8.6% overall. `.` means the "
+           "site offered no gap to normalise, which is not the same as a negative value.\n";
     out << "#note\tgqn and explained are the site's, so they repeat across its slots. Anything else "
            "about the site is in the VCF, joinable on the snarl column, which is its ID.\n";
     out << "#note\tscore is the read's phred-scaled complement of the winning slot's share of its "
@@ -715,7 +720,7 @@ bool AnchorWriter::write(const string& path, const string& graph_name, const str
     out << std::fixed;
     for (const Anchor& a : all) {
         out << "A\t" << a.node << "\t" << a.snarl << "\t" << a.slot << "\t" << a.allele << "\t";
-        if (a.gqn < 0.0) {
+        if (std::isnan(a.gqn)) {
             out << ".";
         } else {
             out << std::setprecision(3) << a.gqn;

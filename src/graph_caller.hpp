@@ -302,8 +302,13 @@ public:
     /// `emit_variant`.
     /// `is_leaf` is supplied by the caller rather than looked up, because the snarl manager lives
     /// on GraphCaller and this base class does not have one.
+    /// `gqn` is the value to write in the anchor's gqn column. Pass NaN to use the CallInfo's own
+    /// `gq_fraction`, which is the pre-linkage one; a caller that knows linkage moved the record
+    /// passes the re-derived signed value instead, so the column describes the call the record
+    /// actually makes.
     void collect_anchors_for(const Snarl& snarl, const vector<int>& genotype, int haploid_slot,
-                             const unique_ptr<SnarlCaller::CallInfo>& call_info, bool is_leaf);
+                             const unique_ptr<SnarlCaller::CallInfo>& call_info, bool is_leaf,
+                             double gqn);
 
 
     /// The settled pair reordered onto its haplotypes, for the anchors.
@@ -1467,6 +1472,11 @@ protected:
     /// `collect_anchors_for` for a staged record, with the phase order, the haploid slot and the
     /// leaf test derived from it. Three call sites spelled the same five arguments; the genotype is
     /// a parameter because the renderer passes the settled pair rather than the record's own.
+    /// The gqn column's value for this record: the sweep's `gq_fraction` unless linkage moved the
+    /// call, in which case the signed re-derivation for the genotype it now carries. NaN means
+    /// "use the CallInfo's own".
+    double anchor_gqn_for(const PendingRecord& rec, const vector<int>& settled) const;
+
     void collect_anchors_for_record(const PendingRecord& rec, const vector<int>& genotype);
 
     size_t pending_record_count() const;

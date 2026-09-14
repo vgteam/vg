@@ -1260,17 +1260,104 @@ int VCFOutputCaller::phase_haploid_slot(size_t record_key, const vector<int>& ge
     return (int)found->second.nested_strand;
 }
 
+// GQN for the genotype the record now carries, where linkage moved it.
+//
+// `gq_fraction` was fixed during the sweep from the reads' own argmax, so on a moved record it
+// describes the genotype linkage moved AWAY from -- the same staleness `apply_linkage_quality`
+// exists to correct in the VCF, and for the same reason: those records run a 37.8% false-positive
+// rate against 8.6% overall, so a filter blind to them is blind to its own worst subset. Until now
+// the VCF got the signed value and the anchor file kept the stale positive one, which is worse than
+// either, because a join on the two columns disagrees exactly where it matters.
+//
+// The scale is recovered the way apply_linkage_quality recovers it -- GQI/GQN, a gap in phred over
+// the same gap as a fraction -- but from the CallInfo rather than from rendered text, quantized to
+// match what the VCF will print. No new field: `gq_undiscounted` and `gq_fraction` are both already
+// on the struct, and `gq_undiscounted` is the one that still describes the pair `gq_fraction` was
+// built from, since re-genotyping rewrites `genotype_lls` in place but leaves it alone.
+//
+// Applied on every path, including the two that never get a VCF line: an off-reference site has
+// nothing to agree with, but the stale value is no more true there.
+double FlowCaller::anchor_gqn_for(const PendingRecord& rec,
+                                  const vector<int>& settled) const {
+    const double use_sweep_value = std::numeric_limits<double>::quiet_NaN();
+    if (linkage_collector == nullptr) {
+        return use_sweep_value;
+    }
+    const auto& moved = linkage_collector->moved_quality();
+    if (moved.find(rec.record_key) == moved.end()) {
+        return use_sweep_value;   // linkage left the call alone, so the sweep's value still holds
+    }
+    const auto* info =
+        dynamic_cast<const ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo*>(rec.call_info.get());
+    if (info == nullptr || info->genotype_lls.empty()) {
+        return use_sweep_value;
+    }
+    // Quantized as the VCF prints them, so the two columns agree rather than merely being close.
+    const double gqi_q = (double)min(256, max(0, (int)info->gq_undiscounted));
+    char buf[32];
+    snprintf(buf, sizeof(buf), "%.3f", info->gq_fraction);
+    const double gqn_q = atof(buf);
+    if (!(gqi_q > 0.0) || !(gqn_q > 0.0)) {
+        return use_sweep_value;   // no scale to recover; leaving it alone beats inventing one
+    }
+    const double achievable_phred = gqi_q / gqn_q;
+
+    // The SETTLED genotype, not rec.genotype. rec.genotype is the sweep's pre-linkage call, and
+    // using it computed the margin for the very genotype linkage moved away from -- which comes out
+    // with the right magnitude and the WRONG SIGN, since the reads prefer the call they were the
+    // argmax of. Caught by joining the anchor column to the VCF's: 2,841 sites agreed in magnitude
+    // and disagreed in sign.
+    vector<int> called = settled;
+    sort(called.begin(), called.end());
+    const auto mine = info->genotype_lls.find(called);
+    if (mine == info->genotype_lls.end()) {
+        return use_sweep_value;
+    }
+    // Only genotypes over the EMITTED alleles, which is what the VCF's GL covers: the reference
+    // traversal plus the ones the settled genotype names, not every scored traversal. Ranging over
+    // all of genotype_lls instead lets a traversal that never got an ALT slot beat the call and
+    // invert the sign -- 361 sites disagreed with the VCF by more than 0.25, one of them by the
+    // full range, before this was restricted.
+    set<int> emitted(called.begin(), called.end());
+    if (rec.ref_trav_idx >= 0) {
+        emitted.insert(rec.ref_trav_idx);
+    }
+    double best_other = -numeric_limits<double>::infinity();
+    for (const auto& entry : info->genotype_lls) {
+        if (entry.first == called) {
+            continue;
+        }
+        bool all_emitted = true;
+        for (int a : entry.first) {
+            if (emitted.count(a) == 0) {
+                all_emitted = false;
+                break;
+            }
+        }
+        if (all_emitted) {
+            best_other = max(best_other, entry.second);
+        }
+    }
+    if (!std::isfinite(best_other)) {
+        return use_sweep_value;
+    }
+    // Nats to phred, matching the VCF's GL, which is log10.
+    const double margin_phred = 10.0 * (mine->second - best_other) / log(10.0);
+    return min(1.0, max(-1.0, margin_phred / achievable_phred));
+}
+
 void FlowCaller::collect_anchors_for_record(const PendingRecord& rec,
                                             const vector<int>& genotype) {
     collect_anchors_for(rec.snarl, phase_ordered_genotype(rec.record_key, genotype),
                         phase_haploid_slot(rec.record_key, genotype), rec.call_info,
-                        anchors_want_leaf_test() ? snarl_is_leaf(rec.snarl) : true);
+                        anchors_want_leaf_test() ? snarl_is_leaf(rec.snarl) : true,
+                        anchor_gqn_for(rec, genotype));
 }
 
 void VCFOutputCaller::collect_anchors_for(const Snarl& snarl, const vector<int>& genotype,
                                           int haploid_slot,
                                           const unique_ptr<SnarlCaller::CallInfo>& call_info,
-                                          bool is_leaf) {
+                                          bool is_leaf, double gqn) {
     if (anchor_path.empty() || anchor_writer == nullptr || call_info == nullptr) {
         return;
     }
@@ -1285,7 +1372,13 @@ void VCFOutputCaller::collect_anchors_for(const Snarl& snarl, const vector<int>&
         return;
     }
     vector<AnchorWriter::Anchor> anchors;
-    build_site_anchors(*info->anchor_evidence, genotype, print_snarl(snarl), info->gq_fraction,
+    // gq_fraction's own "no gap to normalise" sentinel is -1, which collides with the signed
+    // post-linkage range [-1, 1]. Translate it to NaN here so the two are distinguishable all the
+    // way to the column.
+    const double sweep_gqn = info->gq_fraction < 0.0 ? numeric_limits<double>::quiet_NaN()
+                                                     : info->gq_fraction;
+    build_site_anchors(*info->anchor_evidence, genotype, print_snarl(snarl),
+                       std::isnan(gqn) ? sweep_gqn : gqn,
                        info->explained_share, haploid_slot, anchor_params, anchor_counters(),
                        anchors);
     for (AnchorWriter::Anchor& anchor : anchors) {
@@ -6348,12 +6441,23 @@ void FlowCaller::render_retained_records() {
         // One pass: score the correction, report it, keep nothing.
         apply_regenotyping();
     }
+    // The phase, before any record is built: every generation has settled by now, so the phasing is
+    // complete, and each record is phased as it is rendered rather than patched afterwards.
+    //
+    // BEFORE the hand-off, which also collects anchors for the two record classes that never get a
+    // VCF line -- reported_inline and no_reference. Those calls reach phase_ordered_genotype and
+    // phase_haploid_slot, which read `render_phases`; with the hand-off first that map was still
+    // empty, so every such anchor stamped the SORTED pair and slot 0 unconditionally. That is the
+    // same defect that was fixed for the main render path, recurring on the two paths that bypass
+    // it -- and the off-reference sites are exactly where an assembler most needs the haplotype.
+    //
+    // build_render_phases reads only `linkage_phased`, never `render_records`, so it does not
+    // depend on the hand-off having run. The VCF is unaffected: the render loop already ran after
+    // this call, so only the anchors move.
+    build_render_phases();
     // Every barrier pass is behind us, so ownership can move to the renderer -- once, which is
     // also what keeps the anchors it collects from being collected twice.
     hand_off_deferred_records();
-    // The phase, before any record is built: every generation has settled by now, so the phasing is
-    // complete, and each record is phased as it is rendered rather than patched afterwards.
-    build_render_phases();
     if (render_records.empty()) {
         return;
     }
