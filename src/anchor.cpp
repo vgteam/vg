@@ -1,5 +1,7 @@
 #include "anchor.hpp"
 
+#include "version.hpp"
+
 #include <algorithm>
 #include <cctype>
 #include <cmath>
@@ -738,6 +740,11 @@ bool AnchorWriter::write(const string& path, const string& graph_name, const str
     // sites, and no VCF field carries the slot, so nothing downstream could see it. The columns
     // are unchanged again; only `slot` finally means what all three headers have promised.
     out << "#anchors-version\t7\n";
+    // Which vg wrote it. The format version says what the COLUMNS mean and does not move when a
+    // value does: between two v7 files the gqn column was corrected on 4,005 sites and slot was
+    // re-phased on a third of the contig by a re-fitted --phase-min-q, and nothing inside either
+    // file said which was which. Additive, so a consumer that skips unknown '#' lines is unaffected.
+    out << "#vg-version\t" << Version::get_version() << "\n";
     out << "#graph\t" << graph_name << "\n";
     out << "#sample\t" << sample << "\n";
     out << "#reads\t" << reads_source << "\n";

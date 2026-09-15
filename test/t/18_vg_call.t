@@ -1143,7 +1143,7 @@ is $(grep -c "^#anchors-version" rl_anchors.tsv) "1" "the anchor file declares i
 # threshold from an absence, so the filter values are part of the file rather than of the shell
 # history that produced it.
 is "$(grep "^#" rl_anchors.tsv | cut -f1 | LC_ALL=C sort -u | paste -sd, -)" \
-   "#H,#anchors-version,#filters,#graph,#mismap-min,#note,#read,#reads,#reads-interned,#sample,#sites" \
+   "#H,#anchors-version,#filters,#graph,#mismap-min,#note,#read,#reads,#reads-interned,#sample,#sites,#vg-version" \
    "the anchor header uses exactly the documented set of keys"
 is $(grep -c "^A" rl_anchors.tsv | awk '{print ($1>0)?1:0}') "1" "it holds anchors"
 
