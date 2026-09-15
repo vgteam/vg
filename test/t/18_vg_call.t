@@ -9,7 +9,7 @@ PATH=../bin:$PATH # for vg
 # FORMAT field shifts every later one, which broke four assertions here that were not
 # testing field order at all -- one of them silently compared BL against a GQ threshold.
 
-plan tests 417
+plan tests 421
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -788,6 +788,21 @@ is "$(grep -o -- "--gap-open, --realign, --mosaic-patch-gaps only apply" multi_n
 
 vg call x.vg -k x.pack --traversals -t 1 >/dev/null 2>trav_norl.txt
 is $(grep -c "only applies to --read-likelihood" trav_norl.txt) "0" "an option the table does not own is still accepted"
+
+# The owner column generalises past --read-likelihood: --anchors-*, --mosaic-* and --regeno-* each
+# need their own subsystem switched on, and each was silently dropped without it.  The outer gate
+# still wins when BOTH switches are missing, because that is the one the user has to fix first.
+vg call x.vg -k x.pack --read-likelihood --gam sim.sorted.gam --anchors-min-q 30 -t 1 >/dev/null 2>sub_anch.txt
+is $(grep -c -- "--anchors-min-q only applies with --anchors-out" sub_anch.txt) "1" "an --anchors-* option without --anchors-out is refused"
+
+vg call x.vg -k x.pack --read-likelihood --gam sim.sorted.gam --regeno-temper 0.2 -t 1 >/dev/null 2>sub_reg.txt
+is $(grep -c -- "--regeno-temper only applies with --regenotype" sub_reg.txt) "1" "a --regeno-* option without --regenotype is refused"
+
+vg call x.vg -k x.pack --read-likelihood --gam sim.sorted.gam --regenotype --read-phasing --regeno-temper 0.2 -t 1 >/dev/null 2>sub_regok.txt
+is $(grep -c "only applies with" sub_regok.txt) "0" "the same option with --regenotype is accepted"
+
+vg call x.vg -k x.pack --anchors-min-q 30 -t 1 >/dev/null 2>sub_outer.txt
+is $(grep -c "only applies to --read-likelihood" sub_outer.txt) "1" "with both switches missing the outer one is named"
 
 # A missing gbz-base is the user's setup, not a vg bug: it must be an error with a fix
 # in it, not a crash telling them to file an issue.

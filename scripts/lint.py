@@ -365,9 +365,13 @@ def extract_long_options(text: str) -> Dict[str, OptionInfo]:
     all_caps_values = set()
 
     for line in text.splitlines():
-        # Found start of long_options[]
+        # Found start of long_options[]. The element type is not required to be `struct option`:
+        # a command may declare its own row type so that each option can carry something extra
+        # (see the trailing-field rule below), and `vg call` does. What is required is that the
+        # array is still called long_options, so there is exactly one table to find.
         if ('struct option long_options' in line
-            or 'std::vector<struct option> long_options' in line):
+            or 'std::vector<struct option> long_options' in line
+            or re.search(r'\blong_options\s*\[\s*\]\s*=', line)):
             inside_longopts = True
         # End of long_options[]
         elif inside_longopts and '};' in line:
@@ -389,7 +393,12 @@ def extract_long_options(text: str) -> Dict[str, OptionInfo]:
         if stripped.startswith('{') and not stripped.startswith('{0'):
             parts = stripped.split('//')[0].strip('{} \t,\n').split(',')
 
-            if len(parts) == 4:
+            # Four fields is `struct option`'s own shape, {longform, arg_type, 0, shortform}.
+            # A fifth is allowed and ignored here: it lets a command tag each option with
+            # something of its own -- `vg call` tags the subsystem that owns it, so that
+            # "this flag needs --anchors-out" is derived from the table rather than from a
+            # second list beside it. The first four stay in `struct option` order either way.
+            if len(parts) in (4, 5):
                 longform = parts[0].strip().strip('"')
                 arg_type = parts[1].strip()
                 shortform = parts[3].strip()
