@@ -219,4 +219,6 @@ int main_bench_dist_query(int argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_bench_dist_query("bench-dist-query", "benchmark distance query speed across multiple indexes", DEVELOPMENT, main_bench_dist_query);
+static Subcommand vg_bench_dist_query("bench-dist-query", "benchmark distance query speed across multiple indexes",
+                                      DEVELOPMENT, vector<manpage_item>{{DEV_TOOLS, "run distance indexing benchmarks", ""}},
+                                      help_bench_dist_query, main_bench_dist_query);

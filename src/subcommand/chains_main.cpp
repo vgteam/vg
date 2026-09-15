@@ -27,6 +27,7 @@
 #include <getopt.h>
 
 using namespace vg;
+using namespace vg::subcommand;
 
 //----------------------------------------------------------------------------
 
@@ -146,9 +147,6 @@ int main_chains(int argc, char** argv) {
 
     return 0;
 }
-
-static vg::subcommand::Subcommand vg_chains("chains", "extract handles in top-level chains", 
-                                            vg::subcommand::WIDGET, main_chains);
 
 //----------------------------------------------------------------------------
 
@@ -367,3 +365,8 @@ sdsl::int_vector<> normalize_chain(gbwt::vector_type& chain) {
 }
 
 //----------------------------------------------------------------------------
+
+static Subcommand vg_chains("chains", "extract handles in top-level chains", WIDGET,
+                            vector<manpage_item>{{GET_STATS, "get top-level chains from graph",
+                                                 "https://github.com/vgteam/vg/wiki/Snarls-and-chains"}},
+                            help_chains, main_chains);

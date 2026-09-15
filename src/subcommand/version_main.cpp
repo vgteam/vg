@@ -67,5 +67,7 @@ int main_version(int argc, char** argv){
     return 0;
 }
 // Register subcommand
-static Subcommand vg_version("version", "version information", DEVELOPMENT, main_version);
+static Subcommand vg_version("version", "version information", DEVELOPMENT,
+                             vector<manpage_item>{{DEV_TOOLS, "display current version number", ""}},
+                             help_version, main_version);
 

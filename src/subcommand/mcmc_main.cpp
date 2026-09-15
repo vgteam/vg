@@ -261,6 +261,6 @@ int main_mcmc(int argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_mcmc("mcmc", "find haplotypes based on reads using MCMC methods", DEPRECATED, main_mcmc);
+static Subcommand vg_mcmc("mcmc", "find haplotypes based on reads using MCMC methods", help_mcmc, main_mcmc);
 
 

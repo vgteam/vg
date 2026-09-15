@@ -316,4 +316,7 @@ void describe_haplotypes(std::ifstream& in, const std::string& index_type, std::
 //----------------------------------------------------------------------------
 
 // Register subcommand
-static Subcommand vg_describe("describe", "identify and describe files", WIDGET, main_describe);
+static Subcommand vg_describe("describe", "identify and describe files", WIDGET,
+                              vector<manpage_item>{{DEV_TOOLS, "determine file format of input",
+                                                    "https://github.com/vgteam/vg/wiki/File-Types"}},
+                              help_describe, main_describe);

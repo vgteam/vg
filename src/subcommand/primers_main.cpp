@@ -269,4 +269,8 @@ int main_primers(int argc, char** argv) {
     return 0;
 }
 
-static Subcommand vg_primers("primers", "filter primers for low variation", main_primers);
+static Subcommand vg_primers("primers", "filter primers for low variation", WIDGET,
+                             vector<manpage_item>{{DOWNSTREAM,
+                              "filter primers based on variation in a graph",
+                              "https://github.com/vgteam/vg/wiki/Primer-Filter"}},
+                             help_primers, main_primers);

@@ -428,5 +428,9 @@ int main_autoindex(int argc, char** argv) {
 
 // Register subcommand
 static Subcommand vg_autoindex("autoindex", "mapping tool-oriented index construction from interchange formats", 
-                               PIPELINE, 1, main_autoindex);
+                               PIPELINE, 1,
+                               vector<manpage_item>{{SET_UP_GRAPH, 
+                                "automatically construct a graph and indexes for a specific workflow (e.g. giraffe, rpvg)",
+                                "https://github.com/vgteam/vg/wiki/Automatic-indexing-for-read-mapping-and-downstream-inference"}},
+                                help_autoindex, main_autoindex);
 
