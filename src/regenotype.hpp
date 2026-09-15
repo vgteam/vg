@@ -3,7 +3,15 @@
 
 /** \file regenotype.hpp
  *
- * Spend the reads' phase on the genotype rather than only on the order of an already-settled pair.
+ * In one sentence: when the reads say which of a site's two haplotypes they came from, let that
+ * decide the GENOTYPE, not merely which of an already-chosen pair of alleles gets printed first.
+ *
+ * The caller settles a genotype from the reads at each site independently, then a phasing pass
+ * puts the two alleles in haplotype order. That ordering is information the genotype never saw.
+ * This file spends it: a read that the other sites in its block place firmly on one strand should
+ * be evidence about that strand's allele, not evidence split evenly between both.
+ *
+ * The rest of this comment is the derivation.
  *
  * `AlleleReadLikelihoods::genotype_likelihood` marginalises each read over the haplotypes of a
  * candidate genotype with a weight that belongs to the SITE:

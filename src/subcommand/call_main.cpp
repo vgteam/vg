@@ -7,6 +7,7 @@
 #include <unistd.h>
 #include <getopt.h>
 #include <regex>
+#include <algorithm>
 #include <list>
 #include <fstream>
 
@@ -670,120 +671,150 @@ int main_call(int argc, char** argv) {
     constexpr int OPT_MOSAIC_BREAK_UNEXPL = 1056;
     int c;
     optind = 2; // force optind past command positional argument
-    // Hoisted out of the getopt loop so the requires---read-likelihood scan below can
-    // resolve abbreviated long options exactly the way getopt_long does.
-    static const struct option long_options[] = {
-        {"pack", required_argument, 0, 'k'},
-        {"bias-mode", no_argument, 0, 'B'},
-        {"baseline-error", required_argument, 0, 'e'},
-        {"het-bias", required_argument, 0, 'b'},
-        {"min-support", required_argument, 0, 'm'},
-        {"vcf", required_argument, 0, 'v'},
-        {"genotype-snarls", no_argument, 0, 'a'},
-        {"all-snarls", no_argument, 0, 'A'},
-        {"min-length", required_argument, 0, 'c'},
-        {"max-length", required_argument, 0, 'C'},
-        {"ref-fasta", required_argument, 0, 'f'},
-        {"ins-fasta", required_argument, 0, 'i'},
-        {"sample", required_argument, 0, 's'},            
-        {"snarls", required_argument, 0, 'r'},
-        {"gbwt", required_argument, 0, 'g'},
-        {"gbz", no_argument, 0, 'z'},
-        {"translation", required_argument, 0, 'N'},
-        {"gbz-translation", no_argument, 0, 'O'},
-        {"ref-path", required_argument, 0, 'p'},
-        {"path-prefix", required_argument, 0, 'P'},
-        {"ref-sample", required_argument, 0, 'S'},            
-        {"ref-offset", required_argument, 0, 'o'},
-        {"ref-length", required_argument, 0, 'l'},
-        {"ploidy", required_argument, 0, 'd'},
-        {"ploidy-regex", required_argument, 0, 'R'},
-        {"ploidy-bed", required_argument, 0, OPT_PLOIDY_BED},
-        {"nested", no_argument, 0, OPT_NESTED},
-        {"no-nested", no_argument, 0, OPT_NO_NESTED},
-        {"no-phased", no_argument, 0, OPT_NO_PHASED},
-        {"gaf", no_argument, 0, 'G'},
-        {"traversals", no_argument, 0, 'T'},
-        {"trav-padding", required_argument, 0, 'M'},
-        {"legacy", no_argument, 0, OPT_LEGACY},
-        {"top-down", no_argument, 0, OPT_TOP_DOWN},
-        {"bottom-up", no_argument, 0, OPT_BOTTOM_UP},
-        {"atomize-blocks", no_argument, 0, OPT_ATOMIZE_BLOCKS},
-        {"no-atomize-blocks", no_argument, 0, OPT_NO_ATOMIZE_BLOCKS},
-        {"read-likelihood", no_argument, 0, OPT_READ_LIKELIHOOD},
-        {"gam", required_argument, 0, OPT_GAM},
-        {"gaf-reads", required_argument, 0, OPT_GAF},
-        {"dump-likelihoods", required_argument, 0, OPT_DUMP_LIKELIHOODS},
-        {"no-mismap-term", no_argument, 0, OPT_NO_MISMAP_TERM},
-        {"mismap-max", required_argument, 0, OPT_MISMAP_MAX},
-        {"mismap-min", required_argument, 0, OPT_MISMAP_MIN},
-        {"insertion-nats", required_argument, 0, OPT_INSERTION_GAP_NATS},
-        {"realign", no_argument, 0, OPT_REALIGN},
-        {"anchors-hom-split", no_argument, 0, OPT_ANCHORS_HOM_SPLIT},
-        {"no-realign", no_argument, 0, OPT_NO_REALIGN},
-        {"no-share-quality", no_argument, 0, OPT_NO_SHARE_QUALITY},
-        {"flat-mixture", no_argument, 0, OPT_FLAT_MIXTURE},
-        {"depth-term", required_argument, 0, OPT_DEPTH_TERM},
-        {"depth-count-raw", no_argument, 0, OPT_DEPTH_COUNT_RAW},
-        {"depth-quality", required_argument, 0, OPT_DEPTH_QUALITY},
-        {"preset", required_argument, 0, OPT_PRESET},
-        {"gap-open", required_argument, 0, OPT_GAP_OPEN},
-        {"gap-extend", required_argument, 0, OPT_GAP_EXTEND},
-        {"read-phasing", no_argument, 0, OPT_READ_PHASING},
-        {"no-read-phasing", no_argument, 0, OPT_NO_READ_PHASING},
-        {"phase-min-q", required_argument, 0, OPT_PHASE_MIN_Q},
-        {"phase-break", required_argument, 0, OPT_PHASE_BREAK},
-        {"phase-relink", required_argument, 0, OPT_PHASE_RELINK},
-        {"phase-hang", required_argument, 0, OPT_PHASE_HANG},
-        {"phase-prior", required_argument, 0, OPT_PHASE_PRIOR},
-        {"phase-cap", required_argument, 0, OPT_PHASE_CAP},
-        {"regenotype", no_argument, 0, OPT_REGENOTYPE},
-        {"no-regenotype", no_argument, 0, OPT_NO_REGENOTYPE},
-        {"regeno-ceiling", required_argument, 0, OPT_REGENO_CEILING},
-        {"regeno-haploid", no_argument, 0, OPT_REGENO_HAPLOID},
-        {"no-regeno-haploid", no_argument, 0, OPT_NO_REGENO_HAPLOID},
-        {"regeno-temper", required_argument, 0, OPT_REGENO_TEMPER},
-        {"regeno-passes", required_argument, 0, OPT_REGENO_PASSES},
-        {"regeno-shuffle", no_argument, 0, OPT_REGENO_SHUFFLE},
-        {"regeno-ledger", required_argument, 0, OPT_REGENO_LEDGER},
-        {"min-confidence", required_argument, 0, OPT_MIN_CONFIDENCE},
-        {"linkage-weight", required_argument, 0, OPT_LINKAGE_WEIGHT},
-        {"linkage-scale", required_argument, 0, OPT_LINKAGE_SCALE},
-        {"linkage-prior", required_argument, 0, OPT_LINKAGE_FREQ_PRIOR},
-        {"enumerate-support", no_argument, 0, OPT_ENUMERATE_SUPPORT},
-        {"phased", no_argument, 0, OPT_PHASED},
-        {"mosaic-out", required_argument, 0, OPT_MOSAIC_OUT},
-        {"anchors-out", required_argument, 0, OPT_ANCHORS_OUT},
-        {"anchors-het-only", no_argument, 0, OPT_ANCHORS_HET_ONLY},
-        {"anchors-leaf-only", no_argument, 0, OPT_ANCHORS_LEAF_ONLY},
-        {"anchors-reads", required_argument, 0, OPT_ANCHORS_MIN_READS},
-        {"anchors-min-gqn", required_argument, 0, OPT_ANCHORS_MIN_GQN},
-        {"anchors-min-q", required_argument, 0, OPT_ANCHORS_MIN_SCORE},
-        {"anchors-keep-off-call", no_argument, 0, OPT_ANCHORS_KEEP_OFF_CALL},
-        {"anchors-end-new", required_argument, 0, OPT_ANCHORS_END_PIN_MIN_NEW},
-        {"mosaic-patch-gaps", no_argument, 0, OPT_MOSAIC_PATCH},
-        {"no-mosaic-patch-gaps", no_argument, 0, OPT_NO_MOSAIC_PATCH},
-        {"no-mosaic-nested", no_argument, 0, OPT_NO_MOSAIC_NESTED},
-        {"mosaic-break-unexplained", no_argument, 0, OPT_MOSAIC_BREAK_UNEXPL},
-        {"read-min-mapq", required_argument, 0, OPT_READ_MIN_MAPQ},
-        {"gam-index", required_argument, 0, OPT_GAM_INDEX},
-        {"gaf-base", required_argument, 0, OPT_GAF_BASE},
-        {"gbz-base", required_argument, 0, OPT_GBZ_BASE},
-        {"gaf-base-binary", required_argument, 0, OPT_GAF_BASE_BINARY},
-        {"read-window", required_argument, 0, OPT_READ_WINDOW},
-        {"chains", no_argument, 0, 'I'},
-        {"cluster", required_argument, 0, 'L'},
-        {"cluster-min-len", required_argument, 0, OPT_CLUSTER_MIN_LEN},
+    /// Which subsystem an option belongs to. An option owned by a subsystem that is not in
+    /// use is a command line that does not do what it says, so ownership lives in the option
+    /// table and the check for it is derived. It used to be a second, hand-maintained list of
+    /// flag strings, and it had already drifted: `--mosaic-out` was refused without
+    /// `--read-likelihood` while its four `--mosaic-*` modifiers were accepted and dropped.
+    enum CallOptionOwner {
+        OWN_CORE,               ///< meaningful whatever genotyper is in use
+        OWN_READ_LIKELIHOOD,    ///< only under --read-likelihood
+    };
+    /// One row of the option table: getopt_long's fields, plus the owner. The `struct option`
+    /// array getopt needs is generated from this below, so an option cannot be added to one
+    /// and forgotten in the other. `flag` is omitted because every option here uses `val`.
+    struct CallOption {
+        const char* name;
+        int has_arg;
+        int val;
+        CallOptionOwner owner;
+    };
+    static const CallOption call_options[] = {
+        {"pack", required_argument, 'k',                                 OWN_CORE},
+        {"bias-mode", no_argument, 'B',                                  OWN_CORE},
+        {"baseline-error", required_argument, 'e',                       OWN_CORE},
+        {"het-bias", required_argument, 'b',                             OWN_CORE},
+        {"min-support", required_argument, 'm',                          OWN_CORE},
+        {"vcf", required_argument, 'v',                                  OWN_CORE},
+        {"genotype-snarls", no_argument, 'a',                            OWN_CORE},
+        {"all-snarls", no_argument, 'A',                                 OWN_CORE},
+        {"min-length", required_argument, 'c',                           OWN_CORE},
+        {"max-length", required_argument, 'C',                           OWN_CORE},
+        {"ref-fasta", required_argument, 'f',                            OWN_CORE},
+        {"ins-fasta", required_argument, 'i',                            OWN_CORE},
+        {"sample", required_argument, 's',                               OWN_CORE},
+        {"snarls", required_argument, 'r',                               OWN_CORE},
+        {"gbwt", required_argument, 'g',                                 OWN_CORE},
+        {"gbz", no_argument, 'z',                                        OWN_CORE},
+        {"translation", required_argument, 'N',                          OWN_CORE},
+        {"gbz-translation", no_argument, 'O',                            OWN_CORE},
+        {"ref-path", required_argument, 'p',                             OWN_CORE},
+        {"path-prefix", required_argument, 'P',                          OWN_CORE},
+        {"ref-sample", required_argument, 'S',                           OWN_CORE},
+        {"ref-offset", required_argument, 'o',                           OWN_CORE},
+        {"ref-length", required_argument, 'l',                           OWN_CORE},
+        {"ploidy", required_argument, 'd',                               OWN_CORE},
+        {"ploidy-regex", required_argument, 'R',                         OWN_CORE},
+        {"ploidy-bed", required_argument, OPT_PLOIDY_BED,                OWN_CORE},
+        {"nested", no_argument, OPT_NESTED,                              OWN_CORE},
+        {"no-nested", no_argument, OPT_NO_NESTED,                        OWN_CORE},
+        {"no-phased", no_argument, OPT_NO_PHASED,                        OWN_READ_LIKELIHOOD},
+        {"gaf", no_argument, 'G',                                        OWN_CORE},
+        {"traversals", no_argument, 'T',                                 OWN_CORE},
+        {"trav-padding", required_argument, 'M',                         OWN_CORE},
+        {"legacy", no_argument, OPT_LEGACY,                              OWN_CORE},
+        {"top-down", no_argument, OPT_TOP_DOWN,                          OWN_CORE},
+        {"bottom-up", no_argument, OPT_BOTTOM_UP,                        OWN_CORE},
+        {"atomize-blocks", no_argument, OPT_ATOMIZE_BLOCKS,              OWN_CORE},
+        {"no-atomize-blocks", no_argument, OPT_NO_ATOMIZE_BLOCKS,        OWN_CORE},
+        {"read-likelihood", no_argument, OPT_READ_LIKELIHOOD,            OWN_CORE},
+        {"gam", required_argument, OPT_GAM,                              OWN_READ_LIKELIHOOD},
+        {"gaf-reads", required_argument, OPT_GAF,                        OWN_READ_LIKELIHOOD},
+        {"dump-likelihoods", required_argument, OPT_DUMP_LIKELIHOODS,    OWN_READ_LIKELIHOOD},
+        {"no-mismap-term", no_argument, OPT_NO_MISMAP_TERM,              OWN_READ_LIKELIHOOD},
+        {"mismap-max", required_argument, OPT_MISMAP_MAX,                OWN_READ_LIKELIHOOD},
+        {"mismap-min", required_argument, OPT_MISMAP_MIN,                OWN_READ_LIKELIHOOD},
+        {"insertion-nats", required_argument, OPT_INSERTION_GAP_NATS,    OWN_READ_LIKELIHOOD},
+        {"realign", no_argument, OPT_REALIGN,                            OWN_READ_LIKELIHOOD},
+        {"anchors-hom-split", no_argument, OPT_ANCHORS_HOM_SPLIT,        OWN_READ_LIKELIHOOD},
+        {"no-realign", no_argument, OPT_NO_REALIGN,                      OWN_READ_LIKELIHOOD},
+        {"no-share-quality", no_argument, OPT_NO_SHARE_QUALITY,          OWN_READ_LIKELIHOOD},
+        {"flat-mixture", no_argument, OPT_FLAT_MIXTURE,                  OWN_READ_LIKELIHOOD},
+        {"depth-term", required_argument, OPT_DEPTH_TERM,                OWN_READ_LIKELIHOOD},
+        {"depth-count-raw", no_argument, OPT_DEPTH_COUNT_RAW,            OWN_READ_LIKELIHOOD},
+        {"depth-quality", required_argument, OPT_DEPTH_QUALITY,          OWN_READ_LIKELIHOOD},
+        {"preset", required_argument, OPT_PRESET,                        OWN_READ_LIKELIHOOD},
+        {"gap-open", required_argument, OPT_GAP_OPEN,                    OWN_READ_LIKELIHOOD},
+        {"gap-extend", required_argument, OPT_GAP_EXTEND,                OWN_READ_LIKELIHOOD},
+        {"read-phasing", no_argument, OPT_READ_PHASING,                  OWN_READ_LIKELIHOOD},
+        {"no-read-phasing", no_argument, OPT_NO_READ_PHASING,            OWN_READ_LIKELIHOOD},
+        {"phase-min-q", required_argument, OPT_PHASE_MIN_Q,              OWN_READ_LIKELIHOOD},
+        {"phase-break", required_argument, OPT_PHASE_BREAK,              OWN_READ_LIKELIHOOD},
+        {"phase-relink", required_argument, OPT_PHASE_RELINK,            OWN_READ_LIKELIHOOD},
+        {"phase-hang", required_argument, OPT_PHASE_HANG,                OWN_READ_LIKELIHOOD},
+        {"phase-prior", required_argument, OPT_PHASE_PRIOR,              OWN_READ_LIKELIHOOD},
+        {"phase-cap", required_argument, OPT_PHASE_CAP,                  OWN_READ_LIKELIHOOD},
+        {"regenotype", no_argument, OPT_REGENOTYPE,                      OWN_READ_LIKELIHOOD},
+        {"no-regenotype", no_argument, OPT_NO_REGENOTYPE,                OWN_READ_LIKELIHOOD},
+        {"regeno-ceiling", required_argument, OPT_REGENO_CEILING,        OWN_READ_LIKELIHOOD},
+        {"regeno-haploid", no_argument, OPT_REGENO_HAPLOID,              OWN_READ_LIKELIHOOD},
+        {"no-regeno-haploid", no_argument, OPT_NO_REGENO_HAPLOID,        OWN_READ_LIKELIHOOD},
+        {"regeno-temper", required_argument, OPT_REGENO_TEMPER,          OWN_READ_LIKELIHOOD},
+        {"regeno-passes", required_argument, OPT_REGENO_PASSES,          OWN_READ_LIKELIHOOD},
+        {"regeno-shuffle", no_argument, OPT_REGENO_SHUFFLE,              OWN_READ_LIKELIHOOD},
+        {"regeno-ledger", required_argument, OPT_REGENO_LEDGER,          OWN_READ_LIKELIHOOD},
+        {"min-confidence", required_argument, OPT_MIN_CONFIDENCE,        OWN_READ_LIKELIHOOD},
+        {"linkage-weight", required_argument, OPT_LINKAGE_WEIGHT,        OWN_READ_LIKELIHOOD},
+        {"linkage-scale", required_argument, OPT_LINKAGE_SCALE,          OWN_READ_LIKELIHOOD},
+        {"linkage-prior", required_argument, OPT_LINKAGE_FREQ_PRIOR,     OWN_READ_LIKELIHOOD},
+        {"enumerate-support", no_argument, OPT_ENUMERATE_SUPPORT,        OWN_READ_LIKELIHOOD},
+        {"phased", no_argument, OPT_PHASED,                              OWN_READ_LIKELIHOOD},
+        {"mosaic-out", required_argument, OPT_MOSAIC_OUT,                OWN_READ_LIKELIHOOD},
+        {"anchors-out", required_argument, OPT_ANCHORS_OUT,              OWN_READ_LIKELIHOOD},
+        {"anchors-het-only", no_argument, OPT_ANCHORS_HET_ONLY,          OWN_READ_LIKELIHOOD},
+        {"anchors-leaf-only", no_argument, OPT_ANCHORS_LEAF_ONLY,        OWN_READ_LIKELIHOOD},
+        {"anchors-reads", required_argument, OPT_ANCHORS_MIN_READS,      OWN_READ_LIKELIHOOD},
+        {"anchors-min-gqn", required_argument, OPT_ANCHORS_MIN_GQN,      OWN_READ_LIKELIHOOD},
+        {"anchors-min-q", required_argument, OPT_ANCHORS_MIN_SCORE,      OWN_READ_LIKELIHOOD},
+        {"anchors-keep-off-call", no_argument, OPT_ANCHORS_KEEP_OFF_CALL, OWN_READ_LIKELIHOOD},
+        {"anchors-end-new", required_argument, OPT_ANCHORS_END_PIN_MIN_NEW, OWN_READ_LIKELIHOOD},
+        {"mosaic-patch-gaps", no_argument, OPT_MOSAIC_PATCH,             OWN_READ_LIKELIHOOD},
+        {"no-mosaic-patch-gaps", no_argument, OPT_NO_MOSAIC_PATCH,       OWN_READ_LIKELIHOOD},
+        {"no-mosaic-nested", no_argument, OPT_NO_MOSAIC_NESTED,          OWN_READ_LIKELIHOOD},
+        {"mosaic-break-unexplained", no_argument, OPT_MOSAIC_BREAK_UNEXPL, OWN_READ_LIKELIHOOD},
+        {"read-min-mapq", required_argument, OPT_READ_MIN_MAPQ,          OWN_READ_LIKELIHOOD},
+        {"gam-index", required_argument, OPT_GAM_INDEX,                  OWN_READ_LIKELIHOOD},
+        {"gaf-base", required_argument, OPT_GAF_BASE,                    OWN_READ_LIKELIHOOD},
+        {"gbz-base", required_argument, OPT_GBZ_BASE,                    OWN_READ_LIKELIHOOD},
+        {"gaf-base-binary", required_argument, OPT_GAF_BASE_BINARY,      OWN_READ_LIKELIHOOD},
+        {"read-window", required_argument, OPT_READ_WINDOW,              OWN_READ_LIKELIHOOD},
+        {"chains", no_argument, 'I',                                     OWN_CORE},
+        {"cluster", required_argument, 'L',                              OWN_CORE},
+        {"cluster-min-len", required_argument, OPT_CLUSTER_MIN_LEN,      OWN_CORE},
         // deprecated: shipped through v1.76 as an accepted no-op.  Kept accepted (and absent
         // from the helptext, which check_options.py allows) so pipelines carrying it do not die
         // on an unrecognized option.  Remove after one release.
-        {"cluster-post", no_argument, 0, OPT_CLUSTER_POST},
-        {"star-allele", no_argument, 0, 'Y'},
-        {"threads", required_argument, 0, 't'},
-        {"progress", no_argument, 0, OPT_PROGRESS },
-        {"help", no_argument, 0, 'h'},
-        {0, 0, 0, 0}
+        {"cluster-post", no_argument, OPT_CLUSTER_POST,                  OWN_CORE},
+        {"star-allele", no_argument, 'Y',                                OWN_CORE},
+        {"threads", required_argument, 't',                              OWN_CORE},
+        {"progress", no_argument, OPT_PROGRESS,                          OWN_CORE},
+        {"help", no_argument, 'h',                                       OWN_CORE},
+        {nullptr, 0, 0, OWN_CORE}
     };
+
+    // getopt_long's own view of the table, generated from it so the two cannot disagree.
+    vector<struct option> long_options;
+    for (const CallOption* o = call_options; o->name != nullptr; ++o) {
+        long_options.push_back({o->name, o->has_arg, nullptr, o->val});
+    }
+    long_options.push_back({nullptr, 0, nullptr, 0});
+
+    // Which options were actually given, by `val`, in the order they were given and without
+    // repeats. Recorded as getopt returns them rather than re-scanned from argv: most options
+    // have non-zero defaults, so "was it set" is not recoverable from the parsed value, and
+    // getopt has already resolved the abbreviations a second scan would have to reimplement.
+    // Every `val` in the table is unique, so this identifies the option, not merely its spelling.
+    vector<int> options_seen;
 
     while (true) {
 
@@ -791,11 +822,15 @@ int main_call(int argc, char** argv) {
         int option_index = 0;
 
         c = getopt_long (argc, argv, "k:Be:b:m:v:aAc:C:f:i:s:r:g:zN:Op:P:S:o:l:d:R:GTM:IL:Yt:h?",
-                         long_options, &option_index);
+                         long_options.data(), &option_index);
 
         // Detect the end of the options.
         if (c == -1)
             break;
+
+        if (std::find(options_seen.begin(), options_seen.end(), c) == options_seen.end()) {
+            options_seen.push_back(c);
+        }
 
         switch (c)
         {
@@ -1551,70 +1586,22 @@ int main_call(int argc, char** argv) {
         logger.error() << "--gam-index requires --gam" << endl;
     }
 
-    // Validation: every option below only means something under --read-likelihood, so passing
-    // one without it is a command line that does not do what it says. Silently ignoring them is
-    // how a run gets analysed under the wrong assumptions -- and the inconsistency was real
-    // before this check existed: an explicit --linkage-weight was refused while --depth-term,
-    // --flat-mixture and the rest were accepted and dropped.
+    // Validation: an option owned by OWN_READ_LIKELIHOOD only means something under
+    // --read-likelihood, so passing one without it is a command line that does not do what it
+    // says. Silently ignoring them is how a run gets analysed under the wrong assumptions -- and
+    // the inconsistency was real before this check existed: an explicit --linkage-weight was
+    // refused while --depth-term, --flat-mixture and the rest were accepted and dropped.
     //
-    // Read from argv rather than from an `explicit` bool per option. Most of these have non-zero
-    // defaults, so "was it set" is not recoverable from the parsed value, and a tracking bool for
-    // each of the thirty-odd options listed below would be worse than one scan. The nine that do
-    // carry one carry it because the preset has to know, not because this scan could not tell. Tokens are matched whole, or up to an '=',
-    // so a filename containing one of these strings cannot trigger it.
+    // The offender set is read off the option table, not from a second list beside it. The
+    // second list is what this replaced, and it had drifted twice over: --insertion-nats was
+    // accepted and dropped for a whole session because it was never added, and the four
+    // --mosaic-* modifiers were still being accepted while --mosaic-out was refused.
     if (!read_likelihood) {
-        static const vector<string> read_likelihood_only = {
-            "--gam", "--gaf-reads", "--gam-index", "--gaf-base", "--gbz-base",
-            "--gaf-base-binary", "--read-window", "--read-min-mapq", "--no-mismap-term",
-            "--depth-term", "--depth-count-raw", "--linkage-weight", "--linkage-scale",
-            "--linkage-prior", "--depth-quality", "--min-confidence", "--flat-mixture",
-            "--gap-open", "--gap-extend", "--insertion-nats", "--realign",
-            "--anchors-hom-split",
-            "--no-realign", "--preset",
-            "--read-phasing", "--no-read-phasing", "--phase-min-q", "--phase-break",
-            "--regenotype", "--no-regenotype", "--regeno-temper", "--regeno-passes",
-            "--regeno-ceiling", "--regeno-haploid", "--no-regeno-haploid",
-            "--regeno-shuffle", "--regeno-ledger",
-            "--phase-relink",
-            "--phase-hang", "--phase-prior", "--phase-cap",
-            "--no-share-quality",
-            "--mismap-max", "--mismap-min", "--dump-likelihoods", "--enumerate-support",
-            "--phased", "--no-phased", "--mosaic-out", "--anchors-out", "--anchors-het-only",
-            "--anchors-leaf-only", "--anchors-reads", "--anchors-min-gqn",
-            "--anchors-min-q", "--anchors-keep-off-call", "--anchors-end-new"};
         vector<string> offenders;
-        for (int i = 1; i < argc; ++i) {
-            string arg(argv[i]);
-            if (arg.size() < 3 || arg[0] != '-' || arg[1] != '-') {
-                continue;
-            }
-            size_t eq = arg.find('=');
-            string name = (eq == string::npos ? arg : arg.substr(0, eq)).substr(2);
-            // Resolved the way getopt_long resolves it: an exact match, or an unambiguous prefix.
-            // Matching whole tokens only let every abbreviated spelling through -- "--mosaic" set
-            // --mosaic-out and sailed past this scan, silently reproducing the very ignored-flag
-            // failure it exists to close.
-            const char* resolved = nullptr;
-            bool ambiguous = false;
-            for (const struct option* o = long_options; o->name != nullptr; ++o) {
-                string oname(o->name);
-                if (oname == name) {
-                    resolved = o->name;
-                    ambiguous = false;
-                    break;
-                }
-                if (oname.compare(0, name.size(), name) == 0) {
-                    ambiguous = resolved != nullptr;
-                    resolved = o->name;
-                }
-            }
-            if (resolved == nullptr || ambiguous) {
-                continue;   // unknown or ambiguous: getopt itself already rejected it
-            }
-            string full = string("--") + resolved;
-            for (const string& flag : read_likelihood_only) {
-                if (full == flag) {
-                    offenders.push_back(flag);
+        for (int val : options_seen) {
+            for (const CallOption* o = call_options; o->name != nullptr; ++o) {
+                if (o->val == val && o->owner == OWN_READ_LIKELIHOOD) {
+                    offenders.push_back(string("--") + o->name);
                     break;
                 }
             }

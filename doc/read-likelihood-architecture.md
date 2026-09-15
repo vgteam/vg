@@ -60,9 +60,9 @@ Three facts fall straight out of it:
 
 Taking regenotyping as the example asked about: **the code is not wedded at all; the data is.**
 
-`regenotype.hpp` includes `read_phasing.hpp` and nothing else. Its eight entry points take
-`PhaseSite`, `PhaseReadEvidence` and `LambdaTable` — plain structs — and never a caller. You could
-hand it evidence from any source and it would work.
+`regenotype.hpp` includes exactly one header from the family, `read_phasing.hpp`; its `.cpp` adds
+`anchor.hpp`. Its eight entry points take `PhaseSite`, `PhaseReadEvidence` and `LambdaTable` —
+plain structs — and never a caller. You could hand it evidence from any source and it would work.
 
 But there is only one source. `PhaseReadEvidence` is constructed in exactly one place,
 `AlleleReadLikelihoods`' builder (`allele_likelihood.cpp:1332`), moved into the `CallInfo` by
@@ -111,9 +111,22 @@ and `NestedFlowCaller`. Its declaration is 787 lines.
 `render_lambda` and its temper, the regenotyping parameters and counters, the anchor writer, and
 the mosaic output state. Three of the four subclasses touch none of it.
 
+61% is a **floor**, not an estimate. The count matches members by name, and the rule misses at
+least `phase_flips`, `phase_declined`, `emit_phasing`, `current_generation` and
+`MOSAIC_WALK_LIMIT`, all of which are read-likelihood-only as well — `--phased` is itself one of
+the options refused without `--read-likelihood`. The denominator is also generous: three of the 64
+are nested `struct` declarations rather than fields.
+
 So the subsystems are tidy and the orchestration is not. The free functions are in files named
 after what they do; it is the *composition* that has been accumulating on a shared base class
 because that is where `emit_variant` lives and everything needed to reach it.
+
+It has a concrete fix, and the counts point straight at it. Of the four subclasses, only
+`FlowCaller` names any of this machinery — 3 of its 27 member definitions, and 7 declarations in
+its part of the header (`apply_read_phasing`, `regenotype_resettle`, `anchor_gqn_for` and the
+pending-record plumbing). `VCFGenotyper`, `LegacyCaller` and `NestedFlowCaller` name none of it, in
+either file. **So the 39 members belong on `FlowCaller`, not on the base class**, and nothing but
+history put them where they are.
 
 This is worth saying plainly because it changes what a reorganisation should aim at. Moving nine
 file pairs into a folder tidies the listing and leaves the 61% exactly where it is.
@@ -193,12 +206,13 @@ so moving it reaches past #4990's footprint for little gain; it can follow once 
 
 1. **Split `linkage_model` into `linkage_model` + `linkage_collector`.** Independent, mechanical,
    and the biggest readability win. No folder decision needed.
-2. **Derive the CLI refusal set from the option table** (`call_main.cpp`), which is the defect the
-   review actually found — a hand-maintained list of 56 flag strings against 105 options, plus a
-   hand-rolled reimplementation of `getopt_long`'s prefix resolution. This is the item that has
-   already cost real bugs.
+2. **Derive the CLI refusal set from the option table** (`call_main.cpp`) — the defect the review
+   actually found: a hand-maintained list of 56 flag strings against 106 options, plus a
+   hand-rolled reimplementation of `getopt_long`'s prefix resolution. **Done**; the list had
+   already drifted on four live flags.
 3. **Give regenotyping its enclosing class** for the four state-threading functions.
-4. **Create `src/caller/` and move.** Last, because it renames the most and teaches the least.
-
-Whether the 61% of `VCFOutputCaller` that is read-likelihood-only should move to a subclass is a
-larger question than #4990 should answer, and is recorded here rather than started.
+4. **Create `src/caller/` and move.** Late, because it renames the most and teaches the least.
+5. **Move the 39 read-likelihood members from `VCFOutputCaller` down to `FlowCaller`**, which is
+   the only subclass that uses them. Mechanical in principle — nothing else references them — but
+   it touches the largest file in the calling code and is best done once the review has settled,
+   so it is recorded here rather than started.

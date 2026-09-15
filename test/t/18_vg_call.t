@@ -9,7 +9,7 @@ PATH=../bin:$PATH # for vg
 # FORMAT field shifts every later one, which broke four assertions here that were not
 # testing field order at all -- one of them silently compared BL against a GQ threshold.
 
-plan tests 414
+plan tests 417
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -772,6 +772,22 @@ is $(grep -c "mutually exclusive" gb_excl.txt) "1" "--gaf-base and --gam togethe
 
 vg call x.vg -k x.pack --gaf-base gb_placeholder.db -t 1 >/dev/null 2>gb_norl.txt
 is $(grep -c "only applies to --read-likelihood" gb_norl.txt) "1" "--gaf-base without --read-likelihood is refused"
+
+# The refusal set is derived from the option table's owner column rather than from a second list
+# beside it.  It was a second list, and it had drifted: --mosaic-out was refused while its four
+# modifiers were accepted and silently dropped.  Guard one of the four, and guard that an option
+# the table marks OWN_CORE is still let through -- a check that refuses everything would pass the
+# first assertion and be useless.
+vg call x.vg -k x.pack --mosaic-patch-gaps -t 1 >/dev/null 2>mos_norl.txt
+is $(grep -c "only applies to --read-likelihood" mos_norl.txt) "1" "a --mosaic-* modifier without --read-likelihood is refused"
+
+vg call x.vg -k x.pack --gap-open 2 --realign --mosaic-patch-gaps -t 1 >/dev/null 2>multi_norl.txt
+is "$(grep -o -- "--gap-open, --realign, --mosaic-patch-gaps only apply" multi_norl.txt)" \
+   "--gap-open, --realign, --mosaic-patch-gaps only apply" \
+   "several offenders are named together, in the order they were given"
+
+vg call x.vg -k x.pack --traversals -t 1 >/dev/null 2>trav_norl.txt
+is $(grep -c "only applies to --read-likelihood" trav_norl.txt) "0" "an option the table does not own is still accepted"
 
 # A missing gbz-base is the user's setup, not a vg bug: it must be an error with a fix
 # in it, not a crash telling them to file an issue.
