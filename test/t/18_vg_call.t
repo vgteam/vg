@@ -9,7 +9,7 @@ PATH=../bin:$PATH # for vg
 # FORMAT field shifts every later one, which broke four assertions here that were not
 # testing field order at all -- one of them silently compared BL against a GQ threshold.
 
-plan tests 421
+plan tests 424
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -671,6 +671,19 @@ HAP_CHANGED=$(grep -o '[0-9]* genotypes moved by linkage' rl_hap_lw8.err | awk '
 HAP_CHANGED=${HAP_CHANGED:-0}
 is $(if [ "${HAP_CHANGED}" -eq 0 ] || ! cmp -s rl_hap_lw0.vcf rl_hap_lw8.vcf; then echo 1; else echo 0; fi) "1" \
    "haploid linkage changes reach the VCF rather than being dropped by the genotype guard"
+
+# ...and the GQN goes with them.  apply_linkage_change re-derived GQN only for a two-field numeric
+# GT, so every haploid record the layer moved had its GQN blanked: 159 snarls on chr20 ONT, each
+# with a real GQI beside it (116, 3 and 212 on the first three) and a number in the anchor file's
+# gqn column, which is documented to agree with this field.  The two GL layouts are now told apart
+# by the GL's own length rather than guessed at from the genotype's shape.
+#
+# Stated as "the layer must never REMOVE a GQN", which is what blanking did, under the same
+# HAP_CHANGED antecedent so it cannot pass vacuously.
+HAP_DOT_LW0=$(awk -F'\t' '{nk=split($9,k,":"); n=0; for(j=1;j<=nk;j++) if(k[j]=="GQN") n=j; if(n){split($10,f,":"); if(f[n]==".") c++}} END {print c+0}' rl_hap_lw0.vcf)
+HAP_DOT_LW8=$(awk -F'\t' '{nk=split($9,k,":"); n=0; for(j=1;j<=nk;j++) if(k[j]=="GQN") n=j; if(n){split($10,f,":"); if(f[n]==".") c++}} END {print c+0}' rl_hap_lw8.vcf)
+is $(if [ "${HAP_CHANGED}" -eq 0 ] || [ "${HAP_DOT_LW8}" -le "${HAP_DOT_LW0}" ]; then echo 1; else echo 0; fi) "1" \
+   "linkage never blanks a haploid record's GQN"
 rm -f rl_hap_lw0.vcf rl_hap_lw8.vcf rl_hap_lw8.err
 
 # Phasing is the linkage layer's path, so asking for it with the layer switched off cannot be
@@ -1358,6 +1371,32 @@ is $(if [ $(echo "$HAP_SLOTS" | cut -d' ' -f1) -gt 0 ]; then echo 1; else echo 0
    "the nested fixture offers half-called sites to check the haploid slot against"
 is $(echo "$HAP_SLOTS" | cut -d' ' -f2) "0" \
    "a nested haploid site's slot is the strand its GT names, not always 0"
+
+# The anchor file's gqn column and the VCF's GQN are documented to agree, and on chr20 ONT they
+# disagreed on 579 snarls -- 482 of them where the VCF said "." and the anchor gave a number, and
+# not once the other way round.  Two causes, fixed together: the VCF could not express a
+# post-linkage GQN for a haploid genotype (above), and the anchor fell back to the PRE-linkage
+# value on a record linkage had moved, which is the margin of the genotype it moved away from.
+#
+# Reachability first: a zero mismatch count over an empty join looks exactly like a pass.
+GQN_JOIN=$(awk -F'\t' '
+  NR==FNR {
+    if ($0 ~ /^#/) next
+    nf = split($9, k, ":"); split($10, v, ":"); g = "."
+    for (i = 1; i <= nf; i++) { if (k[i] == "GQN") g = v[i] }
+    vcf[$3] = g
+    next
+  }
+  $1 == "A" && ($3 in vcf) {
+    if (seen[$3]) next
+    seen[$3] = 1; ++total
+    if (vcf[$3] == "." && $6 != ".") ++bad
+  }
+  END { print total+0, bad+0 }' nest_hap_anchors.vcf nest_hap_anchors.tsv)
+is $(if [ $(echo "$GQN_JOIN" | cut -d' ' -f1) -gt 0 ]; then echo 1; else echo 0; fi) "1" \
+   "the nested fixture offers snarls to join gqn against GQN"
+is $(echo "$GQN_JOIN" | cut -d' ' -f2) "0" \
+   "no anchor reports a gqn where the VCF reports none"
 
 # reliability is a DERIVED column -- the mean of the site's own R-row scores -- so it must agree
 # with them exactly, or a consumer that filters on it is filtering on something else. Checked
