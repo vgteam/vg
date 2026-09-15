@@ -121,6 +121,10 @@ struct AnchorCounters {
     /// because the reads did not partition.
     atomic<size_t> hom_split{0};
     atomic<size_t> hom_unsplit{0};
+    /// Reads at a split homozygous site with no cross-site opinion at all. They are not emitted
+    /// there: both slots carry the same allele, so placing such a read in either is a haplotype
+    /// claim with nothing behind it.
+    atomic<size_t> hom_split_no_opinion{0};
 
     atomic<size_t> phase_checked{0};
     atomic<size_t> phase_agree{0};

@@ -55,7 +55,13 @@ void AnchorCounters::report(ostream& out) const {
     if (hom_split.load() > 0 || hom_unsplit.load() > 0) {
         const size_t s = hom_split.load(), u = hom_unsplit.load();
         out << "[vg call] anchors: " << s << " homozygous sites split by read phase, " << u
-            << " left collapsed for want of a confident partition on both strands" << endl;
+            << " left collapsed for want of a confident partition on both strands";
+        if (hom_split_no_opinion.load() > 0) {
+            out << "; " << hom_split_no_opinion.load()
+                << " read placements at split sites had no cross-site opinion and were not"
+                   " assigned to either strand";
+        }
+        out << endl;
     }
     if (phase_checked.load() > 0) {
         const size_t n = phase_checked.load(), ok = phase_agree.load();
@@ -376,6 +382,13 @@ void build_site_anchors(const AnchorSiteEvidence& evidence, const vector<int>& g
             && read_strand->size() == evidence.reads.size()) {
             size_t side0 = 0, side1 = 0;
             for (size_t r = 0; r < evidence.reads.size(); ++r) {
+                // Only reads that will actually be emitted. The placement loop below drops a read
+                // pinned at neither end, so counting it here would let a site qualify on evidence
+                // that never reaches the file.
+                if (!evidence.reads[r].start_pin.placed()
+                    && !evidence.reads[r].end_pin.placed()) {
+                    continue;
+                }
                 const double lo = (*read_strand)[r];
                 if (std::abs(lo) < params.phase_min) {
                     continue;
@@ -480,9 +493,18 @@ void build_site_anchors(const AnchorSiteEvidence& evidence, const vector<int>& g
             // slots. Splitting the mixture in half would halve every clean read's share and drop
             // its score from ~13 to ~3, silently changing what --anchors-min-q and the reliability
             // column mean on exactly the sites this feature adds.
+            const double lo = (*read_strand)[r];
+            if (lo == 0.0) {
+                // No cross-site opinion -- no lambda, a phase break, nothing left after
+                // leave-one-out, or no fitted temper. Both slots carry the SAME allele, so there is
+                // no evidence of any kind to place this read by, and `lo > 0 ? 0 : 1` would send
+                // every such read to slot 1: a haplotype claim with nothing behind it, made
+                // systematically in one direction.
+                ++counters.hom_split_no_opinion;
+                continue;
+            }
             best_resp = (1.0 - mismap) * (double)evidence.rel_at(r, (size_t)slot_allele[0]);
             total = mismap + best_resp;
-            const double lo = (*read_strand)[r];
             best_slot = lo > 0.0 ? 0 : 1;
         } else
         for (size_t i = 0; i < n_slots; ++i) {

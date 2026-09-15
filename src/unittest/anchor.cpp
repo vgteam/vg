@@ -532,6 +532,24 @@ TEST_CASE("A homozygous site splits by read phase only when both strands are sup
         REQUIRE(out[0].reads.size() == 4);
     }
 
+    SECTION("a read with no cross-site opinion is placed in NEITHER slot") {
+        // `lo > 0 ? 0 : 1` sends every zero to slot 1, so a read with no opinion at all would be
+        // claimed for strand 1 -- systematically, in one direction, with nothing behind it. Both
+        // slots carry the same allele, so there is no evidence to place it by and it must be left
+        // out. The earlier all-zero section cannot catch this: there the site never splits.
+        params.phase_min_side = 1;   // so three opinionated reads are enough to split
+        vector<double> strand{+5.0, -5.0, +5.0, 0.0};
+        build_site_anchors(ev, {0, 0}, ">1>4", 0.9, 1.0, 0, params, counters, out, &strand);
+        REQUIRE(out.size() == 4);
+        size_t placed = 0;
+        for (const AnchorWriter::Anchor& a : out) {
+            placed += a.reads.size();
+        }
+        // 3 opinionated reads x 2 pins; the fourth is in neither slot at either pin.
+        REQUIRE(placed == 6);
+        REQUIRE(counters.hom_split_no_opinion.load() > 0);
+    }
+
     SECTION("without the flag the same evidence stays collapsed") {
         vector<double> strand{+5.0, +5.0, -5.0, -5.0};
         params.hom_split = false;
