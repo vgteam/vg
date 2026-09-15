@@ -999,7 +999,7 @@ vector<SubchainGroup> find_best_chains(const VectorView<Anchor>& to_chain,
     // We actually need to do DP
     vector<vector<TracedScore>> chain_scores;
     chain_items_dp(chain_scores, to_chain, distance_index, graph, for_each_transition,
-                   3, /// TODO: make into a param
+                   2, /// TODO: make into a param
                    scoring_scheme, max_indel_bases, show_work);
     
     // Then do the tracebacks
