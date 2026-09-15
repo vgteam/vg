@@ -910,6 +910,17 @@ void VCFOutputCaller::build_render_lambda() {
     // the reads are summed as if independent and they are not. The temper is what makes it one.
     // Re-genotyping fits it when it runs; otherwise fit it here, which costs one more walk of the
     // same sites and is the difference between a calibrated number and a confident wrong one.
+    // The temper re-genotyping fitted, where it ran. Worth being explicit about why that is
+    // legitimate, because it was fitted on a DIFFERENT table: the re-genotyping loop ends with
+    // apply_read_phasing(), which rebuilds `phase_sites` from the newly settled genotypes, so the
+    // last table that pass built is already superseded when this one is made. Re-genotyping also
+    // fits only on its first round and reuses the value as its own sites evolve, so the assumption
+    // that the temper is stable across that evolution is one the pass already makes.
+    //
+    // Checked rather than assumed: on chr20 ONT the inherited temper and the one THIS table fits
+    // for itself are both 0.08, equal at the 0.01 resolution of the fit grid. The case that could
+    // still diverge is a run that never converges -- a round cap or a limit cycle -- where the final
+    // sites differ more from round one's. Re-measure there before trusting it.
     if (regenotype_counters.fitted_temper > 0.0) {
         render_lambda_temper = regenotype_counters.fitted_temper;
         render_lambda_ceiling = regenotype_counters.fitted_ceiling;
