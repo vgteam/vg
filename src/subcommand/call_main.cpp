@@ -557,11 +557,25 @@ int main_call(int argc, char** argv) {
     bool regenotype = false;
     bool regenotype_explicit = false;
     RegenotypeParams regenotype_params;
-    // Two barrier passes, i.e. ONE correction round, and that is a measured default rather than a
-    // cautious one. The iteration is implemented and runs to a fixed point when there is one;
-    // on chr20 there is not -- it enters a period-3 limit cycle at round 7 -- and eleven rounds
-    // score WORSE than one: ALL F1 0.95136 against 0.95150, SV 0.56234 against 0.56577. Raise it
-    // to watch the iteration; leave it here to get the answer.
+    // Two barrier passes, i.e. ONE correction round. The iteration is implemented and runs to a
+    // fixed point when there is one; on chr20 there is not -- it enters a period-3 limit cycle at
+    // round 7 -- and eleven rounds score worse than one: ALL F1 0.95136 against 0.95150, SV
+    // 0.56234 against 0.56577.
+    //
+    // That comparison is 1 against 11 and says nothing about 2, which is the question anyone
+    // actually asks. Measured, chr20 ONT at the re-fitted --phase-min-q (`--regeno-passes` 2, 3,
+    // 4):
+    //
+    //   rounds   ALL F1     indel F1   switch    SNV FP   SV F1     user CPU
+    //   1        0.95848    0.86667    0.3826%   422      0.55888   1349 s
+    //   2        0.95879    0.86690    0.3737%   395      0.55836   1362 s
+    //   3        0.95867    0.86696    0.3741%   398      --        1337 s
+    //
+    // Nothing here clears noise. The small-variant gain is +0.00031 ALL F1, a tenth of the 0.003
+    // this project needs to move a fitted default, and switch error and SNV FP are both under one
+    // sigma. SVs move the other way by 0.00052, which on a 765-event set is two events. So a
+    // second round is not worse, as 1-against-11 suggested -- it is the same, for about 1% more
+    // CPU. Left at 2 because nothing argues for moving it, not because more is harmful.
     size_t regenotype_passes = 2;
     string regenotype_ledger;
     ReadPhasingParams read_phasing_params;
