@@ -679,6 +679,12 @@ int main_call(int argc, char** argv) {
     /// table and the check for it is derived. It used to be a second, hand-maintained list of
     /// flag strings, and it had already drifted: `--mosaic-out` was refused without
     /// `--read-likelihood` while its four `--mosaic-*` modifiers were accepted and dropped.
+    ///
+    /// INTERIM. A central table of what belongs to whom is not where ownership should live -- each
+    /// subsystem should register its own options, Giraffe-style, with `OptionGroup<Receiver>` from
+    /// `subcommand/options.hpp`. What blocks that is `scripts/lint.py`, which cannot see an option
+    /// inside an OptionGroup and would stop checking all 61 of these; extending it is agreed and
+    /// deferred out of #4990. See doc/read-likelihood-architecture.md, "Order of work" item 2.
     enum CallOptionOwner {
         OWN_CORE,               ///< meaningful whatever genotyper is in use
         OWN_READ_LIKELIHOOD,    ///< only under --read-likelihood

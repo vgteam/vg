@@ -210,6 +210,21 @@ so moving it reaches past #4990's footprint for little gain; it can follow once 
    actually found: a hand-maintained list of 56 flag strings against 106 options, plus a
    hand-rolled reimplementation of `getopt_long`'s prefix resolution. **Done**; the list had
    already drifted on four live flags.
+
+   **This is an interim, and the end state is agreed to be different.** A central table of what
+   belongs to whom is not where ownership should live: each subsystem should declare its own
+   options, Giraffe-style, with `OptionGroup<Receiver>::add_range(name, T Receiver::*dest, ...)`
+   from `subcommand/options.hpp` — a name and a destination in a parameter-bearing object, one
+   registration function per subsystem. `giraffe_main.cpp` already does this in `get_options()`.
+
+   What blocks the migration is not the options: it is that **`scripts/lint.py` cannot see an
+   option that lives in an `OptionGroup`.** It cross-checks `long_options[]`, the getopt string,
+   the `switch(c)` block and the helptext, and giraffe survives only by keeping a `long_options`
+   table as well *and* being special-cased (`is_giraffe`, `lint.py:197`). Moving `vg call`'s 61
+   read-likelihood options into groups would drop them out of the only check that catches the
+   drift this item exists to fix. Extending the linter to understand groups is agreed as the right
+   answer and **deliberately deferred out of #4990** (adamnovak, 2026-09-15). Until it lands, the
+   owner column stays.
 3. **Give regenotyping its enclosing class** for the four state-threading functions.
 4. **Create `src/caller/` and move.** Late, because it renames the most and teaches the least.
 5. **Move the 39 read-likelihood members from `VCFOutputCaller` down to `FlowCaller`**, which is
