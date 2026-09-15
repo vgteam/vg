@@ -113,6 +113,21 @@ struct AnchorCounters {
     /// because it is invisible otherwise, and because long reads, the target here, are unpaired.
     atomic<size_t> shared_name{0};
 
+    /// Self-check for --anchors-hom-split: at het sites, how often the cross-site phase agrees
+    /// with the partition the site's own alleles make. Leave-one-out, so the site never judges its
+    /// own reads. Held-out ground truth for the inference the split makes blind, measured on the
+    /// same run's own data rather than assumed from a previous one.
+    /// Homozygous sites split into two slots by cross-site phase, and those left collapsed
+    /// because the reads did not partition.
+    atomic<size_t> hom_split{0};
+    atomic<size_t> hom_unsplit{0};
+
+    atomic<size_t> phase_checked{0};
+    atomic<size_t> phase_agree{0};
+    atomic<size_t> phase_confident{0};
+    atomic<size_t> phase_confident_agree{0};
+    atomic<size_t> phase_no_opinion{0};
+
     void report(ostream& out) const;
 };
 
@@ -220,6 +235,32 @@ struct AnchorParams {
     /// that fits neither called allele should not be asserted onto one, so this is off by default:
     /// for assembly anchors purity beats yield.
     bool keep_off_call = false;
+
+    /// Split a homozygous site's single slot into two by the reads' cross-site phase.
+    ///
+    /// A homozygous site has no allele signal of its own -- both haplotypes carry the same allele --
+    /// so its reads can only be partitioned by the het sites they also cross. Measured held-out on
+    /// chr20 ONT, that inference reproduces the allele-based partition at HETEROZYGOUS sites 94.7%
+    /// of the time (95.5% among confident reads), against a 50% chance baseline. So the partition is
+    /// real, and about one read in twenty lands on the wrong strand.
+    ///
+    /// Off by default: 58.5% of chr20 anchor sites are single-slot, so this decides the haplotype of
+    /// a large population on a ~95%-accurate inference, and a wrong split is worse for an assembler
+    /// than the break it replaces.
+    bool hom_split = false;
+
+    /// Minimum |tempered strand log-odds| for a read to count as confidently placed when deciding
+    /// whether a homozygous site may be split. 2 is about 88% on the tempered scale.
+    ///
+    /// NOT a per-read filter. Held out, confident reads agree 95.5% and unconfident ones 81.2%, but
+    /// only 5.4% of reads are unconfident -- so dropping them buys 0.78 points of purity for a 5.4%
+    /// yield loss. The threshold decides whether the SITE is splittable; every read at a split site
+    /// is then placed, and its own confidence is written per row so a consumer can filter.
+    double phase_min = 2.0;
+
+    /// Minimum confidently-placed reads on EACH side before a homozygous site may be split. A site
+    /// whose reads all lean one way has not been partitioned, it has been relabelled.
+    size_t phase_min_side = 2;
 };
 
 /**
@@ -325,7 +366,8 @@ vector<double> site_slot_weights(const vector<uint32_t>& allele_length, size_t n
 void build_site_anchors(const AnchorSiteEvidence& evidence, const vector<int>& genotype,
                         const string& snarl_id, double gqn, double explained, int haploid_slot,
                         const AnchorParams& params, AnchorCounters& counters,
-                        vector<AnchorWriter::Anchor>& out);
+                        vector<AnchorWriter::Anchor>& out,
+                        const vector<double>* read_strand = nullptr);
 
 }
 

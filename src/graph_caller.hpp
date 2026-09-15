@@ -308,7 +308,7 @@ public:
     /// actually makes.
     void collect_anchors_for(const Snarl& snarl, const vector<int>& genotype, int haploid_slot,
                              const unique_ptr<SnarlCaller::CallInfo>& call_info, bool is_leaf,
-                             double gqn);
+                             double gqn, size_t record_key);
 
 
     /// The settled pair reordered onto its haplotypes, for the anchors.
@@ -665,6 +665,23 @@ protected:
     vector<PhaseSite> phase_sites;
     unordered_set<size_t> phase_flips;
 
+    /// The per-read strand log-odds for the whole render, built once from `phase_sites` and
+    /// `phase_flips` after the last phasing pass. Positive means strand 0 of the read's phase set,
+    /// which is GT field 0 and anchor `slot` 0.
+    ///
+    /// Re-genotyping builds the same table and throws it away (`apply_regenotyping` keeps it as a
+    /// stack local), but a homozygous site has no allele signal of its own -- both haplotypes carry
+    /// the same allele -- so cross-site phase is the ONLY thing that could partition its reads. The
+    /// table is keyed by read alone, not by (read, block), for exactly that case.
+    LambdaTable render_lambda;
+    /// `phase_sites` indexed by record, so a site's own contribution can be subtracted before its
+    /// reads are judged by it. Points into `phase_sites`, which must not be rebuilt afterwards.
+    unordered_map<size_t, const PhaseSite*> render_lambda_site;
+    /// The fitted temper. Zero means no calibration was available, and `calibrated_log_odds`
+    /// returns exactly zero at zero -- so every read reads as unphased rather than as confident.
+    double render_lambda_temper = 0.0;
+    double render_lambda_ceiling = 1.0;
+
     /// Phase-aware re-genotyping: on, its parameters, and what it did. See regenotype.hpp.
     bool regenotype = false;
     RegenotypeParams regenotype_params;
@@ -683,6 +700,16 @@ protected:
 
     /// Fill `render_phases` from the resolved phasing. Called between the barrier and the render.
     void build_render_phases();
+
+    /// Fill `render_lambda` from the settled phasing. Called immediately before
+    /// `build_render_phases`, the one point where `phase_sites` and `phase_flips` are final.
+    void build_render_lambda();
+
+    /// This read's tempered strand log-odds, leave-one-out against `record_key` so a site never
+    /// judges its own reads. Positive names slot 0. Zero means "no opinion": no lambda, a single
+    /// contributing site with nothing left after the subtraction, a read spanning a phase break, or
+    /// no fitted temper.
+    double read_strand_log_odds(size_t record_key, const string& read_name) const;
 
 
     /// `--min-confidence`, so a record whose GQN the linkage layer re-derived can be re-labelled

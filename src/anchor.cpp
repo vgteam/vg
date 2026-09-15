@@ -52,6 +52,23 @@ void AnchorCounters::report(ostream& out) const {
             << " sites given only their start pin because the end pin held no reads of its own";
     }
     out << endl;
+    if (hom_split.load() > 0 || hom_unsplit.load() > 0) {
+        const size_t s = hom_split.load(), u = hom_unsplit.load();
+        out << "[vg call] anchors: " << s << " homozygous sites split by read phase, " << u
+            << " left collapsed for want of a confident partition on both strands" << endl;
+    }
+    if (phase_checked.load() > 0) {
+        const size_t n = phase_checked.load(), ok = phase_agree.load();
+        const size_t cn = phase_confident.load(), ck = phase_confident_agree.load();
+        out << "[vg call] anchors: cross-site phase reproduces the allele partition at het "
+               "sites (held out, the split's own accuracy): "
+            << ok << "/" << n << " agree (" << (100.0 * (double)ok / (double)n) << "%)";
+        if (cn > 0) {
+            out << ", confident " << ck << "/" << cn << " ("
+                << (100.0 * (double)ck / (double)cn) << "%)";
+        }
+        out << ", " << phase_no_opinion.load() << " reads with no cross-site opinion" << endl;
+    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -312,7 +329,8 @@ vector<double> site_slot_weights(const vector<uint32_t>& allele_length, size_t n
 void build_site_anchors(const AnchorSiteEvidence& evidence, const vector<int>& genotype,
                         const string& snarl_id, double gqn, double explained, int haploid_slot,
                         const AnchorParams& params, AnchorCounters& counters,
-                        vector<AnchorWriter::Anchor>& out) {
+                        vector<AnchorWriter::Anchor>& out,
+                        const vector<double>* read_strand) {
 
     if (genotype.empty() || evidence.reads.empty() || evidence.n_alleles == 0) {
         return;
@@ -348,8 +366,37 @@ void build_site_anchors(const AnchorSiteEvidence& evidence, const vector<int>& g
     // One slot per haplotype of the genotype, collapsed for a homozygote: the pair degenerates to a
     // single anchor holding every read, which carries connectivity but no haplotype information.
     vector<int> slot_allele;
+    bool phase_split = false;
     if (hom) {
+        // A homozygous site carries no allele signal -- both haplotypes spell the same thing -- so
+        // its reads are partitioned, if at all, by the het sites they also cross. Split only when
+        // the site is actually partitioned: enough confidently-placed reads on BOTH sides. A site
+        // whose reads all lean one way has not been partitioned, it has been relabelled.
+        if (params.hom_split && !haploid && genotype.size() == 2 && read_strand != nullptr
+            && read_strand->size() == evidence.reads.size()) {
+            size_t side0 = 0, side1 = 0;
+            for (size_t r = 0; r < evidence.reads.size(); ++r) {
+                const double lo = (*read_strand)[r];
+                if (std::abs(lo) < params.phase_min) {
+                    continue;
+                }
+                if (lo > 0.0) {
+                    ++side0;
+                } else {
+                    ++side1;
+                }
+            }
+            if (side0 >= params.phase_min_side && side1 >= params.phase_min_side) {
+                phase_split = true;
+                ++counters.hom_split;
+            } else {
+                ++counters.hom_unsplit;
+            }
+        }
         slot_allele.push_back(genotype[0]);
+        if (phase_split) {
+            slot_allele.push_back(genotype[0]);   // same allele on both strands, by definition
+        }
     } else {
         slot_allele.assign(genotype.begin(), genotype.end());
     }
@@ -423,6 +470,21 @@ void build_site_anchors(const AnchorSiteEvidence& evidence, const vector<int>& g
         double best_resp = -1.0;
         size_t best_slot = 0;
         double total = mismap;
+        if (phase_split) {
+            // Both slots spell the same allele, so responsibility cannot choose between them: the
+            // argmax would tie, the tie-break is a strict `<` on equal allele indices, and every
+            // read would land in slot 0 leaving slot 1 to be dropped by --anchors-reads. The strand
+            // decides instead, which is the whole point of the split.
+            //
+            // The share is computed over the site's ONE distinct allele rather than over the two
+            // slots. Splitting the mixture in half would halve every clean read's share and drop
+            // its score from ~13 to ~3, silently changing what --anchors-min-q and the reliability
+            // column mean on exactly the sites this feature adds.
+            best_resp = (1.0 - mismap) * (double)evidence.rel_at(r, (size_t)slot_allele[0]);
+            total = mismap + best_resp;
+            const double lo = (*read_strand)[r];
+            best_slot = lo > 0.0 ? 0 : 1;
+        } else
         for (size_t i = 0; i < n_slots; ++i) {
             double resp = (1.0 - mismap) * weight[i]
                           * (double)evidence.rel_at(r, (size_t)slot_allele[i]);
@@ -670,7 +732,20 @@ bool AnchorWriter::write(const string& path, const string& graph_name, const str
     out << "#filters\tmin-reads=" << params.min_reads << " min-gqn=" << params.min_gqn
         << " min-read-score=" << params.min_read_score
         << " off-call=" << (params.keep_off_call ? "kept" : "dropped")
-        << " end-pin-min-new=" << params.end_pin_min_new << "\n";
+        << " end-pin-min-new=" << params.end_pin_min_new
+        << " hom-split=" << (params.hom_split ? "on" : "off") << "\n";
+    if (params.hom_split) {
+        // Provenance, because the two slots of a split homozygous site are indistinguishable from a
+        // heterozygote's by their columns alone: same shape, same slot numbers, and the `allele`
+        // column is EQUAL rather than different, which is the only tell. A consumer that joins on
+        // slot without reading this line would treat a 95%-accurate phase inference as though it
+        // were the graph's own allele evidence.
+        out << "#note\thom-split is ON: a homozygous site whose reads partition confidently by "
+               "cross-site phase is written as TWO slots carrying the SAME allele. Slot is then a "
+               "haplotype claim inferred from other sites, not read off this one -- held out on "
+               "chr20 ONT it agrees with the allele partition 94.7% of the time, so roughly one "
+               "read in twenty is on the wrong strand. Equal alleles across two slots is the tell.\n";
+    }
     out << "#note\tan anchor is a zero-length pin at the junction between a snarl boundary node "
            "and the site interior. There is no anchor sequence and no length.\n";
     out << "#note\tR rows name their read by an integer id into the #read table above them, which "

@@ -245,6 +245,12 @@ void help_call(char** argv) {
          << "                            two are joined by all the same reads and the end pin" << endl
          << "                            can offer no linkage the start pin does not [0," << endl
          << "                            always emit it]" << endl
+         << "      --anchors-hom-split   split a homozygous site's one slot in two by the" << endl
+         << "                            reads' cross-site phase, so a haploid run is not" << endl
+         << "                            broken at every homozygous site -- 58.5% of chr20" << endl
+         << "                            anchor sites. Held out, that inference agrees with" << endl
+         << "                            the allele partition 94.7% of the time, so about" << endl
+         << "                            one read in twenty lands on the wrong strand [off]" << endl
          << "      --anchors-het-only    only heterozygous sites. By default homozygous and" << endl
          << "                            haploid ones are emitted too: they carry no" << endl
          << "                            haplotype information, but an anchor graph is built" << endl
@@ -612,6 +618,7 @@ int main_call(int argc, char** argv) {
     constexpr int OPT_MISMAP_MIN = 1020;
     constexpr int OPT_INSERTION_GAP_NATS = 1091;
     constexpr int OPT_REALIGN = 1092;
+    constexpr int OPT_ANCHORS_HOM_SPLIT = 1094;
     constexpr int OPT_NO_REALIGN = 1093;
     constexpr int OPT_NO_SHARE_QUALITY = 1021;
     constexpr int OPT_FLAT_MIXTURE = 1023;
@@ -712,6 +719,7 @@ int main_call(int argc, char** argv) {
         {"mismap-min", required_argument, 0, OPT_MISMAP_MIN},
         {"insertion-nats", required_argument, 0, OPT_INSERTION_GAP_NATS},
         {"realign", no_argument, 0, OPT_REALIGN},
+        {"anchors-hom-split", no_argument, 0, OPT_ANCHORS_HOM_SPLIT},
         {"no-realign", no_argument, 0, OPT_NO_REALIGN},
         {"no-share-quality", no_argument, 0, OPT_NO_SHARE_QUALITY},
         {"flat-mixture", no_argument, 0, OPT_FLAT_MIXTURE},
@@ -1118,6 +1126,9 @@ int main_call(int argc, char** argv) {
         case OPT_REALIGN:
             realign_explicit = true;
             realign = true;
+            break;
+        case OPT_ANCHORS_HOM_SPLIT:
+            anchor_params.hom_split = true;
             break;
         case OPT_NO_REALIGN:
             realign_explicit = true;
@@ -1558,6 +1569,7 @@ int main_call(int argc, char** argv) {
             "--depth-term", "--depth-count-raw", "--linkage-weight", "--linkage-scale",
             "--linkage-prior", "--depth-quality", "--min-confidence", "--flat-mixture",
             "--gap-open", "--gap-extend", "--insertion-nats", "--realign",
+            "--anchors-hom-split",
             "--no-realign", "--preset",
             "--read-phasing", "--no-read-phasing", "--phase-min-q", "--phase-break",
             "--regenotype", "--no-regenotype", "--regeno-temper", "--regeno-passes",

@@ -9,7 +9,7 @@ PATH=../bin:$PATH # for vg
 # FORMAT field shifts every later one, which broke four assertions here that were not
 # testing field order at all -- one of them silently compared BL against a GQ threshold.
 
-plan tests 410
+plan tests 414
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -1366,6 +1366,23 @@ is $(grep -c "pins verified against the graph, 0 failed" rl_anchors.err) "1" \
 # Homozygous and haploid sites are emitted by default -- they partition nothing but they link reads,
 # and an anchor graph needs contiguity too. Excluding them must actually remove some, or the flag is
 # inert, and the file must say which set it holds.
+# --anchors-hom-split is read-likelihood-only, must be inert by default, and must say so in the
+# file -- a split homozygous site is indistinguishable from a heterozygote by its columns alone,
+# because the two slots carry the SAME allele rather than different ones.
+vg call x.vg -k x.pack --anchors-hom-split 2>/dev/null >/dev/null
+is "$?" "1" "--anchors-hom-split without --read-likelihood is refused"
+
+is $(grep -c "hom-split=off" rl_anchors.tsv) "1" "the default file records that hom-split is off"
+
+rm -f rl_anchors_split.tsv
+vg call x.gbz --read-likelihood --gam sim.gam --anchors-out rl_anchors_split.tsv \
+    --anchors-hom-split -t 1 2>/dev/null >/dev/null
+is $(grep -c "hom-split=on" rl_anchors_split.tsv) "1" "and a split file records that it is on"
+
+is $(if [ $(grep -c "^A" rl_anchors_split.tsv) -gt 0 ]; then echo 1; else echo 0; fi) "1" \
+   "--anchors-hom-split still emits anchors"
+rm -f rl_anchors_split.tsv
+
 vg call x.gbz --read-likelihood --gam sim.gam --anchors-out rl_anchors_hom.tsv --anchors-het-only -t 1 \
     2>/dev/null >/dev/null
 is $(if [ $(grep -c "^A" rl_anchors_hom.tsv) -lt $(grep -c "^A" rl_anchors.tsv) ]; then echo 1; else echo 0; fi) "1" \

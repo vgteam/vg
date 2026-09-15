@@ -477,6 +477,88 @@ TEST_CASE("A homozygous site is emitted unless excluded", "[anchor]") {
     REQUIRE(out.empty());
 }
 
+TEST_CASE("A homozygous site splits by read phase only when both strands are supported",
+          "[anchor]") {
+    // A homozygous site has no allele signal of its own -- both haplotypes spell the same thing --
+    // so --anchors-hom-split partitions its reads by the strand log-odds they carry from OTHER
+    // sites. The layout decision is a site-level one on purpose: a site whose reads all lean the
+    // same way has not been partitioned, it has been relabelled.
+    vector<AnchorPlacement> starts, ends;
+    for (int i = 0; i < 4; ++i) {
+        AnchorPlacement s;
+        s.offset = 10 + i;
+        starts.push_back(s);
+        AnchorPlacement e;
+        e.offset = 30 + i;
+        ends.push_back(e);
+    }
+    AnchorSiteEvidence ev = two_allele_evidence({0, 0, 0, 0}, starts, ends);
+
+    AnchorCounters counters;
+    AnchorParams params;
+    params.min_reads = 1;
+    params.hom_split = true;
+    vector<AnchorWriter::Anchor> out;
+
+    SECTION("reads that lean both ways are split into two slots carrying the SAME allele") {
+        vector<double> strand{+5.0, +5.0, -5.0, -5.0};
+        build_site_anchors(ev, {0, 0}, ">1>4", 0.9, 1.0, 0, params, counters, out, &strand);
+        // Two pins x two slots.
+        REQUIRE(out.size() == 4);
+        size_t in_slot[2] = {0, 0};
+        for (const AnchorWriter::Anchor& a : out) {
+            REQUIRE(a.slot >= 0);
+            REQUIRE(a.slot <= 1);
+            REQUIRE(a.allele == 0);   // equal alleles across the two slots is the tell
+            in_slot[a.slot] += a.reads.size();
+        }
+        // Each pin carries the same partition, so 2 reads per slot per pin.
+        REQUIRE(in_slot[0] == 4);
+        REQUIRE(in_slot[1] == 4);
+    }
+
+    SECTION("reads that all lean one way leave the site collapsed") {
+        vector<double> strand{+5.0, +5.0, +5.0, +5.0};
+        build_site_anchors(ev, {0, 0}, ">1>4", 0.9, 1.0, 0, params, counters, out, &strand);
+        REQUIRE(out.size() == 2);       // one anchor per pin, as without the flag
+        REQUIRE(out[0].slot == 0);
+        REQUIRE(out[0].reads.size() == 4);
+    }
+
+    SECTION("reads with no cross-site opinion leave the site collapsed") {
+        vector<double> strand{0.0, 0.0, 0.0, 0.0};
+        build_site_anchors(ev, {0, 0}, ">1>4", 0.9, 1.0, 0, params, counters, out, &strand);
+        REQUIRE(out.size() == 2);
+        REQUIRE(out[0].reads.size() == 4);
+    }
+
+    SECTION("without the flag the same evidence stays collapsed") {
+        vector<double> strand{+5.0, +5.0, -5.0, -5.0};
+        params.hom_split = false;
+        build_site_anchors(ev, {0, 0}, ">1>4", 0.9, 1.0, 0, params, counters, out, &strand);
+        REQUIRE(out.size() == 2);
+        REQUIRE(out[0].reads.size() == 4);
+    }
+
+    SECTION("a split read keeps the score it would have had unsplit") {
+        // Both slots spell one allele, so the share must be taken over that ONE allele. Halving the
+        // mixture would drop a clean read from ~13 phred to ~3 and silently change what
+        // --anchors-min-q and the reliability column mean on exactly the sites this feature adds.
+        vector<AnchorWriter::Anchor> unsplit;
+        params.hom_split = false;
+        build_site_anchors(ev, {0, 0}, ">1>4", 0.9, 1.0, 0, params, counters, unsplit);
+        REQUIRE(!unsplit.empty());
+        const float want = unsplit[0].reads.at(0).score;
+
+        out.clear();
+        params.hom_split = true;
+        vector<double> strand{+5.0, +5.0, -5.0, -5.0};
+        build_site_anchors(ev, {0, 0}, ">1>4", 0.9, 1.0, 0, params, counters, out, &strand);
+        REQUIRE(!out.empty());
+        REQUIRE(out[0].reads.at(0).score == Approx(want));
+    }
+}
+
 TEST_CASE("A site's reliability is the mean score of the reads it emitted", "[anchor]") {
     // Site-level, so every anchor of the site carries the same value, and it is computed over the
     // reads that actually reached the file -- a consumer averaging the R rows must get the same

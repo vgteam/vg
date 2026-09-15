@@ -884,6 +884,80 @@ size_t VCFOutputCaller::record_key_of(const Snarl& snarl) const {
     return std::hash<string>{}(print_snarl(snarl, false));
 }
 
+// The per-read strand log-odds for the whole render.
+//
+// `apply_regenotyping` builds this same table and drops it on return, because re-genotyping only
+// needs it within its own pass. A homozygous site needs it too and has nothing else: both of its
+// haplotypes carry the same allele, so the site's own reads cannot say which strand they are on and
+// the answer can only come from the het sites they also cross.
+//
+// Built here rather than reused from re-genotyping because that pass is optional and may not have
+// run, and because its table is rebuilt per round from a `phase_sites` that is final only now.
+void VCFOutputCaller::build_render_lambda() {
+    render_lambda.clear();
+    render_lambda_site.clear();
+    render_lambda_temper = 0.0;
+    render_lambda_ceiling = 1.0;
+    if (phase_sites.empty()) {
+        return;
+    }
+    RegenotypeCounters scratch;
+    accumulate_lambda(phase_sites, phase_flips, render_lambda, scratch);
+    for (const PhaseSite& site : phase_sites) {
+        render_lambda_site[site.record_key] = &site;
+    }
+    // Raw lambda is not a log-odds anyone should threshold: it reaches into the hundreds because
+    // the reads are summed as if independent and they are not. The temper is what makes it one.
+    // Re-genotyping fits it when it runs; otherwise fit it here, which costs one more walk of the
+    // same sites and is the difference between a calibrated number and a confident wrong one.
+    if (regenotype_counters.fitted_temper > 0.0) {
+        render_lambda_temper = regenotype_counters.fitted_temper;
+        render_lambda_ceiling = regenotype_counters.fitted_ceiling;
+    } else {
+        double temper = -1.0;
+        double ceiling = regenotype_params.ceiling < 0.0 ? 1.0 : regenotype_params.ceiling;
+        RegenotypeCounters fit_scratch;
+        fit_calibration(phase_sites, phase_flips, render_lambda, regenotype_params, temper, ceiling,
+                        fit_scratch);
+        if (fit_scratch.fitted_temper > 0.0) {
+            render_lambda_temper = fit_scratch.fitted_temper;
+            render_lambda_ceiling = fit_scratch.fitted_ceiling;
+        }
+    }
+}
+
+double VCFOutputCaller::read_strand_log_odds(size_t record_key, const string& read_name) const {
+    if (render_lambda.empty() || render_lambda_temper <= 0.0) {
+        return 0.0;
+    }
+    const uint64_t key = (uint64_t)std::hash<string>{}(read_name);
+    const auto found = render_lambda.find(key);
+    if (found == render_lambda.end() || found->second.multi_block) {
+        // No lambda, or the read spans a phase break, where the two halves are not comparable.
+        return 0.0;
+    }
+    double value = found->second.lambda;
+    size_t sites = found->second.sites;
+    // Leave-one-out: a site must not be judged by evidence it supplied itself. Subtract this
+    // record's own contribution, and if it was the only one there is nothing left to judge with.
+    const auto site = render_lambda_site.find(record_key);
+    if (site != render_lambda_site.end()) {
+        unordered_map<uint64_t, double> own;
+        site_own_log_odds(*site->second, phase_flips.count(record_key) != 0, own);
+        const auto mine = own.find(key);
+        if (mine != own.end()) {
+            value -= mine->second;
+            if (sites > 0) {
+                --sites;
+            }
+        }
+    }
+    if (sites == 0) {
+        return 0.0;
+    }
+    return calibrated_log_odds(value, render_lambda_temper, render_lambda_ceiling);
+}
+
 void VCFOutputCaller::build_render_phases() {
     // Built between the barrier and the render, from the phasing the barrier accumulated.
     //
@@ -1351,13 +1425,13 @@ void FlowCaller::collect_anchors_for_record(const PendingRecord& rec,
     collect_anchors_for(rec.snarl, phase_ordered_genotype(rec.record_key, genotype),
                         phase_haploid_slot(rec.record_key, genotype), rec.call_info,
                         anchors_want_leaf_test() ? snarl_is_leaf(rec.snarl) : true,
-                        anchor_gqn_for(rec, genotype));
+                        anchor_gqn_for(rec, genotype), rec.record_key);
 }
 
 void VCFOutputCaller::collect_anchors_for(const Snarl& snarl, const vector<int>& genotype,
                                           int haploid_slot,
                                           const unique_ptr<SnarlCaller::CallInfo>& call_info,
-                                          bool is_leaf, double gqn) {
+                                          bool is_leaf, double gqn, size_t record_key) {
     if (anchor_path.empty() || anchor_writer == nullptr || call_info == nullptr) {
         return;
     }
@@ -1377,10 +1451,71 @@ void VCFOutputCaller::collect_anchors_for(const Snarl& snarl, const vector<int>&
     // way to the column.
     const double sweep_gqn = info->gq_fraction < 0.0 ? numeric_limits<double>::quiet_NaN()
                                                      : info->gq_fraction;
+    // Per-read cross-site strand log-odds, leave-one-out against this record. Only needed when a
+    // homozygous site might be split; every other layout ignores it.
+    vector<double> read_strand;
+    if (anchor_params.hom_split) {
+        read_strand.reserve(info->anchor_evidence->reads.size());
+        for (const AnchorRead& read : info->anchor_evidence->reads) {
+            read_strand.push_back(read_strand_log_odds(record_key, read.name));
+        }
+    }
     build_site_anchors(*info->anchor_evidence, genotype, print_snarl(snarl),
                        std::isnan(gqn) ? sweep_gqn : gqn,
                        info->explained_share, haploid_slot, anchor_params, anchor_counters(),
-                       anchors);
+                       anchors, anchor_params.hom_split ? &read_strand : nullptr);
+    // Self-check for --anchors-hom-split, reported per run: does cross-site phase reproduce the
+    // partition a site's own alleles make, where the site HAS alleles to check against?
+    //
+    // A homozygous site is split on an inference it cannot verify -- that is the nature of it. A
+    // heterozygous site makes the same inference and also knows the answer, so it is held-out
+    // ground truth for exactly what the split does blind. Leave-one-out lives in
+    // read_strand_log_odds, so a site never judges its own reads.
+    //
+    // Only computed when the split is on: it costs a lookup per read at every het site, and it
+    // means nothing to a run that is not relying on the inference.
+    if (anchor_params.hom_split && anchors.size() >= 2) {
+        int slot_of_allele[2] = {-1, -1};
+        int allele_of_slot[2] = {-1, -1};
+        for (const AnchorWriter::Anchor& anchor : anchors) {
+            if (anchor.slot >= 0 && anchor.slot < 2) {
+                allele_of_slot[anchor.slot] = anchor.allele;
+            }
+        }
+        if (allele_of_slot[0] >= 0 && allele_of_slot[1] >= 0
+            && allele_of_slot[0] != allele_of_slot[1]) {
+            (void)slot_of_allele;
+            unordered_set<string> counted;
+            for (const AnchorWriter::Anchor& anchor : anchors) {
+                if (anchor.slot < 0 || anchor.slot > 1) {
+                    continue;
+                }
+                for (const AnchorWriter::ReadRow& row : anchor.reads) {
+                    if (!counted.insert(row.name).second) {
+                        continue;   // both pins carry the same partition; count each read once
+                    }
+                    const double lo = read_strand_log_odds(record_key, row.name);
+                    if (lo == 0.0) {
+                        anchor_counters().phase_no_opinion.fetch_add(1);
+                        continue;
+                    }
+                    const int phase_slot = lo > 0.0 ? 0 : 1;
+                    const bool agree = phase_slot == anchor.slot;
+                    anchor_counters().phase_checked.fetch_add(1);
+                    if (agree) {
+                        anchor_counters().phase_agree.fetch_add(1);
+                    }
+                    // 2 nats is about 87% under the tempered scale, comfortably clear of noise.
+                    if (std::abs(lo) >= 2.0) {
+                        anchor_counters().phase_confident.fetch_add(1);
+                        if (agree) {
+                            anchor_counters().phase_confident_agree.fetch_add(1);
+                        }
+                    }
+                }
+            }
+        }
+    }
     for (AnchorWriter::Anchor& anchor : anchors) {
         anchor_writer->add(std::move(anchor));
     }
@@ -6441,6 +6576,9 @@ void FlowCaller::render_retained_records() {
         // One pass: score the correction, report it, keep nothing.
         apply_regenotyping();
     }
+    // The per-read strand log-odds, before any record is built and before the hand-off, because the
+    // anchors those paths collect want it too. `phase_sites` and `phase_flips` are final here.
+    build_render_lambda();
     // The phase, before any record is built: every generation has settled by now, so the phasing is
     // complete, and each record is phased as it is rendered rather than patched afterwards.
     //
