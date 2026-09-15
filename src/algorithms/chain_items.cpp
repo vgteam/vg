@@ -1040,16 +1040,22 @@ vector<SubchainGroup> find_best_chains(const VectorView<Anchor>& to_chain,
         // Calculate the score if this traceback was allowed its optimal path
         int full_score = tracebacks[i].chain_score;
         if (!tail_edges[tracebacks[i].left_tail()].is_max_score_diff()) {
+            AltEdge& tie_in_edge = tail_edges[tracebacks[i].left_tail()];
             // Left tail tied in; add in score for its Y trunk
-            full_score += chain_scores[tracebacks[i].anchors.front()].front().score;
+            full_score += chain_scores[tie_in_edge.start_anchor].front().score;
         }
         if (!tail_edges[tracebacks[i].right_tail()].is_max_score_diff()) {
             AltEdge& tie_in_edge = tail_edges[tracebacks[i].right_tail()];
             // Right tail tied in; calculate score using its reverse-Y trunk
             full_score = tracebacks[tie_in_edge.end_parent].chain_score;
             // Subtract whatever compromise we had to make to take this fork
-            full_score -= chain_scores[tie_in_edge.end_anchor].front().score;
-            full_score += tracebacks[i].chain_score;
+            for (size_t alt_i = 1; alt_i < chain_scores[tie_in_edge.end_anchor].size(); alt_i++) {
+                if (chain_scores[tie_in_edge.end_anchor][alt_i].source == tracebacks[i].anchors.back()) {
+                    int compromise = chain_scores[tie_in_edge.end_anchor].front().score \
+                        - chain_scores[tie_in_edge.end_anchor][alt_i].score;
+                    full_score -= compromise;
+                }
+            }
         }
         traceback_optimal_scores.emplace_back(i, full_score);
     }
