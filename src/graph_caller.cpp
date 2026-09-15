@@ -1449,6 +1449,33 @@ double FlowCaller::anchor_gqn_for(const PendingRecord& rec,
     return min(1.0, max(-1.0, margin_phred / achievable_phred));
 }
 
+/// The genotype the linkage layer settled on, or the sweep's own if it settled nothing.
+///
+/// Extracted because it was written out once, in the render path, and NOT in
+/// `hand_off_deferred_records` -- so the two records that never get a VCF line, `reported_inline`
+/// and `no_reference`, anchored on the PRE-linkage call. The barrier writes `pr.genotype` back only
+/// on the branch where the ploidy changed, so a record linkage moved at unchanged ploidy kept the
+/// genotype the reads alone picked, and its anchor slots named the alleles the caller had
+/// abandoned. Small on chr20 -- 97 inline chains and no off-reference ones -- but `no_reference` IS
+/// the off-reference population, which is the one anchors exist for.
+///
+/// One function so the two call sites cannot drift apart again.
+vector<int> FlowCaller::settled_genotype_for(const PendingRecord& rec) const {
+    vector<int> genotype = rec.genotype;
+    int settled_a = -1, settled_b = -1;
+    size_t settled_ploidy = 0;
+    if (linkage_collector != nullptr
+        && linkage_collector->settled_traversals(rec.record_key, &settled_a, &settled_b,
+                                                 &settled_ploidy)
+        && settled_ploidy == genotype.size()) {
+        genotype.assign(1, settled_a);
+        if (settled_ploidy > 1) {
+            genotype.push_back(settled_b);
+        }
+    }
+    return genotype;
+}
+
 void FlowCaller::collect_anchors_for_record(const PendingRecord& rec,
                                             const vector<int>& genotype) {
     collect_anchors_for(rec.snarl, phase_ordered_genotype(rec.record_key, genotype),
@@ -1486,7 +1513,7 @@ void VCFOutputCaller::collect_anchors_for(const Snarl& snarl, const vector<int>&
     }
     build_site_anchors(*info->anchor_evidence, genotype, print_snarl(snarl),
                        gqn,
-                       info->explained_share, haploid_slot, anchor_params, anchor_counters(),
+                       info->explained_share, haploid_slot, anchor_params, *anchor_params.counters,
                        anchors, anchor_params.hom_split ? &read_strand : nullptr);
     // Self-check for --anchors-hom-split, reported per run: does cross-site phase reproduce the
     // partition a site's own alleles make, where the site HAS alleles to check against?
@@ -1520,21 +1547,21 @@ void VCFOutputCaller::collect_anchors_for(const Snarl& snarl, const vector<int>&
                     }
                     const double lo = read_strand_log_odds(record_key, row.name);
                     if (lo == 0.0) {
-                        anchor_counters().phase_no_opinion.fetch_add(1);
+                        anchor_params.counters->phase_no_opinion.fetch_add(1);
                         continue;
                     }
                     const int phase_slot = lo > 0.0 ? 0 : 1;
                     const bool agree = phase_slot == anchor.slot;
-                    anchor_counters().phase_checked.fetch_add(1);
+                    anchor_params.counters->phase_checked.fetch_add(1);
                     if (agree) {
-                        anchor_counters().phase_agree.fetch_add(1);
+                        anchor_params.counters->phase_agree.fetch_add(1);
                     }
                     // 2 nats is 88%: calibrated_log_odds returns a NATURAL log-odds, so the
                     // threshold is in nats, not the log10 phase_link sums in.
                     if (std::abs(lo) >= 2.0) {
-                        anchor_counters().phase_confident.fetch_add(1);
+                        anchor_params.counters->phase_confident.fetch_add(1);
                         if (agree) {
-                            anchor_counters().phase_confident_agree.fetch_add(1);
+                            anchor_params.counters->phase_confident_agree.fetch_add(1);
                         }
                     }
                 }
@@ -1558,7 +1585,9 @@ void VCFOutputCaller::write_anchors() {
     }
     cerr << "[vg call] anchors: " << anchors << " written over " << rows
          << " read placements to " << anchor_path << endl;
-    anchor_counters().report(cerr);
+    if (anchor_params.counters != nullptr) {
+        anchor_params.counters->report(cerr);
+    }
 }
 
 void VCFOutputCaller::write_mosaic(const vector<LinkageCollector::PhaseCall>& phasing) const {
@@ -6667,18 +6696,7 @@ void FlowCaller::render_retained_records() {
             // -- so handing in the settled one makes every one of them agree with the call instead of
             // being patched towards it afterwards. A settled traversal is renderable by construction,
             // because the allele list is chosen from it.
-            vector<int> genotype = rec.genotype;
-            int settled_a = -1, settled_b = -1;
-            size_t settled_ploidy = 0;
-            if (linkage_collector != nullptr
-                && linkage_collector->settled_traversals(rec.record_key, &settled_a, &settled_b,
-                                                         &settled_ploidy)
-                && settled_ploidy == genotype.size()) {
-                genotype.assign(1, settled_a);
-                if (settled_ploidy > 1) {
-                    genotype.push_back(settled_b);
-                }
-            }
+            vector<int> genotype = settled_genotype_for(rec);
             // Before emit_variant, which hands the CallInfo on to update_vcf_info: the anchors want
             // the settled genotype, and this is the one place it exists alongside the evidence.
             //
@@ -7300,7 +7318,7 @@ void FlowCaller::hand_off_deferred_records() {
             // Settled, phased, and inside the layer -- but an enclosing block's ALT has already
             // written its variation, so a line here would write it twice. It is still a genotyped
             // site, and an anchor is a different file, so it still anchors.
-            collect_anchors_for_record(pr, pr.genotype);
+            collect_anchors_for_record(pr, settled_genotype_for(pr));
             ++inline_unrendered;
             continue;
         }
@@ -7312,7 +7330,7 @@ void FlowCaller::hand_off_deferred_records() {
             //
             // Anchors do not care: a pin is keyed on a node ID and needs neither REF nor POS. These
             // are the off-reference sites, which is where an assembler most needs help.
-            collect_anchors_for_record(pr, pr.genotype);
+            collect_anchors_for_record(pr, settled_genotype_for(pr));
             ++no_ref_unrendered;
             continue;
         }

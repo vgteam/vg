@@ -452,6 +452,9 @@ int main_call(int argc, char** argv) {
     string mosaic_out;
     string anchors_out;
     AnchorParams anchor_params;
+    /// This run's anchor counters. Owned here rather than by the subsystem, so a second caller in
+    /// one process would count into its own; see AnchorParams::counters.
+    AnchorCounters anchor_run_counters;
     // Fill a gap no panel haplotype can be carried across with the reference, so a strand stays one
     // walk. On by default: it is the only path contiguous across such a region -- on chr20 all 37
     // remaining boundaries -- and the fill is marked `ref` in the file rather than passed off as an
@@ -2239,6 +2242,12 @@ int main_call(int argc, char** argv) {
             likelihood_params.insertion_gap_nats = insertion_gap_nats;
             likelihood_params.realign = realign;
             likelihood_params.collect_anchors = anchor_params.enabled;
+            // One instance, owned here, reached by both subsystems through the parameter objects
+            // that already configure them. It used to be a function-local static behind a free
+            // `anchor_counters()` accessor, which made the anchor subsystem un-re-entrant and put
+            // its state out of reach of the code that owns the run.
+            likelihood_params.anchor_counters = &anchor_run_counters;
+            anchor_params.counters = &anchor_run_counters;
             likelihood_params.collect_read_phasing = read_phasing;
 
             likelihood_calculator.reset(new GraphAlignedAlleleLikelihoodCalculator(
@@ -2520,6 +2529,18 @@ int main_call(int argc, char** argv) {
                  : "--bottom-up uses a caller that does not run the render pass this needs, so the"
                    " flag would be silently inert")
              << endl;
+        return 1;
+    }
+    // --anchors-hom-split splits a homozygous site by the reads' CROSS-SITE phase, and that
+    // log-odds comes from the read-phasing chain: with no phasing, `read_strand_log_odds` returns
+    // 0.0 for every read, no site clears `phase_min` on either side, and nothing splits. The flag
+    // was accepted, ran, split nothing, and reported the reads as having no opinion -- which blamed
+    // the data for a missing switch. Refused rather than silently disarmed because, unlike
+    // --regenotype, no preset turns this on, so asking for it is always deliberate.
+    if (anchor_params.hom_split && !read_phasing) {
+        cerr << "error [vg call]: --anchors-hom-split needs --read-phasing; the split is decided by"
+             << " each read's phase across the OTHER sites it crosses, so without a phasing chain"
+             << " there is nothing to split on and every site would stay collapsed" << endl;
         return 1;
     }
     if (regenotype && !read_phasing) {

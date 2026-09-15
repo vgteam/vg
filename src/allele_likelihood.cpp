@@ -1361,6 +1361,14 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
         }
     }
 
+    // Counted into the run's instance where there is one. A local stands in otherwise -- a unit
+    // test driving the calculator directly has no run to count into, and a dropped count is better
+    // than a singleton nobody can see. Hoisted out of the per-read callback: it is 20 atomics, and
+    // constructing them once per read to throw them away is pure waste.
+    AnchorCounters unowned_counters;
+    AnchorCounters& anchor_pin_counters =
+        params.anchor_counters != nullptr ? *params.anchor_counters : unowned_counters;
+
     vector<ReadStep> read_steps;
     ReadScratch read_scratch;
     vector<double> row(traversals.size());
@@ -1450,10 +1458,10 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
             record.mismap = (float)mismap;
             record.start_pin = resolve_anchor_pin(read, graph, snarl.start().node_id(),
                                                   snarl.start().backward(), true,
-                                                  anchor_counters());
+                                                  anchor_pin_counters);
             record.end_pin = resolve_anchor_pin(read, graph, snarl.end().node_id(),
                                                 snarl.end().backward(), false,
-                                                anchor_counters());
+                                                anchor_pin_counters);
             anchor_evidence->reads.push_back(std::move(record));
         }
     });

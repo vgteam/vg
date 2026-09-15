@@ -285,6 +285,12 @@ public:
                          double mismap_min) {
         this->anchor_path = path;
         this->anchor_params = params;
+        if (this->anchor_params.counters == nullptr) {
+            // A caller that did not supply one -- the unit tests -- still gets counting, into
+            // THIS instance rather than into the process-wide singleton this replaced. Set here so
+            // that every use below can dereference without a check.
+            this->anchor_params.counters = &this->owned_anchor_counters;
+        }
         this->anchor_graph_name = graph_name;
         this->anchor_reads_source = reads_source;
         this->anchor_mismap_min = mismap_min;
@@ -724,6 +730,8 @@ protected:
     /// records. The writer itself is created once the thread count is known.
     string anchor_path;
     AnchorParams anchor_params;
+    /// Used only when the run did not hand us counters of its own; see set_anchors_out.
+    AnchorCounters owned_anchor_counters;
     string anchor_graph_name;
     string anchor_reads_source;
     unique_ptr<AnchorWriter> anchor_writer;
@@ -1502,6 +1510,11 @@ protected:
     /// The gqn column's value for this record: the sweep's `gq_fraction` unless linkage moved the
     /// call, in which case the signed re-derivation for the genotype it now carries. NaN means
     /// "use the CallInfo's own".
+    /// The genotype the linkage layer settled on for a staged record, or the sweep's own where it
+    /// settled nothing. Both anchor-collection paths must use it; see the definition for what
+    /// happened when only one of them did.
+    vector<int> settled_genotype_for(const PendingRecord& rec) const;
+
     double anchor_gqn_for(const PendingRecord& rec, const vector<int>& settled) const;
 
     void collect_anchors_for_record(const PendingRecord& rec, const vector<int>& genotype);

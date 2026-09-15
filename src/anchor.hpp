@@ -153,9 +153,6 @@ AnchorPlacement resolve_anchor_pin(const SiteRead& read, const HandleGraph& grap
                                    nid_t node_id, bool site_backward, bool exit_pin,
                                    AnchorCounters& counters);
 
-/// The run's counters. Process-wide, like the mosaic's, because the sweep is parallel over node-ID
-/// windows and nothing about a counter is per site.
-AnchorCounters& anchor_counters();
 
 /// One read's contribution to a site's anchors.
 struct AnchorRead {
@@ -239,6 +236,14 @@ struct AnchorParams {
     /// that fits neither called allele should not be asserted onto one, so this is off by default:
     /// for assembly anchors purity beats yield.
     bool keep_off_call = false;
+
+    /// Where this run's counters live. Not owned: `main_call` holds the instance and hands the
+    /// same one to the likelihood calculator, so a second caller in one process would count into
+    /// its own. This replaced a function-local static reached through a free `anchor_counters()`
+    /// accessor, which made the subsystem un-re-entrant and hid its state from every caller.
+    /// Null is legal and means "do not count" -- unit tests that drive the writer directly pass
+    /// their own counters to `build_site_anchors` and never set this.
+    AnchorCounters* counters = nullptr;
 
     /// Split a homozygous site's single slot into two by the reads' cross-site phase.
     ///

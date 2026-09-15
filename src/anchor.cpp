@@ -23,11 +23,6 @@ using namespace std;
 // Counters
 ////////////////////////////////////////////////////////////////////////////////
 
-AnchorCounters& anchor_counters() {
-    static AnchorCounters counters;
-    return counters;
-}
-
 void AnchorCounters::report(ostream& out) const {
     out << "[vg call] anchors: " << verified.load() << " pins verified against the graph, "
         << verify_failed.load() << " failed" << endl;

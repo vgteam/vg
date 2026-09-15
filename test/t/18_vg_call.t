@@ -9,7 +9,7 @@ PATH=../bin:$PATH # for vg
 # FORMAT field shifts every later one, which broke four assertions here that were not
 # testing field order at all -- one of them silently compared BL against a GQ threshold.
 
-plan tests 424
+plan tests 426
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -802,6 +802,22 @@ is "$(grep -o -- "--gap-open, --realign, --mosaic-patch-gaps only apply" multi_n
 vg call x.vg -k x.pack --traversals -t 1 >/dev/null 2>trav_norl.txt
 is $(grep -c "only applies to --read-likelihood" trav_norl.txt) "0" "an option the table does not own is still accepted"
 
+# --anchors-hom-split splits a homozygous site by each read's phase across the OTHER sites it
+# crosses, and that log-odds comes from the read-phasing chain.  With no phasing,
+# read_strand_log_odds returns 0.0 for every read, nothing clears phase_min on either side, and the
+# flag runs, splits nothing, and reports the reads as having no opinion -- blaming the data for a
+# switch that was never armed.  Refused now, and the refusal must name the flag that fixes it.
+vg call x.vg -k x.pack --read-likelihood --gam sim.sorted.gam --anchors-out hs_norp.tsv \
+    --anchors-hom-split -t 1 >/dev/null 2>hs_norp.txt
+is $(grep -c -- "--anchors-hom-split needs --read-phasing" hs_norp.txt) "1" \
+   "--anchors-hom-split without --read-phasing is refused"
+
+vg call x.vg -k x.pack --read-likelihood --gam sim.sorted.gam --anchors-out hs_rp.tsv \
+    --anchors-hom-split --read-phasing -t 1 >/dev/null 2>hs_rp.txt
+is $(grep -c -- "needs --read-phasing" hs_rp.txt) "0" \
+   "and is accepted with it"
+rm -f hs_norp.tsv hs_norp.txt hs_rp.tsv hs_rp.txt
+
 # The owner column generalises past --read-likelihood: --anchors-*, --mosaic-* and --regeno-* each
 # need their own subsystem switched on, and each was silently dropped without it.  The outer gate
 # still wins when BOTH switches are missing, because that is the one the user has to fix first.
@@ -1445,8 +1461,11 @@ is "$?" "1" "--anchors-hom-split without --read-likelihood is refused"
 is $(grep -c "hom-split=off" rl_anchors.tsv) "1" "the default file records that hom-split is off"
 
 rm -f rl_anchors_split.tsv
+# --read-phasing because the split is decided by each read's phase across the OTHER sites it
+# crosses: without a chain there is nothing to split on, and the flag is now refused rather than
+# running and reporting every read as having no opinion.
 vg call x.gbz --read-likelihood --gam sim.gam --anchors-out rl_anchors_split.tsv \
-    --anchors-hom-split -t 1 2>/dev/null >/dev/null
+    --anchors-hom-split --read-phasing -t 1 2>/dev/null >/dev/null
 is $(grep -c "hom-split=on" rl_anchors_split.tsv) "1" "and a split file records that it is on"
 
 is $(if [ $(grep -c "^A" rl_anchors_split.tsv) -gt 0 ]; then echo 1; else echo 0; fi) "1" \

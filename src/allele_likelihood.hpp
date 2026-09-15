@@ -666,6 +666,9 @@ struct AlleleLikelihoodParams {
     /// The pin is resolved to a (strand, offset) here, where the alignment is live; deferring that
     /// to the render pass is the one change that would force the alignments to stay in memory.
     bool collect_anchors = false;
+    /// Where to count the pin resolutions this calculator performs. Not owned; see
+    /// AnchorParams::counters. Null means "do not count", which is what the unit tests want.
+    AnchorCounters* anchor_counters = nullptr;
 
     /// Retain the same per-read evidence for read-backed phasing. Off unless --read-phasing.
     ///
