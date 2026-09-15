@@ -16,6 +16,15 @@ It is a separate repository (mounted here as the `wiki` submodule), so anything 
 cannot be reviewed alongside a code change; a page there should link to the write-up rather than
 restate it.
 
+## Code structure
+
+Developer-facing, and the exception to the rule above: a description of how a subsystem's files
+depend on each other is too long for a header and belongs to no single one of them.
+
+- [read-likelihood-architecture.md](read-likelihood-architecture.md) — what the
+  `--read-likelihood` files are, the measured dependency graph between them, and where the
+  coupling actually is.
+
 # Automated markdown manpage
 
 Make a markdown document with the usage messages of (selected) `vg` subcommands. 
