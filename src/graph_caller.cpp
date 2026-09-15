@@ -1516,7 +1516,8 @@ void VCFOutputCaller::collect_anchors_for(const Snarl& snarl, const vector<int>&
                     if (agree) {
                         anchor_counters().phase_agree.fetch_add(1);
                     }
-                    // 2 nats is about 87% under the tempered scale, comfortably clear of noise.
+                    // 2 nats is 88%: calibrated_log_odds returns a NATURAL log-odds, so the
+                    // threshold is in nats, not the log10 phase_link sums in.
                     if (std::abs(lo) >= 2.0) {
                         anchor_counters().phase_confident.fetch_add(1);
                         if (agree) {
