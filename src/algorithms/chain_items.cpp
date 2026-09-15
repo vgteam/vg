@@ -594,8 +594,7 @@ void chain_items_dp(vector<vector<TracedScore>>& chain_scores,
             auto& here = to_chain[to_anchor];
 
             cerr << "\tBest way to reach #" << to_anchor  << " " << to_chain[to_anchor]
-                 << " is " << chain_scores[to_anchor].front() << "\n"
-                 << "\t\tbut you can also do: ";
+                 << " is " << chain_scores[to_anchor].front() << " or ";
             for (size_t alt_i = 1; alt_i < chain_scores[to_anchor].size(); alt_i++) {
                 cerr << chain_scores[to_anchor][alt_i] << " ";
             }
