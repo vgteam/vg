@@ -166,7 +166,7 @@ void help_call(char** argv) {
          << "      --no-read-phasing     leave the phase to the panel. The default already" << endl
          << "                            does; this is for turning the preset's back off" << endl
          << "      --phase-min-q N       a site below this per-read confidence may not" << endl
-         << "                            carry a phase link [9.5]" << endl
+         << "                            carry a phase link [9.5, or 8.5 under --realign]" << endl
          << "      --phase-break N       break the chain below this many log10 units [10]" << endl
          << "      --phase-relink N      reliable sites either side of a break [3]" << endl
          << "      --phase-hang N        neighbours to hang an unreliable site from [4]" << endl
@@ -573,6 +573,7 @@ int main_call(int argc, char** argv) {
     bool insertion_nats_explicit = false;
     bool realign = false;
     bool realign_explicit = false;
+    bool phase_min_q_explicit = false;
     bool gap_open_explicit = false, gap_extend_explicit = false, mismap_min_explicit = false;
     double min_confidence = 0.0;
     double linkage_weight = 2.0;
@@ -1063,6 +1064,7 @@ int main_call(int argc, char** argv) {
             break;
         case OPT_PHASE_MIN_Q:
             read_phasing_params.reliability = parse<double>(optarg);
+            phase_min_q_explicit = true;
             break;
         case OPT_PHASE_BREAK:
             read_phasing_params.break_threshold = parse<double>(optarg);
@@ -2525,6 +2527,25 @@ int main_call(int argc, char** argv) {
     //
     // --bottom-up is refused for a duller reason: it builds NestedFlowCaller, which is not a
     // FlowCaller, so `render_retained_records` never runs and the flag would do nothing at all.
+    // --phase-min-q thresholds a quantity the WALK produces, so its default follows the walk
+    // rather than the preset. The exact walk finds the best correspondence against every allele,
+    // the wrong one included, so the winning allele's share of a read falls and every per-read
+    // score with it -- chr20 ONT median 10.06 under greedy against 8.98 under --realign. The
+    // 9.5 fitted against greedy therefore sits ABOVE almost the whole distribution once the walk
+    // changes, and only 5.9% of heterozygous sites stay eligible to carry a phase link, against
+    // 77.4%. Switch error 0.3545% -> 0.5794%.
+    //
+    // Re-fitted on chr20 and confirmed on chr6: 0.5794% -> 0.3826%, with indel F1 unmoved. 8.0
+    // through 9.0 are one plateau and the measurement cannot separate them; 8.5 is its midpoint
+    // and sits below the 25th percentile of the reliability distribution rather than on its
+    // median, which is the mistake being corrected -- a threshold placed where a distribution can
+    // move across it. See docs/phase-min-q-refit.md in the eval repo.
+    //
+    // Keyed on `realign` and not on the preset, because `--read-phasing --realign` without the
+    // preset wants the same value, and `--read-phasing` alone still wants 9.5.
+    if (realign && !phase_min_q_explicit) {
+        read_phasing_params.reliability = 8.5;
+    }
     if (regenotype && (top_down || bottom_up)) {
         cerr << "error [vg call]: --regenotype cannot be combined with "
              << (top_down ? "--top-down" : "--bottom-up") << "; "

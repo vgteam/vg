@@ -9,7 +9,7 @@ PATH=../bin:$PATH # for vg
 # FORMAT field shifts every later one, which broke four assertions here that were not
 # testing field order at all -- one of them silently compared BL against a GQ threshold.
 
-plan tests 426
+plan tests 427
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -816,6 +816,14 @@ vg call x.vg -k x.pack --read-likelihood --gam sim.sorted.gam --anchors-out hs_r
     --anchors-hom-split --read-phasing -t 1 >/dev/null 2>hs_rp.txt
 is $(grep -c -- "needs --read-phasing" hs_rp.txt) "0" \
    "and is accepted with it"
+
+# --phase-min-q's default follows the WALK, not the preset: 9.5 fits the greedy distribution
+# (chr20 median 10.06) and 8.5 the exact walk's (median 8.98), and keying it on neither is how the
+# 9.5 came to sit above 94% of the sites it was meant to admit.  The behavioural gate for this is
+# the chr20 sweep and the chr6 hold-out, which no fixture here can stand in for -- this only holds
+# the documented pair together, so the default cannot move without the help text moving with it.
+is $(vg call --help 2>&1 | grep -c -- "\[9.5, or 8.5 under --realign\]") "1" \
+   "--phase-min-q documents both of its defaults"
 rm -f hs_norp.tsv hs_norp.txt hs_rp.tsv hs_rp.txt
 
 # The owner column generalises past --read-likelihood: --anchors-*, --mosaic-* and --regeno-* each

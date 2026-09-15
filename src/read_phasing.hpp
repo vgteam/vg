@@ -100,6 +100,12 @@ struct ReadPhasingParams {
     /// (median 10.09, 25th percentile 9.95) so this is sensitive and wants re-fitting whenever the
     /// per-read scores move. `--mismap-min` moves them directly: the score's ceiling is phred of
     /// it, 13.01 at the preset's 0.05 against 16.99 at the 0.02 default.
+    ///
+    /// That warning came true. `--realign` moved the distribution's median to 8.98 and left this
+    /// 9.5 above almost all of it: 5.9% of heterozygous sites stayed eligible against 77.4%, and
+    /// chr20 switch error went 0.3545% -> 0.5794%. `main_call` therefore overrides this to 8.5
+    /// when the exact walk is in use; see the comment there and docs/phase-min-q-refit.md. This
+    /// default is the GREEDY walk's value and is still right for it.
     double reliability = 9.5;
     /// Break the chain below this many log10 units of evidence.
     double break_threshold = 10.0;
