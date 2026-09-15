@@ -1362,20 +1362,38 @@ int VCFOutputCaller::phase_haploid_slot(size_t record_key, const vector<int>& ge
 //
 // Applied on every path, including the two that never get a VCF line: an off-reference site has
 // nothing to agree with, but the stale value is no more true there.
+//
+// So this returns three things, not two. Linkage left the call alone -> the sweep's value, which
+// still describes the genotype being reported. Linkage moved it and the margin was recomputed ->
+// that margin, signed. Linkage moved it and the margin could NOT be recomputed -> NaN, which the
+// writer prints as "." -- never the sweep's value, which at that point describes a genotype that
+// was abandoned.
 double FlowCaller::anchor_gqn_for(const PendingRecord& rec,
                                   const vector<int>& settled) const {
-    const double use_sweep_value = std::numeric_limits<double>::quiet_NaN();
+    const auto* info =
+        dynamic_cast<const ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo*>(rec.call_info.get());
+    // The sweep's own value, with its "no gap to normalise" sentinel (-1) translated to NaN, which
+    // is what the writer turns into ".". The two must stay distinguishable from the signed
+    // post-linkage range [-1, 1] all the way to the column.
+    const double sweep_value = (info == nullptr || info->gq_fraction < 0.0)
+        ? std::numeric_limits<double>::quiet_NaN()
+        : info->gq_fraction;
+    const double blank = std::numeric_limits<double>::quiet_NaN();
     if (linkage_collector == nullptr) {
-        return use_sweep_value;
+        return sweep_value;
     }
     const auto& moved = linkage_collector->moved_quality();
     if (moved.find(rec.record_key) == moved.end()) {
-        return use_sweep_value;   // linkage left the call alone, so the sweep's value still holds
+        return sweep_value;   // linkage left the call alone, so the sweep's value still holds
     }
-    const auto* info =
-        dynamic_cast<const ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo*>(rec.call_info.get());
+    // Past here the record MOVED, and the sweep's value is the margin of the genotype linkage moved
+    // AWAY from -- right magnitude, wrong genotype, which is the shape of the bug this function was
+    // written to fix. So every remaining failure blanks rather than falling back. Measured on chr20
+    // ONT: 4,005 snarls took the old fallback and reported a stale pre-linkage margin. Only 340 of
+    // them have a VCF line to disagree with; the other 3,665 are nested or off-reference, so a join
+    // against the VCF could see 8% of the problem and no more.
     if (info == nullptr || info->genotype_lls.empty()) {
-        return use_sweep_value;
+        return blank;
     }
     // Quantized as the VCF prints them, so the two columns agree rather than merely being close.
     const double gqi_q = (double)min(256, max(0, (int)info->gq_undiscounted));
@@ -1383,7 +1401,7 @@ double FlowCaller::anchor_gqn_for(const PendingRecord& rec,
     snprintf(buf, sizeof(buf), "%.3f", info->gq_fraction);
     const double gqn_q = atof(buf);
     if (!(gqi_q > 0.0) || !(gqn_q > 0.0)) {
-        return use_sweep_value;   // no scale to recover; leaving it alone beats inventing one
+        return blank;   // no scale to recover, and no honest pre-linkage value to fall back on
     }
     const double achievable_phred = gqi_q / gqn_q;
 
@@ -1396,7 +1414,7 @@ double FlowCaller::anchor_gqn_for(const PendingRecord& rec,
     sort(called.begin(), called.end());
     const auto mine = info->genotype_lls.find(called);
     if (mine == info->genotype_lls.end()) {
-        return use_sweep_value;
+        return blank;
     }
     // Only genotypes over the EMITTED alleles, which is what the VCF's GL covers: the reference
     // traversal plus the ones the settled genotype names, not every scored traversal. Ranging over
@@ -1424,7 +1442,7 @@ double FlowCaller::anchor_gqn_for(const PendingRecord& rec,
         }
     }
     if (!std::isfinite(best_other)) {
-        return use_sweep_value;
+        return blank;
     }
     // Nats to phred, matching the VCF's GL, which is log10.
     const double margin_phred = 10.0 * (mine->second - best_other) / log(10.0);
@@ -1457,11 +1475,6 @@ void VCFOutputCaller::collect_anchors_for(const Snarl& snarl, const vector<int>&
         return;
     }
     vector<AnchorWriter::Anchor> anchors;
-    // gq_fraction's own "no gap to normalise" sentinel is -1, which collides with the signed
-    // post-linkage range [-1, 1]. Translate it to NaN here so the two are distinguishable all the
-    // way to the column.
-    const double sweep_gqn = info->gq_fraction < 0.0 ? numeric_limits<double>::quiet_NaN()
-                                                     : info->gq_fraction;
     // Per-read cross-site strand log-odds, leave-one-out against this record. Only needed when a
     // homozygous site might be split; every other layout ignores it.
     vector<double> read_strand;
@@ -1472,7 +1485,7 @@ void VCFOutputCaller::collect_anchors_for(const Snarl& snarl, const vector<int>&
         }
     }
     build_site_anchors(*info->anchor_evidence, genotype, print_snarl(snarl),
-                       std::isnan(gqn) ? sweep_gqn : gqn,
+                       gqn,
                        info->explained_share, haploid_slot, anchor_params, anchor_counters(),
                        anchors, anchor_params.hom_split ? &read_strand : nullptr);
     // Self-check for --anchors-hom-split, reported per run: does cross-site phase reproduce the
@@ -2451,9 +2464,13 @@ static bool apply_linkage_quality(string& line, double posterior, double explain
                 start = comma + 1;
             }
         }
-        // The called genotype's index in the VCF's GL order, j(j+1)/2 + i for i <= j. Missing or
-        // half-missing genotypes are skipped: a haploid record's GL is indexed by allele, and
-        // conflating the two orders is how a plausible wrong number gets written.
+        // The called genotype's index in the VCF's GL order. A diploid record's GL is indexed
+        // j(j+1)/2 + i for i <= j; a HAPLOID record's is indexed by allele, and conflating the two
+        // orders is how a plausible wrong number gets written. So the layout is not inferred from
+        // the GT -- it is checked against the GL's own length, which for any site with two or more
+        // alleles distinguishes them (n against n(n+1)/2). A `.` field is dropped rather than
+        // abandoning the record: `1|.` is a nested chain on one strand of a diploid parent, it has
+        // a real margin, and skipping it left 243 chr20 ONT records with no GQN at all.
         vector<int> called;
         if (parsed) {
             size_t start = 0;
@@ -2461,15 +2478,13 @@ static bool apply_linkage_quality(string& line, double posterior, double explain
                 size_t sep = values[gt_field].find_first_of("/|", start);
                 string tok = values[gt_field].substr(
                     start, sep == string::npos ? string::npos : sep - start);
-                if (tok == "." || tok.empty()) {
-                    called.clear();
-                    break;
-                }
-                try {
-                    called.push_back(std::stoi(tok));
-                } catch (const std::exception&) {
-                    called.clear();
-                    break;
+                if (tok != "." && !tok.empty()) {
+                    try {
+                        called.push_back(std::stoi(tok));
+                    } catch (const std::exception&) {
+                        called.clear();
+                        break;
+                    }
                 }
                 if (sep == string::npos) {
                     break;
@@ -2477,22 +2492,43 @@ static bool apply_linkage_quality(string& line, double posterior, double explain
                 start = sep + 1;
             }
         }
+        // How many alleles this record offers, REF included. Only the haploid branch is gated on
+        // it: for one call the two GL layouts are the same length (n against n(n+1)/2), so a
+        // haploid index can be taken only where the length says haploid and cannot say diploid.
+        //
+        // The diploid branch deliberately keeps its older, looser condition. Under
+        // --atomize-blocks one snarl emits several records that SHARE its snarl-level GL while
+        // each carries only its own block's ALTs, so `gl.size()` does not match this record's
+        // allele count and a length gate would newly skip every multi-block record. That is a
+        // separate problem -- 35 of the 97 remaining numeric disagreements are multi-block -- and
+        // it is not this change's to fix.
+        size_t n_alleles = 1;
+        if (fields[4] != "." && !fields[4].empty()) {
+            vector<string> alt_list;
+            split_keep_empty(fields[4], ',', alt_list);
+            n_alleles += alt_list.size();
+        }
+        const bool diploid_gl = gl.size() == n_alleles * (n_alleles + 1) / 2;
+        const bool haploid_gl = gl.size() == n_alleles;
+        size_t idx = gl.size();
         if (parsed && called.size() == 2 && !gl.empty()) {
             int i = min(called[0], called[1]);
             int j = max(called[0], called[1]);
-            size_t idx = (size_t)(j * (j + 1) / 2 + i);
-            if (idx < gl.size()) {
-                double best_other = -std::numeric_limits<double>::infinity();
-                for (size_t g = 0; g < gl.size(); ++g) {
-                    if (g != idx) {
-                        best_other = max(best_other, gl[g]);
-                    }
+            idx = (size_t)(j * (j + 1) / 2 + i);
+        } else if (parsed && called.size() == 1 && haploid_gl && !diploid_gl) {
+            idx = (size_t)called[0];
+        }
+        if (idx < gl.size()) {
+            double best_other = -std::numeric_limits<double>::infinity();
+            for (size_t g = 0; g < gl.size(); ++g) {
+                if (g != idx) {
+                    best_other = max(best_other, gl[g]);
                 }
-                if (best_other > -std::numeric_limits<double>::infinity()) {
-                    double margin_phred = 10.0 * (gl[idx] - best_other);
-                    gqn_new = min(1.0, max(-1.0, margin_phred / achievable_phred));
-                    gqn_known = true;
-                }
+            }
+            if (best_other > -std::numeric_limits<double>::infinity()) {
+                double margin_phred = 10.0 * (gl[idx] - best_other);
+                gqn_new = min(1.0, max(-1.0, margin_phred / achievable_phred));
+                gqn_known = true;
             }
         }
     }
