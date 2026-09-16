@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="C" # force a consistent sort order 
 
-plan tests 129
+plan tests 131
 
 vg construct -r small/x.fa -v small/x.vcf.gz -a > x.vg
 vg construct -r small/x.fa -v small/x.vcf.gz > x2.vg
@@ -300,6 +300,17 @@ is $? 1 "a reference contig named like a gref fragment is refused"
 is $(grep -c "would be copied to gref_CHM13#0#chr1_1_alt" collision.err) 1 "the error names the colliding gref path"
 
 rm -f collision_test.vg collision.err
+
+# The same collision, but on a subranged reference.  The guard has to test the fragment base
+# name: the copy name keeps the subrange (gref_CHM13#0#chr1_1_alt[100-200]), so it does not
+# end in _alt and the collision used to slip through.
+sed 's|^P\tCHM13#0#chr1_1_alt\t|P\tCHM13#0#chr1_1_alt[100-200]\t|' nesting/gref_name_collision.gfa > collision_subrange.gfa
+vg paths -x collision_subrange.gfa -Q CHM13 --compute-gref --min-gref-len 1 > collision_sub.vg 2> collision_sub.err
+is $? 1 "a subranged reference contig named like a gref fragment is refused"
+
+is $(grep -c "would be copied to gref_CHM13#0#chr1_1_alt" collision_sub.err) 1 "the error names the colliding gref base name, not the subranged copy"
+
+rm -f collision_subrange.gfa collision_sub.vg collision_sub.err
 
 # A PanSN reference read from a GFA without an RS header comes in as haplotype sense, so its
 # name carries a phase block (GRCh38#0#chr1#0) that must not survive into the gref name.
