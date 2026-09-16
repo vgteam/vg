@@ -1797,6 +1797,22 @@ int main_call(int argc, char** argv) {
     if (min_mismap_prob <= 0.0 || min_mismap_prob > max_mismap_prob) {
         logger.error() << "--mismap-min must be in (0, --mismap-max]" << endl;
     }
+    // A phase site is only ever a diploid heterozygote, and a balanced het halves the slot weight,
+    // so the per-read score cannot exceed phred(e / (e + (1 - e) / 2)) -- 10.21 at the ONT preset's
+    // 0.05, against the phred(e) = 13.01 that applies to homozygous sites. Above it NO site is
+    // reliable, `rel` is empty in every block, and all three phasing stages are skipped in silence.
+    // Refused rather than run: a sweep past the ceiling otherwise reports "0 reliable" and reads as
+    // the parameter not mattering.
+    {
+        const double het_ceiling =
+            -10.0 * log10(min_mismap_prob / (min_mismap_prob + (1.0 - min_mismap_prob) / 2.0));
+        if (read_phasing_params.reliability > het_ceiling) {
+            logger.error() << "--phase-min-q " << read_phasing_params.reliability
+                           << " is above the heterozygous score ceiling of " << het_ceiling
+                           << " implied by --mismap-min " << min_mismap_prob
+                           << "; no site could be reliable" << endl;
+        }
+    }
 
     // --gbz-base only says where to point the query; it means nothing without the read
     // database that is being queried.

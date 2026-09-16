@@ -9,7 +9,7 @@ PATH=../bin:$PATH # for vg
 # FORMAT field shifts every later one, which broke four assertions here that were not
 # testing field order at all -- one of them silently compared BL against a GQ threshold.
 
-plan tests 434
+plan tests 436
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -824,6 +824,23 @@ is $(grep -c -- "needs --read-phasing" hs_rp.txt) "0" \
 # the documented pair together, so the default cannot move without the help text moving with it.
 is $(vg call --help 2>&1 | grep -c -- "\[9.5, or 8.5 under --realign\]") "1" \
    "--phase-min-q documents both of its defaults"
+
+# --phase-min-q gates on a HETEROZYGOUS site's mean read score, and that score cannot reach
+# phred(--mismap-min): a balanced het splits the slot weight in half, so the ceiling is
+# phred(e/(e+(1-e)/2)) -- 10.21 at the ONT preset's 0.05 against the 13.01 that applies to
+# homozygous sites.  Above it NO site is reliable and all three phasing stages are skipped in
+# silence, so a sweep past the ceiling reports "0 reliable" and reads as the parameter not
+# mattering.  Refused instead.
+vg call x.vg -k x.pack --read-likelihood --gam sim.sorted.gam --mismap-min 0.05 \
+    --phase-min-q 12 -t 1 >/dev/null 2>pq_hi.txt
+is $(grep -c -- "is above the heterozygous score ceiling" pq_hi.txt) "1" \
+   "--phase-min-q above the het ceiling is refused, not silently inert"
+
+vg call x.vg -k x.pack --read-likelihood --gam sim.sorted.gam --mismap-min 0.05 \
+    --phase-min-q 8.5 -t 1 >/dev/null 2>pq_ok.txt
+is $(grep -c -- "heterozygous score ceiling" pq_ok.txt) "0" \
+   "and a value under the ceiling is accepted"
+rm -f pq_hi.txt pq_ok.txt
 
 # --split-min-q and --split-min-side expose the two thresholds that decide whether
 # --anchors-hom-split may split a site.  They were hardcoded, so the decision could not be swept at

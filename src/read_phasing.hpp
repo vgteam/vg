@@ -98,8 +98,25 @@ struct PhaseSite {
 struct ReadPhasingParams {
     /// A site below this is not allowed to carry a link. Fitted on chr20; the distribution is tight
     /// (median 10.09, 25th percentile 9.95) so this is sensitive and wants re-fitting whenever the
-    /// per-read scores move. `--mismap-min` moves them directly: the score's ceiling is phred of
-    /// it, 13.01 at the preset's 0.05 against 16.99 at the 0.02 default.
+    /// per-read scores move. `--mismap-min` moves them directly.
+    ///
+    /// **The ceiling that applies here is the HETEROZYGOUS one, and it is not phred(--mismap-min).**
+    /// A PhaseSite is only ever built for a diploid heterozygote (`FlowCaller::apply_read_phasing`
+    /// skips anything with `trav_first == trav_second`), and a balanced het splits the slot weight
+    /// in half, so a perfectly discriminating read reaches
+    ///
+    ///     phred( e / (e + (1 - e) / 2) )  =  10.21 at e = 0.05,  14.07 at e = 0.02
+    ///
+    /// against phred(e) = 13.01 and 16.99, which is the HOMOZYGOUS ceiling -- there the half weight
+    /// is deliberately not applied, so it is the figure `--anchors-min-q` quotes and it does not
+    /// apply to this gate. Measured on chr20 ONT: het sites run a median 8.98, p99 10.21 and a max
+    /// of 10.36, while single-slot sites sit flat on 13.01.
+    ///
+    /// Two consequences. The operating range is about [2.8, 10.4], so this default sits under two
+    /// phred from a hard cap on a nearly saturated statistic -- the reliable/unreliable split is a
+    /// knife edge, not a comfortable classification. And any value above the het ceiling leaves
+    /// `rel` empty in every block, which skips all three stages silently: `main_call` refuses such
+    /// a value rather than letting a run report "0 reliable" and no phasing.
     ///
     /// That warning came true. `--realign` moved the distribution's median to 8.98 and left this
     /// 9.5 above almost all of it: 5.9% of heterozygous sites stayed eligible against 77.4%, and
