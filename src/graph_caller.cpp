@@ -1556,9 +1556,12 @@ void VCFOutputCaller::collect_anchors_for(const Snarl& snarl, const vector<int>&
                     if (agree) {
                         anchor_params.counters->phase_agree.fetch_add(1);
                     }
-                    // 2 nats is 88%: calibrated_log_odds returns a NATURAL log-odds, so the
-                    // threshold is in nats, not the log10 phase_link sums in.
-                    if (std::abs(lo) >= 2.0) {
+                    // The SAME cut the split decision uses, not a fixed 2.0 beside it: this
+                    // check exists to measure that decision, and a self-check pinned to a value
+                    // the decision no longer uses stops measuring it the moment the threshold is
+                    // swept. calibrated_log_odds returns a NATURAL log-odds, so it is in nats, not
+                    // the log10 phase_link sums in; the default 2 is about 88%.
+                    if (std::abs(lo) >= anchor_params.phase_min) {
                         anchor_params.counters->phase_confident.fetch_add(1);
                         if (agree) {
                             anchor_params.counters->phase_confident_agree.fetch_add(1);

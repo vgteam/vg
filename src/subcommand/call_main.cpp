@@ -252,6 +252,12 @@ void help_call(char** argv) {
          << "                            anchor sites. Held out, that inference agrees with" << endl
          << "                            the allele partition 94.7% of the time, so about" << endl
          << "                            one read in twenty lands on the wrong strand [off]" << endl
+         << "      --split-min-q N       a read counts as confidently placed, for deciding" << endl
+         << "                            whether --anchors-hom-split may split a site, at" << endl
+         << "                            this |log-odds| in NATS. 2 is about 88% [2.0]" << endl
+         << "      --split-min-side N    confidently placed reads needed on EACH side before" << endl
+         << "                            a homozygous site may be split. A site whose reads" << endl
+         << "                            all lean one way has been relabelled, not split [2]" << endl
          << "      --anchors-het-only    only heterozygous sites. By default homozygous and" << endl
          << "                            haploid ones are emitted too: they carry no" << endl
          << "                            haplotype information, but an anchor graph is built" << endl
@@ -638,6 +644,8 @@ int main_call(int argc, char** argv) {
     constexpr int OPT_INSERTION_GAP_NATS = 1091;
     constexpr int OPT_REALIGN = 1092;
     constexpr int OPT_ANCHORS_HOM_SPLIT = 1094;
+    constexpr int OPT_ANCHORS_PHASE_MIN = 1095;
+    constexpr int OPT_ANCHORS_PHASE_MIN_SIDE = 1096;
     constexpr int OPT_NO_REALIGN = 1093;
     constexpr int OPT_NO_SHARE_QUALITY = 1021;
     constexpr int OPT_FLAT_MIXTURE = 1023;
@@ -767,6 +775,8 @@ int main_call(int argc, char** argv) {
         {"insertion-nats", required_argument, 0, OPT_INSERTION_GAP_NATS,    OWN_READ_LIKELIHOOD},
         {"realign", no_argument, 0, OPT_REALIGN,                            OWN_READ_LIKELIHOOD},
         {"anchors-hom-split", no_argument, 0, OPT_ANCHORS_HOM_SPLIT,        OWN_ANCHORS},
+        {"split-min-q", required_argument, 0, OPT_ANCHORS_PHASE_MIN,         OWN_ANCHORS},
+        {"split-min-side", required_argument, 0, OPT_ANCHORS_PHASE_MIN_SIDE, OWN_ANCHORS},
         {"no-realign", no_argument, 0, OPT_NO_REALIGN,                      OWN_READ_LIKELIHOOD},
         {"no-share-quality", no_argument, 0, OPT_NO_SHARE_QUALITY,          OWN_READ_LIKELIHOOD},
         {"flat-mixture", no_argument, 0, OPT_FLAT_MIXTURE,                  OWN_READ_LIKELIHOOD},
@@ -1195,6 +1205,20 @@ int main_call(int argc, char** argv) {
             break;
         case OPT_ANCHORS_HOM_SPLIT:
             anchor_params.hom_split = true;
+            break;
+        case OPT_ANCHORS_PHASE_MIN:
+            anchor_params.phase_min = parse<double>(optarg);
+            if (anchor_params.phase_min < 0) {
+                cerr << "error [vg call]: --split-min-q must be at least 0" << endl;
+                return 1;
+            }
+            break;
+        case OPT_ANCHORS_PHASE_MIN_SIDE:
+            anchor_params.phase_min_side = parse<size_t>(optarg);
+            if (anchor_params.phase_min_side < 1) {
+                cerr << "error [vg call]: --split-min-side must be at least 1" << endl;
+                return 1;
+            }
             break;
         case OPT_NO_REALIGN:
             realign_explicit = true;
