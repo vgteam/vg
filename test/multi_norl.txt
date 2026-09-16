@@ -1,0 +1,1 @@
+error[vg call] --gap-open, --realign, --mosaic-patch-gaps only apply to --read-likelihood, which was not given

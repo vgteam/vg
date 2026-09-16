@@ -1,0 +1,1 @@
+error [vg call]: -A/--all-snarls calls every snarl independently while --nested calls children through their parent; they are alternatives, not a combination

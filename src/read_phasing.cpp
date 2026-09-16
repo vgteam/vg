@@ -12,7 +12,7 @@ using std::min;
 using std::sort;
 using std::unordered_map;
 
-double phase_link(const PhaseSite& a, const PhaseSite& b, double cap, size_t* shared) {
+double phase_link(const PhaseSite& a, const PhaseSite& b, double cap) {
     // Both read lists are sorted by key, so this is a merge rather than a lookup per read.
     double total = 0.0;
     size_t i = 0, j = 0;
@@ -35,9 +35,6 @@ double phase_link(const PhaseSite& a, const PhaseSite& b, double cap, size_t* sh
             const double trans = pr * diff + (1.0 - pr) * 0.5;
             if (cis > 0.0 && trans > 0.0) {
                 total += log10(cis / trans);
-                if (shared != nullptr) {
-                    ++*shared;
-                }
             }
             ++i;
             ++j;
@@ -132,89 +129,12 @@ unordered_set<size_t> read_phase_flips(vector<PhaseSite>& sites, const ReadPhasi
             bounds.push_back(rel.size());
             counters.breaks += bounds.size() - 2;
 
-            // The sign each link contributes to the cascade. Separate from `d` so the break test
-            // above keeps the magnitude it was written against, and so `confirm` moves signs only.
-            vector<int> sgn(d.size(), 0);
-            for (size_t m = 0; m < d.size(); ++m) {
-                sgn[m] = d[m] < 0.0 ? 1 : 0;
-            }
-            if (params.confirm > 0.0) {
-                for (size_t m = 0; m < d.size(); ++m) {
-                    // A link below the break threshold IS a break: `bounds` cuts the chain at m+1
-                    // and the cascade restarts the next segment at o = 0, so sgn[m] is never read.
-                    // Rewriting it would change nothing, and counting it would report work that
-                    // cannot reach the output. The operative band is [break_threshold, confirm),
-                    // which is why --phase-confirm must exceed --phase-break to do anything.
-                    if (std::fabs(d[m]) < params.break_threshold) {
-                        continue;
-                    }
-                    if (std::fabs(d[m]) >= params.confirm) {
-                        continue;                       // decisive enough on its own
-                    }
-                    // Per SHARED READ, not on the raw sum. A straddling pair draws on a subset of
-                    // the adjacent pair's reads -- a read reaching from m+1-k to m+k necessarily
-                    // spans m to m+1 -- so it has no more terms and usually fewer, and on raw
-                    // magnitude it can essentially never win. The quantity that actually separates
-                    // these junctions is the mean: measured on chr20, at the 40 junctions that
-                    // produce a true switch the adjacent pair is decisive 50.0% of the time and a
-                    // pair three sites out is decisive 70.0% on the same junctions with the same
-                    // read count. That is a per-read statement and this is the comparison that
-                    // matches it.
-                    size_t d_shared = 0;
-                    (void)phase_link(sites[begin + rel[m]], sites[begin + rel[m + 1]], params.cap,
-                                     &d_shared);
-                    double best = d_shared > 0 ? std::fabs(d[m]) / (double)d_shared : 0.0;
-                    int best_sign = sgn[m];
-                    bool scored = false;
-                    for (size_t k = 2; k <= params.confirm_reach; ++k) {
-                        if (m + 1 < k || m + k >= rel.size()) {
-                            break;                      // the straddle runs off the chain
-                        }
-                        const size_t lo = m + 1 - k, hi = m + k;
-                        // Every OTHER link inside the straddle must be one the cascade actually
-                        // applies, so the bar is break_threshold rather than confirm. Two reasons,
-                        // and both are load-bearing: a break link's sign is never used, so it
-                        // contributes no parity to XOR out; and requiring every intervening link to
-                        // clear the break bar means the straddle cannot span a break, which would
-                        // otherwise compare two segments whose frames were set independently.
-                        int others = 0;
-                        bool usable = true;
-                        for (size_t t = lo; t < hi; ++t) {
-                            if (t == m) { continue; }
-                            if (std::fabs(d[t]) < params.break_threshold) { usable = false; break; }
-                            others ^= sgn[t];
-                        }
-                        if (!usable) { continue; }
-                        size_t sv_shared = 0;
-                        const double sv = phase_link(sites[begin + rel[lo]],
-                                                     sites[begin + rel[hi]], params.cap,
-                                                     &sv_shared);
-                        if (sv_shared < params.confirm_min_reads) { continue; }
-                        scored = true;
-                        const double per_read = std::fabs(sv) / (double)sv_shared;
-                        if (per_read <= best) { continue; }
-                        best = per_read;
-                        best_sign = (sv < 0.0 ? 1 : 0) ^ others;
-                    }
-                    if (!scored) {
-                        // Marginal, but no straddling pair could be scored at all. Counted apart:
-                        // "looked and found nothing" and "never looked" must not read alike.
-                        ++counters.confirm_no_straddle;
-                        continue;
-                    }
-                    ++counters.confirm_tested;
-                    if (best_sign != sgn[m]) {
-                        sgn[m] = best_sign;
-                        ++counters.confirm_flipped;
-                    }
-                }
-            }
             for (size_t b = 0; b + 1 < bounds.size(); ++b) {
                 const size_t s0 = bounds[b], s1 = bounds[b + 1];
                 o[rel[s0]] = 0;
                 decided[rel[s0]] = 1;
                 for (size_t m = s0; m + 1 < s1; ++m) {
-                    o[rel[m + 1]] = o[rel[m]] ^ sgn[m];
+                    o[rel[m + 1]] = o[rel[m]] ^ (d[m] < 0.0 ? 1 : 0);
                     decided[rel[m + 1]] = 1;
                 }
             }

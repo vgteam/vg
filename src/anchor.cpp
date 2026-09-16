@@ -62,18 +62,6 @@ void AnchorCounters::report(ostream& out) const {
                 << " dropped for spanning a phase break";
         }
         out << endl;
-        const size_t zt = phase_zero_no_table.load(), za = phase_zero_absent.load(),
-                     zm = phase_zero_multi_block.load(), zv = phase_zero_value.load();
-        if (zt + za + zm + zv > 0) {
-            // Why the reads at homozygous sites had no opinion. `absent` reached no phase site at
-            // all; `summed to nothing` reached some and they cancelled or each said nothing, which
-            // is an allele pair the read cannot resolve. Both are unassignable -- but only `absent`
-            // can also mean the chain dropped a site that had something to say, so a run where it
-            // is large is a run to look at the phase-site guards in.
-            out << "[vg call] anchors: reads with no cross-site opinion at a homozygous site: "
-                << za << " reached no phase site, " << zv << " reached one but summed to nothing, "
-                << zm << " spanned a phase break, " << zt << " had no calibrated table" << endl;
-        }
     }
     if (phase_checked.load() > 0) {
         const size_t n = phase_checked.load(), ok = phase_agree.load();

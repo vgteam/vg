@@ -1328,10 +1328,6 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
     // Read phasing needs the same `rel` rows and nothing else -- no name, no pin. Built only when
     // anchors are NOT armed, because the anchor evidence already carries everything it wants.
     unique_ptr<PhaseReadEvidence> phase_evidence;
-    // The raw, unclamped mismapping probability, kept only when phasing wants it. The builder stores
-    // the CLAMPED value, so before this the phase path inherited the genotyping floor by
-    // construction rather than by choice.
-    vector<double> phase_raw_mismap;
     if (params.collect_read_phasing && !params.collect_anchors) {
         phase_evidence = make_unique<PhaseReadEvidence>();
         phase_evidence->n_alleles = traversals.size();
@@ -1452,12 +1448,6 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
             // reason the anchor evidence is too heavy to retain for phasing.
             phase_evidence->read_key.push_back((uint64_t)std::hash<string>{}(aln.name()));
         }
-        if (phase_evidence != nullptr || anchor_evidence != nullptr) {
-            // Kept for whichever of the two carries phase evidence: the anchor struct does it
-            // whenever anchors are armed, and PhaseReadEvidence only when they are not. Pushed
-            // after `add_read` has accepted the read, so it stays index-aligned with the rows.
-            phase_raw_mismap.push_back(mismap);
-        }
         if (anchor_evidence != nullptr) {
             // Resolved against `aln`, NOT `scored_aln`. The flipped copy exists so the read can be
             // compared to alleles that read the other way; its sequence is reverse-complemented and
@@ -1499,12 +1489,6 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
         anchor_evidence->rel.resize(result.num_reads() * result.num_alleles());
         for (size_t r = 0; r < result.num_reads(); ++r) {
             anchor_evidence->reads[r].mismap = (float)result.mismap_prob(r);
-            anchor_evidence->reads[r].phase_mismap =
-                (float)min(max(r < phase_raw_mismap.size() ? phase_raw_mismap[r]
-                                                           : result.mismap_prob(r),
-                               params.phase_min_mismap_prob >= 0.0 ? params.phase_min_mismap_prob
-                                                                   : params.min_mismap_prob),
-                           params.max_mismap_prob);
             for (size_t a = 0; a < result.num_alleles(); ++a) {
                 anchor_evidence->rel[r * result.num_alleles() + a] = (float)result.rel(r, a);
             }
@@ -1527,15 +1511,7 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
         phase_evidence->mismap.resize(result.num_reads());
         phase_evidence->rel.resize(result.num_reads() * result.num_alleles());
         for (size_t r = 0; r < result.num_reads(); ++r) {
-            // The phase floor, not the genotyping one. They are the same number unless
-            // --phase-mismap-min says otherwise, which keeps the default byte-identical.
-            const double phase_floor = params.phase_min_mismap_prob >= 0.0
-                                           ? params.phase_min_mismap_prob
-                                           : params.min_mismap_prob;
-            const double raw = r < phase_raw_mismap.size() ? phase_raw_mismap[r]
-                                                           : result.mismap_prob(r);
-            phase_evidence->mismap[r] =
-                (float)min(max(raw, phase_floor), params.max_mismap_prob);
+            phase_evidence->mismap[r] = (float)result.mismap_prob(r);
             for (size_t a = 0; a < result.num_alleles(); ++a) {
                 phase_evidence->rel[r * result.num_alleles() + a] = (float)result.rel(r, a);
             }

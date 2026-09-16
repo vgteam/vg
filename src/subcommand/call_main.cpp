@@ -136,10 +136,6 @@ void help_call(char** argv) {
          << "                            be, capping one read's veto at ln(P). Covers local" << endl
          << "                            misalignment, which MAPQ does not measure. Mainly an" << endl
          << "                            indel knob; interacts with --mismap-max [0.02]" << endl
-         << "      --phase-mismap-min P  the same floor, for PHASE confidence only. The" << endl
-         << "                            clamp above is about local misalignment; long-range" << endl
-         << "                            phase is a different claim and the floor damps it" << endl
-         << "                            too [--mismap-min]" << endl
          << "      --insertion-nats X    add X nats to every gap where the READ carries" << endl
          << "                            bases the allele lacks, correcting the affine" << endl
          << "                            gap's direction-blindness. Positive makes extra" << endl
@@ -172,15 +168,7 @@ void help_call(char** argv) {
          << "      --phase-min-q N       a site below this per-read confidence may not" << endl
          << "                            carry a phase link [9.5, or 8.5 under --realign]" << endl
          << "      --phase-break N       break the chain below this many log10 units [10]" << endl
-         << "      --phase-min-gqn N     a site whose GQN is below this may not carry a" << endl
-         << "                            phase link. Negative GQN means the panel settled" << endl
-         << "                            against the reads [-1, admitting everything]" << endl
          << "      --phase-relink N      reliable sites either side of a break [3]" << endl
-         << "      --phase-confirm N     re-test a link below this |d| against a pair of" << endl
-         << "                            sites reaching further out, and take the more" << endl
-         << "                            decisive answer, if it beats --phase-break." << endl
-         << "                            0 disables [0]" << endl
-         << "      --phase-reach N       how far out to reach when confirming [3]" << endl
          << "      --phase-hang N        neighbours to hang an unreliable site from [4]" << endl
          << "      --phase-prior N       weight of the panel when hanging a site [3]" << endl
          << "      --phase-cap N         clamp one pair's contribution, 0 to disable [0]" << endl
@@ -620,9 +608,6 @@ int main_call(int argc, char** argv) {
     bool depth_count_raw = false;
     double max_mismap_prob = 0.7;
     double min_mismap_prob = 0.02;
-    // Negative means "follow --mismap-min", which is what the phase path did before the two could
-    // be set apart. Keeps the default byte-identical.
-    double phase_min_mismap_prob = -1.0;
     int read_min_mapq = 0;
 
     // constants
@@ -661,10 +646,6 @@ int main_call(int argc, char** argv) {
     constexpr int OPT_ANCHORS_HOM_SPLIT = 1094;
     constexpr int OPT_ANCHORS_PHASE_MIN = 1095;
     constexpr int OPT_ANCHORS_PHASE_MIN_SIDE = 1096;
-    constexpr int OPT_PHASE_MISMAP_MIN = 1097;
-    constexpr int OPT_PHASE_MIN_GQN = 1098;
-    constexpr int OPT_PHASE_CONFIRM = 1099;
-    constexpr int OPT_PHASE_CONFIRM_REACH = 1100;
     constexpr int OPT_NO_REALIGN = 1093;
     constexpr int OPT_NO_SHARE_QUALITY = 1021;
     constexpr int OPT_FLAT_MIXTURE = 1023;
@@ -791,7 +772,6 @@ int main_call(int argc, char** argv) {
         {"no-mismap-term", no_argument, 0, OPT_NO_MISMAP_TERM,              OWN_READ_LIKELIHOOD},
         {"mismap-max", required_argument, 0, OPT_MISMAP_MAX,                OWN_READ_LIKELIHOOD},
         {"mismap-min", required_argument, 0, OPT_MISMAP_MIN,                OWN_READ_LIKELIHOOD},
-        {"phase-mismap-min", required_argument, 0, OPT_PHASE_MISMAP_MIN,    OWN_READ_LIKELIHOOD},
         {"insertion-nats", required_argument, 0, OPT_INSERTION_GAP_NATS,    OWN_READ_LIKELIHOOD},
         {"realign", no_argument, 0, OPT_REALIGN,                            OWN_READ_LIKELIHOOD},
         {"anchors-hom-split", no_argument, 0, OPT_ANCHORS_HOM_SPLIT,        OWN_ANCHORS},
@@ -810,10 +790,7 @@ int main_call(int argc, char** argv) {
         {"no-read-phasing", no_argument, 0, OPT_NO_READ_PHASING,            OWN_READ_LIKELIHOOD},
         {"phase-min-q", required_argument, 0, OPT_PHASE_MIN_Q,              OWN_READ_LIKELIHOOD},
         {"phase-break", required_argument, 0, OPT_PHASE_BREAK,              OWN_READ_LIKELIHOOD},
-        {"phase-min-gqn", required_argument, 0, OPT_PHASE_MIN_GQN,      OWN_READ_LIKELIHOOD},
         {"phase-relink", required_argument, 0, OPT_PHASE_RELINK,            OWN_READ_LIKELIHOOD},
-        {"phase-confirm", required_argument, 0, OPT_PHASE_CONFIRM,      OWN_READ_LIKELIHOOD},
-        {"phase-reach", required_argument, 0, OPT_PHASE_CONFIRM_REACH,  OWN_READ_LIKELIHOOD},
         {"phase-hang", required_argument, 0, OPT_PHASE_HANG,                OWN_READ_LIKELIHOOD},
         {"phase-prior", required_argument, 0, OPT_PHASE_PRIOR,              OWN_READ_LIKELIHOOD},
         {"phase-cap", required_argument, 0, OPT_PHASE_CAP,                  OWN_READ_LIKELIHOOD},
@@ -1217,18 +1194,6 @@ int main_call(int argc, char** argv) {
         case OPT_MISMAP_MIN:
             mismap_min_explicit = true;
             min_mismap_prob = parse<double>(optarg);
-            break;
-        case OPT_PHASE_CONFIRM:
-            read_phasing_params.confirm = parse<double>(optarg);
-            break;
-        case OPT_PHASE_CONFIRM_REACH:
-            read_phasing_params.confirm_reach = parse<size_t>(optarg);
-            break;
-        case OPT_PHASE_MIN_GQN:
-            read_phasing_params.min_gqn = parse<double>(optarg);
-            break;
-        case OPT_PHASE_MISMAP_MIN:
-            phase_min_mismap_prob = parse<double>(optarg);
             break;
         case OPT_INSERTION_GAP_NATS:
             insertion_nats_explicit = true;
@@ -1832,20 +1797,6 @@ int main_call(int argc, char** argv) {
     if (min_mismap_prob <= 0.0 || min_mismap_prob > max_mismap_prob) {
         logger.error() << "--mismap-min must be in (0, --mismap-max]" << endl;
     }
-    // 0 IS allowed here, unlike --mismap-min: the whole point of the knob is to ask what an
-    // unfloored mapping quality does to phase, and refusing the end of the range would leave the
-    // question half asked. Negative is the "follow --mismap-min" sentinel, so only > max is wrong.
-    // A confirm bar at or below the break bar is a provable no-op: every link it would touch is
-    // already a break whose sign the cascade never reads. Refused rather than run, because it would
-    // otherwise print five figures of work done and change nothing.
-    if (read_phasing_params.confirm > 0.0
-        && read_phasing_params.confirm <= read_phasing_params.break_threshold) {
-        logger.error() << "--phase-confirm must be greater than --phase-break to have any effect"
-                       << endl;
-    }
-    if (phase_min_mismap_prob > max_mismap_prob) {
-        logger.error() << "--phase-mismap-min must be at most --mismap-max" << endl;
-    }
 
     // --gbz-base only says where to point the query; it means nothing without the read
     // database that is being queried.
@@ -2334,7 +2285,6 @@ int main_call(int argc, char** argv) {
             likelihood_params.depth_effective_reads = !depth_count_raw;
             likelihood_params.max_mismap_prob = max_mismap_prob;
             likelihood_params.min_mismap_prob = min_mismap_prob;
-            likelihood_params.phase_min_mismap_prob = phase_min_mismap_prob;
             likelihood_params.insertion_gap_nats = insertion_gap_nats;
             likelihood_params.realign = realign;
             likelihood_params.collect_anchors = anchor_params.enabled;

@@ -109,50 +109,6 @@ struct ReadPhasingParams {
     double reliability = 9.5;
     /// Break the chain below this many log10 units of evidence.
     double break_threshold = 10.0;
-    /// A site whose GQN is below this may not carry a phase link. GQN is NEGATIVE exactly where the
-    /// linkage layer settled against the reads, and those sites are 10x enriched at true switch
-    /// junctions on chr20 ONT -- 25.0% of switches have one on a flank against 2.5% of all gaps, an
-    /// enrichment that survives stratifying by gap width, so it is not gap width in disguise.
-    ///
-    /// The reasoning: a link's evidence is the reads the two sites share, and at a site the panel
-    /// overrode, the reads are on record as saying something else. Letting it anchor a link puts the
-    /// chain's orientation in the hands of exactly the evidence the caller already discounted.
-    ///
-    /// -1 admits everything, since GQN is bounded below by -1, so the default is inert. A site with
-    /// no GQN at all is admitted: "no gap to normalise" is not the same as a low margin.
-    double min_gqn = -1.0;
-
-    /// Re-test a link whose |d| is below this against a pair of sites reaching further out, and take
-    /// the more decisive answer. 0 disables it, which is the default and is byte-identical.
-    ///
-    /// **Must exceed `break_threshold` to do anything.** A link below that is already a break: the
-    /// chain is cut there and the next segment restarts at o = 0, so its sign is never read and
-    /// rewriting it cannot reach the output. The operative band is [break_threshold, confirm).
-    ///
-    /// Stage 1 decides a link from the reads the two ADJACENT sites share, and nothing else. Measured
-    /// on chr20 ONT at the 40 junctions that produce a true switch, that adjacent pair is decisive
-    /// (|concordance - 0.5| > 0.4) only 50.0% of the time, against 87.9% at control junctions -- and
-    /// a pair reaching three sites further out is decisive 70.0% of the time on the SAME junctions,
-    /// with the same number of shared reads. The evidence is there and is not consulted.
-    ///
-    /// Why reaching out can beat reaching near, on the same reads: two adjacent heterozygous sites
-    /// are a median 359 bp apart at these junctions, so they tend to share whatever local context is
-    /// confusing the reads. A more distant site is a different observation of the same fragment.
-    ///
-    /// NOT the same as what stage 2 does at a break. That sums nine pairs -- diluting the decisive
-    /// far one with the uninformative near ones -- and refers each through the two blocks' already
-    /// frozen internal parity. This takes the single most decisive straddling pair and uses it to
-    /// overturn one sign.
-    double confirm = 0.0;
-
-    /// Fewest shared reads a straddling pair must carry before its answer may be preferred. A pair
-    /// resting on one or two reads can win on the per-read mean while saying almost nothing.
-    size_t confirm_min_reads = 5;
-
-    /// How far out to reach when confirming. Each k tests the pair (m-k+1, m+k), which straddles the
-    /// junction; the parity it implies for link m is that pair's sign with the intervening links'
-    /// signs removed, so every intervening link must itself be confident or the XOR is worthless.
-    size_t confirm_reach = 3;
     /// Reliable sites either side of a break to relink over. 3 is enough; 8 is a wash and 15 hurt.
     size_t relink = 3;
     /// Decided neighbours to hang an unreliable site from.
@@ -172,14 +128,6 @@ struct ReadPhasingCounters {
     size_t chains = 0;
     size_t breaks = 0;
     size_t breaks_no_reads = 0;
-    /// Links re-tested against a straddling pair because their own |d| was below `confirm`, and how
-    /// many of those the straddling pair overturned.
-    size_t confirm_tested = 0;
-    size_t confirm_flipped = 0;
-    /// Marginal links for which no straddling pair could be scored at all -- the chain ran out, or
-    /// an intervening link was itself a break. Counted apart so a zero in `confirm_flipped` cannot
-    /// be read as "the far evidence does not help" when nothing was ever looked at.
-    size_t confirm_no_straddle = 0;
     size_t hung = 0;
     size_t hung_no_reads = 0;
     size_t flipped = 0;
@@ -191,8 +139,7 @@ struct ReadPhasingCounters {
 
 /// log10 odds, cis against trans, over the reads two sites share. Positive means the reads agree
 /// with the sites' current slot order.
-double phase_link(const PhaseSite& a, const PhaseSite& b, double cap,
-                  size_t* shared = nullptr);
+double phase_link(const PhaseSite& a, const PhaseSite& b, double cap);
 
 /// Decide every site's orientation. `sites` may arrive in any order; it is grouped by `phase_set`
 /// and sorted by `position` internally, because phase is only comparable inside a block.

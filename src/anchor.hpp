@@ -130,16 +130,6 @@ struct AnchorCounters {
     /// spanning a phase break -- are still dropped, because they have evidence that simply cannot
     /// be named here.
     atomic<size_t> hom_split_coin{0};
-    /// Why a read at a homozygous site had no opinion. Exactly one of these per zero, and they
-    /// distinguish "nothing is knowable" from "something is knowable and the chain did not use it",
-    /// which is the difference between a read that may be assigned arbitrarily and one that may not.
-    /// `zero_absent` is a read that reached no phase site at all; `zero_value` is one that reached
-    /// some and whose contributions summed to nothing, which is what an allele pair the read cannot
-    /// resolve -- a homopolymer length, say -- looks like.
-    atomic<size_t> phase_zero_no_table{0};
-    atomic<size_t> phase_zero_absent{0};
-    atomic<size_t> phase_zero_multi_block{0};
-    atomic<size_t> phase_zero_value{0};
 
     atomic<size_t> phase_checked{0};
     atomic<size_t> phase_agree{0};
@@ -174,12 +164,6 @@ struct AnchorRead {
     string name;
     /// The MAPQ-derived mismapping probability, clamped as the genotype model clamps it.
     float mismap = 0.0f;
-    /// The same probability under the PHASE floor, which is the genotype floor unless
-    /// --phase-mismap-min says otherwise. Carried separately because read phasing reads its
-    /// evidence off this struct whenever anchors are armed, so one field cannot serve both: the
-    /// genotype clamp is about local misalignment and the phase one is about long-range haplotype
-    /// confidence, and they are only the same number by default.
-    float phase_mismap = 0.0f;
     AnchorPlacement start_pin;
     AnchorPlacement end_pin;
 };

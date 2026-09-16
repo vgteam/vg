@@ -1,0 +1,1 @@
+error[vg call] --anchors-min-q only applies with --anchors-out, which was not given

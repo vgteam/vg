@@ -1518,33 +1518,7 @@ void VCFOutputCaller::collect_anchors_for(const Snarl& snarl, const vector<int>&
     if (anchor_params.hom_split && splittable_hom) {
         read_strand.reserve(info->anchor_evidence->reads.size());
         for (const AnchorRead& read : info->anchor_evidence->reads) {
-            const double lo = read_strand_log_odds(record_key, read.name);
-            read_strand.push_back(lo);
-            if (lo == 0.0 && anchor_params.counters != nullptr) {
-                // Attribute the zero. A read that reached no phase site and one whose phase sites
-                // said nothing are both unassignable, but only the first can ALSO mean the chain
-                // dropped a site that had something to say -- so they are counted apart.
-                AnchorCounters& c = *anchor_params.counters;
-                if (render_lambda.empty() || render_lambda_temper <= 0.0) {
-                    c.phase_zero_no_table.fetch_add(1);
-                } else {
-                    const auto found =
-                        render_lambda.find((uint64_t)std::hash<string>{}(read.name));
-                    if (found == render_lambda.end()) {
-                        c.phase_zero_absent.fetch_add(1);
-                    } else if (found->second.multi_block) {
-                        c.phase_zero_multi_block.fetch_add(1);
-                        // NOT a read with nothing to say: it HAS evidence, on both sides of a phase
-                        // break, and the two sides label their strands independently so the sum is
-                        // meaningless rather than empty. Marked apart from the honest zeros with a
-                        // NaN so the writer can refuse to assign it rather than assigning it
-                        // arbitrarily, which for this one class would discard real evidence.
-                        read_strand.back() = std::numeric_limits<double>::quiet_NaN();
-                    } else {
-                        c.phase_zero_value.fetch_add(1);
-                    }
-                }
-            }
+            read_strand.push_back(read_strand_log_odds(record_key, read.name));
         }
     }
     build_site_anchors(*info->anchor_evidence, genotype, print_snarl(snarl),
@@ -6060,10 +6034,7 @@ static const PhaseReadEvidence* phase_evidence_of(
         scratch.mismap.reserve(ev.reads.size());
         for (const AnchorRead& r : ev.reads) {
             scratch.read_key.push_back((uint64_t)std::hash<string>{}(r.name));
-            // The PHASE floor, not the genotype one. This conversion is the path read phasing
-            // actually takes whenever anchors are armed, so reading `mismap` here would make
-            // --phase-mismap-min silently inert in exactly the configuration that writes anchors.
-            scratch.mismap.push_back(r.phase_mismap);
+            scratch.mismap.push_back(r.mismap);
         }
         pe = &scratch;
     }
@@ -6101,14 +6072,6 @@ void FlowCaller::apply_read_phasing() {
                 continue;
             }
             const LinkageCollector::PhaseCall& pc = linkage_phased[found->second];
-            if (read_phasing_params.min_gqn > -1.0 && pc.trav_first >= 0 && pc.trav_second >= 0) {
-                // Refuse a site the linkage layer settled against its own reads. See
-                // ReadPhasingParams::min_gqn: NaN is admitted, a real value below the bar is not.
-                const double g = anchor_gqn_for(rec, vector<int>{pc.trav_first, pc.trav_second});
-                if (g == g && g < read_phasing_params.min_gqn) {
-                    continue;
-                }
-            }
             if (pc.ploidy != 2 || pc.trav_first < 0 || pc.trav_second < 0
                 || pc.trav_first == pc.trav_second) {
                 // Homozygous, haploid, or unplaced: no two strands to tell apart, so no phase for a
@@ -6259,12 +6222,6 @@ void FlowCaller::apply_read_phasing() {
          << " sites hung off the chain (" << c.hung_no_reads << " with no read), " << c.flipped
          << " re-phased against the panel, " << c.strands_rederived
          << " nested strands carried with their parent" << endl;
-    if (c.confirm_tested > 0) {
-        cerr << "[vg call] read phasing: " << c.confirm_tested
-             << " marginal links re-tested against a straddling pair, " << c.confirm_flipped
-             << " overturned; " << c.confirm_no_straddle
-             << " more were marginal with no straddling pair to score" << endl;
-    }
 }
 
 bool FlowCaller::apply_regenotyping() {
