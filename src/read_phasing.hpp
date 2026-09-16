@@ -109,6 +109,18 @@ struct ReadPhasingParams {
     double reliability = 9.5;
     /// Break the chain below this many log10 units of evidence.
     double break_threshold = 10.0;
+    /// A site whose GQN is below this may not carry a phase link. GQN is NEGATIVE exactly where the
+    /// linkage layer settled against the reads, and those sites are 10x enriched at true switch
+    /// junctions on chr20 ONT -- 25.0% of switches have one on a flank against 2.5% of all gaps, an
+    /// enrichment that survives stratifying by gap width, so it is not gap width in disguise.
+    ///
+    /// The reasoning: a link's evidence is the reads the two sites share, and at a site the panel
+    /// overrode, the reads are on record as saying something else. Letting it anchor a link puts the
+    /// chain's orientation in the hands of exactly the evidence the caller already discounted.
+    ///
+    /// -1 admits everything, since GQN is bounded below by -1, so the default is inert. A site with
+    /// no GQN at all is admitted: "no gap to normalise" is not the same as a low margin.
+    double min_gqn = -1.0;
     /// Reliable sites either side of a break to relink over. 3 is enough; 8 is a wash and 15 hurt.
     size_t relink = 3;
     /// Decided neighbours to hang an unreliable site from.

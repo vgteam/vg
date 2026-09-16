@@ -6101,6 +6101,14 @@ void FlowCaller::apply_read_phasing() {
                 continue;
             }
             const LinkageCollector::PhaseCall& pc = linkage_phased[found->second];
+            if (read_phasing_params.min_gqn > -1.0 && pc.trav_first >= 0 && pc.trav_second >= 0) {
+                // Refuse a site the linkage layer settled against its own reads. See
+                // ReadPhasingParams::min_gqn: NaN is admitted, a real value below the bar is not.
+                const double g = anchor_gqn_for(rec, vector<int>{pc.trav_first, pc.trav_second});
+                if (g == g && g < read_phasing_params.min_gqn) {
+                    continue;
+                }
+            }
             if (pc.ploidy != 2 || pc.trav_first < 0 || pc.trav_second < 0
                 || pc.trav_first == pc.trav_second) {
                 // Homozygous, haploid, or unplaced: no two strands to tell apart, so no phase for a
