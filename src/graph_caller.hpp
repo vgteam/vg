@@ -1555,6 +1555,32 @@ protected:
     /// How many times one traversal crosses `child`, by the same in-order rule child_ploidy uses.
     static int crossings_of_child(const SnarlTraversal& trav, const Snarl& child);
 
+public:
+    /// Where along `trav` the child chain is entered, as a visit index, or -1 if `trav` does not
+    /// cross it. The same entry-then-exit rule as `crossings_of_child`, and the FIRST complete
+    /// crossing's entry is the answer: a second crossing is a cycle or a tandem duplication, which
+    /// `child_ploidy` already caps at one copy, so there is one offset per child per traversal.
+    static int offset_of_child(const SnarlTraversal& trav, const Snarl& child);
+
+    /// Order a parent's children along its two settled traversals, reference-free.
+    ///
+    /// Returns one index per entry of `children`, in the same order, or -1 for a child neither
+    /// settled traversal crosses -- those are not genotyped, so they need no place in the order.
+    ///
+    /// The two traversals share endpoints, and in a DAG the children BOTH cross appear in the same
+    /// relative order in each, so no alignment algorithm is needed: those children are anchors, and
+    /// the merge emits each traversal's private children between consecutive anchors. Private
+    /// children of `first` come before private children of `second` within one gap, which is the
+    /// tie-break -- and the tie is real, not hypothetical: a heterozygous insertion carrying its own
+    /// sub-variation on each allele puts a private child from each traversal in the same gap, and
+    /// that is the complex locus this ordering exists to serve.
+    ///
+    /// `second` may equal `first` for a homozygote, where the merge degenerates to one traversal's
+    /// own order.
+    static vector<int> sibling_order(const SnarlTraversal& first, const SnarlTraversal& second,
+                                     const vector<const Snarl*>& children);
+protected:
+
     /// One bit per candidate TRAVERSAL: bit i is set where `travs[i]` crosses `child`.
     ///
     /// Traversals, not VCF alleles. The two agree only when every allele at the parent is

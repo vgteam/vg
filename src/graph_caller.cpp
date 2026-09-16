@@ -5690,6 +5690,70 @@ int FlowCaller::crossings_of_child(const SnarlTraversal& trav, const Snarl& chil
 }
 
 
+int FlowCaller::offset_of_child(const SnarlTraversal& trav, const Snarl& child) {
+    const nid_t start = child.start().node_id();
+    const nid_t end = child.end().node_id();
+    nid_t open = 0;
+    int entry = -1;
+    for (int i = 0; i < trav.visit_size(); ++i) {
+        if (trav.visit(i).has_snarl()) {
+            continue;
+        }
+        nid_t node = trav.visit(i).node_id();
+        if (open == 0 && (node == start || node == end)) {
+            open = (node == start) ? end : start;
+            entry = i;
+        } else if (open != 0 && node == open) {
+            return entry;   // first complete crossing, entry side
+        }
+    }
+    return -1;
+}
+
+vector<int> FlowCaller::sibling_order(const SnarlTraversal& first, const SnarlTraversal& second,
+                                      const vector<const Snarl*>& children) {
+    const size_t n = children.size();
+    vector<int> off_a(n, -1), off_b(n, -1);
+    for (size_t c = 0; c < n; ++c) {
+        if (children[c] == nullptr) {
+            continue;
+        }
+        off_a[c] = offset_of_child(first, *children[c]);
+        off_b[c] = offset_of_child(second, *children[c]);
+    }
+    // Each traversal's own children, in the order it visits them.
+    vector<size_t> a, b;
+    for (size_t c = 0; c < n; ++c) {
+        if (off_a[c] >= 0) { a.push_back(c); }
+        if (off_b[c] >= 0) { b.push_back(c); }
+    }
+    std::sort(a.begin(), a.end(), [&](size_t x, size_t y) { return off_a[x] < off_a[y]; });
+    std::sort(b.begin(), b.end(), [&](size_t x, size_t y) { return off_b[x] < off_b[y]; });
+
+    vector<int> order(n, -1);
+    size_t i = 0, j = 0;
+    int idx = 0;
+    auto shared = [&](size_t c) { return off_a[c] >= 0 && off_b[c] >= 0; };
+    while (i < a.size() || j < b.size()) {
+        if (i < a.size() && !shared(a[i])) {
+            order[a[i]] = idx++; ++i;                 // private to `first`
+        } else if (j < b.size() && !shared(b[j])) {
+            order[b[j]] = idx++; ++j;                 // private to `second`
+        } else if (i < a.size() && j < b.size() && a[i] == b[j]) {
+            order[a[i]] = idx++; ++i; ++j;            // an anchor, crossed by both
+        } else if (i < a.size()) {
+            // The anchors disagree, which a DAG should not produce. Emitting `first`'s remaining
+            // children keeps the order total and deterministic rather than dropping any.
+            if (order[a[i]] < 0) { order[a[i]] = idx++; }
+            ++i;
+        } else {
+            if (order[b[j]] < 0) { order[b[j]] = idx++; }
+            ++j;
+        }
+    }
+    return order;
+}
+
 uint64_t FlowCaller::child_crossing_mask(const vector<SnarlTraversal>& travs,
                                          const Snarl& child, bool* known) {
     if (known != nullptr) {

@@ -144,5 +144,103 @@ TEST_CASE("The GL fold uses the layout its writer actually used", "[graph_caller
     }
 }
 
+
+/// A traversal over the given node ids, as plain node visits.
+static SnarlTraversal make_trav(const vector<nid_t>& nodes) {
+    SnarlTraversal t;
+    for (nid_t n : nodes) {
+        t.add_visit()->set_node_id(n);
+    }
+    return t;
+}
+
+/// A child chain with the given boundary nodes.
+static Snarl make_child(nid_t start, nid_t end) {
+    Snarl s;
+    s.mutable_start()->set_node_id(start);
+    s.mutable_end()->set_node_id(end);
+    return s;
+}
+
+TEST_CASE("sibling_order walks the snarl tree without a reference", "[graph_caller]") {
+    // A parent whose two settled traversals share two child chains and each carry one of their own.
+    // That is a heterozygous insertion with its own sub-variation on each allele -- the case the
+    // tree order exists for, and the case reference position cannot order, because the private
+    // children sit on sequence the reference does not have.
+    const Snarl shared_x = make_child(2, 4);
+    const Snarl shared_y = make_child(10, 12);
+    const Snarl only_a = make_child(6, 8);
+    const Snarl only_b = make_child(7, 9);
+
+    //          shared_x        only_a          shared_y
+    const SnarlTraversal a = make_trav({1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 13});
+    //          shared_x        only_b          shared_y
+    const SnarlTraversal b = make_trav({1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 12, 13});
+
+    const vector<const Snarl*> children{&shared_x, &only_a, &shared_y, &only_b};
+    const vector<int> order = FlowCaller::sibling_order(a, b, children);
+
+    SECTION("every child either or both traversals cross gets a place") {
+        for (size_t i = 0; i < order.size(); ++i) {
+            REQUIRE(order[i] >= 0);
+        }
+    }
+
+    SECTION("the order is total -- no two children share an index") {
+        vector<int> seen = order;
+        sort(seen.begin(), seen.end());
+        REQUIRE(unique(seen.begin(), seen.end()) == seen.end());
+    }
+
+    SECTION("shared children keep the order both traversals agree on") {
+        REQUIRE(order[0] < order[2]);          // shared_x before shared_y
+    }
+
+    SECTION("a private child sits between the anchors that bracket it on its own traversal") {
+        REQUIRE(order[0] < order[1]);          // shared_x < only_a
+        REQUIRE(order[1] < order[2]);          // only_a  < shared_y
+        REQUIRE(order[0] < order[3]);          // shared_x < only_b
+        REQUIRE(order[3] < order[2]);          // only_b  < shared_y
+    }
+
+    SECTION("privates of the two traversals tie-break deterministically, first before second") {
+        REQUIRE(order[1] < order[3]);          // only_a before only_b, by slot
+    }
+
+    SECTION("a child neither traversal crosses gets no place, because it is never genotyped") {
+        const Snarl elsewhere = make_child(100, 101);
+        vector<const Snarl*> with_absent = children;
+        with_absent.push_back(&elsewhere);
+        const vector<int> o2 = FlowCaller::sibling_order(a, b, with_absent);
+        REQUIRE(o2.back() == -1);
+    }
+
+    SECTION("a homozygote passes one traversal twice and degenerates to its own order") {
+        const vector<int> hom = FlowCaller::sibling_order(a, a, children);
+        REQUIRE(hom[0] >= 0);                  // shared_x
+        REQUIRE(hom[1] >= 0);                  // only_a, which `a` does cross
+        REQUIRE(hom[2] >= 0);                  // shared_y
+        REQUIRE(hom[3] == -1);                 // only_b is on `b` alone
+        REQUIRE(hom[0] < hom[1]);
+        REQUIRE(hom[1] < hom[2]);
+    }
+}
+
+TEST_CASE("offset_of_child reports where a traversal enters a chain", "[graph_caller]") {
+    const SnarlTraversal t = make_trav({1, 2, 3, 4, 5});
+    SECTION("the entry index, not the exit") {
+        REQUIRE(FlowCaller::offset_of_child(t, make_child(2, 4)) == 1);
+    }
+    SECTION("entering from either boundary is the same crossing") {
+        REQUIRE(FlowCaller::offset_of_child(t, make_child(4, 2)) == 1);
+    }
+    SECTION("a chain the traversal does not cross has no offset") {
+        REQUIRE(FlowCaller::offset_of_child(t, make_child(7, 9)) == -1);
+    }
+    SECTION("touching one boundary only is not a crossing") {
+        REQUIRE(FlowCaller::offset_of_child(t, make_child(3, 99)) == -1);
+    }
+}
+
 }
 }
