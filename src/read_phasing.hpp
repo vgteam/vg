@@ -145,6 +145,10 @@ struct ReadPhasingParams {
     /// overturn one sign.
     double confirm = 0.0;
 
+    /// Fewest shared reads a straddling pair must carry before its answer may be preferred. A pair
+    /// resting on one or two reads can win on the per-read mean while saying almost nothing.
+    size_t confirm_min_reads = 5;
+
     /// How far out to reach when confirming. Each k tests the pair (m-k+1, m+k), which straddles the
     /// junction; the parity it implies for link m is that pair's sign with the intervening links'
     /// signs removed, so every intervening link must itself be confident or the XOR is worthless.
@@ -187,7 +191,8 @@ struct ReadPhasingCounters {
 
 /// log10 odds, cis against trans, over the reads two sites share. Positive means the reads agree
 /// with the sites' current slot order.
-double phase_link(const PhaseSite& a, const PhaseSite& b, double cap);
+double phase_link(const PhaseSite& a, const PhaseSite& b, double cap,
+                  size_t* shared = nullptr);
 
 /// Decide every site's orientation. `sites` may arrive in any order; it is grouped by `phase_set`
 /// and sorted by `position` internally, because phase is only comparable inside a block.
