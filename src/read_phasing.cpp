@@ -137,37 +137,57 @@ unordered_set<size_t> read_phase_flips(vector<PhaseSite>& sites, const ReadPhasi
             }
             if (params.confirm > 0.0) {
                 for (size_t m = 0; m < d.size(); ++m) {
+                    // A link below the break threshold IS a break: `bounds` cuts the chain at m+1
+                    // and the cascade restarts the next segment at o = 0, so sgn[m] is never read.
+                    // Rewriting it would change nothing, and counting it would report work that
+                    // cannot reach the output. The operative band is [break_threshold, confirm),
+                    // which is why --phase-confirm must exceed --phase-break to do anything.
+                    if (std::fabs(d[m]) < params.break_threshold) {
+                        continue;
+                    }
                     if (std::fabs(d[m]) >= params.confirm) {
                         continue;                       // decisive enough on its own
                     }
                     double best = std::fabs(d[m]);
                     int best_sign = sgn[m];
+                    bool scored = false;
                     for (size_t k = 2; k <= params.confirm_reach; ++k) {
                         if (m + 1 < k || m + k >= rel.size()) {
-                            break;                      // the straddle runs off the segment
+                            break;                      // the straddle runs off the chain
                         }
                         const size_t lo = m + 1 - k, hi = m + k;
-                        // Every link inside the straddle except m itself must be confident: the
-                        // implied parity is their XOR, so one marginal member makes it meaningless.
+                        // Every OTHER link inside the straddle must be one the cascade actually
+                        // applies, so the bar is break_threshold rather than confirm. Two reasons,
+                        // and both are load-bearing: a break link's sign is never used, so it
+                        // contributes no parity to XOR out; and requiring every intervening link to
+                        // clear the break bar means the straddle cannot span a break, which would
+                        // otherwise compare two segments whose frames were set independently.
                         int others = 0;
                         bool usable = true;
-                        for (size_t t = lo; t < hi && usable; ++t) {
+                        for (size_t t = lo; t < hi; ++t) {
                             if (t == m) { continue; }
-                            if (std::fabs(d[t]) < params.confirm) { usable = false; break; }
+                            if (std::fabs(d[t]) < params.break_threshold) { usable = false; break; }
                             others ^= sgn[t];
                         }
                         if (!usable) { continue; }
                         const double sv = phase_link(sites[begin + rel[lo]],
                                                      sites[begin + rel[hi]], params.cap);
+                        scored = true;
                         if (std::fabs(sv) <= best) { continue; }
                         best = std::fabs(sv);
                         best_sign = (sv < 0.0 ? 1 : 0) ^ others;
                     }
+                    if (!scored) {
+                        // Marginal, but no straddling pair could be scored at all. Counted apart:
+                        // "looked and found nothing" and "never looked" must not read alike.
+                        ++counters.confirm_no_straddle;
+                        continue;
+                    }
+                    ++counters.confirm_tested;
                     if (best_sign != sgn[m]) {
                         sgn[m] = best_sign;
                         ++counters.confirm_flipped;
                     }
-                    ++counters.confirm_tested;
                 }
             }
             for (size_t b = 0; b + 1 < bounds.size(); ++b) {

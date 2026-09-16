@@ -178,7 +178,8 @@ void help_call(char** argv) {
          << "      --phase-relink N      reliable sites either side of a break [3]" << endl
          << "      --phase-confirm N     re-test a link below this |d| against a pair of" << endl
          << "                            sites reaching further out, and take the more" << endl
-         << "                            decisive answer. 0 disables [0]" << endl
+         << "                            decisive answer, if it beats --phase-break." << endl
+         << "                            0 disables [0]" << endl
          << "      --phase-reach N       how far out to reach when confirming [3]" << endl
          << "      --phase-hang N        neighbours to hang an unreliable site from [4]" << endl
          << "      --phase-prior N       weight of the panel when hanging a site [3]" << endl
@@ -1834,6 +1835,14 @@ int main_call(int argc, char** argv) {
     // 0 IS allowed here, unlike --mismap-min: the whole point of the knob is to ask what an
     // unfloored mapping quality does to phase, and refusing the end of the range would leave the
     // question half asked. Negative is the "follow --mismap-min" sentinel, so only > max is wrong.
+    // A confirm bar at or below the break bar is a provable no-op: every link it would touch is
+    // already a break whose sign the cascade never reads. Refused rather than run, because it would
+    // otherwise print five figures of work done and change nothing.
+    if (read_phasing_params.confirm > 0.0
+        && read_phasing_params.confirm <= read_phasing_params.break_threshold) {
+        logger.error() << "--phase-confirm must be greater than --phase-break to have any effect"
+                       << endl;
+    }
     if (phase_min_mismap_prob > max_mismap_prob) {
         logger.error() << "--phase-mismap-min must be at most --mismap-max" << endl;
     }

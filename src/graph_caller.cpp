@@ -6262,7 +6262,8 @@ void FlowCaller::apply_read_phasing() {
     if (c.confirm_tested > 0) {
         cerr << "[vg call] read phasing: " << c.confirm_tested
              << " marginal links re-tested against a straddling pair, " << c.confirm_flipped
-             << " overturned" << endl;
+             << " overturned; " << c.confirm_no_straddle
+             << " more were marginal with no straddling pair to score" << endl;
     }
 }
 

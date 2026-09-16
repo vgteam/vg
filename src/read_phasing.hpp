@@ -125,6 +125,10 @@ struct ReadPhasingParams {
     /// Re-test a link whose |d| is below this against a pair of sites reaching further out, and take
     /// the more decisive answer. 0 disables it, which is the default and is byte-identical.
     ///
+    /// **Must exceed `break_threshold` to do anything.** A link below that is already a break: the
+    /// chain is cut there and the next segment restarts at o = 0, so its sign is never read and
+    /// rewriting it cannot reach the output. The operative band is [break_threshold, confirm).
+    ///
     /// Stage 1 decides a link from the reads the two ADJACENT sites share, and nothing else. Measured
     /// on chr20 ONT at the 40 junctions that produce a true switch, that adjacent pair is decisive
     /// (|concordance - 0.5| > 0.4) only 50.0% of the time, against 87.9% at control junctions -- and
@@ -168,6 +172,10 @@ struct ReadPhasingCounters {
     /// many of those the straddling pair overturned.
     size_t confirm_tested = 0;
     size_t confirm_flipped = 0;
+    /// Marginal links for which no straddling pair could be scored at all -- the chain ran out, or
+    /// an intervening link was itself a break. Counted apart so a zero in `confirm_flipped` cannot
+    /// be read as "the far evidence does not help" when nothing was ever looked at.
+    size_t confirm_no_straddle = 0;
     size_t hung = 0;
     size_t hung_no_reads = 0;
     size_t flipped = 0;
