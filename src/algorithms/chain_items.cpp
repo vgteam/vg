@@ -860,9 +860,7 @@ vector<SubchainGroup> split_up_subchains(const VectorView<Anchor>& to_chain,
                 cerr << "Saving traceback " << i << " as its own SubchainGroup" << endl;
 #endif
                 // This traceback is disjoint and should be returned separately
-                output.emplace_back();
-                output.back().subchains.emplace_back(original_tracebacks[i].anchors, true);
-                output.back().max_sparse_chain_score = original_tracebacks[i].chain_score;
+                output.emplace_back(original_tracebacks[i]);
             } else {
                 joining_up = true;
                 // We'll tie this traceback in to the rest
@@ -1011,21 +1009,32 @@ vector<SubchainGroup> find_best_chains(const VectorView<Anchor>& to_chain,
         return {SubchainGroup()};
     }
 
+    // We'll save tracebacks we delete here, in case they're useful later
+    vector<SubchainGroup> extra_groups;
+
     // Get rid of tracebacks that are much, much worse than the best
     for (size_t i = 1; i < tracebacks.size(); i++) {
         if (tracebacks[i].chain_score < tracebacks.front().chain_score / 10) {
 #ifdef debug_chaining
-            cerr << "Cutting down to " << i << " tracebacks because a further one has score "
+            cerr << "Saving tracebacks from " << i << " as separate SubchainGroups because it has score "
                  << tracebacks[i].chain_score << " < " << tracebacks.front().chain_score / 10 << endl; 
 #endif
             // Cut off at this point
+            for (size_t j = i; j < tracebacks.size(); j++) {
+                extra_groups.emplace_back(tracebacks[j]);
+                tracebacks[j] = SparseAnchorChain();
+            }
             tracebacks.resize(i);
             break;
         } else if (tracebacks[i].anchors.size() <= 1) {
 #ifdef debug_chaining
-            cerr << "Cutting down to " << i << " tracebacks because a further one is length <=1" << endl; 
+            cerr << "Saving tracebacks from " << i << " as separate SubchainGroups because it is length <=1" << endl; 
 #endif
             // Cut off at this point
+            for (size_t j = i; j < tracebacks.size(); j++) {
+                extra_groups.emplace_back(tracebacks[j]);
+                tracebacks[j] = SparseAnchorChain();
+            }
             tracebacks.resize(i);
             break;
         }
@@ -1067,9 +1076,6 @@ vector<SubchainGroup> find_best_chains(const VectorView<Anchor>& to_chain,
         return a.second > b.second;
     });
 
-    // We'll save tracebacks we delete here, in case they're useful later
-    vector<SubchainGroup> extra_groups;
-
     // Now delete any tracebacks which have too low optimal score
     size_t min_chain_score = tracebacks.front().chain_score > filtering_scheme.chain_score_threshold ?
         tracebacks.front().chain_score - filtering_scheme.chain_score_threshold
@@ -1093,9 +1099,7 @@ vector<SubchainGroup> find_best_chains(const VectorView<Anchor>& to_chain,
             remove = true;
         }
         if (remove) {
-            extra_groups.emplace_back();
-            extra_groups.back().subchains.emplace_back(tracebacks[cur_traceback_index].anchors, true);
-            extra_groups.back().max_sparse_chain_score = tracebacks[cur_traceback_index].chain_score;
+            extra_groups.emplace_back(tracebacks[cur_traceback_index]);
             tracebacks[cur_traceback_index] = SparseAnchorChain();
         }
     }

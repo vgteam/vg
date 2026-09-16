@@ -516,6 +516,15 @@ struct SubchainGroup {
     /// The maximum score of any chain
     int max_sparse_chain_score = 0;
 
+    /// Create an empty SubchainGroup
+    inline SubchainGroup() {}
+
+    /// Create a single-subchain SubchainGroup
+    inline SubchainGroup(const SparseAnchorChain& chain) 
+        : max_sparse_chain_score(chain.chain_score) {
+        subchains.emplace_back(chain.anchors, true);
+    }
+
     vector<size_t> all_anchor_ids() const {
         vector<size_t> anchors;
         for (const auto& cur_subchain : subchains) {
