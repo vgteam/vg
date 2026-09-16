@@ -9,6 +9,7 @@
 /// arithmetic was never right.
 ///
 
+#include <set>
 #include <map>
 #include <string>
 #include <vector>
@@ -532,11 +533,17 @@ TEST_CASE("A homozygous site splits by read phase only when both strands are sup
         REQUIRE(out[0].reads.size() == 4);
     }
 
-    SECTION("a read with no cross-site opinion is placed in NEITHER slot") {
-        // `lo > 0 ? 0 : 1` sends every zero to slot 1, so a read with no opinion at all would be
-        // claimed for strand 1 -- systematically, in one direction, with nothing behind it. Both
-        // slots carry the same allele, so there is no evidence to place it by and it must be left
-        // out. The earlier all-zero section cannot catch this: there the site never splits.
+    SECTION("a read with no cross-site opinion is placed by the coin, on ONE haplotype") {
+        // `lo > 0 ? 0 : 1` would send every zero to slot 1 -- systematically, in one direction,
+        // with nothing behind it. Dropping it instead was the first answer and it was wrong for a
+        // different reason: the same read IS placed at het sites and at unsplit homozygous ones, so
+        // leaving it out here alone punches a hole in its trail, and a read that vanishes between
+        // two anchors and comes back is the shape of a deletion.
+        //
+        // So it is placed, by the read name's hash parity. The site is homozygous, so both slots
+        // spell the same allele and the read's sequence fits either haplotype: only the label is
+        // arbitrary. What must hold is that the label is CONSISTENT -- one haplotype, at both pins.
+        // The earlier all-zero section cannot catch any of this: there the site never splits.
         params.phase_min_side = 1;   // so three opinionated reads are enough to split
         vector<double> strand{+5.0, -5.0, +5.0, 0.0};
         build_site_anchors(ev, {0, 0}, ">1>4", 0.9, 1.0, 0, params, counters, out, &strand);
@@ -545,9 +552,27 @@ TEST_CASE("A homozygous site splits by read phase only when both strands are sup
         for (const AnchorWriter::Anchor& a : out) {
             placed += a.reads.size();
         }
-        // 3 opinionated reads x 2 pins; the fourth is in neither slot at either pin.
-        REQUIRE(placed == 6);
+        // All 4 reads x 2 pins: nobody is dropped for want of an opinion any more.
+        REQUIRE(placed == 8);
         REQUIRE(counters.hom_split_no_opinion.load() > 0);
+        REQUIRE(counters.hom_split_coin.load() > 0);
+
+        // The coin's load-bearing property: the no-opinion read is on exactly one slot, and the
+        // same one at both pins. A per-site or per-pin random choice would satisfy the count above
+        // and fail this.
+        const string& quiet = ev.reads[3].name;
+        set<int> slots_held;
+        size_t rows = 0;
+        for (const AnchorWriter::Anchor& a : out) {
+            for (const AnchorWriter::ReadRow& row : a.reads) {
+                if (row.name == quiet) {
+                    slots_held.insert(a.slot);
+                    ++rows;
+                }
+            }
+        }
+        REQUIRE(rows == 2);                 // one row per pin
+        REQUIRE(slots_held.size() == 1);    // and both on the same haplotype
     }
 
     SECTION("without the flag the same evidence stays collapsed") {

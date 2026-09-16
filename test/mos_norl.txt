@@ -1,0 +1,1 @@
+error[vg call] --mosaic-patch-gaps only applies to --read-likelihood, which was not given

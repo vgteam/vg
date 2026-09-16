@@ -9,7 +9,7 @@ PATH=../bin:$PATH # for vg
 # FORMAT field shifts every later one, which broke four assertions here that were not
 # testing field order at all -- one of them silently compared BL against a GQ threshold.
 
-plan tests 432
+plan tests 437
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -857,6 +857,50 @@ vg call x.vg -k x.pack --read-likelihood --gam sim.sorted.gam --split-min-q 1.0 
     >/dev/null 2>sq_noout.txt
 is $(grep -c -- "--split-min-q only applies with --anchors-out" sq_noout.txt) "1" \
    "--split-min-q without --anchors-out is refused"
+
+# The coin that places a read with no cross-site opinion is the read NAME's hash parity, not a
+# PRNG, and that is load-bearing twice over: a PRNG would differ between runs, and -- worse -- it
+# could differ between a site's two pins, which would put one read on both haplotypes at one site.
+# Determinism is checked by re-running; the both-slots case is checked directly, because it is the
+# failure a per-site random choice would produce and it is invisible in any summary statistic.
+vg call x.gbz --read-likelihood --gam sim.gam --anchors-out coin_a.tsv \
+    --anchors-hom-split --read-phasing -t 1 2>/dev/null >/dev/null
+vg call x.gbz --read-likelihood --gam sim.gam --anchors-out coin_b.tsv \
+    --anchors-hom-split --read-phasing -t 1 2>/dev/null >/dev/null
+grep -v '^#' coin_a.tsv > coin_a.rows; grep -v '^#' coin_b.tsv > coin_b.rows
+is $(if cmp -s coin_a.rows coin_b.rows; then echo 1; else echo 0; fi) "1" \
+   "the no-opinion coin is deterministic across runs"
+
+# No read may hold both slots of one snarl.  awk carries the current A row's snarl and slot down to
+# the R rows that belong to it, then counts distinct slots per (snarl, read).
+is $(awk -F'\t' '$1=="A"{sn=$3; sl=$4} $1=="R"{k=sn"\t"$2; if(!((k SUBSEP sl) in seen)){seen[k SUBSEP sl]=1; n[k]++}} END{b=0; for(k in n) if(n[k]>1) b++; print b}' coin_a.tsv) "0" \
+   "no read is placed in both slots of one snarl"
+
+# --phase-mismap-min decouples the floor the PHASE path uses from the genotyping one.  It defaults to
+# following --mismap-min, so naming that same value must change nothing -- the gate that an additive
+# option is inert until it is asked for.
+vg call x.gbz --read-likelihood --gam sim.gam --anchors-out pm_def.tsv \
+    --anchors-hom-split --read-phasing --mismap-min 0.02 -t 1 2>/dev/null >/dev/null
+vg call x.gbz --read-likelihood --gam sim.gam --anchors-out pm_same.tsv \
+    --anchors-hom-split --read-phasing --mismap-min 0.02 --phase-mismap-min 0.02 -t 1 2>/dev/null >/dev/null
+grep -v '^#' pm_def.tsv > pm_def.rows; grep -v '^#' pm_same.tsv > pm_same.rows
+is $(if cmp -s pm_def.rows pm_same.rows; then echo 1; else echo 0; fi) "1" \
+   "--phase-mismap-min at the inherited value changes nothing"
+
+# 0 is accepted here although --mismap-min refuses it: the question the knob exists to ask is what an
+# UNFLOORED mapping quality does to phase, and refusing the end of the range would leave it half
+# asked.  Above --mismap-max is still refused.
+vg call x.vg -k x.pack --read-likelihood --gam sim.sorted.gam --phase-mismap-min 0 -t 1 \
+    >/dev/null 2>pm_zero.txt
+is $(grep -c -- "--phase-mismap-min" pm_zero.txt) "0" \
+   "--phase-mismap-min 0 is accepted, unlike --mismap-min"
+
+vg call x.vg -k x.pack --read-likelihood --gam sim.sorted.gam --mismap-min 0.02 --mismap-max 0.1 \
+    --phase-mismap-min 0.5 -t 1 >/dev/null 2>pm_hi.txt
+is $(grep -c -- "--phase-mismap-min must be at most --mismap-max" pm_hi.txt) "1" \
+   "--phase-mismap-min above --mismap-max is refused"
+rm -f coin_a.tsv coin_b.tsv coin_a.rows coin_b.rows pm_def.tsv pm_same.tsv pm_def.rows pm_same.rows
+rm -f pm_zero.txt pm_hi.txt
 
 vg call x.vg -k x.pack --split-min-side 0 -t 1 >/dev/null 2>sq_bad.txt
 is $(grep -c -- "--split-min-side must be at least 1" sq_bad.txt) "1" \

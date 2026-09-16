@@ -1,0 +1,3 @@
+[vg call] re-genotyping: no site's likelihoods move; nothing to settle
+[vg call] atomize: 0 sites where projection is inert because the snarl does not resolve, 0 resolved as the reversal flip_snarl produces
+[vg call] atomize: 70 sites declined block emission, so the site record stands: 7 no difference blocks: every called haplotype takes the reference route here; 63 one block, saying what the site record already says
