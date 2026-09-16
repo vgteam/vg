@@ -558,6 +558,23 @@ struct AlleleLikelihoodParams {
     /// precision 0.9937 -> 0.9934. Above 0.10 everything degrades on both graphs.
     double min_mismap_prob = 0.02;
 
+    /// The same floor, but for PHASE confidence only. Negative means "use `min_mismap_prob`", which
+    /// is what the phase path did unconditionally before this existed.
+    ///
+    /// The two uses pull in different directions. The floor above is about LOCAL alignment: a read
+    /// that fits one allele perfectly should not be allowed to claim certainty about a genotype,
+    /// because the aligner cannot see the allele it did not try. Long-range phase is a different
+    /// claim -- forty well-phased heterozygous sites really should make a read's haplotype close to
+    /// certain -- and the floor damps exactly that, because it never leaves the denominator.
+    ///
+    /// Decoupled so the two can be fitted apart. Whether it buys anything is an open question: on
+    /// chr20 ONT, 94.67% of alignments are MAPQ 60 and 96.60% sit at or below the 0.05 floor, so the
+    /// floor rescales a near-constant rather than erasing a distribution, and the temper is fitted
+    /// per run and should absorb a uniform rescaling. Against that, the measured ceiling it would
+    /// have to beat -- agreement saturating at 95-97% however large the log-odds gets -- was itself
+    /// measured on a chain built with this clamp in place.
+    double phase_min_mismap_prob = -1.0;
+
     /// The *cap* is what stops the model believing MAPQ when MAPQ is low, and how much
     /// it matters is a property of the graph rather than a constant.
     ///
