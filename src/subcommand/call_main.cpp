@@ -254,7 +254,7 @@ void help_call(char** argv) {
          << "                            one read in twenty lands on the wrong strand [off]" << endl
          << "      --split-min-q N       a read counts as confidently placed, for deciding" << endl
          << "                            whether --anchors-hom-split may split a site, at" << endl
-         << "                            this |log-odds| in NATS. 2 is about 88% [2.0]" << endl
+         << "                            this |log-odds| in NATS. 0.5 is about 62% [0.5]" << endl
          << "      --split-min-side N    confidently placed reads needed on EACH side before" << endl
          << "                            a homozygous site may be split. A site whose reads" << endl
          << "                            all lean one way has been relabelled, not split [2]" << endl

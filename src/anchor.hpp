@@ -259,13 +259,23 @@ struct AnchorParams {
     bool hom_split = false;
 
     /// Minimum |tempered strand log-odds| for a read to count as confidently placed when deciding
-    /// whether a homozygous site may be split. 2 is about 88% on the tempered scale.
+    /// whether a homozygous site may be split. 0.5 is about 62% on the tempered scale.
     ///
     /// NOT a per-read filter. Held out, confident reads agree 95.5% and unconfident ones 81.2%, but
     /// only 5.4% of reads are unconfident -- so dropping them buys 0.78 points of purity for a 5.4%
     /// yield loss. The threshold decides whether the SITE is splittable; every read at a split site
     /// is then placed, and its own confidence is written per row so a consumer can filter.
-    double phase_min = 2.0;
+    ///
+    /// Fitted on chr20 against the length of PHASED RUNS -- consecutive anchors that each name a
+    /// haplotype, so one haplotype can be followed across them -- because that is what splitting a
+    /// homozygote is for. Range saturates exactly here: the read-walkable run N50 is 2,798,104 bp at
+    /// 0.5, 0.25, 0.1 and 0.0 alike, while the run's own held-out agreement keeps falling, 94.710%
+    /// to 94.367%. Below 0.5 there is nothing left to buy and the price is still charged.
+    ///
+    /// chr6, held out, moves the same way and further: run N50 2,130,682 -> 2,883,125 bp (+35.3%),
+    /// collapsed homozygotes 9,629 -> 1,784, and the two arms' VCFs are byte-identical, so the
+    /// threshold moves anchors and nothing else. See vg-call-eval docs/phased-run-lengths.md.
+    double phase_min = 0.5;
 
     /// Minimum confidently-placed reads on EACH side before a homozygous site may be split. A site
     /// whose reads all lean one way has not been partitioned, it has been relabelled.

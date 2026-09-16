@@ -9,7 +9,7 @@ PATH=../bin:$PATH # for vg
 # FORMAT field shifts every later one, which broke four assertions here that were not
 # testing field order at all -- one of them silently compared BL against a GQ threshold.
 
-plan tests 430
+plan tests 432
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -827,15 +827,31 @@ is $(vg call --help 2>&1 | grep -c -- "\[9.5, or 8.5 under --realign\]") "1" \
 
 # --split-min-q and --split-min-side expose the two thresholds that decide whether
 # --anchors-hom-split may split a site.  They were hardcoded, so the decision could not be swept at
-# all.  Both are defaulted to the values they replace, so the gate that matters is that naming them
-# explicitly changes NOTHING -- an additive option that silently moved output would be worse than
-# no option.
+# all.  The gate that matters is that naming them explicitly changes NOTHING -- an additive option
+# that silently moved output would be worse than no option.
 vg call x.gbz --read-likelihood --gam sim.gam --anchors-out sq_default.tsv \
     --anchors-hom-split --read-phasing -t 1 2>/dev/null >/dev/null
 vg call x.gbz --read-likelihood --gam sim.gam --anchors-out sq_explicit.tsv \
-    --anchors-hom-split --read-phasing --split-min-q 2.0 --split-min-side 2 -t 1 2>/dev/null >/dev/null
+    --anchors-hom-split --read-phasing --split-min-q 0.5 --split-min-side 2 -t 1 2>/dev/null >/dev/null
 is $(if cmp -s sq_default.tsv sq_explicit.tsv; then echo 1; else echo 0; fi) "1" \
    "naming the split thresholds at their defaults changes nothing"
+
+# --split-min-q is FITTED, on chr20's phased-run length and confirmed on chr6, and it saturates
+# exactly at 0.5: the read-walkable run N50 is identical at 0.5, 0.25, 0.1 and 0.0 while the run's
+# own held-out agreement keeps falling.  No fixture here can stand in for that sweep, so this only
+# pins the fitted value to the help text, which is what a later edit would silently drift from.
+is $(vg call --help 2>&1 | grep -c -- "0.5 is about 62% \[0.5\]") "1" \
+   "--split-min-q documents the fitted default"
+
+# A threshold that moved GENOTYPES would be a different change entirely.  Splitting rewrites which
+# haplotype an anchor names; it must not touch the VCF.  Held out on chr6 the two arms' VCFs are
+# byte-identical, and this is the fixture-scale guard for it.
+vg call x.gbz --read-likelihood --gam sim.gam --anchors-out sq_lo.tsv \
+    --anchors-hom-split --read-phasing --split-min-q 0.0 -t 1 2>/dev/null >sq_lo.vcf
+vg call x.gbz --read-likelihood --gam sim.gam --anchors-out sq_hi.tsv \
+    --anchors-hom-split --read-phasing --split-min-q 3.0 -t 1 2>/dev/null >sq_hi.vcf
+is $(if cmp -s sq_lo.vcf sq_hi.vcf; then echo 1; else echo 0; fi) "1" \
+   "--split-min-q moves anchors without moving the VCF"
 
 vg call x.vg -k x.pack --read-likelihood --gam sim.sorted.gam --split-min-q 1.0 -t 1 \
     >/dev/null 2>sq_noout.txt
@@ -845,7 +861,7 @@ is $(grep -c -- "--split-min-q only applies with --anchors-out" sq_noout.txt) "1
 vg call x.vg -k x.pack --split-min-side 0 -t 1 >/dev/null 2>sq_bad.txt
 is $(grep -c -- "--split-min-side must be at least 1" sq_bad.txt) "1" \
    "--split-min-side 0 is refused rather than silently disabling the side test"
-rm -f sq_default.tsv sq_explicit.tsv sq_noout.txt sq_bad.txt
+rm -f sq_default.tsv sq_explicit.tsv sq_noout.txt sq_bad.txt sq_lo.tsv sq_hi.tsv sq_lo.vcf sq_hi.vcf
 rm -f hs_norp.tsv hs_norp.txt hs_rp.tsv hs_rp.txt
 
 # The owner column generalises past --read-likelihood: --anchors-*, --mosaic-* and --regeno-* each
