@@ -1505,10 +1505,40 @@ void VCFOutputCaller::collect_anchors_for(const Snarl& snarl, const vector<int>&
     // Per-read cross-site strand log-odds, leave-one-out against this record. Only needed when a
     // homozygous site might be split; every other layout ignores it.
     vector<double> read_strand;
-    if (anchor_params.hom_split) {
+    // Only a diploid homozygote can be split, and `build_site_anchors` dereferences this vector
+    // nowhere else, so building it anywhere else was work for a value nobody reads. It was not free:
+    // at a het site that IS a phase site the leave-one-out branch fires, and that rebuilds the
+    // site's whole own-map once per read -- quadratic in the reads at the site, and then paid a
+    // second time by the self-check below, which recomputes the same values for the same reads.
+    //
+    // The test mirrors `build_site_anchors`' own gate exactly. It must: that gate also gives the
+    // vector a full-length check against `evidence.reads`, so a shorter or filtered vector would
+    // make it decline silently and report every homozygous site as unsplit.
+    const bool splittable_hom = genotype.size() == 2 && genotype[0] == genotype[1];
+    if (anchor_params.hom_split && splittable_hom) {
         read_strand.reserve(info->anchor_evidence->reads.size());
         for (const AnchorRead& read : info->anchor_evidence->reads) {
-            read_strand.push_back(read_strand_log_odds(record_key, read.name));
+            const double lo = read_strand_log_odds(record_key, read.name);
+            read_strand.push_back(lo);
+            if (lo == 0.0 && anchor_params.counters != nullptr) {
+                // Attribute the zero. A read that reached no phase site and one whose phase sites
+                // said nothing are both unassignable, but only the first can ALSO mean the chain
+                // dropped a site that had something to say -- so they are counted apart.
+                AnchorCounters& c = *anchor_params.counters;
+                if (render_lambda.empty() || render_lambda_temper <= 0.0) {
+                    c.phase_zero_no_table.fetch_add(1);
+                } else {
+                    const auto found =
+                        render_lambda.find((uint64_t)std::hash<string>{}(read.name));
+                    if (found == render_lambda.end()) {
+                        c.phase_zero_absent.fetch_add(1);
+                    } else if (found->second.multi_block) {
+                        c.phase_zero_multi_block.fetch_add(1);
+                    } else {
+                        c.phase_zero_value.fetch_add(1);
+                    }
+                }
+            }
         }
     }
     build_site_anchors(*info->anchor_evidence, genotype, print_snarl(snarl),

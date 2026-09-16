@@ -125,6 +125,16 @@ struct AnchorCounters {
     /// there: both slots carry the same allele, so placing such a read in either is a haplotype
     /// claim with nothing behind it.
     atomic<size_t> hom_split_no_opinion{0};
+    /// Why a read at a homozygous site had no opinion. Exactly one of these per zero, and they
+    /// distinguish "nothing is knowable" from "something is knowable and the chain did not use it",
+    /// which is the difference between a read that may be assigned arbitrarily and one that may not.
+    /// `zero_absent` is a read that reached no phase site at all; `zero_value` is one that reached
+    /// some and whose contributions summed to nothing, which is what an allele pair the read cannot
+    /// resolve -- a homopolymer length, say -- looks like.
+    atomic<size_t> phase_zero_no_table{0};
+    atomic<size_t> phase_zero_absent{0};
+    atomic<size_t> phase_zero_multi_block{0};
+    atomic<size_t> phase_zero_value{0};
 
     atomic<size_t> phase_checked{0};
     atomic<size_t> phase_agree{0};
