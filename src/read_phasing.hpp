@@ -121,6 +121,30 @@ struct ReadPhasingParams {
     /// -1 admits everything, since GQN is bounded below by -1, so the default is inert. A site with
     /// no GQN at all is admitted: "no gap to normalise" is not the same as a low margin.
     double min_gqn = -1.0;
+
+    /// Re-test a link whose |d| is below this against a pair of sites reaching further out, and take
+    /// the more decisive answer. 0 disables it, which is the default and is byte-identical.
+    ///
+    /// Stage 1 decides a link from the reads the two ADJACENT sites share, and nothing else. Measured
+    /// on chr20 ONT at the 40 junctions that produce a true switch, that adjacent pair is decisive
+    /// (|concordance - 0.5| > 0.4) only 50.0% of the time, against 87.9% at control junctions -- and
+    /// a pair reaching three sites further out is decisive 70.0% of the time on the SAME junctions,
+    /// with the same number of shared reads. The evidence is there and is not consulted.
+    ///
+    /// Why reaching out can beat reaching near, on the same reads: two adjacent heterozygous sites
+    /// are a median 359 bp apart at these junctions, so they tend to share whatever local context is
+    /// confusing the reads. A more distant site is a different observation of the same fragment.
+    ///
+    /// NOT the same as what stage 2 does at a break. That sums nine pairs -- diluting the decisive
+    /// far one with the uninformative near ones -- and refers each through the two blocks' already
+    /// frozen internal parity. This takes the single most decisive straddling pair and uses it to
+    /// overturn one sign.
+    double confirm = 0.0;
+
+    /// How far out to reach when confirming. Each k tests the pair (m-k+1, m+k), which straddles the
+    /// junction; the parity it implies for link m is that pair's sign with the intervening links'
+    /// signs removed, so every intervening link must itself be confident or the XOR is worthless.
+    size_t confirm_reach = 3;
     /// Reliable sites either side of a break to relink over. 3 is enough; 8 is a wash and 15 hurt.
     size_t relink = 3;
     /// Decided neighbours to hang an unreliable site from.
@@ -140,6 +164,10 @@ struct ReadPhasingCounters {
     size_t chains = 0;
     size_t breaks = 0;
     size_t breaks_no_reads = 0;
+    /// Links re-tested against a straddling pair because their own |d| was below `confirm`, and how
+    /// many of those the straddling pair overturned.
+    size_t confirm_tested = 0;
+    size_t confirm_flipped = 0;
     size_t hung = 0;
     size_t hung_no_reads = 0;
     size_t flipped = 0;

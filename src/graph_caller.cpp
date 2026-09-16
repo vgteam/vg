@@ -6259,6 +6259,11 @@ void FlowCaller::apply_read_phasing() {
          << " sites hung off the chain (" << c.hung_no_reads << " with no read), " << c.flipped
          << " re-phased against the panel, " << c.strands_rederived
          << " nested strands carried with their parent" << endl;
+    if (c.confirm_tested > 0) {
+        cerr << "[vg call] read phasing: " << c.confirm_tested
+             << " marginal links re-tested against a straddling pair, " << c.confirm_flipped
+             << " overturned" << endl;
+    }
 }
 
 bool FlowCaller::apply_regenotyping() {

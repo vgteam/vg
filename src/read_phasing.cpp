@@ -129,12 +129,53 @@ unordered_set<size_t> read_phase_flips(vector<PhaseSite>& sites, const ReadPhasi
             bounds.push_back(rel.size());
             counters.breaks += bounds.size() - 2;
 
+            // The sign each link contributes to the cascade. Separate from `d` so the break test
+            // above keeps the magnitude it was written against, and so `confirm` moves signs only.
+            vector<int> sgn(d.size(), 0);
+            for (size_t m = 0; m < d.size(); ++m) {
+                sgn[m] = d[m] < 0.0 ? 1 : 0;
+            }
+            if (params.confirm > 0.0) {
+                for (size_t m = 0; m < d.size(); ++m) {
+                    if (std::fabs(d[m]) >= params.confirm) {
+                        continue;                       // decisive enough on its own
+                    }
+                    double best = std::fabs(d[m]);
+                    int best_sign = sgn[m];
+                    for (size_t k = 2; k <= params.confirm_reach; ++k) {
+                        if (m + 1 < k || m + k >= rel.size()) {
+                            break;                      // the straddle runs off the segment
+                        }
+                        const size_t lo = m + 1 - k, hi = m + k;
+                        // Every link inside the straddle except m itself must be confident: the
+                        // implied parity is their XOR, so one marginal member makes it meaningless.
+                        int others = 0;
+                        bool usable = true;
+                        for (size_t t = lo; t < hi && usable; ++t) {
+                            if (t == m) { continue; }
+                            if (std::fabs(d[t]) < params.confirm) { usable = false; break; }
+                            others ^= sgn[t];
+                        }
+                        if (!usable) { continue; }
+                        const double sv = phase_link(sites[begin + rel[lo]],
+                                                     sites[begin + rel[hi]], params.cap);
+                        if (std::fabs(sv) <= best) { continue; }
+                        best = std::fabs(sv);
+                        best_sign = (sv < 0.0 ? 1 : 0) ^ others;
+                    }
+                    if (best_sign != sgn[m]) {
+                        sgn[m] = best_sign;
+                        ++counters.confirm_flipped;
+                    }
+                    ++counters.confirm_tested;
+                }
+            }
             for (size_t b = 0; b + 1 < bounds.size(); ++b) {
                 const size_t s0 = bounds[b], s1 = bounds[b + 1];
                 o[rel[s0]] = 0;
                 decided[rel[s0]] = 1;
                 for (size_t m = s0; m + 1 < s1; ++m) {
-                    o[rel[m + 1]] = o[rel[m]] ^ (d[m] < 0.0 ? 1 : 0);
+                    o[rel[m + 1]] = o[rel[m]] ^ sgn[m];
                     decided[rel[m + 1]] = 1;
                 }
             }

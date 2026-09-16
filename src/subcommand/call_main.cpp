@@ -176,6 +176,10 @@ void help_call(char** argv) {
          << "                            phase link. Negative GQN means the panel settled" << endl
          << "                            against the reads [-1, admitting everything]" << endl
          << "      --phase-relink N      reliable sites either side of a break [3]" << endl
+         << "      --phase-confirm N     re-test a link below this |d| against a pair of" << endl
+         << "                            sites reaching further out, and take the more" << endl
+         << "                            decisive answer. 0 disables [0]" << endl
+         << "      --phase-reach N       how far out to reach when confirming [3]" << endl
          << "      --phase-hang N        neighbours to hang an unreliable site from [4]" << endl
          << "      --phase-prior N       weight of the panel when hanging a site [3]" << endl
          << "      --phase-cap N         clamp one pair's contribution, 0 to disable [0]" << endl
@@ -658,6 +662,8 @@ int main_call(int argc, char** argv) {
     constexpr int OPT_ANCHORS_PHASE_MIN_SIDE = 1096;
     constexpr int OPT_PHASE_MISMAP_MIN = 1097;
     constexpr int OPT_PHASE_MIN_GQN = 1098;
+    constexpr int OPT_PHASE_CONFIRM = 1099;
+    constexpr int OPT_PHASE_CONFIRM_REACH = 1100;
     constexpr int OPT_NO_REALIGN = 1093;
     constexpr int OPT_NO_SHARE_QUALITY = 1021;
     constexpr int OPT_FLAT_MIXTURE = 1023;
@@ -805,6 +811,8 @@ int main_call(int argc, char** argv) {
         {"phase-break", required_argument, 0, OPT_PHASE_BREAK,              OWN_READ_LIKELIHOOD},
         {"phase-min-gqn", required_argument, 0, OPT_PHASE_MIN_GQN,      OWN_READ_LIKELIHOOD},
         {"phase-relink", required_argument, 0, OPT_PHASE_RELINK,            OWN_READ_LIKELIHOOD},
+        {"phase-confirm", required_argument, 0, OPT_PHASE_CONFIRM,      OWN_READ_LIKELIHOOD},
+        {"phase-reach", required_argument, 0, OPT_PHASE_CONFIRM_REACH,  OWN_READ_LIKELIHOOD},
         {"phase-hang", required_argument, 0, OPT_PHASE_HANG,                OWN_READ_LIKELIHOOD},
         {"phase-prior", required_argument, 0, OPT_PHASE_PRIOR,              OWN_READ_LIKELIHOOD},
         {"phase-cap", required_argument, 0, OPT_PHASE_CAP,                  OWN_READ_LIKELIHOOD},
@@ -1208,6 +1216,12 @@ int main_call(int argc, char** argv) {
         case OPT_MISMAP_MIN:
             mismap_min_explicit = true;
             min_mismap_prob = parse<double>(optarg);
+            break;
+        case OPT_PHASE_CONFIRM:
+            read_phasing_params.confirm = parse<double>(optarg);
+            break;
+        case OPT_PHASE_CONFIRM_REACH:
+            read_phasing_params.confirm_reach = parse<size_t>(optarg);
             break;
         case OPT_PHASE_MIN_GQN:
             read_phasing_params.min_gqn = parse<double>(optarg);
