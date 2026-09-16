@@ -1,1 +1,0 @@
-error[vg call] --regeno-temper only applies with --regenotype, which was not given
