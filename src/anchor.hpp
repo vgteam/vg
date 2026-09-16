@@ -125,6 +125,11 @@ struct AnchorCounters {
     /// there: both slots carry the same allele, so placing such a read in either is a haplotype
     /// claim with nothing behind it.
     atomic<size_t> hom_split_no_opinion{0};
+    /// Of those, the ones placed anyway by the deterministic per-read coin, because there was
+    /// nothing to know and the site's two slots spell the same allele. The remainder -- reads
+    /// spanning a phase break -- are still dropped, because they have evidence that simply cannot
+    /// be named here.
+    atomic<size_t> hom_split_coin{0};
     /// Why a read at a homozygous site had no opinion. Exactly one of these per zero, and they
     /// distinguish "nothing is knowable" from "something is knowable and the chain did not use it",
     /// which is the difference between a read that may be assigned arbitrarily and one that may not.

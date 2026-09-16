@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <functional>
 #include <cmath>
 #include <fstream>
 #include <iomanip>
@@ -55,8 +56,10 @@ void AnchorCounters::report(ostream& out) const {
             << " left collapsed for want of a confident partition on both strands";
         if (hom_split_no_opinion.load() > 0) {
             out << "; " << hom_split_no_opinion.load()
-                << " read placements at split sites had no cross-site opinion and were not"
-                   " assigned to either strand";
+                << " read placements at split sites had no cross-site opinion; "
+                << hom_split_coin.load() << " were assigned by the per-read coin and "
+                << (hom_split_no_opinion.load() - hom_split_coin.load())
+                << " dropped for spanning a phase break";
         }
         out << endl;
         const size_t zt = phase_zero_no_table.load(), za = phase_zero_absent.load(),
@@ -399,7 +402,7 @@ void build_site_anchors(const AnchorSiteEvidence& evidence, const vector<int>& g
                     continue;
                 }
                 const double lo = (*read_strand)[r];
-                if (lo == 0.0) {
+                if (std::isnan(lo) || lo == 0.0) {
                     // Exactly zero is what read_strand_log_odds returns for NO OPINION -- no lambda
                     // table, a read that reached no phase site, a read spanning a phase break, or
                     // contributions that summed to nothing. It is not evidence for strand 1. The
@@ -514,18 +517,40 @@ void build_site_anchors(const AnchorSiteEvidence& evidence, const vector<int>& g
             // its score from ~13 to ~3, silently changing what --anchors-min-q and the reliability
             // column mean on exactly the sites this feature adds.
             const double lo = (*read_strand)[r];
-            if (lo == 0.0) {
-                // No cross-site opinion -- no lambda, a phase break, nothing left after
-                // leave-one-out, or no fitted temper. Both slots carry the SAME allele, so there is
-                // no evidence of any kind to place this read by, and `lo > 0 ? 0 : 1` would send
-                // every such read to slot 1: a haplotype claim with nothing behind it, made
-                // systematically in one direction.
+            int coin = -1;
+            if (std::isnan(lo)) {
+                // The read spans a phase break. It is not opinionless -- it has evidence on both
+                // sides -- but the two sides number their strands independently, so there is no
+                // haplotype here to name. Dropped, and NOT assigned: a coin would bury evidence
+                // rather than stand in for its absence.
                 ++counters.hom_split_no_opinion;
                 continue;
             }
+            if (lo == 0.0) {
+                // No cross-site opinion: the read reached no phase site, or reached one whose two
+                // alleles it cannot tell apart -- a homopolymer length, say. Measured on chr20 ONT,
+                // 97.8% is the first and 2.2% the second, and both mean there is nothing to know.
+                //
+                // It used to be dropped, because `lo > 0 ? 0 : 1` would send every such read to
+                // slot 1: a haplotype claim with nothing behind it, made systematically in one
+                // direction. But dropping it was not safe either. The same read IS placed at het
+                // sites and at unsplit homozygous ones, because neither consults the phase -- so
+                // its trail through the file reads present, absent, present, and a read that
+                // disappears between two anchors and comes back is the shape of a deletion.
+                //
+                // Assigned instead, by a coin that is deterministic and PER READ. The site is
+                // homozygous, so both slots spell the SAME allele and the read's sequence fits
+                // either haplotype: the label is arbitrary, the sequence is not wrong. Hashing the
+                // name means the same read lands on the same haplotype at every site it crosses and
+                // at both pins of each, so it lies wholly on one haplotype and no switch is created.
+                // A PRNG would not do: it would differ between runs, and between a site's two pins.
+                ++counters.hom_split_no_opinion;
+                ++counters.hom_split_coin;
+                coin = (int)(std::hash<string>{}(read.name) & 1ull);
+            }
             best_resp = (1.0 - mismap) * (double)evidence.rel_at(r, (size_t)slot_allele[0]);
             total = mismap + best_resp;
-            best_slot = lo > 0.0 ? 0 : 1;
+            best_slot = coin >= 0 ? (size_t)coin : (lo > 0.0 ? 0 : 1);
         } else
         for (size_t i = 0; i < n_slots; ++i) {
             double resp = (1.0 - mismap) * weight[i]

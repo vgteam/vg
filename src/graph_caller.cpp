@@ -1534,6 +1534,12 @@ void VCFOutputCaller::collect_anchors_for(const Snarl& snarl, const vector<int>&
                         c.phase_zero_absent.fetch_add(1);
                     } else if (found->second.multi_block) {
                         c.phase_zero_multi_block.fetch_add(1);
+                        // NOT a read with nothing to say: it HAS evidence, on both sides of a phase
+                        // break, and the two sides label their strands independently so the sum is
+                        // meaningless rather than empty. Marked apart from the honest zeros with a
+                        // NaN so the writer can refuse to assign it rather than assigning it
+                        // arbitrarily, which for this one class would discard real evidence.
+                        read_strand.back() = std::numeric_limits<double>::quiet_NaN();
                     } else {
                         c.phase_zero_value.fetch_add(1);
                     }
