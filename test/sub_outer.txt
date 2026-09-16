@@ -1,1 +1,0 @@
-error[vg call] --anchors-min-q only applies to --read-likelihood, which was not given
