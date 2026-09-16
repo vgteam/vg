@@ -1451,8 +1451,11 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
             // Hashed here, where the name is in hand, and never stored: the string is the whole
             // reason the anchor evidence is too heavy to retain for phasing.
             phase_evidence->read_key.push_back((uint64_t)std::hash<string>{}(aln.name()));
-            // Pushed in the same place and under the same condition as read_key, so the two stay
-            // index-aligned with the builder's rows.
+        }
+        if (phase_evidence != nullptr || anchor_evidence != nullptr) {
+            // Kept for whichever of the two carries phase evidence: the anchor struct does it
+            // whenever anchors are armed, and PhaseReadEvidence only when they are not. Pushed
+            // after `add_read` has accepted the read, so it stays index-aligned with the rows.
             phase_raw_mismap.push_back(mismap);
         }
         if (anchor_evidence != nullptr) {
@@ -1496,6 +1499,12 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
         anchor_evidence->rel.resize(result.num_reads() * result.num_alleles());
         for (size_t r = 0; r < result.num_reads(); ++r) {
             anchor_evidence->reads[r].mismap = (float)result.mismap_prob(r);
+            anchor_evidence->reads[r].phase_mismap =
+                (float)min(max(r < phase_raw_mismap.size() ? phase_raw_mismap[r]
+                                                           : result.mismap_prob(r),
+                               params.phase_min_mismap_prob >= 0.0 ? params.phase_min_mismap_prob
+                                                                   : params.min_mismap_prob),
+                           params.max_mismap_prob);
             for (size_t a = 0; a < result.num_alleles(); ++a) {
                 anchor_evidence->rel[r * result.num_alleles() + a] = (float)result.rel(r, a);
             }

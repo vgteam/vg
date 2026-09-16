@@ -6060,7 +6060,10 @@ static const PhaseReadEvidence* phase_evidence_of(
         scratch.mismap.reserve(ev.reads.size());
         for (const AnchorRead& r : ev.reads) {
             scratch.read_key.push_back((uint64_t)std::hash<string>{}(r.name));
-            scratch.mismap.push_back(r.mismap);
+            // The PHASE floor, not the genotype one. This conversion is the path read phasing
+            // actually takes whenever anchors are armed, so reading `mismap` here would make
+            // --phase-mismap-min silently inert in exactly the configuration that writes anchors.
+            scratch.mismap.push_back(r.phase_mismap);
         }
         pe = &scratch;
     }
