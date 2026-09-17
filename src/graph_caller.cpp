@@ -1518,7 +1518,8 @@ void VCFOutputCaller::collect_anchors_for(const Snarl& snarl, const vector<int>&
     // --anchors-phase-hets needs the same vector at a plain diploid HET, which the hom gate below
     // would never build. Kept as a separate test rather than widened, so the hom path's cost is
     // unchanged when the new flag is off.
-    const bool tiltable_het = anchor_params.phase_hets && genotype.size() == 2
+    const bool tiltable_het = (anchor_params.phase_hets || anchor_params.strict_hets)
+                              && genotype.size() == 2
                               && genotype[0] != genotype[1];
     if ((anchor_params.hom_split && splittable_hom) || tiltable_het) {
         read_strand.reserve(info->anchor_evidence->reads.size());
@@ -1530,7 +1531,8 @@ void VCFOutputCaller::collect_anchors_for(const Snarl& snarl, const vector<int>&
                        gqn,
                        info->explained_share, haploid_slot, anchor_params, *anchor_params.counters,
                        anchors,
-                       (anchor_params.hom_split || anchor_params.phase_hets) ? &read_strand
+                       (anchor_params.hom_split || anchor_params.phase_hets
+                        || anchor_params.strict_hets) ? &read_strand
                                                                              : nullptr);
     // Self-check for --anchors-hom-split, reported per run: does cross-site phase reproduce the
     // partition a site's own alleles make, where the site HAS alleles to check against?

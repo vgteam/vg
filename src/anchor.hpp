@@ -134,6 +134,9 @@ struct AnchorCounters {
     /// read's cross-site strand. Reads with no opinion, or spanning a phase break, are not counted:
     /// the flag is inert for them, so this is the number of placements it could actually move.
     atomic<size_t> het_phase_tilted{0};
+    /// Under --anchors-strict-hets, placements the strand's sign moved off the slot the allele
+    /// match would have chosen. The disagreement between the two rules, counted directly.
+    atomic<size_t> het_strict_moved{0};
 
     atomic<size_t> phase_checked{0};
     atomic<size_t> phase_agree{0};
@@ -305,7 +308,16 @@ struct AnchorParams {
     ///
     /// The tilt is the same one `phase_aware_correction` applies during re-genotyping, and the
     /// strand is leave-one-out against this record, so a site never tilts itself.
-    bool phase_hets = false;
+    bool phase_hets = true;
+
+    /// Place a het read by the SIGN of its cross-site strand alone, ignoring the allele match.
+    ///
+    /// The control arm for `phase_hets`, not a recommendation: it is what the split-homozygote
+    /// branch does, applied where the site DOES carry allele signal, so it discards real evidence
+    /// deliberately. A read with no strand opinion keeps its allele-match slot rather than being
+    /// dropped, so this arm and the soft one hold the same reads and any difference between them is
+    /// the rule rather than coverage.
+    bool strict_hets = false;
 };
 
 /**

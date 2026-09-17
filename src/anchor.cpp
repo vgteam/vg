@@ -64,8 +64,13 @@ void AnchorCounters::report(ostream& out) const {
         out << endl;
     }
     if (het_phase_tilted.load() > 0) {
-        out << "[vg call] anchors: --anchors-phase-hets tilted " << het_phase_tilted.load()
-            << " read placements at heterozygous sites by the read's cross-site strand" << endl;
+        out << "[vg call] anchors: " << het_phase_tilted.load()
+            << " read placements at heterozygous sites used the read's cross-site strand";
+        if (het_strict_moved.load() > 0) {
+            out << " (--anchors-strict-hets, which moved " << het_strict_moved.load()
+                << " of them off the slot the allele match alone would have chosen)";
+        }
+        out << endl;
     }
     if (phase_checked.load() > 0) {
         const size_t n = phase_checked.load(), ok = phase_agree.load();
@@ -545,43 +550,33 @@ void build_site_anchors(const AnchorSiteEvidence& evidence, const vector<int>& g
             total = mismap + best_resp;
             best_slot = coin >= 0 ? (size_t)coin : (lo > 0.0 ? 0 : 1);
         } else {
-        // The slot weights this read sees. Normally the site's own length weights, shared by every
-        // read; under --anchors-phase-hets the read's accumulated cross-site strand tilts them,
-        // down-weighting the slot its OTHER sites say it did not come from.
-        //
-        // Same tilt as `phase_aware_correction`: multiply the disfavoured slot by exp(-|lo|), where
-        // lo is the calibrated, leave-one-out strand log-odds. A read with no opinion (0), one
-        // spanning a phase break (NaN), or a site that is not a plain diploid het is untouched, so
-        // the flag is exactly inert wherever the strand says nothing.
+        // Which slot this read joins, under one of three rules. `plain` -- the site's own length
+        // weights on its own alleles -- always decides `share`, and therefore the `reliability`
+        // column, whichever rule picks the slot: reliability is what a consumer thresholds and is
+        // documented as low where a site's reads cannot tell its alleles apart, so the strand must
+        // not enter it. Letting it in took chr20 anchors at reliability >= 9 from 74.0% to 93.9%
+        // with no change in the data.
+        const bool tiltable = read_strand != nullptr && n_slots == 2
+                              && read_strand->size() == evidence.reads.size()
+                              && slot_allele[0] != slot_allele[1];
+        const double lo = tiltable ? (*read_strand)[r] : 0.0;
+        const bool has_opinion = tiltable && !std::isnan(lo) && lo != 0.0;
+
+        // The tilt, when soft. Multiply the disfavoured slot's weight by exp(-|lo|) and the argmax
+        // is then over the read's POSTERIOR probability of each haplotype -- algebraically the same
+        // weights `phase_aware_correction` uses in re-genotyping, written the overflow-safe way.
         double w0 = weight[0];
         double w1 = n_slots > 1 ? weight[1] : 0.0;
-        if (params.phase_hets && read_strand != nullptr && n_slots == 2
-            && read_strand->size() == evidence.reads.size()
-            && slot_allele[0] != slot_allele[1]) {
-            const double lo = (*read_strand)[r];
-            if (!std::isnan(lo) && lo != 0.0) {
-                const double f = std::exp(-std::abs(lo));
-                if (lo > 0.0) {
-                    w1 *= f;
-                } else {
-                    w0 *= f;
-                }
-                ++counters.het_phase_tilted;
+        if (params.phase_hets && !params.strict_hets && has_opinion) {
+            const double f = std::exp(-std::abs(lo));
+            if (lo > 0.0) {
+                w1 *= f;
+            } else {
+                w0 *= f;
             }
+            ++counters.het_phase_tilted;
         }
         for (size_t i = 0; i < n_slots; ++i) {
-            // Two responsibilities per slot, and they are different quantities.
-            //
-            // `plain` uses the site's own length weights and answers "how well do THIS SITE's reads
-            // tell its alleles apart". It is what `share` and therefore the `reliability` column are
-            // built from, and it must not move when --anchors-phase-hets is on: reliability is the
-            // filter a consumer thresholds, it is documented as low where a site's alleles cannot be
-            // told apart, and letting the strand into it would silently make it mean something else.
-            // Measured before this was split out, the tilt took chr20 anchors at reliability >= 9
-            // from 74.0% to 93.9% with no change in the underlying data.
-            //
-            // `resp` carries the tilt and is used for the ARGMAX only -- which slot the read joins.
-            // With the flag off the two are the same value and every downstream number is unchanged.
             const double plain = (1.0 - mismap) * weight[i]
                                  * (double)evidence.rel_at(r, (size_t)slot_allele[i]);
             const double resp = (1.0 - mismap) * (i == 0 ? w0 : (i == 1 ? w1 : weight[i]))
@@ -601,6 +596,23 @@ void build_site_anchors(const AnchorSiteEvidence& evidence, const vector<int>& g
                 best_plain = plain;
                 best_slot = i;
             }
+        }
+        // --anchors-strict-hets: take the strand's SIGN and ignore the allele match entirely. This
+        // is the control arm for the soft tilt, not a recommendation -- it is what the split-hom
+        // branch does, applied where the site does carry allele signal, so it throws away real
+        // evidence on purpose.
+        //
+        // A read with no opinion keeps its allele-match slot rather than being dropped, so the two
+        // arms hold the SAME reads and a difference between them is the rule and not coverage.
+        if (params.strict_hets && has_opinion) {
+            const size_t want = lo > 0.0 ? 0 : 1;
+            if (want != best_slot) {
+                ++counters.het_strict_moved;
+            }
+            best_slot = want;
+            best_plain = (1.0 - mismap) * weight[want]
+                         * (double)evidence.rel_at(r, (size_t)slot_allele[want]);
+            ++counters.het_phase_tilted;
         }
         best_resp = best_plain;   // from here on it is the untilted share's numerator
         }

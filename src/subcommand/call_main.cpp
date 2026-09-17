@@ -262,14 +262,20 @@ void help_call(char** argv) {
          << "      --split-min-side N    confidently placed reads needed on EACH side before" << endl
          << "                            a homozygous site may be split. A site whose reads" << endl
          << "                            all lean one way has been relabelled, not split [2]" << endl
-         << "      --anchors-phase-hets  place a read at a HETEROZYGOUS site by its cross-site" << endl
-         << "                            strand as well as its allele match. Without it the slot" << endl
-         << "                            is decided afresh at every site from that site's" << endl
-         << "                            sequence alone, so neighbouring sites disagree about a" << endl
-         << "                            read 6.42% of the time on chr20 ONT, against 0.00%" << endl
-         << "                            between two split homozygotes. Makes the anchors agree" << endl
-         << "                            with the phasing where the strand is confident, so they" << endl
-         << "                            stop being an independent check ON it [off]" << endl
+         << "      --no-anchors-phase-hets" << endl
+         << "                            place a read at a HETEROZYGOUS site by its allele match" << endl
+         << "                            ALONE. By default the read's accumulated cross-site" << endl
+         << "                            strand tilts that choice, which is the same posterior" << endl
+         << "                            weighting --regenotype uses. Without it the slot is" << endl
+         << "                            decided afresh at every site, so neighbouring sites" << endl
+         << "                            disagree about a read 6.44% of the time on chr20 ONT," << endl
+         << "                            against 0.00% between two split homozygotes" << endl
+         << "      --anchors-strict-hets place a het read by the SIGN of its strand alone," << endl
+         << "                            ignoring the allele match. The CONTROL arm for the" << endl
+         << "                            default tilt, not a recommendation: it discards the" << endl
+         << "                            site's own evidence on purpose. A read with no strand" << endl
+         << "                            opinion keeps its allele-match slot, so this arm holds" << endl
+         << "                            the same reads as the default [off]" << endl
          << "      --anchors-het-only    only heterozygous sites. By default homozygous and" << endl
          << "                            haploid ones are emitted too: they carry no" << endl
          << "                            haplotype information, but an anchor graph is built" << endl
@@ -579,6 +585,7 @@ int main_call(int argc, char** argv) {
     bool read_phasing_explicit = false;
     bool regenotype = false;
     bool regenotype_explicit = false;
+    bool phase_hets_explicit = false;
     RegenotypeParams regenotype_params;
     // Two barrier passes, i.e. ONE correction round. The iteration is implemented and runs to a
     // fixed point when there is one; on chr20 there is not -- it enters a period-3 limit cycle at
@@ -666,6 +673,8 @@ int main_call(int argc, char** argv) {
     constexpr int OPT_REALIGN = 1092;
     constexpr int OPT_ANCHORS_HOM_SPLIT = 1094;
     constexpr int OPT_ANCHORS_PHASE_HETS = 1102;
+    constexpr int OPT_NO_ANCHORS_PHASE_HETS = 1103;
+    constexpr int OPT_ANCHORS_STRICT_HETS = 1104;
     constexpr int OPT_ANCHORS_PHASE_MIN = 1095;
     constexpr int OPT_ANCHORS_PHASE_MIN_SIDE = 1096;
     constexpr int OPT_NO_REALIGN = 1093;
@@ -800,6 +809,8 @@ int main_call(int argc, char** argv) {
         {"realign", no_argument, 0, OPT_REALIGN,                            OWN_READ_LIKELIHOOD},
         {"anchors-hom-split", no_argument, 0, OPT_ANCHORS_HOM_SPLIT,        OWN_ANCHORS},
         {"anchors-phase-hets", no_argument, 0, OPT_ANCHORS_PHASE_HETS,      OWN_ANCHORS},
+        {"no-anchors-phase-hets", no_argument, 0, OPT_NO_ANCHORS_PHASE_HETS, OWN_ANCHORS},
+        {"anchors-strict-hets", no_argument, 0, OPT_ANCHORS_STRICT_HETS,    OWN_ANCHORS},
         {"split-min-q", required_argument, 0, OPT_ANCHORS_PHASE_MIN,         OWN_ANCHORS},
         {"split-min-side", required_argument, 0, OPT_ANCHORS_PHASE_MIN_SIDE, OWN_ANCHORS},
         {"no-realign", no_argument, 0, OPT_NO_REALIGN,                      OWN_READ_LIKELIHOOD},
@@ -1236,6 +1247,15 @@ int main_call(int argc, char** argv) {
             break;
         case OPT_ANCHORS_PHASE_HETS:
             anchor_params.phase_hets = true;
+            phase_hets_explicit = true;
+            break;
+        case OPT_NO_ANCHORS_PHASE_HETS:
+            anchor_params.phase_hets = false;
+            phase_hets_explicit = true;
+            break;
+        case OPT_ANCHORS_STRICT_HETS:
+            anchor_params.strict_hets = true;
+            phase_hets_explicit = true;
             break;
         case OPT_ANCHORS_PHASE_MIN:
             anchor_params.phase_min = parse<double>(optarg);
@@ -2715,10 +2735,15 @@ int main_call(int argc, char** argv) {
     // Same dependency as --anchors-hom-split and for the same reason: the tilt is the read's
     // strand log-odds, which is identically 0.0 for every read with no phasing chain. The flag
     // would be accepted, run, and change nothing.
-    if (anchor_params.phase_hets && !read_phasing) {
-        cerr << "error [vg call]: --anchors-phase-hets needs --read-phasing; the tilt is each"
-             << " read's phase across the OTHER sites it crosses, so without a phasing chain every"
-             << " read's strand log-odds is zero and the flag would be inert" << endl;
+    // Only when ASKED for. The tilt is on by default and is exactly inert without a phasing chain
+    // -- every read's strand log-odds is then 0.0, which the placement already treats as "no
+    // opinion" -- so refusing on the default would break every unphased run to prevent nothing.
+    // Asking for it explicitly is a different matter: that is a request the run cannot honour.
+    if ((anchor_params.phase_hets || anchor_params.strict_hets) && phase_hets_explicit
+        && !read_phasing) {
+        cerr << "error [vg call]: --anchors-phase-hets / --anchors-strict-hets need --read-phasing;"
+             << " the strand is each read's phase across the OTHER sites it crosses, so without a"
+             << " phasing chain every read's log-odds is zero and the flag would be inert" << endl;
         return 1;
     }
     if (regenotype && !read_phasing) {
