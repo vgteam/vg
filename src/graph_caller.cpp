@@ -6065,7 +6065,7 @@ const vector<int>& FlowCaller::cached_panel_alleles(PendingRecord& rec) {
     return rec.panel_cache;
 }
 
-vector<FlowCaller::PendingRecord*> FlowCaller::records_for_render() {
+vector<FlowCaller::PendingRecord*> FlowCaller::records_for_render(bool for_phasing) {
     vector<PendingRecord*> out;
     out.reserve(render_record_count() + deferred_pending.size());
     for (auto& queue : render_records) {
@@ -6083,7 +6083,15 @@ vector<FlowCaller::PendingRecord*> FlowCaller::records_for_render() {
         //
         // Tested dynamically rather than snapshotted: `reported_inline` is re-derived every
         // barrier pass, so which records are held back can change between rounds.
-        if (rec.dropped || rec.reported_inline || rec.no_reference) {
+        if (rec.dropped || rec.reported_inline) {
+            continue;
+        }
+        // A chain the reference does not cross is held back from the RENDER because it has no REF
+        // or POS to write, and from nothing else. It is genotyped, it is anchored, and its strand is
+        // meaningful, so a phasing pass wants it: leaving it out let the VCF's constraint decide
+        // what gets inferred, in exactly the population -- nested chains inside non-reference
+        // alleles -- that matters most for assembling a complex locus.
+        if (rec.no_reference && !for_phasing) {
             continue;
         }
         out.push_back(&rec);
@@ -6143,7 +6151,7 @@ void FlowCaller::apply_read_phasing() {
     // deriving the same responsibility arithmetic a second time and getting the sign right twice.
     vector<PhaseSite>& sites = phase_sites;
     sites.clear();
-    for (PendingRecord* recp : records_for_render()) {
+    for (PendingRecord* recp : records_for_render(true)) {
         {
             PendingRecord& rec = *recp;
             const auto found = phase_index.find(rec.record_key);
@@ -6263,7 +6271,7 @@ void FlowCaller::apply_read_phasing() {
     // hand-off the nested records -- which are the entire point of this cascade -- are in
     // `deferred_pending` and not in `render_records`. Walking the queues here reported zero
     // strands carried, because it was looking at the population that has no parent.
-    for (const PendingRecord* recp : records_for_render()) {
+    for (const PendingRecord* recp : records_for_render(true)) {
         const PendingRecord& rec = *recp;
         if (phase_index.count(rec.record_key) != 0) {
             links.push_back({rec.record_key, rec.parent_record_key, rec.generation});

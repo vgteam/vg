@@ -1459,7 +1459,14 @@ protected:
     /// phasing and the correction both run in that window and must see both, without having to
     /// know which is which -- and must keep seeing the same set across a re-genotyping round, or
     /// the second pass would phase a different population from the first.
-    vector<PendingRecord*> records_for_render();
+    /// The retained records a pass should look at.
+    ///
+    /// `for_phasing` is the difference between "what will be written" and "what has a genotype".
+    /// A `no_reference` chain has no REF or POS, so it cannot be RENDERED -- but it is genotyped,
+    /// it is anchored, and its strand is meaningful, so excluding it from the phasing was the VCF's
+    /// constraint deciding what gets inferred. Only the VCF needs it; the anchors and the mosaic do
+    /// not.
+    vector<PendingRecord*> records_for_render(bool for_phasing = false);
 
     /// `panel_alleles` for a record, computed once and kept. See `PendingRecord::panel_cache`.
     const vector<int>& cached_panel_alleles(PendingRecord& rec);
