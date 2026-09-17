@@ -59,8 +59,8 @@ void help_paths(char** argv) {
          << "  -F, --extract-fasta       print the paths in FASTA format" << endl
          << "  -c, --coverage            print the coverage stats for selected paths" << endl
          << "                            (not including cycles)" << endl
-         << "    -N, --node-list         given a set of nodes (one per line), print the " << endl
-         << "                            path offsets of each selected path traversing each node" << endl
+         << "  -N, --node-list           given a set of nodes (one per line), print the path" << endl
+         << "                            offsets of each selected path traversing each node" << endl
 
          << "path selection:" << endl
          << "  -p, --paths-file FILE     select paths named in a file (one per line)" << endl
