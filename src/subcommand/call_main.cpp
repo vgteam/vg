@@ -102,7 +102,11 @@ void help_call(char** argv) {
          << "      --gaf-base-binary P   gbz-base executable to run [gbz-base]" << endl
          << "      --read-window N       node-ID window for indexed read fetches" << endl
          << "                            [16384 for --gaf-base, 256 for --gam-index]" << endl
-         << "      --read-min-mapq N     ignore reads with MAPQ below N [0]" << endl
+         << "      --read-min-mapq N     ignore reads with MAPQ below N. Removing such a read" << endl
+         << "                            differs from down-weighting it: the mismap term" << endl
+         << "                            saturates, while removal also takes it out of the" << endl
+         << "                            genotype and the site reliability mean" << endl
+         << "                            [0, or 10 under --preset ont]" << endl
          << "" << endl
          << "  allele enumeration:" << endl
          << "      --enumerate-support   enumerate candidate alleles from read support rather" << endl
@@ -368,6 +372,10 @@ void help_call(char** argv) {
          << "  -o, --ref-offset N        offset in reference path (may repeat; 1 per path)" << endl
          << "  -l, --ref-length N        override reference length for output VCF contig" << endl
          << "  -d, --ploidy N            ploidy of sample. {1, 2} [2]" << endl
+         << "      --no-off-ref-nesting  with --anchors-out, do NOT descend into chains the" << endl
+         << "                            reference does not cross. They have no REF or POS so" << endl
+         << "                            they never reach the VCF, but they have reads and a" << endl
+         << "                            haplotype, which is what an anchor is [descend]" << endl
          << "      --no-nested           genotype each snarl against its own full traversals," << endl
          << "                            without collapsing or descent. Nested calling is on" << endl
          << "                            by default under --read-likelihood, where it is" << endl
@@ -457,6 +465,7 @@ int main_call(int argc, char** argv) {
     bool   phased_explicit = false;
     string mosaic_out;
     string anchors_out;
+    bool no_off_ref_nesting = false;
     AnchorParams anchor_params;
     /// This run's anchor counters. Owned here rather than by the subsystem, so a second caller in
     /// one process would count into its own; see AnchorParams::counters.
@@ -595,6 +604,7 @@ int main_call(int argc, char** argv) {
     bool realign_explicit = false;
     bool phase_min_q_explicit = false;
     bool gap_open_explicit = false, gap_extend_explicit = false, mismap_min_explicit = false;
+    bool read_min_mapq_explicit = false;
     double min_confidence = 0.0;
     double linkage_weight = 2.0;
     /// Whether a weight was asked for, as opposed to inherited from the default. The two must
@@ -608,6 +618,9 @@ int main_call(int argc, char** argv) {
     bool depth_count_raw = false;
     double max_mismap_prob = 0.7;
     double min_mismap_prob = 0.02;
+    // 0 globally, 10 under --preset ont. GLOBAL is not safe: simulated reads carry MAPQ 0, so a
+    // global 10 discards every read and emits no variants at all -- 65 of this suite's tests fail
+    // that way, which is what a user with an unmapped-quality GAM would see as silence.
     int read_min_mapq = 0;
 
     // constants
@@ -676,6 +689,7 @@ int main_call(int argc, char** argv) {
     constexpr int OPT_PLOIDY_BED = 1043;
     constexpr int OPT_NESTED = 1044;
     constexpr int OPT_NO_NESTED = 1045;
+    constexpr int OPT_NO_OFF_REF_NESTING = 1101;
     constexpr int OPT_NO_PHASED = 1046;
     constexpr int OPT_LINKAGE_WEIGHT = 1028;
     constexpr int OPT_LINKAGE_SCALE = 1030;
@@ -756,6 +770,7 @@ int main_call(int argc, char** argv) {
         {"ploidy-bed", required_argument, 0, OPT_PLOIDY_BED,                OWN_CORE},
         {"nested", no_argument, 0, OPT_NESTED,                              OWN_CORE},
         {"no-nested", no_argument, 0, OPT_NO_NESTED,                        OWN_CORE},
+        {"no-off-ref-nesting", no_argument, 0, OPT_NO_OFF_REF_NESTING,      OWN_ANCHORS},
         {"no-phased", no_argument, 0, OPT_NO_PHASED,                        OWN_READ_LIKELIHOOD},
         {"gaf", no_argument, 0, 'G',                                        OWN_CORE},
         {"traversals", no_argument, 0, 'T',                                 OWN_CORE},
@@ -1166,6 +1181,9 @@ int main_call(int argc, char** argv) {
             nested_calling = true;
             nested_explicit = true;
             break;
+        case OPT_NO_OFF_REF_NESTING:
+            no_off_ref_nesting = true;
+            break;
         case OPT_NO_NESTED:
             nested_calling = false;
             nested_explicit = true;
@@ -1225,6 +1243,7 @@ int main_call(int argc, char** argv) {
             realign = false;
             break;
         case OPT_READ_MIN_MAPQ:
+            read_min_mapq_explicit = true;
             read_min_mapq = parse<int>(optarg);
             break;
         case OPT_GAM_INDEX:
@@ -1360,6 +1379,28 @@ int main_call(int argc, char** argv) {
             }
             if (!mismap_min_explicit) {
                 min_mismap_prob = 0.05;
+            }
+            if (!read_min_mapq_explicit) {
+                // A read below 10 is 31x enriched at the junctions that produce a true switch, and
+                // EXCLUDING one is not the same lever as down-weighting it. `phase_link`'s escape
+                // mixture already drives a low-reliability read's contribution to zero, so the
+                // mismap clamp is saturated: --mismap-max 0.7 -> 0.99 moves chr20 from 55 true
+                // switches to 57. Removal reaches two things the clamp cannot -- the GENOTYPE,
+                // whose settled pair every other read's q0 is measured against, and site
+                // `reliability`, which is a MEAN and so is pulled under --phase-min-q by one bad
+                // read.
+                //
+                // Measured on both contigs, monotone in the same direction with no arm worse than
+                // baseline on either: chr20 55 true switches -> 45, chr6 63 -> 60, ALL/SNV/
+                // insertion/deletion F1 flat to the fourth decimal and SV F1 unmoved. Reliable het
+                // counts RISE -- chr20 60,203 -> 61,776, chr6 162,622 -> 163,527 -- because
+                // discarding the reads lifts sites back over the gate. chr20's own optimum is
+                // 20-30; 10 is the conservative value, improving both while discarding least.
+                //
+                // Keyed on the preset because it is a statement about ONT MAPQ, where 94.67% of
+                // alignments are 60. It is not one about a read set whose mapper writes no mapping
+                // quality at all, and for that set a nonzero default is silence.
+                read_min_mapq = 10;
             }
             if (!insertion_nats_explicit) {
                 // ONT's basecaller miscounts a homopolymer run in one direction more often than
@@ -2006,6 +2047,24 @@ int main_call(int argc, char** argv) {
                               << endl;
             }
             break;
+        }
+    }
+
+    // Anchors are not a reference-coordinate product. A chain the reference does not cross has no
+    // REF or POS and so can never reach the VCF, but it has reads, a genotype and a haplotype -- and
+    // for assembling a complex locus it is the population that matters most, because it is exactly
+    // the variation that sits inside a non-reference allele. Gating it on reference expressibility
+    // let the VCF's constraint decide what gets ANCHORED.
+    //
+    // So --anchors-out turns the descent on, and --no-off-ref-nesting turns it back off. Measured on
+    // chr20: 8,329 more snarls anchored, of which 1,009 heterozygous, and the phase chain goes
+    // 76,135 het sites to 77,374 with 492 more reliable. Purely additive -- not one of the 172,082
+    // existing snarls changed a slot.
+    if (!anchors_out.empty() && !no_off_ref_nesting) {
+        enable_off_reference_nesting();
+        if (show_progress) {
+            logger.info() << "anchors requested: descending into chains the reference does not "
+                          << "cross, which have no VCF record but do have anchors" << endl;
         }
     }
 
