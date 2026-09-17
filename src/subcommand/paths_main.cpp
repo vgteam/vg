@@ -59,6 +59,9 @@ void help_paths(char** argv) {
          << "  -F, --extract-fasta       print the paths in FASTA format" << endl
          << "  -c, --coverage            print the coverage stats for selected paths" << endl
          << "                            (not including cycles)" << endl
+         << "    -N, --node-list         given a set of nodes (one per line), print the " << endl
+         << "                            path offsets of each selected path traversing each node" << endl
+
          << "path selection:" << endl
          << "  -p, --paths-file FILE     select paths named in a file (one per line)" << endl
          << "  -Q, --paths-by STR        select paths with the given name prefix" << endl
@@ -136,6 +139,7 @@ int main_paths(int argc, char** argv) {
     string path_prefix;
     string sample_name;
     string path_file;
+    string node_list_file;
     bool select_alt_paths = false;
     // What kinds of paths are we interested in?
     // Starts empty, but if the options put nothing in it we will add all senses.
@@ -188,6 +192,7 @@ int main_paths(int argc, char** argv) {
             {"reference-paths", no_argument, 0, 'R'},
             {"haplotype-paths", no_argument, 0, 'H'},
             {"coverage", no_argument, 0, 'c'},            
+            {"node-list", required_argument, 0, 'N'},
             {"overlay", no_argument, 0, 'o'},
             {"threads", required_argument, 0, 't'},
             {"progress", no_argument, 0, OPT_PROGRESS},
@@ -207,7 +212,7 @@ int main_paths(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "h?LXv:x:g:Q:VEMCFAS:drnaGRHp:coTq:t:ul:",
+        c = getopt_long (argc, argv, "h?LXv:x:g:Q:VEMCFAS:drnaGRHp:cN:oTq:t:ul:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -326,6 +331,11 @@ int main_paths(int argc, char** argv) {
             overlay = true;
             break;
 
+        case 'N':
+            node_list_file = optarg;
+            output_formats++;
+            break;
+
         case 'T':
             logger.warn() << "option -T/--threads-old is obsolete; use -t/--threads" << std::endl;
             break;
@@ -408,7 +418,7 @@ int main_paths(int argc, char** argv) {
         }
     } 
     if (output_formats != 1) {
-        logger.error() << "one output format (-X, -A, -d, -r, -n, -L, -F, -E, -C or -c) "
+        logger.error() << "one output format (-X, -A, -d, -r, -n, -L, -F, -E, -C, -c or -N) "
                        << "must be specified" << std::endl;
     }
     if (selection_criteria > 1) {
@@ -1000,6 +1010,62 @@ int main_paths(int argc, char** argv) {
                 }
                 cout << std::endl;
             });
+        } else if (!node_list_file.empty()) { 
+            // For each node in the file and for each selected path, write the node id, the path, and the offsets of the node in the path as TSV of:
+            // node_id, path:start-end
+
+
+            // If we want node offsets, we need a PathPositionHandleGraph
+            // Get a list of paths to include in the path position overlay
+            std::unordered_set<std::string> paths_set;
+            for_each_selected_path([&](path_handle_t path_handle) { 
+                paths_set.emplace(graph->get_path_name(path_handle));
+            });
+
+            bdsg::PathPositionOverlayHelper overlay_helper;
+            bdsg::PathPositionHandleGraph* path_position_graph = overlay_helper.apply(path_handle_graph.get(), paths_set);
+
+            // Now get the output
+
+            std::cout << "node_id\tpath_offset" << std::endl;
+            ifstream nli;
+            nli.open(node_list_file);
+            if (!nli.good()){
+                cerr << "[vg paths] error, unable to open the node list input file " << node_list_file << endl;
+                exit(1);
+            }
+
+            string line;
+            while (getline(nli, line)){
+                for (auto& idstr : split_delims(line, " \t")) {
+                    nid_t node_id = parse<nid_t>(idstr.c_str());
+                    handle_t node_handle = path_position_graph->get_handle(node_id);
+                    size_t node_length = path_position_graph->get_sequence(node_handle).size();
+
+                    // Go through each path step on the node
+                    path_position_graph->for_each_step_on_handle(node_handle, [&](const step_handle_t& step_handle) {
+
+                        // For each path we're interested in, if this is the same path as on the step, write something
+                        // TODO: It would be more efficient to check if the path passes the user-specified filters but
+                        //       I'd rather reuse this function than write my own
+                        for_each_selected_path([&](path_handle_t path_handle) { 
+                            if (path_handle == path_position_graph->get_path_handle_of_step(step_handle)) {
+                                size_t node_offset = path_position_graph->get_position_of_step(step_handle);
+                                std::cout << node_id << "\t" << path_position_graph->get_path_name(path_handle) << ":"
+                                          << node_offset << "-"
+                                          << node_offset + node_length << std::endl;  
+
+                                //return false to ignore the rest of the paths
+                                return false;
+                            }
+                            return true;
+                        });
+                        return true;
+                    });
+                }
+            }
+            nli.close();
+
         } else {
             if (list_metadata) {
                 // Add a header
