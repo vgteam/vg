@@ -332,7 +332,7 @@ int main_paths(int argc, char** argv) {
             break;
 
         case 'N':
-            node_list_file = optarg;
+            node_list_file = require_exists(logger, optarg);
             output_formats++;
             break;
 
