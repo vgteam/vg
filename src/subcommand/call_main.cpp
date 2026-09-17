@@ -263,19 +263,22 @@ void help_call(char** argv) {
          << "                            a homozygous site may be split. A site whose reads" << endl
          << "                            all lean one way has been relabelled, not split [2]" << endl
          << "      --no-anchors-phase-hets" << endl
-         << "                            place a read at a HETEROZYGOUS site by its allele match" << endl
-         << "                            ALONE. By default the read's accumulated cross-site" << endl
-         << "                            strand tilts that choice, which is the same posterior" << endl
-         << "                            weighting --regenotype uses. Without it the slot is" << endl
-         << "                            decided afresh at every site, so neighbouring sites" << endl
-         << "                            disagree about a read 6.44% of the time on chr20 ONT," << endl
-         << "                            against 0.00% between two split homozygotes" << endl
-         << "      --anchors-strict-hets place a het read by the SIGN of its strand alone," << endl
-         << "                            ignoring the allele match. The CONTROL arm for the" << endl
-         << "                            default tilt, not a recommendation: it discards the" << endl
-         << "                            site's own evidence on purpose. A read with no strand" << endl
-         << "                            opinion keeps its allele-match slot, so this arm holds" << endl
-         << "                            the same reads as the default [off]" << endl
+         << "                            place a het read by its allele match ALONE." << endl
+         << "                            By default the read's accumulated cross-site" << endl
+         << "                            strand tilts that choice -- the same posterior" << endl
+         << "                            weighting --regenotype uses. Without it the slot" << endl
+         << "                            is decided afresh at every site, so neighbouring" << endl
+         << "                            sites disagree about a read 6.44% of the time on" << endl
+         << "                            chr20 ONT, against 0.00% between two split" << endl
+         << "                            homozygotes" << endl
+         << "      --anchors-strict-hets" << endl
+         << "                            place a het read by the SIGN of its strand" << endl
+         << "                            alone, ignoring the allele match. The" << endl
+         << "                            CONTROL arm for the default tilt, not a" << endl
+         << "                            recommendation: it discards the site's own" << endl
+         << "                            evidence on purpose. A read with no strand opinion" << endl
+         << "                            keeps its allele-match slot, so this arm holds the" << endl
+         << "                            same reads as the default [off]" << endl
          << "      --anchors-het-only    only heterozygous sites. By default homozygous and" << endl
          << "                            haploid ones are emitted too: they carry no" << endl
          << "                            haplotype information, but an anchor graph is built" << endl
