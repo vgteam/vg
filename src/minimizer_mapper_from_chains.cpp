@@ -1708,11 +1708,6 @@ void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::ve
     // Track how many tree chains were used
     std::unordered_map<size_t, size_t> chains_per_tree;
 
-    // Track what positions were used in previously generated alignments, so we
-    // can fish out alignments to different placements.
-    // Use pairs since we can't hash tuples.
-    // {((node ID, orientation), read-minus-node) : (chain number, alignment number)}
-    std::unordered_map<std::pair<std::pair<nid_t, bool>, int64_t>, std::pair<size_t, size_t>> used_matchings;
     // To avoid redoing alignment components we've already done
     // {(start seed, end seed) : path}
     unordered_map<pair<size_t, size_t>, ScoredPath> memoized_alignments;
@@ -1746,57 +1741,6 @@ void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::ve
                 funnel.pass("min-chain-score-per-base||max-min-chain-score", processed_num, chain_scores[processed_num]);
                 funnel.pass("max-alignments", processed_num);
                 funnel.processing_input(processed_num);
-            }
-
-            for (auto& seed_num : chains.at(processed_num).anchors) {
-                // Look at the individual pin points and their associated read-node offset
-                size_t read_pos = minimizers[seeds.at(seed_num).source].pin_offset();
-                pos_t graph_pos = seeds.at(seed_num).pos;
-
-                nid_t node_id = id(graph_pos);
-                bool orientation = is_rev(graph_pos);
-                int64_t read_minus_node_offset = (int64_t)read_pos - (int64_t)offset(graph_pos);
-                auto matching = std::make_pair(std::make_pair(node_id, orientation), read_minus_node_offset);
-                if (used_matchings.count(matching)) {
-                    if (track_provenance) {
-                        funnel.fail("no-chain-overlap", processed_num);
-                    }
-                    if (show_work) {
-                        #pragma omp critical (cerr)
-                        {
-                            cerr << log_name() << "Chain " << processed_num << " overlaps a previous alignment at read pos "
-                                 << read_pos << " and graph pos " << graph_pos << " with matching "
-                                 << matching.first.first << ", " << matching.first.second << ", " << matching.second << endl;
-                        }
-                    }
-                    if (chain_scores[processed_num] == chain_scores[used_matchings.at(matching).first]) {
-                        // Don't count this chain against the other one, since it's overlapping
-                        crash_unless(chain_count_by_alignment[used_matchings.at(matching).second] > 0);
-                        chain_count_by_alignment[used_matchings.at(matching).second]--;
-                        return false;
-                    }
-                } else {
-#ifdef debug
-                    if (show_work) {
-                        #pragma omp critical (cerr)
-                        {
-                            cerr << log_name() << "Chain " << processed_num << " uniquely places read pos "
-                                 << read_pos << " at graph pos " << graph_pos << " with matching "
-                                 << matching.first.first << ", " << matching.first.second << ", " << matching.second << endl;
-                        }
-                    }
-#endif
-                }
-            }
-            if (show_work) {
-                #pragma omp critical (cerr)
-                {
-                    cerr << log_name() << "Chain " << processed_num << " overlaps none of the "
-                         << used_matchings.size() << " read-node matchings used in previous alignments" << endl;
-                }
-            }
-            if (track_provenance) {
-                funnel.pass("no-chain-overlap", processed_num);
             }
 
             // Collect the top alignments. Make sure we have at least one always, starting with unaligned.
@@ -1844,38 +1788,6 @@ void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::ve
                 alignments_to_source.push_back(processed_num);
                 multiplicity_by_alignment.emplace_back(chains.at(processed_num).multiplicity);
                 chain_count_by_alignment.emplace_back(item_count);
-                
-                size_t read_pos = 0;
-                for (auto& mapping : alignments.back().path().mapping()) {
-                    // Mark all the read-node matches it visits used.
-                    pos_t graph_pos = make_pos_t(mapping.position());
-
-                    nid_t node_id = id(graph_pos);
-                    bool orientation = is_rev(graph_pos);
-                    size_t graph_offset = offset(graph_pos);
-
-                    for (auto& edit : mapping.edit()) {
-                        if (edit.sequence().empty() && edit.from_length() == edit.to_length()) {
-                            // It's an actual match so make a matching
-                            int64_t read_minus_node_offset = (int64_t)read_pos - (int64_t)graph_offset;
-                            auto matching = std::make_pair(std::make_pair(node_id, orientation), read_minus_node_offset);
-
-#ifdef debug
-                            if (show_work) {
-                                #pragma omp critical (cerr)
-                                {
-                                    cerr << log_name() << "Create matching " << matching.first.first << ", " << matching.first.second << ", " << matching.second << endl;
-                                }
-                            }
-#endif
-
-                            used_matchings.emplace(std::move(matching), std::make_pair(processed_num, chain_count_by_alignment.size() - 1));
-                        }
-                        read_pos += edit.to_length();
-                        graph_offset += edit.from_length();
-                    }
-                    
-                }
 
                 if (track_provenance) {
                     funnel.project(processed_num);
