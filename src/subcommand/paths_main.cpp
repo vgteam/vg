@@ -439,6 +439,9 @@ int main_paths(int argc, char** argv) {
     if (compute_gref && !gbwt_file.empty()) {
         logger.error() << "gref computation only works on embedded graph paths, not GBWT threads" << std::endl;
     }
+    if (!node_list_file.empty() && !gbwt_file.empty()) {
+        logger.error() << "--node-list only works on embedded graph paths, not GBWT threads" << std::endl;
+    }
     if (compute_gref && path_prefix.empty()) {
         logger.error() << "--compute-gref requires -Q to select reference path(s)" << std::endl;
     }
