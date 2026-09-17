@@ -5710,6 +5710,21 @@ int FlowCaller::offset_of_child(const SnarlTraversal& trav, const Snarl& child) 
     return -1;
 }
 
+int64_t FlowCaller::base_offset_of_child(const SnarlTraversal& trav, const Snarl& child) const {
+    const int entry = offset_of_child(trav, child);
+    if (entry < 0) {
+        return -1;
+    }
+    int64_t bases = 0;
+    for (int i = 0; i < entry && i < trav.visit_size(); ++i) {
+        if (trav.visit(i).has_snarl()) {
+            continue;
+        }
+        bases += (int64_t)graph.get_length(graph.get_handle(trav.visit(i).node_id()));
+    }
+    return bases;
+}
+
 vector<int> FlowCaller::sibling_order(const SnarlTraversal& first, const SnarlTraversal& second,
                                       const vector<const Snarl*>& children) {
     const size_t n = children.size();
@@ -7973,7 +7988,9 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
             pending_this->no_reference = no_ref_position;
             pending_this->reported_inline = nested_context.reported_inline;
             pending_this->anchor_position =
-                no_ref_position ? get<0>(ref_interval) + ref_offset_of(ref_offsets, ref_path_name) : 0;
+                no_ref_position ? get<0>(ref_interval) + ref_offset_of(ref_offsets, ref_path_name)
+                                      + (int64_t)nested_context.anchor_offset
+                                : 0;
             pending_this->crossing_known = nested_context.crossing_known;
             pending_this->generation = (uint8_t)min(current_generation, (size_t)255);
             pending_this->call_info = std::move(trav_call_info);
@@ -8108,6 +8125,25 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
                 nested_context.parent_record_key = record_key_of(snarl);
                 nested_context.retain_only = retain_only;
                 nested_context.no_reference = child_off_reference;
+                // Where this child starts along the settled traversal that reaches it, added to
+                // whatever offset placed its parent. Only an off-reference chain uses it -- a
+                // positioned one has a reference coordinate that is strictly better -- but it is
+                // computed for both, because a positioned parent can have off-reference children and
+                // the offsets have to compose down the tree.
+                {
+                    int64_t within = -1;
+                    for (int allele : trav_genotype) {
+                        if (allele < 0 || allele >= (int)travs.size()) {
+                            continue;
+                        }
+                        within = base_offset_of_child(travs[allele], *child);
+                        if (within >= 0) {
+                            break;   // the first settled traversal that reaches it
+                        }
+                    }
+                    nested_context.anchor_offset =
+                        saved.anchor_offset + (size_t)max((int64_t)0, within);
+                }
                 nested_context.reported_inline = child_reported_inline;
                 // The chain's IDENTITY, and nothing else about it. Sibling chains have no
                 // transition between them, so a chain need only be distinguishable from its

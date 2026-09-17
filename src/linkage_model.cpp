@@ -31,10 +31,22 @@ static std::atomic<size_t> g_group_parent_unpinned(0), g_group_parent_pinned(0);
 /// Clamped at 1: `switch_probability` reads a gap of 0 as 1 anyway, and a negative one would wrap.
 static inline std::pair<size_t, size_t> site_gap(const LinkageModel::Site& prev,
                                                 const LinkageModel::Site& next) {
+    if (prev.unpositioned && next.unpositioned) {
+        // BOTH anchored, and a run is grouped by (parent, chain, ploidy) before it reaches the
+        // model, so two unpositioned sites in one run are in the same chain by construction. Their
+        // positions are then offsets along the same parent traversal, and the difference between
+        // them IS a distance -- the same quantity a reference difference is, measured on the
+        // haplotype the chain actually sits on rather than on a reference that does not visit it.
+        //
+        // Without this an off-reference chain got SIZE_MAX between every consecutive pair, so the
+        // model forgot at every step and the chain carried no linkage at all internally.
+        const size_t d = next.position > prev.position ? (size_t)(next.position - prev.position) : 1;
+        return {d, d};
+    }
     if (prev.unpositioned || next.unpositioned) {
-        // EITHER, not both. A mixed pair is the common case -- a parent's children interleave chains
-        // the reference crosses with chains it does not -- and differencing an anchor against a real
-        // coordinate is not a distance. SIZE_MAX gives rho = 1.0, at which `transition_apply`'s
+        // A MIXED pair -- one anchored, one real. This is the common case, because a parent's
+        // children interleave chains the reference crosses with chains it does not, and differencing
+        // an anchor against a real coordinate is not a distance. SIZE_MAX gives rho = 1.0, at which `transition_apply`'s
         // T = (1-rho)I + (rho/m)11' is exactly uniform: the chain forgets, which is what "unknown"
         // means here. A clamp to 1 would be the opposite claim -- perfect linkage between two sites
         // about which nothing is known.

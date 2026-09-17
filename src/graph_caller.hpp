@@ -508,6 +508,16 @@ protected:
         /// carries it. Inherited by its own children: a chain whose existence depends on an ancestor
         /// the sample may not have cannot be emitted either.
         bool retain_only = false;
+        /// Where this chain starts along its parent's settled traversal, in bases, added to the
+        /// parent's anchor to give an off-reference chain a position of its own.
+        ///
+        /// Without it every off-reference child of one parent shares the parent's anchor exactly, so
+        /// the linkage layer's per-group sort on `(position, record key)` ties and falls back to a
+        /// hash of the snarl -- an arbitrary order -- and `site_gap` has nothing to difference. With
+        /// it the sites of such a chain are ordered as the haplotype visits them and separated by a
+        /// real distance. Inherited additively, so a grandchild is placed within its parent, which is
+        /// placed within ITS parent.
+        size_t anchor_offset = 0;
         /// Permission to genotype a chain the reference does not cross. Inherited, like
         /// `retain_only`: everything under such a chain is also off the reference. It is only
         /// PERMISSION -- whether a given snarl actually has a reference path is re-derived per
@@ -1579,6 +1589,14 @@ public:
     /// own order.
     static vector<int> sibling_order(const SnarlTraversal& first, const SnarlTraversal& second,
                                      const vector<const Snarl*>& children);
+
+    /// How far along `trav`, in bases, the child chain is entered -- the summed length of the nodes
+    /// visited before it. -1 if `trav` does not cross it.
+    ///
+    /// This is the reference-free analogue of a reference offset, and it serves BOTH jobs a position
+    /// does: it orders a parent's children, and its difference between two of them is a distance the
+    /// transition model can use.
+    int64_t base_offset_of_child(const SnarlTraversal& trav, const Snarl& child) const;
 protected:
 
     /// One bit per candidate TRAVERSAL: bit i is set where `travs[i]` crosses `child`.
