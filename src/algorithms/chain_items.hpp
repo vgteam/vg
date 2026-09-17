@@ -440,20 +440,7 @@ struct ChainScoringScheme {
     int consistency_bonus = 0;
 };
 
-/// Represents the chain filtering scheme, dictating how we judge
-/// the tracebacks that are found
-/// Default values are suitable for a single-chain traceback, i.e. find_best_chain()
-struct ChainFilteringScheme {
-    /// How many tracebacks do we want to find?
-    size_t max_chains = 1;
-    /// What's the minimum number of chains we want to align later?
-    size_t min_chains = 1;
-    /// What's the chain score drop we're willing to take once
-    /// once we already have min_chains worth of tracebacks?
-    size_t chain_score_threshold = 0;
-};
-
-/// An oriented tail end of a subchain/traceback
+/// An oriented tail end of a traceback
 struct TailAnchor {
     /// Index of the anchor on this end
     size_t anchor_index;
@@ -471,67 +458,23 @@ struct TailAnchor {
 
 /// A single chain result with only anchors in order
 struct SparseAnchorChain {
-    /// Score of the sparse chain
-    int chain_score = 0;
     /// Anchors in order along the chain
     std::vector<size_t> anchors;
+    /// Score of the sparse chain
+    int chain_score = 0;
+
+    // Extra annotations
+
+    /// How many recombinations this chain is known to have (inf means unset)
+    size_t rec_count = numeric_limits<size_t>::max();
+    /// Which ziptree this chain was found in (if known)
+    size_t source_tree = numeric_limits<size_t>::max();
+    /// Chain multiplicity (if known)
+    size_t multiplicity = numeric_limits<size_t>::max();
 
     /// Helpers to get oriented tails
     inline TailAnchor left_tail() const { return {anchors.front(), true}; }
     inline TailAnchor right_tail() const { return {anchors.back(), false}; }
-};
-
-/// A list of anchors which unambiguously connect to each other
-struct Subchain {
-    /// Anchor indexes within this subchain
-    std::vector<size_t> anchors;
-    /// How many recombinations are forced within this subchain
-    size_t rec_count;
-    /// Haplotypes consistent with the start of this subchain
-    /// i.e. can connect to the start anchor without forcing a recombination
-    path_flags_t start_paths;
-    /// Haplotypes consistent with the end of this subchain
-    /// i.e. can connect to the last anchor without forcing a recombination
-    path_flags_t end_paths;
-    /// Should we align left/right tails off of this subchain?
-    bool add_left_tail;
-    bool add_right_tail;
-
-    /// Create a Subchain without recombination annotations
-    inline Subchain(const vector<size_t>& anchor_list, bool add_tails = false) 
-        : anchors(anchor_list), add_left_tail(add_tails), add_right_tail(add_tails) {}
-    
-    /// Helpers to get oriented tails
-    inline TailAnchor left_tail() const { return {anchors.front(), true}; }
-    inline TailAnchor right_tail() const { return {anchors.back(), false}; }
-};
-
-/// Result of finding best chains: a list of subchains and how they
-/// connect to each other, ready to be put in a multipath alignment graph
-struct SubchainGroup {
-    /// Subchains (lists of anchors) which are the "nodes" in this graph
-    std::vector<Subchain> subchains;
-    /// Connections between subchains, as (source index, sink index) pairs
-    std::vector<pair<size_t, size_t>> connections;
-    /// The maximum score of any chain
-    int max_sparse_chain_score = 0;
-
-    /// Create an empty SubchainGroup
-    inline SubchainGroup() {}
-
-    /// Create a single-subchain SubchainGroup
-    inline SubchainGroup(const SparseAnchorChain& chain) 
-        : max_sparse_chain_score(chain.chain_score) {
-        subchains.emplace_back(chain.anchors, true);
-    }
-
-    vector<size_t> all_anchor_ids() const {
-        vector<size_t> anchors;
-        for (const auto& cur_subchain : subchains) {
-            anchors.insert(anchors.begin(), cur_subchain.anchors.begin(), cur_subchain.anchors.end());
-        }
-        return anchors;
-    }
 };
 
 /**
@@ -626,15 +569,6 @@ void chain_items_dp(vector<vector<TracedScore>>& chain_scores,
                     size_t max_indel_bases = 100,
                     bool show_work = false);
 
-/**
- * Count the number of recombination events forced by walking the given
- * subchains of the given group, in order: those forced inside each subchain
- * plus those forced by the connections between them.
- *
- * Used for rescoring purposes.
- */
-size_t count_total_recombinations(const SubchainGroup& group, const vector<size_t>& subchains_used);
-
 /// An alternative edge which a traceback might want to use
 struct AltEdge {
     /// Smaller anchor number
@@ -643,24 +577,24 @@ struct AltEdge {
     size_t end_anchor;
     /// How much of a compromise this edge is
     size_t score_diff;
-    /// Parent ID for start anchor (e.g. traceback index)
-    size_t start_parent = std::numeric_limits<size_t>::max();
+    /// Parent ID for start anchor (traceback number)
+    size_t start_parent_id = std::numeric_limits<size_t>::max();
+    /// Index within start parent
+    size_t index_within_start = std::numeric_limits<size_t>::max();
     /// Parent ID of end anchor
-    size_t end_parent = std::numeric_limits<size_t>::max();
+    size_t end_parent_id = std::numeric_limits<size_t>::max();
+    /// Index within end parent
+    size_t index_within_end = std::numeric_limits<size_t>::max();
 
     /// Build an AltEdge from loose info
     inline AltEdge(size_t start_anchor, size_t end_anchor, size_t score_diff) 
         : start_anchor(start_anchor), end_anchor(end_anchor), score_diff(score_diff) {}
-
-    /// Build an AltEdge with worst score
-    inline AltEdge(size_t start_anchor, size_t end_anchor) 
-        : AltEdge(start_anchor, end_anchor, std::numeric_limits<size_t>::max()) {}
     
     /// Build an AltEdge with completley default values
     inline AltEdge() 
         : AltEdge(std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max()) {}
     
-    inline bool is_max_score_diff() const { return score_diff == numeric_limits<size_t>::max(); }
+    inline bool is_real_edge() const { return score_diff == numeric_limits<size_t>::max(); }
 
     /// Compare for less-than
     inline bool operator<(const AltEdge& other) const {
@@ -691,7 +625,7 @@ struct AltEdge {
 void chain_items_traceback(const vector<vector<TracedScore>>& chain_scores,
                            const VectorView<Anchor>& to_chain,
                            vector<SparseAnchorChain>& tracebacks,
-                           vector<AltEdge>& connections,
+                           vector<AltEdge>& alts,
                            const ChainScoringScheme& scoring_scheme = ChainScoringScheme(),
                            size_t max_tracebacks = 1);
 
@@ -702,23 +636,31 @@ void chain_items_traceback(const vector<vector<TracedScore>>& chain_scores,
  * or trace forwards from a traceback end. They are stored in
  * a lookup table based on the tail anchor being tied in.
  * 
- * If there are multiple tie-ins for a given tail, then
- * the most optimal one (which sacrifices the least score)
- * will be used
+ * If there are multiple tie-ins for a given tail to a given traceback,
+ * the most optimal one (which sacrifices the least score) will be used.
+ * Edges are stored {tail : (tie in to traceback 1, tie in to traceback 2, ...)}
  */
-unordered_map<TailAnchor, AltEdge> filter_alt_edges(const VectorView<Anchor>& to_chain,
-                                                    const vector<SparseAnchorChain>& original_tracebacks,
-                                                    const vector<AltEdge>& connections);
+unordered_map<TailAnchor, vector<AltEdge>> filter_alt_edges(const VectorView<Anchor>& to_chain,
+                                                            const vector<SparseAnchorChain>& original_tracebacks,
+                                                            const vector<AltEdge>& alts);
 
 /**
- * Generate subchains from multiple tracebacks.
+ * Construct better tracebacks by letting them overlap via tail tie-ins.
  * 
- * Split up tracebacks when possible inter-chain alternatives exist.
- * If no edges connect the tracebacks then they are returned separately.
+ * For each original traceback, try to extend in both directions
+ * via the edges stored in tail_edges, so long as the extension is helpful.
+ * 
+ * May end up with more tracebacks than the original, if a traceback is
+ * extended in multiple ways.
  */
-vector<SubchainGroup> split_up_subchains(const VectorView<Anchor>& to_chain,
-                                         const vector<SparseAnchorChain>& original_tracebacks,
-                                         const unordered_map<TailAnchor, AltEdge>& tail_edges);
+vector<SparseAnchorChain> extend_tracebacks_with_alts(const vector<vector<TracedScore>>& chain_scores,
+                                                      const vector<SparseAnchorChain>& original_tracebacks,
+                                                      const unordered_map<TailAnchor, vector<AltEdge>> tail_edges);
+
+/**
+ * Assign a rec_count to each chain in the list
+ */
+void mark_rec_count(const VectorView<Anchor>& to_chain, vector<SparseAnchorChain>& chains);
 
 /**
  * Chain up the given group of items. Determines the best scores and
@@ -727,17 +669,16 @@ vector<SubchainGroup> split_up_subchains(const VectorView<Anchor>& to_chain,
  * Input items must be sorted by start position in the read.
  *
  * Gets initial tracebacks and inter-traceback connections,
- * then joins them into a SubchainGroup. If the tracebacks are
- * entirely disjoint then return multiple SubchainGroups.
+ * then tries to extend each nonoptimal traceback with tie-in edges
  */
-vector<SubchainGroup> find_best_chains(const VectorView<Anchor>& to_chain,
-                                       const SnarlDistanceIndex& distance_index,
-                                       const HandleGraph& graph,
-                                       const transition_iterator& for_each_transition,
-                                       const ChainScoringScheme& scoring_scheme = ChainScoringScheme(),
-                                       const ChainFilteringScheme& filtering_scheme = ChainFilteringScheme(),
-                                       size_t max_indel_bases = 100,
-                                       bool show_work = false);
+vector<SparseAnchorChain> find_best_chains(const VectorView<Anchor>& to_chain,
+                                           const SnarlDistanceIndex& distance_index,
+                                           const HandleGraph& graph,
+                                           const transition_iterator& for_each_transition,
+                                           const ChainScoringScheme& scoring_scheme = ChainScoringScheme(),
+                                           size_t max_chains = 1,
+                                           size_t max_indel_bases = 100,
+                                           bool show_work = false);
 
 /**
  * Chain up the given group of items. Determines the best score and

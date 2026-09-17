@@ -899,10 +899,8 @@ protected:
                               const std::vector<Seed>& seeds,
                               const VectorView<MinimizerMapper::Minimizer>& minimizers,
                               const vector<algorithms::Anchor>& seed_anchors,
-                              std::vector<algorithms::SubchainGroup>& subchain_groups,
-                              std::vector<size_t>& subchain_source_tree,
+                              std::vector<algorithms::SparseAnchorChain>& chains,
                               std::vector<std::vector<size_t>>& minimizer_kept_chain_count,
-                              std::vector<double>& multiplicity_by_chain,
                               std::vector<Alignment>& alignments,
                               SmallBitset& minimizer_explored,
                               vector<double>& multiplicity_by_alignment,
@@ -913,9 +911,7 @@ protected:
                                 const std::vector<Seed>& seeds, 
                                 const VectorView<MinimizerMapper::Minimizer>& minimizers, 
                                 const vector<algorithms::Anchor>& seed_anchors,
-                                const std::vector<algorithms::SubchainGroup>& subchain_groups, 
-                                const std::vector<size_t>& subchain_source_tree,
-                                const std::vector<double>& multiplicity_by_chain,
+                                const std::vector<algorithms::SparseAnchorChain>& chains,
                                 const std::vector<std::vector<size_t>>& minimizer_kept_chain_count,
                                 vector<Alignment>& alignments,
                                 vector<double>& multiplicity_by_alignment,
@@ -937,30 +933,30 @@ protected:
                                        std::vector<Alignment>& mappings,
                                        std::vector<double>& scores,
                                        LazyRNG& rng, Funnel& funnel) const;
-
-    /**
-     * Take a SubchainGroup result and find Alignments within it
-     *
-     * Uses a backing multipath_alignment_t with subpaths (subchains)
-     * and edges (link alignments) scored based on actual base-level alignment.
-     * Outsources DP to the MP alignment, then reconstructs the actual paths.
-     *
-     * If given base processing stats for bases and for time, adds aligned bases and consumed time to them.
-     */
-    vector<Alignment> do_base_level_alignment(const Alignment& aln, 
-                                              const VectorView<algorithms::Anchor>& to_chain,
-                                              const algorithms::SubchainGroup& subchain_group,
-                                              const size_t& max_chains,
-                                              Funnel& funnel,
-                                              aligner_stats_t* stats = nullptr) const;
-
-    // A bunch of helpers for do_base_level_alignment() that do bits and pieces
-
+    
     // Path along with its score (as a step towards an Alignment)
     struct ScoredPath {
         Path path;
         int32_t score = 0;
     };
+
+    /**
+     * Convert a SparseAnchorChain to a base-level alignment
+     * 
+     * Attempts to reuse alignments already computed and stored as
+     * {(start seed, end seed) : path} in memoized_alignments.
+     * Saves all new alignments to there too.
+     *
+     * If given base processing stats for bases and for time, adds aligned bases and consumed time to them.
+     */
+    Alignment do_base_level_alignment(const Alignment& aln, 
+                                      const VectorView<algorithms::Anchor>& to_chain,
+                                      const algorithms::SparseAnchorChain& chain,
+                                      unordered_map<pair<size_t, size_t>, ScoredPath>& memoized_alignments,
+                                      Funnel& funnel,
+                                      aligner_stats_t* stats = nullptr) const;
+
+    // A bunch of helpers for do_base_level_alignment() that do bits and pieces    
 
     /**
      * Find an optimal alignment path for a tail extending out from an anchor.
@@ -1006,20 +1002,6 @@ protected:
                                    const WFAExtender& wfa_extender,
                                    const Aligner& aligner,
                                    aligner_stats_t* stats = nullptr) const;
-    
-    /**
-     * Find all non-tail alignments necessary to align this chain.
-     * 
-     * Returns the path of the alignment
-     * and then the anchor ID for the last anchor used
-     * (which may not be the last in the chain if we bailed)
-     */
-    pair<ScoredPath, size_t> find_all_inner_chain_links(const VectorView<algorithms::Anchor>& to_chain,
-                                                        const Alignment& aln,
-                                                        const vector<size_t>& chain,
-                                                        const WFAExtender& wfa_extender,
-                                                        const Aligner& aligner,
-                                                        aligner_stats_t* stats = nullptr) const;
      
      /**
      * Operating on the given input alignment, align the tails dangling off the
@@ -1567,8 +1549,7 @@ protected:
                                    const std::vector<Seed>& seeds,
                                    const VectorView<Minimizer>& minimizers,
                                    const vector<algorithms::Anchor>& seed_anchors,
-                                   const std::vector<algorithms::SubchainGroup>& subchain_groups,
-                                   const std::vector<size_t>& subchain_source_tree,
+                                   const std::vector<algorithms::SparseAnchorChain>& chains,
                                    const PathPositionHandleGraph* path_graph,
                                    bool haplotype_positions);
 

@@ -647,37 +647,14 @@ void chain_items_dp(vector<vector<TracedScore>>& chain_scores,
     }
 }
 
-size_t count_total_recombinations(const SubchainGroup& group, const vector<size_t>& subchains_used) {
-    size_t total_rec_count = group.subchains[subchains_used.front()].rec_count;
-    path_flags_t cur_paths = group.subchains[subchains_used.front()].end_paths;
-    for (size_t i = 1; i < subchains_used.size(); i++) {
-        const Subchain& subchain = group.subchains[subchains_used[i]];
-        if ((cur_paths & subchain.start_paths) == 0) {
-            // This inter-subchain connection requires a recombination
-            total_rec_count += 1;
-            // Paths reset to whatever this next subchain wants
-            cur_paths = subchain.end_paths;
-        } else if (subchain.rec_count > 0) {
-            // The subchain itself requires a recombination, so paths reset
-            cur_paths = subchain.end_paths;
-        } else {
-            // No forced recombinations, so paths narrow down to what is OK with the end
-            cur_paths &= subchain.end_paths;
-        }
-        total_rec_count += subchain.rec_count;
-    }
-
-    return total_rec_count;
-}
-
 void chain_items_traceback(const vector<vector<TracedScore>>& chain_scores,
                            const VectorView<Anchor>& to_chain,
                            vector<SparseAnchorChain>& tracebacks,
-                           vector<AltEdge>& connections,
+                           vector<AltEdge>& alts,
                            const ChainScoringScheme& scoring_scheme,
                            size_t max_tracebacks) {
     tracebacks.reserve(chain_scores.size());
-    connections.reserve(chain_scores.size());
+    alts.reserve(chain_scores.size());
     
     // Get all of the places to start tracebacks, in score order.
     std::vector<size_t> starts_in_score_order;
@@ -697,7 +674,7 @@ void chain_items_traceback(const vector<vector<TracedScore>>& chain_scores,
         // Save alt edges
         for (size_t alt_i = 1; alt_i < chain_scores[trace_from].size(); alt_i++) {
             if (chain_scores[trace_from][alt_i].source != TracedScore::nowhere()) {
-                connections.emplace_back(
+                alts.emplace_back(
                     chain_scores[trace_from][alt_i].source, trace_from,
                     chain_scores[trace_from].front().eval_score() - chain_scores[trace_from][alt_i].eval_score());
             }
@@ -728,7 +705,7 @@ void chain_items_traceback(const vector<vector<TracedScore>>& chain_scores,
             if (next != TracedScore::nowhere()) {
                 if (is_used[next]) {
                     // Save this extra edge we tried to use
-                    connections.emplace_back(next, here, 0);
+                    alts.emplace_back(next, here, 0);
 
                     // We need to stop early and accrue an extra penalty.
                     // Take away all the points we got for coming from there and being ourselves.
@@ -764,27 +741,28 @@ void chain_items_traceback(const vector<vector<TracedScore>>& chain_scores,
     }
 }
 
-unordered_map<TailAnchor, AltEdge> filter_alt_edges(const VectorView<Anchor>& to_chain,
-                                                    const vector<SparseAnchorChain>& original_tracebacks,
-                                                    const vector<AltEdge>& connections) {
-    unordered_map<TailAnchor, AltEdge> tail_edges;
+unordered_map<TailAnchor, vector<AltEdge>> filter_alt_edges(const VectorView<Anchor>& to_chain,
+                                                            const vector<SparseAnchorChain>& original_tracebacks,
+                                                            const vector<AltEdge>& alts) {
+    unordered_map<TailAnchor, vector<AltEdge>> tail_edges;
     // For each anchor (by index), which traceback was it originally in?
-    vector<size_t> home_trace(to_chain.size(), numeric_limits<size_t>::max());
+    // Stored as (traceback number, index within traceback)
+    vector<pair<size_t, size_t>> home_trace(to_chain.size(), make_pair(numeric_limits<size_t>::max(), 
+                                                                       numeric_limits<size_t>::max()));
 
     // First, find all the tails we want to try to tie in
     for (size_t i = 0; i < original_tracebacks.size(); i++) {
-        const vector<size_t>& cur_anchors = original_tracebacks[i].anchors;
         // Placeholder tie-ins that we want to fix later
-        tail_edges.emplace(original_tracebacks[i].left_tail(), AltEdge(TracedScore::nowhere(), cur_anchors.front()));
-        tail_edges.emplace(original_tracebacks[i].right_tail(), AltEdge(cur_anchors.back(), TracedScore::nowhere()));
+        tail_edges.emplace(original_tracebacks[i].left_tail(), vector<AltEdge>(original_tracebacks.size()));
+        tail_edges.emplace(original_tracebacks[i].right_tail(), vector<AltEdge>(original_tracebacks.size()));
 #ifdef debug_chaining
         cerr << "Chain: ";
 #endif
-        for (const auto& anchor : cur_anchors) {
+        for (size_t j = 0; j < original_tracebacks[i].anchors.size(); j++) {
 #ifdef debug_chaining
-            cerr << anchor << " ";
+            cerr << original_tracebacks[i].anchors[j] << " ";
 #endif
-            home_trace[anchor] = i;
+            home_trace[original_tracebacks[i].anchors[j]] = make_pair(i, j);
         }
 #ifdef debug_chaining
         cerr << endl;
@@ -792,26 +770,39 @@ unordered_map<TailAnchor, AltEdge> filter_alt_edges(const VectorView<Anchor>& to
     }
 
     // Now check in on the extra edges.
-    for (const auto& edge : connections) {
-        if (home_trace[edge.start_anchor] != numeric_limits<size_t>::max() 
-            && home_trace[edge.end_anchor] != numeric_limits<size_t>::max()
-            && home_trace[edge.start_anchor] != home_trace[edge.end_anchor]) {
+    for (const auto& edge : alts) {
+        if (home_trace[edge.start_anchor].first != numeric_limits<size_t>::max() 
+            && home_trace[edge.end_anchor].first != numeric_limits<size_t>::max()
+            && home_trace[edge.start_anchor].first != home_trace[edge.end_anchor].first) {
 #ifdef debug_chaining
-            cerr << "Extra edge " << edge.start_anchor << " --> " << edge.end_anchor << " score diff " << edge.score_diff << endl;
+            cerr << "Extra edge " << edge.start_anchor << " --> " << edge.end_anchor
+                 << " score diff " << edge.score_diff << endl;
 #endif
-            TailAnchor right_tie_in(edge.start_anchor, false);
-            TailAnchor left_tie_in(edge.end_anchor, true);
-            if (tail_edges.count(right_tie_in) && tail_edges.at(right_tie_in) > edge) {
-                // Best right tie-in so far
-                tail_edges[right_tie_in] = edge;
-                tail_edges[right_tie_in].start_parent = home_trace[edge.start_anchor];
-                tail_edges[right_tie_in].end_parent = home_trace[edge.end_anchor];
+            TailAnchor right_tail(edge.start_anchor, false);
+            TailAnchor left_tail(edge.end_anchor, true);
+            if (tail_edges.count(right_tail)) {
+                // What was the previous best tie-in?
+                AltEdge& right_tie_in = tail_edges[right_tail][home_trace[edge.end_anchor].first];
+                if (right_tie_in > edge) {
+                    // Best right tie-in so far
+                    right_tie_in = edge;
+                    right_tie_in.start_parent_id = home_trace[edge.start_anchor].first;
+                    right_tie_in.index_within_start = home_trace[edge.start_anchor].second;
+                    right_tie_in.end_parent_id = home_trace[edge.end_anchor].first;
+                    right_tie_in.index_within_end = home_trace[edge.end_anchor].second;
+                }
             }
-            if (tail_edges.count(left_tie_in) && tail_edges.at(left_tie_in) > edge) {
-                // Best left tie-in so far
-                tail_edges[left_tie_in] = edge;
-                tail_edges[left_tie_in].start_parent = home_trace[edge.start_anchor];
-                tail_edges[left_tie_in].end_parent = home_trace[edge.end_anchor];
+            if (tail_edges.count(left_tail)) {
+                // What was the previous best tie-in?
+                AltEdge& left_tie_in = tail_edges[left_tail][home_trace[edge.start_anchor].first];
+                if (left_tie_in > edge) {
+                    // Best left tie-in so far
+                    left_tie_in = edge;
+                    left_tie_in.start_parent_id = home_trace[edge.start_anchor].first;
+                    left_tie_in.index_within_start = home_trace[edge.start_anchor].second;
+                    left_tie_in.end_parent_id = home_trace[edge.end_anchor].first;
+                    left_tie_in.index_within_end = home_trace[edge.end_anchor].second;
+                }
             }
         }
     }
@@ -819,178 +810,145 @@ unordered_map<TailAnchor, AltEdge> filter_alt_edges(const VectorView<Anchor>& to
     return tail_edges;
 }
 
-/// TODO: break this function up it's getting really big
-vector<SubchainGroup> split_up_subchains(const VectorView<Anchor>& to_chain,
-                                         const vector<SparseAnchorChain>& original_tracebacks,
-                                         const unordered_map<TailAnchor, AltEdge>& tail_edges) {
-    // For each anchor (by index), which other anchors can it connect to?
-    vector<unordered_set<size_t>> outgoing_edges(to_chain.size());
-    vector<unordered_set<size_t>> incoming_edges(to_chain.size());
+void mark_rec_count(const VectorView<Anchor>& to_chain, vector<SparseAnchorChain>& chains) {
+    for (SparseAnchorChain& cur_trace : chains) {
+        // Compute the anchor indices in this chain that introduce an
+        // inter-anchor recombination event. We simulate the path-bit
+        // propagation along the chain using the same logic as
+        // TracedScore::set_shared_paths (but without modifying the state).
+        // Start with the endpoint paths of the first anchor.
+        const Anchor& first_anchor = to_chain[cur_trace.anchors.front()];
+        // Is the first anchor internally recombinant?
+        cur_trace.rec_count = first_anchor.anchor_start_paths() != first_anchor.anchor_end_paths();
 
-    // Where to search for subchains (we must guarantee they start in read order)
-    priority_queue<size_t, vector<size_t>, std::greater<size_t>> trace_from;
-
-    // Where we will save results
-    vector<SubchainGroup> output;
-
-    // Which of the tracebacks link up?
-    vector<bool> is_joined_up(original_tracebacks.size(), false);
-    for (const auto& tie_in : tail_edges) {
-        const AltEdge& edge = tie_in.second;
-        // Filter to edges which tie in tracebacks which still exist
-        if (!edge.is_max_score_diff() 
-            && !original_tracebacks[edge.start_parent].anchors.empty()
-            && !original_tracebacks[edge.end_parent].anchors.empty()) {
-            // Use this extra edge
-            outgoing_edges[edge.start_anchor].emplace(edge.end_anchor);
-            incoming_edges[edge.end_anchor].emplace(edge.start_anchor);
-            // Remember that these tracebacks are connected
-            is_joined_up[edge.start_parent] = true;
-            is_joined_up[edge.end_parent] = true;
-        }
-    }
-
-    // Save edges that are part of an original traceback
-    int max_joined_chain_score = 0;
-    bool joining_up = false;
-    for (size_t i = 0; i < original_tracebacks.size(); i++) {
-        if (!original_tracebacks[i].anchors.empty()) {
-            if (!is_joined_up[i]) {
-#ifdef debug_chaining
-                cerr << "Saving traceback " << i << " as its own SubchainGroup" << endl;
-#endif
-                // This traceback is disjoint and should be returned separately
-                output.emplace_back(original_tracebacks[i]);
+        // Walk the chain from the second anchor onward and apply the
+        // same recombination-detection rules used in set_shared_paths.
+        path_flags_t current_paths = first_anchor.anchor_end_paths();
+        for (size_t i = 1; i < cur_trace.anchors.size(); ++i) {
+            auto new_paths = to_chain[cur_trace.anchors[i]].anchor_paths();
+            // If the anchor's start and end paths are equal, it's not an
+            // internally recombinant anchor; check inter-anchor overlap.
+            if (new_paths.first == new_paths.second) {
+                if ((current_paths & new_paths.first) == 0) {
+                    // No overlap -> inter-anchor recombination occurred here.
+                    cur_trace.rec_count++;
+                    // Reset current paths to the anchor's start paths.
+                    current_paths = new_paths.first;
+                } else {
+                    // Intersect supported paths and continue.
+                    current_paths &= new_paths.first;
+                }
             } else {
-                joining_up = true;
-                // We'll tie this traceback in to the rest
-                max_joined_chain_score = std::max(max_joined_chain_score, original_tracebacks[i].chain_score);
-                const vector<size_t>& cur_anchors = original_tracebacks[i].anchors;
-                trace_from.emplace(cur_anchors.front());
-                for (size_t i = 0; i < cur_anchors.size() - 1; i++) {
-                    // Remember that this pair of anchors can connect
-                    incoming_edges[cur_anchors[i+1]].emplace(cur_anchors[i]);
-                    outgoing_edges[cur_anchors[i]].emplace(cur_anchors[i+1]);
-                }
+                // Recombinant anchor: do not count as inter-anchor
+                // recombination per original logic; reset paths to the
+                // anchor's end paths.
+                // TODO: since no fragmenting, probably unnecessary to track
+                cur_trace.rec_count++;
+                current_paths = new_paths.second;
             }
         }
     }
-
-    if (!joining_up) {
-        // Everything was disjoint; return right away
-        return output;
-    }
-
-#ifdef debug_chaining
-    for (size_t i = 0; i < to_chain.size(); i++) {
-        cerr << i << " has " << incoming_edges[i].size() << " sources, and outgoing edges to ";
-        for (const auto& next : outgoing_edges[i]) {
-            cerr << next << " ";
-        }
-        cerr << endl;
-    }
-#endif
-
-    // From now on we're building our final connected SubchainGroup
-    output.emplace_back();
-
-    // Set up the subchains
-    // For each anchor (by index), which subchain did it end up in?
-    vector<size_t> subchain_id(to_chain.size(), std::numeric_limits<size_t>::max());
-    while (!trace_from.empty()) {
-        // Start trace for this subchain, until we hit into an endpoint
-        size_t cur_anchor_id = trace_from.top();
-        trace_from.pop();
-        if (subchain_id[cur_anchor_id] != std::numeric_limits<size_t>::max()) {
-            // This one was already put as part of an earlier subchain
-            continue;
-        }
-
-        // Create a new subchain to trace into
-        size_t cur_subchain_id = output.back().subchains.size();
-        output.back().subchains.emplace_back(vector<size_t>{cur_anchor_id});
-        subchain_id[cur_anchor_id] = cur_subchain_id;
-
-#ifdef debug_chaining
-        cerr << "Assign " << cur_anchor_id << " to subchain " << cur_subchain_id << endl;
-#endif
-
-        while (true) { 
-            if (outgoing_edges[cur_anchor_id].empty()) {
-                // This anchor can't trace outwards at all
-                break;
-            }           
-            // If we've reached a decision point,
-            // or the end of a traceback, then save all next edges
-            // We have reached the end of one subchain
-            size_t next_anchor_id = *outgoing_edges[cur_anchor_id].begin();
-            if (outgoing_edges[cur_anchor_id].size() > 1 
-                || incoming_edges[next_anchor_id].size() > 1
-                || tail_edges.count(TailAnchor(cur_anchor_id, false))
-                || tail_edges.count(TailAnchor(next_anchor_id, true))) {
-                for (const auto& next : outgoing_edges[cur_anchor_id]) {
-                    // We need to start a new trace from here
-#ifdef debug_chaining
-                    cerr << "Chain traceforwards may start from " << next << endl;
-#endif
-                    trace_from.emplace(next);
-                }
-                break;
-            }
-            
-            // Otherwise, trace into the next edge
-            cur_anchor_id = next_anchor_id;
-            output.back().subchains.back().anchors.emplace_back(cur_anchor_id);
-            subchain_id[cur_anchor_id] = cur_subchain_id;
-#ifdef debug_chaining
-            cerr << "Assign " << cur_anchor_id << " to subchain " << cur_subchain_id << endl;
-#endif
-        }
-    }
-
-    // Make all inter-subchain connections necessary
-    for (size_t i = 0; i < output.back().subchains.size(); i++) {
-        // Loop over any way to exit this subchain
-        Subchain& cur_subchain = output.back().subchains[i];
-        for (const auto& next : outgoing_edges[cur_subchain.anchors.back()]) {
-            if (next != std::numeric_limits<size_t>::max()) {
-                output.back().connections.emplace_back(i, subchain_id[next]);
-#ifdef debug_chaining
-                cerr << "Connect subchains " << i << " -> " << subchain_id[next] << endl;
-#endif
-            }
-        }
-
-        // Mark which ones should get tails (any non-best traceback not tied in)
-        if (tail_edges.count(cur_subchain.left_tail()) 
-            && (tail_edges.at(cur_subchain.left_tail()).is_max_score_diff()
-                || tail_edges.at(cur_subchain.left_tail()).end_parent == 0)) {
-            cur_subchain.add_left_tail = true;
-        }
-        if (tail_edges.count(cur_subchain.right_tail())
-            && (tail_edges.at(cur_subchain.right_tail()).is_max_score_diff()
-                || tail_edges.at(cur_subchain.right_tail()).start_parent == 0)) {
-            cur_subchain.add_right_tail = true;
-        }
-    }
-
-    // Assume first is highest score
-    output.back().max_sparse_chain_score = max_joined_chain_score;
-    return output;
 }
 
-vector<SubchainGroup> find_best_chains(const VectorView<Anchor>& to_chain,
-                                       const SnarlDistanceIndex& distance_index,
-                                       const HandleGraph& graph,
-                                       const transition_iterator& for_each_transition,
-                                       const ChainScoringScheme& scoring_scheme,
-                                       const ChainFilteringScheme& filtering_scheme,
-                                       size_t max_indel_bases,
-                                       bool show_work) {
+vector<SparseAnchorChain> extend_tracebacks_with_alts(const vector<vector<TracedScore>>& chain_scores,
+                                                      const vector<SparseAnchorChain>& original_tracebacks,
+                                                      const unordered_map<TailAnchor, vector<AltEdge>> tail_edges) {
+    vector<SparseAnchorChain> optimal_tracebacks;
+
+    for (const auto& cur_trace : original_tracebacks) {
+        vector<SparseAnchorChain> extensions;
+        extensions.push_back(cur_trace);
+        while (!extensions.empty()) {
+            SparseAnchorChain cur_extension = extensions.back();
+            extensions.pop_back();
+            bool extended = false;
+#ifdef debug_chaining
+            cerr << "Trying to extend a chain from " << cur_extension.anchors.front()
+                 << " to " << cur_extension.anchors.back() << endl; 
+#endif
+
+            // Can we extend to the left?
+            for (const auto& tie_in : tail_edges.at(cur_extension.left_tail())) {
+                if (!tie_in.is_real_edge()) {
+#ifdef debug_chaining
+                    cerr << "Extending to anchor " << tie_in.start_anchor << ", index "
+                         << tie_in.index_within_start << " in traceback " << tie_in.start_parent_id << endl;
+#endif
+                    const auto& tied_in_anchors = original_tracebacks.at(tie_in.start_parent_id).anchors;
+                    // Use extension
+                    extensions.emplace_back();
+                    // Concatenate the shared section of chain
+                    extensions.back().anchors = vector<size_t>(tied_in_anchors.begin(),
+                                                               tied_in_anchors.begin() + tie_in.index_within_start + 1);
+                    extensions.back().anchors.insert(extensions.back().anchors.end(),
+                                                     cur_extension.anchors.begin(),
+                                                     cur_extension.anchors.end());
+                    extended = true;
+                }
+            }
+            
+            // Can we extend to the right?
+            if (!extended) {
+                for (const auto& tie_in : tail_edges.at(cur_extension.right_tail())) {
+                    if (!tie_in.is_real_edge()) {
+                        const auto& tied_in_anchors = original_tracebacks.at(tie_in.end_parent_id).anchors;
+                        // If using this extension would be positive
+                        if (chain_scores[tied_in_anchors.back()].front().score 
+                            > chain_scores[cur_extension.anchors.back()].front().score) {
+#ifdef debug_chaining
+                            cerr << "Extending to anchor " << tie_in.end_anchor << ", index "
+                                 << tie_in.index_within_end << " in traceback " << tie_in.end_parent_id << endl;
+#endif
+                            // Use extension
+                            extensions.emplace_back();
+                            // Concatenate the shared section of chain
+                            extensions.back().anchors = cur_extension.anchors;
+                            extensions.back().anchors.insert(extensions.back().anchors.end(),
+                                                             tied_in_anchors.begin() + tie_in.index_within_end,
+                                                             tied_in_anchors.end());
+                            extended = true;
+                        }
+                    }
+                }
+            }
+
+            // If we didn't extend, then this one is done
+            if (!extended) {
+                optimal_tracebacks.push_back(cur_extension);
+            }
+        }
+    }
+
+    // Score each traceback we got
+    for (auto& cur_trace : optimal_tracebacks) {
+        cur_trace.chain_score = chain_scores[cur_trace.anchors.back()].front().score;
+        for (size_t anchor_i = cur_trace.anchors.size() - 1; anchor_i >= 1; anchor_i--) {
+            // If we ever take a compromise, subtract that from our score
+            if (chain_scores[cur_trace.anchors[anchor_i]].front().source != cur_trace.anchors[anchor_i-1]) {
+                int compromise = -chain_scores[cur_trace.anchors[anchor_i]].front().score;
+                for (size_t alt_i = 1; alt_i < chain_scores[cur_trace.anchors[anchor_i]].size(); alt_i++) {
+                    if (chain_scores[cur_trace.anchors[anchor_i]][alt_i].source == cur_trace.anchors[anchor_i-1]) {
+                        compromise += chain_scores[cur_trace.anchors[anchor_i]][alt_i].score;
+                    }
+                }
+                cur_trace.chain_score += compromise;
+            }
+        }
+    }
+    return optimal_tracebacks;
+}
+
+vector<SparseAnchorChain> find_best_chains(const VectorView<Anchor>& to_chain,
+                                           const SnarlDistanceIndex& distance_index,
+                                           const HandleGraph& graph,
+                                           const transition_iterator& for_each_transition,
+                                           const ChainScoringScheme& scoring_scheme,
+                                           size_t max_chains,
+                                           size_t max_indel_bases,
+                                           bool show_work) {
 
     if (to_chain.empty()) {
-        // Nothing to chain
-        return {SubchainGroup()};
+        throw runtime_error("Cannot chain an empty group of anchors!");
     }
         
     // We actually need to do DP
@@ -1000,157 +958,52 @@ vector<SubchainGroup> find_best_chains(const VectorView<Anchor>& to_chain,
                    scoring_scheme, max_indel_bases, show_work);
     
     // Then do the tracebacks
-    vector<SparseAnchorChain> tracebacks;
-    vector<AltEdge> connections;
-    chain_items_traceback(chain_scores, to_chain, tracebacks, connections, scoring_scheme, filtering_scheme.max_chains);
+    vector<SparseAnchorChain> original_tracebacks;
+    vector<AltEdge> alts;
+    chain_items_traceback(chain_scores, to_chain, original_tracebacks, alts, scoring_scheme, max_chains);
     
-    if (tracebacks.empty()) {
-        // Somehow we got nothing
-        return {SubchainGroup()};
+    if (original_tracebacks.empty()) {
+        throw runtime_error("No tracebacks found during chaining.");
     }
 
     // We'll save tracebacks we delete here, in case they're useful later
-    vector<SubchainGroup> extra_groups;
+    vector<SparseAnchorChain> extra_chains;
 
     // Get rid of tracebacks that are much, much worse than the best
-    for (size_t i = 1; i < tracebacks.size(); i++) {
-        if (tracebacks[i].chain_score < tracebacks.front().chain_score / 10) {
+    for (size_t i = 1; i < original_tracebacks.size(); i++) {
+        if (original_tracebacks[i].chain_score < original_tracebacks.front().chain_score / 10) {
 #ifdef debug_chaining
-            cerr << "Saving tracebacks from " << i << " as separate SubchainGroups because it has score "
-                 << tracebacks[i].chain_score << " < " << tracebacks.front().chain_score / 10 << endl; 
+            cerr << "Saving tracebacks from " << i << " as completely separate" << endl; 
 #endif
-            // Cut off at this point
-            for (size_t j = i; j < tracebacks.size(); j++) {
-                extra_groups.emplace_back(tracebacks[j]);
-                tracebacks[j] = SparseAnchorChain();
+            // Save just in case
+            for (size_t j = i; j < original_tracebacks.size(); j++) {
+                extra_chains.emplace_back(original_tracebacks[j]);
             }
-            tracebacks.resize(i);
-            break;
-        } else if (tracebacks[i].anchors.size() <= 1) {
-#ifdef debug_chaining
-            cerr << "Saving tracebacks from " << i << " as separate SubchainGroups because it is length <=1" << endl; 
-#endif
             // Cut off at this point
-            for (size_t j = i; j < tracebacks.size(); j++) {
-                extra_groups.emplace_back(tracebacks[j]);
-                tracebacks[j] = SparseAnchorChain();
-            }
-            tracebacks.resize(i);
+            original_tracebacks.resize(i);
             break;
         }
     }
 
-    unordered_map<TailAnchor, AltEdge> tail_edges = filter_alt_edges(to_chain, tracebacks, connections);
+    // Figure out which alt edges we should use to extend each traceback
+    unordered_map<TailAnchor, vector<AltEdge>> tail_edges = filter_alt_edges(to_chain, original_tracebacks, alts);
 
-    // Calculate optimal scores for each traceback, allowing overlap
-    // (traceback index, theoretical optimal score)
-    vector<pair<size_t, int>> traceback_optimal_scores;
-    for (size_t i = 0; i < tracebacks.size(); i++) {
-        // Calculate the score if this traceback was allowed its optimal path
-        int full_score = tracebacks[i].chain_score;
-        if (!tail_edges[tracebacks[i].left_tail()].is_max_score_diff()) {
-            AltEdge& tie_in_edge = tail_edges[tracebacks[i].left_tail()];
-            // Left tail tied in; add in score for its Y trunk
-            full_score += chain_scores[tie_in_edge.start_anchor].front().score;
-        }
-        if (!tail_edges[tracebacks[i].right_tail()].is_max_score_diff()) {
-            AltEdge& tie_in_edge = tail_edges[tracebacks[i].right_tail()];
-            // Right tail tied in; calculate score using its reverse-Y trunk
-            full_score = tracebacks[tie_in_edge.end_parent].chain_score;
-            // Subtract whatever compromise we had to make to take this fork
-            for (size_t alt_i = 1; alt_i < chain_scores[tie_in_edge.end_anchor].size(); alt_i++) {
-                if (chain_scores[tie_in_edge.end_anchor][alt_i].source == tracebacks[i].anchors.back()) {
-                    int compromise = chain_scores[tie_in_edge.end_anchor].front().score \
-                        - chain_scores[tie_in_edge.end_anchor][alt_i].score;
-                    full_score -= compromise;
-                }
-            }
-        }
-        traceback_optimal_scores.emplace_back(i, full_score);
-    }
+    // Construct optimal versions of each traceback
+    vector<SparseAnchorChain> final_chains = extend_tracebacks_with_alts(chain_scores, original_tracebacks, tail_edges);
+
+    // Add in the earlier ones
+    final_chains.insert(final_chains.end(), extra_chains.begin(), extra_chains.end());
 
     // Sort the tracebacks by optimal score
-    std::sort(traceback_optimal_scores.begin(), traceback_optimal_scores.end(), 
-    [](const pair<size_t, int>& a, const pair<size_t, int>& b) {
+    std::sort(final_chains.begin(), final_chains.end(), 
+    [](const SparseAnchorChain& a, const SparseAnchorChain& b) {
         // Return true if a has the larger score and belongs first
-        return a.second > b.second;
+        return a.chain_score > b.chain_score;
     });
 
-    // Now delete any tracebacks which have too low optimal score
-    size_t min_chain_score = tracebacks.front().chain_score > filtering_scheme.chain_score_threshold ?
-        tracebacks.front().chain_score - filtering_scheme.chain_score_threshold
-        : 0;
-    for (size_t i = 1; i < tracebacks.size(); i++) {
-        size_t cur_traceback_index = traceback_optimal_scores[i].first;
-        int cur_opt_score = traceback_optimal_scores[i].second;
-        bool remove = false;
-        if (cur_opt_score < tracebacks.front().chain_score / 5) {
-#ifdef debug_chaining
-            cerr << "Saving traceback " << cur_traceback_index << " as its own SubchainGroup because its optimal score "
-                 << cur_opt_score << " < top score " << tracebacks.front().chain_score << " / 5 " << endl; 
-#endif
-            remove = true;
-        } else if (i >= filtering_scheme.min_chains && cur_opt_score < min_chain_score) {
-#ifdef debug_chaining
-            cerr << "Saving traceback " << cur_traceback_index << " as its own SubchainGroup because its optimal score "
-                 << cur_opt_score << " < top score " << tracebacks.front().chain_score
-                 << " - chain score threshold " << filtering_scheme.chain_score_threshold << endl; 
-#endif
-            remove = true;
-        }
-        if (remove) {
-            extra_groups.emplace_back(tracebacks[cur_traceback_index]);
-            tracebacks[cur_traceback_index] = SparseAnchorChain();
-        }
-    }
+    mark_rec_count(to_chain, final_chains);
 
-    vector<SubchainGroup> subchain_groups = split_up_subchains(to_chain, tracebacks, tail_edges);
-    subchain_groups.insert(subchain_groups.end(), extra_groups.begin(), extra_groups.end());
-
-    for (SubchainGroup& group : subchain_groups) {
-        for (Subchain& subchain : group.subchains) {
-            // Compute the anchor indices in this chain that introduce an
-            // inter-anchor recombination event. We simulate the path-bit
-            // propagation along the chain using the same logic as
-            // TracedScore::set_shared_paths (but without modifying the state).
-            // Start with the endpoint paths of the first anchor.
-            const Anchor& first_anchor = to_chain[subchain.anchors.front()];
-            // Paths at the start of the subchain are for its first anchor
-            subchain.start_paths = first_anchor.anchor_start_paths();
-            // Is the first anchor internally recombinant?
-            subchain.rec_count = first_anchor.anchor_start_paths() != first_anchor.anchor_end_paths();
-
-            // Walk the chain from the second anchor onward and apply the
-            // same recombination-detection rules used in set_shared_paths.
-            path_flags_t current_paths = first_anchor.anchor_end_paths();
-            for (size_t i = 1; i < subchain.anchors.size(); ++i) {
-                auto new_paths = to_chain[subchain.anchors[i]].anchor_paths();
-                // If the anchor's start and end paths are equal, it's not an
-                // internally recombinant anchor; check inter-anchor overlap.
-                if (new_paths.first == new_paths.second) {
-                    if ((current_paths & new_paths.first) == 0) {
-                        // No overlap -> inter-anchor recombination occurred here.
-                        subchain.rec_count++;
-                        // Reset current paths to the anchor's start paths.
-                        current_paths = new_paths.first;
-                    } else {
-                        // Intersect supported paths and continue.
-                        current_paths &= new_paths.first;
-                    }
-                } else {
-                    // Recombinant anchor: do not count as inter-anchor
-                    // recombination per original logic; reset paths to the
-                    // anchor's end paths.
-                    // TODO: since no fragmenting, probably unnecessary to track
-                    subchain.rec_count++;
-                    current_paths = new_paths.second;
-                }
-            }
-            subchain.end_paths = current_paths;
-        }
-    }
-
-    return subchain_groups;
+    return final_chains;
 }
 
 SparseAnchorChain find_best_chain(const VectorView<Anchor>& to_chain,
@@ -1159,23 +1012,13 @@ SparseAnchorChain find_best_chain(const VectorView<Anchor>& to_chain,
                                   const transition_iterator& for_each_transition,
                                   const ChainScoringScheme& scoring_scheme,
                                   size_t max_indel_bases) {
-    vector<SubchainGroup> groups = find_best_chains(to_chain,
-                                                   distance_index,
-                                                   graph,
-                                                   for_each_transition,
-                                                   scoring_scheme,
-                                                   ChainFilteringScheme(),
-                                                   max_indel_bases);
-    if (groups.empty() || groups.front().subchains.empty()) {
-        // We got nothing
-        return SparseAnchorChain();
-    }
-
-    SparseAnchorChain output;
-    output.anchors = groups.front().subchains.front().anchors;
-    output.chain_score = groups.front().max_sparse_chain_score;
-    
-    return output;
+    return find_best_chains(to_chain,
+                            distance_index,
+                            graph,
+                            for_each_transition,
+                            scoring_scheme,
+                            1, // only one chain!
+                            max_indel_bases).front();
 }
 
 //#define skip_zipcodes

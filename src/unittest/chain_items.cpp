@@ -115,9 +115,9 @@ static algorithms::SparseAnchorChain run_ziptree_iterator_best_chain(const HashG
                                        );
 }
 
-static vector<algorithms::SubchainGroup> run_ziptree_iterator_multi_chain(const HashGraph& graph, 
-                                                                          const vector<algorithms::Anchor>& anchors,
-                                                                          size_t num_chains) {
+static vector<algorithms::SparseAnchorChain> run_ziptree_iterator_multi_chain(const HashGraph& graph, 
+                                                                              const vector<algorithms::Anchor>& anchors,
+                                                                              size_t num_chains) {
     // Provide more weight for start & end nodes to anchor graph
     std::unordered_map<nid_t, size_t> extra_node_weight;
     extra_node_weight[graph.min_node_id()] = 10000000000;
@@ -140,16 +140,13 @@ static vector<algorithms::SubchainGroup> run_ziptree_iterator_multi_chain(const 
 
     // Make iterator for only the first tree
     // Seriously this is for test cases, only one tree at once
-    algorithms::ChainFilteringScheme filtering_scheme;
-    filtering_scheme.max_chains = num_chains;
-    filtering_scheme.min_chains = num_chains;
     return algorithms::find_best_chains(anchors, distance_index, graph,
                                         algorithms::zip_tree_transition_iterator(seeds,
                                                                                 zip_forest.trees.front(),
                                                                                 std::numeric_limits<size_t>::max(),
                                                                                 std::numeric_limits<size_t>::max()
                                                                                 ),
-                                        algorithms::ChainScoringScheme(), filtering_scheme
+                                        algorithms::ChainScoringScheme(), num_chains
                                         );
 }
 
@@ -228,11 +225,7 @@ TEST_CASE("Multi chain on only one good chain", "[chain_items]") {
     /// Actually run the chaining and test
     auto result = run_ziptree_iterator_multi_chain(graph, to_score, 3);
     // Only one path through
-    REQUIRE(result.front().subchains.size() == 1);
-    REQUIRE(result.front().connections.size() == 0);
-    // Single subchain has both tails
-    REQUIRE(result.front().subchains[0].add_left_tail);
-    REQUIRE(result.front().subchains[0].add_right_tail);
+    REQUIRE(result.size() == 1);
 }
 
 TEST_CASE("Gap between two tracebacks", "[chain_items]") {
@@ -249,15 +242,10 @@ TEST_CASE("Gap between two tracebacks", "[chain_items]") {
     
     /// Actually run the chaining and test
     auto result = run_ziptree_iterator_multi_chain(graph, to_score, 3);
-    // Two separate subchains
-    REQUIRE(result.front().subchains.size() == 2);
-    REQUIRE(result.front().connections.size() == 1);
-    // Top traceback always gets its tails
-    REQUIRE(result.front().subchains[0].add_left_tail);
-    REQUIRE(result.front().subchains[0].add_right_tail);
-    // Second has been tied in so is missing its left tail
-    REQUIRE(!result.front().subchains[1].add_left_tail);
-    REQUIRE(result.front().subchains[1].add_right_tail);
+    // Two separate chains, one reusing the other
+    REQUIRE(result.size() == 2);
+    REQUIRE(result[0].anchors == vector<size_t>({0, 1}));
+    REQUIRE(result[1].anchors == vector<size_t>({0, 1, 2, 3}));
 }
 
 TEST_CASE("Simple Y case", "[chain_items]") {
@@ -271,23 +259,14 @@ TEST_CASE("Simple Y case", "[chain_items]") {
                                   {21, h[5], 0, 5, 5},
                                   {21, h[6], 0, 5, 5},
                                   {31, h[7], 0, 10, 10},
-                                  {31, h[8], 0, 10, 10}}, graph);
+                                  {31, h[8], 0, 10, 11}}, graph);
     
     /// Actually run the chaining and test
     auto result = run_ziptree_iterator_multi_chain(graph, to_score, 3);
-    // We should see all possible paths
-    REQUIRE(result.front().subchains.size() == 3);
-    REQUIRE(result.front().connections.size() == 2);
-    // First subchains is left tail
-    REQUIRE(result.front().subchains[0].add_left_tail);
-    REQUIRE(!result.front().subchains[0].add_right_tail);
-    // Others are right tails
-    // Last two subchains are right tails
-    REQUIRE(result.front().subchains[1].add_right_tail);
-    REQUIRE(result.front().subchains[2].add_right_tail);
-    // They are not left tails; second got tied in
-    REQUIRE(!result.front().subchains[1].add_left_tail);
-    REQUIRE(!result.front().subchains[2].add_left_tail);
+    // Two separate chains, sharing a trunk
+    REQUIRE(result.size() == 2);
+    REQUIRE(result[0].anchors == vector<size_t>({0, 1, 4}));
+    REQUIRE(result[1].anchors == vector<size_t>({0, 2, 3}));
 }
 
 TEST_CASE("Reverse Y case", "[chain_items]") {
@@ -297,139 +276,19 @@ TEST_CASE("Reverse Y case", "[chain_items]") {
 
     // 2-4 and 3-4
     // read start, graph handle and offset, length, and score
-    auto to_score = make_anchors({{1, h[2], 0, 5, 5},
+    auto to_score = make_anchors({{1, h[2], 0, 5, 6},
                                   {1, h[3], 0, 5, 5},
                                   {11, h[4], 0, 5, 5}}, graph);
     
     /// Actually run the chaining and test
     auto result = run_ziptree_iterator_multi_chain(graph, to_score, 3);
-    // We should see all possible paths
-    REQUIRE(result.front().subchains.size() == 3);
-    REQUIRE(result.front().connections.size() == 2);
-    // First two subchains are left tails
-    REQUIRE(result.front().subchains[0].add_left_tail);
-    REQUIRE(result.front().subchains[1].add_left_tail);
-    // They are not right tails; second was tied in
-    REQUIRE(!result.front().subchains[0].add_right_tail);
-    REQUIRE(!result.front().subchains[1].add_right_tail);
-    // Last is right tail
-    // Last two subchains are right tails
-    REQUIRE(!result.front().subchains[2].add_left_tail);
-    REQUIRE(result.front().subchains[2].add_right_tail);
+    // Two separate chains, sharing a trunk
+    REQUIRE(result.size() == 2);
+    REQUIRE(result[0].anchors == vector<size_t>({0, 2}));
+    REQUIRE(result[1].anchors == vector<size_t>({1, 2}));
 }
 
-TEST_CASE("Simple X case", "[chain_items]") {
-    // Set up graph fixture
-    HashGraph graph = make_x_graph();
-    auto h = get_handles(graph);
-
-    // 2-4-6-7 and 3-4-5-8
-    // read start, graph handle and offset, length, and score
-    auto to_score = make_anchors({{1, h[2], 0, 5, 5},
-                                  {1, h[3], 0, 5, 5},
-                                  {11, h[4], 0, 5, 5},
-                                  {21, h[5], 0, 5, 5},
-                                  {21, h[6], 0, 5, 5},
-                                  {31, h[7], 0, 10, 10},
-                                  {31, h[8], 0, 10, 10}}, graph);
-    
-    /// Actually run the chaining and test
-    auto result = run_ziptree_iterator_multi_chain(graph, to_score, 3);
-    // We should see all possible paths
-    REQUIRE(result.front().subchains.size() == 5);
-    REQUIRE(result.front().connections.size() == 4);
-    // First two subchains are left tails
-    REQUIRE(result.front().subchains[0].add_left_tail);
-    REQUIRE(result.front().subchains[1].add_left_tail);
-    // They are not right tails; second was tied in
-    REQUIRE(!result.front().subchains[0].add_right_tail);
-    REQUIRE(!result.front().subchains[1].add_right_tail);
-    // Middle is neither
-    REQUIRE(!result.front().subchains[2].add_left_tail);
-    REQUIRE(!result.front().subchains[2].add_right_tail);
-    // Last two subchains are right tails
-    REQUIRE(result.front().subchains[3].add_right_tail);
-    REQUIRE(result.front().subchains[4].add_right_tail);
-    // They are not left tails; second was tied in
-    REQUIRE(!result.front().subchains[3].add_left_tail);
-    REQUIRE(!result.front().subchains[4].add_left_tail);
-}
-
-TEST_CASE("X with different length chains", "[chain_items]") {
-    // Set up graph fixture
-    HashGraph graph = make_x_graph();
-    auto h = get_handles(graph);
-
-    // One anchor on each node
-    // read start, graph handle and offset, length, and score
-    auto to_score = make_anchors({{1, h[2], 0, 10, 5},
-                                  {1, h[3], 0, 10, 5},
-                                  {11, h[4], 0, 10, 5},
-                                  {21, h[5], 0, 10, 5},
-                                  {21, h[6], 0, 10, 5},
-                                  {31, h[7], 0, 10, 5}}, graph);
-    
-    // Actually run the chaining and test
-    auto result = run_ziptree_iterator_multi_chain(graph, to_score, 3);
-    // We should see all possible paths
-    REQUIRE(result.front().subchains.size() == 5);
-    REQUIRE(result.front().connections.size() == 4);
-}
-
-TEST_CASE("X with haplotype paths annotates subchains", "[chain_items]") {
-    // Set up graph fixture
-    HashGraph graph = make_x_graph();
-    auto h = get_handles(graph);
-
-    // One anchor on each node
-    // read start, graph handle and offset, length, and score
-    auto to_score = make_anchors({{1, h[2], 0, 5, 5},
-                                  {1, h[3], 0, 5, 5},
-                                  {11, h[4], 0, 5, 5},
-                                  {21, h[5], 0, 5, 5},
-                                  {21, h[6], 0, 5, 5},
-                                  {31, h[7], 0, 10, 10},
-                                  {31, h[8], 0, 10, 10}}, graph);
-
-    // Haplotype 0 covers nodes 2 and 6, haplotype 1 covers everything but node
-    // 2, so that the paths supported narrow down along the 6-7 subchain, and
-    // getting from the subchain at 1 to the subchain at 3 needs a recombination.
-    std::unordered_map<nid_t, algorithms::path_flags_t> haplotypes {
-        {2, 1}, {3, 2}, {4, 2}, {5, 2}, {6, 3}, {7, 2}, {8, 2}
-    };
-    for (auto& anchor : to_score) {
-        anchor.set_paths(haplotypes.at(id(anchor.graph_start())));
-    }
-
-    // Actually run the chaining and test
-    auto result = run_ziptree_iterator_multi_chain(graph, to_score, 3);
-    REQUIRE(result.size() == 1);
-    auto& group = result.front();
-    REQUIRE(group.subchains.size() == 5);
-
-    // Index the subchains by the node their first anchor is on
-    std::unordered_map<nid_t, size_t> subchain_at;
-    for (size_t i = 0; i < group.subchains.size(); i++) {
-        subchain_at[id(to_score[group.subchains[i].anchors.front()].graph_start())] = i;
-    }
-    REQUIRE(subchain_at.size() == group.subchains.size());
-
-    // The 6-7 subchain starts on both haplotypes but only haplotype 1 makes it
-    // to the end, without any recombination being forced
-    auto& subchain_5 = group.subchains[subchain_at.at(6)];
-    REQUIRE(subchain_5.anchors.size() == 2);
-    REQUIRE(subchain_5.rec_count == 0);
-    REQUIRE(subchain_5.start_paths == 3);
-    REQUIRE(subchain_5.end_paths == 2);
-
-    // And connecting the subchain at 1 to the subchain at 3 needs a
-    // recombination, while connecting the one at 2 to it does not
-    auto& subchain_3 = group.subchains[subchain_at.at(4)];
-    REQUIRE((group.subchains[subchain_at.at(2)].end_paths & subchain_3.start_paths) == 0);
-    REQUIRE((group.subchains[subchain_at.at(3)].end_paths & subchain_3.start_paths) != 0);
-}
-
-TEST_CASE("single internally-recombinant anchor forces a subchain-internal recombination", "[chain_items]") {
+TEST_CASE("single internally-recombinant anchor forces a  recombination", "[chain_items]") {
     // Set up graph fixture
     HashGraph graph = make_long_graph(2, 10);
     auto h = get_handles(graph);
@@ -447,40 +306,7 @@ TEST_CASE("single internally-recombinant anchor forces a subchain-internal recom
 
     auto result = run_ziptree_iterator_multi_chain(graph, to_score, 2);
     REQUIRE(result.size() == 1);
-    REQUIRE(result.front().subchains.size() == 1);
-
-    auto& subchain = result.front().subchains.front();
-    REQUIRE(subchain.anchors.size() == 2);
-    REQUIRE(subchain.rec_count == 1);
-    REQUIRE(subchain.start_paths == 1);
-    REQUIRE(subchain.end_paths == 4);
-}
-
-TEST_CASE("subchain with no recombination has equal start and end paths", "[chain_items]") {
-    // Set up graph fixture
-    HashGraph graph = make_long_graph(2, 10);
-    auto h = get_handles(graph);
-
-    IntegratedSnarlFinder snarl_finder(graph);
-    SnarlDistanceIndex distance_index;
-    fill_in_distance_index(&distance_index, &graph, &snarl_finder);
-
-    auto to_score = make_anchors({{1, h[1], 0, 5, 5},
-                                  {11, h[2], 0, 5, 5}}, graph);
-
-    for (auto& anchor : to_score) {
-        anchor.set_paths(1);
-    }
-
-    auto result = run_ziptree_iterator_multi_chain(graph, to_score, 2);
-    REQUIRE(result.size() == 1);
-    REQUIRE(result.front().subchains.size() == 1);
-
-    auto& subchain = result.front().subchains.front();
-    REQUIRE(subchain.anchors.size() == 2);
-    REQUIRE(subchain.rec_count == 0);
-    REQUIRE(subchain.start_paths == 1);
-    REQUIRE(subchain.end_paths == 1);
+    REQUIRE(result.front().rec_count == 1);
 }
 
 TEST_CASE("recombination_penalty changes which predecessor chain_items_dp picks", "[chain_items]") {
@@ -618,84 +444,6 @@ TEST_CASE("consistency_bonus changes which predecessor chain_items_dp picks desp
         REQUIRE(chain_scores[d].front().score == 9);
     }
 }
-
-TEST_CASE("count_total_recombinations counts recombinations between subchains", "[chain_items]") {
-    HashGraph graph = make_x_graph();
-    auto h = get_handles(graph);
-
-    IntegratedSnarlFinder snarl_finder(graph);
-    SnarlDistanceIndex distance_index;
-    fill_in_distance_index(&distance_index, &graph, &snarl_finder);
-
-    auto to_score = make_anchors({{1, h[2], 0, 5, 5},
-                                  {1, h[3], 0, 5, 5},
-                                  {11, h[4], 0, 5, 5},
-                                  {21, h[5], 0, 5, 5},
-                                  {21, h[6], 0, 5, 5},
-                                  {31, h[7], 0, 10, 10},
-                                  {31, h[8], 0, 10, 10}}, graph);
-
-    // Haplotype 0 covers nodes 2 and 6, haplotype 1 covers everything but node 2
-    std::unordered_map<nid_t, algorithms::path_flags_t> haplotypes {
-        {2, 1}, {3, 2}, {4, 2}, {5, 2}, {6, 3}, {7, 2}, {8, 2}
-    };
-    for (auto& anchor : to_score) {
-        anchor.set_paths(haplotypes.at(id(anchor.graph_start())));
-    }
-
-    auto result = run_ziptree_iterator_multi_chain(graph, to_score, 3);
-    REQUIRE(result.size() == 1);
-    auto& group = result.front();
-    REQUIRE(group.subchains.size() == 5);
-
-    // Index the subchains by the node their first anchor is on
-    std::unordered_map<nid_t, size_t> subchain_at;
-    for (size_t i = 0; i < group.subchains.size(); i++) {
-        subchain_at[id(to_score[group.subchains[i].anchors.front()].graph_start())] = i;
-    }
-    REQUIRE(subchain_at.size() == group.subchains.size());
-
-    // Going from the subchain at 1 to the one at 3 needs a recombination
-    REQUIRE(algorithms::count_total_recombinations(group, {subchain_at.at(2), subchain_at.at(4)}) == 1);
-    // Going from the subchain at 2 to the one at 3 does not
-    REQUIRE(algorithms::count_total_recombinations(group, {subchain_at.at(3), subchain_at.at(4)}) == 0);
-}
-
-TEST_CASE("a haplotype-consistent middle subchain still forces a recombination between incompatible ends", "[chain_items]") {
-    // A only sees haplotype 1, B sees both 1 and 2 (a shared/generic node),
-    // C only sees haplotype 2, D only sees haplotype 1 like A. No single
-    // haplotype is consistent with both A and C, so chaining A-B-C must
-    // force exactly one recombination overall, even though B itself is not
-    // internally recombinant and is compatible with both neighbors
-    // individually. Chaining A-B-D instead stays on haplotype 1 throughout,
-    // so it must force zero recombinations.
-    algorithms::Subchain a({});
-    a.rec_count = 0;
-    a.start_paths = 1;
-    a.end_paths = 1;
-
-    algorithms::Subchain b({});
-    b.rec_count = 0;
-    b.start_paths = 3; // haplotypes 1 and 2
-    b.end_paths = 3;
-
-    algorithms::Subchain c({});
-    c.rec_count = 0;
-    c.start_paths = 2;
-    c.end_paths = 2;
-
-    algorithms::Subchain d({});
-    d.rec_count = 0;
-    d.start_paths = 1;
-    d.end_paths = 1;
-
-    algorithms::SubchainGroup group;
-    group.subchains = {a, b, c, d};
-
-    REQUIRE(algorithms::count_total_recombinations(group, {0, 1, 2}) == 1);
-    REQUIRE(algorithms::count_total_recombinations(group, {0, 1, 3}) == 0);
-}
-
 
 }
 
