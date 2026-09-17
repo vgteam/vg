@@ -496,6 +496,7 @@ void build_site_anchors(const AnchorSiteEvidence& evidence, const vector<int>& g
         // what bounds the score: at a 0.02 floor a perfectly discriminating read on a balanced het
         // reaches about 14 phred, not 60.
         double best_resp = -1.0;
+        double best_plain = 0.0;
         size_t best_slot = 0;
         double total = mismap;
         if (phase_split) {
@@ -569,9 +570,23 @@ void build_site_anchors(const AnchorSiteEvidence& evidence, const vector<int>& g
             }
         }
         for (size_t i = 0; i < n_slots; ++i) {
-            double resp = (1.0 - mismap) * (i == 0 ? w0 : (i == 1 ? w1 : weight[i]))
-                          * (double)evidence.rel_at(r, (size_t)slot_allele[i]);
-            total += resp;
+            // Two responsibilities per slot, and they are different quantities.
+            //
+            // `plain` uses the site's own length weights and answers "how well do THIS SITE's reads
+            // tell its alleles apart". It is what `share` and therefore the `reliability` column are
+            // built from, and it must not move when --anchors-phase-hets is on: reliability is the
+            // filter a consumer thresholds, it is documented as low where a site's alleles cannot be
+            // told apart, and letting the strand into it would silently make it mean something else.
+            // Measured before this was split out, the tilt took chr20 anchors at reliability >= 9
+            // from 74.0% to 93.9% with no change in the underlying data.
+            //
+            // `resp` carries the tilt and is used for the ARGMAX only -- which slot the read joins.
+            // With the flag off the two are the same value and every downstream number is unchanged.
+            const double plain = (1.0 - mismap) * weight[i]
+                                 * (double)evidence.rel_at(r, (size_t)slot_allele[i]);
+            const double resp = (1.0 - mismap) * (i == 0 ? w0 : (i == 1 ? w1 : weight[i]))
+                                * (double)evidence.rel_at(r, (size_t)slot_allele[i]);
+            total += plain;
             // Ties break on the ALLELE, not on the slot position. `slot_allele` is in phase order,
             // so a positional tie-break makes the partition depend on the phase -- and read phasing
             // reorders it. On chr20 that moved one read at a handful of sites, which is invisible
@@ -583,9 +598,11 @@ void build_site_anchors(const AnchorSiteEvidence& evidence, const vector<int>& g
             if (resp > best_resp
                 || (resp == best_resp && slot_allele[i] < slot_allele[best_slot])) {
                 best_resp = resp;
+                best_plain = plain;
                 best_slot = i;
             }
         }
+        best_resp = best_plain;   // from here on it is the untilted share's numerator
         }
         if (!(best_resp > 0.0) || !(total > 0.0)) {
             // The read fits no called allele at all.
