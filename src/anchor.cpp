@@ -851,7 +851,15 @@ bool AnchorWriter::write(const string& path, const string& graph_name, const str
         << " min-read-score=" << params.min_read_score
         << " off-call=" << (params.keep_off_call ? "kept" : "dropped")
         << " end-pin-min-new=" << params.end_pin_min_new
-        << " hom-split=" << (params.hom_split ? "on" : "off") << "\n";
+        << " hom-split=" << (params.hom_split ? "on" : "off")
+        // Which rule put each read in its slot at a HETEROZYGOUS site. Two files built with
+        // different rules are otherwise indistinguishable from their own headers, and these get
+        // compared against each other as controls, so the header has to carry it.
+        //   allele  -- the site's own sequence match alone (--no-anchors-phase-hets)
+        //   tilt    -- match, weighted by the read's cross-site strand posterior (the default)
+        //   strand  -- the strand's sign alone, match ignored (--anchors-strict-hets)
+        << " het-placement="
+        << (params.strict_hets ? "strand" : (params.phase_hets ? "tilt" : "allele")) << "\n";
     if (params.hom_split) {
         // Provenance, because the two slots of a split homozygous site are indistinguishable from a
         // heterozygote's by their columns alone: same shape, same slot numbers, and the `allele`
