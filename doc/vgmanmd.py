@@ -12,7 +12,7 @@ cmds = ['align', 'annotate', 'augment', 'autoindex', 'bench-dist-query',
         'index', 'inject', 'map', 'mask', 'minimizer', 'mod', 'mpmap',
         'pack', 'paths', 'primers', 'prune', 'rna', 'sim', 'simplify', 'snarls',
         'stats', 'surject', 'test', 'trace', 'validate', 'vectorize', 'version',
-        'view', 'viz', 'zipcode'
+        'view', 'zipcode'
 ]
 cmds.sort()
 
