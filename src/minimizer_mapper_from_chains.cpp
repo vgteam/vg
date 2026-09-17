@@ -792,7 +792,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         {
             cerr << log_name() << "Scaled scores:";
             for (size_t i = 0; i < scaled_scores.size(); i++) {
-                cerr << " " << scaled_scores[i];
+                cerr << " " << scaled_scores[i] << " (mult." << multiplicity_by_alignment[i] << ")";
                 if (i + 1 < scaled_scores.size()) {
                     cerr << ",";
                 }
