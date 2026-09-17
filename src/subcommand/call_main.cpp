@@ -106,7 +106,7 @@ void help_call(char** argv) {
          << "                            differs from down-weighting it: the mismap term" << endl
          << "                            saturates, while removal also takes it out of the" << endl
          << "                            genotype and the site reliability mean" << endl
-         << "                            [0, or 10 under --preset ont]" << endl
+         << "                            [0, or 5 under --preset ont]" << endl
          << "" << endl
          << "  allele enumeration:" << endl
          << "      --enumerate-support   enumerate candidate alleles from read support rather" << endl
@@ -1381,26 +1381,42 @@ int main_call(int argc, char** argv) {
                 min_mismap_prob = 0.05;
             }
             if (!read_min_mapq_explicit) {
-                // A read below 10 is 31x enriched at the junctions that produce a true switch, and
-                // EXCLUDING one is not the same lever as down-weighting it. `phase_link`'s escape
-                // mixture already drives a low-reliability read's contribution to zero, so the
-                // mismap clamp is saturated: --mismap-max 0.7 -> 0.99 moves chr20 from 55 true
-                // switches to 57. Removal reaches two things the clamp cannot -- the GENOTYPE,
-                // whose settled pair every other read's q0 is measured against, and site
-                // `reliability`, which is a MEAN and so is pulled under --phase-min-q by one bad
-                // read.
+                // EXCLUDING a low-MAPQ read is not the same lever as down-weighting it.
+                // `phase_link`'s escape mixture already drives a low-reliability read's
+                // contribution to zero, so the mismap clamp is saturated: --mismap-max 0.7 -> 0.99
+                // moves chr20 from 55 true switches to 57. Removal reaches two things the clamp
+                // cannot -- the GENOTYPE, whose settled pair every other read's q0 is measured
+                // against, and site `reliability`, which is a MEAN and so is pulled under
+                // --phase-min-q by one bad read.
                 //
-                // Measured on both contigs, monotone in the same direction with no arm worse than
-                // baseline on either: chr20 55 true switches -> 45, chr6 63 -> 60, ALL/SNV/
-                // insertion/deletion F1 flat to the fourth decimal and SV F1 unmoved. Reliable het
-                // counts RISE -- chr20 60,203 -> 61,776, chr6 162,622 -> 163,527 -- because
-                // discarding the reads lifts sites back over the gate. chr20's own optimum is
-                // 20-30; 10 is the conservative value, improving both while discarding least.
+                // 5 is a PROVISIONAL value. What it does, measured with off-reference nesting on,
+                // which is the configuration anchor output uses:
+                //
+                //            chr20 (MAPQ 0 -> 5)        chr6 hold-out (MAPQ 0 -> 5)
+                //   reliable hets  60,695 -> 61,863      163,916 -> 164,438
+                //   chain breaks    1,269 ->  1,432        1,503 ->   1,534
+                //   ALL F1        0.95825 -> 0.95826    0.96520 -> 0.96486
+                //   TP / FP          +0 / -1                 -89 / +101
+                //
+                // Calling accuracy is essentially untouched: chr20 is exact and chr6 moves
+                // 0.03% relative -- 89 TP out of 269,571 -- which is reproducible (vg call is
+                // byte-identical on a repeat run) but far too small to decide anything. The
+                // reason to set it is the reliable-het rise: those are sites the phasing chain
+                // can use, and it holds on both contigs.
+                //
+                // NO SWITCH-ERROR CLAIM IS MADE HERE, deliberately, because the contigs disagree:
+                // chr20 goes 68 -> 56 true switches and chr6 goes 66 -> 69. The chr20 direction is
+                // also not what it looks like -- the whole of it lives in chr20:26-27 Mb, where
+                // the arms read 35 vs 20 against 188 vs 185 over the rest of the contig, and the
+                // discordant positions there are not independent (21 of 29 fall in three clusters
+                // inside 227 kb, some 3 bp apart), so collapsing them at any merge distance
+                // >= 1 kb takes McNemar from p=0.006 to p=0.42. Do not justify this default, or
+                // any future change to it, on switch error.
                 //
                 // Keyed on the preset because it is a statement about ONT MAPQ, where 94.67% of
                 // alignments are 60. It is not one about a read set whose mapper writes no mapping
                 // quality at all, and for that set a nonzero default is silence.
-                read_min_mapq = 10;
+                read_min_mapq = 5;
             }
             if (!insertion_nats_explicit) {
                 // ONT's basecaller miscounts a homopolymer run in one direction more often than
