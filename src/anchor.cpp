@@ -63,6 +63,10 @@ void AnchorCounters::report(ostream& out) const {
         }
         out << endl;
     }
+    if (het_phase_tilted.load() > 0) {
+        out << "[vg call] anchors: --anchors-phase-hets tilted " << het_phase_tilted.load()
+            << " read placements at heterozygous sites by the read's cross-site strand" << endl;
+    }
     if (phase_checked.load() > 0) {
         const size_t n = phase_checked.load(), ok = phase_agree.load();
         const size_t cn = phase_confident.load(), ck = phase_confident_agree.load();
@@ -539,9 +543,33 @@ void build_site_anchors(const AnchorSiteEvidence& evidence, const vector<int>& g
             best_resp = (1.0 - mismap) * (double)evidence.rel_at(r, (size_t)slot_allele[0]);
             total = mismap + best_resp;
             best_slot = coin >= 0 ? (size_t)coin : (lo > 0.0 ? 0 : 1);
-        } else
+        } else {
+        // The slot weights this read sees. Normally the site's own length weights, shared by every
+        // read; under --anchors-phase-hets the read's accumulated cross-site strand tilts them,
+        // down-weighting the slot its OTHER sites say it did not come from.
+        //
+        // Same tilt as `phase_aware_correction`: multiply the disfavoured slot by exp(-|lo|), where
+        // lo is the calibrated, leave-one-out strand log-odds. A read with no opinion (0), one
+        // spanning a phase break (NaN), or a site that is not a plain diploid het is untouched, so
+        // the flag is exactly inert wherever the strand says nothing.
+        double w0 = weight[0];
+        double w1 = n_slots > 1 ? weight[1] : 0.0;
+        if (params.phase_hets && read_strand != nullptr && n_slots == 2
+            && read_strand->size() == evidence.reads.size()
+            && slot_allele[0] != slot_allele[1]) {
+            const double lo = (*read_strand)[r];
+            if (!std::isnan(lo) && lo != 0.0) {
+                const double f = std::exp(-std::abs(lo));
+                if (lo > 0.0) {
+                    w1 *= f;
+                } else {
+                    w0 *= f;
+                }
+                ++counters.het_phase_tilted;
+            }
+        }
         for (size_t i = 0; i < n_slots; ++i) {
-            double resp = (1.0 - mismap) * weight[i]
+            double resp = (1.0 - mismap) * (i == 0 ? w0 : (i == 1 ? w1 : weight[i]))
                           * (double)evidence.rel_at(r, (size_t)slot_allele[i]);
             total += resp;
             // Ties break on the ALLELE, not on the slot position. `slot_allele` is in phase order,
@@ -557,6 +585,7 @@ void build_site_anchors(const AnchorSiteEvidence& evidence, const vector<int>& g
                 best_resp = resp;
                 best_slot = i;
             }
+        }
         }
         if (!(best_resp > 0.0) || !(total > 0.0)) {
             // The read fits no called allele at all.

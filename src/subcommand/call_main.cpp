@@ -262,6 +262,14 @@ void help_call(char** argv) {
          << "      --split-min-side N    confidently placed reads needed on EACH side before" << endl
          << "                            a homozygous site may be split. A site whose reads" << endl
          << "                            all lean one way has been relabelled, not split [2]" << endl
+         << "      --anchors-phase-hets  place a read at a HETEROZYGOUS site by its cross-site" << endl
+         << "                            strand as well as its allele match. Without it the slot" << endl
+         << "                            is decided afresh at every site from that site's" << endl
+         << "                            sequence alone, so neighbouring sites disagree about a" << endl
+         << "                            read 6.42% of the time on chr20 ONT, against 0.00%" << endl
+         << "                            between two split homozygotes. Makes the anchors agree" << endl
+         << "                            with the phasing where the strand is confident, so they" << endl
+         << "                            stop being an independent check ON it [off]" << endl
          << "      --anchors-het-only    only heterozygous sites. By default homozygous and" << endl
          << "                            haploid ones are emitted too: they carry no" << endl
          << "                            haplotype information, but an anchor graph is built" << endl
@@ -657,6 +665,7 @@ int main_call(int argc, char** argv) {
     constexpr int OPT_INSERTION_GAP_NATS = 1091;
     constexpr int OPT_REALIGN = 1092;
     constexpr int OPT_ANCHORS_HOM_SPLIT = 1094;
+    constexpr int OPT_ANCHORS_PHASE_HETS = 1102;
     constexpr int OPT_ANCHORS_PHASE_MIN = 1095;
     constexpr int OPT_ANCHORS_PHASE_MIN_SIDE = 1096;
     constexpr int OPT_NO_REALIGN = 1093;
@@ -790,6 +799,7 @@ int main_call(int argc, char** argv) {
         {"insertion-nats", required_argument, 0, OPT_INSERTION_GAP_NATS,    OWN_READ_LIKELIHOOD},
         {"realign", no_argument, 0, OPT_REALIGN,                            OWN_READ_LIKELIHOOD},
         {"anchors-hom-split", no_argument, 0, OPT_ANCHORS_HOM_SPLIT,        OWN_ANCHORS},
+        {"anchors-phase-hets", no_argument, 0, OPT_ANCHORS_PHASE_HETS,      OWN_ANCHORS},
         {"split-min-q", required_argument, 0, OPT_ANCHORS_PHASE_MIN,         OWN_ANCHORS},
         {"split-min-side", required_argument, 0, OPT_ANCHORS_PHASE_MIN_SIDE, OWN_ANCHORS},
         {"no-realign", no_argument, 0, OPT_NO_REALIGN,                      OWN_READ_LIKELIHOOD},
@@ -1223,6 +1233,9 @@ int main_call(int argc, char** argv) {
             break;
         case OPT_ANCHORS_HOM_SPLIT:
             anchor_params.hom_split = true;
+            break;
+        case OPT_ANCHORS_PHASE_HETS:
+            anchor_params.phase_hets = true;
             break;
         case OPT_ANCHORS_PHASE_MIN:
             anchor_params.phase_min = parse<double>(optarg);
@@ -2697,6 +2710,15 @@ int main_call(int argc, char** argv) {
         cerr << "error [vg call]: --anchors-hom-split needs --read-phasing; the split is decided by"
              << " each read's phase across the OTHER sites it crosses, so without a phasing chain"
              << " there is nothing to split on and every site would stay collapsed" << endl;
+        return 1;
+    }
+    // Same dependency as --anchors-hom-split and for the same reason: the tilt is the read's
+    // strand log-odds, which is identically 0.0 for every read with no phasing chain. The flag
+    // would be accepted, run, and change nothing.
+    if (anchor_params.phase_hets && !read_phasing) {
+        cerr << "error [vg call]: --anchors-phase-hets needs --read-phasing; the tilt is each"
+             << " read's phase across the OTHER sites it crosses, so without a phasing chain every"
+             << " read's strand log-odds is zero and the flag would be inert" << endl;
         return 1;
     }
     if (regenotype && !read_phasing) {

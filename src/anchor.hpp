@@ -130,6 +130,10 @@ struct AnchorCounters {
     /// spanning a phase break -- are still dropped, because they have evidence that simply cannot
     /// be named here.
     atomic<size_t> hom_split_coin{0};
+    /// Read placements at a heterozygous site whose slot weights --anchors-phase-hets tilted by the
+    /// read's cross-site strand. Reads with no opinion, or spanning a phase break, are not counted:
+    /// the flag is inert for them, so this is the number of placements it could actually move.
+    atomic<size_t> het_phase_tilted{0};
 
     atomic<size_t> phase_checked{0};
     atomic<size_t> phase_agree{0};
@@ -285,6 +289,23 @@ struct AnchorParams {
     /// Minimum confidently-placed reads on EACH side before a homozygous site may be split. A site
     /// whose reads all lean one way has not been partitioned, it has been relabelled.
     size_t phase_min_side = 2;
+
+    /// Place a read at a HETEROZYGOUS site by its cross-site strand as well as its allele match.
+    ///
+    /// Off by default, and the default is a real choice rather than caution. A het site's own
+    /// alleles are evidence about which haplotype a read came from, and letting the accumulated
+    /// strand tilt that evidence makes the anchors agree with the phasing wherever the strand is
+    /// confident -- so they stop being usable as an independent check ON the phasing. That matters
+    /// to a consumer validating an assembly; it does not matter to one building one.
+    ///
+    /// What it buys: the slot a read lands in at a het site is otherwise decided afresh at every
+    /// site from that site's sequence match alone, so neighbouring sites disagree about a read's
+    /// haplotype 6.42% of the time on chr20 ONT, against 0.00% between two split homozygotes,
+    /// which read the strand instead. That disagreement is what branches the anchor graph.
+    ///
+    /// The tilt is the same one `phase_aware_correction` applies during re-genotyping, and the
+    /// strand is leave-one-out against this record, so a site never tilts itself.
+    bool phase_hets = false;
 };
 
 /**
