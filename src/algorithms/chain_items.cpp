@@ -987,7 +987,7 @@ vector<SparseAnchorChain> find_best_chains(const VectorView<Anchor>& to_chain,
     for (size_t i = 0; i < original_tracebacks.size(); i++) {
         // All anchors are unique/original at this point
         original_tracebacks[i].is_anchor_original = vector<bool>(original_tracebacks[i].anchors.size(), true);
-        if (original_tracebacks[i].chain_score < original_tracebacks.front().chain_score / 4) {
+        if (original_tracebacks[i].chain_score < original_tracebacks.front().chain_score / 3) {
 #ifdef debug_chaining
             cerr << "Saving tracebacks from " << i << " as completely separate" << endl; 
 #endif
