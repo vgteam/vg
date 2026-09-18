@@ -171,8 +171,12 @@ void help_call(char** argv) {
          << "                            does; this is for turning the preset's back off" << endl
          << "      --phase-min-q N       a site below this per-read confidence may not" << endl
          << "                            carry a phase link [9.5, or 8.5 under --realign]" << endl
-         << "      --phase-break N       break the chain below this many log10 units [10]" << endl
-         << "      --phase-relink N      reliable sites either side of a break [3]" << endl
+         << "      --phase-break N       break the chain below this many log10 units. A break" << endl
+         << "                            does NOT fragment the output -- stage 2 relinks it" << endl
+         << "                            -- so breaking more often reroutes the junction" << endl
+         << "                            into the nine-pair relink, which is the better" << endl
+         << "                            rule. Lowering it is worse [20]" << endl
+         << "      --phase-relink N      reliable sites either side of a break [10]" << endl
          << "      --phase-hang N        neighbours to hang an unreliable site from [4]" << endl
          << "      --phase-prior N       weight of the panel when hanging a site [3]" << endl
          << "      --phase-cap N         clamp one pair's contribution, 0 to disable [0]" << endl
@@ -201,7 +205,7 @@ void help_call(char** argv) {
          << "                            point is a chain every site of which is coherent" << endl
          << "                            WITH THAT CHAIN. Risks fragmentation: each round" << endl
          << "                            removes sites, surviving links span further, and" << endl
-         << "                            more drop under the break threshold [1]" << endl
+         << "                            more drop under the break threshold [2]" << endl
          << "      --phase-backbone K    reconsider every backbone site against K neighbours" << endl
          << "                            on EACH side, weighted by evidence, instead of the" << endl
          << "                            one adjacent sign the cascade used. Flips a site" << endl

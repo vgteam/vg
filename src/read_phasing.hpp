@@ -125,9 +125,34 @@ struct ReadPhasingParams {
     /// default is the GREEDY walk's value and is still right for it.
     double reliability = 9.5;
     /// Break the chain below this many log10 units of evidence.
-    double break_threshold = 10.0;
-    /// Reliable sites either side of a break to relink over. 3 is enough; 8 is a wash and 15 hurt.
-    size_t relink = 3;
+    ///
+    /// Raised from 10 after two things were established. First, a chain break does NOT fragment the
+    /// output: 707 breaks and 7,565 breaks both give ONE `PS` block for a whole contig, because
+    /// stage 2 relinks every break. So a break is not a cost, it is a REROUTE -- the junction stops
+    /// being decided by stage 1's single-link sign cascade and starts being decided by stage 2's
+    /// nine-pair magnitude-weighted relink. Second, the relink is the better rule, which is the
+    /// same lesson `--phase-coherence` teaches by moving sites to stage 3's hanging rule.
+    ///
+    /// So breaking MORE often is breaking more often into a better decision procedure. Measured:
+    /// chr20 33 -> 31 switches and chr6 31 -> 30 for this parameter alone, and 33 -> 27 / 31 -> 28
+    /// together with the two below. Going the other way is worse -- `--phase-break 5` gives chr6 33
+    /// against 31, which is the mechanism confirming itself.
+    double break_threshold = 20.0;
+    /// Reliable sites either side of a break to relink over.
+    ///
+    /// The old note here read "3 is enough; 8 is a wash and 15 hurt". That was measured BEFORE
+    /// `--phase-coherence`, which removes from the backbone exactly the sites a wider window used
+    /// to reach into, and before `--phase-break` was raised, which is what makes the relink carry
+    /// most of the chain instead of a twentieth of it.
+    ///
+    /// Held to a lower standard of evidence than the other two, and that should be recorded: on
+    /// SWITCHES it has no consistent direction (chr20 33 -> 29 alone but no change in combination;
+    /// chr6 nothing alone but 30 -> 28 in combination). What argues for it is F1, on a denominator
+    /// of 269,660 true positives rather than thirty switch events -- it is the only arm that moves
+    /// F1 at all, and it moves it UP on chr6 by 0.00031, with TP +80 and FP -97, both directions
+    /// right. One observation on one contig; a chr6 repeat would settle whether it is real or the
+    /// genotype perturbation any phasing change causes through re-genotyping.
+    size_t relink = 10;
     /// Decided neighbours to hang an unreliable site from.
     size_t hang = 4;
     /// Weight of the panel's own answer when hanging a site. The panel is a genuinely long-range
@@ -189,7 +214,12 @@ struct ReadPhasingParams {
     /// chain every one of whose sites is coherent WITH THAT CHAIN, which the one-shot version does
     /// not guarantee. The risk is fragmentation: each round removes sites, the surviving links span
     /// further, `phase_link` falls off with distance, and more of them drop under --phase-break.
-    size_t coherence_rounds = 1;
+    ///
+    /// 2 rather than 1: chr20 33 -> 31 switches and chr6 31 -> 30. Not the fixed point -- that is
+    /// reached in three rounds and scores what one round scores, for 41% more chain breaks -- so
+    /// this is a measured waypoint and not a principled limit, which is why it is capped here
+    /// rather than run to convergence.
+    size_t coherence_rounds = 2;
     /// Reads a site needs before low coherence may demote it.
     ///
     /// The instinct behind a high value is that coherence on few reads is noisy. The counter-case
