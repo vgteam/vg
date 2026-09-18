@@ -194,6 +194,14 @@ void help_call(char** argv) {
          << "                            in its worst 1% and the first 1.1x. chr20 switches" << endl
          << "                            51 -> 33 and chr6 62 -> 31, with F1 up on both." << endl
          << "                            0 disables [0.70]" << endl
+         << "      --phase-coh-rounds N  demotion rounds before giving up on a coherent" << endl
+         << "                            chain. 1 demotes once against the FIRST phasing;" << endl
+         << "                            higher re-measures coherence on the chain that" << endl
+         << "                            re-derivation produced and repeats, so the fixed" << endl
+         << "                            point is a chain every site of which is coherent" << endl
+         << "                            WITH THAT CHAIN. Risks fragmentation: each round" << endl
+         << "                            removes sites, surviving links span further, and" << endl
+         << "                            more drop under the break threshold [1]" << endl
          << "      --regenotype          let the reads' phase decide the genotype, not only" << endl
          << "                            the order of an already-settled pair. Needs" << endl
          << "                            `--read-phasing`. OFF by default, ON under" << endl
@@ -721,6 +729,7 @@ int main_call(int argc, char** argv) {
     constexpr int OPT_PHASE_CHANGEPOINT = 1105;
     constexpr int OPT_PHASE_CP_ROUNDS = 1106;
     constexpr int OPT_PHASE_COHERENCE = 1107;
+    constexpr int OPT_PHASE_COH_ROUNDS = 1108;
     constexpr int OPT_REGENOTYPE = 1082;
     constexpr int OPT_NO_REGENOTYPE = 1087;
     constexpr int OPT_REGENO_CEILING = 1088;
@@ -860,6 +869,7 @@ int main_call(int argc, char** argv) {
         {"phase-cp", required_argument, 0, OPT_PHASE_CHANGEPOINT,            OWN_READ_LIKELIHOOD},
         {"phase-cp-rounds", required_argument, 0, OPT_PHASE_CP_ROUNDS,      OWN_READ_LIKELIHOOD},
         {"phase-coherence", required_argument, 0, OPT_PHASE_COHERENCE,      OWN_READ_LIKELIHOOD},
+        {"phase-coh-rounds", required_argument, 0, OPT_PHASE_COH_ROUNDS,    OWN_READ_LIKELIHOOD},
         {"regenotype", no_argument, 0, OPT_REGENOTYPE,                      OWN_READ_LIKELIHOOD},
         {"no-regenotype", no_argument, 0, OPT_NO_REGENOTYPE,                OWN_READ_LIKELIHOOD},
         {"regeno-ceiling", required_argument, 0, OPT_REGENO_CEILING,        OWN_REGENOTYPE},
@@ -1186,6 +1196,13 @@ int main_call(int argc, char** argv) {
             if (read_phasing_params.coherence_min < 0.0
                 || read_phasing_params.coherence_min > 1.0) {
                 cerr << "error [vg call]: --phase-coherence is a fraction in [0,1]" << endl;
+                return 1;
+            }
+            break;
+        case OPT_PHASE_COH_ROUNDS:
+            read_phasing_params.coherence_rounds = parse<size_t>(optarg);
+            if (read_phasing_params.coherence_rounds < 1) {
+                cerr << "error [vg call]: --phase-coh-rounds must be >= 1" << endl;
                 return 1;
             }
             break;

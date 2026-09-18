@@ -183,6 +183,13 @@ struct ReadPhasingParams {
     /// term removed, so a site never votes on itself. Sites below the bar are demoted to unreliable
     /// and the cascade re-run, which is one extra pass.
     double coherence_min = 0.70;
+    /// Demotion rounds before giving up on a coherent chain. 1 is the one-shot heuristic: demote
+    /// once against the FIRST phasing and re-derive. Higher iterates -- re-measure coherence on the
+    /// chain that re-derivation produced, demote again, repeat -- so the fixed point is a reliable
+    /// chain every one of whose sites is coherent WITH THAT CHAIN, which the one-shot version does
+    /// not guarantee. The risk is fragmentation: each round removes sites, the surviving links span
+    /// further, `phase_link` falls off with distance, and more of them drop under --phase-break.
+    size_t coherence_rounds = 1;
 };
 
 struct ReadPhasingCounters {
@@ -206,6 +213,11 @@ struct ReadPhasingCounters {
     /// Sites demoted from reliable to unreliable for low phase coherence, and how many had passed
     /// the `reliability` gate -- the gap between the two criteria, counted directly.
     size_t demoted_incoherent = 0;
+    /// Demotion rounds actually run, and chains that were still demoting when the cap hit -- a
+    /// chain that never reaches a coherent fixed point is telling you something and must not be
+    /// silently reported as converged.
+    size_t coherence_rounds_run = 0;
+    size_t coherence_unconverged = 0;
 };
 
 /// log10 odds, cis against trans, over the reads two sites share. Positive means the reads agree

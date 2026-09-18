@@ -6332,7 +6332,14 @@ void FlowCaller::apply_read_phasing() {
     }
     if (c.demoted_incoherent > 0) {
         cerr << "[vg call] read phasing: " << c.demoted_incoherent
-             << " sites demoted for low phase coherence despite passing --phase-min-q" << endl;
+             << " sites demoted for low phase coherence over " << c.coherence_rounds_run
+             << " rounds"
+             << (c.coherence_unconverged
+                     ? " -- " + std::to_string(c.coherence_unconverged)
+                           + " chains were STILL demoting at the round cap, so their chain is not"
+                             " a coherent fixed point"
+                     : " (every chain reached a coherent fixed point)")
+             << endl;
     }
 }
 

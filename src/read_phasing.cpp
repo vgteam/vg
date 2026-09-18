@@ -114,7 +114,10 @@ unordered_set<size_t> read_phase_flips(vector<PhaseSite>& sites, const ReadPhasi
         vector<int> o(n, 0);
         vector<char> decided(n, 0);
 
-        for (size_t pass = 0; pass < 2 && !rel.empty(); ++pass) {
+        const size_t max_pass = params.coherence_min > 0.0
+                                    ? max<size_t>(1, params.coherence_rounds) + 1
+                                    : 1;
+        for (size_t pass = 0; pass < max_pass && !rel.empty(); ++pass) {
             // --- stage 1: the chain of reliable sites, stepping over the rest ---
             vector<double> d(rel.size() > 0 ? rel.size() - 1 : 0, 0.0);
             for (size_t m = 0; m + 1 < rel.size(); ++m) {
@@ -271,7 +274,7 @@ unordered_set<size_t> read_phase_flips(vector<PhaseSite>& sites, const ReadPhasi
             //
             // Held out by construction: each read's haplotype is recomputed with THIS site's own
             // term removed, so a site never votes on itself.
-            if (params.coherence_min > 0.0 && pass == 0 && rel.size() >= 3) {
+            if (params.coherence_min > 0.0 && pass + 1 < max_pass && rel.size() >= 3) {
                 unordered_map<uint64_t, vector<std::array<double, 3>>> by_read;
                 for (size_t m = 0; m < rel.size(); ++m) {
                     const PhaseSite& st = sites[begin + rel[m]];
@@ -319,6 +322,12 @@ unordered_set<size_t> read_phase_flips(vector<PhaseSite>& sites, const ReadPhasi
                 }
                 if (!drop.empty() && keep.size() >= 2) {
                     counters.demoted_incoherent += drop.size();
+                    ++counters.coherence_rounds_run;
+                    if (pass + 2 == max_pass) {
+                        // Still finding incoherent sites on the last round we are allowed: the
+                        // chain has not reached a coherent fixed point and is reported as such.
+                        ++counters.coherence_unconverged;
+                    }
                     for (size_t t : drop) {
                         unrel.push_back(t);
                     }
