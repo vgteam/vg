@@ -1816,6 +1816,36 @@ void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::ve
                 funnel.pass("no-chain-overlap", processed_num);
             }
 
+            // Make sure we aren't doing too many chains from this one tree.
+            auto& tree_count = chains_per_tree[chains.at(processed_num).source_tree];
+            if (tree_count >= max_chains_per_tree) {
+                if (track_provenance) {
+                    funnel.fail("max-chains-per-tree", processed_num, tree_count);
+                }
+                if (show_work) {
+                    #pragma omp critical (cerr)
+                    {
+                        cerr << log_name() << "Chain " << processed_num << " is chain "
+                             << tree_count << " in its tree " << chains.at(processed_num).source_tree
+                             << " and is rejected (score=" << chains.at(processed_num).source_tree << ")" << endl;
+                    }
+                }
+                tree_count++;
+                return false;
+            } else {
+                if (track_provenance) {
+                    funnel.pass("max-chains-per-tree", processed_num, tree_count);
+                }
+                if (show_work) {
+                    #pragma omp critical (cerr)
+                    {
+                        cerr << log_name() << "Chain " << processed_num << " is chain " << tree_count
+                             << " in its tree " << chains.at(processed_num).source_tree << " and is kept" << endl;
+                    }
+                }
+                tree_count++;
+            }
+
             // Collect the top alignments. Make sure we have at least one always, starting with unaligned.
             vector<Alignment> best_alignments(1, aln);
 
