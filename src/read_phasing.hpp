@@ -163,24 +163,6 @@ struct ReadPhasingParams {
     /// magnitude and one chimeric link in a segmental duplication would otherwise be unoverridable.
     double cap = 0.0;
 
-    /// Minimum aggregate log10 gain before a junction is treated as a switch and everything
-    /// downstream of it flipped. 0 disables the pass. PROTOTYPE, off by default.
-    ///
-    /// Stage 1 decides a junction from the reads the two ADJACENT sites share, and uses only the
-    /// sign. This pass instead asks, for every junction, what flipping all downstream orientations
-    /// would do to the total read likelihood, using each read's ENTIRE span rather than one pair:
-    ///
-    ///     S(j) = sum over reads spanning j of sum over that read's sites s >= j of (b_s - a_s)
-    ///
-    /// where `a` is log10 of the read's per-site term under the haplotype it is assigned and `b`
-    /// the term under the other. S(j) > 0 means the flip raises sum_r max_H L(H, r), so greedily
-    /// flipping at the argmax junction is hill-climbing on that objective and terminates. This is
-    /// the transitive constraint `phase_link` discards: a read spanning three sites constrains the
-    /// 1->3 relation, and nothing in stages 1-3 ever reads it.
-    double changepoint_min = 0.0;
-    /// Cap on greedy flips per chain, so a pathological locus cannot spin.
-    size_t changepoint_rounds = 200;
-
     /// Minimum PHASE COHERENCE for a site to keep carrying a link, in [0,1]. 0 disables.
     ///
     /// GATED ON BOTH CONTIGS AND ON BOTH METRICS, which no previous switch intervention managed:
@@ -220,97 +202,7 @@ struct ReadPhasingParams {
     /// this is a measured waypoint and not a principled limit, which is why it is capped here
     /// rather than run to convergence.
     size_t coherence_rounds = 2;
-    /// Reads a site needs before low coherence may demote it.
-    ///
-    /// The instinct behind a high value is that coherence on few reads is noisy. The counter-case
-    /// is stronger: a site with three reads that disagree contributes almost nothing to the
-    /// backbone AND is unreliable, so protecting it is backwards -- it is a prime candidate, not a
-    /// borderline one. Swept, because the argument does not settle it.
-    size_t coherence_min_reads = 10;
 
-    /// Backbone neighbours per side for the local-search refinement, 0 to disable.
-    ///
-    /// Stage 1 chains ADJACENT reliable sites and reads only the SIGN of each link, so one wrong
-    /// sign inverts every site to the end of the segment -- mean 55.5 of them. Its magnitude is
-    /// used once, for the break test, and a lone link has no competing evidence to weight against,
-    /// which is why --phase-break was measured at 20/40/80 and changes nothing.
-    ///
-    /// This joins each backbone site to its K nearest backbone neighbours on EACH side and chooses
-    /// orientations by local search on
-    ///
-    ///     sum over edges of |d_ij| * (+1 if the pair agrees with sign d_ij, else -1)
-    ///
-    /// flipping any site whose incident disagreeing weight exceeds its agreeing weight. Every flip
-    /// strictly increases a bounded objective, so it terminates. It is stage 3's rule -- several
-    /// neighbours, weighted by evidence -- applied to the backbone itself rather than only to the
-    /// sites that were kept out of it.
-    ///
-    /// Single-site moves cannot cross a switch, which needs a whole suffix inverted; --phase-cp
-    /// supplies that move, and its firing on 3 junctions in all of chr20 says suffix moves are the
-    /// safety net and these are where the gain should be.
-    size_t backbone = 0;
-
-    /// Previous decided sites to consult when adding the NEXT site to the chain, 0 for the plain
-    /// adjacent-pair cascade.
-    ///
-    /// Stage 1 decides each site from the single link to its predecessor, and from that link's SIGN
-    /// alone, so one bad link inverts every site to the end of the segment -- mean 55.5 of them.
-    /// With lookback the new site is decided by a weighted vote over the previous K sites already
-    /// in the chain: sum over j of |d(m+1-j, m+1)| * (+1 if that site's settled orientation implies
-    /// o = 0 for the new one, else -1). A single bad link is then outvoted by its neighbours instead
-    /// of being obeyed.
-    ///
-    /// This is stage 3's rule used PROSPECTIVELY, during construction, rather than retrospectively
-    /// on the sites the chain would not take. That distinction is why it is worth trying even
-    /// though --phase-backbone was negative: local search refines the cascade's own answer and so
-    /// settles into the nearest optimum, which is exactly what it found. A different construction
-    /// lands in a different basin.
-    ///
-    /// Lookback never crosses a break: a new segment restarts at o = 0 with nothing behind it.
-    ///
-    /// MEASURED, AND IT FINDS NOTHING. The window DEGRADES GRACEFULLY -- the loop walks back as far
-    /// as the segment start allows and votes over however many predecessors it finds, needing only
-    /// two -- so a short segment gives a smaller window, not no window. At K = 8 on the shipped
-    /// defaults it therefore engaged on 40,013 of chr20's decisions (65%) and 133,740 of chr6's
-    /// (82%), roughly 174,000 in total, with windows of 2-8 predecessors, and overruled the
-    /// adjacent link ZERO times. Both VCFs came out byte-identical to the no-lookback run.
-    ///
-    /// chr6's mean segment is 10.9 sites, comfortably wider than the window, so this is not an
-    /// artefact of short segments on either contig.
-    ///
-    /// Under the OLD defaults, with longer segments still, it overruled 1 site on chr20 and 2-5 on
-    /// chr6 and left switch counts unchanged. So the result is the same at every window size tried.
-    /// It is the cleanest of the four probes that agree here -- triangles close 99.5% of the time,
-    /// --phase-cp fires on 3 junctions in a whole contig, --phase-backbone moves 87 sites for
-    /// nothing -- and together they say the adjacent link is essentially never wrong in a way ANY
-    /// amount of surrounding evidence can detect.
-    ///
-    /// This and --phase-break are SUBSTITUTES, not complements. Both address one bad link
-    /// propagating through a long sign-only cascade -- the break threshold by making cascades too
-    /// short for it to travel, lookback by outvoting it inside a long one -- so taking the first
-    /// removes what the second needs. The honest head-to-head, lookback AGAINST break 20 at the old
-    /// threshold, was never run.
-    size_t lookback = 0;
-
-    /// Minimum weighted TRIANGLE CONSISTENCY for a site to enter the backbone at all, 0 to disable.
-    ///
-    /// Every other gate here is post-hoc: build the chain over all reliable sites, then judge each
-    /// site against the chain it is already part of. That is circular, and it is why iterating the
-    /// coherence demotion converges to no improvement -- the contaminated backbone is the yardstick.
-    ///
-    /// A triangle is frame-free. For sites i, j, k the reads imply sign(d_ij)*sign(d_jk)*sign(d_ik)
-    /// > 0: going round a loop must flip an even number of times, whatever orientation anything is
-    /// eventually given. So a site's consistency with its neighbourhood is measurable BEFORE any
-    /// phase exists. Score each site by the share of its triangles that close, weighted by the
-    /// weakest link in each so that a triangle resting on a marginal link cannot dominate, and admit
-    /// only sites above the bar. The rest are hung by stage 3, exactly as a demoted site is.
-    ///
-    /// The object being sought is the largest set of sites that are strongly phase-consistent with
-    /// ONE ANOTHER, rather than the largest set that individually separate their own alleles, which
-    /// is all --phase-min-q can ask.
-    double triangle_min = 0.0;
-    /// Neighbours each side to draw triangles from.
-    size_t triangle_k = 4;
 };
 
 struct ReadPhasingCounters {
@@ -326,11 +218,6 @@ struct ReadPhasingCounters {
     /// Zero when nothing was re-phased; a re-phase that moves no strand at all under `-A` means the
     /// cascade is not reaching the tree.
     size_t strands_rederived = 0;
-    /// Junctions the changepoint pass flipped, and the aggregate log10 gain it claimed for them.
-    size_t changepoints = 0;
-    double changepoint_gain = 0.0;
-    /// Junctions that cleared the threshold but were refused because the pass hit its round cap.
-    size_t changepoint_capped = 0;
     /// Sites demoted from reliable to unreliable for low phase coherence, and how many had passed
     /// the `reliability` gate -- the gap between the two criteria, counted directly.
     size_t demoted_incoherent = 0;
@@ -339,16 +226,6 @@ struct ReadPhasingCounters {
     /// silently reported as converged.
     size_t coherence_rounds_run = 0;
     size_t coherence_unconverged = 0;
-    /// Sites the backbone local search flipped away from the cascade's answer, and rounds it took.
-    size_t backbone_flips = 0;
-    size_t backbone_rounds = 0;
-    /// Sites kept out of the backbone by triangle consistency, and the triangles scored.
-    size_t triangle_excluded = 0;
-    size_t triangles_scored = 0;
-    size_t triangles_open = 0;
-    /// Sites where the lookback vote disagreed with the adjacent link the plain cascade would have
-    /// obeyed -- the bad links it caught, counted directly.
-    size_t lookback_overruled = 0;
 };
 
 /// log10 odds, cis against trans, over the reads two sites share. Positive means the reads agree

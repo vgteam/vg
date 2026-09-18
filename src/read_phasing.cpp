@@ -1,8 +1,8 @@
 #include "read_phasing.hpp"
 
 #include <algorithm>
-#include <cmath>
 #include <array>
+#include <cmath>
 #include <unordered_map>
 
 namespace vg {
@@ -109,73 +109,6 @@ unordered_set<size_t> read_phase_flips(vector<PhaseSite>& sites, const ReadPhasi
         }
         counters.reliable += rel.size();
 
-        // --- triangle pre-screen: which sites may enter the backbone at all ---
-        //
-        // Frame-free, and computed before any orientation exists. For sites i, j, k the reads imply
-        // sign(d_ij)*sign(d_jk)*sign(d_ik) > 0 -- a loop must flip an even number of times whatever
-        // phase is eventually assigned -- so a triangle that fails to close is evidence about the
-        // SITES, not about any chain. Score each site by the share of its triangles that close,
-        // weighted by the weakest link in each so a triangle resting on a marginal link cannot
-        // carry it, and keep only sites above the bar.
-        //
-        // This is what --phase-min-q cannot ask. Reliability is a within-site question: can these
-        // reads separate these two alleles. Consistency is a between-site question, and the object
-        // wanted is the largest set of sites strongly consistent with ONE ANOTHER.
-        if (params.triangle_min > 0.0 && rel.size() >= 3) {
-            const size_t K = max<size_t>(2, params.triangle_k);
-            // d[m][dl-1] = link from rel[m] to rel[m+dl]
-            vector<vector<double>> dd(rel.size(), vector<double>(K, 0.0));
-            for (size_t m = 0; m < rel.size(); ++m) {
-                for (size_t dl = 1; dl <= K && m + dl < rel.size(); ++dl) {
-                    dd[m][dl - 1] = phase_link(sites[begin + rel[m]],
-                                               sites[begin + rel[m + dl]], params.cap);
-                }
-            }
-            vector<double> good(rel.size(), 0.0), all(rel.size(), 0.0);
-            for (size_t m = 0; m < rel.size(); ++m) {
-                for (size_t a = 1; a <= K; ++a) {
-                    if (m + a >= rel.size()) break;
-                    for (size_t b = a + 1; b <= K; ++b) {
-                        if (m + b >= rel.size()) break;
-                        const double dab = dd[m][a - 1];              // i -> j
-                        const double dac = dd[m][b - 1];              // i -> k
-                        const double dbc = dd[m + a][b - a - 1];      // j -> k
-                        if (dab == 0.0 || dac == 0.0 || dbc == 0.0) {
-                            continue;
-                        }
-                        // The weakest link bounds what the triangle is worth as evidence.
-                        const double w = min(std::fabs(dab), min(std::fabs(dac), std::fabs(dbc)));
-                        const bool closes = (dab * dac * dbc) > 0.0;
-                        ++counters.triangles_scored;
-                        if (!closes) {
-                            ++counters.triangles_open;
-                        }
-                        for (size_t v : {m, m + a, m + b}) {
-                            all[v] += w;
-                            if (closes) {
-                                good[v] += w;
-                            }
-                        }
-                    }
-                }
-            }
-            vector<size_t> keep;
-            for (size_t m = 0; m < rel.size(); ++m) {
-                // A site with no scored triangle is not evidence against itself; it is admitted and
-                // the ordinary machinery judges it.
-                if (all[m] > 0.0 && good[m] / all[m] < params.triangle_min) {
-                    unrel.push_back(rel[m]);
-                    ++counters.triangle_excluded;
-                } else {
-                    keep.push_back(rel[m]);
-                }
-            }
-            if (keep.size() >= 2) {
-                rel.swap(keep);
-                sort(unrel.begin(), unrel.end());
-            }
-        }
-
         // `o[t] == 1` means "swap this site against the order the panel gave it". A chain's first
         // reliable site is pinned at 0, so with no read evidence nothing moves.
         vector<int> o(n, 0);
@@ -205,36 +138,7 @@ unordered_set<size_t> read_phase_flips(vector<PhaseSite>& sites, const ReadPhasi
                 o[rel[s0]] = 0;
                 decided[rel[s0]] = 1;
                 for (size_t m = s0; m + 1 < s1; ++m) {
-                    const int adjacent = o[rel[m]] ^ (d[m] < 0.0 ? 1 : 0);
-                    int chosen = adjacent;
-                    if (params.lookback > 0 && m > s0) {
-                        // Weighted vote over the previous K sites already settled in THIS segment.
-                        // The adjacent link is one voter among them, not the only one, so a single
-                        // bad link is outvoted rather than obeyed and propagated to the end.
-                        double vote = 0.0;
-                        for (size_t j = 1; j <= params.lookback && m + 1 - j >= s0; ++j) {
-                            const size_t prev = m + 1 - j;
-                            const double dv =
-                                (j == 1) ? d[m]
-                                         : phase_link(sites[begin + rel[prev]],
-                                                      sites[begin + rel[m + 1]], params.cap);
-                            if (dv == 0.0) {
-                                continue;
-                            }
-                            const int pred = o[rel[prev]] ^ (dv < 0.0 ? 1 : 0);
-                            vote += std::fabs(dv) * (pred == 0 ? 1.0 : -1.0);
-                            if (prev == s0) {
-                                break;
-                            }
-                        }
-                        if (vote != 0.0) {
-                            chosen = vote > 0.0 ? 0 : 1;
-                            if (chosen != adjacent) {
-                                ++counters.lookback_overruled;
-                            }
-                        }
-                    }
-                    o[rel[m + 1]] = chosen;
+                    o[rel[m + 1]] = o[rel[m]] ^ (d[m] < 0.0 ? 1 : 0);
                     decided[rel[m + 1]] = 1;
                 }
             }
@@ -270,141 +174,6 @@ unordered_set<size_t> read_phase_flips(vector<PhaseSite>& sites, const ReadPhasi
                 if (x ^ o[rel[ea - 1]] ^ o[rel[sb]]) {
                     for (size_t m = sb; m < eb; ++m) {
                         o[rel[m]] ^= 1;
-                    }
-                }
-            }
-
-            // --- backbone: multi-neighbour local search over the reliable chain ---
-            //
-            // Stage 1 has just decided every orientation from ONE adjacent link, using only its
-            // sign. Here each backbone site is reconsidered against K neighbours on each side,
-            // weighted by |d|. A site flips when its incident disagreeing weight exceeds its
-            // agreeing weight; each flip strictly increases sum over edges of |d_ij| * (+/-1), which
-            // is bounded, so this terminates.
-            if (params.backbone > 0 && rel.size() >= 3) {
-                struct Edge { size_t a, b; double d; };
-                vector<Edge> edges;
-                edges.reserve(rel.size() * params.backbone);
-                for (size_t m = 0; m < rel.size(); ++m) {
-                    for (size_t dl = 1; dl <= params.backbone && m + dl < rel.size(); ++dl) {
-                        const double d = phase_link(sites[begin + rel[m]],
-                                                    sites[begin + rel[m + dl]], params.cap);
-                        if (d != 0.0) {
-                            edges.push_back({m, m + dl, d});
-                        }
-                    }
-                }
-                vector<vector<size_t>> inc(rel.size());
-                for (size_t e = 0; e < edges.size(); ++e) {
-                    inc[edges[e].a].push_back(e);
-                    inc[edges[e].b].push_back(e);
-                }
-                for (size_t round = 0; round < 50; ++round) {
-                    bool moved = false;
-                    for (size_t m = 0; m < rel.size(); ++m) {
-                        double net = 0.0;
-                        for (size_t e : inc[m]) {
-                            const Edge& E = edges[e];
-                            const size_t other = (E.a == m) ? E.b : E.a;
-                            const bool want_diff = E.d < 0.0;
-                            const bool is_diff = (o[rel[m]] ^ o[rel[other]]) != 0;
-                            // gain from flipping m: agreeing edges lose, disagreeing edges gain
-                            net += std::fabs(E.d) * ((is_diff == want_diff) ? -1.0 : 1.0);
-                        }
-                        if (net > 0.0) {
-                            o[rel[m]] ^= 1;
-                            moved = true;
-                            ++counters.backbone_flips;
-                        }
-                    }
-                    if (!moved) {
-                        counters.backbone_rounds += round + 1;
-                        break;
-                    }
-                }
-            }
-
-            // --- changepoint pass: flip at junctions the whole-read evidence rejects ---
-            //
-            // Stages 1 and 2 decide a junction from the reads its two ADJACENT sites share. A read
-            // spanning three or more sites also constrains the 1->3 relation, and nothing above
-            // ever reads that. Here it is read.
-            //
-            // For read r assigned haplotype H, write a_s for log10 of its per-site term under H and
-            // b_s for the term under the other haplotype. Flipping every orientation downstream of
-            // junction j changes that read's likelihood by exactly the suffix sum of (b_s - a_s)
-            // over its own sites at or after j -- and by nothing at all if it does not span j,
-            // since a read wholly downstream is merely relabelled. So
-            //
-            //     S(j) = sum over reads spanning j of sum_{s >= j} (b_s - a_s)
-            //
-            // and S(j) > 0 means the flip raises sum_r max_H L(H, r). Greedily flipping at the
-            // argmax junction therefore hill-climbs that objective and terminates.
-            //
-            // Accumulated with a difference array: read r contributes (b_i - a_i) to every junction
-            // in (first site of r, i], which is one range update per site.
-            if (params.changepoint_min > 0.0 && rel.size() >= 3) {
-                // read key -> its (chain index, q0, p) over this chain's reliable sites
-                unordered_map<uint64_t, vector<std::array<double, 3>>> by_read;
-                by_read.reserve(rel.size() * 4);
-                for (size_t m = 0; m < rel.size(); ++m) {
-                    const PhaseSite& st = sites[begin + rel[m]];
-                    for (size_t i = 0; i < st.read_key.size(); ++i) {
-                        by_read[st.read_key[i]].push_back(
-                            {(double)m, (double)st.q0[i], (double)st.p[i]});
-                    }
-                }
-                for (size_t round = 0; round < params.changepoint_rounds; ++round) {
-                    vector<double> diff(rel.size() + 2, 0.0);
-                    for (auto& kv : by_read) {
-                        auto& obs = kv.second;
-                        if (obs.size() < 2) {
-                            continue;   // spans no junction
-                        }
-                        // Orientation applied, then the read's own haplotype chosen.
-                        double l0 = 0.0, l1 = 0.0;
-                        for (const auto& o3 : obs) {
-                            const size_t m = (size_t)o3[0];
-                            const double p = o3[2];
-                            const double q = o[rel[m]] ? 1.0 - o3[1] : o3[1];
-                            l0 += log10(p * q + (1.0 - p) * 0.5);
-                            l1 += log10(p * (1.0 - q) + (1.0 - p) * 0.5);
-                        }
-                        const bool hap1 = l1 > l0;
-                        const size_t lo = (size_t)obs.front()[0];
-                        for (size_t k = 1; k < obs.size(); ++k) {
-                            const size_t m = (size_t)obs[k][0];
-                            const double p = obs[k][2];
-                            const double q = o[rel[m]] ? 1.0 - obs[k][1] : obs[k][1];
-                            const double t_own = hap1 ? p * (1.0 - q) + (1.0 - p) * 0.5
-                                                     : p * q + (1.0 - p) * 0.5;
-                            const double t_alt = hap1 ? p * q + (1.0 - p) * 0.5
-                                                     : p * (1.0 - q) + (1.0 - p) * 0.5;
-                            const double v = log10(t_alt) - log10(t_own);
-                            // junctions (lo, m], indexed by the site they precede
-                            diff[lo + 1] += v;
-                            diff[m + 1] -= v;
-                        }
-                    }
-                    double run = 0.0, best = 0.0;
-                    size_t best_j = 0;
-                    for (size_t j = 1; j < rel.size(); ++j) {
-                        run += diff[j];
-                        if (run > best) {
-                            best = run;
-                            best_j = j;
-                        }
-                    }
-                    if (best_j == 0 || best < params.changepoint_min) {
-                        break;
-                    }
-                    for (size_t m = best_j; m < rel.size(); ++m) {
-                        o[rel[m]] ^= 1;
-                    }
-                    ++counters.changepoints;
-                    counters.changepoint_gain += best;
-                    if (round + 1 == params.changepoint_rounds) {
-                        ++counters.changepoint_capped;
                     }
                 }
             }
@@ -459,8 +228,11 @@ unordered_set<size_t> read_phase_flips(vector<PhaseSite>& sites, const ReadPhasi
                 }
                 vector<size_t> keep, drop;
                 for (size_t m = 0; m < rel.size(); ++m) {
-                    if (tot[m] >= params.coherence_min_reads
-                        && (double)ok[m] / (double)tot[m] < params.coherence_min) {
+                    // Ten reads before low coherence may demote a site. Swept at 2, 3, 5 and 20:
+                    // dropping it to 2 demotes two more sites in the whole of chr20, because a
+                    // backbone site with under ten counted reads is almost non-existent. The guard
+                    // is near-inert either way, so it stays where it was rather than moving on noise.
+                    if (tot[m] >= 10 && (double)ok[m] / (double)tot[m] < params.coherence_min) {
                         drop.push_back(rel[m]);
                     } else {
                         keep.push_back(rel[m]);

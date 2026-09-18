@@ -180,14 +180,13 @@ void help_call(char** argv) {
          << "      --phase-hang N        neighbours to hang an unreliable site from [4]" << endl
          << "      --phase-prior N       weight of the panel when hanging a site [3]" << endl
          << "      --phase-cap N         clamp one pair's contribution, 0 to disable [0]" << endl
-         << "      --phase-cp N          PROTOTYPE. After the cascade, flip everything" << endl
          << "                            downstream of any junction where the whole-read" << endl
          << "                            evidence gains at least this many log10 units." << endl
          << "                            Stage 1 reads only the two adjacent sites and" << endl
          << "                            only the sign; this reads every spanning read's" << endl
          << "                            full span, the transitive constraint the pairwise" << endl
          << "                            cascade discards. 0 disables [0]" << endl
-         << "      --phase-cp-rounds N   cap on greedy flips per chain [200]" << endl
+         << "                            fewer than this fraction of its reads" << endl
          << "      --phase-coherence F   demote a site from carrying a phase link when" << endl
          << "                            fewer than this fraction of its reads" << endl
          << "                            agree with the haplotype their OTHER sites imply." << endl
@@ -206,13 +205,11 @@ void help_call(char** argv) {
          << "                            WITH THAT CHAIN. Risks fragmentation: each round" << endl
          << "                            removes sites, surviving links span further, and" << endl
          << "                            more drop under the break threshold [2]" << endl
-         << "      --phase-backbone K    reconsider every backbone site against K neighbours" << endl
          << "                            on EACH side, weighted by evidence, instead of the" << endl
          << "                            one adjacent sign the cascade used. Flips a site" << endl
          << "                            when its disagreeing weight beats its agreeing" << endl
          << "                            weight; each flip raises a bounded objective so it" << endl
          << "                            terminates. 0 disables [0]" << endl
-         << "      --phase-triangle F    minimum TRIANGLE CONSISTENCY for a site to enter" << endl
          << "                            the backbone. For sites i,j,k the reads imply" << endl
          << "                            sign(d_ij)*sign(d_jk)*sign(d_ik) > 0 -- a loop must" << endl
          << "                            flip an even number of times whatever phase is" << endl
@@ -220,8 +217,6 @@ void help_call(char** argv) {
          << "                            before any phasing exists, unlike every other gate" << endl
          << "                            here. Excluded sites are hung by stage 3, not" << endl
          << "                            dropped. 0 disables [0]" << endl
-         << "      --phase-tri-k N       neighbours each side to draw triangles from [4]" << endl
-         << "      --phase-lookback K    when adding a site to the chain, decide it by a" << endl
          << "                            weighted vote over the previous K sites already in" << endl
          << "                            the chain rather than from the single adjacent" << endl
          << "                            link's sign. A bad link is then outvoted instead of" << endl
@@ -231,7 +226,6 @@ void help_call(char** argv) {
          << "                            at K=8 it engaged on ~174,000 decisions across two" << endl
          << "                            contigs and overruled the adjacent link ZERO times," << endl
          << "                            leaving both VCFs byte-identical [0]" << endl
-         << "      --phase-coh-reads N   reads a site needs before low coherence may demote" << endl
          << "                            it. High protects low-coverage sites from a noisy" << endl
          << "                            estimate; low treats a thin incoherent site as the" << endl
          << "                            prime candidate it arguably is [10]" << endl
@@ -759,15 +753,8 @@ int main_call(int argc, char** argv) {
     constexpr int OPT_PHASE_HANG = 1078;
     constexpr int OPT_PHASE_PRIOR = 1079;
     constexpr int OPT_PHASE_CAP = 1080;
-    constexpr int OPT_PHASE_CHANGEPOINT = 1105;
-    constexpr int OPT_PHASE_CP_ROUNDS = 1106;
     constexpr int OPT_PHASE_COHERENCE = 1107;
     constexpr int OPT_PHASE_COH_ROUNDS = 1108;
-    constexpr int OPT_PHASE_BACKBONE = 1109;
-    constexpr int OPT_PHASE_TRIANGLE = 1110;
-    constexpr int OPT_PHASE_TRI_K = 1111;
-    constexpr int OPT_PHASE_COH_READS = 1112;
-    constexpr int OPT_PHASE_LOOKBACK = 1113;
     constexpr int OPT_REGENOTYPE = 1082;
     constexpr int OPT_NO_REGENOTYPE = 1087;
     constexpr int OPT_REGENO_CEILING = 1088;
@@ -904,15 +891,8 @@ int main_call(int argc, char** argv) {
         {"phase-hang", required_argument, 0, OPT_PHASE_HANG,                OWN_READ_LIKELIHOOD},
         {"phase-prior", required_argument, 0, OPT_PHASE_PRIOR,              OWN_READ_LIKELIHOOD},
         {"phase-cap", required_argument, 0, OPT_PHASE_CAP,                  OWN_READ_LIKELIHOOD},
-        {"phase-cp", required_argument, 0, OPT_PHASE_CHANGEPOINT,            OWN_READ_LIKELIHOOD},
-        {"phase-cp-rounds", required_argument, 0, OPT_PHASE_CP_ROUNDS,      OWN_READ_LIKELIHOOD},
         {"phase-coherence", required_argument, 0, OPT_PHASE_COHERENCE,      OWN_READ_LIKELIHOOD},
         {"phase-coh-rounds", required_argument, 0, OPT_PHASE_COH_ROUNDS,    OWN_READ_LIKELIHOOD},
-        {"phase-backbone", required_argument, 0, OPT_PHASE_BACKBONE,        OWN_READ_LIKELIHOOD},
-        {"phase-triangle", required_argument, 0, OPT_PHASE_TRIANGLE,        OWN_READ_LIKELIHOOD},
-        {"phase-tri-k", required_argument, 0, OPT_PHASE_TRI_K,              OWN_READ_LIKELIHOOD},
-        {"phase-coh-reads", required_argument, 0, OPT_PHASE_COH_READS,      OWN_READ_LIKELIHOOD},
-        {"phase-lookback", required_argument, 0, OPT_PHASE_LOOKBACK,        OWN_READ_LIKELIHOOD},
         {"regenotype", no_argument, 0, OPT_REGENOTYPE,                      OWN_READ_LIKELIHOOD},
         {"no-regenotype", no_argument, 0, OPT_NO_REGENOTYPE,                OWN_READ_LIKELIHOOD},
         {"regeno-ceiling", required_argument, 0, OPT_REGENO_CEILING,        OWN_REGENOTYPE},
@@ -1224,16 +1204,6 @@ int main_call(int argc, char** argv) {
         case OPT_PHASE_CAP:
             read_phasing_params.cap = parse<double>(optarg);
             break;
-        case OPT_PHASE_CHANGEPOINT:
-            read_phasing_params.changepoint_min = parse<double>(optarg);
-            if (read_phasing_params.changepoint_min < 0.0) {
-                cerr << "error [vg call]: --phase-changepoint must be >= 0" << endl;
-                return 1;
-            }
-            break;
-        case OPT_PHASE_CP_ROUNDS:
-            read_phasing_params.changepoint_rounds = parse<size_t>(optarg);
-            break;
         case OPT_PHASE_COHERENCE:
             read_phasing_params.coherence_min = parse<double>(optarg);
             if (read_phasing_params.coherence_min < 0.0
@@ -1248,31 +1218,6 @@ int main_call(int argc, char** argv) {
                 cerr << "error [vg call]: --phase-coh-rounds must be >= 1" << endl;
                 return 1;
             }
-            break;
-        case OPT_PHASE_BACKBONE:
-            read_phasing_params.backbone = parse<size_t>(optarg);
-            break;
-        case OPT_PHASE_TRIANGLE:
-            read_phasing_params.triangle_min = parse<double>(optarg);
-            if (read_phasing_params.triangle_min < 0.0
-                || read_phasing_params.triangle_min > 1.0) {
-                cerr << "error [vg call]: --phase-triangle is a fraction in [0,1]" << endl;
-                return 1;
-            }
-            break;
-        case OPT_PHASE_TRI_K:
-            read_phasing_params.triangle_k = parse<size_t>(optarg);
-            break;
-        case OPT_PHASE_COH_READS:
-            read_phasing_params.coherence_min_reads = parse<size_t>(optarg);
-            if (read_phasing_params.coherence_min_reads < 2) {
-                cerr << "error [vg call]: --phase-coh-reads must be >= 2; with one read the"
-                     << " leave-one-out has nothing left to compare against" << endl;
-                return 1;
-            }
-            break;
-        case OPT_PHASE_LOOKBACK:
-            read_phasing_params.lookback = parse<size_t>(optarg);
             break;
         case OPT_REGENOTYPE:
             regenotype = true;
