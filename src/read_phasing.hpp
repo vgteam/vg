@@ -158,6 +158,18 @@ struct ReadPhasingParams {
 
     /// Minimum PHASE COHERENCE for a site to keep carrying a link, in [0,1]. 0 disables.
     ///
+    /// GATED ON BOTH CONTIGS AND ON BOTH METRICS, which no previous switch intervention managed:
+    ///
+    ///                     chr20 switches   chr6 switches   chr20 ALL F1   chr6 ALL F1
+    ///     off                   51              62           0.95848        0.96487
+    ///     0.70                  33              31           0.95900        0.96517
+    ///
+    /// chr6 is the hold-out and was not used to choose 0.70; chr20's own all-switch rate picks it
+    /// (0.3142% against 0.3261% at 0.60 and 0.3312% at 0.80) and chr6 agrees independently. The
+    /// assessed denominator RISES on both -- 58,799 -> 58,880 and 160,054 -> 160,137 -- so this is
+    /// not whatshap's shrinking-denominator artefact, and F1 moves with TP up AND FP down on both,
+    /// so it is not a precision/recall trade either.
+    ///
     /// Coherence asks a different question from `reliability`. Reliability asks whether a site's
     /// reads can tell its two alleles apart; coherence asks whether those reads agree with the
     /// haplotype their OTHER sites imply. A site can be perfectly discriminable and completely
@@ -170,7 +182,7 @@ struct ReadPhasingParams {
     /// Held out, not circular: a read's haplotype is recomputed for each site with that site's own
     /// term removed, so a site never votes on itself. Sites below the bar are demoted to unreliable
     /// and the cascade re-run, which is one extra pass.
-    double coherence_min = 0.0;
+    double coherence_min = 0.70;
 };
 
 struct ReadPhasingCounters {

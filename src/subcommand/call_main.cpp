@@ -184,14 +184,16 @@ void help_call(char** argv) {
          << "                            full span, the transitive constraint the pairwise" << endl
          << "                            cascade discards. 0 disables [0]" << endl
          << "      --phase-cp-rounds N   cap on greedy flips per chain [200]" << endl
-         << "      --phase-coherence F   PROTOTYPE. Demote a site from carrying a phase" << endl
-         << "                            link when fewer than this fraction of its reads" << endl
+         << "      --phase-coherence F   demote a site from carrying a phase link when" << endl
+         << "                            fewer than this fraction of its reads" << endl
          << "                            agree with the haplotype their OTHER sites imply." << endl
          << "                            The reliability gate asks whether a site's reads" << endl
          << "                            separate its ALLELES; this asks whether they sit" << endl
          << "                            where the rest of their evidence puts them. Against" << endl
          << "                            chr20 switch positions the second is 5.1x enriched" << endl
-         << "                            in its worst 1% and the first 1.1x. 0 disables [0]" << endl
+         << "                            in its worst 1% and the first 1.1x. chr20 switches" << endl
+         << "                            51 -> 33 and chr6 62 -> 31, with F1 up on both." << endl
+         << "                            0 disables [0.70]" << endl
          << "      --regenotype          let the reads' phase decide the genotype, not only" << endl
          << "                            the order of an already-settled pair. Needs" << endl
          << "                            `--read-phasing`. OFF by default, ON under" << endl
