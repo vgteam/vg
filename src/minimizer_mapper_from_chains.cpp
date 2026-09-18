@@ -1675,9 +1675,19 @@ void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::ve
     chain_min_score = std::min(chain_min_score, max_min_chain_score);
     vector<int> chain_scores;
     int best_chain_score = 0;
+    size_t best_chain_score_source_tree;
     for (const auto& cur_chain : chains) {
-        best_chain_score = std::max(best_chain_score, cur_chain.chain_score);
+        if (best_chain_score < cur_chain.chain_score) {
+            best_chain_score = cur_chain.chain_score;
+            best_chain_score_source_tree = cur_chain.source_tree;
+        }
         chain_scores.emplace_back(cur_chain.chain_score);
+    }
+    for (size_t i = 0; i < chains.size(); i++) {
+        // Give a tiny bonus to anything that's from a tree different than the top
+        if (chains[i].source_tree != best_chain_score_source_tree) {
+            chain_scores[i] += different_tree_bonus;
+        }
     }
 
     // Remember: we also have chain_score_threshold, which counts down from best chain score
@@ -1687,7 +1697,8 @@ void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::ve
     auto discard_chain_by_score = [&](size_t processed_num) -> void {
         // This chain is not good enough.
         if (track_provenance) {
-            funnel.fail("min-chain-score-per-base||max-min-chain-score", processed_num, chain_scores[processed_num]);
+            funnel.fail("min-chain-score-per-base||max-min-chain-score",
+                        processed_num, chains.at(processed_num).chain_score);
         }
         
         if (show_work) {
@@ -1695,7 +1706,7 @@ void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::ve
             {
                 cerr << log_name() << "chain " << processed_num
                      << " failed because its score was not good enough (max score="
-                     << chain_scores[processed_num]
+                     << chains.at(processed_num).chain_score
                      << ", min=" << chain_min_score
                      << ", threshold " << chain_score_threshold << " off best)" << endl;
                 if (track_correctness && funnel.was_correct(processed_num)) {
@@ -1719,7 +1730,7 @@ void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::ve
             // This chain is good enough.
             // Called in descending score order.
         
-            if (chain_scores[processed_num] < chain_min_score) {
+            if (chains.at(processed_num).chain_score < chain_min_score) {
                 // This is so low score we don't want to align even if we have few other candidates
                 discard_chain_by_score(processed_num);
                 return false;
@@ -1729,7 +1740,7 @@ void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::ve
                 #pragma omp critical (cerr)
                 {
                     cerr << log_name() << "chain " << processed_num
-                         << " is good enough (max score=" << chain_scores[processed_num]
+                         << " is good enough (max score=" << chains.at(processed_num).chain_score
                          << ", min=" << chain_min_score
                          << ", threshold " << chain_score_threshold << " off best)" << endl;
                     if (track_correctness && funnel.was_correct(processed_num)) {
@@ -1738,7 +1749,8 @@ void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::ve
                 }
             }
             if (track_provenance) {
-                funnel.pass("min-chain-score-per-base||max-min-chain-score", processed_num, chain_scores[processed_num]);
+                funnel.pass("min-chain-score-per-base||max-min-chain-score",
+                            processed_num, chains.at(processed_num).chain_score);
                 funnel.pass("max-alignments", processed_num);
                 funnel.processing_input(processed_num);
             }
@@ -1837,7 +1849,8 @@ void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::ve
         }, [&](size_t processed_num) -> void {
             // There are too many sufficiently good chains
             if (track_provenance) {
-                funnel.pass("min-chain-score-per-base||max-min-chain-score", processed_num, chain_scores[processed_num]);
+                funnel.pass("min-chain-score-per-base||max-min-chain-score",
+                             processed_num, chains.at(processed_num).chain_score);
                 funnel.fail("max-alignments", processed_num);
             }
             
@@ -1846,7 +1859,7 @@ void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::ve
                 {
                     cerr << log_name() << "Chain " << processed_num 
                          << " failed because there were too many good chains (max score="
-                         << chain_scores[processed_num] << ")" << endl;
+                         << chains.at(processed_num).chain_score << ")" << endl;
                     if (track_correctness && funnel.was_correct(processed_num)) {
                         cerr << log_name() << "\tCORRECT!" << endl;
                     }

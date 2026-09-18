@@ -305,6 +305,10 @@ class MinimizerMapper : public AlignerClient {
     /// chain's score by more than this much, don't align it
     static constexpr size_t default_chain_score_threshold = 100;
     size_t chain_score_threshold = default_chain_score_threshold;
+
+    /// Artificially boost chain scores for chains in trees other than the top one (to get different alignments)
+    static constexpr size_t default_different_tree_bonus = 50;
+    size_t different_tree_bonus = default_different_tree_bonus;
     
     /// Disregard the chain_score_threshold (but NOT the min_chain_score)
     /// when they would give us fewer than this many chains aligned.

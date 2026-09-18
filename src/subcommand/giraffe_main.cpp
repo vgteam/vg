@@ -483,6 +483,12 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         "only align chains if their score is within this many points of the best score"
     );
     chaining_opts.add_range(
+        "different-tree-bonus",
+        &MinimizerMapper::different_tree_bonus,
+        MinimizerMapper::default_different_tree_bonus,
+        "when sorting chains by score, apply a bonus for those in a tree other than the top chain"
+    );
+    chaining_opts.add_range(
         "target-alignment-attempts",
         &MinimizerMapper::target_alignment_attempts,
         MinimizerMapper::default_target_alignment_attempts,
