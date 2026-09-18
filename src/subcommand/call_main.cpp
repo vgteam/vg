@@ -254,8 +254,11 @@ void help_call(char** argv) {
          << "                            reads' cross-site phase, so a haploid run is not" << endl
          << "                            broken at every homozygous site -- 58.5% of chr20" << endl
          << "                            anchor sites. Held out, that inference agrees with" << endl
-         << "                            the allele partition 94.7% of the time, so about" << endl
-         << "                            one read in twenty lands on the wrong strand [off]" << endl
+         << "                            the allele partition 94.7% of the time. That is" << endl
+         << "                            CONCORDANCE between two noisy estimators, not the" << endl
+         << "                            strand's error rate: the allele match is itself" << endl
+         << "                            wrong about 3% of the time per site, so the strand" << endl
+         << "                            accounts for less of the 5% than it appears [off]" << endl
          << "      --split-min-q N       a read counts as confidently placed, for deciding" << endl
          << "                            whether --anchors-hom-split may split a site, at" << endl
          << "                            this |log-odds| in NATS. 0.5 is about 62% [0.5]" << endl
