@@ -217,6 +217,12 @@ void help_call(char** argv) {
          << "                            here. Excluded sites are hung by stage 3, not" << endl
          << "                            dropped. 0 disables [0]" << endl
          << "      --phase-tri-k N       neighbours each side to draw triangles from [4]" << endl
+         << "      --phase-lookback K    when adding a site to the chain, decide it by a" << endl
+         << "                            weighted vote over the previous K sites already in" << endl
+         << "                            the chain rather than from the single adjacent" << endl
+         << "                            link's sign. A bad link is then outvoted instead of" << endl
+         << "                            obeyed and propagated to the end of the segment." << endl
+         << "                            Never crosses a break. 0 = plain cascade [0]" << endl
          << "      --phase-coh-reads N   reads a site needs before low coherence may demote" << endl
          << "                            it. High protects low-coverage sites from a noisy" << endl
          << "                            estimate; low treats a thin incoherent site as the" << endl
@@ -753,6 +759,7 @@ int main_call(int argc, char** argv) {
     constexpr int OPT_PHASE_TRIANGLE = 1110;
     constexpr int OPT_PHASE_TRI_K = 1111;
     constexpr int OPT_PHASE_COH_READS = 1112;
+    constexpr int OPT_PHASE_LOOKBACK = 1113;
     constexpr int OPT_REGENOTYPE = 1082;
     constexpr int OPT_NO_REGENOTYPE = 1087;
     constexpr int OPT_REGENO_CEILING = 1088;
@@ -897,6 +904,7 @@ int main_call(int argc, char** argv) {
         {"phase-triangle", required_argument, 0, OPT_PHASE_TRIANGLE,        OWN_READ_LIKELIHOOD},
         {"phase-tri-k", required_argument, 0, OPT_PHASE_TRI_K,              OWN_READ_LIKELIHOOD},
         {"phase-coh-reads", required_argument, 0, OPT_PHASE_COH_READS,      OWN_READ_LIKELIHOOD},
+        {"phase-lookback", required_argument, 0, OPT_PHASE_LOOKBACK,        OWN_READ_LIKELIHOOD},
         {"regenotype", no_argument, 0, OPT_REGENOTYPE,                      OWN_READ_LIKELIHOOD},
         {"no-regenotype", no_argument, 0, OPT_NO_REGENOTYPE,                OWN_READ_LIKELIHOOD},
         {"regeno-ceiling", required_argument, 0, OPT_REGENO_CEILING,        OWN_REGENOTYPE},
@@ -1254,6 +1262,9 @@ int main_call(int argc, char** argv) {
                      << " leave-one-out has nothing left to compare against" << endl;
                 return 1;
             }
+            break;
+        case OPT_PHASE_LOOKBACK:
+            read_phasing_params.lookback = parse<size_t>(optarg);
             break;
         case OPT_REGENOTYPE:
             regenotype = true;

@@ -6330,6 +6330,10 @@ void FlowCaller::apply_read_phasing() {
              << " junctions for " << c.changepoint_gain << " log10 units of read likelihood"
              << (c.changepoint_capped ? " (some chains hit the round cap)" : "") << endl;
     }
+    if (c.lookback_overruled > 0) {
+        cerr << "[vg call] read phasing: lookback overruled the adjacent link at "
+             << c.lookback_overruled << " sites" << endl;
+    }
     if (c.triangles_scored > 0) {
         cerr << "[vg call] read phasing: triangle pre-screen kept " << c.triangle_excluded
              << " sites out of the backbone; " << c.triangles_open << " of " << c.triangles_scored

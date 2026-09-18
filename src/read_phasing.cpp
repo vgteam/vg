@@ -205,7 +205,36 @@ unordered_set<size_t> read_phase_flips(vector<PhaseSite>& sites, const ReadPhasi
                 o[rel[s0]] = 0;
                 decided[rel[s0]] = 1;
                 for (size_t m = s0; m + 1 < s1; ++m) {
-                    o[rel[m + 1]] = o[rel[m]] ^ (d[m] < 0.0 ? 1 : 0);
+                    const int adjacent = o[rel[m]] ^ (d[m] < 0.0 ? 1 : 0);
+                    int chosen = adjacent;
+                    if (params.lookback > 0 && m > s0) {
+                        // Weighted vote over the previous K sites already settled in THIS segment.
+                        // The adjacent link is one voter among them, not the only one, so a single
+                        // bad link is outvoted rather than obeyed and propagated to the end.
+                        double vote = 0.0;
+                        for (size_t j = 1; j <= params.lookback && m + 1 - j >= s0; ++j) {
+                            const size_t prev = m + 1 - j;
+                            const double dv =
+                                (j == 1) ? d[m]
+                                         : phase_link(sites[begin + rel[prev]],
+                                                      sites[begin + rel[m + 1]], params.cap);
+                            if (dv == 0.0) {
+                                continue;
+                            }
+                            const int pred = o[rel[prev]] ^ (dv < 0.0 ? 1 : 0);
+                            vote += std::fabs(dv) * (pred == 0 ? 1.0 : -1.0);
+                            if (prev == s0) {
+                                break;
+                            }
+                        }
+                        if (vote != 0.0) {
+                            chosen = vote > 0.0 ? 0 : 1;
+                            if (chosen != adjacent) {
+                                ++counters.lookback_overruled;
+                            }
+                        }
+                    }
+                    o[rel[m + 1]] = chosen;
                     decided[rel[m + 1]] = 1;
                 }
             }

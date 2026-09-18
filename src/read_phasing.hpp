@@ -220,6 +220,25 @@ struct ReadPhasingParams {
     /// safety net and these are where the gain should be.
     size_t backbone = 0;
 
+    /// Previous decided sites to consult when adding the NEXT site to the chain, 0 for the plain
+    /// adjacent-pair cascade.
+    ///
+    /// Stage 1 decides each site from the single link to its predecessor, and from that link's SIGN
+    /// alone, so one bad link inverts every site to the end of the segment -- mean 55.5 of them.
+    /// With lookback the new site is decided by a weighted vote over the previous K sites already
+    /// in the chain: sum over j of |d(m+1-j, m+1)| * (+1 if that site's settled orientation implies
+    /// o = 0 for the new one, else -1). A single bad link is then outvoted by its neighbours instead
+    /// of being obeyed.
+    ///
+    /// This is stage 3's rule used PROSPECTIVELY, during construction, rather than retrospectively
+    /// on the sites the chain would not take. That distinction is why it is worth trying even
+    /// though --phase-backbone was negative: local search refines the cascade's own answer and so
+    /// settles into the nearest optimum, which is exactly what it found. A different construction
+    /// lands in a different basin.
+    ///
+    /// Lookback never crosses a break: a new segment restarts at o = 0 with nothing behind it.
+    size_t lookback = 0;
+
     /// Minimum weighted TRIANGLE CONSISTENCY for a site to enter the backbone at all, 0 to disable.
     ///
     /// Every other gate here is post-hoc: build the chain over all reliable sites, then judge each
@@ -274,6 +293,9 @@ struct ReadPhasingCounters {
     size_t triangle_excluded = 0;
     size_t triangles_scored = 0;
     size_t triangles_open = 0;
+    /// Sites where the lookback vote disagreed with the adjacent link the plain cascade would have
+    /// obeyed -- the bad links it caught, counted directly.
+    size_t lookback_overruled = 0;
 };
 
 /// log10 odds, cis against trans, over the reads two sites share. Positive means the reads agree
