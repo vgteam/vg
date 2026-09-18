@@ -1544,7 +1544,14 @@ void VCFOutputCaller::collect_anchors_for(const Snarl& snarl, const vector<int>&
     //
     // Only computed when the split is on: it costs a lookup per read at every het site, and it
     // means nothing to a run that is not relying on the inference.
-    if (anchor_params.hom_split && anchors.size() >= 2) {
+    // NOT run when the het placement itself consults the strand. The check asks whether a read's
+    // cross-site strand agrees with the slot it was placed in, which is held-out ground truth only
+    // while that slot was chosen by the site's own alleles. Under --anchors-phase-hets the slot
+    // partly follows the strand and the check is contaminated; under --anchors-strict-hets it IS
+    // the strand and the check is an identity -- it reported 3,118,918/3,118,918 = 100%, which
+    // reads as a perfect result and measures nothing. Silence is the honest output here.
+    if (anchor_params.hom_split && !anchor_params.phase_hets && !anchor_params.strict_hets
+        && anchors.size() >= 2) {
         int slot_of_allele[2] = {-1, -1};
         int allele_of_slot[2] = {-1, -1};
         for (const AnchorWriter::Anchor& anchor : anchors) {

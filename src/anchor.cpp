@@ -76,7 +76,8 @@ void AnchorCounters::report(ostream& out) const {
         const size_t n = phase_checked.load(), ok = phase_agree.load();
         const size_t cn = phase_confident.load(), ck = phase_confident_agree.load();
         out << "[vg call] anchors: cross-site phase reproduces the allele partition at het "
-               "sites (held out, the split's own accuracy): "
+               "sites (held out, the split's own accuracy -- reported only when het placement "
+               "does NOT use the strand, or it would measure itself): "
             << ok << "/" << n << " agree (" << (100.0 * (double)ok / (double)n) << "%)";
         if (cn > 0) {
             out << ", confident " << ck << "/" << cn << " ("
