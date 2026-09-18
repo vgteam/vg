@@ -217,6 +217,10 @@ void help_call(char** argv) {
          << "                            here. Excluded sites are hung by stage 3, not" << endl
          << "                            dropped. 0 disables [0]" << endl
          << "      --phase-tri-k N       neighbours each side to draw triangles from [4]" << endl
+         << "      --phase-coh-reads N   reads a site needs before low coherence may demote" << endl
+         << "                            it. High protects low-coverage sites from a noisy" << endl
+         << "                            estimate; low treats a thin incoherent site as the" << endl
+         << "                            prime candidate it arguably is [10]" << endl
          << "      --regenotype          let the reads' phase decide the genotype, not only" << endl
          << "                            the order of an already-settled pair. Needs" << endl
          << "                            `--read-phasing`. OFF by default, ON under" << endl
@@ -748,6 +752,7 @@ int main_call(int argc, char** argv) {
     constexpr int OPT_PHASE_BACKBONE = 1109;
     constexpr int OPT_PHASE_TRIANGLE = 1110;
     constexpr int OPT_PHASE_TRI_K = 1111;
+    constexpr int OPT_PHASE_COH_READS = 1112;
     constexpr int OPT_REGENOTYPE = 1082;
     constexpr int OPT_NO_REGENOTYPE = 1087;
     constexpr int OPT_REGENO_CEILING = 1088;
@@ -891,6 +896,7 @@ int main_call(int argc, char** argv) {
         {"phase-backbone", required_argument, 0, OPT_PHASE_BACKBONE,        OWN_READ_LIKELIHOOD},
         {"phase-triangle", required_argument, 0, OPT_PHASE_TRIANGLE,        OWN_READ_LIKELIHOOD},
         {"phase-tri-k", required_argument, 0, OPT_PHASE_TRI_K,              OWN_READ_LIKELIHOOD},
+        {"phase-coh-reads", required_argument, 0, OPT_PHASE_COH_READS,      OWN_READ_LIKELIHOOD},
         {"regenotype", no_argument, 0, OPT_REGENOTYPE,                      OWN_READ_LIKELIHOOD},
         {"no-regenotype", no_argument, 0, OPT_NO_REGENOTYPE,                OWN_READ_LIKELIHOOD},
         {"regeno-ceiling", required_argument, 0, OPT_REGENO_CEILING,        OWN_REGENOTYPE},
@@ -1240,6 +1246,14 @@ int main_call(int argc, char** argv) {
             break;
         case OPT_PHASE_TRI_K:
             read_phasing_params.triangle_k = parse<size_t>(optarg);
+            break;
+        case OPT_PHASE_COH_READS:
+            read_phasing_params.coherence_min_reads = parse<size_t>(optarg);
+            if (read_phasing_params.coherence_min_reads < 2) {
+                cerr << "error [vg call]: --phase-coh-reads must be >= 2; with one read the"
+                     << " leave-one-out has nothing left to compare against" << endl;
+                return 1;
+            }
             break;
         case OPT_REGENOTYPE:
             regenotype = true;

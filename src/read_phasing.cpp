@@ -430,7 +430,7 @@ unordered_set<size_t> read_phase_flips(vector<PhaseSite>& sites, const ReadPhasi
                 }
                 vector<size_t> keep, drop;
                 for (size_t m = 0; m < rel.size(); ++m) {
-                    if (tot[m] >= 10
+                    if (tot[m] >= params.coherence_min_reads
                         && (double)ok[m] / (double)tot[m] < params.coherence_min) {
                         drop.push_back(rel[m]);
                     } else {

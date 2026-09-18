@@ -190,6 +190,13 @@ struct ReadPhasingParams {
     /// not guarantee. The risk is fragmentation: each round removes sites, the surviving links span
     /// further, `phase_link` falls off with distance, and more of them drop under --phase-break.
     size_t coherence_rounds = 1;
+    /// Reads a site needs before low coherence may demote it.
+    ///
+    /// The instinct behind a high value is that coherence on few reads is noisy. The counter-case
+    /// is stronger: a site with three reads that disagree contributes almost nothing to the
+    /// backbone AND is unreliable, so protecting it is backwards -- it is a prime candidate, not a
+    /// borderline one. Swept, because the argument does not settle it.
+    size_t coherence_min_reads = 10;
 
     /// Backbone neighbours per side for the local-search refinement, 0 to disable.
     ///
