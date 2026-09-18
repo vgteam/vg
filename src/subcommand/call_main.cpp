@@ -226,7 +226,11 @@ void help_call(char** argv) {
          << "                            the chain rather than from the single adjacent" << endl
          << "                            link's sign. A bad link is then outvoted instead of" << endl
          << "                            obeyed and propagated to the end of the segment." << endl
-         << "                            Never crosses a break. 0 = plain cascade [0]" << endl
+         << "                            Never crosses a break -- so at the default break" << endl
+         << "                            threshold segments average ~6 sites and this is" << endl
+         << "                            INERT: measured at K=8 it overruled zero links" << endl
+         << "                            and the VCF was byte-identical. Lower the break" << endl
+         << "                            threshold first or it does nothing [0]" << endl
          << "      --phase-coh-reads N   reads a site needs before low coherence may demote" << endl
          << "                            it. High protects low-coverage sites from a noisy" << endl
          << "                            estimate; low treats a thin incoherent site as the" << endl

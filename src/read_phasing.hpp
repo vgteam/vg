@@ -267,6 +267,24 @@ struct ReadPhasingParams {
     /// lands in a different basin.
     ///
     /// Lookback never crosses a break: a new segment restarts at o = 0 with nothing behind it.
+    ///
+    /// MEASURED, AND INERT UNDER THE SHIPPED DEFAULTS. Do not reach for this without first lowering
+    /// --phase-break. At the shipped threshold of 20 there are 10,623 breaks over ~61,000 backbone
+    /// sites, so the mean segment is about SIX sites and a K = 8 window essentially never has eight
+    /// predecessors inside its own segment. Run at K = 8 on top of the defaults it overruled ZERO
+    /// links and the VCF came out byte-identical on both contigs -- the code path does nothing at
+    /// all, rather than doing something worth nothing.
+    ///
+    /// Even with full-length segments to work with, under the OLD defaults, it overruled the
+    /// adjacent link at 1 site on chr20 and 2-5 on chr6, and left switch counts unchanged. That is
+    /// the same answer the triangle screen, --phase-cp and --phase-backbone give: the adjacent link
+    /// is almost never wrong in a way its neighbours can detect.
+    ///
+    /// This and --phase-break are SUBSTITUTES, not complements. Both address one bad link
+    /// propagating through a long sign-only cascade -- the break threshold by making cascades too
+    /// short for it to travel, lookback by outvoting it inside a long one -- so taking the first
+    /// removes what the second needs. The honest head-to-head, lookback AGAINST break 20 at the old
+    /// threshold, was never run.
     size_t lookback = 0;
 
     /// Minimum weighted TRIANGLE CONSISTENCY for a site to enter the backbone at all, 0 to disable.
