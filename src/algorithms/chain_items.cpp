@@ -891,6 +891,7 @@ vector<SparseAnchorChain> extend_tracebacks_with_alts(const vector<vector<Traced
                     extensions.back().is_anchor_original.insert(extensions.back().is_anchor_original.end(),
                                                                 cur_extension.is_anchor_original.begin(),
                                                                 cur_extension.is_anchor_original.end());
+                    extensions.back().is_all_original = false;
                     extended = true;
                 }
             }
@@ -920,6 +921,7 @@ vector<SparseAnchorChain> extend_tracebacks_with_alts(const vector<vector<Traced
                             extensions.back().is_anchor_original.insert(extensions.back().is_anchor_original.end(),
                                                                         tied_in_original.begin() + tie_in.index_in_end,
                                                                         tied_in_original.end());
+                            extensions.back().is_all_original = false;
                             extended = true;
                         }
                     }

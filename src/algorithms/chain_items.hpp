@@ -462,6 +462,8 @@ struct SparseAnchorChain {
     std::vector<size_t> anchors;
     /// Whether each anchor is "original" (or was stolen from another chain)
     std::vector<bool> is_anchor_original;
+    /// Whether this is entirely original
+    bool is_all_original = true;
     /// Score of the sparse chain
     int chain_score = 0;
 
