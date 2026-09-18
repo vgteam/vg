@@ -176,6 +176,22 @@ void help_call(char** argv) {
          << "      --phase-hang N        neighbours to hang an unreliable site from [4]" << endl
          << "      --phase-prior N       weight of the panel when hanging a site [3]" << endl
          << "      --phase-cap N         clamp one pair's contribution, 0 to disable [0]" << endl
+         << "      --phase-cp N          PROTOTYPE. After the cascade, flip everything" << endl
+         << "                            downstream of any junction where the whole-read" << endl
+         << "                            evidence gains at least this many log10 units." << endl
+         << "                            Stage 1 reads only the two adjacent sites and" << endl
+         << "                            only the sign; this reads every spanning read's" << endl
+         << "                            full span, the transitive constraint the pairwise" << endl
+         << "                            cascade discards. 0 disables [0]" << endl
+         << "      --phase-cp-rounds N   cap on greedy flips per chain [200]" << endl
+         << "      --phase-coherence F   PROTOTYPE. Demote a site from carrying a phase" << endl
+         << "                            link when fewer than this fraction of its reads" << endl
+         << "                            agree with the haplotype their OTHER sites imply." << endl
+         << "                            The reliability gate asks whether a site's reads" << endl
+         << "                            separate its ALLELES; this asks whether they sit" << endl
+         << "                            where the rest of their evidence puts them. Against" << endl
+         << "                            chr20 switch positions the second is 5.1x enriched" << endl
+         << "                            in its worst 1% and the first 1.1x. 0 disables [0]" << endl
          << "      --regenotype          let the reads' phase decide the genotype, not only" << endl
          << "                            the order of an already-settled pair. Needs" << endl
          << "                            `--read-phasing`. OFF by default, ON under" << endl
@@ -700,6 +716,9 @@ int main_call(int argc, char** argv) {
     constexpr int OPT_PHASE_HANG = 1078;
     constexpr int OPT_PHASE_PRIOR = 1079;
     constexpr int OPT_PHASE_CAP = 1080;
+    constexpr int OPT_PHASE_CHANGEPOINT = 1105;
+    constexpr int OPT_PHASE_CP_ROUNDS = 1106;
+    constexpr int OPT_PHASE_COHERENCE = 1107;
     constexpr int OPT_REGENOTYPE = 1082;
     constexpr int OPT_NO_REGENOTYPE = 1087;
     constexpr int OPT_REGENO_CEILING = 1088;
@@ -836,6 +855,9 @@ int main_call(int argc, char** argv) {
         {"phase-hang", required_argument, 0, OPT_PHASE_HANG,                OWN_READ_LIKELIHOOD},
         {"phase-prior", required_argument, 0, OPT_PHASE_PRIOR,              OWN_READ_LIKELIHOOD},
         {"phase-cap", required_argument, 0, OPT_PHASE_CAP,                  OWN_READ_LIKELIHOOD},
+        {"phase-cp", required_argument, 0, OPT_PHASE_CHANGEPOINT,            OWN_READ_LIKELIHOOD},
+        {"phase-cp-rounds", required_argument, 0, OPT_PHASE_CP_ROUNDS,      OWN_READ_LIKELIHOOD},
+        {"phase-coherence", required_argument, 0, OPT_PHASE_COHERENCE,      OWN_READ_LIKELIHOOD},
         {"regenotype", no_argument, 0, OPT_REGENOTYPE,                      OWN_READ_LIKELIHOOD},
         {"no-regenotype", no_argument, 0, OPT_NO_REGENOTYPE,                OWN_READ_LIKELIHOOD},
         {"regeno-ceiling", required_argument, 0, OPT_REGENO_CEILING,        OWN_REGENOTYPE},
@@ -1146,6 +1168,24 @@ int main_call(int argc, char** argv) {
             break;
         case OPT_PHASE_CAP:
             read_phasing_params.cap = parse<double>(optarg);
+            break;
+        case OPT_PHASE_CHANGEPOINT:
+            read_phasing_params.changepoint_min = parse<double>(optarg);
+            if (read_phasing_params.changepoint_min < 0.0) {
+                cerr << "error [vg call]: --phase-changepoint must be >= 0" << endl;
+                return 1;
+            }
+            break;
+        case OPT_PHASE_CP_ROUNDS:
+            read_phasing_params.changepoint_rounds = parse<size_t>(optarg);
+            break;
+        case OPT_PHASE_COHERENCE:
+            read_phasing_params.coherence_min = parse<double>(optarg);
+            if (read_phasing_params.coherence_min < 0.0
+                || read_phasing_params.coherence_min > 1.0) {
+                cerr << "error [vg call]: --phase-coherence is a fraction in [0,1]" << endl;
+                return 1;
+            }
             break;
         case OPT_REGENOTYPE:
             regenotype = true;

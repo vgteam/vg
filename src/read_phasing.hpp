@@ -137,6 +137,40 @@ struct ReadPhasingParams {
     /// measured read-only error is 10^-2.4, so the independence assumption is wrong by orders of
     /// magnitude and one chimeric link in a segmental duplication would otherwise be unoverridable.
     double cap = 0.0;
+
+    /// Minimum aggregate log10 gain before a junction is treated as a switch and everything
+    /// downstream of it flipped. 0 disables the pass. PROTOTYPE, off by default.
+    ///
+    /// Stage 1 decides a junction from the reads the two ADJACENT sites share, and uses only the
+    /// sign. This pass instead asks, for every junction, what flipping all downstream orientations
+    /// would do to the total read likelihood, using each read's ENTIRE span rather than one pair:
+    ///
+    ///     S(j) = sum over reads spanning j of sum over that read's sites s >= j of (b_s - a_s)
+    ///
+    /// where `a` is log10 of the read's per-site term under the haplotype it is assigned and `b`
+    /// the term under the other. S(j) > 0 means the flip raises sum_r max_H L(H, r), so greedily
+    /// flipping at the argmax junction is hill-climbing on that objective and terminates. This is
+    /// the transitive constraint `phase_link` discards: a read spanning three sites constrains the
+    /// 1->3 relation, and nothing in stages 1-3 ever reads it.
+    double changepoint_min = 0.0;
+    /// Cap on greedy flips per chain, so a pathological locus cannot spin.
+    size_t changepoint_rounds = 200;
+
+    /// Minimum PHASE COHERENCE for a site to keep carrying a link, in [0,1]. 0 disables.
+    ///
+    /// Coherence asks a different question from `reliability`. Reliability asks whether a site's
+    /// reads can tell its two alleles apart; coherence asks whether those reads agree with the
+    /// haplotype their OTHER sites imply. A site can be perfectly discriminable and completely
+    /// phase-incoherent -- which is exactly the site a link must not be built from, and exactly the
+    /// site reliability cannot see. Measured on chr20 ONT against switch positions, ranking sites
+    /// worst-first: coherence enriches 9.3x in its worst 0.1% and 5.1x in its worst 1%, while
+    /// reliability manages 2.2x and 1.1x and is BELOW the base rate at 5%. Pearson r between them
+    /// is 0.437.
+    ///
+    /// Held out, not circular: a read's haplotype is recomputed for each site with that site's own
+    /// term removed, so a site never votes on itself. Sites below the bar are demoted to unreliable
+    /// and the cascade re-run, which is one extra pass.
+    double coherence_min = 0.0;
 };
 
 struct ReadPhasingCounters {
@@ -152,6 +186,14 @@ struct ReadPhasingCounters {
     /// Zero when nothing was re-phased; a re-phase that moves no strand at all under `-A` means the
     /// cascade is not reaching the tree.
     size_t strands_rederived = 0;
+    /// Junctions the changepoint pass flipped, and the aggregate log10 gain it claimed for them.
+    size_t changepoints = 0;
+    double changepoint_gain = 0.0;
+    /// Junctions that cleared the threshold but were refused because the pass hit its round cap.
+    size_t changepoint_capped = 0;
+    /// Sites demoted from reliable to unreliable for low phase coherence, and how many had passed
+    /// the `reliability` gate -- the gap between the two criteria, counted directly.
+    size_t demoted_incoherent = 0;
 };
 
 /// log10 odds, cis against trans, over the reads two sites share. Positive means the reads agree

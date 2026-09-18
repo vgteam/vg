@@ -6325,6 +6325,15 @@ void FlowCaller::apply_read_phasing() {
          << " sites hung off the chain (" << c.hung_no_reads << " with no read), " << c.flipped
          << " re-phased against the panel, " << c.strands_rederived
          << " nested strands carried with their parent" << endl;
+    if (c.changepoints > 0 || read_phasing_params.changepoint_min > 0.0) {
+        cerr << "[vg call] read phasing: changepoint pass flipped " << c.changepoints
+             << " junctions for " << c.changepoint_gain << " log10 units of read likelihood"
+             << (c.changepoint_capped ? " (some chains hit the round cap)" : "") << endl;
+    }
+    if (c.demoted_incoherent > 0) {
+        cerr << "[vg call] read phasing: " << c.demoted_incoherent
+             << " sites demoted for low phase coherence despite passing --phase-min-q" << endl;
+    }
 }
 
 bool FlowCaller::apply_regenotyping() {
