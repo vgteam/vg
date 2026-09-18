@@ -902,11 +902,21 @@ bool AnchorWriter::write(const string& path, const string& graph_name, const str
            "about the site is in the VCF, joinable on the snarl column, which is its ID.\n";
     out << "#note\tscore is the read's phred-scaled complement of the winning slot's share of its "
         << "own responsibility, the mismapping probability included in the denominator. So its "
-        << "CEILING is phred(--mismap-min) -- "
+        << "CEILING DEPENDS ON THE SITE. A site with one distinct allele -- a homozygote, split "
+        << "or not, and a haploid -- gives the winner the whole (1-e) weight and caps at "
+        << "phred(--mismap-min) = "
         << std::fixed << std::setprecision(2)
-        << (mismap_min > 0.0 ? -10.0 * log10(mismap_min) : 99.0) << std::defaultfloat
-        << " on this run -- not 60 or 99, and a read cannot score above it however cleanly it "
-        << "fits. 99 means the winner took the whole share and no cap applied\n";
+        << (mismap_min > 0.0 ? -10.0 * log10(mismap_min) : 99.0)
+        << ". A HETEROZYGOTE splits that weight between two alleles and caps at "
+        << "phred(e/(e+(1-e)/2)) = "
+        << (mismap_min > 0.0
+                ? -10.0 * log10(mismap_min / (mismap_min + (1.0 - mismap_min) / 2.0))
+                : 99.0)
+        << std::defaultfloat
+        << ", measured p99 on chr20 ONT. Neither is 60 or 99. A threshold set from the "
+        << "homozygous cap therefore discards EVERY heterozygous site, which is the opposite of "
+        << "what a consumer filtering for phase information wants. 99 means the winner took the "
+        << "whole share and no cap applied\n";
     out << "#note\treliability is the site's mean score over the reads it emitted, each read once "
         << "across both pins and both slots -- the same quantity --phase-min-q thresholds, default "
         << "9.5. It is low exactly where the reads cannot tell the site's alleles apart, which on "
