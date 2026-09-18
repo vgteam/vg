@@ -790,9 +790,9 @@ unordered_map<TailAnchor, vector<AltEdge>> filter_alt_edges(const VectorView<Anc
                     // Best right tie-in so far
                     right_tie_in = edge;
                     right_tie_in.start_parent_id = home_trace[edge.start_anchor].first;
-                    right_tie_in.index_within_start = home_trace[edge.start_anchor].second;
+                    right_tie_in.index_in_start = home_trace[edge.start_anchor].second;
                     right_tie_in.end_parent_id = home_trace[edge.end_anchor].first;
-                    right_tie_in.index_within_end = home_trace[edge.end_anchor].second;
+                    right_tie_in.index_in_end = home_trace[edge.end_anchor].second;
                 }
             }
             if (tail_edges.count(left_tail)) {
@@ -802,9 +802,9 @@ unordered_map<TailAnchor, vector<AltEdge>> filter_alt_edges(const VectorView<Anc
                     // Best left tie-in so far
                     left_tie_in = edge;
                     left_tie_in.start_parent_id = home_trace[edge.start_anchor].first;
-                    left_tie_in.index_within_start = home_trace[edge.start_anchor].second;
+                    left_tie_in.index_in_start = home_trace[edge.start_anchor].second;
                     left_tie_in.end_parent_id = home_trace[edge.end_anchor].first;
-                    left_tie_in.index_within_end = home_trace[edge.end_anchor].second;
+                    left_tie_in.index_in_end = home_trace[edge.end_anchor].second;
                 }
             }
         }
@@ -875,17 +875,22 @@ vector<SparseAnchorChain> extend_tracebacks_with_alts(const vector<vector<Traced
                 if (!tie_in.is_real_edge()) {
 #ifdef debug_chaining
                     cerr << "Extending to anchor " << tie_in.start_anchor << ", index "
-                         << tie_in.index_within_start << " in traceback " << tie_in.start_parent_id << endl;
+                         << tie_in.index_in_start << " in traceback " << tie_in.start_parent_id << endl;
 #endif
                     const auto& tied_in_anchors = original_tracebacks.at(tie_in.start_parent_id).anchors;
                     // Use extension
                     extensions.emplace_back();
                     // Concatenate the shared section of chain
                     extensions.back().anchors = vector<size_t>(tied_in_anchors.begin(),
-                                                               tied_in_anchors.begin() + tie_in.index_within_start + 1);
+                                                               tied_in_anchors.begin() + tie_in.index_in_start + 1);
                     extensions.back().anchors.insert(extensions.back().anchors.end(),
                                                      cur_extension.anchors.begin(),
                                                      cur_extension.anchors.end());
+                    // These new anchors are non-original
+                    extensions.back().is_anchor_original = vector<bool>(tie_in.index_in_start + 1, false);
+                    extensions.back().is_anchor_original.insert(extensions.back().is_anchor_original.end(),
+                                                                cur_extension.is_anchor_original.begin(),
+                                                                cur_extension.is_anchor_original.end());
                     extended = true;
                 }
             }
@@ -895,20 +900,26 @@ vector<SparseAnchorChain> extend_tracebacks_with_alts(const vector<vector<Traced
                 for (const auto& tie_in : tail_edges.at(cur_extension.right_tail())) {
                     if (!tie_in.is_real_edge()) {
                         const auto& tied_in_anchors = original_tracebacks.at(tie_in.end_parent_id).anchors;
+                        const auto& tied_in_original = original_tracebacks.at(tie_in.end_parent_id).is_anchor_original;
                         // If using this extension would be positive
                         if (chain_scores[tied_in_anchors.back()].front().score 
                             > chain_scores[cur_extension.anchors.back()].front().score) {
 #ifdef debug_chaining
                             cerr << "Extending to anchor " << tie_in.end_anchor << ", index "
-                                 << tie_in.index_within_end << " in traceback " << tie_in.end_parent_id << endl;
+                                 << tie_in.index_in_end << " in traceback " << tie_in.end_parent_id << endl;
 #endif
                             // Use extension
                             extensions.emplace_back();
                             // Concatenate the shared section of chain
                             extensions.back().anchors = cur_extension.anchors;
                             extensions.back().anchors.insert(extensions.back().anchors.end(),
-                                                             tied_in_anchors.begin() + tie_in.index_within_end,
+                                                             tied_in_anchors.begin() + tie_in.index_in_end,
                                                              tied_in_anchors.end());
+                            // These new anchors are non-original
+                            extensions.back().is_anchor_original = cur_extension.is_anchor_original;
+                            extensions.back().is_anchor_original.insert(extensions.back().is_anchor_original.end(),
+                                                                        tied_in_original.begin() + tie_in.index_in_end,
+                                                                        tied_in_original.end());
                             extended = true;
                         }
                     }
@@ -973,7 +984,9 @@ vector<SparseAnchorChain> find_best_chains(const VectorView<Anchor>& to_chain,
     vector<SparseAnchorChain> extra_chains;
 
     // Get rid of tracebacks that are much, much worse than the best
-    for (size_t i = 1; i < original_tracebacks.size(); i++) {
+    for (size_t i = 0; i < original_tracebacks.size(); i++) {
+        // All anchors are unique/original at this point
+        original_tracebacks[i].is_anchor_original = vector<bool>(original_tracebacks[i].anchors.size(), true);
         if (original_tracebacks[i].chain_score < original_tracebacks.front().chain_score / 4) {
 #ifdef debug_chaining
             cerr << "Saving tracebacks from " << i << " as completely separate" << endl; 

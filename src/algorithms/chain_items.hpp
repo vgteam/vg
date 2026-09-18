@@ -460,6 +460,8 @@ struct TailAnchor {
 struct SparseAnchorChain {
     /// Anchors in order along the chain
     std::vector<size_t> anchors;
+    /// Whether each anchor is "original" (or was stolen from another chain)
+    std::vector<bool> is_anchor_original;
     /// Score of the sparse chain
     int chain_score = 0;
 
@@ -580,11 +582,11 @@ struct AltEdge {
     /// Parent ID for start anchor (traceback number)
     size_t start_parent_id = std::numeric_limits<size_t>::max();
     /// Index within start parent
-    size_t index_within_start = std::numeric_limits<size_t>::max();
+    size_t index_in_start = std::numeric_limits<size_t>::max();
     /// Parent ID of end anchor
     size_t end_parent_id = std::numeric_limits<size_t>::max();
     /// Index within end parent
-    size_t index_within_end = std::numeric_limits<size_t>::max();
+    size_t index_in_end = std::numeric_limits<size_t>::max();
 
     /// Build an AltEdge from loose info
     inline AltEdge(size_t start_anchor, size_t end_anchor, size_t score_diff) 
