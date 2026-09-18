@@ -71,7 +71,10 @@ void TracedScore::try_to_insert_self(vector<TracedScore>& current) const {
     // Figure out which index to insert this element at
     int insert_after_index = current.size() - 1;
     while (insert_after_index >= 0) {
-        if (current[insert_after_index] > *this) {
+        if (current[insert_after_index] == *this) {
+            // Duplicate item; don't change at all
+            return;
+        } else if (current[insert_after_index] > *this) {
             // This item beats me, so we need to insert after it
             break;
         }
