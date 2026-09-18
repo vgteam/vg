@@ -974,7 +974,7 @@ vector<SparseAnchorChain> find_best_chains(const VectorView<Anchor>& to_chain,
 
     // Get rid of tracebacks that are much, much worse than the best
     for (size_t i = 1; i < original_tracebacks.size(); i++) {
-        if (original_tracebacks[i].chain_score < original_tracebacks.front().chain_score / 10) {
+        if (original_tracebacks[i].chain_score < original_tracebacks.front().chain_score / 4) {
 #ifdef debug_chaining
             cerr << "Saving tracebacks from " << i << " as completely separate" << endl; 
 #endif
