@@ -268,17 +268,22 @@ struct ReadPhasingParams {
     ///
     /// Lookback never crosses a break: a new segment restarts at o = 0 with nothing behind it.
     ///
-    /// MEASURED, AND INERT UNDER THE SHIPPED DEFAULTS. Do not reach for this without first lowering
-    /// --phase-break. At the shipped threshold of 20 there are 10,623 breaks over ~61,000 backbone
-    /// sites, so the mean segment is about SIX sites and a K = 8 window essentially never has eight
-    /// predecessors inside its own segment. Run at K = 8 on top of the defaults it overruled ZERO
-    /// links and the VCF came out byte-identical on both contigs -- the code path does nothing at
-    /// all, rather than doing something worth nothing.
+    /// MEASURED, AND IT FINDS NOTHING. The window DEGRADES GRACEFULLY -- the loop walks back as far
+    /// as the segment start allows and votes over however many predecessors it finds, needing only
+    /// two -- so a short segment gives a smaller window, not no window. At K = 8 on the shipped
+    /// defaults it therefore engaged on 40,013 of chr20's decisions (65%) and 133,740 of chr6's
+    /// (82%), roughly 174,000 in total, with windows of 2-8 predecessors, and overruled the
+    /// adjacent link ZERO times. Both VCFs came out byte-identical to the no-lookback run.
     ///
-    /// Even with full-length segments to work with, under the OLD defaults, it overruled the
-    /// adjacent link at 1 site on chr20 and 2-5 on chr6, and left switch counts unchanged. That is
-    /// the same answer the triangle screen, --phase-cp and --phase-backbone give: the adjacent link
-    /// is almost never wrong in a way its neighbours can detect.
+    /// chr6's mean segment is 10.9 sites, comfortably wider than the window, so this is not an
+    /// artefact of short segments on either contig.
+    ///
+    /// Under the OLD defaults, with longer segments still, it overruled 1 site on chr20 and 2-5 on
+    /// chr6 and left switch counts unchanged. So the result is the same at every window size tried.
+    /// It is the cleanest of the four probes that agree here -- triangles close 99.5% of the time,
+    /// --phase-cp fires on 3 junctions in a whole contig, --phase-backbone moves 87 sites for
+    /// nothing -- and together they say the adjacent link is essentially never wrong in a way ANY
+    /// amount of surrounding evidence can detect.
     ///
     /// This and --phase-break are SUBSTITUTES, not complements. Both address one bad link
     /// propagating through a long sign-only cascade -- the break threshold by making cascades too
