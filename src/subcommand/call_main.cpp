@@ -202,6 +202,21 @@ void help_call(char** argv) {
          << "                            WITH THAT CHAIN. Risks fragmentation: each round" << endl
          << "                            removes sites, surviving links span further, and" << endl
          << "                            more drop under the break threshold [1]" << endl
+         << "      --phase-backbone K    reconsider every backbone site against K neighbours" << endl
+         << "                            on EACH side, weighted by evidence, instead of the" << endl
+         << "                            one adjacent sign the cascade used. Flips a site" << endl
+         << "                            when its disagreeing weight beats its agreeing" << endl
+         << "                            weight; each flip raises a bounded objective so it" << endl
+         << "                            terminates. 0 disables [0]" << endl
+         << "      --phase-triangle F    minimum TRIANGLE CONSISTENCY for a site to enter" << endl
+         << "                            the backbone. For sites i,j,k the reads imply" << endl
+         << "                            sign(d_ij)*sign(d_jk)*sign(d_ik) > 0 -- a loop must" << endl
+         << "                            flip an even number of times whatever phase is" << endl
+         << "                            assigned -- so this is FRAME-FREE and is measured" << endl
+         << "                            before any phasing exists, unlike every other gate" << endl
+         << "                            here. Excluded sites are hung by stage 3, not" << endl
+         << "                            dropped. 0 disables [0]" << endl
+         << "      --phase-tri-k N       neighbours each side to draw triangles from [4]" << endl
          << "      --regenotype          let the reads' phase decide the genotype, not only" << endl
          << "                            the order of an already-settled pair. Needs" << endl
          << "                            `--read-phasing`. OFF by default, ON under" << endl
@@ -730,6 +745,9 @@ int main_call(int argc, char** argv) {
     constexpr int OPT_PHASE_CP_ROUNDS = 1106;
     constexpr int OPT_PHASE_COHERENCE = 1107;
     constexpr int OPT_PHASE_COH_ROUNDS = 1108;
+    constexpr int OPT_PHASE_BACKBONE = 1109;
+    constexpr int OPT_PHASE_TRIANGLE = 1110;
+    constexpr int OPT_PHASE_TRI_K = 1111;
     constexpr int OPT_REGENOTYPE = 1082;
     constexpr int OPT_NO_REGENOTYPE = 1087;
     constexpr int OPT_REGENO_CEILING = 1088;
@@ -870,6 +888,9 @@ int main_call(int argc, char** argv) {
         {"phase-cp-rounds", required_argument, 0, OPT_PHASE_CP_ROUNDS,      OWN_READ_LIKELIHOOD},
         {"phase-coherence", required_argument, 0, OPT_PHASE_COHERENCE,      OWN_READ_LIKELIHOOD},
         {"phase-coh-rounds", required_argument, 0, OPT_PHASE_COH_ROUNDS,    OWN_READ_LIKELIHOOD},
+        {"phase-backbone", required_argument, 0, OPT_PHASE_BACKBONE,        OWN_READ_LIKELIHOOD},
+        {"phase-triangle", required_argument, 0, OPT_PHASE_TRIANGLE,        OWN_READ_LIKELIHOOD},
+        {"phase-tri-k", required_argument, 0, OPT_PHASE_TRI_K,              OWN_READ_LIKELIHOOD},
         {"regenotype", no_argument, 0, OPT_REGENOTYPE,                      OWN_READ_LIKELIHOOD},
         {"no-regenotype", no_argument, 0, OPT_NO_REGENOTYPE,                OWN_READ_LIKELIHOOD},
         {"regeno-ceiling", required_argument, 0, OPT_REGENO_CEILING,        OWN_REGENOTYPE},
@@ -1205,6 +1226,20 @@ int main_call(int argc, char** argv) {
                 cerr << "error [vg call]: --phase-coh-rounds must be >= 1" << endl;
                 return 1;
             }
+            break;
+        case OPT_PHASE_BACKBONE:
+            read_phasing_params.backbone = parse<size_t>(optarg);
+            break;
+        case OPT_PHASE_TRIANGLE:
+            read_phasing_params.triangle_min = parse<double>(optarg);
+            if (read_phasing_params.triangle_min < 0.0
+                || read_phasing_params.triangle_min > 1.0) {
+                cerr << "error [vg call]: --phase-triangle is a fraction in [0,1]" << endl;
+                return 1;
+            }
+            break;
+        case OPT_PHASE_TRI_K:
+            read_phasing_params.triangle_k = parse<size_t>(optarg);
             break;
         case OPT_REGENOTYPE:
             regenotype = true;

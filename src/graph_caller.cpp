@@ -6330,6 +6330,16 @@ void FlowCaller::apply_read_phasing() {
              << " junctions for " << c.changepoint_gain << " log10 units of read likelihood"
              << (c.changepoint_capped ? " (some chains hit the round cap)" : "") << endl;
     }
+    if (c.triangles_scored > 0) {
+        cerr << "[vg call] read phasing: triangle pre-screen kept " << c.triangle_excluded
+             << " sites out of the backbone; " << c.triangles_open << " of " << c.triangles_scored
+             << " triangles did not close ("
+             << (100.0 * (double)c.triangles_open / (double)c.triangles_scored) << "%)" << endl;
+    }
+    if (c.backbone_flips > 0) {
+        cerr << "[vg call] read phasing: backbone local search moved " << c.backbone_flips
+             << " sites off the cascade's answer over " << c.backbone_rounds << " rounds" << endl;
+    }
     if (c.demoted_incoherent > 0) {
         cerr << "[vg call] read phasing: " << c.demoted_incoherent
              << " sites demoted for low phase coherence over " << c.coherence_rounds_run

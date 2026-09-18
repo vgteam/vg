@@ -190,6 +190,48 @@ struct ReadPhasingParams {
     /// not guarantee. The risk is fragmentation: each round removes sites, the surviving links span
     /// further, `phase_link` falls off with distance, and more of them drop under --phase-break.
     size_t coherence_rounds = 1;
+
+    /// Backbone neighbours per side for the local-search refinement, 0 to disable.
+    ///
+    /// Stage 1 chains ADJACENT reliable sites and reads only the SIGN of each link, so one wrong
+    /// sign inverts every site to the end of the segment -- mean 55.5 of them. Its magnitude is
+    /// used once, for the break test, and a lone link has no competing evidence to weight against,
+    /// which is why --phase-break was measured at 20/40/80 and changes nothing.
+    ///
+    /// This joins each backbone site to its K nearest backbone neighbours on EACH side and chooses
+    /// orientations by local search on
+    ///
+    ///     sum over edges of |d_ij| * (+1 if the pair agrees with sign d_ij, else -1)
+    ///
+    /// flipping any site whose incident disagreeing weight exceeds its agreeing weight. Every flip
+    /// strictly increases a bounded objective, so it terminates. It is stage 3's rule -- several
+    /// neighbours, weighted by evidence -- applied to the backbone itself rather than only to the
+    /// sites that were kept out of it.
+    ///
+    /// Single-site moves cannot cross a switch, which needs a whole suffix inverted; --phase-cp
+    /// supplies that move, and its firing on 3 junctions in all of chr20 says suffix moves are the
+    /// safety net and these are where the gain should be.
+    size_t backbone = 0;
+
+    /// Minimum weighted TRIANGLE CONSISTENCY for a site to enter the backbone at all, 0 to disable.
+    ///
+    /// Every other gate here is post-hoc: build the chain over all reliable sites, then judge each
+    /// site against the chain it is already part of. That is circular, and it is why iterating the
+    /// coherence demotion converges to no improvement -- the contaminated backbone is the yardstick.
+    ///
+    /// A triangle is frame-free. For sites i, j, k the reads imply sign(d_ij)*sign(d_jk)*sign(d_ik)
+    /// > 0: going round a loop must flip an even number of times, whatever orientation anything is
+    /// eventually given. So a site's consistency with its neighbourhood is measurable BEFORE any
+    /// phase exists. Score each site by the share of its triangles that close, weighted by the
+    /// weakest link in each so that a triangle resting on a marginal link cannot dominate, and admit
+    /// only sites above the bar. The rest are hung by stage 3, exactly as a demoted site is.
+    ///
+    /// The object being sought is the largest set of sites that are strongly phase-consistent with
+    /// ONE ANOTHER, rather than the largest set that individually separate their own alleles, which
+    /// is all --phase-min-q can ask.
+    double triangle_min = 0.0;
+    /// Neighbours each side to draw triangles from.
+    size_t triangle_k = 4;
 };
 
 struct ReadPhasingCounters {
@@ -218,6 +260,13 @@ struct ReadPhasingCounters {
     /// silently reported as converged.
     size_t coherence_rounds_run = 0;
     size_t coherence_unconverged = 0;
+    /// Sites the backbone local search flipped away from the cascade's answer, and rounds it took.
+    size_t backbone_flips = 0;
+    size_t backbone_rounds = 0;
+    /// Sites kept out of the backbone by triangle consistency, and the triangles scored.
+    size_t triangle_excluded = 0;
+    size_t triangles_scored = 0;
+    size_t triangles_open = 0;
 };
 
 /// log10 odds, cis against trans, over the reads two sites share. Positive means the reads agree

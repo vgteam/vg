@@ -109,6 +109,73 @@ unordered_set<size_t> read_phase_flips(vector<PhaseSite>& sites, const ReadPhasi
         }
         counters.reliable += rel.size();
 
+        // --- triangle pre-screen: which sites may enter the backbone at all ---
+        //
+        // Frame-free, and computed before any orientation exists. For sites i, j, k the reads imply
+        // sign(d_ij)*sign(d_jk)*sign(d_ik) > 0 -- a loop must flip an even number of times whatever
+        // phase is eventually assigned -- so a triangle that fails to close is evidence about the
+        // SITES, not about any chain. Score each site by the share of its triangles that close,
+        // weighted by the weakest link in each so a triangle resting on a marginal link cannot
+        // carry it, and keep only sites above the bar.
+        //
+        // This is what --phase-min-q cannot ask. Reliability is a within-site question: can these
+        // reads separate these two alleles. Consistency is a between-site question, and the object
+        // wanted is the largest set of sites strongly consistent with ONE ANOTHER.
+        if (params.triangle_min > 0.0 && rel.size() >= 3) {
+            const size_t K = max<size_t>(2, params.triangle_k);
+            // d[m][dl-1] = link from rel[m] to rel[m+dl]
+            vector<vector<double>> dd(rel.size(), vector<double>(K, 0.0));
+            for (size_t m = 0; m < rel.size(); ++m) {
+                for (size_t dl = 1; dl <= K && m + dl < rel.size(); ++dl) {
+                    dd[m][dl - 1] = phase_link(sites[begin + rel[m]],
+                                               sites[begin + rel[m + dl]], params.cap);
+                }
+            }
+            vector<double> good(rel.size(), 0.0), all(rel.size(), 0.0);
+            for (size_t m = 0; m < rel.size(); ++m) {
+                for (size_t a = 1; a <= K; ++a) {
+                    if (m + a >= rel.size()) break;
+                    for (size_t b = a + 1; b <= K; ++b) {
+                        if (m + b >= rel.size()) break;
+                        const double dab = dd[m][a - 1];              // i -> j
+                        const double dac = dd[m][b - 1];              // i -> k
+                        const double dbc = dd[m + a][b - a - 1];      // j -> k
+                        if (dab == 0.0 || dac == 0.0 || dbc == 0.0) {
+                            continue;
+                        }
+                        // The weakest link bounds what the triangle is worth as evidence.
+                        const double w = min(std::fabs(dab), min(std::fabs(dac), std::fabs(dbc)));
+                        const bool closes = (dab * dac * dbc) > 0.0;
+                        ++counters.triangles_scored;
+                        if (!closes) {
+                            ++counters.triangles_open;
+                        }
+                        for (size_t v : {m, m + a, m + b}) {
+                            all[v] += w;
+                            if (closes) {
+                                good[v] += w;
+                            }
+                        }
+                    }
+                }
+            }
+            vector<size_t> keep;
+            for (size_t m = 0; m < rel.size(); ++m) {
+                // A site with no scored triangle is not evidence against itself; it is admitted and
+                // the ordinary machinery judges it.
+                if (all[m] > 0.0 && good[m] / all[m] < params.triangle_min) {
+                    unrel.push_back(rel[m]);
+                    ++counters.triangle_excluded;
+                } else {
+                    keep.push_back(rel[m]);
+                }
+            }
+            if (keep.size() >= 2) {
+                rel.swap(keep);
+                sort(unrel.begin(), unrel.end());
+            }
+        }
+
         // `o[t] == 1` means "swap this site against the order the panel gave it". A chain's first
         // reliable site is pinned at 0, so with no read evidence nothing moves.
         vector<int> o(n, 0);
@@ -174,6 +241,56 @@ unordered_set<size_t> read_phase_flips(vector<PhaseSite>& sites, const ReadPhasi
                 if (x ^ o[rel[ea - 1]] ^ o[rel[sb]]) {
                     for (size_t m = sb; m < eb; ++m) {
                         o[rel[m]] ^= 1;
+                    }
+                }
+            }
+
+            // --- backbone: multi-neighbour local search over the reliable chain ---
+            //
+            // Stage 1 has just decided every orientation from ONE adjacent link, using only its
+            // sign. Here each backbone site is reconsidered against K neighbours on each side,
+            // weighted by |d|. A site flips when its incident disagreeing weight exceeds its
+            // agreeing weight; each flip strictly increases sum over edges of |d_ij| * (+/-1), which
+            // is bounded, so this terminates.
+            if (params.backbone > 0 && rel.size() >= 3) {
+                struct Edge { size_t a, b; double d; };
+                vector<Edge> edges;
+                edges.reserve(rel.size() * params.backbone);
+                for (size_t m = 0; m < rel.size(); ++m) {
+                    for (size_t dl = 1; dl <= params.backbone && m + dl < rel.size(); ++dl) {
+                        const double d = phase_link(sites[begin + rel[m]],
+                                                    sites[begin + rel[m + dl]], params.cap);
+                        if (d != 0.0) {
+                            edges.push_back({m, m + dl, d});
+                        }
+                    }
+                }
+                vector<vector<size_t>> inc(rel.size());
+                for (size_t e = 0; e < edges.size(); ++e) {
+                    inc[edges[e].a].push_back(e);
+                    inc[edges[e].b].push_back(e);
+                }
+                for (size_t round = 0; round < 50; ++round) {
+                    bool moved = false;
+                    for (size_t m = 0; m < rel.size(); ++m) {
+                        double net = 0.0;
+                        for (size_t e : inc[m]) {
+                            const Edge& E = edges[e];
+                            const size_t other = (E.a == m) ? E.b : E.a;
+                            const bool want_diff = E.d < 0.0;
+                            const bool is_diff = (o[rel[m]] ^ o[rel[other]]) != 0;
+                            // gain from flipping m: agreeing edges lose, disagreeing edges gain
+                            net += std::fabs(E.d) * ((is_diff == want_diff) ? -1.0 : 1.0);
+                        }
+                        if (net > 0.0) {
+                            o[rel[m]] ^= 1;
+                            moved = true;
+                            ++counters.backbone_flips;
+                        }
+                    }
+                    if (!moved) {
+                        counters.backbone_rounds += round + 1;
+                        break;
                     }
                 }
             }
