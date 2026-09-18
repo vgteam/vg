@@ -1685,8 +1685,8 @@ void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::ve
     }
     for (size_t i = 0; i < chains.size(); i++) {
         // Give a tiny bonus to anything that's from a tree different than the top
-        if (chains[i].source_tree != best_chain_score_source_tree) {
-            chain_scores[i] += different_tree_bonus;
+        if (chains[i].source_tree != best_chain_score_source_tree && chain_scores[i] < best_chain_score) {
+            chain_scores[i] = std::min(best_chain_score - 1, chain_scores[i] + (int) different_tree_bonus);
         }
     }
 
