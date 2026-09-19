@@ -1706,7 +1706,7 @@ void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::ve
             #pragma omp critical (cerr)
             {
                 cerr << log_name() << "chain " << processed_num
-                     << " failed because its score was not good enough (max score="
+                     << " failed because its score was not good enough (score="
                      << chains.at(processed_num).chain_score
                      << ", min=" << chain_min_score
                      << ", threshold " << chain_score_threshold << " off best)" << endl;
@@ -1746,7 +1746,7 @@ void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::ve
                 #pragma omp critical (cerr)
                 {
                     cerr << log_name() << "chain " << processed_num
-                         << " is good enough (max score=" << chains.at(processed_num).chain_score
+                         << " is good enough (score=" << chains.at(processed_num).chain_score
                          << ", min=" << chain_min_score
                          << ", threshold " << chain_score_threshold << " off best)" << endl;
                     if (track_correctness && funnel.was_correct(processed_num)) {
