@@ -1686,6 +1686,7 @@ void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::ve
     for (size_t i = 0; i < chains.size(); i++) {
         // Give a tiny bonus to anything that is likely to have nodes different from the top
         if ((chains[i].source_tree != best_chain_score_source_tree || chains[i].is_all_original)
+             && chain_scores[i] > chain_min_score
              && chain_scores[i] + different_tree_bonus < best_chain_score) {
             chain_scores[i] = chain_scores[i] + different_tree_bonus;
         }
@@ -1763,7 +1764,7 @@ void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::ve
             
             for (size_t anchor_i = 0; anchor_i < chains.at(processed_num).anchors.size(); anchor_i++) {
                 if (!chains.at(processed_num).is_anchor_original[anchor_i]) {
-                    // We don't expect this anchor to b eoriginal
+                    // We don't expect this anchor to be original
                     continue;
                 }
                 size_t seed_num = chains.at(processed_num).anchors.at(anchor_i);
