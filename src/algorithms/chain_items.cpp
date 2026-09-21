@@ -995,6 +995,7 @@ vector<SparseAnchorChain> find_best_chains(const VectorView<Anchor>& to_chain,
 #endif
             // Save just in case
             for (size_t j = i; j < original_tracebacks.size(); j++) {
+                original_tracebacks[j].is_anchor_original = vector<bool>(original_tracebacks[j].anchors.size(), true);
                 extra_chains.emplace_back(original_tracebacks[j]);
             }
             // Cut off at this point
