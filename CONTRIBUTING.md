@@ -198,10 +198,15 @@ Each subcommand has a file in `src/subcommand/`. Make sure to `#include "subcomm
 
 - All subcommands must be in the autocomplete files `autocomplete.sh` and `autocomp.bash`.
 Each has a line `opts="cmd1 cmd2"` etc. When adding or removing a subcommand, update the list.
-- Non-deprecated subcommands must be included in the manpage generators:
-    - The lists `doc/vgmanmd.desc.md` must have at least one instance of the subcommand.
-    Make sure to format the links properly or they won't be accepted.
-    - The `cmds` list at the top of `doc/vgmanmd.py` must have the subcommand.
+- Non-deprecated subcommands must have one or more manpage entries, e.g. see this from `vg gamcompare`:
+
+    ```c++
+    static Subcommand vg_gamcompare("gamcompare", "compare alignment positions", WIDGET,
+                                    vector<manpage_item>{{MANIPULATE_ALN, "compare GAM-format alignments to a truth", ""}},
+                                    help_gamcompare, main_gamcompare);
+    ```
+
+    Available categories are listed in `src/subcommand/subcommand.hpp`.
 
 #### Helptext
 

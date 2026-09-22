@@ -1088,5 +1088,15 @@ int main_paths(int argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_paths("paths", "traverse paths in the graph", main_paths);
-
+static Subcommand vg_paths("paths", "traverse paths in the graph", WIDGET,
+                           vector<manpage_item>{
+                            {EXTRACT_GRAPH, "subset a graph to keep or remove particular paths", ""},
+                            {CONVERT_FORMAT, "extract a FASTA from a graph",
+                             "https://github.com/vgteam/vg/wiki/Linear-references-and-vg"},
+                            {GET_STATS,
+                             "get stats about the paths in a graph",
+                             "https://github.com/vgteam/vg/wiki/Path-Metadata-Model"},
+                            {MANIPULATE_GRAPH, 
+                             "manipulate paths in a graph",
+                             "https://github.com/vgteam/vg/wiki/Path-Metadata-Model"}},
+                           help_paths, main_paths);

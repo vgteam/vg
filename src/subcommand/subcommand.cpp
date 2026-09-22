@@ -34,9 +34,22 @@ std::ostream& operator<<(std::ostream& out, const CommandCategory& category) {
 
 Subcommand::Subcommand(std::string name, std::string description,
     CommandCategory category, int priority,
+    std::vector<manpage_item> manpage_entries,
+    std::function<void(char**)> help_function,
     std::function<int(int, char**)> main_function) : name(name),
     category(category), priority(priority), description(description),
-    main_function(main_function) {
+    manpage_entries(manpage_entries), help_function(help_function), main_function(main_function) {
+    if (category != DEPRECATED && manpage_entries.empty()) {
+        throw std::invalid_argument("non-DEPRECATED subcommands must have manpage entries");
+    }
+    for (const auto& entry : manpage_entries) {
+        if (entry.blurb.empty()) {
+            throw std::invalid_argument("manpage entries must include a blurb");
+        }
+        if (entry.blurb.back() == '.') {
+            throw std::invalid_argument("manpage blurbs shouldn't end with a period (it's auto-added later)");
+        }
+    }
     
     // Add this subcommand to the registry
     Subcommand::get_registry()[name] = this;
@@ -44,14 +57,18 @@ Subcommand::Subcommand(std::string name, std::string description,
 
 Subcommand::Subcommand(std::string name, std::string description,
     CommandCategory category, 
+    std::vector<manpage_item> manpage_entries,
+    std::function<void(char**)> help_function,
     std::function<int(int, char**)> main_function) : Subcommand(name,
-    description, category, std::numeric_limits<int>::max(), main_function) {
+    description, category, std::numeric_limits<int>::max(), manpage_entries, help_function, main_function) {
     
     // Nothing to do!
 }
 
 Subcommand::Subcommand(std::string name, std::string description,
-    std::function<int(int, char**)> main_function) : Subcommand(name, description, WIDGET, main_function) {
+    std::function<void(char**)> help_function,
+    std::function<int(int, char**)> main_function) : Subcommand(name, 
+        description, DEPRECATED, std::vector<manpage_item>(), help_function, main_function) {
     // Nothing to do!
 }
 
@@ -67,8 +84,16 @@ const CommandCategory& Subcommand::get_category() const {
     return category;
 }
 
+const std::vector<manpage_item>& Subcommand::get_manpage_entries() const {
+    return manpage_entries;
+}
+
 const int& Subcommand::get_priority() const {
     return priority;
+}
+
+const void Subcommand::run_help(char** argv) const {
+    help_function(argv);
 }
 
 const int Subcommand::operator()(int argc, char** argv) const {
