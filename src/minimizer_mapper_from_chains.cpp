@@ -1535,7 +1535,7 @@ void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeFo
                     for (auto& seed_number : anchor_seed_sequences.at(anchor_number)) {
                         // And get all the seeds it actually uses in sequence and put them in the chain.
                         seed_nums.push_back(seed_number);
-                        is_seed_original.push_back(new_chains[chain_i].is_anchor_original[anchor_i]);
+                        is_seed_original.push_back(new_chains[chain_i].is_anchor_shared[anchor_i]);
                     }
                     for (auto& seed_number : anchor_represented_seeds.at(anchor_number)) {
                         // And get all the seeds it represents exploring and mark their minimizers explored.
@@ -1547,7 +1547,7 @@ void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeFo
                 // Save original for later use
                 vector<size_t> anchor_nums = new_chains[chain_i].anchors;
                 new_chains[chain_i].anchors = seed_nums;
-                new_chains[chain_i].is_anchor_original = is_seed_original;
+                new_chains[chain_i].is_anchor_shared = is_seed_original;
 
                 // Remember how we got it
                 new_chains[chain_i].source_tree = item_num;
@@ -1766,7 +1766,7 @@ void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::ve
             }
             
             for (size_t anchor_i = 0; anchor_i < chains.at(processed_num).anchors.size(); anchor_i++) {
-                if (!chains.at(processed_num).is_anchor_original[anchor_i]) {
+                if (!chains.at(processed_num).is_anchor_shared[anchor_i]) {
                     // We don't expect this anchor to be original
                     continue;
                 }

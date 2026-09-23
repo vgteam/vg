@@ -460,8 +460,8 @@ struct TailAnchor {
 struct SparseAnchorChain {
     /// Anchors in order along the chain
     std::vector<size_t> anchors;
-    /// Whether each anchor is "original" (or is shared another chain)
-    std::vector<bool> is_anchor_original;
+    /// Whether each anchor is shared with another chain
+    std::vector<bool> is_anchor_shared;
     /// Whether this has any shared anchors at all
     bool has_duplicate_anchors = false;
     /// Score of the sparse chain

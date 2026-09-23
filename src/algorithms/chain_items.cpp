@@ -928,7 +928,7 @@ vector<SparseAnchorChain> extend_tracebacks_with_alts(const vector<vector<Traced
             if (!extended) {
 #ifdef debug_chaining
                 cerr << "Anchor originality for final chain: ";
-                for (const bool& orig : cur_extension.is_anchor_original) {
+                for (const bool& orig : cur_extension.is_anchor_shared) {
                     cerr << (orig ? "T" : "F") << " ";
                 }
                 cerr << endl;
@@ -941,11 +941,11 @@ vector<SparseAnchorChain> extend_tracebacks_with_alts(const vector<vector<Traced
     // Score each traceback we got
     for (auto& cur_trace : optimal_tracebacks) {
         cur_trace.chain_score = chain_scores[cur_trace.anchors.back()].front().score;
-        cur_trace.is_anchor_original = vector<bool>(cur_trace.anchors.size(), true);
+        cur_trace.is_anchor_shared = vector<bool>(cur_trace.anchors.size(), true);
         for (int anchor_i = cur_trace.anchors.size() - 1; anchor_i >= 0; anchor_i--) {
             size_t cur_anchor = cur_trace.anchors[anchor_i];
             if (duplicated_anchors.count(cur_anchor)) {
-                cur_trace.is_anchor_original[anchor_i] = false;
+                cur_trace.is_anchor_shared[anchor_i] = false;
                 cur_trace.has_duplicate_anchors = true;
             }
             // If we ever take a compromise, subtract that from our score
@@ -997,14 +997,14 @@ vector<SparseAnchorChain> find_best_chains(const VectorView<Anchor>& to_chain,
     // Get rid of tracebacks that are much, much worse than the best
     for (size_t i = 0; i < original_tracebacks.size(); i++) {
         // All anchors are unique/original at this point
-        original_tracebacks[i].is_anchor_original = vector<bool>(original_tracebacks[i].anchors.size(), true);
+        original_tracebacks[i].is_anchor_shared = vector<bool>(original_tracebacks[i].anchors.size(), true);
         if (original_tracebacks[i].chain_score < original_tracebacks.front().chain_score / 10) {
 #ifdef debug_chaining
             cerr << "Saving tracebacks from " << i << " as completely separate" << endl; 
 #endif
             // Save just in case
             for (size_t j = i; j < original_tracebacks.size(); j++) {
-                original_tracebacks[j].is_anchor_original = vector<bool>(original_tracebacks[j].anchors.size(), true);
+                original_tracebacks[j].is_anchor_shared = vector<bool>(original_tracebacks[j].anchors.size(), true);
                 extra_chains.emplace_back(original_tracebacks[j]);
             }
             // Cut off at this point
