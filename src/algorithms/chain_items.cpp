@@ -901,7 +901,7 @@ vector<SparseAnchorChain> extend_tracebacks_with_alts(const vector<vector<Traced
                 for (const auto& tie_in : tail_edges.at(cur_extension.right_tail())) {
                     if (!tie_in.is_real_edge()) {
                         const auto& tied_in_anchors = original_tracebacks.at(tie_in.end_parent_id).anchors;
-                        const auto& tied_in_original = original_tracebacks.at(tie_in.end_parent_id).is_anchor_original;
+                        const auto& all_are_old = vector<bool>(tied_in_anchors.size() - tie_in.index_in_end, false);
                         // If using this extension would be positive
                         if (chain_scores[tied_in_anchors.back()].front().score 
                             > chain_scores[cur_extension.anchors.back()].front().score) {
@@ -919,8 +919,7 @@ vector<SparseAnchorChain> extend_tracebacks_with_alts(const vector<vector<Traced
                             // These new anchors are non-original
                             extensions.back().is_anchor_original = cur_extension.is_anchor_original;
                             extensions.back().is_anchor_original.insert(extensions.back().is_anchor_original.end(),
-                                                                        tied_in_original.begin() + tie_in.index_in_end,
-                                                                        tied_in_original.end());
+                                                                        all_are_old.begin(), all_are_old.end());
                             extensions.back().is_all_original = false;
                             extended = true;
                         }
@@ -930,6 +929,13 @@ vector<SparseAnchorChain> extend_tracebacks_with_alts(const vector<vector<Traced
 
             // If we didn't extend, then this one is done
             if (!extended) {
+#ifdef debug_chaining
+                cerr << "Anchor originality for final chain: ";
+                for (const bool& orig : cur_extension.is_anchor_original) {
+                    cerr << (orig ? "T" : "F") << " ";
+                }
+                cerr << endl;
+#endif
                 optimal_tracebacks.push_back(cur_extension);
             }
         }
