@@ -1526,14 +1526,16 @@ void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeFo
 
                 // Translate into seed numbers and not local anchor numbers.
                 vector<size_t> seed_nums;
+                vector<bool> is_seed_original;
                 seed_nums.reserve(new_chains[chain_i].anchors.size() * 2);
 
-                for (auto& selected_number : new_chains[chain_i].anchors) {
+                for (size_t anchor_i = 0; anchor_i < new_chains[chain_i].anchors.size(); anchor_i++) {
                     // For each anchor in the chain, get its number in the whole group of anchors.
-                    size_t anchor_number = anchor_indexes.at(selected_number);
+                    size_t anchor_number = anchor_indexes.at(new_chains[chain_i].anchors[anchor_i]);
                     for (auto& seed_number : anchor_seed_sequences.at(anchor_number)) {
                         // And get all the seeds it actually uses in sequence and put them in the chain.
                         seed_nums.push_back(seed_number);
+                        is_seed_original.push_back(new_chains[chain_i].is_anchor_original[anchor_i]);
                     }
                     for (auto& seed_number : anchor_represented_seeds.at(anchor_number)) {
                         // And get all the seeds it represents exploring and mark their minimizers explored.
@@ -1545,6 +1547,7 @@ void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeFo
                 // Save original for later use
                 vector<size_t> anchor_nums = new_chains[chain_i].anchors;
                 new_chains[chain_i].anchors = seed_nums;
+                new_chains[chain_i].is_anchor_original = is_seed_original;
 
                 // Remember how we got it
                 new_chains[chain_i].source_tree = item_num;
@@ -1685,7 +1688,7 @@ void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::ve
     }
     for (size_t i = 0; i < chains.size(); i++) {
         // Give a tiny bonus to anything that is likely to have nodes different from the top
-        if ((chains[i].source_tree != best_chain_score_source_tree || chains[i].is_all_original)
+        if ((chains[i].source_tree != best_chain_score_source_tree || !chains[i].has_duplicate_anchors)
              && chain_scores[i] > chain_min_score
              && chain_scores[i] + different_tree_bonus < best_chain_score) {
             chain_scores[i] = chain_scores[i] + different_tree_bonus;

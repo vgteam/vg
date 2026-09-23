@@ -857,6 +857,8 @@ vector<SparseAnchorChain> extend_tracebacks_with_alts(const vector<vector<Traced
                                                       const vector<SparseAnchorChain>& original_tracebacks,
                                                       const unordered_map<TailAnchor, vector<AltEdge>> tail_edges) {
     vector<SparseAnchorChain> optimal_tracebacks;
+    // Any anchor which is used by multiple chains
+    unordered_set<size_t> duplicated_anchors;
 
     for (const auto& cur_trace : original_tracebacks) {
         vector<SparseAnchorChain> extensions;
@@ -887,11 +889,8 @@ vector<SparseAnchorChain> extend_tracebacks_with_alts(const vector<vector<Traced
                                                      cur_extension.anchors.begin(),
                                                      cur_extension.anchors.end());
                     // These new anchors are non-original
-                    extensions.back().is_anchor_original = vector<bool>(tie_in.index_in_start + 1, false);
-                    extensions.back().is_anchor_original.insert(extensions.back().is_anchor_original.end(),
-                                                                cur_extension.is_anchor_original.begin(),
-                                                                cur_extension.is_anchor_original.end());
-                    extensions.back().is_all_original = false;
+                    duplicated_anchors.insert(tied_in_anchors.begin(),
+                                              tied_in_anchors.begin() + tie_in.index_in_start + 1);
                     extended = true;
                 }
             }
@@ -917,10 +916,8 @@ vector<SparseAnchorChain> extend_tracebacks_with_alts(const vector<vector<Traced
                                                              tied_in_anchors.begin() + tie_in.index_in_end,
                                                              tied_in_anchors.end());
                             // These new anchors are non-original
-                            extensions.back().is_anchor_original = cur_extension.is_anchor_original;
-                            extensions.back().is_anchor_original.insert(extensions.back().is_anchor_original.end(),
-                                                                        all_are_old.begin(), all_are_old.end());
-                            extensions.back().is_all_original = false;
+                            duplicated_anchors.insert(tied_in_anchors.begin() + tie_in.index_in_end,
+                                                      tied_in_anchors.end());
                             extended = true;
                         }
                     }
@@ -944,13 +941,19 @@ vector<SparseAnchorChain> extend_tracebacks_with_alts(const vector<vector<Traced
     // Score each traceback we got
     for (auto& cur_trace : optimal_tracebacks) {
         cur_trace.chain_score = chain_scores[cur_trace.anchors.back()].front().score;
-        for (size_t anchor_i = cur_trace.anchors.size() - 1; anchor_i >= 1; anchor_i--) {
+        cur_trace.is_anchor_original = vector<bool>(cur_trace.anchors.size(), true);
+        for (int anchor_i = cur_trace.anchors.size() - 1; anchor_i >= 0; anchor_i--) {
+            size_t cur_anchor = cur_trace.anchors[anchor_i];
+            if (duplicated_anchors.count(cur_anchor)) {
+                cur_trace.is_anchor_original[anchor_i] = false;
+                cur_trace.has_duplicate_anchors = true;
+            }
             // If we ever take a compromise, subtract that from our score
-            if (chain_scores[cur_trace.anchors[anchor_i]].front().source != cur_trace.anchors[anchor_i-1]) {
-                int compromise = -chain_scores[cur_trace.anchors[anchor_i]].front().score;
-                for (size_t alt_i = 1; alt_i < chain_scores[cur_trace.anchors[anchor_i]].size(); alt_i++) {
-                    if (chain_scores[cur_trace.anchors[anchor_i]][alt_i].source == cur_trace.anchors[anchor_i-1]) {
-                        compromise += chain_scores[cur_trace.anchors[anchor_i]][alt_i].score;
+            if (anchor_i > 0 && chain_scores[cur_anchor].front().source != cur_trace.anchors[anchor_i-1]) {
+                int compromise = -chain_scores[cur_anchor].front().score;
+                for (size_t alt_i = 1; alt_i < chain_scores[cur_anchor].size(); alt_i++) {
+                    if (chain_scores[cur_anchor][alt_i].source == cur_trace.anchors[anchor_i-1]) {
+                        compromise += chain_scores[cur_anchor][alt_i].score;
                     }
                 }
                 cur_trace.chain_score += compromise;
