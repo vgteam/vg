@@ -926,13 +926,6 @@ vector<SparseAnchorChain> extend_tracebacks_with_alts(const vector<vector<Traced
 
             // If we didn't extend, then this one is done
             if (!extended) {
-#ifdef debug_chaining
-                cerr << "Anchor originality for final chain: ";
-                for (const bool& orig : cur_extension.is_anchor_shared) {
-                    cerr << (orig ? "T" : "F") << " ";
-                }
-                cerr << endl;
-#endif
                 optimal_tracebacks.push_back(cur_extension);
             }
         }
