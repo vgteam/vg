@@ -1686,12 +1686,20 @@ void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::ve
         }
         chain_scores.emplace_back(cur_chain.chain_score);
     }
+    int min_unbumped_score = best_chain_score;
+    for (size_t i = 0; i < chains.size(); i++) {
+        if (chain_scores[i] >= chain_min_score && chain_scores[i] + different_tree_bonus >= best_chain_score) {
+            // This one would be bumped except for that a bump would take it over the actual top
+            // So anything we bump can't be allowed to pass it
+            min_unbumped_score = std::min(chain_scores[i], min_unbumped_score);
+        }
+    }
     for (size_t i = 0; i < chains.size(); i++) {
         // Give a tiny bonus to anything that is likely to have nodes different from the top
         if ((chains[i].source_tree != best_chain_score_source_tree || !chains[i].has_duplicate_anchors)
-             && chain_scores[i] > chain_min_score
+             && chain_scores[i] >= chain_min_score
              && chain_scores[i] + different_tree_bonus < best_chain_score) {
-            chain_scores[i] = chain_scores[i] + different_tree_bonus;
+            chain_scores[i] = std::min(chain_scores[i] + (int) different_tree_bonus, min_unbumped_score - 1);
         }
     }
 
