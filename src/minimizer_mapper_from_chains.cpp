@@ -2815,6 +2815,22 @@ Alignment MinimizerMapper::do_base_level_alignment(
     if (chain.anchors.empty()) {
         throw ChainAlignmentFailedError("Cannot find an alignment for an empty chain!");
     }
+
+    if (show_work) {
+        #pragma omp critical (cerr)
+        {
+            cerr << log_name() << "Align chain of";
+            if (chain.anchors.size() < MANY_LIMIT) {
+                cerr << ": ";
+                for (auto item_number : chain.anchors) {
+                    cerr << " " << item_number;
+                }
+            } else {
+                cerr << " " << chain.anchors.size() << " items";
+            }
+            cerr << " in " << to_chain.size() << " items" << endl;
+        }
+    }
     
     // We need an Aligner for scoring.
     const Aligner& aligner = *get_regular_aligner();
