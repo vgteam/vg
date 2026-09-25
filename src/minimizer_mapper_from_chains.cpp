@@ -719,7 +719,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
     vector<size_t> alignments_to_source;
     alignments_to_source.reserve(chains.size());
 
-    if (alignments.size() == 0) {
+    if (alignments.empty() && !chains.empty()) {
         do_alignment_on_chains(aln, seeds, minimizers, seed_anchors, chains,
                                minimizer_kept_chain_count, alignments, multiplicity_by_alignment, 
                                alignments_to_source, minimizer_explored, stats, rng, funnel);
