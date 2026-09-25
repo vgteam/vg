@@ -357,6 +357,16 @@ public:
             return source > other.source;
         }
     }
+
+    /// Check if this TracedScore is a better traceback end
+    /// Basically greater-than but without eval
+    inline bool is_better_end(const TracedScore& other) const {
+        if (score != other.score) {
+            return score > other.score;
+        } else {
+            return source > other.source;
+        }
+    }
     
     // Number of points
     int score;

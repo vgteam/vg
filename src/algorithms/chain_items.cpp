@@ -666,8 +666,7 @@ void chain_items_traceback(const vector<vector<TracedScore>>& chain_scores,
         starts_in_score_order[i] = i;
     }
     std::sort(starts_in_score_order.begin(), starts_in_score_order.end(), [&](const size_t& a, const size_t& b) {
-        // Return true if item a has a better score than item b and should come first.
-        return chain_scores[a].front().score > chain_scores[b].front().score;
+        return chain_scores[a].front().is_better_end(chain_scores[b].front());
     });
     
     // We don't want to use an item multiple times
