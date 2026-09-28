@@ -1781,8 +1781,8 @@ void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::ve
     // Track what positions were used in previously generated alignments, so we
     // can fish out alignments to different placements.
     // Use pairs since we can't hash tuples.
-    // {((node ID, orientation), read-minus-node) : (chain number, alignment number)}
-    std::unordered_map<std::pair<std::pair<nid_t, bool>, int64_t>, std::pair<size_t, size_t>> used_matchings;
+    // {((node ID, orientation), read-minus-node) : alignment number}
+    std::unordered_map<std::pair<std::pair<nid_t, bool>, int64_t>, size_t> used_matchings;
     // To avoid redoing alignment components we've already done
     // {(start seed, end seed) : path}
     unordered_map<pair<size_t, size_t>, ScoredPath> memoized_alignments;
@@ -1827,11 +1827,15 @@ void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::ve
                 funnel.processing_input(processed_num);
             }
             
+            // Seeds shared with previous alignments, in index order
+            vector<size_t> overlap_counts(item_count, 0);
+            size_t total_original_count = 0;
             for (size_t anchor_i = 0; anchor_i < chains.at(processed_num).anchors.size(); anchor_i++) {
                 if (!chains.at(processed_num).is_anchor_shared[anchor_i]) {
                     // We don't expect this anchor to be original
                     continue;
                 }
+                total_original_count++;
                 size_t seed_num = chains.at(processed_num).anchors.at(anchor_i);
                 // Look at the individual pin points and their associated read-node offset
                 size_t read_pos = minimizers[seeds.at(seed_num).source].pin_offset();
@@ -1842,9 +1846,7 @@ void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::ve
                 int64_t read_minus_node_offset = (int64_t)read_pos - (int64_t)offset(graph_pos);
                 auto matching = std::make_pair(std::make_pair(node_id, orientation), read_minus_node_offset);
                 if (used_matchings.count(matching)) {
-                    if (track_provenance) {
-                        funnel.fail("no-chain-overlap", processed_num);
-                    }
+                    overlap_counts[used_matchings.at(matching)]++;
                     if (show_work) {
                         #pragma omp critical (cerr)
                         {
@@ -1853,12 +1855,6 @@ void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::ve
                                  << matching.first.first << ", " << matching.first.second << ", " << matching.second << endl;
                         }
                     }
-                    if (chain_scores[processed_num] == chain_scores[used_matchings.at(matching).first]) {
-                        // Don't count this chain against the other one, since it's overlapping
-                        crash_unless(chain_count_by_alignment[used_matchings.at(matching).second] > 0);
-                        chain_count_by_alignment[used_matchings.at(matching).second]--;
-                    }
-                    return false;
                 } else {
 #ifdef debug
                     if (show_work) {
@@ -1872,10 +1868,23 @@ void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::ve
 #endif
                 }
             }
+            for (size_t prev_aln_i = 0; prev_aln_i < item_count; prev_aln_i++) {
+                if (overlap_counts[prev_aln_i] > total_original_count * (1 - min_unique_node_fraction)) {
+                    if (track_provenance) {
+                        funnel.fail("no-chain-overlap", processed_num);
+                    }
+                    if (chain_scores[processed_num] == chain_scores[alignments_to_source[prev_aln_i]]) {
+                        // Don't count this chain against the other one, since it's overlapping
+                        crash_unless(chain_count_by_alignment[prev_aln_i] > 0);
+                        chain_count_by_alignment[prev_aln_i]--;
+                    }
+                    return false;
+                }
+            }
             if (show_work) {
                 #pragma omp critical (cerr)
                 {
-                    cerr << log_name() << "Chain " << processed_num << " overlaps none of the "
+                    cerr << log_name() << "Chain " << processed_num << " overlaps few enough of the "
                          << used_matchings.size() << " read-node matchings used in previous alignments" << endl;
                 }
             }
@@ -1983,7 +1992,7 @@ void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::ve
                             }
 #endif
 
-                            used_matchings.emplace(std::move(matching), std::make_pair(processed_num, chain_count_by_alignment.size() - 1));
+                            used_matchings.emplace(std::move(matching), chain_count_by_alignment.size() - 1);
                         }
                         read_pos += edit.to_length();
                         graph_offset += edit.from_length();
