@@ -135,7 +135,7 @@ printf "@read TG:Z:val\nACAAGTTAGTTAATCTCTCTGAACTTCAGTTTAATTATCTCTAATATGGA\n+\nH
 vg map -d x -t 1 -f x2.fq --comments-as-tags --gaf >x2.gaf
 is $(vg surject -p x -x x.xg --bam-output --gaf-input x2.gaf | samtools view | grep "TG:Z:val" | wc -l | sed 's/^[[:space:]]*//') 1 "Tags are preserved on mapped reads in GAF"
 
-rm -rf j.vg x.vg j.gam x.gam x.gaf x.idx j.xg x.xg x.gcsa read.gam reads.gam surjected.sam x.fq
+rm -rf j.vg x.vg j.gam x.gam x.gaf x.idx j.xg x.xg x.gcsa read.gam reads.gam surjected.sam x.fq x2.fq x2.gaf
 
 vg mod -c graphs/fail.vg >f.vg
 vg index -k 11 -g f.gcsa -x f.xg f.vg
@@ -190,7 +190,7 @@ is "$?" 0 "vg surject correctly fetches base path length from input file"
 
 is "$(vg surject -x j.vg -b --graph-aln r.gam | samtools view | grep 'GR:Z:' | wc -l | sed 's/^[[:space:]]*//')" "1" "BAMs can be annotated with the graph-space alignment"
 
-rm -f h.vg h.gcsa r.gam r.sam x.sub.fa j.vg j.gcsa j.gcsa.lcp j.sub.vg j.sub.gcsa j.sub.gcsa.lcp r.sub.gam r.sub.sam r.sub.sam path_info.tsv
+rm -f h.vg h.gcsa r.gam r.sam x.sub.fa j.vg j.gcsa j.gcsa.lcp j.sub.vg j.sub.gcsa j.sub.gcsa.lcp r.sub.gam r.sub.sam r.sub.sam path_info.tsv r.manual.sam
 
 vg surject -U -s -x surject/perpendicular.vg surject/perpendicular.gam > perpendicular.sam
 is "$?" 0 "vg surject does not crash when surjecting a read that grazes the reference with a deletion"
