@@ -138,23 +138,9 @@ SequenceDictionary get_sequence_dictionary(const string& filename, const vector<
             std::string base_path_name = Paths::strip_subrange(sequence_name, &subrange);
 
             if (subrange == PathMetadata::NO_SUBRANGE) {
-                // We're a full path, check hash and length
+                // We're a full path, check length
 
                 auto hash_and_length = algorithms::md5_sum_path_with_length(graph, path);
-
-                if (sequence_md5_sum.empty()) {
-                    sequence_md5_sum = hash_and_length.first;
-                } else if (hash_and_length.first != sequence_md5_sum) {
-                    // Hash doesn't match. TODO: Account for construct upper-casing and masking and things.
-                    cerr << "error:[vg::get_sequence_dictionary] Graph contains a path " << sequence_name << " with MD5 sum " << hash_and_length.first
-                     << " but should have an MD5 sum of " << sequence_md5_sum;
-                    if (filename) {
-                        // Report the source file.
-                        cerr << " from sequence dictionary in " << *filename;
-                    }
-                    cerr << endl;
-                    exit(1);
-                }
 
                 if (length == -1) {
                     // We need to infer the length
@@ -328,9 +314,8 @@ SequenceDictionary get_sequence_dictionary(const string& filename, const vector<
                 // TODO: Max into the length map right away.
                 input_names.push_back(base_name);
                 if (graph.get_subrange(path) == PathMetadata::NO_SUBRANGE) {
-                    // This is a full path so we can determine base length and hash now in one pass.
+                    // This is a full path so we can determine base length now.
                     auto hash_and_length = algorithms::md5_sum_path_with_length(graph, path);
-                    input_md5_sums.emplace(base_name, std::move(hash_and_length.first));
                     input_lengths.emplace(base_name, hash_and_length.second);
                 } 
                 // And remember we are using it.
