@@ -743,17 +743,13 @@ is $(if [ $(wc -l < rl_ra.vcf | tr -d ' ') -gt 0 ]; then echo 1; else echo 0; fi
 
 rm -f rl_ra.vcf
 
-# No preset selects the optimal walk any more, so nothing but an explicit --realign exercises it,
-# and a path no default reaches is a path that rots. The behavioural coverage for both walks is in
-# src/unittest/allele_likelihood_scoring.cpp, which runs its invariants under
-# `for (bool realign : {false, true})`; it is NOT here, because this fixture cannot tell the two
-# walks apart -- an equality asserted on it would hold because neither side moved, which is a test
-# that cannot fail. What this file can hold is the documented contract, which is what drifts first
-# when someone changes the preset.
-is $(vg call --help 2>&1 | grep -c -- "everywhere, including under a preset") "1" \
-   "--realign documents that no preset turns it on"
-is $(vg call --help 2>&1 | grep -c -- "NOT --realign") "1" \
-   "and the preset documents that it does not select the optimal walk"
+# Only an explicit --realign selects the optimal walk. Both walks are tested in
+# src/unittest/allele_likelihood_scoring.cpp, since this fixture cannot tell them apart. Here we
+# check that the --preset help, which lists every setting a preset applies, does not list it.
+is $(vg call --help 2>&1 | grep -A4 -- "--preset NAME" | grep -c -- "--hp-prior 20") "1" \
+   "the --preset help lists the settings a preset applies"
+is $(vg call --help 2>&1 | grep -A4 -- "--preset NAME" | grep -c -- "--realign") "0" \
+   "and --realign is not among them"
 
 rm -f rl_dt.vcf rl_t1.vcf rl_t4.vcf rl_link_t1.vcf rl_link_t4.vcf rl_link_off.vcf rl_link_off_t4.vcf rl_link_default.vcf rl_nolink_pack.vcf rl_nolink_pack0.vcf rl_link_err.txt rl_link_err2.txt
 
@@ -799,11 +795,9 @@ is $(grep -c "mutually exclusive" gb_excl.txt) "1" "--gaf-base and --gam togethe
 vg call x.vg -k x.pack --gaf-base gb_placeholder.db -t 1 >/dev/null 2>gb_norl.txt
 is $(grep -c "only applies to --read-likelihood" gb_norl.txt) "1" "--gaf-base without --read-likelihood is refused"
 
-# The refusal set is derived from the option table's owner column rather than from a second list
-# beside it.  It was a second list, and it had drifted: --mosaic-out was refused while its four
-# modifiers were accepted and silently dropped.  Guard one of the four, and guard that an option
-# the table marks OWN_CORE is still let through -- a check that refuses everything would pass the
-# first assertion and be useless.
+# The refused options are the ones outside the option table's "core" group.  Guard one of the
+# --mosaic-* modifiers, and guard that a "core" option is still let through -- a check that refuses
+# everything would pass the first assertion and be useless.
 vg call x.vg -k x.pack --mosaic-patch-gaps -t 1 >/dev/null 2>mos_norl.txt
 is $(grep -c "only applies to --read-likelihood" mos_norl.txt) "1" "a --mosaic-* modifier without --read-likelihood is refused"
 
@@ -876,7 +870,7 @@ is $(if cmp -s sq_default.tsv sq_side2.tsv; then echo 1; else echo 0; fi) "0" \
 # exactly at 0.5: the read-walkable run N50 is identical at 0.5, 0.25, 0.1 and 0.0 while the run's
 # own held-out agreement keeps falling.  No fixture here can stand in for that sweep, so this only
 # pins the fitted value to the help text, which is what a later edit would silently drift from.
-is $(vg call --help 2>&1 | grep -c -- "0.5 is about 62% \[0.5\]") "1" \
+is $(vg call --help 2>&1 | grep -c -- "when splitting \[0.5\]") "1" \
    "--split-min-q documents the fitted default"
 
 # A threshold that moved GENOTYPES would be a different change entirely.  Splitting rewrites which

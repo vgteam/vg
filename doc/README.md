@@ -4,12 +4,14 @@
 
 Long-form descriptions of methods live here in the source tree, beside the code that implements
 them, so that a method and its description are reviewed in one diff and versioned together. A
-write-up covers what a user needs to understand and configure a method: the objective it
-optimises, every term and parameter, and what its outputs do and do not mean. Rationale that only
-matters to someone *editing* the code stays in the headers.
+write-up covers what a user needs to understand and configure a method: the model it uses, how
+each part is computed, the options that control each part, and what its outputs mean. Default
+values live in the code and the command's `--help`, not in the write-up. Rationale that only
+matters to someone editing the code stays in the headers.
 
 - [read-likelihood-genotyping.md](read-likelihood-genotyping.md) — the `vg call --read-likelihood`
-  model: objective function, all terms, all parameters, the linkage layer, and the VCF fields.
+  model: the likelihood and how each term is computed, linkage between sites, nested sites,
+  phasing, the output fields and files, and the options for each part.
 
 The [wiki](https://github.com/vgteam/vg/wiki) remains the home for tutorials and worked examples.
 It is a separate repository (mounted here as the `wiki` submodule), so anything published there
@@ -22,8 +24,7 @@ Developer-facing, and the exception to the rule above: a description of how a su
 depend on each other is too long for a header and belongs to no single one of them.
 
 - [read-likelihood-architecture.md](read-likelihood-architecture.md) — what the
-  `--read-likelihood` files are, the measured dependency graph between them, and where the
-  coupling actually is.
+  `--read-likelihood` files are, the dependency graph between them, and where the coupling is.
 
 # Automated markdown manpage
 

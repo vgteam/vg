@@ -32,44 +32,67 @@ using namespace vg::subcommand;
 
 const string DEFAULT_SAMPLE_NAME = "SAMPLE";
 
-/// Default --read-window per backend. A GAF-Base query costs a process spawn, so it
-/// wants a window big enough to amortise one; an indexed GAM query is a seek into an
-/// already-open file, and a large window there just over-fetches.
+/// Default --read-window, in node IDs, for each read source that fetches reads by node-ID window.
+/// A GAF-Base query runs a gbz-base subprocess, so its window is wide enough to serve many sites
+/// per query, and much wider than a long read's node-ID span, so that few reads are fetched twice
+/// by crossing a window boundary. A GAM index query is a seek in an open file, so its window is
+/// narrow, to avoid fetching reads that no site needs.
 ///
-/// The GAF-Base default is set by long reads, because they are what a narrow window
-/// punishes: a window has to be much wider than a read's node-ID span or every read
-/// straddling a boundary is fetched twice. Measured on chr20, 44x ONT (33 kb mean) with
-/// anchors: 4096 -> 293 s and 1.62 fetches per read, 8192 -> 265 s, 16384 -> 182 s and
-/// 1.44, 32768 -> 195 s, 65536 -> 295 s at 10.7 GB. 30x Illumina over the same window
-/// range moves from 156 s to 154 s, so the wider window costs short reads nothing.
-///
-/// It is not output-neutral, and the reason is worth stating: a window wider than
-/// `max_query_nodes` is fetched as several concurrent queries whose results are
-/// concatenated, which reorders the reads a site sees and so reorders a floating-point
-/// sum. On chr20 short reads that moves `GL` in the sixth decimal for 3,402 of 115,410
-/// records and changes **no genotype at all**; on ONT the output is byte-identical.
+/// The window size can change the order in which a site sees its reads, and so the last digits of
+/// likelihoods summed over them.
 const size_t DEFAULT_GAM_INDEX_WINDOW = 256;
 const size_t DEFAULT_GAF_BASE_WINDOW = 16384;
 
-/// Count the distinct haplotypes a GBZ's GBWT can offer GBWTTraversalFinder.
+/// Count the haplotypes that a graph's HAPLOTYPE-sense paths belong to. A haplotype is identified
+/// by its sample name and haplotype number, so one stored as several paths (one per contig or
+/// fragment) counts once. Reference and generic paths are not counted.
 ///
-/// Counts (sample, haplotype) pairs over HAPLOTYPE-sense paths only. Reference and
-/// generic paths live in the same GBWT but are not panel members: a GBZ carrying only
-/// GRCh38 and CHM13 holds two paths and no panel at all, and enumerating from it would
-/// offer nothing but the reference allele at every site. A haplotype broken into
-/// fragments owns several paths, so collapse onto the (sample, haplotype) key rather
-/// than counting paths.
-///
-/// Deliberately not the same count as the linkage layer's, which collapses every path
-/// including the reference ones: there a reference assembly is a legitimate panel
-/// member to impute against. The question here is narrower, and is only whether there
-/// is any alternative to the reference to enumerate at all.
+/// This is an upper bound on the number of distinct non-reference alleles that haplotype-based
+/// allele enumeration can offer at a site.
 static size_t count_panel_haplotypes(const PathHandleGraph& graph) {
     set<pair<string, size_t>> haplotypes;
     graph.for_each_path_of_sense(PathSense::HAPLOTYPE, [&](const path_handle_t& path) {
         haplotypes.emplace(graph.get_sample_name(path), graph.get_haplotype(path));
     });
     return haplotypes.size();
+}
+
+/// One option that a --preset sets, written as on the command line. A switch has an empty value.
+struct PresetSetting {
+    const char* option;
+    const char* value;
+};
+
+/// The settings of each --preset. help_call lists them, and main_call applies each one whose option
+/// was not given explicitly, so the help cannot list a setting that is not applied.
+static const vector<pair<string, vector<PresetSetting>>> PRESETS = {
+    {"ont", {{"--read-phasing", ""}, {"--regenotype", ""}, {"--gap-open", "1"},
+             {"--gap-extend", "1"}, {"--mismap-min", "0.05"}, {"--read-min-mapq", "5"},
+             {"--insertion-nats", "0.9"}, {"--hp-prior", "20"}}},
+};
+
+/// Each preset's settings for the --preset help, wrapped at the help's description column.
+static string preset_help_lines() {
+    const string indent(28, ' ');
+    const size_t width = 80;
+    stringstream out;
+    for (const auto& preset : PRESETS) {
+        string line = indent + preset.first + ":";
+        for (const PresetSetting& setting : preset.second) {
+            string item = setting.option;
+            if (*setting.value != '\0') {
+                item += string(" ") + setting.value;
+            }
+            if (line.size() + 1 + item.size() > width) {
+                out << line << endl;
+                line = indent + item;
+            } else {
+                line += " " + item;
+            }
+        }
+        out << line << endl;
+    }
+    return out.str();
 }
 
 void help_call(char** argv) {
@@ -83,345 +106,156 @@ void help_call(char** argv) {
          << "                            and large (Y) variants [0.005,0.01]" << endl
          << "  -B, --bias-mode           use old ratio-based genotyping algorithm" << endl
          << "                            as opposed to probablistic model" << endl
-         << "read-likelihood calling options (all require --read-likelihood):" << endl
-         << "  every term and parameter below: doc/read-likelihood-genotyping.md" << endl
-         << "      --read-likelihood     OFF by default; everything in this section needs" << endl
-         << "                            it. Genotype from an explicit P(reads|genotype)" << endl
-         << "                            model instead of aggregate depth (needs one read" << endl
-         << "                            source below)" << endl
-         << "" << endl
-         << "  reads in (one source required):" << endl
-         << "      --gam FILE            read alignments for --read-likelihood" << endl
-         << "      --gaf-reads FILE      read alignments for --read-likelihood, as GAF" << endl
-         << "      --gam-index FILE      .gai index for --gam, so reads are fetched per site" << endl
-         << "                            instead of all held in memory (from vg gamsort -i)" << endl
-         << "      --gaf-base FILE       GAF-Base of read alignments, fetched per site by" << endl
-         << "                            running gbz-base (needs it on the PATH)" << endl
-         << "      --gbz-base FILE       graph to resolve --gaf-base queries against, as a" << endl
-         << "                            GBZ-Base or GBZ [the input graph]" << endl
+         << "  -b, --het-bias M,N        homozygous alt/ref allele must have >= M/N times" << endl
+         << "                            more support than the next best allele [6,6]" << endl
+         << "read-likelihood calling options (all need --read-likelihood):" << endl
+         << "      --read-likelihood     genotype from the likelihood of the reads under" << endl
+         << "                            each genotype, instead of from pack support" << endl
+         << "      --preset NAME         set options to values suited to a read type;" << endl
+         << "                            options given explicitly keep their values:" << endl
+         << preset_help_lines()
+         << "      --enumerate-support   take candidate alleles from read support, which" << endl
+         << "                            needs -k, rather than from the GBZ haplotypes" << endl
+         << "  read input (give one of --gam, --gaf-reads or --gaf-base):" << endl
+         << "      --gam FILE            read alignments in GAM format" << endl
+         << "      --gaf-reads FILE      read alignments in GAF format" << endl
+         << "      --gam-index FILE      index of --gam (from vg gamsort -i), to fetch" << endl
+         << "                            reads as sites need them instead of loading them" << endl
+         << "                            all" << endl
+         << "      --gaf-base FILE       GAF-Base of read alignments, queried as sites need" << endl
+         << "                            them by running gbz-base, which must be on the PATH" << endl
+         << "      --gbz-base FILE       graph for --gaf-base queries, as GBZ-Base or GBZ" << endl
+         << "                            [the input graph]" << endl
          << "      --gaf-base-binary P   gbz-base executable to run [gbz-base]" << endl
          << "      --read-window N       node-ID window for indexed read fetches" << endl
          << "                            [16384 for --gaf-base, 256 for --gam-index]" << endl
-         << "      --read-min-mapq N     ignore reads with MAPQ below N. Removing such a read" << endl
-         << "                            differs from down-weighting it: the mismap term" << endl
-         << "                            saturates, while removal also takes it out of the" << endl
-         << "                            genotype and the site reliability mean" << endl
-         << "                            [0, or 5 under --preset ont]" << endl
-         << "" << endl
-         << "  allele enumeration:" << endl
-         << "      --enumerate-support   enumerate candidate alleles from read support rather" << endl
-         << "                            than from the GBZ haplotype panel. The panel is the" << endl
-         << "                            default here, as -z gives elsewhere: it measured" << endl
-         << "                            better on every small-variant class tested and needs" << endl
-         << "                            no pack file. This flag opts out, and then -k/--pack" << endl
-         << "                            is needed again. Worth it where the sample's" << endl
-         << "                            variation is poorly represented in the panel, since" << endl
-         << "                            panel enumeration can never spell an allele no" << endl
-         << "                            haplotype carries. A panel of under 2 haplotypes" << endl
-         << "                            falls back to support on its own" << endl
-         << "" << endl
-         << "  model terms:" << endl
-         << "      --depth-term W        add W * ln P(N reads | genotype) to the likelihood," << endl
-         << "                            so a genotype is also judged on whether it predicts" << endl
-         << "                            the number of reads seen. The rate is measured over" << endl
-         << "                            the read source's own fetch window, so it costs no" << endl
-         << "                            extra I/O. 0 disables it; DR is emitted either way" << endl
-         << "                            [0.1]" << endl
-         << "      --depth-count-raw     count every read as one read of depth, instead of as" << endl
-         << "                            1 - e_r, the probability it came from this locus." << endl
-         << "                            Off by default" << endl
-         << "      --no-mismap-term      disable the MAPQ-derived mismapping term, which is" << endl
-         << "                            on by default" << endl
-         << "      --mismap-max P        upper clamp on the MAPQ-derived mismapping" << endl
-         << "                            probability. Governs how much a read's placement" << endl
-         << "                            ambiguity counts, so it matters most on graphs with" << endl
-         << "                            many similar haplotypes. At the default it binds on" << endl
-         << "                            MAPQ 0 alone, so any MAPQ floor of 1 or more makes" << endl
-         << "                            it inert [0.95]" << endl
-         << "      --mismap-min P        lower clamp: floor on how unreliable any read may" << endl
-         << "                            be, capping one read's veto at ln(P). Covers local" << endl
-         << "                            misalignment, which MAPQ does not measure. Mainly an" << endl
-         << "                            indel knob; interacts with --mismap-max [0.02]" << endl
-         << "      --insertion-nats X    add X nats to every gap where the READ carries" << endl
-         << "                            bases the allele lacks, correcting the affine" << endl
-         << "                            gap's direction-blindness. Positive makes extra" << endl
-         << "                            bases argue less against the shorter allele. In" << endl
-         << "                            nats because one score unit is 1.3833 and the" << endl
-         << "                            correction is finer than that. Off by default [0]" << endl
-         << "      --realign             resolve the read-to-allele node correspondence" << endl
-         << "                            optimally rather than greedily. On ONT it buys indel" << endl
-         << "                            F1 +0.0042, all of it DELETIONS (+0.0089); SNV and" << endl
-         << "                            insertion are marginally better without it. Off" << endl
-         << "                            everywhere, including under a preset, because with" << endl
-         << "                            the snarl-edge cap off it costs 10.4x on ONT [off]" << endl
-         << "      --no-realign          force the greedy walk, for a run that set --realign" << endl
-         << "      --preset NAME         a fitted parameter set for one read type. None by" << endl
-         << "                            default, so the values below are short-read ones." << endl
-         << "                            `ont`: --gap-open 1 --gap-extend 1 --mismap-min" << endl
-         << "                            0.05 --insertion-nats 0.9 --read-phasing" << endl
-         << "                            plus --regenotype --hp-prior 20. NOT --realign:" << endl
-         << "                            see there. The scorer" << endl
-         << "                            values" << endl
-         << "                            move indel GT F1 0.749 -> 0.816 and ALL 0.926 ->" << endl
-         << "                            0.945 on 43x ONT chr20 at no cost to SNVs," << endl
-         << "                            reproducing at +0.061 on a held-out contig and" << endl
-         << "                            +0.069 at matched 30x. The two read-phase flags then" << endl
-         << "                            cut switch error 3.79% -> 0.52% and take ALL F1 to" << endl
-         << "                            0.952. An explicit flag overrides the preset either" << endl
-         << "                            side of it" << endl
-         << "      --gap-open N          read scorer's gap-open penalty [6]" << endl
-         << "      --read-phasing        phase from the reads that span consecutive hets," << endl
-         << "                            not from the haplotype panel alone. OFF by" << endl
-         << "                            default, ON under `--preset ont`" << endl
-         << "      --no-read-phasing     leave the phase to the panel. The default already" << endl
-         << "                            does; this is for turning the preset's back off" << endl
-         << "      --phase-min-q N       a site below this per-read confidence may not" << endl
-         << "                            carry a phase link [9.5, or 8.5 under --realign]" << endl
-         << "      --phase-break N       break the chain below this many log10 units. A break" << endl
-         << "                            does NOT fragment the output -- stage 2 relinks it" << endl
-         << "                            -- so breaking more often reroutes the junction" << endl
-         << "                            into the nine-pair relink, which is the better" << endl
-         << "                            rule. Lowering it is worse [20]" << endl
-         << "      --phase-relink N      reliable sites either side of a break [10]" << endl
-         << "      --phase-hang N        neighbours to hang an unreliable site from [4]" << endl
-         << "      --phase-prior N       weight of the panel when hanging a site [3]" << endl
-         << "      --phase-cap N         clamp one pair's contribution, 0 to disable [0]" << endl
-         << "                            downstream of any junction where the whole-read" << endl
-         << "                            evidence gains at least this many log10 units." << endl
-         << "                            Stage 1 reads only the two adjacent sites and" << endl
-         << "                            only the sign; this reads every spanning read's" << endl
-         << "                            full span, the transitive constraint the pairwise" << endl
-         << "                            cascade discards. 0 disables [0]" << endl
-         << "                            fewer than this fraction of its reads" << endl
-         << "      --phase-coherence F   demote a site from carrying a phase link when" << endl
-         << "                            fewer than this fraction of its reads" << endl
-         << "                            agree with the haplotype their OTHER sites imply." << endl
-         << "                            The reliability gate asks whether a site's reads" << endl
-         << "                            separate its ALLELES; this asks whether they sit" << endl
-         << "                            where the rest of their evidence puts them. Against" << endl
-         << "                            chr20 switch positions the second is 5.1x enriched" << endl
-         << "                            in its worst 1% and the first 1.1x. chr20 switches" << endl
-         << "                            51 -> 33 and chr6 62 -> 31, with F1 up on both." << endl
-         << "                            0 disables [0.70]" << endl
-         << "      --phase-coh-rounds N  demotion rounds before giving up on a coherent" << endl
-         << "                            chain. 1 demotes once against the FIRST phasing;" << endl
-         << "                            higher re-measures coherence on the chain that" << endl
-         << "                            re-derivation produced and repeats, so the fixed" << endl
-         << "                            point is a chain every site of which is coherent" << endl
-         << "                            WITH THAT CHAIN. Risks fragmentation: each round" << endl
-         << "                            removes sites, surviving links span further, and" << endl
-         << "                            more drop under the break threshold [2]" << endl
-         << "                            on EACH side, weighted by evidence, instead of the" << endl
-         << "                            one adjacent sign the cascade used. Flips a site" << endl
-         << "                            when its disagreeing weight beats its agreeing" << endl
-         << "                            weight; each flip raises a bounded objective so it" << endl
-         << "                            terminates. 0 disables [0]" << endl
-         << "                            the backbone. For sites i,j,k the reads imply" << endl
-         << "                            sign(d_ij)*sign(d_jk)*sign(d_ik) > 0 -- a loop must" << endl
-         << "                            flip an even number of times whatever phase is" << endl
-         << "                            assigned -- so this is FRAME-FREE and is measured" << endl
-         << "                            before any phasing exists, unlike every other gate" << endl
-         << "                            here. Excluded sites are hung by stage 3, not" << endl
-         << "                            dropped. 0 disables [0]" << endl
-         << "                            weighted vote over the previous K sites already in" << endl
-         << "                            the chain rather than from the single adjacent" << endl
-         << "                            link's sign. A bad link is then outvoted instead of" << endl
-         << "                            obeyed and propagated to the end of the segment." << endl
-         << "                            Never crosses a break; the window shrinks to fit" << endl
-         << "                            a short segment rather than switching off. Measured" << endl
-         << "                            at K=8 it engaged on ~174,000 decisions across two" << endl
-         << "                            contigs and overruled the adjacent link ZERO times," << endl
-         << "                            leaving both VCFs byte-identical [0]" << endl
-         << "                            it. High protects low-coverage sites from a noisy" << endl
-         << "                            estimate; low treats a thin incoherent site as the" << endl
-         << "                            prime candidate it arguably is [10]" << endl
-         << "      --regenotype          let the reads' phase decide the genotype, not only" << endl
-         << "                            the order of an already-settled pair. Needs" << endl
-         << "                            `--read-phasing`. OFF by default, ON under" << endl
-         << "                            `--preset ont`" << endl
-         << "      --no-regenotype       leave the genotype to the per-site likelihoods. The" << endl
-         << "                            default already does; this turns the preset's off" << endl
-         << "      --regeno-temper N     how hard to believe a read's strand. 0 reproduces" << endl
-         << "                            the uncorrected caller byte for byte; the default" << endl
-         << "                            is fitted from the run's own data, with no truth" << endl
-         << "      --regeno-passes N     cap on barrier passes [2], i.e. one correction" << endl
-         << "                            round. The iteration stops early if the genotypes" << endl
-         << "                            settle or start repeating a state; on chr20 they do" << endl
-         << "                            neither, and more rounds score slightly worse. 1" << endl
-         << "                            scores the correction without acting on it" << endl
-         << "      --regeno-ledger FILE  write one line per site the correction would move" << endl
-         << "      --regeno-ceiling N    cap on how often a read's strand log-odds is right." << endl
-         << "                            1 (the default) is no cap. Fitting it instead" << endl
-         << "                            calibrates better and calls worse, so it is set" << endl
-         << "                            by hand and the temper is fitted against it" << endl
-         << "      --no-regeno-haploid   stop weighting a nested HAPLOID chain's reads by" << endl
-         << "                            whether the phase places them on its strand. On by" << endl
-         << "                            default: there is no mixture to reweight there, so" << endl
-         << "                            it is the only part of this that reaches SVs" << endl
-         << "      --regeno-shuffle      DEBUG, off by default. Randomise each read's strand" << endl
-         << "                            sign, keeping the magnitude, so peakedness survives" << endl
-         << "                            and only the phase information is destroyed" << endl
-         << "      --gap-extend N        read scorer's gap-extension penalty [1]. Together" << endl
-         << "                            these set how hard a read votes against an allele" << endl
-         << "                            that differs from it by an indel, and they are the" << endl
-         << "                            one scoring primitive base quality never softens. At" << endl
-         << "                            6/1 a 1 bp difference is a saturated vote, which" << endl
-         << "                            suits a read whose errors are substitutions and not" << endl
-         << "                            a read whose modal error is a single-base indel" << endl
-         << "      --flat-mixture        weight each haplotype of a genotype equally" << endl
-         << "                            (1/ploidy) instead of by the reads it is expected to" << endl
-         << "                            contribute. The flat weight is wrong wherever the" << endl
-         << "                            alleles differ in length: it loses large" << endl
-         << "                            heterozygous deletions and mis-genotypes large" << endl
-         << "                            heterozygous insertions. Restores the pre-correction" << endl
-         << "                            model exactly. Off by default" << endl
-         << "" << endl
-         << "  linkage between sites (needs panel enumeration, so off" << endl
-         << "  under --enumerate-support):" << endl
-         << "      --linkage-weight W    re-decide genotypes with a Li-Stephens model over" << endl
-         << "                            the GBWT haplotypes, so consecutive calls are judged" << endl
-         << "                            against combinations the panel carries. Declines" << endl
-         << "                            quietly where enumeration is absent, unless asked" << endl
-         << "                            for explicitly. 0 is off and reproduces the per-site" << endl
-         << "                            caller exactly. Tuned on a 34-haplotype panel;" << endl
-         << "                            roughly neutral on 4 [2]" << endl
-         << "      --linkage-scale N     distance scale of the linkage decay, in bp [10000]" << endl
-         << "      --mosaic-break-unexplained" << endl
-         << "                            break the path where the panel cannot explain a" << endl
-         << "                            stretch, instead of carrying the flanking haplotype" << endl
-         << "                            through it. Connecting is the default and is rare" << endl
-         << "      --no-mosaic-nested    merge haplotype switches that happen inside a nested" << endl
-         << "                            chain into the enclosing run: fewer switches, still" << endl
-         << "                            one contiguous walk, but the parent's route through" << endl
-         << "                            the child. Keeping them is the default" << endl
-         << "      --no-mosaic-patch-gaps" << endl
-         << "                            leave a gap where no panel haplotype can be carried" << endl
-         << "                            across it, instead of filling it with the reference." << endl
-         << "                            Patching is on by default and marked `ref` in the" << endl
-         << "                            file" << endl
-         << "      --anchors-out FILE    write pangenome-guided assembly anchors to FILE. An" << endl
-         << "                            anchor is a zero-length pin at a snarl boundary," << endl
-         << "                            holding the reads that cross it partitioned by which" << endl
-         << "                            called allele they fit. Requires --read-likelihood" << endl
-         << "      --anchors-end-new N   emit the end pin only where it holds at least N" << endl
-         << "                            reads the start pin does not. Both pins carry the" << endl
-         << "                            SAME partition, so where their read sets agree the" << endl
-         << "                            two are joined by all the same reads and the end pin" << endl
-         << "                            can offer no linkage the start pin does not [0," << endl
-         << "                            always emit it]" << endl
-         << "      --anchors-hom-split   split a homozygous site's one slot in two by the" << endl
-         << "                            reads' cross-site phase, so a haploid run is not" << endl
-         << "                            broken at every homozygous site -- 58.5% of chr20" << endl
-         << "                            anchor sites. Held out, that inference agrees with" << endl
-         << "                            the allele partition 94.7% of the time. That is" << endl
-         << "                            CONCORDANCE between two noisy estimators, not the" << endl
-         << "                            strand's error rate: the allele match is itself" << endl
-         << "                            wrong about 3% of the time per site, so the strand" << endl
-         << "                            accounts for less of the 5% than it appears [off]" << endl
-         << "      --split-min-q N       a read counts as confidently placed, for deciding" << endl
-         << "                            whether --anchors-hom-split may split a site, at" << endl
-         << "                            this |log-odds| in NATS. 0.5 is about 62% [0.5]" << endl
-         << "      --split-min-side N    confidently placed reads needed on EACH side before" << endl
-         << "                            a homozygous site may be split. A site whose reads" << endl
-         << "                            all lean one way has been relabelled, not split [10]" << endl
-         << "      --no-anchors-phase-hets" << endl
-         << "                            place a het read by its allele match ALONE." << endl
-         << "                            By default the read's accumulated cross-site" << endl
-         << "                            strand tilts that choice -- the same posterior" << endl
-         << "                            weighting --regenotype uses. Without it the slot" << endl
-         << "                            is decided afresh at every site, so neighbouring" << endl
-         << "                            sites disagree about a read 6.44% of the time on" << endl
-         << "                            chr20 ONT, against 0.00% between two split" << endl
-         << "                            homozygotes" << endl
-         << "      --anchors-strict-hets" << endl
-         << "                            place a het read by the SIGN of its strand" << endl
-         << "                            alone, ignoring the allele match. The" << endl
-         << "                            CONTROL arm for the default tilt, not a" << endl
-         << "                            recommendation: it discards the site's own" << endl
-         << "                            evidence on purpose. A read with no strand opinion" << endl
-         << "                            keeps its allele-match slot, so this arm holds the" << endl
-         << "                            same reads as the default [off]" << endl
-         << "      --anchors-het-only    only heterozygous sites. By default homozygous and" << endl
-         << "                            haploid ones are emitted too: they carry no" << endl
-         << "                            haplotype information, but an anchor graph is built" << endl
-         << "                            out of contiguity as much as out of phasing" << endl
-         << "      --anchors-leaf-only   only leaf snarls [every genotyped site]" << endl
+         << "      --read-min-mapq N     ignore reads with MAPQ below N [0]" << endl
+         << "  read scoring:" << endl
+         << "      --gap-open N          gap-open penalty for scoring reads [6]" << endl
+         << "      --gap-extend N        gap-extension penalty for scoring reads [1]" << endl
+         << "      --insertion-nats X    add X nats to a read's log-likelihood for each gap" << endl
+         << "                            where the read has bases the allele lacks [0]" << endl
+         << "      --realign             pair a read's node visits with an allele's" << endl
+         << "                            optimally, rather than greedily" << endl
+         << "      --no-realign          pair them greedily (default)" << endl
+         << "      --no-mismap-term      do not model the chance that a read is mismapped" << endl
+         << "      --mismap-max P        cap on the mismapping probability derived from a" << endl
+         << "                            read's MAPQ [0.95]" << endl
+         << "      --mismap-min P        floor on any read's mismapping probability [0.02]" << endl
+         << "      --depth-term W        weight of the term ln P(read count | genotype) in" << endl
+         << "                            the likelihood; 0 disables it [0.1]" << endl
+         << "      --depth-count-raw     count each read as one in the read-count term," << endl
+         << "                            instead of as its chance of being correctly mapped" << endl
+         << "  linkage between sites:" << endl
+         << "      --linkage-weight W    weight of the linkage model, which favours runs of" << endl
+         << "                            genotypes that the -z/-g haplotypes carry; 0" << endl
+         << "                            disables it [2]" << endl
+         << "      --linkage-scale N     distance scale of linkage decay, in bp [10000]" << endl
+         << "      --linkage-prior F     exponent on the haplotypes' allele-frequency prior" << endl
+         << "                            [5]" << endl
+         << "      --hp-prior F          exponent used instead of --linkage-prior where an" << endl
+         << "                            allele differs from the reference only in the" << endl
+         << "                            length of a homopolymer run; 0 disables it [0]" << endl
+         << "      --hp-prior-run N      shortest homopolymer run for --hp-prior [11]" << endl
+         << "      --no-phased           write unphased genotypes, without FORMAT/PS" << endl
+         << "      --phased              write phased genotypes, failing if the linkage" << endl
+         << "                            model cannot run [on when the linkage model runs]" << endl
+         << "  read-based phasing (reliable heterozygous sites are joined into a phase" << endl
+         << "  chain by the reads they share; other sites are phased from the chain):" << endl
+         << "      --read-phasing        phase heterozygous sites with the reads that span" << endl
+         << "                            them, not only with the haplotypes" << endl
+         << "      --no-read-phasing     phase with the haplotypes only (default)" << endl
+         << "      --phase-min-q N       minimum mean read confidence (phred) for a site to" << endl
+         << "                            join the phase chain [9.5, or 8.5 under --realign]" << endl
+         << "      --phase-break N       break the phase chain where the reads linking two" << endl
+         << "                            neighbouring sites give under N log10 units of" << endl
+         << "                            evidence [20]" << endl
+         << "      --phase-relink N      sites of the chain used on each side of a break to" << endl
+         << "                            decide how to rejoin it [10]" << endl
+         << "      --phase-hang N        nearest sites of the chain used to phase a site" << endl
+         << "                            outside it [4]" << endl
+         << "      --phase-prior N       weight, in log10 units, of the haplotypes' phase" << endl
+         << "                            when phasing a site that is not in the chain [3]" << endl
+         << "      --phase-cap N         maximum evidence, in log10 units, from the reads" << endl
+         << "                            linking two sites; 0 for no maximum [0]" << endl
+         << "      --phase-coherence F   minimum fraction of a site's reads that agree with" << endl
+         << "                            their phase at other sites, for the site to stay" << endl
+         << "                            in the phase chain; 0 disables the check [0.70]" << endl
+         << "      --phase-coh-rounds N  maximum rounds of removing incoherent sites from" << endl
+         << "                            the phase chain [2]" << endl
+         << "  re-genotyping (a read's strand log-odds, in nats, say which haplotype its" << endl
+         << "  other heterozygous sites place it on):" << endl
+         << "      --regenotype          re-genotype sites after phasing, weighting each" << endl
+         << "                            read toward the haplotype its other sites put it" << endl
+         << "                            on (needs --read-phasing)" << endl
+         << "      --no-regenotype       do not re-genotype sites (default)" << endl
+         << "      --regeno-temper N     scale on each read's strand log-odds; 0 leaves the" << endl
+         << "                            genotypes unchanged [fitted to the data]" << endl
+         << "      --regeno-passes N     times to settle genotypes, counting the first," << endl
+         << "                            which comes before any re-genotyping; stops early" << endl
+         << "                            if genotypes stop changing. 1 only reports what" << endl
+         << "                            re-genotyping would change [2]" << endl
+         << "      --regeno-ceiling N    scale on how far a read's haplotype probability" << endl
+         << "                            may move from 1/2; 1 means no limit [1]" << endl
+         << "      --no-regeno-haploid   at a nested site that only one haplotype carries," << endl
+         << "                            do not down-weight reads whose strand log-odds" << endl
+         << "                            place them on the other haplotype" << endl
+         << "  anchors:" << endl
+         << "      --anchors-out FILE    write assembly anchors to FILE: the reads at each" << endl
+         << "                            genotyped snarl's boundaries, grouped by the" << endl
+         << "                            called allele they fit" << endl
+         << "      --anchors-het-only    write anchors only at heterozygous sites" << endl
+         << "      --anchors-leaf-only   write anchors only at leaf snarls" << endl
          << "      --anchors-reads N     minimum reads per anchor [2]" << endl
-         << "      --anchors-min-gqn F   minimum site GQN for its partition to be trusted [0]" << endl
-         << "      --anchors-min-q F     minimum per-read assignment phred. 3 is the measured" << endl
-         << "                            knee -- ~2 points of purity for ~9% of reads -- but" << endl
-         << "                            0 by default, since a read with no MAPQ cannot clear" << endl
-         << "                            any positive threshold. Its CEILING is" << endl
-         << "                            phred(--mismap-min) -- 16.99 at the 0.02 default," << endl
-         << "                            13.01 under --preset ont -- not 60, and on chr20" << endl
-         << "                            half the read rows sit exactly on it [0]" << endl
+         << "      --anchors-min-gqn F   minimum site GQN for a site's anchors [0]" << endl
+         << "      --anchors-min-q F     minimum confidence (phred) of a read's placement" << endl
+         << "                            [0]" << endl
          << "      --anchors-keep-off-call" << endl
-         << "                            keep reads whose best-fitting allele is not a called" << endl
-         << "                            one. Off by default: for assembly anchors purity" << endl
-         << "                            beats yield, and such a read fits neither called" << endl
-         << "                            allele" << endl
-         << "      --mosaic-out FILE     write the inferred genome as a mosaic of panel" << endl
-         << "                            haplotypes: one line per maximal run of one strand" << endl
-         << "                            on one haplotype, anchored on node IDs so it is read" << endl
-         << "                            back against the graph rather than a reference. Only" << endl
-         << "                            switch points are stored, so it is smaller than" << endl
-         << "                            explicit paths by about two orders of magnitude." << endl
-         << "                            Implies --phased, and refuses --no-phased rather" << endl
-         << "                            than overriding it" << endl
-         << "      --no-phased           emit unphased genotypes (0/1) and no FORMAT/PS." << endl
-         << "                            Phasing is on by default wherever the linkage model" << endl
-         << "                            runs" << endl
-         << "      --phased              ON BY DEFAULT wherever the linkage model runs. Emits" << endl
-         << "                            phased genotypes (0|1) and a FORMAT/PS phase set," << endl
-         << "                            from that layer's most probable path of haplotype" << endl
-         << "                            pairs, constrained to the genotypes actually" << endl
-         << "                            emitted, so GT stays a permutation of the unphased" << endl
-         << "                            call. A phase set is a whole chain rather than a" << endl
-         << "                            read-length block, because the order comes from the" << endl
-         << "                            panel -- or from the reads under --read-phasing," << endl
-         << "                            which keeps the chain-length blocks. Passing this" << endl
-         << "                            flag changes ONE thing: without the linkage model" << endl
-         << "                            the default declines quietly, while an explicit" << endl
-         << "                            request is an error. Use it in a pipeline where" << endl
-         << "                            unphased output is a failure rather than a fallback" << endl
-         << "      --linkage-prior F     exponent on the panel allele-frequency prior implied" << endl
-         << "                            by the state space. Only acts with --linkage-weight." << endl
-         << "                            0 removes it, 1 keeps it as the states present it," << endl
-         << "                            and above 1 amplifies it; measured best near 5 on a" << endl
-         << "                            34- haplotype panel, inverting past 8. Mostly an" << endl
-         << "                            indel effect [5]" << endl
-         << "      --hp-prior F          at a site whose alleles differ by the length of one" << endl
-         << "                            homopolymer run, use exponent F in place of" << endl
-         << "                            --linkage-prior. Long reads miscount long runs per" << endl
-         << "                            site, not per read, so their evidence there must" << endl
-         << "                            not outvote the panel as depth grows. 0 is off" << endl
-         << "                            [0, or 20 under --preset ont]" << endl
-         << "      --hp-prior-run N      shortest run, within the alleles, that counts [11]" << endl
-         << "" << endl
-         << "  quality reporting (ranking only; these never change a genotype):" << endl
-         << "      --no-share-quality    report GQ as the raw likelihood ratio, without" << endl
-         << "                            scaling it by the fraction of reads the called" << endl
-         << "                            genotype explains. The scaling is on by default," << endl
-         << "                            and GQI always carries the raw value either way" << endl
+         << "                            keep reads whose best-fitting allele was not" << endl
+         << "                            called" << endl
+         << "      --anchors-end-new N   write a snarl's end anchor only if it has at least" << endl
+         << "                            N reads that its start anchor lacks [0]" << endl
+         << "      --anchors-hom-split   with --read-phasing, split the reads at a" << endl
+         << "                            homozygous site into two haplotypes by their" << endl
+         << "                            strand log-odds" << endl
+         << "      --split-min-q N       minimum |strand log-odds|, tempered, for a read" << endl
+         << "                            to count as confidently placed when splitting [0.5]" << endl
+         << "      --split-min-side N    confidently placed reads needed on each haplotype" << endl
+         << "                            to split a homozygous site [10]" << endl
+         << "      --no-anchors-phase-hets" << endl
+         << "                            place reads at a heterozygous site by allele" << endl
+         << "                            match alone, not also by strand log-odds" << endl
+         << "      --no-off-ref-nesting  do not genotype chains off the reference just to" << endl
+         << "                            write their anchors" << endl
+         << "  mosaic:" << endl
+         << "      --mosaic-out FILE     write the genome as a mosaic of the -z/-g" << endl
+         << "                            haplotypes to FILE (implies --phased)" << endl
+         << "      --mosaic-break-unexplained" << endl
+         << "                            end a mosaic segment where no haplotype explains" << endl
+         << "                            a stretch, instead of continuing the flanking one" << endl
+         << "      --no-mosaic-nested    ignore nested sites, following each enclosing" << endl
+         << "                            site's haplotype through its nested snarls" << endl
+         << "      --no-mosaic-patch-gaps" << endl
+         << "                            leave a gap where no haplotype can be followed," << endl
+         << "                            instead of filling it with the reference" << endl
+         << "  quality reporting (does not change genotypes):" << endl
+         << "      --no-share-quality    do not scale GQ by the fraction of reads the" << endl
+         << "                            called genotype explains (GQI is never scaled)" << endl
          << "      --depth-quality A     scale GQ by exp(-A * |ln DR|) at records whose" << endl
-         << "                            called alleles change length by 50 bp or more, so a" << endl
-         << "                            call whose read count is implausible for the" << endl
-         << "                            sequence it claims ranks lower. Ranking only; no" << endl
-         << "                            genotype changes. 0 is off [0]" << endl
-         << "      --min-confidence X    mark records whose GQN is below X as FILTER=lowconf." << endl
-         << "                            GQN is a fraction of what the site could achieve, so" << endl
-         << "                            one threshold means the same thing at any depth and" << endl
-         << "                            ploidy; a raw GQ threshold does not, and GQ >= 10" << endl
-         << "                            costs a 5x diploid contig a third of its F1. 0.05" << endl
-         << "                            raises precision on every arm measured, for 1-2% of" << endl
-         << "                            recall. Marks, never drops. There is no good" << endl
-         << "                            default: it helps haploid F1 and hurts diploid, so" << endl
-         << "                            the choice is yours. 0 is off [0]" << endl
-         << "" << endl
-         << "  debugging:" << endl
+         << "                            alleles differ in length by 50 bp or more [0]" << endl
+         << "      --min-confidence X    set FILTER to lowconf on records with GQN below X;" << endl
+         << "                            0 disables it [0]" << endl
+         << "  debugging and evaluation:" << endl
          << "      --dump-likelihoods F  write the per-site read/allele matrix to F as TSV" << endl
-         << "  -b, --het-bias M,N        homozygous alt/ref allele must have >= M/N times" << endl
-         << "                            more support than the next best allele [6,6]" << endl
+         << "      --flat-mixture        weight a genotype's haplotypes equally, instead of" << endl
+         << "                            by the reads each is expected to produce" << endl
+         << "      --regeno-ledger FILE  write one line for each site that re-genotyping" << endl
+         << "                            changes" << endl
+         << "      --regeno-shuffle      randomize the sign of each read's strand log-odds" << endl
+         << "                            before re-genotyping" << endl
+         << "      --anchors-strict-hets" << endl
+         << "                            place reads at a heterozygous site by the sign of" << endl
+         << "                            their strand log-odds alone, ignoring allele match" << endl
          << "GAF options:" << endl
          << "  -G, --gaf                 output GAF genotypes instead of VCF" << endl
          << "  -T, --traversals          output all candidate traversals in GAF" << endl
@@ -434,15 +268,12 @@ void help_call(char** argv) {
          << "  -a, --genotype-snarls     genotype every snarl, including reference calls" << endl
          << "                            (use to compare multiple samples)" << endl
          << "  -A, --all-snarls          call all snarls including nested (each independent)" << endl
-         << "      --max-snarl-edges N   refuse to genotype a snarl with more deep edges than" << endl
-         << "                            this, calling its children instead. 0 means no cap." << endl
-         << "                            Off under --read-likelihood with panel enumeration" << endl
-         << "                            (its default); 10000 otherwise, --enumerate-support" << endl
-         << "                            included, since Yen's traversal finder is what it" << endl
-         << "                            was written for" << endl
+         << "      --max-snarl-edges N   call a snarl's children instead of the snarl when" << endl
+         << "                            it has more than N edges; 0 for no limit" << endl
+         << "                            [0 with --read-likelihood and -z/-g, else 10000]" << endl
          << "  -c, --min-length N        genotype only snarls with" << endl
          << "                            at least one traversal of length >= N" << endl
-         << "  -C, --max-length N        genotype only snarls where" << endl 
+         << "  -C, --max-length N        genotype only snarls where" << endl
          << "                            all traversals have length <= N" << endl
          << "  -f, --ref-fasta FILE      reference FASTA" << endl
          << "                            (required if VCF has symbolic deletions/inversions)" << endl
@@ -451,8 +282,8 @@ void help_call(char** argv) {
          << "  -r, --snarls FILE         snarls (from vg snarls) to avoid recomputing." << endl
          << "  -g, --gbwt FILE           only call genotypes present in given GBWT index" << endl
          << "  -z, --gbz                 only call genotypes present in GBZ index" << endl
-         << "                            (applies only if input graph is GBZ; already the" << endl
-         << "                            default under --read-likelihood)" << endl
+         << "                            (applies only if input graph is GBZ; on by" << endl
+         << "                            default with --read-likelihood)" << endl
          << "  -N, --translation FILE    node ID translation (from vg gbwt --translation)" << endl
          << "                            to apply to snarl names in output" << endl
          << "  -O, --gbz-translation     use the ID translation from the input GBZ to" << endl
@@ -464,56 +295,18 @@ void help_call(char** argv) {
          << "  -o, --ref-offset N        offset in reference path (may repeat; 1 per path)" << endl
          << "  -l, --ref-length N        override reference length for output VCF contig" << endl
          << "  -d, --ploidy N            ploidy of sample. {1, 2} [2]" << endl
-         << "      --no-off-ref-nesting  with --anchors-out, do NOT descend into chains the" << endl
-         << "                            reference does not cross. They have no REF or POS so" << endl
-         << "                            they never reach the VCF, but they have reads and a" << endl
-         << "                            haplotype, which is what an anchor is [descend]" << endl
-         << "      --no-nested           genotype each snarl against its own full traversals," << endl
-         << "                            without collapsing or descent. Nested calling is on" << endl
-         << "                            by default under --read-likelihood, where it is" << endl
-         << "                            measured: it takes genome-wide SNV F1 from 0.9752 to" << endl
-         << "                            0.9833 and SV F1 from 0.5134 to 0.5467" << endl
-         << "      --nested              treat a called traversal that differs from the" << endl
-         << "                            reference only inside a nested chain as the" << endl
-         << "                            reference allele, so its differences are left to the" << endl
-         << "                            nested sites that contain them rather than emitted" << endl
-         << "                            as one long substitution. A chain is descended into" << endl
-         << "                            once its parent's genotype is settled: after the" << endl
-         << "                            linkage pass where linkage can still move it, and" << endl
-         << "                            immediately where it cannot" << endl
-         << "      --atomize-blocks      on by default under --read-likelihood. Aligns the" << endl
-         << "                            reference and each called haplotype as symbolic" << endl
-         << "                            alleles and emits one record per difference block," << endl
-         << "                            so a snarl differing in two separated places reports" << endl
-         << "                            two variants rather than one substitution spanning" << endl
-         << "                            both. Worth +0.0043 SV F1 genome-wide on HG002" << endl
-         << "                            (0.5577 -> 0.5620 over 23 contigs: 48 more true SVs," << endl
-         << "                            266 fewer false), though the per-contig spread is" << endl
-         << "                            wide -- +0.010 on chr20 against +0.002 on chr6." << endl
-         << "                            Higher under truvari refine, which controls for the" << endl
-         << "                            representation change splitting causes, so the" << endl
-         << "                            record-matching metric understates it. Small-variant" << endl
-         << "                            F1 is unchanged. Declines on any other calling path," << endl
-         << "                            and with -a, whose record set has to stay" << endl
-         << "                            sample-independent; asking for it there by name is" << endl
-         << "                            an error rather than a decline. CAVEAT: every block" << endl
-         << "                            of a snarl repeats the site's AD, GL, GQ, GQI, GP" << endl
-         << "                            and QUAL, so evidence summed across the records of" << endl
-         << "                            one snarl is counted more than once. INFO/SB" << endl
-         << "                            identifies the set. Pass --no-atomize-blocks for one" << endl
-         << "                            record per snarl" << endl
-         << "      --no-atomize-blocks   one record per snarl, whatever the shape of the" << endl
-         << "                            difference." << endl
-         << "      --ploidy-bed FILE     BED of CHROM START END PLOIDY setting ploidy per" << endl
-         << "                            region, overriding -d/-R where an interval covers a" << endl
-         << "                            site. CHROM is the contig as the output VCF spells" << endl
-         << "                            it (chrX, not CHM13#0#chrX); intervals are 0-based" << endl
-         << "                            half-open and must not overlap. Lets one run call a" << endl
-         << "                            male chrX haploid outside the pseudoautosomal" << endl
-         << "                            regions and diploid inside them, which per-contig" << endl
-         << "                            ploidy cannot express and which otherwise needs two" << endl
-         << "                            runs spliced together. Linkage and the mosaic break" << endl
-         << "                            at each ploidy boundary, as they did at the splice" << endl
+         << "      --no-nested           report variation inside nested snarls as part of" << endl
+         << "                            the enclosing snarl's alleles" << endl
+         << "      --nested              genotype nested snarls in records of their own," << endl
+         << "                            not as part of the enclosing snarl's alleles" << endl
+         << "                            [on with --read-likelihood]" << endl
+         << "      --atomize-blocks      write one record per separate difference between" << endl
+         << "                            a called allele and the reference, rather than one" << endl
+         << "                            per snarl [on with --read-likelihood]" << endl
+         << "      --no-atomize-blocks   write one record per snarl" << endl
+         << "      --ploidy-bed FILE     BED of CHROM START END PLOIDY giving the ploidy of" << endl
+         << "                            each region, overriding -d and -R; CHROM is the" << endl
+         << "                            VCF contig name, and intervals must not overlap" << endl
          << "  -R, --ploidy-regex RULES  use this comma-separated list of colon-delimited" << endl
          << "                            REGEX:PLOIDY rules to assign ploidies to contigs" << endl
          << "                            not visited by the selected samples, or to all" << endl
@@ -537,7 +330,7 @@ void help_call(char** argv) {
          << "      --progress            show progress" << endl
          << "  -t, --threads N           number of threads to use" << endl
          << "  -h, --help                print this help message to stderr and exit" << endl;
-}    
+}
 
 int main_call(int argc, char** argv) {
     Logger logger("vg call");
@@ -550,29 +343,21 @@ int main_call(int argc, char** argv) {
     bool   gbz_paths = false;
     bool   gbz_paths_explicit = false;
     bool   enumerate_support = false;
-    // On by default: phasing is the linkage layer's Viterbi path, and the layer is already on by
-    // default wherever it can run. Declines with the layer rather than erroring, so a run without a
-    // panel is quietly unphased instead of refusing to start.
+    // Phasing comes from the linkage model; see the check where that model is set up.
     bool   phased_output = true;
     bool   phased_explicit = false;
     string mosaic_out;
     string anchors_out;
     bool no_off_ref_nesting = false;
     AnchorParams anchor_params;
-    /// This run's anchor counters. Owned here rather than by the subsystem, so a second caller in
-    /// one process would count into its own; see AnchorParams::counters.
+    /// Counts of how the anchor code placed reads in this run.
     AnchorCounters anchor_run_counters;
-    // Fill a gap no panel haplotype can be carried across with the reference, so a strand stays one
-    // walk. On by default: it is the only path contiguous across such a region -- on chr20 all 37
-    // remaining boundaries -- and the fill is marked `ref` in the file rather than passed off as an
-    // evidenced haplotype. Off leaves the gap, for a consumer that would rather see a discontinuity
-    // than an assertion.
+    // Mosaic settings. Where no haplotype can be followed, fill the gap with the reference.
     bool mosaic_patch_gaps = true;
-    // Keep a switch inside a nested chain as its own segment. Off merges across it: fewer
-    // switches, still one contiguous walk, and the parent's route through the child snarl.
+    // Include nested sites; if false, each strand follows its enclosing site's haplotype through
+    // nested snarls instead of switching haplotypes inside them.
     bool mosaic_keep_nested = true;
-    // Carry the flanking haplotype through a stretch the panel cannot explain rather than
-    // breaking the path there. On by default; rare, and it keeps threads contiguous.
+    // Where no haplotype explains a stretch, continue the flanking haplotype through it.
     bool mosaic_connect_unexplained = true;
     string translation_file_name;
     bool   gbz_translation = false;
@@ -603,14 +388,9 @@ int main_call(int argc, char** argv) {
     bool genotype_snarls = false;
     bool top_down = false;
     bool bottom_up = false;
-    // On by default, and only ever armed where symbolic nested calling is -- which in practice
-    // means --read-likelihood. Every other calling path declines it rather than erroring, so
-    // the support-based default's output is untouched.
+    // Both on by default, and turned off below where they cannot apply.
     bool atomize_blocks = true;
     bool atomize_explicit = false;
-    // On by default under --read-likelihood, where it was measured: genome-wide it takes SNV F1
-    // from 0.9752 to 0.9833 and SV F1 from 0.5134 to 0.5467 at no runtime or memory cost. It
-    // declines rather than errors where its preconditions are absent, the way --linkage-weight does.
     bool nested_calling = true;
     bool nested_explicit = false;
     bool call_chains = false;
@@ -629,8 +409,7 @@ int main_call(int argc, char** argv) {
     int64_t cluster_min_allele_len = 50;
     bool cluster_min_len_set = false;
 
-    // Read-level genotyping options. Opt-in: without --read-likelihood none of
-    // this code runs and the default caller is unchanged.
+    // Options for the read-likelihood genotyper (--read-likelihood).
     bool read_likelihood = false;
     string gam_filename;
     string gaf_filename;
@@ -639,57 +418,28 @@ int main_call(int argc, char** argv) {
     string gaf_base_filename;
     string gbz_base_filename;
     string gaf_base_binary = "gbz-base";
-    // 0 means "let the backend choose": the two on-demand backends want different
-    // windows, because a GAF-Base query is a process spawn where a .gai group scan is
-    // a seek. See DEFAULT_GAM_INDEX_WINDOW / DEFAULT_GAF_BASE_WINDOW below.
+    // 0 means the read source's default; see the window defaults at the top of the file.
     size_t read_window_size = 0;
     bool no_mismap_term = false;
     bool no_share_quality = false;
     double depth_quality = 0.0;
-    // The read scorer's gap penalties. Exposed because they are the only primitive the
-    // quality-adjusted scorer does NOT override -- score_gap is absent from
-    // QualAdjAlignmentScorer's override list, so a gap is scored quality-blind -- and
-    // because at the shipped 6/1 a 1 bp indel difference is worth 7 units, which at
-    // log base 1.3833 nats/unit is a likelihood ratio of 6.2e-5: past the -ln(0.02)/1.3833
-    // = 2.83-unit window the mismap floor leaves visible, so every indel difference of a
-    // single base is a saturated vote whatever the base qualities say. That is the right
-    // answer for a 0.1%-substitution read and the wrong one for a read whose modal error
-    // IS a single-base homopolymer indel.
+    // Gap penalties for scoring reads against alleles.
     int gap_open = default_gap_open;
     int gap_extend = default_gap_extension;
-    // Read-backed phasing. Off by default: with it off the phase is the panel's, byte for byte.
-    // On under --preset ont.
+    // Phase heterozygous sites with the reads, as well as with the haplotypes.
     bool read_phasing = false;
     bool read_phasing_explicit = false;
     bool regenotype = false;
     bool regenotype_explicit = false;
     bool phase_hets_explicit = false;
     RegenotypeParams regenotype_params;
-    // Two barrier passes, i.e. ONE correction round. The iteration is implemented and runs to a
-    // fixed point when there is one; on chr20 there is not -- it enters a period-3 limit cycle at
-    // round 7 -- and eleven rounds score worse than one: ALL F1 0.95136 against 0.95150, SV
-    // 0.56234 against 0.56577.
-    //
-    // That comparison is 1 against 11 and says nothing about 2, which is the question anyone
-    // actually asks. Measured, chr20 ONT at the re-fitted --phase-min-q (`--regeno-passes` 2, 3,
-    // 4):
-    //
-    //   rounds   ALL F1     indel F1   switch    SNV FP   SV F1     user CPU
-    //   1        0.95848    0.86667    0.3826%   422      0.55888   1349 s
-    //   2        0.95879    0.86690    0.3737%   395      0.55836   1362 s
-    //   3        0.95867    0.86696    0.3741%   398      --        1337 s
-    //
-    // Nothing here clears noise. The small-variant gain is +0.00031 ALL F1, a tenth of the 0.003
-    // this project needs to move a fitted default, and switch error and SNV FP are both under one
-    // sigma. SVs move the other way by 0.00052, which on a 765-event set is two events. So a
-    // second round is not worse, as 1-against-11 suggested -- it is the same, for about 1% more
-    // CPU. Left at 2 because nothing argues for moving it, not because more is harmful.
+    // Passes of genotype settling under --regenotype. The first settles the genotypes; each later
+    // pass re-genotypes from the read phase and settles them again.
     size_t regenotype_passes = 2;
     string regenotype_ledger;
     ReadPhasingParams read_phasing_params;
-    // Which of the preset's values the user set for themselves. The preset is applied after the
-    // whole option loop, so `--preset ont --gap-open 3` and `--gap-open 3 --preset ont` mean the
-    // same thing: an explicit flag always wins, whichever side of the preset it is written on.
+    // The preset is applied after all options are parsed. The *_explicit flags record which of its
+    // settings were given explicitly, and those keep their given values.
     string preset;
     double insertion_gap_nats = 0.0;
     bool insertion_nats_explicit = false;
@@ -700,9 +450,8 @@ int main_call(int argc, char** argv) {
     bool read_min_mapq_explicit = false;
     double min_confidence = 0.0;
     double linkage_weight = 2.0;
-    /// Whether a weight was asked for, as opposed to inherited from the default. The two must
-    /// behave differently where linkage is impossible: an explicit request has to fail loudly, and
-    /// the default has to decline quietly, or every run without -z would error.
+    /// Whether --linkage-weight was given. Where the linkage model cannot run, an explicit weight
+    /// is an error, while the default weight is set to 0.
     bool linkage_weight_explicit = false;
     double linkage_scale = 10000.0;
     double linkage_freq_prior = 5.0;
@@ -714,9 +463,7 @@ int main_call(int argc, char** argv) {
     bool depth_count_raw = false;
     double max_mismap_prob = 0.95;
     double min_mismap_prob = 0.02;
-    // 0 globally, 10 under --preset ont. GLOBAL is not safe: simulated reads carry MAPQ 0, so a
-    // global 10 discards every read and emits no variants at all -- 65 of this suite's tests fail
-    // that way, which is what a user with an unmapped-quality GAM would see as silence.
+    // 0 keeps reads from aligners that give every read MAPQ 0.
     int read_min_mapq = 0;
 
     // constants
@@ -725,11 +472,9 @@ int main_call(int argc, char** argv) {
     const size_t min_depth_bin_width = 50;
     const size_t max_depth_bin_width = 50000000;
     const double depth_scale_fac = 1.5;
-    // Resolved after parsing, below. Declared here with the other scorer constants, but reading
-    // `traversals_only` at this point gave 50 unconditionally -- the flag is set by getopt, which
-    // has not run yet -- so the 100 arm was unreachable from the day it was written.
+    // Set after parsing, since it depends on -T.
     size_t max_yens_traversals = 50;
-    // Default resolved after parsing, because it differs by caller: see below.
+    // If not given, set after parsing, since the default depends on the traversal finder.
     size_t max_snarl_edges_opt = 0;
     bool max_snarl_edges_explicit = false;
     // used to merge up snarls from chains when generating traversals
@@ -821,172 +566,157 @@ int main_call(int argc, char** argv) {
     constexpr int OPT_MOSAIC_BREAK_UNEXPL = 1056;
     int c;
     optind = 2; // force optind past command positional argument
-    /// Which subsystem an option belongs to. An option owned by a subsystem that is not in
-    /// use is a command line that does not do what it says, so ownership lives in the option
-    /// table and the check for it is derived. It used to be a second, hand-maintained list of
-    /// flag strings, and it had already drifted: `--mosaic-out` was refused without
-    /// `--read-likelihood` while its four `--mosaic-*` modifiers were accepted and dropped.
-    ///
-    /// INTERIM. A central table of what belongs to whom is not where ownership should live -- each
-    /// subsystem should register its own options, Giraffe-style, with `OptionGroup<Receiver>` from
-    /// `subcommand/options.hpp`. What blocks that is `scripts/lint.py`, which cannot see an option
-    /// inside an OptionGroup and would stop checking all 72 of these; extending it is agreed and
-    /// deferred out of #4990. See doc/read-likelihood-architecture.md, "Order of work" item 2.
-    enum CallOptionOwner {
-        OWN_CORE,               ///< meaningful whatever genotyper is in use
-        OWN_READ_LIKELIHOOD,    ///< only under --read-likelihood
-        OWN_ANCHORS,            ///< only with --anchors-out
-        OWN_MOSAIC,             ///< only with --mosaic-out
-        OWN_REGENOTYPE,         ///< only with --regenotype (which --preset ont turns on)
-    };
-    /// One row of the option table: `struct option`'s four fields, in that order, plus the
-    /// owner. getopt's own array is generated from this below, so an option cannot be added to
-    /// one and forgotten in the other. The leading four are kept identical to `struct option`
-    /// -- `flag` included, always 0 -- so that the table still reads as the one `scripts/lint.py`
-    /// and CONTRIBUTING.md describe, with the owner as a documented trailing field.
-    struct CallOption {
-        const char* name;
-        int has_arg;
-        int* flag;
-        int val;
-        CallOptionOwner owner;
-    };
-    static const CallOption long_options[] = {
-        {"pack", required_argument, 0, 'k',                                 OWN_CORE},
-        {"bias-mode", no_argument, 0, 'B',                                  OWN_CORE},
-        {"baseline-error", required_argument, 0, 'e',                       OWN_CORE},
-        {"het-bias", required_argument, 0, 'b',                             OWN_CORE},
-        {"min-support", required_argument, 0, 'm',                          OWN_CORE},
-        {"vcf", required_argument, 0, 'v',                                  OWN_CORE},
-        {"genotype-snarls", no_argument, 0, 'a',                            OWN_CORE},
-        {"all-snarls", no_argument, 0, 'A',                                 OWN_CORE},
-        {"min-length", required_argument, 0, 'c',                           OWN_CORE},
-        {"max-length", required_argument, 0, 'C',                           OWN_CORE},
-        {"ref-fasta", required_argument, 0, 'f',                            OWN_CORE},
-        {"ins-fasta", required_argument, 0, 'i',                            OWN_CORE},
-        {"sample", required_argument, 0, 's',                               OWN_CORE},
-        {"snarls", required_argument, 0, 'r',                               OWN_CORE},
-        {"gbwt", required_argument, 0, 'g',                                 OWN_CORE},
-        {"gbz", no_argument, 0, 'z',                                        OWN_CORE},
-        {"translation", required_argument, 0, 'N',                          OWN_CORE},
-        {"gbz-translation", no_argument, 0, 'O',                            OWN_CORE},
-        {"ref-path", required_argument, 0, 'p',                             OWN_CORE},
-        {"path-prefix", required_argument, 0, 'P',                          OWN_CORE},
-        {"ref-sample", required_argument, 0, 'S',                           OWN_CORE},
-        {"ref-offset", required_argument, 0, 'o',                           OWN_CORE},
-        {"ref-length", required_argument, 0, 'l',                           OWN_CORE},
-        {"ploidy", required_argument, 0, 'd',                               OWN_CORE},
-        {"ploidy-regex", required_argument, 0, 'R',                         OWN_CORE},
-        {"ploidy-bed", required_argument, 0, OPT_PLOIDY_BED,                OWN_CORE},
-        {"nested", no_argument, 0, OPT_NESTED,                              OWN_CORE},
-        {"no-nested", no_argument, 0, OPT_NO_NESTED,                        OWN_CORE},
-        {"no-off-ref-nesting", no_argument, 0, OPT_NO_OFF_REF_NESTING,      OWN_ANCHORS},
-        {"no-phased", no_argument, 0, OPT_NO_PHASED,                        OWN_READ_LIKELIHOOD},
-        {"gaf", no_argument, 0, 'G',                                        OWN_CORE},
-        {"traversals", no_argument, 0, 'T',                                 OWN_CORE},
-        {"trav-padding", required_argument, 0, 'M',                         OWN_CORE},
-        {"legacy", no_argument, 0, OPT_LEGACY,                              OWN_CORE},
-        {"top-down", no_argument, 0, OPT_TOP_DOWN,                          OWN_CORE},
-        {"bottom-up", no_argument, 0, OPT_BOTTOM_UP,                        OWN_CORE},
-        {"atomize-blocks", no_argument, 0, OPT_ATOMIZE_BLOCKS,              OWN_CORE},
-        {"no-atomize-blocks", no_argument, 0, OPT_NO_ATOMIZE_BLOCKS,        OWN_CORE},
-        {"read-likelihood", no_argument, 0, OPT_READ_LIKELIHOOD,            OWN_CORE},
-        {"gam", required_argument, 0, OPT_GAM,                              OWN_READ_LIKELIHOOD},
-        {"gaf-reads", required_argument, 0, OPT_GAF,                        OWN_READ_LIKELIHOOD},
-        {"dump-likelihoods", required_argument, 0, OPT_DUMP_LIKELIHOODS,    OWN_READ_LIKELIHOOD},
-        {"no-mismap-term", no_argument, 0, OPT_NO_MISMAP_TERM,              OWN_READ_LIKELIHOOD},
-        {"mismap-max", required_argument, 0, OPT_MISMAP_MAX,                OWN_READ_LIKELIHOOD},
-        {"mismap-min", required_argument, 0, OPT_MISMAP_MIN,                OWN_READ_LIKELIHOOD},
-        {"insertion-nats", required_argument, 0, OPT_INSERTION_GAP_NATS,    OWN_READ_LIKELIHOOD},
-        {"realign", no_argument, 0, OPT_REALIGN,                            OWN_READ_LIKELIHOOD},
-        {"anchors-hom-split", no_argument, 0, OPT_ANCHORS_HOM_SPLIT,        OWN_ANCHORS},
-        {"anchors-phase-hets", no_argument, 0, OPT_ANCHORS_PHASE_HETS,      OWN_ANCHORS},
-        {"no-anchors-phase-hets", no_argument, 0, OPT_NO_ANCHORS_PHASE_HETS, OWN_ANCHORS},
-        {"anchors-strict-hets", no_argument, 0, OPT_ANCHORS_STRICT_HETS,    OWN_ANCHORS},
-        {"split-min-q", required_argument, 0, OPT_ANCHORS_PHASE_MIN,         OWN_ANCHORS},
-        {"split-min-side", required_argument, 0, OPT_ANCHORS_PHASE_MIN_SIDE, OWN_ANCHORS},
-        {"no-realign", no_argument, 0, OPT_NO_REALIGN,                      OWN_READ_LIKELIHOOD},
-        {"no-share-quality", no_argument, 0, OPT_NO_SHARE_QUALITY,          OWN_READ_LIKELIHOOD},
-        {"flat-mixture", no_argument, 0, OPT_FLAT_MIXTURE,                  OWN_READ_LIKELIHOOD},
-        {"max-snarl-edges", required_argument, 0, OPT_MAX_SNARL_EDGES,      OWN_CORE},
-        {"depth-term", required_argument, 0, OPT_DEPTH_TERM,                OWN_READ_LIKELIHOOD},
-        {"depth-count-raw", no_argument, 0, OPT_DEPTH_COUNT_RAW,            OWN_READ_LIKELIHOOD},
-        {"depth-quality", required_argument, 0, OPT_DEPTH_QUALITY,          OWN_READ_LIKELIHOOD},
-        {"preset", required_argument, 0, OPT_PRESET,                        OWN_READ_LIKELIHOOD},
-        {"gap-open", required_argument, 0, OPT_GAP_OPEN,                    OWN_READ_LIKELIHOOD},
-        {"gap-extend", required_argument, 0, OPT_GAP_EXTEND,                OWN_READ_LIKELIHOOD},
-        {"read-phasing", no_argument, 0, OPT_READ_PHASING,                  OWN_READ_LIKELIHOOD},
-        {"no-read-phasing", no_argument, 0, OPT_NO_READ_PHASING,            OWN_READ_LIKELIHOOD},
-        {"phase-min-q", required_argument, 0, OPT_PHASE_MIN_Q,              OWN_READ_LIKELIHOOD},
-        {"phase-break", required_argument, 0, OPT_PHASE_BREAK,              OWN_READ_LIKELIHOOD},
-        {"phase-relink", required_argument, 0, OPT_PHASE_RELINK,            OWN_READ_LIKELIHOOD},
-        {"phase-hang", required_argument, 0, OPT_PHASE_HANG,                OWN_READ_LIKELIHOOD},
-        {"phase-prior", required_argument, 0, OPT_PHASE_PRIOR,              OWN_READ_LIKELIHOOD},
-        {"phase-cap", required_argument, 0, OPT_PHASE_CAP,                  OWN_READ_LIKELIHOOD},
-        {"phase-coherence", required_argument, 0, OPT_PHASE_COHERENCE,      OWN_READ_LIKELIHOOD},
-        {"phase-coh-rounds", required_argument, 0, OPT_PHASE_COH_ROUNDS,    OWN_READ_LIKELIHOOD},
-        {"regenotype", no_argument, 0, OPT_REGENOTYPE,                      OWN_READ_LIKELIHOOD},
-        {"no-regenotype", no_argument, 0, OPT_NO_REGENOTYPE,                OWN_READ_LIKELIHOOD},
-        {"regeno-ceiling", required_argument, 0, OPT_REGENO_CEILING,        OWN_REGENOTYPE},
-        {"regeno-haploid", no_argument, 0, OPT_REGENO_HAPLOID,              OWN_REGENOTYPE},
-        {"no-regeno-haploid", no_argument, 0, OPT_NO_REGENO_HAPLOID,        OWN_REGENOTYPE},
-        {"regeno-temper", required_argument, 0, OPT_REGENO_TEMPER,          OWN_REGENOTYPE},
-        {"regeno-passes", required_argument, 0, OPT_REGENO_PASSES,          OWN_REGENOTYPE},
-        {"regeno-shuffle", no_argument, 0, OPT_REGENO_SHUFFLE,              OWN_REGENOTYPE},
-        {"regeno-ledger", required_argument, 0, OPT_REGENO_LEDGER,          OWN_REGENOTYPE},
-        {"min-confidence", required_argument, 0, OPT_MIN_CONFIDENCE,        OWN_READ_LIKELIHOOD},
-        {"linkage-weight", required_argument, 0, OPT_LINKAGE_WEIGHT,        OWN_READ_LIKELIHOOD},
-        {"linkage-scale", required_argument, 0, OPT_LINKAGE_SCALE,          OWN_READ_LIKELIHOOD},
-        {"linkage-prior", required_argument, 0, OPT_LINKAGE_FREQ_PRIOR,     OWN_READ_LIKELIHOOD},
-        {"hp-prior", required_argument, 0, OPT_HP_PRIOR,                    OWN_READ_LIKELIHOOD},
-        {"hp-prior-run", required_argument, 0, OPT_HP_PRIOR_RUN,            OWN_READ_LIKELIHOOD},
-        {"enumerate-support", no_argument, 0, OPT_ENUMERATE_SUPPORT,        OWN_READ_LIKELIHOOD},
-        {"phased", no_argument, 0, OPT_PHASED,                              OWN_READ_LIKELIHOOD},
-        {"mosaic-out", required_argument, 0, OPT_MOSAIC_OUT,                OWN_READ_LIKELIHOOD},
-        {"anchors-out", required_argument, 0, OPT_ANCHORS_OUT,              OWN_READ_LIKELIHOOD},
-        {"anchors-het-only", no_argument, 0, OPT_ANCHORS_HET_ONLY,          OWN_ANCHORS},
-        {"anchors-leaf-only", no_argument, 0, OPT_ANCHORS_LEAF_ONLY,        OWN_ANCHORS},
-        {"anchors-reads", required_argument, 0, OPT_ANCHORS_MIN_READS,      OWN_ANCHORS},
-        {"anchors-min-gqn", required_argument, 0, OPT_ANCHORS_MIN_GQN,      OWN_ANCHORS},
-        {"anchors-min-q", required_argument, 0, OPT_ANCHORS_MIN_SCORE,      OWN_ANCHORS},
-        {"anchors-keep-off-call", no_argument, 0, OPT_ANCHORS_KEEP_OFF_CALL, OWN_ANCHORS},
-        {"anchors-end-new", required_argument, 0, OPT_ANCHORS_END_PIN_MIN_NEW, OWN_ANCHORS},
-        {"mosaic-patch-gaps", no_argument, 0, OPT_MOSAIC_PATCH,             OWN_MOSAIC},
-        {"no-mosaic-patch-gaps", no_argument, 0, OPT_NO_MOSAIC_PATCH,       OWN_MOSAIC},
-        {"no-mosaic-nested", no_argument, 0, OPT_NO_MOSAIC_NESTED,          OWN_MOSAIC},
-        {"mosaic-break-unexplained", no_argument, 0, OPT_MOSAIC_BREAK_UNEXPL, OWN_MOSAIC},
-        {"read-min-mapq", required_argument, 0, OPT_READ_MIN_MAPQ,          OWN_READ_LIKELIHOOD},
-        {"gam-index", required_argument, 0, OPT_GAM_INDEX,                  OWN_READ_LIKELIHOOD},
-        {"gaf-base", required_argument, 0, OPT_GAF_BASE,                    OWN_READ_LIKELIHOOD},
-        {"gbz-base", required_argument, 0, OPT_GBZ_BASE,                    OWN_READ_LIKELIHOOD},
-        {"gaf-base-binary", required_argument, 0, OPT_GAF_BASE_BINARY,      OWN_READ_LIKELIHOOD},
-        {"read-window", required_argument, 0, OPT_READ_WINDOW,              OWN_READ_LIKELIHOOD},
-        {"chains", no_argument, 0, 'I',                                     OWN_CORE},
-        {"cluster", required_argument, 0, 'L',                              OWN_CORE},
-        {"cluster-min-len", required_argument, 0, OPT_CLUSTER_MIN_LEN,      OWN_CORE},
-        // deprecated: shipped through v1.76 as an accepted no-op.  Kept accepted (and absent
-        // from the helptext, which check_options.py allows) so pipelines carrying it do not die
-        // on an unrecognized option.  Remove after one release.
-        {"cluster-post", no_argument, 0, OPT_CLUSTER_POST,                  OWN_CORE},
-        {"star-allele", no_argument, 0, 'Y',                                OWN_CORE},
-        {"threads", required_argument, 0, 't',                              OWN_CORE},
-        {"progress", no_argument, 0, OPT_PROGRESS,                          OWN_CORE},
-        {"help", no_argument, 0, 'h',                                       OWN_CORE},
-        {0, 0, 0, 0, OWN_CORE}
+    // The long options, grouped by the subsystem they configure. The options of a subsystem other
+    // than "core" only have an effect when that subsystem is turned on, and we refuse them otherwise
+    // (see below). Every such subsystem is part of the read-likelihood genotyper.
+    const map<string, vector<struct option>> long_options_by_subsystem = {
+        {"core", {
+            {"pack", required_argument, 0, 'k'},
+            {"bias-mode", no_argument, 0, 'B'},
+            {"baseline-error", required_argument, 0, 'e'},
+            {"het-bias", required_argument, 0, 'b'},
+            {"min-support", required_argument, 0, 'm'},
+            {"vcf", required_argument, 0, 'v'},
+            {"genotype-snarls", no_argument, 0, 'a'},
+            {"all-snarls", no_argument, 0, 'A'},
+            {"min-length", required_argument, 0, 'c'},
+            {"max-length", required_argument, 0, 'C'},
+            {"ref-fasta", required_argument, 0, 'f'},
+            {"ins-fasta", required_argument, 0, 'i'},
+            {"sample", required_argument, 0, 's'},
+            {"snarls", required_argument, 0, 'r'},
+            {"gbwt", required_argument, 0, 'g'},
+            {"gbz", no_argument, 0, 'z'},
+            {"translation", required_argument, 0, 'N'},
+            {"gbz-translation", no_argument, 0, 'O'},
+            {"ref-path", required_argument, 0, 'p'},
+            {"path-prefix", required_argument, 0, 'P'},
+            {"ref-sample", required_argument, 0, 'S'},
+            {"ref-offset", required_argument, 0, 'o'},
+            {"ref-length", required_argument, 0, 'l'},
+            {"ploidy", required_argument, 0, 'd'},
+            {"ploidy-regex", required_argument, 0, 'R'},
+            {"ploidy-bed", required_argument, 0, OPT_PLOIDY_BED},
+            {"nested", no_argument, 0, OPT_NESTED},
+            {"no-nested", no_argument, 0, OPT_NO_NESTED},
+            {"gaf", no_argument, 0, 'G'},
+            {"traversals", no_argument, 0, 'T'},
+            {"trav-padding", required_argument, 0, 'M'},
+            {"legacy", no_argument, 0, OPT_LEGACY},
+            {"top-down", no_argument, 0, OPT_TOP_DOWN},
+            {"bottom-up", no_argument, 0, OPT_BOTTOM_UP},
+            {"atomize-blocks", no_argument, 0, OPT_ATOMIZE_BLOCKS},
+            {"no-atomize-blocks", no_argument, 0, OPT_NO_ATOMIZE_BLOCKS},
+            {"read-likelihood", no_argument, 0, OPT_READ_LIKELIHOOD},
+            {"max-snarl-edges", required_argument, 0, OPT_MAX_SNARL_EDGES},
+            {"chains", no_argument, 0, 'I'},
+            {"cluster", required_argument, 0, 'L'},
+            {"cluster-min-len", required_argument, 0, OPT_CLUSTER_MIN_LEN},
+            // deprecated: shipped through v1.76 as an accepted no-op.  Kept accepted (and absent
+            // from the helptext, which check_options.py allows) so pipelines carrying it do not die
+            // on an unrecognized option.  Remove after one release.
+            {"cluster-post", no_argument, 0, OPT_CLUSTER_POST},
+            {"star-allele", no_argument, 0, 'Y'},
+            {"threads", required_argument, 0, 't'},
+            {"progress", no_argument, 0, OPT_PROGRESS},
+            {"help", no_argument, 0, 'h'},
+        }},
+        {"read-likelihood", {  // need --read-likelihood
+            {"no-phased", no_argument, 0, OPT_NO_PHASED},
+            {"gam", required_argument, 0, OPT_GAM},
+            {"gaf-reads", required_argument, 0, OPT_GAF},
+            {"dump-likelihoods", required_argument, 0, OPT_DUMP_LIKELIHOODS},
+            {"no-mismap-term", no_argument, 0, OPT_NO_MISMAP_TERM},
+            {"mismap-max", required_argument, 0, OPT_MISMAP_MAX},
+            {"mismap-min", required_argument, 0, OPT_MISMAP_MIN},
+            {"insertion-nats", required_argument, 0, OPT_INSERTION_GAP_NATS},
+            {"realign", no_argument, 0, OPT_REALIGN},
+            {"no-realign", no_argument, 0, OPT_NO_REALIGN},
+            {"no-share-quality", no_argument, 0, OPT_NO_SHARE_QUALITY},
+            {"flat-mixture", no_argument, 0, OPT_FLAT_MIXTURE},
+            {"depth-term", required_argument, 0, OPT_DEPTH_TERM},
+            {"depth-count-raw", no_argument, 0, OPT_DEPTH_COUNT_RAW},
+            {"depth-quality", required_argument, 0, OPT_DEPTH_QUALITY},
+            {"preset", required_argument, 0, OPT_PRESET},
+            {"gap-open", required_argument, 0, OPT_GAP_OPEN},
+            {"gap-extend", required_argument, 0, OPT_GAP_EXTEND},
+            {"read-phasing", no_argument, 0, OPT_READ_PHASING},
+            {"no-read-phasing", no_argument, 0, OPT_NO_READ_PHASING},
+            {"phase-min-q", required_argument, 0, OPT_PHASE_MIN_Q},
+            {"phase-break", required_argument, 0, OPT_PHASE_BREAK},
+            {"phase-relink", required_argument, 0, OPT_PHASE_RELINK},
+            {"phase-hang", required_argument, 0, OPT_PHASE_HANG},
+            {"phase-prior", required_argument, 0, OPT_PHASE_PRIOR},
+            {"phase-cap", required_argument, 0, OPT_PHASE_CAP},
+            {"phase-coherence", required_argument, 0, OPT_PHASE_COHERENCE},
+            {"phase-coh-rounds", required_argument, 0, OPT_PHASE_COH_ROUNDS},
+            {"regenotype", no_argument, 0, OPT_REGENOTYPE},
+            {"no-regenotype", no_argument, 0, OPT_NO_REGENOTYPE},
+            {"min-confidence", required_argument, 0, OPT_MIN_CONFIDENCE},
+            {"linkage-weight", required_argument, 0, OPT_LINKAGE_WEIGHT},
+            {"linkage-scale", required_argument, 0, OPT_LINKAGE_SCALE},
+            {"linkage-prior", required_argument, 0, OPT_LINKAGE_FREQ_PRIOR},
+            {"hp-prior", required_argument, 0, OPT_HP_PRIOR},
+            {"hp-prior-run", required_argument, 0, OPT_HP_PRIOR_RUN},
+            {"enumerate-support", no_argument, 0, OPT_ENUMERATE_SUPPORT},
+            {"phased", no_argument, 0, OPT_PHASED},
+            {"mosaic-out", required_argument, 0, OPT_MOSAIC_OUT},
+            {"anchors-out", required_argument, 0, OPT_ANCHORS_OUT},
+            {"read-min-mapq", required_argument, 0, OPT_READ_MIN_MAPQ},
+            {"gam-index", required_argument, 0, OPT_GAM_INDEX},
+            {"gaf-base", required_argument, 0, OPT_GAF_BASE},
+            {"gbz-base", required_argument, 0, OPT_GBZ_BASE},
+            {"gaf-base-binary", required_argument, 0, OPT_GAF_BASE_BINARY},
+            {"read-window", required_argument, 0, OPT_READ_WINDOW},
+        }},
+        {"anchors", {  // need --anchors-out
+            {"no-off-ref-nesting", no_argument, 0, OPT_NO_OFF_REF_NESTING},
+            {"anchors-hom-split", no_argument, 0, OPT_ANCHORS_HOM_SPLIT},
+            {"anchors-phase-hets", no_argument, 0, OPT_ANCHORS_PHASE_HETS},
+            {"no-anchors-phase-hets", no_argument, 0, OPT_NO_ANCHORS_PHASE_HETS},
+            {"anchors-strict-hets", no_argument, 0, OPT_ANCHORS_STRICT_HETS},
+            {"split-min-q", required_argument, 0, OPT_ANCHORS_PHASE_MIN},
+            {"split-min-side", required_argument, 0, OPT_ANCHORS_PHASE_MIN_SIDE},
+            {"anchors-het-only", no_argument, 0, OPT_ANCHORS_HET_ONLY},
+            {"anchors-leaf-only", no_argument, 0, OPT_ANCHORS_LEAF_ONLY},
+            {"anchors-reads", required_argument, 0, OPT_ANCHORS_MIN_READS},
+            {"anchors-min-gqn", required_argument, 0, OPT_ANCHORS_MIN_GQN},
+            {"anchors-min-q", required_argument, 0, OPT_ANCHORS_MIN_SCORE},
+            {"anchors-keep-off-call", no_argument, 0, OPT_ANCHORS_KEEP_OFF_CALL},
+            {"anchors-end-new", required_argument, 0, OPT_ANCHORS_END_PIN_MIN_NEW},
+        }},
+        {"mosaic", {  // need --mosaic-out
+            {"mosaic-patch-gaps", no_argument, 0, OPT_MOSAIC_PATCH},
+            {"no-mosaic-patch-gaps", no_argument, 0, OPT_NO_MOSAIC_PATCH},
+            {"no-mosaic-nested", no_argument, 0, OPT_NO_MOSAIC_NESTED},
+            {"mosaic-break-unexplained", no_argument, 0, OPT_MOSAIC_BREAK_UNEXPL},
+        }},
+        {"regenotype", {  // need --regenotype
+            {"regeno-ceiling", required_argument, 0, OPT_REGENO_CEILING},
+            {"regeno-haploid", no_argument, 0, OPT_REGENO_HAPLOID},
+            {"no-regeno-haploid", no_argument, 0, OPT_NO_REGENO_HAPLOID},
+            {"regeno-temper", required_argument, 0, OPT_REGENO_TEMPER},
+            {"regeno-passes", required_argument, 0, OPT_REGENO_PASSES},
+            {"regeno-shuffle", no_argument, 0, OPT_REGENO_SHUFFLE},
+            {"regeno-ledger", required_argument, 0, OPT_REGENO_LEDGER},
+        }},
     };
 
-    // getopt_long's own view of the table, generated from it so the two cannot disagree.
-    vector<struct option> getopt_options;
-    for (const CallOption* o = long_options; o->name != nullptr; ++o) {
-        getopt_options.push_back({o->name, o->has_arg, o->flag, o->val});
+    // getopt_long takes a single array ending in an all-zero entry. We also record each option's
+    // name and subsystem by its `val`, which is unique.
+    vector<struct option> long_options;
+    unordered_map<int, string> option_name;
+    unordered_map<int, string> option_subsystem;
+    for (const auto& subsystem_and_options : long_options_by_subsystem) {
+        for (const struct option& o : subsystem_and_options.second) {
+            long_options.push_back(o);
+            option_name[o.val] = o.name;
+            option_subsystem[o.val] = subsystem_and_options.first;
+        }
     }
-    getopt_options.push_back({nullptr, 0, nullptr, 0});
+    long_options.push_back({0, 0, 0, 0});
 
-    // Which options were actually given, by `val`, in the order they were given and without
-    // repeats. Recorded as getopt returns them rather than re-scanned from argv: most options
-    // have non-zero defaults, so "was it set" is not recoverable from the parsed value, and
-    // getopt has already resolved the abbreviations a second scan would have to reimplement.
-    // Every `val` in the table is unique, so this identifies the option, not merely its spelling.
+    // The options given, by `val`, in the order first given, for the subsystem check below.
     vector<int> options_seen;
 
     while (true) {
@@ -995,7 +725,7 @@ int main_call(int argc, char** argv) {
         int option_index = 0;
 
         c = getopt_long (argc, argv, "k:Be:b:m:v:aAc:C:f:i:s:r:g:zN:Op:P:S:o:l:d:R:GTM:IL:Yt:h?",
-                         getopt_options.data(), &option_index);
+                         long_options.data(), &option_index);
 
         // Detect the end of the options.
         if (c == -1)
@@ -1268,8 +998,8 @@ int main_call(int argc, char** argv) {
         case OPT_REGENO_TEMPER:
             regenotype_params.temper = parse<double>(optarg);
             if (regenotype_params.temper < 0) {
-                logger.error() << "--regeno-temper must be >= 0; it is a temper, not a switch."
-                               << " 0 reproduces --no-regenotype exactly" << endl;
+                logger.error() << "--regeno-temper must be >= 0 (0 leaves the genotypes unchanged)"
+                               << endl;
             }
             break;
         case OPT_REGENO_PASSES:
@@ -1284,8 +1014,7 @@ int main_call(int argc, char** argv) {
         case OPT_REGENO_CEILING:
             regenotype_params.ceiling = parse<double>(optarg);
             if (regenotype_params.ceiling <= 0.0 || regenotype_params.ceiling > 1.0) {
-                logger.error() << "--regeno-ceiling must be in (0, 1]; 1 is the un-escaped tilt"
-                               << endl;
+                logger.error() << "--regeno-ceiling must be in (0, 1]; 1 means no limit" << endl;
             }
             break;
         case OPT_REGENO_HAPLOID:
@@ -1504,162 +1233,78 @@ int main_call(int argc, char** argv) {
         logger.error() << "-M option can only be used in conjunction with -T" << endl;
     }
 
-    // Now that `traversals_only` has actually been parsed. Emitting traversals rather than
-    // genotyping them is a different job -- nothing downstream has to score what comes out -- so
-    // it enumerates more of them. This is the first build in which that is true.
+    // With -T the candidate traversals are themselves the output, and none of them has to be
+    // genotyped, so we can afford to look for more of them.
     max_yens_traversals = traversals_only ? 100 : 50;
 
-    // Block emission is on by default, so these checks must DECLINE rather than refuse when the
-    // setting is implicit -- refusing would break `vg call -a` and `--legacy` for everyone, on a
-    // flag they never passed. Asked for by name, they still refuse, which is the --nested pattern.
-    //
-    // Checked here rather than after the graph is loaded, because these are option-compatibility
-    // facts and making a user wait for a 22 GB load to be told the combination is invalid is waste.
     if (hp_prior < 0.0 || hp_prior_run < 1) {
         cerr << "error [vg call]: --hp-prior takes a value >= 0, and --hp-prior-run a run of at least 1"
              << endl;
         return 1;
     }
     if (!preset.empty()) {
-        // Applied after the option loop, so an explicit flag wins wherever it is written.
-        //
-        // `ont` is fitted on chr20 of HG002 at 43x against the T2T-Q100 benchmark and validated on
-        // chr6 of the same read set and at 30x; it is not a default because the same values cost
-        // 150 bp reads 0.0037 indel F1. See the gap-penalty help above for why a long read wants a
-        // different gap scale, and note the two values are near-additive rather than alternatives.
-        if (preset == "ont") {
-            if (!read_phasing_explicit) {
-                // On for long reads because the reads carry the answer and the panel does not: at
-                // 33 kb against a 349 bp median het spacing, 99.96% of adjacent het pairs share a
-                // read. chr20 switch error 3.7942% -> 0.5180% and chr6, held out at these same
-                // values, 3.1849% -> 0.3447%, with the genotypes provably unmoved. Not a global
-                // default: at 151 bp most adjacent pairs are not spanned by one read, and that
-                // case is unmeasured.
-                read_phasing = true;
+        // A preset only sets the options that were not given explicitly. The values for `ont`
+        // were fitted to Oxford Nanopore reads.
+        auto chosen = std::find_if(PRESETS.begin(), PRESETS.end(),
+                                   [&](const pair<string, vector<PresetSetting>>& p) {
+                                       return p.first == preset;
+                                   });
+        if (chosen == PRESETS.end()) {
+            cerr << "error [vg call]: unknown --preset '" << preset << "'; known presets:";
+            for (size_t i = 0; i < PRESETS.size(); ++i) {
+                cerr << (i ? ", " : " ") << PRESETS[i].first;
             }
-            if (!gap_open_explicit) {
-                gap_open = 1;
-            }
-            if (!gap_extend_explicit) {
-                gap_extend = 1;
-            }
-            if (!mismap_min_explicit) {
-                min_mismap_prob = 0.05;
-            }
-            if (!read_min_mapq_explicit) {
-                // EXCLUDING a low-MAPQ read is not the same lever as down-weighting it.
-                // `phase_link`'s escape mixture already drives a low-reliability read's
-                // contribution to zero, so the mismap clamp is saturated: --mismap-max 0.7 -> 0.99
-                // moves chr20 from 55 true switches to 57. Removal reaches two things the clamp
-                // cannot -- the GENOTYPE, whose settled pair every other read's q0 is measured
-                // against, and site `reliability`, which is a MEAN and so is pulled under
-                // --phase-min-q by one bad read.
-                //
-                // 5 is a PROVISIONAL value. What it does, measured with off-reference nesting on,
-                // which is the configuration anchor output uses:
-                //
-                //            chr20 (MAPQ 0 -> 5)        chr6 hold-out (MAPQ 0 -> 5)
-                //   reliable hets  60,695 -> 61,863      163,916 -> 164,438
-                //   chain breaks    1,269 ->  1,432        1,503 ->   1,534
-                //   ALL F1        0.95825 -> 0.95826    0.96520 -> 0.96486
-                //   TP / FP          +0 / -1                 -89 / +101
-                //
-                // Calling accuracy is essentially untouched: chr20 is exact and chr6 moves
-                // 0.03% relative -- 89 TP out of 269,571 -- which is reproducible (vg call is
-                // byte-identical on a repeat run) but far too small to decide anything. The
-                // reason to set it is the reliable-het rise: those are sites the phasing chain
-                // can use, and it holds on both contigs.
-                //
-                // NO SWITCH-ERROR CLAIM IS MADE HERE, deliberately, because the contigs disagree:
-                // chr20 goes 68 -> 56 true switches and chr6 goes 66 -> 69. The chr20 direction is
-                // also not what it looks like -- the whole of it lives in chr20:26-27 Mb, where
-                // the arms read 35 vs 20 against 188 vs 185 over the rest of the contig, and the
-                // discordant positions there are not independent (21 of 29 fall in three clusters
-                // inside 227 kb, some 3 bp apart), so collapsing them at any merge distance
-                // >= 1 kb takes McNemar from p=0.006 to p=0.42. Do not justify this default, or
-                // any future change to it, on switch error.
-                //
-                // Keyed on the preset because it is a statement about ONT MAPQ, where 94.67% of
-                // alignments are 60. It is not one about a read set whose mapper writes no mapping
-                // quality at all, and for that set a nonzero default is silence.
-                read_min_mapq = 5;
-            }
-            if (!insertion_nats_explicit) {
-                // ONT's basecaller miscounts a homopolymer run in one direction more often than
-                // the other -- 43.6% insertion against 25.5% deletion at runs >= 13 -- while the
-                // affine gap charges a read's extra base and its missing base alike. So a read's
-                // extra bases are weaker evidence than the model treats them as, and insertions
-                // are over-called: at runs >= 5, one-base insertion precision is 0.759 against
-                // 0.810 for deletions, with recall equal.
-                //
-                // 0.9 was predicted at 0.7-1.05 from the measured error rates before being swept,
-                // and the chr20 optimum is interior at 0.9. chr20 indel F1 0.85452 -> 0.86237 and
-                // chr6, held out, 0.87483 -> 0.88005, SNV F1 unchanged on both. 92.5% of the
-                // false positives it removes are in runs >= 5 even though the term cannot see a
-                // homopolymer, because that is where the insertion gaps are.
-                //
-                // Not a global default: it is fitted on a long-read error mode, and 150 bp reads
-                // are unmeasured at any non-zero value.
-                insertion_gap_nats = 0.9;
-            }
-            if (!hp_prior_explicit) {
-                // ONT miscounts long homopolymer runs in a way that belongs to the site, so at
-                // those sites the reads' margin grows with depth while the frequency prior stays
-                // fixed, and past 10-20x the reads outvote a panel that had the better answer --
-                // indels in runs of 11 bp or more were the one class whose F1 fell with depth.
-                //
-                // Fitted on chr20 across 5x-43x: 20 is best at every depth to 25x and within 0.0025
-                // of the best above it, and letting it rise with the site's reads bought +0.0016 at
-                // 43x, not significant, so it stays fixed. chr6, held out: indel F1 +0.023 at 45x
-                // (+0.010 at 20x), SNV and SV unmoved, and the 20x -> full indel slope goes from
-                // -0.008 to +0.005. See Params::hp_prior.
-                hp_prior = 20.0;
-            }
-            // The preset leaves the read-to-allele correspondence GREEDY. `--realign` resolves
-            // it by DP instead of in one left-to-right pass, and it used to be set here: on ONT
-            // it was worth chr20 indel F1 0.86237 -> 0.86659 and chr6, held out, 0.88005 ->
-            // 0.88351, SNV flat on both, for +17% CPU.
-            //
-            // That price was measured with the snarl cap on, and the cap was hiding it. With
-            // `--max-snarl-edges` off, chr20 ONT runs 2259.7 s under `--realign` against 216.9 s
-            // greedy -- 10.4x, not 1.17x -- because the exact walk pays per read against the
-            // whole of a thousand-step allele at exactly the snarls the cap used to decline.
-            // Uncapped greedy is also no dearer than CAPPED greedy (216.9 s against 224.6 s), so
-            // the greedy walk is what makes genotyping every snarl affordable at all.
-            //
-            // Re-measured on one binary, same scoring path, capped, what the exact walk buys is
-            // narrower than "indels" suggested: ALL F1 +0.00080, indel +0.00422, and the whole
-            // of it is DELETIONS (+0.00885). SNV (+0.00016) and insertion (+0.00016) are a hair
-            // better WITHOUT it. `--realign` restores it for anyone who wants that trade.
-            //
-            // Dropping it also restores `--phase-min-q` to 9.5, which is the value fitted for
-            // the greedy walk; 8.5 was re-fitted for the exact one and is applied below only
-            // when `realign` is set.
-            if (!regenotype_explicit) {
-                // The reads' phase decides the genotype, not only the order of a settled pair.
-                // chr20 ALL F1 0.94477 -> 0.95151 and indel 0.81568 -> 0.83725, with precision
-                // AND recall both up; chr6, held out and fitting its own temper, 0.95342 ->
-                // 0.95960 and 0.83781 -> 0.86019. The 6,350 sites it moves on chr20 run a 40.6%
-                // false-positive rate against a 6.7% background, so it aims at what is broken,
-                // and the shuffled-sign control -- same |Lambda|, phase destroyed -- loses 0.107
-                // F1, so the gain is the phase and not a change in peakedness.
-                //
-                // Costs +13.2% wall and about +110 MB of retention. Requires read phasing, which
-                // this preset also turns on; see the decline below for the one combination that
-                // leaves it off.
-                regenotype = true;
-            }
-        } else {
-            cerr << "error [vg call]: unknown --preset '" << preset << "'; known presets: ont"
-                 << endl;
+            cerr << endl;
             return 1;
         }
+        for (const PresetSetting& setting : chosen->second) {
+            const string option = setting.option;
+            const string value = setting.value;
+            if (option == "--read-phasing") {
+                if (!read_phasing_explicit) {
+                    read_phasing = true;
+                }
+            } else if (option == "--regenotype") {
+                if (!regenotype_explicit) {
+                    regenotype = true;
+                }
+            } else if (option == "--gap-open") {
+                if (!gap_open_explicit) {
+                    gap_open = parse<int>(value);
+                }
+            } else if (option == "--gap-extend") {
+                if (!gap_extend_explicit) {
+                    gap_extend = parse<int>(value);
+                }
+            } else if (option == "--mismap-min") {
+                if (!mismap_min_explicit) {
+                    min_mismap_prob = parse<double>(value);
+                }
+            } else if (option == "--read-min-mapq") {
+                if (!read_min_mapq_explicit) {
+                    read_min_mapq = parse<int>(value);
+                }
+            } else if (option == "--insertion-nats") {
+                if (!insertion_nats_explicit) {
+                    insertion_gap_nats = parse<double>(value);
+                }
+            } else if (option == "--hp-prior") {
+                if (!hp_prior_explicit) {
+                    hp_prior = parse<double>(value);
+                }
+            } else {
+                // Every option in PRESETS needs a branch here.
+                logger.error() << "--preset " << preset << " sets " << option
+                               << ", which has no preset handling" << endl;
+            }
+        }
     }
+    // --atomize-blocks is on by default, so where it cannot apply we turn it off, and only an
+    // explicit --atomize-blocks is an error. These checks depend only on the options, so they run
+    // before the graph is loaded.
     if (atomize_blocks && genotype_snarls) {
-        // -a's record set is meant to be sample-independent -- one line per snarl, and the harness
-        // reads a `-a -A` run as a snarl inventory. A block list is a function of the called
-        // haplotypes, so it cannot be sample-independent. Fatal only if asked for by name;
-        // otherwise the default steps aside, because -a must keep working without a flag.
+        // -a writes the same records, one per snarl, whatever the sample, but block emission
+        // writes one record per difference in the called haplotypes.
         if (atomize_explicit) {
             logger.error() << "--atomize-blocks cannot be combined with -a/--genotype-snarls: "
                            << "a block list depends on the called haplotypes, so the record set "
@@ -1674,22 +1319,14 @@ int main_call(int argc, char** argv) {
         }
         atomize_blocks = false;
     }
-    // -I is a sharper incompatibility than the three above, which merely pick a different calling
-    // path. It calls a *fabricated* snarl spanning a whole chain piece, and whether the SnarlManager
-    // recognises that snarl depends on how `break_chain` packed the chain: a piece holding one snarl
-    // is value-identical to the managed snarl and resolves, a piece holding several does not. So
-    // `symbolic_site_resolvable` -- the gate governing symbolic collapsing, is_symbolically_reference,
-    // nested descent and block emission alike -- passes on an arbitrary subset of sites.
-    //
-    // Measured on the 18_vg_call.t `x` fixture: 70 records with a 4 bp longest ALT by default, 1
-    // record with a 997 bp ALT under -I. That is the swallowed-variant shape nested calling exists
-    // to undo, and applying the cure to only some sites is not a defensible middle.
+    // -I calls each piece of a chain as if it were a snarl. Only a piece holding a single snarl
+    // matches a snarl in the snarl manager, and nested calling, on which block emission depends,
+    // only works at those, so it would apply to only some sites.
     if (atomize_blocks && call_chains) {
         if (atomize_explicit) {
-            logger.error() << "--atomize-blocks cannot be combined with -I/--chains: a chain piece "
-                           << "is called as a fabricated snarl, and only a piece holding a single "
-                           << "snarl resolves, so decomposition would apply to an arbitrary subset "
-                           << "of sites" << endl;
+            logger.error() << "--atomize-blocks cannot be combined with -I/--chains, which calls "
+                           << "pieces of chains; blocks would be written only at pieces that hold "
+                           << "a single snarl" << endl;
         }
         atomize_blocks = false;
     }
@@ -1783,8 +1420,7 @@ int main_call(int argc, char** argv) {
             if (show_progress) logger.info() << "Restricting search to GBZ haplotypes" << endl;
             gbwt_index = &gbz_graph->gbz.index;
         } else if (!read_likelihood) {
-            // Under --read-likelihood this is decided below rather than suggested, so the
-            // hint would either be wrong or be immediately contradicted.
+            // Under --read-likelihood, haplotype enumeration is chosen automatically below.
             logger.info() << "You can restrict the search to GBZ haplotypes, "
                           << "often to the benefict of speed and accuracy, with the -z option" << endl;
         }
@@ -1877,59 +1513,40 @@ int main_call(int argc, char** argv) {
         logger.error() << "GBWT (-g) cannot be used with GBZ graph (-z): choose one or the other" << endl;
     }
 
-    // An index without the thing it indexes is always a mistake, whatever else was
-    // passed. Checked before the read-likelihood validation so the message is
-    // deterministic rather than depending on which error is reached first.
+    // Reported ahead of the subsystem check below, since it is an error whatever else is given.
     if (!gam_index_filename.empty() && gam_filename.empty()) {
         logger.error() << "--gam-index requires --gam" << endl;
     }
 
-    // Validation: an option owned by OWN_READ_LIKELIHOOD only means something under
-    // --read-likelihood, so passing one without it is a command line that does not do what it
-    // says. Silently ignoring them is how a run gets analysed under the wrong assumptions -- and
-    // the inconsistency was real before this check existed: an explicit --linkage-weight was
-    // refused while --depth-term, --flat-mixture and the rest were accepted and dropped.
-    //
-    // The offender set is read off the option table, not from a second list beside it. The
-    // second list is what this replaced, and it had drifted twice over: --insertion-nats was
-    // accepted and dropped for a whole session because it was never added, and the four
-    // --mosaic-* modifiers were still being accepted while --mosaic-out was refused.
+    // Refuse options for a subsystem that is not turned on, since they would have no effect.
     {
-        /// One subsystem's gate: the flag that turns it on, whether it is on, and which owner
-        /// tag the options that need it carry. Adding a subsystem is a row here and a value in
-        /// the enum; the options themselves already say which one they belong to.
-        struct OwnerGate {
+        // Each check names the option that turns some subsystems on, and says whether they are
+        // on. The read-likelihood genotyper contains all the other subsystems, so its check
+        // covers them all.
+        struct SubsystemCheck {
             const char* needs;
-            const char* preposition;
-            bool in_use;
-            CallOptionOwner owner;      ///< OWN_CORE means "every owner but OWN_CORE"
+            const char* preposition;    // joins the error message to `needs`
+            bool on;
+            set<string> subsystems;
         };
-        const OwnerGate gates[] = {
-            {"--read-likelihood", "to",   read_likelihood,      OWN_CORE},
-            {"--anchors-out",     "with", !anchors_out.empty(), OWN_ANCHORS},
-            {"--mosaic-out",      "with", !mosaic_out.empty(),  OWN_MOSAIC},
-            // `regenotype && read_phasing`, not `regenotype`: the preset can arm regenotyping
-            // and `--no-read-phasing` then disarm it again, and that resolution happens below
-            // this check. Testing the effective value keeps a `--regeno-*` flag from being
-            // accepted here and inert there.
-            {"--regenotype",      "with", regenotype && read_phasing, OWN_REGENOTYPE},
+        const SubsystemCheck checks[] = {
+            {"--read-likelihood", "to", read_likelihood,
+             {"read-likelihood", "anchors", "mosaic", "regenotype"}},
+            {"--anchors-out", "with", !anchors_out.empty(), {"anchors"}},
+            {"--mosaic-out", "with", !mosaic_out.empty(), {"mosaic"}},
+            // A preset can turn --regenotype on and --no-read-phasing then turns it off again
+            // (below), so we check the value that will take effect.
+            {"--regenotype", "with", regenotype && read_phasing, {"regenotype"}},
         };
-        for (const OwnerGate& gate : gates) {
-            if (gate.in_use) {
+        for (const SubsystemCheck& check : checks) {
+            if (check.on) {
                 continue;
             }
             vector<string> offenders;
             for (int val : options_seen) {
-                for (const CallOption* o = long_options; o->name != nullptr; ++o) {
-                    if (o->val != val) {
-                        continue;
-                    }
-                    const bool owned = gate.owner == OWN_CORE ? o->owner != OWN_CORE
-                                                              : o->owner == gate.owner;
-                    if (owned) {
-                        offenders.push_back(string("--") + o->name);
-                    }
-                    break;
+                auto subsystem = option_subsystem.find(val);
+                if (subsystem != option_subsystem.end() && check.subsystems.count(subsystem->second)) {
+                    offenders.push_back("--" + option_name.at(val));
                 }
             }
             if (offenders.empty()) {
@@ -1939,20 +1556,18 @@ int main_call(int argc, char** argv) {
             for (size_t i = 0; i < offenders.size(); ++i) {
                 joined << (i ? ", " : "") << offenders[i];
             }
+            // logger.error() exits, so only the first failing check reports. We check
+            // --read-likelihood first, because the user has to add it before any of the other
+            // switches can take effect.
             logger.error() << joined.str()
                            << (offenders.size() == 1 ? " only applies " : " only apply ")
-                           << gate.preposition << " " << gate.needs
+                           << check.preposition << " " << check.needs
                            << ", which was not given" << endl;
-            // `logger.error()` exits when its wrapper falls out of scope, so at most one gate
-            // ever reports. The order above is therefore the priority order, and
-            // `--read-likelihood` is deliberately first: a `--anchors-*` option with neither
-            // switch must name the one that has to be fixed before the other can matter.
         }
     }
 
-    // Validation: --read-likelihood needs reads, and cannot be combined with the
-    // support-based model selection flags. Failing here rather than later keeps a
-    // read-free "read-level" genotyping run from silently happening.
+    // --read-likelihood needs exactly one read source, and cannot be combined with the ratio or
+    // legacy support callers.
     if (read_likelihood) {
         int read_source_count = (gam_filename.empty() ? 0 : 1) + (gaf_filename.empty() ? 0 : 1) +
                                 (gaf_base_filename.empty() ? 0 : 1);
@@ -1971,35 +1586,14 @@ int main_call(int argc, char** argv) {
         }
     }
 
-    // Default allele enumeration for --read-likelihood on a GBZ that carries a haplotype
-    // panel: enumerate the traversals the panel actually spells, rather than every
-    // traversal the support flow permits.
-    //
-    // Measured on HG002 against HPRC graphs (chr20 and chr6, 4- and 34-haplotype), as
-    // haplotype enumeration against support enumeration under this caller: better small
-    // variant F1 in all four (0.9487 -> 0.9507, 0.9513 -> 0.9645, 0.9583 -> 0.9602,
-    // 0.9588 -> 0.9689), and better SV F1 in three of four (+0.0352, +0.0144, +0.0269),
-    // the exception being chr20 4-haplotype at -0.0018, which is under two events on a
-    // 765 event benchmark and below what it resolves. It also drops the pack file
-    // requirement, since nothing then consults support.
-    //
-    // Not made the default for the support caller, where the same comparison loses SV F1
-    // on all four datasets (0.4954 -> 0.4930, 0.4535 -> 0.4391, 0.5490 -> 0.5478,
-    // 0.4944 -> 0.4881); flipping it there would regress existing callers by as much as
-    // 0.0144, so -z stays opt-in outside this mode.
-    //
-    // Caveat worth knowing before trusting the default: enumeration from a panel cannot
-    // spell an allele no haplotype carries, so the ceiling is the panel's content. The
-    // numbers above are one sample against a panel that excludes it but represents its
-    // variation well, and a sample poorly represented in the panel would fare worse.
-    // --enumerate-support is the way out.
+    // Under --read-likelihood on a GBZ, take candidate alleles from the GBZ's haplotypes by default,
+    // as -z does, rather than from read support. This needs no pack file, but it can only offer
+    // alleles that some haplotype carries; --enumerate-support turns it off.
     if (read_likelihood && !gbz_paths && !enumerate_support && gbz_graph &&
         gbwt_filename.empty() && vcf_filename.empty()) {
-        // Only worth it if there is a panel to enumerate. A GBZ always has a GBWT, but it
-        // may hold nothing but reference paths, and enumerating from that would offer the
-        // reference allele and nothing else: silently near-zero alt recall, which is far
-        // worse than the support enumeration it replaced. One haplotype is not an error
-        // but is too thin to choose automatically; -z still forces it.
+        // A GBZ may carry only reference paths, which would offer nothing but the reference
+        // allele, so we only choose this automatically with at least two haplotypes. An
+        // explicit -z uses the haplotypes regardless.
         size_t panel = count_panel_haplotypes(*gbz_graph);
         if (panel >= 2) {
             gbz_paths = true;
@@ -2011,10 +1605,7 @@ int main_call(int argc, char** argv) {
                               << endl;
             }
             if (!pack_filename.empty()) {
-                // A pack is only ever consulted by support enumeration, so under this default
-                // it is dead weight. Passing one is a fair signal that support enumeration was
-                // what was wanted, and taking it without using it would leave the run quietly
-                // doing something other than what the command line asks for.
+                // Only support-based enumeration uses the pack file.
                 logger.warn() << "-k/--pack is unused when alleles come from the haplotype "
                               << "panel; pass --enumerate-support to enumerate from read "
                               << "support and use it" << endl;
@@ -2040,12 +1631,9 @@ int main_call(int argc, char** argv) {
     if (min_mismap_prob <= 0.0 || min_mismap_prob > max_mismap_prob) {
         logger.error() << "--mismap-min must be in (0, --mismap-max]" << endl;
     }
-    // A phase site is only ever a diploid heterozygote, and a balanced het halves the slot weight,
-    // so the per-read score cannot exceed phred(e / (e + (1 - e) / 2)) -- 10.21 at the ONT preset's
-    // 0.05, against the phred(e) = 13.01 that applies to homozygous sites. Above it NO site is
-    // reliable, `rel` is empty in every block, and all three phasing stages are skipped in silence.
-    // Refused rather than run: a sweep past the ceiling otherwise reports "0 reliable" and reads as
-    // the parameter not mattering.
+    // Refuse a --phase-min-q that no site can reach, since read phasing would then do nothing.
+    // Read phasing only uses diploid heterozygous sites, where a read's confidence is at most
+    // phred(e / (e + (1 - e) / 2)) for e = --mismap-min.
     {
         const double het_ceiling =
             -10.0 * log10(min_mismap_prob / (min_mismap_prob + (1.0 - min_mismap_prob) / 2.0));
@@ -2057,8 +1645,7 @@ int main_call(int argc, char** argv) {
         }
     }
 
-    // --gbz-base only says where to point the query; it means nothing without the read
-    // database that is being queried.
+    // --gbz-base only configures --gaf-base queries.
     if (!gbz_base_filename.empty() && gaf_base_filename.empty()) {
         logger.error() << "--gbz-base requires --gaf-base" << endl;
     }
@@ -2228,25 +1815,16 @@ int main_call(int argc, char** argv) {
                        << "Also see: https://github.com/vgteam/vg/wiki/Changing-References" << endl;
     }
 
-    // A gref cover changes what "nested" can mean. Chains the linear reference does not cross are
-    // skipped by default because their records have no REF and no POS -- but a gref fragment IS a
-    // contig, with its own coordinates, covering exactly the inserted sequence those chains live in.
-    // So selecting one is the signal to descend into them: it is the thing that makes them
-    // reportable, and asking for the cover and then not using it has no other reading.
-    //
-    // Prefix-selected covers are the normal case (`-P gref_CHM13#0#chr20_`), so this tests the
-    // resolved path list rather than the flags.
-    // Resolved once here and handed to the caller, rather than living in a file-scope `bool` with
-    // free accessors -- #4990's review named that as an anti-pattern, and unlike the counters this
-    // one controls scientific output. The env switch is the only way to get the linkage-only arm on
-    // a graph with no cover, which is what the two-arm comparisons are built on.
+    // Whether to genotype off-reference chains: nested chains that the reference paths do not
+    // pass through. Their variants have no position on the reference, so they only get VCF records
+    // when a gref fragment path (see gref.hpp) gives them a contig of their own. Selecting such a
+    // path as a reference turns this on, as does --anchors-out (below). VG_CALL_NO_REF_NESTED
+    // turns it on without either, for testing.
     bool off_ref_nesting = getenv("VG_CALL_NO_REF_NESTED") != nullptr;
 
     for (const string& ref_path : ref_paths) {
-        // A FRAGMENT, not merely a gref-derived name. The gref copy of a base contig is just the
-        // reference under another name and makes nothing new reportable, so selecting it alone must
-        // not turn the descent on -- on a graph that ships only the gref view of its reference,
-        // which is the ordinary case, that would enable it for every run including the control.
+        // Only a fragment counts. The gref copy of a base contig is the reference under another
+        // name, and gives no chain a contig of its own.
         if (GrefCover::is_gref_name(ref_path)) {
             off_ref_nesting = true;
             if (show_progress) {
@@ -2258,16 +1836,8 @@ int main_call(int argc, char** argv) {
         }
     }
 
-    // Anchors are not a reference-coordinate product. A chain the reference does not cross has no
-    // REF or POS and so can never reach the VCF, but it has reads, a genotype and a haplotype -- and
-    // for assembling a complex locus it is the population that matters most, because it is exactly
-    // the variation that sits inside a non-reference allele. Gating it on reference expressibility
-    // let the VCF's constraint decide what gets ANCHORED.
-    //
-    // So --anchors-out turns the descent on, and --no-off-ref-nesting turns it back off. Measured on
-    // chr20: 8,329 more snarls anchored, of which 1,009 heterozygous, and the phase chain goes
-    // 76,135 het sites to 77,374 with 492 more reliable. Purely additive -- not one of the 172,082
-    // existing snarls changed a slot.
+    // Off-reference chains have anchors even without VCF records, so --anchors-out turns their
+    // genotyping on unless --no-off-ref-nesting is given.
     if (!anchors_out.empty() && !no_off_ref_nesting) {
         off_ref_nesting = true;
         if (show_progress) {
@@ -2276,16 +1846,11 @@ int main_call(int argc, char** argv) {
         }
     }
 
-    // How deep in non-reference sequence each selected gref contig sits, so INFO/CH can say so
-    // without depending on which of a record's ancestors happened to be emitted.
-    //
-    // The cover is node-disjoint, so the node a fragment's first node hangs off belongs to exactly
-    // one gref interval, and that interval is its parent -- which is `assign_nesting()`'s rule
-    // ("walk up until reaching a snarl whose boundary nodes are owned by some gref interval")
-    // answered locally instead of over the snarl tree. A fragment off the base reference is 1, one
-    // inside a level-1 fragment is 2, and the base contig itself is 0.
-    //
-    // Keyed by LOCUS, because that is what reaches the VCF's CHROM column.
+    // For INFO/CH: how many levels of non-reference sequence each selected gref contig lies in,
+    // keyed by the contig name the VCF uses. A base contig is level 0, a fragment attached to the
+    // base reference is level 1, a fragment attached to a level-1 fragment is level 2, and so on.
+    // The cover's paths share no nodes, so a fragment's parent is the gref path that owns a node
+    // next to one of the fragment's ends.
     map<string, int> gref_levels;
     if (off_ref_nesting && graph != nullptr) {
         auto gref_owner = [&](handle_t h) {
@@ -2304,7 +1869,7 @@ int main_call(int argc, char** argv) {
         unordered_set<string> in_progress;
         std::function<int(const string&)> level_of = [&](const string& path_name) -> int {
             if (!GrefCover::is_gref_name(path_name)) {
-                return 0;   // a base contig, or the gref copy of one: the outermost system
+                return 0;   // a base contig, or the gref copy of one
             }
             auto seen = by_path.find(path_name);
             if (seen != by_path.end()) {
@@ -2337,8 +1902,9 @@ int main_call(int argc, char** argv) {
                 }
             }
             if (level == 0) {
-                // Its neighbours are in no interval -- short runs the length filter dropped. It is
-                // still a fragment, so it is still at least one layer in.
+                // No neighbour is on another gref path, as when the neighbouring fragment was
+                // shorter than the minimum fragment length and was not written. It is still a
+                // fragment, so it is at least level 1.
                 level = 1;
             }
             in_progress.erase(path_name);
@@ -2419,10 +1985,7 @@ int main_call(int argc, char** argv) {
             extra_node_weight[graph->get_id(graph->get_handle_of_step(graph->path_back(refpath_handle)))] += EXTRA_WEIGHT;
         }        
         IntegratedSnarlFinder finder(*graph, extra_node_weight);
-        // After the decomposition, not after the finder's constructor. The finder is cheap and the
-        // decomposition is not: on chr20 it is 46 s of a 197 s run, and printing "Computed snarls"
-        // in front of it left the log claiming the step was done while a single thread spent a
-        // quarter of the wall clock on it.
+        // The decomposition happens in find_snarls_parallel(), so we report after it.
         snarl_manager = unique_ptr<SnarlManager>(new SnarlManager(std::move(finder.find_snarls_parallel())));
         if (show_progress) logger.info() << "Computed snarls" << endl;
     }
@@ -2440,17 +2003,16 @@ int main_call(int argc, char** argv) {
     unique_ptr<EditAlignmentScorer> plain_scorer;
     unique_ptr<AlleleLikelihoodCalculator> likelihood_calculator;
     unique_ptr<ofstream> likelihood_dump;
-    // Read-level genotyping can run without a pack file, but only when allele
-    // enumeration does not need support either. GBWTTraversalFinder enumerates from
-    // recorded haplotypes, so it needs none; FlowTraversalFinder is driven entirely
-    // by node and edge weights, so it does.
+    // The read-likelihood genotyper can run without a pack file if allele enumeration does not
+    // need support either: GBWTTraversalFinder enumerates from haplotypes and needs none, while
+    // FlowTraversalFinder works from node and edge support.
     bool gbwt_enumeration = !gbwt_filename.empty() || gbz_paths;
     bool support_free = read_likelihood && pack_filename.empty();
 
     if (!pack_filename.empty() || support_free) {
         if (support_free) {
-            // Nothing downstream will consult support: stand in a finder that
-            // reports none rather than requiring a pack file for its own sake.
+            // Nothing downstream consults support, so a finder that reports none stands in
+            // for a pack file.
             support_finder.reset(new NullTraversalSupportFinder(*graph, *snarl_manager));
         } else {
             // Load our packed supports (they must have come from vg pack on graph)
@@ -2479,22 +2041,17 @@ int main_call(int argc, char** argv) {
         SupportBasedSnarlCaller* packed_caller = nullptr;
 
         if (read_likelihood) {
-            // Read-level genotyping. The pack file is still required, but only so
-            // FlowTraversalFinder has node/edge weights to *enumerate* alleles
-            // with; the genotyping itself uses no support at all.
+            // Read-likelihood genotyping. Support from a pack file, if given, is only used to
+            // enumerate candidate alleles.
             if (show_progress) logger.info() << "Loading reads for read-level genotyping" << endl;
 
             SiteReadFilter read_filter;
             read_filter.min_mapq = read_min_mapq;
 
             if (!gaf_base_filename.empty()) {
-                // GAF-Base: reads are fetched per window by running gbz-base. A runtime
-                // dependency on that binary, and no build dependency at all.
-                //
-                // The query needs a graph to resolve node IDs against. Default to the
-                // graph vg call was given, which is usually the right one and is
-                // certainly the right *graph*; but a GBZ-Base is random-access where a
-                // plain GBZ is loaded in full on every query, so say so.
+                // GAF-Base: reads are fetched per window by running gbz-base, which resolves
+                // node IDs against --gbz-base or else the input graph. A GBZ-Base is read
+                // randomly, while a plain GBZ is loaded in full on every query.
                 string query_graph = gbz_base_filename.empty() ? graph_filename
                                                                : gbz_base_filename;
                 if (read_window_size == 0) {
@@ -2505,10 +2062,8 @@ int main_call(int argc, char** argv) {
                                                                  read_window_size, 2,
                                                                  gaf_base_binary);
                 read_source.reset(gaf_base_source);
-                // Probe now, on the main thread. A missing binary or an unreadable
-                // database is the user's setup, not a vg bug, so report it as an error
-                // and exit rather than letting the exception out to the crash handler --
-                // which would print a bug-report banner for "install gbz-base".
+                // Check the setup now, so that a missing binary or unreadable database is
+                // reported as a user error rather than as a crash.
                 try {
                     gaf_base_source->check_setup();
                 } catch (const std::exception& e) {
@@ -2525,8 +2080,8 @@ int main_call(int argc, char** argv) {
                     }
                 }
             } else if (!gam_index_filename.empty()) {
-                // Indexed: reads are fetched per site, so memory is bounded by what a
-                // site needs rather than by the size of the read set.
+                // Indexed: reads are fetched as the sites need them, so memory is bounded by
+                // what the sites need rather than by the size of the read set.
                 if (read_window_size == 0) {
                     read_window_size = DEFAULT_GAM_INDEX_WINDOW;
                 }
@@ -2571,10 +2126,7 @@ int main_call(int argc, char** argv) {
             likelihood_params.insertion_gap_nats = insertion_gap_nats;
             likelihood_params.realign = realign;
             likelihood_params.collect_anchors = anchor_params.enabled;
-            // One instance, owned here, reached by both subsystems through the parameter objects
-            // that already configure them. It used to be a function-local static behind a free
-            // `anchor_counters()` accessor, which made the anchor subsystem un-re-entrant and put
-            // its state out of reach of the code that owns the run.
+            // The likelihood calculator and the anchor writer count into the same counters.
             likelihood_params.anchor_counters = &anchor_run_counters;
             anchor_params.counters = &anchor_run_counters;
             likelihood_params.collect_read_phasing = read_phasing;
@@ -2643,12 +2195,12 @@ int main_call(int argc, char** argv) {
     if (support_free) {
         if (!gbwt_enumeration) {
             logger.error() << "--read-likelihood without -k/--pack requires haplotype-based allele "
-                           << "enumeration (-g/--gbwt or -z/--gbz); otherwise a pack file is needed "
-                           << "for the flow traversal finder's node and edge weights" << endl;
+                           << "enumeration (-g/--gbwt or -z/--gbz); support-based enumeration needs "
+                           << "a pack file" << endl;
         }
         if (!vcf_filename.empty()) {
             // VCFTraversalFinder prunes alt paths on support before its brute-force
-            // enumeration, so -v genuinely needs a pack file.
+            // enumeration, so -v needs a pack file.
             logger.error() << "-v/--vcf with --read-likelihood requires -k/--pack" << endl;
         }
         if (bottom_up) {
@@ -2786,43 +2338,21 @@ int main_call(int argc, char** argv) {
         }
     }
 
-    // Every caller built above derives from VCFOutputCaller, and `graph_caller` is not assigned
-    // again below this point, so the cast is done once. Null means a caller that emits no VCF,
-    // which several of the options below treat as "the default declines" rather than as an error --
-    // so the per-option null handling stays exactly where it is.
-    // The default depends on where the traversals come from, because the cap's own reason to
-    // exist does.
-    //
-    // OFF under --read-likelihood with panel enumeration. There the traversals come from the
-    // haplotypes, the per-snarl cost has been indexed down to roughly what the work-count
-    // predicts, and the whole of what the old 10000 declined -- 14 loci on the 34-haplotype
-    // short-read chr20 graph, 7 on the 16-haplotype ONT one -- now costs about 49 s. A caller
-    // should not silently refuse a site.
-    //
-    // KEPT at 10000 wherever the traversals come from Yen's k-widest-paths with K = 50: the
-    // support callers, and --read-likelihood under --enumerate-support or on a GBZ too thin to
-    // enumerate from. `greedy_avg_flow` is consumed there, and the cap's comment -- "non-nested
-    // FlowCaller doesn't handle large snarls" -- was written about that path. Lifting it under
-    // --enumerate-support takes chr20 short reads from 157 s to 872 s wall and 6.8 to 8.6 GB peak,
-    // almost all of it one thread inside Yen's search on the pericentromeric giants, for the same
-    // small-variant TP/FN/FP to the record and one more SV false positive.
-    //
-    // Also kept for the support callers under -z/-g, which do enumerate from a panel: that
-    // configuration was not part of the measurement above.
+    // By default, snarls have no size cap when the read-likelihood genotyper takes alleles from
+    // haplotypes. Everywhere else they are capped at 10000 edges, which keeps Yen's traversal
+    // search off very large snarls.
     if (!max_snarl_edges_explicit) {
         max_snarl_edges_opt = (read_likelihood && gbwt_enumeration) ? 0 : 10000;
     }
-    // Applied here rather than through a constructor argument: three of the branches above build
-    // a FlowCaller and none of them takes the cap, so one cast after the fact keeps the option in
-    // one place. A caller that is not a FlowCaller has no such cap to set.
+    // The FlowCaller constructors do not take the cap, so we set it on whichever one was built.
     if (FlowCaller* flow_caller = dynamic_cast<FlowCaller*>(graph_caller.get())) {
         flow_caller->set_max_snarl_edges(max_snarl_edges_opt);
     }
 
+    // The caller as a VCFOutputCaller, or null if it does not write VCF.
     VCFOutputCaller* const vcf_out = dynamic_cast<VCFOutputCaller*>(graph_caller.get());
 
-    // Per-region ploidy, if given. Applied to whichever caller was built: every one of them
-    // derives from VCFOutputCaller, which is where the override map and its lookup live.
+    // Per-region ploidy, if given.
     if (!ploidy_bed_filename.empty()) {
         VCFOutputCaller* ploidy_target = vcf_out;
         if (ploidy_target == nullptr) {
@@ -2832,120 +2362,60 @@ int main_call(int argc, char** argv) {
         ploidy_target->set_ploidy_regions(ploidy_bed_filename);
     }
 
-    // Symbolic collapsing. A called traversal that takes the same route through a snarl as the
-    // reference, differing only inside child chains, is the reference allele there; emitting it as
-    // a long ALT is what buries the nested variants it contains.
-    //
-    // On by default under --read-likelihood, and declining rather than erroring elsewhere. It is
-    // only measured there: every arm behind the numbers in doc/read-likelihood-genotyping.md runs
-    // that model, and turning it on for the support-based caller would change the legacy default's
-    // output on no evidence. An explicit --nested still works anywhere, as it did when it was opt-in.
+    // Nested calling: a called traversal that takes the reference's route through a snarl,
+    // differing only inside nested snarls, is called as the reference allele, and the differences
+    // are called at the nested snarls. It is on by default only for the read-likelihood genotyper;
+    // other callers use it when --nested is given.
     if (nested_calling && !nested_explicit && !read_likelihood) {
         nested_calling = false;
     }
-    // -A and symbolic nested calling are two different ways to reach a child snarl, and running
-    // both visits every nested snarl TWICE. `-A` sets RecurseAlways, so GraphCaller queues each
-    // child as its own snarl and it lands at generation 0; the symbolic descent then retains the
-    // same child as a generation-1 chain. Both hash the same print_snarl string, so both take the
-    // same record_key -- and LinkageCollector::live_index returns the FIRST non-retracted entry
-    // for a key, so which of the two describes the site depends on insertion order, which is
-    // thread assignment. Measured on the nestblk fixture at -t 1: six VCF lines in three identical
-    // pairs, the top-level record absent, and nested chains called `1|1` where --nested gives
-    // `1|.`.
-    //
-    // --top-down resolves the same conflict the other way, taking RecurseNever with the note that
-    // "FlowCaller handles recursion internally". -A cannot: its contract is that every snarl is an
-    // INDEPENDENT record, which is precisely a statement that the nesting relationship is not
-    // used, and the descent's pruning would make "all snarls" untrue.
-    //
-    // -A is from 2021 and predates both the descent and its default, so this restores what -A did
-    // before nested calling became automatic under --read-likelihood.
-    // Refused rather than declined: `--regenotype` without read phasing is not a weaker version
-    // of the feature, it is the identity. `Lambda` comes from the phasing chain, and with no chain
-    // every read's strand log-odds is zero, every tilted weight is the site's own weight, and the
-    // correction is exactly zero at every site. Running it would burn a pass to change nothing
-    // while the flag says otherwise.
-    // Refused under --top-down, and this is the one place the nested story genuinely breaks.
-    //
-    // The read-likelihood descent hands a child `nullptr` for its traversal sets, so the child
-    // enumerates its own candidates and a parent moving changes only its PLOIDY -- which the
-    // barrier re-derives. `--top-down` is the other path: it builds `ChildTraversalSets` from
-    // `trav_genotype`, the parent's CALLED genotype, and those sets decide the child's ploidy,
-    // are merged into its candidate list, and supply its pseudo-reference. Move the parent there
-    // and the child was never scored against the alleles the parent now carries -- which no
-    // amount of re-resolving repairs, because the columns were never in `rel`.
-    //
-    // --bottom-up is refused for a duller reason: it builds NestedFlowCaller, which is not a
-    // FlowCaller, so `render_retained_records` never runs and the flag would do nothing at all.
-    // --phase-min-q thresholds a quantity the WALK produces, so its default follows the walk
-    // rather than the preset. The exact walk finds the best correspondence against every allele,
-    // the wrong one included, so the winning allele's share of a read falls and every per-read
-    // score with it -- chr20 ONT median 10.06 under greedy against 8.98 under --realign. The
-    // 9.5 fitted against greedy therefore sits ABOVE almost the whole distribution once the walk
-    // changes, and only 5.9% of heterozygous sites stay eligible to carry a phase link, against
-    // 77.4%. Switch error 0.3545% -> 0.5794%.
-    //
-    // Re-fitted on chr20 and confirmed on chr6: 0.5794% -> 0.3826%, with indel F1 unmoved. 8.0
-    // through 9.0 are one plateau and the measurement cannot separate them; 8.5 is its midpoint
-    // and sits below the 25th percentile of the reliability distribution rather than on its
-    // median, which is the mistake being corrected -- a threshold placed where a distribution can
-    // move across it. See docs/phase-min-q-refit.md in the eval repo.
-    //
-    // Keyed on `realign` and not on the preset, because `--read-phasing --realign` without the
-    // preset wants the same value, and `--read-phasing` alone still wants 9.5.
+    // --realign also finds good pairings for the alleles a read did not come from, which lowers
+    // reads' confidence at heterozygous sites, so --phase-min-q has a lower default with it.
     if (realign && !phase_min_q_explicit) {
         read_phasing_params.reliability = 8.5;
     }
+    // Re-genotyping happens in FlowCaller::render_retained_records(). --bottom-up uses
+    // NestedFlowCaller, which does not have it. --top-down gives each child snarl candidate
+    // traversals derived from its parent's called genotype, so changing that genotype afterwards
+    // would leave the child genotyped against the wrong alleles.
     if (regenotype && (top_down || bottom_up)) {
         cerr << "error [vg call]: --regenotype cannot be combined with "
              << (top_down ? "--top-down" : "--bottom-up") << "; "
              << (top_down
                  ? "--top-down derives each child's candidate traversals from its parent's called"
-                   " genotype, so moving a parent leaves children scored against alleles it no"
-                   " longer carries, and nothing downstream can repair that"
-                 : "--bottom-up uses a caller that does not run the render pass this needs, so the"
-                   " flag would be silently inert")
+                   " genotype, so re-genotyping a parent would leave its children genotyped against"
+                   " alleles it no longer carries"
+                 : "--bottom-up uses a caller that cannot re-genotype")
              << endl;
         return 1;
     }
-    // --anchors-hom-split splits a homozygous site by the reads' CROSS-SITE phase, and that
-    // log-odds comes from the read-phasing chain: with no phasing, `read_strand_log_odds` returns
-    // 0.0 for every read, no site clears `phase_min` on either side, and nothing splits. The flag
-    // was accepted, ran, split nothing, and reported the reads as having no opinion -- which blamed
-    // the data for a missing switch. Refused rather than silently disarmed because, unlike
-    // --regenotype, no preset turns this on, so asking for it is always deliberate.
+    // Splitting homozygous sites, placing heterozygous reads by phase, and re-genotyping all use
+    // each read's strand log-odds, which read phasing computes.
     if (anchor_params.hom_split && !read_phasing) {
-        cerr << "error [vg call]: --anchors-hom-split needs --read-phasing; the split is decided by"
-             << " each read's phase across the OTHER sites it crosses, so without a phasing chain"
-             << " there is nothing to split on and every site would stay collapsed" << endl;
+        cerr << "error [vg call]: --anchors-hom-split needs --read-phasing, which gives each read"
+             << " the strand log-odds the split uses" << endl;
         return 1;
     }
-    // Same dependency as --anchors-hom-split and for the same reason: the tilt is the read's
-    // strand log-odds, which is identically 0.0 for every read with no phasing chain. The flag
-    // would be accepted, run, and change nothing.
-    // Only when ASKED for. The tilt is on by default and is exactly inert without a phasing chain
-    // -- every read's strand log-odds is then 0.0, which the placement already treats as "no
-    // opinion" -- so refusing on the default would break every unphased run to prevent nothing.
-    // Asking for it explicitly is a different matter: that is a request the run cannot honour.
+    // Placing heterozygous reads by phase is on by default, and has no effect without read
+    // phasing, so we only refuse it when it was asked for.
     if ((anchor_params.phase_hets || anchor_params.strict_hets) && phase_hets_explicit
         && !read_phasing) {
-        cerr << "error [vg call]: --anchors-phase-hets / --anchors-strict-hets need --read-phasing;"
-             << " the strand is each read's phase across the OTHER sites it crosses, so without a"
-             << " phasing chain every read's log-odds is zero and the flag would be inert" << endl;
+        cerr << "error [vg call]: --anchors-phase-hets / --anchors-strict-hets need --read-phasing,"
+             << " which gives each read the strand log-odds they use" << endl;
         return 1;
     }
+    // An explicit --regenotype without read phasing is an error. One set by a preset is turned
+    // off, as with --preset ont --no-read-phasing.
     if (regenotype && !read_phasing) {
         if (regenotype_explicit) {
-            cerr << "error [vg call]: --regenotype needs --read-phasing; the correction is"
-                 << " computed from the phasing chain, so without one it is the identity" << endl;
+            cerr << "error [vg call]: --regenotype needs --read-phasing, which gives each read"
+                 << " the strand log-odds it uses" << endl;
             return 1;
         }
-        // Armed by the preset, and the same preset's phasing has been switched off by hand --
-        // `--preset ont --no-read-phasing`. Declining is right: the user turned off the thing this
-        // is computed from, and erroring on a flag they never typed would make a documented
-        // combination fail.
         regenotype = false;
     }
+    // -A already calls every nested snarl as a snarl of its own, so with nested calling each would
+    // be called twice.
     if (nested_calling && all_snarls) {
         if (nested_explicit) {
             cerr << "error [vg call]: -A/--all-snarls calls every snarl independently while"
@@ -2953,12 +2423,11 @@ int main_call(int argc, char** argv) {
                  << " combination" << endl;
             return 1;
         }
-        nested_calling = false;   // the default declines, as it does for the support caller
+        nested_calling = false;
     }
     {
-        // The confidence threshold also to the output layer: a record whose GQN the linkage layer
-        // re-derives has to be re-labelled against the same number the per-site emission used,
-        // rather than cleared to PASS regardless.
+        // The linkage model can change a record's GQN, so the output caller re-applies the lowconf
+        // filter with the same threshold.
         VCFOutputCaller* confidence_target = vcf_out;
         if (confidence_target != nullptr) {
             confidence_target->set_linkage_min_confidence(min_confidence);
@@ -2971,29 +2440,20 @@ int main_call(int argc, char** argv) {
                 cerr << "error [vg call]: --nested needs a caller that emits VCF" << endl;
                 return 1;
             }
-            nested_calling = false;   // the default declines
+            nested_calling = false;
         }
     }
+    // Block emission splits up the records of nested calling, so it needs nested calling and a
+    // caller that writes VCF. The checks that depend only on the options were made before
+    // the graph was loaded.
     if (atomize_blocks) {
-        // Refused, not silently declined. Each of these would produce a record set the flag's own
-        // contract does not describe, and a silent decline is how a measurement ends up being of
-        // something other than what it was labelled.
-        //
-        // -a/--genotype-snarls is the sharpest: its record set is meant to be sample-independent,
-        // one line per snarl, and the harness reads a `-a -A` run as a snarl inventory. A block
-        // list is a function of the called haplotypes, so it cannot be sample-independent. Note
-        // that nested calling is ON by default under --read-likelihood and is NOT cleared by -a,
-        // so this cannot be left to the nested-calling gate below.
-        // The two purely-option refusals are checked at option-validation time above, so they
-        // fire before a graph is loaded. What is left here depends on constructed state.
         if (!nested_calling) {
             if (atomize_explicit) {
-                cerr << "error [vg call]: --atomize-blocks needs symbolic nested calling, which is"
-                     << " on by default under --read-likelihood; pass --nested to enable it"
-                     << " elsewhere" << endl;
+                cerr << "error [vg call]: --atomize-blocks needs nested calling (--nested), which is"
+                     << " on by default under --read-likelihood" << endl;
                 return 1;
             }
-            atomize_blocks = false;   // the default declines, as --nested does
+            atomize_blocks = false;
         }
         VCFOutputCaller* atomize_target =
             atomize_blocks ? vcf_out : nullptr;
@@ -3009,46 +2469,26 @@ int main_call(int argc, char** argv) {
         }
     }
 
+    // Nested calling would apply to only some sites under -I, for the reason given for
+    // --atomize-blocks above. This check does not depend on VCF output, since -I is mostly used
+    // with GAF output.
     if (nested_calling && call_chains) {
-        // Declined BEFORE the arming below rather than undone after it, and outside the
-        // `if (!gaf_output)` block where the first version of this sat: -I exists for GAF output
-        // (commit 8d34aceab, "call chains instead of snarls when writing GAF"), so a decline that
-        // fires only for VCF misses the mode the flag is actually used in. Measured before the
-        // move: `-I --nested` exited 1 while `-G -I --nested` exited 0 and descended.
-        //
-        // The reason is NOT "no site resolves". That was wrong, and measurably so. `break_chain`
-        // packs a chain into pieces of up to 1,000 edges, and a piece holding exactly ONE snarl
-        // yields a fabricated Snarl value-identical to the managed one, which `resolve_site`
-        // accepts -- so collapsing and descent work there. On the `nestblk` fixture `-G -I` retains
-        // 2 nested chains and emits 6 GAF lines against 4 with --no-nested.
-        //
-        // What is true is worse for being intermittent: whether a site resolves depends on how
-        // `break_chain` happened to pack the chain, which is graph topology against a hard-coded
-        // edge budget, not anything the data says. So nested calling silently works on some sites
-        // and not others within one run, and no output distinguishes the two.
         if (nested_explicit) {
-            cerr << "error [vg call]: --nested cannot be combined with -I/--chains, which calls a"
-                 << " fabricated snarl spanning a chain piece; only a piece holding a single snarl"
-                 << " resolves, so nested calling would apply to an arbitrary subset of sites"
-                 << endl;
+            cerr << "error [vg call]: --nested cannot be combined with -I/--chains, which calls"
+                 << " pieces of chains; nested calling would apply only at pieces that hold a"
+                 << " single snarl" << endl;
             return 1;
         }
         nested_calling = false;
         if (show_progress) {
-            logger.info() << "Nested calling declines under -I/--chains: a chain piece is called as"
-                          << " a fabricated snarl, and only a single-snarl piece resolves" << endl;
+            logger.info() << "Nested calling is off under -I/--chains, which calls pieces of chains"
+                          << " rather than snarls" << endl;
         }
     }
 
     if (nested_calling) {
         VCFOutputCaller* nested_target = vcf_out;
         nested_target->set_symbolic_collapsing(snarl_manager.get());
-        // A nested site's ploidy comes from a parent genotype linkage can afterwards invalidate,
-        // so descent asks the genotyper for both ploidies' answers at once, from the matrix it has
-        // already built -- per call, via set_want_alt_ploidy, so nothing needs arming here. The
-        // barrier then settles the ploidy and renders the record at it, which is why the second
-        // answer is load-bearing rather than diagnostic and why the INFO/NGT2 field that used to
-        // report it is gone: the caller acts on it instead of describing it.
     }
 
     // Owned here because write_variants(), at the very end of main, consumes the collector.
@@ -3060,72 +2500,45 @@ int main_call(int argc, char** argv) {
         // Init The VCF       
         VCFOutputCaller* vcf_caller = vcf_out;
         assert(vcf_caller != nullptr);
-        // Make sure we get the LV/PS tags with -A, --top-down, or --bottom-up -- and under a gref
-        // cover, where a record's contig no longer says where it sits. On a linear reference every
-        // record is on the contig and nesting is a detail; with a cover, a record on
-        // gref_CHM13#0#chr20_4_alt is INSIDE an insertion, and LV/CH/PS are how a consumer says so.
-        // The gref wiki's own filtering recipe is `bcftools view -i 'INFO/CH==1'`, and without this
-        // it selected nothing.
-        //
-        // NOT on for every --read-likelihood run. Its descent emits nested records on the ordinary
-        // path too and they are equally untagged, so there is a case for it -- but it would add INFO
-        // to every nested record of every existing run, which is a change to make deliberately and
-        // measure, not to fold into gref support.
+        // Write the nesting INFO tags (such as LV and PS) with -A, --top-down or --bottom-up, and
+        // when off-reference chains are genotyped: a record on a gref fragment contig lies inside
+        // a non-reference allele, and only these tags say so.
         vcf_caller->set_nested(all_snarls || top_down || bottom_up
                                || off_ref_nesting);
         vcf_caller->set_off_reference_nesting(off_ref_nesting);
         vcf_caller->set_gref_levels(std::move(gref_levels));
         vcf_caller->set_translation(translation.get());
 
-        // Linkage pass. Needs both -z and --read-likelihood: the panel matrix comes from asking
-        // which GBWT haplotypes traverse each allele, so without haplotype enumeration there is no
-        // panel, and the emission is the read-likelihood model's own ln P(reads | G), so without
-        // that there is nothing for the transition to reweight. Kept alive to the end of main
-        // because write_variants() consumes it.
-        //
-        // The --read-likelihood half is asserted here rather than left to the dynamic_cast in
-        // emit_variant. That cast already fails on the Poisson path, so the layer was inert there
-        // by accident: calls came out byte-identical, but the setup ran and the diagnostic reported
-        // "0 sites" on every -z run. Inert on purpose reads better than inert by luck, and it
-        // survives someone giving the Poisson path a richer CallInfo later.
-        // The layer declines first, so everything built on it can see whether it survived. This
-        // used to run after the two checks below, which was harmless only while phasing was opt-in:
-        // with phasing on by default, testing linkage_weight before the decline would refuse every
-        // run without a panel instead of quietly emitting unphased calls.
+        // The linkage model compares genotypes with the haplotypes (-z or -g), and uses the
+        // read-likelihood genotyper's likelihoods. Without both, the default weight is set to 0
+        // and an explicit weight is an error. This is decided first because phasing, the mosaic
+        // and nested calling depend on it.
         if (linkage_weight > 0.0 && !(gbwt_index != nullptr && read_likelihood)) {
             if (linkage_weight_explicit) {
                 cerr << "error [vg call]: --linkage-weight needs haplotype enumeration (-z or -g) "
                      << "and --read-likelihood" << endl;
                 return 1;
             }
-            linkage_weight = 0.0;   // the default declines; only an explicit request is an error
+            linkage_weight = 0.0;
         }
         if (!anchors_out.empty() && !read_likelihood) {
-            // Always an explicit request -- a path was named -- so always an error rather than a
-            // silent downgrade. The partition is the per-read/per-allele responsibility, which only
-            // the read-likelihood caller computes.
-            logger.error() << "--anchors-out needs --read-likelihood: the anchor partition is the "
-                           << "read/allele likelihood matrix, which no other caller builds" << endl;
+            // Anchors need the read-likelihood genotyper's per-read allele likelihoods.
+            logger.error() << "--anchors-out needs --read-likelihood, which computes the per-read "
+                           << "allele likelihoods the anchors are built from" << endl;
         }
         if (!mosaic_out.empty() && linkage_weight <= 0.0) {
-            // Always an explicit request -- a path was named -- so always an error.
+            // The mosaic is built from the linkage model's phasing.
             logger.error() << "--mosaic-out needs the linkage model, which needs haplotype "
                            << "enumeration (-z or -g) and --read-likelihood" << endl;
         }
         if (!mosaic_out.empty() && phased_explicit && !phased_output) {
-            // Both are explicit and they contradict: a mosaic IS the phasing, written per strand,
-            // so it cannot be produced without one. `set_mosaic_out` turns phasing back on, which
-            // means the pair used to run with `--no-phased` quietly ignored -- the one place this
-            // option layer let an explicit flag be overridden instead of refused.
-            logger.error() << "--mosaic-out and --no-phased contradict: the mosaic is the phased "
-                           << "result, one walk per strand, so there is nothing to write without "
-                           << "the phasing" << endl;
+            // The mosaic is written from the phasing, so it cannot be written without it.
+            logger.error() << "--mosaic-out cannot be combined with --no-phased, because the mosaic "
+                           << "is written from the phasing" << endl;
         }
         if (phased_output && linkage_weight <= 0.0) {
-            // Phasing is the linkage layer's Viterbi path, so without the layer there is no path to
-            // emit. Asked for outright that is an error, because silently writing unphased output
-            // would look like the flag had worked; on by default it declines the same way the layer
-            // itself does.
+            // Phasing comes from the linkage model. Without it, an explicit --phased is an error,
+            // and the default is turned off.
             if (phased_explicit) {
                 logger.error() << "--phased needs the linkage model, which needs haplotype "
                                << "enumeration (-z or -g) and --read-likelihood" << endl;
@@ -3133,51 +2546,34 @@ int main_call(int argc, char** argv) {
             phased_output = false;
         }
         if (nested_calling && linkage_weight > 0.0 && !phased_output) {
-            // Linkage on, phasing off: the one configuration nested descent cannot serve.
-            //
-            // A child's ploidy and strand come from its parent's *settled* genotype, and where the
-            // linkage layer runs that genotype is only pinned down once the layer has phased it --
-            // the settled allele pair lives in the phasing. Without it the choices are to descend
-            // from the pre-linkage genotype, which is the incoherence this design exists to remove,
-            // or to defer and then drop every child whose parent cannot be found.
-            //
-            // Declines or errors on the same rule the rest of this option layer uses: an explicit
-            // --nested has to fail loudly, because silently dropping it would look like it worked,
-            // while the default turns itself off and says so. Before this it printed a warning and
-            // carried on, which left a run differing from its neighbour only by --no-phased quietly
-            // emitting nested records at a ploidy their own parents contradicted.
+            // Where the linkage model runs, a nested site's ploidy and strand come from its
+            // parent's phased genotype, so nested calling needs phasing. An explicit --nested is
+            // an error; the default is turned off.
             if (nested_explicit) {
                 cerr << "error [vg call]: --nested needs --phased where the linkage model runs, "
                      << "because a nested site's ploidy and strand come from its parent's phased "
                      << "genotype" << endl;
                 return 1;
             }
-            // Undone on the caller, not just in this flag. The caller was configured for nested
-            // calling further up -- symbolic collapsing on -- because whether phasing would run was
-            // not settled then. Clearing the flag alone would leave symbolic collapsing armed,
-            // which is what *enables* descent, so the run would still descend, inline, from
-            // genotypes linkage then rewrote: precisely the configuration being refused.
+            // Symbolic collapsing, which turns on nested calling in the caller, was set up above,
+            // so it has to be turned off there too.
             nested_calling = false;
             VCFOutputCaller* nested_target = vcf_out;
             if (nested_target != nullptr) {
-                // Disarming collapsing is what disarms descent, and descent is the only thing that
-                // ever requests the alternate ploidy (set_want_alt_ploidy is per call), so no
-                // second knob needs unwinding here.
                 nested_target->set_symbolic_collapsing(nullptr);
             }
             if (show_progress) {
-                logger.info() << "Nested calling declines under --no-phased: a nested site's ploidy "
+                logger.info() << "Nested calling is off under --no-phased: a nested site's ploidy "
                               << "and strand come from its parent's phased genotype" << endl;
             }
         }
         if (linkage_weight > 0.0) {
-            // A haplotype is (sample, phase); a GBWT sequence is one orientation of one path, and
-            // a haplotype in several fragments owns several paths. Collapse all of them onto one
-            // index, or the panel would double-count a fragmented haplotype and treat its pieces
-            // as independent evidence.
+            // Map each GBWT sequence to the index of its haplotype in the panel. A haplotype is a
+            // (sample, phase) pair, and may be stored as several paths (one per contig or
+            // fragment), each with a sequence per orientation. They all get the same index, so a
+            // haplotype counts once.
             const gbwt::Metadata& meta = gbwt_index->metadata;
-            // Which base samples the graph carries in their own right, so a gref copy of one can be
-            // told from a gref copy of one that is absent.
+            // The samples that are not gref-derived; see below.
             unordered_set<string> base_samples;
             for (gbwt::size_type i = 0; i < meta.sample_names.size(); ++i) {
                 const string s = meta.sample(i);
@@ -3189,25 +2585,12 @@ int main_call(int argc, char** argv) {
             linkage_sequence_to_haplotype.assign(gbwt_index->sequences(), 0);
             for (gbwt::size_type path = 0; path < meta.paths(); ++path) {
                 const gbwt::PathName& name = meta.path(path);
-                // The cover's FRAGMENTS are not a haplotype, and they reach this loop because the
-                // panel is built from every GBWT path regardless of sense. They all carry sample
-                // "gref_<REF>" and phase 0, so they would collapse onto ONE panel index: an
-                // individual stitched greedily from whichever donor had the longest uncovered run at
-                // each site. Letting Li-Stephens copy from that chimera moved 8.82% of chr20's
-                // genotypes and lost 298 sites, and it was the ONLY cause -- the 13,711
-                // off-reference chains gref makes reportable left the contig byte-identical.
-                //
-                // The gref COPY OF A BASE CONTIG is a different thing: it is the reference, renamed,
-                // one contig with one walk. It is kept unless the base path is also in the graph, so
-                // the reference sits in the panel exactly ONCE either way. Both layouts occur --
-                // `GrefCover::apply()` documents writing the reference twice, but a graph can ship
-                // carrying only the gref view, and then dropping it would take a real haplotype out
-                // of the panel. Measured on hprc-v2.1-mc-chm13-eval.gref.HG002.hap32.gbz, which has
-                // no CHM13 path at all: keeping it is the difference between panel 34 and 33.
-                //
-                // WILDCARD rather than skipping: the vector defaults to 0, so a gref sequence left
-                // unwritten would reach panel_alleles as haplotype 0 and write the cover's allele
-                // into a real haplotype's slot. panel_alleles' `hap < out.size()` guard drops it.
+                // Leave gref cover paths out of the panel. The fragment paths all share one sample
+                // and phase, so they would form one haplotype stitched together from many donors.
+                // The gref copy of a base reference path is left out only if the base path's
+                // sample is also present, so that the reference is in the panel once. Sequences
+                // left out are mapped to WILDCARD; the vector's default of 0 would put them in
+                // haplotype 0.
                 const string path_sample = (size_t)name.sample < meta.sample_names.size()
                                                ? meta.sample(name.sample) : string();
                 const string path_contig = (size_t)name.contig < meta.contig_names.size()
@@ -3242,23 +2625,18 @@ int main_call(int argc, char** argv) {
                     }
                 }
             }
-            // A pair of haplotypes is the state, so two is the minimum that can express anything:
-            // below that every state is the wildcard and the posterior collapses back to the
-            // per-site likelihood. Harmless, but running an HMM over an empty panel and reporting
-            // it as active is worse than declining and saying so.
+            // The model's states are pairs of haplotypes, so it needs at least two.
             if (hap_index.size() < 2) {
                 cerr << "warning [vg call]: linkage disabled -- the GBWT carries "
                      << hap_index.size() << " haplotype(s) and the model needs at least 2" << endl;
                 linkage_weight = 0.0;
             } else {
-                // Not an error, but worth saying: the default weight was tuned against panels of
-                // tens of haplotypes and measures as roughly neutral on four, where a genotype is
-                // spelled by too few haplotype pairs for the frequency prior to have anything to
-                // act on. On a thin panel it costs runtime and buys close to nothing.
+                // The default weight suits panels of tens of haplotypes, and does little on very
+                // small ones.
                 if (hap_index.size() < 8) {
                     cerr << "warning [vg call]: linkage on a " << hap_index.size()
-                         << "-haplotype panel; the default --linkage-weight 2 was tuned on 34 and"
-                         << " measures as roughly neutral on 4 (consider --linkage-weight 0)"
+                         << "-haplotype panel; the default --linkage-weight suits panels of tens of"
+                         << " haplotypes and does little on small ones (consider --linkage-weight 0)"
                          << endl;
                 }
                 LinkageModel::Params linkage_params;
@@ -3271,9 +2649,7 @@ int main_call(int argc, char** argv) {
                 vcf_caller->set_linkage(linkage_collector.get(), gbwt_index,
                                         &linkage_sequence_to_haplotype);
                 vcf_caller->set_emit_phasing(phased_output);
-                // Panel index -> "sample#phase", so the mosaic names haplotypes rather than
-                // only numbering them. Built by inverting hap_index, which is the same numbering
-                // the model itself uses.
+                // Name each panel haplotype "sample#phase", for the mosaic.
                 vector<string> hap_names(hap_index.size());
                 for (const auto& kv : hap_index) {
                     string sample = kv.first.first < meta.sample_names.size()
@@ -3281,9 +2657,8 @@ int main_call(int argc, char** argv) {
                                         : string("sample") + std::to_string(kv.first.first);
                     hap_names[kv.second] = sample + "#" + std::to_string(kv.first.second);
                 }
-                // The reference paths this run called against, in full. The mosaic rows carry
-                // only the locus part, and this graph has two reference samples (CHM13 and
-                // GRCh38), so without these the coordinates name no particular assembly.
+                // The mosaic's rows name only the contig, so it also records the full names of
+                // the reference paths.
                 vcf_caller->set_mosaic_out(mosaic_out, graph_filename, hap_names, ref_paths,
                                            mosaic_patch_gaps, mosaic_keep_nested,
                                            mosaic_connect_unexplained);
@@ -3294,20 +2669,18 @@ int main_call(int argc, char** argv) {
             }
         }
         if (!anchors_out.empty()) {
-            // The read source, named in full so a consumer can tell which reads the offsets index
-            // into -- the offsets are in the read AS SEQUENCED, so the file they came from is the
-            // one an assembler must be given.
+            // The anchor file names the read file, since its read offsets refer to those reads.
             string reads_source = !gaf_base_filename.empty()
                                       ? gaf_base_filename
                                       : (!gaf_filename.empty() ? gaf_filename : gam_filename);
             vcf_caller->set_anchors_out(anchors_out, anchor_params, graph_filename, reads_source,
                                         min_mismap_prob);
         }
-        // one call covers FlowCaller (both ctors, so plain vg call gets it too), NestedFlowCaller
-        // and LegacyCaller, since the merge lives on the shared VCFOutputCaller base
         vcf_caller->set_read_phasing(read_phasing, read_phasing_params);
         vcf_caller->set_regenotype(regenotype, regenotype_params, regenotype_passes,
                                    regenotype_ledger);
+        // one call covers FlowCaller (both ctors, so plain vg call gets it too), NestedFlowCaller
+        // and LegacyCaller, since the merge lives on the shared VCFOutputCaller base
         vcf_caller->set_allele_merge(cluster_threshold, cluster_min_allele_len);
         // Make sure the basepath information we inferred above goes directy to the VCF header
         // (and that it does *not* try to read it from the graph paths)
@@ -3342,11 +2715,8 @@ int main_call(int argc, char** argv) {
         recurse_type = GraphCaller::RecurseOnFail;
     }
 
-    // Ordered visits only help a read source that fetches by node-ID window, and they
-    // change the traversal order of code the default caller shares -- so gate on such a
-    // source actually being in use. With it off, the default path is bit-for-bit what it
-    // was. GAF-Base needs this more than the GAM index does: a query there is a process
-    // spawn, so an unordered visit pays milliseconds per site rather than a rescan.
+    // A read source that fetches reads by node-ID window works best when snarls are visited in
+    // node-ID order, so that each fetched window serves many sites in a row.
     if (dynamic_cast<WindowedSiteReadSource*>(read_source.get()) != nullptr) {
         graph_caller->set_node_id_ordering(true, read_window_size);
         if (show_progress) {
@@ -3354,21 +2724,12 @@ int main_call(int argc, char** argv) {
         }
     }
 
-    // Descend into a nested chain once its parent's genotype is settled. Armed unconditionally
-    // wherever nested calling runs, because it costs nothing where nothing defers: a snarl with no
-    // linkage entry cannot be moved, so its per-site genotype is already final and its children are
-    // visited inline. With no panel at all -- --enumerate-support, or a GBZ holding only reference
-    // paths -- no site is ever recorded and every descent takes that inline path, which is the same
-    // rule rather than a fallback to a different one.
+    // After the calling pass (the sweep), settle genotypes, parents before their nested children
+    // (the barrier; see FlowCaller::run_deferred_descent), and build each record from its settled
+    // genotype. Nested calling needs this because a child's ploidy depends on its parent's
+    // genotype, and the linkage model needs it because it can change genotypes after they are
+    // first called.
     FlowCaller* deferring_caller = nullptr;
-    // Armed wherever the linkage layer is, not only where nesting is. The layer can be armed with
-    // nesting off -- `--no-nested`, and `--no-phased` too, which turns nesting off for its own
-    // reasons above -- and in that configuration nothing was staged, the render pass was empty, and
-    // patching a line after the fact was the only mechanism there was. Keeping that path alive for
-    // one configuration would leave two ways to write a record, which is the thing this phase exists
-    // to remove; arming here instead means a non-nested run resolves generation 0 over an empty
-    // pending set and renders every record from the settled genotype, which is the same rule rather
-    // than a second one.
     if (nested_calling || linkage_collector != nullptr) {
         deferring_caller = dynamic_cast<FlowCaller*>(graph_caller.get());
         if (deferring_caller != nullptr) {
@@ -3387,18 +2748,14 @@ int main_call(int argc, char** argv) {
         graph_caller->call_top_level_chains(*graph, max_chain_edges, max_chain_trivial_travs, recurse_type);
     }
 
-    // Resolve, descend, repeat. Nothing below this needs to know which mode ran: the loop leaves
-    // the linkage pass resolved, and write_variants' own resolve is idempotent.
     if (deferring_caller != nullptr) {
-        // Barrier first, render second. The barrier settles every generation's genotypes, so the
-        // render can build each record from the answer rather than from the reads' first guess -- and
-        // a record built from the settled genotype needs no patch, which is what stage 11 removes.
+        // Settle every level's genotypes, then apply read phasing and re-genotyping, and build the
+        // records.
         deferring_caller->run_deferred_descent();
         deferring_caller->render_retained_records();
     }
 
-    // After both passes, so every settled record has had its chance to contribute. Written here
-    // rather than from write_variants because it is not a VCF and shares none of its machinery.
+    // Anchors are collected while records are built, so they are written afterwards.
     {
         auto* anchor_caller = vcf_out;
         if (anchor_caller != nullptr) {
@@ -3406,9 +2763,7 @@ int main_call(int argc, char** argv) {
         }
     }
 
-    // Report the indexed read source's cache behaviour, now that calling is done and
-    // the counters mean something. The index over-fetches, so a low hit rate means the
-    // parent-then-descendants locality the cache relies on is not materialising.
+    // Report how the windowed read source's fetches and cache performed.
     if (show_progress) {
         auto* windowed = dynamic_cast<WindowedSiteReadSource*>(read_source.get());
         if (windowed != nullptr) {
@@ -3421,32 +2776,24 @@ int main_call(int argc, char** argv) {
                           << hits << "/" << total << " site queries served from cache"
                           << (total > 0 ? " (" + std::to_string((int)(100.0 * hits / total)) + "%)" : "")
                           << endl;
-            // Candidates a site query looked at against reads it delivered. Inside a
-            // window a candidate is one node-index entry, so a ratio near 1 means sites
-            // name few nodes each read touches and a high one means long reads crossing
-            // a site repeatedly; a straddling query examines whole reads instead.
+            // Reads examined by site queries, against reads delivered to sites.
             size_t seen = windowed->get_scanned_count();
             size_t used = windowed->get_delivered_count();
             logger.info() << (gaf_base != nullptr ? "GAF-Base: " : "Indexed GAM: ")
                           << seen << " read candidates examined, " << used << " delivered"
                           << (seen > 0 ? " (" + std::to_string((int)(100.0 * used / seen)) + "%)" : "")
                           << endl;
-            // Sites too big for one window are fetched uncached, by their exact node
-            // ranges. The two totals are the ranges asked for against the span they
-            // sit in: if a change ever collapses one to the other, this is where it
-            // shows, and on chr20 that difference was 133 k node IDs against 13.2 M.
+            // Sites too big for one window are fetched uncached, by their exact node ranges.
             logger.info() << (gaf_base != nullptr ? "GAF-Base: " : "Indexed GAM: ")
                           << windowed->get_straddle_count() << " site queries too wide for a "
                           << "window, fetched uncached over " << windowed->get_straddle_wanted()
                           << " node IDs (spanning " << windowed->get_straddle_nodes() << ")"
                           << endl;
             if (gaf_base != nullptr) {
-                // The count that governs run time: each one is a process spawn, so this
-                // is the number to watch if a run is slow.
+                // Each query runs a subprocess, so this count largely determines run time.
                 logger.info() << "GAF-Base: " << gaf_base->get_query_count()
                               << " subprocess queries" << endl;
-                // The same alignment returned twice by one query. It reaches the likelihood
-                // matrix as two rows for one read otherwise, which per-read independence forbids.
+                // Alignments returned twice by one query, which would otherwise count twice.
                 logger.info() << "GAF-Base: " << gaf_base->get_duplicate_count()
                               << " duplicate reads dropped" << endl;
             }

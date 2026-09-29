@@ -253,12 +253,9 @@ In order to correctly set up a command-line option it must be put in four separa
     - `shortform` must be a single character (NOT a bare non-quoted integer) or an `ALL_CAPS` variable name.
     Note that `ALL_CAPS` variables must be before the `long_options[]` array as `constexpr int`s.
     Shortforms may repeat, and the first longform is retained. This is to allow longform aliases.
-    - A **fifth field** is allowed, and is ignored by the linter. It lets a command tag each option
-    with something of its own; the array may then be of a command-defined row type rather than
-    `struct option`, as long as its first four fields are in `struct option` order and it is still
-    called `long_options`. `vg call` uses this to record which subsystem owns each option, so that
-    "this flag only applies with `--anchors-out`" is derived from the table instead of from a
-    second hand-maintained list beside it, and generates getopt's own array from the same rows.
+    - The options may instead be grouped in a `std::map` from group name to `std::vector<struct option>`,
+    named `long_options_by_<something>`, with one entry per line as above and the map ending with `};`.
+    `vg call` groups its options by the subsystem they configure this way, and builds getopt's array from the groups.
 - **`getopt_long` string**: all options with a shortform must appear here. Order does not matter.
 Options which take an argument must have a `:` after their shortform.
 The `vg gamcompare` one is `"h?d:r:I:n:o:Ta:st:"`.
