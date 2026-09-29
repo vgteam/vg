@@ -2,15 +2,11 @@
 ///
 /// Unit tests for the phase-aware genotype correction.
 ///
-/// These are load-bearing rather than hygiene, and the reason is worth stating. The two
-/// byte-identity gates the arm is judged on -- `--regeno-temper 0` and `--regeno-passes 1` -- are
-/// both blind to `Lambda`: at `tau = 0` the tilt is the identity whatever `Lambda` holds, and with
-/// one pass nothing is re-recorded. Worse, the max over the two orders swallows a globally
-/// sign-flipped `Lambda` outright, since the argmax simply moves to the other order at every site.
-/// A per-site inconsistent sign produces exactly the signature of the shuffled arm, so if the real
-/// and shuffled arms both come out flat, no F1 comparison can tell "the reads' phase carries no
-/// genotype signal" apart from "`Lambda` is wired backwards at half the sites". Nothing downstream
-/// discriminates those. These do.
+/// Neither `--regeno-temper 0` nor `--regeno-passes 1` exercises `Lambda`: at tau = 0 the
+/// weighting is the identity whatever `Lambda` holds, and with one pass nothing is recorded again.
+/// Taking the larger correction over the two orders also hides a `Lambda` whose sign is wrong at
+/// every site. So `Lambda` wired backwards at some sites would look like the shuffled control, and
+/// these tests are what check its sign.
 
 #include <cmath>
 #include <map>
@@ -129,14 +125,10 @@ TEST_CASE("a read that spans nothing else contributes exactly nothing", "[regeno
 }
 
 TEST_CASE("reversing the pair leaves the uncorrected mixture bit-identical", "[regenotype]") {
-    // The invariant the property above rests on: `site_slot_weights` derives each slot's weight
-    // from THAT SLOT'S allele, so reordering the pair reorders the weights with it. Carrying
-    // `w = (w0, w1)` across the swap instead would make a singleton read order-dependent -- worth
-    // +0.372 ln over three reads at an SV-sized length ratio, none of it phase information, and
-    // it would not vanish at tau = 0.
-    //
-    // Same shape as the bug that made the anchor `slot` column carry allele order rather than
-    // phase for three format versions.
+    // The property above rests on `site_slot_weights` deriving each slot's weight from that slot's
+    // allele, so reordering the pair reorders the weights with it. Keeping `w = (w0, w1)` across the
+    // swap would make a read that spans no other site depend on the order, with no phase
+    // information in it, even at tau = 0.
     PhaseReadEvidence ev = evidence(6, 10, 12000);
     const vector<double> fwd = site_slot_weights(ev.allele_length, ev.n_alleles,
                                                  ev.mean_read_length, ev.length_weighted,
@@ -193,10 +185,9 @@ TEST_CASE("leave-one-out equals accumulating without the site", "[regenotype]") 
 }
 
 TEST_CASE("a flipped site enters Lambda with the opposite sign", "[regenotype]") {
-    // `read_phase_flips` swaps a site's slot order after the PhaseSites were built, so a site in
-    // the flip set describes the panel's frame and not the settled one. Accumulating without that
-    // sign would build Lambda in a frame that no longer exists -- the same class of error as the
-    // 3,926 nested strands that were left stale when the phase moved late.
+    // `read_phase_flips` swaps a site's slot order after the PhaseSites were built, so a site in the
+    // flip set describes the panel's order, not the settled one, and its contribution must enter
+    // with the opposite sign.
     PhaseSite site;
     site.record_key = 7;
     site.phase_set = 1;
@@ -217,10 +208,9 @@ TEST_CASE("a flipped site enters Lambda with the opposite sign", "[regenotype]")
 }
 
 TEST_CASE("a paired mate counts once", "[regenotype]") {
-    // Paired mates share a read name and therefore a read_key, and the read source deduplicates on
-    // name plus first mapping position -- so both mates are separate rows under one key, 108,536
-    // such names on chr20. A fragment lies on one haplotype, so it is one observation.
-    // `phase_link`'s sorted merge pairs them 1:1 and is unharmed; a running sum is not.
+    // Paired mates share a read name and so a read_key, but the read source keeps both, as separate
+    // rows under one key. A fragment lies on one strand, so it counts once. `phase_link`'s sorted
+    // merge pairs them one to one; a running sum would count them twice.
     PhaseSite site;
     site.record_key = 1;
     site.phase_set = 1;
@@ -349,10 +339,8 @@ TEST_CASE("the haploid inclusion weight only removes evidence, never adds it", "
         rl.phase_set = 1;
         lambda[ev.read_key[i]] = rl;
     }
-    // The likelihoods have to BE the read term, as the sweep's are, or the test is incoherent:
-    // the correction subtracts the read term, so feeding it numbers unrelated to `rel` leaves
-    // whatever arbitrary residue was invented. An earlier version of this test did exactly that
-    // and read the resulting nonsense as the gap inverting.
+    // The likelihoods must be the read term, as the sweep's are: the correction subtracts the read
+    // term, so likelihoods unrelated to `rel` would leave an arbitrary residue.
     auto read_term = [&](int a) {
         double t = 0.0;
         for (size_t r = 0; r < ev.num_reads(); ++r) {
@@ -365,15 +353,12 @@ TEST_CASE("the haploid inclusion weight only removes evidence, never adds it", "
     const double gap_before = gl.at({0}) - gl.at({1});
     REQUIRE(std::abs(gap_before) > 10.0);   // and the alleles really are discriminated to start
     haploid_inclusion_correction(ev, lambda, {}, 1.0, 1.0, +1, params, gl, counters);
-    // Both alleles rise: nothing is penalised any more by reads that do not belong here. Note the
-    // correction is a DELTA on whatever the sweep's likelihood was, so the result is not bounded
-    // above by zero -- an earlier version of this test asserted that and was simply wrong.
+    // Both alleles rise, since reads that do not belong here no longer count against them. The
+    // correction is added to the sweep's likelihood, so the result is not bounded above by zero.
     REQUIRE(gl.at({0}) > read_term(0));
     REQUIRE(gl.at({1}) > read_term(1));
-    // And the discriminating power goes with them. With every read excluded the two alleles are
-    // separated only by whatever the sweep already believed, so the gap collapses toward it.
-    // Every read excluded, so every read term is log(1) = 0 and the two alleles are no longer
-    // told apart at all.
+    // With every read excluded, every read term is log(1) = 0, and the two alleles are not told
+    // apart at all.
     REQUIRE(std::abs(gl.at({0}) - gl.at({1})) < 1e-9);
 
     // Whereas with every read placed ON this strand, nothing is excluded and nothing moves.

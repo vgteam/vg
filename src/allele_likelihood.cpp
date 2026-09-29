@@ -26,8 +26,8 @@ void AlleleReadLikelihoods::set_contents(size_t n_reads, size_t n_alleles, vecto
     this->read_best_ln = std::move(best_ln);
     this->read_names = std::move(names);
     this->unplaceable = unplaceable;
-    // sum_r (1 - e_r), the expected number of these reads that are genuinely from
-    // this locus. Cached because the depth term asks for it once per genotype.
+    // sum_r (1 - e_r), the expected number of these reads that came from this locus.
+    // Cached because the depth term asks for it once per genotype.
     this->effective_read_total = 0.0;
     for (double e : this->read_mismap_prob) {
         this->effective_read_total += 1.0 - e;
@@ -85,9 +85,8 @@ vector<double> AlleleReadLikelihoods::mixture_weights(const vector<int>& genotyp
     }
     double flat = 1.0 / (double)genotype.size();
 
-    // Expected share of this site's reads per haplotype of the genotype. Flat
-    // 1/|G| unless lengths were supplied; see set_length_weights for why the flat
-    // weight is wrong whenever the alleles differ in length.
+    // Expected share of this site's reads for each haplotype of the genotype. Flat
+    // 1/|G| unless lengths were supplied; see set_length_weights.
     vector<double> weights(genotype.size(), flat);
     if (uses_length_weights()) {
         double sum = 0.0;
@@ -151,10 +150,8 @@ double AlleleReadLikelihoods::genotype_likelihood(const vector<int>& genotype) c
             mixture += weights[i] * rel(r, (size_t)allele);
         }
 
-        // Fold in "this read did not come from this site at all". Because the
-        // rows are normalised the background is exactly 1, so the bracket lies
-        // in [e_r, 1] and its log is always finite: no logsumexp needed, and no
-        // single read can penalise a genotype without bound.
+        // Mix in the chance that the read is mismapped, in which case its likelihood
+        // is the row maximum, 1. The result lies in [e_r, 1], so its log is finite.
         double e_r = read_mismap_prob[r];
         total += log((1.0 - e_r) * mixture + e_r);
     }
@@ -206,17 +203,9 @@ double AlleleReadLikelihoods::achievable_gap(const vector<int>& called,
         return 0.0;
     }
 
-    // The reads' *own* e_r is deliberately not used here, and this is the one thing
-    // about this function that is easy to get wrong -- the first version used it.
-    //
-    // An ideal read is well-fitting *and* well-mapped, so the denominator is built at
-    // the mismap floor. Using each read's own e_r instead folds the site's unreliability
-    // into both sides of the ratio, where it cancels: a window of MAPQ-0 reads has
-    // -ln(0.7) = 0.36 of achievable gap per read against -ln(0.02) = 3.91, so a badly
-    // mapped site is scored against a denominator small enough to make a weak call look
-    // strong. Measured over the titration, the per-read-e_r version scored 0.427 against
-    // 0.347 for raw GQ -- worse than no normalisation at all -- while the floor version
-    // scores 0.260.
+    // An ideal read is well mapped, so every ideal read has e_r at the floor, whatever
+    // e_r the site's own reads have. With their own e_r, a poorly mapped site would get a
+    // small denominator, and a weak call there would look strong.
     double e = mismap_floor;
     double per_read = 0.0;
     for (const Slot& s : slots) {
@@ -237,11 +226,9 @@ vector<vector<int>> AlleleReadLikelihoods::enumerate_genotypes(size_t num_allele
 
     // VCF orders genotypes so that a genotype with alleles a_1 <= ... <= a_P sits
     // at an index given by a recursion over its largest allele. Generating
-    // non-decreasing tuples in colexicographic order reproduces exactly that
-    // ordering, so a genotype's position here is its GL index. For diploid this
-    // is (0,0), (0,1), (1,1), (0,2), (1,2), (2,2), ... Note this differs from the
-    // order PoissonSupportSnarlCaller emits, which iterates the low allele in the
-    // outer loop and so disagrees with the spec once there are 3+ alleles.
+    // non-decreasing tuples in colexicographic order reproduces that ordering, so a
+    // genotype's position here is its GL index. For diploid this is (0,0), (0,1),
+    // (1,1), (0,2), (1,2), (2,2), ...
     vector<int> current(ploidy, 0);
 
     function<void(int, int)> recurse = [&](int depth, int max_allele) {
@@ -302,19 +289,16 @@ bool AlleleReadLikelihoodsBuilder::add_read(const vector<double>& raw_ln_likelih
                                             size_t read_length) {
     assert(raw_ln_likelihood.size() == n_alleles);
 
-    // The row's divisor is the read's best fit over ALL alleles at the site, not
-    // just those in some genotype. That keeps it genotype-independent, which is
-    // what lets it drop out of every genotype comparison.
+    // The row's divisor is the read's best fit over all alleles at the site, so it
+    // does not depend on the genotype and cancels from every genotype comparison.
     double best = -numeric_limits<double>::infinity();
     for (double ll : raw_ln_likelihood) {
         best = max(best, ll);
     }
 
     if (!(best > -numeric_limits<double>::infinity())) {
-        // This read placed on nothing at all, so there is no row maximum to
-        // divide by. Normalising would give NaN and quietly poison every
-        // genotype at the site. Drop it and count it: a rising count means the
-        // read source is over-fetching, or the reads and graph do not match.
+        // This read placed on no allele, so there is no row maximum to divide by and
+        // normalising would give NaN. Drop it and count it.
         ++unplaceable;
         return false;
     }
@@ -349,9 +333,8 @@ AlleleReadLikelihoods AlleleReadLikelihoodsBuilder::build() {
                         std::move(best_lns), std::move(names), unplaceable);
     result.set_mismap_floor(min_mismap);
     if (read_length_count > 0) {
-        // Always, not only under the length-weighted mixture: the depth term's
-        // lambda = rate * (L + R - 1) needs R whichever mixture is in use, and gating it on
-        // allele_lengths left R at 0 under --flat-mixture while the term stayed armed.
+        // Set R whichever mixture is in use, since the depth term's
+        // lambda = rate * (L + R - 1) needs it too.
         result.set_mean_read_length(read_length_total / (double)read_length_count);
     }
     if (!allele_lengths.empty() && read_length_count > 0) {
@@ -396,16 +379,14 @@ GraphAlignedAlleleLikelihoodCalculator::get_allele_steps(const SnarlTraversal& t
 /// The stretch of an alignment that lies in this site: mappings from the first to the last that
 /// touches a site node, with the read sequence and qualities sliced to match.
 ///
-/// Exists so that flipping a reverse-strand read costs the site rather than the whole read.
-/// `reverse_complement_alignment` deep-copies every mapping, every edit and the sequence, and it runs
-/// once per (read, site). For a 150 bp read that is nothing; for a 19 kb ONT read delivered to the
-/// ~160 sites it spans it was **67.6% of the entire scoring cost** in a profile of chr20.
+/// A reverse-strand read is flipped once per site it reaches, and flipping copies every mapping,
+/// edit and base. Flipping only this stretch keeps the cost proportional to the site rather than
+/// to the read, which matters for long reads.
 ///
-/// Slicing is exact, not an approximation. Flipping the slice puts the step that was at `off` at
-/// `to - off - len`, where the full flip puts it at `total - off - len`; the two differ by the
-/// constant `total - to`, and the sliced sequence is shifted by exactly the same constant. Base for
-/// base, `revcomp(read)[full] == revcomp(read[from:to])[sliced]`. Only read_offset and read_length
-/// are ever used to index the sequence, so nothing else can see the difference.
+/// Flipping the slice gives the same scores as flipping the whole read. A step at read offset
+/// `off` with length `len` moves to `to - off - len` in the flipped slice and to
+/// `total - off - len` in the flipped read. The two differ by the constant `total - to`, and so do
+/// the two flipped sequences, so each step still indexes the same bases.
 static Alignment site_span_of(const SiteRead& read, const unordered_set<nid_t>& site_nodes) {
     const Alignment& aln = *read.aln;
     const Path& path = aln.path();
@@ -413,10 +394,8 @@ static Alignment site_span_of(const SiteRead& read, const unordered_set<nid_t>& 
     size_t from = 0, to = 0;
     if (read.indexed()) {
         // The source has already found the site's mappings, and the read offset before
-        // each. Both ends come straight out of that, without touching the rest of the
-        // read -- which for an ONT alignment is thousands of mappings the site does not
-        // want. The index lists mappings in the queried ranges, which are exactly the
-        // site's nodes, so no second membership test is needed.
+        // each, so both ends come from those without walking the rest of the read. The
+        // queried ranges are the site's nodes, so no second membership test is needed.
         for (size_t k = 0; k < read.mapping_count; ++k) {
             int64_t i = (int64_t)read.mappings[k];
             if (!site_nodes.count(path.mapping(i).position().node_id())) {
@@ -517,19 +496,11 @@ bool GraphAlignedAlleleLikelihoodCalculator::get_read_steps(
         return false;
     }
 
-    // A read is informative if it can discriminate between alleles at all.
-    //
-    // Touching an interior node does it, but that is NOT the only way, and
-    // assuming it was silently destroyed deletion genotyping: a read that
-    // traverses straight from one boundary node to the other uses the deletion
-    // edge, touches no interior node, and is the *only* direct evidence the
-    // deletion allele ever gets. The discriminating signal there is in the edge,
-    // not in the node set.
-    //
-    // So: informative if it touches an interior node, or if it moves between two
-    // distinct nodes inside the site (which for a boundary-to-boundary read means
-    // it used an edge no reference traversal has). A read sitting entirely within
-    // one boundary node has neither and genuinely cannot discriminate.
+    // A read can tell the alleles apart if it touches an interior node, or if it moves
+    // between two different nodes of the site. The second case includes a read that
+    // crosses straight from one boundary node to the other, which supports an allele
+    // that deletes the site's interior. A read that stays inside one boundary node fits
+    // every allele equally.
     bool uses_internal_edge = false;
     for (size_t i = 1; i < steps_out.size(); ++i) {
         if (steps_out[i].node_id != steps_out[i - 1].node_id) {
@@ -539,9 +510,9 @@ bool GraphAlignedAlleleLikelihoodCalculator::get_read_steps(
     }
 
     if (!touches_interior && !uses_internal_edge) {
-        // Genuinely uninformative: contributes an identical constant to every
-        // allele. Note this is deliberately not the same as failing to place on
-        // some allele, which is informative and must be kept.
+        // The read would add the same constant to every allele. A read that fails to
+        // place on some allele is different: it is kept, as evidence against that
+        // allele.
         steps_out.clear();
         return false;
     }
@@ -553,14 +524,11 @@ bool GraphAlignedAlleleLikelihoodCalculator::read_is_reverse_of_alleles(
     const vector<ReadStep>& read_steps,
     const unordered_map<nid_t, bool>& allele_orientations) const {
 
-    // Alleles all run from the snarl's start to its end, so they impose a reading
-    // direction on the site. A read aligned to the opposite strand visits the same
-    // nodes with the opposite orientation flag, and would fail to anchor against
-    // any of them -- which silently mis-scored every reverse-strand read, roughly
-    // half of all reads, against the wrong allele.
-    //
-    // Decide by vote rather than from a single step, so a node that different
-    // alleles visit in different orientations cannot flip the whole read.
+    // Alleles all run from the snarl's start to its end. A read aligned to the opposite
+    // strand visits the same nodes in the opposite orientation, and must be flipped
+    // before its visits can be paired with an allele's. We decide by a vote over the
+    // read's visits, so that one node the alleles visit in different orientations
+    // cannot decide it.
     size_t agree = 0;
     size_t disagree = 0;
     for (const ReadStep& step : read_steps) {
@@ -612,8 +580,6 @@ int32_t GraphAlignedAlleleLikelihoodCalculator::score_shared_node(
             score += read_scorer.score_gap(from_len - to_len);
         } else {
             // Insertion relative to the graph: the read carries bases the allele lacks.
-            // This is the dominant gap path on ONT -- a homopolymer stutter inside a node
-            // both the read and the allele visit.
             score += read_scorer.score_gap(to_len - from_len);
             nat_adjust += params.insertion_gap_nats;
         }
@@ -633,9 +599,8 @@ int32_t GraphAlignedAlleleLikelihoodCalculator::score_substitution(
     const string& qual = aln.quality();
 
     // Walk the two sequences together, batching consecutive equal bases and
-    // consecutive differing bases so each run is scored in one call. Charging
-    // per base like this is exactly what scoring from the graph's implied
-    // alignment buys over a length-averaged DP score.
+    // consecutive differing bases so each run is scored in one call, with each
+    // mismatch charged at its own base quality.
     size_t i = 0;
     while (i < length) {
         if (read_offset + i >= seq.size() || allele_offset + i >= allele_bases.size()) {
@@ -661,8 +626,8 @@ int32_t GraphAlignedAlleleLikelihoodCalculator::score_substitution(
 }
 
 // (node, orientation) packed into one integer, so membership is a binary search over a
-// sorted vector rather than a hash lookup. The median traversal is three nodes, where a
-// hash's constant costs more than the scan it replaces.
+// sorted vector rather than a hash lookup, which is cheaper for the short traversals of
+// most sites.
 static inline int64_t step_key(nid_t node, bool backward) {
     return ((int64_t)node << 1) | (int64_t)backward;
 }
@@ -697,14 +662,9 @@ vector<int64_t> GraphAlignedAlleleLikelihoodCalculator::sorted_allele_keys(
     return keys;
 }
 
-// The greedy walk: one left-to-right pass, anchoring on shared node visits and never revising a
-// pairing once made. This is the DEFAULT, and it is the right default for short reads.
-//
-// The exact walk below buys +0.0042 chr20 / +0.0035 chr6 ONT indel F1 for +17% CPU, which is a
-// good trade on long reads. On short reads the same machinery buys +0.0006 indel -- on BOTH
-// contigs -- and nothing on SNVs, for 3.10x the CPU, because a 150 bp read barely diverges from an
-// allele and there is almost nothing for an optimal correspondence to resolve. So --realign is off
-// unless asked for, and --preset ont asks for it.
+// The greedy walk: one left-to-right pass that pairs each read visit with the next occurrence of
+// the same visit in the allele, and never revises a pairing. It is used unless --realign selects
+// the optimal walk, score_read_against_allele.
 GraphAlignedAlleleLikelihoodCalculator::AlleleStepPositions
 GraphAlignedAlleleLikelihoodCalculator::index_allele_steps(
     const vector<AlleleStep>& allele_steps) {
@@ -746,15 +706,10 @@ int32_t GraphAlignedAlleleLikelihoodCalculator::score_read_against_allele_greedy
 
     for (size_t read_index = 0; read_index < read_steps.size(); ++read_index) {
         const ReadStep& read_step = read_steps[read_index];
-        // Look for this read node ahead in the allele. Anchoring on shared node
-        // visits is what makes this a read-off of the alignment the graph already
-        // asserts rather than an alignment we invent.
-        // The first allele step at or after allele_index carrying this read node. Scanning
-        // forward for it costs O(|allele|) per read step, and since allele_index starts at 0
-        // every read walks to its own position before anchoring at all: 228,151 reads x ~724
-        // steps at chr20's largest snarl, against about three at an ordinary one. The
-        // positions are pushed in ascending j, so lower_bound returns exactly the element the
-        // scan would have stopped on.
+        // Find the first allele step at or after allele_index that makes this read visit.
+        // Pairing on shared visits takes the correspondence from the mapper's alignment. The
+        // positions are sorted, so lower_bound finds the step without scanning the allele,
+        // which matters at sites with long alleles.
         size_t found = numeric_limits<size_t>::max();
         auto positions = allele_positions.find(
             ((int64_t)read_step.node_id << 1) | (int64_t)read_step.backward);
@@ -768,13 +723,10 @@ int32_t GraphAlignedAlleleLikelihoodCalculator::score_read_against_allele_greedy
 
         if (found != numeric_limits<size_t>::max()) {
             if (have_anchor) {
-                // Allele nodes between the previous anchor and this one are
-                // sequence the allele has and the read skipped: a deletion.
-                //
-                // Only *internal* skips count. Allele sequence before the first
-                // anchor or after the last is simply outside the read's window,
-                // and charging for it would penalise a read for being short --
-                // the very length artefact the window invariant exists to stop.
+                // Allele nodes between the previous pair and this one are sequence the
+                // allele has and the read skipped: a deletion. Allele sequence before the
+                // first pair or after the last is outside the read's window and is not
+                // charged, so that a read is not penalised for being short.
                 size_t deleted = 0;
                 for (size_t j = allele_index; j < found; ++j) {
                     deleted += allele_steps[j].sequence.size();
@@ -796,14 +748,10 @@ int32_t GraphAlignedAlleleLikelihoodCalculator::score_read_against_allele_greedy
         if (allele_index < allele_steps.size()) {
             const AlleleStep& allele_step = allele_steps[allele_index];
 
-            // Does the read visit this allele node later on? Then it is not this read
-            // node's counterpart -- the read took a node the allele simply lacks, which is
-            // an insertion, not a substitution. Consuming the allele node here would burn
-            // the anchor the read is about to need: its own visit would find the allele
-            // exhausted and be charged a second time, so ONE inserted base cost a
-            // substitution plus two gaps. The same event costs a single gap when it is the
-            // allele that carries the extra node, and an indel must cost the same from
-            // either side. Charge the insertion and leave allele_index where it is.
+            // If the read visits this allele node later on, the current read visit is one
+            // the allele lacks: an insertion. We charge it and leave allele_index where it
+            // is, so the allele node is still there to pair with the read's later visit.
+            // An inserted node then costs one gap, as a deleted node does.
             auto later = read_last_visit.find(((int64_t)allele_step.node_id << 1)
                                               | (int64_t)allele_step.backward);
             if (later != read_last_visit.end() && later->second > read_index) {
@@ -835,21 +783,17 @@ int32_t GraphAlignedAlleleLikelihoodCalculator::score_read_against_allele_greedy
             bases_accounted += read_step.read_length;
             ++allele_index;
         } else {
-            // The allele is exhausted but the read continues. Those read bases
-            // cannot be placed on this allele, so they are charged as an
-            // insertion. They are NOT dropped: omitting them would score this
-            // allele over fewer read bases than its competitors and fabricate a
-            // likelihood ratio out of the length difference alone.
+            // The allele is used up but the read continues. Those read bases cannot be
+            // placed on this allele, so they are charged as an insertion, which keeps
+            // every allele scored over the same read bases.
             score += read_scorer.score_gap(read_step.read_length);
             nat_adjust += params.insertion_gap_nats;
             bases_accounted += read_step.read_length;
         }
     }
 
-    // The window invariant: every read base inside the site was accounted for,
-    // whatever the allele. If this ever fires, some allele is being scored over a
-    // different span than its competitors and the likelihoods are miscalibrated
-    // in a way that still produces plausible-looking VCF.
+    // Every read base inside the site must have been scored, whatever the allele, so
+    // that all alleles are scored over the same read bases.
     size_t window_bases = 0;
     for (const ReadStep& read_step : read_steps) {
         window_bases += read_step.read_length;
@@ -859,39 +803,27 @@ int32_t GraphAlignedAlleleLikelihoodCalculator::score_read_against_allele_greedy
     return score;
 }
 
-// The optimal walk (--realign, and --preset ont). Chooses the correspondence between the read's
-// node visits and the allele's by dynamic programming rather than in one greedy pass. It does NOT
-// re-align bases: base-level edits are still read off the mapper's alignment, and what is searched
-// for is which read VISIT pairs with which allele VISIT. That distinction is why this is
-// affordable where base-level realignment is not -- WFA over the same windows was measured at 24x
-// this walk's CPU without finishing chr20 ONT. See doc/read-likelihood-genotyping.md,
-// "The two walks".
+// The optimal walk (--realign): finds the highest-scoring pairing of the read's node visits with
+// the allele's by dynamic programming. Base-level edits are still read off the mapper's alignment;
+// only the pairing of visits is searched.
 //
-// Four states over the m x n grid of read visits against allele visits, m and n being VISITS, not
-// bases:
+// The dynamic program fills an m x n grid, m read visits against n allele visits, in four states:
 //
-//   P  no shared visit matched yet -- the leading flank. Allele visits are FREE here, because
-//      allele sequence outside the read's window is not the read's to explain, and charging it
-//      would penalise a read for being short. Read visits are still charged. A match closes the
-//      flank (P -> M); a leading substitution does not.
+//   P  no shared visit paired yet, the leading flank. Allele visits cost nothing here, since
+//      allele sequence before the read's window is not the read's to explain; read visits are
+//      still charged. Pairing a shared visit leaves P for M; a substitution does not.
 //   M  this read visit paired with this allele visit.
 //   I  inside a run of read visits the allele lacks.
 //   D  inside a run of allele visits the read lacks.
 //
-// Pairing cost, three cases: the same node visit costs the read's own edits inside it; two nodes
-// where NEITHER appears anywhere in the other sequence is a genuine substitution; anything else is
-// forbidden, which is the anchor rule -- a visit the two share may not be paired with a different
-// node, though it may still be gapped. Both halves of that were measured: allowing the
-// substitution costs 0.063 indel F1, and forbidding the gap costs a further 0.0071.
+// Pairing the same visit scores the read's own edits in it. Pairing two nodes that each appear
+// nowhere in the other sequence is a substitution. Any other pair is forbidden: a visit the read
+// and the allele share may not be paired with a different node, though it may be left unpaired.
 //
-// Where this differs from the greedy walk in COST, not merely in correspondence: greedy charges a
-// fresh gap open per inserted read visit, while I opens once and extends, so a k-visit insertion
-// run differs by (k-1)*(gap_open - gap_extend). That is exactly zero at --preset ont, where both
-// are 1, and non-zero at the short-read defaults of 6 and 1.
-//
-// The answer is the best final-row cell over P, M or I, never D -- D has charged trailing allele
-// bases that lie outside the read's window. P is a legal terminal state, so a read that matches
-// nothing still scores finitely.
+// A run of k inserted read visits is one gap here, where the greedy walk charges a gap for each
+// visit. The answer is the best final-row cell in P, M or I. D is excluded because it has charged
+// allele visits after the read's window, and P is allowed so that a read that pairs nothing still
+// gets a finite score.
 int32_t GraphAlignedAlleleLikelihoodCalculator::score_read_against_allele(
     const Alignment& aln, const vector<ReadStep>& read_steps,
     const vector<AlleleStep>& allele_steps, const ReadScratch& scratch,
@@ -912,43 +844,26 @@ int32_t GraphAlignedAlleleLikelihoodCalculator::score_read_against_allele(
 
     struct Cell { int32_t score; double nats; };
 
-    // A node the read and the allele SHARE may not be paired with a different node. In a
-    // pangenome graph two paths through one node traverse identically the same bases, so a
-    // shared visit is the alignment the mapper already asserted rather than a guess -- and
-    // letting the correspondence decline it and substitute elsewhere costs 0.063 of indel F1
-    // on chr20 ONT, because an insertion allele can then explain reads that do not carry the
-    // insertion.
+    // A node the read and the allele share may not be paired with a different node, since
+    // two walks through one node read the same bases and the mapper has already aligned the
+    // read there. Otherwise an insertion allele could explain reads that lack the insertion.
+    // A shared visit may still be left unpaired, which can explain a read with poor edits in
+    // that node better.
     //
-    // It may still be GAPPED. That distinction is load-bearing and was measured: FORCING every
-    // shared visit to match, rather than merely forbidding it to substitute, is 0.0060 of
-    // indel F1 worse than this and slightly worse than the greedy walk this replaces. A read
-    // whose own edits inside a shared node are bad -- an ONT homopolymer run -- is sometimes
-    // better explained by gapping it.
-    //
-    // The predicate is membership, which is exact only while neither sequence repeats a node.
-    // Real traversals do not: 0 repeats in 234,001 chr20 allele traversals and in 19,999 reads
-    // averaging 936 nodes. Under a repeat it is merely over-restrictive -- it forbids a
-    // substitution on account of an occurrence already consumed -- so it degrades optimality,
-    // never correctness.
+    // "Shared" is tested by membership, which is exact while neither sequence repeats a
+    // node. With a repeat it only forbids some substitutions it need not, so the result can
+    // be less than optimal but is still a valid pairing.
     const vector<int64_t>& read_keys = scratch.keys;
     auto holds = [](const vector<int64_t>& v, int64_t k) {
         return std::binary_search(v.begin(), v.end(), k);
     };
 
-    // Four states. `nats` rides with `score` so the chosen path's --insertion-nats bookkeeping
-    // is its own and not some other path's.
+    // The states P, M, I and D are described above the function. Each cell carries the
+    // --insertion-nats total of its own best path in `nats`, beside `score`.
     //
-    //   P  no shared visit matched yet. Allele nodes are FREE here: sequence before the first
-    //      anchor is outside the read's window, and charging it would penalise a read for
-    //      being short. A leading SUBSTITUTION does not close the flank.
-    //   M  read step paired with allele step
-    //   I  inside a run of read nodes the allele lacks
-    //   D  inside a run of allele nodes the read lacks
-    //
-    // I and D are each reachable from the other. In base-level alignment that adjacency is
-    // conventionally forbidden as a duplicate of a substitution, but here "substitution" means
-    // base-level scoring of two different nodes, which is a different quantity -- forbidding it
-    // lost real optima on 7,887 short-read cells.
+    // I and D may follow each other directly. Base-level alignment usually forbids that, as
+    // a duplicate of a substitution, but here a substitution scores two different nodes base
+    // by base, which gives a different score from a deletion next to an insertion.
     const Cell NONE{NEG, 0.0};
     auto better = [](const Cell& a, const Cell& b) { return a.score >= b.score ? a : b; };
     auto plus = [NEG](const Cell& c, int32_t d, double dn) {
@@ -964,23 +879,12 @@ int32_t GraphAlignedAlleleLikelihoodCalculator::score_read_against_allele(
         pP[j] = Cell{0, 0.0};       // any allele prefix may be consumed free
     }
 
-    // Band the DP on big sites. A read and an allele differ over a handful of nodes, so the
-    // correspondence hugs the diagonal the shared visits define; exploring the whole m x n
-    // rectangle is wasted on a traversal of thousands of nodes. Unbanded this walk cost 1.93x the
-    // CPU on short reads -- measured with the per-read hoisting held constant on both arms --
-    // nearly all of it in that tail.
-    //
-    // The centre for read row i is projected back along the diagonal from the NEXT shared visit,
-    // falling forward from the last one once none remains ahead -- so the band follows the anchors
-    // rather than the i == j diagonal, which an indel would immediately push it off. Small sites -- the overwhelming majority, median
-    // three nodes -- are left exhaustive, so the common case is untouched.
-    //
-    // It is an approximation, and measured as one: against the unbanded walk it moves a single
-    // chr20 record of 115,255, leaves indel F1 identical at 0.86659 and SNV F1 marginally
-    // better. Forcing perfect-match pairings instead -- a cheaper bound, and exact in a
-    // standard alignment -- moves 43 records, because this walk is not a standard alignment:
-    // allele sequence outside the read's window is free, so closing that flank early to take a
-    // match can cost more than the match earns.
+    // On large sites, only fill a band of the grid. A read and an allele usually differ at a
+    // few nodes, so the best pairing stays near the diagonal that their shared visits define.
+    // The band's centre for read row i is projected back along that diagonal from the next
+    // shared visit, or forward from the last one when none remains ahead, so the band follows
+    // the shared visits rather than the i == j diagonal. Small sites are filled in full. The
+    // band can miss the best pairing, so on large sites this walk is an approximation.
     const bool banded = m * n > 20000;
     const size_t band = 64;
     vector<size_t> centre;
@@ -1079,12 +983,8 @@ int32_t GraphAlignedAlleleLikelihoodCalculator::score_read_against_allele(
             P[j] = better(P[j], P[j - 1]);
             P[j] = better(P[j], plus(pP[j], rgap, rnat));
 
-            // A shared visit may be GAPPED even though it may not be SUBSTITUTED away.
-            // Forbidding the gap too -- forcing every shared visit to match, which is what a
-            // pure partition of the two paths does -- costs 0.0071 of chr20 ONT indel F1,
-            // because a read whose own bases inside a shared node are bad, typically an ONT
-            // homopolymer run, is sometimes better explained by gapping the node than by
-            // paying for those edits.
+            // A shared visit may be left unpaired, though it may not be substituted. A read
+            // with poor edits inside a shared node can be explained better by a gap.
             I[j] = better(plus(better(pM[j], pD[j]), rgap, rnat),
                           plus(pI[j], rlen * extend_per_base, rnat));
             D[j] = better(plus(better(M[j - 1], I[j - 1]), agap, 0.0),
@@ -1094,11 +994,8 @@ int32_t GraphAlignedAlleleLikelihoodCalculator::score_read_against_allele(
     }
 
     // Every read step is consumed by exactly one transition, so every read base inside the
-    // site is accounted for whatever the allele -- the invariant that stops one allele being
-    // scored over a different span than its competitors.
-    //
-    // Allele nodes after the last match are outside the window and free, so simply stop:
-    // never end in D, which has charged them.
+    // site is scored whatever the allele. Allele nodes after the last pair are outside the
+    // window and cost nothing, so the walk may not end in D, which has charged them.
     Cell best = NONE;
     for (size_t j = 0; j <= n; ++j) {
         best = better(best, better(pP[j], better(pM[j], pI[j])));
@@ -1112,21 +1009,15 @@ GraphAlignedAlleleLikelihoodCalculator::WindowReadStats
 GraphAlignedAlleleLikelihoodCalculator::local_read_stats(
     const vector<pair<nid_t, nid_t>>& site_ranges) const {
 
-    // The neighbourhood the rate is measured over, in node IDs -- one constant for every read
-    // source, deliberately decoupled from the source's fetch window. Taking the fetch window made
-    // DR (and any --depth-quality GQ) depend on how the same reads were supplied: an in-memory
-    // source fell back to 4096 while an indexed GAM's default fetch window is 256, sixteen times
-    // narrower with differently quantized boundaries -- despite an older comment here claiming the
-    // two matched. (The in-tree in-memory-vs-indexed test could not see the difference: its graph
-    // fits inside one 256-ID window, where the two spans cover identical reads.) Measured through
-    // --read-window on real data the width is not worth tuning: 1024 loses 0.004 structural-variant
-    // F1, 16384 gains 0.001.
+    // The width of a rate window, in node IDs. It is fixed rather than taken from the read
+    // source's fetch window, so that DR and the depth term do not depend on how the reads were
+    // supplied.
     static const size_t RATE_WINDOW = 4096;
     size_t span = RATE_WINDOW;
     if (site_ranges.empty() || params.depth_ploidy <= 0) {
         return WindowReadStats();
     }
-    // The window the source would have fetched to answer this site's own query.
+    // The rate window is the one containing the site's lowest node ID.
     nid_t lo = site_ranges.front().first;
     for (const auto& r : site_ranges) {
         lo = min(lo, r.first);
@@ -1143,22 +1034,18 @@ GraphAlignedAlleleLikelihoodCalculator::local_read_stats(
     nid_t first = (nid_t)window_index * (nid_t)span;
     nid_t last = first + (nid_t)span - 1;
 
-    // Memoised per window, not per site. Counting a window's reads costs O(reads in
-    // window), which is far more than a snarl, and neighbouring sites share windows;
-    // without this the diagnostic would cost more than the genotyping.
+    // Computed once per window and shared by the sites in it, since counting a window's
+    // reads costs far more than scoring a site.
     //
-    // Reads are counted here exactly as they are counted at a site: under
-    // `depth_effective_reads` each contributes `1 - e_r` rather than 1, using the same
-    // MAPQ, the same clamps and the same `use_mismap_term` switch. Weighting one side
-    // and not the other would put a constant scale factor between N and lambda and
-    // bias every DR in the same direction, which is not a signal.
+    // Reads are counted as they are at a site: under `depth_effective_reads` each counts as
+    // 1 - e_r, with the same clamps and the same `use_mismap_term` switch. Counting them
+    // differently would put a constant factor between N and lambda.
     double reads = 0.0;
     double length_total = 0.0;
     size_t length_count = 0;
     read_source.for_each_alignment({{first, last}}, [&](const Alignment& aln) {
-        // Only reads that BEGIN here. The fetch hands over everything overlapping the window, and
-        // counting all of it is an overlap rate where the geometry wants a start rate; it is also
-        // what makes the length mean size-biased. One test fixes both.
+        // Count only the reads that begin in the window; the fetch also returns reads that
+        // only overlap it.
         const Path& path = aln.path();
         if (path.mapping_size() == 0) {
             return;
@@ -1247,25 +1134,14 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
         }
     }
 
-    // Per-allele length for the depth term's lambda: the sequence over which a read
-    // can become a row of this matrix, which is the traversal's **interior** only.
+    // Each allele's length for the depth term's lambda, T_a: the traversal without the
+    // site's two boundary nodes. A read that lies inside one boundary node is dropped by
+    // get_read_steps, so boundary sequence yields no rows. An allele with no interior, which
+    // deletes the whole interior, gets length 0, and lambda then counts only the R - 1
+    // reads that span its junction.
     //
-    // Not the whole traversal, and the difference is not cosmetic. A SnarlTraversal
-    // runs from the snarl's start visit to its end visit inclusive, so its length
-    // includes both boundary nodes -- but get_read_steps drops a read that sits
-    // entirely inside one boundary node as uninformative, so those bases recruit no
-    // reads. Counting them made lambda too large by roughly the two anchors' length,
-    // a constant per site, which put the median DR at 0.59 instead of 1 and diluted
-    // exactly the contrast between genotypes the term exists to see. It showed as DR
-    // rising with event size -- 0.58 at SNVs, 0.87 above 1 kb -- because a fixed
-    // overhead matters less the longer the allele.
-    //
-    // A traversal with no interior at all is the deletion edge: no interior node, so
-    // only a junction-spanning read can be a row, and max(len + R - 1, 1) gives the
-    // R - 1 junction positions, which is right.
-    //
-    // Distinct from the unique content the mixture weights use: lambda asks how much
-    // sequence generates reads, the weights ask which sequence tells alleles apart.
+    // This differs from the unique lengths the mixture weights use: lambda asks how much
+    // sequence yields reads, and the weights ask which sequence tells the alleles apart.
     vector<size_t> depth_lengths;
     depth_lengths.reserve(allele_steps.size());
     for (const auto& steps : allele_steps) {
@@ -1354,8 +1230,8 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
     // the same order: `add_read` drops a read that placed on nothing, so the evidence follows what
     // it kept rather than what was offered.
     unique_ptr<AnchorSiteEvidence> anchor_evidence;
-    // Read phasing needs the same `rel` rows and nothing else -- no name, no pin. Built only when
-    // anchors are NOT armed, because the anchor evidence already carries everything it wants.
+    // Read phasing needs only the `rel` rows, without read names or positions. Built only when
+    // anchors are not being written, since the anchor evidence already contains the rows.
     unique_ptr<PhaseReadEvidence> phase_evidence;
     if (params.collect_read_phasing && !params.collect_anchors) {
         phase_evidence = make_unique<PhaseReadEvidence>();
@@ -1390,10 +1266,9 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
         }
     }
 
-    // Counted into the run's instance where there is one. A local stands in otherwise -- a unit
-    // test driving the calculator directly has no run to count into, and a dropped count is better
-    // than a singleton nobody can see. Hoisted out of the per-read callback: it is 20 atomics, and
-    // constructing them once per read to throw them away is pure waste.
+    // Counted into the run's counters where there are some, and into this local otherwise, as
+    // in a unit test that drives the calculator directly. Declared outside the per-read
+    // callback so that it is constructed once per site.
     AnchorCounters unowned_counters;
     AnchorCounters& anchor_pin_counters =
         params.anchor_counters != nullptr ? *params.anchor_counters : unowned_counters;
@@ -1409,12 +1284,9 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
             return;
         }
 
-        // Flip a reverse-strand read into the alleles' reading direction. Without
-        // this it anchors on nothing, falls through to the substitution path, and
-        // is scored against the wrong allele entirely.
-        //
-        // Only the stretch inside the site is flipped -- see site_span_of. Flipping the whole
-        // alignment is the same answer at, on long reads, many times the cost.
+        // Flip a reverse-strand read into the alleles' reading direction, so that its
+        // visits can be paired with theirs. Only the stretch inside the site is flipped; see
+        // site_span_of.
         Alignment flipped;
         const Alignment* scored_aln = &aln;
         if (read_is_reverse_of_alleles(read_steps, allele_orientations)) {
@@ -1479,10 +1351,9 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
             phase_evidence->read_key.push_back((uint64_t)std::hash<string>{}(aln.name()));
         }
         if (anchor_evidence != nullptr) {
-            // Resolved against `aln`, NOT `scored_aln`. The flipped copy exists so the read can be
-            // compared to alleles that read the other way; its sequence is reverse-complemented and
-            // its offsets are in that frame, so pinning against it would report positions in a read
-            // the read file does not contain. The strand field is what expresses orientation here.
+            // Resolved against `aln`, not `scored_aln`. The flipped copy's offsets are in the
+            // reverse-complemented read, which the read file does not contain; the record's
+            // strand field gives the orientation instead.
             AnchorRead record;
             record.name = aln.name();
             record.mismap = (float)mismap;
@@ -1498,16 +1369,10 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
 
     AlleleReadLikelihoods result = builder.build();
 
-    // R, for every consumer of it, from one place. The builder can only offer the mean over the
-    // reads delivered to THIS site, and that estimator is size-biased -- a long read overlaps more
-    // sites, so it is sampled more often, and the site mean estimates E[L^2]/E[L] rather than E[L]
-    // (78,165 against 33,449 bp on a 33 kb ONT set; equal at fixed read length, which is why this
-    // was invisible on 150 bp reads). Every use of R here is Lander-Waterman geometry -- how much
-    // sequence can produce a read that overlaps something -- and all of it wants the population
-    // mean. Three consumers: the depth term's lambda below, the mixture weights
-    // (`set_length_weights`, via this same field), and the anchor slot weights, which read it back
-    // through `mean_read_length_estimate` a few lines down. Fixing only the depth term would leave
-    // the three disagreeing about one quantity.
+    // R, the mean read length, for all of its users: the depth term's lambda, the mixture
+    // weights and the anchor slot weights. The builder's R is the mean over this site's reads,
+    // which over-represents long reads because a long read reaches more sites. The rate
+    // window's mean counts each read once, where it begins, so we use it instead.
     WindowReadStats stats = local_read_stats(ranges);
     if (stats.mean_read_length > 0.0) {
         result.set_mean_read_length(stats.mean_read_length);
@@ -1529,10 +1394,9 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
         // Same rows in the same order, so row r is read_key[r]: the keys are pushed inside the
         // callback, after `add_read` has accepted the read, so a read it drops contributes neither.
         phase_evidence->mean_read_length = (float)result.mean_read_length_estimate();
-        // Fail CLOSED on a row-count mismatch rather than resizing into one. `resize` here would
-        // truncate or zero-pad, and a zero key is a key -- every padded read would collide and be
-        // silently treated as the same fragment at every site. Dropping the site's evidence costs
-        // one site's phase; mis-keying costs a wrong haplotype with nothing to show for it.
+        // If the counts disagree, drop the site's phasing evidence. Padding the keys instead
+        // would give every padded read the same key, so they would be taken for one fragment
+        // at every site.
         if (phase_evidence->read_key.size() != result.num_reads()) {
             phase_evidence.reset();
         }
@@ -1549,10 +1413,9 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
         result.phase_evidence = std::move(phase_evidence);
     }
     if (!depth_lengths.empty()) {
-        // Set unconditionally so `DR` is emitted whether or not the term is armed:
-        // the observable should be measurable as a ranking signal before the model
-        // is allowed to act on it. A zero weight leaves the likelihood untouched.
-        // Per haplotype, from the site's own ploidy rather than an assumed one.
+        // Set whether or not the depth term is on, so that DR is always written; a zero
+        // weight leaves the likelihood unchanged. The rate is per haplotype, from the site's
+        // own ploidy.
         int effective_ploidy = ploidy > 0 ? ploidy : params.depth_ploidy;
         result.set_depth_context(depth_lengths,
                                  stats.start_rate / (double)effective_ploidy,

@@ -2,11 +2,8 @@
 ///
 /// Unit tests for the three-stage read-backed phase decision.
 ///
-/// Everything here is parity arithmetic over a chain, which is the class of error that produces a
-/// plausible-looking phase and a wrong haplotype: a sign slip downstream of one link flips every
-/// site after it and nothing in the VCF looks unusual. The chr20 switch error catches it on real
-/// data; these pin the convention so that when that number moves it means the data surprised us
-/// rather than that the algebra was never right.
+/// Everything here is parity arithmetic over a chain: a sign error in one link flips every site
+/// after it, and nothing in the VCF looks unusual. These tests pin the convention.
 ///
 
 #include <vector>

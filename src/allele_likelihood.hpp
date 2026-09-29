@@ -3,17 +3,12 @@
 
 /** \file allele_likelihood.hpp
  *
- * A reads x alleles matrix of P(read | allele) for one site, and the machinery
- * to build it from the reads' existing alignments in the graph.
+ * The read-by-allele likelihood matrix of one site, and the code that builds it
+ * from the reads' existing alignments to the graph.
  *
- * This is the evidence layer for read-level genotyping: where the support-based
- * callers ask "how many reads cover this allele", this asks "how well does each
- * individual read fit each allele", which is what a proper P(reads | genotype)
- * needs.
- *
- * The model this feeds -- the objective, every term, every parameter and what the
- * reported qualities mean -- is written up in doc/read-likelihood-genotyping.md.
- * Read that first; the comments here assume it and cover only what is local.
+ * Each entry says how well one read fits one candidate allele. The read-likelihood
+ * genotyper combines these entries into a likelihood for each genotype. The model
+ * is described in doc/read-likelihood-genotyping.md.
  */
 
 #include <functional>
@@ -41,38 +36,17 @@ namespace vg {
 using namespace std;
 
 /**
- * Per-read relative likelihoods over the alleles at one site.
+ * Per-read relative likelihoods over the alleles of one site.
  *
- * Rows are **normalised by their own maximum**, so every entry is in [0,1] and
- * each row's maximum is exactly 1. Each read's likelihoods are therefore
- * expressed relative to that read's best available explanation at this site.
+ * Each row belongs to a read and is divided by its own maximum, so every entry is
+ * in [0, 1] and the read's best allele scores 1. The alignment score gives
+ * ln P(read | allele) only up to a constant that differs between reads; dividing
+ * by the row maximum removes that constant. It also puts every row on the scale of
+ * the mismapping term, whose background likelihood is then 1, and lets rows from
+ * scorers with different log bases share one matrix.
  *
- * Normalising this way matters for more than tidiness. What the scoring produces
- * is ln P(read | allele) only up to a per-read constant (the score to likelihood
- * conversion is just `log_base * score`, with an unknown and uncomputable
- * normaliser per read). That constant cancels when comparing genotypes, but only
- * as long as nothing else enters the per-read expression. The moment a
- * mismapping term is added it stops cancelling, unless every component sits on
- * the same scale. Dividing each row by its own maximum enforces that by
- * construction: the background becomes dimensionless, exactly 1, and there is no
- * scale left to mix.
- *
- * It also removes every numerical hazard. "No valid placement" becomes 0 rather
- * than -inf, underflow gives the correct answer instead of needing care, and the
- * per-read term is provably finite, so no logsumexp is required anywhere. As a
- * side benefit it makes rows scored under different scorers safely comparable,
- * which is what lets a read without base qualities sit in the same matrix as one
- * with them.
- *
- * Do NOT normalise the other way. Making the alleles sum to 1 within a row is a
- * plausible-sounding mistake: that quantity is a posterior over alleles under a
- * uniform prior, not P(read | allele). It double counts the prior and destroys
- * the absolute-fit information the mismapping term depends on, making a read
- * that fits one allele badly and the rest worse indistinguishable from a read
- * that fits one allele perfectly.
- *
- * These values are valid for argmax, for GQ (a likelihood difference), and for a
- * posterior over genotypes. They are NOT calibrated absolute probabilities.
+ * The values can be used to compare genotypes (to choose one, to compute GQ, or to
+ * form a posterior), but they are not calibrated absolute probabilities.
  */
 class AlleleReadLikelihoods {
 public:
@@ -82,127 +56,76 @@ public:
     size_t num_reads() const { return n_reads; }
     size_t num_alleles() const { return n_alleles; }
 
-    /// Likelihood of read r under allele a, relative to read r's best allele at
-    /// this site. In [0,1]. Exactly 0 means this allele cannot place the read at
-    /// all, which is strong evidence *against* the allele, not missing data.
+    /// Likelihood of read r under allele a, relative to read r's best allele at this
+    /// site, in [0, 1]. 0 means allele a cannot place the read, which counts against
+    /// allele a.
     double rel(size_t r, size_t a) const;
 
-    /// The read's mismapping probability e_r, derived from MAPQ and already
-    /// clamped. Guaranteed strictly inside (0,1) so the per-read term is finite.
+    /// The read's mismapping probability e_r, derived from its MAPQ and clamped to lie
+    /// strictly inside (0, 1).
     double mismap_prob(size_t r) const;
 
-    /// ln of the row's divisor: the read's absolute best fit at this site.
-    /// The model does not use this. It is the only surviving record of absolute
-    /// fit, kept for diagnostics and as a realignment trigger.
+    /// ln of the row's divisor, the read's best absolute fit at this site. The
+    /// genotype likelihood does not use it; it feeds the BL output field.
     double best_ln_likelihood(size_t r) const;
 
-    /// How many reads were dropped for placing on no allele at all. A rising
-    /// count means the read source is over-fetching, or the reads and the graph
-    /// do not match.
+    /// How many reads were dropped because they placed on no allele at all.
     size_t num_unplaceable() const { return unplaceable; }
 
-    /// Weight the mixture by how many reads each haplotype is *expected* to
+    /// Weight each haplotype of a genotype by the number of reads it is expected to
     /// contribute at this site, instead of a flat 1/|G|.
     ///
-    /// The flat weight asserts that each haplotype of a genotype produced half
-    /// the reads. Over an interval where one haplotype carries a deletion that is
-    /// simply false -- the deleted haplotype produces no reads there at all -- and
-    /// the error grows with the length imbalance. It is why a read lying inside a
-    /// heterozygous deletion argues for the homozygous long genotype by ln 2, and
-    /// why large heterozygous deletions are lost (and large heterozygous
-    /// insertions mis-genotyped, the same failure mirrored).
-    ///
-    /// The number of read start positions that yield a read overlapping this site
-    /// from a haplotype presenting an allele of length L is L + R - 1, for read
-    /// length R. So
+    /// A haplotype carrying an allele of length L yields a read of length R that
+    /// overlaps the site from L + R - 1 start positions, so
     ///
     ///     w_h = (L_h + R - 1) / sum_{h' in G} (L_h' + R - 1)
     ///
-    /// Three properties this has and a plain maximum does not. The weights sum to
-    /// 1, so adding an allele still costs and a clean homozygote still beats the
-    /// heterozygote. Equal-length alleles give exactly 1/2, so SNVs and balanced
-    /// indels are unchanged bit for bit. And it is symmetric in the direction of
-    /// the imbalance, so it addresses insertions and deletions with one rule.
+    /// The weights sum to 1, and alleles of equal length get equal weights.
     ///
-    /// `allele_lengths` is indexed by allele, `mean_read_length` is R -- which must be the
-    /// POPULATION mean read length, not the mean over the reads at one site. The site mean is
-    /// size-biased -- it estimates `E[L^2]/E[L]` --; `compute` overrides this field with a
-    /// window-derived population mean immediately after `build`. Passing an
-    /// empty vector, or a zero R, falls back to the flat 1/|G|.
+    /// `allele_lengths` is indexed by allele. `mean_read_length` is R, which should be
+    /// the mean length of reads in the neighbourhood rather than of the reads at this
+    /// site, since a long read overlaps more sites and so is over-represented at each.
+    /// `compute` replaces it with such a neighbourhood mean after `build`. An empty
+    /// vector or a zero R gives the flat 1/|G|.
     void set_length_weights(vector<size_t> allele_lengths, double mean_read_length) {
         this->allele_lengths = std::move(allele_lengths);
         this->mean_read_length = mean_read_length;
     }
 
-    /// Sharpen the weights by counting only sequence *unique* to each allele.
+    /// Count only the sequence unique to each allele when weighting the mixture.
     ///
-    /// Whole traversal length over-counts the shorter allele, because a traversal
-    /// includes the site's shared sequence -- at one measured 2648 bp deletion the
-    /// traversals are 296 and 2945 bp, so the raw ratio is 6.9 where the reads
-    /// actually split about 14.6. Reads landing in shared sequence fit every allele
-    /// equally, contribute the same factor to every genotype, and cancel; only
-    /// reads overlapping sequence unique to one allele can move a genotype
-    /// comparison at all. So the quantity the weight wants is unique content:
+    /// Reads that lie in sequence both alleles share fit both equally and cannot
+    /// change a genotype comparison, so the weight uses U_h, the sequence that
+    /// haplotype h's allele visits and the genotype's other allele does not:
     ///
     ///     w_h = (U_h + R - 1) / sum_{h' in G} (U_h' + R - 1)
     ///
-    /// where U_h is the sequence h visits and the other allele of the genotype does
-    /// not. Balanced alleles still give exactly 1/2 -- a SNV has U = 1 on both
-    /// sides -- so the no-op-on-small-variants property is unaffected.
-    ///
-    /// `unique_lengths[a][b]` is the sequence in allele a but not allele b. For a
-    /// diploid genotype that is exact. Above diploid the minimum over the other
-    /// members is used, which over-states uniqueness when three or more alleles
-    /// overlap partially; `vg call` genotypes diploid, so this is a bound rather
-    /// than a live approximation.
+    /// `unique_lengths[a][b]` is the length of the sequence in allele a but not in
+    /// allele b. Above ploidy 2, the minimum over the genotype's other alleles is used.
     void set_unique_lengths(vector<vector<size_t>> unique_lengths) {
         this->unique_lengths = std::move(unique_lengths);
     }
 
-    /// Add ln P(N | G) to the genotype likelihood: does this genotype predict the
-    /// number of reads actually seen?
+    /// Scale the per-haplotype depth rate by `factor`.
     ///
-    /// The model otherwise scores P(reads | G) conditioned on the reads it was
-    /// handed, and never asks whether that many reads should be there. A complete
-    /// generative model factorises as P(N | G) * P(reads | N, G), so the missing
-    /// piece is additive:
-    ///
-    ///     ln P(data | G) = w * ln Poisson(N ; lambda_G) + sum_r ln[...]
-    ///     lambda_G       = rate * sum_{h in G} (T_h + R - 1)
-    ///
-    /// `T_h` is the allele's **interior** traversal length -- the sequence over which
-    /// a read can become a row of this matrix. It is neither the whole traversal, whose
-    /// two boundary nodes recruit no rows because a read inside one of them cannot
-    /// discriminate, nor the unique content the mixture weights use. All three are
-    /// different quantities and conflating any two is an easy, invisible error: a
-    /// mixture weight asks which allele a read could *distinguish*, while lambda asks
-    /// how much sequence can put a read in front of the question at all.
-    ///
-    /// `rate` is reads per position per haplotype, estimated locally. It must be
-    /// measured through the same fetch and placement path that produced `N`, since
-    /// `N` is rows in this matrix -- neither coverage nor what a `vg pack` index
-    /// reports -- and a rate in different units carries a silent scale error.
-    ///
-    /// `effective_count` decides what `N` means. The read term already believes each
-    /// read only to the extent of `1 - e_r`; counting that same read as a whole read
-    /// of depth asserts something the read term explicitly declines to. Under
-    /// `effective_count` the observation is `N_eff = sum_r (1 - e_r)`, the expected
-    /// number of reads genuinely from this locus, and `rate` must be measured the
-    /// same way or the two carry a constant scale factor between them.
-    ///
-    /// Off unless `weight` is positive.
-    /// Rescale the per-haplotype depth rate.
-    ///
-    /// The rate is the local read rate divided by the ploidy the site is being genotyped at, so
-    /// scoring the same matrix at a different ploidy needs it scaled by the ratio -- 0.5 to go from
-    /// haploid to diploid. Exact, not an approximation: nothing else in the matrix depends on
-    /// ploidy, since `rel(r,a)` is a per-read-per-allele fit and lambda_G already sums over the
-    /// genotype's haplotypes. Scoring the other ploidy without this leaves lambda wrong by the
-    /// ploidy ratio, in the one term where that error is invisible in the output.
+    /// The rate is the local read rate divided by the ploidy the site is scored at, so
+    /// scoring the same matrix at another ploidy scales it by the ratio of the two
+    /// ploidies; for example 0.5 to go from ploidy 1 to ploidy 2. Nothing else in the
+    /// matrix depends on ploidy.
     void scale_depth_rate(double factor) {
         this->depth_rate *= factor;
     }
 
+    /// Set up the depth term, w * ln Poisson(N ; lambda_G), which asks whether genotype
+    /// G predicts the number of reads seen, N. Here
+    ///
+    ///     lambda_G = rate * sum_{h in G} (T_h + R - 1)
+    ///
+    /// `traversal_lengths` gives T_h for each allele: its length without the site's two
+    /// boundary nodes, since a read inside a boundary node is not a row of this matrix.
+    /// `rate` is read starts per base per haplotype near the site, and `read_length` is
+    /// R. With `effective_count`, N counts each read as 1 - e_r, and `rate` must count
+    /// reads the same way. The term is off unless `weight` is positive.
     void set_depth_context(vector<size_t> traversal_lengths, double rate,
                            double read_length, double weight,
                            bool effective_count = true) {
@@ -217,34 +140,29 @@ public:
         return depth_weight > 0.0 && depth_rate > 0.0 && !traversal_lengths.empty();
     }
 
-    /// Expected reads at this site under G, from the same geometry the term uses.
+    /// Expected number of reads at this site under the genotype, lambda_G.
     double expected_reads(const vector<int>& genotype) const;
 
-    /// The read count the depth term compares against: `sum_r (1 - e_r)` when the
-    /// context was set with `effective_count`, and the plain row count otherwise.
-    /// Fractional by construction, which is why the Poisson uses lgamma.
+    /// The read count N that the depth term compares with lambda_G: sum_r (1 - e_r)
+    /// with `effective_count`, and the number of rows otherwise. Since N need not be a
+    /// whole number, the Poisson is computed with lgamma.
     double observed_reads() const;
 
-    /// This allele's interior traversal length, as lambda uses it. Zero if the depth
-    /// context was never set or the index is out of range, so a difference between two
-    /// of these is only meaningful when uses_depth_term() or a rate was supplied.
+    /// This allele's length without the site's boundary nodes, T_h. 0 if the depth
+    /// context was not set or the index is out of range.
     size_t traversal_length(size_t allele) const {
         return allele < traversal_lengths.size() ? traversal_lengths[allele] : 0;
     }
 
-    /// Observed over expected, for the genotype given. 1.0 is a site whose read
-    /// count is exactly what the call predicts; 7.0 is a collapsed repeat. Emitted
-    /// as `DR` whether or not the term is switched on, so it can be measured as a
-    /// ranking signal before it is trusted as a likelihood.
+    /// Observed over expected read count, N / lambda_G, for the given genotype. It is
+    /// written as the DR output field whether or not the depth term is on.
     double depth_ratio(const vector<int>& genotype) const;
 
-    /// Mean read length in this site's own matrix, for the depth term's geometry.
+    /// The mean read length R used by the mixture weights and the depth term.
     double mean_read_length_estimate() const { return mean_read_length; }
 
-    /// Supply the mean read length on its own, for the depth term's lambda = rate * (L + R - 1).
-    /// set_length_weights also sets it, but only runs under the length-weighted mixture -- and the
-    /// depth term stays armed under --flat-mixture, where leaving R at 0 made lambda ~150x too
-    /// small for an SNV at 150 bp reads and erased the missing-reads signal for indels.
+    /// Set R alone, for the depth term. set_length_weights also sets it, but is called
+    /// only when the mixture is length-weighted, and the depth term needs R either way.
     void set_mean_read_length(double mean_read_length) {
         this->mean_read_length = mean_read_length;
     }
@@ -255,104 +173,35 @@ public:
     }
 
     /**
-     * ln P(reads | G), where G is a multiset of allele indices of size ploidy.
-     *
-     * **This is the objective the caller maximises.** Both terms are on by default,
-     * so a description of only the first describes a configuration nobody runs.
+     * ln P(reads | G), where G is a multiset of allele indices of size ploidy:
      *
      *   ln P(reads | G) =  sum_r ln [ (1 - e_r) * sum_{h in G} w_h * rel(r,h) + e_r ]
-     *                    + w_d * ln Poisson( N_eff ; lambda_G )
+     *                    + w_d * ln Poisson( N ; lambda_G )
      *
-     * where r runs over reads overlapping the site, h over the haplotypes of G
-     * (twice over the same allele for a homozygote), rel(r,h) is the read's fit to
-     * allele h relative to its own best allele here, e_r its mismapping probability,
-     * w_h the mixture weight, and the second term a Poisson on read count.
+     * r runs over the site's reads and h over the haplotypes of G, so a homozygote
+     * counts its allele twice. e_r is the read's mismapping probability and w_h the
+     * mixture weight. The second term is the depth term (see set_depth_context).
      *
-     * **Every symbol, every parameter and the reasoning behind each is specified in
-     * doc/read-likelihood-genotyping.md**, which is the canonical description of the
-     * model. Kept there rather than here because the model spans this header, the
-     * linkage layer and the VCF writer, and no one of them can hold all of it. What
-     * follows is only what a reader *modifying this function* needs.
-     *
-     * The bracket lies in [e_r, 1], so its log is finite and bounded below by
-     * ln(e_r): no single read can penalise a genotype without limit. That bound is
-     * the whole reason for the floor, and it is why min_mismap_prob reads as
-     * "P(this read's evidence here is unreliable)" rather than as mismapping alone.
-     * Anything that removes the bound -- an e_r of zero, a mixture allowed outside
-     * [0,1] -- reintroduces the unbounded single-read veto that the floor exists to
-     * stop, and it will present as spurious heterozygosity rather than as an error.
-     *
-     * rel(r,h) = 0 means h cannot place the read at all. That is evidence *against*
-     * h, not missing data, and must not be skipped or imputed.
-     *
-     * The read term has no opinion about reads that are *absent*, which is exactly
-     * the evidence a homozygous deletion presents; the depth term supplies it, at a
-     * deliberately small weight because it is a much cruder statistic and is
-     * dominated by the read term wherever reads are informative.
-     *
-     * **Not in this expression:** the linkage layer. `--linkage-weight` re-decides
-     * genotypes *after* calling, from forward-backward posteriors over pairs of
-     * GBWT panel haplotypes, using this quantity as the per-site emission. See
-     * linkage_model.hpp. Nothing here changes when it is on.
-     *
-     * Reads are assumed independent. Mates overlapping the same site are not, and
-     * the product therefore accumulates confidence like R rather than sqrt(R), so
-     * derived GQ will be over-confident and increasingly so with depth. Treat
-     * GQ/GL as useful for ranking, not as calibrated probabilities.
+     * Since rel(r,h) lies in [0, 1], each read's term lies between ln(e_r) and 0, so
+     * the floor on e_r limits how much one read can count against a genotype.
+     * rel(r,h) = 0 is evidence against allele h, not missing data. Reads are treated
+     * as independent, so GL and GQ grow over-confident with depth.
      */
     double genotype_likelihood(const vector<int>& genotype) const;
 
     /**
-     * The largest likelihood gap this site could produce between these two genotypes:
-     * what `genotype_likelihood(called) - genotype_likelihood(runner_up)` would come
-     * to if every read fitted `called` perfectly and nothing else.
+     * The largest difference the read term could give between the called genotype and
+     * the runner-up at this site, the denominator of GQN.
      *
-     * This exists because the raw gap -- which is what GQ reports -- is not comparable
-     * between sites, and it moves on two axes: depth and **ploidy**. Depth is the
-     * obvious one and the easy one. Ploidy is neither: at ploidy 1 the runner-up is a
-     * different allele outright, so every read discriminates fully, while at ploidy 2
-     * a heterozygote's runner-up differs on one strand only, so a read discriminates
-     * about half as much and only half the reads discriminate at all. Per read, with
-     * the mismap floor at its 0.02 default, that is 3.91 nats haploid against 1.28 for
-     * a diploid het and 0.67 for a diploid hom -- so a hemizygous call carries some six
-     * times the GQ of a diploid homozygote on identical evidence. Measured on HG002,
-     * chrX hemizygous calls run a median GQ of 247 where chr7 diploid homs at the same
-     * depth run 46.
+     * It is the difference that would result if each haplotype of `called`
+     * contributed its mixture weight's share of the reads, each read fitted its own
+     * haplotype's allele with rel 1 and every other allele with 0, and every read had
+     * e_r at the mismap floor. Dividing the observed difference by this one gives a
+     * value in [0, 1] that does not depend on depth or on ploidy.
      *
-     * Dividing the observed gap by this one gives a fraction in [0,1] meaning the same
-     * thing at any depth and any ploidy. Measured over a coverage titration of chr20
-     * (diploid, 5-30x) and chrX (haploid, 2.5-14.6x), the mean spread of observed
-     * precision at a claimed score falls from 0.348 for raw GQ to 0.266.
-     *
-     * Dividing by depth alone does **not** work, and looks like it does if only one
-     * ploidy is checked: GQ/DP halves the spread on the diploid series (0.101 to 0.050)
-     * and makes the pooled figure worse than doing nothing (0.348 to 0.496). It removes
-     * the smaller axis, leaves the larger one, and compresses the range so that what
-     * remains does more damage.
-     *
-     * Each haplotype of `called` is taken to contribute its mixture weight's share of
-     * the reads, and such a read to have rel 1 for its own allele and 0 for every other.
-     * Both terms of the difference are kept: reads from an allele the runner-up also
-     * carries make the gap *smaller*, and dropping them overstates a heterozygote's
-     * achievable gap by about a quarter.
-     *
-     * **The reads' own e_r is deliberately not used**, which is the easy thing to get
-     * wrong here -- the first version of this used it. An ideal read is well-fitting
-     * *and* well-mapped, so the denominator is built at the mismap floor. Using each
-     * read's own e_r puts the site's unreliability into both sides of the ratio, where
-     * it cancels: a window of MAPQ-0 reads offers -ln(0.7) = 0.36 per read against
-     * -ln(0.02) = 3.91, so a badly mapped site would be scored against a denominator
-     * small enough to make a weak call look strong. Measured over the titration, that
-     * version scored 0.427 against 0.347 for raw GQ -- worse than not normalising at
-     * all -- where the floor version scores 0.260.
-     *
-     * Deliberately excludes the depth term. That term judges the read *count* against
-     * what a genotype predicts and is already scale-free; folding it in here would put
-     * a quantity that does not vanish under a perfect pileup into a denominator that is
-     * supposed to represent one.
-     *
-     * Returns 0 when there are no reads or the two genotypes are equal, so callers must
-     * guard the division rather than assume a positive denominator.
+     * The depth term is left out, since a perfect set of reads does not maximise it.
+     * Returns 0 when there are no reads or the two genotypes are equal, so callers
+     * must check before dividing.
      */
     double achievable_gap(const vector<int>& called, const vector<int>& runner_up) const;
 
@@ -367,12 +216,12 @@ public:
     /// Write the matrix as TSV for debugging. One row per read.
     void dump(ostream& out, const string& site_name) const;
 
-    /// The site's anchor evidence, filled only when anchors were armed. Owned; moved out by the
-    /// caller into the CallInfo it retains, so nothing here outlives the site.
+    /// The site's anchor evidence, filled only when anchors are being written. The
+    /// caller moves it into the CallInfo it keeps for the site.
     unique_ptr<AnchorSiteEvidence> anchor_evidence;
 
-    /// The site's phasing evidence, filled only when read phasing was armed AND anchors were not:
-    /// the anchor evidence is a superset, so building both would retain `rel` twice. Same ownership.
+    /// The site's read-phasing evidence, filled only when read phasing is on and anchors
+    /// are not being written; the anchor evidence already contains it.
     unique_ptr<PhaseReadEvidence> phase_evidence;
 
     /// Populate the matrix. Only for AlleleReadLikelihoodsBuilder.
@@ -380,24 +229,19 @@ public:
                       vector<double>&& mismap, vector<double>&& best_ln,
                       vector<string>&& names, size_t unplaceable);
 
-    /// The --mismap-min floor these reads were clamped to. Only achievable_gap uses it,
-    /// and only as the reliability an *ideal* read would have; see there for why the
-    /// reads' own e_r is the wrong thing to put in that denominator.
+    /// The --mismap-min floor on e_r, which achievable_gap uses for its ideal reads.
     void set_mismap_floor(double floor) { this->mismap_floor = floor; }
 
 private:
-    /// Expected share of this site's reads per haplotype of the genotype: flat 1/|G|
-    /// unless lengths were supplied, in which case each haplotype is weighted by the
-    /// sequence no other member of the genotype carries. Shared by
-    /// genotype_likelihood and achievable_gap so the two cannot drift apart -- a gap
-    /// measured against different weights than the likelihood it normalises would be
-    /// meaningless.
+    /// Expected share of this site's reads for each haplotype of the genotype: flat
+    /// 1/|G| unless lengths were supplied. Shared by genotype_likelihood and
+    /// achievable_gap, which must use the same weights.
     vector<double> mixture_weights(const vector<int>& genotype) const;
 
     /// Row major, n_reads * n_alleles, every entry in [0,1], row max exactly 1.
     vector<double> matrix;
     vector<double> read_mismap_prob;
-    /// --mismap-min, the reliability an ideal read would have. achievable_gap only.
+    /// --mismap-min, used by achievable_gap only.
     double mismap_floor = 0.02;
     /// sum_r (1 - e_r), filled in by set_contents.
     double effective_read_total = 0.0;
@@ -419,21 +263,17 @@ private:
 /**
  * Accumulates raw per-read scores and produces a normalised AlleleReadLikelihoods.
  *
- * Reads are added one at a time with their raw (unnormalised) ln-likelihoods
- * against every allele. A read whose every entry is -inf placed on nothing at
- * all and is dropped, because normalising it would divide by zero; those are
- * counted rather than silently discarded.
+ * Reads are added one at a time, each with its raw ln-likelihood against every
+ * allele. A read whose entries are all -inf placed on no allele and has no row
+ * maximum to divide by, so it is dropped and counted.
  */
 class AlleleReadLikelihoodsBuilder {
 public:
     /// Mismapping probabilities are clamped into [min_mismap, max_mismap].
     ///
-    /// The upper clamp is load-bearing rather than hygiene: many mappers use
-    /// MAPQ 0 to mean "multi-mapping" rather than P(wrong) = 1, and an e_r of 1
-    /// would collapse the read's term to ln(1) = 0 for every genotype, silently
-    /// contributing nothing at all. That may even be the desired behaviour for a
-    /// MAPQ 0 read, but it should be a deliberate clamp rather than an artefact
-    /// of the phred conversion. It also keeps the per-read term's log finite.
+    /// The upper clamp matters because many mappers give MAPQ 0 to a read with several
+    /// equally good placements. Its unclamped e_r of 1 would make the read's term 0
+    /// under every genotype, so the read would count for nothing.
     AlleleReadLikelihoodsBuilder(size_t num_alleles, double min_mismap = 0.01,
                                  double max_mismap = 0.1);
 
@@ -485,187 +325,60 @@ private:
  * member initializers can be used in a defaulted argument.
  */
 struct AlleleLikelihoodParams {
-    /// Real-valued nats added to each gap where the READ carries bases the allele
-    /// lacks. Zero by default, which is exactly the old behaviour.
-    ///
-    /// Why nats and not score units: the alignment score is an int32, so the finest
-    /// change `--gap-open` can express is one unit = 1.3833 nats. The measured
-    /// correction at long homopolymers is about 0.4 units, which the integer path
-    /// cannot represent at all -- a plausible part of why `--qual-gap` failed, since
-    /// its "absolute" form moved 2 units where the preset had fitted 1. So this is
-    /// applied after the score-to-nats conversion, where fractions exist.
-    ///
-    /// Why insertions only: ONT's basecaller miscounts homopolymer runs directionally
-    /// -- 43.6% insertion against 25.5% deletion at runs >= 13 -- while the affine gap
-    /// charges one constant either way. Measured on chr20, HP >= 5 one-base indels had
-    /// insertion precision 0.667 against deletion 0.818 before the anchor-walk fix and
-    /// 0.759 against 0.810 after it, with recall equal in both directions. A positive
-    /// value here makes a read's extra bases argue less strongly against the shorter
-    /// allele, which is the direction that reduces spurious insertion calls.
+    /// Nats added to a read's log-likelihood for each gap in which the read has bases
+    /// the allele lacks (--insertion-nats). A positive value makes extra read bases
+    /// count against an allele less than missing ones. It is applied after the integer
+    /// alignment score is converted to nats, so it can take fractional values.
     double insertion_gap_nats = 0.0;
 
-    /// Resolve the read-to-allele node correspondence with an optimal walk rather than a
-    /// greedy one. Worth +0.0042 chr20 / +0.0035 chr6 ONT indel F1 for +19% CPU, and only
-    /// +0.0009 indel for 4.28x the CPU on short reads, so it is off unless asked for.
-    /// `--preset ont` turns it on.
+    /// Pair the read's node visits with the allele's by the optimal walk, a dynamic
+    /// program, rather than by the greedy walk (--realign).
     bool realign = false;
 
-    /// Clamps on the MAPQ-derived mismapping probability. See the builder.
+    /// The floor on the mismapping probability e_r (--mismap-min).
     ///
-    /// The *floor* is the more consequential of the two on real data, and its
-    /// meaning is broader than mismapping. e_r bounds how much one read can veto
-    /// an allele: a read fitting allele A perfectly and B not at all costs B
-    /// exactly ln(e_r). MAPQ answers "is this read in the right place", not "is
-    /// its path through this site right", so a MAPQ 60 read with a locally
-    /// misaligned indel still gets e_r ~ 1e-6 and a -13.8 nat veto it has not
-    /// earned. Raising the floor caps that veto: read it as
-    /// P(this read's evidence at this site is unreliable), of which mismapping is
-    /// only one cause and local misalignment is another.
-    ///
-    /// Default raised from 1e-8 to 0.01, then to 0.05. 1e-8 asserted that a MAPQ 60
-    /// read is locally misaligned once in 10^8 sites, which nothing supports; it let a
-    /// single read veto an allele by -13.8 nats, and a few misaligned reads then forced
-    /// spurious heterozygous calls. On HG002 chr20 against the GIAB draft benchmark,
-    /// 0.01 moved 1,493 genotypes -- 94% of them het to hom -- and improved every class.
-    ///
-    /// 0.02 was then measured once max_mismap_prob had been corrected to 0.5, because
-    /// the two clamps interact and a floor chosen under the old cap is not evidence
-    /// about the new one. Raising the cap absorbed most of what the floor used to cost
-    /// SNVs -- under the old cap the same move cost about four times as much SNV
-    /// precision, which is why an earlier pass rejected it.
-    ///
-    /// Swept at cap 0.5 on chr20. **Small-variant GT F1 and SV F1 peak in different
-    /// places, so this is a choice and not an optimum:**
-    ///
-    ///   floor         0.01     0.02     0.03     0.05     0.10
-    ///   4-hap  small 0.9479   0.9490   0.9495   0.9492   0.9449
-    ///   4-hap  SV    0.5164   0.5145   0.5121   0.5074   0.5033
-    ///   34-hap small 0.9520   0.9547   0.9563   0.9571   0.9535
-    ///   34-hap SV    0.4906   0.4912   0.4860   0.4789   0.4619
-    ///
-    /// 0.02 is chosen because on the 34-haplotype graph it is the only point that
-    /// improves **both** metrics against 0.01 -- everything above it buys small-variant
-    /// accuracy by selling SV accuracy, at a rate that gets worse the higher it goes.
-    /// It is also the best point on an equal-weight sum of all four numbers.
-    ///
-    /// That choice is not forced. Weighted by record count the answer is 0.05: there
-    /// are 94,691 small-variant truth records on chr20 against 1,680 SVs, so its
-    /// +0.0024 small-variant F1 is worth ~227 records while its -0.0123 SV F1 costs
-    /// ~22. Anyone who cares only about small variants should set 0.05 explicitly.
-    ///
-    /// The knob itself is indel-shaped: from 0.01 to 0.02 on the 34-haplotype graph,
-    /// insertion GT F1 goes 0.8662 -> 0.8764 and deletion 0.8743 -> 0.8883, against SNV
-    /// precision 0.9937 -> 0.9934. Above 0.10 everything degrades on both graphs.
+    /// A read that fits allele A perfectly and allele B not at all lowers B's
+    /// likelihood by at most -ln(e_r), so the floor limits how strongly one read can
+    /// count against an allele. MAPQ measures whether the read is at the right locus,
+    /// not whether its path through this site is right, so the floor also stands for
+    /// a well-mapped read that is misaligned locally.
     double min_mismap_prob = 0.02;
 
-    /// The *cap* on e_r. It binds only on reads whose MAPQ-derived probability exceeds it,
-    /// so it decides how much a read the mapper could not place still counts.
-    ///
-    /// Why a cap is needed at all: vg's mappers derive MAPQ from distinct graph placements,
-    /// so on a haplotype-rich graph a large population sits at MAPQ 0-1 -- not unmappable,
-    /// but tied between near-identical placements (on the 34-haplotype chr20 graph, MAPQ 1
-    /// alone is 23.3% of the reads at the sites that go wrong). A low cap understates that
-    /// doubt and gives those reads confident votes; they out-vote well-placed reads, and
-    /// the errors are spurious heterozygotes and structural variants.
-    ///
-    /// 0.95 is measured whole-genome: HG002 short reads, 34-haplotype graph, T2T-Q100,
-    /// paired 1 Mb block bootstrap. Against 0.7 it gives SV F1 +0.0021 [+0.0008, +0.0033]
-    /// (+0.0020 with chr20 held out) with small-variant errors unchanged (ALL, SNV and
-    /// indel F1 each within 1e-4, n.s.). Above raw 0.794 the cap binds on MAPQ 0 alone, as
-    /// MAPQ 1 falls back to its own 0.794; 0.99 is worse than 0.95 -- no further SV gain and
-    /// a significant small-variant cost. Excluding low-MAPQ reads outright
-    /// (--read-min-mapq) is a different lever: it removes more SV errors but abandons sites
-    /// covered only by such reads, which costs SNV recall.
-    ///
-    /// The cap must stay strictly below 1: at e_r = 1 the per-read term is
-    /// log((1-1)*mixture + 1) = 0 for every genotype, so the read silently vanishes.
-    ///
-    /// The two clamps are not interchangeable. The cap governs *placement* ambiguity and
-    /// shows up in SNVs and SVs; the floor governs how hard one read may veto an allele and
-    /// shows up in indels. Tuning either against an aggregate F1 hides what the other does.
-    /// Under any MAPQ floor of 1 or more the cap is inert, so --preset ont is unaffected.
+    /// The ceiling on e_r (--mismap-max). It applies to reads with MAPQ 0 or close to
+    /// it, and decides how much such a read still counts. It must stay below 1, since
+    /// at e_r = 1 the read's term is 0 under every genotype.
     double max_mismap_prob = 0.95;
 
-    /// Turn the mismapping term off entirely, so its contribution can be
-    /// measured rather than assumed. With it off, e_r is pinned to the minimum,
-    /// which is as close to "trust every read fully" as the model can get while
-    /// keeping the log finite.
+    /// Use the mismapping term. When false, every e_r is set to the floor, the closest
+    /// the model can come to trusting every read fully while keeping the log finite.
     bool use_mismap_term = true;
-    /// Weight the mixture by each haplotype's expected read contribution at the
-    /// site rather than a flat 1/|G|. See AlleleReadLikelihoods::set_length_weights.
-    ///
-    /// **On by default.** The flat weight asserts each haplotype of a genotype
-    /// produced half the site's reads, which is false wherever the alleles differ
-    /// in length, and badly so for large events: it lost 94% of heterozygous
-    /// deletions above 1 kb and mis-genotyped two thirds of heterozygous insertions
-    /// above 1 kb. Correcting it costs nothing measurable elsewhere -- equal-length
-    /// alleles give exactly 1/2, so SNV genotype F1 is unchanged to four decimal
-    /// places on both graphs tested -- and about 2% of runtime.
-    /// The weight counts sequence *unique* to each allele among the genotype's members,
-    /// not whole traversal length. That choice was measured against the alternative and
-    /// the alternative lost: a traversal includes the site's shared sequence, so at one
-    /// 2648 bp deletion the traversals are 296 and 2945 bp -- a ratio of 6.9 where the
-    /// reads actually split about 14.6. Reads in shared sequence fit every allele
-    /// equally and cancel, so only unique content can move a genotype. There was briefly
-    /// a `--length-weight-whole-traversal` flag to select the older form; it is gone,
-    /// since the comparison is settled and a knob inside a knob is not worth the surface.
+
+    /// Weight each haplotype of a genotype by the reads it is expected to contribute,
+    /// counting the sequence unique to its allele, rather than by a flat 1/|G|. See
+    /// AlleleReadLikelihoods::set_length_weights and set_unique_lengths.
     bool length_weighted_mixture = true;
-    /// Weight on ln P(N | G). Zero disables the depth term entirely; the `DR`
-    /// diagnostic is still computed, so the observable can be measured before the
-    /// model is allowed to act on it.
-    ///
-    /// **On by default at 0.1.** The read term is conditioned on the reads it was
-    /// handed and never asks whether that many reads should be there, which is why
-    /// collapsed-repeat pile-ups survived it and why the Poisson caller led on large
-    /// heterozygous deletions. Measured across the full five-arm matrix on two
-    /// chromosomes and two graphs: structural-variant F1 rises on 4 of 4 datasets for
-    /// haplotype enumeration (+0.0067 to +0.0108) and 3 of 4 for support enumeration,
-    /// with the fourth flat; small-variant genotype F1 is unchanged to four decimal
-    /// places on every read arm; and both Poisson arms are byte-identical, as they
-    /// must be. Heterozygous deletion recall above 1 kb roughly doubles.
-    ///
-    /// 0.1 rather than a heavier weight, from a 27-point grid searched on chr20 and
-    /// validated on chr6. The weight is unimodal and turns over sharply above 0.25 --
-    /// false positives climb far faster than true ones -- and the optimum is
-    /// graph-dependent in a consistent way: 4-haplotype graphs prefer 0.25 and
-    /// 34-haplotype graphs prefer 0.1, two for two. 0.1 ties on mean F1, wins on
-    /// precision, and wins on the richer graph, which is the direction pangenomes are
-    /// going. It gives back some heterozygous deletion recall against 0.25; raise it if
-    /// that class is the objective.
+
+    /// Weight of the depth term, ln P(N | G) (--depth-term). Zero turns the term off;
+    /// DR is computed either way.
     double depth_weight = 0.1;
-    /// Count reads toward depth in proportion to `1 - e_r` -- the probability the
-    /// read came from this locus at all -- rather than one apiece.
-    ///
-    /// **On by default.** A read the mapper places with MAPQ 0 is evidence that
-    /// *something* is here, not that a read is here: the read term already believes
-    /// it only to the extent of `1 - e_r`, and counting it as a whole read of depth
-    /// asserts precisely what that term declines to. The same weighting is applied
-    /// when the local rate is measured, so a site whose mapping quality matches its
-    /// neighbourhood's is unaffected -- the correction is relative, and it moves
-    /// only where a site is more or less ambiguously mapped than the sequence
-    /// around it.
+
+    /// Count each read toward depth as 1 - e_r, the probability that it came from this
+    /// locus, rather than as 1. The local rate is counted the same way.
     bool depth_effective_reads = true;
-    /// Ploidy to assume when the caller does not supply one. Only a fallback: the
-    /// site's own ploidy is passed to `compute` and used in preference, because
-    /// `vg call` varies ploidy by contig (-d, --ploidy-regex) and a haploid region
-    /// scored against a diploid rate gets a lambda that is wrong by the ploidy
-    /// ratio, in a term that is otherwise one of the better-behaved parts of the
-    /// model.
+
+    /// Ploidy used for the depth rate when `compute` is not given the site's ploidy.
     int depth_ploidy = 2;
 
-    /// Collect per-read anchor evidence while the reads are resident. Off unless --anchors-out.
-    ///
-    /// The pin is resolved to a (strand, offset) here, where the alignment is live; deferring that
-    /// to the render pass is the one change that would force the alignments to stay in memory.
+    /// Collect per-read anchor evidence while the reads are in memory (--anchors-out).
+    /// Each read's position is resolved here, while its alignment is available.
     bool collect_anchors = false;
-    /// Where to count the pin resolutions this calculator performs. Not owned; see
-    /// AnchorParams::counters. Null means "do not count", which is what the unit tests want.
+    /// Where to count the position resolutions this calculator performs. Not owned;
+    /// see AnchorParams::counters. Null means do not count.
     AnchorCounters* anchor_counters = nullptr;
 
-    /// Retain the same per-read evidence for read-backed phasing. Off unless --read-phasing.
-    ///
-    /// Separate from `collect_anchors` because phasing needs the `rel` rows and nothing else: the
-    /// pins are the expensive half of that struct and a phase decision has no use for them.
+    /// Keep each read's row of relative likelihoods for read-backed phasing
+    /// (--read-phasing). Phasing needs only the rows, not the positions that
+    /// `collect_anchors` also resolves.
     bool collect_read_phasing = false;
 };
 
@@ -678,44 +391,29 @@ public:
 
     /// Build the matrix for one site. traversals are the candidate alleles, in
     /// the order the caller will genotype them. `ploidy` is the site's ploidy, which
-    /// the depth term needs to turn a local read count into a per-haplotype rate;
-    /// `vg call` varies it by contig through -d and --ploidy-regex.
+    /// the depth term needs to turn a local read count into a per-haplotype rate.
     virtual AlleleReadLikelihoods compute(const Snarl& snarl,
                                           const vector<SnarlTraversal>& traversals,
                                           int ploidy) = 0;
 };
 
 /**
- * Scores each read against each allele from the read's *existing* alignment in
- * the graph, by walking the read's path against the allele's path and accounting
- * the differences. No dynamic programming.
+ * Scores each read against each allele from the read's existing alignment to the
+ * graph, by pairing the read's node visits with the allele's and scoring the pairs,
+ * rather than by aligning the read to each allele again.
  *
- * This is not merely a speed shortcut. In a variation graph the snarl
- * decomposition already is a multiple alignment: two traversals of a snarl share
- * its boundary nodes by construction, so they are aligned to each other through
- * the topology, and "how many differences between this read and this allele" is
- * already well defined structurally. Re-deriving it with DP could find a higher
- * scoring alignment corresponding to no path in the graph, which is not the
- * quantity we want -- our alleles *are* paths, and we need P(read | this path).
- * Counting differences also tells us exactly which read bases mismatch, so each
- * mismatch is charged its own base quality rather than a length average.
- *
- * The cost it carries is that it inherits the mapper's placement: if a read was
- * placed wrongly we score against the wrong path and cannot recover. That is
- * what an optional realigning calculator would be for.
+ * Two alleles of a site share its boundary nodes, so the graph already aligns them
+ * to each other, and the score is P(read | this walk through the graph). The
+ * mapper's edits say which read bases mismatch, so each mismatch is charged at its
+ * own base quality. A read the mapper placed wrongly is scored against the wrong
+ * walk.
  *
  * ## The scoring window
  *
- * The window is a property of the read and the site, never of the allele. It is
- * the span of read bases the read's own alignment places inside the site, and
- * **every allele is scored over that same span**. Read bases an allele cannot
- * place are charged as insertions rather than omitted.
- *
- * This is an invariant, not a preference. Scoring allele *a* over 150 read bases
- * and allele *b* over only the 100 it can place makes their difference contain
- * 50 x match-reward: a fabricated likelihood ratio of arbitrary magnitude that
- * merely happens to point the right way. P(read | allele) may differ between
- * alleles only in how well the *same* observed bases are explained.
+ * A read's scoring window is the span of read bases that its alignment places
+ * inside the site. Every allele is scored over the same window: read bases an
+ * allele cannot place are charged as an insertion rather than left out, so alleles
+ * differ only in how well they explain the same bases.
  */
 class GraphAlignedAlleleLikelihoodCalculator : public AlleleLikelihoodCalculator {
 public:
@@ -724,16 +422,11 @@ public:
     using Params = AlleleLikelihoodParams;
 
     /**
-     * Two scorers are needed, not one.
-     *
-     * A quality-adjusted scorer charges each mismatch its own base quality,
-     * which is the whole point of scoring per read. But it is inapplicable to a
-     * read with no base qualities, which happens with GAF that has no quality
-     * column. Rather than fabricate qualities or silently mis-score, pick per
-     * read: qual_scorer when the read has qualities, plain_scorer when it does
-     * not. Their log bases differ, but that is harmless here because every row
-     * is normalised by its own maximum before use, so a row never mixes scorers
-     * and cross-row comparisons are dimensionless.
+     * `qual_scorer` charges each mismatch at its base quality, and scores reads that
+     * have base qualities. `plain_scorer` scores reads without them, such as reads
+     * from a GAF file with no quality column. The two have different log bases, which
+     * does not matter because each row is divided by its own maximum and a row is
+     * scored by one scorer only.
      */
     GraphAlignedAlleleLikelihoodCalculator(const PathHandleGraph& graph,
                                            SnarlManager& snarl_manager,
@@ -770,14 +463,10 @@ protected:
     /// (read, allele), so cheap enough to do once per site.
     vector<AlleleStep> get_allele_steps(const SnarlTraversal& traversal) const;
 
-    /// Extract the read's visits inside the site, in read order. Returns false
-    /// if the read has no informative overlap: a read touching only the site's
-    /// boundary nodes would contribute an identical constant to every allele,
-    /// since every allele shares those nodes by construction.
-    ///
-    /// That is NOT the same as a read failing to place on *some* allele, which
-    /// is informative and must be kept. Conflating the two would systematically
-    /// destroy deletion and structural variant genotyping.
+    /// Extract the read's visits inside the site, in read order. Returns false if the
+    /// read cannot tell the alleles apart because it lies within one boundary node,
+    /// which every allele shares. A read that fails to place on some allele is kept,
+    /// since that is evidence against the allele.
     bool get_read_steps(const SiteRead& read, const unordered_set<nid_t>& site_nodes,
                         const unordered_set<nid_t>& boundary_nodes,
                         vector<ReadStep>& steps_out) const;
@@ -800,12 +489,8 @@ protected:
                                const string& allele_bases, size_t allele_offset,
                                const EditAlignmentScorer& read_scorer) const;
 
-    /// Everything the read-versus-allele walk needs that depends on the READ alone.
-    ///
-    /// Scoring the read's own edits inside a node, and sorting its node keys for the
-    /// membership test, do not mention the allele -- so doing them inside the allele loop
-    /// repeated identical work once per traversal. The walk runs 15.6M times on chr20 ONT and
-    /// 24.6M times on the short-read arm, so that repetition was most of its cost.
+    /// The parts of scoring a read against an allele that depend on the read alone,
+    /// computed once per read rather than once per allele.
     struct ReadScratch {
         /// Per read step: the score of the read's own edits on that node, and the
         /// real-valued nats the integer score cannot carry.
@@ -820,18 +505,17 @@ protected:
                               const EditAlignmentScorer& read_scorer,
                               ReadScratch& scratch) const;
 
-    /// The allele's (node, orientation) keys, sorted for binary search. Once per allele
-    /// per site, for the same reason as ReadScratch.
+    /// The allele's (node, orientation) keys, sorted for binary search. Computed once
+    /// per allele per site.
     static vector<int64_t> sorted_allele_keys(const vector<AlleleStep>& allele_steps);
 
-    /// Where each (node, orientation) occurs in the allele, ascending. The mirror of the
-    /// greedy walk's `read_last_visit`, and built once per allele for the same reason
-    /// `sorted_allele_keys` is: the positions do not mention the read.
+    /// The positions at which each (node, orientation) occurs in the allele, in
+    /// ascending order. Used by the greedy walk and computed once per allele.
     using AlleleStepPositions = unordered_map<int64_t, vector<uint32_t>>;
     static AlleleStepPositions index_allele_steps(const vector<AlleleStep>& allele_steps);
 
-    /// Score one read against one allele with a single greedy left-to-right pass. The
-    /// default, and the right one for short reads: see AlleleLikelihoodParams::realign.
+    /// Score one read against one allele with the greedy walk, a single left-to-right
+    /// pass. Used unless AlleleLikelihoodParams::realign is set.
     int32_t score_read_against_allele_greedy(const Alignment& aln,
                                              const vector<ReadStep>& read_steps,
                                              const vector<AlleleStep>& allele_steps,
@@ -847,48 +531,20 @@ protected:
                                       const EditAlignmentScorer& read_scorer,
                                       bool& placed_out, double& nat_adjust) const;
 
-    /// Reads per position per haplotype, measured over the read source's own fetch
-    /// window around this site.
+    /// Read statistics for a site's rate window, the block of consecutive node IDs
+    /// that contains the site's lowest node ID: the number of reads whose alignment
+    /// begins in the window, per base of the window's sequence, and the mean length of
+    /// those reads. Computed once per window.
     ///
-    /// The window is the right denominator and the snarl is not. A snarl's shared
-    /// sequence is its boundary nodes, which are too short to contain a read --
-    /// measured on ten large deletions, the number of reads fitting every allele
-    /// equally was zero at nine of them. A window is thousands of node IDs wide, and
-    /// crucially it is already fetched and cached to answer the site's own query, so
-    /// asking for it a second time is a cache hit rather than new I/O.
+    /// The depth term's lambda = rate * (L + R - 1) counts the reads whose start
+    /// position places them over an interval of length L, so the rate must count read
+    /// starts, not reads that overlap the window. R must be the mean length of all
+    /// reads, not of the reads that reach a site, because a long read reaches more
+    /// sites. Counting only the reads that begin in the window gives both.
     ///
-    /// Returns 0 if the source has no window (an in-memory source answers exactly),
-    /// which switches the depth term off rather than inventing a rate.
-    /// Reads per base pair over the window containing these ranges, weighted by
-    /// `1 - e_r` when `depth_effective_reads` is set.
-    ///
-    /// Deliberately **not** divided by ploidy. The window statistic is a property of
-    /// the data; ploidy is a property of how the site is being genotyped. Folding
-    /// the second into the first put a genotyping assumption inside a cache keyed
-    /// only on node range, so a rate computed under one ploidy could be reused under
-    /// another. The division happens at the point of use instead.
-    /// Reads that BEGIN in the window a site falls in, per bp of that window's sequence, and
-    /// their mean length.
-    ///
-    /// Both halves are what the depth term's geometry actually asks for, and both were wrong in
-    /// the same direction before -- invisibly at 150 bp and by a factor of 3.25 at 33 kb.
-    ///
-    /// `lambda = rate * (L + R - 1)` is the expected number of reads whose START position places
-    /// them over an interval of length L. So `rate` has to be starts per bp: counting reads
-    /// *overlapping* the window instead inflates it by `1 + R/W`, which is nothing when a read is
-    /// 150 bp against a ~50 kb window and 1.7x when the read is 33 kb. And `R` has to be the
-    /// population mean length, while the mean over the reads delivered to a site is *size-biased*:
-    /// a long read overlaps more sites, so it is sampled more often, and the site mean estimates
-    /// `E[L^2]/E[L]`. On this ONT set that is 78,165 bp against a population mean of 33,449 --
-    /// 2.34x. The two together predicted the measured median DR of 0.308 against 0.985 on short
-    /// reads, and at fixed read length both errors are exactly zero, which is why 151 bp never
-    /// showed them.
-    ///
-    /// Counting reads that begin in the window fixes both with one mechanism: it is the start
-    /// count the rate needs, and those reads are each sampled once wherever they start, so their
-    /// mean is unbiased. A read's first mapping is its start as sequenced and lies in exactly one
-    /// window, and the window fetch returns every read overlapping it -- so every read starting in
-    /// the window is seen, and the count is exact rather than an estimate.
+    /// Each read is weighted by 1 - e_r when `depth_effective_reads` is set. The rate
+    /// is not divided by ploidy here; the caller does that. It is 0 if no read begins
+    /// in the window, which turns the depth term off.
     struct WindowReadStats {
         double start_rate = 0.0;
         double mean_read_length = 0.0;

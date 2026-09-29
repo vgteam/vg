@@ -127,18 +127,14 @@ protected:
 /**
  * A support finder that reports no support at all, and needs no Packer.
  *
- * This exists so a caller that does not genotype from support can still satisfy
- * the SupportBasedSnarlCaller interface without a `vg pack` file. It is only
- * useful when nothing downstream actually consults support: read-level genotyping
- * with a haplotype-index traversal finder is the case it was added for, since
- * GBWTTraversalFinder enumerates alleles from recorded haplotypes rather than
- * from node and edge weights.
+ * It lets a caller that does not genotype from support satisfy the
+ * SupportBasedSnarlCaller interface without a `vg pack` file, as the
+ * read-likelihood genotyper does when GBWTTraversalFinder takes candidate
+ * alleles from the panel's haplotypes rather than from node and edge support.
  *
- * Anything that *does* consult support silently sees zero everywhere, which is
- * why the pack file stays required wherever support is genuinely used. In
- * particular a caller using this must override get_skip_allele_fn(): the
- * support-based version prunes any allele below a support threshold, and with
- * zero support that would prune every allele at every site.
+ * Anything that consults support sees zero everywhere. In particular a caller
+ * using this must override get_skip_allele_fn(), since the support-based version
+ * would skip every allele.
  */
 class NullTraversalSupportFinder : public TraversalSupportFinder {
 public:

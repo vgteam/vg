@@ -471,8 +471,9 @@ A chain that no reference path passes through (an *off-reference chain*) has no 
 reference. It is genotyped in two cases:
 
 - With `--anchors-out`, unless `--no-off-ref-nesting` is given, because its sites have anchors
-  even though they have no VCF records. Genotyping these chains can change the phase written for
-  other records.
+  even though they have no VCF records. Phasing from the reads (`--read-phasing`, see
+  [From the reads](#from-the-reads)) includes their sites, so genotyping these chains can change
+  the phase written for other records.
 - When the reference paths include a gRef fragment. `vg paths --compute-gref` adds a *gRef cover*
   to a graph: a copy of each reference path under a name starting `gref_`, and *fragments*, paths
   named `gref_<reference>_<N>_alt` that run through sequence the reference does not cover. A chain
@@ -532,8 +533,8 @@ variation inside nested sites is then reported in the enclosing site's alleles.
 A read that spans two heterozygous sites shows directly whether their alleles lie on the same
 strand. `--read-phasing` uses such reads to re-decide the order of each heterozygous site's pair,
 within the phase sets the panel gave. It works on the diploid heterozygous sites of each phase set,
-nested ones included, in reference order, and it changes no genotype. Reads are identified by name,
-so paired mates count as one read.
+nested and off-reference ones included, in reference order, and it changes no genotype. Reads are
+identified by name, so paired mates count as one read.
 
 #### What each read says
 
@@ -695,7 +696,7 @@ writes one line for each site whose best genotype the correction changes.
 | `BL` | mean over reads of $\max_a \ell_{ra}$, each read's best log-likelihood score at the site |
 | `FORMAT/PS` | the phase set |
 | `INFO/SB` | the record's index and the number of records its site wrote under `--atomize-blocks` |
-| `FILTER=noreads` | the site had no reads |
+| `FILTER=noreads` | the site had no reads, so no genotype is called (`GT` is `./.`); such a record is written only with `-a` |
 | `FILTER=lowconf` | `GQN` is below `--min-confidence` |
 
 A read whose best allele is not in the call usually fits the called genotype and its runner-up
@@ -724,9 +725,10 @@ share. It lies in $[-1, 1]$ and is negative when the linkage model called agains
 `lowconf` is then decided from this `GQN`. Records whose genotype the linkage model did not change
 keep the per-site `GQ`.
 
-When re-genotyping is applied (`--regeno-passes` above 1), `GL` holds the corrected likelihoods,
-and at a site whose best genotype the correction changed, `GQ` is recomputed from them as the phred difference between the two best
-genotypes. `GQN` is not changed.
+When re-genotyping is applied (`--regeno-passes` above 1), `GL` holds the corrected likelihoods.
+At a site whose best genotype the correction changed, `GQ` is recomputed from them as above, for
+the new best genotype and with that genotype's explained share. `GQI`, `GQN` and `DR` keep the
+values computed before the correction.
 
 `--no-share-quality` writes the unmultiplied value as `GQ`. `--depth-quality` multiplies `GQ` by
 $e^{-D_q \vert \ln \mathrm{DR} \vert}$, where $D_q$ is its value, at records whose called alleles

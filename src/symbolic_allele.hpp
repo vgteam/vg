@@ -4,24 +4,15 @@
 /**
  * \file symbolic_allele.hpp
  *
- * A traversal of a snarl, with each excursion through a nested chain replaced by a symbol for that
- * chain rather than the concrete path taken through it.
+ * Symbolic alleles: a traversal of a snarl with each pass through a child chain replaced by one
+ * symbol for that chain, rather than the path taken through it.
  *
- * A SnarlTraversal runs from snarl start to snarl end through every interior node, so nested
- * variation is baked into it: two traversals differing only *inside* a child chain are two distinct
- * traversals, and the caller emits them as two long, nearly identical alleles. Measured on HG002,
- * 55,222 of vg's 142,707 autosomal SNV false negatives sit inside a large allele vg itself emitted,
- * against a 0.6% rate among variants it calls correctly.
- *
- * Comparing symbolic forms instead answers a different question: not "is this the same sequence"
- * but "is this the same route at this level of the hierarchy". A traversal whose symbolic form
- * equals the reference traversal's differs from the reference only inside child chains, so it is
- * the reference allele *here* and its differences belong to those chains' own records. A traversal
- * that skips a chain, or crosses different ones, stays a genuine allele at this level -- so a real
- * deletion is still reported as a deletion.
- *
- * The whole design and the measurements behind it are in the companion evaluation repository, as
- * docs/nested-calling-design.md.
+ * A SnarlTraversal runs through every interior node, so two traversals that differ only inside a
+ * child chain are different traversals. Their symbolic forms are equal, since they take the same
+ * route at this level of the snarl tree. A traversal whose symbolic form equals the reference
+ * traversal's is therefore the reference allele at this site, and its differences are reported by
+ * the child chain's own records. A traversal that skips a chain, or passes through different
+ * ones, differs at this level, so a deletion of a chain is still a deletion here.
  */
 
 #include <functional>
@@ -38,12 +29,11 @@ namespace vg {
 using namespace std;
 
 /**
- * One step of a symbolic allele: either a plain node, or a whole child chain collapsed to a symbol.
+ * One step of a symbolic allele: either a plain node, or a whole child chain as one symbol.
  *
- * A chain is identified by the boundary nodes of the chain itself, not of the child snarl the
- * traversal happened to enter first. Two traversals that enter a chain through the same boundary
- * and leave through the same boundary carry the same symbol however they cross it, which is the
- * entire point.
+ * A chain is identified by its own boundary nodes, not by those of the child snarl a traversal
+ * enters first, so two traversals that enter and leave a chain through the same boundaries carry
+ * the same symbol, however they cross it.
  */
 struct SymbolicStep {
     /// Node id for a plain step; for a chain symbol, the chain's start node.
@@ -68,41 +58,32 @@ using SymbolicAllele = vector<SymbolicStep>;
  * Project a traversal of `site` into symbolic form.
  *
  * Walks the traversal and, wherever a visit enters a child chain of `site`, emits one symbol for
- * that chain and resumes at the visit that leaves it. Visits that already carry a Snarl rather than
- * a node -- the protobuf supports both, and NestedFlowCaller emitted them -- are taken as symbols
- * directly.
+ * that chain and resumes at the visit that leaves it. A visit that is to a Snarl rather than to a
+ * node is taken as a symbol directly.
  *
- * A chain entered but never left within this traversal (which a malformed or cyclic traversal can
- * produce) is emitted as a plain node step rather than swallowing the rest of the traversal: losing
- * the tail would silently make unrelated alleles compare equal, which is the one error mode this
- * must not have.
+ * A chain entered but not left within the traversal, as in a malformed or cyclic traversal, is
+ * emitted as a plain node step, so that the rest of the traversal is not lost; losing it could
+ * make different alleles compare equal.
+ *
+ * `out_visit_ranges`, when given, reports for each emitted step the half-open range of `trav` visits it
+ * covers. The ranges partition [0, visit_size) in order, so a step's sequence is the concatenation
+ * of its visits. A chain symbol's range is [entry, exit): the exit boundary node belongs to the
+ * next step, since the chain shares it with its successor.
  */
-/// Optionally reports, for each emitted step, the half-open range of `trav` visits it covers.
-/// The ranges partition [0, visit_size) contiguously and in order, so a step range can be turned
-/// straight into a sequence by concatenating those visits. Note a chain symbol's range is
-/// [entry, exit): the exit boundary node belongs to whatever step comes next, because it is shared
-/// between the chain and its successor.
 SymbolicAllele symbolic_allele(const SnarlTraversal& trav, const Snarl& site,
                                const SnarlManager& snarl_manager,
                                vector<pair<int, int>>* out_visit_ranges = nullptr);
 
-/// Whether `site` resolves to the snarl the manager knows it as, which is the precondition for
-/// recognising any child chain at all. False means projection degenerates to the plain node list
-/// with no symbols -- the case `flip_snarl` produces for a snarl whose reference path runs
-/// backwards, where symbolic collapsing is therefore inert.
-/// `out_reversed`, when given, reports whether the site resolved only through the REVERSED boundary
-/// pairing -- i.e. whether this is one of the snarls `flip_snarl` reverses because the reference path
-/// runs backwards through it.
+/// Whether `site` resolves to a snarl the manager knows, which is needed to recognise its child
+/// chains. When false, projection gives the plain node list with no symbols; this happens for a
+/// snarl that `flip_snarl` reversed because the reference path runs backwards through it.
 ///
-/// Deliberately an out-parameter rather than a counter inside the resolver. The resolver is called
-/// once per projection and projection runs per traversal, so counting there would count calls, not
-/// sites, at several times the rate of the per-site counter it has to be compared against.
+/// `out_reversed`, when given, reports whether the site resolved only with its boundaries swapped,
+/// that is, whether `flip_snarl` reversed it.
 bool symbolic_site_resolvable(const Snarl& site, const SnarlManager& snarl_manager,
                               bool* out_reversed = nullptr);
 
-/// The boundary node pair of the chain `child` belongs to, which is the identity a chain symbol
-/// carries. Exposed so a caller holding a child snarl can find the symbol that child collapses to
-/// without re-deriving the chain itself.
+/// The boundary nodes of the chain `child` belongs to, which identify the chain's symbol.
 pair<nid_t, nid_t> chain_bounds_of(const Snarl* child, const SnarlManager& snarl_manager);
 
 /// True if the two traversals are the same route through `site` at this level of the hierarchy.
@@ -112,12 +93,9 @@ bool symbolically_equal(const SnarlTraversal& a, const SnarlTraversal& b, const 
 /**
  * One difference between two symbolic alleles: a half-open step range on each side.
  *
- * Only differences are reported. The matched runs between them are implicit -- the gap between one
- * block's end and the next block's start is matched on both sides -- so an empty result means the
- * two alleles are the same route.
- *
- * Either range may be empty: an empty ref range is a pure insertion, an empty alt range a pure
- * deletion.
+ * Only differences are reported; the steps between one block's end and the next block's start
+ * match on both sides, so an empty result means the two alleles take the same route. Either range
+ * may be empty: an empty ref range is an insertion, an empty alt range a deletion.
  */
 struct DiffBlock {
     int ref_begin = 0;
@@ -135,32 +113,23 @@ struct DiffBlock {
 };
 
 /**
- * Align two symbolic alleles and return the difference blocks between them, in reference order.
+ * Align two symbolic alleles and return the blocks where they differ, in reference order.
  *
- * The cost model is edit distance **with substitution at cost 1**, not the insert/delete-only model
- * a plain `diff` uses. That is a deliberate disambiguation rather than a different notion of
- * distance: under insert/delete-only, [a,b] against [b,b] has two minimal alignments of equal cost,
- * one giving a single replacement and one giving two replacements separated by a spurious match, and
- * nothing in "minimum edits" chooses between them. Substitution at 1 beats delete-plus-insert at 2,
- * so the single-block reading wins strictly. This encodes "prefer fewer, larger blocks", which is
- * the same preference the block aggregation already expresses.
+ * The alignment minimises edit distance with substitutions at cost 1, so that a replacement is
+ * one block: with insertions and deletions only, [a,b] against [b,b] has a second minimal
+ * alignment that gives two blocks around a spurious match. Remaining ties are broken the same way
+ * every time, preferring a match, then a substitution, then a deletion, then an insertion, since
+ * the result decides how many records a site writes.
  *
- * Ties remain, and they are broken **deterministically** by preferring, at each traceback step, the
- * diagonal (match, then substitute) over deletion over insertion. Determinism is the load-bearing
- * property: an unstable tie-break makes output depend on nothing the caller controls, and this
- * function's result decides how many records a snarl emits.
+ * The dynamic program runs inside Ukkonen's band, in O((|ref| + |alt|) x D) time and
+ * O(|ref| x D) space, where D is the edit distance, so its cost grows with the difference between
+ * the two alleles rather than with their length. `out_degraded`, when given, is always set false.
  *
- * The DP runs inside Ukkonen's band, so it costs O((|ref| + |alt|) x D) in time and O(|ref| x D) in
- * space, where D is the edit distance between the two projections -- the variation between the two
- * alleles, not their length. There is no size cap and no degradation: an earlier version gave up
- * above 4M cells and returned one block spanning both alleles entirely, which silently turned a
- * structured difference into a whole-allele substitution on exactly the largest sites.
- * `out_degraded`, when given, is now always set false; it is kept because callers read it.
+ * `out_alt_before_ref`, when given, is filled with |ref| + 1 entries: entry i is the number of alt
+ * steps consumed before reference step i, not counting any inserted at boundary i. It turns a
+ * reference step range into the alt step range aligned with it, as needed to write two
+ * haplotypes' alleles over one reference span.
  */
-/// `out_alt_before_ref`, when given, is filled with |ref| + 1 entries: entry i is the number of alt
-/// steps consumed strictly before reference step i, counting nothing inserted at boundary i. It is
-/// what turns a reference step range into the alt step range aligned to it, which the diploid join
-/// needs in order to express two haplotypes' alleles over one shared reference span.
 vector<DiffBlock> symbolic_diff(const SymbolicAllele& ref, const SymbolicAllele& alt,
                                 bool* out_degraded = nullptr,
                                 vector<int>* out_alt_before_ref = nullptr);

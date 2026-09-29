@@ -35,7 +35,7 @@ static pair<nid_t, nid_t> chain_bounds(const Snarl* child, const SnarlManager& s
 }
 
 /// The snarl `site` refers to, as the manager knows it, or null when the two disagree. Shared by
-/// projection and by `symbolic_site_resolvable` so the two can never drift apart.
+/// projection and `symbolic_site_resolvable`, so that they agree.
 static const Snarl* resolve_site(const Snarl& site, const SnarlManager& snarl_manager,
                                  bool* out_reversed = nullptr) {
     if (out_reversed != nullptr) {
@@ -46,33 +46,20 @@ static const Snarl* resolve_site(const Snarl& site, const SnarlManager& snarl_ma
     if (site_ptr == nullptr) {
         return nullptr;
     }
-    // The point of this test is to confirm we got back *this* snarl rather than some other snarl
-    // reachable by entering that node, so it compares boundary nodes -- but it must accept them in
-    // EITHER order, because a snarl and its reversal are the same snarl.
-    //
+    // Check that the node led to this snarl rather than to another one reachable from it, by
+    // comparing boundary nodes, in either order, since a snarl and its reversal are the same snarl.
     // `flip_snarl` (graph_caller.cpp) reverses a snarl whose reference path runs backwards, and the
-    // caller then works on that reversed copy: its start node is the original END node. Requiring
-    // start-to-start therefore failed for every such snarl, `site_ptr` came back null, `is_child`
-    // was false at every visit, and the projection degenerated to a bare node list with no chain
-    // symbols at all -- silently turning symbolic collapsing off for 7.4% of chr20's sites, a
-    // feature worth SNV F1 0.9752 -> 0.9833 where it does run.
-    //
-    // Accepting the reversed pairing does not weaken the test. The boundary index maps a snarl's
-    // start and its reversed end to the same snarl (SnarlManager::snarl_boundary_index), so a
-    // reversed match identifies the same snarl by the same two nodes, just entered from the other
-    // side. Everything downstream is orientation-independent: `parent_of` compares canonical
-    // pointers, `chain_bounds` returns node ids, and a chain symbol's direction is taken from which
-    // boundary the traversal meets first rather than from the site's own orientation.
+    // caller then works on the reversed copy, whose start node is the original end node. The
+    // boundary index maps a snarl's start and its reversed end to the same snarl, and everything
+    // downstream is independent of the site's orientation.
     auto same_visit = [](const Visit& a, const Visit& b) {
         return a.node_id() == b.node_id() && a.backward() == b.backward();
     };
-    // Node ids only, exactly as before this change: the forward branch is pre-existing behaviour and
-    // tightening it would reject sites that resolve today, which is not this fix's business.
+    // The forward pairing compares node ids only.
     const bool forward = site_ptr->start().node_id() == site.start().node_id() &&
                          site_ptr->end().node_id() == site.end().node_id();
-    // Full visits, orientation included. This branch is the only acceptance this change adds, so it
-    // is held to the exact test rather than inheriting the forward branch's laxity: a reversed snarl
-    // is `reverse`-and-swap of the canonical one, and nothing less specific than that should pass.
+    // The reversed pairing compares full visits, orientation included: the reversed snarl is the
+    // canonical one with its boundaries reversed and swapped.
     const bool reversed = same_visit(site_ptr->start(), reverse(site.end())) &&
                           same_visit(site_ptr->end(), reverse(site.start()));
     if (!forward && !reversed) {
@@ -102,14 +89,9 @@ SymbolicAllele symbolic_allele(const SnarlTraversal& trav, const Snarl& site,
     }
     unordered_map<nid_t, vector<int>> at = index_positions(trav);
 
-    // The snarl we are projecting, as the manager knows it, so a candidate child can be tested for
-    // being a genuine child of *this* site rather than merely a snarl the traversal walks into.
-    //
-    // Null here means no child is ever recognised and the projection degenerates to the plain node
-    // list. That is not hypothetical: `flip_snarl` reverses a snarl whose reference path runs
-    // backwards, and the reversed copy's start node is the original END node, so the identity test
-    // below fails and symbolic collapsing is inert for the whole snarl. See
-    // `symbolic_site_resolvable`, which is how that population is counted.
+    // The snarl we are projecting, as the manager knows it, so that a snarl the traversal enters can
+    // be tested for being a child of this site. Null means no child is recognised and the
+    // projection is the plain node list (see `symbolic_site_resolvable`).
     const Snarl* site_ptr = resolve_site(site, snarl_manager);
 
     int i = 0;
@@ -135,11 +117,9 @@ SymbolicAllele symbolic_allele(const SnarlTraversal& trav, const Snarl& site,
         const Snarl* child = snarl_manager.into_which_snarl(node, v.backward());
         bool symbolised = false;
 
-        // Only a genuine child of this site may be symbolised. Comparing the *chain's* boundaries
-        // against the site's is not enough: a site that is itself a member of a longer chain sees
-        // that enclosing chain's bounds, which differ from its own, and collapses its own interior
-        // into one symbol -- making every allele equal and silently erasing the variant. A snarl
-        // (5,9) inside a chain spanning 2..9 did exactly that.
+        // Only a child of this site may become a symbol. Comparing the chain's boundaries with the
+        // site's is not enough: a site that is itself in a longer chain would see that chain's
+        // boundaries and collapse its own interior into one symbol, making all its alleles equal.
         bool is_child = child != nullptr && site_ptr != nullptr &&
                         snarl_manager.parent_of(child) == site_ptr;
         if (is_child) {
@@ -156,10 +136,9 @@ SymbolicAllele symbolic_allele(const SnarlTraversal& trav, const Snarl& site,
                     if (found == at.end()) {
                         continue;
                     }
-                    // index_positions fills each vector in increasing visit order, so it is sorted
-                    // and the first entry past i is the nearest exit. Scanning the whole vector
-                    // instead is O(k) in the node's recurrence, which is the dominant cost in
-                    // satellite where one node recurs thousands of times in a single traversal.
+                    // index_positions fills each vector in increasing visit order, so the first
+                    // entry past i is the nearest exit, found by binary search; a node can recur
+                    // thousands of times in one traversal through a satellite repeat.
                     auto it = std::upper_bound(found->second.begin(), found->second.end(), i);
                     if (it != found->second.end() && (exit < 0 || *it < exit)) {
                         exit = *it;
@@ -180,9 +159,8 @@ SymbolicAllele symbolic_allele(const SnarlTraversal& trav, const Snarl& site,
                     i = exit;
                     symbolised = true;
                 }
-                // A chain entered and never left within this traversal falls through deliberately
-                // and is emitted as a plain node. Swallowing the remainder would drop real
-                // differences and make unrelated alleles compare equal.
+                // A chain entered and not left within this traversal falls through and is emitted as
+                // a plain node, so that the rest of the traversal is kept.
             }
         }
 
@@ -234,21 +212,14 @@ vector<DiffBlock> symbolic_diff(const SymbolicAllele& ref, const SymbolicAllele&
         return {DiffBlock{0, (int)m, 0, (int)n}};
     }
 
-    // Ukkonen's band, not the full rectangle. Every cell on an optimal path satisfies
-    // |i - j| <= D, where D is the edit distance, so a band of half-width k >= D holds the whole
-    // optimum and everything outside it is provably worse. k starts at the length difference (the
-    // minimum any alignment must spend) and doubles until the corner value certifies itself by
-    // coming out <= k, which is Ukkonen's termination test. Work is O((m + n) * D) rather than
-    // O(m * n), and for two alleles of one site D is the actual variation between them, not their
-    // length.
+    // Ukkonen's band. Every cell on an optimal path has |i - j| <= D, where D is the edit
+    // distance, so a band of half-width k >= D holds the optimum. k starts at the length difference,
+    // the least any alignment must spend, and doubles until the corner value is at most k, which
+    // certifies it. Work is O((m + n) * D) rather than O(m * n).
     //
-    // This REPLACES a 4M-cell cap that degraded large pairs to one whole-allele block. Nothing
-    // degrades now, so `out_degraded` is always false; it is kept because callers read it.
-    //
-    // Out-of-band cells read as INF, which is what makes the traceback below identical to the full
-    // matrix's: a cell outside the band has true value > D >= the value of any cell on the optimal
-    // path, so `at(i,j) == at(i-1,j) + 1` could never have held for it. Reading INF fails the same
-    // test the true value would have failed, so the same move is chosen at every step.
+    // Cells outside the band read as INF. Their true values exceed D, so the traceback's tests
+    // fail for them just as they would with the true values, and the traceback matches the full
+    // matrix's.
     const uint32_t INF = std::numeric_limits<uint32_t>::max() / 4;
     const size_t max_k = std::max(m, n);
     size_t band_k = std::max<size_t>(1, m > n ? m - n : n - m);
@@ -303,9 +274,8 @@ vector<DiffBlock> symbolic_diff(const SymbolicAllele& ref, const SymbolicAllele&
     }
     auto at = [&](size_t i, size_t j) -> uint32_t { return cell(i, j); };
 
-    // Traceback. The preference order here IS the tie-break contract in the header: diagonal first
-    // (match before substitute, since a match is the zero-cost diagonal), then deletion, then
-    // insertion. Walked backwards, so the ops come out reversed and are flipped below.
+    // Traceback, with the header's tie-break order: diagonal first (match before substitution),
+    // then deletion, then insertion. It walks backwards, so the ops are reversed afterwards.
     enum Op { OP_MATCH, OP_SUB, OP_DEL, OP_INS };
     vector<Op> ops;
     ops.reserve(m + n);
@@ -335,10 +305,9 @@ vector<DiffBlock> symbolic_diff(const SymbolicAllele& ref, const SymbolicAllele&
     std::reverse(ops.begin(), ops.end());
 
     if (out_alt_before_ref != nullptr) {
-        // Entry i is the alt index on arrival at reference step i, which is after everything that
-        // consumed reference steps below i but before anything inserted at boundary i. That is the
-        // convention the join needs: an insertion at a boundary belongs to the block that owns the
-        // boundary, not to the reference step after it.
+        // Entry i is the alt index on arrival at reference step i: after everything that consumed
+        // reference steps below i, and before anything inserted at boundary i, so that an insertion
+        // at a boundary belongs to the block that owns the boundary.
         out_alt_before_ref->assign(m + 1, 0);
         size_t ri = 0;
         size_t ai = 0;
@@ -356,9 +325,8 @@ vector<DiffBlock> symbolic_diff(const SymbolicAllele& ref, const SymbolicAllele&
         }
     }
 
-    // Aggregate every maximal run of non-match ops into one block. A substitution is a difference,
-    // so it joins the run it sits in rather than splitting it -- which is what makes an interior
-    // mismatch inside a longer difference come out as one record instead of three.
+    // Each maximal run of non-match ops becomes one block. A substitution joins the run it is in,
+    // so a mismatch inside a longer difference gives one record rather than three.
     vector<DiffBlock> out;
     size_t ri = 0;
     size_t ai = 0;

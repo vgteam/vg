@@ -24,13 +24,12 @@ double phase_link(const PhaseSite& a, const PhaseSite& b, double cap) {
             ++j;
         } else {
             const double qa = a.q0[i], qb = b.q0[j];
-            // Probability the read's two alleles sit on ONE haplotype, against the two orderings.
+            // Probability that the read's two alleles lie on one strand in the current orders.
             // These sum to 1, so the ratio below needs no normalisation.
             const double same = qa * qb + (1.0 - qa) * (1.0 - qb);
             const double diff = 1.0 - same;
-            // With probability `pr` the read reports the true relation; otherwise it reports a coin
-            // flip. That mixture is what keeps a single mismapped read from swamping the sum -- it
-            // is the escape term, and without it the statistic is unusable.
+            // With probability `pr` the read reports the true relation, and otherwise a coin flip,
+            // so that one mismapped read cannot dominate the sum.
             const double pr = (double)a.p[i] * (double)b.p[j];
             const double cis = pr * same + (1.0 - pr) * 0.5;
             const double trans = pr * diff + (1.0 - pr) * 0.5;
@@ -53,11 +52,9 @@ unordered_set<size_t> read_phase_flips(vector<PhaseSite>& sites, const ReadPhasi
     if (sites.empty()) {
         return flips;
     }
-    // Phase is only comparable inside a block, so the blocks are the unit of work.
-    // `record_key` breaks the tie, and it has to: sites arrive in whatever order the parallel
-    // render queues produced them, two sites can share a position, and an unstable sort over a
-    // non-total order would then chain them differently from run to run. The phase would be
-    // reproducible only by accident.
+    // Phase is comparable only inside a phase set, so each phase set is worked on separately.
+    // `record_key` breaks ties between sites at the same position, so that the order does not
+    // depend on the order in which the sites arrived.
     sort(sites.begin(), sites.end(), [](const PhaseSite& x, const PhaseSite& y) {
         if (x.phase_set != y.phase_set) {
             return x.phase_set < y.phase_set;
@@ -143,7 +140,7 @@ unordered_set<size_t> read_phase_flips(vector<PhaseSite>& sites, const ReadPhasi
                 }
             }
 
-            // --- stage 2: relink consecutive reliable blocks ---
+            // --- stage 2: relink the unbroken pieces of the chain ---
             for (size_t b = 0; b + 2 < bounds.size(); ++b) {
                 const size_t ea = bounds[b + 1];              // one past A's last reliable site
                 const size_t sb = bounds[b + 1];              // B's first reliable site
@@ -178,17 +175,11 @@ unordered_set<size_t> read_phase_flips(vector<PhaseSite>& sites, const ReadPhasi
                 }
             }
 
-            // --- coherence pass: demote sites whose reads disagree with their own neighbourhood ---
+            // --- stage 3: remove chain sites whose reads disagree with the rest of the chain ---
             //
-            // `reliability` asks whether this site's reads separate its two alleles. It says nothing
-            // about whether those reads belong where the rest of their evidence puts them, and
-            // measured against chr20's switch positions it is nearly blind: worst-1% enrichment 1.1x,
-            // and below the base rate at 5%. Coherence -- the share of a site's reads whose allele
-            // here matches the haplotype their OTHER sites imply -- reaches 5.1x at 1% and 9.3x at
-            // 0.1%. The two correlate at r = 0.437, so this is new information, not a restatement.
-            //
-            // Held out by construction: each read's haplotype is recomputed with THIS site's own
-            // term removed, so a site never votes on itself.
+            // A site's coherence is the share of its reads whose allele here matches the strand
+            // their other chain sites imply. Each read's strand is computed with this site left
+            // out, so a site does not vote on itself.
             if (params.coherence_min > 0.0 && pass + 1 < max_pass && rel.size() >= 3) {
                 unordered_map<uint64_t, vector<std::array<double, 3>>> by_read;
                 for (size_t m = 0; m < rel.size(); ++m) {
@@ -217,7 +208,7 @@ unordered_set<size_t> read_phase_flips(vector<PhaseSite>& sites, const ReadPhasi
                     }
                     for (size_t k = 0; k < obs.size(); ++k) {
                         const size_t m = (size_t)obs[k][0];
-                        const bool hap1 = (l1 - t1[k]) > (l0 - t0[k]);   // leave THIS site out
+                        const bool hap1 = (l1 - t1[k]) > (l0 - t0[k]);   // leave this site out
                         const double q = o[rel[m]] ? 1.0 - obs[k][1] : obs[k][1];
                         const bool says1 = q < 0.5;
                         ++tot[m];
@@ -228,10 +219,7 @@ unordered_set<size_t> read_phase_flips(vector<PhaseSite>& sites, const ReadPhasi
                 }
                 vector<size_t> keep, drop;
                 for (size_t m = 0; m < rel.size(); ++m) {
-                    // Ten reads before low coherence may demote a site. Swept at 2, 3, 5 and 20:
-                    // dropping it to 2 demotes two more sites in the whole of chr20, because a
-                    // backbone site with under ten counted reads is almost non-existent. The guard
-                    // is near-inert either way, so it stays where it was rather than moving on noise.
+                    // A site needs at least ten counted reads before low coherence can remove it.
                     if (tot[m] >= 10 && (double)ok[m] / (double)tot[m] < params.coherence_min) {
                         drop.push_back(rel[m]);
                     } else {
@@ -242,8 +230,8 @@ unordered_set<size_t> read_phase_flips(vector<PhaseSite>& sites, const ReadPhasi
                     counters.demoted_incoherent += drop.size();
                     ++counters.coherence_rounds_run;
                     if (pass + 2 == max_pass) {
-                        // Still finding incoherent sites on the last round we are allowed: the
-                        // chain has not reached a coherent fixed point and is reported as such.
+                        // Still removing sites in the last allowed round, so the chain is
+                        // reported as not converged.
                         ++counters.coherence_unconverged;
                     }
                     for (size_t t : drop) {
@@ -260,7 +248,7 @@ unordered_set<size_t> read_phase_flips(vector<PhaseSite>& sites, const ReadPhasi
         }
 
         if (!rel.empty()) {
-            // --- stage 3: hang the unreliable sites off the settled chain ---
+            // --- stage 4: hang the unreliable sites from the chain ---
             for (size_t t : unrel) {
                 double s = 0.0;
                 size_t used = 0;

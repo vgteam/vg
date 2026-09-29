@@ -35,17 +35,11 @@ static size_t best_genotype(const vector<double>& post) {
     return best;
 }
 
-/// These tests were written against the collector's earlier argument shape: a dense likelihood vector
-/// in genotype-index order and a panel in VCF allele numbering. The collector now takes the
-/// genotyper's own space -- likelihoods keyed by candidate traversal pairs, the panel as traversal
-/// indices -- because symbolic collapsing maps distinct traversals onto one VCF allele, and a parent
-/// whose haplotypes differ only inside its child chains is homozygous in the collapsed numbering and
-/// heterozygous in the real one.
-///
-/// The tests are kept in the old shape on purpose: they exercise the model and the arenas, not the
-/// numbering, and the identity case -- traversal index equals VCF allele -- is where the two agree,
-/// so translating them would add noise without adding coverage. Construction of the compact space
-/// itself is covered separately, against `compact_allele_space`.
+/// Record a site from a dense likelihood vector in genotype-index order and a panel in allele
+/// numbering. The collector takes candidate traversal indices; these tests use the identity case,
+/// where a traversal index equals its allele number, since they exercise the model and the arenas
+/// rather than the numbering. Construction of the compact space is tested separately, against
+/// `compact_allele_space`.
 static void record_dense(LinkageCollector& c, const string& contig, size_t position,
                          size_t num_alleles, const vector<double>& dense_gls,
                          const vector<int>& panel, size_t called_i, size_t called_j,
@@ -110,8 +104,8 @@ static bool respecify_dense(LinkageCollector& c, size_t record_key,
     for (size_t i = 0; i < num_alleles; ++i) {
         ident[i] = (int)i;
     }
-    // What the barrier does: retract the entry the sweep filed at the pre-linkage ploidy, then
-    // record the site afresh at the settled one. There is no second entry point any more.
+    // What the barrier does: retract the entry the sweep filed, then record the site again at the
+    // settled ploidy.
     if (c.has_entry(record_key)) {
         c.retract(record_key);
     }
@@ -192,10 +186,9 @@ TEST_CASE("Linkage does not override decisive reads", "[linkage_model]") {
 }
 
 TEST_CASE("An allele no panel haplotype carries stays callable", "[linkage_model]") {
-    // Guards the regression that would present as a precision improvement. A state implies a
-    // genotype, so without the wildcard contributing per-allele mass, a genotype the panel cannot
-    // spell is unreachable and the model quietly suppresses novel alleles. The graph need not
-    // contain the sample being genotyped, so this is the common case, not a corner.
+    // A state implies a genotype, so without the wildcard contributing mass for each allele, a
+    // genotype the panel cannot spell would be unreachable and the model would suppress novel
+    // alleles. The graph need not contain the sample, so this is the common case.
     LinkageModel::Params p;
     p.weight = 1.0;
     p.escape = 1e-2;
@@ -295,12 +288,9 @@ TEST_CASE("Posteriors are a distribution over genotypes", "[linkage_model]") {
 }
 
 TEST_CASE("A windowed pass matches exact inference on a short chain", "[linkage_model]") {
-    // Windowing exists so that a chain-wide pass does not serialise a caller that is parallel
-    // over snarls. It is only defensible if it agrees with exact inference where both can run.
-    // Sites spaced well past the linkage scale, so influence is spent within a few steps and a
-    // modest margin really is enough. At 500 bp against a 10 kb scale it would survive ~137
-    // sites, and the first version of this test asserted agreement a 12-site margin could not
-    // deliver -- the premise was wrong, not the windowing.
+    // Windowed decoding must agree with exact inference where both can run. The sites are spaced
+    // well past the linkage scale, so influence fades within a few steps and a modest margin is
+    // enough; at 500 bp against a 10 kb scale it would take about 137 sites.
     vector<LinkageModel::Site> sites;
     for (size_t i = 0; i < 40; ++i) {
         sites.push_back(biallelic(1000 + i * 20000,
@@ -370,30 +360,15 @@ TEST_CASE("The collector keeps sites compactly and re-decides only what changed"
     record_dense(collector, "chr1", 1100, 2, {0.0, -30.0, 0.0}, {1, 1, 0, 0}, 0, 0, /*key*/ 22, /*share*/ 1.0);
 
     REQUIRE(collector.num_sites() == 2);
-    // Two entries, six floats, eight int8s, all in flat arenas, plus the record-key index at two
-    // hash nodes a site. The index is counted here because `bytes()` counts it: it is real memory,
-    // and a reported figure that omitted it would drift from the measured one by a third.
-    //
-    // A bound on per-site overhead rather than the exact figure, which is 128 bytes an entry and 48
-    // of index today: an exact assertion fails whenever a field is added, which is the wrong reason
-    // to fail. What this catches is a vector-per-site layout -- three vector headers, 72 bytes, plus
-    // three heap allocations for every site -- which would put this at 496 and over the bound.
-    // Raised from +64 to +128 when the traversal-derived ordering added four fields to Entry --
-    // align_rank, chain_index, chain_backward, unpositioned -- taking this from 400 to 428. That is
-    // about 12 bytes a site, 2.6 MB over chr20's 220k entries, against a 4.5 GB peak.
-    //
-    // The bound still does its job, which the comment above states: a vector-per-site layout adds
-    // 72 bytes a site and would put this at 572, far over 480. What it must NOT become is an exact
-    // assertion that fails on every added field.
+    // Two entries, six floats, eight int8s, all in shared arrays, plus the record-key index at two
+    // hash nodes a site, which `bytes()` counts. A bound rather than the exact figure, so that adding
+    // a field does not fail the test; a layout with vectors per site would add 72 bytes a site and
+    // exceed it.
     REQUIRE(collector.bytes() < 2 * (128 + 48) + 128);
 
     const size_t moved = collector.resolve();
-    // Site 1 was already called 1/1 and must not be counted; site 2 was called 0/0 and linkage
-    // should move it to 1/1.
-    //
-    // Asserted on the settled genotype rather than on a patch's contents. The record is built from
-    // the settled pair now, so that pair is the observable and the patch it used to describe does
-    // not exist.
+    // Site 1 was already called 1/1 and must not be counted; site 2 was called 0/0 and the model
+    // should move it to 1/1. Asserted on the settled genotype, from which the record is built.
     REQUIRE(moved == 1);
     int a = -1, b = -1;
     size_t settled_ploidy = 0;
@@ -456,8 +431,7 @@ TEST_CASE("The collector sorts by reference position, not arrival order",
     record_dense(shuffled, "chr1", 1100, 2, {0.0, -30.0, 0.0}, {1, 1, 0, 0}, 0, 0, 22, /*share*/ 1.0);
     record_dense(shuffled, "chr1", 1000, 2, {-30.0, -30.0, 0.0}, {1, 1, 0, 0}, 1, 1, 11, /*share*/ 1.0);
 
-    // Order-independence asserted on the settled genotypes, which is what the caller reads, rather
-    // than on the order of a patch list that no longer exists.
+    // Independence of order, asserted on the settled genotypes, which is what the caller reads.
     REQUIRE(ordered.resolve() == shuffled.resolve());
     for (size_t key : {(size_t)11, (size_t)22}) {
         int ai = -1, aj = -1, bi = -1, bj = -1;
@@ -471,10 +445,9 @@ TEST_CASE("The collector sorts by reference position, not arrival order",
 }
 
 TEST_CASE("respecify moves a site to the ploidy its settled parent implies", "[linkage_model]") {
-    // The coherence guarantee in one function. Descent records a child at the ploidy its parent's
-    // *pre-linkage* genotype implied; the barrier then learns what the settled genotype implies and
-    // moves the entry before its own generation resolves. Without this the child keeps a ploidy its
-    // own parent contradicts, which is what the nested_diploid FILTER used to label.
+    // Descent records a child at the ploidy its parent's genotype from the sweep implied; the
+    // barrier then finds what the settled genotype implies and moves the entry before the child's
+    // generation resolves, so that the child's ploidy agrees with its parent.
     LinkageModel::Params p;
     p.weight = 1.0;
     p.scale = 100000.0;
@@ -488,13 +461,12 @@ TEST_CASE("respecify moves a site to the ploidy its settled parent implies", "[l
     record_dense(collector, "chr1", 1010, 2, {0.0, -30.0}, {0, 0}, 0, 0, CHILD,
                      1.0, 1, 11, 12, true, PARENT, /*crossing*/ (uint64_t)1 << 1);
 
-    // The settled parent turns out to cross on both haplotypes, so the child is diploid. Its
-    // likelihoods are the triangular vector now, and it is no longer a nested haploid site.
+    // The settled parent crosses the child on both strands, so the child is diploid, and its
+    // likelihoods are the triangular vector.
     REQUIRE(respecify_dense(collector, CHILD, "chr1", 1010, 2, {-30.0, -30.0, 0.0}, {1, 1}, 1, 1, 2,
                                 /*nested*/ false, 0, 0));
-    // An unknown key is RECORDED, not refused. `respecify` used to refuse it and the barrier then
-    // called `record` itself; there is one path now, and this is how a chain reachable only under a
-    // settled parent -- 520 of them on chr20 -- enters the layer at all.
+    // An unknown key is recorded, not refused: this is how a chain reachable only under a settled
+    // parent enters the collector.
     REQUIRE(respecify_dense(collector, 12345, "chr1", 1010, 2, {0.0, -30.0, -30.0}, {0, 0},
                             0, 0, 1, true, 0, 0));
     REQUIRE(collector.has_entry(12345));
@@ -643,14 +615,10 @@ TEST_CASE("A nested site takes its strand from the parent traversal that carries
 
 TEST_CASE("The phasing comes back in reference order even with nested sites in it",
           "[linkage_model]") {
-    // The mosaic output reads the phasing as one ordered sweep per contig and closes a segment only
-    // where the haplotype changes, so order is a contract and not a convenience.
-    //
-    // Nested sites break it by construction: placing one needs its parent already phased, so they
-    // are appended after every chain. Unsorted, a nested site early on a contig shares a segment
-    // with one far along it -- chr20 emitted five segments spanning tens of megabases, one claiming
-    // 284 sites between ref_start 451,374 and ref_end 65,512,343. The site totals still added up,
-    // which is what the harness checks, so nothing looked wrong.
+    // The mosaic writer reads the phasing as one ordered pass per contig and ends a segment only
+    // where the haplotype changes, so the order matters. Nested sites are appended after every
+    // chain, since placing one needs its parent's phase, so `phasing_out` must be sorted afterwards,
+    // or a nested site early on a contig would share a segment with one far along it.
     LinkageModel::Params p;
     p.weight = 1.0;
     p.scale = 100000.0;
@@ -783,11 +751,10 @@ TEST_CASE("Constrained phasing spells the required genotype everywhere", "[linka
 
 TEST_CASE("A constraint no panel pair can follow routes through the wildcard",
           "[linkage_model]") {
-    // The other side of the same behaviour, pinned because it looks like a bug when first seen.
-    // Here the constraint flips 1/1, 0/0, 0/1 at 100 bp spacing. A panel explanation would have to
-    // switch both strands twice, at about 10.6 nats a switch, against 4.6 nats per free strand
-    // for the wildcard -- so "explained by nothing in the panel" is genuinely the better answer
-    // and the model returns it rather than forcing an implausible mosaic.
+    // The other side of the same behaviour. Here the constraint flips 1/1, 0/0, 0/1 at 100 bp
+    // spacing. A panel explanation would have to switch both strands twice, at about 10.6 nats a
+    // switch, against 4.6 nats per free strand for the wildcard, so the wildcard is the better
+    // answer and the model returns it.
     LinkageModel::Params p;
     p.weight = 2.0;
     LinkageModel model(p);
@@ -832,10 +799,8 @@ TEST_CASE("Phasing stays feasible where the panel cannot spell the call", "[link
 }
 
 TEST_CASE("Window seams do not manufacture switches", "[linkage_model]") {
-    // The failure guarded against here would look like a result rather than a bug: decoded
-    // independently, two windows choose the state at their shared seam twice, so the join shows a
-    // switch at every window boundary -- and that count scales with the site count, which is
-    // exactly the shape a real biological signal would have.
+    // Decoded independently, two windows could choose different states where they meet, putting a
+    // switch at every window boundary.
     //
     // A chain one haplotype pair explains throughout must phase to zero switches whatever the
     // window size, so run it with a window far shorter than the chain to force seams.
@@ -874,9 +839,8 @@ static LinkageModel::Site haploid_site(size_t position, double ln_0, double ln_1
 }
 
 TEST_CASE("A haploid chain gets a mosaic", "[linkage_model]") {
-    // chrY and non-pseudoautosomal chrX are haploid, and before this existed they were dropped
-    // from the linkage pass entirely -- no transition model and no mosaic for about 5% of a
-    // genome. The diploid model cannot express them: its state is a pair.
+    // A haploid chain, as on chrY or on chrX outside the pseudoautosomal regions: the states are
+    // single haplotypes.
     //
     // Haplotype 1 carries the alleles the reads want over the first half and haplotype 3 over the
     // second, so the one path explaining the chain switches once.
@@ -997,11 +961,9 @@ TEST_CASE("Phasing is deterministic", "[linkage_model]") {
 
 TEST_CASE("A site below depth 1 inherits its parent's strand, not strand 0",
           "[linkage_model]") {
-    // A nested parent occupies one haplotype, so everything inside it is on that haplotype. The
-    // identity match cannot discover which: a nested haploid parent has trav_first == trav_second
-    // and ploidy 1, so the match can only ever answer strand 0 -- and on chr20 that put all 448
-    // depth->=2 sites under a strand-1 parent onto the wrong haplotype, while the mosaic read the
-    // parent's wildcard hap_first and simultaneously called them unexplained.
+    // A nested parent at ploidy 1 is on one strand, so everything inside it is on that strand. A
+    // match against its traversals cannot tell which, since such a parent has trav_first ==
+    // trav_second and ploidy 1, so the match would always answer strand 0.
     LinkageModel::Params p;
     p.weight = 1.0;
     p.scale = 100000.0;
@@ -1063,12 +1025,7 @@ TEST_CASE("A child of a haploid locus gets no strand, so it is not written as a 
     // "a|.", which says the other haplotype carries nothing here. On a haploid contig there is no
     // other haplotype to be empty and the record should be a bare `a`.
     //
-    // This is the case the depth->=2 test above cannot reach: its parent is a het DIPLOID site, so
-    // the strand it hands down is real. The guard that was missing applied only to `strand = 0`
-    // (`strand = 1` was already conditioned on ploidy 2), so a haploid parent matched trav_first and
-    // handed down strand 0 unconditionally. Measured on chrX: 8,056 "1|." records in the haploid
-    // interior against 1,965 before, and chrX was the one contig whose F1 fell while all 22
-    // autosomes rose.
+    // Here the parent is haploid, so no strand may be handed down.
     LinkageModel::Params p;
     p.weight = 1.0;
     p.scale = 100000.0;
@@ -1107,11 +1064,9 @@ TEST_CASE("A child of a haploid locus gets no strand, so it is not written as a 
 
 TEST_CASE("The per-strand transition reduces to the single-rho form when both strands agree",
           "[linkage_model]") {
-    // The generalisation has to be a generalisation: with one value for both strands it must compute
-    // what the scalar version computed. Asserted to 1e-12 rather than bit-identity, and deliberately
-    // so -- the old grouping `stay * jump * (row[a] + col[b])` cannot be preserved once the two
-    // coefficients differ, so the split into two separately-coefficiented terms is a guaranteed
-    // re-association. Demanding bit-identity here would produce a gate that has to be waived.
+    // With one value for both strands, the per-strand form must compute what the single-rho form
+    // does. Asserted to 1e-12 rather than bit-identity, since writing the row and column terms with
+    // separate coefficients changes the order of floating-point operations.
     const size_t m = 5;
     vector<double> in(m * m);
     // A fixed, uneven state vector. Deterministic rather than random: a failure has to be
@@ -1120,8 +1075,8 @@ TEST_CASE("The per-strand transition reduces to the single-rho form when both st
         in[i] = 0.001 + 0.37 * ((double)((i * 7919) % 101) / 101.0);
     }
 
-    // The single-rho form as it was, written out locally so the comparison is against the old
-    // arithmetic and not against the new code's own factorisation.
+    // The single-rho form, written out here so that the comparison is not against the code's own
+    // factorisation.
     auto reference = [&](double rho, vector<double>& out) {
         double stay = 1.0 - rho;
         double jump = rho / (double)m;
@@ -1189,15 +1144,8 @@ TEST_CASE("The per-strand transition can move one strand and leave the other",
 
 TEST_CASE("Two strands with different deletion content get different switch probabilities",
           "[linkage_model]") {
-    // Stage 13's capability, kept after stage 15(b) was reverted for failing its own accuracy
-    // criterion. What 15(b) tried to do -- feed the two strands genuinely different distances,
-    // derived from the indel content each carries -- measured WORSE (JointIndel -0.00061 on chr20
-    // against a required +0.0005), so the plumbing is gone. The arithmetic that would carry it is
-    // still here and still has to be right, because a later stage may supply better distances than
-    // the called-allele approximation could.
-    //
-    // switch_probability is monotone in the gap and the transition treats its two axes
-    // independently: those are the two properties any per-strand distance scheme rests on.
+    // The transition must support a different distance for each strand. switch_probability is
+    // monotone in the gap, and the transition treats its two strands independently.
     LinkageModel::Params p;
     p.weight = 1.0;
     p.scale = 10000.0;
@@ -1310,12 +1258,10 @@ TEST_CASE("A nested site never names a haplotype that contradicts the allele it 
         }
     }
     REQUIRE(child != nullptr);
-    // It is still placed -- the strand is known, the phase set is the parent's -- and it still names
-    // an allele. What it no longer does is name a haplotype it contradicts.
-    //
-    // Which strand index that is, is deliberately not asserted: the Viterbi decides which of the
-    // parent's traversals lands on which haplotype, so pinning traversal 0 to strand 0 would be
-    // testing an orientation the design specifically does not promise. (It landed on strand 1 here.)
+    // It is still placed, since the strand and the phase set are known, and it still names an
+    // allele, but it does not name a haplotype that contradicts it. Which strand index it gets is
+    // not asserted, since the Viterbi path decides which of the parent's traversals is on which
+    // strand.
     REQUIRE(child->nested_strand >= 0);
     // The slot the strand names holds the haplotype and the other is empty. The mosaic reads it
     // that way -- `strand_kind` calls the unnamed side of a nested site "empty" rather than
@@ -1324,11 +1270,10 @@ TEST_CASE("A nested site never names a haplotype that contradicts the allele it 
     const size_t named = child->nested_strand == 0 ? child->hap_first : child->hap_second;
     const size_t other = child->nested_strand == 0 ? child->hap_second : child->hap_first;
     REQUIRE(other == LinkageModel::WILDCARD);
-    // The invariant. Both panel haplotypes spell allele 0 here, so a named haplotype obliges the
-    // record to say allele 0 -- and it does: the entering message wins over an e^30 read preference
-    // for allele 1, which is the same conditioning that moved 2,599 extra chrX genotypes and took
-    // its SV F1 up 2.0e-2. A wildcard would be the other lawful answer; naming haplotype 1 while
-    // the record said allele 1 would not be.
+    // Both panel haplotypes carry allele 0 here, so a named haplotype requires the record to say
+    // allele 0, and it does: the entering message outweighs an e^30 read preference for allele 1.
+    // The wildcard would also be acceptable; naming haplotype 1 while the record says allele 1
+    // would not.
     if (named != LinkageModel::WILDCARD) {
         REQUIRE(named < 2);                        // one of the two panel haplotypes
         REQUIRE(child->allele_first == 0);         // which is the allele both of them spell
@@ -1338,18 +1283,11 @@ TEST_CASE("A nested site never names a haplotype that contradicts the allele it 
 
 TEST_CASE("A nested haploid chain its parent carries TWICE names no haplotype",
           "[linkage_model]") {
-    // The one reachable way a nested chain under a diploid parent ends up on no strand, and the
-    // only case that exercises `nameable == false`.
-    //
-    // Not "the parent does not carry it" -- that is `copies == 0`, and the barrier retracts the
-    // whole subtree before the generation is grouped, so it never reaches the collector alive. This
-    // is `copies == 2`: BOTH of the parent's settled traversals cross the chain, while the chain is
-    // still at ploidy 1 because the barrier could not re-render it and so skipped the revision.
-    //
-    // Naming nothing is conservative rather than right -- both haplotypes carry it, so both could be
-    // named -- and it is asserted at the conservative answer deliberately, because the population is
-    // empty on every contig measured and a rendering invented for it would be untested by anything
-    // but this.
+    // The one way a nested chain under a diploid parent that reaches the collector gets no strand,
+    // and the only case with `nameable == false`: both of the parent's settled traversals cross
+    // the chain (`copies == 2`), while the chain is still at ploidy 1 because the barrier could not
+    // revise it. (A chain the parent does not carry is retracted before its generation is
+    // grouped.) No haplotype is named, although both strands carry the chain.
     LinkageModel::Params p;
     p.weight = 1.0;
     p.scale = 100000.0;
@@ -1389,16 +1327,10 @@ TEST_CASE("A nested haploid chain its parent carries TWICE names no haplotype",
 
 TEST_CASE("A revised site stops being unemitted when the revision writes a line",
           "[linkage_model]") {
-    // The whole point of recording unemitted sites is that a collapsed parent can still be phased.
-    // But "unemitted" is a property of the *current* record, not of the site, and the barrier is
-    // exactly where it changes: a chain no called parent allele reached during the sweep is recorded
-    // with no line, and becomes a real record once the settled parent turns out to carry it.
-    //
-    // respecify() did not update the flag, so such a chain stayed unemitted for the rest of the run.
-    // Both the genotype patch and the phase patch skip an unemitted entry -- deliberately, there is
-    // normally no line to patch -- so the record came out with neither: no linkage correction and no
-    // phase set, on 75 of chr20's 117,097 records. Nothing in the output said so; the site simply
-    // had a slash where every other record had a bar.
+    // A chain no called parent allele reached in the sweep is recorded with no line, and gets a
+    // line once the settled parent turns out to carry it. Recording it again at the barrier must
+    // update its `emitted` flag, or it would be treated as having no record, and would get no
+    // linkage change and no phase set.
     LinkageModel::Params p;
     p.weight = 1.0;
     p.scale = 100000.0;
@@ -1416,9 +1348,8 @@ TEST_CASE("A revised site stops being unemitted when the revision writes a line"
                  /*nested*/ false, /*parent*/ 0, /*crossing*/ 0,
                  /*generation*/ 0, /*emitted*/ false);
 
-    // The barrier revises it and this time a line is written.
-    // Re-emitted 3 bp along, because changing the emitted allele set moves POS: this is exactly
-    // the case where an entry left at the sweep-time position becomes unreachable by both patches.
+    // The barrier revises it, and this time a line is written, 3 bp along, since changing the
+    // written alleles moves POS.
     REQUIRE(respecify_dense(collector, B, "chr1", 1013, 2, {-30.0, 0.0, -30.0}, {1, 0}, 0, 1,
                             /*ploidy*/ 2, /*nested*/ false,
                             /*crossing*/ 0, /*emitted*/ true));
@@ -1433,13 +1364,9 @@ TEST_CASE("A revised site stops being unemitted when the revision writes a line"
         }
     }
     REQUIRE(revised != nullptr);
-    // The assertion that matters: it is patchable. Without it the record is emitted and then
-    // skipped by every patch, which is indistinguishable in the output from never having been
-    // phased at all.
+    // The entry now says a line exists.
     REQUIRE(revised->emitted);
-    // And it is patchable at the position the replacement line was actually written to. The patch
-    // indices are keyed on (contig, POS), so an entry still filed at the sweep-time position is
-    // never looked up -- the patches are not declined, they are never offered.
+    // And it is filed at the position the line was written to.
     REQUIRE(revised->position == 1013);
 }
 

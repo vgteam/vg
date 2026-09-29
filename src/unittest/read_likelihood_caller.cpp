@@ -3,18 +3,9 @@
 /// Unit tests for the layer that turns a reads x alleles matrix into a genotype and
 /// its quality fields.
 ///
-/// The matrix itself is covered by `[allele_likelihood]`, and the whole pipeline by
-/// `t/18_vg_call.t`. Neither covers this: the integration tests assert that GQ, GL and
-/// GQI are *present* and well-formed, not what they contain, and the matrix tests stop
-/// before the discounts. So the arithmetic that decides how confident a call looks --
-/// two multiplicative discounts, one of them gated on allele size -- had no test that
-/// could fail if it were wrong.
-///
-/// That gap matters more here than the line count suggests. The two worst defects in
-/// this work were both index confusions in exactly this kind of glue: genotype
-/// likelihoods keyed by traversal index and read as VCF allele indices, twice, once
-/// corrupting the heap and once silently changing 34% of confident genotypes. Tests
-/// that pin the *meaning* of each field are the cheapest guard against a third.
+/// The matrix itself is tested under `[allele_likelihood]`. These tests check what the
+/// quality fields contain: the two multiplicative discounts on GQ, one of them gated on
+/// allele size, and the keys of the genotype likelihoods.
 
 #include <vector>
 
@@ -162,10 +153,8 @@ TEST_CASE("GQ rises with the evidence and never exceeds the undiscounted value",
     REQUIRE(strong.genotype == vector<int>({0, 0}));
     REQUIRE(strong.info->gq >= weak.info->gq);
 
-    // The discounts are multiplicative factors in [0,1], so this direction is an
-    // invariant rather than a property of these reads. It is asserted because the
-    // share is a ratio that floating-point accumulation can push a hair above 1, which
-    // would *raise* GQ -- the clamp exists for that and this is what notices if it goes.
+    // The discounts are factors in [0, 1], so GQ never exceeds GQI. Rounding can push the
+    // share just above 1, which the clamp on it prevents.
     REQUIRE(strong.info->gq <= strong.info->gq_undiscounted + 1e-9);
     REQUIRE(weak.info->gq <= weak.info->gq_undiscounted + 1e-9);
     REQUIRE(strong.info->explained_share <= 1.0);
@@ -175,13 +164,9 @@ TEST_CASE("--no-share-quality makes GQ the raw ratio, and the share still report
           "[read_likelihood_caller]") {
     CallerSite site;
     vector<Alignment> reads;
-    // The share only falls below 1 when reads prefer an allele the *call* does not
-    // contain -- a two-way split calls the heterozygote, which explains everything and
-    // leaves the discount a no-op. So: ten reference reads, ten SNP reads, and four that
-    // support the deletion. The call is 0/1 and those four are unexplained.
-    //
-    // Checked rather than assumed: the first version of this test used the two-way split
-    // and passed with share exactly 1, asserting nothing about the discount at all.
+    // The share falls below 1 only when some reads prefer an allele the call does not
+    // contain. Ten reference reads, ten SNP reads and four deletion reads give the call
+    // 0/1, which leaves the four deletion reads unexplained.
     for (int i = 0; i < 10; ++i) {
         reads.push_back(matching_read(site.graph, "r" + std::to_string(i), {1, 2, 4}));
         reads.push_back(matching_read(site.graph, "a" + std::to_string(i), {1, 3, 4}));
@@ -259,9 +244,8 @@ TEST_CASE("Genotype likelihoods are keyed by the genotype that was scored",
     REQUIRE(called.info != nullptr);
     REQUIRE(called.genotype == vector<int>({1, 1}));
 
-    // Every genotype scored is present, keyed by its *sorted traversal indices*. The
-    // two heap-corrupting bugs in this work both came from reading one index space as
-    // another, so the key's identity is worth asserting rather than assuming.
+    // Every genotype scored is present, keyed by its sorted traversal indices, not by
+    // VCF allele indices.
     REQUIRE(called.info->genotype_lls.count(vector<int>({1, 1})) == 1);
     REQUIRE(called.info->genotype_lls.count(vector<int>({0, 0})) == 1);
     REQUIRE(called.info->genotype_lls.count(vector<int>({0, 1})) == 1);
@@ -287,6 +271,52 @@ TEST_CASE("Haploid sites are genotyped with one allele and still get a quality",
     REQUIRE(called.genotype[0] == 1);
     REQUIRE(called.info->gq >= 0.0);
     REQUIRE(called.info->gq <= called.info->gq_undiscounted + 1e-9);
+}
+
+TEST_CASE("Recomputed GQ takes the explained share of the new best genotype",
+          "[read_likelihood_caller]") {
+    CallerSite site;
+    vector<Alignment> reads;
+    // As above: the call is 0/1 and the four deletion reads are unexplained.
+    for (int i = 0; i < 10; ++i) {
+        reads.push_back(matching_read(site.graph, "r" + std::to_string(i), {1, 2, 4}));
+        reads.push_back(matching_read(site.graph, "a" + std::to_string(i), {1, 3, 4}));
+    }
+    for (int i = 0; i < 4; ++i) {
+        reads.push_back(matching_read(site.graph, "d" + std::to_string(i), {1, 4}));
+    }
+    Called called = call_site(site, reads);
+    REQUIRE(called.info != nullptr);
+    REQUIRE(called.genotype == vector<int>({0, 1}));
+    auto& info = dynamic_cast<ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo&>(*called.owned);
+
+    // Re-genotyping changes the likelihoods in place; here 1/1 is made the best genotype, with
+    // 0/1 second.
+    const double het_ll = info.genotype_lls.at(vector<int>({0, 1}));
+    info.genotype_lls[vector<int>({1, 1})] = het_ll + 2.0;
+    const double gap = logprob_to_phred(het_ll) - logprob_to_phred(het_ll + 2.0);
+    // Only the SNP reads have allele 1 as their best allele.
+    const double share = info.allele_support[1] / (double)info.n_informative;
+    REQUIRE(share < 1.0);
+
+    InMemorySiteReadSource source;
+    QualAdjAlignmentScorer qual_scorer;
+    MatrixAlignmentScorer plain_scorer;
+    GraphAlignedAlleleLikelihoodCalculator calculator(site.graph, *site.manager, source,
+                                                      qual_scorer, plain_scorer);
+    NullTraversalSupportFinder support(site.graph, *site.manager);
+    ReadLikelihoodSnarlCaller caller(site.graph, *site.manager, support, calculator);
+
+    SECTION("with the share discount") {
+        caller.recompute_gq(info);
+        REQUIRE(info.gq == Approx(gap * share));
+        REQUIRE(info.gq < gap);
+    }
+    SECTION("with --no-share-quality") {
+        caller.set_share_discount(false);
+        caller.recompute_gq(info);
+        REQUIRE(info.gq == Approx(gap));
+    }
 }
 
 }  // namespace unittest

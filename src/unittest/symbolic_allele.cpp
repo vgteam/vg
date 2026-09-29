@@ -341,12 +341,9 @@ TEST_CASE("Passing no range vector leaves symbolic projection unchanged", "[symb
 
 TEST_CASE("A reversed snarl resolves to the same snarl and still symbolises its children",
           "[symbolic_allele]") {
-    // The caller works on a REVERSED copy of any snarl whose reference path runs backwards --
-    // `flip_snarl` swaps the boundaries and reverses each. The reversed copy's start node is
-    // therefore the original END node, and an identity test demanding start-to-start rejects it.
-    // That rejection made `site_ptr` null, `is_child` false at every visit, and the projection a
-    // bare node list with no chain symbols: symbolic collapsing silently off for the whole snarl,
-    // on 7.4% of chr20's sites.
+    // The caller works on a reversed copy of any snarl whose reference path runs backwards:
+    // `flip_snarl` swaps the boundaries and reverses each, so the copy's start node is the original
+    // end node. The site must still resolve, or the projection would have no chain symbols.
     Snarl top = make_snarl(1, 5);
     Snarl child = make_snarl(2, 4);
     auto mgr = make_manager(top, {child});
@@ -425,8 +422,7 @@ TEST_CASE("A traversal with no child chain is its own symbolic form", "[symbolic
 
 TEST_CASE("Traversals differing only inside a child chain are symbolically equal",
           "[symbolic_allele]") {
-    // This is the whole point. 1 -> [child 2..4] -> 5, and the two traversals take different routes
-    // through the child. On the real data these are the 4,710 bp alleles differing at three bases.
+    // 1 -> [child 2..4] -> 5, and the two traversals take different routes through the child.
     Snarl top = make_snarl(1, 5);
     Snarl child = make_snarl(2, 4);
     auto mgr = make_manager(top, {child});

@@ -14,13 +14,12 @@ using std::log;
 using std::max;
 using std::min;
 
-/// The mixture, from a pair of unnormalised slot weights and the two alleles' responsibilities.
+/// The mixture, from a pair of unnormalised slot weights and the two alleles' relative
+/// likelihoods.
 ///
-/// One definition for both sides of the delta, and that is what makes `tau = 0` exact rather than
-/// approximately exact: there, `(s0, s1)` IS `(w_0, w_1)`, so the corrected and uncorrected
-/// expressions are the same arithmetic on the same values and cancel bit for bit. Written as a
-/// normalised ratio rather than assuming the weights sum to one, because `site_slot_weights`
-/// normalises in floating point and `w_0 + w_1` is not exactly 1.
+/// Both sides of the correction use this function, so at tau = 0, where `(s0, s1)` is
+/// `(w_0, w_1)`, the two sides are the same arithmetic on the same values and cancel exactly.
+/// The ratio is normalised here because the weights need not sum to exactly 1.
 static inline double mixture_of(double s0, double s1, double rel0, double rel1) {
     const double z = s0 + s1;
     if (!(z > 0.0)) {
@@ -29,26 +28,21 @@ static inline double mixture_of(double s0, double s1, double rel0, double rel1) 
     return (s0 * rel0 + s1 * rel1) / z;
 }
 
-/// The tilt a read's strand log-odds applies, as one factor and which side it lands on.
+/// The weighting a read's strand log-odds apply, as one factor and the side it applies to.
 ///
-/// `Lambda` reaches into the hundreds before tempering, so `exp(tau * Lambda)` overflows for a
-/// perfectly ordinary read. Scaling by `e^-max(x, 0)` keeps every intermediate finite and gives
-/// the same pair of normalised weights -- and then both branches want `exp(-|x|)`, which is the
-/// whole reason this can be hoisted.
+/// Lambda can reach the hundreds, where `exp(tau * Lambda)` would overflow. Scaling by
+/// `e^-max(x, 0)` keeps every value finite and gives the same normalised weights, and both signs
+/// then need only `exp(-|x|)`.
 struct ReadTilt {
     double factor = 1.0;   ///< e^-|x|
     bool positive = true;  ///< whether x >= 0, so which slot the factor multiplies
 };
 
-/// Depends on the READ and not on the candidate genotype, so it is computed once per read rather
-/// than twice per (read, genotype). At three genotypes a site that is one `exp` where there were
-/// six -- five saved of six, against ~98 M of them on chr20 -- and it is the same value computed
-/// once instead of six times, so every sum is bit for bit what it was.
+/// Depends on the read and not on the candidate genotype, so it is computed once per read.
 static inline ReadTilt read_tilt(double x) {
     ReadTilt t;
-    // `-0.0 >= 0.0` is true and `fabs(-0.0)` is `0.0`, so the zero case takes the same branch and
-    // the same factor either way round. That matters: at `tau = 0` every read is this case, and
-    // the byte-identity gate rests on it.
+    // `-0.0 >= 0.0` is true and `fabs(-0.0)` is `0.0`, so a zero takes the same branch and factor
+    // whatever its sign. At tau = 0 every read is this case.
     t.positive = x >= 0.0;
     t.factor = exp(-fabs(x));
     return t;
@@ -77,24 +71,22 @@ void merge_counters(const RegenotypeCounters& from, RegenotypeCounters& into) {
     into.order_reversed += from.order_reversed;
     into.haploid_sites += from.haploid_sites;
     into.haploid_would_move += from.haploid_would_move;
-    // `fitted_temper` and the calibration vectors are deliberately not merged: they describe one
-    // fit, done once before any of this is parallel, and adding them up would say nothing.
+    // `fitted_temper` and the calibration vectors describe the one fit done before the parallel
+    // region, so they are not added up.
 }
 
 double calibrated_log_odds(double lambda, double temper, double ceiling) {
     const double x = temper * lambda;
     if (!(x != 0.0)) {
-        // Exactly 0 at `tau = 0`, and by this branch rather than by the arithmetic below rounding
-        // to it. Also catches -0.0, which is the temper-0 case for a negative Lambda.
+    // Exactly 0 at tau = 0, whatever the sign of Lambda (including -0.0).
         return 0.0;
     }
     const double c = ceiling >= 1.0 ? 1.0 : (ceiling <= 0.0 ? 0.0 : ceiling);
     // sigmoid without the overflow: at |x| in the hundreds `exp(-x)` is inf on one side.
     const double sig = x >= 0.0 ? 1.0 / (1.0 + exp(-x)) : exp(x) / (1.0 + exp(x));
     double p = c * sig + 0.5 * (1.0 - c);
-    // Clamped off the ends. With `c == 1` and `tau * Lambda == 60.75` -- an ordinary read at the
-    // fitted temper -- `p` rounds to exactly 1 and the logit is infinite. The un-escaped tilt
-    // never had this hazard because it stayed in the odds domain; the logit introduces it.
+    // Kept away from 0 and 1: with c == 1 and tau * Lambda around 60, `p` rounds to 1 and the logit
+    // would be infinite.
     const double eps = 1e-12;
     p = min(1.0 - eps, max(eps, p));
     return log(p / (1.0 - p));
@@ -102,7 +94,7 @@ double calibrated_log_odds(double lambda, double temper, double ceiling) {
 
 double site_read_log_odds(double q0, double p) {
     // The read reports the true slot with probability p and a coin flip otherwise, so neither side
-    // can reach 0 while p < 1 and one mismapped read cannot carry an unbounded opinion.
+    // reaches 0 while p < 1, and a mismapped read contributes little.
     const double half = 0.5 * (1.0 - p);
     const double a = p * q0 + half;
     const double b = p * (1.0 - q0) + half;
@@ -118,9 +110,8 @@ void site_own_log_odds(const PhaseSite& site, bool flipped, unordered_map<uint64
     const double sign = flipped ? -1.0 : 1.0;
     for (size_t i = 0; i < site.read_key.size(); ++i) {
         const double l = sign * site_read_log_odds((double)site.q0[i], (double)site.p[i]);
-        // Deduplicated by key rather than summed: paired mates share a read name and so a
-        // read_key, and a fragment lies on one haplotype, so it is one observation. Keeping the
-        // first matches what accumulate_lambda adds, which is what makes the subtraction exact.
+        // One entry per read key: paired mates share a key and lie on one strand. Keeping the first
+        // matches what `accumulate_lambda` adds, so the subtraction cancels it exactly.
         out.emplace(site.read_key[i], l);
     }
 }
@@ -135,7 +126,7 @@ void accumulate_lambda(const vector<PhaseSite>& sites, const unordered_set<size_
             if (rl.sites == 0) {
                 rl.phase_set = site.phase_set;
             } else if (rl.phase_set != site.phase_set) {
-                // Two blocks label their strands independently, so there is no sum to take.
+                // Two phase sets label their strands independently, so there is no sum to take.
                 rl.multi_block = true;
             }
             rl.lambda += kv.second;
@@ -152,8 +143,8 @@ void accumulate_lambda(const vector<PhaseSite>& sites, const unordered_set<size_
 void fit_calibration(const vector<PhaseSite>& sites, const unordered_set<size_t>& flipped,
                      const LambdaTable& lambda, const RegenotypeParams& params,
                      double& temper, double& ceiling, RegenotypeCounters& counters) {
-    // Every (read, site) pair where the rest of the read has an opinion and this site has an
-    // observation to check it against. `loo` is the prediction, `own` the observation.
+    // Every (read, site) pair where the read's other sites give a strand and its allele at this
+    // site can check it. `loo` is the prediction (leaving this site out), `own` the observation.
     struct Obs { double abs_loo; bool agree; };
     vector<Obs> obs;
     unordered_map<uint64_t, double> own;
@@ -198,16 +189,9 @@ void fit_calibration(const vector<PhaseSite>& sites, const unordered_set<size_t>
         const size_t n = stop - start;
         bins.push_back({sum / (double)n, (double)agree / (double)n, n});
     }
-    // tau such that sigmoid(tau * |Lambda|) matches the observed agreement, weighted by bin size.
-    // A grid then a refinement: the objective is smooth and one-dimensional, and a closed form
-    // would have to assume the link is exactly logistic, which is the thing being tested.
-    // The ceiling is a per-read error floor, and it is PINNED rather than fitted: fitting it does
-    // match the shape better -- agreement climbs through the whole range and never reaches 1,
-    // which a logistic cannot do at any temper -- and it makes the caller worse, ALL F1 -0.0014
-    // and indel -0.0047. The errors that create the floor are correlated, because they are
-    // mismapping, and the site-level escape already answers that; shrinking every read's
-    // confidence uniformly is the wrong response. So `--regeno-ceiling` sets it and the temper is
-    // fitted against whatever it is set to, which at the default 1 is the plain logistic.
+    // The squared difference, weighted by bin size, between the predicted and observed agreement
+    // in each bin, for a given temper and ceiling. The ceiling is not fitted: `--regeno-ceiling`
+    // sets it, and the temper is fitted against it.
     auto cost = [&](double tau, double ceil) {
         double acc = 0.0;
         for (const Bin& b : bins) {
@@ -219,11 +203,7 @@ void fit_calibration(const vector<PhaseSite>& sites, const unordered_set<size_t>
         }
         return acc;
     };
-    // A grid over the temper alone, against the pinned ceiling. One dimension, and deliberately
-    // only the grid: a 0.01 step is the resolution this is fitted at, and the sweep is far flatter
-    // than that near the optimum. (A coordinate refinement to 1e-4 used to sit here, inherited
-    // from a two-dimensional fit whose result was then discarded unread; restoring it moves the
-    // temper and so moves genotypes, which the byte-identity gate catches.)
+    // A grid over the temper alone, in steps of 0.01, against the fixed ceiling.
     const double best_ceiling = min(1.0, params.ceiling);
     double best = 0.0, best_cost = cost(0.0, best_ceiling);
     for (int i = 1; i <= 200; ++i) {
@@ -251,7 +231,7 @@ void fit_calibration(const vector<PhaseSite>& sites, const unordered_set<size_t>
     ceiling = best_ceiling;
 }
 
-/// Shared with the mixture correction: the per-read leave-one-out strand log-odds.
+/// A read's strand log-odds leaving this site out, shared by both corrections.
 static bool read_loo(const PhaseReadEvidence& ev, const LambdaTable& lambda,
                      const unordered_map<uint64_t, double>& own, const RegenotypeParams& params,
                      vector<double>& loo) {
@@ -268,9 +248,8 @@ static bool read_loo(const PhaseReadEvidence& ev, const LambdaTable& lambda,
             v -= mine->second;
         }
         if (params.shuffle) {
-            // Sign randomised from the read key, keeping |Lambda|: the peakedness distribution is
-            // preserved exactly and only the phase content is destroyed. Deterministic, so the
-            // arm is reproducible.
+            // Sign taken from the read key, keeping |Lambda|, so that the phase information is
+            // removed deterministically.
             v = (ev.read_key[r] & 1ULL) ? -fabs(v) : fabs(v);
         }
         loo[r] = v;
@@ -327,9 +306,8 @@ bool haploid_inclusion_correction(const PhaseReadEvidence& ev, const LambdaTable
         for (size_t r = 0; r < ev.num_reads(); ++r) {
             const double e = (double)ev.mismap[r];
             const double ra = (double)ev.rel_at(r, (size_t)a);
-            // `(1 - e) * incl * rel + e + (1 - e) * (1 - incl)`, written so that `incl == 1`
-            // reduces to the same expression as the baseline term below rather than to an
-            // arithmetically equal one -- which is what makes `tau = 0` exact.
+            // `(1 - e) * incl * rel + e + (1 - e) * (1 - incl)`, written so that at incl == 1 it is
+            // the same expression as the baseline term below, and the two cancel exactly.
             s_incl += log((1.0 - e) * (incl[r] * ra + 1.0 - incl[r]) + e);
             s_base += log((1.0 - e) * (1.0 * ra + 1.0 - 1.0) + e);
         }
@@ -363,26 +341,21 @@ bool phase_aware_correction(const PhaseReadEvidence& ev, const LambdaTable& lamb
     }
     ++counters.sites_considered;
 
-    // Per read, the leave-one-out log-odds and the tilt it implies -- once, rather than per
-    // candidate genotype. The tilt is the expensive half and the genotype loop below does not
-    // change it.
+    // For each read, the log-odds leaving this site out and the weighting they imply, computed
+    // once rather than once per candidate genotype.
     vector<double> loo;
     const bool any_opinion = read_loo(ev, lambda, own, params, loo);
     vector<ReadTilt> tilt(ev.num_reads());
     if (!any_opinion) {
-        // Every read here spans nothing else in its block. Provably inert; skip the arithmetic
-        // rather than compute a column of zeroes.
-        //
-        // Before the tilts, not after: on short reads most reads span one site, so this is the
-        // common case there, and filling a tilt column first would spend an `exp` a read to reach
-        // the same return. On ONT it is rare enough not to show up in a timing.
+        // No read here spans another site of its phase set, so the correction is zero. Checked
+        // before the weightings are computed, since on short reads this is the common case.
         return false;
     }
     for (size_t r = 0; r < ev.num_reads(); ++r) {
         tilt[r] = read_tilt(calibrated_log_odds(loo[r], temper, ceiling));
     }
 
-    // The sweep's own argmax, to say afterwards whether the correction moved it.
+    // The sweep's best genotype, to report whether the correction changes it.
     const vector<int>* before = nullptr;
     double before_ll = -std::numeric_limits<double>::infinity();
     for (const auto& kv : gl) {
@@ -402,18 +375,16 @@ bool phase_aware_correction(const PhaseReadEvidence& ev, const LambdaTable& lamb
         }
         const int a = g[0], b = g[1];
         if (a == b) {
-            // A homozygote's mixture collapses to rel(r, a) whatever the weights are, so the
-            // correction is exactly zero. Skipped rather than computed: the algebra says zero and
-            // evaluating it would only add rounding to a quantity that must not move.
+            // A homozygote's mixture is rel(r, a) whatever the weights are, so the correction is
+            // zero, and it is skipped rather than computed.
             continue;
         }
         if (a < 0 || b < 0 || (size_t)a >= ev.n_alleles || (size_t)b >= ev.n_alleles) {
             continue;
         }
-        // Weights follow the ALLELE, not the slot, so the uncorrected mixture is invariant under
-        // reordering the pair. Pinning them to the slot instead would make a read that spans
-        // nothing else order-dependent, and the max below would then pick up a difference with no
-        // phase in it -- worth up to 0.37 ln over three reads at an SV-sized length ratio.
+        // Weights follow the allele, not the slot, so the uncorrected mixture does not change when
+        // the pair is reordered; otherwise the larger of the two orders would favour one for a
+        // reason unrelated to phase.
         const vector<double> w = site_slot_weights(ev.allele_length, ev.n_alleles,
                                                    ev.mean_read_length, ev.length_weighted,
                                                    vector<int>{a, b});
@@ -426,16 +397,12 @@ bool phase_aware_correction(const PhaseReadEvidence& ev, const LambdaTable& lamb
             const double ra = (double)ev.rel_at(r, (size_t)a);
             const double rb = (double)ev.rel_at(r, (size_t)b);
 
-            // All three mixtures are evaluated with `ra` first and `rb` second, so the only thing
-            // that differs between them is which weight each allele gets. That is not a style
-            // choice: at `tau = 0` the three weight pairs are all `(w[0], w[1])`, and identical
-            // operands in an identical expression give an identical result, so the correction is
-            // exactly zero rather than zero to within whatever the optimiser did to two separate
-            // accumulator chains. Written the obvious way -- `(s0, s1, rb, ra)` for the reverse --
-            // the two disagreed in the last bits at 957 of chr20's 170,060 sites.
+            // All three mixtures are evaluated with `ra` first and `rb` second, so they differ only
+            // in the weight each allele gets. At tau = 0 the three weight pairs are the same, so
+            // the same expression gives the same result and the correction is exactly zero.
             //
             // The reverse order puts allele `b` on strand 0, so its slot weights come back
-            // swapped and are then passed swapped, which restores `ra` to the first position.
+            // swapped and are passed swapped, which keeps `ra` first.
             double s0, s1;
             tilted_weights(w[0], w[1], tilt[r], s0, s1);
             s_fwd += log((1.0 - e) * mixture_of(s0, s1, ra, rb) + e);
@@ -444,10 +411,8 @@ bool phase_aware_correction(const PhaseReadEvidence& ev, const LambdaTable& lamb
             s_w += log((1.0 - e) * mixture_of(w[0], w[1], ra, rb) + e);
         }
         const double correction = max(s_fwd, s_rev) - s_w;
-        // Only for the genotype the site is actually called at. At a multi-allelic site most
-        // pairs are ones no haplotype carries, and which order "fits" such a pair better is
-        // arbitrary -- counting those made this read 87,440 of chr20's 163,396 corrected sites,
-        // which is not a statement about the chain, it is a statement about noise.
+        // Only at the called genotype. At a site with several alleles most pairs are carried by no
+        // haplotype, and which order fits such a pair better means nothing.
         if (before != nullptr && g == *before) {
             reversed_called = s_rev > s_fwd;
         }

@@ -128,13 +128,11 @@ TEST_CASE("Clear homozygous evidence calls the homozygote", "[allele_likelihood]
 
 TEST_CASE("The depth term prefers the genotype that predicts the read count",
           "[allele_likelihood]") {
-    // A heterozygous deletion the length-weighted mixture still gets wrong, which is
-    // the residual the depth term exists for: measured on real data the mixture
-    // recovers about 44% of large heterozygous deletions and this is one of the rest.
-    // Forty reads lie inside the deleted interval and fit only the long allele; one
-    // spans the junction. The mixture weight already discounts the interior reads --
-    // they cost the heterozygote ln(1/0.917) rather than ln 2 -- but forty of them
-    // still outweigh a single junction read.
+    // A heterozygous deletion the length-weighted mixture still gets wrong, which the depth term
+    // exists for. Forty reads lie inside the deleted interval and fit only the long allele; one
+    // spans the junction. The mixture weight already discounts the interior reads -- they cost
+    // the heterozygote ln(1/0.917) rather than ln 2 -- but forty of them still outweigh a single
+    // junction read.
     auto fill = [](AlleleReadLikelihoodsBuilder& b) {
         for (int i = 0; i < 40; ++i) {
             b.add_read({0.0, -30.0}, 0.02, "", 151);
@@ -225,11 +223,10 @@ TEST_CASE("Depth counts a read by the probability it came from this locus",
 
 TEST_CASE("Confident reads count as very nearly whole reads of depth",
           "[allele_likelihood]") {
-    // The counterpart to the case above, and the reason this is safe to switch on by
-    // default: at the shipped floor of 0.02 a well-mapped read is worth 0.98 of a
-    // read, so nothing moves at ordinary sites. The correction is *relative* -- it
-    // only bites where a site's mapping quality differs from its neighbourhood's,
-    // because the local rate is measured under the same weighting.
+    // The counterpart to the case above: at a floor of 0.02 a well-mapped read counts as 0.98 of a
+    // read, so nothing moves at ordinary sites. The correction is relative -- it matters only where
+    // a site's mapping quality differs from its neighbourhood's, because the local rate is counted
+    // the same way.
     AlleleReadLikelihoodsBuilder b(2, 0.02, 0.7);
     for (int i = 0; i < 30; ++i) {
         b.add_read({0.0, -9.0}, 0.0, "", 151);   // MAPQ high: clamped up to the floor
@@ -262,14 +259,11 @@ TEST_CASE("A length-weighted mixture recovers a heterozygous deletion",
 
 TEST_CASE("A length-weighted mixture still prefers a clean homozygote",
           "[allele_likelihood]") {
-    // The property that makes this a likelihood rather than a set-cover criterion.
-    // Weights sum to 1, so adding an allele still costs: overwhelming homozygous
-    // evidence plus one stray read must stay homozygous, even when the alleles differ
-    // wildly in length. A max over the genotype's haplotypes would not -- it is
-    // monotone in the allele set, so a heterozygote can never score below either
-    // homozygote. That was tried, as --max-allele-likelihood, and it doubled
-    // small-variant false positives; the flag is gone and this test is what stops the
-    // property coming back by accident.
+    // The property that makes this a likelihood rather than a set-cover criterion. Weights sum to
+    // 1, so adding an allele still costs: overwhelming homozygous evidence plus one stray read must
+    // stay homozygous, even when the alleles differ greatly in length. A maximum over the
+    // genotype's haplotypes would not have this property, since a heterozygote could then never
+    // score below either homozygote.
     AlleleReadLikelihoodsBuilder builder(2);
     for (int i = 0; i < 30; ++i) {
         builder.add_read({0.0, -30.0}, 0.02, "", 151);
@@ -289,16 +283,10 @@ TEST_CASE("Unique-content weighting is sharper than whole-traversal weighting",
     // weighting therefore credits the deletion with 296 bp it cannot use to
     // distinguish itself, and understates the imbalance.
     //
-    // The read counts here matter, and not only as flavour. Sharpening the weight is
-    // NOT monotonically better: it cuts what each interior read costs the
-    // heterozygote, but it also cuts what each junction read earns it, because a
-    // read fitting the deletion is being scored against a smaller prior mass. The
-    // sharpening pays only once interior reads outnumber junction reads by more than
-    // about 27:1 * (per-read deltas) -- here 40:3. At 20:3 the whole-traversal weight
-    // actually gives the larger margin. Real large heterozygous deletions sit around
-    // 15:1 measured on chr6 and the sharpening helps there; a toy at 20:3 does not
-    // reproduce them, and asserting otherwise pinned an expectation the model never
-    // made.
+    // The read counts here matter. Counting only unique sequence is not always better: it cuts what
+    // each interior read costs the heterozygote, but also what each junction read earns it. It pays
+    // only once interior reads outnumber junction reads by enough -- here 40:3. At 20:3 the
+    // whole-traversal weight gives the larger margin.
     auto fill = [](AlleleReadLikelihoodsBuilder& b) {
         for (int i = 0; i < 40; ++i) {
             b.add_read({0.0, -30.0}, 0.02, "", 151);
@@ -685,12 +673,10 @@ TEST_CASE("The achievable gap scales with ploidy, not only with depth",
     REQUIRE(matrix.achievable_gap({}, {1}) == Approx(0.0));
     REQUIRE(AlleleReadLikelihoodsBuilder(2).build().achievable_gap({0}, {1}) == Approx(0.0));
 
-    // The denominator is built at the mismap *floor*, not at the reads' own e_r. A site
-    // whose reads are all badly mapped must not thereby become easy to satisfy: if the
-    // reads' own e_r were used, these MAPQ-0 reads would give -ln(0.7) = 0.36 apiece and
-    // the achievable gap would collapse to a tenth, making a weak call score near 1.
-    // Measured over the coverage titration that version calibrated worse than applying
-    // no normalisation at all (0.427 against 0.347), so this is pinned.
+    // The denominator is built at the mismap floor, not at the reads' own e_r, so a site whose
+    // reads are all badly mapped does not become easy to satisfy: with the reads' own e_r, these
+    // MAPQ-0 reads would give -ln(0.7) = 0.36 apiece and the achievable gap would collapse to a
+    // tenth, making a weak call score near 1.
     AlleleReadLikelihoodsBuilder badly_mapped(2, E, 0.7);
     for (size_t i = 0; i < N; ++i) {
         badly_mapped.add_read({0.0, NEG_INF}, 0.7);   // MAPQ 0, clamped to the ceiling

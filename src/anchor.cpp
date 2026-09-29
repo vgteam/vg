@@ -92,11 +92,11 @@ void AnchorCounters::report(ostream& out) const {
 ////////////////////////////////////////////////////////////////////////////////
 
 /// The first and last read base of one mapping that consumes a node base, or -1 for a mapping that
-/// consumes none -- a node deleted outright in this read.
+/// consumes none, as for a node the read deletes.
 ///
-/// Per MAPPING rather than as one merged run over the read, because the entry pin has to step
-/// exactly one node along the read's walk, and a merged run cannot tell "the previous node's last
-/// base" from "the last base before a stretch of deleted nodes".
+/// Kept per mapping rather than as one run over the read, because the entry pin must step exactly
+/// one node back along the read's walk, and a merged run cannot tell the previous node's last base
+/// from the last base before several deleted nodes.
 struct MappingExtent {
     int64_t first_consuming = -1;
     int64_t last_consuming = -1;
@@ -125,14 +125,14 @@ AnchorPlacement resolve_anchor_pin(const SiteRead& read, const HandleGraph& grap
     const Alignment& aln = *read.aln;
     const Path& path = aln.path();
 
-    // Find the pin node's mapping and where in the read it starts. The pin node is one of the
-    // site's boundaries, so every visit to it is listed in the site's index when there is one --
-    // which matters, since the count is what refuses an ambiguous repeat visit.
+    // Find the pin node's mapping and where in the read it starts. The pin node is a boundary of
+    // the site, so every visit to it is in the site's index when there is one. A read that visits
+    // it more than once is refused.
     int64_t hit = -1;
     size_t hit_read_start = 0;
     size_t visits = 0;
-    // Read start of the mapping before the pin's, needed only by the entry pin. Tracked here rather
-    // than recovered later because the unindexed walk passes it once and cannot go back.
+    // Read start of the mapping before the pin's, needed only by the entry pin, and noted here
+    // because the unindexed walk passes it only once.
     size_t before_read_start = 0;
     if (read.indexed()) {
         for (size_t k = 0; k < read.mapping_count; ++k) {
@@ -165,14 +165,13 @@ AnchorPlacement resolve_anchor_pin(const SiteRead& read, const HandleGraph& grap
     }
 
     if (visits == 0) {
-        // Expected rather than exceptional: a read that starts inside the site never visits the
-        // start boundary, and one that ends inside it never visits the end boundary.
+    // A read that starts inside the site does not visit the start boundary, and one that ends
+    // inside it does not visit the end boundary.
         ++counters.no_visit;
         return out;
     }
     if (visits > 1) {
-        // Which visit the pin belongs to is genuinely ambiguous, so it is refused rather than
-        // guessed at.
+    // Which visit the pin belongs to is ambiguous, so the read is refused.
         ++counters.repeat_visit;
         return out;
     }
@@ -187,12 +186,12 @@ AnchorPlacement resolve_anchor_pin(const SiteRead& read, const HandleGraph& grap
     }
 
     // The node base the pin is defined against, in node-forward coordinates.
-    //   exit  (S) pin: the node's LAST base in the site's direction; the pin follows it.
-    //   entry (E) pin: the node's FIRST base in the site's direction; the pin precedes it.
+    //   exit  (S) pin: the node's last base in the site's direction; the pin follows it.
+    //   entry (E) pin: the node's first base in the site's direction; the pin precedes it.
     const size_t q_fwd = exit_pin ? (site_backward ? 0 : node_len - 1)
                                   : (site_backward ? node_len - 1 : 0);
-    // The same base in the orientation the READ visits the node in, which is what the mapping's
-    // offsets are measured in.
+    // The same base in the orientation the read visits the node in, in which the mapping's offsets
+    // are measured.
     const size_t q_vis = is_rev ? (node_len - 1 - q_fwd) : q_fwd;
 
     // Walk the mapping's edits for the read base aligned to it.
@@ -226,12 +225,10 @@ AnchorPlacement resolve_anchor_pin(const SiteRead& read, const HandleGraph& grap
         return out;
     }
 
-    // The invariant, checked here because the read is gone by the time anchors are written.
-    //
-    // On a match edit the read base must be the graph's base, complemented when the read visits the
-    // node in reverse -- one comparison that catches every off-by-one AND every strand inversion. On
-    // a mismatch edit the base legitimately differs from the graph, so the edit's own recorded
-    // sequence is the reference instead, which still catches the offset arithmetic.
+    // The check, made here because the read is not kept. On a match edit the read base must be the
+    // graph's base, complemented when the read visits the node in reverse, which catches offset and
+    // strand errors. On a mismatch edit the base differs from the graph's, so the edit's recorded
+    // sequence is compared instead, which still catches offset errors.
     const char read_base = (char)toupper(aln.sequence()[base_index]);
     if (exact_edit) {
         const char node_base = graph.get_base(handle, q_fwd);
@@ -259,21 +256,12 @@ AnchorPlacement resolve_anchor_pin(const SiteRead& read, const HandleGraph& grap
         return out;
     }
 
-    // Entry pin: the reference base is DOWNSTREAM of the pin, so the offset is the read base
-    // immediately upstream -- which is the adjacent base on the previous node of the read's WALK,
-    // not simply the previous read base that happens to consume a node.
-    //
-    // Stepping by read index instead is wrong, and wrong in a way that produces a plausible file:
-    // a node deleted outright in this read contributes no read bases at all, so an index walk
-    // crosses it invisibly and lands on the base before it -- which is the neighbouring snarl's own
-    // pin position. That is the collision this design exists to rule out, and it is exactly the
-    // hazard the 1 bp boundary node was flagged for, arriving through the deletion rather than
-    // through the node's length. Found by the guarantee's own check on real data: 11 collisions in
-    // 4.07 M placements, all of this shape.
-    //
-    // So: one step along the read's walk. Insertions and soft clips inside the neighbouring mapping
-    // are skipped, because they consume no node base; a neighbouring mapping that consumes no node
-    // base AT ALL means the graph step upstream is deleted here, and the read is refused instead.
+    // Entry pin: the reference base is downstream of the pin, so the offset is the read base just
+    // upstream, which is the adjacent base on the previous node of the read's walk. Stepping back by
+    // read index instead would pass over a node the read deletes, which has no read bases, and land
+    // on the neighbouring snarl's pin. So we step one mapping along the walk, skipping insertions
+    // and soft clips, which consume no node base; if that mapping consumes no node base at all, the
+    // node upstream is deleted in this read and the read is refused.
     const int64_t neighbour = (out.strand == 0) ? hit - 1 : hit + 1;
     if (neighbour < 0 || neighbour >= (int64_t)path.mapping_size()) {
         // The read begins (or ends) here, so it does not cross the pin.
@@ -316,9 +304,9 @@ size_t AnchorSiteEvidence::bytes() const {
 vector<double> site_slot_weights(const vector<uint32_t>& allele_length, size_t n_alleles,
                                  float mean_read_length, bool length_weighted,
                                  const vector<int>& slot_allele) {
-    // Expected share of the site's reads per haplotype, from the alleles' spelled lengths: the
-    // number of read start positions yielding a read overlapping the site from an allele of length L
-    // is L + R - 1. Flat when the lengths are unavailable or --flat-mixture is in force.
+    // Expected share of the site's reads per slot, from the alleles' full lengths: an allele of
+    // length L yields a read overlapping the site from L + R - 1 start positions. Flat when the
+    // lengths are unavailable or under --flat-mixture.
     const size_t n_slots = slot_allele.size();
     vector<double> weight(n_slots, n_slots ? 1.0 / (double)n_slots : 0.0);
     if (length_weighted && mean_read_length > 0.0
@@ -357,11 +345,8 @@ void build_site_anchors(const AnchorSiteEvidence& evidence, const vector<int>& g
             return;
         }
     }
-    // A one-allele genotype is a HAPLOID call, not a homozygote, and `hom` below cannot tell them
-    // apart: its loop starts at 1, so a single allele leaves it true. That is right for
-    // `--anchors-het-only`, which drops both -- a haploid site's one slot holds every read, so it
-    // partitions nothing either -- and wrong for the slot, which for a haploid site is a haplotype.
-    // Hence a separate flag rather than a change to `hom`.
+    // `hom` is also true for a haploid call, which --anchors-het-only should drop too. `haploid` is
+    // kept separately because its one slot names a strand.
     const bool haploid = genotype.size() == 1;
     bool hom = true;
     for (size_t i = 1; i < genotype.size(); ++i) {
@@ -372,43 +357,34 @@ void build_site_anchors(const AnchorSiteEvidence& evidence, const vector<int>& g
     if (hom && params.het_only) {
         return;
     }
-    // NaN means the site offered no gap to normalise, which is not the same as zero and must not be
-    // filtered as though it were. A NEGATIVE gqn is a real value -- linkage overrode the reads --
-    // and is legitimately below any positive threshold, so it filters on its own merits.
+    // NaN means the site had no gap to normalise, which is different from zero, and is filtered
+    // out. A negative GQN, on a record whose genotype the linkage model changed, is a real value
+    // and is compared like any other.
     if (params.min_gqn > 0.0 && (std::isnan(gqn) || gqn < params.min_gqn)) {
         return;
     }
 
-    // One slot per haplotype of the genotype, collapsed for a homozygote: the pair degenerates to a
-    // single anchor holding every read, which carries connectivity but no haplotype information.
+    // One slot per strand of the genotype, or one slot holding every read for a homozygote.
     vector<int> slot_allele;
     bool phase_split = false;
     if (hom) {
-        // A homozygous site carries no allele signal -- both haplotypes spell the same thing -- so
-        // its reads are partitioned, if at all, by the het sites they also cross. Split only when
-        // the site is actually partitioned: enough confidently-placed reads on BOTH sides. A site
-        // whose reads all lean one way has not been partitioned, it has been relabelled.
+        // Split only when enough confidently placed reads fall on each side.
         if (params.hom_split && !haploid && genotype.size() == 2 && read_strand != nullptr
             && read_strand->size() == evidence.reads.size()) {
             size_t side0 = 0, side1 = 0;
             for (size_t r = 0; r < evidence.reads.size(); ++r) {
-                // Only reads that will actually be emitted. The placement loop below drops a read
-                // pinned at neither end, so counting it here would let a site qualify on evidence
-                // that never reaches the file.
+                // Only reads that will be written: the placement loop below drops a read pinned at
+                // neither end.
                 if (!evidence.reads[r].start_pin.placed()
                     && !evidence.reads[r].end_pin.placed()) {
                     continue;
                 }
                 const double lo = (*read_strand)[r];
                 if (std::isnan(lo) || lo == 0.0) {
-                    // Exactly zero is what read_strand_log_odds returns for NO OPINION -- no lambda
-                    // table, a read that reached no phase site, a read spanning a phase break, or
-                    // contributions that summed to nothing. It is not evidence for strand 1. The
-                    // test below is a strict `> 0.0`, so without this every such read would land on
-                    // side1: at --split-min-q 0, where the threshold test cannot exclude them, that
-                    // pads one side with reads the placement loop then discards, and the site is
-                    // declared splittable on evidence that never reaches the file. The placement
-                    // loop already refuses them for the same reason; this makes the two agree.
+                    // Exactly zero means the read has no strand log-odds: no table, no phased site
+                    // reached, or a read seen in more than one phase set. It is not evidence for
+                    // strand 1, though the strict `> 0.0` test below would count it there. The
+                    // placement loop refuses such reads too.
                     continue;
                 }
                 if (std::abs(lo) < params.phase_min) {
@@ -436,11 +412,9 @@ void build_site_anchors(const AnchorSiteEvidence& evidence, const vector<int>& g
     }
     const size_t n_slots = slot_allele.size();
 
-    // Where the one slot lands. A homozygote's is slot 0 and names no haplotype; a nested haploid
-    // site's names the strand `nested_strand` gave, so slot 0 would be wrong for every `.|a` site
-    // -- 1,523 of chr20's 2,417 half-called sites, and invisible to F1 because no VCF field carries
-    // it. Clamped rather than trusted: a slot outside {0,1} would break the file's own promise that
-    // slot indexes a GT field.
+    // Where a single slot goes. A homozygote's is slot 0 and names no strand; a nested haploid
+    // site's is the strand `nested_strand` gave, which is 1 for a `.|a` site. Only 0 or 1 is
+    // written, since slot indexes a GT field.
     const int base_slot = (haploid && haploid_slot == 1) ? 1 : 0;
 
     const vector<double> weight = site_slot_weights(
@@ -465,8 +439,8 @@ void build_site_anchors(const AnchorSiteEvidence& evidence, const vector<int>& g
         end_anchors[i].node = evidence.end_node;
     }
 
-    // Reads sharing a name at this site. Cheap, and the only place the collision is visible: by the
-    // time a file exists the two are indistinguishable.
+    // Count reads sharing a name at this site, which cannot be told apart once the file is
+    // written.
     {
         unordered_map<string, size_t> name_count;
         name_count.reserve(evidence.reads.size() * 2);
@@ -480,15 +454,9 @@ void build_site_anchors(const AnchorSiteEvidence& evidence, const vector<int>& g
         }
     }
 
-    // Reads each slot's end anchor holds that its own start anchor does not. If there are none, the
-    // two are joined by all the same reads and the end anchor can offer no linkage the start anchor
-    // does not -- see AnchorParams::end_pin_min_new.
-    //
-    // Per SLOT, not per site. A site-level count is not the same question: anchors are emitted and
-    // min-reads-filtered per slot, so a site can hold a read that reaches only the end boundary while
-    // the slot carrying it falls below the threshold and the *other* slot's end anchor -- entirely
-    // redundant -- survives on the strength of it. Measured on chr20, a site-level count left 4,522
-    // of 41,763 surviving end pins carrying nothing of their own.
+    // For each slot, the reads its end anchor holds that its start anchor does not; see
+    // AnchorParams::end_pin_min_new. Counted per slot rather than per site, since anchors are
+    // written and filtered by --anchors-reads per slot.
     vector<size_t> new_at_end(n_slots, 0);
 
     for (size_t r = 0; r < evidence.reads.size(); ++r) {
@@ -498,51 +466,33 @@ void build_site_anchors(const AnchorSiteEvidence& evidence, const vector<int>& g
         }
         const double mismap = (double)read.mismap;
 
-        // Responsibilities over the called alleles, plus the mismapping outcome. The mismap term is
-        // what bounds the score: at a 0.02 floor a perfectly discriminating read on a balanced het
-        // reaches about 14 phred, not 60.
+        // Responsibilities over the called alleles, plus the mismapping outcome, which bounds the
+        // confidence at the heterozygous score ceiling.
         double best_resp = -1.0;
         double best_plain = 0.0;
         size_t best_slot = 0;
         double total = mismap;
         if (phase_split) {
-            // Both slots spell the same allele, so responsibility cannot choose between them: the
-            // argmax would tie, the tie-break is a strict `<` on equal allele indices, and every
-            // read would land in slot 0 leaving slot 1 to be dropped by --anchors-reads. The strand
-            // decides instead, which is the whole point of the split.
+            // Both slots spell the same allele, so the responsibilities cannot choose between them,
+            // and the read's strand log-odds decide instead.
             //
-            // The share is computed over the site's ONE distinct allele rather than over the two
-            // slots. Splitting the mixture in half would halve every clean read's share and drop
-            // its score from ~13 to ~3, silently changing what --anchors-min-q and the reliability
-            // column mean on exactly the sites this feature adds.
+            // The share is computed over the site's one distinct allele rather than over the two
+            // slots, so that a read's confidence, and so --anchors-min-q and the reliability
+            // column, mean the same at split sites as elsewhere.
             const double lo = (*read_strand)[r];
             int coin = -1;
             if (std::isnan(lo)) {
-                // The read spans a phase break. It is not opinionless -- it has evidence on both
-                // sides -- but the two sides number their strands independently, so there is no
-                // haplotype here to name. Dropped, and NOT assigned: a coin would bury evidence
-                // rather than stand in for its absence.
+                // The read is seen in more than one phase set, whose strands are numbered
+                // independently, so it names no strand here. It is dropped.
                 ++counters.hom_split_no_opinion;
                 continue;
             }
             if (lo == 0.0) {
-                // No cross-site opinion: the read reached no phase site, or reached one whose two
-                // alleles it cannot tell apart -- a homopolymer length, say. Measured on chr20 ONT,
-                // 97.8% is the first and 2.2% the second, and both mean there is nothing to know.
-                //
-                // It used to be dropped, because `lo > 0 ? 0 : 1` would send every such read to
-                // slot 1: a haplotype claim with nothing behind it, made systematically in one
-                // direction. But dropping it was not safe either. The same read IS placed at het
-                // sites and at unsplit homozygous ones, because neither consults the phase -- so
-                // its trail through the file reads present, absent, present, and a read that
-                // disappears between two anchors and comes back is the shape of a deletion.
-                //
-                // Assigned instead, by a coin that is deterministic and PER READ. The site is
-                // homozygous, so both slots spell the SAME allele and the read's sequence fits
-                // either haplotype: the label is arbitrary, the sequence is not wrong. Hashing the
-                // name means the same read lands on the same haplotype at every site it crosses and
-                // at both pins of each, so it lies wholly on one haplotype and no switch is created.
-                // A PRNG would not do: it would differ between runs, and between a site's two pins.
+                // No strand log-odds: the read reached no phased site, or none whose alleles it can
+                // tell apart. The site is homozygous, so either slot spells the read's allele, and
+                // the read is placed by a coin flip derived from a hash of its name. The same read
+                // then gets the same slot at every site and both pins, so it stays on one strand,
+                // and it is not missing from some anchors while present at others.
                 ++counters.hom_split_no_opinion;
                 ++counters.hom_split_coin;
                 coin = (int)(std::hash<string>{}(read.name) & 1ull);
@@ -551,21 +501,19 @@ void build_site_anchors(const AnchorSiteEvidence& evidence, const vector<int>& g
             total = mismap + best_resp;
             best_slot = coin >= 0 ? (size_t)coin : (lo > 0.0 ? 0 : 1);
         } else {
-        // Which slot this read joins, under one of three rules. `plain` -- the site's own length
-        // weights on its own alleles -- always decides `share`, and therefore the `reliability`
-        // column, whichever rule picks the slot: reliability is what a consumer thresholds and is
-        // documented as low where a site's reads cannot tell its alleles apart, so the strand must
-        // not enter it. Letting it in took chr20 anchors at reliability >= 9 from 74.0% to 93.9%
-        // with no change in the data.
+        // Which slot this read joins, under one of three rules: the allele match alone, the
+        // allele match tilted towards the strand the read's log-odds favour, or the strand alone.
+        // Whichever rule picks the slot, the read's confidence, and so the reliability column,
+        // comes from the untilted share `plain`. Reliability measures whether the site's own
+        // reads tell its alleles apart, so the strand log-odds must not enter it.
         const bool tiltable = read_strand != nullptr && n_slots == 2
                               && read_strand->size() == evidence.reads.size()
                               && slot_allele[0] != slot_allele[1];
         const double lo = tiltable ? (*read_strand)[r] : 0.0;
         const bool has_opinion = tiltable && !std::isnan(lo) && lo != 0.0;
 
-        // The tilt, when soft. Multiply the disfavoured slot's weight by exp(-|lo|) and the argmax
-        // is then over the read's POSTERIOR probability of each haplotype -- algebraically the same
-        // weights `phase_aware_correction` uses in re-genotyping, written the overflow-safe way.
+        // The default weighting: multiply the disfavoured slot's weight by exp(-|lo|), which gives the
+        // same weights `phase_aware_correction` uses in re-genotyping, computed without overflow.
         double w0 = weight[0];
         double w1 = n_slots > 1 ? weight[1] : 0.0;
         if (params.phase_hets && !params.strict_hets && has_opinion) {
@@ -583,14 +531,10 @@ void build_site_anchors(const AnchorSiteEvidence& evidence, const vector<int>& g
             const double resp = (1.0 - mismap) * (i == 0 ? w0 : (i == 1 ? w1 : weight[i]))
                                 * (double)evidence.rel_at(r, (size_t)slot_allele[i]);
             total += plain;
-            // Ties break on the ALLELE, not on the slot position. `slot_allele` is in phase order,
-            // so a positional tie-break makes the partition depend on the phase -- and read phasing
-            // reorders it. On chr20 that moved one read at a handful of sites, which is invisible
-            // until the losing slot falls under `--anchors-reads` and the whole slot disappears: a
-            // het site then writes one collapsed anchor and reads as a homozygote. The allele index
-            // is a property of the site, so this is the same partition whichever way the pair is
-            // ordered. Exact equality is the right test -- these are ties in the literal sense, the
-            // same `rel` value against both alleles, not a near-miss.
+            // Ties break on the allele, not on the slot position. `slot_allele` is in phase order,
+            // which read phasing can change, so a tie-break by position would make the division of
+            // reads depend on the phase. Exact equality is intended: a tie is the same `rel` value
+            // for both alleles.
             if (resp > best_resp
                 || (resp == best_resp && slot_allele[i] < slot_allele[best_slot])) {
                 best_resp = resp;
@@ -598,13 +542,9 @@ void build_site_anchors(const AnchorSiteEvidence& evidence, const vector<int>& g
                 best_slot = i;
             }
         }
-        // --anchors-strict-hets: take the strand's SIGN and ignore the allele match entirely. This
-        // is the control arm for the soft tilt, not a recommendation -- it is what the split-hom
-        // branch does, applied where the site does carry allele signal, so it throws away real
-        // evidence on purpose.
-        //
-        // A read with no opinion keeps its allele-match slot rather than being dropped, so the two
-        // arms hold the SAME reads and a difference between them is the rule and not coverage.
+        // --anchors-strict-hets: use only the sign of the strand log-odds, ignoring the allele
+        // match. A read with no strand log-odds keeps its allele-match slot, so both rules place the
+        // same reads.
         if (params.strict_hets && has_opinion) {
             const size_t want = lo > 0.0 ? 0 : 1;
             if (want != best_slot) {
@@ -623,8 +563,8 @@ void build_site_anchors(const AnchorSiteEvidence& evidence, const vector<int>& g
             continue;
         }
 
-        // Does the read's best-fitting allele over EVERY scored traversal lie inside the call? A
-        // read that prefers an allele the genotype does not carry should not be asserted onto one.
+        // Is the read's best-fitting allele, over every scored traversal, a called one? A read that
+        // prefers an uncalled allele is not placed on a called one.
         double row_best = 0.0;
         for (size_t a = 0; a < evidence.n_alleles; ++a) {
             row_best = max(row_best, (double)evidence.rel_at(r, a));
@@ -667,10 +607,9 @@ void build_site_anchors(const AnchorSiteEvidence& evidence, const vector<int>& g
             wrote_start = true;
         }
         if (!degenerate && read.end_pin.placed()) {
-            // A read whose walk goes straight from the start boundary to the end boundary carries an
-            // allele deleting the whole site, so it has no bases inside it and both pins land on one
-            // position. It is kept at S and dropped here: a pinned position must not appear in more
-            // than one anchor, and for such a read the two pins say the same thing anyway.
+            // A read that crosses straight from the start boundary to the end boundary carries an
+            // allele deleting the site's interior, so both its pins are at one read position. It is
+            // kept at S and dropped here, so that a read position is in at most one anchor.
             if (wrote_start && read.end_pin.offset == read.start_pin.offset
                 && read.end_pin.strand == read.start_pin.strand) {
                 ++counters.coincident;
@@ -687,8 +626,8 @@ void build_site_anchors(const AnchorSiteEvidence& evidence, const vector<int>& g
         if (start_anchors[i].reads.size() >= params.min_reads) {
             out.push_back(std::move(start_anchors[i]));
         }
-        // Drop this slot's end anchor where it brings too few reads of its own. Decided after the
-        // loop because it is a property of what the site actually placed, not of the graph.
+        // Drop this slot's end anchor where it has too few reads of its own, decided from the reads
+        // actually placed.
         bool drop_end = degenerate;
         if (!drop_end && params.end_pin_min_new > 0
             && new_at_end[i] < params.end_pin_min_new) {
@@ -700,22 +639,10 @@ void build_site_anchors(const AnchorSiteEvidence& evidence, const vector<int>& g
         }
     }
 
-    // The site's reliability: the mean per-read score over the reads it EMITTED, each read once.
-    //
-    // Computed from `out` rather than accumulated in the loop above, so that it averages exactly
-    // the reads a consumer can see. The filters decided just above are the reason: a slot under
-    // `--anchors-reads` disappears with all of its reads, and an end pin can be dropped while its
-    // start pin stays, so the set of reads that reach the file is not the set the loop walked.
-    //
-    // The same READS, but not quite the same NUMBER: R rows are written at one decimal place, so
-    // re-averaging them off the file lands within about 0.05 of this (chr20: median 0.010, p99
-    // 0.029, max 0.046 over 169,358 sites) rather than on it. This value is the unrounded mean,
-    // which is the better one to have; a consumer comparing the two needs a tolerance, not an
-    // equality.
-    //
-    // Keyed on the read NAME, which dedupes a read across both pins and both slots -- and dedupes
-    // paired mates into one observation, the same identity `PhaseSite` uses, since a fragment lies
-    // on one haplotype.
+    // The site's reliability: the mean confidence of the reads it wrote, each read once. Computed
+    // from `out`, after the filters above have removed slots and end anchors, so that it averages
+    // the reads a consumer can see. Reads are keyed by name, which counts a read once across both
+    // pins and slots, and paired mates once, as `PhaseSite` does.
     if (out.size() > out_begin) {
         unordered_map<string, float> per_read;
         for (size_t i = out_begin; i < out.size(); ++i) {
@@ -774,8 +701,7 @@ bool AnchorWriter::write(const string& path, const string& graph_name, const str
         std::move(q.begin(), q.end(), back_inserter(all));
         q.clear();
     }
-    // Ordered by node ID, then by snarl and slot: a node ID does not identify an anchor, because a
-    // boundary node is shared by two snarls at 23% of them.
+    // Ordered by node ID, then by snarl and slot, since two snarls can share a boundary node.
     sort(all.begin(), all.end(), [](const Anchor& a, const Anchor& b) {
         if (a.node != b.node) {
             return a.node < b.node;
@@ -785,8 +711,7 @@ bool AnchorWriter::write(const string& path, const string& graph_name, const str
         }
         return a.slot < b.slot;
     });
-    // Within an anchor, by read name, so the file is byte-reproducible however the sweep was
-    // scheduled across threads.
+    // Within an anchor, by read name, so that the file does not depend on thread scheduling.
     for (Anchor& a : all) {
         sort(a.reads.begin(), a.reads.end(), [](const ReadRow& x, const ReadRow& y) {
             if (x.name != y.name) {
@@ -796,15 +721,9 @@ bool AnchorWriter::write(const string& path, const string& graph_name, const str
         });
     }
 
-    // Intern the read names.
-    //
-    // Names are 70.8% of an un-interned chr20 file and each read is placed 3.86 times on average, so
-    // this is the file's dominant cost and it is paid over and over. Long reads, the target here,
-    // repeat far more than that -- one 15 kb read crosses tens of sites -- so the saving grows with
-    // exactly the input this is for.
-    //
-    // Ids are assigned in sorted-name order rather than first-seen order, so the file is identical
-    // however the sweep was scheduled across threads, and the table can be binary-searched.
+    // Intern the read names: each name is written once, in a table, and read rows refer to it by
+    // index, since a read is usually placed at several anchors. Indices follow sorted-name order,
+    // so that the file does not depend on thread scheduling and the table can be binary-searched.
     map<string, size_t> name_id;
     for (const Anchor& a : all) {
         for (const ReadRow& r : a.reads) {
@@ -823,22 +742,10 @@ bool AnchorWriter::write(const string& path, const string& graph_name, const str
         cerr << "error [vg call]: could not open " << path << " for the anchor output" << endl;
         return false;
     }
-    // 6, not 5: `reliability` is a new column, and the `score` it averages is now documented. A
-    // consumer that indexes A-row fields positionally is unaffected -- the column is appended --
-    // but one that checks the row width is not, and the two the tree ships both did.
-    //
-    // 5, not 4: v3's `slot` column was written in allele order while this header promised the
-    // GT's field order, so every join from an anchor to a haplotype was a coin flip. v4 fixed
-    // that for the diploid pair and left the HAPLOID half of it standing -- a nested chain sits
-    // on one strand of a diploid locus, and its single slot was stamped 0 whichever strand that
-    // was, so every `.|a` site named the wrong haplotype. 1,523 of chr20's 2,417 half-called
-    // sites, and no VCF field carries the slot, so nothing downstream could see it. The columns
-    // are unchanged again; only `slot` finally means what all three headers have promised.
+    // The format version, raised whenever the columns or their meaning change.
     out << "#anchors-version\t7\n";
-    // Which vg wrote it. The format version says what the COLUMNS mean and does not move when a
-    // value does: between two v7 files the gqn column was corrected on 4,005 sites and slot was
-    // re-phased on a third of the contig by a re-fitted --phase-min-q, and nothing inside either
-    // file said which was which. Additive, so a consumer that skips unknown '#' lines is unaffected.
+    // Which vg wrote the file, since values can change between versions of vg while the format
+    // version does not. Consumers skip unknown '#' lines.
     out << "#vg-version\t" << Version::get_version() << "\n";
     out << "#graph\t" << graph_name << "\n";
     out << "#sample\t" << sample << "\n";
@@ -853,20 +760,16 @@ bool AnchorWriter::write(const string& path, const string& graph_name, const str
         << " off-call=" << (params.keep_off_call ? "kept" : "dropped")
         << " end-pin-min-new=" << params.end_pin_min_new
         << " hom-split=" << (params.hom_split ? "on" : "off")
-        // Which rule put each read in its slot at a HETEROZYGOUS site. Two files built with
-        // different rules are otherwise indistinguishable from their own headers, and these get
-        // compared against each other as controls, so the header has to carry it.
-        //   allele  -- the site's own sequence match alone (--no-anchors-phase-hets)
-        //   tilt    -- match, weighted by the read's cross-site strand posterior (the default)
-        //   strand  -- the strand's sign alone, match ignored (--anchors-strict-hets)
+        // Which rule placed each read in its slot at a heterozygous site, so that files built with
+        // different rules can be told apart:
+        //   allele  -- the site's own allele match alone (--no-anchors-phase-hets)
+        //   tilt    -- the allele match, weighted by the read's strand log-odds
+        //   strand  -- the sign of the strand log-odds alone (--anchors-strict-hets)
         << " het-placement="
         << (params.strict_hets ? "strand" : (params.phase_hets ? "tilt" : "allele")) << "\n";
     if (params.hom_split) {
-        // Provenance, because the two slots of a split homozygous site are indistinguishable from a
-        // heterozygote's by their columns alone: same shape, same slot numbers, and the `allele`
-        // column is EQUAL rather than different, which is the only tell. A consumer that joins on
-        // slot without reading this line would treat a 95%-accurate phase inference as though it
-        // were the graph's own allele evidence.
+        // The two slots of a split homozygous site look like a heterozygote's, except that their
+        // `allele` column is equal, so the header says that splitting was on.
         out << "#note\thom-split is ON: a homozygous site whose reads partition confidently by "
                "cross-site phase is written as TWO slots carrying the SAME allele. Slot is then a "
                "haplotype claim inferred from other sites, not read off this one -- held out on "

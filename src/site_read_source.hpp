@@ -3,12 +3,8 @@
 
 /** \file site_read_source.hpp
  *
- * Random-access sources of read alignments by graph locality, for callers that
- * need to reason about the individual reads overlapping a site.
- *
- * `vg call` historically consumed only a `vg pack` coverage index, which has no
- * read-level information at all. Read-level genotyping needs the actual reads
- * overlapping each snarl, which is what these classes provide.
+ * Sources of read alignments by graph locality: given the node IDs of a site, deliver the reads
+ * aligned to them. The read-likelihood genotyper uses these to score each read at each site.
  */
 
 #include <atomic>
@@ -31,36 +27,22 @@ using namespace std;
 /**
  * Which reads are eligible to be used as evidence.
  *
- * These defaults mirror what `vg pack` does when building the support index,
- * because allele *enumeration* is pack-driven while *genotyping* is
- * read-source-driven. If the two disagree about which reads exist, the
- * traversals being scored were selected on evidence the genotyper cannot see,
- * and vice versa.
- *
- * Note `vg pack -Q` sets its minimum mapping quality and minimum base quality
- * from a single value; here they are separate, since base quality is used per
- * base by the scoring rather than as a read-level filter.
+ * `vg pack -Q` sets a minimum mapping quality and a minimum base quality from one value; here
+ * there is only the mapping quality, since base qualities are used per base by the scoring
+ * rather than to filter reads.
  */
 struct SiteReadFilter {
-    /// Drop reads with mapping quality below this. The `vg pack -Q` equivalent.
+    /// Drop reads with mapping quality below this (--read-min-mapq).
     int min_mapq = 0;
 };
 
 /**
- * A read handed to a site query, with enough of an index to work on it without
- * re-walking the whole alignment.
+ * A read handed to a site query, with an index of its mappings in the queried ranges, so that a
+ * site's work grows with the read's overlap with the site rather than with the read's length,
+ * which matters for long reads.
  *
- * The index exists because a site's work is proportional to the read's *overlap* with
- * the site, while finding that overlap by scanning is proportional to the read's
- * *length*. On a 150 bp read the two are the same thing. On a 33 kb ONT read, which
- * carries some 3,000 mappings and is handed to the ~85 sites it spans, the scan is the
- * run time: four separate passes over every mapping -- selecting the site's steps,
- * slicing the site's stretch out for the reverse-complement, and resolving each of the
- * two anchor pins -- for a site that wants a handful of them.
- *
- * `mappings` and `read_offsets` are a hint, not a definition. A source that cannot
- * index cheaply leaves them null, and consumers must then fall back to walking the
- * alignment; a consumer must never treat a null index as "this read touches nothing".
+ * `mappings` and `read_offsets` may be null for a source that does not index, and consumers then
+ * walk the alignment instead. A null index does not mean that the read touches nothing.
  */
 struct SiteRead {
     /// The alignment itself. Valid only for the duration of the callback.
@@ -103,9 +85,8 @@ public:
     virtual void for_each_read(const vector<pair<nid_t, nid_t>>& ranges,
                                const function<void(const SiteRead&)>& iteratee) const = 0;
 
-    /// The same, for consumers with no use for the index. Separately named rather
-    /// than overloaded: a lambda converts to either `function` type, so an overload
-    /// would make every call site ambiguous.
+    /// The same, for consumers with no use for the index. Named differently rather than
+    /// overloaded, since a lambda converts to either `function` type.
     void for_each_alignment(const vector<pair<nid_t, nid_t>>& ranges,
                             const function<void(const Alignment&)>& iteratee) const {
         for_each_read(ranges, [&](const SiteRead& read) { iteratee(*read.aln); });
@@ -116,27 +97,14 @@ public:
     /// the backend cannot cheaply say.
     virtual size_t get_read_count() const = 0;
 
-    /// Width, in node IDs, of the locality this source fetches and caches around
-    /// a request. 0 means "no such locality" -- an in-memory source answers each
-    /// request exactly.
-    ///
-    /// Exposed so a caller can ask for a *neighbourhood* rather than a site and
-    /// get it from the same cache entry the site already populated. That is what
-    /// makes a local depth rate free: the reads are fetched either way, and a
-    /// window is wide enough to be a meaningful denominator where a snarl is not.
 };
 
 /**
- * Reads held in memory, bucketed by the node IDs they touch.
+ * Reads held in memory, indexed by the node IDs they touch.
  *
- * One streaming pass over a GAM or GAF, no index, no new dependency, and
- * correct by construction: there is no over-fetching to filter and no cursor
- * lifetime to get wrong. That makes it the right thing to develop and test
- * against, and it stays useful for regional and chunked workflows.
- *
- * The honest limit is memory: a whole-genome GAM at reasonable depth will not
- * fit. get_read_count() is logged so that limit is visible rather than
- * discovered as an out-of-memory kill.
+ * Built in one pass over a GAM or GAF, with no index file. All the reads are held in memory, so
+ * a whole-genome read set at ordinary depth will not fit; get_read_count() is logged so that the
+ * size is visible.
  */
 class InMemorySiteReadSource : public SiteReadSource {
 public:
@@ -153,15 +121,12 @@ public:
     /// Stream a GAF. Needs the graph to turn GAF into Alignments.
     void load_gaf(const HandleGraph& graph, const string& filename, const Filter& filter = Filter());
 
-    /// Retain a single read directly, applying the same filter as loading would.
-    /// Lets callers assemble a source without going through a file, which is what
-    /// makes the scoring unit-testable.
+    /// Retain a single read directly, applying the same filter as loading would, so that a
+    /// source can be assembled without a file, as the unit tests do.
     void add(const Alignment& aln, const Filter& filter = Filter());
 
-    /// Reads come through unindexed: this source keeps every read for the whole run,
-    /// so a persistent per-read index would add several bytes per mapping to a peak
-    /// that is already the reason to prefer an on-demand backend. Consumers fall back
-    /// to walking the alignment, which is what they did before the index existed.
+    /// Reads are delivered without an index: this source keeps every read for the whole run,
+    /// and an index would add several bytes per mapping to that.
     void for_each_read(const vector<pair<nid_t, nid_t>>& ranges,
                        const function<void(const SiteRead&)>& iteratee) const;
 
@@ -188,21 +153,16 @@ private:
 };
 
 /**
- * Base for on-demand backends: quantises fetches to fixed windows of node IDs and
+ * Base for on-demand sources: rounds each fetch out to fixed windows of consecutive node IDs and
  * caches the last few windows per thread.
  *
- * Every on-demand backend faces the same problem. A query costs far more than one
- * site's worth of reads -- because the backend over-fetches, or because it is a
- * process spawn -- so issuing one query per snarl rescans or respawns endlessly.
- * Quantising to windows fixes that, but only if the caller visits sites in node-ID
- * order, so that each window is asked for while it is still resident. That ordering
- * is not free and is arranged separately; see GraphCaller::set_node_id_ordering.
+ * A backend query costs much more than one site's reads, because the backend over-fetches or
+ * starts a process, so each window is fetched once and serves the sites inside it. That works
+ * when sites are visited in node-ID order; see GraphCaller::set_node_id_ordering.
  *
- * Subclasses supply one primitive, fetch_span(), and manage whatever per-thread
- * resources it needs. Everything above it -- window arithmetic, the cache, the
- * boundary-straddling bypass, and narrowing a window back down to the ranges the
- * caller actually asked about -- lives here, so the two backends cannot drift apart
- * in how they interpret a query.
+ * Subclasses supply fetch_span() and its per-thread resources. The window arithmetic, the
+ * cache, the handling of queries that cross a window boundary, and the narrowing of a window to
+ * the requested ranges live here, so that all backends interpret a query the same way.
  */
 class WindowedSiteReadSource : public SiteReadSource {
 public:
@@ -216,19 +176,13 @@ public:
 
     size_t get_filtered_count() const;
 
-    /// Queries served from the cache rather than the backend. Low hit rates mean the
-    /// caching assumption above does not hold for this workload, which is worth
-    /// knowing rather than guessing.
+    /// Queries served from the cache rather than the backend.
     size_t get_cache_hits() const;
     size_t get_cache_misses() const;
 
-    /// Index entries examined while answering site queries, against reads actually
-    /// handed to the caller. A site's query walks the window's node index over the
-    /// ranges it asked about, and one read can appear under several of those nodes,
-    /// so the ratio between these is how much of the index a site re-reads -- close to
-    /// 1 for short reads, higher for long ones that cross a site many times. Both are
-    /// counted per site query, so a read in a window visited by many sites counts
-    /// many times.
+    /// Index entries examined while answering site queries. A read can appear under several of
+    /// the nodes a site asks about, so the ratio of this to the reads delivered says how much of
+    /// the index a site reads again. Counted per site query.
     size_t get_scanned_count() const;
     size_t get_delivered_count() const;
 
@@ -250,10 +204,8 @@ protected:
     /// having applied the filter. Each read must be visited at most once. Must be safe
     /// to call concurrently: implementations own their per-thread resources.
     ///
-    /// Ranges rather than one span because a snarl's contents can be extremely sparse
-    /// in ID space. On chr20, 215 sites spanning 13.2 M node IDs between them wanted
-    /// only 133 k of those IDs -- a 99x over-fetch if the span is used instead. Both
-    /// backends address ranges natively, so this costs them nothing.
+    /// Ranges rather than one span, because a snarl's nodes can be spread thinly over a wide
+    /// span of IDs.
     ///
     /// The iteratee takes a mutable reference: the alignment handed over is the
     /// backend's per-record scratch, and the caller may move from it.
@@ -290,13 +242,9 @@ private:
         bool valid = false;
         vector<Alignment> reads;
 
-        /// Every mapping in the window, sorted by node ID, so a site finds the reads it
-        /// wants -- and *which* of their mappings it wants -- by binary search instead of
-        /// asking each read in turn whether it touches the site. The distinction is
-        /// entirely one of read length: a 33 kb ONT read carries some 3,000 mappings, and
-        /// testing it against a site walks half of them on average, so the scan that
-        /// costs a short read a few hundred comparisons per window costs a long read
-        /// millions. Built once per fetch and reused by every site inside the window.
+        /// Every mapping in the window, sorted by node ID, so that a site finds the reads it
+        /// wants, and which of their mappings, by binary search rather than by testing each read.
+        /// Built once per fetch and used by every site in the window.
         vector<IndexEntry> node_index;
 
         /// Read offset before each mapping, for every read in the window end to end:
@@ -342,36 +290,28 @@ private:
     mutable atomic<size_t> cache_hits{0};
     mutable atomic<size_t> cache_misses{0};
 
-    // Accumulated once per site query, not once per read: these count into the
-    // hundreds of millions, and an atomic increment on that path would cost more than
-    // the work it is measuring.
+    // Added once per site query rather than once per read, to keep atomic increments off the
+    // per-read path.
     mutable atomic<size_t> scanned{0};
     mutable atomic<size_t> delivered{0};
 
-    // Sites whose span crosses a window boundary, and the total ID span they asked
-    // for. These bypass the cache entirely, so if the span is large relative to the
-    // window they are where the backend queries actually go.
+    // Sites whose span crosses a window boundary, and the total ID span they asked for. These
+    // bypass the cache.
     mutable atomic<size_t> straddles{0};
     mutable atomic<size_t> straddle_nodes{0};
     mutable atomic<size_t> straddle_wanted{0};
 };
 
 /**
- * Reads fetched on demand from a sorted GAM plus its `.gai` index.
+ * Reads fetched on demand from a sorted GAM and its `.gai` index (`vg gamsort -i`), so memory
+ * is bounded by what one window needs.
  *
- * This is the backend that makes whole-genome work possible with no new dependency:
- * memory is bounded by what one window needs, rather than by the size of the read
- * set.
+ * Two properties of StreamIndex shape the implementation:
  *
- * Two properties of the index shape the implementation, and both come from
- * StreamIndex rather than from any choice here:
- *
- * * **One cursor per thread.** Concurrent `find()` calls are documented safe, but a
- *   cursor seeks, so it cannot be shared. Cursors are created lazily per thread, the
- *   pattern `vg chunk` uses.
- * * **It over-fetches.** The index can only give group start offsets, so a query
- *   scans groups and stops when a group's minimum node ID is too large. That is what
- *   the windowing in the base class is for.
+ * * One cursor per thread. Concurrent `find()` calls are safe, but a cursor seeks, so it cannot
+ *   be shared. Cursors are created per thread on first use, as `vg chunk` does.
+ * * It over-fetches. The index gives only group start offsets, so a query scans groups until a
+ *   group's minimum node ID is too large. The windows of the base class limit the cost.
  */
 class IndexedGamSiteReadSource : public WindowedSiteReadSource {
 public:
@@ -406,23 +346,13 @@ private:
 /**
  * Reads fetched on demand from a GAF-Base database, by running `gbz-base query`.
  *
- * <https://github.com/jltsiren/gbz-base> stores alignments column-compressed in
- * SQLite and can return the reads overlapping a set of nodes. That is the access
- * pattern a caller wants, and unlike the GAM index it does not over-fetch.
+ * <https://github.com/jltsiren/gbz-base> stores alignments in SQLite and returns the reads that
+ * overlap a set of nodes, without over-fetching. GAF-Base has no C API, and its file format may
+ * change behind a version check, so we run its own binary rather than decode the format here.
+ * This needs `gbz-base` at run time only when --gaf-base is given, and nothing at build time. The
+ * binary writes GAF text, which is parsed, filtered, windowed and cached like the other sources.
  *
- * **This shells out to a binary rather than linking a library, and that is
- * deliberate.** GAF-Base has no C API, and its on-disk format is documented as able
- * to change without warning behind an exact-match version check. Reimplementing the
- * decoder in C++ would mean tracking a moving format; letting upstream's own binary
- * do the decoding costs us nothing when it changes. So this adds a *runtime*
- * dependency on `gbz-base` being on the PATH, and no build dependency at all --
- * nothing links, and users who do not pass --gaf-base never notice. If a C shim
- * appears upstream, it replaces run_query() and nothing else: both paths consume GAF
- * text, so the parsing, filtering, windowing, and caching are already shared.
- *
- * The cost of a spawn is why this derives from WindowedSiteReadSource. One process
- * per snarl would be hopeless; one per window of node IDs, visited in order, is a
- * handful of spawns for a whole contig.
+ * Starting a process is slow, so this fetches one window of node IDs per process.
  */
 class GafBaseSiteReadSource : public WindowedSiteReadSource {
 public:
@@ -505,16 +435,13 @@ private:
     string gbz_filename;
     string binary;
 
-    /// Node IDs per subprocess. A node list becomes argv, so it cannot grow without
-    /// bound; queries larger than this are split, and their results de-duplicated.
-    /// The argv budget in node IDs, from sysconf(_SC_ARG_MAX). Static so it is computed once.
+    /// The most node IDs one child's command line can hold, from sysconf(_SC_ARG_MAX). Static so
+    /// that it is computed once.
     static size_t argv_node_budget();
 
-    /// Node IDs per child process. The bound is the child's argv limit -- each node costs
-    /// "-n" plus its digits -- so it is derived from ARG_MAX rather than guessed, and uses a
-    /// quarter of it so the environment and the fixed arguments have room. A fixed 4096 meant a
-    /// wide fetch spawned one child per 4096 nodes: chr20's largest snarl, 415k nodes, cost about
-    /// a hundred spawns to answer one site, and a spawn is ~0.44 s of system time.
+    /// Node IDs per child process. Each node costs "-n" plus its digits on the command line, so
+    /// the limit comes from ARG_MAX, using a quarter of it to leave room for the environment and
+    /// the fixed arguments. Larger queries are split, and their results de-duplicated.
     size_t max_query_nodes = argv_node_budget();
 
     mutable vector<ThreadState> threads;

@@ -29,9 +29,9 @@ using namespace std;
 
 
 void InMemorySiteReadSource::add_read(const Alignment& aln, const Filter& filter) {
-    // Secondary and unmapped are dropped unconditionally, and the first of those is not what vg's
-    // pack path does: a secondary alignment of a read already counted would break the per-read
-    // independence the genotype likelihood assumes. Only `min_mapq` between them is tunable.
+    // Secondary and unmapped alignments are always dropped. A secondary alignment repeats a read
+    // that is already counted, which would break the independence of reads that the genotype
+    // likelihood assumes.
     if (aln.is_secondary()) {
         ++filtered_count;
         return;
@@ -48,9 +48,8 @@ void InMemorySiteReadSource::add_read(const Alignment& aln, const Filter& filter
     size_t read_index = reads.size();
     reads.push_back(aln);
 
-    // Index under every node the read touches. A read can visit the same node
-    // more than once (a cycle, or a snarl traversed twice), so only add the
-    // index once per node or get_each_read would visit the read twice.
+    // Index under every node the read touches. A read can visit the same node more than once (a
+    // cycle, or a snarl traversed twice), so it is indexed once per node.
     nid_t prev_node = 0;
     bool have_prev = false;
     for (const auto& mapping : reads[read_index].path().mapping()) {
@@ -73,9 +72,7 @@ void InMemorySiteReadSource::add(const Alignment& aln, const Filter& filter) {
 }
 
 void InMemorySiteReadSource::load_gam(const string& filename, const Filter& filter) {
-    // Deliberately serial rather than for_each_parallel: bucketing into a
-    // shared map would need a mutex, and this runs once at startup where
-    // simplicity is worth more than the wall clock.
+    // Serial: filling a shared map in parallel would need a mutex, and this runs once at startup.
     get_input_file(filename, [&](istream& in) {
         vg::io::for_each<Alignment>(in, [&](Alignment& aln) {
             add_read(aln, filter);
@@ -211,16 +208,10 @@ void WindowedSiteReadSource::for_each_read(
     size_t last_window = window_of(max_id);
 
     if (first_window != last_window) {
-        // The site straddles a window boundary. Fetch it directly rather than
-        // stitching windows together: fetch_span already emits each read at most
-        // once, so this sidesteps de-duplicating reads that span the boundary, and
-        // caching a region of unbounded size would defeat the point of windowing.
-        //
-        // The ranges go through as they are. Collapsing them to [min_id, max_id]
-        // first is what the window path does, and for a site inside one window that
-        // is exact -- but a snarl whose contents are sparse in ID space would then
-        // fetch the gaps too. Measured on chr20: 215 such sites, spanning 13.2 M node
-        // IDs but wanting 133 k of them.
+        // The site crosses a window boundary. Fetch its ranges directly rather than stitching
+        // windows together: fetch_span emits each read once, and a region of unbounded size is not
+        // worth caching. The ranges are passed as they are, rather than collapsed to one span,
+        // since a snarl's nodes can be spread thinly over a wide span of IDs.
         ++cache_misses;
         ++straddles;
         straddle_nodes += (size_t)(max_id - min_id + 1);
@@ -234,8 +225,8 @@ void WindowedSiteReadSource::for_each_read(
             ++n_scanned;
             if (touches(aln, ranges)) {
                 ++n_delivered;
-                // Unindexed: this path exists for the few sites too wide to cache, and
-                // building an index for a read seen once would cost the walk it saves.
+                // Not indexed: this path serves the few sites too wide to cache, and an index for a
+                // read seen once would cost as much as the walk it saves.
                 SiteRead read;
                 read.aln = &aln;
                 iteratee(read);
@@ -248,9 +239,8 @@ void WindowedSiteReadSource::for_each_read(
 
     CacheState& state = cache_state();
 
-    // Serve from the cache if this window is already resident. With the caller
-    // visiting sites in node-ID order (GraphCaller::set_node_id_ordering) this is the
-    // common case, and each window is fetched exactly once.
+    // Serve from the cache if this window is resident, as it usually is when sites are visited
+    // in node-ID order (GraphCaller::set_node_id_ordering).
     for (const CacheEntry& entry : state.cache) {
         if (entry.valid && entry.window == first_window) {
             ++cache_hits;
@@ -265,20 +255,15 @@ void WindowedSiteReadSource::for_each_read(
     nid_t lo = (nid_t)(first_window * window_size);
     nid_t hi = lo + (nid_t)window_size - 1;
     fetch_span({{lo, hi}}, [&](Alignment& aln) {
-        // Take ownership rather than copy. Deep-copying an Alignment protobuf here
-        // was 16% of a chr20 run: 32 M reads are cached over the chromosome, each
-        // copy allocating a Path, its Mappings and their Edits. fetch_span hands out
-        // a mutable reference precisely so this can move; the backends reuse one
-        // Alignment per record and clear it before the next, so moving from it is
-        // safe. Everything above this line still sees const references.
+        // Take ownership rather than copy the alignment. fetch_span hands out a mutable reference
+        // so that this can move from it; the backends reuse one Alignment per record and clear it
+        // before the next.
         index_read(aln, (uint32_t)entry.reads.size(), entry);
         entry.reads.push_back(std::move(aln));
     });
     entry.offset_start.push_back((uint32_t)entry.offsets.size());
-    // Sorted once, here, rather than per site query: the window is fetched once and
-    // then answers every site inside it. Entries are unique by construction -- one per
-    // mapping -- so a read visiting a node twice is listed twice, which is what a
-    // consumer wanting that read's steps needs.
+    // Sorted once per fetch rather than per site query. There is one entry per mapping, so a read
+    // that visits a node twice is listed twice.
     std::sort(entry.node_index.begin(), entry.node_index.end());
     entry.valid = true;
 
@@ -308,11 +293,8 @@ void WindowedSiteReadSource::index_read(const Alignment& aln, uint32_t read_inde
 void WindowedSiteReadSource::deliver(const CacheEntry& entry,
                                      const vector<pair<nid_t, nid_t>>& ranges,
                                      const function<void(const SiteRead&)>& iteratee) const {
-    // Local rather than thread-local scratch. The iteratee is arbitrary caller code, so
-    // reusing one buffer per thread would be correct only for as long as nobody queries
-    // the source from inside a delivery -- a contract nothing here can enforce. A site
-    // names a handful of nodes, so the buffers are small and there are two allocations
-    // per site query against thousands of read deliveries.
+    // A local buffer rather than a thread-local one, since the iteratee is caller code that might
+    // query the source again. A site names a handful of nodes, so the buffer is small.
     vector<pair<uint32_t, uint32_t>> hits;
     vector<uint32_t> mappings;
 
@@ -324,11 +306,9 @@ void WindowedSiteReadSource::deliver(const CacheEntry& entry,
         }
     }
 
-    // By read, then by mapping. Ordering by read restores the fetch order the old full
-    // scan delivered in, which reproducibility rests on; ordering by mapping within a
-    // read is what makes each read's mapping list a plain ascending run the consumer
-    // can take a pointer into. No entry can repeat -- the index holds one per mapping
-    // and the ranges do not overlap -- so there is nothing to deduplicate.
+    // By read, then by mapping: reads are delivered in fetch order, and each read's mappings form
+    // an ascending run the consumer can point into. There is one index entry per mapping and the
+    // ranges do not overlap, so nothing repeats.
     std::sort(hits.begin(), hits.end());
 
     mappings.reserve(hits.size());
@@ -353,9 +333,7 @@ void WindowedSiteReadSource::deliver(const CacheEntry& entry,
         i = j;
     }
 
-    // Tallied locally and flushed once. This runs once per site query -- hundreds of
-    // thousands of times over a chromosome -- so an atomic increment per index entry
-    // would cost more than the walk it is counting.
+    // Added once per site query, to keep atomic increments off the per-entry path.
     scanned += hits.size();
     delivered += n_delivered;
 }
@@ -453,10 +431,8 @@ void IndexedGamSiteReadSource::fetch_span(const vector<pair<nid_t, nid_t>>& rang
             return;
         }
         count_fetched();
-        // GAMIndex hands out a const reference to its own buffer, so this backend
-        // cannot pass ownership along the way the GAF-Base one can. Copying into a
-        // local the caller may move from keeps the cost where it already was -- one
-        // copy per read -- rather than adding a second.
+        // GAMIndex hands out a const reference to its own buffer, so copy the read into a local
+        // that the caller may move from.
         Alignment owned = aln;
         iteratee(owned);
     });
@@ -519,8 +495,7 @@ size_t GafBaseSiteReadSource::argv_node_budget() {
         // "-n" and the id, each NUL-terminated. Node ids here run to ten digits.
         const size_t per_node = 3 + 11;
         const size_t from_limit = (size_t)arg_max / 4 / per_node;
-        // Never below the value this replaced, so no configuration gets a smaller batch than
-        // before, and never so large that one child holds an implausible span.
+        // At least 4096 and at most 65536 node IDs per child.
         return min<size_t>(max<size_t>(4096, from_limit), 65536);
     }();
     return budget;
@@ -529,11 +504,10 @@ size_t GafBaseSiteReadSource::argv_node_budget() {
 GafBaseSiteReadSource::PendingQuery GafBaseSiteReadSource::spawn_query(
     ThreadState& state, size_t slot, const vector<nid_t>& nodes) const {
 
-    // Build argv. --context 0 matters: the default of 100bp would expand the
-    // subgraph past the nodes we asked for and pull in reads no site here wants.
-    // --alignments overlapping matters more: the CLI default of `clipped` can cut one
-    // read into several fragments, which would put a single read in several rows of
-    // the likelihood matrix and break the per-read independence the model assumes.
+    // Build argv. --context 0 keeps the subgraph to the nodes we asked for, since the default
+    // context would pull in reads no site here wants. --alignments overlapping returns each read
+    // whole: the default, `clipped`, can cut one read into several pieces, which would put one
+    // read in several rows of the likelihood matrix.
     vector<string> args{binary, "query", gbz_filename};
     args.reserve(args.size() + 2 * nodes.size() + 8);
     for (nid_t node : nodes) {
@@ -559,13 +533,9 @@ GafBaseSiteReadSource::PendingQuery GafBaseSiteReadSource::spawn_query(
     // Capture stderr so a failure can say why, rather than just reporting a code.
     string err_path = gaf_path(state, slot) + ".err";
 
-    // posix_spawn rather than fork/exec. Not a style preference: fork() from a
-    // process with several threads allocating hard makes libc take a fork lock
-    // around malloc, and every other thread stalls on it for the duration. That
-    // showed up plainly in a chr20 profile as _xzm_fork_lock_wait under threads doing
-    // no forking at all. posix_spawn never duplicates the address space, so there is
-    // no lock to contend on -- and it needs no child branch, so it is also less code.
-    // No stdio flush is needed for the same reason: no buffers are duplicated.
+    // posix_spawn rather than fork and exec: fork() in a process whose threads are allocating
+    // makes libc hold a lock around malloc, stalling the other threads. posix_spawn does not copy
+    // the address space, so there is no such lock, and no stdio buffers need flushing.
     posix_spawn_file_actions_t actions;
     if (posix_spawn_file_actions_init(&actions) != 0) {
         throw runtime_error("posix_spawn_file_actions_init() failed: " + string(strerror(errno)));
@@ -619,16 +589,14 @@ size_t GafBaseSiteReadSource::reap_query(PendingQuery& pending,
             message = buffer.str();
         }
         unlink(err_path.c_str());
-        // No special case for exit code 127 here: a missing binary now comes back as
-        // ENOENT from posix_spawnp, which never runs anything, so 127 can only mean
-        // gbz-base itself exited that way.
+        // A missing binary is reported by posix_spawnp as ENOENT, so exit code 127 here comes from
+        // gbz-base itself.
         throw runtime_error(binary + " query failed with exit code " + to_string(ret) +
                             (message.empty() ? "" : ": " + message));
     }
     unlink(err_path.c_str());
 
-    // GAF text back to Alignments. This is why a C shim would change so little: it
-    // would replace everything above and feed this same parse.
+    // Parse the GAF text back into Alignments.
     size_t parsed = 0;
     vg::io::gaf_unpaired_for_each(graph, pending.gaf_path, [&](Alignment& aln) {
         ++parsed;
@@ -668,16 +636,9 @@ void GafBaseSiteReadSource::fetch_span(const vector<pair<nid_t, nid_t>>& ranges,
 
     ThreadState& state = thread_state();
 
-    // One de-duplication rule, whichever way the query goes. It used to apply only when a query
-    // was SPLIT, so whether a read survived depended on how many nodes its site happened to span
-    // rather than on anything about the read -- and widening the batch moved sites across that
-    // line, which is how the asymmetry came to light. An unsplit query returns 32 duplicates over
-    // chr20's 14.9 M fetched reads: rare, but not zero, and each one was a second row for the same
-    // alignment in the likelihood matrix, which the model's per-read independence does not allow.
-    //
-    // Keyed on name AND start position, not name alone. Paired reads share a name -- in real
-    // Illumina GAF both mates carry the same identifier -- so keying on the name would silently
-    // discard one mate of every pair, halving the evidence at those sites.
+    // Drop reads returned more than once, whether or not the query was split: a repeated read
+    // would be a second row for the same alignment in the likelihood matrix. Reads are keyed on
+    // name and start position, not on name alone, since paired mates share a name.
     auto deduped = [&](const function<void(Alignment&)>& emit) {
         auto seen = make_shared<unordered_set<string>>();
         return [&emit, seen, this](Alignment& aln) {
@@ -700,21 +661,11 @@ void GafBaseSiteReadSource::fetch_span(const vector<pair<nid_t, nid_t>>& ranges,
         return;
     }
 
-    // Too many nodes for one argv, so split -- and run the pieces at the same time
-    // rather than one after another. A query is mostly the child's own work, so a
-    // thread that waits for each piece in turn is idle for as long as the whole fetch
-    // takes; spawning them all first makes a wide window cost roughly what one piece
-    // does. The results are still consumed in chunk order, so which read reaches the
-    // caller first does not depend on which child finished first.
-    //
-    // Chunks overlap in reads rather than in nodes -- a read spanning a chunk boundary
-    // comes back from both -- so duplicates have to be dropped.
-    //
-    // De-duplicate on name *and start position*, not name alone. Paired reads share a
-    // name: in real Illumina GAF both mates carry the same identifier, so keying on the
-    // name would silently discard one mate of every pair that reached this path,
-    // halving the evidence at those sites. Two records sharing a name and a start
-    // position are genuinely the same alignment returned twice.
+    // Too many nodes for one command line, so split the query and run the pieces at the same
+    // time; the work is mostly the children's, so waiting for each in turn would leave this thread
+    // idle. Results are consumed in chunk order, so the order reads reach the caller does not
+    // depend on which child finishes first. A read that spans a chunk boundary comes back from
+    // both chunks, and is dropped the second time.
     try {
         vector<PendingQuery> pending;
         for (size_t start = 0, slot = 0; start < nodes.size();
@@ -740,10 +691,8 @@ void GafBaseSiteReadSource::fetch_span(const vector<pair<nid_t, nid_t>>& ranges,
 
 void GafBaseSiteReadSource::run_query_or_die(ThreadState& state, const vector<nid_t>& nodes,
                                              const function<void(Alignment&)>& iteratee) const {
-    // Calling happens inside an OpenMP parallel region, and an exception must not
-    // propagate out of one -- that is undefined behaviour, not a clean error. A failed
-    // query also means we cannot score this site correctly, and carrying on with the
-    // reads we did get would silently produce a wrong genotype. So report and stop.
+    // Calling runs inside an OpenMP parallel region, which an exception must not leave. A failed
+    // query also means this site cannot be scored correctly, so report the error and exit.
     try {
         run_query(state, nodes, iteratee);
     } catch (const std::exception& e) {

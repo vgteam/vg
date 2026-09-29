@@ -103,9 +103,9 @@ static Alignment make_matching_alignment(const HandleGraph& graph, const string&
 
 /// Run the calculator over one site with the given reads, at the given ploidy.
 ///
-/// `realign` selects the walk: false is the greedy default, true the optimal one that
-/// `--realign` and `--preset ont` turn on. The invariants below must hold for BOTH -- they are
-/// properties of the scoring model, not of how the correspondence is searched for.
+/// `realign` selects the walk: false is the greedy default, true the optimal walk that `--realign`
+/// turns on. The invariants below must hold for both, since they are properties of the scoring
+/// model, not of how the pairing is searched for.
 static AlleleReadLikelihoods score_site(SnpAndDeletionSite& site, const vector<Alignment>& reads,
                                         int ploidy = 2, bool realign = false) {
     InMemorySiteReadSource source;
@@ -127,13 +127,8 @@ TEST_CASE("The depth rate is per haplotype, so it follows the site's ploidy",
     // read density is a property of the data and does not change; the *per-haplotype*
     // rate does, by exactly the ploidy ratio, and lambda with it.
     //
-    // This is a regression test. The ploidy was fixed at 2 inside the rate calculation
-    // and the calculator was never told the site's own, so every haploid region -- chrY,
-    // and chrX under --ploidy-regex -- got a lambda wrong by a factor of two while the
-    // observed read count was right. It survived because the tier-2 evaluation is
-    // autosomes only, and because the two components either side of the seam were both
-    // tested on their own: the depth term is exercised by passing a rate in directly,
-    // and haploid genotyping is exercised without the depth term.
+    // The calculator must be told the site's own ploidy: with a fixed ploidy of 2, every haploid
+    // region would get a lambda wrong by a factor of two while the observed read count was right.
     SnpAndDeletionSite site;
     vector<Alignment> reads;
     for (int i = 0; i < 12; ++i) {
@@ -156,11 +151,9 @@ TEST_CASE("The depth rate is per haplotype, so it follows the site's ploidy",
 
 TEST_CASE("A reverse-strand read scores the same as its forward equivalent",
           "[allele_likelihood][scoring]") {
-    // The bug this pins: alleles impose a reading direction on the site, and a read
-    // aligned to the other strand visits the same nodes with the opposite
-    // orientation flag. Anchoring on the raw flag meant reverse-strand reads
-    // matched nothing, fell through to the substitution path, and were scored
-    // against the wrong allele -- roughly half of all reads, at every site.
+    // Alleles impose a reading direction on the site, and a read aligned to the other strand visits
+    // the same nodes in the opposite orientation, so it must be flipped before its visits can be
+    // paired with an allele's.
     SnpAndDeletionSite site;
 
     Alignment forward = make_matching_alignment(site.graph, "fwd", {{1, false}, {2, false}, {4, false}});
@@ -193,20 +186,11 @@ TEST_CASE("A reverse-strand read scores the same as its forward equivalent",
 
 TEST_CASE("A one-base indel costs the same whichever side carries it",
           "[allele_likelihood][scoring]") {
-    // The bug this pins: the walk in score_read_against_allele searches *ahead in the
-    // allele* for each read node, but when it finds none it assumes the read node
-    // SUBSTITUTES for the allele's current node and consumes that node. When the read
-    // node is instead a pure insertion -- the allele simply lacks it -- consuming the
-    // allele node desynchronises the walk. The allele node the read would have matched
-    // is burned against the wrong read node, and the read's real visit to it then falls
-    // through to the allele-exhausted branch and is charged a second time.
-    //
-    // Concretely, the read (1,2,4) against the deletion allele (1,4) was scored as
-    // mismatch(T vs G) + gap(7) + gap(8) -- node 4's whole length charged twice, once as
-    // a length difference against node 2 and once as an unplaceable read node -- instead
-    // of the single one-base gap the event actually is. On real ONT data the same 1 bp
-    // event cost 1 score unit in one direction and 67-68 in the other, and 22% of read
-    // rows have a best allele carrying a gap.
+    // When the walk finds no later occurrence of a read node in the allele, the read node may be an
+    // insertion that the allele lacks, rather than a substitute for the allele's current node. If
+    // the walk consumed the allele node anyway, the read's later visit to it would find the allele
+    // used up and be charged a second time: the read (1,2,4) against the deletion allele (1,4)
+    // would score mismatch(T vs G) + gap(7) + gap(8), rather than one one-base gap.
     //
     // The invariant asserted here is direction symmetry, which needs no knowledge of
     // gap_open or the log base: one inserted base and one deleted base are the same
@@ -228,10 +212,9 @@ TEST_CASE("A one-base indel costs the same whichever side carries it",
     }
 
     SECTION("the insertion costs a few score units, not tens") {
-        // A bare `> 0.0` would NOT gate this: before the fix the value was a denormal
-        // around 1e-23, which prints as 0.0 but is not zero. 1e-10 is about 17 score
-        // units at the model's 1.3833 nats per unit -- far above the handful a one-base
-        // event can justify, and far below the ~38 the bug charged.
+        // Not a bare `> 0.0`: a double-charged gap gives a denormal around 1e-23, which prints as
+        // 0.0. 1e-10 is about 17 score units at 1.3833 nats per unit, far above what a one-base
+        // event can justify.
         REQUIRE(matrix.rel(0, 2) > 1e-10);
     }
 
@@ -239,16 +222,15 @@ TEST_CASE("A one-base indel costs the same whichever side carries it",
         // The two are not exactly equal: an inserted base exists in the read and could
         // have been matched, so it forgoes `match` credit that a deleted base never had.
         // That residual is one score unit and belongs to the score model, not the walk.
-        // What the walk must not do is charge the FLANK, which is what the bug did.
+        // What the walk must not do is charge the flank.
         REQUIRE(matrix.rel(0, 2) < matrix.rel(1, 0));
         REQUIRE(matrix.rel(0, 2) > 0.1 * matrix.rel(1, 0));
     }
 
     SECTION("and does not grow with the length of the flanking node") {
-        // The sharpest statement of the bug, and parameter-free. It charged node 4's
-        // whole length twice -- once as a length difference against node 2, once as an
-        // unplaceable read node -- so the cost of a ONE BASE insertion scaled with the
-        // flank. A walk that charges the event itself cannot care how long the flank is.
+        // Parameter-free: double charging would charge node 4's whole length twice, so the cost of a
+        // one-base insertion would grow with the flank. A walk that charges only the event does not
+        // depend on the flank's length.
         SnpAndDeletionSite long_site("GGGGTTTT" + string(32, 'A'));
         Alignment long_spanning = make_matching_alignment(
             long_site.graph, "spanning", {{1, false}, {2, false}, {4, false}});
@@ -370,15 +352,13 @@ TEST_CASE("Allele sequence between two anchors is charged, outside them is not",
 
 TEST_CASE("No read's allele preference depends on the flank's length",
           "[allele_likelihood][scoring]") {
-    // The systematic version of the anchor-desync regression above. That test pins one
-    // configuration; this one asserts the invariant across many, because the walk is
-    // greedy and single-pass and the fixed desync was only one way for a greedy walk to
-    // pick a bad correspondence.
+    // The same kind of property as the test above, across many configurations, since a greedy
+    // single-pass walk can choose a bad pairing in more than one way.
     //
     // The invariant: rel is normalised by each read's own best allele, and lengthening a
     // node EVERY allele shares adds the same match credit to all of them. So no rel value
     // may move. Any walk that charges shared flank against one allele and not another --
-    // which is exactly what the desync did -- breaks it.
+    // breaks it.
     const vector<vector<vector<string>>> configurations = {
         {{"T"}, {"G"}},                          // SNP
         {{"T"}, {}},                             // one-base insertion against a bypass
@@ -496,10 +476,9 @@ TEST_CASE("Every read is placeable against every allele, whatever the node layou
 
 TEST_CASE("The optimal walk keeps the indel invariants the greedy one has",
           "[allele_likelihood][scoring]") {
-    // --realign changes how the read-to-allele correspondence is SEARCHED for, not what a
-    // correspondence costs. So the properties pinned for the greedy walk have to survive it,
-    // and the anchor-desync regression above -- direction symmetry of a one-base indel -- is
-    // the sharpest of them, being parameter-free.
+    // --realign changes how the pairing is searched for, not what a pairing costs, so the properties
+    // pinned for the greedy walk must survive it, such as the direction symmetry of a one-base
+    // indel, which is parameter-free.
     SnpAndDeletionSite site;
     Alignment spanning = make_matching_alignment(site.graph, "spanning",
                                                  {{1, false}, {2, false}, {4, false}});
@@ -524,11 +503,8 @@ TEST_CASE("The optimal walk keeps the indel invariants the greedy one has",
 
 TEST_CASE("A read spanning a deletion is kept and prefers the deletion allele",
           "[allele_likelihood][scoring]") {
-    // The bug this pins: a read traversing straight from one boundary node to the
-    // other touches no interior node, so a node-based "is it informative" test
-    // discarded it. That read is the only direct evidence the deletion allele ever
-    // gets, so dropping it silently destroyed deletion genotyping -- the caller
-    // saw reference-supporting reads only, called hom-ref, and emitted no record.
+    // A read that crosses straight from one boundary node to the other touches no interior node,
+    // but it is the only direct evidence for the deletion allele, so it must be kept.
     SnpAndDeletionSite site;
 
     Alignment deletion_read =

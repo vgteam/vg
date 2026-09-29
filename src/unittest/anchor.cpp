@@ -3,10 +3,8 @@
 /// Unit tests for anchor pin resolution.
 ///
 /// The pin is a zero-length point between two positions, so everything here is off-by-one and
-/// strand arithmetic -- which is exactly the class of error that produces a plausible-looking file
-/// and a wrong assembly. The in-process invariant catches it on real data; these pin the convention
-/// so that when the invariant does fire it means the data surprised us rather than that the
-/// arithmetic was never right.
+/// strand arithmetic. These tests pin the convention; the check made while pins are resolved
+/// (`AnchorCounters::verify_failed`) catches errors on real data.
 ///
 
 #include <set>
@@ -557,7 +555,7 @@ TEST_CASE("A homozygous site splits by read phase only when both strands are sup
         for (const AnchorWriter::Anchor& a : out) {
             placed += a.reads.size();
         }
-        // All 4 reads x 2 pins: nobody is dropped for want of an opinion any more.
+        // All 4 reads x 2 pins: no read is dropped for want of strand log-odds.
         REQUIRE(placed == 8);
         REQUIRE(counters.hom_split_no_opinion.load() > 0);
         REQUIRE(counters.hom_split_coin.load() > 0);
@@ -656,9 +654,9 @@ TEST_CASE("A site's reliability is the mean score of the reads it emitted", "[an
 
 TEST_CASE("A nested haploid site takes the slot its strand names", "[anchor]") {
     // One allele, not two: a nested chain the parent's other allele deletes, so there is nothing to
-    // genotype on the other strand. It collapses to one slot like a homozygote, but that slot is a
-    // haplotype -- the VCF writes the site as `a|.` or `.|a` from the same strand -- and stamping
-    // it 0 either way is what v4 did, silently naming the wrong haplotype on every `.|a` site.
+    // genotype on the other strand. It has one slot like a homozygote, but that slot is a strand --
+    // the VCF writes the site as `a|.` or `.|a` from the same strand -- so it must not always be
+    // slot 0.
     vector<AnchorPlacement> starts, ends;
     for (int i = 0; i < 4; ++i) {
         AnchorPlacement s;
