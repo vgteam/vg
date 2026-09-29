@@ -78,7 +78,7 @@ inline std::function<bool(T&)> JSONStreamHelper<T>::get_read_fn() {
                     // Normal end of file
                     return false;
                 } else {
-                    // This shouldn' happen according to the fgetc manpage.
+                    // This shouldn't happen according to the fgetc manpage.
                     throw std::logic_error("fgetc() signaled EOF without setting an indicator");
                 }
             }
