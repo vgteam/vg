@@ -66,22 +66,33 @@ inline std::function<bool(T&)> JSONStreamHelper<T>::get_read_fn() {
         obj = T();
       
         // Check if the file ends now, and skip whitespace between records.
-        char peeked;
+        // We need to work in an int so we can tell EOF from any character.
+        int peeked;
         do {
             peeked = fgetc(this->_fp);
             if(peeked == EOF) {
-                // File ended or otherwise errored. TODO: check for other
-                // errors and complain.
-                return false;
+                // File ended or otherwise errored.
+                if (ferror(this->_fp)) {
+                    throw std::runtime_error("IO error when reading JSON stream");
+                } else if (feof(this->_fp)) {
+                    // Normal end of file
+                    return false;
+                } else {
+                    // This shouldn' happen according to the fgetc manpage.
+                    throw std::logic_error("fgetc() signaled EOF without setting an indicator");
+                }
             }
         } while(isspace(peeked));
         // Put it back
-        ungetc(peeked, this->_fp);
+        int result = ungetc(peeked, this->_fp);
+        if (result == EOF) {
+            throw std::runtime_error("Could not unget character in JSON stream");
+        }
         
         // Now we know we have non-whitespace between here and EOF.
         // If it's not JSON, we want to die. So read it as JSON.
         json2pb(obj, this->_fp);
-        
+
         // We read it successfully!
         return true;
     };
