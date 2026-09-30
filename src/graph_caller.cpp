@@ -7038,9 +7038,9 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
     //
     // Descent does not depend on whether a line was written: a parent written as the reference
     // still has children to call. Children are genotyped independently, with no parent traversal
-    // sets. Only a successful call descends, since RecurseOnFail already descends into the
-    // children of a failed snarl, and a failed snarl has no genotype to take a child's ploidy
-    // from.
+    // sets. Only a successful call descends, since a failed snarl has no genotype to take a child's
+    // ploidy from. RecurseOnFail calls the children of a failed top-level snarl as top-level
+    // snarls, but nothing does so for a failed nested snarl: its children are not called.
     if (ret_val && symbolic_manager != nullptr && !trav_genotype.empty() &&
         parent_child_trav_sets == nullptr) {
         const Snarl* managed_ptr = snarl_manager.into_which_snarl(snarl.start().node_id(),

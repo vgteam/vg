@@ -427,9 +427,10 @@ used in one of two ways:
 - **As emissions of the linkage model**, under haplotype enumeration: the call is the genotype with
   the highest posterior probability under the model described next.
 
-A site with no reads gets no genotype and has no place in the linkage model. The sites of its child
-chains are then genotyped as if they were top-level sites, as for a site that `--max-snarl-edges`
-skips.
+A site with no reads gets no genotype and has no place in the linkage model. If it is a top-level
+site, the sites of its child chains are then genotyped as if they were top-level sites, as for a
+site that `--max-snarl-edges` skips. If it is nested, its child chains are not genotyped, since
+their ploidy would come from its genotype.
 
 ### The linkage model
 
