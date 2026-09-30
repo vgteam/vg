@@ -6,22 +6,14 @@
  * Assembly anchors (--anchors-out): for each genotyped site, which reads support which of the
  * sample's strands, for pangenome-guided assembly.
  *
- * An anchor is a pin: a point between two adjacent bases of the graph, with no sequence of its
- * own, together with the reads that cross it and where each crosses it. Each site has two pins,
- * both reading in the site's direction:
+ * A *pin* is a point between two adjacent bases of the graph. Each site has two, both read in the
+ * site's direction: the *start pin*, just after its start boundary node, and the *end pin*, just
+ * before its end boundary node. A read crosses a pin where its walk passes between those two
+ * bases, and the anchors record where, as an offset into the read.
  *
- *   - the S pin, just after the last base of the site's start boundary node;
- *   - the E pin, just before the first base of the site's end boundary node.
- *
- * A pin is at one end of a node, not at the node, so two snarls that share a boundary node in a
- * chain pin at opposite ends of it and never coincide, however short the node is.
- *
- * In a read, a pin is at a junction between two consecutive nodes of its walk. A junction can
- * hold only the S pin of the snarl starting at its left node and the E pin of the snarl ending at
- * its right node, and if it holds both, they belong to the same snarl. That happens for a read
- * that crosses straight from a snarl's start boundary to its end boundary, carrying an allele that
- * deletes the site's interior. Such a read is kept at the S pin and dropped at the E pin; see
- * `AnchorCounters::coincident`.
+ * A site's reads are divided among its *slots*, one for each distinct allele of its settled
+ * genotype, in phase order. An *anchor* is one pin together with the reads of one slot that cross
+ * it.
  */
 
 #include <atomic>
@@ -43,9 +35,9 @@ using namespace std;
 /**
  * Where one read crosses one pin.
  *
- * `offset` is the 0-based index, in the read as sequenced, of the last base before the pin,
- * reading in the site's direction. So for `strand == 0` the pin lies just after `read[offset]`,
- * and for `strand == 1` just before it.
+ * `offset` is the 0-based index, in the read as sequenced, of the read's last base before the
+ * pin, reading in the site's direction. So for `direction == 0` the pin lies just after
+ * `read[offset]`, and for `direction == 1` just before it.
  *
  * vg represents a reverse-strand alignment by reverse node visits rather than by storing the read
  * reverse-complemented, so the read as sequenced is the frame of the read file and of every other
@@ -54,8 +46,9 @@ using namespace std;
 struct AnchorPlacement {
     /// Negative when the read does not cross this pin.
     int64_t offset = -1;
-    /// 0 when the read crosses the pin in the site's direction, 1 when against it.
-    uint8_t strand = 0;
+    /// 0 when the read crosses the pin in the site's direction, 1 when against it. The anchor
+    /// file writes it in its `strand` column.
+    uint8_t direction = 0;
     bool placed() const { return offset >= 0; }
 };
 
@@ -70,35 +63,36 @@ struct AnchorCounters {
     atomic<size_t> no_visit{0};
     /// It visits it more than once, so which visit the pin belongs to is ambiguous.
     atomic<size_t> repeat_visit{0};
-    /// The node base the pin is defined against has no read base aligned to it, because a deletion
-    /// covers it or the alignment stops before the node's end. The pin is not moved to an earlier
-    /// base, which on a 1 bp boundary node would be the neighbouring snarl's pin.
+    /// The read has no base aligned to the node base the pin is defined against, because a
+    /// deletion covers it or the alignment stops before it. The read has no placement at this pin.
     atomic<size_t> unaligned_base{0};
-    /// E pin only: the read has no base just upstream on its own walk, because it begins here or
-    /// deletes the node upstream. The pin is not moved to a base beyond that node, which would be
-    /// the neighbouring snarl's pin.
+    /// End pin only: the read has no base just before the pin's node on its own walk, because it
+    /// begins there or deletes the node before. The read has no placement at this pin.
     atomic<size_t> no_neighbour{0};
-    /// A read whose two pins at one snarl resolved to the same position; kept at S, dropped at E.
+    /// Reads whose two pins at one site resolved to the same position, as for a read that
+    /// crosses straight from the start boundary node to the end boundary node, carrying an allele
+    /// that deletes the interior. Such a read is kept at the start pin only.
     atomic<size_t> coincident{0};
     /// Reads excluded because their best-fitting allele was not a called one.
     atomic<size_t> off_call{0};
-    /// Snarls whose two boundary nodes are the same node, where only the S pin is emitted.
+    /// Sites whose two boundary nodes are the same node. They get a start pin only.
     atomic<size_t> degenerate_site{0};
     /// End anchors suppressed because every read on them is also on their slot's start anchor.
     atomic<size_t> single_pin{0};
-    /// Reads sharing a name with another read at the same site, as paired mates do. A consumer that
-    /// keys on the name would merge them.
+    /// Reads sharing a name with another read at the same site, as paired mates do. The file names
+    /// reads through one table, so such reads share one index there.
     atomic<size_t> shared_name{0};
 
     /// Homozygous sites split into two slots by the reads' strand log-odds (--anchors-hom-split),
     /// and those left as one slot because the reads did not divide.
     atomic<size_t> hom_split{0};
     atomic<size_t> hom_unsplit{0};
-    /// Reads at a split homozygous site whose strand log-odds are zero. Both slots carry the same
-    /// allele, so nothing places such a read in either.
+    /// Reads at a split homozygous site whose strand log-odds name no strand: those that have none,
+    /// and those seen in more than one phase set, which are dropped.
     atomic<size_t> hom_split_no_opinion{0};
-    /// Of those, the ones placed by a coin flip derived from the read, since the two slots spell
-    /// the same allele. The rest, reads seen in more than one phase set, are dropped.
+    /// Of those, the reads that have no strand log-odds. Both slots spell the same allele, so such
+    /// a read is placed by a coin flip derived from its name, which puts it in the same slot at
+    /// every site.
     atomic<size_t> hom_split_coin{0};
     /// Read placements at a heterozygous site whose slot weights --anchors-phase-hets changed by the
     /// read's strand log-odds. Reads with no strand log-odds, or seen in more than one phase set,
@@ -122,8 +116,8 @@ struct AnchorCounters {
  *
  * `site_backward` is the orientation in which the site's alleles visit `node_id`, from the
  * snarl's own start or end visit, since the pin reads in the site's direction. `exit_pin` selects
- * the S pin, at the junction leaving the node, whose reference base is the node's last base in
- * the site's direction, rather than the E pin, at the junction entering it, whose reference base is
+ * the start pin, where the walk leaves the node, whose reference base is the node's last base in
+ * the site's direction, rather than the end pin, where the walk enters it, whose reference base is
  * the node's first.
  *
  * The check is made here, while the read sequence is available: the read base the pin is resolved
@@ -147,8 +141,8 @@ struct AnchorRead {
 /**
  * What a site's anchors need, kept from the sweep until the record is rendered.
  *
- * No alignment is kept: each read's pins are resolved to `(strand, offset)` while its alignment
- * is available. Held on the site's `ReadLikelihoodCallInfo`.
+ * No alignment is kept: each read's pins are resolved to `(direction, offset)` while its
+ * alignment is available. Held on the site's `ReadLikelihoodCallInfo`.
  */
 struct AnchorSiteEvidence {
     vector<AnchorRead> reads;
@@ -175,8 +169,9 @@ struct AnchorSiteEvidence {
 /// Thresholds and switches, from the --anchors-* options.
 struct AnchorParams {
     bool enabled = false;
-    /// Write anchors only at heterozygous sites (--anchors-het-only). Homozygous and haploid sites
-    /// carry no haplotype information, but they connect the reads that cross them.
+    /// Write anchors only at diploid heterozygous sites (--anchors-het-only). Homozygous sites and
+    /// haploid ones, nested haploid chains included, are left out, though they connect the reads
+    /// that cross them.
     bool het_only = false;
 
     /// Write a slot's end anchor only where it holds at least this many reads that the slot's start
@@ -213,8 +208,9 @@ struct AnchorParams {
     /// when deciding whether a homozygous site may be split (--split-min-q). 0.5 is a strand
     /// probability of about 62%.
     ///
-    /// This decides whether the site is split, not which reads are kept: every read at a split
-    /// site is placed, and its confidence is written in its row so that a consumer can filter.
+    /// This decides whether the site is split, not which reads are kept: at a split site every
+    /// read is placed, except one seen in more than one phase set, and its confidence is written
+    /// in its row so that a consumer can filter.
     double phase_min = 0.5;
 
     /// Minimum number of confidently placed reads on each strand before a homozygous site may be
@@ -257,30 +253,25 @@ public:
         string name;
         int64_t offset = -1;
         float score = 0.0f;
-        uint8_t strand = 0;
+        uint8_t direction = 0;
     };
     struct Anchor {
         nid_t node = 0;
         string snarl;
-        /// Which strand of the settled genotype this anchor's reads are on, and which candidate
-        /// traversal that strand carries.
-        ///
-        /// `slot` indexes the settled phased pair, so slot i is field i of the record's `GT` at
-        /// the same site ID: slot 0 the left allele, slot 1 the right. A homozygote has one slot
-        /// holding every read. A nested chain at ploidy 1 also has one slot, which is the parent's
-        /// strand that carries the chain, the one `nested_strand` names; the VCF writes it as `a|.`
-        /// or `.|a`, so its slot can be 1.
-        ///
-        /// `allele` indexes the site's candidate traversals, not the VCF's ALT alleles, which are
-        /// chosen later.
+        /// Which slot of the settled phased pair this anchor holds: slot i is field i of the
+        /// record's `GT` at the same site ID, slot 0 the left allele and slot 1 the right. A
+        /// homozygote has one slot, 0, holding every read, unless --anchors-hom-split divides it.
+        /// A nested chain at ploidy 1 also has one slot, the parent's strand that carries it,
+        /// which the VCF writes as `a|.` or `.|a`, so its slot can be 1.
         int slot = 0;
+        /// The candidate traversal the slot carries, as an index into the site's candidate
+        /// traversals, not a VCF allele number.
         int allele = -1;
         double gqn = -1.0;
         double explained = 1.0;
         /// The site's reliability: the mean confidence of the reads written for it, each read
-        /// counted once, as `PhaseSite::reliability` is. Written although it could be derived
-        /// from the read rows, which give confidences to one decimal only. -1 where the site wrote
-        /// no read.
+        /// counted once. The read rows give confidences to one decimal only, so it is written
+        /// here as well. -1 where the site wrote no read.
         double reliability = -1.0;
         vector<ReadRow> reads;
     };
@@ -301,13 +292,6 @@ private:
     vector<vector<Anchor>> queues;
 };
 
-/// The allele-length weights of the two slots, for a settled slot-to-allele mapping. Shared with
-/// read phasing, so that the anchors and the phasing split a read between the strands the same
-/// way.
-vector<double> site_slot_weights(const vector<uint32_t>& allele_length, size_t n_alleles,
-                                 float mean_read_length, bool length_weighted,
-                                 const vector<int>& slot_allele);
-
 /// Turn one site's evidence and its settled genotype into anchors.
 ///
 /// Each read goes to the slot of the called allele with the larger
@@ -315,8 +299,9 @@ vector<double> site_slot_weights(const vector<uint32_t>& allele_length, size_t n
 ///     x_i = (1 - e_r) * v_i * rel(r, a_i)
 ///
 /// where v_i are the allele-length weights, and its confidence is
-/// -10 log10(1 - max_i x_i / (sum_i x_i + e_r)). At a heterozygous site the confidence can be at
-/// most the heterozygous score ceiling, which --mismap-min sets.
+/// -10 log10(1 - max_i x_i / (sum_i x_i + e_r)). The e_r in the denominator bounds the
+/// confidence; for two alleles of equal length the bound is the heterozygous score ceiling,
+/// which --mismap-min sets.
 ///
 /// `genotype` is phase-ordered. `haploid_slot` is the strand, 0 or 1, that a one-allele
 /// `genotype` sits on, and is ignored otherwise; the caller supplies it from the phasing.

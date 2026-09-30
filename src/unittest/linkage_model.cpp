@@ -1365,7 +1365,7 @@ TEST_CASE("A revised site stops being unemitted when the revision writes a line"
     }
     REQUIRE(revised != nullptr);
     // The entry now says a line exists.
-    REQUIRE(revised->emitted);
+    REQUIRE(collector.emitted_records().count(B) == 1);
     // And it is filed at the position the line was written to.
     REQUIRE(revised->position == 1013);
 }

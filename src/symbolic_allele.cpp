@@ -22,10 +22,8 @@ static unordered_map<nid_t, vector<int>> index_positions(const SnarlTraversal& t
     return at;
 }
 
-/// The chain a child snarl belongs to, as its boundary node ids. Falls back to the snarl's own
-/// boundaries when it is not in a chain the manager knows about, which is the trivial-chain case:
-/// chains_of() presents unary snarls and trivial-chain snarls as their own chains anyway, so the
-/// fallback agrees with the general case rather than being a special one.
+/// The chain a child snarl belongs to, as its boundary node ids. A snarl that is in no chain the
+/// manager knows is a chain of its own, so its own boundaries are used.
 static pair<nid_t, nid_t> chain_bounds(const Snarl* child, const SnarlManager& snarl_manager) {
     const Chain* chain = snarl_manager.chain_of(child);
     if (chain != nullptr && !chain->empty()) {
@@ -185,10 +183,7 @@ bool symbolically_equal(const SnarlTraversal& a, const SnarlTraversal& b, const 
 
 
 vector<DiffBlock> symbolic_diff(const SymbolicAllele& ref, const SymbolicAllele& alt,
-                                bool* out_degraded, vector<int>* out_alt_before_ref) {
-    if (out_degraded != nullptr) {
-        *out_degraded = false;
-    }
+                                vector<int>* out_alt_before_ref) {
 
     const size_t m = ref.size();
     const size_t n = alt.size();

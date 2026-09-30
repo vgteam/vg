@@ -125,15 +125,15 @@ TEST_CASE("a read that spans nothing else contributes exactly nothing", "[regeno
 }
 
 TEST_CASE("reversing the pair leaves the uncorrected mixture bit-identical", "[regenotype]") {
-    // The property above rests on `site_slot_weights` deriving each slot's weight from that slot's
+    // The property above rests on `allele_length_weights` deriving each slot's weight from that slot's
     // allele, so reordering the pair reorders the weights with it. Keeping `w = (w0, w1)` across the
     // swap would make a read that spans no other site depend on the order, with no phase
     // information in it, even at tau = 0.
     PhaseReadEvidence ev = evidence(6, 10, 12000);
-    const vector<double> fwd = site_slot_weights(ev.allele_length, ev.n_alleles,
+    const vector<double> fwd = allele_length_weights(ev.allele_length, ev.n_alleles,
                                                  ev.mean_read_length, ev.length_weighted,
                                                  vector<int>{0, 1});
-    const vector<double> rev = site_slot_weights(ev.allele_length, ev.n_alleles,
+    const vector<double> rev = allele_length_weights(ev.allele_length, ev.n_alleles,
                                                  ev.mean_read_length, ev.length_weighted,
                                                  vector<int>{1, 0});
     REQUIRE(fwd.size() == 2);
@@ -157,7 +157,7 @@ TEST_CASE("leave-one-out equals accumulating without the site", "[regenotype]") 
         for (size_t i = 0; i < 10; ++i) {
             site.read_key.push_back((uint64_t)(i + 1));
             site.q0.push_back((i % 2 == 0) ? 0.98f : 0.02f);
-            site.p.push_back(0.9f);
+            site.c.push_back(0.9f);
         }
         sites.push_back(site);
     }
@@ -195,7 +195,7 @@ TEST_CASE("a flipped site enters Lambda with the opposite sign", "[regenotype]")
     for (size_t i = 0; i < 8; ++i) {
         site.read_key.push_back((uint64_t)(i + 1));
         site.q0.push_back(0.95f);
-        site.p.push_back(0.9f);
+        site.c.push_back(0.9f);
     }
     RegenotypeCounters ca, cb;
     LambdaTable plain, flipped;
@@ -218,12 +218,12 @@ TEST_CASE("a paired mate counts once", "[regenotype]") {
     for (size_t i = 0; i < 4; ++i) {
         site.read_key.push_back(42);   // one fragment, four rows
         site.q0.push_back(0.95f);
-        site.p.push_back(0.9f);
+        site.c.push_back(0.9f);
     }
     PhaseSite single = site;
     single.read_key.assign(1, 42);
     single.q0.assign(1, 0.95f);
-    single.p.assign(1, 0.9f);
+    single.c.assign(1, 0.9f);
 
     RegenotypeCounters ca, cb;
     LambdaTable many, one;

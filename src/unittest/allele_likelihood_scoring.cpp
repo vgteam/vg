@@ -103,8 +103,8 @@ static Alignment make_matching_alignment(const HandleGraph& graph, const string&
 
 /// Run the calculator over one site with the given reads, at the given ploidy.
 ///
-/// `realign` selects the walk: false is the greedy default, true the optimal walk that `--realign`
-/// turns on. The invariants below must hold for both, since they are properties of the scoring
+/// `realign` selects how the pairing is chosen: false is greedy pairing, the default, and true is
+/// optimal pairing, which `--realign` turns on. The invariants below must hold for both, since they are properties of the scoring
 /// model, not of how the pairing is searched for.
 static AlleleReadLikelihoods score_site(SnpAndDeletionSite& site, const vector<Alignment>& reads,
                                         int ploidy = 2, bool realign = false) {
@@ -387,7 +387,7 @@ TEST_CASE("No read's allele preference depends on the flank's length",
         for (const Alignment& a : long_reads) long_src.add(a);
         QualAdjAlignmentScorer qs;
         MatrixAlignmentScorer ps;
-        // Both walks: greedy is the default and the optimal one is what --realign selects.
+        // Both pairings: greedy is the default and optimal is what --realign selects.
         for (bool realign : {false, true}) {
         AlleleLikelihoodParams params;
         params.realign = realign;
@@ -474,10 +474,10 @@ TEST_CASE("Every read is placeable against every allele, whatever the node layou
     }
 }
 
-TEST_CASE("The optimal walk keeps the indel invariants the greedy one has",
+TEST_CASE("Optimal pairing keeps the indel invariants greedy pairing has",
           "[allele_likelihood][scoring]") {
     // --realign changes how the pairing is searched for, not what a pairing costs, so the properties
-    // pinned for the greedy walk must survive it, such as the direction symmetry of a one-base
+    // pinned for greedy pairing must survive it, such as the direction symmetry of a one-base
     // indel, which is parameter-free.
     SnpAndDeletionSite site;
     Alignment spanning = make_matching_alignment(site.graph, "spanning",

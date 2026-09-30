@@ -67,8 +67,8 @@ double AlleleReadLikelihoods::depth_ratio(const vector<int>& genotype) const {
 
 /// ln of a Poisson pmf, continued to real `n` through lgamma. The observation is
 /// `sum_r (1 - e_r)` rather than a row count, so it is fractional by construction.
-/// The `-ln n!` normaliser is the same for every genotype at a site and cancels in
-/// every comparison; it is carried anyway because GL is reported, not just ranked.
+/// The `-ln n!` term is the same for every genotype at a site; it is kept so that the
+/// depth factor is the Poisson probability as written.
 static double ln_poisson_pmf(double n, double lambda) {
     if (lambda <= 0.0) {
         return -numeric_limits<double>::infinity();
@@ -662,9 +662,6 @@ vector<int64_t> GraphAlignedAlleleLikelihoodCalculator::sorted_allele_keys(
     return keys;
 }
 
-// The greedy walk: one left-to-right pass that pairs each read visit with the next occurrence of
-// the same visit in the allele, and never revises a pairing. It is used unless --realign selects
-// the optimal walk, score_read_against_allele.
 GraphAlignedAlleleLikelihoodCalculator::AlleleStepPositions
 GraphAlignedAlleleLikelihoodCalculator::index_allele_steps(
     const vector<AlleleStep>& allele_steps) {
@@ -677,7 +674,9 @@ GraphAlignedAlleleLikelihoodCalculator::index_allele_steps(
     return positions;
 }
 
-int32_t GraphAlignedAlleleLikelihoodCalculator::score_read_against_allele_greedy(
+// Greedy pairing: one left-to-right pass that pairs each read visit with the next occurrence of
+// the same visit in the allele, and never revises a pair.
+int32_t GraphAlignedAlleleLikelihoodCalculator::score_by_greedy_pairing(
     const Alignment& aln, const vector<ReadStep>& read_steps,
     const vector<AlleleStep>& allele_steps, const AlleleStepPositions& allele_positions,
     const EditAlignmentScorer& read_scorer,
@@ -693,7 +692,7 @@ int32_t GraphAlignedAlleleLikelihoodCalculator::score_read_against_allele_greedy
     bool have_anchor = false;
     size_t bases_accounted = 0;
 
-    // Last read position visiting each (node, orientation). The walk below has to ask
+    // Last read position visiting each (node, orientation). The pass below has to ask
     // "is the allele's current node still to come in the read?", which is the mirror of
     // the anchor search's "is the read's node still to come in the allele?". Both
     // sequences are topologically ordered, so a later visit means the allele node is not
@@ -803,7 +802,7 @@ int32_t GraphAlignedAlleleLikelihoodCalculator::score_read_against_allele_greedy
     return score;
 }
 
-// The optimal walk (--realign): finds the highest-scoring pairing of the read's node visits with
+// Optimal pairing (--realign): finds the highest-scoring pairing of the read's node visits with
 // the allele's by dynamic programming. Base-level edits are still read off the mapper's alignment;
 // only the pairing of visits is searched.
 //
@@ -816,15 +815,15 @@ int32_t GraphAlignedAlleleLikelihoodCalculator::score_read_against_allele_greedy
 //   I  inside a run of read visits the allele lacks.
 //   D  inside a run of allele visits the read lacks.
 //
-// Pairing the same visit scores the read's own edits in it. Pairing two nodes that each appear
+// Pairing the same visit scores the read's own edits in it. Pairing two visits that each appear
 // nowhere in the other sequence is a substitution. Any other pair is forbidden: a visit the read
-// and the allele share may not be paired with a different node, though it may be left unpaired.
+// and the allele share may not be paired with a different visit, though it may be left unpaired.
 //
-// A run of k inserted read visits is one gap here, where the greedy walk charges a gap for each
+// A run of k inserted read visits is one gap here, where greedy pairing charges a gap for each
 // visit. The answer is the best final-row cell in P, M or I. D is excluded because it has charged
 // allele visits after the read's window, and P is allowed so that a read that pairs nothing still
 // gets a finite score.
-int32_t GraphAlignedAlleleLikelihoodCalculator::score_read_against_allele(
+int32_t GraphAlignedAlleleLikelihoodCalculator::score_by_optimal_pairing(
     const Alignment& aln, const vector<ReadStep>& read_steps,
     const vector<AlleleStep>& allele_steps, const ReadScratch& scratch,
     const vector<int64_t>& allele_keys, const EditAlignmentScorer& read_scorer,
@@ -884,7 +883,7 @@ int32_t GraphAlignedAlleleLikelihoodCalculator::score_read_against_allele(
     // The band's centre for read row i is projected back along that diagonal from the next
     // shared visit, or forward from the last one when none remains ahead, so the band follows
     // the shared visits rather than the i == j diagonal. Small sites are filled in full. The
-    // band can miss the best pairing, so on large sites this walk is an approximation.
+    // band can miss the best pairing, so on large sites this search is an approximation.
     const bool banded = m * n > 20000;
     const size_t band = 64;
     vector<size_t> centre;
@@ -995,7 +994,7 @@ int32_t GraphAlignedAlleleLikelihoodCalculator::score_read_against_allele(
 
     // Every read step is consumed by exactly one transition, so every read base inside the
     // site is scored whatever the allele. Allele nodes after the last pair are outside the
-    // window and cost nothing, so the walk may not end in D, which has charged them.
+    // window and cost nothing, so the pairing may not end in D, which has charged them.
     Cell best = NONE;
     for (size_t j = 0; j <= n; ++j) {
         best = better(best, better(pP[j], better(pM[j], pI[j])));
@@ -1125,7 +1124,7 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
     for (const auto& steps : allele_steps) {
         allele_keys.push_back(sorted_allele_keys(steps));
     }
-    // Likewise once per allele, and only for the greedy walk, which is its only consumer.
+    // Likewise once per allele, and only for greedy pairing, which is its only consumer.
     vector<AlleleStepPositions> allele_positions;
     if (!params.realign) {
         allele_positions.reserve(allele_steps.size());
@@ -1309,8 +1308,8 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
             scored_aln->quality().empty() ? plain_scorer : qual_scorer;
         double log_base = read_scorer.get_log_base();
 
-        // Depends on the read alone, so it is computed here rather than per allele. Only the
-        // exact walk consumes it, and building it is not free, so skip it for the greedy one.
+        // Depends on the read alone, so it is computed here rather than per allele. Only
+        // optimal pairing consumes it, and building it is not free, so skip it for greedy pairing.
         if (params.realign) {
             prepare_read_scratch(*scored_aln, read_steps, read_scorer, read_scratch);
         }
@@ -1320,12 +1319,12 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
             double nat_adjust = 0.0;
             int32_t score =
                 params.realign
-                    ? score_read_against_allele(*scored_aln, read_steps, allele_steps[a],
-                                                read_scratch, allele_keys[a], read_scorer,
-                                                placed, nat_adjust)
-                    : score_read_against_allele_greedy(*scored_aln, read_steps, allele_steps[a],
-                                                       allele_positions[a], read_scorer,
-                                                       placed, nat_adjust);
+                    ? score_by_optimal_pairing(*scored_aln, read_steps, allele_steps[a],
+                                               read_scratch, allele_keys[a], read_scorer,
+                                               placed, nat_adjust)
+                    : score_by_greedy_pairing(*scored_aln, read_steps, allele_steps[a],
+                                              allele_positions[a], read_scorer,
+                                              placed, nat_adjust);
             // nat_adjust carries corrections the int32 score cannot express; see
             // AlleleLikelihoodParams::insertion_gap_nats. It is zero by default.
             row[a] = placed ? log_base * (double)score + nat_adjust

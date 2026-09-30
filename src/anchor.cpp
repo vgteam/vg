@@ -1,4 +1,5 @@
 #include "anchor.hpp"
+#include "read_phasing.hpp"
 
 #include "version.hpp"
 
@@ -248,7 +249,7 @@ AnchorPlacement resolve_anchor_pin(const SiteRead& read, const HandleGraph& grap
 
     // Does the read cross the pin in the site's direction? `is_rev` is relative to the node, the
     // site's own orientation is `site_backward`, and the strand is the comparison of the two.
-    out.strand = (is_rev == site_backward) ? 0 : 1;
+    out.direction = (is_rev == site_backward) ? 0 : 1;
 
     if (exit_pin) {
         // The reference base is immediately upstream of the pin, which is what `offset` reports.
@@ -262,18 +263,18 @@ AnchorPlacement resolve_anchor_pin(const SiteRead& read, const HandleGraph& grap
     // on the neighbouring snarl's pin. So we step one mapping along the walk, skipping insertions
     // and soft clips, which consume no node base; if that mapping consumes no node base at all, the
     // node upstream is deleted in this read and the read is refused.
-    const int64_t neighbour = (out.strand == 0) ? hit - 1 : hit + 1;
+    const int64_t neighbour = (out.direction == 0) ? hit - 1 : hit + 1;
     if (neighbour < 0 || neighbour >= (int64_t)path.mapping_size()) {
         // The read begins (or ends) here, so it does not cross the pin.
         ++counters.no_neighbour;
         return out;
     }
     const size_t neighbour_read_start =
-        (out.strand == 0) ? before_read_start
+        (out.direction == 0) ? before_read_start
                           : hit_read_start + (size_t)mapping_to_length(path.mapping(hit));
     const MappingExtent adjacent = extent_of(path.mapping(neighbour), neighbour_read_start);
     const int64_t candidate =
-        (out.strand == 0) ? adjacent.last_consuming : adjacent.first_consuming;
+        (out.direction == 0) ? adjacent.last_consuming : adjacent.first_consuming;
     if (candidate < 0 || candidate >= (int64_t)aln.sequence().size()) {
         ++counters.no_neighbour;
         return out;
@@ -300,35 +301,6 @@ size_t AnchorSiteEvidence::bytes() const {
 ////////////////////////////////////////////////////////////////////////////////
 // Building anchors from a settled genotype
 ////////////////////////////////////////////////////////////////////////////////
-
-vector<double> site_slot_weights(const vector<uint32_t>& allele_length, size_t n_alleles,
-                                 float mean_read_length, bool length_weighted,
-                                 const vector<int>& slot_allele) {
-    // Expected share of the site's reads per slot, from the alleles' full lengths: an allele of
-    // length L yields a read overlapping the site from L + R - 1 start positions. Flat when the
-    // lengths are unavailable or under --flat-mixture.
-    const size_t n_slots = slot_allele.size();
-    vector<double> weight(n_slots, n_slots ? 1.0 / (double)n_slots : 0.0);
-    if (length_weighted && mean_read_length > 0.0
-        && allele_length.size() == n_alleles && n_slots > 1) {
-        double total = 0.0;
-        vector<double> raw(n_slots, 0.0);
-        for (size_t i = 0; i < n_slots; ++i) {
-            raw[i] = (double)allele_length[slot_allele[i]]
-                     + (double)mean_read_length - 1.0;
-            if (raw[i] < 1.0) {
-                raw[i] = 1.0;
-            }
-            total += raw[i];
-        }
-        if (total > 0.0) {
-            for (size_t i = 0; i < n_slots; ++i) {
-                weight[i] = raw[i] / total;
-            }
-        }
-    }
-    return weight;
-}
 
 void build_site_anchors(const AnchorSiteEvidence& evidence, const vector<int>& genotype,
                         const string& snarl_id, double gqn, double explained, int haploid_slot,
@@ -417,7 +389,7 @@ void build_site_anchors(const AnchorSiteEvidence& evidence, const vector<int>& g
     // written, since slot indexes a GT field.
     const int base_slot = (haploid && haploid_slot == 1) ? 1 : 0;
 
-    const vector<double> weight = site_slot_weights(
+    const vector<double> weight = allele_length_weights(
         evidence.allele_length, evidence.n_alleles, evidence.mean_read_length,
         evidence.length_weighted, slot_allele);
 
@@ -602,20 +574,20 @@ void build_site_anchors(const AnchorSiteEvidence& evidence, const vector<int>& g
         bool wrote_start = false;
         if (read.start_pin.placed()) {
             row.offset = read.start_pin.offset;
-            row.strand = read.start_pin.strand;
+            row.direction = read.start_pin.direction;
             start_anchors[best_slot].reads.push_back(row);
             wrote_start = true;
         }
         if (!degenerate && read.end_pin.placed()) {
             // A read that crosses straight from the start boundary to the end boundary carries an
             // allele deleting the site's interior, so both its pins are at one read position. It is
-            // kept at S and dropped here, so that a read position is in at most one anchor.
+            // kept at the start pin and dropped here, so that a read position is in at most one anchor.
             if (wrote_start && read.end_pin.offset == read.start_pin.offset
-                && read.end_pin.strand == read.start_pin.strand) {
+                && read.end_pin.direction == read.start_pin.direction) {
                 ++counters.coincident;
             } else {
                 row.offset = read.end_pin.offset;
-                row.strand = read.end_pin.strand;
+                row.direction = read.end_pin.direction;
                 end_anchors[best_slot].reads.push_back(row);
             }
         }
@@ -848,7 +820,7 @@ bool AnchorWriter::write(const string& path, const string& graph_name, const str
         }
         out << "\n";
         for (const ReadRow& r : a.reads) {
-            out << "R\t" << name_id[r.name] << "\t" << (int)r.strand << "\t" << r.offset << "\t"
+            out << "R\t" << name_id[r.name] << "\t" << (int)r.direction << "\t" << r.offset << "\t"
                 << std::setprecision(1) << r.score << "\n";
         }
     }

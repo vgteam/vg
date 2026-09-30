@@ -4,21 +4,52 @@ A companion to [read-likelihood-genotyping.md](read-likelihood-genotyping.md), w
 model. This page is about the code: what the pieces are, which of them depend on which, and where
 the coupling is. The counts below come from parsing `#include` lines and class bodies.
 
+## Concept map
+
+Each row is one concept of [read-likelihood-genotyping.md](read-likelihood-genotyping.md), the
+module that implements it, and the rows it is explained in terms of. Rows are ordered lowest level
+first, so each builds only on rows above it.
+
+| # | Concept | Module (main names) | Builds on |
+|---|---|---|---|
+| 1 | Reads of a site: the reads whose placements touch the site's nodes | `site_read_source` (`SiteRead`, `SiteReadSource`) | vg's read alignments |
+| 2 | Scoring a read against an allele, by greedy or optimal pairing | `allele_likelihood` (`GraphAlignedAlleleLikelihoodCalculator`) | 1; candidate alleles; `alignment_scorer` |
+| 3 | Site likelihood $\mathcal{L}(G)$: relative likelihoods, mismapping, mixture weights, depth term | `allele_likelihood` (`AlleleReadLikelihoods`) | 2 |
+| 4 | Direct genotype call and its quality fields | `read_likelihood_caller` (`ReadLikelihoodSnarlCaller`) | 3 |
+| 5 | Symbolic alleles and difference blocks | `symbolic_allele` | candidate alleles; the snarl tree |
+| 6 | Linkage model: a hidden Markov model over the panel, giving posterior genotypes and a phase | `linkage_model` (`LinkageModel`) | 3 |
+| 7 | Linkage collector: each site's compact entry, decoded in linkage chains and groups one generation at a time, with its settled pair | `linkage_model` (`LinkageCollector`) | 6 |
+| 8 | Genotyping in stages: the sweep, the barrier (`run_barrier`), and rendering (`render_retained_records`) | `graph_caller` (`FlowCaller`, `VCFOutputCaller`) | 4, 5, 7 |
+| 9 | Read phasing: per-read allele evidence, allele-length weights, links, the phase chain | `read_phasing` (`PhaseSite`, `allele_length_weights`, `read_phase_flips`) | 3, 8 |
+| 10 | Re-genotyping from the phase: strand log-odds, tempering, per-read weights | `regenotype` | 3, 9 |
+| 11 | Outputs: VCF records, the mosaic, anchors | `graph_caller` (records, mosaic), `anchor` (anchors) | 8; 6 for the mosaic; 1, 9 and 10 for anchors |
+
+Three places where the code's shape differs from this order:
+
+- `AlleleReadLikelihoods` (row 3) carries two fields whose types belong to higher rows,
+  `anchor_evidence` (row 11) and `phase_evidence` (row 9). They are filled while each read's
+  alignment is in memory, which only the scoring code has. So `allele_likelihood.hpp` includes
+  `anchor.hpp` and `read_phasing.hpp`.
+- `linkage_model` holds two concepts, rows 6 and 7.
+- `graph_caller` holds rows 8 and 11 and the stage that applies rows 9 and 10
+  (`phase_and_regenotype`). The sweep has no function of its own: it is the ordinary calling pass,
+  with records staged.
+
 ## The pieces
 
 | file pair | lines | what it is |
 |---|---|---|
-| `read_likelihood_caller.{hpp,cpp}` | 980 | the `SnarlCaller` itself: turns a likelihood matrix into a genotype |
-| `allele_likelihood.{hpp,cpp}` | 2,451 | the matrix: `P(read \| allele)` for every read and candidate |
-| `site_read_source.{hpp,cpp}` | 1,259 | fetching the reads that overlap a site |
-| `linkage_model.{hpp,cpp}` | 3,573 | the Li–Stephens panel model, and the site store that drives it |
-| `read_phasing.{hpp,cpp}` | 568 | phasing adjacent sites from reads that span both |
-| `regenotype.{hpp,cpp}` | 763 | re-deciding a genotype from the settled phase |
-| `anchor.{hpp,cpp}` | 1,420 | the anchor output: which reads pin to which allele |
-| `symbolic_allele.{hpp,cpp}` | 557 | traversal → ALT sequence, and comparison of traversals |
+| `read_likelihood_caller.{hpp,cpp}` | 855 | the `SnarlCaller` itself: turns a likelihood matrix into a genotype |
+| `allele_likelihood.{hpp,cpp}` | 2,023 | the matrix: `P(read \| allele)` for every read and candidate |
+| `site_read_source.{hpp,cpp}` | 1,183 | fetching the reads that overlap a site |
+| `linkage_model.{hpp,cpp}` | 2,925 | the Li–Stephens panel model, and the linkage collector that drives it |
+| `read_phasing.{hpp,cpp}` | 505 | phasing adjacent sites from reads that span both |
+| `regenotype.{hpp,cpp}` | 653 | re-deciding a genotype from the settled phase |
+| `anchor.{hpp,cpp}` | 1,145 | the anchor output: which reads pin to which allele |
+| `symbolic_allele.{hpp,cpp}` | 531 | traversal → ALT sequence, and comparison of traversals |
 | `alignment_scorer.{hpp,cpp}` | 909 | the per-base scoring model shared with the mapper |
 
-Nine file pairs, 12,480 lines. `graph_caller.{hpp,cpp}` — 10,793 lines — orchestrates them, and
+Nine file pairs, 10,729 lines. `graph_caller.{hpp,cpp}` — 9,503 lines — orchestrates them, and
 `subcommand/call_main.cpp` wires them to the CLI.
 
 ## The dependency graph, measured
@@ -34,9 +65,8 @@ graph_caller.cpp       -> read_likelihood_caller, symbolic_allele, gref
 
 read_likelihood_caller -> allele_likelihood                        (+ snarl_caller)
 allele_likelihood      -> alignment_scorer, anchor, read_phasing, site_read_source
-anchor                 -> site_read_source
-regenotype             -> read_phasing            (.hpp)
-                          anchor                  (.cpp)
+anchor                 -> site_read_source, read_phasing (.cpp)
+regenotype             -> read_phasing
 read_phasing           -> nothing
 linkage_model          -> nothing
 site_read_source       -> nothing in the family
@@ -56,8 +86,7 @@ Three facts fall straight out of it:
 
 Taking regenotyping as the example: the code is not wedded at all; the data is.
 
-`regenotype.hpp` includes exactly one header from the family, `read_phasing.hpp`; its `.cpp` adds
-`anchor.hpp`. Its eight entry points take `PhaseSite`, `PhaseReadEvidence` and `LambdaTable` —
+`regenotype` includes exactly one header from the family, `read_phasing.hpp`. Its eight entry points take `PhaseSite`, `PhaseReadEvidence` and `LambdaTable` —
 plain structs — and never a caller. You could hand it evidence from any source and it would work.
 
 But there is only one source. `PhaseReadEvidence` is constructed in exactly one place,
@@ -141,8 +170,8 @@ Counting declarations at namespace scope across the family:
 |---|---|
 | `regenotype.hpp` | 8 |
 | `symbolic_allele.hpp` | 5 |
-| `anchor.hpp` | 3 |
-| `read_phasing.hpp` | 2 |
+| `read_phasing.hpp` | 3 |
+| `anchor.hpp` | 2 |
 | `linkage_model.hpp` | 1 |
 | `alignment_scorer.hpp` | 1 |
 | `site_read_source.hpp`, `allele_likelihood.hpp`, `read_likelihood_caller.hpp` | 0 |
@@ -171,7 +200,7 @@ pure function in a class to satisfy a naming scheme makes it harder to test, not
 | | lines |
 |---|---|
 | `LinkageModel` — the Li–Stephens HMM, forward/backward, the transition kernel | ≈2,167 |
-| `LinkageCollector` — the site store, generation resolution, allele map, retract/rescore | ≈1,275 |
+| `LinkageCollector` — the linkage collector, generation resolution, allele map, retract/rescore | ≈1,275 |
 
 `graph_caller` names `LinkageCollector` 29 times and `LinkageModel` only for `WILDCARD` (24 uses)
 and `Params` (1). The HMM is already internal to the collector in everything but file layout.

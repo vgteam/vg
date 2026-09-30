@@ -7,25 +7,22 @@
  * sites, a read that spans other heterozygous sites shows which strand it came from, and that is
  * used to correct each site's genotype likelihoods.
  *
- * `AlleleReadLikelihoods::genotype_likelihood` weights each read's haplotypes by mixture weights
- * `w_k` that belong to the site, since one site cannot tell which strand a read came from:
+ * One site cannot tell which strand a read came from, so the site likelihood weights every read's
+ * haplotypes by the same mixture weights. Here each read at a heterozygous genotype gets its own
+ * weights instead, from the allele-length weights `v` (`allele_length_weights`):
  *
- *     mixture = sum_k w_k * rel(r, g_k);   total += log((1 - e_r) * mixture + e_r)
- *
- * Here each read gets its own weights instead:
- *
- *     pi_r^0 = w_0 e^{y_r} / (w_0 e^{y_r} + w_1),   pi_r^1 = 1 - pi_r^0
+ *     pi_r^0 = v_0 e^{y_r} / (v_0 e^{y_r} + v_1),   pi_r^1 = 1 - pi_r^0
  *
  * where `y_r` is the read's tempered strand log-odds (see `calibrated_log_odds`), computed from
- * the other sites the read spans in its phase set. At temper 0, `pi_r = w` and the correction is
- * zero. A read that spans no other site also has `pi_r = w`. A homozygous genotype's mixture does
- * not depend on the weights, so its likelihood does not change.
+ * the other sites the read spans in its phase set. At temper 0, and for a read that spans no other
+ * site, `pi_r = v` and the read's correction is zero. A homozygous genotype's read term does not
+ * depend on the weights, so its likelihood does not change.
  *
- * The correction is added to the likelihood the sweep computed: the difference between the
- * read term with `pi` and with `w`, both computed here with the same length weights
- * (`site_slot_weights`). Everything else in the sweep's likelihood, such as the depth term, is
- * left as it was, so only `PhaseReadEvidence` has to be kept. The method is described in
- * doc/read-likelihood-genotyping.md, under "Re-genotyping from the phase".
+ * The correction is the read term with `pi` minus the read term with `v`, and it is added to the
+ * likelihood the sweep computed. Everything else in the sweep's likelihood, such as the depth
+ * term, is left as it was, so only `PhaseReadEvidence` has to be kept. The sweep's own read term
+ * used the mixture weights, which equal `v` when the two alleles have the same length. The method
+ * is described in doc/read-likelihood-genotyping.md, under "Re-genotyping from the phase".
  */
 
 #include <cstddef>
@@ -61,7 +58,7 @@ struct ReadLambda {
     size_t phase_set = 0;
     /// Seen in more than one phase set, so `lambda` mixes two unrelated strand labellings. Such a
     /// read is given the site's own weights, as if it spanned no other site.
-    bool multi_block = false;
+    bool multi_phase_set = false;
 };
 
 using LambdaTable = unordered_map<uint64_t, ReadLambda>;
@@ -82,7 +79,8 @@ struct RegenotypeParams {
     bool haploid_include = true;
     /// Bins for the calibration fit, over |Lambda|.
     size_t fit_bins = 12;
-    /// A bin needs this many reads before it can move the fit.
+    /// The fewest observations the fit needs, and the fewest per bin: each bin holds the larger of
+    /// this and a `fit_bins`-th of the observations, except the last, which holds the remainder.
     size_t fit_min_per_bin = 200;
     /// For testing (--regeno-shuffle): randomise the sign of each read's Lambda, keeping |Lambda|,
     /// which removes the phase information and keeps the rest. The temper is fitted before the
@@ -93,7 +91,7 @@ struct RegenotypeParams {
 
 struct RegenotypeCounters {
     size_t reads_with_lambda = 0;
-    size_t reads_multi_block = 0;
+    size_t reads_multi_phase_set = 0;
     /// Reads whose Lambda, leaving out the site itself, is zero because they span no other site
     /// in the phase set. The correction does nothing for these.
     size_t reads_singleton = 0;
@@ -123,10 +121,10 @@ struct RegenotypeCounters {
 /// parallel region, so it is not merged.
 void merge_counters(const RegenotypeCounters& from, RegenotypeCounters& into);
 
-/// One site's contribution to a read's strand log-odds, from its `q0` and `p` (see `PhaseSite`).
-/// It uses the same `p * x + (1 - p) / 2` form as `phase_link`, so a probably mismapped read
+/// One site's contribution to a read's strand log-odds, from its `q0` and `c` (see `PhaseSite`).
+/// It uses the same `c * x + (1 - c) / 2` form as `phase_link`, so a probably mismapped read
 /// contributes little.
-double site_read_log_odds(double q0, double p);
+double site_read_log_odds(double q0, double c);
 
 /// Accumulate each read's Lambda over every site, into `out`.
 ///

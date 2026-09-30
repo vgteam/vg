@@ -86,14 +86,14 @@ TEST_CASE("A forward read pins at the base before each junction", "[anchor]") {
     REQUIRE(s.placed());
     // The pin follows node 1's last base, which is read index 7.
     REQUIRE(s.offset == 7);
-    REQUIRE(s.strand == 0);
+    REQUIRE(s.direction == 0);
 
     AnchorPlacement e = resolve_anchor_pin(SiteRead{&aln}, site.graph, 4, false, false, counters);
     REQUIRE(e.placed());
     // The pin precedes node 4's first base at read index 9, so the last base BEFORE it is node 2's
     // single base at index 8 -- inside the site, which is where the entry pin's upstream side is.
     REQUIRE(e.offset == 8);
-    REQUIRE(e.strand == 0);
+    REQUIRE(e.direction == 0);
     REQUIRE(counters.verify_failed.load() == 0);
 }
 
@@ -109,7 +109,7 @@ TEST_CASE("A reverse read pins on the same graph positions with strand 1", "[anc
     // Node 1's last base in the SITE's direction is its node-forward index 7, which this read places
     // at index 9 -- the first base of its node-1 mapping, because it reads the node backwards.
     REQUIRE(s.offset == 9);
-    REQUIRE(s.strand == 1);
+    REQUIRE(s.direction == 1);
     // And the read base there is the complement of the graph's, which is what the invariant checks.
     REQUIRE(aln.sequence()[9] == 'G');
 
@@ -118,7 +118,7 @@ TEST_CASE("A reverse read pins on the same graph positions with strand 1", "[anc
     // Node 4's first base in the site's direction sits at read index 7; upstream in the site's
     // direction is LATER in this read, so the offset steps forward rather than back.
     REQUIRE(e.offset == 8);
-    REQUIRE(e.strand == 1);
+    REQUIRE(e.direction == 1);
     REQUIRE(counters.verify_failed.load() == 0);
 }
 
@@ -241,7 +241,7 @@ TEST_CASE("A read spanning the deletion edge lands both pins on one position", "
     // This is the one case where two pins of one snarl coincide in a read, and it is why
     // build_site_anchors keeps such a read at S and drops it from E.
     REQUIRE(s.offset == e.offset);
-    REQUIRE(s.strand == e.strand);
+    REQUIRE(s.direction == e.direction);
 }
 
 TEST_CASE("A deleted node upstream of an entry pin refuses it, rather than stepping over it",
@@ -322,7 +322,7 @@ TEST_CASE("A coincident read is kept at one pin only", "[anchor]") {
     for (int i = 0; i < 4; ++i) {
         AnchorPlacement p;
         p.offset = 10 + i;
-        p.strand = 0;
+        p.direction = 0;
         starts.push_back(p);
         ends.push_back(p);
     }

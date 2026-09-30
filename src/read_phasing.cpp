@@ -30,7 +30,7 @@ double phase_link(const PhaseSite& a, const PhaseSite& b, double cap) {
             const double diff = 1.0 - same;
             // With probability `pr` the read reports the true relation, and otherwise a coin flip,
             // so that one mismapped read cannot dominate the sum.
-            const double pr = (double)a.p[i] * (double)b.p[j];
+            const double pr = (double)a.c[i] * (double)b.c[j];
             const double cis = pr * same + (1.0 - pr) * 0.5;
             const double trans = pr * diff + (1.0 - pr) * 0.5;
             if (cis > 0.0 && trans > 0.0) {
@@ -77,11 +77,11 @@ unordered_set<size_t> read_phase_flips(vector<PhaseSite>& sites, const ReadPhasi
         for (size_t i = 0; i < order.size(); ++i) {
             k[i] = s.read_key[order[i]];
             q[i] = s.q0[order[i]];
-            pp[i] = s.p[order[i]];
+            pp[i] = s.c[order[i]];
         }
         s.read_key.swap(k);
         s.q0.swap(q);
-        s.p.swap(pp);
+        s.c.swap(pp);
     }
     counters.sites += sites.size();
 
@@ -186,7 +186,7 @@ unordered_set<size_t> read_phase_flips(vector<PhaseSite>& sites, const ReadPhasi
                     const PhaseSite& st = sites[begin + rel[m]];
                     for (size_t i = 0; i < st.read_key.size(); ++i) {
                         by_read[st.read_key[i]].push_back(
-                            {(double)m, (double)st.q0[i], (double)st.p[i]});
+                            {(double)m, (double)st.q0[i], (double)st.c[i]});
                     }
                 }
                 vector<size_t> ok(rel.size(), 0), tot(rel.size(), 0);
@@ -305,6 +305,35 @@ unordered_set<size_t> read_phase_flips(vector<PhaseSite>& sites, const ReadPhasi
         begin = end;
     }
     return flips;
+}
+
+vector<double> allele_length_weights(const vector<std::uint32_t>& allele_length, size_t n_alleles,
+                                     float mean_read_length, bool length_weighted,
+                                     const vector<int>& slot_allele) {
+    // Expected share of the site's reads per slot, from the alleles' full lengths: an allele of
+    // length L yields a read overlapping the site from L + R - 1 start positions. Flat when the
+    // lengths are unavailable or under --flat-mixture.
+    const size_t n_slots = slot_allele.size();
+    vector<double> weight(n_slots, n_slots ? 1.0 / (double)n_slots : 0.0);
+    if (length_weighted && mean_read_length > 0.0
+        && allele_length.size() == n_alleles && n_slots > 1) {
+        double total = 0.0;
+        vector<double> raw(n_slots, 0.0);
+        for (size_t i = 0; i < n_slots; ++i) {
+            raw[i] = (double)allele_length[slot_allele[i]]
+                     + (double)mean_read_length - 1.0;
+            if (raw[i] < 1.0) {
+                raw[i] = 1.0;
+            }
+            total += raw[i];
+        }
+        if (total > 0.0) {
+            for (size_t i = 0; i < n_slots; ++i) {
+                weight[i] = raw[i] / total;
+            }
+        }
+    }
+    return weight;
 }
 
 }

@@ -57,51 +57,50 @@ public:
     size_t num_alleles() const { return n_alleles; }
 
     /// Likelihood of read r under allele a, relative to read r's best allele at this
-    /// site, in [0, 1]. 0 means allele a cannot place the read, which counts against
-    /// allele a.
+    /// site, in [0, 1]. It is 0 where allele a fits the read so much worse than the best
+    /// that the ratio underflows, or where allele a has no node visits at all, as the
+    /// empty traversal of a star allele has, and cannot place the read.
     double rel(size_t r, size_t a) const;
 
     /// The read's mismapping probability e_r, derived from its MAPQ and clamped to lie
     /// strictly inside (0, 1).
     double mismap_prob(size_t r) const;
 
-    /// ln of the row's divisor, the read's best absolute fit at this site. The
-    /// genotype likelihood does not use it; it feeds the BL output field.
+    /// ln of the row's divisor, the read's best log-likelihood score at this site, in
+    /// nats. The genotype likelihood does not use it; it feeds the BL output field.
     double best_ln_likelihood(size_t r) const;
 
     /// How many reads were dropped because they placed on no allele at all.
     size_t num_unplaceable() const { return unplaceable; }
 
-    /// Weight each haplotype of a genotype by the number of reads it is expected to
-    /// contribute at this site, instead of a flat 1/|G|.
+    /// Turn on length-weighted mixture weights in place of a flat 1/|G|, and set R.
     ///
-    /// A haplotype carrying an allele of length L yields a read of length R that
-    /// overlaps the site from L + R - 1 start positions, so
+    /// Each haplotype of a genotype is weighted by the number of start positions from
+    /// which a read of length R overlaps a stretch of length X:
     ///
-    ///     w_h = (L_h + R - 1) / sum_{h' in G} (L_h' + R - 1)
+    ///     w_h = max(X_h + R - 1, 1) / sum_{h' in G} max(X_h' + R - 1, 1)
     ///
-    /// The weights sum to 1, and alleles of equal length get equal weights.
+    /// X_h is the unique length U_h given by `set_unique_lengths`, which is how the
+    /// calculator builds every matrix. Without unique lengths it is the allele's full
+    /// length L_h, from `allele_lengths`, which is indexed by allele.
     ///
-    /// `allele_lengths` is indexed by allele. `mean_read_length` is R, which should be
-    /// the mean length of reads in the neighbourhood rather than of the reads at this
-    /// site, since a long read overlaps more sites and so is over-represented at each.
-    /// `compute` replaces it with such a neighbourhood mean after `build`. An empty
-    /// vector or a zero R gives the flat 1/|G|.
+    /// `mean_read_length` is R, which should be the mean length of reads in the
+    /// neighbourhood rather than of the reads at this site, since a long read overlaps
+    /// more sites and so is over-represented at each. `compute` replaces it with such a
+    /// neighbourhood mean after `build`. An empty vector or a zero R gives the flat 1/|G|.
     void set_length_weights(vector<size_t> allele_lengths, double mean_read_length) {
         this->allele_lengths = std::move(allele_lengths);
         this->mean_read_length = mean_read_length;
     }
 
-    /// Count only the sequence unique to each allele when weighting the mixture.
+    /// Weight the mixture by the sequence unique to each allele (see
+    /// `set_length_weights`).
     ///
     /// Reads that lie in sequence both alleles share fit both equally and cannot
-    /// change a genotype comparison, so the weight uses U_h, the sequence that
-    /// haplotype h's allele visits and the genotype's other allele does not:
-    ///
-    ///     w_h = (U_h + R - 1) / sum_{h' in G} (U_h' + R - 1)
-    ///
-    /// `unique_lengths[a][b]` is the length of the sequence in allele a but not in
-    /// allele b. Above ploidy 2, the minimum over the genotype's other alleles is used.
+    /// change a genotype comparison, so the weight uses U_h: the total length of the
+    /// nodes that haplotype h's allele visits and the genotype's other allele does not,
+    /// in either orientation. `unique_lengths[a][b]` is that length for allele a against
+    /// allele b.
     void set_unique_lengths(vector<vector<size_t>> unique_lengths) {
         this->unique_lengths = std::move(unique_lengths);
     }
@@ -145,7 +144,7 @@ public:
 
     /// The read count N that the depth term compares with lambda_G: sum_r (1 - e_r)
     /// with `effective_count`, and the number of rows otherwise. Since N need not be a
-    /// whole number, the Poisson is computed with lgamma.
+    /// whole number, the Poisson probability is computed with lgamma in place of ln N!.
     double observed_reads() const;
 
     /// This allele's length without the site's boundary nodes, T_h. 0 if the depth
@@ -154,7 +153,8 @@ public:
         return allele < traversal_lengths.size() ? traversal_lengths[allele] : 0;
     }
 
-    /// Observed over expected read count, N / lambda_G, for the given genotype. It is
+    /// Observed over expected read count, N / lambda_G, for the given genotype, or -1
+    /// where lambda_G is 0, as it is when no read begins in the rate window. It is
     /// written as the DR output field whether or not the depth term is on.
     double depth_ratio(const vector<int>& genotype) const;
 
@@ -184,8 +184,8 @@ public:
      *
      * Since rel(r,h) lies in [0, 1], each read's term lies between ln(e_r) and 0, so
      * the floor on e_r limits how much one read can count against a genotype.
-     * rel(r,h) = 0 is evidence against allele h, not missing data. Reads are treated
-     * as independent, so GL and GQ grow over-confident with depth.
+     * rel(r,h) = 0 is the strongest evidence against allele h that one read can give.
+     * Reads are treated as independent, so GL and GQ grow over-confident with depth.
      */
     double genotype_likelihood(const vector<int>& genotype) const;
 
@@ -220,8 +220,8 @@ public:
     /// caller moves it into the CallInfo it keeps for the site.
     unique_ptr<AnchorSiteEvidence> anchor_evidence;
 
-    /// The site's read-phasing evidence, filled only when read phasing is on and anchors
-    /// are not being written; the anchor evidence already contains it.
+    /// The site's read-phasing evidence, filled only when read phasing is on and
+    /// `anchor_evidence` is not filled, since that holds the same rows.
     unique_ptr<PhaseReadEvidence> phase_evidence;
 
     /// Populate the matrix. Only for AlleleReadLikelihoodsBuilder.
@@ -233,8 +233,8 @@ public:
     void set_mismap_floor(double floor) { this->mismap_floor = floor; }
 
 private:
-    /// Expected share of this site's reads for each haplotype of the genotype: flat
-    /// 1/|G| unless lengths were supplied. Shared by genotype_likelihood and
+    /// The mixture weight of each haplotype of the genotype (see `set_length_weights`):
+    /// flat 1/|G| unless lengths were supplied. Shared by genotype_likelihood and
     /// achievable_gap, which must use the same weights.
     vector<double> mixture_weights(const vector<int>& genotype) const;
 
@@ -331,8 +331,8 @@ struct AlleleLikelihoodParams {
     /// alignment score is converted to nats, so it can take fractional values.
     double insertion_gap_nats = 0.0;
 
-    /// Pair the read's node visits with the allele's by the optimal walk, a dynamic
-    /// program, rather than by the greedy walk (--realign).
+    /// Choose each read's pairing with an allele by optimal pairing rather than greedy
+    /// pairing (--realign); see GraphAlignedAlleleLikelihoodCalculator.
     bool realign = false;
 
     /// The floor on the mismapping probability e_r (--mismap-min).
@@ -353,9 +353,10 @@ struct AlleleLikelihoodParams {
     /// the model can come to trusting every read fully while keeping the log finite.
     bool use_mismap_term = true;
 
-    /// Weight each haplotype of a genotype by the reads it is expected to contribute,
-    /// counting the sequence unique to its allele, rather than by a flat 1/|G|. See
-    /// AlleleReadLikelihoods::set_length_weights and set_unique_lengths.
+    /// Weight each haplotype of a genotype by its share of the reads that can tell the
+    /// genotype's alleles apart, from the sequence unique to its allele, rather than by a
+    /// flat 1/|G| (--flat-mixture turns it off). See
+    /// AlleleReadLikelihoods::set_length_weights.
     bool length_weighted_mixture = true;
 
     /// Weight of the depth term, ln P(N | G) (--depth-term). Zero turns the term off;
@@ -366,7 +367,8 @@ struct AlleleLikelihoodParams {
     /// locus, rather than as 1. The local rate is counted the same way.
     bool depth_effective_reads = true;
 
-    /// Ploidy used for the depth rate when `compute` is not given the site's ploidy.
+    /// Ploidy used for the depth rate when `compute` is called with a ploidy of 0 or
+    /// less; at 0 or less here too, the rate window is not measured.
     int depth_ploidy = 2;
 
     /// Collect per-read anchor evidence while the reads are in memory (--anchors-out).
@@ -398,22 +400,43 @@ public:
 };
 
 /**
- * Scores each read against each allele from the read's existing alignment to the
- * graph, by pairing the read's node visits with the allele's and scoring the pairs,
- * rather than by aligning the read to each allele again.
+ * Scores each read against each allele from the read's existing alignment to the graph, rather
+ * than by aligning the read to each allele again.
  *
- * Two alleles of a site share its boundary nodes, so the graph already aligns them
- * to each other, and the score is P(read | this walk through the graph). The
- * mapper's edits say which read bases mismatch, so each mismatch is charged at its
- * own base quality. A read the mapper placed wrongly is scored against the wrong
- * walk.
+ * ## Pairings
  *
- * ## The scoring window
+ * A read's placement and an allele are both sequences of node visits, a visit being a node in one
+ * orientation. A read is scored against an allele through a *pairing* of the two sequences, in
+ * order: each read visit inside the site is either paired with an allele visit or left unpaired.
+ * The pairing's score is the sum of these parts:
  *
- * A read's scoring window is the span of read bases that its alignment places
- * inside the site. Every allele is scored over the same window: read bases an
- * allele cannot place are charged as an insertion rather than left out, so alleles
- * differ only in how well they explain the same bases.
+ *   - a read visit paired with the same allele visit scores the read's own edits in that node;
+ *   - a read visit that the allele never makes, paired with an allele visit that the read never
+ *     makes, is a substitution: the read's bases in its node are compared one by one with the
+ *     allele node's sequence, from the first base of each, plus a gap for the difference in
+ *     length;
+ *   - a run of read visits left unpaired is an insertion, and a run of allele visits skipped
+ *     between two pairs is a deletion, each scored as one gap.
+ *
+ * Allele visits before the read's first same-visit pair, or after its last pair, lie outside the
+ * read and score nothing. Before that first same-visit pair, each unpaired read visit is a gap of
+ * its own, since there is no pair yet for an insertion to extend from.
+ *
+ * Every read base inside the site is scored under every allele, so all alleles are scored over the
+ * same read bases, the read's *scoring window*, and differ only in how well they explain them.
+ *
+ * ## Two ways to choose the pairing
+ *
+ *   - *Greedy pairing* (`score_by_greedy_pairing`, the default) makes one pass along the read's
+ *     visits. Each is paired with the same visit's next occurrence in the allele after the last
+ *     pair, and a pair is never revised. Every unpaired read visit is a gap of its own, and a pair
+ *     of different visits is scored as a substitution even where one of them is shared.
+ *   - *Optimal pairing* (`score_by_optimal_pairing`, --realign) finds the highest-scoring pairing
+ *     that the rules above allow, by dynamic programming over the two sequences. A run of unpaired
+ *     read visits is one gap. At large sites the search is restricted to a band.
+ *
+ * Inside a node that the read and the allele share, both use the mapper's edits and neither aligns
+ * bases again.
  */
 class GraphAlignedAlleleLikelihoodCalculator : public AlleleLikelihoodCalculator {
 public:
@@ -473,7 +496,8 @@ protected:
 
     /// True if the read traverses the site against the direction the alleles read
     /// in, so it must be reverse-complemented before being compared to them.
-    /// Decided by vote over shared nodes rather than from a single step.
+    /// Decided by a vote over the nodes that every allele visits in the same
+    /// orientation; a tie leaves the read as it is.
     bool read_is_reverse_of_alleles(const vector<ReadStep>& read_steps,
                                    const unordered_map<nid_t, bool>& allele_orientations) const;
 
@@ -483,8 +507,9 @@ protected:
     int32_t score_shared_node(const Alignment& aln, const ReadStep& step,
                               const EditAlignmentScorer& read_scorer, double& nat_adjust) const;
 
-    /// Score read bases against allele bases of the same length, base by base,
-    /// charging each mismatch its own quality.
+    /// Score `length` of the read's own bases, from `read_offset`, against as many
+    /// allele bases, from `allele_offset`, base by base, charging each mismatch at
+    /// its own base quality.
     int32_t score_substitution(const Alignment& aln, size_t read_offset, size_t length,
                                const string& allele_bases, size_t allele_offset,
                                const EditAlignmentScorer& read_scorer) const;
@@ -510,41 +535,42 @@ protected:
     static vector<int64_t> sorted_allele_keys(const vector<AlleleStep>& allele_steps);
 
     /// The positions at which each (node, orientation) occurs in the allele, in
-    /// ascending order. Used by the greedy walk and computed once per allele.
+    /// ascending order. Used by greedy pairing and computed once per allele.
     using AlleleStepPositions = unordered_map<int64_t, vector<uint32_t>>;
     static AlleleStepPositions index_allele_steps(const vector<AlleleStep>& allele_steps);
 
-    /// Score one read against one allele with the greedy walk, a single left-to-right
-    /// pass. Used unless AlleleLikelihoodParams::realign is set.
-    int32_t score_read_against_allele_greedy(const Alignment& aln,
-                                             const vector<ReadStep>& read_steps,
-                                             const vector<AlleleStep>& allele_steps,
-                                             const AlleleStepPositions& allele_positions,
-                                             const EditAlignmentScorer& read_scorer,
-                                             bool& placed_out, double& nat_adjust) const;
+    /// Score one read against one allele by greedy pairing.
+    int32_t score_by_greedy_pairing(const Alignment& aln,
+                                    const vector<ReadStep>& read_steps,
+                                    const vector<AlleleStep>& allele_steps,
+                                    const AlleleStepPositions& allele_positions,
+                                    const EditAlignmentScorer& read_scorer,
+                                    bool& placed_out, double& nat_adjust) const;
 
-    /// Score one read against one allele over the read's window.
-    int32_t score_read_against_allele(const Alignment& aln, const vector<ReadStep>& read_steps,
-                                      const vector<AlleleStep>& allele_steps,
-                                      const ReadScratch& scratch,
-                                      const vector<int64_t>& allele_keys,
-                                      const EditAlignmentScorer& read_scorer,
-                                      bool& placed_out, double& nat_adjust) const;
+    /// Score one read against one allele by optimal pairing.
+    int32_t score_by_optimal_pairing(const Alignment& aln, const vector<ReadStep>& read_steps,
+                                     const vector<AlleleStep>& allele_steps,
+                                     const ReadScratch& scratch,
+                                     const vector<int64_t>& allele_keys,
+                                     const EditAlignmentScorer& read_scorer,
+                                     bool& placed_out, double& nat_adjust) const;
 
     /// Read statistics for a site's rate window, the block of consecutive node IDs
-    /// that contains the site's lowest node ID: the number of reads whose alignment
-    /// begins in the window, per base of the window's sequence, and the mean length of
-    /// those reads. Computed once per window.
+    /// that contains the lowest node ID of the site, boundary nodes included: the
+    /// number of reads whose alignment begins in the window, per base of the window's
+    /// sequence, and the mean length of those reads. Computed once per window and
+    /// shared by the sites in it.
     ///
     /// The depth term's lambda = rate * (L + R - 1) counts the reads whose start
     /// position places them over an interval of length L, so the rate must count read
-    /// starts, not reads that overlap the window. R must be the mean length of all
+    /// starts, not reads that overlap the window. R should be the mean length of all
     /// reads, not of the reads that reach a site, because a long read reaches more
-    /// sites. Counting only the reads that begin in the window gives both.
+    /// sites. Counting only the reads that begin in the window gives both. Where no
+    /// read begins in the window, the caller falls back to the site's own reads for R.
     ///
     /// Each read is weighted by 1 - e_r when `depth_effective_reads` is set. The rate
-    /// is not divided by ploidy here; the caller does that. It is 0 if no read begins
-    /// in the window, which turns the depth term off.
+    /// is per base, not per haplotype: each site divides it by its own ploidy. It is 0
+    /// if no read begins in the window, which turns that site's depth term off.
     struct WindowReadStats {
         double start_rate = 0.0;
         double mean_read_length = 0.0;

@@ -16,7 +16,7 @@ namespace vg {
 
 
 /// The distance between two adjacent sites of a chain, in bp, once for each strand, since
-/// `transition_apply` takes a switch probability per strand. The two are always equal here.
+/// `transition_apply` takes a switch probability per strand; the two are always equal.
 /// Clamped at 1: `switch_probability` reads a gap of 0 as 1, and a negative one would wrap.
 static inline std::pair<size_t, size_t> site_gap(const LinkageModel::Site& prev,
                                                 const LinkageModel::Site& next) {
@@ -75,10 +75,10 @@ static inline int vcf_allele_of(const vector<int8_t>& allele_arena, size_t allel
     return at < allele_arena.size() ? (int)allele_arena[at] : -1;
 }
 
-/// The VCF alleles that a phased GT may name for a settled compact pair.
+/// The VCF alleles of a settled compact pair, through the site's traversal-to-allele map.
 ///
-/// Phasing may only reorder the record's genotype. So when the settled pair cannot be written,
-/// because the record has no ALT for one of its traversals, the called pair is used instead and
+/// Where the map gives no allele for one of the pair, because it was not supplied yet or because
+/// the record wrote no ALT for that traversal, the called pair's alleles are used instead and
 /// `fell_back` is set; nothing determines the order of that pair.
 static inline void render_phase_pair(const vector<int8_t>& allele_arena, size_t allele_offset,
                                      size_t num_alleles, size_t c_first, size_t c_second,
@@ -240,20 +240,22 @@ Top2 top2_of(const double* v, size_t n, size_t stride) {
 
 /// One Li-Stephens max-product step, with backpointers.
 ///
-/// `transition_apply` sums, and there the factorisation collapses the pairwise loop into four
-/// terms. Maximising does *not* separate the same way, because delta(a,b) couples the strands:
-/// max over (a,b) of delta(a,b) + f(a) + g(b) is not a pair of independent 1-D maxima. But
-/// T(x->y) takes only two values, so the reduction is by cases on which strands stayed:
+/// A state is a pair (a, b): strand 0 copies haplotype a and strand 1 copies b. For strand x,
+/// S_x is the log probability of staying on the same haplotype, and J_x the log probability of
+/// moving to one particular other haplotype. `transition_apply` sums, and there the factorisation
+/// collapses the pairwise loop into four terms. Maximising does *not* separate the same way,
+/// because delta(a,b) couples the strands: max over (a,b) of delta(a,b) + f(a) + g(b) is not a
+/// pair of independent 1-D maxima. But each strand's transition takes only two values, so the
+/// reduction is by cases on which strands stayed:
 ///
 ///     delta'(a',b') = ln e(a',b') + max of
-///         delta(a',b')                        + 2S      both stayed
-///         max_{b != b'} delta(a',b)           + S + J   strand 1 stayed
-///         max_{a != a'} delta(a,b')           + J + S   strand 2 stayed
-///         max_{a != a', b != b'} delta(a,b)   + 2J      both jumped
+///         delta(a',b')                        + S_0 + S_1   both stayed
+///         max_{b != b'} delta(a',b)           + S_0 + J_1   strand 0 stayed
+///         max_{a != a'} delta(a,b')           + J_0 + S_1   strand 1 stayed
+///         max_{a != a', b != b'} delta(a,b)   + J_0 + J_1   both moved
 ///
 /// Every leave-one-out maximum comes from a top-2 along the relevant axis, so this stays O(m^2)
-/// like the forward step rather than O(m^4). Checked against a literal O(m^4) implementation over
-/// random emissions including infeasible states.
+/// like the forward step rather than O(m^4).
 ///
 /// In logs, unlike the forward pass: sum-product needs rescaling per site to avoid underflow,
 /// max-product does not, and in logs the stay-or-jump choice is a comparison of sums.
@@ -267,10 +269,10 @@ void viterbi_step(const vector<double>& in, size_t m, double rho_a, double rho_b
     double stay_b = 1.0 - rho_b + rho_b / (double)m;
     double jump_a = rho_a / (double)m;
     double jump_b = rho_b / (double)m;
-    double S_a = stay_a > 0.0 ? log(stay_a) : NEG_INF;
-    double S_b = stay_b > 0.0 ? log(stay_b) : NEG_INF;
-    double J_a = jump_a > 0.0 ? log(jump_a) : NEG_INF;
-    double J_b = jump_b > 0.0 ? log(jump_b) : NEG_INF;
+    double S_0 = stay_a > 0.0 ? log(stay_a) : NEG_INF;
+    double S_1 = stay_b > 0.0 ? log(stay_b) : NEG_INF;
+    double J_0 = jump_a > 0.0 ? log(jump_a) : NEG_INF;
+    double J_1 = jump_b > 0.0 ? log(jump_b) : NEG_INF;
 
     vector<Top2> rows(m), cols(m);
     for (size_t a = 0; a < m; ++a) {
@@ -311,24 +313,24 @@ void viterbi_step(const vector<double>& in, size_t m, double rho_a, double rho_b
 
             double c1 = in[ap * m + bp];
             if (c1 > NEG_INF) {
-                double v = c1 + S_a + S_b;
+                double v = c1 + S_0 + S_1;
                 if (v > best) { best = v; ba = ap; bb = bp; }
             }
             double c2 = rowExcl[ap * m + bp];
             if (c2 > NEG_INF) {
-                double v = c2 + S_a + J_b;
+                double v = c2 + S_0 + J_1;
                 if (v > best) { best = v; ba = ap; bb = rowExclArg[ap * m + bp]; }
             }
             bool chit = (cols[bp].arg == ap);
             double c3 = chit ? cols[bp].second : cols[bp].best;
             if (c3 > NEG_INF) {
-                double v = c3 + J_a + S_b;
+                double v = c3 + J_0 + S_1;
                 if (v > best) { best = v; ba = chit ? cols[bp].arg2 : cols[bp].arg; bb = bp; }
             }
             bool bhit = (both.arg == ap);
             double c4 = bhit ? both.second : both.best;
             if (c4 > NEG_INF) {
-                double v = c4 + J_a + J_b;
+                double v = c4 + J_0 + J_1;
                 if (v > best) {
                     best = v;
                     ba = bhit ? both.arg2 : both.arg;
@@ -2133,7 +2135,7 @@ size_t LinkageCollector::resolve_generation(
             }
             PhaseCall pc;
             pc.ploidy = e.ploidy;
-            pc.depth = e.generation;
+            pc.generation = e.generation;
             // The strand of its parent that a nested ploidy-1 chain sits on, found earlier where the
             // parent's settled pair was at hand.
             int nested_slot = -1;
@@ -2150,7 +2152,6 @@ size_t LinkageCollector::resolve_generation(
                     pc.order_arbitrary = pc.order_arbitrary || us->second.order_arbitrary;
                 }
             }
-            pc.emitted = e.emitted;
             pc.record_key = e.record_key;
             pc.contig = contig_names[e.contig];
             pc.position = e.position;

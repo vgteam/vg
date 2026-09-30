@@ -25,28 +25,32 @@ using namespace std;
 
 /// Counters for the linkage pass, reported under --progress.
 ///
+/// Below the top level, the model decodes one *group* at a time: the sites of one child chain at
+/// one ploidy under one parent (see `LinkageCollector`). Several counters describe groups.
+///
 /// They are members of LinkageModel so that each run counts separately. They are atomic because
 /// several threads count at once, and the model holds them as `mutable` so that its const
 /// methods can count.
 struct LinkageCounters {
-    /// Pinned sites offered to `window_phasing`, and those it declined because the pinned
-    /// haplotype pair cannot spell the genotype the site is constrained to. A declined pin on a
-    /// group's parent leaves the group free to swap its strands.
+    /// Pinned sites that `window_phasing` fixed to their pinned pair (`pin_applied`), and those it
+    /// left free because that pair cannot spell the genotype the site is constrained to
+    /// (`pin_declined`).
     std::atomic<size_t> pin_applied{0}, pin_declined{0};
 
-    /// Groups whose parent had, or did not have, a PhaseCall to pin it to.
+    /// Groups whose parent had no PhaseCall to pin it to, and groups whose parent had one.
     std::atomic<size_t> group_parent_unpinned{0}, group_parent_pinned{0};
 
-    /// Chains left ungrouped, by reason.
+    /// Sites decoded alone rather than in a group: those with no parent key, those whose parent
+    /// has no live entry, and the total of the two.
     std::atomic<size_t> grp_no_parent{0}, grp_no_entry{0}, grp_vetoed{0};
 
     /// Nested chains at ploidy 1 that were given a strand of their parent, and those whose
     /// parent is haploid, so that there is only one strand.
     std::atomic<size_t> nest_strand{0}, nest_one_hap{0};
 
-    /// Nested chains at ploidy 1 under a diploid parent that were given no strand, because both
-    /// of the parent's settled alleles cross the chain, or because the parent's settled pair
-    /// could not be read.
+    /// Nested chains at ploidy 1 under a diploid parent that were given no strand: those that
+    /// both of the parent's settled alleles cross, which happens where the barrier could not
+    /// revise the chain's ploidy, and those whose parent's settled pair could not be read.
     std::atomic<size_t> nest_both{0}, nest_unreadable{0};
 };
 
@@ -55,8 +59,9 @@ public:
 
     struct Params {
         /// Exponent on the switch probability, rho^weight (--linkage-weight). Zero turns the
-        /// model off, and larger values make switches rarer. Raising the probability to a power,
-        /// rather than scaling its logarithm, keeps it a probability at every setting.
+        /// model off, and larger values make switches rarer. Only the switch probability is
+        /// raised to the power, and the probability of staying is 1 minus the result, so the
+        /// transitions still sum to 1.
         double weight = 0.0;
 
         /// Distance over which linkage decays, in bp (--linkage-scale).
@@ -74,8 +79,7 @@ public:
         /// Exponent F on the allele-frequency prior that the states imply (--linkage-prior). The
         /// probability collected for a genotype that c ordered panel pairs spell is multiplied by
         /// c^(F-1). 1 keeps the prior as the states imply it, 0 removes it, and larger values
-        /// strengthen it. The struct default of 0 gives the plain hidden Markov model; `vg call`
-        /// sets it from its option.
+        /// strengthen it. `vg call` sets it from its option.
         double freq_prior = 0.0;
 
         /// Exponent used instead of `freq_prior` at a site whose alleles differ in the length of
@@ -89,11 +93,11 @@ public:
         /// (--hp-prior-run).
         size_t hp_prior_run = 11;
 
-        /// Sites per window of exact inference, and the margin discarded at each end.
+        /// Sites per window of exact inference, and the sites discarded at each end.
         ///
-        /// Windows let a long linkage chain be decoded in parallel. Linkage decays over tens of
-        /// sites, so a window with a wide margin gives nearly the same posteriors as the whole
-        /// chain, and no posterior is kept from near a window's edge.
+        /// A long linkage chain is decoded as overlapping windows, each on its own, and only the
+        /// posteriors away from a window's edges are kept. Linkage decays over a few sites, so a
+        /// posterior with a margin of sites on each side is close to the whole chain's.
         size_t window = 2000;
         size_t margin = 250;
     };
@@ -101,7 +105,8 @@ public:
     /// One site's input to the model. It holds no graph or GBWT types, so the model can be
     /// tested on numbers alone.
     struct Site {
-        /// Reference position, for the distance between sites.
+        /// Where the site starts on the reference: the first base of its first boundary node.
+        /// Distances between sites are differences of these.
         size_t position = 0;
 
         /// Number of alleles, so genotype indices can be decoded.
@@ -118,25 +123,25 @@ public:
         vector<double> genotype_ln_likelihood;
 
 
-        /// This site has no reference position, so `position` is only a place to sort it and
-        /// is not used for distances. Set for a chain that no reference path passes through. A
-        /// flag rather than `position == 0`, which is a real position at the start of a contig.
+        /// This site is in a chain that no reference path passes through, so `position` is its
+        /// parent's reference start plus the chain's offset along the parent's allele. Two such
+        /// sites of one chain are separated by the difference of their positions; between such a
+        /// site and a positioned one, no distance is known.
         bool unpositioned = false;
 
         /// 1 or 2. All sites of a linkage chain have the same ploidy.
         size_t ploidy = 2;
 
         /// Allele carried by each panel haplotype, or -1 where the haplotype does not pass
-        /// through this site. A haplotype that does not pass through carries no allele here,
-        /// not the reference allele.
+        /// through this site and so carries no allele here.
         vector<int> haplotype_allele;
 
         /// Fix this site's haplotype pair in `phasing()` to (pin_first, pin_second).
         ///
-        /// A later generation is phased alongside sites of earlier generations whose phase has
-        /// already been settled. Pinning those sites keeps the path from swapping their
-        /// strands, which would phase the new sites against the wrong strands. `(size_t)-1` is
-        /// `WILDCARD`, which is declared below.
+        /// A group is phased with its parent as its first site, and the parent's phase is already
+        /// settled. Pinning the parent keeps the path from swapping its strands, which would phase
+        /// the group against the wrong strands. `(size_t)-1` is `WILDCARD`, which is declared
+        /// below.
         bool pinned = false;
         size_t pin_first = (size_t)-1;
         size_t pin_second = (size_t)-1;
@@ -156,9 +161,11 @@ public:
     /// ploidies are decoded by separate functions behind this one entry point, so that an
     /// argument cannot be added to one and forgotten on the other.
     ///
-    /// `alpha_in` is the forward message entering the chain, over the same states. The caller
-    /// passes a point mass at the parent site's settled state, so a state it excludes stays
-    /// excluded; over a long chain the strands can still switch away from it.
+    /// `alpha_in`, when given, replaces the uniform distribution over states at the chain's first
+    /// site. The linkage pass passes a point mass at the parent's settled state, which fixes the
+    /// first site's state; later sites can switch away from it. At ploidy 2 the first site is the
+    /// parent itself. At ploidy 1 the parent is not in the chain, and the point mass is on the
+    /// haplotype of the parent's strand that carries the chain.
     vector<vector<double>> posteriors(const vector<Site>& sites, size_t ploidy = 2,
                                       const vector<double>* alpha_in = nullptr) const;
 
@@ -173,13 +180,12 @@ public:
     static constexpr size_t WILDCARD = (size_t)-1;
 
     /// Whether the reference allele `ref` and another allele differ only in the length of one
-    /// homopolymer run, by 1-49 bases of the same base, in a run at least `min_run` long in the
-    /// longer of the two. Any pair of alleles counts when `ref` is out of range, as it is for a
-    /// chain that no reference path passes through.
+    /// homopolymer run, by 1-49 copies of its base, in a run that is at least `min_run` long in
+    /// the longer of the two or that reaches either end of that allele. Any pair of alleles counts
+    /// when `ref` is out of range, as it is for a chain that no reference path passes through.
     ///
-    /// The alleles include the site's boundary nodes, which are often short, so a long run can
-    /// continue past them into neighbouring sites. A run that reaches either end of an allele
-    /// therefore counts as long enough, whatever its length inside the allele.
+    /// A run that reaches an end of the allele continues into the neighbouring site, where the
+    /// graph cut it, so its length is unknown and it counts as long.
     static bool run_length_site(const vector<string>& alleles, size_t min_run,
                                 size_t ref = (size_t)-1);
 
@@ -196,10 +202,10 @@ public:
     /// copies at each site, with `second` the wildcard. As for `posteriors()`, the two
     /// ploidies share this entry point.
     ///
-    /// `alpha_in` is used at ploidy 1 only. A ploidy-2 group is decoded with its parent site
-    /// placed first and pinned, which fixes the parent's pair; a ploidy-1 chain under a
-    /// diploid parent cannot hold the parent, which has another ploidy, so the message
-    /// carries it instead.
+    /// A group's parent fixes the group's starting state in one of two ways. A ploidy-2 group
+    /// holds its parent as its first site, pinned to the parent's pair. A ploidy-1 group under a
+    /// diploid parent cannot hold the parent, which has another ploidy, so `alpha_in` carries the
+    /// parent's state instead, as for `posteriors()`. `alpha_in` is used at ploidy 1 only.
     vector<Phase> phasing(const vector<Site>& sites, const vector<size_t>& constraint,
                           size_t ploidy = 2, const vector<double>* alpha_in = nullptr) const;
 
@@ -217,9 +223,9 @@ public:
     /// Per-strand switch probability between two sites `gap` bp apart, after weighting.
     double switch_probability(size_t gap) const;
 
-    /// Posteriors over one segment of a chain, given the forward and backward messages reaching
-    /// its two ends. With the whole chain's messages, the result agrees with decoding the whole
-    /// chain.
+    /// Posteriors over sites [from, to) decoded as a single window, starting from `alpha_in` and
+    /// ending at `beta_in` (uniform where null). The linkage pass decodes a diploid group this
+    /// way, from its parent's settled state.
     void segment_posteriors(const vector<Site>& sites, size_t from, size_t to,
                             const vector<double>* alpha_in, const vector<double>* beta_in,
                             vector<vector<double>>& out) const {
@@ -273,22 +279,24 @@ private:
 
 /// One step of the forward or backward transition over ordered pairs, with `m` states per strand.
 ///
-/// Each strand has its own switch probability, `rho_a` and `rho_b`, since the two strands switch
-/// independently and, below the top level, can have travelled different distances since the
-/// previous site. Declared here so that the unit tests can call it.
+/// The two strands switch independently, so each has its own switch probability, `rho_a` for
+/// strand 0 and `rho_b` for strand 1. Declared here so that the unit tests can call it.
 void transition_apply(const std::vector<double>& in, size_t m, double rho_a, double rho_b,
                       std::vector<double>& out);
 
 /**
- * Records a compact entry for each genotyped site while sites are called, then runs the linkage
- * model over the entries once calling is done.
+ * Keeps a compact entry for each genotyped site, and runs the linkage model over the entries.
  *
- * An entry holds only what the model needs (the genotype likelihoods over a compact allele space,
- * and the allele each panel haplotype carries), so the whole genome's entries stay small. Sites
- * are called in parallel in node-ID order; the collector groups the entries into linkage chains,
- * sorts each by reference position, since the transition probabilities depend on the distances,
- * and reports the genotypes that the model changes. Nested sites are resolved one generation at a
- * time, with earlier generations held fixed.
+ * An entry holds only what the model needs: the genotype likelihoods over the site's *compact
+ * allele space* (the called pair plus every allele some panel haplotype carries), and the allele
+ * each panel haplotype carries. So the whole genome's entries stay small. Sites are recorded from
+ * several threads in no fixed order.
+ *
+ * Sites are resolved one generation at a time. Generation 0's sites form the top-level linkage
+ * chains: one contig, split where its ploidy changes, sorted by position, since the transitions
+ * depend on distance. Each later site belongs to a *group*: the sites of one child chain at one
+ * ploidy under one parent, decoded from the parent's settled state. Resolving settles each site's
+ * genotype and phases it, as a `PhaseCall`.
  */
 class LinkageCollector {
 public:
@@ -304,14 +312,17 @@ public:
     /// field is named at the call site; as separate bool and integer arguments, a missing one
     /// would shift the rest and still compile.
     struct SiteContext {
-        /// The site is in a nested chain that only one of its parent's settled alleles crosses,
-        /// so it is genotyped at ploidy 1.
+        /// The site's chain has one copy: exactly one of the parent's alleles crosses it (the
+        /// called alleles when the sweep records it, the settled ones when the barrier does).
         bool nested = false;
         size_t parent_record_key = 0;
         /// Bit t set iff the parent's candidate traversal t crosses this chain.
         uint64_t parent_crossing = 0;
+        /// The site's depth in the snarl tree: 0 for a site inside no other site, 1 for a site in
+        /// a chain directly inside one, and so on. Its generation's pass settles it.
         size_t generation = 0;
-        /// Whether a VCF line was written for this site. The site is recorded either way.
+        /// Whether a VCF line exists for this site. `vg call` records every site before its line
+        /// is written, so it passes false and supplies the answer through `set_allele_map`.
         bool emitted = true;
         /// The site has no reference position; `position` is only a place in the contig to sort
         /// it.
@@ -329,9 +340,9 @@ public:
     /// one entry per panel haplotype: the candidate traversal it carries, or -1 where it does not
     /// pass through the site. `called_trav_i/j` is the pair the per-site likelihood chose.
     /// `traversal_to_allele` maps candidate traversals to the VCF alleles they were written as;
-    /// pass it empty, with `ctx.emitted` false, for a site that wrote no line.
+    /// pass it empty, with `ctx.emitted` false, while no line exists.
     ///
-    /// A site that wrote no line is still recorded, because its allele pair phases its children.
+    /// A site that gets no line is still recorded, because its allele pair phases its children.
     void record(const string& contig, size_t position,
                 const map<vector<int>, double>& genotype_ln_likelihood,
                 const vector<int>& haplotype_traversal,
@@ -349,52 +360,51 @@ public:
                                             const vector<int>& haplotype_traversal,
                                             int called_trav_i, int called_trav_j);
 
-    /// One site's phasing: which strand carries which allele, and which panel haplotype explains
-    /// each strand.
+    /// One site's phasing: which strand carries which allele, and which panel haplotype each
+    /// strand copies there.
     ///
-    /// The allele pair is ordered, and the order is the phase: `allele_first` is on the same
-    /// strand as every other `allele_first` in the same phase set. The haplotype indices are
-    /// what the mosaic output writes; `LinkageModel::WILDCARD` means no panel haplotype explains
-    /// that strand here.
+    /// The pair is ordered, and the order is the phase: the `_first` allele is on the same strand
+    /// as every other `_first` allele in the same phase set.
     struct PhaseCall {
         size_t record_key = 0;
         string contig;
         size_t position = 0;
+        /// The VCF allele on each strand, or `LinkageModel::WILDCARD` where the site's
+        /// traversal-to-allele map was not yet known when the site was phased (see
+        /// `set_allele_map`). A record's GT is phased from `trav_first` and `trav_second`, which
+        /// are always known.
         size_t allele_first = 0;
         size_t allele_second = 0;
-        /// The candidate traversal on each strand: the same pair as `allele_*`, as candidate
-        /// traversal indices rather than compact ones. A child chain's strand is found from
-        /// these, since the parent's crossing mask is indexed by candidate traversal.
+        /// The candidate traversal on each strand. A record's GT is phased from these, and a child
+        /// chain's strand is found from them, since the parent's crossing mask is indexed by
+        /// candidate traversal.
         int trav_first = -1;
         int trav_second = -1;
+        /// The panel haplotype each strand copies here, which the mosaic writes;
+        /// `LinkageModel::WILDCARD` where no panel haplotype explains the strand.
         size_t hap_first = LinkageModel::WILDCARD;
         size_t hap_second = LinkageModel::WILDCARD;
         /// 1 or 2. At 1 only the `_first` fields are meaningful: there is one strand.
         size_t ploidy = 2;
-        /// The site's boundary nodes. The mosaic output locates sites by these rather than by
-        /// reference position, which depends on the reference path.
+        /// The site's boundary nodes. The mosaic locates sites by these, since a reference
+        /// position depends on the reference path.
         int64_t start_node = 0;
         int64_t end_node = 0;
-        /// Identifies the phase block. Phase is only comparable within one.
+        /// The phase set. Phase is comparable only within one.
         size_t phase_set = 0;
         /// For a nested site at ploidy 1, which of the parent's two strands carries it, 0 or 1;
         /// -1 otherwise, including a nested site whose parent could not be found or whose strand
         /// is not determined. The VCF writes it as `a|.` or `.|a`.
         int8_t nested_strand = -1;
-        /// True when nothing ordered the allele pair: the site is heterozygous and no panel
-        /// haplotype on either strand carries either called allele, so `allele_first` is simply
-        /// the smaller index and the written phase is arbitrary.
+        /// True when nothing ordered the pair: the site is heterozygous and no panel haplotype on
+        /// either strand carries either called allele, so the pair is in sorted order and the
+        /// written phase is arbitrary.
         bool order_arbitrary = false;
 
-        /// The site's generation: 0 for a top-level site, 1 for a site in a chain directly inside
-        /// one, and so on. The mosaic writes it, so that a switch of panel haplotype inside a
-        /// nested chain can be told from one between top-level sites.
-        uint8_t depth = 0;
-
-        /// Whether a VCF line exists for this site. A site with no line is still phased, since
-        /// its children need its phase, but it is not a record, so code that counts or changes
-        /// records skips it.
-        bool emitted = true;
+        /// The site's generation (see `SiteContext::generation`). The mosaic writer uses it to
+        /// find where a strand enters or leaves a nested chain, and to leave nested sites out
+        /// under --no-mosaic-nested.
+        uint8_t generation = 0;
     };
 
     /// Run the model per contig and return only the genotypes that changed.
@@ -414,15 +424,16 @@ public:
 
     /// Resolve one generation of sites, holding every earlier generation fixed.
     ///
-    /// Sites of earlier generations are included in the linkage chains but clamped: their
-    /// emission becomes a point mass at their settled genotype, and their phase is pinned. They
-    /// still give this generation's sites neighbours to link to, but cannot change. Later
-    /// generations are not included, since they have not been genotyped yet.
+    /// A group's parent, of the generation before, is the one earlier site it holds, and only
+    /// when their ploidies match. It is clamped: its emission becomes a point mass at its settled
+    /// genotype and its phase is pinned, so it starts the group from its settled state and cannot
+    /// change. Later generations are left out, since their ploidies are not known until this
+    /// generation is settled.
     ///
-    /// Each site's `PhaseCall` is produced once, at its own generation. `phasing_out`
-    /// accumulates across calls and must be passed back in each time, since a nested site's
-    /// strand is read from its parent's `PhaseCall`. `last` marks the final call, which sorts
-    /// `phasing_out` for the mosaic output and reports the counters.
+    /// Each site of this generation gets one `PhaseCall`, appended to `phasing_out`, which must be
+    /// passed back in on every call of one barrier pass, since a nested site's strand is read from
+    /// its parent's `PhaseCall`. `last` marks the pass's final generation, whose call sorts
+    /// `phasing_out` into reference order.
     ///
     /// Returns how many sites the model moved off their called genotype.
     size_t resolve_generation(size_t generation, bool last,
@@ -458,13 +469,11 @@ public:
     /// exists for it.
     ///
     /// Sites are recorded when they are genotyped, before their VCF alleles are chosen, so the
-    /// writer supplies the map when it writes the line. Returns false for an unknown key.
+    /// writer supplies the map when it writes the line, after every site is phased. Returns false
+    /// for an unknown key.
     bool set_allele_map(size_t record_key, const vector<int>& traversal_to_allele, bool emitted);
 
-    /// The keys of every record that ended up with a VCF line.
-    ///
-    /// Read from the entries rather than from the PhaseCalls, whose `emitted` was copied before
-    /// any line was written. Returned as a set, in one pass over the entries.
+    /// The keys of every record that ended up with a VCF line, from `set_allele_map`.
     std::unordered_set<size_t> emitted_records() const;
 
 
@@ -498,11 +507,10 @@ public:
 
     size_t num_sites() const { return entries.size(); }
 
-    /// How many times `record()` filed a site whose key already had a live entry.
-    ///
-    /// `live_index` finds the first live entry for a key, and `retract` retracts only that one, so
-    /// replacing an entry by retracting it and recording again works only when keys are unique.
-    /// A duplicate is counted and reported rather than treated as an error.
+    /// How many times `record()` filed a site under a key that already had a live entry, as a
+    /// snarl recorded twice, or two snarls whose names hash alike, would be. `retract` and every
+    /// lookup reach only the first live entry for a key, so the second is decoded but cannot be
+    /// replaced. The count is reported with the linkage summary.
     size_t num_duplicate_live_keys() const { return duplicate_live_keys; }
 
     const LinkageModel::Params& model_params() const { return params; }
@@ -563,12 +571,7 @@ private:
         /// This site has no reference position, so `position` is not used for distances. See
         /// `SiteContext::unpositioned`.
         bool unpositioned = false;
-        /// `SiteContext::nested`: the site's ploidy of 1 came from nested descent rather than from
-        /// the contig or a --ploidy-bed region.
-        ///
-        /// A top-level linkage chain is split where the contig's ploidy changes, since strands
-        /// do not correspond across the change. A nested site at ploidy 1 does not split its
-        /// parent's chain, whose phase continues past it.
+        /// `SiteContext::nested`.
         bool nested = false;
         /// For a nested site, the record key of its parent site.
         size_t parent_record_key = 0;

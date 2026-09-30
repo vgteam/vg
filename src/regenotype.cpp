@@ -4,7 +4,6 @@
 #include <cmath>
 #include <limits>
 
-#include "anchor.hpp"
 
 namespace vg {
 
@@ -60,7 +59,7 @@ static inline void tilted_weights(double w0, double w1, const ReadTilt& t, doubl
 
 void merge_counters(const RegenotypeCounters& from, RegenotypeCounters& into) {
     into.reads_with_lambda += from.reads_with_lambda;
-    into.reads_multi_block += from.reads_multi_block;
+    into.reads_multi_phase_set += from.reads_multi_phase_set;
     into.reads_singleton += from.reads_singleton;
     into.sites_considered += from.sites_considered;
     into.sites_corrected += from.sites_corrected;
@@ -92,12 +91,12 @@ double calibrated_log_odds(double lambda, double temper, double ceiling) {
     return log(p / (1.0 - p));
 }
 
-double site_read_log_odds(double q0, double p) {
-    // The read reports the true slot with probability p and a coin flip otherwise, so neither side
-    // reaches 0 while p < 1, and a mismapped read contributes little.
-    const double half = 0.5 * (1.0 - p);
-    const double a = p * q0 + half;
-    const double b = p * (1.0 - q0) + half;
+double site_read_log_odds(double q0, double c) {
+    // The read reports the true slot with probability c and a coin flip otherwise, so neither side
+    // reaches 0 while c < 1, and a mismapped read contributes little.
+    const double half = 0.5 * (1.0 - c);
+    const double a = c * q0 + half;
+    const double b = c * (1.0 - q0) + half;
     if (!(a > 0.0) || !(b > 0.0)) {
         return 0.0;
     }
@@ -109,7 +108,7 @@ void site_own_log_odds(const PhaseSite& site, bool flipped, unordered_map<uint64
     out.reserve(site.read_key.size() * 2);
     const double sign = flipped ? -1.0 : 1.0;
     for (size_t i = 0; i < site.read_key.size(); ++i) {
-        const double l = sign * site_read_log_odds((double)site.q0[i], (double)site.p[i]);
+        const double l = sign * site_read_log_odds((double)site.q0[i], (double)site.c[i]);
         // One entry per read key: paired mates share a key and lie on one strand. Keeping the first
         // matches what `accumulate_lambda` adds, so the subtraction cancels it exactly.
         out.emplace(site.read_key[i], l);
@@ -127,7 +126,7 @@ void accumulate_lambda(const vector<PhaseSite>& sites, const unordered_set<size_
                 rl.phase_set = site.phase_set;
             } else if (rl.phase_set != site.phase_set) {
                 // Two phase sets label their strands independently, so there is no sum to take.
-                rl.multi_block = true;
+                rl.multi_phase_set = true;
             }
             rl.lambda += kv.second;
             ++rl.sites;
@@ -135,7 +134,7 @@ void accumulate_lambda(const vector<PhaseSite>& sites, const unordered_set<size_
     }
     for (const auto& kv : out) {
         ++counters.reads_with_lambda;
-        counters.reads_multi_block += kv.second.multi_block ? 1 : 0;
+        counters.reads_multi_phase_set += kv.second.multi_phase_set ? 1 : 0;
         counters.reads_singleton += kv.second.sites <= 1 ? 1 : 0;
     }
 }
@@ -152,7 +151,7 @@ void fit_calibration(const vector<PhaseSite>& sites, const unordered_set<size_t>
         site_own_log_odds(site, flipped.count(site.record_key) != 0, own);
         for (const auto& kv : own) {
             auto found = lambda.find(kv.first);
-            if (found == lambda.end() || found->second.multi_block) {
+            if (found == lambda.end() || found->second.multi_phase_set) {
                 continue;
             }
             const double loo = found->second.lambda - kv.second;
@@ -239,7 +238,7 @@ static bool read_loo(const PhaseReadEvidence& ev, const LambdaTable& lambda,
     bool any = false;
     for (size_t r = 0; r < ev.num_reads(); ++r) {
         auto found = lambda.find(ev.read_key[r]);
-        if (found == lambda.end() || found->second.multi_block) {
+        if (found == lambda.end() || found->second.multi_phase_set) {
             continue;
         }
         double v = found->second.lambda;
@@ -385,7 +384,7 @@ bool phase_aware_correction(const PhaseReadEvidence& ev, const LambdaTable& lamb
         // Weights follow the allele, not the slot, so the uncorrected mixture does not change when
         // the pair is reordered; otherwise the larger of the two orders would favour one for a
         // reason unrelated to phase.
-        const vector<double> w = site_slot_weights(ev.allele_length, ev.n_alleles,
+        const vector<double> w = allele_length_weights(ev.allele_length, ev.n_alleles,
                                                    ev.mean_read_length, ev.length_weighted,
                                                    vector<int>{a, b});
         if (w.size() != 2) {

@@ -58,8 +58,8 @@ using SymbolicAllele = vector<SymbolicStep>;
  * Project a traversal of `site` into symbolic form.
  *
  * Walks the traversal and, wherever a visit enters a child chain of `site`, emits one symbol for
- * that chain and resumes at the visit that leaves it. A visit that is to a Snarl rather than to a
- * node is taken as a symbol directly.
+ * that chain and resumes at the visit that leaves it. A SnarlTraversal visit can name a child
+ * snarl instead of a node, and such a visit becomes a symbol directly.
  *
  * A chain entered but not left within the traversal, as in a malformed or cyclic traversal, is
  * emitted as a plain node step, so that the rest of the traversal is not lost; losing it could
@@ -74,12 +74,12 @@ SymbolicAllele symbolic_allele(const SnarlTraversal& trav, const Snarl& site,
                                const SnarlManager& snarl_manager,
                                vector<pair<int, int>>* out_visit_ranges = nullptr);
 
-/// Whether `site` resolves to a snarl the manager knows, which is needed to recognise its child
-/// chains. When false, projection gives the plain node list with no symbols; this happens for a
-/// snarl that `flip_snarl` reversed because the reference path runs backwards through it.
+/// Whether `site`, as given or reversed, is a snarl the manager knows, which is needed to
+/// recognise its child chains. When false, projection gives the plain node list with no symbols.
 ///
 /// `out_reversed`, when given, reports whether the site resolved only with its boundaries swapped,
-/// that is, whether `flip_snarl` reversed it.
+/// as a snarl does that `flip_snarl` reversed because the reference path runs backwards through
+/// it.
 bool symbolic_site_resolvable(const Snarl& site, const SnarlManager& snarl_manager,
                               bool* out_reversed = nullptr);
 
@@ -123,7 +123,7 @@ struct DiffBlock {
  *
  * The dynamic program runs inside Ukkonen's band, in O((|ref| + |alt|) x D) time and
  * O(|ref| x D) space, where D is the edit distance, so its cost grows with the difference between
- * the two alleles rather than with their length. `out_degraded`, when given, is always set false.
+ * the two alleles rather than with their length.
  *
  * `out_alt_before_ref`, when given, is filled with |ref| + 1 entries: entry i is the number of alt
  * steps consumed before reference step i, not counting any inserted at boundary i. It turns a
@@ -131,7 +131,6 @@ struct DiffBlock {
  * haplotypes' alleles over one reference span.
  */
 vector<DiffBlock> symbolic_diff(const SymbolicAllele& ref, const SymbolicAllele& alt,
-                                bool* out_degraded = nullptr,
                                 vector<int>* out_alt_before_ref = nullptr);
 
 /// For logging and tests.

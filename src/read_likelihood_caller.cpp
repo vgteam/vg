@@ -51,7 +51,7 @@ double ReadLikelihoodSnarlCaller::explained_share(const ReadLikelihoodCallInfo& 
             explained += info.allele_support[a];
         }
     }
-    const size_t n = info.n_informative;
+    const size_t n = info.n_reads;
     // Clamped, since rounding in the fractional counts can take the sum just above the read
     // count, and a share above 1 would raise GQ.
     return n ? min(1.0, explained / (double)n) : 1.0;
@@ -155,7 +155,7 @@ pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> ReadLikelihoodSnarlCaller::
     }
     call_info->mean_best_ln = best_ln_n ? best_ln_total / (double)best_ln_n : 0.0;
 
-    call_info->n_informative = matrix.num_reads();
+    call_info->n_reads = matrix.num_reads();
     call_info->scored_traversals.assign(traversals.begin(), traversals.end());
     // Kept for later: the anchors are built when the record is rendered, from the settled
     // genotype.
@@ -304,7 +304,7 @@ pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> ReadLikelihoodSnarlCaller::
         matrix.scale_depth_rate((double)ploidy / (double)other);
         auto alt = make_unique<ReadLikelihoodCallInfo>();
         // Copy the fields that depend only on the matrix, not on the ploidy.
-        alt->n_informative = call_info->n_informative;
+        alt->n_reads = call_info->n_reads;
         alt->scored_traversals = call_info->scored_traversals;
         alt->allele_support = call_info->allele_support;
         // BL, also a property of the matrix.
@@ -338,7 +338,7 @@ void ReadLikelihoodSnarlCaller::update_vcf_info(const Snarl& snarl,
 
     // Number of informative reads at the site.
     variant.format.push_back("DP");
-    variant.samples[sample_name]["DP"].push_back(std::to_string(info->n_informative));
+    variant.samples[sample_name]["DP"].push_back(std::to_string(info->n_reads));
 
     // Mean absolute fit. The model does not use it, but it says whether the reads fit any
     // allele, which GQ does not, so a filter can combine the two.
@@ -498,7 +498,7 @@ void ReadLikelihoodSnarlCaller::update_vcf_info(const Snarl& snarl,
     // Low-confidence records are marked, not dropped: the linkage model rewrites genotypes in
     // VCFOutputCaller::write_variants after this runs, and may fix them.
     variant.filter = "PASS";
-    if (info->n_informative == 0) {
+    if (info->n_reads == 0) {
         variant.filter = "noreads";
     } else if (min_confidence > 0.0 && info->gq_fraction >= 0.0
                && info->gq_fraction < min_confidence) {

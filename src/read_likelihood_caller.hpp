@@ -37,9 +37,9 @@ using namespace std;
  * VCFOutputCaller::emit_variant merges alleles with the same sequence and drops
  * uncalled ones before calling update_vcf_info, so the traversal indices it passes
  * do not match the matrix. This caller keeps the traversals it scored in its
- * CallInfo and matches each remaining traversal to one of them node by node. An
- * allele with no match, such as the empty traversal of a star allele, gets no GL
- * entry.
+ * CallInfo and matches each remaining traversal to one of them node by node. A
+ * record with an allele that matches none, such as the empty traversal of a star
+ * allele, is written without GL, since GL needs an entry for every genotype.
  */
 class ReadLikelihoodSnarlCaller : public SupportBasedSnarlCaller {
 public:
@@ -53,12 +53,14 @@ public:
     struct ReadLikelihoodCallInfo : public SnarlCaller::CallInfo {
         virtual ~ReadLikelihoodCallInfo() = default;
 
-        /// Phred-scaled gap between the best and second-best genotype.
+        /// Phred-scaled gap between the best and second-best genotype, times the discounts
+        /// (see `discounted_gq`). Written as GQ.
         double gq = 0;
-        /// ln posterior of the called genotype under a uniform prior.
+        /// ln posterior, under a uniform prior over genotypes, of the genotype with the
+        /// highest likelihood. Written as GP.
         double posterior = 0;
-        /// The number of reads in the site's matrix.
-        size_t n_informative = 0;
+        /// The number of reads in the site's matrix. Written as DP.
+        size_t n_reads = 0;
         /// The ploidy this site was genotyped at.
         int ploidy = 2;
 
@@ -79,10 +81,12 @@ public:
         /// deduplicated traversals handed to update_vcf_info can be mapped back.
         vector<SnarlTraversal> scored_traversals;
 
-        /// Per-read anchor evidence with --anchors-out, and per-read phasing evidence with
-        /// read phasing; null otherwise. Both depend on the matrix, not on the ploidy, so when
-        /// the barrier replaces this CallInfo with `alt_ploidy_info` it must move them across.
+        /// Per-read anchor evidence, with --anchors-out; null otherwise. It depends on the
+        /// matrix, not on the ploidy, so when the barrier replaces this CallInfo with
+        /// `alt_ploidy_info` it must move it across.
         unique_ptr<AnchorSiteEvidence> anchor_evidence;
+        /// Per-read phasing evidence, with read phasing and no anchors; null otherwise. Moved
+        /// across like `anchor_evidence`.
         unique_ptr<PhaseReadEvidence> phase_evidence;
 
         /// `genotype_lls` as the sweep computed them, before re-genotyping corrected them.
@@ -96,9 +100,9 @@ public:
         /// them.
         vector<double> allele_support;
 
-        /// Mean over reads of the best raw score any allele gave them, the row divisor. It
-        /// says whether the reads fit any allele here, where GQ says how far apart the top
-        /// two genotypes are. Written as BL.
+        /// Mean over reads of the best log-likelihood score any allele gave them, in nats,
+        /// the row divisor. It says whether the reads fit any allele here, where GQ says how
+        /// far apart the top two genotypes are. Written as BL.
         double mean_best_ln = 0;
 
         /// Fraction of reads whose best-fitting allele is one of the called alleles,
@@ -108,7 +112,8 @@ public:
 
         /// Observed reads over the number the called genotype predicts, from the local
         /// rate and the lengths of the called alleles; 1.0 when the two agree. Written as DR
-        /// whether or not the depth term is on. Negative when unavailable.
+        /// whether or not the depth term is on. Negative, and not written, where no read
+        /// begins in the rate window.
         double depth_ratio = -1.0;
 
         /// GQ before the explained-share discount. Written as GQI.
@@ -118,12 +123,13 @@ public:
         /// it does not apply.
         double depth_discount = 1.0;
 
-        /// The likelihood difference between the called genotype and the runner-up, as a
-        /// fraction of the largest difference the site could give (see
-        /// AlleleReadLikelihoods::achievable_gap). In [0, 1], and comparable across depths
-        /// and ploidies. Negative when there was nothing to normalise (no reads, or only one
-        /// possible genotype), which is different from 0. Written as GQN, except on records
-        /// whose genotype the linkage model changed, which get a GQN of their own.
+        /// The ln-likelihood difference between the called genotype and the runner-up, as a
+        /// fraction of the largest difference the read term could give between the two (see
+        /// AlleleReadLikelihoods::achievable_gap), held at 1 or less and multiplied by the
+        /// explained share. In [0, 1], and comparable across depths and ploidies. Negative
+        /// when there was nothing to normalise (no reads, or only one possible genotype),
+        /// which is different from 0. Written as GQN, except on records whose genotype the
+        /// linkage model changed, which get a GQN of their own.
         double gq_fraction = -1.0;
 
     };
@@ -156,10 +162,11 @@ public:
     /**
      * Skip no allele when read support is unavailable.
      *
-     * The inherited version skips alleles whose read support is below a threshold,
-     * to keep VCFTraversalFinder's enumeration small at dense sites. Without a pack
-     * file the support finder reports zero everywhere, so it would skip every allele.
-     * With a pack file the inherited version is used.
+     * Only the traversal finder of `vg call -v`, which enumerates the alleles of an
+     * input VCF, asks for this. The inherited version skips alleles whose read support
+     * is below a threshold, to keep that enumeration small at dense sites. Without a
+     * pack file the support finder reports zero everywhere, so it would skip every
+     * allele. With a pack file the inherited version is used.
      */
     virtual function<bool(const SnarlTraversal&, int iteration)> get_skip_allele_fn() const;
 

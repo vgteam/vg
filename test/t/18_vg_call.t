@@ -743,7 +743,7 @@ is $(if [ $(wc -l < rl_ra.vcf | tr -d ' ') -gt 0 ]; then echo 1; else echo 0; fi
 
 rm -f rl_ra.vcf
 
-# Only an explicit --realign selects the optimal walk. Both walks are tested in
+# Only an explicit --realign selects optimal pairing. Both pairings are tested in
 # src/unittest/allele_likelihood_scoring.cpp, since this fixture cannot tell them apart. Here we
 # check that the --preset help, which lists every setting a preset applies, does not list it.
 is $(vg call --help 2>&1 | grep -A4 -- "--preset NAME" | grep -c -- "--hp-prior 20") "1" \

@@ -56,7 +56,7 @@ static const char* const g_atomize_refuse_name[10] = {
     "no reference traversal",
     "the snarl does not resolve",
     "the reference projection is empty",
-    "the alignment degraded",
+    "the alignment's reference-to-alt step map has the wrong length",
     "no difference blocks: every called haplotype takes the reference route here",
     "an indel needs an anchor base and the snarl has none to its left",
     "the visit left of the anchor has no sequence",
@@ -481,14 +481,14 @@ void VCFOutputCaller::set_linkage(LinkageCollector* collector, const gbwt::GBWT*
     this->linkage_sequence_to_haplotype = sequence_to_haplotype;
     this->linkage_panel_size = collector != nullptr ? collector->panel_size() : 0;
     this->linkage_gbwt_cache.clear();
-    this->linkage_gbwt_cache_anchor.clear();
+    this->linkage_gbwt_cache_origin.clear();
     if (gbwt != nullptr) {
         // One per thread, built here so the parallel region never allocates one.
         this->linkage_gbwt_cache.reserve(omp_get_max_threads());
         for (int i = 0; i < omp_get_max_threads(); ++i) {
             this->linkage_gbwt_cache.emplace_back(*gbwt);
         }
-        this->linkage_gbwt_cache_anchor.assign(omp_get_max_threads(), 0);
+        this->linkage_gbwt_cache_origin.assign(omp_get_max_threads(), 0);
     }
 }
 
@@ -514,14 +514,14 @@ vector<int> VCFOutputCaller::panel_alleles(const HandleGraph& graph,
     // earlier window, so the cache is cleared when the site moves more than a fetch window past
     // where it was filled. Adjacent snarls still share records, and the cache stays to about one
     // window.
-    if (cached && (size_t)thread < linkage_gbwt_cache_anchor.size() && !travs.empty()) {
+    if (cached && (size_t)thread < linkage_gbwt_cache_origin.size() && !travs.empty()) {
         static const nid_t CACHE_ANCHOR_SPAN = 4096;
         nid_t lead = 0;
         for (int64_t i = 0; i < travs[0].visit_size() && lead == 0; ++i) {
             lead = travs[0].visit(i).node_id();
         }
         if (lead != 0) {
-            nid_t& anchor = linkage_gbwt_cache_anchor[thread];
+            nid_t& anchor = linkage_gbwt_cache_origin[thread];
             if (anchor == 0 || lead > anchor + CACHE_ANCHOR_SPAN
                 || lead + CACHE_ANCHOR_SPAN < anchor) {
                 linkage_gbwt_cache[thread].clearCache();
@@ -806,7 +806,7 @@ double VCFOutputCaller::read_strand_log_odds(size_t record_key, const string& re
     }
     const uint64_t key = (uint64_t)std::hash<string>{}(read_name);
     const auto found = render_lambda.find(key);
-    if (found == render_lambda.end() || found->second.multi_block) {
+    if (found == render_lambda.end() || found->second.multi_phase_set) {
         // No table, or the read is in more than one phase set, whose strands do not correspond.
         return 0.0;
     }
@@ -833,16 +833,15 @@ double VCFOutputCaller::read_strand_log_odds(size_t record_key, const string& re
 }
 
 void VCFOutputCaller::build_render_phases() {
-    // Built between the barrier and the render, from the phasing the barrier accumulated. Sites
-    // with no line are included; they are simply never looked up.
+    // Built from the phasing the barrier accumulated, as read phasing left it. Sites with no line
+    // are included; they are simply never looked up.
     render_phases.clear();
     if (!emit_phasing) {
         return;
     }
     render_phases.reserve(linkage_phased.size() * 2);
     for (const LinkageCollector::PhaseCall& pc : linkage_phased) {
-        // The last one written wins, which is the later generation: a site revised at the barrier
-        // gets a second PhaseCall describing the genotype it ends with.
+        // Where a site has more than one PhaseCall, the last one written wins.
         render_phases[pc.record_key] = pc;
     }
 }
@@ -1565,8 +1564,8 @@ void VCFOutputCaller::write_mosaic(const vector<LinkageCollector::PhaseCall>& ph
                 // parent is always recorded, so a site deeper than the one before it is inside that
                 // one. Comparing node IDs would fail wherever IDs do not follow the walk, as in an
                 // inversion.
-                const bool entering = nx.depth > b.depth;
-                const bool leaving = nx.depth < b.depth;
+                const bool entering = nx.generation > b.generation;
+                const bool leaving = nx.generation < b.generation;
                 // A right extension needs this segment to be walkable.
                 bool right = false;
                 if (p != gbwt::invalid_edge()) {
@@ -1896,7 +1895,7 @@ void VCFOutputCaller::write_mosaic(const vector<LinkageCollector::PhaseCall>& ph
                 // route and a consumer counting recombinations may not want it. Dropping the nested
                 // sites merges the runs across them, so the walk follows the parent's haplotype
                 // through the child snarl. The header records which was done.
-                if (!keep_nested && phasing[t].depth > 0) {
+                if (!keep_nested && phasing[t].generation > 0) {
                     continue;
                 }
                 // A stretch the panel cannot explain with few switches: the wildcard. Its alleles may
@@ -2736,11 +2735,7 @@ VCFOutputCaller::ChainInlineContext VCFOutputCaller::build_chain_inline_context(
         }
         ChainInlineContext::Alt alt;
         alt.salt = symbolic_allele(travs[allele], snarl, *symbolic_manager);
-        bool degraded = false;
-        alt.blocks = symbolic_diff(ctx.sref, alt.salt, &degraded);
-        if (degraded) {
-            return ctx;   // no reliable block structure, so no reliable conclusion
-        }
+        alt.blocks = symbolic_diff(ctx.sref, alt.salt);
         ctx.alts.push_back(std::move(alt));
     }
     ctx.usable = true;
@@ -2946,9 +2941,8 @@ int VCFOutputCaller::emit_block_records(const PathPositionHandleGraph& graph, co
         }
         haps[s].sym = symbolic_allele(called_traversals[genotype[s]], snarl, *symbolic_manager,
                                       &haps[s].ranges);
-        bool degraded = false;
-        haps[s].blocks = symbolic_diff(sref, haps[s].sym, &degraded, &haps[s].alt_before_ref);
-        if (degraded || haps[s].alt_before_ref.size() != m + 1) {
+        haps[s].blocks = symbolic_diff(sref, haps[s].sym, &haps[s].alt_before_ref);
+        if (haps[s].alt_before_ref.size() != m + 1) {
             ++atomize_counters.refuse[4];
             return -1;
         }
@@ -5174,50 +5168,6 @@ int64_t FlowCaller::base_offset_of_child(const SnarlTraversal& trav, const Snarl
     return bases;
 }
 
-vector<int> FlowCaller::sibling_order(const SnarlTraversal& first, const SnarlTraversal& second,
-                                      const vector<const Snarl*>& children) {
-    const size_t n = children.size();
-    vector<int> off_a(n, -1), off_b(n, -1);
-    for (size_t c = 0; c < n; ++c) {
-        if (children[c] == nullptr) {
-            continue;
-        }
-        off_a[c] = offset_of_child(first, *children[c]);
-        off_b[c] = offset_of_child(second, *children[c]);
-    }
-    // Each traversal's own children, in the order it visits them.
-    vector<size_t> a, b;
-    for (size_t c = 0; c < n; ++c) {
-        if (off_a[c] >= 0) { a.push_back(c); }
-        if (off_b[c] >= 0) { b.push_back(c); }
-    }
-    std::sort(a.begin(), a.end(), [&](size_t x, size_t y) { return off_a[x] < off_a[y]; });
-    std::sort(b.begin(), b.end(), [&](size_t x, size_t y) { return off_b[x] < off_b[y]; });
-
-    vector<int> order(n, -1);
-    size_t i = 0, j = 0;
-    int idx = 0;
-    auto shared = [&](size_t c) { return off_a[c] >= 0 && off_b[c] >= 0; };
-    while (i < a.size() || j < b.size()) {
-        if (i < a.size() && !shared(a[i])) {
-            order[a[i]] = idx++; ++i;                 // private to `first`
-        } else if (j < b.size() && !shared(b[j])) {
-            order[b[j]] = idx++; ++j;                 // private to `second`
-        } else if (i < a.size() && j < b.size() && a[i] == b[j]) {
-            order[a[i]] = idx++; ++i; ++j;            // an anchor, crossed by both
-        } else if (i < a.size()) {
-            // The shared children are in different orders, which a DAG should not produce. Placing
-            // `first`'s remaining children keeps the order total and deterministic.
-            if (order[a[i]] < 0) { order[a[i]] = idx++; }
-            ++i;
-        } else {
-            if (order[b[j]] < 0) { order[b[j]] = idx++; }
-            ++j;
-        }
-    }
-    return order;
-}
-
 uint64_t FlowCaller::child_crossing_mask(const vector<TraversalNodeIndex>& visits,
                                          const Snarl& child, bool* known) {
     if (known != nullptr) {
@@ -5264,8 +5214,8 @@ int FlowCaller::child_ploidy(const vector<TraversalNodeIndex>& visits, const vec
     return min(copies, cap);
 }
 
-void FlowCaller::set_defer_nested_descent(bool defer) {
-    this->defer_nested_descent = defer;
+void FlowCaller::set_settle_after_sweep(bool defer) {
+    this->settle_after_sweep = defer;
     if (defer) {
         // Sized here rather than inside the parallel region that writes it.
         size_t threads = max((size_t)get_thread_count(), (size_t)omp_get_max_threads());
@@ -5295,9 +5245,9 @@ size_t FlowCaller::render_record_count() const {
     return total_queued(render_records);
 }
 
-/// Stage the inputs a record is rendered from, for a snarl the barrier will not revise: the
-/// traversals, the genotype over them, and the CallInfo, which update_vcf_info needs to map the
-/// written alleles back to matrix columns, index GL and compute QUAL.
+/// Stage what a top-level site's record is rendered from: the genotype, and the CallInfo, which
+/// update_vcf_info needs to map the written alleles back to matrix columns, index GL and compute
+/// QUAL. The caller adds the traversals once descent is done.
 unique_ptr<FlowCaller::PendingRecord> FlowCaller::stage_render_record(
         const Snarl& snarl, const vector<int>& trav_genotype, int ref_trav_idx,
         unique_ptr<SnarlCaller::CallInfo>& call_info,
@@ -5322,14 +5272,14 @@ unique_ptr<FlowCaller::PendingRecord> FlowCaller::stage_render_record(
 
 pair<string, size_t> FlowCaller::site_ref_key(const Snarl& snarl, const string& ref_path_name,
                                              int ref_offset, bool no_reference,
-                                             int64_t anchor_position) const {
+                                             int64_t position_from_parent) const {
     // The position before flattening, with the contig as the VCF names it: the flattened POS
     // depends on the alleles the line carries, and the model uses the position only for order and
     // distance. `get_ref_position` names the base path, as in "CHM13#0#chr20", so it is reduced to
     // "chr20". A snarl without a reference path gets its anchor position instead, since
     // `get_ref_interval` asserts on a snarl the path does not pass through.
     pair<string, int64_t> pos_info =
-        no_reference ? make_pair(ref_path_name, anchor_position)
+        no_reference ? make_pair(ref_path_name, position_from_parent)
                      : get_ref_position(graph, snarl, ref_path_name, ref_offset);
     const string locus = PathMetadata::parse_locus_name(pos_info.first);
     if (locus != PathMetadata::NO_LOCUS_NAME) {
@@ -5342,7 +5292,7 @@ void FlowCaller::record_site(const Snarl& snarl, const vector<SnarlTraversal>& t
                             const vector<int>& trav_genotype,
                             const unique_ptr<SnarlCaller::CallInfo>& call_info, int ref_trav_idx,
                             const string& ref_path_name, int ref_offset,
-                            bool no_reference, int64_t anchor_position) {
+                            bool no_reference, int64_t position_from_parent) {
     if (linkage_collector == nullptr) {
         return;
     }
@@ -5369,7 +5319,7 @@ void FlowCaller::record_site(const Snarl& snarl, const vector<SnarlTraversal>& t
     // used for distances. `get_ref_position` cannot be used for such a chain, since
     // `get_ref_interval` asserts on a snarl the path does not pass through.
     const pair<string, size_t> ref_key =
-        site_ref_key(snarl, ref_path_name, ref_offset, no_reference, anchor_position);
+        site_ref_key(snarl, ref_path_name, ref_offset, no_reference, position_from_parent);
     const int called_i = trav_genotype[0];
     const int called_j = site_ploidy > 1 ? trav_genotype[1] : called_i;
     // No allele map yet: the written alleles are chosen when the record is built, and
@@ -5386,7 +5336,7 @@ void FlowCaller::record_site(const Snarl& snarl, const vector<SnarlTraversal>& t
         // `nested` only when one copy of the chain is present, as for any other chain; a chain with
         // two copies joins its parent's diploid group.
         LinkageCollector::SiteContext{
-            .nested = nested_context.active,
+            .nested = nested_context.one_copy,
             .parent_record_key = nested_context.parent_record_key,
             .parent_crossing = nested_context.parent_crossing,
             .generation = current_generation,
@@ -5507,7 +5457,7 @@ vector<FlowCaller::PendingRecord*> FlowCaller::records_for_render(bool for_phasi
     return out;
 }
 
-/// The per-read evidence both read-phasing passes need, from whichever form the site kept. Under
+/// The per-read evidence read phasing and re-genotyping need, from whichever form the site kept. Under
 /// --anchors-out the site keeps only the anchor evidence, which is converted into `scratch`.
 /// `scratch` must outlive the returned pointer.
 static const PhaseReadEvidence* phase_evidence_of(
@@ -5542,8 +5492,7 @@ void FlowCaller::apply_read_phasing() {
     // Reset, since re-genotyping calls this again on the new genotypes, and the report should
     // describe the phase the output carries.
     read_phasing_counters = ReadPhasingCounters();
-    // Index the phasing by record key, the last one written winning, as in `build_render_phases`:
-    // a site revised at a later generation has two PhaseCalls, and the later one is current.
+    // Index the phasing by record key, the last one written winning, as in `build_render_phases`.
     std::unordered_map<size_t, size_t> phase_index;
     for (size_t i = 0; i < linkage_phased.size(); ++i) {
         phase_index[linkage_phased[i].record_key] = i;
@@ -5584,7 +5533,7 @@ void FlowCaller::apply_read_phasing() {
             // Slot order is the PhaseCall's order, so slot 0 is strand 0, as for GT's first field and
             // the anchor file's slot column.
             const vector<double> weight =
-                site_slot_weights(pe->allele_length, pe->n_alleles, pe->mean_read_length,
+                allele_length_weights(pe->allele_length, pe->n_alleles, pe->mean_read_length,
                                   pe->length_weighted, vector<int>{(int)a0, (int)a1});
             PhaseSite site;
             site.record_key = rec.record_key;
@@ -5602,7 +5551,7 @@ void FlowCaller::apply_read_phasing() {
                 }
                 site.read_key.push_back(pe->read_key[r]);
                 site.q0.push_back((float)(r0 / inside));
-                site.p.push_back((float)(inside / (inside + e)));
+                site.c.push_back((float)(inside / (inside + e)));
                 const double win = max(r0, r1) / (inside + e);
                 const double rest = max(1.0 - win, 1e-12);
                 score_sum += -10.0 * std::log10(rest);
@@ -5929,7 +5878,7 @@ bool FlowCaller::apply_regenotyping() {
     cerr << "[vg call] re-genotyping: temper " << temper << ", ceiling " << ceiling << ", "
          << c.reads_with_lambda
          << " reads carry a strand log-odds (" << c.reads_singleton
-         << " span one site, so are inert; " << c.reads_multi_block << " span two blocks), "
+         << " span one site, so are inert; " << c.reads_multi_phase_set << " span two blocks), "
          << c.sites_corrected << " of " << c.sites_considered << " sites corrected, "
          << c.sites_would_move << " would move (" << c.moved_hom_to_het << " hom->het, "
          << c.moved_het_to_hom << " het->hom, " << c.moved_het_to_het << " het->het), "
@@ -5992,11 +5941,10 @@ void FlowCaller::regenotype_resettle() {
     cerr << "[vg call] re-genotyping: " << rescored << " sites re-scored into the layer, "
          << refused << " refused for want of a live entry or a compactable space" << endl;
     // The barrier again, in full.
-    run_deferred_descent();
+    run_barrier();
 }
 
-void FlowCaller::render_retained_records() {
-    // Read phasing first, since `build_render_phases` then indexes the phase it leaves.
+void FlowCaller::phase_and_regenotype() {
     apply_read_phasing();
     // Then re-genotyping from the phase. Each round: the current phase gives every read its strand
     // log-odds, the correction rescores every site from the sweep's likelihoods, the barrier
@@ -6062,6 +6010,9 @@ void FlowCaller::render_retained_records() {
         // One pass: compute and report the correction, and keep nothing.
         apply_regenotyping();
     }
+}
+
+void FlowCaller::render_retained_records() {
     // Each read's strand log-odds, for the anchors collected during the render and the hand-off.
     // `phase_sites` and `phase_flips` are final here.
     build_render_lambda();
@@ -6107,8 +6058,8 @@ void FlowCaller::render_retained_records() {
     }
 }
 
-void FlowCaller::run_deferred_descent() {
-    if (!defer_nested_descent) {
+void FlowCaller::run_barrier() {
+    if (!settle_after_sweep) {
         return;
     }
     // Descent already happened during the sweep. What is left is to settle the chains in the order
@@ -6347,7 +6298,7 @@ void FlowCaller::run_deferred_descent() {
                 const vector<int>& trav_to_allele_vec = no_allele_map;
                 const pair<string, size_t> key =
                     site_ref_key(pr.snarl, pr.ref_path_name, pr.ref_offset, pr.no_reference,
-                                 pr.anchor_position);
+                                 pr.position_from_parent);
                 int called_i = use_genotype.empty() ? -1 : use_genotype[0];
                 int called_j = use_genotype.size() > 1 ? use_genotype[1] : called_i;
                 const vector<int>& panel = cached_panel_alleles(pr);
@@ -6492,7 +6443,7 @@ void FlowCaller::run_deferred_descent() {
         // are the top-level ones and the children RecurseOnFail reaches without a ploidy override.
         for (const PhaseSite& ps : phase_sites) {
             retained_bytes += sizeof(PhaseSite) + ps.read_key.capacity() * sizeof(uint64_t)
-                              + ps.q0.capacity() * sizeof(float) + ps.p.capacity() * sizeof(float);
+                              + ps.q0.capacity() * sizeof(float) + ps.c.capacity() * sizeof(float);
         }
         retained_bytes += phase_flips.size() * (sizeof(size_t) + 16);
         cerr << "[vg call] retained for rendering: " << render_record_count()
@@ -6526,7 +6477,7 @@ void FlowCaller::run_deferred_descent() {
 }
 
 void FlowCaller::hand_off_deferred_records() {
-    if (!defer_nested_descent) {
+    if (!settle_after_sweep) {
         return;
     }
     vector<PendingRecord>& pending = deferred_pending;
@@ -7023,7 +6974,7 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
             // Staged, not emitted, as at top level: the line is written after the barrier, from the
             // settled genotype. `added` is what emit_variant would have returned; it only gates
             // recursion.
-            added = defer_nested_descent && !pending_records.empty();
+            added = settle_after_sweep && !pending_records.empty();
             if (!added) {
                 added = emit_variant(graph, snarl_caller, snarl, travs, trav_genotype, ref_trav_idx,
                                      trav_call_info, ref_path_name, ref_offset_of(ref_offsets, ref_path_name),
@@ -7039,7 +6990,7 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
 
         // Kept for the barrier, but staged: `travs` is not moved here, since descent below reads it
         // to find which children the called alleles reach. It is moved once descent is done.
-        if (defer_nested_descent && !pending_records.empty()) {
+        if (settle_after_sweep && !pending_records.empty()) {
             pending_this.reset(new PendingRecord());
             pending_this->snarl = snarl;
             pending_this->ref_path_name = ref_path_name;
@@ -7053,9 +7004,9 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
             pending_this->chain_key = nested_context.chain_key;
             pending_this->no_reference = no_ref_position;
             pending_this->reported_inline = nested_context.reported_inline;
-            pending_this->anchor_position =
+            pending_this->position_from_parent =
                 no_ref_position ? get<0>(ref_interval) + ref_offset_of(ref_offsets, ref_path_name)
-                                      + (int64_t)nested_context.anchor_offset
+                                      + (int64_t)nested_context.parent_offset
                                 : 0;
             pending_this->crossing_known = nested_context.crossing_known;
             pending_this->generation = (uint8_t)min(current_generation, (size_t)255);
@@ -7140,7 +7091,7 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
                     // in memory, since the linkage model may move the parent onto an allele that
                     // does reach it. Nothing about it is written unless the barrier says so.
                     ++descent_counters.skipped_no_copy;
-                    if (!defer_nested_descent) {
+                    if (!settle_after_sweep) {
                         continue;   // without retention there is nothing to come back to
                     }
                     retain_only = true;
@@ -7149,7 +7100,7 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
                 // Saved and restored, since a child may descend further, and its own children must see
                 // it as their parent.
                 NestedContext saved = nested_context;
-                nested_context.active = (copies == 1);
+                nested_context.one_copy = (copies == 1);
                 nested_context.parent_record_key = record_key_of(snarl);
                 nested_context.retain_only = retain_only;
                 nested_context.no_reference = child_off_reference;
@@ -7167,8 +7118,8 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
                             break;   // the first settled traversal that reaches it
                         }
                     }
-                    nested_context.anchor_offset =
-                        saved.anchor_offset + (size_t)max((int64_t)0, within);
+                    nested_context.parent_offset =
+                        saved.parent_offset + (size_t)max((int64_t)0, within);
                 }
                 nested_context.reported_inline = child_reported_inline;
                 // The chain's identity, from its boundary nodes.

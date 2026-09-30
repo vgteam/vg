@@ -32,7 +32,7 @@ static PhaseSite site(size_t key, size_t pos, int which, size_t n_reads = 20,
         const bool upper = i >= n_reads / 2;
         const double q = upper ? 1.0 : 0.0;
         s.q0.push_back((float)(which ? 1.0 - q : q));
-        s.p.push_back(0.95f);
+        s.c.push_back(0.95f);
     }
     return s;
 }

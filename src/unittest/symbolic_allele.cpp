@@ -273,17 +273,6 @@ TEST_CASE("A haplotype crossing a chain inside a difference block does carry it 
     REQUIRE_FALSE(chain_inside);
 }
 
-TEST_CASE("The degradation flag is set only when the DP is refused", "[symbolic_diff]") {
-    bool degraded = true;
-    symbolic_diff(plain({1, 2, 3}), plain({1, 4, 3}), &degraded);
-    REQUIRE_FALSE(degraded);
-
-    // Empty-side cases are handled without the DP but are not degradations: the answer is exact.
-    degraded = true;
-    symbolic_diff(plain({}), plain({1, 2}), &degraded);
-    REQUIRE_FALSE(degraded);
-}
-
 TEST_CASE("Visit ranges partition a chain-free traversal one visit per step", "[symbolic_allele]") {
     Snarl top = make_snarl(1, 5);
     auto mgr = make_manager(top, {});

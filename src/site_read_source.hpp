@@ -25,11 +25,8 @@ namespace vg {
 using namespace std;
 
 /**
- * Which reads are eligible to be used as evidence.
- *
- * `vg pack -Q` sets a minimum mapping quality and a minimum base quality from one value; here
- * there is only the mapping quality, since base qualities are used per base by the scoring
- * rather than to filter reads.
+ * Which reads are used as evidence: those whose mapping quality reaches a minimum. Base qualities
+ * filter nothing, since the scoring weighs each base by its own quality.
  */
 struct SiteReadFilter {
     /// Drop reads with mapping quality below this (--read-min-mapq).
@@ -42,7 +39,7 @@ struct SiteReadFilter {
  * which matters for long reads.
  *
  * `mappings` and `read_offsets` may be null for a source that does not index, and consumers then
- * walk the alignment instead. A null index does not mean that the read touches nothing.
+ * walk the alignment instead.
  */
 struct SiteRead {
     /// The alignment itself. Valid only for the duration of the callback.
@@ -53,8 +50,8 @@ struct SiteRead {
     const uint32_t* mappings = nullptr;
     size_t mapping_count = 0;
 
-    /// Read offset -- summed `to_length` -- before each mapping, indexed by mapping
-    /// index and one longer than the path, or null if this source does not index.
+    /// How many read bases come before each mapping, indexed by mapping index and one
+    /// longer than the path, or null if this source does not index.
     const uint32_t* read_offsets = nullptr;
 
     /// Whether the index is present. Both halves are supplied together or not at all,
@@ -66,8 +63,8 @@ struct SiteRead {
  * Random-access source of read alignments by graph locality.
  *
  * Implementations must be safe for concurrent read access: GraphCaller visits
- * snarls in parallel and in arbitrary order, so several threads will be asking
- * for reads at different sites at the same time. Any loading or index building
+ * snarls on several threads at once, so several threads will be asking for
+ * reads at different sites at the same time. Any loading or index building
  * must happen up front, before calling begins.
  *
  * Reads are handed to a callback rather than returned in a vector so that
@@ -265,9 +262,8 @@ private:
     CacheState& cache_state() const;
 
     /// Hand the entry's reads that touch the ranges to the caller, in the order they
-    /// were fetched. Reads are found through the entry's node index, which is exact:
-    /// a read is listed under node n precisely when it has a mapping onto n, so this
-    /// selects the same set touches() would and needs no second adjudication.
+    /// were fetched. Reads are found through the entry's node index, which lists a read
+    /// under node n exactly when it has a mapping onto n.
     void deliver(const CacheEntry& entry,
                  const vector<pair<nid_t, nid_t>>& ranges,
                  const function<void(const SiteRead&)>& iteratee) const;
@@ -310,8 +306,9 @@ private:
  *
  * * One cursor per thread. Concurrent `find()` calls are safe, but a cursor seeks, so it cannot
  *   be shared. Cursors are created per thread on first use, as `vg chunk` does.
- * * It over-fetches. The index gives only group start offsets, so a query scans groups until a
- *   group's minimum node ID is too large. The windows of the base class limit the cost.
+ * * It over-fetches. The index points to the first group of reads that may touch a node, not to
+ *   the reads themselves, so a query reads groups in file order until their smallest node ID
+ *   passes the query's. The windows of the base class limit the cost.
  */
 class IndexedGamSiteReadSource : public WindowedSiteReadSource {
 public:
@@ -435,18 +432,18 @@ private:
     string gbz_filename;
     string binary;
 
-    /// The most node IDs one child's command line can hold, from sysconf(_SC_ARG_MAX). Static so
-    /// that it is computed once.
+    /// The most node IDs one gbz-base command line can hold: a quarter of sysconf(_SC_ARG_MAX),
+    /// leaving room for the environment and the fixed arguments, over the bytes each node costs
+    /// ("-n" and its digits). Computed once.
     static size_t argv_node_budget();
 
-    /// Node IDs per child process. Each node costs "-n" plus its digits on the command line, so
-    /// the limit comes from ARG_MAX, using a quarter of it to leave room for the environment and
-    /// the fixed arguments. Larger queries are split, and their results de-duplicated.
+    /// Node IDs per gbz-base process. A larger query is split into pieces run side by side.
     size_t max_query_nodes = argv_node_budget();
 
     mutable vector<ThreadState> threads;
     mutable atomic<size_t> queries{0};
-    /// Reads returned more than once by one query, split or not, and dropped.
+    /// Reads one query returned more than once, identified by name and start, and dropped. A
+    /// split query returns a read that spans two of its pieces from both.
     mutable atomic<size_t> duplicates_dropped{0};
 
 public:

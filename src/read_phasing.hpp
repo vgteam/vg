@@ -45,7 +45,7 @@ struct PhaseReadEvidence {
     /// rel(r, a), row major, reads x alleles, row-normalised into [0,1].
     vector<float> rel;
     size_t n_alleles = 0;
-    /// The alleles' spelled lengths and the site's mean read length, for the mixture weights.
+    /// The alleles' full lengths and the site's mean read length, for the allele-length weights.
     vector<uint32_t> allele_length;
     float mean_read_length = 0.0f;
     bool length_weighted = true;
@@ -60,12 +60,22 @@ struct PhaseReadEvidence {
     }
 };
 
+/// The allele-length weights of a site's slots: each slot's expected share of the site's reads,
+/// from the full length of the allele it holds. An allele of length L yields a read of length R
+/// that overlaps the site from L + R - 1 start positions, held at 1 or more. `slot_allele` names
+/// the allele in each slot, so reordering the slots reorders the weights. The weights are flat
+/// when `length_weighted` is false or the lengths are missing.
+vector<double> allele_length_weights(const vector<std::uint32_t>& allele_length, size_t n_alleles,
+                                     float mean_read_length, bool length_weighted,
+                                     const vector<int>& slot_allele);
+
 /**
  * One heterozygous site's read evidence, reduced to its settled pair.
  *
- * For each read, `q0` is the probability that the read carries the allele in slot 0, given that
- * it came from one of the two settled strands, and `p` is the probability that it came from one
- * of them, rather than being mismapped.
+ * For each read, `q0` is the probability that the read carries the allele in slot 0 (strand 0),
+ * given that it came from one of the two settled strands, and `c` is the probability that it came
+ * from one of them, rather than being mismapped. Only reads that fit one of the two alleles at all
+ * are kept.
  */
 struct PhaseSite {
     size_t record_key = 0;
@@ -73,19 +83,19 @@ struct PhaseSite {
     size_t position = 0;
     vector<uint64_t> read_key;
     vector<float> q0;
-    vector<float> p;
-    /// Mean over reads of the phred-scaled probability that the read's better allele is wrong,
-    /// the same score the anchor file writes. Low where the reads cannot tell the two alleles
-    /// apart. A site is reliable when this is at least `ReadPhasingParams::reliability`.
+    vector<float> c;
+    /// Mean over the site's kept reads of the phred-scaled probability that the read's better
+    /// allele is wrong (its confidence). Low where the reads cannot tell the two alleles apart. A
+    /// site is reliable when this is at least `ReadPhasingParams::reliability`.
     double reliability = 0.0;
 };
 
 struct ReadPhasingParams {
     /// A site below this reliability cannot be in the chain (--phase-min-q).
     ///
-    /// A PhaseSite is built only for a diploid heterozygous site, where a perfectly
-    /// discriminating read scores at most phred(e / (e + (1 - e) / 2)) for e = --mismap-min.
-    /// Scores cluster just below this ceiling, so the threshold is sensitive to anything that
+    /// Between two alleles of equal length, a read that fits one perfectly and the other not at
+    /// all scores phred(e / (e + (1 - e) / 2)) for e = --mismap-min, the heterozygous score
+    /// ceiling. Scores cluster just below it, so the threshold is sensitive to anything that
     /// moves them.
     double reliability = 9.5;
     /// Break the chain where the size of a link is below this, in log10 units (--phase-break).
@@ -93,7 +103,8 @@ struct ReadPhasingParams {
     double break_threshold = 20.0;
     /// Chain sites on each side of a break whose links decide it (--phase-relink).
     size_t relink = 10;
-    /// Chain sites to hang an unreliable site from (--phase-hang).
+    /// How many chain sites an unreliable site is hung from (--phase-hang): the nearest
+    /// hang / 2 + 1 on each side.
     size_t hang = 4;
     /// Weight, in log10 units, of a vote for the panel's order when hanging a site
     /// (--phase-prior).
@@ -106,10 +117,11 @@ struct ReadPhasingParams {
     /// step off (--phase-coherence).
     ///
     /// A site's coherence is the fraction of its reads whose allele agrees with the strand that
-    /// the read's other chain sites put it on, leaving the site itself out. Reliability asks
-    /// whether a site's reads can tell its alleles apart; coherence asks whether they agree with
-    /// the rest of the chain. Sites below the minimum are marked unreliable, and the chain and
-    /// relink steps run again.
+    /// the read's other chain sites put it on, leaving the site itself out; a read agrees when
+    /// its q0 is on the same side of 1/2 as that strand. Reliability asks whether a site's reads
+    /// can tell its alleles apart; coherence asks whether they agree with the rest of the chain.
+    /// Sites below the minimum, among those with enough such reads, are marked unreliable, and
+    /// the chain and relink steps run again.
     double coherence_min = 0.70;
     /// The most rounds of the coherence step (--phase-coh-rounds). Each round measures coherence on the
     /// chain the previous round produced. More rounds remove more sites, so the remaining links
@@ -144,7 +156,8 @@ double phase_link(const PhaseSite& a, const PhaseSite& b, double cap);
 /// and sorted by `position` internally, since phase is comparable only inside a phase set.
 ///
 /// Returns the record keys whose settled pair should be swapped. A chain's first site keeps the
-/// panel's order, so with no read evidence nothing is swapped.
+/// panel's order, so with no read evidence nothing is swapped. Breaks are relinked from left to
+/// right, each piece taking its orientation from the piece before it as that piece now stands.
 unordered_set<size_t> read_phase_flips(vector<PhaseSite>& sites, const ReadPhasingParams& params,
                                        ReadPhasingCounters& counters);
 

@@ -32,15 +32,16 @@ using namespace vg::subcommand;
 
 const string DEFAULT_SAMPLE_NAME = "SAMPLE";
 
-/// Default --read-window, in node IDs, for each read source that fetches reads by node-ID window.
+// The default --read-window, in node IDs, for the two read sources that fetch reads by node-ID
+// window. The window size can change the order in which a site sees its reads, and so the last
+// digits of likelihoods summed over them.
+
+/// A GAM index query is a seek in an open file, so its window is narrow, to avoid fetching reads
+/// that no site needs.
+const size_t DEFAULT_GAM_INDEX_WINDOW = 256;
 /// A GAF-Base query runs a gbz-base subprocess, so its window is wide enough to serve many sites
 /// per query, and much wider than a long read's node-ID span, so that few reads are fetched twice
-/// by crossing a window boundary. A GAM index query is a seek in an open file, so its window is
-/// narrow, to avoid fetching reads that no site needs.
-///
-/// The window size can change the order in which a site sees its reads, and so the last digits of
-/// likelihoods summed over them.
-const size_t DEFAULT_GAM_INDEX_WINDOW = 256;
+/// by crossing a window boundary.
 const size_t DEFAULT_GAF_BASE_WINDOW = 16384;
 
 /// Count the haplotypes that a graph's HAPLOTYPE-sense paths belong to. A haplotype is identified
@@ -1628,9 +1629,10 @@ int main_call(int argc, char** argv) {
     if (min_mismap_prob <= 0.0 || min_mismap_prob > max_mismap_prob) {
         logger.error() << "--mismap-min must be in (0, --mismap-max]" << endl;
     }
-    // Refuse a --phase-min-q that no site can reach, since read phasing would then do nothing.
-    // Read phasing only uses diploid heterozygous sites, where a read's confidence is at most
-    // phred(e / (e + (1 - e) / 2)) for e = --mismap-min.
+    // Refuse a --phase-min-q above the heterozygous score ceiling, phred(e / (e + (1 - e) / 2))
+    // for e = --mismap-min: the confidence of a read that fits one of two equal-length alleles
+    // perfectly and the other not at all. Sites whose alleles are of similar length cannot reach
+    // it, so read phasing would do almost nothing.
     {
         const double het_ceiling =
             -10.0 * log10(min_mismap_prob / (min_mismap_prob + (1.0 - min_mismap_prob) / 2.0));
@@ -2371,7 +2373,7 @@ int main_call(int argc, char** argv) {
     if (realign && !phase_min_q_explicit) {
         read_phasing_params.reliability = 8.5;
     }
-    // Re-genotyping happens in FlowCaller::render_retained_records(). --bottom-up uses
+    // Re-genotyping happens in FlowCaller::phase_and_regenotype(). --bottom-up uses
     // NestedFlowCaller, which does not have it. --top-down gives each child snarl candidate
     // traversals derived from its parent's called genotype, so changing that genotype afterwards
     // would leave the child genotyped against the wrong alleles.
@@ -2722,7 +2724,7 @@ int main_call(int argc, char** argv) {
     }
 
     // After the calling pass (the sweep), settle genotypes, parents before their nested children
-    // (the barrier; see FlowCaller::run_deferred_descent), and build each record from its settled
+    // (the barrier, FlowCaller::run_barrier), and build each record from its settled
     // genotype. Nested calling needs this because a child's ploidy depends on its parent's
     // genotype, and the linkage model needs it because it can change genotypes after they are
     // first called.
@@ -2730,7 +2732,7 @@ int main_call(int argc, char** argv) {
     if (nested_calling || linkage_collector != nullptr) {
         deferring_caller = dynamic_cast<FlowCaller*>(graph_caller.get());
         if (deferring_caller != nullptr) {
-            deferring_caller->set_defer_nested_descent(true);
+            deferring_caller->set_settle_after_sweep(true);
         }
     }
 
@@ -2748,7 +2750,8 @@ int main_call(int argc, char** argv) {
     if (deferring_caller != nullptr) {
         // Settle every level's genotypes, then apply read phasing and re-genotyping, and build the
         // records.
-        deferring_caller->run_deferred_descent();
+        deferring_caller->run_barrier();
+        deferring_caller->phase_and_regenotype();
         deferring_caller->render_retained_records();
     }
 

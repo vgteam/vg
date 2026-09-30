@@ -296,7 +296,7 @@ TEST_CASE("Recomputed GQ takes the explained share of the new best genotype",
     info.genotype_lls[vector<int>({1, 1})] = het_ll + 2.0;
     const double gap = logprob_to_phred(het_ll) - logprob_to_phred(het_ll + 2.0);
     // Only the SNP reads have allele 1 as their best allele.
-    const double share = info.allele_support[1] / (double)info.n_informative;
+    const double share = info.allele_support[1] / (double)info.n_reads;
     REQUIRE(share < 1.0);
 
     InMemorySiteReadSource source;
