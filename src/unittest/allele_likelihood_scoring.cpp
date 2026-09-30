@@ -14,6 +14,7 @@
 #include <vector>
 
 #include <bdsg/hash_graph.hpp>
+#include <bdsg/overlays/path_position_overlays.hpp>
 
 #include "allele_likelihood.hpp"
 #include "alignment_scorer.hpp"
@@ -592,6 +593,120 @@ TEST_CASE("Every allele is scored over the same span of read bases",
     // actually traverses, not rewarded for being shorter.
     REQUIRE(matrix.rel(0, 0) == Approx(1.0));
     REQUIRE(matrix.rel(0, 2) < 1.0);
+}
+
+/// Exposes the depth-rate window statistics for testing.
+class RateWindowProbe : public GraphAlignedAlleleLikelihoodCalculator {
+public:
+    using GraphAlignedAlleleLikelihoodCalculator::GraphAlignedAlleleLikelihoodCalculator;
+    pair<double, double> rate_and_length(const Snarl& snarl, nid_t site_node) const {
+        WindowReadStats stats = local_read_stats(snarl, {{site_node, site_node}});
+        return make_pair(stats.start_rate, stats.mean_read_length);
+    }
+};
+
+/// A reference chain of ten 40 bp nodes with an alternative to the fifth, laid out under the
+/// given node IDs: ids[0..9] are the reference nodes and ids[10] the alternative. Returns the
+/// depth-rate window statistics of the bubble around the fifth node, from reads that begin on
+/// every node, the alternative included.
+static pair<double, double> rate_under_numbering(const vector<nid_t>& ids, bool effective,
+                                                 bool positional = true) {
+    bdsg::HashGraph graph;
+    vector<handle_t> ref;
+    const string bases = "ACGT";
+    for (size_t i = 0; i < 10; ++i) {
+        string seq;
+        for (size_t j = 0; j < 40; ++j) {
+            seq.push_back(bases[(i * 7 + j * 3 + j / 5) % 4]);
+        }
+        ref.push_back(graph.create_handle(seq, ids[i]));
+        if (i > 0) {
+            graph.create_edge(ref[i - 1], ref[i]);
+        }
+    }
+    handle_t alt = graph.create_handle(string(40, 'T'), ids[10]);
+    graph.create_edge(ref[3], alt);
+    graph.create_edge(alt, ref[5]);
+    path_handle_t path = graph.create_path_handle("ref");
+    for (handle_t h : ref) {
+        graph.append_step(path, h);
+    }
+    bdsg::PositionOverlay positioned(&graph);
+
+    Snarl snarl;
+    snarl.mutable_start()->set_node_id(ids[3]);
+    snarl.mutable_end()->set_node_id(ids[5]);
+    snarl.set_type(ULTRABUBBLE);
+    snarl.set_start_end_reachable(true);
+    vector<Snarl> snarls{snarl};
+    SnarlManager manager(snarls.begin(), snarls.end());
+
+    // Reads of several lengths, starting on each reference node and on the alternative; the
+    // insertion order is fixed by logical node, not by ID.
+    InMemorySiteReadSource source;
+    for (size_t i = 0; i < 11; ++i) {
+        for (size_t k = 0; k < 1 + i % 3; ++k) {
+            vector<pair<nid_t, bool>> steps{{ids[i], false}};
+            if (i != 9) {
+                steps.emplace_back(ids[i == 3 ? 10 : (i == 10 ? 5 : i + 1)], false);
+            }
+            Alignment aln = make_matching_alignment(positioned, "r" + std::to_string(i) + "_" +
+                                                    std::to_string(k), steps);
+            aln.set_mapping_quality(20 + 10 * (int)k);
+            source.add(aln);
+        }
+    }
+
+    QualAdjAlignmentScorer qual_scorer;
+    MatrixAlignmentScorer plain_scorer;
+    AlleleLikelihoodParams params;
+    params.depth_effective_reads = effective;
+    RateWindowProbe probe(positioned, manager, source, qual_scorer, plain_scorer, params);
+    if (positional) {
+        probe.set_rate_reference(&positioned, {positioned.get_path_handle("ref")});
+    }
+    return probe.rate_and_length(snarl, ids[4]);
+}
+
+TEST_CASE("The depth rate does not depend on the node numbering",
+          "[allele_likelihood][scoring]") {
+    vector<nid_t> dense{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11};
+    // Shifted past a node-ID window and reversed, with the IDs spread over several windows, so
+    // that a window of consecutive IDs would hold different nodes.
+    vector<nid_t> renumbered;
+    for (size_t i = 0; i < 11; ++i) {
+        renumbered.push_back(100000 + (nid_t)(11 - i) * 1500);
+    }
+    // A permutation within one window, which would give an ID window the same nodes.
+    vector<nid_t> permuted{7, 3, 11, 1, 9, 5, 2, 10, 4, 8, 6};
+
+    for (bool effective : {true, false}) {
+        auto base = rate_under_numbering(dense, effective);
+        REQUIRE(base.first > 0.0);
+        REQUIRE(base.second > 0.0);
+        for (const auto& ids : {renumbered, permuted}) {
+            auto other = rate_under_numbering(ids, effective);
+            REQUIRE(other.first == Approx(base.first));
+            REQUIRE(other.second == Approx(base.second));
+        }
+    }
+
+    SECTION("Only reads beginning on reference nodes count, per reference base") {
+        // Reads counted whole: 1 + i % 3 reads begin on reference node i, for i in 0..9, and
+        // the window covers all ten 40 bp nodes. The alternative's reads and length are left out.
+        auto raw = rate_under_numbering(dense, false);
+        double starts = 0.0;
+        for (size_t i = 0; i < 10; ++i) {
+            starts += 1 + i % 3;
+        }
+        REQUIRE(raw.first == Approx(starts / 400.0));
+    }
+
+    SECTION("A node-ID window, used without reference positions, does depend on the numbering") {
+        auto dense_ids = rate_under_numbering(dense, false, false);
+        auto spread_ids = rate_under_numbering(renumbered, false, false);
+        REQUIRE(dense_ids.first != Approx(spread_ids.first));
+    }
 }
 
 }

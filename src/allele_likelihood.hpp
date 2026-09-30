@@ -14,6 +14,7 @@
 #include <functional>
 #include <iostream>
 #include <limits>
+#include <atomic>
 #include <map>
 #include <mutex>
 #include <string>
@@ -462,6 +463,23 @@ public:
                                   const vector<SnarlTraversal>& traversals,
                                   int ploidy) override;
 
+    /// Place rate windows on these reference paths of `position_graph`, which must be the
+    /// graph the calculator was built on, or a view of it with the same nodes. Until this is
+    /// called, windows are blocks of node IDs (see local_read_stats).
+    void set_rate_reference(const PathPositionHandleGraph* position_graph,
+                            const vector<path_handle_t>& reference_paths);
+
+    /// Sites whose rate window fell back to a block of node IDs.
+    size_t rate_id_fallbacks() const {
+        return id_fallbacks.load();
+    }
+
+    /// The width, in bp of reference, of a rate-window bucket. A window is three buckets.
+    static const int64_t RATE_BUCKET = 16384;
+
+    /// The width, in node IDs, of the fallback rate window.
+    static const nid_t RATE_ID_WINDOW = 4096;
+
 protected:
 
     /// One node visit on an allele, with its sequence materialised.
@@ -555,11 +573,23 @@ protected:
                                      const EditAlignmentScorer& read_scorer,
                                      bool& placed_out, double& nat_adjust) const;
 
-    /// Read statistics for a site's rate window, the block of consecutive node IDs
-    /// that contains the lowest node ID of the site, boundary nodes included: the
-    /// number of reads whose alignment begins in the window, per base of the window's
-    /// sequence, and the mean length of those reads. Computed once per window and
-    /// shared by the sites in it.
+    /// Read statistics for a site's rate window: the number of reads whose alignment begins
+    /// on a reference node in the window, per base of reference in the window, and the mean
+    /// length of those reads. Computed once per window and shared by the sites in it.
+    ///
+    /// The window is placed on reference coordinates, so that renumbering the graph's nodes
+    /// does not change it. The reference path is cut into buckets of RATE_BUCKET bp; a site
+    /// falls in the bucket holding the reference position of its start boundary, or of its
+    /// end boundary, or failing both of the nearest ancestor snarl with a boundary on a
+    /// reference path. Its window is that bucket and one bucket on each side. Only reference
+    /// nodes count, in the numerator and the denominator alike: an off-reference node has no
+    /// position to place it in a window, and counting its length without its reads, or its
+    /// reads without its length, would bias the rate.
+    ///
+    /// Without reference positions (see set_rate_reference), or for a site with no reference
+    /// boundary in its ancestry, the window falls back to the block of RATE_ID_WINDOW
+    /// consecutive node IDs holding the site's lowest node ID, which does depend on the
+    /// numbering; such sites are counted in rate_id_fallbacks.
     ///
     /// The depth term's lambda = rate * (L + R - 1) counts the reads whose start
     /// position places them over an interval of length L, so the rate must count read
@@ -575,13 +605,50 @@ protected:
         double start_rate = 0.0;
         double mean_read_length = 0.0;
     };
-    WindowReadStats local_read_stats(const vector<pair<nid_t, nid_t>>& site_ranges) const;
+    WindowReadStats local_read_stats(const Snarl& snarl,
+                                     const vector<pair<nid_t, nid_t>>& site_ranges) const;
+
+    /// The node-ID fallback of local_read_stats.
+    WindowReadStats id_window_read_stats(const vector<pair<nid_t, nid_t>>& site_ranges) const;
+
+    /// The reads that begin on a set of nodes, as counted for a rate window, and the nodes'
+    /// total length. Windows add them up before dividing.
+    struct StartCounts {
+        double reads = 0.0;
+        double length_total = 0.0;
+        size_t length_count = 0;
+        size_t bp = 0;
+        void add(const StartCounts& other) {
+            reads += other.reads;
+            length_total += other.length_total;
+            length_count += other.length_count;
+            bp += other.bp;
+        }
+        WindowReadStats stats() const;
+    };
+
+    /// Count the reads that begin on the given nodes, whose total length is `bp`.
+    StartCounts count_starts(const vector<nid_t>& nodes, size_t bp) const;
+
+    /// The counts for one reference bucket, computed once and kept.
+    StartCounts bucket_counts(size_t path_index, int64_t bucket) const;
+
+    /// The reference path index and position that place `snarl` in a rate window, if any.
+    bool rate_position(const Snarl& snarl, size_t& path_index, int64_t& position) const;
 
     const PathHandleGraph& graph;
     SnarlManager& snarl_manager;
     const SiteReadSource& read_source;
     mutable unordered_map<size_t, WindowReadStats> window_rate;
+    /// Both keyed by reference path index and bucket: a bucket's own counts, and the rate
+    /// window centred on it. Each bucket's reads are fetched once, although three windows
+    /// use them.
+    mutable unordered_map<pair<size_t, int64_t>, StartCounts> ref_bucket_counts;
+    mutable unordered_map<pair<size_t, int64_t>, WindowReadStats> ref_window_rate;
     mutable std::mutex window_bp_mutex;
+    const PathPositionHandleGraph* rate_graph = nullptr;
+    vector<path_handle_t> rate_paths;
+    mutable std::atomic<size_t> id_fallbacks{0};
     const EditAlignmentScorer& qual_scorer;
     const EditAlignmentScorer& plain_scorer;
     Params params;

@@ -1004,53 +1004,103 @@ int32_t GraphAlignedAlleleLikelihoodCalculator::score_by_optimal_pairing(
     return best.score;
 }
 
-GraphAlignedAlleleLikelihoodCalculator::WindowReadStats
-GraphAlignedAlleleLikelihoodCalculator::local_read_stats(
-    const vector<pair<nid_t, nid_t>>& site_ranges) const {
+void GraphAlignedAlleleLikelihoodCalculator::set_rate_reference(
+    const PathPositionHandleGraph* position_graph, const vector<path_handle_t>& reference_paths) {
+    rate_graph = position_graph;
+    rate_paths = reference_paths;
+    lock_guard<std::mutex> guard(window_bp_mutex);
+    ref_bucket_counts.clear();
+    ref_window_rate.clear();
+}
 
-    // The width of a rate window, in node IDs. It is fixed rather than taken from the read
-    // source's fetch window, so that DR and the depth term do not depend on how the reads were
-    // supplied.
-    static const size_t RATE_WINDOW = 4096;
-    size_t span = RATE_WINDOW;
-    if (site_ranges.empty() || params.depth_ploidy <= 0) {
-        return WindowReadStats();
+bool GraphAlignedAlleleLikelihoodCalculator::rate_position(const Snarl& snarl, size_t& path_index,
+                                                          int64_t& position) const {
+    if (rate_graph == nullptr || rate_paths.empty()) {
+        return false;
     }
-    // The rate window is the one containing the site's lowest node ID.
-    nid_t lo = site_ranges.front().first;
-    for (const auto& r : site_ranges) {
-        lo = min(lo, r.first);
+    // Where a boundary node lies on the reference: the earliest step on the first listed
+    // reference path that visits it. Path handles, not node IDs, choose among the steps, so
+    // the choice survives renumbering.
+    auto place = [&](nid_t node_id) {
+        if (!rate_graph->has_node(node_id)) {
+            return false;
+        }
+        bool found = false;
+        rate_graph->for_each_step_on_handle(rate_graph->get_handle(node_id), [&](const step_handle_t& step) {
+            path_handle_t path = rate_graph->get_path_handle_of_step(step);
+            for (size_t i = 0; i < rate_paths.size(); ++i) {
+                if (rate_paths[i] != path) {
+                    continue;
+                }
+                int64_t pos = (int64_t)rate_graph->get_position_of_step(step);
+                if (!found || i < path_index || (i == path_index && pos < position)) {
+                    path_index = i;
+                    position = pos;
+                    found = true;
+                }
+                break;
+            }
+        });
+        return found;
+    };
+    // A nested site's boundaries are often off the reference. Its ancestors' are not, and an
+    // ancestor lies within a window's width of the site unless it is very large.
+    const Snarl* current = &snarl;
+    while (current != nullptr) {
+        if (place(current->start().node_id()) || place(current->end().node_id())) {
+            return true;
+        }
+        const Snarl* managed = snarl_manager.into_which_snarl(current->start().node_id(),
+                                                              current->start().backward());
+        current = managed == nullptr ? nullptr : snarl_manager.parent_of(managed);
     }
-    size_t window_index = (size_t)(lo / (nid_t)span);
-    {
-        lock_guard<std::mutex> guard(window_bp_mutex);
-        auto found = window_rate.find(window_index);
-        if (found != window_rate.end()) {
-            return found->second;
+    return false;
+}
+
+GraphAlignedAlleleLikelihoodCalculator::WindowReadStats
+GraphAlignedAlleleLikelihoodCalculator::StartCounts::stats() const {
+    WindowReadStats result;
+    result.start_rate = (reads <= 0.0 || bp == 0) ? 0.0 : reads / (double)bp;
+    result.mean_read_length = length_count > 0 ? length_total / (double)length_count : 0.0;
+    return result;
+}
+
+GraphAlignedAlleleLikelihoodCalculator::StartCounts
+GraphAlignedAlleleLikelihoodCalculator::count_starts(const vector<nid_t>& nodes, size_t bp) const {
+    StartCounts counts;
+    counts.bp = bp;
+    // The nodes as sorted, coalesced ID ranges: the read source visits each read once however
+    // many ranges it touches.
+    vector<nid_t> sorted(nodes);
+    std::sort(sorted.begin(), sorted.end());
+    sorted.erase(std::unique(sorted.begin(), sorted.end()), sorted.end());
+    vector<pair<nid_t, nid_t>> ranges;
+    for (nid_t id : sorted) {
+        if (!ranges.empty() && ranges.back().second + 1 == id) {
+            ranges.back().second = id;
+        } else {
+            ranges.emplace_back(id, id);
         }
     }
+    if (ranges.empty()) {
+        return counts;
+    }
 
-    nid_t first = (nid_t)window_index * (nid_t)span;
-    nid_t last = first + (nid_t)span - 1;
-
-    // Computed once per window and shared by the sites in it, since counting a window's
-    // reads costs far more than scoring a site.
-    //
     // Reads are counted as they are at a site: under `depth_effective_reads` each counts as
     // 1 - e_r, with the same clamps and the same `use_mismap_term` switch. Counting them
     // differently would put a constant factor between N and lambda.
-    double reads = 0.0;
-    double length_total = 0.0;
-    size_t length_count = 0;
-    read_source.for_each_alignment({{first, last}}, [&](const Alignment& aln) {
-        // Count only the reads that begin in the window; the fetch also returns reads that
-        // only overlap it.
+    double& reads = counts.reads;
+    double& length_total = counts.length_total;
+    size_t& length_count = counts.length_count;
+    read_source.for_each_alignment(ranges, [&](const Alignment& aln) {
+        // Count only the reads that begin on one of the nodes; the fetch also returns reads
+        // that only pass through them.
         const Path& path = aln.path();
         if (path.mapping_size() == 0) {
             return;
         }
         nid_t start_node = path.mapping(0).position().node_id();
-        if (start_node < first || start_node > last) {
+        if (!std::binary_search(sorted.begin(), sorted.end(), start_node)) {
             return;
         }
         length_total += (double)aln.sequence().size();
@@ -1064,18 +1114,124 @@ GraphAlignedAlleleLikelihoodCalculator::local_read_stats(
                             : params.min_mismap_prob;
         reads += 1.0 - min(max(mismap, params.min_mismap_prob), params.max_mismap_prob);
     });
+    return counts;
+}
+
+GraphAlignedAlleleLikelihoodCalculator::StartCounts
+GraphAlignedAlleleLikelihoodCalculator::bucket_counts(size_t path_index, int64_t bucket) const {
+    path_handle_t path = rate_paths[path_index];
+    int64_t lo = bucket * RATE_BUCKET;
+    int64_t hi = min<int64_t>((int64_t)rate_graph->get_path_length(path), lo + RATE_BUCKET);
+    if (bucket < 0 || lo >= hi) {
+        return StartCounts();
+    }
+    pair<size_t, int64_t> key(path_index, bucket);
+    {
+        lock_guard<std::mutex> guard(window_bp_mutex);
+        auto found = ref_bucket_counts.find(key);
+        if (found != ref_bucket_counts.end()) {
+            return found->second;
+        }
+    }
+
+    // The reference nodes whose step begins in [lo, hi), each counted once however often the
+    // path visits it.
+    vector<nid_t> nodes;
+    size_t bp = 0;
+    unordered_set<nid_t> seen;
+    step_handle_t step = rate_graph->get_step_at_position(path, (size_t)lo);
+    while (step != rate_graph->path_end(path)) {
+        int64_t start = (int64_t)rate_graph->get_position_of_step(step);
+        if (start >= hi) {
+            break;
+        }
+        if (start >= lo) {
+            handle_t handle = rate_graph->get_handle_of_step(step);
+            nid_t id = rate_graph->get_id(handle);
+            if (seen.insert(id).second) {
+                nodes.push_back(id);
+                bp += rate_graph->get_length(handle);
+            }
+        }
+        step = rate_graph->get_next_step(step);
+    }
+
+    StartCounts counts = count_starts(nodes, bp);
+    lock_guard<std::mutex> guard(window_bp_mutex);
+    ref_bucket_counts[key] = counts;
+    return counts;
+}
+
+GraphAlignedAlleleLikelihoodCalculator::WindowReadStats
+GraphAlignedAlleleLikelihoodCalculator::local_read_stats(
+    const Snarl& snarl, const vector<pair<nid_t, nid_t>>& site_ranges) const {
+
+    // The window is fixed rather than taken from the read source's fetch window, so that DR
+    // and the depth term do not depend on how the reads were supplied.
+    if (site_ranges.empty() || params.depth_ploidy <= 0) {
+        return WindowReadStats();
+    }
+    size_t path_index = 0;
+    int64_t position = 0;
+    if (!rate_position(snarl, path_index, position)) {
+        ++id_fallbacks;
+        return id_window_read_stats(site_ranges);
+    }
+    int64_t bucket = position / RATE_BUCKET;
+    pair<size_t, int64_t> key(path_index, bucket);
+    {
+        lock_guard<std::mutex> guard(window_bp_mutex);
+        auto found = ref_window_rate.find(key);
+        if (found != ref_window_rate.end()) {
+            return found->second;
+        }
+    }
+
+    // Computed once per bucket and shared by the sites in it, since counting a window's reads
+    // costs far more than scoring a site. The window is the site's bucket and one on each
+    // side, so that it reaches at least a bucket past the site in both directions.
+    StartCounts counts;
+    for (int64_t b = bucket - 1; b <= bucket + 1; ++b) {
+        counts.add(bucket_counts(path_index, b));
+    }
+    WindowReadStats stats = counts.stats();
+    lock_guard<std::mutex> guard(window_bp_mutex);
+    ref_window_rate[key] = stats;
+    return stats;
+}
+
+GraphAlignedAlleleLikelihoodCalculator::WindowReadStats
+GraphAlignedAlleleLikelihoodCalculator::id_window_read_stats(
+    const vector<pair<nid_t, nid_t>>& site_ranges) const {
+
+    // The rate window is the block of RATE_ID_WINDOW IDs containing the site's lowest node ID.
+    nid_t lo = site_ranges.front().first;
+    for (const auto& r : site_ranges) {
+        lo = min(lo, r.first);
+    }
+    size_t window_index = (size_t)(lo / RATE_ID_WINDOW);
+    {
+        lock_guard<std::mutex> guard(window_bp_mutex);
+        auto found = window_rate.find(window_index);
+        if (found != window_rate.end()) {
+            return found->second;
+        }
+    }
+
+    nid_t first = (nid_t)window_index * RATE_ID_WINDOW;
+    nid_t last = first + RATE_ID_WINDOW - 1;
 
     // Node IDs are dense in a GBZ but not guaranteed to be, so ask the graph.
+    vector<nid_t> nodes;
     size_t bp = 0;
     for (nid_t id = first; id <= last; ++id) {
         if (graph.has_node(id)) {
+            nodes.push_back(id);
             bp += graph.get_length(graph.get_handle(id));
         }
     }
 
-    WindowReadStats stats;
-    stats.start_rate = (reads <= 0.0 || bp == 0) ? 0.0 : reads / (double)bp;
-    stats.mean_read_length = length_count > 0 ? length_total / (double)length_count : 0.0;
+    WindowReadStats stats = count_starts(nodes, bp).stats();
     lock_guard<std::mutex> guard(window_bp_mutex);
     window_rate[window_index] = stats;
     return stats;
@@ -1372,7 +1528,7 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
     // weights and the anchor slot weights. The builder's R is the mean over this site's reads,
     // which over-represents long reads because a long read reaches more sites. The rate
     // window's mean counts each read once, where it begins, so we use it instead.
-    WindowReadStats stats = local_read_stats(ranges);
+    WindowReadStats stats = local_read_stats(snarl, ranges);
     if (stats.mean_read_length > 0.0) {
         result.set_mean_read_length(stats.mean_read_length);
     }

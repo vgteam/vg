@@ -2130,9 +2130,21 @@ int main_call(int argc, char** argv) {
             anchor_params.counters = &anchor_run_counters;
             likelihood_params.collect_read_phasing = read_phasing;
 
-            likelihood_calculator.reset(new GraphAlignedAlleleLikelihoodCalculator(
+            auto* graph_calculator = new GraphAlignedAlleleLikelihoodCalculator(
                 *graph, *snarl_manager, *read_source, *qual_scorer, *plain_scorer,
-                likelihood_params));
+                likelihood_params);
+            likelihood_calculator.reset(graph_calculator);
+            // Place the depth-rate windows on the reference paths, so that they do not depend
+            // on the node numbering. A graph without positions keeps node-ID windows.
+            if (auto* position_graph = dynamic_cast<PathPositionHandleGraph*>(graph)) {
+                vector<path_handle_t> rate_paths;
+                for (const string& ref_path : ref_paths) {
+                    if (position_graph->has_path(ref_path)) {
+                        rate_paths.push_back(position_graph->get_path_handle(ref_path));
+                    }
+                }
+                graph_calculator->set_rate_reference(position_graph, rate_paths);
+            }
 
             auto rl_caller = new ReadLikelihoodSnarlCaller(*graph, *snarl_manager, *support_finder,
                                                            *likelihood_calculator);
@@ -2797,6 +2809,16 @@ int main_call(int argc, char** argv) {
                 logger.info() << "GAF-Base: " << gaf_base->get_duplicate_count()
                               << " duplicate reads dropped" << endl;
             }
+        }
+    }
+
+    if (show_progress) {
+        auto* graph_calculator =
+            dynamic_cast<GraphAlignedAlleleLikelihoodCalculator*>(likelihood_calculator.get());
+        if (graph_calculator != nullptr && graph_calculator->rate_id_fallbacks() > 0) {
+            logger.info() << graph_calculator->rate_id_fallbacks() << " sites had no reference "
+                          << "position for their depth-rate window and used a node-ID window"
+                          << endl;
         }
     }
 
