@@ -3589,7 +3589,13 @@ bool VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCa
     if (block_lines >= 0) {
         ++atomize_counters.split_sites;
         atomize_counters.split_lines += (size_t)block_lines;
-        // There is no single line for this snarl.
+        // There is no single line for this snarl, but the linkage model still needs to know
+        // whether it has lines, as for a site record below: the mosaic accounts for every site
+        // that does. The map is left empty, since each block numbers its own alleles.
+        if (linkage_collector != nullptr) {
+            linkage_collector->set_allele_map(record_key_of(snarl), vector<int>(),
+                                              block_lines > 0);
+        }
         return block_lines > 0;
     }
 
