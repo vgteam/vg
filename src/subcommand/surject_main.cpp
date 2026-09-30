@@ -381,7 +381,7 @@ int main_surject(int argc, char** argv) {
             break;
 
         case 'j':
-            prune_tail_region = true; //remove surject anchors from tails
+            prune_tail_region = true;
             break;
 
         case 'I':
