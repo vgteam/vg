@@ -51,7 +51,7 @@ double AlleleReadLikelihoods::expected_reads(const vector<int>& genotype) const 
     for (int allele : genotype) {
         double len = (allele >= 0 && (size_t)allele < traversal_lengths.size())
                          ? (double)traversal_lengths[allele] : 0.0;
-        total += max(len + depth_read_length - 1.0, 1.0);
+        total += len + depth_read_length - 1.0;
     }
     return depth_rate * total;
 }
@@ -112,10 +112,7 @@ vector<double> AlleleReadLikelihoods::mixture_weights(const vector<int>& genotyp
             } else {
                 own = 0.0;
             }
-            double eff = own + mean_read_length - 1.0;
-            // A traversal shorter than one read still admits reads spanning it,
-            // so the effective length can never fall to zero.
-            weights[i] = max(eff, 1.0);
+            weights[i] = own + mean_read_length - 1.0;
             sum += weights[i];
         }
         if (sum > 0.0) {

@@ -322,9 +322,6 @@ vector<double> allele_length_weights(const vector<std::uint32_t>& allele_length,
         for (size_t i = 0; i < n_slots; ++i) {
             raw[i] = (double)allele_length[slot_allele[i]]
                      + (double)mean_read_length - 1.0;
-            if (raw[i] < 1.0) {
-                raw[i] = 1.0;
-            }
             total += raw[i];
         }
         if (total > 0.0) {

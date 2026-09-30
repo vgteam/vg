@@ -79,7 +79,7 @@ public:
     /// Each haplotype of a genotype is weighted by the number of start positions from
     /// which a read of length R overlaps a stretch of length X:
     ///
-    ///     w_h = max(X_h + R - 1, 1) / sum_{h' in G} max(X_h' + R - 1, 1)
+    ///     w_h = (X_h + R - 1) / sum_{h' in G} (X_h' + R - 1)
     ///
     /// X_h is the unique length U_h given by `set_unique_lengths`, which is how the
     /// calculator builds every matrix. Without unique lengths it is the allele's full

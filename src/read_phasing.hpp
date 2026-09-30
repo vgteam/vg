@@ -62,9 +62,9 @@ struct PhaseReadEvidence {
 
 /// The allele-length weights of a site's slots: each slot's expected share of the site's reads,
 /// from the full length of the allele it holds. An allele of length L yields a read of length R
-/// that overlaps the site from L + R - 1 start positions, held at 1 or more. `slot_allele` names
-/// the allele in each slot, so reordering the slots reorders the weights. The weights are flat
-/// when `length_weighted` is false or the lengths are missing.
+/// that overlaps the site from L + R - 1 start positions. `slot_allele` names the allele in each
+/// slot, so reordering the slots reorders the weights. The weights are flat when
+/// `length_weighted` is false or the lengths are missing.
 vector<double> allele_length_weights(const vector<std::uint32_t>& allele_length, size_t n_alleles,
                                      float mean_read_length, bool length_weighted,
                                      const vector<int>& slot_allele);
