@@ -612,7 +612,7 @@ clean-tests:
 
 docs: $(SRC_DIR)/*.cpp $(SRC_DIR)/*.hpp $(ALGORITHMS_SRC_DIR)/*.cpp $(ALGORITHMS_SRC_DIR)/*.hpp $(SUBCOMMAND_SRC_DIR)/*.cpp $(SUBCOMMAND_SRC_DIR)/*.hpp $(UNITTEST_SRC_DIR)/*.cpp $(UNITTEST_SRC_DIR)/*.hpp $(UNITTEST_SUPPORT_SRC_DIR)/*.cpp
 	doxygen
-	echo "View documentation at: file://$(PWD)/doc/doxygen/index.html"
+	echo "View documentation at: file://$(PWD)/doc/doxygen/html/index.html"
 	
 man: doc/wiki/vg-manpage.md doc/man/vg.1
 
