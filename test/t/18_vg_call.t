@@ -9,7 +9,7 @@ PATH=../bin:$PATH # for vg
 # FORMAT field shifts every later one, which broke four assertions here that were not
 # testing field order at all -- one of them silently compared BL against a GQ threshold.
 
-plan tests 439
+plan tests 441
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -1033,6 +1033,23 @@ is $(grep -vc "^#" nest_nested.vcf) "2" \
 is $(grep -v "^#" nest_nested.vcf | awk 'length($4) == 1 && length($5) == 1' | wc -l | tr -d ' ') "2" \
    "and emits them as single-base records, not as one compensating substitution"
 
+# A chain that no called parent allele crosses has no copy in the sample, with the linkage model or
+# without it. The sample here is homozygous for the deletion that spans the chain, and a few stray
+# reads carry both nested ALTs. Without the linkage model nothing can move the parent, so the chain
+# must not be genotyped; it used to be staged anyway and rendered at the parent's ploidy, as 1/1.
+rm -f nest_del.gam nest_del_lw0.vcf nest_del_link.vcf
+vg sim -x nest.gbz -n 300 -l 40 -a -s 41 --path "p2#0#chr1#0" > nest_del.gam 2>/dev/null
+vg sim -x nest.gbz -n 300 -l 40 -a -s 43 --path "p3#1#chr1#0" >> nest_del.gam 2>/dev/null
+vg sim -x nest.gbz -n 20 -l 40 -a -s 47 --path "p1#1#chr1#0" >> nest_del.gam 2>/dev/null
+vg call nest.gbz --read-likelihood --gam nest_del.gam -t 1 -s samp --linkage-weight 0 2>/dev/null \
+    | grep -v "^#" > nest_del_lw0.vcf
+vg call nest.gbz --read-likelihood --gam nest_del.gam -t 1 -s samp 2>/dev/null \
+    | grep -v "^#" > nest_del_link.vcf
+is "$(cut -f2,10 nest_del_lw0.vcf | cut -d: -f1 | tr '\t\n' ': ')" "30:1/1 " \
+   "without the linkage model, a chain the called parent does not cross gets no record"
+is "$(cut -f2 nest_del_link.vcf | tr '\n' ' ')" "30 " \
+   "and with it, the same chain is dropped at the barrier"
+
 
 # A nested haploid site must not fragment the phase block. Reads from the deletion-bearing haplotype
 # and from one that crosses the chain make the parent heterozygous for the deletion, so only one
@@ -1663,7 +1680,7 @@ rm -f rl_anchors.tsv rl_anchors.vcf rl_anchors.err rl_anchors_hom.tsv rl_anchors
       rl_anchors_nopanel.tsv rl_anchors_sp.tsv rl_anchors_ph.tsv rl_anchors_ph.vcf \
       rl_phase_off.vcf rl_phase_on.vcf rl_phase_forced.vcf rl_phase_forced.err
 
-rm -f nest_hap_anchors.tsv nest_hap_anchors.vcf nestblk.gfa nestblk.gbz nestblk.gam nestblk.vcf nest.gfa nest.gbz nest.gam nest_default.vcf nest_nested.vcf nest_hap.gam nest_hap.vcf nest_hap_err.txt nest_hap.mosaic.tsv x.vg x.gbz x.gbwt sim.gam x.pack call.vcf callg.vcf callz.vcf callg.6 callz.6 callrl_nopack.vcf callrl_nopack_z.vcf callrl_withpack.vcf nopack_err.txt sim.sorted.gam sim.sorted.gam.gai rl_inmem.vcf rl_indexed.vcf gi_err.txt gb_err.txt gb_excl.txt gb_norl.txt gb_nobin.txt sim.gaf sim.gaf.db x.gbz.db rl_gafmem.vcf rl_gafbase.vcf rl_gafbase_t4.vcf rl_gafbase_w32.vcf rl_autoz_full.vcf rl_autoz.vcf rl_explicit_z.vcf rl_support_full.vcf rl_support.vcf es_nopack.txt es_z.txt es_g.txt nopanel.vg nopanel.gbwt nopanel.gbz nopanel.pack nopanel_err.txt poisson_default.vcf poisson_z.vcf rl_phased.vcf rl_default.vcf rl_nophase.vcf rl_nopanel.vcf rl_nopanel_err.txt rl_unphased_gt.txt rl_phased_gt.txt rl_ph_err.txt rl_mosaic.tsv rl_mosaic2.tsv rl_hap.vcf rl_hap_mosaic.tsv
+rm -f nest_del.gam nest_del_lw0.vcf nest_del_link.vcf nest_hap_anchors.tsv nest_hap_anchors.vcf nestblk.gfa nestblk.gbz nestblk.gam nestblk.vcf nest.gfa nest.gbz nest.gam nest_default.vcf nest_nested.vcf nest_hap.gam nest_hap.vcf nest_hap_err.txt nest_hap.mosaic.tsv x.vg x.gbz x.gbwt sim.gam x.pack call.vcf callg.vcf callz.vcf callg.6 callz.6 callrl_nopack.vcf callrl_nopack_z.vcf callrl_withpack.vcf nopack_err.txt sim.sorted.gam sim.sorted.gam.gai rl_inmem.vcf rl_indexed.vcf gi_err.txt gb_err.txt gb_excl.txt gb_norl.txt gb_nobin.txt sim.gaf sim.gaf.db x.gbz.db rl_gafmem.vcf rl_gafbase.vcf rl_gafbase_t4.vcf rl_gafbase_w32.vcf rl_autoz_full.vcf rl_autoz.vcf rl_explicit_z.vcf rl_support_full.vcf rl_support.vcf es_nopack.txt es_z.txt es_g.txt nopanel.vg nopanel.gbwt nopanel.gbz nopanel.pack nopanel_err.txt poisson_default.vcf poisson_z.vcf rl_phased.vcf rl_default.vcf rl_nophase.vcf rl_nopanel.vcf rl_nopanel_err.txt rl_unphased_gt.txt rl_phased_gt.txt rl_ph_err.txt rl_mosaic.tsv rl_mosaic2.tsv rl_hap.vcf rl_hap_mosaic.tsv
 
 
 # subpath test

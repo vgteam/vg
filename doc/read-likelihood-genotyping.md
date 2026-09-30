@@ -624,7 +624,8 @@ The barrier can run more than once (see [Rounds](#rounds)), and each pass decide
 ploidy afresh, so a chain dropped in one pass can come back in the next. A chain whose parent has
 too many candidate alleles to say which cross it keeps the ploidy the sweep gave it. Under direct
 calling the barrier has no linkage model, so every record keeps its called genotype and every
-chain the ploidy the sweep gave it.
+chain the ploidy the sweep gave it. Nothing can then move a parent onto an allele that crosses a
+chain its called alleles miss, so the sweep does not genotype such a chain at all.
 
 ## Phasing
 

@@ -7091,8 +7091,12 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
                     // in memory, since the linkage model may move the parent onto an allele that
                     // does reach it. Nothing about it is written unless the barrier says so.
                     ++descent_counters.skipped_no_copy;
-                    if (!settle_after_sweep) {
-                        continue;   // without retention there is nothing to come back to
+                    if (!settle_after_sweep || linkage_collector == nullptr) {
+                        // Without retention there is nothing to come back to. Without the linkage
+                        // model nothing moves the parent after the sweep, so the sample has no copy
+                        // of this chain; the barrier, which has no settled parent to read, would
+                        // otherwise render it at the parent's ploidy.
+                        continue;
                     }
                     retain_only = true;
                 }
