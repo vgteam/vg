@@ -309,11 +309,10 @@ void help_call(char** argv) {
          << "      --ploidy-bed FILE     BED of CHROM START END PLOIDY giving the ploidy of" << endl
          << "                            each region, overriding -d and -R; CHROM is the" << endl
          << "                            VCF contig name, and intervals must not overlap" << endl
-         << "  -R, --ploidy-regex RULES  use this comma-separated list of colon-delimited" << endl
-         << "                            REGEX:PLOIDY rules to assign ploidies to contigs" << endl
-         << "                            not visited by the selected samples, or to all" << endl
-         << "                            contigs simulated from if no samples are used." << endl
-         << "                            Unmatched contigs get ploidy 2 (or that from -d)." << endl
+         << "  -R, --ploidy-regex RULES  comma-separated REGEX:PLOIDY rules, each giving" << endl
+         << "                            the ploidy of every reference path whose whole" << endl
+         << "                            name REGEX matches. The first matching rule wins," << endl
+         << "                            and unmatched paths get the ploidy from -d." << endl
          << "      --top-down            genotype nested snarls after their parents, each" << endl
          << "                            child's candidate alleles taken from its parent's" << endl
          << "                            genotype" << endl

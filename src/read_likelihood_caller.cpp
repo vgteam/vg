@@ -517,8 +517,9 @@ void ReadLikelihoodSnarlCaller::update_vcf_header(string& header) const {
         "allele the site offered. At a site where many alleles were enumerated and few "
         "emitted, most reads best-fit something absent here and the shortfall is large. "
         "That shortfall is itself informative: it is how much of the evidence the emitted "
-        "alleles fail to explain. Not used by the genotype model, which assumes each "
-        "haplotype contributed 1/ploidy of the reads whatever they show\">\n";
+        "alleles fail to explain. Not used by the genotype model, which gives each "
+        "haplotype a share of the reads set by the length of sequence unique to its allele "
+        "(an equal share under --flat-mixture), whatever the reads show\">\n";
     header += "##FORMAT=<ID=DR,Number=1,Type=Float,Description=\"Observed reads at this site "
               "divided by the number the called genotype predicts, from a read rate measured over "
               "the read source's local fetch window and the called alleles' traversal lengths. 1.0 "

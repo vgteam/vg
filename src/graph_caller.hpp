@@ -552,8 +552,9 @@ protected:
     /// know which sites have a VCF line.
     void finalise_linkage_outputs();
 
-    /// Resolve the linkage model as a single generation-0 pass, if nothing has resolved it yet. Safe
-    /// to call more than once, so `write_variants` can call it unconditionally.
+    /// Resolve the linkage model, if nothing has resolved it yet: one pass per generation, from 0 to
+    /// the deepest, which is looked up again after each pass since a pass can add a deeper chain.
+    /// Safe to call more than once, so `write_variants` can call it unconditionally.
     void resolve_linkage();
 
     /// Every phased site, in the order the linkage model produced them. The mosaic reads this, and

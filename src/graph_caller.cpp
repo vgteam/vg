@@ -465,10 +465,10 @@ string VCFOutputCaller::vcf_header(const PathHandleGraph& graph, const vector<st
     if (allele_merge_threshold < 1.0) {
         ss << "##INFO=<ID=MAT,Number=.,Type=String,Description=\"Merged Allele Traversal: "
            << "ALT alleles merged after genotyping by -L/--cluster, as OLD>NEW:SIMILARITY using "
-           << "pre-merge allele numbers. In a nested run this record gives the collapsed view of "
-           << "the site and its child records the precise one, so they disagree by design. "
            << "pre-merge allele numbers. AD and GL are folded onto the surviving allele and MAD is "
-           << "recomputed; DP, QUAL, GQ, GP and FILTER are as computed over the pre-merge allele set.\">"
+           << "recomputed; DP, QUAL, GQ, GP and FILTER are as computed over the pre-merge allele set. "
+           << "In a nested run this record gives the collapsed view of the site and its child "
+           << "records the precise one, so they disagree by design.\">"
            << endl;
     }
     return ss.str();
@@ -6032,9 +6032,11 @@ void FlowCaller::render_retained_records() {
     if (render_records.empty()) {
         return;
     }
-    // `emit_variant` reads `nested_context` and `current_generation` when it records a site, and
-    // here they hold whatever the thread's last snarl left. Every record here is one the barrier
-    // does not revise, a top-level site, so the context is reset for each record.
+    // `nested_context` and `current_generation` describe the snarl a sweep thread is recording, and
+    // only `record_site` and `call_snarl_internal` read them, neither of which the render calls. The
+    // loop still clears them and restores them afterwards, so that it never runs under the context
+    // the thread's last swept snarl left. The records are nested chains as well as top-level sites,
+    // and each carries its own nesting in its `PendingRecord`.
     const size_t n_threads = render_records.size();
 #pragma omp parallel for schedule(dynamic, 1)
     for (size_t t = 0; t < n_threads; ++t) {
