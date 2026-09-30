@@ -359,15 +359,17 @@ weighting can be measured; it also makes the allele-length weights of
 
 #### Depth term inputs
 
-- $\kappa$ is measured over a *rate window*: the block of a fixed number of consecutive node IDs
-  that contains the lowest node ID of the site, boundary nodes included. Graphs built for vg number
-  their nodes roughly in order along the genome, so this block is a stretch of genome around the
-  site. The window's *read rate* is the number of reads whose alignment begins in it, each counted
-  as $1 - e_r$, divided by the total length of its nodes. It is computed once per window and shared
-  by the sites in it, and each site divides it by its own ploidy to give $\kappa$. The total length
-  counts every node in the window, including the nodes of alleles the sample does not carry, so
-  $\kappa$ is lower where the graph holds much variation. When no read begins in the window,
-  $\kappa = 0$, and the site has no depth term and no `DR`.
+- $\kappa$ is measured over a *rate window* on the reference path. The reference path is cut into
+  fixed-length buckets; a site falls in the bucket that holds the reference position of its start
+  boundary (or of its end boundary, or failing both, of the nearest enclosing site that has one),
+  and its window is that bucket and one bucket on each side. The window's *read rate* is the number
+  of reads whose alignment begins on a reference node in the window, each counted as $1 - e_r$,
+  divided by the reference length of the window. Only reference nodes count on either side, so the
+  rate does not depend on how the graph's nodes are numbered or on how much variation the window
+  holds. The counts are computed once per bucket and shared, and each site divides the rate by its
+  own ploidy to give $\kappa$. When no read begins in the window, $\kappa = 0$, and the site has no
+  depth term and no `DR`. A graph without reference path positions falls back to a window of a fixed
+  number of consecutive node IDs around the site.
 - $\bar L$ is the mean length of the reads that begin in the rate window, or of the site's own
   reads if none does. The mixture weights use the same $\bar L$.
 - $N_{\mathrm{eff}}$ counts each read of the site as $1 - e_r$. With `--depth-count-raw`, each read
@@ -1051,7 +1053,7 @@ These constants have no option. Each is named as it appears in the source.
 | `LinkageModel::Params::escape` | `src/linkage_model.hpp` | the escape probability for a strand with an unknown allele |
 | `LinkageModel::Params::rho_min` | `src/linkage_model.hpp` | the floor $\rho_{\min}$ on the switch probability |
 | `LinkageModel::Params::window`, `margin` | `src/linkage_model.hpp` | sites per forward–backward window, and sites discarded at each edge |
-| `RATE_WINDOW`, in `local_read_stats` | `src/allele_likelihood.cpp` | node IDs per rate window, for $\kappa$ and $\bar L$ |
+| `RATE_BUCKET`, `RATE_ID_WINDOW` | `src/allele_likelihood.hpp` | reference bp per rate-window bucket (a window is three buckets), and node IDs per window when there are no reference positions |
 | `banded` and `band`, in `score_by_optimal_pairing` | `src/allele_likelihood.cpp` | when optimal pairing is restricted to a band, and the half-width of the band in allele visits |
 | `max_yens_traversals` | `src/subcommand/call_main.cpp` | the most candidate alleles support enumeration keeps |
 | the difference limit in `LinkageModel::run_length_site` | `src/linkage_model.cpp` | the largest homopolymer length difference, 49, to which `--hp-prior` applies |
