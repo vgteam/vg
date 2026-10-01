@@ -961,6 +961,7 @@ vector<SparseAnchorChain> find_best_chains(const VectorView<Anchor>& to_chain,
                                            const transition_iterator& for_each_transition,
                                            const ChainScoringScheme& scoring_scheme,
                                            size_t max_chains,
+                                           size_t max_predecessors,
                                            size_t max_indel_bases,
                                            bool show_work) {
 
@@ -971,8 +972,7 @@ vector<SparseAnchorChain> find_best_chains(const VectorView<Anchor>& to_chain,
     // We actually need to do DP
     vector<vector<TracedScore>> chain_scores;
     chain_items_dp(chain_scores, to_chain, distance_index, graph, for_each_transition,
-                   2, /// TODO: make into a param
-                   scoring_scheme, max_indel_bases, show_work);
+                   max_predecessors, scoring_scheme, max_indel_bases, show_work);
     
     // Then do the tracebacks
     vector<SparseAnchorChain> original_tracebacks;
@@ -1043,6 +1043,7 @@ SparseAnchorChain find_best_chain(const VectorView<Anchor>& to_chain,
                             for_each_transition,
                             scoring_scheme,
                             1, // only one chain!
+                            1, // don't need to store alt predecessors
                             max_indel_bases).front();
 }
 

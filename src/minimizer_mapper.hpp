@@ -318,6 +318,10 @@ class MinimizerMapper : public AlignerClient {
     /// Allow up to this many chains per tree
     static constexpr size_t default_max_chains_per_tree = 1;
     size_t max_chains_per_tree = default_max_chains_per_tree;
+
+    /// Store up to this many predecessors for each anchor (best traceback, then runner-ups)
+    static constexpr size_t default_max_anchor_predecessors = 2;
+    size_t max_anchor_predecessors = default_max_anchor_predecessors;
     
     /// Even if we would have fewer than target_alignment_attempts results,
     /// don't process anything with a score smaller than this, per read base.

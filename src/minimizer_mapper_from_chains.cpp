@@ -1456,6 +1456,7 @@ void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeFo
                 for_each_transition,
                 scoring_scheme,
                 this->max_chains_per_tree,
+                this->max_anchor_predecessors,
                 indel_limit,
                 show_work);
 #ifdef debug_rec
@@ -1774,7 +1775,7 @@ void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::ve
         }
         return total_kept;
     };
-    
+
     // Track what positions were used in previously generated alignments, so we
     // can fish out alignments to different placements.
     // Use pairs since we can't hash tuples.

@@ -578,7 +578,7 @@ void chain_items_dp(vector<vector<TracedScore>>& chain_scores,
                     const SnarlDistanceIndex& distance_index,
                     const HandleGraph& graph,
                     const transition_iterator& for_each_transition,
-                    size_t max_predecessors = 5,
+                    size_t max_predecessors = 2,
                     const ChainScoringScheme& scoring_scheme = ChainScoringScheme(),
                     size_t max_indel_bases = 100,
                     bool show_work = false);
@@ -691,6 +691,7 @@ vector<SparseAnchorChain> find_best_chains(const VectorView<Anchor>& to_chain,
                                            const transition_iterator& for_each_transition,
                                            const ChainScoringScheme& scoring_scheme = ChainScoringScheme(),
                                            size_t max_chains = 1,
+                                           size_t max_predecessors = 2,
                                            size_t max_indel_bases = 100,
                                            bool show_work = false);
 
