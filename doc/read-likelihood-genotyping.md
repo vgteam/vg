@@ -24,8 +24,8 @@ Each site goes through four steps:
 1. **Site likelihood computation.** For each genotype the site could have, vg computes a
    likelihood: a number that measures how well the genotype explains the site's reads.
 2. **Genotyping.** vg chooses the site's genotype from its likelihoods. It can take the genotype
-   with the highest likelihood, the [direct call](#direct-call-or-linkage), or use a *linkage
-   model*. The linkage model also uses the haplotypes stored in the graph, which tend to carry the
+   with the highest likelihood, the [direct call](#direct-call-or-linkage), or use a **linkage
+   model**. The linkage model also uses the haplotypes stored in the graph, which tend to carry the
    same combinations of alleles at neighbouring sites as the sample. With
    [nested calling](#nested-sites), on by default, sites nested inside other sites are genotyped
    too, and get VCF records of their own.
@@ -33,7 +33,7 @@ Each site goes through four steps:
    stored haplotypes and then, optionally, from reads that span several sites. With
    `--regenotype`, the phase is then used to correct the likelihoods, and genotyping and phasing
    are repeated.
-4. **Output.** vg writes a VCF file. It can also write a *mosaic* file, which describes each of
+4. **Output.** vg writes a VCF file. It can also write a **mosaic** file, which describes each of
    the sample's haplotypes as a walk through the graph, and an
    [anchor file](#assembly-anchors---anchors-out), which ties reads to haplotypes.
 
@@ -46,24 +46,24 @@ first computes the likelihoods of every site. It then genotypes and phases the s
 
 ### Graph
 
-- **Node.** A node holds a DNA sequence and can be traversed in either *orientation*: forward,
-  reading its sequence, or reverse, reading its reverse complement. A *walk* is a sequence of
+- **Node.** A node holds a DNA sequence and can be traversed in either **orientation**: forward,
+  reading its sequence, or reverse, reading its reverse complement. A **walk** is a sequence of
   oriented node visits along the graph's edges.
 - **Site.** A place in the graph where the sample's genome may differ from the reference. vg
-  identifies sites as *snarls*. A snarl is a subgraph separated from the rest of the graph by two
-  *boundary nodes*, a start and an end. On this page a site is a snarl that `vg call` genotypes.
+  identifies sites as **snarls**. A snarl is a subgraph separated from the rest of the graph by two
+  **boundary nodes**, a start and an end. On this page a site is a snarl that `vg call` genotypes.
   Its boundary nodes belong to it, and its other nodes, including those of any snarls nested in
-  it, are its *interior*. A site is oriented from its start boundary node to its end boundary
+  it, are its **interior**. A site is oriented from its start boundary node to its end boundary
   node, and its alleles are written in that direction.
 - **Chain.** A series of snarls joined end to end, each snarl's end boundary node being the next
-  one's start. Snarls nest: a snarl can contain chains of smaller snarls, its *child chains*. The
-  sites in a site's child chains are *nested* in it, and it is their *parent*.
+  one's start. Snarls nest: a snarl can contain chains of smaller snarls, its **child chains**. The
+  sites in a site's child chains are **nested** in it, and it is their **parent**.
 - **Allele.** A walk through a site from its start boundary node to its end boundary node, also
-  called a *traversal*.
-- **Reference.** The *reference paths* are the graph paths on which `vg call` reports positions.
+  called a **traversal**.
+- **Reference.** The **reference paths** are the graph paths on which `vg call` reports positions.
   By default they are the paths that the graph's metadata marks as reference or generic paths;
   `-p`, `-P` or `-S` selects other paths instead, by name, by name prefix or by sample. A site's
-  *reference allele* is the walk a reference path takes through it. In the VCF the reference
+  **reference allele** is the walk a reference path takes through it. In the VCF the reference
   allele is allele 0, and the other alleles are numbered from 1.
 
 ### Sample and reads
@@ -82,10 +82,10 @@ first computes the likelihoods of every site. It then genotypes and phases the s
   a separate GBWT file given with `-g`. A panel haplotype can be stored as several paths that each
   cover part of a chromosome, so it does not necessarily pass through every site.
 - **Genotype.** The multiset of the $P$ alleles that the sample's haplotypes carry at a site, such
-  as $\lbrace 0, 1 \rbrace$. Which haplotype carries which allele is the genotype's *phase*, and
+  as $\lbrace 0, 1 \rbrace$. Which haplotype carries which allele is the genotype's **phase**, and
   is decided separately.
 - **Read placements.** A mapper, such as `vg giraffe`, aligns the reads to the graph. The reads'
-  *placements* are the walks their alignments take, together with the *edits* inside each node
+  **placements** are the walks their alignments take, together with the **edits** inside each node
   (the runs of matching bases, mismatches, insertions and deletions against the node's sequence)
   and their mapping qualities (MAPQ).
 - **Reads of a site.** The reads whose placements visit an interior node of the site, or visit
@@ -96,24 +96,33 @@ first computes the likelihoods of every site. It then genotypes and phases the s
 ## Site likelihood computation
 
 The site likelihood $\mathcal{L}(G)$ measures how well a genotype $G$ explains the reads of one
-site. It is built from a model of how a site's reads arise from the sample's genotype. The model
-can be written as a formula in a few quantities, and each of those quantities can be computed from
-the read placements.
+site. We build it from a model of how a site's reads arise from the sample's genotype. We write
+down the model's probability of the reads, and then approximate each of its parts by a quantity
+that can be computed from the read placements.
 
 ### Model of how reads arise
 
-We treat the reads of a site as generated from the sample's genotype $G$ by this process:
+We treat the reads of a site as generated from the sample's genotype $G$ in four steps:
 
-1. **How many reads.** The number of reads that come from the site's haplotypes is Poisson
-   distributed, with a mean that grows with the length of $G$'s alleles. Reads from elsewhere in
-   the genome can also be placed at the site by mistake; such a read is *mismapped*.
-2. **Where each read came from.** Independently for each read placed at the site, with a
-   probability set from its MAPQ, the read is mismapped, and then its bases say nothing about $G$.
-   Otherwise it came from one of $G$'s haplotypes.
-3. **What the read says.** The part of the read inside the site is a copy of part of the allele
-   on this haplotype for the site, with sequencing errors from an error model.
-
-The model takes each read's MAPQ as given, and does not model how many reads are mismapped.
+1. **Draw the reads' mapping qualities.** The site receives some number of reads, each with a
+   MAPQ, and so with a probability $e_r$ of being mismapped (see the next step). Only their
+   **effective read count** $N_{\mathrm{eff}}$, the sum of $1 - e_r$ over the reads, depends on
+   $G$. It is drawn from a distribution centred near the **expected read count** $\mu_G$, which
+   grows with the length of $G$'s alleles (see [Depth term](#depth-term)). Every set of MAPQs
+   with that effective read count is equally likely.
+2. **Decide whether each read is mismapped.** Independently for each read, with probability
+   $e_r$, the read is **mismapped**: the mapper put it in the wrong place. Either it came from
+   elsewhere in the genome, or it came from this site but its placement gives it the wrong start
+   or the wrong local alignment. Otherwise the read is correctly mapped.
+3. **Choose the haplotype that each correctly mapped read came from.** A correctly mapped read
+   came from $G$'s $i$-th haplotype, which carries allele $g_i$, with probability $w_i(G)$, the
+   haplotype's **mixture weight**.
+4. **Copy the read from that haplotype's allele.** The read's bases inside the site are a copy of
+   part of the allele, starting where the read's placement puts it, with sequencing errors. The
+   error model is the one behind vg's alignment scores: base substitutions have probabilities set
+   by base quality, and insertions and deletions have fixed costs (see
+   [Relative likelihood](#relative-likelihood)). A mismapped read's bases come from wherever the
+   read really came from.
 
 Each step leaves a different kind of evidence about $G$ in the reads. The number of reads reflects
 the alleles' lengths: a homozygous deletion shows mainly as reads that are missing. The chance of
@@ -121,20 +130,29 @@ mismapping means that a read with a doubtful placement counts for less. Most of 
 from the copying step, because a read fits the allele it was copied from better than it fits the
 others.
 
-The model assumes four things that real data do not always satisfy:
+The model makes the following assumptions. Where the data break one, expect wrong answers.
 
-- Reads are independent given the genotype, although paired mates, and reads that share a
-  systematic error, are not.
-- Whether a read is mismapped does not depend on how well it fits the site's alleles, so a read
-  that fits every allele badly is no more likely to be mismapped than one that fits well.
-- The number of reads depends only on the genotype, and not on mappability or base composition.
-- Each haplotype passes through the site once. A duplication can make a haplotype's path pass
-  through the site twice. The model still gives that haplotype one allele, and explains the reads
-  of both copies with it, so the site has more reads than $G$ predicts. A walk that loops inside
-  the site, between its boundary nodes, is different: the whole loop is part of one allele.
-
-vg also does not align the reads' bases again. The probability of a read given an allele comes
-from the alignment that the mapper made (see [Relative likelihood](#relative-likelihood)).
+- **Reads are independent given the genotype.** This does not mean that the reads are unrelated:
+  the reads from one haplotype share its allele, and the genotype accounts for that. The
+  assumption fails for paired mates, and for reads that share a systematic error. Their evidence is
+  then counted more than once, and the likelihoods grow over-confident with depth.
+- **Whether a read is mismapped depends only on its MAPQ.** This does not mean that MAPQ is taken
+  at face value: $e_r$ is held between a floor and a ceiling (see
+  [Mismapping probability](#mismapping-probability)). It does mean that a read that fits every
+  allele badly is no more likely to be mismapped than one that fits well. The assumption fails for
+  a read from another copy of a repeat that the mapper placed here with a high MAPQ, which then
+  counts as evidence against the alleles it fits worst.
+- **The effective read count depends only on the genotype.** This does not mean that depth is
+  uniform along the genome, since the read rate in $\mu_G$ is measured near the site, or that the
+  count follows a Poisson distribution exactly, since the distribution is widened (see
+  [Depth term](#depth-term)). The assumption fails where mappability, base composition or a change
+  in copy number moves the depth at one site away from that of its neighbourhood. The depth term
+  then favours genotypes whose allele lengths fit the wrong depth.
+- **Each haplotype passes through the site once.** This does not mean that an allele visits each
+  node once: a walk that loops inside the site, between its boundary nodes, is one allele. The
+  assumption fails at a duplication, where a haplotype's path passes through the site twice. The
+  model still gives that haplotype one allele, and explains the reads of both copies with it, so
+  the site has more reads than $G$ predicts.
 
 ### Notation
 
@@ -143,98 +161,232 @@ from the alignment that the mapper made (see [Relative likelihood](#relative-lik
 | $A$ | the site's candidate alleles: the alleles vg considers at the site (see [Candidate alleles](#candidate-alleles)) |
 | $a, b$ | alleles in $A$ |
 | $P$ | the ploidy at the site |
-| $G = \lbrace g_1, \dots, g_P \rbrace$ | a genotype; $g_1, \dots, g_P$ list its alleles in any order, and nothing below depends on that order. A homozygous genotype lists the same allele $P$ times |
+| $G = \lbrace g_1, \dots, g_P \rbrace$ | a genotype; $g_i$ is the allele of its $i$-th haplotype. The haplotypes are listed in any order, and nothing below depends on that order. A homozygous genotype lists the same allele $P$ times |
 | $\mathcal{L}(G)$ | the site likelihood of $G$ |
 | $R$ | the reads of the site |
 | $r$ | a single read in $R$ |
-| $\Pr(r \mid a)$ | the probability of read $r$'s bases, if it was copied from allele $a$, starting where its placement puts it |
-| $\Pr(r \mid \text{mismapped})$ | the probability of read $r$'s bases, if it was mismapped |
-| $p_{ra}$ | the relative likelihood of read $r$ under allele $a$, defined below |
-| $e_r$ | the probability that read $r$ is mismapped |
+| $\Pr(r \mid G)$ | the probability of read $r$'s bases under genotype $G$ |
+| $\Pr(r \mid a)$ | the probability of read $r$'s bases if it was correctly mapped and copied from allele $a$ |
+| $\Pr(r \mid \text{mismapped})$ | the probability of read $r$'s bases if it was mismapped |
+| $p_{ra}$ | the relative likelihood of read $r$ under allele $a$ |
+| $e_r$ | the mismapping probability of read $r$ |
 | $\epsilon_{\min}, \epsilon_{\max}$ | the floor and ceiling on $e_r$ |
-| $w_i(G)$ | the mixture weight of the haplotype carrying $g_i$ |
-| $f_{\mathrm{Pois}}(n ; \lambda)$ | $\lambda^{n} \exp(-\lambda) / \Gamma(n + 1)$ for a real $n \geq 0$, where the gamma function $\Gamma$ extends the factorial, $\Gamma(n + 1) = n!$; for a whole number $n$ it is the Poisson probability of $n$ events when $\lambda$ are expected |
-| $N_{\mathrm{eff}}$ | the *effective read count*, $\sum_{r \in R} (1 - e_r)$: the expected number of the site's reads that were not mismapped, given their MAPQs |
-| $\mu_G$ | the *expected read count*: the number of reads from the site's haplotypes that $G$ predicts |
-| $\beta$ | the exponent of the depth term, `--depth-term` |
+| $w_i(G)$ | the mixture weight of $G$'s $i$-th haplotype |
+| $N_{\mathrm{eff}}$ | the effective read count: the expected number of the site's reads that were not mismapped, given their MAPQs |
+| $\mu_G$ | the expected read count: the number of correctly mapped reads that $G$ predicts |
+| $f_{\mathrm{Pois}}$ | the Poisson probability, extended to counts that are not whole numbers |
+| $h_\beta$ | the distribution of the effective read count |
+| $\beta$ | the parameter that widens $h_\beta$, `--depth-term` |
 | $T_a$ | the length in bases of allele $a$, excluding the site's two boundary nodes; a node the allele visits twice counts twice |
 | $U_i(G)$ | at ploidy 2, the length in bases of the nodes that $g_i$ visits and the other allele of $G$ does not, each node counted once |
 | $\bar L$ | the mean read length near the site |
-| $\kappa$ | the rate of read starts near the site, each counted as $1 - e_r$, per base and per haplotype of the region |
+| $\kappa$ | the read-start rate: the expected number of correctly mapped reads that begin at each base of one haplotype near the site |
 
 ### Likelihood formula
 
-vg computes the site likelihood as
+Under the model, the probability of the site's reads given $G$ is
+
+$$
+\Pr(R \mid G) = c_R \, h_\beta\left(N_{\mathrm{eff}} ; \mu_G\right) \prod_{r \in R} \Pr(r \mid G)
+$$
+
+The first two factors come from step 1. $h_\beta$ is the density of the effective read count, and
+$c_R$, the probability of the reads' particular MAPQs among the sets with the same effective read
+count, does not depend on $G$. The product over reads comes from steps 2 to 4, which happen
+independently for each read.
+
+We compute the site likelihood as
 
 $$
 \mathcal{L}(G) = \prod_{r \in R} \left[ (1 - e_r) \sum_{i=1}^{P} w_i(G) p_{r g_i} + e_r \right] \times f_{\mathrm{Pois}}\left(N_{\mathrm{eff}} ; \mu_G\right)^{\beta}
 $$
 
-The product over reads, the *read term*, follows steps 2 and 3 of the model. The last factor, the
-*depth term*, follows step 1. Neither is exactly the model's probability, and each is explained in
-turn below, with the places where it departs from the model. vg works with $\ln \mathcal{L}(G)$,
-the sum of the logarithms of the factors.
+The product over reads, the **read term**, represents $\prod_{r \in R} \Pr(r \mid G)$. The last
+factor, the **depth term**, represents $h_\beta(N_{\mathrm{eff}} ; \mu_G)$. Each is approximately
+proportional to its counterpart in the model, with a factor that does not depend on $G$, so
+
+$$
+\mathcal{L}(G) \approx \frac{\Pr(R \mid G)}{C_R}
+$$
+
+for some $C_R$ that depends on the reads but not on $G$. Such a factor changes neither which
+genotype is most likely nor the ratio of two genotypes' likelihoods. The sections below derive each
+part, and state each approximation where it is made. vg works with $\ln \mathcal{L}(G)$, the sum of
+the logarithms of the factors.
 
 #### Read term
 
-Take one read, and suppose its start on each haplotype is where its placement puts it. With
-probability $1 - e_r$ the read was not mismapped, and came from one of $G$'s haplotypes. vg gives
-the haplotype carrying $g_i$ a weight $w_i(G)$, its *mixture weight*, and in that case the read's
-probability is $\Pr(r \mid g_i)$. With probability $e_r$ the read was mismapped, and its
-probability is $\Pr(r \mid \text{mismapped})$. The read's probability is the sum of these cases:
+Take one read $r$ of the site. By steps 2 to 4 of the model, it arose in one of $P + 1$ mutually
+exclusive ways: it was correctly mapped and came from $G$'s $i$-th haplotype, for one $i$ from 1
+to $P$, or it was mismapped. Its probability is the sum over these cases:
 
 $$
-(1 - e_r) \sum_{i=1}^{P} w_i(G) \Pr(r \mid g_i) + e_r \Pr(r \mid \text{mismapped})
+\Pr(r \mid G) = \sum_{i=1}^{P} (1 - e_r) \, w_i(G) \Pr(r \mid g_i) + e_r \Pr(r \mid \text{mismapped})
 $$
 
-The model does not say what $\Pr(r \mid \text{mismapped})$ is, since a mismapped read came from
-somewhere else in the genome. vg uses the probability of the read under its best allele at the
-site, $\max_{b \in A} \Pr(r \mid b)$. This value is the same under every genotype, so the
-mismapped case favours no genotype.
+$\Pr(r \mid a)$ is the probability of the read's bases inside the site if the read was copied from
+allele $a$, starting where its placement puts it. We compute it, up to a factor that depends only
+on the read, from an alignment of the read to the allele (see
+[Relative likelihood](#relative-likelihood)). [Mixture weights](#mixture-weights) and
+[Mismapping probability](#mismapping-probability) give $w_i(G)$ and $e_r$.
 
-Dividing one read's probability by a number that is the same under every genotype divides every
-genotype's likelihood by that number. It changes neither which genotype is most likely nor the
-ratio of two genotypes' likelihoods. vg divides each read's probability by
-$\max_{b \in A} \Pr(r \mid b)$. The result depends on the read only through $e_r$ and the read's
-*relative likelihoods*,
+The model does not say how probable a mismapped read's bases are, because it does not model the
+rest of the genome. We approximate that probability by the read's probability under its best
+allele at the site:
+
+$$
+\Pr(r \mid \text{mismapped}) \approx \max_{b \in A} \Pr(r \mid b)
+$$
+
+The mapper placed the read here because it resembles this site, so the sequence that the read
+really came from probably explains it about as well as the site's best allele does. This choice
+has a second use: it lets us divide every read's probability by the same value.
+
+The likelihood multiplies the probabilities of all the site's reads together. If we divide one
+read's probability by a value that does not depend on $G$, we divide every genotype's likelihood by
+that value, and $C_R$ absorbs it. We divide each read's probability by
+$\max_{b \in A} \Pr(r \mid b)$, which leaves
+
+$$
+\frac{\Pr(r \mid G)}{\max_{b \in A} \Pr(r \mid b)} \approx (1 - e_r) \sum_{i=1}^{P} w_i(G) \, p_{r g_i} + e_r
+$$
+
+where $p_{ra}$ is the read's **relative likelihood** under allele $a$:
 
 $$
 p_{ra} = \frac{\Pr(r \mid a)}{\max_{b \in A} \Pr(r \mid b)}
 $$
 
-and the mismapped case becomes $e_r$. A relative likelihood is 1 for the read's best allele, and
-smaller for alleles that explain the read less well. Each read's factor in the read term therefore
-lies between $e_r$ and 1: it is $1 - e_r$ times the average of the read's relative likelihoods
-under $G$'s alleles, weighted by the mixture weights, plus $e_r$.
+This is the read's factor in $\mathcal{L}(G)$. A relative likelihood is 1 for the read's best
+allele, and smaller for alleles that explain the read less well. The mixture weights are
+probabilities that sum to 1, so $\sum_{i} w_i(G) p_{r g_i}$ is the expected value of the read's
+relative likelihood over which of $G$'s haplotypes it came from. The read's factor therefore lies
+between $e_r$ and 1.
 
-The read term departs from the model in two ways. First, vg chooses the mixture weights, and
-$\Pr(r \mid a)$ leaves out the chance of the read's start position; the two are related, as
-[Mixture weights](#mixture-weights) explains. Second, each read's factor sums over its own two
-cases, mismapped or not, as if that did not affect how many reads came from the site's haplotypes.
-The model's exact probability would sum over every assignment of the reads to the two cases at
-once, together with the count.
+Dividing by the best allele's probability does four things. We compute $\Pr(r \mid a)$ only up
+to a factor that depends on the read, and that factor cancels in $p_{ra}$, so we never need it. It
+lets reads scored with and without base qualities, by scorers with different scales, share one
+matrix of relative likelihoods. Each read's factor lies between $e_r$ and 1, so its logarithm is
+finite and does not underflow, however long the read. And a read's relative likelihoods can be read
+directly: 1 for its best allele, and near 0 for an allele that fits it far worse.
+`--dump-likelihoods` writes them.
+
+#### Mixture weights
+
+The mixture weight $w_i(G)$ is the prior probability, before we look at the read's bases, that a
+correctly mapped read of the site came from $G$'s $i$-th haplotype. The weights of a genotype sum
+to 1. We do not compute this prior exactly. Instead we approximate it where it matters.
+
+It matters only for some reads. If a read fits $G$'s alleles equally well, so that
+$p_{r g_1} = p_{r g_2}$, its expected relative likelihood is the same whatever the weights, because
+they sum to 1. Call a read **informative** for $G$ if it fits one of $G$'s alleles better than
+another. Only the informative reads depend on the weights, so we approximate the prior for an
+informative read: each haplotype's expected share of the informative reads.
+
+We approximate that share in two steps. First, we take a read to be informative for $g_i$ only
+where it overlaps nodes that $g_i$ visits and the other allele of $G$ does not. Where $g_i$ has no
+such nodes, as the reference allele has none against an insertion, a read is informative for
+$g_i$ only where it spans the junction at which the other allele's extra sequence would be.
+Second, we treat $g_i$'s unique nodes as one stretch, of length $U_i(G)$, which is 0 at a
+junction. An informative read can then start at $U_i(G) + \bar L - 1$ positions on the haplotype,
+and the weights are proportional to that number:
+
+$$
+w_i(G) = \frac{U_i(G) + \bar L - 1}{\sum_{j=1}^{P} \left(U_j(G) + \bar L - 1\right)}
+$$
+
+A homozygous genotype has $U_i(G) = 0$ for both haplotypes, which therefore get equal weights, as
+do two alleles whose unique sequence is equally long, such as two alleles that differ by one base.
+At ploidy 1, $w_1(G) = 1$.
+
+This is a rough approximation, and it could be improved. An allele's unique nodes are seldom one
+stretch. $U_i(G)$ counts each node once, in either orientation, so two alleles that visit the same
+nodes get equal weights. For an inversion, which visits them in the other orientation, that is
+right by symmetry. For two alleles of a repeat that go round a loop a different number of times,
+it is not: when the loop is longer than a read, the allele with more turns of the loop has
+informative reads that the other lacks.
+
+`--flat-mixture` sets $w_i(G) = 1/P$ instead, so that the effect of the weighting can be measured.
+It also flattens the per-allele weights that read phasing uses (see
+[From the reads](#from-the-reads)).
+
+#### Mismapping probability
+
+Read $r$ is mismapped if it came from elsewhere in the genome, or if it came from this site but its
+placement gives it the wrong start or the wrong local alignment. MAPQ is the mapper's estimate, on
+the phred scale, of the probability of the first case. vg's mappers compute it from the scores of
+the read's distinct placements in the graph, so it measures whether the read belongs at another
+locus, not whether it is aligned correctly through this site. The mismapping probability $e_r$ is
+the sum of the probabilities of the two cases. We approximate the second by a constant, the floor
+$\epsilon_{\min}$ (`--mismap-min`), and the sum by the larger of its two terms. We also hold $e_r$
+below a ceiling $\epsilon_{\max}$ (`--mismap-max`):
+
+$$
+e_r = \min\left(\max\left(10^{-\mathrm{MAPQ}_r / 10}, \epsilon_{\min}\right), \epsilon_{\max}\right)
+$$
+
+The larger of two probabilities is at least half their sum, so this approximation is at least
+half the probability it stands for.
+
+Every read is mismapped with probability at least $\epsilon_{\min}$, so the model can always
+explain a read that fits $G$'s alleles badly as mismapped. One read can therefore change the ratio
+of two genotypes' likelihoods by at most a factor of $1 / \epsilon_{\min}$, and the higher the
+floor, the less any single read's fit counts. (The read also adds $1 - e_r$ to
+$N_{\mathrm{eff}}$, which moves the depth term.)
+
+The ceiling applies to reads with MAPQ 0 or close to it. Many mappers give MAPQ 0 to a read with
+several equally good placements. Its unclamped $e_r$ would be 1, which would make the read's
+factor the same under every genotype, so that the read counted for nothing. The ceiling decides
+how much such a read still counts. Such reads are used unless `--read-min-mapq` excludes them.
+
+`--no-mismap-term` sets every $e_r$ to $\epsilon_{\min}$, whatever the read's MAPQ, as if every
+read were well mapped, so that the contribution of the mismapping case can be measured. The
+effective read count and $\kappa$ are computed from $e_r$ too (see
+[Depth term inputs](#depth-term-inputs)), so under this option every read counts as
+$1 - \epsilon_{\min}$ in them.
 
 #### Depth term
 
-The depth term asks whether the number of reads fits $G$. Which reads came from the site's
-haplotypes is not known, because any read may have been mismapped, so vg uses the effective read
-count $N_{\mathrm{eff}}$, which counts each read by its probability of not being mismapped. That
-count is usually not a whole number, and the Poisson distribution gives probabilities only to
-whole numbers. vg therefore models $N_{\mathrm{eff}}$ with a continuous analogue of the Poisson
-distribution: a distribution on $n \geq 0$ whose density is proportional to
-$f_{\mathrm{Pois}}(n ; \lambda)$.
+The depth term represents step 1 of the model: how well the effective read count fits $G$.
+$N_{\mathrm{eff}}$ is usually not a whole number, so it cannot follow a Poisson distribution, and
+we give it a continuous analogue of one. For a real $n \geq 0$ and $\lambda > 0$, let
 
-The depth term evaluates this function at $N_{\mathrm{eff}}$, as a likelihood of the expected read
-count $\lambda = \mu_G$. The density itself would be the function divided by its integral over
-$n$. That integral depends on $\lambda$, so leaving it out changes the ratio of two genotypes'
-likelihoods, but by less than 1% when both expected read counts are at least 4 and $\beta$ is at
-most 1. vg leaves it out.
+$$
+f_{\mathrm{Pois}}(n ; \lambda) = \frac{\lambda^{n} e^{-\lambda}}{\Gamma(n + 1)}
+$$
 
-The depth term is also raised to the power $\beta$, below 1 by default, because read depth varies
-between sites for reasons the model leaves out.
+where the gamma function $\Gamma$ extends the factorial to real numbers: $\Gamma(n + 1) = n!$ for
+a whole number $n$. For a whole number $n$, $f_{\mathrm{Pois}}(n ; \lambda)$ is the Poisson
+probability of $n$ events when $\lambda$ are expected. The model draws $N_{\mathrm{eff}}$ from the
+distribution on $n \geq 0$ with density
 
-With these departures, $\mathcal{L}(G)$ as a whole is not proportional to the model's probability
-of the reads. It is a likelihood built from the model's parts.
+$$
+h_\beta(n ; \lambda) = \frac{f_{\mathrm{Pois}}(n ; \lambda)^{\beta}}{Z_\beta(\lambda)}, \qquad Z_\beta(\lambda) = \int_0^\infty f_{\mathrm{Pois}}(x ; \lambda)^{\beta} \, dx
+$$
+
+with $\lambda = \mu_G$. At $\beta = 1$ this is a continuous analogue of the Poisson distribution.
+The parameter $\beta$, `--depth-term`, widens it: for large $\lambda$ it is close to a normal
+distribution with mean $\lambda$ and variance $\lambda / \beta$, where a Poisson distribution has
+variance $\lambda$. We widen it because read depth varies between sites more than a Poisson count
+would, for reasons the model leaves out. At $\beta = 0$, $f_{\mathrm{Pois}}^{\beta} = 1$ under every
+genotype, so the count says nothing about $G$, and the depth term is off.
+
+Evaluated at the observed $N_{\mathrm{eff}}$, $h_\beta(N_{\mathrm{eff}} ; \lambda)$ is the
+likelihood of $\lambda$. We approximate it by its numerator, leaving out $Z_\beta(\lambda)$:
+
+$$
+h_\beta\left(N_{\mathrm{eff}} ; \mu_G\right) \approx \frac{f_{\mathrm{Pois}}\left(N_{\mathrm{eff}} ; \mu_G\right)^{\beta}}{Z}
+$$
+
+for a constant $Z$. This is a good approximation where $Z_\beta(\lambda)$ changes little between
+the expected read counts of the genotypes being compared. At $\beta = 1$, $Z_1(\lambda)$ is within
+1% of 1 for every $\lambda \geq 4$: it is 0.994 at $\lambda = 4$ and 0.9999 at $\lambda = 8$. At
+$\beta < 1$, $Z_\beta(\lambda)$ is not close to 1, but it grows slowly with $\lambda$, about as
+$\lambda^{(1 - \beta)/2}$. Leaving it out therefore favours the genotype with the larger expected
+read count, by about $\frac{1 - \beta}{2} \ln (\mu_G / \mu_{G'})$ in $\ln \mathcal{L}$ between
+genotypes $G$ and $G'$. That is 0 between genotypes whose alleles have equal lengths, such as at a
+SNP. At $\beta = 0.1$, when one genotype expects twice as many reads as the other, it is between
+0.31 and 0.35.
 
 The expected read count is
 
@@ -249,10 +401,10 @@ between the two boundary nodes.
 
 ### Computing the terms
 
-The read term needs, for each read of the site, its relative likelihood under each allele and its
-mismapping probability, and, for each genotype, the mixture weights. The depth term needs
-$N_{\mathrm{eff}}$, which also comes from the reads of the site, and $\mu_G$, whose $\kappa$ and
-$\bar L$ come from the reads near the site.
+The read term needs, for each read of the site, its relative likelihoods and its mismapping
+probability. The depth term needs the effective read count, and the read-start rate and mean read
+length that set the expected read count. Those two come from the reads that begin near the site,
+not only from the site's own reads.
 
 #### Read input
 
@@ -266,215 +418,178 @@ are discarded as they are read in. The reads come from one of three sources:
 - `--gaf-base`: a [GAF-base](https://github.com/jltsiren/gbz-base) database of alignments,
   queried one range of node IDs at a time by the `gbz-base` program. `--gaf-base-binary` gives the
   path to that program. It reads the graph from the GBZ-base database given with `--gbz-base`, or
-  else from the input graph. This source also drops an alignment returned twice by its queries,
-  identified by read name and start position.
+  else from the input graph.
 
 `--read-window` sets the size of those ranges, in node IDs, for the two indexed sources. It changes
-which reads are fetched together, but not which reads a site uses. It can change a likelihood in
-its last digits, since the reads' terms are then added in another order.
+which reads are fetched together, but not which reads a site uses. We add the logarithms of the
+reads' factors in the order in which the reads arrive, so `--read-window` can change a likelihood
+in its last digits.
 
 A read whose alignment crosses the site against the direction of the alleles is
-reverse-complemented before it is scored. The direction is decided by a vote over the nodes the
-alleles visit, leaving out any node that two alleles visit in opposite orientations. The read is
-reversed if more of its visits to those nodes are in the opposite orientation than in the same
-one. A tie, including a read that visits none of them, leaves it as it is.
+reverse-complemented before it is scored. We decide the direction by a vote over the read's visits
+to the nodes that the alleles visit, leaving out any node that two alleles visit in opposite
+orientations. The read is reversed if more of those visits are in the opposite orientation to the
+alleles' than in the same one. A tie, including a read that visits none of those nodes, leaves it
+as it is. We do not rely on the boundary nodes alone, because a read that lies inside the site's
+interior visits neither of them. The boundary nodes do take part in the vote, and they decide it
+at an inversion, whose inverted nodes the alleles visit in both orientations.
 
 #### Relative likelihood
 
-A read's relative likelihood under an allele comes from scoring the read against the allele. vg
-pairs the read's node visits with the allele's, scores the pairing, and compares the score with the
-score of the read's best allele. Two visits are the same when they go to the same node in the same
-orientation.
+We compute a read's relative likelihoods by aligning the read to each candidate allele, scoring each
+alignment, and comparing each score with the best one. The alignment is of node visits, not of
+bases. The read's placement and the allele are both sequences of node visits, and two visits are the
+**same visit** when they go to the same node in the same orientation. We align the read's visits
+inside the site, boundary nodes included, to the allele's visits in much the way that dynamic
+programming aligns two DNA sequences with affine gap costs, with node visits in place of bases.
 
-A *pairing* lines up the read's node visits inside the site (boundary nodes included) with the
-allele's node visits, in order, and may leave some of either unpaired. The rules for scoring a
-pairing are:
+Such an alignment is a **pairing**. Each read visit is either paired with one allele visit or left
+unpaired, and the pairs come in the same order in both sequences. Two kinds of pair are
+considered:
 
-| Read visit paired with allele visit | Score |
-|---|---|
-| the same visit | the score of the read's own edits in that node |
-| a visit the allele never makes, paired with a visit the read never makes | a *substitution*: the read's bases in its node compared one by one with the allele node's sequence, from the first base of each, over the shorter length, plus a gap for the difference in length |
-| any other pair | not allowed |
+- **A read visit paired with the same allele visit.** It scores the read's own edits in that node,
+  as the mapper aligned them.
+- **A substitution.** It pairs a read visit that the allele never makes with an allele visit that
+  the read never makes. It compares the read's bases in its node with the allele node's sequence,
+  base by base from the first base of each, over the shorter of the two lengths, and adds a gap
+  for the difference in length.
 
-- A run of allele visits left unpaired between two pairs is a *deletion*, scored as one gap as
-  long as their bases. Unpaired allele visits before the read's first same-visit pair, or after
-  its last pair, lie outside the read and score nothing.
-- A run of consecutive read visits left unpaired after the first same-visit pair is an
-  *insertion*, scored as one gap as long as their bases. A visit that the read and the allele
-  share can be left unpaired in this way. Before the first same-visit pair, each unpaired read
-  visit is a gap of its own.
+A visit that the read and the allele share is never paired with a different visit; such pairs are
+not considered. Visits left unpaired are gaps, measured in bases:
 
-So every read base inside the site is scored under every allele, and all alleles are scored over
-the same read bases.
+- A run of consecutive read visits left unpaired is an **insertion**, scored as one gap as long as
+  their bases. A visit that the read and the allele share may be left unpaired, which can explain
+  a read with poor edits in that node better. Before the read's first pair of same visits, each
+  unpaired read visit is a gap of its own.
+- A run of allele visits left unpaired between two pairs is a **deletion**, scored as one gap as
+  long as their bases. Unpaired allele visits before the read's first pair of same visits, or
+  after its last pair, lie outside the read and score nothing, so that a read is not penalised for
+  being short.
 
-Scores use vg's alignment scoring, in which a better fit scores higher. Matches and mismatches
-score from a substitution matrix adjusted by base quality, in which a mismatch at a low-quality
-base costs less; a read without base qualities uses the plain matrix. A gap of length $m$ scores
-$-(o + (m - 1) x)$, where $o$ is `--gap-open` and $x$ is `--gap-extend`. The mapper's edits say
-which bases match, mismatch, or are inserted or deleted, and their scores are computed here with
-these settings. The total score $s_{ra}$ of the pairing is converted to a log-likelihood score in
-nats:
+Every read base inside the site is therefore scored under every allele, and all alleles are scored
+over the same read bases.
+
+Scores use vg's quality-adjusted alignment scoring, in which a mismatch at a low-quality base costs
+less, with gap scores set by `--gap-open` and `--gap-extend`. A read without base qualities is
+scored without the quality adjustment. As in any alignment scoring, a better fit scores higher. A
+pairing determines a base-level alignment of the read's bases in the site to the allele's sequence,
+and the pairing's score $s_{ra}$ is the score of that alignment, except that each pair and each gap
+is scored on its own, so a gap at the edge of one is not joined to a gap in the next.
+
+##### Optimal pairing
+
+With `--realign`, we use optimal pairing: the pairing with the highest score $s_{ra}$, found by
+dynamic programming over the read's visits against the allele's, as in affine-gap alignment.
+`--realign` selects optimal pairing in place of greedy pairing; it does not align bases. When the
+product of the numbers of read visits and allele visits exceeds a fixed limit, the dynamic
+programming is banded (see [Fixed constants](#fixed-constants)), so at the largest sites optimal
+pairing can miss the best pairing.
+
+##### Greedy pairing
+
+Without `--realign`, we use greedy pairing, which approximates optimal pairing in one pass along
+the read's visits. It pairs each read visit with the next matching allele visit: the next
+occurrence of the same visit after the last pair. Allele visits skipped over between two pairs are
+a deletion. When there is no matching visit, it looks for a simple insertion: if the allele's next
+unpaired visit is one that the read makes later, the read visit is left unpaired. Otherwise it
+pairs the read visit with the allele's next unpaired visit as a substitution. Once the allele's
+visits are used up, the remaining read visits are left unpaired. A pair, once made, is never
+revised.
+
+Greedy pairing differs from optimal pairing in two further ways. It can make a substitution that
+optimal pairing does not consider, between visits that one of the two sequences makes elsewhere.
+And it scores each unpaired read visit as a gap of its own, rather than one gap per run.
+
+##### From scores to relative likelihoods
+
+We convert the pairing's score to a log-likelihood score in nats:
 
 $$
 \ell_{ra} = \alpha s_{ra} + \iota I_{ra}
 $$
 
-$\alpha$, which vg's code calls the scorer's *log base*, is a scale factor that vg computes from
-the substitution matrix, so that $\alpha$ times a substitution score is a natural-log likelihood
-ratio. $I_{ra}$ is the number of insertions in which the read has bases the allele lacks, counting
-those inside the mapper's edits, and $\iota$ is `--insertion-nats`. Under optimal pairing (below),
-each unpaired read visit counts as one insertion here, even where a run of them is scored as one
-gap. A positive $\iota$ raises $\ell_{ra}$ for each insertion, so extra read bases count against an
-allele less than missing ones.
+$\alpha$ is the scorer's log base. vg computes it from the substitution matrix so that $\alpha$
+times a substitution score is the natural log of a likelihood ratio: the probability of the aligned
+bases under the alignment model, over their probability as unrelated random sequence. This is how
+vg interprets alignment scores as probabilities elsewhere. The scorers with and without the
+quality adjustment have different log bases. $I_{ra}$ is the number of insertions in the pairing
+in which the read has bases the allele lacks: those inside the mapper's edits, each unpaired read
+visit, and each substitution whose read node is the longer. Under optimal pairing, each unpaired
+read visit counts once here, even where a run of them is scored as one gap. $\iota$ is
+`--insertion-nats`. A positive $\iota$ makes an insertion, where the read has bases the allele
+lacks, cost less than a deletion of the same length, where the allele has bases the read lacks.
+Optimal pairing chooses the pairing by $s_{ra}$ alone, and then adds $\iota$ for its insertions.
 
-vg's substitution scores are log-odds of the read's bases against a random-sequence background.
-Since every allele is scored over the same read bases, $\ell_{ra}$ stands for
-$\ln \Pr(r \mid a)$ plus a term that depends on the read and not on the allele. That term cancels in
-the relative likelihood:
-
-$$
-p_{ra} = \exp\left(\ell_{ra} - \max_{b \in A} \ell_{rb}\right)
-$$
-
-$\ell_{ra}$ is only an approximation to a log probability: its gap penalties are fixed costs, not
-probabilities from an error model.
-
-vg can choose the pairing in two ways. Optimal pairing finds the best pairing that the rules
-allow, and greedy pairing, the default, approximates it. Inside a node that the read and the
-allele share, both score the mapper's edits.
-
-##### Greedy pairing
-
-Greedy pairing works through the read's visits in order. For each one, it looks in the allele for
-the same visit, after the last allele visit already paired. If it finds one, the two are paired,
-and once a first such pair exists, any allele visits skipped over become a deletion. Otherwise, if
-the allele's next unpaired visit occurs later in the read, the read visit is left unpaired as an
-insertion. Otherwise the read visit is paired with the allele's next unpaired visit as a
-substitution. Once the allele's visits are used up, the remaining read visits are insertions. A
-pair, once made, is never revised.
-
-Greedy pairing therefore departs from the rules in two ways. It can make a substitution pair that
-the rules forbid, and it scores each unpaired read visit as a gap of its own, rather than one gap
-per run.
-
-##### Optimal pairing
-
-With `--realign`, optimal pairing finds the pairing that the rules allow with the highest score
-$s_{ra}$, by dynamic programming over the read's visits against the allele's, and then adds
-$\iota$ times that pairing's insertions. `--realign` chooses the pairing of node visits again; it
-does not align bases.
-
-When the read and the allele both have many visits, so that the product of their numbers exceeds a
-fixed limit, the search is restricted to a band. For each read visit, the band is centred where
-the next visit that the read and the allele share (or, past the last one, the last) puts the
-matching allele visit, and it holds the allele visits within a fixed distance of that centre. At
-the largest sites, optimal pairing is therefore approximate too.
-
-#### Mismapping probability
-
-MAPQ is the mapper's estimate, on the phred scale, of the probability that the read belongs
-somewhere else. vg uses it as the mismapping probability, held between a floor and a ceiling:
+These scores define the error model of the copying step. Given the alignment that the pairing
+describes, the probability of the read's bases in the site is $\exp(\ell_{ra})$ times $B_r$, their
+probability as unrelated random sequence. $B_r$ is the same for every allele, because every allele
+is scored over the same read bases. We take the probability of one alignment, the best pairing
+found, in place of the sum over all alignments of the read to the allele, so
 
 $$
-e_r = \min\left(\max\left(10^{-\mathrm{MAPQ}_r / 10}, \epsilon_{\min}\right), \epsilon_{\max}\right)
+\Pr(r \mid a) \approx B_r \exp\left(\ell_{ra}\right)
 $$
 
-$\epsilon_{\min}$ is `--mismap-min` and $\epsilon_{\max}$ is `--mismap-max`. Each read's factor in
-the read term lies between $e_r$ and 1. So one read changes the ratio of two genotypes' read terms
-by at most a factor of $1 / e_r$, which is at most $1 / \epsilon_{\min}$. The floor therefore sets
-how strongly a single read's fit can count against a genotype. (The read also adds $1 - e_r$ to
-$N_{\mathrm{eff}}$, which moves the depth term.)
-
-MAPQ does not cover one kind of error: a read placed at the right locus can still be aligned
-wrongly through this particular site. The floor also stands for that case.
-
-The ceiling applies to reads with MAPQ 0 or close to it, whose unclamped $e_r$ is near 1, and keeps
-them contributing a little rather than nothing. Such reads are used unless `--read-min-mapq`
-excludes them. `--no-mismap-term` sets every $e_r$ to $\epsilon_{\min}$, in $N_{\mathrm{eff}}$ and
-$\kappa$ as well as in the read term.
-
-#### Mixture weights
-
-vg chooses the mixture weights; they do not follow from the model. In the model, the chance that a
-read came from haplotype $i$ is proportional to the number of positions at which it can start
-there, $T_{g_i} + \bar L - 1$. The model's probability of the read then also includes the chance
-of its particular start position, $1 / (T_{g_i} + \bar L - 1)$, which $\Pr(r \mid a)$ leaves out.
-Between the haplotypes of one genotype, the two cancel, and every haplotype gets the same weight.
-What remains is a factor of $\kappa / \mu_G$ for each read, the same for every haplotype of $G$ but
-not for every genotype; in the model it combines with the count of reads. The relative
-likelihoods leave the start position out, so vg sets the weights by another rule: which reads can
-tell the alleles apart.
-
-A read's factor depends on the weights only when the read fits the alleles of $G$ differently: if
-$p_{r g_1} = p_{r g_2}$, the weighted average is the same whatever the weights, because they sum
-to 1. Call a read *informative* for $G$ if it fits one of $G$'s alleles better than another. vg
-gives each haplotype a weight equal to its expected share of the informative reads. For a true
-heterozygote, whose informative reads split between its alleles in that proportion, these weights
-approximately maximise the expected read term.
-
-Where the two alleles visit different nodes, a read can favour $g_i$ only where it overlaps nodes
-that $g_i$ visits and the other allele does not. For an allele with no such nodes, it can favour
-$g_i$ only where it spans the junction at which the other allele's extra sequence would be.
-Treating those nodes as one stretch of length $U_i(G)$ (0 for a junction), such a read can start at
-$U_i(G) + \bar L - 1$ positions, so each haplotype's weight is proportional to that number:
+We score the read against every candidate allele, and then divide by the best. Substituting this
+approximation into the definition of $p_{ra}$, $B_r$ cancels:
 
 $$
-w_i(G) = \frac{U_i(G) + \bar L - 1}{\sum_{j=1}^{P} \left(U_j(G) + \bar L - 1\right)}
+p_{ra} = \frac{\Pr(r \mid a)}{\max_{b \in A} \Pr(r \mid b)} \approx \frac{B_r \exp\left(\ell_{ra}\right)}{B_r \exp\left(\max_{b \in A} \ell_{rb}\right)} = \exp\left(\ell_{ra} - \max_{b \in A} \ell_{rb}\right)
 $$
-
-Two alleles can also visit the same nodes: an inversion visits them in the other orientation, and
-two alleles of a repeat can go round a loop a different number of times. Then $U_i(G) = 0$ for
-both, and the weights are equal. For an inversion that is right, by symmetry. For alleles that
-differ in how many times they go round a loop, equal weights are an approximation.
-
-Take a heterozygote of the reference allele and a 1,000-base insertion. The only reads that favour
-the reference allele are those spanning its junction, which start at about $\bar L - 1$ positions,
-while reads that favour the insertion can start at about $1{,}000 + \bar L - 1$. Equal weights
-would read this imbalance as evidence against the heterozygote. Making more of one allele's
-sequence differ from the other's, without changing its length, does not make its haplotype produce
-more reads; it makes more of them informative, and the weight follows.
-
-A homozygous genotype has $U_i(G) = 0$ for both haplotypes, which therefore get equal weights, as
-do two alleles whose unique sequence is equally long, such as two alleles that differ by one base.
-At ploidy 1, $w_1(G) = 1$. `--flat-mixture` uses $w_i(G) = 1/P$ instead, so that the effect of the
-weighting can be measured. It also flattens the per-allele weights that read phasing uses (see
-[From the reads](#from-the-reads)).
 
 #### Depth term inputs
 
-- $\kappa$ is measured over a *rate window* on the reference path. The reference path is cut into
-  buckets of a fixed length. A site belongs to the bucket that holds the reference position of its
-  start boundary node. If that node has none, vg uses the end boundary node, and failing that, the
-  nearest enclosing site. The site's rate window is its bucket and one bucket on each side.
-- The window's *read rate* is the number of reads whose alignment begins on a reference node in
-  the window, each counted as $1 - e_r$, divided by the reference length of the window. Only
-  reference nodes count, in both the number and the length, so the rate does not depend on how the
-  graph's nodes are numbered or on how many non-reference nodes the window holds. Variation that
-  the sample carries in the window still changes it: a deletion leaves reference bases on which no
-  reads start.
-- The counts are computed once per bucket and shared, and each site divides the rate by the
-  ploidy of its region (set by `-d`, `-R` or `--ploidy-bed`) to give $\kappa$, a rate per haplotype.
-  That is the site's own ploidy, except at a nested site that only some of its parent's alleles
-  cross: the site is genotyped at a lower ploidy, but the window's reads come from every haplotype.
-  When no read begins in the window, $\kappa = 0$, and the site has no depth term.
-- A site with no reference position anywhere among its enclosing sites, as in a graph without
-  reference path positions, uses a fixed block of consecutive node IDs in place of the rate
-  window: the block that contains the site's lowest node ID.
-- $\bar L$ is the mean length of the reads that begin in the rate window, or of the site's own
-  reads if none does. The mixture weights use the same $\bar L$.
-- $N_{\mathrm{eff}}$ counts each read of the site as $1 - e_r$. With `--depth-count-raw`, each read
-  counts as 1, in both $N_{\mathrm{eff}}$ and $\kappa$, and $N_{\mathrm{eff}}$ is a whole number.
-- $\beta$ is `--depth-term`; 0 turns the depth term off.
+The depth term compares the effective read count $N_{\mathrm{eff}}$ with the expected read count
+$\mu_G = \kappa \sum_{i} (T_{g_i} + \bar L - 1)$, under a distribution of width set by $\beta$. Its
+inputs are computed in this order:
 
-The ratio $N_{\mathrm{eff}} / \mu_G$ at the direct call is reported in the VCF as `DR`, whether or
-not the depth term is on. A site with $\kappa = 0$ has no `DR`.
+1. **The read-start rate $\kappa$**, the expected number of correctly mapped reads that begin at
+   each base of one haplotype near the site. It is measured over a **rate window** on the
+   reference path. The reference path is cut into buckets of a fixed length. A site belongs to the
+   bucket that holds the reference position of its start boundary node. If that node has none, vg
+   uses the end boundary node, and failing that, the nearest enclosing site. The site's rate window
+   is its bucket and one bucket on each side. The window's **read rate** is the number of reads
+   whose alignment begins on a reference node in the window, each counted as $1 - e_r$, divided by
+   the reference length of the window. Only reference nodes count, in both the number and the
+   length, so the rate does not depend on how the graph's nodes are numbered or on how many
+   non-reference nodes the window holds. Variation that the sample carries in the window still
+   changes it: a deletion leaves reference bases on which no reads start. The counts are computed
+   once per bucket and shared, and each site divides the read rate by the ploidy of its region (set
+   by `-d`, `-R` or `--ploidy-bed`) to give $\kappa$, a rate per haplotype. That is the site's own
+   ploidy, except at a nested site that only some of its parent's alleles cross: the site is
+   genotyped at a lower ploidy, but the window's reads come from every haplotype. When no read
+   begins in the window, $\kappa = 0$, and the site has no depth term. A site with no reference
+   position anywhere among its enclosing sites, as in a graph without reference path positions,
+   uses a fixed block of consecutive node IDs in place of the rate window: the block that contains
+   the site's lowest node ID.
+2. **The mean read length $\bar L$**, the mean length of the reads that begin in the rate window,
+   or of the site's own reads if none does. The mixture weights use the same $\bar L$.
+3. **The effective read count** $N_{\mathrm{eff}} = \sum_{r \in R} (1 - e_r)$, over the site's
+   reads.
+4. **The width parameter $\beta$**, `--depth-term`.
+
+The expected read count $\mu_G$ is then computed for each genotype from $\kappa$, $\bar L$ and the
+lengths of the genotype's alleles.
+
+`--depth-count-raw` counts each read as 1 in place of $1 - e_r$, in both $N_{\mathrm{eff}}$ and
+$\kappa$, so that the contribution of the mismapping probabilities to the depth term can be
+measured. $N_{\mathrm{eff}}$ is then the number of the site's reads, a whole number, and step 1 of
+the model draws that number.
+
+The VCF's `DR` field, the **depth ratio**, is the effective read count divided by the expected
+read count, $N_{\mathrm{eff}} / \mu_G$, for the site's
+[direct call](#direct-call-or-linkage), the genotype with the highest $\mathcal{L}(G)$. A value
+near 1 means that the site has as many reads as the direct call predicts. `DR` is written whether
+or not the depth term is on, and is left out where $\kappa = 0$. It is computed once, for the
+direct call, and keeps its value when the linkage model settles a different genotype or
+re-genotyping corrects the likelihoods.
 
 ## Genotyping
 
 Genotyping chooses each site's genotype from its likelihoods, among the genotypes that can be made
-from the site's candidate alleles at the site's ploidy. The genotype chosen is the site's *settled*
-genotype. From it vg writes the site's *records*, its lines in the VCF. A site usually has one
-record. It can have one for each place where it differs from the reference allele (see
+from the site's candidate alleles at the site's ploidy. The genotype chosen is the site's
+**settled** genotype. From it vg writes the site's **records**, its lines in the VCF. A site usually
+has one record. It can have one for each place where it differs from the reference allele (see
 [Reporting each difference once](#reporting-each-difference-once)), or none, as when it is called
 homozygous for the reference allele and `-a` is not given.
 
@@ -483,12 +598,12 @@ homozygous for the reference allele and `-a` is not given.
 A site's candidate alleles come from the panel or from the reads.
 
 - When the graph is a GBZ with at least two panel haplotypes, the candidate alleles are by default
-  the distinct walks that panel haplotypes take through the site (*haplotype enumeration*). `-z`
+  the distinct walks that panel haplotypes take through the site (**haplotype enumeration**). `-z`
   asks for this explicitly, and `-g` gives the panel as a separate GBWT file. Haplotype
   enumeration only offers alleles that some panel haplotype takes. A panel haplotype that passes
   through the site more than once offers each of its walks through it.
 - Otherwise, or with `--enumerate-support`, the candidates are the walks with the most read
-  support (*support enumeration*). vg finds them with Yen's k-shortest-paths algorithm, over the
+  support (**support enumeration**). vg finds them with Yen's k-shortest-paths algorithm, over the
   node and edge coverage in a file made by
   [`vg pack`](https://github.com/vgteam/vg/wiki/vg-manpage#pack) and given with `-k`. vg keeps at
   most a fixed number of them.
@@ -496,7 +611,7 @@ A site's candidate alleles come from the panel or from the reads.
 
 `--max-snarl-edges` sets a limit on a site's edges, counting the edges of the sites nested in it.
 vg skips a site over the limit, and genotypes the sites of its child chains as if they were
-*top-level* sites, those nested in no other site. They take the ploidy of their contig or region,
+**top-level** sites, those nested in no other site. They take the ploidy of their contig or region,
 and join the contig's top-level sites in the linkage model. A skipped site with no child chains
 gets no call. The limit exists because Yen's search is slow on very large sites. It is lifted by
 default under haplotype enumeration, which does not use Yen's search.
@@ -522,12 +637,12 @@ of its contig or region.
 ### Direct call or linkage
 
 Every genotype that can be made from the site's candidate alleles, that is every multiset of $P$ of
-them, is scored. The genotype with the highest $\mathcal{L}(G)$ is the site's *direct call*. An
+them, is scored. The genotype with the highest $\mathcal{L}(G)$ is the site's **direct call**. An
 exact tie goes to the homozygous reference genotype if it is one of the tied genotypes. Otherwise
 it goes to the tied genotype that comes first in VCF genotype order (the order of `GL`), with the
 candidate alleles numbered in the order in which they were found, not as the record numbers them.
 
-- Under *direct calling*, that is under support enumeration or with the linkage model off
+- Under **direct calling**, that is under support enumeration or with the linkage model off
   (`--linkage-weight 0`), the direct call is the settled genotype.
 - Otherwise, under haplotype enumeration, the likelihoods become the evidence of the linkage
   model, described next, and the settled genotype is the one with the highest posterior
@@ -547,7 +662,7 @@ to form combinations that panel haplotypes also carry. The linkage model uses th
 of the sample's haplotypes as a mosaic of panel haplotypes (the Li–Stephens model), following
 PanGenie (Ebler et al. 2022).
 
-The model is a hidden Markov model that runs along a *linkage chain*: a sequence of sites in
+The model is a hidden Markov model that runs along a **linkage chain**: a sequence of sites in
 reference order. At the top level, a linkage chain holds the top-level sites of one contig, split
 wherever the ploidy changes. Below the top level, a linkage chain holds the sites of one child
 chain that have the same ploidy, whether or not they are adjacent; at ploidy 1, also on the same
@@ -563,10 +678,10 @@ imply, the model computes each genotype's posterior probability at each site.
 
 #### States and emissions
 
-We call each of the sample's haplotypes a *strand*, numbered 0 and 1. The word names a haplotype of
-the sample, not a strand of DNA. At ploidy 2 the hidden state at a site is an ordered pair
-$(h_0, h_1)$ of panel haplotypes: strand 0 copies $h_0$ there, and strand 1 copies $h_1$. At
-ploidy 1 the state is a single panel haplotype.
+We call each of the sample's haplotypes a **strand**, numbered 0 and 1. The word names a haplotype
+of the sample, not a strand of DNA. At ploidy 2 the hidden state at a site is an ordered pair
+$(h_0, h_1)$ of panel haplotypes: strand 0 copies $h_0$ there, and strand 1 copies $h_1$. At ploidy
+1 the state is a single panel haplotype.
 
 A panel haplotype carries at most one allele at a site. It can take the walks of more than one
 candidate allele there, when it passes through the site twice or is stored as several paths. vg
@@ -575,9 +690,9 @@ the order in which the search of the panel's GBWT index finds the alleles, with 
 allele added at the end if the search did not find it.
 
 A state implies a genotype, made of the alleles that its panel haplotypes carry at the site. The
-state's *emission*, the evidence the reads give for it, is that genotype's $\mathcal{L}(G)$.
+state's **emission**, the evidence the reads give for it, is that genotype's $\mathcal{L}(G)$.
 
-At each site, the model works over the site's *compact allele set*: the alleles of the site's
+At each site, the model works over the site's **compact allele set**: the alleles of the site's
 direct call, and every allele that some panel haplotype carries there. The model can settle a site
 only on a genotype made of these alleles. A site whose compact allele set is larger than a fixed
 limit is left out of the model. It keeps its direct call, written unphased, and the model links
@@ -585,14 +700,14 @@ the sites on either side of it directly.
 
 #### Wildcard haplotype
 
-The model adds a *wildcard* haplotype to the panel, so that it can call a genotype that no pair of
+The model adds a **wildcard** haplotype to the panel, so that it can call a genotype that no pair of
 panel haplotypes carries. The wildcard can carry any allele of the compact allele set.
 
-A strand has an *unknown allele* at a site when it copies the wildcard, or a panel haplotype that
+A strand has an **unknown allele** at a site when it copies the wildcard, or a panel haplotype that
 does not pass through the site. The emission of a state with one unknown strand is the mean of
 $\mathcal{L}(G)$ over the alleles of the compact allele set, each taken in turn as the unknown
 strand's allele. With two unknown strands, the mean is over ordered pairs of these alleles. The
-mean is of the likelihoods themselves, and it is then multiplied by a fixed *escape* probability
+mean is of the likelihoods themselves, and it is then multiplied by a fixed **escape** probability
 for each unknown strand.
 
 #### Transitions
@@ -612,7 +727,7 @@ start to start. $D$ is `--linkage-scale`, the distance over which linkage decays
 and linkage stronger. $\omega = 0$ is a special value: vg does not run the model, and every site
 keeps its direct call. $\rho_{\min}$ is a small fixed floor, so that a switch is never impossible.
 
-A chain that no reference path passes through is an *off-reference chain*, and its sites have no
+A chain that no reference path passes through is an **off-reference chain**, and its sites have no
 reference position of their own. vg takes the first allele of the parent's settled genotype that
 crosses such a site, and places the site at the parent's position plus the site's offset along
 that allele. Two sites of one off-reference chain are then as far apart as they are along that
@@ -657,16 +772,17 @@ Sequencing errors in a long homopolymer run tend to recur in many reads at the s
 read term counts each such read as independent evidence. A larger exponent $F$ at a site like this
 gives the panel's allele frequencies more weight against these reads.
 
-`--hp-prior`, when not 0, replaces $F$ at *homopolymer sites*. At a homopolymer site, the reference
-allele and another candidate allele differ only in the length of one homopolymer run, by 1 to 49
-copies of its base. The run must also be long: in the longer of the two alleles it has at least
-`--hp-prior-run` bases, or it reaches an end of the allele. A run that reaches an end of the allele
-can continue into the neighbouring site, so its full length is not known, and it counts as long.
+`--hp-prior`, when not 0, replaces $F$ at **homopolymer sites**. At a homopolymer site, the
+reference allele and another candidate allele differ only in the length of one homopolymer run, by 1
+to 49 copies of its base. The run must also be long: in the longer of the two alleles it has at
+least `--hp-prior-run` bases, or it reaches an end of the allele. A run that reaches an end of the
+allele can continue into the neighbouring site, so its full length is not known, and it counts as
+long.
 
 #### Forward–backward windows
 
 vg runs the forward–backward algorithm over overlapping windows of a linkage chain. Each window
-*keeps* a fixed number of consecutive sites, and the kept sites of successive windows cover the
+**keeps** a fixed number of consecutive sites, and the kept sites of successive windows cover the
 chain without overlapping. A window also decodes a fixed margin of sites on each side of its kept
 sites, fewer at the ends of the chain, and discards their posteriors. The windows are decoded one
 after another, each on its own. Every kept posterior therefore has the margin's number of sites on
@@ -679,9 +795,9 @@ is decoded as one window, whatever its length.
 
 ### Nested sites
 
-A site can contain child chains, and their sites can contain chains in turn. *Nested calling*
+A site can contain child chains, and their sites can contain chains in turn. **Nested calling**
 genotypes the sites of each child chain and writes them in records of their own. Genotyping the
-child chains of a site is called *descent*. A site's *generation* counts the descents that reach
+child chains of a site is called **descent**. A site's **generation** counts the descents that reach
 it. A site that vg genotypes as a top-level site is generation 0, including the child of a site
 that could not be genotyped (see [Ploidy](#ploidy)). A site reached by descent is one generation
 after its parent.
@@ -695,7 +811,7 @@ nested site is genotyped on its own only when its parent could not be genotyped.
 
 Two alleles of a site that take the same route except inside a child chain differ only in that
 chain. To report such a difference once, vg compares each called allele with the reference allele
-in *symbolic* form: the walk with each crossing of a child chain replaced by one symbol for that
+in **symbolic** form: the walk with each crossing of a child chain replaced by one symbol for that
 chain. A called allele whose symbolic form equals the reference allele's is written as the
 reference allele at this site, and the records of the child chain's sites report the difference.
 
@@ -705,7 +821,7 @@ A called allele can also differ from the reference allele in several places, sep
 that both share. `--atomize-blocks`, on by default with nested calling, then writes one record per
 difference; `--no-atomize-blocks` turns it off. vg aligns the symbolic form of each called allele
 to that of the reference allele, minimising edit distance. Each maximal stretch of nodes and chain
-symbols that the alignment does not match is a *block*, and becomes a record. A block record's
+symbols that the alignment does not match is a **block**, and becomes a record. A block record's
 `GT` gives the allele that each strand carries over that block.
 
 Blocks of the two strands that overlap or touch on the reference become one record, so that two
@@ -749,9 +865,9 @@ vg skips a child chain that its parent's reference allele does not cross, except
   entries in the anchor file. Phasing [from the reads](#from-the-reads) includes these sites, so
   genotyping these chains can change the phase written for other records and, under
   [`--regenotype`](#re-genotyping-from-the-phase), their genotypes.
-- When the reference paths include a gRef fragment. `vg paths --compute-gref` adds a *gRef cover*
+- When the reference paths include a gRef fragment. `vg paths --compute-gref` adds a **gRef cover**
   (graph-reference cover) to a graph: a copy of each reference path, under a name starting
-  `gref_`, and *gRef fragments*. A gRef fragment is a path named `gref_<reference>_<N>_alt` that
+  `gref_`, and **gRef fragments**. A gRef fragment is a path named `gref_<reference>_<N>_alt` that
   runs through sequence the reference does not cover. A chain on such a gRef fragment gets
   records, with the gRef fragment as their contig. The panel leaves out the gRef fragments, and
   leaves out each gRef copy of a reference path unless the original's sample is absent from the
@@ -766,16 +882,16 @@ Under the linkage model, a site's genotype is settled only after the model has r
 whole linkage chain. A child site's ploidy depends on its parent's settled genotype. So vg
 genotypes in two passes, and writes the records after both.
 
-- In the *sweep*, vg goes through the reads once and computes every site's likelihoods and direct
-  call. A child site gets a *provisional ploidy*: the number of the parent's direct-call alleles
+- In the **sweep**, vg goes through the reads once and computes every site's likelihoods and direct
+  call. A child site gets a **provisional ploidy**: the number of the parent's direct-call alleles
   that cross it. Under the linkage model, a child that none of them crosses is genotyped too, at
   the parent's ploidy, since the model may move the parent onto an allele that crosses it; under
   direct calling it is not genotyped. When the child has more than one candidate
   allele, vg also computes its likelihoods and direct call at the other ploidy, because the
   barrier may choose either; a child with one candidate allele keeps its provisional ploidy unless
-  it is dropped. Each site is *staged*: vg keeps what the site's records will be built from, and
+  it is dropped. Each site is **staged**: vg keeps what the site's records will be built from, and
   writes nothing.
-- In the *barrier*, vg settles and phases the sites one generation at a time, parents before
+- In the **barrier**, vg settles and phases the sites one generation at a time, parents before
   children. The linkage model settles generation 0, and vg phases it from the panel (see
   [From the panel](#from-the-panel)). Each generation-1 site then takes its ploidy from its
   parent's settled genotype, and vg uses the likelihoods and direct call that the sweep computed
@@ -783,8 +899,8 @@ genotypes in two passes, and writes the records after both.
   settles generation 1, each linkage chain starting from the panel haplotypes that the parent's
   strands copy. Each later generation follows in the same way.
 
-After the last barrier pass, vg *renders* each staged site: it builds and writes the site's records
-from its settled genotype and phase.
+After the last barrier pass, vg **renders** each staged site: it builds and writes the site's
+records from its settled genotype and phase.
 
 The barrier can run more than once (see [Rounds](#rounds)). Each time, it decides every site's
 ploidy afresh, so a site dropped once can come back the next time. vg records which of a parent's
@@ -799,19 +915,19 @@ Phasing decides each genotype's [phase](#sample-and-reads): which of the sample'
 the two alleles of its settled genotype. The first allele is on strand 0 and is written to the left
 of the `|` in `GT`, and the second is on strand 1.
 
-A diploid site is *phaseable* when its settled genotype holds two different candidate alleles, so
+A diploid site is **phaseable** when its settled genotype holds two different candidate alleles, so
 that its two possible phases differ. A phaseable site can still be homozygous in the VCF, when its
 two alleles differ only inside a child chain.
 
-A *nested haploid chain* is a linkage chain of ploidy-1 sites whose parent is diploid, or is a site
-of another nested haploid chain. All its sites lie on one strand of the nearest diploid ancestor,
-the strand that carries them, directly or through ploidy-1 parents (see
-[Which child chains are genotyped](#which-child-chains-are-genotyped)). Its sites' `GT` is `a|.`
-on strand 0 and `.|a` on strand 1.
+A **nested haploid chain** is a linkage chain of ploidy-1 sites whose parent is diploid, or is a
+site of another nested haploid chain. All its sites lie on one strand of the nearest diploid
+ancestor, the strand that carries them, directly or through ploidy-1 parents (see
+[Which child chains are genotyped](#which-child-chains-are-genotyped)). Its sites' `GT` is `a|.` on
+strand 0 and `.|a` on strand 1.
 
 ### From the panel
 
-vg phases each linkage chain from its *Viterbi path*: the most probable sequence of the linkage
+vg phases each linkage chain from its **Viterbi path**: the most probable sequence of the linkage
 model's states along the chain, among those that imply the settled genotype at every site. A state
 in which one strand has an unknown allele qualifies when the other strand carries one of the
 settled genotype's alleles, and a state in which both strands do always qualifies. So phasing
@@ -823,7 +939,7 @@ overlapping windows of the sizes given in [Forward–backward windows](#forwardb
 Each window after the first is held, at the previous window's last kept site, to the state that
 the previous window chose there.
 
-Each record's `FORMAT/PS` names its *phase set*: the reference position of the first site of its
+Each record's `FORMAT/PS` names its **phase set**: the reference position of the first site of its
 top-level linkage chain. A nested site takes its parent's phase set. Sites of one phase set are
 phased relative to one another.
 
@@ -835,9 +951,9 @@ Phasing is on wherever the linkage model runs. `--phased` makes vg call fail whe
 does not run (see [Direct call or linkage](#direct-call-or-linkage)), and `--no-phased` turns
 phasing off. Read phasing, re-genotyping and `--anchors-hom-split` start from that phase, so an
 explicit `--read-phasing`, `--regenotype` or `--anchors-hom-split` with `--no-phased` is an error,
-and a preset's are turned off. Where the linkage model runs, `--no-phased` also turns nested
-calling off (an explicit `--nested` is then an error), and variation inside nested sites is
-reported in the enclosing site's alleles. Nested calling needs phasing there because the barrier takes each nested
+and a preset's are turned off. Where the linkage model runs, `--no-phased` also turns nested calling
+off (an explicit `--nested` is then an error), and variation inside nested sites is reported in the
+enclosing site's alleles. Nested calling needs phasing there because the barrier takes each nested
 site's strand, and the panel haplotypes its linkage chain starts from, from its parent's phase.
 
 ### From the reads
@@ -861,7 +977,7 @@ Take a read $r$ of a phaseable site $s$, and let $a_0$ and $a_1$ be the site's a
 and strand 1 in its current phase. For $k \in \lbrace 0, 1 \rbrace$, let
 $x_{rsk} = (1 - e_r) v_{a_k} p_{r a_k}$, where $e_r$ is the read's
 [mismapping probability](#mismapping-probability) and $p_{r a_k}$ its
-[relative likelihood](#likelihood-formula) under $a_k$ at $s$. The *allele-length weights*
+[relative likelihood](#read-term) under $a_k$ at $s$. The **allele-length weights**
 $v_{a_0}, v_{a_1}$ are the [mixture weights](#mixture-weights) with $\lvert a_k \rvert$ in place
 of $U_i(G)$. $\lvert a \rvert$ is the length of all of allele $a$'s node visits, boundary nodes
 included, while $U_i(G)$ counts only the nodes that one allele visits and the other does not. A
@@ -871,13 +987,13 @@ read with $x_{rs0} + x_{rs1} = 0$ is not used at $s$. For each read used, we kee
   that it came from one of the two strands;
 - $c_{rs} = (x_{rs0} + x_{rs1}) / (x_{rs0} + x_{rs1} + e_r)$, the probability that it did come from
   one of them, rather than being mismapped;
-- its *confidence*,
+- its **confidence**,
   $-10 \log_{10}\left(1 - \max(x_{rs0}, x_{rs1}) / (x_{rs0} + x_{rs1} + e_r)\right)$, the
   phred-scaled probability that its better allele is wrong.
 
 #### Links between sites
 
-Two sites $s$ and $t$ are *linked* by the reads they share. For a shared read $r$, let
+Two sites $s$ and $t$ are **linked** by the reads they share. For a shared read $r$, let
 
 $$
 m_r = q_{rs} q_{rt} + (1 - q_{rs})(1 - q_{rt})
@@ -891,31 +1007,31 @@ $$
 \mathrm{link}(s, t) = \sum_{r} \log_{10} \frac{\gamma_r m_r + (1 - \gamma_r)/2}{\gamma_r (1 - m_r) + (1 - \gamma_r)/2}
 $$
 
-A positive link favours the two sites' current phases. A link's *size* is its absolute value.
+A positive link favours the two sites' current phases. A link's **size** is its absolute value.
 `--phase-cap`, when not 0, limits the size of each link.
 
 #### Reliable sites
 
-A site's *reliability* is the mean confidence of its reads, and the site is *reliable* if this is
-at least `--phase-min-q`. Consider a read with $e_r = \epsilon_{\min}$, the floor on $e_r$, at a
-site whose two alleles have equal length. If the read fits one allele perfectly and the other not
-at all, its confidence is
+A site's **reliability** is the mean confidence of its reads, and the site is **reliable** if this
+is at least `--phase-min-q`. Consider a read with $e_r = \epsilon_{\min}$, the floor on $e_r$, at a
+site whose two alleles have equal length. If the read fits one allele perfectly and the other not at
+all, its confidence is
 $-10 \log_{10}\left(\epsilon_{\min} / (\epsilon_{\min} + (1 - \epsilon_{\min})/2)\right)$, the
-*heterozygous score ceiling*. A read that favours the longer of two unequal alleles can have a
+**heterozygous score ceiling**. A read that favours the longer of two unequal alleles can have a
 higher confidence. vg rejects a `--phase-min-q` above the ceiling, since sites whose alleles are of
 similar length could not reach it.
 
 #### Deciding the phases
 
-To *flip* a site is to reverse its phase. For each site, read phasing decides whether to flip it
+To **flip** a site is to reverse its phase. For each site, read phasing decides whether to flip it
 against the phase the panel gave. It phases the reliable sites first, each relative to the one
 before it, and then phases every other site on its own. A wrong link between reliable sites flips
 every site after it, while a wrong decision for another site flips only that site. Each phase set
 goes through four stages:
 
-1. **Phase chain.** The reliable sites of the phase set, in order of position, form its *phase
-   chain*, and each is linked to the next. The phase chain breaks wherever the size of a link is
-   below `--phase-break` $\log_{10}$ units, and the breaks divide it into *pieces*. The first site
+1. **Phase chain.** The reliable sites of the phase set, in order of position, form its **phase
+   chain**, and each is linked to the next. The phase chain breaks wherever the size of a link is
+   below `--phase-break` $\log_{10}$ units, and the breaks divide it into **pieces**. The first site
    of each piece keeps the panel's phase. Each later site of the piece is flipped relative to the
    site before it when their link is negative.
 2. **Relink.** At each break, read phasing decides from the links across it whether to flip the
@@ -930,8 +1046,8 @@ goes through four stages:
    The read's other phase-chain sites $t$ vote for the strand it came from. Strand 0 scores
    $\sum_t \log_{10}(c_{rt} q_{rt} + (1 - c_{rt})/2)$, strand 1 scores
    $\sum_t \log_{10}(c_{rt}(1 - q_{rt}) + (1 - c_{rt})/2)$, and the higher score wins. The read
-   *agrees* at $s$ if $q_{rs}$ lies on the winning strand's side of $1/2$. Every $q$ here is taken
-   in the current phase. A site's *coherence* is the fraction of its reads that agree, counting
+   **agrees** at $s$ if $q_{rs}$ lies on the winning strand's side of $1/2$. Every $q$ here is taken
+   in the current phase. A site's **coherence** is the fraction of its reads that agree, counting
    only reads that span another phase-chain site. A site with at least a fixed number of counted
    reads and a coherence below `--phase-coherence` is removed from the phase chain. If any site is
    removed, stages 1 and 2 run again on the sites left, starting again from the panel's phases,
@@ -965,10 +1081,11 @@ $\mathrm{logit}$ is its inverse.
 
 #### Strand log-odds
 
-A read's *strand log-odds* at site $s$, $\Lambda_{rs}$, measures how strongly its other sites
+A read's **strand log-odds** at site $s$, $\Lambda_{rs}$, measures how strongly its other sites
 place it on strand 0. Each other phaseable site $t$ at which $r$ is used adds one term: the
 natural-log odds that the read came from strand 0, with $q_{rt}$ taken in the phase read phasing
-chose. A site adds one term per read, from the mate it keeps (see [From the reads](#from-the-reads)).
+chose. A site adds one term per read, from the mate it keeps (see
+[From the reads](#from-the-reads)).
 
 $$
 \Lambda_{rs} = \sum_{t \neq s} \ln \frac{c_{rt} q_{rt} + (1 - c_{rt})/2}{c_{rt}(1 - q_{rt}) + (1 - c_{rt})/2}
@@ -984,18 +1101,18 @@ $\Lambda_{rs}$.
 
 The terms of $\Lambda_{rs}$ are not independent evidence. A wrong phase at some of the read's
 sites, or an error that the read makes the same way at several sites, enters several terms at once.
-So $\Lambda_{rs}$ overstates how sure the strand is. The *tempered* strand log-odds is
+So $\Lambda_{rs}$ overstates how sure the strand is. The **tempered** strand log-odds is
 
 $$
 y_{rs} = \mathrm{logit}\left(C \sigma(\tau \Lambda_{rs}) + (1 - C)/2\right)
 $$
 
-where $\tau$ is the *temper* (`--regeno-temper`) and $C$ is `--regeno-ceiling`. With $C = 1$,
+where $\tau$ is the **temper** (`--regeno-temper`) and $C$ is `--regeno-ceiling`. With $C = 1$,
 $y_{rs} = \tau \Lambda_{rs}$. A smaller $C$ keeps the probability of either strand between
 $(1 - C)/2$ and $(1 + C)/2$.
 
 Unless `--regeno-temper` is given, $\tau$ is fitted once, from the phase that read phasing gave
-before the first correction. Each read at each phaseable site $s$ gives an *observation* when
+before the first correction. Each read at each phaseable site $s$ gives an **observation** when
 $\Lambda_{rs} \neq 0$ and $q_{rs} \neq 1/2$. Each of the two points to a strand: strand 0 when
 $\Lambda_{rs} > 0$ or $q_{rs} > 1/2$, and strand 1 otherwise. The observation records whether they
 point to the same strand. The observations are sorted by $\vert \Lambda_{rs} \vert$ and grouped
@@ -1041,15 +1158,15 @@ unchanged. `--no-regeno-haploid` turns this off.
 #### Rounds
 
 After a correction, the barrier runs again on the corrected likelihoods, and read phasing runs again
-on the genotypes it settles. A correction, the barrier and read phasing together make a *round*. The
-new genotypes can change the phase, and with it $\Lambda$, so another round can follow. Each round
-corrects the likelihoods from the sweep, not those of the previous round. `--regeno-passes` caps the
-number of times the barrier runs, the first run included. The rounds stop sooner when the
+on the genotypes it settles. A correction, the barrier and read phasing together make a **round**.
+The new genotypes can change the phase, and with it $\Lambda$, so another round can follow. Each
+round corrects the likelihoods from the sweep, not those of the previous round. `--regeno-passes`
+caps the number of times the barrier runs, the first run included. The rounds stop sooner when the
 correction changes no site's direct call, when the barrier changes no settled genotype, or when the
 settled genotypes return to an earlier state. Every round's correction is settled by the barrier,
 including the round that stops, so the genotypes are settled from the likelihoods that `GL` reports.
-With `--regeno-passes 1` the correction is computed and reported but not applied. `--regeno-ledger` writes one line for each site whose direct call the
-last correction changed.
+With `--regeno-passes 1` the correction is computed and reported but not applied. `--regeno-ledger`
+writes one line for each site whose direct call the last correction changed.
 
 ## Output
 
@@ -1059,9 +1176,9 @@ last correction changed.
 |---|---|
 | `GT` | the settled genotype, phased where phasing ran |
 | `GL` | $\log_{10} \mathcal{L}(G)$ for every genotype of the record's alleles, in VCF order |
-| `GQ` | the difference between the log-likelihoods of the direct call and the *runner-up*, the genotype with the second-highest $\mathcal{L}(G)$, in phred units. It is multiplied by the *explained share*, the fraction of reads whose best allele is in the direct call (a tied read split as for `AD`), and by the `--depth-quality` factor where that applies |
+| `GQ` | the difference between the log-likelihoods of the direct call and the **runner-up**, the genotype with the second-highest $\mathcal{L}(G)$, in phred units. It is multiplied by the **explained share**, the fraction of reads whose best allele is in the direct call (a tied read split as for `AD`), and by the `--depth-quality` factor where that applies |
 | `GQI` | the same difference, with neither factor |
-| `GQN` | the same difference divided by the *achievable gap* (below), held at 1 or less, and multiplied by the explained share |
+| `GQN` | the same difference divided by the **achievable gap** (below), held at 1 or less, and multiplied by the explained share |
 | `GP` | one value: the natural log of the posterior probability of the direct call, computed from $\mathcal{L}(G)$ with a uniform prior over genotypes. (In the VCF specification, `GP` is a phred-scaled value per genotype.) |
 | `QUAL` | phred-scaled posterior probability, under the same uniform prior, of the genotype whose alleles are all the reference allele; 0 when `GT` is all reference |
 | `DP` | number of reads of the site |
@@ -1089,7 +1206,7 @@ ploidy. At ploidy 1 the runner-up is a different allele, and most reads can tell
 direct call. At ploidy 2 the runner-up usually differs from the direct call on one strand only, so
 fewer reads tell the two apart, or each read tells them apart less.
 
-`GQN` removes both effects by dividing by the *achievable gap*. This is the difference that the
+`GQN` removes both effects by dividing by the **achievable gap**. This is the difference that the
 read term alone would give between the direct call and the runner-up if each of the site's reads
 were ideal. Ideal reads are shared among the direct call's haplotypes in proportion to its
 [mixture weights](#mixture-weights). Each ideal read has $e_r = \epsilon_{\min}$ (`--mismap-min`),
@@ -1103,7 +1220,7 @@ records.
 
 #### Linkage and re-genotyping
 
-A record is *moved* when the linkage model settles a genotype other than the direct call. Its
+A record is **moved** when the linkage model settles a genotype other than the direct call. Its
 `GQ` and `GQN` are computed again for the settled genotype, from the direct call's explained share,
 `GQ` factor and achievable gap, which the linkage model keeps for each site. The direct call is the
 one the site entered the linkage model with: its call in the sweep, or, for a nested chain the
@@ -1127,12 +1244,12 @@ record is moved if the last barrier run moved it (see [Rounds](#rounds)).
 Re-genotyping is applied with `--regenotype` when `--regeno-passes` is above 1 (see
 [Rounds](#rounds)). `GL` and `QUAL` are then written from the corrected likelihoods. In a round
 whose correction changes the genotype with the highest $\mathcal{L}(G)$, `GQ` is recomputed from
-them as the per-site `GQ` is, for that genotype, but with the sweep's `--depth-quality` factor.
-Each round starts again from the sweep's likelihoods and `GQ`, so `GQ` follows the last round's
+them as the per-site `GQ` is, for that genotype, but with the sweep's `--depth-quality` factor. Each
+round starts again from the sweep's likelihoods and `GQ`, so `GQ` follows the last round's
 correction, and is the sweep's where that correction left the best genotype alone. `GP`, `GQI`,
 `GQN`, `DR` and `lowconf` keep their values from before the correction, so they describe the direct
-call made from the uncorrected likelihoods. A moved record takes the `GQ`, `GQN` and `lowconf` described
-above, whether or not re-genotyping ran.
+call made from the uncorrected likelihoods. A moved record takes the `GQ`, `GQN` and `lowconf`
+described above, whether or not re-genotyping ran.
 
 #### Options that change the fields
 
@@ -1197,10 +1314,10 @@ carries its allele.
 
 #### Segments and rows
 
-A data line, or *row*, starts with `H`. Rows are built from *segments*. A segment is a maximal
+A data line, or **row**, starts with `H`. Rows are built from **segments**. A segment is a maximal
 stretch of consecutive sites on one strand, over which the strand copies one panel haplotype.
 Consecutive segments of a strand join end to end where the walk can continue from one to the next.
-Each maximal walk so formed is a *mosaic fragment*, and a strand can have several. A new mosaic
+Each maximal walk so formed is a **mosaic fragment**, and a strand can have several. A new mosaic
 fragment starts after a gap in the walk left unfilled (see [Forming segments](#forming-segments)),
 where the direction of travel reverses, as at an inversion, and on each side of a row that cannot
 be walked, such as a `*` row.
@@ -1232,11 +1349,11 @@ site starts a new segment. Only sites with a record count, whether written as on
 
 Between two consecutive segments, the walk follows the first segment's panel haplotype if that
 haplotype continues to the second segment. Otherwise it follows the second segment's haplotype, if
-that haplotype reaches back to the first. Where neither does, the stretch between them is a *gap in
-the walk*. The gap is filled with the reference, on a `ref` row, if the reference is a panel
-haplotype that crosses it. The linkage model can have a strand copy a panel haplotype at a site
-that the haplotype does not pass through, so a segment's haplotype need not cover the whole
-segment. Such a segment is replaced by a `ref` row where the reference crosses it.
+that haplotype reaches back to the first. Where neither does, the stretch between them is a **gap in
+the walk**. The gap is filled with the reference, on a `ref` row, if the reference is a panel
+haplotype that crosses it. The linkage model can have a strand copy a panel haplotype at a site that
+the haplotype does not pass through, so a segment's haplotype need not cover the whole segment. Such
+a segment is replaced by a `ref` row where the reference crosses it.
 
 Three options change how the rows are formed, and the header records each choice:
 
@@ -1253,15 +1370,15 @@ Three options change how the rows are formed, and the header records each choice
 The anchor file records, for each genotyped site, which reads support which of the sample's
 strands, for use in pangenome-guided assembly.
 
-A *pin* is a point between two adjacent bases of the graph, with no sequence of its own. Each site
-has two. The *start pin* lies just after the site's start boundary node, where an allele's walk
-enters the interior. The *end pin* lies just before its end boundary node, where the walk leaves.
+A **pin** is a point between two adjacent bases of the graph, with no sequence of its own. Each site
+has two. The **start pin** lies just after the site's start boundary node, where an allele's walk
+enters the interior. The **end pin** lies just before its end boundary node, where the walk leaves.
 
-A site's reads are divided among its *slots*. A slot's number names a field of `GT`: slot 0 the
+A site's reads are divided among its **slots**. A slot's number names a field of `GT`: slot 0 the
 first allele, to the left of the `|`, and slot 1 the second. A phaseable site has one slot for each
 allele. Any other diploid site has a single slot, 0, unless `--anchors-hom-split` divides its reads
 between slots 0 and 1, which then carry the same allele. A haploid site also has a single slot, 0,
-except at a site of a nested haploid chain whose `GT` is `.|a`, where it is 1. An *anchor* is one
+except at a site of a nested haploid chain whose `GT` is `.|a`, where it is 1. An **anchor** is one
 pin together with the reads of one slot that cross it.
 
 #### Placing reads in slots
@@ -1269,10 +1386,10 @@ pin together with the reads of one slot that cross it.
 For each distinct called allele $a$, let $x_{ra} = (1 - e_r) v_a p_{ra}$, where $v_a$ are the
 allele-length weights of [From the reads](#from-the-reads), and $v_a = 1$ at a site that is not
 phaseable. Each read goes to the slot whose allele has the largest $x_{ra}$, except where the read
-phase decides (below). A read's *anchor confidence* is
+phase decides (below). A read's **anchor confidence** is
 $-10 \log_{10}\left(1 - x_{ra} / (\sum_b x_{rb} + e_r)\right)$, where $a$ is the allele of the slot
 it is placed in. The sum runs over distinct alleles, so the two slots of a split site count their
-allele once. A site's *anchor reliability* is the mean anchor confidence of the reads written for
+allele once. A site's **anchor reliability** is the mean anchor confidence of the reads written for
 it, after the read filters below, each read counted once: paired mates share a name, and count at
 the higher of their confidences.
 

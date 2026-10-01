@@ -1,12 +1,13 @@
 # Read-likelihood caller: a guide to the source
 
 `vg call --read-likelihood` is built from eight modules and one driver class, `FlowCaller` in
-`graph_caller`. The source can be read in the order of the method. The method, and the terms of the
+`graph_caller.hpp`. A module is a header in `src/` and its `.cpp` file, and is named here by its
+header. The source can be read in the order of the method. The method, and the terms of the
 method used below (site, allele, genotype, ploidy, direct call, linkage model, strand, phase set),
 are described in [read-likelihood-genotyping.md](read-likelihood-genotyping.md).
 
-The method has four *steps*: site likelihood computation, genotyping, phasing and output.
-`FlowCaller` carries them out in five *passes* over the sites.
+The method has four **steps**: site likelihood computation, genotyping, phasing and output.
+`FlowCaller` carries them out in five **passes** over the sites.
 
 ## How a run is organised
 
@@ -17,7 +18,7 @@ makes these passes. The calls that start them are near the end of `main_call` in
 `subcommand/call_main.cpp`.
 
 1. **Sweep** (`call_top_level_snarls`, then `call_snarl_internal` for each site). Genotype every
-   site directly from its reads, and *stage* a record for it: keep what the record will be built
+   site directly from its reads, and **stage** a record for it: keep what the record will be built
    from, but write nothing. Nested sites are genotyped here too, by recursion from their parent, at
    both ploidy 1 and ploidy 2. Each genotyped site is also filed with the linkage model
    (`record_site`), except `retain_only` chains (see below). This pass does step 1 and the direct
@@ -64,21 +65,21 @@ modules that other callers use too.
 
 ```mermaid
 flowchart TD
-    snarls["snarls<br/>SnarlManager"]:::vg
-    scorer["alignment_scorer"]:::vg
-    finder["traversal_finder<br/>GBWTTraversalFinder"]:::vg
-    snarlcaller["snarl_caller<br/>SnarlCaller"]:::vg
-    gref["gref"]:::vg
+    snarls["snarls.hpp<br/>SnarlManager"]:::vg
+    scorer["alignment_scorer.hpp"]:::vg
+    finder["traversal_finder.hpp<br/>GBWTTraversalFinder"]:::vg
+    snarlcaller["snarl_caller.hpp<br/>SnarlCaller"]:::vg
+    gref["gref.hpp"]:::vg
 
-    reads["site_read_source<br/>SiteReadSource"]:::likelihood
-    phasing["read_phasing<br/>PhaseSite, read_phase_flips"]:::phase
-    anchor["anchor<br/>AnchorWriter"]:::output
-    likelihood["allele_likelihood<br/>AlleleReadLikelihoods"]:::likelihood
-    caller["read_likelihood_caller<br/>ReadLikelihoodSnarlCaller"]:::genotype
-    linkage["linkage_model<br/>LinkageModel, LinkageCollector"]:::genotype
-    symbolic["symbolic_allele<br/>symbolic_allele, symbolic_diff"]:::genotype
-    regenotype["regenotype<br/>accumulate_lambda, phase_aware_correction"]:::phase
-    graphcaller["graph_caller<br/>FlowCaller"]:::driver
+    reads["site_read_source.hpp<br/>SiteReadSource"]:::likelihood
+    phasing["read_phasing.hpp<br/>PhaseSite, read_phase_flips"]:::phase
+    anchor["anchor.hpp<br/>AnchorWriter"]:::output
+    likelihood["allele_likelihood.hpp<br/>AlleleReadLikelihoods"]:::likelihood
+    caller["read_likelihood_caller.hpp<br/>ReadLikelihoodSnarlCaller"]:::genotype
+    linkage["linkage_model.hpp<br/>LinkageModel, LinkageCollector"]:::genotype
+    symbolic["symbolic_allele.hpp<br/>symbolic_allele, symbolic_diff"]:::genotype
+    regenotype["regenotype.hpp<br/>accumulate_lambda, phase_aware_correction"]:::phase
+    graphcaller["graph_caller.hpp<br/>FlowCaller"]:::driver
     main["subcommand/call_main.cpp"]:::driver
 
     reads --> likelihood
@@ -116,31 +117,31 @@ flowchart TD
 ```
 
 Blue: site likelihood computation. Green: genotyping. Orange: phasing. Purple: output. White: the
-driver and the command line. `gref` handles the gRef cover, a set of extra reference paths.
+driver and the command line. `gref.hpp` handles the gRef cover, a set of extra reference paths.
 
-`linkage_model` and `read_phasing` include no other vg header: they are algorithms over plain data,
-and can be read on their own. `graph_caller` reaches `ReadLikelihoodSnarlCaller`'s results only
-through a `dynamic_cast`, so `FlowCaller` also runs vg's other genotypers, and skips the linkage
-model and phasing when the cast fails.
+`linkage_model.hpp` and `read_phasing.hpp` include no other vg header: they are algorithms over
+plain data, and can be read on their own. `graph_caller.cpp` reaches `ReadLikelihoodSnarlCaller`'s
+results only through a `dynamic_cast`, so `FlowCaller` also runs vg's other genotypers, and skips
+the linkage model and phasing when the cast fails.
 
 ## Modules by step
 
 | Step | Module | What it holds |
 |---|---|---|
-| Site likelihood computation | `site_read_source` | `SiteRead`, a read as a site sees it, and `SiteReadSource`, which delivers the reads of a site from a GAM or GAF file in memory, an indexed GAM file, or a GAF-base database |
-| | `allele_likelihood` | `GraphAlignedAlleleLikelihoodCalculator`, which scores each read against each candidate allele by pairing their node visits, and `AlleleReadLikelihoods`, the resulting matrix of relative likelihoods, which computes $\mathcal{L}(G)$ for each genotype |
-| Genotyping | `traversal_finder` | `GBWTTraversalFinder`, which gives the candidate alleles from the panel, or `FlowTraversalFinder`, under support enumeration |
-| | `read_likelihood_caller` | `ReadLikelihoodSnarlCaller`, which makes one site's direct call from its likelihoods and computes its quality fields |
-| | `linkage_model` | `LinkageModel`, the hidden Markov model over the panel, and `LinkageCollector`, which holds each site's entry and runs the model over linkage chains, one generation at a time |
-| | `symbolic_allele` | symbolic alleles and difference blocks, which let a nested site's variation be reported once |
-| | `graph_caller` | the sweep (`call_snarl_internal`, with nested descent), the barrier (`run_barrier`) and the staged records (`PendingRecord`) |
-| Phasing | `linkage_model` | the Viterbi phase (`LinkageModel::phasing`), recorded by `LinkageCollector` as each site's settled pair (`PhaseCall`) |
-| | `read_phasing` | per-read evidence (`PhaseReadEvidence`, `PhaseSite`), links between sites, and the decision of each site's order (`read_phase_flips`) |
-| | `regenotype` | strand log-odds, tempering, and the per-read likelihood correction |
-| | `graph_caller` | `phase_and_regenotype`, which applies the two modules above and runs the barrier again |
-| Output | `graph_caller` | records (`render_retained_records`, `emit_variant`, `emit_block_records`), sorting and writing (`write_variants`), and the mosaic (`write_mosaic`) |
-| | `read_likelihood_caller` | the VCF fields of a record (`update_vcf_info`) and their header lines |
-| | `anchor` | the anchor file (`build_site_anchors`, `AnchorWriter`) |
+| Site likelihood computation | `site_read_source.hpp` | `SiteRead`, a read as a site sees it, and `SiteReadSource`, which delivers the reads of a site from a GAM or GAF file in memory, an indexed GAM file, or a GAF-base database |
+| | `allele_likelihood.hpp` | `GraphAlignedAlleleLikelihoodCalculator`, which scores each read against each candidate allele by pairing their node visits, and `AlleleReadLikelihoods`, the resulting matrix of relative likelihoods, which computes $\mathcal{L}(G)$ for each genotype |
+| Genotyping | `traversal_finder.hpp` | `GBWTTraversalFinder`, which gives the candidate alleles from the panel, or `FlowTraversalFinder`, under support enumeration |
+| | `read_likelihood_caller.hpp` | `ReadLikelihoodSnarlCaller`, which makes one site's direct call from its likelihoods and computes its quality fields |
+| | `linkage_model.hpp` | `LinkageModel`, the hidden Markov model over the panel, and `LinkageCollector`, which holds each site's entry and runs the model over linkage chains, one generation at a time |
+| | `symbolic_allele.hpp` | symbolic alleles and difference blocks, which let a nested site's variation be reported once |
+| | `graph_caller.hpp` | the sweep (`call_snarl_internal`, with nested descent), the barrier (`run_barrier`) and the staged records (`PendingRecord`) |
+| Phasing | `linkage_model.hpp` | the Viterbi phase (`LinkageModel::phasing`), recorded by `LinkageCollector` as each site's settled pair (`PhaseCall`) |
+| | `read_phasing.hpp` | per-read evidence (`PhaseReadEvidence`, `PhaseSite`), links between sites, and the decision of each site's order (`read_phase_flips`) |
+| | `regenotype.hpp` | strand log-odds, tempering, and the per-read likelihood correction |
+| | `graph_caller.hpp` | `phase_and_regenotype`, which applies the two modules above and runs the barrier again |
+| Output | `graph_caller.hpp` | records (`render_retained_records`, `emit_variant`, `emit_block_records`), sorting and writing (`write_variants`), and the mosaic (`write_mosaic`) |
+| | `read_likelihood_caller.hpp` | the VCF fields of a record (`update_vcf_info`) and their header lines |
+| | `anchor.hpp` | the anchor file (`build_site_anchors`, `AnchorWriter`) |
 | Command line | `subcommand/call_main.cpp` | the options, grouped by subsystem, the `--preset` table, and the construction of every object above |
 
 ## Words the headers use
@@ -165,7 +166,7 @@ model and phasing when the cast fails.
 - **Staged, pending, deferred, retained, render records.** One idea, a record kept to be built
   later, in different containers: the sweep stages records into `pending_records` (nested) and
   `render_records` (top-level); the barrier moves nested ones to `deferred_pending`; the render's
-  *hand-off* (`hand_off_deferred_records`) moves the surviving ones into `render_records`, and
+  **hand-off** (`hand_off_deferred_records`) moves the surviving ones into `render_records`, and
   collects anchors for chains that get no line.
 - **`retain_only`.** Under the linkage model, a child site that no allele of its parent's direct
   call crosses, and the sites nested in it. It is genotyped and staged, but not filed with the
@@ -177,8 +178,8 @@ model and phasing when the cast fails.
 - **Barrier pass and round.** A barrier pass settles every generation once. A re-genotyping round
   corrects the likelihoods, runs one barrier pass, and runs read phasing again.
 - **Nested.** Four senses:
-  - *nested calling*, the descent into child chains in `call_snarl_internal` (`--nested`, turned on
-    in the code by `VCFOutputCaller::set_symbolic_collapsing`);
+  - **nested calling**, the descent into child chains in `call_snarl_internal` (`--nested`, turned
+    on in the code by `VCFOutputCaller::set_symbolic_collapsing`);
   - `FlowCaller`'s constructor flag `nested`, which is `--top-down`;
   - `set_nested` and `include_nested`, which write the nesting INFO tags (`LV`, `PS`, `CH`, ...),
     under `-A`, `--top-down`, `--bottom-up` or off-reference nesting;
@@ -224,12 +225,12 @@ that explains them.
    the sweep and, in the barrier, runs the model over top-level linkage chains and groups one
    generation at a time, recording each site's settled pair. `LinkageCounters` last.
 6. **`read_phasing.hpp`.** The evidence each read gives at a phaseable site, links between sites,
-   and the four stages that decide each site's order. It also defines `allele_length_weights`, which
-   `regenotype`, `anchor` and `graph_caller` use too.
+   and the four stages that decide each site's order. It also declares `allele_length_weights`,
+   which `regenotype.cpp` and `anchor.cpp` use too.
 7. **`regenotype.hpp`.** How a read's evidence at the other phaseable sites becomes per-read
    weights, built from the allele-length weights, and the correction to the likelihoods.
 8. **`anchor.hpp`.** Pins, slots and anchors, and the file that records them.
-9. **`symbolic_allele.hpp`, then the rest of `graph_caller.hpp`.** `symbolic_allele` compares a
+9. **`symbolic_allele.hpp`, then the rest of `graph_caller.hpp`.** `symbolic_allele.hpp` compares a
    parent site's allele with the reference allele when its differences lie inside child chains, and
    cuts it into difference blocks. In `graph_caller.hpp`, read `VCFOutputCaller` (the output, and
    the linkage, phasing and anchor settings) and `FlowCaller` (the passes); skip `VCFGenotyper`,
@@ -247,21 +248,21 @@ that explains them.
 10. **`subcommand/call_main.cpp`.** The option table, and how each option reaches the objects above.
 
 The `.cpp` files follow the same order, and `traversal_finder.hpp` can be read whenever the
-candidate alleles need explaining. Each module has unit tests in `src/unittest/<module>.cpp`
-(`allele_likelihood` has a second file, `allele_likelihood_scoring.cpp`), and `test/t/18_vg_call.t`
-tests the whole command.
+candidate alleles need explaining. Each module has unit tests in `src/unittest/<module>.cpp`, and
+`allele_likelihood.hpp` has a second file of them, `allele_likelihood_scoring.cpp`.
+`test/t/18_vg_call.t` tests the whole command.
 
 ## Where the code departs from this order
 
-- `allele_likelihood` fills two types that belong to later modules, the anchor evidence and the
-  phase evidence, because only it has each read's alignment in hand. Under `--anchors-out` it keeps
-  only the anchor evidence, and `graph_caller.cpp` derives the phase evidence from it (the static
-  function `phase_evidence_of`).
-- `allele_length_weights` is defined in `read_phasing` but is also used by `regenotype`, `anchor`
-  and `graph_caller`.
-- `linkage_model` holds two concepts, the model (`LinkageModel`) and the code that drives it over
-  the snarl tree (`LinkageCollector`).
-- `graph_caller` holds the passes and the output. Most of the read-likelihood state lives on
+- `allele_likelihood.hpp` fills two types that belong to later modules, the anchor evidence and
+  the phase evidence, because only it has each read's alignment in hand. Under `--anchors-out` it
+  keeps only the anchor evidence, and the phase evidence is derived from it by `phase_evidence_of`,
+  a static function in `graph_caller.cpp` that no header declares.
+- `allele_length_weights` is declared in `read_phasing.hpp` but is also used by `regenotype.cpp`
+  and `anchor.cpp`.
+- `linkage_model.hpp` holds two concepts, the model (`LinkageModel`) and the code that drives it
+  over the snarl tree (`LinkageCollector`).
+- `graph_caller.hpp` holds the passes and the output. Most of the read-likelihood state lives on
   `VCFOutputCaller`, a base class that vg's other callers share, although only `FlowCaller` uses it.
 - `call_main.cpp` constructs `GraphAlignedAlleleLikelihoodCalculator` and `LinkageCollector` itself.
 - `--anchors-out` changes more than the output. It turns on the genotyping of off-reference chains,
