@@ -833,9 +833,11 @@ order, and the site stays in its phase set. Read phasing, when on, can still ord
 
 Phasing is on wherever the linkage model runs. `--phased` makes vg call fail when the linkage model
 does not run (see [Direct call or linkage](#direct-call-or-linkage)), and `--no-phased` turns
-phasing off. Where the linkage model runs, `--no-phased` also turns nested calling off (an
-explicit `--nested` is then an error), and variation inside nested sites is reported in the
-enclosing site's alleles. Nested calling needs phasing there because the barrier takes each nested
+phasing off. Read phasing, re-genotyping and `--anchors-hom-split` start from that phase, so an
+explicit `--read-phasing`, `--regenotype` or `--anchors-hom-split` with `--no-phased` is an error,
+and a preset's are turned off. Where the linkage model runs, `--no-phased` also turns nested
+calling off (an explicit `--nested` is then an error), and variation inside nested sites is
+reported in the enclosing site's alleles. Nested calling needs phasing there because the barrier takes each nested
 site's strand, and the panel haplotypes its linkage chain starts from, from its parent's phase.
 
 ### From the reads

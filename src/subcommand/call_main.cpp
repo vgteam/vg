@@ -1563,6 +1563,33 @@ int main_call(int argc, char** argv) {
         }
     }
 
+    // Read phasing, re-genotyping and hom splitting all start from the phase the linkage model
+    // gives each site, which --no-phased turns off. Given explicitly with it, each is an error;
+    // turned on by a preset, they are turned off.
+    if (phased_explicit && !phased_output) {
+        vector<string> offenders;
+        if (read_phasing && read_phasing_explicit) {
+            offenders.push_back("--read-phasing");
+        }
+        if (regenotype && regenotype_explicit) {
+            offenders.push_back("--regenotype");
+        }
+        if (anchor_params.hom_split) {
+            offenders.push_back("--anchors-hom-split");
+        }
+        if (!offenders.empty()) {
+            stringstream joined;
+            for (size_t i = 0; i < offenders.size(); ++i) {
+                joined << (i ? ", " : "") << offenders[i];
+            }
+            logger.error() << joined.str() << " cannot be combined with --no-phased, because "
+                           << (offenders.size() == 1 ? "it starts" : "they start")
+                           << " from the phase the linkage model gives each site" << endl;
+        }
+        read_phasing = false;
+        regenotype = false;
+    }
+
     // --read-likelihood needs exactly one read source, and cannot be combined with the ratio or
     // legacy support callers.
     if (read_likelihood) {
