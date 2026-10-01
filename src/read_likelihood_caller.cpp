@@ -529,8 +529,9 @@ void ReadLikelihoodSnarlCaller::update_vcf_header(string& header) const {
         "haplotype a share of the reads set by the length of sequence unique to its allele "
         "(an equal share under --flat-mixture), whatever the reads show\">\n";
     header += "##FORMAT=<ID=DR,Number=1,Type=Float,Description=\"Observed reads at this site "
-              "divided by the number the called genotype predicts, from a read rate measured over "
-              "the read source's local fetch window and the called alleles' traversal lengths. 1.0 "
+              "divided by the number the called genotype predicts, from the rate of read starts per "
+              "base in the site's rate window, the fixed 16,384 bp reference bucket holding the "
+              "site and one bucket on each side, and the called alleles' traversal lengths. 1.0 "
               "means the read count is exactly what the call implies. Values well above 1 are "
               "collapsed repeats, where reads from several copies pile onto one; values near 0.5 "
               "are a genotype claiming twice the sequence actually covered, which is what a missed "
