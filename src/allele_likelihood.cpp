@@ -819,6 +819,16 @@ int32_t GraphAlignedAlleleLikelihoodCalculator::score_by_greedy_pairing(
                 continue;
             }
 
+            // Optimal pairing never substitutes a visit that the other sequence makes elsewhere:
+            // here, a read visit the allele made before the last pair, or an allele visit the
+            // read made before this one. The read visit is left unpaired instead, and the allele
+            // visit stays where it is, to be charged as a deletion at the next pair or left
+            // uncharged after the last.
+            if (positions != allele_positions.end() || later != read_last_visit.end()) {
+                leave_unpaired(read_step);
+                continue;
+            }
+
             size_t shared = min(read_step.read_length, allele_step.sequence.size());
 
             // Score the overlapping extent base by base, so an equal-length

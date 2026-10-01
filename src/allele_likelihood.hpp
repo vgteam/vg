@@ -463,8 +463,8 @@ public:
  *
  *   - *Greedy pairing* (`score_by_greedy_pairing`, the default) makes one pass along the read's
  *     visits. Each is paired with the same visit's next occurrence in the allele after the last
- *     pair, and a pair is never revised. The pairing it finds is scored by the rules above, but it
- *     can pair different visits as a substitution even where one of them is shared.
+ *     pair, and a pair is never revised. The pairing it finds is scored by the rules above, so
+ *     the two searches differ only in which pairing they find.
  *   - *Optimal pairing* (`score_by_optimal_pairing`, --optimal-pairing) finds the highest-scoring pairing
  *     that the rules above allow, by dynamic programming over the two sequences. A run of unpaired
  *     read visits is one gap. At large sites the search is restricted to a band.

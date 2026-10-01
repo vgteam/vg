@@ -489,17 +489,18 @@ pairing can miss the best pairing.
 ##### Greedy pairing
 
 Without `--optimal-pairing`, we use greedy pairing, which approximates optimal pairing in one
-pass along the read's visits. It pairs each read visit with the next matching allele visit: the next
-occurrence of the same visit after the last pair. Allele visits skipped over between two pairs are
-a deletion. When there is no matching visit, it looks for a simple insertion: if the allele's next
-unpaired visit is one that the read makes later, the read visit is left unpaired. Otherwise it
-pairs the read visit with the allele's next unpaired visit as a substitution. Once the allele's
-visits are used up, the remaining read visits are left unpaired. A pair, once made, is never
-revised.
+pass along the read's visits. It pairs each read visit with the next matching allele visit: the
+next occurrence of the same visit after the last pair. Allele visits skipped over between two pairs
+are a deletion. When there is no matching visit, it looks for a simple insertion: if the allele's
+next unpaired visit is one that the read makes later, the read visit is left unpaired. Otherwise it
+pairs the read visit with the allele's next unpaired visit as a substitution, if neither of the two
+visits is made elsewhere by the other sequence, and leaves the read visit unpaired if one is. Once
+the allele's visits are used up, the remaining read visits are left unpaired. A pair, once made, is
+never revised.
 
-Greedy pairing scores the pairing it finds by the same rules as optimal pairing, including one
-gap for each run of unpaired read visits. It can, however, make a substitution that optimal
-pairing does not consider, between visits that one of the two sequences makes elsewhere.
+Greedy pairing considers the same pairs as optimal pairing and scores the pairing it finds by
+the same rules, including one gap for each run of unpaired read visits, so the two differ only in
+which pairing they find.
 
 ##### From scores to relative likelihoods
 
