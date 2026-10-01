@@ -655,6 +655,9 @@ protected:
     /// `phase_sites` indexed by record, so that a site's own contribution can be subtracted. Points
     /// into `phase_sites`, which must not be rebuilt afterwards.
     unordered_map<size_t, const PhaseSite*> render_lambda_site;
+    /// Each site's phase set, by record, since a read's strand is usable only at sites of the phase
+    /// set it was found in (see `read_strand_usable`).
+    unordered_map<size_t, size_t> render_lambda_phase_set;
     /// The fitted temper. Zero, when no fit was possible, makes every read's tempered strand
     /// log-odds zero, so no read counts as placed.
     double render_lambda_temper = 0.0;
@@ -687,7 +690,8 @@ protected:
 
     /// This read's tempered strand log-odds, leaving out `record_key`, so that a site does not judge
     /// its own reads. Positive names slot 0. Zero means none: no table, no other contributing site,
-    /// a read seen in more than one phase set, or no fitted temper.
+    /// a read whose strand is not usable in the site's phase set (see `read_strand_usable`), or no
+    /// fitted temper.
     double read_strand_log_odds(size_t record_key, const string& read_name) const;
 
     /// See set_linkage_min_confidence.

@@ -768,6 +768,7 @@ size_t VCFOutputCaller::record_key_of(const Snarl& snarl) const {
 void VCFOutputCaller::build_render_lambda() {
     render_lambda.clear();
     render_lambda_site.clear();
+    render_lambda_phase_set.clear();
     render_lambda_temper = 0.0;
     render_lambda_ceiling = 1.0;
     if (phase_sites.empty()) {
@@ -777,6 +778,10 @@ void VCFOutputCaller::build_render_lambda() {
     accumulate_lambda(phase_sites, phase_flips, render_lambda, scratch);
     for (const PhaseSite& site : phase_sites) {
         render_lambda_site[site.record_key] = &site;
+    }
+    // The last PhaseCall written winning, as in `build_render_phases`.
+    for (const LinkageCollector::PhaseCall& pc : linkage_phased) {
+        render_lambda_phase_set[pc.record_key] = pc.phase_set;
     }
     // The summed strand log-odds overstate how sure the strand is, so they are tempered. Use the
     // temper re-genotyping fitted, where it ran; otherwise fit one here.
@@ -802,8 +807,10 @@ double VCFOutputCaller::read_strand_log_odds(size_t record_key, const string& re
     }
     const uint64_t key = (uint64_t)std::hash<string>{}(read_name);
     const auto found = render_lambda.find(key);
-    if (found == render_lambda.end() || found->second.multi_phase_set) {
-        // No table, or the read is in more than one phase set, whose strands do not correspond.
+    const auto ps = render_lambda_phase_set.find(record_key);
+    const size_t phase_set = ps != render_lambda_phase_set.end() ? ps->second : NO_PHASE_SET;
+    if (found == render_lambda.end() || !read_strand_usable(found->second, phase_set)) {
+        // No strand for this read, or one from another phase set, whose strands do not correspond.
         return 0.0;
     }
     double value = found->second.lambda;
@@ -5676,9 +5683,17 @@ bool FlowCaller::apply_regenotyping() {
     LambdaTable lambda;
     accumulate_lambda(phase_sites, phase_flips, lambda, regenotype_counters);
 
+    // Each site's phase set, the last PhaseCall written winning, as in `build_render_phases`. A
+    // read's strand is usable only at sites of the phase set it was found in.
+    unordered_map<size_t, size_t> site_phase_set;
+    site_phase_set.reserve(linkage_phased.size() * 2);
+    for (const LinkageCollector::PhaseCall& pc : linkage_phased) {
+        site_phase_set[pc.record_key] = pc.phase_set;
+    }
+
     // Which strand of its parent each nested ploidy-1 chain sits on. `nested_strand` was set in the
     // barrier and corrected when its parent's pair was swapped, so it is in the same frame as
-    // Lambda: strand 0 of the phase set.
+    // Lambda for reads of the chain's phase set: strand 0 of that phase set.
     unordered_map<size_t, int> haploid_strand;
     if (regenotype_params.haploid_include) {
         for (const LinkageCollector::PhaseCall& pc : linkage_phased) {
@@ -5792,12 +5807,15 @@ bool FlowCaller::apply_regenotyping() {
                 scratch = info->genotype_lls;
             }
             map<vector<int>, double>& target = keep ? info->genotype_lls : scratch;
+            const auto ps = site_phase_set.find(rec.record_key);
+            const size_t phase_set = ps != site_phase_set.end() ? ps->second : NO_PHASE_SET;
             const auto hap = haploid_strand.find(rec.record_key);
             const bool site_moved =
                 hap != haploid_strand.end()
-                    ? haploid_inclusion_correction(*pe, lambda, own, temper, ceiling, hap->second,
-                                                   regenotype_params, target, counters)
-                    : phase_aware_correction(*pe, lambda, own, temper, ceiling,
+                    ? haploid_inclusion_correction(*pe, lambda, phase_set, own, temper, ceiling,
+                                                   hap->second, regenotype_params, target,
+                                                   counters)
+                    : phase_aware_correction(*pe, lambda, phase_set, own, temper, ceiling,
                                              regenotype_params, target, counters);
             if (keep && site_moved) {
                 // The correction changed the best genotype, so GQ is recomputed from the corrected
@@ -5816,8 +5834,8 @@ bool FlowCaller::apply_regenotyping() {
                     rl_caller->recompute_gq(alt);
                 }
                 RegenotypeCounters ignored;
-                if (phase_aware_correction(*pe, lambda, own, temper, ceiling, regenotype_params,
-                                           alt.genotype_lls, ignored)) {
+                if (phase_aware_correction(*pe, lambda, phase_set, own, temper, ceiling,
+                                           regenotype_params, alt.genotype_lls, ignored)) {
                     rl_caller->recompute_gq(alt);
                 }
             }

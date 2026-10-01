@@ -27,6 +27,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <map>
 #include <unordered_map>
 #include <unordered_set>
@@ -46,8 +47,10 @@ using std::vector;
 /**
  * One read's accumulated evidence about which strand of its phase set it came from.
  *
- * Keyed by read alone rather than by (read, phase set): a read normally lies in one phase set. A
- * read found in two has no comparable strand between them, and is marked unusable.
+ * Keyed by read alone rather than by (read, phase set): a read normally lies in one phase set.
+ * Each phase set labels its strands independently, so a read's strand is usable only at a site of
+ * the phase set it was found in (see `read_strand_usable`), and a read found in two phase sets is
+ * usable nowhere.
  */
 struct ReadLambda {
     /// Natural-log odds of strand 0 against strand 1, with each site's contribution signed by
@@ -62,6 +65,15 @@ struct ReadLambda {
 };
 
 using LambdaTable = unordered_map<uint64_t, ReadLambda>;
+
+/// The phase set of a site that has none, because the linkage model did not phase it.
+constexpr size_t NO_PHASE_SET = std::numeric_limits<size_t>::max();
+
+/// Whether a read's strand can be used at a site of phase set `phase_set`: the read was found in
+/// one phase set, and it is this one. At a site with no phase set (`NO_PHASE_SET`), any read found
+/// in one phase set is usable. An unusable read is given the site's own weights, as if it spanned
+/// no other site.
+bool read_strand_usable(const ReadLambda& read, size_t phase_set);
 
 struct RegenotypeParams {
     /// The temper tau (--regeno-temper); 0 leaves the likelihoods unchanged, and a negative value
@@ -153,7 +165,8 @@ double calibrated_log_odds(double lambda, double temper, double ceiling);
 ///
 /// The chain sits on one of its parent's two strands, and reads from the other strand can reach
 /// it only as mismapped reads. `strand_sign` is +1 when the chain is on strand 0 of its phase set
-/// and -1 on strand 1, so that a read's log-odds are for or against this chain:
+/// `phase_set` and -1 on strand 1, so that a read's log-odds are for or against this chain. A read
+/// whose strand is not usable in `phase_set` (see `read_strand_usable`) is left unchanged:
 ///
 ///     incl  = min(1, exp(x))          x = strand_sign * calibrated_log_odds(...)
 ///     e_r'  = e_r + (1 - e_r)(1 - incl)
@@ -165,6 +178,7 @@ double calibrated_log_odds(double lambda, double temper, double ceiling);
 ///
 /// Returns true if the corrected best genotype differs from the called one.
 bool haploid_inclusion_correction(const PhaseReadEvidence& evidence, const LambdaTable& lambda,
+                                  size_t phase_set,
                                   const unordered_map<uint64_t, double>& own, double temper,
                                   double ceiling, int strand_sign,
                                   const RegenotypeParams& params, map<vector<int>, double>& gl,
@@ -180,8 +194,12 @@ bool haploid_inclusion_correction(const PhaseReadEvidence& evidence, const Lambd
 /// signed it, which is subtracted so that a site does not confirm its own genotype. Empty for a
 /// site with no `PhaseSite`, such as a homozygote.
 ///
+/// `phase_set` is the site's phase set, or `NO_PHASE_SET`; a read whose strand is not usable there
+/// (see `read_strand_usable`) gets the site's own weights.
+///
 /// Returns true if the corrected best genotype differs from the called one.
 bool phase_aware_correction(const PhaseReadEvidence& evidence, const LambdaTable& lambda,
+                            size_t phase_set,
                             const unordered_map<uint64_t, double>& own, double temper,
                             double ceiling, const RegenotypeParams& params,
                             map<vector<int>, double>& gl, RegenotypeCounters& counters);

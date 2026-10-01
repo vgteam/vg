@@ -151,7 +151,7 @@ void fit_calibration(const vector<PhaseSite>& sites, const unordered_set<size_t>
         site_own_log_odds(site, flipped.count(site.record_key) != 0, own);
         for (const auto& kv : own) {
             auto found = lambda.find(kv.first);
-            if (found == lambda.end() || found->second.multi_phase_set) {
+            if (found == lambda.end() || !read_strand_usable(found->second, site.phase_set)) {
                 continue;
             }
             const double loo = found->second.lambda - kv.second;
@@ -230,15 +230,23 @@ void fit_calibration(const vector<PhaseSite>& sites, const unordered_set<size_t>
     ceiling = best_ceiling;
 }
 
-/// A read's strand log-odds leaving this site out, shared by both corrections.
-static bool read_loo(const PhaseReadEvidence& ev, const LambdaTable& lambda,
+bool read_strand_usable(const ReadLambda& read, size_t phase_set) {
+    if (read.multi_phase_set) {
+        return false;
+    }
+    return phase_set == NO_PHASE_SET || read.phase_set == phase_set;
+}
+
+/// A read's strand log-odds leaving this site out, shared by both corrections. 0 for a read whose
+/// strand is not usable in `phase_set`.
+static bool read_loo(const PhaseReadEvidence& ev, const LambdaTable& lambda, size_t phase_set,
                      const unordered_map<uint64_t, double>& own, const RegenotypeParams& params,
                      vector<double>& loo) {
     loo.assign(ev.num_reads(), 0.0);
     bool any = false;
     for (size_t r = 0; r < ev.num_reads(); ++r) {
         auto found = lambda.find(ev.read_key[r]);
-        if (found == lambda.end() || found->second.multi_phase_set) {
+        if (found == lambda.end() || !read_strand_usable(found->second, phase_set)) {
             continue;
         }
         double v = found->second.lambda;
@@ -260,6 +268,7 @@ static bool read_loo(const PhaseReadEvidence& ev, const LambdaTable& lambda,
 }
 
 bool haploid_inclusion_correction(const PhaseReadEvidence& ev, const LambdaTable& lambda,
+                                  size_t phase_set,
                                   const unordered_map<uint64_t, double>& own, double temper,
                                   double ceiling, int strand_sign,
                                   const RegenotypeParams& params, map<vector<int>, double>& gl,
@@ -268,7 +277,7 @@ bool haploid_inclusion_correction(const PhaseReadEvidence& ev, const LambdaTable
         return false;
     }
     vector<double> loo;
-    if (!read_loo(ev, lambda, own, params, loo)) {
+    if (!read_loo(ev, lambda, phase_set, own, params, loo)) {
         return false;
     }
     ++counters.haploid_sites;
@@ -332,6 +341,7 @@ bool haploid_inclusion_correction(const PhaseReadEvidence& ev, const LambdaTable
 }
 
 bool phase_aware_correction(const PhaseReadEvidence& ev, const LambdaTable& lambda,
+                            size_t phase_set,
                             const unordered_map<uint64_t, double>& own, double temper,
                             double ceiling, const RegenotypeParams& params,
                             map<vector<int>, double>& gl, RegenotypeCounters& counters) {
@@ -343,7 +353,7 @@ bool phase_aware_correction(const PhaseReadEvidence& ev, const LambdaTable& lamb
     // For each read, the log-odds leaving this site out and the weighting they imply, computed
     // once rather than once per candidate genotype.
     vector<double> loo;
-    const bool any_opinion = read_loo(ev, lambda, own, params, loo);
+    const bool any_opinion = read_loo(ev, lambda, phase_set, own, params, loo);
     vector<ReadTilt> tilt(ev.num_reads());
     if (!any_opinion) {
         // No read here spans another site of its phase set, so the correction is zero. Checked

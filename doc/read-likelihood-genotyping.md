@@ -974,9 +974,11 @@ $$
 \Lambda_{rs} = \sum_{t \neq s} \ln \frac{c_{rt} q_{rt} + (1 - c_{rt})/2}{c_{rt}(1 - q_{rt}) + (1 - c_{rt})/2}
 $$
 
-Leaving out $s$ keeps a site from confirming its own genotype. A read used in more than one phase
-set has no usable strand, because each phase set labels its strands independently, and its
-$\Lambda_{rs}$ is 0.
+Leaving out $s$ keeps a site from confirming its own genotype. Each phase set labels its strands
+independently, so a read's strand is usable only at the sites of the phase set it was used in. Its
+$\Lambda_{rs}$ is 0 at a site of another phase set, and at every site if it was used in more than
+one phase set. At a site that has no phase set, any read used in one phase set keeps its
+$\Lambda_{rs}$.
 
 #### Tempering
 
