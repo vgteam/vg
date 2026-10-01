@@ -21,8 +21,8 @@ namespace vg {
 static inline std::pair<size_t, size_t> site_gap(const LinkageModel::Site& prev,
                                                 const LinkageModel::Site& next) {
     if (prev.unpositioned && next.unpositioned) {
-        // Both sites are unpositioned. Sites reach the model grouped by parent, chain and ploidy,
-        // so the two are in the same chain, and their positions are offsets along the same parent
+        // Both sites are unpositioned. Sites reach the model grouped by parent, chain, ploidy and
+        // strand, so the two are in the same chain, and their positions are offsets along the same parent
         // traversal, whose difference is a distance.
         const size_t d = next.position > prev.position ? (size_t)(next.position - prev.position) : 1;
         return {d, d};
@@ -1776,8 +1776,8 @@ size_t LinkageCollector::resolve_generation(
                 index_of_key[entries[i].record_key] = i;
             }
         }
-        // Sites grouped by (parent, chain, ploidy); see `group_key`.
-        map<tuple<size_t, size_t, size_t>, vector<size_t>> by_parent;
+        // Sites grouped by (parent, chain, ploidy, carrying traversal); see `group_key`.
+        map<tuple<size_t, size_t, size_t, int>, vector<size_t>> by_parent;
         // What the parent's settled pair implies about a child, from `relate_to_parent`.
         auto relate = [&](const Entry& child, const Entry& parent) {
             const int ta = traversal_of(trav_arena, parent.trav_offset, parent.num_alleles,
@@ -1792,7 +1792,7 @@ size_t LinkageCollector::resolve_generation(
         // (parent, chain), where the chain half is its boundary pair from the graph. A snarl the
         // decomposition puts in no chain becomes its own group rather than being pooled with every
         // other such snarl under this parent.
-        auto group_key = [&](const Entry& e) {
+        auto group_key = [&](const Entry& e, const Entry& parent) {
             // The chain's boundary pair, from the graph.
             const size_t chain = e.chain_key != 0
                                      ? e.chain_key
@@ -1801,7 +1801,12 @@ size_t LinkageCollector::resolve_generation(
             // member, and a site decoded at the wrong ploidy would index past its likelihood
             // vector. Children in one chain of one parent can differ in ploidy, since a child's
             // ploidy is the number of the parent's settled alleles that cross it.
-            return make_tuple(e.parent_record_key, chain, e.ploidy);
+            //
+            // So is, at ploidy 1, the parent's settled traversal that carries the site, which
+            // names the strand the site is on. A group is placed on one strand, and two sites of
+            // one chain can be carried by different strands of the parent.
+            const int carrying = e.ploidy == 1 ? relate(e, parent).carrying_trav : -1;
+            return make_tuple(e.parent_record_key, chain, e.ploidy, carrying);
         };
         // Group every live site of this generation with its parent. A site that cannot be grouped
         // is decoded alone. Groups are sorted afterwards on (position, record key), a total order,
@@ -1818,7 +1823,7 @@ size_t LinkageCollector::resolve_generation(
             } else if (par == index_of_key.end()) {
                 ++model.counters.grp_no_entry;
             } else {
-                by_parent[group_key(e)].push_back(idx);
+                by_parent[group_key(e, entries[par->second])].push_back(idx);
                 continue;
             }
             // Decoded alone rather than dropped, so that it is still settled and phased.
@@ -1882,9 +1887,11 @@ size_t LinkageCollector::resolve_generation(
                 if (pin == pinned_phase.end()) {
                     gctx.push_back(nullptr);
                 } else if (group_ploidy == 1) {
-                    // One haplotype, not a pair: the chain sits on one of the parent's strands, the
-                    // one `nested_strand_of` names. A haploid parent records its haplotype in
-                    // `hap_first`, and `hap_second` is meaningless at ploidy 1.
+                    // One haplotype, not a pair: the group sits on one of the parent's strands, the
+                    // one `nested_strand_of` names. Every member is carried by the same parent
+                    // traversal, which is part of the group key, so the first member stands for
+                    // all. A haploid parent records its haplotype in `hap_first`, and
+                    // `hap_second` is meaningless at ploidy 1.
                     const Entry& child = entries[kv.second.front()];
                     const int carrying = relate(child, entries[pidx]).carrying_trav;
                     const int strand = nested_strand_of(carrying, pin->second.ploidy,

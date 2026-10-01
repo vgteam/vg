@@ -550,7 +550,8 @@ PanGenie (Ebler et al. 2022).
 The model is a hidden Markov model that runs along a *linkage chain*: a sequence of sites in
 reference order. At the top level, a linkage chain holds the top-level sites of one contig, split
 wherever the ploidy changes. Below the top level, a linkage chain holds the sites of one child
-chain that have the same ploidy, whether or not they are adjacent. Where it can (see
+chain that have the same ploidy, whether or not they are adjacent; at ploidy 1, also on the same
+strand of the parent. Where it can (see
 [Forward–backward windows](#forwardbackward-windows)), the model starts such a chain with all its
 probability on the panel haplotypes that the sample's haplotypes copy at the parent site, as the
 parent was phased from the panel (see [From the panel](#from-the-panel)).
@@ -742,8 +743,7 @@ can have different ploidies.
   nested inside it.
 - **1**: the site is genotyped at ploidy 1. When the genotypes are phased and the site is in a
   [nested haploid chain](#phasing), its `GT` is written `a|.` or `.|a`, and the position of the
-  allele says which strand carries the site. All the ploidy-1 sites of one linkage chain are
-  placed on the strand that carries the chain's first site. Otherwise the `GT` is a single allele.
+  allele says which strand carries the site. Otherwise the `GT` is a single allele.
 - **2**: the site is genotyped at ploidy 2.
 
 vg skips a child chain that its parent's reference allele does not cross, except in these cases:
@@ -807,8 +807,8 @@ that its two possible phases differ. A phaseable site can still be homozygous in
 two alleles differ only inside a child chain.
 
 A *nested haploid chain* is a linkage chain of ploidy-1 sites whose parent is diploid, or is a site
-of another nested haploid chain. All its sites lie on one strand of the nearest diploid ancestor:
-the strand that carries the chain's first site, directly or through ploidy-1 parents (see
+of another nested haploid chain. All its sites lie on one strand of the nearest diploid ancestor,
+the strand that carries them, directly or through ploidy-1 parents (see
 [Which child chains are genotyped](#which-child-chains-are-genotyped)). Its sites' `GT` is `a|.`
 on strand 0 and `.|a` on strand 1.
 

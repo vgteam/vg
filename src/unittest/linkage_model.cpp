@@ -46,7 +46,7 @@ static void record_dense(LinkageCollector& c, const string& contig, size_t posit
                          size_t record_key, double share, size_t ploidy = 2,
                          int64_t start_node = 0, int64_t end_node = 0,
                          bool nested = false, size_t parent_record_key = 0, uint64_t parent_crossing = 0, size_t generation = 0,
-                         bool emitted = true) {
+                         bool emitted = true, size_t chain_key = 0) {
     map<vector<int>, double> gls;
     if (ploidy == 1) {
         for (size_t a = 0; a < num_alleles && a < dense_gls.size(); ++a) {
@@ -74,6 +74,7 @@ static void record_dense(LinkageCollector& c, const string& contig, size_t posit
                  .parent_crossing = parent_crossing,
                  .generation = generation,
                  .emitted = emitted,
+                 .chain_key = chain_key,
              });
 }
 
@@ -1318,6 +1319,53 @@ TEST_CASE("A nested site never names a haplotype that contradicts the allele it 
         REQUIRE(child->allele_first == 0);         // which is the allele both of them spell
         REQUIRE(child->allele_second == 0);        // ploidy 1: one strand, one allele
     }
+}
+
+TEST_CASE("Ploidy-1 sites of one chain on different parent strands are placed apart",
+          "[linkage_model]") {
+    // Two ploidy-1 sites of one child chain, each carried by a different one of the parent's two
+    // settled traversals. Each is on the strand that carries it, so they cannot share one group,
+    // which is placed on a single strand.
+    LinkageModel::Params p;
+    p.weight = 1.0;
+    p.scale = 100000.0;
+    p.rho_min = 1e-4;
+
+    const size_t PARENT = 7, FIRST = 71, SECOND = 72, CHAIN = 777;
+
+    LinkageCollector collector(p, 2);
+    // A het parent, decisively 0/1, one panel haplotype on each allele.
+    record_dense(collector, "chr1", 1000, 2, {-30.0, 0.0, -30.0}, {1, 0}, 0, 1, PARENT,
+                 /*share*/ 1.0, /*ploidy*/ 2, /*start*/ 10, /*end*/ 20);
+    // The first site is crossed by the parent's traversal 0 only, the second by traversal 1 only.
+    record_dense(collector, "chr1", 1010, 2, {0.0, -30.0}, {0, 0}, 0, 0, FIRST,
+                 /*share*/ 1.0, /*ploidy*/ 1, /*start*/ 11, /*end*/ 12,
+                 /*nested*/ true, PARENT, /*crossing*/ (uint64_t)1 << 0, /*generation*/ 1,
+                 /*emitted*/ true, CHAIN);
+    record_dense(collector, "chr1", 1020, 2, {0.0, -30.0}, {0, 0}, 0, 0, SECOND,
+                 /*share*/ 1.0, /*ploidy*/ 1, /*start*/ 13, /*end*/ 14,
+                 /*nested*/ true, PARENT, /*crossing*/ (uint64_t)1 << 1, /*generation*/ 1,
+                 /*emitted*/ true, CHAIN);
+
+    vector<LinkageCollector::PhaseCall> phased;
+    for (size_t gen = 0; gen <= 1; ++gen) {
+        collector.resolve_generation(gen, gen == 1, &phased);
+    }
+
+    const LinkageCollector::PhaseCall* first = nullptr;
+    const LinkageCollector::PhaseCall* second = nullptr;
+    for (const auto& pc : phased) {
+        if (pc.record_key == FIRST) {
+            first = &pc;
+        } else if (pc.record_key == SECOND) {
+            second = &pc;
+        }
+    }
+    REQUIRE(first != nullptr);
+    REQUIRE(second != nullptr);
+    REQUIRE(first->nested_strand >= 0);
+    REQUIRE(second->nested_strand >= 0);
+    REQUIRE(first->nested_strand != second->nested_strand);
 }
 
 TEST_CASE("A nested haploid chain its parent carries TWICE names no haplotype",
