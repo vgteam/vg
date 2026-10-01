@@ -409,8 +409,10 @@ using namespace std;
         /// Disjoint surjections are retained as supplementary when
         /// report_supplementary is enabled and are otherwise omitted.
         ///
-        /// Modifies surjections in place by annotating retained alternatives and
-        /// removing supplementaries that were not requested.
+        /// Classifies secondary status relative to the current input placement;
+        /// the caller restores inherited secondary status when emitting results.
+        /// Places the selected primary first, annotates retained alternatives,
+        /// and removes supplementaries that were not requested.
         template<class AlnType>
         void choose_primary_internal(vector<pair<AlnType, pair<step_handle_t, step_handle_t>>>& surjections,
                                      const function<void(AlnType&)>& annotate_supplementary,
@@ -469,7 +471,9 @@ using namespace std;
         vector<pair<path_handle_t, bool>> 
         supplementary_cover(const unordered_map<pair<path_handle_t, bool>, vector<pair<AlnType, pair<step_handle_t, step_handle_t>>>>& surjections) const;
         
-        // identify the strand that has the best alignment to choose it as the primary, optionally restrict to a subset of strands
+        /// Select the path/strand with the best combined score from its local primary
+        /// and supplementary read segments, optionally restricted to among_strands.
+        /// Secondary alternatives contribute to neither the score nor the read-overlap penalty.
         template<class AlnType>
         pair<path_handle_t, bool> choose_primary_strand(const unordered_map<pair<path_handle_t, bool>, vector<pair<AlnType, pair<step_handle_t, step_handle_t>>>>& surjections,
                                                         const unordered_set<pair<path_handle_t, bool>>* among_strands = nullptr) const;
@@ -986,6 +990,11 @@ using namespace std;
     void Surjector::choose_primary_internal(vector<pair<AlnType, pair<step_handle_t, step_handle_t>>>& surjections,
                                             const function<void(AlnType&)>& annotate_supplementary,
                                             const function<void(AlnType&)>& annotate_secondary) const {
+        // Classify alternatives relative to this input placement. Its inherited
+        // secondary status is restored when surject_internal emits the results.
+        for (auto& surjection : surjections) {
+            set_is_secondary(surjection.first, false);
+        }
         if (surjections.size() > 1) {
             size_t opt_idx = 0;
             int32_t opt_score = get_score(surjections.front().first);
@@ -997,6 +1006,11 @@ using namespace std;
                 }
             }
 
+            // Downstream path ranking and SA tags use the first non-supplementary
+            // candidate. Put the local primary first, preserving alternative order.
+            std::rotate(surjections.begin(), surjections.begin() + opt_idx,
+                        surjections.begin() + opt_idx + 1);
+            opt_idx = 0;
             const auto best_interval = aligned_interval(surjections[opt_idx].first);
 
             // Iterate backward so supplementaries can be removed safely.
@@ -1145,13 +1159,19 @@ using namespace std;
             if (among_strands && !among_strands->count(strand_surjections.first)) {
                 continue;
             }
+            vector<pair<AlnType, pair<step_handle_t, step_handle_t>>> scoring_surjections;
+            scoring_surjections.reserve(strand_surjections.second.size());
             int32_t total_score = 0;
             for (const auto& surjection : strand_surjections.second) {
+                if (get_is_secondary(surjection.first)) {
+                    continue;
+                }
+                scoring_surjections.push_back(surjection);
                 total_score += get_score(surjection.first);
             }
-            // approximate the score from overlapping alignments
+            // Approximate the overlap penalty among the primary and supplementary pieces.
             // TODO: it would be possible to make this exact
-            total_score -= total_overlap(strand_surjections.second) * get_aligner()->scorer->match;
+            total_score -= total_overlap(scoring_surjections) * get_aligner()->scorer->match;
             
             if (total_score >= score) {
 #ifdef debug_anchored_surject
@@ -1175,6 +1195,10 @@ using namespace std;
         for (const auto& strand_surjection : strand_surjections) {            
             for (size_t i = 0; i < strand_surjection.second.size(); ++i) {
                 const auto& surjection = strand_surjection.second[i];
+                // Competing placements must not complete the chosen read cover.
+                if (get_is_secondary(surjection.first)) {
+                    continue;
+                }
                 auto interval = aligned_interval(surjection.first);
                 if (interval.first < interval.second) {
                     intervals.emplace_back(interval.first, interval.second, strand_surjection.first.first, strand_surjection.first.second, i);
