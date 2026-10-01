@@ -126,6 +126,7 @@ TEST_CASE("Zero weight leaves the per-site genotype untouched", "[linkage_model]
     // shipped default recovers the existing caller exactly. Zero weight makes every transition
     // uniform, so the chain is memoryless and the posterior is the emission.
     LinkageModel::Params p;
+    p.freq_prior = 0.0;
     p.weight = 0.0;
     LinkageModel model(p);
 
@@ -147,6 +148,7 @@ TEST_CASE("Linkage decides a site whose reads cannot", "[linkage_model]") {
     // 1/1. Every panel haplotype carrying allele 1 at site 1 carries allele 1 at site 2, so
     // linkage is the only thing that can break the tie, and it should.
     LinkageModel::Params p;
+    p.freq_prior = 0.0;
     p.weight = 1.0;
     p.scale = 100000.0;      // sites are close, so a switch should be expensive
     p.rho_min = 1e-4;
@@ -172,6 +174,7 @@ TEST_CASE("Linkage does not override decisive reads", "[linkage_model]") {
     // allele that linkage argues against. At a sane weight the reads must still win: a prior that
     // can overturn 30 nats of read evidence is not a prior, it is an assertion.
     LinkageModel::Params p;
+    p.freq_prior = 0.0;
     p.weight = 1.0;
     p.scale = 100000.0;
     p.rho_min = 1e-4;
@@ -191,6 +194,7 @@ TEST_CASE("An allele no panel haplotype carries stays callable", "[linkage_model
     // genotype the panel cannot spell would be unreachable and the model would suppress novel
     // alleles. The graph need not contain the sample, so this is the common case.
     LinkageModel::Params p;
+    p.freq_prior = 0.0;
     p.weight = 1.0;
     p.escape = 1e-2;
     LinkageModel model(p);
@@ -218,6 +222,7 @@ TEST_CASE("A haplotype absent from a site carries no allele there", "[linkage_mo
     // pangenomes and not only in sampled ones -- must contribute no linkage across the gap.
     // Treating absence as the reference allele would invent evidence for the reference.
     LinkageModel::Params p;
+    p.freq_prior = 0.0;
     p.weight = 1.0;
     p.scale = 100000.0;
     LinkageModel model(p);
@@ -246,6 +251,7 @@ TEST_CASE("A certain switch is equivalent to forgetting the previous site",
     // here by making the sites effectively infinitely far apart, which is the only way to
     // saturate rho now that the separate block-switch term is gone.
     LinkageModel::Params p;
+    p.freq_prior = 0.0;
     p.weight = 1.0;
     p.scale = 1e-9;             // gap / scale enormous, so rho saturates at 1
     p.rho_min = 0.0;
@@ -269,6 +275,7 @@ TEST_CASE("A certain switch is equivalent to forgetting the previous site",
 
 TEST_CASE("Posteriors are a distribution over genotypes", "[linkage_model]") {
     LinkageModel::Params p;
+    p.freq_prior = 0.0;
     p.weight = 1.0;
     LinkageModel model(p);
     vector<LinkageModel::Site> sites{
@@ -299,6 +306,7 @@ TEST_CASE("A windowed pass matches exact inference on a short chain", "[linkage_
                                   {(int)(i % 2), (int)((i + 1) % 2), 0, 1}));
     }
     LinkageModel::Params exact;
+    exact.freq_prior = 0.0;
     exact.weight = 1.0;
     exact.window = 1000;         // one window covers the chain
     exact.margin = 0;
@@ -351,6 +359,7 @@ TEST_CASE("The collector keeps sites compactly and re-decides only what changed"
     // with its vector<SnarlTraversal> and map -- would run to hundreds of megabytes over a
     // chromosome arm. This asserts the budget rather than trusting the estimate.
     LinkageModel::Params p;
+    p.freq_prior = 0.0;
     p.weight = 1.0;
     p.scale = 100000.0;
     p.rho_min = 1e-4;
@@ -388,6 +397,7 @@ TEST_CASE("moved_quality describes the latest resolution alone", "[linkage_model
     // earlier round and not in the latest one must not keep the earlier posterior, or its line is
     // rewritten from a genotype it no longer has.
     LinkageModel::Params p;
+    p.freq_prior = 0.0;
     p.weight = 1.0;
     p.scale = 100000.0;
     p.rho_min = 1e-4;
@@ -426,6 +436,7 @@ TEST_CASE("The collector reports nothing at zero weight", "[linkage_model]") {
     // The shipped default. If this ever reports a change, the caller's output has moved without
     // anyone asking for it.
     LinkageModel::Params p;
+    p.freq_prior = 0.0;
     p.weight = 0.0;
     LinkageCollector collector(p, 4);
     record_dense(collector, "chr1", 1000, 2, {-30.0, -30.0, 0.0}, {1, 1, 0, 0}, 1, 1, 11, /*share*/ 1.0);
@@ -437,6 +448,7 @@ TEST_CASE("The collector does not link across contigs", "[linkage_model]") {
     // Two sites at the same coordinates on different contigs are not neighbours. Linking them
     // would be an easy mistake to make and an invisible one, since the gap would look tiny.
     LinkageModel::Params p;
+    p.freq_prior = 0.0;
     p.weight = 1.0;
     p.scale = 100000.0;
     p.rho_min = 1e-4;
@@ -459,6 +471,7 @@ TEST_CASE("The collector sorts by reference position, not arrival order",
     // it. Transition probabilities come from the gaps, so arrival order would silently feed the
     // model wrong distances -- and with a short scale, a wrong gap changes the answer.
     LinkageModel::Params p;
+    p.freq_prior = 0.0;
     p.weight = 1.0;
     p.scale = 500.0;            // short, so the gap matters
     p.rho_min = 1e-4;
@@ -489,6 +502,7 @@ TEST_CASE("respecify moves a site to the ploidy its settled parent implies", "[l
     // barrier then finds what the settled genotype implies and moves the entry before the child's
     // generation resolves, so that the child's ploidy agrees with its parent.
     LinkageModel::Params p;
+    p.freq_prior = 0.0;
     p.weight = 1.0;
     p.scale = 100000.0;
     p.rho_min = 1e-4;
@@ -537,6 +551,7 @@ TEST_CASE("retract drops a site the settled parent does not carry", "[linkage_mo
     // count. Marked rather than erased, because the arenas are flat and every other entry holds
     // offsets into them -- so the neighbours must survive it untouched.
     LinkageModel::Params p;
+    p.freq_prior = 0.0;
     p.weight = 1.0;
     p.scale = 100000.0;
     p.rho_min = 1e-4;
@@ -588,6 +603,7 @@ TEST_CASE("A nested site takes its strand from the parent traversal that carries
     // are exercised, because getting this backwards puts every child on the wrong haplotype and
     // still produces perfectly well-formed output.
     LinkageModel::Params p;
+    p.freq_prior = 0.0;
     p.weight = 1.0;
     p.scale = 100000.0;
     p.rho_min = 1e-4;
@@ -660,6 +676,7 @@ TEST_CASE("The phasing comes back in reference order even with nested sites in i
     // chain, since placing one needs its parent's phase, so `phasing_out` must be sorted afterwards,
     // or a nested site early on a contig would share a segment with one far along it.
     LinkageModel::Params p;
+    p.freq_prior = 0.0;
     p.weight = 1.0;
     p.scale = 100000.0;
     p.rho_min = 1e-4;
@@ -730,6 +747,7 @@ TEST_CASE("Phasing recovers a planted mosaic", "[linkage_model]") {
     // the property the mosaic output rests on and it cannot be checked against posteriors(),
     // which never forms a path at all.
     LinkageModel::Params p;
+    p.freq_prior = 0.0;
     p.weight = 2.0;
     LinkageModel model(p);
 
@@ -756,6 +774,7 @@ TEST_CASE("Constrained phasing spells the required genotype everywhere", "[linka
     // The consistency guarantee the mosaic output exists to provide. If this can fail, the
     // emitted genome and the emitted VCF can disagree, which is the one thing it must not do.
     LinkageModel::Params p;
+    p.freq_prior = 0.0;
     p.weight = 2.0;
     LinkageModel model(p);
 
@@ -796,6 +815,7 @@ TEST_CASE("A constraint no panel pair can follow routes through the wildcard",
     // switch, against 4.6 nats per free strand for the wildcard, so the wildcard is the better
     // answer and the model returns it.
     LinkageModel::Params p;
+    p.freq_prior = 0.0;
     p.weight = 2.0;
     LinkageModel model(p);
     vector<LinkageModel::Site> sites{
@@ -823,6 +843,7 @@ TEST_CASE("Phasing stays feasible where the panel cannot spell the call", "[link
     // nothing there would drop a whole chain over one site. The wildcard is what keeps the
     // constrained problem solvable.
     LinkageModel::Params p;
+    p.freq_prior = 0.0;
     p.weight = 2.0;
     LinkageModel model(p);
 
@@ -845,6 +866,7 @@ TEST_CASE("Window seams do not manufacture switches", "[linkage_model]") {
     // A chain one haplotype pair explains throughout must phase to zero switches whatever the
     // window size, so run it with a window far shorter than the chain to force seams.
     LinkageModel::Params p;
+    p.freq_prior = 0.0;
     p.weight = 2.0;
     p.window = 5;
     p.margin = 2;
@@ -885,6 +907,7 @@ TEST_CASE("A haploid chain gets a mosaic", "[linkage_model]") {
     // Haplotype 1 carries the alleles the reads want over the first half and haplotype 3 over the
     // second, so the one path explaining the chain switches once.
     LinkageModel::Params p;
+    p.freq_prior = 0.0;
     p.weight = 2.0;
     LinkageModel model(p);
 
@@ -915,6 +938,7 @@ TEST_CASE("A haploid chain gets a mosaic", "[linkage_model]") {
 
 TEST_CASE("Haploid posteriors are a distribution over alleles", "[linkage_model]") {
     LinkageModel::Params p;
+    p.freq_prior = 0.0;
     p.weight = 2.0;
     LinkageModel model(p);
     vector<LinkageModel::Site> sites{
@@ -940,6 +964,7 @@ TEST_CASE("Constrained haploid phasing spells the called allele", "[linkage_mode
     // The same consistency guarantee the diploid path gives: the emitted mosaic must agree with
     // the emitted VCF.
     LinkageModel::Params p;
+    p.freq_prior = 0.0;
     p.weight = 2.0;
     LinkageModel model(p);
     vector<LinkageModel::Site> sites;
@@ -960,6 +985,7 @@ TEST_CASE("Constrained haploid phasing spells the called allele", "[linkage_mode
 
 TEST_CASE("Haploid window seams do not manufacture switches", "[linkage_model]") {
     LinkageModel::Params p;
+    p.freq_prior = 0.0;
     p.weight = 2.0;
     p.window = 5;
     p.margin = 2;
@@ -982,6 +1008,7 @@ TEST_CASE("Phasing is deterministic", "[linkage_model]") {
     // deterministic; ties broken by anything else would make the emitted genome irreproducible
     // without moving any accuracy metric.
     LinkageModel::Params p;
+    p.freq_prior = 0.0;
     p.weight = 2.0;
     LinkageModel model(p);
     vector<LinkageModel::Site> sites;
@@ -1005,6 +1032,7 @@ TEST_CASE("A site below depth 1 inherits its parent's strand, not strand 0",
     // match against its traversals cannot tell which, since such a parent has trav_first ==
     // trav_second and ploidy 1, so the match would always answer strand 0.
     LinkageModel::Params p;
+    p.freq_prior = 0.0;
     p.weight = 1.0;
     p.scale = 100000.0;
     p.rho_min = 1e-4;
@@ -1067,6 +1095,7 @@ TEST_CASE("A child of a haploid locus gets no strand, so it is not written as a 
     //
     // Here the parent is haploid, so no strand may be handed down.
     LinkageModel::Params p;
+    p.freq_prior = 0.0;
     p.weight = 1.0;
     p.scale = 100000.0;
     p.rho_min = 1e-4;
@@ -1187,6 +1216,7 @@ TEST_CASE("Two strands with different deletion content get different switch prob
     // The transition must support a different distance for each strand. switch_probability is
     // monotone in the gap, and the transition treats its two strands independently.
     LinkageModel::Params p;
+    p.freq_prior = 0.0;
     p.weight = 1.0;
     p.scale = 10000.0;
     p.rho_min = 1e-3;
@@ -1220,6 +1250,7 @@ TEST_CASE("Every generation is resolved, not only the first", "[linkage_model]")
     // latent rather than live -- but the invariant is that a recorded site is always settled, and it
     // should not depend on which caller got there first.
     LinkageModel::Params p;
+    p.freq_prior = 0.0;
     p.weight = 1.0;
     p.scale = 100000.0;
     p.rho_min = 1e-4;
@@ -1268,6 +1299,7 @@ TEST_CASE("A nested site never names a haplotype that contradicts the allele it 
     // zeroed every panel state that spells a different allele and a named haplotype cannot
     // disagree -- and where none can spell it, only the wildcard survives.
     LinkageModel::Params p;
+    p.freq_prior = 0.0;
     p.weight = 1.0;
     p.scale = 100000.0;
     p.rho_min = 1e-4;
@@ -1327,6 +1359,7 @@ TEST_CASE("Ploidy-1 sites of one chain on different parent strands are placed ap
     // settled traversals. Each is on the strand that carries it, so they cannot share one group,
     // which is placed on a single strand.
     LinkageModel::Params p;
+    p.freq_prior = 0.0;
     p.weight = 1.0;
     p.scale = 100000.0;
     p.rho_min = 1e-4;
@@ -1376,6 +1409,7 @@ TEST_CASE("A nested haploid chain its parent carries TWICE names no haplotype",
     // revise it. (A chain the parent does not carry is retracted before its generation is
     // grouped.) No haplotype is named, although both strands carry the chain.
     LinkageModel::Params p;
+    p.freq_prior = 0.0;
     p.weight = 1.0;
     p.scale = 100000.0;
     p.rho_min = 1e-4;
@@ -1419,6 +1453,7 @@ TEST_CASE("A revised site stops being unemitted when the revision writes a line"
     // update its `emitted` flag, or it would be treated as having no record, and would get no
     // linkage change and no phase set.
     LinkageModel::Params p;
+    p.freq_prior = 0.0;
     p.weight = 1.0;
     p.scale = 100000.0;
     p.rho_min = 1e-4;

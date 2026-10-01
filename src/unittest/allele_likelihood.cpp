@@ -38,7 +38,7 @@ TEST_CASE("Row normalisation puts every row's maximum at exactly 1", "[allele_li
     // The central invariant of the matrix: each read's likelihoods are relative
     // to that read's own best explanation, so the background term in the
     // genotype likelihood is dimensionless and exactly 1.
-    AlleleReadLikelihoodsBuilder builder(3);
+    AlleleReadLikelihoodsBuilder builder(3, 0.01, 0.1);
     builder.add_read({-5.0, -12.0, -30.0}, 1e-6, "read_a");
     builder.add_read({-100.0, -100.5, -101.0}, 1e-6, "read_b");
     builder.add_read({0.0, NEG_INF, -1.0}, 1e-6, "read_c");
@@ -74,7 +74,7 @@ TEST_CASE("A read placing on no allele at all is dropped and counted", "[allele_
     // Reachable in practice: retrieval fetches by node ID range, so a read can
     // overlap the range yet place on no traversal. Normalising it would divide
     // by zero and quietly poison every genotype at the site with NaN.
-    AlleleReadLikelihoodsBuilder builder(2);
+    AlleleReadLikelihoodsBuilder builder(2, 0.01, 0.1);
     builder.add_read({0.0, -3.0}, 1e-6, "good");
     builder.add_read({NEG_INF, NEG_INF}, 1e-6, "hopeless");
     builder.add_read({-1.0, 0.0}, 1e-6, "also_good");
@@ -94,7 +94,7 @@ TEST_CASE("Clear heterozygous evidence calls the heterozygote", "[allele_likelih
     // Half the reads fit allele 0 and not allele 1, half the reverse. Allele
     // balance has to emerge from the 1/|G| mixture weights, with no het bias
     // parameter anywhere.
-    AlleleReadLikelihoodsBuilder builder(2);
+    AlleleReadLikelihoodsBuilder builder(2, 0.01, 0.1);
     for (int i = 0; i < 10; ++i) {
         builder.add_read({0.0, -20.0}, 1e-6);
     }
@@ -108,7 +108,7 @@ TEST_CASE("Clear heterozygous evidence calls the heterozygote", "[allele_likelih
 }
 
 TEST_CASE("Clear homozygous evidence calls the homozygote", "[allele_likelihood]") {
-    AlleleReadLikelihoodsBuilder builder(2);
+    AlleleReadLikelihoodsBuilder builder(2, 0.01, 0.1);
     for (int i = 0; i < 20; ++i) {
         builder.add_read({0.0, -20.0}, 1e-6);
     }
@@ -139,7 +139,7 @@ TEST_CASE("The depth term prefers the genotype that predicts the read count",
         }
         b.add_read({-30.0, 0.0}, 0.02, "", 151);
     };
-    AlleleReadLikelihoodsBuilder off(2);
+    AlleleReadLikelihoodsBuilder off(2, 0.01, 0.1);
     fill(off);
     off.set_allele_lengths({2000, 50});
     REQUIRE(best_genotype(off.build().score_genotypes(2)) == vector<int>({0, 0}));
@@ -148,7 +148,7 @@ TEST_CASE("The depth term prefers the genotype that predicts the read count",
     // heterozygote claims (2000+150)+(50+150) = 2350. At a rate calibrated so the
     // heterozygote predicts the 41 reads actually present, the homozygote predicts 75
     // -- and observing 41 when 75 are expected is worth about 9 nats.
-    AlleleReadLikelihoodsBuilder on(2);
+    AlleleReadLikelihoodsBuilder on(2, 0.01, 0.1);
     fill(on);
     on.set_allele_lengths({2000, 50});
     AlleleReadLikelihoods m = on.build();
@@ -170,11 +170,11 @@ TEST_CASE("A zero depth weight leaves the likelihood untouched", "[allele_likeli
             b.add_read({-9.0, 0.0}, 0.02, "", 151);
         }
     };
-    AlleleReadLikelihoodsBuilder a(2);
+    AlleleReadLikelihoodsBuilder a(2, 0.01, 0.1);
     fill(a);
     AlleleReadLikelihoods plain = a.build();
 
-    AlleleReadLikelihoodsBuilder b(2);
+    AlleleReadLikelihoodsBuilder b(2, 0.01, 0.1);
     fill(b);
     AlleleReadLikelihoods armed = b.build();
     armed.set_depth_context({500, 500}, 0.05, 151.0, 0.0);
@@ -240,7 +240,7 @@ TEST_CASE("A length-weighted mixture recovers a heterozygous deletion",
     // Same shape as the max-allele case: allele 0 is a 2000 bp long allele, allele
     // 1 a deletion leaving 300 bp. Twenty reads sit inside the deleted interval and
     // fit only the long allele; three span the junction and fit only the deletion.
-    AlleleReadLikelihoodsBuilder builder(2);
+    AlleleReadLikelihoodsBuilder builder(2, 0.01, 0.1);
     for (int i = 0; i < 20; ++i) {
         builder.add_read({0.0, -30.0}, 0.02, "", 151);
     }
@@ -264,7 +264,7 @@ TEST_CASE("A length-weighted mixture still prefers a clean homozygote",
     // stay homozygous, even when the alleles differ greatly in length. A maximum over the
     // genotype's haplotypes would not have this property, since a heterozygote could then never
     // score below either homozygote.
-    AlleleReadLikelihoodsBuilder builder(2);
+    AlleleReadLikelihoodsBuilder builder(2, 0.01, 0.1);
     for (int i = 0; i < 30; ++i) {
         builder.add_read({0.0, -30.0}, 0.02, "", 151);
     }
@@ -295,12 +295,12 @@ TEST_CASE("Unique-content weighting is sharper than whole-traversal weighting",
             b.add_read({-30.0, 0.0}, 0.02, "", 151);
         }
     };
-    AlleleReadLikelihoodsBuilder whole(2);
+    AlleleReadLikelihoodsBuilder whole(2, 0.01, 0.1);
     fill(whole);
     whole.set_allele_lengths({2945, 296});
     AlleleReadLikelihoods whole_matrix = whole.build();
 
-    AlleleReadLikelihoodsBuilder unique(2);
+    AlleleReadLikelihoodsBuilder unique(2, 0.01, 0.1);
     fill(unique);
     unique.set_allele_lengths({2945, 296});
     unique.set_unique_lengths({{2649, 2649}, {0, 0}});
@@ -326,11 +326,11 @@ TEST_CASE("Unique-content weighting still gives a SNV exactly one half",
             b.add_read({-8.0, 0.0}, 0.02, "", 151);
         }
     };
-    AlleleReadLikelihoodsBuilder flat(2);
+    AlleleReadLikelihoodsBuilder flat(2, 0.01, 0.1);
     fill(flat);
     AlleleReadLikelihoods flat_matrix = flat.build();
 
-    AlleleReadLikelihoodsBuilder unique(2);
+    AlleleReadLikelihoodsBuilder unique(2, 0.01, 0.1);
     fill(unique);
     unique.set_allele_lengths({1, 1});
     unique.set_unique_lengths({{0, 1}, {1, 0}});
@@ -355,11 +355,11 @@ TEST_CASE("Equal-length alleles are unchanged by the length weighting",
             b.add_read({-8.0, 0.0}, 0.02, "", 151);
         }
     };
-    AlleleReadLikelihoodsBuilder flat(2);
+    AlleleReadLikelihoodsBuilder flat(2, 0.01, 0.1);
     fill(flat);
     AlleleReadLikelihoods flat_matrix = flat.build();
 
-    AlleleReadLikelihoodsBuilder weighted(2);
+    AlleleReadLikelihoodsBuilder weighted(2, 0.01, 0.1);
     fill(weighted);
     weighted.set_allele_lengths({1, 1});
     AlleleReadLikelihoods weighted_matrix = weighted.build();
@@ -376,7 +376,7 @@ TEST_CASE("A length-weighted mixture fixes heterozygous insertions too",
     // inserted sequence fit only it, so under the flat mixture they argue for
     // homozygous-ALT and the site is called 1/1. Recall metrics cannot see this
     // because the event is still matched -- only genotype concordance shows it.
-    AlleleReadLikelihoodsBuilder flat(2);
+    AlleleReadLikelihoodsBuilder flat(2, 0.01, 0.1);
     for (int i = 0; i < 3; ++i) {
         flat.add_read({0.0, -30.0}, 0.02, "", 151);     // junction, reference side
     }
@@ -385,7 +385,7 @@ TEST_CASE("A length-weighted mixture fixes heterozygous insertions too",
     }
     REQUIRE(best_genotype(flat.build().score_genotypes(2)) == vector<int>({1, 1}));
 
-    AlleleReadLikelihoodsBuilder weighted(2);
+    AlleleReadLikelihoodsBuilder weighted(2, 0.01, 0.1);
     for (int i = 0; i < 3; ++i) {
         weighted.add_read({0.0, -30.0}, 0.02, "", 151);
     }
@@ -400,7 +400,7 @@ TEST_CASE("A flat matrix yields flat genotype likelihoods", "[allele_likelihood]
     // No evidence must produce no preference. This is the correct behaviour for
     // a depth-agnostic model, and it is why a site no read spans reports a
     // no-call rather than a confident hom-ref.
-    AlleleReadLikelihoodsBuilder builder(3);
+    AlleleReadLikelihoodsBuilder builder(3, 0.01, 0.1);
     for (int i = 0; i < 5; ++i) {
         builder.add_read({0.0, 0.0, 0.0}, 1e-6);
     }
@@ -418,7 +418,7 @@ TEST_CASE("The mismapping term bounds how much one read can penalise a genotype"
     // A read that fits allele 0 perfectly and allele 1 not at all is strong
     // evidence against {1,1} -- but bounded, where without the background term
     // it would be unboundedly negative.
-    AlleleReadLikelihoodsBuilder builder(2);
+    AlleleReadLikelihoodsBuilder builder(2, 0.01, 0.1);
     builder.add_read({0.0, NEG_INF}, 1e-3);
     AlleleReadLikelihoods matrix = builder.build();
 
@@ -494,7 +494,7 @@ TEST_CASE("Reads that cannot tell two alleles apart still discriminate against a
     // identically on both, staying neutral between them while still ruling out
     // allele 2. This is how a partially overlapping read contributes partial
     // information rather than none or too much.
-    AlleleReadLikelihoodsBuilder builder(3);
+    AlleleReadLikelihoodsBuilder builder(3, 0.01, 0.1);
     for (int i = 0; i < 8; ++i) {
         builder.add_read({0.0, 0.0, -25.0}, 1e-6);
     }
@@ -518,7 +518,7 @@ TEST_CASE("Reads with very different amounts of evidence combine correctly",
     // Reads contributing unequal amounts of information is correct, and must not
     // be "fixed" by normalising per base: the row normalisation is per read, so
     // it is insensitive to how long that read's window was.
-    AlleleReadLikelihoodsBuilder builder(2);
+    AlleleReadLikelihoodsBuilder builder(2, 0.01, 0.1);
     builder.add_read({0.0, -40.0}, 1e-6, "long_read");    // lots of evidence
     builder.add_read({0.0, -1.0}, 1e-6, "short_read");    // barely any
     AlleleReadLikelihoods matrix = builder.build();
@@ -568,7 +568,7 @@ TEST_CASE("Genotypes are enumerated in VCF GL order", "[allele_likelihood]") {
 }
 
 TEST_CASE("Haploid genotyping works without special casing", "[allele_likelihood]") {
-    AlleleReadLikelihoodsBuilder builder(3);
+    AlleleReadLikelihoodsBuilder builder(3, 0.01, 0.1);
     for (int i = 0; i < 6; ++i) {
         builder.add_read({-30.0, 0.0, -30.0}, 1e-6);
     }
@@ -580,7 +580,7 @@ TEST_CASE("Haploid genotyping works without special casing", "[allele_likelihood
 TEST_CASE("Multi-allelic sites need no extra machinery", "[allele_likelihood]") {
     // A five-allele site is fifteen genotypes; exhaustive enumeration is cheap
     // once the matrix exists, so there is no candidate pruning to get wrong.
-    AlleleReadLikelihoodsBuilder builder(5);
+    AlleleReadLikelihoodsBuilder builder(5, 0.01, 0.1);
     for (int i = 0; i < 7; ++i) {
         builder.add_read({-20.0, 0.0, -20.0, -20.0, -20.0}, 1e-6);
     }
@@ -599,7 +599,7 @@ TEST_CASE("Negative allele markers in a genotype are ignored rather than read ou
     // The VCF layer uses negative sentinels for star and missing alleles in
     // nested calling mode, and they reach update_vcf_info inside the genotype
     // vector. Indexing the matrix with them would read out of bounds.
-    AlleleReadLikelihoodsBuilder builder(2);
+    AlleleReadLikelihoodsBuilder builder(2, 0.01, 0.1);
     builder.add_read({0.0, -10.0}, 1e-6);
     AlleleReadLikelihoods matrix = builder.build();
 
@@ -613,7 +613,7 @@ TEST_CASE("Negative allele markers in a genotype are ignored rather than read ou
 TEST_CASE("An empty matrix is handled without dividing by zero", "[allele_likelihood]") {
     // A site no read overlaps. Every genotype scores 0 (an empty product), which
     // is a flat likelihood: correct, and distinct from a confident call.
-    AlleleReadLikelihoodsBuilder builder(2);
+    AlleleReadLikelihoodsBuilder builder(2, 0.01, 0.1);
     AlleleReadLikelihoods matrix = builder.build();
 
     REQUIRE(matrix.num_reads() == 0);
@@ -671,7 +671,7 @@ TEST_CASE("The achievable gap scales with ploidy, not only with depth",
     // dividing by this can guard with a single comparison.
     REQUIRE(matrix.achievable_gap({0}, {0}) == Approx(0.0));
     REQUIRE(matrix.achievable_gap({}, {1}) == Approx(0.0));
-    REQUIRE(AlleleReadLikelihoodsBuilder(2).build().achievable_gap({0}, {1}) == Approx(0.0));
+    REQUIRE(AlleleReadLikelihoodsBuilder(2, 0.01, 0.1).build().achievable_gap({0}, {1}) == Approx(0.0));
 
     // The denominator is built at the mismap floor, not at the reads' own e_r, so a site whose
     // reads are all badly mapped does not become easy to satisfy: with the reads' own e_r, these

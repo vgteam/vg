@@ -62,7 +62,7 @@ public:
         /// model off, and larger values make switches rarer. Only the switch probability is
         /// raised to the power, and the probability of staying is 1 minus the result, so the
         /// transitions still sum to 1.
-        double weight = 0.0;
+        double weight = 2.0;
 
         /// Distance over which linkage decays, in bp (--linkage-scale).
         double scale = 10000.0;
@@ -79,8 +79,8 @@ public:
         /// Exponent F on the allele-frequency prior that the states imply (--linkage-prior). The
         /// probability collected for a genotype that c ordered panel pairs spell is multiplied by
         /// c^(F-1). 1 keeps the prior as the states imply it, 0 removes it, and larger values
-        /// strengthen it. `vg call` sets it from its option.
-        double freq_prior = 0.0;
+        /// strengthen it.
+        double freq_prior = 5.0;
 
         /// Exponent used instead of `freq_prior` at a site whose alleles differ in the length of
         /// a homopolymer run (see `run_length_site`) (--hp-prior); 0 turns it off.

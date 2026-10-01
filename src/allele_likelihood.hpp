@@ -270,8 +270,8 @@ public:
     /// The upper clamp matters because many mappers give MAPQ 0 to a read with several
     /// equally good placements. Its unclamped e_r of 1 would make the read's term 0
     /// under every genotype, so the read would count for nothing.
-    AlleleReadLikelihoodsBuilder(size_t num_alleles, double min_mismap = 0.01,
-                                 double max_mismap = 0.1);
+    AlleleReadLikelihoodsBuilder(size_t num_alleles, double min_mismap = 0.02,
+                                 double max_mismap = 0.95);
 
     /// Add a read. raw_ln_likelihood must have one entry per allele and may
     /// contain -inf for alleles that cannot place the read.
