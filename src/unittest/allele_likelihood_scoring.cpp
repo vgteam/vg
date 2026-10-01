@@ -104,11 +104,11 @@ static Alignment make_matching_alignment(const HandleGraph& graph, const string&
 
 /// Run the calculator over one site with the given reads, at the given ploidy.
 ///
-/// `realign` selects how the pairing is chosen: false is greedy pairing, the default, and true is
-/// optimal pairing, which `--realign` turns on. The invariants below must hold for both, since they are properties of the scoring
-/// model, not of how the pairing is searched for.
+/// `optimal_pairing` selects how the pairing is chosen: false is greedy pairing, the default, and
+/// true is optimal pairing, which `--optimal-pairing` turns on. The invariants below must hold for
+/// both, since they are properties of the scoring model, not of how the pairing is searched for.
 static AlleleReadLikelihoods score_site(SnpAndDeletionSite& site, const vector<Alignment>& reads,
-                                        int ploidy = 2, bool realign = false) {
+                                        int ploidy = 2, bool optimal_pairing = false) {
     InMemorySiteReadSource source;
     for (const Alignment& aln : reads) {
         source.add(aln);
@@ -116,7 +116,7 @@ static AlleleReadLikelihoods score_site(SnpAndDeletionSite& site, const vector<A
     QualAdjAlignmentScorer qual_scorer;
     MatrixAlignmentScorer plain_scorer;
     AlleleLikelihoodParams params;
-    params.realign = realign;
+    params.optimal_pairing = optimal_pairing;
     GraphAlignedAlleleLikelihoodCalculator calculator(site.graph, *site.manager, source, qual_scorer,
                                                       plain_scorer, params);
     return calculator.compute(site.snarl, site.traversals, ploidy);
@@ -388,10 +388,10 @@ TEST_CASE("No read's allele preference depends on the flank's length",
         for (const Alignment& a : long_reads) long_src.add(a);
         QualAdjAlignmentScorer qs;
         MatrixAlignmentScorer ps;
-        // Both pairings: greedy is the default and optimal is what --realign selects.
-        for (bool realign : {false, true}) {
+        // Both pairings: greedy is the default and optimal is what --optimal-pairing selects.
+        for (bool optimal_pairing : {false, true}) {
         AlleleLikelihoodParams params;
-        params.realign = realign;
+        params.optimal_pairing = optimal_pairing;
         GraphAlignedAlleleLikelihoodCalculator short_calc(shortf.graph, *shortf.manager,
                                                           short_src, qs, ps, params);
         GraphAlignedAlleleLikelihoodCalculator long_calc(longf.graph, *longf.manager,
@@ -399,13 +399,13 @@ TEST_CASE("No read's allele preference depends on the flank's length",
         AlleleReadLikelihoods sm = short_calc.compute(shortf.snarl, shortf.traversals, 2);
         AlleleReadLikelihoods lm = long_calc.compute(longf.snarl, longf.traversals, 2);
 
-        INFO("configuration " << c << (realign ? " (--realign)" : " (greedy)"));
+        INFO("configuration " << c << (optimal_pairing ? " (--optimal-pairing)" : " (greedy)"));
         REQUIRE(sm.num_reads() == lm.num_reads());
         REQUIRE(sm.num_alleles() == lm.num_alleles());
         for (size_t r = 0; r < sm.num_reads(); ++r) {
             for (size_t a = 0; a < sm.num_alleles(); ++a) {
                 INFO("config " << c << " read " << r << " allele " << a
-                                << (realign ? " (--realign)" : " (greedy)"));
+                                << (optimal_pairing ? " (--optimal-pairing)" : " (greedy)"));
                 REQUIRE(sm.rel(r, a) == Approx(lm.rel(r, a)));
             }
         }
@@ -451,13 +451,13 @@ TEST_CASE("Every read is placeable against every allele, whatever the node layou
         for (const Alignment& a : reads) src.add(a);
         QualAdjAlignmentScorer qs;
         MatrixAlignmentScorer ps;
-        for (bool realign : {false, true}) {
+        for (bool optimal_pairing : {false, true}) {
         AlleleLikelihoodParams params;
-        params.realign = realign;
+        params.optimal_pairing = optimal_pairing;
         GraphAlignedAlleleLikelihoodCalculator calc(site.graph, *site.manager, src, qs, ps, params);
         AlleleReadLikelihoods m = calc.compute(site.snarl, site.traversals, 2);
 
-        INFO("configuration " << c << (realign ? " (--realign)" : " (greedy)"));
+        INFO("configuration " << c << (optimal_pairing ? " (--optimal-pairing)" : " (greedy)"));
         REQUIRE(m.num_reads() == configurations[c].size());
         for (size_t r = 0; r < m.num_reads(); ++r) {
             // A read built to follow allele r's own path matches it exactly, so it is that
@@ -467,7 +467,7 @@ TEST_CASE("Every read is placeable against every allele, whatever the node layou
             REQUIRE(m.rel(r, r) == Approx(1.0));
             for (size_t a = 0; a < m.num_alleles(); ++a) {
                 INFO("config " << c << " read " << r << " allele " << a
-                                << (realign ? " (--realign)" : " (greedy)"));
+                                << (optimal_pairing ? " (--optimal-pairing)" : " (greedy)"));
                 REQUIRE(m.rel(r, a) > 0.0);
             }
         }
@@ -477,8 +477,8 @@ TEST_CASE("Every read is placeable against every allele, whatever the node layou
 
 TEST_CASE("Optimal pairing keeps the indel invariants greedy pairing has",
           "[allele_likelihood][scoring]") {
-    // --realign changes how the pairing is searched for, not what a pairing costs, so the properties
-    // pinned for greedy pairing must survive it, such as the direction symmetry of a one-base
+    // --optimal-pairing changes how the pairing is searched for, not what a pairing costs, so the
+    // properties pinned for greedy pairing must survive it, such as the direction symmetry of a one-base
     // indel, which is parameter-free.
     SnpAndDeletionSite site;
     Alignment spanning = make_matching_alignment(site.graph, "spanning",
@@ -488,7 +488,8 @@ TEST_CASE("Optimal pairing keeps the indel invariants greedy pairing has",
     AlleleReadLikelihoods greedy = score_site(site, {spanning, deleting}, 2, false);
     AlleleReadLikelihoods exact = score_site(site, {spanning, deleting}, 2, true);
 
-    for (const auto& named : {make_pair("greedy", &greedy), make_pair("--realign", &exact)}) {
+    for (const auto& named :
+         {make_pair("greedy", &greedy), make_pair("--optimal-pairing", &exact)}) {
         const AlleleReadLikelihoods& m = *named.second;
         INFO(named.first);
         // Each read matches its own allele exactly.

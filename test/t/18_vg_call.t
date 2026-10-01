@@ -729,27 +729,27 @@ vg call x.vg --read-likelihood --gam sim.gam -k x.pack --insertion-nats 0.9 2>/d
 is $(if [ $(wc -l < rl_ins.vcf | tr -d ' ') -gt 0 ]; then echo 1; else echo 0; fi) "1" "--insertion-nats is accepted and parsed with --read-likelihood"
 rm -f rl_ins.vcf
 
-# --realign selects the optimal read-to-allele walk over the greedy default. It is
+# --optimal-pairing selects the optimal read-to-allele walk over the greedy default. It is
 # read-likelihood-only for the same reason the scoring flags are, and it is off by default,
 # so the greedy path is what an unflagged run exercises -- assert both directions here.
-vg call x.vg -k x.pack --realign 2>/dev/null >/dev/null
-is "$?" "1" "--realign without --read-likelihood is refused"
+vg call x.vg -k x.pack --optimal-pairing 2>/dev/null >/dev/null
+is "$?" "1" "--optimal-pairing without --read-likelihood is refused"
 
-vg call x.vg -k x.pack --no-realign 2>/dev/null >/dev/null
-is "$?" "1" "--no-realign without --read-likelihood is refused"
+vg call x.vg -k x.pack --no-optimal-pairing 2>/dev/null >/dev/null
+is "$?" "1" "--no-optimal-pairing without --read-likelihood is refused"
 
-vg call x.vg --read-likelihood --gam sim.gam -k x.pack --realign 2>/dev/null | grep -v "^#" > rl_ra.vcf
-is $(if [ $(wc -l < rl_ra.vcf | tr -d ' ') -gt 0 ]; then echo 1; else echo 0; fi) "1" "--realign is accepted and parsed with --read-likelihood"
+vg call x.vg --read-likelihood --gam sim.gam -k x.pack --optimal-pairing 2>/dev/null | grep -v "^#" > rl_ra.vcf
+is $(if [ $(wc -l < rl_ra.vcf | tr -d ' ') -gt 0 ]; then echo 1; else echo 0; fi) "1" "--optimal-pairing is accepted and parsed with --read-likelihood"
 
 rm -f rl_ra.vcf
 
-# Only an explicit --realign selects optimal pairing. Both pairings are tested in
+# Only an explicit --optimal-pairing selects optimal pairing. Both pairings are tested in
 # src/unittest/allele_likelihood_scoring.cpp, since this fixture cannot tell them apart. Here we
 # check that the --preset help, which lists every setting a preset applies, does not list it.
 is $(vg call --help 2>&1 | grep -A4 -- "--preset NAME" | grep -c -- "--hp-prior 20") "1" \
    "the --preset help lists the settings a preset applies"
-is $(vg call --help 2>&1 | grep -A4 -- "--preset NAME" | grep -c -- "--realign") "0" \
-   "and --realign is not among them"
+is $(vg call --help 2>&1 | grep -A4 -- "--preset NAME" | grep -c -- "--optimal-pairing") "0" \
+   "and --optimal-pairing is not among them"
 
 rm -f rl_dt.vcf rl_t1.vcf rl_t4.vcf rl_link_t1.vcf rl_link_t4.vcf rl_link_off.vcf rl_link_off_t4.vcf rl_link_default.vcf rl_nolink_pack.vcf rl_nolink_pack0.vcf rl_link_err.txt rl_link_err2.txt
 
@@ -801,9 +801,9 @@ is $(grep -c "only applies to --read-likelihood" gb_norl.txt) "1" "--gaf-base wi
 vg call x.vg -k x.pack --mosaic-patch-gaps -t 1 >/dev/null 2>mos_norl.txt
 is $(grep -c "only applies to --read-likelihood" mos_norl.txt) "1" "a --mosaic-* modifier without --read-likelihood is refused"
 
-vg call x.vg -k x.pack --gap-open 2 --realign --mosaic-patch-gaps -t 1 >/dev/null 2>multi_norl.txt
-is "$(grep -o -- "--gap-open, --realign, --mosaic-patch-gaps only apply" multi_norl.txt)" \
-   "--gap-open, --realign, --mosaic-patch-gaps only apply" \
+vg call x.vg -k x.pack --gap-open 2 --optimal-pairing --mosaic-patch-gaps -t 1 >/dev/null 2>multi_norl.txt
+is "$(grep -o -- "--gap-open, --optimal-pairing, --mosaic-patch-gaps only apply" multi_norl.txt)" \
+   "--gap-open, --optimal-pairing, --mosaic-patch-gaps only apply" \
    "several offenders are named together, in the order they were given"
 
 vg call x.vg -k x.pack --traversals -t 1 >/dev/null 2>trav_norl.txt
@@ -829,7 +829,7 @@ is $(grep -c -- "needs --read-phasing" hs_rp.txt) "0" \
 # 9.5 came to sit above 94% of the sites it was meant to admit.  The behavioural gate for this is
 # the chr20 sweep and the chr6 hold-out, which no fixture here can stand in for -- this only holds
 # the documented pair together, so the default cannot move without the help text moving with it.
-is $(vg call --help 2>&1 | grep -c -- "\[9.5, or 8.5 under --realign\]") "1" \
+is $(vg call --help 2>&1 | grep -c -- "\[9.5, or 8.5 under --optimal-pairing\]") "1" \
    "--phase-min-q documents both of its defaults"
 
 # --phase-min-q gates on a HETEROZYGOUS site's mean read score, and that score cannot reach

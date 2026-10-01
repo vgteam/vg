@@ -328,8 +328,8 @@ struct AlleleLikelihoodParams {
     double insertion_gap_nats = 0.0;
 
     /// Choose each read's pairing with an allele by optimal pairing rather than greedy
-    /// pairing (--realign); see GraphAlignedAlleleLikelihoodCalculator.
-    bool realign = false;
+    /// pairing (--optimal-pairing); see GraphAlignedAlleleLikelihoodCalculator.
+    bool optimal_pairing = false;
 
     /// The floor on the mismapping probability e_r (--mismap-min).
     ///
@@ -431,7 +431,7 @@ public:
  *     visits. Each is paired with the same visit's next occurrence in the allele after the last
  *     pair, and a pair is never revised. Every unpaired read visit is a gap of its own, and a pair
  *     of different visits is scored as a substitution even where one of them is shared.
- *   - *Optimal pairing* (`score_by_optimal_pairing`, --realign) finds the highest-scoring pairing
+ *   - *Optimal pairing* (`score_by_optimal_pairing`, --optimal-pairing) finds the highest-scoring pairing
  *     that the rules above allow, by dynamic programming over the two sequences. A run of unpaired
  *     read visits is one gap. At large sites the search is restricted to a band.
  *

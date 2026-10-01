@@ -136,9 +136,9 @@ void help_call(char** argv) {
          << "      --gap-extend N        gap-extension penalty for scoring reads [1]" << endl
          << "      --insertion-nats X    add X nats to a read's log-likelihood for each gap" << endl
          << "                            where the read has bases the allele lacks [0]" << endl
-         << "      --realign             pair a read's node visits with an allele's" << endl
+         << "      --optimal-pairing     pair a read's node visits with an allele's" << endl
          << "                            optimally, rather than greedily" << endl
-         << "      --no-realign          pair them greedily (default)" << endl
+         << "      --no-optimal-pairing  pair them greedily (default)" << endl
          << "      --no-mismap-term      do not model the chance that a read is mismapped" << endl
          << "      --mismap-max P        cap on the mismapping probability derived from a" << endl
          << "                            read's MAPQ [0.95]" << endl
@@ -167,7 +167,8 @@ void help_call(char** argv) {
          << "                            them, not only with the haplotypes" << endl
          << "      --no-read-phasing     phase with the haplotypes only (default)" << endl
          << "      --phase-min-q N       minimum mean read confidence (phred) for a site to" << endl
-         << "                            join the phase chain [9.5, or 8.5 under --realign]" << endl
+         << "                            join the phase chain" << endl
+         << "                            [9.5, or 8.5 under --optimal-pairing]" << endl
          << "      --phase-break N       break the phase chain where the reads linking two" << endl
          << "                            neighbouring sites give under N log10 units of" << endl
          << "                            evidence [20]" << endl
@@ -443,8 +444,8 @@ int main_call(int argc, char** argv) {
     string preset;
     double insertion_gap_nats = 0.0;
     bool insertion_nats_explicit = false;
-    bool realign = false;
-    bool realign_explicit = false;
+    bool optimal_pairing = false;
+    bool optimal_pairing_explicit = false;
     bool phase_min_q_explicit = false;
     bool gap_open_explicit = false, gap_extend_explicit = false, mismap_min_explicit = false;
     bool read_min_mapq_explicit = false;
@@ -502,14 +503,14 @@ int main_call(int argc, char** argv) {
     constexpr int OPT_MISMAP_MAX = 1019;
     constexpr int OPT_MISMAP_MIN = 1020;
     constexpr int OPT_INSERTION_GAP_NATS = 1091;
-    constexpr int OPT_REALIGN = 1092;
+    constexpr int OPT_OPTIMAL_PAIRING = 1092;
     constexpr int OPT_ANCHORS_HOM_SPLIT = 1094;
     constexpr int OPT_ANCHORS_PHASE_HETS = 1102;
     constexpr int OPT_NO_ANCHORS_PHASE_HETS = 1103;
     constexpr int OPT_ANCHORS_STRICT_HETS = 1104;
     constexpr int OPT_ANCHORS_PHASE_MIN = 1095;
     constexpr int OPT_ANCHORS_PHASE_MIN_SIDE = 1096;
-    constexpr int OPT_NO_REALIGN = 1093;
+    constexpr int OPT_NO_OPTIMAL_PAIRING = 1093;
     constexpr int OPT_NO_SHARE_QUALITY = 1021;
     constexpr int OPT_FLAT_MIXTURE = 1023;
     constexpr int OPT_MAX_SNARL_EDGES = 1109;
@@ -629,8 +630,8 @@ int main_call(int argc, char** argv) {
             {"mismap-max", required_argument, 0, OPT_MISMAP_MAX},
             {"mismap-min", required_argument, 0, OPT_MISMAP_MIN},
             {"insertion-nats", required_argument, 0, OPT_INSERTION_GAP_NATS},
-            {"realign", no_argument, 0, OPT_REALIGN},
-            {"no-realign", no_argument, 0, OPT_NO_REALIGN},
+            {"optimal-pairing", no_argument, 0, OPT_OPTIMAL_PAIRING},
+            {"no-optimal-pairing", no_argument, 0, OPT_NO_OPTIMAL_PAIRING},
             {"no-share-quality", no_argument, 0, OPT_NO_SHARE_QUALITY},
             {"flat-mixture", no_argument, 0, OPT_FLAT_MIXTURE},
             {"depth-term", required_argument, 0, OPT_DEPTH_TERM},
@@ -1089,9 +1090,9 @@ int main_call(int argc, char** argv) {
             insertion_nats_explicit = true;
             insertion_gap_nats = parse<double>(optarg);
             break;
-        case OPT_REALIGN:
-            realign_explicit = true;
-            realign = true;
+        case OPT_OPTIMAL_PAIRING:
+            optimal_pairing_explicit = true;
+            optimal_pairing = true;
             break;
         case OPT_ANCHORS_HOM_SPLIT:
             anchor_params.hom_split = true;
@@ -1122,9 +1123,9 @@ int main_call(int argc, char** argv) {
                 return 1;
             }
             break;
-        case OPT_NO_REALIGN:
-            realign_explicit = true;
-            realign = false;
+        case OPT_NO_OPTIMAL_PAIRING:
+            optimal_pairing_explicit = true;
+            optimal_pairing = false;
             break;
         case OPT_READ_MIN_MAPQ:
             read_min_mapq_explicit = true;
@@ -2149,7 +2150,7 @@ int main_call(int argc, char** argv) {
             likelihood_params.max_mismap_prob = max_mismap_prob;
             likelihood_params.min_mismap_prob = min_mismap_prob;
             likelihood_params.insertion_gap_nats = insertion_gap_nats;
-            likelihood_params.realign = realign;
+            likelihood_params.optimal_pairing = optimal_pairing;
             likelihood_params.collect_anchors = anchor_params.enabled;
             // The likelihood calculator and the anchor writer count into the same counters.
             likelihood_params.anchor_counters = &anchor_run_counters;
@@ -2406,9 +2407,9 @@ int main_call(int argc, char** argv) {
     if (nested_calling && !nested_explicit && !read_likelihood) {
         nested_calling = false;
     }
-    // --realign also finds good pairings for the alleles a read did not come from, which lowers
-    // reads' confidence at heterozygous sites, so --phase-min-q has a lower default with it.
-    if (realign && !phase_min_q_explicit) {
+    // --optimal-pairing also finds good pairings for the alleles a read did not come from, which
+    // lowers reads' confidence at heterozygous sites, so --phase-min-q has a lower default with it.
+    if (optimal_pairing && !phase_min_q_explicit) {
         read_phasing_params.reliability = 8.5;
     }
     // Re-genotyping happens in FlowCaller::phase_and_regenotype(). --bottom-up uses

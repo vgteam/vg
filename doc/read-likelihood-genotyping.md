@@ -478,17 +478,17 @@ is scored on its own, so a gap at the edge of one is not joined to a gap in the 
 
 ##### Optimal pairing
 
-With `--realign`, we use optimal pairing: the pairing with the highest score $s_{ra}$, found by
-dynamic programming over the read's visits against the allele's, as in affine-gap alignment.
-`--realign` selects optimal pairing in place of greedy pairing; it does not align bases. When the
+With `--optimal-pairing`, we use optimal pairing: the pairing with the highest score $s_{ra}$,
+found by dynamic programming over the read's visits against the allele's, as in affine-gap
+alignment. Only the pairing of visits is searched; bases are not aligned again. When the
 product of the numbers of read visits and allele visits exceeds a fixed limit, the dynamic
 programming is banded (see [Fixed constants](#fixed-constants)), so at the largest sites optimal
 pairing can miss the best pairing.
 
 ##### Greedy pairing
 
-Without `--realign`, we use greedy pairing, which approximates optimal pairing in one pass along
-the read's visits. It pairs each read visit with the next matching allele visit: the next
+Without `--optimal-pairing`, we use greedy pairing, which approximates optimal pairing in one
+pass along the read's visits. It pairs each read visit with the next matching allele visit: the next
 occurrence of the same visit after the last pair. Allele visits skipped over between two pairs are
 a deletion. When there is no matching visit, it looks for a simple insertion: if the allele's next
 unpaired visit is one that the read makes later, the read visit is left unpaired. Otherwise it
@@ -1470,7 +1470,7 @@ also rejected when those are not in use. Other general options used on this page
 |---|---|
 | Reads | `--gam`, `--gaf-reads`, `--gam-index`, `--gaf-base`, `--gbz-base`, `--gaf-base-binary`, `--read-window`, `--read-min-mapq` |
 | Candidate alleles | `--enumerate-support`, `-k`, `-g`, `-z`, `--max-snarl-edges` |
-| Relative likelihood | `--gap-open`, `--gap-extend`, `--insertion-nats`, `--realign`, `--no-realign` |
+| Relative likelihood | `--gap-open`, `--gap-extend`, `--insertion-nats`, `--optimal-pairing`, `--no-optimal-pairing` |
 | Mismapping | `--mismap-min`, `--mismap-max`, `--no-mismap-term` |
 | Mixture weights | `--flat-mixture` |
 | Depth term | `--depth-term`, `--depth-count-raw` |

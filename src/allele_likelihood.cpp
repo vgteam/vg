@@ -803,7 +803,7 @@ int32_t GraphAlignedAlleleLikelihoodCalculator::score_by_greedy_pairing(
     return score;
 }
 
-// Optimal pairing (--realign): finds the highest-scoring pairing of the read's node visits with
+// Optimal pairing (--optimal-pairing): finds the highest-scoring pairing of the read's node visits with
 // the allele's by dynamic programming. Base-level edits are still read off the mapper's alignment;
 // only the pairing of visits is searched.
 //
@@ -1283,7 +1283,7 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
     }
     // Likewise once per allele, and only for greedy pairing, which is its only consumer.
     vector<AlleleStepPositions> allele_positions;
-    if (!params.realign) {
+    if (!params.optimal_pairing) {
         allele_positions.reserve(allele_steps.size());
         for (const auto& steps : allele_steps) {
             allele_positions.push_back(index_allele_steps(steps));
@@ -1467,7 +1467,7 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
 
         // Depends on the read alone, so it is computed here rather than per allele. Only
         // optimal pairing consumes it, and building it is not free, so skip it for greedy pairing.
-        if (params.realign) {
+        if (params.optimal_pairing) {
             prepare_read_scratch(*scored_aln, read_steps, read_scorer, read_scratch);
         }
 
@@ -1475,7 +1475,7 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
             bool placed = false;
             double nat_adjust = 0.0;
             int32_t score =
-                params.realign
+                params.optimal_pairing
                     ? score_by_optimal_pairing(*scored_aln, read_steps, allele_steps[a],
                                                read_scratch, allele_keys[a], read_scorer,
                                                placed, nat_adjust)
