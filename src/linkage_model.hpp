@@ -344,8 +344,8 @@ public:
         /// Whether a VCF line exists for this site. `vg call` records every site before its line
         /// is written, so it passes false and supplies the answer through `set_allele_map`.
         bool emitted = true;
-        /// The site has no reference position; `position` is only a place in the contig to sort
-        /// it.
+        /// The site has no reference position, and `position` stands in for it, as described at
+        /// `Site::unpositioned`.
         bool unpositioned = false;
         /// A hash of the chain's boundary nodes, which identifies the chain and groups its sites.
         size_t chain_key = 0;
@@ -529,6 +529,11 @@ public:
 
     /// Whether a live (not retracted) entry exists for this key.
     bool has_entry(size_t record_key) const;
+
+    /// Move the live entry for this key to another position on its contig, as when the place of a
+    /// site with no reference position changes with its parent's settled genotype. Returns false
+    /// when the key has no live entry.
+    bool set_position(size_t record_key, size_t position);
 
     /// How many sites belong to one generation, for reporting a per-generation pass.
     size_t num_sites_at(size_t generation) const;

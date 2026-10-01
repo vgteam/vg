@@ -115,7 +115,7 @@ void VCFOutputCaller::report_atomize_instrumentation() const {
 
     if (atomize_counters.child_inlined.load() > 0) {
         cerr << "[vg call] atomize: " << atomize_counters.child_inlined.load()
-             << " child chains not descended into because a block ALT already spells them" << endl;
+             << " child chains left without a line because a block ALT already spells them" << endl;
     }
     {
         // One line, listing only the reasons that occurred.
@@ -5161,6 +5161,20 @@ int64_t FlowCaller::base_offset_of_child(const SnarlTraversal& trav, const Snarl
     return bases;
 }
 
+size_t FlowCaller::offset_along_genotype(const vector<SnarlTraversal>& travs,
+                                         const vector<int>& genotype, const Snarl& child) const {
+    for (int allele : genotype) {
+        if (allele < 0 || allele >= (int)travs.size()) {
+            continue;
+        }
+        const int64_t within = base_offset_of_child(travs[allele], child);
+        if (within >= 0) {
+            return (size_t)within;
+        }
+    }
+    return 0;
+}
+
 uint64_t FlowCaller::child_crossing_mask(const vector<TraversalNodeIndex>& visits,
                                          const Snarl& child, bool* known) {
     if (known != nullptr) {
@@ -5320,10 +5334,11 @@ void FlowCaller::record_site(const Snarl& snarl, const vector<SnarlTraversal>& t
     }
     // The (contig, position) the site is filed under, from `site_ref_key`, which the barrier also
     // uses. The position is taken before flattening; the model uses it only for order and
-    // distance. A chain with no reference position gets its parent's reference start, a place in
-    // the contig to sort it rather than a coordinate, which `unpositioned` marks so that it is not
-    // used for distances. `get_ref_position` cannot be used for such a chain, since
-    // `get_ref_interval` asserts on a snarl the path does not pass through.
+    // distance. A chain with no reference position gets `position_from_parent`: its parent's
+    // reference start plus its offset along the parent. `unpositioned` marks it, so that it is
+    // differenced only with a site of the same chain, whose offset is along the same parent
+    // traversal. `get_ref_position` cannot be used for such a chain, since `get_ref_interval`
+    // asserts on a snarl the path does not pass through.
     const pair<string, size_t> ref_key =
         site_ref_key(snarl, ref_path_name, ref_offset, no_reference, position_from_parent);
     const int called_i = trav_genotype[0];
@@ -6178,6 +6193,26 @@ void FlowCaller::run_barrier() {
             if (pr.generation != gen + 1 || pr.dropped) {
                 continue;
             }
+            auto parent_record = record_by_key.find(pr.parent_record_key);
+            if (linkage_collector != nullptr && parent_record != record_by_key.end()) {
+                // Place the chain along the allele its parent settled on, before this generation's
+                // linkage pass orders and spaces its sites by position. The parent's own offset
+                // was placed in the previous generation's iteration.
+                const PendingRecord& par = *parent_record->second;
+                const size_t offset =
+                    par.chain_offset
+                    + offset_along_genotype(par.travs, settled_genotype_for(par), pr.snarl);
+                if (offset != pr.chain_offset) {
+                    if (pr.no_reference) {
+                        pr.position_from_parent += (int64_t)offset - (int64_t)pr.chain_offset;
+                        linkage_collector->set_position(
+                            pr.record_key,
+                            site_ref_key(pr.snarl, pr.ref_path_name, pr.ref_offset, true,
+                                         pr.position_from_parent).second);
+                    }
+                    pr.chain_offset = offset;
+                }
+            }
             if (!pr.crossing_known) {
                 // The sweep could not compute this chain's crossing mask, because its parent has
                 // more candidate traversals than a 64-bit mask can hold. Left as it is and
@@ -6186,23 +6221,43 @@ void FlowCaller::run_barrier() {
                 continue;
             }
             if (pr.parent_crossing == 0) {
+                // No candidate traversal of the parent crosses the chain, so no settled genotype
+                // can carry it: the sample has no copy, as at ploidy 0 below.
                 ++bar_no_crossing;
-                continue;   // no emitted parent allele crosses: no settled genotype can reach it
+                retracted += drop_subtree(i);
+                continue;
             }
+            // The settled pair as traversals, which the crossing mask is indexed by, through
+            // `LinkageCollector::relate_to_parent`, which `resolve_generation` also uses to set
+            // `nested_strand`.
+            int settled_first = -1, settled_second = -1;
+            bool have_pair = false;
             auto found = settled.find(pr.parent_record_key);
-            if (found == settled.end()) {
-                // The parent has no PhaseCall, so its settled pair cannot be read, and the chain
+            if (found != settled.end()) {
+                const LinkageCollector::PhaseCall& parent = *found->second;
+                settled_first = parent.trav_first;
+                settled_second = parent.ploidy == 2 ? parent.trav_second : -1;
+                have_pair = true;
+            } else if (linkage_collector != nullptr && parent_record != record_by_key.end()
+                       && !parent_record->second->genotype.empty()) {
+                // The linkage model gave the parent no PhaseCall, so the parent is rendered at its
+                // own settled genotype, which `settled_genotype_for` reads.
+                const vector<int> parent_genotype = settled_genotype_for(*parent_record->second);
+                settled_first = parent_genotype[0];
+                settled_second = parent_genotype.size() > 1 ? parent_genotype[1] : -1;
+                if (settled_first < 0) {
+                    std::swap(settled_first, settled_second);
+                }
+                have_pair = settled_first >= 0;
+            }
+            if (!have_pair) {
+                // Neither a PhaseCall nor a called allele of the parent can be read, and the chain
                 // keeps the ploidy it was called at. Counted.
                 ++bar_no_settled;
                 continue;
             }
-            const LinkageCollector::PhaseCall& parent = *found->second;
-            // The settled pair as traversals, which the crossing mask is indexed by, through
-            // `LinkageCollector::relate_to_parent`, which `resolve_generation` also uses to set
-            // `nested_strand`.
             const LinkageCollector::Relation rel = LinkageCollector::relate_to_parent(
-                pr.parent_crossing, parent.trav_first,
-                parent.ploidy == 2 ? parent.trav_second : -1);
+                pr.parent_crossing, settled_first, settled_second);
             int copies = (int)rel.copies;
 
             // How many copies of the chain the sample has, from the parent's settled pair. Computed
@@ -6334,6 +6389,7 @@ void FlowCaller::run_barrier() {
                         .parent_crossing = pr.parent_crossing,
                         .generation = pr.generation,
                         .emitted = false,
+                        .unpositioned = pr.no_reference,
                         .chain_key = pr.chain_key,
                         .freq_prior = site_freq_prior(pr.travs, pr.ref_trav_idx),
                     });
@@ -6356,11 +6412,7 @@ void FlowCaller::run_barrier() {
             // masks are computed again, through `children_of`.
             const auto kids = children_of.find(pr.record_key);
             if (kids != children_of.end()) {
-                // The parts of the exactly-once test that do not depend on the child are built
-                // once for this parent; see VCFOutputCaller::ChainInlineContext.
-                const ChainInlineContext pr_inline_ctx =
-                    build_chain_inline_context(pr.snarl, pr.travs, pr.genotype, pr.ref_trav_idx);
-                // Also once for this parent: see TraversalNodeIndex.
+                // Once for this parent: see TraversalNodeIndex.
                 vector<TraversalNodeIndex> pr_visits;
                 pr_visits.reserve(pr.travs.size());
                 for (const SnarlTraversal& t : pr.travs) {
@@ -6371,22 +6423,52 @@ void FlowCaller::run_barrier() {
                     bool known = true;
                     child.parent_crossing = child_crossing_mask(pr_visits, child.snarl, &known);
                     child.crossing_known = known;
-                    // The exactly-once test again, since the parent's genotype may have changed:
-                    // `reported_inline` holds back a child's line where an enclosing block's ALT
-                    // spells the chain. Inherited from the parent, whose own flag was updated when its
-                    // parent was revised, since generations are walked in order.
-                    const bool was = child.reported_inline;
-                    child.reported_inline =
-                        pr.reported_inline
-                        || chain_reported_inline(pr_inline_ctx, child.snarl);
-                    if (was != child.reported_inline) {
-                        ++bar_inline_rederived;
-                    }
                 }
             }
         }
         if (linkage_collector != nullptr) {
             generations = max(generations, linkage_collector->max_generation());
+        }
+    }
+
+    // The exactly-once test, from the settled genotypes the render builds each parent's blocks
+    // from: `reported_inline` holds back a chain's line where an enclosing block's ALT spells it.
+    // Without the linkage model every settled genotype is the direct call the sweep tested, so
+    // there is nothing to redo.
+    if (linkage_collector != nullptr && !children_of.empty()) {
+        // Parents before their children, so that a chain inherits its parent's final flag.
+        vector<pair<uint8_t, size_t>> parents;
+        parents.reserve(children_of.size());
+        for (const auto& kv : children_of) {
+            auto parent = record_by_key.find(kv.first);
+            if (parent != record_by_key.end()) {
+                parents.emplace_back(parent->second->generation, kv.first);
+            }
+        }
+        sort(parents.begin(), parents.end());
+        // Counted again from here, so that the report gives the chains held back now.
+        atomize_counters.child_inlined = 0;
+        for (const pair<uint8_t, size_t>& gk : parents) {
+            const PendingRecord& parent = *record_by_key.at(gk.second);
+            if (parent.dropped) {
+                continue;   // its children were dropped with it
+            }
+            // The parts of the test that do not depend on the child, built once for this parent;
+            // see VCFOutputCaller::ChainInlineContext.
+            const ChainInlineContext ctx = build_chain_inline_context(
+                parent.snarl, parent.travs, settled_genotype_for(parent), parent.ref_trav_idx);
+            for (size_t ci : children_of.at(gk.second)) {
+                PendingRecord& child = pending[ci];
+                if (child.dropped) {
+                    continue;
+                }
+                const bool was = child.reported_inline;
+                child.reported_inline =
+                    parent.reported_inline || chain_reported_inline(ctx, child.snarl);
+                if (was != child.reported_inline) {
+                    ++bar_inline_rederived;
+                }
+            }
         }
     }
     if (show_progress) {
@@ -6466,8 +6548,8 @@ void FlowCaller::run_barrier() {
              << retained_visits << " traversal visits and " << retained_gls
              << " genotype likelihoods" << endl;
         cerr << "[vg call] barrier exits: " << bar_no_crossing
-             << " no parent allele crosses, " << bar_no_settled
-             << " parent has no settled phase call, " << revise_unrenderable
+             << " dropped because no parent candidate crosses them, " << bar_no_settled
+             << " whose parent's settled pair could not be read, " << revise_unrenderable
              << " unrenderable so left unrevised, " << bar_ploidy_unscored
              << " stranded at a ploidy the sweep never scored" << endl;
         if (bar_inline_rederived > 0) {
@@ -6961,8 +7043,10 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
             // children.
             record_site(snarl, travs, trav_genotype, trav_call_info, ref_trav_idx, ref_path_name,
                         ref_offset_of(ref_offsets, ref_path_name), /*no_reference*/ true,
-                        // The parent's interval, set by `use_parent_interval`.
-                        get<0>(ref_interval) + ref_offset_of(ref_offsets, ref_path_name));
+                        // The parent's interval, set by `use_parent_interval`, plus the chain's
+                        // offset along its parent, as `PendingRecord::position_from_parent` has it.
+                        get<0>(ref_interval) + ref_offset_of(ref_offsets, ref_path_name)
+                            + (int64_t)nested_context.parent_offset);
             ++descent_counters.no_ref_recorded;
             {
                 int copies = 0;
@@ -7026,6 +7110,7 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
                 no_ref_position ? get<0>(ref_interval) + ref_offset_of(ref_offsets, ref_path_name)
                                       + (int64_t)nested_context.parent_offset
                                 : 0;
+            pending_this->chain_offset = nested_context.parent_offset;
             pending_this->crossing_known = nested_context.crossing_known;
             pending_this->generation = (uint8_t)min(current_generation, (size_t)255);
             pending_this->call_info = std::move(trav_call_info);
@@ -7126,23 +7211,11 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
                 nested_context.parent_record_key = record_key_of(snarl);
                 nested_context.retain_only = retain_only;
                 nested_context.no_reference = child_off_reference;
-                // Where this child starts along the settled traversal that reaches it, added to the
-                // offset of its parent. Only an off-reference chain uses it, but it is computed for
-                // every chain, so that offsets add up down the tree.
-                {
-                    int64_t within = -1;
-                    for (int allele : trav_genotype) {
-                        if (allele < 0 || allele >= (int)travs.size()) {
-                            continue;
-                        }
-                        within = base_offset_of_child(travs[allele], *child);
-                        if (within >= 0) {
-                            break;   // the first settled traversal that reaches it
-                        }
-                    }
-                    nested_context.parent_offset =
-                        saved.parent_offset + (size_t)max((int64_t)0, within);
-                }
+                // Where this child starts along the first called allele that reaches it, added to
+                // the offset of its parent. Only an off-reference chain uses it, but it is computed
+                // for every chain, so that offsets add up down the tree.
+                nested_context.parent_offset =
+                    saved.parent_offset + offset_along_genotype(travs, trav_genotype, *child);
                 nested_context.reported_inline = child_reported_inline;
                 // The chain's identity, from its boundary nodes.
                 {

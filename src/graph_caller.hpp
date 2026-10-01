@@ -523,19 +523,22 @@ protected:
         /// whatever this flag says, and never gets a line.
         ///
         /// The barrier decides what happens to it from the parent's settled pair. If the pair
-        /// carries no copy, the chain and everything under it are dropped. If it carries some, the
-        /// chain is recorded at that many copies and rendered; where the sweep scored no genotype
-        /// at that ploidy, it is rendered at the parent's ploidy instead, unrecorded. In two cases
-        /// the barrier does not compare the chain with a settled pair at all, so the chain is never
-        /// dropped on its parent's account (a dropped ancestor still removes it), and is rendered at
-        /// the ploidy it was genotyped at, unrecorded: where the parent has no settled pair, and
-        /// where the crossing mask is 0 or unknown (`crossing_known` false).
+        /// carries no copy, the chain and everything under it are dropped; so is a chain that no
+        /// candidate traversal of the parent crosses (a crossing mask of 0). If the pair carries
+        /// some, the chain is recorded at that many copies and rendered; where the sweep scored no
+        /// genotype at that ploidy, it is rendered at the parent's ploidy instead, unrecorded. A
+        /// parent the linkage model gave no phase call is read at its own settled genotype. Where
+        /// the crossing mask is unknown (`crossing_known` false), the barrier cannot compare the
+        /// chain with a settled pair at all, so the chain is never dropped on its parent's account
+        /// (a dropped ancestor still removes it), and is rendered at the ploidy it was genotyped at,
+        /// unrecorded.
         bool retain_only = false;
         /// Where this chain starts along the first of the parent's called traversals that crosses
-        /// it, in bases. Added to the parent's reference start, it gives an off-reference chain a
-        /// position of its own, so that its sites are ordered as that traversal visits them and
-        /// the distance between two of them is known. Inherited additively, so a grandchild is
-        /// placed within its parent.
+        /// it, in bases, plus the parent's own `parent_offset`. Added to the parent's reference
+        /// start, it gives an off-reference chain a position of its own, so that its sites are
+        /// ordered as that traversal visits them and the distance between two of them is known.
+        /// The barrier computes it again from the parent's settled genotype
+        /// (`PendingRecord::chain_offset`).
         size_t parent_offset = 0;
         /// Permission to genotype a chain that no reference path passes through. Inherited, since
         /// everything under such a chain is also off the reference. Whether a given snarl has a
@@ -1246,8 +1249,10 @@ public:
     /// The barrier: settle the genotypes one generation at a time. Each generation's linkage pass
     /// settles its sites; then each child chain of the next generation takes the ploidy its
     /// parent's settled genotype gives it, from the answers the sweep kept at both ploidies, and
-    /// a chain the parent does not carry is dropped with everything inside it. Does nothing
-    /// unless records are staged (see `set_settle_after_sweep`).
+    /// a chain the parent does not carry is dropped with everything inside it. Once every
+    /// generation is settled, it decides which chains an enclosing block spells
+    /// (`PendingRecord::reported_inline`). Does nothing unless records are staged (see
+    /// `set_settle_after_sweep`).
     void run_barrier();
 
     /// Move every nested chain the barrier kept into the render's queues, and collect anchors for
@@ -1341,14 +1346,20 @@ protected:
         size_t parent_record_key = 0;
         /// See NestedContext::chain_key.
         size_t chain_key = 0;
-        /// See NestedContext::reported_inline. Its line is held back, as for `no_reference`.
+        /// See NestedContext::reported_inline. Its line is held back, as for `no_reference`. The
+        /// sweep tests the parent's direct call; under the linkage model the barrier tests again
+        /// with the parent's settled genotype, which the parent's blocks are built from.
         bool reported_inline = false;
         /// This snarl has no reference path, so no line can be written for it, since REF and POS are
         /// undefined. It is still genotyped and recorded in the linkage model.
         bool no_reference = false;
-        /// For a snarl with no reference path: its parent's reference start plus
-        /// `NestedContext::parent_offset`, standing in for the position it lacks.
+        /// For a snarl with no reference path: its parent's reference start plus `chain_offset`,
+        /// standing in for the position it lacks.
         int64_t position_from_parent = 0;
+        /// `NestedContext::parent_offset` for this chain. The sweep takes it from the parent's
+        /// direct call, and the barrier computes it again from the parent's settled genotype, so
+        /// that an off-reference chain is placed along the allele its parent settles on.
+        size_t chain_offset = 0;
         /// See NestedContext::parent_crossing.
         uint64_t parent_crossing = 0;
         /// False when the parent has more than 64 candidate traversals, too many for
@@ -1487,6 +1498,11 @@ public:
     /// visited before it, or -1 if `trav` does not cross it. It gives an off-reference chain its
     /// place along its parent (see `NestedContext::parent_offset`).
     int64_t base_offset_of_child(const SnarlTraversal& trav, const Snarl& child) const;
+
+    /// `base_offset_of_child` along the first traversal of `genotype` that crosses `child`, or 0
+    /// when none does.
+    size_t offset_along_genotype(const vector<SnarlTraversal>& travs, const vector<int>& genotype,
+                                 const Snarl& child) const;
 protected:
 
     /// The crossing mask: bit i is set where `travs[i]` crosses `child`. Indexed by traversal, not

@@ -613,7 +613,7 @@ and linkage stronger. $\omega = 0$ is a special value: vg does not run the model
 keeps its direct call. $\rho_{\min}$ is a small fixed floor, so that a switch is never impossible.
 
 A chain that no reference path passes through is an *off-reference chain*, and its sites have no
-reference position of their own. vg takes the first allele of the parent's direct call that
+reference position of their own. vg takes the first allele of the parent's settled genotype that
 crosses such a site, and places the site at the parent's position plus the site's offset along
 that allele. Two sites of one off-reference chain are then as far apart as they are along that
 allele. No distance is known between such a site and a site with a reference position, and there
@@ -724,13 +724,10 @@ record, reading each block allele as the site allele it stands for. Summing or a
 fields over a site's records therefore counts the site's evidence more than once. `INFO/SB` gives
 each block record's index, counting from 0, and the number of block records the site writes.
 
-When every crossing of a child chain by the alleles of the parent's direct call lies inside a
+When every crossing of a child chain by the alleles of the parent's settled genotype lies inside a
 block, the block's ALT spells out the chain. The records of the chain, and of the sites nested in
 it, would repeat that ALT, so they are not written. The child chain is still genotyped and phased
-from the panel, because the sites nested in it depend on its genotype and phase. The test uses the
-parent's direct call, while the blocks are built from its settled genotype. Where the linkage
-model moves the parent, a chain can therefore be held back that no block spells out, or written
-although a block does.
+from the panel, because the sites nested in it depend on its genotype and phase.
 
 #### Which child chains are genotyped
 

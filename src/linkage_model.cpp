@@ -1519,6 +1519,16 @@ bool LinkageCollector::has_entry(size_t record_key) const {
     return live_index(record_key) != NO_ENTRY;
 }
 
+bool LinkageCollector::set_position(size_t record_key, size_t position) {
+    lock_guard<std::mutex> guard(mutex);
+    const uint32_t found = live_index(record_key);
+    if (found == NO_ENTRY) {
+        return false;
+    }
+    entries[found].position = position;
+    return true;
+}
+
 bool LinkageCollector::rescore(size_t record_key,
                                const map<vector<int>, double>& genotype_ln_likelihood,
                                const vector<int>& haplotype_traversal,
