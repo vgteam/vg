@@ -101,6 +101,8 @@ struct Called {
     vector<int> genotype;
     const ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo* info;
     unique_ptr<SnarlCaller::CallInfo> owned;
+    /// The caller's `gq_factor` for `info`, under the settings it was called with.
+    double gq_factor = 0.0;
 };
 
 Called call_site(CallerSite& site, const vector<Alignment>& reads,
@@ -125,6 +127,9 @@ Called call_site(CallerSite& site, const vector<Alignment>& reads,
     out.owned = std::move(result.second);
     out.info = dynamic_cast<const ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo*>(
         out.owned.get());
+    if (out.info != nullptr) {
+        out.gq_factor = caller.gq_factor(*out.info);
+    }
     return out;
 }
 
@@ -190,6 +195,53 @@ TEST_CASE("--no-share-quality makes GQ the raw ratio, and the share still report
     REQUIRE(discounted.info->explained_share < 1.0);
     REQUIRE(discounted.info->gq < raw.info->gq);
     REQUIRE(discounted.info->gq == Approx(raw.info->gq * discounted.info->explained_share));
+}
+
+TEST_CASE("gq_factor and achievable_gap are what GQ and GQN were computed with",
+          "[read_likelihood_caller]") {
+    // A moved record's quality fields are rewritten from these two, so each must reproduce the
+    // per-site value it stands for, under every setting that changes GQ.
+    CallerSite site;
+    vector<Alignment> mixed;
+    for (int i = 0; i < 10; ++i) {
+        mixed.push_back(matching_read(site.graph, "r" + std::to_string(i), {1, 2, 4}));
+        mixed.push_back(matching_read(site.graph, "a" + std::to_string(i), {1, 3, 4}));
+    }
+    for (int i = 0; i < 4; ++i) {
+        mixed.push_back(matching_read(site.graph, "d" + std::to_string(i), {1, 4}));
+    }
+    vector<Alignment> deletion;
+    for (int i = 0; i < 12; ++i) {
+        deletion.push_back(matching_read(site.graph, "x" + std::to_string(i), {1, 4}));
+    }
+    auto no_share = [](ReadLikelihoodSnarlCaller& c) { c.set_share_discount(false); };
+    auto depth = [](ReadLikelihoodSnarlCaller& c) { c.set_depth_quality(1.0, 50); };
+    auto both = [](ReadLikelihoodSnarlCaller& c) {
+        c.set_share_discount(false);
+        c.set_depth_quality(1.0, 50);
+    };
+
+    Called shared = call_site(site, mixed);
+    Called raw = call_site(site, mixed, no_share);
+    Called deep = call_site(site, deletion, depth);
+    Called deep_raw = call_site(site, deletion, both);
+    for (const Called* c : {&shared, &raw, &deep, &deep_raw}) {
+        REQUIRE(c->info != nullptr);
+        REQUIRE(c->info->gq == Approx(c->info->gq_undiscounted * c->gq_factor));
+        // GQN is the gap in nats over the achievable gap, held at 1, times the share.
+        REQUIRE(c->info->achievable_gap > 0.0);
+        const double gap_nats = c->info->gq_undiscounted * log(10.0) / 10.0;
+        REQUIRE(c->info->gq_fraction
+                == Approx(min(1.0, gap_nats / c->info->achievable_gap)
+                          * c->info->explained_share));
+    }
+    // The share is in the factor only while the share discount is on.
+    REQUIRE(shared.info->explained_share < 1.0);
+    REQUIRE(shared.gq_factor == Approx(shared.info->explained_share));
+    REQUIRE(raw.gq_factor == Approx(1.0));
+    // The depth discount is in it either way.
+    REQUIRE(deep_raw.info->depth_discount < 1.0);
+    REQUIRE(deep_raw.gq_factor == Approx(deep_raw.info->depth_discount));
 }
 
 TEST_CASE("The depth discount is gated on the called allele's length change",

@@ -132,6 +132,11 @@ public:
         /// linkage model changed, which get a GQN of their own.
         double gq_fraction = -1.0;
 
+        /// The divisor of `gq_fraction`: the largest ln-likelihood difference the read term
+        /// could give between the called genotype and the runner-up (see
+        /// AlleleReadLikelihoods::achievable_gap), in nats. 0 where there is no runner-up.
+        double achievable_gap = 0.0;
+
     };
 
     /// While on, every `genotype` call on this thread that finds a genotype at a site with more
@@ -224,6 +229,12 @@ public:
      */
     double discounted_gq(const ReadLikelihoodCallInfo& info, const vector<int>& called,
                          double gap) const;
+
+    /**
+     * The factor `discounted_gq` multiplies the gap by at the called genotype: `info`'s
+     * explained share, unless --no-share-quality, times `info.depth_discount`.
+     */
+    double gq_factor(const ReadLikelihoodCallInfo& info) const;
 
     /**
      * Recompute `info.gq` from `info.genotype_lls`, for the genotype with the highest

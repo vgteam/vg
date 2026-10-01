@@ -67,7 +67,7 @@ static void record_dense(LinkageCollector& c, const string& contig, size_t posit
         ident[i] = (int)i;
     }
     c.record(contig, position, gls, panel, (int)called_i, (int)called_j, ident, record_key,
-             share, ploidy, start_node, end_node,
+             LinkageCollector::DirectQuality{.explained_share = share}, ploidy, start_node, end_node,
              LinkageCollector::SiteContext{
                  .nested = nested,
                  .parent_record_key = parent_record_key,
@@ -110,7 +110,7 @@ static bool respecify_dense(LinkageCollector& c, size_t record_key,
         c.retract(record_key);
     }
     c.record(contig, position, gls, panel, (int)called_i, (int)called_j, ident, record_key,
-             /*share*/ 1.0, ploidy, start_node, end_node,
+             LinkageCollector::DirectQuality{}, ploidy, start_node, end_node,
              LinkageCollector::SiteContext{
                  .nested = nested,
                  .parent_record_key = parent_record_key,
@@ -380,6 +380,45 @@ TEST_CASE("The collector keeps sites compactly and re-decides only what changed"
     REQUIRE(collector.settled_traversals(11, &a, &b, &settled_ploidy));
     REQUIRE(a == 1);
     REQUIRE(b == 1);
+}
+
+TEST_CASE("moved_quality describes the latest resolution alone", "[linkage_model]") {
+    // Under --regenotype the barrier resolves again each round. A record the model moved in an
+    // earlier round and not in the latest one must not keep the earlier posterior, or its line is
+    // rewritten from a genotype it no longer has.
+    LinkageModel::Params p;
+    p.weight = 1.0;
+    p.scale = 100000.0;
+    p.rho_min = 1e-4;
+    LinkageCollector collector(p, 4);
+    // As in the test above: site 22 is flat and linked to the decisive site 11, so it moves.
+    record_dense(collector, "chr1", 1000, 2, {-30.0, -30.0, 0.0}, {1, 1, 0, 0}, 1, 1, 11, 1.0);
+    map<vector<int>, double> flat{{{0, 0}, 0.0}, {{0, 1}, -30.0}, {{1, 1}, 0.0}};
+    collector.record("chr1", 1100, flat, {1, 1, 0, 0}, 0, 0, {0, 1}, 22,
+                     LinkageCollector::DirectQuality{
+                         .explained_share = 0.75, .gq_factor = 0.5, .achievable_gap = 12.0},
+                     2, 0, 0, LinkageCollector::SiteContext{});
+    REQUIRE(collector.resolve() == 1);
+    REQUIRE(collector.moved_quality().count(11) == 0);
+    REQUIRE(collector.moved_quality().count(22) == 1);
+    // The direct call's quality inputs travel with the posterior.
+    const LinkageCollector::MovedQuality& q = collector.moved_quality().at(22);
+    REQUIRE(q.direct.explained_share == Approx(0.75));
+    REQUIRE(q.direct.gq_factor == Approx(0.5));
+    REQUIRE(q.direct.achievable_gap == Approx(12.0));
+    REQUIRE(q.posterior > 0.5);
+
+    SECTION("a later resolution that leaves the site alone removes it") {
+        // Decisive reads for 0/0, as a re-genotyping correction might leave them.
+        map<vector<int>, double> decisive{{{0, 0}, 0.0}, {{0, 1}, -60.0}, {{1, 1}, -120.0}};
+        REQUIRE(collector.rescore(22, decisive, {1, 1, 0, 0}, 0, 0));
+        REQUIRE(collector.resolve() == 0);
+        REQUIRE(collector.moved_quality().count(22) == 0);
+    }
+    SECTION("retracting the site removes it") {
+        REQUIRE(collector.retract(22));
+        REQUIRE(collector.moved_quality().count(22) == 0);
+    }
 }
 
 TEST_CASE("The collector reports nothing at zero weight", "[linkage_model]") {
@@ -1434,7 +1473,8 @@ TEST_CASE("A site's exponent survives the collector into the decode", "[linkage_
         p.freq_prior = 1.0;
         LinkageCollector c(p, 4);
         c.record("chr1", 1000, {{{0, 0}, -1.0}, {{0, 1}, 0.0}, {{1, 1}, -20.0}}, {0, 0, 0, 1}, 0, 1,
-                 {0, 1}, 11, 1.0, 2, 0, 0, LinkageCollector::SiteContext{.freq_prior = f});
+                 {0, 1}, 11, LinkageCollector::DirectQuality{}, 2, 0, 0,
+                 LinkageCollector::SiteContext{.freq_prior = f});
         REQUIRE(c.num_site_prior_entries() == (f >= 0.0 ? 1 : 0));
         c.resolve();
         int a = -1, b = -1;

@@ -67,6 +67,10 @@ double ReadLikelihoodSnarlCaller::discounted_gq(const ReadLikelihoodCallInfo& in
     return gq * info.depth_discount;
 }
 
+double ReadLikelihoodSnarlCaller::gq_factor(const ReadLikelihoodCallInfo& info) const {
+    return (share_discount ? info.explained_share : 1.0) * info.depth_discount;
+}
+
 void ReadLikelihoodSnarlCaller::recompute_gq(ReadLikelihoodCallInfo& info) const {
     const vector<int>* best = nullptr;
     double best_ll = -numeric_limits<double>::infinity();
@@ -247,6 +251,7 @@ pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> ReadLikelihoodSnarlCaller::
             && std::isfinite(second_best_ll)) {
             achievable_gap = matrix.achievable_gap(scored[best_index].first,
                                                    scored[second_best_index].first);
+            info->achievable_gap = achievable_gap;
             if (achievable_gap > 0.0) {
                 info->gq_fraction =
                     min(1.0, max(0.0, (best_ll - second_best_ll) / achievable_gap));
@@ -549,13 +554,15 @@ void ReadLikelihoodSnarlCaller::update_vcf_header(string& header) const {
               "likelihood ratio alone cannot see reads that fit an allele outside the call, "
               "because those reads enter every genotype's likelihood and cancel; the scaling "
               "restores them. It also means GQ here is a quality score rather than a "
-              "calibrated posterior. GQI is the unscaled value; --no-share-quality restores "
-              "it as GQ. With --depth-quality A in effect, records whose called alleles change "
-              "length by at least 50 bp are additionally scaled by exp(-A * |ln DR|), so a call "
-              "whose read count is implausible for the sequence it claims ranks lower\">\n";
+              "calibrated posterior. --no-share-quality turns this scaling off. With "
+              "--depth-quality A in effect, records whose called alleles change length by at "
+              "least 50 bp are also scaled by exp(-A * |ln DR|), so a call whose read count is "
+              "implausible for the sequence it claims ranks lower. GQI is the value with neither "
+              "scaling\">\n";
     header += "##FORMAT=<ID=GQI,Number=1,Type=Integer,Description=\"Genotype Quality from the "
-              "likelihood ratio alone, with no explained-read-fraction scaling. Equals GQ "
-              "when --no-share-quality is in effect\">\n";
+              "likelihood ratio alone, with neither the explained-read-fraction scaling nor the "
+              "--depth-quality scaling. Equals GQ under --no-share-quality, except where "
+              "--depth-quality scales GQ\">\n";
     header += "##FORMAT=<ID=GQN,Number=1,Type=Float,Description=\"Normalised Genotype Quality: "
               "the likelihood-ratio gap as a fraction, in [0,1], of the gap this site could have "
               "produced had every read fitted the call perfectly. Unlike GQ it means the same "

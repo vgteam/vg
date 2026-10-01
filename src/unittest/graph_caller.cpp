@@ -164,5 +164,70 @@ TEST_CASE("offset_of_child reports where a traversal enters a chain", "[graph_ca
     }
 }
 
+
+TEST_CASE("A moved record's quality fields come from the stored direct call", "[graph_caller]") {
+    // Settled 1/1, so the settled genotype's GL entry is -3 against a best other of -1: a margin of
+    // -20 phred. The printed GQI is capped and the printed GQN is 0, so a divisor recovered from
+    // them would be wrong or missing; the stored achievable gap is 100 phred.
+    const string line = "chr1\t100\t>1>4\tA\tG\t30\tPASS\t.\tGT:GL:GQ:GQI:GQN\t"
+                        "1/1:-5.000000,-1.000000,-3.000000:40:256:0.000";
+    auto split = [](const string& text, char delim, vector<string>& out) {
+        out.clear();
+        size_t start = 0;
+        while (true) {
+            size_t end = text.find(delim, start);
+            out.push_back(text.substr(start, end == string::npos ? string::npos : end - start));
+            if (end == string::npos) {
+                return;
+            }
+            start = end + 1;
+        }
+    };
+    auto field = [&](const string& l, const string& key) {
+        vector<string> cols, keys, values;
+        split(l, '\t', cols);
+        split(cols[8], ':', keys);
+        split(cols[9], ':', values);
+        for (size_t i = 0; i < keys.size(); ++i) {
+            if (keys[i] == key) {
+                return values[i];
+            }
+        }
+        return string();
+    };
+    auto filter = [&](const string& l) {
+        vector<string> cols;
+        split(l, '\t', cols);
+        return cols[6];
+    };
+    LinkageCollector::MovedQuality moved;
+    moved.posterior = 0.995;   // -10 log10(0.005) = 23.01
+    moved.direct.explained_share = 0.5;
+    moved.direct.achievable_gap = 100.0 * log(10.0) / 10.0;
+
+    SECTION("GQ takes the direct call's GQ factor, whatever it is made of") {
+        string shared = line, unshared = line;
+        moved.direct.gq_factor = 0.5;   // the share, as by default
+        REQUIRE(apply_linkage_quality(shared, moved, 0.0));
+        REQUIRE(field(shared, "GQ") == "11");
+        moved.direct.gq_factor = 1.0;   // --no-share-quality, no depth discount
+        REQUIRE(apply_linkage_quality(unshared, moved, 0.0));
+        REQUIRE(field(unshared, "GQ") == "23");
+    }
+    SECTION("GQN divides by the stored achievable gap and multiplies by the share") {
+        string rewritten = line;
+        REQUIRE(apply_linkage_quality(rewritten, moved, 0.05));
+        REQUIRE(field(rewritten, "GQN") == "-0.100");
+        REQUIRE(filter(rewritten) == "lowconf");
+    }
+    SECTION("GQN is missing where the direct call had no achievable gap") {
+        string rewritten = line;
+        moved.direct.achievable_gap = 0.0;
+        REQUIRE(apply_linkage_quality(rewritten, moved, 0.05));
+        REQUIRE(field(rewritten, "GQN") == ".");
+        REQUIRE(filter(rewritten) == "PASS");
+    }
+}
+
 }
 }

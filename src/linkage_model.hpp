@@ -308,6 +308,25 @@ public:
     /// row it hands out or takes in.
     size_t panel_size() const { return n_haplotypes; }
 
+    /// The direct call's quality inputs, which `VCFOutputCaller::write_variants` needs to rewrite
+    /// the quality fields of a record whose genotype the model changed. They come from the call the
+    /// site was recorded with.
+    struct DirectQuality {
+        /// The fraction of the site's reads whose best allele is in the direct call.
+        double explained_share = 1.0;
+        /// The factor the direct call's GQ multiplied its likelihood gap by
+        /// (`ReadLikelihoodSnarlCaller::gq_factor`).
+        double gq_factor = 1.0;
+        /// The divisor of the direct call's GQN, in nats; 0 where there was none.
+        double achievable_gap = 0.0;
+    };
+
+    /// A moved site's settled-genotype posterior, with its direct call's quality inputs.
+    struct MovedQuality {
+        double posterior = 0.0;
+        DirectQuality direct;
+    };
+
     /// Where a site sits in the snarl tree. Callers fill it with designated initialisers, so each
     /// field is named at the call site; as separate bool and integer arguments, a missing one
     /// would shift the rest and still compile.
@@ -350,7 +369,7 @@ public:
                 int called_trav_i, int called_trav_j,
                 const vector<int>& traversal_to_allele,
                 size_t record_key,
-                double explained_share, size_t ploidy,
+                const DirectQuality& direct, size_t ploidy,
                 int64_t start_node, int64_t end_node,
                 const SiteContext& ctx);
 
@@ -418,17 +437,14 @@ public:
         return resolve_generation(0, true, phasing_out);
     }
 
-    /// The posterior of the settled genotype and the explained share, by record key, for each
-    /// site whose genotype the model has changed in any pass so far.
-    /// `VCFOutputCaller::write_variants` rewrites GQ, GQN and FILTER on each such record's rendered
-    /// line from these, since the posterior exists only here, and `FlowCaller::anchor_gqn_for` uses
-    /// them for the anchors' gqn column.
+    /// By record key, each live site whose genotype the model changed when its generation was
+    /// last resolved. `VCFOutputCaller::write_variants` rewrites GQ, GQN and FILTER on each such
+    /// record's rendered line from these, since the posterior exists only here, and
+    /// `FlowCaller::anchor_gqn_for` uses them for the anchors' gqn column.
     ///
-    /// The map is only ever added to, never cleared. Under --regenotype the barrier resolves again
-    /// in each round: a record moved again gets its entry overwritten, but a record that an earlier
-    /// round moved and a later round did not keeps the earlier round's entry, and its line is still
-    /// rewritten from that stale posterior.
-    const std::unordered_map<size_t, std::pair<double, double>>& moved_quality() const {
+    /// Resolving a site's generation adds or removes its key, and retracting the site removes it,
+    /// so after the barrier runs again the map describes that run alone.
+    const std::unordered_map<size_t, MovedQuality>& moved_quality() const {
         return moved_quality_by_record;
     }
 
@@ -597,7 +613,10 @@ private:
         /// crosses this child chain; 0 when descent could not tell. Placed after an 8-byte member
         /// so that it needs no padding.
         uint64_t parent_crossing = 0;
+        /// The `DirectQuality` the site was recorded with, as floats.
         float explained_share = 1.0f;
+        float gq_factor = 1.0f;
+        float achievable_gap = 0.0f;
         /// The next entry with the same record key, in insertion order, or NO_ENTRY. With
         /// `first_by_key`, it lets a lookup by key follow a short list rather than scan every
         /// entry. It fits in the padding before `record_key`.
@@ -636,8 +655,8 @@ private:
     size_t duplicate_live_keys = 0;
 
 
-    /// record key -> (posterior of the settled genotype, explained-read share).
-    std::unordered_map<size_t, std::pair<double, double>> moved_quality_by_record;
+    /// See `moved_quality`.
+    std::unordered_map<size_t, MovedQuality> moved_quality_by_record;
 
     /// The first non-retracted entry with this key, or NO_ENTRY. Call with `mutex` held.
     uint32_t live_index(size_t record_key) const;

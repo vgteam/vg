@@ -220,6 +220,15 @@ struct AtomizeCounters {
     std::atomic<size_t> refuse[10] = {};
 };
 
+/// Rewrite GQ, GQN and FILTER on one rendered VCF line whose genotype the linkage model changed,
+/// so that they describe the settled genotype the line carries. GQ is -10 log10(1 - posterior)
+/// times the direct call's `gq_factor`, capped at GQI. GQN is the settled genotype's margin in GL
+/// over the best other genotype, divided by the direct call's achievable gap and multiplied by its
+/// explained share, held within [-1, 1]. FILTER is decided again from that GQN against
+/// `linkage_min_confidence`. Returns false if the line could not be parsed.
+bool apply_linkage_quality(string& line, const LinkageCollector::MovedQuality& moved,
+                           double linkage_min_confidence);
+
 class VCFOutputCaller {
 public:
     VCFOutputCaller(const string& sample_name);

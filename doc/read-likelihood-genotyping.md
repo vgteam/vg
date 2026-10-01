@@ -1102,25 +1102,26 @@ records.
 
 #### Linkage and re-genotyping
 
-A record is *moved* when the linkage model settles a genotype other than the direct call. A moved
-record's `GQ` is $-10 \log_{10}(1 - \text{posterior})$ times an explained share, then capped at
-`GQI`. The posterior is the linkage model's posterior probability of the settled genotype, so it
-includes the panel's prior. The cap keeps `GQ` at or below the reads' own confidence in the direct
-call. The share is the one stored when the site entered the linkage model: for a site recorded in
-the sweep, its direct call's, before any correction; for a nested chain whose ploidy the barrier
-changed, that of its direct call at the earlier ploidy; and 1 for a chain that the barrier records
-for the first time. This `GQ` includes the explained share even under `--no-share-quality`, and
-never includes the `--depth-quality` factor.
+A record is *moved* when the linkage model settles a genotype other than the direct call. Its
+`GQ` and `GQN` are computed again for the settled genotype, from the direct call's explained share,
+`GQ` factor and achievable gap, which the linkage model keeps for each site. The direct call is the
+one the site entered the linkage model with: its call in the sweep, or, for a nested chain the
+barrier records at the ploidy its settled parent implies, its call at that ploidy.
+
+A moved record's `GQ` is $-10 \log_{10}(1 - \text{posterior})$ times the direct call's `GQ`
+factor, then capped at `GQI`. The posterior is the linkage model's posterior probability of the
+settled genotype, so it includes the panel's prior. The `GQ` factor is what the per-site `GQ`
+multiplies its difference by: the explained share unless `--no-share-quality`, times the
+`--depth-quality` factor where that applies. The cap keeps `GQ` at or below the reads' own
+confidence in the direct call.
 
 A moved record's `GQN` is the margin, in phred units, of the settled genotype's entry in `GL` over
-the largest other entry, divided by `GQI` over the per-site `GQN`, and held within $[-1, 1]$. Where
-the observed difference was below the achievable gap, that divisor is approximately the achievable
-gap divided by the explained share; it is computed from the printed values, and `GQI` is capped
-at 256. `GQN` is negative where `GL` favours another genotype over the settled one, as it does on
-a moved whole-site record whose direct call is among the record's genotypes. It is `.` where the
-divisor cannot be computed, as when the per-site `GQN` was `.` or 0. `lowconf` is decided again
-from this `GQN`, and cleared where it is `.`. A record counts as moved if the linkage model moved
-it in any barrier pass (see [Rounds](#rounds)).
+the largest other entry, divided by the direct call's achievable gap and multiplied by its
+explained share, as the per-site `GQN` is, and held within $[-1, 1]$. It is negative where `GL`
+favours another genotype over the settled one, as it does on a moved whole-site record whose direct
+call is among the record's genotypes. It is `.` where the direct call had no achievable gap.
+`lowconf` is decided again from this `GQN`, and cleared where it is `.`. Under re-genotyping, a
+record is moved if the last barrier run moved it (see [Rounds](#rounds)).
 
 Re-genotyping is applied with `--regenotype` when `--regeno-passes` is above 1 (see
 [Rounds](#rounds)). `GL` and `QUAL` are then written from the corrected likelihoods. In a round

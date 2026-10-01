@@ -44,10 +44,6 @@ static string join_with(const vector<string>& parts, char delim) {
     return out;
 }
 
-static bool apply_linkage_quality(string& line, double posterior, double explained_share,
-                                  double linkage_min_confidence);
-
-
 
 
 // The names of the AtomizeCounters::refuse reasons.
@@ -1015,8 +1011,7 @@ void VCFOutputCaller::write_variants(ostream& out_stream, const SnarlManager* sn
             if (!quality.empty()) {
                 auto found = quality.find(id_key());
                 if (found != quality.end()) {
-                    if (!apply_linkage_quality(dest, found->second.first, found->second.second,
-                                              linkage_min_confidence)) {
+                    if (!apply_linkage_quality(dest, found->second, linkage_min_confidence)) {
                         ++quality_declined;
                     }
                 }
@@ -1166,7 +1161,8 @@ double FlowCaller::anchor_gqn_for(const PendingRecord& rec,
         return sweep_value;
     }
     const auto& moved = linkage_collector->moved_quality();
-    if (moved.find(rec.record_key) == moved.end()) {
+    const auto found = moved.find(rec.record_key);
+    if (found == moved.end()) {
         return sweep_value;   // linkage left the call alone, so the sweep's value still holds
     }
     // The model changed the call, so the sweep's value describes the wrong genotype, and any
@@ -1174,15 +1170,12 @@ double FlowCaller::anchor_gqn_for(const PendingRecord& rec,
     if (info == nullptr || info->genotype_lls.empty()) {
         return blank;
     }
-    // Rounded as the VCF prints them, so that the two columns agree.
-    const double gqi_q = (double)min(256, max(0, (int)info->gq_undiscounted));
-    char buf[32];
-    snprintf(buf, sizeof(buf), "%.3f", info->gq_fraction);
-    const double gqn_q = atof(buf);
-    if (!(gqi_q > 0.0) || !(gqn_q > 0.0)) {
-        return blank;   // no scale to recover, and no honest pre-linkage value to fall back on
+    // The divisor and share the VCF's GQN uses (see apply_linkage_quality), so that the two agree.
+    const LinkageCollector::DirectQuality& direct = found->second.direct;
+    if (!(direct.achievable_gap > 0.0)) {
+        return blank;   // no scale, and no honest pre-linkage value to fall back on
     }
-    const double achievable_phred = gqi_q / gqn_q;
+    const double achievable_phred = 10.0 * direct.achievable_gap / log(10.0);
 
     // The settled genotype, not rec.genotype, which is the sweep's call before the linkage model:
     // the reads prefer that call, so its margin would have the wrong sign.
@@ -1219,7 +1212,7 @@ double FlowCaller::anchor_gqn_for(const PendingRecord& rec,
     }
     // Nats to phred, matching the VCF's GL, which is log10.
     const double margin_phred = 10.0 * (mine->second - best_other) / log(10.0);
-    return min(1.0, max(-1.0, margin_phred / achievable_phred));
+    return min(1.0, max(-1.0, margin_phred / achievable_phred * direct.explained_share));
 }
 
 /// The genotype the linkage model settled on, or the sweep's own if it settled none. Used by both
@@ -1955,8 +1948,8 @@ void VCFOutputCaller::write_mosaic(const vector<LinkageCollector::PhaseCall>& ph
 
 /// Rewrite one rendered record's quality fields from the linkage posterior. Returns false if the
 /// record could not be rewritten.
-static bool apply_linkage_quality(string& line, double posterior, double explained_share,
-                                  double linkage_min_confidence) {
+bool apply_linkage_quality(string& line, const LinkageCollector::MovedQuality& moved,
+                           double linkage_min_confidence) {
     // A record whose genotype the linkage model changed gets quality fields for its settled
     // genotype, since the per-site quality fields describe the genotype the reads alone chose.
     vector<string> fields;
@@ -1986,29 +1979,17 @@ static bool apply_linkage_quality(string& line, double posterior, double explain
         }
     }
 
-    // The achievable gap, recovered before anything is overwritten: GQN was the gap as a fraction
-    // of it and GQI the same gap in phred, so it is GQI/GQN. Zero or unparsable means it cannot be
-    // recovered, and GQN is then written as ".".
-    double achievable_phred = 0.0;
-    if (gqi_field != keys.size() && gqn_field != keys.size()) {
-        try {
-            double gqn_pre = stod(values[gqn_field]);
-            double gqi_pre = stod(values[gqi_field]);
-            if (gqn_pre > 0.0 && gqi_pre > 0.0) {
-                achievable_phred = gqi_pre / gqn_pre;
-            }
-        } catch (const std::exception&) {
-            // GQN "." at a site with no gap to normalise, or GQI absent. Nothing to recover.
-        }
-    }
+    // GQN's divisor, in phred units as GL's margin is below.
+    const double achievable_phred = 10.0 * moved.direct.achievable_gap / log(10.0);
     if (gq_field != keys.size()) {
-        // GQ becomes the phred-scaled complement of the posterior, multiplied by the explained share
-        // as the per-site GQ is, and capped at GQI. The posterior includes the panel's frequency
+        // GQ becomes the phred-scaled complement of the posterior, multiplied by the factor the
+        // direct call's GQ was, and capped at GQI. The posterior includes the panel's frequency
         // prior, so 1 - posterior can understate the uncertainty where the reads were weakest; the
         // cap keeps GQ within what the reads alone support, and makes GQ <= GQI hold on every
         // record rewritten here.
+        const double posterior = moved.posterior;
         double q = posterior >= 1.0 ? 256.0 : -10.0 * log10(max(1.0 - posterior, 1e-26));
-        q *= explained_share;
+        q *= moved.direct.gq_factor;
         if (gqi_field != keys.size()) {
             try {
                 q = min(q, stod(values[gqi_field]));
@@ -2020,9 +2001,10 @@ static bool apply_linkage_quality(string& line, double posterior, double explain
         values[gq_field] = std::to_string((int)min(256.0, max(0.0, q)));
     }
     // GQN, recomputed for the settled genotype: its likelihood margin over the best alternative,
-    // as a fraction of the achievable gap recovered above. It is negative when the linkage model
-    // moved the call against the reads, which is why the sign is kept. It stays "." when GL is
-    // absent, the genotype cannot be read, or the gap could not be recovered.
+    // as a fraction of the direct call's achievable gap, times its explained share, as the
+    // per-site GQN is. It is negative when the linkage model moved the call against the reads,
+    // which is why the sign is kept. It stays "." when GL is absent, the genotype cannot be read,
+    // or the direct call had no achievable gap.
     bool gqn_known = false;
     double gqn_new = 0.0;
     if (gqn_field != keys.size() && gl_field != keys.size() && gt_field != keys.size()
@@ -2100,7 +2082,8 @@ static bool apply_linkage_quality(string& line, double posterior, double explain
             }
             if (best_other > -std::numeric_limits<double>::infinity()) {
                 double margin_phred = 10.0 * (gl[idx] - best_other);
-                gqn_new = min(1.0, max(-1.0, margin_phred / achievable_phred));
+                gqn_new = min(1.0, max(-1.0, margin_phred / achievable_phred
+                                                 * moved.direct.explained_share));
                 gqn_known = true;
             }
         }
@@ -5294,6 +5277,19 @@ pair<string, size_t> FlowCaller::site_ref_key(const Snarl& snarl, const string& 
     return make_pair(pos_info.first, (size_t)max((int64_t)0, pos_info.second));
 }
 
+/// The quality inputs of the direct call `info`, which the linkage collector keeps for rewriting
+/// the record if the model moves it. `caller` decides the GQ factor, since --no-share-quality and
+/// --depth-quality are its settings.
+static LinkageCollector::DirectQuality direct_quality_of(
+    const SnarlCaller& caller, const ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo& info) {
+    const auto* rl_caller = dynamic_cast<const ReadLikelihoodSnarlCaller*>(&caller);
+    return LinkageCollector::DirectQuality{
+        .explained_share = info.explained_share,
+        .gq_factor = rl_caller != nullptr ? rl_caller->gq_factor(info) : info.explained_share,
+        .achievable_gap = info.achievable_gap,
+    };
+}
+
 void FlowCaller::record_site(const Snarl& snarl, const vector<SnarlTraversal>& travs,
                             const vector<int>& trav_genotype,
                             const unique_ptr<SnarlCaller::CallInfo>& call_info, int ref_trav_idx,
@@ -5337,7 +5333,7 @@ void FlowCaller::record_site(const Snarl& snarl, const vector<SnarlTraversal>& t
         panel_alleles(graph, travs),
         called_i, called_j, no_allele_map,
         record_key_of(snarl),
-        rl_info->explained_share, site_ploidy,
+        direct_quality_of(snarl_caller, *rl_info), site_ploidy,
         (int64_t)snarl.start().node_id(), (int64_t)snarl.end().node_id(),
         // `nested` only when one copy of the chain is present, as for any other chain; a chain with
         // two copies joins its parent's diploid group.
@@ -5803,8 +5799,8 @@ bool FlowCaller::apply_regenotyping() {
                     : phase_aware_correction(*pe, lambda, own, temper, ceiling,
                                              regenotype_params, target, counters);
             if (keep && site_moved) {
-                // GL now describes the corrected likelihoods, so GQ is recomputed from them, as the
-                // sweep computes it. GQI and GQN are not: GQI / GQN is the achievable gap, which
+                // The correction changed the best genotype, so GQ is recomputed from the corrected
+                // likelihoods, as the sweep computes it. GQI and GQN are not: GQN's achievable gap
                 // assumes the site's own mixture weights, not per-read ones.
                 rl_caller->recompute_gq(*info);
             }
@@ -6241,9 +6237,6 @@ void FlowCaller::run_barrier() {
             // sweep; `alt_ploidy_info` holds the other ploidy's.
             ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo* rl =
                 dynamic_cast<ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo*>(pr.call_info.get());
-            // Captured before the exchange below, which puts the other ploidy's explained share in
-            // front.
-            const double sweep_share = rl != nullptr ? rl->explained_share : 1.0;
             unique_ptr<SnarlCaller::CallInfo> use_info;
             vector<int> use_genotype;
             if (copies == pr.ploidy) {
@@ -6321,7 +6314,9 @@ void FlowCaller::run_barrier() {
                     key.first, key.second, used->genotype_lls, panel,
                     called_i, called_j, trav_to_allele_vec,
                     // The explained share the old entry carried, or 1.0 for a chain that had none.
-                    pr.record_key, had_entry ? sweep_share : 1.0,
+                    // The quality inputs of the direct call recorded here, which the record's
+                    // GQI and GL also come from.
+                    pr.record_key, direct_quality_of(snarl_caller, *used),
                     (size_t)copies, pr.snarl.start().node_id(), pr.snarl.end().node_id(),
                     LinkageCollector::SiteContext{
                         .nested = copies == 1,

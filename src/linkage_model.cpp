@@ -1317,7 +1317,7 @@ void LinkageCollector::record(const string& contig, size_t position,
                               int called_trav_i, int called_trav_j,
                               const vector<int>& traversal_to_allele,
                               size_t record_key,
-                              double explained_share, size_t ploidy,
+                              const DirectQuality& direct, size_t ploidy,
                               int64_t start_node, int64_t end_node,
                               const SiteContext& ctx) {
     if (genotype_ln_likelihood.empty() || called_trav_i < 0) {
@@ -1359,7 +1359,9 @@ void LinkageCollector::record(const string& contig, size_t position,
     e.called_i = (uint16_t)ci;
     e.called_j = (uint16_t)cj;
     e.record_key = record_key;
-    e.explained_share = (float)explained_share;
+    e.explained_share = (float)direct.explained_share;
+    e.gq_factor = (float)direct.gq_factor;
+    e.achievable_gap = (float)direct.achievable_gap;
     e.start_node = start_node;
     e.end_node = end_node;
     e.ploidy = (uint8_t)site_ploidy;
@@ -1589,6 +1591,10 @@ bool LinkageCollector::retract(size_t record_key) {
         return false;
     }
     entries[found].retracted = true;
+    // A retracted site has no settled genotype, so it is no longer moved.
+    if (live_index(record_key) == NO_ENTRY) {
+        moved_quality_by_record.erase(record_key);
+    }
     return true;
 }
 
@@ -2057,6 +2063,7 @@ size_t LinkageCollector::resolve_generation(
             }
             if (post.empty()) {
                 final_genotype[t] = before;
+                moved_quality_by_record.erase(e.record_key);
                 continue;
             }
             size_t best = 0;
@@ -2084,9 +2091,15 @@ size_t LinkageCollector::resolve_generation(
             if (best != before) {
                 // Counted. The record is built later from `final_i`/`final_j`. The posterior is
                 // kept, since the record's GQ is computed from it.
-                moved_quality_by_record[e.record_key] =
-                    std::make_pair(post[best], (double)e.explained_share);
+                MovedQuality& q = moved_quality_by_record[e.record_key];
+                q.posterior = post[best];
+                q.direct.explained_share = e.explained_share;
+                q.direct.gq_factor = e.gq_factor;
+                q.direct.achievable_gap = e.achievable_gap;
                 ++moved;
+            } else {
+                // Unmoved in this resolution, whatever an earlier barrier run concluded.
+                moved_quality_by_record.erase(e.record_key);
             }
         }
 
