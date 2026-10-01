@@ -74,10 +74,10 @@ vector<double> allele_length_weights(const vector<std::uint32_t>& allele_length,
 /**
  * One heterozygous site's read evidence, reduced to its settled pair.
  *
- * For each read, `q0` is the probability that the read carries the allele in slot 0 (strand 0),
- * given that it came from one of the two settled strands, and `c` is the probability that it came
- * from one of them, rather than being mismapped. Only reads that fit one of the two alleles at all
- * are kept.
+ * Each row is one read. `q0` is the probability that the read carries the allele in slot 0
+ * (strand 0), given that it came from one of the two settled strands, and `c` is the probability
+ * that it came from one of them, rather than being mismapped. Only reads that fit one of the two
+ * alleles at all are kept. The rows are sorted by read key, one row per key (see `merge_mates`).
  */
 struct PhaseSite {
     size_t record_key = 0;
@@ -86,11 +86,27 @@ struct PhaseSite {
     vector<uint64_t> read_key;
     vector<float> q0;
     vector<float> c;
-    /// Mean over the site's kept reads of the phred-scaled probability that the read's better
-    /// allele is wrong (its confidence). Low where the reads cannot tell the two alleles apart. A
-    /// site is reliable when this is at least `ReadPhasingParams::reliability`.
+    /// Mean of the rows' confidences (see `read_confidence`). Low where the reads cannot tell the
+    /// two alleles apart. A site is reliable when this is at least `ReadPhasingParams::reliability`.
     double reliability = 0.0;
 };
+
+/// A read's confidence at a site: the phred-scaled probability that its better allele is wrong,
+/// `-10 log10(1 - max(q0, 1 - q0) * c)`, capped at 120.
+double read_confidence(float q0, float c);
+
+/// Sort a site's rows by read key and keep one row per key.
+///
+/// Paired mates share a key, so where both reach the site they are one read. They come from one
+/// molecule and often read the same bases, so their rows are not independent evidence, and only
+/// the row with the higher confidence is kept; between equal confidences, the larger `q0`, then
+/// the larger `c`. The result does not depend on the order of the rows.
+void merge_mates(PhaseSite& site);
+
+/// Reduce a site's evidence to its settled pair, `allele0` in slot 0 and `allele1` in slot 1: the
+/// rows, merged by `merge_mates`, and the site's reliability over the merged rows. The caller fills
+/// `record_key`, `phase_set` and `position`.
+PhaseSite reduce_to_pair(const PhaseReadEvidence& evidence, size_t allele0, size_t allele1);
 
 struct ReadPhasingParams {
     /// A site below this reliability cannot be in the chain (--phase-min-q).
@@ -155,7 +171,9 @@ struct ReadPhasingCounters {
 double phase_link(const PhaseSite& a, const PhaseSite& b, double cap);
 
 /// Decide every site's order. `sites` may arrive in any order; they are grouped by `phase_set`
-/// and sorted by `position` internally, since phase is comparable only inside a phase set.
+/// and sorted by `position` internally, since phase is comparable only inside a phase set. Each
+/// site's rows are merged by `merge_mates`, in place, so a site built by hand is treated as
+/// `reduce_to_pair` would build it.
 ///
 /// Returns the record keys whose settled pair should be swapped. A chain's first site keeps the
 /// panel's order, so with no read evidence nothing is swapped. Breaks are relinked from left to

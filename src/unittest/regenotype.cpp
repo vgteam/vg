@@ -209,8 +209,8 @@ TEST_CASE("a flipped site enters Lambda with the opposite sign", "[regenotype]")
 
 TEST_CASE("a paired mate counts once", "[regenotype]") {
     // Paired mates share a read name and so a read_key, but the read source keeps both, as separate
-    // rows under one key. A fragment lies on one strand, so it counts once. `phase_link`'s sorted
-    // merge pairs them one to one; a running sum would count them twice.
+    // rows under one key. A fragment lies on one strand, so it counts once. `merge_mates` leaves
+    // one row per key, and a site that still holds several adds the key once.
     PhaseSite site;
     site.record_key = 1;
     site.phase_set = 1;

@@ -849,12 +849,11 @@ off-reference sites included, within the phase sets the panel gave. It leaves ou
 default and on under `--preset ont`.
 
 Read phasing takes one phase set at a time, and its phaseable sites in order of position (see
-[Transitions](#transitions)). A read is identified by its name, so the two mates of a pair count as
-one read when they reach different sites. Where both mates reach the same site, the site has two
-entries under one name. Each counts as a separate read in the site's reliability (defined below).
-A link pairs the two sites' entries of one name one to one, so a mate that reaches only one of the
-sites adds nothing. In coherence, a mate's vote at a site includes its mate's entry there, so a
-pair counts even when both mates reach only that site.
+[Transitions](#transitions)). A read is identified by its name, so the two mates of a pair are one
+read. Where both mates are used at one site, they come from one molecule and often read the same
+bases, so the site keeps only the mate with the higher confidence (defined below); between equal
+confidences, the one with the larger $q_{rs}$, then the larger $c_{rs}$. Each site then holds each
+read at most once, in its reliability, its links and its coherence alike.
 
 #### What each read says
 
@@ -969,7 +968,7 @@ $\mathrm{logit}$ is its inverse.
 A read's *strand log-odds* at site $s$, $\Lambda_{rs}$, measures how strongly its other sites
 place it on strand 0. Each other phaseable site $t$ at which $r$ is used adds one term: the
 natural-log odds that the read came from strand 0, with $q_{rt}$ taken in the phase read phasing
-chose. A site adds one term per read name, even where both mates of a pair are used there.
+chose. A site adds one term per read, from the mate it keeps (see [From the reads](#from-the-reads)).
 
 $$
 \Lambda_{rs} = \sum_{t \neq s} \ln \frac{c_{rt} q_{rt} + (1 - c_{rt})/2}{c_{rt}(1 - q_{rt}) + (1 - c_{rt})/2}
@@ -1272,7 +1271,8 @@ phase decides (below). A read's *anchor confidence* is
 $-10 \log_{10}\left(1 - x_{ra} / (\sum_b x_{rb} + e_r)\right)$, where $a$ is the allele of the slot
 it is placed in. The sum runs over distinct alleles, so the two slots of a split site count their
 allele once. A site's *anchor reliability* is the mean anchor confidence of the reads written for
-it, each read counted once, after the read filters below.
+it, after the read filters below, each read counted once: paired mates share a name, and count at
+the higher of their confidences.
 
 #### Using the read phase
 

@@ -109,8 +109,8 @@ void site_own_log_odds(const PhaseSite& site, bool flipped, unordered_map<uint64
     const double sign = flipped ? -1.0 : 1.0;
     for (size_t i = 0; i < site.read_key.size(); ++i) {
         const double l = sign * site_read_log_odds((double)site.q0[i], (double)site.c[i]);
-        // One entry per read key: paired mates share a key and lie on one strand. Keeping the first
-        // matches what `accumulate_lambda` adds, so the subtraction cancels it exactly.
+        // The site's rows hold one per read key (see `merge_mates`). Were a key repeated, the
+        // first row would be kept, as `accumulate_lambda` adds, so the subtraction still cancels.
         out.emplace(site.read_key[i], l);
     }
 }

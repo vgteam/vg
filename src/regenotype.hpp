@@ -129,8 +129,8 @@ double site_read_log_odds(double q0, double c);
 /// Accumulate each read's Lambda over every site, into `out`.
 ///
 /// `flipped` is what `read_phase_flips` returned: a site in it has had its pair swapped, so its
-/// contribution enters with the opposite sign. A read key that appears twice at one site, as paired
-/// mates do, contributes once.
+/// contribution enters with the opposite sign. Each site contributes once per read key, so paired
+/// mates count once (see `merge_mates`).
 void accumulate_lambda(const vector<PhaseSite>& sites, const unordered_set<size_t>& flipped,
                        LambdaTable& out, RegenotypeCounters& counters);
 

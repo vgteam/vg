@@ -13,8 +13,85 @@ using std::min;
 using std::sort;
 using std::unordered_map;
 
+double read_confidence(float q0, float c) {
+    const double win = max((double)q0, 1.0 - (double)q0) * (double)c;
+    return -10.0 * log10(max(1.0 - win, 1e-12));
+}
+
+void merge_mates(PhaseSite& site) {
+    const size_t n = site.read_key.size();
+    vector<size_t> order(n);
+    for (size_t i = 0; i < n; ++i) {
+        order[i] = i;
+    }
+    // By key, and within a key the preferred row first. Every tie is broken on the rows' values,
+    // so two rows that compare equal are identical and either may be kept.
+    sort(order.begin(), order.end(), [&](size_t x, size_t y) {
+        if (site.read_key[x] != site.read_key[y]) {
+            return site.read_key[x] < site.read_key[y];
+        }
+        const double cx = read_confidence(site.q0[x], site.c[x]);
+        const double cy = read_confidence(site.q0[y], site.c[y]);
+        if (cx != cy) {
+            return cx > cy;
+        }
+        if (site.q0[x] != site.q0[y]) {
+            return site.q0[x] > site.q0[y];
+        }
+        return site.c[x] > site.c[y];
+    });
+    vector<uint64_t> k;
+    vector<float> q, pp;
+    k.reserve(n);
+    q.reserve(n);
+    pp.reserve(n);
+    for (size_t i = 0; i < n; ++i) {
+        const size_t r = order[i];
+        if (!k.empty() && k.back() == site.read_key[r]) {
+            continue;
+        }
+        k.push_back(site.read_key[r]);
+        q.push_back(site.q0[r]);
+        pp.push_back(site.c[r]);
+    }
+    site.read_key.swap(k);
+    site.q0.swap(q);
+    site.c.swap(pp);
+}
+
+PhaseSite reduce_to_pair(const PhaseReadEvidence& pe, size_t a0, size_t a1) {
+    PhaseSite site;
+    // Slot 0 holds `a0` and slot 1 `a1`, so the weights follow the alleles into their slots.
+    const vector<double> weight = allele_length_weights(
+        pe.allele_length, pe.n_alleles, pe.mean_read_length, pe.length_weighted,
+        vector<int>{(int)a0, (int)a1});
+    for (size_t r = 0; r < pe.num_reads(); ++r) {
+        const double e = (double)pe.mismap[r];
+        const double r0 = (1.0 - e) * weight[0] * (double)pe.rel_at(r, a0);
+        const double r1 = (1.0 - e) * weight[1] * (double)pe.rel_at(r, a1);
+        const double inside = r0 + r1;
+        if (inside <= 0.0) {
+            // The read fits neither settled allele, so it says nothing about their order.
+            continue;
+        }
+        site.read_key.push_back(pe.read_key[r]);
+        site.q0.push_back((float)(r0 / inside));
+        site.c.push_back((float)(inside / (inside + e)));
+    }
+    merge_mates(site);
+    double score_sum = 0.0;
+    for (size_t i = 0; i < site.read_key.size(); ++i) {
+        score_sum += read_confidence(site.q0[i], site.c[i]);
+    }
+    if (!site.read_key.empty()) {
+        site.reliability = score_sum / (double)site.read_key.size();
+    }
+    return site;
+}
+
 double phase_link(const PhaseSite& a, const PhaseSite& b, double cap) {
-    // Both read lists are sorted by key, so this is a merge rather than a lookup per read.
+    // Both read lists are sorted by key, one row per key, so this is a merge rather than a lookup
+    // per read.
     double total = 0.0;
     size_t i = 0, j = 0;
     while (i < a.read_key.size() && j < b.read_key.size()) {
@@ -65,23 +142,9 @@ unordered_set<size_t> read_phase_flips(vector<PhaseSite>& sites, const ReadPhasi
         return x.record_key < y.record_key;
     });
     for (PhaseSite& s : sites) {
-        // The merge in `phase_link` needs both sides ordered. Done once here rather than per link.
-        vector<size_t> order(s.read_key.size());
-        for (size_t i = 0; i < order.size(); ++i) {
-            order[i] = i;
-        }
-        sort(order.begin(), order.end(),
-             [&](size_t x, size_t y) { return s.read_key[x] < s.read_key[y]; });
-        vector<uint64_t> k(order.size());
-        vector<float> q(order.size()), pp(order.size());
-        for (size_t i = 0; i < order.size(); ++i) {
-            k[i] = s.read_key[order[i]];
-            q[i] = s.q0[order[i]];
-            pp[i] = s.c[order[i]];
-        }
-        s.read_key.swap(k);
-        s.q0.swap(q);
-        s.c.swap(pp);
+        // The merge in `phase_link` needs both sides ordered, and coherence needs a read to
+        // appear once per site. Done once here rather than per link.
+        merge_mates(s);
     }
     counters.sites += sites.size();
 

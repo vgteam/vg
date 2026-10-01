@@ -5553,34 +5553,13 @@ void FlowCaller::apply_read_phasing() {
             }
             // Slot order is the PhaseCall's order, so slot 0 is strand 0, as for GT's first field and
             // the anchor file's slot column.
-            const vector<double> weight =
-                allele_length_weights(pe->allele_length, pe->n_alleles, pe->mean_read_length,
-                                  pe->length_weighted, vector<int>{(int)a0, (int)a1});
-            PhaseSite site;
-            site.record_key = rec.record_key;
-            site.phase_set = pc.phase_set;
-            site.position = pc.position;
-            double score_sum = 0.0;
-            for (size_t r = 0; r < pe->num_reads(); ++r) {
-                const double e = (double)pe->mismap[r];
-                const double r0 = (1.0 - e) * weight[0] * (double)pe->rel_at(r, a0);
-                const double r1 = (1.0 - e) * weight[1] * (double)pe->rel_at(r, a1);
-                const double inside = r0 + r1;
-                if (inside <= 0.0) {
-                    // The read fits neither settled allele, so it says nothing about their order.
-                    continue;
-                }
-                site.read_key.push_back(pe->read_key[r]);
-                site.q0.push_back((float)(r0 / inside));
-                site.c.push_back((float)(inside / (inside + e)));
-                const double win = max(r0, r1) / (inside + e);
-                const double rest = max(1.0 - win, 1e-12);
-                score_sum += -10.0 * std::log10(rest);
-            }
+            PhaseSite site = reduce_to_pair(*pe, a0, a1);
             if (site.read_key.empty()) {
                 continue;
             }
-            site.reliability = score_sum / (double)site.read_key.size();
+            site.record_key = rec.record_key;
+            site.phase_set = pc.phase_set;
+            site.position = pc.position;
             sites.push_back(std::move(site));
         }
     }

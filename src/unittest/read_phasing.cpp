@@ -111,6 +111,51 @@ TEST_CASE("a hung site that no read links keeps the panel's order", "[read_phasi
     REQUIRE(flips.empty());
 }
 
+TEST_CASE("paired mates at one site are one read, the more confident mate", "[read_phasing]") {
+    // Mates share a read key. Read 5 has a confident mate and a weak one that disagrees with it.
+    PhaseSite forward;
+    forward.read_key = {5, 6, 5};
+    forward.q0 = {0.9f, 0.5f, 0.2f};
+    forward.c = {0.95f, 0.9f, 0.5f};
+    PhaseSite backward;
+    backward.read_key = {5, 6, 5};
+    backward.q0 = {0.2f, 0.5f, 0.9f};
+    backward.c = {0.5f, 0.9f, 0.95f};
+    for (PhaseSite* s : {&forward, &backward}) {
+        merge_mates(*s);
+        REQUIRE(s->read_key == vector<uint64_t>{5, 6});
+        REQUIRE(s->q0 == vector<float>{0.9f, 0.5f});
+        REQUIRE(s->c == vector<float>{0.95f, 0.9f});
+    }
+
+    // The site's reliability averages reads, not mates: two rows of read 1, one clean and one that
+    // fits both alleles equally, count as the clean one alone.
+    PhaseReadEvidence ev;
+    ev.n_alleles = 2;
+    ev.length_weighted = false;
+    ev.read_key = {1, 1, 2};
+    ev.mismap = {0.02f, 0.02f, 0.02f};
+    ev.rel = {1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f};
+    const PhaseSite reduced = reduce_to_pair(ev, 0, 1);
+    REQUIRE(reduced.read_key == vector<uint64_t>{1, 2});
+    REQUIRE(reduced.q0[0] == 1.0f);
+    REQUIRE(reduced.reliability == Approx(read_confidence(reduced.q0[0], reduced.c[0])));
+    REQUIRE(read_confidence(reduced.q0[0], reduced.c[0])
+            == Approx(read_confidence(reduced.q0[1], reduced.c[1])));
+
+    // Read phasing merges the mates of a site built by hand too, so its links and coherence see
+    // each read once.
+    vector<PhaseSite> sites{site(1, 100, 0), site(2, 200, 0), site(3, 300, 0)};
+    sites[1].read_key.push_back(3);
+    sites[1].q0.push_back(0.5f);
+    sites[1].c.push_back(0.5f);
+    ReadPhasingParams params;
+    ReadPhasingCounters counters;
+    read_phase_flips(sites, params, counters);
+    REQUIRE(sites[1].read_key.size() == 20);
+    REQUIRE(sites[1].q0[3] == 0.0f);
+}
+
 TEST_CASE("a link's sign is what the log odds say", "[read_phasing]") {
     const PhaseSite a = site(1, 100, 0);
     const PhaseSite same = site(2, 200, 0);

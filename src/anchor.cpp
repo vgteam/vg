@@ -614,12 +614,16 @@ void build_site_anchors(const AnchorSiteEvidence& evidence, const vector<int>& g
     // The site's reliability: the mean confidence of the reads it wrote, each read once. Computed
     // from `out`, after the filters above have removed slots and end anchors, so that it averages
     // the reads a consumer can see. Reads are keyed by name, which counts a read once across both
-    // pins and slots, and paired mates once, as `PhaseSite` does.
+    // pins and slots, and paired mates once, at the higher of their scores, as `merge_mates` keeps
+    // the more confident mate.
     if (out.size() > out_begin) {
         unordered_map<string, float> per_read;
         for (size_t i = out_begin; i < out.size(); ++i) {
             for (const AnchorWriter::ReadRow& row : out[i].reads) {
-                per_read.emplace(row.name, row.score);
+                auto placed = per_read.emplace(row.name, row.score);
+                if (!placed.second && row.score > placed.first->second) {
+                    placed.first->second = row.score;
+                }
             }
         }
         double sum = 0.0;
