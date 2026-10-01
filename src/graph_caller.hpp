@@ -504,9 +504,10 @@ protected:
         /// strand.
         uint64_t parent_crossing = 0;
         /// Set where no called parent allele reaches the chain, and only when records are staged
-        /// for the barrier. The chain is genotyped anyway, at the parent's ploidy, because the
-        /// linkage model may still move the parent onto an allele that does reach it. Inherited by
-        /// its children, which are genotyped at their own provisional ploidy.
+        /// for the barrier and the linkage model runs (without it, such a chain is not genotyped).
+        /// The chain is genotyped anyway, at the parent's ploidy, because the linkage model may
+        /// still move the parent onto an allele that does reach it. Inherited by its children,
+        /// which are genotyped at their own provisional ploidy.
         ///
         /// In the sweep the chain is staged, not written, and not recorded in the linkage model.
         /// The exception is a snarl whose own boundaries are on no reference path: that is recorded
@@ -515,12 +516,11 @@ protected:
         /// The barrier decides what happens to it from the parent's settled pair. If the pair
         /// carries no copy, the chain and everything under it are dropped. If it carries some, the
         /// chain is recorded at that many copies and rendered; where the sweep scored no genotype
-        /// at that ploidy, it is rendered at the parent's ploidy instead, unrecorded. In three
-        /// cases the barrier does not compare the chain with a settled pair at all, so the chain is
-        /// never dropped on its parent's account (a dropped ancestor still removes it), and is
-        /// rendered at the ploidy it was genotyped at, unrecorded: without the linkage
-        /// model, where the parent has no settled pair, and where the crossing mask is 0 or unknown
-        /// (`crossing_known` false).
+        /// at that ploidy, it is rendered at the parent's ploidy instead, unrecorded. In two cases
+        /// the barrier does not compare the chain with a settled pair at all, so the chain is never
+        /// dropped on its parent's account (a dropped ancestor still removes it), and is rendered at
+        /// the ploidy it was genotyped at, unrecorded: where the parent has no settled pair, and
+        /// where the crossing mask is 0 or unknown (`crossing_known` false).
         bool retain_only = false;
         /// Where this chain starts along the first of the parent's called traversals that crosses
         /// it, in bases. Added to the parent's reference start, it gives an off-reference chain a
