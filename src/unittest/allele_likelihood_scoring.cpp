@@ -104,14 +104,21 @@ static Alignment make_matching_alignment(const HandleGraph& graph, const string&
 
 /// Run the calculator over one site with the given reads, at the given ploidy.
 ///
+/// The matrix orders its rows by read name, so each read's name is prefixed with its position,
+/// zero-padded, and row r of the result is reads[r].
+///
 /// `optimal_pairing` selects how the pairing is chosen: false is greedy pairing, the default, and
 /// true is optimal pairing, which `--optimal-pairing` turns on. The invariants below must hold for
 /// both, since they are properties of the scoring model, not of how the pairing is searched for.
 static AlleleReadLikelihoods score_site(SnpAndDeletionSite& site, const vector<Alignment>& reads,
                                         int ploidy = 2, bool optimal_pairing = false) {
     InMemorySiteReadSource source;
-    for (const Alignment& aln : reads) {
-        source.add(aln);
+    for (size_t i = 0; i < reads.size(); ++i) {
+        Alignment named = reads[i];
+        string position = to_string(i);
+        named.set_name(string(6 - min<size_t>(6, position.size()), '0') + position + ":"
+                       + reads[i].name());
+        source.add(named);
     }
     QualAdjAlignmentScorer qual_scorer;
     MatrixAlignmentScorer plain_scorer;

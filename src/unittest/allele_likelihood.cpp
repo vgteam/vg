@@ -468,14 +468,45 @@ TEST_CASE("Lower MAPQ shrinks a read's influence without flipping the ranking",
     REQUIRE(best_genotype(unsure.score_genotypes(2)) == vector<int>({0, 0}));
 }
 
+TEST_CASE("The matrix does not depend on the order reads are added in", "[allele_likelihood]") {
+    // The read source's order can change with its fetch window, and a floating-point sum over
+    // the reads depends on the order it adds them in, so the builder sorts the rows. The
+    // likelihoods must then agree exactly, not approximately.
+    struct Read { vector<double> row; double mismap; string name; };
+    vector<Read> reads = {{{0.0, -0.3}, 0.3, "c"}, {{-1e-9, 0.0}, 0.02, "a"},
+                          {{0.0, -7.25}, 0.011, "b"}, {{-2.5, 0.0}, 0.5, "d"},
+                          {{0.0, -1.0 / 3.0}, 0.07, "a"}};
+    auto build = [&](const vector<size_t>& order) {
+        AlleleReadLikelihoodsBuilder builder(2);
+        for (size_t i : order) {
+            builder.add_read(reads[i].row, reads[i].mismap, reads[i].name);
+        }
+        return builder.build();
+    };
+    AlleleReadLikelihoods forward = build({0, 1, 2, 3, 4});
+    AlleleReadLikelihoods backward = build({4, 3, 2, 1, 0});
+    AlleleReadLikelihoods shuffled = build({2, 4, 0, 3, 1});
+    for (const vector<int>& genotype : {vector<int>{0, 0}, vector<int>{0, 1}, vector<int>{1, 1}}) {
+        REQUIRE(forward.genotype_likelihood(genotype) == backward.genotype_likelihood(genotype));
+        REQUIRE(forward.genotype_likelihood(genotype) == shuffled.genotype_likelihood(genotype));
+    }
+    for (size_t r = 0; r < forward.num_reads(); ++r) {
+        REQUIRE(forward.mismap_prob(r) == shuffled.mismap_prob(r));
+        for (size_t a = 0; a < 2; ++a) {
+            REQUIRE(forward.rel(r, a) == shuffled.rel(r, a));
+        }
+    }
+}
+
 TEST_CASE("The mismapping probability is clamped at both ends", "[allele_likelihood]") {
     // The upper clamp is load-bearing rather than hygiene. Many mappers use
     // MAPQ 0 to mean "multi-mapping" rather than P(wrong) = 1, and an unclamped
     // e_r of 1 would collapse the read's term to ln(1) = 0 for every genotype,
     // so the read would silently contribute nothing at all.
     AlleleReadLikelihoodsBuilder builder(2, 1e-8, 0.1);
-    builder.add_read({0.0, -10.0}, 1.0);   // as if from MAPQ 0
-    builder.add_read({0.0, -10.0}, 0.0);   // as if from an impossibly good MAPQ
+    // Named so that the matrix's order by name is the order added.
+    builder.add_read({0.0, -10.0}, 1.0, "a");   // as if from MAPQ 0
+    builder.add_read({0.0, -10.0}, 0.0, "b");   // as if from an impossibly good MAPQ
     AlleleReadLikelihoods matrix = builder.build();
 
     REQUIRE(matrix.mismap_prob(0) == Approx(0.1));

@@ -421,9 +421,10 @@ are discarded as they are read in. The reads come from one of three sources:
   else from the input graph.
 
 `--read-window` sets the size of those ranges, in node IDs, for the two indexed sources. It changes
-which reads are fetched together, but not which reads a site uses. We add the logarithms of the
-reads' factors in the order in which the reads arrive, so `--read-window` can change a likelihood
-in its last digits.
+which reads are fetched together and the order in which they arrive, but not which reads a site
+uses, and no result depends on it. A site's reads are put in a fixed order, by read name and then
+by where the alignment begins, before anything is summed over them, and the reads that begin in a
+rate window (see [Depth term inputs](#depth-term-inputs)) are counted by MAPQ.
 
 A read whose alignment crosses the site against the direction of the alleles is
 reverse-complemented before it is scored. We decide the direction by a vote over the read's visits

@@ -18,6 +18,7 @@
 #include <map>
 #include <mutex>
 #include <string>
+#include <tuple>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -277,10 +278,13 @@ public:
     /// contain -inf for alleles that cannot place the read.
     /// read_length feeds the mean R used by the length-weighted mixture. Zero
     /// means "unknown"; if every read is unknown the mixture stays flat.
+    /// `start` is where the read's alignment begins, which with its name identifies the
+    /// alignment, since paired mates share a name; build() orders the rows by the two.
     /// Returns false when the read placed on no allele at all and was dropped, so a caller
     /// accumulating anything alongside the rows can stay in step with them.
     bool add_read(const vector<double>& raw_ln_likelihood, double mismap_prob,
-                  const string& name = "", size_t read_length = 0);
+                  const string& name = "", size_t read_length = 0,
+                  const Position* start = nullptr);
 
 
 
@@ -297,7 +301,19 @@ public:
     }
 
     /// Normalise every row by its own maximum and produce the matrix.
+    ///
+    /// The rows are put in a canonical order, by read name, then by where the alignment begins,
+    /// then by the row's own values, so that the matrix, and every sum over its reads, does not
+    /// depend on the order the reads were added in. That order is the read source's, which can
+    /// change with the fetch window (--read-window).
     AlleleReadLikelihoods build();
+
+    /// After build(): for each row of the matrix, the index among the reads add_read kept, in
+    /// the order it kept them. A caller that kept something per read alongside the rows
+    /// reorders it by this.
+    const vector<size_t>& row_order() const {
+        return order;
+    }
 
 private:
     size_t n_alleles;
@@ -311,6 +327,9 @@ private:
     vector<double> mismap_probs;
     vector<string> names;
     vector<double> best_lns;
+    /// Per kept read, where its alignment begins: node, offset and strand.
+    vector<tuple<nid_t, int64_t, bool>> starts;
+    vector<size_t> order;
     size_t unplaceable = 0;
 };
 

@@ -287,7 +287,7 @@ AlleleReadLikelihoodsBuilder::AlleleReadLikelihoodsBuilder(size_t num_alleles, d
 
 bool AlleleReadLikelihoodsBuilder::add_read(const vector<double>& raw_ln_likelihood,
                                             double mismap_prob, const string& name,
-                                            size_t read_length) {
+                                            size_t read_length, const Position* start) {
     assert(raw_ln_likelihood.size() == n_alleles);
 
     // The row's divisor is the read's best fit over all alleles at the site, so it
@@ -318,20 +318,57 @@ bool AlleleReadLikelihoodsBuilder::add_read(const vector<double>& raw_ln_likelih
     mismap_probs.push_back(min(max(mismap_prob, min_mismap), max_mismap));
     best_lns.push_back(best);
     names.push_back(name);
+    if (start != nullptr) {
+        starts.emplace_back(start->node_id(), start->offset(), start->is_reverse());
+    } else {
+        starts.emplace_back(0, 0, false);
+    }
     return true;
 }
 
 AlleleReadLikelihoods AlleleReadLikelihoodsBuilder::build() {
     size_t n_reads = rows.size();
+
+    // A canonical row order, so that a floating-point sum over the reads gives the same answer
+    // whatever order they arrived in. The name and the start identify an alignment; the row's
+    // values break any remaining tie, between rows that are then interchangeable.
+    order.resize(n_reads);
+    for (size_t i = 0; i < n_reads; ++i) {
+        order[i] = i;
+    }
+    std::sort(order.begin(), order.end(), [&](size_t a, size_t b) {
+        if (names[a] != names[b]) {
+            return names[a] < names[b];
+        }
+        if (starts[a] != starts[b]) {
+            return starts[a] < starts[b];
+        }
+        if (best_lns[a] != best_lns[b]) {
+            return best_lns[a] < best_lns[b];
+        }
+        if (mismap_probs[a] != mismap_probs[b]) {
+            return mismap_probs[a] < mismap_probs[b];
+        }
+        return rows[a] < rows[b];
+    });
+
     vector<double> matrix;
     matrix.reserve(n_reads * n_alleles);
-    for (auto& row : rows) {
-        matrix.insert(matrix.end(), row.begin(), row.end());
+    vector<double> sorted_mismap, sorted_best;
+    vector<string> sorted_names;
+    sorted_mismap.reserve(n_reads);
+    sorted_best.reserve(n_reads);
+    sorted_names.reserve(n_reads);
+    for (size_t i : order) {
+        matrix.insert(matrix.end(), rows[i].begin(), rows[i].end());
+        sorted_mismap.push_back(mismap_probs[i]);
+        sorted_best.push_back(best_lns[i]);
+        sorted_names.push_back(std::move(names[i]));
     }
 
     AlleleReadLikelihoods result;
-    result.set_contents(n_reads, n_alleles, std::move(matrix), std::move(mismap_probs),
-                        std::move(best_lns), std::move(names), unplaceable);
+    result.set_contents(n_reads, n_alleles, std::move(matrix), std::move(sorted_mismap),
+                        std::move(sorted_best), std::move(sorted_names), unplaceable);
     result.set_mismap_floor(min_mismap);
     if (read_length_count > 0) {
         // Set R whichever mixture is in use, since the depth term's
@@ -1090,9 +1127,13 @@ GraphAlignedAlleleLikelihoodCalculator::count_starts(const vector<nid_t>& nodes,
     // Reads are counted as they are at a site: under `depth_effective_reads` each counts as
     // 1 - e_r, with the same clamps and the same `use_mismap_term` switch. Counting them
     // differently would put a constant factor between N and lambda.
-    double& reads = counts.reads;
+    //
+    // 1 - e_r depends on the read's MAPQ alone, so reads are tallied by MAPQ and the tallies
+    // summed in MAPQ order. The sum then does not depend on the order the read source returns
+    // reads in, which can change with its fetch window.
     double& length_total = counts.length_total;
     size_t& length_count = counts.length_count;
+    map<int32_t, size_t> by_mapq;
     read_source.for_each_alignment(ranges, [&](const Alignment& aln) {
         // Count only the reads that begin on one of the nodes; the fetch also returns reads
         // that only pass through them.
@@ -1106,15 +1147,19 @@ GraphAlignedAlleleLikelihoodCalculator::count_starts(const vector<nid_t>& nodes,
         }
         length_total += (double)aln.sequence().size();
         ++length_count;
+        ++by_mapq[aln.mapping_quality()];
+    });
+    for (const auto& tally : by_mapq) {
         if (!params.depth_effective_reads) {
-            reads += 1.0;
-            return;
+            counts.reads += (double)tally.second;
+            continue;
         }
         double mismap = params.use_mismap_term
-                            ? phred_to_prob((double)aln.mapping_quality())
+                            ? phred_to_prob((double)tally.first)
                             : params.min_mismap_prob;
-        reads += 1.0 - min(max(mismap, params.min_mismap_prob), params.max_mismap_prob);
-    });
+        counts.reads += (double)tally.second
+                        * (1.0 - min(max(mismap, params.min_mismap_prob), params.max_mismap_prob));
+    }
     return counts;
 }
 
@@ -1497,7 +1542,9 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
                             ? phred_to_prob((double)aln.mapping_quality())
                             : params.min_mismap_prob;
 
-        if (!builder.add_read(row, mismap, aln.name(), aln.sequence().size())) {
+        const Position* start =
+            aln.path().mapping_size() > 0 ? &aln.path().mapping(0).position() : nullptr;
+        if (!builder.add_read(row, mismap, aln.name(), aln.sequence().size(), start)) {
             return;
         }
 
@@ -1525,6 +1572,26 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
 
     AlleleReadLikelihoods result = builder.build();
 
+    // The builder put the rows in its canonical order; put what was kept per read alongside
+    // them in the same order, so that row r is still reads[r] and read_key[r].
+    const vector<size_t>& order = builder.row_order();
+    if (anchor_evidence != nullptr && anchor_evidence->reads.size() == order.size()) {
+        vector<AnchorRead> reordered;
+        reordered.reserve(order.size());
+        for (size_t i : order) {
+            reordered.push_back(std::move(anchor_evidence->reads[i]));
+        }
+        anchor_evidence->reads = std::move(reordered);
+    }
+    if (phase_evidence != nullptr && phase_evidence->read_key.size() == order.size()) {
+        vector<uint64_t> reordered;
+        reordered.reserve(order.size());
+        for (size_t i : order) {
+            reordered.push_back(phase_evidence->read_key[i]);
+        }
+        phase_evidence->read_key = std::move(reordered);
+    }
+
     // R, the mean read length, for all of its users: the depth term's lambda, the mixture
     // weights and the anchor slot weights. The builder's R is the mean over this site's reads,
     // which over-represents long reads because a long read reaches more sites. The rate
@@ -1535,7 +1602,7 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
     }
 
     if (anchor_evidence != nullptr) {
-        // The rows the builder kept, in the order it kept them, so row r is reads[r].
+        // The rows in the builder's order, which `reads` was put in above, so row r is reads[r].
         anchor_evidence->mean_read_length = (float)result.mean_read_length_estimate();
         anchor_evidence->rel.resize(result.num_reads() * result.num_alleles());
         for (size_t r = 0; r < result.num_reads(); ++r) {
@@ -1548,7 +1615,8 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
     }
     if (phase_evidence != nullptr) {
         // Same rows in the same order, so row r is read_key[r]: the keys are pushed inside the
-        // callback, after `add_read` has accepted the read, so a read it drops contributes neither.
+        // callback, after `add_read` has accepted the read, so a read it drops contributes neither,
+        // and were put in the builder's order above.
         phase_evidence->mean_read_length = (float)result.mean_read_length_estimate();
         // If the counts disagree, drop the site's phasing evidence. Padding the keys instead
         // would give every padded read the same key, so they would be taken for one fragment
