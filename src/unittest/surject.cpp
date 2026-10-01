@@ -25,8 +25,249 @@ public:
     using Surjector::extract_overlapping_paths;
     using Surjector::filter_redundant_path_chunks;
     using Surjector::prune_and_trim_anchors;
+    using Surjector::choose_primary;
+    using Surjector::choose_primary_strand;
+    using Surjector::add_SA_tag;
     
 };
+
+
+TEST_CASE("Surjection alternatives are classified by read interval",
+          "[surject][interval-classification]") {
+    bdsg::HashGraph graph;
+    auto node = graph.create_handle(string(200, 'A'));
+    auto path = graph.create_path_handle("ref");
+    auto step = graph.append_step(path, node);
+    bdsg::PositionOverlay pos_graph(&graph);
+    TestSurjector surjector(&pos_graph);
+
+    vector<pair<Alignment, pair<step_handle_t, step_handle_t>>> candidates;
+    auto add_candidate = [&](const string& name, size_t begin, size_t end,
+                             int32_t score, size_t reference_begin) {
+        Alignment aln;
+        aln.set_name(name);
+        aln.set_sequence(string(100, 'A'));
+        aln.set_score(score);
+        auto* mapping = aln.mutable_path()->add_mapping();
+        mapping->set_rank(1);
+        mapping->mutable_position()->set_node_id(graph.get_id(node));
+        mapping->mutable_position()->set_offset(reference_begin);
+        if (begin != 0) {
+            auto* clip = mapping->add_edit();
+            clip->set_to_length(begin);
+            clip->set_sequence(string(begin, 'A'));
+        }
+        auto* match = mapping->add_edit();
+        match->set_from_length(end - begin);
+        match->set_to_length(end - begin);
+        if (end != 100) {
+            auto* clip = mapping->add_edit();
+            clip->set_to_length(100 - end);
+            clip->set_sequence(string(100 - end, 'A'));
+        }
+        candidates.emplace_back(aln, make_pair(step, step));
+    };
+
+    // The best candidate is deliberately not first. A and B overlap on
+    // the read; C covers the remaining read bases.
+    add_candidate("A", 0, 60, 40, 0);
+    add_candidate("B", 0, 60, 60, 100);
+    add_candidate("C", 60, 100, 30, 160);
+
+    SECTION("Supplementary reporting retains the disjoint candidate") {
+        surjector.report_supplementary = true;
+    }
+    SECTION("Without supplementary reporting the disjoint candidate is omitted") {
+        surjector.report_supplementary = false;
+    }
+
+    surjector.choose_primary(candidates);
+    REQUIRE(candidates.size() == (surjector.report_supplementary ? 3 : 2));
+    size_t primary_count = 0;
+    for (const auto& candidate : candidates) {
+        const auto& aln = candidate.first;
+        const bool supplementary = has_annotation(aln, "supplementary")
+            && get_annotation<bool>(aln, "supplementary");
+        CHECK(aln.is_secondary() == (aln.name() == "A"));
+        CHECK(supplementary == (aln.name() == "C"));
+        if (!aln.is_secondary() && !supplementary) {
+            CHECK(aln.name() == "B");
+            CHECK(aln.score() == 60);
+            ++primary_count;
+        }
+    }
+    CHECK(primary_count == 1);
+
+    if (surjector.report_supplementary) {
+        vector<Alignment> output;
+        vector<tuple<string, int64_t, bool>> positions;
+        for (const auto& candidate : candidates) {
+            output.push_back(candidate.first);
+            positions.emplace_back("ref", candidate.first.path().mapping(0).position().offset(), false);
+        }
+        surjector.add_SA_tag(output, positions, pos_graph, false);
+        for (const auto& aln : output) {
+            if (aln.name() == "A") {
+                CHECK_FALSE(has_annotation(aln, "tags"));
+            } else {
+                CHECK(has_annotation(aln, "tags"));
+                if (has_annotation(aln, "tags")) {
+                    const string expected = aln.name() == "B"
+                        ? "SA:Z:ref,161,+,60S40M,0,0;"
+                        : "SA:Z:ref,101,+,60M40S,0,0;";
+                    CHECK(get_annotation<string>(aln, "tags") == expected);
+                }
+            }
+        }
+    }
+}
+
+
+
+TEST_CASE("Primary strand selection ignores secondary alternatives",
+          "[surject][interval-classification][strand-scoring]") {
+    bdsg::HashGraph graph;
+    auto node = graph.create_handle(string(1000, 'A'));
+    auto path_a = graph.create_path_handle("A");
+    auto path_b = graph.create_path_handle("B");
+    auto step_a = graph.append_step(path_a, node);
+    auto step_b = graph.append_step(path_b, node);
+    bdsg::PositionOverlay pos_graph(&graph);
+    TestSurjector surjector(&pos_graph);
+    surjector.report_supplementary = true;
+
+    using Candidate = pair<Alignment, pair<step_handle_t, step_handle_t>>;
+    unordered_map<pair<path_handle_t, bool>, vector<Candidate>> candidates;
+    auto add_candidate = [&](path_handle_t path, step_handle_t step,
+                             size_t begin, size_t end, int32_t score,
+                             size_t reference_begin) {
+        Alignment aln;
+        aln.set_sequence(string(100, 'A'));
+        aln.set_score(score);
+        auto* mapping = aln.mutable_path()->add_mapping();
+        mapping->set_rank(1);
+        mapping->mutable_position()->set_node_id(graph.get_id(node));
+        mapping->mutable_position()->set_offset(reference_begin);
+        if (begin != 0) {
+            auto* clip = mapping->add_edit();
+            clip->set_to_length(begin);
+            clip->set_sequence(string(begin, 'A'));
+        }
+        auto* match = mapping->add_edit();
+        match->set_from_length(end - begin);
+        match->set_to_length(end - begin);
+        if (end != 100) {
+            auto* clip = mapping->add_edit();
+            clip->set_to_length(100 - end);
+            clip->set_sequence(string(100 - end, 'A'));
+        }
+        candidates[make_pair(path, false)].emplace_back(
+            aln, make_pair(step, step));
+    };
+
+    path_handle_t expected_primary;
+    bool expect_supplementary = false;
+    SECTION("Secondary alternatives cannot increase the strand score") {
+        add_candidate(path_a, step_a, 0, 100, 110, 0);
+        add_candidate(path_b, step_b, 0, 100, 105, 0);
+        add_candidate(path_b, step_b, 0, 100, 105, 200);
+        add_candidate(path_b, step_b, 0, 100, 105, 400);
+        expected_primary = path_a;
+    }
+    SECTION("Secondary alternatives cannot decrease the strand score") {
+        add_candidate(path_a, step_a, 0, 100, 90, 0);
+        add_candidate(path_b, step_b, 0, 100, 95, 0);
+        add_candidate(path_b, step_b, 0, 100, 95, 200);
+        add_candidate(path_b, step_b, 0, 100, 95, 400);
+        expected_primary = path_b;
+    }
+    SECTION("Disjoint supplementary pieces still contribute") {
+        add_candidate(path_a, step_a, 0, 100, 105, 0);
+        add_candidate(path_b, step_b, 0, 60, 65, 0);
+        add_candidate(path_b, step_b, 60, 100, 45, 200);
+        expected_primary = path_b;
+        expect_supplementary = true;
+    }
+
+    for (auto& strand : candidates) {
+        surjector.choose_primary(strand.second);
+    }
+    const auto& pieces = candidates.at(make_pair(path_b, false));
+    REQUIRE(pieces.size() == (expect_supplementary ? 2 : 3));
+    CHECK_FALSE(pieces.front().first.is_secondary());
+    if (expect_supplementary) {
+        CHECK_FALSE(pieces[1].first.is_secondary());
+        REQUIRE(has_annotation(pieces[1].first, "supplementary"));
+        CHECK(get_annotation<bool>(pieces[1].first, "supplementary"));
+    } else {
+        CHECK(pieces[1].first.is_secondary());
+        CHECK(pieces[2].first.is_secondary());
+    }
+    CHECK(surjector.choose_primary_strand(candidates)
+          == make_pair(expected_primary, false));
+}
+
+
+TEST_CASE("Secondary alternatives do not join the supplementary group",
+          "[surject][interval-classification]") {
+    bdsg::HashGraph graph;
+    auto left = graph.create_handle(string(60, 'A'));
+    auto right = graph.create_handle(string(40, 'C'));
+    auto spacer = graph.create_handle(string(200, 'G'));
+    graph.create_edge(left, right);
+    graph.create_edge(right, spacer);
+    graph.create_edge(spacer, right);
+    auto main_path = graph.create_path_handle("main");
+    graph.append_step(main_path, left);
+    auto repeat_path = graph.create_path_handle("repeat");
+    graph.append_step(repeat_path, right);
+    graph.append_step(repeat_path, spacer);
+    graph.append_step(repeat_path, right);
+    bdsg::PositionOverlay pos_graph(&graph);
+    Surjector surjector(&pos_graph);
+    surjector.report_supplementary = true;
+
+    Alignment read;
+    read.set_name("split-read");
+    read.set_sequence(string(60, 'A') + string(40, 'C'));
+    for (auto node : {left, right}) {
+        auto* mapping = read.mutable_path()->add_mapping();
+        mapping->set_rank(read.path().mapping_size());
+        mapping->mutable_position()->set_node_id(graph.get_id(node));
+        auto* edit = mapping->add_edit();
+        edit->set_from_length(graph.get_length(node));
+        edit->set_to_length(graph.get_length(node));
+    }
+
+    SECTION("Primary input") {
+        read.set_is_secondary(false);
+    }
+    SECTION("Already-secondary input retains its supplementary piece") {
+        read.set_is_secondary(true);
+    }
+
+    auto output = surjector.surject(read, {main_path, repeat_path});
+    REQUIRE(output.size() == 3);
+    size_t supplementary_count = 0, secondary_count = 0, linked_count = 0;
+    for (const auto& aln : output) {
+        supplementary_count += is_supplementary(aln);
+        secondary_count += aln.is_secondary();
+        if (has_annotation(aln, "tags")) {
+            const auto tags = get_annotation<string>(aln, "tags");
+            linked_count += tags.find("SA:Z:") != string::npos;
+            // Each member links only to its partner, not the repeat alternative.
+            CHECK(std::count(tags.begin(), tags.end(), ';') == 1);
+        }
+        if (is_supplementary(aln)) {
+            REQUIRE(aln.refpos_size() == 1);
+            CHECK(aln.refpos(0).name() == "repeat");
+            CHECK(aln.is_secondary() == read.is_secondary());
+        }
+    }
+    CHECK(supplementary_count == 1);
+    CHECK(secondary_count == (read.is_secondary() ? 3 : 1));
+    CHECK(linked_count == 2);
+}
 
 
 TEST_CASE("Mapper-declared tails control anchor pruning",
