@@ -1046,8 +1046,9 @@ new genotypes can change the phase, and with it $\Lambda$, so another round can 
 corrects the likelihoods from the sweep, not those of the previous round. `--regeno-passes` caps the
 number of times the barrier runs, the first run included. The rounds stop sooner when the
 correction changes no site's direct call, when the barrier changes no settled genotype, or when the
-settled genotypes return to an earlier state. With `--regeno-passes 1` the correction is computed
-and reported but not applied. `--regeno-ledger` writes one line for each site whose direct call the
+settled genotypes return to an earlier state. Every round's correction is settled by the barrier,
+including the round that stops, so the genotypes are settled from the likelihoods that `GL` reports.
+With `--regeno-passes 1` the correction is computed and reported but not applied. `--regeno-ledger` writes one line for each site whose direct call the
 last correction changed.
 
 ## Output
@@ -1127,9 +1128,10 @@ Re-genotyping is applied with `--regenotype` when `--regeno-passes` is above 1 (
 [Rounds](#rounds)). `GL` and `QUAL` are then written from the corrected likelihoods. In a round
 whose correction changes the genotype with the highest $\mathcal{L}(G)$, `GQ` is recomputed from
 them as the per-site `GQ` is, for that genotype, but with the sweep's `--depth-quality` factor.
-Otherwise `GQ` keeps its value from the last round that did, or from the sweep. `GP`, `GQI`, `GQN`,
-`DR` and `lowconf` keep their values from before the correction, so they describe the direct call
-made from the uncorrected likelihoods. A moved record takes the `GQ`, `GQN` and `lowconf` described
+Each round starts again from the sweep's likelihoods and `GQ`, so `GQ` follows the last round's
+correction, and is the sweep's where that correction left the best genotype alone. `GP`, `GQI`,
+`GQN`, `DR` and `lowconf` keep their values from before the correction, so they describe the direct
+call made from the uncorrected likelihoods. A moved record takes the `GQ`, `GQN` and `lowconf` described
 above, whether or not re-genotyping ran.
 
 #### Options that change the fields

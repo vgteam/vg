@@ -1209,9 +1209,10 @@ public:
 
     /// Re-score every retained site's genotype likelihoods with the reads' phase.
     ///
-    /// Runs after `apply_read_phasing`, which supplies `phase_sites` and `phase_flips`. Returns true
-    /// if any site's corrected best genotype differs from its called one, so that another barrier
-    /// pass has something to settle.
+    /// Runs after `apply_read_phasing`, which supplies `phase_sites` and `phase_flips`. With
+    /// --regeno-passes above 1 the corrected likelihoods replace each site's own, and GQ is
+    /// recomputed from them where the best genotype changed and is the sweep's elsewhere. Returns
+    /// true if any site's corrected best genotype differs from its called one.
     bool apply_regenotyping();
 
     /// Feed the corrected likelihoods back to the linkage layer and settle again.

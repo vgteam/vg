@@ -5780,12 +5780,15 @@ bool FlowCaller::apply_regenotyping() {
             map<vector<int>, double> scratch;
             if (keep) {
                 // Correct the sweep's likelihoods every round, not the previous round's: the first
-                // round saves them, and later rounds restore them before correcting.
+                // round saves them, and later rounds restore them before correcting. GQ is
+                // restored with them, so that a GQ recomputed in an earlier round does not outlive
+                // the correction it was computed from.
                 if (info->uncorrected_lls == nullptr) {
                     info->uncorrected_lls.reset(
                         new map<vector<int>, double>(info->genotype_lls));
                 } else {
                     info->genotype_lls = *info->uncorrected_lls;
+                    rl_caller->recompute_gq(*info);
                 }
             } else {
                 scratch = info->genotype_lls;
@@ -5812,6 +5815,7 @@ bool FlowCaller::apply_regenotyping() {
                     alt.uncorrected_lls.reset(new map<vector<int>, double>(alt.genotype_lls));
                 } else {
                     alt.genotype_lls = *alt.uncorrected_lls;
+                    rl_caller->recompute_gq(alt);
                 }
                 RegenotypeCounters ignored;
                 if (phase_aware_correction(*pe, lambda, own, temper, ceiling, regenotype_params,
@@ -5951,9 +5955,9 @@ void FlowCaller::phase_and_regenotype() {
     // Then re-genotyping from the phase. Each round: the current phase gives every read its strand
     // log-odds, the correction rescores every site from the sweep's likelihoods, the barrier
     // settles the result and reassesses every nested child, and read phasing runs again on the new
-    // genotypes. Rounds stop when the settled genotypes stop changing, return to an earlier state,
-    // or reach --regeno-passes. With --regeno-passes 1 the correction is only computed and
-    // reported.
+    // genotypes. Rounds stop when the correction moves no site's direct call, or when the settled
+    // genotypes stop changing, return to an earlier state, or reach --regeno-passes. With
+    // --regeno-passes 1 the correction is only computed and reported.
     if (regenotype && regenotype_passes >= 2) {
         // Every state the rounds have reached, so that a cycle is recognised. The rounds can cycle:
         // dropping and reinstating a subtree is a discrete change, and the phase is a chain whose
@@ -5964,19 +5968,21 @@ void FlowCaller::phase_and_regenotype() {
             if (round == 1) {
                 seen_states.push_back(snapshot_digest(before));
             }
-            if (!apply_regenotyping()) {
-                if (round == 1) {
-                    cerr << "[vg call] re-genotyping: no site's likelihoods move; nothing to settle"
-                         << endl;
-                }
-                break;
-            }
+            const bool calls_moved = apply_regenotyping();
+            // Settled even when the correction moved no direct call: it has already changed every
+            // site's likelihoods in place, and GL is written from them, so the genotypes are
+            // settled from them too.
             regenotype_resettle();
             apply_read_phasing();
             const auto after = settled_snapshot();
             const size_t moved = settled_changed(before);
             cerr << "[vg call] re-genotyping round " << round << ": " << moved
                  << " settled genotypes moved" << endl;
+            if (!calls_moved) {
+                cerr << "[vg call] re-genotyping: the correction moved no site's direct call;"
+                     << " stopping after round " << round << endl;
+                break;
+            }
             if (moved == 0) {
                 cerr << "[vg call] re-genotyping: converged after " << round << " rounds" << endl;
                 break;

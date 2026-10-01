@@ -9,7 +9,7 @@ PATH=../bin:$PATH # for vg
 # FORMAT field shifts every later one, which broke four assertions here that were not
 # testing field order at all -- one of them silently compared BL against a GQ threshold.
 
-plan tests 443
+plan tests 444
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -1355,6 +1355,11 @@ is $(if cmp -s rl_rg_off.vcf rl_rg_t0.vcf; then echo 1; else echo 0; fi) "1" \
 is $(grep -c "re-genotyping: temper" rl_rg_t0.err) "1" "it reports what it did"
 is $(grep "re-genotyping: temper" rl_rg_t0.err | sed 's/.*, \([0-9]*\) would move.*/\1/') "0" \
    "and moves nothing at temper 0"
+# The correction rewrites every site's likelihoods in place even when it moves no direct call, and
+# GL is written from them, so the barrier settles them before the rounds stop. The byte-identity
+# gate above is then also the proof that settling an identity correction again is inert.
+is $(grep -c "re-genotyping round 1:" rl_rg_t0.err) "1" \
+   "a correction that moves no direct call is still settled"
 
 # Refused rather than silently inert: with no phasing chain there is no strand log-odds, every
 # tilted weight collapses to the site's own, and the correction is the identity at every site.
