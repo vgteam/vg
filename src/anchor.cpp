@@ -60,7 +60,7 @@ void AnchorCounters::report(ostream& out) const {
                 << " read placements at split sites had no cross-site opinion; "
                 << hom_split_coin.load() << " were assigned by the per-read coin and "
                 << (hom_split_no_opinion.load() - hom_split_coin.load())
-                << " dropped for spanning a phase break";
+                << " dropped for having a strand only in another phase set";
         }
         out << endl;
     }
@@ -353,10 +353,9 @@ void build_site_anchors(const AnchorSiteEvidence& evidence, const vector<int>& g
                 }
                 const double lo = (*read_strand)[r];
                 if (std::isnan(lo) || lo == 0.0) {
-                    // Exactly zero means the read has no strand log-odds: no table, no phased site
-                    // reached, or a read seen in more than one phase set. It is not evidence for
-                    // strand 1, though the strict `> 0.0` test below would count it there. The
-                    // placement loop refuses such reads too.
+                    // NaN is a strand from another phase set, and exactly zero is no strand
+                    // log-odds at all: no table, or no phased site reached. Neither is evidence for
+                    // strand 1, though the strict `> 0.0` test below would count a zero there.
                     continue;
                 }
                 if (std::abs(lo) < params.phase_min) {
@@ -454,17 +453,21 @@ void build_site_anchors(const AnchorSiteEvidence& evidence, const vector<int>& g
             const double lo = (*read_strand)[r];
             int coin = -1;
             if (std::isnan(lo)) {
-                // The read is seen in more than one phase set, whose strands are numbered
-                // independently, so it names no strand here. It is dropped.
+                // The read has a strand only in another phase set, or in more than one, and phase
+                // sets number their strands independently. A coin would put it on a strand of this
+                // phase set with nothing behind it: where the read also crosses a heterozygous site
+                // of this phase set, whose allele places it, the coin contradicts that slot half
+                // the time, and otherwise it joins two phase sets that the phasing left apart. It
+                // is dropped.
                 ++counters.hom_split_no_opinion;
                 continue;
             }
             if (lo == 0.0) {
-                // No strand log-odds: the read reached no phased site, or none whose alleles it can
-                // tell apart. The site is homozygous, so either slot spells the read's allele, and
-                // the read is placed by a coin flip derived from a hash of its name. The same read
-                // then gets the same slot at every site and both pins, so it stays on one strand,
-                // and it is not missing from some anchors while present at others.
+                // No strand log-odds: the read reached no other phased site, or none whose alleles
+                // it can tell apart. The site is homozygous, so either slot spells the read's
+                // allele, and the read is placed by a coin flip derived from a hash of its name.
+                // The same read then gets the same slot at every site and both pins, so it stays on
+                // one strand, and it is not missing from some anchors while present at others.
                 ++counters.hom_split_no_opinion;
                 ++counters.hom_split_coin;
                 coin = (int)(std::hash<string>{}(read.name) & 1ull);

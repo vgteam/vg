@@ -4,6 +4,9 @@
 /// Records sharing a position are rare in real output, so the order of ties is checked here.
 
 #include <algorithm>
+#include <cmath>
+#include <functional>
+#include <string>
 #include <vector>
 
 #include "catch.hpp"
@@ -227,6 +230,49 @@ TEST_CASE("A moved record's quality fields come from the stored direct call", "[
         REQUIRE(field(rewritten, "GQN") == ".");
         REQUIRE(filter(rewritten) == "PASS");
     }
+}
+
+/// Exposes the anchor path's strand lookup and the tables it reads.
+class StrandLookup : public VCFOutputCaller {
+public:
+    StrandLookup() : VCFOutputCaller("S") {
+        render_lambda_temper = 1.0;
+        render_lambda_ceiling = 1.0;
+    }
+    void add_read(const string& name, size_t phase_set, bool multi) {
+        ReadLambda read;
+        read.lambda = 2.0;
+        read.sites = 1;
+        read.phase_set = phase_set;
+        read.multi_phase_set = multi;
+        render_lambda[(uint64_t)std::hash<string>{}(name)] = read;
+    }
+    void set_site_phase_set(size_t record_key, size_t phase_set) {
+        render_lambda_phase_set[record_key] = phase_set;
+    }
+    using VCFOutputCaller::read_strand_log_odds;
+};
+
+TEST_CASE("A strand from another phase set is NaN in the anchor path, and no strand is 0",
+          "[graph_caller]") {
+    // --anchors-hom-split drops a NaN read from a split site and places a 0 read by a coin, so the
+    // two must stay distinct here; re-genotyping, which does not use this lookup, gives both 0.
+    StrandLookup caller;
+    caller.add_read("here", 7, false);
+    caller.add_read("elsewhere", 9, false);
+    caller.add_read("both", 7, true);
+    caller.set_site_phase_set(1, 7);
+
+    const double here = caller.read_strand_log_odds(1, "here");
+    REQUIRE(std::isfinite(here));
+    REQUIRE(here > 0.0);
+    REQUIRE(std::isnan(caller.read_strand_log_odds(1, "elsewhere")));
+    REQUIRE(std::isnan(caller.read_strand_log_odds(1, "both")));
+    REQUIRE(caller.read_strand_log_odds(1, "unseen") == 0.0);
+
+    // A site with no phase set takes any read found in one phase set, but not one found in two.
+    REQUIRE(caller.read_strand_log_odds(2, "elsewhere") > 0.0);
+    REQUIRE(std::isnan(caller.read_strand_log_odds(2, "both")));
 }
 
 }

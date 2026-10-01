@@ -809,9 +809,15 @@ double VCFOutputCaller::read_strand_log_odds(size_t record_key, const string& re
     const auto found = render_lambda.find(key);
     const auto ps = render_lambda_phase_set.find(record_key);
     const size_t phase_set = ps != render_lambda_phase_set.end() ? ps->second : NO_PHASE_SET;
-    if (found == render_lambda.end() || !read_strand_usable(found->second, phase_set)) {
-        // No strand for this read, or one from another phase set, whose strands do not correspond.
+    if (found == render_lambda.end()) {
+        // The read reached no phased site.
         return 0.0;
+    }
+    if (!read_strand_usable(found->second, phase_set)) {
+        // The read has a strand, but in another phase set, whose strands do not correspond to
+        // this site's. NaN rather than 0, because a split homozygous site drops such a read but
+        // places one with no strand by a coin (see `build_site_anchors`).
+        return std::numeric_limits<double>::quiet_NaN();
     }
     double value = found->second.lambda;
     size_t sites = found->second.sites;
@@ -1316,7 +1322,7 @@ void VCFOutputCaller::collect_anchors_for(const Snarl& snarl, const vector<int>&
                         continue;   // both pins carry the same partition; count each read once
                     }
                     const double lo = read_strand_log_odds(record_key, row.name);
-                    if (lo == 0.0) {
+                    if (std::isnan(lo) || lo == 0.0) {
                         anchor_params.counters->phase_no_opinion.fetch_add(1);
                         continue;
                     }

@@ -7,6 +7,7 @@
 /// (`AnchorCounters::verify_failed`) catches errors on real data.
 ///
 
+#include <limits>
 #include <set>
 #include <map>
 #include <string>
@@ -576,6 +577,36 @@ TEST_CASE("A homozygous site splits by read phase only when both strands are sup
         }
         REQUIRE(rows == 2);                 // one row per pin
         REQUIRE(slots_held.size() == 1);    // and both on the same haplotype
+    }
+
+    SECTION("a read whose strand is from another phase set is left out of a split site only") {
+        // NaN is what `read_strand_log_odds` returns for a read whose strand belongs to another
+        // phase set, or to more than one. Its strand says nothing about this phase set's, so a
+        // split site drops it rather than letting the coin pick a strand for it; where it also
+        // crosses a heterozygous site of this phase set, a coin would contradict the slot that
+        // site's allele gives it half the time.
+        params.phase_min_side = 1;
+        const double nan = std::numeric_limits<double>::quiet_NaN();
+        vector<double> strand{+5.0, -5.0, +5.0, nan};
+        build_site_anchors(ev, {0, 0}, ">1>4", 0.9, 1.0, 0, params, counters, out, &strand);
+        REQUIRE(out.size() == 4);
+        size_t placed = 0;
+        for (const AnchorWriter::Anchor& a : out) {
+            placed += a.reads.size();
+            for (const AnchorWriter::ReadRow& row : a.reads) {
+                REQUIRE(row.name != ev.reads[3].name);
+            }
+        }
+        REQUIRE(placed == 6);   // three reads x two pins
+        REQUIRE(counters.hom_split_no_opinion.load() == 1);
+        REQUIRE(counters.hom_split_coin.load() == 0);
+
+        // At a site left collapsed no strand is used, so the same read is kept there.
+        out.clear();
+        vector<double> one_sided{+5.0, +5.0, +5.0, nan};
+        build_site_anchors(ev, {0, 0}, ">1>4", 0.9, 1.0, 0, params, counters, out, &one_sided);
+        REQUIRE(out.size() == 2);
+        REQUIRE(out[0].reads.size() == 4);
     }
 
     SECTION("without the flag the same evidence stays collapsed") {

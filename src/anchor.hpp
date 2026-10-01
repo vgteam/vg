@@ -87,16 +87,17 @@ struct AnchorCounters {
     /// and those left as one slot because the reads did not divide.
     atomic<size_t> hom_split{0};
     atomic<size_t> hom_unsplit{0};
-    /// Reads at a split homozygous site whose strand log-odds name no strand: those that have none,
-    /// and those seen in more than one phase set, which are dropped.
+    /// Reads at a split homozygous site whose strand log-odds name no strand of its phase set:
+    /// those that have none, and those whose strand is from another phase set, or from more than
+    /// one, which are dropped.
     atomic<size_t> hom_split_no_opinion{0};
     /// Of those, the reads that have no strand log-odds. Both slots spell the same allele, so such
     /// a read is placed by a coin flip derived from its name, which puts it in the same slot at
     /// every site.
     atomic<size_t> hom_split_coin{0};
     /// Read placements at a heterozygous site whose slot weights --anchors-phase-hets changed by the
-    /// read's strand log-odds. Reads with no strand log-odds, or seen in more than one phase set,
-    /// are not counted, since the option does not affect them.
+    /// read's strand log-odds. Reads with no strand log-odds, or with a strand from another
+    /// phase set, are not counted, since the option does not affect them.
     atomic<size_t> het_phase_tilted{0};
     /// Under --anchors-strict-hets, placements that the sign of the strand log-odds moved off the
     /// slot the allele match would have chosen.
@@ -211,8 +212,8 @@ struct AnchorParams {
     /// probability of about 62%.
     ///
     /// This decides whether the site is split, not which reads are kept: at a split site every
-    /// read is placed, except one seen in more than one phase set, and its confidence is written
-    /// in its row so that a consumer can filter.
+    /// read is placed, except one whose strand is from another phase set, and its confidence is
+    /// written in its row so that a consumer can filter.
     double phase_min = 0.5;
 
     /// Minimum number of confidently placed reads on each strand before a homozygous site may be
@@ -309,15 +310,16 @@ private:
 /// `genotype` sits on, and is ignored otherwise; the caller supplies it from the phasing.
 ///
 /// `read_strand`, indexed like `evidence.reads`, holds each read's tempered strand log-odds with
-/// this site left out; positive favours slot 0, and 0 means the read has none. It changes the
-/// slot choice in three cases:
+/// this site left out; positive favours slot 0, 0 means the read has none, and NaN means its
+/// strand is from another phase set, or from more than one (see `read_strand_usable`). It
+/// changes the slot choice in three cases:
 ///
 /// - At a heterozygous site under `params.phase_hets` (the default), the disfavoured slot's v_i
 ///   is multiplied by exp(-|log-odds|), as `phase_aware_correction` weights it.
 /// - Under `params.strict_hets`, the sign alone chooses a heterozygous site's slot.
 /// - Under `params.hom_split`, a diploid homozygous site with enough confidently placed reads on
 ///   each strand gets two slots, and the sign divides its reads between them (a read with none
-///   goes by a hash of its name).
+///   goes by a hash of its name, and a read whose log-odds are NaN is dropped).
 ///
 /// A read's confidence is computed without the strand log-odds in every case.
 void build_site_anchors(const AnchorSiteEvidence& evidence, const vector<int>& genotype,

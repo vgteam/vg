@@ -1291,9 +1291,10 @@ fitted in the same way from the final phase.
 - `--anchors-hom-split` divides the reads of a diploid site that is not phaseable between two slots
   by the sign of their $y_{rs}$. A site is split only when, for each sign, at least
   `--split-min-side` reads have a $y_{rs}$ of that sign and of absolute value at least
-  `--split-min-q`. At a split site, a read whose $y_{rs}$ is 0, such as a read seen in more than one
-  phase set, is placed by a coin flip derived from its name, so it takes the same slot at every
-  site.
+  `--split-min-q`. A split site leaves out a read whose strand is not usable there, because the
+  read was used in another phase set or in more than one: its strand says nothing about this
+  phase set's. Any other read whose $y_{rs}$ is 0 is placed by a coin flip derived from its name,
+  so it takes the same slot at every site.
 
 #### Rows of the anchor file
 
