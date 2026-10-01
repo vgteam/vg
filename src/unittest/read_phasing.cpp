@@ -98,6 +98,19 @@ TEST_CASE("phase is not compared across blocks", "[read_phasing]") {
     REQUIRE(counters.chains == 2);
 }
 
+TEST_CASE("a hung site that no read links keeps the panel's order", "[read_phasing]") {
+    // With --phase-prior 0 and no shared read, the hang stage has no vote either way, and the panel
+    // gave the site an order. Flipping it would invent a phase out of nothing.
+    vector<PhaseSite> sites{site(1, 100, 0), site(2, 200, 1, 20, 1.0, 500), site(3, 300, 0)};
+    ReadPhasingParams params;
+    params.panel_weight = 0.0;
+    ReadPhasingCounters counters;
+    const auto flips = read_phase_flips(sites, params, counters);
+    REQUIRE(counters.hung == 1);
+    REQUIRE(counters.hung_no_reads == 1);
+    REQUIRE(flips.empty());
+}
+
 TEST_CASE("a link's sign is what the log odds say", "[read_phasing]") {
     const PhaseSite a = site(1, 100, 0);
     const PhaseSite same = site(2, 200, 0);

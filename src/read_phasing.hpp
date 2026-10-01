@@ -109,7 +109,7 @@ struct ReadPhasingParams {
     /// hang / 2 + 1 on each side, so up to 6 in all at the default of 4.
     size_t hang = 4;
     /// Weight, in log10 units, of a vote for the panel's order when hanging a site
-    /// (--phase-prior).
+    /// (--phase-prior). At 0, a site that no read links to the chain keeps the panel's order.
     double panel_weight = 3.0;
     /// Limit on the size of one link, 0 for none (--phase-cap). Reads are treated as independent,
     /// so a link from many reads can be far larger than its real reliability.
@@ -159,7 +159,8 @@ double phase_link(const PhaseSite& a, const PhaseSite& b, double cap);
 ///
 /// Returns the record keys whose settled pair should be swapped. A chain's first site keeps the
 /// panel's order, so with no read evidence nothing is swapped. Breaks are relinked from left to
-/// right, each piece taking its orientation from the piece before it as that piece now stands.
+/// right, each piece taking its orientation from the piece before it as that piece now stands. A
+/// hung site whose votes sum to exactly zero keeps the panel's order.
 unordered_set<size_t> read_phase_flips(vector<PhaseSite>& sites, const ReadPhasingParams& params,
                                        ReadPhasingCounters& counters);
 

@@ -946,7 +946,7 @@ goes through four stages:
    of them votes for the phase it implies, with a weight equal to its size. A further vote of
    weight `--phase-prior`, in the same $\log_{10}$ units, favours flipping the site exactly when
    the nearest phase-chain site is flipped. The site takes the phase with the larger total vote,
-   and a tie flips it.
+   and a tie keeps the panel's phase.
 
 When read phasing flips a site, its alleles change strands, and so does every nested haploid chain
 that takes its strand from them, directly or through another nested haploid chain. A diploid

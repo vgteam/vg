@@ -290,7 +290,8 @@ unordered_set<size_t> read_phase_flips(vector<PhaseSite>& sites, const ReadPhasi
                 if (used == 0) {
                     ++counters.hung_no_reads;
                 }
-                o[t] = s > 0.0 ? 0 : 1;
+                // Flipped only on a vote against the panel's order; a tie keeps it.
+                o[t] = s < 0.0 ? 1 : 0;
                 decided[t] = 1;
                 ++counters.hung;
             }
