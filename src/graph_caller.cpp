@@ -5491,34 +5491,6 @@ vector<FlowCaller::PendingRecord*> FlowCaller::records_for_render(bool for_phasi
     return out;
 }
 
-/// The per-read evidence read phasing and re-genotyping need, from whichever form the site kept. Under
-/// --anchors-out the site keeps only the anchor evidence, which is converted into `scratch`.
-/// `scratch` must outlive the returned pointer.
-static const PhaseReadEvidence* phase_evidence_of(
-        const ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo& info,
-        PhaseReadEvidence& scratch) {
-    const PhaseReadEvidence* pe = info.phase_evidence.get();
-    if (pe == nullptr && info.anchor_evidence != nullptr) {
-        const AnchorSiteEvidence& ev = *info.anchor_evidence;
-        scratch.n_alleles = ev.n_alleles;
-        scratch.allele_length = ev.allele_length;
-        scratch.mean_read_length = ev.mean_read_length;
-        scratch.length_weighted = ev.length_weighted;
-        scratch.rel = ev.rel;
-        scratch.read_key.reserve(ev.reads.size());
-        scratch.mismap.reserve(ev.reads.size());
-        for (const AnchorRead& r : ev.reads) {
-            scratch.read_key.push_back((uint64_t)std::hash<string>{}(r.name));
-            scratch.mismap.push_back(r.mismap);
-        }
-        pe = &scratch;
-    }
-    if (pe != nullptr && (pe->n_alleles == 0 || pe->num_reads() == 0)) {
-        return nullptr;
-    }
-    return pe;
-}
-
 void FlowCaller::apply_read_phasing() {
     if (!read_phasing || linkage_collector == nullptr || linkage_phased.empty()) {
         return;
@@ -5554,7 +5526,7 @@ void FlowCaller::apply_read_phasing() {
                 continue;
             }
             PhaseReadEvidence converted;
-            const PhaseReadEvidence* pe = phase_evidence_of(*info, converted);
+            const PhaseReadEvidence* pe = info->read_phasing_evidence(converted);
             if (pe == nullptr) {
                 continue;
             }
@@ -5774,7 +5746,7 @@ bool FlowCaller::apply_regenotyping() {
             }
             // `converted` belongs to this iteration; nothing may point into it afterwards.
             PhaseReadEvidence converted;
-            const PhaseReadEvidence* pe = phase_evidence_of(*info, converted);
+            const PhaseReadEvidence* pe = info->read_phasing_evidence(converted);
             if (pe == nullptr) {
                 continue;
             }

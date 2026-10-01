@@ -326,6 +326,31 @@ pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> ReadLikelihoodSnarlCaller::
     return make_pair(best_genotype, std::move(call_info_owner));
 }
 
+const PhaseReadEvidence* ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo::read_phasing_evidence(
+        PhaseReadEvidence& scratch) const {
+    const PhaseReadEvidence* pe = phase_evidence.get();
+    if (pe == nullptr && anchor_evidence != nullptr) {
+        const AnchorSiteEvidence& ev = *anchor_evidence;
+        scratch.n_alleles = ev.n_alleles;
+        scratch.allele_length = ev.allele_length;
+        scratch.mean_read_length = ev.mean_read_length;
+        scratch.length_weighted = ev.length_weighted;
+        scratch.rel = ev.rel;
+        scratch.read_key.reserve(ev.reads.size());
+        scratch.mismap.reserve(ev.reads.size());
+        for (const AnchorRead& r : ev.reads) {
+            // The same key the calculator gives a read when it fills `phase_evidence` itself.
+            scratch.read_key.push_back((uint64_t)std::hash<string>{}(r.name));
+            scratch.mismap.push_back(r.mismap);
+        }
+        pe = &scratch;
+    }
+    if (pe != nullptr && (pe->n_alleles == 0 || pe->num_reads() == 0)) {
+        return nullptr;
+    }
+    return pe;
+}
+
 void ReadLikelihoodSnarlCaller::update_vcf_info(const Snarl& snarl,
                                                const vector<SnarlTraversal>& traversals,
                                                const vector<int>& genotype,

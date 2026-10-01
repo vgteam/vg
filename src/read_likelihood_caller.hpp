@@ -89,6 +89,12 @@ public:
         /// across like `anchor_evidence`.
         unique_ptr<PhaseReadEvidence> phase_evidence;
 
+        /// The per-read evidence that read phasing and re-genotyping need, from whichever of
+        /// the two fields above the site kept. Under --anchors-out the site keeps only
+        /// `anchor_evidence`, which is converted into `scratch`; `scratch` must then outlive
+        /// the returned pointer. Null where the site kept neither, or has no reads or alleles.
+        const PhaseReadEvidence* read_phasing_evidence(PhaseReadEvidence& scratch) const;
+
         /// `genotype_lls` as the sweep computed them, before re-genotyping corrected them.
         /// Saved at the first correction, and each later round of re-genotyping corrects
         /// these rather than the previous round's values. Null until re-genotyping changes

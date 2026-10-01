@@ -256,8 +256,8 @@ candidate alleles need explaining. Each module has unit tests in `src/unittest/<
 
 - `allele_likelihood.hpp` fills two types that belong to later modules, the anchor evidence and
   the phase evidence, because only it has each read's alignment in hand. Under `--anchors-out` it
-  keeps only the anchor evidence, and the phase evidence is derived from it by `phase_evidence_of`,
-  a static function in `graph_caller.cpp` that no header declares.
+  keeps only the anchor evidence, and the phase evidence is derived from it by
+  `ReadLikelihoodCallInfo::read_phasing_evidence`, declared in `read_likelihood_caller.hpp`.
 - `allele_length_weights` is declared in `read_phasing.hpp` but is also used by `regenotype.cpp`
   and `anchor.cpp`.
 - `linkage_model.hpp` holds two concepts, the model (`LinkageModel`) and the code that drives it
