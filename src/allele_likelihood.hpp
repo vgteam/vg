@@ -107,8 +107,9 @@ public:
         this->unique_lengths = std::move(unique_lengths);
     }
 
-    /// Set up the depth term, w * ln Poisson(N ; lambda_G), which asks whether genotype
-    /// G predicts the number of reads seen, N. Here
+    /// Set up the depth term, w * ln Poisson(N ; lambda_G) - ln Z_w(lambda_G), which asks
+    /// whether genotype G predicts the number of reads seen, N. Z_w(lambda) normalises
+    /// Poisson(n ; lambda)^w over n >= 0 (see genotype_likelihood). Here
     ///
     ///     lambda_G = rate * sum_{h in G} (T_h + R - 1)
     ///
@@ -152,9 +153,7 @@ public:
     /// The read count N that the depth term compares with lambda_G: sum_r (1 - e_r)
     /// with `effective_count`, and the number of rows otherwise. Since N need not be a
     /// whole number, the depth term treats it with a continuous analogue of the Poisson
-    /// distribution over read counts n >= 0, using lgamma in place of ln n!. That
-    /// density is used only up to its normalising constant, which depends on lambda_G
-    /// and is left out.
+    /// distribution over read counts n >= 0, using lgamma in place of ln n!.
     double observed_reads() const;
 
     /// This allele's length without the site's boundary nodes, T_h. 0 if the depth
@@ -188,11 +187,14 @@ public:
      * ln P(reads | G), where G is a multiset of allele indices of size ploidy:
      *
      *   ln P(reads | G) =  sum_r ln [ (1 - e_r) * sum_{h in G} w_h * rel(r,h) + e_r ]
-     *                    + w_d * ln Poisson( N ; lambda_G )
+     *                    + w_d * ln Poisson( N ; lambda_G ) - ln Z_{w_d}(lambda_G)
      *
      * r runs over the site's reads and h over the haplotypes of G, so a homozygote
      * counts its allele twice. e_r is the read's mismapping probability and w_h the
-     * mixture weight. The second term is the depth term (see set_depth_context).
+     * mixture weight. The rest is the depth term (see set_depth_context): the log of the
+     * density Poisson(n ; lambda)^w_d / Z_{w_d}(lambda) over n >= 0 at the observed count,
+     * with Z_{w_d} taken from its normal approximation,
+     * ((1 - w_d) / 2) ln(2 pi lambda) - (1/2) ln w_d.
      *
      * Since rel(r,h) lies in [0, 1], each read's term lies between ln(e_r) and 0, so
      * the floor on e_r limits how much one read can count against a genotype.

@@ -498,6 +498,30 @@ TEST_CASE("The matrix does not depend on the order reads are added in", "[allele
     }
 }
 
+TEST_CASE("The depth term is the log of a normalised tempered density", "[allele_likelihood]") {
+    // Reads that fit both alleles equally leave only the depth term to tell genotypes apart. It
+    // is beta * ln f(N; lambda) - ln Z_beta(lambda), with Z_beta from its normal approximation,
+    // and lambda held at 2 in Z_beta below 2.
+    AlleleReadLikelihoodsBuilder builder(2);
+    builder.add_read({0.0, 0.0}, 0.02, "a");
+    builder.add_read({0.0, 0.0}, 0.02, "b");
+    AlleleReadLikelihoods matrix = builder.build();
+    const double beta = 0.5, rate = 0.01, read_length = 50.0;
+    matrix.set_depth_context({10, 100}, rate, read_length, beta, false);
+    auto expected = [&](const vector<int>& genotype) {
+        double lambda = 0.0;
+        for (int a : genotype) {
+            lambda += rate * ((a == 0 ? 10.0 : 100.0) + read_length - 1.0);
+        }
+        double ln_f = 2.0 * log(lambda) - lambda - lgamma(3.0);
+        double held = max(lambda, 2.0);
+        return beta * ln_f - (0.5 * (1.0 - beta) * log(2.0 * M_PI * held) - 0.5 * log(beta));
+    };
+    for (const vector<int>& genotype : {vector<int>{0, 0}, vector<int>{0, 1}, vector<int>{1, 1}}) {
+        REQUIRE(matrix.genotype_likelihood(genotype) == Approx(expected(genotype)));
+    }
+}
+
 TEST_CASE("The mismapping probability is clamped at both ends", "[allele_likelihood]") {
     // The upper clamp is load-bearing rather than hygiene. Many mappers use
     // MAPQ 0 to mean "multi-mapping" rather than P(wrong) = 1, and an unclamped

@@ -198,11 +198,12 @@ independently for each read.
 We compute the site likelihood as
 
 $$
-\mathcal{L}(G) = \prod_{r \in R} \left[ (1 - e_r) \sum_{i=1}^{P} w_i(G) p_{r g_i} + e_r \right] \times f_{\mathrm{Pois}}\left(N_{\mathrm{eff}} ; \mu_G\right)^{\beta}
+\mathcal{L}(G) = \prod_{r \in R} \left[ (1 - e_r) \sum_{i=1}^{P} w_i(G) p_{r g_i} + e_r \right] \times \frac{f_{\mathrm{Pois}}\left(N_{\mathrm{eff}} ; \mu_G\right)^{\beta}}{\hat Z_\beta(\mu_G)}
 $$
 
 The product over reads, the **read term**, represents $\prod_{r \in R} \Pr(r \mid G)$. The last
-factor, the **depth term**, represents $h_\beta(N_{\mathrm{eff}} ; \mu_G)$. Each is approximately
+factor, the **depth term**, represents $h_\beta(N_{\mathrm{eff}} ; \mu_G)$, with
+$\hat Z_\beta$ an approximation of its normaliser $Z_\beta$ (see [Depth term](#depth-term)). Each is approximately
 proportional to its counterpart in the model, with a factor that does not depend on $G$, so
 
 $$
@@ -372,21 +373,23 @@ would, for reasons the model leaves out. At $\beta = 0$, $f_{\mathrm{Pois}}^{\be
 genotype, so the count says nothing about $G$, and the depth term is off.
 
 Evaluated at the observed $N_{\mathrm{eff}}$, $h_\beta(N_{\mathrm{eff}} ; \lambda)$ is the
-likelihood of $\lambda$. We approximate it by its numerator, leaving out $Z_\beta(\lambda)$:
+likelihood of $\lambda$. We compute $Z_\beta(\lambda)$ from the normal approximation: for large
+$\lambda$, $f_{\mathrm{Pois}}(n ; \lambda)$ is close to a normal density in $n$ with mean and
+variance $\lambda$, so
 
 $$
-h_\beta\left(N_{\mathrm{eff}} ; \mu_G\right) \approx \frac{f_{\mathrm{Pois}}\left(N_{\mathrm{eff}} ; \mu_G\right)^{\beta}}{Z}
+\ln Z_\beta(\lambda) \approx \frac{1 - \beta}{2} \ln (2 \pi \lambda) - \frac{1}{2} \ln \beta
 $$
 
-for a constant $Z$. This is a good approximation where $Z_\beta(\lambda)$ changes little between
-the expected read counts of the genotypes being compared. At $\beta = 1$, $Z_1(\lambda)$ is within
-1% of 1 for every $\lambda \geq 4$: it is 0.994 at $\lambda = 4$ and 0.9999 at $\lambda = 8$. At
-$\beta < 1$, $Z_\beta(\lambda)$ is not close to 1, but it grows slowly with $\lambda$, about as
-$\lambda^{(1 - \beta)/2}$. Leaving it out therefore favours the genotype with the larger expected
-read count, by about $\frac{1 - \beta}{2} \ln (\mu_G / \mu_{G'})$ in $\ln \mathcal{L}$ between
-genotypes $G$ and $G'$. That is 0 between genotypes whose alleles have equal lengths, such as at a
-SNP. At $\beta = 0.1$, when one genotype expects twice as many reads as the other, it is between
-0.31 and 0.35.
+Against numerical integration at $\beta = 0.1$, $0.5$ and $1$, this is within 0.13 of
+$\ln Z_\beta(\lambda)$ for every $\lambda \geq 2$, and within 0.02 for $\lambda \geq 30$.
+Below $\lambda = 2$ it falls away from the integral, so there we use its value at $\lambda = 2$.
+At $\beta = 1$ the approximation is 0. At $\beta < 1$, $Z_\beta(\lambda)$ grows with $\lambda$,
+about as $\lambda^{(1 - \beta)/2}$, so the normaliser counts against the genotype with the larger
+expected read count, by about $\frac{1 - \beta}{2} \ln (\mu_G / \mu_{G'})$ in
+$\ln \mathcal{L}$ between genotypes $G$ and $G'$. That is 0 between genotypes whose alleles have
+equal lengths, such as at a SNP. At $\beta = 0.1$, when one genotype expects twice as many reads as
+the other, it is 0.31.
 
 The expected read count is
 
