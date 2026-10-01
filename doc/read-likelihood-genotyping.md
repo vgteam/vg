@@ -721,7 +721,7 @@ allele: the block's REF for the site's reference allele, and each ALT for the si
 first strand that carries the ALT. The block record copies its `AD` and `GL` entries from the site
 record, reading each block allele as the site allele it stands for. Summing or averaging these
 fields over a site's records therefore counts the site's evidence more than once. `INFO/SB` gives
-each block record's index, counting from 0, and the site's number of blocks after merging.
+each block record's index, counting from 0, and the number of block records the site writes.
 
 When every crossing of a child chain by the alleles of the parent's direct call lies inside a
 block, the block's ALT spells out the chain. The records of the chain, and of the sites nested in
@@ -1069,7 +1069,7 @@ last correction changed.
 | `DR` | $N_{\mathrm{eff}} / \mu_G$ at the direct call: the effective read count over the count that the direct call predicts |
 | `BL` | mean over reads of $\max_a \ell_{ra}$, each read's best log-likelihood score at the site (see [Relative likelihood](#relative-likelihood)) |
 | `FORMAT/PS` | the phase set |
-| `INFO/SB` | on a block record, its index counting from 0 among the site's block records, and the site's number of blocks after merging (see [Reporting each difference once](#reporting-each-difference-once)) |
+| `INFO/SB` | on a block record, its index counting from 0 among the site's block records, and the number of block records the site writes (see [Reporting each difference once](#reporting-each-difference-once)) |
 | `FILTER=noreads` | the site had no reads, so no genotype is called (`GT` is `./.`). Such a record is written only with `-a`, which also writes reference calls and sites with no reads |
 | `FILTER=lowconf` | `GQN` is below `--min-confidence` |
 

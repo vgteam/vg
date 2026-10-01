@@ -3063,7 +3063,8 @@ int VCFOutputCaller::emit_block_records(const PathPositionHandleGraph& graph, co
         b_var.alleles = alleles;
         b_var.info["AT"].clear();
         b_var.info["AT"].resize(alleles.size());
-        b_var.info["SB"] = {std::to_string(built.size()), std::to_string(clusters.size())};
+        // The second field, the number of records, is known once every cluster is built.
+        b_var.info["SB"] = {std::to_string(built.size()), ""};
 
         // AT per block allele, over the visit range this record actually spells.
         {
@@ -3268,6 +3269,9 @@ int VCFOutputCaller::emit_block_records(const PathPositionHandleGraph& graph, co
     int added = 0;
     size_t block_index = 0;
     for (vcflib::Variant& b_var : built) {
+        // The number of records the site writes, which leaves out a cluster that every strand
+        // spells as the reference.
+        b_var.info["SB"][1] = std::to_string(built.size());
         if (add_variant(b_var, block_index)) {
             ++added;
         }
