@@ -134,6 +134,21 @@ public:
     /// Expected number of reads at this site under the genotype, lambda_G.
     double expected_reads(const vector<int>& genotype) const;
 
+    /// lambda_G = rate * sum_{h in G} (T_h + R - 1) from the depth context's parts, for a caller
+    /// that keeps them after the matrix is gone. `expected_reads` is this with the matrix's own.
+    /// An allele outside `traversal_lengths`, such as a negative marker, has T_h = 0.
+    static double expected_reads_from(const vector<size_t>& traversal_lengths, double rate,
+                                      double read_length, const vector<int>& genotype);
+
+    /// True once set_depth_context has supplied traversal lengths.
+    bool has_depth_context() const { return !traversal_lengths.empty(); }
+
+    /// The read-start rate per base per haplotype that set_depth_context was given.
+    double depth_rate_per_haplotype() const { return depth_rate; }
+
+    /// The mean read length R that set_depth_context was given.
+    double depth_read_length_used() const { return depth_read_length; }
+
     /// The read count N that the depth term compares with lambda_G: sum_r (1 - e_r)
     /// with `effective_count`, and the number of rows otherwise. Since N need not be a
     /// whole number, the depth term treats it with a continuous analogue of the Poisson

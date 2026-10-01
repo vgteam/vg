@@ -117,10 +117,23 @@ public:
         double explained_share = 1.0;
 
         /// Observed reads over the number the called genotype predicts, from the local
-        /// rate and the lengths of the called alleles; 1.0 when the two agree. Written as DR
-        /// whether or not the depth term is on. Negative, and not written, where no read
-        /// begins in the rate window.
+        /// rate and the lengths of the called alleles; 1.0 when the two agree. Negative where
+        /// no read begins in the rate window. DR is written from `depth_ratio_of` for the
+        /// written genotype where that can be computed, and from this otherwise.
         double depth_ratio = -1.0;
+
+        /// The parts of the matrix's depth context that DR needs for a genotype other than the
+        /// direct call: T_h for each scored allele, in matrix column order, the read-start rate
+        /// per haplotype, R and the observed count N (see AlleleReadLikelihoods::
+        /// set_depth_context). `depth_lengths` is empty where the depth context was not set.
+        vector<size_t> depth_lengths;
+        double depth_rate = 0.0;
+        double depth_read_length = 0.0;
+        double depth_observed = 0.0;
+
+        /// N / lambda_G for a genotype given as matrix columns, as `depth_ratio` is for the
+        /// direct call; -1 where lambda_G is 0 or the depth context was not set.
+        double depth_ratio_of(const vector<int>& scored_genotype) const;
 
         /// GQ before any discount, the explained share's or the depth discount. Written as GQI.
         double gq_undiscounted = 0;

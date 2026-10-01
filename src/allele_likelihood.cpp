@@ -47,13 +47,19 @@ double AlleleReadLikelihoods::best_ln_likelihood(size_t r) const {
 }
 
 double AlleleReadLikelihoods::expected_reads(const vector<int>& genotype) const {
+    return expected_reads_from(traversal_lengths, depth_rate, depth_read_length, genotype);
+}
+
+double AlleleReadLikelihoods::expected_reads_from(const vector<size_t>& traversal_lengths,
+                                                  double rate, double read_length,
+                                                  const vector<int>& genotype) {
     double total = 0.0;
     for (int allele : genotype) {
         double len = (allele >= 0 && (size_t)allele < traversal_lengths.size())
                          ? (double)traversal_lengths[allele] : 0.0;
-        total += len + depth_read_length - 1.0;
+        total += len + read_length - 1.0;
     }
-    return depth_rate * total;
+    return rate * total;
 }
 
 double AlleleReadLikelihoods::observed_reads() const {

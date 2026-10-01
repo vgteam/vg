@@ -578,12 +578,12 @@ measured. $N_{\mathrm{eff}}$ is then the number of the site's reads, a whole num
 the model draws that number.
 
 The VCF's `DR` field, the **depth ratio**, is the effective read count divided by the expected
-read count, $N_{\mathrm{eff}} / \mu_G$, for the site's
-[direct call](#direct-call-or-linkage), the genotype with the highest $\mathcal{L}(G)$. A value
-near 1 means that the site has as many reads as the direct call predicts. `DR` is written whether
-or not the depth term is on, and is left out where $\kappa = 0$. It is computed once, for the
-direct call, and keeps its value when the linkage model settles a different genotype or
-re-genotyping corrects the likelihoods.
+read count, $N_{\mathrm{eff}} / \mu_G$, for the genotype the record is written with: the site's
+[direct call](#direct-call-or-linkage), the genotype with the highest $\mathcal{L}(G)$, or the
+genotype the linkage model settles. A value near 1 means that the site has as many reads as that
+genotype predicts. `DR` is written whether or not the depth term is on, and is left out where
+$\kappa = 0$. Where an allele of the written genotype was not among the site's candidate alleles,
+or the record's ploidy is not the one the site was genotyped at, it is the direct call's.
 
 ## Genotyping
 
@@ -1184,7 +1184,7 @@ writes one line for each site whose direct call the last correction changed.
 | `QUAL` | phred-scaled posterior probability, under the same uniform prior, of the genotype whose alleles are all the reference allele; 0 when `GT` is all reference |
 | `DP` | number of reads of the site |
 | `AD` | for each allele in the record, the number of reads whose best allele it is, rounded; a read tied between alleles counts a fraction to each |
-| `DR` | $N_{\mathrm{eff}} / \mu_G$ at the direct call: the effective read count over the count that the direct call predicts |
+| `DR` | $N_{\mathrm{eff}} / \mu_G$: the effective read count over the count that the written genotype predicts |
 | `BL` | mean over reads of $\max_a \ell_{ra}$, each read's best log-likelihood score at the site (see [Relative likelihood](#relative-likelihood)) |
 | `FORMAT/PS` | the phase set |
 | `INFO/SB` | on a block record, its index counting from 0 among the site's block records, and the number of block records the site writes (see [Reporting each difference once](#reporting-each-difference-once)) |
@@ -1248,8 +1248,9 @@ whose correction changes the genotype with the highest $\mathcal{L}(G)$, `GQ` is
 them as the per-site `GQ` is, for that genotype, but with the sweep's `--depth-quality` factor. Each
 round starts again from the sweep's likelihoods and `GQ`, so `GQ` follows the last round's
 correction, and is the sweep's where that correction left the best genotype alone. `GP`, `GQI`,
-`GQN`, `DR` and `lowconf` keep their values from before the correction, so they describe the direct
-call made from the uncorrected likelihoods. A moved record takes the `GQ`, `GQN` and `lowconf`
+`GQN` and `lowconf` keep their values from before the correction, so they describe the direct
+call made from the uncorrected likelihoods. `DR` does not depend on the likelihoods, and describes
+the written genotype. A moved record takes the `GQ`, `GQN` and `lowconf`
 described above, whether or not re-genotyping ran.
 
 #### Options that change the fields

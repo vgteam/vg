@@ -358,6 +358,37 @@ TEST_CASE("A nested site's depth rate is per haplotype of the region, not of the
     REQUIRE(nested.info->alt_ploidy_info->depth_ratio == Approx(diploid.info->depth_ratio));
 }
 
+TEST_CASE("DR can be computed for a genotype other than the direct call",
+          "[read_likelihood_caller]") {
+    // The linkage model can write a genotype other than the direct call, and DR must then
+    // describe the written one. The CallInfo keeps what that needs, and gives back exactly the
+    // direct call's DR for the direct call.
+    CallerSite site;
+    vector<Alignment> reads;
+    for (int i = 0; i < 15; ++i) {
+        reads.push_back(matching_read(site.graph, "r" + std::to_string(i), {1, 3, 4}));
+    }
+    ReadLikelihoodSnarlCaller::set_want_alt_ploidy(true);
+    Called called = call_site(site, reads);
+    ReadLikelihoodSnarlCaller::set_want_alt_ploidy(false);
+    REQUIRE(called.info != nullptr);
+    REQUIRE(called.genotype == vector<int>({1, 1}));
+    REQUIRE(called.info->depth_ratio > 0.0);
+    REQUIRE(called.info->depth_ratio_of({1, 1}) == called.info->depth_ratio);
+
+    // Another genotype, against lambda's formula.
+    const auto& info = *called.info;
+    REQUIRE(!info.depth_lengths.empty());
+    double lambda_01 = info.depth_rate * ((double)info.depth_lengths[0] + info.depth_read_length - 1.0
+                                          + (double)info.depth_lengths[1] + info.depth_read_length
+                                          - 1.0);
+    REQUIRE(info.depth_ratio_of({0, 1}) == Approx(info.depth_observed / lambda_01));
+
+    // The alternate ploidy's CallInfo, which the barrier can promote, carries the same context.
+    REQUIRE(info.alt_ploidy_info != nullptr);
+    REQUIRE(info.alt_ploidy_info->depth_ratio_of({1, 1}) == info.depth_ratio);
+}
+
 TEST_CASE("Recomputed GQ takes the explained share of the new best genotype",
           "[read_likelihood_caller]") {
     CallerSite site;

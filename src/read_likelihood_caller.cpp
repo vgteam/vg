@@ -163,6 +163,15 @@ pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> ReadLikelihoodSnarlCaller::
 
     call_info->n_reads = matrix.num_reads();
     call_info->scored_traversals.assign(traversals.begin(), traversals.end());
+    if (matrix.has_depth_context()) {
+        call_info->depth_lengths.reserve(matrix.num_alleles());
+        for (size_t a = 0; a < matrix.num_alleles(); ++a) {
+            call_info->depth_lengths.push_back(matrix.traversal_length(a));
+        }
+        call_info->depth_rate = matrix.depth_rate_per_haplotype();
+        call_info->depth_read_length = matrix.depth_read_length_used();
+        call_info->depth_observed = matrix.observed_reads();
+    }
     // Kept for later: the anchors are built when the record is rendered, from the settled
     // genotype.
     call_info->anchor_evidence = std::move(matrix.anchor_evidence);
@@ -315,6 +324,10 @@ pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> ReadLikelihoodSnarlCaller::
         alt->allele_support = call_info->allele_support;
         // BL, also a property of the matrix.
         alt->mean_best_ln = call_info->mean_best_ln;
+        alt->depth_lengths = call_info->depth_lengths;
+        alt->depth_rate = call_info->depth_rate;
+        alt->depth_read_length = call_info->depth_read_length;
+        alt->depth_observed = call_info->depth_observed;
         alt->ploidy = other;
         vector<int> alt_best = derive(other, alt.get());
         if (!alt_best.empty()) {
@@ -324,6 +337,19 @@ pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> ReadLikelihoodSnarlCaller::
     }
 
     return make_pair(best_genotype, std::move(call_info_owner));
+}
+
+double ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo::depth_ratio_of(
+        const vector<int>& scored_genotype) const {
+    if (depth_lengths.empty()) {
+        return -1.0;
+    }
+    // The arithmetic of AlleleReadLikelihoods::depth_ratio, so that the direct call gets back
+    // exactly the `depth_ratio` it was given.
+    double expected = AlleleReadLikelihoods::expected_reads_from(depth_lengths, depth_rate,
+                                                                 depth_read_length,
+                                                                 scored_genotype);
+    return expected > 0.0 ? depth_observed / expected : -1.0;
 }
 
 const PhaseReadEvidence* ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo::read_phasing_evidence(
@@ -379,14 +405,6 @@ void ReadLikelihoodSnarlCaller::update_vcf_info(const Snarl& snarl,
         variant.samples[sample_name]["BL"].push_back(ss.str());
     }
 
-    // Observed reads over what the call predicts, written whether or not the depth term is on.
-    if (info->depth_ratio >= 0.0) {
-        variant.format.push_back("DR");
-        stringstream ss;
-        ss << std::fixed << std::setprecision(3) << info->depth_ratio;
-        variant.samples[sample_name]["DR"].push_back(ss.str());
-    }
-
     // Map each emitted VCF allele back to the matrix column it came from.
     //
     // emit_variant merged alleles with the same sequence and dropped uncalled ones, so
@@ -399,6 +417,40 @@ void ReadLikelihoodSnarlCaller::update_vcf_info(const Snarl& snarl,
                 site_to_scored[s] = (int)k;
                 break;
             }
+        }
+    }
+
+    // Observed reads over what the written genotype predicts, written whether or not the depth
+    // term is on. The written genotype is the direct call's unless the linkage model moved the
+    // record. It is used where each of its alleles maps to a scored column and it has the
+    // ploidy the site was genotyped at; otherwise DR is the direct call's.
+    {
+        double depth_ratio = info->depth_ratio;
+        vector<int> scored_written;
+        bool mapped = true;
+        for (int allele : genotype) {
+            if (allele < 0) {
+                continue;
+            }
+            if ((size_t)allele >= site_to_scored.size() || site_to_scored[allele] < 0) {
+                mapped = false;
+                break;
+            }
+            scored_written.push_back(site_to_scored[allele]);
+        }
+        if (mapped && (int)scored_written.size() == info->ploidy) {
+            // Sorted, as the direct call's genotype is, so that the sum runs in the same order.
+            sort(scored_written.begin(), scored_written.end());
+            double written = info->depth_ratio_of(scored_written);
+            if (written >= 0.0) {
+                depth_ratio = written;
+            }
+        }
+        if (depth_ratio >= 0.0) {
+            variant.format.push_back("DR");
+            stringstream ss;
+            ss << std::fixed << std::setprecision(3) << depth_ratio;
+            variant.samples[sample_name]["DR"].push_back(ss.str());
         }
     }
 
