@@ -315,6 +315,197 @@ TEST_CASE("Secondary alternatives do not join the supplementary group",
 }
 
 
+
+TEST_CASE("Anchor sliding checks read and target-path repeats",
+          "[surject][anchor-sliding]") {
+    string region = "ACGATTACGACCCC";
+    size_t anchor_start = 0;
+    size_t ref_span = 4;
+    int64_t max_slide = 6;
+    bool reverse_steps = false, reverse_on_path = false;
+    bool split_nodes = false, sentinel_first = false;
+    bool insertion = false;
+    string read_between;
+    bool prune = true;
+
+    SECTION("Target-path duplicate at the positive slide limit") {
+    }
+    SECTION("Target-path duplicate at the negative slide limit") {
+        anchor_start = 6;
+    }
+    SECTION("Target-path duplicate outside the slide limit") {
+        max_slide = 5;
+        prune = false;
+    }
+    SECTION("Zero slide limit disables both searches") {
+        max_slide = 0;
+        read_between = "TTACGA";
+        prune = false;
+    }
+    SECTION("Unique anchor at the beginning of the path") {
+        region = "ACGATTCGCCCC";
+        prune = false;
+    }
+    SECTION("Unique anchor at the end of the path") {
+        region = "CCCCTTCGACGA";
+        anchor_start = region.size() - ref_span;
+        sentinel_first = true;
+        prune = false;
+    }
+    SECTION("Read duplicate without a target-path duplicate") {
+        region = "ACGATTCGCCCC";
+        read_between = "TTACGA";
+    }
+    SECTION("Reverse mapping on a reverse step is forward on the path") {
+        reverse_steps = true;
+    }
+    SECTION("Reverse mapping on a forward step is reverse on the path") {
+        reverse_on_path = true;
+    }
+    SECTION("Forward mapping on a reverse step is reverse on the path") {
+        reverse_steps = true;
+        reverse_on_path = true;
+    }
+    SECTION("Anchor and duplicate cross node boundaries") {
+        split_nodes = true;
+    }
+    SECTION("Reverse-path anchor spans multiple nodes") {
+        split_nodes = true;
+        reverse_on_path = true;
+    }
+    SECTION("Reverse-path anchor spans reverse-oriented nodes") {
+        split_nodes = true;
+        reverse_steps = true;
+        reverse_on_path = true;
+    }
+    SECTION("Read insertion preserves the read-based search radius") {
+        region = "ACGATTCGCCCC";
+        insertion = true;
+        read_between = "TTACGCTAGA";
+        max_slide = 12;
+    }
+
+    // A distinct longer anchor prevents the keep-one-anchor fallback from
+    // hiding removal of the anchor being tested.
+    const string sentinel = "GATCCGTAGTCACTGACCTAGGTC";
+    const string path_sequence = sentinel_first
+        ? sentinel + region : region + sentinel;
+    const size_t sentinel_start = sentinel_first ? 0 : region.size();
+    if (sentinel_first) {
+        anchor_start += sentinel.size();
+    }
+
+    bdsg::HashGraph graph;
+    auto path = graph.create_path_handle("ref");
+    vector<handle_t> handles;
+    vector<step_handle_t> steps;
+    vector<size_t> starts;
+    for (size_t start = 0; start < path_sequence.size();) {
+        size_t length = split_nodes
+            ? min<size_t>(3, path_sequence.size() - start)
+            : path_sequence.size();
+        string sequence = path_sequence.substr(start, length);
+        if (reverse_steps) {
+            reverse_complement_in_place(sequence);
+        }
+        auto handle = graph.create_handle(sequence);
+        if (reverse_steps) {
+            handle = graph.flip(handle);
+        }
+        if (!handles.empty()) {
+            graph.create_edge(handles.back(), handle);
+        }
+        handles.push_back(handle);
+        starts.push_back(start);
+        steps.push_back(graph.append_step(path, handle));
+        start += length;
+    }
+    bdsg::PositionOverlay pos_graph(&graph);
+    TestSurjector surjector(&pos_graph);
+    surjector.prune_suspicious_anchors = true;
+    surjector.prune_tail_region_anchors = false;
+    surjector.max_tail_anchor_prune = 0;
+    surjector.max_low_complexity_anchor_prune = 0;
+    surjector.max_low_complexity_anchor_trim = 0;
+    surjector.max_anchors = 1000;
+    surjector.max_slide = max_slide;
+
+    string anchor_sequence = path_sequence.substr(anchor_start, ref_span);
+    string sentinel_sequence = sentinel;
+    if (reverse_on_path) {
+        reverse_complement_in_place(anchor_sequence);
+        reverse_complement_in_place(sentinel_sequence);
+    }
+    if (insertion) {
+        anchor_sequence.insert(2, "GCTA");
+    }
+    const string sequence = anchor_sequence + read_between + sentinel_sequence;
+    vector<Surjector::path_chunk_t> chunks;
+    vector<pair<step_handle_t, step_handle_t>> ranges;
+    auto add_anchor = [&](size_t path_start, size_t span, size_t read_start,
+                          size_t read_span, bool insert_bases) {
+        path_t mappings;
+        vector<size_t> touched;
+        for (size_t j = 0; j < handles.size(); ++j) {
+            size_t begin = max(path_start, starts[j]);
+            size_t end = min(path_start + span,
+                             starts[j] + graph.get_length(handles[j]));
+            if (begin < end) {
+                touched.push_back(j);
+            }
+        }
+        if (reverse_on_path) {
+            std::reverse(touched.begin(), touched.end());
+        }
+        for (auto j : touched) {
+            size_t begin = max(path_start, starts[j]);
+            size_t end = min(path_start + span,
+                             starts[j] + graph.get_length(handles[j]));
+            auto* mapping = mappings.add_mapping();
+            auto* position = mapping->mutable_position();
+            position->set_node_id(graph.get_id(handles[j]));
+            position->set_is_reverse(reverse_steps != reverse_on_path);
+            position->set_offset(reverse_on_path
+                ? starts[j] + graph.get_length(handles[j]) - end
+                : begin - starts[j]);
+            auto* edit = mapping->add_edit();
+            if (insert_bases) {
+                edit->set_from_length(2);
+                edit->set_to_length(2);
+                edit = mapping->add_edit();
+                edit->set_to_length(4);
+                edit->set_sequence("GCTA");
+                edit = mapping->add_edit();
+                edit->set_from_length(2);
+                edit->set_to_length(2);
+            } else {
+                edit->set_from_length(end - begin);
+                edit->set_to_length(end - begin);
+            }
+        }
+        chunks.emplace_back(make_pair(sequence.begin() + read_start,
+                                      sequence.begin() + read_start + read_span),
+                            mappings);
+        ranges.emplace_back(steps[touched.front()], steps[touched.back()]);
+    };
+    add_anchor(anchor_start, ref_span, 0, anchor_sequence.size(), insertion);
+    add_anchor(sentinel_start, sentinel.size(),
+               anchor_sequence.size() + read_between.size(), sentinel.size(), false);
+    const auto original_ranges = ranges;
+
+    surjector.prune_and_trim_anchors(sequence, chunks, ranges, 0, 0);
+
+    REQUIRE(chunks.size() == (prune ? 1 : 2));
+    REQUIRE(ranges.size() == chunks.size());
+    CHECK(chunks.back().first.first
+          == sequence.begin() + anchor_sequence.size() + read_between.size());
+    CHECK(ranges.back() == original_ranges.back());
+    if (!prune) {
+        CHECK(chunks.front().first.first == sequence.begin());
+        CHECK(ranges.front() == original_ranges.front());
+    }
+}
+
 TEST_CASE("Mapper-declared tails control anchor pruning",
           "[surject][tail-pruning]") {
     bdsg::HashGraph graph;
