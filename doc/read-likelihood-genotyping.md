@@ -497,9 +497,9 @@ pairs the read visit with the allele's next unpaired visit as a substitution. On
 visits are used up, the remaining read visits are left unpaired. A pair, once made, is never
 revised.
 
-Greedy pairing differs from optimal pairing in two further ways. It can make a substitution that
-optimal pairing does not consider, between visits that one of the two sequences makes elsewhere.
-And it scores each unpaired read visit as a gap of its own, rather than one gap per run.
+Greedy pairing scores the pairing it finds by the same rules as optimal pairing, including one
+gap for each run of unpaired read visits. It can, however, make a substitution that optimal
+pairing does not consider, between visits that one of the two sequences makes elsewhere.
 
 ##### From scores to relative likelihoods
 
@@ -515,8 +515,8 @@ bases under the alignment model, over their probability as unrelated random sequ
 vg interprets alignment scores as probabilities elsewhere. The scorers with and without the
 quality adjustment have different log bases. $I_{ra}$ is the number of insertions in the pairing
 in which the read has bases the allele lacks: those inside the mapper's edits, each unpaired read
-visit, and each substitution whose read node is the longer. Under optimal pairing, each unpaired
-read visit counts once here, even where a run of them is scored as one gap. $\iota$ is
+visit, and each substitution whose read node is the longer. Each unpaired read visit counts once
+here, even where a run of them is scored as one gap. $\iota$ is
 `--insertion-nats`. A positive $\iota$ makes an insertion, where the read has bases the allele
 lacks, cost less than a deletion of the same length, where the allele has bases the read lacks.
 Optimal pairing chooses the pairing by $s_{ra}$ alone, and then adds $\iota$ for its insertions.

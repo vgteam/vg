@@ -736,6 +736,23 @@ int32_t GraphAlignedAlleleLikelihoodCalculator::score_by_greedy_pairing(
     bool have_anchor = false;
     size_t bases_accounted = 0;
 
+    // A run of consecutive unpaired read visits after the first same-visit pair is one gap, as
+    // in optimal pairing, so that a pairing scores the same whichever search found it: the run's
+    // first visit opens the gap and the others extend it. Before that pair, each unpaired read
+    // visit is a gap of its own. Each unpaired visit adds --insertion-nats, as in optimal pairing.
+    const int32_t extend_per_base = read_scorer.score_gap(2) - read_scorer.score_gap(1);
+    bool in_insertion = false;
+    auto leave_unpaired = [&](const ReadStep& step) {
+        if (in_insertion) {
+            score += (int32_t)step.read_length * extend_per_base;
+        } else {
+            score += read_scorer.score_gap(step.read_length);
+            in_insertion = have_anchor;
+        }
+        nat_adjust += params.insertion_gap_nats;
+        bases_accounted += step.read_length;
+    };
+
     // Last read position visiting each (node, orientation). The pass below has to ask
     // "is the allele's current node still to come in the read?", which is the mirror of
     // the anchor search's "is the read's node still to come in the allele?". Both
@@ -782,6 +799,7 @@ int32_t GraphAlignedAlleleLikelihoodCalculator::score_by_greedy_pairing(
             score += score_shared_node(aln, read_step, read_scorer, nat_adjust);
             bases_accounted += read_step.read_length;
             have_anchor = true;
+            in_insertion = false;
             allele_index = found + 1;
             continue;
         }
@@ -794,13 +812,10 @@ int32_t GraphAlignedAlleleLikelihoodCalculator::score_by_greedy_pairing(
             // If the read visits this allele node later on, the current read visit is one
             // the allele lacks: an insertion. We charge it and leave allele_index where it
             // is, so the allele node is still there to pair with the read's later visit.
-            // An inserted node then costs one gap, as a deleted node does.
             auto later = read_last_visit.find(((int64_t)allele_step.node_id << 1)
                                               | (int64_t)allele_step.backward);
             if (later != read_last_visit.end() && later->second > read_index) {
-                score += read_scorer.score_gap(read_step.read_length);
-                nat_adjust += params.insertion_gap_nats;
-                bases_accounted += read_step.read_length;
+                leave_unpaired(read_step);
                 continue;
             }
 
@@ -824,14 +839,13 @@ int32_t GraphAlignedAlleleLikelihoodCalculator::score_by_greedy_pairing(
             }
 
             bases_accounted += read_step.read_length;
+            in_insertion = false;
             ++allele_index;
         } else {
             // The allele is used up but the read continues. Those read bases cannot be
             // placed on this allele, so they are charged as an insertion, which keeps
             // every allele scored over the same read bases.
-            score += read_scorer.score_gap(read_step.read_length);
-            nat_adjust += params.insertion_gap_nats;
-            bases_accounted += read_step.read_length;
+            leave_unpaired(read_step);
         }
     }
 
@@ -863,8 +877,8 @@ int32_t GraphAlignedAlleleLikelihoodCalculator::score_by_greedy_pairing(
 // nowhere in the other sequence is a substitution. Any other pair is forbidden: a visit the read
 // and the allele share may not be paired with a different visit, though it may be left unpaired.
 //
-// A run of k inserted read visits is one gap here, where greedy pairing charges a gap for each
-// visit. The answer is the best final-row cell in P, M or I. D is excluded because it has charged
+// A run of k inserted read visits after the first match is one gap, as in greedy pairing. The
+// answer is the best final-row cell in P, M or I. D is excluded because it has charged
 // allele visits after the read's window, and P is allowed so that a read that pairs nothing still
 // gets a finite score.
 int32_t GraphAlignedAlleleLikelihoodCalculator::score_by_optimal_pairing(

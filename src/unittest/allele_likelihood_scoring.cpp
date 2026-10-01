@@ -482,6 +482,25 @@ TEST_CASE("Every read is placeable against every allele, whatever the node layou
     }
 }
 
+TEST_CASE("Greedy pairing scores a run of unpaired read visits as one gap, as optimal pairing does",
+          "[allele_likelihood][scoring]") {
+    // With an edge from 2 to 3, a read can visit both SNP nodes. Against the deletion allele
+    // (1, 4), its visits to 2 and 3 are one run of unpaired visits after the pair on node 1, so
+    // one gap of two bases, whichever search finds the pairing.
+    SnpAndDeletionSite site;
+    site.graph.create_edge(site.graph.get_handle(2), site.graph.get_handle(3));
+    Alignment both = make_matching_alignment(site.graph, "both",
+                                             {{1, false}, {2, false}, {3, false}, {4, false}});
+    AlleleReadLikelihoods greedy = score_site(site, {both}, 2, false);
+    AlleleReadLikelihoods optimal = score_site(site, {both}, 2, true);
+    REQUIRE(greedy.num_reads() == 1);
+    REQUIRE(optimal.num_reads() == 1);
+    for (size_t a = 0; a < 3; ++a) {
+        INFO("allele " << a);
+        REQUIRE(greedy.rel(0, a) == Approx(optimal.rel(0, a)));
+    }
+}
+
 TEST_CASE("Optimal pairing keeps the indel invariants greedy pairing has",
           "[allele_likelihood][scoring]") {
     // --optimal-pairing changes how the pairing is searched for, not what a pairing costs, so the
