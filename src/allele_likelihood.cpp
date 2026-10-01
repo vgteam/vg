@@ -1238,7 +1238,7 @@ GraphAlignedAlleleLikelihoodCalculator::id_window_read_stats(
 }
 
 AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
-    const Snarl& snarl, const vector<SnarlTraversal>& traversals, int ploidy) {
+    const Snarl& snarl, const vector<SnarlTraversal>& traversals, int region_ploidy) {
 
 
     AlleleReadLikelihoodsBuilder builder(traversals.size(), params.min_mismap_prob,
@@ -1569,11 +1569,11 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
     }
     if (!depth_lengths.empty()) {
         // Set whether or not the depth term is on, so that DR is always written; a zero
-        // weight leaves the likelihood unchanged. The rate is per haplotype, from the site's
-        // own ploidy.
-        int effective_ploidy = ploidy > 0 ? ploidy : params.depth_ploidy;
+        // weight leaves the likelihood unchanged. The rate is per haplotype, and the window
+        // counts reads from every haplotype in the region, not only those crossing the site.
+        int haplotypes = region_ploidy > 0 ? region_ploidy : params.depth_ploidy;
         result.set_depth_context(depth_lengths,
-                                 stats.start_rate / (double)effective_ploidy,
+                                 stats.start_rate / (double)haplotypes,
                                  // The window's population mean, not the site's size-biased one.
                                  // Falls back to the site mean where no read began in the window,
                                  // which is a small window at the end of a contig rather than a

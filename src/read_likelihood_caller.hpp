@@ -143,6 +143,14 @@ public:
     /// for it there only costs memory. Thread-local because the sweep calls sites in parallel.
     static void set_want_alt_ploidy(bool on) { want_alt_ploidy = on; }
 
+    /// Tell the `genotype` calls on this thread how many of the sample's haplotypes the region
+    /// around the site holds, or 0 to take the site's own ploidy. The depth term needs it: its
+    /// rate is per haplotype, and the reads it is measured from come from every haplotype in the
+    /// region. Only a nested site needs it set, since a nested site's ploidy counts only the
+    /// parent alleles that cross it, where a top-level site's ploidy is the region's.
+    /// Thread-local for the same reason as set_want_alt_ploidy.
+    static void set_region_ploidy(int ploidy) { region_ploidy = ploidy; }
+
     virtual pair<vector<int>, unique_ptr<CallInfo>> genotype(const Snarl& snarl,
                                                              const vector<SnarlTraversal>& traversals,
                                                              int ref_trav_idx,
@@ -250,6 +258,8 @@ protected:
 
     /// See set_want_alt_ploidy.
     static thread_local bool want_alt_ploidy;
+    /// See set_region_ploidy.
+    static thread_local int region_ploidy;
 
 
     /// Whether GQ is scaled by the explained-read fraction. See set_share_discount.

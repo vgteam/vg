@@ -366,10 +366,13 @@ weighting can be measured; it also makes the allele-length weights of
   of reads whose alignment begins on a reference node in the window, each counted as $1 - e_r$,
   divided by the reference length of the window. Only reference nodes count on either side, so the
   rate does not depend on how the graph's nodes are numbered or on how much variation the window
-  holds. The counts are computed once per bucket and shared, and each site divides the rate by its
-  own ploidy to give $\kappa$. When no read begins in the window, $\kappa = 0$, and the site has no
-  depth term and no `DR`. A graph without reference path positions falls back to a window of a fixed
-  number of consecutive node IDs around the site.
+  holds. The counts are computed once per bucket and shared, and each site divides the rate by the
+  ploidy of the region (`-d`, `-R` or `--ploidy-bed`) to give $\kappa$. That is the site's own
+  ploidy, except at a nested site that only some of its parent's alleles cross: the site is
+  genotyped at a lower ploidy, but the window's reads still come from every haplotype. When no
+  read begins in the window, $\kappa = 0$, and the site has no depth term and no `DR`. A graph
+  without reference path positions falls back to a window of a fixed number of consecutive node
+  IDs around the site.
 - $\bar L$ is the mean length of the reads that begin in the rate window, or of the site's own
   reads if none does. The mixture weights use the same $\bar L$.
 - $N_{\mathrm{eff}}$ counts each read of the site as $1 - e_r$. With `--depth-count-raw`, each read

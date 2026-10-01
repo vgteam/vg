@@ -106,16 +106,6 @@ public:
         this->unique_lengths = std::move(unique_lengths);
     }
 
-    /// Scale the per-haplotype depth rate by `factor`.
-    ///
-    /// The rate is the local read rate divided by the ploidy the site is scored at, so
-    /// scoring the same matrix at another ploidy scales it by the ratio of the two
-    /// ploidies; for example 0.5 to go from ploidy 1 to ploidy 2. Nothing else in the
-    /// matrix depends on ploidy.
-    void scale_depth_rate(double factor) {
-        this->depth_rate *= factor;
-    }
-
     /// Set up the depth term, w * ln Poisson(N ; lambda_G), which asks whether genotype
     /// G predicts the number of reads seen, N. Here
     ///
@@ -368,8 +358,8 @@ struct AlleleLikelihoodParams {
     /// locus, rather than as 1. The local rate is counted the same way.
     bool depth_effective_reads = true;
 
-    /// Ploidy used for the depth rate when `compute` is called with a ploidy of 0 or
-    /// less; at 0 or less here too, the rate window is not measured.
+    /// Ploidy used for the depth rate when `compute` is called with a region ploidy of 0
+    /// or less; at 0 or less here too, the rate window is not measured.
     int depth_ploidy = 2;
 
     /// Collect per-read anchor evidence while the reads are in memory (--anchors-out).
@@ -393,11 +383,15 @@ public:
     virtual ~AlleleLikelihoodCalculator() = default;
 
     /// Build the matrix for one site. traversals are the candidate alleles, in
-    /// the order the caller will genotype them. `ploidy` is the site's ploidy, which
-    /// the depth term needs to turn a local read count into a per-haplotype rate.
+    /// the order the caller will genotype them. `region_ploidy` is the number of the
+    /// sample's haplotypes in the region around the site, which the depth term divides the
+    /// local read rate by to get a per-haplotype rate. It is the site's own ploidy at a
+    /// top-level site, and more than it at a nested site that only some of its parent's
+    /// alleles cross, since the reads counted near the site come from all of them.
+    /// Nothing in the matrix depends on the ploidy the site is then genotyped at.
     virtual AlleleReadLikelihoods compute(const Snarl& snarl,
                                           const vector<SnarlTraversal>& traversals,
-                                          int ploidy) = 0;
+                                          int region_ploidy) = 0;
 };
 
 /**
@@ -461,7 +455,7 @@ public:
 
     AlleleReadLikelihoods compute(const Snarl& snarl,
                                   const vector<SnarlTraversal>& traversals,
-                                  int ploidy) override;
+                                  int region_ploidy) override;
 
     /// Place rate windows on these reference paths of `position_graph`, which must be the
     /// graph the calculator was built on, or a view of it with the same nodes. Until this is
@@ -599,7 +593,7 @@ protected:
     /// read begins in the window, the caller falls back to the site's own reads for R.
     ///
     /// Each read is weighted by 1 - e_r when `depth_effective_reads` is set. The rate
-    /// is per base, not per haplotype: each site divides it by its own ploidy. It is 0
+    /// is per base, not per haplotype: each site divides it by the region's ploidy. It is 0
     /// if no read begins in the window, which turns that site's depth term off.
     struct WindowReadStats {
         double start_rate = 0.0;

@@ -6798,12 +6798,12 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
     vector<int> trav_genotype;  // Declared outside block so we can pass to children
 
     // A ploidy from the parent overrides the contig's or the region BED's: it is the number of the
-    // parent's called alleles that reach this child.
-    int ploidy = ploidy_override >= 0
-                 ? ploidy_override
-                 : ploidy_at(ref_path_name, get<0>(ref_interval),
-                             ref_offset_of(ref_offsets, ref_path_name),
-                             ref_ploidy_of(ref_ploidies, ref_path_name));
+    // parent's called alleles that reach this child. The region's is still the number of the
+    // sample's haplotypes here, which the depth term needs.
+    const int region_ploidy = ploidy_at(ref_path_name, get<0>(ref_interval),
+                                        ref_offset_of(ref_offsets, ref_path_name),
+                                        ref_ploidy_of(ref_ploidies, ref_path_name));
+    int ploidy = ploidy_override >= 0 ? ploidy_override : region_ploidy;
 
     // What both the parent-traversal-set branch and the top-level branch do with their genotype.
     // `trav_call_info` differs between them, so it is a parameter. `snarl` is captured by reference;
@@ -6903,9 +6903,11 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
             // the alleles are then placed on the strands that pass through.
             int effective_ploidy = (int)traversing_sets.size();
             vector<int> called_alleles;
+            ReadLikelihoodSnarlCaller::set_region_ploidy(region_ploidy);
             std::tie(called_alleles, trav_call_info) = snarl_caller.genotype(
                 snarl, travs, ref_trav_idx, effective_ploidy, ref_path_name,
                 make_pair(get<0>(ref_interval), get<1>(ref_interval)));
+            ReadLikelihoodSnarlCaller::set_region_ploidy(0);
 
             // Scatter the called alleles back onto the traversing haplotypes,
             // leaving the others as star/missing.
@@ -6931,9 +6933,11 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
         // can have its ploidy revised at the barrier, so only it needs the other ploidy's answer.
         unique_ptr<SnarlCaller::CallInfo> trav_call_info;
         ReadLikelihoodSnarlCaller::set_want_alt_ploidy(true);
+        ReadLikelihoodSnarlCaller::set_region_ploidy(region_ploidy);
         std::tie(trav_genotype, trav_call_info) = snarl_caller.genotype(
             snarl, travs, ref_trav_idx, ploidy, ref_path_name,
             make_pair(get<0>(ref_interval), get<1>(ref_interval)));
+        ReadLikelihoodSnarlCaller::set_region_ploidy(0);
         ReadLikelihoodSnarlCaller::set_want_alt_ploidy(false);
 
         const bool retain_only = nested_context.retain_only;

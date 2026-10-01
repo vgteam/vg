@@ -12,6 +12,7 @@
 namespace vg {
 
 thread_local bool ReadLikelihoodSnarlCaller::want_alt_ploidy = false;
+thread_local int ReadLikelihoodSnarlCaller::region_ploidy = 0;
 
 using namespace std;
 
@@ -122,7 +123,8 @@ pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> ReadLikelihoodSnarlCaller::
     }
 
     // Build the reads x alleles matrix for this site.
-    AlleleReadLikelihoods matrix = likelihood_calculator.compute(snarl, traversals, ploidy);
+    AlleleReadLikelihoods matrix = likelihood_calculator.compute(
+        snarl, traversals, region_ploidy > 0 ? region_ploidy : ploidy);
 
     // Per-allele read support and mean absolute fit. Neither enters the genotype likelihood;
     // both are written to the VCF, as AD and BL.
@@ -297,11 +299,10 @@ pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> ReadLikelihoodSnarlCaller::
         return make_pair(vector<int>(), std::move(call_info_owner));
     }
 
-    // The same site at the other ploidy, from the same matrix. The depth rate is per haplotype,
-    // so it is rescaled by the ratio of the two ploidies, and restored afterwards.
+    // The same site at the other ploidy, from the same matrix. The depth rate is per haplotype
+    // of the region, so it does not change with the number of haplotypes crossing the site.
     if (want_alt_ploidy && traversals.size() > 1) {
         int other = ploidy == 1 ? 2 : 1;
-        matrix.scale_depth_rate((double)ploidy / (double)other);
         auto alt = make_unique<ReadLikelihoodCallInfo>();
         // Copy the fields that depend only on the matrix, not on the ploidy.
         alt->n_reads = call_info->n_reads;
@@ -311,7 +312,6 @@ pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> ReadLikelihoodSnarlCaller::
         alt->mean_best_ln = call_info->mean_best_ln;
         alt->ploidy = other;
         vector<int> alt_best = derive(other, alt.get());
-        matrix.scale_depth_rate((double)other / (double)ploidy);   // restore
         if (!alt_best.empty()) {
             call_info->alt_ploidy_best = alt_best;
             call_info->alt_ploidy_info = std::move(alt);

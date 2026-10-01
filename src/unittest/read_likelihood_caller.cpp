@@ -273,6 +273,39 @@ TEST_CASE("Haploid sites are genotyped with one allele and still get a quality",
     REQUIRE(called.info->gq <= called.info->gq_undiscounted + 1e-9);
 }
 
+TEST_CASE("A nested site's depth rate is per haplotype of the region, not of the site",
+          "[read_likelihood_caller]") {
+    // A nested site that only one of a diploid parent's alleles crosses is genotyped at
+    // ploidy 1, but the reads its depth rate is measured from come from both haplotypes.
+    // With the region's ploidy, one copy of the allele predicts half the reads that two
+    // copies do, so the same reads give twice the DR. With the site's own ploidy, the rate
+    // would double and the two DRs would be equal.
+    CallerSite site;
+    vector<Alignment> reads;
+    for (int i = 0; i < 15; ++i) {
+        reads.push_back(matching_read(site.graph, "r" + std::to_string(i), {1, 3, 4}));
+    }
+
+    Called diploid = call_site(site, reads);
+    ReadLikelihoodSnarlCaller::set_region_ploidy(2);
+    ReadLikelihoodSnarlCaller::set_want_alt_ploidy(true);
+    Called nested = call_site(site, reads, nullptr, 1);
+    ReadLikelihoodSnarlCaller::set_want_alt_ploidy(false);
+    ReadLikelihoodSnarlCaller::set_region_ploidy(0);
+
+    REQUIRE(diploid.info != nullptr);
+    REQUIRE(nested.info != nullptr);
+    REQUIRE(diploid.genotype == vector<int>({1, 1}));
+    REQUIRE(nested.genotype == vector<int>({1}));
+    REQUIRE(diploid.info->depth_ratio > 0.0);
+    REQUIRE(nested.info->depth_ratio == Approx(2.0 * diploid.info->depth_ratio));
+
+    // The site at ploidy 2, which the barrier takes if both parent alleles turn out to cross
+    // it, predicts what the diploid call does.
+    REQUIRE(nested.info->alt_ploidy_info != nullptr);
+    REQUIRE(nested.info->alt_ploidy_info->depth_ratio == Approx(diploid.info->depth_ratio));
+}
+
 TEST_CASE("Recomputed GQ takes the explained share of the new best genotype",
           "[read_likelihood_caller]") {
     CallerSite site;
