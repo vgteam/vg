@@ -135,7 +135,10 @@ public:
 
     /// The read count N that the depth term compares with lambda_G: sum_r (1 - e_r)
     /// with `effective_count`, and the number of rows otherwise. Since N need not be a
-    /// whole number, the Poisson probability is computed with lgamma in place of ln N!.
+    /// whole number, the depth term treats it with a continuous analogue of the Poisson
+    /// distribution over read counts n >= 0, using lgamma in place of ln n!. That
+    /// density is used only up to its normalising constant, which depends on lambda_G
+    /// and is left out.
     double observed_reads() const;
 
     /// This allele's length without the site's boundary nodes, T_h. 0 if the depth
@@ -149,11 +152,13 @@ public:
     /// written as the DR output field whether or not the depth term is on.
     double depth_ratio(const vector<int>& genotype) const;
 
-    /// The mean read length R used by the mixture weights and the depth term.
+    /// The mean read length R used by the mixture weights and copied into the evidence
+    /// kept for read phasing and anchors.
     double mean_read_length_estimate() const { return mean_read_length; }
 
-    /// Set R alone, for the depth term. set_length_weights also sets it, but is called
-    /// only when the mixture is length-weighted, and the depth term needs R either way.
+    /// Set R for the mixture weights, and for the evidence copied from this matrix,
+    /// without turning on length weighting. The depth term takes its own R from
+    /// set_depth_context. `compute` passes both the rate window's mean read length.
     void set_mean_read_length(double mean_read_length) {
         this->mean_read_length = mean_read_length;
     }

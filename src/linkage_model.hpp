@@ -6,7 +6,7 @@
  * re-decides per-site genotypes using the combinations of alleles that panel haplotypes
  * carry at neighbouring sites. It also phases the calls.
  *
- * The model is described in doc/read-likelihood-genotyping.md, under "The linkage model".
+ * The model is described in doc/read-likelihood-genotyping.md, under "Linkage model".
  */
 
 #include <algorithm>
@@ -318,8 +318,9 @@ public:
         size_t parent_record_key = 0;
         /// Bit t set iff the parent's candidate traversal t crosses this chain.
         uint64_t parent_crossing = 0;
-        /// The site's depth in the snarl tree: 0 for a site inside no other site, 1 for a site in
-        /// a chain directly inside one, and so on. Its generation's pass settles it.
+        /// The site's depth of descent: its parent's generation plus 1 for a chain reached by
+        /// descent, and 0 for a site the sweep calls directly, which includes the children of a
+        /// snarl it could not genotype. Its generation's pass settles it.
         size_t generation = 0;
         /// Whether a VCF line exists for this site. `vg call` records every site before its line
         /// is written, so it passes false and supplies the answer through `set_allele_map`.
@@ -407,7 +408,9 @@ public:
         uint8_t generation = 0;
     };
 
-    /// Run the model per contig and return only the genotypes that changed.
+    /// Resolve generation 0 only, per contig, and return how many sites the model moved off their
+    /// called genotype. For unit tests; `vg call` resolves each generation with
+    /// `resolve_generation`.
     ///
     /// With `phasing_out`, also returns a phasing of the settled genotypes, after the model's
     /// changes, so that the phasing agrees with the VCF.
@@ -416,8 +419,15 @@ public:
     }
 
     /// The posterior of the settled genotype and the explained share, by record key, for each
-    /// site whose genotype the model changed. The record's GQ is built from these, since the
-    /// posterior exists only here.
+    /// site whose genotype the model has changed in any pass so far.
+    /// `VCFOutputCaller::write_variants` rewrites GQ, GQN and FILTER on each such record's rendered
+    /// line from these, since the posterior exists only here, and `FlowCaller::anchor_gqn_for` uses
+    /// them for the anchors' gqn column.
+    ///
+    /// The map is only ever added to, never cleared. Under --regenotype the barrier resolves again
+    /// in each round: a record moved again gets its entry overwritten, but a record that an earlier
+    /// round moved and a later round did not keeps the earlier round's entry, and its line is still
+    /// rewritten from that stale posterior.
     const std::unordered_map<size_t, std::pair<double, double>>& moved_quality() const {
         return moved_quality_by_record;
     }
@@ -439,8 +449,14 @@ public:
     size_t resolve_generation(size_t generation, bool last,
                                       vector<PhaseCall>* phasing_out = nullptr);
 
-    /// Drop a site before its generation resolves, because the parent's settled genotype does not
-    /// cross its chain, so the sample has no copy of it.
+    /// Mark a site's live entry retracted, so that the model no longer sees it.
+    ///
+    /// The barrier retracts a chain before its generation resolves when the parent's settled
+    /// genotype does not cross it, so the sample has no copy of it. It also retracts a chain's
+    /// entry just before recording the chain again at a revised ploidy. A chain retracted on an
+    /// earlier barrier pass that a later pass finds carried is recorded again. Lookups reach the
+    /// first live entry for a key, so after retract and then `record` the new entry is the live
+    /// one.
     ///
     /// The entry is marked rather than erased, since other entries hold offsets into the shared
     /// arrays, and everything that walks the entries skips it. Returns false for an unknown key.
@@ -488,8 +504,10 @@ public:
     };
 
     /// Compute a Relation from the parent's crossing mask and settled traversals. The barrier uses
-    /// the copy count to set a child chain's ploidy, and the nested-strand pass uses the carrying
-    /// traversal; both call this, so they cannot disagree. `trav_b` is -1 for a haploid parent.
+    /// the copy count to set a child chain's ploidy, and `resolve_generation` uses the carrying
+    /// traversal to put a ploidy-1 group on one of its parent's strands
+    /// (`PhaseCall::nested_strand`). Both call this, so they cannot disagree. `trav_b` is -1 for a
+    /// haploid parent.
     static Relation relate_to_parent(uint64_t crossing, int trav_a, int trav_b);
 
 

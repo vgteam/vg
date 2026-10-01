@@ -116,7 +116,7 @@ public:
         /// begins in the rate window.
         double depth_ratio = -1.0;
 
-        /// GQ before the explained-share discount. Written as GQI.
+        /// GQ before any discount, the explained share's or the depth discount. Written as GQI.
         double gq_undiscounted = 0;
 
         /// The factor the depth discount multiplies GQ by (see set_depth_quality); 1.0 where
@@ -134,9 +134,10 @@ public:
 
     };
 
-    /// Ask the next `genotype` call on this thread to also score the site at the other ploidy,
-    /// filling `alt_ploidy_best` and `alt_ploidy_info`. The matrix is reused, since it does not
-    /// depend on ploidy.
+    /// While on, every `genotype` call on this thread that finds a genotype at a site with more
+    /// than one candidate allele also scores the site at the other ploidy, filling
+    /// `alt_ploidy_best` and `alt_ploidy_info`. The matrix is reused, since it does not
+    /// depend on ploidy. The caller turns it off again after the call.
     ///
     /// Only a site in a nested chain needs this, because its ploidy comes from its parent's
     /// genotype, which the barrier settles later. A top-level site's ploidy is fixed, so asking

@@ -6173,8 +6173,8 @@ void FlowCaller::run_barrier() {
                 continue;
             }
             if (!pr.crossing_known) {
-                // The sweep could not compute this chain's crossing mask, because its parent wrote
-                // nothing or has more alleles than a 64-bit mask can hold. Left as it is and
+                // The sweep could not compute this chain's crossing mask, because its parent has
+                // more candidate traversals than a 64-bit mask can hold. Left as it is and
                 // counted, rather than read as "no allele crosses".
                 ++crossing_unknown;
                 continue;
@@ -6192,7 +6192,8 @@ void FlowCaller::run_barrier() {
             }
             const LinkageCollector::PhaseCall& parent = *found->second;
             // The settled pair as traversals, which the crossing mask is indexed by, through
-            // `LinkageCollector::relate_to_parent`, as the nested-strand pass uses.
+            // `LinkageCollector::relate_to_parent`, which `resolve_generation` also uses to set
+            // `nested_strand`.
             const LinkageCollector::Relation rel = LinkageCollector::relate_to_parent(
                 pr.parent_crossing, parent.trav_first,
                 parent.ploidy == 2 ? parent.trav_second : -1);
@@ -7212,9 +7213,9 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
         }
     }
 
-    // Descent above and the -A recursion, which builds each child's ChildTraversalSets from
-    // `travs`, are done, so the staged record can take the traversals. At most one of these is
-    // set.
+    // Descent above and the --top-down recursion, which builds each child's ChildTraversalSets
+    // from `travs`, are done, so the staged record can take the traversals. At most one of these
+    // is set.
     if (pending_this != nullptr) {
         pending_this->travs = std::move(travs);
         pending_records[omp_get_thread_num()].push_back(std::move(*pending_this));

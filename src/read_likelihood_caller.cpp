@@ -442,7 +442,10 @@ void ReadLikelihoodSnarlCaller::update_vcf_info(const Snarl& snarl,
     variant.samples[sample_name]["GQ"].push_back(
         std::to_string(min((int)256, max((int)0, (int)info->gq))));
 
-    // GQ before the explained-share discount, written even when the discount is off.
+    // GQ before both discounts, the explained share's (off under --no-share-quality) and
+    // --depth-quality's, written whether or not either is on. It is the gap the site's own
+    // likelihoods gave: when --regenotype recomputes GQ from corrected likelihoods, GQI is not
+    // recomputed with it.
     variant.format.push_back("GQI");
     variant.samples[sample_name]["GQI"].push_back(
         std::to_string(min((int)256, max((int)0, (int)info->gq_undiscounted))));

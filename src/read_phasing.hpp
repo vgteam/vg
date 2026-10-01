@@ -45,7 +45,9 @@ struct PhaseReadEvidence {
     /// rel(r, a), row major, reads x alleles, row-normalised into [0,1].
     vector<float> rel;
     size_t n_alleles = 0;
-    /// The alleles' full lengths and the site's mean read length, for the allele-length weights.
+    /// The alleles' full lengths, and the mean read length R the site's matrix used (the rate
+    /// window's mean; see AlleleReadLikelihoods::set_length_weights), for the allele-length
+    /// weights.
     vector<uint32_t> allele_length;
     float mean_read_length = 0.0f;
     bool length_weighted = true;
@@ -103,8 +105,8 @@ struct ReadPhasingParams {
     double break_threshold = 20.0;
     /// Chain sites on each side of a break whose links decide it (--phase-relink).
     size_t relink = 10;
-    /// How many chain sites an unreliable site is hung from (--phase-hang): the nearest
-    /// hang / 2 + 1 on each side.
+    /// Which chain sites an unreliable site is hung from (--phase-hang): the nearest
+    /// hang / 2 + 1 on each side, so up to 6 in all at the default of 4.
     size_t hang = 4;
     /// Weight, in log10 units, of a vote for the panel's order when hanging a site
     /// (--phase-prior).

@@ -149,10 +149,12 @@ struct AnchorSiteEvidence {
     /// rel(r, a), row major, reads x alleles, row-normalised into [0,1].
     vector<float> rel;
     size_t n_alleles = 0;
-    /// The alleles' full lengths and the site's mean read length, for the allele-length weights of
-    /// each read's confidence. Full lengths rather than the unique lengths the genotype model
-    /// uses, since unique lengths depend on the pair of alleles, which is not known until the
-    /// genotype is.
+    /// The alleles' full lengths, and the mean read length R the site's matrix used (the rate
+    /// window's mean; see AlleleReadLikelihoods::set_length_weights), for the allele-length
+    /// weights of each read's confidence. Full lengths rather than the unique lengths the
+    /// genotype model uses, since unique lengths depend on the pair of alleles. The lengths are
+    /// captured in the sweep, before the genotype exists, and the barrier can still change the
+    /// pair.
     vector<uint32_t> allele_length;
     float mean_read_length = 0.0f;
     bool length_weighted = true;
@@ -305,6 +307,19 @@ private:
 ///
 /// `genotype` is phase-ordered. `haploid_slot` is the strand, 0 or 1, that a one-allele
 /// `genotype` sits on, and is ignored otherwise; the caller supplies it from the phasing.
+///
+/// `read_strand`, indexed like `evidence.reads`, holds each read's tempered strand log-odds with
+/// this site left out; positive favours slot 0, and 0 means the read has none. It changes the
+/// slot choice in three cases:
+///
+/// - At a heterozygous site under `params.phase_hets` (the default), the disfavoured slot's v_i
+///   is multiplied by exp(-|log-odds|), as `phase_aware_correction` weights it.
+/// - Under `params.strict_hets`, the sign alone chooses a heterozygous site's slot.
+/// - Under `params.hom_split`, a diploid homozygous site with enough confidently placed reads on
+///   each strand gets two slots, and the sign divides its reads between them (a read with none
+///   goes by a hash of its name).
+///
+/// A read's confidence is computed without the strand log-odds in every case.
 void build_site_anchors(const AnchorSiteEvidence& evidence, const vector<int>& genotype,
                         const string& snarl_id, double gqn, double explained, int haploid_slot,
                         const AnchorParams& params, AnchorCounters& counters,

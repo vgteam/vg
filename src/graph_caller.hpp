@@ -271,8 +271,9 @@ public:
     void set_linkage(LinkageCollector* collector, const gbwt::GBWT* gbwt,
                      const vector<size_t>* sequence_to_haplotype);
 
-    /// Write phased genotypes (`0|1`) and FORMAT/PS, from the linkage model's Viterbi path. Has no
-    /// effect where the linkage model does not run.
+    /// Write phased genotypes (`0|1`) and FORMAT/PS, from the settled phase: the linkage model's
+    /// Viterbi path, as read phasing reordered it when read phasing is on. Has no effect where the
+    /// linkage model does not run.
     void set_emit_phasing(bool on) { this->emit_phasing = on; }
 
     /// `--min-confidence`, so that a record whose GQN the linkage model recomputes is marked
@@ -380,8 +381,12 @@ public:
         }
     }
 
-    /// Sort then write variants in the buffer
-    /// snarl_manager needed if include_nested is true
+    /// Write the buffered records. It adds the nesting INFO tags, sorts the records, runs the
+    /// linkage model if nothing has (`resolve_linkage`), and writes the mosaic
+    /// (`finalise_linkage_outputs`). Then it writes each record, rewriting GQ, GQN and FILTER on
+    /// those whose genotype the linkage model changed (`LinkageCollector::moved_quality`). Usable
+    /// once. `snarl_manager` is needed if
+    /// `include_nested` is true.
     void write_variants(ostream& out_stream, const SnarlManager* snarl_manager = nullptr);
 
     /// Run vcffixup from vcflib
@@ -428,6 +433,9 @@ public:
     /// traversal's is written as the reference allele, since it differs from the reference only
     /// inside child chains, whose own records report those differences. The manager is not owned
     /// and must outlive this caller.
+    ///
+    /// In FlowCaller a non-null manager also turns on nested calling: after call_snarl_internal
+    /// calls a snarl, it descends into the snarl's child chains and genotypes them.
     void set_symbolic_collapsing(const SnarlManager* manager) { this->symbolic_manager = manager; }
 
     /// Write one record per difference block between the reference and each called strand's
@@ -495,12 +503,24 @@ protected:
         /// how many copies of the chain the parent's settled genotype carries, and on which
         /// strand.
         uint64_t parent_crossing = 0;
-        /// The chain, and everything under it, is genotyped but not written yet.
+        /// Set where no called parent allele reaches the chain, and only when records are staged
+        /// for the barrier. The chain is genotyped anyway, at the parent's ploidy, because the
+        /// linkage model may still move the parent onto an allele that does reach it. Inherited by
+        /// its children, which are genotyped at their own provisional ploidy.
         ///
-        /// Set where no called parent allele reaches the chain. The chain is genotyped anyway,
-        /// because the linkage model may still move the parent onto an allele that does reach it,
-        /// but nothing about it is written until the barrier says the sample carries it. Inherited
-        /// by its children.
+        /// In the sweep the chain is staged, not written, and not recorded in the linkage model.
+        /// The exception is a snarl whose own boundaries are on no reference path: that is recorded
+        /// whatever this flag says, and never gets a line.
+        ///
+        /// The barrier decides what happens to it from the parent's settled pair. If the pair
+        /// carries no copy, the chain and everything under it are dropped. If it carries some, the
+        /// chain is recorded at that many copies and rendered; where the sweep scored no genotype
+        /// at that ploidy, it is rendered at the parent's ploidy instead, unrecorded. In three
+        /// cases the barrier does not compare the chain with a settled pair at all, so the chain is
+        /// never dropped on its parent's account (a dropped ancestor still removes it), and is
+        /// rendered at the ploidy it was genotyped at, unrecorded: without the linkage
+        /// model, where the parent has no settled pair, and where the crossing mask is 0 or unknown
+        /// (`crossing_known` false).
         bool retain_only = false;
         /// Where this chain starts along the first of the parent's called traversals that crosses
         /// it, in bases. Added to the parent's reference start, it gives an off-reference chain a
@@ -521,9 +541,8 @@ protected:
         /// groups a chain's sites by it, and chains under one parent have no transitions between
         /// them.
         size_t chain_key = 0;
-        /// False when the crossing mask could not be computed: the parent wrote nothing on this
-        /// call, or has too many alleles for a 64-bit mask. A 0 mask then means unknown rather than
-        /// "no allele crosses".
+        /// False when the parent has more than 64 candidate traversals, too many for the crossing
+        /// mask. A 0 mask then means unknown rather than "no allele crosses".
         bool crossing_known = true;
     };
     static thread_local NestedContext nested_context;
@@ -599,9 +618,9 @@ protected:
     /// Print the block-emission counters.
     void report_atomize_instrumentation() const;
 
-    /// Phase by record key, from the settled phasing as read phasing left it, and read as each
-    /// record is rendered. Keyed by record rather than by (contig, POS), since POS depends on which
-    /// alleles the line carries.
+    /// `linkage_phased` keyed by record, copied by `build_render_phases` when phasing is emitted.
+    /// Each record reads its phase from it as it is rendered. Keyed by record rather than by
+    /// (contig, POS), since POS depends on which alleles the line carries.
     std::unordered_map<size_t, LinkageCollector::PhaseCall> render_phases;
 
     /// Read phasing: whether it is on, its parameters, and its counters. See read_phasing.hpp.
@@ -644,8 +663,10 @@ protected:
     /// phased pair.
     mutable std::atomic<size_t> phase_declined{0};
 
-    /// Fill `render_phases` from the settled phasing, once read phasing has changed it, before any
-    /// record is rendered.
+    /// Copy `linkage_phased` into `render_phases`, keyed by record, when phasing is emitted.
+    /// `render_retained_records` calls it on every staged run, after `build_render_lambda` and
+    /// before any record is rendered. If read phasing ran, `linkage_phased` already carries its
+    /// swaps.
     void build_render_phases();
 
     /// Fill `render_lambda` from the settled phasing. Called just before `build_render_phases`,
@@ -1093,13 +1114,13 @@ protected:
 };
 
 /**
- * FlowCaller : Uses any traversals finder (ex, FlowTraversalFinder) to find
- * traversals, and calls those based on how much support they have.
- * Should work on any graph but will not
- * report cyclic traversals.  Supports nested calling when enabled with the
- * nested flag, recursively processing child snarls.
- * Designed to replace LegacyCaller, as it should miss fewer obviously
- * good traversals, and is not dependent on old protobuf-based structures.
+ * FlowCaller: takes each snarl's candidate traversals from a TraversalFinder and
+ * genotypes them with its SnarlCaller (support-based, or ReadLikelihoodSnarlCaller
+ * under --read-likelihood). It works on any graph. With the flow traversal finder it
+ * does not report cyclic traversals; haplotype enumeration can. The `nested` constructor flag is --top-down, which genotypes each
+ * child against traversal sets derived from its parent's called alleles. Nested
+ * calling, the descent into child chains in call_snarl_internal, is turned on
+ * instead by set_symbolic_collapsing.
  *
  * With the linkage model or nested calling, calling runs in stages. The sweep
  * genotypes every site from its own reads and stages a record for it (see
@@ -1158,7 +1179,9 @@ public:
 
     /// Record the site in the linkage model when it is genotyped, rather than when its line is
     /// written, since the barrier reads the collector before any line is written. The emitted
-    /// allele map and whether a line was written are supplied later, by `set_allele_map`.
+    /// allele map and whether a line was written are supplied later, by `set_allele_map`. The sweep
+    /// does not call this for a retained chain with a reference path (see
+    /// `NestedContext::retain_only`); the barrier records that chain if the sample carries it.
     void record_site(const Snarl& snarl, const vector<SnarlTraversal>& travs,
                      const vector<int>& trav_genotype,
                      const unique_ptr<SnarlCaller::CallInfo>& call_info, int ref_trav_idx,
@@ -1278,7 +1301,8 @@ protected:
 
     /// --- Nested mode members ---
 
-    /// enable recursive calling of child snarls
+    /// --top-down: after a snarl is called, genotype each child against the traversal sets its
+    /// called alleles allow (see call_snarl_internal).
     bool nested = false;
 
     /// use * alleles for spanning haplotypes that don't traverse nested sites
@@ -1317,9 +1341,10 @@ protected:
         int64_t position_from_parent = 0;
         /// See NestedContext::parent_crossing.
         uint64_t parent_crossing = 0;
-        /// False when parent_crossing could not be computed (the parent wrote nothing during the
-        /// sweep, or has too many alleles). The barrier computes the mask again when it revises or
-        /// first records the parent; until then a 0 mask means unknown.
+        /// False when the parent has more than 64 candidate traversals, too many for
+        /// `parent_crossing`. A 0 mask then means unknown, and the barrier leaves the chain at the
+        /// ploidy the sweep gave it. The barrier computes the mask again when it revises or first
+        /// records the parent.
         bool crossing_known = true;
         /// The site's generation.
         uint8_t generation = 0;
@@ -1412,8 +1437,9 @@ protected:
     /// @param parent_child_trav_sets If non-null, contains one TraversalSet per parent allele.
     ///                               Each set contains all traversals through this child that are
     ///                               consistent with that parent allele, and the child's genotype
-    ///                               takes one allele from each set. The -A recursion passes them;
-    ///                               nested calling passes null.
+    ///                               takes one allele from each set. --top-down (FlowCaller's
+    ///                               `nested` mode) passes them; nested calling (the descent that
+    ///                               set_symbolic_collapsing turns on) and -A pass null.
     /// @param ploidy_override If >= 0, the ploidy to genotype this snarl at, instead of the
     ///                        contig's or the --ploidy-bed region's. Nested calling passes the
     ///                        number of the parent's called alleles that cross the child, or the

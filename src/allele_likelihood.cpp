@@ -65,10 +65,14 @@ double AlleleReadLikelihoods::depth_ratio(const vector<int>& genotype) const {
     return expected > 0.0 ? observed_reads() / expected : -1.0;
 }
 
-/// ln of a Poisson pmf, continued to real `n` through lgamma. The observation is
-/// `sum_r (1 - e_r)` rather than a row count, so it is fractional by construction.
-/// The `-ln n!` term is the same for every genotype at a site; it is kept so that the
-/// depth factor is the Poisson probability as written.
+/// n ln(lambda) - lambda - ln Gamma(n + 1), with n the observed read count and lambda
+/// the expected one. The observation is `sum_r (1 - e_r)` rather than a row count, so n
+/// is usually not a whole number, and ln Gamma(n + 1) stands in for ln n!. As a function
+/// of n >= 0 this is, up to a normalising constant, the log density of a continuous
+/// analogue of the Poisson distribution over read counts. Here it is evaluated at the
+/// observed n as a log likelihood of lambda. The normalising constant depends on lambda
+/// and is left out. The ln Gamma(n + 1) term does not depend on lambda, so it is the
+/// same for every genotype at a site.
 static double ln_poisson_pmf(double n, double lambda) {
     if (lambda <= 0.0) {
         return -numeric_limits<double>::infinity();
