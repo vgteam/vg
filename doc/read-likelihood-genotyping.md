@@ -1304,7 +1304,7 @@ name the columns of each kind of row, and the `#note` lines describe them.
 
 | `A` column | Meaning |
 |---|---|
-| `node` | the ID of the pin's boundary node: the first node of `snarl` for the start pin, the second for the end pin |
+| `node` | the graph's ID of the pin's boundary node: the first node of `snarl` for the start pin, the second for the end pin. Under `-N` or `-O`, `snarl` names the translated segments, while `node` stays the graph's ID |
 | `snarl` | the site's ID, as in the VCF `ID` column: its start and end boundary node IDs, each preceded by `>` or `<` for its orientation. It is also written for off-reference sites, which have no VCF record |
 | `slot` | the slot |
 | `allele` | the slot's allele, as its index in the site's list of candidate alleles rather than a VCF allele number. The list is not written, so the index serves to compare a site's slots |

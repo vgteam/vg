@@ -754,6 +754,8 @@ bool AnchorWriter::write(const string& path, const string& graph_name, const str
     }
     out << "#note\tan anchor is a zero-length pin at the junction between a snarl boundary node "
            "and the site interior. There is no anchor sequence and no length.\n";
+    out << "#note\tnode is the graph's own node ID. snarl is the VCF ID, which -N or -O writes in "
+           "translated segment names, so under them node is not one of the IDs in snarl.\n";
     out << "#note\tR rows name their read by an integer id into the #read table above them, which "
            "is sorted by name. The table is the file's only copy of each name.\n";
     out << "#note\toffset is the 0-based index, in the read AS SEQUENCED, of the last base before "
