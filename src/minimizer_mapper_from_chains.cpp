@@ -1827,15 +1827,27 @@ void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::ve
                 funnel.processing_input(processed_num);
             }
             
-            // Seeds shared with previous alignments, in index order
-            vector<size_t> overlap_counts(item_count, 0);
-            size_t total_original_count = 0;
-            for (size_t anchor_i = 0; anchor_i < chains.at(processed_num).anchors.size(); anchor_i++) {
-                if (!chains.at(processed_num).is_anchor_shared[anchor_i]) {
+            size_t total_anchors = chains.at(processed_num).anchors.size();
+            for (size_t anchor_i = 0; anchor_i < total_anchors; anchor_i++) {
+                if (chains.at(processed_num).is_anchor_shared[anchor_i]) {
                     // We don't expect this anchor to be original
                     continue;
                 }
-                total_original_count++;
+                if ((anchor_i == 0 || chains.at(processed_num).is_anchor_shared[anchor_i-1])
+                    && anchor_i + 1 < total_anchors
+                    && !chains.at(processed_num).is_anchor_shared[anchor_i+1]) {
+                    // This anchor is on the very left end of an original bit
+                    // These may have some overlap in the case of close-by Y forks
+                    continue;
+                }
+                if ((anchor_i == total_anchors-1 || chains.at(processed_num).is_anchor_shared[anchor_i+1])
+                    && anchor_i > 0
+                    && !chains.at(processed_num).is_anchor_shared[anchor_i-1]) {
+                    // This anchor is on the very right end of an original bit
+                    // These may have some overlap in the case of close-by Y forks
+                    continue;
+                }
+
                 size_t seed_num = chains.at(processed_num).anchors.at(anchor_i);
                 // Look at the individual pin points and their associated read-node offset
                 size_t read_pos = minimizers[seeds.at(seed_num).source].pin_offset();
@@ -1846,7 +1858,9 @@ void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::ve
                 int64_t read_minus_node_offset = (int64_t)read_pos - (int64_t)offset(graph_pos);
                 auto matching = std::make_pair(std::make_pair(node_id, orientation), read_minus_node_offset);
                 if (used_matchings.count(matching)) {
-                    overlap_counts[used_matchings.at(matching)]++;
+                    if (track_provenance) {
+                        funnel.fail("no-chain-overlap", processed_num);
+                    }
                     if (show_work) {
                         #pragma omp critical (cerr)
                         {
@@ -1855,6 +1869,12 @@ void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::ve
                                  << matching.first.first << ", " << matching.first.second << ", " << matching.second << endl;
                         }
                     }
+                    if (chain_scores[processed_num] == chain_scores[alignments_to_source[used_matchings.at(matching)]]) {
+                        // Don't count this chain against the other one, since it's overlapping
+                        crash_unless(chain_count_by_alignment[used_matchings.at(matching)] > 0);
+                        chain_count_by_alignment[used_matchings.at(matching)]--;
+                    }
+                    return false;
                 } else {
 #ifdef debug
                     if (show_work) {
@@ -1866,19 +1886,6 @@ void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::ve
                         }
                     }
 #endif
-                }
-            }
-            for (size_t prev_aln_i = 0; prev_aln_i < item_count; prev_aln_i++) {
-                if (overlap_counts[prev_aln_i] > total_original_count * (1 - min_unique_node_fraction)) {
-                    if (track_provenance) {
-                        funnel.fail("no-chain-overlap", processed_num);
-                    }
-                    if (chain_scores[processed_num] == chain_scores[alignments_to_source[prev_aln_i]]) {
-                        // Don't count this chain against the other one, since it's overlapping
-                        crash_unless(chain_count_by_alignment[prev_aln_i] > 0);
-                        chain_count_by_alignment[prev_aln_i]--;
-                    }
-                    return false;
                 }
             }
             if (show_work) {
