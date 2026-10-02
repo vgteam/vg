@@ -6,8 +6,8 @@
  * A SnarlCaller that genotypes a site from the likelihood of its reads under each
  * genotype, P(reads | genotype), rather than from read depth.
  *
- * The model and the VCF fields this caller writes are described in
- * doc/read-likelihood-genotyping.md.
+ * The model is described in doc/read-likelihood-direct-genotyping.md, and the VCF fields
+ * this caller writes in doc/read-likelihood-genotyping.md.
  */
 
 #include <map>

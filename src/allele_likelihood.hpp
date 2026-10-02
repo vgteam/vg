@@ -8,7 +8,7 @@
  *
  * Each entry says how well one read fits one candidate allele. The read-likelihood
  * genotyper combines these entries into a likelihood for each genotype. The model
- * is described in doc/read-likelihood-genotyping.md.
+ * is described in doc/read-likelihood-direct-genotyping.md.
  */
 
 #include <functional>

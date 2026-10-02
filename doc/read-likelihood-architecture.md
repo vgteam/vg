@@ -2,9 +2,13 @@
 
 `vg call --read-likelihood` is built from eight modules and one driver class, `FlowCaller` in
 `graph_caller.hpp`. A module is a header in `src/` and its `.cpp` file, and is named here by its
-header. The source can be read in the order of the method. The method, and the terms of the
-method used below (site, allele, genotype, ploidy, direct call, linkage model, strand, phase set),
-are described in [read-likelihood-genotyping.md](read-likelihood-genotyping.md).
+header. The source can be read in the order of the method. The method is described in three
+documents. [read-likelihood-genotyping.md](read-likelihood-genotyping.md) describes the caller as a
+whole and defines the terms of the method used below (site, allele, genotype, ploidy, direct call,
+linkage model, strand, phase set).
+[read-likelihood-direct-genotyping.md](read-likelihood-direct-genotyping.md) describes the site
+likelihood, and [read-likelihood-linkage-model.md](read-likelihood-linkage-model.md) the linkage
+model.
 
 The method has four **steps**: site likelihood computation, genotyping, phasing and output.
 `FlowCaller` carries them out in five **passes** over the sites.
@@ -12,9 +16,9 @@ The method has four **steps**: site likelihood computation, genotyping, phasing 
 ## How a run is organised
 
 With `--read-likelihood`, nested calling is on by default. The linkage model runs under haplotype
-enumeration (the default with a GBZ graph, or `-z` or `-g`), when the panel holds at least two
-haplotypes and `--linkage-weight` is not 0. When either is on, `FlowCaller` stages its records and
-makes these passes. The calls that start them are near the end of `main_call` in
+enumeration (the default with a GBZ graph, or `--gbz` or `--gbwt`), when the panel holds at least
+two haplotypes and `--linkage-weight` is not 0. When either is on, `FlowCaller` stages its records
+and makes these passes. The calls that start them are near the end of `main_call` in
 `subcommand/call_main.cpp`.
 
 1. **Sweep** (`call_top_level_snarls`, then `call_snarl_internal` for each site). Genotype every
@@ -182,7 +186,7 @@ the linkage model and phasing when the cast fails.
     on in the code by `VCFOutputCaller::set_symbolic_collapsing`);
   - `FlowCaller`'s constructor flag `nested`, which is `--top-down`;
   - `set_nested` and `include_nested`, which write the nesting INFO tags (`LV`, `PS`, `CH`, ...),
-    under `-A`, `--top-down`, `--bottom-up` or off-reference nesting;
+    under `--all-snarls`, `--top-down`, `--bottom-up` or off-reference nesting;
   - `SiteContext::nested`, which marks a site with one copy under its parent.
 
   `PS` names both a nesting INFO tag and `FORMAT/PS`, the phase set.
@@ -267,4 +271,5 @@ candidate alleles need explaining. Each module has unit tests in `src/unittest/<
 - `call_main.cpp` constructs `GraphAlignedAlleleLikelihoodCalculator` and `LinkageCollector` itself.
 - `--anchors-out` changes more than the output. It turns on the genotyping of off-reference chains,
   which adds groups and sites to read phasing, so the written phase can change, and under
-  `--regenotype` genotypes too.
+  `--regenotype` genotypes too. The environment variable `VG_CALL_NO_REF_NESTED` turns that
+  genotyping on by itself, for testing.

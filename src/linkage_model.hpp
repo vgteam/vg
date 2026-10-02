@@ -6,7 +6,7 @@
  * re-decides per-site genotypes using the combinations of alleles that panel haplotypes
  * carry at neighbouring sites. It also phases the calls.
  *
- * The model is described in doc/read-likelihood-genotyping.md, under "Linkage model".
+ * The model is described in doc/read-likelihood-linkage-model.md.
  */
 
 #include <algorithm>
