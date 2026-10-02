@@ -2938,6 +2938,12 @@ Alignment MinimizerMapper::do_base_level_alignment(
         
         // We have to find the next item we can actually connect to
         find_next_non_overlapping(to_chain, chain.anchors, here, next_it);
+
+        if (next_it == chain.anchors.end()) {
+            // We couldn't find anything to connect to
+            break;
+        }
+        
         // Next, we want to skip seeds that are in repetitive regions of the read
         // Since skipping all repetitive seeds would leave too many gaps in the chain,
         // only skip seeds if they are involved in gaps,
