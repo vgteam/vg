@@ -19,8 +19,8 @@
  * depend on the weights, so its likelihood does not change.
  *
  * The correction is the read term with `pi` minus the read term with `v`, and it is added to the
- * likelihood the sweep computed. Everything else in the sweep's likelihood, such as the depth
- * term, is left as it was, so only `PhaseReadEvidence` has to be kept. The sweep's own read term
+ * likelihood the direct pass computed. Everything else in the direct pass's likelihood, such as the depth
+ * term, is left as it was, so only `PhaseReadEvidence` has to be kept. The direct pass's own read term
  * used the mixture weights, which equal `v` when the two alleles have the same length. The method
  * is described in doc/read-likelihood-genotyping.md, under "Re-genotyping from the phase".
  */
@@ -54,7 +54,7 @@ using std::vector;
  */
 struct ReadLambda {
     /// Natural-log odds of strand 0 against strand 1, with each site's contribution signed by
-    /// its settled order.
+    /// its chosen order.
     double lambda = 0.0;
     /// How many sites contributed.
     size_t sites = 0;
@@ -110,7 +110,7 @@ struct RegenotypeCounters {
     size_t reads_singleton = 0;
     size_t sites_considered = 0;
     size_t sites_corrected = 0;
-    /// Sites whose corrected argmax names a different unordered genotype than the sweep's.
+    /// Sites whose corrected argmax names a different unordered genotype than the direct pass's.
     size_t sites_would_move = 0;
     /// Of those, how many are homozygous-to-heterozygous and the reverse.
     size_t moved_hom_to_het = 0;

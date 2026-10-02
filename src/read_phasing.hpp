@@ -3,7 +3,7 @@
 
 /** \file read_phasing.hpp
  *
- * Read-backed phasing (--read-phasing): re-decide the order of each heterozygous site's settled
+ * Read-backed phasing (--read-phasing): re-decide the order of each heterozygous site's chosen
  * allele pair from the reads that span it and other heterozygous sites, within the phase sets the
  * panel gave. No genotype changes.
  *
@@ -33,7 +33,7 @@ using std::unordered_set;
 using std::vector;
 
 /**
- * A site's per-read evidence, kept from the sweep until read phasing runs after the barrier.
+ * A site's per-read evidence, kept from the direct pass until read phasing runs after the linkage pass.
  *
  * It holds only what phasing needs, which is much less than AnchorSiteEvidence. A read is keyed
  * by a hash of its name, since paired mates share a name and lie on one haplotype, so they count
@@ -72,10 +72,10 @@ vector<double> allele_length_weights(const vector<std::uint32_t>& allele_length,
                                      const vector<int>& slot_allele);
 
 /**
- * One heterozygous site's read evidence, reduced to its settled pair.
+ * One heterozygous site's read evidence, reduced to its chosen pair.
  *
  * Each row is one read. `q0` is the probability that the read carries the allele in slot 0
- * (strand 0), given that it came from one of the two settled strands, and `c` is the probability
+ * (strand 0), given that it came from one of the two chosen strands, and `c` is the probability
  * that it came from one of them, rather than being mismapped. Only reads that fit one of the two
  * alleles at all are kept. The rows are sorted by read key, one row per key (see `merge_mates`).
  */
@@ -104,7 +104,7 @@ double read_confidence(float q0, float c);
 /// the larger `c`. The result does not depend on the order of the rows.
 void merge_mates(PhaseSite& site);
 
-/// Reduce a site's evidence to its settled pair, `allele0` in slot 0 and `allele1` in slot 1: the
+/// Reduce a site's evidence to its chosen pair, `allele0` in slot 0 and `allele1` in slot 1: the
 /// rows, merged by `merge_mates`, and the site's reliability over the merged rows. The caller fills
 /// `record_key`, `phase_set` and `position`.
 PhaseSite reduce_to_pair(const PhaseReadEvidence& evidence, size_t allele0, size_t allele1);
@@ -177,7 +177,7 @@ double phase_link(const PhaseSite& a, const PhaseSite& b, double cap);
 /// site's rows are merged by `merge_mates`, in place, so a site built by hand is treated as
 /// `reduce_to_pair` would build it.
 ///
-/// Returns the record keys whose settled pair should be swapped. A chain's first site keeps the
+/// Returns the record keys whose chosen pair should be swapped. A chain's first site keeps the
 /// panel's order, so with no read evidence nothing is swapped. Breaks are relinked from left to
 /// right, each piece taking its orientation from the piece before it as that piece now stands. A
 /// hung site whose votes sum to exactly zero keeps the panel's order.

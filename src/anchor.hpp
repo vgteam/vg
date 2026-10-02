@@ -11,7 +11,7 @@
  * before its end boundary node. A read crosses a pin where its walk passes between those two
  * bases, and the anchors record where, as an offset into the read.
  *
- * A site's reads are divided among its *slots*, one for each distinct allele of its settled
+ * A site's reads are divided among its *slots*, one for each distinct allele of its chosen
  * genotype, in phase order. An *anchor* is one pin together with the reads of one slot that cross
  * it.
  */
@@ -140,7 +140,7 @@ struct AnchorRead {
 };
 
 /**
- * What a site's anchors need, kept from the sweep until the record is rendered.
+ * What a site's anchors need, kept from the direct pass until the record is rendered.
  *
  * No alignment is kept: each read's pins are resolved to `(direction, offset)` while its
  * alignment is available. Held on the site's `ReadLikelihoodCallInfo`.
@@ -154,7 +154,7 @@ struct AnchorSiteEvidence {
     /// window's mean; see AlleleReadLikelihoods::set_length_weights), for the allele-length
     /// weights of each read's confidence. Full lengths rather than the unique lengths the
     /// genotype model uses, since unique lengths depend on the pair of alleles. The lengths are
-    /// captured in the sweep, before the genotype exists, and the barrier can still change the
+    /// captured in the direct pass, before the genotype exists, and the linkage pass can still change the
     /// pair.
     vector<uint32_t> allele_length;
     float mean_read_length = 0.0f;
@@ -261,7 +261,7 @@ public:
     struct Anchor {
         nid_t node = 0;
         string snarl;
-        /// Which slot of the settled phased pair this anchor holds: slot i is field i of the
+        /// Which slot of the chosen phased pair this anchor holds: slot i is field i of the
         /// record's `GT` at the same site ID, slot 0 the left allele and slot 1 the right. A
         /// homozygote has one slot, 0, holding every read, unless --anchors-hom-split divides it.
         /// A nested chain at ploidy 1 also has one slot, the parent's strand that carries it,
@@ -295,7 +295,7 @@ private:
     vector<vector<Anchor>> queues;
 };
 
-/// Turn one site's evidence and its settled genotype into anchors.
+/// Turn one site's evidence and its chosen genotype into anchors.
 ///
 /// Each read goes to the slot of the called allele with the larger
 ///

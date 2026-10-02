@@ -193,10 +193,11 @@ void help_call(char** argv) {
          << "      --no-regenotype       do not re-genotype sites (default)" << endl
          << "      --regeno-temper N     scale on each read's strand log-odds; 0 leaves the" << endl
          << "                            genotypes unchanged [fitted to the data]" << endl
-         << "      --regeno-passes N     times to settle genotypes, counting the first," << endl
-         << "                            which comes before any re-genotyping; stops early" << endl
-         << "                            if genotypes stop changing. 1 only reports what" << endl
-         << "                            re-genotyping would change [2]" << endl
+         << "      --regeno-passes N     rounds to run, each with one linkage pass," << endl
+         << "                            counting the first, which comes before any" << endl
+         << "                            re-genotyping; stops early if genotypes stop" << endl
+         << "                            changing. 1 only reports what re-genotyping" << endl
+         << "                            would change [2]" << endl
          << "      --regeno-ceiling N    scale on how far a read's haplotype probability" << endl
          << "                            may move from 1/2; 1 means no limit [1]" << endl
          << "      --no-regeno-haploid   at a nested site that only one haplotype carries," << endl
@@ -434,8 +435,8 @@ int main_call(int argc, char** argv) {
     bool regenotype_explicit = false;
     bool phase_hets_explicit = false;
     RegenotypeParams regenotype_params;
-    // Passes of genotype settling under --regenotype. The first settles the genotypes; each later
-    // pass re-genotypes from the read phase and settles them again.
+    // Linkage passes under --regenotype, one per round. The first chooses the genotypes; each
+    // later one follows a correction from the read phase and chooses them again.
     size_t regenotype_passes = 2;
     string regenotype_ledger;
     ReadPhasingParams read_phasing_params;
@@ -2069,7 +2070,8 @@ int main_call(int argc, char** argv) {
                 // Make a nested packed traversal support finder (required by NestedFlowCaller)
                 support_finder.reset(new NestedCachedPackedTraversalSupportFinder(*packer, *snarl_manager));
             } else {
-                // Make a packed traversal support finder (using cached version important for poisson caller)
+                // Make a packed traversal support finder (using cached version important for
+                // poisson caller)
                 support_finder.reset(new CachedPackedTraversalSupportFinder(*packer, *snarl_manager));
             }
         }
@@ -2220,7 +2222,8 @@ int main_call(int argc, char** argv) {
             if (show_progress) logger.info() << "Computed coverage statistics" << endl;
             // Make a new-stype probablistic caller
             auto poisson_caller = new PoissonSupportSnarlCaller(*graph, *snarl_manager, *support_finder, depth_index,
-                                                                //todo: qualities need to be used better in conjunction with
+                                                                //todo: qualities need to be used
+                                                                //better in conjunction with
                                                                 //expected depth.
                                                                 //packer->has_qualities());
                                                                 false);
@@ -2781,8 +2784,8 @@ int main_call(int argc, char** argv) {
         }
     }
 
-    // After the calling pass (the sweep), settle genotypes, parents before their nested children
-    // (the barrier, FlowCaller::run_barrier), and build each record from its settled
+    // After the direct pass, choose the genotypes, parents before their nested children (the
+    // linkage pass, FlowCaller::run_linkage_pass), and build each record from its settled
     // genotype. Nested calling needs this because a child's ploidy depends on its parent's
     // genotype, and the linkage model needs it because it can change genotypes after they are
     // first called.
@@ -2790,7 +2793,7 @@ int main_call(int argc, char** argv) {
     if (nested_calling || linkage_collector != nullptr) {
         deferring_caller = dynamic_cast<FlowCaller*>(graph_caller.get());
         if (deferring_caller != nullptr) {
-            deferring_caller->set_settle_after_sweep(true);
+            deferring_caller->set_stage_records(true);
         }
     }
 
@@ -2806,9 +2809,8 @@ int main_call(int argc, char** argv) {
     }
 
     if (deferring_caller != nullptr) {
-        // Settle every level's genotypes, then apply read phasing and re-genotyping, and build the
-        // records.
-        deferring_caller->run_barrier();
+        // Round 1's linkage pass, then read phasing and any further rounds, then the render.
+        deferring_caller->run_linkage_pass();
         deferring_caller->phase_and_regenotype();
         deferring_caller->render_retained_records();
     }

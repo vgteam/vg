@@ -186,7 +186,7 @@ TEST_CASE("leave-one-out equals accumulating without the site", "[regenotype]") 
 
 TEST_CASE("a flipped site enters Lambda with the opposite sign", "[regenotype]") {
     // `read_phase_flips` swaps a site's slot order after the PhaseSites were built, so a site in the
-    // flip set describes the panel's order, not the settled one, and its contribution must enter
+    // flip set describes the panel's order, not the chosen one, and its contribution must enter
     // with the opposite sign.
     PhaseSite site;
     site.record_key = 7;
@@ -339,7 +339,7 @@ TEST_CASE("the haploid inclusion weight only removes evidence, never adds it", "
         rl.phase_set = 1;
         lambda[ev.read_key[i]] = rl;
     }
-    // The likelihoods must be the read term, as the sweep's are: the correction subtracts the read
+    // The likelihoods must be the read term, as the direct pass's are: the correction subtracts the read
     // term, so likelihoods unrelated to `rel` would leave an arbitrary residue.
     auto read_term = [&](int a) {
         double t = 0.0;
@@ -354,7 +354,7 @@ TEST_CASE("the haploid inclusion weight only removes evidence, never adds it", "
     REQUIRE(std::abs(gap_before) > 10.0);   // and the alleles really are discriminated to start
     haploid_inclusion_correction(ev, lambda, 1, {}, 1.0, 1.0, +1, params, gl, counters);
     // Both alleles rise, since reads that do not belong here no longer count against them. The
-    // correction is added to the sweep's likelihood, so the result is not bounded above by zero.
+    // correction is added to the direct pass's likelihood, so the result is not bounded above by zero.
     REQUIRE(gl.at({0}) > read_term(0));
     REQUIRE(gl.at({1}) > read_term(1));
     // With every read excluded, every read term is log(1) = 0, and the two alleles are not told

@@ -65,8 +65,8 @@ struct DescentCounters {
     std::atomic<size_t> no_ref_recorded{0};
     /// Off-reference chains by copy number: 0, 1, 2.
     std::atomic<size_t> no_ref_copies[3] = {};
-    /// Children that no called parent allele crosses in the sweep. They are genotyped and kept,
-    /// and the barrier decides from the parent's settled genotype whether the sample has them.
+    /// Children that no called parent allele crosses in the direct pass. They are genotyped and kept,
+    /// and the linkage pass decides from the parent's chosen genotype whether the sample has them.
     std::atomic<size_t> skipped_no_copy{0};
     /// Children that a called traversal enters more than once. Only the first entry counts, both
     /// for ploidy and for distance: one traversal crossing a chain twice is one strand carrying two
@@ -99,9 +99,9 @@ public:
     /// Counters for that report; see `DescentCounters`.
     mutable DescentCounters descent_counters;
 
-    /// For every chain, cut it up into pieces using max_edges and max_trivial to cap the size of each piece
-    /// then make a fake snarl for each chain piece and call it.  If a fake snarl fails to call,
-    /// It's child chains will be recursed on (if selected)_
+    /// For every chain, cut it up into pieces using max_edges and max_trivial to cap the size of
+    /// each piece then make a fake snarl for each chain piece and call it.  If a fake snarl fails
+    /// to call, It's child chains will be recursed on (if selected)_
     virtual void call_top_level_chains(const HandleGraph& graph,
                                        size_t max_edges,
                                        size_t max_trivial,
@@ -221,8 +221,8 @@ struct AtomizeCounters {
 };
 
 /// Rewrite GQ, GQN and FILTER on one rendered VCF line whose genotype the linkage model changed,
-/// so that they describe the settled genotype the line carries. GQ is -10 log10(1 - posterior)
-/// times the direct call's `gq_factor`, capped at GQI. GQN is the settled genotype's margin in GL
+/// so that they describe the chosen genotype the line carries. GQ is -10 log10(1 - posterior)
+/// times the direct call's `gq_factor`, capped at GQI. GQN is the chosen genotype's margin in GL
 /// over the best other genotype, divided by the direct call's achievable gap and multiplied by its
 /// explained share, held within [-1, 1]. FILTER is decided again from that GQN against
 /// `linkage_min_confidence`. Returns false if the line could not be parsed.
@@ -280,7 +280,7 @@ public:
     void set_linkage(LinkageCollector* collector, const gbwt::GBWT* gbwt,
                      const vector<size_t>* sequence_to_haplotype);
 
-    /// Write phased genotypes (`0|1`) and FORMAT/PS, from the settled phase: the linkage model's
+    /// Write phased genotypes (`0|1`) and FORMAT/PS, from the chosen phase: the linkage model's
     /// Viterbi path, as read phasing reordered it when read phasing is on. Has no effect where the
     /// linkage model does not run.
     void set_emit_phasing(bool on) { this->emit_phasing = on; }
@@ -311,7 +311,7 @@ public:
         }
     }
 
-    /// Turn one settled site into anchors, if anchors are being written. Called once per staged
+    /// Turn one chosen site into anchors, if anchors are being written. Called once per staged
     /// record as the records are rendered: just before its line is written, or, for a record with
     /// no line, by the hand-off. A record with no reference position still gets anchors, since a
     /// pin is placed by node ID, which is why this is not part of `emit_variant`.
@@ -324,10 +324,10 @@ public:
                              double gqn, size_t record_key);
 
 
-    /// The settled pair in phase order, for the anchors, which take each slot from the order of
+    /// The chosen pair in phase order, for the anchors, which take each slot from the order of
     /// the pair they are given.
     ///
-    /// `LinkageCollector::settled_traversals` returns a sorted pair; the phase is in
+    /// `LinkageCollector::chosen_traversals` returns a sorted pair; the phase is in
     /// `render_phases`. The pair is swapped when the record's PhaseCall names the same two
     /// traversals in the other order, and returned unchanged otherwise: no phasing, no PhaseCall,
     /// or a PhaseCall naming other traversals.
@@ -338,7 +338,7 @@ public:
     /// A nested chain at ploidy 1 is one strand of its parent, the one `nested_strand` names;
     /// `emit_variant` writes it as `a|.` or `.|a`, and this keeps the anchor's slot the same.
     /// Returns 0 when there is no phasing, no entry, a ploidy other than 1, no nested strand, or a
-    /// phase that names a different allele from the settled one.
+    /// phase that names a different allele from the chosen one.
     int phase_haploid_slot(size_t record_key, const vector<int>& genotype) const;
 
     /// Turn on read phasing (--read-phasing); see read_phasing.hpp. Needs the linkage model, whose
@@ -506,30 +506,30 @@ protected:
         size_t parent_record_key = 0;
         /// The crossing mask: one bit per parent candidate traversal, set where that traversal
         /// crosses this chain. It is indexed by traversal rather than by VCF allele, since the
-        /// linkage model settles the parent on a pair of traversals, and the VCF alleles are
+        /// linkage model chooses the parent's genotype as a pair of traversals, and the VCF alleles are
         /// chosen only when the parent's line is written. When the mask cannot be computed (more
-        /// than 64 traversals), it is 0 and `crossing_known` is false. The barrier reads it to find
-        /// how many copies of the chain the parent's settled genotype carries, and on which
+        /// than 64 traversals), it is 0 and `crossing_known` is false. The linkage pass reads it to find
+        /// how many copies of the chain the parent's chosen genotype carries, and on which
         /// strand.
         uint64_t parent_crossing = 0;
         /// Set where no called parent allele reaches the chain, and only when records are staged
-        /// for the barrier and the linkage model runs (without it, such a chain is not genotyped).
+        /// for the linkage pass and the linkage model runs (without it, such a chain is not genotyped).
         /// The chain is genotyped anyway, at the parent's ploidy, because the linkage model may
         /// still move the parent onto an allele that does reach it. Inherited by its children,
         /// which are genotyped at their own provisional ploidy.
         ///
-        /// In the sweep the chain is staged, not written, and not recorded in the linkage model.
+        /// In the direct pass the chain is staged, not written, and not recorded in the linkage model.
         /// The exception is a snarl whose own boundaries are on no reference path: that is recorded
         /// whatever this flag says, and never gets a line.
         ///
-        /// The barrier decides what happens to it from the parent's settled pair. If the pair
+        /// The linkage pass decides what happens to it from the parent's chosen pair. If the pair
         /// carries no copy, the chain and everything under it are dropped; so is a chain that no
         /// candidate traversal of the parent crosses (a crossing mask of 0). If the pair carries
-        /// some, the chain is recorded at that many copies and rendered; where the sweep scored no
+        /// some, the chain is recorded at that many copies and rendered; where the direct pass scored no
         /// genotype at that ploidy, it is rendered at the parent's ploidy instead, unrecorded. A
-        /// parent the linkage model gave no phase call is read at its own settled genotype. Where
-        /// the crossing mask is unknown (`crossing_known` false), the barrier cannot compare the
-        /// chain with a settled pair at all, so the chain is never dropped on its parent's account
+        /// parent the linkage model gave no phase call is read at its own chosen genotype. Where
+        /// the crossing mask is unknown (`crossing_known` false), the linkage pass cannot compare the
+        /// chain with a chosen pair at all, so the chain is never dropped on its parent's account
         /// (a dropped ancestor still removes it), and is rendered at the ploidy it was genotyped at,
         /// unrecorded.
         bool retain_only = false;
@@ -537,7 +537,7 @@ protected:
         /// it, in bases, plus the parent's own `parent_offset`. Added to the parent's reference
         /// start, it gives an off-reference chain a position of its own, so that its sites are
         /// ordered as that traversal visits them and the distance between two of them is known.
-        /// The barrier computes it again from the parent's settled genotype
+        /// The linkage pass computes it again from the parent's chosen genotype
         /// (`PendingRecord::chain_offset`).
         size_t parent_offset = 0;
         /// Permission to genotype a chain that no reference path passes through. Inherited, since
@@ -570,29 +570,29 @@ protected:
     /// Whether to decompose a snarl into one record per difference block.
     bool atomize_blocks = false;
 
-    /// The generation of the site being recorded now: its depth among the nested chains, which
-    /// decides the linkage pass that settles it. Thread-local because the sweep runs in parallel,
-    /// and each descent saves, increments and restores it on its own thread.
-    static thread_local size_t current_generation;
+    /// The level of the site being recorded now: its depth among the nested chains, which
+    /// decides when in a linkage pass its genotype is chosen. Thread-local because the direct pass
+    /// runs in parallel, and each descent saves, increments and restores it on its own thread.
+    static thread_local size_t current_level;
 
-    /// Resolve one generation of the linkage model. `last` marks a barrier pass's final
-    /// generation.
-    void resolve_linkage_generation(size_t generation, bool last);
+    /// Resolve one level of the linkage model. `last` marks a linkage pass's final
+    /// level.
+    void resolve_linkage_level(size_t level, bool last);
 
     /// Write the mosaic, once every record exists; separate from resolution because it needs to
     /// know which sites have a VCF line.
     void finalise_linkage_outputs();
 
-    /// Resolve the linkage model, if nothing has resolved it yet: one pass per generation, from 0 to
+    /// Resolve the linkage model, if nothing has resolved it yet: one pass per level, from 0 to
     /// the deepest, which is looked up again after each pass since a pass can add a deeper chain.
     /// Safe to call more than once, so `write_variants` can call it unconditionally.
     void resolve_linkage();
 
     /// Every phased site, in the order the linkage model produced them. The mosaic reads this, and
-    /// the barrier looks up a parent's settled pair in it.
+    /// the linkage pass looks up a parent's chosen pair in it.
     vector<LinkageCollector::PhaseCall> linkage_phased;
     bool linkage_resolved = false;
-    /// Time spent in the linkage model, over all generations, for the report.
+    /// Time spent in the linkage model, over all levels, for the report.
     double linkage_seconds = 0.0;
     size_t linkage_changed = 0;
 
@@ -647,10 +647,10 @@ protected:
     /// The id of a (contig, phase set) pair, the same for the whole run.
     size_t phase_set_id(const string& contig, size_t phase_set);
 
-    /// Each diploid heterozygous site's per-read evidence, reduced to its settled pair, as read
+    /// Each diploid heterozygous site's per-read evidence, reduced to its chosen pair, as read
     /// phasing last built it. Re-genotyping and the anchors read it.
     vector<PhaseSite> phase_sites;
-    /// The record keys whose settled pair read phasing last reversed. Their sites' contributions
+    /// The record keys whose chosen pair read phasing last reversed. Their sites' contributions
     /// to a read's strand log-odds enter with the opposite sign.
     unordered_set<size_t> phase_flips;
 
@@ -674,7 +674,7 @@ protected:
     bool regenotype = false;
     RegenotypeParams regenotype_params;
     RegenotypeCounters regenotype_counters;
-    /// The most barrier passes (--regeno-passes). With 1 the correction is computed and reported
+    /// The most linkage passes (--regeno-passes). With 1 the correction is computed and reported
     /// but not applied.
     size_t regenotype_passes = 2;
     /// Where to write the ledger (--regeno-ledger): one line per site whose best genotype the
@@ -691,7 +691,7 @@ protected:
     /// swaps.
     void build_render_phases();
 
-    /// Fill `render_lambda` from the settled phasing. Called just before `build_render_phases`,
+    /// Fill `render_lambda` from the chosen phasing. Called just before `build_render_phases`,
     /// when `phase_sites` and `phase_flips` are final.
     void build_render_lambda();
 
@@ -896,8 +896,8 @@ protected:
     /// Sample name
     string sample_name;
 
-    /// output buffers (1/thread) (for sorting)
-    /// variants stored as strings (and position key pairs) because vcflib::Variant in-memory struct so huge
+    /// output buffers (1/thread) (for sorting) variants stored as strings (and position key pairs)
+    /// because vcflib::Variant in-memory struct so huge
     mutable vector<vector<pair<BufferedRecordKey, string>>> output_variants;
 
     /// Reference interval of a site that was visited but not emitted, because every traversal
@@ -1079,7 +1079,8 @@ protected:
     pair<vector<SnarlTraversal>, vector<int>> top_down_genotype(const Snarl& snarl, TraversalFinder& trav_finder, int ploidy,
                                                                 const string& ref_path_name, pair<size_t, size_t> ref_interval) const;
     
-    /// we need the reference traversal for VCF, but if the ref is not called, the above method won't find it. 
+    /// we need the reference traversal for VCF, but if the ref is not called, the above method
+    /// won't find it.
     SnarlTraversal get_reference_traversal(const Snarl& snarl, TraversalFinder& trav_finder) const;
 
     /// re-genotype output of top_down_genotype.  it may give slightly different results as
@@ -1140,20 +1141,22 @@ protected:
 };
 
 /**
- * FlowCaller: takes each snarl's candidate traversals from a TraversalFinder and
- * genotypes them with its SnarlCaller (support-based, or ReadLikelihoodSnarlCaller
- * under --read-likelihood). It works on any graph. With the flow traversal finder it
- * does not report cyclic traversals; haplotype enumeration can. The `nested` constructor flag is --top-down, which genotypes each
- * child against traversal sets derived from its parent's called alleles. Nested
- * calling, the descent into child chains in call_snarl_internal, is turned on
- * instead by set_symbolic_collapsing.
+ * FlowCaller: takes each snarl's candidate traversals from a TraversalFinder and genotypes them
+ * with its SnarlCaller (support-based, or ReadLikelihoodSnarlCaller under --read-likelihood). It
+ * works on any graph. With the flow traversal finder it does not report cyclic traversals;
+ * haplotype enumeration can. The `nested` constructor flag is --top-down, which genotypes each
+ * child against traversal sets derived from its parent's called alleles. Nested calling, the
+ * descent into child chains in call_snarl_internal, is turned on instead by
+ * set_symbolic_collapsing.
  *
- * With the linkage model or nested calling, calling runs in stages. The sweep
+ * With the linkage model or nested calling, calling runs in passes. The direct pass
  * genotypes every site from its own reads and stages a record for it (see
- * PendingRecord). The barrier settles the genotypes, parents before their children
- * (see run_barrier). Read phasing and re-genotyping may then change the phase and
- * the genotypes (see phase_and_regenotype). Finally every staged record is
- * rendered once, from its settled genotype (see render_retained_records).
+ * PendingRecord). Rounds follow. Each round's linkage pass chooses the genotypes one
+ * level at a time, parents before their children (see run_linkage_pass), and read
+ * phasing then re-decides the phases. From round 2 on, re-genotyping first corrects the
+ * likelihoods from the phase (see phase_and_regenotype). Finally every staged record is
+ * rendered once, from its settled genotype, the one the last round chose (see
+ * render_retained_records).
  */
 class FlowCaller : public GraphCaller, public VCFOutputCaller, public GAFOutputCaller {
 public:
@@ -1204,10 +1207,10 @@ public:
                                       int64_t position_from_parent = 0) const;
 
     /// Record the site in the linkage model when it is genotyped, rather than when its line is
-    /// written, since the barrier reads the collector before any line is written. The emitted
-    /// allele map and whether a line was written are supplied later, by `set_allele_map`. The sweep
+    /// written, since the linkage pass reads the collector before any line is written. The emitted
+    /// allele map and whether a line was written are supplied later, by `set_allele_map`. The direct pass
     /// does not call this for a retained chain with a reference path (see
-    /// `NestedContext::retain_only`); the barrier records that chain if the sample carries it.
+    /// `NestedContext::retain_only`); the linkage pass records that chain if the sample carries it.
     void record_site(const Snarl& snarl, const vector<SnarlTraversal>& travs,
                      const vector<int>& trav_genotype,
                      const unique_ptr<SnarlCaller::CallInfo>& call_info, int ref_trav_idx,
@@ -1218,7 +1221,7 @@ public:
     /// for the model's own. Reads the traversals' sequences only when `--hp-prior` is on.
     double site_freq_prior(const vector<SnarlTraversal>& travs, int ref_trav_idx) const;
 
-    /// Decide every heterozygous site's phase from the reads, and change the settled phase to
+    /// Decide every heterozygous site's phase from the reads, and change the chosen phase to
     /// match, so that the GT order, the anchor slot column and the mosaic all follow from it.
     /// Genotypes are not changed. On FlowCaller because it needs the staged records, which hold
     /// the per-read evidence.
@@ -1228,49 +1231,49 @@ public:
     ///
     /// Runs after `apply_read_phasing`, which supplies `phase_sites` and `phase_flips`. With
     /// --regeno-passes above 1 the corrected likelihoods replace each site's own, and GQ is
-    /// recomputed from them where the best genotype changed and is the sweep's elsewhere. Returns
+    /// recomputed from them where the best genotype changed and is the direct pass's elsewhere. Returns
     /// true if any site's corrected best genotype differs from its called one.
     bool apply_regenotyping();
 
-    /// Feed the corrected likelihoods back to the linkage layer and settle again.
+    /// Feed the corrected likelihoods back to the linkage layer and run the linkage pass again.
     ///
-    /// The correction changes likelihoods, not genotypes: the linkage model still decides, as on
-    /// the first pass.
-    void regenotype_resettle();
+    /// The correction changes likelihoods, not genotypes: the linkage model still decides, as in
+    /// round 1.
+    void rerun_linkage_pass();
 
-    /// Read phasing, then rounds of re-genotyping, each followed by the barrier and read phasing
+    /// Read phasing, then rounds of re-genotyping, each followed by the linkage pass and read phasing
     /// again, as far as they are turned on. Does nothing unless read phasing is on.
     void phase_and_regenotype();
 
-    /// Write every staged record once, from its settled genotype, and collect its anchors.
+    /// Write every staged record once, from its chosen genotype, and collect its anchors.
     void render_retained_records();
 
     /// Whether this snarl has no children, resolved through the manager's own copy. See the
     /// implementation for why the obvious `children_of(&snarl)` is not safe here.
     bool snarl_is_leaf(const Snarl& snarl) const;
 
-    /// Stage every record during the sweep, and write it only after the barrier has settled its
+    /// Stage every record during the direct pass, and write it only after the linkage pass has chosen its
     /// genotype. A nested chain's ploidy, its strand, and whether it has a record at all then come
-    /// from its parent's settled genotype, and a parent is settled before its children, so a
+    /// from its parent's chosen genotype, and a parent is chosen before its children, so a
     /// child's evidence cannot change its parent. Sizes the per-thread queues, so it must be
     /// called before calling starts.
-    void set_settle_after_sweep(bool defer);
+    void set_stage_records(bool defer);
 
     /// How many records are staged for the render, reported under --progress.
     size_t render_record_count() const;
 
 
-    /// The barrier: settle the genotypes one generation at a time. Each generation's linkage pass
-    /// settles its sites; then each child chain of the next generation takes the ploidy its
-    /// parent's settled genotype gives it, from the answers the sweep kept at both ploidies, and
-    /// a chain the parent does not carry is dropped with everything inside it. Once every
-    /// generation is settled, it decides which chains an enclosing block spells
+    /// The linkage pass: choose the genotypes one level at a time. The linkage model chooses
+    /// each level's genotypes; then each child chain of the next level takes the ploidy its
+    /// parent's chosen genotype gives it, from the answers the direct pass kept at both
+    /// ploidies, and a chain the parent does not carry is dropped with everything inside it.
+    /// Once every level is done, it decides which chains an enclosing block spells
     /// (`PendingRecord::reported_inline`). Does nothing unless records are staged (see
-    /// `set_settle_after_sweep`).
-    void run_barrier();
+    /// `set_stage_records`).
+    void run_linkage_pass();
 
-    /// Move every nested chain the barrier kept into the render's queues, and collect anchors for
-    /// those that get no line. Separate from `run_barrier`, which re-genotyping runs again,
+    /// Move every nested chain the linkage pass kept into the render's queues, and collect anchors for
+    /// those that get no line. Separate from `run_linkage_pass`, which re-genotyping runs again,
     /// because moving the records and collecting their anchors must happen once.
     void hand_off_deferred_records();
 
@@ -1337,20 +1340,20 @@ protected:
     /// use * alleles for spanning haplotypes that don't traverse nested sites
     bool star_allele = false;
 
-    /// A site's genotyping result, kept from the sweep until its record is rendered.
+    /// A site's genotyping result, kept from the direct pass until its record is rendered.
     ///
-    /// A nested chain's ploidy depends on its parent's settled genotype, which is known only after
-    /// the sweep, so the result is kept rather than computed again. The `CallInfo` has the answer at
-    /// both ploidies (see `alt_ploidy_info`), so the record can be rendered at whichever ploidy the
-    /// barrier settles on. `snarl` is held by value because `call_snarl_internal` may work on a
-    /// flipped copy.
+    /// A nested chain's ploidy depends on its parent's chosen genotype, which is known only after
+    /// the direct pass, so the result is kept rather than computed again. The `CallInfo` has the
+    /// answer at both ploidies (see `alt_ploidy_info`), so the record can be rendered at whichever
+    /// ploidy the linkage pass gives the site. `snarl` is held by value because
+    /// `call_snarl_internal` may work on a flipped copy.
     struct PendingRecord {
         Snarl snarl;
         string ref_path_name;
         int ref_offset = 0;
         vector<SnarlTraversal> travs;
         int ref_trav_idx = -1;
-        /// The sweep's genotype, before the linkage model, and its ploidy. A nested chain's
+        /// The direct pass's genotype, before the linkage model, and its ploidy. A nested chain's
         /// ploidy here is the number of the parent's called alleles that cross it, or the parent's
         /// ploidy when none does; `call_info` also holds the answer at the other ploidy.
         vector<int> genotype;
@@ -1361,8 +1364,8 @@ protected:
         /// See NestedContext::chain_key.
         size_t chain_key = 0;
         /// See NestedContext::reported_inline. Its line is held back, as for `no_reference`. The
-        /// sweep tests the parent's direct call; under the linkage model the barrier tests again
-        /// with the parent's settled genotype, which the parent's blocks are built from.
+        /// direct pass tests the parent's direct call; under the linkage model the linkage pass
+        /// tests again with the parent's chosen genotype, which the parent's blocks are built from.
         bool reported_inline = false;
         /// This snarl has no reference path, so no line can be written for it, since REF and POS are
         /// undefined. It is still genotyped and recorded in the linkage model.
@@ -1370,31 +1373,31 @@ protected:
         /// For a snarl with no reference path: its parent's reference start plus `chain_offset`,
         /// standing in for the position it lacks.
         int64_t position_from_parent = 0;
-        /// `NestedContext::parent_offset` for this chain. The sweep takes it from the parent's
-        /// direct call, and the barrier computes it again from the parent's settled genotype, so
-        /// that an off-reference chain is placed along the allele its parent settles on.
+        /// `NestedContext::parent_offset` for this chain. The direct pass takes it from the parent's
+        /// direct call, and the linkage pass computes it again from the parent's chosen genotype, so
+        /// that an off-reference chain is placed along an allele of its parent's chosen genotype.
         size_t chain_offset = 0;
         /// See NestedContext::parent_crossing.
         uint64_t parent_crossing = 0;
         /// False when the parent has more than 64 candidate traversals, too many for
-        /// `parent_crossing`. A 0 mask then means unknown, and the barrier leaves the chain at the
-        /// ploidy the sweep gave it. The barrier computes the mask again when it revises or first
-        /// records the parent.
+        /// `parent_crossing`. A 0 mask then means unknown, and the linkage pass leaves the chain at the
+        /// ploidy the direct pass gave it. The linkage pass computes the mask again when it revises
+        /// or first records the parent.
         bool crossing_known = true;
-        /// The site's generation.
-        uint8_t generation = 0;
-        /// Set when the settled parent, or an ancestor, does not carry this chain, so the chain and
-        /// its descendants do not exist in the sample and are not revised or written. Each barrier
+        /// The site's level.
+        uint8_t level = 0;
+        /// Set when the chosen parent, or an ancestor, does not carry this chain, so the chain and
+        /// its descendants do not exist in the sample and are not revised or written. Each linkage pass
         /// pass decides it again, so a chain dropped in one pass can come back in the next.
         bool dropped = false;
-        /// `panel_alleles(graph, travs)`, computed once: the traversals do not change after the sweep,
-        /// and each re-genotyping round would otherwise repeat the GBWT lookups.
+        /// `panel_alleles(graph, travs)`, computed once: the traversals do not change after the
+        /// direct pass, and each re-genotyping round would otherwise repeat the GBWT lookups.
         vector<int> panel_cache;
         bool panel_cached = false;
 
     };
 
-    /// The staged records a pass should look at, wherever they currently are: between a barrier
+    /// The staged records a pass should look at, wherever they currently are: between a linkage pass
     /// pass and the hand-off, nested chains are in `deferred_pending` and the rest in
     /// `render_records`.
     ///
@@ -1405,34 +1408,34 @@ protected:
     /// `panel_alleles` for a record, computed once and kept. See `PendingRecord::panel_cache`.
     const vector<int>& cached_panel_alleles(PendingRecord& rec);
 
-    /// The settled pair and ploidy per record, `{trav_first, trav_second, ploidy}`, for measuring
+    /// The chosen pair and ploidy per record, `{trav_first, trav_second, ploidy}`, for measuring
     /// whether a re-genotyping round changed anything.
-    unordered_map<size_t, std::array<int, 3>> settled_snapshot();
-    /// How many records settled differently from `before`, counting a chain that gained or lost a
-    /// settled answer as moved.
-    size_t settled_changed(const unordered_map<size_t, std::array<int, 3>>& before);
+    unordered_map<size_t, std::array<int, 3>> chosen_snapshot();
+    /// How many records chosen differently from `before`, counting a chain that gained or lost a
+    /// chosen answer as moved.
+    size_t chosen_changed(const unordered_map<size_t, std::array<int, 3>>& before);
     /// A digest of a snapshot that does not depend on order, for spotting a state the rounds have
     /// reached before, which means they are cycling.
     static size_t snapshot_digest(const unordered_map<size_t, std::array<int, 3>>& snap);
 
-    /// The nested chains the barrier settles, merged out of `pending_records` on the first pass and
-    /// kept until `hand_off_deferred_records` moves them to the render. A member because the
-    /// barrier runs once per re-genotyping round.
+    /// The nested chains' staged records, which every linkage pass reads, merged out of
+    /// `pending_records` by the first and kept until `hand_off_deferred_records` moves them to the
+    /// render. A member because the linkage pass runs once per round.
     vector<PendingRecord> deferred_pending;
-    /// How many times the barrier has run.
-    size_t barrier_passes_run = 0;
+    /// How many times the linkage pass has run.
+    size_t linkage_passes_run = 0;
 
 
-    /// See set_settle_after_sweep.
-    bool settle_after_sweep = false;
+    /// See set_stage_records.
+    bool stage_records = false;
 
-    /// The nested chains' staged records, filled per thread during the sweep.
+    /// The nested chains' staged records, filled per thread during the direct pass.
     vector<vector<PendingRecord>> pending_records;
 
     /// The top-level sites' staged records, and after the hand-off every record to be rendered.
-    /// A top-level site's ploidy comes from the contig or the BED, so the barrier never revises
-    /// it, though the linkage model still settles its genotype. Separate from
-    /// `pending_records`, which `run_barrier` moves out and clears, and whose index groups
+    /// A top-level site's ploidy comes from the contig or the BED, so the linkage pass never revises
+    /// it, though the linkage model still chooses its genotype. Separate from
+    /// `pending_records`, which `run_linkage_pass` moves out and clears, and whose index groups
     /// records by parent. Read through `records_for_render`.
     vector<vector<PendingRecord>> render_records;
 
@@ -1446,19 +1449,19 @@ protected:
                                                  int ploidy);
 
 
-    /// The genotype the linkage model settled on for a staged record, or the sweep's where it
-    /// settled none. Both anchor-collection paths use it.
-    vector<int> settled_genotype_for(const PendingRecord& rec) const;
+    /// The genotype the linkage model chosen on for a staged record, or the direct pass's where it
+    /// chosen none. Both anchor-collection paths use it.
+    vector<int> chosen_genotype_for(const PendingRecord& rec) const;
 
-    /// The gqn column's value for this record: the sweep's `gq_fraction`, unless the linkage model
-    /// changed the call, in which case the signed value recomputed for the settled genotype. NaN,
+    /// The gqn column's value for this record: the direct pass's `gq_fraction`, unless the linkage model
+    /// changed the call, in which case the signed value recomputed for the chosen genotype. NaN,
     /// written as `.`, where there is no value: no gap to normalise, or a moved call whose margin
     /// cannot be recomputed.
-    double anchor_gqn_for(const PendingRecord& rec, const vector<int>& settled) const;
+    double anchor_gqn_for(const PendingRecord& rec, const vector<int>& chosen) const;
 
     /// `collect_anchors_for` for a staged record, with the phase order, the haploid slot and the
     /// leaf test derived from it. The genotype is a parameter because the render passes the
-    /// settled pair.
+    /// chosen pair.
     void collect_anchors_for_record(const PendingRecord& rec, const vector<int>& genotype);
 
     /// How many nested chains are staged, over all threads.
@@ -1508,15 +1511,15 @@ public:
     /// not cross it, by the rule `crossings_of_child` uses.
     static int offset_of_child(const SnarlTraversal& trav, const Snarl& child);
 
-    /// A nested site's place in the nesting tree: its record key, its parent's, and its generation.
+    /// A nested site's place in the nesting tree: its record key, its parent's, and its level.
     struct NestedLink {
         size_t key = 0;
         size_t parent = 0;
-        uint8_t generation = 0;
+        uint8_t level = 0;
     };
 
     /// Keep each nested site's strand pointing at the parent strand that carries it, after the
-    /// sites in `flips` had their settled pair swapped. A ploidy-1 nested site names one of its
+    /// sites in `flips` had their chosen pair swapped. A ploidy-1 nested site names one of its
     /// parent's two strands in `nested_strand` and holds its haplotype in the slot of that number,
     /// so where the parent's strands swapped, both move to the other strand. Each site in `links`
     /// is looked up in `phased` through `phase_index`. Returns how many strands moved.
@@ -1537,7 +1540,7 @@ public:
 protected:
 
     /// The crossing mask: bit i is set where `travs[i]` crosses `child`. Indexed by traversal, not
-    /// by VCF allele, since it is tested against the parent's settled traversals. Returns 0 and
+    /// by VCF allele, since it is tested against the parent's chosen traversals. Returns 0 and
     /// sets `*known` to false when there are more than 64 traversals, so that the caller can tell
     /// unknown from "no traversal crosses".
     static uint64_t child_crossing_mask(const vector<TraversalNodeIndex>& visits,
@@ -1695,9 +1698,9 @@ protected:
 
     bool for_each_handle_impl(const std::function<bool(const handle_t&)>& iteratee, bool parallel = false) const;
     
-    /// this is the only function that's changed to do anything different from the backing graph:
-    /// it is changed to "pass through" snarls by pretending there are edges from into snarl starts out of ends and
-    /// vice versa.
+    /// this is the only function that's changed to do anything different from the backing graph: it
+    /// is changed to "pass through" snarls by pretending there are edges from into snarl starts out
+    /// of ends and vice versa.
     bool follow_edges_impl(const handle_t& handle, bool go_left, const std::function<bool(const handle_t&)>& iteratee) const;    
 
     /// the backing graph

@@ -78,7 +78,7 @@ static inline int vcf_allele_of(const vector<int8_t>& allele_arena, size_t allel
     return at < allele_arena.size() ? (int)allele_arena[at] : -1;
 }
 
-/// The VCF alleles of a settled compact pair, through the site's traversal-to-allele map.
+/// The VCF alleles of a chosen compact pair, through the site's traversal-to-allele map.
 ///
 /// Where the map gives no allele for one of the pair, because it was not supplied yet or because
 /// the record wrote no ALT for that traversal, the called pair's alleles are used instead and
@@ -100,13 +100,13 @@ static inline void render_phase_pair(const vector<int8_t>& allele_arena, size_t 
     *fell_back = true;
 }
 
-/// What a parent's settled traversals imply about one of its child chains, given the chain's
+/// What a parent's chosen traversals imply about one of its child chains, given the chain's
 /// crossing mask. The mask is indexed by candidate traversal, so it is tested against traversals,
 /// never against compact allele indices.
 LinkageCollector::Relation LinkageCollector::relate_to_parent(uint64_t crossing, int ta, int tb) {
     LinkageCollector::Relation r;
     if (ta < 0 || crossing == 0) {
-        return r;   // nothing settled, or descent could not compute the mask
+        return r;   // nothing chosen, or descent could not compute the mask
     }
     r.known = true;
     const bool first = ta < 64 && ((crossing >> ta) & 1);
@@ -753,10 +753,10 @@ void LinkageModel::window_phasing(const vector<Site>& sites, size_t from, size_t
         }
     }
 
-    // Per-site pins, for sites an earlier generation already settled. Same operation as the seam
-    // pin below -- zero every state but one -- applied wherever the site asks for it. A settled
+    // Per-site pins, for sites an earlier level already chosen. Same operation as the seam
+    // pin below -- zero every state but one -- applied wherever the site asks for it. A chosen
     // site's phase is already in the VCF, so letting the path re-orient it here would decode this
-    // generation's sites in a frame nothing else uses.
+    // level's sites in a frame nothing else uses.
     for (size_t t = 0; t < n; ++t) {
         const Site& site = sites[from + t];
         if (!site.pinned) {
@@ -1387,7 +1387,7 @@ void LinkageCollector::record(const string& contig, size_t position,
     e.parent_crossing = ctx.parent_crossing;
     e.unpositioned = ctx.unpositioned;
     e.chain_key = ctx.chain_key;
-    e.generation = (uint8_t)(ctx.generation > 255 ? 255 : ctx.generation);
+    e.level = (uint8_t)(ctx.level > 255 ? 255 : ctx.level);
     e.freq_prior = (float)ctx.freq_prior;
 
     e.gl_offset = (uint32_t)gl_arena.size();
@@ -1423,10 +1423,10 @@ void LinkageCollector::record(const string& contig, size_t position,
         entries[last->second].next_same_key = at;
     }
     last_by_key[record_key] = at;
-    if (e.generation >= by_generation.size()) {
-        by_generation.resize((size_t)e.generation + 1);
+    if (e.level >= by_level.size()) {
+        by_level.resize((size_t)e.level + 1);
     }
-    by_generation[e.generation].push_back(at);
+    by_level[e.level].push_back(at);
     entries.push_back(e);
 }
 
@@ -1441,18 +1441,18 @@ uint32_t LinkageCollector::live_index(size_t record_key) const {
     return NO_ENTRY;
 }
 
-size_t LinkageCollector::num_sites_at(size_t generation) const {
+size_t LinkageCollector::num_sites_at(size_t level) const {
     size_t n = 0;
     for (const Entry& e : entries) {
-        n += (e.generation == generation && !e.retracted);
+        n += (e.level == level && !e.retracted);
     }
     return n;
 }
 
-size_t LinkageCollector::max_generation() const {
+size_t LinkageCollector::max_level() const {
     size_t g = 0;
     for (const Entry& e : entries) {
-        g = max(g, (size_t)e.generation);
+        g = max(g, (size_t)e.level);
     }
     return g;
 }
@@ -1469,7 +1469,7 @@ size_t LinkageCollector::bytes() const {
 }
 
 
-bool LinkageCollector::settled_traversals(size_t record_key, int* first, int* second,
+bool LinkageCollector::chosen_traversals(size_t record_key, int* first, int* second,
                                          size_t* ploidy) const {
     lock_guard<std::mutex> guard(mutex);
     const uint32_t found = live_index(record_key);
@@ -1603,7 +1603,7 @@ bool LinkageCollector::rescore(size_t record_key,
         e.num_alleles = (uint16_t)cs.space.size();
     }
     // The per-site call moves with the likelihoods. `final_*` is left alone: it is the decode's
-    // output and `resolve_generation` resets it from `called_*` on its next pass, which is the
+    // output and `resolve_level` resets it from `called_*` on its next pass, which is the
     // pass this rescore exists to feed.
     e.called_i = (uint16_t)cs.ci;
     e.called_j = (uint16_t)cs.cj;
@@ -1617,14 +1617,14 @@ bool LinkageCollector::retract(size_t record_key) {
         return false;
     }
     entries[found].retracted = true;
-    // A retracted site has no settled genotype, so it is no longer moved.
+    // A retracted site has no chosen genotype, so it is no longer moved.
     if (live_index(record_key) == NO_ENTRY) {
         moved_quality_by_record.erase(record_key);
     }
     return true;
 }
 
-/// Translate the settled compact pair into the traversal on each strand, against which crossing
+/// Translate the chosen compact pair into the traversal on each strand, against which crossing
 /// masks are tested, and the VCF allele on each strand, which is what the record writes.
 void LinkageCollector::finish_phase_call(PhaseCall& pc, const Entry& e) const {
     const size_t c_first = pc.allele_first, c_second = pc.allele_second;
@@ -1647,7 +1647,7 @@ void LinkageCollector::finish_phase_call(PhaseCall& pc, const Entry& e) const {
 /// `carrying` is the parent candidate traversal that crosses the chain, from `relate_to_parent`.
 /// A nested parent at ploidy 1 is on one strand, so everything inside it is on that strand: its
 /// own `nested_strand` is the answer. A diploid parent names the strand by which of its two
-/// settled traversals carries the chain. A haploid top-level parent has only one strand, so its
+/// chosen traversals carries the chain. A haploid top-level parent has only one strand, so its
 /// children get -1 and are not written as `a|.`.
 static inline int nested_strand_of(int carrying, size_t parent_ploidy, int parent_trav_first,
                                    int parent_trav_second, int parent_nested_strand) {
@@ -1668,14 +1668,14 @@ static inline int nested_strand_of(int carrying, size_t parent_ploidy, int paren
     return -1;
 }
 
-size_t LinkageCollector::resolve_generation(
-        size_t generation, bool last, vector<PhaseCall>* phasing_out) {
+size_t LinkageCollector::resolve_level(
+        size_t level, bool last, vector<PhaseCall>* phasing_out) {
     size_t moved = 0;
     if (!model.active() || entries.empty()) {
         return moved;
     }
 
-    // For each site of an earlier generation, by record key: the phase it settled on, so that a
+    // For each site of an earlier level, by record key: the phase it chosen on, so that a
     // clamped site can be pinned to it, and what `nested_strand_of` needs to place a child.
     struct PinnedPhase {
         size_t first;
@@ -1689,7 +1689,7 @@ size_t LinkageCollector::resolve_generation(
     // Rebuilt from all of `phasing_out` on each call. It is not read incrementally, because the
     // last call sorts `phasing_out` in place.
     unordered_map<size_t, PinnedPhase> pinned_phase;
-    if (phasing_out != nullptr && generation > 0) {
+    if (phasing_out != nullptr && level > 0) {
         pinned_phase.reserve(phasing_out->size() * 2);
         for (const PhaseCall& pc : *phasing_out) {
             pinned_phase[pc.record_key] = PinnedPhase{pc.hap_first, pc.hap_second,
@@ -1699,29 +1699,29 @@ size_t LinkageCollector::resolve_generation(
         }
     }
     // Where a nested haploid chain sits, by record key, so the PhaseCall the chain loop emits can
-    // name it. Derived once where the parent's settled pair is in hand, which is the only place
+    // name it. Derived once where the parent's chosen pair is in hand, which is the only place
     // both facts are available.
     struct NestedPlacement {
         int strand = -1;
         bool order_arbitrary = false;   // the parent's: this strand IS that coin flip, one level down
         // Whether the site may name a panel haplotype. Under a haploid parent there is one strand
         // and the child sits on it. Under a diploid parent, `nested_strand_of` returns -1 when
-        // both settled traversals carry the chain or when the settled pair could not be read, and
+        // both chosen traversals carry the chain or when the chosen pair could not be read, and
         // then no haplotype is named. (A parent carrying no copy cannot occur here, since the
-        // barrier retracts such a subtree first.) The two cases are counted separately.
+        // linkage pass retracts such a subtree first.) The two cases are counted separately.
         bool nameable = true;
     };
     unordered_map<size_t, NestedPlacement> unified_strand;
 
-    // This generation's entries, in append order.
+    // This level's entries, in append order.
     static const vector<uint32_t> no_entries;
-    const vector<uint32_t>& this_generation =
-        generation < by_generation.size() ? by_generation[generation] : no_entries;
+    const vector<uint32_t>& this_level =
+        level < by_level.size() ? by_level[level] : no_entries;
 
     // Default every site this pass considers to its own per-site call, so that whatever a chain or a
-    // sweep fails to reach still has a coherent genotype for a later generation to clamp. Overwritten
-    // below wherever something is actually settled.
-    for (uint32_t idx : this_generation) {
+    // direct pass fails to reach still has a coherent genotype for a later level to clamp. Overwritten
+    // below wherever something is actually chosen.
+    for (uint32_t idx : this_level) {
         Entry& e = entries[idx];
         e.final_i = e.called_i;
         e.final_j = e.ploidy == 1 ? e.called_i : e.called_j;
@@ -1731,11 +1731,11 @@ size_t LinkageCollector::resolve_generation(
     // but not the same, and the transition probabilities depend on the distances. Only at the top
     // level: below it every live site is nested and is grouped with its parent instead.
     vector<vector<size_t>> by_contig;
-    if (generation == 0) {
+    if (level == 0) {
         by_contig.resize(contig_names.size());
-        for (uint32_t i : this_generation) {
+        for (uint32_t i : this_level) {
             if (entries[i].retracted) {
-                continue;   // the settled parent does not carry the chain, so there is no site here
+                continue;   // the chosen parent does not carry the chain, so there is no site here
             }
             by_contig[entries[i].contig].push_back(i);
         }
@@ -1771,7 +1771,7 @@ size_t LinkageCollector::resolve_generation(
         // these runs and decoded afterwards with their parents, since a nested ploidy-1 site
         // between diploid neighbours would otherwise split the run. A change of the contig's own
         // ploidy still splits it. Every entry here is top level, since `by_contig` is built only
-        // at generation 0.
+        // at level 0.
         size_t run_start = 0;
         while (run_start < contig_indices.size()) {
             size_t run_end = run_start + 1;
@@ -1790,11 +1790,11 @@ size_t LinkageCollector::resolve_generation(
 
     // Sites and groups decoded per parent, for reporting.
     size_t grouped_sites = 0, grouped_groups = 0;
-    // After generation 0, each nested chain is decoded on its own, conditioned on its parent's
-    // settled state, so the cost grows with the number of children rather than with the length of
+    // After level 0, each nested chain is decoded on its own, conditioned on its parent's
+    // chosen state, so the cost grows with the number of children rather than with the length of
     // the contig. Sites within a chain are linked; two chains under the same parent have no
     // transitions between them.
-    if (generation > 0 && !pinned_phase.empty()) {
+    if (level > 0 && !pinned_phase.empty()) {
         unordered_map<size_t, size_t> index_of_key;
         index_of_key.reserve(entries.size() * 2);
         for (size_t i = 0; i < entries.size(); ++i) {
@@ -1804,7 +1804,7 @@ size_t LinkageCollector::resolve_generation(
         }
         // Sites grouped by (parent, chain, ploidy, carrying traversal); see `group_key`.
         map<tuple<size_t, size_t, size_t, int>, vector<size_t>> by_parent;
-        // What the parent's settled pair implies about a child, from `relate_to_parent`.
+        // What the parent's chosen pair implies about a child, from `relate_to_parent`.
         auto relate = [&](const Entry& child, const Entry& parent) {
             const int ta = traversal_of(trav_arena, parent.trav_offset, parent.num_alleles,
                                         parent.final_i);
@@ -1826,19 +1826,19 @@ size_t LinkageCollector::resolve_generation(
             // Ploidy is part of the key. A group is decoded at one ploidy, taken from its first
             // member, and a site decoded at the wrong ploidy would index past its likelihood
             // vector. Children in one chain of one parent can differ in ploidy, since a child's
-            // ploidy is the number of the parent's settled alleles that cross it.
+            // ploidy is the number of the parent's chosen alleles that cross it.
             //
-            // So is, at ploidy 1, the parent's settled traversal that carries the site, which
+            // So is, at ploidy 1, the parent's chosen traversal that carries the site, which
             // names the strand the site is on. A group is placed on one strand, and two sites of
             // one chain can be carried by different strands of the parent.
             const int carrying = e.ploidy == 1 ? relate(e, parent).carrying_trav : -1;
             return make_tuple(e.parent_record_key, chain, e.ploidy, carrying);
         };
-        // Group every live site of this generation with its parent. A site that cannot be grouped
+        // Group every live site of this level with its parent. A site that cannot be grouped
         // is decoded alone. Groups are sorted afterwards on (position, record key), a total order,
         // so membership does not depend on the order in which sites arrived.
         vector<vector<size_t>> ungrouped;
-        for (uint32_t idx : this_generation) {
+        for (uint32_t idx : this_level) {
             const Entry& e = entries[idx];
             if (e.retracted) {
                 continue;
@@ -1852,7 +1852,7 @@ size_t LinkageCollector::resolve_generation(
                 by_parent[group_key(e, entries[par->second])].push_back(idx);
                 continue;
             }
-            // Decoded alone rather than dropped, so that it is still settled and phased.
+            // Decoded alone rather than dropped, so that it is still chosen and phased.
             ++model.counters.grp_vetoed;
             ungrouped.push_back(vector<size_t>{idx});
         }
@@ -1902,7 +1902,7 @@ size_t LinkageCollector::resolve_generation(
                 grouped_sites += group.size();
                 ++grouped_groups;
                 groups.push_back(std::move(group));
-                // The entering message, from the parent's settled state, owned by
+                // The entering message, from the parent's chosen state, owned by
                 // `deltas`. The parent's WILDCARD, `(size_t)-1` outside the model, is state
                 // `n_haplotypes` inside it, so it is translated before indexing.
                 const size_t m = n_haplotypes + 1;
@@ -1982,7 +1982,7 @@ size_t LinkageCollector::resolve_generation(
             chain_phase_set.swap(gps);
         }
         // Sites that could not be grouped are kept, each as its own chain, so that they are still
-        // decoded and phased whether or not any other site of this generation was grouped.
+        // decoded and phased whether or not any other site of this level was grouped.
         for (vector<size_t>& kc : ungrouped) {
             chains.push_back(std::move(kc));
             chain_context.push_back(nullptr);
@@ -1995,12 +1995,12 @@ size_t LinkageCollector::resolve_generation(
         if (indices.empty()) {
             continue;
         }
-        // Count the chain's sites of this generation, and its pinned sites of earlier ones. A chain
-        // with none of this generation's sites has nothing to decide, since all its sites are
+        // Count the chain's sites of this level, and its pinned sites of earlier ones. A chain
+        // with none of this level's sites has nothing to decide, since all its sites are
         // clamped, and is skipped.
         size_t live_here = 0, pinned_here = 0;
         for (size_t idx : indices) {
-            if (entries[idx].generation == generation) {
+            if (entries[idx].level == level) {
                 ++live_here;
             } else if (pinned_phase.count(entries[idx].record_key) != 0) {
                 ++pinned_here;
@@ -2009,9 +2009,9 @@ size_t LinkageCollector::resolve_generation(
         if (live_here == 0) {
             continue;
         }
-        if (generation > 0) {
+        if (level > 0) {
 #pragma omp critical (cerr)
-            std::cerr << "[vg call] linkage generation " << generation << ": chain decodes "
+            std::cerr << "[vg call] linkage level " << level << ": chain decodes "
                       << indices.size() << " sites for " << live_here << " of its own, "
                       << pinned_here << " pinned" << std::endl;
         }
@@ -2048,16 +2048,16 @@ size_t LinkageCollector::resolve_generation(
             for (size_t h = 0; h < n_haplotypes; ++h) {
                 s.haplotype_allele.push_back((int)hap_arena[e.hap_offset + h]);
             }
-            if (e.generation < generation) {
-                // Clamped. A delta emission at the settled genotype, so the site still carries
+            if (e.level < level) {
+                // Clamped. A delta emission at the chosen genotype, so the site still carries
                 // transition context for its neighbours -- which is why it is in the chain at all --
                 // while being unable to move. build_emission maps a non-finite entry to zero mass,
                 // so this needs nothing from the model.
-                size_t settled = e.ploidy == 1
+                size_t chosen = e.ploidy == 1
                                      ? (size_t)e.final_i
                                      : LinkageModel::genotype_index(e.final_i, e.final_j);
                 for (size_t g = 0; g < s.genotype_ln_likelihood.size(); ++g) {
-                    s.genotype_ln_likelihood[g] = (g == settled)
+                    s.genotype_ln_likelihood[g] = (g == chosen)
                                                       ? 0.0
                                                       : -numeric_limits<double>::infinity();
                 }
@@ -2082,7 +2082,7 @@ size_t LinkageCollector::resolve_generation(
         if (chain_ploidy == 1) {
             posteriors = model.posteriors(sites, 1, ctx);
         } else if (ctx != nullptr) {
-            // A child group, conditioned on its parent's settled state.
+            // A child group, conditioned on its parent's chosen state.
             model.segment_posteriors(sites, 0, sites.size(), ctx, nullptr, posteriors);
         } else {
             posteriors = model.posteriors(sites, 2);
@@ -2098,8 +2098,8 @@ size_t LinkageCollector::resolve_generation(
             const vector<double>& post = posteriors[t];
             size_t before = e.ploidy == 1 ? (size_t)e.called_i
                                           : LinkageModel::genotype_index(e.called_i, e.called_j);
-            if (e.generation < generation) {
-                // Clamped: it was settled, reported and emitted at its own generation. Its genotype
+            if (e.level < level) {
+                // Clamped: it was chosen, reported and emitted at its own level. Its genotype
                 // still has to reach `final_genotype`, because that is what the phasing below is
                 // constrained to, but it must not produce a second Change.
                 final_genotype[t] = e.ploidy == 1
@@ -2130,7 +2130,7 @@ size_t LinkageCollector::resolve_generation(
                 --j;
                 i = best - (j * (j + 1) / 2);
             }
-            // Settled. A later generation clamps the site here instead of reconsidering it, which is
+            // Chosen. A later level clamps the site here instead of reconsidering it, which is
             // what makes a parent's genotype final before any of its children is called.
             entries[indices[t]].final_i = (uint16_t)i;
             entries[indices[t]].final_j = (uint16_t)j;
@@ -2144,7 +2144,7 @@ size_t LinkageCollector::resolve_generation(
                 q.direct.achievable_gap = e.achievable_gap;
                 ++moved;
             } else {
-                // Unmoved in this resolution, whatever an earlier barrier run concluded.
+                // Unmoved in this resolution, whatever an earlier linkage pass concluded.
                 moved_quality_by_record.erase(e.record_key);
             }
         }
@@ -2165,8 +2165,8 @@ size_t LinkageCollector::resolve_generation(
         }
         for (size_t t = 0; t < indices.size() && t < phase.size(); ++t) {
             const Entry& e = entries[indices[t]];
-            if (e.generation < generation) {
-                continue;   // its PhaseCall was emitted, and pinned above, at its own generation
+            if (e.level < level) {
+                continue;   // its PhaseCall was emitted, and pinned above, at its own level
             }
             const LinkageModel::Phase& ph = phase[t];
             // Read the ordered allele pair off the haplotypes the path chose. Where a strand is
@@ -2194,9 +2194,9 @@ size_t LinkageCollector::resolve_generation(
             }
             PhaseCall pc;
             pc.ploidy = e.ploidy;
-            pc.generation = e.generation;
+            pc.level = e.level;
             // The strand of its parent that a nested ploidy-1 chain sits on, found earlier where the
-            // parent's settled pair was at hand.
+            // parent's chosen pair was at hand.
             int nested_slot = -1;
             bool nameable = true;
             {
@@ -2256,9 +2256,9 @@ size_t LinkageCollector::resolve_generation(
         }
     }
 
-    if (generation > 0 && (model.counters.pin_applied.load() + model.counters.pin_declined.load()) > 0) {
+    if (level > 0 && (model.counters.pin_applied.load() + model.counters.pin_declined.load()) > 0) {
 #pragma omp critical (cerr)
-        std::cerr << "[vg call] linkage generation " << generation << ": pins -- "
+        std::cerr << "[vg call] linkage level " << level << ": pins -- "
                   << model.counters.pin_applied.load() << " applied, " << model.counters.pin_declined.load()
                   << " REFUSED (the pinned pair cannot spell the constrained genotype, so that"
                   << " site's orientation is free); groups whose parent was pinnable: "
@@ -2267,10 +2267,10 @@ size_t LinkageCollector::resolve_generation(
     }
 
     // Report only when something was declined.
-    if (generation > 0
+    if (level > 0
         && (model.counters.grp_no_parent.load() + model.counters.grp_no_entry.load() + model.counters.grp_vetoed.load()) > 0) {
 #pragma omp critical (cerr)
-        std::cerr << "[vg call] linkage generation " << generation << ": grouping declines so far -- "
+        std::cerr << "[vg call] linkage level " << level << ": grouping declines so far -- "
                   << model.counters.grp_no_parent.load() << " sites with no parent key, "
                   << model.counters.grp_no_entry.load() << " whose parent has no live entry; "
                   << model.counters.grp_vetoed.load() << " chains kept ungrouped in total" << std::endl;
@@ -2278,12 +2278,12 @@ size_t LinkageCollector::resolve_generation(
 
     if (grouped_groups > 0) {
 #pragma omp critical (cerr)
-        std::cerr << "[vg call] linkage generation " << generation << ": decoded " << grouped_sites
+        std::cerr << "[vg call] linkage level " << level << ": decoded " << grouped_sites
                   << " sites in " << grouped_groups << " per-parent groups instead of the contig"
                   << " chain" << std::endl;
     }
 
-    if (generation > 0
+    if (level > 0
         && (model.counters.nest_strand.load() + model.counters.nest_one_hap.load() + model.counters.nest_both.load()
             + model.counters.nest_unreadable.load()) > 0) {
 #pragma omp critical (cerr)
@@ -2292,7 +2292,7 @@ size_t LinkageCollector::resolve_generation(
                   << " on a haploid parent's single haplotype (no strand to choose), "
                   << model.counters.nest_both.load() << " carried on both parent strands, "
                   << model.counters.nest_unreadable.load()
-                  << " whose parent's settled pair could not be read -- the last two name no"
+                  << " whose parent's chosen pair could not be read -- the last two name no"
                   << " haplotype" << std::endl;
     }
 
@@ -2301,9 +2301,9 @@ size_t LinkageCollector::resolve_generation(
     // the chain sort: position, then the site's own key, so that the order does not depend on the
     // threads.
     if (phasing_out != nullptr && last) {
-        // Stable: a site re-rendered at the barrier has two PhaseCalls with the same record key, and
-        // the readers keep the last one for a key, which must be the later generation's.
-        // `phasing_out` is appended one generation at a time, so a stable sort keeps it last.
+        // Stable: a site re-rendered at the linkage pass has two PhaseCalls with the same record key, and
+        // the readers keep the last one for a key, which must be the later level's.
+        // `phasing_out` is appended one level at a time, so a stable sort keeps it last.
         std::stable_sort(phasing_out->begin(), phasing_out->end(),
                   [](const PhaseCall& a, const PhaseCall& b) {
                       if (a.contig != b.contig) {

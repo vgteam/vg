@@ -299,7 +299,7 @@ size_t AnchorSiteEvidence::bytes() const {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// Building anchors from a settled genotype
+// Building anchors from a chosen genotype
 ////////////////////////////////////////////////////////////////////////////////
 
 void build_site_anchors(const AnchorSiteEvidence& evidence, const vector<int>& genotype,

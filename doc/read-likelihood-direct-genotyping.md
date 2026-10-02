@@ -11,14 +11,14 @@ Direct genotyping hands the rest of the caller the site likelihood of every geno
 call, and two kinds of value for each of the site's reads: its mismapping probability, and one
 relative likelihood for each candidate allele. Both are defined below. The
 [linkage model](read-likelihood-linkage-model.md) takes the site likelihoods as its evidence.
-[Read phasing](read-likelihood-genotyping.md#from-the-reads),
-[re-genotyping](read-likelihood-genotyping.md#re-genotyping-from-the-phase) and the
+[Read phasing](read-likelihood-read-phasing.md#read-phasing),
+[re-genotyping](read-likelihood-read-phasing.md#re-genotyping-from-the-phase) and the
 [anchor file](read-likelihood-genotyping.md#assembly-anchors---anchors-out) take the per-read
 values.
 
 The caller as a whole is described in
 [read-likelihood-genotyping.md](read-likelihood-genotyping.md), which also says how a site's
-genotype is settled from its direct call. Its [Vocabulary](read-likelihood-genotyping.md#vocabulary)
+settled genotype follows from its direct call. Its [Vocabulary](read-likelihood-genotyping.md#vocabulary)
 defines the terms used here, such as site, allele, ploidy, genotype, read placement and the reads of
 a site.
 
@@ -257,7 +257,7 @@ the allele with more turns.
 
 `--flat-mixture` sets $w_i(G) = 1/P$ instead, so that the effect of the weighting can be measured.
 It also flattens the allele-length weights that read phasing uses (see
-[From the reads](read-likelihood-genotyping.md#from-the-reads)).
+[Read phasing](read-likelihood-read-phasing.md#read-phasing)).
 
 ### Mismapping probability
 

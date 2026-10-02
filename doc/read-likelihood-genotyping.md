@@ -4,13 +4,15 @@
 Default values of the options named below are listed by `vg call --help`; the few constants that
 have no option are listed under [Fixed constants](#fixed-constants).
 
-The method is described in three documents, and its source code in a fourth. This one describes the
+The method is described in four documents, and its source code in a fifth. This one describes the
 caller as a whole, defines the vocabulary that the others use, and can be read on its own.
 [read-likelihood-direct-genotyping.md](read-likelihood-direct-genotyping.md) describes how a site is
-genotyped from its reads, and [read-likelihood-linkage-model.md](read-likelihood-linkage-model.md)
-describes the model that re-decides genotypes from the haplotypes stored in the graph. Read this
-document first. Read each of the other two after it, or when this document reaches its part of the
-method, under [Settling genotypes](#settling-genotypes). The source files that implement the method,
+genotyped from its reads, [read-likelihood-linkage-model.md](read-likelihood-linkage-model.md)
+describes the model that re-decides genotypes from the haplotypes stored in the graph and phases
+them, and [read-likelihood-read-phasing.md](read-likelihood-read-phasing.md) describes how the reads
+then re-decide the phases and correct the likelihoods. Read this document first. Read each of the
+other three after it, or when this document reaches its part of the method, under [Settling
+genotypes](#settling-genotypes) and [Phasing](#phasing). The source files that implement the method,
 and an order in which to read them, are described in
 [read-likelihood-architecture.md](read-likelihood-architecture.md).
 
@@ -31,26 +33,27 @@ The caller works in four steps:
 
 1. **Site likelihood computation.** For each genotype the site could have, vg computes a **site
    likelihood**: a number that measures how well the genotype explains the site's reads.
-2. **Genotyping.** vg settles the site's genotype. It starts from the site's **direct call**, the
+2. **Genotyping.** vg chooses the site's genotype. It starts from the site's **direct call**, the
    genotype with the highest site likelihood. Under the **linkage model**, it then re-decides the
-   genotype from the site likelihoods of the site and its neighbours, using the haplotypes stored
-   in the graph, which tend to carry the same combinations of alleles at neighbouring sites as the
+   genotype from the site likelihoods of the site and its neighbours, using the haplotypes stored in
+   the graph, which tend to carry the same combinations of alleles at neighbouring sites as the
    sample. With [nested calling](#nested-sites), on by default, sites nested inside other sites are
    genotyped too, and get VCF records of their own.
 3. **Phasing.** Where the linkage model runs, vg assigns each genotype's alleles to the sample's
    haplotypes, first from the stored haplotypes and then, optionally, from reads that span several
    sites. With `--regenotype`, the phase is then used to correct the site likelihoods, and
-   genotyping and phasing are repeated.
+   genotyping and phasing are repeated. The genotype of the last repetition is the site's **settled
+   genotype**, the one vg reports.
 4. **Output.** vg writes a VCF file. It can also write a **mosaic** file, which describes each of
    the sample's haplotypes as a walk through the graph, and an
    [anchor file](#assembly-anchors---anchors-out), which ties reads to haplotypes.
 
 The caller is built in two parts. **Direct genotyping**, which is step 1 and the direct call,
 genotypes each site on its own, from the site's reads. **Linkage-based genotyping**, the linkage
-model, works on top of it: it settles the genotypes of many neighbouring sites together, from
-their site likelihoods, and gives the first phase in step 3. vg runs direct genotyping on every
-site before it runs linkage-based genotyping on any (see
-[Genotyping in two passes](#genotyping-in-two-passes)).
+model, works on top of it: it chooses the genotypes of many neighbouring sites together, from
+their site likelihoods, and gives the first phase in step 3. How these steps are ordered into
+passes over the sites is described under [Passes and rounds](#passes-and-rounds), after the
+vocabulary.
 
 ## Vocabulary
 
@@ -68,8 +71,8 @@ site before it runs linkage-based genotyping on any (see
 - **Chain.** A series of snarls joined end to end, each snarl's end boundary node being the next
   one's start. Snarls nest: a snarl can contain chains of smaller snarls, its **child chains**. The
   sites in a site's child chains are **nested** in it, and it is their **parent**. A site with no
-  parent is a **top-level** site. The linkage chains and phase chains defined below are instead
-  sequences of sites.
+  parent is a **top-level** site. The linkage chains defined below, and the phase chains of read
+  phasing, are instead sequences of sites.
 - **Allele.** A walk through a site from its start boundary node to its end boundary node (in the
   code, a *traversal*).
 - **Reference.** The **reference paths** are the graph paths on which `vg call` reports positions.
@@ -116,25 +119,101 @@ site before it runs linkage-based genotyping on any (see
   an allele that skips the interior, such as a deletion. A read whose only node in the site is one
   boundary node fits every allele equally, and is not used.
 
+## Passes and rounds
+
+vg goes over the sites in **passes**. The **direct pass** comes first and runs once. It is the only
+pass that fetches reads: the steps after it work from the evidence it keeps for each read.
+**Rounds** follow, each built around a **linkage pass**. Last, the **render** builds the records,
+and vg writes the output files:
+
+```
+direct pass                         once, every top-level site
+    direct genotyping               the site's likelihoods and direct call, from its reads
+    descent                         the same for the sites nested in it, at provisional ploidies
+    staging                         keep what the site's records will be built from
+round 1, 2, ...                     round 2 on only with --regenotype
+    likelihood correction           from round 2 on: correct the likelihoods from the phase
+    linkage pass                    one level at a time, level 0 first
+        linkage-based genotyping    choose a genotype for each site of the level
+        phasing from the panel      put each genotype's alleles on the strands
+        ploidy of the next level    from the genotypes just chosen
+    read phasing                    re-decide the phases from the reads (--read-phasing)
+render                              build each site's records from its settled genotype
+write                               the VCF, and the mosaic and anchor files if asked for
+```
+
+The order follows from what each step needs. The linkage model chooses a site's genotype from the
+likelihoods of every site of the site's [linkage chain](#linkage-based-genotyping), so direct
+genotyping has run on every site before any linkage-based genotyping runs. A nested site's ploidy
+depends on its parent's genotype, so a linkage pass reaches a site only after its parent. It goes
+by **level**: top-level sites are level 0, the sites of their child chains level 1, and so on (see
+[Nested sites](#nested-sites)).
+
+A site's **chosen genotype** is the one the latest linkage pass gave it: the genotype the linkage
+model chose for it, or its direct call where the model leaves the site out or does not run. Each
+linkage pass chooses afresh. The chosen genotype of the last round is the site's **settled
+genotype**, the one vg reports (see [Settling genotypes](#settling-genotypes)).
+
+### The direct pass
+
+vg visits the top-level sites, and goes through the reads once. At each site it runs direct
+genotyping, which computes the site's likelihoods and its direct call, and then descends into the
+site's child chains and does the same for their sites. A nested site gets a **provisional ploidy**:
+the number of its parent's direct-call alleles that cross it. Under the linkage model, a nested site
+that none of them crosses is genotyped too, at the parent's ploidy, since a linkage pass may choose
+for the parent a genotype whose alleles cross it; without the linkage model it is skipped. When the
+nested site has more than one candidate allele, vg also computes its likelihoods and direct call at
+ploidy 1 or 2, whichever it was not genotyped at, because a linkage pass may give it either. A
+nested site with one candidate allele is genotyped at one ploidy only, and keeps it unless a
+linkage pass drops the site. Each site is **staged**: vg keeps what the site's records will be
+built from, and writes them in the render.
+
+### The linkage pass
+
+A linkage pass goes through the levels in order. At each level, the linkage model chooses a genotype
+for every site of the level's linkage chains, and phases each chain from the panel (see
+[Phasing](#phasing)). Each site of the next level then takes its ploidy from its parent's chosen
+genotype, and vg uses its likelihoods and direct call at that ploidy: those the direct pass
+computed, corrected from round 2 on (see [Rounds](#rounds)). A site at ploidy 0 is dropped, with
+everything nested in it. At level 0 each linkage chain starts from the whole panel. At a deeper
+level it starts from the panel haplotypes that the parent's strands copy.
+
+Each linkage pass decides every ploidy afresh, so a site dropped by one linkage pass can come back
+in the next. vg records which of a parent's candidate alleles cross a nested site only when the
+parent has at most a fixed number of candidate alleles (see [Fixed constants](#fixed-constants)). A
+nested site under a parent with more keeps its provisional ploidy, even where that disagrees with
+its parent's chosen genotype. Without the linkage model, the linkage pass changes nothing: every
+site keeps its direct call and its provisional ploidy.
+
+### Rounds
+
+Round 1 is a linkage pass followed by [read phasing](#from-the-reads), which runs when
+`--read-phasing` is given. With [`--regenotype`](#re-genotyping-from-the-phase), more rounds
+follow. Each starts with a likelihood correction: the phase that the previous round ended with
+corrects the likelihoods that the direct pass computed, not those of the previous round. The
+linkage pass then chooses the genotypes from the corrected likelihoods, and read phasing runs on
+them. The new genotypes can change the phase, and with it the next correction.
+
+`--regeno-passes` caps the number of rounds, and so of linkage passes, the first included. No round
+follows one whose correction changes no site's direct call, whose linkage pass changes no chosen
+genotype, or whose chosen genotypes return to those of an earlier round. Every correction that is
+applied is followed by a linkage pass, so the settled genotypes are chosen from the likelihoods
+that `GL` reports. With `--regeno-passes 1` there is one round. After it, the correction is
+computed and reported, on standard error and in the `--regeno-ledger` file, but not applied, and no
+linkage pass follows. `--regeno-ledger` writes one
+line for each site whose direct call the last correction changed.
+
 ## Settling genotypes
 
 A site's **settled genotype** is the genotype that vg reports for it. vg chooses it among the
 genotypes that can be made from the site's [candidate alleles](#candidate-alleles) at the site's
 [ploidy](#ploidy). The settled genotype is either the site's direct call or the genotype that the
-linkage model chooses:
+linkage model chose in the last round:
 
 - Without the linkage model, that is under support enumeration (see
-  [Candidate alleles](#candidate-alleles)) or with `--linkage-weight 0`, every site's settled
-  genotype is its direct call.
-- Otherwise, under haplotype enumeration, the linkage model settles the sites.
-
-From the settled genotype vg writes the site's **records**, its lines in the VCF. A site usually
-has one record. Under nested calling it can have one for each place where it differs from the
-reference allele (see [Reporting each difference once](#reporting-each-difference-once)). A site
-has no record when every allele of its settled genotype is written as the reference allele, unless
-`--genotype-snarls` is given. Under nested calling, an allele that differs from the reference
-allele only inside the site's child chains is written as the reference allele, and the records of
-the sites in those child chains report the differences.
+  [Candidate alleles](#candidate-alleles)), with `--linkage-weight 0`, or with a panel of fewer
+  than two haplotypes, every site's settled genotype is its direct call.
+- Otherwise, under haplotype enumeration, the linkage model chooses the sites' genotypes.
 
 ### Direct genotype
 
@@ -171,8 +250,8 @@ have the same ploidy, whether or not they are adjacent; at ploidy 1, also on the
 parent. Strands do not correspond across a ploidy change at the top level, but below it they are the
 parent's strands, which its phase names. The model's evidence at each site is the site's
 likelihoods. From them, and from the alleles that the panel haplotypes carry at every site of the
-chain, it computes each genotype's **posterior probability**, and settles the site on the genotype
-with the highest. A site with more alleles than the model can hold is left out of it (see
+chain, it computes each genotype's **posterior probability**, and chooses the genotype with the
+highest. A site with more alleles than the model can hold is left out of it (see
 [States and emissions](read-likelihood-linkage-model.md#states-and-emissions)), and keeps its direct
 call, written unphased.
 
@@ -234,19 +313,120 @@ genotypes such a child as a top-level site, at the ploidy of its contig or regio
 ## Nested sites
 
 A site can contain child chains, and their sites can contain chains in turn. **Nested calling**
-genotypes the sites of each child chain and writes them in records of their own. Genotyping the
-child chains of a site is called **descent**. A site's **generation** counts the descents that reach
-it. A site that vg genotypes as a top-level site is generation 0, including the child of a site
-that could not be genotyped (see [Ploidy](#ploidy)). A site reached by descent is one generation
-after its parent.
+genotypes the sites of each child chain and writes them in records of their own. In the direct
+pass, vg genotypes the sites of a site's child chains by recursion from the site, which is called
+**descent**. A site's **level** counts the descents that reach it.
+A site that vg genotypes as a top-level site is level 0, including the child of a site that could
+not be genotyped (see [Ploidy](#ploidy)). A site reached by descent is one level below its parent.
+The level is not `INFO/LV`, which counts a record's enclosing sites that have records (see
+[Nesting tags](#nesting-tags)).
 
 Nested calling is on by default with `--read-likelihood`, and `--nested` turns it on with the other
 genotyping methods of `vg call`. `--no-nested` turns it off. With `--no-nested`, each site is
 genotyped against its full walks, variation inside nested sites is reported in the enclosing
 site's alleles, and a nested site is genotyped on its own only when its parent could not be
-genotyped.
+genotyped. How nested sites are written as records is described under
+[Records](#records).
 
-### Reporting each difference once
+### Which child chains are genotyped
+
+A strand has a copy of a nested site when the strand's allele at the parent crosses the site. So a
+nested site's ploidy is the number of the parent's strands whose allele crosses it, and a strand
+whose allele crosses it twice counts once. Each linkage pass decides it from the parent's chosen
+genotype (see [The linkage pass](#the-linkage-pass)). Ploidy is decided site by site, so two sites
+of one child chain can have different ploidies.
+
+- **0**: the sample has no copy of the site. vg writes no record for it or for the sites nested in
+  it.
+- **1**: the site is genotyped at ploidy 1. When the genotypes are phased and the site is in a
+  [nested haploid chain](#phasing), its `GT` is written `a|.` or `.|a`, and the position of the
+  allele says which strand carries the site. Otherwise the `GT` is a single allele.
+- **2**: the site is genotyped at ploidy 2.
+
+A child chain that its parent's reference allele does not cross is an **off-reference chain**. Its
+sites have no position on the parent's reference path. vg skips an off-reference chain, except in
+these cases:
+
+- With `--anchors-out`, unless `--no-off-ref-nesting` is given. The chain's sites then have
+  entries in the anchor file, and no VCF records. Phasing [from the reads](#from-the-reads)
+  includes these sites, so genotyping these chains can change the phase written for other records
+  and, under [`--regenotype`](#re-genotyping-from-the-phase), their genotypes.
+- When the reference paths include a [gRef fragment](#graph). A chain on a gRef fragment then gets
+  records, with the fragment as their contig.
+
+## Phasing
+
+Phasing decides each genotype's phase: which strand carries which allele. At ploidy 2, a site's
+phase is an order of the two alleles of its chosen genotype. The first allele is on strand 0 and
+is written to the left of the `|` in `GT`, and the second is on strand 1.
+
+A diploid site is **phaseable** when its chosen genotype holds two different alleles, so
+that its two possible phases differ. A phaseable site can still be homozygous in the VCF, when its
+two alleles differ only inside a child chain.
+
+A **nested haploid chain** is a linkage chain of ploidy-1 sites whose parent is diploid, or is a
+site of another nested haploid chain. All its sites lie on one strand of the nearest diploid
+ancestor, the strand that carries them, directly or through ploidy-1 parents (see
+[Which child chains are genotyped](#which-child-chains-are-genotyped)). Its sites' `GT` is `a|.` on
+strand 0 and `.|a` on strand 1.
+
+The linkage model first phases each linkage chain from the panel. It finds the panel haplotypes
+that the strands most probably copy along the chain, given each site's chosen genotype, and orders
+each site's alleles to match, keeping the genotype. It is described in
+[Phasing from the panel](read-likelihood-linkage-model.md#phasing-from-the-panel). Read phasing,
+when on, then re-decides the phases from reads that span several sites (see
+[From the reads](#from-the-reads)).
+
+Each record's `FORMAT/PS` names its **phase set**: the reference position of the first site of its
+top-level linkage chain. A nested site takes its parent's phase set. Sites of one phase set are
+phased relative to one another. So a phase set spans a contig, or the part of one between ploidy
+changes, and does not mark where the phase is reliable.
+
+At some phaseable sites, both strands of the panel phase copy the
+[wildcard](read-likelihood-linkage-model.md#wildcard-haplotype) or a panel haplotype that does
+not pass through the site, so the panel does not order the two alleles. vg still writes them with
+`|`, in an order that carries no phase, and keeps the site in its phase set, so that read phasing,
+when on, can order it. No field marks these sites.
+
+Phasing is on wherever the linkage model runs. `--phased` makes vg call fail when the linkage model
+does not run (see [Settling genotypes](#settling-genotypes)), and `--no-phased` turns phasing off.
+Read phasing, re-genotyping and `--anchors-hom-split` start from the panel phase, so an explicit
+`--read-phasing`, `--regenotype` or `--anchors-hom-split` is an error with `--no-phased` or where
+the linkage model does not run, and a preset's are turned off. Where the linkage model runs,
+`--no-phased` also turns nested calling off (an explicit `--nested` is then an error), and variation
+inside nested sites is reported in the enclosing site's alleles. Nested calling needs phasing there
+because the linkage pass takes each nested site's strand, and the panel haplotypes its linkage chain
+starts from, from its parent's phase.
+
+### From the reads
+
+A read that spans two phaseable sites shows directly whether their alleles lie on the same strand.
+`--read-phasing` uses such reads to re-decide the phase of each phaseable site, nested and
+off-reference sites included, within the phase sets the panel gave. It leaves out the chains that a
+[block record](#block-records) spells out. Read phasing changes phases and keeps every genotype. It
+is off by default and on under `--preset ont`. It uses its own statistics, not the linkage model's,
+and is described in [Read phasing](read-likelihood-read-phasing.md#read-phasing).
+
+### Re-genotyping from the phase
+
+`--regenotype` uses the phase to give each read its own probabilities of having come from each
+strand, and so corrects each site's likelihoods, at the start of every round after the first (see
+[Rounds](#rounds)). Off-reference chains, and chains that a block record spells out, keep the
+likelihoods of the direct pass. It needs `--read-phasing` and, like it, is off by default and on
+under `--preset ont`. It cannot be combined with `--top-down` or `--bottom-up`: an explicit
+`--regenotype` with either is an error, and a preset's is turned off. The correction is described
+in [Re-genotyping from the phase](read-likelihood-read-phasing.md#re-genotyping-from-the-phase).
+
+## Output
+
+### Records
+
+From the settled genotype vg writes the site's **records**, its lines in the VCF. A site usually
+has one record. Under nested calling it can have one for each place where it differs from the
+reference allele (below). A site has no record when every allele of its settled genotype is
+written as the reference allele, unless `--genotype-snarls` is given.
+
+#### Reporting each difference once
 
 Two alleles of a site that take the same route except inside a child chain differ only in that
 chain. To report such a difference once, vg compares each called allele with the reference allele
@@ -276,360 +456,26 @@ fewer alleles, as when two strands' walks spell the same sequence. Otherwise, wh
 cannot be split into blocks, and where `-L` merged two of the site's called alleles, vg writes one
 record for the whole site.
 
-A site's block records share the site's ID (the VCF `ID` column) and its evidence, because the
-likelihood is computed for the whole site. Their `GQ`, `GQI`, `GQN`, `GP`, `QUAL`, `DP`, `DR` and
-`BL` are the site's values (see [VCF fields](#vcf-fields)), except that where the linkage model
-moved the site, settling a genotype other than its direct call, each block record's `GQN` and
-`lowconf` come from its own `GL` (see [Linkage and re-genotyping](#linkage-and-re-genotyping)).
-Each block allele stands for one site allele: the block's REF for the site's reference allele, and
-each ALT for the site allele of the first strand that carries the ALT. The block record copies its
-`AD` and `GL` entries from the site record, reading each block allele as the site allele it stands
-for. So where both strands' different site alleles carry one ALT, the block's `GT` is homozygous
-and its `GL` entry is that of the first strand's site allele, twice. Summing or averaging these
-fields over a site's records therefore counts the site's evidence more than once. `INFO/SB` gives
-each block record's index, counting from 0, and the number of block records the site writes.
+`INFO/SB` gives each block record's index among the site's block records, counting from 0, and the
+number of block records the site writes. A block record's ID (the VCF `ID` column) is the site's ID
+followed by `_` and that index, so that no two records share an ID. The block records share the
+site's evidence, because the likelihood is computed for the whole site. Their `GQ`, `GQI`, `GQN`,
+`GP`, `QUAL`, `DP`, `DR` and `BL` are the site's values (see [VCF fields](#vcf-fields)), except
+that where the linkage model moved the site, settling a genotype other than its direct call, each
+block record's `GQN` and `lowconf` come from its own `GL` (see
+[Linkage and re-genotyping](#linkage-and-re-genotyping)). Each block allele stands for one site
+allele: the block's REF for the site's reference allele, and each ALT for the site allele of the
+first strand that carries the ALT. The block record copies its `AD` and `GL` entries from the site
+record, reading each block allele as the site allele it stands for. So where both strands'
+different site alleles carry one ALT, the block's `GT` is homozygous and its `GL` entry is that of
+the first strand's site allele, twice. Summing or averaging these fields over a site's records
+therefore counts the site's evidence more than once.
 
 When every crossing of a child chain by the alleles of the parent's settled genotype lies inside a
 block, the block's ALT spells out the chain. The records of the chain, and of the sites nested in
-it, would repeat that ALT, so they are not written. The child chain is still genotyped and phased
-from the panel: its sites get anchors, and under the linkage model the barrier (below) decides
-again from the parent's settled genotype whether a block spells the chain out.
-
-### Which child chains are genotyped
-
-A strand has a copy of a nested site when the strand's allele at the parent crosses the site. So a
-nested site's ploidy is the number of the parent's strands whose settled allele crosses it, and a
-strand whose allele crosses it twice counts once. Ploidy is decided site by site, so two sites of
-one child chain can have different ploidies.
-
-- **0**: the sample has no copy of the site. vg writes no record for it or for the sites nested in
-  it.
-- **1**: the site is genotyped at ploidy 1. When the genotypes are phased and the site is in a
-  [nested haploid chain](#phasing), its `GT` is written `a|.` or `.|a`, and the position of the
-  allele says which strand carries the site. Otherwise the `GT` is a single allele.
-- **2**: the site is genotyped at ploidy 2.
-
-A child chain that its parent's reference allele does not cross is an **off-reference chain**. Its
-sites have no position on the parent's reference path. vg skips an off-reference chain, except in
-these cases:
-
-- With `--anchors-out`, unless `--no-off-ref-nesting` is given. The chain's sites then have
-  entries in the anchor file, and no VCF records. Phasing [from the reads](#from-the-reads)
-  includes these sites, so genotyping these chains can change the phase written for other records
-  and, under [`--regenotype`](#re-genotyping-from-the-phase), their genotypes.
-- When the reference paths include a [gRef fragment](#graph). A chain on a gRef fragment then gets
-  records, with the fragment as their contig.
-
-### Genotyping in two passes
-
-Direct genotyping and linkage-based genotyping run as two passes over the sites. Under the linkage
-model, a site's genotype is settled only after the model has run over the site's whole linkage
-chain, and a child site's ploidy depends on its parent's settled genotype. So vg runs direct
-genotyping on every site first, and writes the records after both passes.
-
-- In the **sweep**, vg goes through the reads once and runs direct genotyping: it computes every
-  site's likelihoods and direct call. A child site gets a **provisional ploidy**: the number of the
-  parent's direct-call alleles that cross it. Under the linkage model, a child that none of them
-  crosses is genotyped too, at the parent's ploidy, since the model may move the parent onto an
-  allele that crosses it; without the linkage model it is skipped. When the child has more than
-  one candidate allele, vg also computes its likelihoods and direct call at ploidy 1 or 2,
-  whichever it was not genotyped at, because the barrier may choose either. A child with one
-  candidate allele is genotyped at one ploidy only, and keeps it unless the barrier drops the
-  child. Each site is **staged**: vg keeps what the site's records will be built from, and writes
-  them later.
-- In the **barrier**, so called because no site enters it until every site has finished the sweep,
-  vg runs linkage-based genotyping: it settles and phases the sites one generation at a time,
-  parents before children. The linkage model settles generation 0, and phases it from the panel.
-  Each generation-1 site then takes its ploidy from its parent's settled genotype, and vg uses the
-  likelihoods and direct call that the sweep computed at that ploidy. A site at ploidy 0 is dropped
-  with everything nested in it. The model then settles generation 1, each linkage chain starting
-  from the panel haplotypes that the parent's strands copy. Each later generation follows in the
-  same way.
-
-After the last barrier pass, vg **renders** each staged site: it builds and writes the site's
-records from its settled genotype and phase.
-
-The barrier can run more than once (see [Rounds](#rounds)). Each time, it decides every site's
-ploidy afresh, so a site dropped once can come back the next time. vg records which of a parent's
-candidate alleles cross a child site only when the parent has at most a fixed number of candidates
-(see [Fixed constants](#fixed-constants)). A child of a parent with more keeps its provisional
-ploidy, even where that disagrees with its parent's settled genotype. Without the linkage model,
-every site keeps its direct call and its provisional ploidy.
-
-## Phasing
-
-Phasing decides each genotype's phase: which strand carries which allele. At ploidy 2, a site's
-phase is an order of the two alleles of its settled genotype. The first allele is on strand 0 and
-is written to the left of the `|` in `GT`, and the second is on strand 1.
-
-A diploid site is **phaseable** when its settled genotype holds two different alleles, so
-that its two possible phases differ. A phaseable site can still be homozygous in the VCF, when its
-two alleles differ only inside a child chain.
-
-A **nested haploid chain** is a linkage chain of ploidy-1 sites whose parent is diploid, or is a
-site of another nested haploid chain. All its sites lie on one strand of the nearest diploid
-ancestor, the strand that carries them, directly or through ploidy-1 parents (see
-[Which child chains are genotyped](#which-child-chains-are-genotyped)). Its sites' `GT` is `a|.` on
-strand 0 and `.|a` on strand 1.
-
-The linkage model first phases each linkage chain from the panel. It finds the panel haplotypes
-that the strands most probably copy along the chain, given each site's settled genotype, and orders
-each site's alleles to match, keeping the genotype. It is described in
-[Phasing from the panel](read-likelihood-linkage-model.md#phasing-from-the-panel). Read phasing,
-when on, then re-decides the phases from reads that span several sites (see
-[From the reads](#from-the-reads)).
-
-Each record's `FORMAT/PS` names its **phase set**: the reference position of the first site of its
-top-level linkage chain. A nested site takes its parent's phase set. Sites of one phase set are
-phased relative to one another. So a phase set spans a contig, or the part of one between ploidy
-changes, and does not mark where the phase is reliable.
-
-At some phaseable sites, both strands of the panel phase copy the
-[wildcard](read-likelihood-linkage-model.md#wildcard-haplotype) or a panel haplotype that does
-not pass through the site, so the panel does not order the two alleles. vg still writes them with
-`|`, in an order that carries no phase, and keeps the site in its phase set, so that read phasing,
-when on, can order it. No field marks these sites.
-
-Phasing is on wherever the linkage model runs. `--phased` makes vg call fail when the linkage model
-does not run (see [Settling genotypes](#settling-genotypes)), and `--no-phased` turns phasing off.
-Read phasing, re-genotyping and `--anchors-hom-split` start from the panel phase, so an explicit
-`--read-phasing`, `--regenotype` or `--anchors-hom-split` is an error with `--no-phased` or where
-the linkage model does not run, and a preset's are turned off. Where the linkage model runs, `--no-phased` also turns nested calling off
-(an explicit `--nested` is then an error), and variation inside nested sites is reported in the
-enclosing site's alleles. Nested calling needs phasing there because the barrier takes each nested
-site's strand, and the panel haplotypes its linkage chain starts from, from its parent's phase.
-
-### From the reads
-
-A read that spans two phaseable sites shows directly whether their alleles lie on the same strand.
-`--read-phasing` uses such reads to re-decide the phase of each phaseable site, nested and
-off-reference sites included, within the phase sets the panel gave. It leaves out the chains that a
-[block record](#block-records) spells out. Read phasing changes phases and keeps every genotype. It
-is off by default and on under `--preset ont`.
-
-Read phasing takes one phase set at a time, and its phaseable sites in order of position, with the
-sites of an off-reference chain placed as the linkage model places them (see
-[Transitions](read-likelihood-linkage-model.md#transitions)).
-
-#### What each read says
-
-Take a read $r$ of a phaseable site $s$, and let $a_0$ and $a_1$ be the site's alleles on strand 0
-and strand 1 in its current phase. For $k \in \lbrace 0, 1 \rbrace$, let
-$x_{rsk} = (1 - e_r) v_{a_k} p_{r a_k}$, where $e_r$ is the read's mismapping probability and
-$p_{r a_k}$ its relative likelihood under $a_k$ at $s$ (see [Direct genotype](#direct-genotype)).
-The **allele-length weights** are
-
-$$
-v_{a_k} = \frac{\lvert a_k \rvert + \bar L - 1}{\left(\lvert a_0 \rvert + \bar L - 1\right) + \left(\lvert a_1 \rvert + \bar L - 1\right)}
-$$
-
-where $\lvert a \rvert$ is the total sequence length of allele $a$'s walk, boundary nodes included,
-and $\bar L$ is the mean read length of
-[Depth term inputs](read-likelihood-direct-genotyping.md#depth-term-inputs). A read overlapping
-$a$ can start at $\lvert a \rvert + \bar L - 1$ positions, so the weights estimate the share of the
-site's reads that come from each strand. `--flat-mixture` sets both to $1/2$. A read with
-$x_{rs0} + x_{rs1} = 0$ is not used at $s$. For each read used, vg keeps:
-
-- $q_{rs} = x_{rs0} / (x_{rs0} + x_{rs1})$, the probability that the read carries $a_0$, given
-  that it came from one of the two strands;
-- $c_{rs} = (x_{rs0} + x_{rs1}) / (x_{rs0} + x_{rs1} + e_r)$, the probability that it did come from
-  one of them, rather than being mismapped, with a mismapped read taken to fit with relative
-  likelihood 1, as in the read term;
-- its **confidence**,
-  $-10 \log_{10}\left(1 - \max(x_{rs0}, x_{rs1}) / (x_{rs0} + x_{rs1} + e_r)\right)$, the
-  phred-scaled probability that its better allele is wrong.
-
-A read is identified by its name, so the two mates of a pair are one read. Where both mates are
-used at one site, they come from one molecule and often read the same bases, so the site keeps
-only the mate with the higher confidence (on a tie, the larger $q_{rs}$, then the larger $c_{rs}$),
-and everything below counts each read once.
-
-#### Links between sites
-
-Two sites $s$ and $t$ are **linked** by the reads they share. For a shared read $r$, let
-
-$$
-m_r = q_{rs} q_{rt} + (1 - q_{rs})(1 - q_{rt})
-$$
-
-This is the probability that the read carries the same strand's allele at both sites, under the
-sites' current phases. The read is assumed to report this relation truly with probability
-$\gamma_r = c_{rs} c_{rt}$, and to be a coin flip otherwise. The link is
-
-$$
-\mathrm{link}(s, t) = \sum_{r} \log_{10} \frac{\gamma_r m_r + (1 - \gamma_r)/2}{\gamma_r (1 - m_r) + (1 - \gamma_r)/2}
-$$
-
-A positive link favours the two sites' current phases. A link's **size** is its absolute value.
-`--phase-cap`, when not 0, limits the size of each link.
-
-#### Reliable sites
-
-A site's **reliability** is the mean confidence of its reads, and the site is **reliable** if this
-is at least `--phase-min-q`. Consider a read with $e_r = \epsilon_{\min}$, the floor on $e_r$ set
-by `--mismap-min`, at a site whose two alleles have equal length. If the read fits one allele
-perfectly and the other not at all, its confidence is
-$-10 \log_{10}\left(\epsilon_{\min} / (\epsilon_{\min} + (1 - \epsilon_{\min})/2)\right)$, the
-**heterozygous score ceiling**. A read that favours the longer of two unequal alleles can have a
-higher confidence. Under read phasing, vg rejects a `--phase-min-q` above the ceiling, since sites
-whose alleles are of similar length could not reach it.
-
-#### Deciding the phases
-
-To **flip** a site is to reverse its phase. For each site, read phasing decides whether to flip it
-against the phase the panel gave. It phases the reliable sites first, each relative to the one
-before it, and then phases every other site on its own. A wrong link between reliable sites flips
-every site after it, while a wrong decision for another site flips only that site. Each phase set
-goes through four stages:
-
-1. **Phase chain.** The reliable sites of the phase set, in order of position, form its **phase
-   chain**, and each is linked to the next. The phase chain breaks wherever the size of a link is
-   below `--phase-break` $\log_{10}$ units, and the breaks divide it into **pieces**. The first site
-   of each piece keeps the panel's phase. Each later site of the piece is flipped relative to the
-   site before it when their link, taken in the panel's phases, is negative.
-2. **Relink.** At each break, read phasing decides from the links across it whether to flip the
-   later piece. Take the last `--phase-relink` sites of the piece before the break and the first
-   `--phase-relink` sites of the piece after it, or all of a piece's sites if it has fewer. Sum the
-   links between every site on one side and every site on the other, each in the current phases. If
-   the sum is negative, every site of the later piece is flipped. Otherwise, as when no read links
-   the two sides, the later piece keeps the phases stage 1 gave it. Breaks are decided from left to
-   right, so each piece is oriented against the piece before it as that piece now stands.
-3. **Coherence.** This stage removes phase-chain sites whose reads disagree with the rest of the
-   phase chain. Take a read that spans two or more phase-chain sites, and one of those sites, $s$.
-   The read's other phase-chain sites $t$ vote for the strand it came from. Strand 0 scores
-   $\sum_t \log_{10}(c_{rt} q_{rt} + (1 - c_{rt})/2)$, strand 1 scores
-   $\sum_t \log_{10}(c_{rt}(1 - q_{rt}) + (1 - c_{rt})/2)$, and the higher score wins. The read
-   **agrees** at $s$ if $q_{rs}$ lies on the winning strand's side of $1/2$. Every $q$ here is taken
-   in the current phase. A site's **coherence** is the fraction of its reads that agree, counting
-   only reads that span another phase-chain site. A site with at least a fixed number of counted
-   reads (see [Fixed constants](#fixed-constants)) and a coherence below `--phase-coherence` is
-   removed from the phase chain. If any site is removed, stages 1 and 2 run again on the sites left,
-   starting again from the panel's phases, and then this stage runs again. This stops when the stage
-   removes no site, or after it has removed sites `--phase-coh-rounds` times (once if that is 0).
-   The stage runs only on a phase chain of at least 3 sites, and removes sites only when at least 2
-   would be left. `--phase-coherence 0` skips this stage.
-4. **Hang.** Each phaseable site of the phase set that is not in the phase chain, because it is
-   unreliable or stage 3 removed it, is then phased on its own. Its nearest phase-chain sites are
-   used, up to $\lfloor H/2 \rfloor + 1$ on each side, so that $H$, `--phase-hang`, is shared
-   between the two sides. The link to each of them votes for the phase it implies, with a weight
-   equal to its size. A further vote of weight `--phase-prior`, in the same $\log_{10}$ units,
-   keeps the site's phase relative to the nearest phase-chain site as the panel gave it: it
-   favours flipping the site if that site was flipped, and keeping its phase if not. The site
-   takes the phase with the larger total vote, and a tie keeps the panel's phase.
-
-When read phasing flips a site, its alleles change strands, and so does every nested haploid chain
-that takes its strand from them, directly or through another nested haploid chain. A diploid
-nested site keeps its own phase, which read phasing decides like any other site's.
-
-### Re-genotyping from the phase
-
-In the site likelihood, every read of a site has the same [mixture
-weights](read-likelihood-direct-genotyping.md#mixture-weights): the probabilities that it came from
-each strand, before its bases at the site are seen. Once sites are phased, a read's alleles at the
-other phaseable sites it spans show which strand it more likely came from. `--regenotype` uses this
-to give each read its own weights, tilted towards the strand its other sites place it on, and so
-corrects each site's likelihoods. Off-reference chains, and chains that a block record spells out,
-keep their sweep likelihoods. It needs `--read-phasing` and, like it, is off by default and on under
-`--preset ont`. It cannot be combined with `--top-down` or `--bottom-up`: an explicit `--regenotype`
-with either is an error, and a preset's is turned off. The quantities $e_r$, $p_{ra}$, $q_{rt}$, $c_{rt}$ and the allele-length weights $v$
-are those of [From the reads](#from-the-reads). $\sigma$ is the logistic function, and
-$\mathrm{logit}$ is its inverse.
-
-#### Strand log-odds
-
-A read's **strand log-odds** at site $s$, $\Lambda_{rs}$, measures how strongly its other sites
-place it on strand 0. Each other phaseable site $t$ at which $r$ is used adds one term: the
-natural-log odds that the read came from strand 0, with $q_{rt}$ taken in the phase read phasing
-chose, from the mate the site keeps.
-
-$$
-\Lambda_{rs} = \sum_{t \neq s} \ln \frac{c_{rt} q_{rt} + (1 - c_{rt})/2}{c_{rt}(1 - q_{rt}) + (1 - c_{rt})/2}
-$$
-
-Leaving out $s$ keeps a site from confirming its own genotype. Each phase set labels its strands
-independently, so a read's strand is usable only at the sites of the phase set it was used in. Its
-$\Lambda_{rs}$ is 0 at a site of another phase set, and at every site if it was used in more than
-one phase set. At a site that the linkage model did not phase, and so has no phase set, any read
-used in one phase set keeps its $\Lambda_{rs}$.
-
-#### Tempering
-
-The terms of $\Lambda_{rs}$ are not independent evidence. A wrong phase at some of the read's
-sites, or an error that the read makes the same way at several sites, enters several terms at once.
-So $\Lambda_{rs}$ overstates how sure the strand is. The **tempered** strand log-odds is
-
-$$
-y_{rs} = \mathrm{logit}\left(C \sigma(\tau \Lambda_{rs}) + (1 - C)/2\right)
-$$
-
-where $\tau$ is the **temper** (`--regeno-temper`) and $C$ is `--regeno-ceiling`. With $C = 1$,
-$y_{rs} = \tau \Lambda_{rs}$. A smaller $C$ keeps the probability of either strand between
-$(1 - C)/2$ and $(1 + C)/2$.
-
-Unless `--regeno-temper` is given, $\tau$ is fitted once, from the phase that read phasing gave
-before the first correction. Each read at each phaseable site $s$ gives an **observation** when
-$\Lambda_{rs} \neq 0$ and $q_{rs} \neq 1/2$. Each of the two points to a strand: $\Lambda_{rs}$ to
-strand 0 when it is positive, $q_{rs}$ to strand 0 when it is above $1/2$, and each to strand 1
-otherwise. The observation records whether they point to the same strand. The observations are
-sorted by $\vert \Lambda_{rs} \vert$ and grouped into bins. Every bin but the last holds the larger
-of a fixed number and a fixed fraction of the observations, and the last holds the remainder (see
-[Fixed constants](#fixed-constants)). For each bin, the tempered probability of the strand,
-$C \sigma(\tau \vert \Lambda \vert) + (1 - C)/2$ at the bin's mean $\vert \Lambda \vert$, predicts
-its rate of agreement. $\tau$ is chosen from a fixed grid, with $C$ held at its given value, to
-minimise the squared difference between the predicted and observed rates, with each bin weighted
-by its size. The fit treats the strand that $q_{rs}$ points to as true, so errors in $q_{rs}$ lower
-the fitted $\tau$. With too few observations, $\tau$ is 0 and re-genotyping leaves the likelihoods
-as they were.
-
-#### Likelihood correction
-
-Take a genotype of two different alleles, $a$ on strand 0 and $b$ on strand 1, whose allele-length
-weights are $v_a$ and $v_b$. Each read gets its own weights
-
-$$
-\pi_{ra} = \frac{v_a e^{y_{rs}}}{v_a e^{y_{rs}} + v_b}, \qquad \pi_{rb} = 1 - \pi_{ra}
-$$
-
-The correction added to $\ln \mathcal{L}(G)$ sums over the site's reads $R$:
-
-$$
-\sum_{r \in R} \left[ \ln\left((1 - e_r)(\pi_{ra} p_{ra} + \pi_{rb} p_{rb}) + e_r\right) - \ln\left((1 - e_r)(v_a p_{ra} + v_b p_{rb}) + e_r\right) \right]
-$$
-
-A genotype other than the settled one has no phase, so each heterozygous genotype, the settled one
-included, is scored under both assignments of its alleles to the strands, and the larger correction
-is kept. Homozygous genotypes are unchanged and have no assignment to choose, so this choice can
-only favour heterozygous genotypes.
-
-Both terms of the correction use the allele-length weights $v$, while the site likelihood's read
-term uses the mixture weights. The two agree when the alleles have the same length and neither
-visits a node twice; otherwise the corrected likelihood only approximates the one with per-read
-weights.
-
-#### Nested haploid chains
-
-At a site of a nested haploid chain, each genotype is a single allele on one strand, so there are no
-weights to tilt. Instead, a read is made less informative when the phase places it on the other
-strand. Let $y$ be the read's tempered strand log-odds towards the chain's strand, and
-$\eta = \min(1, e^{y})$. Each of the read's relative likelihoods $p$ becomes $\eta p + 1 - \eta$.
-$\eta$ is 1 when $\tau = 0$ or when the read points to the chain's strand, so those reads are
-unchanged. `--no-regeno-haploid` turns this off.
-
-#### Rounds
-
-After a correction, the barrier runs again on the corrected likelihoods, and read phasing runs again
-on the genotypes it settles. A correction, the barrier and read phasing together make a **round**.
-The new genotypes can change the phase, and with it $\Lambda$, so another round can follow. Each
-round corrects the likelihoods from the sweep, not those of the previous round. `--regeno-passes`
-caps the number of times the barrier runs, the first run included. No further round follows one
-whose correction changes no site's direct call, whose barrier changes no settled genotype, or whose
-settled genotypes return to an earlier state. Every round's correction is settled by the barrier,
-the last round's included, so the genotypes are settled from the likelihoods that `GL` reports.
-`--regeno-ledger` writes one line for each site whose direct call the last correction changed.
-With `--regeno-passes 1` the correction is computed and reported, on standard error and in the
-ledger, but not applied.
-
-## Output
+it, would repeat that ALT, so they are not written. The chain is still genotyped and phased from
+the panel, and its sites get anchors. Each linkage pass decides again, from the parent's chosen
+genotype, whether a block spells the chain out.
 
 ### VCF fields
 
@@ -661,12 +507,11 @@ explained share lowers `GQ` where the direct call leaves such reads unexplained.
 need not sum to `DP`: every candidate allele was scored, but only the alleles written in the record
 have an entry.
 
-`DR` is computed for the genotype the record is written with: the site's direct call, or the
-genotype the linkage model settles. A value near 1 means that the site has as many reads as that
-genotype predicts. `DR` is written whether or not the depth term is on, and is left out where the
-site's read-start rate is 0. Where an allele of the written genotype was not among the site's
-candidate alleles, or the record's ploidy is not the one the site was genotyped at, it is the
-direct call's.
+`DR` is computed for the genotype the record is written with, the settled genotype. A value near 1
+means that the site has as many reads as that genotype predicts. `DR` is written whether or not the
+depth term is on, and is left out where the site's read-start rate is 0. Where an allele of the
+written genotype was not among the site's candidate alleles, or the record's ploidy is not the one
+the site was genotyped at, it is the direct call's.
 
 #### Normalised quality
 
@@ -690,11 +535,12 @@ or a single possible genotype). Otherwise it lies in $[0, 1]$, except on moved r
 
 #### Linkage and re-genotyping
 
-A record is **moved** when the linkage model settles a genotype other than the direct call. Its
-`GQ` and `GQN` are computed again for the settled genotype, from the direct call's explained share,
-`GQ` factor and achievable gap, which the linkage model keeps for each site. The direct call is the
-one the site entered the linkage model with: its call in the sweep, or, for a site of a nested
-chain whose ploidy the barrier sets from its settled parent, its call at that ploidy.
+A record is **moved** when its settled genotype is not its direct call. Its `GQ` and `GQN` are
+computed again for the settled genotype, from the direct call's explained share, `GQ` factor and
+achievable gap, which the linkage model keeps for each site. The direct call is the one the site
+entered the linkage model with: its call in the direct pass, or, for a site of a nested chain whose
+ploidy a linkage pass sets from its parent's chosen genotype, its call at that ploidy. Under
+re-genotyping it is the genotype with the highest corrected likelihood in the last round.
 
 A moved record's `GQ` is $-10 \log_{10}(1 - \text{posterior})$ times the direct call's `GQ`
 factor, then capped at `GQI`. The posterior is the linkage model's posterior probability of the
@@ -711,18 +557,18 @@ favours another genotype over the settled one, as it does on a moved whole-site 
 call is among the record's genotypes. It is `.` where the direct call had no achievable gap.
 `lowconf` is decided again from this `GQN`, so a `--min-confidence` above 0 marks such a negative
 record, and is cleared where `GQN` is `.`. Under re-genotyping, a record is moved if the last
-barrier run moved it (see [Rounds](#rounds)).
+round's linkage pass moved it (see [Rounds](#rounds)).
 
 Re-genotyping is applied with `--regenotype` when `--regeno-passes` is above 1 (see
 [Rounds](#rounds)). `GL` and `QUAL` are then written from the corrected likelihoods. In a round
 whose correction changes the genotype with the highest $\mathcal{L}(G)$, `GQ` is recomputed from
-them as the per-site `GQ` is, for that genotype, but with the sweep's `--depth-quality` factor. Each
-round starts again from the sweep's likelihoods and `GQ`, so `GQ` follows the last round's
-correction, and is the sweep's where that correction left the best genotype alone. `GP`, `GQI`,
-`GQN` and `lowconf` keep their values from before the correction, so they describe the direct
-call made from the uncorrected likelihoods. `DR` depends only on the reads and the written
-genotype. A moved record takes the `GQ`, `GQN` and `lowconf` described above, whether or not
-re-genotyping ran.
+them as the per-site `GQ` is, for that genotype, but with the direct pass's `--depth-quality`
+factor. Each round starts again from the direct pass's likelihoods and `GQ`, so `GQ` follows the
+last round's correction, and is the direct pass's where that correction left the best genotype
+alone. `GP`, `GQI`, `GQN` and `lowconf` keep their values from before the correction, so they
+describe the direct call made from the uncorrected likelihoods. `DR` depends only on the reads and
+the written genotype. A moved record takes the `GQ`, `GQN` and `lowconf` described above, whether or
+not re-genotyping ran.
 
 #### Options that change the fields
 
@@ -756,8 +602,9 @@ INFO tags:
   site that the reference path crosses stays on its parent's contig, even where a called allele
   deletes it. When the reference paths include gRef fragments, a site that only inserted sequence
   holds is reported on one, so its `INFO/CH` is at least 1.
-- `INFO/PS` (parent snarl) is the ID of the record of the nearest enclosing site that has one. It
-  is unrelated to `FORMAT/PS`.
+- `INFO/PS` (parent snarl) is the ID of the nearest enclosing site that has a record. Where that
+  site is written as [block records](#block-records), their IDs carry it before the `_`. It is
+  unrelated to `FORMAT/PS`.
 - `INFO/RC`, `INFO/RS` and `INFO/RD` give a contig, start and end at which to look the record up,
   normally those of its outermost enclosing site; the VCF header gives the details.
 
@@ -864,9 +711,9 @@ pin together with the reads of one slot that cross it.
 #### Placing reads in slots
 
 For each distinct called allele $a$, let $x_{ra} = (1 - e_r) v_a p_{ra}$, where $v_a$ are the
-allele-length weights of [From the reads](#from-the-reads), and $v_a = 1$ at a site that is not
-phaseable. Each read goes to the slot whose allele has the largest $x_{ra}$, except where the read
-phase decides (below). A read's **anchor confidence** is
+allele-length weights of [What each read says](read-likelihood-read-phasing.md#what-each-read-says),
+and $v_a = 1$ at a site that is not phaseable. Each read goes to the slot whose allele has the
+largest $x_{ra}$, except where the read phase decides (below). A read's **anchor confidence** is
 $-10 \log_{10}\left(1 - x_{ra} / (\sum_b x_{rb} + e_r)\right)$, where $a$ is the allele of the slot
 it is placed in. The sum runs over distinct alleles, so the two slots of a split site count their
 allele once. A site's **anchor reliability** is the mean anchor confidence of the reads written for
@@ -876,15 +723,16 @@ the higher of their confidences.
 #### Using the read phase
 
 With `--read-phasing`, read placement also uses each read's tempered strand log-odds $y_{rs}$ (see
-[Re-genotyping from the phase](#re-genotyping-from-the-phase)), computed leaving the site out. The
+[Tempering](read-likelihood-read-phasing.md#tempering)), computed leaving the site out. The
 temper $\tau$ is the one re-genotyping used, where it ran and $\tau$ was above 0. Otherwise it is
 fitted in the same way from the final phase.
 
 - At a phaseable site, a read's slot is by default chosen from its $x_{ra}$ with $v_a$ replaced by
-  the per-read weights $\pi$ of [Likelihood correction](#likelihood-correction). The read's anchor
-  confidence is still computed from the $x_{ra}$. `--no-anchors-phase-hets` chooses the slot from
-  the $x_{ra}$ alone. `--anchors-strict-hets` chooses it from the sign of $y_{rs}$ alone, slot 0 for
-  a positive sign, and a read whose $y_{rs}$ is 0 then keeps the slot its $x_{ra}$ give.
+  the per-read weights $\pi$ of [Likelihood
+  correction](read-likelihood-read-phasing.md#likelihood-correction). The read's anchor confidence
+  is still computed from the $x_{ra}$. `--no-anchors-phase-hets` chooses the slot from the $x_{ra}$
+  alone. `--anchors-strict-hets` chooses it from the sign of $y_{rs}$ alone, slot 0 for a positive
+  sign, and a read whose $y_{rs}$ is 0 then keeps the slot its $x_{ra}$ give.
 - `--anchors-hom-split`, which needs `--read-phasing`, divides the reads of a diploid site that is
   not phaseable between two slots by the sign of their $y_{rs}$. A site is split only when, for each
   sign, at least `--split-min-side` reads have a $y_{rs}$ of that sign and of absolute value at

@@ -352,7 +352,7 @@ TEST_CASE("A nested site's depth rate is per haplotype of the region, not of the
     REQUIRE(diploid.info->depth_ratio > 0.0);
     REQUIRE(nested.info->depth_ratio == Approx(2.0 * diploid.info->depth_ratio));
 
-    // The site at ploidy 2, which the barrier takes if both parent alleles turn out to cross
+    // The site at ploidy 2, which the linkage pass takes if both parent alleles turn out to cross
     // it, predicts what the diploid call does.
     REQUIRE(nested.info->alt_ploidy_info != nullptr);
     REQUIRE(nested.info->alt_ploidy_info->depth_ratio == Approx(diploid.info->depth_ratio));
@@ -384,7 +384,7 @@ TEST_CASE("DR can be computed for a genotype other than the direct call",
                                           - 1.0);
     REQUIRE(info.depth_ratio_of({0, 1}) == Approx(info.depth_observed / lambda_01));
 
-    // The alternate ploidy's CallInfo, which the barrier can promote, carries the same context.
+    // The alternate ploidy's CallInfo, which the linkage pass can promote, carries the same context.
     REQUIRE(info.alt_ploidy_info != nullptr);
     REQUIRE(info.alt_ploidy_info->depth_ratio_of({1, 1}) == info.depth_ratio);
 }

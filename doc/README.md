@@ -10,14 +10,18 @@ values live in the code and the command's `--help`, not in the write-up. Rationa
 matters to someone editing the code stays in the headers.
 
 - [read-likelihood-genotyping.md](read-likelihood-genotyping.md) — the `vg call --read-likelihood`
-  caller as a whole, and the place to start: its vocabulary, how a site's genotype is settled,
-  nested sites, phasing, the output fields and files, and the options for each part.
+  caller as a whole, and the place to start: its vocabulary, how its passes and rounds are
+  ordered, how a site's genotype is settled, nested sites, phasing, the output fields and files,
+  and the options for each part.
 - [read-likelihood-direct-genotyping.md](read-likelihood-direct-genotyping.md) — how
   `--read-likelihood` genotypes a site from its reads: the site likelihood and how each of its
   terms is computed.
 - [read-likelihood-linkage-model.md](read-likelihood-linkage-model.md) — the linkage model, which
   re-decides genotypes and phases them from the panel haplotypes, and how it differs from
   PanGenie's.
+- [read-likelihood-read-phasing.md](read-likelihood-read-phasing.md) — read phasing, which
+  re-decides the phases from reads that span several sites, and re-genotyping, which uses the phase
+  to correct each site's likelihoods.
 
 The [wiki](https://github.com/vgteam/vg/wiki) remains the home for tutorials and worked examples.
 It is a separate repository (mounted here as the `wiki` submodule), so anything published there

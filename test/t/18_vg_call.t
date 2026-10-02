@@ -9,7 +9,7 @@ PATH=../bin:$PATH # for vg
 # FORMAT field shifts every later one, which broke four assertions here that were not
 # testing field order at all -- one of them silently compared BL against a GQ threshold.
 
-plan tests 451
+plan tests 453
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -1064,7 +1064,7 @@ vg call nest.gbz --read-likelihood --gam nest_del.gam -t 1 -s samp 2>/dev/null \
 is "$(cut -f2,10 nest_del_lw0.vcf | cut -d: -f1 | tr '\t\n' ': ')" "30:1/1 " \
    "without the linkage model, a chain the called parent does not cross gets no record"
 is "$(cut -f2 nest_del_link.vcf | tr '\n' ' ')" "30 " \
-   "and with it, the same chain is dropped at the barrier"
+   "and with it, the same chain is dropped at the linkage pass"
 
 
 # A nested haploid site must not fragment the phase block. Reads from the deletion-bearing haplotype
@@ -1093,7 +1093,7 @@ is "$?" 0 "--nested --phased runs with a heterozygous deletion over nested sites
 is $(grep -v "^#" nest_hap.vcf | awk -F'\t' '$2 == 30 {split($10,a,":"); print a[1]}') "1|0" \
    "the parent is called het for the deletion that spans the nested chain"
 is $(grep -vc "^#" nest_hap.vcf) "2" \
-   "a chain one settled parent allele carries yields the parent record and the nested one"
+   "a chain one chosen parent allele carries yields the parent record and the nested one"
 # The strand is the point: a bare "1" would say the allele exists without saying which haplotype
 # carries it, which is what no phasing tool could read and what the mosaic alone used to know.
 is $(grep -v "^#" nest_hap.vcf | awk -F'\t' '$2 == 51 {split($10,a,":"); print a[1]}') ".|1" \
@@ -1111,30 +1111,30 @@ is $(grep -v "^#" nest_hap.vcf | cut -f10 | cut -d: -f1 | grep -cE '^[0-9]+$') "
 is $(grep -c "collapsed sites phased with no line of their own" nest_hap_err.txt) "1" \
    "a site that emits no line is still phased, so its children can inherit a strand"
 # The invariant the whole nested effort is for, asserted on the progress output because it covers
-# every generation at once rather than only the records that reached the VCF. It traces back to one
+# every level at once rather than only the records that reached the VCF. It traces back to one
 # mistake, made repeatedly: treating "no VCF line was written" as "nothing to record".
 #
 # The failure modes are not what they were, so neither is the assertion. The per-strand pass had
 # four -- carried on both parent strands, carried on neither, no phased parent, an unresolved
-# generation -- and three of them stopped existing when nested chains moved into the ordinary
+# level -- and three of them stopped existing when nested chains moved into the ordinary
 # (parent, chain) grouping. "Carried on both" measured 0 on every contig; "no phased parent" is no
 # longer a failure because the group is formed and decoded either way; and "on neither" split in
 # two. Under a HAPLOID parent there is no strand to choose because there is only one, and the
 # haplotype is nameable -- that is chrX's ordinary case, all 44,139 of it, and counting it as a
-# failure is what the old wording did. Under a DIPLOID parent whose settled pair does not reach the
+# failure is what the old wording did. Under a DIPLOID parent whose chosen pair does not reach the
 # chain, the sample has no copy of the locus and nothing may be named. That last one is the only
 # remaining way to fail, and it is what this asserts.
 is $(awk '/nested strands:/ {if ($0 !~ /, 0 carried on both parent strands, /) bad++;
-      if ($0 !~ /, 0 whose parent.s settled pair could not be read/) bad++}
+      if ($0 !~ /, 0 whose parent.s chosen pair could not be read/) bad++}
       END {print bad+0}' nest_hap_err.txt) "0" \
-   "no nested chain is on both parent strands or under an unreadable settled pair"
+   "no nested chain is on both parent strands or under an unreadable chosen pair"
 # The awk above is vacuously true if the report never prints, which the version it replaces also
 # was. Asserted separately so a report that stops being emitted fails loudly instead of silently
 # passing every run.
 is $(awk '/nested strands:/ {n++} END {print (n > 0) ? "yes" : "no"}' nest_hap_err.txt) "yes" \
    "the nested-strand report is emitted at all, so the assertion above is not vacuous"
 # Not "the FILTERs never fire" -- they no longer exist to fire. A nested chain takes its ploidy and
-# its strand from one reading of its parent's settled pair, namely which of that pair's traversals
+# its strand from one reading of its parent's chosen pair, namely which of that pair's traversals
 # carries the chain, so having one copy and sitting on that traversal's strand are the same
 # statement. Asserted on the header, which is where a reintroduced FILTER would show up first.
 is $(grep -c "ID=nested_diploid\|ID=nested_haploid\|ID=nested_unreachable" nest_hap.vcf) "0" \
@@ -1184,9 +1184,9 @@ is $(awk -F'\t' '/^H\t/ {k=$2"/"$3"/"$4; if (k==pk && $7 != pe) bad++; pk=k; pe=
 # chr20's 419 were flanked by the same haplotype on both sides. Asserted in the negative now.
 is $(awk -F'\t' '/^H\t/ && $10=="." {n++} END {print n+0}' nest_hap.mosaic.tsv) "0" \
    "no row spells a haplotype '.', which version 5 does not emit"
-# No GT may name an allele the record does not carry. The linkage layer settles on a candidate
+# No GT may name an allele the record does not carry. The linkage layer chooses a candidate
 # traversal, not on an emitted allele, and those are different numberings: a traversal can have no
-# ALT on its own line, because symbolic collapsing folds some into the reference and the barrier can
+# ALT on its own line, because symbolic collapsing folds some into the reference and the linkage pass can
 # replace a line with one carrying fewer ALTs than the entry was built against. Writing the number
 # regardless emitted GTs like ".|2" on a record with one ALT -- not a parseable VCF, and invisible to
 # every check that only counted records. Asserted on both nested arms; the phased one is where the
@@ -1301,10 +1301,14 @@ vg sim -x chainblk.gbz -n 300 -l 40 -a -s 31 --path "p2#0#chr1#0" > chainblk.gam
 vg sim -x chainblk.gbz -n 300 -l 40 -a -s 37 --path "p2#1#chr1#0" >> chainblk.gam 2>/dev/null
 vg call chainblk.gbz --read-likelihood --gam chainblk.gam -t 1 -s samp --nested --phased \
     2>/dev/null > chainblk.vcf
-is $(grep -v "^#" chainblk.vcf | awk -F'\t' '$3 == ">2>11" && $8 ~ /SB=/' | wc -l | tr -d ' ') "2" \
+is $(grep -v "^#" chainblk.vcf | awk -F'\t' '$3 ~ /^>2>11_[0-9]+$/ && $8 ~ /SB=/' | wc -l | tr -d ' ') "2" \
    "a parent with a chain one strand deletes and the other crosses by another route writes two blocks"
-is $(grep -v "^#" chainblk.vcf | awk -F'\t' '$3 == ">2>11" && $5 ~ /,/' | wc -l | tr -d ' ') "0" \
+is $(grep -v "^#" chainblk.vcf | awk -F'\t' '$3 ~ /^>2>11_[0-9]+$/' | sort -u -k3,3 | wc -l | tr -d ' ') "2" \
+   "and each block record has an ID of its own, the site's ID and its block index"
+is $(grep -v "^#" chainblk.vcf | awk -F'\t' '$3 ~ /^>2>11_[0-9]+$/ && $5 ~ /,/' | wc -l | tr -d ' ') "0" \
    "and its blocks spell the reference over the chain the second strand matches"
+is $(grep -v "^#" chainblk.vcf | cut -f3 | sort | uniq -d | wc -l | tr -d ' ') "0" \
+   "and no ID is on more than one record"
 is $(grep -v "^#" chainblk.vcf | awk -F'\t' '$3 == ">3>6" && $5 == "T"' | wc -l | tr -d ' ') "1" \
    "and the chain's own record reports the second strand's route through it"
 
@@ -1369,7 +1373,7 @@ is $(grep -c "read phasing:" rl_phase_forced.err) "1" "it reports what it did"
 is $(if [ $(grep "read phasing:" rl_phase_forced.err | sed 's/.*: \([0-9]*\) het sites.*/\1/') -gt 10 ]; then echo 1; else echo 0; fi) "1" \
    "and the sites it considered reached it, so the report is not of an empty pass"
 
-# THE guarantee, and the only reason this can be turned on: a phase decision reorders a settled pair
+# THE guarantee, and the only reason this can be turned on: a phase decision reorders a chosen pair
 # and never substitutes one. Keyed on the snarl ID, because a record's POS depends on its genotype.
 is $(python3 -c '
 import sys
@@ -1390,7 +1394,7 @@ for key in set(a) & set(b):
         bad += 1
 print(bad)
 ') "0" "read phasing reorders genotypes and never changes them"
-# Phase-aware re-genotyping. `--read-phasing` reorders a settled pair and never substitutes one;
+# Phase-aware re-genotyping. `--read-phasing` reorders a chosen pair and never substitutes one;
 # this spends the same evidence on the genotype. The fixture cannot exercise the DECISION -- every
 # `vg sim` read here spans one site, so its leave-one-out strand log-odds is zero and the
 # correction is provably the identity for it -- but that inertness is itself the property worth
@@ -1416,10 +1420,10 @@ is $(grep -c "re-genotyping: temper" rl_rg_t0.err) "1" "it reports what it did"
 is $(grep "re-genotyping: temper" rl_rg_t0.err | sed 's/.*, \([0-9]*\) would move.*/\1/') "0" \
    "and moves nothing at temper 0"
 # The correction rewrites every site's likelihoods in place even when it moves no direct call, and
-# GL is written from them, so the barrier settles them before the rounds stop. The byte-identity
-# gate above is then also the proof that settling an identity correction again is inert.
-is $(grep -c "re-genotyping round 1:" rl_rg_t0.err) "1" \
-   "a correction that moves no direct call is still settled"
+# GL is written from them, so the linkage pass chooses them before the rounds stop. The byte-identity
+# gate above is then also the proof that choosing an identity correction again is inert.
+is $(grep -c "re-genotyping round 2:" rl_rg_t0.err) "1" \
+   "a correction that moves no direct call is still followed by a linkage pass"
 
 # Refused rather than silently inert: with no phasing chain there is no strand log-odds, every
 # tilted weight collapses to the site's own, and the correction is the identity at every site.
@@ -2847,7 +2851,7 @@ rm -f fx.gfa fx_sim.gfa fx.gbz fx_sim.gbz fx.gam fx.mosaic.tsv fx.paths.gaf fx.g
   printf 'W\tpD\t0\tchr1\t0\t336\t>1>2>4>5>7>14>30>31>33>16>17>19\n'
   printf 'W\tpD\t1\tchr1\t0\t396\t>1>3>4>6>7>8>9>11>12>20>14>30>31>33>16>17>19\n'
   # pE carries the sample's route THROUGH THE PARENT -- both child alts together. Without it the
-  # parent has no traversal to settle on that spells the sample's children, its pin forces them
+  # parent has no traversal to choose that spells the sample's children, its pin forces them
   # both to reference, and every nested site vanishes from the call set.
   printf 'W\tpE\t0\tchr1\t0\t396\t>1>2>4>5>7>8>10>11>13>20>14>30>31>33>16>17>19\n'
   # hR inverts and carries the site inside the inversion as alt.

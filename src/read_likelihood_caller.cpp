@@ -172,7 +172,7 @@ pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> ReadLikelihoodSnarlCaller::
         call_info->depth_read_length = matrix.depth_read_length_used();
         call_info->depth_observed = matrix.observed_reads();
     }
-    // Kept for later: the anchors are built when the record is rendered, from the settled
+    // Kept for later: the anchors are built when the record is rendered, from the chosen
     // genotype.
     call_info->anchor_evidence = std::move(matrix.anchor_evidence);
     call_info->phase_evidence = std::move(matrix.phase_evidence);
@@ -192,8 +192,9 @@ pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> ReadLikelihoodSnarlCaller::
     }
 
     // Derive the call at ploidy p from the matrix, which does not depend on ploidy. It runs once
-    // for the site's ploidy and, when set_want_alt_ploidy asked for it, once for the other, so
-    // that a nested site's record can later be built at whichever ploidy its parent settles on.
+    // for the site's ploidy and, when set_want_alt_ploidy asked for it, once for the other, so that
+    // a nested site's record can later be built at whichever ploidy its parent's chosen genotype
+    // gives it.
     auto derive = [&](int p, ReadLikelihoodCallInfo* info) -> vector<int> {
         // Score every genotype: for K alleles and ploidy 2 that is K(K+1)/2 genotypes, each
         // one pass over the reads.

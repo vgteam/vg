@@ -71,7 +71,7 @@ PhaseSite reduce_to_pair(const PhaseReadEvidence& pe, size_t a0, size_t a1) {
         const double r1 = (1.0 - e) * weight[1] * (double)pe.rel_at(r, a1);
         const double inside = r0 + r1;
         if (inside <= 0.0) {
-            // The read fits neither settled allele, so it says nothing about their order.
+            // The read fits neither chosen allele, so it says nothing about their order.
             continue;
         }
         site.read_key.push_back(pe.read_key[r]);
@@ -227,7 +227,7 @@ unordered_set<size_t> read_phase_flips(vector<PhaseSite>& sites, const ReadPhasi
                         }
                         // Referred back to the two blocks' own boundary sites, whose relative
                         // orientation is what is being decided; each block's internal parity is
-                        // already settled so it cancels out of the question.
+                        // already chosen so it cancels out of the question.
                         const int flip = (o[rel[i]] ^ o[rel[ea - 1]]) ^ (o[rel[j]] ^ o[rel[sb]]);
                         total += flip ? -dv : dv;
                     }

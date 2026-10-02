@@ -169,7 +169,7 @@ TEST_CASE("offset_of_child reports where a traversal enters a chain", "[graph_ca
 
 
 TEST_CASE("A moved record's quality fields come from the stored direct call", "[graph_caller]") {
-    // Settled 1/1, so the settled genotype's GL entry is -3 against a best other of -1: a margin of
+    // Chosen 1/1, so the chosen genotype's GL entry is -3 against a best other of -1: a margin of
     // -20 phred. The printed GQI is capped and the printed GQN is 0, so a divisor recovered from
     // them would be wrong or missing; the stored achievable gap is 100 phred.
     const string line = "chr1\t100\t>1>4\tA\tG\t30\tPASS\t.\tGT:GL:GQ:GQI:GQN\t"
@@ -297,7 +297,7 @@ TEST_CASE("A parent's phase swap carries its nested strands and their haplotypes
     for (size_t i = 0; i < phased.size(); ++i) {
         index[phased[i].record_key] = i;
     }
-    // Out of generation order, as the staged records can be.
+    // Out of level order, as the staged records can be.
     vector<FlowCaller::NestedLink> links = {
         {3, 2, 2}, {5, 4, 2}, {2, 1, 1}, {4, 1, 1}, {1, 0, 0}};
     const unordered_set<size_t> flips = {1};

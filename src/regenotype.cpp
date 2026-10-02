@@ -364,7 +364,7 @@ bool phase_aware_correction(const PhaseReadEvidence& ev, const LambdaTable& lamb
         tilt[r] = read_tilt(calibrated_log_odds(loo[r], temper, ceiling));
     }
 
-    // The sweep's best genotype, to report whether the correction changes it.
+    // The direct pass's best genotype, to report whether the correction changes it.
     const vector<int>* before = nullptr;
     double before_ll = -std::numeric_limits<double>::infinity();
     for (const auto& kv : gl) {

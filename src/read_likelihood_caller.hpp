@@ -72,7 +72,7 @@ public:
         vector<int> alt_ploidy_best;
 
         /// The whole call at the other ploidy, computed from the same matrix, so that the
-        /// site's record can be built at whichever ploidy the barrier settles on. Null unless
+        /// site's record can be built at whichever ploidy the linkage pass gives it. Null unless
         /// requested with set_want_alt_ploidy. Its ploidy-independent fields, such as
         /// `scored_traversals` and `allele_support`, are copies of this one's.
         unique_ptr<ReadLikelihoodCallInfo> alt_ploidy_info;
@@ -82,7 +82,7 @@ public:
         vector<SnarlTraversal> scored_traversals;
 
         /// Per-read anchor evidence, with --anchors-out; null otherwise. It depends on the
-        /// matrix, not on the ploidy, so when the barrier replaces this CallInfo with
+        /// matrix, not on the ploidy, so when the linkage pass replaces this CallInfo with
         /// `alt_ploidy_info` it must move it across.
         unique_ptr<AnchorSiteEvidence> anchor_evidence;
         /// Per-read phasing evidence, with read phasing and no anchors; null otherwise. Moved
@@ -95,7 +95,7 @@ public:
         /// the returned pointer. Null where the site kept neither, or has no reads or alleles.
         const PhaseReadEvidence* read_phasing_evidence(PhaseReadEvidence& scratch) const;
 
-        /// `genotype_lls` as the sweep computed them, before re-genotyping corrected them.
+        /// `genotype_lls` as the direct pass computed them, before re-genotyping corrected them.
         /// Saved at the first correction, and each later round of re-genotyping corrects
         /// these rather than the previous round's values. Null until re-genotyping changes
         /// the site.
@@ -164,8 +164,8 @@ public:
     /// depend on ploidy. The caller turns it off again after the call.
     ///
     /// Only a site in a nested chain needs this, because its ploidy comes from its parent's
-    /// genotype, which the barrier settles later. A top-level site's ploidy is fixed, so asking
-    /// for it there only costs memory. Thread-local because the sweep calls sites in parallel.
+    /// genotype, which the linkage pass chooses later. A top-level site's ploidy is fixed, so asking
+    /// for it there only costs memory. Thread-local because the direct pass calls sites in parallel.
     static void set_want_alt_ploidy(bool on) { want_alt_ploidy = on; }
 
     /// Tell the `genotype` calls on this thread how many of the sample's haplotypes the region

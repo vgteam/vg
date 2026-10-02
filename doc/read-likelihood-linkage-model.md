@@ -1,6 +1,6 @@
 # Linkage model
 
-The **linkage model** is the second stage of `vg call --read-likelihood`'s genotyping. It settles
+The **linkage model** is the second stage of `vg call --read-likelihood`'s genotyping. It chooses
 the genotypes of neighbouring sites together, using the panel haplotypes. Alleles at nearby sites
 are inherited together, so the sample's alleles at neighbouring sites tend to form combinations
 that panel haplotypes also carry. The model uses this by treating each of the sample's strands as
@@ -13,8 +13,10 @@ and the site's position. Direct genotyping computes the site likelihoods from ea
 alone, and the genotype with the highest is the site's **direct call**. The model runs along
 **linkage chains**: sequences of sites in order of position, each holding the top-level sites of a
 contig between changes of ploidy, or the sites of one child chain at one ploidy (and, at ploidy 1,
-on one strand of the parent). It gives each site of a linkage chain a **settled genotype**, the
-genotype that vg reports, and it phases the settled genotypes.
+on one strand of the parent). Each time it runs, in a
+[linkage pass](read-likelihood-genotyping.md#passes-and-rounds), it gives each site of a linkage
+chain a **chosen genotype**, and it phases the chosen genotypes. The genotype it chooses in the last
+pass is the site's **settled genotype**, the genotype that vg reports.
 
 The caller as a whole is described in
 [read-likelihood-genotyping.md](read-likelihood-genotyping.md), whose
@@ -61,12 +63,12 @@ algorithm gives the phase. This model differs from PanGenie's as follows.
   here are single haplotypes, a panel haplotype or the wildcard: on a contig or region of ploidy 1,
   and at a nested site that only one strand passes through.
 - **Nested sites.** PanGenie treats each top-level bubble as one site, with the variation nested in
-  it folded into its alleles. This model also runs on sites nested inside other sites. It settles
+  it folded into its alleles. This model also runs on sites nested inside other sites. It decodes
   parents before children, and starts each child chain from the panel haplotypes that the parent's
   strands copy (see [Linkage chains](#linkage-chains)).
 - **Phasing.** PanGenie's Viterbi path is unrestricted, so the genotypes it implies need not be the
   posterior ones. Here the Viterbi path is restricted to states compatible with each site's
-  settled genotype, so phasing orders each genotype's alleles and keeps the genotype (see
+  chosen genotype, so phasing orders each genotype's alleles and keeps the genotype (see
   [Phasing from the panel](#phasing-from-the-panel)).
 
 ## Notation
@@ -104,7 +106,7 @@ then takes it to carry the one that comes last in the site's list of candidate a
 
 At each site, the model works over the site's **compact allele set** $A_{\mathrm{c}}$, a subset of
 its candidate alleles: the alleles of the site's direct call, and every allele that some panel
-haplotype carries there. The model can settle a site only on a genotype made of these alleles. A
+haplotype carries there. The model can choose for a site only a genotype made of these alleles. A
 site whose compact allele set is larger than a fixed limit (see
 [Fixed constants](read-likelihood-genotyping.md#fixed-constants)) is left out of the model. It
 keeps its direct call, written unphased, and the model links the sites on either side of it
@@ -177,7 +179,7 @@ probability.
 
 The sites of an
 [off-reference chain](read-likelihood-genotyping.md#which-child-chains-are-genotyped) have no
-reference position of their own. vg takes an allele of the parent's settled genotype that crosses
+reference position of their own. vg takes an allele of the parent's chosen genotype that crosses
 such a site, the one first in the parent's compact allele set where both do, and places the site
 at the parent's position plus the site's offset along that allele. Two sites of one off-reference
 chain are then as far apart as they are along that allele, and the chain's first site is as far
@@ -203,7 +205,7 @@ probability among the alleles in the same way.
 
 A genotype that many pairs of panel haplotypes carry is implied by many states, so it collects more
 probability. The rescaling below is applied to each site's posteriors after forward–backward, so
-it changes that site's settled genotype but not its neighbours' posteriors or the Viterbi path. The
+it changes that site's chosen genotype but not its neighbours' posteriors or the Viterbi path. The
 exponent $F$, `--linkage-prior`, sets the prior's strength:
 
 - The probability from states with both alleles known is multiplied by $c_G^{F-1}$, where $c_G$ is
@@ -215,7 +217,7 @@ exponent $F$, `--linkage-prior`, sets the prior's strength:
 At ploidy 1, the probability of the states that carry allele $a$ is multiplied by $n_a^{F-1}$, and
 states with an unknown allele are not rescaled. The posteriors are then normalised to sum to 1.
 $F = 1$ keeps the prior that the states imply, $F = 0$ removes it, and $F > 1$ strengthens it. The
-model settles the site on the genotype with the highest posterior.
+model chooses the genotype with the highest posterior.
 
 ## Homopolymer sites
 
@@ -246,14 +248,12 @@ decoded as one window, whatever its length.
 
 ## Linkage chains
 
-The model runs on each linkage chain separately, one generation of nested sites at a time, parents
-before children (see [Nested sites](read-likelihood-genotyping.md#nested-sites) for generations,
-and the barrier of
-[Genotyping in two passes](read-likelihood-genotyping.md#genotyping-in-two-passes)). A chain below
-the top level is decoded after its parent's chain has been settled and phased. The model then
+The model runs on each linkage chain separately, one level of nested sites at a time, parents
+before children (see [The linkage pass](read-likelihood-genotyping.md#the-linkage-pass)). A chain
+below the top level is decoded after its parent's chain has been decoded and phased. The model then
 starts the chain from the state that the parent's Viterbi path chose at the parent site (see
 [Phasing from the panel](#phasing-from-the-panel)); read phasing, which comes later, does not change
-it. A chain at its parent's ploidy holds the parent as its first site, fixed at the parent's settled
+it. A chain at its parent's ploidy holds the parent as its first site, fixed at the parent's chosen
 genotype, with all its probability on that state. A ploidy-1 chain under a diploid parent does not
 hold the parent. It starts from the panel haplotype $h$ that the parent's strand carrying the chain
 copies, moved by one transition over the distance $d$ from the parent to the chain's first site:
@@ -266,19 +266,19 @@ wildcard or a panel haplotype that does not pass through the chain's first site.
 
 vg phases each linkage chain from its **Viterbi path**: the most probable sequence of the model's
 states along the chain, found window by window (below), among the states **compatible** with each
-site's settled genotype: a state with both alleles known that implies it, a state with one unknown
+site's chosen genotype: a state with both alleles known that implies it, a state with one unknown
 strand whose other strand carries one of its alleles, and a state with two unknown strands. Phasing
-orders each settled genotype's alleles and keeps the genotype; where the path's state has no known
+orders each chosen genotype's alleles and keeps the genotype; where the path's state has no known
 allele, the order of a heterozygous site's alleles is arbitrary (see
 [Phasing](read-likelihood-genotyping.md#phasing)). For the path, each compatible state's emission is
-the settled genotype's $\mathcal{L}(G)$, times $\epsilon_{\mathrm{esc}}$ for each unknown strand.
+the chosen genotype's $\mathcal{L}(G)$, times $\epsilon_{\mathrm{esc}}$ for each unknown strand.
 Every compatible state with both alleles known therefore has the same emission, so the path is
 chosen by the transitions, with each unknown strand penalised by $\epsilon_{\mathrm{esc}}$. Read
 phasing, when on, re-decides the phases afterwards (see
-[From the reads](read-likelihood-genotyping.md#from-the-reads)).
+[Read phasing](read-likelihood-read-phasing.md#read-phasing)).
 
-A site settled in an earlier generation, such as a parent decoded with its child chain, is held to
-the state it was phased with, where that state is compatible with its settled genotype, and
+A site decoded at an earlier level, such as a parent decoded with its child chain, is held to the
+state it was phased with, where that state is compatible with its chosen genotype, and
 otherwise only to its genotype. On every linkage chain, the path is decoded over overlapping
 windows of the sizes given in [Forward–backward windows](#forwardbackward-windows). Each window
 after the first is held, at the previous window's last kept site, to the state that the previous

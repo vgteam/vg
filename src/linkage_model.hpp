@@ -49,8 +49,8 @@ struct LinkageCounters {
     std::atomic<size_t> nest_strand{0}, nest_one_hap{0};
 
     /// Nested chains at ploidy 1 under a diploid parent that were given no strand: those that
-    /// both of the parent's settled alleles cross, which happens where the barrier could not
-    /// revise the chain's ploidy, and those whose parent's settled pair could not be read.
+    /// both of the parent's chosen alleles cross, which happens where the linkage pass could not
+    /// revise the chain's ploidy, and those whose parent's chosen pair could not be read.
     std::atomic<size_t> nest_both{0}, nest_unreadable{0};
 };
 
@@ -145,7 +145,7 @@ public:
         /// Fix this site's haplotype pair in `phasing()` to (pin_first, pin_second).
         ///
         /// A group is phased with its parent as its first site, and the parent's phase is already
-        /// settled. Pinning the parent keeps the path from swapping its strands, which would phase
+        /// chosen. Pinning the parent keeps the path from swapping its strands, which would phase
         /// the group against the wrong strands. `(size_t)-1` is `WILDCARD`, which is declared
         /// below.
         bool pinned = false;
@@ -168,7 +168,7 @@ public:
     /// argument cannot be added to one and forgotten on the other.
     ///
     /// `alpha_in`, when given, replaces the uniform distribution over states at the chain's first
-    /// site. The linkage pass builds it from the parent's settled state. Where the chain's first
+    /// site. The linkage pass builds it from the parent's chosen state. Where the chain's first
     /// site is the parent itself, it is a point mass there, which fixes that site's state; later
     /// sites can switch away from it. A ploidy-1 chain under a diploid parent does not hold the
     /// parent, so its message is the haplotype of the parent's strand that carries the chain,
@@ -201,7 +201,7 @@ public:
     /// its per-site answers need not form a path that one pair of haplotypes can spell.
     ///
     /// `constraint[t]` is the genotype index the path must spell at site `t`, or `NO_CONSTRAINT`
-    /// to leave the site free. Constraining every site to its settled genotype makes the
+    /// to leave the site free. Constraining every site to its chosen genotype makes the
     /// phasing agree with the VCF. A constrained path always exists, because the wildcard can
     /// carry any allele.
     ///
@@ -232,7 +232,7 @@ public:
 
     /// Posteriors over sites [from, to) decoded as a single window, starting from `alpha_in` and
     /// ending at `beta_in` (uniform where null). The linkage pass decodes a diploid group this
-    /// way, from its parent's settled state.
+    /// way, from its parent's chosen state.
     void segment_posteriors(const vector<Site>& sites, size_t from, size_t to,
                             const vector<double>* alpha_in, const vector<double>* beta_in,
                             vector<vector<double>>& out) const {
@@ -299,10 +299,10 @@ void transition_apply(const std::vector<double>& in, size_t m, double rho_a, dou
  * each panel haplotype carries. So the whole genome's entries stay small. Sites are recorded from
  * several threads in no fixed order.
  *
- * Sites are resolved one generation at a time. Generation 0's sites form the top-level linkage
+ * Sites are resolved one level at a time. Level 0's sites form the top-level linkage
  * chains: one contig, split where its ploidy changes, sorted by position, since the transitions
  * depend on distance. Each later site belongs to a *group*: the sites of one child chain at one
- * ploidy under one parent, decoded from the parent's settled state. Resolving settles each site's
+ * ploidy under one parent, decoded from the parent's chosen state. Resolving chooses each site's
  * genotype and phases it, as a `PhaseCall`.
  */
 class LinkageCollector {
@@ -328,7 +328,7 @@ public:
         double achievable_gap = 0.0;
     };
 
-    /// A moved site's settled-genotype posterior, with its direct call's quality inputs.
+    /// A moved site's chosen-genotype posterior, with its direct call's quality inputs.
     struct MovedQuality {
         double posterior = 0.0;
         DirectQuality direct;
@@ -339,15 +339,15 @@ public:
     /// would shift the rest and still compile.
     struct SiteContext {
         /// The site's chain has one copy: exactly one of the parent's alleles crosses it (the
-        /// called alleles when the sweep records it, the settled ones when the barrier does).
+        /// called alleles when the direct pass records it, the chosen ones when the linkage pass does).
         bool nested = false;
         size_t parent_record_key = 0;
         /// Bit t set iff the parent's candidate traversal t crosses this chain.
         uint64_t parent_crossing = 0;
-        /// The site's depth of descent: its parent's generation plus 1 for a chain reached by
-        /// descent, and 0 for a site the sweep calls directly, which includes the children of a
-        /// snarl it could not genotype. Its generation's pass settles it.
-        size_t generation = 0;
+        /// The site's depth of descent: its parent's level plus 1 for a chain reached by
+        /// descent, and 0 for a site the direct pass calls directly, which includes the children of a
+        /// snarl it could not genotype. The linkage pass chooses its genotype at its level.
+        size_t level = 0;
         /// Whether a VCF line exists for this site. `vg call` records every site before its line
         /// is written, so it passes false and supplies the answer through `set_allele_map`.
         bool emitted = true;
@@ -428,56 +428,56 @@ public:
         /// written phase is arbitrary.
         bool order_arbitrary = false;
 
-        /// The site's generation (see `SiteContext::generation`). The mosaic writer uses it to
+        /// The site's level (see `SiteContext::level`). The mosaic writer uses it to
         /// find where a strand enters or leaves a nested chain, and to leave nested sites out
         /// under --no-mosaic-nested.
-        uint8_t generation = 0;
+        uint8_t level = 0;
     };
 
-    /// Resolve generation 0 only, per contig, and return how many sites the model moved off their
-    /// called genotype. For unit tests; `vg call` resolves each generation with
-    /// `resolve_generation`.
+    /// Resolve level 0 only, per contig, and return how many sites the model moved off their
+    /// called genotype. For unit tests; `vg call` resolves each level with
+    /// `resolve_level`.
     ///
-    /// With `phasing_out`, also returns a phasing of the settled genotypes, after the model's
+    /// With `phasing_out`, also returns a phasing of the chosen genotypes, after the model's
     /// changes, so that the phasing agrees with the VCF.
     size_t resolve(vector<PhaseCall>* phasing_out = nullptr) {
-        return resolve_generation(0, true, phasing_out);
+        return resolve_level(0, true, phasing_out);
     }
 
-    /// By record key, each live site whose genotype the model changed when its generation was
+    /// By record key, each live site whose genotype the model changed when its level was
     /// last resolved. `VCFOutputCaller::write_variants` rewrites GQ, GQN and FILTER on each such
     /// record's rendered line from these, since the posterior exists only here, and
     /// `FlowCaller::anchor_gqn_for` uses them for the anchors' gqn column.
     ///
-    /// Resolving a site's generation adds or removes its key, and retracting the site removes it,
-    /// so after the barrier runs again the map describes that run alone.
+    /// Resolving a site's level adds or removes its key, and retracting the site removes it,
+    /// so after the linkage pass runs again the map describes that run alone.
     const std::unordered_map<size_t, MovedQuality>& moved_quality() const {
         return moved_quality_by_record;
     }
 
-    /// Resolve one generation of sites, holding every earlier generation fixed.
+    /// Resolve one level of sites, holding every earlier level fixed.
     ///
-    /// A group's parent, of the generation before, is the one earlier site it holds, and only
-    /// when their ploidies match. It is clamped: its emission becomes a point mass at its settled
-    /// genotype and its phase is pinned, so it starts the group from its settled state and cannot
-    /// change. Later generations are left out, since their ploidies are not known until this
-    /// generation is settled.
+    /// A group's parent, of the level before, is the one earlier site it holds, and only
+    /// when their ploidies match. It is clamped: its emission becomes a point mass at its chosen
+    /// genotype and its phase is pinned, so it starts the group from its chosen state and cannot
+    /// change. Later levels are left out, since their ploidies are not known until this
+    /// level is chosen.
     ///
-    /// Each site of this generation gets one `PhaseCall`, appended to `phasing_out`, which must be
-    /// passed back in on every call of one barrier pass, since a nested site's strand is read from
-    /// its parent's `PhaseCall`. `last` marks the pass's final generation, whose call sorts
+    /// Each site of this level gets one `PhaseCall`, appended to `phasing_out`, which must be
+    /// passed back in on every call of one linkage pass, since a nested site's strand is read from
+    /// its parent's `PhaseCall`. `last` marks the pass's final level, whose call sorts
     /// `phasing_out` into reference order.
     ///
     /// Returns how many sites the model moved off their called genotype.
-    size_t resolve_generation(size_t generation, bool last,
+    size_t resolve_level(size_t level, bool last,
                                       vector<PhaseCall>* phasing_out = nullptr);
 
     /// Mark a site's live entry retracted, so that the model no longer sees it.
     ///
-    /// The barrier retracts a chain before its generation resolves when the parent's settled
+    /// The linkage pass retracts a chain before its level resolves when the parent's chosen
     /// genotype does not cross it, so the sample has no copy of it. It also retracts a chain's
     /// entry just before recording the chain again at a revised ploidy. A chain retracted on an
-    /// earlier barrier pass that a later pass finds carried is recorded again. Lookups reach the
+    /// earlier linkage pass that a later pass finds carried is recorded again. Lookups reach the
     /// first live entry for a key, so after retract and then `record` the new entry is the live
     /// one.
     ///
@@ -497,12 +497,12 @@ public:
                  const vector<int>& haplotype_traversal, int called_trav_i, int called_trav_j);
 
 
-    /// The pair of candidate traversals this site settled on, for building its record.
+    /// The pair of candidate traversals this site chosen on, for building its record.
     ///
     /// Translated out of the compact space here, since compact indices mean nothing outside the
     /// collector. A site the model did not change returns its called pair. Returns false for an
     /// unknown or retracted key.
-    bool settled_traversals(size_t record_key, int* first, int* second, size_t* ploidy) const;
+    bool chosen_traversals(size_t record_key, int* first, int* second, size_t* ploidy) const;
 
     /// Fill in the traversal-to-VCF-allele map for a site already recorded, and say whether a line
     /// exists for it.
@@ -516,18 +516,18 @@ public:
     std::unordered_set<size_t> emitted_records() const;
 
 
-    /// What a parent's settled pair implies about one of its child chains: how many copies of the
-    /// chain the sample carries, which of the parent's settled traversals carries it when only one
+    /// What a parent's chosen pair implies about one of its child chains: how many copies of the
+    /// chain the sample carries, which of the parent's chosen traversals carries it when only one
     /// does, and whether the pair could be read at all. Computed where it is needed, from
     /// `relate_to_parent`, rather than stored.
     struct Relation {
         uint8_t copies = 0;
         int carrying_trav = -1;   ///< the traversal when copies == 1; -2 when both carry it
-        bool known = false;       ///< false when the parent's settled pair could not be read
+        bool known = false;       ///< false when the parent's chosen pair could not be read
     };
 
-    /// Compute a Relation from the parent's crossing mask and settled traversals. The barrier uses
-    /// the copy count to set a child chain's ploidy, and `resolve_generation` uses the carrying
+    /// Compute a Relation from the parent's crossing mask and chosen traversals. The linkage pass uses
+    /// the copy count to set a child chain's ploidy, and `resolve_level` uses the carrying
     /// traversal to put a ploidy-1 group on one of its parent's strands
     /// (`PhaseCall::nested_strand`). Both call this, so they cannot disagree. `trav_b` is -1 for a
     /// haploid parent.
@@ -538,15 +538,15 @@ public:
     bool has_entry(size_t record_key) const;
 
     /// Move the live entry for this key to another position on its contig, as when the place of a
-    /// site with no reference position changes with its parent's settled genotype. Returns false
+    /// site with no reference position changes with its parent's chosen genotype. Returns false
     /// when the key has no live entry.
     bool set_position(size_t record_key, size_t position);
 
-    /// How many sites belong to one generation, for reporting a per-generation pass.
-    size_t num_sites_at(size_t generation) const;
+    /// How many sites belong to one level, for reporting a per-level pass.
+    size_t num_sites_at(size_t level) const;
 
-    /// The highest generation any recorded site belongs to.
-    size_t max_generation() const;
+    /// The highest level any recorded site belongs to.
+    size_t max_level() const;
 
     /// Bytes held by the collector, for reporting.
     size_t bytes() const;
@@ -602,13 +602,13 @@ private:
         uint16_t called_i = 0;
         uint16_t called_j = 0;
         uint8_t ploidy = 2;
-        /// The generation whose resolve pass settles this site. Where nothing nests, every entry
-        /// is 0 and one pass settles them all.
-        uint8_t generation = 0;
+        /// The level at which the linkage pass chooses this site's genotype. Where nothing
+        /// nests, every entry is 0 and one resolve chooses them all.
+        uint8_t level = 0;
         /// Set by `retract`. The entry stays in place and is skipped.
         bool retracted = false;
-        /// The settled genotype, written when the site's generation resolves, so that later
-        /// generations can clamp it.
+        /// The chosen genotype, written when the site's level resolves, so that later
+        /// levels can clamp it.
         uint16_t final_i = 0;
         uint16_t final_j = 0;
         /// Whether this site wrote a VCF line. Only then do its `allele_offset` entries mean
@@ -646,9 +646,9 @@ private:
     /// The entries. Their variable-length data lives in shared arrays (the arenas below) rather
     /// than in vectors of their own, which would add more per entry than the entry itself.
     vector<Entry> entries;
-    /// Entry indices by generation, in the order the entries were appended, so that
-    /// `resolve_generation(k)` visits only generation k's entries.
-    vector<vector<uint32_t>> by_generation;
+    /// Entry indices by level, in the order the entries were appended, so that
+    /// `resolve_level(k)` visits only level k's entries.
+    vector<vector<uint32_t>> by_level;
     vector<float> gl_arena;
     vector<int8_t> hap_arena;
     /// Per compact allele, the candidate traversal index it stands for.
@@ -673,7 +673,7 @@ private:
     /// The first non-retracted entry with this key, or NO_ENTRY. Call with `mutex` held.
     uint32_t live_index(size_t record_key) const;
 
-    /// Split a settled compact pair into the traversal and the VCF allele on each strand.
+    /// Split a chosen compact pair into the traversal and the VCF allele on each strand.
     void finish_phase_call(PhaseCall& pc, const Entry& e) const;
 
     /// The compact allele space of a site, with its genotype likelihoods translated into it. Built
