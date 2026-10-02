@@ -765,6 +765,10 @@ size_t VCFOutputCaller::record_key_of(const Snarl& snarl) const {
 // Each read's strand log-odds for the render, used by the anchors. Built here rather than taken
 // from re-genotyping, which may not have run and whose table is built before `phase_sites` is
 // final.
+size_t VCFOutputCaller::phase_set_id(const string& contig, size_t phase_set) {
+    return phase_set_ids.emplace(make_pair(contig, phase_set), phase_set_ids.size()).first->second;
+}
+
 void VCFOutputCaller::build_render_lambda() {
     render_lambda.clear();
     render_lambda_site.clear();
@@ -781,7 +785,7 @@ void VCFOutputCaller::build_render_lambda() {
     }
     // The last PhaseCall written winning, as in `build_render_phases`.
     for (const LinkageCollector::PhaseCall& pc : linkage_phased) {
-        render_lambda_phase_set[pc.record_key] = pc.phase_set;
+        render_lambda_phase_set[pc.record_key] = phase_set_id(pc.contig, pc.phase_set);
     }
     // The summed strand log-odds overstate how sure the strand is, so they are tempered. Use the
     // temper re-genotyping fitted, where it ran; otherwise fit one here.
@@ -5543,7 +5547,7 @@ void FlowCaller::apply_read_phasing() {
                 continue;
             }
             site.record_key = rec.record_key;
-            site.phase_set = pc.phase_set;
+            site.phase_set = phase_set_id(pc.contig, pc.phase_set);
             site.position = pc.position;
             sites.push_back(std::move(site));
         }
@@ -5666,7 +5670,7 @@ bool FlowCaller::apply_regenotyping() {
     unordered_map<size_t, size_t> site_phase_set;
     site_phase_set.reserve(linkage_phased.size() * 2);
     for (const LinkageCollector::PhaseCall& pc : linkage_phased) {
-        site_phase_set[pc.record_key] = pc.phase_set;
+        site_phase_set[pc.record_key] = phase_set_id(pc.contig, pc.phase_set);
     }
 
     // Which strand of its parent each nested ploidy-1 chain sits on. `nested_strand` was set in the

@@ -81,6 +81,7 @@ vector<double> allele_length_weights(const vector<std::uint32_t>& allele_length,
  */
 struct PhaseSite {
     size_t record_key = 0;
+    /// The site's phase set, as an id unique across contigs.
     size_t phase_set = 0;
     size_t position = 0;
     vector<uint64_t> read_key;

@@ -640,6 +640,13 @@ protected:
     ReadPhasingParams read_phasing_params;
     ReadPhasingCounters read_phasing_counters;
 
+    /// A phase set is named by a position on its contig, so two contigs can share a name. Read
+    /// phasing, re-genotyping and the anchors tell phase sets apart by an id instead, which
+    /// `phase_set_id` gives each (contig, phase set) pair on first use.
+    map<pair<string, size_t>, size_t> phase_set_ids;
+    /// The id of a (contig, phase set) pair, the same for the whole run.
+    size_t phase_set_id(const string& contig, size_t phase_set);
+
     /// Each diploid heterozygous site's per-read evidence, reduced to its settled pair, as read
     /// phasing last built it. Re-genotyping and the anchors read it.
     vector<PhaseSite> phase_sites;

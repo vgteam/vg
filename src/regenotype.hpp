@@ -58,6 +58,7 @@ struct ReadLambda {
     double lambda = 0.0;
     /// How many sites contributed.
     size_t sites = 0;
+    /// The phase set the read was found in, as `PhaseSite::phase_set` names it.
     size_t phase_set = 0;
     /// Seen in more than one phase set, so `lambda` mixes two unrelated strand labellings. Such a
     /// read is given the site's own weights, as if it spanned no other site.
