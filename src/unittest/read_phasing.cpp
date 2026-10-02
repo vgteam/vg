@@ -98,6 +98,39 @@ TEST_CASE("phase is not compared across blocks", "[read_phasing]") {
     REQUIRE(counters.chains == 2);
 }
 
+TEST_CASE("break counts describe the chain the last coherence round left", "[read_phasing]") {
+    // Two phase sets built alike. In each, A, B and D share reads that agree, C's reads alternate
+    // between its alleles, so the coherence step removes it, and E shares no reads. The first pass
+    // breaks the chain on both sides of C and before E; the second, without C, breaks only
+    // before E, with no read across that break.
+    vector<PhaseSite> sites;
+    for (size_t ps : {1, 2}) {
+        const uint64_t reads = ps * 1000;
+        const size_t key = ps * 10;
+        PhaseSite c = site(key + 3, 300, 0, 20, 12.0, reads);
+        for (size_t i = 0; i < c.q0.size(); ++i) {
+            c.q0[i] = (i % 2 == 0) ? 1.0f : 0.0f;
+        }
+        sites.push_back(site(key + 1, 100, 0, 20, 12.0, reads));
+        sites.push_back(site(key + 2, 200, 0, 20, 12.0, reads));
+        sites.push_back(c);
+        sites.push_back(site(key + 4, 400, 0, 20, 12.0, reads));
+        sites.push_back(site(key + 5, 500, 0, 20, 12.0, reads + 500));
+        for (size_t i = sites.size() - 5; i < sites.size(); ++i) {
+            sites[i].phase_set = ps;
+        }
+    }
+    ReadPhasingParams params;
+    ReadPhasingCounters counters;
+    read_phase_flips(sites, params, counters);
+    REQUIRE(counters.chains == 2);
+    REQUIRE(counters.demoted_incoherent == 2);
+    REQUIRE(counters.breaks == 2);
+    REQUIRE(counters.breaks_no_reads == 2);
+    // One round in each chain.
+    REQUIRE(counters.coherence_rounds_run == 1);
+}
+
 TEST_CASE("a hung site that no read links keeps the panel's order", "[read_phasing]") {
     // With --phase-prior 0 and no shared read, the hang stage has no vote either way, and the panel
     // gave the site an order. Flipping it would invent a phase out of nothing.

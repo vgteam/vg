@@ -161,7 +161,8 @@ struct ReadPhasingCounters {
     size_t strands_rederived = 0;
     /// Sites removed from the chain for low coherence.
     size_t demoted_incoherent = 0;
-    /// Rounds of the coherence step run, and chains still losing sites when the round limit was reached.
+    /// The most rounds of the coherence step that removed sites from one chain, and the chains
+    /// still losing sites when the round limit was reached.
     size_t coherence_rounds_run = 0;
     size_t coherence_unconverged = 0;
 };

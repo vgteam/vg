@@ -177,6 +177,11 @@ unordered_set<size_t> read_phase_flips(vector<PhaseSite>& sites, const ReadPhasi
         const size_t max_pass = params.coherence_min > 0.0
                                     ? max<size_t>(1, params.coherence_rounds) + 1
                                     : 1;
+        // Breaks in the chain as the last pass left it. A pass that demotes sites runs stages 1
+        // and 2 again, so only the last pass's breaks are counted.
+        size_t breaks = 0;
+        size_t breaks_no_reads = 0;
+        size_t rounds = 0;
         for (size_t pass = 0; pass < max_pass && !rel.empty(); ++pass) {
             // --- stage 1: the chain of reliable sites, stepping over the rest ---
             vector<double> d(rel.size() > 0 ? rel.size() - 1 : 0, 0.0);
@@ -191,7 +196,8 @@ unordered_set<size_t> read_phase_flips(vector<PhaseSite>& sites, const ReadPhasi
                 }
             }
             bounds.push_back(rel.size());
-            counters.breaks += bounds.size() - 2;
+            breaks = bounds.size() - 2;
+            breaks_no_reads = 0;
 
             for (size_t b = 0; b + 1 < bounds.size(); ++b) {
                 const size_t s0 = bounds[b], s1 = bounds[b + 1];
@@ -227,7 +233,7 @@ unordered_set<size_t> read_phase_flips(vector<PhaseSite>& sites, const ReadPhasi
                     }
                 }
                 if (total == 0.0) {
-                    ++counters.breaks_no_reads;
+                    ++breaks_no_reads;
                     continue;                                  // the panel's frame stands
                 }
                 const int x = total < 0.0 ? 1 : 0;
@@ -291,7 +297,7 @@ unordered_set<size_t> read_phase_flips(vector<PhaseSite>& sites, const ReadPhasi
                 }
                 if (!drop.empty() && keep.size() >= 2) {
                     counters.demoted_incoherent += drop.size();
-                    ++counters.coherence_rounds_run;
+                    ++rounds;
                     if (pass + 2 == max_pass) {
                         // Still removing sites in the last allowed round, so the chain is
                         // reported as not converged.
@@ -309,6 +315,9 @@ unordered_set<size_t> read_phase_flips(vector<PhaseSite>& sites, const ReadPhasi
             }
             break;                               // no demotion: one pass is all that is needed
         }
+        counters.breaks += breaks;
+        counters.breaks_no_reads += breaks_no_reads;
+        counters.coherence_rounds_run = max(counters.coherence_rounds_run, rounds);
 
         if (!rel.empty()) {
             // --- stage 4: hang the unreliable sites from the chain ---
