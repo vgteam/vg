@@ -760,9 +760,14 @@ int32_t GraphAlignedAlleleLikelihoodCalculator::score_by_greedy_pairing(
     // in optimal pairing, so that a pairing scores the same whichever search found it: the run's
     // first visit opens the gap and the others extend it. Before that pair, each unpaired read
     // visit is a gap of its own. Each unpaired visit adds --insertion-nats, as in optimal pairing.
+    // A visit with no read bases, where the read deletes its whole node, is no gap: it adds
+    // nothing and neither starts nor ends a run.
     const int32_t extend_per_base = read_scorer.score_gap(2) - read_scorer.score_gap(1);
     bool in_insertion = false;
     auto leave_unpaired = [&](const ReadStep& step) {
+        if (step.read_length == 0) {
+            return;
+        }
         if (in_insertion) {
             score += (int32_t)step.read_length * extend_per_base;
         } else {
@@ -907,8 +912,9 @@ int32_t GraphAlignedAlleleLikelihoodCalculator::score_by_greedy_pairing(
 // nowhere in the other sequence is a substitution. Any other pair is forbidden: a visit the read
 // and the allele share may not be paired with a different visit, though it may be left unpaired.
 //
-// A run of k inserted read visits after the first match is one gap, as in greedy pairing. The
-// answer is the best final-row cell in P, M or I. D is excluded because it has charged
+// A run of k inserted read visits after the first match is one gap, as in greedy pairing. A read
+// visit with no bases, where the read deletes its whole node, is no gap when left unpaired: its
+// row passes every state through unchanged. The answer is the best final-row cell in P, M or I. D is excluded because it has charged
 // allele visits after the read's window, and P is allowed so that a read that pairs nothing still
 // gets a finite score.
 int32_t GraphAlignedAlleleLikelihoodCalculator::score_by_optimal_pairing(
@@ -967,39 +973,52 @@ int32_t GraphAlignedAlleleLikelihoodCalculator::score_by_optimal_pairing(
     }
 
     // On large sites, only fill a band of the grid. A read and an allele usually differ at a
-    // few nodes, so the best pairing stays near the diagonal that their shared visits define.
-    // The band's centre for read row i is projected back along that diagonal from the next
-    // shared visit, or forward from the last one when none remains ahead, so the band follows
-    // the shared visits rather than the i == j diagonal. Small sites are filled in full. The
-    // band can miss the best pairing, so on large sites this search is an approximation.
+    // few nodes, so the best pairing stays near the path through their shared visits. The match
+    // cell of a shared visit at read step i_s and allele step j_s is (i_s + 1, j_s + 1). Row i's
+    // band spans the projections, along the diagonal, of the last shared visit's match cell in
+    // row i or earlier and of the first one after row i, widened by `band` on each side. Between
+    // two shared visits the band therefore holds every cell of a deletion or an insertion that
+    // joins them, however long; where they share a diagonal it is centred on it. Small sites are filled
+    // in full. The band can miss the best pairing, so on large sites this search is an
+    // approximation.
     const bool banded = m * n > 20000;
     const size_t band = 64;
-    vector<size_t> centre;
+    vector<size_t> band_from, band_to;
     if (banded) {
-        centre.assign(m + 1, 0);
-        size_t a_index = 0, prev_i = 0, prev_j = 0;
+        band_from.assign(m + 1, 0);
+        band_to.assign(m + 1, 0);
+        size_t a_index = 0;
         vector<pair<size_t, size_t>> shared;
         for (size_t i = 0; i < m; ++i) {
             for (size_t j = a_index; j < n; ++j) {
                 if (allele_steps[j].node_id == read_steps[i].node_id &&
                     allele_steps[j].backward == read_steps[i].backward) {
-                    shared.emplace_back(i, j);
+                    shared.emplace_back(i + 1, j + 1);
                     a_index = j + 1;
                     break;
                 }
             }
         }
+        // shared[s - 1] is the last match cell in row i or earlier, shared[s] the first after it.
         size_t s = 0;
         for (size_t i = 0; i <= m; ++i) {
-            while (s < shared.size() && shared[s].first < i) {
-                prev_i = shared[s].first;
-                prev_j = shared[s].second;
+            while (s < shared.size() && shared[s].first <= i) {
                 ++s;
             }
-            centre[i] = s < shared.size()
-                            ? shared[s].second - min(shared[s].second, shared[s].first - i)
-                            : prev_j + (i - min(i, prev_i));
-            centre[i] = min(centre[i], n);
+            size_t from = i, to = i;   // the i == j diagonal, with no shared visit at all
+            if (s > 0) {
+                from = to = shared[s - 1].second + (i - shared[s - 1].first);
+            }
+            if (s < shared.size()) {
+                const size_t ahead =
+                    shared[s].second - min(shared[s].second, shared[s].first - i);
+                from = s > 0 ? min(from, ahead) : ahead;
+                to = s > 0 ? max(to, ahead) : ahead;
+            }
+            from = min(from, n);
+            to = min(to, n);
+            band_from[i] = from > band ? from - band : 1;
+            band_to[i] = min(n, to + band);
         }
     }
 
@@ -1009,18 +1028,19 @@ int32_t GraphAlignedAlleleLikelihoodCalculator::score_by_optimal_pairing(
         const int32_t rgap = read_scorer.score_gap(rs.read_length);
         const double rnat = params.insertion_gap_nats;
         const int64_t rkey = step_key(rs.node_id, rs.backward);
+        const bool no_bases = rs.read_length == 0;
 
-        P[0] = plus(pP[0], rgap, rnat);
+        P[0] = no_bases ? pP[0] : plus(pP[0], rgap, rnat);
         M[0] = NONE;
-        I[0] = better(plus(better(pM[0], pD[0]), rgap, rnat),
-                      plus(pI[0], rlen * extend_per_base, rnat));
+        I[0] = no_bases ? pI[0]
+                        : better(plus(better(pM[0], pD[0]), rgap, rnat),
+                                 plus(pI[0], rlen * extend_per_base, rnat));
         D[0] = NONE;
 
         size_t j_lo = 1, j_hi = n;
         if (banded) {
-            const size_t mid = centre[i];
-            j_lo = mid > band ? mid - band : 1;
-            j_hi = min(n, mid + band);
+            j_lo = band_from[i];
+            j_hi = band_to[i];
             // Cells outside the band this row must not carry a stale value from two rows ago.
             for (size_t j = 1; j < j_lo; ++j) { P[j] = M[j] = I[j] = D[j] = NONE; }
             for (size_t j = j_hi + 1; j <= n; ++j) { P[j] = M[j] = I[j] = D[j] = NONE; }
@@ -1066,16 +1086,27 @@ int32_t GraphAlignedAlleleLikelihoodCalculator::score_by_optimal_pairing(
                 M[j] = plus(better(pM[j - 1], better(pI[j - 1], pD[j - 1])), pair, pair_nats);
                 P[j] = plus(pP[j - 1], pair, pair_nats);
             }
-            // Free leading allele deletion, and a read insertion before any anchor.
+            // Free leading allele deletion.
             P[j] = better(P[j], P[j - 1]);
-            P[j] = better(P[j], plus(pP[j], rgap, rnat));
 
-            // A shared visit may be left unpaired, though it may not be substituted. A read
-            // with poor edits inside a shared node can be explained better by a gap.
-            I[j] = better(plus(better(pM[j], pD[j]), rgap, rnat),
-                          plus(pI[j], rlen * extend_per_base, rnat));
+            if (no_bases) {
+                // Leaving a visit with no bases unpaired keeps the state it follows.
+                M[j] = better(M[j], pM[j]);
+                P[j] = better(P[j], pP[j]);
+                I[j] = pI[j];
+            } else {
+                // A read insertion before any anchor.
+                P[j] = better(P[j], plus(pP[j], rgap, rnat));
+                // A shared visit may be left unpaired, though it may not be substituted. A read
+                // with poor edits inside a shared node can be explained better by a gap.
+                I[j] = better(plus(better(pM[j], pD[j]), rgap, rnat),
+                              plus(pI[j], rlen * extend_per_base, rnat));
+            }
             D[j] = better(plus(better(M[j - 1], I[j - 1]), agap, 0.0),
                           plus(D[j - 1], alen * extend_per_base, 0.0));
+            if (no_bases) {
+                D[j] = better(D[j], pD[j]);
+            }
         }
         pP.swap(P); pM.swap(M); pI.swap(I); pD.swap(D);
     }

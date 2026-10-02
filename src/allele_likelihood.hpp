@@ -452,7 +452,8 @@ public:
  *     allele node's sequence, from the first base of each, plus a gap for the difference in
  *     length;
  *   - a run of read visits left unpaired is an insertion, and a run of allele visits skipped
- *     between two pairs is a deletion, each scored as one gap.
+ *     between two pairs is a deletion, each scored as one gap. A read visit with no bases, where
+ *     the read deletes its whole node, adds nothing when left unpaired and does not break a run.
  *
  * Allele visits before the read's first same-visit pair, or after its last pair, lie outside the
  * read and score nothing. Before that first same-visit pair, each unpaired read visit is a gap of

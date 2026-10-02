@@ -110,8 +110,12 @@ static Alignment make_matching_alignment(const HandleGraph& graph, const string&
 /// `optimal_pairing` selects how the pairing is chosen: false is greedy pairing, the default, and
 /// true is optimal pairing, which `--optimal-pairing` turns on. The invariants below must hold for
 /// both, since they are properties of the scoring model, not of how the pairing is searched for.
-static AlleleReadLikelihoods score_site(SnpAndDeletionSite& site, const vector<Alignment>& reads,
-                                        int ploidy = 2, bool optimal_pairing = false) {
+///
+/// `insertion_nats` is --insertion-nats.
+template<typename Site>
+static AlleleReadLikelihoods score_site(Site& site, const vector<Alignment>& reads,
+                                        int ploidy = 2, bool optimal_pairing = false,
+                                        double insertion_nats = 0.0) {
     InMemorySiteReadSource source;
     for (size_t i = 0; i < reads.size(); ++i) {
         Alignment named = reads[i];
@@ -124,6 +128,7 @@ static AlleleReadLikelihoods score_site(SnpAndDeletionSite& site, const vector<A
     MatrixAlignmentScorer plain_scorer;
     AlleleLikelihoodParams params;
     params.optimal_pairing = optimal_pairing;
+    params.insertion_gap_nats = insertion_nats;
     GraphAlignedAlleleLikelihoodCalculator calculator(site.graph, *site.manager, source, qual_scorer,
                                                       plain_scorer, params);
     return calculator.compute(site.snarl, site.traversals, ploidy);
@@ -526,6 +531,137 @@ TEST_CASE("Optimal pairing keeps the indel invariants greedy pairing has",
         REQUIRE(m.rel(0, 2) > 1e-10);
         REQUIRE(m.rel(0, 2) < m.rel(1, 0));
         REQUIRE(m.rel(0, 2) > 0.1 * m.rel(1, 0));
+    }
+}
+
+/// A site whose two alleles are chains of one-base nodes, for pairing a long read against a long
+/// allele. Node 1 starts the site; then come `a` nodes, `b` nodes and `c` nodes, then the end
+/// node. Allele 0 skips the `b` nodes by an edge and allele 1 passes through them.
+struct LongChainSite {
+    bdsg::HashGraph graph;
+    Snarl snarl;
+    vector<SnarlTraversal> traversals;
+    unique_ptr<SnarlManager> manager;
+    vector<nid_t> skipping;     // allele 0's nodes
+
+    LongChainSite(size_t a, size_t b, size_t c) {
+        const string bases = "ACGT";
+        nid_t end = (nid_t)(a + b + c + 2);
+        for (nid_t id = 1; id <= end; ++id) {
+            graph.create_handle(string(1, bases[id % 4]), id);
+            if (id > 1) {
+                graph.create_edge(graph.get_handle(id - 1), graph.get_handle(id));
+            }
+        }
+        nid_t last_a = (nid_t)(a + 1), first_c = (nid_t)(a + b + 2);
+        graph.create_edge(graph.get_handle(last_a), graph.get_handle(first_c));
+
+        snarl.mutable_start()->set_node_id(1);
+        snarl.mutable_end()->set_node_id(end);
+        snarl.set_type(ULTRABUBBLE);
+        vector<Snarl> snarls{snarl};
+        manager.reset(new SnarlManager(snarls.begin(), snarls.end()));
+
+        traversals.resize(2);
+        for (nid_t id = 1; id <= end; ++id) {
+            bool in_b = id > last_a && id < first_c;
+            if (!in_b) {
+                skipping.push_back(id);
+            }
+            for (size_t t = 0; t < 2; ++t) {
+                if (t == 1 || !in_b) {
+                    Visit* v = traversals[t].add_visit();
+                    v->set_node_id(id);
+                    v->set_backward(false);
+                }
+            }
+        }
+    }
+};
+
+TEST_CASE("Banded optimal pairing keeps a long deletion's flanking pairs",
+          "[allele_likelihood][scoring]") {
+    // Read 0 lacks allele 1's `b` visits and read 1 has visits allele 0 lacks, more than the
+    // band's half-width. The band must still hold the deletion or insertion between the shared
+    // visits, so the best pairing is all pairs and one gap, which greedy pairing also finds.
+    for (size_t b : {70, 150}) {
+        INFO("indel visits " << b);
+        LongChainSite site(100, b, 100);
+        vector<pair<nid_t, bool>> skipping, passing;
+        for (nid_t id : site.skipping) {
+            skipping.emplace_back(id, false);
+        }
+        for (const Visit& v : site.traversals[1].visit()) {
+            passing.emplace_back(v.node_id(), false);
+        }
+        vector<Alignment> reads{make_matching_alignment(site.graph, "skipping", skipping),
+                                make_matching_alignment(site.graph, "passing", passing)};
+        AlleleReadLikelihoods greedy = score_site(site, reads, 2, false);
+        AlleleReadLikelihoods optimal = score_site(site, reads, 2, true);
+        REQUIRE(greedy.num_reads() == 2);
+        REQUIRE(optimal.num_reads() == 2);
+        REQUIRE(greedy.rel(0, 1) > 0.0);
+        REQUIRE(greedy.rel(1, 0) > 0.0);
+        REQUIRE(log(optimal.rel(0, 1)) == Approx(log(greedy.rel(0, 1))));
+        REQUIRE(log(optimal.rel(1, 0)) == Approx(log(greedy.rel(1, 0))));
+    }
+}
+
+TEST_CASE("An unpaired read visit with no bases is not a gap",
+          "[allele_likelihood][scoring]") {
+    // Node 2 lies between nodes 1 and 3. A read that deletes all of node 2 visits it with no
+    // bases. Against the allele that skips nodes 2 and 3, its only gap is node 3's ten bases,
+    // as for a read that skips node 2 altogether: the empty visit opens no gap and earns no
+    // --insertion-nats.
+    bdsg::HashGraph graph;
+    graph.create_handle("AAAACCCC", 1);
+    graph.create_handle("TTTTT", 2);
+    graph.create_handle("GATTACAGAT", 3);
+    graph.create_handle("GGGGTTTT", 4);
+    graph.create_edge(graph.get_handle(1), graph.get_handle(2));
+    graph.create_edge(graph.get_handle(2), graph.get_handle(3));
+    graph.create_edge(graph.get_handle(3), graph.get_handle(4));
+    graph.create_edge(graph.get_handle(1), graph.get_handle(3));
+    graph.create_edge(graph.get_handle(1), graph.get_handle(4));
+    struct {
+        bdsg::HashGraph& graph;
+        Snarl snarl;
+        vector<SnarlTraversal> traversals;
+        unique_ptr<SnarlManager> manager;
+    } site{graph, Snarl(), {}, nullptr};
+    site.snarl.mutable_start()->set_node_id(1);
+    site.snarl.mutable_end()->set_node_id(4);
+    site.snarl.set_type(ULTRABUBBLE);
+    vector<Snarl> snarls{site.snarl};
+    site.manager.reset(new SnarlManager(snarls.begin(), snarls.end()));
+    for (const vector<nid_t>& nodes : vector<vector<nid_t>>{{1, 2, 3, 4}, {1, 4}}) {
+        site.traversals.emplace_back();
+        for (nid_t id : nodes) {
+            Visit* v = site.traversals.back().add_visit();
+            v->set_node_id(id);
+            v->set_backward(false);
+        }
+    }
+
+    Alignment skipping = make_matching_alignment(graph, "skipping",
+                                                 {{1, false}, {3, false}, {4, false}});
+    Alignment empty_visit = make_matching_alignment(graph, "empty_visit",
+                                                    {{1, false}, {2, false}, {3, false}, {4, false}});
+    // Turn the visit to node 2 into a deletion of the whole node.
+    Mapping* deleted = empty_visit.mutable_path()->mutable_mapping(1);
+    deleted->mutable_edit(0)->set_to_length(0);
+    empty_visit.set_sequence(graph.get_sequence(graph.get_handle(1))
+                             + graph.get_sequence(graph.get_handle(3))
+                             + graph.get_sequence(graph.get_handle(4)));
+    empty_visit.set_quality(string(empty_visit.sequence().size(), (char)30));
+
+    for (bool optimal : {false, true}) {
+        INFO("optimal pairing " << optimal);
+        AlleleReadLikelihoods m = score_site(site, {skipping, empty_visit}, 2, optimal, 0.9);
+        REQUIRE(m.num_reads() == 2);
+        double skipping_ln = m.best_ln_likelihood(0) + log(m.rel(0, 1));
+        double empty_ln = m.best_ln_likelihood(1) + log(m.rel(1, 1));
+        REQUIRE(empty_ln == Approx(skipping_ln));
     }
 }
 

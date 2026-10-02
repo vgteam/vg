@@ -429,7 +429,8 @@ unpaired. Visits left unpaired are gaps, measured in bases:
 - A run of consecutive read visits left unpaired is an **insertion**, scored as one gap as long as
   their bases. A visit that the read and the allele share may be left unpaired, which can explain
   a read with poor edits in that node better. Before the read's first pair of same visits, each
-  unpaired read visit is a gap of its own.
+  unpaired read visit is a gap of its own. A read visit with no bases, where the read deletes its
+  whole node, adds nothing when left unpaired and does not break a run.
 - A run of allele visits left unpaired after the read's first pair of same visits and before its
   last pair is a **deletion**, scored as one gap as long as their bases. Unpaired allele visits
   before the read's first pair of same visits, or after its last pair, lie outside the read and
@@ -484,8 +485,8 @@ log of a likelihood ratio: the probability of the aligned bases under the alignm
 their probability as unrelated random sequence. This is how vg interprets alignment scores as
 probabilities elsewhere. The scorers with and without the quality adjustment have different log
 bases. $I_{ra}$ is the number of insertions in the pairing in which the read has bases the allele
-lacks: those inside the mapper's edits, each unpaired read visit, and each substitution whose read
-node is the longer. Each unpaired read visit counts once here, even where a run of them is scored as
+lacks: those inside the mapper's edits, each unpaired read visit with bases, and each substitution
+whose read node is the longer. Each unpaired read visit counts once here, even where a run of them is scored as
 one gap, so $I_{ra}$ depends on how many nodes an inserted sequence spans. $\iota$ is
 `--insertion-nats`. A positive $\iota$ makes an insertion, where the read has bases the allele
 lacks, cost less than a deletion of the same length, where the allele has bases the read lacks.
