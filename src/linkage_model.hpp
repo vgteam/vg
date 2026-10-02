@@ -168,10 +168,11 @@ public:
     /// argument cannot be added to one and forgotten on the other.
     ///
     /// `alpha_in`, when given, replaces the uniform distribution over states at the chain's first
-    /// site. The linkage pass passes a point mass at the parent's settled state, which fixes the
-    /// first site's state; later sites can switch away from it. At ploidy 2 the first site is the
-    /// parent itself. At ploidy 1 the parent is not in the chain, and the point mass is on the
-    /// haplotype of the parent's strand that carries the chain.
+    /// site. The linkage pass builds it from the parent's settled state. Where the chain's first
+    /// site is the parent itself, it is a point mass there, which fixes that site's state; later
+    /// sites can switch away from it. A ploidy-1 chain under a diploid parent does not hold the
+    /// parent, so its message is the haplotype of the parent's strand that carries the chain,
+    /// carried through one transition to the chain's first site.
     vector<vector<double>> posteriors(const vector<Site>& sites, size_t ploidy = 2,
                                       const vector<double>* alpha_in = nullptr) const;
 

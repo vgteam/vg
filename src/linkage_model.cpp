@@ -1094,9 +1094,9 @@ void LinkageModel::window_haploid_phasing(const vector<Site>& sites, size_t from
 
     const double NINF = -numeric_limits<double>::infinity();
     vector<double> delta(m, NINF);
-    // The entering message, where there is one, multiplies the first site's emission. The
-    // collector passes a point mass, which therefore chooses the first state. The message is
-    // ignored when missing or of the wrong length for these states.
+    // The entering message, where there is one, multiplies the first site's emission, as a prior
+    // over the first state. The message is ignored when missing or of the wrong length for these
+    // states.
     const bool have_alpha = alpha_in != nullptr && alpha_in->size() == m;
     for (size_t k = 0; k < m; ++k) {
         if (emissions[0][k] <= 0.0) {
@@ -1889,7 +1889,7 @@ size_t LinkageCollector::resolve_generation(
                 grouped_sites += group.size();
                 ++grouped_groups;
                 groups.push_back(std::move(group));
-                // The entering message: a point mass at the parent's settled state, owned by
+                // The entering message, from the parent's settled state, owned by
                 // `deltas`. The parent's WILDCARD, `(size_t)-1` outside the model, is state
                 // `n_haplotypes` inside it, so it is translated before indexing.
                 const size_t m = n_haplotypes + 1;
@@ -1915,16 +1915,26 @@ size_t LinkageCollector::resolve_generation(
                     const int slot = pin->second.ploidy == 1 ? pin->second.nested_strand : strand;
                     const size_t hap = slot == 1 ? pin->second.second : pin->second.first;
                     // Give no message where the parent's haplotype does not pass through the child,
-                    // since it names no allele there. A haploid parent has one strand, so it needs
-                    // no `nested_strand`.
+                    // since it names no allele there. A haploid parent has one haplotype, so the
+                    // child needs no strand of its own to find it.
                     const size_t st = state_of(hap);
                     const bool have_hap = pin->second.ploidy == 1 || strand >= 0;
                     bool traversed = have_hap && hap != LinkageModel::WILDCARD
                                      && st < n_haplotypes
                                      && (int)hap_arena[child.hap_offset + hap] >= 0;
                     if (traversed) {
-                        deltas.emplace_back(m, 0.0);
-                        deltas.back()[st] = 1.0;
+                        // A point mass at the parent's haplotype where the group starts at the
+                        // parent. A group without its parent starts at its first child, so the
+                        // haplotype is carried through one transition to it, which leaves the
+                        // child's reads free to overrule it.
+                        const double rho =
+                            parent_in_group
+                                ? 0.0
+                                : model.switch_probability(position_gap(
+                                      entries[pidx].position, entries[pidx].unpositioned, true,
+                                      child.position, child.unpositioned));
+                        deltas.emplace_back(m, rho / (double)m);
+                        deltas.back()[st] += 1.0 - rho;
                         gctx.push_back(&deltas.back());
                     } else {
                         gctx.push_back(nullptr);
@@ -2050,8 +2060,8 @@ size_t LinkageCollector::resolve_generation(
         }
 
         vector<vector<double>> posteriors;
-        // The entering message, a point mass built from the parent's PhaseCall: over ordered pairs
-        // for a diploid group, over single haplotypes for a haploid one. Each decode ignores a
+        // The entering message, built from the parent's PhaseCall: over ordered pairs for a
+        // diploid group, over single haplotypes for a haploid one. Each decode ignores a
         // message of the wrong size for its states, so it is passed without regard to ploidy.
         const vector<double>* ctx =
             chain_i < chain_context.size() ? chain_context[chain_i] : nullptr;

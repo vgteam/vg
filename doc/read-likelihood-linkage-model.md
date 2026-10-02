@@ -251,11 +251,14 @@ before children (see [Nested sites](read-likelihood-genotyping.md#nested-sites) 
 and the barrier of
 [Genotyping in two passes](read-likelihood-genotyping.md#genotyping-in-two-passes)). A chain below
 the top level is decoded after its parent's chain has been settled and phased. The model then
-starts the chain with all its probability on the state that the parent's Viterbi path chose at the
-parent site (see [Phasing from the panel](#phasing-from-the-panel)); read phasing, which comes
-later, does not change it. A chain at its parent's ploidy holds the parent as its first site, fixed
-at the parent's settled genotype. A ploidy-1 chain under a diploid parent starts on the panel
-haplotype that the parent's strand carrying the chain copies. The chain starts from a uniform
+starts the chain from the state that the parent's Viterbi path chose at the parent site (see
+[Phasing from the panel](#phasing-from-the-panel)); read phasing, which comes later, does not change
+it. A chain at its parent's ploidy holds the parent as its first site, fixed at the parent's settled
+genotype, with all its probability on that state. A ploidy-1 chain under a diploid parent does not
+hold the parent. It starts from the panel haplotype $h$ that the parent's strand carrying the chain
+copies, moved by one transition over the distance $d$ from the parent to the chain's first site:
+probability $1 - \rho(d) + \rho(d)/(K + 1)$ on $h$ and $\rho(d)/(K + 1)$ on each other state, so
+that the first site's reads can overrule the parent's haplotype. The chain starts from a uniform
 distribution instead when the parent was not phased, or, at ploidy 1, when that strand copies the
 wildcard or a panel haplotype that does not pass through the chain's first site.
 
