@@ -9,7 +9,7 @@ PATH=../bin:$PATH # for vg
 # FORMAT field shifts every later one, which broke four assertions here that were not
 # testing field order at all -- one of them silently compared BL against a GQ threshold.
 
-plan tests 448
+plan tests 451
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -1264,6 +1264,50 @@ is $(awk -F'\t' '/^H\t/ && $3 == "0" && $11 != "." {n += $11} END {print n+0}' n
 is $(grep -c "collapsed sites phased with no line of their own" nestblk_mosaic.err) "0" \
    "and a site written as blocks is not reported as having no line"
 
+# A strand that crosses a child chain outside its own difference blocks matches the reference there
+# symbolically, whatever route it takes through the chain, so a block spells the reference over the
+# chain and the chain's own record reports the route. p2#1 deletes the chain (3..6) and node 7 and
+# takes 10 for 9, which makes two blocks; p2#0 takes the chain's other SNP allele and otherwise
+# follows the reference. Node 13 bypasses 8 so that the parent is one snarl from 2 to 11.
+rm -f chainblk.gfa chainblk.gbz chainblk.gam chainblk.vcf
+{
+  printf 'H\tVN:Z:1.1\n'
+  printf 'S\t1\tCCTAGGCTTAGGACCTGATCGGATCCAGTA\n'
+  printf 'S\t2\tGGCATTAGCCTTAGACCGAT\n'
+  printf 'S\t3\tTTGACCAGTTCAGGACTTAC\n'
+  printf 'S\t4\tA\nS\t5\tT\n'
+  printf 'S\t6\tGATCCATGCAAGTCGTACGA\n'
+  printf 'S\t7\tCAGTTGACCTAGGCATCAGG\n'
+  printf 'S\t8\tTGCAAGCTTGACCTAGCCAT\n'
+  printf 'S\t9\tC\nS\t10\tG\n'
+  printf 'S\t13\tAAAAAAAAAACCCCCCCCCC\n'
+  printf 'S\t11\tAACCGGTTACGTTGCAATCG\n'
+  printf 'S\t12\tGGATCCTAGCATTCGGATCCAAGTTCCAGA\n'
+  printf 'L\t1\t+\t2\t+\t0M\nL\t2\t+\t3\t+\t0M\nL\t2\t+\t8\t+\t0M\n'
+  printf 'L\t3\t+\t4\t+\t0M\nL\t3\t+\t5\t+\t0M\nL\t4\t+\t6\t+\t0M\nL\t5\t+\t6\t+\t0M\n'
+  printf 'L\t6\t+\t7\t+\t0M\nL\t7\t+\t8\t+\t0M\nL\t7\t+\t13\t+\t0M\nL\t13\t+\t9\t+\t0M\n'
+  printf 'L\t8\t+\t9\t+\t0M\nL\t8\t+\t10\t+\t0M\nL\t9\t+\t11\t+\t0M\nL\t10\t+\t11\t+\t0M\n'
+  printf 'L\t11\t+\t12\t+\t0M\n'
+  printf 'P\tGRCh#0#chr1\t1+,2+,3+,4+,6+,7+,8+,9+,11+,12+\t*\n'
+  printf 'W\tp1\t0\tchr1\t0\t182\t>1>2>3>4>6>7>8>9>11>12\n'
+  printf 'W\tp1\t1\tchr1\t0\t121\t>1>2>8>10>11>12\n'
+  printf 'W\tp2\t0\tchr1\t0\t182\t>1>2>3>5>6>7>8>9>11>12\n'
+  printf 'W\tp2\t1\tchr1\t0\t121\t>1>2>8>10>11>12\n'
+  printf 'W\tp3\t0\tchr1\t0\t182\t>1>2>3>4>6>7>13>9>11>12\n'
+  printf 'W\tp3\t1\tchr1\t0\t182\t>1>2>3>5>6>7>8>9>11>12\n'
+} > chainblk.gfa
+vg gbwt -G chainblk.gfa --gbz-format -g chainblk.gbz --set-reference GRCh 2>/dev/null
+vg sim -x chainblk.gbz -n 300 -l 40 -a -s 31 --path "p2#0#chr1#0" > chainblk.gam 2>/dev/null
+vg sim -x chainblk.gbz -n 300 -l 40 -a -s 37 --path "p2#1#chr1#0" >> chainblk.gam 2>/dev/null
+vg call chainblk.gbz --read-likelihood --gam chainblk.gam -t 1 -s samp --nested --phased \
+    2>/dev/null > chainblk.vcf
+is $(grep -v "^#" chainblk.vcf | awk -F'\t' '$3 == ">2>11" && $8 ~ /SB=/' | wc -l | tr -d ' ') "2" \
+   "a parent with a chain one strand deletes and the other crosses by another route writes two blocks"
+is $(grep -v "^#" chainblk.vcf | awk -F'\t' '$3 == ">2>11" && $5 ~ /,/' | wc -l | tr -d ' ') "0" \
+   "and its blocks spell the reference over the chain the second strand matches"
+is $(grep -v "^#" chainblk.vcf | awk -F'\t' '$3 == ">3>6" && $5 == "T"' | wc -l | tr -d ' ') "1" \
+   "and the chain's own record reports the second strand's route through it"
+
 # --- assembly anchors -------------------------------------------------------
 # An anchor is a zero-length pin at a snarl boundary, holding the reads that cross it partitioned
 # by which called allele they fit. The invariant that matters is that a pinned position in a read
@@ -1716,7 +1760,7 @@ rm -f rl_anchors.tsv rl_anchors.vcf rl_anchors.err rl_anchors_hom.tsv rl_anchors
       rl_anchors_nopanel.tsv rl_anchors_sp.tsv rl_anchors_ph.tsv rl_anchors_ph.vcf \
       rl_phase_off.vcf rl_phase_on.vcf rl_phase_forced.vcf rl_phase_forced.err
 
-rm -f nestblk.mosaic.tsv nestblk_mosaic.err nest_del.gam nest_del_lw0.vcf nest_del_link.vcf nest_hap_anchors.tsv nest_hap_anchors.vcf nestblk.gfa nestblk.gbz nestblk.gam nestblk.vcf nest.gfa nest.gbz nest.gam nest_default.vcf nest_nested.vcf nest_hap.gam nest_hap.vcf nest_hap_err.txt nest_hap.mosaic.tsv x.vg x.gbz x.gbwt sim.gam x.pack call.vcf callg.vcf callz.vcf callg.6 callz.6 callrl_nopack.vcf callrl_nopack_z.vcf callrl_withpack.vcf nopack_err.txt sim.sorted.gam sim.sorted.gam.gai rl_inmem.vcf rl_indexed.vcf gi_err.txt gb_err.txt gb_excl.txt gb_norl.txt gb_nobin.txt sim.gaf sim.gaf.db x.gbz.db rl_gafmem.vcf rl_gafbase.vcf rl_gafbase_t4.vcf rl_gafbase_w32.vcf rl_autoz_full.vcf rl_autoz.vcf rl_explicit_z.vcf rl_support_full.vcf rl_support.vcf es_nopack.txt es_z.txt es_g.txt nopanel.vg nopanel.gbwt nopanel.gbz nopanel.pack nopanel_err.txt poisson_default.vcf poisson_z.vcf rl_phased.vcf rl_default.vcf rl_nophase.vcf rl_nopanel.vcf rl_nopanel_err.txt rl_unphased_gt.txt rl_phased_gt.txt rl_ph_err.txt rl_mosaic.tsv rl_mosaic2.tsv rl_hap.vcf rl_hap_mosaic.tsv
+rm -f chainblk.gfa chainblk.gbz chainblk.gam chainblk.vcf nestblk.mosaic.tsv nestblk_mosaic.err nest_del.gam nest_del_lw0.vcf nest_del_link.vcf nest_hap_anchors.tsv nest_hap_anchors.vcf nestblk.gfa nestblk.gbz nestblk.gam nestblk.vcf nest.gfa nest.gbz nest.gam nest_default.vcf nest_nested.vcf nest_hap.gam nest_hap.vcf nest_hap_err.txt nest_hap.mosaic.tsv x.vg x.gbz x.gbwt sim.gam x.pack call.vcf callg.vcf callz.vcf callg.6 callz.6 callrl_nopack.vcf callrl_nopack_z.vcf callrl_withpack.vcf nopack_err.txt sim.sorted.gam sim.sorted.gam.gai rl_inmem.vcf rl_indexed.vcf gi_err.txt gb_err.txt gb_excl.txt gb_norl.txt gb_nobin.txt sim.gaf sim.gaf.db x.gbz.db rl_gafmem.vcf rl_gafbase.vcf rl_gafbase_t4.vcf rl_gafbase_w32.vcf rl_autoz_full.vcf rl_autoz.vcf rl_explicit_z.vcf rl_support_full.vcf rl_support.vcf es_nopack.txt es_z.txt es_g.txt nopanel.vg nopanel.gbwt nopanel.gbz nopanel.pack nopanel_err.txt poisson_default.vcf poisson_z.vcf rl_phased.vcf rl_default.vcf rl_nophase.vcf rl_nopanel.vcf rl_nopanel_err.txt rl_unphased_gt.txt rl_phased_gt.txt rl_ph_err.txt rl_mosaic.tsv rl_mosaic2.tsv rl_hap.vcf rl_hap_mosaic.tsv
 
 
 # subpath test

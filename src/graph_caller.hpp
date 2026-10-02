@@ -217,7 +217,7 @@ struct AtomizeCounters {
     std::atomic<size_t> child_inlined{0};
     /// Why `emit_block_records` declined a site, by refusal point. Each means the site's single
     /// record is written instead.
-    std::atomic<size_t> refuse[10] = {};
+    std::atomic<size_t> refuse[11] = {};
 };
 
 /// Rewrite GQ, GQN and FILTER on one rendered VCF line whose genotype the linkage model changed,
@@ -846,12 +846,15 @@ protected:
     /// Returns the number of lines written, or -1 when it declines, in which case the site record
     /// is written as it is. `site` must be the finished record, after update_vcf_info and
     /// flattening, since every field a block does not redefine is taken from it.
+    /// `trav_to_allele` maps each called traversal to its allele in `site`. It declines a site
+    /// whose alleles `merge_similar_alleles` merged (`alleles_merged`), since the site then numbers
+    /// its alleles differently from that map, and its blocks would spell the merged alleles apart.
     int emit_block_records(const PathPositionHandleGraph& graph, const Snarl& snarl,
                            const vector<SnarlTraversal>& called_traversals,
                            const vector<int>& genotype, int ref_trav_idx,
                            const string& sample_name, const vcflib::Variant& site,
                            const map<int, int>& trav_to_allele, int64_t site_position,
-                           GLLayout gl_layout, bool genotype_snarls) const;
+                           GLLayout gl_layout, bool genotype_snarls, bool alleles_merged) const;
 
     /// print a snarl in a consistent form like >3435<12222
     /// if in_brackets set to true,  do (>3435<12222) instead (this is only used for nested caller)

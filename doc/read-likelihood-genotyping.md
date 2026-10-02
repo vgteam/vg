@@ -264,13 +264,17 @@ difference. `--no-atomize-blocks` turns it off, and so does `--genotype-snarls`,
 same records for every sample. vg aligns the symbolic form of each called allele to that of the
 reference allele, minimising edit distance. Each maximal stretch of nodes and chain symbols that the
 alignment does not match is a **block**, and becomes a record. A block record's `GT` gives the
-allele that each strand carries over that block.
+allele that each strand carries over that block. A strand's block allele spells the strand's own
+walk inside its blocks and the reference's over the steps it matches. A matched chain symbol says
+only that the strand crosses the same chain, perhaps by another walk, and the records of that
+chain's sites report that walk.
 
 Blocks of the two strands that overlap or touch on the reference become one record, so that each
 stretch of reference appears in at most one record. The blocks replace the record for the whole
 site only where that changes the output: when they make more than one record, or one record with
-fewer alleles, as when two strands' walks spell the same sequence. Otherwise, and where the site
-cannot be split into blocks, vg writes one record for the whole site.
+fewer alleles, as when two strands' walks spell the same sequence. Otherwise, where the site
+cannot be split into blocks, and where `-L` merged two of the site's called alleles, vg writes one
+record for the whole site.
 
 A site's block records share the site's ID (the VCF `ID` column) and its evidence, because the
 likelihood is computed for the whole site. Their `GQ`, `GQI`, `GQN`, `GP`, `QUAL`, `DP`, `DR` and

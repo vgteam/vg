@@ -47,7 +47,7 @@ static string join_with(const vector<string>& parts, char delim) {
 
 
 // The names of the AtomizeCounters::refuse reasons.
-static const char* const g_atomize_refuse_name[10] = {
+static const char* const g_atomize_refuse_name[11] = {
     "the genotyper returned no genotype: ploidy 0, or no read the matrix could place",
     "no reference traversal",
     "the snarl does not resolve",
@@ -58,7 +58,11 @@ static const char* const g_atomize_refuse_name[10] = {
     "the visit left of the anchor has no sequence",
     "every block spelled the reference's own bases: a route difference with no sequence difference",
     "one block, saying what the site record already says",
+    "-L merged the called alleles, which blocks would spell apart again",
 };
+static_assert(sizeof(g_atomize_refuse_name) / sizeof(g_atomize_refuse_name[0])
+                  == sizeof(AtomizeCounters::refuse) / sizeof(AtomizeCounters::refuse[0]),
+              "every refusal reason has a name");
 static thread_local int g_descent_depth = 0;
 
 void GraphCaller::report_descent_instrumentation() const {
@@ -120,14 +124,14 @@ void VCFOutputCaller::report_atomize_instrumentation() const {
     {
         // One line, listing only the reasons that occurred.
         size_t total = 0;
-        for (size_t i = 0; i < 10; ++i) {
+        for (size_t i = 0; i < 11; ++i) {
             total += atomize_counters.refuse[i].load();
         }
         if (total > 0) {
             cerr << "[vg call] atomize: " << total << " sites declined block emission, so the site"
                  << " record stands:";
             bool first = true;
-            for (size_t i = 0; i < 10; ++i) {
+            for (size_t i = 0; i < 11; ++i) {
                 size_t n = atomize_counters.refuse[i].load();
                 if (n > 0) {
                     cerr << (first ? " " : "; ") << n << " " << g_atomize_refuse_name[i];
@@ -2863,7 +2867,7 @@ int VCFOutputCaller::emit_block_records(const PathPositionHandleGraph& graph, co
                                         const string& sample_name, const vcflib::Variant& site,
                                         const map<int, int>& trav_to_allele,
                                         int64_t site_position, GLLayout gl_layout,
-                                        bool genotype_snarls) const {
+                                        bool genotype_snarls, bool alleles_merged) const {
     // Every refusal below returns -1, meaning the site record is written as it is. Block emission
     // being off is not a refusal, so it is not counted.
     if (!atomize_blocks || symbolic_manager == nullptr || genotype_snarls) {
@@ -2871,6 +2875,10 @@ int VCFOutputCaller::emit_block_records(const PathPositionHandleGraph& graph, co
     }
     if (genotype.empty()) {
         ++atomize_counters.refuse[0];
+        return -1;
+    }
+    if (alleles_merged) {
+        ++atomize_counters.refuse[10];
         return -1;
     }
     if (ref_trav_idx < 0 || (size_t)ref_trav_idx >= called_traversals.size()) {
@@ -2984,30 +2992,44 @@ int VCFOutputCaller::emit_block_records(const PathPositionHandleGraph& graph, co
         int ve = visit_of_step(ref_ranges, re, ref_trav);
         string ref_str = seq_of(ref_trav, vb, ve);
 
-        // Each haplotype's allele over this same reference span. A haplotype with no block here is
-        // matched throughout, so its span is the aligned one and its string equals the reference's.
+        // Each haplotype's allele over this same reference span, as the visits that spell it: its
+        // own visits inside its difference blocks, and the reference's over the steps it matches.
+        // A matched chain step is only the same chain, which the haplotype may cross by another
+        // route, and that route is the chain's own record to report.
+        vector<SnarlTraversal> slot_span(genotype.size());
         vector<string> slot_str(genotype.size());
         vector<bool> slot_marker(genotype.size(), false);
+        auto append_visits = [](SnarlTraversal& span, const SnarlTraversal& t, int from, int to) {
+            for (int v = std::max(from, 0); v < to && v < t.visit_size(); ++v) {
+                *span.add_visit() = t.visit(v);
+            }
+        };
         for (size_t s = 0; s < genotype.size(); ++s) {
             if (haps[s].trav < 0) {
                 slot_marker[s] = true;
                 continue;
             }
+            SnarlTraversal& span = slot_span[s];
             if (haps[s].trav == ref_trav_idx) {
+                append_visits(span, ref_trav, vb, ve);
                 slot_str[s] = ref_str;
                 continue;
             }
-            int ab = haps[s].alt_before_ref[rb];
-            int ae = haps[s].alt_before_ref[re];
+            const SnarlTraversal& t = called_traversals[haps[s].trav];
+            // Every block that overlaps or touches the cluster lies inside it, since the clusters
+            // are the unions of all blocks, so `next` walks the cluster's reference steps in order.
+            size_t next = rb;
             for (const DiffBlock& b : haps[s].blocks) {
                 if ((size_t)b.ref_begin <= re && rb <= (size_t)b.ref_end) {
-                    ab = std::min(ab, b.alt_begin);
-                    ae = std::max(ae, b.alt_end);
+                    append_visits(span, ref_trav, visit_of_step(ref_ranges, next, ref_trav),
+                                  visit_of_step(ref_ranges, (size_t)b.ref_begin, ref_trav));
+                    append_visits(span, t, visit_of_step(haps[s].ranges, (size_t)b.alt_begin, t),
+                                  visit_of_step(haps[s].ranges, (size_t)b.alt_end, t));
+                    next = (size_t)b.ref_end;
                 }
             }
-            const SnarlTraversal& t = called_traversals[haps[s].trav];
-            slot_str[s] = seq_of(t, visit_of_step(haps[s].ranges, (size_t)ab, t),
-                                 visit_of_step(haps[s].ranges, (size_t)ae, t));
+            append_visits(span, ref_trav, visit_of_step(ref_ranges, next, ref_trav), ve);
+            slot_str[s] = seq_of(span, 0, span.visit_size());
         }
 
         // VCF has no empty allele, so an indel takes the base before it, as flatten_common_allele_ends
@@ -3093,28 +3115,10 @@ int VCFOutputCaller::emit_block_records(const PathPositionHandleGraph& graph, co
             for (size_t a = 1; a < alleles.size(); ++a) {
                 SnarlTraversal span;
                 for (size_t s = 0; s < genotype.size(); ++s) {
-                    if (slot_marker[s] || block_gt[s] != (int)a) {
-                        continue;
+                    if (!slot_marker[s] && block_gt[s] == (int)a) {
+                        span = slot_span[s];
+                        break;
                     }
-                    const SnarlTraversal& t = called_traversals[haps[s].trav];
-                    int ab = haps[s].trav == ref_trav_idx
-                                 ? vb : visit_of_step(haps[s].ranges,
-                                                      (size_t)haps[s].alt_before_ref[rb], t);
-                    int ae = haps[s].trav == ref_trav_idx
-                                 ? ve : visit_of_step(haps[s].ranges,
-                                                      (size_t)haps[s].alt_before_ref[re], t);
-                    for (const DiffBlock& blk : haps[s].blocks) {
-                        if ((size_t)blk.ref_begin <= re && rb <= (size_t)blk.ref_end) {
-                            ab = std::min(ab, visit_of_step(haps[s].ranges,
-                                                            (size_t)blk.alt_begin, t));
-                            ae = std::max(ae, visit_of_step(haps[s].ranges,
-                                                            (size_t)blk.alt_end, t));
-                        }
-                    }
-                    for (int v = ab; v < ae && v < t.visit_size(); ++v) {
-                        *span.add_visit() = t.visit(v);
-                    }
-                    break;
                 }
                 add_allele_path_to_info(b_var, a, span, false, false);
             }
@@ -3549,8 +3553,8 @@ bool VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCa
             != nullptr
             ? GLLayout::Colexicographic
             : GLLayout::IMajor;
-    merge_similar_alleles(graph, site_traversals, site_genotype, sample_name, out_variant,
-                          gl_layout);
+    const bool alleles_merged = merge_similar_alleles(graph, site_traversals, site_genotype,
+                                                      sample_name, out_variant, gl_layout);
 #ifdef debug
     for (int i = 0; i < site_traversals.size(); ++i) {
         cerr << " site trav[" << i << "]=" << pb2json(site_traversals[i]) << endl;
@@ -3589,7 +3593,7 @@ bool VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCa
     const int block_lines = emit_block_records(graph, snarl, called_traversals, genotype,
                                                ref_trav_idx, sample_name, out_variant,
                                                trav_to_allele, site_position_unflattened,
-                                               gl_layout, genotype_snarls);
+                                               gl_layout, genotype_snarls, alleles_merged);
     if (block_lines >= 0) {
         ++atomize_counters.split_sites;
         atomize_counters.split_lines += (size_t)block_lines;
