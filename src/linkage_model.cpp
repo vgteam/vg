@@ -924,6 +924,15 @@ void LinkageModel::window_haploid_posteriors(const vector<Site>& sites, size_t f
             a[k] *= emissions[0][k];
             sum += a[k];
         }
+        if (sum <= 0.0 && alpha_in != nullptr) {
+            // The message and the reads disagree outright: every state the message allows has
+            // zero emission. Start from the reads alone, as `window_haploid_phasing` does.
+            sum = 0.0;
+            for (size_t k = 0; k < m; ++k) {
+                a[k] = emissions[0][k] / (double)m;
+                sum += a[k];
+            }
+        }
         if (sum <= 0.0) {
             sum = 1.0;
         }
@@ -1010,6 +1019,10 @@ void LinkageModel::window_haploid_posteriors(const vector<Site>& sites, size_t f
             for (double& v : post) {
                 v /= total;
             }
+        } else {
+            // No state explains the site, so there is no posterior, and the caller keeps the
+            // site's own call, as in the diploid pass.
+            post.clear();
         }
 
         if (t == 0) {

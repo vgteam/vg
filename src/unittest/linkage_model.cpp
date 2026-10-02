@@ -961,6 +961,32 @@ TEST_CASE("Haploid posteriors are a distribution over alleles", "[linkage_model]
     }
 }
 
+TEST_CASE("Haploid posteriors are empty, not allele 0, when no state can explain a site",
+          "[linkage_model]") {
+    LinkageModel::Params p;
+    p.freq_prior = 0.0;
+    p.weight = 1.0;
+    LinkageModel model(p);
+    const double NINF = -numeric_limits<double>::infinity();
+
+    // No allele has a finite likelihood, so every state has zero mass. An empty posterior keeps
+    // the site's own call, as at ploidy 2; a vector of zeros would read as allele 0.
+    vector<LinkageModel::Site> none{haploid_site(1000, NINF, NINF, {0, 1})};
+    auto post = model.posteriors(none, /*ploidy*/ 1);
+    REQUIRE(post.size() == 1);
+    REQUIRE(post[0].empty());
+
+    // An entering message all on haplotype 0, whose allele 1 is too unlikely to be represented.
+    // The message and the reads disagree outright, so the decode starts from a uniform
+    // distribution instead, and the reads choose allele 0.
+    vector<LinkageModel::Site> clash{haploid_site(1000, 0.0, -1000.0, {1, 0})};
+    vector<double> message{1.0, 0.0, 0.0};
+    post = model.posteriors(clash, /*ploidy*/ 1, &message);
+    REQUIRE(post.size() == 1);
+    REQUIRE(post[0].size() == 2);
+    REQUIRE(post[0][0] == Approx(1.0));
+}
+
 TEST_CASE("Constrained haploid phasing spells the called allele", "[linkage_model]") {
     // The same consistency guarantee the diploid path gives: the emitted mosaic must agree with
     // the emitted VCF.
