@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 95
+plan tests 112
 
 vg construct -r small/x.fa >j.vg
 vg index -x j.xg j.vg
@@ -349,3 +349,57 @@ is "$(grep -v '^@' "$tail_dir/gaf.sam" | cut -f2-4,6)" "$(printf '0\tref\t93\t52
     "GAF tail annotations produce the same expected exact placement as GAM"
 
 rm -rf -- "$tail_dir"
+
+# Jointly surject name-grouped placements; the primary need not be first.
+diploid_dir=$(mktemp -d) || exit 1
+printf 'H\tVN:Z:1.1\tRS:Z:sample\nS\t1\tACGTACGTACGTACGTACGT\nS\t2\tACGTACGTACGTACGTACGT\nW\tsample\t1\tchr1\t0\t20\t>1\nW\tsample\t2\tchr1\t0\t20\t>2\n' > "$diploid_dir/graph.gfa"
+# More than two reader batches exercise concurrent group processing.
+jq -cn 'range(0;1025) as $i | (1,2) as $node |
+    {name:("diploid_" + ($i|tostring)), sequence:"ACGTACGTACGTACGTACGT",
+     mapping_quality:90, is_secondary:($node == 1),
+     annotation:{tags:"ZZ:Z:keep\taq:i:1"},
+     path:{mapping:[{position:{node_id:$node}, edit:[{from_length:20,to_length:20}]}]}}' > "$diploid_dir/reads.json"
+vg view -JGa "$diploid_dir/reads.json" > "$diploid_dir/reads.gam"
+vg surject -x "$diploid_dir/graph.gfa" -d sample -s -t 1 "$diploid_dir/reads.gam" > "$diploid_dir/one.sam"
+is "$?" 0 "Diploid mode accepts grouped GAM with secondary before primary"
+vg surject -x "$diploid_dir/graph.gfa" --diploid-map sample -b -t 4 "$diploid_dir/reads.gam" > "$diploid_dir/four.bam"
+is "$?" 0 "Diploid mode accepts multithreaded BAM output"
+samtools view "$diploid_dir/four.bam" > "$diploid_dir/four.records"
+is "$(wc -l < "$diploid_dir/four.records")" 2050 "Every diploid read emits both placements"
+awk 'NR % 2 == 1 {name=$1; if ($2 != 0 || seen[name]++) exit 1} NR % 2 == 0 {if ($1 != name || $2 != 256) exit 1}' "$diploid_dir/four.records"
+is "$?" 0 "Multithreaded output keeps each primary and secondary together"
+# Two equal candidates give error probability 1/2: rounded Phred MAPQ 3.
+# Each source has one target, so local hq reaches the cap of 60.
+awk '$5 != 3 || $6 != "20M" {exit 1} {hp=0; hq=0; aq=0; zz=0; for(i=12;i<=NF;i++){if($i=="hp:Z:pri_hap")hp++; if($i=="hq:i:60")hq++; if($i=="aq:i:90")aq++; if($i=="ZZ:Z:keep")zz++} if(hp!=1 || hq!=1 || aq!=1 || zz!=1)exit 1}' "$diploid_dir/four.records"
+is "$?" 0 "Diploid output has expected scores and typed tags overriding stale raw tags"
+cmp -s <(grep -v '^@' "$diploid_dir/one.sam" | sort) <(sort "$diploid_dir/four.records")
+is "$?" 0 "Diploid SAM and BAM results agree across thread counts"
+vg convert "$diploid_dir/graph.gfa" -G "$diploid_dir/reads.gam" -t 1 > "$diploid_dir/reads.gaf"
+vg surject -x "$diploid_dir/graph.gfa" -d sample -G -s -t 4 "$diploid_dir/reads.gaf" > "$diploid_dir/gaf.sam"
+is "$?" 0 "Diploid mode accepts grouped GAF and its primary/secondary tags"
+cmp -s <(grep -v '^@' "$diploid_dir/one.sam" | sort) <(grep -v '^@' "$diploid_dir/gaf.sam" | sort)
+is "$?" 0 "Grouped GAM and GAF produce identical diploid alignments"
+vg view -bG "$diploid_dir/four.bam" > "$diploid_dir/restored.gam"
+vg view -aj "$diploid_dir/restored.gam" | jq -se 'length == 2050 and all(.[]; .annotation.diploid_haplotype_preferred == true and .annotation.diploid_haplotype_quality == 60 and .annotation.diploid_source_mapping_quality == 90 and .annotation.tags == "ZZ:Z:keep")' > /dev/null
+is "$?" 0 "BAM import restores typed diploid annotations and preserves unrelated tags"
+vg surject -x "$diploid_dir/graph.gfa" -d sample -t 4 "$diploid_dir/reads.gam" > "$diploid_dir/output.gam"
+is "$?" 0 "Diploid mode supports multithreaded GAM output"
+vg view -aj "$diploid_dir/output.gam" | jq -se '. as $reads | length == 2050 and all(.[]; .annotation.diploid_source_mapping_quality == 90) and all(range(0;2050;2); . as $i | $reads[$i].name == $reads[$i+1].name and ($reads[$i].is_secondary != true) and $reads[$i+1].is_secondary == true)' > /dev/null
+is "$?" 0 "GAM output preserves typed annotations and adjacent primary/secondary groups"
+for unsupported in -m -i -U; do
+    vg surject -d sample "$unsupported" "$diploid_dir/reads.gam" > /dev/null 2> "$diploid_dir/error"
+    test "$?" -ne 0 && grep -q 'not supported' "$diploid_dir/error"
+    is "$?" 0 "Diploid mode explicitly rejects unsupported option $unsupported"
+done
+# Unmapped inputs and placements off the selected target both need an empty refpos.
+jq -cn '{name:"empty_path",sequence:"ACGTACGTACGTACGTACGT",mapping_quality:37},
+    {name:"off_target",sequence:"ACGTACGTACGTACGTACGT",mapping_quality:37,
+     path:{mapping:[{position:{node_id:2},edit:[{from_length:20,to_length:20}]}]}}' > "$diploid_dir/unmapped.json"
+vg view -JGa "$diploid_dir/unmapped.json" > "$diploid_dir/unmapped.gam"
+vg surject -x "$diploid_dir/graph.gfa" -d sample -p 'sample#1#chr1' -b -t 1 "$diploid_dir/unmapped.gam" > "$diploid_dir/unmapped.bam"
+is "$?" 0 "Diploid reads with no candidate can be written to BAM"
+samtools quickcheck "$diploid_dir/unmapped.bam"
+is "$?" 0 "Unmapped diploid BAM is complete and readable"
+is "$(samtools view "$diploid_dir/unmapped.bam" | cut -f1-6)" "$(printf 'empty_path\t4\t*\t0\t0\t*\noff_target\t4\t*\t0\t0\t*')" \
+    "Empty paths and off-target placements produce unmapped BAM records"
+rm -rf -- "$diploid_dir"
