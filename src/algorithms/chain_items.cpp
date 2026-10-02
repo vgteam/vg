@@ -307,10 +307,18 @@ void add_transition_if_legal(vector<transition_info>& transitions, const VectorV
 
     size_t read_distance = get_read_distance(source_anchor, dest_anchor);
     if (read_distance == std::numeric_limits<size_t>::max()) {
-        // Not reachable in read
+        if ((dest_anchor.read_start() + dest_anchor.start_hint_offset()) \
+            - (source_anchor.read_start() + source_anchor.start_hint_offset()) == graph_distance) {
 #ifdef debug_transition
-        std::cerr << "\tNot reachable in read." << std::endl;
+            std::cerr << "\tPerfectly overlapping anchors." << std::endl;
 #endif
+            transitions.emplace_back(from_anchor, to_anchor, 0);
+        } else {
+            cerr << dest_anchor.read_start() << " - " << source_anchor.read_start() << " != " << graph_distance << endl;
+#ifdef debug_transition
+            std::cerr << "\tNot reachable in read." << std::endl;
+#endif
+        }
         return;
     }
 
@@ -326,9 +334,17 @@ void add_transition_if_legal(vector<transition_info>& transitions, const VectorV
     if (source_anchor.read_exclusion_end() > dest_anchor.read_exclusion_start()) {
         // The actual core anchor part is reachable in the read,
         // but we cut these down from overlapping minimizers.
+        if ((dest_anchor.read_start() + dest_anchor.start_hint_offset()) \
+            - (source_anchor.read_start() + source_anchor.start_hint_offset()) == graph_distance) {
 #ifdef debug_transition
-        std::cerr << "\tOriginally overlapped in read." << std::endl;
+            std::cerr << "\tPerfectly overlapping anchors." << std::endl;
 #endif
+            transitions.emplace_back(from_anchor, to_anchor, 0);
+        } else {
+#ifdef debug_transition
+            std::cerr << "\tOriginally overlapped in read." << std::endl;
+#endif
+        }
         return;
     }
 
