@@ -20,6 +20,7 @@
 #include "../vg.hpp"
 #include "../xg.hpp"
 #include <vg/io/stream.hpp>
+#include <vg/io/alignment_io.hpp>
 #include <vg/io/vpkg.hpp>
 #include "../utility.hpp"
 #include "../surjector.hpp"
@@ -46,6 +47,7 @@ void help_surject(char** argv) {
          << "  -F, --into-paths FILE     surject into path names listed in" << endl
          << "                            HTSlib sequence dictionary or path list FILE" << endl
          << "  -n, --into-ref NAME       surject into this reference assembly" << endl
+         << "  -d, --diploid-map NAME    jointly surject placements into a diploid assembly NAME" << endl
          << "  -M, --multimap            include secondary alignments to all" << endl
          << "                            overlapping paths instead of just primary" << endl
          << "  -G, --gaf-input           input file is GAF instead of GAM" << endl
@@ -203,6 +205,7 @@ int main_surject(int argc, char** argv) {
     string path_file;
     string output_format = "GAM";
     string input_format = "GAM";
+    bool diploid_map = false;
     bool spliced = false;
     bool interleaved = false;
     bool force_unpaired = false;
@@ -243,6 +246,7 @@ int main_surject(int argc, char** argv) {
             {"into-path", required_argument, 0, 'p'},
             {"into-paths", required_argument, 0, 'F'},
             {"ref-paths", required_argument, 0, 'F'}, // Now an alias for --into-paths
+            {"diploid-map", required_argument, 0, 'd'},
             {"into-ref", required_argument, 0, 'n'},
             {"ref-sample", required_argument, 0, 'n'}, // Provide an alias to match Giraffe
             {"subpath-local", no_argument, 0, 'l'},
@@ -281,7 +285,7 @@ int main_surject(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "h?x:p:F:n:lT:g:GmcbsiUf:uBN:R:C:t:D:SPjI:a:AE:LHMVw:r",
+        c = getopt_long (argc, argv, "h?x:p:F:n:d:lT:g:GmcbsiUf:uBN:R:C:t:D:SPjI:a:AE:LHMVw:r",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -301,6 +305,11 @@ int main_surject(int argc, char** argv) {
 
         case 'F':
             path_file = require_exists(logger, optarg);
+            break;
+
+        case 'd':
+            diploid_map = true;
+            reference_assembly_names.insert(optarg);
             break;
 
         case 'n':
@@ -462,6 +471,10 @@ int main_surject(int argc, char** argv) {
     }
 
     // Validate configuration
+    if (diploid_map && (input_format == "GAMP" || interleaved || force_unpaired)) {
+        logger.error() << "--diploid-map requires unpaired, name-grouped GAM/GAF input; "
+                       << "GAMP, --interleaved, and --force-unpaired are not supported." << endl;
+    }
     if (!interleaved && max_frag_len.has_value()) {
         logger.error() << "-f/--max-frag-len can only be used with paired-end reads, "
                        << "but -i/--interleaved was not provided." << endl;
@@ -613,7 +626,36 @@ int main_surject(int argc, char** argv) {
             output_format, sequence_dictionary, thread_count, xgidx,
             ALIGNMENT_EMITTER_FLAG_HTS_RAW | (spliced * ALIGNMENT_EMITTER_FLAG_HTS_SPLICED));
 
-        if (interleaved) {
+        if (diploid_map) {
+            function<void(vector<Alignment>&)> process_read_placements = [&](vector<Alignment>& placements) {
+                try {
+                    const string& name = placements.front().name();
+                    set_crash_context(name);
+                    size_t thread_num = omp_get_thread_num();
+                    watchdog->check_in(thread_num, name);
+                    for (auto& placement : placements) {
+                        if (input_format == "GAF") check_gaf_aln(placement);
+                        if (validate) ensure_alignment_is_for_graph(logger, placement, *xgidx);
+                        if (smells_paired(placement)) smells_paired_error(logger, placement.name());
+                        set_metadata(placement);
+                    }
+                    // A single emitter call keeps all placements of this read together.
+                    alignment_emitter->emit_singles(surjector.surject_diploid(placements, paths, subpath_global, spliced));
+                    ++total_reads_surjected;
+                    watchdog->check_out(thread_num);
+                    clear_crash_context();
+                } catch (const std::exception& ex) {
+                    report_exception(ex);
+                }
+            };
+            if (input_format == "GAM") {
+                get_input_file(file_name, [&](istream& in) {
+                    vg::io::gam_grouped_for_each_parallel(in, process_read_placements);
+                });
+            } else {
+                vg::io::gaf_grouped_for_each_parallel(*xgidx, file_name, process_read_placements);
+            }
+        } else if (interleaved) {
             // GAM input is paired, and for HTS output reads need to know their pair partners' mapping locations.
             // TODO: We don't preserve order relationships (like primary/secondary) beyond the interleaving.
             function<void(Alignment&, Alignment&)> lambda = [&](Alignment& src1, Alignment& src2) {
