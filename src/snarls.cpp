@@ -1383,7 +1383,8 @@ pair<unordered_set<id_t>, unordered_set<edge_t> > SnarlManager::deep_contents(co
             }
         });
         
-    // traverse the snarl with DFS, skipping over any child snarls
+    // traverse the snarl with DFS, into child snarls as well, stopping only at this snarl's
+    // boundary nodes
     // do not pay attention to valid walks since we also want to discover any tips
     while (stack.size()) {
             
