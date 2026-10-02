@@ -260,8 +260,7 @@ void help_haplotypes(char** argv, bool developer_options) {
     std::cerr << "                               in --diploid-sampling" << std::endl;
     std::cerr << "      --badness F              threshold for badness of a subchain "
                                              << "[" << haplotypes_defaults::badness() << "]" << std::endl;
-    std::cerr << "      --include-reference      include named and reference paths in the output;" << std::endl;
-    std::cerr << "                               gref fragments are clipped to the sampled graph" << std::endl;
+    std::cerr << "      --include-reference      include named and reference paths in the output" << std::endl;
     std::cerr << "      --set-reference NAME     use sample X as a reference sample (may repeat)" << std::endl;
     std::cerr << "      --min-gref-len N         minimum length of a clipped gref fragment "
                                              << "[" << haplotypes_defaults::min_gref_len() << "]" << std::endl;
@@ -491,9 +490,6 @@ HaplotypesConfig::HaplotypesConfig(int argc, char** argv, size_t max_threads) {
             break;
         case OPT_MIN_GREF_LEN:
             this->recombinator_parameters.min_gref_length = parse<size_t>(optarg);
-            if (this->recombinator_parameters.min_gref_length == 0) {
-                this->logger.error() << "minimum gref fragment length cannot be 0" << std::endl;
-            }
             break;
         case OPT_BAN_SAMPLE:
             this->recombinator_parameters.banned_samples.insert(optarg);

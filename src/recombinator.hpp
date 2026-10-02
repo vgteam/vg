@@ -541,12 +541,6 @@ public:
         /// Number of paths copied verbatim from excluded chains.
         size_t copied_paths = 0;
 
-        /// Number of gref fragment pieces that survived in the sampled graph.
-        size_t gref_fragments = 0;
-
-        /// Number of gref fragment pieces dropped for being too short.
-        size_t gref_fragments_dropped = 0;
-
         /// Number of kmers selected.
         size_t kmers = 0;
 
@@ -605,10 +599,8 @@ public:
         /// Badness threshold for subchains when using diploid sampling.
         double badness_threshold = BADNESS_THRESHOLD;
 
-        /// Include named and reference paths. Gref fragments (`gref_CHM13#0#chr1_7_alt`)
-        /// are not copied through, as that would pin the whole gref cover to the
-        /// output; they are clipped to the sampled graph instead. See
-        /// `clip_path_to_index()`.
+        /// Include named and reference paths. Gref fragments are clipped to the sampled
+        /// graph, as copying them would keep the whole gref cover.
         bool include_reference = false;
 
         /// Minimum length (in bp) for a piece of a gref fragment to be kept.
@@ -744,19 +736,6 @@ private:
 
 //------------------------------------------------------------------------------
 
-/**
- * Returns true if a path with the given GBWT sample and contig names is a gref
- * fragment: a path in the gref namespace whose contig has the `_{N}_alt`
- * fragment suffix (`gref_CHM13#0#chr1_7_alt`). Gref copies of reference paths
- * (`gref_CHM13#0#chr1`) are not fragments. Generic paths carry their full name
- * as the contig, which handles gref covers of non-PanSN references (`gref_x_1_alt`).
- *
- * The names are the metadata fields, not the composed path name: a fragment that
- * has already been clipped once renders as `gref_CHM13#0#chr1_7_alt[500]`, and the
- * subrange must not hide the suffix.
- */
-bool is_gref_fragment(const std::string& sample_name, const std::string& contig_name);
-
 /// A maximal piece of a path whose nodes and edges all exist in a GBWT index.
 struct PathPiece {
     /// Offset of the first node in the source path.
@@ -773,11 +752,9 @@ struct PathPiece {
 };
 
 /**
- * Splits `path` into the maximal pieces whose nodes are all in `index` and whose
- * consecutive nodes are all joined by an edge in `index`. Every piece can then be
- * inserted into the index without adding any node or edge to the graph it
- * encodes. `node_length` gives the length of a GBWT node in bp; offsets are
- * accumulated over every node of the path, whether it survives or not.
+ * Splits `path` into maximal pieces whose nodes and edges are all in `index`, so that
+ * inserting a piece adds no nodes or edges. Offsets count every node of the path;
+ * `node_length` gives the length of a node in bp.
  */
 std::vector<PathPiece> clip_path_to_index(
     const gbwt::vector_type& path, const gbwt::DynamicGBWT& index,

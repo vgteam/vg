@@ -113,16 +113,14 @@ void GrefCover::compute(const PathHandleGraph* graph,
         // scans in apply() and write_gref_segments() used to paper over -- and they papered
         // over it inconsistently, because one ran before the base copies existed and one after,
         // so the segments table named a path holding entirely different sequence.
-        // Test the fragment base name, not the path name and not the copy name.  The path
-        // name can carry a phase block (CHM13#0#chr1_1_alt#0, from a PanSN GFA with no RS
-        // header) and the copy name can carry a subrange (gref_CHM13#0#chr1_1_alt[100-200]);
-        // neither ends in _alt, so neither sees the collision.  make_gref_base_name() drops
-        // both, leaving exactly the name make_gref_name() hangs the fragments off.
+        // Test the base name the fragments hang off: the path name can end in a phase block
+        // (CHM13#0#chr1_1_alt#0, from a PanSN GFA without an RS header) and the copy name in a
+        // subrange (gref_CHM13#0#chr1_1_alt[100-200]), either of which hides the _alt.
         string ref_name = graph->get_path_name(ref_path_handle);
         string base_name = make_gref_base_name(ref_name);
         if (is_gref_name(base_name)) {
             cerr << "[gref error]: reference path " << ref_name << " would be copied to "
-                 << base_name << ", which is a gref fragment name (_{N}_alt), so it would"
+                 << make_gref_copy_name(ref_name) << ", which is a gref fragment name (_{N}_alt), so it would"
                  << " collide with the fragments hanging off "
                  << parse_base_path(base_name) << ". Rename the contig, or select reference"
                  << " paths that are not in the gref namespace." << endl;

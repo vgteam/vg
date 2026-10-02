@@ -301,14 +301,12 @@ is $(grep -c "would be copied to gref_CHM13#0#chr1_1_alt" collision.err) 1 "the 
 
 rm -f collision_test.vg collision.err
 
-# The same collision, but on a subranged reference.  The guard has to test the fragment base
-# name: the copy name keeps the subrange (gref_CHM13#0#chr1_1_alt[100-200]), so it does not
-# end in _alt and the collision used to slip through.
-sed 's|^P\tCHM13#0#chr1_1_alt\t|P\tCHM13#0#chr1_1_alt[100-200]\t|' nesting/gref_name_collision.gfa > collision_subrange.gfa
+# The same collision on a subranged reference, whose copy name does not end in _alt.
+sed 's/chr1_1_alt/chr1_1_alt[100-200]/' nesting/gref_name_collision.gfa > collision_subrange.gfa
 vg paths -x collision_subrange.gfa -Q CHM13 --compute-gref --min-gref-len 1 > collision_sub.vg 2> collision_sub.err
 is $? 1 "a subranged reference contig named like a gref fragment is refused"
 
-is $(grep -c "would be copied to gref_CHM13#0#chr1_1_alt" collision_sub.err) 1 "the error names the colliding gref base name, not the subranged copy"
+is $(grep -c "would be copied to gref_CHM13#0#chr1_1_alt\[100-200\]" collision_sub.err) 1 "the error names the subranged gref copy"
 
 rm -f collision_subrange.gfa collision_sub.vg collision_sub.err
 
