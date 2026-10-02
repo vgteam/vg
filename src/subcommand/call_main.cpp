@@ -1565,9 +1565,10 @@ int main_call(int argc, char** argv) {
     }
 
     // Read phasing, re-genotyping and hom splitting all start from the phase the linkage model
-    // gives each site, which --no-phased turns off. Given explicitly with it, each is an error;
-    // turned on by a preset, they are turned off.
-    if (phased_explicit && !phased_output) {
+    // gives each site. Where there is no such phase, each is an error if given explicitly, and is
+    // turned off if a preset turned it on. `why` ends the error's sentence, saying why there is
+    // no phase.
+    auto refuse_phase_dependents = [&](const string& why) {
         vector<string> offenders;
         if (read_phasing && read_phasing_explicit) {
             offenders.push_back("--read-phasing");
@@ -1583,12 +1584,15 @@ int main_call(int argc, char** argv) {
             for (size_t i = 0; i < offenders.size(); ++i) {
                 joined << (i ? ", " : "") << offenders[i];
             }
-            logger.error() << joined.str() << " cannot be combined with --no-phased, because "
-                           << (offenders.size() == 1 ? "it starts" : "they start")
-                           << " from the phase the linkage model gives each site" << endl;
+            logger.error() << joined.str() << (offenders.size() == 1 ? " starts" : " start")
+                           << " from the phase the linkage model gives each site, " << why
+                           << endl;
         }
         read_phasing = false;
         regenotype = false;
+    };
+    if (phased_explicit && !phased_output) {
+        refuse_phase_dependents("which --no-phased turns off");
     }
 
     // --read-likelihood needs exactly one read source, and cannot be combined with the ratio or
@@ -1650,17 +1654,32 @@ int main_call(int argc, char** argv) {
                        << "enumeration strategies: choose one or the other" << endl;
     }
 
+    // The linkage model needs --read-likelihood, haplotypes to enumerate alleles from (-z or -g)
+    // and a positive --linkage-weight. This is checked before the likelihood calculator is built,
+    // so that it does not keep read-phasing evidence for nothing. A GBWT with too few haplotypes
+    // is found only once it is loaded, below.
+    const bool haplotypes_given = gbwt_index != nullptr || !gbwt_filename.empty();
+    if (!(read_likelihood && haplotypes_given && linkage_weight > 0.0)) {
+        refuse_phase_dependents("and the linkage model needs --read-likelihood, haplotype "
+                                "enumeration (-z or -g) and a --linkage-weight above 0");
+    }
+
     if (max_mismap_prob <= 0.0 || max_mismap_prob >= 1.0) {
         logger.error() << "--mismap-max must be in (0, 1)" << endl;
     }
     if (min_mismap_prob <= 0.0 || min_mismap_prob > max_mismap_prob) {
         logger.error() << "--mismap-min must be in (0, --mismap-max]" << endl;
     }
-    // Refuse a --phase-min-q above the heterozygous score ceiling, phred(e / (e + (1 - e) / 2))
-    // for e = --mismap-min: the confidence of a read that fits one of two equal-length alleles
-    // perfectly and the other not at all. Sites whose alleles are of similar length cannot reach
-    // it, so read phasing would do almost nothing.
-    {
+    // --optimal-pairing also finds good pairings for the alleles a read did not come from, which
+    // lowers reads' confidence at heterozygous sites, so --phase-min-q has a lower default with it.
+    if (optimal_pairing && !phase_min_q_explicit) {
+        read_phasing_params.reliability = 8.5;
+    }
+    // Under read phasing, refuse a --phase-min-q above the heterozygous score ceiling,
+    // phred(e / (e + (1 - e) / 2)) for e = --mismap-min: the confidence of a read that fits one of
+    // two equal-length alleles perfectly and the other not at all. Sites whose alleles are of
+    // similar length cannot reach it, so read phasing would do almost nothing.
+    if (read_phasing) {
         const double het_ceiling =
             -10.0 * log10(min_mismap_prob / (min_mismap_prob + (1.0 - min_mismap_prob) / 2.0));
         if (read_phasing_params.reliability > het_ceiling) {
@@ -2407,15 +2426,24 @@ int main_call(int argc, char** argv) {
     if (nested_calling && !nested_explicit && !read_likelihood) {
         nested_calling = false;
     }
-    // --optimal-pairing also finds good pairings for the alleles a read did not come from, which
-    // lowers reads' confidence at heterozygous sites, so --phase-min-q has a lower default with it.
-    if (optimal_pairing && !phase_min_q_explicit) {
-        read_phasing_params.reliability = 8.5;
+    // An explicit --regenotype without read phasing is an error. One set by a preset is turned
+    // off, as with --preset ont --no-read-phasing.
+    if (regenotype && !read_phasing) {
+        if (regenotype_explicit) {
+            cerr << "error [vg call]: --regenotype needs --read-phasing, which gives each read"
+                 << " the strand log-odds it uses" << endl;
+            return 1;
+        }
+        regenotype = false;
     }
     // Re-genotyping happens in FlowCaller::phase_and_regenotype(). --bottom-up uses
     // NestedFlowCaller, which does not have it. --top-down gives each child snarl candidate
     // traversals derived from its parent's called genotype, so changing that genotype afterwards
-    // would leave the child genotyped against the wrong alleles.
+    // would leave the child genotyped against the wrong alleles. An explicit --regenotype is an
+    // error with either; one set by a preset is turned off.
+    if (regenotype && (top_down || bottom_up) && !regenotype_explicit) {
+        regenotype = false;
+    }
     if (regenotype && (top_down || bottom_up)) {
         cerr << "error [vg call]: --regenotype cannot be combined with "
              << (top_down ? "--top-down" : "--bottom-up") << "; "
@@ -2441,16 +2469,6 @@ int main_call(int argc, char** argv) {
         cerr << "error [vg call]: --anchors-phase-hets / --anchors-strict-hets need --read-phasing,"
              << " which gives each read the strand log-odds they use" << endl;
         return 1;
-    }
-    // An explicit --regenotype without read phasing is an error. One set by a preset is turned
-    // off, as with --preset ont --no-read-phasing.
-    if (regenotype && !read_phasing) {
-        if (regenotype_explicit) {
-            cerr << "error [vg call]: --regenotype needs --read-phasing, which gives each read"
-                 << " the strand log-odds it uses" << endl;
-            return 1;
-        }
-        regenotype = false;
     }
     // -A already calls every nested snarl as a snarl of its own, so with nested calling each would
     // be called twice.
@@ -2668,6 +2686,7 @@ int main_call(int argc, char** argv) {
                 cerr << "warning [vg call]: linkage disabled -- the GBWT carries "
                      << hap_index.size() << " haplotype(s) and the model needs at least 2" << endl;
                 linkage_weight = 0.0;
+                refuse_phase_dependents("and the linkage model needs at least 2 haplotypes");
             } else {
                 // The default weight suits panels of tens of haplotypes, and does little on very
                 // small ones.

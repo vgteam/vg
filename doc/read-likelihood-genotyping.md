@@ -389,8 +389,8 @@ when on, can order it. No field marks these sites.
 Phasing is on wherever the linkage model runs. `--phased` makes vg call fail when the linkage model
 does not run (see [Settling genotypes](#settling-genotypes)), and `--no-phased` turns phasing off.
 Read phasing, re-genotyping and `--anchors-hom-split` start from the panel phase, so an explicit
-`--read-phasing`, `--regenotype` or `--anchors-hom-split` with `--no-phased` is an error, and a
-preset's are turned off. Where the linkage model runs, `--no-phased` also turns nested calling off
+`--read-phasing`, `--regenotype` or `--anchors-hom-split` is an error with `--no-phased` or where
+the linkage model does not run, and a preset's are turned off. Where the linkage model runs, `--no-phased` also turns nested calling off
 (an explicit `--nested` is then an error), and variation inside nested sites is reported in the
 enclosing site's alleles. Nested calling needs phasing there because the barrier takes each nested
 site's strand, and the panel haplotypes its linkage chain starts from, from its parent's phase.
@@ -467,8 +467,8 @@ by `--mismap-min`, at a site whose two alleles have equal length. If the read fi
 perfectly and the other not at all, its confidence is
 $-10 \log_{10}\left(\epsilon_{\min} / (\epsilon_{\min} + (1 - \epsilon_{\min})/2)\right)$, the
 **heterozygous score ceiling**. A read that favours the longer of two unequal alleles can have a
-higher confidence. vg rejects a `--phase-min-q` above the ceiling, since sites whose alleles are of
-similar length could not reach it.
+higher confidence. Under read phasing, vg rejects a `--phase-min-q` above the ceiling, since sites
+whose alleles are of similar length could not reach it.
 
 #### Deciding the phases
 
@@ -526,7 +526,8 @@ other phaseable sites it spans show which strand it more likely came from. `--re
 to give each read its own weights, tilted towards the strand its other sites place it on, and so
 corrects each site's likelihoods. Off-reference chains, and chains that a block record spells out,
 keep their sweep likelihoods. It needs `--read-phasing` and, like it, is off by default and on under
-`--preset ont`. The quantities $e_r$, $p_{ra}$, $q_{rt}$, $c_{rt}$ and the allele-length weights $v$
+`--preset ont`. It cannot be combined with `--top-down` or `--bottom-up`: an explicit `--regenotype`
+with either is an error, and a preset's is turned off. The quantities $e_r$, $p_{ra}$, $q_{rt}$, $c_{rt}$ and the allele-length weights $v$
 are those of [From the reads](#from-the-reads). $\sigma$ is the logistic function, and
 $\mathrm{logit}$ is its inverse.
 

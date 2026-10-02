@@ -9,7 +9,7 @@ PATH=../bin:$PATH # for vg
 # FORMAT field shifts every later one, which broke four assertions here that were not
 # testing field order at all -- one of them silently compared BL against a GQ threshold.
 
-plan tests 444
+plan tests 448
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -814,15 +814,22 @@ is $(grep -c "only applies to --read-likelihood" trav_norl.txt) "0" "an option t
 # read_strand_log_odds returns 0.0 for every read, nothing clears phase_min on either side, and the
 # flag runs, splits nothing, and reports the reads as having no opinion -- blaming the data for a
 # switch that was never armed.  Refused now, and the refusal must name the flag that fixes it.
-vg call x.vg -k x.pack --read-likelihood --gam sim.sorted.gam --anchors-out hs_norp.tsv \
+vg call x.gbz --read-likelihood --gam sim.gam --anchors-out hs_norp.tsv \
     --anchors-hom-split -t 1 >/dev/null 2>hs_norp.txt
 is $(grep -c -- "--anchors-hom-split needs --read-phasing" hs_norp.txt) "1" \
    "--anchors-hom-split without --read-phasing is refused"
 
-vg call x.vg -k x.pack --read-likelihood --gam sim.sorted.gam --anchors-out hs_rp.tsv \
+vg call x.gbz --read-likelihood --gam sim.gam --anchors-out hs_rp.tsv \
     --anchors-hom-split --read-phasing -t 1 >/dev/null 2>hs_rp.txt
-is $(grep -c -- "needs --read-phasing" hs_rp.txt) "0" \
-   "and is accepted with it"
+is "$?" "0" "and is accepted with it"
+
+# All three start from the phase the linkage model gives each site, so without the linkage model
+# an explicit one is refused rather than accepted and left to do nothing.
+vg call x.gbz --read-likelihood --gam sim.gam --anchors-out hs_rp.tsv --linkage-weight 0 \
+    --anchors-hom-split --read-phasing --regenotype -t 1 >/dev/null 2>hs_lw0.txt
+is $(grep -c -- "--read-phasing, --regenotype, --anchors-hom-split start from the phase the linkage model" hs_lw0.txt) "1" \
+   "--read-phasing, --regenotype and --anchors-hom-split are refused without the linkage model"
+rm -f hs_lw0.txt
 
 # --phase-min-q's default follows the WALK, not the preset: 9.5 fits the greedy distribution
 # (chr20 median 10.06) and 8.5 the exact walk's (median 8.98), and keying it on neither is how the
@@ -838,16 +845,25 @@ is $(vg call --help 2>&1 | grep -c -- "\[9.5, or 8.5 under --optimal-pairing\]")
 # homozygous sites.  Above it NO site is reliable and all three phasing stages are skipped in
 # silence, so a sweep past the ceiling reports "0 reliable" and reads as the parameter not
 # mattering.  Refused instead.
-vg call x.vg -k x.pack --read-likelihood --gam sim.sorted.gam --mismap-min 0.05 \
+vg call x.gbz --read-likelihood --gam sim.gam --read-phasing --mismap-min 0.05 \
     --phase-min-q 12 -t 1 >/dev/null 2>pq_hi.txt
 is $(grep -c -- "is above the heterozygous score ceiling" pq_hi.txt) "1" \
    "--phase-min-q above the het ceiling is refused, not silently inert"
 
-vg call x.vg -k x.pack --read-likelihood --gam sim.sorted.gam --mismap-min 0.05 \
+vg call x.gbz --read-likelihood --gam sim.gam --read-phasing --mismap-min 0.05 \
     --phase-min-q 8.5 -t 1 >/dev/null 2>pq_ok.txt
 is $(grep -c -- "heterozygous score ceiling" pq_ok.txt) "0" \
    "and a value under the ceiling is accepted"
-rm -f pq_hi.txt pq_ok.txt
+# The ceiling bounds read phasing's threshold, so it does not apply without read phasing.
+vg call x.gbz --read-likelihood --gam sim.gam --mismap-min 0.065 -t 1 >/dev/null 2>pq_off.txt
+is $(grep -c -- "heterozygous score ceiling" pq_off.txt) "0" \
+   "a --mismap-min above the default --phase-min-q's ceiling is accepted without read phasing"
+# Under --optimal-pairing the threshold defaults to 8.5, under the 9.13 ceiling at 0.065.
+vg call x.gbz --read-likelihood --gam sim.gam --read-phasing --optimal-pairing --mismap-min 0.065 \
+    -t 1 >/dev/null 2>pq_op.txt
+is $(grep -c -- "heterozygous score ceiling" pq_op.txt) "0" \
+   "the ceiling is checked against the --optimal-pairing default"
+rm -f pq_hi.txt pq_ok.txt pq_off.txt pq_op.txt
 
 # --split-min-q and --split-min-side expose the two thresholds that decide whether
 # --anchors-hom-split may split a site.  They were hardcoded, so the decision could not be swept at
@@ -924,7 +940,7 @@ is $(grep -c -- "--anchors-min-q only applies with --anchors-out" sub_anch.txt) 
 vg call x.vg -k x.pack --read-likelihood --gam sim.sorted.gam --regeno-temper 0.2 -t 1 >/dev/null 2>sub_reg.txt
 is $(grep -c -- "--regeno-temper only applies with --regenotype" sub_reg.txt) "1" "a --regeno-* option without --regenotype is refused"
 
-vg call x.vg -k x.pack --read-likelihood --gam sim.sorted.gam --regenotype --read-phasing --regeno-temper 0.2 -t 1 >/dev/null 2>sub_regok.txt
+vg call x.gbz --read-likelihood --gam sim.gam --regenotype --read-phasing --regeno-temper 0.2 -t 1 >/dev/null 2>sub_regok.txt
 is $(grep -c "only applies with" sub_regok.txt) "0" "the same option with --regenotype is accepted"
 
 vg call x.vg -k x.pack --anchors-min-q 30 -t 1 >/dev/null 2>sub_outer.txt
@@ -1391,6 +1407,10 @@ is $(grep -c "re-genotyping" rl_rg_preoff.err) "0" "--no-regenotype turns it bac
 vg call x.gbz --read-likelihood --phased --gam sim.gam --preset ont --no-read-phasing -t 1 \
     >/dev/null 2>rl_rg_nph.err
 is "$?" "0" "--preset ont --no-read-phasing declines re-genotyping instead of failing"
+vg call x.gbz --read-likelihood --gam sim.gam --preset ont --no-read-phasing --top-down -t 1 \
+    >/dev/null 2>rl_rg_td.err
+is "$?" "0" "and so does --preset ont with --top-down"
+rm -f rl_rg_td.err
 
 # The two extensions. Both are built so that temper 0 stays the identity, and that is the whole
 # design constraint: the haploid weight is the read's odds ratio CAPPED at 1 rather than its
