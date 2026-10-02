@@ -1412,6 +1412,37 @@ TEST_CASE("An off-reference child is linked to its positioned parent by its offs
     }
 }
 
+TEST_CASE("A nested site that cannot be grouped is still phased when no site can be",
+          "[linkage_model]") {
+    // A site whose parent has no live entry is decoded alone. That must not depend on some other
+    // site of its generation having been grouped.
+    LinkageModel::Params p;
+    p.freq_prior = 0.0;
+    p.weight = 1.0;
+    p.scale = 100000.0;
+    p.rho_min = 1e-4;
+
+    const size_t TOP = 6, ORPHAN = 61, MISSING = 62;
+
+    LinkageCollector collector(p, 2);
+    record_dense(collector, "chr1", 1000, 2, {-30.0, 0.0, -30.0}, {0, 1}, 0, 1, TOP,
+                 /*share*/ 1.0, /*ploidy*/ 2, /*start*/ 10, /*end*/ 40);
+    // The only site of generation 1, under a parent that was never recorded.
+    record_dense(collector, "chr1", 1010, 2, {-30.0, 0.0, -30.0}, {0, 1}, 0, 1, ORPHAN,
+                 /*share*/ 1.0, /*ploidy*/ 2, /*start*/ 11, /*end*/ 20,
+                 /*nested*/ false, MISSING, /*crossing*/ 3, /*generation*/ 1);
+
+    vector<LinkageCollector::PhaseCall> phased;
+    for (size_t gen = 0; gen <= 1; ++gen) {
+        collector.resolve_generation(gen, gen == 1, &phased);
+    }
+    size_t orphan_calls = 0;
+    for (const auto& pc : phased) {
+        orphan_calls += pc.record_key == ORPHAN;
+    }
+    REQUIRE(orphan_calls == 1);
+}
+
 TEST_CASE("Ploidy-1 sites of one chain on different parent strands are placed apart",
           "[linkage_model]") {
     // Two ploidy-1 sites of one child chain, each carried by a different one of the parent's two

@@ -1964,15 +1964,16 @@ size_t LinkageCollector::resolve_generation(
                 gps.push_back(ps != phase_set_of.end() ? ps->second
                                                        : numeric_limits<size_t>::max());
             }
-            // Chains that could not be grouped are kept, so that their sites are still decoded.
-            for (vector<size_t>& kc : ungrouped) {
-                groups.push_back(std::move(kc));
-                gctx.push_back(nullptr);
-                gps.push_back(numeric_limits<size_t>::max());
-            }
             chains.swap(groups);
             chain_context.swap(gctx);
             chain_phase_set.swap(gps);
+        }
+        // Sites that could not be grouped are kept, each as its own chain, so that they are still
+        // decoded and phased whether or not any other site of this generation was grouped.
+        for (vector<size_t>& kc : ungrouped) {
+            chains.push_back(std::move(kc));
+            chain_context.push_back(nullptr);
+            chain_phase_set.push_back(numeric_limits<size_t>::max());
         }
     }
 
