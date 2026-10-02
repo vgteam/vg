@@ -401,17 +401,31 @@ using namespace std;
         template<class AlnType>
         string path_score_annotations(const unordered_map<pair<path_handle_t, bool>, vector<pair<AlnType, pair<step_handle_t, step_handle_t>>>>& surjections) const;
         
-        // helpers to choose one among supplementary alignments to be the primary
+        // helpers to choose one alignment as primary and classify the alternatives
+        /// Select the highest-scoring surjection as primary.
+        ///
+        /// Non-primary surjections that overlap the primary's query interval by more
+        /// than disjoint_interval_allowable_overlap are retained as secondary.
+        /// Disjoint surjections are retained as supplementary when
+        /// report_supplementary is enabled and are otherwise omitted.
+        ///
+        /// Classifies secondary status relative to the current input placement;
+        /// the caller restores inherited secondary status when emitting results.
+        /// Places the selected primary first, annotates retained alternatives,
+        /// and removes supplementaries that were not requested.
         template<class AlnType>
         void choose_primary_internal(vector<pair<AlnType, pair<step_handle_t, step_handle_t>>>& surjections,
-                                     const function<void(AlnType&)>& annotate_supplementary) const;
+                                     const function<void(AlnType&)>& annotate_supplementary,
+                                     const function<void(AlnType&)>& annotate_secondary) const;
         void choose_primary(vector<pair<Alignment, pair<step_handle_t, step_handle_t>>>& surjections) const {
             function<void(Alignment&)> annotate_supplementary = [](Alignment& aln) { set_annotation<bool>(aln, "supplementary", true); };
-            choose_primary_internal(surjections, annotate_supplementary);
+            function<void(Alignment&)> annotate_secondary = [](Alignment& aln) { aln.set_is_secondary(true); };
+            choose_primary_internal(surjections, annotate_supplementary, annotate_secondary);
         }
         void choose_primary(vector<pair<multipath_alignment_t, pair<step_handle_t, step_handle_t>>>& surjections) const {
             function<void(multipath_alignment_t&)> annotate_supplementary = [](multipath_alignment_t& mp_aln) { mp_aln.set_annotation("supplementary", true); };
-            choose_primary_internal(surjections, annotate_supplementary);
+            function<void(multipath_alignment_t&)> annotate_secondary = [](multipath_alignment_t& mp_aln) { mp_aln.set_annotation("secondary", true); };
+            choose_primary_internal(surjections, annotate_supplementary, annotate_secondary);
         }
         
         vector<tuple<Alignment, size_t, size_t>> generate_hard_clipped_alignments(const Alignment& source) const;
@@ -457,7 +471,9 @@ using namespace std;
         vector<pair<path_handle_t, bool>> 
         supplementary_cover(const unordered_map<pair<path_handle_t, bool>, vector<pair<AlnType, pair<step_handle_t, step_handle_t>>>>& surjections) const;
         
-        // identify the strand that has the best alignment to choose it as the primary, optionally restrict to a subset of strands
+        /// Select the path/strand with the best combined score from its local primary
+        /// and supplementary read segments, optionally restricted to among_strands.
+        /// Secondary alternatives contribute to neither the score nor the read-overlap penalty.
         template<class AlnType>
         pair<path_handle_t, bool> choose_primary_strand(const unordered_map<pair<path_handle_t, bool>, vector<pair<AlnType, pair<step_handle_t, step_handle_t>>>>& surjections,
                                                         const unordered_set<pair<path_handle_t, bool>>* among_strands = nullptr) const;
@@ -972,7 +988,13 @@ using namespace std;
 
     template<class AlnType>
     void Surjector::choose_primary_internal(vector<pair<AlnType, pair<step_handle_t, step_handle_t>>>& surjections,
-                                            const function<void(AlnType&)>& annotate_supplementary) const {
+                                            const function<void(AlnType&)>& annotate_supplementary,
+                                            const function<void(AlnType&)>& annotate_secondary) const {
+        // Classify alternatives relative to this input placement. Its inherited
+        // secondary status is restored when surject_internal emits the results.
+        for (auto& surjection : surjections) {
+            set_is_secondary(surjection.first, false);
+        }
         if (surjections.size() > 1) {
             size_t opt_idx = 0;
             int32_t opt_score = get_score(surjections.front().first);
@@ -983,10 +1005,34 @@ using namespace std;
                     opt_idx = i;
                 }
             }
-            
-            for (size_t i = 0; i < surjections.size(); ++i) {
-                if (i != opt_idx) {
+
+            // Downstream path ranking and SA tags use the first non-supplementary
+            // candidate. Put the local primary first, preserving alternative order.
+            std::rotate(surjections.begin(), surjections.begin() + opt_idx,
+                        surjections.begin() + opt_idx + 1);
+            opt_idx = 0;
+            const auto best_interval = aligned_interval(surjections[opt_idx].first);
+
+            // Iterate backward so supplementaries can be removed safely.
+            for (size_t i = surjections.size(); i-- > 0;) {
+                if (i == opt_idx) {
+                    continue;
+                }
+                // Compare query coverage
+                const auto interval = aligned_interval(surjections[i].first);
+                const int64_t query_overlap = max<int64_t>(
+                    0,
+                    min(best_interval.second, interval.second)
+                    - max(best_interval.first, interval.first));
+
+                if (query_overlap > disjoint_interval_allowable_overlap) {
+                    annotate_secondary(surjections[i].first);
+                }
+                else if (report_supplementary) {
                     annotate_supplementary(surjections[i].first);
+                }
+                else {
+                    surjections.erase(surjections.begin() + i);
                 }
             }
         }
@@ -1113,13 +1159,19 @@ using namespace std;
             if (among_strands && !among_strands->count(strand_surjections.first)) {
                 continue;
             }
+            vector<pair<AlnType, pair<step_handle_t, step_handle_t>>> scoring_surjections;
+            scoring_surjections.reserve(strand_surjections.second.size());
             int32_t total_score = 0;
             for (const auto& surjection : strand_surjections.second) {
+                if (get_is_secondary(surjection.first)) {
+                    continue;
+                }
+                scoring_surjections.push_back(surjection);
                 total_score += get_score(surjection.first);
             }
-            // approximate the score from overlapping alignments
+            // Approximate the overlap penalty among the primary and supplementary pieces.
             // TODO: it would be possible to make this exact
-            total_score -= total_overlap(strand_surjections.second) * get_aligner()->scorer->match;
+            total_score -= total_overlap(scoring_surjections) * get_aligner()->scorer->match;
             
             if (total_score >= score) {
 #ifdef debug_anchored_surject
@@ -1143,6 +1195,10 @@ using namespace std;
         for (const auto& strand_surjection : strand_surjections) {            
             for (size_t i = 0; i < strand_surjection.second.size(); ++i) {
                 const auto& surjection = strand_surjection.second[i];
+                // Competing placements must not complete the chosen read cover.
+                if (get_is_secondary(surjection.first)) {
+                    continue;
+                }
                 auto interval = aligned_interval(surjection.first);
                 if (interval.first < interval.second) {
                     intervals.emplace_back(interval.first, interval.second, strand_surjection.first.first, strand_surjection.first.second, i);

@@ -34,6 +34,11 @@
 
 namespace vg {
 
+    template<>
+    bool Surjector::get_is_secondary(const Alignment& aln);
+    template<>
+    bool Surjector::get_is_secondary(const multipath_alignment_t& aln);
+
 using namespace std;
     
     Surjector::Surjector(const PathPositionHandleGraph* graph) : graph(graph), choose_band_padding(algorithms::pad_band_constant(1)) {
@@ -571,7 +576,9 @@ using namespace std;
                 strands_to_output = std::move(supplementary_cover(aln_surjections));
                 for (size_t i = 1; i < strands_to_output.size(); ++i) {
                     for (auto& surjection : aln_surjections[strands_to_output[i]]) {
-                        set_annotation<bool>(surjection.first, "supplementary", true);
+                        if (!get_is_secondary(surjection.first)) {
+                            set_annotation<bool>(surjection.first, "supplementary", true);
+                        }
                     }
                 }
             }
@@ -579,7 +586,9 @@ using namespace std;
                 strands_to_output = std::move(supplementary_cover(mp_aln_surjections));
                 for (size_t i = 1; i < strands_to_output.size(); ++i) {
                     for (auto& surjection : mp_aln_surjections[strands_to_output[i]]) {
-                        surjection.first.set_annotation("supplementary", true);
+                        if (!get_is_secondary(surjection.first)) {
+                            surjection.first.set_annotation("supplementary", true);
+                        }
                     }
                 }
             }
@@ -624,12 +633,8 @@ using namespace std;
                     path_range = surjection.second;
                     mp_alns_out->emplace_back(std::move(surjection.first));
                     
-                    if (source_mp_aln->has_annotation("secondary")) {
-                        auto annotation = source_mp_aln->get_annotation("secondary");
-                        assert(annotation.first == multipath_alignment_t::Bool);
-                        mp_alns_out->back().set_annotation("secondary", *((bool*) annotation.second));
-                    }
-                    else if (i != 0 && !is_supplementary(mp_alns_out->back())) {
+                    if (get_is_secondary(*source_mp_aln)
+                        || (i != 0 && !is_supplementary(mp_alns_out->back()))) {
                         mp_alns_out->back().set_annotation("secondary", true);
                     }
                     
@@ -5310,9 +5315,10 @@ using namespace std;
         size_t curr_interval_strict_right_bound = -1;
         for (const auto& chunk_interval : chunk_intervals) {
             
-            // check for sufficient separation to start a new supplementary using the directly attested intervals
+            // Preserve sufficiently separated reference regions as distinct alignment
+            // candidates; supplementary reporting is decided after alignment.
             if (disjoint_path_intervals.empty() ||
-                (report_supplementary && curr_interval_strict_right_bound + max_gap + 1 < get<0>(chunk_interval))) {
+                curr_interval_strict_right_bound + max_gap + 1 < get<0>(chunk_interval)) {
                 // make new interval
                 curr_interval_strict_right_bound = get<1>(chunk_interval);
                 disjoint_path_intervals.emplace_back(get<2>(chunk_interval), get<3>(chunk_interval),
