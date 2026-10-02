@@ -3,6 +3,7 @@
 #include "vg/io/gafkluge.hpp"
 #include "annotation.hpp"
 #include <vg/io/stream.hpp>
+#include <vg/io/alignment_io.hpp>
 
 #include <sstream>
 #include <chrono>
@@ -1042,6 +1043,8 @@ bam1_t* alignment_to_bam_internal(bam_hdr_t* header,
         bam_aux_append(bam, "NR", 'Z', pos.size() + 1, (uint8_t*) pos.c_str());
     }
     
+    const auto diploid_tags = io::encode_diploid_tags(alignment);
+
     // TODO: it would be nice wrap htslib and set the other tags this way as well
     if (has_annotation(alignment, "tags")) {
         // encode the alignments SAM tags
@@ -1050,6 +1053,12 @@ bam1_t* alignment_to_bam_internal(bam_hdr_t* header,
             
             if (get<0>(tag) == "AS" || get<0>(tag) == "RG" || get<0>(tag) == "SS" || get<0>(tag) == "GR" || get<0>(tag) == "NR") {
                 // we handle these tags separately
+                continue;
+            }
+
+            if (any_of(diploid_tags.begin(), diploid_tags.end(), [&](const auto& typed_tag) {
+                return get<0>(typed_tag) == get<0>(tag);
+            })) {
                 continue;
             }
 
@@ -1161,6 +1170,17 @@ bam1_t* alignment_to_bam_internal(bam_hdr_t* header,
         }
     }
     
+    for (const auto& tag : diploid_tags) {
+        if (get<1>(tag) == 'Z') {
+            bam_aux_append(bam, get<0>(tag).c_str(), 'Z', get<2>(tag).size() + 1,
+                           reinterpret_cast<const uint8_t*>(get<2>(tag).c_str()));
+        } else {
+            int32_t quality = stoi(get<2>(tag));
+            bam_aux_append(bam, get<0>(tag).c_str(), 'i', sizeof(quality),
+                           reinterpret_cast<const uint8_t*>(&quality));
+        }
+    }
+
     // TODO: this does not seem to be a standardized field (https://samtools.github.io/hts-specs/SAMtags.pdf)
 //    if (!alignment.sample_name()) {
 //
@@ -3117,7 +3137,10 @@ Alignment bam_to_alignment(const bam1_t *b,
     for (size_t i = 0; i < tags.size(); ++i) {
         auto& tag = tags[i];
         auto tag_name = tag.substr(0, 2);
-        if (tag_name == "RG") {
+        if (io::decode_diploid_tag(alignment, tag_name, tag.at(3), tag.substr(5))) {
+            ++removed;
+        }
+        else if (tag_name == "RG") {
             string read_group = tag.substr(5, string::npos);
             alignment.set_read_group(read_group);
             auto it = rg_sample.find(read_group);
