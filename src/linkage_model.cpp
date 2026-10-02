@@ -1903,17 +1903,17 @@ size_t LinkageCollector::resolve_generation(
                     // One haplotype, not a pair: the group sits on one of the parent's strands, the
                     // one `nested_strand_of` names. Every member is carried by the same parent
                     // traversal, which is part of the group key, so the first member stands for
-                    // all. A haploid parent records its haplotype in `hap_first`, and
-                    // `hap_second` is meaningless at ploidy 1.
+                    // all. A haploid parent records its haplotype in the slot its own
+                    // `nested_strand` names, `hap_second` on strand 1 and `hap_first` otherwise,
+                    // and the other slot holds the wildcard.
                     const Entry& child = entries[kv.second.front()];
                     const int carrying = relate(child, entries[pidx]).carrying_trav;
                     const int strand = nested_strand_of(carrying, pin->second.ploidy,
                                                         pin->second.trav_first,
                                                         pin->second.trav_second,
                                                         pin->second.nested_strand);
-                    const size_t hap = pin->second.ploidy == 1
-                                           ? pin->second.first
-                                           : (strand == 1 ? pin->second.second : pin->second.first);
+                    const int slot = pin->second.ploidy == 1 ? pin->second.nested_strand : strand;
+                    const size_t hap = slot == 1 ? pin->second.second : pin->second.first;
                     // Give no message where the parent's haplotype does not pass through the child,
                     // since it names no allele there. A haploid parent has one strand, so it needs
                     // no `nested_strand`.

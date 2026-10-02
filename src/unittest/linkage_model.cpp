@@ -1083,6 +1083,10 @@ TEST_CASE("A site below depth 1 inherits its parent's strand, not strand 0",
         // And it names a haplotype rather than inheriting the parent's wildcard slot.
         const size_t named = deep->nested_strand == 0 ? deep->hap_first : deep->hap_second;
         REQUIRE(named != LinkageModel::WILDCARD);
+        // The same haplotype as the site that contains it, which both panel haplotypes would
+        // explain equally well without the parent's message, on either of the parent's strands.
+        const size_t mid_named = mid->nested_strand == 0 ? mid->hap_first : mid->hap_second;
+        REQUIRE(named == mid_named);
     }
 }
 
