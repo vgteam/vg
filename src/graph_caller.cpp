@@ -3729,14 +3729,20 @@ tuple<int64_t, int64_t, bool, step_handle_t, step_handle_t> VCFOutputCaller::get
     }
 }
 
+/// The 1-based position on the base path of the base `along_path` bases into `ref_path_name`, a
+/// path that may name a subrange of its base path.
+static int64_t base_path_position(const string& ref_path_name, int64_t along_path) {
+    subrange_t subrange;
+    Paths::strip_subrange(ref_path_name, &subrange);
+    const int64_t basepath_offset = subrange == PathMetadata::NO_SUBRANGE ? 0 : (int64_t)subrange.first;
+    return along_path + 1 + basepath_offset;
+}
+
 pair<string, int64_t> VCFOutputCaller::get_ref_position(const PathPositionHandleGraph& graph, const Snarl& snarl, const string& ref_path_name,
                                                         int64_t ref_path_offset) const {
-
-    subrange_t subrange;
-    string basepath_name = Paths::strip_subrange(ref_path_name, &subrange);
-    size_t basepath_offset = subrange == PathMetadata::NO_SUBRANGE ? 0 : subrange.first;
-    // +1 to convert to 1-based VCF
-    int64_t position = get<0>(get_ref_interval(graph, snarl, ref_path_name)) + ref_path_offset + 1 + basepath_offset;
+    const string basepath_name = Paths::strip_subrange(ref_path_name);
+    const int64_t position = base_path_position(
+        ref_path_name, get<0>(get_ref_interval(graph, snarl, ref_path_name)) + ref_path_offset);
     return make_pair(basepath_name, position);
 }
 
@@ -7052,9 +7058,11 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
             // children.
             record_site(snarl, travs, trav_genotype, trav_call_info, ref_trav_idx, ref_path_name,
                         ref_offset_of(ref_offsets, ref_path_name), /*no_reference*/ true,
-                        // The parent's interval, set by `use_parent_interval`, plus the chain's
-                        // offset along its parent, as `PendingRecord::position_from_parent` has it.
-                        get<0>(ref_interval) + ref_offset_of(ref_offsets, ref_path_name)
+                        // The parent's position, as `get_ref_position` gives it from the interval
+                        // `use_parent_interval` set, plus the chain's offset along its parent, as
+                        // `PendingRecord::position_from_parent` has it.
+                        base_path_position(ref_path_name, get<0>(ref_interval)
+                                                              + ref_offset_of(ref_offsets, ref_path_name))
                             + (int64_t)nested_context.parent_offset);
             ++descent_counters.no_ref_recorded;
             {
@@ -7116,9 +7124,11 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
             pending_this->no_reference = no_ref_position;
             pending_this->reported_inline = nested_context.reported_inline;
             pending_this->position_from_parent =
-                no_ref_position ? get<0>(ref_interval) + ref_offset_of(ref_offsets, ref_path_name)
-                                      + (int64_t)nested_context.parent_offset
-                                : 0;
+                no_ref_position
+                    ? base_path_position(ref_path_name,
+                                         get<0>(ref_interval) + ref_offset_of(ref_offsets, ref_path_name))
+                          + (int64_t)nested_context.parent_offset
+                    : 0;
             pending_this->chain_offset = nested_context.parent_offset;
             pending_this->crossing_known = nested_context.crossing_known;
             pending_this->generation = (uint8_t)min(current_generation, (size_t)255);
