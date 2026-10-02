@@ -275,5 +275,50 @@ TEST_CASE("A strand from another phase set is NaN in the anchor path, and no str
     REQUIRE(std::isnan(caller.read_strand_log_odds(2, "both")));
 }
 
+TEST_CASE("A parent's phase swap carries its nested strands and their haplotypes with it",
+          "[graph_caller]") {
+    const size_t W = LinkageModel::WILDCARD;
+    // Diploid parent 1, swapped by read phasing. Its ploidy-1 child 2 is on strand 1 with
+    // haplotype 7, and 2's own ploidy-1 child 3 is on strand 0 with haplotype 5. Diploid child 4 is
+    // not swapped, so its ploidy-1 child 5 keeps its strand.
+    auto call = [](size_t key, size_t ploidy, int strand, size_t first, size_t second) {
+        LinkageCollector::PhaseCall pc;
+        pc.record_key = key;
+        pc.ploidy = ploidy;
+        pc.nested_strand = (int8_t)strand;
+        pc.hap_first = first;
+        pc.hap_second = second;
+        return pc;
+    };
+    vector<LinkageCollector::PhaseCall> phased = {
+        call(1, 2, -1, 3, 4), call(2, 1, 1, W, 7), call(3, 1, 0, 5, W),
+        call(4, 2, -1, 3, 4), call(5, 1, 0, 6, W)};
+    std::unordered_map<size_t, size_t> index;
+    for (size_t i = 0; i < phased.size(); ++i) {
+        index[phased[i].record_key] = i;
+    }
+    // Out of generation order, as the staged records can be.
+    vector<FlowCaller::NestedLink> links = {
+        {3, 2, 2}, {5, 4, 2}, {2, 1, 1}, {4, 1, 1}, {1, 0, 0}};
+    const unordered_set<size_t> flips = {1};
+
+    SECTION("each strand moves, and its haplotype moves to the slot the strand names") {
+        REQUIRE(FlowCaller::cascade_nested_strands(phased, index, links, flips) == 2);
+        REQUIRE(phased[1].nested_strand == 0);
+        REQUIRE(phased[1].hap_first == 7);
+        REQUIRE(phased[1].hap_second == W);
+        REQUIRE(phased[2].nested_strand == 1);
+        REQUIRE(phased[2].hap_first == W);
+        REQUIRE(phased[2].hap_second == 5);
+        REQUIRE(phased[4].nested_strand == 0);
+        REQUIRE(phased[4].hap_first == 6);
+    }
+    SECTION("a chain left out of the links stops the swap reaching its children") {
+        links.erase(links.begin() + 2);   // chain 2
+        REQUIRE(FlowCaller::cascade_nested_strands(phased, index, links, flips) == 0);
+        REQUIRE(phased[2].nested_strand == 0);
+    }
+}
+
 }
 }

@@ -1505,6 +1505,23 @@ public:
     /// not cross it, by the rule `crossings_of_child` uses.
     static int offset_of_child(const SnarlTraversal& trav, const Snarl& child);
 
+    /// A nested site's place in the nesting tree: its record key, its parent's, and its generation.
+    struct NestedLink {
+        size_t key = 0;
+        size_t parent = 0;
+        uint8_t generation = 0;
+    };
+
+    /// Keep each nested site's strand pointing at the parent strand that carries it, after the
+    /// sites in `flips` had their settled pair swapped. A ploidy-1 nested site names one of its
+    /// parent's two strands in `nested_strand` and holds its haplotype in the slot of that number,
+    /// so where the parent's strands swapped, both move to the other strand. Each site in `links`
+    /// is looked up in `phased` through `phase_index`. Returns how many strands moved.
+    static size_t cascade_nested_strands(vector<LinkageCollector::PhaseCall>& phased,
+                                         const std::unordered_map<size_t, size_t>& phase_index,
+                                         vector<NestedLink> links,
+                                         const unordered_set<size_t>& flips);
+
     /// How far along `trav`, in bases, the child chain is entered: the total length of the nodes
     /// visited before it, or -1 if `trav` does not cross it. It gives an off-reference chain its
     /// place along its parent (see `NestedContext::parent_offset`).

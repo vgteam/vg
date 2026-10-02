@@ -5495,6 +5495,49 @@ vector<FlowCaller::PendingRecord*> FlowCaller::records_for_render(bool for_phasi
     return out;
 }
 
+size_t FlowCaller::cascade_nested_strands(vector<LinkageCollector::PhaseCall>& phased,
+                                          const std::unordered_map<size_t, size_t>& phase_index,
+                                          vector<NestedLink> links,
+                                          const unordered_set<size_t>& flips) {
+    // A nested site's `nested_strand` was set from its parent's settled pair when the barrier
+    // resolved its generation, so swapping the parent leaves it naming the other strand. Sites are
+    // visited top-down by generation, so a parent is done before its children, and each inverts
+    // its strand where the meaning of its parent's strand 0 changed:
+    //   * under a diploid parent, strand 0 is the parent's first allele, so it changed if the
+    //     parent was swapped;
+    //   * under a haploid parent, strand 0 is the grandparent's, so it changed if the parent's own
+    //     `nested_strand` inverted.
+    std::stable_sort(links.begin(), links.end(), [](const NestedLink& a, const NestedLink& b) {
+        return a.generation < b.generation;
+    });
+    std::unordered_map<size_t, bool> frame_flipped;
+    frame_flipped.reserve(links.size() * 2);
+    size_t moved = 0;
+    for (const NestedLink& link : links) {
+        const auto index = phase_index.find(link.key);
+        if (index == phase_index.end()) {
+            continue;
+        }
+        LinkageCollector::PhaseCall& pc = phased[index->second];
+        bool parent_flipped = false;
+        const auto at = frame_flipped.find(link.parent);
+        if (at != frame_flipped.end()) {
+            parent_flipped = at->second;
+        }
+        bool strand_moved = false;
+        if (pc.nested_strand >= 0 && parent_flipped) {
+            pc.nested_strand = pc.nested_strand == 0 ? 1 : 0;
+            // The haplotype is held in the slot `nested_strand` names, and the other slot holds the
+            // wildcard, which the mosaic reads as an empty strand.
+            std::swap(pc.hap_first, pc.hap_second);
+            strand_moved = true;
+            ++moved;
+        }
+        frame_flipped[link.key] = pc.ploidy == 2 ? (flips.count(link.key) != 0) : strand_moved;
+    }
+    return moved;
+}
+
 void FlowCaller::apply_read_phasing() {
     if (!read_phasing || linkage_collector == nullptr || linkage_phased.empty()) {
         return;
@@ -5574,53 +5617,28 @@ void FlowCaller::apply_read_phasing() {
         std::swap(pc.hap_first, pc.hap_second);
     }
 
-    // Carry the swaps down the nesting tree. A nested site's `nested_strand` indexes its parent's
-    // strand pair, set when the barrier resolved the generation, so swapping a parent leaves it
-    // naming the other strand. `emit_variant` writes `a|.` from this field and the mosaic reads it,
-    // so it is corrected here. Top-down by generation, so a parent is done before its children,
-    // reversing `nested_strand_of`:
-    //   * under a diploid parent, the strand follows the parent's order, so it inverts if the
-    //     parent was swapped;
-    //   * under a haploid parent, the strand is the parent's own `nested_strand`, so it inverts if
-    //     that inverted.
-    struct NestedLink {
-        size_t key = 0;
-        size_t parent = 0;
-        uint8_t generation = 0;
-    };
+    // Carry the swaps down the nesting tree. Every recorded chain is linked, including one whose
+    // line an enclosing block's ALT spells (`reported_inline`): it still has anchors, read from
+    // its strand, and its children's strands depend on its own. A dropped chain is left out, since
+    // the sample does not carry it or anything inside it. Read from the staged records, since
+    // between a barrier pass and the hand-off the nested records are in `deferred_pending`, not in
+    // `render_records`.
     vector<NestedLink> links;
-    // Through `records_for_render`, since between a barrier pass and the hand-off the nested records
-    // are in `deferred_pending`, not in `render_records`.
-    for (const PendingRecord* recp : records_for_render(true)) {
-        const PendingRecord& rec = *recp;
-        if (phase_index.count(rec.record_key) != 0) {
+    auto link = [&](const PendingRecord& rec) {
+        if (!rec.dropped && phase_index.count(rec.record_key) != 0) {
             links.push_back({rec.record_key, rec.parent_record_key, rec.generation});
         }
-    }
-    std::stable_sort(links.begin(), links.end(),
-                     [](const NestedLink& a, const NestedLink& b) {
-                         return a.generation < b.generation;
-                     });
-    std::unordered_map<size_t, bool> frame_flipped;
-    frame_flipped.reserve(links.size() * 2);
-    for (const NestedLink& link : links) {
-        LinkageCollector::PhaseCall& pc = linkage_phased[phase_index[link.key]];
-        bool parent_flipped = false;
-        const auto at = frame_flipped.find(link.parent);
-        if (at != frame_flipped.end()) {
-            parent_flipped = at->second;
+    };
+    for (const auto& queue : render_records) {
+        for (const PendingRecord& rec : queue) {
+            link(rec);
         }
-        bool strand_moved = false;
-        if (pc.nested_strand >= 0 && parent_flipped) {
-            pc.nested_strand = pc.nested_strand == 0 ? 1 : 0;
-            strand_moved = true;
-            ++read_phasing_counters.strands_rederived;
-        }
-        // What strand 0 means at this site, for its own children: a diploid site defines it by its
-        // settled pair; a haploid one passes its parent's through.
-        frame_flipped[link.key] =
-            pc.ploidy == 2 ? (flips.count(link.key) != 0) : strand_moved;
     }
+    for (const PendingRecord& rec : deferred_pending) {
+        link(rec);
+    }
+    read_phasing_counters.strands_rederived +=
+        cascade_nested_strands(linkage_phased, phase_index, std::move(links), flips);
 
     const ReadPhasingCounters& c = read_phasing_counters;
     cerr << "[vg call] read phasing: " << c.sites << " het sites, " << c.reliable
