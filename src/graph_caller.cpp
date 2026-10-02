@@ -5669,8 +5669,13 @@ bool FlowCaller::apply_regenotyping() {
     // read's strand is usable only at sites of the phase set it was found in.
     unordered_map<size_t, size_t> site_phase_set;
     site_phase_set.reserve(linkage_phased.size() * 2);
+    // And the allele the chain puts on strand 0 at each diploid site, against which the reads'
+    // preferred order is reported.
+    unordered_map<size_t, int> site_strand0;
+    site_strand0.reserve(linkage_phased.size() * 2);
     for (const LinkageCollector::PhaseCall& pc : linkage_phased) {
         site_phase_set[pc.record_key] = phase_set_id(pc.contig, pc.phase_set);
+        site_strand0[pc.record_key] = pc.ploidy == 2 ? pc.trav_first : -1;
     }
 
     // Which strand of its parent each nested ploidy-1 chain sits on. `nested_strand` was set in the
@@ -5791,14 +5796,16 @@ bool FlowCaller::apply_regenotyping() {
             map<vector<int>, double>& target = keep ? info->genotype_lls : scratch;
             const auto ps = site_phase_set.find(rec.record_key);
             const size_t phase_set = ps != site_phase_set.end() ? ps->second : NO_PHASE_SET;
+            const auto s0 = site_strand0.find(rec.record_key);
+            const int strand0_allele = s0 != site_strand0.end() ? s0->second : -1;
             const auto hap = haploid_strand.find(rec.record_key);
             const bool site_moved =
                 hap != haploid_strand.end()
                     ? haploid_inclusion_correction(*pe, lambda, phase_set, own, temper, ceiling,
                                                    hap->second, regenotype_params, target,
                                                    counters)
-                    : phase_aware_correction(*pe, lambda, phase_set, own, temper, ceiling,
-                                             regenotype_params, target, counters);
+                    : phase_aware_correction(*pe, lambda, phase_set, strand0_allele, own, temper,
+                                             ceiling, regenotype_params, target, counters);
             if (keep && site_moved) {
                 // The correction changed the best genotype, so GQ is recomputed from the corrected
                 // likelihoods, as the sweep computes it. GQI and GQN are not: GQN's achievable gap
@@ -5816,8 +5823,9 @@ bool FlowCaller::apply_regenotyping() {
                     rl_caller->recompute_gq(alt);
                 }
                 RegenotypeCounters ignored;
-                if (phase_aware_correction(*pe, lambda, phase_set, own, temper, ceiling,
-                                           regenotype_params, alt.genotype_lls, ignored)) {
+                if (phase_aware_correction(*pe, lambda, phase_set, strand0_allele, own, temper,
+                                           ceiling, regenotype_params, alt.genotype_lls,
+                                           ignored)) {
                     rl_caller->recompute_gq(alt);
                 }
             }

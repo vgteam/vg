@@ -198,9 +198,12 @@ bool haploid_inclusion_correction(const PhaseReadEvidence& evidence, const Lambd
 /// `phase_set` is the site's phase set, or `NO_PHASE_SET`; a read whose strand is not usable there
 /// (see `read_strand_usable`) gets the site's own weights.
 ///
+/// `strand0_allele` is the allele the chain puts on strand 0 at this site, or -1 where the chain
+/// gives it no order. `order_reversed` counts the site when the reads prefer the other order.
+///
 /// Returns true if the corrected best genotype differs from the called one.
 bool phase_aware_correction(const PhaseReadEvidence& evidence, const LambdaTable& lambda,
-                            size_t phase_set,
+                            size_t phase_set, int strand0_allele,
                             const unordered_map<uint64_t, double>& own, double temper,
                             double ceiling, const RegenotypeParams& params,
                             map<vector<int>, double>& gl, RegenotypeCounters& counters);

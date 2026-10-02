@@ -341,7 +341,7 @@ bool haploid_inclusion_correction(const PhaseReadEvidence& ev, const LambdaTable
 }
 
 bool phase_aware_correction(const PhaseReadEvidence& ev, const LambdaTable& lambda,
-                            size_t phase_set,
+                            size_t phase_set, int strand0_allele,
                             const unordered_map<uint64_t, double>& own, double temper,
                             double ceiling, const RegenotypeParams& params,
                             map<vector<int>, double>& gl, RegenotypeCounters& counters) {
@@ -422,8 +422,14 @@ bool phase_aware_correction(const PhaseReadEvidence& ev, const LambdaTable& lamb
         const double correction = max(s_fwd, s_rev) - s_w;
         // Only at the called genotype. At a site with several alleles most pairs are carried by no
         // haplotype, and which order fits such a pair better means nothing.
+        // The forward order puts `a` on strand 0, so the chain's order is the forward one when
+        // it puts `a` there and the reverse one when it puts `b` there.
         if (before != nullptr && g == *before) {
-            reversed_called = s_rev > s_fwd;
+            if (strand0_allele == a) {
+                reversed_called = s_rev > s_fwd;
+            } else if (strand0_allele == b) {
+                reversed_called = s_fwd > s_rev;
+            }
         }
         kv.second += correction;
         ++corrected;

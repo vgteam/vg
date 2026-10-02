@@ -70,7 +70,7 @@ TEST_CASE("a temper of zero leaves every genotype likelihood bit-identical",
         LambdaTable lambda = confident(ev);
         map<vector<int>, double> gl = flat_gl();
         const map<vector<int>, double> before = gl;
-        phase_aware_correction(ev, lambda, 1, {}, 0.0, 1.0, params, gl, counters);
+        phase_aware_correction(ev, lambda, 1, 0, {}, 0.0, 1.0, params, gl, counters);
         for (const auto& kv : before) {
             REQUIRE(gl.at(kv.first) == kv.second);
         }
@@ -90,7 +90,7 @@ TEST_CASE("homozygous likelihoods never move, at any temper", "[regenotype]") {
     LambdaTable lambda = confident(ev);
     for (double tau : {0.25, 1.0, 50.0}) {
         map<vector<int>, double> gl = flat_gl();
-        phase_aware_correction(ev, lambda, 1, {}, tau, 1.0, params, gl, counters);
+        phase_aware_correction(ev, lambda, 1, 0, {}, tau, 1.0, params, gl, counters);
         REQUIRE(gl.at({0, 0}) == -50.0);
         REQUIRE(gl.at({1, 1}) == -50.0);
         REQUIRE(gl.at({0, 1}) > -20.0);   // and the het does move
@@ -118,7 +118,7 @@ TEST_CASE("a read that spans nothing else contributes exactly nothing", "[regeno
     }
     map<vector<int>, double> gl = flat_gl();
     const map<vector<int>, double> before = gl;
-    phase_aware_correction(ev, lambda, 1, {}, 2.0, 1.0, params, gl, counters);
+    phase_aware_correction(ev, lambda, 1, 0, {}, 2.0, 1.0, params, gl, counters);
     for (const auto& kv : before) {
         REQUIRE(gl.at(kv.first) == kv.second);
     }
@@ -245,7 +245,7 @@ TEST_CASE("the correction rewards a phase-coherent split and punishes an incoher
 
     LambdaTable coherent = confident(ev);
     map<vector<int>, double> gl_coherent = flat_gl();
-    phase_aware_correction(ev, coherent, 1, {}, 1.0, 1.0, params, gl_coherent, counters);
+    phase_aware_correction(ev, coherent, 1, 0, {}, 1.0, 1.0, params, gl_coherent, counters);
 
     // Same magnitudes, strand assignment uncorrelated with the allele carried.
     LambdaTable incoherent = confident(ev);
@@ -253,7 +253,7 @@ TEST_CASE("the correction rewards a phase-coherent split and punishes an incoher
         incoherent[ev.read_key[i]].lambda = ((i / 2) % 2 == 0) ? 4.0 : -4.0;
     }
     map<vector<int>, double> gl_incoherent = flat_gl();
-    phase_aware_correction(ev, incoherent, 1, {}, 1.0, 1.0, params, gl_incoherent, counters);
+    phase_aware_correction(ev, incoherent, 1, 0, {}, 1.0, 1.0, params, gl_incoherent, counters);
 
     const double het_gap_coherent = gl_coherent.at({0, 1}) - gl_coherent.at({0, 0});
     const double het_gap_incoherent = gl_incoherent.at({0, 1}) - gl_incoherent.at({0, 0});
@@ -405,7 +405,7 @@ TEST_CASE("a read found in another phase set is not used", "[regenotype]") {
     REQUIRE(unphased == here);
 
     map<vector<int>, double> gl = flat_gl();
-    phase_aware_correction(ev, confident(ev), 2, {}, 1.0, 1.0, params, gl, counters);
+    phase_aware_correction(ev, confident(ev), 2, 0, {}, 1.0, 1.0, params, gl, counters);
     REQUIRE(gl == flat_gl());
 }
 
@@ -423,9 +423,37 @@ TEST_CASE("a globally sign-flipped Lambda is invisible, and that is why these te
         kv.second.lambda = -kv.second.lambda;
     }
     map<vector<int>, double> a = flat_gl(), b = flat_gl();
-    phase_aware_correction(ev, normal, 1, {}, 1.0, 1.0, params, a, counters);
-    phase_aware_correction(ev, flipped, 1, {}, 1.0, 1.0, params, b, counters);
+    phase_aware_correction(ev, normal, 1, 0, {}, 1.0, 1.0, params, a, counters);
+    phase_aware_correction(ev, flipped, 1, 0, {}, 1.0, 1.0, params, b, counters);
     REQUIRE(a.at({0, 1}) == Approx(b.at({0, 1})).epsilon(1e-12));
+}
+
+TEST_CASE("the reads' order is compared with the chain's order, not the sorted one",
+          "[regenotype]") {
+    // In `confident`, reads carrying allele 0 are on strand 0, so the reads put allele 0 on
+    // strand 0. They agree with a chain that does the same, and disagree with one that puts
+    // allele 1 there. Negating Lambda moves allele 1 to strand 0, which then agrees with the
+    // second chain.
+    RegenotypeParams params;
+    PhaseReadEvidence ev = evidence(30, 10, 10);
+    LambdaTable allele0_first = confident(ev);
+    LambdaTable allele1_first = confident(ev);
+    for (auto& kv : allele1_first) {
+        kv.second.lambda = -kv.second.lambda;
+    }
+    auto reversed = [&](const LambdaTable& lambda, int strand0_allele) {
+        RegenotypeCounters counters;
+        map<vector<int>, double> gl = flat_gl();
+        phase_aware_correction(ev, lambda, 1, strand0_allele, {}, 1.0, 1.0, params, gl, counters);
+        REQUIRE(counters.sites_corrected == 1);
+        return counters.order_reversed;
+    };
+    REQUIRE(reversed(allele0_first, 0) == 0);
+    REQUIRE(reversed(allele0_first, 1) == 1);
+    REQUIRE(reversed(allele1_first, 1) == 0);
+    REQUIRE(reversed(allele1_first, 0) == 1);
+    // With no chain order there is nothing to disagree with.
+    REQUIRE(reversed(allele1_first, -1) == 0);
 }
 
 }
