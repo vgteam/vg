@@ -551,14 +551,16 @@ void ReadLikelihoodSnarlCaller::update_vcf_info(const Snarl& snarl,
     variant.samples[sample_name]["GP"].push_back(std::to_string(info->posterior));
 
     // QUAL as the phred-scaled probability that the site is not variant, taken
-    // from the posterior of the all-reference genotype where we have it.
+    // from the posterior of the all-reference genotype where we have it. Only the reference
+    // allele's column is needed, so a record with an unscored allele, such as a star allele,
+    // still gets one.
     variant.quality = 0;
     if (!genotype.empty()) {
         bool is_ref_call = all_of(genotype.begin(), genotype.end(), [](int a) { return a == 0; });
         double ref_posterior = 0;
         bool have_ref = false;
-        if (all_mapped) {
-            vector<int> ref_genotype(info->ploidy, site_to_scored.empty() ? 0 : site_to_scored[0]);
+        if (!site_to_scored.empty() && site_to_scored[0] >= 0) {
+            vector<int> ref_genotype(info->ploidy, site_to_scored[0]);
             sort(ref_genotype.begin(), ref_genotype.end());
             auto found = info->genotype_lls.find(ref_genotype);
             if (found != info->genotype_lls.end()) {

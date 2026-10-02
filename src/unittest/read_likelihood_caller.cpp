@@ -435,5 +435,34 @@ TEST_CASE("Recomputed GQ takes the explained share of the new best genotype",
     }
 }
 
+TEST_CASE("A record with a star allele still gets QUAL from the reference column",
+          "[read_likelihood_caller]") {
+    // A nested site that one strand crosses is genotyped at ploidy 1 and written with a star
+    // allele for the other strand. The star allele's empty traversal matches no scored column,
+    // and QUAL needs only the reference allele's.
+    CallerSite site;
+    InMemorySiteReadSource source;
+    for (int i = 0; i < 15; ++i) {
+        source.add(matching_read(site.graph, "r" + std::to_string(i), {1, 3, 4}));
+    }
+    QualAdjAlignmentScorer qual_scorer;
+    MatrixAlignmentScorer plain_scorer;
+    GraphAlignedAlleleLikelihoodCalculator calculator(site.graph, *site.manager, source,
+                                                      qual_scorer, plain_scorer);
+    NullTraversalSupportFinder support(site.graph, *site.manager);
+    ReadLikelihoodSnarlCaller caller(site.graph, *site.manager, support, calculator);
+    auto result = caller.genotype(site.snarl, site.traversals, 0, 1, "", {0, 0});
+    REQUIRE(result.first == vector<int>({1}));
+
+    // Record alleles: reference, the called alternative, and the star allele.
+    vector<SnarlTraversal> record_traversals{site.traversals[0], site.traversals[1],
+                                             SnarlTraversal()};
+    vcflib::Variant variant;
+    caller.update_vcf_info(site.snarl, record_traversals, {1, 2}, result.second, "s", variant);
+    REQUIRE(variant.quality > 10.0);
+    // GL needs every genotype of the record's alleles, so it is left out.
+    REQUIRE(variant.samples["s"].count("GL") == 0);
+}
+
 }  // namespace unittest
 }  // namespace vg
