@@ -125,9 +125,15 @@ public:
 
         /// This site is in a chain that no reference path passes through, so `position` is its
         /// parent's reference start plus the chain's offset along the parent's allele. Two such
-        /// sites of one chain are separated by the difference of their positions; between such a
-        /// site and a positioned one, no distance is known.
+        /// sites of one chain are separated by the difference of their positions, and so are such
+        /// a site and its positioned parent (`group_parent`). Between such a site and any other
+        /// positioned site, no distance is known.
         bool unpositioned = false;
+
+        /// This site is the parent its group is decoded under, held as the group's first site, so
+        /// the next site is the parent's child and lies the child's offset along the parent's allele
+        /// from it, whether or not the child is positioned.
+        bool group_parent = false;
 
         /// 1 or 2. All sites of a linkage chain have the same ploidy.
         size_t ploidy = 2;

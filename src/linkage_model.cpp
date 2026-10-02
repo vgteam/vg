@@ -15,27 +15,30 @@
 namespace vg {
 
 
-/// The distance between two adjacent sites of a chain, in bp, once for each strand, since
+/// The distance in bp from a site at `prev` to the next site of its chain, at `next`.
+///
+/// Two positions are differenced when they are measured the same way: both reference positions,
+/// or both unpositioned and so offsets along the same parent allele. The other pair that can be
+/// differenced is a positioned parent and the first child of its group: an unpositioned child's
+/// position is its parent's start plus its offset along the parent's allele, so the difference is
+/// that offset. Any other pair has no known distance, and gives SIZE_MAX, for which rho = 1 and
+/// the transition is uniform. A known distance is clamped at 1: `switch_probability` reads a gap of
+/// 0 as 1, and a negative one would wrap.
+static inline size_t position_gap(size_t prev, bool prev_unpositioned, bool prev_is_parent,
+                                  size_t next, bool next_unpositioned) {
+    if (prev_unpositioned != next_unpositioned && !(prev_is_parent && next_unpositioned)) {
+        return numeric_limits<size_t>::max();
+    }
+    return next > prev ? next - prev : 1;
+}
+
+/// `position_gap` between two adjacent sites of a chain, once for each strand, since
 /// `transition_apply` takes a switch probability per strand; the two are always equal.
-/// Clamped at 1: `switch_probability` reads a gap of 0 as 1, and a negative one would wrap.
 static inline std::pair<size_t, size_t> site_gap(const LinkageModel::Site& prev,
                                                 const LinkageModel::Site& next) {
-    if (prev.unpositioned && next.unpositioned) {
-        // Both sites are unpositioned. Sites reach the model grouped by parent, chain, ploidy and
-        // strand, so the two are in the same chain, and their positions are offsets along the same parent
-        // traversal, whose difference is a distance.
-        const size_t d = next.position > prev.position ? (size_t)(next.position - prev.position) : 1;
-        return {d, d};
-    }
-    if (prev.unpositioned || next.unpositioned) {
-        // One site is unpositioned and the other is not, so their positions cannot be differenced.
-        // SIZE_MAX gives rho = 1, which makes the transition uniform: nothing is assumed about
-        // linkage between the two.
-        const size_t unknown = numeric_limits<size_t>::max();
-        return {unknown, unknown};
-    }
-    const size_t ref = next.position > prev.position ? (size_t)(next.position - prev.position) : 1;
-    return {ref, ref};
+    const size_t d = position_gap(prev.position, prev.unpositioned, prev.group_parent,
+                                  next.position, next.unpositioned);
+    return {d, d};
 }
 
 double LinkageModel::switch_probability(size_t gap) const {
@@ -2034,6 +2037,8 @@ size_t LinkageCollector::resolve_generation(
                                                       ? 0.0
                                                       : -numeric_limits<double>::infinity();
                 }
+                // The one clamped site of a group is its parent, held first.
+                s.group_parent = (k == 0);
                 auto pin = pinned_phase.find(e.record_key);
                 if (pin != pinned_phase.end()) {
                     s.pinned = true;

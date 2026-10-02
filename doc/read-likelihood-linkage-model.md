@@ -180,9 +180,9 @@ The sites of an
 reference position of their own. vg takes an allele of the parent's settled genotype that crosses
 such a site, the one first in the parent's compact allele set where both do, and places the site
 at the parent's position plus the site's offset along that allele. Two sites of one off-reference
-chain are then as far apart as they are along that allele. No distance is known between such a
-site and a site with a reference position, its parent included, and there $\rho = 1$. So a diploid
-off-reference chain does not start from its parent's panel haplotypes.
+chain are then as far apart as they are along that allele, and the chain's first site is as far
+from the parent as its offset along that allele. No distance is known between such a site and any other
+site with a reference position, and there $\rho = 1$.
 
 ## Genotype posterior
 

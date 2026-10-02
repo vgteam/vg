@@ -46,7 +46,7 @@ static void record_dense(LinkageCollector& c, const string& contig, size_t posit
                          size_t record_key, double share, size_t ploidy = 2,
                          int64_t start_node = 0, int64_t end_node = 0,
                          bool nested = false, size_t parent_record_key = 0, uint64_t parent_crossing = 0, size_t generation = 0,
-                         bool emitted = true, size_t chain_key = 0) {
+                         bool emitted = true, size_t chain_key = 0, bool unpositioned = false) {
     map<vector<int>, double> gls;
     if (ploidy == 1) {
         for (size_t a = 0; a < num_alleles && a < dense_gls.size(); ++a) {
@@ -74,6 +74,7 @@ static void record_dense(LinkageCollector& c, const string& contig, size_t posit
                  .parent_crossing = parent_crossing,
                  .generation = generation,
                  .emitted = emitted,
+                 .unpositioned = unpositioned,
                  .chain_key = chain_key,
              });
 }
@@ -1350,6 +1351,57 @@ TEST_CASE("A nested site never names a haplotype that contradicts the allele it 
         REQUIRE(named < 2);                        // one of the two panel haplotypes
         REQUIRE(child->allele_first == 0);         // which is the allele both of them spell
         REQUIRE(child->allele_second == 0);        // ploidy 1: one strand, one allele
+    }
+}
+
+TEST_CASE("An off-reference child is linked to its positioned parent by its offset",
+          "[linkage_model]") {
+    // An off-reference child's position is its parent's start plus its offset along the parent's
+    // allele, so the distance from the parent is known even though the child has no reference
+    // position. A diploid child's phase must therefore follow its parent's pinned haplotypes.
+    LinkageModel::Params p;
+    p.freq_prior = 0.0;
+    p.weight = 1.0;
+    p.scale = 100000.0;
+    p.rho_min = 1e-4;
+
+    const size_t PARENT = 5, CHILD = 51;
+
+    for (bool unpositioned : {false, true}) {
+        LinkageCollector collector(p, 2);
+        // A het parent, one panel haplotype on each allele.
+        record_dense(collector, "chr1", 1000, 2, {-30.0, 0.0, -30.0}, {0, 1}, 0, 1, PARENT,
+                     /*share*/ 1.0, /*ploidy*/ 2, /*start*/ 10, /*end*/ 40);
+        // A het diploid child 5 bp along the parent, where the panel carries the same alleles.
+        record_dense(collector, "chr1", 1005, 2, {-30.0, 0.0, -30.0}, {0, 1}, 0, 1, CHILD,
+                     /*share*/ 1.0, /*ploidy*/ 2, /*start*/ 11, /*end*/ 20,
+                     /*nested*/ false, PARENT, /*crossing*/ 3, /*generation*/ 1,
+                     /*emitted*/ true, /*chain_key*/ 0, unpositioned);
+
+        vector<LinkageCollector::PhaseCall> phased;
+        collector.resolve_generation(0, false, &phased);
+        // Put the parent on (1, 0), against the order a tie between the two mirror-image paths
+        // gives, so that the child can follow it only through linkage.
+        for (auto& pc : phased) {
+            if (pc.record_key == PARENT && pc.hap_first == 0) {
+                std::swap(pc.hap_first, pc.hap_second);
+                std::swap(pc.allele_first, pc.allele_second);
+                std::swap(pc.trav_first, pc.trav_second);
+            }
+        }
+        collector.resolve_generation(1, true, &phased);
+
+        const LinkageCollector::PhaseCall* child = nullptr;
+        for (const auto& pc : phased) {
+            if (pc.record_key == CHILD) {
+                child = &pc;
+            }
+        }
+        REQUIRE(child != nullptr);
+        REQUIRE(child->hap_first == 1);
+        REQUIRE(child->hap_second == 0);
+        REQUIRE(child->allele_first == 1);
+        REQUIRE(child->allele_second == 0);
     }
 }
 
