@@ -8,9 +8,11 @@
  */
 
 #include <atomic>
+#include <condition_variable>
 #include <fstream>
 #include <functional>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -90,6 +92,17 @@ public:
     }
 
 
+    /// Visit the reads that begin on one of the nodes, meaning their first mapping is onto it.
+    /// `nodes` must be sorted and free of duplicates. Reads come in groups sharing a mapping
+    /// quality, as the group's size and its total sequence length. Neither the grouping nor the
+    /// order is fixed, so a caller must only add the groups up.
+    ///
+    /// The default fetches the reads touching the nodes and keeps those that begin on one.
+    /// WindowedSiteReadSource answers from per-window tallies instead.
+    virtual void for_each_read_start(
+        const vector<nid_t>& nodes,
+        const function<void(int32_t mapq, size_t reads, size_t bases)>& iteratee) const;
+
     /// How many reads this source holds or can see, for logging. May be 0 if
     /// the backend cannot cheaply say.
     virtual size_t get_read_count() const = 0;
@@ -151,11 +164,13 @@ private:
 
 /**
  * Base for on-demand sources: rounds each fetch out to fixed windows of consecutive node IDs and
- * caches the last few windows per thread.
+ * keeps the most recently used windows in a cache that all threads share.
  *
  * A backend query costs much more than one site's reads, because the backend over-fetches or
  * starts a process, so each window is fetched once and serves the sites inside it. That works
- * when sites are visited in node-ID order; see GraphCaller::set_node_id_ordering.
+ * when sites are visited in node-ID order; see GraphCaller::set_node_id_ordering. The cache is
+ * shared because a thread also needs windows that other threads are working through, such as
+ * those holding the reference nodes near its sites.
  *
  * Subclasses supply fetch_span() and its per-thread resources. The window arithmetic, the
  * cache, the handling of queries that cross a window boundary, and the narrowing of a window to
@@ -166,6 +181,13 @@ public:
 
     void for_each_read(const vector<pair<nid_t, nid_t>>& ranges,
                        const function<void(const SiteRead&)>& iteratee) const final;
+
+    /// Answered from tallies of each window's read starts. A window is tallied the first time
+    /// it is fetched whole, and the tallies are kept for the whole run, so a query fetches only
+    /// windows that have never been fetched whole.
+    void for_each_read_start(
+        const vector<nid_t>& nodes,
+        const function<void(int32_t mapq, size_t reads, size_t bases)>& iteratee) const final;
 
     /// Reads actually fetched from the backend so far, across all threads. Not the
     /// size of the read set, which an on-demand backend never knows.
@@ -191,9 +213,14 @@ public:
     /// collapsed to. The gap between the two is over-fetching.
     size_t get_straddle_wanted() const;
 
+    /// Windows fetched whole, for sites or for read-start tallies, and the reads they held.
+    size_t get_whole_fetches() const;
+    size_t get_whole_fetch_reads() const;
+
 
 protected:
 
+    /// window_size is in node IDs; cache_entries is how many windows the cache holds in all.
     WindowedSiteReadSource(const SiteReadFilter& filter, size_t window_size,
                            size_t cache_entries);
 
@@ -233,10 +260,9 @@ private:
         }
     };
 
-    /// One cached window fetch.
+    /// One cached window fetch. Not changed once fetched, so threads read it without a lock.
     struct CacheEntry {
         size_t window = 0;
-        bool valid = false;
         vector<Alignment> reads;
 
         /// Every mapping in the window, sorted by node ID, so that a site finds the reads it
@@ -251,15 +277,18 @@ private:
         vector<uint32_t> offset_start;
     };
 
-    /// Per-thread cache. Mutable because for_each_read is logically const but may
-    /// populate the cache.
-    struct CacheState {
-        vector<CacheEntry> cache;
-        size_t next_evict = 0;
-        bool initialized = false;
+    /// A window in the cache. It has no entry while a thread is fetching it.
+    struct CacheSlot {
+        shared_ptr<const CacheEntry> entry;
+        /// When a query last used the window, for evicting the least recently used.
+        size_t last_use = 0;
     };
 
-    CacheState& cache_state() const;
+    /// The window's reads, from the cache or fetched now. A thread wanting a window that another
+    /// thread is fetching waits for that fetch rather than fetching it again. Sets `was_fetched` if
+    /// this call did the fetch. The entry stays valid while the caller holds it, even if the
+    /// cache drops it meanwhile.
+    shared_ptr<const CacheEntry> get_window(size_t window, bool& was_fetched) const;
 
     /// Hand the entry's reads that touch the ranges to the caller, in the order they
     /// were fetched. Reads are found through the entry's node index, which lists a read
@@ -277,10 +306,37 @@ private:
     /// Does the read touch any node in the ranges?
     static bool touches(const Alignment& aln, const vector<pair<nid_t, nid_t>>& ranges);
 
+    /// Fetch a whole window from the backend and index it.
+    CacheEntry load_window(size_t window) const;
+
+    /// Reads beginning on one node with one mapping quality: how many, and their total
+    /// sequence length.
+    struct StartTally {
+        nid_t node = 0;
+        int32_t mapq = 0;
+        size_t reads = 0;
+        size_t bases = 0;
+    };
+
+    /// Tally the read starts of a fetched window, sorted by node, then mapping quality. A read
+    /// is tallied under the window holding its first node, though a window's fetch also returns
+    /// reads that begin in other windows, so each read is tallied once.
+    vector<StartTally> tally_starts(const CacheEntry& entry) const;
+
+    /// The window's read-start tallies, fetching the window if it has never been fetched. The
+    /// tallies are kept for the whole run and never changed, so the reference stays valid.
+    const vector<StartTally>& window_starts(size_t window) const;
+
     size_t window_size;
     size_t cache_entries;
 
-    mutable vector<CacheState> caches;
+    /// Cached windows by window index, holding at most cache_entries fetched windows.
+    /// unordered_map does not move its elements, so a reference to one stays valid while
+    /// others are added.
+    mutable unordered_map<size_t, CacheSlot> cache;
+    /// Counts cache uses, to order them for eviction.
+    mutable size_t cache_clock = 0;
+
     mutable atomic<size_t> fetched{0};
     mutable atomic<size_t> filtered{0};
     mutable atomic<size_t> cache_hits{0};
@@ -296,6 +352,17 @@ private:
     mutable atomic<size_t> straddles{0};
     mutable atomic<size_t> straddle_nodes{0};
     mutable atomic<size_t> straddle_wanted{0};
+    mutable atomic<size_t> whole_fetches{0};
+    mutable atomic<size_t> whole_fetch_reads{0};
+
+    /// Read-start tallies by window, added when a window is first fetched and kept for the
+    /// whole run.
+    mutable unordered_map<size_t, vector<StartTally>> starts;
+
+    /// Guards `cache`, `cache_clock` and `starts`. Fetches run without it.
+    mutable std::mutex cache_mutex;
+    /// Signalled when a fetch finishes or fails.
+    mutable std::condition_variable cache_filled;
 };
 
 /**
@@ -313,7 +380,8 @@ private:
 class IndexedGamSiteReadSource : public WindowedSiteReadSource {
 public:
 
-    /// gam_filename must be sorted (`vg gamsort -i`). window_size is in node IDs.
+    /// gam_filename must be sorted (`vg gamsort -i`). window_size is in node IDs, and
+    /// cache_entries is how many windows the cache shared by all threads holds.
     IndexedGamSiteReadSource(const string& gam_filename, const string& index_filename,
                              const SiteReadFilter& filter = SiteReadFilter(),
                              size_t window_size = 256,
@@ -361,6 +429,9 @@ public:
     /// gbz_filename is a GBZ or a GBZ-Base (`gbz-base construct`). Prefer the
     /// latter: a plain GBZ is loaded in full on every query, while a GBZ-Base is
     /// random-access, and this issues many queries.
+    ///
+    /// window_size is in node IDs, and cache_entries is how many windows the cache shared by
+    /// all threads holds.
     GafBaseSiteReadSource(const HandleGraph& graph,
                           const string& gaf_base_filename,
                           const string& gbz_filename,

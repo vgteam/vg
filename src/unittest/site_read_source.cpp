@@ -15,7 +15,12 @@
 /// hit and over what range, not just which reads came back.
 ///
 
+#include <algorithm>
+#include <map>
+#include <mutex>
+#include <stdexcept>
 #include <string>
+#include <tuple>
 #include <vector>
 
 #include "catch.hpp"
@@ -26,10 +31,27 @@ namespace unittest {
 
 using namespace std;
 
+/// A read on the given nodes, in order, one base on each, with the given mapping quality.
+static Alignment read_on(const string& name, const vector<nid_t>& nodes, int32_t mapq = 60) {
+    Alignment aln;
+    aln.set_name(name);
+    aln.set_mapping_quality(mapq);
+    aln.set_sequence(string(nodes.size(), 'A'));
+    for (nid_t node : nodes) {
+        auto* mapping = aln.mutable_path()->add_mapping();
+        mapping->mutable_position()->set_node_id(node);
+        auto* edit = mapping->add_edit();
+        edit->set_from_length(1);
+        edit->set_to_length(1);
+    }
+    return aln;
+}
+
 /// A read source over reads held in a vector, recording every span fetched.
 ///
-/// Reads are described by the single node they sit on, which is all the windowing logic
-/// looks at. Sequence and quality are irrelevant here.
+/// Most reads are described by the single node they sit on, which is all the windowing logic
+/// looks at; add() takes a read on several nodes. Sequence and quality are irrelevant except to
+/// the read-start counts.
 class FakeWindowedSource : public WindowedSiteReadSource {
 public:
     FakeWindowedSource(const vector<pair<string, nid_t>>& reads, size_t window_size,
@@ -48,6 +70,16 @@ public:
         }
     }
 
+    /// Hold another read, such as one on several nodes.
+    void add(const Alignment& aln) {
+        held.push_back(aln);
+    }
+
+    /// Make the next fetch throw, as a backend whose query fails would.
+    void fail_next_fetch() {
+        fail_next = true;
+    }
+
     /// The (min, max) extent of every fetch_span call, in order. Recorded as an
     /// extent rather than the full range list because that is what the windowing
     /// assertions are about; get_fetch_ranges() has the detail.
@@ -64,21 +96,32 @@ protected:
 
     void fetch_span(const vector<pair<nid_t, nid_t>>& ranges,
                     const function<void(Alignment&)>& iteratee) const {
-        fetch_ranges.push_back(ranges);
         nid_t min_id = ranges.front().first;
         nid_t max_id = ranges.front().second;
         for (const auto& range : ranges) {
             min_id = min(min_id, range.first);
             max_id = max(max_id, range.second);
         }
-        fetches.push_back(make_pair(min_id, max_id));
+        {
+            // Threads may fetch at once.
+            lock_guard<std::mutex> guard(record_mutex);
+            fetch_ranges.push_back(ranges);
+            fetches.push_back(make_pair(min_id, max_id));
+            if (fail_next) {
+                fail_next = false;
+                throw runtime_error("injected fetch failure");
+            }
+        }
         for (const Alignment& aln : held) {
-            nid_t node = aln.path().mapping(0).position().node_id();
+            // A real backend returns a read touching the ranges anywhere along its path.
             bool in_range = false;
-            for (const auto& range : ranges) {
-                if (node >= range.first && node <= range.second) {
-                    in_range = true;
-                    break;
+            for (const auto& mapping : aln.path().mapping()) {
+                nid_t node = mapping.position().node_id();
+                for (const auto& range : ranges) {
+                    if (node >= range.first && node <= range.second) {
+                        in_range = true;
+                        break;
+                    }
                 }
             }
             if (in_range) {
@@ -100,6 +143,8 @@ private:
     vector<Alignment> held;
     mutable vector<pair<nid_t, nid_t>> fetches;
     mutable vector<vector<pair<nid_t, nid_t>>> fetch_ranges;
+    mutable bool fail_next = false;
+    mutable std::mutex record_mutex;
 };
 
 /// Collect the names of the reads a query returns.
@@ -308,6 +353,136 @@ TEST_CASE("The MAPQ filter is applied by the base class, not left to each backen
     REQUIRE(names[0] == "q60");
     REQUIRE(source.get_filtered_count() == 1);
     REQUIRE(source.get_read_count() == 1);
+}
+
+/// The read starts a source reports on the nodes, summed by mapping quality, as
+/// (reads, bases) per MAPQ. Summed because a source may group the starts any way it likes.
+static map<int32_t, pair<size_t, size_t>> starts_on(const SiteReadSource& source,
+                                                    const vector<nid_t>& nodes) {
+    map<int32_t, pair<size_t, size_t>> by_mapq;
+    source.for_each_read_start(nodes, [&](int32_t mapq, size_t reads, size_t bases) {
+        by_mapq[mapq].first += reads;
+        by_mapq[mapq].second += bases;
+    });
+    return by_mapq;
+}
+
+TEST_CASE("A windowed source counts read starts as the default does", "[site_read_source]") {
+    // x begins in window 0 and runs into window 1; y and z begin in window 1; w begins
+    // on a node not asked about. Each read must be counted once, on its first node, whichever
+    // windows its path touches.
+    // Node 105 also starts p at MAPQ 30 and q and r at MAPQ 60, and node 150 starts s, so
+    // a node can hold several reads and several mapping qualities.
+    vector<Alignment> reads{read_on("x", {95, 105}), read_on("y", {105, 106}),
+                            read_on("z", {150}, 30), read_on("w", {30}),
+                            read_on("p", {105}, 30), read_on("q", {105, 106, 107}),
+                            read_on("r", {105}), read_on("s", {150, 151}, 30)};
+    FakeWindowedSource windowed({}, 100);
+    InMemorySiteReadSource in_memory;
+    for (const Alignment& aln : reads) {
+        windowed.add(aln);
+        in_memory.add(aln);
+    }
+
+    vector<nid_t> nodes{95, 105, 150};
+    auto expected = starts_on(in_memory, nodes);
+    REQUIRE(expected.size() == 2);
+    REQUIRE(expected[60] == make_pair<size_t, size_t>(4, 8));
+    REQUIRE(expected[30] == make_pair<size_t, size_t>(3, 4));
+    REQUIRE(starts_on(windowed, nodes) == expected);
+
+    // The groups the windowed source reports on node 105 keep its two mapping qualities apart.
+    vector<tuple<int32_t, size_t, size_t>> groups;
+    windowed.for_each_read_start({105}, [&](int32_t mapq, size_t count, size_t bases) {
+        groups.emplace_back(mapq, count, bases);
+    });
+    std::sort(groups.begin(), groups.end());
+    REQUIRE(groups == vector<tuple<int32_t, size_t, size_t>>{{30, 1, 1}, {60, 3, 6}});
+}
+
+TEST_CASE("A read start is counted on the read's first node only", "[site_read_source]") {
+    // x passes through node 105 but begins on node 95, so it is not a start on 105.
+    FakeWindowedSource windowed({}, 100);
+    windowed.add(read_on("x", {95, 105}));
+    windowed.add(read_on("y", {105}));
+
+    auto counts = starts_on(windowed, {105});
+
+    REQUIRE(counts.size() == 1);
+    REQUIRE(counts[60].first == 1);
+}
+
+TEST_CASE("Counting read starts fetches only windows never fetched whole", "[site_read_source]") {
+    // Read starts are counted over spans wider than a site. Window 0 is already fetched for a
+    // site, so counting fetches window 1 alone, whole, into the cache, where a later site in
+    // window 1 finds it.
+    FakeWindowedSource windowed({{"a", 30}, {"b", 95}, {"c", 105}}, 100);
+
+    names_for(windowed, {{30, 30}});
+    REQUIRE(windowed.get_fetches().size() == 1);
+
+    auto counts = starts_on(windowed, {95, 105});
+    REQUIRE(counts[60].first == 2);
+    REQUIRE(windowed.get_fetches().size() == 2);
+    REQUIRE(windowed.get_fetches()[1] == make_pair<nid_t, nid_t>(100, 199));
+
+    // Counted again, nothing is fetched.
+    starts_on(windowed, {95, 105});
+    REQUIRE(windowed.get_fetches().size() == 2);
+
+    vector<string> names = names_for(windowed, {{105, 105}});
+    REQUIRE(names == vector<string>{"c"});
+    REQUIRE(windowed.get_fetches().size() == 2);
+}
+
+TEST_CASE("A window's read starts outlive its eviction from the cache", "[site_read_source]") {
+    // Two cache entries and three windows: window 0 is evicted, but its tally is kept, so
+    // counting its starts fetches nothing.
+    FakeWindowedSource windowed({{"a", 30}, {"b", 105}, {"c", 250}}, 100, 2);
+
+    names_for(windowed, {{30, 30}});
+    names_for(windowed, {{105, 105}});
+    names_for(windowed, {{250, 250}});
+    REQUIRE(windowed.get_fetches().size() == 3);
+
+    auto counts = starts_on(windowed, {30});
+    REQUIRE(counts[60].first == 1);
+    REQUIRE(windowed.get_fetches().size() == 3);
+}
+
+TEST_CASE("A failed fetch leaves no query waiting for it", "[site_read_source]") {
+    // A thread fetching a window claims it, and other threads wait for that fetch. If the fetch
+    // fails, the claim must go, or the next query for the window would wait for ever.
+    FakeWindowedSource windowed({{"a", 105}}, 100);
+
+    windowed.fail_next_fetch();
+    REQUIRE_THROWS(starts_on(windowed, {105}));
+    REQUIRE(starts_on(windowed, {105})[60].first == 1);
+
+    windowed.fail_next_fetch();
+    REQUIRE_THROWS(names_for(windowed, {{5, 5}}));
+    REQUIRE(names_for(windowed, {{5, 5}}).empty());
+    REQUIRE(windowed.get_fetches().size() == 4);
+}
+
+TEST_CASE("Threads wanting a window at the same time fetch it once", "[site_read_source]") {
+    // The cache is shared, so a thread that finds a window being fetched waits for that fetch
+    // rather than fetching the window again.
+    FakeWindowedSource windowed({{"a", 30}, {"b", 105}}, 100);
+
+    vector<vector<string>> names(64);
+    vector<size_t> starts(64);
+#pragma omp parallel for num_threads(8)
+    for (int i = 0; i < 64; ++i) {
+        names[i] = names_for(windowed, {{30, 30}});
+        starts[i] = starts_on(windowed, {30, 105})[60].first;
+    }
+
+    for (int i = 0; i < 64; ++i) {
+        REQUIRE(names[i] == vector<string>{"a"});
+        REQUIRE(starts[i] == 2);
+    }
+    REQUIRE(windowed.get_fetches().size() == 2);
 }
 
 }

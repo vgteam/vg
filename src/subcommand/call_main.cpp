@@ -2104,9 +2104,11 @@ int main_call(int argc, char** argv) {
                 if (read_window_size == 0) {
                     read_window_size = DEFAULT_GAF_BASE_WINDOW;
                 }
+                // Four windows per thread, held in one cache that all threads share.
                 auto gaf_base_source = new GafBaseSiteReadSource(*graph, gaf_base_filename,
                                                                  query_graph, read_filter,
-                                                                 read_window_size, 2,
+                                                                 read_window_size,
+                                                                 4 * (size_t)vg::get_thread_count(),
                                                                  gaf_base_binary);
                 read_source.reset(gaf_base_source);
                 // Check the setup now, so that a missing binary or unreadable database is
@@ -2132,8 +2134,10 @@ int main_call(int argc, char** argv) {
                 if (read_window_size == 0) {
                     read_window_size = DEFAULT_GAM_INDEX_WINDOW;
                 }
+                // Four windows per thread, held in one cache that all threads share.
                 read_source.reset(new IndexedGamSiteReadSource(gam_filename, gam_index_filename,
-                                                               read_filter, read_window_size));
+                                                               read_filter, read_window_size,
+                                                               4 * (size_t)vg::get_thread_count()));
                 if (show_progress) {
                     logger.info() << "Using indexed GAM " << gam_filename
                                   << " with index " << gam_index_filename << endl;
@@ -2849,6 +2853,9 @@ int main_call(int argc, char** argv) {
                           << "window, fetched uncached over " << windowed->get_straddle_wanted()
                           << " node IDs (spanning " << windowed->get_straddle_nodes() << ")"
                           << endl;
+            logger.info() << (gaf_base != nullptr ? "GAF-Base: " : "Indexed GAM: ")
+                          << windowed->get_whole_fetches() << " windows fetched whole, holding "
+                          << windowed->get_whole_fetch_reads() << " reads" << endl;
             if (gaf_base != nullptr) {
                 // Each query runs a subprocess, so this count largely determines run time.
                 logger.info() << "GAF-Base: " << gaf_base->get_query_count()

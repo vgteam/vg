@@ -1188,20 +1188,10 @@ GraphAlignedAlleleLikelihoodCalculator::StartCounts
 GraphAlignedAlleleLikelihoodCalculator::count_starts(const vector<nid_t>& nodes, size_t bp) const {
     StartCounts counts;
     counts.bp = bp;
-    // The nodes as sorted, coalesced ID ranges: the read source visits each read once however
-    // many ranges it touches.
     vector<nid_t> sorted(nodes);
     std::sort(sorted.begin(), sorted.end());
     sorted.erase(std::unique(sorted.begin(), sorted.end()), sorted.end());
-    vector<pair<nid_t, nid_t>> ranges;
-    for (nid_t id : sorted) {
-        if (!ranges.empty() && ranges.back().second + 1 == id) {
-            ranges.back().second = id;
-        } else {
-            ranges.emplace_back(id, id);
-        }
-    }
-    if (ranges.empty()) {
+    if (sorted.empty()) {
         return counts;
     }
 
@@ -1211,24 +1201,19 @@ GraphAlignedAlleleLikelihoodCalculator::count_starts(const vector<nid_t>& nodes,
     //
     // 1 - e_r depends on the read's MAPQ alone, so reads are tallied by MAPQ and the tallies
     // summed in MAPQ order. The sum then does not depend on the order the read source returns
-    // reads in, which can change with its fetch window.
+    // reads in, which can change with its fetch window. The length total is a sum of whole
+    // numbers, exact in a double, so neither its order nor its grouping changes it.
+    //
+    // The read source counts the starts itself. A source that fetches reads by node-ID window
+    // then answers from tallies it made while fetching windows for the sites, rather than
+    // fetching these nodes' reads a second time.
     double& length_total = counts.length_total;
     size_t& length_count = counts.length_count;
     map<int32_t, size_t> by_mapq;
-    read_source.for_each_alignment(ranges, [&](const Alignment& aln) {
-        // Count only the reads that begin on one of the nodes; the fetch also returns reads
-        // that only pass through them.
-        const Path& path = aln.path();
-        if (path.mapping_size() == 0) {
-            return;
-        }
-        nid_t start_node = path.mapping(0).position().node_id();
-        if (!std::binary_search(sorted.begin(), sorted.end(), start_node)) {
-            return;
-        }
-        length_total += (double)aln.sequence().size();
-        ++length_count;
-        ++by_mapq[aln.mapping_quality()];
+    read_source.for_each_read_start(sorted, [&](int32_t mapq, size_t reads, size_t bases) {
+        length_total += (double)bases;
+        length_count += reads;
+        by_mapq[mapq] += reads;
     });
     for (const auto& tally : by_mapq) {
         if (!params.depth_effective_reads) {

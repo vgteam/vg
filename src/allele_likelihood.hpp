@@ -677,8 +677,7 @@ protected:
     const SiteReadSource& read_source;
     mutable unordered_map<size_t, WindowReadStats> window_rate;
     /// Both keyed by reference path index and bucket: a bucket's own counts, and the rate
-    /// window centred on it. Each bucket's reads are fetched once, although three windows
-    /// use them.
+    /// window centred on it. Each bucket is counted once, although three windows use it.
     mutable unordered_map<pair<size_t, int64_t>, StartCounts> ref_bucket_counts;
     mutable unordered_map<pair<size_t, int64_t>, WindowReadStats> ref_window_rate;
     mutable std::mutex window_bp_mutex;

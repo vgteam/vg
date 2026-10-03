@@ -28,6 +28,36 @@ namespace vg {
 using namespace std;
 
 
+void SiteReadSource::for_each_read_start(
+    const vector<nid_t>& nodes,
+    const function<void(int32_t mapq, size_t reads, size_t bases)>& iteratee) const {
+
+    // The nodes as coalesced ID ranges: the source visits each read once however many ranges it
+    // touches.
+    vector<pair<nid_t, nid_t>> ranges;
+    for (nid_t id : nodes) {
+        if (!ranges.empty() && ranges.back().second + 1 == id) {
+            ranges.back().second = id;
+        } else {
+            ranges.emplace_back(id, id);
+        }
+    }
+    if (ranges.empty()) {
+        return;
+    }
+    for_each_alignment(ranges, [&](const Alignment& aln) {
+        // The fetch also returns reads that only pass through the nodes.
+        if (aln.path().mapping_size() == 0) {
+            return;
+        }
+        nid_t start_node = aln.path().mapping(0).position().node_id();
+        if (!std::binary_search(nodes.begin(), nodes.end(), start_node)) {
+            return;
+        }
+        iteratee(aln.mapping_quality(), 1, aln.sequence().size());
+    });
+}
+
 void InMemorySiteReadSource::add_read(const Alignment& aln, const Filter& filter) {
     // Secondary and unmapped alignments are always dropped. A secondary alignment repeats a read
     // that is already counted, which would break the independence of reads that the genotype
@@ -131,25 +161,6 @@ WindowedSiteReadSource::WindowedSiteReadSource(const SiteReadFilter& filter,
     : filter(filter),
       window_size(max<size_t>(1, window_size)),
       cache_entries(max<size_t>(1, cache_entries)) {
-
-    caches.resize(max(1, get_thread_count()));
-}
-
-WindowedSiteReadSource::CacheState& WindowedSiteReadSource::cache_state() const {
-    int tid = omp_get_thread_num();
-    if ((size_t)tid >= caches.size()) {
-        // More threads than we sized for; grow rather than misbehave.
-#pragma omp critical (windowed_site_read_caches)
-        if ((size_t)tid >= caches.size()) {
-            caches.resize(tid + 1);
-        }
-    }
-    CacheState& state = caches[tid];
-    if (!state.initialized) {
-        state.cache.resize(cache_entries);
-        state.initialized = true;
-    }
-    return state;
 }
 
 size_t WindowedSiteReadSource::window_of(nid_t id) const {
@@ -237,22 +248,103 @@ void WindowedSiteReadSource::for_each_read(
         return;
     }
 
-    CacheState& state = cache_state();
+    // Usually served from the cache when sites are visited in node-ID order
+    // (GraphCaller::set_node_id_ordering).
+    bool was_fetched = false;
+    shared_ptr<const CacheEntry> entry = get_window(first_window, was_fetched);
+    if (was_fetched) {
+        ++cache_misses;
+    } else {
+        ++cache_hits;
+    }
+    deliver(*entry, ranges, iteratee);
+}
 
-    // Serve from the cache if this window is resident, as it usually is when sites are visited
-    // in node-ID order (GraphCaller::set_node_id_ordering).
-    for (const CacheEntry& entry : state.cache) {
-        if (entry.valid && entry.window == first_window) {
-            ++cache_hits;
-            deliver(entry, ranges, iteratee);
-            return;
+shared_ptr<const WindowedSiteReadSource::CacheEntry>
+WindowedSiteReadSource::get_window(size_t window, bool& was_fetched) const {
+    was_fetched = false;
+    {
+        unique_lock<std::mutex> lock(cache_mutex);
+        while (true) {
+            auto found = cache.find(window);
+            if (found == cache.end()) {
+                // No thread has the window: claim it, with no entry until it is fetched.
+                cache.emplace(window, CacheSlot());
+                break;
+            }
+            if (found->second.entry) {
+                found->second.last_use = ++cache_clock;
+                return found->second.entry;
+            }
+            // Another thread is fetching it.
+            cache_filled.wait(lock);
         }
     }
-    ++cache_misses;
 
+    shared_ptr<CacheEntry> entry;
+    bool tallied = false;
+    try {
+        entry = make_shared<CacheEntry>(load_window(window));
+        {
+            lock_guard<std::mutex> guard(cache_mutex);
+            tallied = starts.count(window) > 0;
+        }
+    } catch (...) {
+        // Release the claim, so that a thread waiting on this window fetches it itself rather
+        // than waiting for ever.
+        lock_guard<std::mutex> guard(cache_mutex);
+        cache.erase(window);
+        cache_filled.notify_all();
+        throw;
+    }
+    // Only this thread can be fetching the window now, so no other thread can tally it first.
+    vector<StartTally> tallies;
+    if (!tallied) {
+        tallies = tally_starts(*entry);
+    }
+    was_fetched = true;
+
+    // Windows dropped from the cache are freed here, after the lock is released: freeing a
+    // window's reads takes long enough that other threads would queue on the lock.
+    vector<shared_ptr<const CacheEntry>> dropped;
+    lock_guard<std::mutex> guard(cache_mutex);
+    if (!tallied) {
+        starts.emplace(window, std::move(tallies));
+    }
+    CacheSlot& slot = cache[window];
+    slot.entry = entry;
+    slot.last_use = ++cache_clock;
+
+    // Drop the least recently used fetched windows beyond the cache's size. A window being
+    // fetched has no entry and is not counted. A thread still reading a dropped window keeps it
+    // alive through its own pointer.
+    while (true) {
+        size_t held = 0;
+        auto oldest = cache.end();
+        for (auto it = cache.begin(); it != cache.end(); ++it) {
+            if (!it->second.entry) {
+                continue;
+            }
+            ++held;
+            if (it->first != window && (oldest == cache.end()
+                                        || it->second.last_use < oldest->second.last_use)) {
+                oldest = it;
+            }
+        }
+        if (held <= cache_entries || oldest == cache.end()) {
+            break;
+        }
+        dropped.push_back(std::move(oldest->second.entry));
+        cache.erase(oldest);
+    }
+    cache_filled.notify_all();
+    return entry;
+}
+
+WindowedSiteReadSource::CacheEntry WindowedSiteReadSource::load_window(size_t window) const {
     CacheEntry entry;
-    entry.window = first_window;
-    nid_t lo = (nid_t)(first_window * window_size);
+    entry.window = window;
+    nid_t lo = (nid_t)(window * window_size);
     nid_t hi = lo + (nid_t)window_size - 1;
     fetch_span({{lo, hi}}, [&](Alignment& aln) {
         // Take ownership rather than copy the alignment. fetch_span hands out a mutable reference
@@ -265,12 +357,93 @@ void WindowedSiteReadSource::for_each_read(
     // Sorted once per fetch rather than per site query. There is one entry per mapping, so a read
     // that visits a node twice is listed twice.
     std::sort(entry.node_index.begin(), entry.node_index.end());
-    entry.valid = true;
+    ++whole_fetches;
+    whole_fetch_reads += entry.reads.size();
+    return entry;
+}
 
-    deliver(entry, ranges, iteratee);
+vector<WindowedSiteReadSource::StartTally>
+WindowedSiteReadSource::tally_starts(const CacheEntry& entry) const {
+    vector<StartTally> tallies;
+    for (const Alignment& aln : entry.reads) {
+        // The fetch filtered the reads, and the filter drops reads with no mappings.
+        nid_t node = aln.path().mapping(0).position().node_id();
+        if (window_of(node) != entry.window) {
+            // Tallied under its own window instead.
+            continue;
+        }
+        StartTally tally;
+        tally.node = node;
+        tally.mapq = aln.mapping_quality();
+        tally.reads = 1;
+        tally.bases = aln.sequence().size();
+        tallies.push_back(tally);
+    }
+    std::sort(tallies.begin(), tallies.end(), [](const StartTally& a, const StartTally& b) {
+        return a.node != b.node ? a.node < b.node : a.mapq < b.mapq;
+    });
+    // Merge the reads sharing a node and a mapping quality.
+    size_t kept = 0;
+    for (size_t i = 0; i < tallies.size(); ++i) {
+        if (kept > 0 && tallies[kept - 1].node == tallies[i].node
+            && tallies[kept - 1].mapq == tallies[i].mapq) {
+            tallies[kept - 1].reads += tallies[i].reads;
+            tallies[kept - 1].bases += tallies[i].bases;
+        } else {
+            tallies[kept++] = tallies[i];
+        }
+    }
+    tallies.resize(kept);
+    return tallies;
+}
 
-    state.cache[state.next_evict] = std::move(entry);
-    state.next_evict = (state.next_evict + 1) % state.cache.size();
+const vector<WindowedSiteReadSource::StartTally>&
+WindowedSiteReadSource::window_starts(size_t window) const {
+    {
+        lock_guard<std::mutex> guard(cache_mutex);
+        auto found = starts.find(window);
+        if (found != starts.end()) {
+            return found->second;
+        }
+    }
+    // Never fetched. A window's first fetch tallies it before the fetch is published, so once
+    // get_window returns the tallies are in. The fetched window goes into the cache, where the
+    // sites inside it will find it. Not a site query, so not counted as a cache hit or miss.
+    bool was_fetched = false;
+    get_window(window, was_fetched);
+    lock_guard<std::mutex> guard(cache_mutex);
+    return starts.at(window);
+}
+
+void WindowedSiteReadSource::for_each_read_start(
+    const vector<nid_t>& nodes,
+    const function<void(int32_t mapq, size_t reads, size_t bases)>& iteratee) const {
+
+    size_t i = 0;
+    while (i < nodes.size()) {
+        // The nodes are sorted, so each window's nodes are consecutive.
+        size_t window = window_of(nodes[i]);
+        const vector<StartTally>& tallies = window_starts(window);
+        for (; i < nodes.size() && window_of(nodes[i]) == window; ++i) {
+            StartTally probe;
+            probe.node = nodes[i];
+            auto it = std::lower_bound(tallies.begin(), tallies.end(), probe,
+                                       [](const StartTally& a, const StartTally& b) {
+                                           return a.node < b.node;
+                                       });
+            for (; it != tallies.end() && it->node == nodes[i]; ++it) {
+                iteratee(it->mapq, it->reads, it->bases);
+            }
+        }
+    }
+}
+
+size_t WindowedSiteReadSource::get_whole_fetches() const {
+    return whole_fetches.load();
+}
+
+size_t WindowedSiteReadSource::get_whole_fetch_reads() const {
+    return whole_fetch_reads.load();
 }
 
 void WindowedSiteReadSource::index_read(const Alignment& aln, uint32_t read_index,
