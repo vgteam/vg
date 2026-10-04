@@ -217,7 +217,7 @@ struct AtomizeCounters {
     std::atomic<size_t> child_inlined{0};
     /// Why `emit_block_records` declined a site, by refusal point. Each means the site's single
     /// record is written instead.
-    std::atomic<size_t> refuse[11] = {};
+    std::atomic<size_t> refuse[13] = {};
 };
 
 /// Rewrite GQ, GQN and FILTER on one rendered VCF line whose genotype the linkage model changed,

@@ -47,7 +47,7 @@ static string join_with(const vector<string>& parts, char delim) {
 
 
 // The names of the AtomizeCounters::refuse reasons.
-static const char* const g_atomize_refuse_name[11] = {
+static const char* const g_atomize_refuse_name[13] = {
     "the genotyper returned no genotype: ploidy 0, or no read the matrix could place",
     "no reference traversal",
     "the snarl does not resolve",
@@ -59,6 +59,8 @@ static const char* const g_atomize_refuse_name[11] = {
     "every block spelled the reference's own bases: a route difference with no sequence difference",
     "one block, saying what the site record already says",
     "-L merged the called alleles, which blocks would spell apart again",
+    "one block that two strands' routes spell differently within one site allele, so the site cannot give it a genotype",
+    "one block, where a chain crossed more than once may leave its record short of what the site record says",
 };
 static_assert(sizeof(g_atomize_refuse_name) / sizeof(g_atomize_refuse_name[0])
                   == sizeof(AtomizeCounters::refuse) / sizeof(AtomizeCounters::refuse[0]),
@@ -123,15 +125,16 @@ void VCFOutputCaller::report_atomize_instrumentation() const {
     }
     {
         // One line, listing only the reasons that occurred.
+        const size_t reasons = sizeof(AtomizeCounters::refuse) / sizeof(AtomizeCounters::refuse[0]);
         size_t total = 0;
-        for (size_t i = 0; i < 11; ++i) {
+        for (size_t i = 0; i < reasons; ++i) {
             total += atomize_counters.refuse[i].load();
         }
         if (total > 0) {
             cerr << "[vg call] atomize: " << total << " sites declined block emission, so the site"
                  << " record stands:";
             bool first = true;
-            for (size_t i = 0; i < 11; ++i) {
+            for (size_t i = 0; i < reasons; ++i) {
                 size_t n = atomize_counters.refuse[i].load();
                 if (n > 0) {
                     cerr << (first ? " " : "; ") << n << " " << g_atomize_refuse_name[i];
@@ -143,7 +146,8 @@ void VCFOutputCaller::report_atomize_instrumentation() const {
     }
     if (atomize_counters.split_sites.load() > 0) {
         cerr << "[vg call] atomize: " << atomize_counters.split_sites.load()
-             << " sites emitted as blocks instead of one record, " << atomize_counters.split_lines.load()
+             << " sites written as their difference blocks rather than their site record, "
+             << atomize_counters.split_lines.load()
              << " lines" << endl;
     }
 }
@@ -450,17 +454,18 @@ string VCFOutputCaller::vcf_header(const PathHandleGraph& graph, const vector<st
     ss << "##INFO=<ID=AT,Number=R,Type=String,Description=\"Allele Traversal as path in graph\">" << endl;
     if (atomize_blocks) {
         ss << "##INFO=<ID=SB,Number=2,Type=Integer,Description=\"Index and count of this "
-           << "difference block within its snarl: this record is one of several the same snarl "
-           << "emitted, because the reference and the called haplotypes differ from each other in "
-           << "more than one place inside it. All records of one snarl share an ID. "
-           << "DOUBLE COUNTING: the per-sample evidence is the SNARL's, repeated on every block, "
-           << "not apportioned between them -- AD, GL, GQ, GQI, GP and QUAL are identical across "
-           << "the set, because the genotype likelihood was computed over whole-snarl traversals "
-           << "and has no per-block decomposition. DP, DR and BL are per-site read counts and are "
-           << "site-level by definition. So any consumer that sums, averages or otherwise "
-           << "aggregates evidence across records must group by ID first and count each snarl "
-           << "once. Records without SB are unaffected: they are the only record their snarl "
-           << "emitted.\">" << endl;
+           << "difference block within its snarl. A snarl is written as one record per difference "
+           << "block where the reference and the called haplotypes differ from each other in more "
+           << "than one place inside it, or where its own record would repeat a child snarl's, so "
+           << "the count can be 1. A block record's ID is the snarl's ID with _ and the index "
+           << "appended. DOUBLE COUNTING: the per-sample evidence is the SNARL's, repeated on every "
+           << "block, not apportioned between them -- AD, GL, GQ, GQI, GP and QUAL are identical "
+           << "across the set, because the genotype likelihood was computed over whole-snarl "
+           << "traversals and has no per-block decomposition. DP, DR and BL are per-site read "
+           << "counts and are site-level by definition. So any consumer that sums, averages or "
+           << "otherwise aggregates evidence across records must group by the snarl's ID first and "
+           << "count each snarl once. Records without SB are unaffected: they are the only record "
+           << "their snarl emitted.\">" << endl;
     }
     if (allele_merge_threshold < 1.0) {
         ss << "##INFO=<ID=MAT,Number=.,Type=String,Description=\"Merged Allele Traversal: "
@@ -2997,6 +3002,8 @@ int VCFOutputCaller::emit_block_records(const PathPositionHandleGraph& graph, co
     // set.
     vector<vcflib::Variant> built;
     built.reserve(clusters.size());
+    // For each record, whether no two of its alleles stand for one site allele.
+    vector<bool> built_one_to_one;
 
     for (const pair<int, int>& cluster : clusters) {
         const size_t rb = (size_t)cluster.first;
@@ -3286,18 +3293,77 @@ int VCFOutputCaller::emit_block_records(const PathPositionHandleGraph& graph, co
         flatten_common_allele_ends(b_var, true, 0);
         flatten_common_allele_ends(b_var, false, 0);
         built.push_back(std::move(b_var));
+        built_one_to_one.push_back(set<int>(site_of_block.begin(), site_of_block.end()).size()
+                                   == site_of_block.size());
     }
 
     if (built.empty()) {
         ++atomize_counters.refuse[8];
         return -1;
     }
-    // Replace the site record only where that changes the output: more than one record, or one
-    // record with fewer alleles than the site, as when two strands' routes spell the same sequence.
-    bool collapses = built.size() == 1 && built[0].alleles.size() < site.alleles.size();
-    if (built.size() < 2 && !collapses) {
-        ++atomize_counters.refuse[9];
-        return -1;
+    // One block replaces the site record only where the site record says more than the block. A
+    // block spells a strand's own visits inside its difference blocks and the reference's over the
+    // steps the strand matches, so where a strand crosses a matched child chain, the block spells the
+    // reference's route through it, and the chain's own record reports the strand's route. The site
+    // record spells each strand's site allele in full, so it says more exactly where some strand's
+    // allele takes a route through a matched chain that spells other bases, and there it would repeat
+    // the chain's record.
+    if (built.size() == 1) {
+        // A chain is genotyped from each allele's first crossing of it, so where the reference or a
+        // strand crosses a chain more than once, the chain's record need not report the crossing the
+        // block leaves to it, and the site record stands.
+        auto crosses_a_chain_twice = [](const SymbolicAllele& sym) {
+            set<pair<nid_t, nid_t>> chains;
+            for (const SymbolicStep& step : sym) {
+                if (step.is_chain() && !chains.insert(make_pair(step.id, step.end_id)).second) {
+                    return true;
+                }
+            }
+            return false;
+        };
+        bool chain_crossed_twice = crosses_a_chain_twice(sref);
+        bool site_says_more = false;
+        for (size_t s = 0; s < genotype.size(); ++s) {
+            if (haps[s].trav < 0 || haps[s].trav == ref_trav_idx) {
+                continue;
+            }
+            chain_crossed_twice = chain_crossed_twice || crosses_a_chain_twice(haps[s].sym);
+            const SnarlTraversal& t = called_traversals[haps[s].trav];
+            string as_blocks;
+            size_t next = 0;
+            for (const DiffBlock& b : haps[s].blocks) {
+                as_blocks += seq_of(ref_trav, visit_of_step(ref_ranges, next, ref_trav),
+                                    visit_of_step(ref_ranges, (size_t)b.ref_begin, ref_trav));
+                as_blocks += seq_of(t, visit_of_step(haps[s].ranges, (size_t)b.alt_begin, t),
+                                    visit_of_step(haps[s].ranges, (size_t)b.alt_end, t));
+                next = (size_t)b.ref_end;
+            }
+            as_blocks += seq_of(ref_trav, visit_of_step(ref_ranges, next, ref_trav), ref_trav.visit_size());
+            // The site record spells the strand's site allele, which is the reference for a route that
+            // differs from it only inside child chains.
+            auto allele = trav_to_allele.find(haps[s].trav);
+            const string site_allele =
+                allele != trav_to_allele.end() && allele->second == 0
+                    ? seq_of(ref_trav, visit_of_step(ref_ranges, 0, ref_trav), ref_trav.visit_size())
+                    : seq_of(t, visit_of_step(haps[s].ranges, 0, t), t.visit_size());
+            site_says_more = site_says_more || as_blocks != site_allele;
+        }
+        if (!site_says_more) {
+            ++atomize_counters.refuse[9];
+            return -1;
+        }
+        if (chain_crossed_twice) {
+            ++atomize_counters.refuse[12];
+            return -1;
+        }
+        // The block takes its genotype, likelihoods and phase from the site, through the site allele
+        // each of its alleles stands for, so it cannot be written where two of its alleles stand for
+        // one. Two routes can spell one site allele and still differ here, where a difference outside
+        // a child chain is cancelled by one inside it.
+        if (!built_one_to_one[0]) {
+            ++atomize_counters.refuse[11];
+            return -1;
+        }
     }
 
     int added = 0;

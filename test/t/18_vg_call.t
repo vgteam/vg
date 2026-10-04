@@ -9,7 +9,7 @@ PATH=../bin:$PATH # for vg
 # FORMAT field shifts every later one, which broke four assertions here that were not
 # testing field order at all -- one of them silently compared BL against a GQ threshold.
 
-plan tests 453
+plan tests 461
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -1264,6 +1264,139 @@ is $(awk -F'\t' '/^H\t/ && $3 == "0" && $11 != "." {n += $11} END {print n+0}' n
 is $(grep -c "collapsed sites phased with no line of their own" nestblk_mosaic.err) "0" \
    "and a site written as blocks is not reported as having no line"
 
+# A site whose only difference outside its child chains is one block is written as that block, not
+# as the whole site record, because the site record spells every allele in full and so repeats the
+# child's variant. Here the substitution 3/4 is no snarl of its own (the edge 4->6 sees to that), so
+# it belongs to the site 2..6, and p2#0 takes it together with the child chain 5..9's deletion of 7.
+# The child's record reports the deletion; the site must report only the substitution.
+rm -f nestdup.gfa nestdup.gbz nestdup.gam nestdup.vcf
+{
+  printf 'H\tVN:Z:1.1\n'
+  printf 'S\t1\tCCTAGGCTTAGGACCTGATCGGATCCAGTA\n'
+  printf 'S\t2\tGGCATTAGCCTTAGACCGAT\n'
+  printf 'S\t3\tA\nS\t4\tT\n'
+  printf 'S\t5\tTTGACCAGTTCAGGACTTAC\n'
+  printf 'S\t7\tCATCATCATCATCATCATCATCATCATCAT\n'
+  printf 'S\t9\tAACCGGTTACGTTGCAATCG\n'
+  printf 'S\t6\tGGATCCTAGCATTCGGATCCAAGTTCCAGA\n'
+  printf 'L\t1\t+\t2\t+\t0M\nL\t2\t+\t3\t+\t0M\nL\t2\t+\t4\t+\t0M\n'
+  printf 'L\t3\t+\t5\t+\t0M\nL\t4\t+\t5\t+\t0M\nL\t4\t+\t6\t+\t0M\n'
+  printf 'L\t5\t+\t7\t+\t0M\nL\t7\t+\t9\t+\t0M\nL\t5\t+\t9\t+\t0M\n'
+  printf 'L\t9\t+\t6\t+\t0M\n'
+  printf 'P\tGRCh#0#chr1\t1+,2+,3+,5+,7+,9+,6+\t*\n'
+  printf 'W\tp1\t0\tchr1\t0\t150\t>1>2>3>5>7>9>6\n'
+  printf 'W\tp1\t1\tchr1\t0\t120\t>1>2>4>5>9>6\n'
+  printf 'W\tp2\t0\tchr1\t0\t120\t>1>2>4>5>9>6\n'
+  printf 'W\tp2\t1\tchr1\t0\t150\t>1>2>3>5>7>9>6\n'
+  printf 'W\tp3\t0\tchr1\t0\t81\t>1>2>4>6\n'
+  printf 'W\tp3\t1\tchr1\t0\t150\t>1>2>3>5>7>9>6\n'
+} > nestdup.gfa
+vg gbwt -G nestdup.gfa --gbz-format -g nestdup.gbz --set-reference GRCh 2>/dev/null
+vg sim -x nestdup.gbz -n 300 -l 40 -a -s 31 --path "p2#0#chr1#0" > nestdup.gam 2>/dev/null
+vg sim -x nestdup.gbz -n 300 -l 40 -a -s 37 --path "p2#1#chr1#0" >> nestdup.gam 2>/dev/null
+# Simulated reads carry no mapping quality, so cap the mismapping probability to let them count.
+vg call nestdup.gbz --read-likelihood --gam nestdup.gam -t 1 -s samp --nested --phased \
+    --mismap-max 0.05 2>/dev/null > nestdup.vcf
+is $(grep -v "^#" nestdup.vcf | awk -F'\t' '$3 == ">5>9" && $10 ~ /^0\|1:/' | wc -l | tr -d ' ') "1" \
+   "the child chain's deletion is called on the strand that carries it"
+is $(grep -v "^#" nestdup.vcf | awk -F'\t' '$3 ~ /^>2>6/ && length($4) != length($5)' | wc -l | tr -d ' ') "0" \
+   "and the site that encloses it reports only its own substitution, not the deletion again"
+
+is $(grep -v "^#" nestdup.vcf | awk -F'\t' '$3 == ">2>6_0" && $2 == 51 && $4 == "A" && $5 == "T"' | wc -l | tr -d ' ') "1" \
+   "and reports the substitution as a block record of its own"
+
+# A site whose one block spells the same haplotypes as its site record keeps the site record, which is
+# left-normalised. Here the sample deletes node 2's A after node 1's A: the site record slides the
+# deletion left to CA>C at 50, where the block would be anchored at 52.
+rm -f blkleaf.gfa blkleaf.gbz blkleaf.gam blkleaf.vcf
+{
+  printf 'H\tVN:Z:1.1\n'
+  printf 'S\t1\tCCTAGGCTTAGGACCTGATCGGATCCAGTAGGCATTAGCCTTAGACCGTCAA\n'
+  printf 'S\t2\tA\n'
+  printf 'S\t3\tGGATCCTAGCATTCGGATCCAAGTTCCAGATTGACCAGTTCAGGACTTAC\n'
+  printf 'L\t1\t+\t2\t+\t0M\nL\t2\t+\t3\t+\t0M\nL\t1\t+\t3\t+\t0M\n'
+  printf 'P\tGRCh#0#chr1\t1+,2+,3+\t*\n'
+  printf 'W\tp1\t0\tchr1\t0\t103\t>1>2>3\n'
+  printf 'W\tp1\t1\tchr1\t0\t102\t>1>3\n'
+  printf 'W\tp2\t0\tchr1\t0\t102\t>1>3\n'
+  printf 'W\tp2\t1\tchr1\t0\t103\t>1>2>3\n'
+} > blkleaf.gfa
+vg gbwt -G blkleaf.gfa --gbz-format -g blkleaf.gbz --set-reference GRCh 2>/dev/null
+vg sim -x blkleaf.gbz -n 300 -l 40 -a -s 41 --path "p2#0#chr1#0" > blkleaf.gam 2>/dev/null
+vg sim -x blkleaf.gbz -n 300 -l 40 -a -s 43 --path "p2#1#chr1#0" >> blkleaf.gam 2>/dev/null
+vg call blkleaf.gbz --read-likelihood --gam blkleaf.gam -t 1 -s samp --mismap-max 0.05 2>/dev/null > blkleaf.vcf
+is $(grep -v "^#" blkleaf.vcf | awk -F'\t' '$3 == ">1>3" && $2 == 50 && $4 == "CA" && $5 == "C"' | wc -l | tr -d ' ') "1" \
+   "a site with one block in a repeat keeps its left-normalised site record"
+
+# A block record takes its genotype from the site, through the site allele each of its alleles stands
+# for, so one block whose alleles would stand for one site allele is not written. Here p2#0 takes 2->4
+# (GCAT) and skips the child chain 5..9's CAT, which spells exactly the reference, so the site's
+# genotype is 0|0, while the block would be an insertion with no site allele of its own to take a
+# phase or likelihoods from. The site record stands, and writes no line.
+rm -f blksame.gfa blksame.gbz blksame.gam blksame.vcf blksame.err
+{
+  printf 'H\tVN:Z:1.1\n'
+  printf 'S\t1\tCCTAGGCTTAGGACCTGATCGGATCCAGTA\n'
+  printf 'S\t2\tGGCATTAGCCTTAGACCGTCTT\n'
+  printf 'S\t3\tG\nS\t4\tGCAT\nS\t5\tCATCAT\nS\t7\tCAT\n'
+  printf 'S\t9\tGACCGGTTACGTTGCAATCG\n'
+  printf 'S\t6\tGGATCCTAGCATTCGGATCCAAGTTCCAGA\n'
+  printf 'L\t1\t+\t2\t+\t0M\nL\t2\t+\t3\t+\t0M\nL\t2\t+\t4\t+\t0M\n'
+  printf 'L\t3\t+\t5\t+\t0M\nL\t4\t+\t5\t+\t0M\nL\t3\t+\t6\t+\t0M\n'
+  printf 'L\t5\t+\t7\t+\t0M\nL\t7\t+\t9\t+\t0M\nL\t5\t+\t9\t+\t0M\nL\t9\t+\t6\t+\t0M\n'
+  printf 'P\tGRCh#0#chr1\t1+,2+,3+,5+,7+,9+,6+\t*\n'
+  printf 'W\tp1\t0\tchr1\t0\t112\t>1>2>3>5>7>9>6\n'
+  printf 'W\tp1\t1\tchr1\t0\t112\t>1>2>4>5>9>6\n'
+  printf 'W\tp2\t0\tchr1\t0\t112\t>1>2>4>5>9>6\n'
+  printf 'W\tp2\t1\tchr1\t0\t112\t>1>2>3>5>7>9>6\n'
+  printf 'W\tp3\t0\tchr1\t0\t83\t>1>2>3>6\n'
+  printf 'W\tp3\t1\tchr1\t0\t112\t>1>2>4>5>9>6\n'
+} > blksame.gfa
+vg gbwt -G blksame.gfa --gbz-format -g blksame.gbz --set-reference GRCh 2>/dev/null
+vg sim -x blksame.gbz -n 300 -l 40 -a -s 47 --path "p2#0#chr1#0" > blksame.gam 2>/dev/null
+vg sim -x blksame.gbz -n 300 -l 40 -a -s 53 --path "p2#1#chr1#0" >> blksame.gam 2>/dev/null
+vg call blksame.gbz --read-likelihood --gam blksame.gam -t 1 -s samp --nested --phased \
+    --mismap-max 0.05 --progress 2> blksame.err > blksame.vcf
+is $(grep -c "1 one block that two strands' routes spell differently within one site allele" blksame.err) "1" \
+   "a block whose alleles would stand for one site allele is refused"
+is $(grep -v "^#" blksame.vcf | awk -F'\t' '$3 ~ /^>2>6/' | wc -l | tr -d ' ') "0" \
+   "and the site, whose genotype is the reference, writes no line"
+
+# A chain is genotyped from each allele's first crossing of it, so a site whose strand crosses a chain
+# twice keeps its site record. Here p2#1 crosses the chain 5..9 a second time, deleting 7 on the way;
+# the chain's own record, made from the first crossing, does not report that deletion.
+rm -f blktwice.gfa blktwice.gbz blktwice.gam blktwice.vcf blktwice.err
+{
+  printf 'H\tVN:Z:1.1\n'
+  printf 'S\t1\tCCTAGGCTTAGGACCTGATCGGATCCAGTA\n'
+  printf 'S\t2\tGGCATTAGCCTTAGACCGAT\n'
+  printf 'S\t3\tA\nS\t4\tT\n'
+  printf 'S\t5\tTTGACCAGTTCAGGACTTAC\n'
+  printf 'S\t7\tCATCATCATCATCATCATCATCATCATCAT\n'
+  printf 'S\t9\tAACCGGTTACGTTGCAATCG\n'
+  printf 'S\t6\tGGATCCTAGCATTCGGATCCAAGTTCCAGA\n'
+  printf 'L\t1\t+\t2\t+\t0M\nL\t2\t+\t3\t+\t0M\nL\t2\t+\t4\t+\t0M\n'
+  printf 'L\t3\t+\t5\t+\t0M\nL\t4\t+\t5\t+\t0M\nL\t4\t+\t6\t+\t0M\n'
+  printf 'L\t5\t+\t7\t+\t0M\nL\t7\t+\t9\t+\t0M\nL\t5\t+\t9\t+\t0M\n'
+  printf 'L\t9\t+\t6\t+\t0M\nL\t9\t+\t5\t+\t0M\n'
+  printf 'P\tGRCh#0#chr1\t1+,2+,3+,5+,7+,9+,6+\t*\n'
+  printf 'W\tp1\t0\tchr1\t0\t150\t>1>2>3>5>7>9>6\n'
+  printf 'W\tp1\t1\tchr1\t0\t120\t>1>2>4>5>9>6\n'
+  printf 'W\tp2\t0\tchr1\t0\t150\t>1>2>3>5>7>9>6\n'
+  printf 'W\tp2\t1\tchr1\t0\t160\t>1>2>3>5>7>9>5>9>6\n'
+  printf 'W\tp3\t0\tchr1\t0\t81\t>1>2>4>6\n'
+  printf 'W\tp3\t1\tchr1\t0\t160\t>1>2>3>5>7>9>5>9>6\n'
+} > blktwice.gfa
+vg gbwt -G blktwice.gfa --gbz-format -g blktwice.gbz --set-reference GRCh 2>/dev/null
+vg sim -x blktwice.gbz -n 300 -l 40 -a -s 31 --path "p2#0#chr1#0" > blktwice.gam 2>/dev/null
+vg sim -x blktwice.gbz -n 300 -l 40 -a -s 37 --path "p2#1#chr1#0" >> blktwice.gam 2>/dev/null
+vg call blktwice.gbz --read-likelihood --gam blktwice.gam -t 1 -s samp --nested --phased \
+    --mismap-max 0.05 --progress 2> blktwice.err > blktwice.vcf
+is $(grep -c "1 one block, where a chain crossed more than once" blktwice.err) "1" \
+   "a site whose strand crosses a chain twice is not written as its block"
+is $(grep -v "^#" blktwice.vcf | awk -F'\t' '$3 == ">2>6" && $2 == 101 && length($5) - length($4) == 40' | wc -l | tr -d ' ') "1" \
+   "and its site record reports both crossings"
+
 # A strand that crosses a child chain outside its own difference blocks matches the reference there
 # symbolically, whatever route it takes through the chain, so a block spells the reference over the
 # chain and the chain's own record reports the route. p2#1 deletes the chain (3..6) and node 7 and
@@ -1764,7 +1897,7 @@ rm -f rl_anchors.tsv rl_anchors.vcf rl_anchors.err rl_anchors_hom.tsv rl_anchors
       rl_anchors_nopanel.tsv rl_anchors_sp.tsv rl_anchors_ph.tsv rl_anchors_ph.vcf \
       rl_phase_off.vcf rl_phase_on.vcf rl_phase_forced.vcf rl_phase_forced.err
 
-rm -f chainblk.gfa chainblk.gbz chainblk.gam chainblk.vcf nestblk.mosaic.tsv nestblk_mosaic.err nest_del.gam nest_del_lw0.vcf nest_del_link.vcf nest_hap_anchors.tsv nest_hap_anchors.vcf nestblk.gfa nestblk.gbz nestblk.gam nestblk.vcf nest.gfa nest.gbz nest.gam nest_default.vcf nest_nested.vcf nest_hap.gam nest_hap.vcf nest_hap_err.txt nest_hap.mosaic.tsv x.vg x.gbz x.gbwt sim.gam x.pack call.vcf callg.vcf callz.vcf callg.6 callz.6 callrl_nopack.vcf callrl_nopack_z.vcf callrl_withpack.vcf nopack_err.txt sim.sorted.gam sim.sorted.gam.gai rl_inmem.vcf rl_indexed.vcf gi_err.txt gb_err.txt gb_excl.txt gb_norl.txt gb_nobin.txt sim.gaf sim.gaf.db x.gbz.db rl_gafmem.vcf rl_gafbase.vcf rl_gafbase_t4.vcf rl_gafbase_w32.vcf rl_autoz_full.vcf rl_autoz.vcf rl_explicit_z.vcf rl_support_full.vcf rl_support.vcf es_nopack.txt es_z.txt es_g.txt nopanel.vg nopanel.gbwt nopanel.gbz nopanel.pack nopanel_err.txt poisson_default.vcf poisson_z.vcf rl_phased.vcf rl_default.vcf rl_nophase.vcf rl_nopanel.vcf rl_nopanel_err.txt rl_unphased_gt.txt rl_phased_gt.txt rl_ph_err.txt rl_mosaic.tsv rl_mosaic2.tsv rl_hap.vcf rl_hap_mosaic.tsv
+rm -f chainblk.gfa chainblk.gbz chainblk.gam chainblk.vcf nestblk.mosaic.tsv nestblk_mosaic.err nest_del.gam nest_del_lw0.vcf nest_del_link.vcf nest_hap_anchors.tsv nest_hap_anchors.vcf nestblk.gfa nestblk.gbz nestblk.gam nestblk.vcf nestdup.gfa nestdup.gbz nestdup.gam nestdup.vcf blkleaf.gfa blkleaf.gbz blkleaf.gam blkleaf.vcf blksame.gfa blksame.gbz blksame.gam blksame.vcf blksame.err blktwice.gfa blktwice.gbz blktwice.gam blktwice.vcf blktwice.err nest.gfa nest.gbz nest.gam nest_default.vcf nest_nested.vcf nest_hap.gam nest_hap.vcf nest_hap_err.txt nest_hap.mosaic.tsv x.vg x.gbz x.gbwt sim.gam x.pack call.vcf callg.vcf callz.vcf callg.6 callz.6 callrl_nopack.vcf callrl_nopack_z.vcf callrl_withpack.vcf nopack_err.txt sim.sorted.gam sim.sorted.gam.gai rl_inmem.vcf rl_indexed.vcf gi_err.txt gb_err.txt gb_excl.txt gb_norl.txt gb_nobin.txt sim.gaf sim.gaf.db x.gbz.db rl_gafmem.vcf rl_gafbase.vcf rl_gafbase_t4.vcf rl_gafbase_w32.vcf rl_autoz_full.vcf rl_autoz.vcf rl_explicit_z.vcf rl_support_full.vcf rl_support.vcf es_nopack.txt es_z.txt es_g.txt nopanel.vg nopanel.gbwt nopanel.gbz nopanel.pack nopanel_err.txt poisson_default.vcf poisson_z.vcf rl_phased.vcf rl_default.vcf rl_nophase.vcf rl_nopanel.vcf rl_nopanel_err.txt rl_unphased_gt.txt rl_phased_gt.txt rl_ph_err.txt rl_mosaic.tsv rl_mosaic2.tsv rl_hap.vcf rl_hap_mosaic.tsv
 
 
 # subpath test

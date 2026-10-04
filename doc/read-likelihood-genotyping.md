@@ -450,11 +450,16 @@ only that the strand crosses the same chain, perhaps by another walk, and the re
 chain's sites report that walk.
 
 Blocks of the two strands that overlap or touch on the reference become one record, so that each
-stretch of reference appears in at most one record. The blocks replace the record for the whole
-site only where that changes the output: when they make more than one record, or one record with
-fewer alleles, as when two strands' walks spell the same sequence. Otherwise, where the site
-cannot be split into blocks, and where `-L` merged two of the site's called alleles, vg writes one
-record for the whole site.
+stretch of reference appears in at most one record. Where that makes more than one record, the
+blocks replace the record for the whole site. Where it makes one record, the block replaces it only
+where the site's record would say more than the block does: where a strand's site allele crosses a
+matched chain by a walk that spells other bases. That chain's own records report the walk, so the
+site's record would report it a second time. The block is still not written where two of its
+alleles would stand for one site allele (see below), which happens where two strands' walks spell
+one site allele but differ in the block, nor where the reference or a strand crosses a chain more
+than once, since the chain is genotyped from each allele's first crossing only. Otherwise, where
+the site cannot be split into blocks, and where `-L` merged two of the site's called alleles, vg
+writes one record for the whole site.
 
 `INFO/SB` gives each block record's index among the site's block records, counting from 0, and the
 number of block records the site writes. A block record's ID (the VCF `ID` column) is the site's ID
