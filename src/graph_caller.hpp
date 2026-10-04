@@ -1537,6 +1537,26 @@ public:
     /// when none does.
     size_t offset_along_genotype(const vector<SnarlTraversal>& travs, const vector<int>& genotype,
                                  const Snarl& child) const;
+
+    /// `base_offset_of_child` for every child of one traversal, by lookup. Calling
+    /// `base_offset_of_child` once per child scans the traversal once per child, which a parent
+    /// with many children and a long traversal makes quadratic.
+    struct ChildOffsets {
+        ChildOffsets(const HandleGraph& graph, const SnarlTraversal& trav);
+        /// The same answer as `base_offset_of_child(trav, child)`.
+        int64_t base_offset(const Snarl& child) const;
+        /// The visit indices of each node, ascending. Child-snarl visits are left out, as
+        /// `offset_of_child` skips them.
+        unordered_map<nid_t, vector<int>> visits_of;
+        /// The bases of the node visits before each visit index; one longer than the traversal.
+        vector<int64_t> bases_before;
+    };
+
+    /// `offset_along_genotype`, answered from `offsets`, which holds a `ChildOffsets` per
+    /// traversal and is filled as traversals are first used.
+    size_t offset_along_genotype(const vector<SnarlTraversal>& travs, const vector<int>& genotype,
+                                 const Snarl& child,
+                                 unordered_map<const SnarlTraversal*, ChildOffsets>& offsets) const;
 protected:
 
     /// The crossing mask: bit i is set where `travs[i]` crosses `child`. Indexed by traversal, not

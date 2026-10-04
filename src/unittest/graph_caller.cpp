@@ -9,6 +9,8 @@
 #include <string>
 #include <vector>
 
+#include <bdsg/hash_graph.hpp>
+
 #include "catch.hpp"
 #include "../graph_caller.hpp"
 
@@ -165,6 +167,58 @@ TEST_CASE("offset_of_child reports where a traversal enters a chain", "[graph_ca
     SECTION("touching one boundary only is not a crossing") {
         REQUIRE(FlowCaller::offset_of_child(t, make_child(3, 99)) == -1);
     }
+}
+
+
+TEST_CASE("ChildOffsets gives base_offset_of_child's answer by lookup", "[graph_caller]") {
+    // Node n is n bases long.
+    bdsg::HashGraph graph;
+    for (nid_t id = 1; id <= 9; ++id) {
+        graph.create_handle(string((size_t)id, 'A'), id);
+    }
+    // A traversal that revisits nodes, with a child-snarl visit in the middle, which counts for
+    // neither the entry nor the bases.
+    SnarlTraversal t;
+    for (nid_t n : {1, 2, 3, 2, 5}) {
+        t.add_visit()->set_node_id(n);
+    }
+    Visit* snarl_visit = t.add_visit();
+    snarl_visit->mutable_snarl()->mutable_start()->set_node_id(5);
+    snarl_visit->mutable_snarl()->mutable_end()->set_node_id(6);
+    for (nid_t n : {6, 3, 7, 2, 9, 9}) {
+        t.add_visit()->set_node_id(n);
+    }
+
+    // base_offset_of_child's definition: offset_of_child's entry, then the bases of the node
+    // visits before it.
+    auto expected = [&](const Snarl& child) -> int64_t {
+        const int entry = FlowCaller::offset_of_child(t, child);
+        if (entry < 0) {
+            return -1;
+        }
+        int64_t bases = 0;
+        for (int i = 0; i < entry; ++i) {
+            if (!t.visit(i).has_snarl()) {
+                bases += (int64_t)graph.get_length(graph.get_handle(t.visit(i).node_id()));
+            }
+        }
+        return bases;
+    };
+
+    // Every pair of boundary nodes, including one the traversal never visits (10), both
+    // orientations, and a chain that starts and ends on one node.
+    const FlowCaller::ChildOffsets offsets(graph, t);
+    size_t crossing = 0;
+    for (nid_t start = 1; start <= 10; ++start) {
+        for (nid_t end = 1; end <= 10; ++end) {
+            const Snarl child = make_child(start, end);
+            REQUIRE(offsets.base_offset(child) == expected(child));
+            crossing += expected(child) >= 0 ? 1 : 0;
+        }
+    }
+    // The comparison is not vacuous: many pairs cross, and some do not.
+    REQUIRE(crossing > 20);
+    REQUIRE(crossing < 100);
 }
 
 

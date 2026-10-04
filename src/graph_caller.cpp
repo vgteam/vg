@@ -5210,6 +5210,62 @@ int64_t FlowCaller::base_offset_of_child(const SnarlTraversal& trav, const Snarl
     return bases;
 }
 
+FlowCaller::ChildOffsets::ChildOffsets(const HandleGraph& graph, const SnarlTraversal& trav) {
+    bases_before.assign((size_t)trav.visit_size() + 1, 0);
+    for (int i = 0; i < trav.visit_size(); ++i) {
+        const Visit& visit = trav.visit(i);
+        int64_t bases = 0;
+        if (!visit.has_snarl()) {
+            visits_of[visit.node_id()].push_back(i);
+            bases = (int64_t)graph.get_length(graph.get_handle(visit.node_id()));
+        }
+        bases_before[i + 1] = bases_before[i] + bases;
+    }
+}
+
+int64_t FlowCaller::ChildOffsets::base_offset(const Snarl& child) const {
+    // `offset_of_child`'s rule: the entry is the first visit to either boundary node, and it counts
+    // only if the other boundary node is visited after it.
+    const nid_t start = child.start().node_id();
+    const nid_t end = child.end().node_id();
+    auto start_visits = visits_of.find(start);
+    auto end_visits = visits_of.find(end);
+    const int none = numeric_limits<int>::max();
+    const int first_start = start_visits == visits_of.end() ? none : start_visits->second.front();
+    const int first_end = end_visits == visits_of.end() ? none : end_visits->second.front();
+    const int entry = min(first_start, first_end);
+    if (entry == none) {
+        return -1;
+    }
+    const auto& closing = first_start <= first_end ? end_visits : start_visits;
+    if (closing == visits_of.end()
+        || std::upper_bound(closing->second.begin(), closing->second.end(), entry)
+               == closing->second.end()) {
+        return -1;
+    }
+    return bases_before[entry];
+}
+
+size_t FlowCaller::offset_along_genotype(
+    const vector<SnarlTraversal>& travs, const vector<int>& genotype, const Snarl& child,
+    unordered_map<const SnarlTraversal*, ChildOffsets>& offsets) const {
+    for (int allele : genotype) {
+        if (allele < 0 || allele >= (int)travs.size()) {
+            continue;
+        }
+        const SnarlTraversal* trav = &travs[allele];
+        auto found = offsets.find(trav);
+        if (found == offsets.end()) {
+            found = offsets.emplace(trav, ChildOffsets(graph, *trav)).first;
+        }
+        const int64_t within = found->second.base_offset(child);
+        if (within >= 0) {
+            return (size_t)within;
+        }
+    }
+    return 0;
+}
+
 size_t FlowCaller::offset_along_genotype(const vector<SnarlTraversal>& travs,
                                          const vector<int>& genotype, const Snarl& child) const {
     for (int allele : genotype) {
@@ -5968,8 +6024,16 @@ void FlowCaller::rerun_linkage_pass() {
     }
     // Give the linkage model the corrected likelihoods, then run the linkage pass again in full, so that
     // every child is reassessed against its parent's new chosen pair, as on the first pass.
+    const vector<PendingRecord*> records = records_for_render();
+    // The loop below is serial, and most of its time would go to each record's first
+    // `panel_alleles`, a GBWT lookup per allele. Each record's lookup is independent of the others',
+    // so fill the caches in parallel first.
+#pragma omp parallel for schedule(dynamic, 256)
+    for (size_t i = 0; i < records.size(); ++i) {
+        cached_panel_alleles(*records[i]);
+    }
     size_t rescored = 0, refused = 0;
-    for (PendingRecord* recp : records_for_render()) {
+    for (PendingRecord* recp : records) {
         PendingRecord& rec = *recp;
         const auto* info = dynamic_cast<const ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo*>(
             rec.call_info.get());
@@ -6175,6 +6239,10 @@ void FlowCaller::run_linkage_pass() {
     size_t pass_inline_rederived = 0;
     unordered_map<size_t, PendingRecord*> record_by_key;
     record_by_key.reserve((pending.size() + render_record_count()) * 2);
+    // Each parent traversal's child offsets, for placing its chains. Keyed by address, which stays
+    // valid for the pass as record_by_key's do, and the traversals do not change after the direct
+    // pass.
+    unordered_map<const SnarlTraversal*, ChildOffsets> child_offsets;
     for (PendingRecord& pr : pending) {
         record_by_key[pr.record_key] = &pr;
     }
@@ -6241,7 +6309,8 @@ void FlowCaller::run_linkage_pass() {
                 const PendingRecord& par = *parent_record->second;
                 const size_t offset =
                     par.chain_offset
-                    + offset_along_genotype(par.travs, chosen_genotype_for(par), pr.snarl);
+                    + offset_along_genotype(par.travs, chosen_genotype_for(par), pr.snarl,
+                                            child_offsets);
                 if (offset != pr.chain_offset) {
                     if (pr.no_reference) {
                         pr.position_from_parent += (int64_t)offset - (int64_t)pr.chain_offset;
