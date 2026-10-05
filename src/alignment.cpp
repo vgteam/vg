@@ -2855,6 +2855,35 @@ string graph_cs_cigar(const Alignment& aln, const HandleGraph& graph, bool rev_s
     return graph_CS_cigar_internal(aln, graph, rev_strand, false);
 }
 
+pair<int64_t, int64_t> reference_bounds(const int64_t& pos, const vector<pair<int, char>>& cigar) {
+    // Initialize bounds to represent no mapped bases
+    int64_t low = numeric_limits<int64_t>::max();
+    int64_t high = numeric_limits<int64_t>::min();
+
+    // Track position in the reference
+    int64_t here = pos;
+    for (auto& item : cigar) {
+        // Trace along the cigar
+        switch (item.second) {
+            case 'M':
+            case 'X':
+            case '=':
+                // Bases are matched or mismatched. Count them in the bounds and execute the operation
+                low = min(low, here);
+                high = max(high, here + item.first);
+                // Fall through.
+            case 'D':
+            case 'N':
+                // Even for deletions/gaps, we advance on the reference.
+                here += item.first;
+                break;
+            // Inserts and various clips/paddings don't do anything.
+        }
+    }
+
+    return make_pair(low, high);
+}
+
 pair<int32_t, int32_t> compute_template_lengths(const int64_t& pos1, const vector<pair<int, char>>& cigar1,
     const int64_t& pos2, const vector<pair<int, char>>& cigar2) {
 
@@ -2865,37 +2894,8 @@ pair<int32_t, int32_t> compute_template_lengths(const int64_t& pos1, const vecto
     // Alignment objects without node lengths.
     
     // Work out the low and high mapped bases for each side
-    auto find_bounds = [](const int64_t& pos, const vector<pair<int, char>>& cigar) {
-        // Initialize bounds to represent no mapped bases
-        int64_t low = numeric_limits<int64_t>::max();
-        int64_t high = numeric_limits<int64_t>::min();
-        
-        // Track position in the reference
-        int64_t here = pos;
-        for (auto& item : cigar) {
-            // Trace along the cigar
-            switch (item.second) {
-                case 'M':
-                case 'X':
-                case '=':
-                    // Bases are matched or mismatched. Count them in the bounds and execute the operation
-                    low = min(low, here);
-                    high = max(high, here + item.first);
-                    // Fall through.
-                case 'D':
-                case 'N':
-                    // Even for deletions/gaps, we advance on the reference.
-                    here += item.first;
-                    break;
-                // Inserts and various clips/paddings don't do anything.
-            }
-        }
-        
-        return make_pair(low, high);
-    };
-    
-    auto bounds1 = find_bounds(pos1, cigar1);
-    auto bounds2 = find_bounds(pos2, cigar2);
+    auto bounds1 = reference_bounds(pos1, cigar1);
+    auto bounds2 = reference_bounds(pos2, cigar2);
 
     // We wanted the distance between the outermost points. So find them.
     auto min_start = std::min(bounds1.first, bounds2.first);

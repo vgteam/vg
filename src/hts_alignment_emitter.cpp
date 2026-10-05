@@ -792,7 +792,11 @@ void HTSAlignmentEmitter::convert_paired(Alignment& aln1, Alignment& aln2, bam_h
     convert_alignment(aln2, cigar2, pos_rev2, pos2, path_name2);
     
     // Determine the TLEN for each read.
-    auto tlens = compute_template_lengths(pos1, cigar1, pos2, cigar2);
+    pair<int32_t, int32_t> tlens{0, 0};
+    if (!path_name1.empty() && path_name1 == path_name2
+        && aln1.path().mapping_size() && aln2.path().mapping_size()) {
+        tlens = compute_template_lengths(pos1, cigar1, pos2, cigar2);
+    }
         
     dest.emplace_back(alignment_to_bam(header,
                                        aln1,
@@ -886,6 +890,52 @@ void HTSAlignmentEmitter::emit_mapped_singles(vector<vector<Alignment>>&& alns_b
 
 }
 
+
+void emit_paired_group(AlignmentEmitter& emitter,
+    vector<pair<vector<Alignment>, vector<Alignment>>>&& alternatives, int64_t tlen_limit) {
+    if (auto* hts = dynamic_cast<HTSAlignmentEmitter*>(&emitter)) {
+        hts->emit_paired_group(std::move(alternatives), tlen_limit);
+    } else {
+        vector<Alignment> records;
+        for (auto& pair : alternatives) {
+            assert(!pair.first.empty() && !pair.second.empty());
+            records.emplace_back(std::move(pair.first.front()));
+            records.emplace_back(std::move(pair.second.front()));
+            for (size_t i = 1; i < pair.first.size(); ++i) records.emplace_back(std::move(pair.first[i]));
+            for (size_t i = 1; i < pair.second.size(); ++i) records.emplace_back(std::move(pair.second[i]));
+        }
+        emitter.emit_singles(std::move(records));
+    }
+}
+
+void HTSAlignmentEmitter::emit_paired_group(
+    vector<pair<vector<Alignment>, vector<Alignment>>>&& alternatives, int64_t tlen_limit) {
+    if (alternatives.empty()) return;
+    const size_t thread_number = omp_get_thread_num();
+    const auto& first = alternatives.front().first.front();
+    bam_hdr_t* header = ensure_header(first.read_group(), first.sample_name(), thread_number);
+    vector<bam1_t*> records;
+    for (auto& pair : alternatives) {
+        assert(!pair.first.empty() && !pair.second.empty());
+        const size_t begin = records.size();
+        convert_paired(pair.first.front(), pair.second.front(), header, tlen_limit, records);
+        // TLEN is undefined when a mate is unmapped or the reference names differ.
+        if (records[begin]->core.tid != records[begin + 1]->core.tid
+            || (records[begin]->core.flag & BAM_FUNMAP) || (records[begin + 1]->core.flag & BAM_FUNMAP)) {
+            records[begin]->core.isize = records[begin + 1]->core.isize = 0;
+        }
+        for (size_t i = 1; i < pair.first.size(); ++i) convert_unpaired(pair.first[i], header, records);
+        for (size_t i = 1; i < pair.second.size(); ++i) convert_unpaired(pair.second[i], header, records);
+        // Pair compatibility was determined by the caller, including inward-facing
+        // orientation. Do not replace it with the older distance-only heuristic.
+        const bool proper = get_annotation<bool>(pair.first.front(), "proper_pair");
+        for (size_t i = begin; i < records.size(); ++i) {
+            if (proper) records[i]->core.flag |= BAM_FPROPER_PAIR;
+            else records[i]->core.flag &= ~BAM_FPROPER_PAIR;
+        }
+    }
+    save_records(header, records, thread_number);
+}
 
 void HTSAlignmentEmitter::emit_pairs(vector<Alignment>&& aln1_batch,
                                      vector<Alignment>&& aln2_batch,
