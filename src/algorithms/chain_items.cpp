@@ -1147,7 +1147,7 @@ size_t get_graph_distance(const Anchor& from, const Anchor& to, const SnarlDista
 }
 
 size_t get_read_distance(const Anchor& from, const Anchor& to) {
-    if (to.read_start() < from.read_end()) {
+    if (to.read_start() <= from.read_end()) {
         return std::numeric_limits<size_t>::max();
     }
     return to.read_start() - from.read_end();
