@@ -581,6 +581,9 @@ int main_index(int argc, char** argv) {
         } else  {
             //Get graph and build dist index
 
+            // Since distance indexing is currently single threaded, restrict to one thread so it doesn't try to use everything given
+            set_thread_count(logger, "1")
+
             if (file_names.empty() && !xg_name.empty()) {
                 // We were given a -x specifically to read as XG
                 
