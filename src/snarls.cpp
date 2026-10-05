@@ -1120,7 +1120,7 @@ void SnarlManager::regularize() {
     cerr << "Regularizing snarls and chains" << endl;
 #endif
     
-    for_each_chain_parallel([&](const Chain* chain) {
+    auto regularize_chain = [&](const Chain* chain) {
         // For every chain
         
         // Make a list of snarls to flip
@@ -1198,8 +1198,27 @@ void SnarlManager::regularize() {
             cerr << "Flipped snarl to produce " << to_flip->start() << " " << to_flip->end() << endl;
 #endif
         }
-    });
+    };
     
+    // A chain's work touches only that chain and the snarls in it, so chains can go in any order.
+    // Run them as two flat loops rather than through for_each_chain_parallel(), which makes an
+    // OpenMP task per top-level snarl and enters two nested parallel regions per snarl: on a
+    // whole-genome graph that bookkeeping, not the work, took 24 minutes at 128 threads.
+    // Top-level chains go one per thread (a contig's backbone chain can hold millions of
+    // snarls); threads that finish move straight on to the child chains of every snarl.
+#pragma omp parallel
+    {
+#pragma omp for schedule(dynamic, 1) nowait
+        for (size_t i = 0; i < root_chains.size(); i++) {
+            regularize_chain(&root_chains[i]);
+        }
+#pragma omp for schedule(dynamic, 256)
+        for (size_t i = 0; i < snarls.size(); i++) {
+            for (const Chain& chain : snarls[i].child_chains) {
+                regularize_chain(&chain);
+            }
+        }
+    }
 }
     
 pair<unordered_set<id_t>, unordered_set<edge_t> > SnarlManager::shallow_contents(const Snarl* snarl, const HandleGraph& graph,
