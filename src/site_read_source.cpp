@@ -639,16 +639,6 @@ GafBaseSiteReadSource::GafBaseSiteReadSource(const HandleGraph& graph,
     const char* locking = getenv("VG_GAFBASE_LOCKING");
     immutable = !(locking != nullptr && string(locking) == "1");
     if (immutable) {
-        // gbz-base will run in query_directory, so a binary named by a relative path has to be
-        // made absolute. A bare name is still looked up on PATH.
-        if (this->binary.find('/') != string::npos && this->binary[0] != '/') {
-            char* real = realpath(this->binary.c_str(), nullptr);
-            if (real != nullptr) {
-                this->binary = real;
-                free(real);
-            }
-        }
-        query_directory = temp_file::create_directory();
         gbz_argument = immutable_uri(gbz_filename);
         gaf_base_argument = immutable_uri(gaf_base_filename);
     }
@@ -679,7 +669,19 @@ GafBaseSiteReadSource::QueryTotals GafBaseSiteReadSource::get_query_totals() con
     return totals;
 }
 
-string GafBaseSiteReadSource::immutable_uri(const string& path) const {
+string GafBaseSiteReadSource::immutable_uri(const string& path) {
+    // Only a SQLite database takes locks, and gbz-base passes a database path straight to SQLite,
+    // which reads a `file:` name as a URI. Anything else, such as a plain GBZ given as the graph,
+    // keeps its path: gbz-base recognises a GBZ by opening the file under the name it is given.
+    {
+        static const char SQLITE_HEADER[16] = {'S', 'Q', 'L', 'i', 't', 'e', ' ', 'f',
+                                               'o', 'r', 'm', 'a', 't', ' ', '3', '\0'};
+        char header[16] = {0};
+        ifstream in(path, ios::binary);
+        if (!in.read(header, sizeof(header)) || memcmp(header, SQLITE_HEADER, sizeof(header)) != 0) {
+            return path;
+        }
+    }
     char* real = realpath(path.c_str(), nullptr);
     if (real == nullptr) {
         throw runtime_error("cannot resolve database path " + path + ": " + strerror(errno));
@@ -692,19 +694,7 @@ string GafBaseSiteReadSource::immutable_uri(const string& path) const {
         throw runtime_error("database path " + absolute + " contains ?, # or %; set "
                             "VG_GAFBASE_LOCKING=1 to give gbz-base the plain path");
     }
-    string uri = "file:" + absolute + "?immutable=1";
-    // The URI contains the file's own directories, so the symlink goes under a matching tree.
-    string link = query_directory + "/" + uri;
-    for (size_t slash = query_directory.size() + 1; (slash = link.find('/', slash + 1)) != string::npos; ) {
-        string dir = link.substr(0, slash);
-        if (mkdir(dir.c_str(), 0700) != 0 && errno != EEXIST) {
-            throw runtime_error("cannot create " + dir + ": " + strerror(errno));
-        }
-    }
-    if (symlink(absolute.c_str(), link.c_str()) != 0 && errno != EEXIST) {
-        throw runtime_error("cannot create " + link + ": " + strerror(errno));
-    }
-    return uri;
+    return "file:" + absolute + "?immutable=1";
 }
 
 GafBaseSiteReadSource::~GafBaseSiteReadSource() {
@@ -733,16 +723,7 @@ const string& GafBaseSiteReadSource::gaf_path(ThreadState& state, size_t slot) c
     // One output file per in-flight query per thread, reused for every query that lands
     // in that slot. temp_file::create is mutex-guarded, so this is safe to race into.
     while (state.gaf_paths.size() <= slot) {
-        string path = temp_file::create("vg-gafbase-reads-");
-        if (!path.empty() && path[0] != '/') {
-            // gbz-base may run in another directory (see `immutable`), so give it an absolute path.
-            char* cwd = getcwd(nullptr, 0);
-            if (cwd != nullptr) {
-                path = string(cwd) + "/" + path;
-                free(cwd);
-            }
-        }
-        state.gaf_paths.push_back(path);
+        state.gaf_paths.push_back(temp_file::create("vg-gafbase-reads-"));
     }
     return state.gaf_paths[slot];
 }
@@ -806,10 +787,6 @@ GafBaseSiteReadSource::PendingQuery GafBaseSiteReadSource::spawn_query(
     posix_spawn_file_actions_addopen(&actions, STDOUT_FILENO, "/dev/null", O_WRONLY, 0);
     posix_spawn_file_actions_addopen(&actions, STDERR_FILENO, err_path.c_str(),
                                      O_WRONLY | O_CREAT | O_TRUNC, 0600);
-    if (immutable) {
-        // Added after the opens, so that the paths above are still taken from vg's own directory.
-        posix_spawn_file_actions_addchdir_np(&actions, query_directory.c_str());
-    }
 
     PendingQuery pending;
     pending.started = std::chrono::steady_clock::now();

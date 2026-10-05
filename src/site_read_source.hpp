@@ -540,12 +540,9 @@ private:
     /// The database arguments gbz-base is given: the plain paths, or `file:<path>?immutable=1`.
     string gbz_argument;
     string gaf_base_argument;
-    /// With immutable URIs, gbz-base runs in this directory. gbz-base checks that a database path
-    /// exists before SQLite reads it as a URI, so the directory holds a symlink named exactly like
-    /// each URI, pointing at the database.
-    string query_directory;
-    /// Make the symlink for `path` under query_directory, and return the URI.
-    string immutable_uri(const string& path) const;
+    /// `file:<absolute path>?immutable=1` for a SQLite database, or the path unchanged for any other
+    /// file, such as a plain GBZ given as the graph.
+    static string immutable_uri(const string& path);
 
     /// QueryTotals, in microseconds.
     mutable atomic<uint64_t> wait_us{0};
