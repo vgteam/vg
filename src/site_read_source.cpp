@@ -9,7 +9,9 @@
 #include <cstdlib>
 #include <fcntl.h>
 #include <spawn.h>
+#include <sys/resource.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
@@ -650,6 +652,31 @@ GafBaseSiteReadSource::GafBaseSiteReadSource(const HandleGraph& graph,
         gbz_argument = immutable_uri(gbz_filename);
         gaf_base_argument = immutable_uri(gaf_base_filename);
     }
+
+    const char* log_path = getenv("VG_GAFBASE_QUERY_LOG");
+    if (log_path != nullptr && *log_path != '\0') {
+        query_log = fopen(log_path, "w");
+        if (query_log == nullptr) {
+            throw runtime_error("cannot write VG_GAFBASE_QUERY_LOG " + string(log_path) + ": " +
+                                strerror(errno));
+        }
+        // Line-buffered, so the log is complete up to the last finished query however vg ends.
+        setvbuf(query_log, nullptr, _IOLBF, 0);
+        fprintf(query_log, "#start_epoch\twait_s\tuser_s\tsystem_s\tmax_rss_kb\texit\tn_nodes\t"
+                           "first_node\tlast_node\tgaf_bytes\tnodes_hash\tmode\tparse_s\t"
+                           "reads_parsed\tthread\n");
+    }
+}
+
+GafBaseSiteReadSource::QueryTotals GafBaseSiteReadSource::get_query_totals() const {
+    QueryTotals totals;
+    totals.queries = queries.load();
+    totals.wait_s = wait_us.load() / 1e6;
+    totals.child_user_s = child_user_us.load() / 1e6;
+    totals.child_system_s = child_system_us.load() / 1e6;
+    totals.parse_s = parse_us.load() / 1e6;
+    totals.gaf_bytes = gaf_bytes_total.load();
+    return totals;
 }
 
 string GafBaseSiteReadSource::immutable_uri(const string& path) const {
@@ -681,6 +708,9 @@ string GafBaseSiteReadSource::immutable_uri(const string& path) const {
 }
 
 GafBaseSiteReadSource::~GafBaseSiteReadSource() {
+    if (query_log != nullptr) {
+        fclose(query_log);
+    }
     for (ThreadState& state : threads) {
         for (const string& path : state.gaf_paths) {
             temp_file::remove(path);
@@ -781,6 +811,14 @@ GafBaseSiteReadSource::PendingQuery GafBaseSiteReadSource::spawn_query(
         posix_spawn_file_actions_addchdir_np(&actions, query_directory.c_str());
     }
 
+    PendingQuery pending;
+    pending.started = std::chrono::steady_clock::now();
+    {
+        struct timeval now;
+        gettimeofday(&now, nullptr);
+        pending.started_epoch = now.tv_sec + now.tv_usec / 1e6;
+    }
+
     pid_t pid = 0;
     // posix_spawnp promises not to modify argv but cannot say so in C's type system;
     // see the same cast in index_registry.cpp's kmc call.
@@ -797,8 +835,15 @@ GafBaseSiteReadSource::PendingQuery GafBaseSiteReadSource::spawn_query(
     }
 
     ++queries;
-    PendingQuery pending;
     pending.pid = pid;
+    pending.n_nodes = nodes.size();
+    pending.first_node = nodes.front();
+    pending.last_node = nodes.back();
+    uint64_t hash = 1469598103934665603ULL;
+    for (nid_t node : nodes) {
+        hash = (hash ^ (uint64_t)node) * 1099511628211ULL;
+    }
+    pending.nodes_hash = hash;
     pending.gaf_path = gaf_path(state, slot);
     pending.err_path = std::move(err_path);
     return pending;
@@ -807,11 +852,15 @@ GafBaseSiteReadSource::PendingQuery GafBaseSiteReadSource::spawn_query(
 size_t GafBaseSiteReadSource::reap_query(PendingQuery& pending,
                                          const function<void(Alignment&)>& iteratee) const {
     int child_stat = 0;
-    while (waitpid(pending.pid, &child_stat, 0) == -1) {
+    // wait4 rather than waitpid: the same wait, and it also reports the child's CPU time.
+    struct rusage usage;
+    memset(&usage, 0, sizeof(usage));
+    while (wait4(pending.pid, &child_stat, 0, &usage) == -1) {
         if (errno != EINTR) {
-            throw runtime_error("waitpid() failed for " + binary + ": " + strerror(errno));
+            throw runtime_error("wait4() failed for " + binary + ": " + strerror(errno));
         }
     }
+    auto reaped = std::chrono::steady_clock::now();
     const string& err_path = pending.err_path;
 
     int ret = WIFEXITED(child_stat) ? WEXITSTATUS(child_stat) : -1;
@@ -831,6 +880,9 @@ size_t GafBaseSiteReadSource::reap_query(PendingQuery& pending,
     }
     unlink(err_path.c_str());
 
+    struct stat gaf_stat;
+    size_t gaf_bytes = stat(pending.gaf_path.c_str(), &gaf_stat) == 0 ? (size_t)gaf_stat.st_size : 0;
+
     // Parse the GAF text back into Alignments.
     size_t parsed = 0;
     vg::io::gaf_unpaired_for_each(graph, pending.gaf_path, [&](Alignment& aln) {
@@ -841,6 +893,33 @@ size_t GafBaseSiteReadSource::reap_query(PendingQuery& pending,
         count_fetched();
         iteratee(aln);
     });
+    auto parsed_at = std::chrono::steady_clock::now();
+
+    auto micros = [](auto d) {
+        return (uint64_t)std::chrono::duration_cast<std::chrono::microseconds>(d).count();
+    };
+    auto tv_micros = [](const struct timeval& tv) {
+        return (uint64_t)tv.tv_sec * 1000000 + (uint64_t)tv.tv_usec;
+    };
+    uint64_t waited = micros(reaped - pending.started);
+    // The iteratee runs inside the parse, so this is parsing plus whatever the caller does with
+    // each read.
+    uint64_t parsing = micros(parsed_at - reaped);
+    uint64_t user = tv_micros(usage.ru_utime);
+    uint64_t system = tv_micros(usage.ru_stime);
+    wait_us += waited;
+    parse_us += parsing;
+    child_user_us += user;
+    child_system_us += system;
+    gaf_bytes_total += gaf_bytes;
+    if (query_log != nullptr) {
+        std::lock_guard<std::mutex> lock(query_log_mutex);
+        fprintf(query_log, "%.6f\t%.3f\t%.3f\t%.3f\t%ld\t%d\t%zu\t%lld\t%lld\t%zu\t%016llx\t%s\t%.3f\t%zu\t%d\n",
+                pending.started_epoch, waited / 1e6, user / 1e6, system / 1e6, (long)usage.ru_maxrss, ret,
+                pending.n_nodes, (long long)pending.first_node, (long long)pending.last_node, gaf_bytes,
+                (unsigned long long)pending.nodes_hash, immutable ? "immutable" : "locking",
+                parsing / 1e6, parsed, omp_get_thread_num());
+    }
     return parsed;
 }
 

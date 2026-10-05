@@ -8,7 +8,9 @@
  */
 
 #include <atomic>
+#include <chrono>
 #include <condition_variable>
+#include <cstdio>
 #include <fstream>
 #include <functional>
 #include <memory>
@@ -454,6 +456,20 @@ public:
     /// Whether gbz-base is handed the databases as SQLite immutable URIs (see `immutable`).
     bool immutable_databases() const { return immutable; }
 
+    /// Where the time of the gbz-base queries went, summed over every query so far: how long the
+    /// calling threads waited for their children, the CPU the children spent in their own code
+    /// (user) and in the kernel (system), and the time spent parsing the GAF they wrote. Collected
+    /// with wait4() and two clock reads per query, so it costs nothing measurable.
+    struct QueryTotals {
+        size_t queries = 0;
+        double wait_s = 0;
+        double child_user_s = 0;
+        double child_system_s = 0;
+        double parse_s = 0;
+        size_t gaf_bytes = 0;
+    };
+    QueryTotals get_query_totals() const;
+
 private:
 
     /// Per-thread GAF output files, one per query the thread can have in flight.
@@ -475,6 +491,14 @@ private:
         /// can grow that vector and move what a pointer was aimed at.
         string gaf_path;
         string err_path;
+        /// For QueryTotals and the per-query log.
+        std::chrono::steady_clock::time_point started;
+        double started_epoch = 0;
+        size_t n_nodes = 0;
+        nid_t first_node = 0;
+        nid_t last_node = 0;
+        /// FNV-1a over the node IDs, so the same node set fetched twice shows up in the log.
+        uint64_t nodes_hash = 0;
     };
 
     void fetch_span(const vector<pair<nid_t, nid_t>>& ranges,
@@ -522,6 +546,17 @@ private:
     string query_directory;
     /// Make the symlink for `path` under query_directory, and return the URI.
     string immutable_uri(const string& path) const;
+
+    /// QueryTotals, in microseconds.
+    mutable atomic<uint64_t> wait_us{0};
+    mutable atomic<uint64_t> child_user_us{0};
+    mutable atomic<uint64_t> child_system_us{0};
+    mutable atomic<uint64_t> parse_us{0};
+    mutable atomic<uint64_t> gaf_bytes_total{0};
+    /// One line per query, written when VG_GAFBASE_QUERY_LOG names a file. The columns are in its
+    /// header line.
+    FILE* query_log = nullptr;
+    mutable std::mutex query_log_mutex;
 
     /// The most node IDs one gbz-base command line can hold: a quarter of sysconf(_SC_ARG_MAX),
     /// leaving room for the environment and the fixed arguments, over the bytes each node costs

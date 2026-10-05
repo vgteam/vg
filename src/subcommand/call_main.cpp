@@ -2868,6 +2868,16 @@ int main_call(int argc, char** argv) {
                 // Alignments returned twice by one query, which would otherwise count twice.
                 logger.info() << "GAF-Base: " << gaf_base->get_duplicate_count()
                               << " duplicate reads dropped" << endl;
+                // Where the query time went. File locking, for one, shows up as kernel time.
+                auto totals = gaf_base->get_query_totals();
+                double cpu = totals.child_user_s + totals.child_system_s;
+                logger.info() << "GAF-Base: threads waited " << totals.wait_s / 3600 << " h for "
+                              << totals.queries << " gbz-base queries, which used "
+                              << totals.child_user_s / 3600 << " h of CPU in their own code and "
+                              << totals.child_system_s / 3600 << " h in the kernel ("
+                              << (cpu > 0 ? (int)(100 * totals.child_system_s / cpu) : 0)
+                              << "%); parsing their " << totals.gaf_bytes / 1e9 << " GB of GAF took "
+                              << totals.parse_s / 3600 << " h" << endl;
             }
         }
     }
