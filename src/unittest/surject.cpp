@@ -28,6 +28,9 @@ public:
     using Surjector::anchor_has_nearby_repeat;
     using Surjector::choose_primary;
     using Surjector::choose_primary_strand;
+    using Surjector::diploid_pair_span;
+    using Surjector::score_diploid_pair;
+    using Surjector::get_aligner;
     
 };
 
@@ -49,6 +52,244 @@ static map<string, pair<char, string>> parse_sam_tags_for_test(const Alignment& 
     return tags;
 }
 
+TEST_CASE("Diploid pair compatibility is separate from fragment scoring", "[surject][diploid][paired]") {
+    bdsg::HashGraph graph;
+    auto node = graph.create_handle(string(1000, 'A'));
+    auto path = graph.create_path_handle("ref");
+    graph.append_step(path, node);
+    bdsg::PositionOverlay overlay(&graph);
+    TestSurjector surjector(&overlay);
+    auto alignment = [](int64_t start, int64_t length, bool reverse) {
+        Alignment aln;
+        aln.set_score(30);
+        auto* pos = aln.add_refpos();
+        pos->set_name("ref"); pos->set_offset(start); pos->set_is_reverse(reverse);
+        auto* mapping = aln.mutable_path()->add_mapping();
+        mapping->mutable_position()->set_node_id(1);
+        auto* edit = mapping->add_edit();
+        edit->set_from_length(length); edit->set_to_length(length);
+        return aln;
+    };
+    auto first = alignment(100, 20, false), second = alignment(180, 20, true);
+    SECTION("Inward facing mates may occur in either mate order") {
+        CHECK(surjector.diploid_pair_span(first, second, 100) == optional<int64_t>(100));
+        CHECK(surjector.diploid_pair_span(second, first, 100) == optional<int64_t>(100));
+        CHECK_FALSE(surjector.diploid_pair_span(first, second, 99));
+        CHECK(surjector.diploid_pair_span(first, second, 0) == optional<int64_t>(100));
+    }
+    SECTION("Other paths, same orientation, and outward facing pairs are incompatible") {
+        second.mutable_refpos(0)->set_name("other");
+        CHECK_FALSE(surjector.diploid_pair_span(first, second, 0));
+        second.mutable_refpos(0)->set_name("ref");
+        second.mutable_refpos(0)->set_is_reverse(false);
+        CHECK_FALSE(surjector.diploid_pair_span(first, second, 0));
+        first.mutable_refpos(0)->set_is_reverse(true);
+        CHECK_FALSE(surjector.diploid_pair_span(first, second, 0));
+    }
+    SECTION("Overlapping and contained mates are allowed") {
+        CHECK(surjector.diploid_pair_span(alignment(100, 60, false), alignment(140, 60, true), 100) == optional<int64_t>(100));
+        CHECK(surjector.diploid_pair_span(alignment(110, 20, false), alignment(100, 60, true), 60) == optional<int64_t>(60));
+    }
+    SECTION("Unmapped or missing positions are not valid pair candidates") {
+        second.clear_path();
+        CHECK_FALSE(surjector.diploid_pair_span(first, second, 0));
+        first.clear_refpos();
+        CHECK_FALSE(surjector.diploid_pair_span(first, second, 0));
+    }
+    SECTION("Reference span includes deletions and excludes inserted or clipped bases") {
+        auto* deletion = second.mutable_path()->mutable_mapping(0)->add_edit();
+        deletion->set_from_length(10);
+        auto* match = second.mutable_path()->mutable_mapping(0)->add_edit();
+        match->set_from_length(5); match->set_to_length(5);
+        auto* clip = second.mutable_path()->mutable_mapping(0)->add_edit();
+        clip->set_to_length(30); clip->set_sequence(string(30, 'A'));
+        CHECK(surjector.diploid_pair_span(first, second, 0) == optional<int64_t>(115));
+    }
+    SECTION("Terminal reference gaps do not inflate the fragment length") {
+        auto* mapping = second.mutable_path()->mutable_mapping(0);
+        mapping->clear_edit();
+        // This is terminal on the right in reference order because the mate is reversed.
+        mapping->add_edit()->set_from_length(10);
+        auto* match = mapping->add_edit(); match->set_from_length(20); match->set_to_length(20);
+        CHECK(surjector.diploid_pair_span(first, second, 100) == optional<int64_t>(100));
+        mapping->clear_edit();
+        mapping->add_edit()->set_from_length(30);
+        CHECK_FALSE(surjector.diploid_pair_span(first, second, 0));
+    }
+    SECTION("Coordinates cannot overflow") {
+        second.mutable_refpos(0)->set_offset(numeric_limits<int64_t>::max() - 5);
+        CHECK_FALSE(surjector.diploid_pair_span(first, second, 0));
+        CHECK_THROWS_AS(surjector.diploid_pair_span(first, second, -1), invalid_argument);
+    }
+    SECTION("Fixed fragment model changes score but not compatibility") {
+        Surjector::DiploidPairingParameters parameters;
+        CHECK(surjector.score_diploid_pair(first, second, 100, parameters) == Approx(60.0));
+        parameters.fragment_model = Surjector::DiploidFragmentModel{100, 10};
+        CHECK(surjector.score_diploid_pair(first, second, 100, parameters) == Approx(60.0));
+        const double log_base = surjector.get_aligner()->scorer->get_log_base();
+        CHECK(surjector.score_diploid_pair(first, second, 110, parameters) == Approx(60.0 - 0.5 / log_base));
+        CHECK(surjector.score_diploid_pair(first, second, 90, parameters) == Approx(60.0 - 0.5 / log_base));
+        parameters.fragment_model->mean = 500;
+        CHECK(surjector.diploid_pair_span(first, second, 100).has_value());
+        CHECK(surjector.score_diploid_pair(first, second, 100, parameters) < 60.0);
+        parameters.fragment_model->stddev = 0;
+        CHECK_THROWS_AS(surjector.score_diploid_pair(first, second, 100, parameters), invalid_argument);
+        parameters.fragment_model->stddev = numeric_limits<double>::quiet_NaN();
+        CHECK_THROWS_AS(surjector.score_diploid_pair(first, second, 100, parameters), invalid_argument);
+    }
+}
+
+TEST_CASE("Diploid pair selection uses joint evidence and preserves source identity", "[surject][diploid][paired]") {
+    bdsg::HashGraph graph;
+    string sequence;
+    for (size_t i = 0; i < 100; ++i) sequence += "ACGT";
+    auto a = graph.create_handle(sequence), b = graph.create_handle(sequence);
+    auto path_a = graph.create_path_handle("A"), path_b = graph.create_path_handle("B");
+    graph.append_step(path_a, a); graph.append_step(path_b, b);
+    bdsg::PositionOverlay overlay(&graph);
+    TestSurjector surjector(&overlay);
+    surjector.prune_suspicious_anchors = false;
+    auto placement = [&](handle_t node, int64_t start, bool reverse, bool secondary) {
+        Alignment aln;
+        aln.set_name(reverse ? "read/2" : "read/1");
+        aln.set_sequence(sequence.substr(0, 20));
+        aln.set_mapping_quality(reverse ? 17 : 90);
+        aln.set_is_secondary(secondary);
+        (reverse ? aln.mutable_fragment_prev() : aln.mutable_fragment_next())->set_name(reverse ? "read/1" : "read/2");
+        auto* mapping = aln.mutable_path()->add_mapping();
+        mapping->set_rank(1);
+        auto* position = mapping->mutable_position();
+        position->set_node_id(graph.get_id(node));
+        position->set_is_reverse(reverse);
+        position->set_offset(reverse ? sequence.size() - start - 20 : start);
+        auto* edit = mapping->add_edit(); edit->set_from_length(20); edit->set_to_length(20);
+        return aln;
+    };
+    vector<pair<Alignment, Alignment>> input{
+        {placement(a, 0, false, false), placement(a, 80, true, false)},
+        {placement(b, 0, false, true), placement(b, 180, true, true)}};
+    const auto original = input;
+    Surjector::DiploidPairingParameters parameters;
+    parameters.fragment_model = Surjector::DiploidFragmentModel{200, 10};
+    unordered_set<path_handle_t> paths{path_a, path_b};
+    SECTION("Fragment evidence promotes an alternative pair and preserves each mate's source MAPQ") {
+        auto output = surjector.surject_diploid_paired(input, paths, parameters);
+        REQUIRE(output.size() == 2);
+        CHECK(output.front().source_pair_index == 1);
+        CHECK(output.front().compatible);
+        for (size_t i = 0; i < output.size(); ++i) {
+            const auto& pair = output[i];
+            CHECK(pair.first.front().refpos(0).name() == (i == 0 ? "B" : "A"));
+            CHECK(pair.second.front().refpos(0).name() == pair.first.front().refpos(0).name());
+            CHECK(pair.first.front().is_secondary() == (i != 0));
+            CHECK(pair.second.front().is_secondary() == (i != 0));
+            CHECK(get_annotation<double>(pair.first.front(), "diploid_source_mapping_quality") == 90);
+            CHECK(get_annotation<double>(pair.second.front(), "diploid_source_mapping_quality") == 17);
+            CHECK(pair.first.front().mapping_quality() <= 60);
+            CHECK(pair.second.front().mapping_quality() <= 17);
+            CHECK(pair.first.front().fragment_next().refpos(0).name() == pair.second.front().refpos(0).name());
+        }
+        CHECK(output.front().score > output.back().score);
+        for (size_t i = 0; i < input.size(); ++i) {
+            CHECK(input[i].first.SerializeAsString() == original[i].first.SerializeAsString());
+            CHECK(input[i].second.SerializeAsString() == original[i].second.SerializeAsString());
+        }
+    }
+    SECTION("Fragment learning excludes ambiguity, unknown quality, and split candidates") {
+        input.resize(1);
+        input.front().first.set_mapping_quality(60);
+        input.front().second.set_mapping_quality(60);
+        parameters.fragment_model.reset();
+        auto output = surjector.surject_diploid_paired(input, paths, parameters);
+        CHECK(surjector.diploid_fragment_length(output) == optional<int64_t>(100));
+        output.front().first.front().set_mapping_quality(3);
+        CHECK_FALSE(surjector.diploid_fragment_length(output));
+        output.front().first.front().set_mapping_quality(60);
+        set_annotation(output.front().first.front(), "diploid_source_mapping_quality", 255);
+        CHECK_FALSE(surjector.diploid_fragment_length(output));
+        set_annotation(output.front().first.front(), "diploid_source_mapping_quality", 60);
+        output.front().first.push_back(output.front().first.front());
+        CHECK_FALSE(surjector.diploid_fragment_length(output));
+    }
+    SECTION("Primary may appear last and source_pair_index still refers to caller order") {
+        reverse(input.begin(), input.end());
+        auto output = surjector.surject_diploid_paired(input, paths, parameters);
+        REQUIRE(output.size() == 2);
+        CHECK(output.front().source_pair_index == 0);
+        CHECK(output.front().first.front().refpos(0).name() == "B");
+    }
+    SECTION("No fragment model uses alignment scores with deterministic ties") {
+        parameters.fragment_model.reset();
+        auto output = surjector.surject_diploid_paired(input, paths, parameters);
+        REQUIRE(output.size() == 2);
+        CHECK(output.front().first.front().refpos(0).name() == "A");
+        reverse(input.begin(), input.end());
+        output = surjector.surject_diploid_paired(input, paths, parameters);
+        CHECK(output.front().first.front().refpos(0).name() == "A");
+    }
+    SECTION("Duplicate source pairs do not become additional competitors") {
+        auto duplicate = input.front();
+        duplicate.first.set_is_secondary(true); duplicate.second.set_is_secondary(true);
+        input.insert(input.begin(), duplicate);
+        CHECK(surjector.surject_diploid_paired(input, paths, parameters).size() == 2);
+    }
+    SECTION("Unknown and zero source qualities are handled per mate") {
+        input.resize(1);
+        input[0].first.set_mapping_quality(255);
+        input[0].second.set_mapping_quality(0);
+        auto output = surjector.surject_diploid_paired(input, paths, parameters);
+        REQUIRE(output.size() == 1);
+        CHECK(output.front().first.front().mapping_quality() == 60);
+        CHECK(output.front().second.front().mapping_quality() == 0);
+        CHECK(get_annotation<double>(output.front().first.front(), "diploid_source_mapping_quality") == 255);
+    }
+    SECTION("A hard distance limit excludes otherwise high scoring pairs before scoring") {
+        parameters.maximum_fragment_length = 150;
+        auto output = surjector.surject_diploid_paired(input, paths, parameters);
+        REQUIRE(output.size() == 1);
+        CHECK(output.front().compatible);
+        CHECK(output.front().source_pair_index == 0);
+    }
+    SECTION("No compatible pairs use a documented alignment-only fallback") {
+        parameters.maximum_fragment_length = 50;
+        auto output = surjector.surject_diploid_paired(input, paths, parameters);
+        REQUIRE(output.size() == 1);
+        CHECK_FALSE(output.front().compatible);
+        CHECK_FALSE(get_annotation<bool>(output.front().first.front(), "proper_pair"));
+        CHECK(output.front().source_pair_index == 0);
+        CHECK(output.front().first.front().mapping_quality() == 0);
+        CHECK_FALSE(has_annotation(output.front().first.front(), "diploid_haplotype_quality"));
+    }
+    SECTION("Unmapped mates retain a reference placeholder and reciprocal links") {
+        input.resize(1);
+        input.front().first.clear_path();
+        SECTION("Both mates unmapped") { input.front().second.clear_path(); }
+        SECTION("Only mate one unmapped") {}
+        auto output = surjector.surject_diploid_paired(input, paths, parameters);
+        REQUIRE(output.size() == 1);
+        CHECK_FALSE(output.front().compatible);
+        REQUIRE(output.front().first.front().refpos_size() == 1);
+        CHECK(output.front().first.front().refpos(0).name().empty());
+        CHECK(output.front().first.front().refpos(0).offset() == -1);
+        CHECK(output.front().first.front().fragment_next().name() == "read/2");
+        CHECK(output.front().second.front().fragment_prev().name() == "read/1");
+    }
+    SECTION("Malformed groups and unsupported supplementary input are rejected") {
+        SECTION("Bad mate link") { input[0].first.mutable_fragment_next()->set_name("wrong"); }
+        SECTION("Inconsistent primary status") { input[0].second.set_is_secondary(true); }
+        SECTION("Multiple primaries") { input[1].first.set_is_secondary(false); input[1].second.set_is_secondary(false); }
+        SECTION("No primary") { input[0].first.set_is_secondary(true); input[0].second.set_is_secondary(true); }
+        SECTION("Different mate sequence") { input[1].second.set_sequence("ACGT"); }
+        SECTION("Supplementary annotation") { set_annotation(input[0].first, "supplementary", true); }
+        SECTION("Embedded supplementary") { input[0].second.add_supplementary(); }
+        SECTION("Invalid MAPQ") { input[0].first.set_mapping_quality(256); }
+        SECTION("Zero model spread") { parameters.fragment_model->stddev = 0; }
+        CHECK_THROWS_AS(surjector.surject_diploid_paired(input, paths, parameters), invalid_argument);
+    }
+    SECTION("Empty input has no output") {
+        CHECK(surjector.surject_diploid_paired({}, paths, parameters).empty());
+    }
+}
 
 // Construct one exact graph placement with MAPQ 37 and primary status.
 static Alignment diploid_test_placement(int64_t node_id, const string& sequence) {
@@ -273,6 +514,91 @@ TEST_CASE("Diploid input requires compatible placements of one unpaired read", "
         auto embedded = primary;
         embedded.add_supplementary();
         CHECK_THROWS_AS(surjector.surject_diploid({embedded}, {path_b}), invalid_argument);
+    }
+}
+
+TEST_CASE("Paired diploid alternatives retain candidate-local supplementary mate links",
+          "[surject][diploid][paired]") {
+    bdsg::HashGraph graph;
+    vector<Alignment> input;
+    unordered_set<path_handle_t> paths;
+    for (string name : {"A", "B"}) {
+        auto left = graph.create_handle(string(60, 'A'));
+        auto right = graph.create_handle(string(40, 'C'));
+        auto gap = graph.create_handle(string(200, 'G'));
+        graph.create_edge(left, gap);
+        graph.create_edge(gap, right);
+        graph.create_edge(left, right);
+        auto path = graph.create_path_handle(name);
+        graph.append_step(path, left);
+        graph.append_step(path, gap);
+        graph.append_step(path, right);
+        paths.insert(path);
+        Alignment source;
+        source.set_name("split");
+        source.set_sequence(string(60, 'A') + string(40, 'C'));
+        source.set_mapping_quality(name == "B" ? 17 : 2);
+        source.set_is_secondary(name == "A");
+        set_annotation(source, "tags", string("ZZ:Z:keep\tSA:Z:obsolete"));
+        for (auto node : {left, right}) {
+            auto* mapping = source.mutable_path()->add_mapping();
+            mapping->set_rank(source.path().mapping_size());
+            mapping->mutable_position()->set_node_id(graph.get_id(node));
+            auto* edit = mapping->add_edit();
+            edit->set_from_length(graph.get_length(node));
+            edit->set_to_length(graph.get_length(node));
+        }
+        input.push_back(source);
+    }
+    bdsg::PositionOverlay overlay(&graph);
+    TestSurjector surjector(&overlay);
+    surjector.prune_suspicious_anchors = false;
+    surjector.report_supplementary = true;
+    vector<pair<Alignment, Alignment>> pairs;
+    for (auto source : input) {
+        source.mutable_fragment_next()->set_name("mate");
+        set_annotation(source, "mate_info", string("obsolete"));
+        Alignment mate;
+        mate.set_name("mate");
+        mate.set_sequence(string(40, 'G'));
+        mate.set_mapping_quality(27);
+        mate.set_is_secondary(source.is_secondary());
+        mate.mutable_fragment_prev()->set_name(source.name());
+        auto* mapping = mate.mutable_path()->add_mapping();
+        mapping->set_rank(1);
+        mapping->mutable_position()->set_node_id(source.path().mapping(1).position().node_id());
+        mapping->mutable_position()->set_is_reverse(true);
+        auto* edit = mapping->add_edit(); edit->set_from_length(40); edit->set_to_length(40);
+        pairs.emplace_back(std::move(source), std::move(mate));
+    }
+    Surjector::DiploidPairingParameters parameters;
+    auto output = surjector.surject_diploid_paired(pairs, paths, parameters);
+    REQUIRE(output.size() == 2);
+    for (size_t i = 0; i < output.size(); ++i) {
+        const auto& pair = output[i];
+        const string name = i == 0 ? "A" : "B";
+        CHECK(pair.source_pair_index == i);
+        REQUIRE(pair.first.size() == 2);
+        REQUIRE(pair.second.size() == 1);
+        CHECK_FALSE(has_annotation(pair.first.front(), "mate_info"));
+        CHECK(is_supplementary(pair.first.back()));
+        CHECK(pair.first.back().is_secondary() == (i != 0));
+        CHECK(pair.second.front().is_secondary() == (i != 0));
+        REQUIRE(has_annotation(pair.first.back(), "mate_info"));
+        auto mate = parse_mate_info(get_annotation<string>(pair.first.back(), "mate_info"));
+        CHECK(get<0>(mate) == name);
+        CHECK(get<1>(mate) == pair.second.front().refpos(0).offset());
+        CHECK(get<2>(mate) == pair.second.front().refpos(0).is_reverse());
+        CHECK_FALSE(get<3>(mate));
+        for (const auto& piece : pair.first) {
+            CHECK(piece.fragment_next().refpos(0).name() == name);
+            CHECK(piece.mapping_quality() == pair.first.front().mapping_quality());
+            CHECK(get_annotation<double>(piece, "diploid_source_mapping_quality") == 17);
+            auto tags = get_annotation<string>(piece, "tags");
+            CHECK(tags.find("SA:Z:" + name + ",") != string::npos);
+            CHECK(tags.find("obsolete") == string::npos);
+            CHECK(count(tags.begin(), tags.end(), ';') == 1);
+        }
     }
 }
 
