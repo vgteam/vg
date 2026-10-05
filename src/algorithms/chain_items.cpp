@@ -123,7 +123,7 @@ void sort_anchor_indexes(const std::vector<Anchor>& items, std::vector<size_t>& 
         auto& b_item = items[b];
         auto a_start = a_item.read_start();
         auto b_start = b_item.read_start();
-        // a should be first if it starts earlier, or starts atthe same place and ends later.
+        // a should be first if it starts earlier, or starts at the same place and ends later.
         return (a_start < b_start || (a_start == b_start && a_item.read_end() > b_item.read_end()));
     });
 }
@@ -312,9 +312,9 @@ void add_transition_if_legal(vector<transition_info>& transitions, const VectorV
 #ifdef debug_transition
             std::cerr << "\tPerfectly overlapping anchors." << std::endl;
 #endif
-            transitions.emplace_back(from_anchor, to_anchor, 0);
+            transitions.emplace_back(source_anchor.read_start() < dest_anchor.read_start() ? from_anchor : to_anchor,
+                                     source_anchor.read_start() < dest_anchor.read_start() ? to_anchor : from_anchor, 0);
         } else {
-            cerr << dest_anchor.read_start() << " - " << source_anchor.read_start() << " != " << graph_distance << endl;
 #ifdef debug_transition
             std::cerr << "\tNot reachable in read." << std::endl;
 #endif
@@ -339,7 +339,8 @@ void add_transition_if_legal(vector<transition_info>& transitions, const VectorV
 #ifdef debug_transition
             std::cerr << "\tPerfectly overlapping anchors." << std::endl;
 #endif
-            transitions.emplace_back(from_anchor, to_anchor, 0);
+            transitions.emplace_back(source_anchor.read_start() < dest_anchor.read_start() ? from_anchor : to_anchor,
+                                     source_anchor.read_start() < dest_anchor.read_start() ? to_anchor : from_anchor, 0);
         } else {
 #ifdef debug_transition
             std::cerr << "\tOriginally overlapped in read." << std::endl;
