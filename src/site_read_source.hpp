@@ -451,6 +451,9 @@ public:
     /// a worker thread. Throws with an actionable message on failure.
     void check_setup() const;
 
+    /// Whether gbz-base is handed the databases as SQLite immutable URIs (see `immutable`).
+    bool immutable_databases() const { return immutable; }
+
 private:
 
     /// Per-thread GAF output files, one per query the thread can have in flight.
@@ -502,6 +505,23 @@ private:
     string gaf_base_filename;
     string gbz_filename;
     string binary;
+
+    /// SQLite takes a POSIX advisory lock on the database file around every read transaction, and
+    /// gbz-base looks up each node of a query in a transaction of its own. With one gbz-base per
+    /// calling thread, all of those lock and unlock calls land on the same file, and on a whole
+    /// genome the kernel's bookkeeping for them took most of every query's time. vg only reads the
+    /// databases, so by default it hands them to gbz-base as SQLite immutable URIs, which take no
+    /// locks at all. Setting VG_GAFBASE_LOCKING=1 in the environment passes the plain paths instead.
+    bool immutable = true;
+    /// The database arguments gbz-base is given: the plain paths, or `file:<path>?immutable=1`.
+    string gbz_argument;
+    string gaf_base_argument;
+    /// With immutable URIs, gbz-base runs in this directory. gbz-base checks that a database path
+    /// exists before SQLite reads it as a URI, so the directory holds a symlink named exactly like
+    /// each URI, pointing at the database.
+    string query_directory;
+    /// Make the symlink for `path` under query_directory, and return the URI.
+    string immutable_uri(const string& path) const;
 
     /// The most node IDs one gbz-base command line can hold: a quarter of sysconf(_SC_ARG_MAX),
     /// leaving room for the environment and the fixed arguments, over the bytes each node costs

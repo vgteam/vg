@@ -6,8 +6,10 @@
 #include <sstream>
 #include <unordered_set>
 
+#include <cstdlib>
 #include <fcntl.h>
 #include <spawn.h>
+#include <sys/stat.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
@@ -626,9 +628,56 @@ GafBaseSiteReadSource::GafBaseSiteReadSource(const HandleGraph& graph,
       graph(graph),
       gaf_base_filename(gaf_base_filename),
       gbz_filename(gbz_filename),
-      binary(binary) {
+      binary(binary),
+      gbz_argument(gbz_filename),
+      gaf_base_argument(gaf_base_filename) {
 
     threads.resize(max(1, get_thread_count()));
+
+    const char* locking = getenv("VG_GAFBASE_LOCKING");
+    immutable = !(locking != nullptr && string(locking) == "1");
+    if (immutable) {
+        // gbz-base will run in query_directory, so a binary named by a relative path has to be
+        // made absolute. A bare name is still looked up on PATH.
+        if (this->binary.find('/') != string::npos && this->binary[0] != '/') {
+            char* real = realpath(this->binary.c_str(), nullptr);
+            if (real != nullptr) {
+                this->binary = real;
+                free(real);
+            }
+        }
+        query_directory = temp_file::create_directory();
+        gbz_argument = immutable_uri(gbz_filename);
+        gaf_base_argument = immutable_uri(gaf_base_filename);
+    }
+}
+
+string GafBaseSiteReadSource::immutable_uri(const string& path) const {
+    char* real = realpath(path.c_str(), nullptr);
+    if (real == nullptr) {
+        throw runtime_error("cannot resolve database path " + path + ": " + strerror(errno));
+    }
+    string absolute = real;
+    free(real);
+    if (absolute.find_first_of("?#%") != string::npos) {
+        // These characters would have to be escaped in a URI. Rather than get that subtly wrong,
+        // refuse, and say how to go back to plain paths.
+        throw runtime_error("database path " + absolute + " contains ?, # or %; set "
+                            "VG_GAFBASE_LOCKING=1 to give gbz-base the plain path");
+    }
+    string uri = "file:" + absolute + "?immutable=1";
+    // The URI contains the file's own directories, so the symlink goes under a matching tree.
+    string link = query_directory + "/" + uri;
+    for (size_t slash = query_directory.size() + 1; (slash = link.find('/', slash + 1)) != string::npos; ) {
+        string dir = link.substr(0, slash);
+        if (mkdir(dir.c_str(), 0700) != 0 && errno != EEXIST) {
+            throw runtime_error("cannot create " + dir + ": " + strerror(errno));
+        }
+    }
+    if (symlink(absolute.c_str(), link.c_str()) != 0 && errno != EEXIST) {
+        throw runtime_error("cannot create " + link + ": " + strerror(errno));
+    }
+    return uri;
 }
 
 GafBaseSiteReadSource::~GafBaseSiteReadSource() {
@@ -654,7 +703,16 @@ const string& GafBaseSiteReadSource::gaf_path(ThreadState& state, size_t slot) c
     // One output file per in-flight query per thread, reused for every query that lands
     // in that slot. temp_file::create is mutex-guarded, so this is safe to race into.
     while (state.gaf_paths.size() <= slot) {
-        state.gaf_paths.push_back(temp_file::create("vg-gafbase-reads-"));
+        string path = temp_file::create("vg-gafbase-reads-");
+        if (!path.empty() && path[0] != '/') {
+            // gbz-base may run in another directory (see `immutable`), so give it an absolute path.
+            char* cwd = getcwd(nullptr, 0);
+            if (cwd != nullptr) {
+                path = string(cwd) + "/" + path;
+                free(cwd);
+            }
+        }
+        state.gaf_paths.push_back(path);
     }
     return state.gaf_paths[slot];
 }
@@ -681,7 +739,7 @@ GafBaseSiteReadSource::PendingQuery GafBaseSiteReadSource::spawn_query(
     // context would pull in reads no site here wants. --alignments overlapping returns each read
     // whole: the default, `clipped`, can cut one read into several pieces, which would put one
     // read in several rows of the likelihood matrix.
-    vector<string> args{binary, "query", gbz_filename};
+    vector<string> args{binary, "query", gbz_argument};
     args.reserve(args.size() + 2 * nodes.size() + 8);
     for (nid_t node : nodes) {
         args.push_back("-n");
@@ -690,7 +748,7 @@ GafBaseSiteReadSource::PendingQuery GafBaseSiteReadSource::spawn_query(
     args.push_back("--context");
     args.push_back("0");
     args.push_back("--gaf-base");
-    args.push_back(gaf_base_filename);
+    args.push_back(gaf_base_argument);
     args.push_back("--gaf-output");
     args.push_back(gaf_path(state, slot));
     args.push_back("--alignments");
@@ -718,6 +776,10 @@ GafBaseSiteReadSource::PendingQuery GafBaseSiteReadSource::spawn_query(
     posix_spawn_file_actions_addopen(&actions, STDOUT_FILENO, "/dev/null", O_WRONLY, 0);
     posix_spawn_file_actions_addopen(&actions, STDERR_FILENO, err_path.c_str(),
                                      O_WRONLY | O_CREAT | O_TRUNC, 0600);
+    if (immutable) {
+        // Added after the opens, so that the paths above are still taken from vg's own directory.
+        posix_spawn_file_actions_addchdir_np(&actions, query_directory.c_str());
+    }
 
     pid_t pid = 0;
     // posix_spawnp promises not to modify argv but cannot say so in C's type system;

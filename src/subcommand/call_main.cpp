@@ -2122,6 +2122,11 @@ int main_call(int argc, char** argv) {
                     logger.info() << "Using GAF-Base " << gaf_base_filename
                                   << " queried against " << query_graph
                                   << " via " << gaf_base_binary << endl;
+                    logger.info() << "GAF-Base: databases opened by gbz-base "
+                                  << (gaf_base_source->immutable_databases()
+                                      ? "as SQLite immutable URIs, without file locking"
+                                      : "as plain paths, with SQLite file locking (VG_GAFBASE_LOCKING=1)")
+                                  << endl;
                     if (gbz_base_filename.empty()) {
                         logger.info() << "Consider building a GBZ-Base ('gbz-base construct') and "
                                       << "passing --gbz-base: a plain GBZ is reloaded on every query"
