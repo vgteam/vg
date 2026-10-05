@@ -774,7 +774,7 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         scaled_scores.push_back(scaled_score);
     }
 
-    if (show_work) {
+    if (show_work && scores[0] > 0) {
         #pragma omp critical (cerr)
         {
             cerr << log_name() << "Scaled scores:";
