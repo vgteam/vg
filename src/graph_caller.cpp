@@ -5301,28 +5301,29 @@ static LinkageCollector::DirectQuality direct_quality_of(
     };
 }
 
-void FlowCaller::record_site(const Snarl& snarl, const vector<SnarlTraversal>& travs,
+bool FlowCaller::record_site(const Snarl& snarl, const vector<SnarlTraversal>& travs,
                             const vector<int>& trav_genotype,
                             const unique_ptr<SnarlCaller::CallInfo>& call_info, int ref_trav_idx,
                             const string& ref_path_name, int ref_offset,
-                            bool no_reference, int64_t position_from_parent) {
+                            bool no_reference, int64_t position_from_parent,
+                            vector<int>* panel_out) {
     if (linkage_collector == nullptr) {
-        return;
+        return false;
     }
     const auto* rl_info =
         dynamic_cast<const ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo*>(call_info.get());
     if (rl_info == nullptr) {
-        return;
+        return false;
     }
     // The same test the emitter uses, in traversal space: a genotype of one or two alleles, none of
     // them a missing or star marker. Haploid chains are included.
     const size_t site_ploidy = trav_genotype.size();
     if (site_ploidy != 1 && site_ploidy != 2) {
-        return;
+        return false;
     }
     for (int allele : trav_genotype) {
         if (allele < 0) {
-            return;
+            return false;
         }
     }
     const SiteLocus locus = no_reference
@@ -5333,10 +5334,11 @@ void FlowCaller::record_site(const Snarl& snarl, const vector<SnarlTraversal>& t
     // No allele map yet: the written alleles are chosen when the record is built, and
     // `set_allele_map` supplies the map then.
     static const vector<int> no_allele_map;
+    vector<int> panel = panel_alleles(graph, travs);
     linkage_collector->record(
         locus.contig, locus.position,
         rl_info->genotype_lls,
-        panel_alleles(graph, travs),
+        panel,
         called_i, called_j, no_allele_map,
         record_key_of(snarl),
         direct_quality_of(snarl_caller, *rl_info), site_ploidy,
@@ -5353,6 +5355,10 @@ void FlowCaller::record_site(const Snarl& snarl, const vector<SnarlTraversal>& t
             .chain_key = nested_context.chain_key,
             .freq_prior = site_freq_prior(travs, ref_trav_idx),
         });
+    if (panel_out != nullptr) {
+        *panel_out = std::move(panel);
+    }
+    return true;
 }
 
 double FlowCaller::site_freq_prior(const vector<SnarlTraversal>& travs, int ref_trav_idx) const {
@@ -6643,6 +6649,11 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
     // Staged in the nested branch below and completed after descent, which reads `travs`, since
     // this record then takes ownership of them.
     unique_ptr<PendingRecord> pending_this;
+    // The panel alleles `record_site` looked up for this snarl, if it recorded the site. The staged
+    // record keeps them, so that re-genotyping does not look them up again; the record's
+    // traversals are this snarl's `travs`, which do not change after the site is recorded.
+    vector<int> site_panel;
+    bool site_panel_set = false;
     // The same, for a snarl the linkage pass will not revise.
     unique_ptr<PendingRecord> render_this;
     // Whether this call ran emit_variant, so that descent knows `last_emit_valid` describes this
@@ -6912,8 +6923,10 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
             // Staged, not emitted: `render_retained_records` writes it after the direct pass.
             // `added` stands in for emit_variant's return value, which here only gates recursion;
             // a staged site counts as added.
-            record_site(snarl, travs, trav_genotype, trav_call_info, ref_trav_idx, ref_path_name,
-                        ref_offset_of(ref_offsets, ref_path_name));
+            site_panel_set = record_site(snarl, travs, trav_genotype, trav_call_info,
+                                         ref_trav_idx, ref_path_name,
+                                         ref_offset_of(ref_offsets, ref_path_name), false, 0,
+                                         &site_panel);
             render_this = stage_render_record(snarl, trav_genotype, ref_trav_idx, trav_call_info,
                                               ref_path_name, ref_offset_of(ref_offsets, ref_path_name), ploidy);
             added = render_this != nullptr;
@@ -7049,14 +7062,16 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
             // Genotyped and recorded, never written. Checked before retain_only, which does not
             // record. `added` is true, as for retain_only, since it gates descent into this chain's
             // children.
-            record_site(snarl, travs, trav_genotype, trav_call_info, ref_trav_idx, ref_path_name,
-                        ref_offset_of(ref_offsets, ref_path_name), /*no_reference*/ true,
-                        // The parent's position, as `get_ref_position` gives it from the interval
-                        // `use_parent_interval` set, plus the chain's offset along its parent, as
-                        // `PendingRecord::position_from_parent` has it.
-                        base_path_position(ref_path_name, get<0>(ref_interval)
-                                                              + ref_offset_of(ref_offsets, ref_path_name))
-                            + (int64_t)nested_context.parent_offset);
+            site_panel_set = record_site(
+                snarl, travs, trav_genotype, trav_call_info, ref_trav_idx, ref_path_name,
+                ref_offset_of(ref_offsets, ref_path_name), /*no_reference*/ true,
+                // The parent's position, as `get_ref_position` gives it from the interval
+                // `use_parent_interval` set, plus the chain's offset along its parent, as
+                // `PendingRecord::position_from_parent` has it.
+                base_path_position(ref_path_name, get<0>(ref_interval)
+                                                      + ref_offset_of(ref_offsets, ref_path_name))
+                    + (int64_t)nested_context.parent_offset,
+                &site_panel);
             ++descent_counters.no_ref_recorded;
             {
                 int copies = 0;
@@ -7075,14 +7090,18 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
             // An enclosing block's ALT already spells this chain, so it gets no line, but it is
             // genotyped and recorded, since its allele pair phases everything inside it. Checked
             // after retain_only, which does not record.
-            record_site(snarl, travs, trav_genotype, trav_call_info, ref_trav_idx, ref_path_name,
-                        ref_offset_of(ref_offsets, ref_path_name));
+            site_panel_set = record_site(snarl, travs, trav_genotype, trav_call_info,
+                                         ref_trav_idx, ref_path_name,
+                                         ref_offset_of(ref_offsets, ref_path_name), false, 0,
+                                         &site_panel);
             added = true;
         } else if (!gaf_output) {
             // Recorded here rather than in emit_variant. A retained chain, on the path above, is
             // recorded only if the linkage pass later finds that the sample carries it.
-            record_site(snarl, travs, trav_genotype, trav_call_info, ref_trav_idx, ref_path_name,
-                        ref_offset_of(ref_offsets, ref_path_name));
+            site_panel_set = record_site(snarl, travs, trav_genotype, trav_call_info,
+                                         ref_trav_idx, ref_path_name,
+                                         ref_offset_of(ref_offsets, ref_path_name), false, 0,
+                                         &site_panel);
             // Staged, not emitted, as at top level: the line is written after the linkage pass, from the
             // chosen genotype. `added` stands in for emit_variant's return value, which here only
             // gates recursion; a staged site counts as added.
@@ -7308,10 +7327,18 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
     // is set.
     if (pending_this != nullptr) {
         pending_this->travs = std::move(travs);
+        if (site_panel_set) {
+            pending_this->panel_cache = std::move(site_panel);
+            pending_this->panel_cached = true;
+        }
         pending_records[omp_get_thread_num()].push_back(std::move(*pending_this));
         pending_this.reset();
     } else if (render_this != nullptr) {
         render_this->travs = std::move(travs);
+        if (site_panel_set) {
+            render_this->panel_cache = std::move(site_panel);
+            render_this->panel_cached = true;
+        }
         render_records[omp_get_thread_num()].push_back(std::move(*render_this));
         render_this.reset();
     }

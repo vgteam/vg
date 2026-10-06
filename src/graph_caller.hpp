@@ -1222,11 +1222,16 @@ public:
     /// path through the site's nearest ancestor on a reference path, `position_from_parent` is the
     /// site's stand-in position (see `off_reference_site_locus`), and `ref_offset` is not used.
     /// Otherwise `position_from_parent` is not used.
-    void record_site(const Snarl& snarl, const vector<SnarlTraversal>& travs,
+    ///
+    /// Returns whether the site was recorded. If it was and `panel_out` is given, the panel
+    /// alleles looked up for it, `panel_alleles(graph, travs)`, are moved to `panel_out`, so that
+    /// the staged record can keep them rather than look them up again.
+    bool record_site(const Snarl& snarl, const vector<SnarlTraversal>& travs,
                      const vector<int>& trav_genotype,
                      const unique_ptr<SnarlCaller::CallInfo>& call_info, int ref_trav_idx,
                      const string& ref_path_name, int ref_offset,
-                     bool no_reference = false, int64_t position_from_parent = 0);
+                     bool no_reference = false, int64_t position_from_parent = 0,
+                     vector<int>* panel_out = nullptr);
 
     /// The frequency exponent a site should decode with: `--hp-prior` at a run-length site, or -1
     /// for the model's own. Reads the traversals' sequences only when `--hp-prior` is on.
