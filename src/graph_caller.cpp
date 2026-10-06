@@ -990,7 +990,9 @@ void VCFOutputCaller::write_variants(ostream& out_stream, const SnarlManager* sn
                 }
             }
         }
-        out_stream << dest << endl;
+        // Not endl: flushing after every record made one write per record, millions on a whole
+        // genome. The stream is flushed before vg exits.
+        out_stream << dest << '\n';
     }
     if (phase_declined.load() > 0 || quality_declined.load() > 0) {
         cerr << "[vg call] linkage: " << phase_declined.load()
