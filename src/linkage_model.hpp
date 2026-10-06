@@ -497,7 +497,7 @@ public:
                  const vector<int>& haplotype_traversal, int called_trav_i, int called_trav_j);
 
 
-    /// The pair of candidate traversals this site chosen on, for building its record.
+    /// The pair of candidate traversals the linkage model chose for this site.
     ///
     /// Translated out of the compact space here, since compact indices mean nothing outside the
     /// collector. A site the model did not change returns its called pair. Returns false for an

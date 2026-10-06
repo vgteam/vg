@@ -172,8 +172,8 @@ pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> ReadLikelihoodSnarlCaller::
         call_info->depth_read_length = matrix.depth_read_length_used();
         call_info->depth_observed = matrix.observed_reads();
     }
-    // Kept for later: the anchors are built when the record is rendered, from the chosen
-    // genotype.
+    // The CallInfo outlives the matrix, so the per-read evidence moves into it: read phasing and
+    // re-genotyping read it in the rounds, and the render builds the anchors from it.
     call_info->anchor_evidence = std::move(matrix.anchor_evidence);
     call_info->phase_evidence = std::move(matrix.phase_evidence);
 

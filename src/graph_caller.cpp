@@ -1173,7 +1173,7 @@ int VCFOutputCaller::phase_haploid_slot(size_t record_key, const vector<int>& ge
     return (int)found->second.nested_strand;
 }
 
-// The anchor gqn column for a staged record.
+// The anchor gqn column for a staged site.
 //
 // `gq_fraction` was computed in the direct pass for the reads' best genotype, so on a record whose
 // genotype the linkage model changed, it describes the abandoned genotype. Such a record gets the
@@ -5423,9 +5423,8 @@ size_t FlowCaller::render_record_count() const {
     return total_queued(render_records);
 }
 
-/// Stage what a top-level site's record is rendered from: the genotype, and the CallInfo, which
-/// update_vcf_info needs to map the written alleles back to matrix columns, index GL and compute
-/// QUAL. The caller adds the traversals once descent is done.
+// The CallInfo is kept because update_vcf_info reads it when the record is rendered, to map the
+// written alleles back to matrix columns, index GL and compute QUAL.
 unique_ptr<FlowCaller::PendingRecord> FlowCaller::stage_render_record(
         const Snarl& snarl, const vector<int>& trav_genotype, int ref_trav_idx,
         unique_ptr<SnarlCaller::CallInfo>& call_info,
@@ -5568,7 +5567,7 @@ bool FlowCaller::snarl_is_leaf(const Snarl& snarl) const {
 }
 
 unordered_map<size_t, array<int, 3>> FlowCaller::chosen_snapshot() {
-    // The chosen pair and ploidy per record: what the caller would write.
+    // Each record's chosen pair and ploidy, keyed by record key.
     unordered_map<size_t, array<int, 3>> out;
     if (linkage_collector == nullptr) {
         return out;
@@ -5774,7 +5773,7 @@ void FlowCaller::apply_read_phasing() {
     // Carry the swaps down the nesting tree. Every recorded chain is linked, including one whose
     // line an enclosing block's ALT spells (`reported_inline`): it still has anchors, read from
     // its strand, and its children's strands depend on its own. A dropped chain is left out, since
-    // the sample does not carry it or anything inside it. Read from the staged records, since
+    // the sample does not carry it or anything inside it. Read from the staged sites, since
     // between a linkage pass and the hand-off the nested records are in `deferred_pending`, not in
     // `render_records`.
     vector<NestedLink> links;
@@ -6522,7 +6521,7 @@ void FlowCaller::run_linkage_pass() {
             // added, and whether there is an old entry to retract.
             const bool had_entry = linkage_collector != nullptr
                                    && linkage_collector->has_entry(pr.record_key);
-            // Revise the staged inputs; the render builds the line once, at the end, from the chosen
+            // Revise the staged site; the render builds its line once, at the end, from the chosen
             // genotype.
             pr.genotype = use_genotype;
             pr.ploidy = copies;
@@ -6647,7 +6646,7 @@ void FlowCaller::run_linkage_pass() {
         }
     }
     if (show_progress) {
-        // The bytes kept for the staged records, counted by walking the objects.
+        // The bytes kept for the staged sites, counted by walking the objects.
         size_t retained_bytes = 0, retained_visits = 0, retained_gls = 0;
         auto measure = [&](const PendingRecord& rec) {
             retained_bytes += sizeof(PendingRecord) + rec.ref_path_name.capacity()
@@ -7077,8 +7076,8 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
         bool added;
         if (!gaf_output) {
             // Staged, not emitted: `render_retained_records` writes it after the direct pass.
-            // `added` is what emit_variant would have returned; it only gates recursion, so a
-            // staged record counts as one that will be written.
+            // `added` stands in for emit_variant's return value, which here only gates recursion;
+            // a staged site counts as added.
             record_site(snarl, travs, trav_genotype, trav_call_info, ref_trav_idx, ref_path_name,
                         ref_offset_of(ref_offsets, ref_path_name));
             render_this = stage_render_record(snarl, trav_genotype, ref_trav_idx, trav_call_info,
@@ -7251,8 +7250,8 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
             record_site(snarl, travs, trav_genotype, trav_call_info, ref_trav_idx, ref_path_name,
                         ref_offset_of(ref_offsets, ref_path_name));
             // Staged, not emitted, as at top level: the line is written after the linkage pass, from the
-            // chosen genotype. `added` is what emit_variant would have returned; it only gates
-            // recursion.
+            // chosen genotype. `added` stands in for emit_variant's return value, which here only
+            // gates recursion; a staged site counts as added.
             added = stage_records && !pending_records.empty();
             if (!added) {
                 added = emit_variant(graph, snarl_caller, snarl, travs, trav_genotype, ref_trav_idx,
@@ -7267,8 +7266,8 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
                              pos_info.first, pos_info.second, &support_finder);
         }
 
-        // Kept for the linkage pass, but staged: `travs` is not moved here, since descent below reads it
-        // to find which children the called alleles reach. It is moved once descent is done.
+        // Stage the nested site without its traversals: descent below still reads `travs` to find
+        // which children the called alleles reach, and they are moved in once descent is done.
         if (stage_records && !pending_records.empty()) {
             pending_this.reset(new PendingRecord());
             pending_this->snarl = snarl;
@@ -7471,7 +7470,7 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
     }
 
     // Descent above and the --top-down recursion, which builds each child's ChildTraversalSets
-    // from `travs`, are done, so the staged record can take the traversals. At most one of these
+    // from `travs`, are done, so the staged site can take the traversals. At most one of these
     // is set.
     if (pending_this != nullptr) {
         pending_this->travs = std::move(travs);

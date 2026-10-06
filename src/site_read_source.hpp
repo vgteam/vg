@@ -507,7 +507,7 @@ private:
         /// can grow that vector and move what a pointer was aimed at.
         string gaf_path;
         string err_path;
-        /// For QueryTotals and the per-query log.
+        /// When the query started, for its wall time in `QueryTotals` and the per-query log.
         std::chrono::steady_clock::time_point started;
         double started_epoch = 0;
         size_t n_nodes = 0;

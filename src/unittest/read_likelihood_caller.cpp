@@ -361,8 +361,9 @@ TEST_CASE("A nested site's depth rate is per haplotype of the region, not of the
 TEST_CASE("DR can be computed for a genotype other than the direct call",
           "[read_likelihood_caller]") {
     // The linkage model can write a genotype other than the direct call, and DR must then
-    // describe the written one. The CallInfo keeps what that needs, and gives back exactly the
-    // direct call's DR for the direct call.
+    // describe the written one. The CallInfo keeps each allele's length, the depth rate, the read
+    // length and the observed read count, from which `depth_ratio_of` computes DR for any
+    // genotype, and gives back exactly the direct call's DR for the direct call.
     CallerSite site;
     vector<Alignment> reads;
     for (int i = 0; i < 15; ++i) {

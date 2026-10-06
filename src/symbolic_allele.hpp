@@ -133,7 +133,7 @@ struct DiffBlock {
 vector<DiffBlock> symbolic_diff(const SymbolicAllele& ref, const SymbolicAllele& alt,
                                 vector<int>* out_alt_before_ref = nullptr);
 
-/// For logging and tests.
+/// Print a symbolic allele or a difference block in a readable form.
 ostream& operator<<(ostream& out, const SymbolicAllele& allele);
 ostream& operator<<(ostream& out, const DiffBlock& block);
 

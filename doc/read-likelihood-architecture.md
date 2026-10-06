@@ -18,18 +18,19 @@ The method has four **steps**: site likelihood computation, genotyping, phasing 
 
 With `--read-likelihood`, nested calling is on by default. The linkage model runs under haplotype
 enumeration (the default with a GBZ graph, or `--gbz` or `--gbwt`), when the panel holds at least
-two haplotypes and `--linkage-weight` is not 0. When either is on, `FlowCaller` stages its records
+two haplotypes and `--linkage-weight` is not 0. When either is on, `FlowCaller` stages each site
 and runs the passes and rounds of
 [Passes and rounds](read-likelihood-genotyping.md#passes-and-rounds). The calls that start them are
 near the end of `main_call` in `subcommand/call_main.cpp`.
 
 1. **Direct pass** (`call_top_level_snarls`, then `call_snarl_internal` for each site). Genotype
-   every site directly from its reads, and **stage** a record for it: keep what the record will be
-   built from, but write nothing. Nested sites are genotyped here too, by recursion from their
-   parent, at both ploidy 1 and ploidy 2 when they have more than one candidate allele. Each
-   genotyped site is also filed with the linkage model (`record_site`), except `retain_only` chains
-   (see below). This pass does step 1 and the direct call of step 2. It is the only pass that
-   fetches reads: the later ones use the per-read evidence it kept.
+   every site directly from its reads, and **stage** it: store its result, and the per-read
+   evidence behind it, as a staged site, a `PendingRecord` (see
+   [Words the headers use](#words-the-headers-use)). Nested sites are genotyped here
+   too, by recursion from their parent, at both ploidy 1 and ploidy 2 when they have more than one
+   candidate allele. Each genotyped site is also filed with the linkage model (`record_site`),
+   except `retain_only` chains (see below). This pass does step 1 and the direct call of step 2. It
+   is the only pass that fetches reads: the later ones use the per-read evidence it kept.
 2. **Round 1.** The linkage pass (`run_linkage_pass`) chooses the genotypes with the linkage model
    and phases them from the panel, one level at a time, parents before children. Between levels it
    sets each child's ploidy from its parent's chosen, phased pair, and swaps in the child's answer
@@ -141,7 +142,7 @@ the linkage model and phasing when the cast fails.
 | | `read_likelihood_caller.hpp` | `ReadLikelihoodSnarlCaller`, which makes one site's direct call from its likelihoods and computes its quality fields |
 | | `linkage_model.hpp` | `LinkageModel`, the hidden Markov model over the panel, and `LinkageCollector`, which holds each site's entry and runs the model over linkage chains, one level at a time |
 | | `symbolic_allele.hpp` | symbolic alleles and difference blocks, which let a nested site's variation be reported once |
-| | `graph_caller.hpp` | the direct pass (`call_snarl_internal`, with nested descent), the linkage pass (`run_linkage_pass`) and the staged records (`PendingRecord`) |
+| | `graph_caller.hpp` | the direct pass (`call_snarl_internal`, with nested descent), the linkage pass (`run_linkage_pass`) and the staged sites (`PendingRecord`) |
 | Phasing | `linkage_model.hpp` | the Viterbi phase (`LinkageModel::phasing`), recorded by `LinkageCollector` as each site's chosen pair (`PhaseCall`) |
 | | `read_phasing.hpp` | per-read evidence (`PhaseReadEvidence`, `PhaseSite`), links between sites, and the decision of each site's order (`read_phase_flips`) |
 | | `regenotype.hpp` | strand log-odds, tempering, and the per-read likelihood correction |
@@ -174,11 +175,14 @@ the linkage model and phasing when the cast fails.
 - **Moved.** A site whose chosen genotype in the last linkage pass differs from its direct call
   (under re-genotyping, the best genotype of its corrected likelihoods). Its records get the moved
   quality fields (see the state table).
-- **Staged, pending, deferred, retained, render records.** One idea, a record kept to be built
-  later, in different containers: the direct pass stages records into `pending_records` (nested) and
-  `render_records` (top-level); the first linkage pass moves nested ones to `deferred_pending`; the
-  render's **hand-off** (`hand_off_deferred_records`) moves the surviving ones into
-  `render_records`, and collects anchors for chains that get no line.
+- **Staged site (`PendingRecord`).** One site's result from the direct pass: the snarl, its
+  candidate alleles, its direct call and its ploidy, its `CallInfo` (see the state table), and its
+  place in the nesting tree (parent, chain, level, crossing mask). Three containers hold staged
+  sites. The direct pass puts nested sites in `pending_records` and top-level sites in
+  `render_records`; the first linkage pass moves the nested ones to `deferred_pending`; the
+  render's **hand-off** (`hand_off_deferred_records`) moves the nested sites the linkage pass kept
+  into `render_records` when they get a line, and collects anchors for those that do not. The
+  code's pending, deferred, retained and render records are all staged sites.
 - **`retain_only`.** Under the linkage model, a child site that no allele of its parent's direct
   call crosses, and the sites nested in it. It is genotyped and staged, but not filed with the
   linkage model or written, unless a linkage pass finds that the parent's chosen genotype crosses

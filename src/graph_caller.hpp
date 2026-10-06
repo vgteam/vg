@@ -312,9 +312,9 @@ public:
     }
 
     /// Turn one chosen site into anchors, if anchors are being written. Called once per staged
-    /// record as the records are rendered: just before its line is written, or, for a record with
-    /// no line, by the hand-off. A record with no reference position still gets anchors, since a
-    /// pin is placed by node ID, which is why this is not part of `emit_variant`.
+    /// site as the sites are rendered: just before its line is written, or, for a site with no
+    /// line, by the hand-off. A site with no reference position still gets anchors, since a pin
+    /// is placed by node ID, which is why this is not part of `emit_variant`.
     ///
     /// `is_leaf` is supplied by the caller, since the snarl manager is on GraphCaller. `gqn` is
     /// the value for the anchor's gqn column, from `FlowCaller::anchor_gqn_for`; NaN is written as
@@ -512,11 +512,11 @@ protected:
         /// how many copies of the chain the parent's chosen genotype carries, and on which
         /// strand.
         uint64_t parent_crossing = 0;
-        /// Set where no called parent allele reaches the chain, and only when records are staged
-        /// for the linkage pass and the linkage model runs (without it, such a chain is not genotyped).
-        /// The chain is genotyped anyway, at the parent's ploidy, because the linkage model may
-        /// still move the parent onto an allele that does reach it. Inherited by its children,
-        /// which are genotyped at their own provisional ploidy.
+        /// Set where no called parent allele reaches the chain, and only when staging is on (see
+        /// `set_stage_records`) and the linkage model runs (without it, such a chain is not
+        /// genotyped). The chain is genotyped anyway, at the parent's ploidy, because the linkage
+        /// model may still move the parent onto an allele that does reach it. Inherited by its
+        /// children, which are genotyped at their own provisional ploidy.
         ///
         /// In the direct pass the chain is staged, not written, and not recorded in the linkage model.
         /// The exception is a snarl whose own boundaries are on no reference path: that is recorded
@@ -874,7 +874,7 @@ protected:
 
     /// A site's record key: the hash of the printed snarl, which is also the record's ID column.
     /// It identifies the site everywhere: in the linkage model, in the phasing and in the staged
-    /// records.
+    /// sites.
     ///
     /// `write_variants` finds a buffered line's key by hashing its ID column, so the key must be the
     /// hash of that string. It survives `--translation`, where both sides print the translated
@@ -1150,13 +1150,12 @@ protected:
  * set_symbolic_collapsing.
  *
  * With the linkage model or nested calling, calling runs in passes. The direct pass
- * genotypes every site from its own reads and stages a record for it (see
- * PendingRecord). Rounds follow. Each round's linkage pass chooses the genotypes one
- * level at a time, parents before their children (see run_linkage_pass), and read
- * phasing then re-decides the phases. From round 2 on, re-genotyping first corrects the
- * likelihoods from the phase (see phase_and_regenotype). Finally every staged record is
- * rendered once, from its settled genotype, the one the last round chose (see
- * render_retained_records).
+ * genotypes every site from its own reads and stages it (see PendingRecord). Rounds
+ * follow. Each round's linkage pass chooses the genotypes one level at a time, parents
+ * before their children (see run_linkage_pass), and read phasing then re-decides the
+ * phases. From round 2 on, re-genotyping first corrects the likelihoods from the phase
+ * (see phase_and_regenotype). Finally the render builds each staged site's records once,
+ * from its settled genotype, the one the last round chose (see render_retained_records).
  */
 class FlowCaller : public GraphCaller, public VCFOutputCaller, public GAFOutputCaller {
 public:
@@ -1223,7 +1222,7 @@ public:
 
     /// Decide every heterozygous site's phase from the reads, and change the chosen phase to
     /// match, so that the GT order, the anchor slot column and the mosaic all follow from it.
-    /// Genotypes are not changed. On FlowCaller because it needs the staged records, which hold
+    /// Genotypes are not changed. On FlowCaller because it needs the staged sites, which hold
     /// the per-read evidence.
     void apply_read_phasing();
 
@@ -1245,21 +1244,22 @@ public:
     /// again, as far as they are turned on. Does nothing unless read phasing is on.
     void phase_and_regenotype();
 
-    /// Write every staged record once, from its chosen genotype, and collect its anchors.
+    /// Build the records of every staged site once, from its chosen genotype, and collect the
+    /// site's anchors.
     void render_retained_records();
 
     /// Whether this snarl has no children, resolved through the manager's own copy. See the
     /// implementation for why the obvious `children_of(&snarl)` is not safe here.
     bool snarl_is_leaf(const Snarl& snarl) const;
 
-    /// Stage every record during the direct pass, and write it only after the linkage pass has chosen its
-    /// genotype. A nested chain's ploidy, its strand, and whether it has a record at all then come
-    /// from its parent's chosen genotype, and a parent is chosen before its children, so a
-    /// child's evidence cannot change its parent. Sizes the per-thread queues, so it must be
+    /// Stage every site during the direct pass, and write its records only after the linkage pass
+    /// has chosen its genotype. A nested chain's ploidy, its strand, and whether it has a record at
+    /// all then come from its parent's chosen genotype, and a parent is chosen before its children,
+    /// so a child's evidence cannot change its parent. Sizes the per-thread queues, so it must be
     /// called before calling starts.
     void set_stage_records(bool defer);
 
-    /// How many records are staged for the render, reported under --progress.
+    /// How many staged sites `render_records` holds, reported under --progress.
     size_t render_record_count() const;
 
 
@@ -1268,7 +1268,7 @@ public:
     /// parent's chosen genotype gives it, from the answers the direct pass kept at both
     /// ploidies, and a chain the parent does not carry is dropped with everything inside it.
     /// Once every level is done, it decides which chains an enclosing block spells
-    /// (`PendingRecord::reported_inline`). Does nothing unless records are staged (see
+    /// (`PendingRecord::reported_inline`). Does nothing unless staging is on (see
     /// `set_stage_records`).
     void run_linkage_pass();
 
@@ -1340,7 +1340,8 @@ protected:
     /// use * alleles for spanning haplotypes that don't traverse nested sites
     bool star_allele = false;
 
-    /// A site's genotyping result, kept from the direct pass until its record is rendered.
+    /// A staged site: one site's genotyping result from the direct pass, kept until the render
+    /// builds the site's records.
     ///
     /// A nested chain's ploidy depends on its parent's chosen genotype, which is known only after
     /// the direct pass, so the result is kept rather than computed again. The `CallInfo` has the
@@ -1397,7 +1398,7 @@ protected:
 
     };
 
-    /// The staged records a pass should look at, wherever they currently are: between a linkage pass
+    /// The staged sites a pass should look at, wherever they currently are: between a linkage pass
     /// pass and the hand-off, nested chains are in `deferred_pending` and the rest in
     /// `render_records`.
     ///
@@ -1418,7 +1419,7 @@ protected:
     /// reached before, which means they are cycling.
     static size_t snapshot_digest(const unordered_map<size_t, std::array<int, 3>>& snap);
 
-    /// The nested chains' staged records, which every linkage pass reads, merged out of
+    /// The nested chains' staged sites, which every linkage pass reads, merged out of
     /// `pending_records` by the first and kept until `hand_off_deferred_records` moves them to the
     /// render. A member because the linkage pass runs once per round.
     vector<PendingRecord> deferred_pending;
@@ -1429,10 +1430,11 @@ protected:
     /// See set_stage_records.
     bool stage_records = false;
 
-    /// The nested chains' staged records, filled per thread during the direct pass.
+    /// The nested chains' staged sites, filled per thread during the direct pass.
     vector<vector<PendingRecord>> pending_records;
 
-    /// The top-level sites' staged records, and after the hand-off every record to be rendered.
+    /// The top-level staged sites, and after the hand-off also the nested ones that get a line of
+    /// their own.
     /// A top-level site's ploidy comes from the contig or the BED, so the linkage pass never revises
     /// it, though the linkage model still chooses its genotype. Separate from
     /// `pending_records`, which `run_linkage_pass` moves out and clears, and whose index groups
@@ -1440,8 +1442,10 @@ protected:
     vector<vector<PendingRecord>> render_records;
 
 
-    /// Stage what a top-level site's record is rendered from. Takes the genotype and `call_info`
-    /// now; the caller adds the traversals once descent, which still reads them, is done.
+    /// Make a top-level site's `PendingRecord` from its genotype, moving `call_info` into it.
+    /// `travs` is left empty, because descent still reads the traversals; the caller moves them in
+    /// once descent is done. Returns null, and leaves `call_info` alone, when staging is off (see
+    /// `set_stage_records`).
     unique_ptr<PendingRecord> stage_render_record(const Snarl& snarl,
                                                  const vector<int>& trav_genotype, int ref_trav_idx,
                                                  unique_ptr<SnarlCaller::CallInfo>& call_info,
@@ -1449,8 +1453,8 @@ protected:
                                                  int ploidy);
 
 
-    /// The genotype the linkage model chosen on for a staged record, or the direct pass's where it
-    /// chosen none. Both anchor-collection paths use it.
+    /// The genotype the linkage model chose for a staged site, or the direct pass's genotype
+    /// where the model chose none.
     vector<int> chosen_genotype_for(const PendingRecord& rec) const;
 
     /// The gqn column's value for this record: the direct pass's `gq_fraction`, unless the linkage model
@@ -1459,7 +1463,7 @@ protected:
     /// cannot be recomputed.
     double anchor_gqn_for(const PendingRecord& rec, const vector<int>& chosen) const;
 
-    /// `collect_anchors_for` for a staged record, with the phase order, the haploid slot and the
+    /// `collect_anchors_for` for a staged site, with the phase order, the haploid slot and the
     /// leaf test derived from it. The genotype is a parameter because the render passes the
     /// chosen pair.
     void collect_anchors_for_record(const PendingRecord& rec, const vector<int>& genotype);

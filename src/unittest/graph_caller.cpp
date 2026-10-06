@@ -351,7 +351,7 @@ TEST_CASE("A parent's phase swap carries its nested strands and their haplotypes
     for (size_t i = 0; i < phased.size(); ++i) {
         index[phased[i].record_key] = i;
     }
-    // Out of level order, as the staged records can be.
+    // Out of level order, as the staged sites can be.
     vector<FlowCaller::NestedLink> links = {
         {3, 2, 2}, {5, 4, 2}, {2, 1, 1}, {4, 1, 1}, {1, 0, 0}};
     const unordered_set<size_t> flips = {1};

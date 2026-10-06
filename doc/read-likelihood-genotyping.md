@@ -130,7 +130,7 @@ and vg writes the output files:
 direct pass                         once, every top-level site
     direct genotyping               the site's likelihoods and direct call, from its reads
     descent                         the same for the sites nested in it, at provisional ploidies
-    staging                         keep what the site's records will be built from
+    staging                         store the site's alleles, direct call and likelihoods
 round 1, 2, ...                     round 2 on only with --regenotype
     likelihood correction           from round 2 on: correct the likelihoods from the phase
     linkage pass                    one level at a time, level 0 first
@@ -165,8 +165,9 @@ for the parent a genotype whose alleles cross it; without the linkage model it i
 nested site has more than one candidate allele, vg also computes its likelihoods and direct call at
 ploidy 1 or 2, whichever it was not genotyped at, because a linkage pass may give it either. A
 nested site with one candidate allele is genotyped at one ploidy only, and keeps it unless a
-linkage pass drops the site. Each site is **staged**: vg keeps what the site's records will be
-built from, and writes them in the render.
+linkage pass drops the site. Each site is **staged**: vg stores its candidate alleles, its direct
+call and the likelihoods of its genotypes (at both ploidies, for a nested site that has both), and
+builds the site's records from them in the render.
 
 ### The linkage pass
 
