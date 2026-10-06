@@ -3675,20 +3675,20 @@ string VCFOutputCaller::nesting_info_headers() {
 
 string VCFOutputCaller::print_snarl(const HandleGraph* graph, const handle_t& snarl_start,
                                     const handle_t& snarl_end, bool in_brackets) const {
-    Snarl snarl;
-    Visit* start = snarl.mutable_start();
-    start->set_node_id(graph->get_id(snarl_start));
-    start->set_backward(graph->get_is_reverse(snarl_start));
-    Visit* end = snarl.mutable_end();
-    end->set_node_id(graph->get_id(snarl_end));
-    end->set_backward(graph->get_is_reverse(snarl_end));
-    return this->print_snarl(snarl, in_brackets);
+    return print_snarl(graph->get_id(snarl_start), graph->get_is_reverse(snarl_start),
+                       graph->get_id(snarl_end), graph->get_is_reverse(snarl_end), in_brackets);
 }
-
 string VCFOutputCaller::print_snarl(const Snarl& snarl, bool in_brackets) const {
+    return print_snarl(snarl.start().node_id(), snarl.start().backward(), snarl.end().node_id(),
+                       snarl.end().backward(), in_brackets);
+}
+string VCFOutputCaller::print_flipped_snarl(const Snarl& snarl, bool in_brackets) const {
+    return print_snarl(snarl.end().node_id(), !snarl.end().backward(), snarl.start().node_id(),
+                       !snarl.start().backward(), in_brackets);
+}
+string VCFOutputCaller::print_snarl(nid_t start_node_id, bool start_backward, nid_t end_node_id,
+                                    bool end_backward, bool in_brackets) const {
     // todo, should we canonicalize here by putting lexicographic lowest node first?
-    nid_t start_node_id = snarl.start().node_id();
-    nid_t end_node_id = snarl.end().node_id();
     string start_node = std::to_string(start_node_id);
     string end_node = std::to_string(end_node_id);
     if (translation) {
@@ -3703,24 +3703,22 @@ string VCFOutputCaller::print_snarl(const Snarl& snarl, bool in_brackets) const 
         }
         end_node = i->second.first;
     }
-    stringstream ss;
+    // Built in place rather than through a stringstream, and without a Snarl message for a
+    // flipped or handle-given snarl: names are printed for every snarl of the graph when the VCF
+    // is written, and for each ancestor of every record.
+    string name;
+    name.reserve(start_node.size() + end_node.size() + 4);
     if (in_brackets) {
-        ss << "(";
+        name += '(';
     }
-    ss << (snarl.start().backward() ? "<" : ">") << start_node << (snarl.end().backward() ? "<" : ">") << end_node;
+    name += start_backward ? '<' : '>';
+    name += start_node;
+    name += end_backward ? '<' : '>';
+    name += end_node;
     if (in_brackets) {
-        ss << ")";
+        name += ')';
     }
-    return ss.str();
-}
-string VCFOutputCaller::print_flipped_snarl(const Snarl& snarl, bool in_brackets) const {
-    // todo, should we canonicalize here by putting lexicographic lowest node first?
-    Snarl flipped_snarl;
-    flipped_snarl.mutable_start()->set_node_id(snarl.end().node_id());
-    flipped_snarl.mutable_start()->set_backward(!snarl.end().backward());
-    flipped_snarl.mutable_end()->set_node_id(snarl.start().node_id());
-    flipped_snarl.mutable_end()->set_backward(!snarl.start().backward());
-    return print_snarl(flipped_snarl, in_brackets);
+    return name;
 }
 
 void VCFOutputCaller::scan_snarl(const string& allele_string, function<void(const string&, Snarl&)> callback) const {

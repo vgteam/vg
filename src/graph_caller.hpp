@@ -821,6 +821,9 @@ protected:
     string print_snarl(const Snarl& snarl, bool in_brackets = false) const;
     /// The same as above, but print the snarl as if its orientation has been flipped
     string print_flipped_snarl(const Snarl& snarl, bool in_brackets = false) const;
+    /// What the three above print, from the snarl's two boundary visits.
+    string print_snarl(nid_t start_id, bool start_backward, nid_t end_id, bool end_backward,
+                       bool in_brackets) const;
 
     /// A site's record key: the hash of the printed snarl, which is also the record's ID column.
     /// It identifies the site everywhere: in the linkage model, in the phasing and in the staged
