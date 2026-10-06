@@ -1437,9 +1437,10 @@ protected:
     /// The chosen pair and ploidy per record, `{trav_first, trav_second, ploidy}`, for measuring
     /// whether a re-genotyping round changed anything.
     unordered_map<size_t, std::array<int, 3>> chosen_snapshot();
-    /// How many records have a different chosen pair or ploidy from `before`, counting a chain
-    /// that gained or lost a chosen answer as moved.
-    size_t chosen_changed(const unordered_map<size_t, std::array<int, 3>>& before);
+    /// How many records have a different chosen pair or ploidy in snapshot `after` than in
+    /// snapshot `before`, counting a chain that gained or lost a chosen answer as moved.
+    static size_t chosen_changed(const unordered_map<size_t, std::array<int, 3>>& before,
+                                 const unordered_map<size_t, std::array<int, 3>>& after);
     /// A digest of a snapshot that does not depend on order, for spotting a state the rounds have
     /// reached before, which means they are cycling.
     static size_t snapshot_digest(const unordered_map<size_t, std::array<int, 3>>& snap);

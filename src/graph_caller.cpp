@@ -5484,11 +5484,19 @@ unordered_map<size_t, array<int, 3>> FlowCaller::chosen_snapshot() {
     if (linkage_collector == nullptr) {
         return out;
     }
-    for (const PendingRecord* recp : records_for_render()) {
-        int a = -1, b = -1;
-        size_t ploidy = 0;
-        if (linkage_collector->chosen_traversals(recp->record_key, &a, &b, &ploidy)) {
-            out[recp->record_key] = {a, b, (int)ploidy};
+    // Looked up on several threads, then filed in record order, so that the map is built exactly
+    // as one loop over the records builds it.
+    const vector<PendingRecord*> records = records_for_render();
+    vector<size_t> keys(records.size());
+    for (size_t i = 0; i < records.size(); ++i) {
+        keys[i] = records[i]->record_key;
+    }
+    vector<array<int, 3>> chosen;
+    vector<char> found;
+    linkage_collector->chosen_traversals_for(keys, chosen, found);
+    for (size_t i = 0; i < keys.size(); ++i) {
+        if (found[i]) {
+            out[keys[i]] = chosen[i];
         }
     }
     return out;
@@ -5508,8 +5516,8 @@ size_t FlowCaller::snapshot_digest(const unordered_map<size_t, array<int, 3>>& s
     return acc;
 }
 
-size_t FlowCaller::chosen_changed(const unordered_map<size_t, array<int, 3>>& before) {
-    const unordered_map<size_t, array<int, 3>> after = chosen_snapshot();
+size_t FlowCaller::chosen_changed(const unordered_map<size_t, array<int, 3>>& before,
+                                  const unordered_map<size_t, array<int, 3>>& after) {
     size_t moved = 0;
     for (const auto& kv : after) {
         auto found = before.find(kv.first);
@@ -6100,7 +6108,7 @@ void FlowCaller::phase_and_regenotype() {
             rerun_linkage_pass();
             apply_read_phasing();
             const auto after = chosen_snapshot();
-            const size_t moved = chosen_changed(before);
+            const size_t moved = chosen_changed(before, after);
             cerr << "[vg call] re-genotyping round " << round << ": " << moved
                  << " chosen genotypes moved" << endl;
             if (!calls_moved) {

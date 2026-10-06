@@ -1497,6 +1497,30 @@ bool LinkageCollector::chosen_traversals(size_t record_key, int* first, int* sec
     return false;
 }
 
+void LinkageCollector::chosen_traversals_for(const vector<size_t>& record_keys,
+                                             vector<std::array<int, 3>>& out,
+                                             vector<char>& found) const {
+    lock_guard<std::mutex> guard(mutex);
+    out.assign(record_keys.size(), {-1, -1, 0});
+    found.assign(record_keys.size(), 0);
+    // Each lookup only reads, and each writes its own slot.
+#pragma omp parallel for schedule(dynamic, 4096)
+    for (size_t i = 0; i < record_keys.size(); ++i) {
+        const uint32_t idx = live_index(record_keys[i]);
+        if (idx == NO_ENTRY) {
+            continue;
+        }
+        const Entry& e = entries[idx];
+        const int a = traversal_of(trav_arena, e.trav_offset, e.num_alleles, e.final_i);
+        const int b = traversal_of(trav_arena, e.trav_offset, e.num_alleles, e.final_j);
+        if (a < 0 || b < 0) {
+            continue;
+        }
+        out[i] = {a, b, (int)e.ploidy};
+        found[i] = 1;
+    }
+}
+
 std::unordered_set<size_t> LinkageCollector::emitted_records() const {
     lock_guard<std::mutex> guard(mutex);
     std::unordered_set<size_t> emitted;

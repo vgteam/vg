@@ -10,6 +10,7 @@
  */
 
 #include <algorithm>
+#include <array>
 #include <atomic>
 #include <cstddef>
 #include <cstdint>
@@ -506,6 +507,12 @@ public:
     /// collector. A site the model did not change returns its called pair. Returns false for an
     /// unknown or retracted key.
     bool chosen_traversals(size_t record_key, int* first, int* second, size_t* ploidy) const;
+
+    /// `chosen_traversals` for every key in `record_keys` at once, under one lock, looked up on
+    /// several threads: `out[i]` gets the i-th key's {first, second, ploidy}, and `found[i]` is 1
+    /// where `chosen_traversals` would return true.
+    void chosen_traversals_for(const vector<size_t>& record_keys, vector<std::array<int, 3>>& out,
+                               vector<char>& found) const;
 
     /// Fill in the traversal-to-VCF-allele map for a site already recorded, and say whether a line
     /// exists for it.
