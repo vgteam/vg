@@ -1900,9 +1900,8 @@ SnarlManager IntegratedSnarlFinder::find_snarls_parallel() {
     }
     for (size_t i = 0; i < snarl_managers.size(); ++i) {
         if (i != biggest_snarl_idx) {
-            snarl_managers[i].for_each_snarl_unindexed([&](const Snarl* snarl) {
-                snarl_managers[biggest_snarl_idx].add_snarl(*snarl);
-            });
+            // Moved, not copied: the other managers are only destroyed afterwards.
+            snarl_managers[biggest_snarl_idx].take_snarls(snarl_managers[i]);
         }
     }
     snarl_managers[biggest_snarl_idx].finish();

@@ -906,6 +906,17 @@ const Snarl* SnarlManager::add_snarl(const Snarl& new_snarl) {
     return unrecord(new_record);
 }
 
+void SnarlManager::take_snarls(SnarlManager& other) {
+    for (SnarlRecord& other_record : other.snarls) {
+        // As in add_snarl, but the snarl is moved in: a Snarl is several messages, and copying
+        // them was most of the time it took to merge the managers of a graph's components.
+        snarls.emplace_back();
+        SnarlRecord* new_record = &snarls.back();
+        *new_record = std::move(other_record.snarl);
+        new_record->snarl_number = (size_t)snarls.size()-1;
+    }
+}
+
 void SnarlManager::finish() {
     // Build all the indexes from the snarls we were given
     build_indexes();

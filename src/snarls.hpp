@@ -446,8 +446,13 @@ public:
     /// let precomputed chains be added, because we want chain orientations
     /// relative to snarls to be deterministic given an order of snarls.
     /// Returns a pointer to the managed snarl copy.
-    /// Only this function may add in new Snarls.
+    /// Only this function and take_snarls() may add in new Snarls.
     const Snarl* add_snarl(const Snarl& new_snarl);
+
+    /// Add every snarl of `other`, in the order it stores them, as add_snarl() would, but moving
+    /// each one in rather than copying it. `other` is left holding empty snarls, and only
+    /// destroying it is safe afterwards. Like add_snarl(), this must come before finish().
+    void take_snarls(SnarlManager& other);
     
     /// Reverses the orientation of a managed snarl.
     void flip(const Snarl* snarl);
@@ -652,6 +657,12 @@ private:
         SnarlRecord& operator=(const Snarl& other) {
             // Just call the base assignment operator
             (*(Snarl*)this) = other;
+            return *this;
+        }
+
+        /// The same, taking the other snarl's contents instead of copying them
+        SnarlRecord& operator=(Snarl&& other) {
+            (*(Snarl*)this) = std::move(other);
             return *this;
         }
     };
