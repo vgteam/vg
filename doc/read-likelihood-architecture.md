@@ -29,9 +29,9 @@ near the end of `main_call` in `subcommand/call_main.cpp`.
    evidence behind it, as a staged site, a `PendingRecord` (see
    [Words the headers use](#words-the-headers-use)). Nested sites are genotyped here
    too, by recursion from their parent, at both ploidy 1 and ploidy 2 when they have more than one
-   candidate allele. Each genotyped site is also filed with the linkage model (`record_site`),
-   except `retain_only` chains (see below). It is the only pass that fetches reads: the later ones
-   use the per-read evidence it kept.
+   candidate allele. `record_site` also adds an entry for each genotyped site to the linkage
+   model's `LinkageCollector`, except for `retain_only` chains (see below). The direct pass is the
+   only pass that fetches reads: the later ones use the per-read evidence it kept.
 2. **Round 1.** The linkage pass (`run_linkage_pass`) chooses the genotypes with the linkage model
    and phases them from the panel, one level at a time, parents before children. Between levels it
    sets each child's ploidy from its parent's chosen, phased pair, and swaps in the child's answer
@@ -184,12 +184,13 @@ the linkage model and phasing when the cast fails.
   into `render_records` when they get a line, and collects anchors for those that do not. The
   code's pending, deferred, retained and render records are all staged sites.
 - **`retain_only`.** Under the linkage model, a child site that no allele of its parent's direct
-  call crosses, and the sites nested in it. It is genotyped and staged, but not filed with the
-  linkage model or written, unless a linkage pass finds that the parent's chosen genotype crosses
-  it. (Without the linkage model such a site is not genotyped at all.) A site with no reference path
-  is filed anyway. A linkage pass does not drop a `retain_only` site on its parent's account when
-  the parent has no chosen pair, when the crossing mask is unknown or empty, or when the direct pass
-  has no answer at the chosen ploidy; such a site is written. A dropped ancestor still removes it.
+  call crosses, and the sites nested in it. It is genotyped and staged, but gets no entry in
+  `LinkageCollector` and no line, unless a linkage pass finds that the parent's chosen genotype
+  crosses it. (Without the linkage model such a site is not genotyped at all.) A site with no
+  reference path gets an entry anyway. A linkage pass does not drop a `retain_only` site on its
+  parent's account when the parent has no chosen pair, when the crossing mask is unknown or empty,
+  or when the direct pass has no answer at the chosen ploidy; such a site is written. A dropped
+  ancestor still removes it.
 - **Linkage pass and round.** A linkage pass chooses the genotypes of every level once. Round 1 is
   a linkage pass and read phasing; each later round corrects the likelihoods first.
 - **Nested.** Four senses:
@@ -236,8 +237,8 @@ that explains them.
    because `FlowCaller` is built with one. It turns one site's matrix into a direct call. Its
    `genotype` returns the genotype, and beside it a `ReadLikelihoodCallInfo` (see the state table).
 5. **`linkage_model.hpp`.** `LinkageModel` first: sites, states, emissions and transitions, then
-   `posteriors` and `phasing`. Then `LinkageCollector`, which files an entry for each site during
-   the direct pass and, in the linkage pass, runs the model over top-level linkage chains and
+   `posteriors` and `phasing`. Then `LinkageCollector`, which holds an entry for each site, added
+   during the direct pass. In the linkage pass it runs the model over top-level linkage chains and
    groups one level at a time, recording each site's chosen pair. `LinkageCounters` last.
 6. **`read_phasing.hpp`.** The evidence each read gives at a phaseable site, links between sites,
    and the four stages that decide each site's order. It also declares `allele_length_weights`,

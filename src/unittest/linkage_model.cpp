@@ -106,7 +106,7 @@ static bool respecify_dense(LinkageCollector& c, size_t record_key,
     for (size_t i = 0; i < num_alleles; ++i) {
         ident[i] = (int)i;
     }
-    // What the linkage pass does: retract the entry the direct pass filed, then record the site
+    // What the linkage pass does: retract the entry the direct pass added, then record the site
     // again at the chosen ploidy.
     if (c.has_entry(record_key)) {
         c.retract(record_key);
@@ -1604,7 +1604,7 @@ TEST_CASE("A revised site stops being unemitted when the revision writes a line"
     REQUIRE(revised != nullptr);
     // The entry now says a line exists.
     REQUIRE(collector.emitted_records().count(B) == 1);
-    // And it is filed at the position the line was written to.
+    // And the entry has the position the line was written to.
     REQUIRE(revised->position == 1013);
 }
 

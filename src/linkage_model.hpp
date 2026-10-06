@@ -553,7 +553,7 @@ public:
 
     size_t num_sites() const { return entries.size(); }
 
-    /// How many times `record()` filed a site under a key that already had a live entry, as a
+    /// How many times `record()` added an entry under a key that already had a live entry, as a
     /// snarl recorded twice, or two snarls whose names hash alike, would be. `retract` and every
     /// lookup reach only the first live entry for a key, so the second is decoded but cannot be
     /// replaced. The count is reported with the linkage summary.
