@@ -3948,19 +3948,6 @@ SnarlTraversal GAFOutputCaller::pad_traversal(const PathHandleGraph& graph, cons
 
 void VCFOutputCaller::update_nesting_info_tags(const SnarlManager* snarl_manager) {
 
-    // index the snarl tree by name
-    unordered_map<string, const Snarl*> name_to_snarl;
-    Snarl flipped_snarl;
-    snarl_manager->for_each_snarl_preorder([&](const Snarl* snarl) {
-            name_to_snarl[print_snarl(*snarl)] = snarl;
-            // also add a map from the flipped snarl (as call sometimes messes with orientation)
-            flipped_snarl.mutable_start()->set_node_id(snarl->end().node_id());
-            flipped_snarl.mutable_start()->set_backward(!snarl->end().backward());
-            flipped_snarl.mutable_end()->set_node_id(snarl->start().node_id());
-            flipped_snarl.mutable_end()->set_backward(!snarl->start().backward());
-            name_to_snarl[print_snarl(flipped_snarl)] = snarl;
-        });
-
     // Merge the per-thread suppressed-site intervals collected during calling.  These are sites
     // that never reached the VCF, so pass 1 below cannot see them, but a record nested under one
     // has no other way to name a reference position.
@@ -4002,15 +3989,59 @@ void VCFOutputCaller::update_nesting_info_tags(const SnarlManager* snarl_manager
     // nesting/cyclic_ref_multiple_variants.gfa) -- but both occurrences are traversals of one
     // path, so they are on the same contig and it does not matter which one wins here.
     unordered_map<string, uint32_t> chrom_of_name;
-    for (auto& thread_buf : output_variants) {
-        for (auto& output_variant_record : thread_buf) {
-            string output_variant_string;
+    // What passes 1 and 2 read from each record: its site's name, CHROM, POS and REF length. The
+    // records are decompressed once, in parallel, and the indexes are then filled in record
+    // order, as reading the records one by one fills them.
+    struct RecordFields {
+        string name;
+        string chrom;
+        string pos;
+        size_t ref_len = 0;
+        bool top_level = false;
+    };
+    vector<vector<RecordFields>> record_fields(output_variants.size());
+#pragma omp parallel for schedule(dynamic, 1)
+    for (size_t b = 0; b < output_variants.size(); ++b) {
+        vector<RecordFields>& fields = record_fields[b];
+        fields.reserve(output_variants[b].size());
+        string output_variant_string;
+        for (auto& output_variant_record : output_variants[b]) {
+            output_variant_string.clear();
             int ret = zstdutil::DecompressString(output_variant_record.second, output_variant_string);
             assert(ret == 0);
-            vector<string> toks = split_delims(output_variant_string, "\t", 4);
-            chrom_of_name.emplace(block_site_name(toks[2]), intern_chrom(toks[0]));
+            vector<string> toks = split_delims(output_variant_string, "\t", 5);
+            RecordFields f;
+            f.name = block_site_name(toks[2]);
+            f.ref_len = toks[3].length();
+            f.chrom = std::move(toks[0]);
+            f.pos = std::move(toks[1]);
+            fields.push_back(std::move(f));
         }
     }
+    for (const vector<RecordFields>& fields : record_fields) {
+        for (const RecordFields& f : fields) {
+            chrom_of_name.emplace(f.name, intern_chrom(f.chrom));
+        }
+    }
+
+    // index the snarl tree by name
+    //
+    // Only the names of sites in the VCF are ever looked up, so only they are indexed. The
+    // snarls are visited in the same order as for an index of every name, so a name that two
+    // snarls print goes to the same one.
+    unordered_map<string, const Snarl*> name_to_snarl;
+    name_to_snarl.reserve(chrom_of_name.size());
+    snarl_manager->for_each_snarl_preorder([&](const Snarl* snarl) {
+            string snarl_name = print_snarl(*snarl);
+            if (chrom_of_name.count(snarl_name) != 0) {
+                name_to_snarl[std::move(snarl_name)] = snarl;
+            }
+            // also add a map from the flipped snarl (as call sometimes messes with orientation)
+            string flipped_name = print_flipped_snarl(*snarl);
+            if (chrom_of_name.count(flipped_name) != 0) {
+                name_to_snarl[std::move(flipped_name)] = snarl;
+            }
+        });
 
     // pass 2) identify top-level snarls (those with no ancestors in VCF)
     // and store reference info only for them
@@ -4042,20 +4073,24 @@ void VCFOutputCaller::update_nesting_info_tags(const SnarlManager* snarl_manager
         return true; // no ancestors in VCF
     };
 
-    // Second pass through variants to extract ref info only for top-level snarls
-    for (auto& thread_buf : output_variants) {
-        for (auto& output_variant_record : thread_buf) {
-            string output_variant_string;
-            int ret = zstdutil::DecompressString(output_variant_record.second, output_variant_string);
-            assert(ret == 0);
-            vector<string> toks = split_delims(output_variant_string, "\t", 5);
-            const string name = block_site_name(toks[2]);
-            if (is_top_level(name)) {
-                top_level_ref_info[name][make_pair(toks[0], static_cast<size_t>(stoul(toks[1])))] =
-                    toks[3].length();
+    // Second pass through variants to extract ref info only for top-level snarls. Whether a
+    // record's site is top level depends only on the indexes above, so the records are tested in
+    // parallel; the ref info is then stored in record order.
+#pragma omp parallel for schedule(dynamic, 1)
+    for (size_t b = 0; b < record_fields.size(); ++b) {
+        for (RecordFields& f : record_fields[b]) {
+            f.top_level = is_top_level(f.name);
+        }
+    }
+    for (const vector<RecordFields>& fields : record_fields) {
+        for (const RecordFields& f : fields) {
+            if (f.top_level) {
+                top_level_ref_info[f.name][make_pair(f.chrom, static_cast<size_t>(stoul(f.pos)))] =
+                    f.ref_len;
             }
         }
     }
+    vector<vector<RecordFields>>().swap(record_fields);
 
     // determine the tags from the index
     //
