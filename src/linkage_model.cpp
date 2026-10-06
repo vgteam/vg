@@ -2207,6 +2207,11 @@ size_t LinkageCollector::resolve_level(
         }
     }
 
+    // One line per chain below the top level, written in one piece once the chains' results are
+    // applied. A level can have tens of thousands of chains, and cerr writes each piece of each
+    // line as it comes, so writing them one at a time held the pass up whenever the log was slow
+    // to take them.
+    string chain_lines;
     for (size_t chain_i = 0; chain_i < chains.size(); ++chain_i) {
         const vector<size_t>& indices = chains[chain_i];
         ChainDecode& d = decoded[chain_i];
@@ -2214,10 +2219,10 @@ size_t LinkageCollector::resolve_level(
             continue;
         }
         if (level > 0) {
-#pragma omp critical (cerr)
-            std::cerr << "[vg call] linkage level " << level << ": chain decodes "
-                      << indices.size() << " sites for " << d.live_here << " of its own, "
-                      << d.pinned_here << " pinned" << std::endl;
+            chain_lines += "[vg call] linkage level " + std::to_string(level) + ": chain decodes "
+                           + std::to_string(indices.size()) + " sites for "
+                           + std::to_string(d.live_here) + " of its own, "
+                           + std::to_string(d.pinned_here) + " pinned\n";
         }
 
         for (size_t t = 0; t < indices.size(); ++t) {
@@ -2352,6 +2357,10 @@ size_t LinkageCollector::resolve_level(
         }
         // This chain's results are applied, so its decode is freed.
         d = ChainDecode();
+    }
+    if (!chain_lines.empty()) {
+#pragma omp critical (cerr)
+        std::cerr << chain_lines << std::flush;
     }
 
     if (level > 0 && (model.counters.pin_applied.load() + model.counters.pin_declined.load()) > 0) {
