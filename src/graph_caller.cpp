@@ -18,8 +18,9 @@
 
 namespace vg {
 
-// The names of the AtomizeCounters::refuse reasons.
-static const char* const g_atomize_refuse_name[13] = {
+// The names of the AtomizeCounters::refuse reasons, in index order. The initializer sets the
+// size, so that the check below fails when a name is missing as well as when one is extra.
+static const char* const g_atomize_refuse_name[] = {
     "the genotyper returned no genotype: ploidy 0, or no read the matrix could place",
     "no reference traversal",
     "the snarl does not resolve",
@@ -36,7 +37,8 @@ static const char* const g_atomize_refuse_name[13] = {
 };
 static_assert(sizeof(g_atomize_refuse_name) / sizeof(g_atomize_refuse_name[0])
                   == sizeof(AtomizeCounters::refuse) / sizeof(AtomizeCounters::refuse[0]),
-              "every refusal reason has a name");
+              "each AtomizeCounters::refuse reason must have a name in g_atomize_refuse_name, "
+              "and each name must have a reason");
 static thread_local int g_descent_depth = 0;
 
 void GraphCaller::report_descent_instrumentation() const {
