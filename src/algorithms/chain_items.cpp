@@ -312,8 +312,8 @@ void add_transition_if_legal(vector<transition_info>& transitions, const VectorV
 #ifdef debug_transition
             std::cerr << "\tPerfectly overlapping anchors." << std::endl;
 #endif
-            transitions.emplace_back(source_anchor.read_start() < dest_anchor.read_start() ? from_anchor : to_anchor,
-                                     source_anchor.read_start() < dest_anchor.read_start() ? to_anchor : from_anchor, 0);
+            transitions.emplace_back(from_anchor < to_anchor ? from_anchor : to_anchor,
+                                     from_anchor < to_anchor ? to_anchor : from_anchor, 0);
         } else {
 #ifdef debug_transition
             std::cerr << "\tNot reachable in read." << std::endl;
@@ -339,8 +339,8 @@ void add_transition_if_legal(vector<transition_info>& transitions, const VectorV
 #ifdef debug_transition
             std::cerr << "\tPerfectly overlapping anchors." << std::endl;
 #endif
-            transitions.emplace_back(source_anchor.read_start() < dest_anchor.read_start() ? from_anchor : to_anchor,
-                                     source_anchor.read_start() < dest_anchor.read_start() ? to_anchor : from_anchor, 0);
+            transitions.emplace_back(from_anchor < to_anchor ? from_anchor : to_anchor,
+                                     from_anchor < to_anchor ? to_anchor : from_anchor, 0);
         } else {
 #ifdef debug_transition
             std::cerr << "\tOriginally overlapped in read." << std::endl;
