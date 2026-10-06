@@ -1,5 +1,6 @@
 #include "recombinator.hpp"
 
+#include "gref.hpp"
 #include "kff.hpp"
 #include "statistics.hpp"
 #include "algorithms/component.hpp"
@@ -33,6 +34,7 @@ constexpr size_t Recombinator::KFF_BLOCK_SIZE;
 constexpr double Recombinator::PRESENT_DISCOUNT;
 constexpr double Recombinator::HET_ADJUSTMENT;
 constexpr double Recombinator::ABSENT_SCORE;
+constexpr size_t Recombinator::MIN_GREF_LENGTH;
 
 //------------------------------------------------------------------------------
 
@@ -40,6 +42,12 @@ constexpr double Recombinator::ABSENT_SCORE;
 std::string to_string(handle_t handle) {
     gbwt::node_type node = gbwtgraph::GBWTGraph::handle_to_node(handle);
     return std::string("(") + std::to_string(gbwt::Node::id(node)) + std::string(", ") + std::to_string(gbwt::Node::is_reverse(node)) + std::string(")");
+}
+
+// Returns true if the path is a gref fragment (`gref_CHM13#0#chr1_7_alt`), even if it
+// has already been clipped (`gref_CHM13#0#chr1_7_alt[500]`).
+bool is_gref_fragment(const gbwtgraph::GBWTGraph& graph, path_handle_t path) {
+    return GrefCover::is_gref_derived(graph.get_path_name(path)) && GrefCover::is_gref_name(graph.get_locus_name(path));
 }
 
 //------------------------------------------------------------------------------
@@ -491,8 +499,12 @@ Haplotypes HaplotypePartitioner::partition_haplotypes(const Parameters& paramete
 
     // Assign chains to jobs and fill in contig names.
     auto chains_by_job = gbwtgraph::partition_chains(this->distance_index, this->gbz.graph, jobs);
-    // We do not use a path filter, because a GBZ graph should not contain alt paths.
-    auto contig_names = jobs.contig_names(this->gbz.graph);
+    // Chain names become the contigs of the generated haplotypes, so a gref cover must not
+    // change them. Skip gref fragments (`chr1_7_alt`) and loci in the reserved gref namespace
+    // (`gref_x`, a non-PanSN copy); a PanSN gref copy (`gref_CHM13#0#chr1`) has the base locus.
+    auto contig_names = jobs.contig_names(this->gbz.graph, [&](const path_handle_t& path) -> bool {
+        return !GrefCover::is_gref_derived(this->gbz.graph.get_locus_name(path)) && !is_gref_fragment(this->gbz.graph, path);
+    });
     for (size_t job_id = 0; job_id < result.jobs(); job_id++) {
         for (auto& chain : chains_by_job[job_id]) {
             result.chains[chain.offset].job_id = job_id;
@@ -1609,7 +1621,7 @@ void Recombinator::Parameters::print(std::ostream& out) const {
         out << "- heuristic sampling (" << this->num_haplotypes << " haplotypes)" << std::endl;
     }
     if (this->include_reference) {
-        out << "- include reference paths" << std::endl;
+        out << "- include reference paths (gref fragments clipped, min length " << this->min_gref_length << ")" << std::endl;
     }
     if (!this->high_coverage_chains.empty()) {
         out << "- " << this->high_coverage_chains.size() << " high-coverage chains ("
@@ -1628,18 +1640,63 @@ void Recombinator::Parameters::print(std::ostream& out) const {
 
 void add_path(const gbwt::GBWT& source, gbwt::size_type path_id, gbwt::GBWTBuilder& builder, gbwtgraph::MetadataBuilder& metadata) {
     // We know that sufficient metadata exists, because this is a cached path.
-    gbwt::PathName path_name = source.metadata.path(path_id);
-    std::string sample_name = source.metadata.sample(path_name.sample);
-    std::string contig_name = source.metadata.contig(path_name.contig);
-    if (sample_name == gbwtgraph::GENERIC_PATH_SAMPLE_NAME) {
-        metadata.add_generic_path(contig_name);
-    } else {
-        // Reference samples will be copied later.
-        metadata.add_haplotype(sample_name, contig_name, path_name.phase, path_name.count);
-    }
+    // This keeps the subrange of a generic path. Reference samples will be copied later.
+    metadata.add_gbwt_path(source.metadata.fullPath(path_id));
+    builder.insert(source.extract(gbwt::Path::encode(path_id, false)), true);
+}
 
-    gbwt::vector_type path = source.extract(gbwt::Path::encode(path_id, false));
-    builder.insert(path, true);
+//------------------------------------------------------------------------------
+
+std::vector<PathPiece> clip_path_to_index(
+    const gbwt::vector_type& path, const gbwt::DynamicGBWT& index,
+    const std::function<size_t(gbwt::node_type)>& node_length
+) {
+    std::vector<PathPiece> result;
+    size_t offset = 0;
+    for (size_t i = 0; i < path.size(); i++) {
+        gbwt::node_type node = path[i];
+        size_t length = node_length(node);
+        if (!result.empty() && result.back().start + result.back().nodes == i && index.hasEdge(path[i - 1], node)) {
+            result.back().nodes++;
+            result.back().bp_length += length;
+        } else if (index.contains(node) && !index.empty(node)) {
+            // As in GBWTGraph, a node within the alphabet is absent if its record is empty.
+            result.push_back({ i, 1, offset, length });
+        }
+        offset += length;
+    }
+    return result;
+}
+
+// Adds the pieces of the given gref fragments that only use nodes and edges already in the
+// builder, named as subranges of the fragment in the full graph, and returns their number.
+// Call after `builder.finish()`. Everything is clipped before anything is inserted, because
+// an insert may flush the builder and start a thread that modifies the index.
+size_t add_gref_fragments(
+    const gbwtgraph::GBZ& gbz, const std::vector<gbwt::size_type>& path_ids, size_t min_length,
+    gbwt::GBWTBuilder& builder, gbwtgraph::MetadataBuilder& metadata
+) {
+    auto node_length = [&](gbwt::node_type node) -> size_t {
+        return gbz.graph.get_length(gbwtgraph::GBWTGraph::node_to_handle(node));
+    };
+    std::vector<gbwt::vector_type> pieces;
+    for (gbwt::size_type path_id : path_ids) {
+        gbwt::vector_type path = gbz.index.extract(gbwt::Path::encode(path_id, false));
+        for (const PathPiece& piece : clip_path_to_index(path, builder.index, node_length)) {
+            if (piece.bp_length < min_length) {
+                continue;
+            }
+            // The metadata must be added in the same order as the paths.
+            gbwt::FullPathName name = gbz.index.metadata.fullPath(path_id);
+            name.offset += piece.bp_offset;
+            metadata.add_gbwt_path(name);
+            pieces.emplace_back(path.begin() + piece.start, path.begin() + piece.start + piece.nodes);
+        }
+    }
+    for (const gbwt::vector_type& piece : pieces) {
+        builder.insert(piece, true);
+    }
+    return pieces.size();
 }
 
 //------------------------------------------------------------------------------
@@ -1808,14 +1865,20 @@ gbwt::GBWT Recombinator::generate_haplotypes(const std::string& kff_file, const 
         }
     }
 
-    // Figure out GBWT path ids for reference paths in each job.
+    // Figure out GBWT path ids for reference paths in each job. Gref fragments are set
+    // aside: copying them would keep the whole gref cover, so they are clipped later.
     std::vector<std::vector<gbwt::size_type>> reference_paths(this->haplotypes.jobs());
+    std::vector<std::vector<gbwt::size_type>> gref_fragment_paths(this->haplotypes.jobs());
     if (parameters.include_reference) {
         for (size_t i = 0; i < this->gbz.graph.named_paths.size(); i++) {
             size_t job_id = this->jobs_for_cached_paths[i];
             gbwt::size_type path_id = this->gbz.graph.named_paths[i].id;
             if (job_id < this->haplotypes.jobs() && excluded_path_ids.find(path_id) == excluded_path_ids.end()) {
-                reference_paths[job_id].push_back(path_id);
+                if (is_gref_fragment(this->gbz.graph, handlegraph::as_path_handle(i))) {
+                    gref_fragment_paths[job_id].push_back(path_id);
+                } else {
+                    reference_paths[job_id].push_back(path_id);
+                }
             }
         }
     }
@@ -1879,6 +1942,11 @@ gbwt::GBWT Recombinator::generate_haplotypes(const std::string& kff_file, const 
             }
         }
         builder.finish();
+        // Gref fragments can only be clipped against the finished topology.
+        if (!gref_fragment_paths[job].empty()) {
+            job_statistics.ref_paths += add_gref_fragments(this->gbz, gref_fragment_paths[job], parameters.min_gref_length, builder, metadata);
+            builder.finish();
+        }
         builder.index.addMetadata();
         builder.index.metadata = metadata.get_metadata();
         indexes[job] = builder.index;
