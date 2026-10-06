@@ -321,41 +321,46 @@ unordered_set<size_t> read_phase_flips(vector<PhaseSite>& sites, const ReadPhasi
 
         if (!rel.empty()) {
             // --- stage 4: hang the unreliable sites from the chain ---
+            //
+            // `rel` is in increasing order and holds no unreliable site, so the reliable sites
+            // before `t` are rel[0, split) and those after it rel[split, end), found by binary
+            // search rather than by walking `rel` for every unreliable site.
+            const size_t per_side = params.hang / 2 + 1;
             for (size_t t : unrel) {
                 double s = 0.0;
                 size_t used = 0;
-                // Nearest reliable neighbours on both sides. `hang` is split between them rather
-                // than taken from one, so a site near a chain end is not decided one-sidedly.
-                for (int dir = -1; dir <= 1; dir += 2) {
-                    size_t taken = 0;
-                    for (size_t idx = 0; idx < rel.size() && taken < params.hang / 2 + 1; ++idx) {
-                        const size_t m = dir < 0 ? rel.size() - 1 - idx : idx;
-                        const size_t u = rel[m];
-                        if (dir < 0 ? !(u < t) : !(u > t)) {
-                            continue;
-                        }
-                        const double dv = phase_link(sites[begin + t], sites[begin + u],
-                                                     params.cap);
-                        ++taken;
-                        if (dv == 0.0) {
-                            continue;
-                        }
-                        const int pred = o[u] ^ (dv < 0.0 ? 1 : 0);
-                        s += std::fabs(dv) * (pred == 0 ? 1.0 : -1.0);
-                        ++used;
+                const size_t split = std::lower_bound(rel.begin(), rel.end(), t) - rel.begin();
+                auto link = [&](size_t u) {
+                    const double dv = phase_link(sites[begin + t], sites[begin + u], params.cap);
+                    if (dv == 0.0) {
+                        return;
                     }
+                    const int pred = o[u] ^ (dv < 0.0 ? 1 : 0);
+                    s += std::fabs(dv) * (pred == 0 ? 1.0 : -1.0);
+                    ++used;
+                };
+                // Nearest reliable neighbours on both sides, nearest first, before `t` and then
+                // after it. `hang` is split between them rather than taken from one, so a site
+                // near a chain end is not decided one-sidedly.
+                for (size_t k = 0; k < per_side && k < split; ++k) {
+                    link(rel[split - 1 - k]);
+                }
+                for (size_t k = split; k < rel.size() && k - split < per_side; ++k) {
+                    link(rel[k]);
                 }
                 if (params.panel_weight > 0.0 && !rel.empty()) {
                     // The panel says this site keeps the order it came in with, relative to its
-                    // neighbour's. Weak, and only decisive when the reads say nothing.
-                    size_t nearest = rel.front();
-                    size_t best = nearest > t ? nearest - t : t - nearest;
-                    for (size_t u : rel) {
-                        const size_t dist = u > t ? u - t : t - u;
-                        if (dist < best) {
-                            best = dist;
-                            nearest = u;
-                        }
+                    // neighbour's. Weak, and only decisive when the reads say nothing. The
+                    // nearest reliable site is on one side of `t` or the other; on a tie, the
+                    // one before it.
+                    size_t nearest;
+                    if (split == 0) {
+                        nearest = rel.front();
+                    } else if (split == rel.size()) {
+                        nearest = rel.back();
+                    } else {
+                        nearest = t - rel[split - 1] <= rel[split] - t ? rel[split - 1]
+                                                                       : rel[split];
                     }
                     s += params.panel_weight * (o[nearest] == 0 ? 1.0 : -1.0);
                 }
