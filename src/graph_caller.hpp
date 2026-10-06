@@ -1387,9 +1387,10 @@ protected:
         bool crossing_known = true;
         /// The site's level.
         uint8_t level = 0;
-        /// Set when the chosen parent, or an ancestor, does not carry this chain, so the chain and
-        /// its descendants do not exist in the sample and are not revised or written. Each linkage pass
-        /// pass decides it again, so a chain dropped in one pass can come back in the next.
+        /// Set when the parent's chosen genotype, or an ancestor's, does not carry this chain, so
+        /// the chain and its descendants do not exist in the sample and are not revised or
+        /// written. Each linkage pass decides it again, so a chain dropped in one pass can come
+        /// back in the next.
         bool dropped = false;
         /// `panel_alleles(graph, travs)`, computed once: the traversals do not change after the
         /// direct pass, and each re-genotyping round would otherwise repeat the GBWT lookups.
@@ -1398,7 +1399,7 @@ protected:
 
     };
 
-    /// The staged sites a pass should look at, wherever they currently are: between a linkage pass
+    /// The staged sites a pass should look at, wherever they currently are: between a linkage
     /// pass and the hand-off, nested chains are in `deferred_pending` and the rest in
     /// `render_records`.
     ///
@@ -1412,8 +1413,8 @@ protected:
     /// The chosen pair and ploidy per record, `{trav_first, trav_second, ploidy}`, for measuring
     /// whether a re-genotyping round changed anything.
     unordered_map<size_t, std::array<int, 3>> chosen_snapshot();
-    /// How many records chosen differently from `before`, counting a chain that gained or lost a
-    /// chosen answer as moved.
+    /// How many records have a different chosen pair or ploidy from `before`, counting a chain
+    /// that gained or lost a chosen answer as moved.
     size_t chosen_changed(const unordered_map<size_t, std::array<int, 3>>& before);
     /// A digest of a snapshot that does not depend on order, for spotting a state the rounds have
     /// reached before, which means they are cycling.

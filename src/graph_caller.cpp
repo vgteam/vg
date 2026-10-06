@@ -976,8 +976,8 @@ void VCFOutputCaller::resolve_linkage_level(size_t level, bool last) {
     // How many sites the model moved off the genotype the reads alone chose.
     linkage_changed += moved;
     if (!last) {
-        // One line per intermediate level: how many sites each linkage pass chosen, and its
-        // cost.
+        // One line per level except the last: its site count, how many of its genotypes the
+        // linkage model moved, and the seconds it took.
         cerr << "[vg call] linkage level " << level << ": "
              << linkage_collector->num_sites_at(level) << " sites, "
              << moved << " genotypes moved by linkage, " << seconds << " s" << endl;
@@ -1165,7 +1165,7 @@ int VCFOutputCaller::phase_haploid_slot(size_t record_key, const vector<int>& ge
         // where slot 1 means nothing.
         return 0;
     }
-    // Only where the phase names the allele this site chosen on, as `phase_ordered_genotype` and
+    // Only where the phase names the allele chosen for this site, as `phase_ordered_genotype` and
     // `emit_variant` require.
     if (found->second.trav_first != genotype[0]) {
         return 0;
@@ -1249,7 +1249,7 @@ double FlowCaller::anchor_gqn_for(const PendingRecord& rec,
     return min(1.0, max(-1.0, margin_phred / achievable_phred * direct.explained_share));
 }
 
-/// The genotype the linkage model chosen on, or the direct pass's own if it chosen none. Used by both
+/// The genotype the linkage model chose, or the direct pass's own where it chose none. Used by both
 /// anchor-collection paths, the render and `hand_off_deferred_records`, so that records with no
 /// VCF line (`reported_inline` and `no_reference`) also get anchors for their chosen genotype.
 vector<int> FlowCaller::chosen_genotype_for(const PendingRecord& rec) const {
@@ -6368,7 +6368,7 @@ void FlowCaller::run_linkage_pass() {
             }
             auto parent_record = record_by_key.find(pr.parent_record_key);
             if (linkage_collector != nullptr && parent_record != record_by_key.end()) {
-                // Place the chain along the allele its parent chosen on, before this level's
+                // Place the chain along the allele chosen for its parent, before this level's
                 // linkage pass orders and spaces its sites by position. The parent's own offset
                 // was placed in the previous level's iteration.
                 const PendingRecord& par = *parent_record->second;

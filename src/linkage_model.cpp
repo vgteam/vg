@@ -1675,7 +1675,7 @@ size_t LinkageCollector::resolve_level(
         return moved;
     }
 
-    // For each site of an earlier level, by record key: the phase it chosen on, so that a
+    // For each site of an earlier level, by record key: the phase chosen for it, so that a
     // clamped site can be pinned to it, and what `nested_strand_of` needs to place a child.
     struct PinnedPhase {
         size_t first;

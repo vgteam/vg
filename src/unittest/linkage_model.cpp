@@ -647,7 +647,7 @@ TEST_CASE("A nested site takes its strand from the parent traversal that carries
         REQUIRE(child->phase_set == parent->phase_set);
 
         if (!c.placed) {
-            // The parent chosen on a pair that does not contain this traversal, so there is no
+            // The parent's chosen pair does not contain this traversal, so there is no
             // haplotype to name. Claiming one would put a variant in the emitted genome that the
             // parent record does not carry.
             REQUIRE(child->nested_strand == -1);
