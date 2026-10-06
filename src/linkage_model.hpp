@@ -250,14 +250,16 @@ public:
 private:
 
     /// Exact forward-backward over one window. `out` is filled for the whole window; the caller
-    /// keeps only the interior.
+    /// keeps only the interior. Site `from + t` goes to `out[from + t - out_base]`, so that a
+    /// window can be decoded into a buffer of its own size.
     ///
     /// `alpha_in` and `beta_in` are the messages over haplotype pairs entering the window's two
     /// ends, m*m entries each in the same (a * m + b) layout as the emissions; uniform when null.
     void window_posteriors(const vector<Site>& sites, size_t from, size_t to,
                            vector<vector<double>>& out,
                            const vector<double>* alpha_in = nullptr,
-                           const vector<double>* beta_in = nullptr) const;
+                           const vector<double>* beta_in = nullptr,
+                           size_t out_base = 0) const;
 
     /// Max-product over one window, with an optional pinned state so that consecutive windows
     /// join without a spurious switch between them. `out` is indexed from `from`.
@@ -272,10 +274,11 @@ private:
                           vector<double>& per_allele) const;
 
     /// Forward-backward and max-product over one window of a ploidy-1 chain, whose states are
-    /// single haplotypes.
+    /// single haplotypes. `out` is indexed as for `window_posteriors`.
     void window_haploid_posteriors(const vector<Site>& sites, size_t from, size_t to,
                                    vector<vector<double>>& out,
-                                   const vector<double>* alpha_in = nullptr) const;
+                                   const vector<double>* alpha_in = nullptr,
+                                   size_t out_base = 0) const;
     void window_haploid_phasing(const vector<Site>& sites, size_t from, size_t to,
                                 const vector<size_t>& constraint,
                                 size_t pin_index, size_t pin, vector<size_t>& out,

@@ -354,7 +354,8 @@ void viterbi_step(const vector<double>& in, size_t m, double rho_a, double rho_b
 void LinkageModel::window_posteriors(const vector<Site>& sites, size_t from, size_t to,
                                      vector<vector<double>>& out,
                                      const vector<double>* alpha_in,
-                                     const vector<double>* beta_in) const {
+                                     const vector<double>* beta_in,
+                                     size_t out_base) const {
     size_t n = to - from;
     if (n == 0) {
         return;
@@ -432,7 +433,7 @@ void LinkageModel::window_posteriors(const vector<Site>& sites, size_t from, siz
                 ? std::min(site.freq_prior,
                            1.0 + 690.0 / std::log(std::max(4.0, (double)n_hap * (double)n_hap)))
                 : params.freq_prior;
-        vector<double>& post = out[from + t];
+        vector<double>& post = out[from + t - out_base];
         post.assign(site.genotype_ln_likelihood.size(), 0.0);
         vector<size_t> multiplicity(site.genotype_ln_likelihood.size(), 0);
 
@@ -564,7 +565,11 @@ void LinkageModel::window_posteriors(const vector<Site>& sites, size_t from, siz
 /// fell, so windows can be decoded independently and their interiors kept. A path cannot be
 /// decoded this way; see `windowed_path`.
 ///
-/// `window(lo, hi, local)` fills `local` for `[lo, hi)`, indexed from 0 of the whole chain.
+/// `window(lo, hi, local)` fills `local` for `[lo, hi)`, indexed from `lo`.
+///
+/// The windows do not depend on one another, so each is a task, decoded into a buffer of its own
+/// by whichever thread of the team is free, and keeps only its interior, which no other window
+/// writes. Outside a parallel region they run one after another on the calling thread.
 template <typename T, typename Window>
 static void windowed_marginals(size_t n, size_t step, size_t margin, vector<T>& out,
                                Window window) {
@@ -572,14 +577,17 @@ static void windowed_marginals(size_t n, size_t step, size_t margin, vector<T>& 
         window(0, n, out);
         return;
     }
-    for (size_t start = 0; start < n; start += step) {
+    const size_t windows = (n + step - 1) / step;
+#pragma omp taskloop default(shared) grainsize(1)
+    for (size_t w = 0; w < windows; ++w) {
+        const size_t start = w * step;
         size_t lo = start > margin ? start - margin : 0;
         size_t hi = min(start + step + margin, n);
-        vector<T> local(n);
+        vector<T> local(hi - lo);
         window(lo, hi, local);
         size_t keep_to = min(start + step, n);
         for (size_t t = start; t < keep_to; ++t) {
-            out[t] = std::move(local[t]);
+            out[t] = std::move(local[t - lo]);
         }
     }
 }
@@ -629,9 +637,9 @@ vector<vector<double>> LinkageModel::posteriors(const vector<Site>& sites, size_
                            // margin is what carries the chain across it.
                            const vector<double>* enter = lo == 0 ? alpha_in : nullptr;
                            if (ploidy == 1) {
-                               window_haploid_posteriors(sites, lo, hi, local, enter);
+                               window_haploid_posteriors(sites, lo, hi, local, enter, lo);
                            } else {
-                               window_posteriors(sites, lo, hi, local, enter);
+                               window_posteriors(sites, lo, hi, local, enter, nullptr, lo);
                            }
                        });
     return out;
@@ -893,7 +901,8 @@ void LinkageModel::haploid_emission(const Site& site, size_t n_hap, vector<doubl
 
 void LinkageModel::window_haploid_posteriors(const vector<Site>& sites, size_t from, size_t to,
                                              vector<vector<double>>& out,
-                                             const vector<double>* alpha_in) const {
+                                             const vector<double>* alpha_in,
+                                             size_t out_base) const {
     size_t n = to - from;
     if (n == 0) {
         return;
@@ -970,7 +979,7 @@ void LinkageModel::window_haploid_posteriors(const vector<Site>& sites, size_t f
     for (size_t t = n; t-- > 0;) {
         const Site& site = sites[from + t];
         const double freq_prior = site.freq_prior >= 0.0 ? site.freq_prior : params.freq_prior;
-        vector<double>& post = out[from + t];
+        vector<double>& post = out[from + t - out_base];
         post.assign(site.num_alleles, 0.0);
 
         // Allele multiplicity is the haploid analogue of the diploid pair count, and is divided
