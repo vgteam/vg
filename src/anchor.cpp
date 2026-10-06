@@ -18,8 +18,8 @@
 #include <unordered_set>
 
 #include <omp.h>
-#include <parallel/algorithm>
 
+#include "parallel_sort.hpp"
 #include "path.hpp"
 #include "utility.hpp"
 
@@ -798,7 +798,7 @@ bool AnchorWriter::write(const string& path, const string& graph_name, const str
     // the rest of what is written for them, so that the order is fully determined: it cannot depend
     // on how the sort shares out the work, nor on which thread collected which anchor.
     const ReadNameTable& names_table = read_names();
-    __gnu_parallel::sort(all.begin(), all.end(), [&](const Anchor& a, const Anchor& b) {
+    parallel_sort(all.begin(), all.end(), [&](const Anchor& a, const Anchor& b) {
         if (a.node != b.node) {
             return a.node < b.node;
         }
@@ -846,7 +846,7 @@ bool AnchorWriter::write(const string& path, const string& graph_name, const str
         // Two reads never share a name, so the sorted order does not depend on how the parallel
         // sort shares out the work.
         const ReadNameTable& table = read_names();
-        __gnu_parallel::sort(reads.begin(), reads.end(), [&](uint32_t a, uint32_t b) {
+        parallel_sort(reads.begin(), reads.end(), [&](uint32_t a, uint32_t b) {
             return table.name(a) < table.name(b);
         });
     }

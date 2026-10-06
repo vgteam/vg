@@ -3,9 +3,10 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
-#include <parallel/algorithm>
 
 #include <omp.h>
+
+#include "parallel_sort.hpp"
 
 
 namespace vg {
@@ -194,7 +195,7 @@ void fit_calibration(const vector<PhaseSite>& sites, const unordered_set<size_t>
         return;
     }
     // Equal-count bins over |Lambda|, so a long tail does not get one bin to itself.
-    __gnu_parallel::sort(obs.begin(), obs.end(), [](const Obs& a, const Obs& b) {
+    parallel_sort(obs.begin(), obs.end(), [](const Obs& a, const Obs& b) {
         if (a.abs_loo != b.abs_loo) return a.abs_loo < b.abs_loo;
         return (int)a.agree < (int)b.agree;
     });
