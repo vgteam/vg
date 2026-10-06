@@ -635,8 +635,10 @@ const deque<Chain>& SnarlManager::chains_of(const Snarl* snarl) const {
         return root_chains;
     }
     
-    // Otherwise, go look up the child chains of this snarl.
-    return record(snarl)->child_chains;
+    // Otherwise, go look up the child chains of this snarl. A snarl with no children has none.
+    static const deque<Chain> no_chains;
+    const SnarlRecord* rec = record(snarl);
+    return rec->child_chains ? *rec->child_chains : no_chains;
 }
     
 NetGraph SnarlManager::net_graph_of(const Snarl* snarl, const HandleGraph* graph, bool use_internal_connectivity) const {
@@ -1048,14 +1050,14 @@ void SnarlManager::build_indexes() {
     // parallel.
 #pragma omp parallel for schedule(dynamic, 64)
     for (size_t i = 0; i < parents.size(); ++i) {
-        parents[i]->child_chains = compute_chains(parents[i]->children);
+        parents[i]->child_chains.reset(new deque<Chain>(compute_chains(parents[i]->children)));
     }
 
     // Build the back index from child snarl to containing chain, in the original order, so that
     // a snarl two chains both reach gets the same chain as it would computed one at a time.
     for (SnarlRecord* parent : parents) {
         SnarlRecord& rec = *parent;
-        for (Chain& chain : rec.child_chains) {
+        for (Chain& chain : *rec.child_chains) {
             for (size_t i = 0; i < chain.size(); i++) {
                 auto& oriented_snarl = chain[i];
                 
@@ -1253,7 +1255,10 @@ void SnarlManager::regularize() {
         }
 #pragma omp for schedule(dynamic, 256)
         for (size_t i = 0; i < snarls.size(); i++) {
-            for (const Chain& chain : snarls[i].child_chains) {
+            if (!snarls[i].child_chains) {
+                continue;
+            }
+            for (const Chain& chain : *snarls[i].child_chains) {
                 regularize_chain(&chain);
             }
         }

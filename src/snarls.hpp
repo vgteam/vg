@@ -15,6 +15,7 @@
 #include <unordered_set>
 #include <fstream>
 #include <deque>
+#include <memory>
 #include <vg/io/protobuf_emitter.hpp>
 #include <vg/io/protobuf_iterator.hpp>
 #include "vg.hpp"
@@ -637,8 +638,9 @@ private:
         /// SnarlRecord does not own its children.
         vector<const Snarl*> children;
         
-        /// This holds chains over the child snarls.
-        deque<Chain> child_chains;
+        /// This holds chains over the child snarls. It is allocated only for a snarl that has
+        /// children: even an empty deque allocates storage, and most snarls have no children.
+        unique_ptr<deque<Chain>> child_chains;
         
         /// This points to the parent SnarlRecord (as a snarl), or null if we
         /// are a root snarl or have not been told of our parent yet.
