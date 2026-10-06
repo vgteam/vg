@@ -969,45 +969,58 @@ void VCFOutputCaller::write_variants(ostream& out_stream, const SnarlManager* sn
     finalise_linkage_outputs();
 
 
-    for (const auto& v : all_variants) {
-        string dest;
-        int ret = zstdutil::DecompressString(v.second, dest);
-        assert(ret == 0);
-        // The record key is the hash of the site's ID, as `record_key_of` computes it, so the line
-        // itself gives the site's identity; a block record's ID carries it before its suffix.
-        // Computed once, when first needed; several records can share a (contig, position), and
-        // each must get its own site's values.
-        size_t line_key = 0;
-        bool have_line_key = false;
-        auto id_key = [&]() -> size_t {
-            if (!have_line_key) {
-                size_t a = dest.find('\t');
-                size_t b = a == string::npos ? string::npos : dest.find('\t', a + 1);
-                size_t c = b == string::npos ? string::npos : dest.find('\t', b + 1);
-                if (c != string::npos) {
-                    line_key = std::hash<string>{}(block_site_name(dest.substr(b + 1, c - b - 1)));
+    // Each record is decompressed and given its linkage qualities on its own, so the records are
+    // finished on several threads, a batch at a time, and each batch is written in order. Only
+    // one batch of text is held at once.
+    const size_t batch_records = 1 << 16;
+    vector<string> lines;
+    for (size_t batch_start = 0; batch_start < all_variants.size(); batch_start += batch_records) {
+        const size_t batch_end = min(all_variants.size(), batch_start + batch_records);
+        lines.assign(batch_end - batch_start, string());
+#pragma omp parallel for schedule(dynamic, 256)
+        for (size_t record_i = batch_start; record_i < batch_end; ++record_i) {
+            const auto& v = all_variants[record_i];
+            string& dest = lines[record_i - batch_start];
+            int ret = zstdutil::DecompressString(v.second, dest);
+            assert(ret == 0);
+            // The record key is the hash of the site's ID, as `record_key_of` computes it, so the line
+            // itself gives the site's identity; a block record's ID carries it before its suffix.
+            // Computed once, when first needed; several records can share a (contig, position), and
+            // each must get its own site's values.
+            size_t line_key = 0;
+            bool have_line_key = false;
+            auto id_key = [&]() -> size_t {
+                if (!have_line_key) {
+                    size_t a = dest.find('\t');
+                    size_t b = a == string::npos ? string::npos : dest.find('\t', a + 1);
+                    size_t c = b == string::npos ? string::npos : dest.find('\t', b + 1);
+                    if (c != string::npos) {
+                        line_key = std::hash<string>{}(block_site_name(dest.substr(b + 1, c - b - 1)));
+                    }
+                    have_line_key = true;
                 }
-                have_line_key = true;
-            }
-            return line_key;
-        };
-        if (linkage_collector != nullptr) {
-            // Quality first, then phasing. The line already carries the chosen genotype, since it
-            // was built from it.
-            const auto& quality = linkage_collector->moved_quality();
-            if (!quality.empty()) {
-                auto found = quality.find(id_key());
-                if (found != quality.end()) {
-                    if (!ReadLikelihoodSnarlCaller::rewrite_quality_for_chosen_genotype(
-                            dest, found->second, linkage_min_confidence)) {
-                        ++quality_declined;
+                return line_key;
+            };
+            if (linkage_collector != nullptr) {
+                // Quality first, then phasing. The line already carries the chosen genotype, since it
+                // was built from it.
+                const auto& quality = linkage_collector->moved_quality();
+                if (!quality.empty()) {
+                    auto found = quality.find(id_key());
+                    if (found != quality.end()) {
+                        if (!ReadLikelihoodSnarlCaller::rewrite_quality_for_chosen_genotype(
+                                dest, found->second, linkage_min_confidence)) {
+                            ++quality_declined;
+                        }
                     }
                 }
             }
         }
-        // Not endl: flushing after every record made one write per record, millions on a whole
-        // genome. The stream is flushed before vg exits.
-        out_stream << dest << '\n';
+        for (const string& line : lines) {
+            // Not endl: flushing after every record made one write per record, millions on a whole
+            // genome. The stream is flushed before vg exits.
+            out_stream << line << '\n';
+        }
     }
     if (phase_declined.load() > 0 || quality_declined.load() > 0) {
         cerr << "[vg call] linkage: " << phase_declined.load()
