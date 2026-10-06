@@ -1077,6 +1077,27 @@ deque<Chain> SnarlManager::compute_chains(const vector<const Snarl*>& input_snar
         
     // We track the snarls we have seen in chain traversals so we only have to see each chain once.
     unordered_set<const Snarl*> seen;
+    seen.reserve(input_snarls.size());
+
+    // One step along a chain, as next_snarl() takes it, but without building Visit messages:
+    // from the managed snarl `here`, in orientation `backward`, the next snarl as manage() gives
+    // it and the orientation it is visited in, or nullptr at the end of the chain. A whole
+    // genome's top-level chains hold millions of snarls, and building two or three messages per
+    // step was most of the time spent here.
+    auto step_right = [&](const Snarl* here, bool backward) -> pair<const Snarl*, bool> {
+        const Snarl* next = backward ? snarl_sharing_start(here) : snarl_sharing_end(here);
+        if (next == nullptr) {
+            return make_pair(nullptr, false);
+        }
+        const bool next_backward = backward ? next->end().node_id() == here->start().node_id()
+                                            : next->start().node_id() != here->end().node_id();
+        return make_pair(manage(*next), next_backward);
+    };
+    // And one step the other way, as prev_snarl() takes it: reverse, step, reverse.
+    auto step_left = [&](const Snarl* here, bool backward) -> pair<const Snarl*, bool> {
+        pair<const Snarl*, bool> back = step_right(here, !backward);
+        return make_pair(back.first, !back.second);
+    };
         
     for (const Snarl* snarl : input_snarls) {
         // For every snarl in this snarl (or, if snarl is null, every top level snarl)
@@ -1092,34 +1113,31 @@ deque<Chain> SnarlManager::compute_chains(const vector<const Snarl*>& input_snar
         // Mark it as seen
         seen.insert(snarl);
             
-        // Make a visit to the child in forward orientation
-        Visit here;
-        transfer_boundary_info(*snarl, *here.mutable_snarl());
-        // The default is already not-backward, but we set it anyway
-        here.set_backward(false);
+        // Walk from the child in forward orientation
+        const Snarl* here = manage(*snarl);
         
-        for (Visit walk_left = prev_snarl(here);
-             walk_left.has_snarl() && !seen.count(manage(walk_left.snarl()));
-             walk_left = prev_snarl(walk_left)) {
+        for (pair<const Snarl*, bool> walk_left = step_left(here, false);
+             walk_left.first != nullptr && !seen.count(walk_left.first);
+             walk_left = step_left(walk_left.first, walk_left.second)) {
             
             // For everything in the chain left from here, until we hit the
             // end or come back to the start
              
             // Add it to the chain in the orientation we find it
-            chain.emplace_front(manage(walk_left.snarl()), walk_left.backward());
+            chain.emplace_front(walk_left.first, walk_left.second);
             // Mark it as seen
             seen.insert(chain.front().first);
         }
             
-        for (Visit walk_right = next_snarl(here);
-             walk_right.has_snarl() && !seen.count(manage(walk_right.snarl()));
-             walk_right = next_snarl(walk_right)) {
+        for (pair<const Snarl*, bool> walk_right = step_right(here, false);
+             walk_right.first != nullptr && !seen.count(walk_right.first);
+             walk_right = step_right(walk_right.first, walk_right.second)) {
                 
             // For everything in the chain right from here, until we hit the
             // end or come back to the start
             
             // Add it to the chain in the orientation we find it
-            chain.emplace_back(manage(walk_right.snarl()), walk_right.backward());
+            chain.emplace_back(walk_right.first, walk_right.second);
             // Mark it as seen
             seen.insert(chain.back().first);
         }
