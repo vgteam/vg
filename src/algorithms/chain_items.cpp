@@ -497,7 +497,7 @@ void chain_items_dp(vector<vector<TracedScore>>& chain_scores,
         auto& here = to_chain[transition.to_anchor];
         
         // How many points is it worth to collect?
-        auto item_points = here.score() + scoring_scheme.item_bonus;
+        int item_points = here.score() + scoring_scheme.item_bonus;
         
         std::string here_gvnode;
         if (diagram) {
@@ -506,6 +506,11 @@ void chain_items_dp(vector<vector<TracedScore>>& chain_scores,
         
         // For each source we could come from
         auto& source = to_chain[transition.from_anchor];
+
+        if (source.read_end() >= here.read_start()) {
+            double percent_shared = (source.read_end() + 1 - here.read_start()) / here.length();
+            item_points = (int) (item_points * (1 - percent_shared));
+        }
             
         if (show_work) {
 #ifdef debug_dp
