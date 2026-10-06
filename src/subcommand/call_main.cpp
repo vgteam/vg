@@ -2968,8 +2968,19 @@ int main_call(int argc, char** argv) {
         vcf_caller->write_variants(cout, snarl_manager.get());
         if (show_progress) logger.info() << "VCF complete" << endl;        
     }
-    
-    return 0;
+
+    // Everything is written. Freeing what calling built -- the graph, the snarls, every site's
+    // records and evidence -- takes minutes on a whole genome and changes nothing, so close what is
+    // still open and exit without it. exit() still runs the handlers registered for exit, such as
+    // the one that removes temporary files, and flushes C streams.
+    if (likelihood_dump) {
+        likelihood_dump->close();
+    }
+    // The GAF emitter (-G) holds its last batch of records until it is destroyed.
+    alignment_emitter.reset();
+    cout.flush();
+    cerr.flush();
+    exit(EXIT_SUCCESS);
 }
 
 // Register subcommand
