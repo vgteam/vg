@@ -12,7 +12,9 @@
 #include <iostream>
 #include <map>
 #include <sstream>
+#include <string_view>
 #include <unordered_map>
+#include <unordered_set>
 
 #include <omp.h>
 
@@ -705,17 +707,25 @@ bool AnchorWriter::write(const string& path, const string& graph_name, const str
     // Intern the read names: each name is written once, in a table, and read rows refer to it by
     // index, since a read is usually placed at several anchors. Indices follow sorted-name order,
     // so that the file does not depend on thread scheduling and the table can be binary-searched.
-    map<string, size_t> name_id;
-    for (const Anchor& a : all) {
-        for (const ReadRow& r : a.reads) {
-            name_id.emplace(r.name, 0);
-        }
-    }
+    //
+    // The table is the distinct names, sorted, and a row finds its index by hash: there are a few
+    // million names but hundreds of millions of rows. The views point into the anchors' own
+    // strings, which do not move from here on.
+    vector<string_view> names;
     {
-        size_t next = 0;
-        for (auto& entry : name_id) {
-            entry.second = next++;
+        unordered_set<string_view> distinct;
+        for (const Anchor& a : all) {
+            for (const ReadRow& r : a.reads) {
+                distinct.insert(r.name);
+            }
         }
+        names.assign(distinct.begin(), distinct.end());
+    }
+    sort(names.begin(), names.end());
+    unordered_map<string_view, size_t> name_id;
+    name_id.reserve(names.size());
+    for (size_t i = 0; i < names.size(); ++i) {
+        name_id.emplace(names[i], i);
     }
 
     ofstream out(path);
@@ -812,8 +822,8 @@ bool AnchorWriter::write(const string& path, const string& graph_name, const str
     out << "#reads-interned\t" << name_id.size() << "\n";
     out << "#H\tA\tnode\tsnarl\tslot\tallele\tgqn\texplained\treliability\n";
     out << "#H\tR\tread_id\tstrand\toffset\tscore\n";
-    for (const auto& entry : name_id) {
-        out << "#read\t" << entry.second << "\t" << entry.first << "\n";
+    for (size_t i = 0; i < names.size(); ++i) {
+        out << "#read\t" << i << "\t" << names[i] << "\n";
     }
     out << std::fixed;
     for (const Anchor& a : all) {
@@ -831,7 +841,7 @@ bool AnchorWriter::write(const string& path, const string& graph_name, const str
         }
         out << "\n";
         for (const ReadRow& r : a.reads) {
-            out << "R\t" << name_id[r.name] << "\t" << (int)r.direction << "\t" << r.offset << "\t"
+            out << "R\t" << name_id.find(r.name)->second << "\t" << (int)r.direction << "\t" << r.offset << "\t"
                 << std::setprecision(1) << r.score << "\n";
         }
     }
