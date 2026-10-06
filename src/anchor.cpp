@@ -4,6 +4,7 @@
 #include "version.hpp"
 
 #include <algorithm>
+#include <atomic>
 #include <cctype>
 #include <functional>
 #include <cmath>
@@ -17,6 +18,7 @@
 #include <unordered_set>
 
 #include <omp.h>
+#include <parallel/algorithm>
 
 #include "path.hpp"
 #include "utility.hpp"
@@ -716,6 +718,57 @@ size_t AnchorWriter::read_row_count() const {
     return total;
 }
 
+/// -1, 0 or 1 as `a` is below, equal to or above `b`, with NaN below every number and equal to
+/// itself, so that it can order values that may be missing.
+static int compare_values(double a, double b) {
+    const bool a_nan = std::isnan(a), b_nan = std::isnan(b);
+    if (a_nan || b_nan) {
+        return a_nan == b_nan ? 0 : (a_nan ? -1 : 1);
+    }
+    return a < b ? -1 : (b < a ? 1 : 0);
+}
+
+/// Whether anchor `a` comes before `b` on what the file writes for them besides node, snarl and
+/// slot: allele, gqn, explained, reliability, then the read rows in order (read name, direction,
+/// offset, score). Two anchors equal on all of it are written identically, so their order cannot
+/// show.
+static bool written_before(const AnchorWriter::Anchor& a, const AnchorWriter::Anchor& b,
+                           const ReadNameTable& table) {
+    if (a.allele != b.allele) {
+        return a.allele < b.allele;
+    }
+    for (int c : {compare_values(a.gqn, b.gqn), compare_values(a.explained, b.explained),
+                  compare_values(a.reliability, b.reliability)}) {
+        if (c != 0) {
+            return c < 0;
+        }
+    }
+    if (a.reads.size() != b.reads.size()) {
+        return a.reads.size() < b.reads.size();
+    }
+    for (size_t i = 0; i < a.reads.size(); ++i) {
+        const AnchorWriter::ReadRow& x = a.reads[i];
+        const AnchorWriter::ReadRow& y = b.reads[i];
+        if (x.read != y.read) {
+            const string_view xn = table.name(x.read), yn = table.name(y.read);
+            if (xn != yn) {
+                return xn < yn;
+            }
+        }
+        if (x.direction != y.direction) {
+            return x.direction < y.direction;
+        }
+        if (x.offset != y.offset) {
+            return x.offset < y.offset;
+        }
+        const int c = compare_values(x.score, y.score);
+        if (c != 0) {
+            return c < 0;
+        }
+    }
+    return false;
+}
+
 bool AnchorWriter::write(const string& path, const string& graph_name, const string& sample,
                          const string& reads_source, double mismap_min,
                          const AnchorParams& params) {
@@ -725,18 +778,9 @@ bool AnchorWriter::write(const string& path, const string& graph_name, const str
         std::move(q.begin(), q.end(), back_inserter(all));
         q.clear();
     }
-    // Ordered by node ID, then by snarl and slot, since two snarls can share a boundary node.
-    sort(all.begin(), all.end(), [](const Anchor& a, const Anchor& b) {
-        if (a.node != b.node) {
-            return a.node < b.node;
-        }
-        if (a.snarl != b.snarl) {
-            return a.snarl < b.snarl;
-        }
-        return a.slot < b.slot;
-    });
     // Within an anchor, by read name, so that the file does not depend on thread scheduling. Each
-    // anchor's reads are sorted on their own, so the anchors are shared out among threads.
+    // anchor's reads are sorted on their own, so the anchors are shared out among threads. Done
+    // before the anchors are sorted, so that the sort below can compare whole anchors.
 #pragma omp parallel for schedule(dynamic, 1024)
     for (size_t i = 0; i < all.size(); ++i) {
         const ReadNameTable& table = read_names();
@@ -747,36 +791,70 @@ bool AnchorWriter::write(const string& path, const string& graph_name, const str
             return x.offset < y.offset;
         });
     }
+    // Ordered by node ID, then by snarl and slot, since two snarls can share a boundary node. The
+    // sort runs on several threads. Anchors that agree on node, snarl and slot are put in order by
+    // the rest of what is written for them, so that the order is fully determined: it cannot depend
+    // on how the sort shares out the work, nor on which thread collected which anchor.
+    const ReadNameTable& names_table = read_names();
+    __gnu_parallel::sort(all.begin(), all.end(), [&](const Anchor& a, const Anchor& b) {
+        if (a.node != b.node) {
+            return a.node < b.node;
+        }
+        if (a.snarl != b.snarl) {
+            return a.snarl < b.snarl;
+        }
+        if (a.slot != b.slot) {
+            return a.slot < b.slot;
+        }
+        return written_before(a, b, names_table);
+    });
 
     // Intern the read names: each name is written once, in a table, and read rows refer to it by
     // index, since a read is usually placed at several anchors. Indices follow sorted-name order,
     // so that the file does not depend on thread scheduling and the table can be binary-searched.
     //
-    // The table is the distinct names, sorted, and a row finds its index by hash: there are a few
-    // million names but hundreds of millions of rows.
+    // The table is the distinct names, sorted. There are a few million names but hundreds of
+    // millions of rows, and a read's index in read_names() is about as large as the number of
+    // names, so the reads that appear are marked in a flat array, on several threads, and a row
+    // finds its place in the table through another flat array.
+    uint32_t max_read = 0;
+#pragma omp parallel for schedule(dynamic, 1024) reduction(max : max_read)
+    for (size_t i = 0; i < all.size(); ++i) {
+        for (const ReadRow& r : all[i].reads) {
+            max_read = max(max_read, r.read);
+        }
+    }
+    const size_t read_slots = all.empty() ? 0 : (size_t)max_read + 1;
     vector<uint32_t> reads;
     {
-        unordered_set<uint32_t> distinct;
-        for (const Anchor& a : all) {
-            for (const ReadRow& r : a.reads) {
-                distinct.insert(r.read);
+        vector<std::atomic<uint8_t>> seen(read_slots);
+#pragma omp parallel for schedule(dynamic, 1024)
+        for (size_t i = 0; i < all.size(); ++i) {
+            for (const ReadRow& r : all[i].reads) {
+                seen[r.read].store(1, std::memory_order_relaxed);
             }
         }
-        reads.assign(distinct.begin(), distinct.end());
+        for (size_t read = 0; read < read_slots; ++read) {
+            if (seen[read].load(std::memory_order_relaxed) != 0) {
+                reads.push_back((uint32_t)read);
+            }
+        }
     }
     {
+        // Two reads never share a name, so the sorted order does not depend on how the parallel
+        // sort shares out the work.
         const ReadNameTable& table = read_names();
-        sort(reads.begin(), reads.end(), [&](uint32_t a, uint32_t b) {
+        __gnu_parallel::sort(reads.begin(), reads.end(), [&](uint32_t a, uint32_t b) {
             return table.name(a) < table.name(b);
         });
     }
     vector<string_view> names;
     names.reserve(reads.size());
-    unordered_map<uint32_t, size_t> name_id;
-    name_id.reserve(reads.size());
+    // Each read's place in the table, by its index in read_names().
+    vector<uint32_t> table_index(read_slots);
     for (size_t i = 0; i < reads.size(); ++i) {
         names.push_back(read_names().name(reads[i]));
-        name_id.emplace(reads[i], i);
+        table_index[reads[i]] = (uint32_t)i;
     }
 
     ofstream out(path);
@@ -870,7 +948,7 @@ bool AnchorWriter::write(const string& path, const string& graph_name, const str
         << "ONT means a 1 bp indel. Site-level, so it repeats across the site's rows. It is the "
         << "UNROUNDED mean, while the R rows it averages are written to one decimal, so "
         << "re-deriving it from them lands within about 0.05 rather than exactly. From v6\n";
-    out << "#reads-interned\t" << name_id.size() << "\n";
+    out << "#reads-interned\t" << reads.size() << "\n";
     out << "#H\tA\tnode\tsnarl\tslot\tallele\tgqn\texplained\treliability\n";
     out << "#H\tR\tread_id\tstrand\toffset\tscore\n";
     for (size_t i = 0; i < names.size(); ++i) {
@@ -892,7 +970,7 @@ bool AnchorWriter::write(const string& path, const string& graph_name, const str
         }
         os << "\n";
         for (const ReadRow& r : a.reads) {
-            os << "R\t" << name_id.find(r.read)->second << "\t" << (int)r.direction << "\t" << r.offset << "\t"
+            os << "R\t" << table_index[r.read] << "\t" << (int)r.direction << "\t" << r.offset << "\t"
                << std::setprecision(1) << r.score << "\n";
         }
     };
