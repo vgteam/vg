@@ -1,4 +1,5 @@
 #include <atomic>
+#include <charconv>
 #include <chrono>
 #include <cstdio>
 #include <limits>
@@ -4033,17 +4034,89 @@ void VCFOutputCaller::update_nesting_info_tags(const SnarlManager* snarl_manager
     // snarls print goes to the same one.
     unordered_map<string, const Snarl*> name_to_snarl;
     name_to_snarl.reserve(chrom_of_name.size());
-    snarl_manager->for_each_snarl_preorder([&](const Snarl* snarl) {
-            string snarl_name = print_snarl(*snarl);
-            if (chrom_of_name.count(snarl_name) != 0) {
-                name_to_snarl[std::move(snarl_name)] = snarl;
+    if (translation == nullptr) {
+        // A name is the snarl's two boundary visits, so each VCF name is read back into its visits
+        // once, and every snarl of the graph is matched by its visits instead of by printing both
+        // its names, which meant tens of millions of names and a string-table lookup for each. A
+        // name is read back only if printing what was read gives the name again, so a name and a
+        // pair of visits correspond one to one, and a snarl matches a name exactly when it prints
+        // that name.
+        struct Ends {
+            nid_t start_id;
+            nid_t end_id;
+            bool start_backward;
+            bool end_backward;
+            bool operator==(const Ends& other) const {
+                return start_id == other.start_id && end_id == other.end_id
+                       && start_backward == other.start_backward
+                       && end_backward == other.end_backward;
             }
-            // also add a map from the flipped snarl (as call sometimes messes with orientation)
-            string flipped_name = print_flipped_snarl(*snarl);
-            if (chrom_of_name.count(flipped_name) != 0) {
-                name_to_snarl[std::move(flipped_name)] = snarl;
+        };
+        struct EndsHash {
+            size_t operator()(const Ends& e) const {
+                size_t h = std::hash<nid_t>()(e.start_id);
+                h ^= std::hash<nid_t>()(e.end_id) + 0x9e3779b97f4a7c15ULL + (h << 6) + (h >> 2);
+                return h ^ ((size_t)e.start_backward << 1) ^ (size_t)e.end_backward;
             }
-        });
+        };
+        auto read_ends = [&](const string& name, Ends& ends) -> bool {
+            if (name.size() < 4 || (name[0] != '<' && name[0] != '>')) {
+                return false;
+            }
+            const size_t middle = name.find_first_of("<>", 1);
+            if (middle == string::npos || middle < 2 || middle + 1 >= name.size()) {
+                return false;
+            }
+            const char* text = name.data();
+            auto start = std::from_chars(text + 1, text + middle, ends.start_id);
+            auto end = std::from_chars(text + middle + 1, text + name.size(), ends.end_id);
+            if (start.ec != std::errc() || start.ptr != text + middle
+                || end.ec != std::errc() || end.ptr != text + name.size()) {
+                return false;
+            }
+            ends.start_backward = name[0] == '<';
+            ends.end_backward = name[middle] == '<';
+            return print_snarl(ends.start_id, ends.start_backward, ends.end_id, ends.end_backward,
+                               false) == name;
+        };
+        unordered_map<Ends, const string*, EndsHash> name_of_ends;
+        name_of_ends.reserve(chrom_of_name.size());
+        for (const auto& kv : chrom_of_name) {
+            Ends ends;
+            if (read_ends(kv.first, ends)) {
+                name_of_ends.emplace(ends, &kv.first);
+            }
+        }
+        snarl_manager->for_each_snarl_preorder([&](const Snarl* snarl) {
+                auto own = name_of_ends.find(Ends{snarl->start().node_id(), snarl->end().node_id(),
+                                                  snarl->start().backward(),
+                                                  snarl->end().backward()});
+                if (own != name_of_ends.end()) {
+                    name_to_snarl[*own->second] = snarl;
+                }
+                // also add a map from the flipped snarl (as call sometimes messes with orientation)
+                auto flipped = name_of_ends.find(Ends{snarl->end().node_id(),
+                                                      snarl->start().node_id(),
+                                                      !snarl->end().backward(),
+                                                      !snarl->start().backward()});
+                if (flipped != name_of_ends.end()) {
+                    name_to_snarl[*flipped->second] = snarl;
+                }
+            });
+    } else {
+        // Translated names are not node IDs, so they are printed and compared.
+        snarl_manager->for_each_snarl_preorder([&](const Snarl* snarl) {
+                string snarl_name = print_snarl(*snarl);
+                if (chrom_of_name.count(snarl_name) != 0) {
+                    name_to_snarl[std::move(snarl_name)] = snarl;
+                }
+                // also add a map from the flipped snarl (as call sometimes messes with orientation)
+                string flipped_name = print_flipped_snarl(*snarl);
+                if (chrom_of_name.count(flipped_name) != 0) {
+                    name_to_snarl[std::move(flipped_name)] = snarl;
+                }
+            });
+    }
 
     // pass 2) identify top-level snarls (those with no ancestors in VCF)
     // and store reference info only for them
