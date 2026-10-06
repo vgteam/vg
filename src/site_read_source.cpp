@@ -1062,40 +1062,92 @@ size_t GafBaseSiteReadSource::get_query_count() const {
 /// than one per range, without reading every record in the whole span.
 static constexpr nid_t TABIX_RUN_GAP = 1000;
 
-/// Whether a GAF line's path, its sixth column, steps onto a node in the ranges, read from the text
-/// so that a record that does not is dropped without being parsed. Answers yes, leaving the record
-/// to be parsed and tested properly, if a step is not a node ID: a GAF path may name segments.
-static bool gaf_path_may_touch(const string& line, const vector<pair<nid_t, nid_t>>& merged) {
-    size_t pos = 0;
+/// What the index reader notes about each record it reads, for fetch_span.
+struct GafRecordScan {
+    /// The fetch's ranges, from merge_ranges.
+    const vector<pair<nid_t, nid_t>>* merged = nullptr;
+    /// Whether the last record read steps onto a node in the ranges. Also set for a path whose
+    /// steps are not all node IDs, which is left to be parsed and tested properly.
+    bool may_touch = true;
+};
+
+/// Read one record for the tabix iterator, in place of tabix's own reader (tbx_readrec), and give
+/// its interval the same way: the smallest and largest number on its path, read as tbx_parse1 reads
+/// them. While walking the path it also notes whether a step lands on a node of the fetch, so that
+/// a path is read once rather than twice, and does without strtoll for the usual path of node IDs.
+static int gaf_readrec(BGZF* fp, void* data, void* r, int* tid, hts_pos_t* beg, hts_pos_t* end) {
+    kstring_t* line = (kstring_t*)r;
+    GafRecordScan* scan = (GafRecordScan*)data;
+    int ret = bgzf_getline(fp, '\n', line);
+    if (ret < 0) {
+        return ret;
+    }
+    const char* stop = line->s + line->l;
+    const char* path = line->s;
     for (int column = 1; column < 6; ++column) {
-        pos = line.find('\t', pos);
-        if (pos == string::npos) {
-            return true;
+        path = (const char*)memchr(path, '\t', stop - path);
+        if (path == nullptr) {
+            // tbx_readrec cannot place a record without a sixth column either.
+            return -2;
         }
-        ++pos;
+        ++path;
     }
-    size_t end = line.find('\t', pos);
-    if (end == string::npos) {
-        end = line.size();
+    const char* path_end = (const char*)memchr(path, '\t', stop - path);
+    if (path_end == nullptr) {
+        path_end = stop;
     }
-    size_t i = pos;
-    while (i < end) {
-        if (line[i] != '>' && line[i] != '<') {
-            return true;
+
+    int64_t lowest = -1, highest = -1;
+    bool may_touch = false;
+    bool plain = true;
+    for (const char* p = path; p < path_end && plain; ) {
+        // A step is an orientation followed by a node ID, with no leading zero, which strtoll's
+        // base 0 would read as octal.
+        if ((*p != '>' && *p != '<') || p + 1 >= path_end || !isdigit((unsigned char)p[1]) ||
+            (p[1] == '0' && p + 2 < path_end && isdigit((unsigned char)p[2]))) {
+            plain = false;
+            break;
         }
-        ++i;
-        if (i >= end || !isdigit((unsigned char)line[i])) {
-            return true;
+        ++p;
+        int64_t id = 0;
+        for (; p < path_end && isdigit((unsigned char)*p); ++p) {
+            id = id * 10 + (*p - '0');
         }
-        nid_t id = 0;
-        for (; i < end && isdigit((unsigned char)line[i]); ++i) {
-            id = id * 10 + (line[i] - '0');
+        if (lowest == -1) {
+            lowest = highest = id;
+        } else {
+            lowest = min(lowest, id);
+            highest = max(highest, id);
         }
-        if (WindowedSiteReadSource::in_ranges(id, merged)) {
-            return true;
+        if (!may_touch && WindowedSiteReadSource::in_ranges((nid_t)id, *scan->merged)) {
+            may_touch = true;
         }
     }
-    return false;
+    if (!plain) {
+        // Some step is not a plain node ID: take the interval exactly as tbx_parse1 does, and let
+        // the record be parsed and tested properly.
+        lowest = highest = -1;
+        for (const char* p = path + 1; p < path_end; ) {
+            char* after = nullptr;
+            int64_t id = strtoll(p, &after, 0);
+            if (lowest == -1) {
+                lowest = highest = id;
+            } else {
+                lowest = min(lowest, id);
+                highest = max(highest, id);
+            }
+            p = after + 1;
+        }
+        may_touch = true;
+    }
+    if (lowest < 0 || highest < 0) {
+        return -2;
+    }
+    *tid = 0;
+    *beg = lowest;
+    *end = highest;
+    scan->may_touch = may_touch;
+    return ret;
 }
 
 TabixGafSiteReadSource::TabixGafSiteReadSource(const HandleGraph& graph,
@@ -1199,14 +1251,15 @@ void TabixGafSiteReadSource::fetch_span(const vector<pair<nid_t, nid_t>>& ranges
             return (uint64_t)std::chrono::duration_cast<std::chrono::microseconds>(
                 std::chrono::steady_clock::now() - start).count();
         };
-        auto handle_record = [&](const string& text) {
+        auto handle_record = [&](const string& text, bool may_touch) {
             if (gafkluge::is_gaf_header_line(text)) {
                 return;
             }
             // The index says only that the record's node interval overlaps the query. Its path can
             // still step over every node the query names, and gbz-base does not return such a read.
-            // Most such records are dropped from their path text, without being parsed.
-            if (!gaf_path_may_touch(text, merged)) {
+            // Most such records are dropped from what the reader saw on their path, without being
+            // parsed.
+            if (!may_touch) {
                 ++fetch_skipped;
                 ++fetch_unparsed;
                 return;
@@ -1246,10 +1299,18 @@ void TabixGafSiteReadSource::fetch_span(const vector<pair<nid_t, nid_t>>& ranges
         // lies earlier in the file, so they are gathered with the file offset the iterator reached
         // after each, which orders and identifies them, and handled in file order once all are in.
         bool gather = runs.size() > 1;
-        vector<pair<uint64_t, string>> gathered;
+        struct Gathered {
+            uint64_t offset;
+            string text;
+            bool may_touch;
+        };
+        vector<Gathered> gathered;
         kstring_t line = KS_INITIALIZE;
+        GafRecordScan scan;
+        scan.merged = &merged;
         for (const auto& run : runs) {
-            hts_itr_t* itr = tbx_itr_queryi(index, 0, max<nid_t>(0, run.first - 1), run.second + 1);
+            hts_itr_t* itr = hts_itr_query(index->idx, 0, max<nid_t>(0, run.first - 1), run.second + 1,
+                                           gaf_readrec);
             ++queries;
             if (itr == nullptr) {
                 ks_free(&line);
@@ -1259,16 +1320,16 @@ void TabixGafSiteReadSource::fetch_span(const vector<pair<nid_t, nid_t>>& ranges
             int ret;
             while (true) {
                 auto read_start = std::chrono::steady_clock::now();
-                ret = tbx_itr_next(state.file, index, itr, &line);
+                ret = hts_itr_next(hts_get_bgzfp(state.file), itr, &line, &scan);
                 fetch_read_us += micros_since(read_start);
                 if (ret < 0) {
                     break;
                 }
                 fetch_bytes += line.l;
                 if (gather) {
-                    gathered.emplace_back(itr->curr_off, string(line.s, line.l));
+                    gathered.push_back(Gathered{itr->curr_off, string(line.s, line.l), scan.may_touch});
                 } else {
-                    handle_record(string(line.s, line.l));
+                    handle_record(string(line.s, line.l), scan.may_touch);
                 }
             }
             tbx_itr_destroy(itr);
@@ -1280,15 +1341,14 @@ void TabixGafSiteReadSource::fetch_span(const vector<pair<nid_t, nid_t>>& ranges
         ks_free(&line);
 
         if (gather) {
-            std::sort(gathered.begin(), gathered.end(),
-                      [](const pair<uint64_t, string>& a, const pair<uint64_t, string>& b) {
-                          return a.first < b.first;
-                      });
+            std::sort(gathered.begin(), gathered.end(), [](const Gathered& a, const Gathered& b) {
+                return a.offset < b.offset;
+            });
             for (size_t i = 0; i < gathered.size(); ++i) {
-                if (i > 0 && gathered[i].first == gathered[i - 1].first) {
+                if (i > 0 && gathered[i].offset == gathered[i - 1].offset) {
                     continue;
                 }
-                handle_record(gathered[i].second);
+                handle_record(gathered[i].text, gathered[i].may_touch);
             }
         }
         read_us += fetch_read_us;
