@@ -6713,6 +6713,17 @@ void FlowCaller::hand_off_deferred_records() {
         return;
     }
     vector<PendingRecord>& pending = deferred_pending;
+    // A chain that gets no line still gets anchors: one whose variation an enclosing block's ALT
+    // already spells, and one with no reference path, so no REF or POS, whose anchors are placed by
+    // node ID. Each chain's anchors are its own and the anchor writer sorts every anchor before
+    // writing, so they are collected on several threads, before the chains are handed over.
+#pragma omp parallel for schedule(dynamic, 256)
+    for (size_t i = 0; i < pending.size(); ++i) {
+        const PendingRecord& pr = pending[i];
+        if (!pr.dropped && (pr.reported_inline || pr.no_reference)) {
+            collect_anchors_for_record(pr, chosen_genotype_for(pr));
+        }
+    }
     // Hand every surviving chain to the render, so that nested and top-level records are written
     // in one place from their chosen genotypes. A dropped chain is not handed over, since the
     // sample has no copy of it. Spread over the queues, since the render is parallel over them.
@@ -6723,17 +6734,14 @@ void FlowCaller::hand_off_deferred_records() {
             continue;
         }
         if (pr.reported_inline) {
-            // An enclosing block's ALT already spells its variation, so it gets no line, but it still
-            // gets anchors.
-            collect_anchors_for_record(pr, chosen_genotype_for(pr));
+            // An enclosing block's ALT already spells its variation, so it gets no line; its anchors
+            // were collected above.
             ++inline_unrendered;
             continue;
         }
         if (pr.no_reference) {
-            // No reference path, so no REF or POS, and no line. Held back here, since the render calls
-            // emit_variant for every record it is given. It still gets anchors, which are placed by
-            // node ID.
-            collect_anchors_for_record(pr, chosen_genotype_for(pr));
+            // No reference path, so no line. Held back here, since the render calls emit_variant for
+            // every record it is given; its anchors were collected above.
             ++no_ref_unrendered;
             continue;
         }
