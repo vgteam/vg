@@ -1035,16 +1035,26 @@ void SnarlManager::build_indexes() {
         }
     }
     
+    // Only look at snarls with children.
+    vector<SnarlRecord*> parents;
     for (SnarlRecord& rec : snarls) {
-        if (rec.children.empty()) {
-            // Only look at snarls with children.
-            continue;
+        if (!rec.children.empty()) {
+            parents.push_back(&rec);
         }
-        
-        // Compute the chains among the children
-        rec.child_chains = compute_chains(rec.children);
-        
-        // Build the back index from child snarl to containing chain
+    }
+
+    // Compute the chains among each snarl's children. Each call reads only the indexes above,
+    // which are complete, and its result goes to its own snarl, so the snarls are done in
+    // parallel.
+#pragma omp parallel for schedule(dynamic, 64)
+    for (size_t i = 0; i < parents.size(); ++i) {
+        parents[i]->child_chains = compute_chains(parents[i]->children);
+    }
+
+    // Build the back index from child snarl to containing chain, in the original order, so that
+    // a snarl two chains both reach gets the same chain as it would computed one at a time.
+    for (SnarlRecord* parent : parents) {
+        SnarlRecord& rec = *parent;
         for (Chain& chain : rec.child_chains) {
             for (size_t i = 0; i < chain.size(); i++) {
                 auto& oriented_snarl = chain[i];
