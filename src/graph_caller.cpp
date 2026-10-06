@@ -983,7 +983,8 @@ void VCFOutputCaller::write_variants(ostream& out_stream, const SnarlManager* sn
             if (!quality.empty()) {
                 auto found = quality.find(id_key());
                 if (found != quality.end()) {
-                    if (!apply_linkage_quality(dest, found->second, linkage_min_confidence)) {
+                    if (!ReadLikelihoodSnarlCaller::rewrite_quality_for_chosen_genotype(
+                            dest, found->second, linkage_min_confidence)) {
                         ++quality_declined;
                     }
                 }
@@ -1115,7 +1116,8 @@ int VCFOutputCaller::phase_haploid_slot(size_t record_key, const vector<int>& ge
 //
 // `gq_fraction` was computed in the direct pass for the reads' best genotype, so on a record whose
 // genotype the linkage model changed, it describes the abandoned genotype. Such a record gets the
-// signed margin of its chosen genotype instead, as the VCF's GQN does (see apply_linkage_quality).
+// signed margin of its chosen genotype instead, as the VCF's GQN does (see
+// ReadLikelihoodSnarlCaller::rewrite_quality_for_chosen_genotype).
 //
 // Returns the direct pass's value when the model did not change the call; the recomputed signed margin
 // when it did; and NaN, written as ".", when it did but the margin cannot be recomputed.
@@ -1142,7 +1144,8 @@ double FlowCaller::anchor_gqn_for(const PendingRecord& rec,
     if (info == nullptr || info->genotype_lls.empty()) {
         return blank;
     }
-    // The divisor and share the VCF's GQN uses (see apply_linkage_quality), so that the two agree.
+    // The divisor and share the VCF's GQN uses (see
+    // ReadLikelihoodSnarlCaller::rewrite_quality_for_chosen_genotype), so that the two agree.
     const LinkageCollector::DirectQuality& direct = found->second.direct;
     if (!(direct.achievable_gap > 0.0)) {
         return blank;   // no scale, and no honest pre-linkage value to fall back on
@@ -1916,170 +1919,6 @@ void VCFOutputCaller::write_mosaic(const vector<LinkageCollector::PhaseCall>& ph
          << " segments name a haplotype the graph does not carry across them, of which "
          << mosaic_counters.head_clipped.load() << " are a clipped head whose remainder is walkable; "
          << mosaic_counters.row_to_ref.load() << " rewritten as a reference substitution" << endl;
-}
-
-/// Rewrite one rendered record's quality fields from the linkage posterior. Returns false if the
-/// record could not be rewritten.
-bool apply_linkage_quality(string& line, const LinkageCollector::MovedQuality& moved,
-                           double linkage_min_confidence) {
-    // A record whose genotype the linkage model changed gets quality fields for its chosen
-    // genotype, since the per-site quality fields describe the genotype the reads alone chose.
-    vector<string> fields;
-    split_delims_keep_empty(line, "\t", fields);
-    if (fields.size() < 10) {
-        return false;
-    }
-    vector<string> keys, values;
-    split_delims_keep_empty(fields[8], ":", keys);
-    split_delims_keep_empty(fields[9], ":", values);
-    if (keys.size() != values.size()) {
-        return false;
-    }
-    size_t gq_field = keys.size(), gqi_field = keys.size(), gqn_field = keys.size();
-    size_t gl_field = keys.size(), gt_field = keys.size();
-    for (size_t i = 0; i < keys.size(); ++i) {
-        if (keys[i] == "GQ") {
-            gq_field = i;
-        } else if (keys[i] == "GQI") {
-            gqi_field = i;
-        } else if (keys[i] == "GQN") {
-            gqn_field = i;
-        } else if (keys[i] == "GL") {
-            gl_field = i;
-        } else if (keys[i] == "GT") {
-            gt_field = i;
-        }
-    }
-
-    // GQN's divisor, in phred units as GL's margin is below.
-    const double achievable_phred = 10.0 * moved.direct.achievable_gap / log(10.0);
-    if (gq_field != keys.size()) {
-        // GQ becomes the phred-scaled complement of the posterior, multiplied by the factor the
-        // direct call's GQ was, and capped at GQI. The posterior includes the panel's frequency
-        // prior, so 1 - posterior can understate the uncertainty where the reads were weakest; the
-        // cap keeps GQ within what the reads alone support, and makes GQ <= GQI hold on every
-        // record rewritten here.
-        const double posterior = moved.posterior;
-        double q = posterior >= 1.0 ? 256.0 : -10.0 * log10(max(1.0 - posterior, 1e-26));
-        q *= moved.direct.gq_factor;
-        if (gqi_field != keys.size()) {
-            try {
-                q = min(q, stod(values[gqi_field]));
-            } catch (const std::exception&) {
-                // GQI absent or unparsable: keep the discounted posterior quality, uncapped.
-            }
-        }
-        // Truncated, not rounded, as the per-site GQ is, so that equal qualities print the same.
-        values[gq_field] = std::to_string((int)min(256.0, max(0.0, q)));
-    }
-    // GQN, recomputed for the chosen genotype: its likelihood margin over the best alternative,
-    // as a fraction of the direct call's achievable gap, times its explained share, as the
-    // per-site GQN is. It is negative when the linkage model moved the call against the reads,
-    // which is why the sign is kept. It stays "." when GL is absent, the genotype cannot be read,
-    // or the direct call had no achievable gap.
-    bool gqn_known = false;
-    double gqn_new = 0.0;
-    if (gqn_field != keys.size() && gl_field != keys.size() && gt_field != keys.size()
-        && achievable_phred > 0.0) {
-        vector<double> gl;
-        bool parsed = true;
-        {
-            size_t start = 0;
-            while (parsed) {
-                size_t comma = values[gl_field].find(',', start);
-                string tok = values[gl_field].substr(
-                    start, comma == string::npos ? string::npos : comma - start);
-                try {
-                    gl.push_back(stod(tok));
-                } catch (const std::exception&) {
-                    parsed = false;
-                }
-                if (comma == string::npos) {
-                    break;
-                }
-                start = comma + 1;
-            }
-        }
-        // The called genotype's index in the GL. A diploid record's GL is indexed j(j+1)/2 + i
-        // for i <= j, and a haploid record's by allele; which applies is checked against the GL's
-        // length (n against n(n+1)/2). A "." field is dropped rather than skipping the record,
-        // since `1|.` is a nested chain on one strand of a diploid parent, with a real margin.
-        vector<int> called;
-        if (parsed) {
-            size_t start = 0;
-            while (true) {
-                size_t sep = values[gt_field].find_first_of("/|", start);
-                string tok = values[gt_field].substr(
-                    start, sep == string::npos ? string::npos : sep - start);
-                if (tok != "." && !tok.empty()) {
-                    try {
-                        called.push_back(std::stoi(tok));
-                    } catch (const std::exception&) {
-                        called.clear();
-                        break;
-                    }
-                }
-                if (sep == string::npos) {
-                    break;
-                }
-                start = sep + 1;
-            }
-        }
-        // How many alleles this record has, REF included, used only to recognise a haploid GL by
-        // its length. The diploid case does not check the length: under --atomize-blocks a snarl's
-        // block records share its GL while each has only its own ALTs, so the lengths need not
-        // match.
-        size_t n_alleles = 1;
-        if (fields[4] != "." && !fields[4].empty()) {
-            vector<string> alt_list;
-            split_delims_keep_empty(fields[4], ",", alt_list);
-            n_alleles += alt_list.size();
-        }
-        const bool diploid_gl = gl.size() == n_alleles * (n_alleles + 1) / 2;
-        const bool haploid_gl = gl.size() == n_alleles;
-        size_t idx = gl.size();
-        if (parsed && called.size() == 2 && !gl.empty()) {
-            int i = min(called[0], called[1]);
-            int j = max(called[0], called[1]);
-            idx = (size_t)(j * (j + 1) / 2 + i);
-        } else if (parsed && called.size() == 1 && haploid_gl && !diploid_gl) {
-            idx = (size_t)called[0];
-        }
-        if (idx < gl.size()) {
-            double best_other = -std::numeric_limits<double>::infinity();
-            for (size_t g = 0; g < gl.size(); ++g) {
-                if (g != idx) {
-                    best_other = max(best_other, gl[g]);
-                }
-            }
-            if (best_other > -std::numeric_limits<double>::infinity()) {
-                double margin_phred = 10.0 * (gl[idx] - best_other);
-                gqn_new = min(1.0, max(-1.0, margin_phred / achievable_phred
-                                                 * moved.direct.explained_share));
-                gqn_known = true;
-            }
-        }
-    }
-    if (gqn_field != keys.size()) {
-        if (gqn_known) {
-            char buf[32];
-            snprintf(buf, sizeof(buf), "%.3f", gqn_new);
-            values[gqn_field] = buf;
-        } else {
-            values[gqn_field] = ".";
-        }
-    }
-    // `lowconf` was set from the direct pass's GQN. Decide it again from the recomputed GQN where there
-    // is one, and clear it where there is not.
-    if (gqn_known && linkage_min_confidence > 0.0) {
-        fields[6] = gqn_new < linkage_min_confidence ? "lowconf" : "PASS";
-    } else if (fields[6] == "lowconf") {
-        fields[6] = "PASS";
-    }
-
-    fields[9] = join_delim(values, ':');
-    line = join_delim(fields, '\t');
-    return true;
 }
 
 

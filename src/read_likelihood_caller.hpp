@@ -16,6 +16,7 @@
 #include <vector>
 
 #include "allele_likelihood.hpp"
+#include "linkage_model.hpp"
 #include "snarl_caller.hpp"
 
 namespace vg {
@@ -271,6 +272,24 @@ public:
      * can change a record's genotype and GQN after this runs.
      */
     void set_min_confidence(double threshold);
+
+    /**
+     * Rewrite the GQ and GQN fields and the FILTER column of `vcf_line`, a one-sample record
+     * written by a ReadLikelihoodSnarlCaller, whose GT holds a genotype the linkage model chose in
+     * place of the direct call. Before the rewrite, these three describe the direct call.
+     *
+     * GQ is recomputed from `moved.posterior`, the linkage model's posterior of the chosen
+     * genotype, and is capped at the line's GQI where it has one. GQN is recomputed from the
+     * line's GL, and is "." where it cannot be. Both are scaled as the direct call's own values
+     * were (`moved.direct`). FILTER becomes `lowconf` when the new GQN is below
+     * `lowconf_threshold` and PASS otherwise; where there is no new GQN, or `lowconf_threshold` is
+     * 0, a `lowconf` FILTER becomes PASS.
+     *
+     * Returns false, and leaves the line unchanged, if its sample columns cannot be read.
+     */
+    static bool rewrite_quality_for_chosen_genotype(string& vcf_line,
+                                                    const LinkageCollector::MovedQuality& moved,
+                                                    double lowconf_threshold);
 
 protected:
 

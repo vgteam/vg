@@ -102,6 +102,7 @@ flowchart TD
     snarls --> symbolic
     likelihood --> caller
     snarlcaller --> caller
+    linkage --> caller
     caller --> graphcaller
     linkage --> graphcaller
     symbolic --> graphcaller
@@ -151,7 +152,7 @@ the linkage model and phasing when the cast fails.
 | | `regenotype.hpp` | strand log-odds, tempering, and the per-read likelihood correction |
 | | `graph_caller.hpp` | `phase_and_regenotype`, which applies the two modules above and runs the rounds after the first |
 | Output | `graph_caller.hpp` | records (`render_retained_records`, `emit_variant`, `emit_block_records`), sorting and writing (`write_variants`), and the mosaic (`write_mosaic`) |
-| | `read_likelihood_caller.hpp` | the VCF fields of a record (`update_vcf_info`) and their header lines |
+| | `read_likelihood_caller.hpp` | the VCF fields of a record (`update_vcf_info`) and their header lines, and the quality fields of a record whose genotype the linkage model changed (`rewrite_quality_for_chosen_genotype`) |
 | | `anchor.hpp` | the anchor file (`build_site_anchors`, `AnchorWriter`) |
 | Command line | `subcommand/call_main.cpp` | the options, grouped by subsystem, the `--preset` table, and the construction of every object above |
 

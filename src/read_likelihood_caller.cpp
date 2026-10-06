@@ -2,12 +2,14 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
 #include <limits>
 #include <iomanip>
 #include <set>
 #include <sstream>
 
 #include "statistics.hpp"
+#include "utility.hpp"
 
 namespace vg {
 
@@ -673,6 +675,169 @@ void ReadLikelihoodSnarlCaller::update_vcf_header(string& header) const {
               "given\">\n";
     header += "##FILTER=<ID=noreads,Description=\"No informative read overlaps the site, so the "
               "read-level model has no evidence either way\">\n";
+}
+
+
+bool ReadLikelihoodSnarlCaller::rewrite_quality_for_chosen_genotype(
+        string& vcf_line, const LinkageCollector::MovedQuality& moved, double lowconf_threshold) {
+    // A record whose genotype the linkage model changed gets quality fields for its chosen
+    // genotype, since the per-site quality fields describe the genotype the reads alone chose.
+    vector<string> fields;
+    split_delims_keep_empty(vcf_line, "\t", fields);
+    if (fields.size() < 10) {
+        return false;
+    }
+    vector<string> keys, values;
+    split_delims_keep_empty(fields[8], ":", keys);
+    split_delims_keep_empty(fields[9], ":", values);
+    if (keys.size() != values.size()) {
+        return false;
+    }
+    size_t gq_field = keys.size(), gqi_field = keys.size(), gqn_field = keys.size();
+    size_t gl_field = keys.size(), gt_field = keys.size();
+    for (size_t i = 0; i < keys.size(); ++i) {
+        if (keys[i] == "GQ") {
+            gq_field = i;
+        } else if (keys[i] == "GQI") {
+            gqi_field = i;
+        } else if (keys[i] == "GQN") {
+            gqn_field = i;
+        } else if (keys[i] == "GL") {
+            gl_field = i;
+        } else if (keys[i] == "GT") {
+            gt_field = i;
+        }
+    }
+
+    // GQN's divisor, in phred units as GL's margin is below.
+    const double achievable_phred = 10.0 * moved.direct.achievable_gap / log(10.0);
+    if (gq_field != keys.size()) {
+        // GQ becomes the phred-scaled complement of the posterior, multiplied by the factor the
+        // direct call's GQ was, and capped at GQI. The posterior includes the panel's frequency
+        // prior, so 1 - posterior can understate the uncertainty where the reads were weakest; the
+        // cap keeps GQ within what the reads alone support, and makes GQ <= GQI hold on every
+        // record rewritten here.
+        const double posterior = moved.posterior;
+        double q = posterior >= 1.0 ? 256.0 : -10.0 * log10(max(1.0 - posterior, 1e-26));
+        q *= moved.direct.gq_factor;
+        if (gqi_field != keys.size()) {
+            try {
+                q = min(q, stod(values[gqi_field]));
+            } catch (const std::exception&) {
+                // GQI absent or unparsable: keep the discounted posterior quality, uncapped.
+            }
+        }
+        // Truncated, not rounded, as the per-site GQ is, so that equal qualities print the same.
+        values[gq_field] = std::to_string((int)min(256.0, max(0.0, q)));
+    }
+    // GQN, recomputed for the chosen genotype: its likelihood margin over the best alternative,
+    // as a fraction of the direct call's achievable gap, times its explained share, as the
+    // per-site GQN is. It is negative when the linkage model moved the call against the reads,
+    // which is why the sign is kept. It stays "." when GL is absent, the genotype cannot be read,
+    // or the direct call had no achievable gap.
+    bool gqn_known = false;
+    double gqn_new = 0.0;
+    if (gqn_field != keys.size() && gl_field != keys.size() && gt_field != keys.size()
+        && achievable_phred > 0.0) {
+        vector<double> gl;
+        bool parsed = true;
+        {
+            size_t start = 0;
+            while (parsed) {
+                size_t comma = values[gl_field].find(',', start);
+                string tok = values[gl_field].substr(
+                    start, comma == string::npos ? string::npos : comma - start);
+                try {
+                    gl.push_back(stod(tok));
+                } catch (const std::exception&) {
+                    parsed = false;
+                }
+                if (comma == string::npos) {
+                    break;
+                }
+                start = comma + 1;
+            }
+        }
+        // The called genotype's index in the GL. A diploid record's GL is indexed j(j+1)/2 + i
+        // for i <= j, and a haploid record's by allele; which applies is checked against the GL's
+        // length (n against n(n+1)/2). A "." field is dropped rather than skipping the record,
+        // since `1|.` is a nested chain on one strand of a diploid parent, with a real margin.
+        vector<int> called;
+        if (parsed) {
+            size_t start = 0;
+            while (true) {
+                size_t sep = values[gt_field].find_first_of("/|", start);
+                string tok = values[gt_field].substr(
+                    start, sep == string::npos ? string::npos : sep - start);
+                if (tok != "." && !tok.empty()) {
+                    try {
+                        called.push_back(std::stoi(tok));
+                    } catch (const std::exception&) {
+                        called.clear();
+                        break;
+                    }
+                }
+                if (sep == string::npos) {
+                    break;
+                }
+                start = sep + 1;
+            }
+        }
+        // How many alleles this record has, REF included, used only to recognise a haploid GL by
+        // its length. The diploid case does not check the length: under --atomize-blocks a snarl's
+        // block records share its GL while each has only its own ALTs, so the lengths need not
+        // match.
+        size_t n_alleles = 1;
+        if (fields[4] != "." && !fields[4].empty()) {
+            vector<string> alt_list;
+            split_delims_keep_empty(fields[4], ",", alt_list);
+            n_alleles += alt_list.size();
+        }
+        const bool diploid_gl = gl.size() == n_alleles * (n_alleles + 1) / 2;
+        const bool haploid_gl = gl.size() == n_alleles;
+        size_t idx = gl.size();
+        if (parsed && called.size() == 2 && !gl.empty()) {
+            int i = min(called[0], called[1]);
+            int j = max(called[0], called[1]);
+            idx = (size_t)(j * (j + 1) / 2 + i);
+        } else if (parsed && called.size() == 1 && haploid_gl && !diploid_gl) {
+            idx = (size_t)called[0];
+        }
+        if (idx < gl.size()) {
+            double best_other = -std::numeric_limits<double>::infinity();
+            for (size_t g = 0; g < gl.size(); ++g) {
+                if (g != idx) {
+                    best_other = max(best_other, gl[g]);
+                }
+            }
+            if (best_other > -std::numeric_limits<double>::infinity()) {
+                double margin_phred = 10.0 * (gl[idx] - best_other);
+                gqn_new = min(1.0, max(-1.0, margin_phred / achievable_phred
+                                                 * moved.direct.explained_share));
+                gqn_known = true;
+            }
+        }
+    }
+    if (gqn_field != keys.size()) {
+        if (gqn_known) {
+            char buf[32];
+            snprintf(buf, sizeof(buf), "%.3f", gqn_new);
+            values[gqn_field] = buf;
+        } else {
+            values[gqn_field] = ".";
+        }
+    }
+    // `lowconf` was set from the direct pass's GQN. Decide it again from the recomputed GQN where there
+    // is one, and clear it where there is not.
+    if (gqn_known && lowconf_threshold > 0.0) {
+        fields[6] = gqn_new < lowconf_threshold ? "lowconf" : "PASS";
+    } else if (fields[6] == "lowconf") {
+        fields[6] = "PASS";
+    }
+
+    fields[9] = join_delim(values, ':');
+    vcf_line = join_delim(fields, '\t');
+    return true;
 }
 
 }
