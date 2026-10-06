@@ -474,10 +474,20 @@ size_t WindowedSiteReadSource::drop_cached_windows() {
         dropped.swap(cache);
     }
     size_t reads = 0;
-    for (const auto& slot : dropped) {
+    vector<shared_ptr<const CacheEntry>> entries;
+    entries.reserve(dropped.size());
+    for (auto& slot : dropped) {
         if (slot.second.entry) {
             reads += slot.second.entry->reads.size();
+            entries.push_back(std::move(slot.second.entry));
         }
+    }
+    dropped.clear();
+    // The windows are freed on several threads: on a whole genome they hold tens of gigabytes of
+    // alignments, which are slow to free on one thread.
+#pragma omp parallel for schedule(dynamic, 1)
+    for (size_t i = 0; i < entries.size(); ++i) {
+        entries[i].reset();
     }
     return reads;
 }
