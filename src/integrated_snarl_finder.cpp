@@ -1889,6 +1889,10 @@ SnarlManager IntegratedSnarlFinder::find_snarls_parallel() {
             // delete our component graph overlay
             delete subgraph;
         }
+        // The component's node set is not needed past here. Freed now, by the thread that used
+        // it, rather than on one thread when this function returns: together the sets hold every
+        // node of the graph, one allocation each.
+        unordered_set<id_t>().swap(weak_components[i]);
     }
 
     // merge the managers into the biggest one.
