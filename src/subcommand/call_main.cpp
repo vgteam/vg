@@ -2857,6 +2857,15 @@ int main_call(int argc, char** argv) {
         graph_caller->call_top_level_chains(*graph, max_chain_edges, max_chain_trivial_travs, recurse_type);
     }
 
+    // Calling is done, and the passes below work from what it kept, not from reads: free the
+    // windows the read source still caches, before those passes reach the run's highest memory use.
+    if (auto* windowed = dynamic_cast<WindowedSiteReadSource*>(read_source.get())) {
+        size_t freed = windowed->drop_cached_windows();
+        if (show_progress) {
+            logger.info() << "Freed the read cache: " << freed << " reads" << endl;
+        }
+    }
+
     if (deferring_caller != nullptr) {
         // Round 1's linkage pass, then read phasing and any further rounds, then the render.
         deferring_caller->run_linkage_pass();

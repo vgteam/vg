@@ -222,6 +222,12 @@ public:
     size_t get_whole_fetches() const;
     size_t get_whole_fetch_reads() const;
 
+    /// Drop every cached window and return how many reads they held. For when calling is done:
+    /// the cache would otherwise keep its windows until the source is destroyed, through the
+    /// passes that follow calling, when the run uses the most memory. A later query fetches its
+    /// window again.
+    size_t drop_cached_windows();
+
     /// The ranges sorted, with overlapping and adjacent ones merged: the same node IDs, in a form
     /// that in_ranges and touches can search. A site can name tens of thousands of ranges.
     static vector<pair<nid_t, nid_t>> merge_ranges(vector<pair<nid_t, nid_t>> ranges);

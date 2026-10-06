@@ -466,6 +466,22 @@ void WindowedSiteReadSource::for_each_read_start(
     }
 }
 
+size_t WindowedSiteReadSource::drop_cached_windows() {
+    // Moved out under the lock and freed after it, as get_window frees what it evicts.
+    unordered_map<size_t, CacheSlot> dropped;
+    {
+        lock_guard<std::mutex> guard(cache_mutex);
+        dropped.swap(cache);
+    }
+    size_t reads = 0;
+    for (const auto& slot : dropped) {
+        if (slot.second.entry) {
+            reads += slot.second.entry->reads.size();
+        }
+    }
+    return reads;
+}
+
 size_t WindowedSiteReadSource::get_whole_fetches() const {
     return whole_fetches.load();
 }
