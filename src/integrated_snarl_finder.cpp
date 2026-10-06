@@ -1868,9 +1868,49 @@ void IntegratedSnarlFinder::traverse_computed_decomposition(MergedAdjacencyGraph
     
 }
 
+/// The graph's weakly connected components, exactly as handlealgs::weakly_connected_components
+/// finds them: the same depth-first search, started from nodes in the graph's own order, so the
+/// components come in the same order and each component's node set is filled in the same order.
+/// The nodes already reached are marked in a flat array indexed by node ID instead of a hash set,
+/// whose lookups were most of the search's time on a large graph.
+static vector<unordered_set<id_t>> weakly_connected_components_by_id(const HandleGraph* graph) {
+    vector<unordered_set<id_t>> to_return;
+    const nid_t min_id = graph->min_node_id();
+    const nid_t max_id = graph->max_node_id();
+    vector<bool> traversed(max_id >= min_id ? (size_t)(max_id - min_id + 1) : 0, false);
+
+    graph->for_each_handle([&](const handle_t& handle) {
+        // Only think about it in the forward orientation
+        handle_t forward = graph->forward(handle);
+        if (traversed[graph->get_id(forward) - min_id]) {
+            // Already have this node, so don't start a search from it.
+            return;
+        }
+        // The stack only holds locally forward handles
+        vector<handle_t> stack{forward};
+        to_return.emplace_back();
+        while (!stack.empty()) {
+            handle_t here = stack.back();
+            stack.pop_back();
+            traversed[graph->get_id(here) - min_id] = true;
+            to_return.back().insert(graph->get_id(here));
+            auto handle_other = [&](const handle_t& other) {
+                handle_t other_forward = graph->forward(other);
+                if (!traversed[graph->get_id(other_forward) - min_id]) {
+                    stack.push_back(other_forward);
+                }
+            };
+            // Look at edges in both directions
+            graph->follow_edges(here, false, handle_other);
+            graph->follow_edges(here, true, handle_other);
+        }
+    });
+    return to_return;
+}
+
 SnarlManager IntegratedSnarlFinder::find_snarls_parallel() {
 
-    vector<unordered_set<id_t>> weak_components = handlealgs::weakly_connected_components(graph);
+    vector<unordered_set<id_t>> weak_components = weakly_connected_components_by_id(graph);
     vector<SnarlManager> snarl_managers(weak_components.size());
 
     #pragma omp parallel for schedule(dynamic, 1)
