@@ -690,9 +690,11 @@ bool AnchorWriter::write(const string& path, const string& graph_name, const str
         }
         return a.slot < b.slot;
     });
-    // Within an anchor, by read name, so that the file does not depend on thread scheduling.
-    for (Anchor& a : all) {
-        sort(a.reads.begin(), a.reads.end(), [](const ReadRow& x, const ReadRow& y) {
+    // Within an anchor, by read name, so that the file does not depend on thread scheduling. Each
+    // anchor's reads are sorted on their own, so the anchors are shared out among threads.
+#pragma omp parallel for schedule(dynamic, 1024)
+    for (size_t i = 0; i < all.size(); ++i) {
+        sort(all[i].reads.begin(), all[i].reads.end(), [](const ReadRow& x, const ReadRow& y) {
             if (x.name != y.name) {
                 return x.name < y.name;
             }
