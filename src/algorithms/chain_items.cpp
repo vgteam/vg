@@ -1017,7 +1017,7 @@ vector<SparseAnchorChain> find_best_chains(const VectorView<Anchor>& to_chain,
                             - to_chain[original_tracebacks[i].anchors.front()].read_start());
         size_t top_length = (to_chain[original_tracebacks[0].anchors.back()].read_end() + 1 
                              - to_chain[original_tracebacks[0].anchors.front()].read_start());
-        if (my_length < top_length / 5) {
+        if (my_length < top_length / 5 || original_tracebacks[i].chain_score < original_tracebacks[0].chain_score / 5) {
 #ifdef debug_chaining
             cerr << "Saving tracebacks from " << i << " as completely separate" << endl; 
 #endif
