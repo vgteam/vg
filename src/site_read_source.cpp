@@ -193,14 +193,35 @@ void WindowedSiteReadSource::count_fetched() const {
     ++fetched;
 }
 
+vector<pair<nid_t, nid_t>> WindowedSiteReadSource::merge_ranges(vector<pair<nid_t, nid_t>> ranges) {
+    std::sort(ranges.begin(), ranges.end());
+    size_t kept = 0;
+    for (size_t i = 0; i < ranges.size(); ++i) {
+        if (kept > 0 && ranges[i].first <= ranges[kept - 1].second + 1) {
+            ranges[kept - 1].second = max(ranges[kept - 1].second, ranges[i].second);
+        } else {
+            ranges[kept++] = ranges[i];
+        }
+    }
+    ranges.resize(kept);
+    return ranges;
+}
+
+bool WindowedSiteReadSource::in_ranges(nid_t node_id, const vector<pair<nid_t, nid_t>>& ranges) {
+    // The last range starting at or before the ID is the only one that can hold it, since merged
+    // ranges neither overlap nor touch.
+    auto after = std::upper_bound(ranges.begin(), ranges.end(), node_id,
+                                  [](nid_t id, const pair<nid_t, nid_t>& range) {
+                                      return id < range.first;
+                                  });
+    return after != ranges.begin() && node_id <= (after - 1)->second;
+}
+
 bool WindowedSiteReadSource::touches(const Alignment& aln,
                                     const vector<pair<nid_t, nid_t>>& ranges) {
     for (const auto& mapping : aln.path().mapping()) {
-        nid_t node_id = mapping.position().node_id();
-        for (const auto& range : ranges) {
-            if (node_id >= range.first && node_id <= range.second) {
-                return true;
-            }
+        if (in_ranges(mapping.position().node_id(), ranges)) {
+            return true;
         }
     }
     return false;
@@ -238,9 +259,10 @@ void WindowedSiteReadSource::for_each_read(
         }
         straddle_wanted += wanted;
         size_t n_scanned = 0, n_delivered = 0;
+        vector<pair<nid_t, nid_t>> merged = merge_ranges(ranges);
         fetch_span(ranges, [&](Alignment& aln) {
             ++n_scanned;
-            if (touches(aln, ranges)) {
+            if (touches(aln, merged)) {
                 ++n_delivered;
                 // Not indexed: this path serves the few sites too wide to cache, and an index for a
                 // read seen once would cost as much as the walk it saves.
@@ -1027,7 +1049,7 @@ static constexpr nid_t TABIX_RUN_GAP = 1000;
 /// Whether a GAF line's path, its sixth column, steps onto a node in the ranges, read from the text
 /// so that a record that does not is dropped without being parsed. Answers yes, leaving the record
 /// to be parsed and tested properly, if a step is not a node ID: a GAF path may name segments.
-static bool gaf_path_may_touch(const string& line, const vector<pair<nid_t, nid_t>>& ranges) {
+static bool gaf_path_may_touch(const string& line, const vector<pair<nid_t, nid_t>>& merged) {
     size_t pos = 0;
     for (int column = 1; column < 6; ++column) {
         pos = line.find('\t', pos);
@@ -1053,10 +1075,8 @@ static bool gaf_path_may_touch(const string& line, const vector<pair<nid_t, nid_
         for (; i < end && isdigit((unsigned char)line[i]); ++i) {
             id = id * 10 + (line[i] - '0');
         }
-        for (const auto& range : ranges) {
-            if (id >= range.first && id <= range.second) {
-                return true;
-            }
+        if (WindowedSiteReadSource::in_ranges(id, merged)) {
+            return true;
         }
     }
     return false;
@@ -1136,9 +1156,11 @@ void TabixGafSiteReadSource::fetch_span(const vector<pair<nid_t, nid_t>>& ranges
     try {
         ThreadState& state = thread_state();
 
-        // The ranges as runs of nearby node IDs, one index lookup each.
-        vector<pair<nid_t, nid_t>> runs(ranges);
-        std::sort(runs.begin(), runs.end());
+        // The ranges merged, to test records against by binary search: a site can name tens of
+        // thousands of ranges. Then grouped into runs of nearby node IDs (see TABIX_RUN_GAP), one
+        // index lookup per run.
+        vector<pair<nid_t, nid_t>> merged = merge_ranges(ranges);
+        vector<pair<nid_t, nid_t>> runs(merged);
         size_t kept = 0;
         for (size_t i = 0; i < runs.size(); ++i) {
             if (kept > 0 && runs[i].first <= runs[kept - 1].second + TABIX_RUN_GAP) {
@@ -1168,7 +1190,7 @@ void TabixGafSiteReadSource::fetch_span(const vector<pair<nid_t, nid_t>>& ranges
             // The index says only that the record's node interval overlaps the query. Its path can
             // still step over every node the query names, and gbz-base does not return such a read.
             // Most such records are dropped from their path text, without being parsed.
-            if (!gaf_path_may_touch(text, ranges)) {
+            if (!gaf_path_may_touch(text, merged)) {
                 ++fetch_skipped;
                 ++fetch_unparsed;
                 return;
@@ -1177,7 +1199,7 @@ void TabixGafSiteReadSource::fetch_span(const vector<pair<nid_t, nid_t>>& ranges
             gafkluge::parse_gaf_record(text, record);
             vg::io::gaf_to_alignment(graph, record, aln);
             fetch_parse_us += micros_since(parse_start);
-            if (!touches(aln, ranges)) {
+            if (!touches(aln, merged)) {
                 ++fetch_skipped;
                 return;
             }

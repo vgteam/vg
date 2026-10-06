@@ -222,6 +222,16 @@ public:
     size_t get_whole_fetches() const;
     size_t get_whole_fetch_reads() const;
 
+    /// The ranges sorted, with overlapping and adjacent ones merged: the same node IDs, in a form
+    /// that in_ranges and touches can search. A site can name tens of thousands of ranges.
+    static vector<pair<nid_t, nid_t>> merge_ranges(vector<pair<nid_t, nid_t>> ranges);
+
+    /// Is the node ID in one of the ranges? `ranges` must come from merge_ranges.
+    static bool in_ranges(nid_t node_id, const vector<pair<nid_t, nid_t>>& ranges);
+
+    /// Does the read touch any node in the ranges? `ranges` must come from merge_ranges.
+    static bool touches(const Alignment& aln, const vector<pair<nid_t, nid_t>>& ranges);
+
 
 protected:
 
@@ -248,9 +258,6 @@ protected:
     /// Count a read as fetched. Separate from passes_filter so a subclass can decide
     /// the order in which it filters and counts.
     void count_fetched() const;
-
-    /// Does the read touch any node in the ranges?
-    static bool touches(const Alignment& aln, const vector<pair<nid_t, nid_t>>& ranges);
 
     SiteReadFilter filter;
 
