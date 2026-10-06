@@ -173,7 +173,7 @@ private:
  *
  * A backend query costs much more than one site's reads, because the backend over-fetches or
  * starts a process, so each window is fetched once and serves the sites inside it. That works
- * when sites are visited in node-ID order; see GraphCaller::set_node_id_ordering. The cache is
+ * when sites are visited in node-ID order; see GraphCaller::set_snarl_batching. The cache is
  * shared because a thread also needs windows that other threads are working through, such as
  * those holding the reference nodes near its sites.
  *

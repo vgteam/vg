@@ -2824,10 +2824,10 @@ int main_call(int argc, char** argv) {
         recurse_type = GraphCaller::RecurseOnFail;
     }
 
-    // A read source that fetches reads by node-ID window works best when snarls are visited in
-    // node-ID order, so that each fetched window serves many sites in a row.
+    // A read source that fetches reads by node-ID window works best when snarls are called in
+    // node-ID order, batched by its window, so that each fetched window serves many sites in a row.
     if (dynamic_cast<WindowedSiteReadSource*>(read_source.get()) != nullptr) {
-        graph_caller->set_node_id_ordering(true, read_window_size);
+        graph_caller->set_snarl_batching(read_window_size);
         if (show_progress) {
             logger.info() << "Visiting snarls in node-ID order, window " << read_window_size << endl;
         }

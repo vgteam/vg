@@ -66,9 +66,15 @@ public:
 
     virtual ~GraphCaller();
 
-    /// Run call_snarl() on every top-level snarl in the manager.
-    /// For any that return false, try the children, etc. (when recurse_on_fail true)
-    /// Snarls are processed in parallel
+    /// Run call_snarl() on every top-level snarl in the manager, in parallel. Then call it on
+    /// children, as `recurse_type` says: those of every snarl (RecurseAlways), those of snarls
+    /// whose call returned false (RecurseOnFail), or none (RecurseNever), and so on down.
+    ///
+    /// By default each snarl is its own parallel job. After set_snarl_batching(w), the top-level
+    /// snarls are grouped into batches instead: a batch holds the snarls whose lower boundary
+    /// node ID falls in one window of w IDs, [k*w, (k+1)*w) for some k, each batch is one job,
+    /// and a job calls its snarls in node-ID order. Children are still one job each, started in
+    /// node-ID order.
     virtual void call_top_level_snarls(const HandleGraph& graph, RecurseType recurse_type = RecurseOnFail);
 
     /// For every chain, cut it up into pieces using max_edges and max_trivial to cap the size of
@@ -85,10 +91,11 @@ public:
     /// toggle progress messages
     void set_show_progress(bool show_progress);
 
-    /// Visit top-level snarls in node-ID order, grouped into windows of window_size node IDs,
-    /// instead of the default arbitrary order, so that a read source that fetches by node-ID
-    /// window fetches each window once. Off by default; `vg call` turns it on for such a source.
-    void set_node_id_ordering(bool ordered, size_t window_size);
+    /// Batch call_top_level_snarls' parallel jobs by windows of `window_size` node IDs (see
+    /// call_top_level_snarls), so that snarls with nearby node IDs are called together, which
+    /// suits a SnarlCaller that loads its reads a window of node IDs at a time. 0, the default,
+    /// gives one job per snarl.
+    void set_snarl_batching(size_t window_size);
 
 protected:
 
@@ -103,9 +110,8 @@ protected:
     /// Our snarls
     SnarlManager& snarl_manager;
 
-    /// See set_node_id_ordering.
-    bool node_id_ordering = false;
-    size_t node_id_window = 256;
+    /// See set_snarl_batching.
+    size_t snarl_batch_window = 0;
 
     /// Toggle progress messages
     bool show_progress;

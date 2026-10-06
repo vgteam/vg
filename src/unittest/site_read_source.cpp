@@ -210,7 +210,7 @@ TEST_CASE("A cache hit still returns the right reads, not the whole window",
 }
 
 TEST_CASE("Visiting windows in order fetches each exactly once", "[site_read_source]") {
-    // The access pattern GraphCaller::set_node_id_ordering exists to produce. With two
+    // The access pattern GraphCaller::set_snarl_batching exists to produce. With two
     // cache slots and ascending visits, no window is ever fetched twice.
     FakeWindowedSource source({{"a", 10}, {"b", 110}, {"c", 210}, {"d", 310}}, 100);
 

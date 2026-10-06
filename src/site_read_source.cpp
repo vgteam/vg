@@ -277,7 +277,7 @@ void WindowedSiteReadSource::for_each_read(
     }
 
     // Usually served from the cache when sites are visited in node-ID order
-    // (GraphCaller::set_node_id_ordering).
+    // (GraphCaller::set_snarl_batching).
     bool was_fetched = false;
     shared_ptr<const CacheEntry> entry = get_window(first_window, was_fetched);
     if (was_fetched) {
