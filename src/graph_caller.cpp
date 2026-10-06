@@ -6474,29 +6474,30 @@ void FlowCaller::run_linkage_pass() {
         }
     }
     if (show_progress) {
-        // The bytes kept for the staged sites, counted by walking the objects.
+        // The bytes kept for the staged sites, counted by walking the objects. They are walked in
+        // parallel; the totals are sums, so they do not depend on how the walk is split.
         size_t retained_bytes = 0, retained_visits = 0, retained_gls = 0;
-        auto measure = [&](const PendingRecord& rec) {
-            retained_bytes += sizeof(PendingRecord) + rec.ref_path_name.capacity()
-                              + rec.genotype.capacity() * sizeof(int)
-                              + rec.panel_cache.capacity() * sizeof(int);
-            retained_bytes += rec.travs.capacity() * sizeof(SnarlTraversal);
+        auto measure = [](const PendingRecord& rec, size_t& bytes, size_t& visits, size_t& gls) {
+            bytes += sizeof(PendingRecord) + rec.ref_path_name.capacity()
+                     + rec.genotype.capacity() * sizeof(int)
+                     + rec.panel_cache.capacity() * sizeof(int);
+            bytes += rec.travs.capacity() * sizeof(SnarlTraversal);
             for (const SnarlTraversal& t : rec.travs) {
-                retained_visits += (size_t)t.visit_size();
-                retained_bytes += (size_t)t.visit_size() * sizeof(Visit);
+                visits += (size_t)t.visit_size();
+                bytes += (size_t)t.visit_size() * sizeof(Visit);
             }
             const auto* rl = dynamic_cast<const ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo*>(
                 rec.call_info.get());
             if (rl != nullptr) {
                 for (const auto& kv : rl->genotype_lls) {
-                    ++retained_gls;
-                    retained_bytes += 48 + kv.first.capacity() * sizeof(int) + sizeof(double);
+                    ++gls;
+                    bytes += 48 + kv.first.capacity() * sizeof(int) + sizeof(double);
                 }
                 if (rl->anchor_evidence != nullptr) {
-                    retained_bytes += rl->anchor_evidence->bytes();
+                    bytes += rl->anchor_evidence->bytes();
                 }
                 if (rl->phase_evidence != nullptr) {
-                    retained_bytes += rl->phase_evidence->bytes();
+                    bytes += rl->phase_evidence->bytes();
                 }
                 // The parts re-genotyping adds.
                 auto gl_bytes = [](const map<vector<int>, double>& gl) {
@@ -6507,35 +6508,40 @@ void FlowCaller::run_linkage_pass() {
                     return n;
                 };
                 if (rl->uncorrected_lls != nullptr) {
-                    retained_bytes += gl_bytes(*rl->uncorrected_lls);
+                    bytes += gl_bytes(*rl->uncorrected_lls);
                 }
-                retained_bytes += rl->scored_traversals.capacity() * sizeof(SnarlTraversal)
-                                  + rl->allele_support.capacity() * sizeof(double);
+                bytes += rl->scored_traversals.capacity() * sizeof(SnarlTraversal)
+                         + rl->allele_support.capacity() * sizeof(double);
                 if (rl->alt_ploidy_info != nullptr) {
                     // The alternate answer is kept too, with all its parts.
                     const auto& alt = *rl->alt_ploidy_info;
-                    retained_bytes += alt.scored_traversals.capacity() * sizeof(SnarlTraversal)
-                                      + alt.allele_support.capacity() * sizeof(double);
+                    bytes += alt.scored_traversals.capacity() * sizeof(SnarlTraversal)
+                             + alt.allele_support.capacity() * sizeof(double);
                     if (alt.uncorrected_lls != nullptr) {
-                        retained_bytes += gl_bytes(*alt.uncorrected_lls);
+                        bytes += gl_bytes(*alt.uncorrected_lls);
                     }
                 }
 
                 if (rl->alt_ploidy_info != nullptr) {
                     for (const auto& kv : rl->alt_ploidy_info->genotype_lls) {
-                        ++retained_gls;
-                        retained_bytes += 48 + kv.first.capacity() * sizeof(int) + sizeof(double);
+                        ++gls;
+                        bytes += 48 + kv.first.capacity() * sizeof(int) + sizeof(double);
                     }
                 }
             }
         };
-        for (const auto& queue : render_records) {
-            for (const auto& rec : queue) {
-                measure(rec);
+#pragma omp parallel reduction(+ : retained_bytes, retained_visits, retained_gls)
+        {
+            for (const auto& queue : render_records) {
+#pragma omp for schedule(dynamic, 4096) nowait
+                for (size_t r = 0; r < queue.size(); ++r) {
+                    measure(queue[r], retained_bytes, retained_visits, retained_gls);
+                }
             }
-        }
-        for (const auto& rec : pending) {
-            measure(rec);
+#pragma omp for schedule(dynamic, 4096) nowait
+            for (size_t r = 0; r < pending.size(); ++r) {
+                measure(pending[r], retained_bytes, retained_visits, retained_gls);
+            }
         }
         // The read-phasing evidence. In the report below, the snarls the linkage pass will not revise
         // are the top-level ones and the children RecurseOnFail reaches without a ploidy override.
