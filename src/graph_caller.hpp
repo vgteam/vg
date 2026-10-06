@@ -699,7 +699,7 @@ protected:
     /// its own reads. Positive names slot 0. Zero means none: no table, no other contributing site,
     /// or no fitted temper. NaN means the read has a strand that is not usable in the site's phase
     /// set (see `read_strand_usable`). Re-genotyping does not use this, and gives such a read 0.
-    double read_strand_log_odds(size_t record_key, const string& read_name) const;
+    double read_strand_log_odds(size_t record_key, std::string_view read_name) const;
 
     /// See set_linkage_min_confidence.
     double linkage_min_confidence = 0.0;

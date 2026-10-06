@@ -305,7 +305,7 @@ static AnchorSiteEvidence two_allele_evidence(const vector<int>& prefers,
     ev.length_weighted = true;
     for (size_t i = 0; i < prefers.size(); ++i) {
         AnchorRead r;
-        r.name = "r" + std::to_string(i);
+        r.read = read_names().intern("r" + std::to_string(i));
         r.mismap = 0.02f;
         r.start_pin = start_pins[i];
         r.end_pin = end_pins[i];
@@ -564,12 +564,12 @@ TEST_CASE("A homozygous site splits by read phase only when both strands are sup
         // The coin's load-bearing property: the no-opinion read is on exactly one slot, and the
         // same one at both pins. A per-site or per-pin random choice would satisfy the count above
         // and fail this.
-        const string& quiet = ev.reads[3].name;
+        const uint32_t quiet = ev.reads[3].read;
         set<int> slots_held;
         size_t rows = 0;
         for (const AnchorWriter::Anchor& a : out) {
             for (const AnchorWriter::ReadRow& row : a.reads) {
-                if (row.name == quiet) {
+                if (row.read == quiet) {
                     slots_held.insert(a.slot);
                     ++rows;
                 }
@@ -594,7 +594,7 @@ TEST_CASE("A homozygous site splits by read phase only when both strands are sup
         for (const AnchorWriter::Anchor& a : out) {
             placed += a.reads.size();
             for (const AnchorWriter::ReadRow& row : a.reads) {
-                REQUIRE(row.name != ev.reads[3].name);
+                REQUIRE(row.read != ev.reads[3].read);
             }
         }
         REQUIRE(placed == 6);   // three reads x two pins
@@ -670,7 +670,7 @@ TEST_CASE("A site's reliability is the mean score of the reads it emitted", "[an
     size_t rows = 0;
     for (const AnchorWriter::Anchor& a : out) {
         for (const AnchorWriter::ReadRow& r : a.reads) {
-            per_read[r.name] = r.score;
+            per_read[string(read_names().name(r.read))] = r.score;
             ++rows;
         }
     }

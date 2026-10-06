@@ -367,7 +367,7 @@ const PhaseReadEvidence* ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo::read
         scratch.mismap.reserve(ev.reads.size());
         for (const AnchorRead& r : ev.reads) {
             // The same key the calculator gives a read when it fills `phase_evidence` itself.
-            scratch.read_key.push_back((uint64_t)std::hash<string>{}(r.name));
+            scratch.read_key.push_back((uint64_t)std::hash<string_view>{}(read_names().name(r.read)));
             scratch.mismap.push_back(r.mismap);
         }
         pe = &scratch;

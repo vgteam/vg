@@ -16,12 +16,15 @@
  * it.
  */
 
+#include <array>
 #include <atomic>
 #include <cstdint>
 #include <iosfwd>
 #include <memory>
 #include <mutex>
 #include <string>
+#include <string_view>
+#include <unordered_map>
 #include <vector>
 
 #include "handle.hpp"
@@ -130,9 +133,46 @@ AnchorPlacement resolve_anchor_pin(const SiteRead& read, const HandleGraph& grap
                                    AnchorCounters& counters);
 
 
+/**
+ * Read names, each held once for the whole run, so that a site's anchor evidence and the anchor
+ * rows refer to a read by a 32-bit index rather than each keeping a copy of its name: on a whole
+ * genome a read is placed at hundreds of sites. Names can be added from several threads at once,
+ * and looked up without a lock; a name, once added, never moves.
+ */
+class ReadNameTable {
+public:
+    /// The index of the name, which is added if it is new.
+    uint32_t intern(const string& name);
+
+    /// The name at an index this table gave out.
+    string_view name(uint32_t index) const;
+
+private:
+    /// Names are spread over shards by hash, each with its own lock, so that threads adding names
+    /// rarely wait for each other. An index is the name's position in its shard times SHARDS, plus
+    /// the shard.
+    static constexpr size_t SHARDS = 64;
+    /// A shard stores its names in chunks that are never moved or freed, found through a fixed array
+    /// of pointers, so that a lookup needs no lock while another thread adds a name.
+    static constexpr size_t CHUNK = 1 << 16;
+    static constexpr size_t MAX_CHUNKS = 1 << 12;
+    struct Shard {
+        std::mutex mutex;
+        unordered_map<string_view, uint32_t> index;
+        std::array<std::atomic<string*>, MAX_CHUNKS> chunks{};
+        size_t count = 0;
+        ~Shard();
+    };
+    std::array<Shard, SHARDS> shards;
+};
+
+/// The run's read names.
+ReadNameTable& read_names();
+
 /// One read's contribution to a site's anchors.
 struct AnchorRead {
-    string name;
+    /// The read, as its index in read_names().
+    uint32_t read = 0;
     /// The MAPQ-derived mismapping probability, clamped as the genotype model clamps it.
     float mismap = 0.0f;
     AnchorPlacement start_pin;
@@ -253,7 +293,8 @@ struct AnchorParams {
 class AnchorWriter {
 public:
     struct ReadRow {
-        string name;
+        /// The read, as its index in read_names().
+        uint32_t read = 0;
         int64_t offset = -1;
         float score = 0.0f;
         uint8_t direction = 0;

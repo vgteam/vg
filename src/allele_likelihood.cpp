@@ -1624,7 +1624,7 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
             // reverse-complemented read, which the read file does not contain; the record's
             // strand field gives the orientation instead.
             AnchorRead record;
-            record.name = aln.name();
+            record.read = read_names().intern(aln.name());
             record.mismap = (float)mismap;
             record.start_pin = resolve_anchor_pin(read, graph, snarl.start().node_id(),
                                                   snarl.start().backward(), true,

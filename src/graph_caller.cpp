@@ -821,11 +821,11 @@ void VCFOutputCaller::build_render_lambda() {
     }
 }
 
-double VCFOutputCaller::read_strand_log_odds(size_t record_key, const string& read_name) const {
+double VCFOutputCaller::read_strand_log_odds(size_t record_key, std::string_view read_name) const {
     if (render_lambda.empty() || render_lambda_temper <= 0.0) {
         return 0.0;
     }
-    const uint64_t key = (uint64_t)std::hash<string>{}(read_name);
+    const uint64_t key = (uint64_t)std::hash<std::string_view>{}(read_name);
     const auto found = render_lambda.find(key);
     const auto ps = render_lambda_phase_set.find(record_key);
     const size_t phase_set = ps != render_lambda_phase_set.end() ? ps->second : NO_PHASE_SET;
@@ -1306,7 +1306,7 @@ void VCFOutputCaller::collect_anchors_for(const Snarl& snarl, const vector<int>&
     if ((anchor_params.hom_split && splittable_hom) || tiltable_het) {
         read_strand.reserve(info->anchor_evidence->reads.size());
         for (const AnchorRead& read : info->anchor_evidence->reads) {
-            read_strand.push_back(read_strand_log_odds(record_key, read.name));
+            read_strand.push_back(read_strand_log_odds(record_key, read_names().name(read.read)));
         }
     }
     build_site_anchors(*info->anchor_evidence, genotype, print_snarl(snarl),
@@ -1333,16 +1333,16 @@ void VCFOutputCaller::collect_anchors_for(const Snarl& snarl, const vector<int>&
         if (allele_of_slot[0] >= 0 && allele_of_slot[1] >= 0
             && allele_of_slot[0] != allele_of_slot[1]) {
             (void)slot_of_allele;
-            unordered_set<string> counted;
+            unordered_set<uint32_t> counted;
             for (const AnchorWriter::Anchor& anchor : anchors) {
                 if (anchor.slot < 0 || anchor.slot > 1) {
                     continue;
                 }
                 for (const AnchorWriter::ReadRow& row : anchor.reads) {
-                    if (!counted.insert(row.name).second) {
+                    if (!counted.insert(row.read).second) {
                         continue;   // both pins carry the same partition; count each read once
                     }
-                    const double lo = read_strand_log_odds(record_key, row.name);
+                    const double lo = read_strand_log_odds(record_key, read_names().name(row.read));
                     if (std::isnan(lo) || lo == 0.0) {
                         anchor_params.counters->phase_no_opinion.fetch_add(1);
                         continue;

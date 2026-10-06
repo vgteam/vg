@@ -289,12 +289,52 @@ AnchorPlacement resolve_anchor_pin(const SiteRead& read, const HandleGraph& grap
 // Retention
 ////////////////////////////////////////////////////////////////////////////////
 
+uint32_t ReadNameTable::intern(const string& name) {
+    size_t s = std::hash<string_view>{}(name) % SHARDS;
+    Shard& shard = shards[s];
+    lock_guard<std::mutex> guard(shard.mutex);
+    auto found = shard.index.find(name);
+    if (found != shard.index.end()) {
+        return found->second;
+    }
+    size_t position = shard.count;
+    if (position / CHUNK >= MAX_CHUNKS || position * SHARDS + s > UINT32_MAX) {
+        throw runtime_error("too many distinct read names for a 32-bit index");
+    }
+    string* chunk = shard.chunks[position / CHUNK].load(std::memory_order_acquire);
+    if (chunk == nullptr) {
+        chunk = new string[CHUNK];
+        shard.chunks[position / CHUNK].store(chunk, std::memory_order_release);
+    }
+    chunk[position % CHUNK] = name;
+    ++shard.count;
+    uint32_t index = (uint32_t)(position * SHARDS + s);
+    shard.index.emplace(string_view(chunk[position % CHUNK]), index);
+    return index;
+}
+
+string_view ReadNameTable::name(uint32_t index) const {
+    const Shard& shard = shards[index % SHARDS];
+    size_t position = index / SHARDS;
+    const string* chunk = shard.chunks[position / CHUNK].load(std::memory_order_acquire);
+    return chunk[position % CHUNK];
+}
+
+ReadNameTable::Shard::~Shard() {
+    for (auto& chunk : chunks) {
+        delete[] chunk.load();
+    }
+}
+
+ReadNameTable& read_names() {
+    static ReadNameTable table;
+    return table;
+}
+
 size_t AnchorSiteEvidence::bytes() const {
+    // Names are held once, in read_names(), not per site.
     size_t total = sizeof(AnchorSiteEvidence);
     total += reads.capacity() * sizeof(AnchorRead);
-    for (const AnchorRead& r : reads) {
-        total += r.name.capacity();
-    }
     total += rel.capacity() * sizeof(float);
     total += allele_length.capacity() * sizeof(uint32_t);
     return total;
@@ -415,10 +455,10 @@ void build_site_anchors(const AnchorSiteEvidence& evidence, const vector<int>& g
     // Count reads sharing a name at this site, which cannot be told apart once the file is
     // written.
     {
-        unordered_map<string, size_t> name_count;
+        unordered_map<uint32_t, size_t> name_count;
         name_count.reserve(evidence.reads.size() * 2);
         for (const AnchorRead& read : evidence.reads) {
-            ++name_count[read.name];
+            ++name_count[read.read];
         }
         for (const auto& entry : name_count) {
             if (entry.second > 1) {
@@ -472,7 +512,7 @@ void build_site_anchors(const AnchorSiteEvidence& evidence, const vector<int>& g
                 // one strand, and it is not missing from some anchors while present at others.
                 ++counters.hom_split_no_opinion;
                 ++counters.hom_split_coin;
-                coin = (int)(std::hash<string>{}(read.name) & 1ull);
+                coin = (int)(std::hash<string_view>{}(read_names().name(read.read)) & 1ull);
             }
             best_resp = (1.0 - mismap) * (double)evidence.rel_at(r, (size_t)slot_allele[0]);
             total = mismap + best_resp;
@@ -569,7 +609,7 @@ void build_site_anchors(const AnchorSiteEvidence& evidence, const vector<int>& g
         }
 
         AnchorWriter::ReadRow row;
-        row.name = read.name;
+        row.read = read.read;
         row.score = (float)score;
 
         if (read.end_pin.placed() && !read.start_pin.placed()) {
@@ -622,10 +662,13 @@ void build_site_anchors(const AnchorSiteEvidence& evidence, const vector<int>& g
     // pins and slots, and paired mates once, at the higher of their scores, as `merge_mates` keeps
     // the more confident mate.
     if (out.size() > out_begin) {
-        unordered_map<string, float> per_read;
+        // Keyed by the name itself, not its index in read_names(): the scores are summed in the
+        // map's iteration order, which depends on the keys' hashes, and a floating-point sum's last
+        // digits depend on that order. Keying by name keeps the sum, and the file, as before.
+        unordered_map<string_view, float> per_read;
         for (size_t i = out_begin; i < out.size(); ++i) {
             for (const AnchorWriter::ReadRow& row : out[i].reads) {
-                auto placed = per_read.emplace(row.name, row.score);
+                auto placed = per_read.emplace(read_names().name(row.read), row.score);
                 if (!placed.second && row.score > placed.first->second) {
                     placed.first->second = row.score;
                 }
@@ -696,9 +739,10 @@ bool AnchorWriter::write(const string& path, const string& graph_name, const str
     // anchor's reads are sorted on their own, so the anchors are shared out among threads.
 #pragma omp parallel for schedule(dynamic, 1024)
     for (size_t i = 0; i < all.size(); ++i) {
-        sort(all[i].reads.begin(), all[i].reads.end(), [](const ReadRow& x, const ReadRow& y) {
-            if (x.name != y.name) {
-                return x.name < y.name;
+        const ReadNameTable& table = read_names();
+        sort(all[i].reads.begin(), all[i].reads.end(), [&](const ReadRow& x, const ReadRow& y) {
+            if (x.read != y.read) {
+                return table.name(x.read) < table.name(y.read);
             }
             return x.offset < y.offset;
         });
@@ -709,23 +753,30 @@ bool AnchorWriter::write(const string& path, const string& graph_name, const str
     // so that the file does not depend on thread scheduling and the table can be binary-searched.
     //
     // The table is the distinct names, sorted, and a row finds its index by hash: there are a few
-    // million names but hundreds of millions of rows. The views point into the anchors' own
-    // strings, which do not move from here on.
-    vector<string_view> names;
+    // million names but hundreds of millions of rows.
+    vector<uint32_t> reads;
     {
-        unordered_set<string_view> distinct;
+        unordered_set<uint32_t> distinct;
         for (const Anchor& a : all) {
             for (const ReadRow& r : a.reads) {
-                distinct.insert(r.name);
+                distinct.insert(r.read);
             }
         }
-        names.assign(distinct.begin(), distinct.end());
+        reads.assign(distinct.begin(), distinct.end());
     }
-    sort(names.begin(), names.end());
-    unordered_map<string_view, size_t> name_id;
-    name_id.reserve(names.size());
-    for (size_t i = 0; i < names.size(); ++i) {
-        name_id.emplace(names[i], i);
+    {
+        const ReadNameTable& table = read_names();
+        sort(reads.begin(), reads.end(), [&](uint32_t a, uint32_t b) {
+            return table.name(a) < table.name(b);
+        });
+    }
+    vector<string_view> names;
+    names.reserve(reads.size());
+    unordered_map<uint32_t, size_t> name_id;
+    name_id.reserve(reads.size());
+    for (size_t i = 0; i < reads.size(); ++i) {
+        names.push_back(read_names().name(reads[i]));
+        name_id.emplace(reads[i], i);
     }
 
     ofstream out(path);
@@ -841,7 +892,7 @@ bool AnchorWriter::write(const string& path, const string& graph_name, const str
         }
         os << "\n";
         for (const ReadRow& r : a.reads) {
-            os << "R\t" << name_id.find(r.name)->second << "\t" << (int)r.direction << "\t" << r.offset << "\t"
+            os << "R\t" << name_id.find(r.read)->second << "\t" << (int)r.direction << "\t" << r.offset << "\t"
                << std::setprecision(1) << r.score << "\n";
         }
     };
