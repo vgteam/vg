@@ -825,24 +825,51 @@ bool AnchorWriter::write(const string& path, const string& graph_name, const str
     for (size_t i = 0; i < names.size(); ++i) {
         out << "#read\t" << i << "\t" << names[i] << "\n";
     }
-    out << std::fixed;
-    for (const Anchor& a : all) {
-        out << "A\t" << a.node << "\t" << a.snarl << "\t" << a.slot << "\t" << a.allele << "\t";
+    // An anchor's A row and its R rows, formatted as the file has always written them.
+    auto format_anchor = [&](ostream& os, const Anchor& a) {
+        os << "A\t" << a.node << "\t" << a.snarl << "\t" << a.slot << "\t" << a.allele << "\t";
         if (std::isnan(a.gqn)) {
-            out << ".";
+            os << ".";
         } else {
-            out << std::setprecision(3) << a.gqn;
+            os << std::setprecision(3) << a.gqn;
         }
-        out << "\t" << std::setprecision(3) << a.explained << "\t";
+        os << "\t" << std::setprecision(3) << a.explained << "\t";
         if (a.reliability < 0.0) {
-            out << ".";
+            os << ".";
         } else {
-            out << std::setprecision(2) << a.reliability;
+            os << std::setprecision(2) << a.reliability;
         }
-        out << "\n";
+        os << "\n";
         for (const ReadRow& r : a.reads) {
-            out << "R\t" << name_id.find(r.name)->second << "\t" << (int)r.direction << "\t" << r.offset << "\t"
-                << std::setprecision(1) << r.score << "\n";
+            os << "R\t" << name_id.find(r.name)->second << "\t" << (int)r.direction << "\t" << r.offset << "\t"
+               << std::setprecision(1) << r.score << "\n";
+        }
+    };
+
+    // The rows are formatted on several threads and written in order. Anchors are taken a batch at
+    // a time, each batch cut into pieces that threads format into strings of their own, so that the
+    // text held at once is one batch's rather than the whole file's: this runs when the run already
+    // uses the most memory.
+    const size_t piece_anchors = 2048;
+    const size_t batch_anchors = piece_anchors * (size_t)max(1, omp_get_max_threads());
+    vector<string> pieces;
+    for (size_t batch_start = 0; batch_start < all.size(); batch_start += batch_anchors) {
+        size_t batch_end = min(all.size(), batch_start + batch_anchors);
+        size_t piece_count = (batch_end - batch_start + piece_anchors - 1) / piece_anchors;
+        pieces.assign(piece_count, string());
+#pragma omp parallel for schedule(dynamic, 1)
+        for (size_t p = 0; p < piece_count; ++p) {
+            ostringstream os;
+            os << std::fixed;
+            size_t from = batch_start + p * piece_anchors;
+            size_t to = min(batch_end, from + piece_anchors);
+            for (size_t i = from; i < to; ++i) {
+                format_anchor(os, all[i]);
+            }
+            pieces[p] = os.str();
+        }
+        for (const string& piece : pieces) {
+            out.write(piece.data(), piece.size());
         }
     }
     return (bool)out;
