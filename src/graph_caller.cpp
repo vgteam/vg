@@ -152,10 +152,24 @@ static nid_t snarl_node_key(const Snarl* snarl) {
 
 /// Sort snarls by `snarl_node_key`, so that snarls with nearby node IDs are called one after
 /// another.
+///
+/// Each snarl's key is read once, beforehand: reading it at every comparison followed a pointer
+/// into each snarl's scattered Snarl message, millions of times for a whole genome's top-level
+/// snarls. The sort compares the same keys in the same sequence, so the result, including the
+/// order of snarls with equal keys, is the one sorting the snarls themselves gives.
 static void sort_snarls_by_node_id(vector<const Snarl*>& snarls) {
-    std::sort(snarls.begin(), snarls.end(), [](const Snarl* a, const Snarl* b) {
-        return snarl_node_key(a) < snarl_node_key(b);
-    });
+    vector<pair<nid_t, const Snarl*>> keyed(snarls.size());
+#pragma omp parallel for schedule(static)
+    for (size_t i = 0; i < snarls.size(); ++i) {
+        keyed[i] = make_pair(snarl_node_key(snarls[i]), snarls[i]);
+    }
+    std::sort(keyed.begin(), keyed.end(),
+              [](const pair<nid_t, const Snarl*>& a, const pair<nid_t, const Snarl*>& b) {
+                  return a.first < b.first;
+              });
+    for (size_t i = 0; i < snarls.size(); ++i) {
+        snarls[i] = keyed[i].second;
+    }
 }
 
 void GraphCaller::call_top_level_snarls(const HandleGraph& graph, RecurseType recurse_type) {
