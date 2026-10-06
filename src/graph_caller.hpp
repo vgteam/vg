@@ -1197,19 +1197,47 @@ public:
 
     virtual bool call_snarl(const Snarl& snarl);
 
-    /// Where a site sits for the linkage model, which orders sites and measures distances by it:
-    /// the contig as the VCF names it, and the position where the site's first boundary node
-    /// starts on the reference path. A record's POS can move once its alleles are trimmed, so it
-    /// is not used. The model identifies a site by its record key instead.
-    pair<string, size_t> site_ref_key(const Snarl& snarl, const string& ref_path_name,
-                                      int ref_offset, bool no_reference = false,
-                                      int64_t position_from_parent = 0) const;
+    /// A site's place on the reference: a contig, and an offset along it. Positions on one contig
+    /// order its sites, and the difference of two positions is the distance in bases between the
+    /// sites, except where a position is a stand-in (see `position`). The linkage model relies on
+    /// both: it builds its top-level linkage chains from the sites of one contig, orders a chain's
+    /// sites by position and measures the gaps between them from it, and names a phase set
+    /// (FORMAT/PS) by the position of the chain's first site.
+    struct SiteLocus {
+        /// The contig as the VCF names it: the locus part of a PanSN path name, so `chr20` for
+        /// `CHM13#0#chr20`, or the path name itself when it is not a PanSN name.
+        string contig;
+        /// A 0-based offset along the contig. For a site the reference path passes through, it is
+        /// where the site's first boundary node starts on that path. It must not depend on which
+        /// alleles the site's records carry, so it is not their POS, which trimming the alleles
+        /// can move. For a site that no reference path passes through, it is a stand-in (see
+        /// off_reference_site_locus), and its difference from another position is a distance only
+        /// for a site of the same chain, or for the chain's parent.
+        size_t position = 0;
+    };
+
+    /// The locus of a site that the reference path `ref_path_name` passes through. `ref_offset`
+    /// is added to every position along that path, to place the path on its contig.
+    SiteLocus site_locus(const Snarl& snarl, const string& ref_path_name, int ref_offset) const;
+
+    /// The locus of a site that no reference path passes through, and that so has no position of
+    /// its own. `ref_path_name` is the reference path through the site's nearest ancestor on a
+    /// reference path, and `stand_in_position` is that ancestor's position plus how far along the
+    /// ancestor's allele the site's chain starts (`PendingRecord::position_from_parent`).
+    SiteLocus off_reference_site_locus(const string& ref_path_name,
+                                       int64_t stand_in_position) const;
 
     /// Record the site in the linkage model when it is genotyped, rather than when its line is
     /// written, since the linkage pass reads the collector before any line is written. The emitted
     /// allele map and whether a line was written are supplied later, by `set_allele_map`. The direct pass
     /// does not call this for a retained chain with a reference path (see
     /// `NestedContext::retain_only`); the linkage pass records that chain if the sample carries it.
+    ///
+    /// `ref_path_name` and `ref_offset` give the site's locus as for `site_locus`. `no_reference`
+    /// marks a site that no reference path passes through: `ref_path_name` is then the reference
+    /// path through the site's nearest ancestor on a reference path, `position_from_parent` is the
+    /// site's stand-in position (see `off_reference_site_locus`), and `ref_offset` is not used.
+    /// Otherwise `position_from_parent` is not used.
     void record_site(const Snarl& snarl, const vector<SnarlTraversal>& travs,
                      const vector<int>& trav_genotype,
                      const unique_ptr<SnarlCaller::CallInfo>& call_info, int ref_trav_idx,

@@ -5447,22 +5447,28 @@ unique_ptr<FlowCaller::PendingRecord> FlowCaller::stage_render_record(
     return rec;
 }
 
-pair<string, size_t> FlowCaller::site_ref_key(const Snarl& snarl, const string& ref_path_name,
-                                             int ref_offset, bool no_reference,
-                                             int64_t position_from_parent) const {
-    // The position before flattening, with the contig as the VCF names it: the flattened POS
-    // depends on the alleles the line carries, and the model uses the position only for order and
-    // distance. `get_ref_position` names the base path, as in "CHM13#0#chr20", so it is reduced to
-    // "chr20". A snarl without a reference path gets its anchor position instead, since
-    // `get_ref_interval` asserts on a snarl the path does not pass through.
-    pair<string, int64_t> pos_info =
-        no_reference ? make_pair(ref_path_name, position_from_parent)
-                     : get_ref_position(graph, snarl, ref_path_name, ref_offset);
+/// The locus of a (path name, position) pair: the contig as the VCF names it, and the position,
+/// held at 0 or above.
+static FlowCaller::SiteLocus locus_of(pair<string, int64_t> pos_info) {
     const string locus = PathMetadata::parse_locus_name(pos_info.first);
     if (locus != PathMetadata::NO_LOCUS_NAME) {
         pos_info.first = locus;
     }
-    return make_pair(pos_info.first, (size_t)max((int64_t)0, pos_info.second));
+    return FlowCaller::SiteLocus{pos_info.first, (size_t)max((int64_t)0, pos_info.second)};
+}
+
+FlowCaller::SiteLocus FlowCaller::site_locus(const Snarl& snarl, const string& ref_path_name,
+                                             int ref_offset) const {
+    // The position before the record's alleles are trimmed, which can move POS.
+    // `get_ref_position` names the base path, as in "CHM13#0#chr20".
+    return locus_of(get_ref_position(graph, snarl, ref_path_name, ref_offset));
+}
+
+FlowCaller::SiteLocus FlowCaller::off_reference_site_locus(const string& ref_path_name,
+                                                           int64_t stand_in_position) const {
+    // Not `get_ref_position`: `get_ref_interval` asserts on a snarl the path does not pass
+    // through.
+    return locus_of(make_pair(ref_path_name, stand_in_position));
 }
 
 /// The quality inputs of the direct call `info`, which the linkage collector keeps for rewriting
@@ -5502,22 +5508,16 @@ void FlowCaller::record_site(const Snarl& snarl, const vector<SnarlTraversal>& t
             return;
         }
     }
-    // The (contig, position) the site is filed under, from `site_ref_key`, which the linkage pass also
-    // uses. The position is taken before flattening; the model uses it only for order and
-    // distance. A chain with no reference position gets `position_from_parent`: its parent's
-    // reference start plus its offset along the parent. `unpositioned` marks it, so that it is
-    // differenced only with a site of the same chain, whose offset is along the same parent
-    // traversal. `get_ref_position` cannot be used for such a chain, since `get_ref_interval`
-    // asserts on a snarl the path does not pass through.
-    const pair<string, size_t> ref_key =
-        site_ref_key(snarl, ref_path_name, ref_offset, no_reference, position_from_parent);
+    const SiteLocus locus = no_reference
+                                ? off_reference_site_locus(ref_path_name, position_from_parent)
+                                : site_locus(snarl, ref_path_name, ref_offset);
     const int called_i = trav_genotype[0];
     const int called_j = site_ploidy > 1 ? trav_genotype[1] : called_i;
     // No allele map yet: the written alleles are chosen when the record is built, and
     // `set_allele_map` supplies the map then.
     static const vector<int> no_allele_map;
     linkage_collector->record(
-        ref_key.first, ref_key.second,
+        locus.contig, locus.position,
         rl_info->genotype_lls,
         panel_alleles(graph, travs),
         called_i, called_j, no_allele_map,
@@ -6381,8 +6381,8 @@ void FlowCaller::run_linkage_pass() {
                         pr.position_from_parent += (int64_t)offset - (int64_t)pr.chain_offset;
                         linkage_collector->set_position(
                             pr.record_key,
-                            site_ref_key(pr.snarl, pr.ref_path_name, pr.ref_offset, true,
-                                         pr.position_from_parent).second);
+                            off_reference_site_locus(pr.ref_path_name, pr.position_from_parent)
+                                .position);
                     }
                     pr.chain_offset = offset;
                 }
@@ -6537,9 +6537,10 @@ void FlowCaller::run_linkage_pass() {
                 // direct pass describe a site the same way. No allele map yet, as in `record_site`.
                 static const vector<int> no_allele_map;
                 const vector<int>& trav_to_allele_vec = no_allele_map;
-                const pair<string, size_t> key =
-                    site_ref_key(pr.snarl, pr.ref_path_name, pr.ref_offset, pr.no_reference,
-                                 pr.position_from_parent);
+                const SiteLocus locus =
+                    pr.no_reference
+                        ? off_reference_site_locus(pr.ref_path_name, pr.position_from_parent)
+                        : site_locus(pr.snarl, pr.ref_path_name, pr.ref_offset);
                 int called_i = use_genotype.empty() ? -1 : use_genotype[0];
                 int called_j = use_genotype.size() > 1 ? use_genotype[1] : called_i;
                 const vector<int>& panel = cached_panel_alleles(pr);
@@ -6550,7 +6551,7 @@ void FlowCaller::run_linkage_pass() {
                     linkage_collector->retract(pr.record_key);
                 }
                 linkage_collector->record(
-                    key.first, key.second, used->genotype_lls, panel,
+                    locus.contig, locus.position, used->genotype_lls, panel,
                     called_i, called_j, trav_to_allele_vec,
                     // The explained share the old entry carried, or 1.0 for a chain that had none.
                     // The quality inputs of the direct call recorded here, which the record's
