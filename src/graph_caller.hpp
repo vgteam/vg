@@ -53,27 +53,6 @@ using TraversalSet = vector<SnarlTraversal>;
 /// consistent with parent allele 0, element 1 with parent allele 1.
 using ChildTraversalSets = vector<TraversalSet>;
 
-/// Counters for nested descent, reported under --progress. Members of the caller, so that each
-/// run counts separately; `mutable` because the counting and reporting paths are const.
-struct DescentCounters {
-    /// How deep the descent went, by depth.
-    std::atomic<size_t> depth_hist[16] = {};
-    /// Children skipped because no reference path passes through them, and those recorded anyway
-    /// because off-reference descent is on.
-    std::atomic<size_t> skipped_no_ref{0};
-    std::atomic<size_t> off_reference{0};
-    std::atomic<size_t> no_ref_recorded{0};
-    /// Off-reference chains by copy number: 0, 1, 2.
-    std::atomic<size_t> no_ref_copies[3] = {};
-    /// Children that no called parent allele crosses in the direct pass. They are genotyped and kept,
-    /// and the linkage pass decides from the parent's chosen genotype whether the sample has them.
-    std::atomic<size_t> skipped_no_copy{0};
-    /// Children that a called traversal enters more than once. Only the first entry counts, both
-    /// for ploidy and for distance: one traversal crossing a chain twice is one strand carrying two
-    /// copies, not two strands, so it does not make the chain ploidy 2.
-    std::atomic<size_t> child_multi_crossing{0};
-};
-
 /**
  * GraphCaller: Use the snarl decomposition to call snarls in a graph
  */
@@ -91,13 +70,6 @@ public:
     /// For any that return false, try the children, etc. (when recurse_on_fail true)
     /// Snarls are processed in parallel
     virtual void call_top_level_snarls(const HandleGraph& graph, RecurseType recurse_type = RecurseOnFail);
-
-    /// Report what nested descent did: the depth histogram, and how many children it skipped and
-    /// why. Does nothing in a run without nested descent.
-    void report_descent_instrumentation() const;
-
-    /// Counters for that report; see `DescentCounters`.
-    mutable DescentCounters descent_counters;
 
     /// For every chain, cut it up into pieces using max_edges and max_trivial to cap the size of
     /// each piece then make a fake snarl for each chain piece and call it.  If a fake snarl fails
@@ -185,7 +157,8 @@ bool buffered_record_key_less(const BufferedRecordKey& a, const BufferedRecordKe
 
 
 
-/// Counters for the mosaic writer; members of the caller, as for `DescentCounters`.
+/// Counters for the mosaic writer. A member of each VCFOutputCaller, so that runs count
+/// separately; `mutable` there because the writing paths are const.
 struct MosaicCounters {
     /// Runs with no position to walk from. Panel haplotypes are often fragments, so this is
     /// reported rather than expected to be zero.
@@ -204,7 +177,7 @@ struct MosaicCounters {
     std::atomic<size_t> direction_broken{0}, extended_left{0};
 };
 
-/// Counters for block emission; members of the caller, as for `DescentCounters`.
+/// Counters for block emission. A member of each VCFOutputCaller, as MosaicCounters is.
 struct AtomizeCounters {
     /// Sites that reached `tally_atomize`, so that the report can tell "nothing refused" from
     /// "never ran".
@@ -1140,6 +1113,32 @@ protected:
 
 };
 
+/// Counts of what nested descent did in one run: how deep it went, and how many child chains it
+/// skipped or recorded, and why. A member of each FlowCaller, so that runs count separately;
+/// `mutable` there because the counting paths are const.
+struct DescentCounters {
+    /// How deep the descent went, by depth.
+    std::atomic<size_t> depth_hist[16] = {};
+    /// Children skipped because no reference path passes through them and off-reference descent
+    /// is off.
+    std::atomic<size_t> skipped_no_ref{0};
+    /// Children that no reference path passes through, descended into because off-reference
+    /// descent is on.
+    std::atomic<size_t> off_reference{0};
+    /// Sites that no reference path passes through, given an entry in the linkage model but no
+    /// line.
+    std::atomic<size_t> no_ref_recorded{0};
+    /// Off-reference chains by copy number: 0, 1, 2.
+    std::atomic<size_t> no_ref_copies[3] = {};
+    /// Children that no called parent allele crosses in the direct pass. They are genotyped and kept,
+    /// and the linkage pass decides from the parent's chosen genotype whether the sample has them.
+    std::atomic<size_t> skipped_no_copy{0};
+    /// Children that a called traversal enters more than once. Only the first entry counts, both
+    /// for ploidy and for distance: one traversal crossing a chain twice is one strand carrying two
+    /// copies, not two strands, so it does not make the chain ploidy 2.
+    std::atomic<size_t> child_multi_crossing{0};
+};
+
 /**
  * FlowCaller: takes each snarl's candidate traversals from a TraversalFinder and genotypes them
  * with its SnarlCaller (support-based, or ReadLikelihoodSnarlCaller under --read-likelihood). It
@@ -1194,6 +1193,11 @@ public:
                bool star_allele);
 
     virtual ~FlowCaller();
+
+    /// GraphCaller::call_top_level_snarls, followed, when progress messages are on, by a report
+    /// of what nested descent did.
+    virtual void call_top_level_snarls(const HandleGraph& graph,
+                                       RecurseType recurse_type = RecurseOnFail);
 
     virtual bool call_snarl(const Snarl& snarl);
 
@@ -1316,6 +1320,13 @@ public:
     }
 
 protected:
+
+    /// Report what nested descent did: the depth histogram, and how many children it skipped and
+    /// why. Does nothing in a run without nested descent.
+    void report_descent_instrumentation() const;
+
+    /// See `DescentCounters`.
+    mutable DescentCounters descent_counters;
 
     /// the graph
     const PathPositionHandleGraph& graph;

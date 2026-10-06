@@ -41,7 +41,7 @@ static_assert(sizeof(g_atomize_refuse_name) / sizeof(g_atomize_refuse_name[0])
               "and each name must have a reason");
 static thread_local int g_descent_depth = 0;
 
-void GraphCaller::report_descent_instrumentation() const {
+void FlowCaller::report_descent_instrumentation() const {
     size_t total = 0;
     for (int d = 0; d < 16; ++d) {
         total += descent_counters.depth_hist[d].load();
@@ -261,9 +261,6 @@ void GraphCaller::call_top_level_snarls(const HandleGraph& graph, RecurseType re
         }
     }
     if (show_progress && nested_snarl_count > 0) cerr << "[vg call]: Finished processing " << nested_snarl_count << " nested snarls" << endl;
-    if (show_progress) {
-        report_descent_instrumentation();
-    }
   
 }
 
@@ -5128,6 +5125,13 @@ FlowCaller::FlowCaller(const PathPositionHandleGraph& graph,
 
 FlowCaller::~FlowCaller() {
 
+}
+
+void FlowCaller::call_top_level_snarls(const HandleGraph& graph, RecurseType recurse_type) {
+    GraphCaller::call_top_level_snarls(graph, recurse_type);
+    if (show_progress) {
+        report_descent_instrumentation();
+    }
 }
 
 bool FlowCaller::call_snarl(const Snarl& managed_snarl) {
