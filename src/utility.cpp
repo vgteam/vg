@@ -216,6 +216,30 @@ std::vector<std::string> split_delims(const std::string &s, const std::string& d
     return split_delims(s, delims, elems, max_cuts);
 }
 
+std::vector<std::string>& split_delims_keep_empty(const std::string& s, const std::string& delims,
+                                                  std::vector<std::string>& elems) {
+    size_t start = 0;
+    while (true) {
+        const size_t at = s.find_first_of(delims, start);
+        elems.push_back(s.substr(start, at == string::npos ? string::npos : at - start));
+        if (at == string::npos) {
+            return elems;
+        }
+        start = at + 1;
+    }
+}
+
+std::string join_delim(const std::vector<std::string>& parts, char delim) {
+    std::string out;
+    for (size_t i = 0; i < parts.size(); ++i) {
+        if (i) {
+            out += delim;
+        }
+        out += parts[i];
+    }
+    return out;
+}
+
 bool starts_with(const std::string& value, const std::string& prefix) {
 #if __cplusplus > 201703L
     // C++20 provides this

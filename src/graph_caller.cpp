@@ -12,39 +12,11 @@
 #include "annotation.hpp"
 #include "gref.hpp"
 #include "traversal_clusters.hpp"
+#include "utility.hpp"
 
 //#define debug
 
 namespace vg {
-
-/// Split on a single delimiter, keeping empty fields, unlike `utility.hpp`'s `split_delims`: fields
-/// of a VCF line are found by position, so a dropped empty field would shift every later one.
-static void split_keep_empty(const string& text, char delim, vector<string>& out) {
-    out.clear();
-    size_t start = 0;
-    while (true) {
-        const size_t at = text.find(delim, start);
-        out.push_back(text.substr(start, at == string::npos ? string::npos : at - start));
-        if (at == string::npos) {
-            return;
-        }
-        start = at + 1;
-    }
-}
-
-/// The inverse of `split_keep_empty`.
-static string join_with(const vector<string>& parts, char delim) {
-    string out;
-    for (size_t i = 0; i < parts.size(); ++i) {
-        if (i) {
-            out += delim;
-        }
-        out += parts[i];
-    }
-    return out;
-}
-
-
 
 // The names of the AtomizeCounters::refuse reasons.
 static const char* const g_atomize_refuse_name[13] = {
@@ -1987,13 +1959,13 @@ bool apply_linkage_quality(string& line, const LinkageCollector::MovedQuality& m
     // A record whose genotype the linkage model changed gets quality fields for its chosen
     // genotype, since the per-site quality fields describe the genotype the reads alone chose.
     vector<string> fields;
-    split_keep_empty(line, '\t', fields);
+    split_delims_keep_empty(line, "\t", fields);
     if (fields.size() < 10) {
         return false;
     }
     vector<string> keys, values;
-    split_keep_empty(fields[8], ':', keys);
-    split_keep_empty(fields[9], ':', values);
+    split_delims_keep_empty(fields[8], ":", keys);
+    split_delims_keep_empty(fields[9], ":", values);
     if (keys.size() != values.size()) {
         return false;
     }
@@ -2094,7 +2066,7 @@ bool apply_linkage_quality(string& line, const LinkageCollector::MovedQuality& m
         size_t n_alleles = 1;
         if (fields[4] != "." && !fields[4].empty()) {
             vector<string> alt_list;
-            split_keep_empty(fields[4], ',', alt_list);
+            split_delims_keep_empty(fields[4], ",", alt_list);
             n_alleles += alt_list.size();
         }
         const bool diploid_gl = gl.size() == n_alleles * (n_alleles + 1) / 2;
@@ -2139,8 +2111,8 @@ bool apply_linkage_quality(string& line, const LinkageCollector::MovedQuality& m
         fields[6] = "PASS";
     }
 
-    fields[9] = join_with(values, ':');
-    line = join_with(fields, '\t');
+    fields[9] = join_delim(values, ':');
+    line = join_delim(fields, '\t');
     return true;
 }
 
