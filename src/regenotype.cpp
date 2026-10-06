@@ -3,6 +3,9 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <parallel/algorithm>
+
+#include <omp.h>
 
 
 namespace vg {
@@ -144,21 +147,43 @@ void fit_calibration(const vector<PhaseSite>& sites, const unordered_set<size_t>
                      double& temper, double& ceiling, RegenotypeCounters& counters) {
     // Every (read, site) pair where the read's other sites give a strand and its allele at this
     // site can check it. `loo` is the prediction (leaving this site out), `own` the observation.
+    //
+    // A whole genome has over 10^8 of them. They are collected on several threads and sorted on
+    // several; they are sorted on everything they hold, so the sorted list, which is all that is
+    // read from them, does not depend on the order they were collected in.
     struct Obs { double abs_loo; bool agree; };
     vector<Obs> obs;
-    unordered_map<uint64_t, double> own;
-    for (const PhaseSite& site : sites) {
-        site_own_log_odds(site, flipped.count(site.record_key) != 0, own);
-        for (const auto& kv : own) {
-            auto found = lambda.find(kv.first);
-            if (found == lambda.end() || !read_strand_usable(found->second, site.phase_set)) {
-                continue;
+    {
+        vector<vector<Obs>> collected(max(1, omp_get_max_threads()));
+#pragma omp parallel
+        {
+            vector<Obs>& mine = collected[omp_get_thread_num()];
+            unordered_map<uint64_t, double> own;
+#pragma omp for schedule(dynamic, 1024)
+            for (size_t i = 0; i < sites.size(); ++i) {
+                const PhaseSite& site = sites[i];
+                site_own_log_odds(site, flipped.count(site.record_key) != 0, own);
+                for (const auto& kv : own) {
+                    auto found = lambda.find(kv.first);
+                    if (found == lambda.end() || !read_strand_usable(found->second, site.phase_set)) {
+                        continue;
+                    }
+                    const double loo = found->second.lambda - kv.second;
+                    if (!(fabs(loo) > 1e-9) || !(fabs(kv.second) > 1e-9)) {
+                        continue;
+                    }
+                    mine.push_back({fabs(loo), (loo > 0.0) == (kv.second > 0.0)});
+                }
             }
-            const double loo = found->second.lambda - kv.second;
-            if (!(fabs(loo) > 1e-9) || !(fabs(kv.second) > 1e-9)) {
-                continue;
-            }
-            obs.push_back({fabs(loo), (loo > 0.0) == (kv.second > 0.0)});
+        }
+        size_t total = 0;
+        for (const vector<Obs>& part : collected) {
+            total += part.size();
+        }
+        obs.reserve(total);
+        for (vector<Obs>& part : collected) {
+            obs.insert(obs.end(), part.begin(), part.end());
+            vector<Obs>().swap(part);
         }
     }
     if (obs.size() < params.fit_min_per_bin) {
@@ -169,7 +194,7 @@ void fit_calibration(const vector<PhaseSite>& sites, const unordered_set<size_t>
         return;
     }
     // Equal-count bins over |Lambda|, so a long tail does not get one bin to itself.
-    std::sort(obs.begin(), obs.end(), [](const Obs& a, const Obs& b) {
+    __gnu_parallel::sort(obs.begin(), obs.end(), [](const Obs& a, const Obs& b) {
         if (a.abs_loo != b.abs_loo) return a.abs_loo < b.abs_loo;
         return (int)a.agree < (int)b.agree;
     });
