@@ -5619,9 +5619,21 @@ void FlowCaller::apply_read_phasing() {
     // Kept in the member, since re-genotyping uses these sites.
     vector<PhaseSite>& sites = phase_sites;
     sites.clear();
-    for (PendingRecord* recp : records_for_render(true)) {
-        {
-            PendingRecord& rec = *recp;
+    // Each record's site is built from its own evidence alone, so the sites are built on several
+    // threads, a block of records at a time into the block's own list, and then gathered in record
+    // order. Phase sets are numbered in the order they are first seen, so a site's number is given
+    // in that gathering pass, in record order.
+    const vector<PendingRecord*> records = records_for_render(true);
+    const size_t block_records = 4096;
+    const size_t n_blocks = (records.size() + block_records - 1) / block_records;
+    vector<vector<PhaseSite>> block_sites(n_blocks);
+    // For each site in a block, its PhaseCall's index in `linkage_phased`.
+    vector<vector<size_t>> block_calls(n_blocks);
+#pragma omp parallel for schedule(dynamic, 1)
+    for (size_t b = 0; b < n_blocks; ++b) {
+        const size_t end = min(records.size(), (b + 1) * block_records);
+        for (size_t r = b * block_records; r < end; ++r) {
+            const PendingRecord& rec = *records[r];
             const auto found = phase_index.find(rec.record_key);
             if (found == phase_index.end()) {
                 continue;
@@ -5655,10 +5667,23 @@ void FlowCaller::apply_read_phasing() {
                 continue;
             }
             site.record_key = rec.record_key;
-            site.phase_set = phase_set_id(pc.contig, pc.phase_set);
             site.position = pc.position;
-            sites.push_back(std::move(site));
+            block_sites[b].push_back(std::move(site));
+            block_calls[b].push_back(found->second);
         }
+    }
+    size_t total_sites = 0;
+    for (const vector<PhaseSite>& block : block_sites) {
+        total_sites += block.size();
+    }
+    sites.reserve(total_sites);
+    for (size_t b = 0; b < n_blocks; ++b) {
+        for (size_t i = 0; i < block_sites[b].size(); ++i) {
+            const LinkageCollector::PhaseCall& pc = linkage_phased[block_calls[b][i]];
+            block_sites[b][i].phase_set = phase_set_id(pc.contig, pc.phase_set);
+            sites.push_back(std::move(block_sites[b][i]));
+        }
+        vector<PhaseSite>().swap(block_sites[b]);
     }
     if (sites.empty()) {
         return;

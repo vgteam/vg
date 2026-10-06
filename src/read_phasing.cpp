@@ -10,6 +10,7 @@ namespace vg {
 using std::log10;
 using std::max;
 using std::min;
+using std::pair;
 using std::sort;
 using std::unordered_map;
 
@@ -141,19 +142,48 @@ unordered_set<size_t> read_phase_flips(vector<PhaseSite>& sites, const ReadPhasi
         }
         return x.record_key < y.record_key;
     });
-    for (PhaseSite& s : sites) {
-        // The merge in `phase_link` needs both sides ordered, and coherence needs a read to
-        // appear once per site. Done once here rather than per link.
-        merge_mates(s);
+    // The merge in `phase_link` needs both sides ordered, and coherence needs a read to appear
+    // once per site. Done once here rather than per link, for each site on its own.
+#pragma omp parallel for schedule(dynamic, 1024)
+    for (size_t i = 0; i < sites.size(); ++i) {
+        merge_mates(sites[i]);
     }
     counters.sites += sites.size();
 
-    size_t begin = 0;
-    while (begin < sites.size()) {
+    // Each phase set is a range of `sites` and is worked on independently of every other one, so
+    // the phase sets are worked on in parallel, longest first. Each keeps its own counters and its
+    // own list of the sites whose chosen pair is to be swapped. Afterwards the counters are added
+    // up and the lists gathered in phase-set order, which gives what one loop over the phase sets,
+    // in order, gives.
+    vector<pair<size_t, size_t>> phase_sets;
+    for (size_t begin = 0; begin < sites.size();) {
         size_t end = begin;
         while (end < sites.size() && sites[end].phase_set == sites[begin].phase_set) {
             ++end;
         }
+        phase_sets.emplace_back(begin, end);
+        begin = end;
+    }
+    vector<size_t> by_length(phase_sets.size());
+    for (size_t i = 0; i < by_length.size(); ++i) {
+        by_length[i] = i;
+    }
+    std::stable_sort(by_length.begin(), by_length.end(), [&](size_t x, size_t y) {
+        return phase_sets[x].second - phase_sets[x].first > phase_sets[y].second - phase_sets[y].first;
+    });
+    vector<ReadPhasingCounters> set_counters(phase_sets.size());
+    vector<vector<size_t>> set_flips(phase_sets.size());
+
+#pragma omp parallel for schedule(dynamic, 1)
+    for (size_t rank = 0; rank < by_length.size(); ++rank) {
+        const size_t set_index = by_length[rank];
+        const size_t begin = phase_sets[set_index].first;
+        const size_t end = phase_sets[set_index].second;
+        // This phase set's own counters and list (see above). The name `counters` hides the
+        // function's parameter on purpose, so that the loop body below reads as it did when the
+        // phase sets were worked on one at a time.
+        ReadPhasingCounters& counters = set_counters[set_index];
+        vector<size_t>& flipped_keys = set_flips[set_index];
         ++counters.chains;
         const size_t n = end - begin;
 
@@ -376,11 +406,27 @@ unordered_set<size_t> read_phase_flips(vector<PhaseSite>& sites, const ReadPhasi
 
         for (size_t t = 0; t < n; ++t) {
             if (decided[t] && o[t]) {
-                flips.insert(sites[begin + t].record_key);
+                flipped_keys.push_back(sites[begin + t].record_key);
                 ++counters.flipped;
             }
         }
-        begin = end;
+    }
+
+    for (size_t i = 0; i < phase_sets.size(); ++i) {
+        const ReadPhasingCounters& c = set_counters[i];
+        counters.chains += c.chains;
+        counters.reliable += c.reliable;
+        counters.breaks += c.breaks;
+        counters.breaks_no_reads += c.breaks_no_reads;
+        counters.hung += c.hung;
+        counters.hung_no_reads += c.hung_no_reads;
+        counters.flipped += c.flipped;
+        counters.demoted_incoherent += c.demoted_incoherent;
+        counters.coherence_unconverged += c.coherence_unconverged;
+        counters.coherence_rounds_run = max(counters.coherence_rounds_run, c.coherence_rounds_run);
+        for (size_t key : set_flips[i]) {
+            flips.insert(key);
+        }
     }
     return flips;
 }
