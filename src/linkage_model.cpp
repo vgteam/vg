@@ -1685,17 +1685,40 @@ size_t LinkageCollector::resolve_level(
         size_t ploidy;
         int nested_strand;
         bool order_arbitrary;
+        size_t phase_set;
     };
-    // Rebuilt from all of `phasing_out` on each call. It is not read incrementally, because the
-    // last call sorts `phasing_out` in place.
+
+    // This level's entries, in append order.
+    static const vector<uint32_t> no_entries;
+    const vector<uint32_t>& this_level =
+        level < by_level.size() ? by_level[level] : no_entries;
+
+    // The record keys this level looks up by: the parents of its live sites. Below the top level,
+    // every site of a chain that is not of this level is one of them. The lookups below are built
+    // over these keys only, so that their cost follows the level rather than the genome; scanned in
+    // the same order, they hold what a lookup over every key would hold for them.
+    unordered_set<size_t> parent_keys;
+    if (level > 0) {
+        for (uint32_t idx : this_level) {
+            if (!entries[idx].retracted) {
+                parent_keys.insert(entries[idx].parent_record_key);
+            }
+        }
+    }
+    // Whether an earlier level was phased, which decides whether this level is grouped by parent.
+    const bool have_pins = phasing_out != nullptr && level > 0 && !phasing_out->empty();
+    // Rebuilt from `phasing_out` on each call. It is not read incrementally, because the last call
+    // sorts `phasing_out` in place. A key's last PhaseCall wins.
     unordered_map<size_t, PinnedPhase> pinned_phase;
-    if (phasing_out != nullptr && level > 0) {
-        pinned_phase.reserve(phasing_out->size() * 2);
+    if (have_pins) {
+        pinned_phase.reserve(parent_keys.size() * 2);
         for (const PhaseCall& pc : *phasing_out) {
-            pinned_phase[pc.record_key] = PinnedPhase{pc.hap_first, pc.hap_second,
-                                                      pc.trav_first, pc.trav_second,
-                                                      pc.ploidy, (int)pc.nested_strand,
-                                                      pc.order_arbitrary};
+            if (parent_keys.count(pc.record_key) != 0) {
+                pinned_phase[pc.record_key] = PinnedPhase{pc.hap_first, pc.hap_second,
+                                                          pc.trav_first, pc.trav_second,
+                                                          pc.ploidy, (int)pc.nested_strand,
+                                                          pc.order_arbitrary, pc.phase_set};
+            }
         }
     }
     // Where a nested haploid chain sits, by record key, so the PhaseCall the chain loop emits can
@@ -1712,11 +1735,6 @@ size_t LinkageCollector::resolve_level(
         bool nameable = true;
     };
     unordered_map<size_t, NestedPlacement> unified_strand;
-
-    // This level's entries, in append order.
-    static const vector<uint32_t> no_entries;
-    const vector<uint32_t>& this_level =
-        level < by_level.size() ? by_level[level] : no_entries;
 
     // Default every site this pass considers to its own per-site call, so that whatever a chain or a
     // direct pass fails to reach still has a coherent genotype for a later level to clamp. Overwritten
@@ -1794,11 +1812,12 @@ size_t LinkageCollector::resolve_level(
     // chosen state, so the cost grows with the number of children rather than with the length of
     // the contig. Sites within a chain are linked; two chains under the same parent have no
     // transitions between them.
-    if (level > 0 && !pinned_phase.empty()) {
+    if (have_pins) {
+        // The live entry of each parent key; a key's last live entry wins.
         unordered_map<size_t, size_t> index_of_key;
-        index_of_key.reserve(entries.size() * 2);
+        index_of_key.reserve(parent_keys.size() * 2);
         for (size_t i = 0; i < entries.size(); ++i) {
-            if (!entries[i].retracted) {
+            if (!entries[i].retracted && parent_keys.count(entries[i].record_key) != 0) {
                 index_of_key[entries[i].record_key] = i;
             }
         }
@@ -1859,12 +1878,8 @@ size_t LinkageCollector::resolve_level(
         if (!by_parent.empty()) {
             // The phase set a group belongs to is its parent's, never the group's own first site:
             // a group is a unit of decoding, a phase block is a unit of meaning, and taking one
-            // from the other is what fragments the output.
-            unordered_map<size_t, size_t> phase_set_of;
-            for (const PhaseCall& pc : (phasing_out != nullptr ? *phasing_out
-                                                              : vector<PhaseCall>())) {
-                phase_set_of[pc.record_key] = pc.phase_set;
-            }
+            // from the other is what fragments the output. It is read off the parent's entry in
+            // `pinned_phase`.
             vector<vector<size_t>> groups;
             vector<const vector<double>*> gctx;
             vector<size_t> gps;
@@ -1973,9 +1988,8 @@ size_t LinkageCollector::resolve_level(
                                   + state_of(pin->second.second)] = 1.0;
                     gctx.push_back(&deltas.back());
                 }
-                auto ps = phase_set_of.find(std::get<0>(kv.first));
-                gps.push_back(ps != phase_set_of.end() ? ps->second
-                                                       : numeric_limits<size_t>::max());
+                gps.push_back(pin != pinned_phase.end() ? pin->second.phase_set
+                                                        : numeric_limits<size_t>::max());
             }
             chains.swap(groups);
             chain_context.swap(gctx);

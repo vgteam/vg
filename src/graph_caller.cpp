@@ -6140,10 +6140,20 @@ void FlowCaller::run_linkage_pass() {
         // This level's parents are chosen, so each chain under one can be given the ploidy
         // its parent's chosen genotype implies before the chain's own level resolves. The
         // direct pass kept the answer at both ploidies, so this is a revision, not a new call.
+        // Only the next level's parents are looked up, so only they are indexed; a key's last
+        // PhaseCall wins, as it would in an index over every PhaseCall.
+        unordered_set<size_t> next_parents;
+        for (const PendingRecord& pr : pending) {
+            if (pr.level == gen + 1) {
+                next_parents.insert(pr.parent_record_key);
+            }
+        }
         unordered_map<size_t, const LinkageCollector::PhaseCall*> chosen;
-        chosen.reserve(linkage_phased.size() * 2);
+        chosen.reserve(next_parents.size() * 2);
         for (const LinkageCollector::PhaseCall& pc : linkage_phased) {
-            chosen[pc.record_key] = &pc;
+            if (next_parents.count(pc.record_key) != 0) {
+                chosen[pc.record_key] = &pc;
+            }
         }
         for (size_t i = 0; i < pending.size(); ++i) {
             PendingRecord& pr = pending[i];
