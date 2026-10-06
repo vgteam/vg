@@ -185,6 +185,14 @@ vg test "Full-length bonus can hold down the left end" --section "left end is de
 Unit test files can also have helper functions which are called by the unit tests.
 For an example of this see `src/unittest/chain_items.cpp`.
 
+### Docs and comments
+
+`make lint` runs `scripts/lint_prose.py`, which checks the Markdown files in `doc/` and the comments
+in `src/` for a few phrasings that describe data only by what will later be made from it, such as
+"keep what the record will be built from". A reader cannot picture an object defined only by its
+later use. Say what the data is instead, and if the same idea comes up in several places, give it
+a name, or name its type.
+
 ### Subcommands
 
 Functionality within `vg` is split up over many subcommands, e.g. `vg convert` converts between file types.
