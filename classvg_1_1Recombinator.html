@@ -153,6 +153,8 @@ Static Public Attributes</h2></td></tr>
 <tr class="separator:acfb904a0f73882a7d9140efe4e78108e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a872b059f8fdd67afccec2767ff6ce058"><td class="memItemLeft" align="right" valign="top">constexpr static double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Recombinator.html#a872b059f8fdd67afccec2767ff6ce058">ABSENT_SCORE</a> = 0.8</td></tr>
 <tr class="separator:a872b059f8fdd67afccec2767ff6ce058"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a35644bbc0cba870f7f4e2607d300c94e"><td class="memItemLeft" align="right" valign="top">constexpr static size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Recombinator.html#a35644bbc0cba870f7f4e2607d300c94e">MIN_GREF_LENGTH</a> = 50</td></tr>
+<tr class="separator:a35644bbc0cba870f7f4e2607d300c94e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-methods"></a>
 Private Member Functions</h2></td></tr>
@@ -563,6 +565,29 @@ Private Member Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Block size (in kmers) for reading KFF files. </p>
+
+</div>
+</div>
+<a id="a35644bbc0cba870f7f4e2607d300c94e"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a35644bbc0cba870f7f4e2607d300c94e">&#9670;&nbsp;</a></span>MIN_GREF_LENGTH</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">constexpr size_t vg::Recombinator::MIN_GREF_LENGTH = 50</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">constexpr</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Minimum length (in bp) for a piece of a gref fragment to survive in the sampled graph. The same floor as <code>vg paths --min-gref-len</code>. </p>
 
 </div>
 </div>
