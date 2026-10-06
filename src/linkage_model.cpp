@@ -2004,30 +2004,62 @@ size_t LinkageCollector::resolve_level(
         }
     }
 
-    for (size_t chain_i = 0; chain_i < chains.size(); ++chain_i) {
-        vector<size_t>& indices = chains[chain_i];
+    // What decoding one chain gives the loop below, which applies it. A chain is decoded from
+    // what was fixed before this point -- the entries' likelihoods and called genotypes, the
+    // clamped sites' chosen ones, `pinned_phase` and the entering messages -- and from nothing a
+    // chain writes, so the chains are decoded in parallel. Their results are then applied one
+    // chain at a time, in chain order, so the entries, `moved_quality_by_record` and
+    // `phasing_out` come out exactly as one loop over the chains leaves them.
+    struct ChainDecode {
+        size_t live_here = 0;
+        size_t pinned_here = 0;
+        // The genotype each site ends up with, whether or not linkage moved it. This is what the
+        // phasing is constrained to: phasing the pre-linkage calls would describe a genotype set
+        // that never reaches the VCF.
+        vector<size_t> final_genotype;
+        // For each site of this level, the most probable genotype under its posterior and that
+        // probability; `no_posterior` where the posterior is empty.
+        vector<size_t> best;
+        vector<double> best_posterior;
+        // With phasing: the haplotypes the path chose, the alleles the panel gives them at each
+        // site (-1 where it names none), and the chain's phase set.
+        vector<LinkageModel::Phase> phase;
+        vector<int> allele_first;
+        vector<int> allele_second;
+        size_t phase_set = 0;
+    };
+    const size_t no_posterior = numeric_limits<size_t>::max();
+    vector<ChainDecode> decoded(chains.size());
+
+    // The longest chains are started first, so that the longest decode is not left until last.
+    vector<size_t> decode_order(chains.size());
+    for (size_t i = 0; i < decode_order.size(); ++i) {
+        decode_order[i] = i;
+    }
+    std::stable_sort(decode_order.begin(), decode_order.end(), [&](size_t a, size_t b) {
+        return chains[a].size() > chains[b].size();
+    });
+
+#pragma omp parallel for schedule(dynamic, 1)
+    for (size_t order_i = 0; order_i < decode_order.size(); ++order_i) {
+        const size_t chain_i = decode_order[order_i];
+        const vector<size_t>& indices = chains[chain_i];
         if (indices.empty()) {
             continue;
         }
+        ChainDecode& d = decoded[chain_i];
         // Count the chain's sites of this level, and its pinned sites of earlier ones. A chain
         // with none of this level's sites has nothing to decide, since all its sites are
         // clamped, and is skipped.
-        size_t live_here = 0, pinned_here = 0;
         for (size_t idx : indices) {
             if (entries[idx].level == level) {
-                ++live_here;
+                ++d.live_here;
             } else if (pinned_phase.count(entries[idx].record_key) != 0) {
-                ++pinned_here;
+                ++d.pinned_here;
             }
         }
-        if (live_here == 0) {
+        if (d.live_here == 0) {
             continue;
-        }
-        if (level > 0) {
-#pragma omp critical (cerr)
-            std::cerr << "[vg call] linkage level " << level << ": chain decodes "
-                      << indices.size() << " sites for " << live_here << " of its own, "
-                      << pinned_here << " pinned" << std::endl;
         }
         // A one-site chain has nothing to link to, so the model cannot change its genotype, but it
         // is still phased, so that it appears in `phasing_out` and the mosaic.
@@ -2102,28 +2134,25 @@ size_t LinkageCollector::resolve_level(
             posteriors = model.posteriors(sites, 2);
         }
 
-        // The genotype each site ends up with, whether or not linkage moved it. This is what the
-        // phasing is constrained to: phasing the pre-linkage calls would describe a genotype set
-        // that never reaches the VCF.
-        vector<size_t> final_genotype(indices.size(), LinkageModel::NO_CONSTRAINT);
-
+        d.final_genotype.assign(indices.size(), LinkageModel::NO_CONSTRAINT);
+        d.best.assign(indices.size(), no_posterior);
+        d.best_posterior.assign(indices.size(), 0.0);
         for (size_t t = 0; t < indices.size(); ++t) {
             const Entry& e = entries[indices[t]];
             const vector<double>& post = posteriors[t];
-            size_t before = e.ploidy == 1 ? (size_t)e.called_i
-                                          : LinkageModel::genotype_index(e.called_i, e.called_j);
             if (e.level < level) {
                 // Clamped: it was chosen, reported and emitted at its own level. Its genotype
                 // still has to reach `final_genotype`, because that is what the phasing below is
                 // constrained to, but it must not produce a second Change.
-                final_genotype[t] = e.ploidy == 1
-                                        ? (size_t)e.final_i
-                                        : LinkageModel::genotype_index(e.final_i, e.final_j);
+                d.final_genotype[t] = e.ploidy == 1
+                                          ? (size_t)e.final_i
+                                          : LinkageModel::genotype_index(e.final_i, e.final_j);
                 continue;
             }
             if (post.empty()) {
-                final_genotype[t] = before;
-                moved_quality_by_record.erase(e.record_key);
+                d.final_genotype[t] = e.ploidy == 1
+                                          ? (size_t)e.called_i
+                                          : LinkageModel::genotype_index(e.called_i, e.called_j);
                 continue;
             }
             size_t best = 0;
@@ -2132,7 +2161,68 @@ size_t LinkageCollector::resolve_level(
                     best = g;
                 }
             }
-            final_genotype[t] = best;
+            d.final_genotype[t] = best;
+            d.best[t] = best;
+            d.best_posterior[t] = post[best];
+        }
+        vector<vector<double>>().swap(posteriors);
+
+        if (phasing_out == nullptr) {
+            continue;
+        }
+        // At ploidy 1, `phasing` gives one haplotype per site. It gets the same message as the
+        // posteriors above.
+        d.phase = model.phasing(sites, d.final_genotype, chain_ploidy, ctx);
+        // One phase set per chain, named by its first site's position. The windows are pinned to
+        // each other, so the path is continuous across the whole chain.
+        d.phase_set = sites.empty() ? 0 : sites.front().position;
+        if (chain_i < chain_phase_set.size()
+            && chain_phase_set[chain_i] != numeric_limits<size_t>::max()) {
+            d.phase_set = chain_phase_set[chain_i];
+        }
+        // The alleles the path's haplotypes carry, read here so that `sites` need not be kept
+        // until the results are applied. Where a strand is on the wildcard the panel does not name
+        // its allele.
+        d.allele_first.assign(d.phase.size(), -1);
+        d.allele_second.assign(d.phase.size(), -1);
+        for (size_t t = 0; t < indices.size() && t < d.phase.size(); ++t) {
+            const LinkageModel::Phase& ph = d.phase[t];
+            if (ph.first != LinkageModel::WILDCARD
+                && ph.first < sites[t].haplotype_allele.size()) {
+                d.allele_first[t] = sites[t].haplotype_allele[ph.first];
+            }
+            if (ph.second != LinkageModel::WILDCARD
+                && ph.second < sites[t].haplotype_allele.size()) {
+                d.allele_second[t] = sites[t].haplotype_allele[ph.second];
+            }
+        }
+    }
+
+    for (size_t chain_i = 0; chain_i < chains.size(); ++chain_i) {
+        const vector<size_t>& indices = chains[chain_i];
+        ChainDecode& d = decoded[chain_i];
+        if (indices.empty() || d.live_here == 0) {
+            continue;
+        }
+        if (level > 0) {
+#pragma omp critical (cerr)
+            std::cerr << "[vg call] linkage level " << level << ": chain decodes "
+                      << indices.size() << " sites for " << d.live_here << " of its own, "
+                      << d.pinned_here << " pinned" << std::endl;
+        }
+
+        for (size_t t = 0; t < indices.size(); ++t) {
+            const Entry& e = entries[indices[t]];
+            if (e.level < level) {
+                continue;   // clamped; see the decode
+            }
+            if (d.best[t] == no_posterior) {
+                moved_quality_by_record.erase(e.record_key);
+                continue;
+            }
+            size_t before = e.ploidy == 1 ? (size_t)e.called_i
+                                          : LinkageModel::genotype_index(e.called_i, e.called_j);
+            const size_t best = d.best[t];
             // Decode the genotype index back to its allele pair. At ploidy 1 the index *is* the
             // allele, and both slots carry it so the change applies through the same path.
             size_t i = best, j = best;
@@ -2152,7 +2242,7 @@ size_t LinkageCollector::resolve_level(
                 // Counted. The record is built later from `final_i`/`final_j`. The posterior is
                 // kept, since the record's GQ is computed from it.
                 MovedQuality& q = moved_quality_by_record[e.record_key];
-                q.posterior = post[best];
+                q.posterior = d.best_posterior[t];
                 q.direct.explained_share = e.explained_share;
                 q.direct.gq_factor = e.gq_factor;
                 q.direct.achievable_gap = e.achievable_gap;
@@ -2164,29 +2254,19 @@ size_t LinkageCollector::resolve_level(
         }
 
         if (phasing_out == nullptr) {
+            d = ChainDecode();
             continue;
         }
-        // At ploidy 1, `phasing` gives one haplotype per site. It gets the same message as the
-        // posteriors above.
-        vector<LinkageModel::Phase> phase =
-            model.phasing(sites, final_genotype, chain_ploidy, ctx);
-        // One phase set per chain, named by its first site's position. The windows are pinned to
-        // each other, so the path is continuous across the whole chain.
-        size_t phase_set = sites.empty() ? 0 : sites.front().position;
-        if (chain_i < chain_phase_set.size()
-            && chain_phase_set[chain_i] != numeric_limits<size_t>::max()) {
-            phase_set = chain_phase_set[chain_i];
-        }
-        for (size_t t = 0; t < indices.size() && t < phase.size(); ++t) {
+        for (size_t t = 0; t < indices.size() && t < d.phase.size(); ++t) {
             const Entry& e = entries[indices[t]];
             if (e.level < level) {
                 continue;   // its PhaseCall was emitted, and pinned above, at its own level
             }
-            const LinkageModel::Phase& ph = phase[t];
+            const LinkageModel::Phase& ph = d.phase[t];
             // Read the ordered allele pair off the haplotypes the path chose. Where a strand is
             // on the wildcard the panel does not name its allele, so fall back to the genotype's
             // own order -- the phase is then unsupported at that strand rather than wrong.
-            size_t want = final_genotype[t];
+            size_t want = d.final_genotype[t];
             size_t i = want, j = want;
             if (e.ploidy != 1) {
                 j = 0;
@@ -2197,15 +2277,8 @@ size_t LinkageCollector::resolve_level(
                 i = want - (j * (j + 1) / 2);
             }
 
-            int a = -1, b = -1;
-            if (ph.first != LinkageModel::WILDCARD
-                && ph.first < sites[t].haplotype_allele.size()) {
-                a = sites[t].haplotype_allele[ph.first];
-            }
-            if (ph.second != LinkageModel::WILDCARD
-                && ph.second < sites[t].haplotype_allele.size()) {
-                b = sites[t].haplotype_allele[ph.second];
-            }
+            const int a = d.allele_first[t];
+            const int b = d.allele_second[t];
             PhaseCall pc;
             pc.ploidy = e.ploidy;
             pc.level = e.level;
@@ -2242,7 +2315,7 @@ size_t LinkageCollector::resolve_level(
             }
             pc.start_node = e.start_node;
             pc.end_node = e.end_node;
-            pc.phase_set = phase_set;
+            pc.phase_set = d.phase_set;
             if (e.ploidy == 1) {
                 // One strand: the called allele sits on it, and the haplotype is whatever the
                 // path chose. There is no second slot to fill.
@@ -2268,6 +2341,8 @@ size_t LinkageCollector::resolve_level(
             finish_phase_call(pc, e);
             phasing_out->push_back(pc);
         }
+        // This chain's results are applied, so its decode is freed.
+        d = ChainDecode();
     }
 
     if (level > 0 && (model.counters.pin_applied.load() + model.counters.pin_declined.load()) > 0) {
