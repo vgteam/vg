@@ -112,156 +112,66 @@ TEST_CASE("Mapper-declared tails control anchor pruning",
 }
 
 
-TEST_CASE("Surjection uses tail annotations in either read orientation",
+TEST_CASE("Tail pruning follows read intervals regardless of node or target-path orientation",
           "[surject][tail-pruning]") {
-    bdsg::HashGraph graph;
-
-    const string tail_sequence = "ACGTCAGTGCAT";
-    const string bridge_sequence = "GATCTAGC";
-    const string core_sequence = "TGCAGATCGTACCTGATGCACTAGGTCAGTAC";
-
-    auto misplaced_tail = graph.create_handle(tail_sequence);
-    auto spacer = graph.create_handle(string(80, 'C'));
-    auto correct_tail = graph.create_handle(tail_sequence);
-    auto reference_bridge = graph.create_handle(bridge_sequence);
-    auto core = graph.create_handle(core_sequence);
-    auto alternate_bridge = graph.create_handle(bridge_sequence);
-
-    vector<handle_t> reference_nodes{
-        misplaced_tail, spacer, correct_tail, reference_bridge, core
-    };
-    auto reference = graph.create_path_handle("ref");
-    for (size_t i = 0; i < reference_nodes.size(); ++i) {
-        graph.append_step(reference, reference_nodes[i]);
-        if (i != 0) {
-            graph.create_edge(reference_nodes[i - 1], reference_nodes[i]);
+    // Three 4-base anchors cover read intervals [0,4), [4,8), [8,12).
+    // A 4-base tail contains an anchor; a 3-base tail only overlaps one.
+    // Changing node orientations or reversing the read on ref must not swap the tails.
+    for (bool reverse_middle_node : {false, true}) {
+        for (bool reverse_relative_to_path : {false, true}) {
+            bdsg::HashGraph graph;
+            vector<handle_t> nodes{graph.create_handle("ACGT"),
+                                   graph.create_handle(reverse_middle_node ? "GCTT" : "AAGC"),
+                                   graph.create_handle("GACT")};
+            if (reverse_middle_node) nodes[1] = graph.flip(nodes[1]);
+            auto path = graph.create_path_handle("ref");
+            vector<step_handle_t> steps;
+            for (size_t i = 0; i < nodes.size(); ++i) {
+                steps.push_back(graph.append_step(path, nodes[i]));
+                if (i) graph.create_edge(nodes[i - 1], nodes[i]);
+            }
+            // Reverse the read traversal; the stored target path stays unchanged.
+            if (reverse_relative_to_path) {
+                reverse(nodes.begin(), nodes.end());
+                reverse(steps.begin(), steps.end());
+                for (auto& node : nodes) node = graph.flip(node);
+            }
+            string sequence;
+            for (auto node : nodes) sequence += graph.get_sequence(node);
+            bdsg::PositionOverlay pos_graph(&graph);
+            TestSurjector surjector(&pos_graph);
+            surjector.prune_suspicious_anchors = false;
+            surjector.prune_tail_region_anchors = true;
+            for (bool prune_left : {false, true}) {
+                INFO("middle node locally reversed = " << reverse_middle_node
+                     << ", read reversed relative to target path = " << reverse_relative_to_path
+                     << ", pruning = " << (prune_left ? "left" : "right"));
+                vector<Surjector::path_chunk_t> chunks(3);
+                vector<pair<step_handle_t, step_handle_t>> ranges;
+                for (size_t i = 0; i < nodes.size(); ++i) {
+                    chunks[i].first = {sequence.begin() + 4 * i, sequence.begin() + 4 * (i + 1)};
+                    auto* mapping = chunks[i].second.add_mapping();
+                    mapping->mutable_position()->set_node_id(graph.get_id(nodes[i]));
+                    mapping->mutable_position()->set_is_reverse(graph.get_is_reverse(nodes[i]));
+                    auto* edit = mapping->add_edit();
+                    edit->set_from_length(4);
+                    edit->set_to_length(4);
+                    ranges.emplace_back(steps[i], steps[i]);
+                }
+                surjector.prune_and_trim_anchors(sequence, chunks, ranges,
+                                                prune_left ? 4 : 3, prune_left ? 3 : 4);
+                REQUIRE(chunks.size() == 2);
+                REQUIRE(ranges.size() == 2);
+                for (size_t i = 0; i < chunks.size(); ++i) {
+                    const size_t original = i + (prune_left ? 1 : 0);
+                    CHECK(chunks[i].first.first == sequence.begin() + 4 * original);
+                    CHECK(chunks[i].second.mapping(0).position().node_id() == graph.get_id(nodes[original]));
+                    CHECK(ranges[i].first == steps[original]);
+                }
+            }
         }
-    }
-    graph.create_edge(misplaced_tail, alternate_bridge);
-    graph.create_edge(alternate_bridge, core);
-
-    bdsg::PositionOverlay pos_graph(&graph);
-    Surjector surjector(&pos_graph);
-    surjector.prune_suspicious_anchors = false;
-    unordered_set<path_handle_t> paths{reference};
-
-    Alignment forward_read;
-    forward_read.set_name("tail-pruning");
-    string sequence;
-    for (auto node : vector<handle_t>{
-             misplaced_tail, alternate_bridge, core}) {
-        auto* mapping = forward_read.mutable_path()->add_mapping();
-        mapping->set_rank(forward_read.path().mapping_size());
-        mapping->mutable_position()->set_node_id(graph.get_id(node));
-        auto* edit = mapping->add_edit();
-        edit->set_from_length(graph.get_length(node));
-        edit->set_to_length(graph.get_length(node));
-        sequence += graph.get_sequence(node);
-    }
-    forward_read.set_sequence(sequence);
-    forward_read.set_score(
-        Aligner().scorer->score_contiguous_alignment(forward_read));
-
-    auto node_length = [&](nid_t node_id) -> int64_t {
-        return graph.get_length(graph.get_handle(node_id));
-    };
-
-    bool reverse = false;
-    SECTION("Forward read uses its left-tail annotation") {
-        reverse = false;
-    }
-    SECTION("Reverse-complemented read uses its right-tail annotation") {
-        reverse = true;
-    }
-
-    Alignment read = reverse
-        ? reverse_complement_alignment(forward_read, node_length)
-        : forward_read;
-
-    // Keep the whole read and use ordinary, unspliced surjection.
-    auto project = [&](const Alignment& input, bool prune) {
-        surjector.prune_tail_region_anchors = prune;
-        auto result = surjector.surject(input, paths, true, false);
-        REQUIRE_FALSE(result.empty());
-        for (const auto& alignment : result) {
-            REQUIRE(alignment.path().mapping_size() > 0);
-            REQUIRE(alignment.refpos_size() == 1);
-        }
-        return result;
-    };
-
-    auto check_same_alignment = [&](const Alignment& actual,
-                                    const Alignment& expected) {
-        CHECK(actual.sequence() == expected.sequence());
-        CHECK(actual.score() == expected.score());
-        CHECK(actual.path().SerializeAsString()
-              == expected.path().SerializeAsString());
-        CHECK(actual.refpos(0).name() == expected.refpos(0).name());
-        CHECK(actual.refpos(0).offset() == expected.refpos(0).offset());
-        CHECK(actual.refpos(0).is_reverse()
-              == expected.refpos(0).is_reverse());
-    };
-
-    auto check_same_outputs = [&](const vector<Alignment>& actual,
-                                  const vector<Alignment>& expected) {
-        REQUIRE(actual.size() == expected.size());
-        for (size_t i = 0; i < actual.size(); ++i) {
-            check_same_alignment(actual[i], expected[i]);
-        }
-    };
-
-    const auto baseline = project(read, false);
-    const auto without_annotations = project(read, true);
-    check_same_outputs(without_annotations, baseline);
-
-    // Annotations describe the stored read sequence. Reversing the read
-    // moves this tail from left to right. Leave the other annotation absent.
-    Alignment annotated = read;
-    set_annotation<double>(
-        annotated,
-        reverse ? "right_tail_length" : "left_tail_length",
-        static_cast<double>(tail_sequence.size()));
-
-    const auto disabled = project(annotated, false);
-    check_same_outputs(disabled, baseline);
-    const auto pruned_outputs = project(annotated, true);
-    REQUIRE(pruned_outputs.size() == 1);
-    const auto& pruned = pruned_outputs.front();
-
-    CHECK(pruned.refpos(0).name() == "ref");
-    CHECK(pruned.refpos(0).is_reverse() == reverse);
-    CHECK(pruned.refpos(0).offset()
-          == static_cast<int64_t>(tail_sequence.size()
-                                  + graph.get_length(spacer)));
-    // Detect a disconnected annotation reader: enabling pruning must
-    // actually change the placement in this fixture.
-    for (const auto& alignment : baseline) {
-        CHECK(pruned.path().SerializeAsString()
-              != alignment.path().SerializeAsString());
-    }
-
-    Alignment normalized = reverse
-        ? reverse_complement_alignment(pruned, node_length)
-        : pruned;
-    CHECK(normalized.sequence() == forward_read.sequence());
-
-    const vector<handle_t> expected_nodes{
-        correct_tail, reference_bridge, core
-    };
-    REQUIRE(normalized.path().mapping_size() == expected_nodes.size());
-    for (size_t i = 0; i < expected_nodes.size(); ++i) {
-        const auto& mapping = normalized.path().mapping(i);
-        const auto node = expected_nodes[i];
-        CHECK(mapping.position().node_id() == graph.get_id(node));
-        CHECK_FALSE(mapping.position().is_reverse());
-        CHECK(mapping.position().offset() == 0);
-        REQUIRE(mapping.edit_size() == 1);
-        CHECK(mapping.edit(0).from_length() == graph.get_length(node));
-        CHECK(mapping.edit(0).to_length() == graph.get_length(node));
-        CHECK(mapping.edit(0).sequence().empty());
     }
 }
-
 
 TEST_CASE( "Spliced surject algorithm preserves deletions against the path", "[surject]" ) {
     

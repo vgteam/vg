@@ -342,7 +342,7 @@ using namespace std;
         
         // Read mapper-declared tail lengths. These coordinates are
         // relative to the stored read sequence and independent of path orientation.
-        // Missing annotations remain zero, making tail-region pruning a no-op.
+        // Missing annotations are interpreted as zero.
         size_t left_tail_length = 0, right_tail_length = 0;
         if (source_aln) {
             if (has_annotation(*source_aln, "left_tail_length")) {
@@ -5562,6 +5562,9 @@ using namespace std;
             if (source.has_fragment_prev()) {
                 *clipped.mutable_fragment_prev() = source.fragment_prev();
             }
+            // TODO: Adjust full-read tail annotations to each supplementary piece's
+            // clipped interval. Unchanged lengths can exceed the piece or prune the
+            // wrong anchors; clamping prevents oversized lengths but does not fix coordinates.
             *clipped.mutable_annotation() = source.annotation();
             
             if (&unclipped != &source) {

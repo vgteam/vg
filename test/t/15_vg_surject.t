@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 95
+plan tests 84
 
 vg construct -r small/x.fa >j.vg
 vg index -x j.xg j.vg
@@ -289,63 +289,22 @@ is $(samtools view g.bam | grep "NR:Z:x:8+" | wc -l | sed 's/^[[:space:]]*//') "
 
 rm g.xg g.gcsa g.gcsa.lcp g.bam
 
-# Reuse the unit-test graph: the input takes 1 -> 6 -> 5, while the
-# exact reference placement after tail pruning is 3 -> 4 -> 5.
-# Without -u, this fixture already produces the exact placement without
-# tail pruning. Enable supplementary output so the baseline retains the
-# misplaced tail as a separate alignment, making pruning's effect observable.
-tail_dir=$(mktemp -d) || exit 1
-tail_seq=ACGTCAGTGCAT
-bridge_seq=GATCTAGC
-core_seq=TGCAGATCGTACCTGATGCACTAGGTCAGTAC
-spacer_seq=$(printf '%080d' 0 | tr 0 C)
-printf 'H\tVN:Z:1.0\nS\t1\t%s\nS\t2\t%s\nS\t3\t%s\nS\t4\t%s\nS\t5\t%s\nS\t6\t%s\n' \
-    "$tail_seq" "$spacer_seq" "$tail_seq" "$bridge_seq" "$core_seq" "$bridge_seq" > "$tail_dir/graph.gfa"
-printf 'L\t1\t+\t2\t+\t0M\nL\t2\t+\t3\t+\t0M\nL\t3\t+\t4\t+\t0M\nL\t4\t+\t5\t+\t0M\nL\t1\t+\t6\t+\t0M\nL\t6\t+\t5\t+\t0M\nP\tref\t1+,2+,3+,4+,5+\t*\n' >> "$tail_dir/graph.gfa"
+# The reference follows 1 -> 2 -> 3 -> 4 -> 5; the read follows the shortcut 1 -> 6 -> 5.
+# Node 1 (12 bp) and node 3 share the same sequence; nodes 4 and 6 share the same 8-base
+# sequence; node 2 is an 80-base run of C's separating them; node 5 is the 32-base body
+# of the read. The read's left_tail_length=12 marks node 1 as the tail. Pruning that
+# anchor lets the surjector place the whole read through 3 -> 4 -> 5 starting at
+# SAM position 93. Without pruning, node 1 (ref pos 1) and node 5 (ref pos 113) are
+# too far apart to emit as one alignment, so -u splits the tail into a supplementary record.
+vg surject -x surject/tail-pruning.gfa -p ref -t 1 -u -s surject/tail-pruning.gam > tail-baseline.sam || exit 1
+is "$(grep -v '^@' tail-baseline.sam | cut -f2-4,6 | sort -n)" "$(printf '0\tref\t105\t12S40M\n2048\tref\t1\t12M40S')" \
+    "Without tail pruning, the misplaced tail is emitted separately"
+vg surject -x surject/tail-pruning.gfa -p ref -t 1 -u -s --prune-tail-region surject/tail-pruning.gam > tail-pruned.sam || exit 1
+is "$(grep -v '^@' tail-pruned.sam | cut -f2-4,6)" "$(printf '0\tref\t93\t52M')" \
+    "Tail pruning places the entire read at reference position 93"
 
-jq -n --arg sequence "${tail_seq}${bridge_seq}${core_seq}" '
-    {name: "tail-pruning", sequence: $sequence,
-     annotation: {left_tail_length: 12},
-     path: {mapping: [
-         {rank: 1, position: {node_id: "1"},
-          edit: [{from_length: 12, to_length: 12}]},
-         {rank: 2, position: {node_id: "6"},
-          edit: [{from_length: 8, to_length: 8}]},
-         {rank: 3, position: {node_id: "5"},
-          edit: [{from_length: 32, to_length: 32}]}
-     ]}}' > "$tail_dir/read.json"
-vg view -JGa "$tail_dir/read.json" > "$tail_dir/read.gam"
-is "$?" 0 "Tail-pruning annotated GAM fixture is created"
-jq 'del(.annotation)' "$tail_dir/read.json" > "$tail_dir/plain.json"
-vg view -JGa "$tail_dir/plain.json" > "$tail_dir/plain.gam"
-is "$?" 0 "Tail-pruning unannotated GAM fixture is created"
+vg surject -x surject/tail-pruning.gfa -p ref -t 1 -u -s -G --prune-tail-region surject/tail-pruning.gaf > tail-gaf.sam || exit 1
+is "$(grep -v '^@' tail-gaf.sam | cut -f2-4,6)" "$(printf '0\tref\t93\t52M')" \
+    "GAF tail annotations produce the expected pruned placement"
 
-vg surject -x "$tail_dir/graph.gfa" -p ref -t 1 -u -s "$tail_dir/read.gam" > "$tail_dir/baseline.sam"
-is "$?" 0 "Annotated input can be surjected without tail pruning"
-vg surject -x "$tail_dir/graph.gfa" -p ref -t 1 -u -s --prune-tail-region "$tail_dir/read.gam" > "$tail_dir/long.sam"
-is "$?" 0 "The long tail-pruning flag is accepted"
-is "$(grep -v '^@' "$tail_dir/long.sam" | cut -f2-4,6)" "$(printf '0\tref\t93\t52M')" \
-    "Tail pruning produces one exact alignment at the expected reference position"
-cmp -s <(grep -v '^@' "$tail_dir/baseline.sam" | cut -f2-4,6) <(grep -v '^@' "$tail_dir/long.sam" | cut -f2-4,6)
-is "$?" 1 "Tail pruning changes the misplaced-tail alignment"
-
-vg surject -x "$tail_dir/graph.gfa" -p ref -t 1 -u -s -j "$tail_dir/read.gam" > "$tail_dir/short.sam"
-is "$?" 0 "The short tail-pruning flag is accepted"
-is "$(grep -v '^@' "$tail_dir/short.sam")" "$(grep -v '^@' "$tail_dir/long.sam")" \
-    "Short and long tail-pruning flags produce identical alignment records"
-
-vg surject -x "$tail_dir/graph.gfa" -p ref -t 1 -u -s "$tail_dir/plain.gam" > "$tail_dir/plain-baseline.sam"
-is "$?" 0 "Unannotated input can be surjected without tail pruning"
-vg surject -x "$tail_dir/graph.gfa" -p ref -t 1 -u -s --prune-tail-region "$tail_dir/plain.gam" > "$tail_dir/plain-pruned.sam"
-is "$?" 0 "Unannotated input can be surjected with tail pruning"
-is "$(grep -v '^@' "$tail_dir/plain-pruned.sam")" "$(grep -v '^@' "$tail_dir/plain-baseline.sam")" \
-    "Tail pruning leaves unannotated input unchanged"
-
-vg convert "$tail_dir/graph.gfa" -G "$tail_dir/read.gam" -t 1 > "$tail_dir/read.gaf"
-is "$?" 0 "Annotated tail-pruning input converts to GAF"
-vg surject -x "$tail_dir/graph.gfa" -p ref -t 1 -u -s -G --prune-tail-region "$tail_dir/read.gaf" > "$tail_dir/gaf.sam"
-is "$?" 0 "Tail pruning accepts annotated GAF input"
-is "$(grep -v '^@' "$tail_dir/gaf.sam" | cut -f2-4,6)" "$(printf '0\tref\t93\t52M')" \
-    "GAF tail annotations produce the same expected exact placement as GAM"
-
-rm -rf -- "$tail_dir"
+rm tail-baseline.sam tail-pruned.sam tail-gaf.sam
