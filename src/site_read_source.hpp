@@ -21,6 +21,9 @@
 
 #include <vg/vg.pb.h>
 
+#include <htslib/hts.h>
+#include <htslib/tbx.h>
+
 #include "handle.hpp"
 #include "stream_index.hpp"
 
@@ -246,6 +249,9 @@ protected:
     /// the order in which it filters and counts.
     void count_fetched() const;
 
+    /// Does the read touch any node in the ranges?
+    static bool touches(const Alignment& aln, const vector<pair<nid_t, nid_t>>& ranges);
+
     SiteReadFilter filter;
 
 private:
@@ -304,9 +310,6 @@ private:
 
     /// Which window a node ID falls in.
     size_t window_of(nid_t id) const;
-
-    /// Does the read touch any node in the ranges?
-    static bool touches(const Alignment& aln, const vector<pair<nid_t, nid_t>>& ranges);
 
     /// Fetch a whole window from the backend and index it.
     CacheEntry load_window(size_t window) const;
@@ -574,6 +577,67 @@ public:
     size_t get_duplicate_count() const { return duplicates_dropped.load(); }
 
 private:
+};
+
+/**
+ * Reads fetched on demand from a bgzipped GAF sorted by node ID, through its tabix index
+ * (`tabix -p gaf`, which indexes each record by the smallest and largest node ID on its path).
+ *
+ * The reads are read in vg's own threads: a query seeks to the compressed blocks holding the
+ * records whose node interval overlaps it, so only those blocks are decompressed and only those
+ * records parsed. A whole window costs one index lookup rather than a gbz-base process, and a read
+ * is decoded only for the windows it touches. Reads come back in file order, as GAF-Base returns
+ * them from the same sorted GAF.
+ */
+class TabixGafSiteReadSource : public WindowedSiteReadSource {
+public:
+
+    /// graph must outlive this, and must be the graph the alignments were made against: it
+    /// supplies the node sequences that turn GAF back into Alignments. index_filename is the
+    /// `.tbi` or `.csi` beside gaf_filename. window_size is in node IDs, and cache_entries is how
+    /// many windows the cache shared by all threads holds.
+    TabixGafSiteReadSource(const HandleGraph& graph,
+                           const string& gaf_filename,
+                           const string& index_filename,
+                           const SiteReadFilter& filter = SiteReadFilter(),
+                           size_t window_size = 16384,
+                           size_t cache_entries = 2);
+
+    ~TabixGafSiteReadSource();
+
+    /// Index lookups made: a fetch makes one per group of nearby node IDs it asks for.
+    size_t get_query_count() const { return queries.load(); }
+
+    /// Records the index returned whose node interval overlaps a fetch's ranges but whose path
+    /// skips all of the ranges' nodes. They are dropped, most of them before being parsed (see
+    /// get_unparsed_count).
+    size_t get_skipped_count() const { return skipped.load(); }
+
+    /// Reads one fetch returned more than once, identified by name and start, and dropped.
+    size_t get_duplicate_count() const { return duplicates_dropped.load(); }
+
+protected:
+
+    void fetch_span(const vector<pair<nid_t, nid_t>>& ranges,
+                    const function<void(Alignment&)>& iteratee) const;
+
+private:
+
+    /// Per-thread file handle. A handle seeks, so it cannot be shared; the index can.
+    struct ThreadState {
+        htsFile* file = nullptr;
+    };
+
+    ThreadState& thread_state() const;
+
+    const HandleGraph& graph;
+    string gaf_filename;
+    tbx_t* index = nullptr;
+
+    mutable vector<ThreadState> threads;
+    mutable atomic<size_t> queries{0};
+    mutable atomic<size_t> skipped{0};
+    mutable atomic<size_t> duplicates_dropped{0};
 };
 
 }

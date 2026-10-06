@@ -376,18 +376,34 @@ length that set the expected read count. Those two come from the reads that begi
 ### Read input
 
 Reads with MAPQ below `--read-min-mapq`, secondary alignments, and alignments with no placement
-are discarded as they are read in. The reads come from one of three sources:
+are discarded as they are read in. The reads come from one of four sources:
 
 - `--gam` or `--gaf-reads`: a GAM or [GAF](static/GAF.md) file, loaded into memory.
 - `--gam` with `--gam-index`: a GAM file sorted and indexed by `vg gamsort --index`. Reads are
   fetched from it as they are needed, one range of consecutive node IDs at a time; node IDs in a
   typical pangenome graph increase roughly along the genome.
+- `--gaf-reads` with `--gaf-index`: a GAF file sorted by `vg gamsort -G`, compressed with `bgzip`
+  and indexed with `tabix -p gaf`, whose index `--gaf-index` names. Reads are fetched from the
+  file itself as they are needed, one range of node IDs at a time, by vg's own threads; no
+  database or other program is involved.
 - `--gaf-base`: a [GAF-base](https://github.com/jltsiren/gbz-base) database of alignments,
   queried one range of node IDs at a time by the `gbz-base` program. `--gaf-base-binary` gives the
   path to that program. It reads the graph from the GBZ-base database given with `--gbz-base`, or
   else from the input graph.
 
-`--read-window` sets the size of those ranges, in node IDs, for the two indexed sources. It changes
+Loading the reads into memory suits a small read set or a region. For many reads, such as a whole
+genome, `--gaf-reads` with `--gaf-index` is recommended: on a whole human genome it called the
+sites in half the time `--gaf-base` took, with the same calls, and it needs no database. To
+prepare the reads:
+
+```
+vg gamsort -G -t 16 reads.gaf | bgzip -c > reads.sorted.gaf.gz
+tabix -p gaf reads.sorted.gaf.gz
+vg call graph.gbz --read-likelihood --gaf-reads reads.sorted.gaf.gz \
+    --gaf-index reads.sorted.gaf.gz.tbi > calls.vcf
+```
+
+`--read-window` sets the size of those ranges, in node IDs, for the three indexed sources. It changes
 which reads are fetched together and the order in which they arrive. The results are the same for
 every value of it. A floating-point sum depends on its order, so a site's reads are put in a fixed
 order, by read name, then by where the alignment begins, then by their values, before anything is

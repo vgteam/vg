@@ -1013,4 +1013,188 @@ size_t GafBaseSiteReadSource::get_query_count() const {
     return queries.load();
 }
 
+////////////////////////////////////////////////////////////////////////////////
+// TabixGafSiteReadSource
+////////////////////////////////////////////////////////////////////////////////
+
+/// Node IDs closer than this are looked up in the index together, as gbz-base groups a query's
+/// nodes. A site whose nodes are scattered over a wide span of IDs then costs a few lookups rather
+/// than one per range, without reading every record in the whole span.
+static constexpr nid_t TABIX_RUN_GAP = 1000;
+
+TabixGafSiteReadSource::TabixGafSiteReadSource(const HandleGraph& graph,
+                                               const string& gaf_filename,
+                                               const string& index_filename,
+                                               const SiteReadFilter& filter,
+                                               size_t window_size,
+                                               size_t cache_entries)
+    : WindowedSiteReadSource(filter, window_size, cache_entries),
+      graph(graph),
+      gaf_filename(gaf_filename) {
+
+    index = tbx_index_load2(gaf_filename.c_str(), index_filename.c_str());
+    if (index == nullptr) {
+        throw runtime_error("could not load the tabix index " + index_filename + " of " + gaf_filename);
+    }
+    if ((index->conf.preset & 0xffff) != TBX_GAF) {
+        tbx_destroy(index);
+        index = nullptr;
+        throw runtime_error("the tabix index " + index_filename + " was not built for GAF: "
+                            "index the GAF with 'tabix -p gaf'");
+    }
+    // An index addresses a bgzipped file; a gzipped or plain one cannot be read through it. Checked
+    // here so that a wrong file fails now, rather than in a worker thread on the first site.
+    htsFile* probe = hts_open(gaf_filename.c_str(), "r");
+    bool bgzipped = probe != nullptr && hts_get_format(probe)->compression == bgzf;
+    if (probe != nullptr) {
+        hts_close(probe);
+    }
+    if (!bgzipped) {
+        tbx_destroy(index);
+        index = nullptr;
+        throw runtime_error(gaf_filename + " cannot be read through an index: it must be the "
+                            "sorted GAF compressed with bgzip");
+    }
+
+    // One slot per thread, opened lazily, as for an indexed GAM.
+    threads.resize(max(1, get_thread_count()));
+}
+
+TabixGafSiteReadSource::~TabixGafSiteReadSource() {
+    for (ThreadState& state : threads) {
+        if (state.file != nullptr) {
+            hts_close(state.file);
+        }
+    }
+    if (index != nullptr) {
+        tbx_destroy(index);
+    }
+}
+
+TabixGafSiteReadSource::ThreadState& TabixGafSiteReadSource::thread_state() const {
+    int tid = omp_get_thread_num();
+    if ((size_t)tid >= threads.size()) {
+#pragma omp critical (tabix_gaf_threads)
+        if ((size_t)tid >= threads.size()) {
+            threads.resize(tid + 1);
+        }
+    }
+    ThreadState& state = threads[tid];
+    if (state.file == nullptr) {
+        state.file = hts_open(gaf_filename.c_str(), "r");
+        if (state.file == nullptr) {
+            throw runtime_error("could not open " + gaf_filename + " for reading");
+        }
+    }
+    return state;
+}
+
+void TabixGafSiteReadSource::fetch_span(const vector<pair<nid_t, nid_t>>& ranges,
+                                        const function<void(Alignment&)>& iteratee) const {
+    // Fetches happen inside the OpenMP parallel region that visits the sites, which an exception
+    // must not leave. A failed fetch also means a site cannot be scored, so report it and exit.
+    try {
+        ThreadState& state = thread_state();
+
+        // The ranges as runs of nearby node IDs, one index lookup each.
+        vector<pair<nid_t, nid_t>> runs(ranges);
+        std::sort(runs.begin(), runs.end());
+        size_t kept = 0;
+        for (size_t i = 0; i < runs.size(); ++i) {
+            if (kept > 0 && runs[i].first <= runs[kept - 1].second + TABIX_RUN_GAP) {
+                runs[kept - 1].second = max(runs[kept - 1].second, runs[i].second);
+            } else {
+                runs[kept++] = runs[i];
+            }
+        }
+        runs.resize(kept);
+
+        // Reads are keyed on name and start rather than name alone, since paired mates share a
+        // name, and are passed on once each, as GafBaseSiteReadSource does.
+        unordered_set<string> seen;
+        gafkluge::GafRecord record;
+        Alignment aln;
+        auto handle_record = [&](const string& text) {
+            if (gafkluge::is_gaf_header_line(text)) {
+                return;
+            }
+            gafkluge::parse_gaf_record(text, record);
+            vg::io::gaf_to_alignment(graph, record, aln);
+            // The index says only that the record's node interval overlaps the query. Its path can
+            // still step over every node the query names, and gbz-base does not return such a read.
+            if (!touches(aln, ranges)) {
+                ++skipped;
+                return;
+            }
+            if (!passes_filter(aln)) {
+                return;
+            }
+            count_fetched();
+            string key = aln.name();
+            if (aln.path().mapping_size() > 0) {
+                const Position& pos = aln.path().mapping(0).position();
+                key += "\t" + to_string(pos.node_id()) + "\t" + to_string(pos.offset()) +
+                       (pos.is_reverse() ? "-" : "+");
+            }
+            if (!seen.insert(std::move(key)).second) {
+                ++duplicates_dropped;
+                return;
+            }
+            iteratee(aln);
+        };
+
+        // Records the index holds as [smallest node, largest node), and returns when that interval
+        // overlaps the query's half-open interval. Widening the query by one ID at each end returns
+        // every record whose smallest node is at most the run's last and whose largest node is at
+        // least the run's first, including a record on a single node.
+        //
+        // With one run the records arrive in file order and are handled as they come. With several,
+        // a record can come back for more than one run, and a later run can return a record that
+        // lies earlier in the file, so they are gathered with the file offset the iterator reached
+        // after each, which orders and identifies them, and handled in file order once all are in.
+        bool gather = runs.size() > 1;
+        vector<pair<uint64_t, string>> gathered;
+        kstring_t line = KS_INITIALIZE;
+        for (const auto& run : runs) {
+            hts_itr_t* itr = tbx_itr_queryi(index, 0, max<nid_t>(0, run.first - 1), run.second + 1);
+            ++queries;
+            if (itr == nullptr) {
+                ks_free(&line);
+                throw runtime_error("the tabix index of " + gaf_filename + " cannot be queried for "
+                                    "node IDs " + to_string(run.first) + "-" + to_string(run.second));
+            }
+            int ret;
+            while ((ret = tbx_itr_next(state.file, index, itr, &line)) >= 0) {
+                if (gather) {
+                    gathered.emplace_back(itr->curr_off, string(line.s, line.l));
+                } else {
+                    handle_record(string(line.s, line.l));
+                }
+            }
+            tbx_itr_destroy(itr);
+            if (ret < -1) {
+                ks_free(&line);
+                throw runtime_error("error reading " + gaf_filename + " through its tabix index");
+            }
+        }
+        ks_free(&line);
+
+        if (gather) {
+            std::sort(gathered.begin(), gathered.end(),
+                      [](const pair<uint64_t, string>& a, const pair<uint64_t, string>& b) {
+                          return a.first < b.first;
+                      });
+            for (size_t i = 0; i < gathered.size(); ++i) {
+                if (i > 0 && gathered[i].first == gathered[i - 1].first) {
+                    continue;
+                }
+                handle_record(gathered[i].second);
+            }
+        }
+    } catch (const std::exception& e) {
+        cerr << "error[vg::TabixGafSiteReadSource] " << e.what() << endl;
+        exit(EXIT_FAILURE);
+    }
+}
+
 }

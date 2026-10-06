@@ -43,6 +43,9 @@ const size_t DEFAULT_GAM_INDEX_WINDOW = 256;
 /// per query, and much wider than a long read's node-ID span, so that few reads are fetched twice
 /// by crossing a window boundary.
 const size_t DEFAULT_GAF_BASE_WINDOW = 16384;
+/// An indexed GAF query is a seek, but its window is as wide as GAF-Base's, so that the two fetch
+/// the same windows and few long reads are decoded twice by crossing a window boundary.
+const size_t DEFAULT_GAF_INDEX_WINDOW = 16384;
 
 /// Count the haplotypes that a graph's HAPLOTYPE-sense paths belong to. A haplotype is identified
 /// by its sample name and haplotype number, so one stored as several paths (one per contig or
@@ -117,19 +120,28 @@ void help_call(char** argv) {
          << preset_help_lines()
          << "      --enumerate-support   take candidate alleles from read support, which" << endl
          << "                            needs -k, rather than from the GBZ haplotypes" << endl
-         << "  read input (give one of --gam, --gaf-reads or --gaf-base):" << endl
+         << "  read input (give one of --gam, --gaf-reads or --gaf-base; for many reads," << endl
+         << "  such as a whole genome, --gaf-reads with --gaf-index is recommended):" << endl
          << "      --gam FILE            read alignments in GAM format" << endl
-         << "      --gaf-reads FILE      read alignments in GAF format" << endl
+         << "      --gaf-reads FILE      read alignments in GAF format, all loaded into" << endl
+         << "                            memory unless --gaf-index is given" << endl
          << "      --gam-index FILE      index of --gam (from vg gamsort -i), to fetch" << endl
          << "                            reads as sites need them instead of loading them" << endl
          << "                            all" << endl
-         << "      --gaf-base FILE       GAF-Base of read alignments, queried as sites need" << endl
-         << "                            them by running gbz-base, which must be on the PATH" << endl
+         << "      --gaf-index FILE      tabix index of --gaf-reads, to fetch reads from the" << endl
+         << "                            GAF file itself as sites need them, with no" << endl
+         << "                            GAF-Base database or gbz-base. --gaf-reads must be" << endl
+         << "                            sorted (vg gamsort -G), compressed with bgzip and" << endl
+         << "                            indexed with tabix -p gaf" << endl
+         << "      --gaf-base FILE       GAF-Base database of read alignments, queried as" << endl
+         << "                            sites need them by running gbz-base, which must be" << endl
+         << "                            on the PATH" << endl
          << "      --gbz-base FILE       graph for --gaf-base queries, as GBZ-Base or GBZ" << endl
          << "                            [the input graph]" << endl
          << "      --gaf-base-binary P   gbz-base executable to run [gbz-base]" << endl
          << "      --read-window N       node-ID window for indexed read fetches" << endl
-         << "                            [16384 for --gaf-base, 256 for --gam-index]" << endl
+         << "                            [16384 for --gaf-base and --gaf-index, 256 for" << endl
+         << "                            --gam-index]" << endl
          << "      --read-min-mapq N     ignore reads with MAPQ below N [0]" << endl
          << "  read scoring:" << endl
          << "      --gap-open N          gap-open penalty for scoring reads [6]" << endl
@@ -417,6 +429,7 @@ int main_call(int argc, char** argv) {
     string gaf_filename;
     string dump_likelihoods_filename;
     string gam_index_filename;
+    string gaf_index_filename;
     string gaf_base_filename;
     string gbz_base_filename;
     string gaf_base_binary = "gbz-base";
@@ -501,6 +514,7 @@ int main_call(int argc, char** argv) {
     constexpr int OPT_GAF_BASE = 1015;
     constexpr int OPT_GBZ_BASE = 1016;
     constexpr int OPT_GAF_BASE_BINARY = 1017;
+    constexpr int OPT_GAF_INDEX = 1112;
     constexpr int OPT_MISMAP_MAX = 1019;
     constexpr int OPT_MISMAP_MIN = 1020;
     constexpr int OPT_INSERTION_GAP_NATS = 1091;
@@ -665,6 +679,7 @@ int main_call(int argc, char** argv) {
             {"anchors-out", required_argument, 0, OPT_ANCHORS_OUT},
             {"read-min-mapq", required_argument, 0, OPT_READ_MIN_MAPQ},
             {"gam-index", required_argument, 0, OPT_GAM_INDEX},
+            {"gaf-index", required_argument, 0, OPT_GAF_INDEX},
             {"gaf-base", required_argument, 0, OPT_GAF_BASE},
             {"gbz-base", required_argument, 0, OPT_GBZ_BASE},
             {"gaf-base-binary", required_argument, 0, OPT_GAF_BASE_BINARY},
@@ -1135,6 +1150,9 @@ int main_call(int argc, char** argv) {
         case OPT_GAM_INDEX:
             gam_index_filename = require_exists(logger, optarg);
             break;
+        case OPT_GAF_INDEX:
+            gaf_index_filename = require_exists(logger, optarg);
+            break;
         case OPT_GAF_BASE:
             gaf_base_filename = require_exists(logger, optarg);
             break;
@@ -1515,6 +1533,9 @@ int main_call(int argc, char** argv) {
     // Reported ahead of the subsystem check below, since it is an error whatever else is given.
     if (!gam_index_filename.empty() && gam_filename.empty()) {
         logger.error() << "--gam-index requires --gam" << endl;
+    }
+    if (!gaf_index_filename.empty() && gaf_filename.empty()) {
+        logger.error() << "--gaf-index requires --gaf-reads" << endl;
     }
 
     // Refuse options for a subsystem that is not turned on, since they would have no effect.
@@ -2132,6 +2153,25 @@ int main_call(int argc, char** argv) {
                                       << "passing --gbz-base: a plain GBZ is reloaded on every query"
                                       << endl;
                     }
+                }
+            } else if (!gaf_index_filename.empty()) {
+                // Indexed GAF: reads are fetched as the sites need them, from the sorted GAF
+                // through its tabix index, in vg's own threads.
+                if (read_window_size == 0) {
+                    read_window_size = DEFAULT_GAF_INDEX_WINDOW;
+                }
+                // Four windows per thread, held in one cache that all threads share.
+                try {
+                    read_source.reset(new TabixGafSiteReadSource(*graph, gaf_filename,
+                                                                 gaf_index_filename, read_filter,
+                                                                 read_window_size,
+                                                                 4 * (size_t)vg::get_thread_count()));
+                } catch (const std::exception& e) {
+                    logger.error() << e.what() << endl;
+                }
+                if (show_progress) {
+                    logger.info() << "Using indexed GAF " << gaf_filename
+                                  << " with index " << gaf_index_filename << endl;
                 }
             } else if (!gam_index_filename.empty()) {
                 // Indexed: reads are fetched as the sites need them, so memory is bounded by
@@ -2840,7 +2880,10 @@ int main_call(int argc, char** argv) {
             size_t misses = windowed->get_cache_misses();
             size_t total = hits + misses;
             auto* gaf_base = dynamic_cast<GafBaseSiteReadSource*>(windowed);
-            logger.info() << (gaf_base != nullptr ? "GAF-Base: " : "Indexed GAM: ")
+            auto* tabix_gaf = dynamic_cast<TabixGafSiteReadSource*>(windowed);
+            const char* label = gaf_base != nullptr ? "GAF-Base: "
+                                : (tabix_gaf != nullptr ? "Indexed GAF: " : "Indexed GAM: ");
+            logger.info() << label
                           << windowed->get_read_count() << " reads fetched, "
                           << hits << "/" << total << " site queries served from cache"
                           << (total > 0 ? " (" + std::to_string((int)(100.0 * hits / total)) + "%)" : "")
@@ -2848,17 +2891,17 @@ int main_call(int argc, char** argv) {
             // Reads examined by site queries, against reads delivered to sites.
             size_t seen = windowed->get_scanned_count();
             size_t used = windowed->get_delivered_count();
-            logger.info() << (gaf_base != nullptr ? "GAF-Base: " : "Indexed GAM: ")
+            logger.info() << label
                           << seen << " read candidates examined, " << used << " delivered"
                           << (seen > 0 ? " (" + std::to_string((int)(100.0 * used / seen)) + "%)" : "")
                           << endl;
             // Sites too big for one window are fetched uncached, by their exact node ranges.
-            logger.info() << (gaf_base != nullptr ? "GAF-Base: " : "Indexed GAM: ")
+            logger.info() << label
                           << windowed->get_straddle_count() << " site queries too wide for a "
                           << "window, fetched uncached over " << windowed->get_straddle_wanted()
                           << " node IDs (spanning " << windowed->get_straddle_nodes() << ")"
                           << endl;
-            logger.info() << (gaf_base != nullptr ? "GAF-Base: " : "Indexed GAM: ")
+            logger.info() << label
                           << windowed->get_whole_fetches() << " windows fetched whole, holding "
                           << windowed->get_whole_fetch_reads() << " reads" << endl;
             if (gaf_base != nullptr) {
@@ -2878,6 +2921,12 @@ int main_call(int argc, char** argv) {
                               << (cpu > 0 ? (int)(100 * totals.child_system_s / cpu) : 0)
                               << "%); parsing their " << totals.gaf_bytes / 1e9 << " GB of GAF took "
                               << totals.parse_s / 3600 << " h" << endl;
+            }
+            if (tabix_gaf != nullptr) {
+                logger.info() << "Indexed GAF: " << tabix_gaf->get_query_count() << " index lookups; "
+                              << tabix_gaf->get_skipped_count() << " records overlapped a fetch's node "
+                              << "interval without touching its nodes; "
+                              << tabix_gaf->get_duplicate_count() << " duplicate reads dropped" << endl;
             }
         }
     }

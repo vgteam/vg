@@ -802,7 +802,7 @@ by `vg call --help`.
 
 | Part | Options |
 |---|---|
-| [Reads](read-likelihood-direct-genotyping.md#read-input) | `--gam`, `--gaf-reads`, `--gam-index`, `--gaf-base`, `--gbz-base`, `--gaf-base-binary`, `--read-window`, `--read-min-mapq` |
+| [Reads](read-likelihood-direct-genotyping.md#read-input) | `--gam`, `--gaf-reads`, `--gam-index`, `--gaf-index`, `--gaf-base`, `--gbz-base`, `--gaf-base-binary`, `--read-window`, `--read-min-mapq` |
 | [Candidate alleles](#candidate-alleles) | `--enumerate-support`, `--pack`, `--gbwt`, `--gbz`, `--max-snarl-edges` |
 | [Relative likelihood](read-likelihood-direct-genotyping.md#relative-likelihood) | `--gap-open`, `--gap-extend`, `--insertion-nats`, `--optimal-pairing`, `--no-optimal-pairing` |
 | [Mismapping](read-likelihood-direct-genotyping.md#mismapping-probability) | `--mismap-min`, `--mismap-max`, `--no-mismap-term` |
