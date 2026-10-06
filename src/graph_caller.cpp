@@ -4114,22 +4114,48 @@ void VCFOutputCaller::update_nesting_info_tags(const SnarlManager* snarl_manager
                 name_of_ends.emplace(ends, &kv.first);
             }
         }
-        snarl_manager->for_each_snarl_preorder([&](const Snarl* snarl) {
-                auto own = name_of_ends.find(Ends{snarl->start().node_id(), snarl->end().node_id(),
-                                                  snarl->start().backward(),
-                                                  snarl->end().backward()});
-                if (own != name_of_ends.end()) {
-                    name_to_snarl[*own->second] = snarl;
-                }
-                // also add a map from the flipped snarl (as call sometimes messes with orientation)
-                auto flipped = name_of_ends.find(Ends{snarl->end().node_id(),
-                                                      snarl->start().node_id(),
-                                                      !snarl->end().backward(),
-                                                      !snarl->start().backward()});
-                if (flipped != name_of_ends.end()) {
-                    name_to_snarl[*flipped->second] = snarl;
-                }
+        // The VCF names a snarl matches: its own, then its flipped one (as call sometimes messes
+        // with orientation).
+        auto for_each_match = [&](const Snarl* snarl, const function<void(const string&)>& match) {
+            auto own = name_of_ends.find(Ends{snarl->start().node_id(), snarl->end().node_id(),
+                                              snarl->start().backward(), snarl->end().backward()});
+            if (own != name_of_ends.end()) {
+                match(*own->second);
+            }
+            auto flipped = name_of_ends.find(Ends{snarl->end().node_id(), snarl->start().node_id(),
+                                                  !snarl->end().backward(),
+                                                  !snarl->start().backward()});
+            if (flipped != name_of_ends.end()) {
+                match(*flipped->second);
+            }
+        };
+        // The snarls are matched on several threads, each into a list of its own. Only a name
+        // that two different snarls match could depend on the order the snarls are visited in;
+        // if there is one, the matches are made again in preorder, as they always were.
+        vector<vector<pair<const string*, const Snarl*>>> found(max(1, omp_get_max_threads()));
+        snarl_manager->for_each_snarl_unindexed_parallel([&](const Snarl* snarl) {
+            auto& mine = found[omp_get_thread_num()];
+            for_each_match(snarl, [&](const string& name) {
+                mine.emplace_back(&name, snarl);
             });
+        });
+        bool ambiguous = false;
+        for (const auto& thread_found : found) {
+            for (const auto& name_and_snarl : thread_found) {
+                auto placed = name_to_snarl.emplace(*name_and_snarl.first, name_and_snarl.second);
+                if (!placed.second && placed.first->second != name_and_snarl.second) {
+                    ambiguous = true;
+                }
+            }
+        }
+        if (ambiguous) {
+            name_to_snarl.clear();
+            snarl_manager->for_each_snarl_preorder([&](const Snarl* snarl) {
+                for_each_match(snarl, [&](const string& name) {
+                    name_to_snarl[name] = snarl;
+                });
+            });
+        }
     } else {
         // Translated names are not node IDs, so they are printed and compared.
         snarl_manager->for_each_snarl_preorder([&](const Snarl* snarl) {

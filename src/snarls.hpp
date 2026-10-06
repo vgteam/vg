@@ -598,6 +598,13 @@ public:
 
     /// Iterate over snarls as they are stored in deque<SnarlRecords>
     void for_each_snarl_unindexed(const function<void(const Snarl*)>& lambda) const;
+
+    /// Run the lambda on every snarl once, on several threads, as they are stored, so in no
+    /// particular order. Once finish() has run, every snarl is either at the top level or a child
+    /// of another snarl, so these are the snarls that for_each_snarl_preorder() visits. Unlike
+    /// for_each_snarl_parallel(), it opens no nested parallel regions, so the lambda can use
+    /// omp_get_thread_num() to keep per-thread results.
+    void for_each_snarl_unindexed_parallel(const function<void(const Snarl*)>& lambda) const;
         
     /// Given a Snarl that we don't own (like from a Visit), find the
     /// pointer to the managed copy of that Snarl.

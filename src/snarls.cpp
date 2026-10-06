@@ -785,6 +785,13 @@ void SnarlManager::for_each_snarl_unindexed(const function<void(const Snarl*)>& 
     }
 }
 
+void SnarlManager::for_each_snarl_unindexed_parallel(const function<void(const Snarl*)>& lambda) const {
+#pragma omp parallel for schedule(dynamic, 4096)
+    for (size_t i = 0; i < snarls.size(); ++i) {
+        lambda(unrecord(&snarls[i]));
+    }
+}
+
 const Snarl* SnarlManager::discrete_uniform_sample(minstd_rand0& random_engine)const{
     // have to set the seed to the random engine in the unit tests , pass the random engine 
 
