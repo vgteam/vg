@@ -1251,7 +1251,9 @@ void TabixGafSiteReadSource::fetch_span(const vector<pair<nid_t, nid_t>>& ranges
             return (uint64_t)std::chrono::duration_cast<std::chrono::microseconds>(
                 std::chrono::steady_clock::now() - start).count();
         };
-        auto handle_record = [&](const string& text, bool may_touch) {
+        // Takes the record as the reader's buffer holds it, and copies it into a string only to
+        // parse it: most records the index returns are dropped unread.
+        auto handle_record = [&](const char* text, size_t length, bool may_touch) {
             if (gafkluge::is_gaf_header_line(text)) {
                 return;
             }
@@ -1265,7 +1267,7 @@ void TabixGafSiteReadSource::fetch_span(const vector<pair<nid_t, nid_t>>& ranges
                 return;
             }
             auto parse_start = std::chrono::steady_clock::now();
-            gafkluge::parse_gaf_record(text, record);
+            gafkluge::parse_gaf_record(string(text, length), record);
             vg::io::gaf_to_alignment(graph, record, aln);
             fetch_parse_us += micros_since(parse_start);
             if (!touches(aln, merged)) {
@@ -1327,9 +1329,13 @@ void TabixGafSiteReadSource::fetch_span(const vector<pair<nid_t, nid_t>>& ranges
                 }
                 fetch_bytes += line.l;
                 if (gather) {
-                    gathered.push_back(Gathered{itr->curr_off, string(line.s, line.l), scan.may_touch});
+                    // Only a record that may touch the site is kept whole; the rest are kept as their
+                    // offset, to be counted once.
+                    gathered.push_back(Gathered{itr->curr_off,
+                                                scan.may_touch ? string(line.s, line.l) : string(),
+                                                scan.may_touch});
                 } else {
-                    handle_record(string(line.s, line.l), scan.may_touch);
+                    handle_record(line.s, line.l, scan.may_touch);
                 }
             }
             tbx_itr_destroy(itr);
@@ -1348,7 +1354,7 @@ void TabixGafSiteReadSource::fetch_span(const vector<pair<nid_t, nid_t>>& ranges
                 if (i > 0 && gathered[i].offset == gathered[i - 1].offset) {
                     continue;
                 }
-                handle_record(gathered[i].text, gathered[i].may_touch);
+                handle_record(gathered[i].text.c_str(), gathered[i].text.size(), gathered[i].may_touch);
             }
         }
         read_us += fetch_read_us;
