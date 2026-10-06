@@ -2927,6 +2927,11 @@ int main_call(int argc, char** argv) {
                               << tabix_gaf->get_skipped_count() << " records overlapped a fetch's node "
                               << "interval without touching its nodes; "
                               << tabix_gaf->get_duplicate_count() << " duplicate reads dropped" << endl;
+                logger.info() << "Indexed GAF: of those records, " << tabix_gaf->get_unparsed_count()
+                              << " were dropped from their path text without being parsed; threads spent "
+                              << tabix_gaf->get_read_seconds() / 3600 << " h reading "
+                              << tabix_gaf->get_gaf_bytes() / 1e9 << " GB of GAF through the index and "
+                              << tabix_gaf->get_parse_seconds() / 3600 << " h parsing it" << endl;
             }
         }
     }

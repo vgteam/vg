@@ -1,7 +1,9 @@
 #include "site_read_source.hpp"
 
 #include <algorithm>
+#include <cctype>
 #include <cerrno>
+#include <chrono>
 #include <cstring>
 #include <sstream>
 #include <unordered_set>
@@ -1022,6 +1024,44 @@ size_t GafBaseSiteReadSource::get_query_count() const {
 /// than one per range, without reading every record in the whole span.
 static constexpr nid_t TABIX_RUN_GAP = 1000;
 
+/// Whether a GAF line's path, its sixth column, steps onto a node in the ranges, read from the text
+/// so that a record that does not is dropped without being parsed. Answers yes, leaving the record
+/// to be parsed and tested properly, if a step is not a node ID: a GAF path may name segments.
+static bool gaf_path_may_touch(const string& line, const vector<pair<nid_t, nid_t>>& ranges) {
+    size_t pos = 0;
+    for (int column = 1; column < 6; ++column) {
+        pos = line.find('\t', pos);
+        if (pos == string::npos) {
+            return true;
+        }
+        ++pos;
+    }
+    size_t end = line.find('\t', pos);
+    if (end == string::npos) {
+        end = line.size();
+    }
+    size_t i = pos;
+    while (i < end) {
+        if (line[i] != '>' && line[i] != '<') {
+            return true;
+        }
+        ++i;
+        if (i >= end || !isdigit((unsigned char)line[i])) {
+            return true;
+        }
+        nid_t id = 0;
+        for (; i < end && isdigit((unsigned char)line[i]); ++i) {
+            id = id * 10 + (line[i] - '0');
+        }
+        for (const auto& range : ranges) {
+            if (id >= range.first && id <= range.second) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
 TabixGafSiteReadSource::TabixGafSiteReadSource(const HandleGraph& graph,
                                                const string& gaf_filename,
                                                const string& index_filename,
@@ -1114,16 +1154,31 @@ void TabixGafSiteReadSource::fetch_span(const vector<pair<nid_t, nid_t>>& ranges
         unordered_set<string> seen;
         gafkluge::GafRecord record;
         Alignment aln;
+        // Timings and counts for this fetch, added to the totals once at the end.
+        uint64_t fetch_read_us = 0, fetch_parse_us = 0;
+        size_t fetch_bytes = 0, fetch_skipped = 0, fetch_unparsed = 0;
+        auto micros_since = [](std::chrono::steady_clock::time_point start) {
+            return (uint64_t)std::chrono::duration_cast<std::chrono::microseconds>(
+                std::chrono::steady_clock::now() - start).count();
+        };
         auto handle_record = [&](const string& text) {
             if (gafkluge::is_gaf_header_line(text)) {
                 return;
             }
-            gafkluge::parse_gaf_record(text, record);
-            vg::io::gaf_to_alignment(graph, record, aln);
             // The index says only that the record's node interval overlaps the query. Its path can
             // still step over every node the query names, and gbz-base does not return such a read.
+            // Most such records are dropped from their path text, without being parsed.
+            if (!gaf_path_may_touch(text, ranges)) {
+                ++fetch_skipped;
+                ++fetch_unparsed;
+                return;
+            }
+            auto parse_start = std::chrono::steady_clock::now();
+            gafkluge::parse_gaf_record(text, record);
+            vg::io::gaf_to_alignment(graph, record, aln);
+            fetch_parse_us += micros_since(parse_start);
             if (!touches(aln, ranges)) {
-                ++skipped;
+                ++fetch_skipped;
                 return;
             }
             if (!passes_filter(aln)) {
@@ -1164,7 +1219,14 @@ void TabixGafSiteReadSource::fetch_span(const vector<pair<nid_t, nid_t>>& ranges
                                     "node IDs " + to_string(run.first) + "-" + to_string(run.second));
             }
             int ret;
-            while ((ret = tbx_itr_next(state.file, index, itr, &line)) >= 0) {
+            while (true) {
+                auto read_start = std::chrono::steady_clock::now();
+                ret = tbx_itr_next(state.file, index, itr, &line);
+                fetch_read_us += micros_since(read_start);
+                if (ret < 0) {
+                    break;
+                }
+                fetch_bytes += line.l;
                 if (gather) {
                     gathered.emplace_back(itr->curr_off, string(line.s, line.l));
                 } else {
@@ -1191,6 +1253,11 @@ void TabixGafSiteReadSource::fetch_span(const vector<pair<nid_t, nid_t>>& ranges
                 handle_record(gathered[i].second);
             }
         }
+        read_us += fetch_read_us;
+        parse_us += fetch_parse_us;
+        gaf_bytes += fetch_bytes;
+        skipped += fetch_skipped;
+        unparsed += fetch_unparsed;
     } catch (const std::exception& e) {
         cerr << "error[vg::TabixGafSiteReadSource] " << e.what() << endl;
         exit(EXIT_FAILURE);

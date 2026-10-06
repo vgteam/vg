@@ -616,6 +616,15 @@ public:
     /// Reads one fetch returned more than once, identified by name and start, and dropped.
     size_t get_duplicate_count() const { return duplicates_dropped.load(); }
 
+    /// Of the skipped records, those dropped from their path text alone, before being parsed.
+    size_t get_unparsed_count() const { return unparsed.load(); }
+
+    /// Where the fetches' time went, summed over all threads: reading records through the index
+    /// (seeking and decompressing), and parsing them into Alignments; and the bytes of GAF read.
+    double get_read_seconds() const { return read_us.load() / 1e6; }
+    double get_parse_seconds() const { return parse_us.load() / 1e6; }
+    size_t get_gaf_bytes() const { return gaf_bytes.load(); }
+
 protected:
 
     void fetch_span(const vector<pair<nid_t, nid_t>>& ranges,
@@ -637,7 +646,11 @@ private:
     mutable vector<ThreadState> threads;
     mutable atomic<size_t> queries{0};
     mutable atomic<size_t> skipped{0};
+    mutable atomic<size_t> unparsed{0};
     mutable atomic<size_t> duplicates_dropped{0};
+    mutable atomic<uint64_t> read_us{0};
+    mutable atomic<uint64_t> parse_us{0};
+    mutable atomic<size_t> gaf_bytes{0};
 };
 
 }
