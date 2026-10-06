@@ -154,6 +154,12 @@ struct AtomizeCounters {
     std::atomic<size_t> refuse[13] = {};
 };
 
+/**
+ * Helper class that VCF writers can inherit from, for the common code to output sorted VCF.
+ *
+ * It also holds the state of the linkage model, read phasing, the anchor file, the mosaic file
+ * and block emission, which only FlowCaller uses.
+ */
 class VCFOutputCaller {
 public:
     /// Where a buffered VCF record sorts: by contig, POS, `id` (the ID column), then `block`.
