@@ -24,6 +24,7 @@
 #include "zstdutil.hpp"
 #include "vg/io/alignment_emitter.hpp"
 #include "gref.hpp"
+#include "vcf_genotype_likelihoods.hpp"
 
 namespace vg {
 
@@ -117,52 +118,6 @@ protected:
     bool show_progress;
 };
 
-/// The order in which a caller wrote its `Number=G` GL vector. The two orders differ from three
-/// alleles up: `PoissonSupportSnarlCaller` writes i-major (`for i; for j = i..n`), while
-/// `ReadLikelihoodSnarlCaller` writes the VCF specification's colexicographic order. At n=3 they
-/// differ at indices 2 and 3, `(1,1)` against `(0,2)`, so code that reindexes a GL vector must
-/// know which it holds.
-enum class GLLayout {
-    IMajor,
-    Colexicographic,
-};
-
-/// Index of genotype (i, j), i <= j, in a `Number=G` vector of the given layout.
-size_t gl_genotype_index(size_t i, size_t j, size_t n_alleles, GLLayout layout);
-
-/// Max-marginal fold of a diploid GL vector onto a smaller allele set.
-///
-/// `new_index[a]` is the allele `a` becomes. When several old alleles map to one new allele, their
-/// genotypes merge, and the merged genotype takes the best likelihood among them. Separate from
-/// `merge_similar_alleles` so that the unit tests can check it without a graph.
-vector<double> fold_genotype_likelihoods(const vector<double>& old_gl,
-                                         const vector<int>& new_index,
-                                         size_t n_new, GLLayout layout);
-
-/// Where a buffered VCF record sorts.
-///
-/// (contig, POS) is not a total order: several records can share a position, such as a nested
-/// site under its parent, and `std::sort` is not stable, so ties would come out in an order that
-/// varies between runs. `id` breaks the tie. On the FlowCaller path it is the snarl's own boundary
-/// nodes (`print_snarl(snarl, false)`), so `vg call` on a graph is reproducible. On the
-/// VCFGenotyper path it comes from the input VCF and is often ".", so `vg call -v` is not.
-struct BufferedRecordKey {
-    string contig;
-    size_t position = 0;
-    string id;
-    /// Which difference block of its snarl this record is; 0 for a record written for a whole
-    /// snarl. Two blocks of one snarl can land on the same POS, such as a deletion on one strand
-    /// next to an insertion on the other, and share an ID, so the block number keeps the order
-    /// total.
-    size_t block = 0;
-};
-
-/// Strict weak ordering on BufferedRecordKey. A free function so that a unit test can check the
-/// ordering directly.
-bool buffered_record_key_less(const BufferedRecordKey& a, const BufferedRecordKey& b);
-
-
-
 /// Counters for the mosaic writer. A member of each VCFOutputCaller, so that runs count
 /// separately; `mutable` there because the writing paths are const.
 struct MosaicCounters {
@@ -210,6 +165,25 @@ bool apply_linkage_quality(string& line, const LinkageCollector::MovedQuality& m
 
 class VCFOutputCaller {
 public:
+    /// Where a buffered VCF record sorts: by contig, POS, `id` (the ID column), then `block`.
+    /// Several records can share a contig and POS, such as a nested site and its parent, and
+    /// `std::sort` is not stable, so the output order is the same on every run only when a caller
+    /// gives the records at one position distinct (`id`, `block`) pairs.
+    struct BufferedRecordKey {
+        string contig;
+        size_t position = 0;
+        string id;
+        /// Which difference block of its snarl this record is; 0 for a record written for a
+        /// whole snarl. Two blocks of one snarl can land on the same POS, such as a deletion on
+        /// one strand next to an insertion on the other, and share an ID, so the block number
+        /// keeps the order total.
+        size_t block = 0;
+    };
+
+    /// Strict weak ordering on BufferedRecordKey. Public, so that a unit test can check the
+    /// ordering directly.
+    static bool buffered_record_key_less(const BufferedRecordKey& a, const BufferedRecordKey& b);
+
     VCFOutputCaller(const string& sample_name);
 
     virtual ~VCFOutputCaller();

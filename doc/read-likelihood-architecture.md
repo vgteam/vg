@@ -78,6 +78,7 @@ flowchart TD
     finder["traversal_finder.hpp<br/>GBWTTraversalFinder"]:::vg
     snarlcaller["snarl_caller.hpp<br/>SnarlCaller"]:::vg
     gref["gref.hpp"]:::vg
+    vcfgl["vcf_genotype_likelihoods.hpp<br/>GLLayout"]:::vg
 
     reads["site_read_source.hpp<br/>SiteReadSource"]:::likelihood
     phasing["read_phasing.hpp<br/>PhaseSite, read_phase_flips"]:::phase
@@ -111,6 +112,7 @@ flowchart TD
     snarls --> graphcaller
     snarlcaller --> graphcaller
     gref --> graphcaller
+    vcfgl --> graphcaller
     graphcaller --> main
     caller --> main
     reads --> main
@@ -125,7 +127,8 @@ flowchart TD
 ```
 
 Blue: site likelihood computation. Green: genotyping. Orange: phasing. Purple: output. White: the
-driver and the command line. `gref.hpp` handles the gRef cover, a set of extra reference paths.
+driver and the command line. `gref.hpp` handles the gRef cover, a set of extra reference paths, and
+`vcf_genotype_likelihoods.hpp` the order of the genotypes in a VCF GL field.
 
 `linkage_model.hpp` and `read_phasing.hpp` include no other vg header: they are algorithms over
 plain data, and can be read on their own. `graph_caller.cpp` reaches `ReadLikelihoodSnarlCaller`'s
