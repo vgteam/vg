@@ -329,8 +329,10 @@ ReadNameTable::Shard::~Shard() {
 }
 
 ReadNameTable& read_names() {
-    static ReadNameTable table;
-    return table;
+    // Never destroyed: the table lives until the process ends, and freeing a few million names one
+    // by one at exit only delays it.
+    static ReadNameTable* table = new ReadNameTable();
+    return *table;
 }
 
 size_t AnchorSiteEvidence::bytes() const {
