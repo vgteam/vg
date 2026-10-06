@@ -11,8 +11,9 @@ likelihood, [read-likelihood-linkage-model.md](read-likelihood-linkage-model.md)
 and [read-likelihood-read-phasing.md](read-likelihood-read-phasing.md) read phasing and
 re-genotyping.
 
-The method has four **steps**: site likelihood computation, genotyping, phasing and output.
-`FlowCaller` carries them out in the direct pass, the rounds, the render and the write.
+The method has four **steps**: site likelihood computation, genotyping, phasing and output
+([read-likelihood-genotyping.md](read-likelihood-genotyping.md) describes each). The module map and
+the table of modules below group the modules by step.
 
 ## How a run is organised
 
@@ -29,22 +30,21 @@ near the end of `main_call` in `subcommand/call_main.cpp`.
    [Words the headers use](#words-the-headers-use)). Nested sites are genotyped here
    too, by recursion from their parent, at both ploidy 1 and ploidy 2 when they have more than one
    candidate allele. Each genotyped site is also filed with the linkage model (`record_site`),
-   except `retain_only` chains (see below). This pass does step 1 and the direct call of step 2. It
-   is the only pass that fetches reads: the later ones use the per-read evidence it kept.
+   except `retain_only` chains (see below). It is the only pass that fetches reads: the later ones
+   use the per-read evidence it kept.
 2. **Round 1.** The linkage pass (`run_linkage_pass`) chooses the genotypes with the linkage model
    and phases them from the panel, one level at a time, parents before children. Between levels it
    sets each child's ploidy from its parent's chosen, phased pair, and swaps in the child's answer
    at that ploidy. Read phasing (`apply_read_phasing`, called from `phase_and_regenotype`), with
-   `--read-phasing`, then re-decides the phase from reads that span several sites. This round does
-   the rest of step 2 and step 3.
+   `--read-phasing`, then re-decides the phase from reads that span several sites.
 3. **Later rounds** (`phase_and_regenotype`), with `--regenotype`. Each corrects the likelihoods
    from the phase (`apply_regenotyping`), runs the linkage pass again (`rerun_linkage_pass`, which
    rescores the records first), and runs read phasing again. Records that get no line of their own
    (off-reference chains, and chains a parent's block record spells out) keep the likelihoods of
    the direct pass.
 4. **Render** (`render_retained_records`). Build each staged site's records from its settled
-   genotype, the one the last round chose, add their lines to an output buffer, and collect its
-   anchors. The render and the write do step 4.
+   genotype, the one the last round chose, add their lines to an output buffer, and collect the
+   site's anchors.
 5. **Write** (`write_anchors`, then `write_variants`). Write the anchor file, then the VCF: add the
    nesting tags, sort the lines, write the mosaic file, and write each line, rewriting the quality
    fields of records whose genotype the linkage model changed.

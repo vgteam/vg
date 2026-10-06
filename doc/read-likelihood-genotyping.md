@@ -48,12 +48,11 @@ The caller works in four steps:
    the sample's haplotypes as a walk through the graph, and an
    [anchor file](#assembly-anchors---anchors-out), which ties reads to haplotypes.
 
-The caller is built in two parts. **Direct genotyping**, which is step 1 and the direct call,
-genotypes each site on its own, from the site's reads. **Linkage-based genotyping**, the linkage
-model, works on top of it: it chooses the genotypes of many neighbouring sites together, from
-their site likelihoods, and gives the first phase in step 3. How these steps are ordered into
-passes over the sites is described under [Passes and rounds](#passes-and-rounds), after the
-vocabulary.
+The caller is built in two parts. **Direct genotyping** computes each site's likelihoods and its
+direct call from the site's reads alone. **Linkage-based genotyping**, the linkage model, works on
+top of it: it chooses the genotypes of many neighbouring sites together, from their site
+likelihoods, and gives them their first phase. How the four steps are ordered into passes over the
+sites is described under [Passes and rounds](#passes-and-rounds), after the vocabulary.
 
 ## Vocabulary
 

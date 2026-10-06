@@ -69,10 +69,10 @@ error that follows.
   no more likely to be treated as mismapped than one that fits well. The assumption fails for a read
   from another copy of a repeat that the mapper placed here with a high MAPQ, which then counts as
   evidence against the alleles it fits worst.
-- **MAPQs say nothing about the genotype beyond the effective read count.** This is step 2. The
-  assumption fails where one allele duplicates sequence elsewhere in the genome, so that its reads
-  get lower MAPQs than the other allele's. Those reads then count for less, and the evidence for
-  that allele is understated.
+- **MAPQs say nothing about the genotype beyond the effective read count.** The assumption fails
+  where one allele duplicates sequence elsewhere in the genome, so that its reads get lower MAPQs
+  than the other allele's. Those reads then count for less, and the evidence for that allele is
+  understated.
 - **The effective read count depends only on the genotype and on the depth near the site.** The
   expected read count uses the depth measured near the site, and the effective read count's
   distribution is wider than a Poisson distribution (see [Depth term](#depth-term)). The
