@@ -34,6 +34,20 @@ using namespace std;
      * Assumes the alignments actually go with the graph; the caller is
      * repsonsible for ensuring that e.g. all nodes referenced by the
      * alignments actually exist.
+     *
+     * Each input graph alignment may be primary or secondary. Surjection
+     * classifies target-path placements locally: overlapping alternatives
+     * are secondary, while disjoint read pieces may be supplementary when
+     * supplementary reporting is enabled.
+     *
+     * A supplementary group consists of one non-supplementary placement
+     * and the supplementary pieces associated with that placement. SA tags
+     * link these members to each other; locally classified secondary
+     * alternatives are not members of the group.
+     *
+     * Outputs also inherit secondary status from their input. A supplementary
+     * piece of a secondary input is therefore both secondary and supplementary.
+     * This inherited status is separate from local alternative classification.
      */
     class Surjector : public AlignerClient {
     public:
@@ -402,17 +416,17 @@ using namespace std;
         string path_score_annotations(const unordered_map<pair<path_handle_t, bool>, vector<pair<AlnType, pair<step_handle_t, step_handle_t>>>>& surjections) const;
         
         // helpers to choose one alignment as primary and classify the alternatives
-        /// Select the highest-scoring surjection as primary.
+        /// Select the highest-scoring surjection as the local primary.
         ///
         /// Non-primary surjections that overlap the primary's query interval by more
         /// than disjoint_interval_allowable_overlap are retained as secondary.
         /// Disjoint surjections are retained as supplementary when
         /// report_supplementary is enabled and are otherwise omitted.
         ///
-        /// Classifies secondary status relative to the current input placement;
-        /// the caller restores inherited secondary status when emitting results.
-        /// Places the selected primary first, annotates retained alternatives,
-        /// and removes supplementaries that were not requested.
+        /// Classifies candidates relative to one input placement, without
+        /// accounting for whether that input was itself secondary.
+        /// Places the selected primary first and preserves the relative
+        /// order of the remaining retained candidates.
         template<class AlnType>
         void choose_primary_internal(vector<pair<AlnType, pair<step_handle_t, step_handle_t>>>& surjections,
                                      const function<void(AlnType&)>& annotate_supplementary,
@@ -990,8 +1004,7 @@ using namespace std;
     void Surjector::choose_primary_internal(vector<pair<AlnType, pair<step_handle_t, step_handle_t>>>& surjections,
                                             const function<void(AlnType&)>& annotate_supplementary,
                                             const function<void(AlnType&)>& annotate_secondary) const {
-        // Classify alternatives relative to this input placement. Its inherited
-        // secondary status is restored when surject_internal emits the results.
+        // Classify alternatives relative to this input placement.
         for (auto& surjection : surjections) {
             set_is_secondary(surjection.first, false);
         }
@@ -1006,8 +1019,7 @@ using namespace std;
                 }
             }
 
-            // Downstream path ranking and SA tags use the first non-supplementary
-            // candidate. Put the local primary first, preserving alternative order.
+            // Put the local primary first, preserving alternative order.
             std::rotate(surjections.begin(), surjections.begin() + opt_idx,
                         surjections.begin() + opt_idx + 1);
             opt_idx = 0;
