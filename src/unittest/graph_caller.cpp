@@ -13,6 +13,8 @@
 
 #include "catch.hpp"
 #include "../graph_caller.hpp"
+#include "../flow_caller.hpp"
+#include "../vcf_output_caller.hpp"
 
 namespace vg {
 namespace unittest {
