@@ -257,6 +257,11 @@ public:
 
 protected:
 
+    /// Add the record steps this caller needs to `record_steps`: phasing from the linkage model,
+    /// the GL layout of the read-likelihood genotyper, block records, and telling the linkage model
+    /// each site's allele numbering. Each does nothing when its part is turned off.
+    void install_record_steps();
+
     /// Report what nested descent did: the depth histogram, and how many children it skipped and
     /// why. Does nothing in a run without nested descent.
     void report_descent_instrumentation() const;

@@ -1,41 +1,33 @@
-#include <atomic>
-#include <charconv>
-#include <chrono>
-#include <cstdio>
-#include <limits>
+#include <algorithm>
+#include <cassert>
+#include <cmath>
+#include <numeric>
+#include <set>
+#include <sstream>
+#include <stdexcept>
 
-#include <omp.h>
-
-#include "vcf_output_caller.hpp"
-#include "graph_caller.hpp"
-#include "symbolic_allele.hpp"
-#include "read_likelihood_caller.hpp"
-#include "algorithms/expand_context.hpp"
-#include "annotation.hpp"
-#include "gref.hpp"
+#include "vcf_record.hpp"
+#include "path.hpp"
 #include "traversal_clusters.hpp"
-#include "utility.hpp"
 
 //#define debug
 
 namespace vg {
 
-bool VCFOutputCaller::snarl_traversal_to_handles(const HandleGraph& graph, const SnarlTraversal& trav,
-                                                 Traversal& out_trav) {
-    // cluster_traversals asserts size() >= 2, and a Visit carrying a child Snarl has no single
-    // handle.  Both are real inputs here (the "*" placeholder, and NestedFlowCaller traversals via
-    // SnarlGraph::embed_snarl), so refuse rather than fabricate something.
-    if (trav.visit_size() < 2) {
+bool visits_to_walk(const HandleGraph& graph, const vector<NodeVisit>& visits, Traversal& walk) {
+    // cluster_traversals asserts size() >= 2, and a visit to a child site has no single handle.
+    // Both are real inputs here (the "*" placeholder, and alleles that step over child sites), so
+    // refuse rather than fabricate something.
+    if (visits.size() < 2) {
         return false;
     }
-    out_trav.clear();
-    out_trav.reserve(trav.visit_size());
-    for (int i = 0; i < trav.visit_size(); ++i) {
-        const Visit& visit = trav.visit(i);
-        if (visit.node_id() <= 0) {
+    walk.clear();
+    walk.reserve(visits.size());
+    for (const NodeVisit& visit : visits) {
+        if (visit.first <= 0) {
             return false;
         }
-        out_trav.push_back(graph.get_handle(visit.node_id(), visit.backward()));
+        walk.push_back(graph.get_handle(visit.first, visit.second));
     }
     return true;
 }
@@ -57,7 +49,7 @@ bool parse_vcf_double(const string& field, double& value) {
 }
 }
 
-int64_t VCFOutputCaller::allele_core_length(const vector<string>& alleles) {
+int64_t allele_core_length(const vector<string>& alleles) {
     vector<const string*> seqs;
     for (const string& a : alleles) {
         if (a != "*") {
@@ -101,13 +93,12 @@ int64_t VCFOutputCaller::allele_core_length(const vector<string>& alleles) {
     return (int64_t)(max_len - prefix - suffix);
 }
 
-bool VCFOutputCaller::merge_similar_alleles(const PathPositionHandleGraph& graph,
-                                            const vector<SnarlTraversal>& site_traversals,
-                                            vector<int>& site_genotype,
-                                            const string& sample_name,
-                                            vcflib::Variant& out_variant,
-                                            GLLayout gl_layout) const {
-    if (!(allele_merge_threshold < 1.0)) {
+bool merge_similar_alleles(const PathPositionHandleGraph& graph, size_t allele_count,
+                           const function<bool(size_t allele, Traversal& walk)>& allele_walk,
+                           vector<int>& site_genotype, const string& sample_name,
+                           vcflib::Variant& out_variant, GLLayout gl_layout, double threshold,
+                           int64_t min_len) {
+    if (!(threshold < 1.0)) {
         return false;
     }
     // we only collapse a genotype that actually calls two distinct ALTs.  This also keeps the -a
@@ -134,8 +125,8 @@ bool VCFOutputCaller::merge_similar_alleles(const PathPositionHandleGraph& graph
     // suffix shared by every allele are stripped.  Raw string length would answer differently from
     // vg deconstruct on the same variant, because this record has been flattened down to an anchor
     // base and deconstruct's has not.
-    if (allele_merge_min_len > 0 &&
-        allele_core_length(out_variant.alleles) < allele_merge_min_len) {
+    if (min_len > 0 &&
+        allele_core_length(out_variant.alleles) < min_len) {
         return false;
     }
 
@@ -145,12 +136,12 @@ bool VCFOutputCaller::merge_similar_alleles(const PathPositionHandleGraph& graph
     //  record; that is deliberate there and deliberately not copied here.)
     vector<Traversal> alt_travs;
     vector<int> alt_to_allele;
-    for (size_t i = 1; i < site_traversals.size(); ++i) {
+    for (size_t i = 1; i < allele_count; ++i) {
         if (!called_alts.count((int)i)) {
             continue;
         }
         Traversal trav;
-        if (!snarl_traversal_to_handles(graph, site_traversals[i], trav)) {
+        if (!allele_walk(i, trav)) {
             // star placeholder or a child-snarl visit: leave this allele alone
             continue;
         }
@@ -198,14 +189,14 @@ bool VCFOutputCaller::merge_similar_alleles(const PathPositionHandleGraph& graph
     // merge less, never more.
     Traversal ref_trav;
     const Traversal* site_ref_trav = nullptr;
-    if (!site_traversals.empty() && snarl_traversal_to_handles(graph, site_traversals[0], ref_trav)) {
+    if (allele_count > 0 && allele_walk(0, ref_trav)) {
         site_ref_trav = &ref_trav;
     }
     vector<pair<double, int64_t>> cluster_info;
     vector<int> unused_child_snarl_mapping;
     vector<vector<int>> clusters = cluster_traversals(&graph, alt_travs, order,
                                                       vector<pair<handle_t, handle_t>>(),
-                                                      allele_merge_threshold,
+                                                      threshold,
                                                       cluster_info, unused_child_snarl_mapping,
                                                       site_ref_trav);
 
@@ -371,42 +362,27 @@ bool VCFOutputCaller::merge_similar_alleles(const PathPositionHandleGraph& graph
     return true;
 }
 
-void VCFOutputCaller::add_allele_path_to_info(const HandleGraph* graph, vcflib::Variant& v, int allele, const Traversal& trav,
-                                              bool reversed, bool one_based) const {
-    SnarlTraversal proto_trav;
-    for (const handle_t& handle : trav) {
-        Visit* visit = proto_trav.add_visit();
-        visit->set_node_id(graph->get_id(handle));
-        visit->set_backward(graph->get_is_reverse(handle));
-    }
-    this->add_allele_path_to_info(v, allele, proto_trav, reversed, one_based);
-}
-
-void VCFOutputCaller::add_allele_path_to_info(vcflib::Variant& v, int allele, const SnarlTraversal& trav,
-                                              bool reversed, bool one_based) const {
+void add_allele_path_to_info(vcflib::Variant& v, int allele, const vector<NodeVisit>& visits,
+                             bool reversed, const NodeTranslation* translation) {
     auto& trav_info = v.info["AT"];
     assert(allele < trav_info.size());
 
-    vector<int> nodes;
-    nodes.reserve(trav.visit_size());
-    const Visit* prev_visit = nullptr;
-    unordered_map<nid_t, pair<string, size_t>>::const_iterator prev_trans;
+    const NodeVisit* prev_visit = nullptr;
+    NodeTranslation::const_iterator prev_trans;
     
-    for (size_t i = 0; i < trav.visit_size(); ++i) {
-        size_t j = !reversed ? i : trav.visit_size() - 1 - i;
-        const Visit& visit = trav.visit(j);
-        nid_t node_id = visit.node_id();
+    for (size_t i = 0; i < visits.size(); ++i) {
+        size_t j = !reversed ? i : visits.size() - 1 - i;
+        const NodeVisit& visit = visits[j];
+        nid_t node_id = visit.first;
         string node_name = std::to_string(node_id);
         bool skip = false;
-        // todo: check one_based? (we kind of ignore that when writing the snarl name, so maybe not
-        // pertienent)
         if (translation) {
             auto i = translation->find(node_id);
             if (i == translation->end()) {
                 throw runtime_error("Error [vg deconstruct]: Unable to find node " + node_name + " in translation file");
             }
             if (prev_visit) {
-                nid_t prev_node_id = prev_visit->node_id();
+                nid_t prev_node_id = prev_visit->first;
                 if (prev_trans->second.first == i->second.first && node_id != prev_node_id) {
                     // here is a case where we have two consecutive nodes that map back to
                     // the same source node.
@@ -419,7 +395,7 @@ void VCFOutputCaller::add_allele_path_to_info(vcflib::Variant& v, int allele, co
         }
 
         if (!skip) {
-            bool vrev = visit.backward() != reversed;
+            bool vrev = visit.second != reversed;
             trav_info[allele] += (vrev ? "<" : ">");
             trav_info[allele] += node_name;
         }
@@ -431,11 +407,12 @@ void VCFOutputCaller::add_allele_path_to_info(vcflib::Variant& v, int allele, co
     }
 }
 
-tuple<int64_t, int64_t, bool, step_handle_t, step_handle_t> VCFOutputCaller::get_ref_interval(
-    const PathPositionHandleGraph& graph, const Snarl& snarl, const string& ref_path_name) const {
+tuple<int64_t, int64_t, bool, step_handle_t, step_handle_t> get_ref_interval(
+    const PathPositionHandleGraph& graph, const handle_t& start, const handle_t& end,
+    const string& ref_path_name) {
     path_handle_t path_handle = graph.get_path_handle(ref_path_name);
 
-    handle_t start_handle = graph.get_handle(snarl.start().node_id(), snarl.start().backward());
+    handle_t start_handle = start;
     map<size_t, step_handle_t> start_steps;
     graph.for_each_step_on_handle(start_handle, [&](step_handle_t step) {
             if (graph.get_path_handle_of_step(step) == path_handle) {
@@ -443,7 +420,7 @@ tuple<int64_t, int64_t, bool, step_handle_t, step_handle_t> VCFOutputCaller::get
             }
         });
 
-    handle_t end_handle = graph.get_handle(snarl.end().node_id(), snarl.end().backward());
+    handle_t end_handle = end;
     map<size_t, step_handle_t> end_steps;
     graph.for_each_step_on_handle(end_handle, [&](step_handle_t step) {
             if (graph.get_path_handle_of_step(step) == path_handle) {
@@ -457,8 +434,8 @@ tuple<int64_t, int64_t, bool, step_handle_t, step_handle_t> VCFOutputCaller::get
     // just because we found a pair of steps on our path that correspond to the snarl ends, doesn't
     // mean the path threads the snarl.  verify that we can actaully walk, either forwards or backwards
     // along the path from the start node and hit then end node in the right orientation. 
-    bool start_rev = graph.get_is_reverse(graph.get_handle_of_step(start_step)) != snarl.start().backward();
-    bool end_rev = graph.get_is_reverse(graph.get_handle_of_step(end_step)) != snarl.end().backward();
+    bool start_rev = graph.get_is_reverse(graph.get_handle_of_step(start_step)) != graph.get_is_reverse(start);
+    bool end_rev = graph.get_is_reverse(graph.get_handle_of_step(end_step)) != graph.get_is_reverse(end);
     bool found_end = start_rev == end_rev && start_rev == start_steps.begin()->first > end_steps.begin()->first;
         
     // if we're on a cycle, we keep our start step and find the end step by scanning the path
@@ -467,10 +444,10 @@ tuple<int64_t, int64_t, bool, step_handle_t, step_handle_t> VCFOutputCaller::get
         // try each start step
         for (auto i = start_steps.begin(); i != start_steps.end() && !found_end; ++i) {
             start_step = i->second;
-            bool scan_backward = graph.get_is_reverse(graph.get_handle_of_step(start_step)) != snarl.start().backward();
+            bool scan_backward = graph.get_is_reverse(graph.get_handle_of_step(start_step)) != graph.get_is_reverse(start);
             if (scan_backward) {
                 // if we're going backward, we expect to reach the end backward
-                end_handle = graph.get_handle(snarl.end().node_id(), !snarl.end().backward());
+                end_handle = graph.flip(end);
             }            
             if (scan_backward) {
                 for (step_handle_t cur_step = start_step; graph.has_previous_step(cur_step) && !found_end;
@@ -512,15 +489,16 @@ tuple<int64_t, int64_t, bool, step_handle_t, step_handle_t> VCFOutputCaller::get
     }
 }
 
-pair<string, int64_t> VCFOutputCaller::get_ref_position(const PathPositionHandleGraph& graph, const Snarl& snarl, const string& ref_path_name,
-                                                        int64_t ref_path_offset) const {
+pair<string, int64_t> get_ref_position(const PathPositionHandleGraph& graph, const handle_t& start,
+                                       const handle_t& end, const string& ref_path_name,
+                                       int64_t ref_path_offset) {
     const string basepath_name = Paths::strip_subrange(ref_path_name);
     const int64_t position = base_path_position(
-        ref_path_name, get<0>(get_ref_interval(graph, snarl, ref_path_name)) + ref_path_offset);
+        ref_path_name, get<0>(get_ref_interval(graph, start, end, ref_path_name)) + ref_path_offset);
     return make_pair(basepath_name, position);
 }
 
-void VCFOutputCaller::flatten_common_allele_ends(vcflib::Variant& variant, bool backward, size_t len_override) const {
+void flatten_common_allele_ends(vcflib::Variant& variant, bool backward, size_t len_override) {
     if (variant.alt.size() == 0) {
         return;
     }
@@ -575,8 +553,30 @@ void VCFOutputCaller::flatten_common_allele_ends(vcflib::Variant& variant, bool 
     }
 }
 
-string VCFOutputCaller::print_snarl(nid_t start_node_id, bool start_backward, nid_t end_node_id,
-                                    bool end_backward, bool in_brackets) const {
+int64_t base_path_position(const string& ref_path_name, int64_t along_path) {
+    subrange_t subrange;
+    Paths::strip_subrange(ref_path_name, &subrange);
+    const int64_t basepath_offset = subrange == PathMetadata::NO_SUBRANGE ? 0 : (int64_t)subrange.first;
+    return along_path + 1 + basepath_offset;
+}
+
+string site_name(const HandleGraph& graph, const handle_t& start, const handle_t& end,
+                 const NodeTranslation* translation, bool in_brackets) {
+    return site_name(graph.get_id(start), graph.get_is_reverse(start), graph.get_id(end),
+                     graph.get_is_reverse(end), translation, in_brackets);
+}
+
+size_t record_key_of(const string& site_id) {
+    return std::hash<string>{}(site_id);
+}
+
+size_t record_key_of(const HandleGraph& graph, const handle_t& start, const handle_t& end,
+                     const NodeTranslation* translation) {
+    return record_key_of(site_name(graph, start, end, translation, false));
+}
+
+string site_name(nid_t start_node_id, bool start_backward, nid_t end_node_id, bool end_backward,
+                 const NodeTranslation* translation, bool in_brackets) {
     // todo, should we canonicalize here by putting lexicographic lowest node first?
     string start_node = std::to_string(start_node_id);
     string end_node = std::to_string(end_node_id);
@@ -592,9 +592,8 @@ string VCFOutputCaller::print_snarl(nid_t start_node_id, bool start_backward, ni
         }
         end_node = i->second.first;
     }
-    // Built in place rather than through a stringstream, and without a Snarl message for a
-    // flipped or handle-given snarl: names are printed for every snarl of the graph when the VCF
-    // is written, and for each ancestor of every record.
+    // Built in place rather than through a stringstream: names are printed for every site of the
+    // graph when the VCF is written, and for each ancestor of every record.
     string name;
     name.reserve(start_node.size() + end_node.size() + 4);
     if (in_brackets) {
@@ -608,6 +607,219 @@ string VCFOutputCaller::print_snarl(nid_t start_node_id, bool start_backward, ni
         name += ')';
     }
     return name;
+}
+
+SiteRecord build_site_record(const PathPositionHandleGraph& graph, const SiteToWrite& site,
+                             const SiteAlleles& alleles, const SiteHooks& hooks,
+                             const RecordOptions& options) {
+    const vector<int>& genotype = site.genotype;
+    const int ref_trav_idx = site.ref_trav_idx;
+
+    SiteRecord record;
+    vcflib::Variant& out_variant = record.variant;
+
+    // The traversal of each VCF allele, or -1 for the "*" placeholder.
+    vector<int> site_trav = {ref_trav_idx};
+    vector<int>& site_genotype = record.genotype;
+    auto ref_gt_it = std::find(genotype.begin(), genotype.end(), ref_trav_idx);
+    out_variant.ref = alleles.spell(ref_trav_idx,
+                                    ref_gt_it != genotype.end() ? ref_gt_it - genotype.begin() : 0);
+    
+    // deduplicate alleles and compute the site traversals and genotype
+    map<string, int> allele_to_gt;
+    // Which VCF allele each called traversal became. Alleles with the same sequence are merged, and
+    // only called traversals are written.
+    map<int, int>& trav_to_allele = record.trav_to_allele;
+    allele_to_gt[out_variant.ref] = 0;
+    trav_to_allele[ref_trav_idx] = 0;
+    int star_allele_idx = -1;  // index for star allele in allele_to_gt, if needed
+    for (int i = 0; i < genotype.size(); ++i) {
+        if (genotype[i] == STAR_ALLELE_MARKER) {
+            // Star allele: haplotype spans this site but has no defined traversal here
+            if (star_allele_idx < 0) {
+                // Add star allele to allele list
+                star_allele_idx = allele_to_gt.size();
+                allele_to_gt["*"] = star_allele_idx;
+                // Add a placeholder traversal (written as "." in AT)
+                site_trav.push_back(-1);
+            }
+            site_genotype.push_back(star_allele_idx);
+        } else if (genotype[i] == MISSING_ALLELE_MARKER) {
+            // Missing allele: parent doesn't traverse this child, output as '.' in VCF
+            site_genotype.push_back(MISSING_ALLELE_MARKER);
+        } else if (genotype[i] == ref_trav_idx
+                   || (hooks.same_as_reference && hooks.same_as_reference(genotype[i]))) {
+            // The reference traversal, or one that takes the same route through this site and
+            // differs only inside child sites, whose own records report those differences.
+            site_genotype.push_back(0);
+            trav_to_allele[genotype[i]] = 0;
+        } else {
+            string allele_string = alleles.spell(genotype[i], i);
+            if (allele_to_gt.count(allele_string)) {
+                site_genotype.push_back(allele_to_gt[allele_string]);
+            } else {
+                site_trav.push_back(genotype[i]);
+                site_genotype.push_back(allele_to_gt.size());
+                allele_to_gt[allele_string] = site_genotype.back();
+            }
+            trav_to_allele[genotype[i]] = site_genotype.back();
+        }
+    }
+
+    // add on fixed number of uncalled traversals if we're making a ref-call
+    // with genotype_snarls set to true
+    if (site.genotype_snarls && site_trav.size() <= 1) {
+        // note: we're adding all the strings here and sorting to make this deterministic
+        // at the cost of speed
+        map<string, int> allele_map;
+        for (int i = 0; i < site.traversal_count; ++i) {
+            // todo: verify index below.  it's for uncalled traversals so not important tho
+            string allele_string = alleles.spell(i, max(0, (int)genotype.size() - 1));
+            if (!allele_map.count(allele_string)) {
+                allele_map[allele_string] = i;
+            }
+        }
+        // pick out the first "max_uncalled_alleles" traversals to add
+        int i = 0;
+        for (auto ai = allele_map.begin(); i < options.max_uncalled_alleles && ai != allele_map.end(); ++i, ++ai) {
+            if (!allele_to_gt.count(ai->first)) {
+                allele_to_gt[ai->first] = allele_to_gt.size();
+                site_trav.push_back(ai->second);
+            }
+        }
+    }
+
+    out_variant.alt.resize(allele_to_gt.size() - 1);
+    out_variant.alleles.resize(allele_to_gt.size());
+    
+    // init the traversal info
+    out_variant.info["AT"].resize(allele_to_gt.size());
+
+    for (auto& allele_gt : allele_to_gt) {
+#ifdef debug
+        cerr << "allele " << allele_gt.first << " -> gt " << allele_gt.second << endl;
+#endif
+        if (allele_gt.second > 0) {
+            out_variant.alt[allele_gt.second - 1] = allele_gt.first;
+        }
+        out_variant.alleles[allele_gt.second] = allele_gt.first;
+
+        // update the traversal info
+        const int trav = site_trav.at(allele_gt.second);
+        add_allele_path_to_info(out_variant, allele_gt.second,
+                                trav >= 0 ? alleles.visits(trav) : vector<NodeVisit>(), false,
+                                options.translation);
+    }
+
+    // resolve subpath naming
+    subrange_t subrange;
+    string basepath_name = Paths::strip_subrange(site.ref_path_name, &subrange);
+    size_t basepath_offset = subrange == PathMetadata::NO_SUBRANGE ? 0 : subrange.first;
+    // in VCF we usually just want a contig
+    string contig_name = PathMetadata::parse_locus_name(basepath_name);
+    if (contig_name != PathMetadata::NO_LOCUS_NAME) {
+        basepath_name = contig_name;
+    }
+    // fill out the rest of the variant    
+    out_variant.sequenceName = basepath_name;
+    // +1 to convert to 1-based VCF
+    out_variant.position = get<0>(get_ref_interval(graph, site.start, site.end, site.ref_path_name))
+                           + site.ref_offset + 1 + basepath_offset;
+    // Kept before flattening moves it: the position of the reference traversal's first base, from
+    // which block offsets are measured.
+    record.unflattened_position = out_variant.position;
+    out_variant.id = site_name(graph, site.start, site.end, options.translation, false);
+    out_variant.filter = "PASS";
+    out_variant.updateAlleleIndexes();
+
+    // add the genotype
+    out_variant.format.push_back("GT");
+    auto& genotype_vector = out_variant.samples[options.sample_name]["GT"];
+    
+    stringstream vcf_gt;
+    if (!genotype.empty()) {
+        for (int i = 0; i < site_genotype.size(); ++i) {
+            if (site_genotype[i] == MISSING_ALLELE_MARKER) {
+                vcf_gt << ".";
+            } else {
+                vcf_gt << site_genotype[i];
+            }
+            if (i != site_genotype.size() - 1) {
+                vcf_gt << "/";
+            }
+        }
+    } else {
+        for (int i = 0; i < site.ploidy; ++i) {
+            vcf_gt << ".";
+            if (i != site.ploidy - 1) {
+                vcf_gt << "/";
+            }
+        }
+    }
+                    
+    genotype_vector.push_back(vcf_gt.str());
+
+    // Phase the genotype here, where `trav_to_allele` maps traversals to this record's alleles.
+    int64_t phase_set_to_write = -1;
+    if (!genotype.empty() && hooks.phase) {
+        phase_set_to_write = hooks.phase(site_genotype, trav_to_allele, genotype_vector[0]);
+    }
+
+    // add some support info
+    if (hooks.fill_info) {
+        hooks.fill_info(site_trav, site_genotype, out_variant);
+    }
+
+    // PS last in FORMAT.
+    if (phase_set_to_write >= 0) {
+        out_variant.format.push_back("PS");
+        out_variant.samples[options.sample_name]["PS"].push_back(std::to_string(phase_set_to_write));
+    }
+
+    // if genotype_snarls, then we only flatten up to the snarl endpoints
+    // (this is when we are in genotyping mode and want consistent calls regardless of the sample)
+    int64_t flatten_len_s = 0;
+    int64_t flatten_len_e = 0;
+    if (site.genotype_snarls) {
+        flatten_len_s = graph.get_length(site.start);
+        assert(flatten_len_s >= 0);
+        flatten_len_e = graph.get_length(site.end);
+    }
+    // clean up the alleles to not have so man common prefixes
+    flatten_common_allele_ends(out_variant, true, flatten_len_e);
+    flatten_common_allele_ends(out_variant, false, flatten_len_s);
+
+    // Merge near-identical called ALT alleles, turning 1/2 into 1/1. After the caller's fields, so
+    // the genotyper saw every candidate, and after flattening, so the surviving allele's string,
+    // POS and REF are the same as without merging. The missing-allele fixup below runs after it and
+    // is unaffected, since merging never empties alt.
+    record.alleles_merged = merge_similar_alleles(
+        graph, site_trav.size(),
+        [&](size_t allele, Traversal& walk) {
+            const int trav = site_trav[allele];
+            return visits_to_walk(graph, trav >= 0 ? alleles.visits(trav) : vector<NodeVisit>(),
+                                  walk);
+        },
+        site_genotype, options.sample_name, out_variant, hooks.gl_layout,
+        options.allele_merge_threshold, options.allele_merge_min_len);
+
+    // If genotype contains missing allele but no ALT, add * as ALT to emit valid VCF
+    // This happens when one parent haplotype doesn't traverse a nested child snarl
+    bool has_missing = std::find(site_genotype.begin(), site_genotype.end(), MISSING_ALLELE_MARKER) != site_genotype.end();
+    if (has_missing && out_variant.alt.empty()) {
+        out_variant.alt.push_back("*");
+        out_variant.alleles.push_back("*");
+        out_variant.info["AT"].push_back(".");
+        // AD is Number=R, written by the caller's fields for the alleles before this one was added,
+        // so it gets an entry for the new allele. GL needs none: it is left out whenever the
+        // genotype has a marker, as MISSING_ALLELE_MARKER is.
+        auto ad_it = out_variant.samples[options.sample_name].find("AD");
+        if (ad_it != out_variant.samples[options.sample_name].end()) {
+            ad_it->second.push_back("0");
+        }
+    }
+
+    return record;
 }
 
 }

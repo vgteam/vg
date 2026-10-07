@@ -309,7 +309,11 @@ public:
     ///
     /// In FlowCaller a non-null manager also turns on nested calling: after call_snarl_internal
     /// calls a snarl, it descends into the snarl's child chains and genotypes them.
-    void set_symbolic_collapsing(const SnarlManager* manager) { this->symbolic_manager = manager; }
+    ///
+    /// A non-null manager adds the `same_as_reference` and `count_site` steps to `record_steps`,
+    /// and null removes them. These are set here rather than by FlowCaller because any caller that
+    /// writes VCF can be given symbolic collapsing.
+    void set_symbolic_collapsing(const SnarlManager* manager);
 
     /// Write one record per difference block between the reference and each called strand's
     /// symbolic allele, instead of one record per snarl (--atomize-blocks). Does nothing on the
@@ -422,11 +426,6 @@ protected:
         bool crossing_known = true;
     };
     static thread_local NestedContext nested_context;
-
-    /// Whether the last emit on this thread described a real record, so that a child descending from
-    /// it can tell that its parent's traversals are available. Thread-local and read just after the
-    /// emit, as nested_context is.
-    static thread_local bool last_emit_valid;
 
     /// Snarl hierarchy for symbolic collapsing, or null to compare alleles by sequence alone.
     const SnarlManager* symbolic_manager = nullptr;
@@ -640,51 +639,55 @@ protected:
     /// convert a traversal into an allele string
     string trav_string(const HandleGraph& graph, const SnarlTraversal& trav) const;
 
-    /// Convert a SnarlTraversal to the handle vector the clustering code works on.  Returns false
-    /// (leaving out_trav unspecified) if the traversal cannot be represented: fewer than two visits
-    /// (the "*" placeholder pushed for a star allele), or a visit carrying a child Snarl rather
-    /// than a node, which NestedFlowCaller produces via SnarlGraph::embed_snarl.  (LegacyCaller
-    /// expands its children into node visits in top_down_genotype, so it never reaches here.)
-    static bool snarl_traversal_to_handles(const HandleGraph& graph, const SnarlTraversal& trav,
-                                           Traversal& out_trav);
+    /// The core length of a variant, as `vg::allele_core_length` defines it.
+    static int64_t allele_core_length(const vector<string>& alleles) {
+        return vg::allele_core_length(alleles);
+    }
 
-    /// The CORE LENGTH of a variant: the length of the longest allele after stripping the prefix
-    /// and the suffix that every non-"*" allele shares.  This is the single definition of "how big
-    /// is this variant" behind --cluster-min-len in BOTH vg call and vg deconstruct.  It is
-    /// invariant to how much shared flanking context a caller keeps in its allele strings, which is
-    /// the point: vg call flattens down to an anchor base while vg deconstruct emits the whole
-    /// snarl interior, so a raw string length answers differently for the same variant.
-    /// Consequences, all intended:
-    ///   - the anchor base flatten_common_allele_ends must leave on every indel is a shared prefix,
-    ///     so it is stripped: a 49bp indel measures 49, not 50.
-    ///   - REF participates, so a pure deletion measures the deleted length.  A maximum over ALTs
-    ///     alone measures 1 for a deletion of any size.
-    ///   - "*" is a marker, not sequence, so it is excluded from both the affixes and the maximum.
-    ///     That also neutralizes flatten_common_allele_ends being a no-op whenever a "*" is
-    ///     present -- without -a because min_allele_len becomes 1 and max_flatten_len decrements to
-    ///     0, and with -a because "*" matches no base at the first offset compared.  Either way the
-    ///     un-flattened boundary sequence is common to every real allele, so it is stripped here.
-    /// Note this measures the SPAN of the variant, not the size of any one event inside it: a
-    /// haplotype differing from the reference at two bases 59bp apart has a core length of 60.
-    static int64_t allele_core_length(const vector<string>& alleles);
+    /// Steps added to writing a site record by the callers that need them. Each is left empty when
+    /// not needed. Symbolic collapsing adds the first two (see `set_symbolic_collapsing`), and
+    /// FlowCaller adds the others.
+    struct SiteRecordSteps {
+        /// Whether called traversal `trav` is written as the reference allele, because it takes
+        /// the reference traversal's route through the site.
+        function<bool(const Snarl& site, const vector<SnarlTraversal>& travs, int trav,
+                      int ref_trav_idx)> same_as_reference;
+        /// Counts the site for the block emission report, before its record is built.
+        function<void(const PathPositionHandleGraph& graph, const Snarl& site,
+                      const vector<SnarlTraversal>& travs, const vector<int>& genotype,
+                      int ref_trav_idx)> count_site;
+        /// Phases the record's genotype, as `SiteHooks::phase` does.
+        function<int64_t(const Snarl& site, const vector<int>& site_genotype,
+                         const map<int, int>& trav_to_allele, string& gt)> phase;
+        /// The order in which the snarl caller wrote the GL of a call.
+        function<GLLayout(const SnarlCaller::CallInfo* call_info)> gl_layout;
+        /// Writes the site as one record per difference block. Returns the number of lines
+        /// written, or -1 to have the site record written instead.
+        function<int(const PathPositionHandleGraph& graph, const Snarl& site,
+                     const vector<SnarlTraversal>& travs, const vector<int>& genotype,
+                     int ref_trav_idx, const SiteRecord& record, GLLayout gl_layout,
+                     bool genotype_snarls)> write_blocks;
+        /// Told, once the site is filed, the VCF allele of each of its `traversal_count`
+        /// traversals that is in its genotype, and whether the site has a line.
+        function<void(const Snarl& site, const map<int, int>& trav_to_allele,
+                      size_t traversal_count, bool has_line)> site_filed;
+    };
+    SiteRecordSteps record_steps;
 
-    /// Merge near-identical called ALT alleles in an already populated variant. Must run after
-    /// SnarlCaller::update_vcf_info and flatten_common_allele_ends, so that both see every allele:
-    /// merging earlier would drop the absorbed allele's reads from AD, DP and the Poisson caller's
-    /// total_other_support term. Rewrites the allele-indexed fields (alleles/alt, AT, AD, GL, GT,
-    /// MAD) and records the merge in INFO/MAT. Returns true if anything merged.
-    ///
-    /// `gl_layout` is the order in which the caller that produced this record wrote its GL, which
-    /// cannot be recovered from the record.
-    bool merge_similar_alleles(const PathPositionHandleGraph& graph,
-                               const vector<SnarlTraversal>& site_traversals,
-                               vector<int>& site_genotype,
-                               const string& sample_name,
-                               vcflib::Variant& out_variant,
-                               GLLayout gl_layout) const;
+    /// The options build_site_record takes from this caller.
+    RecordOptions record_options() const;
 
-    /// print a vcf variant
-    /// return value is taken from add_variant (see above)
+    /// Phase a record's genotype from the linkage model's phase call for the site, as
+    /// `SiteHooks::phase` does. The phased genotype must be a permutation of the record's own, so
+    /// that phasing cannot change a genotype; a call that is not is counted as declined.
+    int64_t phase_record_genotype(const Snarl& site, const vector<int>& site_genotype,
+                                  const map<int, int>& trav_to_allele, string& gt) const;
+
+    /// Write the record for a site: build it with build_site_record, from the snarl's traversals
+    /// and the snarl caller's INFO and FORMAT fields, with the steps in `record_steps`, and add it
+    /// to the output buffer. `trav_to_string` spells an allele; when null, an allele is spelled by
+    /// its traversal's sequence. Returns false only when add_variant refused a line the site
+    /// wanted.
     bool emit_variant(const PathPositionHandleGraph& graph, SnarlCaller& snarl_caller,
                       const Snarl& snarl, const vector<SnarlTraversal>& called_traversals,
                       const vector<int>& genotype, int ref_trav_idx, const unique_ptr<SnarlCaller::CallInfo>& call_info,

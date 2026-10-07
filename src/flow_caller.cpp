@@ -188,6 +188,7 @@ FlowCaller::FlowCaller(const PathPositionHandleGraph& graph,
         ref_path_set.insert(ref_paths[i]);
         ref_ploidies[ref_paths[i]] = i < ref_path_ploidies.size() ? ref_path_ploidies[i] : 2;
     }
+    install_record_steps();
 
 }
    
@@ -225,10 +226,62 @@ FlowCaller::FlowCaller(const PathPositionHandleGraph& graph,
         ref_path_set.insert(ref_paths[i]);
         ref_ploidies[ref_paths[i]] = i < ref_path_ploidies.size() ? ref_path_ploidies[i] : 2;
     }
+    install_record_steps();
 }
 
 FlowCaller::~FlowCaller() {
 
+}
+
+void FlowCaller::install_record_steps() {
+    record_steps.phase = [this](const Snarl& site, const vector<int>& site_genotype,
+                                const map<int, int>& trav_to_allele, string& gt) {
+        return phase_record_genotype(site, site_genotype, trav_to_allele, gt);
+    };
+    // The read-likelihood genotyper writes GL in colexicographic order, and the support-based one
+    // in i-major order.
+    record_steps.gl_layout = [](const SnarlCaller::CallInfo* call_info) {
+        return dynamic_cast<const ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo*>(call_info)
+                   != nullptr
+                   ? GLLayout::Colexicographic
+                   : GLLayout::IMajor;
+    };
+    record_steps.write_blocks = [this](const PathPositionHandleGraph& graph, const Snarl& site,
+                                       const vector<SnarlTraversal>& travs,
+                                       const vector<int>& genotype, int ref_trav_idx,
+                                       const SiteRecord& record, GLLayout gl_layout,
+                                       bool genotype_snarls) {
+        const int block_lines = emit_block_records(graph, site, travs, genotype, ref_trav_idx,
+                                                   sample_name, record.variant,
+                                                   record.trav_to_allele,
+                                                   record.unflattened_position, gl_layout,
+                                                   genotype_snarls, record.alleles_merged);
+        if (block_lines >= 0) {
+            ++atomize_counters.split_sites;
+            atomize_counters.split_lines += (size_t)block_lines;
+        }
+        return block_lines;
+    };
+    // The linkage model gets the site whether or not it has a line. A parent written as the
+    // reference still has two alleles, which differ only inside its children, and the children
+    // need them to know which strand carries the chain. In VCF allele numbering such a parent is
+    // 0/0; only in traversal space is it heterozygous.
+    record_steps.site_filed = [this](const Snarl& site, const map<int, int>& trav_to_allele,
+                                     size_t traversal_count, bool has_line) {
+        if (linkage_collector == nullptr) {
+            return;
+        }
+        // The site was recorded when it was genotyped. What remains is the traversal-to-VCF-allele
+        // map, which depends on the alleles the record chose, and whether a line was written. A
+        // site written as blocks gives an empty map, since each block numbers its own alleles.
+        vector<int> trav_to_allele_vec(traversal_count, -1);
+        for (const auto& kv : trav_to_allele) {
+            if (kv.first >= 0 && (size_t)kv.first < trav_to_allele_vec.size()) {
+                trav_to_allele_vec[kv.first] = kv.second;
+            }
+        }
+        linkage_collector->set_allele_map(record_key_of(site), trav_to_allele_vec, has_line);
+    };
 }
 
 void FlowCaller::call_top_level_snarls(const HandleGraph& graph, RecurseType recurse_type) {
@@ -1962,9 +2015,6 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
     bool site_panel_set = false;
     // The same, for a snarl the linkage pass will not revise.
     unique_ptr<PendingRecord> render_this;
-    // Whether this call ran emit_variant, so that descent knows `last_emit_valid` describes this
-    // snarl. A retained chain, or a GAF run, skips the emit.
-    bool emitted_this_call = false;
 
 #ifdef debug
     cerr << "call_snarl_internal on " << pb2json(snarl) << " with parent_ref_path=" << parent_ref_path_name
@@ -2241,7 +2291,6 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
                                      trav_call_info, ref_path_name, ref_offset_of(ref_offsets, ref_path_name),
                                      genotype_snarls, ploidy);
             }
-            emitted_this_call = true;
         } else {
             added = true;
             pair<string, int64_t> pos_info = get_ref_position(graph, snarl, ref_path_name, ref_offset_of(ref_offsets, ref_path_name));
@@ -2416,7 +2465,6 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
                 added = emit_variant(graph, snarl_caller, snarl, travs, trav_genotype, ref_trav_idx,
                                      trav_call_info, ref_path_name, ref_offset_of(ref_offsets, ref_path_name),
                                      genotype_snarls, ploidy);
-                emitted_this_call = true;
             }
         } else {
             pair<string, int64_t> pos_info = get_ref_position(graph, snarl, ref_path_name,
