@@ -12,6 +12,7 @@
 #include "handle.hpp"
 #include "snarls.hpp"
 #include "graph_caller.hpp"
+#include "vcf_output_caller.hpp"
 #include "traversal_finder.hpp"
 #include "phased_genome.hpp"
 #include "region.hpp"
