@@ -4670,6 +4670,101 @@ using namespace std;
         }
     }
 
+    bool Surjector::anchor_has_nearby_repeat(
+        const string& sequence, const path_chunk_t& chunk,
+        const pair<step_handle_t, step_handle_t>& step_range) const {
+
+        if (max_slide <= 0) {
+            return false;
+        }
+
+        // Limit the search to twice the span without overflowing span * 2.
+        auto slide_limit = [&](size_t span) {
+            size_t limit = max_slide;
+            return span > limit / 2 ? limit : span * 2;
+        };
+        // Compare complete windows, excluding the original occurrence.
+        auto has_repeat = [&](const string& bases, size_t start,
+                              size_t span, size_t radius) {
+            assert(start <= bases.size());
+            assert(span <= bases.size() - start);
+            if (span == 0 || radius == 0) {
+                return false;
+            }
+            size_t left = min(radius, start);
+            size_t right = min(radius, bases.size() - start - span);
+            auto anchor_begin = bases.begin() + start;
+            auto anchor_end = anchor_begin + span;
+            for (size_t offset = start - left; offset <= start + right; ++offset) {
+                if (offset != start && std::equal(anchor_begin, anchor_end,
+                                                 bases.begin() + offset)) {
+                    return true;
+                }
+            }
+            return false;
+        };
+
+        // Search for another occurrence of the anchor's read sequence nearby.
+        size_t read_start = chunk.first.first - sequence.begin();
+        size_t read_span = chunk.first.second - chunk.first.first;
+        if (has_repeat(sequence, read_start, read_span, slide_limit(read_span))) {
+            return true;
+        }
+
+        // If no repeat found in the read, check the reference sequence covered by the anchor.
+        size_t ref_span = path_from_length(chunk.second);
+        size_t radius = slide_limit(ref_span);
+        if (ref_span == 0 || radius == 0) {
+            return false;
+        }
+        auto first_step = step_range.first;
+        auto first_handle = graph->get_handle_of_step(first_step);
+        auto path_handle = graph->get_path_handle_of_step(first_step);
+        const auto& first_pos = chunk.second.mapping(0).position();
+        bool reverse_relative_to_path =
+            first_pos.is_reverse() != graph->get_is_reverse(first_handle);
+        size_t step_start = graph->get_position_of_step(first_step);
+        size_t node_length = graph->get_length(first_handle);
+        size_t path_length = graph->get_path_length(path_handle);
+        size_t mapping_offset = first_pos.offset();
+        assert(mapping_offset <= node_length);
+
+        size_t anchor_start;
+        if (reverse_relative_to_path) {
+            size_t anchor_end = step_start + node_length - mapping_offset;
+            assert(ref_span <= anchor_end);
+            anchor_start = anchor_end - ref_span;
+        } else {
+            anchor_start = step_start + mapping_offset;
+        }
+        assert(anchor_start <= path_length);
+        assert(ref_span <= path_length - anchor_start);
+        size_t left = min(radius, anchor_start);
+        size_t right = min(radius, path_length - anchor_start - ref_span);
+        size_t window_start = anchor_start - left;
+        size_t window_length = left + ref_span + right;
+
+        // Extract the entire search window once, in forward path order.
+        string window;
+        window.reserve(window_length);
+        auto step = graph->get_step_at_position(path_handle, window_start);
+        size_t within_step = window_start - graph->get_position_of_step(step);
+        while (window.size() < window_length) {
+            // get_handle_of_step() is oriented as the path traverses this step.
+            auto handle = graph->get_handle_of_step(step);
+            string node_sequence = graph->get_sequence(handle);
+            size_t take = min(node_sequence.size() - within_step,
+                              window_length - window.size());
+            window.append(node_sequence, within_step, take);
+            within_step = 0;
+            if (window.size() < window_length) {
+                assert(graph->has_next_step(step));
+                step = graph->get_next_step(step);
+            }
+        }
+        return has_repeat(window, left, ref_span, radius);
+    }
+
     void Surjector::prune_and_trim_anchors(const string& sequence, vector<path_chunk_t>& path_chunks,
                                            vector<pair<step_handle_t, step_handle_t>>& step_ranges,
                                            size_t left_tail_length, size_t right_tail_length) const {
@@ -4760,128 +4855,14 @@ using namespace std;
                     continue;
                 }
 
-                // Preserve the read-side search radius, including for anchors with indels.
-                const size_t read_span = chunk.first.second - chunk.first.first;
-                const size_t read_slide_limit = min<size_t>(max_slide, read_span * 2);
-                const size_t read_start = chunk.first.first - sequence.begin();
-                const size_t read_remaining = sequence.end() - chunk.first.second;
-                for (int64_t distance = -static_cast<int64_t>(read_slide_limit);
-                     distance <= static_cast<int64_t>(read_slide_limit); ++distance) {
-                    if (distance == 0) {
-                        continue;
-                    }
-                    if ((distance < 0 && static_cast<size_t>(-distance) > read_start)
-                        || (distance > 0 && static_cast<size_t>(distance) > read_remaining)) {
-                        continue;
-                    }
-                    if (std::equal(chunk.first.first, chunk.first.second,
-                                   chunk.first.first + distance, chunk.first.second + distance)) {
+                if (anchor_has_nearby_repeat(sequence, chunk, step_ranges[i])) {
 #ifdef debug_anchored_surject
-                        cerr << "anchor " << i
-                             << " pruned for existing again at read offset " << distance << endl;
+                    cerr << "anchor " << i
+                         << " pruned for a nearby read or target-path repeat" << endl;
 #endif
-                        keep[i] = false;
-                        break;
-                    }
-                }
-                if (!keep[i]) {
+                    keep[i] = false;
                     continue;
                 }
-
-                // Independently check for repeats in the target path's reference sequence.
-                const size_t ref_span = anchor_lengths[i];
-                const size_t path_slide_limit = min<size_t>(max_slide, ref_span * 2);
-                if (ref_span > 0 && path_slide_limit > 0) {
-                    const auto first_step = step_ranges[i].first;
-                    const auto first_handle = graph->get_handle_of_step(first_step);
-                    const auto path_handle = graph->get_path_handle_of_step(first_step);
-                    const auto& first_pos = chunk.second.mapping(0).position();
-                    const bool reverse_on_path =
-                        first_pos.is_reverse() != graph->get_is_reverse(first_handle);
-
-                    const size_t step_start = graph->get_position_of_step(first_step);
-                    const size_t node_length = graph->get_length(first_handle);
-                    const size_t path_length = graph->get_path_length(path_handle);
-                    const size_t mapping_offset = first_pos.offset();
-                    assert(mapping_offset <= node_length);
-
-                    size_t anchor_start;
-                    if (reverse_on_path) {
-                        const size_t anchor_end = step_start + node_length - mapping_offset;
-                        assert(ref_span <= anchor_end);
-                        anchor_start = anchor_end - ref_span;
-                    } else {
-                        anchor_start = step_start + mapping_offset;
-                    }
-                    assert(anchor_start <= path_length);
-                    assert(ref_span <= path_length - anchor_start);
-
-                    auto path_window = [&](size_t start) {
-                        string result;
-                        result.reserve(ref_span);
-                        auto step = graph->get_step_at_position(path_handle, start);
-                        size_t within_step = start - graph->get_position_of_step(step);
-                        while (result.size() < ref_span) {
-                            // get_handle_of_step() is oriented as the path traverses this
-                            // step, so its sequence is already in forward path order.
-                            const auto handle = graph->get_handle_of_step(step);
-                            const string node_sequence = graph->get_sequence(handle);
-                            const size_t take = min(node_sequence.size() - within_step,
-                                                    ref_span - result.size());
-                            result.append(node_sequence, within_step, take);
-                            within_step = 0;
-                            if (result.size() < ref_span) {
-                                if (!graph->has_next_step(step)) {
-                                    break;
-                                }
-                                step = graph->get_next_step(step);
-                            }
-                        }
-                        return result;
-                    };
-                    const string anchor_ref_sequence = path_window(anchor_start);
-                    assert(anchor_ref_sequence.size() == ref_span);
-
-                    for (int64_t distance = -static_cast<int64_t>(path_slide_limit);
-                         distance <= static_cast<int64_t>(path_slide_limit); ++distance) {
-                        if (distance == 0) {
-                            continue;
-                        }
-                        size_t slid_start;
-                        if (distance < 0) {
-                            const size_t shift = static_cast<size_t>(-distance);
-                            if (shift > anchor_start) {
-                                continue;
-                            }
-                            slid_start = anchor_start - shift;
-                        } else {
-                            const size_t shift = static_cast<size_t>(distance);
-                            if (shift > path_length - anchor_start) {
-                                continue;
-                            }
-                            slid_start = anchor_start + shift;
-                        }
-                        if (ref_span > path_length - slid_start) {
-                            continue;
-                        }
-                        const string slid_ref_sequence = path_window(slid_start);
-                        if (slid_ref_sequence.size() == ref_span
-                            && slid_ref_sequence == anchor_ref_sequence) {
-#ifdef debug_anchored_surject
-                            cerr << "anchor " << i
-                                 << " pruned for existing again at target-path offset "
-                                 << distance << endl;
-#endif
-                            keep[i] = false;
-                            break;
-                        }
-                    }
-                }
-                if (!keep[i]) {
-                    // Don't do the statistical checks if we're already not keeping the anchor.
-                    continue;
-                }
-
 
                 // Low statistical complexity
                 if ((anchor_lengths[i] <= max_low_complexity_anchor_prune || chunk.first.second - chunk.first.first <= max_low_complexity_anchor_prune)) {
