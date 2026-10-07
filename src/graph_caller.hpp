@@ -104,15 +104,6 @@ static void flip_snarl(Snarl& snarl) {
     *snarl.mutable_end() = reverse(v);
 }
 
-/// The 1-based position on the base path of the base `along_path` bases into `ref_path_name`, a
-/// path that may name a subrange of its base path.
-static int64_t base_path_position(const string& ref_path_name, int64_t along_path) {
-    subrange_t subrange;
-    Paths::strip_subrange(ref_path_name, &subrange);
-    const int64_t basepath_offset = subrange == PathMetadata::NO_SUBRANGE ? 0 : (int64_t)subrange.first;
-    return along_path + 1 + basepath_offset;
-}
-
 /// Look a reference path up in one of the per-caller maps without inserting on a miss:
 /// `operator[]` inserts, and these maps are read from worker threads.
 static inline size_t ref_offset_of(const map<string, size_t>& offsets, const string& path) {
