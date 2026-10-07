@@ -27,9 +27,26 @@ public:
     using Surjector::prune_and_trim_anchors;
     using Surjector::choose_primary;
     using Surjector::choose_primary_strand;
-    using Surjector::add_SA_tag;
     
 };
+
+
+// Read individual SAM fields without assuming SA is the only tag.
+static map<string, pair<char, string>> parse_sam_tags_for_test(const Alignment& aln) {
+    map<string, pair<char, string>> tags;
+    if (has_annotation(aln, "tags")) {
+        istringstream input(get_annotation<string>(aln, "tags"));
+        string field;
+        while (input >> field) {
+            REQUIRE(field.size() >= 5);
+            REQUIRE(field[2] == ':');
+            REQUIRE(field[4] == ':');
+            REQUIRE(tags.emplace(field.substr(0, 2),
+                                 make_pair(field[3], field.substr(5))).second);
+        }
+    }
+    return tags;
+}
 
 
 TEST_CASE("Surjection alternatives are classified by read interval",
@@ -74,51 +91,45 @@ TEST_CASE("Surjection alternatives are classified by read interval",
     add_candidate("B", 0, 60, 60, 100);
     add_candidate("C", 60, 100, 30, 160);
 
+    auto by_name = [&]() {
+        map<string, Alignment> named;
+        for (const auto& candidate : candidates) {
+            REQUIRE(named.emplace(candidate.first.name(), candidate.first).second);
+        }
+        return named;
+    };
+
     SECTION("Supplementary reporting retains the disjoint candidate") {
         surjector.report_supplementary = true;
+        surjector.choose_primary(candidates);
+
+        REQUIRE(candidates.size() == 3);
+        CHECK(candidates[0].first.name() == "B");
+        CHECK(candidates[1].first.name() == "A");
+        CHECK(candidates[2].first.name() == "C");
+        const auto named = by_name();
+        CHECK_FALSE(named.at("B").is_secondary());
+        CHECK_FALSE(is_supplementary(named.at("B")));
+        CHECK(named.at("B").score() == 60);
+        CHECK(named.at("A").is_secondary());
+        CHECK_FALSE(is_supplementary(named.at("A")));
+        CHECK_FALSE(named.at("C").is_secondary());
+        CHECK(is_supplementary(named.at("C")));
     }
     SECTION("Without supplementary reporting the disjoint candidate is omitted") {
         surjector.report_supplementary = false;
-    }
+        surjector.choose_primary(candidates);
 
-    surjector.choose_primary(candidates);
-    REQUIRE(candidates.size() == (surjector.report_supplementary ? 3 : 2));
-    size_t primary_count = 0;
-    for (const auto& candidate : candidates) {
-        const auto& aln = candidate.first;
-        const bool supplementary = has_annotation(aln, "supplementary")
-            && get_annotation<bool>(aln, "supplementary");
-        CHECK(aln.is_secondary() == (aln.name() == "A"));
-        CHECK(supplementary == (aln.name() == "C"));
-        if (!aln.is_secondary() && !supplementary) {
-            CHECK(aln.name() == "B");
-            CHECK(aln.score() == 60);
-            ++primary_count;
-        }
-    }
-    CHECK(primary_count == 1);
-
-    if (surjector.report_supplementary) {
-        vector<Alignment> output;
-        vector<tuple<string, int64_t, bool>> positions;
-        for (const auto& candidate : candidates) {
-            output.push_back(candidate.first);
-            positions.emplace_back("ref", candidate.first.path().mapping(0).position().offset(), false);
-        }
-        surjector.add_SA_tag(output, positions, pos_graph, false);
-        for (const auto& aln : output) {
-            if (aln.name() == "A") {
-                CHECK_FALSE(has_annotation(aln, "tags"));
-            } else {
-                CHECK(has_annotation(aln, "tags"));
-                if (has_annotation(aln, "tags")) {
-                    const string expected = aln.name() == "B"
-                        ? "SA:Z:ref,161,+,60S40M,0,0;"
-                        : "SA:Z:ref,101,+,60M40S,0,0;";
-                    CHECK(get_annotation<string>(aln, "tags") == expected);
-                }
-            }
-        }
+        REQUIRE(candidates.size() == 2);
+        CHECK(candidates[0].first.name() == "B");
+        CHECK(candidates[1].first.name() == "A");
+        const auto named = by_name();
+        CHECK_FALSE(named.at("B").is_secondary());
+        CHECK_FALSE(is_supplementary(named.at("B")));
+        CHECK(named.at("B").score() == 60);
+        CHECK(named.at("A").is_secondary());
+        CHECK_FALSE(is_supplementary(named.at("A")));
+        CHECK(named.count("C") == 0);
     }
 }
 
@@ -165,46 +176,41 @@ TEST_CASE("Primary strand selection ignores secondary alternatives",
             aln, make_pair(step, step));
     };
 
-    path_handle_t expected_primary;
-    bool expect_supplementary = false;
-    SECTION("Secondary alternatives cannot increase the strand score") {
+    SECTION("A wins with 110 despite B having three score-105 placements") {
         add_candidate(path_a, step_a, 0, 100, 110, 0);
         add_candidate(path_b, step_b, 0, 100, 105, 0);
         add_candidate(path_b, step_b, 0, 100, 105, 200);
         add_candidate(path_b, step_b, 0, 100, 105, 400);
-        expected_primary = path_a;
+        surjector.choose_primary(candidates.at(make_pair(path_a, false)));
+        surjector.choose_primary(candidates.at(make_pair(path_b, false)));
+
+        const auto& b = candidates.at(make_pair(path_b, false));
+        REQUIRE(b.size() == 3);
+        CHECK_FALSE(b[0].first.is_secondary());
+        CHECK_FALSE(is_supplementary(b[0].first));
+        CHECK(b[1].first.is_secondary());
+        CHECK_FALSE(is_supplementary(b[1].first));
+        CHECK(b[2].first.is_secondary());
+        CHECK_FALSE(is_supplementary(b[2].first));
+        CHECK(surjector.choose_primary_strand(candidates) == make_pair(path_a, false));
     }
-    SECTION("Secondary alternatives cannot decrease the strand score") {
-        add_candidate(path_a, step_a, 0, 100, 90, 0);
-        add_candidate(path_b, step_b, 0, 100, 95, 0);
-        add_candidate(path_b, step_b, 0, 100, 95, 200);
-        add_candidate(path_b, step_b, 0, 100, 95, 400);
-        expected_primary = path_b;
-    }
-    SECTION("Disjoint supplementary pieces still contribute") {
+    SECTION("B wins with disjoint scores 65 plus 45 against A's 105") {
         add_candidate(path_a, step_a, 0, 100, 105, 0);
         add_candidate(path_b, step_b, 0, 60, 65, 0);
         add_candidate(path_b, step_b, 60, 100, 45, 200);
-        expected_primary = path_b;
-        expect_supplementary = true;
-    }
+        surjector.choose_primary(candidates.at(make_pair(path_a, false)));
+        surjector.choose_primary(candidates.at(make_pair(path_b, false)));
 
-    for (auto& strand : candidates) {
-        surjector.choose_primary(strand.second);
+        const auto& b = candidates.at(make_pair(path_b, false));
+        REQUIRE(b.size() == 2);
+        CHECK_FALSE(b[0].first.is_secondary());
+        CHECK_FALSE(is_supplementary(b[0].first));
+        CHECK(b[0].first.score() == 65);
+        CHECK_FALSE(b[1].first.is_secondary());
+        CHECK(is_supplementary(b[1].first));
+        CHECK(b[1].first.score() == 45);
+        CHECK(surjector.choose_primary_strand(candidates) == make_pair(path_b, false));
     }
-    const auto& pieces = candidates.at(make_pair(path_b, false));
-    REQUIRE(pieces.size() == (expect_supplementary ? 2 : 3));
-    CHECK_FALSE(pieces.front().first.is_secondary());
-    if (expect_supplementary) {
-        CHECK_FALSE(pieces[1].first.is_secondary());
-        REQUIRE(has_annotation(pieces[1].first, "supplementary"));
-        CHECK(get_annotation<bool>(pieces[1].first, "supplementary"));
-    } else {
-        CHECK(pieces[1].first.is_secondary());
-        CHECK(pieces[2].first.is_secondary());
-    }
-    CHECK(surjector.choose_primary_strand(candidates)
-          == make_pair(expected_primary, false));
 }
 
 
@@ -239,34 +245,73 @@ TEST_CASE("Secondary alternatives do not join the supplementary group",
         edit->set_to_length(graph.get_length(node));
     }
 
-    SECTION("Primary input") {
-        read.set_is_secondary(false);
-    }
-    SECTION("Already-secondary input retains its supplementary piece") {
-        read.set_is_secondary(true);
-    }
-
-    auto output = surjector.surject(read, {main_path, repeat_path});
-    REQUIRE(output.size() == 3);
-    size_t supplementary_count = 0, secondary_count = 0, linked_count = 0;
-    for (const auto& aln : output) {
-        supplementary_count += is_supplementary(aln);
-        secondary_count += aln.is_secondary();
-        if (has_annotation(aln, "tags")) {
-            const auto tags = get_annotation<string>(aln, "tags");
-            linked_count += tags.find("SA:Z:") != string::npos;
-            // Each member links only to its partner, not the repeat alternative.
-            CHECK(std::count(tags.begin(), tags.end(), ';') == 1);
-        }
-        if (is_supplementary(aln)) {
+    // Either repeat copy may win the tie. Verify that SA links use the
+    // selected copy's position, not the unused alternative's position.
+    auto check_pieces_and_links = [&](const vector<Alignment>& output) {
+        REQUIRE(output.size() == 3);
+        const Alignment* main = nullptr;
+        const Alignment* supplementary = nullptr;
+        const Alignment* alternative = nullptr;
+        for (const auto& aln : output) {
             REQUIRE(aln.refpos_size() == 1);
-            CHECK(aln.refpos(0).name() == "repeat");
-            CHECK(aln.is_secondary() == read.is_secondary());
+            CHECK_FALSE(aln.refpos(0).is_reverse());
+            if (aln.refpos(0).name() == "main") {
+                REQUIRE(main == nullptr);
+                main = &aln;
+            } else {
+                REQUIRE(aln.refpos(0).name() == "repeat");
+                if (is_supplementary(aln)) {
+                    REQUIRE(supplementary == nullptr);
+                    supplementary = &aln;
+                } else {
+                    REQUIRE(alternative == nullptr);
+                    alternative = &aln;
+                }
+            }
         }
+        REQUIRE(main != nullptr);
+        REQUIRE(supplementary != nullptr);
+        REQUIRE(alternative != nullptr);
+        CHECK(main->refpos(0).offset() == 0);
+        CHECK_FALSE(is_supplementary(*main));
+
+        // The 40-base piece occurs at offsets 0 and 240 on the repeat path.
+        const auto chosen = supplementary->refpos(0).offset();
+        const auto unused = alternative->refpos(0).offset();
+        CHECK((chosen == 0 || chosen == 240));
+        CHECK((unused == 0 || unused == 240));
+        CHECK(chosen != unused);
+
+        const auto main_tags = parse_sam_tags_for_test(*main);
+        const auto supplementary_tags = parse_sam_tags_for_test(*supplementary);
+        const auto alternative_tags = parse_sam_tags_for_test(*alternative);
+        REQUIRE(main_tags.count("SA") == 1);
+        CHECK(main_tags.at("SA").first == 'Z');
+        CHECK(main_tags.at("SA").second
+              == "repeat," + to_string(chosen + 1) + ",+,60S40M,0,0;");
+        REQUIRE(supplementary_tags.count("SA") == 1);
+        CHECK(supplementary_tags.at("SA").first == 'Z');
+        CHECK(supplementary_tags.at("SA").second == "main,1,+,60M40S,0,0;");
+        CHECK(alternative_tags.count("SA") == 0);
+        return make_tuple(main, supplementary, alternative);
+    };
+
+    SECTION("Primary input produces a primary, a supplementary, and a secondary") {
+        read.set_is_secondary(false);
+        const auto output = surjector.surject(read, {main_path, repeat_path});
+        const auto pieces = check_pieces_and_links(output);
+        CHECK_FALSE(get<0>(pieces)->is_secondary());
+        CHECK_FALSE(get<1>(pieces)->is_secondary());
+        CHECK(get<2>(pieces)->is_secondary());
     }
-    CHECK(supplementary_count == 1);
-    CHECK(secondary_count == (read.is_secondary() ? 3 : 1));
-    CHECK(linked_count == 2);
+    SECTION("Secondary input passes secondary status to all three outputs") {
+        read.set_is_secondary(true);
+        const auto output = surjector.surject(read, {main_path, repeat_path});
+        const auto pieces = check_pieces_and_links(output);
+        CHECK(get<0>(pieces)->is_secondary());
+        CHECK(get<1>(pieces)->is_secondary());
+        CHECK(get<2>(pieces)->is_secondary());
+    }
 }
 
 
