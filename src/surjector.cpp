@@ -340,11 +340,30 @@ using namespace std;
         }
 #endif
         
-        // we want to remove anchors that can be error-prone: short anchors in the tails and anchors in
-        // low complexity sequences
+        // Read mapper-declared tail lengths. These coordinates are
+        // relative to the stored read sequence and independent of path orientation.
+        // Missing annotations are interpreted as zero.
+        size_t left_tail_length = 0, right_tail_length = 0;
+        if (source_aln) {
+            if (has_annotation(*source_aln, "left_tail_length")) {
+                left_tail_length = static_cast<size_t>(get_annotation<double>(*source_aln, "left_tail_length"));
+            }
+            if (has_annotation(*source_aln, "right_tail_length")) {
+                right_tail_length = static_cast<size_t>(get_annotation<double>(*source_aln, "right_tail_length"));
+            }
+        }
+        else {
+            if (source_mp_aln->has_annotation("left_tail_length")) {
+                left_tail_length = static_cast<size_t>(*((const double*) source_mp_aln->get_annotation("left_tail_length").second));
+            }
+            if (source_mp_aln->has_annotation("right_tail_length")) {
+                right_tail_length = static_cast<size_t>(*((const double*) source_mp_aln->get_annotation("right_tail_length").second));
+            }
+        }
         for (auto it = path_overlapping_anchors.begin(); it != path_overlapping_anchors.end(); ++it) {
             prune_and_trim_anchors(source_aln ? source_aln->sequence() : source_mp_aln->sequence(),
-                                   it->second.first, it->second.second);
+                                   it->second.first, it->second.second,
+                                   left_tail_length, right_tail_length);
         }
         
         // the surjected alignment for each path we overlapped
@@ -4647,10 +4666,11 @@ using namespace std;
     }
 
     void Surjector::prune_and_trim_anchors(const string& sequence, vector<path_chunk_t>& path_chunks,
-                                           vector<pair<step_handle_t, step_handle_t>>& step_ranges) const {
-        
-        if (!prune_suspicious_anchors && max_anchors > path_chunks.size()) {
-            // the setting don't require us to prune anything here
+                                           vector<pair<step_handle_t, step_handle_t>>& step_ranges,
+                                           size_t left_tail_length, size_t right_tail_length) const {
+
+        if (!prune_suspicious_anchors && !prune_tail_region_anchors && max_anchors > path_chunks.size()) {
+            // the settings don't require us to prune anything here
             return;
         }
         
@@ -4674,7 +4694,37 @@ using namespace std;
         }
         
         vector<bool> keep(path_chunks.size(), true);
-        
+
+        // Clamp tail lengths to the read length
+        size_t read_length = sequence.size();
+        left_tail_length = std::min(left_tail_length, read_length);
+        right_tail_length = std::min(right_tail_length, read_length);
+        size_t right_tail_begin = read_length - right_tail_length;
+
+        if (prune_tail_region_anchors) {
+            // Drop anchors whose entire read interval lies inside a mapper-declared tail region.
+            for (int i = 0; i < path_chunks.size(); ++i) {
+                auto& chunk = path_chunks[i];
+                size_t anchor_read_start = chunk.first.first - sequence.begin();
+                size_t anchor_read_end = chunk.first.second - sequence.begin();
+
+                bool fully_in_left_tail = (left_tail_length > 0 && anchor_read_end <= left_tail_length);
+                bool fully_in_right_tail = (right_tail_length > 0 && anchor_read_start >= right_tail_begin);
+
+                if (fully_in_left_tail || fully_in_right_tail) {
+#ifdef debug_anchored_surject
+                    cerr << "anchor " << i << " (read[" << anchor_read_start << ":" << anchor_read_end
+                        << "]) pruned for lying fully inside "
+                        << (fully_in_left_tail ? "left" : "right")
+                        << " tail region"
+                        << " (left_tail_length=" << left_tail_length
+                        << ", right_tail_length=" << right_tail_length << ")" << endl;
+#endif
+                    keep[i] = false;
+                }
+            }
+        }
+
         if (prune_suspicious_anchors) {
 #ifdef debug_anchored_surject
             cerr << "pruning suspicious anchors";
@@ -4686,7 +4736,12 @@ using namespace std;
             for (int i = 0; i < path_chunks.size(); ++i) {
                 auto& chunk = path_chunks[i];
                 // Mark anchors that are themselves suspicious as not to be kept.
-                
+
+                if (!keep[i]) {
+                    // Already pruned by the tail-region check above; skip remaining checks.
+                    continue;
+                }
+
                 // Short tails
                 if ((chunk.first.first == path_chunks.front().first.first || chunk.first.second == path_chunks.back().first.second) // Is at either tail
                     && (anchor_lengths[i] <= max_tail_anchor_prune || chunk.first.second - chunk.first.first <= max_tail_anchor_prune)) { // And is too short
@@ -5507,6 +5562,9 @@ using namespace std;
             if (source.has_fragment_prev()) {
                 *clipped.mutable_fragment_prev() = source.fragment_prev();
             }
+            // TODO: Adjust full-read tail annotations to each supplementary piece's
+            // clipped interval. Unchanged lengths can exceed the piece or prune the
+            // wrong anchors; clamping prevents oversized lengths but does not fix coordinates.
             *clipped.mutable_annotation() = source.annotation();
             
             if (&unclipped != &source) {
