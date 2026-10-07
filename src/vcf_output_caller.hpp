@@ -26,6 +26,7 @@
 #include "gref.hpp"
 #include "vcf_genotype_likelihoods.hpp"
 #include "vcf_record.hpp"
+#include "site_tree.hpp"
 
 namespace vg {
 
@@ -758,7 +759,7 @@ protected:
     void scan_snarl(const string& allele_string, function<void(const string&, Snarl&)> callback) const;
 
     // update the PS and LV tags in the output buffer (called in write_variants if include_nested is true)
-    void update_nesting_info_tags(const SnarlManager* snarl_manager);
+    void update_nesting_info_tags(const SiteTree& sites);
     
     /// output vcf
     mutable vcflib::VariantCallFile output_vcf;

@@ -641,7 +641,7 @@ void VCFOutputCaller::resolve_linkage_level(size_t level, bool last) {
 void VCFOutputCaller::write_variants(ostream& out_stream, const SnarlManager* snarl_manager) {
     assert(include_nested == false || snarl_manager != nullptr);
     if (include_nested) {
-        update_nesting_info_tags(snarl_manager);
+        update_nesting_info_tags(SnarlManagerSiteTree(*snarl_manager));
     }
     vector<pair<BufferedRecordKey, string>> all_variants;
     // Reserve once: doing it inside the loop below reallocates per thread buffer.
@@ -2686,7 +2686,17 @@ void VCFOutputCaller::scan_snarl(const string& allele_string, function<void(cons
     }
 }
 
-void VCFOutputCaller::update_nesting_info_tags(const SnarlManager* snarl_manager) {
+void VCFOutputCaller::update_nesting_info_tags(const SiteTree& sites) {
+
+    // A site's name as print_snarl spells it, and the name it has when read the other way.
+    auto name_of = [&](SiteTree::site_t site) {
+        const SiteEnds e = sites.ends_of(site);
+        return print_snarl(e.start_id, e.start_backward, e.end_id, e.end_backward, false);
+    };
+    auto flipped_name_of = [&](SiteTree::site_t site) {
+        const SiteEnds e = sites.ends_of(site);
+        return print_snarl(e.end_id, !e.end_backward, e.start_id, !e.start_backward, false);
+    };
 
     // Merge the per-thread suppressed-site intervals collected during calling.  These are sites
     // that never reached the VCF, so pass 1 below cannot see them, but a record nested under one
@@ -2769,7 +2779,7 @@ void VCFOutputCaller::update_nesting_info_tags(const SnarlManager* snarl_manager
     // Only the names of sites in the VCF are ever looked up, so only they are indexed. The
     // snarls are visited in the same order as for an index of every name, so a name that two
     // snarls print goes to the same one.
-    unordered_map<string, const Snarl*> name_to_snarl;
+    unordered_map<string, SiteTree::site_t> name_to_snarl;
     name_to_snarl.reserve(chrom_of_name.size());
     if (translation == nullptr) {
         // A name is the snarl's two boundary visits, so each VCF name is read back into its visits
@@ -2826,15 +2836,14 @@ void VCFOutputCaller::update_nesting_info_tags(const SnarlManager* snarl_manager
         }
         // The VCF names a snarl matches: its own, then its flipped one (as call sometimes messes
         // with orientation).
-        auto for_each_match = [&](const Snarl* snarl, const function<void(const string&)>& match) {
-            auto own = name_of_ends.find(Ends{snarl->start().node_id(), snarl->end().node_id(),
-                                              snarl->start().backward(), snarl->end().backward()});
+        auto for_each_match = [&](SiteTree::site_t snarl, const function<void(const string&)>& match) {
+            const SiteEnds e = sites.ends_of(snarl);
+            auto own = name_of_ends.find(Ends{e.start_id, e.end_id, e.start_backward, e.end_backward});
             if (own != name_of_ends.end()) {
                 match(*own->second);
             }
-            auto flipped = name_of_ends.find(Ends{snarl->end().node_id(), snarl->start().node_id(),
-                                                  !snarl->end().backward(),
-                                                  !snarl->start().backward()});
+            auto flipped = name_of_ends.find(Ends{e.end_id, e.start_id, !e.end_backward,
+                                                  !e.start_backward});
             if (flipped != name_of_ends.end()) {
                 match(*flipped->second);
             }
@@ -2842,13 +2851,13 @@ void VCFOutputCaller::update_nesting_info_tags(const SnarlManager* snarl_manager
         // The snarls are matched on several threads, each into a list of its own. Only a name
         // that two different snarls match could depend on the order the snarls are visited in;
         // if there is one, the matches are made again in preorder, as they always were.
-        vector<vector<pair<const string*, const Snarl*>>> found(max(1, omp_get_max_threads()));
-        snarl_manager->for_each_snarl_unindexed_parallel([&](const Snarl* snarl) {
+        vector<vector<pair<const string*, SiteTree::site_t>>> found(max(1, omp_get_max_threads()));
+        sites.for_each_site([&](SiteTree::site_t snarl) {
             auto& mine = found[omp_get_thread_num()];
             for_each_match(snarl, [&](const string& name) {
                 mine.emplace_back(&name, snarl);
             });
-        });
+        }, false);
         bool ambiguous = false;
         for (const auto& thread_found : found) {
             for (const auto& name_and_snarl : thread_found) {
@@ -2860,25 +2869,25 @@ void VCFOutputCaller::update_nesting_info_tags(const SnarlManager* snarl_manager
         }
         if (ambiguous) {
             name_to_snarl.clear();
-            snarl_manager->for_each_snarl_preorder([&](const Snarl* snarl) {
+            sites.for_each_site([&](SiteTree::site_t snarl) {
                 for_each_match(snarl, [&](const string& name) {
                     name_to_snarl[name] = snarl;
                 });
-            });
+            }, true);
         }
     } else {
         // Translated names are not node IDs, so they are printed and compared.
-        snarl_manager->for_each_snarl_preorder([&](const Snarl* snarl) {
-                string snarl_name = print_snarl(*snarl);
+        sites.for_each_site([&](SiteTree::site_t snarl) {
+                string snarl_name = name_of(snarl);
                 if (chrom_of_name.count(snarl_name) != 0) {
                     name_to_snarl[std::move(snarl_name)] = snarl;
                 }
                 // also add a map from the flipped snarl (as call sometimes messes with orientation)
-                string flipped_name = print_flipped_snarl(*snarl);
+                string flipped_name = flipped_name_of(snarl);
                 if (chrom_of_name.count(flipped_name) != 0) {
                     name_to_snarl[std::move(flipped_name)] = snarl;
                 }
-            });
+            }, true);
     }
 
     // pass 2) identify top-level snarls (those with no ancestors in VCF)
@@ -2900,10 +2909,10 @@ void VCFOutputCaller::update_nesting_info_tags(const SnarlManager* snarl_manager
     auto is_top_level = [&](const string& name) -> bool {
         auto it = name_to_snarl.find(name);
         if (it == name_to_snarl.end()) return true; // not found, treat as top-level
-        const Snarl* snarl = it->second;
-        while ((snarl = snarl_manager->parent_of(snarl))) {
-            string cur_name = print_snarl(*snarl);
-            string flipped_name = print_flipped_snarl(*snarl);
+        SiteTree::site_t snarl = it->second;
+        while ((snarl = sites.parent_of(snarl))) {
+            string cur_name = name_of(snarl);
+            string flipped_name = flipped_name_of(snarl);
             if (chrom_of_name.count(cur_name) || chrom_of_name.count(flipped_name)) {
                 return false; // has ancestor in VCF
             }
@@ -2961,16 +2970,16 @@ void VCFOutputCaller::update_nesting_info_tags(const SnarlManager* snarl_manager
         // chrom_index is complete after pass 1, so this lookup always hits.
         uint32_t my_chrom_id = chrom_index.at(my_chrom);
         uint32_t prev_chrom_id = my_chrom_id;
-        const Snarl* snarl = name_to_snarl.at(name);
+        SiteTree::site_t snarl = name_to_snarl.at(name);
 
         assert(snarl != nullptr);
         // walk up the snarl tree
-        while ((snarl = snarl_manager->parent_of(snarl))) {
-            string cur_name = print_snarl(*snarl);
+        while ((snarl = sites.parent_of(snarl))) {
+            string cur_name = name_of(snarl);
 
             // Since it is possible that the snarl is actually flipped in the vcf, check for the
             // flipped version too
-            string flipped_name = print_flipped_snarl(*snarl);
+            string flipped_name = flipped_name_of(snarl);
             const string* hit = nullptr;
             if (chrom_of_name.count(cur_name)) {
                 // only count snarls that are in the vcf
