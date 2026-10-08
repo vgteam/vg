@@ -25,6 +25,7 @@ public:
     using Surjector::extract_overlapping_paths;
     using Surjector::filter_redundant_path_chunks;
     using Surjector::prune_and_trim_anchors;
+    using Surjector::anchor_has_nearby_repeat;
     using Surjector::choose_primary;
     using Surjector::choose_primary_strand;
     
@@ -312,6 +313,182 @@ TEST_CASE("Secondary alternatives do not join the supplementary group",
         CHECK(get<1>(pieces)->is_secondary());
         CHECK(get<2>(pieces)->is_secondary());
     }
+}
+
+
+
+// Add one exact-match mapping with explicit orientation and coordinates.
+static void append_anchor_match(path_t& anchor, int64_t node_id,
+                                bool reverse, size_t offset, size_t length) {
+    auto* mapping = anchor.add_mapping();
+    mapping->mutable_position()->set_node_id(node_id);
+    mapping->mutable_position()->set_is_reverse(reverse);
+    mapping->mutable_position()->set_offset(offset);
+    auto* edit = mapping->add_edit();
+    edit->set_from_length(length);
+    edit->set_to_length(length);
+}
+
+TEST_CASE("Target-path repeats respect the slide limit", "[surject][anchor-sliding]") {
+    bdsg::HashGraph graph;
+    auto node = graph.create_handle("ACGATTACGA");
+    auto path = graph.create_path_handle("ref");
+    auto step = graph.append_step(path, node);
+    bdsg::PositionOverlay overlay(&graph);
+    TestSurjector surjector(&overlay);
+
+    // ACGA occurs at path offsets 0 and 6. The read has only one occurrence.
+    string read = "ACGA";
+    path_t mappings;
+    SECTION("A duplicate six bases to the right is detected") {
+        append_anchor_match(mappings, graph.get_id(node), false, 0, 4);
+        Surjector::path_chunk_t chunk{{read.begin(), read.end()}, mappings};
+        surjector.max_slide = 6;
+        CHECK(surjector.anchor_has_nearby_repeat(read, chunk, {step, step}));
+    }
+    SECTION("A duplicate six bases to the left is detected") {
+        append_anchor_match(mappings, graph.get_id(node), false, 6, 4);
+        Surjector::path_chunk_t chunk{{read.begin(), read.end()}, mappings};
+        surjector.max_slide = 6;
+        CHECK(surjector.anchor_has_nearby_repeat(read, chunk, {step, step}));
+    }
+    SECTION("A duplicate beyond the radius is ignored") {
+        append_anchor_match(mappings, graph.get_id(node), false, 0, 4);
+        Surjector::path_chunk_t chunk{{read.begin(), read.end()}, mappings};
+        surjector.max_slide = 5;
+        CHECK_FALSE(surjector.anchor_has_nearby_repeat(read, chunk, {step, step}));
+    }
+    SECTION("Zero disables both read and target-path sliding") {
+        read = "ACGATTACGA";
+        append_anchor_match(mappings, graph.get_id(node), false, 0, 4);
+        Surjector::path_chunk_t chunk{{read.begin(), read.begin() + 4}, mappings};
+        surjector.max_slide = 0;
+        CHECK_FALSE(surjector.anchor_has_nearby_repeat(read, chunk, {step, step}));
+    }
+}
+
+TEST_CASE("Read repeats use the anchor's read span", "[surject][anchor-sliding]") {
+    bdsg::HashGraph graph;
+    auto node = graph.create_handle("ACGATTCGCCCC");
+    auto path = graph.create_path_handle("ref");
+    auto step = graph.append_step(path, node);
+    bdsg::PositionOverlay overlay(&graph);
+    TestSurjector surjector(&overlay);
+
+    SECTION("A duplicate in the read is detected without a path duplicate") {
+        string read = "ACGATTACGA";
+        path_t mappings;
+        append_anchor_match(mappings, graph.get_id(node), false, 0, 4);
+        Surjector::path_chunk_t chunk{{read.begin(), read.begin() + 4}, mappings};
+        surjector.max_slide = 6;
+        CHECK(surjector.anchor_has_nearby_repeat(read, chunk, {step, step}));
+    }
+    SECTION("An insertion makes the read search radius larger") {
+        // ACGCTAGA aligns as 2M4I2M to ACGA.
+        // The second ACGCTAGA begins at read offset 10.
+        string read = "ACGCTAGATTACGCTAGA";
+        path_t mappings;
+        append_anchor_match(mappings, graph.get_id(node), false, 0, 2);
+        auto* mapping = mappings.mutable_mapping(0);
+        auto* insertion = mapping->add_edit();
+        insertion->set_to_length(4);
+        insertion->set_sequence("GCTA");
+        auto* match = mapping->add_edit();
+        match->set_from_length(2);
+        match->set_to_length(2);
+        Surjector::path_chunk_t chunk{{read.begin(), read.begin() + 8}, mappings};
+        surjector.max_slide = 12;
+        // Read radius is min(12, 2*8) = 12, not 2*4 = 8.
+        CHECK(surjector.anchor_has_nearby_repeat(read, chunk, {step, step}));
+    }
+}
+
+TEST_CASE("Reverse anchors spanning nodes use the full reference interval",
+          "[surject][anchor-sliding]") {
+    bdsg::HashGraph graph;
+    auto a = graph.create_handle("ACG");
+    auto b = graph.create_handle("ATT");
+    auto c = graph.create_handle("ACG");
+    auto d = graph.create_handle("A");
+    graph.create_edge(a, b);
+    graph.create_edge(b, c);
+    graph.create_edge(c, d);
+    auto path = graph.create_path_handle("ref");
+    auto step_a = graph.append_step(path, a);
+    auto step_b = graph.append_step(path, b);
+    graph.append_step(path, c);
+    graph.append_step(path, d);
+
+    // Path: ACG | ATT | ACG | A. ACGA occurs at offsets 0 and 6.
+    // Read TCGT traverses the first ACGA backward: b's first base, then a.
+    string read = "TCGT";
+    path_t mappings;
+    append_anchor_match(mappings, graph.get_id(b), true, 2, 1);
+    append_anchor_match(mappings, graph.get_id(a), true, 0, 3);
+    Surjector::path_chunk_t chunk{{read.begin(), read.end()}, mappings};
+    bdsg::PositionOverlay overlay(&graph);
+    TestSurjector surjector(&overlay);
+    surjector.max_slide = 6;
+    CHECK(surjector.anchor_has_nearby_repeat(read, chunk, {step_b, step_a}));
+}
+
+TEST_CASE("Reverse mappings on reverse path steps use forward path coordinates",
+          "[surject][anchor-sliding]") {
+    bdsg::HashGraph graph;
+    // The reverse-oriented step has path sequence ACGATTACGA.
+    auto node = graph.create_handle("TCGTAATCGT");
+    auto path = graph.create_path_handle("ref");
+    auto step = graph.append_step(path, graph.flip(node));
+
+    string read = "ACGA";
+    path_t mappings;
+    append_anchor_match(mappings, graph.get_id(node), true, 0, 4);
+    Surjector::path_chunk_t chunk{{read.begin(), read.end()}, mappings};
+    bdsg::PositionOverlay overlay(&graph);
+    TestSurjector surjector(&overlay);
+    surjector.max_slide = 6;
+    CHECK(surjector.anchor_has_nearby_repeat(read, chunk, {step, step}));
+}
+
+TEST_CASE("Repeat pruning keeps anchor and step-range vectors synchronized",
+          "[surject][anchor-sliding]") {
+    bdsg::HashGraph graph;
+    auto repeated = graph.create_handle("ACGATTACGA");
+    auto unique = graph.create_handle("TGCC");
+    graph.create_edge(repeated, unique);
+    auto path = graph.create_path_handle("ref");
+    auto repeated_step = graph.append_step(path, repeated);
+    auto unique_step = graph.append_step(path, unique);
+
+    // ACGA is ambiguous on the path; TGCC is unique.
+    string read = "ACGATGCC";
+    path_t first, second;
+    append_anchor_match(first, graph.get_id(repeated), false, 0, 4);
+    append_anchor_match(second, graph.get_id(unique), false, 0, 4);
+    vector<Surjector::path_chunk_t> chunks{
+        {{read.begin(), read.begin() + 4}, first},
+        {{read.begin() + 4, read.end()}, second}
+    };
+    vector<pair<step_handle_t, step_handle_t>> ranges{
+        {repeated_step, repeated_step}, {unique_step, unique_step}
+    };
+    bdsg::PositionOverlay overlay(&graph);
+    TestSurjector surjector(&overlay);
+    surjector.prune_suspicious_anchors = true;
+    surjector.prune_tail_region_anchors = false;
+    surjector.max_slide = 6;
+    surjector.max_tail_anchor_prune = 0;
+    surjector.max_low_complexity_anchor_prune = 0;
+    surjector.max_low_complexity_anchor_trim = 0;
+    surjector.max_anchors = 1000;
+    surjector.prune_and_trim_anchors(read, chunks, ranges);
+
+    REQUIRE(chunks.size() == 1);
+    REQUIRE(ranges.size() == 1);
+    CHECK(chunks.front().first.first == read.begin() + 4);
+    CHECK(chunks.front().first.second == read.end());
+    CHECK(chunks.front().second.mapping(0).position().node_id() == graph.get_id(unique));
+    CHECK(ranges.front() == make_pair(unique_step, unique_step));
 }
 
 
