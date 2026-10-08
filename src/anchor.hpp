@@ -19,6 +19,7 @@
 #include <array>
 #include <atomic>
 #include <cstdint>
+#include <functional>
 #include <iosfwd>
 #include <memory>
 #include <mutex>
@@ -368,6 +369,60 @@ void build_site_anchors(const AnchorSiteEvidence& evidence, const vector<int>& g
                         const AnchorParams& params, AnchorCounters& counters,
                         vector<AnchorWriter::Anchor>& out,
                         const vector<double>* read_strand = nullptr);
+
+/**
+ * Turns each chosen site into anchors as the sites are rendered, and writes the anchor file at
+ * the end of the run. Off until `configure` gives it a path.
+ *
+ * Not copyable, since its parameters can point at its own counters.
+ */
+class AnchorCollector {
+public:
+    AnchorCollector() = default;
+    AnchorCollector(const AnchorCollector&) = delete;
+    AnchorCollector& operator=(const AnchorCollector&) = delete;
+
+    /// Write anchors to `path`, with `params` deciding which sites and reads qualify. Where
+    /// `params` has no counters, as in a unit test, this collector counts into its own.
+    /// `graph_name`, `reads_source` and `mismap_min`, the mismap floor that bounds a read's
+    /// anchor confidence, go in the file's header. Call before any thread collects.
+    void configure(const string& path, const AnchorParams& params, const string& graph_name,
+                   const string& reads_source, double mismap_min);
+
+    /// Whether anchors are being collected.
+    bool is_enabled() const { return !path.empty(); }
+
+    /// Whether `collect` needs each site's leaf status, which has a cost to find.
+    bool wants_leaf_test() const { return !path.empty() && params.leaf_only; }
+
+    /// Turn one chosen site into anchors, from the reads' evidence the genotyper kept for it and
+    /// the share of its reads the genotype explains. `genotype` is in phase order, and
+    /// `haploid_slot` is the strand a one-allele genotype sits on. `site_name` names the site in
+    /// the file. `is_leaf` says whether the site has no child sites, and matters only when
+    /// `wants_leaf_test`. `gqn` is the value for the gqn column; NaN is written as `.`.
+    /// `strand_log_odds` gives a read's strand log-odds from the other sites, by read name.
+    ///
+    /// Safe to call from many threads, but not from inside a nested parallel region.
+    void collect(const AnchorSiteEvidence& evidence, double explained_share,
+                 const vector<int>& genotype, int haploid_slot, const string& site_name,
+                 bool is_leaf, double gqn,
+                 const function<double(std::string_view read_name)>& strand_log_odds);
+
+    /// Write the anchor file, naming `sample_name`, and report the counters. Does nothing unless
+    /// anchors are being collected.
+    void write(const string& sample_name);
+
+private:
+    string path;
+    AnchorParams params;
+    /// Used only when `configure` was given no counters.
+    AnchorCounters owned_counters;
+    string graph_name;
+    string reads_source;
+    /// Created once the thread count is known.
+    unique_ptr<AnchorWriter> writer;
+    double mismap_min = 0.0;
+};
 
 }
 

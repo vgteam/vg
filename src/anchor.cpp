@@ -22,8 +22,6 @@
 #include "parallel_sort.hpp"
 #include "path.hpp"
 #include "utility.hpp"
-#include "vcf_output_caller.hpp"
-#include "read_likelihood_caller.hpp"
 
 namespace vg {
 
@@ -1008,52 +1006,61 @@ bool AnchorWriter::write(const string& path, const string& graph_name, const str
     return (bool)out;
 }
 
-void VCFOutputCaller::collect_anchors_for(const Snarl& snarl, const vector<int>& genotype,
-                                          int haploid_slot,
-                                          const unique_ptr<SnarlCaller::CallInfo>& call_info,
-                                          bool is_leaf, double gqn, size_t record_key) {
-    if (anchor_path.empty() || anchor_writer == nullptr || call_info == nullptr) {
+void AnchorCollector::configure(const string& path, const AnchorParams& params,
+                                const string& graph_name, const string& reads_source,
+                                double mismap_min) {
+    this->path = path;
+    this->params = params;
+    if (this->params.counters == nullptr) {
+        // A caller that did not supply counters, such as a unit test, counts into this
+        // instance's own, so that every use below can dereference without a check.
+        this->params.counters = &this->owned_counters;
+    }
+    this->graph_name = graph_name;
+    this->reads_source = reads_source;
+    this->mismap_min = mismap_min;
+    if (!path.empty()) {
+        // One queue per OpenMP thread, since the passes that fill it are parallel.
+        this->writer = make_unique<AnchorWriter>((size_t)max(1, get_thread_count()));
+    }
+}
+
+void AnchorCollector::collect(const AnchorSiteEvidence& evidence, double explained_share,
+                              const vector<int>& genotype, int haploid_slot,
+                              const string& site_name, bool is_leaf, double gqn,
+                              const function<double(std::string_view read_name)>& strand_log_odds) {
+    if (path.empty() || writer == nullptr) {
         return;
     }
-    if (anchor_params.leaf_only && !is_leaf) {
-        return;
-    }
-    const auto* info =
-        dynamic_cast<const ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo*>(call_info.get());
-    if (info == nullptr || info->anchor_evidence == nullptr) {
-        // A genotype derived from a parent rather than scored here, or a run whose caller is not the
-        // read-likelihood one. There are no per-read responsibilities to partition on.
+    if (params.leaf_only && !is_leaf) {
         return;
     }
     vector<AnchorWriter::Anchor> anchors;
-    // Each read's strand log-odds, leaving out this record.
+    // Each read's strand log-odds, leaving out this site.
     vector<double> read_strand;
     // Built only where `build_site_anchors` reads it: at a diploid homozygote that may be split, or
     // at a heterozygous site under --anchors-phase-hets or --anchors-strict-hets. The test must
     // match its gate, which also checks the vector's length against `evidence.reads`.
     const bool splittable_hom = genotype.size() == 2 && genotype[0] == genotype[1];
-    const bool tiltable_het = (anchor_params.phase_hets || anchor_params.strict_hets)
+    const bool tiltable_het = (params.phase_hets || params.strict_hets)
                               && genotype.size() == 2
                               && genotype[0] != genotype[1];
-    if ((anchor_params.hom_split && splittable_hom) || tiltable_het) {
-        read_strand.reserve(info->anchor_evidence->reads.size());
-        for (const AnchorRead& read : info->anchor_evidence->reads) {
-            read_strand.push_back(read_strand_log_odds(record_key, read_names().name(read.read)));
+    if ((params.hom_split && splittable_hom) || tiltable_het) {
+        read_strand.reserve(evidence.reads.size());
+        for (const AnchorRead& read : evidence.reads) {
+            read_strand.push_back(strand_log_odds(read_names().name(read.read)));
         }
     }
-    build_site_anchors(*info->anchor_evidence, genotype, print_snarl(snarl),
-                       gqn,
-                       info->explained_share, haploid_slot, anchor_params, *anchor_params.counters,
-                       anchors,
-                       (anchor_params.hom_split || anchor_params.phase_hets
-                        || anchor_params.strict_hets) ? &read_strand
-                                                                             : nullptr);
+    build_site_anchors(evidence, genotype, site_name, gqn, explained_share, haploid_slot, params,
+                       *params.counters, anchors,
+                       (params.hom_split || params.phase_hets || params.strict_hets)
+                           ? &read_strand : nullptr);
     // A check for --anchors-hom-split, reported per run: at heterozygous sites, whose alleles show
     // which strand each read is on, how often the read's strand log-odds agree. The log-odds leave
     // the site out. Computed only when splitting is on, and not when the heterozygous placement
     // itself uses the strand log-odds, since the check would then compare the strand with
     // itself.
-    if (anchor_params.hom_split && !anchor_params.phase_hets && !anchor_params.strict_hets
+    if (params.hom_split && !params.phase_hets && !params.strict_hets
         && anchors.size() >= 2) {
         int slot_of_allele[2] = {-1, -1};
         int allele_of_slot[2] = {-1, -1};
@@ -1074,22 +1081,22 @@ void VCFOutputCaller::collect_anchors_for(const Snarl& snarl, const vector<int>&
                     if (!counted.insert(row.read).second) {
                         continue;   // both pins carry the same partition; count each read once
                     }
-                    const double lo = read_strand_log_odds(record_key, read_names().name(row.read));
+                    const double lo = strand_log_odds(read_names().name(row.read));
                     if (std::isnan(lo) || lo == 0.0) {
-                        anchor_params.counters->phase_no_opinion.fetch_add(1);
+                        params.counters->phase_no_opinion.fetch_add(1);
                         continue;
                     }
                     const int phase_slot = lo > 0.0 ? 0 : 1;
                     const bool agree = phase_slot == anchor.slot;
-                    anchor_params.counters->phase_checked.fetch_add(1);
+                    params.counters->phase_checked.fetch_add(1);
                     if (agree) {
-                        anchor_params.counters->phase_agree.fetch_add(1);
+                        params.counters->phase_agree.fetch_add(1);
                     }
                     // The same threshold the split uses, --split-min-q, in natural-log units.
-                    if (std::abs(lo) >= anchor_params.phase_min) {
-                        anchor_params.counters->phase_confident.fetch_add(1);
+                    if (std::abs(lo) >= params.phase_min) {
+                        params.counters->phase_confident.fetch_add(1);
                         if (agree) {
-                            anchor_params.counters->phase_confident_agree.fetch_add(1);
+                            params.counters->phase_confident_agree.fetch_add(1);
                         }
                     }
                 }
@@ -1097,24 +1104,23 @@ void VCFOutputCaller::collect_anchors_for(const Snarl& snarl, const vector<int>&
         }
     }
     for (AnchorWriter::Anchor& anchor : anchors) {
-        anchor_writer->add(std::move(anchor));
+        writer->add(std::move(anchor));
     }
 }
 
-void VCFOutputCaller::write_anchors() {
-    if (anchor_path.empty() || anchor_writer == nullptr) {
+void AnchorCollector::write(const string& sample_name) {
+    if (path.empty() || writer == nullptr) {
         return;
     }
-    size_t anchors = anchor_writer->anchor_count();
-    size_t rows = anchor_writer->read_row_count();
-    if (!anchor_writer->write(anchor_path, anchor_graph_name, sample_name, anchor_reads_source,
-                              anchor_mismap_min, anchor_params)) {
+    size_t anchors = writer->anchor_count();
+    size_t rows = writer->read_row_count();
+    if (!writer->write(path, graph_name, sample_name, reads_source, mismap_min, params)) {
         return;
     }
     cerr << "[vg call] anchors: " << anchors << " written over " << rows
-         << " read placements to " << anchor_path << endl;
-    if (anchor_params.counters != nullptr) {
-        anchor_params.counters->report(cerr);
+         << " read placements to " << path << endl;
+    if (params.counters != nullptr) {
+        params.counters->report(cerr);
     }
 }
 

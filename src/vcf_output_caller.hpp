@@ -97,38 +97,12 @@ public:
         this->linkage_min_confidence = threshold;
     }
 
-    /// Write assembly anchors to `path`, with `params` deciding which sites and reads qualify.
+    /// Write assembly anchors to `path`; see AnchorCollector::configure.
     void set_anchors_out(const string& path, const AnchorParams& params,
                          const string& graph_name, const string& reads_source,
                          double mismap_min) {
-        this->anchor_path = path;
-        this->anchor_params = params;
-        if (this->anchor_params.counters == nullptr) {
-            // A caller that did not supply counters, such as a unit test, counts into this
-            // instance's own, so that every use below can dereference without a check.
-            this->anchor_params.counters = &this->owned_anchor_counters;
-        }
-        this->anchor_graph_name = graph_name;
-        this->anchor_reads_source = reads_source;
-        this->anchor_mismap_min = mismap_min;
-        if (!path.empty()) {
-            // One queue per OpenMP thread, since the passes that fill it are parallel.
-            this->anchor_writer = make_unique<AnchorWriter>((size_t)max(1, get_thread_count()));
-        }
+        anchor_collector.configure(path, params, graph_name, reads_source, mismap_min);
     }
-
-    /// Turn one chosen site into anchors, if anchors are being written. Called once per staged
-    /// site as the sites are rendered: just before its line is written, or, for a site with no
-    /// line, by the hand-off. A site with no reference position still gets anchors, since a pin
-    /// is placed by node ID, which is why this is not part of `emit_variant`.
-    ///
-    /// `is_leaf` is supplied by the caller, since the snarl manager is on GraphCaller. `gqn` is
-    /// the value for the anchor's gqn column, from `FlowCaller::anchor_gqn_for`; NaN is written as
-    /// `.`.
-    void collect_anchors_for(const Snarl& snarl, const vector<int>& genotype, int haploid_slot,
-                             const unique_ptr<SnarlCaller::CallInfo>& call_info, bool is_leaf,
-                             double gqn, size_t record_key);
-
 
     /// The chosen pair in phase order, for the anchors, which take each slot from the order of
     /// the pair they are given.
@@ -165,13 +139,7 @@ public:
     }
 
     /// Write the anchor file and report the counters. Does nothing unless anchors are on.
-    void write_anchors();
-
-    /// Whether the anchors need each snarl's leaf status, which has a cost to find (see
-    /// `FlowCaller::snarl_is_leaf`).
-    bool anchors_want_leaf_test() const {
-        return !anchor_path.empty() && anchor_params.leaf_only;
-    }
+    void write_anchors() { anchor_collector.write(sample_name); }
 
     /// Where and how to write the mosaic. A path turns phasing on.
     void set_mosaic_out(MosaicParams params) {
@@ -444,17 +412,8 @@ protected:
     /// Whether to emit phased GT and FORMAT/PS.
     bool emit_phasing = false;
 
-    /// Destination for the anchor file, and what qualifies for it. The writer is created once the
-    /// thread count is known.
-    string anchor_path;
-    AnchorParams anchor_params;
-    /// Used only when the run supplied no counters; see set_anchors_out.
-    AnchorCounters owned_anchor_counters;
-    string anchor_graph_name;
-    string anchor_reads_source;
-    unique_ptr<AnchorWriter> anchor_writer;
-    /// The mismap floor that bounds a read's anchor confidence, for the file's header.
-    double anchor_mismap_min = 0.0;
+    /// Collects the anchors and writes the anchor file, if one was asked for.
+    AnchorCollector anchor_collector;
 
     /// add a traversal to the VCF info field in the format of a GFA W-line or GAF path
     void add_allele_path_to_info(const HandleGraph* graph, vcflib::Variant& v, int allele,

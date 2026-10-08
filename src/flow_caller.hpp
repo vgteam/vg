@@ -446,9 +446,12 @@ protected:
     /// cannot be recomputed.
     double anchor_gqn_for(const PendingRecord& rec, const vector<int>& chosen) const;
 
-    /// `collect_anchors_for` for a staged site, with the phase order, the haploid slot and the
-    /// leaf test derived from it. The genotype is a parameter because the render passes the
-    /// chosen pair.
+    /// Turn a staged site into anchors, if anchors are being written, with the phase order, the
+    /// haploid slot, the leaf test and the gqn derived from it. Called once per staged site as the
+    /// sites are rendered: just before its line is written, or, for a site with no line, by the
+    /// hand-off. A site with no reference position still gets anchors, since a pin is placed by
+    /// node ID, which is why this is not part of `emit_variant`. The genotype is a parameter
+    /// because the render passes the chosen pair.
     void collect_anchors_for_record(const PendingRecord& rec, const vector<int>& genotype);
 
     /// How many nested chains are staged, over all threads.

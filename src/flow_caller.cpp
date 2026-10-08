@@ -152,10 +152,24 @@ vector<int> FlowCaller::chosen_genotype_for(const PendingRecord& rec) const {
 
 void FlowCaller::collect_anchors_for_record(const PendingRecord& rec,
                                             const vector<int>& genotype) {
-    collect_anchors_for(rec.snarl, phase_ordered_genotype(rec.record_key, genotype),
-                        phase_haploid_slot(rec.record_key, genotype), rec.call_info,
-                        anchors_want_leaf_test() ? snarl_is_leaf(rec.snarl) : true,
-                        anchor_gqn_for(rec, genotype), rec.record_key);
+    if (!anchor_collector.is_enabled() || rec.call_info == nullptr) {
+        return;
+    }
+    const auto* info =
+        dynamic_cast<const ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo*>(rec.call_info.get());
+    if (info == nullptr || info->anchor_evidence == nullptr) {
+        // A genotype derived from a parent rather than scored here, or a run whose caller is not the
+        // read-likelihood one. There are no per-read responsibilities to partition on.
+        return;
+    }
+    anchor_collector.collect(*info->anchor_evidence, info->explained_share,
+                             phase_ordered_genotype(rec.record_key, genotype),
+                             phase_haploid_slot(rec.record_key, genotype), print_snarl(rec.snarl),
+                             anchor_collector.wants_leaf_test() ? snarl_is_leaf(rec.snarl) : true,
+                             anchor_gqn_for(rec, genotype),
+                             [&](std::string_view read_name) {
+                                 return read_strand_log_odds(rec.record_key, read_name);
+                             });
 }
 
 FlowCaller::FlowCaller(const PathPositionHandleGraph& graph,
