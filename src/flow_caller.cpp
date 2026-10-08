@@ -756,49 +756,6 @@ size_t FlowCaller::chosen_changed(const unordered_map<size_t, array<int, 3>>& be
     return moved;
 }
 
-size_t FlowCaller::cascade_nested_strands(vector<LinkageCollector::PhaseCall>& phased,
-                                          const std::unordered_map<size_t, size_t>& phase_index,
-                                          vector<NestedLink> links,
-                                          const unordered_set<size_t>& flips) {
-    // A nested site's `nested_strand` was set from its parent's chosen pair when the linkage pass
-    // resolved its level, so swapping the parent leaves it naming the other strand. Sites are
-    // visited top-down by level, so a parent is done before its children, and each inverts
-    // its strand where the meaning of its parent's strand 0 changed:
-    //   * under a diploid parent, strand 0 is the parent's first allele, so it changed if the
-    //     parent was swapped;
-    //   * under a haploid parent, strand 0 is the grandparent's, so it changed if the parent's own
-    //     `nested_strand` inverted.
-    std::stable_sort(links.begin(), links.end(), [](const NestedLink& a, const NestedLink& b) {
-        return a.level < b.level;
-    });
-    std::unordered_map<size_t, bool> frame_flipped;
-    frame_flipped.reserve(links.size() * 2);
-    size_t moved = 0;
-    for (const NestedLink& link : links) {
-        const auto index = phase_index.find(link.key);
-        if (index == phase_index.end()) {
-            continue;
-        }
-        LinkageCollector::PhaseCall& pc = phased[index->second];
-        bool parent_flipped = false;
-        const auto at = frame_flipped.find(link.parent);
-        if (at != frame_flipped.end()) {
-            parent_flipped = at->second;
-        }
-        bool strand_moved = false;
-        if (pc.nested_strand >= 0 && parent_flipped) {
-            pc.nested_strand = pc.nested_strand == 0 ? 1 : 0;
-            // The haplotype is held in the slot `nested_strand` names, and the other slot holds the
-            // wildcard, which the mosaic reads as an empty strand.
-            std::swap(pc.hap_first, pc.hap_second);
-            strand_moved = true;
-            ++moved;
-        }
-        frame_flipped[link.key] = pc.ploidy == 2 ? (flips.count(link.key) != 0) : strand_moved;
-    }
-    return moved;
-}
-
 void FlowCaller::apply_read_phasing() {
     if (!read_phasing || linkage_collector == nullptr || linkage_phased.empty()) {
         return;
