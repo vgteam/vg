@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 84
+plan tests 94
 
 vg construct -r small/x.fa >j.vg
 vg index -x j.xg j.vg
@@ -308,3 +308,41 @@ is "$(grep -v '^@' tail-gaf.sam | cut -f2-4,6)" "$(printf '0\tref\t93\t52M')" \
     "GAF tail annotations produce the expected pruned placement"
 
 rm tail-baseline.sam tail-pruned.sam tail-gaf.sam
+
+# The haplotypes share flanks but differ by a substitution and six inserted bases.
+# Each matching read should prefer its own haplotype over the indel alignment.
+vg surject -x surject/diploid-map.gfa --diploid-map sample -s -t 1 surject/diploid-map.gam > diploid-selection.sam || exit 1
+# Compare flags, path, position, MAPQ, CIGAR, and alignment score for each candidate.
+awk 'BEGIN {OFS="\t"} !/^@/ {score=""; for(i=12;i<=NF;i++) if($i ~ /^AS:i:/) score=substr($i,6); print $1,$2,$3,$4,$5,$6,score}' diploid-selection.sam > diploid-selection.tsv
+is "$(awk '$1 == "hap1_forward"' diploid-selection.tsv | cut -f2-)" \
+    "$(printf '0\tsample#1#chr1\t1\t37\t52M\t62\n256\tsample#2#chr1\t1\t37\t32M6D20M\t46')" \
+    "Haplotype 1 read prefers the exact match over a substitution and deletion"
+is "$(awk '$1 == "hap2_forward"' diploid-selection.tsv | cut -f2-)" \
+    "$(printf '0\tsample#2#chr1\t1\t37\t58M\t68\n256\tsample#1#chr1\t1\t37\t32M6I20M\t46')" \
+    "Haplotype 2 read prefers the exact match over a substitution and insertion"
+is "$(awk '$1 == "hap1_reverse"' diploid-selection.tsv | cut -f2-)" \
+    "$(printf '16\tsample#1#chr1\t1\t37\t52M\t62\n272\tsample#2#chr1\t1\t37\t32M6D20M\t46')" \
+    "Reverse-complement input selects the same haplotype with reverse-strand flags"
+# This group's input primary is on node 5, which belongs to neither target path.
+is "$(awk '$1 == "secondary_wins"' diploid-selection.tsv | cut -f2-)" \
+    "$(printf '0\tsample#1#chr1\t1\t37\t52M\t62\n256\tsample#2#chr1\t1\t37\t32M6D20M\t46')" \
+    "A secondary input supplies the winning placement when the primary is off target"
+
+# Repeat these cases with distinct read names to exercise parallel grouped output.
+vg surject -x surject/diploid-map.gfa --diploid-map sample -b -t 4 surject/diploid-map-parallel.gam > diploid-output.bam || exit 1
+samtools view diploid-output.bam > diploid-output.sam
+is "$(wc -l < diploid-output.sam)" 2050 "Every diploid read emits both target-path candidates"
+awk 'NR % 2 == 1 {name=$1; flag=$2; if ((flag != 0 && flag != 16) || seen[name]++) exit 1} NR % 2 == 0 {if ($1 != name || $2 != flag+256) exit 1}' diploid-output.sam
+is "$?" 0 "Multithreaded output keeps each primary and secondary together"
+# Haplotype quality reaches 60 for these score differences; input MAPQ caps output at 37.
+# The stale aq:i:1 is replaced by the input primary's MAPQ; ZZ:Z:keep is preserved.
+awk '$5 != 37 {exit 1} {hp=0; hq=0; aq=0; zz=0; expected=(NR % 2 ? "hp:Z:pri_hap" : "hp:Z:sec_hap"); for(i=12;i<=NF;i++){if($i==expected)hp++; if($i=="hq:i:60")hq++; if($i=="aq:i:37")aq++; if($i=="ZZ:Z:keep")zz++} if(hp!=1 || hq!=1 || aq!=1 || zz!=1)exit 1}' diploid-output.sam
+is "$?" 0 "Diploid output has capped MAPQ and preferred/alternative haplotype tags"
+# Inputs with no diploid candidate are emitted as unmapped records.
+vg surject -x surject/diploid-map.gfa -d sample -p 'sample#1#chr1' -b -t 1 surject/diploid-map-unmapped.gam > diploid-unmapped.bam
+is "$?" 0 "Diploid reads with no candidate can be written to BAM"
+samtools quickcheck diploid-unmapped.bam
+is "$?" 0 "Unmapped diploid BAM is complete and readable"
+is "$(samtools view diploid-unmapped.bam | cut -f1-6)" "$(printf 'empty_path\t4\t*\t0\t0\t*\noff_target\t4\t*\t0\t0\t*')" \
+    "Empty paths and off-target placements produce unmapped BAM records"
+rm diploid-selection.sam diploid-selection.tsv diploid-output.bam diploid-output.sam diploid-unmapped.bam
