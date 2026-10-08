@@ -81,7 +81,7 @@ struct DescentCounters {
  * set_symbolic_collapsing.
  *
  * With the linkage model or nested calling, calling runs in passes. The direct pass
- * genotypes every site from its own reads and stages it (see PendingRecord). Rounds
+ * genotypes every site from its own reads and stages it (see StagedSite). Rounds
  * follow. Each round's linkage pass chooses the genotypes one level at a time, parents
  * before their children (see run_linkage_pass), and read phasing then re-decides the
  * phases. From round 2 on, re-genotyping first corrects the likelihoods from the phase
@@ -159,7 +159,7 @@ public:
     /// The locus of a site that no reference path passes through, and that so has no position of
     /// its own. `ref_path_name` is the reference path through the site's nearest ancestor on a
     /// reference path, and `stand_in_position` is that ancestor's position plus how far along the
-    /// ancestor's allele the site's chain starts (`PendingRecord::position_from_parent`).
+    /// ancestor's allele the site's chain starts (`StagedSite::position_from_parent`).
     SiteLocus off_reference_site_locus(const string& ref_path_name,
                                        int64_t stand_in_position) const;
 
@@ -228,16 +228,13 @@ public:
     /// called before calling starts.
     void set_stage_records(bool defer);
 
-    /// How many staged sites `render_records` holds, reported under --progress.
-    size_t render_record_count() const;
-
 
     /// The linkage pass: choose the genotypes one level at a time. The linkage model chooses
     /// each level's genotypes; then each child chain of the next level takes the ploidy its
     /// parent's chosen genotype gives it, from the answers the direct pass kept at both
     /// ploidies, and a chain the parent does not carry is dropped with everything inside it.
     /// Once every level is done, it decides which chains an enclosing block spells
-    /// (`PendingRecord::reported_inline`). Does nothing unless staging is on (see
+    /// (`StagedSite::reported_inline`). Does nothing unless staging is on (see
     /// `set_stage_records`).
     void run_linkage_pass();
 
@@ -321,21 +318,6 @@ protected:
     /// use * alleles for spanning haplotypes that don't traverse nested sites
     bool star_allele = false;
 
-    /// See `vg::PendingRecord`, in staged_site.hpp.
-    using PendingRecord = vg::PendingRecord;
-
-    /// The staged sites a pass should look at, wherever they currently are: between a linkage
-    /// pass and the hand-off, nested chains are in `deferred_pending` and the rest in
-    /// `render_records`.
-    ///
-    /// With `for_phasing`, chains with no reference path are included: they cannot be rendered,
-    /// having no REF or POS, but they are genotyped, get anchors, and have a meaningful strand.
-    vector<PendingRecord*> records_for_render(bool for_phasing = false);
-
-    /// `panel_lookup.alleles` for a record, computed once and kept. See
-    /// `PendingRecord::panel_cache`.
-    const vector<int>& cached_panel_alleles(PendingRecord& rec);
-
     /// The chosen pair and ploidy per record, `{trav_first, trav_second, ploidy}`, for measuring
     /// whether a re-genotyping round changed anything.
     unordered_map<size_t, std::array<int, 3>> chosen_snapshot();
@@ -347,34 +329,19 @@ protected:
     /// reached before, which means they are cycling.
     static size_t snapshot_digest(const unordered_map<size_t, std::array<int, 3>>& snap);
 
-    /// The nested chains' staged sites, which every linkage pass reads, merged out of
-    /// `pending_records` by the first and kept until `hand_off_deferred_records` moves them to the
-    /// render. A member because the linkage pass runs once per round.
-    vector<PendingRecord> deferred_pending;
     /// How many times the linkage pass has run.
     size_t linkage_passes_run = 0;
 
+    /// Every staged site, while staging is on (see `set_stage_records`). A top-level site's ploidy
+    /// comes from the contig or the BED, so the linkage pass never revises it, though the linkage
+    /// model still chooses its genotype.
+    StagedSiteTable staged_sites;
 
-    /// See set_stage_records.
-    bool stage_records = false;
-
-    /// The nested chains' staged sites, filled per thread during the direct pass.
-    vector<vector<PendingRecord>> pending_records;
-
-    /// The top-level staged sites, and after the hand-off also the nested ones that get a line of
-    /// their own.
-    /// A top-level site's ploidy comes from the contig or the BED, so the linkage pass never revises
-    /// it, though the linkage model still chooses its genotype. Separate from
-    /// `pending_records`, which `run_linkage_pass` moves out and clears, and whose index groups
-    /// records by parent. Read through `records_for_render`.
-    vector<vector<PendingRecord>> render_records;
-
-
-    /// Make a top-level site's `PendingRecord` from its genotype, moving `call_info` into it.
+    /// Make a top-level site's `StagedSite` from its genotype, moving `call_info` into it.
     /// `travs` is left empty, because descent still reads the traversals; the caller moves them in
     /// once descent is done. Returns null, and leaves `call_info` alone, when staging is off (see
     /// `set_stage_records`).
-    unique_ptr<PendingRecord> stage_render_record(const Snarl& snarl,
+    unique_ptr<StagedSite> stage_render_record(const Snarl& snarl,
                                                  const vector<int>& trav_genotype, int ref_trav_idx,
                                                  unique_ptr<SnarlCaller::CallInfo>& call_info,
                                                  const string& ref_path_name, int ref_offset,
@@ -383,13 +350,13 @@ protected:
 
     /// The genotype the linkage model chose for a staged site, or the direct pass's genotype
     /// where the model chose none.
-    vector<int> chosen_genotype_for(const PendingRecord& rec) const;
+    vector<int> chosen_genotype_for(const StagedSite& rec) const;
 
     /// The gqn column's value for this record: the direct pass's `gq_fraction`, unless the linkage model
     /// changed the call, in which case the signed value recomputed for the chosen genotype. NaN,
     /// written as `.`, where there is no value: no gap to normalise, or a moved call whose margin
     /// cannot be recomputed.
-    double anchor_gqn_for(const PendingRecord& rec, const vector<int>& chosen) const;
+    double anchor_gqn_for(const StagedSite& rec, const vector<int>& chosen) const;
 
     /// Turn a staged site into anchors, if anchors are being written, with the phase order, the
     /// haploid slot, the leaf test and the gqn derived from it. Called once per staged site as the
@@ -397,10 +364,7 @@ protected:
     /// hand-off. A site with no reference position still gets anchors, since a pin is placed by
     /// node ID, which is why this is not part of `emit_variant`. The genotype is a parameter
     /// because the render passes the chosen pair.
-    void collect_anchors_for_record(const PendingRecord& rec, const vector<int>& genotype);
-
-    /// How many nested chains are staged, over all threads.
-    size_t pending_record_count() const;
+    void collect_anchors_for_record(const StagedSite& rec, const vector<int>& genotype);
 
 
     /// Internal implementation of call_snarl that accepts parent context for nested mode

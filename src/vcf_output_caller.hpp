@@ -266,7 +266,7 @@ protected:
         /// start, it gives an off-reference chain a position of its own, so that its sites are
         /// ordered as that traversal visits them and the distance between two of them is known.
         /// The linkage pass computes it again from the parent's chosen genotype
-        /// (`PendingRecord::chain_offset`).
+        /// (`StagedSite::chain_offset`).
         size_t parent_offset = 0;
         /// Permission to genotype a chain that no reference path passes through. Inherited, since
         /// everything under such a chain is also off the reference. Whether a given snarl has a
