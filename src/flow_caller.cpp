@@ -2265,9 +2265,9 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
     // A ploidy from the parent overrides the contig's or the region BED's: it is the number of the
     // parent's called alleles that reach this child. The region's is still the number of the
     // sample's haplotypes here, which the depth term needs.
-    const int region_ploidy = ploidy_at(ref_path_name, get<0>(ref_interval),
-                                        ref_offset_of(ref_offsets, ref_path_name),
-                                        ref_ploidy_of(ref_ploidies, ref_path_name));
+    const int region_ploidy = ploidy_regions.ploidy_at(ref_path_name, get<0>(ref_interval),
+                                                       ref_offset_of(ref_offsets, ref_path_name),
+                                                       ref_ploidy_of(ref_ploidies, ref_path_name));
     int ploidy = ploidy_override >= 0 ? ploidy_override : region_ploidy;
 
     // What both the parent-traversal-set branch and the top-level branch do with their genotype.

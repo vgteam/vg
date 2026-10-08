@@ -2473,7 +2473,7 @@ int main_call(int argc, char** argv) {
             cerr << "error [vg call]: --ploidy-bed needs a caller that emits VCF" << endl;
             return 1;
         }
-        ploidy_target->set_ploidy_regions(ploidy_bed_filename);
+        ploidy_target->set_ploidy_regions(PloidyRegions(ploidy_bed_filename));
     }
 
     // Nested calling: a called traversal that takes the reference's route through a snarl,

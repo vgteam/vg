@@ -24,6 +24,7 @@
 #include "zstdutil.hpp"
 #include "vg/io/alignment_emitter.hpp"
 #include "gref.hpp"
+#include "ploidy_regions.hpp"
 #include "vcf_genotype_likelihoods.hpp"
 #include "vcf_record.hpp"
 #include "site_tree.hpp"
@@ -108,33 +109,8 @@ public:
     /// Returns false if the variant line length exceeds VCFOutputCaller::max_vcf_line_length
     bool add_variant(vcflib::Variant& var, size_t block = 0) const;
 
-    /**
-     * Per-region ploidy overrides, from a BED of `CHROM START END PLOIDY`.
-     *
-     * `-d` and `--ploidy-regex` set ploidy per contig, which cannot express a contig whose copy
-     * number changes along it, such as a male sample's chrX, which is haploid except in the
-     * pseudoautosomal regions.
-     *
-     * The CHROM column matches the contig name as it appears in the output VCF -- the locus part
-     * of a PanSN path name, so `chrX` rather than `CHM13#0#chrX`. Intervals are BED half-open and
-     * 0-based, and a position no interval covers keeps the contig's ploidy from `-d` or
-     * `--ploidy-regex`.
-     *
-     * Overlapping intervals are an error, since a BED that says two things about one base has no
-     * correct reading.
-     */
-    void set_ploidy_regions(const string& bed_path);
-
-
-    /// Ploidy at this reference position, or `fallback` where no interval covers it. `position` is
-    /// a 0-based offset along the contig, as in the BED.
-    int region_ploidy(const string& ref_path_name, size_t position, int fallback) const;
-
-    /// region_ploidy for a snarl whose reference interval begins at `interval_start`: the first
-    /// base of its first boundary node, which is the record's POS less 1 before the record's
-    /// alleles are trimmed. Returns `fallback` when no BED is loaded.
-    int ploidy_at(const string& ref_path_name, int64_t interval_start, int64_t ref_offset,
-                  int fallback) const;
+    /// Per-region ploidy overrides, which the callers read through `ploidy_regions`.
+    void set_ploidy_regions(PloidyRegions regions) { ploidy_regions = std::move(regions); }
 
     /// Record a compact entry per site while calling, so that the linkage model can re-decide the
     /// genotypes afterwards. Neither pointer is owned; a null collector turns the model off.
@@ -791,14 +767,8 @@ protected:
     /// print up to this many uncalled alleles when doing ref-genotpes in -a mode
     size_t max_uncalled_alleles = 5;
 
-    /// Contig name -> ploidy overrides, sorted by start and not overlapping. Empty unless
-    /// --ploidy-bed was given. See set_ploidy_regions.
-    struct PloidyRegion {
-        size_t start;   ///< 0-based, inclusive
-        size_t end;     ///< 0-based, exclusive
-        int ploidy;
-    };
-    unordered_map<string, vector<PloidyRegion>> ploidy_regions;
+    /// Per-region ploidy overrides. Empty unless the run gave a BED of them.
+    PloidyRegions ploidy_regions;
 
     // optional node translation to apply to snarl names in variant IDs
     const unordered_map<nid_t, pair<string, size_t>>* translation;

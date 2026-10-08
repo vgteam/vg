@@ -183,9 +183,9 @@ bool NestedFlowCaller::call_snarl_recursive(const Snarl& managed_snarl, int max_
         gt_ref_path_name = ref_path_name;
         gt_ref_interval = make_pair(get<0>(ref_interval), get<1>(ref_interval));
         if (max_ploidy == -1) {
-            max_ploidy = ploidy_at(ref_path_name, get<0>(ref_interval),
-                                   ref_offset_of(ref_offsets, ref_path_name),
-                                   ref_ploidy_of(ref_ploidies, ref_path_name));
+            max_ploidy = ploidy_regions.ploidy_at(ref_path_name, get<0>(ref_interval),
+                                                  ref_offset_of(ref_offsets, ref_path_name),
+                                                  ref_ploidy_of(ref_ploidies, ref_path_name));
         }        
     } else {
         // if we have no reference infromation, try to get it from the parent snarl
@@ -356,9 +356,9 @@ bool NestedFlowCaller::emit_snarl_recursive(const Snarl& managed_snarl, int ploi
         if (ploidy < 0) {
             // Must agree with the ploidy the genotype was decided at, since genotype_by_ploidy is
             // indexed by it, so the record's own interval is used.
-            ploidy = ploidy_at(record.ref_path_name, record.ref_path_interval.first,
-                               ref_offset_of(ref_offsets, record.ref_path_name),
-                               ref_ploidy_of(ref_ploidies, record.ref_path_name));
+            ploidy = ploidy_regions.ploidy_at(record.ref_path_name, record.ref_path_interval.first,
+                                              ref_offset_of(ref_offsets, record.ref_path_name),
+                                              ref_ploidy_of(ref_ploidies, record.ref_path_name));
         }
         
         pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>>& genotype = record.genotype_by_ploidy[ploidy - 1];

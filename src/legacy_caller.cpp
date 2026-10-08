@@ -161,9 +161,9 @@ bool LegacyCaller::call_snarl(const Snarl& snarl) {
         vector<int> genotype;
         // `count` and `at`, not `operator[]`, which inserts on a missing key; these reads run on
         // worker threads.
-        int ploidy = ploidy_at(path_name, get<0>(ref_interval),
-                               ref_offset_of(ref_offsets, path_name),
-                               ref_ploidy_of(ref_ploidies, path_name));
+        int ploidy = ploidy_regions.ploidy_at(path_name, get<0>(ref_interval),
+                                              ref_offset_of(ref_offsets, path_name),
+                                              ref_ploidy_of(ref_ploidies, path_name));
         std::tie(called_traversals, genotype) = top_down_genotype(snarl, *rep_trav_finder, ploidy,
                                                                   path_name, make_pair(get<0>(ref_interval), get<1>(ref_interval)));
     

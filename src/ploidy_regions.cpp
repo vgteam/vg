@@ -1,12 +1,14 @@
 #include <algorithm>
 #include <fstream>
+#include <iostream>
 #include <sstream>
 
-#include "vcf_output_caller.hpp"
+#include "ploidy_regions.hpp"
+#include "path.hpp"
 
 namespace vg {
 
-void VCFOutputCaller::set_ploidy_regions(const string& bed_path) {
+PloidyRegions::PloidyRegions(const string& bed_path) {
     ifstream in(bed_path);
     if (!in) {
         cerr << "error [vg call]: could not open --ploidy-bed file " << bed_path << endl;
@@ -44,14 +46,14 @@ void VCFOutputCaller::set_ploidy_regions(const string& bed_path) {
             // Covers nothing. Keeping it would leave a region no lookup can ever hit.
             continue;
         }
-        ploidy_regions[chrom].push_back({(size_t)start, (size_t)end, ploidy});
+        by_contig[chrom].push_back({(size_t)start, (size_t)end, ploidy});
     }
 
     // Sorted so lookups can binary-search, and checked for overlap while they are in order.
-    for (auto& entry : ploidy_regions) {
+    for (auto& entry : by_contig) {
         auto& regions = entry.second;
         sort(regions.begin(), regions.end(),
-             [](const PloidyRegion& a, const PloidyRegion& b) { return a.start < b.start; });
+             [](const Region& a, const Region& b) { return a.start < b.start; });
         for (size_t i = 1; i < regions.size(); ++i) {
             if (regions[i].start < regions[i - 1].end) {
                 cerr << "error [vg call]: --ploidy-bed " << bed_path << " has overlapping "
@@ -65,9 +67,9 @@ void VCFOutputCaller::set_ploidy_regions(const string& bed_path) {
     }
 }
 
-int VCFOutputCaller::region_ploidy(const string& ref_path_name, size_t position,
-                                   int fallback) const {
-    if (ploidy_regions.empty()) {
+int PloidyRegions::region_ploidy(const string& ref_path_name, size_t position,
+                                 int fallback) const {
+    if (by_contig.empty()) {
         return fallback;
     }
     // Match on the contig as the VCF spells it, so a BED written against the output works.
@@ -77,15 +79,15 @@ int VCFOutputCaller::region_ploidy(const string& ref_path_name, size_t position,
     if (locus != PathMetadata::NO_LOCUS_NAME) {
         contig = locus;
     }
-    auto found = ploidy_regions.find(contig);
-    if (found == ploidy_regions.end()) {
+    auto found = by_contig.find(contig);
+    if (found == by_contig.end()) {
         return fallback;
     }
-    const vector<PloidyRegion>& regions = found->second;
+    const vector<Region>& regions = found->second;
     // First region starting after the position; its predecessor is the only one that can cover,
     // since the regions are non-overlapping.
     auto it = upper_bound(regions.begin(), regions.end(), position,
-                          [](size_t p, const PloidyRegion& r) { return p < r.start; });
+                          [](size_t p, const Region& r) { return p < r.start; });
     if (it == regions.begin()) {
         return fallback;
     }
@@ -93,9 +95,9 @@ int VCFOutputCaller::region_ploidy(const string& ref_path_name, size_t position,
     return (position >= it->start && position < it->end) ? it->ploidy : fallback;
 }
 
-int VCFOutputCaller::ploidy_at(const string& ref_path_name, int64_t interval_start,
-                               int64_t ref_offset, int fallback) const {
-    if (ploidy_regions.empty()) {
+int PloidyRegions::ploidy_at(const string& ref_path_name, int64_t interval_start,
+                             int64_t ref_offset, int fallback) const {
+    if (by_contig.empty()) {
         return fallback;
     }
     // Same arithmetic emit_variant uses for POS, minus the +1 that makes VCF 1-based: the BED is
