@@ -2773,9 +2773,15 @@ int main_call(int argc, char** argv) {
                 }
                 // The mosaic's rows name only the contig, so it also records the full names of
                 // the reference paths.
-                vcf_caller->set_mosaic_out(mosaic_out, graph_filename, hap_names, ref_paths,
-                                           mosaic_patch_gaps, mosaic_keep_nested,
-                                           mosaic_connect_unexplained);
+                vcf_caller->set_mosaic_out(MosaicParams{
+                    .path = mosaic_out,
+                    .graph_name = graph_filename,
+                    .haplotype_names = hap_names,
+                    .reference_paths = ref_paths,
+                    .patch_gaps = mosaic_patch_gaps,
+                    .keep_nested = mosaic_keep_nested,
+                    .connect_unexplained = mosaic_connect_unexplained,
+                });
             }
             if (show_progress) {
                 logger.info() << "Linkage: " << hap_index.size() << " panel haplotypes over "

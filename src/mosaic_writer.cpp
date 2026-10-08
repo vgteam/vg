@@ -20,84 +20,113 @@
 
 namespace vg {
 
-gbwt::edge_type VCFOutputCaller::mosaic_position_at(gbwt::node_type node, size_t hap) const {
-    if (panel_lookup.gbwt() == nullptr || panel_lookup.sequence_to_haplotype() == nullptr) {
-        return gbwt::invalid_edge();
-    }
-    // Finding a position costs a `locate` for each sequence in the node's range, far more than an
-    // LF step, and the same (node, haplotype) is asked for repeatedly, so positions are cached.
-    const uint64_t key = ((uint64_t)node << 20) | (uint64_t)(hap & 0xFFFFF);
-    auto hit = mosaic_position_cache.find(key);
-    if (hit != mosaic_position_cache.end()) {
-        return hit->second;
-    }
-    gbwt::SearchState state = panel_lookup.gbwt()->find(node);
-    if (!state.empty()) {
-        for (gbwt::size_type i = state.range.first; i <= state.range.second; ++i) {
-            gbwt::size_type seq = panel_lookup.gbwt()->locate(node, i);
-            if (seq < panel_lookup.sequence_to_haplotype()->size()
-                && (*panel_lookup.sequence_to_haplotype())[seq] == hap) {
-                mosaic_position_cache[key] = gbwt::edge_type(node, i);
-                return gbwt::edge_type(node, i);
+namespace {
+
+/// How far a walk may run before it is abandoned. Walks go only in a direction already
+/// established, so this limits a long run rather than a wrong-way search.
+const size_t WALK_LIMIT = 1u << 17;
+
+/// Finds and follows panel haplotypes in the GBWT, for one mosaic. The mosaic is written
+/// serially, so one position cache with no locking is enough, and it lives only for that mosaic.
+class PanelWalker {
+public:
+    explicit PanelWalker(const PanelLookup& panel)
+        : index(panel.gbwt()), haplotype_of_sequence(panel.sequence_to_haplotype()) {}
+
+    /// The GBWT, or null when there is no panel.
+    const gbwt::GBWT* gbwt() const { return index; }
+
+    /// Where `hap` sits at one oriented node, or invalid.
+    gbwt::edge_type position_at(gbwt::node_type node, size_t hap) {
+        if (index == nullptr || haplotype_of_sequence == nullptr) {
+            return gbwt::invalid_edge();
+        }
+        // Finding a position costs a `locate` for each sequence in the node's range, far more
+        // than an LF step, and the same (node, haplotype) is asked for repeatedly, so positions
+        // are cached.
+        const uint64_t key = ((uint64_t)node << 20) | (uint64_t)(hap & 0xFFFFF);
+        auto hit = position_cache.find(key);
+        if (hit != position_cache.end()) {
+            return hit->second;
+        }
+        gbwt::SearchState state = index->find(node);
+        if (!state.empty()) {
+            for (gbwt::size_type i = state.range.first; i <= state.range.second; ++i) {
+                gbwt::size_type seq = index->locate(node, i);
+                if (seq < haplotype_of_sequence->size() && (*haplotype_of_sequence)[seq] == hap) {
+                    position_cache[key] = gbwt::edge_type(node, i);
+                    return gbwt::edge_type(node, i);
+                }
             }
         }
+        position_cache[key] = gbwt::invalid_edge();
+        return gbwt::invalid_edge();
     }
-    mosaic_position_cache[key] = gbwt::invalid_edge();
-    return gbwt::invalid_edge();
-}
 
-/// Follow a walk whose direction is already known, rather than guessing the direction. Given the
-/// oriented node, `mosaic_position_at` finds the position, and `LF` continues in the same
-/// direction. A local guess at the direction, such as the node's forward orientation, assumes the
-/// walk advances in reference order, which fails where the sample's walk does not follow the
-/// reference, as at large balanced structural variants.
-bool VCFOutputCaller::mosaic_follow(gbwt::edge_type start, int64_t to_node,
-                                    gbwt::node_type* out_end) const {
-    if (panel_lookup.gbwt() == nullptr || start == gbwt::invalid_edge()) {
-        return false;
-    }
-    // Finding a position is far more costly than an LF step, so the caller passes the position in,
-    // and the walk itself is cheap.
-    if ((int64_t)gbwt::Node::id(start.first) == to_node) {
-        if (out_end != nullptr) *out_end = start.first;
-        return true;
-    }
-    gbwt::edge_type at = start;
-    for (size_t step = 0; step < MOSAIC_WALK_LIMIT; ++step) {
-        at = panel_lookup.gbwt()->LF(at);
-        if (at == gbwt::invalid_edge() || at.first == gbwt::ENDMARKER) {
+    /// Follow the haplotype at `start` to `to_node`, and report where it arrives.
+    ///
+    /// The caller gives the direction. A GBWT stores each path in both orientations, so where a
+    /// haplotype visits a node has two answers, while where it gets to along a known walk has one.
+    /// Given the oriented node, `position_at` finds the position, and `LF` continues in the same
+    /// direction. A local guess at the direction, such as the node's forward orientation, assumes
+    /// the walk advances in reference order, which fails where the sample's walk does not follow
+    /// the reference, as at large balanced structural variants.
+    bool follow(gbwt::edge_type start, int64_t to_node, gbwt::node_type* out_end) const {
+        if (index == nullptr || start == gbwt::invalid_edge()) {
             return false;
         }
-        if ((int64_t)gbwt::Node::id(at.first) == to_node) {
-            if (out_end != nullptr) *out_end = at.first;
+        // Finding a position is far more costly than an LF step, so the caller passes the
+        // position in, and the walk itself is cheap.
+        if ((int64_t)gbwt::Node::id(start.first) == to_node) {
+            if (out_end != nullptr) *out_end = start.first;
             return true;
         }
-    }
-    return false;
-}
-
-gbwt::edge_type VCFOutputCaller::mosaic_gbwt_position(int64_t node_id, size_t hap) const {
-    // Forward first: snarl boundaries are stored oriented along the reference, so the reverse
-    // orientation is the exception.
-    //
-    // The answer is ambiguous, since a GBWT stores each path in both orientations. It serves only
-    // callers with no direction to work from, which ask whether the haplotype is at the node at
-    // all; a position on a walk comes from `mosaic_follow`. Uses `mosaic_position_at`, and so its
-    // cache.
-    for (int orientation = 0; orientation < 2; ++orientation) {
-        const gbwt::edge_type at =
-            mosaic_position_at(gbwt::Node::encode(node_id, orientation == 1), hap);
-        if (at != gbwt::invalid_edge()) {
-            return at;
+        gbwt::edge_type at = start;
+        for (size_t step = 0; step < WALK_LIMIT; ++step) {
+            at = index->LF(at);
+            if (at == gbwt::invalid_edge() || at.first == gbwt::ENDMARKER) {
+                return false;
+            }
+            if ((int64_t)gbwt::Node::id(at.first) == to_node) {
+                if (out_end != nullptr) *out_end = at.first;
+                return true;
+            }
         }
+        return false;
     }
-    return gbwt::invalid_edge();
+
+    /// Where `hap` sits at a node in either orientation, forward first, or invalid.
+    ///
+    /// Forward first, since snarl boundaries are stored oriented along the reference, so the
+    /// reverse orientation is the exception. The answer is ambiguous, since a GBWT stores each
+    /// path in both orientations. It serves only callers with no direction to work from, which ask
+    /// whether the haplotype is at the node at all; a position on a walk comes from `follow`.
+    gbwt::edge_type gbwt_position(int64_t node_id, size_t hap) {
+        for (int orientation = 0; orientation < 2; ++orientation) {
+            const gbwt::edge_type at =
+                position_at(gbwt::Node::encode(node_id, orientation == 1), hap);
+            if (at != gbwt::invalid_edge()) {
+                return at;
+            }
+        }
+        return gbwt::invalid_edge();
+    }
+
+private:
+    const gbwt::GBWT* index;
+    const vector<size_t>* haplotype_of_sequence;
+    /// (oriented node, haplotype) -> GBWT position.
+    unordered_map<uint64_t, gbwt::edge_type> position_cache;
+};
+
 }
 
-void VCFOutputCaller::write_mosaic(const vector<LinkageCollector::PhaseCall>& phasing) const {
-    ofstream out(mosaic_path);
+void MosaicWriter::write(const vector<LinkageCollector::PhaseCall>& phasing,
+                         const PanelLookup& panel, const string& sample_name) {
+    PanelWalker walk(panel);
+    ofstream out(params.path);
     if (!out) {
-        cerr << "error [vg call]: could not open " << mosaic_path << " for the mosaic output"
+        cerr << "error [vg call]: could not open " << params.path << " for the mosaic output"
              << endl;
         return;
     }
@@ -111,12 +140,12 @@ void VCFOutputCaller::write_mosaic(const vector<LinkageCollector::PhaseCall>& ph
     // means, since the index is internal to the run. A haplotype's name is its (sample, phase)
     // pair, which with the row's contig is enough to find its paths.
     out << "#mosaic-version\t5\n";
-    out << "#graph\t" << mosaic_graph_name << "\n";
+    out << "#graph\t" << params.graph_name << "\n";
     out << "#sample\t" << sample_name << "\n";
     // gRef fragments are counted, not listed: a cover can name thousands of contigs, and each row
     // names its own.
     size_t gref_fragments = 0;
-    for (const string& ref : mosaic_reference_paths) {
+    for (const string& ref : params.reference_paths) {
         if (GrefCover::is_gref_name(ref)) {
             ++gref_fragments;
             continue;
@@ -127,9 +156,9 @@ void VCFOutputCaller::write_mosaic(const vector<LinkageCollector::PhaseCall>& ph
         out << "#gref-fragments\t" << gref_fragments << "\n";
     }
     out << "#decoding\tconstrained-viterbi\n";
-    out << "#patch\t" << (mosaic_patch_gaps ? "reference" : "none") << "\n";
-    out << "#nested\t" << (mosaic_keep_nested ? "kept" : "merged") << "\n";
-    out << "#unexplained\t" << (mosaic_connect_unexplained ? "connected" : "broken") << "\n";
+    out << "#patch\t" << (params.patch_gaps ? "reference" : "none") << "\n";
+    out << "#nested\t" << (params.keep_nested ? "kept" : "merged") << "\n";
+    out << "#unexplained\t" << (params.connect_unexplained ? "connected" : "broken") << "\n";
     // The node IDs define the segment; the positions are derived from them.
     out << "#note\tref_start/ref_end are advisory, in the #reference coordinate system; "
         << "start_node/end_node are the authoritative anchors and are intrinsic to the graph.\n";
@@ -153,8 +182,8 @@ void VCFOutputCaller::write_mosaic(const vector<LinkageCollector::PhaseCall>& ph
         << "it, and a consumer reading the boundary as the crossover point will over-trust it.\n";
     out << "#note\thap_index is internal to this run; haplotype (sample#phase) is the portable "
         << "identifier and names a haplotype, not a single GBWT path.\n";
-    for (size_t h = 0; h < mosaic_haplotype_names.size(); ++h) {
-        out << "#haplotype\t" << h << "\t" << mosaic_haplotype_names[h] << "\n";
+    for (size_t h = 0; h < params.haplotype_names.size(); ++h) {
+        out << "#haplotype\t" << h << "\t" << params.haplotype_names[h] << "\n";
     }
     out << "#note\tstart_node and end_node are ORIENTED node ids, id * 2 + is_reverse. Node "
         << "identity alone does not make a walk: two segments can share a node and traverse it in "
@@ -205,11 +234,11 @@ void VCFOutputCaller::write_mosaic(const vector<LinkageCollector::PhaseCall>& ph
     // there. `emit_span` and `emit_row` index into this list; `site()` maps back to `phasing`.
     //
     // The reference's index in the panel, for filling a gap no haplotype can cross. Looked up by
-    // name, since the index follows GBWT metadata order. `mosaic_reference_paths` holds full path
+    // name, since the index follows GBWT metadata order. `params.reference_paths` holds full path
     // names (CHM13#0#chr20) and the panel names haplotypes as sample#phase (CHM13#0), so the
     // contig is dropped before matching.
     size_t reference_hap = LinkageModel::WILDCARD;
-    for (const string& full : mosaic_reference_paths) {
+    for (const string& full : params.reference_paths) {
         // Never a gRef path: a gRef cover is stitched together from many donors, and it is not in the
         // panel.
         if (GrefCover::is_gref_derived(full)) {
@@ -218,8 +247,8 @@ void VCFOutputCaller::write_mosaic(const vector<LinkageCollector::PhaseCall>& ph
         size_t h1 = full.find('#');
         size_t h2 = h1 == string::npos ? string::npos : full.find('#', h1 + 1);
         const string base = h2 == string::npos ? full : full.substr(0, h2);
-        for (size_t k = 0; k < mosaic_haplotype_names.size(); ++k) {
-            if (mosaic_haplotype_names[k] == base) {
+        for (size_t k = 0; k < params.haplotype_names.size(); ++k) {
+            if (params.haplotype_names[k] == base) {
                 reference_hap = k;
                 break;
             }
@@ -234,9 +263,9 @@ void VCFOutputCaller::write_mosaic(const vector<LinkageCollector::PhaseCall>& ph
                  : "is panel haplotype " + std::to_string(reference_hap))
          << endl;
 
-    const bool patch_gaps = mosaic_patch_gaps;
-    const bool keep_nested = mosaic_keep_nested;
-    const bool connect_unexplained = mosaic_connect_unexplained;
+    const bool patch_gaps = params.patch_gaps;
+    const bool keep_nested = params.keep_nested;
+    const bool connect_unexplained = params.connect_unexplained;
     // Which contiguous walk a row belongs to. (contig, strand, fragment) identifies a path: a loader
     // makes one path per triple from its rows. Incremented only where a gap is left unfilled, so
     // with gap patching each strand is one path.
@@ -258,7 +287,7 @@ void VCFOutputCaller::write_mosaic(const vector<LinkageCollector::PhaseCall>& ph
         [&](size_t from, size_t to, int strand, size_t hap, StrandKind kind) {
         gbwt::edge_type pos = (hap == LinkageModel::WILDCARD)
                                   ? gbwt::invalid_edge()
-                                  : mosaic_gbwt_position(site(from).start_node, hap);
+                                  : walk.gbwt_position(site(from).start_node, hap);
 
         auto emit_row = [&](size_t a_idx, size_t b_idx, gbwt::edge_type p) {
             const LinkageCollector::PhaseCall& a = site(a_idx);
@@ -304,23 +333,23 @@ void VCFOutputCaller::write_mosaic(const vector<LinkageCollector::PhaseCall>& ph
                 // A right extension needs this segment to be walkable.
                 bool right = false;
                 if (p != gbwt::invalid_edge()) {
-                    const gbwt::edge_type np = mosaic_gbwt_position(next_start, hap);
+                    const gbwt::edge_type np = walk.gbwt_position(next_start, hap);
                     // The next segment's haplotype must pass the junction in the same direction as
                     // this one, not only through the same node.
                     const size_t nh2 = strand == 0 ? site(b_idx + 1).hap_first
                                                    : site(b_idx + 1).hap_second;
                     const gbwt::edge_type entry = nh2 == LinkageModel::WILDCARD
                                                       ? gbwt::invalid_edge()
-                                                      : mosaic_gbwt_position(next_start, nh2);
+                                                      : walk.gbwt_position(next_start, nh2);
                     right = np != gbwt::invalid_edge()
-                            && panel_lookup.gbwt()->locate(np) == panel_lookup.gbwt()->locate(p)
+                            && walk.gbwt()->locate(np) == walk.gbwt()->locate(p)
                             && (entry == gbwt::invalid_edge() || entry.first == np.first);
                 }
                 if (entering) {
                     // The row ends where the child's snarl begins, since the walk reaches the
                     // parent's end only after the child.
                     to_node = next_start;
-                    ++mosaic_counters.nested_enter;
+                    ++counters.nested_enter;
                 } else if (leaving) {
                     // The row ends at the child's own end, and the next row starts there, so the
                     // stretch from Ce to the parent's end is covered by the parent's haplotype, whose
@@ -330,11 +359,11 @@ void VCFOutputCaller::write_mosaic(const vector<LinkageCollector::PhaseCall>& ph
                     const size_t nh = strand == 0 ? nx.hap_first : nx.hap_second;
                     pending_from_pos = nh == LinkageModel::WILDCARD
                                            ? gbwt::invalid_edge()
-                                           : mosaic_gbwt_position(b.end_node, nh);
-                    ++mosaic_counters.nested_leave;
+                                           : walk.gbwt_position(b.end_node, nh);
+                    ++counters.nested_leave;
                 } else if (right) {
                     to_node = next_start;
-                    ++mosaic_counters.extended;
+                    ++counters.extended;
                 } else {
                     // Left extension: this segment's haplotype cannot be carried forward, so try
                     // carrying the next segment's haplotype back to this segment's last node, which
@@ -343,15 +372,15 @@ void VCFOutputCaller::write_mosaic(const vector<LinkageCollector::PhaseCall>& ph
                                                   : site(b_idx + 1).hap_second;
                     bool closed = false;
                     if (nh != LinkageModel::WILDCARD) {
-                        const gbwt::edge_type here = mosaic_gbwt_position(b.end_node, nh);
-                        const gbwt::edge_type there = mosaic_gbwt_position(next_start, nh);
-                        const gbwt::edge_type mine = mosaic_gbwt_position(b.end_node, hap);
+                        const gbwt::edge_type here = walk.gbwt_position(b.end_node, nh);
+                        const gbwt::edge_type there = walk.gbwt_position(next_start, nh);
+                        const gbwt::edge_type mine = walk.gbwt_position(b.end_node, hap);
                         if (here != gbwt::invalid_edge() && there != gbwt::invalid_edge()
-                            && panel_lookup.gbwt()->locate(here) == panel_lookup.gbwt()->locate(there)
+                            && walk.gbwt()->locate(here) == walk.gbwt()->locate(there)
                             && (mine == gbwt::invalid_edge() || mine.first == here.first)) {
                             pending_from_node = b.end_node;
                             pending_from_pos = here;
-                            ++mosaic_counters.extended_left;
+                            ++counters.extended_left;
                             closed = true;
                         }
                     }
@@ -361,20 +390,20 @@ void VCFOutputCaller::write_mosaic(const vector<LinkageCollector::PhaseCall>& ph
                         // row records what it filled.
                         if (patch_gaps && reference_hap != LinkageModel::WILDCARD) {
                             const gbwt::edge_type rl =
-                                mosaic_gbwt_position(b.end_node, reference_hap);
+                                walk.gbwt_position(b.end_node, reference_hap);
                             const gbwt::edge_type rr =
-                                mosaic_gbwt_position(next_start, reference_hap);
+                                walk.gbwt_position(next_start, reference_hap);
                             if (rl != gbwt::invalid_edge() && rr != gbwt::invalid_edge()
-                                && panel_lookup.gbwt()->locate(rl) == panel_lookup.gbwt()->locate(rr)) {
+                                && walk.gbwt()->locate(rl) == walk.gbwt()->locate(rr)) {
                                 patch_to = next_start;
                                 patch_pos = rl;
                                 patch_from_pos = b.position;
                                 patch_to_pos = site(b_idx + 1).position;
-                                ++mosaic_counters.patched;
+                                ++counters.patched;
                             }
                         }
                         if (patch_to < 0) {
-                            ++mosaic_counters.gap_left;
+                            ++counters.gap_left;
                             boundary_open = true;
                         }
                     }
@@ -397,8 +426,8 @@ void VCFOutputCaller::write_mosaic(const vector<LinkageCollector::PhaseCall>& ph
                 // other orientation and breaking contiguity.
                 if (!ignore_carry && carry != gbwt::ENDMARKER
                     && (int64_t)gbwt::Node::id(carry) == from_node) {
-                    const gbwt::edge_type at = mosaic_position_at(carry, h);
-                    if (at == gbwt::invalid_edge() || !mosaic_follow(at, to_node, end)) {
+                    const gbwt::edge_type at = walk.position_at(carry, h);
+                    if (at == gbwt::invalid_edge() || !walk.follow(at, to_node, end)) {
                         return false;
                     }
                     *pos = at;
@@ -407,8 +436,8 @@ void VCFOutputCaller::write_mosaic(const vector<LinkageCollector::PhaseCall>& ph
                 // No direction yet, at the strand's first row: try both.
                 for (int o = 0; o < 2; ++o) {
                     const gbwt::edge_type at =
-                        mosaic_position_at(gbwt::Node::encode(from_node, o == 1), h);
-                    if (at != gbwt::invalid_edge() && mosaic_follow(at, to_node, end)) {
+                        walk.position_at(gbwt::Node::encode(from_node, o == 1), h);
+                    if (at != gbwt::invalid_edge() && walk.follow(at, to_node, end)) {
                         *pos = at;
                         return true;
                     }
@@ -429,7 +458,7 @@ void VCFOutputCaller::write_mosaic(const vector<LinkageCollector::PhaseCall>& ph
                     && start_and_walk(reference_hap, &row_pos, &row_end)) {
                     as_ref = true;
                     walkable = true;
-                    ++mosaic_counters.row_to_ref;
+                    ++counters.row_to_ref;
                 }
             }
             // Last resort: try the row without the carried direction. A row about to have no
@@ -442,7 +471,7 @@ void VCFOutputCaller::write_mosaic(const vector<LinkageCollector::PhaseCall>& ph
                 walkable = true;
                 direction_broken = carry_applies && row_pos.first != carry;
                 if (direction_broken) {
-                    ++mosaic_counters.direction_broken;
+                    ++counters.direction_broken;
                 }
             }
             // The same last resort for the reference substitution. A panel haplotype can be clipped
@@ -454,10 +483,10 @@ void VCFOutputCaller::write_mosaic(const vector<LinkageCollector::PhaseCall>& ph
                 && start_and_walk(reference_hap, &row_pos, &row_end, true)) {
                 as_ref = true;
                 walkable = true;
-                ++mosaic_counters.row_to_ref;
+                ++counters.row_to_ref;
                 direction_broken = carry_applies && row_pos.first != carry;
                 if (direction_broken) {
-                    ++mosaic_counters.direction_broken;
+                    ++counters.direction_broken;
                 }
             }
             if (!walkable) {
@@ -483,16 +512,16 @@ void VCFOutputCaller::write_mosaic(const vector<LinkageCollector::PhaseCall>& ph
                 << row_start << "\t" << row_end << "\t";
             if (as_ref) {
                 out << "ref\t"
-                    << (reference_hap < mosaic_haplotype_names.size()
-                            ? mosaic_haplotype_names[reference_hap] : string("?"));
+                    << (reference_hap < params.haplotype_names.size()
+                            ? params.haplotype_names[reference_hap] : string("?"));
             } else if (hap == LinkageModel::WILDCARD) {
                 // The strand passes through here, and the panel cannot name a haplotype for it.
                 out << "*\t*";
                 ++unexplained_segments;
             } else {
                 out << hap << "\t"
-                    << (hap < mosaic_haplotype_names.size()
-                            ? mosaic_haplotype_names[hap] : string("?"));
+                    << (hap < params.haplotype_names.size()
+                            ? params.haplotype_names[hap] : string("?"));
             }
             out << "\t" << (b_idx - a_idx + 1) << "\t";
             if (row_pos == gbwt::invalid_edge()) {
@@ -517,20 +546,20 @@ void VCFOutputCaller::write_mosaic(const vector<LinkageCollector::PhaseCall>& ph
                 const gbwt::node_type s = carry != gbwt::ENDMARKER
                                               ? carry
                                               : gbwt::Node::encode(b.end_node, false);
-                ps = mosaic_position_at(s, reference_hap);
-                if (ps != gbwt::invalid_edge() && mosaic_follow(ps, patch_to, &pe)) {
+                ps = walk.position_at(s, reference_hap);
+                if (ps != gbwt::invalid_edge() && walk.follow(ps, patch_to, &pe)) {
                     out << "H\t" << a.contig << "\t" << strand << "\t" << fragment << "\t"
                         << patch_from_pos << "\t" << patch_to_pos << "\t"
                         << ps.first << "\t" << pe << "\t"
                         << "ref\t"
-                        << (reference_hap < mosaic_haplotype_names.size()
-                                ? mosaic_haplotype_names[reference_hap] : string("?"))
+                        << (reference_hap < params.haplotype_names.size()
+                                ? params.haplotype_names[reference_hap] : string("?"))
                         << "\t.\t" << ps.second << "\n";
                     ++total_segments;
                     carry = pe;
                 } else {
-                    ++mosaic_counters.gap_left;
-                    --mosaic_counters.patched;
+                    ++counters.gap_left;
+                    --counters.patched;
                     carry = gbwt::ENDMARKER;
                     ++fragment;
                 }
@@ -552,34 +581,34 @@ void VCFOutputCaller::write_mosaic(const vector<LinkageCollector::PhaseCall>& ph
             // giving up on the run or patching sites whose haplotype is known.
             size_t first_ok = from;
             while (first_ok <= to
-                   && mosaic_gbwt_position(site(first_ok).start_node, hap)
+                   && walk.gbwt_position(site(first_ok).start_node, hap)
                           == gbwt::invalid_edge()) {
                 ++first_ok;
             }
             if (first_ok > to) {
                 emit_row(from, to, pos);        // clipped across the whole run
-                ++mosaic_counters.unwalkable;
+                ++counters.unwalkable;
                 return;
             }
             // The unresolvable head, as small as it really is, then the walkable remainder.
             if (first_ok > from) {
                 emit_row(from, first_ok - 1, gbwt::invalid_edge());
-                ++mosaic_counters.unwalkable;
-                ++mosaic_counters.head_clipped;
+                ++counters.unwalkable;
+                ++counters.head_clipped;
             }
             emit_span(first_ok, to, strand, hap, kind);
             return;
         }
         if (pos == gbwt::invalid_edge() || from == to) {
             if (pos == gbwt::invalid_edge() && hap != LinkageModel::WILDCARD) {
-                ++mosaic_counters.unwalkable;
+                ++counters.unwalkable;
             }
             emit_row(from, to, pos);
             return;
         }
-        gbwt::edge_type end_pos = mosaic_gbwt_position(site(to).start_node, hap);
+        gbwt::edge_type end_pos = walk.gbwt_position(site(to).start_node, hap);
         if (end_pos == gbwt::invalid_edge()
-            || panel_lookup.gbwt()->locate(pos) == panel_lookup.gbwt()->locate(end_pos)) {
+            || walk.gbwt()->locate(pos) == walk.gbwt()->locate(end_pos)) {
             // Same fragment at both ends, or no way to tell. One row.
             emit_row(from, to, pos);
             return;
@@ -587,12 +616,12 @@ void VCFOutputCaller::write_mosaic(const vector<LinkageCollector::PhaseCall>& ph
         // The fragment changes somewhere in (from, to]. Binary search for the last site still on
         // the starting fragment; a site the haplotype does not reach is treated as past the
         // boundary, which keeps the search monotone.
-        gbwt::size_type seq = panel_lookup.gbwt()->locate(pos);
+        gbwt::size_type seq = walk.gbwt()->locate(pos);
         size_t lo = from, hi = to;
         while (hi - lo > 1) {
             size_t mid = lo + (hi - lo) / 2;
-            gbwt::edge_type p = mosaic_gbwt_position(site(mid).start_node, hap);
-            if (p != gbwt::invalid_edge() && panel_lookup.gbwt()->locate(p) == seq) {
+            gbwt::edge_type p = walk.gbwt_position(site(mid).start_node, hap);
+            if (p != gbwt::invalid_edge() && walk.gbwt()->locate(p) == seq) {
                 lo = mid;
             } else {
                 hi = mid;
@@ -665,27 +694,27 @@ void VCFOutputCaller::write_mosaic(const vector<LinkageCollector::PhaseCall>& ph
         i = j;
     }
     cerr << "[vg call] mosaic: " << total_segments << " segments over " << phasing.size()
-         << " sites, written to " << mosaic_path << endl;
+         << " sites, written to " << params.path << endl;
     // Empty and unexplained segments are reported separately. The unexplained count compares with
     // the phasing report's.
     cerr << "[vg call] mosaic: " << unexplained_segments
          << " segments the panel cannot name a haplotype for" << endl;
     // Segments naming a haplotype the graph does not carry across them, which a consumer has to
     // patch or break at.
-    cerr << "[vg call] mosaic: " << mosaic_counters.extended.load()
-         << " segment boundaries closed by extending right, " << mosaic_counters.extended_left.load()
-         << " by extending left instead, " << mosaic_counters.patched.load()
+    cerr << "[vg call] mosaic: " << counters.extended.load()
+         << " segment boundaries closed by extending right, " << counters.extended_left.load()
+         << " by extending left instead, " << counters.patched.load()
          << " filled with the reference because neither haplotype could be carried across, "
-         << mosaic_counters.gap_left.load() << " left as a gap" << endl;
-    cerr << "[vg call] mosaic: " << mosaic_counters.nested_enter.load()
-         << " boundaries where the walk enters a child snarl, " << mosaic_counters.nested_leave.load()
+         << counters.gap_left.load() << " left as a gap" << endl;
+    cerr << "[vg call] mosaic: " << counters.nested_enter.load()
+         << " boundaries where the walk enters a child snarl, " << counters.nested_leave.load()
          << " where it leaves one -- both stated at the CHILD's boundary node" << endl;
-    cerr << "[vg call] mosaic: " << mosaic_counters.direction_broken.load()
+    cerr << "[vg call] mosaic: " << counters.direction_broken.load()
          << " rows walked against the carried direction, each standing alone (inversions)" << endl;
-    cerr << "[vg call] mosaic: " << mosaic_counters.unwalkable.load()
+    cerr << "[vg call] mosaic: " << counters.unwalkable.load()
          << " segments name a haplotype the graph does not carry across them, of which "
-         << mosaic_counters.head_clipped.load() << " are a clipped head whose remainder is walkable; "
-         << mosaic_counters.row_to_ref.load() << " rewritten as a reference substitution" << endl;
+         << counters.head_clipped.load() << " are a clipped head whose remainder is walkable; "
+         << counters.row_to_ref.load() << " rewritten as a reference substitution" << endl;
 }
 
 }

@@ -322,7 +322,7 @@ void VCFOutputCaller::finalise_linkage_outputs() {
                  << endl;
         }
     }
-    if (!mosaic_path.empty()) {
+    if (mosaic_writer.is_enabled()) {
         // Records only: the mosaic's segments are runs over sites of the call set, and it accounts
         // for exactly the written records.
         vector<LinkageCollector::PhaseCall> written;
@@ -332,7 +332,7 @@ void VCFOutputCaller::finalise_linkage_outputs() {
                 written.push_back(pc);
             }
         }
-        write_mosaic(written);
+        mosaic_writer.write(written, panel_lookup, sample_name);
     }
 }
 

@@ -173,27 +173,13 @@ public:
         return !anchor_path.empty() && anchor_params.leaf_only;
     }
 
-    /// Where to write the mosaic, if anywhere. Turns phasing on.
-    ///
-    /// `reference_paths` are the full names of the reference paths called against, such as
-    /// `CHM13#0#chr20`. The rows give only the contig as the VCF names it, and a graph can hold
-    /// several references, so the header lists them.
-    void set_mosaic_out(const string& path, const string& graph_name,
-                        const vector<string>& haplotype_names = {},
-                        const vector<string>& reference_paths = {},
-                        bool patch_gaps = true, bool keep_nested = true,
-                        bool connect_unexplained = true) {
-        this->mosaic_path = path;
-        this->mosaic_graph_name = graph_name;
-        this->mosaic_haplotype_names = haplotype_names;
-        this->mosaic_reference_paths = reference_paths;
-        this->mosaic_patch_gaps = patch_gaps;
-        this->mosaic_keep_nested = keep_nested;
-        this->mosaic_connect_unexplained = connect_unexplained;
-        if (!path.empty()) {
+    /// Where and how to write the mosaic. A path turns phasing on.
+    void set_mosaic_out(MosaicParams params) {
+        if (!params.path.empty()) {
             // The mosaic is the phasing, so phasing is on.
             this->emit_phasing = true;
         }
+        mosaic_writer.set_params(std::move(params));
     }
 
     /// Write the buffered records. It adds the nesting INFO tags, sorts the records, runs the
@@ -375,8 +361,8 @@ protected:
     /// See `set_off_reference_nesting`.
     bool off_reference_nesting = false;
 
-    /// Counters for the mosaic writer; see `MosaicCounters`.
-    mutable MosaicCounters mosaic_counters;
+    /// Writes the mosaic file, if one was asked for.
+    MosaicWriter mosaic_writer;
     /// Writes sites as their difference blocks (see `set_atomize_blocks`), and counts block
     /// emission for the report.
     BlockRecordWriter block_records;
@@ -469,48 +455,6 @@ protected:
     unique_ptr<AnchorWriter> anchor_writer;
     /// The mismap floor that bounds a read's anchor confidence, for the file's header.
     double anchor_mismap_min = 0.0;
-
-    /// Destination for the mosaic file, and the graph it is to be read against.
-    string mosaic_path;
-    string mosaic_graph_name;
-    /// Panel index -> "sample#phase", the unit the linkage model works in: a haplotype stored as
-    /// several GBWT paths is one haplotype. With a row's contig, that is enough to find its paths.
-    /// The index means nothing outside this run, so the header writes the whole mapping.
-    vector<string> mosaic_haplotype_names;
-
-    /// Full reference path names the run called against; see set_mosaic_out.
-    vector<string> mosaic_reference_paths;
-    /// Fill a gap across which no panel haplotype can be followed with the reference, so that a
-    /// strand stays one walk. On by default; the fill is marked `ref` in the file.
-    bool mosaic_patch_gaps = true;
-    /// Include nested sites in the runs, so that a switch of haplotype at a nested site starts a
-    /// new row. On by default. Off leaves nested sites out, so a strand follows its enclosing
-    /// site's haplotype through them, and its walk need not spell the nested sites' called alleles.
-    /// Recorded in the file's #nested header.
-    bool mosaic_keep_nested = true;
-    /// Carry the flanking haplotype through a stretch the panel cannot explain, rather than
-    /// writing an unwalkable row and breaking the path. On by default; it gives up the called
-    /// alleles across those sites for a contiguous path.
-    bool mosaic_connect_unexplained = true;
-
-    /// How far a mosaic walk may run before it is abandoned. Walks go only in a direction already
-    /// established, so this limits a long run rather than a wrong-way search.
-    static const size_t MOSAIC_WALK_LIMIT = 1u << 17;
-    /// Follow `hap` from an oriented node to `to_node`, and report where it arrives.
-    ///
-    /// The caller gives the direction. A GBWT stores each path in both orientations, so where a
-    /// haplotype visits a node has two answers, while where it gets to along a known walk has one.
-    bool mosaic_follow(gbwt::edge_type start, int64_t to_node, gbwt::node_type* out_end) const;
-    /// Where `hap` sits at one oriented node, or invalid.
-    gbwt::edge_type mosaic_position_at(gbwt::node_type node, size_t hap) const;
-    /// (oriented node, haplotype) -> GBWT position. The mosaic is written serially, so one map with
-    /// no locking is enough; it lives only for that pass.
-    mutable std::unordered_map<uint64_t, gbwt::edge_type> mosaic_position_cache;
-    gbwt::edge_type mosaic_gbwt_position(int64_t node_id, size_t hap) const;
-
-    /// Collapse the per-site phasing into runs, stretches of sites over which a strand copies one
-    /// haplotype, and write them.
-    void write_mosaic(const vector<LinkageCollector::PhaseCall>& phasing) const;
 
     /// add a traversal to the VCF info field in the format of a GFA W-line or GAF path
     void add_allele_path_to_info(const HandleGraph* graph, vcflib::Variant& v, int allele,
