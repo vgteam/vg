@@ -1,26 +1,14 @@
-#include <atomic>
-#include <charconv>
-#include <chrono>
-#include <cstdio>
+#include <algorithm>
 #include <limits>
 
-#include <omp.h>
-
-#include "vcf_output_caller.hpp"
-#include "graph_caller.hpp"
-#include "symbolic_allele.hpp"
-#include "read_likelihood_caller.hpp"
-#include "algorithms/expand_context.hpp"
-#include "annotation.hpp"
-#include "gref.hpp"
-#include "traversal_clusters.hpp"
+#include "block_records.hpp"
 #include "utility.hpp"
 
 //#define debug
 
 namespace vg {
 
-// The names of the AtomizeCounters::refuse reasons, in index order. The initializer sets the
+// The names of the AtomizeRefusal reasons, in order. The initializer sets the
 // size, so that the check below fails when a name is missing as well as when one is extra.
 static const char* const g_atomize_refuse_name[] = {
     "the genotyper returned no genotype: ploidy 0, or no read the matrix could place",
@@ -38,15 +26,15 @@ static const char* const g_atomize_refuse_name[] = {
     "one block, where a chain crossed more than once may leave its record short of what the site record says",
 };
 static_assert(sizeof(g_atomize_refuse_name) / sizeof(g_atomize_refuse_name[0])
-                  == sizeof(AtomizeCounters::refuse) / sizeof(AtomizeCounters::refuse[0]),
-              "each AtomizeCounters::refuse reason must have a name in g_atomize_refuse_name, "
+                  == (size_t)AtomizeRefusal::Count,
+              "each AtomizeRefusal must have a name in g_atomize_refuse_name, "
               "and each name must have a reason");
 
-void VCFOutputCaller::report_atomize_instrumentation() const {
-    size_t unresolvable = atomize_counters.site_unresolvable.load();
+void BlockRecordWriter::report() const {
+    size_t unresolvable = counters.site_unresolvable.load();
     // Keyed on whether block emission ran at all, not on any refusal counter, so that the line
     // below is written whenever block emission ran.
-    if (atomize_counters.sites.load() == 0) {
+    if (counters.sites.load() == 0) {
         return;
     }
 
@@ -57,27 +45,27 @@ void VCFOutputCaller::report_atomize_instrumentation() const {
     // that resolved only through their reversed boundaries.
     cerr << "[vg call] atomize: " << unresolvable
          << " sites where projection is inert because the snarl does not resolve, "
-         << atomize_counters.site_reversed.load()
+         << counters.site_reversed.load()
          << " resolved as the reversal flip_snarl produces" << endl;
 
 
-    if (atomize_counters.child_inlined.load() > 0) {
-        cerr << "[vg call] atomize: " << atomize_counters.child_inlined.load()
+    if (counters.child_inlined.load() > 0) {
+        cerr << "[vg call] atomize: " << counters.child_inlined.load()
              << " child chains left without a line because a block ALT already spells them" << endl;
     }
     {
         // One line, listing only the reasons that occurred.
-        const size_t reasons = sizeof(AtomizeCounters::refuse) / sizeof(AtomizeCounters::refuse[0]);
+        const size_t reasons = (size_t)AtomizeRefusal::Count;
         size_t total = 0;
         for (size_t i = 0; i < reasons; ++i) {
-            total += atomize_counters.refuse[i].load();
+            total += counters.refuse[i].load();
         }
         if (total > 0) {
             cerr << "[vg call] atomize: " << total << " sites declined block emission, so the site"
                  << " record stands:";
             bool first = true;
             for (size_t i = 0; i < reasons; ++i) {
-                size_t n = atomize_counters.refuse[i].load();
+                size_t n = counters.refuse[i].load();
                 if (n > 0) {
                     cerr << (first ? " " : "; ") << n << " " << g_atomize_refuse_name[i];
                     first = false;
@@ -86,20 +74,20 @@ void VCFOutputCaller::report_atomize_instrumentation() const {
             cerr << endl;
         }
     }
-    if (atomize_counters.split_sites.load() > 0) {
-        cerr << "[vg call] atomize: " << atomize_counters.split_sites.load()
+    if (counters.split_sites.load() > 0) {
+        cerr << "[vg call] atomize: " << counters.split_sites.load()
              << " sites written as their difference blocks rather than their site record, "
-             << atomize_counters.split_lines.load()
+             << counters.split_lines.load()
              << " lines" << endl;
     }
 }
 
-VCFOutputCaller::ChainInlineContext VCFOutputCaller::build_chain_inline_context(
+BlockRecordWriter::ChainInlineContext BlockRecordWriter::chain_inline_context(
     const Snarl& snarl, const vector<SnarlTraversal>& travs,
     const vector<int>& genotype, int ref_trav_idx) const {
     ChainInlineContext ctx;
     // Only under block emission: with one record per snarl, no chain is inside a block.
-    if (!atomize_blocks || symbolic_manager == nullptr) {
+    if (!enabled || manager == nullptr) {
         return ctx;
     }
     if (ref_trav_idx < 0 || (size_t)ref_trav_idx >= travs.size() || genotype.empty()) {
@@ -107,7 +95,7 @@ VCFOutputCaller::ChainInlineContext VCFOutputCaller::build_chain_inline_context(
     }
     // A snarl whose projection has no symbols cannot answer: every child would read as not
     // reported and be dropped.
-    if (!symbolic_site_resolvable(snarl, *symbolic_manager)) {
+    if (!symbolic_site_resolvable(snarl, *manager)) {
         return ctx;
     }
     // A genotype with the reference allele matches every reference step, including the chain, so
@@ -118,14 +106,14 @@ VCFOutputCaller::ChainInlineContext VCFOutputCaller::build_chain_inline_context(
         }
     }
 
-    ctx.sref = symbolic_allele(travs[ref_trav_idx], snarl, *symbolic_manager);
+    ctx.sref = symbolic_allele(travs[ref_trav_idx], snarl, *manager);
 
     for (int allele : genotype) {
         if (allele < 0 || (size_t)allele >= travs.size()) {
             continue;
         }
         ChainInlineContext::Alt alt;
-        alt.salt = symbolic_allele(travs[allele], snarl, *symbolic_manager);
+        alt.salt = symbolic_allele(travs[allele], snarl, *manager);
         alt.blocks = symbolic_diff(ctx.sref, alt.salt);
         ctx.alts.push_back(std::move(alt));
     }
@@ -133,17 +121,17 @@ VCFOutputCaller::ChainInlineContext VCFOutputCaller::build_chain_inline_context(
     return ctx;
 }
 
-bool VCFOutputCaller::chain_reported_inline(const ChainInlineContext& ctx,
-                                            const Snarl& child) const {
+bool BlockRecordWriter::chain_reported_inline(const ChainInlineContext& ctx,
+                                              const Snarl& child) const {
     if (!ctx.usable) {
         return false;
     }
-    const Snarl* managed_child = symbolic_manager->into_which_snarl(child.start().node_id(),
+    const Snarl* managed_child = manager->into_which_snarl(child.start().node_id(),
                                                                    child.start().backward());
     if (managed_child == nullptr) {
         return false;
     }
-    pair<nid_t, nid_t> bounds = chain_bounds_of(managed_child, *symbolic_manager);
+    pair<nid_t, nid_t> bounds = chain_bounds_of(managed_child, *manager);
 
     // Where the chain sits in the reference projection. If it is not there, the reference does not
     // cross it, which the caller handles.
@@ -190,78 +178,68 @@ bool VCFOutputCaller::chain_reported_inline(const ChainInlineContext& ctx,
 
     // Every crossing by every called strand falls inside a difference block, whose ALT spells the
     // route through the chain.
-    ++atomize_counters.child_inlined;
+    ++counters.child_inlined;
     return true;
 }
 
-bool VCFOutputCaller::chain_reported_inline(const Snarl& snarl,
-                                            const vector<SnarlTraversal>& travs,
-                                            const vector<int>& genotype, int ref_trav_idx,
-                                            const Snarl& child) const {
-    return chain_reported_inline(build_chain_inline_context(snarl, travs, genotype, ref_trav_idx),
-                                 child);
-}
-
-/// Counters for block emission: project the reference and each distinct called ALT traversal,
-/// align them, and count. It changes no output.
-void tally_atomize(const PathPositionHandleGraph& graph, const SnarlManager* mgr,
-                   const Snarl& snarl, const vector<SnarlTraversal>& travs,
-                   const vector<int>& genotype, int ref_trav_idx,
-                   AtomizeCounters& atomize_counters) {
-    if (mgr == nullptr || ref_trav_idx < 0 || (size_t)ref_trav_idx >= travs.size()) {
+void BlockRecordWriter::count_site(const Snarl& snarl, const vector<SnarlTraversal>& travs,
+                                   int ref_trav_idx) const {
+    if (manager == nullptr || ref_trav_idx < 0 || (size_t)ref_trav_idx >= travs.size()) {
         return;
     }
-    ++atomize_counters.sites;
+    ++counters.sites;
     bool site_reversed = false;
-    if (!symbolic_site_resolvable(snarl, *mgr, &site_reversed)) {
+    if (!symbolic_site_resolvable(snarl, *manager, &site_reversed)) {
         // The projection would be a bare node list here, so the site is counted and skipped.
-        ++atomize_counters.site_unresolvable;
+        ++counters.site_unresolvable;
         return;
     }
     if (site_reversed) {
         // Counted here, once per record, rather than in the resolver, which runs once per
         // projection.
-        ++atomize_counters.site_reversed;
+        ++counters.site_reversed;
     }
 
 }
 
-int VCFOutputCaller::emit_block_records(const PathPositionHandleGraph& graph, const Snarl& snarl,
-                                        const vector<SnarlTraversal>& called_traversals,
-                                        const vector<int>& genotype, int ref_trav_idx,
-                                        const string& sample_name, const vcflib::Variant& site,
-                                        const map<int, int>& trav_to_allele,
-                                        int64_t site_position, GLLayout gl_layout,
-                                        bool genotype_snarls, bool alleles_merged) const {
+int BlockRecordWriter::write(const PathPositionHandleGraph& graph, const Snarl& snarl,
+                             const vector<SnarlTraversal>& called_traversals,
+                             const vector<int>& genotype, int ref_trav_idx,
+                             const string& sample_name, const NodeTranslation* translation,
+                             const SiteRecord& record, GLLayout gl_layout, bool genotype_snarls,
+                             const function<bool(vcflib::Variant&, size_t)>& add_line) const {
+    const vcflib::Variant& site = record.variant;
+    const map<int, int>& trav_to_allele = record.trav_to_allele;
+    const int64_t site_position = record.unflattened_position;
     // Every refusal below returns -1, meaning the site record is written as it is. Block emission
     // being off is not a refusal, so it is not counted.
-    if (!atomize_blocks || symbolic_manager == nullptr || genotype_snarls) {
+    if (!enabled || manager == nullptr || genotype_snarls) {
         return -1;
     }
     if (genotype.empty()) {
-        ++atomize_counters.refuse[0];
+        ++counters.refuse[(size_t)AtomizeRefusal::NoGenotype];
         return -1;
     }
-    if (alleles_merged) {
-        ++atomize_counters.refuse[10];
+    if (record.alleles_merged) {
+        ++counters.refuse[(size_t)AtomizeRefusal::AllelesMerged];
         return -1;
     }
     if (ref_trav_idx < 0 || (size_t)ref_trav_idx >= called_traversals.size()) {
-        ++atomize_counters.refuse[1];
+        ++counters.refuse[(size_t)AtomizeRefusal::NoReferenceTraversal];
         return -1;
     }
-    if (!symbolic_site_resolvable(snarl, *symbolic_manager)) {
+    if (!symbolic_site_resolvable(snarl, *manager)) {
         // The projection would see no child chains here.
-        ++atomize_counters.refuse[2];
+        ++counters.refuse[(size_t)AtomizeRefusal::Unresolvable];
         return -1;
     }
 
     const SnarlTraversal& ref_trav = called_traversals[ref_trav_idx];
     vector<pair<int, int>> ref_ranges;
-    SymbolicAllele sref = symbolic_allele(ref_trav, snarl, *symbolic_manager, &ref_ranges);
+    SymbolicAllele sref = symbolic_allele(ref_trav, snarl, *manager, &ref_ranges);
     const size_t m = sref.size();
     if (m == 0 || ref_ranges.size() != m) {
-        ++atomize_counters.refuse[3];
+        ++counters.refuse[(size_t)AtomizeRefusal::EmptyReferenceProjection];
         return -1;
     }
 
@@ -312,11 +290,11 @@ int VCFOutputCaller::emit_block_records(const PathPositionHandleGraph& graph, co
         if (genotype[s] == ref_trav_idx) {
             continue;   // the reference itself: every step matches, so no blocks
         }
-        haps[s].sym = symbolic_allele(called_traversals[genotype[s]], snarl, *symbolic_manager,
+        haps[s].sym = symbolic_allele(called_traversals[genotype[s]], snarl, *manager,
                                       &haps[s].ranges);
         haps[s].blocks = symbolic_diff(sref, haps[s].sym, &haps[s].alt_before_ref);
         if (haps[s].alt_before_ref.size() != m + 1) {
-            ++atomize_counters.refuse[4];
+            ++counters.refuse[(size_t)AtomizeRefusal::StepMapLength];
             return -1;
         }
     }
@@ -331,7 +309,7 @@ int VCFOutputCaller::emit_block_records(const PathPositionHandleGraph& graph, co
         }
     }
     if (ivs.empty()) {
-        ++atomize_counters.refuse[5];
+        ++counters.refuse[(size_t)AtomizeRefusal::NoDifferenceBlocks];
         return -1;
     }
     sort(ivs.begin(), ivs.end());
@@ -410,14 +388,14 @@ int VCFOutputCaller::emit_block_records(const PathPositionHandleGraph& graph, co
         int64_t pos = site_position + (int64_t)ref_visit_off[vb];
         if (needs_anchor) {
             if (vb <= 0) {
-                ++atomize_counters.refuse[6];
+                ++counters.refuse[(size_t)AtomizeRefusal::NoAnchorBase];
                 // Also stops seq_of(ref_trav, -1, 0) below from reading ref_trav.visit(-1), which
                 // can happen when the snarl's start node appears twice in the reference traversal.
                 return -1;
             }
             string left = seq_of(ref_trav, vb - 1, vb);
             if (left.empty()) {
-                ++atomize_counters.refuse[7];
+                ++counters.refuse[(size_t)AtomizeRefusal::AnchorWithoutSequence];
                 return -1;
             }
             string base(1, left.back());
@@ -478,7 +456,7 @@ int VCFOutputCaller::emit_block_records(const PathPositionHandleGraph& graph, co
             for (int v = vb; v < ve && v < ref_trav.visit_size(); ++v) {
                 *ref_span.add_visit() = ref_trav.visit(v);
             }
-            add_allele_path_to_info(b_var, 0, ref_span, false, false);
+            add_allele_path_to_info(b_var, 0, visits_of(ref_span), false, translation);
             for (size_t a = 1; a < alleles.size(); ++a) {
                 SnarlTraversal span;
                 for (size_t s = 0; s < genotype.size(); ++s) {
@@ -487,7 +465,7 @@ int VCFOutputCaller::emit_block_records(const PathPositionHandleGraph& graph, co
                         break;
                     }
                 }
-                add_allele_path_to_info(b_var, a, span, false, false);
+                add_allele_path_to_info(b_var, a, visits_of(span), false, translation);
             }
         }
 
@@ -637,15 +615,15 @@ int VCFOutputCaller::emit_block_records(const PathPositionHandleGraph& graph, co
         }
 
         b_var.updateAlleleIndexes();
-        flatten_common_allele_ends(b_var, true, 0);
-        flatten_common_allele_ends(b_var, false, 0);
+        vg::flatten_common_allele_ends(b_var, true, 0);
+        vg::flatten_common_allele_ends(b_var, false, 0);
         built.push_back(std::move(b_var));
         built_one_to_one.push_back(set<int>(site_of_block.begin(), site_of_block.end()).size()
                                    == site_of_block.size());
     }
 
     if (built.empty()) {
-        ++atomize_counters.refuse[8];
+        ++counters.refuse[(size_t)AtomizeRefusal::ReferenceBasesOnly];
         return -1;
     }
     // One block replaces the site record only where the site record says more than the block. A
@@ -696,11 +674,11 @@ int VCFOutputCaller::emit_block_records(const PathPositionHandleGraph& graph, co
             site_says_more = site_says_more || as_blocks != site_allele;
         }
         if (!site_says_more) {
-            ++atomize_counters.refuse[9];
+            ++counters.refuse[(size_t)AtomizeRefusal::SameAsSiteRecord];
             return -1;
         }
         if (chain_crossed_twice) {
-            ++atomize_counters.refuse[12];
+            ++counters.refuse[(size_t)AtomizeRefusal::ChainCrossedTwice];
             return -1;
         }
         // The block takes its genotype, likelihoods and phase from the site, through the site allele
@@ -708,7 +686,7 @@ int VCFOutputCaller::emit_block_records(const PathPositionHandleGraph& graph, co
         // one. Two routes can spell one site allele and still differ here, where a difference outside
         // a child chain is cancelled by one inside it.
         if (!built_one_to_one[0]) {
-            ++atomize_counters.refuse[11];
+            ++counters.refuse[(size_t)AtomizeRefusal::StrandsDisagree];
             return -1;
         }
     }
@@ -723,11 +701,13 @@ int VCFOutputCaller::emit_block_records(const PathPositionHandleGraph& graph, co
         // index appended. A snarl's name has no '_', so the site's ID can be read back from it
         // (see block_site_name).
         b_var.id += "_" + b_var.info["SB"][0];
-        if (add_variant(b_var, block_index)) {
+        if (add_line(b_var, block_index)) {
             ++added;
         }
         ++block_index;
     }
+    ++counters.split_sites;
+    counters.split_lines += (size_t)added;
     return added;
 }
 

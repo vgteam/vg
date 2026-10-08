@@ -279,45 +279,9 @@ public:
     /// Write one record per difference block between the reference and each called strand's
     /// symbolic allele, instead of one record per snarl (--atomize-blocks). Does nothing on the
     /// calling paths that cannot support it.
-    void set_atomize_blocks(bool on) { this->atomize_blocks = on; }
+    void set_atomize_blocks(bool on) { block_records.set_enabled(on); }
 
 protected:
-
-    /// Whether `child` is already reported by this snarl's own records, because every called strand
-    /// crosses it only inside a difference block whose ALT spells the route through it, so that
-    /// block emission reports each variant once. This can happen only when no called allele is the
-    /// reference allele; a chain that no reference path passes through is handled separately by the
-    /// caller.
-    bool chain_reported_inline(const Snarl& snarl, const vector<SnarlTraversal>& travs,
-                               const vector<int>& genotype, int ref_trav_idx,
-                               const Snarl& child) const;
-
-    /// The parts of that test that do not depend on the child: the site's symbolic projection,
-    /// each called ALT's projection, and the difference blocks between the reference and each ALT.
-    /// Built once per snarl rather than once per child, since the edit-distance alignment in
-    /// `symbolic_diff` is the same for every child.
-    struct ChainInlineContext {
-        /// False when the answer is false for every child: indices out of range, an empty genotype,
-        /// an unresolvable site, or the reference among the called alleles.
-        bool usable = false;
-        SymbolicAllele sref;
-        struct Alt {
-            SymbolicAllele salt;
-            vector<DiffBlock> blocks;
-        };
-        /// One entry per called allele that is in range and not the reference, in genotype order.
-        vector<Alt> alts;
-    };
-
-    /// Build the child-independent half of the rule. See ChainInlineContext.
-    ChainInlineContext build_chain_inline_context(const Snarl& snarl,
-                                                  const vector<SnarlTraversal>& travs,
-                                                  const vector<int>& genotype,
-                                                  int ref_trav_idx) const;
-
-    /// The part of the test that depends on the child. Gives the same result as the five-argument
-    /// form.
-    bool chain_reported_inline(const ChainInlineContext& ctx, const Snarl& child) const;
 
     /// True when this called traversal takes the same route through the snarl as the reference and
     /// differs only inside child chains. Always false when symbolic collapsing is off.
@@ -391,9 +355,6 @@ protected:
     /// Snarl hierarchy for symbolic collapsing, or null to compare alleles by sequence alone.
     const SnarlManager* symbolic_manager = nullptr;
 
-    /// Whether to decompose a snarl into one record per difference block.
-    bool atomize_blocks = false;
-
     /// The level of the site being recorded now: its depth among the nested chains, which
     /// decides when in a linkage pass its genotype is chosen. Thread-local because the direct pass
     /// runs in parallel, and each descent saves, increments and restores it on its own thread.
@@ -435,11 +396,9 @@ protected:
 
     /// Counters for the mosaic writer; see `MosaicCounters`.
     mutable MosaicCounters mosaic_counters;
-    /// Counters for block emission; see `AtomizeCounters`.
-    mutable AtomizeCounters atomize_counters;
-
-    /// Print the block-emission counters.
-    void report_atomize_instrumentation() const;
+    /// Writes sites as their difference blocks (see `set_atomize_blocks`), and counts block
+    /// emission for the report.
+    BlockRecordWriter block_records;
 
     /// `linkage_phased` keyed by record, copied by `build_render_phases` when phasing is emitted.
     /// Each record reads its phase from it as it is rendered. Keyed by record rather than by
@@ -650,21 +609,6 @@ protected:
     /// clean up the alleles to not share common prefixes / suffixes
     /// if len_override given, just do that many bases without thinking
     void flatten_common_allele_ends(vcflib::Variant& variant, bool backward, size_t len_override) const;
-
-    /// Split a finished site record into one record per difference block and file them.
-    ///
-    /// Returns the number of lines written, or -1 when it declines, in which case the site record
-    /// is written as it is. `site` must be the finished record, after update_vcf_info and
-    /// flattening, since every field a block does not redefine is taken from it.
-    /// `trav_to_allele` maps each called traversal to its allele in `site`. It declines a site
-    /// whose alleles `merge_similar_alleles` merged (`alleles_merged`), since the site then numbers
-    /// its alleles differently from that map, and its blocks would spell the merged alleles apart.
-    int emit_block_records(const PathPositionHandleGraph& graph, const Snarl& snarl,
-                           const vector<SnarlTraversal>& called_traversals,
-                           const vector<int>& genotype, int ref_trav_idx,
-                           const string& sample_name, const vcflib::Variant& site,
-                           const map<int, int>& trav_to_allele, int64_t site_position,
-                           GLLayout gl_layout, bool genotype_snarls, bool alleles_merged) const;
 
     /// print a snarl in a consistent form like >3435<12222
     /// if in_brackets set to true,  do (>3435<12222) instead (this is only used for nested caller)

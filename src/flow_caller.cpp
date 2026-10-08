@@ -251,16 +251,11 @@ void FlowCaller::install_record_steps() {
                                        const vector<int>& genotype, int ref_trav_idx,
                                        const SiteRecord& record, GLLayout gl_layout,
                                        bool genotype_snarls) {
-        const int block_lines = emit_block_records(graph, site, travs, genotype, ref_trav_idx,
-                                                   sample_name, record.variant,
-                                                   record.trav_to_allele,
-                                                   record.unflattened_position, gl_layout,
-                                                   genotype_snarls, record.alleles_merged);
-        if (block_lines >= 0) {
-            ++atomize_counters.split_sites;
-            atomize_counters.split_lines += (size_t)block_lines;
-        }
-        return block_lines;
+        return block_records.write(graph, site, travs, genotype, ref_trav_idx, sample_name,
+                                   translation, record, gl_layout, genotype_snarls,
+                                   [this](vcflib::Variant& line, size_t block) {
+                                       return add_variant(line, block);
+                                   });
     };
     // The linkage model gets the site whether or not it has a line. A parent written as the
     // reference still has two alleles, which differ only inside its children, and the children
@@ -1806,15 +1801,15 @@ void FlowCaller::run_linkage_pass() {
         }
         sort(parents.begin(), parents.end());
         // Counted again from here, so that the report gives the chains held back now.
-        atomize_counters.child_inlined = 0;
+        block_records.restart_inline_count();
         for (const pair<uint8_t, size_t>& gk : parents) {
             const PendingRecord& parent = *record_by_key.at(gk.second);
             if (parent.dropped) {
                 continue;   // its children were dropped with it
             }
             // The parts of the test that do not depend on the child, built once for this parent;
-            // see VCFOutputCaller::ChainInlineContext.
-            const ChainInlineContext ctx = build_chain_inline_context(
+            // see BlockRecordWriter::ChainInlineContext.
+            const BlockRecordWriter::ChainInlineContext ctx = block_records.chain_inline_context(
                 parent.snarl, parent.travs, chosen_genotype_for(parent), parent.ref_trav_idx);
             for (size_t ci : children_of.at(gk.second)) {
                 PendingRecord& child = pending[ci];
@@ -1822,8 +1817,8 @@ void FlowCaller::run_linkage_pass() {
                     continue;
                 }
                 const bool was = child.reported_inline;
-                child.reported_inline =
-                    parent.reported_inline || chain_reported_inline(ctx, child.snarl);
+                child.reported_inline = parent.reported_inline
+                                        || block_records.chain_reported_inline(ctx, child.snarl);
                 if (was != child.reported_inline) {
                     ++pass_inline_rederived;
                 }
@@ -2530,8 +2525,8 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
         if (managed_ptr != nullptr) {
 
             // The child-independent parts of the exactly-once test, built once for this snarl.
-            const ChainInlineContext inline_ctx =
-                build_chain_inline_context(snarl, travs, trav_genotype, ref_trav_idx);
+            const BlockRecordWriter::ChainInlineContext inline_ctx =
+                block_records.chain_inline_context(snarl, travs, trav_genotype, ref_trav_idx);
             // Also once for this snarl: see TraversalNodeIndex.
             vector<TraversalNodeIndex> trav_visits;
             trav_visits.reserve(travs.size());
@@ -2570,7 +2565,7 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
                 // emission is off, or for a snarl whose projection has no symbols.
                 bool child_reported_inline =
                     nested_context.reported_inline
-                    || chain_reported_inline(inline_ctx, *child);
+                    || block_records.chain_reported_inline(inline_ctx, *child);
 
                 int copies = child_ploidy(trav_visits, trav_genotype, *child, ploidy);
                 bool retain_only = nested_context.retain_only;

@@ -827,4 +827,14 @@ string nested_strand_genotype(int allele, int strand) {
     return strand == 0 ? a + "|." : "." + ("|" + a);
 }
 
+vector<NodeVisit> visits_of(const SnarlTraversal& trav) {
+    vector<NodeVisit> visits;
+    visits.reserve(trav.visit_size());
+    for (int i = 0; i < trav.visit_size(); ++i) {
+        const Visit& visit = trav.visit(i);
+        visits.emplace_back(visit.node_id(), visit.backward());
+    }
+    return visits;
+}
+
 }

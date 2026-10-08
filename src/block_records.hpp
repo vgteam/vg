@@ -2,19 +2,44 @@
 #define VG_BLOCK_RECORDS_HPP_INCLUDED
 
 #include <atomic>
+#include <functional>
+#include <string>
 #include <vector>
 
 #include "handle.hpp"
 #include "snarls.hpp"
+#include "symbolic_allele.hpp"
+#include "vcf_genotype_likelihoods.hpp"
+#include "vcf_record.hpp"
 
 namespace vg {
 
 using namespace std;
 
-/// Counters for block emission. A member of each VCFOutputCaller, as MosaicCounters is.
+/// Why `BlockRecordWriter::write` declined a site, so that the site's single record is written
+/// instead. The value indexes `AtomizeCounters::refuse` and the report's list of reasons.
+enum class AtomizeRefusal : size_t {
+    NoGenotype,
+    NoReferenceTraversal,
+    Unresolvable,
+    EmptyReferenceProjection,
+    StepMapLength,
+    NoDifferenceBlocks,
+    NoAnchorBase,
+    AnchorWithoutSequence,
+    ReferenceBasesOnly,
+    SameAsSiteRecord,
+    AllelesMerged,
+    StrandsDisagree,
+    ChainCrossedTwice,
+    /// The number of reasons.
+    Count
+};
+
+/// Counters for block emission, for the report.
 struct AtomizeCounters {
-    /// Sites that reached `tally_atomize`, so that the report can tell "nothing refused" from
-    /// "never ran".
+    /// Sites that reached `BlockRecordWriter::count_site`, so that the report can tell "nothing
+    /// refused" from "never ran".
     std::atomic<size_t> sites{0};
     std::atomic<size_t> site_unresolvable{0};  // flip_snarl left projection with no symbols
     std::atomic<size_t> site_reversed{0};      // resolved only via the reversed pairing
@@ -22,17 +47,93 @@ struct AtomizeCounters {
     std::atomic<size_t> split_sites{0}, split_lines{0};
     /// Chains whose own record is not written because a block's ALT already spells them.
     std::atomic<size_t> child_inlined{0};
-    /// Why `emit_block_records` declined a site, by refusal point. Each means the site's single
-    /// record is written instead.
-    std::atomic<size_t> refuse[13] = {};
+    /// Sites `BlockRecordWriter::write` declined, by reason.
+    std::atomic<size_t> refuse[(size_t)AtomizeRefusal::Count] = {};
 };
 
-/// Counters for block emission: project the reference and each distinct called ALT traversal,
-/// align them, and count. It changes no output.
-void tally_atomize(const PathPositionHandleGraph& graph, const SnarlManager* mgr,
-                   const Snarl& snarl, const vector<SnarlTraversal>& travs,
-                   const vector<int>& genotype, int ref_trav_idx,
-                   AtomizeCounters& atomize_counters);
+/**
+ * Writes a site as one record per difference block between the reference and each called
+ * strand's symbolic allele, instead of one record for the whole site, and decides which child
+ * chains those blocks already report, so that each variant is reported once.
+ *
+ * Configured with the snarl manager that symbolic alleles are projected through and with whether
+ * block emission is on. Counts what it does, for the report; the counters are atomic, so the
+ * const methods can be called from many threads.
+ */
+class BlockRecordWriter {
+public:
+    /// The snarl hierarchy for the symbolic projections, not owned. Null turns block emission and
+    /// the site counts off.
+    void set_manager(const SnarlManager* manager) { this->manager = manager; }
+
+    /// Turn block emission on or off. Off by default.
+    void set_enabled(bool enabled) { this->enabled = enabled; }
+
+    /// Whether block emission was turned on, for the VCF header.
+    bool is_enabled() const { return enabled; }
+
+    /// The parts of the inline test that do not depend on the child: the site's symbolic
+    /// projection, each called ALT's projection, and the difference blocks between the reference
+    /// and each ALT. Built once per site rather than once per child, since the edit-distance
+    /// alignment in `symbolic_diff` is the same for every child.
+    struct ChainInlineContext {
+        /// False when the answer is false for every child: block emission off, indices out of
+        /// range, an empty genotype, an unresolvable site, or the reference among the called
+        /// alleles.
+        bool usable = false;
+        SymbolicAllele sref;
+        struct Alt {
+            SymbolicAllele salt;
+            vector<DiffBlock> blocks;
+        };
+        /// One entry per called allele that is in range and not the reference, in genotype order.
+        vector<Alt> alts;
+    };
+
+    /// Build the child-independent half of the inline test for a site with genotype `genotype`
+    /// over `travs`. See ChainInlineContext.
+    ChainInlineContext chain_inline_context(const Snarl& snarl,
+                                            const vector<SnarlTraversal>& travs,
+                                            const vector<int>& genotype,
+                                            int ref_trav_idx) const;
+
+    /// Whether `child` is already reported by the site's own block records, because every called
+    /// strand crosses it only inside a difference block whose ALT spells the route through it.
+    /// This can happen only when no called allele is the reference allele; a chain that no
+    /// reference path passes through is handled separately by the caller.
+    bool chain_reported_inline(const ChainInlineContext& ctx, const Snarl& child) const;
+
+    /// Restart the count of chains reported inline, before a pass decides them all again.
+    void restart_inline_count() { counters.child_inlined = 0; }
+
+    /// Count a site for the report, before its record is built, by whether the symbolic
+    /// projection resolves it. It changes no output.
+    void count_site(const Snarl& snarl, const vector<SnarlTraversal>& travs,
+                    int ref_trav_idx) const;
+
+    /// Write a site as its difference blocks, giving each block line to `add_line` with its block
+    /// index. The lines are written for `sample_name`, with nodes named by `translation` if it is
+    /// not null. Returns the number of lines `add_line` accepted, or -1 when block emission is off or
+    /// declines the site, in which case the site record is to be written as it is.
+    ///
+    /// `record` must be the finished site record, after the snarl caller's fields are written and
+    /// the alleles are flattened, since every field a block does not redefine is taken from it.
+    /// A site whose alleles were merged is declined, since it then numbers its alleles differently
+    /// from `record.trav_to_allele`, and its blocks would spell the merged alleles apart.
+    int write(const PathPositionHandleGraph& graph, const Snarl& snarl,
+              const vector<SnarlTraversal>& called_traversals, const vector<int>& genotype,
+              int ref_trav_idx, const string& sample_name, const NodeTranslation* translation,
+              const SiteRecord& record, GLLayout gl_layout, bool genotype_snarls,
+              const function<bool(vcflib::Variant&, size_t)>& add_line) const;
+
+    /// Print the counters to stderr. Prints nothing when no site was counted.
+    void report() const;
+
+private:
+    const SnarlManager* manager = nullptr;
+    bool enabled = false;
+    mutable AtomizeCounters counters;
+};
 
 }
 

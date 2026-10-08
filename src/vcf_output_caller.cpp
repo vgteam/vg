@@ -62,7 +62,7 @@ string VCFOutputCaller::vcf_header(const PathHandleGraph& graph, const vector<st
            << "snarl pointer\">" << endl;
     }
     ss << "##INFO=<ID=AT,Number=R,Type=String,Description=\"Allele Traversal as path in graph\">" << endl;
-    if (atomize_blocks) {
+    if (block_records.is_enabled()) {
         ss << "##INFO=<ID=SB,Number=2,Type=Integer,Description=\"Index and count of this "
            << "difference block within its snarl. A snarl is written as one record per difference "
            << "block where the reference and the called haplotypes differ from each other in more "
@@ -454,7 +454,7 @@ void VCFOutputCaller::write_variants(ostream& out_stream, const SnarlManager* sn
              << quality_declined.load() << " quality rewrites refused" << endl;
     }
     // Reported after the records are rendered, since block emission happens as they are.
-    report_atomize_instrumentation();
+    block_records.report();
 }
 
 
@@ -1425,17 +1425,6 @@ string VCFOutputCaller::prune_header_contigs(const string& header,
     return result;
 }
 
-/// The visits of a traversal, with node ID 0 for a visit to a child snarl.
-static vector<NodeVisit> visits_of(const SnarlTraversal& trav) {
-    vector<NodeVisit> visits;
-    visits.reserve(trav.visit_size());
-    for (int i = 0; i < trav.visit_size(); ++i) {
-        const Visit& visit = trav.visit(i);
-        visits.emplace_back(visit.node_id(), visit.backward());
-    }
-    return visits;
-}
-
 void VCFOutputCaller::add_allele_path_to_info(const HandleGraph* graph, vcflib::Variant& v, int allele, const Traversal& trav,
                                               bool reversed, bool one_based) const {
     vector<NodeVisit> visits;
@@ -1482,6 +1471,7 @@ bool VCFOutputCaller::is_symbolically_reference(const vector<SnarlTraversal>& ca
 
 void VCFOutputCaller::set_symbolic_collapsing(const SnarlManager* manager) {
     this->symbolic_manager = manager;
+    block_records.set_manager(manager);
     if (manager == nullptr) {
         record_steps.same_as_reference = nullptr;
         record_steps.count_site = nullptr;
@@ -1494,8 +1484,7 @@ void VCFOutputCaller::set_symbolic_collapsing(const SnarlManager* manager) {
     record_steps.count_site = [this](const PathPositionHandleGraph& graph, const Snarl& site,
                                      const vector<SnarlTraversal>& travs,
                                      const vector<int>& genotype, int ref_trav_idx) {
-        tally_atomize(graph, symbolic_manager, site, travs, genotype, ref_trav_idx,
-                      atomize_counters);
+        block_records.count_site(site, travs, ref_trav_idx);
     };
 }
 
