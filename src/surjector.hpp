@@ -98,20 +98,20 @@ using namespace std;
                                   bool allow_negative_scores = false,
                                   bool preserve_deletions = false) const;
         
-        /// Surject graph placements of one unpaired read together.
-        /// Paired and mapper-provided supplementary inputs are rejected.
-        /// Identical serialized graph paths are evaluated once. All target paths
-        /// compete regardless of multimap_to_all_paths. Each candidate consists of
-        /// a principal alignment and its generated supplementary pieces; the principal
-        /// score determines local haplotype and global selection. Ties use reference
-        /// path, position, strand, and graph-path serialization in ascending order.
-        /// Output is primary candidate first, followed by alternatives; each candidate's
-        /// supplementary pieces follow its principal and inherit its secondary status.
-        /// Typed diploid_haplotype_preferred, diploid_haplotype_quality, and
-        /// diploid_source_mapping_quality annotations describe the result. Global
-        /// MAPQ is capped by the input primary's known MAPQ; 255 means unavailable.
-        /// All-unmapped output is a single unmapped copy of the input primary with
-        /// MAPQ 0 and only the source-quality annotation. Inputs are never modified.
+        /// Jointly surject alternative graph placements of one unpaired read.
+        ///
+        /// Each input placement is surjected to all selected target paths.
+        /// A candidate consists of a primary alignment and its supplementary pieces.
+        /// Candidates compete by the score of their primary alignment.
+        ///
+        /// The winning candidate is emitted first; other candidates are secondary.
+        /// Supplementary pieces inherit their candidate's secondary status.
+        ///
+        /// Haplotype quality compares target-path candidates from the same input
+        /// placement. Final mapping quality compares all candidates and is capped
+        /// by the input primary alignment's known MAPQ; 255 means unavailable.
+        ///
+        /// Paired and mapper-provided supplementary inputs are not supported.
         vector<Alignment> surject_diploid(const vector<Alignment>& placements,
                                          const unordered_set<path_handle_t>& paths,
                                          bool allow_negative_scores = false,
@@ -347,9 +347,10 @@ using namespace std;
         /// Do the extra score setup for the DP-only Aligner.
         void set_dp_alignment_scores(const int8_t* score_matrix, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus);
         
-        // When candidate_groups is supplied for Alignment input, emit all path/strand
-        // candidates and record each principal's output index followed by its local
-        // supplementary indices. Secondary alternatives are separate candidate groups.
+        /// If candidate_groups is provided for Alignment input, emit every path/strand
+        /// candidate and record the output indices belonging to each candidate.
+        /// The first index is the candidate's primary alignment; later indices are
+        /// its supplementary pieces. Secondary alternatives form separate groups.
         void surject_internal(const Alignment* source_aln, const multipath_alignment_t* source_mp_aln,
                               vector<Alignment>* alns_out, vector<multipath_alignment_t>* mp_alns_out,
                               const unordered_set<path_handle_t>& paths,
