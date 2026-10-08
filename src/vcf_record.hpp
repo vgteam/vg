@@ -210,6 +210,11 @@ struct SiteRecord {
     bool alleles_merged;
 };
 
+/// A nested ploidy-1 genotype: one allele on a named strand, with "." on the other, since the other
+/// strand carries nothing here, its parent allele having deleted the chain. Shared by a site record
+/// and its block records.
+string nested_strand_genotype(int allele, int strand);
+
 /// Build the record for a site. Traversals with the same sequence become one allele. Where the
 /// genotype has an allele marker, the record has "*" or ".", and a genotype with "." and no ALT
 /// gets "*" as its ALT, so that the record is valid VCF.

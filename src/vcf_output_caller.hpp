@@ -24,6 +24,7 @@
 #include "zstdutil.hpp"
 #include "vg/io/alignment_emitter.hpp"
 #include "gref.hpp"
+#include "block_records.hpp"
 #include "panel_lookup.hpp"
 #include "ploidy_regions.hpp"
 #include "vcf_genotype_likelihoods.hpp"
@@ -53,22 +54,6 @@ struct MosaicCounters {
     std::atomic<size_t> nested_enter{0}, nested_leave{0};
     /// Rows the current direction could not walk but the other direction could, at an inversion.
     std::atomic<size_t> direction_broken{0}, extended_left{0};
-};
-
-/// Counters for block emission. A member of each VCFOutputCaller, as MosaicCounters is.
-struct AtomizeCounters {
-    /// Sites that reached `tally_atomize`, so that the report can tell "nothing refused" from
-    /// "never ran".
-    std::atomic<size_t> sites{0};
-    std::atomic<size_t> site_unresolvable{0};  // flip_snarl left projection with no symbols
-    std::atomic<size_t> site_reversed{0};      // resolved only via the reversed pairing
-    /// Sites written as blocks, and the lines they produced.
-    std::atomic<size_t> split_sites{0}, split_lines{0};
-    /// Chains whose own record is not written because a block's ALT already spells them.
-    std::atomic<size_t> child_inlined{0};
-    /// Why `emit_block_records` declined a site, by refusal point. Each means the site's single
-    /// record is written instead.
-    std::atomic<size_t> refuse[13] = {};
 };
 
 /**

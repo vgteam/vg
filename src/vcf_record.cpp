@@ -822,4 +822,9 @@ SiteRecord build_site_record(const PathPositionHandleGraph& graph, const SiteToW
     return record;
 }
 
+string nested_strand_genotype(int allele, int strand) {
+    const string a = std::to_string(allele);
+    return strand == 0 ? a + "|." : "." + ("|" + a);
+}
+
 }
