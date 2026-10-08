@@ -160,8 +160,8 @@ using namespace std;
             throw invalid_argument("diploid input must contain exactly one primary placement");
         }
 
-        // Preserve source and supplementary membership until flags and qualities
-        // have been finalized. Never pool supplementary pieces as competitors.
+        // Keep each candidate's primary alignment together with its supplementary pieces.
+        // Only primary alignments compete when choosing between candidates.
         struct Candidate {
             vector<Alignment> pieces;
             vector<tuple<string, int64_t, bool>> positions;
@@ -187,14 +187,15 @@ using namespace std;
                 ->compute_first_mapping_quality(scores, false);
             return max<int32_t>(0, min(max_diploid_mapping_quality, value));
         };
-        // Retain the input primary's metadata when identical graph paths occur twice.
+        // Visit the input primary first so deduplication keeps its metadata when
+        // multiple inputs describe the same graph path.
         vector<const Alignment*> ordered_sources{primary};
         for (const auto& source : placements) {
             if (&source != primary) {
                 ordered_sources.push_back(&source);
             }
         }
-        // Discard obsolete SA links once; the existing SA builder appends entries.
+        // Remove existing SA tags before rebuilding links for the new surjections.
         auto clear_sa = [](Alignment& aln) {
             if (!has_annotation(aln, "tags")) {
                 return;
@@ -267,7 +268,7 @@ using namespace std;
             clear_annotation(unmapped, "diploid_haplotype_quality");
             clear_sa(unmapped);
             set_annotation(unmapped, "diploid_source_mapping_quality", primary->mapping_quality());
-            // HTS output requires one reference position, even for unmapped reads.
+            // Represent unmapped output with the empty reference position expected by HTS output.
             vector<Alignment> output{std::move(unmapped)};
             set_refpos(output, {make_tuple(string(), int64_t(-1), false)});
             return output;
@@ -292,8 +293,7 @@ using namespace std;
                 set_annotation(aln, "diploid_source_mapping_quality", primary->mapping_quality());
                 clear_sa(aln);
             }
-            // Rebuild each group's SA links with final qualities, never linking
-            // pieces belonging to different alternatives or source placements.
+            // Rebuild SA links within each candidate after final mapping qualities are set.
             add_SA_tag(candidate.pieces, candidate.positions, *graph, preserve_deletions);
             for (auto& aln : candidate.pieces) {
                 output.emplace_back(std::move(aln));

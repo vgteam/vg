@@ -639,7 +639,7 @@ int main_surject(int argc, char** argv) {
                         if (smells_paired(placement)) smells_paired_error(logger, placement.name());
                         set_metadata(placement);
                     }
-                    // A single emitter call keeps all placements of this read together.
+                    // Emit the complete read group in one call so its alternative placements stay adjacent.
                     alignment_emitter->emit_singles(surjector.surject_diploid(placements, paths, subpath_global, spliced));
                     ++total_reads_surjected;
                     watchdog->check_out(thread_num);
