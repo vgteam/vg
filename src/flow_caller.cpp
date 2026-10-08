@@ -162,13 +162,21 @@ void FlowCaller::collect_anchors_for_record(const PendingRecord& rec,
         // read-likelihood one. There are no per-read responsibilities to partition on.
         return;
     }
+    // The site's own log-odds per read, built on the first lookup and shared by the rest, so that
+    // looking up every read at a site costs one pass over its reads rather than one per read.
+    unordered_map<uint64_t, double> site_own;
+    int site_own_state = 0; // 0: not built yet; 1: built; 2: nothing to leave out
     anchor_collector.collect(*info->anchor_evidence, info->explained_share,
                              phase_ordered_genotype(rec.record_key, genotype),
                              phase_haploid_slot(rec.record_key, genotype), print_snarl(rec.snarl),
                              anchor_collector.wants_leaf_test() ? snarl_is_leaf(rec.snarl) : true,
                              anchor_gqn_for(rec, genotype),
                              [&](std::string_view read_name) {
-                                 return read_strand_log_odds(rec.record_key, read_name);
+                                 if (site_own_state == 0) {
+                                     site_own_state = site_own_strand_log_odds(rec.record_key, site_own) ? 1 : 2;
+                                 }
+                                 return read_strand_log_odds(rec.record_key, read_name,
+                                                             site_own_state == 1 ? &site_own : nullptr);
                              });
 }
 

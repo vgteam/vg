@@ -404,7 +404,16 @@ protected:
     /// its own reads. Positive names slot 0. Zero means none: no table, no other contributing site,
     /// or no fitted temper. NaN means the read has a strand that is not usable in the site's phase
     /// set (see `read_strand_usable`). Re-genotyping does not use this, and gives such a read 0.
-    double read_strand_log_odds(size_t record_key, std::string_view read_name) const;
+    ///
+    /// `site_own`, if given, is the site's own log-odds per read, from `site_own_strand_log_odds`
+    /// for the same `record_key`; a caller looking up many reads at one site builds it once.
+    double read_strand_log_odds(size_t record_key, std::string_view read_name,
+                                const unordered_map<uint64_t, double>* site_own = nullptr) const;
+
+    /// Fill `out` with each read's log-odds from the site `record_key` alone, which
+    /// `read_strand_log_odds` leaves out. Returns false, leaving `out` alone, when there is nothing to
+    /// leave out: no table, no fitted temper, or a site that contributed nothing.
+    bool site_own_strand_log_odds(size_t record_key, unordered_map<uint64_t, double>& out) const;
 
     /// See set_linkage_min_confidence.
     double linkage_min_confidence = 0.0;

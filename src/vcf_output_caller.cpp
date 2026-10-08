@@ -200,7 +200,20 @@ void VCFOutputCaller::build_render_lambda() {
     }
 }
 
-double VCFOutputCaller::read_strand_log_odds(size_t record_key, std::string_view read_name) const {
+bool VCFOutputCaller::site_own_strand_log_odds(size_t record_key, unordered_map<uint64_t, double>& out) const {
+    if (render_lambda.empty() || render_lambda_temper <= 0.0) {
+        return false;
+    }
+    const auto site = render_lambda_site.find(record_key);
+    if (site == render_lambda_site.end()) {
+        return false;
+    }
+    site_own_log_odds(*site->second, phase_flips.count(record_key) != 0, out);
+    return true;
+}
+
+double VCFOutputCaller::read_strand_log_odds(size_t record_key, std::string_view read_name,
+                                             const unordered_map<uint64_t, double>* site_own) const {
     if (render_lambda.empty() || render_lambda_temper <= 0.0) {
         return 0.0;
     }
@@ -222,12 +235,13 @@ double VCFOutputCaller::read_strand_log_odds(size_t record_key, std::string_view
     size_t sites = found->second.sites;
     // Subtract this record's own contribution, so that a site is not judged by its own evidence;
     // if it was the only one, there is nothing left.
-    const auto site = render_lambda_site.find(record_key);
-    if (site != render_lambda_site.end()) {
-        unordered_map<uint64_t, double> own;
-        site_own_log_odds(*site->second, phase_flips.count(record_key) != 0, own);
-        const auto mine = own.find(key);
-        if (mine != own.end()) {
+    unordered_map<uint64_t, double> built;
+    if (site_own == nullptr && site_own_strand_log_odds(record_key, built)) {
+        site_own = &built;
+    }
+    if (site_own != nullptr) {
+        const auto mine = site_own->find(key);
+        if (mine != site_own->end()) {
             value -= mine->second;
             if (sites > 0) {
                 --sites;
