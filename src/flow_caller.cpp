@@ -162,22 +162,12 @@ void FlowCaller::collect_anchors_for_record(const StagedSite& rec,
         // read-likelihood one. There are no per-read responsibilities to partition on.
         return;
     }
-    // The site's own log-odds per read, built on the first lookup and shared by the rest, so that
-    // looking up every read at a site costs one pass over its reads rather than one per read.
-    unordered_map<uint64_t, double> site_own;
-    int site_own_state = 0; // 0: not built yet; 1: built; 2: nothing to leave out
     anchor_collector.collect(*info->anchor_evidence, info->explained_share,
-                             phase_ordered_genotype(rec.record_key, genotype),
-                             phase_haploid_slot(rec.record_key, genotype), print_snarl(rec.snarl),
+                             phase_table.phase_ordered_genotype(rec.record_key, genotype),
+                             phase_table.haploid_slot(rec.record_key, genotype),
+                             print_snarl(rec.snarl),
                              anchor_collector.wants_leaf_test() ? snarl_is_leaf(rec.snarl) : true,
-                             anchor_gqn_for(rec, genotype),
-                             [&](std::string_view read_name) {
-                                 if (site_own_state == 0) {
-                                     site_own_state = site_own_strand_log_odds(rec.record_key, site_own) ? 1 : 2;
-                                 }
-                                 return read_strand_log_odds(rec.record_key, read_name,
-                                                             site_own_state == 1 ? &site_own : nullptr);
-                             });
+                             anchor_gqn_for(rec, genotype), read_strands, rec.record_key);
 }
 
 FlowCaller::FlowCaller(const PathPositionHandleGraph& graph,
@@ -757,20 +747,18 @@ size_t FlowCaller::chosen_changed(const unordered_map<size_t, array<int, 3>>& be
 }
 
 void FlowCaller::apply_read_phasing() {
-    if (!read_phasing || linkage_collector == nullptr || linkage_phased.empty()) {
+    if (!read_phasing || linkage_collector == nullptr || phase_table.calls().empty()) {
         return;
     }
     // Reset, since re-genotyping calls this again on the new genotypes, and the report should
     // describe the phase the output carries.
     read_phasing_counters = ReadPhasingCounters();
-    // Index the phasing by record key, the last one written winning, as in `build_render_phases`.
-    std::unordered_map<size_t, size_t> phase_index;
-    for (size_t i = 0; i < linkage_phased.size(); ++i) {
-        phase_index[linkage_phased[i].record_key] = i;
-    }
+    // Index the phasing by record key, the last one written winning.
+    const std::unordered_map<size_t, size_t> phase_index = phase_table.index();
+    const vector<LinkageCollector::PhaseCall>& calls = phase_table.calls();
 
-    // Kept in the member, since re-genotyping uses these sites.
-    vector<PhaseSite>& sites = phase_sites;
+    // Kept in `read_strands`, since re-genotyping uses these sites.
+    vector<PhaseSite>& sites = read_strands.sites();
     sites.clear();
     // Each record's site is built from its own evidence alone, so the sites are built on several
     // threads, a block of records at a time into the block's own list, and then gathered in record
@@ -780,7 +768,7 @@ void FlowCaller::apply_read_phasing() {
     const size_t block_records = 4096;
     const size_t n_blocks = (records.size() + block_records - 1) / block_records;
     vector<vector<PhaseSite>> block_sites(n_blocks);
-    // For each site in a block, its PhaseCall's index in `linkage_phased`.
+    // For each site in a block, its PhaseCall's index in `calls`.
     vector<vector<size_t>> block_calls(n_blocks);
 #pragma omp parallel for schedule(dynamic, 1)
     for (size_t b = 0; b < n_blocks; ++b) {
@@ -791,7 +779,7 @@ void FlowCaller::apply_read_phasing() {
             if (found == phase_index.end()) {
                 continue;
             }
-            const LinkageCollector::PhaseCall& pc = linkage_phased[found->second];
+            const LinkageCollector::PhaseCall& pc = calls[found->second];
             if (pc.ploidy != 2 || pc.trav_first < 0 || pc.trav_second < 0
                 || pc.trav_first == pc.trav_second) {
                 // Homozygous, haploid, or unplaced: no two strands to order.
@@ -832,7 +820,7 @@ void FlowCaller::apply_read_phasing() {
     sites.reserve(total_sites);
     for (size_t b = 0; b < n_blocks; ++b) {
         for (size_t i = 0; i < block_sites[b].size(); ++i) {
-            const LinkageCollector::PhaseCall& pc = linkage_phased[block_calls[b][i]];
+            const LinkageCollector::PhaseCall& pc = calls[block_calls[b][i]];
             block_sites[b][i].phase_set = phase_set_id(pc.contig, pc.phase_set);
             sites.push_back(std::move(block_sites[b][i]));
         }
@@ -842,36 +830,22 @@ void FlowCaller::apply_read_phasing() {
         return;
     }
 
-    phase_flips = read_phase_flips(sites, read_phasing_params, read_phasing_counters);
-    const unordered_set<size_t>& flips = phase_flips;
+    read_strands.flips() = read_phase_flips(sites, read_phasing_params, read_phasing_counters);
 
-    // Apply by swapping the chosen pair's order. The genotype is the same two traversals either
-    // way, so no call changes, only which strand carries which allele. Nested sites are reordered
-    // too. Under -A, block records spell the phase in their ALTs, so reordering a nested site can
-    // change its GT's allele numbers.
-    for (size_t key : flips) {
-        const auto found = phase_index.find(key);
-        if (found == phase_index.end()) {
-            continue;
-        }
-        LinkageCollector::PhaseCall& pc = linkage_phased[found->second];
-        std::swap(pc.trav_first, pc.trav_second);
-        std::swap(pc.allele_first, pc.allele_second);
-        std::swap(pc.hap_first, pc.hap_second);
-    }
-
-    // Carry the swaps down the nesting tree. Every recorded chain is linked, including one whose
-    // line an enclosing block's ALT spells (`reported_inline`): it still has anchors, read from
-    // its strand, and its children's strands depend on its own. A dropped chain is left out, since
-    // the sample does not carry it or anything inside it.
-    vector<NestedLink> links;
+    // Apply by swapping the chosen pair's order, and carry the swaps down the nesting tree. Nested
+    // sites are reordered too. Under -A, block records spell the phase in their ALTs, so
+    // reordering a nested site can change its GT's allele numbers. Every recorded chain is linked,
+    // including one whose line an enclosing block's ALT spells (`reported_inline`): it still has
+    // anchors, read from its strand, and its children's strands depend on its own. A dropped
+    // chain is left out, since the sample does not carry it or anything inside it.
+    vector<PhaseTable::NestedLink> links;
     staged_sites.for_each([&](const StagedSite& rec) {
         if (!rec.dropped && phase_index.count(rec.record_key) != 0) {
             links.push_back({rec.record_key, rec.parent_record_key, rec.level});
         }
     });
     read_phasing_counters.strands_rederived +=
-        cascade_nested_strands(linkage_phased, phase_index, std::move(links), flips);
+        phase_table.swap_strands(read_strands.flips(), std::move(links));
 
     const ReadPhasingCounters& c = read_phasing_counters;
     cerr << "[vg call] read phasing: " << c.sites << " het sites, " << c.reliable
@@ -894,37 +868,32 @@ void FlowCaller::apply_read_phasing() {
 }
 
 bool FlowCaller::apply_regenotyping() {
-    if (!regenotype || linkage_collector == nullptr || linkage_phased.empty()) {
+    const vector<LinkageCollector::PhaseCall>& calls = phase_table.calls();
+    if (!regenotype || linkage_collector == nullptr || calls.empty()) {
         return false;
     }
+    const vector<PhaseSite>& phase_sites = read_strands.sites();
+    const unordered_set<size_t>& phase_flips = read_strands.flips();
     // Reset the counters first, before `accumulate_lambda` fills the read counts, so that the report
     // describes this round. The calibration table and fitted temper are kept: they are set once, on
     // the first round.
-    const double keep_temper = regenotype_counters.fitted_temper;
-    const auto keep_abs = regenotype_counters.fit_abs_lambda;
-    const auto keep_obs = regenotype_counters.fit_observed;
-    const auto keep_pred = regenotype_counters.fit_predicted;
-    const auto keep_n = regenotype_counters.fit_count;
     regenotype_counters = RegenotypeCounters();
-    regenotype_counters.fitted_temper = keep_temper;
-    regenotype_counters.fit_abs_lambda = keep_abs;
-    regenotype_counters.fit_observed = keep_obs;
-    regenotype_counters.fit_predicted = keep_pred;
-    regenotype_counters.fit_count = keep_n;
+    temper_fit.restore(regenotype_counters);
 
     // Lambda over every site read phasing covered, in one pass, into a table keyed by read.
     LambdaTable lambda;
     accumulate_lambda(phase_sites, phase_flips, lambda, regenotype_counters);
 
-    // Each site's phase set, the last PhaseCall written winning, as in `build_render_phases`. A
-    // read's strand is usable only at sites of the phase set it was found in.
+    // Each site's phase set, the last PhaseCall written winning, as in
+    // `PhaseTable::freeze_for_render`. A read's strand is usable only at sites of the phase set it
+    // was found in.
     unordered_map<size_t, size_t> site_phase_set;
-    site_phase_set.reserve(linkage_phased.size() * 2);
+    site_phase_set.reserve(calls.size() * 2);
     // And the allele the chain puts on strand 0 at each diploid site, against which the reads'
     // preferred order is reported.
     unordered_map<size_t, int> site_strand0;
-    site_strand0.reserve(linkage_phased.size() * 2);
-    for (const LinkageCollector::PhaseCall& pc : linkage_phased) {
+    site_strand0.reserve(calls.size() * 2);
+    for (const LinkageCollector::PhaseCall& pc : calls) {
         site_phase_set[pc.record_key] = phase_set_id(pc.contig, pc.phase_set);
         site_strand0[pc.record_key] = pc.ploidy == 2 ? pc.trav_first : -1;
     }
@@ -934,7 +903,7 @@ bool FlowCaller::apply_regenotyping() {
     // Lambda for reads of the chain's phase set: strand 0 of that phase set.
     unordered_map<size_t, int> haploid_strand;
     if (regenotype_params.haploid_include) {
-        for (const LinkageCollector::PhaseCall& pc : linkage_phased) {
+        for (const LinkageCollector::PhaseCall& pc : calls) {
             if (pc.ploidy == 1 && pc.nested_strand >= 0) {
                 haploid_strand[pc.record_key] = pc.nested_strand == 0 ? 1 : -1;
             }
@@ -958,6 +927,7 @@ bool FlowCaller::apply_regenotyping() {
         regenotype_counters.fitted_temper = temper;
         regenotype_counters.fitted_ceiling = ceiling;
     }
+    temper_fit.keep(regenotype_counters);
 
     // Each site's own PhaseSite, so that its term can be subtracted from its reads' log-odds.
     unordered_map<size_t, const PhaseSite*> site_by_key;
@@ -1290,12 +1260,16 @@ void FlowCaller::phase_and_regenotype() {
 
 void FlowCaller::render_retained_records() {
     // Each read's strand log-odds, for the anchors collected during the render and the hand-off.
-    // `phase_sites` and `phase_flips` are final here.
-    build_render_lambda();
+    // Read phasing is done, so `read_strands` is final here.
+    read_strands.build_lambda(
+        phase_table.calls(),
+        [&](const string& contig, size_t phase_set) { return phase_set_id(contig, phase_set); },
+        regenotype_counters.fitted_temper, regenotype_counters.fitted_ceiling, regenotype_params);
     // The phase, before any record is built, so that each record is phased as it is rendered. Also
     // before the hand-off, which collects anchors for the records that get no line
-    // (`reported_inline` and `no_reference`) and reads `render_phases` to order them.
-    build_render_phases();
+    // (`reported_inline` and `no_reference`) and reads the frozen phase to order them. If read
+    // phasing ran, the phase table already carries its swaps.
+    phase_table.freeze_for_render(emit_phasing);
     // Every linkage pass is done, so the records move to the render, once, which also keeps their
     // anchors from being collected twice.
     hand_off_deferred_records();
@@ -1360,7 +1334,7 @@ void FlowCaller::run_linkage_pass() {
             pr.dropped = false;
         }
         // Appended to by every resolve, so cleared here.
-        linkage_phased.clear();
+        phase_table.calls().clear();
         // Accumulated by every resolve too.
         linkage_changed = 0;
     }
@@ -1423,7 +1397,7 @@ void FlowCaller::run_linkage_pass() {
         }
         unordered_map<size_t, const LinkageCollector::PhaseCall*> chosen;
         chosen.reserve(next_parents.size() * 2);
-        for (const LinkageCollector::PhaseCall& pc : linkage_phased) {
+        for (const LinkageCollector::PhaseCall& pc : phase_table.calls()) {
             if (next_parents.count(pc.record_key) != 0) {
                 chosen[pc.record_key] = &pc;
             }
@@ -1776,11 +1750,11 @@ void FlowCaller::run_linkage_pass() {
         }
         // The read-phasing evidence. In the report below, the snarls the linkage pass will not revise
         // are the top-level ones and the children RecurseOnFail reaches without a ploidy override.
-        for (const PhaseSite& ps : phase_sites) {
+        for (const PhaseSite& ps : read_strands.sites()) {
             retained_bytes += sizeof(PhaseSite) + ps.read_key.capacity() * sizeof(uint64_t)
                               + ps.q0.capacity() * sizeof(float) + ps.c.capacity() * sizeof(float);
         }
-        retained_bytes += phase_flips.size() * (sizeof(size_t) + 16);
+        retained_bytes += read_strands.flips().size() * (sizeof(size_t) + 16);
         cerr << "[vg call] retained for rendering: " << staged_sites.queued_count()
              << " snarls the linkage pass will not revise, plus " << pending.size()
              << " nested chains; " << (retained_bytes / (1024.0 * 1024.0)) << " MB over "

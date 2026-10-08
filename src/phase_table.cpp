@@ -1,27 +1,40 @@
 #include <algorithm>
 
-#include "flow_caller.hpp"
+#include "phase_table.hpp"
 
 namespace vg {
 
-void VCFOutputCaller::build_render_phases() {
-    // Built from the phasing the linkage pass accumulated, as read phasing left it. Sites with no line
-    // are included; they are simply never looked up.
+unordered_map<size_t, size_t> PhaseTable::index() const {
+    unordered_map<size_t, size_t> out;
+    for (size_t i = 0; i < phase_calls.size(); ++i) {
+        out[phase_calls[i].record_key] = i;
+    }
+    return out;
+}
+
+void PhaseTable::freeze_for_render(bool keep) {
+    // Built from the calls the linkage pass accumulated, as read phasing left them. Sites with no
+    // line are included; they are simply never looked up.
     render_phases.clear();
-    if (!emit_phasing) {
+    if (!keep) {
         return;
     }
-    render_phases.reserve(linkage_phased.size() * 2);
-    for (const LinkageCollector::PhaseCall& pc : linkage_phased) {
+    render_phases.reserve(phase_calls.size() * 2);
+    for (const PhaseCall& pc : phase_calls) {
         // Where a site has more than one PhaseCall, the last one written wins.
         render_phases[pc.record_key] = pc;
     }
 }
 
-vector<int> VCFOutputCaller::phase_ordered_genotype(size_t record_key,
-                                                    const vector<int>& genotype) const {
+const PhaseTable::PhaseCall* PhaseTable::rendered(size_t record_key) const {
+    const auto found = render_phases.find(record_key);
+    return found == render_phases.end() ? nullptr : &found->second;
+}
+
+vector<int> PhaseTable::phase_ordered_genotype(size_t record_key,
+                                               const vector<int>& genotype) const {
     vector<int> ordered = genotype;
-    if (!emit_phasing || ordered.size() != 2) {
+    if (ordered.size() != 2) {
         return ordered;
     }
     const auto found = render_phases.find(record_key);
@@ -35,8 +48,8 @@ vector<int> VCFOutputCaller::phase_ordered_genotype(size_t record_key,
     return ordered;
 }
 
-int VCFOutputCaller::phase_haploid_slot(size_t record_key, const vector<int>& genotype) const {
-    if (!emit_phasing || genotype.size() != 1) {
+int PhaseTable::haploid_slot(size_t record_key, const vector<int>& genotype) const {
+    if (genotype.size() != 1) {
         return 0;
     }
     const auto found = render_phases.find(record_key);
@@ -54,10 +67,22 @@ int VCFOutputCaller::phase_haploid_slot(size_t record_key, const vector<int>& ge
     return (int)found->second.nested_strand;
 }
 
-size_t FlowCaller::cascade_nested_strands(vector<LinkageCollector::PhaseCall>& phased,
-                                          const std::unordered_map<size_t, size_t>& phase_index,
-                                          vector<NestedLink> links,
-                                          const unordered_set<size_t>& flips) {
+size_t PhaseTable::swap_strands(const unordered_set<size_t>& flips, vector<NestedLink> links) {
+    // Each site's call, the last one winning, as in `freeze_for_render`.
+    const unordered_map<size_t, size_t> phase_index = index();
+    // The genotype is the same two traversals either way, so no call changes, only which strand
+    // carries which allele.
+    for (size_t key : flips) {
+        const auto found = phase_index.find(key);
+        if (found == phase_index.end()) {
+            continue;
+        }
+        PhaseCall& pc = phase_calls[found->second];
+        std::swap(pc.trav_first, pc.trav_second);
+        std::swap(pc.allele_first, pc.allele_second);
+        std::swap(pc.hap_first, pc.hap_second);
+    }
+
     // A nested site's `nested_strand` was set from its parent's chosen pair when the linkage pass
     // resolved its level, so swapping the parent leaves it naming the other strand. Sites are
     // visited top-down by level, so a parent is done before its children, and each inverts
@@ -77,7 +102,7 @@ size_t FlowCaller::cascade_nested_strands(vector<LinkageCollector::PhaseCall>& p
         if (index == phase_index.end()) {
             continue;
         }
-        LinkageCollector::PhaseCall& pc = phased[index->second];
+        PhaseCall& pc = phase_calls[index->second];
         bool parent_flipped = false;
         const auto at = frame_flipped.find(link.parent);
         if (at != frame_flipped.end()) {

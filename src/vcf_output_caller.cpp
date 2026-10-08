@@ -174,7 +174,7 @@ void VCFOutputCaller::finalise_linkage_outputs() {
     size_t order_arbitrary = 0;
     // Count the phased sites, separating those that became records from those that did not.
     size_t phased_unwritten = 0;
-    for (const LinkageCollector::PhaseCall& pc : linkage_phased) {
+    for (const LinkageCollector::PhaseCall& pc : phase_table.calls()) {
         if (emitted_records.count(pc.record_key) == 0) {
             // Phased, since its children take their strand from it, but not a record, so it is kept
             // out of the mosaic and the record counts.
@@ -209,7 +209,7 @@ void VCFOutputCaller::finalise_linkage_outputs() {
     if (emit_phasing) {
         // At sites where a strand is on the wildcard, no panel haplotype names it, so the phase
         // across them rests on the transitions alone.
-        cerr << "[vg call] phasing: " << (linkage_phased.size() - phased_unwritten)
+        cerr << "[vg call] phasing: " << (phase_table.calls().size() - phased_unwritten)
              << " sites phased, " << unexplained
              << " with a strand the panel does not explain" << endl;
         if (phased_unwritten > 0) {
@@ -233,8 +233,8 @@ void VCFOutputCaller::finalise_linkage_outputs() {
         // Records only: the mosaic's segments are runs over sites of the call set, and it accounts
         // for exactly the written records.
         vector<LinkageCollector::PhaseCall> written;
-        written.reserve(linkage_phased.size());
-        for (const LinkageCollector::PhaseCall& pc : linkage_phased) {
+        written.reserve(phase_table.calls().size());
+        for (const LinkageCollector::PhaseCall& pc : phase_table.calls()) {
             if (emitted_records.count(pc.record_key) != 0) {
                 written.push_back(pc);
             }
@@ -250,12 +250,12 @@ void VCFOutputCaller::resolve_linkage_level(size_t level, bool last) {
     }
     // Time the pass and report the collector's size.
     auto start = std::chrono::steady_clock::now();
-    // `linkage_phased` accumulates across levels, since the model needs the earlier ones: a
+    // The phase calls accumulate across levels, since the model needs the earlier ones: a
     // nested site's strand is read from its parent's PhaseCall, and a clamped site's phase is
     // pinned to its chosen pair.
     const size_t moved =
         linkage_collector->resolve_level(level, last,
-                                              emit_phasing ? &linkage_phased : nullptr);
+                                              emit_phasing ? &phase_table.calls() : nullptr);
     double seconds = std::chrono::duration<double>(
         std::chrono::steady_clock::now() - start).count();
     linkage_seconds += seconds;
@@ -594,14 +594,14 @@ RecordOptions VCFOutputCaller::record_options() const {
 int64_t VCFOutputCaller::phase_record_genotype(const Snarl& site, const vector<int>& site_genotype,
                                                const map<int, int>& trav_to_allele,
                                                string& gt) const {
-    if (!emit_phasing || render_phases.empty()) {
+    if (!emit_phasing || !phase_table.has_rendered()) {
         return -1;
     }
-    auto found = render_phases.find(record_key_of(site));
-    if (found == render_phases.end()) {
+    const LinkageCollector::PhaseCall* found = phase_table.rendered(record_key_of(site));
+    if (found == nullptr) {
         return -1;
     }
-    const LinkageCollector::PhaseCall& phase = found->second;
+    const LinkageCollector::PhaseCall& phase = *found;
     // `find`, since `operator[]` would insert a default 0 on a miss, and the map's size is not
     // a bound on traversal indices.
     const auto found_a = trav_to_allele.find(phase.trav_first);

@@ -1,5 +1,6 @@
 #include "anchor.hpp"
 #include "read_phasing.hpp"
+#include "read_strand_table.hpp"
 
 #include "version.hpp"
 
@@ -1028,7 +1029,7 @@ void AnchorCollector::configure(const string& path, const AnchorParams& params,
 void AnchorCollector::collect(const AnchorSiteEvidence& evidence, double explained_share,
                               const vector<int>& genotype, int haploid_slot,
                               const string& site_name, bool is_leaf, double gqn,
-                              const function<double(std::string_view read_name)>& strand_log_odds) {
+                              const ReadStrandTable& strands, size_t record_key) {
     if (path.empty() || writer == nullptr) {
         return;
     }
@@ -1036,6 +1037,17 @@ void AnchorCollector::collect(const AnchorSiteEvidence& evidence, double explain
         return;
     }
     vector<AnchorWriter::Anchor> anchors;
+    // The site's own log-odds per read, built on the first lookup and shared by the rest, so that
+    // looking up every read at a site costs one pass over its reads rather than one per read.
+    unordered_map<uint64_t, double> site_own;
+    int site_own_state = 0; // 0: not built yet; 1: built; 2: nothing to leave out
+    auto strand_log_odds = [&](std::string_view read_name) {
+        if (site_own_state == 0) {
+            site_own_state = strands.site_own_strand_log_odds(record_key, site_own) ? 1 : 2;
+        }
+        return strands.read_strand_log_odds(record_key, read_name,
+                                            site_own_state == 1 ? &site_own : nullptr);
+    };
     // Each read's strand log-odds, leaving out this site.
     vector<double> read_strand;
     // Built only where `build_site_anchors` reads it: at a diploid homozygote that may be split, or

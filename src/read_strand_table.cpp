@@ -1,70 +1,88 @@
 #include <limits>
 
-#include "vcf_output_caller.hpp"
+#include "read_strand_table.hpp"
 
 namespace vg {
 
-// Each read's strand log-odds for the render, used by the anchors. Built here rather than taken
-// from re-genotyping, which may not have run and whose table is built before `phase_sites` is
-// final.
-void VCFOutputCaller::build_render_lambda() {
-    render_lambda.clear();
-    render_lambda_site.clear();
-    render_lambda_phase_set.clear();
-    render_lambda_temper = 0.0;
-    render_lambda_ceiling = 1.0;
+void TemperFit::keep(const RegenotypeCounters& counters) {
+    temper = counters.fitted_temper;
+    abs_lambda = counters.fit_abs_lambda;
+    observed = counters.fit_observed;
+    predicted = counters.fit_predicted;
+    count = counters.fit_count;
+}
+
+void TemperFit::restore(RegenotypeCounters& counters) const {
+    counters.fitted_temper = temper;
+    counters.fit_abs_lambda = abs_lambda;
+    counters.fit_observed = observed;
+    counters.fit_predicted = predicted;
+    counters.fit_count = count;
+}
+
+// Built for the render rather than taken from re-genotyping, which may not have run and whose
+// table is built before the sites are final.
+void ReadStrandTable::build_lambda(
+    const vector<PhaseCall>& calls,
+    const function<size_t(const string& contig, size_t phase_set)>& phase_set_id,
+    double fitted_temper, double fitted_ceiling, const RegenotypeParams& params) {
+    lambda.clear();
+    lambda_site.clear();
+    lambda_phase_set.clear();
+    lambda_temper = 0.0;
+    lambda_ceiling = 1.0;
     if (phase_sites.empty()) {
         return;
     }
     RegenotypeCounters scratch;
-    accumulate_lambda(phase_sites, phase_flips, render_lambda, scratch);
+    accumulate_lambda(phase_sites, phase_flips, lambda, scratch);
     for (const PhaseSite& site : phase_sites) {
-        render_lambda_site[site.record_key] = &site;
+        lambda_site[site.record_key] = &site;
     }
-    // The last PhaseCall written winning, as in `build_render_phases`.
-    for (const LinkageCollector::PhaseCall& pc : linkage_phased) {
-        render_lambda_phase_set[pc.record_key] = phase_set_id(pc.contig, pc.phase_set);
+    // The last PhaseCall written winning, as in `PhaseTable::freeze_for_render`.
+    for (const PhaseCall& pc : calls) {
+        lambda_phase_set[pc.record_key] = phase_set_id(pc.contig, pc.phase_set);
     }
     // The summed strand log-odds overstate how sure the strand is, so they are tempered. Use the
     // temper re-genotyping fitted, where it ran; otherwise fit one here.
-    if (regenotype_counters.fitted_temper > 0.0) {
-        render_lambda_temper = regenotype_counters.fitted_temper;
-        render_lambda_ceiling = regenotype_counters.fitted_ceiling;
+    if (fitted_temper > 0.0) {
+        lambda_temper = fitted_temper;
+        lambda_ceiling = fitted_ceiling;
     } else {
         double temper = -1.0;
-        double ceiling = regenotype_params.ceiling < 0.0 ? 1.0 : regenotype_params.ceiling;
+        double ceiling = params.ceiling < 0.0 ? 1.0 : params.ceiling;
         RegenotypeCounters fit_scratch;
-        fit_calibration(phase_sites, phase_flips, render_lambda, regenotype_params, temper, ceiling,
-                        fit_scratch);
+        fit_calibration(phase_sites, phase_flips, lambda, params, temper, ceiling, fit_scratch);
         if (fit_scratch.fitted_temper > 0.0) {
-            render_lambda_temper = fit_scratch.fitted_temper;
-            render_lambda_ceiling = fit_scratch.fitted_ceiling;
+            lambda_temper = fit_scratch.fitted_temper;
+            lambda_ceiling = fit_scratch.fitted_ceiling;
         }
     }
 }
 
-bool VCFOutputCaller::site_own_strand_log_odds(size_t record_key, unordered_map<uint64_t, double>& out) const {
-    if (render_lambda.empty() || render_lambda_temper <= 0.0) {
+bool ReadStrandTable::site_own_strand_log_odds(size_t record_key,
+                                               unordered_map<uint64_t, double>& out) const {
+    if (lambda.empty() || lambda_temper <= 0.0) {
         return false;
     }
-    const auto site = render_lambda_site.find(record_key);
-    if (site == render_lambda_site.end()) {
+    const auto site = lambda_site.find(record_key);
+    if (site == lambda_site.end()) {
         return false;
     }
     site_own_log_odds(*site->second, phase_flips.count(record_key) != 0, out);
     return true;
 }
 
-double VCFOutputCaller::read_strand_log_odds(size_t record_key, std::string_view read_name,
+double ReadStrandTable::read_strand_log_odds(size_t record_key, std::string_view read_name,
                                              const unordered_map<uint64_t, double>* site_own) const {
-    if (render_lambda.empty() || render_lambda_temper <= 0.0) {
+    if (lambda.empty() || lambda_temper <= 0.0) {
         return 0.0;
     }
     const uint64_t key = (uint64_t)std::hash<std::string_view>{}(read_name);
-    const auto found = render_lambda.find(key);
-    const auto ps = render_lambda_phase_set.find(record_key);
-    const size_t phase_set = ps != render_lambda_phase_set.end() ? ps->second : NO_PHASE_SET;
-    if (found == render_lambda.end()) {
+    const auto found = lambda.find(key);
+    const auto ps = lambda_phase_set.find(record_key);
+    const size_t phase_set = ps != lambda_phase_set.end() ? ps->second : NO_PHASE_SET;
+    if (found == lambda.end()) {
         // The read reached no phased site.
         return 0.0;
     }
@@ -94,7 +112,7 @@ double VCFOutputCaller::read_strand_log_odds(size_t record_key, std::string_view
     if (sites == 0) {
         return 0.0;
     }
-    return calibrated_log_odds(value, render_lambda_temper, render_lambda_ceiling);
+    return calibrated_log_odds(value, lambda_temper, lambda_ceiling);
 }
 
 }

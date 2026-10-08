@@ -17,6 +17,7 @@
 #include "traversal_finder.hpp"
 #include "anchor.hpp"
 #include "staged_site.hpp"
+#include "read_strand_table.hpp"
 #include "read_phasing.hpp"
 #include "regenotype.hpp"
 #include "snarl_caller.hpp"
@@ -197,7 +198,7 @@ public:
 
     /// Re-score every retained site's genotype likelihoods with the reads' phase.
     ///
-    /// Runs after `apply_read_phasing`, which supplies `phase_sites` and `phase_flips`. With
+    /// Runs after `apply_read_phasing`, which fills `read_strands`. With
     /// --regeno-passes above 1 the corrected likelihoods replace each site's own, and GQ is
     /// recomputed from them where the best genotype changed and is the direct pass's elsewhere. Returns
     /// true if any site's corrected best genotype differs from its called one.
@@ -337,6 +338,13 @@ protected:
     /// model still chooses its genotype.
     StagedSiteTable staged_sites;
 
+    /// What the reads say about each site's strands, from read phasing. Re-genotyping and the
+    /// anchors read it.
+    ReadStrandTable read_strands;
+
+    /// The temper re-genotyping fitted in its first round.
+    TemperFit temper_fit;
+
     /// Make a top-level site's `StagedSite` from its genotype, moving `call_info` into it.
     /// `travs` is left empty, because descent still reads the traversals; the caller moves them in
     /// once descent is done. Returns null, and leaves `call_info` alone, when staging is off (see
@@ -409,23 +417,6 @@ public:
     /// Where along `trav` the child chain is first entered, as a visit index, or -1 if `trav` does
     /// not cross it, by the rule `crossings_of_child` uses.
     static int offset_of_child(const SnarlTraversal& trav, const Snarl& child);
-
-    /// A nested site's place in the nesting tree: its record key, its parent's, and its level.
-    struct NestedLink {
-        size_t key = 0;
-        size_t parent = 0;
-        uint8_t level = 0;
-    };
-
-    /// Keep each nested site's strand pointing at the parent strand that carries it, after the
-    /// sites in `flips` had their chosen pair swapped. A ploidy-1 nested site names one of its
-    /// parent's two strands in `nested_strand` and holds its haplotype in the slot of that number,
-    /// so where the parent's strands swapped, both move to the other strand. Each site in `links`
-    /// is looked up in `phased` through `phase_index`. Returns how many strands moved.
-    static size_t cascade_nested_strands(vector<LinkageCollector::PhaseCall>& phased,
-                                         const std::unordered_map<size_t, size_t>& phase_index,
-                                         vector<NestedLink> links,
-                                         const unordered_set<size_t>& flips);
 
     /// How far along `trav`, in bases, the child chain is entered: the total length of the nodes
     /// visited before it, or -1 if `trav` does not cross it. It gives an off-reference chain its

@@ -170,12 +170,12 @@ TEST_CASE("ChildOffsets gives base_offset_of_child's answer by lookup", "[graph_
 }
 
 
-/// Exposes the anchor path's strand lookup and the tables it reads.
-class StrandLookup : public VCFOutputCaller {
+/// Sets the tables the anchor path's strand lookup reads.
+class StrandLookup : public ReadStrandTable {
 public:
-    StrandLookup() : VCFOutputCaller("S") {
-        render_lambda_temper = 1.0;
-        render_lambda_ceiling = 1.0;
+    StrandLookup() {
+        lambda_temper = 1.0;
+        lambda_ceiling = 1.0;
     }
     void add_read(const string& name, size_t phase_set, bool multi) {
         ReadLambda read;
@@ -183,12 +183,11 @@ public:
         read.sites = 1;
         read.phase_set = phase_set;
         read.multi_phase_set = multi;
-        render_lambda[(uint64_t)std::hash<string>{}(name)] = read;
+        lambda[(uint64_t)std::hash<string>{}(name)] = read;
     }
     void set_site_phase_set(size_t record_key, size_t phase_set) {
-        render_lambda_phase_set[record_key] = phase_set;
+        lambda_phase_set[record_key] = phase_set;
     }
-    using VCFOutputCaller::read_strand_log_odds;
 };
 
 TEST_CASE("A strand from another phase set is NaN in the anchor path, and no strand is 0",
@@ -220,7 +219,7 @@ TEST_CASE("A parent's phase swap carries its nested strands and their haplotypes
     // haplotype 7, and 2's own ploidy-1 child 3 is on strand 0 with haplotype 5. Diploid child 4 is
     // not swapped, so its ploidy-1 child 5 keeps its strand.
     auto call = [](size_t key, size_t ploidy, int strand, size_t first, size_t second) {
-        LinkageCollector::PhaseCall pc;
+        PhaseTable::PhaseCall pc;
         pc.record_key = key;
         pc.ploidy = ploidy;
         pc.nested_strand = (int8_t)strand;
@@ -228,20 +227,21 @@ TEST_CASE("A parent's phase swap carries its nested strands and their haplotypes
         pc.hap_second = second;
         return pc;
     };
-    vector<LinkageCollector::PhaseCall> phased = {
+    PhaseTable table;
+    vector<PhaseTable::PhaseCall>& phased = table.calls();
+    phased = {
         call(1, 2, -1, 3, 4), call(2, 1, 1, W, 7), call(3, 1, 0, 5, W),
         call(4, 2, -1, 3, 4), call(5, 1, 0, 6, W)};
-    std::unordered_map<size_t, size_t> index;
-    for (size_t i = 0; i < phased.size(); ++i) {
-        index[phased[i].record_key] = i;
-    }
     // Out of level order, as the staged sites can be.
-    vector<FlowCaller::NestedLink> links = {
+    vector<PhaseTable::NestedLink> links = {
         {3, 2, 2}, {5, 4, 2}, {2, 1, 1}, {4, 1, 1}, {1, 0, 0}};
     const unordered_set<size_t> flips = {1};
 
     SECTION("each strand moves, and its haplotype moves to the slot the strand names") {
-        REQUIRE(FlowCaller::cascade_nested_strands(phased, index, links, flips) == 2);
+        REQUIRE(table.swap_strands(flips, links) == 2);
+        // The swapped parent's own haplotypes change strands.
+        REQUIRE(phased[0].hap_first == 4);
+        REQUIRE(phased[0].hap_second == 3);
         REQUIRE(phased[1].nested_strand == 0);
         REQUIRE(phased[1].hap_first == 7);
         REQUIRE(phased[1].hap_second == W);
@@ -253,7 +253,7 @@ TEST_CASE("A parent's phase swap carries its nested strands and their haplotypes
     }
     SECTION("a chain left out of the links stops the swap reaching its children") {
         links.erase(links.begin() + 2);   // chain 2
-        REQUIRE(FlowCaller::cascade_nested_strands(phased, index, links, flips) == 0);
+        REQUIRE(table.swap_strands(flips, links) == 0);
         REQUIRE(phased[2].nested_strand == 0);
     }
 }

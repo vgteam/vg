@@ -27,6 +27,7 @@
 #include "block_records.hpp"
 #include "mosaic_writer.hpp"
 #include "panel_lookup.hpp"
+#include "phase_table.hpp"
 #include "ploidy_regions.hpp"
 #include "vcf_genotype_likelihoods.hpp"
 #include "vcf_record.hpp"
@@ -103,23 +104,6 @@ public:
                          double mismap_min) {
         anchor_collector.configure(path, params, graph_name, reads_source, mismap_min);
     }
-
-    /// The chosen pair in phase order, for the anchors, which take each slot from the order of
-    /// the pair they are given.
-    ///
-    /// `LinkageCollector::chosen_traversals` returns a sorted pair; the phase is in
-    /// `render_phases`. The pair is swapped when the record's PhaseCall names the same two
-    /// traversals in the other order, and returned unchanged otherwise: no phasing, no PhaseCall,
-    /// or a PhaseCall naming other traversals.
-    vector<int> phase_ordered_genotype(size_t record_key, const vector<int>& genotype) const;
-
-    /// Which strand a one-allele genotype sits on, for the anchors: 0 or 1.
-    ///
-    /// A nested chain at ploidy 1 is one strand of its parent, the one `nested_strand` names;
-    /// `emit_variant` writes it as `a|.` or `.|a`, and this keeps the anchor's slot the same.
-    /// Returns 0 when there is no phasing, no entry, a ploidy other than 1, no nested strand, or a
-    /// phase that names a different allele from the chosen one.
-    int phase_haploid_slot(size_t record_key, const vector<int>& genotype) const;
 
     /// Turn on read phasing (--read-phasing); see read_phasing.hpp. Needs the linkage model, whose
     /// phase it changes.
@@ -308,9 +292,10 @@ protected:
     /// Safe to call more than once, so `write_variants` can call it unconditionally.
     void resolve_linkage();
 
-    /// Every phased site, in the order the linkage model produced them. The mosaic reads this, and
-    /// the linkage pass looks up a parent's chosen pair in it.
-    vector<LinkageCollector::PhaseCall> linkage_phased;
+    /// Every phased site. The linkage model fills it, the mosaic reads it, the linkage pass looks
+    /// up a parent's chosen pair in it, and each record reads its phase from it as it is
+    /// rendered.
+    PhaseTable phase_table;
     bool linkage_resolved = false;
     /// Time spent in the linkage model, over all levels, for the report.
     double linkage_seconds = 0.0;
@@ -335,11 +320,6 @@ protected:
     /// emission for the report.
     BlockRecordWriter block_records;
 
-    /// `linkage_phased` keyed by record, copied by `build_render_phases` when phasing is emitted.
-    /// Each record reads its phase from it as it is rendered. Keyed by record rather than by
-    /// (contig, POS), since POS depends on which alleles the line carries.
-    std::unordered_map<size_t, LinkageCollector::PhaseCall> render_phases;
-
     /// Read phasing: whether it is on, its parameters, and its counters. See read_phasing.hpp.
     bool read_phasing = false;
     ReadPhasingParams read_phasing_params;
@@ -351,29 +331,6 @@ protected:
     map<pair<string, size_t>, size_t> phase_set_ids;
     /// The id of a (contig, phase set) pair, the same for the whole run.
     size_t phase_set_id(const string& contig, size_t phase_set);
-
-    /// Each diploid heterozygous site's per-read evidence, reduced to its chosen pair, as read
-    /// phasing last built it. Re-genotyping and the anchors read it.
-    vector<PhaseSite> phase_sites;
-    /// The record keys whose chosen pair read phasing last reversed. Their sites' contributions
-    /// to a read's strand log-odds enter with the opposite sign.
-    unordered_set<size_t> phase_flips;
-
-    /// Each read's strand log-odds, built once from `phase_sites` and `phase_flips` after the last
-    /// read-phasing pass, for the anchors. Positive means strand 0 of the read's phase set, which
-    /// is GT field 0 and anchor slot 0. Keyed by read alone, as a homozygous site, which has no
-    /// PhaseSite, needs.
-    LambdaTable render_lambda;
-    /// `phase_sites` indexed by record, so that a site's own contribution can be subtracted. Points
-    /// into `phase_sites`, which must not be rebuilt afterwards.
-    unordered_map<size_t, const PhaseSite*> render_lambda_site;
-    /// Each site's phase set, by record, since a read's strand is usable only at sites of the phase
-    /// set it was found in (see `read_strand_usable`).
-    unordered_map<size_t, size_t> render_lambda_phase_set;
-    /// The fitted temper. Zero, when no fit was possible, makes every read's tempered strand
-    /// log-odds zero, so no read counts as placed.
-    double render_lambda_temper = 0.0;
-    double render_lambda_ceiling = 1.0;
 
     /// Re-genotyping: whether it is on, its parameters, and its counters. See regenotype.hpp.
     bool regenotype = false;
@@ -389,31 +346,6 @@ protected:
     /// Phases refused while rendering because the record's genotype was not a permutation of the
     /// phased pair.
     mutable std::atomic<size_t> phase_declined{0};
-
-    /// Copy `linkage_phased` into `render_phases`, keyed by record, when phasing is emitted.
-    /// `render_retained_records` calls it on every staged run, after `build_render_lambda` and
-    /// before any record is rendered. If read phasing ran, `linkage_phased` already carries its
-    /// swaps.
-    void build_render_phases();
-
-    /// Fill `render_lambda` from the chosen phasing. Called just before `build_render_phases`,
-    /// when `phase_sites` and `phase_flips` are final.
-    void build_render_lambda();
-
-    /// This read's tempered strand log-odds, leaving out `record_key`, so that a site does not judge
-    /// its own reads. Positive names slot 0. Zero means none: no table, no other contributing site,
-    /// or no fitted temper. NaN means the read has a strand that is not usable in the site's phase
-    /// set (see `read_strand_usable`). Re-genotyping does not use this, and gives such a read 0.
-    ///
-    /// `site_own`, if given, is the site's own log-odds per read, from `site_own_strand_log_odds`
-    /// for the same `record_key`; a caller looking up many reads at one site builds it once.
-    double read_strand_log_odds(size_t record_key, std::string_view read_name,
-                                const unordered_map<uint64_t, double>* site_own = nullptr) const;
-
-    /// Fill `out` with each read's log-odds from the site `record_key` alone, which
-    /// `read_strand_log_odds` leaves out. Returns false, leaving `out` alone, when there is nothing to
-    /// leave out: no table, no fitted temper, or a site that contributed nothing.
-    bool site_own_strand_log_odds(size_t record_key, unordered_map<uint64_t, double>& out) const;
 
     /// See set_linkage_min_confidence.
     double linkage_min_confidence = 0.0;

@@ -34,6 +34,8 @@
 
 namespace vg {
 
+class ReadStrandTable;
+
 using namespace std;
 
 /**
@@ -400,13 +402,12 @@ public:
     /// `haploid_slot` is the strand a one-allele genotype sits on. `site_name` names the site in
     /// the file. `is_leaf` says whether the site has no child sites, and matters only when
     /// `wants_leaf_test`. `gqn` is the value for the gqn column; NaN is written as `.`.
-    /// `strand_log_odds` gives a read's strand log-odds from the other sites, by read name.
+    /// `strands` gives each read's strand log-odds from the sites other than `record_key`.
     ///
     /// Safe to call from many threads, but not from inside a nested parallel region.
     void collect(const AnchorSiteEvidence& evidence, double explained_share,
                  const vector<int>& genotype, int haploid_slot, const string& site_name,
-                 bool is_leaf, double gqn,
-                 const function<double(std::string_view read_name)>& strand_log_odds);
+                 bool is_leaf, double gqn, const ReadStrandTable& strands, size_t record_key);
 
     /// Write the anchor file, naming `sample_name`, and report the counters. Does nothing unless
     /// anchors are being collected.
