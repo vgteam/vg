@@ -652,7 +652,7 @@ bool FlowCaller::record_site(const Snarl& snarl, const vector<SnarlTraversal>& t
     // No allele map yet: the written alleles are chosen when the record is built, and
     // `set_allele_map` supplies the map then.
     static const vector<int> no_allele_map;
-    vector<int> panel = panel_alleles(graph, travs);
+    vector<int> panel = panel_lookup.alleles(travs);
     linkage_collector->record(
         locus.contig, locus.position,
         rl_info->genotype_lls,
@@ -765,7 +765,7 @@ size_t FlowCaller::chosen_changed(const unordered_map<size_t, array<int, 3>>& be
 
 const vector<int>& FlowCaller::cached_panel_alleles(PendingRecord& rec) {
     if (!rec.panel_cached) {
-        rec.panel_cache = panel_alleles(graph, rec.travs);
+        rec.panel_cache = panel_lookup.alleles(rec.travs);
         rec.panel_cached = true;
     }
     return rec.panel_cache;
@@ -1265,8 +1265,8 @@ void FlowCaller::rerun_linkage_pass() {
     // every child is reassessed against its parent's new chosen pair, as on the first pass.
     const vector<PendingRecord*> records = records_for_render();
     // The loop below is serial, and most of its time would go to each record's first
-    // `panel_alleles`, a GBWT lookup per allele. Each record's lookup is independent of the others',
-    // so fill the caches in parallel first.
+    // `panel_lookup.alleles`, a GBWT lookup per allele. Each record's lookup is independent of the
+    // others', so fill the caches in parallel first.
 #pragma omp parallel for schedule(dynamic, 256)
     for (size_t i = 0; i < records.size(); ++i) {
         cached_panel_alleles(*records[i]);

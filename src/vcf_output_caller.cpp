@@ -166,19 +166,8 @@ string VCFOutputCaller::vcf_header(const PathHandleGraph& graph, const vector<st
 void VCFOutputCaller::set_linkage(LinkageCollector* collector, const gbwt::GBWT* gbwt,
                                   const vector<size_t>* sequence_to_haplotype) {
     this->linkage_collector = collector;
-    this->linkage_gbwt = gbwt;
-    this->linkage_sequence_to_haplotype = sequence_to_haplotype;
-    this->linkage_panel_size = collector != nullptr ? collector->panel_size() : 0;
-    this->linkage_gbwt_cache.clear();
-    this->linkage_gbwt_cache_origin.clear();
-    if (gbwt != nullptr) {
-        // One per thread, built here so the parallel region never allocates one.
-        this->linkage_gbwt_cache.reserve(omp_get_max_threads());
-        for (int i = 0; i < omp_get_max_threads(); ++i) {
-            this->linkage_gbwt_cache.emplace_back(*gbwt);
-        }
-        this->linkage_gbwt_cache_origin.assign(omp_get_max_threads(), 0);
-    }
+    this->panel_lookup = PanelLookup(gbwt, sequence_to_haplotype,
+                                     collector != nullptr ? collector->panel_size() : 0);
 }
 
 bool VCFOutputCaller::buffered_record_key_less(const BufferedRecordKey& a, const BufferedRecordKey& b) {
@@ -544,7 +533,7 @@ void VCFOutputCaller::write_variants(ostream& out_stream, const SnarlManager* sn
 
 
 gbwt::edge_type VCFOutputCaller::mosaic_position_at(gbwt::node_type node, size_t hap) const {
-    if (linkage_gbwt == nullptr || linkage_sequence_to_haplotype == nullptr) {
+    if (panel_lookup.gbwt() == nullptr || panel_lookup.sequence_to_haplotype() == nullptr) {
         return gbwt::invalid_edge();
     }
     // Finding a position costs a `locate` for each sequence in the node's range, far more than an
@@ -554,12 +543,12 @@ gbwt::edge_type VCFOutputCaller::mosaic_position_at(gbwt::node_type node, size_t
     if (hit != mosaic_position_cache.end()) {
         return hit->second;
     }
-    gbwt::SearchState state = linkage_gbwt->find(node);
+    gbwt::SearchState state = panel_lookup.gbwt()->find(node);
     if (!state.empty()) {
         for (gbwt::size_type i = state.range.first; i <= state.range.second; ++i) {
-            gbwt::size_type seq = linkage_gbwt->locate(node, i);
-            if (seq < linkage_sequence_to_haplotype->size()
-                && (*linkage_sequence_to_haplotype)[seq] == hap) {
+            gbwt::size_type seq = panel_lookup.gbwt()->locate(node, i);
+            if (seq < panel_lookup.sequence_to_haplotype()->size()
+                && (*panel_lookup.sequence_to_haplotype())[seq] == hap) {
                 mosaic_position_cache[key] = gbwt::edge_type(node, i);
                 return gbwt::edge_type(node, i);
             }
@@ -576,7 +565,7 @@ gbwt::edge_type VCFOutputCaller::mosaic_position_at(gbwt::node_type node, size_t
 /// reference, as at large balanced structural variants.
 bool VCFOutputCaller::mosaic_follow(gbwt::edge_type start, int64_t to_node,
                                     gbwt::node_type* out_end) const {
-    if (linkage_gbwt == nullptr || start == gbwt::invalid_edge()) {
+    if (panel_lookup.gbwt() == nullptr || start == gbwt::invalid_edge()) {
         return false;
     }
     // Finding a position is far more costly than an LF step, so the caller passes the position in,
@@ -587,7 +576,7 @@ bool VCFOutputCaller::mosaic_follow(gbwt::edge_type start, int64_t to_node,
     }
     gbwt::edge_type at = start;
     for (size_t step = 0; step < MOSAIC_WALK_LIMIT; ++step) {
-        at = linkage_gbwt->LF(at);
+        at = panel_lookup.gbwt()->LF(at);
         if (at == gbwt::invalid_edge() || at.first == gbwt::ENDMARKER) {
             return false;
         }
@@ -982,7 +971,7 @@ void VCFOutputCaller::write_mosaic(const vector<LinkageCollector::PhaseCall>& ph
                                                       ? gbwt::invalid_edge()
                                                       : mosaic_gbwt_position(next_start, nh2);
                     right = np != gbwt::invalid_edge()
-                            && linkage_gbwt->locate(np) == linkage_gbwt->locate(p)
+                            && panel_lookup.gbwt()->locate(np) == panel_lookup.gbwt()->locate(p)
                             && (entry == gbwt::invalid_edge() || entry.first == np.first);
                 }
                 if (entering) {
@@ -1016,7 +1005,7 @@ void VCFOutputCaller::write_mosaic(const vector<LinkageCollector::PhaseCall>& ph
                         const gbwt::edge_type there = mosaic_gbwt_position(next_start, nh);
                         const gbwt::edge_type mine = mosaic_gbwt_position(b.end_node, hap);
                         if (here != gbwt::invalid_edge() && there != gbwt::invalid_edge()
-                            && linkage_gbwt->locate(here) == linkage_gbwt->locate(there)
+                            && panel_lookup.gbwt()->locate(here) == panel_lookup.gbwt()->locate(there)
                             && (mine == gbwt::invalid_edge() || mine.first == here.first)) {
                             pending_from_node = b.end_node;
                             pending_from_pos = here;
@@ -1034,7 +1023,7 @@ void VCFOutputCaller::write_mosaic(const vector<LinkageCollector::PhaseCall>& ph
                             const gbwt::edge_type rr =
                                 mosaic_gbwt_position(next_start, reference_hap);
                             if (rl != gbwt::invalid_edge() && rr != gbwt::invalid_edge()
-                                && linkage_gbwt->locate(rl) == linkage_gbwt->locate(rr)) {
+                                && panel_lookup.gbwt()->locate(rl) == panel_lookup.gbwt()->locate(rr)) {
                                 patch_to = next_start;
                                 patch_pos = rl;
                                 patch_from_pos = b.position;
@@ -1248,7 +1237,7 @@ void VCFOutputCaller::write_mosaic(const vector<LinkageCollector::PhaseCall>& ph
         }
         gbwt::edge_type end_pos = mosaic_gbwt_position(site(to).start_node, hap);
         if (end_pos == gbwt::invalid_edge()
-            || linkage_gbwt->locate(pos) == linkage_gbwt->locate(end_pos)) {
+            || panel_lookup.gbwt()->locate(pos) == panel_lookup.gbwt()->locate(end_pos)) {
             // Same fragment at both ends, or no way to tell. One row.
             emit_row(from, to, pos);
             return;
@@ -1256,12 +1245,12 @@ void VCFOutputCaller::write_mosaic(const vector<LinkageCollector::PhaseCall>& ph
         // The fragment changes somewhere in (from, to]. Binary search for the last site still on
         // the starting fragment; a site the haplotype does not reach is treated as past the
         // boundary, which keeps the search monotone.
-        gbwt::size_type seq = linkage_gbwt->locate(pos);
+        gbwt::size_type seq = panel_lookup.gbwt()->locate(pos);
         size_t lo = from, hi = to;
         while (hi - lo > 1) {
             size_t mid = lo + (hi - lo) / 2;
             gbwt::edge_type p = mosaic_gbwt_position(site(mid).start_node, hap);
-            if (p != gbwt::invalid_edge() && linkage_gbwt->locate(p) == seq) {
+            if (p != gbwt::invalid_edge() && panel_lookup.gbwt()->locate(p) == seq) {
                 lo = mid;
             } else {
                 hi = mid;

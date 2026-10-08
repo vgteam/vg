@@ -175,7 +175,7 @@ public:
     /// Otherwise `position_from_parent` is not used.
     ///
     /// Returns whether the site was recorded. If it was and `panel_out` is given, the panel
-    /// alleles looked up for it, `panel_alleles(graph, travs)`, are moved to `panel_out`, so that
+    /// alleles looked up for it, `panel_lookup.alleles(travs)`, are moved to `panel_out`, so that
     /// the staged record can keep them rather than look them up again.
     bool record_site(const Snarl& snarl, const vector<SnarlTraversal>& travs,
                      const vector<int>& trav_genotype,
@@ -372,7 +372,7 @@ protected:
         /// written. Each linkage pass decides it again, so a chain dropped in one pass can come
         /// back in the next.
         bool dropped = false;
-        /// `panel_alleles(graph, travs)`, computed once: the traversals do not change after the
+        /// `panel_lookup.alleles(travs)`, computed once: the traversals do not change after the
         /// direct pass, and each re-genotyping round would otherwise repeat the GBWT lookups.
         vector<int> panel_cache;
         bool panel_cached = false;
@@ -387,7 +387,8 @@ protected:
     /// having no REF or POS, but they are genotyped, get anchors, and have a meaningful strand.
     vector<PendingRecord*> records_for_render(bool for_phasing = false);
 
-    /// `panel_alleles` for a record, computed once and kept. See `PendingRecord::panel_cache`.
+    /// `panel_lookup.alleles` for a record, computed once and kept. See
+    /// `PendingRecord::panel_cache`.
     const vector<int>& cached_panel_alleles(PendingRecord& rec);
 
     /// The chosen pair and ploidy per record, `{trav_first, trav_second, ploidy}`, for measuring

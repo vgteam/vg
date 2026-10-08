@@ -24,6 +24,7 @@
 #include "zstdutil.hpp"
 #include "vg/io/alignment_emitter.hpp"
 #include "gref.hpp"
+#include "panel_lookup.hpp"
 #include "ploidy_regions.hpp"
 #include "vcf_genotype_likelihoods.hpp"
 #include "vcf_record.hpp"
@@ -115,9 +116,7 @@ public:
     /// Record a compact entry per site while calling, so that the linkage model can re-decide the
     /// genotypes afterwards. Neither pointer is owned; a null collector turns the model off.
     ///
-    /// The GBWT gives the panel: which allele each haplotype carries at a site, found by asking
-    /// which haplotypes take each traversal. It is the GBWT that haplotype enumeration draws the
-    /// candidate alleles from.
+    /// The GBWT and the haplotype of each of its sequences give the panel; see PanelLookup.
     void set_linkage(LinkageCollector* collector, const gbwt::GBWT* gbwt,
                      const vector<size_t>* sequence_to_haplotype);
 
@@ -438,21 +437,8 @@ protected:
 
     /// The linkage model's collector. Not owned.
     LinkageCollector* linkage_collector = nullptr;
-    const gbwt::GBWT* linkage_gbwt = nullptr;
-    const vector<size_t>* linkage_sequence_to_haplotype = nullptr;
-    /// Panel size, so `panel_alleles` sizes its row by the haplotypes rather than by the GBWT's
-    /// sequence count, which is larger under a gRef cover.
-    size_t linkage_panel_size = 0;
-
-    /// One cache of decompressed GBWT records per thread, for the panel lookups, since adjacent
-    /// snarls share most of their records. Per thread because `CachedGBWT` has no locking. Sized
-    /// in `set_linkage`, so that nothing allocates in the parallel region.
-    mutable vector<gbwt::CachedGBWT> linkage_gbwt_cache;
-
-    /// The node ID at which each thread's cache was started. `CachedGBWT` only grows, so when a
-    /// thread's site is more than a fixed span of node IDs from this, its cache is cleared and
-    /// started again there.
-    mutable vector<nid_t> linkage_gbwt_cache_origin;
+    /// Which allele each panel haplotype carries at a site. Empty without the linkage model.
+    PanelLookup panel_lookup;
 
     /// Records whose genotype the linkage model changed but whose quality fields could not be
     /// found on the line (no sample column, or FORMAT and sample columns of different lengths).
@@ -600,11 +586,6 @@ protected:
     /// Collapse the per-site phasing into runs, stretches of sites over which a strand copies one
     /// haplotype, and write them.
     void write_mosaic(const vector<LinkageCollector::PhaseCall>& phasing) const;
-
-    /// Which allele of `travs` each panel haplotype carries, or -1 where it does not traverse the
-    /// site. Asks the GBWT which haplotypes take each traversal.
-    vector<int> panel_alleles(const HandleGraph& graph,
-                              const vector<SnarlTraversal>& travs) const;
 
     /// add a traversal to the VCF info field in the format of a GFA W-line or GAF path
     void add_allele_path_to_info(const HandleGraph* graph, vcflib::Variant& v, int allele,
