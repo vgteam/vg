@@ -8,8 +8,6 @@
 
 #include "vcf_output_caller.hpp"
 #include "graph_caller.hpp"
-#include "symbolic_allele.hpp"
-#include "read_likelihood_caller.hpp"
 #include "algorithms/expand_context.hpp"
 #include "annotation.hpp"
 #include "gref.hpp"
@@ -50,32 +48,12 @@ string VCFOutputCaller::vcf_header(const PathHandleGraph& graph, const vector<st
     if (include_nested) {
         ss << nesting_info_headers();
     }
-    if (emit_phasing) {
-        // FORMAT/PS is the VCF phase set, which phasing tools read. It is unrelated to INFO/PS
-        // above, vg's parent-snarl field; the two are in different namespaces, so both are legal,
-        // and their descriptions say which is which.
-        ss << "##FORMAT=<ID=PS,Number=1,Type=Integer,Description=\"Phase set: the phase of a "
-           << "genotype is comparable only with others carrying the same PS. One phase set per "
-           << "chain, so blocks are chromosome-scale -- much longer than a read-based phaser "
-           << "gives, because the phase comes from the haplotype panel rather than from reads "
-           << "spanning consecutive sites. Not the INFO/PS emitted under -A, which is a parent "
-           << "snarl pointer\">" << endl;
+    if (writer_steps.format_header) {
+        ss << writer_steps.format_header();
     }
     ss << "##INFO=<ID=AT,Number=R,Type=String,Description=\"Allele Traversal as path in graph\">" << endl;
-    if (block_records.is_enabled()) {
-        ss << "##INFO=<ID=SB,Number=2,Type=Integer,Description=\"Index and count of this "
-           << "difference block within its snarl. A snarl is written as one record per difference "
-           << "block where the reference and the called haplotypes differ from each other in more "
-           << "than one place inside it, or where its own record would repeat a child snarl's, so "
-           << "the count can be 1. A block record's ID is the snarl's ID with _ and the index "
-           << "appended. DOUBLE COUNTING: the per-sample evidence is the SNARL's, repeated on every "
-           << "block, not apportioned between them -- AD, GL, GQ, GQI, GP and QUAL are identical "
-           << "across the set, because the genotype likelihood was computed over whole-snarl "
-           << "traversals and has no per-block decomposition. DP, DR and BL are per-site read "
-           << "counts and are site-level by definition. So any consumer that sums, averages or "
-           << "otherwise aggregates evidence across records must group by the snarl's ID first and "
-           << "count each snarl once. Records without SB are unaffected: they are the only record "
-           << "their snarl emitted.\">" << endl;
+    if (writer_steps.info_header) {
+        ss << writer_steps.info_header();
     }
     if (allele_merge_threshold < 1.0) {
         ss << "##INFO=<ID=MAT,Number=.,Type=String,Description=\"Merged Allele Traversal: "
@@ -119,13 +97,6 @@ bool VCFOutputCaller::add_variant(vcflib::Variant& var, size_t block) const {
     return true;
 }
 
-/// The ID of the site a record belongs to: a block record's ID without the "_<index>" that
-/// tells the site's block records apart, and any other record's ID unchanged.
-static string block_site_name(const string& id) {
-    size_t underscore = id.rfind('_');
-    return underscore == string::npos ? id : id.substr(0, underscore);
-}
-
 size_t VCFOutputCaller::record_key_of(const Snarl& snarl) const {
     return vg::record_key_of(print_snarl(snarl, false));
 }
@@ -155,14 +126,13 @@ void VCFOutputCaller::write_variants(ostream& out_stream, const SnarlManager* sn
                  const pair<BufferedRecordKey, string>& v2) {
                   return buffered_record_key_less(v1.first, v2.first);
               });
-    // Resolve the linkage model, if it has not been resolved, before the records are written.
-    linker.resolve(emit_phasing ? &phase_table.calls() : nullptr);
-    finalise_linkage_outputs();
+    if (writer_steps.before_lines) {
+        writer_steps.before_lines();
+    }
 
-
-    // Each record is decompressed and given its linkage qualities on its own, so the records are
-    // finished on several threads, a batch at a time, and each batch is written in order. Only
-    // one batch of text is held at once.
+    // Each record is decompressed and finished on its own, so the records are finished on several
+    // threads, a batch at a time, and each batch is written in order. Only one batch of text is
+    // held at once.
     const size_t batch_records = 1 << 16;
     vector<string> lines;
     for (size_t batch_start = 0; batch_start < all_variants.size(); batch_start += batch_records) {
@@ -174,37 +144,8 @@ void VCFOutputCaller::write_variants(ostream& out_stream, const SnarlManager* sn
             string& dest = lines[record_i - batch_start];
             int ret = zstdutil::DecompressString(v.second, dest);
             assert(ret == 0);
-            // The record key is the hash of the site's ID, as `record_key_of` computes it, so the line
-            // itself gives the site's identity; a block record's ID carries it before its suffix.
-            // Computed once, when first needed; several records can share a (contig, position), and
-            // each must get its own site's values.
-            size_t line_key = 0;
-            bool have_line_key = false;
-            auto id_key = [&]() -> size_t {
-                if (!have_line_key) {
-                    size_t a = dest.find('\t');
-                    size_t b = a == string::npos ? string::npos : dest.find('\t', a + 1);
-                    size_t c = b == string::npos ? string::npos : dest.find('\t', b + 1);
-                    if (c != string::npos) {
-                        line_key = std::hash<string>{}(block_site_name(dest.substr(b + 1, c - b - 1)));
-                    }
-                    have_line_key = true;
-                }
-                return line_key;
-            };
-            if (linker.enabled()) {
-                // Quality first, then phasing. The line already carries the chosen genotype, since it
-                // was built from it.
-                const auto& quality = linker.collector()->moved_quality();
-                if (!quality.empty()) {
-                    auto found = quality.find(id_key());
-                    if (found != quality.end()) {
-                        if (!ReadLikelihoodSnarlCaller::rewrite_quality_for_chosen_genotype(
-                                dest, found->second, linkage_min_confidence)) {
-                            ++quality_declined;
-                        }
-                    }
-                }
+            if (writer_steps.finish_line) {
+                writer_steps.finish_line(dest);
             }
         }
         for (const string& line : lines) {
@@ -213,13 +154,9 @@ void VCFOutputCaller::write_variants(ostream& out_stream, const SnarlManager* sn
             out_stream << line << '\n';
         }
     }
-    if (phase_declined.load() > 0 || quality_declined.load() > 0) {
-        cerr << "[vg call] linkage: " << phase_declined.load()
-             << " phases refused by the record they were rendered onto, and "
-             << quality_declined.load() << " quality rewrites refused" << endl;
+    if (writer_steps.after_lines) {
+        writer_steps.after_lines();
     }
-    // Reported after the records are rendered, since block emission happens as they are.
-    block_records.report();
 }
 
 

@@ -2342,8 +2342,9 @@ int main_call(int argc, char** argv) {
     }
 
     // Every run without --read-likelihood calls through a GraphCaller, and every run with it
-    // through a MultiPassCaller.
+    // through a MultiPassCaller, which writes its records through `multipass_output`.
     unique_ptr<GraphCaller> graph_caller;
+    unique_ptr<VCFOutputCaller> multipass_output;
     unique_ptr<MultiPassCaller> multipass_caller;
     unique_ptr<TraversalFinder> traversal_finder;
     unique_ptr<gbwt::GBWT> gbwt_index_up;
@@ -2420,9 +2421,11 @@ int main_call(int argc, char** argv) {
         }
 
         if (read_likelihood) {
+            multipass_output.reset(new VCFOutputCaller(sample_name));
             multipass_caller.reset(new MultiPassCaller(*dynamic_cast<PathPositionHandleGraph*>(graph),
                                                        *read_likelihood_caller, *snarl_manager,
-                                                       sample_name, *traversal_finder, ref_paths,
+                                                       *multipass_output, sample_name,
+                                                       *traversal_finder, ref_paths,
                                                        ref_path_offsets, ref_path_ploidies,
                                                        genotype_snarls,
                                                        make_pair(min_allele_len, max_allele_len),
@@ -2483,19 +2486,21 @@ int main_call(int argc, char** argv) {
         multipass_caller->set_max_snarl_edges(max_snarl_edges_opt);
     }
 
-    // The caller as a VCFOutputCaller, or null if it does not write VCF.
+    // Where the records go, or null if the caller does not write VCF.
     VCFOutputCaller* const vcf_out =
-        multipass_caller != nullptr ? multipass_caller.get()
+        multipass_caller != nullptr ? multipass_output.get()
                                     : dynamic_cast<VCFOutputCaller*>(graph_caller.get());
 
     // Per-region ploidy, if given.
     if (!ploidy_bed_filename.empty()) {
-        VCFOutputCaller* ploidy_target = vcf_out;
-        if (ploidy_target == nullptr) {
+        if (multipass_caller != nullptr) {
+            multipass_caller->set_ploidy_regions(PloidyRegions(ploidy_bed_filename));
+        } else if (vcf_out != nullptr) {
+            vcf_out->set_ploidy_regions(PloidyRegions(ploidy_bed_filename));
+        } else {
             cerr << "error [vg call]: --ploidy-bed needs a caller that emits VCF" << endl;
             return 1;
         }
-        ploidy_target->set_ploidy_regions(PloidyRegions(ploidy_bed_filename));
     }
 
     // Nested calling: a called traversal that takes the reference's route through a snarl,
@@ -2555,13 +2560,10 @@ int main_call(int argc, char** argv) {
         }
         nested_calling = false;
     }
-    {
-        // The linkage model can change a record's GQN, so the output caller re-applies the lowconf
+    if (multipass_caller != nullptr) {
+        // The linkage model can change a record's GQN, so the caller re-applies the lowconf
         // filter with the same threshold.
-        VCFOutputCaller* confidence_target = vcf_out;
-        if (confidence_target != nullptr) {
-            confidence_target->set_linkage_min_confidence(min_confidence);
-        }
+        multipass_caller->set_linkage_min_confidence(min_confidence);
     }
     // Block emission splits up the records of nested calling, so it needs nested calling. The
     // checks that depend only on the options were made before the graph was loaded.
@@ -2575,12 +2577,12 @@ int main_call(int argc, char** argv) {
             atomize_blocks = false;
         }
         if (atomize_blocks) {
-            vcf_out->set_atomize_blocks(true);
+            multipass_caller->set_atomize_blocks(true);
         }
     }
 
     if (nested_calling) {
-        vcf_out->set_symbolic_collapsing(snarl_manager.get());
+        multipass_caller->set_nested_calling(true);
     }
 
     // Owned here because write_variants(), at the very end of main, consumes the collector.
@@ -2597,7 +2599,9 @@ int main_call(int argc, char** argv) {
         // a non-reference allele, and only these tags say so.
         vcf_caller->set_nested(all_snarls || top_down || bottom_up
                                || off_ref_nesting);
-        vcf_caller->set_off_reference_nesting(off_ref_nesting);
+        if (multipass_caller != nullptr) {
+            multipass_caller->set_off_reference_nesting(off_ref_nesting);
+        }
         vcf_caller->set_gref_levels(std::move(gref_levels));
         vcf_caller->set_translation(translation.get());
 
@@ -2647,13 +2651,9 @@ int main_call(int argc, char** argv) {
                      << "genotype" << endl;
                 return 1;
             }
-            // Symbolic collapsing, which turns on nested calling in the caller, was set up above,
-            // so it has to be turned off there too.
+            // Nested calling was turned on in the caller above, so it is turned off there too.
             nested_calling = false;
-            VCFOutputCaller* nested_target = vcf_out;
-            if (nested_target != nullptr) {
-                nested_target->set_symbolic_collapsing(nullptr);
-            }
+            multipass_caller->set_nested_calling(false);
             if (show_progress) {
                 logger.info() << "Nested calling is off under --no-phased: a nested site's ploidy "
                               << "and strand come from its parent's phased genotype" << endl;
@@ -2739,9 +2739,9 @@ int main_call(int argc, char** argv) {
                 linkage_params.hp_prior = hp_prior;
                 linkage_params.hp_prior_run = (size_t)hp_prior_run;
                 linkage_collector.reset(new LinkageCollector(linkage_params, hap_index.size()));
-                vcf_caller->set_linkage(linkage_collector.get(), gbwt_index,
-                                        &linkage_sequence_to_haplotype);
-                vcf_caller->set_emit_phasing(phased_output);
+                multipass_caller->set_linkage(linkage_collector.get(), gbwt_index,
+                                              &linkage_sequence_to_haplotype);
+                multipass_caller->set_emit_phasing(phased_output);
                 // Name each panel haplotype "sample#phase", for the mosaic.
                 vector<string> hap_names(hap_index.size());
                 for (const auto& kv : hap_index) {
@@ -2752,7 +2752,7 @@ int main_call(int argc, char** argv) {
                 }
                 // The mosaic's rows name only the contig, so it also records the full names of
                 // the reference paths.
-                vcf_caller->set_mosaic_out(MosaicParams{
+                multipass_caller->set_mosaic_out(MosaicParams{
                     .path = mosaic_out,
                     .graph_name = graph_filename,
                     .haplotype_names = hap_names,
@@ -2772,12 +2772,14 @@ int main_call(int argc, char** argv) {
             string reads_source = !gaf_base_filename.empty()
                                       ? gaf_base_filename
                                       : (!gaf_filename.empty() ? gaf_filename : gam_filename);
-            vcf_caller->set_anchors_out(anchors_out, anchor_params, graph_filename, reads_source,
-                                        min_mismap_prob);
+            multipass_caller->set_anchors_out(anchors_out, anchor_params, graph_filename,
+                                              reads_source, min_mismap_prob);
         }
-        vcf_caller->set_read_phasing(read_phasing, read_phasing_params);
-        vcf_caller->set_regenotype(regenotype, regenotype_params, regenotype_passes,
-                                   regenotype_ledger);
+        if (multipass_caller != nullptr) {
+            multipass_caller->set_read_phasing(read_phasing, read_phasing_params);
+            multipass_caller->set_regenotype(regenotype, regenotype_params, regenotype_passes,
+                                             regenotype_ledger);
+        }
         // one call covers FlowCaller (both ctors, so plain vg call gets it too), NestedFlowCaller
         // and LegacyCaller, since the merge lives on the shared VCFOutputCaller base
         vcf_caller->set_allele_merge(cluster_threshold, cluster_min_allele_len);
@@ -2795,7 +2797,9 @@ int main_call(int argc, char** argv) {
                 header_ref_lengths.push_back(path_len.second);
             }
         }
-        header = vcf_caller->vcf_header(*graph, header_ref_paths, header_ref_lengths);
+        header = multipass_caller != nullptr
+                     ? multipass_caller->vcf_header(*graph, header_ref_paths, header_ref_lengths)
+                     : vcf_caller->vcf_header(*graph, header_ref_paths, header_ref_lengths);
     }
 
     if (multipass_caller != nullptr) {

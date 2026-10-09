@@ -213,6 +213,10 @@ struct SiteRecord {
     bool alleles_merged;
 };
 
+/// The ID of the site a record belongs to: a block record's ID without the "_<index>" that tells
+/// the site's block records apart, and any other record's ID unchanged.
+string block_site_name(const string& id);
+
 /// A nested ploidy-1 genotype: one allele on a named strand, with "." on the other, since the other
 /// strand carries nothing here, its parent allele having deleted the chain. Shared by a site record
 /// and its block records.

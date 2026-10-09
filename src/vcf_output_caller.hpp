@@ -1,36 +1,21 @@
 #ifndef VG_VCF_OUTPUT_CALLER_HPP_INCLUDED
 #define VG_VCF_OUTPUT_CALLER_HPP_INCLUDED
 
-#include <atomic>
 #include <iostream>
 #include <algorithm>
-#include <array>
 #include <functional>
 #include <cmath>
 #include <limits>
 #include <unordered_set>
 #include <tuple>
-#include <gbwt/cached_gbwt.h>
 #include "handle.hpp"
-#include "linkage_model.hpp"
 #include "snarls.hpp"
 #include "traversal_finder.hpp"
-#include "anchor.hpp"
-#include "read_phasing.hpp"
-#include "regenotype.hpp"
 #include "snarl_caller.hpp"
-#include "symbolic_allele.hpp"
 #include "region.hpp"
 #include "zstdutil.hpp"
 #include "vg/io/alignment_emitter.hpp"
 #include "gref.hpp"
-#include "block_records.hpp"
-#include "mosaic_writer.hpp"
-#include "panel_lookup.hpp"
-#include "phase_table.hpp"
-#include "genotype_linker.hpp"
-#include "read_phaser.hpp"
-#include "genotype_rescorer.hpp"
 #include "ploidy_regions.hpp"
 #include "vcf_genotype_likelihoods.hpp"
 #include "vcf_record.hpp"
@@ -44,8 +29,9 @@ using vg::io::AlignmentEmitter;
 /**
  * Helper class that VCF writers can inherit from, for the common code to output sorted VCF.
  *
- * It also holds the state of the linkage model, read phasing, the anchor file, the mosaic file
- * and block emission, which only MultiPassCaller uses.
+ * A caller that holds one instead, such as MultiPassCaller, writes its records through
+ * `emit_variant` and adds its own steps to the records, the header and `write_variants` with
+ * `set_record_steps` and `set_writer_steps`.
  */
 class VCFOutputCaller {
 public:
@@ -83,62 +69,9 @@ public:
     /// Per-region ploidy overrides, which the callers read through `ploidy_regions`.
     void set_ploidy_regions(PloidyRegions regions) { ploidy_regions = std::move(regions); }
 
-    /// Record a compact entry per site while calling, so that the linkage model can re-decide the
-    /// genotypes afterwards. Neither pointer is owned; a null collector turns the model off.
-    ///
-    /// The GBWT and the haplotype of each of its sequences give the panel; see PanelLookup.
-    void set_linkage(LinkageCollector* collector, const gbwt::GBWT* gbwt,
-                     const vector<size_t>* sequence_to_haplotype);
-
-    /// Write phased genotypes (`0|1`) and FORMAT/PS, from the chosen phase: the linkage model's
-    /// Viterbi path, as read phasing reordered it when read phasing is on. Has no effect where the
-    /// linkage model does not run.
-    void set_emit_phasing(bool on) { this->emit_phasing = on; }
-
-    /// `--min-confidence`, so that a record whose GQN the linkage model recomputes is marked
-    /// against the same threshold.
-    void set_linkage_min_confidence(double threshold) {
-        this->linkage_min_confidence = threshold;
-    }
-
-    /// Write assembly anchors to `path`; see AnchorCollector::configure.
-    void set_anchors_out(const string& path, const AnchorParams& params,
-                         const string& graph_name, const string& reads_source,
-                         double mismap_min) {
-        anchor_collector.configure(path, params, graph_name, reads_source, mismap_min);
-    }
-
-    /// Turn on read phasing (--read-phasing); see read_phasing.hpp. Needs the linkage model, whose
-    /// phase it changes.
-    void set_read_phasing(bool on, const ReadPhasingParams& params) {
-        read_phaser.configure(on, params);
-    }
-
-    /// Turn on re-genotyping from the phase (--regenotype); see regenotype.hpp. Needs read phasing,
-    /// which gives each read its strand log-odds.
-    void set_regenotype(bool on, const RegenotypeParams& params, size_t passes,
-                        const string& ledger) {
-        rescorer.configure(on, params, passes, ledger);
-    }
-
-    /// Write the anchor file and report the counters. Does nothing unless anchors are on.
-    void write_anchors() { anchor_collector.write(sample_name); }
-
-    /// Where and how to write the mosaic. A path turns phasing on.
-    void set_mosaic_out(MosaicParams params) {
-        if (!params.path.empty()) {
-            // The mosaic is the phasing, so phasing is on.
-            this->emit_phasing = true;
-        }
-        mosaic_writer.set_params(std::move(params));
-    }
-
-    /// Write the buffered records. It adds the nesting INFO tags, sorts the records, runs the
-    /// linkage model if nothing has (`GenotypeLinker::resolve`), and writes the mosaic
-    /// (`finalise_linkage_outputs`). Then it writes each record, rewriting GQ, GQN and FILTER on
-    /// those whose genotype the linkage model changed (`LinkageCollector::moved_quality`). Usable
-    /// once. `snarl_manager` is needed if
-    /// `include_nested` is true.
+    /// Write the buffered records. It adds the nesting INFO tags, sorts the records and writes
+    /// them, with the steps set by `set_writer_steps` around them and on each line. Usable once.
+    /// `snarl_manager` is needed if `include_nested` is true.
     void write_variants(ostream& out_stream, const SnarlManager* snarl_manager = nullptr);
 
     /// Run vcffixup from vcflib
@@ -149,12 +82,6 @@ public:
 
     /// Assume writing nested snarls is enabled
     void set_nested(bool nested);
-
-    /// Genotype and record chains that no reference path passes through, rather than skipping them.
-    ///
-    /// Such a chain has no REF or POS, so no record can be written for it, but it still takes part
-    /// in the linkage model and gets anchors.
-    void set_off_reference_nesting(bool on) { off_reference_nesting = on; }
 
     /// How deep in non-reference sequence each gRef contig sits, by contig name. INFO/CH is at
     /// least this for a record on that contig.
@@ -181,111 +108,14 @@ public:
     /// most contigs are fragments, and on a human chromosome a third of them carry nothing.
     string prune_header_contigs(const string& header, const unordered_set<string>& keep) const;
 
-    /// Turn on symbolic collapsing: a called traversal whose symbolic allele equals the reference
-    /// traversal's is written as the reference allele, since it differs from the reference only
-    /// inside child chains, whose own records report those differences. The manager is not owned
-    /// and must outlive this caller.
-    ///
-    /// In MultiPassCaller a non-null manager also turns on nested calling: after `TreeGenotyper`
-    /// genotypes a snarl, it descends into the snarl's child chains and genotypes them.
-    ///
-    /// A non-null manager adds the `same_as_reference` and `count_site` steps to `record_steps`,
-    /// and null removes them.
-    void set_symbolic_collapsing(const SnarlManager* manager);
-
-    /// Write one record per difference block between the reference and each called strand's
-    /// symbolic allele, instead of one record per snarl (--atomize-blocks). Does nothing on the
-    /// calling paths that cannot support it.
-    void set_atomize_blocks(bool on) { block_records.set_enabled(on); }
-
-protected:
-
-    /// True when this called traversal takes the same route through the snarl as the reference and
-    /// differs only inside child chains. Always false when symbolic collapsing is off.
-    bool is_symbolically_reference(const vector<SnarlTraversal>& called_traversals,
-                                   int trav_idx, int ref_trav_idx, const Snarl& snarl) const;
-
-    /// Snarl hierarchy for symbolic collapsing, or null to compare alleles by sequence alone.
-    const SnarlManager* symbolic_manager = nullptr;
-
-    /// Write the mosaic, once every record exists; separate from resolution because it needs to
-    /// know which sites have a VCF line.
-    void finalise_linkage_outputs();
-
-    /// Every phased site. The linkage model fills it, the mosaic reads it, the linkage pass looks
-    /// up a parent's chosen pair in it, and each record reads its phase from it as it is
-    /// rendered.
-    PhaseTable phase_table;
-
-    /// The linkage model, and the linkage pass that chooses genotypes with it.
-    GenotypeLinker linker;
-    /// Which allele each panel haplotype carries at a site. Empty without the linkage model.
-    PanelLookup panel_lookup;
-
-    /// Records whose genotype the linkage model changed but whose quality fields could not be
-    /// found on the line (no sample column, or FORMAT and sample columns of different lengths).
-    /// They keep the per-site GQ.
-    mutable std::atomic<size_t> quality_declined{0};
-
-    /// See `set_off_reference_nesting`.
-    bool off_reference_nesting = false;
-
-    /// Writes the mosaic file, if one was asked for.
-    MosaicWriter mosaic_writer;
-    /// Writes sites as their difference blocks (see `set_atomize_blocks`), and counts block
-    /// emission for the report.
-    BlockRecordWriter block_records;
-
-    /// Read phasing, if it is on.
-    ReadPhaser read_phaser;
-
-    /// A phase set is named by a position on its contig, so two contigs can share a name. Read
-    /// phasing, re-genotyping and the anchors tell phase sets apart by an id instead, which
-    /// `phase_set_id` gives each (contig, phase set) pair on first use.
-    map<pair<string, size_t>, size_t> phase_set_ids;
-    /// The id of a (contig, phase set) pair, the same for the whole run.
-    size_t phase_set_id(const string& contig, size_t phase_set);
-
-    /// Re-genotyping from the phase, if it is on.
-    GenotypeRescorer rescorer;
-
-    /// Phases refused while rendering because the record's genotype was not a permutation of the
-    /// phased pair.
-    mutable std::atomic<size_t> phase_declined{0};
-
-    /// See set_linkage_min_confidence.
-    double linkage_min_confidence = 0.0;
-
-    /// Whether to emit phased GT and FORMAT/PS.
-    bool emit_phasing = false;
-
-    /// Collects the anchors and writes the anchor file, if one was asked for.
-    AnchorCollector anchor_collector;
-
-    /// add a traversal to the VCF info field in the format of a GFA W-line or GAF path
-    void add_allele_path_to_info(const HandleGraph* graph, vcflib::Variant& v, int allele,
-                                 const Traversal& trav, bool reversed, bool one_based) const;
-    /// legacy version of above
-    void add_allele_path_to_info(vcflib::Variant& v, int allele, const SnarlTraversal& trav, bool reversed, bool one_based) const;
-    
-    
-    /// convert a traversal into an allele string
-    string trav_string(const HandleGraph& graph, const SnarlTraversal& trav) const;
-
-    /// The core length of a variant, as `vg::allele_core_length` defines it.
-    static int64_t allele_core_length(const vector<string>& alleles) {
-        return vg::allele_core_length(alleles);
-    }
-
-    /// Steps added to writing a site record by the callers that need them. Each is left empty when
-    /// not needed. Symbolic collapsing adds the first two (see `set_symbolic_collapsing`), and
-    /// MultiPassCaller adds the others.
+    /// Steps added to writing a site record by a caller that needs them. Each is left empty when
+    /// not needed.
     struct SiteRecordSteps {
         /// Whether called traversal `trav` is written as the reference allele, because it takes
         /// the reference traversal's route through the site.
         function<bool(const Snarl& site, const vector<SnarlTraversal>& travs, int trav,
                       int ref_trav_idx)> same_as_reference;
-        /// Counts the site for the block emission report, before its record is built.
+        /// Counts the site before its record is built.
         function<void(const PathPositionHandleGraph& graph, const Snarl& site,
                       const vector<SnarlTraversal>& travs, const vector<int>& genotype,
                       int ref_trav_idx)> count_site;
@@ -294,8 +124,8 @@ protected:
                          const map<int, int>& trav_to_allele, string& gt)> phase;
         /// The order in which the snarl caller wrote the GL of a call.
         function<GLLayout(const SnarlCaller::CallInfo* call_info)> gl_layout;
-        /// Writes the site as one record per difference block. Returns the number of lines
-        /// written, or -1 to have the site record written instead.
+        /// Writes the site as several records. Returns the number of lines written, or -1 to have
+        /// the site record written instead.
         function<int(const PathPositionHandleGraph& graph, const Snarl& site,
                      const vector<SnarlTraversal>& travs, const vector<int>& genotype,
                      int ref_trav_idx, const SiteRecord& record, GLLayout gl_layout,
@@ -305,27 +135,91 @@ protected:
         function<void(const Snarl& site, const map<int, int>& trav_to_allele,
                       size_t traversal_count, bool has_line)> site_filed;
     };
-    SiteRecordSteps record_steps;
 
-    /// The options build_site_record takes from this caller.
-    RecordOptions record_options() const;
+    /// Use `steps` in every record `emit_variant` writes from now on.
+    void set_record_steps(SiteRecordSteps steps) { record_steps = std::move(steps); }
 
-    /// Phase a record's genotype from the linkage model's phase call for the site, as
-    /// `SiteHooks::phase` does. The phased genotype must be a permutation of the record's own, so
-    /// that phasing cannot change a genotype; a call that is not is counted as declined.
-    int64_t phase_record_genotype(const Snarl& site, const vector<int>& site_genotype,
-                                  const map<int, int>& trav_to_allele, string& gt) const;
+    /// Lines added to the header, and steps added to `write_variants`, by a caller that needs
+    /// them. Each is left empty when not needed.
+    struct WriterSteps {
+        /// FORMAT lines, written after the nesting INFO lines.
+        function<string()> format_header;
+        /// INFO lines, written after the AT line.
+        function<string()> info_header;
+        /// Runs once the records are sorted, before any is written.
+        function<void()> before_lines;
+        /// Changes one record's finished line in place. Runs on several lines at once.
+        function<void(string& line)> finish_line;
+        /// Runs once every record is written.
+        function<void()> after_lines;
+    };
+
+    /// Use `steps` in `vcf_header` and `write_variants`.
+    void set_writer_steps(WriterSteps steps) { writer_steps = std::move(steps); }
 
     /// Write the record for a site: build it with build_site_record, from the snarl's traversals
-    /// and the snarl caller's INFO and FORMAT fields, with the steps in `record_steps`, and add it
-    /// to the output buffer. `trav_to_string` spells an allele; when null, an allele is spelled by
-    /// its traversal's sequence. Returns false only when add_variant refused a line the site
-    /// wanted.
+    /// and the snarl caller's INFO and FORMAT fields, with the steps set by `set_record_steps`,
+    /// and add it to the output buffer. `trav_to_string` spells an allele; when null, an allele is
+    /// spelled by its traversal's sequence. Returns false only when add_variant refused a line
+    /// the site wanted.
     bool emit_variant(const PathPositionHandleGraph& graph, SnarlCaller& snarl_caller,
                       const Snarl& snarl, const vector<SnarlTraversal>& called_traversals,
                       const vector<int>& genotype, int ref_trav_idx, const unique_ptr<SnarlCaller::CallInfo>& call_info,
                       const string& ref_path_name, int ref_offset, bool genotype_snarls, int ploidy,
                       function<string(const vector<SnarlTraversal>&, const vector<int>&, int, int, int)> trav_to_string = nullptr);
+
+    /// The header of a caller that genotypes with `snarl_caller`: the base header, GT,
+    /// `snarl_caller`'s own lines, FILTER, SAMPLE and the column line. Opens the output VCF with it.
+    string snarl_caller_vcf_header(const PathHandleGraph& graph, const vector<string>& contigs,
+                                   const vector<size_t>& contig_length_overrides,
+                                   const SnarlCaller& snarl_caller) const;
+
+    /// print a snarl in a consistent form like >3435<12222
+    /// if in_brackets set to true,  do (>3435<12222) instead (this is only used for nested caller)
+    string print_snarl(const HandleGraph* grpah, const handle_t& snarl_start, const handle_t& snarl_end, bool in_brackets = false) const;
+    /// legacy version of above
+    string print_snarl(const Snarl& snarl, bool in_brackets = false) const;
+    /// The same as above, but print the snarl as if its orientation has been flipped
+    string print_flipped_snarl(const Snarl& snarl, bool in_brackets = false) const;
+    /// What the three above print, from the snarl's two boundary visits.
+    string print_snarl(nid_t start_id, bool start_backward, nid_t end_id, bool end_backward,
+                       bool in_brackets) const;
+
+    /// A site's record key: the hash of the printed snarl, which is also the record's ID column.
+    /// A caller that keeps state per site keys it by this.
+    ///
+    /// A buffered line's key is the hash of its ID column, so the key must be the hash of that
+    /// string. It survives `--translation`, where both sides print the translated form. One
+    /// function, so that every caller and the recovery of a key from a line agree.
+    size_t record_key_of(const Snarl& snarl) const;
+
+    /// convert a traversal into an allele string
+    string trav_string(const HandleGraph& graph, const SnarlTraversal& trav) const;
+
+    /// The node translation given to `set_translation`, or null.
+    const unordered_map<nid_t, pair<string, size_t>>* get_translation() const { return translation; }
+
+protected:
+
+    /// add a traversal to the VCF info field in the format of a GFA W-line or GAF path
+    void add_allele_path_to_info(const HandleGraph* graph, vcflib::Variant& v, int allele,
+                                 const Traversal& trav, bool reversed, bool one_based) const;
+    /// legacy version of above
+    void add_allele_path_to_info(vcflib::Variant& v, int allele, const SnarlTraversal& trav, bool reversed, bool one_based) const;
+    
+    
+    /// The core length of a variant, as `vg::allele_core_length` defines it.
+    static int64_t allele_core_length(const vector<string>& alleles) {
+        return vg::allele_core_length(alleles);
+    }
+
+    /// See set_record_steps.
+    SiteRecordSteps record_steps;
+    /// See set_writer_steps.
+    WriterSteps writer_steps;
+
+    /// The options build_site_record takes from this caller.
+    RecordOptions record_options() const;
 
     /// get the interval of a snarl from our reference path using the PathPositionHandleGraph interface
     /// the bool is true if the snarl's backward on the path
@@ -337,18 +231,10 @@ protected:
     pair<string, int64_t> get_ref_position(const PathPositionHandleGraph& graph, const Snarl& snarl, const string& ref_path_name,
                                            int64_t ref_path_offset) const;
 
-    /// The header of a caller that genotypes with `snarl_caller`: the base header, GT,
-    /// `snarl_caller`'s own lines, FILTER, SAMPLE and the column line. Opens the output VCF with it.
-    string snarl_caller_vcf_header(const PathHandleGraph& graph, const vector<string>& contigs,
-                                   const vector<size_t>& contig_length_overrides,
-                                   const SnarlCaller& snarl_caller) const;
-
     /// clean up the alleles to not share common prefixes / suffixes
     /// if len_override given, just do that many bases without thinking
     void flatten_common_allele_ends(vcflib::Variant& variant, bool backward, size_t len_override) const;
 
-    /// print a snarl in a consistent form like >3435<12222
-    /// if in_brackets set to true,  do (>3435<12222) instead (this is only used for nested caller)
     // The nesting INFO headers (LV/CH/PS/RC/RS/RD), for both vg call and vg deconstruct.
     //
     // One definition on purpose.  These used to be written out verbatim in two places, and
@@ -357,25 +243,7 @@ protected:
     // false, so the released VCFs carried the wrong one.
     static string nesting_info_headers();
 
-    string print_snarl(const HandleGraph* grpah, const handle_t& snarl_start, const handle_t& snarl_end, bool in_brackets = false) const;
-    /// legacy version of above
-    string print_snarl(const Snarl& snarl, bool in_brackets = false) const;
-    /// The same as above, but print the snarl as if its orientation has been flipped
-    string print_flipped_snarl(const Snarl& snarl, bool in_brackets = false) const;
-    /// What the three above print, from the snarl's two boundary visits.
-    string print_snarl(nid_t start_id, bool start_backward, nid_t end_id, bool end_backward,
-                       bool in_brackets) const;
-
-    /// A site's record key: the hash of the printed snarl, which is also the record's ID column.
-    /// It identifies the site everywhere: in the linkage model, in the phasing and in the staged
-    /// sites.
-    ///
-    /// `write_variants` finds a buffered line's key by hashing its ID column, so the key must be the
-    /// hash of that string. It survives `--translation`, where both sides print the translated
-    /// form. One function, so that every caller and the recovery in `write_variants` agree.
-    size_t record_key_of(const Snarl& snarl) const;
-
-    /// do the opposite of above
+    /// do the opposite of print_snarl
     /// So a string that looks like AACT(>12<17)TTT would invoke the callback three times with
     /// ("AACT", Snarl), ("", Snarl(12,-17)), ("TTT", Snarl(12,-17))
     /// The parameters are to be treated as unions:  A sequence fragment if non-empty, otherwise a snarl

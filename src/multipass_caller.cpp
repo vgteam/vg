@@ -10,16 +10,18 @@ namespace vg {
 
 MultiPassCaller::MultiPassCaller(const PathPositionHandleGraph& graph,
                                  ReadLikelihoodSnarlCaller& genotyper, SnarlManager& snarl_manager,
-                                 const string& sample_name, TraversalFinder& traversal_finder,
+                                 VCFOutputCaller& output, const string& sample_name,
+                                 TraversalFinder& traversal_finder,
                                  const vector<string>& ref_paths,
                                  const vector<size_t>& ref_path_offsets,
                                  const vector<int>& ref_path_ploidies, bool genotype_snarls,
                                  const pair<size_t, size_t>& allele_length_range, bool top_down,
                                  bool star_allele) :
-    VCFOutputCaller(sample_name),
     graph(graph),
     snarl_caller(genotyper),
     snarl_manager(snarl_manager),
+    output(output),
+    sample_name(sample_name),
     ref_paths(ref_paths),
     genotype_snarls(genotype_snarls),
     top_down(top_down),
@@ -34,6 +36,7 @@ MultiPassCaller::MultiPassCaller(const PathPositionHandleGraph& graph,
         ref_ploidies[ref_paths[i]] = i < ref_path_ploidies.size() ? ref_path_ploidies[i] : 2;
     }
     install_record_steps();
+    install_writer_steps();
     install_widgets();
 }
 
@@ -55,10 +58,10 @@ void MultiPassCaller::call(GraphCaller::RecurseType recurse_type,
             .ploidy_regions = &ploidy_regions,
             .ref_offsets = &ref_offsets,
             .ref_ploidies = &ref_ploidies,
-            .record_key_of = [this](const Snarl& site) { return record_key_of(site); },
+            .record_key_of = [this](const Snarl& site) { return output.record_key_of(site); },
         },
         TreeGenotyper::Options{
-            .nested_calling = symbolic_manager != nullptr,
+            .nested_calling = nested_calling,
             .off_reference = off_reference_nesting,
             .top_down = top_down,
             .star_allele = star_allele,
@@ -76,13 +79,14 @@ void MultiPassCaller::call(GraphCaller::RecurseType recurse_type,
     run_linkage_pass();
     phase_and_regenotype();
     render_retained_records();
-    // Anchors are collected while records are built, so they are written afterwards.
-    write_anchors();
+    // Anchors are collected while records are built, so they are written afterwards. Does nothing
+    // unless anchors are on.
+    anchor_collector.write(sample_name);
 }
 
 string MultiPassCaller::vcf_header(const PathHandleGraph& graph, const vector<string>& contigs,
                                    const vector<size_t>& contig_length_overrides) const {
-    return snarl_caller_vcf_header(graph, contigs, contig_length_overrides, snarl_caller);
+    return output.snarl_caller_vcf_header(graph, contigs, contig_length_overrides, snarl_caller);
 }
 
 void MultiPassCaller::report_descent_instrumentation() const {
@@ -119,6 +123,19 @@ void MultiPassCaller::report_descent_instrumentation() const {
 }
 
 void MultiPassCaller::install_record_steps() {
+    VCFOutputCaller::SiteRecordSteps record_steps;
+    if (nested_calling) {
+        record_steps.same_as_reference = [this](const Snarl& site,
+                                                const vector<SnarlTraversal>& travs, int trav,
+                                                int ref_trav_idx) {
+            return is_symbolically_reference(travs, trav, ref_trav_idx, site);
+        };
+        record_steps.count_site = [this](const PathPositionHandleGraph& graph, const Snarl& site,
+                                         const vector<SnarlTraversal>& travs,
+                                         const vector<int>& genotype, int ref_trav_idx) {
+            block_records.count_site(site, travs, ref_trav_idx);
+        };
+    }
     record_steps.phase = [this](const Snarl& site, const vector<int>& site_genotype,
                                 const map<int, int>& trav_to_allele, string& gt) {
         return phase_record_genotype(site, site_genotype, trav_to_allele, gt);
@@ -135,9 +152,9 @@ void MultiPassCaller::install_record_steps() {
                                        const SiteRecord& record, GLLayout gl_layout,
                                        bool genotype_snarls) {
         return block_records.write(graph, site, travs, genotype, ref_trav_idx, sample_name,
-                                   translation, record, gl_layout, genotype_snarls,
+                                   output.get_translation(), record, gl_layout, genotype_snarls,
                                    [this](vcflib::Variant& line, size_t block) {
-                                       return add_variant(line, block);
+                                       return output.add_variant(line, block);
                                    });
     };
     // The linkage model gets the site whether or not it has a line. A parent written as the
@@ -158,16 +175,100 @@ void MultiPassCaller::install_record_steps() {
                 trav_to_allele_vec[kv.first] = kv.second;
             }
         }
-        linker.collector()->set_allele_map(record_key_of(site), trav_to_allele_vec, has_line);
+        linker.collector()->set_allele_map(output.record_key_of(site), trav_to_allele_vec,
+                                           has_line);
     };
+    output.set_record_steps(std::move(record_steps));
+}
+
+/// The record key of the site a finished VCF line belongs to, as `VCFOutputCaller::record_key_of`
+/// computes it: the hash of the line's ID column, or of the site's ID for a block record. 0 for a
+/// line with fewer than four columns.
+static size_t line_record_key(const string& line) {
+    size_t a = line.find('\t');
+    size_t b = a == string::npos ? string::npos : line.find('\t', a + 1);
+    size_t c = b == string::npos ? string::npos : line.find('\t', b + 1);
+    if (c == string::npos) {
+        return 0;
+    }
+    return std::hash<string>{}(block_site_name(line.substr(b + 1, c - b - 1)));
+}
+
+void MultiPassCaller::install_writer_steps() {
+    VCFOutputCaller::WriterSteps steps;
+    steps.format_header = [this]() {
+        stringstream ss;
+        if (emit_phasing) {
+            // FORMAT/PS is the VCF phase set, which phasing tools read. It is unrelated to INFO/PS,
+            // vg's parent-snarl field; the two are in different namespaces, so both are legal, and
+            // their descriptions say which is which.
+            ss << "##FORMAT=<ID=PS,Number=1,Type=Integer,Description=\"Phase set: the phase of a "
+               << "genotype is comparable only with others carrying the same PS. One phase set per "
+               << "chain, so blocks are chromosome-scale -- much longer than a read-based phaser "
+               << "gives, because the phase comes from the haplotype panel rather than from reads "
+               << "spanning consecutive sites. Not the INFO/PS emitted under -A, which is a parent "
+               << "snarl pointer\">" << endl;
+        }
+        return ss.str();
+    };
+    steps.info_header = [this]() {
+        stringstream ss;
+        if (block_records.is_enabled()) {
+            ss << "##INFO=<ID=SB,Number=2,Type=Integer,Description=\"Index and count of this "
+               << "difference block within its snarl. A snarl is written as one record per "
+               << "difference block where the reference and the called haplotypes differ from each "
+               << "other in more than one place inside it, or where its own record would repeat a "
+               << "child snarl's, so the count can be 1. A block record's ID is the snarl's ID "
+               << "with _ and the index appended. DOUBLE COUNTING: the per-sample evidence is the "
+               << "SNARL's, repeated on every block, not apportioned between them -- AD, GL, GQ, "
+               << "GQI, GP and QUAL are identical across the set, because the genotype likelihood "
+               << "was computed over whole-snarl traversals and has no per-block decomposition. "
+               << "DP, DR and BL are per-site read counts and are site-level by definition. So any "
+               << "consumer that sums, averages or otherwise aggregates evidence across records "
+               << "must group by the snarl's ID first and count each snarl once. Records without "
+               << "SB are unaffected: they are the only record their snarl emitted.\">" << endl;
+        }
+        return ss.str();
+    };
+    steps.before_lines = [this]() {
+        // Resolve the linkage model, if it has not been resolved, before the records are written.
+        linker.resolve(emit_phasing ? &phase_table.calls() : nullptr);
+        finalise_linkage_outputs();
+    };
+    steps.finish_line = [this](string& line) {
+        if (!linker.enabled()) {
+            return;
+        }
+        // The line already carries the chosen genotype, since it was built from it.
+        const auto& quality = linker.collector()->moved_quality();
+        if (quality.empty()) {
+            return;
+        }
+        auto found = quality.find(line_record_key(line));
+        if (found != quality.end()
+            && !ReadLikelihoodSnarlCaller::rewrite_quality_for_chosen_genotype(
+                   line, found->second, linkage_min_confidence)) {
+            ++quality_declined;
+        }
+    };
+    steps.after_lines = [this]() {
+        if (phase_declined.load() > 0 || quality_declined.load() > 0) {
+            cerr << "[vg call] linkage: " << phase_declined.load()
+                 << " phases refused by the record they were rendered onto, and "
+                 << quality_declined.load() << " quality rewrites refused" << endl;
+        }
+        // Reported after the records are rendered, since block emission happens as they are.
+        block_records.report();
+    };
+    output.set_writer_steps(std::move(steps));
 }
 
 void MultiPassCaller::install_widgets() {
     const SiteReader reader{
         .graph = &graph,
         .genotyper = &site_genotyper,
-        .spell = [this](const SnarlTraversal& trav) { return trav_string(graph, trav); },
-        .name = [this](const Snarl& site) { return print_snarl(site); },
+        .spell = [this](const SnarlTraversal& trav) { return output.trav_string(graph, trav); },
+        .name = [this](const Snarl& site) { return output.print_snarl(site); },
     };
     linker.set_site_reader(reader);
     rescorer.set_site_reader(reader);
@@ -299,9 +400,9 @@ void MultiPassCaller::render_retained_records() {
         staged_sites, phase_table, read_strands, linker,
         anchor_collector.is_enabled() ? &anchor_collector : nullptr,
         [&](const StagedSite& site, const vector<int>& genotype) {
-            emit_variant(graph, snarl_caller, site.snarl, site.travs, genotype, site.ref_trav_idx,
-                         site.call_info, site.ref_path_name, site.ref_offset, genotype_snarls,
-                         site.ploidy);
+            output.emit_variant(graph, snarl_caller, site.snarl, site.travs, genotype,
+                                site.ref_trav_idx, site.call_info, site.ref_path_name,
+                                site.ref_offset, genotype_snarls, site.ploidy);
         },
         show_progress);
 }
@@ -451,18 +552,18 @@ void MultiPassCaller::run_linkage_pass() {
     }
 }
 
-void VCFOutputCaller::set_linkage(LinkageCollector* collector, const gbwt::GBWT* gbwt,
+void MultiPassCaller::set_linkage(LinkageCollector* collector, const gbwt::GBWT* gbwt,
                                   const vector<size_t>* sequence_to_haplotype) {
     this->panel_lookup = PanelLookup(gbwt, sequence_to_haplotype,
                                      collector != nullptr ? collector->panel_size() : 0);
     linker.configure(collector, &panel_lookup);
 }
 
-size_t VCFOutputCaller::phase_set_id(const string& contig, size_t phase_set) {
+size_t MultiPassCaller::phase_set_id(const string& contig, size_t phase_set) {
     return phase_set_ids.emplace(make_pair(contig, phase_set), phase_set_ids.size()).first->second;
 }
 
-void VCFOutputCaller::finalise_linkage_outputs() {
+void MultiPassCaller::finalise_linkage_outputs() {
     // Built after every record has been rendered, since the mosaic needs to know which sites have
     // a line, which is not known while genotypes are being resolved.
     if (!linker.enabled()) {
@@ -530,45 +631,32 @@ void VCFOutputCaller::finalise_linkage_outputs() {
     }
 }
 
-bool VCFOutputCaller::is_symbolically_reference(const vector<SnarlTraversal>& called_traversals,
+bool MultiPassCaller::is_symbolically_reference(const vector<SnarlTraversal>& called_traversals,
                                                 int trav_idx, int ref_trav_idx,
                                                 const Snarl& snarl) const {
-    // Only when symbolic collapsing is on.
-    if (symbolic_manager == nullptr || ref_trav_idx < 0 || trav_idx < 0 ||
+    // Only with nested calling.
+    if (!nested_calling || ref_trav_idx < 0 || trav_idx < 0 ||
         ref_trav_idx >= (int)called_traversals.size() ||
         trav_idx >= (int)called_traversals.size()) {
         return false;
     }
     return symbolically_equal(called_traversals[trav_idx], called_traversals[ref_trav_idx],
-                              snarl, *symbolic_manager);
+                              snarl, snarl_manager);
 }
 
-void VCFOutputCaller::set_symbolic_collapsing(const SnarlManager* manager) {
-    this->symbolic_manager = manager;
-    block_records.set_manager(manager);
-    if (manager == nullptr) {
-        record_steps.same_as_reference = nullptr;
-        record_steps.count_site = nullptr;
-        return;
-    }
-    record_steps.same_as_reference = [this](const Snarl& site, const vector<SnarlTraversal>& travs,
-                                            int trav, int ref_trav_idx) {
-        return is_symbolically_reference(travs, trav, ref_trav_idx, site);
-    };
-    record_steps.count_site = [this](const PathPositionHandleGraph& graph, const Snarl& site,
-                                     const vector<SnarlTraversal>& travs,
-                                     const vector<int>& genotype, int ref_trav_idx) {
-        block_records.count_site(site, travs, ref_trav_idx);
-    };
+void MultiPassCaller::set_nested_calling(bool on) {
+    nested_calling = on;
+    block_records.set_manager(on ? &snarl_manager : nullptr);
+    install_record_steps();
 }
 
-int64_t VCFOutputCaller::phase_record_genotype(const Snarl& site, const vector<int>& site_genotype,
+int64_t MultiPassCaller::phase_record_genotype(const Snarl& site, const vector<int>& site_genotype,
                                                const map<int, int>& trav_to_allele,
                                                string& gt) const {
     if (!emit_phasing || !phase_table.has_rendered()) {
         return -1;
     }
-    const LinkageCollector::PhaseCall* found = phase_table.rendered(record_key_of(site));
+    const LinkageCollector::PhaseCall* found = phase_table.rendered(output.record_key_of(site));
     if (found == nullptr) {
         return -1;
     }

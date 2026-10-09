@@ -15,6 +15,9 @@
 #include "../graph_caller.hpp"
 #include "../flow_caller.hpp"
 #include "../vcf_output_caller.hpp"
+#include "../child_placer.hpp"
+#include "../phase_table.hpp"
+#include "../read_strand_table.hpp"
 
 namespace vg {
 namespace unittest {

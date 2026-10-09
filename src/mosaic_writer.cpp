@@ -6,6 +6,7 @@
 
 #include <omp.h>
 
+#include "mosaic_writer.hpp"
 #include "vcf_output_caller.hpp"
 #include "graph_caller.hpp"
 #include "symbolic_allele.hpp"
