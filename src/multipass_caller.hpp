@@ -169,14 +169,18 @@ private:
 
     /// The steps the output adds to `site`'s record: symbolic collapsing and the block count with
     /// nested calling, phasing from the linkage model, the GL layout of the read-likelihood
-    /// genotyper, block records, and telling the linkage model the site's allele numbering. Each
-    /// does nothing when its part is turned off. The steps read `site`, which must outlive them.
+    /// genotyper, block records, the quality fields of a genotype the linkage model moved, and
+    /// telling the linkage model the site's allele numbering. Each does nothing when its part is
+    /// turned off. The steps read `site`, which must outlive them.
     VCFOutputCaller::SiteRecordSteps record_steps(const StagedSite& site);
+
+    /// Give `record` the quality fields of its chosen genotype, if the linkage model moved its
+    /// site's genotype (see ReadLikelihoodSnarlCaller::rewrite_quality_for_chosen_genotype).
+    void finish_moved_record(vcflib::Variant& record);
 
     /// Set the output's header lines and writing steps this caller needs: the phase set and block
     /// lines of the header; before the records are written, the mosaic and the phasing report;
-    /// on each line, the quality the linkage model moved; and after them, the refusals and the
-    /// block report.
+    /// and after them, the refusals and the block report.
     void install_writer_steps();
 
     /// Write the mosaic, once every record exists, and report the phasing; separate from
@@ -295,9 +299,8 @@ private:
     /// The linkage model, and the linkage pass that chooses genotypes with it.
     GenotypeLinker linker;
 
-    /// Records whose genotype the linkage model changed but whose quality fields could not be
-    /// found on the line (no sample column, or FORMAT and sample columns of different lengths).
-    /// They keep the per-site GQ.
+    /// Records whose genotype the linkage model changed but which have no FORMAT fields for the
+    /// sample. They keep the per-site GQ.
     std::atomic<size_t> quality_declined{0};
 
     /// Phases refused while rendering because the record's genotype was not a permutation of the

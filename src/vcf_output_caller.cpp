@@ -130,9 +130,9 @@ void VCFOutputCaller::write_variants(ostream& out_stream, const SnarlManager* sn
         writer_steps.before_lines();
     }
 
-    // Each record is decompressed and finished on its own, so the records are finished on several
-    // threads, a batch at a time, and each batch is written in order. Only one batch of text is
-    // held at once.
+    // Each record is decompressed on its own, so the records are decompressed on several threads,
+    // a batch at a time, and each batch is written in order. Only one batch of text is held at
+    // once.
     const size_t batch_records = 1 << 16;
     vector<string> lines;
     for (size_t batch_start = 0; batch_start < all_variants.size(); batch_start += batch_records) {
@@ -144,9 +144,6 @@ void VCFOutputCaller::write_variants(ostream& out_stream, const SnarlManager* sn
             string& dest = lines[record_i - batch_start];
             int ret = zstdutil::DecompressString(v.second, dest);
             assert(ret == 0);
-            if (writer_steps.finish_line) {
-                writer_steps.finish_line(dest);
-            }
         }
         for (const string& line : lines) {
             // Not endl: flushing after every record made one write per record, millions on a whole
@@ -462,6 +459,9 @@ bool VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCa
     const bool wants_line = genotype_snarls || !out_variant.alt.empty();
     bool added = false;
     if (wants_line) {
+        if (record_steps.finish_record) {
+            record_steps.finish_record(out_variant);
+        }
         added = add_variant(out_variant);
     } else if (include_nested) {
         // A site with nothing to report still knows where its children sit, so its reference

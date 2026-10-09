@@ -477,36 +477,22 @@ TEST_CASE("A moved record's quality fields come from the stored direct call",
     // Chosen 1/1, so the chosen genotype's GL entry is -3 against a best other of -1: a margin of
     // -20 phred. The printed GQI is capped and the printed GQN is 0, so a divisor recovered from
     // them would be wrong or missing; the stored achievable gap is 100 phred.
-    const string line = "chr1\t100\t>1>4\tA\tG\t30\tPASS\t.\tGT:GL:GQ:GQI:GQN\t"
-                        "1/1:-5.000000,-1.000000,-3.000000:40:256:0.000";
-    auto split = [](const string& text, char delim, vector<string>& out) {
-        out.clear();
-        size_t start = 0;
-        while (true) {
-            size_t end = text.find(delim, start);
-            out.push_back(text.substr(start, end == string::npos ? string::npos : end - start));
-            if (end == string::npos) {
-                return;
-            }
-            start = end + 1;
-        }
+    vcflib::Variant line;
+    line.sequenceName = "chr1";
+    line.position = 100;
+    line.id = ">1>4";
+    line.ref = "A";
+    line.alt = {"G"};
+    line.quality = 30;
+    line.filter = "PASS";
+    line.format = {"GT", "GL", "GQ", "GQI", "GQN"};
+    line.samples["s"] = {{"GT", {"1/1"}}, {"GL", {"-5.000000", "-1.000000", "-3.000000"}},
+                         {"GQ", {"40"}}, {"GQI", {"256"}}, {"GQN", {"0.000"}}};
+    auto field = [](vcflib::Variant& record, const string& key) {
+        return record.samples["s"][key].at(0);
     };
-    auto field = [&](const string& l, const string& key) {
-        vector<string> cols, keys, values;
-        split(l, '\t', cols);
-        split(cols[8], ':', keys);
-        split(cols[9], ':', values);
-        for (size_t i = 0; i < keys.size(); ++i) {
-            if (keys[i] == key) {
-                return values[i];
-            }
-        }
-        return string();
-    };
-    auto filter = [&](const string& l) {
-        vector<string> cols;
-        split(l, '\t', cols);
-        return cols[6];
+    auto filter = [](vcflib::Variant& record) {
+        return record.filter;
     };
     LinkageCollector::MovedQuality moved;
     moved.posterior = 0.995;   // -10 log10(0.005) = 23.01
@@ -514,24 +500,29 @@ TEST_CASE("A moved record's quality fields come from the stored direct call",
     moved.direct.achievable_gap = 100.0 * log(10.0) / 10.0;
 
     SECTION("GQ takes the direct call's GQ factor, whatever it is made of") {
-        string shared = line, unshared = line;
+        vcflib::Variant shared = line, unshared = line;
         moved.direct.gq_factor = 0.5;   // the share, as by default
-        REQUIRE(rewrite(shared, moved, 0.0));
+        REQUIRE(rewrite(shared, "s", moved, 0.0));
         REQUIRE(field(shared, "GQ") == "11");
         moved.direct.gq_factor = 1.0;   // --no-share-quality, no depth discount
-        REQUIRE(rewrite(unshared, moved, 0.0));
+        REQUIRE(rewrite(unshared, "s", moved, 0.0));
         REQUIRE(field(unshared, "GQ") == "23");
     }
     SECTION("GQN divides by the stored achievable gap and multiplies by the share") {
-        string rewritten = line;
-        REQUIRE(rewrite(rewritten, moved, 0.05));
+        vcflib::Variant rewritten = line;
+        REQUIRE(rewrite(rewritten, "s", moved, 0.05));
         REQUIRE(field(rewritten, "GQN") == "-0.100");
         REQUIRE(filter(rewritten) == "lowconf");
     }
+    SECTION("A record with no FORMAT fields for the sample is left alone") {
+        vcflib::Variant other = line;
+        REQUIRE(!rewrite(other, "t", moved, 0.05));
+        REQUIRE(field(other, "GQ") == "40");
+    }
     SECTION("GQN is missing where the direct call had no achievable gap") {
-        string rewritten = line;
+        vcflib::Variant rewritten = line;
         moved.direct.achievable_gap = 0.0;
-        REQUIRE(rewrite(rewritten, moved, 0.05));
+        REQUIRE(rewrite(rewritten, "s", moved, 0.05));
         REQUIRE(field(rewritten, "GQN") == ".");
         REQUIRE(filter(rewritten) == "PASS");
     }

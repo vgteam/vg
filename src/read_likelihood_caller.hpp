@@ -271,20 +271,20 @@ public:
     void set_min_confidence(double threshold);
 
     /**
-     * Rewrite the GQ and GQN fields and the FILTER column of `vcf_line`, a one-sample record
+     * Rewrite the GQ and GQN fields of `sample` and the FILTER column of `variant`, a record
      * written by a ReadLikelihoodSnarlCaller, whose GT holds a genotype the linkage model chose in
      * place of the direct call. Before the rewrite, these three describe the direct call.
      *
      * GQ is recomputed from `moved.posterior`, the linkage model's posterior of the chosen
-     * genotype, and is capped at the line's GQI where it has one. GQN is recomputed from the
-     * line's GL, and is "." where it cannot be. Both are scaled as the direct call's own values
+     * genotype, and is capped at the record's GQI where it has one. GQN is recomputed from the
+     * record's GL, and is "." where it cannot be. Both are scaled as the direct call's own values
      * were (`moved.direct`). FILTER becomes `lowconf` when the new GQN is below
      * `lowconf_threshold` and PASS otherwise; where there is no new GQN, or `lowconf_threshold` is
-     * 0, a `lowconf` FILTER becomes PASS.
+     * 0, a `lowconf` FILTER becomes PASS. Every field is read as the record's line prints it.
      *
-     * Returns false, and leaves the line unchanged, if its sample columns cannot be read.
+     * Returns false, and leaves the record unchanged, if it has no FORMAT fields for `sample`.
      */
-    static bool rewrite_quality_for_chosen_genotype(string& vcf_line,
+    static bool rewrite_quality_for_chosen_genotype(vcflib::Variant& variant, const string& sample,
                                                     const LinkageCollector::MovedQuality& moved,
                                                     double lowconf_threshold);
 

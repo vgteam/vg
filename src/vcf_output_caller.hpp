@@ -130,6 +130,8 @@ public:
                      const vector<SnarlTraversal>& travs, const vector<int>& genotype,
                      int ref_trav_idx, const SiteRecord& record, GLLayout gl_layout,
                      bool genotype_snarls)> write_blocks;
+        /// Changes the finished site record just before it is added to the output.
+        function<void(vcflib::Variant& record)> finish_record;
         /// Told, once the site is filed, the VCF allele of each of its `traversal_count`
         /// traversals that is in its genotype, and whether the site has a line.
         function<void(const Snarl& site, const map<int, int>& trav_to_allele,
@@ -145,8 +147,6 @@ public:
         function<string()> info_header;
         /// Runs once the records are sorted, before any is written.
         function<void()> before_lines;
-        /// Changes one record's finished line in place. Runs on several lines at once.
-        function<void(string& line)> finish_line;
         /// Runs once every record is written.
         function<void()> after_lines;
     };

@@ -668,20 +668,34 @@ void ReadLikelihoodSnarlCaller::update_vcf_header(string& header) const {
 
 
 bool ReadLikelihoodSnarlCaller::rewrite_quality_for_chosen_genotype(
-        string& vcf_line, const LinkageCollector::MovedQuality& moved, double lowconf_threshold) {
+        vcflib::Variant& variant, const string& sample,
+        const LinkageCollector::MovedQuality& moved, double lowconf_threshold) {
     // A record whose genotype the linkage model changed gets quality fields for its chosen
     // genotype, since the per-site quality fields describe the genotype the reads alone chose.
-    vector<string> fields;
-    split_delims_keep_empty(vcf_line, "\t", fields);
-    if (fields.size() < 10) {
+    auto sample_found = variant.samples.find(sample);
+    if (variant.format.empty() || sample_found == variant.samples.end()
+        || sample_found->second.empty()) {
         return false;
     }
-    vector<string> keys, values;
-    split_delims_keep_empty(fields[8], ":", keys);
-    split_delims_keep_empty(fields[9], ":", values);
-    if (keys.size() != values.size()) {
-        return false;
+    map<string, vector<string>>& sample_fields = sample_found->second;
+    // Each field as the record's line prints it: a list joined with commas, or "." when empty.
+    auto printed = [](const vector<string>& list) {
+        string text;
+        for (size_t i = 0; i < list.size(); ++i) {
+            text += (i == 0 ? "" : ",") + list[i];
+        }
+        return list.empty() ? string(".") : text;
+    };
+    const vector<string>& keys = variant.format;
+    vector<string> values;
+    for (const string& key : keys) {
+        auto found = sample_fields.find(key);
+        values.push_back(printed(found == sample_fields.end() ? vector<string>() : found->second));
     }
+    // The ALT and FILTER columns.
+    vector<string> fields(10);
+    fields[4] = printed(variant.alt);
+    fields[6] = variant.filter.empty() ? "." : variant.filter;
     size_t gq_field = keys.size(), gqi_field = keys.size(), gqn_field = keys.size();
     size_t gl_field = keys.size(), gt_field = keys.size();
     for (size_t i = 0; i < keys.size(); ++i) {
@@ -824,8 +838,13 @@ bool ReadLikelihoodSnarlCaller::rewrite_quality_for_chosen_genotype(
         fields[6] = "PASS";
     }
 
-    fields[9] = join_delim(values, ':');
-    vcf_line = join_delim(fields, '\t');
+    if (gq_field != keys.size()) {
+        sample_fields["GQ"] = {values[gq_field]};
+    }
+    if (gqn_field != keys.size()) {
+        sample_fields["GQN"] = {values[gqn_field]};
+    }
+    variant.filter = fields[6];
     return true;
 }
 

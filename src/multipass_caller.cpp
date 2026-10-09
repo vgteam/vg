@@ -153,8 +153,12 @@ VCFOutputCaller::SiteRecordSteps MultiPassCaller::record_steps(const StagedSite&
         return block_records.write(graph, site.children, site.travs, genotype, ref_trav_idx,
                                    sample_name, output.get_translation(), record, gl_layout,
                                    genotype_snarls, [this](vcflib::Variant& line, size_t block) {
+                                       finish_moved_record(line);
                                        return output.add_variant(line, block);
                                    });
+    };
+    steps.finish_record = [this](vcflib::Variant& record) {
+        finish_moved_record(record);
     };
     // The linkage model gets the site whether or not it has a line. A parent written as the
     // reference still has two alleles, which differ only inside its children, and the children
@@ -179,17 +183,23 @@ VCFOutputCaller::SiteRecordSteps MultiPassCaller::record_steps(const StagedSite&
     return steps;
 }
 
-/// The record key of the site a finished VCF line belongs to, as `VCFOutputCaller::record_key_of`
-/// computes it: the hash of the line's ID column, or of the site's ID for a block record. 0 for a
-/// line with fewer than four columns.
-static size_t line_record_key(const string& line) {
-    size_t a = line.find('\t');
-    size_t b = a == string::npos ? string::npos : line.find('\t', a + 1);
-    size_t c = b == string::npos ? string::npos : line.find('\t', b + 1);
-    if (c == string::npos) {
-        return 0;
+void MultiPassCaller::finish_moved_record(vcflib::Variant& record) {
+    if (!linker.enabled()) {
+        return;
     }
-    return std::hash<string>{}(block_site_name(line.substr(b + 1, c - b - 1)));
+    // The record already carries the chosen genotype, since it was built from it.
+    const auto& quality = linker.collector()->moved_quality();
+    if (quality.empty()) {
+        return;
+    }
+    // Keyed as `VCFOutputCaller::record_key_of` keys a site: by the hash of the record's ID, or of
+    // the site's ID for a block record.
+    auto found = quality.find(std::hash<string>{}(block_site_name(record.id)));
+    if (found != quality.end()
+        && !ReadLikelihoodSnarlCaller::rewrite_quality_for_chosen_genotype(
+               record, sample_name, found->second, linkage_min_confidence)) {
+        ++quality_declined;
+    }
 }
 
 void MultiPassCaller::install_writer_steps() {
@@ -232,22 +242,6 @@ void MultiPassCaller::install_writer_steps() {
         // Resolve the linkage model, if it has not been resolved, before the records are written.
         linker.resolve(emit_phasing ? &phase_table.calls() : nullptr);
         finalise_linkage_outputs();
-    };
-    steps.finish_line = [this](string& line) {
-        if (!linker.enabled()) {
-            return;
-        }
-        // The line already carries the chosen genotype, since it was built from it.
-        const auto& quality = linker.collector()->moved_quality();
-        if (quality.empty()) {
-            return;
-        }
-        auto found = quality.find(line_record_key(line));
-        if (found != quality.end()
-            && !ReadLikelihoodSnarlCaller::rewrite_quality_for_chosen_genotype(
-                   line, found->second, linkage_min_confidence)) {
-            ++quality_declined;
-        }
     };
     steps.after_lines = [this]() {
         if (phase_declined.load() > 0 || quality_declined.load() > 0) {
