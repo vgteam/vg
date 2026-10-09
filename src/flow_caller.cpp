@@ -1106,19 +1106,19 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
         parent_child_trav_sets == nullptr) {
         // A child no called allele reaches is kept only where the linkage pass can come back to
         // it: with staging and the linkage model.
-        const vector<ChildPlacer::Placed> children = child_placer.place(
+        child_placer.place(
             snarl, record_key_of(snarl), travs, trav_genotype, ref_trav_idx, ploidy, placement,
-            off_reference_nesting, staged_sites.active() && linker.enabled());
-        for (const ChildPlacer::Placed& child : children) {
-            if (child.placement.level < 16) {
-                ++descent_counters.depth_hist[child.placement.level];
-            }
-            // The other ploidy's answer is computed as well, so the linkage pass can change it
-            // later.
-            call_snarl_internal(*child.snarl, ref_path_name,
-                                make_pair(get<0>(ref_interval), get<1>(ref_interval)),
-                                nullptr, child.ploidy, child.placement);
-        }
+            off_reference_nesting, staged_sites.active() && linker.enabled(),
+            [&](const ChildPlacer::Placed& child) {
+                if (child.placement.level < 16) {
+                    ++descent_counters.depth_hist[child.placement.level];
+                }
+                // The other ploidy's answer is computed as well, so the linkage pass can change it
+                // later.
+                call_snarl_internal(*child.snarl, ref_path_name,
+                                    make_pair(get<0>(ref_interval), get<1>(ref_interval)),
+                                    nullptr, child.ploidy, child.placement);
+            });
     }
 
 

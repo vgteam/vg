@@ -3,6 +3,7 @@
 
 #include <atomic>
 #include <cstdint>
+#include <functional>
 #include <unordered_map>
 #include <vector>
 
@@ -160,7 +161,7 @@ public:
     static uint64_t child_crossing_mask(const vector<TraversalNodeIndex>& visits,
                                         const Snarl& child, bool* known = nullptr);
 
-    /// A child chain to genotype, as `place` lists it.
+    /// A child chain to genotype, as `place` gives it.
     struct Placed {
         /// The child, as the snarl manager holds it.
         const Snarl* snarl = nullptr;
@@ -175,19 +176,20 @@ public:
     void configure(const HandleGraph* graph, const SnarlManager* manager,
                    const BlockRecordWriter* blocks, DescentCounters* counters);
 
-    /// The child chains to genotype under a genotyped site, in the manager's order, each placed
-    /// under the site. The site is `site`, named `site_key`, with candidate traversals `travs`,
-    /// the reference among them at `ref_trav_idx`, called at `genotype` and `ploidy`, and placed
-    /// at `placement`.
+    /// Call `visit` with each child chain to genotype under a genotyped site, in the manager's
+    /// order, each placed under the site. The site is `site`, named `site_key`, with candidate
+    /// traversals `travs`, the reference among them at `ref_trav_idx`, called at `genotype` and
+    /// `ploidy`, and placed at `placement`. Each child is placed just before its visit, so the
+    /// visits run in the order, and among the work, that descent has always genotyped children in.
     ///
     /// A chain the reference does not cross is left out, unless `off_reference` lets descent
     /// genotype it with no line. A chain no called allele crosses is left out, unless
     /// `keep_uncrossed`: then it is genotyped at the parent's ploidy and retained, since the
     /// linkage model may still move the parent onto an allele that crosses it.
-    vector<Placed> place(const Snarl& site, size_t site_key, const vector<SnarlTraversal>& travs,
-                         const vector<int>& genotype, int ref_trav_idx, int ploidy,
-                         const NestingPlacement& placement, bool off_reference,
-                         bool keep_uncrossed) const;
+    void place(const Snarl& site, size_t site_key, const vector<SnarlTraversal>& travs,
+               const vector<int>& genotype, int ref_trav_idx, int ploidy,
+               const NestingPlacement& placement, bool off_reference, bool keep_uncrossed,
+               const function<void(const Placed& child)>& visit) const;
 
     /// How many of the called parent alleles cross this child snarl, capped at `cap`.
     ///

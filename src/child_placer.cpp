@@ -213,17 +213,14 @@ void ChildPlacer::configure(const HandleGraph* graph, const SnarlManager* manage
     this->counters = counters;
 }
 
-vector<ChildPlacer::Placed> ChildPlacer::place(const Snarl& site, size_t site_key,
-                                               const vector<SnarlTraversal>& travs,
-                                               const vector<int>& genotype,
-                                               int ref_trav_idx, int ploidy,
-                                               const NestingPlacement& placement,
-                                               bool off_reference, bool keep_uncrossed) const {
-    vector<Placed> placed;
+void ChildPlacer::place(const Snarl& site, size_t site_key, const vector<SnarlTraversal>& travs,
+                        const vector<int>& genotype, int ref_trav_idx, int ploidy,
+                        const NestingPlacement& placement, bool off_reference,
+                        bool keep_uncrossed, const function<void(const Placed& child)>& visit) const {
     const Snarl* managed_ptr = manager->into_which_snarl(site.start().node_id(),
                                                          site.start().backward());
     if (managed_ptr == nullptr) {
-        return placed;
+        return;
     }
     // The child-independent parts of the exactly-once test, built once for this snarl.
     const BlockRecordWriter::ChainInlineContext inline_ctx =
@@ -312,9 +309,8 @@ vector<ChildPlacer::Placed> ChildPlacer::place(const Snarl& site, size_t site_ke
         next.parent_crossing = child_crossing_mask(trav_visits, *child, &crossing_known);
         next.crossing_known = crossing_known;
         next.level = placement.level + 1;
-        placed.push_back(out);
+        visit(out);
     }
-    return placed;
 }
 
 }
