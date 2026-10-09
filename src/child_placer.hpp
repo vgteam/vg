@@ -149,10 +149,9 @@ public:
     /// How far along the first traversal of `genotype` that crosses `child` the child is entered,
     /// in bases, or 0 when none does. `offsets` holds a `ChildOffsets` per traversal of `travs`,
     /// filled as traversals are first used.
-    static size_t offset_along_genotype(const HandleGraph& graph,
-                                        const vector<SnarlTraversal>& travs,
-                                        const vector<int>& genotype, const Snarl& child,
-                                        unordered_map<const SnarlTraversal*, ChildOffsets>& offsets);
+    static size_t offset_along_genotype(
+        const HandleGraph& graph, const vector<SnarlTraversal>& travs, const vector<int>& genotype,
+        const Snarl& child, unordered_map<const SnarlTraversal*, ChildOffsets>& offsets);
 
     /// The crossing mask: bit i is set where the traversal `visits[i]` indexes crosses `child`.
     /// Indexed by traversal, not by VCF allele, since it is tested against the parent's chosen

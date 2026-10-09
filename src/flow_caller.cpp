@@ -581,7 +581,7 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
     // Staged in the nested branch below and completed after descent, which reads `travs`, since
     // this record then takes ownership of them.
     unique_ptr<StagedSite> pending_this;
-    // The panel alleles `record_site` looked up for this snarl, if it recorded the site. The staged
+    // The panel alleles `GenotypeLinker::add` looked up for this snarl, if it filed the site. The staged
     // record keeps them, so that re-genotyping does not look them up again; the record's
     // traversals are this snarl's `travs`, which do not change after the site is recorded.
     vector<int> site_panel;

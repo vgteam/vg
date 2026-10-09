@@ -87,8 +87,8 @@ public:
     /// with a reference path (see `NestingPlacement::retain_only`); the linkage pass files that
     /// chain if the sample carries it. Safe to call from several threads.
     ///
-    /// `record_key` names the site (see `VCFOutputCaller::record_key_of`), and `placement` places it
-    /// in the nesting tree. `ref_path_name` and `ref_offset` give the site's locus as for
+    /// `record_key` names the site (see `VCFOutputCaller::record_key_of`), and `placement` places
+    /// it in the nesting tree. `ref_path_name` and `ref_offset` give the site's locus as for
     /// `site_locus`. `no_reference` marks a site that no reference path passes through:
     /// `ref_path_name` is then the reference path through the site's nearest ancestor on a
     /// reference path, `position_from_parent` is the site's stand-in position (see
@@ -96,8 +96,9 @@ public:
     /// `position_from_parent` is not used.
     ///
     /// Returns whether the site was filed: only a read-likelihood call (`score` not null) of one or
-    /// two alleles, none of them missing, is. If it was and `panel_out` is given, the site's panel alleles are moved
-    /// to `panel_out`, so that the staged site can keep them rather than look them up again.
+    /// two alleles, none of them missing, is. If it was and `panel_out` is given, the site's panel
+    /// alleles are moved to `panel_out`, so that the staged site can keep them rather than look
+    /// them up again.
     bool add(const Snarl& snarl, const vector<SnarlTraversal>& travs,
              const vector<int>& trav_genotype, const SiteScore* score,
              int ref_trav_idx, const string& ref_path_name, int ref_offset, size_t record_key,

@@ -21,10 +21,10 @@ void GenotypeRescorer::set_site_reader(SiteReader reader) {
     this->reader = std::move(reader);
 }
 
-bool GenotypeRescorer::rescore(StagedSiteTable& staged, const PhaseTable& phases,
-                               const ReadStrandTable& strands, TemperFit& fit,
-                               const function<size_t(const string& contig, size_t phase_set)>& phase_set_id,
-                               bool show_calibration) {
+bool GenotypeRescorer::rescore(
+    StagedSiteTable& staged, const PhaseTable& phases, const ReadStrandTable& strands,
+    TemperFit& fit, const function<size_t(const string& contig, size_t phase_set)>& phase_set_id,
+    bool show_calibration) {
     const vector<LinkageCollector::PhaseCall>& calls = phases.calls();
     if (!on || calls.empty()) {
         return false;

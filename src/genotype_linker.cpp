@@ -429,8 +429,8 @@ GenotypeLinker::PassCounts GenotypeLinker::link(StagedSiteTable& sites, PhaseTab
             }
             const SiteScore* used = pr.score;
             if (used != nullptr) {
-                // In traversal space, as `record_site` records it, so the linkage pass and the
-                // direct pass describe a site the same way. No allele map yet, as in `record_site`.
+                // In traversal space, as `add` files it, so the linkage pass and the direct pass
+                // describe a site the same way. No allele map yet, as in `add`.
                 static const vector<int> no_allele_map;
                 const vector<int>& trav_to_allele_vec = no_allele_map;
                 const SiteLocus locus =

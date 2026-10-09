@@ -10,8 +10,9 @@ void ReadPhaser::configure(bool on, const ReadPhasingParams& params) {
     this->params = params;
 }
 
-void ReadPhaser::phase(StagedSiteTable& staged, PhaseTable& phases, ReadStrandTable& strands,
-                       const function<size_t(const string& contig, size_t phase_set)>& phase_set_id) {
+void ReadPhaser::phase(
+    StagedSiteTable& staged, PhaseTable& phases, ReadStrandTable& strands,
+    const function<size_t(const string& contig, size_t phase_set)>& phase_set_id) {
     if (!on || phases.calls().empty()) {
         return;
     }
