@@ -2,6 +2,7 @@
 #include <limits>
 
 #include "child_placer.hpp"
+#include "flow_caller.hpp"
 
 namespace vg {
 
@@ -148,6 +149,59 @@ uint64_t ChildPlacer::child_crossing_mask(const vector<TraversalNodeIndex>& visi
         }
     }
     return mask;
+}
+
+int64_t FlowCaller::base_offset_of_child(const SnarlTraversal& trav, const Snarl& child) const {
+    const int entry = ChildPlacer::offset_of_child(trav, child);
+    if (entry < 0) {
+        return -1;
+    }
+    int64_t bases = 0;
+    for (int i = 0; i < entry && i < trav.visit_size(); ++i) {
+        if (trav.visit(i).has_snarl()) {
+            continue;
+        }
+        bases += (int64_t)graph.get_length(graph.get_handle(trav.visit(i).node_id()));
+    }
+    return bases;
+}
+
+size_t FlowCaller::offset_along_genotype(const vector<SnarlTraversal>& travs,
+                                         const vector<int>& genotype, const Snarl& child) const {
+    for (int allele : genotype) {
+        if (allele < 0 || allele >= (int)travs.size()) {
+            continue;
+        }
+        const int64_t within = base_offset_of_child(travs[allele], child);
+        if (within >= 0) {
+            return (size_t)within;
+        }
+    }
+    return 0;
+}
+
+int FlowCaller::child_ploidy(const vector<ChildPlacer::TraversalNodeIndex>& visits,
+                             const vector<int>& genotype,
+                             const Snarl& child, int cap) const {
+    int copies = 0;
+    bool capped = false;
+
+    for (int allele : genotype) {
+        if (allele < 0 || allele >= (int)visits.size()) {
+            continue;   // star or missing: that haplotype contributes no copy here
+        }
+        int crossings = ChildPlacer::crossings_of_child(visits[allele], child);
+        if (crossings > 1) {
+            capped = true;
+            crossings = 1;   // a cycle or tandem duplication; see the header comment
+        }
+        copies += crossings;
+    }
+    if (capped) {
+        // Counted and reported once per run.
+        ++descent_counters.child_multi_crossing;
+    }
+    return min(copies, cap);
 }
 
 }
