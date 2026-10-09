@@ -2247,7 +2247,7 @@ int main_call(int argc, char** argv) {
             likelihood_params.collect_read_phasing = read_phasing;
 
             auto* graph_calculator = new GraphAlignedAlleleLikelihoodCalculator(
-                *graph, *snarl_manager, *read_source, *qual_scorer, *plain_scorer,
+                *graph, *read_source, *qual_scorer, *plain_scorer,
                 likelihood_params);
             likelihood_calculator.reset(graph_calculator);
             // Place the depth-rate windows on the reference paths, so that they do not depend

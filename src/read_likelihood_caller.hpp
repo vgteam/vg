@@ -97,9 +97,9 @@ public:
         /// `scored_traversals` and `allele_support`, are copies of this one's.
         unique_ptr<ReadLikelihoodCallInfo> alt_ploidy_info;
 
-        /// The traversals that were scored, in matrix column order. Kept so the
-        /// deduplicated traversals handed to update_vcf_info can be mapped back.
-        vector<SnarlTraversal> scored_traversals;
+        /// The walks that were scored, in matrix column order. Kept so the deduplicated
+        /// traversals handed to update_vcf_info can be mapped back.
+        vector<Traversal> scored_traversals;
 
         /// Per-read anchor evidence, with --anchors-out; null otherwise. It depends on the
         /// matrix, not on the ploidy, so when the linkage pass replaces this CallInfo with
@@ -178,11 +178,14 @@ public:
 
     };
 
-    /// Genotype a site at `ploidies`. The genotype is a multiset of indices into `traversals`,
-    /// sorted; it is empty where the site cannot be genotyped. The score is never null.
+    /// Genotype the site `site`, whose candidate alleles are the walks `traversals`, at
+    /// `ploidies`. `enclosing` holds the bounds of the sites enclosing it, innermost first. The
+    /// genotype is a multiset of indices into `traversals`, sorted; it is empty where the site
+    /// cannot be genotyped. The score is never null.
     pair<vector<int>, unique_ptr<ReadLikelihoodCallInfo>> genotype_at(
-        const Snarl& snarl, const vector<SnarlTraversal>& traversals, int ref_trav_idx,
-        const Ploidies& ploidies, const string& ref_path_name, pair<size_t, size_t> ref_range);
+        const SiteBounds& site, const vector<Traversal>& traversals, int ref_trav_idx,
+        const Ploidies& ploidies, const vector<SiteBounds>& enclosing,
+        const string& ref_path_name, pair<size_t, size_t> ref_range);
 
     /// Throws. `SnarlCaller` requires it, but this genotyper's one user, MultiPassCaller, calls
     /// `genotype_at`; no `GraphCaller` holds it.
@@ -286,10 +289,6 @@ public:
                                                     double lowconf_threshold);
 
 protected:
-
-    /// True if two traversals visit exactly the same nodes in the same
-    /// orientations. Used to map deduplicated VCF alleles back to matrix columns.
-    static bool traversals_equal(const SnarlTraversal& a, const SnarlTraversal& b);
 
     AlleleLikelihoodCalculator& likelihood_calculator;
 

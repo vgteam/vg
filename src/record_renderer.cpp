@@ -9,9 +9,8 @@
 
 namespace vg {
 
-void RecordRenderer::configure(SiteReader reader, function<bool(const Snarl&)> is_leaf) {
+void RecordRenderer::configure(SiteReader reader) {
     this->reader = std::move(reader);
-    this->is_leaf = std::move(is_leaf);
 }
 
 // The anchor gqn column for a staged site.
@@ -106,8 +105,8 @@ void RecordRenderer::collect_anchors(const StagedSite& rec, const vector<int>& g
     }
     anchors.collect(*info->anchor_evidence, info->explained_share,
                     phases.phase_ordered_genotype(rec.record_key, genotype),
-                    phases.haploid_slot(rec.record_key, genotype), reader.name(rec.snarl),
-                    anchors.wants_leaf_test() ? is_leaf(rec.snarl) : true,
+                    phases.haploid_slot(rec.record_key, genotype), reader.name(rec.bounds),
+                    anchors.wants_leaf_test() ? rec.leaf : true,
                     anchor_gqn(rec, genotype, model), strands, rec.record_key);
 }
 

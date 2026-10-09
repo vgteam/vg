@@ -23,9 +23,8 @@ public:
     /// Writes one staged site's records at `genotype`, through the caller that staged it.
     using LineWriter = function<void(const StagedSite& site, const vector<int>& genotype)>;
 
-    /// Where to read a site's name, and whether a site's snarl has no child sites, which
-    /// --anchors-leaf-only asks of each site.
-    void configure(SiteReader reader, function<bool(const Snarl&)> is_leaf);
+    /// Where to read a site's name.
+    void configure(SiteReader reader);
 
     /// Hand every nested site that gets a line of its own to `staged`'s render queues, then write
     /// each queued site's records with `write_line`, a queue per thread, at the genotype `linker`
@@ -60,7 +59,6 @@ private:
                   AnchorCollector* anchors, bool show_progress) const;
 
     SiteReader reader;
-    function<bool(const Snarl&)> is_leaf;
 };
 
 }

@@ -94,13 +94,6 @@ void ReadLikelihoodSnarlCaller::set_min_confidence(double threshold) {
     this->min_confidence = threshold;
 }
 
-bool ReadLikelihoodSnarlCaller::traversals_equal(const SnarlTraversal& a,
-                                                 const SnarlTraversal& b) {
-    // The protobuf operator== also compares visits to child snarls, which a node-by-node
-    // comparison would miss. The traversals reaching this caller are node paths.
-    return a == b;
-}
-
 pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> ReadLikelihoodSnarlCaller::genotype(
     const Snarl&, const vector<SnarlTraversal>&, int, int, const string&, pair<size_t, size_t>) {
     throw std::logic_error("ReadLikelihoodSnarlCaller::genotype is not used; MultiPassCaller "
@@ -108,8 +101,10 @@ pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> ReadLikelihoodSnarlCaller::
 }
 
 pair<vector<int>, unique_ptr<ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo>>
-ReadLikelihoodSnarlCaller::genotype_at(const Snarl& snarl, const vector<SnarlTraversal>& traversals,
-                                       int ref_trav_idx, const Ploidies& ploidies,
+ReadLikelihoodSnarlCaller::genotype_at(const SiteBounds& site,
+                                       const vector<Traversal>& traversals, int ref_trav_idx,
+                                       const Ploidies& ploidies,
+                                       const vector<SiteBounds>& enclosing,
                                        const string& ref_path_name,
                                        pair<size_t, size_t> ref_range) {
     const int ploidy = ploidies.ploidy;
@@ -123,7 +118,8 @@ ReadLikelihoodSnarlCaller::genotype_at(const Snarl& snarl, const vector<SnarlTra
 
     // Build the reads x alleles matrix for this site.
     AlleleReadLikelihoods matrix = likelihood_calculator.compute(
-        snarl, traversals, ploidies.region_ploidy > 0 ? ploidies.region_ploidy : ploidy);
+        site, traversals, enclosing,
+        ploidies.region_ploidy > 0 ? ploidies.region_ploidy : ploidy);
 
     // Per-allele read support and mean absolute fit. Neither enters the genotype likelihood;
     // both are written to the VCF, as AD and BL.
@@ -174,8 +170,8 @@ ReadLikelihoodSnarlCaller::genotype_at(const Snarl& snarl, const vector<SnarlTra
 
     if (dump_stream != nullptr) {
         stringstream site_name;
-        site_name << snarl.start().node_id() << (snarl.start().backward() ? "-" : "+") << "_"
-                  << snarl.end().node_id() << (snarl.end().backward() ? "-" : "+");
+        site_name << graph.get_id(site.start) << (graph.get_is_reverse(site.start) ? "-" : "+")
+                  << "_" << graph.get_id(site.end) << (graph.get_is_reverse(site.end) ? "-" : "+");
 #pragma omp critical (read_likelihood_dump)
         matrix.dump(*dump_stream, site_name.str());
     }
@@ -409,7 +405,7 @@ void ReadLikelihoodSnarlCaller::update_vcf_info(const Snarl& snarl,
     vector<int> site_to_scored(traversals.size(), -1);
     for (size_t s = 0; s < traversals.size(); ++s) {
         for (size_t k = 0; k < info->scored_traversals.size(); ++k) {
-            if (traversals_equal(traversals[s], info->scored_traversals[k])) {
+            if (same_walk(graph, traversals[s], info->scored_traversals[k])) {
                 site_to_scored[s] = (int)k;
                 break;
             }

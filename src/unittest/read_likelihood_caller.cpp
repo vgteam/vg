@@ -116,18 +116,20 @@ Called call_site(CallerSite& site, const vector<Alignment>& reads,
     }
     QualAdjAlignmentScorer qual_scorer;
     MatrixAlignmentScorer plain_scorer;
-    GraphAlignedAlleleLikelihoodCalculator calculator(site.graph, *site.manager, source,
-                                                      qual_scorer, plain_scorer);
+    GraphAlignedAlleleLikelihoodCalculator calculator(site.graph, source, qual_scorer,
+                                                      plain_scorer);
     NullTraversalSupportFinder support(site.graph, *site.manager);
     ReadLikelihoodSnarlCaller caller(site.graph, *site.manager, support, calculator);
     if (configure) {
         configure(caller);
     }
-    auto result = caller.genotype_at(site.snarl, site.traversals, 0,
+    auto result = caller.genotype_at(bounds_of(site.graph, site.snarl),
+                                     walks_of(site.graph, site.traversals), 0,
                                      Ploidies{.ploidy = ploidy,
                                               .region_ploidy = region_ploidy,
                                               .also_score_other = also_score_other},
-                                     "", {0, 0});
+                                     enclosing_sites(*site.manager, site.graph, site.snarl), "",
+                                     {0, 0});
     Called out;
     out.genotype = result.first;
     out.info = result.second.get();
@@ -418,8 +420,8 @@ TEST_CASE("Recomputed GQ takes the explained share of the new best genotype",
     InMemorySiteReadSource source;
     QualAdjAlignmentScorer qual_scorer;
     MatrixAlignmentScorer plain_scorer;
-    GraphAlignedAlleleLikelihoodCalculator calculator(site.graph, *site.manager, source,
-                                                      qual_scorer, plain_scorer);
+    GraphAlignedAlleleLikelihoodCalculator calculator(site.graph, source, qual_scorer,
+                                                      plain_scorer);
     NullTraversalSupportFinder support(site.graph, *site.manager);
     ReadLikelihoodSnarlCaller caller(site.graph, *site.manager, support, calculator);
 
@@ -447,11 +449,14 @@ TEST_CASE("A record with a star allele still gets QUAL from the reference column
     }
     QualAdjAlignmentScorer qual_scorer;
     MatrixAlignmentScorer plain_scorer;
-    GraphAlignedAlleleLikelihoodCalculator calculator(site.graph, *site.manager, source,
-                                                      qual_scorer, plain_scorer);
+    GraphAlignedAlleleLikelihoodCalculator calculator(site.graph, source, qual_scorer,
+                                                      plain_scorer);
     NullTraversalSupportFinder support(site.graph, *site.manager);
     ReadLikelihoodSnarlCaller caller(site.graph, *site.manager, support, calculator);
-    auto result = caller.genotype_at(site.snarl, site.traversals, 0, Ploidies{.ploidy = 1}, "",
+    auto result = caller.genotype_at(bounds_of(site.graph, site.snarl),
+                                     walks_of(site.graph, site.traversals), 0,
+                                     Ploidies{.ploidy = 1},
+                                     enclosing_sites(*site.manager, site.graph, site.snarl), "",
                                      {0, 0});
     REQUIRE(result.first == vector<int>({1}));
     const unique_ptr<SnarlCaller::CallInfo> call_info(std::move(result.second));

@@ -45,15 +45,12 @@ static SiteLocus locus_of(pair<string, int64_t> pos_info) {
     return SiteLocus{pos_info.first, (size_t)max((int64_t)0, pos_info.second)};
 }
 
-SiteLocus GenotypeLinker::site_locus(const Snarl& snarl, const string& ref_path_name,
+SiteLocus GenotypeLinker::site_locus(const SiteBounds& site, const string& ref_path_name,
                                      int ref_offset) const {
     // The position before the record's alleles are trimmed, which can move POS.
     // `get_ref_position` names the base path, as in "CHM13#0#chr20".
-    const PathPositionHandleGraph& graph = *reader.graph;
-    return locus_of(get_ref_position(
-        graph, graph.get_handle(snarl.start().node_id(), snarl.start().backward()),
-        graph.get_handle(snarl.end().node_id(), snarl.end().backward()), ref_path_name,
-        ref_offset));
+    return locus_of(get_ref_position(*reader.graph, site.start, site.end, ref_path_name,
+                                     ref_offset));
 }
 
 SiteLocus GenotypeLinker::off_reference_site_locus(const string& ref_path_name,
@@ -75,7 +72,7 @@ static LinkageCollector::DirectQuality direct_quality_of(const SiteGenotyper* ge
     };
 }
 
-bool GenotypeLinker::add(const Snarl& snarl, const vector<SnarlTraversal>& travs,
+bool GenotypeLinker::add(const SiteBounds& site, const vector<Traversal>& travs,
                          const vector<int>& trav_genotype, const SiteScore* score,
                          int ref_trav_idx, const string& ref_path_name, int ref_offset,
                          size_t record_key, const NestingPlacement& placement,
@@ -101,7 +98,7 @@ bool GenotypeLinker::add(const Snarl& snarl, const vector<SnarlTraversal>& travs
     }
     const SiteLocus locus = no_reference
                                 ? off_reference_site_locus(ref_path_name, position_from_parent)
-                                : site_locus(snarl, ref_path_name, ref_offset);
+                                : site_locus(site, ref_path_name, ref_offset);
     const int called_i = trav_genotype[0];
     const int called_j = site_ploidy > 1 ? trav_genotype[1] : called_i;
     // No allele map yet: the written alleles are chosen when the record is built, and
@@ -115,7 +112,7 @@ bool GenotypeLinker::add(const Snarl& snarl, const vector<SnarlTraversal>& travs
         called_i, called_j, no_allele_map,
         record_key,
         direct_quality_of(reader.genotyper, *rl_info), site_ploidy,
-        (int64_t)snarl.start().node_id(), (int64_t)snarl.end().node_id(),
+        (int64_t)reader.graph->get_id(site.start), (int64_t)reader.graph->get_id(site.end),
         // `nested` only when one copy of the chain is present, as for any other chain; a chain with
         // two copies joins its parent's diploid group.
         LinkageCollector::SiteContext{
@@ -134,15 +131,15 @@ bool GenotypeLinker::add(const Snarl& snarl, const vector<SnarlTraversal>& travs
     return true;
 }
 
-double GenotypeLinker::freq_prior(const vector<SnarlTraversal>& travs, int ref_trav_idx) const {
+double GenotypeLinker::freq_prior(const vector<Traversal>& travs, int ref_trav_idx) const {
     const LinkageModel::Params& params = model->model_params();
     if (params.hp_prior <= 0.0) {
         return -1.0;
     }
     vector<string> alleles;
     alleles.reserve(travs.size());
-    for (const SnarlTraversal& trav : travs) {
-        alleles.push_back(reader.spell(trav));
+    for (const Traversal& walk : travs) {
+        alleles.push_back(reader.spell(walk));
     }
     const size_t ref = ref_trav_idx >= 0 ? (size_t)ref_trav_idx : (size_t)-1;
     return LinkageModel::run_length_site(alleles, params.hp_prior_run, ref) ? params.hp_prior : -1.0;
@@ -233,7 +230,7 @@ GenotypeLinker::PassCounts GenotypeLinker::link(StagedSiteTable& sites, PhaseTab
     // Each parent traversal's child offsets, for placing its chains. Keyed by address, which stays
     // valid for the pass as record_by_key's do, and the traversals do not change after the direct
     // pass.
-    unordered_map<const SnarlTraversal*, ChildPlacer::ChildOffsets> child_offsets;
+    unordered_map<const Traversal*, ChildPlacer::ChildOffsets> child_offsets;
 
     size_t& revised = counts.revised;
     size_t& retracted = counts.retracted;
@@ -279,7 +276,7 @@ GenotypeLinker::PassCounts GenotypeLinker::link(StagedSiteTable& sites, PhaseTab
                 const size_t offset =
                     par.chain_offset
                     + ChildPlacer::offset_along_genotype(*reader.graph, par.travs,
-                                                         chosen_genotype(par), pr.snarl,
+                                                         chosen_genotype(par), pr.bounds,
                                                          child_offsets);
                 if (offset != pr.chain_offset) {
                     if (pr.no_reference) {
@@ -436,7 +433,7 @@ GenotypeLinker::PassCounts GenotypeLinker::link(StagedSiteTable& sites, PhaseTab
                 const SiteLocus locus =
                     pr.no_reference
                         ? off_reference_site_locus(pr.ref_path_name, pr.position_from_parent)
-                        : site_locus(pr.snarl, pr.ref_path_name, pr.ref_offset);
+                        : site_locus(pr.bounds, pr.ref_path_name, pr.ref_offset);
                 int called_i = use_genotype.empty() ? -1 : use_genotype[0];
                 int called_j = use_genotype.size() > 1 ? use_genotype[1] : called_i;
                 const vector<int>& panel = pr.panel_alleles(*lookup);
@@ -453,7 +450,8 @@ GenotypeLinker::PassCounts GenotypeLinker::link(StagedSiteTable& sites, PhaseTab
                     // The quality inputs of the direct call recorded here, which the record's
                     // GQI and GL also come from.
                     pr.record_key, direct_quality_of(reader.genotyper, *used),
-                    (size_t)copies, pr.snarl.start().node_id(), pr.snarl.end().node_id(),
+                    (size_t)copies, reader.graph->get_id(pr.bounds.start),
+                    reader.graph->get_id(pr.bounds.end),
                     LinkageCollector::SiteContext{
                         .nested = copies == 1,
                         .parent_record_key = pr.parent_record_key,
@@ -485,14 +483,15 @@ GenotypeLinker::PassCounts GenotypeLinker::link(StagedSiteTable& sites, PhaseTab
                 // Once for this parent: see TraversalNodeIndex.
                 vector<ChildPlacer::TraversalNodeIndex> pr_visits;
                 pr_visits.reserve(pr.travs.size());
-                for (const SnarlTraversal& t : pr.travs) {
-                    pr_visits.push_back(ChildPlacer::index_traversal_nodes(t));
+                for (const Traversal& t : pr.travs) {
+                    pr_visits.push_back(ChildPlacer::index_traversal_nodes(*reader.graph, t));
                 }
                 for (size_t ci : *kids) {
                     StagedSite& child = pending[ci];
                     bool known = true;
                     child.parent_crossing =
-                        ChildPlacer::child_crossing_mask(pr_visits, child.snarl, &known);
+                        ChildPlacer::child_crossing_mask(*reader.graph, pr_visits, child.bounds,
+                                                         &known);
                     child.crossing_known = known;
                 }
             }

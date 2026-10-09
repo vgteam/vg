@@ -71,7 +71,8 @@ public:
 
     /// The locus of a site that the reference path `ref_path_name` passes through. `ref_offset`
     /// is added to every position along that path, to place the path on its contig.
-    SiteLocus site_locus(const Snarl& snarl, const string& ref_path_name, int ref_offset) const;
+    SiteLocus site_locus(const SiteBounds& site, const string& ref_path_name,
+                         int ref_offset) const;
 
     /// The locus of a site that no reference path passes through, and that so has no position of
     /// its own. `ref_path_name` is the reference path through the site's nearest ancestor on a
@@ -99,7 +100,7 @@ public:
     /// two alleles, none of them missing, is. If it was and `panel_out` is given, the site's panel
     /// alleles are moved to `panel_out`, so that the staged site can keep them rather than look
     /// them up again.
-    bool add(const Snarl& snarl, const vector<SnarlTraversal>& travs,
+    bool add(const SiteBounds& site, const vector<Traversal>& travs,
              const vector<int>& trav_genotype, const SiteScore* score,
              int ref_trav_idx, const string& ref_path_name, int ref_offset, size_t record_key,
              const NestingPlacement& placement, bool no_reference = false,
@@ -107,7 +108,7 @@ public:
 
     /// The frequency exponent a site should decode with: `--hp-prior` at a run-length site, or -1
     /// for the model's own. Reads the traversals' sequences only when `--hp-prior` is on.
-    double freq_prior(const vector<SnarlTraversal>& travs, int ref_trav_idx) const;
+    double freq_prior(const vector<Traversal>& travs, int ref_trav_idx) const;
 
     /// The genotype the linkage model chose for a staged site, or the direct pass's genotype
     /// where the model chose none.

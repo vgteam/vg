@@ -97,9 +97,9 @@ private:
     /// Genotype one site at `ploidies`. `score` is set to the score inside the returned call
     /// info.
     pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> genotype_site(
-        const Snarl& site, const vector<SnarlTraversal>& travs, int ref_trav_idx,
-        const Ploidies& ploidies, const string& ref_path_name, pair<size_t, size_t> ref_range,
-        SiteScore*& score) const;
+        const SiteBounds& site, const vector<Traversal>& travs, int ref_trav_idx,
+        const Ploidies& ploidies, const vector<SiteBounds>& enclosing,
+        const string& ref_path_name, pair<size_t, size_t> ref_range, SiteScore*& score) const;
 
     /// Make a site's `StagedSite` from its genotype, moving `call_info` into it. `travs` is left
     /// empty, because the sites below still read the traversals; the caller moves them in once
@@ -109,6 +109,11 @@ private:
                                                unique_ptr<SnarlCaller::CallInfo>& call_info,
                                                SiteScore* score, const string& ref_path_name,
                                                int ref_offset, int ploidy) const;
+
+    /// Give a staged site what it keeps of the decomposition: `children`, which `snarl`, the
+    /// site, holds, whether it is a leaf, and its chain.
+    void fill_tree_fields(const Snarl& snarl, const SiteChildren& children,
+                          StagedSite& site) const;
 
     Parts parts;
     Options options;

@@ -842,4 +842,13 @@ vector<NodeVisit> visits_of(const SnarlTraversal& trav) {
     return visits;
 }
 
+vector<NodeVisit> visits_of(const HandleGraph& graph, const Traversal& walk) {
+    vector<NodeVisit> visits;
+    visits.reserve(walk.size());
+    for (const handle_t& handle : walk) {
+        visits.emplace_back(graph.get_id(handle), graph.get_is_reverse(handle));
+    }
+    return visits;
+}
+
 }

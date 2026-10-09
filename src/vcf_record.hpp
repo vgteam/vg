@@ -84,6 +84,9 @@ pair<string, int64_t> get_ref_position(const PathPositionHandleGraph& graph, con
 /// The visits of a traversal, with node ID 0 for a visit to a child snarl.
 vector<NodeVisit> visits_of(const SnarlTraversal& trav);
 
+/// The visits of a walk.
+vector<NodeVisit> visits_of(const HandleGraph& graph, const Traversal& walk);
+
 /// Write the nodes an allele visits into INFO/AT for allele number `allele`, as a walk in the form
 /// of a GFA W-line or a GAF path, read in reverse if `reversed` is set. Nodes are named by
 /// `translation` if it is not null, and consecutive visits to pieces of one translated node are

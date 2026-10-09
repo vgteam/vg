@@ -7,14 +7,15 @@
 #include <unordered_map>
 #include <vector>
 
+#include "block_records.hpp"
 #include "handle.hpp"
+#include "site_values.hpp"
 #include <vg/vg.pb.h>
 
 namespace vg {
 
 using namespace std;
 
-class BlockRecordWriter;
 class SnarlManager;
 
 /// Counts of what nested descent did in one run: how deep it went, and how many child chains it
@@ -118,52 +119,57 @@ struct NestingPlacement {
  */
 class ChildPlacer {
 public:
-    /// Where each node ID is visited in one traversal, in ascending order, excluding visits to
-    /// snarls. Built once per traversal per snarl, so that testing each child does not scan the
-    /// whole traversal again.
+    /// Where each node ID is visited in one walk, in ascending order. Built once per walk per
+    /// site, so that testing each child does not scan the whole walk again.
     using TraversalNodeIndex = unordered_map<nid_t, vector<int>>;
-    static TraversalNodeIndex index_traversal_nodes(const SnarlTraversal& trav);
+    static TraversalNodeIndex index_traversal_nodes(const HandleGraph& graph,
+                                                    const Traversal& walk);
 
-    /// How many times one traversal crosses `child`. One allele crossing a chain more than once,
-    /// as in a cycle or tandem duplication, crosses it that many times.
-    static int crossings_of_child(const TraversalNodeIndex& visits, const Snarl& child);
+    /// How many times one walk crosses `child`. One allele crossing a chain more than once, as in
+    /// a cycle or tandem duplication, crosses it that many times.
+    static int crossings_of_child(const HandleGraph& graph, const TraversalNodeIndex& visits,
+                                  const SiteBounds& child);
 
-    /// Where along `trav` the child chain is first entered, as a visit index, or -1 if `trav` does
-    /// not cross it, by the rule `crossings_of_child` uses.
-    static int offset_of_child(const SnarlTraversal& trav, const Snarl& child);
+    /// Where along `walk` the child is first entered, as a handle index, or -1 if `walk` does not
+    /// cross it, by the rule `crossings_of_child` uses.
+    static int offset_of_child(const HandleGraph& graph, const Traversal& walk,
+                               const SiteBounds& child);
 
-    /// How far along one traversal, in bases, each child is entered: the total length of the
-    /// nodes visited before it, or -1 if the traversal does not cross it. Answered by lookup, so
-    /// that a parent with many children and a long traversal is not scanned once per child.
+    /// How far along one walk, in bases, each child is entered: the total length of the nodes
+    /// visited before it, or -1 if the walk does not cross it. Answered by lookup, so that a
+    /// parent with many children and a long walk is not scanned once per child.
     struct ChildOffsets {
-        ChildOffsets(const HandleGraph& graph, const SnarlTraversal& trav);
-        /// The bases before the visit `offset_of_child(trav, child)` gives, or -1 where that is -1.
-        int64_t base_offset(const Snarl& child) const;
-        /// The visit indices of each node, ascending. Child-snarl visits are left out, as
-        /// `offset_of_child` skips them.
+        ChildOffsets(const HandleGraph& graph, const Traversal& walk);
+        /// The bases before the handle `offset_of_child(graph, walk, child)` gives, or -1 where
+        /// that is -1.
+        int64_t base_offset(const HandleGraph& graph, const SiteBounds& child) const;
+        /// The handle indices of each node, ascending.
         unordered_map<nid_t, vector<int>> visits_of;
-        /// The bases of the node visits before each visit index; one longer than the traversal.
+        /// The bases of the handles before each handle index; one longer than the walk.
         vector<int64_t> bases_before;
     };
 
-    /// How far along the first traversal of `genotype` that crosses `child` the child is entered,
-    /// in bases, or 0 when none does. `offsets` holds a `ChildOffsets` per traversal of `travs`,
-    /// filled as traversals are first used.
+    /// How far along the first walk of `genotype` that crosses `child` the child is entered, in
+    /// bases, or 0 when none does. `offsets` holds a `ChildOffsets` per walk of `travs`, filled as
+    /// walks are first used.
     static size_t offset_along_genotype(
-        const HandleGraph& graph, const vector<SnarlTraversal>& travs, const vector<int>& genotype,
-        const Snarl& child, unordered_map<const SnarlTraversal*, ChildOffsets>& offsets);
+        const HandleGraph& graph, const vector<Traversal>& travs, const vector<int>& genotype,
+        const SiteBounds& child, unordered_map<const Traversal*, ChildOffsets>& offsets);
 
-    /// The crossing mask: bit i is set where the traversal `visits[i]` indexes crosses `child`.
-    /// Indexed by traversal, not by VCF allele, since it is tested against the parent's chosen
-    /// traversals. Returns 0 and sets `*known` to false when there are more than 64 traversals,
-    /// so that the caller can tell unknown from "no traversal crosses".
-    static uint64_t child_crossing_mask(const vector<TraversalNodeIndex>& visits,
-                                        const Snarl& child, bool* known = nullptr);
+    /// The crossing mask: bit i is set where the walk `visits[i]` indexes crosses `child`.
+    /// Indexed by candidate walk, not by VCF allele, since it is tested against the parent's
+    /// chosen walks. Returns 0 and sets `*known` to false when there are more than 64 walks, so
+    /// that the caller can tell unknown from "no walk crosses".
+    static uint64_t child_crossing_mask(const HandleGraph& graph,
+                                        const vector<TraversalNodeIndex>& visits,
+                                        const SiteBounds& child, bool* known = nullptr);
 
     /// A child chain to genotype, as `place` gives it.
     struct Placed {
         /// The child, as the snarl manager holds it.
         const Snarl* snarl = nullptr;
+        /// The chain the child belongs to.
+        ChildChain chain;
         /// The ploidy to genotype it at: how many of the parent's called alleles cross it, or the
         /// parent's ploidy when none does, the most copies a child can have.
         int ploidy = 0;
@@ -176,16 +182,17 @@ public:
                    const BlockRecordWriter* blocks, DescentCounters* counters);
 
     /// Call `visit` with each child chain to genotype under a genotyped site, in the manager's
-    /// order, each placed under the site. The site is `site`, named `site_key`, with candidate
-    /// traversals `travs`, the reference among them at `ref_trav_idx`, called at `genotype` and
-    /// `ploidy`, and placed at `placement`. Each child is placed just before its visit, so the
+    /// order, each placed under the site. The site is `site`, with children `children`, named
+    /// `site_key`, with candidate walks `travs`, the reference among them at `ref_trav_idx`, called
+    /// at `genotype` and `ploidy`, and placed at `placement`. Each child is placed just before its visit, so the
     /// visits run in the order, and among the work, that descent has always genotyped children in.
     ///
     /// A chain the reference does not cross is left out, unless `off_reference` lets descent
     /// genotype it with no line. A chain no called allele crosses is left out, unless
     /// `keep_uncrossed`: then it is genotyped at the parent's ploidy and retained, since the
     /// linkage model may still move the parent onto an allele that crosses it.
-    void place(const Snarl& site, size_t site_key, const vector<SnarlTraversal>& travs,
+    void place(const Snarl& site, const SiteChildren& children, size_t site_key,
+               const vector<Traversal>& travs,
                const vector<int>& genotype, int ref_trav_idx, int ploidy,
                const NestingPlacement& placement, bool off_reference, bool keep_uncrossed,
                const function<void(const Placed& child)>& visit) const;
@@ -195,20 +202,25 @@ public:
     /// One allele crossing a chain more than once, as in a cycle or tandem duplication, counts
     /// once, since the caller assumes ploidy 1 or 2; this is counted.
     int child_ploidy(const vector<TraversalNodeIndex>& visits, const vector<int>& genotype,
-                     const Snarl& child, int cap) const;
+                     const SiteBounds& child, int cap) const;
 
-    /// How far along `trav`, in bases, the child chain is entered: the total length of the nodes
-    /// visited before it, or -1 if `trav` does not cross it, by the rule `offset_of_child` uses.
+    /// How far along `walk`, in bases, the child is entered: the total length of the nodes
+    /// visited before it, or -1 if `walk` does not cross it, by the rule `offset_of_child` uses.
     /// It gives an off-reference chain its place along its parent (see
     /// `NestingPlacement::parent_offset`).
-    int64_t base_offset_of_child(const SnarlTraversal& trav, const Snarl& child) const;
+    int64_t base_offset_of_child(const Traversal& walk, const SiteBounds& child) const;
 
-    /// `base_offset_of_child` along the first traversal of `genotype` that crosses `child`, or 0
-    /// when none does.
-    size_t offset_along_genotype(const vector<SnarlTraversal>& travs, const vector<int>& genotype,
-                                 const Snarl& child) const;
+    /// `base_offset_of_child` along the first walk of `genotype` that crosses `child`, or 0 when
+    /// none does.
+    size_t offset_along_genotype(const vector<Traversal>& travs, const vector<int>& genotype,
+                                 const SiteBounds& child) const;
 
 private:
+    /// Whether the site's own blocks already report `child`, a child snarl of the site, as
+    /// `BlockRecordWriter::chain_reported_inline` decides for the child's chain.
+    bool reported_inline(const BlockRecordWriter::ChainInlineContext& ctx,
+                         const Snarl& child) const;
+
     const HandleGraph* graph = nullptr;
     const SnarlManager* manager = nullptr;
     const BlockRecordWriter* blocks = nullptr;

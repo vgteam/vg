@@ -20,6 +20,7 @@
 #include "alignment_scorer.hpp"
 #include "catch.hpp"
 #include "site_read_source.hpp"
+#include "site_values.hpp"
 #include "snarls.hpp"
 #include "utility.hpp"
 
@@ -129,9 +130,11 @@ static AlleleReadLikelihoods score_site(Site& site, const vector<Alignment>& rea
     AlleleLikelihoodParams params;
     params.optimal_pairing = optimal_pairing;
     params.insertion_gap_nats = insertion_nats;
-    GraphAlignedAlleleLikelihoodCalculator calculator(site.graph, *site.manager, source, qual_scorer,
+    GraphAlignedAlleleLikelihoodCalculator calculator(site.graph, source, qual_scorer,
                                                       plain_scorer, params);
-    return calculator.compute(site.snarl, site.traversals, ploidy);
+    return calculator.compute(bounds_of(site.graph, site.snarl),
+                              walks_of(site.graph, site.traversals),
+                              enclosing_sites(*site.manager, site.graph, site.snarl), ploidy);
 }
 
 TEST_CASE("The depth rate is per haplotype, so it follows the site's ploidy",
@@ -404,12 +407,14 @@ TEST_CASE("No read's allele preference depends on the flank's length",
         for (bool optimal_pairing : {false, true}) {
         AlleleLikelihoodParams params;
         params.optimal_pairing = optimal_pairing;
-        GraphAlignedAlleleLikelihoodCalculator short_calc(shortf.graph, *shortf.manager,
-                                                          short_src, qs, ps, params);
-        GraphAlignedAlleleLikelihoodCalculator long_calc(longf.graph, *longf.manager,
-                                                         long_src, qs, ps, params);
-        AlleleReadLikelihoods sm = short_calc.compute(shortf.snarl, shortf.traversals, 2);
-        AlleleReadLikelihoods lm = long_calc.compute(longf.snarl, longf.traversals, 2);
+        GraphAlignedAlleleLikelihoodCalculator short_calc(shortf.graph, short_src, qs, ps, params);
+        GraphAlignedAlleleLikelihoodCalculator long_calc(longf.graph, long_src, qs, ps, params);
+        AlleleReadLikelihoods sm = short_calc.compute(
+            bounds_of(shortf.graph, shortf.snarl), walks_of(shortf.graph, shortf.traversals),
+            enclosing_sites(*shortf.manager, shortf.graph, shortf.snarl), 2);
+        AlleleReadLikelihoods lm = long_calc.compute(
+            bounds_of(longf.graph, longf.snarl), walks_of(longf.graph, longf.traversals),
+            enclosing_sites(*longf.manager, longf.graph, longf.snarl), 2);
 
         INFO("configuration " << c << (optimal_pairing ? " (--optimal-pairing)" : " (greedy)"));
         REQUIRE(sm.num_reads() == lm.num_reads());
@@ -466,8 +471,10 @@ TEST_CASE("Every read is placeable against every allele, whatever the node layou
         for (bool optimal_pairing : {false, true}) {
         AlleleLikelihoodParams params;
         params.optimal_pairing = optimal_pairing;
-        GraphAlignedAlleleLikelihoodCalculator calc(site.graph, *site.manager, src, qs, ps, params);
-        AlleleReadLikelihoods m = calc.compute(site.snarl, site.traversals, 2);
+        GraphAlignedAlleleLikelihoodCalculator calc(site.graph, src, qs, ps, params);
+        AlleleReadLikelihoods m = calc.compute(
+            bounds_of(site.graph, site.snarl), walks_of(site.graph, site.traversals),
+            enclosing_sites(*site.manager, site.graph, site.snarl), 2);
 
         INFO("configuration " << c << (optimal_pairing ? " (--optimal-pairing)" : " (greedy)"));
         REQUIRE(m.num_reads() == configurations[c].size());
@@ -763,7 +770,9 @@ class RateWindowProbe : public GraphAlignedAlleleLikelihoodCalculator {
 public:
     using GraphAlignedAlleleLikelihoodCalculator::GraphAlignedAlleleLikelihoodCalculator;
     pair<double, double> rate_and_length(const Snarl& snarl, nid_t site_node) const {
-        WindowReadStats stats = local_read_stats(snarl, {{site_node, site_node}});
+        // The site is top-level, so no site encloses it.
+        WindowReadStats stats = local_read_stats(bounds_of(graph, snarl), {},
+                                                 {{site_node, site_node}});
         return make_pair(stats.start_rate, stats.mean_read_length);
     }
 };
@@ -801,8 +810,6 @@ static pair<double, double> rate_under_numbering(const vector<nid_t>& ids, bool 
     snarl.mutable_end()->set_node_id(ids[5]);
     snarl.set_type(ULTRABUBBLE);
     snarl.set_start_end_reachable(true);
-    vector<Snarl> snarls{snarl};
-    SnarlManager manager(snarls.begin(), snarls.end());
 
     // Reads of several lengths, starting on each reference node and on the alternative; the
     // insertion order is fixed by logical node, not by ID.
@@ -824,7 +831,7 @@ static pair<double, double> rate_under_numbering(const vector<nid_t>& ids, bool 
     MatrixAlignmentScorer plain_scorer;
     AlleleLikelihoodParams params;
     params.depth_effective_reads = effective;
-    RateWindowProbe probe(positioned, manager, source, qual_scorer, plain_scorer, params);
+    RateWindowProbe probe(positioned, source, qual_scorer, plain_scorer, params);
     if (positional) {
         probe.set_rate_reference(&positioned, {positioned.get_path_handle("ref")});
     }

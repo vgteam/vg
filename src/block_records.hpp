@@ -56,15 +56,15 @@ struct AtomizeCounters {
  * strand's symbolic allele, instead of one record for the whole site, and decides which child
  * chains those blocks already report, so that each variant is reported once.
  *
- * Configured with the snarl manager that symbolic alleles are projected through and with whether
- * block emission is on. Counts what it does, for the report; the counters are atomic, so the
- * const methods can be called from many threads.
+ * Configured with whether nested calling is on, without which no site has child chains to
+ * project, and whether block emission is on. Each site's children come with the site. Counts what
+ * it does, for the report; the counters are atomic, so the const methods can be called from many
+ * threads.
  */
 class BlockRecordWriter {
 public:
-    /// The snarl hierarchy for the symbolic projections, not owned. Null turns block emission and
-    /// the site counts off.
-    void set_manager(const SnarlManager* manager) { this->manager = manager; }
+    /// Whether nested calling is on. Off turns block emission and the site counts off.
+    void set_nested(bool nested) { this->nested = nested; }
 
     /// Turn block emission on or off. Off by default.
     void set_enabled(bool enabled) { this->enabled = enabled; }
@@ -90,25 +90,27 @@ public:
         vector<Alt> alts;
     };
 
-    /// Build the child-independent half of the inline test for a site with genotype `genotype`
-    /// over `travs`. See ChainInlineContext.
-    ChainInlineContext chain_inline_context(const Snarl& snarl,
-                                            const vector<SnarlTraversal>& travs,
+    /// Build the child-independent half of the inline test for a site in `graph` with children
+    /// `children` and genotype `genotype` over `travs`. See ChainInlineContext.
+    ChainInlineContext chain_inline_context(const HandleGraph& graph,
+                                            const SiteChildren& children,
+                                            const vector<Traversal>& travs,
                                             const vector<int>& genotype,
                                             int ref_trav_idx) const;
 
-    /// Whether `child` is already reported by the site's own block records, because every called
-    /// strand crosses it only inside a difference block whose ALT spells the route through it.
-    /// This can happen only when no called allele is the reference allele; a chain that no
-    /// reference path passes through is handled separately by the caller.
-    bool chain_reported_inline(const ChainInlineContext& ctx, const Snarl& child) const;
+    /// Whether the child chain `chain` is already reported by the site's own block records,
+    /// because every called strand crosses it only inside a difference block whose ALT spells the
+    /// route through it. This can happen only when no called allele is the reference allele; a
+    /// chain that no reference path passes through is handled separately by the caller.
+    bool chain_reported_inline(const HandleGraph& graph, const ChainInlineContext& ctx,
+                               const ChildChain& chain) const;
 
     /// Restart the count of chains reported inline, before a pass decides them all again.
     void restart_inline_count() { counters.child_inlined = 0; }
 
-    /// Count a site for the report, before its record is built, by whether the symbolic
-    /// projection resolves it. It changes no output.
-    void count_site(const Snarl& snarl, const vector<SnarlTraversal>& travs,
+    /// Count a site with children `children` for the report, before its record is built, by
+    /// whether the decomposition knows it. It changes no output.
+    void count_site(const SiteChildren& children, const vector<Traversal>& travs,
                     int ref_trav_idx) const;
 
     /// Write a site as its difference blocks, giving each block line to `add_line` with its block
@@ -120,8 +122,8 @@ public:
     /// the alleles are flattened, since every field a block does not redefine is taken from it.
     /// A site whose alleles were merged is declined, since it then numbers its alleles differently
     /// from `record.trav_to_allele`, and its blocks would spell the merged alleles apart.
-    int write(const PathPositionHandleGraph& graph, const Snarl& snarl,
-              const vector<SnarlTraversal>& called_traversals, const vector<int>& genotype,
+    int write(const PathPositionHandleGraph& graph, const SiteChildren& children,
+              const vector<Traversal>& called_traversals, const vector<int>& genotype,
               int ref_trav_idx, const string& sample_name, const NodeTranslation* translation,
               const SiteRecord& record, GLLayout gl_layout, bool genotype_snarls,
               const function<bool(vcflib::Variant&, size_t)>& add_line) const;
@@ -130,7 +132,7 @@ public:
     void report() const;
 
 private:
-    const SnarlManager* manager = nullptr;
+    bool nested = false;
     bool enabled = false;
     mutable AtomizeCounters counters;
 };

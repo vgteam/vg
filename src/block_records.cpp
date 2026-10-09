@@ -83,11 +83,11 @@ void BlockRecordWriter::report() const {
 }
 
 BlockRecordWriter::ChainInlineContext BlockRecordWriter::chain_inline_context(
-    const Snarl& snarl, const vector<SnarlTraversal>& travs,
+    const HandleGraph& graph, const SiteChildren& children, const vector<Traversal>& travs,
     const vector<int>& genotype, int ref_trav_idx) const {
     ChainInlineContext ctx;
     // Only under block emission: with one record per snarl, no chain is inside a block.
-    if (!enabled || manager == nullptr) {
+    if (!enabled || !nested) {
         return ctx;
     }
     if (ref_trav_idx < 0 || (size_t)ref_trav_idx >= travs.size() || genotype.empty()) {
@@ -95,7 +95,7 @@ BlockRecordWriter::ChainInlineContext BlockRecordWriter::chain_inline_context(
     }
     // A snarl whose projection has no symbols cannot answer: every child would read as not
     // reported and be dropped.
-    if (!symbolic_site_resolvable(snarl, *manager)) {
+    if (!children.known) {
         return ctx;
     }
     // A genotype with the reference allele matches every reference step, including the chain, so
@@ -106,14 +106,14 @@ BlockRecordWriter::ChainInlineContext BlockRecordWriter::chain_inline_context(
         }
     }
 
-    ctx.sref = symbolic_allele(travs[ref_trav_idx], snarl, *manager);
+    ctx.sref = symbolic_allele(graph, travs[ref_trav_idx], children);
 
     for (int allele : genotype) {
         if (allele < 0 || (size_t)allele >= travs.size()) {
             continue;
         }
         ChainInlineContext::Alt alt;
-        alt.salt = symbolic_allele(travs[allele], snarl, *manager);
+        alt.salt = symbolic_allele(graph, travs[allele], children);
         alt.blocks = symbolic_diff(ctx.sref, alt.salt);
         ctx.alts.push_back(std::move(alt));
     }
@@ -121,17 +121,13 @@ BlockRecordWriter::ChainInlineContext BlockRecordWriter::chain_inline_context(
     return ctx;
 }
 
-bool BlockRecordWriter::chain_reported_inline(const ChainInlineContext& ctx,
-                                              const Snarl& child) const {
+bool BlockRecordWriter::chain_reported_inline(const HandleGraph& graph,
+                                              const ChainInlineContext& ctx,
+                                              const ChildChain& chain) const {
     if (!ctx.usable) {
         return false;
     }
-    const Snarl* managed_child = manager->into_which_snarl(child.start().node_id(),
-                                                                   child.start().backward());
-    if (managed_child == nullptr) {
-        return false;
-    }
-    pair<nid_t, nid_t> bounds = chain_bounds_of(managed_child, *manager);
+    const pair<nid_t, nid_t> bounds(graph.get_id(chain.start), graph.get_id(chain.end));
 
     // Where the chain sits in the reference projection. If it is not there, the reference does not
     // cross it, which the caller handles.
@@ -182,14 +178,14 @@ bool BlockRecordWriter::chain_reported_inline(const ChainInlineContext& ctx,
     return true;
 }
 
-void BlockRecordWriter::count_site(const Snarl& snarl, const vector<SnarlTraversal>& travs,
+void BlockRecordWriter::count_site(const SiteChildren& children, const vector<Traversal>& travs,
                                    int ref_trav_idx) const {
-    if (manager == nullptr || ref_trav_idx < 0 || (size_t)ref_trav_idx >= travs.size()) {
+    if (!nested || ref_trav_idx < 0 || (size_t)ref_trav_idx >= travs.size()) {
         return;
     }
     ++counters.sites;
-    bool site_reversed = false;
-    if (!symbolic_site_resolvable(snarl, *manager, &site_reversed)) {
+    const bool site_reversed = children.reversed;
+    if (!children.known) {
         // The projection would be a bare node list here, so the site is counted and skipped.
         ++counters.site_unresolvable;
         return;
@@ -202,8 +198,8 @@ void BlockRecordWriter::count_site(const Snarl& snarl, const vector<SnarlTravers
 
 }
 
-int BlockRecordWriter::write(const PathPositionHandleGraph& graph, const Snarl& snarl,
-                             const vector<SnarlTraversal>& called_traversals,
+int BlockRecordWriter::write(const PathPositionHandleGraph& graph, const SiteChildren& children,
+                             const vector<Traversal>& called_traversals,
                              const vector<int>& genotype, int ref_trav_idx,
                              const string& sample_name, const NodeTranslation* translation,
                              const SiteRecord& record, GLLayout gl_layout, bool genotype_snarls,
@@ -213,7 +209,7 @@ int BlockRecordWriter::write(const PathPositionHandleGraph& graph, const Snarl& 
     const int64_t site_position = record.unflattened_position;
     // Every refusal below returns -1, meaning the site record is written as it is. Block emission
     // being off is not a refusal, so it is not counted.
-    if (!enabled || manager == nullptr || genotype_snarls) {
+    if (!enabled || !nested || genotype_snarls) {
         return -1;
     }
     if (genotype.empty()) {
@@ -228,15 +224,15 @@ int BlockRecordWriter::write(const PathPositionHandleGraph& graph, const Snarl& 
         ++counters.refuse[(size_t)AtomizeRefusal::NoReferenceTraversal];
         return -1;
     }
-    if (!symbolic_site_resolvable(snarl, *manager)) {
+    if (!children.known) {
         // The projection would see no child chains here.
         ++counters.refuse[(size_t)AtomizeRefusal::Unresolvable];
         return -1;
     }
 
-    const SnarlTraversal& ref_trav = called_traversals[ref_trav_idx];
+    const Traversal& ref_trav = called_traversals[ref_trav_idx];
     vector<pair<int, int>> ref_ranges;
-    SymbolicAllele sref = symbolic_allele(ref_trav, snarl, *manager, &ref_ranges);
+    SymbolicAllele sref = symbolic_allele(graph, ref_trav, children, &ref_ranges);
     const size_t m = sref.size();
     if (m == 0 || ref_ranges.size() != m) {
         ++counters.refuse[(size_t)AtomizeRefusal::EmptyReferenceProjection];
@@ -246,30 +242,23 @@ int BlockRecordWriter::write(const PathPositionHandleGraph& graph, const Snarl& 
     // Base offset of every visit boundary of the reference traversal from the snarl's first base.
     // The reference traversal is consecutive reference-path steps, so the running sum of node
     // lengths is the offset.
-    vector<size_t> ref_visit_off(ref_trav.visit_size() + 1, 0);
-    for (int v = 0; v < ref_trav.visit_size(); ++v) {
-        size_t len = 0;
-        if (ref_trav.visit(v).node_id() > 0) {
-            len = graph.get_length(graph.get_handle(ref_trav.visit(v).node_id()));
-        }
-        ref_visit_off[v + 1] = ref_visit_off[v] + len;
+    vector<size_t> ref_visit_off(ref_trav.size() + 1, 0);
+    for (size_t v = 0; v < ref_trav.size(); ++v) {
+        ref_visit_off[v + 1] = ref_visit_off[v] + graph.get_length(ref_trav[v]);
     }
 
     auto visit_of_step = [](const vector<pair<int, int>>& ranges, size_t step,
-                            const SnarlTraversal& t) -> int {
-        // The ranges partition the visits contiguously, so the visit index at step boundary k is
-        // ranges[k].first, and one past the end is the traversal length.
-        return step < ranges.size() ? ranges[step].first : t.visit_size();
+                            const Traversal& t) -> int {
+        // The ranges partition the walk's handles contiguously, so the handle index at step
+        // boundary k is ranges[k].first, and one past the end is the walk's length.
+        return step < ranges.size() ? ranges[step].first : (int)t.size();
     };
-    // `max(vb, 0)`, so that the helper never reads visit(-1), even though callers already refuse
+    // `max(vb, 0)`, so that the helper never reads t[-1], even though callers already refuse
     // vb <= 0.
-    auto seq_of = [&](const SnarlTraversal& t, int vb, int ve) -> string {
+    auto seq_of = [&](const Traversal& t, int vb, int ve) -> string {
         string s;
-        for (int v = std::max(vb, 0); v < ve && v < t.visit_size(); ++v) {
-            const Visit& vis = t.visit(v);
-            if (vis.node_id() > 0) {
-                s += graph.get_sequence(graph.get_handle(vis.node_id(), vis.backward()));
-            }
+        for (int v = std::max(vb, 0); v < ve && v < (int)t.size(); ++v) {
+            s += graph.get_sequence(t[v]);
         }
         return s;
     };
@@ -290,7 +279,7 @@ int BlockRecordWriter::write(const PathPositionHandleGraph& graph, const Snarl& 
         if (genotype[s] == ref_trav_idx) {
             continue;   // the reference itself: every step matches, so no blocks
         }
-        haps[s].sym = symbolic_allele(called_traversals[genotype[s]], snarl, *manager,
+        haps[s].sym = symbolic_allele(graph, called_traversals[genotype[s]], children,
                                       &haps[s].ranges);
         haps[s].blocks = symbolic_diff(sref, haps[s].sym, &haps[s].alt_before_ref);
         if (haps[s].alt_before_ref.size() != m + 1) {
@@ -341,12 +330,12 @@ int BlockRecordWriter::write(const PathPositionHandleGraph& graph, const Snarl& 
         // own visits inside its difference blocks, and the reference's over the steps it matches.
         // A matched chain step is only the same chain, which the haplotype may cross by another
         // route, and that route is the chain's own record to report.
-        vector<SnarlTraversal> slot_span(genotype.size());
+        vector<Traversal> slot_span(genotype.size());
         vector<string> slot_str(genotype.size());
         vector<bool> slot_marker(genotype.size(), false);
-        auto append_visits = [](SnarlTraversal& span, const SnarlTraversal& t, int from, int to) {
-            for (int v = std::max(from, 0); v < to && v < t.visit_size(); ++v) {
-                *span.add_visit() = t.visit(v);
+        auto append_visits = [](Traversal& span, const Traversal& t, int from, int to) {
+            for (int v = std::max(from, 0); v < to && v < (int)t.size(); ++v) {
+                span.push_back(t[v]);
             }
         };
         for (size_t s = 0; s < genotype.size(); ++s) {
@@ -354,13 +343,13 @@ int BlockRecordWriter::write(const PathPositionHandleGraph& graph, const Snarl& 
                 slot_marker[s] = true;
                 continue;
             }
-            SnarlTraversal& span = slot_span[s];
+            Traversal& span = slot_span[s];
             if (haps[s].trav == ref_trav_idx) {
                 append_visits(span, ref_trav, vb, ve);
                 slot_str[s] = ref_str;
                 continue;
             }
-            const SnarlTraversal& t = called_traversals[haps[s].trav];
+            const Traversal& t = called_traversals[haps[s].trav];
             // Every block that overlaps or touches the cluster lies inside it, since the clusters
             // are the unions of all blocks, so `next` walks the cluster's reference steps in order.
             size_t next = rb;
@@ -374,7 +363,7 @@ int BlockRecordWriter::write(const PathPositionHandleGraph& graph, const Snarl& 
                 }
             }
             append_visits(span, ref_trav, visit_of_step(ref_ranges, next, ref_trav), ve);
-            slot_str[s] = seq_of(span, 0, span.visit_size());
+            slot_str[s] = seq_of(span, 0, (int)span.size());
         }
 
         // VCF has no empty allele, so an indel takes the base before it, as flatten_common_allele_ends
@@ -389,7 +378,7 @@ int BlockRecordWriter::write(const PathPositionHandleGraph& graph, const Snarl& 
         if (needs_anchor) {
             if (vb <= 0) {
                 ++counters.refuse[(size_t)AtomizeRefusal::NoAnchorBase];
-                // Also stops seq_of(ref_trav, -1, 0) below from reading ref_trav.visit(-1), which
+                // Also stops seq_of(ref_trav, -1, 0) below from reading ref_trav[-1], which
                 // can happen when the snarl's start node appears twice in the reference traversal.
                 return -1;
             }
@@ -452,20 +441,20 @@ int BlockRecordWriter::write(const PathPositionHandleGraph& graph, const Snarl& 
 
         // AT per block allele, over the visit range this record actually spells.
         {
-            SnarlTraversal ref_span;
-            for (int v = vb; v < ve && v < ref_trav.visit_size(); ++v) {
-                *ref_span.add_visit() = ref_trav.visit(v);
+            Traversal ref_span;
+            for (int v = vb; v < ve && v < (int)ref_trav.size(); ++v) {
+                ref_span.push_back(ref_trav[v]);
             }
-            add_allele_path_to_info(b_var, 0, visits_of(ref_span), false, translation);
+            add_allele_path_to_info(b_var, 0, visits_of(graph, ref_span), false, translation);
             for (size_t a = 1; a < alleles.size(); ++a) {
-                SnarlTraversal span;
+                Traversal span;
                 for (size_t s = 0; s < genotype.size(); ++s) {
                     if (!slot_marker[s] && block_gt[s] == (int)a) {
                         span = slot_span[s];
                         break;
                     }
                 }
-                add_allele_path_to_info(b_var, a, visits_of(span), false, translation);
+                add_allele_path_to_info(b_var, a, visits_of(graph, span), false, translation);
             }
         }
 
@@ -653,7 +642,7 @@ int BlockRecordWriter::write(const PathPositionHandleGraph& graph, const Snarl& 
                 continue;
             }
             chain_crossed_twice = chain_crossed_twice || crosses_a_chain_twice(haps[s].sym);
-            const SnarlTraversal& t = called_traversals[haps[s].trav];
+            const Traversal& t = called_traversals[haps[s].trav];
             string as_blocks;
             size_t next = 0;
             for (const DiffBlock& b : haps[s].blocks) {
@@ -663,14 +652,15 @@ int BlockRecordWriter::write(const PathPositionHandleGraph& graph, const Snarl& 
                                     visit_of_step(haps[s].ranges, (size_t)b.alt_end, t));
                 next = (size_t)b.ref_end;
             }
-            as_blocks += seq_of(ref_trav, visit_of_step(ref_ranges, next, ref_trav), ref_trav.visit_size());
+            as_blocks += seq_of(ref_trav, visit_of_step(ref_ranges, next, ref_trav),
+                                (int)ref_trav.size());
             // The site record spells the strand's site allele, which is the reference for a route that
             // differs from it only inside child chains.
             auto allele = trav_to_allele.find(haps[s].trav);
             const string site_allele =
                 allele != trav_to_allele.end() && allele->second == 0
-                    ? seq_of(ref_trav, visit_of_step(ref_ranges, 0, ref_trav), ref_trav.visit_size())
-                    : seq_of(t, visit_of_step(haps[s].ranges, 0, t), t.visit_size());
+                    ? seq_of(ref_trav, visit_of_step(ref_ranges, 0, ref_trav), (int)ref_trav.size())
+                    : seq_of(t, visit_of_step(haps[s].ranges, 0, t), (int)t.size());
             site_says_more = site_says_more || as_blocks != site_allele;
         }
         if (!site_says_more) {

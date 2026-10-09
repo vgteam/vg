@@ -166,11 +166,11 @@ public:
 
 private:
 
-    /// Set the output's record steps this caller needs: symbolic collapsing and the block count
-    /// with nested calling, phasing from the linkage model, the GL layout of the read-likelihood
-    /// genotyper, block records, and telling the linkage model each site's allele numbering. Each
-    /// does nothing when its part is turned off.
-    void install_record_steps();
+    /// The steps the output adds to `site`'s record: symbolic collapsing and the block count with
+    /// nested calling, phasing from the linkage model, the GL layout of the read-likelihood
+    /// genotyper, block records, and telling the linkage model the site's allele numbering. Each
+    /// does nothing when its part is turned off. The steps read `site`, which must outlive them.
+    VCFOutputCaller::SiteRecordSteps record_steps(const StagedSite& site);
 
     /// Set the output's header lines and writing steps this caller needs: the phase set and block
     /// lines of the header; before the records are written, the mosaic and the phasing report;
@@ -182,15 +182,14 @@ private:
     /// resolution because it needs to know which sites have a VCF line.
     void finalise_linkage_outputs();
 
-    /// True when this called traversal takes the same route through the snarl as the reference and
-    /// differs only inside child chains. Always false when nested calling is off.
-    bool is_symbolically_reference(const vector<SnarlTraversal>& called_traversals,
-                                   int trav_idx, int ref_trav_idx, const Snarl& snarl) const;
+    /// True when walk `trav_idx` of `site` takes the same route through the site as the reference
+    /// walk and differs only inside child chains. Always false when nested calling is off.
+    bool is_symbolically_reference(const StagedSite& site, int trav_idx, int ref_trav_idx) const;
 
     /// Phase a record's genotype from the linkage model's phase call for the site, as
     /// `SiteHooks::phase` does. The phased genotype must be a permutation of the record's own, so
     /// that phasing cannot change a genotype; a call that is not is counted as declined.
-    int64_t phase_record_genotype(const Snarl& site, const vector<int>& site_genotype,
+    int64_t phase_record_genotype(size_t record_key, const vector<int>& site_genotype,
                                   const map<int, int>& trav_to_allele, string& gt) const;
 
     /// A phase set is named by a position on its contig, so two contigs can share a name. Read
@@ -229,9 +228,6 @@ private:
     /// site's anchors (see `RecordRenderer`).
     void render_retained_records();
 
-    /// Whether this snarl has no children, resolved through the manager's own copy. See the
-    /// implementation for why the obvious `children_of(&snarl)` is not safe here.
-    bool snarl_is_leaf(const Snarl& snarl) const;
 
     /// the graph
     const PathPositionHandleGraph& graph;

@@ -35,7 +35,6 @@ MultiPassCaller::MultiPassCaller(const PathPositionHandleGraph& graph,
         ref_path_set.insert(ref_paths[i]);
         ref_ploidies[ref_paths[i]] = i < ref_path_ploidies.size() ? ref_path_ploidies[i] : 2;
     }
-    install_record_steps();
     install_writer_steps();
     install_widgets();
 }
@@ -122,38 +121,38 @@ void MultiPassCaller::report_descent_instrumentation() const {
     }
 }
 
-void MultiPassCaller::install_record_steps() {
-    VCFOutputCaller::SiteRecordSteps record_steps;
+VCFOutputCaller::SiteRecordSteps MultiPassCaller::record_steps(const StagedSite& site) {
+    // Each step reads the staged site rather than the Snarl and SnarlTraversals emit_variant
+    // passes, which are the site's bounds and walks in another form.
+    VCFOutputCaller::SiteRecordSteps steps;
     if (nested_calling) {
-        record_steps.same_as_reference = [this](const Snarl& site,
-                                                const vector<SnarlTraversal>& travs, int trav,
-                                                int ref_trav_idx) {
-            return is_symbolically_reference(travs, trav, ref_trav_idx, site);
+        steps.same_as_reference = [this, &site](const Snarl&, const vector<SnarlTraversal>&,
+                                                int trav, int ref_trav_idx) {
+            return is_symbolically_reference(site, trav, ref_trav_idx);
         };
-        record_steps.count_site = [this](const PathPositionHandleGraph& graph, const Snarl& site,
-                                         const vector<SnarlTraversal>& travs,
-                                         const vector<int>& genotype, int ref_trav_idx) {
-            block_records.count_site(site, travs, ref_trav_idx);
+        steps.count_site = [this, &site](const PathPositionHandleGraph&, const Snarl&,
+                                         const vector<SnarlTraversal>&, const vector<int>&,
+                                         int ref_trav_idx) {
+            block_records.count_site(site.children, site.travs, ref_trav_idx);
         };
     }
-    record_steps.phase = [this](const Snarl& site, const vector<int>& site_genotype,
+    steps.phase = [this, &site](const Snarl&, const vector<int>& site_genotype,
                                 const map<int, int>& trav_to_allele, string& gt) {
-        return phase_record_genotype(site, site_genotype, trav_to_allele, gt);
+        return phase_record_genotype(site.record_key, site_genotype, trav_to_allele, gt);
     };
     // The read-likelihood genotyper writes GL in colexicographic order, and the support-based one
     // in i-major order.
-    record_steps.gl_layout = [this](const SnarlCaller::CallInfo* call_info) {
+    steps.gl_layout = [](const SnarlCaller::CallInfo* call_info) {
         // Every call info this caller writes is the read-likelihood genotyper's.
         return call_info != nullptr ? GLLayout::Colexicographic : GLLayout::IMajor;
     };
-    record_steps.write_blocks = [this](const PathPositionHandleGraph& graph, const Snarl& site,
-                                       const vector<SnarlTraversal>& travs,
-                                       const vector<int>& genotype, int ref_trav_idx,
-                                       const SiteRecord& record, GLLayout gl_layout,
-                                       bool genotype_snarls) {
-        return block_records.write(graph, site, travs, genotype, ref_trav_idx, sample_name,
-                                   output.get_translation(), record, gl_layout, genotype_snarls,
-                                   [this](vcflib::Variant& line, size_t block) {
+    steps.write_blocks = [this, &site](const PathPositionHandleGraph& graph, const Snarl&,
+                                       const vector<SnarlTraversal>&, const vector<int>& genotype,
+                                       int ref_trav_idx, const SiteRecord& record,
+                                       GLLayout gl_layout, bool genotype_snarls) {
+        return block_records.write(graph, site.children, site.travs, genotype, ref_trav_idx,
+                                   sample_name, output.get_translation(), record, gl_layout,
+                                   genotype_snarls, [this](vcflib::Variant& line, size_t block) {
                                        return output.add_variant(line, block);
                                    });
     };
@@ -161,7 +160,7 @@ void MultiPassCaller::install_record_steps() {
     // reference still has two alleles, which differ only inside its children, and the children
     // need them to know which strand carries the chain. In VCF allele numbering such a parent is
     // 0/0; only in traversal space is it heterozygous.
-    record_steps.site_filed = [this](const Snarl& site, const map<int, int>& trav_to_allele,
+    steps.site_filed = [this, &site](const Snarl&, const map<int, int>& trav_to_allele,
                                      size_t traversal_count, bool has_line) {
         if (!linker.enabled()) {
             return;
@@ -175,10 +174,9 @@ void MultiPassCaller::install_record_steps() {
                 trav_to_allele_vec[kv.first] = kv.second;
             }
         }
-        linker.collector()->set_allele_map(output.record_key_of(site), trav_to_allele_vec,
-                                           has_line);
+        linker.collector()->set_allele_map(site.record_key, trav_to_allele_vec, has_line);
     };
-    output.set_record_steps(std::move(record_steps));
+    return steps;
 }
 
 /// The record key of the site a finished VCF line belongs to, as `VCFOutputCaller::record_key_of`
@@ -267,27 +265,21 @@ void MultiPassCaller::install_widgets() {
     const SiteReader reader{
         .graph = &graph,
         .genotyper = &site_genotyper,
-        .spell = [this](const SnarlTraversal& trav) { return output.trav_string(graph, trav); },
-        .name = [this](const Snarl& site) { return output.print_snarl(site); },
+        .spell = [this](const Traversal& walk) {
+            string sequence;
+            for (const handle_t& handle : walk) {
+                sequence += graph.get_sequence(handle);
+            }
+            return sequence;
+        },
+        .name = [this](const SiteBounds& site) {
+            return output.print_snarl(&graph, site.start, site.end);
+        },
     };
     linker.set_site_reader(reader);
     rescorer.set_site_reader(reader);
-    record_renderer.configure(reader, [this](const Snarl& site) { return snarl_is_leaf(site); });
+    record_renderer.configure(reader);
     child_placer.configure(&graph, &snarl_manager, &block_records, &descent_counters);
-}
-
-bool MultiPassCaller::snarl_is_leaf(const Snarl& snarl) const {
-    // Through `manage`, not the address of this Snarl. `SnarlManager::record` casts a Snarl* to its
-    // record, which is valid only for a Snarl the manager owns, and the Snarls here are copies.
-    // `manage` throws for a snarl the manager does not own, as a nested chain reached by recursion
-    // may be, so the call is guarded, and made only when --anchors-leaf-only needs the answer.
-    try {
-        const Snarl* managed = snarl_manager.manage(snarl);
-        return managed != nullptr && snarl_manager.children_of(managed).empty();
-    } catch (const std::runtime_error&) {
-        // No answer, so treat it as a leaf rather than drop the site.
-        return true;
-    }
 }
 
 void MultiPassCaller::rerun_linkage_pass() {
@@ -400,9 +392,13 @@ void MultiPassCaller::render_retained_records() {
         staged_sites, phase_table, read_strands, linker,
         anchor_collector.is_enabled() ? &anchor_collector : nullptr,
         [&](const StagedSite& site, const vector<int>& genotype) {
-            output.emit_variant(graph, snarl_caller, site.snarl, site.travs, genotype,
+            // The VCF writer and the genotyper's record fields still take a Snarl and
+            // SnarlTraversals.
+            output.emit_variant(graph, snarl_caller, snarl_of(graph, site.bounds),
+                                snarl_traversals_of(graph, site.travs), genotype,
                                 site.ref_trav_idx, site.call_info, site.ref_path_name,
-                                site.ref_offset, genotype_snarls, site.ploidy);
+                                site.ref_offset, genotype_snarls, site.ploidy,
+                                record_steps(site));
         },
         show_progress);
 }
@@ -429,7 +425,8 @@ void MultiPassCaller::run_linkage_pass() {
             // The parts of the test that do not depend on the child, built once for this parent;
             // see BlockRecordWriter::ChainInlineContext.
             const BlockRecordWriter::ChainInlineContext ctx = block_records.chain_inline_context(
-                parent.snarl, parent.travs, linker.chosen_genotype(parent), parent.ref_trav_idx);
+                graph, parent.children, parent.travs, linker.chosen_genotype(parent),
+                parent.ref_trav_idx);
             for (size_t ci : children) {
                 StagedSite& child = pending[ci];
                 if (child.dropped) {
@@ -437,7 +434,9 @@ void MultiPassCaller::run_linkage_pass() {
                 }
                 const bool was = child.reported_inline;
                 child.reported_inline = parent.reported_inline
-                                        || block_records.chain_reported_inline(ctx, child.snarl);
+                                        || (child.in_chain
+                                            && block_records.chain_reported_inline(graph, ctx,
+                                                                                   child.chain));
                 if (was != child.reported_inline) {
                     ++pass_inline_rederived;
                 }
@@ -452,11 +451,13 @@ void MultiPassCaller::run_linkage_pass() {
             bytes += sizeof(StagedSite) + rec.ref_path_name.capacity()
                      + rec.genotype.capacity() * sizeof(int)
                      + rec.panel_cache.capacity() * sizeof(int);
-            bytes += rec.travs.capacity() * sizeof(SnarlTraversal);
-            for (const SnarlTraversal& t : rec.travs) {
-                visits += (size_t)t.visit_size();
-                bytes += (size_t)t.visit_size() * sizeof(Visit);
+            bytes += rec.travs.capacity() * sizeof(Traversal);
+            for (const Traversal& t : rec.travs) {
+                visits += t.size();
+                bytes += t.capacity() * sizeof(handle_t);
             }
+            bytes += rec.children.chains.capacity() * sizeof(ChildChain)
+                     + rec.children.entries.capacity() * sizeof(rec.children.entries[0]);
             const SiteScore* rl = rec.score;
             if (rl != nullptr) {
                 for (const auto& kv : rl->genotype_lls) {
@@ -480,12 +481,12 @@ void MultiPassCaller::run_linkage_pass() {
                 if (rl->uncorrected_lls != nullptr) {
                     bytes += gl_bytes(*rl->uncorrected_lls);
                 }
-                bytes += rl->scored_traversals.capacity() * sizeof(SnarlTraversal)
+                bytes += rl->scored_traversals.capacity() * sizeof(Traversal)
                          + rl->allele_support.capacity() * sizeof(double);
                 if (rl->alt_ploidy_info != nullptr) {
                     // The alternate answer is kept too, with all its parts.
                     const auto& alt = *rl->alt_ploidy_info;
-                    bytes += alt.scored_traversals.capacity() * sizeof(SnarlTraversal)
+                    bytes += alt.scored_traversals.capacity() * sizeof(Traversal)
                              + alt.allele_support.capacity() * sizeof(double);
                     if (alt.uncorrected_lls != nullptr) {
                         bytes += gl_bytes(*alt.uncorrected_lls);
@@ -554,7 +555,7 @@ void MultiPassCaller::run_linkage_pass() {
 
 void MultiPassCaller::set_linkage(LinkageCollector* collector, const gbwt::GBWT* gbwt,
                                   const vector<size_t>* sequence_to_haplotype) {
-    this->panel_lookup = PanelLookup(gbwt, sequence_to_haplotype,
+    this->panel_lookup = PanelLookup(&graph, gbwt, sequence_to_haplotype,
                                      collector != nullptr ? collector->panel_size() : 0);
     linker.configure(collector, &panel_lookup);
 }
@@ -631,32 +632,30 @@ void MultiPassCaller::finalise_linkage_outputs() {
     }
 }
 
-bool MultiPassCaller::is_symbolically_reference(const vector<SnarlTraversal>& called_traversals,
-                                                int trav_idx, int ref_trav_idx,
-                                                const Snarl& snarl) const {
+bool MultiPassCaller::is_symbolically_reference(const StagedSite& site, int trav_idx,
+                                                int ref_trav_idx) const {
     // Only with nested calling.
     if (!nested_calling || ref_trav_idx < 0 || trav_idx < 0 ||
-        ref_trav_idx >= (int)called_traversals.size() ||
-        trav_idx >= (int)called_traversals.size()) {
+        ref_trav_idx >= (int)site.travs.size() || trav_idx >= (int)site.travs.size()) {
         return false;
     }
-    return symbolically_equal(called_traversals[trav_idx], called_traversals[ref_trav_idx],
-                              snarl, snarl_manager);
+    return symbolically_equal(graph, site.travs[trav_idx], site.travs[ref_trav_idx],
+                              site.children);
 }
 
 void MultiPassCaller::set_nested_calling(bool on) {
     nested_calling = on;
-    block_records.set_manager(on ? &snarl_manager : nullptr);
-    install_record_steps();
+    block_records.set_nested(on);
 }
 
-int64_t MultiPassCaller::phase_record_genotype(const Snarl& site, const vector<int>& site_genotype,
+int64_t MultiPassCaller::phase_record_genotype(size_t record_key,
+                                               const vector<int>& site_genotype,
                                                const map<int, int>& trav_to_allele,
                                                string& gt) const {
     if (!emit_phasing || !phase_table.has_rendered()) {
         return -1;
     }
-    const LinkageCollector::PhaseCall* found = phase_table.rendered(output.record_key_of(site));
+    const LinkageCollector::PhaseCall* found = phase_table.rendered(record_key);
     if (found == nullptr) {
         return -1;
     }

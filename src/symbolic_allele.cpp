@@ -8,164 +8,82 @@
 
 namespace vg {
 
-/// Where each node id appears in the traversal, so "does this chain close later" is a lookup
-/// rather than a rescan. Traversals of a large snarl run to thousands of visits and every visit
-/// asks the question.
-static unordered_map<nid_t, vector<int>> index_positions(const SnarlTraversal& trav) {
+/// Where each node id appears in the walk, so "does this chain close later" is a lookup rather
+/// than a rescan. Walks through a large site run to thousands of handles and every handle asks
+/// the question.
+static unordered_map<nid_t, vector<int>> index_positions(const HandleGraph& graph,
+                                                          const Traversal& walk) {
     unordered_map<nid_t, vector<int>> at;
-    for (int i = 0; i < trav.visit_size(); ++i) {
-        const Visit& v = trav.visit(i);
-        if (!v.has_snarl()) {
-            at[v.node_id()].push_back(i);
-        }
+    for (int i = 0; i < (int)walk.size(); ++i) {
+        at[graph.get_id(walk[i])].push_back(i);
     }
     return at;
 }
 
-/// The chain a child snarl belongs to, as its boundary node ids. A snarl that is in no chain the
-/// manager knows is a chain of its own, so its own boundaries are used.
-static pair<nid_t, nid_t> chain_bounds(const Snarl* child, const SnarlManager& snarl_manager) {
-    const Chain* chain = snarl_manager.chain_of(child);
-    if (chain != nullptr && !chain->empty()) {
-        return make_pair(get_start_of(*chain).node_id(), get_end_of(*chain).node_id());
-    }
-    return make_pair(child->start().node_id(), child->end().node_id());
-}
-
-/// The snarl `site` refers to, as the manager knows it, or null when the two disagree. Shared by
-/// projection and `symbolic_site_resolvable`, so that they agree.
-static const Snarl* resolve_site(const Snarl& site, const SnarlManager& snarl_manager,
-                                 bool* out_reversed = nullptr) {
-    if (out_reversed != nullptr) {
-        *out_reversed = false;
-    }
-    const Snarl* site_ptr = snarl_manager.into_which_snarl(site.start().node_id(),
-                                                          site.start().backward());
-    if (site_ptr == nullptr) {
-        return nullptr;
-    }
-    // Check that the node led to this snarl rather than to another one reachable from it, by
-    // comparing boundary nodes, in either order, since a snarl and its reversal are the same snarl.
-    // `flip_snarl` (graph_caller.cpp) reverses a snarl whose reference path runs backwards, and the
-    // caller then works on the reversed copy, whose start node is the original end node. The
-    // boundary index maps a snarl's start and its reversed end to the same snarl, and everything
-    // downstream is independent of the site's orientation.
-    auto same_visit = [](const Visit& a, const Visit& b) {
-        return a.node_id() == b.node_id() && a.backward() == b.backward();
-    };
-    // The forward pairing compares node ids only.
-    const bool forward = site_ptr->start().node_id() == site.start().node_id() &&
-                         site_ptr->end().node_id() == site.end().node_id();
-    // The reversed pairing compares full visits, orientation included: the reversed snarl is the
-    // canonical one with its boundaries reversed and swapped.
-    const bool reversed = same_visit(site_ptr->start(), reverse(site.end())) &&
-                          same_visit(site_ptr->end(), reverse(site.start()));
-    if (!forward && !reversed) {
-        return nullptr;
-    }
-    if (out_reversed != nullptr) {
-        *out_reversed = reversed && !forward;
-    }
-    return site_ptr;
-}
-
-bool symbolic_site_resolvable(const Snarl& site, const SnarlManager& snarl_manager,
-                              bool* out_reversed) {
-    return resolve_site(site, snarl_manager, out_reversed) != nullptr;
-}
-
-pair<nid_t, nid_t> chain_bounds_of(const Snarl* child, const SnarlManager& snarl_manager) {
-    return chain_bounds(child, snarl_manager);
-}
-
-SymbolicAllele symbolic_allele(const SnarlTraversal& trav, const Snarl& site,
-                               const SnarlManager& snarl_manager,
+SymbolicAllele symbolic_allele(const HandleGraph& graph, const Traversal& walk,
+                               const SiteChildren& children,
                                vector<pair<int, int>>* out_visit_ranges) {
     SymbolicAllele out;
     if (out_visit_ranges != nullptr) {
         out_visit_ranges->clear();
     }
-    unordered_map<nid_t, vector<int>> at = index_positions(trav);
-
-    // The snarl we are projecting, as the manager knows it, so that a snarl the traversal enters can
-    // be tested for being a child of this site. Null means no child is recognised and the
-    // projection is the plain node list (see `symbolic_site_resolvable`).
-    const Snarl* site_ptr = resolve_site(site, snarl_manager);
+    unordered_map<nid_t, vector<int>> at = index_positions(graph, walk);
 
     int i = 0;
-    while (i < trav.visit_size()) {
-        const Visit& v = trav.visit(i);
-
-        // A visit already carrying a Snarl is a symbol as it stands.
-        if (v.has_snarl()) {
-            SymbolicStep step;
-            step.id = v.snarl().start().node_id();
-            step.end_id = v.snarl().end().node_id();
-            step.backward = v.backward();
-            out.push_back(step);
-            if (out_visit_ranges != nullptr) {
-                out_visit_ranges->emplace_back(i, i + 1);
-            }
-            ++i;
-            continue;
-        }
-
-        const nid_t node = v.node_id();
-        // The snarl entered by traversing into this node in this orientation, if any.
-        const Snarl* child = snarl_manager.into_which_snarl(node, v.backward());
+    while (i < (int)walk.size()) {
+        const nid_t node = graph.get_id(walk[i]);
+        const bool backward = graph.get_is_reverse(walk[i]);
+        // The chain of the child site entered by reading this node in this orientation, if any.
+        // Only a child of this site may become a symbol. Comparing a chain's bounds with the
+        // site's is not enough: a site that is itself in a longer chain would see that chain's
+        // bounds and collapse its own interior into one symbol, making all its alleles equal.
+        const ChildChain* chain = children.entered_by(node, backward);
         bool symbolised = false;
 
-        // Only a child of this site may become a symbol. Comparing the chain's boundaries with the
-        // site's is not enough: a site that is itself in a longer chain would see that chain's
-        // boundaries and collapse its own interior into one symbol, making all its alleles equal.
-        bool is_child = child != nullptr && site_ptr != nullptr &&
-                        snarl_manager.parent_of(child) == site_ptr;
-        if (is_child) {
-            pair<nid_t, nid_t> bounds = chain_bounds(child, snarl_manager);
-            {
-                // Leave the chain at whichever of its boundaries this traversal reaches next; a
-                // chain can be crossed in either direction, so both are candidates.
-                int exit = -1;
-                for (nid_t boundary : {bounds.second, bounds.first}) {
-                    if (boundary == node) {
-                        continue;
-                    }
-                    auto found = at.find(boundary);
-                    if (found == at.end()) {
-                        continue;
-                    }
-                    // index_positions fills each vector in increasing visit order, so the first
-                    // entry past i is the nearest exit, found by binary search; a node can recur
-                    // thousands of times in one traversal through a satellite repeat.
-                    auto it = std::upper_bound(found->second.begin(), found->second.end(), i);
-                    if (it != found->second.end() && (exit < 0 || *it < exit)) {
-                        exit = *it;
-                    }
+        if (chain != nullptr) {
+            const pair<nid_t, nid_t> bounds(graph.get_id(chain->start), graph.get_id(chain->end));
+            // Leave the chain at whichever of its bounds this walk reaches next; a chain can be
+            // crossed in either direction, so both are candidates.
+            int exit = -1;
+            for (nid_t boundary : {bounds.second, bounds.first}) {
+                if (boundary == node) {
+                    continue;
                 }
-                if (exit > i) {
-                    SymbolicStep step;
-                    step.id = bounds.first;
-                    step.end_id = bounds.second;
-                    // The chain is traversed backward when its recorded end is met before its start.
-                    step.backward = (node == bounds.second);
-                    out.push_back(step);
-                    if (out_visit_ranges != nullptr) {
-                        out_visit_ranges->emplace_back(i, exit);
-                    }
-                    // Resume *at* the exit boundary, which belongs to both the chain and whatever
-                    // follows it, so it is not consumed.
-                    i = exit;
-                    symbolised = true;
+                auto found = at.find(boundary);
+                if (found == at.end()) {
+                    continue;
                 }
-                // A chain entered and not left within this traversal falls through and is emitted as
-                // a plain node, so that the rest of the traversal is kept.
+                // index_positions fills each vector in increasing order, so the first entry past
+                // i is the nearest exit, found by binary search; a node can recur thousands of
+                // times in one walk through a satellite repeat.
+                auto it = std::upper_bound(found->second.begin(), found->second.end(), i);
+                if (it != found->second.end() && (exit < 0 || *it < exit)) {
+                    exit = *it;
+                }
             }
+            if (exit > i) {
+                SymbolicStep step;
+                step.id = bounds.first;
+                step.end_id = bounds.second;
+                // The chain is traversed backward when its recorded end is met before its start.
+                step.backward = (node == bounds.second);
+                out.push_back(step);
+                if (out_visit_ranges != nullptr) {
+                    out_visit_ranges->emplace_back(i, exit);
+                }
+                // Resume *at* the exit bound, which belongs to both the chain and whatever
+                // follows it, so it is not consumed.
+                i = exit;
+                symbolised = true;
+            }
+            // A chain entered and not left within this walk falls through and is emitted as a
+            // plain node, so that the rest of the walk is kept.
         }
 
         if (!symbolised) {
             SymbolicStep step;
             step.id = node;
-            step.backward = v.backward();
+            step.backward = backward;
             out.push_back(step);
             if (out_visit_ranges != nullptr) {
                 out_visit_ranges->emplace_back(i, i + 1);
@@ -176,9 +94,9 @@ SymbolicAllele symbolic_allele(const SnarlTraversal& trav, const Snarl& site,
     return out;
 }
 
-bool symbolically_equal(const SnarlTraversal& a, const SnarlTraversal& b, const Snarl& site,
-                        const SnarlManager& snarl_manager) {
-    return symbolic_allele(a, site, snarl_manager) == symbolic_allele(b, site, snarl_manager);
+bool symbolically_equal(const HandleGraph& graph, const Traversal& a, const Traversal& b,
+                        const SiteChildren& children) {
+    return symbolic_allele(graph, a, children) == symbolic_allele(graph, b, children);
 }
 
 

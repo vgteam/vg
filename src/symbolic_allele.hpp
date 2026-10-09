@@ -4,15 +4,15 @@
 /**
  * \file symbolic_allele.hpp
  *
- * Symbolic alleles: a traversal of a snarl with each pass through a child chain replaced by one
+ * Symbolic alleles: a walk through a site with each pass through a child chain replaced by one
  * symbol for that chain, rather than the path taken through it.
  *
- * A SnarlTraversal runs through every interior node, so two traversals that differ only inside a
- * child chain are different traversals. Their symbolic forms are equal, since they take the same
- * route at this level of the snarl tree. A traversal whose symbolic form equals the reference
- * traversal's is therefore the reference allele at this site, and its differences are reported by
- * the child chain's own records. A traversal that skips a chain, or passes through different
- * ones, differs at this level, so a deletion of a chain is still a deletion here.
+ * A walk runs through every interior node, so two walks that differ only inside a child chain are
+ * different walks. Their symbolic forms are equal, since they take the same route at this level of
+ * the snarl tree. A walk whose symbolic form equals the reference walk's is therefore the
+ * reference allele at this site, and its differences are reported by the child chain's own
+ * records. A walk that skips a chain, or passes through different ones, differs at this level, so
+ * a deletion of a chain is still a deletion here.
  */
 
 #include <functional>
@@ -21,8 +21,7 @@
 #include <vector>
 
 #include "handle.hpp"
-#include "snarls.hpp"
-#include <vg/vg.pb.h>
+#include "site_values.hpp"
 
 namespace vg {
 
@@ -55,40 +54,27 @@ struct SymbolicStep {
 using SymbolicAllele = vector<SymbolicStep>;
 
 /**
- * Project a traversal of `site` into symbolic form.
+ * Project a walk through a site into symbolic form, given the site's `children`.
  *
- * Walks the traversal and, wherever a visit enters a child chain of `site`, emits one symbol for
- * that chain and resumes at the visit that leaves it. A SnarlTraversal visit can name a child
- * snarl instead of a node, and such a visit becomes a symbol directly.
+ * Follows the walk and, wherever it enters a child site, emits one symbol for that site's chain
+ * and resumes at the handle that leaves the chain.
  *
- * A chain entered but not left within the traversal, as in a malformed or cyclic traversal, is
- * emitted as a plain node step, so that the rest of the traversal is not lost; losing it could
- * make different alleles compare equal.
+ * A chain entered but not left within the walk, as in a malformed or cyclic walk, is emitted as a
+ * plain node step, so that the rest of the walk is not lost; losing it could make different
+ * alleles compare equal.
  *
- * `out_visit_ranges`, when given, reports for each emitted step the half-open range of `trav` visits it
- * covers. The ranges partition [0, visit_size) in order, so a step's sequence is the concatenation
- * of its visits. A chain symbol's range is [entry, exit): the exit boundary node belongs to the
- * next step, since the chain shares it with its successor.
+ * `out_visit_ranges`, when given, reports for each emitted step the half-open range of the walk's
+ * handles it covers. The ranges partition [0, walk.size()) in order, so a step's sequence is the
+ * concatenation of its handles'. A chain symbol's range is [entry, exit): the exit bound belongs
+ * to the next step, since the chain shares it with its successor.
  */
-SymbolicAllele symbolic_allele(const SnarlTraversal& trav, const Snarl& site,
-                               const SnarlManager& snarl_manager,
+SymbolicAllele symbolic_allele(const HandleGraph& graph, const Traversal& walk,
+                               const SiteChildren& children,
                                vector<pair<int, int>>* out_visit_ranges = nullptr);
 
-/// Whether `site`, as given or reversed, is a snarl the manager knows, which is needed to
-/// recognise its child chains. When false, projection gives the plain node list with no symbols.
-///
-/// `out_reversed`, when given, reports whether the site resolved only with its boundaries swapped,
-/// as a snarl does that `flip_snarl` reversed because the reference path runs backwards through
-/// it.
-bool symbolic_site_resolvable(const Snarl& site, const SnarlManager& snarl_manager,
-                              bool* out_reversed = nullptr);
-
-/// The boundary nodes of the chain `child` belongs to, which identify the chain's symbol.
-pair<nid_t, nid_t> chain_bounds_of(const Snarl* child, const SnarlManager& snarl_manager);
-
-/// True if the two traversals are the same route through `site` at this level of the hierarchy.
-bool symbolically_equal(const SnarlTraversal& a, const SnarlTraversal& b, const Snarl& site,
-                        const SnarlManager& snarl_manager);
+/// True if the two walks take the same route through the site at this level of the hierarchy.
+bool symbolically_equal(const HandleGraph& graph, const Traversal& a, const Traversal& b,
+                        const SiteChildren& children);
 
 /**
  * One difference between two symbolic alleles: a half-open step range on each side.

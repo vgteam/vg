@@ -28,6 +28,7 @@
 #include "alignment_scorer.hpp"
 #include "handle.hpp"
 #include "site_read_source.hpp"
+#include "site_values.hpp"
 #include "snarls.hpp"
 
 #include "anchor.hpp"
@@ -429,9 +430,12 @@ public:
     /// local read rate by to get a per-haplotype rate. It is the site's own ploidy at a
     /// top-level site, and more than it at a nested site that only some of its parent's
     /// alleles cross, since the reads counted near the site come from all of them.
-    /// Nothing in the matrix depends on the ploidy the site is then genotyped at.
-    virtual AlleleReadLikelihoods compute(const Snarl& snarl,
-                                          const vector<SnarlTraversal>& traversals,
+    /// Nothing in the matrix depends on the ploidy the site is then genotyped at. `enclosing`
+    /// holds the bounds of the sites enclosing `site`, innermost first; they place a site whose
+    /// own bounds are off the reference.
+    virtual AlleleReadLikelihoods compute(const SiteBounds& site,
+                                          const vector<Traversal>& traversals,
+                                          const vector<SiteBounds>& enclosing,
                                           int region_ploidy) = 0;
 };
 
@@ -489,14 +493,14 @@ public:
      * scored by one scorer only.
      */
     GraphAlignedAlleleLikelihoodCalculator(const PathHandleGraph& graph,
-                                           SnarlManager& snarl_manager,
                                            const SiteReadSource& read_source,
                                            const EditAlignmentScorer& qual_scorer,
                                            const EditAlignmentScorer& plain_scorer,
                                            const Params& params = Params());
 
-    AlleleReadLikelihoods compute(const Snarl& snarl,
-                                  const vector<SnarlTraversal>& traversals,
+    AlleleReadLikelihoods compute(const SiteBounds& site,
+                                  const vector<Traversal>& traversals,
+                                  const vector<SiteBounds>& enclosing,
                                   int region_ploidy) override;
 
     /// Place rate windows on these reference paths of `position_graph`, which must be the
@@ -538,7 +542,7 @@ protected:
 
     /// Materialise an allele's node visits and sequences. Per allele, not per
     /// (read, allele), so cheap enough to do once per site.
-    vector<AlleleStep> get_allele_steps(const SnarlTraversal& traversal) const;
+    vector<AlleleStep> get_allele_steps(const Traversal& walk) const;
 
     /// Extract the read's visits inside the site, in read order. Returns false if the
     /// read cannot tell the alleles apart because it lies within one boundary node,
@@ -641,7 +645,7 @@ protected:
         double start_rate = 0.0;
         double mean_read_length = 0.0;
     };
-    WindowReadStats local_read_stats(const Snarl& snarl,
+    WindowReadStats local_read_stats(const SiteBounds& site, const vector<SiteBounds>& enclosing,
                                      const vector<pair<nid_t, nid_t>>& site_ranges) const;
 
     /// The node-ID fallback of local_read_stats.
@@ -669,11 +673,13 @@ protected:
     /// The counts for one reference bucket, computed once and kept.
     StartCounts bucket_counts(size_t path_index, int64_t bucket) const;
 
-    /// The reference path index and position that place `snarl` in a rate window, if any.
-    bool rate_position(const Snarl& snarl, size_t& path_index, int64_t& position) const;
+    /// The reference path index and position that place `site` in a rate window, if any: where
+    /// one of its bounds lies on a reference path, or else one of the bounds of the innermost
+    /// site of `enclosing` that has one.
+    bool rate_position(const SiteBounds& site, const vector<SiteBounds>& enclosing,
+                       size_t& path_index, int64_t& position) const;
 
     const PathHandleGraph& graph;
-    SnarlManager& snarl_manager;
     const SiteReadSource& read_source;
     mutable unordered_map<size_t, WindowReadStats> window_rate;
     /// Both keyed by reference path index and bucket: a bucket's own counts, and the rate

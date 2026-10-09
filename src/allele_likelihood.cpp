@@ -413,28 +413,21 @@ AlleleReadLikelihoods AlleleReadLikelihoodsBuilder::build() {
 ////////////////////////////////////////////////////////////////////////////////
 
 GraphAlignedAlleleLikelihoodCalculator::GraphAlignedAlleleLikelihoodCalculator(
-    const PathHandleGraph& graph, SnarlManager& snarl_manager, const SiteReadSource& read_source,
+    const PathHandleGraph& graph, const SiteReadSource& read_source,
     const EditAlignmentScorer& qual_scorer, const EditAlignmentScorer& plain_scorer, const Params& params)
-    : graph(graph), snarl_manager(snarl_manager), read_source(read_source),
+    : graph(graph), read_source(read_source),
       qual_scorer(qual_scorer), plain_scorer(plain_scorer), params(params) {
 }
 
 vector<GraphAlignedAlleleLikelihoodCalculator::AlleleStep>
-GraphAlignedAlleleLikelihoodCalculator::get_allele_steps(const SnarlTraversal& traversal) const {
+GraphAlignedAlleleLikelihoodCalculator::get_allele_steps(const Traversal& walk) const {
     vector<AlleleStep> steps;
-    steps.reserve(traversal.visit_size());
-    for (int64_t i = 0; i < traversal.visit_size(); ++i) {
-        const Visit& visit = traversal.visit(i);
-        if (visit.node_id() == 0) {
-            // A visit to a child snarl rather than a node: the traversal has not
-            // been fully expanded, so its sequence cannot be materialised here.
-            // Skip it; the flanking nodes still anchor the comparison.
-            continue;
-        }
+    steps.reserve(walk.size());
+    for (const handle_t& handle : walk) {
         AlleleStep step;
-        step.node_id = visit.node_id();
-        step.backward = visit.backward();
-        step.sequence = graph.get_sequence(graph.get_handle(visit.node_id(), visit.backward()));
+        step.node_id = graph.get_id(handle);
+        step.backward = graph.get_is_reverse(handle);
+        step.sequence = graph.get_sequence(handle);
         steps.push_back(std::move(step));
     }
     return steps;
@@ -1132,7 +1125,9 @@ void GraphAlignedAlleleLikelihoodCalculator::set_rate_reference(
     ref_window_rate.clear();
 }
 
-bool GraphAlignedAlleleLikelihoodCalculator::rate_position(const Snarl& snarl, size_t& path_index,
+bool GraphAlignedAlleleLikelihoodCalculator::rate_position(const SiteBounds& site,
+                                                          const vector<SiteBounds>& enclosing,
+                                                          size_t& path_index,
                                                           int64_t& position) const {
     if (rate_graph == nullptr || rate_paths.empty()) {
         return false;
@@ -1164,14 +1159,13 @@ bool GraphAlignedAlleleLikelihoodCalculator::rate_position(const Snarl& snarl, s
     };
     // A nested site's boundaries are often off the reference. Its ancestors' are not, and an
     // ancestor lies within a window's width of the site unless it is very large.
-    const Snarl* current = &snarl;
-    while (current != nullptr) {
-        if (place(current->start().node_id()) || place(current->end().node_id())) {
+    if (place(graph.get_id(site.start)) || place(graph.get_id(site.end))) {
+        return true;
+    }
+    for (const SiteBounds& ancestor : enclosing) {
+        if (place(graph.get_id(ancestor.start)) || place(graph.get_id(ancestor.end))) {
             return true;
         }
-        const Snarl* managed = snarl_manager.into_which_snarl(current->start().node_id(),
-                                                              current->start().backward());
-        current = managed == nullptr ? nullptr : snarl_manager.parent_of(managed);
     }
     return false;
 }
@@ -1276,7 +1270,8 @@ GraphAlignedAlleleLikelihoodCalculator::bucket_counts(size_t path_index, int64_t
 
 GraphAlignedAlleleLikelihoodCalculator::WindowReadStats
 GraphAlignedAlleleLikelihoodCalculator::local_read_stats(
-    const Snarl& snarl, const vector<pair<nid_t, nid_t>>& site_ranges) const {
+    const SiteBounds& site, const vector<SiteBounds>& enclosing,
+    const vector<pair<nid_t, nid_t>>& site_ranges) const {
 
     // The window is fixed rather than taken from the read source's fetch window, so that DR
     // and the depth term do not depend on how the reads were supplied.
@@ -1285,7 +1280,7 @@ GraphAlignedAlleleLikelihoodCalculator::local_read_stats(
     }
     size_t path_index = 0;
     int64_t position = 0;
-    if (!rate_position(snarl, path_index, position)) {
+    if (!rate_position(site, enclosing, path_index, position)) {
         ++id_fallbacks;
         return id_window_read_stats(site_ranges);
     }
@@ -1350,7 +1345,8 @@ GraphAlignedAlleleLikelihoodCalculator::id_window_read_stats(
 }
 
 AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
-    const Snarl& snarl, const vector<SnarlTraversal>& traversals, int region_ploidy) {
+    const SiteBounds& site, const vector<Traversal>& traversals,
+    const vector<SiteBounds>& enclosing, int region_ploidy) {
 
 
     AlleleReadLikelihoodsBuilder builder(traversals.size(), params.min_mismap_prob,
@@ -1360,12 +1356,12 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
     }
 
     // Nodes making up the site, including its boundaries.
-    auto contents = snarl_manager.deep_contents(&snarl, graph, true);
+    auto contents = site_contents(graph, site.start, site.end, true);
     unordered_set<nid_t> site_nodes(contents.first.begin(), contents.first.end());
     if (site_nodes.empty()) {
         return builder.build();
     }
-    unordered_set<nid_t> boundary_nodes{snarl.start().node_id(), snarl.end().node_id()};
+    unordered_set<nid_t> boundary_nodes{graph.get_id(site.start), graph.get_id(site.end)};
 
     // Merge the site's node IDs into ranges for the read source to query.
     vector<nid_t> sorted_ids(site_nodes.begin(), site_nodes.end());
@@ -1383,8 +1379,8 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
     // not per (read, allele), so it stays off the hot path.
     vector<vector<AlleleStep>> allele_steps;
     allele_steps.reserve(traversals.size());
-    for (const SnarlTraversal& traversal : traversals) {
-        allele_steps.push_back(get_allele_steps(traversal));
+    for (const Traversal& walk : traversals) {
+        allele_steps.push_back(get_allele_steps(walk));
     }
     // Sorted once per allele, not once per (read, allele): the keys do not mention the read.
     vector<vector<int64_t>> allele_keys;
@@ -1508,8 +1504,8 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
     if (params.collect_anchors) {
         anchor_evidence = make_unique<AnchorSiteEvidence>();
         anchor_evidence->n_alleles = traversals.size();
-        anchor_evidence->start_node = snarl.start().node_id();
-        anchor_evidence->end_node = snarl.end().node_id();
+        anchor_evidence->start_node = graph.get_id(site.start);
+        anchor_evidence->end_node = graph.get_id(site.end);
         anchor_evidence->length_weighted = params.length_weighted_mixture;
         // The alleles as spelled, for the mixture weights the per-read score uses. Computed here
         // whatever the mixture setting, because the score's weighting is its own decision.
@@ -1626,11 +1622,11 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
             AnchorRead record;
             record.read = read_names().intern(aln.name());
             record.mismap = (float)mismap;
-            record.start_pin = resolve_anchor_pin(read, graph, snarl.start().node_id(),
-                                                  snarl.start().backward(), true,
+            record.start_pin = resolve_anchor_pin(read, graph, graph.get_id(site.start),
+                                                  graph.get_is_reverse(site.start), true,
                                                   anchor_pin_counters);
-            record.end_pin = resolve_anchor_pin(read, graph, snarl.end().node_id(),
-                                                snarl.end().backward(), false,
+            record.end_pin = resolve_anchor_pin(read, graph, graph.get_id(site.end),
+                                                graph.get_is_reverse(site.end), false,
                                                 anchor_pin_counters);
             anchor_evidence->reads.push_back(std::move(record));
         }
@@ -1662,7 +1658,7 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
     // weights and the anchor slot weights. The builder's R is the mean over this site's reads,
     // which over-represents long reads because a long read reaches more sites. The rate
     // window's mean counts each read once, where it begins, so we use it instead.
-    WindowReadStats stats = local_read_stats(snarl, ranges);
+    WindowReadStats stats = local_read_stats(site, enclosing, ranges);
     if (stats.mean_read_length > 0.0) {
         result.set_mean_read_length(stats.mean_read_length);
     }

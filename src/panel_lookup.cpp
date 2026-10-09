@@ -4,9 +4,10 @@
 
 namespace vg {
 
-PanelLookup::PanelLookup(const gbwt::GBWT* gbwt, const vector<size_t>* sequence_to_haplotype,
-                         size_t panel_size)
-    : index(gbwt), haplotype_of_sequence(sequence_to_haplotype), panel_size(panel_size) {
+PanelLookup::PanelLookup(const HandleGraph* graph, const gbwt::GBWT* gbwt,
+                         const vector<size_t>* sequence_to_haplotype, size_t panel_size)
+    : graph(graph), index(gbwt), haplotype_of_sequence(sequence_to_haplotype),
+      panel_size(panel_size) {
     if (gbwt != nullptr) {
         // One per thread, built here so the parallel region never allocates one.
         cache.reserve(omp_get_max_threads());
@@ -17,7 +18,7 @@ PanelLookup::PanelLookup(const gbwt::GBWT* gbwt, const vector<size_t>* sequence_
     }
 }
 
-vector<int> PanelLookup::alleles(const vector<SnarlTraversal>& travs) const {
+vector<int> PanelLookup::alleles(const vector<Traversal>& travs) const {
     vector<int> out;
     if (index == nullptr || haplotype_of_sequence == nullptr) {
         return out;
@@ -39,10 +40,7 @@ vector<int> PanelLookup::alleles(const vector<SnarlTraversal>& travs) const {
     // window.
     if (cached && (size_t)thread < cache_origin.size() && !travs.empty()) {
         static const nid_t CACHE_ANCHOR_SPAN = 4096;
-        nid_t lead = 0;
-        for (int64_t i = 0; i < travs[0].visit_size() && lead == 0; ++i) {
-            lead = travs[0].visit(i).node_id();
-        }
+        const nid_t lead = travs[0].empty() ? 0 : graph->get_id(travs[0].front());
         if (lead != 0) {
             nid_t& anchor = cache_origin[thread];
             if (anchor == 0 || lead > anchor + CACHE_ANCHOR_SPAN
@@ -54,21 +52,15 @@ vector<int> PanelLookup::alleles(const vector<SnarlTraversal>& travs) const {
     }
 
     for (size_t a = 0; a < travs.size(); ++a) {
-        const SnarlTraversal& trav = travs[a];
-        if (trav.visit_size() < 1) {
+        const Traversal& walk = travs[a];
+        if (walk.empty()) {
             continue;
         }
         gbwt::SearchState state;
         bool ok = true;
-        for (int64_t i = 0; i < trav.visit_size(); ++i) {
-            const Visit& visit = trav.visit(i);
-            if (visit.node_id() == 0) {
-                // A visit to a child snarl rather than a node: the traversal is not expanded, so
-                // it cannot be looked up in the GBWT.
-                ok = false;
-                break;
-            }
-            gbwt::node_type node = gbwt::Node::encode(visit.node_id(), visit.backward());
+        for (size_t i = 0; i < walk.size(); ++i) {
+            gbwt::node_type node = gbwt::Node::encode(graph->get_id(walk[i]),
+                                                      graph->get_is_reverse(walk[i]));
             if (cached) {
                 const gbwt::CachedGBWT& c = cache[thread];
                 state = (i == 0) ? c.find(node) : c.extend(state, node);

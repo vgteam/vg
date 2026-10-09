@@ -6,9 +6,11 @@ SiteGenotyper::SiteGenotyper(ReadLikelihoodSnarlCaller& genotyper) : genotyper(g
 }
 
 pair<vector<int>, unique_ptr<SiteScore>> SiteGenotyper::genotype(
-    const Snarl& site, const vector<SnarlTraversal>& travs, int ref_trav_idx,
-    const Ploidies& ploidies, const string& ref_path_name, pair<size_t, size_t> ref_range) const {
-    return genotyper.genotype_at(site, travs, ref_trav_idx, ploidies, ref_path_name, ref_range);
+    const SiteBounds& site, const vector<Traversal>& travs, int ref_trav_idx,
+    const Ploidies& ploidies, const vector<SiteBounds>& enclosing, const string& ref_path_name,
+    pair<size_t, size_t> ref_range) const {
+    return genotyper.genotype_at(site, travs, ref_trav_idx, ploidies, enclosing, ref_path_name,
+                                 ref_range);
 }
 
 double SiteGenotyper::gq_factor(const SiteScore& score) const {

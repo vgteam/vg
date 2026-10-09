@@ -87,83 +87,74 @@ TEST_CASE("The buffered record order is total, so two runs cannot disagree", "[g
     }
 }
 
-/// A traversal over the given node ids, as plain node visits.
-static SnarlTraversal make_trav(const vector<nid_t>& nodes) {
-    SnarlTraversal t;
-    for (nid_t n : nodes) {
-        t.add_visit()->set_node_id(n);
+/// A graph with nodes 1 to 10 and 99, node n being n bases long.
+static void add_numbered_nodes(bdsg::HashGraph& graph) {
+    for (nid_t id : {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 99}) {
+        graph.create_handle(string((size_t)id, 'A'), id);
     }
-    return t;
 }
 
-/// A child chain with the given boundary nodes.
-static Snarl make_child(nid_t start, nid_t end) {
-    Snarl s;
-    s.mutable_start()->set_node_id(start);
-    s.mutable_end()->set_node_id(end);
-    return s;
+/// A walk over the given node ids, each read forward.
+static Traversal make_walk(const HandleGraph& graph, const vector<nid_t>& nodes) {
+    Traversal walk;
+    for (nid_t n : nodes) {
+        walk.push_back(graph.get_handle(n));
+    }
+    return walk;
 }
 
-TEST_CASE("offset_of_child reports where a traversal enters a chain", "[graph_caller]") {
-    const SnarlTraversal t = make_trav({1, 2, 3, 4, 5});
+/// A child site with the given boundary nodes.
+static SiteBounds make_child(const HandleGraph& graph, nid_t start, nid_t end) {
+    return SiteBounds{graph.get_handle(start), graph.get_handle(end)};
+}
+
+TEST_CASE("offset_of_child reports where a walk enters a chain", "[graph_caller]") {
+    bdsg::HashGraph graph;
+    add_numbered_nodes(graph);
+    const Traversal t = make_walk(graph, {1, 2, 3, 4, 5});
     SECTION("the entry index, not the exit") {
-        REQUIRE(ChildPlacer::offset_of_child(t, make_child(2, 4)) == 1);
+        REQUIRE(ChildPlacer::offset_of_child(graph, t, make_child(graph, 2, 4)) == 1);
     }
     SECTION("entering from either boundary is the same crossing") {
-        REQUIRE(ChildPlacer::offset_of_child(t, make_child(4, 2)) == 1);
+        REQUIRE(ChildPlacer::offset_of_child(graph, t, make_child(graph, 4, 2)) == 1);
     }
-    SECTION("a chain the traversal does not cross has no offset") {
-        REQUIRE(ChildPlacer::offset_of_child(t, make_child(7, 9)) == -1);
+    SECTION("a chain the walk does not cross has no offset") {
+        REQUIRE(ChildPlacer::offset_of_child(graph, t, make_child(graph, 7, 9)) == -1);
     }
     SECTION("touching one boundary only is not a crossing") {
-        REQUIRE(ChildPlacer::offset_of_child(t, make_child(3, 99)) == -1);
+        REQUIRE(ChildPlacer::offset_of_child(graph, t, make_child(graph, 3, 99)) == -1);
     }
 }
 
 
 TEST_CASE("ChildOffsets gives base_offset_of_child's answer by lookup", "[graph_caller]") {
-    // Node n is n bases long.
     bdsg::HashGraph graph;
-    for (nid_t id = 1; id <= 9; ++id) {
-        graph.create_handle(string((size_t)id, 'A'), id);
-    }
-    // A traversal that revisits nodes, with a child-snarl visit in the middle, which counts for
-    // neither the entry nor the bases.
-    SnarlTraversal t;
-    for (nid_t n : {1, 2, 3, 2, 5}) {
-        t.add_visit()->set_node_id(n);
-    }
-    Visit* snarl_visit = t.add_visit();
-    snarl_visit->mutable_snarl()->mutable_start()->set_node_id(5);
-    snarl_visit->mutable_snarl()->mutable_end()->set_node_id(6);
-    for (nid_t n : {6, 3, 7, 2, 9, 9}) {
-        t.add_visit()->set_node_id(n);
-    }
+    add_numbered_nodes(graph);
+    // A walk that revisits nodes.
+    const Traversal t = make_walk(graph, {1, 2, 3, 2, 5, 6, 3, 7, 2, 9, 9});
 
-    // base_offset_of_child's definition: offset_of_child's entry, then the bases of the node
-    // visits before it.
-    auto expected = [&](const Snarl& child) -> int64_t {
-        const int entry = ChildPlacer::offset_of_child(t, child);
+    // base_offset_of_child's definition: offset_of_child's entry, then the bases of the handles
+    // before it.
+    auto expected = [&](const SiteBounds& child) -> int64_t {
+        const int entry = ChildPlacer::offset_of_child(graph, t, child);
         if (entry < 0) {
             return -1;
         }
         int64_t bases = 0;
         for (int i = 0; i < entry; ++i) {
-            if (!t.visit(i).has_snarl()) {
-                bases += (int64_t)graph.get_length(graph.get_handle(t.visit(i).node_id()));
-            }
+            bases += (int64_t)graph.get_length(t[i]);
         }
         return bases;
     };
 
-    // Every pair of boundary nodes, including one the traversal never visits (10), both
-    // orientations, and a chain that starts and ends on one node.
+    // Every pair of boundary nodes, including one the walk never visits (10), both orientations,
+    // and a chain that starts and ends on one node.
     const ChildPlacer::ChildOffsets offsets(graph, t);
     size_t crossing = 0;
     for (nid_t start = 1; start <= 10; ++start) {
         for (nid_t end = 1; end <= 10; ++end) {
-            const Snarl child = make_child(start, end);
-            REQUIRE(offsets.base_offset(child) == expected(child));
+            const SiteBounds child = make_child(graph, start, end);
+            REQUIRE(offsets.base_offset(graph, child) == expected(child));
             crossing += expected(child) >= 0 ? 1 : 0;
         }
     }

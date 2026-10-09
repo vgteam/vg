@@ -6,6 +6,7 @@
 #include <gbwt/cached_gbwt.h>
 
 #include "handle.hpp"
+#include "site_values.hpp"
 #include <vg/vg.pb.h>
 
 namespace vg {
@@ -27,15 +28,15 @@ public:
     PanelLookup() = default;
 
     /// The panel in `gbwt`, whose sequence `s` belongs to panel haplotype
-    /// `sequence_to_haplotype[s]`. `panel_size` is the number of haplotypes, or 0 to size each row
-    /// by the length of `sequence_to_haplotype`. Neither pointer is owned, and a null one means no
-    /// panel.
-    PanelLookup(const gbwt::GBWT* gbwt, const vector<size_t>* sequence_to_haplotype,
-                size_t panel_size);
+    /// `sequence_to_haplotype[s]`, over walks in `graph`. `panel_size` is the number of
+    /// haplotypes, or 0 to size each row by the length of `sequence_to_haplotype`. No pointer is
+    /// owned, and a null GBWT or haplotype map means no panel.
+    PanelLookup(const HandleGraph* graph, const gbwt::GBWT* gbwt,
+                const vector<size_t>* sequence_to_haplotype, size_t panel_size);
 
-    /// Which allele of `travs` each panel haplotype carries, or -1 where it does not traverse the
-    /// site. Empty when there is no panel.
-    vector<int> alleles(const vector<SnarlTraversal>& travs) const;
+    /// Which of the walks `travs` each panel haplotype follows, or -1 where it does not traverse
+    /// the site. Empty when there is no panel.
+    vector<int> alleles(const vector<Traversal>& travs) const;
 
     /// The GBWT, or null when there is no panel.
     const gbwt::GBWT* gbwt() const { return index; }
@@ -44,6 +45,7 @@ public:
     const vector<size_t>* sequence_to_haplotype() const { return haplotype_of_sequence; }
 
 private:
+    const HandleGraph* graph = nullptr;
     const gbwt::GBWT* index = nullptr;
     const vector<size_t>* haplotype_of_sequence = nullptr;
 

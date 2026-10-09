@@ -30,8 +30,8 @@ using vg::io::AlignmentEmitter;
  * Helper class that VCF writers can inherit from, for the common code to output sorted VCF.
  *
  * A caller that holds one instead, such as MultiPassCaller, writes its records through
- * `emit_variant` and adds its own steps to the records, the header and `write_variants` with
- * `set_record_steps` and `set_writer_steps`.
+ * `emit_variant`, giving it the steps it adds to each record, and adds its own steps to the
+ * header and `write_variants` with `set_writer_steps`.
  */
 class VCFOutputCaller {
 public:
@@ -136,9 +136,6 @@ public:
                       size_t traversal_count, bool has_line)> site_filed;
     };
 
-    /// Use `steps` in every record `emit_variant` writes from now on.
-    void set_record_steps(SiteRecordSteps steps) { record_steps = std::move(steps); }
-
     /// Lines added to the header, and steps added to `write_variants`, by a caller that needs
     /// them. Each is left empty when not needed.
     struct WriterSteps {
@@ -158,10 +155,17 @@ public:
     void set_writer_steps(WriterSteps steps) { writer_steps = std::move(steps); }
 
     /// Write the record for a site: build it with build_site_record, from the snarl's traversals
-    /// and the snarl caller's INFO and FORMAT fields, with the steps set by `set_record_steps`,
-    /// and add it to the output buffer. `trav_to_string` spells an allele; when null, an allele is
-    /// spelled by its traversal's sequence. Returns false only when add_variant refused a line
-    /// the site wanted.
+    /// and the snarl caller's INFO and FORMAT fields, with `steps`, and add it to the output
+    /// buffer. `trav_to_string` spells an allele; when null, an allele is spelled by its
+    /// traversal's sequence. Returns false only when add_variant refused a line the site wanted.
+    bool emit_variant(const PathPositionHandleGraph& graph, SnarlCaller& snarl_caller,
+                      const Snarl& snarl, const vector<SnarlTraversal>& called_traversals,
+                      const vector<int>& genotype, int ref_trav_idx, const unique_ptr<SnarlCaller::CallInfo>& call_info,
+                      const string& ref_path_name, int ref_offset, bool genotype_snarls, int ploidy,
+                      const SiteRecordSteps& steps,
+                      function<string(const vector<SnarlTraversal>&, const vector<int>&, int, int, int)> trav_to_string = nullptr);
+
+    /// `emit_variant` with no added steps.
     bool emit_variant(const PathPositionHandleGraph& graph, SnarlCaller& snarl_caller,
                       const Snarl& snarl, const vector<SnarlTraversal>& called_traversals,
                       const vector<int>& genotype, int ref_trav_idx, const unique_ptr<SnarlCaller::CallInfo>& call_info,
@@ -213,8 +217,6 @@ protected:
         return vg::allele_core_length(alleles);
     }
 
-    /// See set_record_steps.
-    SiteRecordSteps record_steps;
     /// See set_writer_steps.
     WriterSteps writer_steps;
 

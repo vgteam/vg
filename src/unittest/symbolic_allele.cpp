@@ -8,6 +8,8 @@
 
 #include <vector>
 
+#include <bdsg/hash_graph.hpp>
+
 #include "catch.hpp"
 #include "../symbolic_allele.hpp"
 
@@ -56,6 +58,40 @@ static unique_ptr<SnarlManager> make_manager(const Snarl& top, const vector<Snar
         all.push_back(c);
     }
     return unique_ptr<SnarlManager>(new SnarlManager(all.begin(), all.end()));
+}
+
+/// A graph with a node for each ID the tests use, in which their traversals are read as walks.
+static const HandleGraph& test_graph() {
+    static unique_ptr<bdsg::HashGraph> graph;
+    if (graph == nullptr) {
+        graph.reset(new bdsg::HashGraph());
+        for (nid_t id = 1; id <= 1000; ++id) {
+            graph->create_handle("A", id);
+        }
+    }
+    return *graph;
+}
+
+/// `t`, a traversal of `site`, in symbolic form, with the children `mgr` gives `site`.
+static SymbolicAllele symbolic_allele(const SnarlTraversal& t, const Snarl& site,
+                                      const SnarlManager& mgr,
+                                      vector<pair<int, int>>* ranges = nullptr) {
+    const HandleGraph& graph = test_graph();
+    return vg::symbolic_allele(graph, walk_of(graph, t), site_children(mgr, graph, site), ranges);
+}
+
+/// Whether two traversals of `site` are the same route at this level, with the children `mgr`
+/// gives `site`.
+static bool symbolically_equal(const SnarlTraversal& a, const SnarlTraversal& b,
+                               const Snarl& site, const SnarlManager& mgr) {
+    const HandleGraph& graph = test_graph();
+    return vg::symbolically_equal(graph, walk_of(graph, a), walk_of(graph, b),
+                                  site_children(mgr, graph, site));
+}
+
+/// Whether `mgr` knows `site`, as it is or turned round, so that its children are recognised.
+static bool symbolic_site_resolvable(const Snarl& site, const SnarlManager& mgr) {
+    return site_children(mgr, test_graph(), site).known;
 }
 
 /// The visit ranges must partition the traversal contiguously, in order, with no gap and no
@@ -489,26 +525,6 @@ TEST_CASE("Two different child chains give different symbols", "[symbolic_allele
     }
     REQUIRE(chains.size() == 2);
     REQUIRE(chains[0] != chains[1]);
-}
-
-TEST_CASE("A visit already carrying a snarl is taken as a symbol", "[symbolic_allele]") {
-    // The protobuf allows a Visit to hold a Snarl instead of a node, and the deprecated
-    // NestedFlowCaller emitted them, so the encoder has to accept traversals already in that form.
-    Snarl top = make_snarl(1, 9);
-    auto mgr = make_manager(top, {});
-
-    SnarlTraversal t;
-    t.add_visit()->set_node_id(1);
-    Visit* v = t.add_visit();
-    v->mutable_snarl()->mutable_start()->set_node_id(2);
-    v->mutable_snarl()->mutable_end()->set_node_id(4);
-    t.add_visit()->set_node_id(9);
-
-    SymbolicAllele a = symbolic_allele(t, top, *mgr);
-    REQUIRE(a.size() == 3);
-    REQUIRE(a[1].is_chain());
-    REQUIRE(a[1].id == 2);
-    REQUIRE(a[1].end_id == 4);
 }
 
 TEST_CASE("Symbolic alleles hash by value", "[symbolic_allele]") {

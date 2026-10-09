@@ -10,8 +10,8 @@
 
 #include "panel_lookup.hpp"
 #include "site_genotyper.hpp"
+#include "site_values.hpp"
 #include "snarl_caller.hpp"
-#include "snarls.hpp"
 
 namespace vg {
 
@@ -25,8 +25,8 @@ using namespace std;
 /// answer at both ploidies (see `alt_ploidy_info`), so the record can be rendered at whichever
 /// ploidy the linkage pass gives the site.
 ///
-/// The site is named by its record key alone. The fields that describe it as a snarl, its
-/// bounds and its candidate traversals, are grouped apart from the rest.
+/// The site is named by its record key alone. The fields that describe it in the graph, its
+/// bounds, its candidate walks and what it holds, are grouped apart from the rest.
 struct StagedSite {
     // Identity, and the site's place in the nesting tree.
 
@@ -46,12 +46,22 @@ struct StagedSite {
     /// or first records the parent.
     bool crossing_known = true;
 
-    // The site as a snarl: its bounds and its candidate traversals.
+    // The site in the graph: its bounds, its candidate walks, its child chains, and the chain it
+    // is in.
 
-    /// Held by value because `call_snarl_internal` may work on a flipped copy.
-    Snarl snarl;
-    vector<SnarlTraversal> travs;
+    /// Oriented forward along the reference path, which may be the decomposition's orientation
+    /// turned round.
+    SiteBounds bounds;
+    vector<Traversal> travs;
     int ref_trav_idx = -1;
+    /// The sites nested in this one, for its symbolic alleles.
+    SiteChildren children;
+    /// Whether the site has no child sites.
+    bool leaf = true;
+    /// The chain the site is in, when the decomposition knows the site (`in_chain`). A nested
+    /// site's line is held back when its parent's blocks report its chain.
+    ChildChain chain;
+    bool in_chain = false;
 
     // Where the site is on the reference.
 
@@ -115,10 +125,10 @@ struct SiteReader {
     const PathPositionHandleGraph* graph = nullptr;
     /// The read-likelihood genotyper that called the sites, or null where another genotyper did.
     const SiteGenotyper* genotyper = nullptr;
-    /// A traversal's sequence.
-    function<string(const SnarlTraversal&)> spell;
+    /// A walk's sequence.
+    function<string(const Traversal&)> spell;
     /// A site's ID, as its records name it.
-    function<string(const Snarl&)> name;
+    function<string(const SiteBounds&)> name;
 };
 
 /**

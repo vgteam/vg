@@ -231,7 +231,7 @@ bool GenotypeRescorer::rescore(
                 };
                 const auto a = best_of(before);
                 const auto b = best_of(target);
-                const string snarl_id = reader.name(rec.snarl);
+                const string snarl_id = reader.name(rec.bounds);
                 std::ostringstream row;
                 row << snarl_id << "\t" << rec.ref_path_name << "\t"
                     << rec.ref_offset << "\t" << rec.ploidy << "\t" << spell(a.first) << "\t"
