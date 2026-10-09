@@ -18,11 +18,6 @@
 //#define debug
 
 namespace vg {
-static thread_local int g_descent_depth = 0;
-/// The place in the nesting tree of the snarl the direct pass is genotyping on this thread. Descent
-/// runs on the calling thread, so it is set just before a child is genotyped and restored after,
-/// and no other thread sees it.
-static thread_local NestingPlacement nested_context;
 
 void FlowCaller::report_descent_instrumentation() const {
     size_t total = 0;
@@ -88,7 +83,7 @@ FlowCaller::FlowCaller(const PathPositionHandleGraph& graph,
         ref_ploidies[ref_paths[i]] = i < ref_path_ploidies.size() ? ref_path_ploidies[i] : 2;
     }
     install_record_steps();
-    install_site_reader();
+    install_widgets();
 
 }
    
@@ -127,7 +122,7 @@ FlowCaller::FlowCaller(const PathPositionHandleGraph& graph,
         ref_ploidies[ref_paths[i]] = i < ref_path_ploidies.size() ? ref_path_ploidies[i] : 2;
     }
     install_record_steps();
-    install_site_reader();
+    install_widgets();
 }
 
 FlowCaller::~FlowCaller() {
@@ -180,7 +175,7 @@ void FlowCaller::install_record_steps() {
     };
 }
 
-void FlowCaller::install_site_reader() {
+void FlowCaller::install_widgets() {
     const SiteReader reader{
         .graph = &graph,
         .caller = &snarl_caller,
@@ -190,6 +185,7 @@ void FlowCaller::install_site_reader() {
     linker.set_site_reader(reader);
     rescorer.set_site_reader(reader);
     record_renderer.configure(reader, [this](const Snarl& site) { return snarl_is_leaf(site); });
+    child_placer.configure(&graph, &snarl_manager, &block_records, &descent_counters);
 }
 
 void FlowCaller::call_top_level_snarls(const HandleGraph& graph, RecurseType recurse_type) {
@@ -201,7 +197,8 @@ void FlowCaller::call_top_level_snarls(const HandleGraph& graph, RecurseType rec
 
 bool FlowCaller::call_snarl(const Snarl& managed_snarl) {
     // Entry point: call with no parent context
-    return call_snarl_internal(managed_snarl, "", make_pair(0, 0), nullptr);
+    return call_snarl_internal(managed_snarl, "", make_pair(0, 0), nullptr, -1,
+                               NestingPlacement());
 }
 
 TraversalSet FlowCaller::find_child_traversal_set(const SnarlTraversal& parent_trav,
@@ -552,7 +549,7 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
                                       const string& parent_ref_path_name,
                                       pair<size_t, size_t> parent_ref_interval,
                                       const ChildTraversalSets* parent_child_trav_sets,
-                                    int ploidy_override) {
+                                      int ploidy_override, const NestingPlacement& placement) {
 
 
     // todo: In order to experiment with merging consecutive snarls to make longer traversals,
@@ -648,7 +645,7 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
         // This test and the use_parent_interval test below must agree: otherwise get_ref_interval
         // would be called with the parent's reference path, which does not visit this snarl's
         // boundary nodes, and would assert.
-        if ((parent_child_trav_sets == nullptr && !nested_context.no_reference)
+        if ((parent_child_trav_sets == nullptr && !placement.no_reference)
             || parent_ref_path_name.empty()) {
 #ifdef debug
             cerr << "  -> returning false: no common ref path and no parent context" << endl;
@@ -838,7 +835,7 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
             site_panel_set = linker.add(snarl, travs, trav_genotype, trav_call_info.get(),
                                         ref_trav_idx, ref_path_name,
                                         ref_offset_of(ref_offsets, ref_path_name),
-                                        record_key_of(snarl), nested_context, false, 0,
+                                        record_key_of(snarl), placement, false, 0,
                                         &site_panel);
             render_this = stage_render_record(snarl, trav_genotype, ref_trav_idx, trav_call_info,
                                               ref_path_name, ref_offset_of(ref_offsets, ref_path_name), ploidy);
@@ -963,7 +960,7 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
         ReadLikelihoodSnarlCaller::set_region_ploidy(0);
         ReadLikelihoodSnarlCaller::set_want_alt_ploidy(false);
 
-        const bool retain_only = nested_context.retain_only;
+        const bool retain_only = placement.retain_only;
         // Whether this snarl's own boundaries are on no reference path, checked from the graph for
         // each snarl.
         const bool no_ref_position = use_parent_interval;
@@ -976,14 +973,14 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
             // children.
             site_panel_set = linker.add(
                 snarl, travs, trav_genotype, trav_call_info.get(), ref_trav_idx, ref_path_name,
-                ref_offset_of(ref_offsets, ref_path_name), record_key_of(snarl), nested_context,
+                ref_offset_of(ref_offsets, ref_path_name), record_key_of(snarl), placement,
                 /*no_reference*/ true,
                 // The parent's position, as `get_ref_position` gives it from the interval
                 // `use_parent_interval` set, plus the chain's offset along its parent, as
                 // `StagedSite::position_from_parent` has it.
                 base_path_position(ref_path_name, get<0>(ref_interval)
                                                       + ref_offset_of(ref_offsets, ref_path_name))
-                    + (int64_t)nested_context.parent_offset,
+                    + (int64_t)placement.parent_offset,
                 &site_panel);
             ++descent_counters.no_ref_recorded;
             {
@@ -999,14 +996,14 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
             // genotyped and kept, since the linkage model may still move the parent onto an allele
             // that reaches it.
             added = true;
-        } else if (nested_context.reported_inline) {
+        } else if (placement.reported_inline) {
             // An enclosing block's ALT already spells this chain, so it gets no line, but it is
             // genotyped and recorded, since its allele pair phases everything inside it. Checked
             // after retain_only, which does not record.
             site_panel_set = linker.add(snarl, travs, trav_genotype, trav_call_info.get(),
                                         ref_trav_idx, ref_path_name,
                                         ref_offset_of(ref_offsets, ref_path_name),
-                                        record_key_of(snarl), nested_context, false, 0,
+                                        record_key_of(snarl), placement, false, 0,
                                         &site_panel);
             added = true;
         } else if (!gaf_output) {
@@ -1015,7 +1012,7 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
             site_panel_set = linker.add(snarl, travs, trav_genotype, trav_call_info.get(),
                                         ref_trav_idx, ref_path_name,
                                         ref_offset_of(ref_offsets, ref_path_name),
-                                        record_key_of(snarl), nested_context, false, 0,
+                                        record_key_of(snarl), placement, false, 0,
                                         &site_panel);
             // Staged, not emitted, as at top level: the line is written after the linkage pass, from the
             // chosen genotype. `added` stands in for emit_variant's return value, which here only
@@ -1044,20 +1041,20 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
             pending_this->genotype = trav_genotype;
             pending_this->ploidy = ploidy;
             pending_this->record_key = record_key_of(snarl);
-            pending_this->parent_record_key = nested_context.parent_record_key;
-            pending_this->parent_crossing = nested_context.parent_crossing;
-            pending_this->chain_key = nested_context.chain_key;
+            pending_this->parent_record_key = placement.parent_record_key;
+            pending_this->parent_crossing = placement.parent_crossing;
+            pending_this->chain_key = placement.chain_key;
             pending_this->no_reference = no_ref_position;
-            pending_this->reported_inline = nested_context.reported_inline;
+            pending_this->reported_inline = placement.reported_inline;
             pending_this->position_from_parent =
                 no_ref_position
                     ? base_path_position(ref_path_name,
                                          get<0>(ref_interval) + ref_offset_of(ref_offsets, ref_path_name))
-                          + (int64_t)nested_context.parent_offset
+                          + (int64_t)placement.parent_offset
                     : 0;
-            pending_this->chain_offset = nested_context.parent_offset;
-            pending_this->crossing_known = nested_context.crossing_known;
-            pending_this->level = (uint8_t)min(nested_context.level, (size_t)255);
+            pending_this->chain_offset = placement.parent_offset;
+            pending_this->crossing_known = placement.crossing_known;
+            pending_this->level = (uint8_t)min(placement.level, (size_t)255);
             pending_this->call_info = std::move(trav_call_info);
         }
         ret_val = trav_genotype.size() == ploidy && added;
@@ -1085,110 +1082,20 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
     // snarls, but nothing does so for a failed nested snarl: its children are not called.
     if (ret_val && symbolic_manager != nullptr && !trav_genotype.empty() &&
         parent_child_trav_sets == nullptr) {
-        const Snarl* managed_ptr = snarl_manager.into_which_snarl(snarl.start().node_id(),
-                                                                  snarl.start().backward());
-        if (managed_ptr != nullptr) {
-
-            // The child-independent parts of the exactly-once test, built once for this snarl.
-            const BlockRecordWriter::ChainInlineContext inline_ctx =
-                block_records.chain_inline_context(snarl, travs, trav_genotype, ref_trav_idx);
-            // Also once for this snarl: see ChildPlacer::TraversalNodeIndex.
-            vector<ChildPlacer::TraversalNodeIndex> trav_visits;
-            trav_visits.reserve(travs.size());
-            for (const SnarlTraversal& t : travs) {
-                trav_visits.push_back(ChildPlacer::index_traversal_nodes(t));
+        // A child no called allele reaches is kept only where the linkage pass can come back to
+        // it: with staging and the linkage model.
+        const vector<ChildPlacer::Placed> children = child_placer.place(
+            snarl, record_key_of(snarl), travs, trav_genotype, ref_trav_idx, ploidy, placement,
+            off_reference_nesting, staged_sites.active() && linker.enabled());
+        for (const ChildPlacer::Placed& child : children) {
+            if (child.placement.level < 16) {
+                ++descent_counters.depth_hist[child.placement.level];
             }
-            for (const Snarl* child : snarl_manager.children_of(managed_ptr)) {
-                if (child == nullptr || snarl_manager.is_trivial(child, graph)) {
-                    continue;
-                }
-                // A chain that no reference path passes through has no REF or POS for its records,
-                // so it is skipped unless off-reference descent is on.
-                bool child_off_reference = false;
-                if (ref_trav_idx >= 0 && ref_trav_idx < (int)travs.size()) {
-                    vector<int> ref_only(1, ref_trav_idx);
-                    if (child_ploidy(trav_visits, ref_only, *child, 1) == 0) {
-                        // With off-reference descent, such a chain is genotyped and recorded but has
-                        // no line.
-                        if (!off_reference_nesting) {
-                            ++descent_counters.skipped_no_ref;
-                            continue;
-                        }
-                        child_off_reference = true;
-                        ++descent_counters.off_reference;
-                    }
-                }
-                // Inherited: everything under a chain the reference does not cross is also off it.
-                if (nested_context.no_reference) {
-                    child_off_reference = true;
-                }
-
-                // The exactly-once test: under block emission, a chain that every called strand
-                // crosses only inside a difference block is already spelled by that block's ALT. It
-                // holds back the chain's line, not its descent, so the chain is still genotyped,
-                // recorded and phased. Inherited by chains inside it. Does nothing when block
-                // emission is off, or for a snarl whose projection has no symbols.
-                bool child_reported_inline =
-                    nested_context.reported_inline
-                    || block_records.chain_reported_inline(inline_ctx, *child);
-
-                int copies = child_ploidy(trav_visits, trav_genotype, *child, ploidy);
-                bool retain_only = nested_context.retain_only;
-                if (copies <= 0) {
-                    // No called allele reaches it yet. Visited anyway, while this window's reads are
-                    // in memory, since the linkage model may move the parent onto an allele that
-                    // does reach it. Nothing about it is written unless the linkage pass says so.
-                    ++descent_counters.skipped_no_copy;
-                    if (!staged_sites.active() || !linker.enabled()) {
-                        // Without retention there is nothing to come back to. Without the linkage
-                        // model nothing moves the parent after the direct pass, so the sample has no copy
-                        // of this chain; the linkage pass, which has no chosen parent to read, would
-                        // otherwise render it at the parent's ploidy.
-                        continue;
-                    }
-                    retain_only = true;
-                }
-
-                // Saved and restored, since a child may descend further, and its own children must see
-                // it as their parent.
-                NestingPlacement saved = nested_context;
-                nested_context.one_copy = (copies == 1);
-                nested_context.parent_record_key = record_key_of(snarl);
-                nested_context.retain_only = retain_only;
-                nested_context.no_reference = child_off_reference;
-                // Where this child starts along the first called allele that reaches it, added to
-                // the offset of its parent. Only an off-reference chain uses it, but it is computed
-                // for every chain, so that offsets add up down the tree.
-                nested_context.parent_offset =
-                    saved.parent_offset + offset_along_genotype(travs, trav_genotype, *child);
-                nested_context.reported_inline = child_reported_inline;
-                // The chain's identity, from its boundary nodes.
-                {
-                    const pair<nid_t, nid_t> cb = chain_bounds_of(child, snarl_manager);
-                    nested_context.chain_key =
-                        (size_t)((uint64_t)cb.first * 1000003ULL) ^ (size_t)(uint64_t)cb.second;
-                }
-                bool crossing_known = true;   // child_crossing_mask always sets it
-                // The mask is over this snarl's own candidate traversals, which exist whether or not
-                // a line was written.
-                nested_context.parent_crossing =
-                    ChildPlacer::child_crossing_mask(trav_visits, *child, &crossing_known);
-                nested_context.crossing_known = crossing_known;
-                nested_context.level = saved.level + 1;
-                ++g_descent_depth;
-                if (g_descent_depth < 16) {
-                    ++descent_counters.depth_hist[g_descent_depth];
-                }
-                // `copies` is zero only for a chain no called parent allele reaches, which is still
-                // genotyped; it then takes the parent's ploidy, the most copies a child can have.
-                // The other ploidy's answer is computed as well, so the linkage pass can change it
-                // later.
-                call_snarl_internal(*child, ref_path_name,
-                                    make_pair(get<0>(ref_interval), get<1>(ref_interval)),
-                                    nullptr, copies >= 1 ? copies : ploidy);
-                --g_descent_depth;
-                nested_context = saved;
-            }
+            // The other ploidy's answer is computed as well, so the linkage pass can change it
+            // later.
+            call_snarl_internal(*child.snarl, ref_path_name,
+                                make_pair(get<0>(ref_interval), get<1>(ref_interval)),
+                                nullptr, child.ploidy, child.placement);
         }
     }
 
@@ -1228,7 +1135,7 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
                     // Recursively call child with traversal sets
                     call_snarl_internal(*child, ref_path_name,
                                         make_pair(get<0>(ref_interval), get<1>(ref_interval)),
-                                        &child_trav_sets);
+                                        &child_trav_sets, -1, placement);
                 }
             }
         }

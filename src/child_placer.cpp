@@ -2,7 +2,9 @@
 #include <limits>
 
 #include "child_placer.hpp"
-#include "flow_caller.hpp"
+#include "block_records.hpp"
+#include "snarls.hpp"
+#include "symbolic_allele.hpp"
 
 namespace vg {
 
@@ -151,7 +153,7 @@ uint64_t ChildPlacer::child_crossing_mask(const vector<TraversalNodeIndex>& visi
     return mask;
 }
 
-int64_t FlowCaller::base_offset_of_child(const SnarlTraversal& trav, const Snarl& child) const {
+int64_t ChildPlacer::base_offset_of_child(const SnarlTraversal& trav, const Snarl& child) const {
     const int entry = ChildPlacer::offset_of_child(trav, child);
     if (entry < 0) {
         return -1;
@@ -161,13 +163,13 @@ int64_t FlowCaller::base_offset_of_child(const SnarlTraversal& trav, const Snarl
         if (trav.visit(i).has_snarl()) {
             continue;
         }
-        bases += (int64_t)graph.get_length(graph.get_handle(trav.visit(i).node_id()));
+        bases += (int64_t)graph->get_length(graph->get_handle(trav.visit(i).node_id()));
     }
     return bases;
 }
 
-size_t FlowCaller::offset_along_genotype(const vector<SnarlTraversal>& travs,
-                                         const vector<int>& genotype, const Snarl& child) const {
+size_t ChildPlacer::offset_along_genotype(const vector<SnarlTraversal>& travs,
+                                          const vector<int>& genotype, const Snarl& child) const {
     for (int allele : genotype) {
         if (allele < 0 || allele >= (int)travs.size()) {
             continue;
@@ -180,9 +182,8 @@ size_t FlowCaller::offset_along_genotype(const vector<SnarlTraversal>& travs,
     return 0;
 }
 
-int FlowCaller::child_ploidy(const vector<ChildPlacer::TraversalNodeIndex>& visits,
-                             const vector<int>& genotype,
-                             const Snarl& child, int cap) const {
+int ChildPlacer::child_ploidy(const vector<TraversalNodeIndex>& visits,
+                              const vector<int>& genotype, const Snarl& child, int cap) const {
     int copies = 0;
     bool capped = false;
 
@@ -190,7 +191,7 @@ int FlowCaller::child_ploidy(const vector<ChildPlacer::TraversalNodeIndex>& visi
         if (allele < 0 || allele >= (int)visits.size()) {
             continue;   // star or missing: that haplotype contributes no copy here
         }
-        int crossings = ChildPlacer::crossings_of_child(visits[allele], child);
+        int crossings = crossings_of_child(visits[allele], child);
         if (crossings > 1) {
             capped = true;
             crossings = 1;   // a cycle or tandem duplication; see the header comment
@@ -199,9 +200,121 @@ int FlowCaller::child_ploidy(const vector<ChildPlacer::TraversalNodeIndex>& visi
     }
     if (capped) {
         // Counted and reported once per run.
-        ++descent_counters.child_multi_crossing;
+        ++counters->child_multi_crossing;
     }
     return min(copies, cap);
+}
+
+void ChildPlacer::configure(const HandleGraph* graph, const SnarlManager* manager,
+                            const BlockRecordWriter* blocks, DescentCounters* counters) {
+    this->graph = graph;
+    this->manager = manager;
+    this->blocks = blocks;
+    this->counters = counters;
+}
+
+vector<ChildPlacer::Placed> ChildPlacer::place(const Snarl& site, size_t site_key,
+                                               const vector<SnarlTraversal>& travs,
+                                               const vector<int>& genotype,
+                                               int ref_trav_idx, int ploidy,
+                                               const NestingPlacement& placement,
+                                               bool off_reference, bool keep_uncrossed) const {
+    vector<Placed> placed;
+    const Snarl* managed_ptr = manager->into_which_snarl(site.start().node_id(),
+                                                         site.start().backward());
+    if (managed_ptr == nullptr) {
+        return placed;
+    }
+    // The child-independent parts of the exactly-once test, built once for this snarl.
+    const BlockRecordWriter::ChainInlineContext inline_ctx =
+        blocks->chain_inline_context(site, travs, genotype, ref_trav_idx);
+    // Also once for this snarl: see TraversalNodeIndex.
+    vector<TraversalNodeIndex> trav_visits;
+    trav_visits.reserve(travs.size());
+    for (const SnarlTraversal& t : travs) {
+        trav_visits.push_back(index_traversal_nodes(t));
+    }
+    for (const Snarl* child : manager->children_of(managed_ptr)) {
+        if (child == nullptr || manager->is_trivial(child, *graph)) {
+            continue;
+        }
+        // A chain that no reference path passes through has no REF or POS for its records,
+        // so it is skipped unless off-reference descent is on.
+        bool child_off_reference = false;
+        if (ref_trav_idx >= 0 && ref_trav_idx < (int)travs.size()) {
+            vector<int> ref_only(1, ref_trav_idx);
+            if (child_ploidy(trav_visits, ref_only, *child, 1) == 0) {
+                // With off-reference descent, such a chain is genotyped and recorded but has
+                // no line.
+                if (!off_reference) {
+                    ++counters->skipped_no_ref;
+                    continue;
+                }
+                child_off_reference = true;
+                ++counters->off_reference;
+            }
+        }
+        // Inherited: everything under a chain the reference does not cross is also off it.
+        if (placement.no_reference) {
+            child_off_reference = true;
+        }
+
+        // The exactly-once test: under block emission, a chain that every called strand
+        // crosses only inside a difference block is already spelled by that block's ALT. It
+        // holds back the chain's line, not its descent, so the chain is still genotyped,
+        // recorded and phased. Inherited by chains inside it. Does nothing when block
+        // emission is off, or for a snarl whose projection has no symbols.
+        bool child_reported_inline =
+            placement.reported_inline || blocks->chain_reported_inline(inline_ctx, *child);
+
+        int copies = child_ploidy(trav_visits, genotype, *child, ploidy);
+        bool retain_only = placement.retain_only;
+        if (copies <= 0) {
+            // No called allele reaches it yet. Visited anyway, while this window's reads are
+            // in memory, since the linkage model may move the parent onto an allele that
+            // does reach it. Nothing about it is written unless the linkage pass says so.
+            ++counters->skipped_no_copy;
+            if (!keep_uncrossed) {
+                // Without retention there is nothing to come back to. Without the linkage
+                // model nothing moves the parent after the direct pass, so the sample has no copy
+                // of this chain; the linkage pass, which has no chosen parent to read, would
+                // otherwise render it at the parent's ploidy.
+                continue;
+            }
+            retain_only = true;
+        }
+
+        Placed out;
+        out.snarl = child;
+        // `copies` is zero only for a chain no called parent allele reaches, which is still
+        // genotyped; it then takes the parent's ploidy, the most copies a child can have.
+        out.ploidy = copies >= 1 ? copies : ploidy;
+        NestingPlacement& next = out.placement;
+        next.one_copy = (copies == 1);
+        next.parent_record_key = site_key;
+        next.retain_only = retain_only;
+        next.no_reference = child_off_reference;
+        // Where this child starts along the first called allele that reaches it, added to
+        // the offset of its parent. Only an off-reference chain uses it, but it is computed
+        // for every chain, so that offsets add up down the tree.
+        next.parent_offset =
+            placement.parent_offset + offset_along_genotype(travs, genotype, *child);
+        next.reported_inline = child_reported_inline;
+        // The chain's identity, from its boundary nodes.
+        {
+            const pair<nid_t, nid_t> cb = chain_bounds_of(child, *manager);
+            next.chain_key =
+                (size_t)((uint64_t)cb.first * 1000003ULL) ^ (size_t)(uint64_t)cb.second;
+        }
+        bool crossing_known = true;   // child_crossing_mask always sets it
+        // The mask is over this snarl's own candidate traversals, which exist whether or not
+        // a line was written.
+        next.parent_crossing = child_crossing_mask(trav_visits, *child, &crossing_known);
+        next.crossing_known = crossing_known;
+        next.level = placement.level + 1;
+        placed.push_back(out);
+    }
+    return placed;
 }
 
 }

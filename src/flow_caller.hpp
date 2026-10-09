@@ -48,32 +48,6 @@ using TraversalSet = vector<SnarlTraversal>;
 /// consistent with parent allele 0, element 1 with parent allele 1.
 using ChildTraversalSets = vector<TraversalSet>;
 
-/// Counts of what nested descent did in one run: how deep it went, and how many child chains it
-/// skipped or recorded, and why. A member of each FlowCaller, so that runs count separately;
-/// `mutable` there because the counting paths are const.
-struct DescentCounters {
-    /// How deep the descent went, by depth.
-    std::atomic<size_t> depth_hist[16] = {};
-    /// Children skipped because no reference path passes through them and off-reference descent
-    /// is off.
-    std::atomic<size_t> skipped_no_ref{0};
-    /// Children that no reference path passes through, descended into because off-reference
-    /// descent is on.
-    std::atomic<size_t> off_reference{0};
-    /// Sites that no reference path passes through, given an entry in the linkage model but no
-    /// line.
-    std::atomic<size_t> no_ref_recorded{0};
-    /// Off-reference chains by copy number: 0, 1, 2.
-    std::atomic<size_t> no_ref_copies[3] = {};
-    /// Children that no called parent allele crosses in the direct pass. They are genotyped and kept,
-    /// and the linkage pass decides from the parent's chosen genotype whether the sample has them.
-    std::atomic<size_t> skipped_no_copy{0};
-    /// Children that a called traversal enters more than once. Only the first entry counts, both
-    /// for ploidy and for distance: one traversal crossing a chain twice is one strand carrying two
-    /// copies, not two strands, so it does not make the chain ploidy 2.
-    std::atomic<size_t> child_multi_crossing{0};
-};
-
 /**
  * FlowCaller: takes each snarl's candidate traversals from a TraversalFinder and genotypes them
  * with its SnarlCaller (support-based, or ReadLikelihoodSnarlCaller under --read-likelihood). It
@@ -188,8 +162,8 @@ protected:
     /// each site's allele numbering. Each does nothing when its part is turned off.
     void install_record_steps();
 
-    /// Tell the widgets that read staged sites where to read what a site does not hold.
-    void install_site_reader();
+    /// Configure the widgets of the passes with what they read from this caller.
+    void install_widgets();
 
     /// Report what nested descent did: the depth histogram, and how many children it skipped and
     /// why. Does nothing in a run without nested descent.
@@ -264,6 +238,9 @@ protected:
     /// Builds the staged sites' records once the passes are done.
     RecordRenderer record_renderer;
 
+    /// Lists the child chains nested descent genotypes under each site.
+    ChildPlacer child_placer;
+
     /// Make a top-level site's `StagedSite` from its genotype, moving `call_info` into it.
     /// `travs` is left empty, because descent still reads the traversals; the caller moves them in
     /// once descent is done. Returns null, and leaves `call_info` alone, when staging is off (see
@@ -291,33 +268,15 @@ protected:
     ///                        contig's or the --ploidy-bed region's. Nested calling passes the
     ///                        number of the parent's called alleles that cross the child, or the
     ///                        parent's ploidy when none does.
+    /// @param placement Where the snarl sits in the nesting tree: the default for a top-level
+    ///                  snarl, and what `ChildPlacer::place` gave a child. A --top-down child
+    ///                  takes its parent's.
     bool call_snarl_internal(const Snarl& snarl,
                              const string& parent_ref_path_name,
                              pair<size_t, size_t> parent_ref_interval,
-                             const ChildTraversalSets* parent_child_trav_sets = nullptr,
-                             int ploidy_override = -1);
+                             const ChildTraversalSets* parent_child_trav_sets,
+                             int ploidy_override, const NestingPlacement& placement);
 
-    /// How many of the called parent alleles cross this child snarl, capped at `cap`.
-    ///
-    /// A traversal crosses the child when the child's start and end both appear in it in order, so
-    /// a traversal that touches both boundaries on unrelated excursions does not count. One
-    /// allele crossing a chain more than once, as in a cycle or tandem duplication, counts once,
-    /// since the caller assumes ploidy 1 or 2; this is logged.
-    int child_ploidy(const vector<ChildPlacer::TraversalNodeIndex>& visits,
-                     const vector<int>& genotype, const Snarl& child, int cap) const;
-
-public:
-    /// How far along `trav`, in bases, the child chain is entered: the total length of the nodes
-    /// visited before it, or -1 if `trav` does not cross it, by the rule
-    /// `ChildPlacer::offset_of_child` uses. It gives an off-reference chain its place along its
-    /// parent (see `NestingPlacement::parent_offset`).
-    int64_t base_offset_of_child(const SnarlTraversal& trav, const Snarl& child) const;
-
-    /// `base_offset_of_child` along the first traversal of `genotype` that crosses `child`, or 0
-    /// when none does.
-    size_t offset_along_genotype(const vector<SnarlTraversal>& travs, const vector<int>& genotype,
-                                 const Snarl& child) const;
-protected:
 
     /// Find all traversals through a child snarl that are consistent with a parent traversal.
     /// "Consistent" means the child's entry/exit points match what's in the parent traversal.

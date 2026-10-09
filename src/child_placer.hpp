@@ -1,6 +1,7 @@
 #ifndef VG_CHILD_PLACER_HPP_INCLUDED
 #define VG_CHILD_PLACER_HPP_INCLUDED
 
+#include <atomic>
 #include <cstdint>
 #include <unordered_map>
 #include <vector>
@@ -11,6 +12,34 @@
 namespace vg {
 
 using namespace std;
+
+class BlockRecordWriter;
+class SnarlManager;
+
+/// Counts of what nested descent did in one run: how deep it went, and how many child chains it
+/// skipped or recorded, and why. One per run, so that runs count separately.
+struct DescentCounters {
+    /// How deep the descent went, by depth.
+    std::atomic<size_t> depth_hist[16] = {};
+    /// Children skipped because no reference path passes through them and off-reference descent
+    /// is off.
+    std::atomic<size_t> skipped_no_ref{0};
+    /// Children that no reference path passes through, descended into because off-reference
+    /// descent is on.
+    std::atomic<size_t> off_reference{0};
+    /// Sites that no reference path passes through, given an entry in the linkage model but no
+    /// line.
+    std::atomic<size_t> no_ref_recorded{0};
+    /// Off-reference chains by copy number: 0, 1, 2.
+    std::atomic<size_t> no_ref_copies[3] = {};
+    /// Children that no called parent allele crosses in the direct pass. They are genotyped and kept,
+    /// and the linkage pass decides from the parent's chosen genotype whether the sample has them.
+    std::atomic<size_t> skipped_no_copy{0};
+    /// Children that a called traversal enters more than once. Only the first entry counts, both
+    /// for ploidy and for distance: one traversal crossing a chain twice is one strand carrying two
+    /// copies, not two strands, so it does not make the chain ploidy 2.
+    std::atomic<size_t> child_multi_crossing{0};
+};
 
 /**
  * Where a site sits in the nesting tree: the place its parent's genotype gives it. A top-level
@@ -79,12 +108,13 @@ struct NestingPlacement {
 };
 
 /**
- * How a parent's traversals cross its child chains: which traversals cross a child, and how far
- * along a traversal the child starts.
+ * Nested descent's placement: lists the child chains a genotyped site's called alleles cross,
+ * each with its place in the nesting tree and the ploidy to genotype it at.
  *
- * A traversal crosses a child when it visits one of the child's boundary nodes and then the
- * other, so a traversal that touches both boundaries on unrelated excursions does not count.
- * Visits to child snarls are left out.
+ * Its static members say how a parent's traversals cross its child chains: which traversals
+ * cross a child, and how far along a traversal the child starts. A traversal crosses a child when
+ * it visits one of the child's boundary nodes and then the other, so a traversal that touches
+ * both boundaries on unrelated excursions does not count. Visits to child snarls are left out.
  */
 class ChildPlacer {
 public:
@@ -130,6 +160,59 @@ public:
     /// so that the caller can tell unknown from "no traversal crosses".
     static uint64_t child_crossing_mask(const vector<TraversalNodeIndex>& visits,
                                         const Snarl& child, bool* known = nullptr);
+
+    /// A child chain to genotype, as `place` lists it.
+    struct Placed {
+        /// The child, as the snarl manager holds it.
+        const Snarl* snarl = nullptr;
+        /// The ploidy to genotype it at: how many of the parent's called alleles cross it, or the
+        /// parent's ploidy when none does, the most copies a child can have.
+        int ploidy = 0;
+        NestingPlacement placement;
+    };
+
+    /// Place children in `graph`, as `manager` nests them, testing each against the difference
+    /// blocks of `blocks`, and counting what descent does in `counters`. None is owned.
+    void configure(const HandleGraph* graph, const SnarlManager* manager,
+                   const BlockRecordWriter* blocks, DescentCounters* counters);
+
+    /// The child chains to genotype under a genotyped site, in the manager's order, each placed
+    /// under the site. The site is `site`, named `site_key`, with candidate traversals `travs`,
+    /// the reference among them at `ref_trav_idx`, called at `genotype` and `ploidy`, and placed
+    /// at `placement`.
+    ///
+    /// A chain the reference does not cross is left out, unless `off_reference` lets descent
+    /// genotype it with no line. A chain no called allele crosses is left out, unless
+    /// `keep_uncrossed`: then it is genotyped at the parent's ploidy and retained, since the
+    /// linkage model may still move the parent onto an allele that crosses it.
+    vector<Placed> place(const Snarl& site, size_t site_key, const vector<SnarlTraversal>& travs,
+                         const vector<int>& genotype, int ref_trav_idx, int ploidy,
+                         const NestingPlacement& placement, bool off_reference,
+                         bool keep_uncrossed) const;
+
+    /// How many of the called parent alleles cross this child snarl, capped at `cap`.
+    ///
+    /// One allele crossing a chain more than once, as in a cycle or tandem duplication, counts
+    /// once, since the caller assumes ploidy 1 or 2; this is counted.
+    int child_ploidy(const vector<TraversalNodeIndex>& visits, const vector<int>& genotype,
+                     const Snarl& child, int cap) const;
+
+    /// How far along `trav`, in bases, the child chain is entered: the total length of the nodes
+    /// visited before it, or -1 if `trav` does not cross it, by the rule `offset_of_child` uses.
+    /// It gives an off-reference chain its place along its parent (see
+    /// `NestingPlacement::parent_offset`).
+    int64_t base_offset_of_child(const SnarlTraversal& trav, const Snarl& child) const;
+
+    /// `base_offset_of_child` along the first traversal of `genotype` that crosses `child`, or 0
+    /// when none does.
+    size_t offset_along_genotype(const vector<SnarlTraversal>& travs, const vector<int>& genotype,
+                                 const Snarl& child) const;
+
+private:
+    const HandleGraph* graph = nullptr;
+    const SnarlManager* manager = nullptr;
+    const BlockRecordWriter* blocks = nullptr;
+    DescentCounters* counters = nullptr;
 };
 
 }
