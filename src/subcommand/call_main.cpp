@@ -16,6 +16,7 @@
 #include "../graph_caller.hpp"
 #include "../flow_caller.hpp"
 #include "../legacy_caller.hpp"
+#include "../multipass_caller.hpp"
 #include "../nested_flow_caller.hpp"
 #include "../vcf_genotyper.hpp"
 #include "../vcf_output_caller.hpp"
@@ -2340,7 +2341,10 @@ int main_call(int argc, char** argv) {
         }
     }
 
+    // Every run without --read-likelihood calls through a GraphCaller, and every run with it
+    // through a MultiPassCaller.
     unique_ptr<GraphCaller> graph_caller;
+    unique_ptr<MultiPassCaller> multipass_caller;
     unique_ptr<TraversalFinder> traversal_finder;
     unique_ptr<gbwt::GBWT> gbwt_index_up;
 
@@ -2415,7 +2419,15 @@ int main_call(int argc, char** argv) {
             traversal_finder = unique_ptr<TraversalFinder>(flow_traversal_finder);
         }
 
-        if (top_down) {
+        if (read_likelihood) {
+            multipass_caller.reset(new MultiPassCaller(*dynamic_cast<PathPositionHandleGraph*>(graph),
+                                                       *read_likelihood_caller, *snarl_manager,
+                                                       sample_name, *traversal_finder, ref_paths,
+                                                       ref_path_offsets, ref_path_ploidies,
+                                                       genotype_snarls,
+                                                       make_pair(min_allele_len, max_allele_len),
+                                                       top_down, star_allele));
+        } else if (top_down) {
             // Use FlowCaller with nested mode enabled (top-down genotype propagation)
             graph_caller.reset(new FlowCaller(*dynamic_cast<PathPositionHandleGraph*>(graph),
                                               *dynamic_cast<SupportBasedSnarlCaller*>(snarl_caller.get()),
@@ -2463,16 +2475,18 @@ int main_call(int argc, char** argv) {
     if (!max_snarl_edges_explicit) {
         max_snarl_edges_opt = (read_likelihood && gbwt_enumeration) ? 0 : 10000;
     }
-    // The FlowCaller constructors do not take the cap, so we set it on whichever one was built.
+    // The constructors do not take the cap, so we set it on whichever caller was built.
     if (FlowCaller* flow_caller = dynamic_cast<FlowCaller*>(graph_caller.get())) {
         flow_caller->set_max_snarl_edges(max_snarl_edges_opt);
-        if (read_likelihood_caller != nullptr) {
-            flow_caller->set_site_genotyper(*read_likelihood_caller);
-        }
+    }
+    if (multipass_caller != nullptr) {
+        multipass_caller->set_max_snarl_edges(max_snarl_edges_opt);
     }
 
     // The caller as a VCFOutputCaller, or null if it does not write VCF.
-    VCFOutputCaller* const vcf_out = dynamic_cast<VCFOutputCaller*>(graph_caller.get());
+    VCFOutputCaller* const vcf_out =
+        multipass_caller != nullptr ? multipass_caller.get()
+                                    : dynamic_cast<VCFOutputCaller*>(graph_caller.get());
 
     // Per-region ploidy, if given.
     if (!ploidy_bed_filename.empty()) {
@@ -2784,11 +2798,15 @@ int main_call(int argc, char** argv) {
         header = vcf_caller->vcf_header(*graph, header_ref_paths, header_ref_lengths);
     }
 
-    graph_caller->set_show_progress(show_progress);
+    if (multipass_caller != nullptr) {
+        multipass_caller->set_show_progress(show_progress);
+    } else {
+        graph_caller->set_show_progress(show_progress);
+    }
     
     // Call the graph
     // Determine recursion strategy based on mode:
-    // - top_down: FlowCaller handles recursion internally, so RecurseNever
+    // - top_down: the caller handles recursion internally, so RecurseNever
     // - all_snarls (-A): visit every snarl independently, so RecurseAlways
     // - default: only recurse into children of failed snarls, so RecurseOnFail
     GraphCaller::RecurseType recurse_type;
@@ -2803,26 +2821,28 @@ int main_call(int argc, char** argv) {
     // A read source that fetches reads by node-ID window works best when snarls are called in
     // node-ID order, batched by its window, so that each fetched window serves many sites in a row.
     if (dynamic_cast<WindowedSiteReadSource*>(read_source.get()) != nullptr) {
-        graph_caller->set_snarl_batching(read_window_size);
+        // Only --read-likelihood reads reads.
+        multipass_caller->set_snarl_batching(read_window_size);
         if (show_progress) {
             logger.info() << "Visiting snarls in node-ID order, window " << read_window_size << endl;
         }
     }
 
-    // Under --read-likelihood, after the direct pass, choose the genotypes, parents before their
-    // nested children (the linkage pass, FlowCaller::run_linkage_pass), and build each record from
-    // its settled genotype. Nested calling needs this because a child's ploidy depends on its
-    // parent's genotype, and the linkage model needs it because it can change genotypes after they
-    // are first called. Every read-likelihood run takes this path, whether or not either is on.
-    FlowCaller* deferring_caller = nullptr;
-    if (read_likelihood) {
-        deferring_caller = dynamic_cast<FlowCaller*>(graph_caller.get());
-        if (deferring_caller != nullptr) {
-            deferring_caller->set_stage_records(true);
-        }
-    }
-
-    if (!call_chains) {
+    if (multipass_caller != nullptr) {
+        // Every pass, from the direct pass to the records and the anchors (see MultiPassCaller).
+        if (show_progress) logger.info() << "Calling top-level snarls" << endl;
+        multipass_caller->call(recurse_type, [&]() {
+            // The passes after the direct pass work from what it kept, not from reads: free the
+            // windows the read source still caches, before those passes reach the run's highest
+            // memory use.
+            if (auto* windowed = dynamic_cast<WindowedSiteReadSource*>(read_source.get())) {
+                size_t freed = windowed->drop_cached_windows();
+                if (show_progress) {
+                    logger.info() << "Freed the read cache: " << freed << " reads" << endl;
+                }
+            }
+        });
+    } else if (!call_chains) {
         // Call each snarl
         if (show_progress) logger.info() << "Calling top-level snarls" << endl;
         graph_caller->call_top_level_snarls(*graph, recurse_type);
@@ -2831,30 +2851,6 @@ int main_call(int argc, char** argv) {
         // Todo: this could probably help in some cases when making VCFs too
         if (show_progress) logger.info() << "Calling top-level chains" << endl;
         graph_caller->call_top_level_chains(*graph, max_chain_edges, max_chain_trivial_travs, recurse_type);
-    }
-
-    // Calling is done, and the passes below work from what it kept, not from reads: free the
-    // windows the read source still caches, before those passes reach the run's highest memory use.
-    if (auto* windowed = dynamic_cast<WindowedSiteReadSource*>(read_source.get())) {
-        size_t freed = windowed->drop_cached_windows();
-        if (show_progress) {
-            logger.info() << "Freed the read cache: " << freed << " reads" << endl;
-        }
-    }
-
-    if (deferring_caller != nullptr) {
-        // Round 1's linkage pass, then read phasing and any further rounds, then the render.
-        deferring_caller->run_linkage_pass();
-        deferring_caller->phase_and_regenotype();
-        deferring_caller->render_retained_records();
-    }
-
-    // Anchors are collected while records are built, so they are written afterwards.
-    {
-        auto* anchor_caller = vcf_out;
-        if (anchor_caller != nullptr) {
-            anchor_caller->write_anchors();
-        }
     }
 
     // Report how the windowed read source's fetches and cache performed.

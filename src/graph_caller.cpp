@@ -44,6 +44,13 @@ static nid_t snarl_node_key(const Snarl* snarl) {
 }
 
 void GraphCaller::call_top_level_snarls(const HandleGraph& graph, RecurseType recurse_type) {
+    call_snarl_tree(graph, snarl_manager, recurse_type, snarl_batch_window, show_progress,
+                    [&](const Snarl& snarl) { return call_snarl(snarl); });
+}
+
+void call_snarl_tree(const HandleGraph& graph, SnarlManager& snarl_manager,
+                     GraphCaller::RecurseType recurse_type, size_t snarl_batch_window,
+                     bool show_progress, const function<bool(const Snarl&)>& call_snarl) {
 
     std::atomic<std::int64_t> top_snarl_count(0);
     std::atomic<std::int64_t> nested_snarl_count(0);
@@ -59,7 +66,8 @@ void GraphCaller::call_top_level_snarls(const HandleGraph& graph, RecurseType re
 #endif
 
             bool was_called = call_snarl(*snarl);
-            if (recurse_type == RecurseAlways || (!was_called && recurse_type == RecurseOnFail)) {
+            if (recurse_type == GraphCaller::RecurseAlways
+                || (!was_called && recurse_type == GraphCaller::RecurseOnFail)) {
                 const vector<const Snarl*>& children = snarl_manager.children_of(snarl);
                 thread_queue.insert(thread_queue.end(), children.begin(), children.end());
             }

@@ -45,7 +45,7 @@ using vg::io::AlignmentEmitter;
  * Helper class that VCF writers can inherit from, for the common code to output sorted VCF.
  *
  * It also holds the state of the linkage model, read phasing, the anchor file, the mosaic file
- * and block emission, which only FlowCaller uses.
+ * and block emission, which only MultiPassCaller uses.
  */
 class VCFOutputCaller {
 public:
@@ -186,12 +186,11 @@ public:
     /// inside child chains, whose own records report those differences. The manager is not owned
     /// and must outlive this caller.
     ///
-    /// In FlowCaller a non-null manager also turns on nested calling: after call_snarl_internal
-    /// calls a snarl, it descends into the snarl's child chains and genotypes them.
+    /// In MultiPassCaller a non-null manager also turns on nested calling: after `TreeGenotyper`
+    /// genotypes a snarl, it descends into the snarl's child chains and genotypes them.
     ///
     /// A non-null manager adds the `same_as_reference` and `count_site` steps to `record_steps`,
-    /// and null removes them. These are set here rather than by FlowCaller because any caller that
-    /// writes VCF can be given symbolic collapsing.
+    /// and null removes them.
     void set_symbolic_collapsing(const SnarlManager* manager);
 
     /// Write one record per difference block between the reference and each called strand's
@@ -280,7 +279,7 @@ protected:
 
     /// Steps added to writing a site record by the callers that need them. Each is left empty when
     /// not needed. Symbolic collapsing adds the first two (see `set_symbolic_collapsing`), and
-    /// FlowCaller adds the others.
+    /// MultiPassCaller adds the others.
     struct SiteRecordSteps {
         /// Whether called traversal `trav` is written as the reference allele, because it takes
         /// the reference traversal's route through the site.
@@ -337,6 +336,12 @@ protected:
     /// used for making gaf traversal names
     pair<string, int64_t> get_ref_position(const PathPositionHandleGraph& graph, const Snarl& snarl, const string& ref_path_name,
                                            int64_t ref_path_offset) const;
+
+    /// The header of a caller that genotypes with `snarl_caller`: the base header, GT,
+    /// `snarl_caller`'s own lines, FILTER, SAMPLE and the column line. Opens the output VCF with it.
+    string snarl_caller_vcf_header(const PathHandleGraph& graph, const vector<string>& contigs,
+                                   const vector<size_t>& contig_length_overrides,
+                                   const SnarlCaller& snarl_caller) const;
 
     /// clean up the alleles to not share common prefixes / suffixes
     /// if len_override given, just do that many bases without thinking

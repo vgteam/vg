@@ -62,9 +62,8 @@ struct NestingPlacement {
     /// how many copies of the chain the parent's chosen genotype carries, and on which
     /// strand.
     uint64_t parent_crossing = 0;
-    /// Set where no called parent allele reaches the chain, and only when staging is on (see
-    /// `FlowCaller::set_stage_records`) and the linkage model runs (without it, such a chain is
-    /// not genotyped). The chain is genotyped anyway, at the parent's ploidy, because the linkage
+    /// Set where no called parent allele reaches the chain, and only when the linkage model runs
+    /// (without it, such a chain is not genotyped). The chain is genotyped anyway, at the parent's ploidy, because the linkage
     /// model may still move the parent onto an allele that does reach it. Inherited by its
     /// children, which are genotyped at their own provisional ploidy.
     ///

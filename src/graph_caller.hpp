@@ -98,6 +98,14 @@ protected:
     bool show_progress;
 };
 
+/// Run `call_snarl` on every top-level snarl of `snarl_manager`, then on children as
+/// `recurse_type` says, in the parallel jobs `snarl_batch_window` gives, as
+/// `GraphCaller::call_top_level_snarls` describes. `call_snarl` returns whether the snarl was
+/// called.
+void call_snarl_tree(const HandleGraph& graph, SnarlManager& snarl_manager,
+                     GraphCaller::RecurseType recurse_type, size_t snarl_batch_window,
+                     bool show_progress, const function<bool(const Snarl&)>& call_snarl);
+
 static void flip_snarl(Snarl& snarl) {
     Visit v = snarl.start();
     *snarl.mutable_start() = reverse(snarl.end());

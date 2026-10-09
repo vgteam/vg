@@ -697,6 +697,21 @@ bool VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCa
     return wants_line ? added : true;
 }
 
+string VCFOutputCaller::snarl_caller_vcf_header(const PathHandleGraph& graph,
+                                                const vector<string>& contigs,
+                                                const vector<size_t>& contig_length_overrides,
+                                                const SnarlCaller& snarl_caller) const {
+    string header = VCFOutputCaller::vcf_header(graph, contigs, contig_length_overrides);
+    header += "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">\n";
+    snarl_caller.update_vcf_header(header);
+    header += "##FILTER=<ID=PASS,Description=\"All filters passed\">\n";
+    header += "##SAMPLE=<ID=" + sample_name + ">\n";
+    header += "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t" + sample_name;
+    assert(output_vcf.openForOutput(header));
+    header += "\n";
+    return header;
+}
+
 tuple<int64_t, int64_t, bool, step_handle_t, step_handle_t> VCFOutputCaller::get_ref_interval(
     const PathPositionHandleGraph& graph, const Snarl& snarl, const string& ref_path_name) const {
     return vg::get_ref_interval(graph, graph.get_handle(snarl.start().node_id(), snarl.start().backward()),

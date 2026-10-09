@@ -3,12 +3,89 @@
 
 #include <omp.h>
 
-#include "flow_caller.hpp"
-#include "read_likelihood_caller.hpp"
+#include "multipass_caller.hpp"
+#include "utility.hpp"
 
 namespace vg {
 
-void FlowCaller::report_descent_instrumentation() const {
+MultiPassCaller::MultiPassCaller(const PathPositionHandleGraph& graph,
+                                 ReadLikelihoodSnarlCaller& genotyper, SnarlManager& snarl_manager,
+                                 const string& sample_name, TraversalFinder& traversal_finder,
+                                 const vector<string>& ref_paths,
+                                 const vector<size_t>& ref_path_offsets,
+                                 const vector<int>& ref_path_ploidies, bool genotype_snarls,
+                                 const pair<size_t, size_t>& allele_length_range, bool top_down,
+                                 bool star_allele) :
+    VCFOutputCaller(sample_name),
+    graph(graph),
+    snarl_caller(genotyper),
+    snarl_manager(snarl_manager),
+    ref_paths(ref_paths),
+    genotype_snarls(genotype_snarls),
+    top_down(top_down),
+    star_allele(star_allele),
+    candidates(graph, snarl_manager, traversal_finder, genotyper.get_support_finder(),
+               ref_path_set, allele_length_range),
+    site_genotyper(genotyper)
+{
+    for (int i = 0; i < ref_paths.size(); ++i) {
+        ref_offsets[ref_paths[i]] = i < ref_path_offsets.size() ? ref_path_offsets[i] : 0;
+        ref_path_set.insert(ref_paths[i]);
+        ref_ploidies[ref_paths[i]] = i < ref_path_ploidies.size() ? ref_path_ploidies[i] : 2;
+    }
+    install_record_steps();
+    install_widgets();
+}
+
+void MultiPassCaller::call(GraphCaller::RecurseType recurse_type,
+                           const function<void()>& after_direct_pass) {
+    // Sized here rather than inside the parallel region that writes it.
+    staged_sites.start(max((size_t)get_thread_count(), (size_t)omp_get_max_threads()));
+    // Configured here, once call_main has set nested calling and off-reference descent.
+    tree_genotyper.configure(
+        TreeGenotyper::Parts{
+            .graph = &graph,
+            .snarl_manager = &snarl_manager,
+            .candidates = &candidates,
+            .genotyper = &site_genotyper,
+            .linker = &linker,
+            .staged_sites = &staged_sites,
+            .child_placer = &child_placer,
+            .descent_counters = &descent_counters,
+            .ploidy_regions = &ploidy_regions,
+            .ref_offsets = &ref_offsets,
+            .ref_ploidies = &ref_ploidies,
+            .record_key_of = [this](const Snarl& site) { return record_key_of(site); },
+        },
+        TreeGenotyper::Options{
+            .nested_calling = symbolic_manager != nullptr,
+            .off_reference = off_reference_nesting,
+            .top_down = top_down,
+            .star_allele = star_allele,
+        });
+
+    // The direct pass.
+    call_snarl_tree(graph, snarl_manager, recurse_type, snarl_batch_window, show_progress,
+                    [&](const Snarl& site) { return tree_genotyper.genotype(site); });
+    if (show_progress) {
+        report_descent_instrumentation();
+    }
+    after_direct_pass();
+
+    // Round 1's linkage pass, then read phasing and any further rounds, then the render.
+    run_linkage_pass();
+    phase_and_regenotype();
+    render_retained_records();
+    // Anchors are collected while records are built, so they are written afterwards.
+    write_anchors();
+}
+
+string MultiPassCaller::vcf_header(const PathHandleGraph& graph, const vector<string>& contigs,
+                                   const vector<size_t>& contig_length_overrides) const {
+    return snarl_caller_vcf_header(graph, contigs, contig_length_overrides, snarl_caller);
+}
+
+void MultiPassCaller::report_descent_instrumentation() const {
     size_t total = 0;
     for (int d = 0; d < 16; ++d) {
         total += descent_counters.depth_hist[d].load();
@@ -41,7 +118,7 @@ void FlowCaller::report_descent_instrumentation() const {
     }
 }
 
-void FlowCaller::install_record_steps() {
+void MultiPassCaller::install_record_steps() {
     record_steps.phase = [this](const Snarl& site, const vector<int>& site_genotype,
                                 const map<int, int>& trav_to_allele, string& gt) {
         return phase_record_genotype(site, site_genotype, trav_to_allele, gt);
@@ -49,9 +126,8 @@ void FlowCaller::install_record_steps() {
     // The read-likelihood genotyper writes GL in colexicographic order, and the support-based one
     // in i-major order.
     record_steps.gl_layout = [this](const SnarlCaller::CallInfo* call_info) {
-        // Every call info a run with the read-likelihood genotyper writes is that genotyper's.
-        return site_genotyper != nullptr && call_info != nullptr ? GLLayout::Colexicographic
-                                                                 : GLLayout::IMajor;
+        // Every call info this caller writes is the read-likelihood genotyper's.
+        return call_info != nullptr ? GLLayout::Colexicographic : GLLayout::IMajor;
     };
     record_steps.write_blocks = [this](const PathPositionHandleGraph& graph, const Snarl& site,
                                        const vector<SnarlTraversal>& travs,
@@ -86,10 +162,10 @@ void FlowCaller::install_record_steps() {
     };
 }
 
-void FlowCaller::install_widgets() {
+void MultiPassCaller::install_widgets() {
     const SiteReader reader{
         .graph = &graph,
-        .genotyper = site_genotyper.get(),
+        .genotyper = &site_genotyper,
         .spell = [this](const SnarlTraversal& trav) { return trav_string(graph, trav); },
         .name = [this](const Snarl& site) { return print_snarl(site); },
     };
@@ -99,26 +175,7 @@ void FlowCaller::install_widgets() {
     child_placer.configure(&graph, &snarl_manager, &block_records, &descent_counters);
 }
 
-void FlowCaller::call_top_level_snarls(const HandleGraph& graph, RecurseType recurse_type) {
-    GraphCaller::call_top_level_snarls(graph, recurse_type);
-    if (show_progress) {
-        report_descent_instrumentation();
-    }
-}
-
-void FlowCaller::set_site_genotyper(ReadLikelihoodSnarlCaller& genotyper) {
-    site_genotyper.reset(new SiteGenotyper(genotyper));
-    install_widgets();
-}
-
-void FlowCaller::set_stage_records(bool defer) {
-    if (defer) {
-        // Sized here rather than inside the parallel region that writes it.
-        staged_sites.start(max((size_t)get_thread_count(), (size_t)omp_get_max_threads()));
-    }
-}
-
-bool FlowCaller::snarl_is_leaf(const Snarl& snarl) const {
+bool MultiPassCaller::snarl_is_leaf(const Snarl& snarl) const {
     // Through `manage`, not the address of this Snarl. `SnarlManager::record` casts a Snarl* to its
     // record, which is valid only for a Snarl the manager owns, and the Snarls here are copies.
     // `manage` throws for a snarl the manager does not own, as a nested chain reached by recursion
@@ -132,7 +189,7 @@ bool FlowCaller::snarl_is_leaf(const Snarl& snarl) const {
     }
 }
 
-void FlowCaller::rerun_linkage_pass() {
+void MultiPassCaller::rerun_linkage_pass() {
     if (!linker.enabled()) {
         return;
     }
@@ -142,7 +199,7 @@ void FlowCaller::rerun_linkage_pass() {
     run_linkage_pass();
 }
 
-void FlowCaller::phase_and_regenotype() {
+void MultiPassCaller::phase_and_regenotype() {
     const auto phase_set_of = [&](const string& contig, size_t phase_set) {
         return phase_set_id(contig, phase_set);
     };
@@ -225,7 +282,7 @@ void FlowCaller::phase_and_regenotype() {
     }
 }
 
-void FlowCaller::render_retained_records() {
+void MultiPassCaller::render_retained_records() {
     // Each read's strand log-odds, for the anchors collected during the render and the hand-off.
     // Read phasing is done, so `read_strands` is final here.
     read_strands.build_lambda(
@@ -249,10 +306,7 @@ void FlowCaller::render_retained_records() {
         show_progress);
 }
 
-void FlowCaller::run_linkage_pass() {
-    if (!staged_sites.active()) {
-        return;
-    }
+void MultiPassCaller::run_linkage_pass() {
     const GenotypeLinker::PassCounts counts = linker.link(staged_sites, phase_table, emit_phasing);
     vector<StagedSite>& pending = staged_sites.nested();
     size_t pass_inline_rederived = 0;
