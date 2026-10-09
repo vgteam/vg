@@ -3389,15 +3389,6 @@ FlowTraversalFinder::FlowTraversalFinder(const HandleGraph& graph,
     
 }
 
-FlowTraversalFinder::FlowTraversalFinder(const HandleGraph& graph, SnarlManager& snarl_manager,
-                                         size_t K,
-                                         function<double(handle_t)> node_weight_callback,
-                                         function<double(edge_t)> edge_weight_callback,
-                                         size_t max_traversal_length) :
-    FlowTraversalFinder(graph, K, node_weight_callback, edge_weight_callback, max_traversal_length) {
-    
-}
-
 void FlowTraversalFinder::setK(size_t k) {
     K = k;
 }

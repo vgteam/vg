@@ -628,13 +628,6 @@ public:
                         function<double(edge_t)> edge_weight_callback,
                         size_t max_traversal_length = numeric_limits<size_t>::max());
 
-    /// Same as above. The snarl manager is not used.
-    FlowTraversalFinder(const HandleGraph& graph, SnarlManager& snarl_manager,
-                        size_t K,
-                        function<double(handle_t)> node_weight_callback,
-                        function<double(edge_t)> edge_weight_callback,
-                        size_t max_traversal_length = numeric_limits<size_t>::max());
-
     /**
      * Return the K widest (most flow) traversals through the site
      * The reference traversal will be returned first (regardless of its flow).

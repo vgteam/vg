@@ -94,7 +94,6 @@ TEST_CASE("Handle-pair and Snarl versions of each SiteTraversalFinder agree", "[
         PathTraversalFinder path_finder(graph);
         GBWTTraversalFinder gbwt_finder(graph, gbwt_index);
         FlowTraversalFinder flow_finder(graph, 4, node_weight, edge_weight);
-        FlowTraversalFinder flow_finder_with_manager(graph, manager, 4, node_weight, edge_weight);
         vector<TraversalFinder*> finders {&path_finder, &gbwt_finder, &flow_finder};
 
         manager.for_each_snarl_preorder([&](const Snarl* snarl) {
@@ -127,7 +126,6 @@ TEST_CASE("Handle-pair and Snarl versions of each SiteTraversalFinder agree", "[
                 for (size_t j = 0; j < weighted_by_handles.first.size(); j++) {
                     REQUIRE(weighted_by_handles.first[j] == to_traversal(graph, weighted_by_snarl.first[j]));
                 }
-                REQUIRE(flow_finder_with_manager.find_traversals(start, end) == flow_finder.find_traversals(start, end));
             }
         });
     }
