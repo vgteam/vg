@@ -186,11 +186,7 @@ FlowCaller::FlowCaller(const PathPositionHandleGraph& graph,
         ref_ploidies[ref_paths[i]] = i < ref_path_ploidies.size() ? ref_path_ploidies[i] : 2;
     }
     install_record_steps();
-    linker.set_site_reader(GenotypeLinker::SiteReader{
-        .graph = &this->graph,
-        .caller = &snarl_caller,
-        .spell = [this](const SnarlTraversal& trav) { return trav_string(this->graph, trav); },
-    });
+    install_site_reader();
 
 }
    
@@ -229,11 +225,7 @@ FlowCaller::FlowCaller(const PathPositionHandleGraph& graph,
         ref_ploidies[ref_paths[i]] = i < ref_path_ploidies.size() ? ref_path_ploidies[i] : 2;
     }
     install_record_steps();
-    linker.set_site_reader(GenotypeLinker::SiteReader{
-        .graph = &this->graph,
-        .caller = &snarl_caller,
-        .spell = [this](const SnarlTraversal& trav) { return trav_string(this->graph, trav); },
-    });
+    install_site_reader();
 }
 
 FlowCaller::~FlowCaller() {
@@ -284,6 +276,17 @@ void FlowCaller::install_record_steps() {
         }
         linker.collector()->set_allele_map(record_key_of(site), trav_to_allele_vec, has_line);
     };
+}
+
+void FlowCaller::install_site_reader() {
+    const SiteReader reader{
+        .graph = &graph,
+        .caller = &snarl_caller,
+        .spell = [this](const SnarlTraversal& trav) { return trav_string(graph, trav); },
+        .name = [this](const Snarl& site) { return print_snarl(site); },
+    };
+    linker.set_site_reader(reader);
+    rescorer.set_site_reader(reader);
 }
 
 void FlowCaller::call_top_level_snarls(const HandleGraph& graph, RecurseType recurse_type) {
@@ -440,8 +443,23 @@ void FlowCaller::rerun_linkage_pass() {
 }
 
 void FlowCaller::phase_and_regenotype() {
+    const auto phase_set_of = [&](const string& contig, size_t phase_set) {
+        return phase_set_id(contig, phase_set);
+    };
+    // Read phasing and re-genotyping change the linkage model's phase and the likelihoods it
+    // chooses from, so neither runs without it.
+    const auto phase_reads = [&]() {
+        if (linker.enabled()) {
+            read_phaser.phase(staged_sites, phase_table, read_strands, phase_set_of);
+        }
+    };
+    const auto rescore = [&]() {
+        return linker.enabled()
+               && rescorer.rescore(staged_sites, phase_table, read_strands, temper_fit,
+                                   phase_set_of, show_progress);
+    };
     // Round 1 ends with read phasing; its linkage pass has already run.
-    apply_read_phasing();
+    phase_reads();
     // Each later round re-genotypes from the phase: the current phase gives every read its strand
     // log-odds, the correction rescores every site from the direct pass's likelihoods, the linkage
     // pass chooses the genotypes from the result and reassesses every nested child, and read
@@ -449,25 +467,23 @@ void FlowCaller::phase_and_regenotype() {
     // direct call, or when the chosen genotypes stop changing, return to an earlier round's, or
     // reach --regeno-passes rounds. With --regeno-passes 1 the correction is only computed and
     // reported.
-    if (regenotype && regenotype_passes >= 2) {
-        // Every state the rounds have reached, so that a cycle is recognised. The rounds can cycle:
-        // dropping and reinstating a subtree is a discrete change, and the phase is a chain whose
-        // links move with the genotypes, so no single quantity must increase.
-        vector<size_t> seen_states;
-        for (size_t round = 2; round <= regenotype_passes; ++round) {
-            const auto before = chosen_snapshot();
+    if (rescorer.enabled() && rescorer.passes() >= 2) {
+        // Every state the rounds have reached, so that a cycle is recognised.
+        RoundHistory history;
+        for (size_t round = 2; round <= rescorer.passes(); ++round) {
+            const RoundHistory::State before = RoundHistory::state(staged_sites, linker.collector());
             if (round == 2) {
                 // Round 1's genotypes.
-                seen_states.push_back(snapshot_digest(before));
+                history.remember(before);
             }
-            const bool calls_moved = apply_regenotyping();
+            const bool calls_moved = rescore();
             // Chosen even when the correction moved no direct call: it has already changed every
             // site's likelihoods in place, and GL is written from them, so the genotypes are
             // chosen from them too.
             rerun_linkage_pass();
-            apply_read_phasing();
-            const auto after = chosen_snapshot();
-            const size_t moved = chosen_changed(before, after);
+            phase_reads();
+            const RoundHistory::State after = RoundHistory::state(staged_sites, linker.collector());
+            const size_t moved = RoundHistory::changed(before, after);
             cerr << "[vg call] re-genotyping round " << round << ": " << moved
                  << " chosen genotypes moved" << endl;
             if (!calls_moved) {
@@ -479,36 +495,33 @@ void FlowCaller::phase_and_regenotype() {
                 cerr << "[vg call] re-genotyping: converged after " << round << " rounds" << endl;
                 break;
             }
-            const size_t digest = snapshot_digest(after);
-            for (size_t i = 0; i < seen_states.size(); ++i) {
-                if (seen_states[i] == digest) {
-                    cerr << "[vg call] re-genotyping: LIMIT CYCLE of period "
-                         << (seen_states.size() - i) << ", entered at round " << (i + 1)
-                         << ". The iteration does not converge and no round of a cycle is more"
-                         << " the answer than another; stopping here and reporting it rather than"
-                         << " presenting round " << round << " as a fixed point" << endl;
-                    goto regeno_done;
-                }
+            const size_t entered = history.first_round_with(after);
+            if (entered != 0) {
+                cerr << "[vg call] re-genotyping: LIMIT CYCLE of period "
+                     << (history.rounds() - entered + 1) << ", entered at round " << entered
+                     << ". The iteration does not converge and no round of a cycle is more"
+                     << " the answer than another; stopping here and reporting it rather than"
+                     << " presenting round " << round << " as a fixed point" << endl;
+                break;
             }
-            seen_states.push_back(digest);
-            if (round == regenotype_passes) {
-                if (regenotype_passes == 2) {
+            history.remember(after);
+            if (round == rescorer.passes()) {
+                if (rescorer.passes() == 2) {
                     // The default number of passes.
                     cerr << "[vg call] re-genotyping: one correction round applied; the iteration"
                          << " was not run further (--regeno-passes)" << endl;
                 } else {
                     cerr << "[vg call] re-genotyping: NOT CONVERGED and no repeated state seen --"
                          << " still moving " << moved << " genotypes at the round cap of "
-                         << regenotype_passes << ". A cycle longer than the rounds run"
+                         << rescorer.passes() << ". A cycle longer than the rounds run"
                          << " cannot be detected, so raise the cap before concluding there is"
                          << " none" << endl;
                 }
             }
         }
-    regeno_done:;
     } else {
         // One round: compute and report the correction, and keep nothing.
-        apply_regenotyping();
+        rescore();
     }
 }
 
@@ -518,7 +531,8 @@ void FlowCaller::render_retained_records() {
     read_strands.build_lambda(
         phase_table.calls(),
         [&](const string& contig, size_t phase_set) { return phase_set_id(contig, phase_set); },
-        regenotype_counters.fitted_temper, regenotype_counters.fitted_ceiling, regenotype_params);
+        rescorer.last_counters().fitted_temper, rescorer.last_counters().fitted_ceiling,
+        rescorer.params());
     // The phase, before any record is built, so that each record is phased as it is rendered. Also
     // before the hand-off, which collects anchors for the records that get no line
     // (`reported_inline` and `no_reference`) and reads the frozen phase to order them. If read

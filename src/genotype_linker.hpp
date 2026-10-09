@@ -53,22 +53,14 @@ class GenotypeLinker {
 public:
     using PhaseCall = LinkageCollector::PhaseCall;
 
-    /// What the linker reads about a site from outside the staged sites.
-    struct SiteReader {
-        /// The graph, for a site's locus, its alleles' sequences and where its chains start.
-        const PathPositionHandleGraph* graph = nullptr;
-        /// The genotyper, whose GQ settings (--no-share-quality, --depth-quality) the quality
-        /// inputs filed with each site follow.
-        const SnarlCaller* caller = nullptr;
-        /// A traversal's sequence, for the run-length test of --hp-prior.
-        function<string(const SnarlTraversal&)> spell;
-    };
-
     /// Link through `collector`, which is not owned; null turns linkage off. `panel`, also not
     /// owned, gives each site's panel alleles.
     void configure(LinkageCollector* collector, const PanelLookup* panel);
 
-    /// See `SiteReader`. Needed before `add` or `link`.
+    /// Where to read what a staged site does not hold: the graph, for a site's locus, its alleles'
+    /// sequences and where its chains start, and the genotyper, whose GQ settings
+    /// (--no-share-quality, --depth-quality) the quality inputs filed with each site follow.
+    /// Needed before `add` or `link`.
     void set_site_reader(SiteReader reader);
 
     /// Whether there is a linkage model.

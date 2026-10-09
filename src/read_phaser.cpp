@@ -1,29 +1,35 @@
 #include <omp.h>
 
-#include "flow_caller.hpp"
+#include "read_phaser.hpp"
 #include "read_likelihood_caller.hpp"
 
 namespace vg {
 
-void FlowCaller::apply_read_phasing() {
-    if (!read_phasing || !linker.enabled() || phase_table.calls().empty()) {
+void ReadPhaser::configure(bool on, const ReadPhasingParams& params) {
+    this->on = on;
+    this->params = params;
+}
+
+void ReadPhaser::phase(StagedSiteTable& staged, PhaseTable& phases, ReadStrandTable& strands,
+                       const function<size_t(const string& contig, size_t phase_set)>& phase_set_id) {
+    if (!on || phases.calls().empty()) {
         return;
     }
     // Reset, since re-genotyping calls this again on the new genotypes, and the report should
     // describe the phase the output carries.
-    read_phasing_counters = ReadPhasingCounters();
+    counters = ReadPhasingCounters();
     // Index the phasing by record key, the last one written winning.
-    const std::unordered_map<size_t, size_t> phase_index = phase_table.index();
-    const vector<LinkageCollector::PhaseCall>& calls = phase_table.calls();
+    const std::unordered_map<size_t, size_t> phase_index = phases.index();
+    const vector<LinkageCollector::PhaseCall>& calls = phases.calls();
 
-    // Kept in `read_strands`, since re-genotyping uses these sites.
-    vector<PhaseSite>& sites = read_strands.sites();
+    // Kept in `strands`, since re-genotyping uses these sites.
+    vector<PhaseSite>& sites = strands.sites();
     sites.clear();
     // Each record's site is built from its own evidence alone, so the sites are built on several
     // threads, a block of records at a time into the block's own list, and then gathered in record
     // order. Phase sets are numbered in the order they are first seen, so a site's number is given
     // in that gathering pass, in record order.
-    const vector<StagedSite*> records = staged_sites.in_order(true);
+    const vector<StagedSite*> records = staged.in_order(true);
     const size_t block_records = 4096;
     const size_t n_blocks = (records.size() + block_records - 1) / block_records;
     vector<vector<PhaseSite>> block_sites(n_blocks);
@@ -89,7 +95,7 @@ void FlowCaller::apply_read_phasing() {
         return;
     }
 
-    read_strands.flips() = read_phase_flips(sites, read_phasing_params, read_phasing_counters);
+    strands.flips() = read_phase_flips(sites, params, counters);
 
     // Apply by swapping the chosen pair's order, and carry the swaps down the nesting tree. Nested
     // sites are reordered too. Under -A, block records spell the phase in their ALTs, so
@@ -98,15 +104,14 @@ void FlowCaller::apply_read_phasing() {
     // anchors, read from its strand, and its children's strands depend on its own. A dropped
     // chain is left out, since the sample does not carry it or anything inside it.
     vector<PhaseTable::NestedLink> links;
-    staged_sites.for_each([&](const StagedSite& rec) {
+    staged.for_each([&](const StagedSite& rec) {
         if (!rec.dropped && phase_index.count(rec.record_key) != 0) {
             links.push_back({rec.record_key, rec.parent_record_key, rec.level});
         }
     });
-    read_phasing_counters.strands_rederived +=
-        phase_table.swap_strands(read_strands.flips(), std::move(links));
+    counters.strands_rederived += phases.swap_strands(strands.flips(), std::move(links));
 
-    const ReadPhasingCounters& c = read_phasing_counters;
+    const ReadPhasingCounters& c = counters;
     cerr << "[vg call] read phasing: " << c.sites << " het sites, " << c.reliable
          << " reliable, " << c.chains << " blocks, " << c.breaks << " chain breaks ("
          << c.breaks_no_reads << " with no spanning read), " << c.hung

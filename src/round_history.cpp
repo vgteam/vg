@@ -1,26 +1,25 @@
 #include <array>
 #include <unordered_map>
 
-#include "flow_caller.hpp"
+#include "round_history.hpp"
 
 namespace vg {
 
-unordered_map<size_t, array<int, 3>> FlowCaller::chosen_snapshot() {
-    // Each record's chosen pair and ploidy, keyed by record key.
-    unordered_map<size_t, array<int, 3>> out;
-    if (!linker.enabled()) {
+RoundHistory::State RoundHistory::state(StagedSiteTable& sites, const LinkageCollector* model) {
+    State out;
+    if (model == nullptr) {
         return out;
     }
     // Looked up on several threads, then filed in record order, so that the map is built exactly
     // as one loop over the records builds it.
-    const vector<StagedSite*> records = staged_sites.in_order();
+    const vector<StagedSite*> records = sites.in_order();
     vector<size_t> keys(records.size());
     for (size_t i = 0; i < records.size(); ++i) {
         keys[i] = records[i]->record_key;
     }
     vector<array<int, 3>> chosen;
     vector<char> found;
-    linker.collector()->chosen_traversals_for(keys, chosen, found);
+    model->chosen_traversals_for(keys, chosen, found);
     for (size_t i = 0; i < keys.size(); ++i) {
         if (found[i]) {
             out[keys[i]] = chosen[i];
@@ -29,9 +28,9 @@ unordered_map<size_t, array<int, 3>> FlowCaller::chosen_snapshot() {
     return out;
 }
 
-size_t FlowCaller::snapshot_digest(const unordered_map<size_t, array<int, 3>>& snap) {
-    // Independent of order, since the snapshot is a hash map: each record's contribution is
-    // combined with a commutative mix.
+size_t RoundHistory::digest(const State& snap) {
+    // Each site is mixed in in the map's iteration order, so two equal states give the same digest
+    // when they were built alike. `state` builds every state the same way, in record order.
     size_t acc = snap.size() * 1000003ULL;
     for (const auto& kv : snap) {
         size_t h = kv.first;
@@ -43,8 +42,7 @@ size_t FlowCaller::snapshot_digest(const unordered_map<size_t, array<int, 3>>& s
     return acc;
 }
 
-size_t FlowCaller::chosen_changed(const unordered_map<size_t, array<int, 3>>& before,
-                                  const unordered_map<size_t, array<int, 3>>& after) {
+size_t RoundHistory::changed(const State& before, const State& after) {
     size_t moved = 0;
     for (const auto& kv : after) {
         auto found = before.find(kv.first);
@@ -59,6 +57,20 @@ size_t FlowCaller::chosen_changed(const unordered_map<size_t, array<int, 3>>& be
         }
     }
     return moved;
+}
+
+void RoundHistory::remember(const State& state) {
+    digests.push_back(digest(state));
+}
+
+size_t RoundHistory::first_round_with(const State& state) const {
+    const size_t d = digest(state);
+    for (size_t i = 0; i < digests.size(); ++i) {
+        if (digests[i] == d) {
+            return i + 1;
+        }
+    }
+    return 0;
 }
 
 }

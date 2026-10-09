@@ -94,6 +94,19 @@ struct StagedSite {
     bool panel_cached = false;
 };
 
+/// Where the passes read what a staged site does not hold, set once by the caller that stages
+/// the sites.
+struct SiteReader {
+    /// The graph the sites are in.
+    const PathPositionHandleGraph* graph = nullptr;
+    /// The genotyper that called the sites.
+    const SnarlCaller* caller = nullptr;
+    /// A traversal's sequence.
+    function<string(const SnarlTraversal&)> spell;
+    /// A site's ID, as its records name it.
+    function<string(const Snarl&)> name;
+};
+
 /**
  * Every staged site of a run, from the direct pass to the render.
  *

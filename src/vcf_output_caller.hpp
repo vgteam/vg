@@ -29,6 +29,8 @@
 #include "panel_lookup.hpp"
 #include "phase_table.hpp"
 #include "genotype_linker.hpp"
+#include "read_phaser.hpp"
+#include "genotype_rescorer.hpp"
 #include "ploidy_regions.hpp"
 #include "vcf_genotype_likelihoods.hpp"
 #include "vcf_record.hpp"
@@ -109,18 +111,14 @@ public:
     /// Turn on read phasing (--read-phasing); see read_phasing.hpp. Needs the linkage model, whose
     /// phase it changes.
     void set_read_phasing(bool on, const ReadPhasingParams& params) {
-        read_phasing = on;
-        read_phasing_params = params;
+        read_phaser.configure(on, params);
     }
 
     /// Turn on re-genotyping from the phase (--regenotype); see regenotype.hpp. Needs read phasing,
     /// which gives each read its strand log-odds.
     void set_regenotype(bool on, const RegenotypeParams& params, size_t passes,
                         const string& ledger) {
-        regenotype = on;
-        regenotype_params = params;
-        regenotype_passes = passes;
-        regenotype_ledger = ledger;
+        rescorer.configure(on, params, passes, ledger);
     }
 
     /// Write the anchor file and report the counters. Does nothing unless anchors are on.
@@ -239,10 +237,8 @@ protected:
     /// emission for the report.
     BlockRecordWriter block_records;
 
-    /// Read phasing: whether it is on, its parameters, and its counters. See read_phasing.hpp.
-    bool read_phasing = false;
-    ReadPhasingParams read_phasing_params;
-    ReadPhasingCounters read_phasing_counters;
+    /// Read phasing, if it is on.
+    ReadPhaser read_phaser;
 
     /// A phase set is named by a position on its contig, so two contigs can share a name. Read
     /// phasing, re-genotyping and the anchors tell phase sets apart by an id instead, which
@@ -251,16 +247,8 @@ protected:
     /// The id of a (contig, phase set) pair, the same for the whole run.
     size_t phase_set_id(const string& contig, size_t phase_set);
 
-    /// Re-genotyping: whether it is on, its parameters, and its counters. See regenotype.hpp.
-    bool regenotype = false;
-    RegenotypeParams regenotype_params;
-    RegenotypeCounters regenotype_counters;
-    /// The most linkage passes (--regeno-passes). With 1 the correction is computed and reported
-    /// but not applied.
-    size_t regenotype_passes = 2;
-    /// Where to write the ledger (--regeno-ledger): one line per site whose best genotype the
-    /// correction changes. Empty for none.
-    string regenotype_ledger;
+    /// Re-genotyping from the phase, if it is on.
+    GenotypeRescorer rescorer;
 
     /// Phases refused while rendering because the record's genotype was not a permutation of the
     /// phased pair.

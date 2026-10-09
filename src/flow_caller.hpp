@@ -18,6 +18,7 @@
 #include "anchor.hpp"
 #include "staged_site.hpp"
 #include "read_strand_table.hpp"
+#include "round_history.hpp"
 #include "read_phasing.hpp"
 #include "regenotype.hpp"
 #include "snarl_caller.hpp"
@@ -134,28 +135,17 @@ public:
 
     virtual bool call_snarl(const Snarl& snarl);
 
-    /// Decide every heterozygous site's phase from the reads, and change the chosen phase to
-    /// match, so that the GT order, the anchor slot column and the mosaic all follow from it.
-    /// Genotypes are not changed. On FlowCaller because it needs the staged sites, which hold
-    /// the per-read evidence.
-    void apply_read_phasing();
-
-    /// Re-score every retained site's genotype likelihoods with the reads' phase.
-    ///
-    /// Runs after `apply_read_phasing`, which fills `read_strands`. With
-    /// --regeno-passes above 1 the corrected likelihoods replace each site's own, and GQ is
-    /// recomputed from them where the best genotype changed and is the direct pass's elsewhere. Returns
-    /// true if any site's corrected best genotype differs from its called one.
-    bool apply_regenotyping();
-
     /// Feed the corrected likelihoods back to the linkage layer and run the linkage pass again.
     ///
     /// The correction changes likelihoods, not genotypes: the linkage model still decides, as in
     /// round 1.
     void rerun_linkage_pass();
 
-    /// Read phasing, then rounds of re-genotyping, each followed by the linkage pass and read phasing
-    /// again, as far as they are turned on. Does nothing unless read phasing is on.
+    /// Read phasing (see `ReadPhaser`), then rounds of re-genotyping (see `GenotypeRescorer`), each
+    /// followed by the linkage pass and read phasing again, as far as they are turned on. The
+    /// rounds stop when the correction moves no site's direct call, or when the chosen genotypes
+    /// stop changing, return to an earlier round's (see `RoundHistory`), or reach --regeno-passes
+    /// rounds.
     void phase_and_regenotype();
 
     /// Build the records of every staged site once, from its chosen genotype, and collect the
@@ -200,6 +190,9 @@ protected:
     /// the GL layout of the read-likelihood genotyper, block records, and telling the linkage model
     /// each site's allele numbering. Each does nothing when its part is turned off.
     void install_record_steps();
+
+    /// Tell the widgets that read staged sites where to read what a site does not hold.
+    void install_site_reader();
 
     /// Report what nested descent did: the depth histogram, and how many children it skipped and
     /// why. Does nothing in a run without nested descent.
@@ -258,17 +251,6 @@ protected:
 
     /// use * alleles for spanning haplotypes that don't traverse nested sites
     bool star_allele = false;
-
-    /// The chosen pair and ploidy per record, `{trav_first, trav_second, ploidy}`, for measuring
-    /// whether a re-genotyping round changed anything.
-    unordered_map<size_t, std::array<int, 3>> chosen_snapshot();
-    /// How many records have a different chosen pair or ploidy in snapshot `after` than in
-    /// snapshot `before`, counting a chain that gained or lost a chosen answer as moved.
-    static size_t chosen_changed(const unordered_map<size_t, std::array<int, 3>>& before,
-                                 const unordered_map<size_t, std::array<int, 3>>& after);
-    /// A digest of a snapshot that does not depend on order, for spotting a state the rounds have
-    /// reached before, which means they are cycling.
-    static size_t snapshot_digest(const unordered_map<size_t, std::array<int, 3>>& snap);
 
     /// Every staged site, while staging is on (see `set_stage_records`). A top-level site's ploidy
     /// comes from the contig or the BED, so the linkage pass never revises it, though the linkage

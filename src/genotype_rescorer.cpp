@@ -4,27 +4,42 @@
 
 #include <omp.h>
 
-#include "flow_caller.hpp"
+#include "genotype_rescorer.hpp"
 #include "read_likelihood_caller.hpp"
 
 namespace vg {
 
-bool FlowCaller::apply_regenotyping() {
-    const vector<LinkageCollector::PhaseCall>& calls = phase_table.calls();
-    if (!regenotype || !linker.enabled() || calls.empty()) {
+void GenotypeRescorer::configure(bool on, const RegenotypeParams& params, size_t passes,
+                                 const string& ledger) {
+    this->on = on;
+    this->regenotype_params = params;
+    this->max_passes = passes;
+    this->ledger_path = ledger;
+}
+
+void GenotypeRescorer::set_site_reader(SiteReader reader) {
+    this->reader = std::move(reader);
+}
+
+bool GenotypeRescorer::rescore(StagedSiteTable& staged, const PhaseTable& phases,
+                               const ReadStrandTable& strands, TemperFit& fit,
+                               const function<size_t(const string& contig, size_t phase_set)>& phase_set_id,
+                               bool show_calibration) {
+    const vector<LinkageCollector::PhaseCall>& calls = phases.calls();
+    if (!on || calls.empty()) {
         return false;
     }
-    const vector<PhaseSite>& phase_sites = read_strands.sites();
-    const unordered_set<size_t>& phase_flips = read_strands.flips();
+    const vector<PhaseSite>& phase_sites = strands.sites();
+    const unordered_set<size_t>& phase_flips = strands.flips();
     // Reset the counters first, before `accumulate_lambda` fills the read counts, so that the report
     // describes this round. The calibration table and fitted temper are kept: they are set once, on
     // the first round.
-    regenotype_counters = RegenotypeCounters();
-    temper_fit.restore(regenotype_counters);
+    this->counters = RegenotypeCounters();
+    fit.restore(this->counters);
 
     // Lambda over every site read phasing covered, in one pass, into a table keyed by read.
     LambdaTable lambda;
-    accumulate_lambda(phase_sites, phase_flips, lambda, regenotype_counters);
+    accumulate_lambda(phase_sites, phase_flips, lambda, this->counters);
 
     // Each site's phase set, the last PhaseCall written winning, as in
     // `PhaseTable::freeze_for_render`. A read's strand is usable only at sites of the phase set it
@@ -58,18 +73,18 @@ bool FlowCaller::apply_regenotyping() {
         // The temper is fitted once, on the first round, and kept. It describes how reliable the
         // reads' summed strand log-odds are, not which genotypes are called, and fitting it again
         // each round would feed each round's result into the next fit.
-        if (regenotype_counters.fitted_temper > 0.0) {
-            temper = regenotype_counters.fitted_temper;
-            ceiling = regenotype_counters.fitted_ceiling;
+        if (this->counters.fitted_temper > 0.0) {
+            temper = this->counters.fitted_temper;
+            ceiling = this->counters.fitted_ceiling;
         } else {
             fit_calibration(phase_sites, phase_flips, lambda, regenotype_params, temper, ceiling,
-                            regenotype_counters);
+                            this->counters);
         }
     } else {
-        regenotype_counters.fitted_temper = temper;
-        regenotype_counters.fitted_ceiling = ceiling;
+        this->counters.fitted_temper = temper;
+        this->counters.fitted_ceiling = ceiling;
     }
-    temper_fit.keep(regenotype_counters);
+    fit.keep(this->counters);
 
     // Each site's own PhaseSite, so that its term can be subtracted from its reads' log-odds.
     unordered_map<size_t, const PhaseSite*> site_by_key;
@@ -79,11 +94,11 @@ bool FlowCaller::apply_regenotyping() {
     }
 
     ofstream ledger;
-    const bool want_ledger = !regenotype_ledger.empty();
+    const bool want_ledger = !ledger_path.empty();
     if (want_ledger) {
-        ledger.open(regenotype_ledger);
+        ledger.open(ledger_path);
         if (!ledger) {
-            cerr << "error [vg call]: cannot write --regeno-ledger " << regenotype_ledger << endl;
+            cerr << "error [vg call]: cannot write --regeno-ledger " << ledger_path << endl;
             exit(1);
         }
         ledger << "#regeno-ledger-version\t1" << endl;
@@ -94,10 +109,10 @@ bool FlowCaller::apply_regenotyping() {
     // Parallel over one flat list of records, strided across threads; `lambda`, `site_by_key` and
     // `phase_flips` are read only. Counters and ledger rows are kept per thread and merged
     // afterwards.
-    const vector<StagedSite*> all_records = staged_sites.in_order();
-    const size_t n_queues = max<size_t>(1, staged_sites.queue_count());
+    const vector<StagedSite*> all_records = staged.in_order();
+    const size_t n_queues = max<size_t>(1, staged.queue_count());
     // Only a read-likelihood caller makes the CallInfos corrected below.
-    const auto* rl_caller = dynamic_cast<const ReadLikelihoodSnarlCaller*>(&snarl_caller);
+    const auto* rl_caller = dynamic_cast<const ReadLikelihoodSnarlCaller*>(reader.caller);
     vector<RegenotypeCounters> thread_counters(n_queues);
     // Ledger rows are sorted before writing, since which thread handles a record depends on
     // scheduling.
@@ -139,7 +154,7 @@ bool FlowCaller::apply_regenotyping() {
             // At --regeno-passes 1 the correction is computed and reported, and nothing is kept.
             // `genotype_lls` is what GL and QUAL are written from, so correcting it in place would
             // change them while the genotypes stood still.
-            const bool keep = regenotype_passes >= 2;
+            const bool keep = max_passes >= 2;
             map<vector<int>, double> scratch;
             if (keep) {
                 // Correct the direct pass's likelihoods every round, not the previous round's: the first
@@ -217,7 +232,7 @@ bool FlowCaller::apply_regenotyping() {
                 };
                 const auto a = best_of(before);
                 const auto b = best_of(target);
-                const string snarl_id = print_snarl(rec.snarl);
+                const string snarl_id = reader.name(rec.snarl);
                 std::ostringstream row;
                 row << snarl_id << "\t" << rec.ref_path_name << "\t"
                     << rec.ref_offset << "\t" << rec.ploidy << "\t" << spell(a.first) << "\t"
@@ -232,7 +247,7 @@ bool FlowCaller::apply_regenotyping() {
     size_t moved = 0;
     vector<LedgerRow> rows;
     for (size_t qi = 0; qi < n_queues; ++qi) {
-        merge_counters(thread_counters[qi], regenotype_counters);
+        merge_counters(thread_counters[qi], this->counters);
         moved += thread_moved[qi];
         std::move(thread_ledger[qi].begin(), thread_ledger[qi].end(), std::back_inserter(rows));
     }
@@ -249,7 +264,7 @@ bool FlowCaller::apply_regenotyping() {
         ledger.close();
     }
 
-    const RegenotypeCounters& c = regenotype_counters;
+    const RegenotypeCounters& c = this->counters;
     cerr << "[vg call] re-genotyping: temper " << temper << ", ceiling " << ceiling << ", "
          << c.reads_with_lambda
          << " reads carry a strand log-odds (" << c.reads_singleton
@@ -263,7 +278,7 @@ bool FlowCaller::apply_regenotyping() {
              << " nested haploid chains weighted by whether the reads belong to their strand, "
              << c.haploid_would_move << " would move" << endl;
     }
-    if (show_progress && !c.fit_count.empty()) {
+    if (show_calibration && !c.fit_count.empty()) {
         // Only under --progress: the calibration table is a diagnostic.
         cerr << "[vg call] re-genotyping calibration, |Lambda| / observed / predicted / n:";
         for (size_t i = 0; i < c.fit_count.size(); ++i) {
