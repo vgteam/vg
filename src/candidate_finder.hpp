@@ -11,7 +11,6 @@
 #include "handle.hpp"
 #include "snarls.hpp"
 #include "traversal_finder.hpp"
-#include "traversal_support.hpp"
 
 namespace vg {
 
@@ -53,13 +52,12 @@ public:
         int ref_trav_idx = -1;
     };
 
-    /// Find candidates in `graph` with `traversal_finder`, whose flow version decides how to
-    /// weigh flow from `support_finder`'s threshold, on the reference paths in `ref_path_set` (all
-    /// non-alt paths where it is empty). A site is skipped unless its longest traversal is at
-    /// least `allele_length_range.first` long and none is longer than
+    /// Find candidates in `graph` with `traversal_finder`, on the reference paths in
+    /// `ref_path_set` (all non-alt paths where it is empty). A site is skipped unless its longest
+    /// traversal is at least `allele_length_range.first` long and none is longer than
     /// `allele_length_range.second`. Nothing is owned.
     CandidateFinder(const PathPositionHandleGraph& graph,
-                    TraversalFinder& traversal_finder, const TraversalSupportFinder& support_finder,
+                    TraversalFinder& traversal_finder,
                     const unordered_set<string>& ref_path_set,
                     const pair<size_t, size_t>& allele_length_range);
 
@@ -93,7 +91,6 @@ public:
 private:
     const PathPositionHandleGraph& graph;
     TraversalFinder& traversal_finder;
-    const TraversalSupportFinder& support_finder;
     const unordered_set<string>& ref_path_set;
     /// See set_max_snarl_edges.
     size_t max_snarl_edges = numeric_limits<size_t>::max();

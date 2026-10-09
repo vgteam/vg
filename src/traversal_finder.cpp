@@ -3380,12 +3380,14 @@ FlowTraversalFinder::FlowTraversalFinder(const HandleGraph& graph,
                                          size_t K,
                                          function<double(handle_t)> node_weight_callback,
                                          function<double(edge_t)> edge_weight_callback,
-                                         size_t max_traversal_length) :
+                                         size_t max_traversal_length,
+                                         size_t greedy_avg_threshold) :
     graph(graph),
     K(K),
     node_weight_callback(node_weight_callback),
     edge_weight_callback(edge_weight_callback),
-    max_traversal_length(max_traversal_length) {
+    max_traversal_length(max_traversal_length),
+    greedy_avg_threshold(greedy_avg_threshold) {
     
 }
 
@@ -3393,12 +3395,30 @@ void FlowTraversalFinder::setK(size_t k) {
     K = k;
 }
 
+bool FlowTraversalFinder::use_greedy_avg(const handle_t& start, const handle_t& end) const {
+    if (greedy_avg_threshold == numeric_limits<size_t>::max()) {
+        return false;
+    }
+    // The running total only grows, so stopping once it passes the threshold gives the same answer
+    // whatever order the nodes come in.
+    size_t length = 0;
+    for (const nid_t& node_id : site_contents(graph, start, end, false).first) {
+        length += graph.get_length(graph.get_handle(node_id));
+        if (length > greedy_avg_threshold) {
+            return true;
+        }
+    }
+    return false;
+}
+
 vector<SnarlTraversal> FlowTraversalFinder::find_traversals(const Snarl& site) {
-    return find_weighted_traversals(site).first;
+    return find_weighted_traversals(site, use_greedy_avg(
+        graph.get_handle(site.start().node_id(), site.start().backward()),
+        graph.get_handle(site.end().node_id(), site.end().backward()))).first;
 }
 
 vector<Traversal> FlowTraversalFinder::find_traversals(const handle_t& snarl_start, const handle_t& snarl_end) {
-    return find_weighted_traversals(snarl_start, snarl_end).first;
+    return find_weighted_traversals(snarl_start, snarl_end, use_greedy_avg(snarl_start, snarl_end)).first;
 }
 
 pair<vector<SnarlTraversal>, vector<double>> FlowTraversalFinder::find_weighted_traversals(const Snarl& site, bool greedy_avg,

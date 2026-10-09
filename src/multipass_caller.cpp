@@ -28,8 +28,7 @@ MultiPassCaller::MultiPassCaller(const PathPositionHandleGraph& graph,
     genotype_snarls(genotype_snarls),
     top_down(top_down),
     star_allele(star_allele),
-    candidates(graph, traversal_finder, genotyper.get_support_finder(),
-               ref_path_set, allele_length_range),
+    candidates(graph, traversal_finder, ref_path_set, allele_length_range),
     site_genotyper(genotyper)
 {
     for (int i = 0; i < ref_paths.size(); ++i) {

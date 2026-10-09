@@ -11,11 +11,9 @@ namespace vg {
 
 CandidateFinder::CandidateFinder(const PathPositionHandleGraph& graph,
                                  TraversalFinder& traversal_finder,
-                                 const TraversalSupportFinder& support_finder,
                                  const unordered_set<string>& ref_path_set,
                                  const pair<size_t, size_t>& allele_length_range) :
-    graph(graph), traversal_finder(traversal_finder),
-    support_finder(support_finder), ref_path_set(ref_path_set),
+    graph(graph), traversal_finder(traversal_finder), ref_path_set(ref_path_set),
     allele_length_range(allele_length_range) {
 }
 
@@ -49,35 +47,15 @@ bool CandidateFinder::find(const Snarl& given_snarl, const string& parent_ref_pa
         return false;
     }
 
-    // toggle average flow / flow width based on snarl length.  this is a bit inconsistent with
-    // downstream which uses the longest traversal length, but it's a bit chicken and egg
-    // todo: maybe use snarl length for everything?
-    //
-    // Only the flow traversal finder uses greedy_avg_flow, so the sum is computed only when there
-    // is one.
-    FlowTraversalFinder* flow_trav_finder = dynamic_cast<FlowTraversalFinder*>(&traversal_finder);
-    bool greedy_avg_flow = false;
-    {
-        auto snarl_contents = site_contents(
-            graph, graph.get_handle(snarl.start().node_id(), snarl.start().backward()),
-            graph.get_handle(snarl.end().node_id(), snarl.end().backward()), false);
-        if (snarl_contents.second.size() > max_snarl_edges) {
-            // size cap needed as non-nested FlowCaller doesn't handle large snarls
-            return false;
-        }
-        if (flow_trav_finder != nullptr) {
-            size_t len_threshold = support_finder.get_average_traversal_support_switch_threshold();
-            size_t length = 0;
-            for (auto i = snarl_contents.first.begin();
-                 i != snarl_contents.first.end() && length < len_threshold; ++i) {
-                length += graph.get_length(graph.get_handle(*i));
-            }
-            greedy_avg_flow = length > len_threshold;
-        }
-    }
-    
     handle_t start_handle = graph.get_handle(snarl.start().node_id(), snarl.start().backward());
     handle_t end_handle = graph.get_handle(snarl.end().node_id(), snarl.end().backward());
+
+    // size cap needed as non-nested FlowCaller doesn't handle large snarls. Counting the edges
+    // walks the whole site, so it is skipped when there is no cap.
+    if (max_snarl_edges != numeric_limits<size_t>::max() &&
+        site_contents(graph, start_handle, end_handle, false).second.size() > max_snarl_edges) {
+        return false;
+    }
 
     // as we're writing to VCF, we need a reference path through the snarl.  we
     // look it up directly from the graph, and abort if we can't find one
@@ -206,14 +184,7 @@ bool CandidateFinder::find(const Snarl& given_snarl, const string& parent_ref_pa
 
     vector<SnarlTraversal>& travs = site.travs;
     travs.clear();
-    if (flow_trav_finder != nullptr) {
-        // find the max flow traversals using specialized interface that accepts avg heurstic toggle
-        pair<vector<SnarlTraversal>, vector<double>> weighted_travs = flow_trav_finder->find_weighted_traversals(snarl, greedy_avg_flow);
-        travs = std::move(weighted_travs.first);
-    } else {
-        // find the traversals using the generic interface
-        travs = traversal_finder.find_traversals(snarl);
-    }
+    travs = traversal_finder.find_traversals(snarl);
 
     if (travs.empty()) {
         cerr << "Warning [vg call]: Unable, due to bug or corrupt graph, to search for any traversals through snarl " << pb2json(given_snarl) << endl;
@@ -288,8 +259,6 @@ bool CandidateFinder::find(const Snarl& given_snarl, const string& parent_ref_pa
 }
 TraversalSet CandidateFinder::find_child_traversal_set(const SnarlTraversal& parent_trav,
                                                         const Snarl& child) const {
-    TraversalSet result;
-
     // First, check if the parent traversal goes through this child snarl
     // by finding the child's start and end nodes in the parent
     nid_t child_start_id = child.start().node_id();
@@ -304,19 +273,11 @@ TraversalSet CandidateFinder::find_child_traversal_set(const SnarlTraversal& par
 
     // If parent doesn't traverse the child, return empty set (star allele case)
     if (!found_start || !found_end) {
-        return result;
+        return TraversalSet();
     }
 
     // Use the traversal finder to enumerate all traversals through the child
-    FlowTraversalFinder* flow_finder = dynamic_cast<FlowTraversalFinder*>(&traversal_finder);
-    if (flow_finder != nullptr) {
-        auto weighted_travs = flow_finder->find_weighted_traversals(child, false);
-        result = std::move(weighted_travs.first);
-    } else {
-        result = traversal_finder.find_traversals(child);
-    }
-
-    return result;
+    return traversal_finder.find_traversals(child);
 }
 
 }

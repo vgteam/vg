@@ -618,6 +618,14 @@ protected:
 
     /// Call off the search as soon as a traversal of this length (bp) is encountered
     size_t max_traversal_length;
+
+    /// find_traversals searches a site with the greedy average-flow heuristic when the nodes
+    /// inside it total more than this many bp
+    size_t greedy_avg_threshold;
+
+    /// Whether the nodes inside the site between `start` and `end`, not counting the two
+    /// boundary nodes, total more than greedy_avg_threshold bp.
+    bool use_greedy_avg(const handle_t& start, const handle_t& end) const;
     
 public:
     
@@ -626,12 +634,14 @@ public:
                         size_t K,
                         function<double(handle_t)> node_weight_callback,
                         function<double(edge_t)> edge_weight_callback,
-                        size_t max_traversal_length = numeric_limits<size_t>::max());
+                        size_t max_traversal_length = numeric_limits<size_t>::max(),
+                        size_t greedy_avg_threshold = numeric_limits<size_t>::max());
 
     /**
      * Return the K widest (most flow) traversals through the site
      * The reference traversal will be returned first (regardless of its flow).
-     * After, the traversals are listed in decreasing order
+     * After, the traversals are listed in decreasing order.
+     * A site longer than greedy_avg_threshold is searched with the greedy average-flow heuristic.
      */
     virtual vector<SnarlTraversal> find_traversals(const Snarl& site);
 

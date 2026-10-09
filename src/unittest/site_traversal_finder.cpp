@@ -49,7 +49,9 @@ TEST_CASE("Handle-pair and Snarl versions of each SiteTraversalFinder agree", "[
     std::default_random_engine generator(test_seed_source());
 
     // How many traversals each finder found, over all graphs
-    vector<size_t> found(3, 0);
+    vector<size_t> found(4, 0);
+    // How many site orientations the switching finder searched each way
+    vector<size_t> greedy_sites(2, 0);
     for (size_t repeat = 0; repeat < 30; repeat++) {
         size_t bases = std::uniform_int_distribution<size_t>(50, 300)(generator);
         size_t variant_bases = std::uniform_int_distribution<size_t>(1, bases / 20)(generator);
@@ -94,7 +96,10 @@ TEST_CASE("Handle-pair and Snarl versions of each SiteTraversalFinder agree", "[
         PathTraversalFinder path_finder(graph);
         GBWTTraversalFinder gbwt_finder(graph, gbwt_index);
         FlowTraversalFinder flow_finder(graph, 4, node_weight, edge_weight);
-        vector<TraversalFinder*> finders {&path_finder, &gbwt_finder, &flow_finder};
+        // Searches a site with more than 10 bp inside it by greedy average flow.
+        FlowTraversalFinder switching_finder(graph, 4, node_weight, edge_weight,
+                                             numeric_limits<size_t>::max(), 10);
+        vector<TraversalFinder*> finders {&path_finder, &gbwt_finder, &flow_finder, &switching_finder};
 
         manager.for_each_snarl_preorder([&](const Snarl* snarl) {
             for (bool reversed : {false, true}) {
@@ -119,6 +124,21 @@ TEST_CASE("Handle-pair and Snarl versions of each SiteTraversalFinder agree", "[
                     found[i] += by_handles.size();
                 }
 
+                // The switching finder searches greedily exactly when the nodes inside the site,
+                // which are the same in both orientations, total more than 10 bp.
+                size_t inside = 0;
+                for (nid_t id : site_contents(graph, start, end, false).first) {
+                    inside += graph.get_length(graph.get_handle(id));
+                }
+                bool greedy = inside > 10;
+                greedy_sites[greedy]++;
+                vector<SnarlTraversal> switched = switching_finder.find_traversals(site);
+                vector<SnarlTraversal> expected = flow_finder.find_weighted_traversals(site, greedy).first;
+                REQUIRE(switched.size() == expected.size());
+                for (size_t j = 0; j < switched.size(); j++) {
+                    REQUIRE(switched[j] == expected[j]);
+                }
+
                 pair<vector<SnarlTraversal>, vector<double>> weighted_by_snarl = flow_finder.find_weighted_traversals(site);
                 pair<vector<Traversal>, vector<double>> weighted_by_handles = flow_finder.find_weighted_traversals(start, end);
                 REQUIRE(weighted_by_handles.second == weighted_by_snarl.second);
@@ -130,6 +150,9 @@ TEST_CASE("Handle-pair and Snarl versions of each SiteTraversalFinder agree", "[
         });
     }
     for (size_t count : found) {
+        REQUIRE(count > 0);
+    }
+    for (size_t count : greedy_sites) {
         REQUIRE(count > 0);
     }
 }
