@@ -17,6 +17,24 @@ static size_t total_queued(const Queues& queues) {
     return n;
 }
 
+void StagedSite::set_call(unique_ptr<SnarlCaller::CallInfo> info, SiteScore* typed) {
+    call_info = std::move(info);
+    score = typed;
+}
+
+void StagedSite::set_score(unique_ptr<SiteScore> typed) {
+    score = typed.get();
+    call_info = std::move(typed);
+}
+
+unique_ptr<SiteScore> StagedSite::take_score() {
+    unique_ptr<SiteScore> out(score);
+    // `out` owns it now.
+    call_info.release();
+    score = nullptr;
+    return out;
+}
+
 const vector<int>& StagedSite::panel_alleles(const PanelLookup& lookup) {
     if (!panel_cached) {
         panel_cache = lookup.alleles(travs);

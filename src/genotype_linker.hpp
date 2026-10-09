@@ -95,11 +95,11 @@ public:
     /// `off_reference_site_locus`), and `ref_offset` is not used. Otherwise
     /// `position_from_parent` is not used.
     ///
-    /// Returns whether the site was filed: only a read-likelihood call of one or two alleles, none
-    /// of them missing, is. If it was and `panel_out` is given, the site's panel alleles are moved
+    /// Returns whether the site was filed: only a read-likelihood call (`score` not null) of one or
+    /// two alleles, none of them missing, is. If it was and `panel_out` is given, the site's panel alleles are moved
     /// to `panel_out`, so that the staged site can keep them rather than look them up again.
     bool add(const Snarl& snarl, const vector<SnarlTraversal>& travs,
-             const vector<int>& trav_genotype, const SnarlCaller::CallInfo* call_info,
+             const vector<int>& trav_genotype, const SiteScore* score,
              int ref_trav_idx, const string& ref_path_name, int ref_offset, size_t record_key,
              const NestingPlacement& placement, bool no_reference = false,
              int64_t position_from_parent = 0, vector<int>* panel_out = nullptr) const;

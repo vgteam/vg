@@ -76,7 +76,7 @@ static LinkageCollector::DirectQuality direct_quality_of(const SiteGenotyper* ge
 }
 
 bool GenotypeLinker::add(const Snarl& snarl, const vector<SnarlTraversal>& travs,
-                         const vector<int>& trav_genotype, const SnarlCaller::CallInfo* call_info,
+                         const vector<int>& trav_genotype, const SiteScore* score,
                          int ref_trav_idx, const string& ref_path_name, int ref_offset,
                          size_t record_key, const NestingPlacement& placement,
                          bool no_reference, int64_t position_from_parent,
@@ -84,8 +84,7 @@ bool GenotypeLinker::add(const Snarl& snarl, const vector<SnarlTraversal>& travs
     if (model == nullptr) {
         return false;
     }
-    const auto* rl_info =
-        dynamic_cast<const ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo*>(call_info);
+    const SiteScore* rl_info = score;
     if (rl_info == nullptr) {
         return false;
     }
@@ -164,8 +163,7 @@ void GenotypeLinker::resync(StagedSiteTable& sites) const {
     size_t rescored = 0, refused = 0;
     for (StagedSite* recp : records) {
         StagedSite& rec = *recp;
-        const auto* info = dynamic_cast<const ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo*>(
-            rec.call_info.get());
+        const SiteScore* info = rec.score;
         if (info == nullptr || info->genotype_lls.empty()) {
             continue;
         }
@@ -380,9 +378,8 @@ GenotypeLinker::PassCounts GenotypeLinker::link(StagedSiteTable& sites, PhaseTab
 
             // Build the record at the ploidy the chosen parent implies, from the answers kept in the
             // direct pass; `alt_ploidy_info` holds the other ploidy's.
-            ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo* rl =
-                dynamic_cast<ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo*>(pr.call_info.get());
-            unique_ptr<SnarlCaller::CallInfo> use_info;
+            SiteScore* rl = pr.score;
+            unique_ptr<SiteScore> use_info;
             vector<int> use_genotype;
             if (copies == pr.ploidy) {
                 use_genotype = pr.genotype;
@@ -402,19 +399,16 @@ GenotypeLinker::PassCounts GenotypeLinker::link(StagedSiteTable& sites, PhaseTab
                 // parent to either ploidy however often the linkage pass runs.
                 use_genotype = rl->alt_ploidy_best;
                 const vector<int> demoted_genotype = pr.genotype;
-                unique_ptr<SnarlCaller::CallInfo> demoted = std::move(pr.call_info);
+                unique_ptr<SiteScore> demoted = pr.take_score();
                 // `rl` still points at it -- `demoted` owns what `pr.call_info` did.
-                unique_ptr<ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo> promoted(
-                    rl->alt_ploidy_info.release());
+                unique_ptr<SiteScore> promoted = std::move(rl->alt_ploidy_info);
                 // The fields that do not depend on ploidy go with whichever answer is in front, since
                 // the alternate does not copy them.
                 promoted->anchor_evidence = std::move(rl->anchor_evidence);
                 promoted->phase_evidence = std::move(rl->phase_evidence);
                 // The replaced answer becomes the new alternate, with the genotype it was called at.
                 promoted->alt_ploidy_best = demoted_genotype;
-                promoted->alt_ploidy_info.reset(
-                    static_cast<ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo*>(
-                        demoted.release()));
+                promoted->alt_ploidy_info = std::move(demoted);
                 use_info = std::move(promoted);
             } else {
                 // No answer at that ploidy: the direct pass computed none, because the chain offers too
@@ -431,12 +425,9 @@ GenotypeLinker::PassCounts GenotypeLinker::link(StagedSiteTable& sites, PhaseTab
             pr.genotype = use_genotype;
             pr.ploidy = copies;
             if (use_info != nullptr) {
-                pr.call_info = std::move(use_info);
+                pr.set_score(std::move(use_info));
             }
-            const unique_ptr<SnarlCaller::CallInfo>& info = pr.call_info;
-
-            const ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo* used =
-                dynamic_cast<const ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo*>(info.get());
+            const SiteScore* used = pr.score;
             if (used != nullptr) {
                 // In traversal space, as `record_site` records it, so the linkage pass and the
                 // direct pass describe a site the same way. No allele map yet, as in `record_site`.

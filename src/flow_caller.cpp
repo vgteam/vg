@@ -136,11 +136,10 @@ void FlowCaller::install_record_steps() {
     };
     // The read-likelihood genotyper writes GL in colexicographic order, and the support-based one
     // in i-major order.
-    record_steps.gl_layout = [](const SnarlCaller::CallInfo* call_info) {
-        return dynamic_cast<const ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo*>(call_info)
-                   != nullptr
-                   ? GLLayout::Colexicographic
-                   : GLLayout::IMajor;
+    record_steps.gl_layout = [this](const SnarlCaller::CallInfo* call_info) {
+        // Every call info a run with the read-likelihood genotyper writes is that genotyper's.
+        return site_genotyper != nullptr && call_info != nullptr ? GLLayout::Colexicographic
+                                                                 : GLLayout::IMajor;
     };
     record_steps.write_blocks = [this](const PathPositionHandleGraph& graph, const Snarl& site,
                                        const vector<SnarlTraversal>& travs,
@@ -202,7 +201,9 @@ void FlowCaller::set_site_genotyper(ReadLikelihoodSnarlCaller& genotyper) {
 
 pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> FlowCaller::genotype_site(
     const Snarl& site, const vector<SnarlTraversal>& travs, int ref_trav_idx,
-    const Ploidies& ploidies, const string& ref_path_name, pair<size_t, size_t> ref_range) {
+    const Ploidies& ploidies, const string& ref_path_name, pair<size_t, size_t> ref_range,
+    SiteScore*& score) {
+    score = nullptr;
     if (site_genotyper == nullptr) {
         // Another genotyper, which takes the ploidy alone.
         return snarl_caller.genotype(site, travs, ref_trav_idx, ploidies.ploidy, ref_path_name,
@@ -210,6 +211,7 @@ pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> FlowCaller::genotype_site(
     }
     auto called =
         site_genotyper->genotype(site, travs, ref_trav_idx, ploidies, ref_path_name, ref_range);
+    score = called.second.get();
     return make_pair(std::move(called.first),
                      unique_ptr<SnarlCaller::CallInfo>(std::move(called.second)));
 }
@@ -264,7 +266,7 @@ void FlowCaller::set_stage_records(bool defer) {
 // written alleles back to matrix columns, index GL and compute QUAL.
 unique_ptr<StagedSite> FlowCaller::stage_render_record(
         const Snarl& snarl, const vector<int>& trav_genotype, int ref_trav_idx,
-        unique_ptr<SnarlCaller::CallInfo>& call_info,
+        unique_ptr<SnarlCaller::CallInfo>& call_info, SiteScore* score,
         const string& ref_path_name, int ref_offset, int ploidy) {
     if (!staged_sites.active()) {
         return nullptr;
@@ -278,7 +280,7 @@ unique_ptr<StagedSite> FlowCaller::stage_render_record(
     rec->ploidy = ploidy;
     rec->record_key = record_key_of(snarl);
     rec->level = 0;
-    rec->call_info = std::move(call_info);
+    rec->set_call(std::move(call_info), score);
     // `travs` is not moved here: descent runs after the emit and reads `travs` to find which
     // children the called alleles reach. The caller completes the record after descent.
     return rec;
@@ -468,8 +470,7 @@ void FlowCaller::run_linkage_pass() {
                 visits += (size_t)t.visit_size();
                 bytes += (size_t)t.visit_size() * sizeof(Visit);
             }
-            const auto* rl = dynamic_cast<const ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo*>(
-                rec.call_info.get());
+            const SiteScore* rl = rec.score;
             if (rl != nullptr) {
                 for (const auto& kv : rl->genotype_lls) {
                     ++gls;
@@ -845,18 +846,20 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
     // What both the parent-traversal-set branch and the top-level branch do with their genotype.
     // `trav_call_info` differs between them, so it is a parameter. `snarl` is captured by reference;
     // `flip_snarl` may already have rewritten it above.
-    auto stage_or_emit = [&](unique_ptr<SnarlCaller::CallInfo>& trav_call_info) -> bool {
+    auto stage_or_emit = [&](unique_ptr<SnarlCaller::CallInfo>& trav_call_info,
+                             SiteScore* trav_score) -> bool {
         bool added;
         if (!gaf_output) {
             // Staged, not emitted: `render_retained_records` writes it after the direct pass.
             // `added` stands in for emit_variant's return value, which here only gates recursion;
             // a staged site counts as added.
-            site_panel_set = linker.add(snarl, travs, trav_genotype, trav_call_info.get(),
+            site_panel_set = linker.add(snarl, travs, trav_genotype, trav_score,
                                         ref_trav_idx, ref_path_name,
                                         ref_offset_of(ref_offsets, ref_path_name),
                                         record_key_of(snarl), placement, false, 0,
                                         &site_panel);
             render_this = stage_render_record(snarl, trav_genotype, ref_trav_idx, trav_call_info,
+                                              trav_score,
                                               ref_path_name, ref_offset_of(ref_offsets, ref_path_name), ploidy);
             added = render_this != nullptr;
             if (!added) {
@@ -931,6 +934,7 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
         }
 
         unique_ptr<SnarlCaller::CallInfo> trav_call_info;
+        SiteScore* trav_score = nullptr;
         int marker = star_allele ? STAR_ALLELE_MARKER : MISSING_ALLELE_MARKER;
 
         if (traversing_sets.empty()) {
@@ -945,7 +949,7 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
             std::tie(called_alleles, trav_call_info) = genotype_site(
                 snarl, travs, ref_trav_idx,
                 Ploidies{.ploidy = effective_ploidy, .region_ploidy = region_ploidy}, ref_path_name,
-                make_pair(get<0>(ref_interval), get<1>(ref_interval)));
+                make_pair(get<0>(ref_interval), get<1>(ref_interval)), trav_score);
 
             // Scatter the called alleles back onto the traversing haplotypes,
             // leaving the others as star/missing.
@@ -962,7 +966,7 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
         if (use_parent_interval) {
             added = true;
         } else {
-            added = stage_or_emit(trav_call_info);
+            added = stage_or_emit(trav_call_info, trav_score);
         }
 
         ret_val = trav_genotype.size() == ploidy && added;
@@ -970,10 +974,11 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
         // A nested chain, reached by descent, at the ploidy its parent implied. Only a nested chain
         // can have its ploidy revised at the linkage pass, so only it needs the other ploidy's answer.
         unique_ptr<SnarlCaller::CallInfo> trav_call_info;
+        SiteScore* trav_score = nullptr;
         std::tie(trav_genotype, trav_call_info) = genotype_site(
             snarl, travs, ref_trav_idx,
             Ploidies{.ploidy = ploidy, .region_ploidy = region_ploidy, .also_score_other = true},
-            ref_path_name, make_pair(get<0>(ref_interval), get<1>(ref_interval)));
+            ref_path_name, make_pair(get<0>(ref_interval), get<1>(ref_interval)), trav_score);
 
         const bool retain_only = placement.retain_only;
         // Whether this snarl's own boundaries are on no reference path, checked from the graph for
@@ -987,7 +992,7 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
             // record. `added` is true, as for retain_only, since it gates descent into this chain's
             // children.
             site_panel_set = linker.add(
-                snarl, travs, trav_genotype, trav_call_info.get(), ref_trav_idx, ref_path_name,
+                snarl, travs, trav_genotype, trav_score, ref_trav_idx, ref_path_name,
                 ref_offset_of(ref_offsets, ref_path_name), record_key_of(snarl), placement,
                 /*no_reference*/ true,
                 // The parent's position, as `get_ref_position` gives it from the interval
@@ -1015,7 +1020,7 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
             // An enclosing block's ALT already spells this chain, so it gets no line, but it is
             // genotyped and recorded, since its allele pair phases everything inside it. Checked
             // after retain_only, which does not record.
-            site_panel_set = linker.add(snarl, travs, trav_genotype, trav_call_info.get(),
+            site_panel_set = linker.add(snarl, travs, trav_genotype, trav_score,
                                         ref_trav_idx, ref_path_name,
                                         ref_offset_of(ref_offsets, ref_path_name),
                                         record_key_of(snarl), placement, false, 0,
@@ -1024,7 +1029,7 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
         } else if (!gaf_output) {
             // Recorded here rather than in emit_variant. A retained chain, on the path above, is
             // recorded only if the linkage pass later finds that the sample carries it.
-            site_panel_set = linker.add(snarl, travs, trav_genotype, trav_call_info.get(),
+            site_panel_set = linker.add(snarl, travs, trav_genotype, trav_score,
                                         ref_trav_idx, ref_path_name,
                                         ref_offset_of(ref_offsets, ref_path_name),
                                         record_key_of(snarl), placement, false, 0,
@@ -1070,20 +1075,21 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
             pending_this->chain_offset = placement.parent_offset;
             pending_this->crossing_known = placement.crossing_known;
             pending_this->level = (uint8_t)min(placement.level, (size_t)255);
-            pending_this->call_info = std::move(trav_call_info);
+            pending_this->set_call(std::move(trav_call_info), trav_score);
         }
         ret_val = trav_genotype.size() == ploidy && added;
     } else {
         // Top-level snarl or no parent context - genotype from scratch using support
         unique_ptr<SnarlCaller::CallInfo> trav_call_info;
+        SiteScore* trav_score = nullptr;
         std::tie(trav_genotype, trav_call_info) = genotype_site(
             snarl, travs, ref_trav_idx, Ploidies{.ploidy = ploidy}, ref_path_name,
-            make_pair(get<0>(ref_interval), get<1>(ref_interval)));
+            make_pair(get<0>(ref_interval), get<1>(ref_interval)), trav_score);
 
         assert(trav_genotype.empty() || trav_genotype.size() == ploidy);
 
         bool added = true;
-        added = stage_or_emit(trav_call_info);
+        added = stage_or_emit(trav_call_info, trav_score);
 
         ret_val = trav_genotype.size() == ploidy && added;
     }

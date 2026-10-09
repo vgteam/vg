@@ -126,8 +126,7 @@ bool GenotypeRescorer::rescore(StagedSiteTable& staged, const PhaseTable& phases
         size_t moved = 0;
         for (size_t ri = qi; ri < all_records.size(); ri += n_queues) {
             StagedSite& rec = *all_records[ri];
-            auto* info = dynamic_cast<ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo*>(
-                rec.call_info.get());
+            SiteScore* info = rec.score;
             if (info == nullptr || genotyper == nullptr) {
                 continue;
             }

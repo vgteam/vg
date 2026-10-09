@@ -25,8 +25,7 @@ void RecordRenderer::configure(SiteReader reader, function<bool(const Snarl&)> i
 // when it did; and NaN, written as ".", when it did but the margin cannot be recomputed.
 double RecordRenderer::anchor_gqn(const StagedSite& rec, const vector<int>& chosen,
                                   const LinkageCollector* model) {
-    const auto* info =
-        dynamic_cast<const ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo*>(rec.call_info.get());
+    const SiteScore* info = rec.score;
     // The direct pass's value, with its "no gap to normalise" value (-1) turned into NaN, written as ".",
     // so that it stays distinct from the signed range [-1, 1].
     const double direct_value = (info == nullptr || info->gq_fraction < 0.0)
@@ -99,8 +98,7 @@ void RecordRenderer::collect_anchors(const StagedSite& rec, const vector<int>& g
     if (rec.call_info == nullptr) {
         return;
     }
-    const auto* info =
-        dynamic_cast<const ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo*>(rec.call_info.get());
+    const SiteScore* info = rec.score;
     if (info == nullptr || info->anchor_evidence == nullptr) {
         // A genotype derived from a parent rather than scored here, or a run whose caller is not the
         // read-likelihood one. There are no per-read responsibilities to partition on.

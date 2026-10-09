@@ -72,10 +72,23 @@ struct StagedSite {
 
     /// The direct pass's genotype, before the linkage model, and its ploidy. A nested chain's
     /// ploidy here is the number of the parent's called alleles that cross it, or the parent's
-    /// ploidy when none does; `call_info` also holds the answer at the other ploidy.
+    /// ploidy when none does; `score` also holds the answer at the other ploidy.
     vector<int> genotype;
     int ploidy = 2;
+    /// The genotyper's call, which the record is written from.
     unique_ptr<SnarlCaller::CallInfo> call_info;
+    /// `call_info` as the read-likelihood genotyper's score, or null where another genotyper
+    /// called the site. `call_info` owns it, so the two are set together, by `set_call` or
+    /// `set_score`.
+    SiteScore* score = nullptr;
+
+    /// Give the site the genotyper's call `info`, and `typed`, which is null or `info` as the
+    /// read-likelihood genotyper's score.
+    void set_call(unique_ptr<SnarlCaller::CallInfo> info, SiteScore* typed);
+    /// Give the site a read-likelihood score as its call.
+    void set_score(unique_ptr<SiteScore> typed);
+    /// Take the site's read-likelihood score out, leaving it no call. `score` must not be null.
+    unique_ptr<SiteScore> take_score();
     /// See `NestingPlacement::reported_inline`. Its line is held back, as for
     /// `no_reference`. The direct pass tests the parent's direct call; under the linkage model the
     /// linkage pass tests again with the parent's chosen genotype, which the parent's blocks are

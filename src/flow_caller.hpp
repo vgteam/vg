@@ -251,10 +251,12 @@ protected:
     unique_ptr<SiteGenotyper> site_genotyper;
 
     /// Genotype one site at `ploidies`: through `site_genotyper` where there is one, and otherwise
-    /// through the `SnarlCaller`, which takes the ploidy alone.
+    /// through the `SnarlCaller`, which takes the ploidy alone. `score` is set to the call info as
+    /// the read-likelihood genotyper's score, or to null.
     pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> genotype_site(
         const Snarl& site, const vector<SnarlTraversal>& travs, int ref_trav_idx,
-        const Ploidies& ploidies, const string& ref_path_name, pair<size_t, size_t> ref_range);
+        const Ploidies& ploidies, const string& ref_path_name, pair<size_t, size_t> ref_range,
+        SiteScore*& score);
 
     /// Make a top-level site's `StagedSite` from its genotype, moving `call_info` into it.
     /// `travs` is left empty, because descent still reads the traversals; the caller moves them in
@@ -263,6 +265,7 @@ protected:
     unique_ptr<StagedSite> stage_render_record(const Snarl& snarl,
                                                  const vector<int>& trav_genotype, int ref_trav_idx,
                                                  unique_ptr<SnarlCaller::CallInfo>& call_info,
+                                                 SiteScore* score,
                                                  const string& ref_path_name, int ref_offset,
                                                  int ploidy);
 

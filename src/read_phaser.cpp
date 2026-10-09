@@ -50,8 +50,7 @@ void ReadPhaser::phase(StagedSiteTable& staged, PhaseTable& phases, ReadStrandTa
                 // Homozygous, haploid, or unplaced: no two strands to order.
                 continue;
             }
-            const auto* info = dynamic_cast<
-                const ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo*>(rec.call_info.get());
+            const SiteScore* info = rec.score;
             if (info == nullptr) {
                 continue;
             }

@@ -102,7 +102,7 @@ Alignment matching_read(const HandleGraph& graph, const string& name,
 struct Called {
     vector<int> genotype;
     const ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo* info;
-    unique_ptr<SnarlCaller::CallInfo> owned;
+    unique_ptr<ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo> owned;
     /// The caller's `gq_factor` for `info`, under the settings it was called with.
     double gq_factor = 0.0;
 };
@@ -404,7 +404,7 @@ TEST_CASE("Recomputed GQ takes the explained share of the new best genotype",
     Called called = call_site(site, reads);
     REQUIRE(called.info != nullptr);
     REQUIRE(called.genotype == vector<int>({0, 1}));
-    auto& info = dynamic_cast<ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo&>(*called.owned);
+    auto& info = *called.owned;
 
     // Re-genotyping changes the likelihoods in place; here 1/1 is made the best genotype, with
     // 0/1 second.
