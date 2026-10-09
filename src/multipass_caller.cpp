@@ -451,4 +451,164 @@ void MultiPassCaller::run_linkage_pass() {
     }
 }
 
+void VCFOutputCaller::set_linkage(LinkageCollector* collector, const gbwt::GBWT* gbwt,
+                                  const vector<size_t>* sequence_to_haplotype) {
+    this->panel_lookup = PanelLookup(gbwt, sequence_to_haplotype,
+                                     collector != nullptr ? collector->panel_size() : 0);
+    linker.configure(collector, &panel_lookup);
+}
+
+size_t VCFOutputCaller::phase_set_id(const string& contig, size_t phase_set) {
+    return phase_set_ids.emplace(make_pair(contig, phase_set), phase_set_ids.size()).first->second;
+}
+
+void VCFOutputCaller::finalise_linkage_outputs() {
+    // Built after every record has been rendered, since the mosaic needs to know which sites have
+    // a line, which is not known while genotypes are being resolved.
+    if (!linker.enabled()) {
+        return;
+    }
+    // Read from the collector, since each PhaseCall's `emitted` was copied before any line was
+    // written.
+    const std::unordered_set<size_t> emitted_records = linker.collector()->emitted_records();
+    size_t unexplained = 0;
+    size_t order_arbitrary = 0;
+    // Count the phased sites, separating those that became records from those that did not.
+    size_t phased_unwritten = 0;
+    for (const LinkageCollector::PhaseCall& pc : phase_table.calls()) {
+        if (emitted_records.count(pc.record_key) == 0) {
+            // Phased, since its children take their strand from it, but not a record, so it is kept
+            // out of the mosaic and the record counts.
+            ++phased_unwritten;
+            continue;
+        }
+        // Count only the strands a site has. A haploid site has one strand and a wildcard, and the
+        // wildcard can be in either slot: a haploid contig fills the first slot, while a nested
+        // site on its parent's second strand fills the second.
+        unexplained += (pc.ploidy == 1)
+                       ? (pc.hap_first == LinkageModel::WILDCARD
+                          && pc.hap_second == LinkageModel::WILDCARD)
+                       : (pc.hap_first == LinkageModel::WILDCARD
+                          || pc.hap_second == LinkageModel::WILDCARD);
+        order_arbitrary += pc.order_arbitrary;
+    }
+    linker.report();
+    if (emit_phasing) {
+        // At sites where a strand is on the wildcard, no panel haplotype names it, so the phase
+        // across them rests on the transitions alone.
+        cerr << "[vg call] phasing: " << (phase_table.calls().size() - phased_unwritten)
+             << " sites phased, " << unexplained
+             << " with a strand the panel does not explain" << endl;
+        if (phased_unwritten > 0) {
+            // Sites that wrote no VCF line but are phased. A parent whose alleles differ only inside
+            // its children is written as the reference and has no line, and its children still need
+            // to know which of its strands carries the chain.
+            cerr << "[vg call] phasing: " << phased_unwritten
+                 << " collapsed sites phased with no line of their own, so their children can"
+                 << " inherit a strand" << endl;
+        }
+        if (order_arbitrary > 0) {
+            // Heterozygous sites where no panel haplotype on either strand carries either called
+            // allele. The record is still phased and in the phase set, but its order came from
+            // sorting the pair, so it is arbitrary.
+            cerr << "[vg call] phasing: " << order_arbitrary
+                 << " heterozygous sites carry an allele order the panel does not determine"
+                 << endl;
+        }
+    }
+    if (mosaic_writer.is_enabled()) {
+        // Records only: the mosaic's segments are runs over sites of the call set, and it accounts
+        // for exactly the written records.
+        vector<LinkageCollector::PhaseCall> written;
+        written.reserve(phase_table.calls().size());
+        for (const LinkageCollector::PhaseCall& pc : phase_table.calls()) {
+            if (emitted_records.count(pc.record_key) != 0) {
+                written.push_back(pc);
+            }
+        }
+        mosaic_writer.write(written, panel_lookup, sample_name);
+    }
+}
+
+bool VCFOutputCaller::is_symbolically_reference(const vector<SnarlTraversal>& called_traversals,
+                                                int trav_idx, int ref_trav_idx,
+                                                const Snarl& snarl) const {
+    // Only when symbolic collapsing is on.
+    if (symbolic_manager == nullptr || ref_trav_idx < 0 || trav_idx < 0 ||
+        ref_trav_idx >= (int)called_traversals.size() ||
+        trav_idx >= (int)called_traversals.size()) {
+        return false;
+    }
+    return symbolically_equal(called_traversals[trav_idx], called_traversals[ref_trav_idx],
+                              snarl, *symbolic_manager);
+}
+
+void VCFOutputCaller::set_symbolic_collapsing(const SnarlManager* manager) {
+    this->symbolic_manager = manager;
+    block_records.set_manager(manager);
+    if (manager == nullptr) {
+        record_steps.same_as_reference = nullptr;
+        record_steps.count_site = nullptr;
+        return;
+    }
+    record_steps.same_as_reference = [this](const Snarl& site, const vector<SnarlTraversal>& travs,
+                                            int trav, int ref_trav_idx) {
+        return is_symbolically_reference(travs, trav, ref_trav_idx, site);
+    };
+    record_steps.count_site = [this](const PathPositionHandleGraph& graph, const Snarl& site,
+                                     const vector<SnarlTraversal>& travs,
+                                     const vector<int>& genotype, int ref_trav_idx) {
+        block_records.count_site(site, travs, ref_trav_idx);
+    };
+}
+
+int64_t VCFOutputCaller::phase_record_genotype(const Snarl& site, const vector<int>& site_genotype,
+                                               const map<int, int>& trav_to_allele,
+                                               string& gt) const {
+    if (!emit_phasing || !phase_table.has_rendered()) {
+        return -1;
+    }
+    const LinkageCollector::PhaseCall* found = phase_table.rendered(record_key_of(site));
+    if (found == nullptr) {
+        return -1;
+    }
+    const LinkageCollector::PhaseCall& phase = *found;
+    // `find`, since `operator[]` would insert a default 0 on a miss, and the map's size is not
+    // a bound on traversal indices.
+    const auto found_a = trav_to_allele.find(phase.trav_first);
+    const auto found_b = trav_to_allele.find(phase.trav_second);
+    const int a = (phase.trav_first >= 0 && found_a != trav_to_allele.end())
+                      ? found_a->second : -1;
+    const int b = (phase.trav_second >= 0 && found_b != trav_to_allele.end())
+                      ? found_b->second : -1;
+    // The phased genotype must be a permutation of the one this record carries, so that
+    // phasing cannot change a genotype.
+    bool same = false;
+    if (phase.ploidy == 1 && site_genotype.size() == 1) {
+        same = (a >= 0 && a == site_genotype[0]);
+    } else if (phase.ploidy == 2 && site_genotype.size() == 2) {
+        same = (a >= 0 && b >= 0)
+               && ((a == site_genotype[0] && b == site_genotype[1])
+                   || (a == site_genotype[1] && b == site_genotype[0]));
+    }
+
+    if (!same) {
+        ++phase_declined;
+        return -1;
+    }
+    if (phase.ploidy == 1 && phase.nested_strand >= 0) {
+        // A nested ploidy-1 site is one strand of a diploid locus, since the parent's
+        // other allele deletes the chain. Written as a phased pair with "." on the other
+        // strand, which is how the VCF records which strand carries the allele.
+        gt = nested_strand_genotype(a, phase.nested_strand);
+    } else if (phase.ploidy == 1) {
+        // A haploid locus: one allele and no order; PS labels its phase set. "a|a"
+        // would claim a homozygous diploid call.
+        gt = std::to_string(a);
+    } else {
+        gt = std::to_string(a) + "|" + std::to_string(b);
+    }
+    return (int64_t)phase.phase_set;
+}
+
 }
