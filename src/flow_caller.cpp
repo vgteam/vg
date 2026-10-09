@@ -178,7 +178,7 @@ void FlowCaller::install_record_steps() {
 void FlowCaller::install_widgets() {
     const SiteReader reader{
         .graph = &graph,
-        .caller = &snarl_caller,
+        .genotyper = site_genotyper.get(),
         .spell = [this](const SnarlTraversal& trav) { return trav_string(graph, trav); },
         .name = [this](const Snarl& site) { return print_snarl(site); },
     };
@@ -193,6 +193,25 @@ void FlowCaller::call_top_level_snarls(const HandleGraph& graph, RecurseType rec
     if (show_progress) {
         report_descent_instrumentation();
     }
+}
+
+void FlowCaller::set_site_genotyper(ReadLikelihoodSnarlCaller& genotyper) {
+    site_genotyper.reset(new SiteGenotyper(genotyper));
+    install_widgets();
+}
+
+pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> FlowCaller::genotype_site(
+    const Snarl& site, const vector<SnarlTraversal>& travs, int ref_trav_idx,
+    const Ploidies& ploidies, const string& ref_path_name, pair<size_t, size_t> ref_range) {
+    if (site_genotyper == nullptr) {
+        // Another genotyper, which takes the ploidy alone.
+        return snarl_caller.genotype(site, travs, ref_trav_idx, ploidies.ploidy, ref_path_name,
+                                     ref_range);
+    }
+    auto called =
+        site_genotyper->genotype(site, travs, ref_trav_idx, ploidies, ref_path_name, ref_range);
+    return make_pair(std::move(called.first),
+                     unique_ptr<SnarlCaller::CallInfo>(std::move(called.second)));
 }
 
 bool FlowCaller::call_snarl(const Snarl& managed_snarl) {
@@ -923,11 +942,10 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
             // the alleles are then placed on the strands that pass through.
             int effective_ploidy = (int)traversing_sets.size();
             vector<int> called_alleles;
-            ReadLikelihoodSnarlCaller::set_region_ploidy(region_ploidy);
-            std::tie(called_alleles, trav_call_info) = snarl_caller.genotype(
-                snarl, travs, ref_trav_idx, effective_ploidy, ref_path_name,
+            std::tie(called_alleles, trav_call_info) = genotype_site(
+                snarl, travs, ref_trav_idx,
+                Ploidies{.ploidy = effective_ploidy, .region_ploidy = region_ploidy}, ref_path_name,
                 make_pair(get<0>(ref_interval), get<1>(ref_interval)));
-            ReadLikelihoodSnarlCaller::set_region_ploidy(0);
 
             // Scatter the called alleles back onto the traversing haplotypes,
             // leaving the others as star/missing.
@@ -952,13 +970,10 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
         // A nested chain, reached by descent, at the ploidy its parent implied. Only a nested chain
         // can have its ploidy revised at the linkage pass, so only it needs the other ploidy's answer.
         unique_ptr<SnarlCaller::CallInfo> trav_call_info;
-        ReadLikelihoodSnarlCaller::set_want_alt_ploidy(true);
-        ReadLikelihoodSnarlCaller::set_region_ploidy(region_ploidy);
-        std::tie(trav_genotype, trav_call_info) = snarl_caller.genotype(
-            snarl, travs, ref_trav_idx, ploidy, ref_path_name,
-            make_pair(get<0>(ref_interval), get<1>(ref_interval)));
-        ReadLikelihoodSnarlCaller::set_region_ploidy(0);
-        ReadLikelihoodSnarlCaller::set_want_alt_ploidy(false);
+        std::tie(trav_genotype, trav_call_info) = genotype_site(
+            snarl, travs, ref_trav_idx,
+            Ploidies{.ploidy = ploidy, .region_ploidy = region_ploidy, .also_score_other = true},
+            ref_path_name, make_pair(get<0>(ref_interval), get<1>(ref_interval)));
 
         const bool retain_only = placement.retain_only;
         // Whether this snarl's own boundaries are on no reference path, checked from the graph for
@@ -1061,8 +1076,9 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
     } else {
         // Top-level snarl or no parent context - genotype from scratch using support
         unique_ptr<SnarlCaller::CallInfo> trav_call_info;
-        std::tie(trav_genotype, trav_call_info) = snarl_caller.genotype(snarl, travs, ref_trav_idx, ploidy, ref_path_name,
-                                                                        make_pair(get<0>(ref_interval), get<1>(ref_interval)));
+        std::tie(trav_genotype, trav_call_info) = genotype_site(
+            snarl, travs, ref_trav_idx, Ploidies{.ploidy = ploidy}, ref_path_name,
+            make_pair(get<0>(ref_interval), get<1>(ref_interval)));
 
         assert(trav_genotype.empty() || trav_genotype.size() == ploidy);
 

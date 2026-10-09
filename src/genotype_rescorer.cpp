@@ -111,8 +111,8 @@ bool GenotypeRescorer::rescore(StagedSiteTable& staged, const PhaseTable& phases
     // afterwards.
     const vector<StagedSite*> all_records = staged.in_order();
     const size_t n_queues = max<size_t>(1, staged.queue_count());
-    // Only a read-likelihood caller makes the CallInfos corrected below.
-    const auto* rl_caller = dynamic_cast<const ReadLikelihoodSnarlCaller*>(reader.caller);
+    // Only the read-likelihood genotyper makes the CallInfos corrected below.
+    const SiteGenotyper* genotyper = reader.genotyper;
     vector<RegenotypeCounters> thread_counters(n_queues);
     // Ledger rows are sorted before writing, since which thread handles a record depends on
     // scheduling.
@@ -128,7 +128,7 @@ bool GenotypeRescorer::rescore(StagedSiteTable& staged, const PhaseTable& phases
             StagedSite& rec = *all_records[ri];
             auto* info = dynamic_cast<ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo*>(
                 rec.call_info.get());
-            if (info == nullptr || rl_caller == nullptr) {
+            if (info == nullptr || genotyper == nullptr) {
                 continue;
             }
             // `converted` belongs to this iteration; nothing may point into it afterwards.
@@ -166,7 +166,7 @@ bool GenotypeRescorer::rescore(StagedSiteTable& staged, const PhaseTable& phases
                         new map<vector<int>, double>(info->genotype_lls));
                 } else {
                     info->genotype_lls = *info->uncorrected_lls;
-                    rl_caller->recompute_gq(*info);
+                    genotyper->recompute_gq(*info);
                 }
             } else {
                 scratch = info->genotype_lls;
@@ -188,7 +188,7 @@ bool GenotypeRescorer::rescore(StagedSiteTable& staged, const PhaseTable& phases
                 // The correction changed the best genotype, so GQ is recomputed from the corrected
                 // likelihoods, as the direct pass computes it. GQI and GQN are not: GQN's achievable gap
                 // assumes the site's own mixture weights, not per-read ones.
-                rl_caller->recompute_gq(*info);
+                genotyper->recompute_gq(*info);
             }
             // Both ploidies, as in the direct pass, since the linkage pass can move a chain from
             // ploidy 1 to 2. At ploidy 1 the correction is zero, but it is applied the same way.
@@ -198,13 +198,13 @@ bool GenotypeRescorer::rescore(StagedSiteTable& staged, const PhaseTable& phases
                     alt.uncorrected_lls.reset(new map<vector<int>, double>(alt.genotype_lls));
                 } else {
                     alt.genotype_lls = *alt.uncorrected_lls;
-                    rl_caller->recompute_gq(alt);
+                    genotyper->recompute_gq(alt);
                 }
                 RegenotypeCounters ignored;
                 if (phase_aware_correction(*pe, lambda, phase_set, strand0_allele, own, temper,
                                            ceiling, regenotype_params, alt.genotype_lls,
                                            ignored)) {
-                    rl_caller->recompute_gq(alt);
+                    genotyper->recompute_gq(alt);
                 }
             }
             if (!site_moved) {

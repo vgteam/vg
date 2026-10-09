@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "panel_lookup.hpp"
+#include "site_genotyper.hpp"
 #include "snarl_caller.hpp"
 #include "snarls.hpp"
 
@@ -99,8 +100,8 @@ struct StagedSite {
 struct SiteReader {
     /// The graph the sites are in.
     const PathPositionHandleGraph* graph = nullptr;
-    /// The genotyper that called the sites.
-    const SnarlCaller* caller = nullptr;
+    /// The read-likelihood genotyper that called the sites, or null where another genotyper did.
+    const SiteGenotyper* genotyper = nullptr;
     /// A traversal's sequence.
     function<string(const SnarlTraversal&)> spell;
     /// A site's ID, as its records name it.

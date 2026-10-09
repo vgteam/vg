@@ -150,6 +150,11 @@ public:
     virtual string vcf_header(const PathHandleGraph& graph, const vector<string>& contigs,
                               const vector<size_t>& contig_length_overrides = {}) const;
 
+    /// Genotype through `genotyper`, the read-likelihood genotyper this caller's `SnarlCaller` is,
+    /// with explicit ploidies, so that the passes after the direct pass read its typed scores.
+    /// Not owned.
+    void set_site_genotyper(ReadLikelihoodSnarlCaller& genotyper);
+
     /// See max_snarl_edges. Zero removes the limit.
     void set_max_snarl_edges(size_t edges) {
         max_snarl_edges = edges ? edges : numeric_limits<size_t>::max();
@@ -240,6 +245,16 @@ protected:
 
     /// Lists the child chains nested descent genotypes under each site.
     ChildPlacer child_placer;
+
+    /// The read-likelihood genotyper, or null where the `SnarlCaller` is another (see
+    /// `set_site_genotyper`).
+    unique_ptr<SiteGenotyper> site_genotyper;
+
+    /// Genotype one site at `ploidies`: through `site_genotyper` where there is one, and otherwise
+    /// through the `SnarlCaller`, which takes the ploidy alone.
+    pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> genotype_site(
+        const Snarl& site, const vector<SnarlTraversal>& travs, int ref_trav_idx,
+        const Ploidies& ploidies, const string& ref_path_name, pair<size_t, size_t> ref_range);
 
     /// Make a top-level site's `StagedSite` from its genotype, moving `call_info` into it.
     /// `travs` is left empty, because descent still reads the traversals; the caller moves them in

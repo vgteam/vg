@@ -42,6 +42,24 @@ using namespace std;
  * record with an allele that matches none, such as the empty traversal of a star
  * allele, is written without GL, since GL needs an entry for every genotype.
  */
+/// The ploidies one site is genotyped with.
+struct Ploidies {
+    /// The ploidy to genotype the site at.
+    int ploidy = 2;
+    /// How many of the sample's haplotypes the region around the site holds, or 0 to take
+    /// `ploidy`. The depth term needs it: its rate is per haplotype, and the reads it is measured
+    /// from come from every haplotype in the region. Only a nested site needs it set, since a
+    /// nested site's ploidy counts only the parent alleles that cross it, where a top-level site's
+    /// ploidy is the region's.
+    int region_ploidy = 0;
+    /// Also score the site at the other ploidy (2 for ploidy 1, and 1 otherwise), filling
+    /// `alt_ploidy_best` and `alt_ploidy_info` where the site has more than one candidate allele.
+    /// The matrix is reused, since it does not depend on ploidy. Only a site in a nested chain
+    /// needs this, because its ploidy comes from its parent's genotype, which the linkage pass
+    /// chooses later. A top-level site's ploidy is fixed, so asking for it there only costs memory.
+    bool also_score_other = false;
+};
+
 class ReadLikelihoodSnarlCaller : public SupportBasedSnarlCaller {
 public:
 
@@ -69,12 +87,13 @@ public:
         /// index multiset so the VCF layer can look up by remapped indices.
         map<vector<int>, double> genotype_lls;
         /// The best genotype at the other ploidy (2 for a site genotyped at ploidy 1, and 1
-        /// otherwise), as traversal indices. Empty unless requested with set_want_alt_ploidy.
+        /// otherwise), as traversal indices. Empty unless requested with
+        /// `Ploidies::also_score_other`.
         vector<int> alt_ploidy_best;
 
         /// The whole call at the other ploidy, computed from the same matrix, so that the
         /// site's record can be built at whichever ploidy the linkage pass gives it. Null unless
-        /// requested with set_want_alt_ploidy. Its ploidy-independent fields, such as
+        /// requested with `Ploidies::also_score_other`. Its ploidy-independent fields, such as
         /// `scored_traversals` and `allele_support`, are copies of this one's.
         unique_ptr<ReadLikelihoodCallInfo> alt_ploidy_info;
 
@@ -159,24 +178,13 @@ public:
 
     };
 
-    /// While on, every `genotype` call on this thread that finds a genotype at a site with more
-    /// than one candidate allele also scores the site at the other ploidy, filling
-    /// `alt_ploidy_best` and `alt_ploidy_info`. The matrix is reused, since it does not
-    /// depend on ploidy. The caller turns it off again after the call.
-    ///
-    /// Only a site in a nested chain needs this, because its ploidy comes from its parent's
-    /// genotype, which the linkage pass chooses later. A top-level site's ploidy is fixed, so asking
-    /// for it there only costs memory. Thread-local because the direct pass calls sites in parallel.
-    static void set_want_alt_ploidy(bool on) { want_alt_ploidy = on; }
+    /// Genotype a site at `ploidies`. The genotype is a multiset of indices into `traversals`,
+    /// sorted; it is empty where the site cannot be genotyped. The score is never null.
+    pair<vector<int>, unique_ptr<ReadLikelihoodCallInfo>> genotype_at(
+        const Snarl& snarl, const vector<SnarlTraversal>& traversals, int ref_trav_idx,
+        const Ploidies& ploidies, const string& ref_path_name, pair<size_t, size_t> ref_range);
 
-    /// Tell the `genotype` calls on this thread how many of the sample's haplotypes the region
-    /// around the site holds, or 0 to take the site's own ploidy. The depth term needs it: its
-    /// rate is per haplotype, and the reads it is measured from come from every haplotype in the
-    /// region. Only a nested site needs it set, since a nested site's ploidy counts only the
-    /// parent alleles that cross it, where a top-level site's ploidy is the region's.
-    /// Thread-local for the same reason as set_want_alt_ploidy.
-    static void set_region_ploidy(int ploidy) { region_ploidy = ploidy; }
-
+    /// `genotype_at` with `ploidy` alone.
     virtual pair<vector<int>, unique_ptr<CallInfo>> genotype(const Snarl& snarl,
                                                              const vector<SnarlTraversal>& traversals,
                                                              int ref_trav_idx,
@@ -306,10 +314,6 @@ protected:
     /// NullTraversalSupportFinder and reports zero for everything.
     bool support_available = true;
 
-    /// See set_want_alt_ploidy.
-    static thread_local bool want_alt_ploidy;
-    /// See set_region_ploidy.
-    static thread_local int region_ploidy;
 
 
     /// Whether GQ is scaled by the explained-read fraction. See set_share_discount.

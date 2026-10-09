@@ -2064,6 +2064,8 @@ int main_call(int argc, char** argv) {
     
     // Make a Packed Support Caller
     unique_ptr<SnarlCaller> snarl_caller;
+    // The read-likelihood genotyper, when `snarl_caller` is one.
+    ReadLikelihoodSnarlCaller* read_likelihood_caller = nullptr;
     vg::algorithms::BinnedDepthIndex depth_index;
 
     unique_ptr<Packer> packer;
@@ -2268,6 +2270,7 @@ int main_call(int argc, char** argv) {
             rl_caller->set_min_confidence(min_confidence);
 
             packed_caller = rl_caller;
+            read_likelihood_caller = rl_caller;
         } else if (ratio_caller == false) {
             // Make a depth index
             if (show_progress) logger.info() << "Computing coverage statistics" << endl;
@@ -2461,6 +2464,9 @@ int main_call(int argc, char** argv) {
     // The FlowCaller constructors do not take the cap, so we set it on whichever one was built.
     if (FlowCaller* flow_caller = dynamic_cast<FlowCaller*>(graph_caller.get())) {
         flow_caller->set_max_snarl_edges(max_snarl_edges_opt);
+        if (read_likelihood_caller != nullptr) {
+            flow_caller->set_site_genotyper(*read_likelihood_caller);
+        }
     }
 
     // The caller as a VCFOutputCaller, or null if it does not write VCF.

@@ -13,8 +13,6 @@
 
 namespace vg {
 
-thread_local bool ReadLikelihoodSnarlCaller::want_alt_ploidy = false;
-thread_local int ReadLikelihoodSnarlCaller::region_ploidy = 0;
 
 using namespace std;
 
@@ -119,10 +117,20 @@ bool ReadLikelihoodSnarlCaller::traversals_equal(const SnarlTraversal& a,
 pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> ReadLikelihoodSnarlCaller::genotype(
     const Snarl& snarl, const vector<SnarlTraversal>& traversals, int ref_trav_idx, int ploidy,
     const string& ref_path_name, pair<size_t, size_t> ref_range) {
+    auto called = genotype_at(snarl, traversals, ref_trav_idx, Ploidies{.ploidy = ploidy},
+                              ref_path_name, ref_range);
+    return make_pair(std::move(called.first), unique_ptr<CallInfo>(std::move(called.second)));
+}
 
+pair<vector<int>, unique_ptr<ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo>>
+ReadLikelihoodSnarlCaller::genotype_at(const Snarl& snarl, const vector<SnarlTraversal>& traversals,
+                                       int ref_trav_idx, const Ploidies& ploidies,
+                                       const string& ref_path_name,
+                                       pair<size_t, size_t> ref_range) {
+    const int ploidy = ploidies.ploidy;
     ReadLikelihoodCallInfo* call_info = new ReadLikelihoodCallInfo();
     call_info->ploidy = ploidy;
-    unique_ptr<CallInfo> call_info_owner(call_info);
+    unique_ptr<ReadLikelihoodCallInfo> call_info_owner(call_info);
 
     if (traversals.empty() || ploidy < 1) {
         return make_pair(vector<int>(), std::move(call_info_owner));
@@ -130,7 +138,7 @@ pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> ReadLikelihoodSnarlCaller::
 
     // Build the reads x alleles matrix for this site.
     AlleleReadLikelihoods matrix = likelihood_calculator.compute(
-        snarl, traversals, region_ploidy > 0 ? region_ploidy : ploidy);
+        snarl, traversals, ploidies.region_ploidy > 0 ? ploidies.region_ploidy : ploidy);
 
     // Per-allele read support and mean absolute fit. Neither enters the genotype likelihood;
     // both are written to the VCF, as AD and BL.
@@ -194,7 +202,7 @@ pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> ReadLikelihoodSnarlCaller::
     }
 
     // Derive the call at ploidy p from the matrix, which does not depend on ploidy. It runs once
-    // for the site's ploidy and, when set_want_alt_ploidy asked for it, once for the other, so that
+    // for the site's ploidy and, when `ploidies` asks for it, once for the other, so that
     // a nested site's record can later be built at whichever ploidy its parent's chosen genotype
     // gives it.
     auto derive = [&](int p, ReadLikelihoodCallInfo* info) -> vector<int> {
@@ -318,7 +326,7 @@ pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> ReadLikelihoodSnarlCaller::
 
     // The same site at the other ploidy, from the same matrix. The depth rate is per haplotype
     // of the region, so it does not change with the number of haplotypes crossing the site.
-    if (want_alt_ploidy && traversals.size() > 1) {
+    if (ploidies.also_score_other && traversals.size() > 1) {
         int other = ploidy == 1 ? 2 : 1;
         auto alt = make_unique<ReadLikelihoodCallInfo>();
         // Copy the fields that depend only on the matrix, not on the ploidy.

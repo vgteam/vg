@@ -64,14 +64,13 @@ SiteLocus GenotypeLinker::off_reference_site_locus(const string& ref_path_name,
 }
 
 /// The quality inputs of the direct call `info`, which the linkage collector keeps for rewriting
-/// the record if the model moves it. `caller` decides the GQ factor, since --no-share-quality and
-/// --depth-quality are its settings.
-static LinkageCollector::DirectQuality direct_quality_of(
-    const SnarlCaller& caller, const ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo& info) {
-    const auto* rl_caller = dynamic_cast<const ReadLikelihoodSnarlCaller*>(&caller);
+/// the record if the model moves it. `genotyper` decides the GQ factor, since --no-share-quality
+/// and --depth-quality are its settings.
+static LinkageCollector::DirectQuality direct_quality_of(const SiteGenotyper* genotyper,
+                                                         const SiteScore& info) {
     return LinkageCollector::DirectQuality{
         .explained_share = info.explained_share,
-        .gq_factor = rl_caller != nullptr ? rl_caller->gq_factor(info) : info.explained_share,
+        .gq_factor = genotyper != nullptr ? genotyper->gq_factor(info) : info.explained_share,
         .achievable_gap = info.achievable_gap,
     };
 }
@@ -116,7 +115,7 @@ bool GenotypeLinker::add(const Snarl& snarl, const vector<SnarlTraversal>& travs
         panel,
         called_i, called_j, no_allele_map,
         record_key,
-        direct_quality_of(*reader.caller, *rl_info), site_ploidy,
+        direct_quality_of(reader.genotyper, *rl_info), site_ploidy,
         (int64_t)snarl.start().node_id(), (int64_t)snarl.end().node_id(),
         // `nested` only when one copy of the chain is present, as for any other chain; a chain with
         // two copies joins its parent's diploid group.
@@ -462,7 +461,7 @@ GenotypeLinker::PassCounts GenotypeLinker::link(StagedSiteTable& sites, PhaseTab
                     // The explained share the old entry carried, or 1.0 for a chain that had none.
                     // The quality inputs of the direct call recorded here, which the record's
                     // GQI and GL also come from.
-                    pr.record_key, direct_quality_of(*reader.caller, *used),
+                    pr.record_key, direct_quality_of(reader.genotyper, *used),
                     (size_t)copies, pr.snarl.start().node_id(), pr.snarl.end().node_id(),
                     LinkageCollector::SiteContext{
                         .nested = copies == 1,

@@ -58,7 +58,7 @@ public:
     void configure(LinkageCollector* collector, const PanelLookup* panel);
 
     /// Where to read what a staged site does not hold: the graph, for a site's locus, its alleles'
-    /// sequences and where its chains start, and the genotyper, whose GQ settings
+    /// sequences and where its chains start, and the read-likelihood genotyper, whose GQ settings
     /// (--no-share-quality, --depth-quality) the quality inputs filed with each site follow.
     /// Needed before `add` or `link`.
     void set_site_reader(SiteReader reader);

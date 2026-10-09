@@ -109,7 +109,7 @@ struct Called {
 
 Called call_site(CallerSite& site, const vector<Alignment>& reads,
                  const function<void(ReadLikelihoodSnarlCaller&)>& configure = nullptr,
-                 int ploidy = 2) {
+                 int ploidy = 2, int region_ploidy = 0, bool also_score_other = false) {
     InMemorySiteReadSource source;
     for (const Alignment& aln : reads) {
         source.add(aln);
@@ -123,12 +123,15 @@ Called call_site(CallerSite& site, const vector<Alignment>& reads,
     if (configure) {
         configure(caller);
     }
-    auto result = caller.genotype(site.snarl, site.traversals, 0, ploidy, "", {0, 0});
+    auto result = caller.genotype_at(site.snarl, site.traversals, 0,
+                                     Ploidies{.ploidy = ploidy,
+                                              .region_ploidy = region_ploidy,
+                                              .also_score_other = also_score_other},
+                                     "", {0, 0});
     Called out;
     out.genotype = result.first;
+    out.info = result.second.get();
     out.owned = std::move(result.second);
-    out.info = dynamic_cast<const ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo*>(
-        out.owned.get());
     if (out.info != nullptr) {
         out.gq_factor = caller.gq_factor(*out.info);
     }
@@ -341,11 +344,7 @@ TEST_CASE("A nested site's depth rate is per haplotype of the region, not of the
     }
 
     Called diploid = call_site(site, reads);
-    ReadLikelihoodSnarlCaller::set_region_ploidy(2);
-    ReadLikelihoodSnarlCaller::set_want_alt_ploidy(true);
-    Called nested = call_site(site, reads, nullptr, 1);
-    ReadLikelihoodSnarlCaller::set_want_alt_ploidy(false);
-    ReadLikelihoodSnarlCaller::set_region_ploidy(0);
+    Called nested = call_site(site, reads, nullptr, 1, 2, true);
 
     REQUIRE(diploid.info != nullptr);
     REQUIRE(nested.info != nullptr);
@@ -371,9 +370,7 @@ TEST_CASE("DR can be computed for a genotype other than the direct call",
     for (int i = 0; i < 15; ++i) {
         reads.push_back(matching_read(site.graph, "r" + std::to_string(i), {1, 3, 4}));
     }
-    ReadLikelihoodSnarlCaller::set_want_alt_ploidy(true);
-    Called called = call_site(site, reads);
-    ReadLikelihoodSnarlCaller::set_want_alt_ploidy(false);
+    Called called = call_site(site, reads, nullptr, 2, 0, true);
     REQUIRE(called.info != nullptr);
     REQUIRE(called.genotype == vector<int>({1, 1}));
     REQUIRE(called.info->depth_ratio > 0.0);
