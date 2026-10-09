@@ -2809,13 +2809,13 @@ int main_call(int argc, char** argv) {
         }
     }
 
-    // After the direct pass, choose the genotypes, parents before their nested children (the
-    // linkage pass, FlowCaller::run_linkage_pass), and build each record from its settled
-    // genotype. Nested calling needs this because a child's ploidy depends on its parent's
-    // genotype, and the linkage model needs it because it can change genotypes after they are
-    // first called.
+    // Under --read-likelihood, after the direct pass, choose the genotypes, parents before their
+    // nested children (the linkage pass, FlowCaller::run_linkage_pass), and build each record from
+    // its settled genotype. Nested calling needs this because a child's ploidy depends on its
+    // parent's genotype, and the linkage model needs it because it can change genotypes after they
+    // are first called. Every read-likelihood run takes this path, whether or not either is on.
     FlowCaller* deferring_caller = nullptr;
-    if (nested_calling || linkage_collector != nullptr) {
+    if (read_likelihood) {
         deferring_caller = dynamic_cast<FlowCaller*>(graph_caller.get());
         if (deferring_caller != nullptr) {
             deferring_caller->set_stage_records(true);
