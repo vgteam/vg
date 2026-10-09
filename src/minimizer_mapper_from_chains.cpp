@@ -1831,20 +1831,6 @@ void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::ve
                     // We don't expect this anchor to be original
                     continue;
                 }
-                if ((anchor_i == 0 || chains.at(processed_num).is_anchor_shared[anchor_i-1])
-                    && anchor_i + 1 < total_anchors
-                    && !chains.at(processed_num).is_anchor_shared[anchor_i+1]) {
-                    // This anchor is on the very left end of an original bit
-                    // These may have some overlap in the case of close-by Y forks
-                    continue;
-                }
-                if ((anchor_i == total_anchors-1 || chains.at(processed_num).is_anchor_shared[anchor_i+1])
-                    && anchor_i > 0
-                    && !chains.at(processed_num).is_anchor_shared[anchor_i-1]) {
-                    // This anchor is on the very right end of an original bit
-                    // These may have some overlap in the case of close-by Y forks
-                    continue;
-                }
 
                 size_t seed_num = chains.at(processed_num).anchors.at(anchor_i);
                 // Look at the individual pin points and their associated read-node offset
@@ -1889,7 +1875,7 @@ void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::ve
             if (show_work) {
                 #pragma omp critical (cerr)
                 {
-                    cerr << log_name() << "Chain " << processed_num << " overlaps few enough of the "
+                    cerr << log_name() << "Chain " << processed_num << " overlaps none of the "
                          << used_matchings.size() << " read-node matchings used in previous alignments" << endl;
                 }
             }
