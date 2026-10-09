@@ -6,7 +6,10 @@
  */
 
 #include <algorithm>
+#include <atomic>
+#include <cstdint>
 #include <functional>
+#include <iostream>
 #include <iterator>
 #include <utility>
 #include <vector>
@@ -141,6 +144,69 @@ private:
     /// One queue per thread, of the sites to call at the next level.
     vector<vector<Site>> queues;
 };
+
+/**
+ * Walk a tree of sites as `vg call` does: call every top-level site in parallel, then the
+ * children of every site (`recurse_always`), or of every site whose call returned false
+ * (`recurse_on_fail`), and so on down, in the jobs a `SiteScheduler` with `batch_window` and `key`
+ * gives. `for_each` and `for_each_parallel` list the top-level sites as
+ * `SiteScheduler::call_top_level` wants them, `skip` says which sites are neither called nor
+ * counted, `call` calls a site, and `add_children` appends a site's children to a queue. With
+ * `show_progress`, reports the sites called to stderr.
+ */
+template<typename Site>
+void walk_site_tree(size_t batch_window, function<nid_t(const Site&)> key, bool recurse_always,
+                    bool recurse_on_fail, bool show_progress,
+                    const typename SiteScheduler<Site>::SiteLister& for_each,
+                    const typename SiteScheduler<Site>::SiteLister& for_each_parallel,
+                    const function<bool(const Site&)>& skip,
+                    const function<bool(const Site&)>& call,
+                    const function<void(const Site&, vector<Site>&)>& add_children) {
+    std::atomic<std::int64_t> top_snarl_count(0);
+    std::atomic<std::int64_t> nested_snarl_count(0);
+    bool top_level = true;
+
+    // Call a site, and queue its children if the recursion asks for them.
+    auto process_site = [&](const Site& site, vector<Site>& thread_queue) {
+        if (skip(site)) {
+            return;
+        }
+        bool was_called = call(site);
+        if (recurse_always || (!was_called && recurse_on_fail)) {
+            add_children(site, thread_queue);
+        }
+        if (show_progress) {
+            if (top_level) {
+                ++top_snarl_count;
+                if (top_snarl_count % 100000 == 0) {
+#pragma omp critical (cerr)
+                    cerr << "[vg call]: Processed " << top_snarl_count << " top-level snarls" << endl;
+                }
+            } else {
+                ++nested_snarl_count;
+                if (nested_snarl_count % 100000 == 0) {
+#pragma omp critical (cerr)
+                    cerr << "[vg call]: Processed " << top_snarl_count << " nested snarls" << endl;
+                }
+            }
+        }
+    };
+    SiteScheduler<Site> scheduler(batch_window, std::move(key), process_site);
+
+    // Start with the top-level sites.
+    scheduler.call_top_level(for_each, for_each_parallel);
+    if (show_progress) {
+        cerr << "[vg call]: Finished processing " << top_snarl_count << " top-level snarls" << endl;
+    }
+
+    top_level = false;
+
+    // Then the children the calls queued.
+    scheduler.call_queued();
+    if (show_progress && nested_snarl_count > 0) {
+        cerr << "[vg call]: Finished processing " << nested_snarl_count << " nested snarls" << endl;
+    }
+}
 
 }
 

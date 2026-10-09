@@ -44,69 +44,26 @@ static nid_t snarl_node_key(const Snarl* snarl) {
 }
 
 void GraphCaller::call_top_level_snarls(const HandleGraph& graph, RecurseType recurse_type) {
-    call_snarl_tree(graph, snarl_manager, recurse_type, snarl_batch_window, show_progress,
-                    [&](const Snarl& snarl) { return call_snarl(snarl); });
-}
-
-void call_snarl_tree(const HandleGraph& graph, SnarlManager& snarl_manager,
-                     GraphCaller::RecurseType recurse_type, size_t snarl_batch_window,
-                     bool show_progress, const function<bool(const Snarl&)>& call_snarl) {
-
-    std::atomic<std::int64_t> top_snarl_count(0);
-    std::atomic<std::int64_t> nested_snarl_count(0);
-    bool top_level = true;
-
-    // Run the snarl caller on a snarl, and queue up the children if it fails
-    auto process_snarl = [&](const Snarl* const& snarl, vector<const Snarl*>& thread_queue) {
-
-        if (!snarl_manager.is_trivial(snarl, graph)) {
-
-#ifdef debug
-            cerr << "GraphCaller running call_snarl on " << pb2json(*snarl) << endl;
-#endif
-
-            bool was_called = call_snarl(*snarl);
-            if (recurse_type == GraphCaller::RecurseAlways
-                || (!was_called && recurse_type == GraphCaller::RecurseOnFail)) {
-                const vector<const Snarl*>& children = snarl_manager.children_of(snarl);
-                thread_queue.insert(thread_queue.end(), children.begin(), children.end());
-            }
-            
-            if (show_progress) {
-                if (top_level) {
-                    ++top_snarl_count;
-                    if (top_snarl_count % 100000 == 0) {
-#pragma omp critical (cerr)
-                        cerr << "[vg call]: Processed " << top_snarl_count << " top-level snarls" << endl;
-                    }
-                } else {
-                    ++nested_snarl_count;
-                    if (nested_snarl_count % 100000 == 0) {
-#pragma omp critical (cerr)                    
-                        cerr << "[vg call]: Processed " << top_snarl_count << " nested snarls" << endl;
-                    }
-                }
-            }
-        }
-    };
-    SiteScheduler<const Snarl*> scheduler(snarl_batch_window, snarl_node_key, process_snarl);
-
-    // Start with the top level snarls
-    scheduler.call_top_level(
+    walk_site_tree<const Snarl*>(
+        snarl_batch_window, snarl_node_key, recurse_type == RecurseAlways,
+        recurse_type == RecurseOnFail, show_progress,
         [&](const function<void(const Snarl* const&)>& lambda) {
             snarl_manager.for_each_top_level_snarl([&](const Snarl* snarl) { lambda(snarl); });
         },
         [&](const function<void(const Snarl* const&)>& lambda) {
             snarl_manager.for_each_top_level_snarl_parallel([&](const Snarl* snarl) { lambda(snarl); });
+        },
+        [&](const Snarl* const& snarl) { return snarl_manager.is_trivial(snarl, graph); },
+        [&](const Snarl* const& snarl) {
+#ifdef debug
+            cerr << "GraphCaller running call_snarl on " << pb2json(*snarl) << endl;
+#endif
+            return call_snarl(*snarl);
+        },
+        [&](const Snarl* const& snarl, vector<const Snarl*>& queue) {
+            const vector<const Snarl*>& children = snarl_manager.children_of(snarl);
+            queue.insert(queue.end(), children.begin(), children.end());
         });
-    if (show_progress) cerr << "[vg call]: Finished processing " << top_snarl_count << " top-level snarls" << endl;
-
-    top_level = false;
-
-    // Then recurse on any children the snarl caller failed to handle
-    scheduler.call_queued();
-    if (show_progress && nested_snarl_count > 0) cerr << "[vg call]: Finished processing " << nested_snarl_count << " nested snarls" << endl;
-  
 }
 
 void GraphCaller::call_top_level_chains(const HandleGraph& graph, size_t max_edges, size_t max_trivial, RecurseType recurse_type) {

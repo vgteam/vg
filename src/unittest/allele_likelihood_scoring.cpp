@@ -134,7 +134,7 @@ static AlleleReadLikelihoods score_site(Site& site, const vector<Alignment>& rea
                                                       plain_scorer, params);
     return calculator.compute(bounds_of(site.graph, site.snarl),
                               walks_of(site.graph, site.traversals),
-                              enclosing_sites(*site.manager, site.graph, site.snarl), ploidy);
+                              /* top-level: nothing encloses it */ {}, ploidy);
 }
 
 TEST_CASE("The depth rate is per haplotype, so it follows the site's ploidy",
@@ -411,10 +411,10 @@ TEST_CASE("No read's allele preference depends on the flank's length",
         GraphAlignedAlleleLikelihoodCalculator long_calc(longf.graph, long_src, qs, ps, params);
         AlleleReadLikelihoods sm = short_calc.compute(
             bounds_of(shortf.graph, shortf.snarl), walks_of(shortf.graph, shortf.traversals),
-            enclosing_sites(*shortf.manager, shortf.graph, shortf.snarl), 2);
+            /* top-level: nothing encloses it */ {}, 2);
         AlleleReadLikelihoods lm = long_calc.compute(
             bounds_of(longf.graph, longf.snarl), walks_of(longf.graph, longf.traversals),
-            enclosing_sites(*longf.manager, longf.graph, longf.snarl), 2);
+            /* top-level: nothing encloses it */ {}, 2);
 
         INFO("configuration " << c << (optimal_pairing ? " (--optimal-pairing)" : " (greedy)"));
         REQUIRE(sm.num_reads() == lm.num_reads());
@@ -474,7 +474,7 @@ TEST_CASE("Every read is placeable against every allele, whatever the node layou
         GraphAlignedAlleleLikelihoodCalculator calc(site.graph, src, qs, ps, params);
         AlleleReadLikelihoods m = calc.compute(
             bounds_of(site.graph, site.snarl), walks_of(site.graph, site.traversals),
-            enclosing_sites(*site.manager, site.graph, site.snarl), 2);
+            /* top-level: nothing encloses it */ {}, 2);
 
         INFO("configuration " << c << (optimal_pairing ? " (--optimal-pairing)" : " (greedy)"));
         REQUIRE(m.num_reads() == configurations[c].size());

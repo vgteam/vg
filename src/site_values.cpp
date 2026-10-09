@@ -1,7 +1,6 @@
 #include "site_values.hpp"
 
 #include <algorithm>
-#include <map>
 
 namespace vg {
 
@@ -82,88 +81,83 @@ bool same_walk(const HandleGraph& graph, const SnarlTraversal& trav, const Trave
     return true;
 }
 
-/// The manager's snarl that `site` is, or null when there is none. `out_reversed` is set when it
-/// is that snarl only turned round.
-static const Snarl* managed_site(const Snarl& site, const SnarlManager& manager,
-                                 bool* out_reversed) {
-    *out_reversed = false;
-    const Snarl* site_ptr = manager.into_which_snarl(site.start().node_id(),
-                                                     site.start().backward());
-    if (site_ptr == nullptr) {
-        return nullptr;
-    }
-    // The start leads into this snarl, but it is the same snarl only if the other bound agrees,
-    // read either way round. The forward pairing compares node IDs; the reversed one compares
-    // whole visits, since the turned-round snarl has its bounds reversed and swapped.
-    auto same_visit = [](const Visit& a, const Visit& b) {
-        return a.node_id() == b.node_id() && a.backward() == b.backward();
-    };
-    const bool forward = site_ptr->start().node_id() == site.start().node_id() &&
-                         site_ptr->end().node_id() == site.end().node_id();
-    const bool reversed = same_visit(site_ptr->start(), reverse(site.end())) &&
-                          same_visit(site_ptr->end(), reverse(site.start()));
-    if (!forward && !reversed) {
-        return nullptr;
-    }
-    *out_reversed = reversed && !forward;
-    return site_ptr;
+SiteBounds oriented_bounds(const SnarlDecomposition& decomposition, const HandleGraph& graph,
+                           const net_handle_t& net) {
+    // The bounds ignore the traversal: the start bound read in, and the end bound read out.
+    return SiteBounds{decomposition.get_handle(decomposition.get_bound(net, false, true), &graph),
+                      decomposition.get_handle(decomposition.get_bound(net, true, false), &graph)};
 }
 
-ChildChain chain_of_site(const SnarlManager& manager, const HandleGraph& graph,
-                         const Snarl* site) {
-    const Chain* chain = manager.chain_of(site);
-    const bool in_chain = chain != nullptr && !chain->empty();
-    const Visit first = in_chain ? get_start_of(*chain) : site->start();
-    const Visit last = in_chain ? get_end_of(*chain) : site->end();
-    return ChildChain{graph.get_handle(first.node_id(), first.backward()),
-                      graph.get_handle(last.node_id(), last.backward())};
-}
-
-SiteChildren site_children(const SnarlManager& manager, const HandleGraph& graph,
-                           const Snarl& site) {
+SiteChildren site_children(const SnarlDecomposition& decomposition, const HandleGraph& graph,
+                           const net_handle_t& site, const SiteBounds& as_called,
+                           vector<ChildSite>* child_sites) {
     SiteChildren out;
-    const Snarl* site_ptr = managed_site(site, manager, &out.reversed);
-    if (site_ptr == nullptr) {
+    // The caller's site is this one as it is, or turned round. The forward pairing compares node
+    // IDs; the reversed one compares whole handles, since the turned-round site has its bounds
+    // reversed and swapped.
+    const SiteBounds own = oriented_bounds(decomposition, graph, site);
+    const bool forward = graph.get_id(own.start) == graph.get_id(as_called.start)
+                         && graph.get_id(own.end) == graph.get_id(as_called.end);
+    const bool reversed = own.start == graph.flip(as_called.end)
+                          && own.end == graph.flip(as_called.start);
+    if (!forward && !reversed) {
         return out;
     }
     out.known = true;
-    // Each chain once, however many of its sites are children.
-    map<pair<nid_t, nid_t>, size_t> chain_index;
-    for (const Snarl* child : manager.children_of(site_ptr)) {
-        const ChildChain chain = chain_of_site(manager, graph, child);
-        auto inserted = chain_index.emplace(make_pair(graph.get_id(chain.start),
-                                                      graph.get_id(chain.end)),
-                                            out.chains.size());
-        if (inserted.second) {
-            out.chains.push_back(chain);
+    out.reversed = reversed && !forward;
+    decomposition.for_each_child(site, [&](const net_handle_t& chain) {
+        if (!decomposition.is_chain(chain)) {
+            return true;
         }
-        // The two ways in, each kept only where the manager's own lookup gives this child.
-        for (const pair<nid_t, bool>& way_in :
-             {make_pair(child->start().node_id(), child->start().backward()),
-              make_pair(child->end().node_id(), !child->end().backward())}) {
-            if (manager.into_which_snarl(way_in.first, way_in.second) == child) {
-                out.entries.emplace_back(way_in, inserted.first->second);
+        // The chain's nodes in order, read the way the chain is read. A site lies between each
+        // two consecutive nodes, and between the last and the first of a cyclic chain; it is
+        // entered by the first node read forward or by the second read backward.
+        const ChildChain bounds = oriented_bounds(decomposition, graph, chain);
+        vector<handle_t> nodes;
+        decomposition.for_each_child(chain, [&](const net_handle_t& child) {
+            if (decomposition.is_node(child)) {
+                nodes.push_back(decomposition.get_handle(child, &graph));
+            } else if (child_sites != nullptr && decomposition.is_snarl(child)) {
+                child_sites->push_back(
+                    ChildSite{child, oriented_bounds(decomposition, graph, child), bounds});
             }
+            return true;
+        });
+        const bool cyclic = nodes.size() > 1
+                            && graph.get_id(bounds.start) == graph.get_id(bounds.end);
+        const size_t pairs = nodes.empty() ? 0 : (cyclic ? nodes.size() : nodes.size() - 1);
+        if (pairs == 0) {
+            return true;
         }
-    }
+        const size_t index = out.chains.size();
+        out.chains.push_back(bounds);
+        for (size_t k = 0; k < pairs; ++k) {
+            const handle_t& first = nodes[k];
+            const handle_t& second = nodes[(k + 1) % nodes.size()];
+            out.entries.emplace_back(make_pair(graph.get_id(first), graph.get_is_reverse(first)),
+                                     index);
+            out.entries.emplace_back(make_pair(graph.get_id(second), !graph.get_is_reverse(second)),
+                                     index);
+        }
+        return true;
+    });
     std::sort(out.entries.begin(), out.entries.end());
     return out;
 }
 
-vector<SiteBounds> enclosing_sites(const SnarlManager& manager, const HandleGraph& graph,
-                                   const Snarl& site) {
+vector<SiteBounds> enclosing_sites(const SnarlDecomposition& decomposition,
+                                   const HandleGraph& graph, const net_handle_t& site) {
     vector<SiteBounds> out;
-    // Up from the snarl a walk enters by the site's start, one parent at a time.
-    const Snarl* managed = manager.into_which_snarl(site.start().node_id(),
-                                                    site.start().backward());
-    const Snarl* current = managed == nullptr ? nullptr : manager.parent_of(managed);
-    while (current != nullptr) {
-        out.push_back(bounds_of(graph, *current));
-        managed = manager.into_which_snarl(current->start().node_id(),
-                                           current->start().backward());
-        current = managed == nullptr ? nullptr : manager.parent_of(managed);
+    for (net_handle_t parent = parent_site(decomposition, site); !decomposition.is_root(parent);
+         parent = parent_site(decomposition, parent)) {
+        out.push_back(oriented_bounds(decomposition, graph, parent));
     }
     return out;
+}
+
+ChildChain chain_of_site(const SnarlDecomposition& decomposition, const HandleGraph& graph,
+                         const net_handle_t& site) {
+    return oriented_bounds(decomposition, graph, decomposition.get_parent(site));
 }
 
 }

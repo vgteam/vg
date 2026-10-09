@@ -4,7 +4,6 @@
 #include "child_placer.hpp"
 #include "block_records.hpp"
 #include "site_values.hpp"
-#include "snarls.hpp"
 #include "symbolic_allele.hpp"
 
 namespace vg {
@@ -199,47 +198,53 @@ int ChildPlacer::child_ploidy(const vector<TraversalNodeIndex>& visits,
     return min(copies, cap);
 }
 
-void ChildPlacer::configure(const HandleGraph* graph, const SnarlManager* manager,
+void ChildPlacer::configure(const HandleGraph* graph, const SnarlDecomposition* decomposition,
                             const BlockRecordWriter* blocks, DescentCounters* counters) {
     this->graph = graph;
-    this->manager = manager;
+    this->decomposition = decomposition;
     this->blocks = blocks;
     this->counters = counters;
 }
 
-bool ChildPlacer::reported_inline(const BlockRecordWriter::ChainInlineContext& ctx,
-                                  const Snarl& child) const {
-    // The chain of the snarl a walk enters by the child's start.
-    const Snarl* entered = manager->into_which_snarl(child.start().node_id(),
-                                                     child.start().backward());
-    return entered != nullptr
-           && blocks->chain_reported_inline(*graph, ctx, chain_of_site(*manager, *graph, entered));
+ChildPlacer::Nested ChildPlacer::nested_in(const net_handle_t& site,
+                                           const SiteBounds& as_called) const {
+    Nested nested;
+    nested.children = site_children(*decomposition, *graph, site, as_called, &nested.sites);
+    return nested;
 }
 
-void ChildPlacer::place(const Snarl& site, const SiteChildren& children, size_t site_key,
+SiteView ChildPlacer::view_of(const SiteView& parent, const ChildSite& child) {
+    SiteView view{child.net, child.bounds, {}};
+    // The sites enclosing the child: its parent, then those enclosing the parent.
+    view.enclosing.reserve(parent.enclosing.size() + 1);
+    view.enclosing.push_back(parent.bounds);
+    view.enclosing.insert(view.enclosing.end(), parent.enclosing.begin(), parent.enclosing.end());
+    return view;
+}
+
+ChildChain ChildPlacer::chain_of(const net_handle_t& site) const {
+    return chain_of_site(*decomposition, *graph, site);
+}
+
+void ChildPlacer::place(const SiteView& site, const Nested& nested, size_t site_key,
                         const vector<Traversal>& travs,
                         const vector<int>& genotype, int ref_trav_idx, int ploidy,
                         const NestingPlacement& placement, bool off_reference,
                         bool keep_uncrossed, const function<void(const Placed& child)>& visit) const {
-    const Snarl* managed_ptr = manager->into_which_snarl(site.start().node_id(),
-                                                         site.start().backward());
-    if (managed_ptr == nullptr) {
+    if (!nested.children.known) {
         return;
     }
     // The child-independent parts of the exactly-once test, built once for this snarl.
     const BlockRecordWriter::ChainInlineContext inline_ctx =
-        blocks->chain_inline_context(*graph, children, travs, genotype, ref_trav_idx);
+        blocks->chain_inline_context(*graph, nested.children, travs, genotype, ref_trav_idx);
     // Also once for this snarl: see TraversalNodeIndex.
     vector<TraversalNodeIndex> trav_visits;
     trav_visits.reserve(travs.size());
     for (const Traversal& t : travs) {
         trav_visits.push_back(index_traversal_nodes(*graph, t));
     }
-    for (const Snarl* child : manager->children_of(managed_ptr)) {
-        if (child == nullptr || manager->is_trivial(child, *graph)) {
-            continue;
-        }
-        const SiteBounds child_bounds = bounds_of(*graph, *child);
+    for (const ChildSite& child : nested.sites) {
+        const SiteBounds& child_bounds = child.bounds;
         // A chain that no reference path passes through has no REF or POS for its records,
         // so it is skipped unless off-reference descent is on.
         bool child_off_reference = false;
@@ -267,7 +272,8 @@ void ChildPlacer::place(const Snarl& site, const SiteChildren& children, size_t 
         // recorded and phased. Inherited by chains inside it. Does nothing when block
         // emission is off, or for a snarl whose projection has no symbols.
         bool child_reported_inline =
-            placement.reported_inline || reported_inline(inline_ctx, *child);
+            placement.reported_inline
+            || blocks->chain_reported_inline(*graph, inline_ctx, child.chain);
 
         int copies = child_ploidy(trav_visits, genotype, child_bounds, ploidy);
         bool retain_only = placement.retain_only;
@@ -287,8 +293,8 @@ void ChildPlacer::place(const Snarl& site, const SiteChildren& children, size_t 
         }
 
         Placed out;
-        out.snarl = child;
-        out.chain = chain_of_site(*manager, *graph, child);
+        out.site = view_of(site, child);
+        out.chain = child.chain;
         // `copies` is zero only for a chain no called parent allele reaches, which is still
         // genotyped; it then takes the parent's ploidy, the most copies a child can have.
         out.ploidy = copies >= 1 ? copies : ploidy;

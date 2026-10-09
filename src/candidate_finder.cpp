@@ -9,12 +9,12 @@
 
 namespace vg {
 
-CandidateFinder::CandidateFinder(const PathPositionHandleGraph& graph, SnarlManager& snarl_manager,
+CandidateFinder::CandidateFinder(const PathPositionHandleGraph& graph,
                                  TraversalFinder& traversal_finder,
                                  const TraversalSupportFinder& support_finder,
                                  const unordered_set<string>& ref_path_set,
                                  const pair<size_t, size_t>& allele_length_range) :
-    graph(graph), snarl_manager(snarl_manager), traversal_finder(traversal_finder),
+    graph(graph), traversal_finder(traversal_finder),
     support_finder(support_finder), ref_path_set(ref_path_set),
     allele_length_range(allele_length_range) {
 }
@@ -27,7 +27,7 @@ static tuple<int64_t, int64_t, bool, step_handle_t, step_handle_t> ref_interval_
                             ref_path_name);
 }
 
-bool CandidateFinder::find(const Snarl& managed_snarl, const string& parent_ref_path_name,
+bool CandidateFinder::find(const Snarl& given_snarl, const string& parent_ref_path_name,
                            pair<size_t, size_t> parent_ref_interval,
                            const ChildTraversalSets* parent_child_trav_sets, bool no_reference,
                            Site& site) const {
@@ -35,7 +35,7 @@ bool CandidateFinder::find(const Snarl& managed_snarl, const string& parent_ref_
     // I am experimenting with sending "fake" snarls through this code.  So make a local
     // copy to work on to do things like flip -- calling any snarl_manager code that
     // wants a pointer will crash.
-    site.snarl = managed_snarl;
+    site.snarl = given_snarl;
     Snarl& snarl = site.snarl;
 
 #ifdef debug
@@ -58,7 +58,9 @@ bool CandidateFinder::find(const Snarl& managed_snarl, const string& parent_ref_
     FlowTraversalFinder* flow_trav_finder = dynamic_cast<FlowTraversalFinder*>(&traversal_finder);
     bool greedy_avg_flow = false;
     {
-        auto snarl_contents = snarl_manager.deep_contents(&snarl, graph, false);
+        auto snarl_contents = site_contents(
+            graph, graph.get_handle(snarl.start().node_id(), snarl.start().backward()),
+            graph.get_handle(snarl.end().node_id(), snarl.end().backward()), false);
         if (snarl_contents.second.size() > max_snarl_edges) {
             // size cap needed as non-nested FlowCaller doesn't handle large snarls
             return false;
@@ -185,13 +187,13 @@ bool CandidateFinder::find(const Snarl& managed_snarl, const string& parent_ref_
                 break;
             } else if (get<2>(ref_interval) == true) {
                 if (!graph.has_previous_step(cur_step)) {
-                    cerr << "Warning [vg call]: Unable, due to bug or corrupt path information, to trace reference path through snarl " << pb2json(managed_snarl) << endl;
+                    cerr << "Warning [vg call]: Unable, due to bug or corrupt path information, to trace reference path through snarl " << pb2json(given_snarl) << endl;
                     return false;
                 }
                 cur_step = graph.get_previous_step(cur_step);
             } else {
                 if (!graph.has_next_step(cur_step)) {
-                    cerr << "Warning [vg call]: Unable, due to bug or corrupt path information, to trace reference path through snarl " << pb2json(managed_snarl) << endl;
+                    cerr << "Warning [vg call]: Unable, due to bug or corrupt path information, to trace reference path through snarl " << pb2json(given_snarl) << endl;
                     return false;
                 }
                 cur_step = graph.get_next_step(cur_step);
@@ -214,7 +216,7 @@ bool CandidateFinder::find(const Snarl& managed_snarl, const string& parent_ref_
     }
 
     if (travs.empty()) {
-        cerr << "Warning [vg call]: Unable, due to bug or corrupt graph, to search for any traversals through snarl " << pb2json(managed_snarl) << endl;
+        cerr << "Warning [vg call]: Unable, due to bug or corrupt graph, to search for any traversals through snarl " << pb2json(given_snarl) << endl;
         return false;
     }
 #ifdef debug

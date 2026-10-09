@@ -58,7 +58,7 @@ public:
     /// non-alt paths where it is empty). A site is skipped unless its longest traversal is at
     /// least `allele_length_range.first` long and none is longer than
     /// `allele_length_range.second`. Nothing is owned.
-    CandidateFinder(const PathPositionHandleGraph& graph, SnarlManager& snarl_manager,
+    CandidateFinder(const PathPositionHandleGraph& graph,
                     TraversalFinder& traversal_finder, const TraversalSupportFinder& support_finder,
                     const unordered_set<string>& ref_path_set,
                     const pair<size_t, size_t>& allele_length_range);
@@ -69,14 +69,14 @@ public:
         max_snarl_edges = edges ? edges : numeric_limits<size_t>::max();
     }
 
-    /// Fill `site` for `managed_snarl`. A site on no reference path takes its parent's,
-    /// `parent_ref_path_name` and `parent_ref_interval`, if it has parent traversal sets
-    /// (--top-down) or `no_reference` allows it (off-reference nested calling). Where it has parent
-    /// traversal sets, the first traversal of the first non-empty set stands in for its reference
-    /// traversal. Returns false, with `site` partly filled, when the site cannot be genotyped:
-    /// it is one node, outside the graph, too big, outside the allele length range, or on no usable
-    /// reference path.
-    bool find(const Snarl& managed_snarl, const string& parent_ref_path_name,
+    /// Fill `site` for `given_snarl`, oriented as its decomposition orients it. A site on no
+    /// reference path takes its parent's, `parent_ref_path_name` and `parent_ref_interval`, if it
+    /// has parent traversal sets (--top-down) or `no_reference` allows it (off-reference nested
+    /// calling). Where it has parent traversal sets, the first traversal of the first non-empty
+    /// set stands in for its reference traversal. Returns false, with `site` partly filled, when
+    /// the site cannot be genotyped: it is one node, outside the graph, too big, outside the allele
+    /// length range, or on no usable reference path.
+    bool find(const Snarl& given_snarl, const string& parent_ref_path_name,
               pair<size_t, size_t> parent_ref_interval,
               const ChildTraversalSets* parent_child_trav_sets, bool no_reference,
               Site& site) const;
@@ -92,7 +92,6 @@ public:
 
 private:
     const PathPositionHandleGraph& graph;
-    SnarlManager& snarl_manager;
     TraversalFinder& traversal_finder;
     const TraversalSupportFinder& support_finder;
     const unordered_set<string>& ref_path_set;

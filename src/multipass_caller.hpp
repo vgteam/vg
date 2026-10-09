@@ -32,6 +32,7 @@
 #include "record_renderer.hpp"
 #include "round_history.hpp"
 #include "site_genotyper.hpp"
+#include "site_walker.hpp"
 #include "staged_site.hpp"
 #include "tree_genotyper.hpp"
 #include "vcf_output_caller.hpp"
@@ -62,13 +63,13 @@ using namespace std;
  */
 class MultiPassCaller {
 public:
-    /// Call `graph`'s snarls, as `snarl_manager` decomposes it, from the candidate traversals
+    /// Call `graph`'s sites, as `decomposition` gives them, from the candidate traversals
     /// `traversal_finder` gives, genotyping each with `genotyper`, and write the records through
     /// `output`, whose steps it sets. The reference paths, their offsets and ploidies,
     /// `genotype_snarls` (-a) and `allele_length_range` (-c and -C) are as for `FlowCaller`.
     /// `top_down` and `star_allele` are --top-down and -Y. Nothing is owned.
     MultiPassCaller(const PathPositionHandleGraph& graph, ReadLikelihoodSnarlCaller& genotyper,
-                    SnarlManager& snarl_manager, VCFOutputCaller& output,
+                    const SnarlDecomposition& decomposition, VCFOutputCaller& output,
                     const string& sample_name, TraversalFinder& traversal_finder,
                     const vector<string>& ref_paths, const vector<size_t>& ref_path_offsets,
                     const vector<int>& ref_path_ploidies, bool genotype_snarls,
@@ -76,7 +77,7 @@ public:
                     bool star_allele);
 
     /// Run every pass, and add the records to the output's buffer. The direct pass visits the
-    /// snarls as `GraphCaller::call_top_level_snarls` does with `recurse_type`.
+    /// sites as `SiteWalker::walk` does with `recurse_type`.
     /// `after_direct_pass` runs once the direct pass is done and before the linkage pass; the
     /// passes after it read only what the direct pass kept, not reads.
     void call(GraphCaller::RecurseType recurse_type, const function<void()>& after_direct_pass);
@@ -235,8 +236,11 @@ private:
     /// The read-likelihood genotyper, which also writes its fields into each record.
     ReadLikelihoodSnarlCaller& snarl_caller;
 
-    /// Our snarls
-    SnarlManager& snarl_manager;
+    /// The sites, as a snarl decomposition gives them.
+    const SnarlDecomposition& decomposition;
+
+    /// Walks the sites for the direct pass.
+    SiteWalker walker;
 
     /// Where the records go.
     VCFOutputCaller& output;

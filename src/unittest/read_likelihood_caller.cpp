@@ -128,7 +128,7 @@ Called call_site(CallerSite& site, const vector<Alignment>& reads,
                                      Ploidies{.ploidy = ploidy,
                                               .region_ploidy = region_ploidy,
                                               .also_score_other = also_score_other},
-                                     enclosing_sites(*site.manager, site.graph, site.snarl), "",
+                                     /* top-level: nothing encloses it */ {}, "",
                                      {0, 0});
     Called out;
     out.genotype = result.first;
@@ -456,7 +456,7 @@ TEST_CASE("A record with a star allele still gets QUAL from the reference column
     auto result = caller.genotype_at(bounds_of(site.graph, site.snarl),
                                      walks_of(site.graph, site.traversals), 0,
                                      Ploidies{.ploidy = 1},
-                                     enclosing_sites(*site.manager, site.graph, site.snarl), "",
+                                     /* top-level: nothing encloses it */ {}, "",
                                      {0, 0});
     REQUIRE(result.first == vector<int>({1}));
     const unique_ptr<SnarlCaller::CallInfo> call_info(std::move(result.second));

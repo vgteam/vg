@@ -16,7 +16,6 @@ namespace vg {
 
 using namespace std;
 
-class SnarlManager;
 
 /// Counts of what nested descent did in one run: how deep it went, and how many child chains it
 /// skipped or recorded, and why. One per run, so that runs count separately.
@@ -110,12 +109,13 @@ struct NestingPlacement {
 
 /**
  * Nested descent's placement: lists the child chains a genotyped site's called alleles cross,
- * each with its place in the nesting tree and the ploidy to genotype it at.
+ * each with its place in the nesting tree and the ploidy to genotype it at. It reads a site's
+ * children from the snarl decomposition.
  *
- * Its static members say how a parent's traversals cross its child chains: which traversals
- * cross a child, and how far along a traversal the child starts. A traversal crosses a child when
- * it visits one of the child's boundary nodes and then the other, so a traversal that touches
- * both boundaries on unrelated excursions does not count. Visits to child snarls are left out.
+ * Its static members say how a parent's candidate walks cross its child sites: which walks cross
+ * a child, and how far along a walk the child starts. A walk crosses a child when it visits one of
+ * the child's boundary nodes and then the other, so a walk that touches both boundaries on
+ * unrelated excursions does not count.
  */
 class ChildPlacer {
 public:
@@ -166,8 +166,8 @@ public:
 
     /// A child chain to genotype, as `place` gives it.
     struct Placed {
-        /// The child, as the snarl manager holds it.
-        const Snarl* snarl = nullptr;
+        /// The child.
+        SiteView site;
         /// The chain the child belongs to.
         ChildChain chain;
         /// The ploidy to genotype it at: how many of the parent's called alleles cross it, or the
@@ -176,22 +176,40 @@ public:
         NestingPlacement placement;
     };
 
-    /// Place children in `graph`, as `manager` nests them, testing each against the difference
-    /// blocks of `blocks`, and counting what descent does in `counters`. None is owned.
-    void configure(const HandleGraph* graph, const SnarlManager* manager,
+    /// Place children in `graph`, as `decomposition` nests them, testing each against the
+    /// difference blocks of `blocks`, and counting what descent does in `counters`. None is
+    /// owned.
+    void configure(const HandleGraph* graph, const SnarlDecomposition* decomposition,
                    const BlockRecordWriter* blocks, DescentCounters* counters);
 
-    /// Call `visit` with each child chain to genotype under a genotyped site, in the manager's
-    /// order, each placed under the site. The site is `site`, with children `children`, named
-    /// `site_key`, with candidate walks `travs`, the reference among them at `ref_trav_idx`, called
-    /// at `genotype` and `ploidy`, and placed at `placement`. Each child is placed just before its visit, so the
+    /// What a site holds: what its records need to know of its children, and the child sites
+    /// the decomposition shows, in its order.
+    struct Nested {
+        SiteChildren children;
+        vector<ChildSite> sites;
+    };
+
+    /// The sites nested in `site`, which the caller has as `as_called`: its bounds as the
+    /// decomposition orients them, or turned round.
+    Nested nested_in(const net_handle_t& site, const SiteBounds& as_called) const;
+
+    /// The chain `site` is in.
+    ChildChain chain_of(const net_handle_t& site) const;
+
+    /// `child`, a site `parent` holds, as a site to visit.
+    static SiteView view_of(const SiteView& parent, const ChildSite& child);
+
+    /// Call `visit` with each child chain to genotype under a genotyped site, in the
+    /// decomposition's order, each placed under the site. The site is `site`, holding `nested`,
+    /// named `site_key`, with candidate walks `travs`, the reference among them at `ref_trav_idx`,
+    /// called at `genotype` and `ploidy`, and placed at `placement`. Each child is placed just before its visit, so the
     /// visits run in the order, and among the work, that descent has always genotyped children in.
     ///
     /// A chain the reference does not cross is left out, unless `off_reference` lets descent
     /// genotype it with no line. A chain no called allele crosses is left out, unless
     /// `keep_uncrossed`: then it is genotyped at the parent's ploidy and retained, since the
     /// linkage model may still move the parent onto an allele that crosses it.
-    void place(const Snarl& site, const SiteChildren& children, size_t site_key,
+    void place(const SiteView& site, const Nested& nested, size_t site_key,
                const vector<Traversal>& travs,
                const vector<int>& genotype, int ref_trav_idx, int ploidy,
                const NestingPlacement& placement, bool off_reference, bool keep_uncrossed,
@@ -216,13 +234,8 @@ public:
                                  const SiteBounds& child) const;
 
 private:
-    /// Whether the site's own blocks already report `child`, a child snarl of the site, as
-    /// `BlockRecordWriter::chain_reported_inline` decides for the child's chain.
-    bool reported_inline(const BlockRecordWriter::ChainInlineContext& ctx,
-                         const Snarl& child) const;
-
     const HandleGraph* graph = nullptr;
-    const SnarlManager* manager = nullptr;
+    const SnarlDecomposition* decomposition = nullptr;
     const BlockRecordWriter* blocks = nullptr;
     DescentCounters* counters = nullptr;
 };

@@ -9,7 +9,8 @@
 namespace vg {
 
 MultiPassCaller::MultiPassCaller(const PathPositionHandleGraph& graph,
-                                 ReadLikelihoodSnarlCaller& genotyper, SnarlManager& snarl_manager,
+                                 ReadLikelihoodSnarlCaller& genotyper,
+                                 const SnarlDecomposition& decomposition,
                                  VCFOutputCaller& output, const string& sample_name,
                                  TraversalFinder& traversal_finder,
                                  const vector<string>& ref_paths,
@@ -19,14 +20,15 @@ MultiPassCaller::MultiPassCaller(const PathPositionHandleGraph& graph,
                                  bool star_allele) :
     graph(graph),
     snarl_caller(genotyper),
-    snarl_manager(snarl_manager),
+    decomposition(decomposition),
+    walker(decomposition, graph),
     output(output),
     sample_name(sample_name),
     ref_paths(ref_paths),
     genotype_snarls(genotype_snarls),
     top_down(top_down),
     star_allele(star_allele),
-    candidates(graph, snarl_manager, traversal_finder, genotyper.get_support_finder(),
+    candidates(graph, traversal_finder, genotyper.get_support_finder(),
                ref_path_set, allele_length_range),
     site_genotyper(genotyper)
 {
@@ -47,7 +49,6 @@ void MultiPassCaller::call(GraphCaller::RecurseType recurse_type,
     tree_genotyper.configure(
         TreeGenotyper::Parts{
             .graph = &graph,
-            .snarl_manager = &snarl_manager,
             .candidates = &candidates,
             .genotyper = &site_genotyper,
             .linker = &linker,
@@ -67,8 +68,8 @@ void MultiPassCaller::call(GraphCaller::RecurseType recurse_type,
         });
 
     // The direct pass.
-    call_snarl_tree(graph, snarl_manager, recurse_type, snarl_batch_window, show_progress,
-                    [&](const Snarl& site) { return tree_genotyper.genotype(site); });
+    walker.walk(recurse_type, snarl_batch_window, show_progress,
+                [&](const SiteView& site) { return tree_genotyper.genotype(site); });
     if (show_progress) {
         report_descent_instrumentation();
     }
@@ -279,7 +280,7 @@ void MultiPassCaller::install_widgets() {
     linker.set_site_reader(reader);
     rescorer.set_site_reader(reader);
     record_renderer.configure(reader);
-    child_placer.configure(&graph, &snarl_manager, &block_records, &descent_counters);
+    child_placer.configure(&graph, &decomposition, &block_records, &descent_counters);
 }
 
 void MultiPassCaller::rerun_linkage_pass() {

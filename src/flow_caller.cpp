@@ -32,7 +32,7 @@ FlowCaller::FlowCaller(const PathPositionHandleGraph& graph,
     gaf_output(gaf_output),
     genotype_snarls(genotype_snarls),
     allele_length_range(allele_length_range),
-    candidates(graph, snarl_manager, traversal_finder, snarl_caller.get_support_finder(),
+    candidates(graph, traversal_finder, snarl_caller.get_support_finder(),
                ref_path_set, allele_length_range)
 {
     for (int i = 0; i < ref_paths.size(); ++i) {
@@ -71,7 +71,7 @@ FlowCaller::FlowCaller(const PathPositionHandleGraph& graph,
     allele_length_range(allele_length_range),
     nested(nested),
     star_allele(star_allele),
-    candidates(graph, snarl_manager, traversal_finder, snarl_caller.get_support_finder(),
+    candidates(graph, traversal_finder, snarl_caller.get_support_finder(),
                ref_path_set, allele_length_range)
 {
     for (int i = 0; i < ref_paths.size(); ++i) {

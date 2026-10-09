@@ -11,6 +11,7 @@
 #include <bdsg/hash_graph.hpp>
 
 #include "catch.hpp"
+#include "../snarl_manager_decomposition.hpp"
 #include "../symbolic_allele.hpp"
 
 namespace vg {
@@ -72,12 +73,27 @@ static const HandleGraph& test_graph() {
     return *graph;
 }
 
+/// The children of `site`, as `mgr`, through its SnarlDecomposition adapter, gives them: none if
+/// `mgr` does not have a snarl that `site` reads into.
+static SiteChildren children_of_site(const Snarl& site, const SnarlManager& mgr) {
+    const HandleGraph& graph = test_graph();
+    SnarlManagerDecomposition decomposition(mgr, graph);
+    const Snarl* managed = nullptr;
+    try {
+        managed = mgr.manage(site);
+    } catch (const std::runtime_error&) {
+        return SiteChildren();
+    }
+    return site_children(decomposition, graph, decomposition.get_snarl_net(managed),
+                         bounds_of(graph, site));
+}
+
 /// `t`, a traversal of `site`, in symbolic form, with the children `mgr` gives `site`.
 static SymbolicAllele symbolic_allele(const SnarlTraversal& t, const Snarl& site,
                                       const SnarlManager& mgr,
                                       vector<pair<int, int>>* ranges = nullptr) {
     const HandleGraph& graph = test_graph();
-    return vg::symbolic_allele(graph, walk_of(graph, t), site_children(mgr, graph, site), ranges);
+    return vg::symbolic_allele(graph, walk_of(graph, t), children_of_site(site, mgr), ranges);
 }
 
 /// Whether two traversals of `site` are the same route at this level, with the children `mgr`
@@ -86,12 +102,12 @@ static bool symbolically_equal(const SnarlTraversal& a, const SnarlTraversal& b,
                                const Snarl& site, const SnarlManager& mgr) {
     const HandleGraph& graph = test_graph();
     return vg::symbolically_equal(graph, walk_of(graph, a), walk_of(graph, b),
-                                  site_children(mgr, graph, site));
+                                  children_of_site(site, mgr));
 }
 
 /// Whether `mgr` knows `site`, as it is or turned round, so that its children are recognised.
 static bool symbolic_site_resolvable(const Snarl& site, const SnarlManager& mgr) {
-    return site_children(mgr, test_graph(), site).known;
+    return children_of_site(site, mgr).known;
 }
 
 /// The visit ranges must partition the traversal contiguously, in order, with no gap and no

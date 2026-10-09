@@ -17,6 +17,7 @@
 #include "../flow_caller.hpp"
 #include "../legacy_caller.hpp"
 #include "../multipass_caller.hpp"
+#include "../snarl_manager_decomposition.hpp"
 #include "../nested_flow_caller.hpp"
 #include "../vcf_genotyper.hpp"
 #include "../vcf_output_caller.hpp"
@@ -2341,6 +2342,7 @@ int main_call(int argc, char** argv) {
     // Every run without --read-likelihood calls through a GraphCaller, and every run with it
     // through a MultiPassCaller, which writes its records through `multipass_output`.
     unique_ptr<GraphCaller> graph_caller;
+    unique_ptr<SnarlManagerDecomposition> multipass_sites;
     unique_ptr<VCFOutputCaller> multipass_output;
     unique_ptr<MultiPassCaller> multipass_caller;
     unique_ptr<TraversalFinder> traversal_finder;
@@ -2418,9 +2420,12 @@ int main_call(int argc, char** argv) {
         }
 
         if (read_likelihood) {
+            // The caller reads the sites through the SnarlDecomposition interface. The adapter over
+            // the loaded snarls gives it the same sites as every other caller.
+            multipass_sites.reset(new SnarlManagerDecomposition(*snarl_manager, *graph));
             multipass_output.reset(new VCFOutputCaller(sample_name));
             multipass_caller.reset(new MultiPassCaller(*dynamic_cast<PathPositionHandleGraph*>(graph),
-                                                       *read_likelihood_caller, *snarl_manager,
+                                                       *read_likelihood_caller, *multipass_sites,
                                                        *multipass_output, sample_name,
                                                        *traversal_finder, ref_paths,
                                                        ref_path_offsets, ref_path_ploidies,

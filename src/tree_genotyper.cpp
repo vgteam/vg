@@ -15,12 +15,12 @@ void TreeGenotyper::configure(const Parts& parts, const Options& options) {
     this->options = options;
 }
 
-bool TreeGenotyper::genotype(const Snarl& managed_snarl) {
+bool TreeGenotyper::genotype(const SiteView& site) {
     // A top-level site has no parent context.
-    return genotype_tree(managed_snarl, "", make_pair(0, 0), nullptr, -1, NestingPlacement());
+    return genotype_tree(site, "", make_pair(0, 0), nullptr, -1, NestingPlacement());
 }
 
-bool TreeGenotyper::genotype_tree(const Snarl& managed_snarl, const string& parent_ref_path_name,
+bool TreeGenotyper::genotype_tree(const SiteView& view, const string& parent_ref_path_name,
                                   pair<size_t, size_t> parent_ref_interval,
                                   const ChildTraversalSets* parent_child_trav_sets,
                                   int ploidy_override, const NestingPlacement& placement) {
@@ -37,8 +37,10 @@ bool TreeGenotyper::genotype_tree(const Snarl& managed_snarl, const string& pare
 
     // The reference path, the site oriented along it, and its candidate traversals.
     CandidateFinder::Site site;
-    if (!parts.candidates->find(managed_snarl, parent_ref_path_name, parent_ref_interval,
-                                parent_child_trav_sets, placement.no_reference, site)) {
+    const PathPositionHandleGraph& graph = *parts.graph;
+    if (!parts.candidates->find(snarl_of(graph, view.bounds), parent_ref_path_name,
+                                parent_ref_interval, parent_child_trav_sets,
+                                placement.no_reference, site)) {
         return false;
     }
     Snarl& snarl = site.snarl;
@@ -50,10 +52,10 @@ bool TreeGenotyper::genotype_tree(const Snarl& managed_snarl, const string& pare
     int ref_trav_idx = site.ref_trav_idx;
     // The site as plain values: its bounds, what it holds, and the sites around it. `walks` are
     // `travs` as walks, filled once `travs` is complete.
-    const PathPositionHandleGraph& graph = *parts.graph;
     const SiteBounds bounds = bounds_of(graph, snarl);
-    const SiteChildren children = site_children(*parts.snarl_manager, graph, snarl);
-    const vector<SiteBounds> enclosing = enclosing_sites(*parts.snarl_manager, graph, snarl);
+    const ChildPlacer::Nested nested = parts.child_placer->nested_in(view.net, bounds);
+    const SiteChildren& children = nested.children;
+    const vector<SiteBounds>& enclosing = view.enclosing;
     vector<Traversal> walks;
 
     bool ret_val = true;
@@ -238,7 +240,7 @@ bool TreeGenotyper::genotype_tree(const Snarl& managed_snarl, const string& pare
         // which children the called alleles reach, and they are moved in once descent is done.
         pending_this.reset(new StagedSite());
         pending_this->bounds = bounds;
-        fill_tree_fields(snarl, children, *pending_this);
+        fill_tree_fields(view, children, *pending_this);
         pending_this->ref_path_name = ref_path_name;
         pending_this->ref_offset = ref_offset_of(*parts.ref_offsets, ref_path_name);
         pending_this->ref_trav_idx = ref_trav_idx;
@@ -291,7 +293,7 @@ bool TreeGenotyper::genotype_tree(const Snarl& managed_snarl, const string& pare
         // A child no called allele reaches is kept only where the linkage pass can come back to
         // it: with the linkage model.
         parts.child_placer->place(
-            snarl, children, parts.record_key_of(snarl), walks, trav_genotype, ref_trav_idx, ploidy,
+            view, nested, parts.record_key_of(snarl), walks, trav_genotype, ref_trav_idx, ploidy,
             placement, options.off_reference, parts.linker->enabled(),
             [&](const ChildPlacer::Placed& child) {
                 if (child.placement.level < 16) {
@@ -299,7 +301,7 @@ bool TreeGenotyper::genotype_tree(const Snarl& managed_snarl, const string& pare
                 }
                 // The other ploidy's answer is computed as well, so the linkage pass can change it
                 // later.
-                genotype_tree(*child.snarl, ref_path_name,
+                genotype_tree(child.site, ref_path_name,
                               make_pair(get<0>(ref_interval), get<1>(ref_interval)), nullptr,
                               child.ploidy, child.placement);
             });
@@ -307,42 +309,37 @@ bool TreeGenotyper::genotype_tree(const Snarl& managed_snarl, const string& pare
 
 
     // --top-down: genotype each child against the traversals its parent's called alleles allow.
-    if (options.top_down && !trav_genotype.empty()) {
-        // Find the managed snarl pointer so we can get its children
-        const Snarl* managed_ptr = parts.snarl_manager->into_which_snarl(snarl.start().node_id(), snarl.start().backward());
-        if (managed_ptr) {
-            for (const Snarl* child : parts.snarl_manager->children_of(managed_ptr)) {
-                if (child && !parts.snarl_manager->is_trivial(child, *parts.graph)) {
-                    // Build ChildTraversalSets: one set per parent allele
-                    // Each set contains all traversals through child consistent with that parent allele
-                    ChildTraversalSets child_trav_sets;
-                    bool any_real_traversals = false;
+    if (options.top_down && !trav_genotype.empty() && children.known) {
+        for (const ChildSite& child : nested.sites) {
+            // Build ChildTraversalSets: one set per parent allele
+            // Each set contains all traversals through child consistent with that parent allele
+            ChildTraversalSets child_trav_sets;
+            bool any_real_traversals = false;
 
-                    for (int allele_idx : trav_genotype) {
-                        if (allele_idx >= 0 && allele_idx < travs.size()) {
-                            // Find all traversals through child consistent with this parent traversal
-                            TraversalSet tset = parts.candidates->find_child_traversal_set(travs[allele_idx], *child);
-                            if (!tset.empty()) {
-                                any_real_traversals = true;
-                            }
-                            child_trav_sets.push_back(std::move(tset));
-                        } else {
-                            // Star/missing allele - pass empty set
-                            child_trav_sets.push_back(TraversalSet());
-                        }
+            for (int allele_idx : trav_genotype) {
+                if (allele_idx >= 0 && allele_idx < travs.size()) {
+                    // Find all traversals through child consistent with this parent traversal
+                    TraversalSet tset = parts.candidates->find_child_traversal_set(
+                        travs[allele_idx], snarl_of(graph, child.bounds));
+                    if (!tset.empty()) {
+                        any_real_traversals = true;
                     }
-
-                    // If no genotyped alleles traverse the child, skip it
-                    if (!any_real_traversals) {
-                        continue;
-                    }
-
-                    // Recursively call child with traversal sets
-                    genotype_tree(*child, ref_path_name,
-                                  make_pair(get<0>(ref_interval), get<1>(ref_interval)),
-                                  &child_trav_sets, -1, placement);
+                    child_trav_sets.push_back(std::move(tset));
+                } else {
+                    // Star/missing allele - pass empty set
+                    child_trav_sets.push_back(TraversalSet());
                 }
             }
+
+            // If no genotyped alleles traverse the child, skip it
+            if (!any_real_traversals) {
+                continue;
+            }
+
+            // Recursively call child with traversal sets
+            genotype_tree(ChildPlacer::view_of(view, child), ref_path_name,
+                          make_pair(get<0>(ref_interval), get<1>(ref_interval)),
+                          &child_trav_sets, -1, placement);
         }
     }
 
@@ -359,7 +356,7 @@ bool TreeGenotyper::genotype_tree(const Snarl& managed_snarl, const string& pare
         pending_this.reset();
     } else if (render_this != nullptr) {
         render_this->travs = std::move(walks);
-        fill_tree_fields(snarl, children, *render_this);
+        fill_tree_fields(view, children, *render_this);
         if (site_panel_set) {
             render_this->panel_cache = std::move(site_panel);
             render_this->panel_cached = true;
@@ -403,18 +400,13 @@ unique_ptr<StagedSite> TreeGenotyper::stage_render_record(
     return rec;
 }
 
-void TreeGenotyper::fill_tree_fields(const Snarl& snarl, const SiteChildren& children,
+void TreeGenotyper::fill_tree_fields(const SiteView& view, const SiteChildren& children,
                                      StagedSite& site) const {
     site.children = children;
-    // The snarl a walk enters by the site's start, as the record steps and the linkage pass
-    // looked it up from the site itself: it decides whether the site is a leaf, and its chain.
-    const Snarl* entered = parts.snarl_manager->into_which_snarl(snarl.start().node_id(),
-                                                                 snarl.start().backward());
-    site.leaf = entered == nullptr || parts.snarl_manager->children_of(entered).empty();
-    site.in_chain = entered != nullptr;
-    if (entered != nullptr) {
-        site.chain = chain_of_site(*parts.snarl_manager, *parts.graph, entered);
-    }
+    // A site holds a child site wherever one of its child chains has two nodes.
+    site.leaf = children.entries.empty();
+    site.in_chain = true;
+    site.chain = parts.child_placer->chain_of(view.net);
 }
 
 }

@@ -35,8 +35,6 @@ public:
     /// What the genotyper reads and writes. None of it is owned.
     struct Parts {
         const PathPositionHandleGraph* graph = nullptr;
-        /// The snarls, for a --top-down site's children.
-        SnarlManager* snarl_manager = nullptr;
         const CandidateFinder* candidates = nullptr;
         const SiteGenotyper* genotyper = nullptr;
         const GenotypeLinker* linker = nullptr;
@@ -68,10 +66,10 @@ public:
 
     void configure(const Parts& parts, const Options& options);
 
-    /// Genotype and stage the top-level site `managed_snarl` and the sites below it. Returns
-    /// false when the site itself could not be genotyped, so that the walk can genotype its
-    /// children as top-level sites instead.
-    bool genotype(const Snarl& managed_snarl);
+    /// Genotype and stage the top-level site `site` and the sites below it. Returns false when
+    /// the site itself could not be genotyped, so that the walk can genotype its children as
+    /// top-level sites instead.
+    bool genotype(const SiteView& site);
 
 private:
     /// Genotype and stage one site, then the sites below it.
@@ -89,7 +87,7 @@ private:
     /// @param placement Where the snarl sits in the nesting tree: the default for a top-level
     ///                  snarl, and what `ChildPlacer::place` gave a child. A --top-down child
     ///                  takes its parent's.
-    bool genotype_tree(const Snarl& managed_snarl, const string& parent_ref_path_name,
+    bool genotype_tree(const SiteView& view, const string& parent_ref_path_name,
                        pair<size_t, size_t> parent_ref_interval,
                        const ChildTraversalSets* parent_child_trav_sets, int ploidy_override,
                        const NestingPlacement& placement);
@@ -110,9 +108,9 @@ private:
                                                SiteScore* score, const string& ref_path_name,
                                                int ref_offset, int ploidy) const;
 
-    /// Give a staged site what it keeps of the decomposition: `children`, which `snarl`, the
+    /// Give a staged site what it keeps of the decomposition: `children`, which `view`, the
     /// site, holds, whether it is a leaf, and its chain.
-    void fill_tree_fields(const Snarl& snarl, const SiteChildren& children,
+    void fill_tree_fields(const SiteView& view, const SiteChildren& children,
                           StagedSite& site) const;
 
     Parts parts;
