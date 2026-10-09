@@ -126,26 +126,6 @@ bool VCFOutputCaller::add_variant(vcflib::Variant& var, size_t block) const {
     return true;
 }
 
-void VCFOutputCaller::resolve_linkage() {
-    if (linkage_resolved) {
-        return;
-    }
-    if (linkage_collector == nullptr) {
-        resolve_linkage_level(0, true);
-        return;
-    }
-    // Resolve every level, since chain construction skips entries of later levels
-    // than the one being resolved. `max_level()` is read again on each pass, since a pass can
-    // add a chain at a deeper level.
-    for (size_t gen = 0;; ++gen) {
-        const size_t deepest = linkage_collector->max_level();
-        resolve_linkage_level(gen, gen >= deepest);
-        if (gen >= deepest) {
-            break;
-        }
-    }
-}
-
 /// The ID of the site a record belongs to: a block record's ID without the "_<index>" that
 /// tells the site's block records apart, and any other record's ID unchanged.
 static string block_site_name(const string& id) {
@@ -241,35 +221,6 @@ void VCFOutputCaller::finalise_linkage_outputs() {
         }
         mosaic_writer.write(written, panel_lookup, sample_name);
     }
-}
-
-void VCFOutputCaller::resolve_linkage_level(size_t level, bool last) {
-    linkage_resolved = true;
-    if (linkage_collector == nullptr) {
-        return;
-    }
-    // Time the pass and report the collector's size.
-    auto start = std::chrono::steady_clock::now();
-    // The phase calls accumulate across levels, since the model needs the earlier ones: a
-    // nested site's strand is read from its parent's PhaseCall, and a clamped site's phase is
-    // pinned to its chosen pair.
-    const size_t moved =
-        linkage_collector->resolve_level(level, last,
-                                              emit_phasing ? &phase_table.calls() : nullptr);
-    double seconds = std::chrono::duration<double>(
-        std::chrono::steady_clock::now() - start).count();
-    linkage_seconds += seconds;
-    // How many sites the model moved off the genotype the reads alone chose.
-    linkage_changed += moved;
-    if (!last) {
-        // One line per level except the last: its site count, how many of its genotypes the
-        // linkage model moved, and the seconds it took.
-        cerr << "[vg call] linkage level " << level << ": "
-             << linkage_collector->num_sites_at(level) << " sites, "
-             << moved << " genotypes moved by linkage, " << seconds << " s" << endl;
-        return;
-    }
-
 }
 
 void VCFOutputCaller::write_variants(ostream& out_stream, const SnarlManager* snarl_manager) {
