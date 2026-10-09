@@ -19,6 +19,10 @@
 
 namespace vg {
 static thread_local int g_descent_depth = 0;
+/// The place in the nesting tree of the snarl the direct pass is genotyping on this thread. Descent
+/// runs on the calling thread, so it is set just before a child is genotyped and restored after,
+/// and no other thread sees it.
+static thread_local NestingPlacement nested_context;
 
 void FlowCaller::report_descent_instrumentation() const {
     size_t total = 0;
@@ -72,10 +76,10 @@ double FlowCaller::anchor_gqn_for(const StagedSite& rec,
         ? std::numeric_limits<double>::quiet_NaN()
         : info->gq_fraction;
     const double blank = std::numeric_limits<double>::quiet_NaN();
-    if (linkage_collector == nullptr) {
+    if (!linker.enabled()) {
         return direct_value;
     }
-    const auto& moved = linkage_collector->moved_quality();
+    const auto& moved = linker.collector()->moved_quality();
     const auto found = moved.find(rec.record_key);
     if (found == moved.end()) {
         return direct_value;   // linkage left the call alone, so the direct pass's value still holds
@@ -182,6 +186,11 @@ FlowCaller::FlowCaller(const PathPositionHandleGraph& graph,
         ref_ploidies[ref_paths[i]] = i < ref_path_ploidies.size() ? ref_path_ploidies[i] : 2;
     }
     install_record_steps();
+    linker.set_site_reader(GenotypeLinker::SiteReader{
+        .graph = &this->graph,
+        .caller = &snarl_caller,
+        .spell = [this](const SnarlTraversal& trav) { return trav_string(this->graph, trav); },
+    });
 
 }
    
@@ -220,6 +229,11 @@ FlowCaller::FlowCaller(const PathPositionHandleGraph& graph,
         ref_ploidies[ref_paths[i]] = i < ref_path_ploidies.size() ? ref_path_ploidies[i] : 2;
     }
     install_record_steps();
+    linker.set_site_reader(GenotypeLinker::SiteReader{
+        .graph = &this->graph,
+        .caller = &snarl_caller,
+        .spell = [this](const SnarlTraversal& trav) { return trav_string(this->graph, trav); },
+    });
 }
 
 FlowCaller::~FlowCaller() {
@@ -256,7 +270,7 @@ void FlowCaller::install_record_steps() {
     // 0/0; only in traversal space is it heterozygous.
     record_steps.site_filed = [this](const Snarl& site, const map<int, int>& trav_to_allele,
                                      size_t traversal_count, bool has_line) {
-        if (linkage_collector == nullptr) {
+        if (!linker.enabled()) {
             return;
         }
         // The site was recorded when it was genotyped. What remains is the traversal-to-VCF-allele
@@ -268,7 +282,7 @@ void FlowCaller::install_record_steps() {
                 trav_to_allele_vec[kv.first] = kv.second;
             }
         }
-        linkage_collector->set_allele_map(record_key_of(site), trav_to_allele_vec, has_line);
+        linker.collector()->set_allele_map(record_key_of(site), trav_to_allele_vec, has_line);
     };
 }
 
@@ -318,7 +332,7 @@ TraversalSet FlowCaller::find_child_traversal_set(const SnarlTraversal& parent_t
 }
 
 int64_t FlowCaller::base_offset_of_child(const SnarlTraversal& trav, const Snarl& child) const {
-    const int entry = offset_of_child(trav, child);
+    const int entry = ChildPlacer::offset_of_child(trav, child);
     if (entry < 0) {
         return -1;
     }
@@ -346,7 +360,8 @@ size_t FlowCaller::offset_along_genotype(const vector<SnarlTraversal>& travs,
     return 0;
 }
 
-int FlowCaller::child_ploidy(const vector<TraversalNodeIndex>& visits, const vector<int>& genotype,
+int FlowCaller::child_ploidy(const vector<ChildPlacer::TraversalNodeIndex>& visits,
+                             const vector<int>& genotype,
                              const Snarl& child, int cap) const {
     int copies = 0;
     bool capped = false;
@@ -355,7 +370,7 @@ int FlowCaller::child_ploidy(const vector<TraversalNodeIndex>& visits, const vec
         if (allele < 0 || allele >= (int)visits.size()) {
             continue;   // star or missing: that haplotype contributes no copy here
         }
-        int crossings = crossings_of_child(visits[allele], child);
+        int crossings = ChildPlacer::crossings_of_child(visits[allele], child);
         if (crossings > 1) {
             capped = true;
             crossings = 1;   // a cycle or tandem duplication; see the header comment
@@ -417,7 +432,7 @@ bool FlowCaller::snarl_is_leaf(const Snarl& snarl) const {
 unordered_map<size_t, array<int, 3>> FlowCaller::chosen_snapshot() {
     // Each record's chosen pair and ploidy, keyed by record key.
     unordered_map<size_t, array<int, 3>> out;
-    if (linkage_collector == nullptr) {
+    if (!linker.enabled()) {
         return out;
     }
     // Looked up on several threads, then filed in record order, so that the map is built exactly
@@ -429,7 +444,7 @@ unordered_map<size_t, array<int, 3>> FlowCaller::chosen_snapshot() {
     }
     vector<array<int, 3>> chosen;
     vector<char> found;
-    linkage_collector->chosen_traversals_for(keys, chosen, found);
+    linker.collector()->chosen_traversals_for(keys, chosen, found);
     for (size_t i = 0; i < keys.size(); ++i) {
         if (found[i]) {
             out[keys[i]] = chosen[i];
@@ -471,7 +486,7 @@ size_t FlowCaller::chosen_changed(const unordered_map<size_t, array<int, 3>>& be
 }
 
 void FlowCaller::apply_read_phasing() {
-    if (!read_phasing || linkage_collector == nullptr || phase_table.calls().empty()) {
+    if (!read_phasing || !linker.enabled() || phase_table.calls().empty()) {
         return;
     }
     // Reset, since re-genotyping calls this again on the new genotypes, and the report should
@@ -593,7 +608,7 @@ void FlowCaller::apply_read_phasing() {
 
 bool FlowCaller::apply_regenotyping() {
     const vector<LinkageCollector::PhaseCall>& calls = phase_table.calls();
-    if (!regenotype || linkage_collector == nullptr || calls.empty()) {
+    if (!regenotype || !linker.enabled() || calls.empty()) {
         return false;
     }
     const vector<PhaseSite>& phase_sites = read_strands.sites();
@@ -857,6 +872,16 @@ bool FlowCaller::apply_regenotyping() {
     return moved > 0;
 }
 
+void FlowCaller::rerun_linkage_pass() {
+    if (!linker.enabled()) {
+        return;
+    }
+    // Give the linkage model the corrected likelihoods, then run the linkage pass again in full, so that
+    // every child is reassessed against its parent's new chosen pair, as on the first pass.
+    linker.resync(staged_sites);
+    run_linkage_pass();
+}
+
 void FlowCaller::phase_and_regenotype() {
     // Round 1 ends with read phasing; its linkage pass has already run.
     apply_read_phasing();
@@ -948,23 +973,21 @@ void FlowCaller::render_retained_records() {
     if (!staged_sites.active()) {
         return;
     }
-    // `nested_context` and `current_level` describe the snarl a direct pass thread is recording, and
-    // only `record_site` and `call_snarl_internal` read them, neither of which the render calls. The
-    // loop still clears them and restores them afterwards, so that it never runs under the context
-    // the thread's last swept snarl left. The records are nested chains as well as top-level sites,
+    // `nested_context` describes the snarl a direct pass thread is recording, and only
+    // `call_snarl_internal` reads it, which the render does not call. The loop still clears it and
+    // restores it afterwards, so that it never runs under the context the thread's last swept snarl
+    // left. The records are nested chains as well as top-level sites,
     // and each carries its own nesting in its `StagedSite`.
     const size_t n_threads = staged_sites.queue_count();
 #pragma omp parallel for schedule(dynamic, 1)
     for (size_t t = 0; t < n_threads; ++t) {
-        NestedContext saved_ctx = nested_context;
-        size_t saved_gen = current_level;
-        nested_context = NestedContext();
-        current_level = 0;
+        NestingPlacement saved_ctx = nested_context;
+        nested_context = NestingPlacement();
         for (StagedSite& rec : staged_sites.queue(t)) {
             // The chosen pair, not the direct pass's. The ALT list, whether a line is written at
             // all, QUAL, and the arity of AD, GL and GQI are all built from the genotype passed in,
             // so they agree with the call.
-            vector<int> genotype = chosen_genotype_for(rec);
+            vector<int> genotype = linker.chosen_genotype(rec);
             // Before emit_variant, which passes the CallInfo on to update_vcf_info. The anchors are
             // collected in phase order, while `genotype` itself stays sorted, since emit_variant
             // builds the ALT list, AD, GL and QUAL from its order.
@@ -974,11 +997,159 @@ void FlowCaller::render_retained_records() {
                          rec.ploidy);
         }
         nested_context = saved_ctx;
-        current_level = saved_gen;
     }
     if (show_progress) {
         cerr << "[vg call] rendered " << staged_sites.queued_count()
              << " retained records after the direct pass" << endl;
+    }
+}
+
+void FlowCaller::run_linkage_pass() {
+    if (!staged_sites.active()) {
+        return;
+    }
+    const GenotypeLinker::PassCounts counts = linker.link(staged_sites, phase_table, emit_phasing);
+    vector<StagedSite>& pending = staged_sites.nested();
+    size_t pass_inline_rederived = 0;
+
+    // The exactly-once test, from the chosen genotypes the render builds each parent's blocks
+    // from: `reported_inline` holds back a chain's line where an enclosing block's ALT spells it.
+    // Without the linkage model every chosen genotype is the direct call the direct pass tested, so
+    // there is nothing to redo.
+    if (linker.enabled() && staged_sites.has_children()) {
+        const unordered_map<size_t, StagedSite*> record_by_key = staged_sites.by_key();
+        // Counted again from here, so that the report gives the chains held back now.
+        block_records.restart_inline_count();
+        // Parents before their children, so that a chain inherits its parent's final flag.
+        staged_sites.for_each_parent_top_down(record_by_key, [&](const StagedSite& parent,
+                                                                 const vector<size_t>& children) {
+            if (parent.dropped) {
+                return;   // its children were dropped with it
+            }
+            // The parts of the test that do not depend on the child, built once for this parent;
+            // see BlockRecordWriter::ChainInlineContext.
+            const BlockRecordWriter::ChainInlineContext ctx = block_records.chain_inline_context(
+                parent.snarl, parent.travs, linker.chosen_genotype(parent), parent.ref_trav_idx);
+            for (size_t ci : children) {
+                StagedSite& child = pending[ci];
+                if (child.dropped) {
+                    continue;
+                }
+                const bool was = child.reported_inline;
+                child.reported_inline = parent.reported_inline
+                                        || block_records.chain_reported_inline(ctx, child.snarl);
+                if (was != child.reported_inline) {
+                    ++pass_inline_rederived;
+                }
+            }
+        });
+    }
+    if (show_progress) {
+        // The bytes kept for the staged sites, counted by walking the objects. They are walked in
+        // parallel; the totals are sums, so they do not depend on how the walk is split.
+        size_t retained_bytes = 0, retained_visits = 0, retained_gls = 0;
+        auto measure = [](const StagedSite& rec, size_t& bytes, size_t& visits, size_t& gls) {
+            bytes += sizeof(StagedSite) + rec.ref_path_name.capacity()
+                     + rec.genotype.capacity() * sizeof(int)
+                     + rec.panel_cache.capacity() * sizeof(int);
+            bytes += rec.travs.capacity() * sizeof(SnarlTraversal);
+            for (const SnarlTraversal& t : rec.travs) {
+                visits += (size_t)t.visit_size();
+                bytes += (size_t)t.visit_size() * sizeof(Visit);
+            }
+            const auto* rl = dynamic_cast<const ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo*>(
+                rec.call_info.get());
+            if (rl != nullptr) {
+                for (const auto& kv : rl->genotype_lls) {
+                    ++gls;
+                    bytes += 48 + kv.first.capacity() * sizeof(int) + sizeof(double);
+                }
+                if (rl->anchor_evidence != nullptr) {
+                    bytes += rl->anchor_evidence->bytes();
+                }
+                if (rl->phase_evidence != nullptr) {
+                    bytes += rl->phase_evidence->bytes();
+                }
+                // The parts re-genotyping adds.
+                auto gl_bytes = [](const map<vector<int>, double>& gl) {
+                    size_t n = 0;
+                    for (const auto& kv : gl) {
+                        n += 48 + kv.first.capacity() * sizeof(int) + sizeof(double);
+                    }
+                    return n;
+                };
+                if (rl->uncorrected_lls != nullptr) {
+                    bytes += gl_bytes(*rl->uncorrected_lls);
+                }
+                bytes += rl->scored_traversals.capacity() * sizeof(SnarlTraversal)
+                         + rl->allele_support.capacity() * sizeof(double);
+                if (rl->alt_ploidy_info != nullptr) {
+                    // The alternate answer is kept too, with all its parts.
+                    const auto& alt = *rl->alt_ploidy_info;
+                    bytes += alt.scored_traversals.capacity() * sizeof(SnarlTraversal)
+                             + alt.allele_support.capacity() * sizeof(double);
+                    if (alt.uncorrected_lls != nullptr) {
+                        bytes += gl_bytes(*alt.uncorrected_lls);
+                    }
+                }
+
+                if (rl->alt_ploidy_info != nullptr) {
+                    for (const auto& kv : rl->alt_ploidy_info->genotype_lls) {
+                        ++gls;
+                        bytes += 48 + kv.first.capacity() * sizeof(int) + sizeof(double);
+                    }
+                }
+            }
+        };
+#pragma omp parallel reduction(+ : retained_bytes, retained_visits, retained_gls)
+        {
+            for (size_t q = 0; q < staged_sites.queue_count(); ++q) {
+                const vector<StagedSite>& queue = staged_sites.queue(q);
+#pragma omp for schedule(dynamic, 4096) nowait
+                for (size_t r = 0; r < queue.size(); ++r) {
+                    measure(queue[r], retained_bytes, retained_visits, retained_gls);
+                }
+            }
+#pragma omp for schedule(dynamic, 4096) nowait
+            for (size_t r = 0; r < pending.size(); ++r) {
+                measure(pending[r], retained_bytes, retained_visits, retained_gls);
+            }
+        }
+        // The read-phasing evidence. In the report below, the snarls the linkage pass will not revise
+        // are the top-level ones and the children RecurseOnFail reaches without a ploidy override.
+        for (const PhaseSite& ps : read_strands.sites()) {
+            retained_bytes += sizeof(PhaseSite) + ps.read_key.capacity() * sizeof(uint64_t)
+                              + ps.q0.capacity() * sizeof(float) + ps.c.capacity() * sizeof(float);
+        }
+        retained_bytes += read_strands.flips().size() * (sizeof(size_t) + 16);
+        cerr << "[vg call] retained for rendering: " << staged_sites.queued_count()
+             << " snarls the linkage pass will not revise, plus " << pending.size()
+             << " nested chains; " << (retained_bytes / (1024.0 * 1024.0)) << " MB over "
+             << retained_visits << " traversal visits and " << retained_gls
+             << " genotype likelihoods" << endl;
+        cerr << "[vg call] linkage pass exits: " << counts.no_crossing
+             << " dropped because no parent candidate crosses them, " << counts.no_chosen
+             << " whose parent's chosen pair could not be read, " << counts.unrenderable
+             << " unrenderable so left unrevised, " << counts.ploidy_unscored
+             << " stranded at a ploidy the direct pass never scored" << endl;
+        if (pass_inline_rederived > 0) {
+            cerr << "[vg call] linkage pass: " << pass_inline_rederived
+                 << " children whose exactly-once suppression changed with their parent's"
+                 << " chosen genotype" << endl;
+        }
+        cerr << "[vg call] single direct pass: " << pending.size() << " nested chains retained over "
+             << (counts.levels + 1) << " levels; " << counts.revised << " revised, "
+             << counts.gained << " reachable only under the chosen parent, " << counts.retracted
+             << " retracted";
+        if (counts.crossing_unknown > 0) {
+            cerr << ", " << counts.crossing_unknown
+                 << " with a crossing mask the direct pass could not compute";
+        }
+        if (counts.unspecifiable > 0) {
+            cerr << ", " << counts.unspecifiable << " dropped from the layer because the site's "
+                 << "compact allele space could not be built";
+        }
+        cerr << endl;
     }
 }
 
@@ -995,7 +1166,7 @@ void FlowCaller::hand_off_deferred_records() {
     for (size_t i = 0; i < pending.size(); ++i) {
         const StagedSite& pr = pending[i];
         if (!pr.dropped && (pr.reported_inline || pr.no_reference)) {
-            collect_anchors_for_record(pr, chosen_genotype_for(pr));
+            collect_anchors_for_record(pr, linker.chosen_genotype(pr));
         }
     }
     // Hand every surviving chain to the render, so that nested and top-level records are written
@@ -1302,10 +1473,11 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
             // Staged, not emitted: `render_retained_records` writes it after the direct pass.
             // `added` stands in for emit_variant's return value, which here only gates recursion;
             // a staged site counts as added.
-            site_panel_set = record_site(snarl, travs, trav_genotype, trav_call_info,
-                                         ref_trav_idx, ref_path_name,
-                                         ref_offset_of(ref_offsets, ref_path_name), false, 0,
-                                         &site_panel);
+            site_panel_set = linker.add(snarl, travs, trav_genotype, trav_call_info.get(),
+                                        ref_trav_idx, ref_path_name,
+                                        ref_offset_of(ref_offsets, ref_path_name),
+                                        record_key_of(snarl), nested_context, false, 0,
+                                        &site_panel);
             render_this = stage_render_record(snarl, trav_genotype, ref_trav_idx, trav_call_info,
                                               ref_path_name, ref_offset_of(ref_offsets, ref_path_name), ploidy);
             added = render_this != nullptr;
@@ -1440,9 +1612,10 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
             // Genotyped and recorded, never written. Checked before retain_only, which does not
             // record. `added` is true, as for retain_only, since it gates descent into this chain's
             // children.
-            site_panel_set = record_site(
-                snarl, travs, trav_genotype, trav_call_info, ref_trav_idx, ref_path_name,
-                ref_offset_of(ref_offsets, ref_path_name), /*no_reference*/ true,
+            site_panel_set = linker.add(
+                snarl, travs, trav_genotype, trav_call_info.get(), ref_trav_idx, ref_path_name,
+                ref_offset_of(ref_offsets, ref_path_name), record_key_of(snarl), nested_context,
+                /*no_reference*/ true,
                 // The parent's position, as `get_ref_position` gives it from the interval
                 // `use_parent_interval` set, plus the chain's offset along its parent, as
                 // `StagedSite::position_from_parent` has it.
@@ -1468,18 +1641,20 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
             // An enclosing block's ALT already spells this chain, so it gets no line, but it is
             // genotyped and recorded, since its allele pair phases everything inside it. Checked
             // after retain_only, which does not record.
-            site_panel_set = record_site(snarl, travs, trav_genotype, trav_call_info,
-                                         ref_trav_idx, ref_path_name,
-                                         ref_offset_of(ref_offsets, ref_path_name), false, 0,
-                                         &site_panel);
+            site_panel_set = linker.add(snarl, travs, trav_genotype, trav_call_info.get(),
+                                        ref_trav_idx, ref_path_name,
+                                        ref_offset_of(ref_offsets, ref_path_name),
+                                        record_key_of(snarl), nested_context, false, 0,
+                                        &site_panel);
             added = true;
         } else if (!gaf_output) {
             // Recorded here rather than in emit_variant. A retained chain, on the path above, is
             // recorded only if the linkage pass later finds that the sample carries it.
-            site_panel_set = record_site(snarl, travs, trav_genotype, trav_call_info,
-                                         ref_trav_idx, ref_path_name,
-                                         ref_offset_of(ref_offsets, ref_path_name), false, 0,
-                                         &site_panel);
+            site_panel_set = linker.add(snarl, travs, trav_genotype, trav_call_info.get(),
+                                        ref_trav_idx, ref_path_name,
+                                        ref_offset_of(ref_offsets, ref_path_name),
+                                        record_key_of(snarl), nested_context, false, 0,
+                                        &site_panel);
             // Staged, not emitted, as at top level: the line is written after the linkage pass, from the
             // chosen genotype. `added` stands in for emit_variant's return value, which here only
             // gates recursion; a staged site counts as added.
@@ -1520,7 +1695,7 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
                     : 0;
             pending_this->chain_offset = nested_context.parent_offset;
             pending_this->crossing_known = nested_context.crossing_known;
-            pending_this->level = (uint8_t)min(current_level, (size_t)255);
+            pending_this->level = (uint8_t)min(nested_context.level, (size_t)255);
             pending_this->call_info = std::move(trav_call_info);
         }
         ret_val = trav_genotype.size() == ploidy && added;
@@ -1555,11 +1730,11 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
             // The child-independent parts of the exactly-once test, built once for this snarl.
             const BlockRecordWriter::ChainInlineContext inline_ctx =
                 block_records.chain_inline_context(snarl, travs, trav_genotype, ref_trav_idx);
-            // Also once for this snarl: see TraversalNodeIndex.
-            vector<TraversalNodeIndex> trav_visits;
+            // Also once for this snarl: see ChildPlacer::TraversalNodeIndex.
+            vector<ChildPlacer::TraversalNodeIndex> trav_visits;
             trav_visits.reserve(travs.size());
             for (const SnarlTraversal& t : travs) {
-                trav_visits.push_back(index_traversal_nodes(t));
+                trav_visits.push_back(ChildPlacer::index_traversal_nodes(t));
             }
             for (const Snarl* child : snarl_manager.children_of(managed_ptr)) {
                 if (child == nullptr || snarl_manager.is_trivial(child, graph)) {
@@ -1602,7 +1777,7 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
                     // in memory, since the linkage model may move the parent onto an allele that
                     // does reach it. Nothing about it is written unless the linkage pass says so.
                     ++descent_counters.skipped_no_copy;
-                    if (!staged_sites.active() || linkage_collector == nullptr) {
+                    if (!staged_sites.active() || !linker.enabled()) {
                         // Without retention there is nothing to come back to. Without the linkage
                         // model nothing moves the parent after the direct pass, so the sample has no copy
                         // of this chain; the linkage pass, which has no chosen parent to read, would
@@ -1614,7 +1789,7 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
 
                 // Saved and restored, since a child may descend further, and its own children must see
                 // it as their parent.
-                NestedContext saved = nested_context;
+                NestingPlacement saved = nested_context;
                 nested_context.one_copy = (copies == 1);
                 nested_context.parent_record_key = record_key_of(snarl);
                 nested_context.retain_only = retain_only;
@@ -1635,10 +1810,9 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
                 // The mask is over this snarl's own candidate traversals, which exist whether or not
                 // a line was written.
                 nested_context.parent_crossing =
-                    child_crossing_mask(trav_visits, *child, &crossing_known);
+                    ChildPlacer::child_crossing_mask(trav_visits, *child, &crossing_known);
                 nested_context.crossing_known = crossing_known;
-                size_t saved_level = current_level;
-                current_level = saved_level + 1;
+                nested_context.level = saved.level + 1;
                 ++g_descent_depth;
                 if (g_descent_depth < 16) {
                     ++descent_counters.depth_hist[g_descent_depth];
@@ -1651,7 +1825,6 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
                                     make_pair(get<0>(ref_interval), get<1>(ref_interval)),
                                     nullptr, copies >= 1 ? copies : ploidy);
                 --g_descent_depth;
-                current_level = saved_level;
                 nested_context = saved;
             }
         }

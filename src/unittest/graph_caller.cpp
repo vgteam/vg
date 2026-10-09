@@ -104,16 +104,16 @@ static Snarl make_child(nid_t start, nid_t end) {
 TEST_CASE("offset_of_child reports where a traversal enters a chain", "[graph_caller]") {
     const SnarlTraversal t = make_trav({1, 2, 3, 4, 5});
     SECTION("the entry index, not the exit") {
-        REQUIRE(FlowCaller::offset_of_child(t, make_child(2, 4)) == 1);
+        REQUIRE(ChildPlacer::offset_of_child(t, make_child(2, 4)) == 1);
     }
     SECTION("entering from either boundary is the same crossing") {
-        REQUIRE(FlowCaller::offset_of_child(t, make_child(4, 2)) == 1);
+        REQUIRE(ChildPlacer::offset_of_child(t, make_child(4, 2)) == 1);
     }
     SECTION("a chain the traversal does not cross has no offset") {
-        REQUIRE(FlowCaller::offset_of_child(t, make_child(7, 9)) == -1);
+        REQUIRE(ChildPlacer::offset_of_child(t, make_child(7, 9)) == -1);
     }
     SECTION("touching one boundary only is not a crossing") {
-        REQUIRE(FlowCaller::offset_of_child(t, make_child(3, 99)) == -1);
+        REQUIRE(ChildPlacer::offset_of_child(t, make_child(3, 99)) == -1);
     }
 }
 
@@ -140,7 +140,7 @@ TEST_CASE("ChildOffsets gives base_offset_of_child's answer by lookup", "[graph_
     // base_offset_of_child's definition: offset_of_child's entry, then the bases of the node
     // visits before it.
     auto expected = [&](const Snarl& child) -> int64_t {
-        const int entry = FlowCaller::offset_of_child(t, child);
+        const int entry = ChildPlacer::offset_of_child(t, child);
         if (entry < 0) {
             return -1;
         }
@@ -155,7 +155,7 @@ TEST_CASE("ChildOffsets gives base_offset_of_child's answer by lookup", "[graph_
 
     // Every pair of boundary nodes, including one the traversal never visits (10), both
     // orientations, and a chain that starts and ends on one node.
-    const FlowCaller::ChildOffsets offsets(graph, t);
+    const ChildPlacer::ChildOffsets offsets(graph, t);
     size_t crossing = 0;
     for (nid_t start = 1; start <= 10; ++start) {
         for (nid_t end = 1; end <= 10; ++end) {

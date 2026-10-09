@@ -33,11 +33,11 @@ struct StagedSite {
     size_t record_key = 0;
     /// The record key of the site this one is nested in, or 0 for a top-level site.
     size_t parent_record_key = 0;
-    /// See `VCFOutputCaller::NestedContext::chain_key`.
+    /// See `NestingPlacement::chain_key`.
     size_t chain_key = 0;
     /// The site's level.
     uint8_t level = 0;
-    /// See `VCFOutputCaller::NestedContext::parent_crossing`.
+    /// See `NestingPlacement::parent_crossing`.
     uint64_t parent_crossing = 0;
     /// False when the parent has more than 64 candidate traversals, too many for
     /// `parent_crossing`. A 0 mask then means unknown, and the linkage pass leaves the chain at the
@@ -62,7 +62,7 @@ struct StagedSite {
     /// For a snarl with no reference path: its parent's reference start plus `chain_offset`,
     /// standing in for the position it lacks.
     int64_t position_from_parent = 0;
-    /// `NestedContext::parent_offset` for this chain. The direct pass takes it from the parent's
+    /// `NestingPlacement::parent_offset` for this chain. The direct pass takes it from the parent's
     /// direct call, and the linkage pass computes it again from the parent's chosen genotype, so
     /// that an off-reference chain is placed along an allele of its parent's chosen genotype.
     size_t chain_offset = 0;
@@ -75,7 +75,7 @@ struct StagedSite {
     vector<int> genotype;
     int ploidy = 2;
     unique_ptr<SnarlCaller::CallInfo> call_info;
-    /// See `VCFOutputCaller::NestedContext::reported_inline`. Its line is held back, as for
+    /// See `NestingPlacement::reported_inline`. Its line is held back, as for
     /// `no_reference`. The direct pass tests the parent's direct call; under the linkage model the
     /// linkage pass tests again with the parent's chosen genotype, which the parent's blocks are
     /// built from.

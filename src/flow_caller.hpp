@@ -134,62 +134,6 @@ public:
 
     virtual bool call_snarl(const Snarl& snarl);
 
-    /// A site's place on the reference: a contig, and an offset along it. Positions on one contig
-    /// order its sites, and the difference of two positions is the distance in bases between the
-    /// sites, except where a position is a stand-in (see `position`). The linkage model relies on
-    /// both: it builds its top-level linkage chains from the sites of one contig, orders a chain's
-    /// sites by position and measures the gaps between them from it, and names a phase set
-    /// (FORMAT/PS) by the position of the chain's first site.
-    struct SiteLocus {
-        /// The contig as the VCF names it: the locus part of a PanSN path name, so `chr20` for
-        /// `CHM13#0#chr20`, or the path name itself when it is not a PanSN name.
-        string contig;
-        /// A 0-based offset along the contig. For a site the reference path passes through, it is
-        /// where the site's first boundary node starts on that path. It must not depend on which
-        /// alleles the site's records carry, so it is not their POS, which trimming the alleles
-        /// can move. For a site that no reference path passes through, it is a stand-in (see
-        /// off_reference_site_locus), and its difference from another position is a distance only
-        /// for a site of the same chain, or for the chain's parent.
-        size_t position = 0;
-    };
-
-    /// The locus of a site that the reference path `ref_path_name` passes through. `ref_offset`
-    /// is added to every position along that path, to place the path on its contig.
-    SiteLocus site_locus(const Snarl& snarl, const string& ref_path_name, int ref_offset) const;
-
-    /// The locus of a site that no reference path passes through, and that so has no position of
-    /// its own. `ref_path_name` is the reference path through the site's nearest ancestor on a
-    /// reference path, and `stand_in_position` is that ancestor's position plus how far along the
-    /// ancestor's allele the site's chain starts (`StagedSite::position_from_parent`).
-    SiteLocus off_reference_site_locus(const string& ref_path_name,
-                                       int64_t stand_in_position) const;
-
-    /// Record the site in the linkage model when it is genotyped, rather than when its line is
-    /// written, since the linkage pass reads the collector before any line is written. The emitted
-    /// allele map and whether a line was written are supplied later, by `set_allele_map`. The direct pass
-    /// does not call this for a retained chain with a reference path (see
-    /// `NestedContext::retain_only`); the linkage pass records that chain if the sample carries it.
-    ///
-    /// `ref_path_name` and `ref_offset` give the site's locus as for `site_locus`. `no_reference`
-    /// marks a site that no reference path passes through: `ref_path_name` is then the reference
-    /// path through the site's nearest ancestor on a reference path, `position_from_parent` is the
-    /// site's stand-in position (see `off_reference_site_locus`), and `ref_offset` is not used.
-    /// Otherwise `position_from_parent` is not used.
-    ///
-    /// Returns whether the site was recorded. If it was and `panel_out` is given, the panel
-    /// alleles looked up for it, `panel_lookup.alleles(travs)`, are moved to `panel_out`, so that
-    /// the staged record can keep them rather than look them up again.
-    bool record_site(const Snarl& snarl, const vector<SnarlTraversal>& travs,
-                     const vector<int>& trav_genotype,
-                     const unique_ptr<SnarlCaller::CallInfo>& call_info, int ref_trav_idx,
-                     const string& ref_path_name, int ref_offset,
-                     bool no_reference = false, int64_t position_from_parent = 0,
-                     vector<int>* panel_out = nullptr);
-
-    /// The frequency exponent a site should decode with: `--hp-prior` at a run-length site, or -1
-    /// for the model's own. Reads the traversals' sequences only when `--hp-prior` is on.
-    double site_freq_prior(const vector<SnarlTraversal>& travs, int ref_trav_idx) const;
-
     /// Decide every heterozygous site's phase from the reads, and change the chosen phase to
     /// match, so that the GT order, the anchor slot column and the mosaic all follow from it.
     /// Genotypes are not changed. On FlowCaller because it needs the staged sites, which hold
@@ -230,13 +174,9 @@ public:
     void set_stage_records(bool defer);
 
 
-    /// The linkage pass: choose the genotypes one level at a time. The linkage model chooses
-    /// each level's genotypes; then each child chain of the next level takes the ploidy its
-    /// parent's chosen genotype gives it, from the answers the direct pass kept at both
-    /// ploidies, and a chain the parent does not carry is dropped with everything inside it.
-    /// Once every level is done, it decides which chains an enclosing block spells
-    /// (`StagedSite::reported_inline`). Does nothing unless staging is on (see
-    /// `set_stage_records`).
+    /// The linkage pass over the staged sites (see `GenotypeLinker::link`). Once every level is
+    /// done, it decides which chains an enclosing block spells (`StagedSite::reported_inline`)
+    /// from the chosen genotypes. Does nothing unless staging is on (see `set_stage_records`).
     void run_linkage_pass();
 
     /// Move every nested chain the linkage pass kept into the render's queues, and collect anchors for
@@ -330,9 +270,6 @@ protected:
     /// reached before, which means they are cycling.
     static size_t snapshot_digest(const unordered_map<size_t, std::array<int, 3>>& snap);
 
-    /// How many times the linkage pass has run.
-    size_t linkage_passes_run = 0;
-
     /// Every staged site, while staging is on (see `set_stage_records`). A top-level site's ploidy
     /// comes from the contig or the BED, so the linkage pass never revises it, though the linkage
     /// model still chooses its genotype.
@@ -355,10 +292,6 @@ protected:
                                                  const string& ref_path_name, int ref_offset,
                                                  int ploidy);
 
-
-    /// The genotype the linkage model chose for a staged site, or the direct pass's genotype
-    /// where the model chose none.
-    vector<int> chosen_genotype_for(const StagedSite& rec) const;
 
     /// The gqn column's value for this record: the direct pass's `gq_fraction`, unless the linkage model
     /// changed the call, in which case the signed value recomputed for the chosen genotype. NaN,
@@ -395,66 +328,27 @@ protected:
                              const ChildTraversalSets* parent_child_trav_sets = nullptr,
                              int ploidy_override = -1);
 
-    /// Where each node ID is visited in one traversal, in ascending order, excluding visits to
-    /// snarls. Built once per traversal per snarl, so that testing each child does not scan the
-    /// whole traversal again.
-    using TraversalNodeIndex = unordered_map<nid_t, vector<int>>;
-    static TraversalNodeIndex index_traversal_nodes(const SnarlTraversal& trav);
-
     /// How many of the called parent alleles cross this child snarl, capped at `cap`.
     ///
     /// A traversal crosses the child when the child's start and end both appear in it in order, so
     /// a traversal that touches both boundaries on unrelated excursions does not count. One
     /// allele crossing a chain more than once, as in a cycle or tandem duplication, counts once,
     /// since the caller assumes ploidy 1 or 2; this is logged.
-    int child_ploidy(const vector<TraversalNodeIndex>& visits, const vector<int>& genotype,
-                     const Snarl& child, int cap) const;
-
-    /// How many times one traversal crosses `child`, by the same in-order rule child_ploidy uses.
-    static int crossings_of_child(const TraversalNodeIndex& visits, const Snarl& child);
+    int child_ploidy(const vector<ChildPlacer::TraversalNodeIndex>& visits,
+                     const vector<int>& genotype, const Snarl& child, int cap) const;
 
 public:
-    /// Where along `trav` the child chain is first entered, as a visit index, or -1 if `trav` does
-    /// not cross it, by the rule `crossings_of_child` uses.
-    static int offset_of_child(const SnarlTraversal& trav, const Snarl& child);
-
     /// How far along `trav`, in bases, the child chain is entered: the total length of the nodes
-    /// visited before it, or -1 if `trav` does not cross it. It gives an off-reference chain its
-    /// place along its parent (see `NestedContext::parent_offset`).
+    /// visited before it, or -1 if `trav` does not cross it, by the rule
+    /// `ChildPlacer::offset_of_child` uses. It gives an off-reference chain its place along its
+    /// parent (see `NestingPlacement::parent_offset`).
     int64_t base_offset_of_child(const SnarlTraversal& trav, const Snarl& child) const;
 
     /// `base_offset_of_child` along the first traversal of `genotype` that crosses `child`, or 0
     /// when none does.
     size_t offset_along_genotype(const vector<SnarlTraversal>& travs, const vector<int>& genotype,
                                  const Snarl& child) const;
-
-    /// `base_offset_of_child` for every child of one traversal, by lookup. Calling
-    /// `base_offset_of_child` once per child scans the traversal once per child, which a parent
-    /// with many children and a long traversal makes quadratic.
-    struct ChildOffsets {
-        ChildOffsets(const HandleGraph& graph, const SnarlTraversal& trav);
-        /// The same answer as `base_offset_of_child(trav, child)`.
-        int64_t base_offset(const Snarl& child) const;
-        /// The visit indices of each node, ascending. Child-snarl visits are left out, as
-        /// `offset_of_child` skips them.
-        unordered_map<nid_t, vector<int>> visits_of;
-        /// The bases of the node visits before each visit index; one longer than the traversal.
-        vector<int64_t> bases_before;
-    };
-
-    /// `offset_along_genotype`, answered from `offsets`, which holds a `ChildOffsets` per
-    /// traversal and is filled as traversals are first used.
-    size_t offset_along_genotype(const vector<SnarlTraversal>& travs, const vector<int>& genotype,
-                                 const Snarl& child,
-                                 unordered_map<const SnarlTraversal*, ChildOffsets>& offsets) const;
 protected:
-
-    /// The crossing mask: bit i is set where `travs[i]` crosses `child`. Indexed by traversal, not
-    /// by VCF allele, since it is tested against the parent's chosen traversals. Returns 0 and
-    /// sets `*known` to false when there are more than 64 traversals, so that the caller can tell
-    /// unknown from "no traversal crosses".
-    static uint64_t child_crossing_mask(const vector<TraversalNodeIndex>& visits,
-                                        const Snarl& child, bool* known = nullptr);
 
     /// Find all traversals through a child snarl that are consistent with a parent traversal.
     /// "Consistent" means the child's entry/exit points match what's in the parent traversal.

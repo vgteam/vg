@@ -91,9 +91,9 @@ string VCFOutputCaller::vcf_header(const PathHandleGraph& graph, const vector<st
 
 void VCFOutputCaller::set_linkage(LinkageCollector* collector, const gbwt::GBWT* gbwt,
                                   const vector<size_t>* sequence_to_haplotype) {
-    this->linkage_collector = collector;
     this->panel_lookup = PanelLookup(gbwt, sequence_to_haplotype,
                                      collector != nullptr ? collector->panel_size() : 0);
+    linker.configure(collector, &panel_lookup);
 }
 
 bool VCFOutputCaller::buffered_record_key_less(const BufferedRecordKey& a, const BufferedRecordKey& b) {
@@ -144,12 +144,12 @@ size_t VCFOutputCaller::phase_set_id(const string& contig, size_t phase_set) {
 void VCFOutputCaller::finalise_linkage_outputs() {
     // Built after every record has been rendered, since the mosaic needs to know which sites have
     // a line, which is not known while genotypes are being resolved.
-    if (linkage_collector == nullptr) {
+    if (!linker.enabled()) {
         return;
     }
     // Read from the collector, since each PhaseCall's `emitted` was copied before any line was
     // written.
-    const std::unordered_set<size_t> emitted_records = linkage_collector->emitted_records();
+    const std::unordered_set<size_t> emitted_records = linker.collector()->emitted_records();
     size_t unexplained = 0;
     size_t order_arbitrary = 0;
     // Count the phased sites, separating those that became records from those that did not.
@@ -171,21 +171,7 @@ void VCFOutputCaller::finalise_linkage_outputs() {
                           || pc.hap_second == LinkageModel::WILDCARD);
         order_arbitrary += pc.order_arbitrary;
     }
-    cerr << "[vg call] linkage: " << linkage_collector->num_sites() << " sites, "
-         << (linkage_collector->bytes() / (1024.0 * 1024.0)) << " MB retained, "
-         << linkage_changed << " genotypes moved by linkage, " << linkage_seconds << " s" << endl;
-    if (linkage_collector->num_duplicate_live_keys() > 0) {
-        // Duplicate keys need not change the output, but `retract` cannot handle those sites, since
-        // it retracts only the first live entry.
-        cerr << "[vg call] linkage: " << linkage_collector->num_duplicate_live_keys()
-             << " sites recorded onto a key that already had a live entry; the retract path cannot"
-             << " address these" << endl;
-    }
-    if (linkage_collector->model_params().hp_prior > 0.0) {
-        cerr << "[vg call] linkage: " << linkage_collector->num_site_prior_entries()
-             << " live entries decoded at a run-length site's own frequency exponent (--hp-prior)"
-             << endl;
-    }
+    linker.report();
     if (emit_phasing) {
         // At sites where a strand is on the wildcard, no panel haplotype names it, so the phase
         // across them rests on the transitions alone.
@@ -249,7 +235,7 @@ void VCFOutputCaller::write_variants(ostream& out_stream, const SnarlManager* sn
                   return buffered_record_key_less(v1.first, v2.first);
               });
     // Resolve the linkage model, if it has not been resolved, before the records are written.
-    resolve_linkage();
+    linker.resolve(emit_phasing ? &phase_table.calls() : nullptr);
     finalise_linkage_outputs();
 
 
@@ -285,10 +271,10 @@ void VCFOutputCaller::write_variants(ostream& out_stream, const SnarlManager* sn
                 }
                 return line_key;
             };
-            if (linkage_collector != nullptr) {
+            if (linker.enabled()) {
                 // Quality first, then phasing. The line already carries the chosen genotype, since it
                 // was built from it.
-                const auto& quality = linkage_collector->moved_quality();
+                const auto& quality = linker.collector()->moved_quality();
                 if (!quality.empty()) {
                     auto found = quality.find(id_key());
                     if (found != quality.end()) {
@@ -497,8 +483,6 @@ string VCFOutputCaller::trav_string(const HandleGraph& graph, const SnarlTravers
     return seq;    
 }
 
-thread_local VCFOutputCaller::NestedContext VCFOutputCaller::nested_context;
-thread_local size_t VCFOutputCaller::current_level = 0;
 
 bool VCFOutputCaller::is_symbolically_reference(const vector<SnarlTraversal>& called_traversals,
                                                 int trav_idx, int ref_trav_idx,

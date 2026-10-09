@@ -28,6 +28,7 @@
 #include "mosaic_writer.hpp"
 #include "panel_lookup.hpp"
 #include "phase_table.hpp"
+#include "genotype_linker.hpp"
 #include "ploidy_regions.hpp"
 #include "vcf_genotype_likelihoods.hpp"
 #include "vcf_record.hpp"
@@ -135,7 +136,7 @@ public:
     }
 
     /// Write the buffered records. It adds the nesting INFO tags, sorts the records, runs the
-    /// linkage model if nothing has (`resolve_linkage`), and writes the mosaic
+    /// linkage model if nothing has (`GenotypeLinker::resolve`), and writes the mosaic
     /// (`finalise_linkage_outputs`). Then it writes each record, rewriting GQ, GQN and FILTER on
     /// those whose genotype the linkage model changed (`LinkageCollector::moved_quality`). Usable
     /// once. `snarl_manager` is needed if
@@ -207,102 +208,20 @@ protected:
     bool is_symbolically_reference(const vector<SnarlTraversal>& called_traversals,
                                    int trav_idx, int ref_trav_idx, const Snarl& snarl) const;
 
-    /// The parent of the nested chain being genotyped, for the duration of that call.
-    ///
-    /// Thread-local rather than a parameter: descent runs on the calling thread, so the context is
-    /// set just before the child call and cleared after it, and no other thread sees it.
-    struct NestedContext {
-        /// Exactly one of the parent's called alleles crosses this chain (see
-        /// `LinkageCollector::SiteContext::nested`).
-        bool one_copy = false;
-        size_t parent_record_key = 0;
-        /// The crossing mask: one bit per parent candidate traversal, set where that traversal
-        /// crosses this chain. It is indexed by traversal rather than by VCF allele, since the
-        /// linkage model chooses the parent's genotype as a pair of traversals, and the VCF alleles are
-        /// chosen only when the parent's line is written. When the mask cannot be computed (more
-        /// than 64 traversals), it is 0 and `crossing_known` is false. The linkage pass reads it to find
-        /// how many copies of the chain the parent's chosen genotype carries, and on which
-        /// strand.
-        uint64_t parent_crossing = 0;
-        /// Set where no called parent allele reaches the chain, and only when staging is on (see
-        /// `set_stage_records`) and the linkage model runs (without it, such a chain is not
-        /// genotyped). The chain is genotyped anyway, at the parent's ploidy, because the linkage
-        /// model may still move the parent onto an allele that does reach it. Inherited by its
-        /// children, which are genotyped at their own provisional ploidy.
-        ///
-        /// In the direct pass the chain is staged, not written, and not recorded in the linkage model.
-        /// The exception is a snarl whose own boundaries are on no reference path: that is recorded
-        /// whatever this flag says, and never gets a line.
-        ///
-        /// The linkage pass decides what happens to it from the parent's chosen pair. If the pair
-        /// carries no copy, the chain and everything under it are dropped; so is a chain that no
-        /// candidate traversal of the parent crosses (a crossing mask of 0). If the pair carries
-        /// some, the chain is recorded at that many copies and rendered; where the direct pass scored no
-        /// genotype at that ploidy, it is rendered at the parent's ploidy instead, unrecorded. A
-        /// parent the linkage model gave no phase call is read at its own chosen genotype. Where
-        /// the crossing mask is unknown (`crossing_known` false), the linkage pass cannot compare the
-        /// chain with a chosen pair at all, so the chain is never dropped on its parent's account
-        /// (a dropped ancestor still removes it), and is rendered at the ploidy it was genotyped at,
-        /// unrecorded.
-        bool retain_only = false;
-        /// Where this chain starts along the first of the parent's called traversals that crosses
-        /// it, in bases, plus the parent's own `parent_offset`. Added to the parent's reference
-        /// start, it gives an off-reference chain a position of its own, so that its sites are
-        /// ordered as that traversal visits them and the distance between two of them is known.
-        /// The linkage pass computes it again from the parent's chosen genotype
-        /// (`StagedSite::chain_offset`).
-        size_t parent_offset = 0;
-        /// Permission to genotype a chain that no reference path passes through. Inherited, since
-        /// everything under such a chain is also off the reference. Whether a given snarl has a
-        /// reference path is still checked for each snarl, since a descendant's boundaries may lie
-        /// on a reference path even when its parent's do not.
-        bool no_reference = false;
-        /// Under block emission, an enclosing block's ALT already spells this chain's variation, so
-        /// its own line would repeat it. The chain is still genotyped and recorded, and its line is
-        /// held back when records are rendered. Inherited.
-        bool reported_inline = false;
-        /// Identifies the chain being descended into, from its boundary nodes. The linkage model
-        /// groups a chain's sites by it, and chains under one parent have no transitions between
-        /// them.
-        size_t chain_key = 0;
-        /// False when the parent has more than 64 candidate traversals, too many for the crossing
-        /// mask. A 0 mask then means unknown rather than "no allele crosses".
-        bool crossing_known = true;
-    };
-    static thread_local NestedContext nested_context;
-
     /// Snarl hierarchy for symbolic collapsing, or null to compare alleles by sequence alone.
     const SnarlManager* symbolic_manager = nullptr;
-
-    /// The level of the site being recorded now: its depth among the nested chains, which
-    /// decides when in a linkage pass its genotype is chosen. Thread-local because the direct pass
-    /// runs in parallel, and each descent saves, increments and restores it on its own thread.
-    static thread_local size_t current_level;
-
-    /// Resolve one level of the linkage model. `last` marks a linkage pass's final
-    /// level.
-    void resolve_linkage_level(size_t level, bool last);
 
     /// Write the mosaic, once every record exists; separate from resolution because it needs to
     /// know which sites have a VCF line.
     void finalise_linkage_outputs();
 
-    /// Resolve the linkage model, if nothing has resolved it yet: one pass per level, from 0 to
-    /// the deepest, which is looked up again after each pass since a pass can add a deeper chain.
-    /// Safe to call more than once, so `write_variants` can call it unconditionally.
-    void resolve_linkage();
-
     /// Every phased site. The linkage model fills it, the mosaic reads it, the linkage pass looks
     /// up a parent's chosen pair in it, and each record reads its phase from it as it is
     /// rendered.
     PhaseTable phase_table;
-    bool linkage_resolved = false;
-    /// Time spent in the linkage model, over all levels, for the report.
-    double linkage_seconds = 0.0;
-    size_t linkage_changed = 0;
 
-    /// The linkage model's collector. Not owned.
-    LinkageCollector* linkage_collector = nullptr;
+    /// The linkage model, and the linkage pass that chooses genotypes with it.
+    GenotypeLinker linker;
     /// Which allele each panel haplotype carries at a site. Empty without the linkage model.
     PanelLookup panel_lookup;
 

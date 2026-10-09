@@ -1,11 +1,11 @@
 #include <algorithm>
 #include <limits>
 
-#include "flow_caller.hpp"
+#include "child_placer.hpp"
 
 namespace vg {
 
-FlowCaller::TraversalNodeIndex FlowCaller::index_traversal_nodes(const SnarlTraversal& trav) {
+ChildPlacer::TraversalNodeIndex ChildPlacer::index_traversal_nodes(const SnarlTraversal& trav) {
     TraversalNodeIndex visits;
     for (int i = 0; i < trav.visit_size(); ++i) {
         if (trav.visit(i).has_snarl()) {
@@ -16,7 +16,7 @@ FlowCaller::TraversalNodeIndex FlowCaller::index_traversal_nodes(const SnarlTrav
     return visits;
 }
 
-int FlowCaller::crossings_of_child(const TraversalNodeIndex& visits, const Snarl& child) {
+int ChildPlacer::crossings_of_child(const TraversalNodeIndex& visits, const Snarl& child) {
     const nid_t start = child.start().node_id();
     const nid_t end = child.end().node_id();
     // Count crossings: an entry at one boundary followed by the other. Order matters: testing for
@@ -51,7 +51,7 @@ int FlowCaller::crossings_of_child(const TraversalNodeIndex& visits, const Snarl
     return crossings;
 }
 
-int FlowCaller::offset_of_child(const SnarlTraversal& trav, const Snarl& child) {
+int ChildPlacer::offset_of_child(const SnarlTraversal& trav, const Snarl& child) {
     const nid_t start = child.start().node_id();
     const nid_t end = child.end().node_id();
     nid_t open = 0;
@@ -71,7 +71,7 @@ int FlowCaller::offset_of_child(const SnarlTraversal& trav, const Snarl& child) 
     return -1;
 }
 
-FlowCaller::ChildOffsets::ChildOffsets(const HandleGraph& graph, const SnarlTraversal& trav) {
+ChildPlacer::ChildOffsets::ChildOffsets(const HandleGraph& graph, const SnarlTraversal& trav) {
     bases_before.assign((size_t)trav.visit_size() + 1, 0);
     for (int i = 0; i < trav.visit_size(); ++i) {
         const Visit& visit = trav.visit(i);
@@ -84,7 +84,7 @@ FlowCaller::ChildOffsets::ChildOffsets(const HandleGraph& graph, const SnarlTrav
     }
 }
 
-int64_t FlowCaller::ChildOffsets::base_offset(const Snarl& child) const {
+int64_t ChildPlacer::ChildOffsets::base_offset(const Snarl& child) const {
     // `offset_of_child`'s rule: the entry is the first visit to either boundary node, and it counts
     // only if the other boundary node is visited after it.
     const nid_t start = child.start().node_id();
@@ -107,9 +107,9 @@ int64_t FlowCaller::ChildOffsets::base_offset(const Snarl& child) const {
     return bases_before[entry];
 }
 
-size_t FlowCaller::offset_along_genotype(
-    const vector<SnarlTraversal>& travs, const vector<int>& genotype, const Snarl& child,
-    unordered_map<const SnarlTraversal*, ChildOffsets>& offsets) const {
+size_t ChildPlacer::offset_along_genotype(
+    const HandleGraph& graph, const vector<SnarlTraversal>& travs, const vector<int>& genotype,
+    const Snarl& child, unordered_map<const SnarlTraversal*, ChildOffsets>& offsets) {
     for (int allele : genotype) {
         if (allele < 0 || allele >= (int)travs.size()) {
             continue;
@@ -127,7 +127,7 @@ size_t FlowCaller::offset_along_genotype(
     return 0;
 }
 
-uint64_t FlowCaller::child_crossing_mask(const vector<TraversalNodeIndex>& visits,
+uint64_t ChildPlacer::child_crossing_mask(const vector<TraversalNodeIndex>& visits,
                                          const Snarl& child, bool* known) {
     if (known != nullptr) {
         *known = true;
