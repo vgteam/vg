@@ -402,6 +402,15 @@ protected:
         
 };
     
+/// The nodes and edges of the site entered by reading `start` and left by reading `end`, as a
+/// Snarl's start and end Visits are oriented, including those inside its child sites, and its own
+/// two boundary nodes if `include_boundary_nodes`. A graph search from the bounds: it stops only at
+/// them, and finds tips as well as walks.
+pair<unordered_set<id_t>, unordered_set<edge_t> > site_contents(const HandleGraph& graph,
+                                                                 const handle_t& start,
+                                                                 const handle_t& end,
+                                                                 bool include_boundary_nodes);
+
 /**
  * A structure to keep track of the tree relationships between Snarls and perform utility algorithms
  * on them
@@ -549,7 +558,7 @@ public:
                                                                        bool include_boundary_nodes) const;
         
     /// Returns the Nodes and Edges contained in this Snarl, including those in child Snarls (optionally
-    /// includes Snarl's own boundary Nodes)
+    /// includes Snarl's own boundary Nodes). Reads no state of the manager; see site_contents.
     pair<unordered_set<id_t>, unordered_set<edge_t> > deep_contents(const Snarl* snarl, const HandleGraph& graph,
                                                                     bool include_boundary_nodes) const;
         
