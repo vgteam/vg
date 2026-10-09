@@ -14,6 +14,7 @@
 
 #include "catch.hpp"
 #include "anchor.hpp"
+#include "read_strand_table.hpp"
 #include "regenotype.hpp"
 
 namespace vg {
@@ -454,6 +455,22 @@ TEST_CASE("the reads' order is compared with the chain's order, not the sorted o
     REQUIRE(reversed(allele1_first, 0) == 1);
     // With no chain order there is nothing to disagree with.
     REQUIRE(reversed(allele1_first, -1) == 0);
+}
+
+TEST_CASE("the later rounds temper with the ceiling the first round fitted against",
+          "[regenotype]") {
+    // The first round fits the temper against the ceiling it was given, and the later rounds
+    // reuse that fit rather than fitting again, so they must reuse the ceiling too.
+    RegenotypeCounters first_round;
+    first_round.fitted_temper = 0.05;
+    first_round.fitted_ceiling = 0.9;
+    multipass::TemperFit fit;
+    fit.keep(first_round);
+
+    RegenotypeCounters later_round;
+    fit.restore(later_round);
+    REQUIRE(later_round.fitted_temper == 0.05);
+    REQUIRE(later_round.fitted_ceiling == 0.9);
 }
 
 }

@@ -7,6 +7,7 @@ namespace multipass {
 
 void TemperFit::keep(const RegenotypeCounters& counters) {
     temper = counters.fitted_temper;
+    ceiling = counters.fitted_ceiling;
     abs_lambda = counters.fit_abs_lambda;
     observed = counters.fit_observed;
     predicted = counters.fit_predicted;
@@ -15,6 +16,7 @@ void TemperFit::keep(const RegenotypeCounters& counters) {
 
 void TemperFit::restore(RegenotypeCounters& counters) const {
     counters.fitted_temper = temper;
+    counters.fitted_ceiling = ceiling;
     counters.fit_abs_lambda = abs_lambda;
     counters.fit_observed = observed;
     counters.fit_predicted = predicted;

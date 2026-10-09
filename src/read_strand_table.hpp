@@ -18,19 +18,19 @@ namespace multipass {
 
 using namespace std;
 
-/// The temper the first re-genotyping round fitted, and that fit's calibration table, kept for
-/// the later rounds. The temper describes how reliable the reads' summed strand log-odds are, not
-/// which genotypes are called, so it is fitted once.
+/// The temper the first re-genotyping round fitted, the ceiling it was fitted against, and that
+/// fit's calibration table, kept for the later rounds. The temper describes how reliable the
+/// reads' summed strand log-odds are, not which genotypes are called, so it is fitted once.
 struct TemperFit {
     double temper = 0.0;
+    double ceiling = 1.0;
     vector<double> abs_lambda, observed, predicted;
     vector<size_t> count;
 
     /// Keep the fit a round's counters hold.
     void keep(const RegenotypeCounters& counters);
 
-    /// Start a round's counters from the kept fit. The ceiling is not part of the fit, so the
-    /// counters keep their default ceiling.
+    /// Start a round's counters from the kept fit.
     void restore(RegenotypeCounters& counters) const;
 };
 
