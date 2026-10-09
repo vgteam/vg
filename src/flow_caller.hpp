@@ -12,6 +12,7 @@
 #include <tuple>
 #include <gbwt/cached_gbwt.h>
 #include "handle.hpp"
+#include "candidate_finder.hpp"
 #include "linkage_model.hpp"
 #include "snarls.hpp"
 #include "traversal_finder.hpp"
@@ -37,16 +38,6 @@ namespace vg {
 
 using namespace std;
 using vg::io::AlignmentEmitter;
-
-/// A set of traversals through a child snarl that are consistent with
-/// a single parent allele. Multiple traversals can exist if the child
-/// has internal variation within a shared region.
-using TraversalSet = vector<SnarlTraversal>;
-
-/// One TraversalSet per parent allele (index matches parent genotype).
-/// For a diploid parent with genotype [0,1], element 0 contains traversals
-/// consistent with parent allele 0, element 1 with parent allele 1.
-using ChildTraversalSets = vector<TraversalSet>;
 
 /**
  * FlowCaller: takes each snarl's candidate traversals from a TraversalFinder and genotypes them
@@ -155,10 +146,10 @@ public:
     /// Not owned.
     void set_site_genotyper(ReadLikelihoodSnarlCaller& genotyper);
 
-    /// See max_snarl_edges. Zero removes the limit.
-    void set_max_snarl_edges(size_t edges) {
-        max_snarl_edges = edges ? edges : numeric_limits<size_t>::max();
-    }
+    /// Do not genotype a snarl with more edges than this, including those of nested snarls
+    /// (--max-snarl-edges). `call_top_level_snarls` then genotypes the snarl's children as if they
+    /// were top-level snarls. Zero removes the limit, which is also the default.
+    void set_max_snarl_edges(size_t edges) { candidates.set_max_snarl_edges(edges); }
 
 protected:
 
@@ -193,11 +184,6 @@ protected:
     /// keep traco of the ploidies (todo: just one map for all path stuff!!)
     map<string, int> ref_ploidies;
 
-    /// Do not genotype a snarl with more edges than this, including those of nested snarls
-    /// (--max-snarl-edges). `call_top_level_snarls` then genotypes the snarl's children as if they
-    /// were top-level snarls. No limit until `vg call` sets one.
-    size_t max_snarl_edges = numeric_limits<size_t>::max();
-
     /// alignment emitter. if not null, traversals will be output here and
     /// no genotyping will be done
     AlignmentEmitter* alignment_emitter;
@@ -227,6 +213,10 @@ protected:
 
     /// use * alleles for spanning haplotypes that don't traverse nested sites
     bool star_allele = false;
+
+    /// Finds each site's reference path and candidate traversals. Declared after the members it
+    /// reads.
+    CandidateFinder candidates;
 
     /// Every staged site, while staging is on (see `set_stage_records`). A top-level site's ploidy
     /// comes from the contig or the BED, so the linkage pass never revises it, though the linkage
@@ -294,19 +284,6 @@ protected:
                              pair<size_t, size_t> parent_ref_interval,
                              const ChildTraversalSets* parent_child_trav_sets,
                              int ploidy_override, const NestingPlacement& placement);
-
-
-    /// Find all traversals through a child snarl that are consistent with a parent traversal.
-    /// "Consistent" means the child's entry/exit points match what's in the parent traversal.
-    /// Uses the traversal finder to enumerate all valid paths through the child.
-    /// @param parent_trav The parent traversal defining entry/exit constraints
-    /// @param child The child snarl to find traversals through
-    /// @return Set of traversals through child, empty if parent doesn't traverse child
-    TraversalSet find_child_traversal_set(const SnarlTraversal& parent_trav,
-                                          const Snarl& child) const;
-
-    /// Extract the portion of a parent traversal that spans a child snarl (single traversal).
-    /// This is a simpler version used when we only need one traversal from the parent.
 };
 
 }
