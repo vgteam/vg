@@ -451,7 +451,7 @@ public:
     /// By record key, each live site whose genotype the model changed when its level was
     /// last resolved. `VCFOutputCaller::write_variants` rewrites GQ, GQN and FILTER on each such
     /// record's rendered line from these, since the posterior exists only here, and
-    /// `FlowCaller::anchor_gqn_for` uses them for the anchors' gqn column.
+    /// `RecordRenderer::anchor_gqn` uses them for the anchors' gqn column.
     ///
     /// Resolving a site's level adds or removes its key, and retracting the site removes it,
     /// so after the linkage pass runs again the map describes that run alone.

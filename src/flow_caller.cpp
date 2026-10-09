@@ -189,6 +189,7 @@ void FlowCaller::install_site_reader() {
     };
     linker.set_site_reader(reader);
     rescorer.set_site_reader(reader);
+    record_renderer.configure(reader, [this](const Snarl& site) { return snarl_is_leaf(site); });
 }
 
 void FlowCaller::call_top_level_snarls(const HandleGraph& graph, RecurseType recurse_type) {
@@ -440,41 +441,15 @@ void FlowCaller::render_retained_records() {
     // (`reported_inline` and `no_reference`) and reads the frozen phase to order them. If read
     // phasing ran, the phase table already carries its swaps.
     phase_table.freeze_for_render(emit_phasing);
-    // Every linkage pass is done, so the records move to the render, once, which also keeps their
-    // anchors from being collected twice.
-    hand_off_deferred_records();
-    if (!staged_sites.active()) {
-        return;
-    }
-    // `nested_context` describes the snarl a direct pass thread is recording, and only
-    // `call_snarl_internal` reads it, which the render does not call. The loop still clears it and
-    // restores it afterwards, so that it never runs under the context the thread's last swept snarl
-    // left. The records are nested chains as well as top-level sites,
-    // and each carries its own nesting in its `StagedSite`.
-    const size_t n_threads = staged_sites.queue_count();
-#pragma omp parallel for schedule(dynamic, 1)
-    for (size_t t = 0; t < n_threads; ++t) {
-        NestingPlacement saved_ctx = nested_context;
-        nested_context = NestingPlacement();
-        for (StagedSite& rec : staged_sites.queue(t)) {
-            // The chosen pair, not the direct pass's. The ALT list, whether a line is written at
-            // all, QUAL, and the arity of AD, GL and GQI are all built from the genotype passed in,
-            // so they agree with the call.
-            vector<int> genotype = linker.chosen_genotype(rec);
-            // Before emit_variant, which passes the CallInfo on to update_vcf_info. The anchors are
-            // collected in phase order, while `genotype` itself stays sorted, since emit_variant
-            // builds the ALT list, AD, GL and QUAL from its order.
-            collect_anchors_for_record(rec, genotype);
-            emit_variant(graph, snarl_caller, rec.snarl, rec.travs, genotype, rec.ref_trav_idx,
-                         rec.call_info, rec.ref_path_name, rec.ref_offset, genotype_snarls,
-                         rec.ploidy);
-        }
-        nested_context = saved_ctx;
-    }
-    if (show_progress) {
-        cerr << "[vg call] rendered " << staged_sites.queued_count()
-             << " retained records after the direct pass" << endl;
-    }
+    record_renderer.render(
+        staged_sites, phase_table, read_strands, linker,
+        anchor_collector.is_enabled() ? &anchor_collector : nullptr,
+        [&](const StagedSite& site, const vector<int>& genotype) {
+            emit_variant(graph, snarl_caller, site.snarl, site.travs, genotype, site.ref_trav_idx,
+                         site.call_info, site.ref_path_name, site.ref_offset, genotype_snarls,
+                         site.ploidy);
+        },
+        show_progress);
 }
 
 void FlowCaller::run_linkage_pass() {

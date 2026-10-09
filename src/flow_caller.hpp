@@ -19,6 +19,7 @@
 #include "staged_site.hpp"
 #include "read_strand_table.hpp"
 #include "round_history.hpp"
+#include "record_renderer.hpp"
 #include "read_phasing.hpp"
 #include "regenotype.hpp"
 #include "snarl_caller.hpp"
@@ -149,7 +150,7 @@ public:
     void phase_and_regenotype();
 
     /// Build the records of every staged site once, from its chosen genotype, and collect the
-    /// site's anchors.
+    /// site's anchors (see `RecordRenderer`).
     void render_retained_records();
 
     /// Whether this snarl has no children, resolved through the manager's own copy. See the
@@ -169,10 +170,6 @@ public:
     /// from the chosen genotypes. Does nothing unless staging is on (see `set_stage_records`).
     void run_linkage_pass();
 
-    /// Move every nested chain the linkage pass kept into the render's queues, and collect anchors for
-    /// those that get no line. Separate from `run_linkage_pass`, which re-genotyping runs again,
-    /// because moving the records and collecting their anchors must happen once.
-    void hand_off_deferred_records();
 
 
 
@@ -264,6 +261,9 @@ protected:
     /// The temper re-genotyping fitted in its first round.
     TemperFit temper_fit;
 
+    /// Builds the staged sites' records once the passes are done.
+    RecordRenderer record_renderer;
+
     /// Make a top-level site's `StagedSite` from its genotype, moving `call_info` into it.
     /// `travs` is left empty, because descent still reads the traversals; the caller moves them in
     /// once descent is done. Returns null, and leaves `call_info` alone, when staging is off (see
@@ -275,19 +275,6 @@ protected:
                                                  int ploidy);
 
 
-    /// The gqn column's value for this record: the direct pass's `gq_fraction`, unless the linkage model
-    /// changed the call, in which case the signed value recomputed for the chosen genotype. NaN,
-    /// written as `.`, where there is no value: no gap to normalise, or a moved call whose margin
-    /// cannot be recomputed.
-    double anchor_gqn_for(const StagedSite& rec, const vector<int>& chosen) const;
-
-    /// Turn a staged site into anchors, if anchors are being written, with the phase order, the
-    /// haploid slot, the leaf test and the gqn derived from it. Called once per staged site as the
-    /// sites are rendered: just before its line is written, or, for a site with no line, by the
-    /// hand-off. A site with no reference position still gets anchors, since a pin is placed by
-    /// node ID, which is why this is not part of `emit_variant`. The genotype is a parameter
-    /// because the render passes the chosen pair.
-    void collect_anchors_for_record(const StagedSite& rec, const vector<int>& genotype);
 
 
     /// Internal implementation of call_snarl that accepts parent context for nested mode
