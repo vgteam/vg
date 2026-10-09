@@ -152,11 +152,6 @@ public:
     /// The genotypes are chosen again by the next `link`.
     void resync(StagedSiteTable& sites) const;
 
-    /// Have the model choose the genotypes of every level, from 0 to the deepest, if nothing has
-    /// yet: for a caller that stages nothing, and so never links. Phase calls go to `calls` unless
-    /// it is null.
-    void resolve(vector<PhaseCall>* calls);
-
     /// Report the model's size, how many genotypes it moved and the time it took. Does nothing
     /// without a linkage model.
     void report() const;
@@ -179,8 +174,6 @@ private:
 
     /// How many times the linkage pass has run.
     size_t passes_run = 0;
-    /// Whether the model has chosen any genotypes, so that `resolve` need not.
-    bool resolved = false;
     /// Time spent in the linkage model, over every level of every pass, and how many genotypes
     /// the last pass moved off the direct calls, for the report.
     double total_seconds = 0.0;

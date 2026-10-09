@@ -531,28 +531,7 @@ size_t GenotypeLinker::drop_subtree(StagedSiteTable& sites, size_t root) {
     return dropped_here;
 }
 
-void GenotypeLinker::resolve(vector<PhaseCall>* calls) {
-    if (resolved) {
-        return;
-    }
-    if (model == nullptr) {
-        resolved = true;
-        return;
-    }
-    // Resolve every level, since chain construction skips entries of later levels
-    // than the one being resolved. `max_level()` is read again on each pass, since a pass can
-    // add a chain at a deeper level.
-    for (size_t gen = 0;; ++gen) {
-        const size_t deepest = model->max_level();
-        resolve_level(gen, gen >= deepest, calls);
-        if (gen >= deepest) {
-            break;
-        }
-    }
-}
-
 void GenotypeLinker::resolve_level(size_t level, bool last, vector<PhaseCall>* calls) {
-    resolved = true;
     if (model == nullptr) {
         return;
     }

@@ -36,7 +36,7 @@ MultiPassCaller::MultiPassCaller(const PathPositionHandleGraph& graph,
         ref_path_set.insert(ref_paths[i]);
         ref_ploidies[ref_paths[i]] = i < ref_path_ploidies.size() ? ref_path_ploidies[i] : 2;
     }
-    install_writer_steps();
+    install_header_steps();
     install_widgets();
 }
 
@@ -81,6 +81,15 @@ void MultiPassCaller::call(GraphCaller::RecurseType recurse_type,
     // Anchors are collected while records are built, so they are written afterwards. Does nothing
     // unless anchors are on.
     anchor_collector.write(sample_name);
+
+    // The reports, and the mosaic, need to know which sites have a line, so they come last.
+    finalise_linkage_outputs();
+    if (phase_declined.load() > 0 || quality_declined.load() > 0) {
+        cerr << "[vg call] linkage: " << phase_declined.load()
+             << " phases refused by the record they were rendered onto, and "
+             << quality_declined.load() << " quality rewrites refused" << endl;
+    }
+    block_records.report();
 }
 
 string MultiPassCaller::vcf_header(const PathHandleGraph& graph, const vector<string>& contigs,
@@ -202,8 +211,8 @@ void MultiPassCaller::finish_moved_record(vcflib::Variant& record) {
     }
 }
 
-void MultiPassCaller::install_writer_steps() {
-    VCFOutputCaller::WriterSteps steps;
+void MultiPassCaller::install_header_steps() {
+    VCFOutputCaller::HeaderSteps steps;
     steps.format_header = [this]() {
         stringstream ss;
         if (emit_phasing) {
@@ -238,21 +247,7 @@ void MultiPassCaller::install_writer_steps() {
         }
         return ss.str();
     };
-    steps.before_lines = [this]() {
-        // Resolve the linkage model, if it has not been resolved, before the records are written.
-        linker.resolve(emit_phasing ? &phase_table.calls() : nullptr);
-        finalise_linkage_outputs();
-    };
-    steps.after_lines = [this]() {
-        if (phase_declined.load() > 0 || quality_declined.load() > 0) {
-            cerr << "[vg call] linkage: " << phase_declined.load()
-                 << " phases refused by the record they were rendered onto, and "
-                 << quality_declined.load() << " quality rewrites refused" << endl;
-        }
-        // Reported after the records are rendered, since block emission happens as they are.
-        block_records.report();
-    };
-    output.set_writer_steps(std::move(steps));
+    output.set_header_steps(std::move(steps));
 }
 
 void MultiPassCaller::install_widgets() {

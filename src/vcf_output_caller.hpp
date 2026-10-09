@@ -30,8 +30,8 @@ using vg::io::AlignmentEmitter;
  * Helper class that VCF writers can inherit from, for the common code to output sorted VCF.
  *
  * A caller that holds one instead, such as MultiPassCaller, writes its records through
- * `emit_variant`, giving it the steps it adds to each record, and adds its own steps to the
- * header and `write_variants` with `set_writer_steps`.
+ * `emit_variant`, giving it the steps it adds to each record, and adds its own header lines with
+ * `set_header_steps`.
  */
 class VCFOutputCaller {
 public:
@@ -70,7 +70,7 @@ public:
     void set_ploidy_regions(PloidyRegions regions) { ploidy_regions = std::move(regions); }
 
     /// Write the buffered records. It adds the nesting INFO tags, sorts the records and writes
-    /// them, with the steps set by `set_writer_steps` around them and on each line. Usable once.
+    /// them. Usable once.
     /// `snarl_manager` is needed if `include_nested` is true.
     void write_variants(ostream& out_stream, const SnarlManager* snarl_manager = nullptr);
 
@@ -138,21 +138,16 @@ public:
                       size_t traversal_count, bool has_line)> site_filed;
     };
 
-    /// Lines added to the header, and steps added to `write_variants`, by a caller that needs
-    /// them. Each is left empty when not needed.
-    struct WriterSteps {
+    /// Lines added to the header by a caller that needs them. Each is left empty when not needed.
+    struct HeaderSteps {
         /// FORMAT lines, written after the nesting INFO lines.
         function<string()> format_header;
         /// INFO lines, written after the AT line.
         function<string()> info_header;
-        /// Runs once the records are sorted, before any is written.
-        function<void()> before_lines;
-        /// Runs once every record is written.
-        function<void()> after_lines;
     };
 
-    /// Use `steps` in `vcf_header` and `write_variants`.
-    void set_writer_steps(WriterSteps steps) { writer_steps = std::move(steps); }
+    /// Use `steps` in `vcf_header`.
+    void set_header_steps(HeaderSteps steps) { header_steps = std::move(steps); }
 
     /// Write the record for a site: build it with build_site_record, from the snarl's traversals
     /// and the snarl caller's INFO and FORMAT fields, with `steps`, and add it to the output
@@ -217,8 +212,8 @@ protected:
         return vg::allele_core_length(alleles);
     }
 
-    /// See set_writer_steps.
-    WriterSteps writer_steps;
+    /// See set_header_steps.
+    HeaderSteps header_steps;
 
     /// The options build_site_record takes from this caller.
     RecordOptions record_options() const;

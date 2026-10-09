@@ -2589,7 +2589,7 @@ int main_call(int argc, char** argv) {
         multipass_caller->set_nested_calling(true);
     }
 
-    // Owned here because write_variants(), at the very end of main, consumes the collector.
+    // Owned here, since the caller holds only a pointer to it.
     unique_ptr<LinkageCollector> linkage_collector;
     vector<size_t> linkage_sequence_to_haplotype;
 

@@ -76,8 +76,9 @@ public:
                     const pair<size_t, size_t>& allele_length_range, bool top_down,
                     bool star_allele);
 
-    /// Run every pass, and add the records to the output's buffer. The direct pass visits the
-    /// sites as `SiteWalker::walk` does with `recurse_type`.
+    /// Run every pass and add the records to the output's buffer, then write the anchors and the
+    /// mosaic and report on the passes. The direct pass visits the sites as `SiteWalker::walk`
+    /// does with `recurse_type`.
     /// `after_direct_pass` runs once the direct pass is done and before the linkage pass; the
     /// passes after it read only what the direct pass kept, not reads.
     void call(GraphCaller::RecurseType recurse_type, const function<void()>& after_direct_pass);
@@ -178,10 +179,8 @@ private:
     /// site's genotype (see ReadLikelihoodSnarlCaller::rewrite_quality_for_chosen_genotype).
     void finish_moved_record(vcflib::Variant& record);
 
-    /// Set the output's header lines and writing steps this caller needs: the phase set and block
-    /// lines of the header; before the records are written, the mosaic and the phasing report;
-    /// and after them, the refusals and the block report.
-    void install_writer_steps();
+    /// Set the output's header lines this caller needs: the phase set and block lines.
+    void install_header_steps();
 
     /// Write the mosaic, once every record exists, and report the phasing; separate from
     /// resolution because it needs to know which sites have a VCF line.

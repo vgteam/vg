@@ -48,12 +48,12 @@ string VCFOutputCaller::vcf_header(const PathHandleGraph& graph, const vector<st
     if (include_nested) {
         ss << nesting_info_headers();
     }
-    if (writer_steps.format_header) {
-        ss << writer_steps.format_header();
+    if (header_steps.format_header) {
+        ss << header_steps.format_header();
     }
     ss << "##INFO=<ID=AT,Number=R,Type=String,Description=\"Allele Traversal as path in graph\">" << endl;
-    if (writer_steps.info_header) {
-        ss << writer_steps.info_header();
+    if (header_steps.info_header) {
+        ss << header_steps.info_header();
     }
     if (allele_merge_threshold < 1.0) {
         ss << "##INFO=<ID=MAT,Number=.,Type=String,Description=\"Merged Allele Traversal: "
@@ -126,9 +126,6 @@ void VCFOutputCaller::write_variants(ostream& out_stream, const SnarlManager* sn
                  const pair<BufferedRecordKey, string>& v2) {
                   return buffered_record_key_less(v1.first, v2.first);
               });
-    if (writer_steps.before_lines) {
-        writer_steps.before_lines();
-    }
 
     // Each record is decompressed on its own, so the records are decompressed on several threads,
     // a batch at a time, and each batch is written in order. Only one batch of text is held at
@@ -150,9 +147,6 @@ void VCFOutputCaller::write_variants(ostream& out_stream, const SnarlManager* sn
             // genome. The stream is flushed before vg exits.
             out_stream << line << '\n';
         }
-    }
-    if (writer_steps.after_lines) {
-        writer_steps.after_lines();
     }
 }
 
