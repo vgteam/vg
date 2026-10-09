@@ -148,6 +148,15 @@ void help_call(char** argv) {
          << "                            [16384 for --gaf-base and --gaf-index, 256 for" << endl
          << "                            --gam-index]" << endl
          << "      --read-min-mapq N     ignore reads with MAPQ below N [0]" << endl
+         << "  nested snarls:" << endl
+         << "      --nested              genotype nested snarls in records of their own," << endl
+         << "                            not as part of the enclosing snarl's alleles [on]" << endl
+         << "      --no-nested           report variation inside nested snarls as part of" << endl
+         << "                            the enclosing snarl's alleles" << endl
+         << "      --atomize-blocks      write one record per separate difference between" << endl
+         << "                            a called allele and the reference, rather than one" << endl
+         << "                            per snarl [on]" << endl
+         << "      --no-atomize-blocks   write one record per snarl" << endl
          << "  read scoring:" << endl
          << "      --gap-open N          gap-open penalty for scoring reads [6]" << endl
          << "      --gap-extend N        gap-extension penalty for scoring reads [1]" << endl
@@ -316,15 +325,6 @@ void help_call(char** argv) {
          << "  -o, --ref-offset N        offset in reference path (may repeat; 1 per path)" << endl
          << "  -l, --ref-length N        override reference length for output VCF contig" << endl
          << "  -d, --ploidy N            ploidy of sample. {1, 2} [2]" << endl
-         << "      --no-nested           report variation inside nested snarls as part of" << endl
-         << "                            the enclosing snarl's alleles" << endl
-         << "      --nested              genotype nested snarls in records of their own," << endl
-         << "                            not as part of the enclosing snarl's alleles" << endl
-         << "                            [on with --read-likelihood]" << endl
-         << "      --atomize-blocks      write one record per separate difference between" << endl
-         << "                            a called allele and the reference, rather than one" << endl
-         << "                            per snarl [on with --read-likelihood]" << endl
-         << "      --no-atomize-blocks   write one record per snarl" << endl
          << "      --ploidy-bed FILE     BED of CHROM START END PLOIDY giving the ploidy of" << endl
          << "                            each region, overriding -d and -R; CHROM is the" << endl
          << "                            VCF contig name, and intervals must not overlap" << endl
@@ -618,16 +618,12 @@ int main_call(int argc, char** argv) {
             {"ploidy", required_argument, 0, 'd'},
             {"ploidy-regex", required_argument, 0, 'R'},
             {"ploidy-bed", required_argument, 0, OPT_PLOIDY_BED},
-            {"nested", no_argument, 0, OPT_NESTED},
-            {"no-nested", no_argument, 0, OPT_NO_NESTED},
             {"gaf", no_argument, 0, 'G'},
             {"traversals", no_argument, 0, 'T'},
             {"trav-padding", required_argument, 0, 'M'},
             {"legacy", no_argument, 0, OPT_LEGACY},
             {"top-down", no_argument, 0, OPT_TOP_DOWN},
             {"bottom-up", no_argument, 0, OPT_BOTTOM_UP},
-            {"atomize-blocks", no_argument, 0, OPT_ATOMIZE_BLOCKS},
-            {"no-atomize-blocks", no_argument, 0, OPT_NO_ATOMIZE_BLOCKS},
             {"read-likelihood", no_argument, 0, OPT_READ_LIKELIHOOD},
             {"max-snarl-edges", required_argument, 0, OPT_MAX_SNARL_EDGES},
             {"chains", no_argument, 0, 'I'},
@@ -679,6 +675,10 @@ int main_call(int argc, char** argv) {
             {"hp-prior", required_argument, 0, OPT_HP_PRIOR},
             {"hp-prior-run", required_argument, 0, OPT_HP_PRIOR_RUN},
             {"enumerate-support", no_argument, 0, OPT_ENUMERATE_SUPPORT},
+            {"nested", no_argument, 0, OPT_NESTED},
+            {"no-nested", no_argument, 0, OPT_NO_NESTED},
+            {"atomize-blocks", no_argument, 0, OPT_ATOMIZE_BLOCKS},
+            {"no-atomize-blocks", no_argument, 0, OPT_NO_ATOMIZE_BLOCKS},
             {"phased", no_argument, 0, OPT_PHASED},
             {"mosaic-out", required_argument, 0, OPT_MOSAIC_OUT},
             {"anchors-out", required_argument, 0, OPT_ANCHORS_OUT},
@@ -2484,9 +2484,9 @@ int main_call(int argc, char** argv) {
 
     // Nested calling: a called traversal that takes the reference's route through a snarl,
     // differing only inside nested snarls, is called as the reference allele, and the differences
-    // are called at the nested snarls. It is on by default only for the read-likelihood genotyper;
-    // other callers use it when --nested is given.
-    if (nested_calling && !nested_explicit && !read_likelihood) {
+    // are called at the nested snarls. It is part of the read-likelihood genotyper, and on by
+    // default there.
+    if (!read_likelihood) {
         nested_calling = false;
     }
     // An explicit --regenotype without read phasing is an error. One set by a preset is turned

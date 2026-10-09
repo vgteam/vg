@@ -321,11 +321,10 @@ not be genotyped (see [Ploidy](#ploidy)). A site reached by descent is one level
 The level is not `INFO/LV`, which counts a record's enclosing sites that have records (see
 [Nesting tags](#nesting-tags)).
 
-Nested calling is on by default with `--read-likelihood`, and `--nested` turns it on with the other
-genotyping methods of `vg call`. `--no-nested` turns it off. With `--no-nested`, each site is
-genotyped against its full walks, variation inside nested sites is reported in the enclosing
-site's alleles, and a nested site is genotyped on its own only when its parent could not be
-genotyped. How nested sites are written as records is described under
+Nested calling is part of `--read-likelihood`, and on by default with it. `--no-nested` turns it
+off. With `--no-nested`, each site is genotyped against its full walks, variation inside nested
+sites is reported in the enclosing site's alleles, and a nested site is genotyped on its own only
+when its parent could not be genotyped. How nested sites are written as records is described under
 [Records](#records).
 
 ### Which child chains are genotyped
@@ -792,8 +791,7 @@ preset. Where an option has a `--no-` form, the two set the same thing and the o
 so a `--no-` form also turns off a setting that a preset turned on.
 
 The table includes general `vg call` options: `--pack`, `--gbwt`, `--gbz`, `--max-snarl-edges`,
-`--nested`, `--no-nested`, `--atomize-blocks`, `--no-atomize-blocks`, the Ploidy row, `--cluster`
-and `--cluster-min-len`. Its other options are rejected without `--read-likelihood`. The options
+the Ploidy row, `--cluster` and `--cluster-min-len`. Its other options are rejected without `--read-likelihood`. The options
 that modify `--anchors-out` (`--no-off-ref-nesting` among them), `--mosaic-out` and `--regenotype`
 are also rejected when those are not in use. Other general options used on this page, such as
 `--genotype-snarls`, `--sample`, `--snarls`, `--ref-path`, `--path-prefix`, `--ref-sample`,

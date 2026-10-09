@@ -9,7 +9,7 @@ PATH=../bin:$PATH # for vg
 # FORMAT field shifts every later one, which broke four assertions here that were not
 # testing field order at all -- one of them silently compared BL against a GQ threshold.
 
-plan tests 461
+plan tests 462
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -808,6 +808,10 @@ is "$(grep -o -- "--gap-open, --optimal-pairing, --mosaic-patch-gaps only apply"
 
 vg call x.vg -k x.pack --traversals -t 1 >/dev/null 2>trav_norl.txt
 is $(grep -c "only applies to --read-likelihood" trav_norl.txt) "0" "an option the table does not own is still accepted"
+
+# Nested calling and its block records are part of the read-likelihood genotyper.
+vg call x.vg -k x.pack --nested -t 1 >/dev/null 2>nested_norl.txt
+is $(grep -c -- "--nested only applies to --read-likelihood" nested_norl.txt) "1" "--nested without --read-likelihood is refused"
 
 # --anchors-hom-split splits a homozygous site by each read's phase across the OTHER sites it
 # crosses, and that log-odds comes from the read-phasing chain.  With no phasing,
