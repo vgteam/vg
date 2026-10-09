@@ -264,8 +264,8 @@ ReadLikelihoodSnarlCaller::genotype_at(const SiteBounds& site,
             info->explained_share = explained_share(*info, called);
 
             // GQN takes the same discount as GQ, since the likelihood gap cannot see reads
-            // that fit an uncalled allele. It is applied whatever --no-share-quality says,
-            // since that option controls GQ only.
+            // that fit an uncalled allele. It is applied whatever `share_discount` says,
+            // since that setting controls GQ only.
             if (info->gq_fraction >= 0.0) {
                 info->gq_fraction *= info->explained_share;
             }
@@ -516,10 +516,9 @@ void ReadLikelihoodSnarlCaller::update_vcf_info(const Snarl& snarl,
     variant.samples[sample_name]["GQ"].push_back(
         std::to_string(min((int)256, max((int)0, (int)info->gq))));
 
-    // GQ before both discounts, the explained share's (off under --no-share-quality) and
-    // --depth-quality's, written whether or not either is on. It is the gap the site's own
-    // likelihoods gave: when --regenotype recomputes GQ from corrected likelihoods, GQI is not
-    // recomputed with it.
+    // GQ before both discounts, the explained share's and the depth discount's, written whether
+    // or not either is on. It is the gap the site's own likelihoods gave: when re-genotyping
+    // recomputes GQ from corrected likelihoods, GQI is not recomputed with it.
     variant.format.push_back("GQI");
     variant.samples[sample_name]["GQI"].push_back(
         std::to_string(min((int)256, max((int)0, (int)info->gq_undiscounted))));
@@ -787,8 +786,8 @@ bool ReadLikelihoodSnarlCaller::rewrite_quality_for_chosen_genotype(
             }
         }
         // How many alleles this record has, REF included, used only to recognise a haploid GL by
-        // its length. The diploid case does not check the length: under --atomize-blocks a snarl's
-        // block records share its GL while each has only its own ALTs, so the lengths need not
+        // its length. The diploid case does not check the length: when a snarl is written as block
+        // records, they share its GL while each has only its own ALTs, so the lengths need not
         // match.
         size_t n_alleles = 1;
         if (fields[4] != "." && !fields[4].empty()) {

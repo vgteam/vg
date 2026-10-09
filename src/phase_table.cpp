@@ -55,8 +55,8 @@ int PhaseTable::haploid_slot(size_t record_key, const vector<int>& genotype) con
     const auto found = render_phases.find(record_key);
     if (found == render_phases.end() || found->second.ploidy != 1
         || found->second.nested_strand < 0) {
-        // No nested strand means a haploid locus, such as chrY or a haploid --ploidy-bed region,
-        // where slot 1 means nothing.
+        // No nested strand means a haploid locus, such as chrY or a region given ploidy 1, where
+        // slot 1 means nothing.
         return 0;
     }
     // Only where the phase names the allele chosen for this site, as `phase_ordered_genotype` and

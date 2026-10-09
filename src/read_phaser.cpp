@@ -98,11 +98,11 @@ void ReadPhaser::phase(
     strands.flips() = read_phase_flips(sites, params, counters);
 
     // Apply by swapping the chosen pair's order, and carry the swaps down the nesting tree. Nested
-    // sites are reordered too. Under -A, block records spell the phase in their ALTs, so
-    // reordering a nested site can change its GT's allele numbers. Every recorded chain is linked,
-    // including one whose line an enclosing block's ALT spells (`reported_inline`): it still has
-    // anchors, read from its strand, and its children's strands depend on its own. A dropped
-    // chain is left out, since the sample does not carry it or anything inside it.
+    // sites are reordered too. Block records spell the phase in their ALTs, so reordering a nested
+    // site can change its GT's allele numbers. Every recorded chain is linked, including one whose
+    // line an enclosing block's ALT spells (`reported_inline`): it still has anchors, read from its
+    // strand, and its children's strands depend on its own. A dropped chain is left out, since the
+    // sample does not carry it or anything inside it.
     vector<PhaseTable::NestedLink> links;
     staged.for_each([&](const StagedSite& rec) {
         if (!rec.dropped && phase_index.count(rec.record_key) != 0) {

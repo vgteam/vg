@@ -3,9 +3,9 @@
 
 /** \file read_phasing.hpp
  *
- * Read-backed phasing (--read-phasing): re-decide the order of each heterozygous site's chosen
- * allele pair from the reads that span it and other heterozygous sites, within the phase sets the
- * panel gave. No genotype changes.
+ * Read-backed phasing: re-decide the order of each heterozygous site's chosen allele pair from the
+ * reads that span it and other heterozygous sites, within the phase sets the panel gave. No
+ * genotype changes.
  *
  * The orders are decided in stages:
  *
@@ -110,30 +110,29 @@ void merge_mates(PhaseSite& site);
 PhaseSite reduce_to_pair(const PhaseReadEvidence& evidence, size_t allele0, size_t allele1);
 
 struct ReadPhasingParams {
-    /// A site below this reliability cannot be in the chain (--phase-min-q).
+    /// A site below this reliability cannot be in the chain.
     ///
     /// Between two alleles of equal length, a read that fits one perfectly and the other not at
-    /// all scores phred(e / (e + (1 - e) / 2)) for e = --mismap-min, the heterozygous score
-    /// ceiling. Scores cluster just below it, so the threshold is sensitive to anything that
-    /// moves them.
+    /// all scores phred(e / (e + (1 - e) / 2)) for e the floor on the mismapping probability, the
+    /// heterozygous score ceiling. Scores cluster just below it, so the threshold is sensitive to
+    /// anything that moves them.
     double reliability = 9.5;
-    /// Break the chain where the size of a link is below this, in log10 units (--phase-break).
+    /// Break the chain where the size of a link is below this, in log10 units.
     /// Every break is then decided by the relink, which weighs several links.
     double break_threshold = 20.0;
-    /// Chain sites on each side of a break whose links decide it (--phase-relink).
+    /// Chain sites on each side of a break whose links decide it.
     size_t relink = 10;
-    /// Which chain sites an unreliable site is hung from (--phase-hang): the nearest
-    /// hang / 2 + 1 on each side, so up to 6 in all at the default of 4.
+    /// Which chain sites an unreliable site is hung from: the nearest hang / 2 + 1 on each side,
+    /// so up to 6 in all at the default of 4.
     size_t hang = 4;
-    /// Weight, in log10 units, of a vote for the panel's order when hanging a site
-    /// (--phase-prior). At 0, a site that no read links to the chain keeps the panel's order.
+    /// Weight, in log10 units, of a vote for the panel's order when hanging a site. At 0, a site
+    /// that no read links to the chain keeps the panel's order.
     double panel_weight = 3.0;
-    /// Limit on the size of one link, 0 for none (--phase-cap). Reads are treated as independent,
-    /// so a link from many reads can be far larger than its real reliability.
+    /// Limit on the size of one link, 0 for none. Reads are treated as independent, so a link from
+    /// many reads can be far larger than its real reliability.
     double cap = 0.0;
 
-    /// Minimum coherence for a site to stay in the chain, in [0,1]; 0 turns the coherence
-    /// step off (--phase-coherence).
+    /// Minimum coherence for a site to stay in the chain, in [0,1]; 0 turns the coherence step off.
     ///
     /// A site's coherence is the fraction of its reads whose allele agrees with the strand that
     /// the read's other chain sites put it on, leaving the site itself out; a read agrees when
@@ -142,9 +141,9 @@ struct ReadPhasingParams {
     /// Sites below the minimum, among those with enough such reads, are marked unreliable, and
     /// the chain and relink steps run again.
     double coherence_min = 0.70;
-    /// The most rounds of the coherence step (--phase-coh-rounds). Each round measures coherence on the
-    /// chain the previous round produced. More rounds remove more sites, so the remaining links
-    /// span further, are weaker, and break more often.
+    /// The most rounds of the coherence step. Each round measures coherence on the chain the
+    /// previous round produced. More rounds remove more sites, so the remaining links span
+    /// further, are weaker, and break more often.
     size_t coherence_rounds = 2;
 
 };

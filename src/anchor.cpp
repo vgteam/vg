@@ -364,8 +364,8 @@ void build_site_anchors(const AnchorSiteEvidence& evidence, const vector<int>& g
             return;
         }
     }
-    // `hom` is also true for a haploid call, which --anchors-het-only should drop too. `haploid` is
-    // kept separately because its one slot names a strand.
+    // `hom` is also true for a haploid call, which `het_only` should drop too. `haploid` is kept
+    // separately because its one slot names a strand.
     const bool haploid = genotype.size() == 1;
     bool hom = true;
     for (size_t i = 1; i < genotype.size(); ++i) {
@@ -474,7 +474,7 @@ void build_site_anchors(const AnchorSiteEvidence& evidence, const vector<int>& g
 
     // For each slot, the reads its end anchor holds that its start anchor does not; see
     // AnchorParams::end_pin_min_new. Counted per slot rather than per site, since anchors are
-    // written and filtered by --anchors-reads per slot.
+    // written and filtered by `min_reads` per slot.
     vector<size_t> new_at_end(n_slots, 0);
 
     for (size_t r = 0; r < evidence.reads.size(); ++r) {
@@ -495,7 +495,7 @@ void build_site_anchors(const AnchorSiteEvidence& evidence, const vector<int>& g
             // and the read's strand log-odds decide instead.
             //
             // The share is computed over the site's one distinct allele rather than over the two
-            // slots, so that a read's confidence, and so --anchors-min-q and the reliability
+            // slots, so that a read's confidence, and so `min_read_score` and the reliability
             // column, mean the same at split sites as elsewhere.
             const double lo = (*read_strand)[r];
             int coin = -1;
@@ -564,7 +564,7 @@ void build_site_anchors(const AnchorSiteEvidence& evidence, const vector<int>& g
                 best_slot = i;
             }
         }
-        // --anchors-strict-hets: use only the sign of the strand log-odds, ignoring the allele
+        // With `strict_hets` on, use only the sign of the strand log-odds, ignoring the allele
         // match. A read with no strand log-odds keeps its allele-match slot, so both rules place the
         // same reads.
         if (params.strict_hets && has_opinion) {
@@ -885,9 +885,9 @@ bool AnchorWriter::write(const string& path, const string& graph_name, const str
         << " hom-split=" << (params.hom_split ? "on" : "off")
         // Which rule placed each read in its slot at a heterozygous site, so that files built with
         // different rules can be told apart:
-        //   allele  -- the site's own allele match alone (--no-anchors-phase-hets)
+        //   allele  -- the site's own allele match alone (`phase_hets` off)
         //   tilt    -- the allele match, weighted by the read's strand log-odds
-        //   strand  -- the sign of the strand log-odds alone (--anchors-strict-hets)
+        //   strand  -- the sign of the strand log-odds alone (`strict_hets`)
         << " het-placement="
         << (params.strict_hets ? "strand" : (params.phase_hets ? "tilt" : "allele")) << "\n";
     if (params.hom_split) {
@@ -1051,8 +1051,8 @@ void AnchorCollector::collect(const AnchorSiteEvidence& evidence, double explain
     // Each read's strand log-odds, leaving out this site.
     vector<double> read_strand;
     // Built only where `build_site_anchors` reads it: at a diploid homozygote that may be split, or
-    // at a heterozygous site under --anchors-phase-hets or --anchors-strict-hets. The test must
-    // match its gate, which also checks the vector's length against `evidence.reads`.
+    // at a heterozygous site with `phase_hets` or `strict_hets` on. The test must match its gate,
+    // which also checks the vector's length against `evidence.reads`.
     const bool splittable_hom = genotype.size() == 2 && genotype[0] == genotype[1];
     const bool tiltable_het = (params.phase_hets || params.strict_hets)
                               && genotype.size() == 2
@@ -1067,11 +1067,10 @@ void AnchorCollector::collect(const AnchorSiteEvidence& evidence, double explain
                        *params.counters, anchors,
                        (params.hom_split || params.phase_hets || params.strict_hets)
                            ? &read_strand : nullptr);
-    // A check for --anchors-hom-split, reported per run: at heterozygous sites, whose alleles show
-    // which strand each read is on, how often the read's strand log-odds agree. The log-odds leave
-    // the site out. Computed only when splitting is on, and not when the heterozygous placement
-    // itself uses the strand log-odds, since the check would then compare the strand with
-    // itself.
+    // A check for `hom_split`, reported per run: at heterozygous sites, whose alleles show which
+    // strand each read is on, how often the read's strand log-odds agree. The log-odds leave the
+    // site out. Computed only when splitting is on, and not when the heterozygous placement itself
+    // uses the strand log-odds, since the check would then compare the strand with itself.
     if (params.hom_split && !params.phase_hets && !params.strict_hets
         && anchors.size() >= 2) {
         int slot_of_allele[2] = {-1, -1};
@@ -1104,7 +1103,7 @@ void AnchorCollector::collect(const AnchorSiteEvidence& evidence, double explain
                     if (agree) {
                         params.counters->phase_agree.fetch_add(1);
                     }
-                    // The same threshold the split uses, --split-min-q, in natural-log units.
+                    // The same threshold the split uses, `phase_min`, in natural-log units.
                     if (std::abs(lo) >= params.phase_min) {
                         params.counters->phase_confident.fetch_add(1);
                         if (agree) {

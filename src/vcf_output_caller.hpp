@@ -188,8 +188,9 @@ public:
     /// A caller that keeps state per site keys it by this.
     ///
     /// A buffered line's key is the hash of its ID column, so the key must be the hash of that
-    /// string. It survives `--translation`, where both sides print the translated form. One
-    /// function, so that every caller and the recovery of a key from a line agree.
+    /// string. It survives a node translation (see `set_translation`), where both sides print the
+    /// translated form. One function, so that every caller and the recovery of a key from a line
+    /// agree.
     size_t record_key_of(const Snarl& snarl) const;
 
     /// convert a traversal into an allele string

@@ -61,8 +61,8 @@ SiteLocus GenotypeLinker::off_reference_site_locus(const string& ref_path_name,
 }
 
 /// The quality inputs of the direct call `info`, which the linkage collector keeps for rewriting
-/// the record if the model moves it. `genotyper` decides the GQ factor, since --no-share-quality
-/// and --depth-quality are its settings.
+/// the record if the model moves it. `genotyper` decides the GQ factor, since the share and depth
+/// discounts are its settings.
 static LinkageCollector::DirectQuality direct_quality_of(const SiteGenotyper* genotyper,
                                                          const SiteScore& info) {
     return LinkageCollector::DirectQuality{

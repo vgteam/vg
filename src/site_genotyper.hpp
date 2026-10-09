@@ -36,8 +36,8 @@ public:
                                                       const string& ref_path_name,
                                                       pair<size_t, size_t> ref_range) const;
 
-    /// The factor GQ is the gap times, at the called genotype: the explained share, unless
-    /// --no-share-quality, times the depth discount.
+    /// The factor GQ is the gap times, at the called genotype: the explained share, when the
+    /// share discount is on, times the depth discount.
     double gq_factor(const SiteScore& score) const;
 
     /// Recompute `score.gq` from `score.genotype_lls`, after something has changed them.

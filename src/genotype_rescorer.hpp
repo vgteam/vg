@@ -14,16 +14,15 @@ namespace vg {
 using namespace std;
 
 /**
- * Re-genotyping from the phase (--regenotype; see regenotype.hpp): rewrites each staged site's
- * genotype likelihoods from the strand log-odds of its reads, which read phasing gives them, so
- * that the linkage pass can choose the genotypes again from the result.
+ * Re-genotyping from the phase (see regenotype.hpp): rewrites each staged site's genotype
+ * likelihoods from the strand log-odds of its reads, which read phasing gives them, so that the
+ * linkage pass can choose the genotypes again from the result.
  */
 class GenotypeRescorer {
 public:
-    /// Turn re-genotyping on or off, with `params`. `passes` is the most linkage passes
-    /// (--regeno-passes); with 1 the correction is computed and reported but not applied.
-    /// `ledger`, if not empty, is where to write one line per site whose best genotype the
-    /// correction changes (--regeno-ledger).
+    /// Turn re-genotyping on or off, with `params`. `passes` is the most linkage passes; with 1
+    /// the correction is computed and reported but not applied. `ledger`, if not empty, is where
+    /// to write one line per site whose best genotype the correction changes.
     void configure(bool on, const RegenotypeParams& params, size_t passes, const string& ledger);
 
     /// Where to read what a staged site does not hold: the genotyper, which recomputes GQ, and a

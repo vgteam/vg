@@ -436,7 +436,7 @@ vector<double> allele_length_weights(const vector<std::uint32_t>& allele_length,
                                      const vector<int>& slot_allele) {
     // Expected share of the site's reads per slot, from the alleles' full lengths: an allele of
     // length L yields a read overlapping the site from L + R - 1 start positions. Flat when the
-    // lengths are unavailable or under --flat-mixture.
+    // lengths are unavailable or `length_weighted` is false.
     const size_t n_slots = slot_allele.size();
     vector<double> weight(n_slots, n_slots ? 1.0 / (double)n_slots : 0.0);
     if (length_weighted && mean_read_length > 0.0

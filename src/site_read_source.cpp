@@ -796,10 +796,10 @@ size_t GafBaseSiteReadSource::argv_node_budget() {
 GafBaseSiteReadSource::PendingQuery GafBaseSiteReadSource::spawn_query(
     ThreadState& state, size_t slot, const vector<nid_t>& nodes) const {
 
-    // Build argv. --context 0 keeps the subgraph to the nodes we asked for, since the default
-    // context would pull in reads no site here wants. --alignments overlapping returns each read
-    // whole: the default, `clipped`, can cut one read into several pieces, which would put one
-    // read in several rows of the likelihood matrix.
+    // Build argv. A context of 0 keeps the subgraph to the nodes we asked for, since the default
+    // context would pull in reads no site here wants. Asking for `overlapping` alignments returns
+    // each read whole: the default, `clipped`, can cut one read into several pieces, which would
+    // put one read in several rows of the likelihood matrix.
     vector<string> args{binary, "query", gbz_argument};
     args.reserve(args.size() + 2 * nodes.size() + 8);
     for (nid_t node : nodes) {
@@ -832,8 +832,8 @@ GafBaseSiteReadSource::PendingQuery GafBaseSiteReadSource::spawn_query(
     if (posix_spawn_file_actions_init(&actions) != 0) {
         throw runtime_error("posix_spawn_file_actions_init() failed: " + string(strerror(errno)));
     }
-    // The subgraph GFA goes to stdout and we do not want it; only the separate
-    // --gaf-output file interests us. stderr is captured so a failure can say why.
+    // The subgraph GFA goes to stdout and we do not want it; only the separate GAF output file
+    // interests us. stderr is captured so a failure can say why.
     posix_spawn_file_actions_addopen(&actions, STDOUT_FILENO, "/dev/null", O_WRONLY, 0);
     posix_spawn_file_actions_addopen(&actions, STDERR_FILENO, err_path.c_str(),
                                      O_WRONLY | O_CREAT | O_TRUNC, 0600);

@@ -69,11 +69,11 @@ public:
 
     /// Fill `site` for `given_snarl`, oriented as its decomposition orients it. A site on no
     /// reference path takes its parent's, `parent_ref_path_name` and `parent_ref_interval`, if it
-    /// has parent traversal sets (--top-down) or `no_reference` allows it (off-reference nested
-    /// calling). Where it has parent traversal sets, the first traversal of the first non-empty
-    /// set stands in for its reference traversal. Returns false, with `site` partly filled, when
-    /// the site cannot be genotyped: it is one node, outside the graph, too big, outside the allele
-    /// length range, or on no usable reference path.
+    /// has parent traversal sets (top-down calling) or `no_reference` allows it (off-reference
+    /// nested calling). Where it has parent traversal sets, the first traversal of the first
+    /// non-empty set stands in for its reference traversal. Returns false, with `site` partly
+    /// filled, when the site cannot be genotyped: it is one node, outside the graph, too big,
+    /// outside the allele length range, or on no usable reference path.
     bool find(const Snarl& given_snarl, const string& parent_ref_path_name,
               pair<size_t, size_t> parent_ref_interval,
               const ChildTraversalSets* parent_child_trav_sets, bool no_reference,

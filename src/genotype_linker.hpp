@@ -59,8 +59,8 @@ public:
 
     /// Where to read what a staged site does not hold: the graph, for a site's locus, its alleles'
     /// sequences and where its chains start, and the read-likelihood genotyper, whose GQ settings
-    /// (--no-share-quality, --depth-quality) the quality inputs filed with each site follow.
-    /// Needed before `add` or `link`.
+    /// (the share and depth discounts) the quality inputs filed with each site follow. Needed
+    /// before `add` or `link`.
     void set_site_reader(SiteReader reader);
 
     /// Whether there is a linkage model.
@@ -106,8 +106,9 @@ public:
              const NestingPlacement& placement, bool no_reference = false,
              int64_t position_from_parent = 0, vector<int>* panel_out = nullptr) const;
 
-    /// The frequency exponent a site should decode with: `--hp-prior` at a run-length site, or -1
-    /// for the model's own. Reads the traversals' sequences only when `--hp-prior` is on.
+    /// The frequency exponent a site should decode with: `LinkageModel::Params::hp_prior` at a
+    /// run-length site, or -1 for the model's own. Reads the traversals' sequences only when
+    /// `hp_prior` is on.
     double freq_prior(const vector<Traversal>& travs, int ref_trav_idx) const;
 
     /// The genotype the linkage model chose for a staged site, or the direct pass's genotype

@@ -14,9 +14,9 @@ namespace vg {
 using namespace std;
 
 /**
- * Read phasing (--read-phasing; see read_phasing.hpp): decides which strand carries which allele
- * at each diploid heterozygous site from the reads that span several sites, and swaps the strands
- * of the linkage model's phase where the reads disagree with it. Genotypes are not changed.
+ * Read phasing (see read_phasing.hpp): decides which strand carries which allele at each diploid
+ * heterozygous site from the reads that span several sites, and swaps the strands of the linkage
+ * model's phase where the reads disagree with it. Genotypes are not changed.
  */
 class ReadPhaser {
 public:

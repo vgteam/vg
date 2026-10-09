@@ -150,7 +150,7 @@ bool GenotypeRescorer::rescore(
             if (want_ledger) {
                 before = info->genotype_lls;
             }
-            // At --regeno-passes 1 the correction is computed and reported, and nothing is kept.
+            // With `max_passes` at 1 the correction is computed and reported, and nothing is kept.
             // `genotype_lls` is what GL and QUAL are written from, so correcting it in place would
             // change them while the genotypes stood still.
             const bool keep = max_passes >= 2;
@@ -278,7 +278,7 @@ bool GenotypeRescorer::rescore(
              << c.haploid_would_move << " would move" << endl;
     }
     if (show_calibration && !c.fit_count.empty()) {
-        // Only under --progress: the calibration table is a diagnostic.
+        // Only with `show_calibration`: the calibration table is a diagnostic.
         cerr << "[vg call] re-genotyping calibration, |Lambda| / observed / predicted / n:";
         for (size_t i = 0; i < c.fit_count.size(); ++i) {
             cerr << "  " << c.fit_abs_lambda[i] << " " << c.fit_observed[i] << " "

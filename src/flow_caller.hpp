@@ -78,9 +78,9 @@ public:
     virtual string vcf_header(const PathHandleGraph& graph, const vector<string>& contigs,
                               const vector<size_t>& contig_length_overrides = {}) const;
 
-    /// Do not genotype a snarl with more edges than this, including those of nested snarls
-    /// (--max-snarl-edges). `call_top_level_snarls` then genotypes the snarl's children as if they
-    /// were top-level snarls. Zero removes the limit, which is also the default.
+    /// Do not genotype a snarl with more edges than this, including those of nested snarls.
+    /// `call_top_level_snarls` then genotypes the snarl's children as if they were top-level
+    /// snarls. Zero removes the limit, which is also the default.
     void set_max_snarl_edges(size_t edges) { candidates.set_max_snarl_edges(edges); }
 
 protected:

@@ -667,7 +667,7 @@ void MosaicWriter::write(const vector<LinkageCollector::PhaseCall>& phasing,
                 // all be carried by panel haplotypes; what is missing is a panel walk through the
                 // stretch. By default the flanking haplotype is carried through, keeping the strand
                 // one path, at the cost of writing that haplotype's sequence across those sites
-                // rather than the called alleles. --mosaic-break-unexplained leaves the hole.
+                // rather than the called alleles. With `connect_unexplained` off, the hole is left.
                 if (connect_unexplained
                     && strand_kind(t, strand) == StrandKind::Unexplained) {
                     continue;

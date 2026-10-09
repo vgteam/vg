@@ -13,14 +13,12 @@ using namespace std;
 /**
  * Per-region ploidy overrides, from a BED of `CHROM START END PLOIDY`.
  *
- * `-d` and `--ploidy-regex` set ploidy per contig, which cannot express a contig whose copy
- * number changes along it, such as a male sample's chrX, which is haploid except in the
- * pseudoautosomal regions.
+ * A ploidy per contig cannot express a contig whose copy number changes along it, such as a male
+ * sample's chrX, which is haploid except in the pseudoautosomal regions.
  *
  * The CHROM column matches the contig name as it appears in the output VCF -- the locus part
  * of a PanSN path name, so `chrX` rather than `CHM13#0#chrX`. Intervals are BED half-open and
- * 0-based, and a position no interval covers keeps the contig's ploidy from `-d` or
- * `--ploidy-regex`.
+ * 0-based, and a position no interval covers keeps its contig's ploidy.
  *
  * Overlapping intervals are an error, since a BED that says two things about one base has no
  * correct reading.

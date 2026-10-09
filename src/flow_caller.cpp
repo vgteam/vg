@@ -109,7 +109,7 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
 
     bool ret_val = true;
     vector<int> trav_genotype;  // Declared outside block so we can pass to children
-    // The contig's ploidy, or the --ploidy-bed region's.
+    // The contig's ploidy, or a per-region override's.
     int ploidy = ploidy_regions.ploidy_at(ref_path_name, get<0>(ref_interval),
                                           ref_offset_of(ref_offsets, ref_path_name),
                                           ref_ploidy_of(ref_ploidies, ref_path_name));

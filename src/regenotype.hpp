@@ -3,9 +3,9 @@
 
 /** \file regenotype.hpp
  *
- * Re-genotyping from the phase (--regenotype): once read phasing has ordered the heterozygous
- * sites, a read that spans other heterozygous sites shows which strand it came from, and that is
- * used to correct each site's genotype likelihoods.
+ * Re-genotyping from the phase: once read phasing has ordered the heterozygous sites, a read that
+ * spans other heterozygous sites shows which strand it came from, and that is used to correct each
+ * site's genotype likelihoods.
  *
  * One site cannot tell which strand a read came from, so the site likelihood weights every read's
  * haplotypes by the same mixture weights. Here each read at a heterozygous genotype gets its own
@@ -77,25 +77,25 @@ constexpr size_t NO_PHASE_SET = std::numeric_limits<size_t>::max();
 bool read_strand_usable(const ReadLambda& read, size_t phase_set);
 
 struct RegenotypeParams {
-    /// The temper tau (--regeno-temper); 0 leaves the likelihoods unchanged, and a negative value
-    /// means fit it (see `fit_calibration`). Reads are not independent, so the summed strand
-    /// log-odds overstate how sure the strand is, and tau scales them down.
+    /// The temper tau; 0 leaves the likelihoods unchanged, and a negative value means fit it (see
+    /// `fit_calibration`). Reads are not independent, so the summed strand log-odds overstate how
+    /// sure the strand is, and tau scales them down.
     double temper = -1.0;
-    /// The ceiling c on a read's strand probability (--regeno-ceiling), in (0, 1]:
+    /// The ceiling c on a read's strand probability, in (0, 1]:
     /// `P(on strand 0) = c * sigmoid(tau * Lambda) + (1 - c) / 2`. A value below 1 keeps either
     /// strand's probability further from 1; 1 turns the ceiling off. At tau = 0 the probability
     /// is 1/2 whatever c is.
     double ceiling = 1.0;
     /// At a nested chain at ploidy 1, make reads less informative when the phase places them on
-    /// the parent's other strand (on unless --no-regeno-haploid). The chain has one strand, so
-    /// the mixture correction does nothing there. See `haploid_inclusion_correction`.
+    /// the parent's other strand. On by default. The chain has one strand, so the mixture
+    /// correction does nothing there. See `haploid_inclusion_correction`.
     bool haploid_include = true;
     /// Bins for the calibration fit, over |Lambda|.
     size_t fit_bins = 12;
     /// The fewest observations the fit needs, and the fewest per bin: each bin holds the larger of
     /// this and a `fit_bins`-th of the observations, except the last, which holds the remainder.
     size_t fit_min_per_bin = 200;
-    /// For testing (--regeno-shuffle): randomise the sign of each read's Lambda, keeping |Lambda|,
+    /// For testing: randomise the sign of each read's Lambda, keeping |Lambda|,
     /// which removes the phase information and keeps the rest. The temper is fitted before the
     /// signs are randomised, so the control tests a correction of the same strength with no phase
     /// information in it.
@@ -152,7 +152,7 @@ void accumulate_lambda(const vector<PhaseSite>& sites, const unordered_set<size_
 /// Reads are grouped into bins by |Lambda|, and in each bin we measure how often the strand that
 /// Lambda points to agrees with the one the read's own allele points to. The temper is chosen so
 /// that the predicted agreement matches. The chain was built from these same reads, so the fit is
-/// somewhat optimistic; `--regeno-temper` sets the temper directly instead.
+/// somewhat optimistic; a non-negative `RegenotypeParams::temper` sets the temper directly instead.
 void fit_calibration(const vector<PhaseSite>& sites, const unordered_set<size_t>& flipped,
                      const LambdaTable& lambda, const RegenotypeParams& params,
                      double& temper, double& ceiling, RegenotypeCounters& counters);

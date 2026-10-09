@@ -40,9 +40,9 @@ void BlockRecordWriter::report() const {
 
 
     // `unresolvable` should be zero on the ordinary path, where every site is a managed snarl and a
-    // reversed one resolves through its reversed boundaries. Under -I/--chains it need not be: a
-    // chain piece is a constructed snarl the manager does not know. The second number counts sites
-    // that resolved only through their reversed boundaries.
+    // reversed one resolves through its reversed boundaries. When chains are called instead of
+    // snarls it need not be: a chain piece is a constructed snarl the manager does not know. The
+    // second number counts sites that resolved only through their reversed boundaries.
     cerr << "[vg call] atomize: " << unresolvable
          << " sites where projection is inert because the snarl does not resolve, "
          << counters.site_reversed.load()

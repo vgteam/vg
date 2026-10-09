@@ -36,7 +36,7 @@ using namespace std;
  * filter nothing, since the scoring weighs each base by its own quality.
  */
 struct SiteReadFilter {
-    /// Drop reads with mapping quality below this (--read-min-mapq).
+    /// Drop reads with mapping quality below this.
     int min_mapq = 0;
 };
 
@@ -432,7 +432,7 @@ private:
  * <https://github.com/jltsiren/gbz-base> stores alignments in SQLite and returns the reads that
  * overlap a set of nodes, without over-fetching. GAF-Base has no C API, and its file format may
  * change behind a version check, so we run its own binary rather than decode the format here.
- * This needs `gbz-base` at run time only when --gaf-base is given, and nothing at build time. The
+ * This needs `gbz-base` at run time only when this source is used, and nothing at build time. The
  * binary writes GAF text, which is parsed, filtered, windowed and cached like the other sources.
  *
  * Starting a process is slow, so this fetches one window of node IDs per process.

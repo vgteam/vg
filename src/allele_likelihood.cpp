@@ -752,9 +752,9 @@ int32_t GraphAlignedAlleleLikelihoodCalculator::score_by_greedy_pairing(
     // A run of consecutive unpaired read visits after the first same-visit pair is one gap, as
     // in optimal pairing, so that a pairing scores the same whichever search found it: the run's
     // first visit opens the gap and the others extend it. Before that pair, each unpaired read
-    // visit is a gap of its own. Each unpaired visit adds --insertion-nats, as in optimal pairing.
-    // A visit with no read bases, where the read deletes its whole node, is no gap: it adds
-    // nothing and neither starts nor ends a run.
+    // visit is a gap of its own. Each unpaired visit adds `insertion_gap_nats`, as in optimal
+    // pairing. A visit with no read bases, where the read deletes its whole node, is no gap: it
+    // adds nothing and neither starts nor ends a run.
     const int32_t extend_per_base = read_scorer.score_gap(2) - read_scorer.score_gap(1);
     bool in_insertion = false;
     auto leave_unpaired = [&](const ReadStep& step) {
@@ -888,9 +888,9 @@ int32_t GraphAlignedAlleleLikelihoodCalculator::score_by_greedy_pairing(
     return score;
 }
 
-// Optimal pairing (--optimal-pairing): finds the highest-scoring pairing of the read's node visits with
-// the allele's by dynamic programming. Base-level edits are still read off the mapper's alignment;
-// only the pairing of visits is searched.
+// Optimal pairing: finds the highest-scoring pairing of the read's node visits with the allele's
+// by dynamic programming. Base-level edits are still read off the mapper's alignment; only the
+// pairing of visits is searched.
 //
 // The dynamic program fills an m x n grid, m read visits against n allele visits, in four states:
 //
@@ -945,7 +945,7 @@ int32_t GraphAlignedAlleleLikelihoodCalculator::score_by_optimal_pairing(
     };
 
     // The states P, M, I and D are described above the function. Each cell carries the
-    // --insertion-nats total of its own best path in `nats`, beside `score`.
+    // `insertion_gap_nats` total of its own best path in `nats`, beside `score`.
     //
     // I and D may follow each other directly. Base-level alignment usually forbids that, as
     // a duplicate of a substitution, but here a substitution scores two different nodes base

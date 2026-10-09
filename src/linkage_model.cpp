@@ -1538,8 +1538,9 @@ bool LinkageCollector::set_allele_map(size_t record_key,
     const uint32_t found = live_index(record_key);
     if (found != NO_ENTRY) {
         Entry& e = entries[found];
-        // Only ever set, never cleared: under -A a record can be rendered by more than one path, and
-        // an assignment would make the result depend on which thread took the mutex last.
+        // Only ever set, never cleared: when every snarl is genotyped independently, nested ones
+        // included, a record can be rendered by more than one path, and an assignment would make
+        // the result depend on which thread took the mutex last.
         if (emitted && !e.emitted) {
             e.emitted = true;
         }
@@ -1793,7 +1794,7 @@ size_t LinkageCollector::resolve_level(
     }
 
     // A top-level linkage chain is a maximal run of one ploidy on one contig, since strands do not
-    // correspond across a ploidy change such as a --ploidy-bed boundary.
+    // correspond across a ploidy change such as the boundary of a region with its own ploidy.
     //
     // For each chain, the message to condition it on (empty for none) and its phase set (SIZE_MAX
     // to take it from the chain's first site). `deltas` owns the messages that `chain_context`
@@ -1810,8 +1811,8 @@ size_t LinkageCollector::resolve_level(
         }
         // Position, then the site's own key. Sites arrive in whatever order the threads finished,
         // and two records can share a position, so sorting on position alone leaves their relative
-        // order down to scheduling -- which would make the output depend on --threads. The key is
-        // derived from the snarl ID, so it is a property of the site rather than of the run.
+        // order down to scheduling -- which would make the output depend on the thread count. The
+        // key is derived from the snarl ID, so it is a property of the site rather than of the run.
         sort(contig_indices.begin(), contig_indices.end(), [&](size_t a, size_t b) {
             if (entries[a].position != entries[b].position) {
                 return entries[a].position < entries[b].position;

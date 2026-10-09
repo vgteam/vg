@@ -244,7 +244,7 @@ public:
                       vector<double>&& mismap, vector<double>&& best_ln,
                       vector<string>&& names, size_t unplaceable);
 
-    /// The --mismap-min floor on e_r, which achievable_gap uses for its ideal reads.
+    /// The floor on e_r, which achievable_gap uses for its ideal reads.
     void set_mismap_floor(double floor) { this->mismap_floor = floor; }
 
 private:
@@ -256,7 +256,7 @@ private:
     /// Row major, n_reads * n_alleles, every entry in [0,1], row max exactly 1.
     vector<double> matrix;
     vector<double> read_mismap_prob;
-    /// --mismap-min, used by achievable_gap only.
+    /// The floor on e_r, used by achievable_gap only.
     double mismap_floor = 0.02;
     /// sum_r (1 - e_r), filled in by set_contents.
     double effective_read_total = 0.0;
@@ -323,7 +323,7 @@ public:
     /// The rows are put in a canonical order, by read name, then by where the alignment begins,
     /// then by the row's own values, so that the matrix, and every sum over its reads, does not
     /// depend on the order the reads were added in. That order is the read source's, which can
-    /// change with the fetch window (--read-window).
+    /// change with the fetch window.
     AlleleReadLikelihoods build();
 
     /// After build(): for each row of the matrix, the index among the reads add_read kept, in
@@ -359,16 +359,16 @@ private:
  */
 struct AlleleLikelihoodParams {
     /// Nats added to a read's log-likelihood for each gap in which the read has bases
-    /// the allele lacks (--insertion-nats). A positive value makes extra read bases
-    /// count against an allele less than missing ones. It is applied after the integer
-    /// alignment score is converted to nats, so it can take fractional values.
+    /// the allele lacks. A positive value makes extra read bases count against an allele
+    /// less than missing ones. It is applied after the integer alignment score is
+    /// converted to nats, so it can take fractional values.
     double insertion_gap_nats = 0.0;
 
     /// Choose each read's pairing with an allele by optimal pairing rather than greedy
-    /// pairing (--optimal-pairing); see GraphAlignedAlleleLikelihoodCalculator.
+    /// pairing; see GraphAlignedAlleleLikelihoodCalculator.
     bool optimal_pairing = false;
 
-    /// The floor on the mismapping probability e_r (--mismap-min).
+    /// The floor on the mismapping probability e_r.
     ///
     /// A read that fits allele A perfectly and allele B not at all lowers B's
     /// likelihood by at most -ln(e_r), so the floor limits how strongly one read can
@@ -377,9 +377,9 @@ struct AlleleLikelihoodParams {
     /// a well-mapped read that is misaligned locally.
     double min_mismap_prob = 0.02;
 
-    /// The ceiling on e_r (--mismap-max). It applies to reads with MAPQ 0 or close to
-    /// it, and decides how much such a read still counts. It must stay below 1, since
-    /// at e_r = 1 the read's term is 0 under every genotype.
+    /// The ceiling on e_r. It applies to reads with MAPQ 0 or close to it, and decides
+    /// how much such a read still counts. It must stay below 1, since at e_r = 1 the
+    /// read's term is 0 under every genotype.
     double max_mismap_prob = 0.95;
 
     /// Use the mismapping term. When false, every e_r is set to the floor, the closest
@@ -388,12 +388,11 @@ struct AlleleLikelihoodParams {
 
     /// Weight each haplotype of a genotype by its share of the reads that can tell the
     /// genotype's alleles apart, from the sequence unique to its allele, rather than by a
-    /// flat 1/|G| (--flat-mixture turns it off). See
-    /// AlleleReadLikelihoods::set_length_weights.
+    /// flat 1/|G|. See AlleleReadLikelihoods::set_length_weights.
     bool length_weighted_mixture = true;
 
-    /// Weight of the depth term, ln P(N | G) (--depth-term). Zero turns the term off;
-    /// DR is computed either way.
+    /// Weight of the depth term, ln P(N | G). Zero turns the term off; DR is computed
+    /// either way.
     double depth_weight = 0.1;
 
     /// Count each read toward depth as 1 - e_r, the probability that it came from this
@@ -404,16 +403,15 @@ struct AlleleLikelihoodParams {
     /// or less; at 0 or less here too, the rate window is not measured.
     int depth_ploidy = 2;
 
-    /// Collect per-read anchor evidence while the reads are in memory (--anchors-out).
+    /// Collect per-read anchor evidence while the reads are in memory.
     /// Each read's position is resolved here, while its alignment is available.
     bool collect_anchors = false;
     /// Where to count the position resolutions this calculator performs. Not owned;
     /// see AnchorParams::counters. Null means do not count.
     AnchorCounters* anchor_counters = nullptr;
 
-    /// Keep each read's row of relative likelihoods for read-backed phasing
-    /// (--read-phasing). Phasing needs only the rows, not the positions that
-    /// `collect_anchors` also resolves.
+    /// Keep each read's row of relative likelihoods for read-backed phasing. Phasing
+    /// needs only the rows, not the positions that `collect_anchors` also resolves.
     bool collect_read_phasing = false;
 };
 
@@ -472,9 +470,9 @@ public:
  *     visits. Each is paired with the same visit's next occurrence in the allele after the last
  *     pair, and a pair is never revised. The pairing it finds is scored by the rules above, so
  *     the two searches differ only in which pairing they find.
- *   - *Optimal pairing* (`score_by_optimal_pairing`, --optimal-pairing) finds the highest-scoring pairing
- *     that the rules above allow, by dynamic programming over the two sequences. A run of unpaired
- *     read visits is one gap. At large sites the search is restricted to a band.
+ *   - *Optimal pairing* (`score_by_optimal_pairing`) finds the highest-scoring pairing that the
+ *     rules above allow, by dynamic programming over the two sequences. A run of unpaired read
+ *     visits is one gap. At large sites the search is restricted to a band.
  *
  * Inside a node that the read and the allele share, both use the mapper's edits and neither aligns
  * bases again.

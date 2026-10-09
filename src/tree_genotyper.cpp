@@ -308,7 +308,8 @@ bool TreeGenotyper::genotype_tree(const SiteView& view, const string& parent_ref
     }
 
 
-    // --top-down: genotype each child against the traversals its parent's called alleles allow.
+    // Top-down calling: genotype each child against the traversals its parent's called alleles
+    // allow.
     if (options.top_down && !trav_genotype.empty() && children.known) {
         for (const ChildSite& child : nested.sites) {
             // Build ChildTraversalSets: one set per parent allele
@@ -343,7 +344,7 @@ bool TreeGenotyper::genotype_tree(const SiteView& view, const string& parent_ref
         }
     }
 
-    // Descent above and the --top-down recursion, which builds each child's ChildTraversalSets
+    // Descent above and the top-down recursion, which builds each child's ChildTraversalSets
     // from `travs`, are done, so the staged site can take the traversals. At most one of these
     // is set.
     if (pending_this != nullptr) {

@@ -42,8 +42,8 @@ namespace vg {
 using namespace std;
 
 /**
- * MultiPassCaller: the caller for every --read-likelihood run. Its one method, `call`, runs the
- * passes in order:
+ * MultiPassCaller: the caller for every run that genotypes from read likelihoods. Its one method,
+ * `call`, runs the passes in order:
  *
  * 1. The direct pass genotypes every site from its own reads and stages it (see `TreeGenotyper`
  *    and `StagedSite`).
@@ -66,8 +66,8 @@ public:
     /// Call `graph`'s sites, as `decomposition` gives them, from the candidate traversals
     /// `traversal_finder` gives, genotyping each with `genotyper`, and write the records through
     /// `output`, whose steps it sets. The reference paths, their offsets and ploidies,
-    /// `genotype_snarls` (-a) and `allele_length_range` (-c and -C) are as for `FlowCaller`.
-    /// `top_down` and `star_allele` are --top-down and -Y. Nothing is owned.
+    /// `genotype_snarls` and `allele_length_range` are as for `FlowCaller`. `top_down` and
+    /// `star_allele` are as described at the members of the same names. Nothing is owned.
     MultiPassCaller(const PathPositionHandleGraph& graph, ReadLikelihoodSnarlCaller& genotyper,
                     const SnarlDecomposition& decomposition, VCFOutputCaller& output,
                     const string& sample_name, TraversalFinder& traversal_finder,
@@ -83,9 +83,9 @@ public:
     /// passes after it read only what the direct pass kept, not reads.
     void call(GraphCaller::RecurseType recurse_type, const function<void()>& after_direct_pass);
 
-    /// Do not genotype a snarl with more edges than this, including those of nested snarls
-    /// (--max-snarl-edges). The walk then genotypes the snarl's children as if they were top-level
-    /// snarls. Zero removes the limit, which is also the default.
+    /// Do not genotype a snarl with more edges than this, including those of nested snarls. The
+    /// walk then genotypes the snarl's children as if they were top-level snarls. Zero removes the
+    /// limit, which is also the default.
     void set_max_snarl_edges(size_t edges) { candidates.set_max_snarl_edges(edges); }
 
     /// Batch the direct pass's parallel jobs by windows of node IDs, as
@@ -99,7 +99,7 @@ public:
     string vcf_header(const PathHandleGraph& graph, const vector<string>& contigs,
                       const vector<size_t>& contig_length_overrides = {}) const;
 
-    /// Per-region ploidy overrides (--ploidy-bed).
+    /// Per-region ploidy overrides.
     void set_ploidy_regions(PloidyRegions regions) { ploidy_regions = std::move(regions); }
 
     /// Nested calling: after `TreeGenotyper` genotypes a snarl, it descends into the snarl's child
@@ -116,7 +116,7 @@ public:
     void set_off_reference_nesting(bool on) { off_reference_nesting = on; }
 
     /// Write one record per difference block between the reference and each called strand's
-    /// symbolic allele, instead of one record per snarl (--atomize-blocks).
+    /// symbolic allele, instead of one record per snarl.
     void set_atomize_blocks(bool on) { block_records.set_enabled(on); }
 
     /// Record a compact entry per site while calling, so that the linkage model can re-decide the
@@ -131,8 +131,8 @@ public:
     /// linkage model does not run.
     void set_emit_phasing(bool on) { this->emit_phasing = on; }
 
-    /// `--min-confidence`, so that a record whose GQN the linkage model recomputes is marked
-    /// against the same threshold.
+    /// The GQN threshold that `ReadLikelihoodSnarlCaller::set_min_confidence` sets, so that a
+    /// record whose GQN the linkage model recomputes is marked against the same threshold.
     void set_linkage_min_confidence(double threshold) {
         this->linkage_min_confidence = threshold;
     }
@@ -144,14 +144,14 @@ public:
         anchor_collector.configure(path, params, graph_name, reads_source, mismap_min);
     }
 
-    /// Turn on read phasing (--read-phasing); see read_phasing.hpp. Needs the linkage model, whose
-    /// phase it changes.
+    /// Turn on read phasing; see read_phasing.hpp. Needs the linkage model, whose phase it
+    /// changes.
     void set_read_phasing(bool on, const ReadPhasingParams& params) {
         read_phaser.configure(on, params);
     }
 
-    /// Turn on re-genotyping from the phase (--regenotype); see regenotype.hpp. Needs read phasing,
-    /// which gives each read its strand log-odds.
+    /// Turn on re-genotyping from the phase; see regenotype.hpp. Needs read phasing, which gives
+    /// each read its strand log-odds.
     void set_regenotype(bool on, const RegenotypeParams& params, size_t passes,
                         const string& ledger) {
         rescorer.configure(on, params, passes, ledger);
@@ -224,8 +224,8 @@ private:
     /// Read phasing (see `ReadPhaser`), then rounds of re-genotyping (see `GenotypeRescorer`), each
     /// followed by the linkage pass and read phasing again, as far as they are turned on. The
     /// rounds stop when the correction moves no site's direct call, or when the chosen genotypes
-    /// stop changing, return to an earlier round's (see `RoundHistory`), or reach --regeno-passes
-    /// rounds.
+    /// stop changing, return to an earlier round's (see `RoundHistory`), or reach the round cap
+    /// that `set_regenotype` sets.
     void phase_and_regenotype();
 
     /// Build the records of every staged site once, from its chosen genotype, and collect the
@@ -266,8 +266,8 @@ private:
     ///  out to minimize variant size -- this turns all that off)
     bool genotype_snarls;
 
-    /// --top-down: genotype each child against the traversal sets its parent's called alleles
-    /// allow (see `TreeGenotyper`).
+    /// Genotype each child against the traversal sets its parent's called alleles allow (see
+    /// `TreeGenotyper`).
     bool top_down = false;
 
     /// use * alleles for spanning haplotypes that don't traverse nested sites

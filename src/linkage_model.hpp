@@ -24,7 +24,7 @@ namespace vg {
 
 using namespace std;
 
-/// Counters for the linkage pass, reported under --progress.
+/// Counters for the linkage pass, reported with the progress messages.
 ///
 /// Below the top level, the model decodes one *group* at a time: the sites of one child chain at
 /// one ploidy under one parent (see `LinkageCollector`). Several counters describe groups.
@@ -59,13 +59,12 @@ class LinkageModel {
 public:
 
     struct Params {
-        /// Exponent on the switch probability, rho^weight (--linkage-weight). Zero turns the
-        /// model off, and larger values make switches rarer. Only the switch probability is
-        /// raised to the power, and the probability of staying is 1 minus the result, so the
-        /// transitions still sum to 1.
+        /// Exponent on the switch probability, rho^weight. Zero turns the model off, and larger
+        /// values make switches rarer. Only the switch probability is raised to the power, and the
+        /// probability of staying is 1 minus the result, so the transitions still sum to 1.
         double weight = 2.0;
 
-        /// Distance over which linkage decays, in bp (--linkage-scale).
+        /// Distance over which linkage decays, in bp.
         double scale = 10000.0;
 
         /// Floor on the switch probability, so that a switch is never impossible.
@@ -77,21 +76,19 @@ public:
         /// can still be called.
         double escape = 1e-2;
 
-        /// Exponent F on the allele-frequency prior that the states imply (--linkage-prior). The
-        /// probability collected for a genotype that c ordered panel pairs spell is multiplied by
-        /// c^(F-1). 1 keeps the prior as the states imply it, 0 removes it, and larger values
-        /// strengthen it.
+        /// Exponent F on the allele-frequency prior that the states imply. The probability
+        /// collected for a genotype that c ordered panel pairs spell is multiplied by c^(F-1). 1
+        /// keeps the prior as the states imply it, 0 removes it, and larger values strengthen it.
         double freq_prior = 5.0;
 
         /// Exponent used instead of `freq_prior` at a site whose alleles differ in the length of
-        /// a homopolymer run (see `run_length_site`) (--hp-prior); 0 turns it off.
+        /// a homopolymer run (see `run_length_site`); 0 turns it off.
         ///
         /// Sequencing errors in a long run tend to recur in many reads at the same site, which
         /// the per-site likelihood counts as independent evidence, so its margin grows with
         /// depth. A larger exponent there keeps the panel's share of the decision.
         double hp_prior = 0.0;
-        /// Shortest run, measured in the alleles' own sequence, to which `hp_prior` applies
-        /// (--hp-prior-run).
+        /// Shortest run, measured in the alleles' own sequence, to which `hp_prior` applies.
         size_t hp_prior_run = 11;
 
         /// Sites per window of exact inference, and the sites discarded at each end.
@@ -432,9 +429,9 @@ public:
         /// written phase is arbitrary.
         bool order_arbitrary = false;
 
-        /// The site's level (see `SiteContext::level`). The mosaic writer uses it to
-        /// find where a strand enters or leaves a nested chain, and to leave nested sites out
-        /// under --no-mosaic-nested.
+        /// The site's level (see `SiteContext::level`). The mosaic writer uses it to find where a
+        /// strand enters or leaves a nested chain, and to leave nested sites out when
+        /// `MosaicParams::keep_nested` is off.
         uint8_t level = 0;
     };
 

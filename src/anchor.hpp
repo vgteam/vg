@@ -3,8 +3,8 @@
 
 /** \file anchor.hpp
  *
- * Assembly anchors (--anchors-out): for each genotyped site, which reads support which of the
- * sample's strands, for pangenome-guided assembly.
+ * Assembly anchors: for each genotyped site, which reads support which of the sample's strands,
+ * for pangenome-guided assembly.
  *
  * A *pin* is a point between two adjacent bases of the graph. Each site has two, both read in the
  * site's direction: the *start pin*, just after its start boundary node, and the *end pin*, just
@@ -89,8 +89,8 @@ struct AnchorCounters {
     /// reads through one table, so such reads share one index there.
     atomic<size_t> shared_name{0};
 
-    /// Homozygous sites split into two slots by the reads' strand log-odds (--anchors-hom-split),
-    /// and those left as one slot because the reads did not divide.
+    /// Homozygous sites split into two slots by the reads' strand log-odds, and those left as one
+    /// slot because the reads did not divide.
     atomic<size_t> hom_split{0};
     atomic<size_t> hom_unsplit{0};
     /// Reads at a split homozygous site whose strand log-odds name no strand of its phase set:
@@ -101,12 +101,12 @@ struct AnchorCounters {
     /// a read is placed by a coin flip derived from its name, which puts it in the same slot at
     /// every site.
     atomic<size_t> hom_split_coin{0};
-    /// Read placements at a heterozygous site whose slot weights --anchors-phase-hets changed by the
-    /// read's strand log-odds. Reads with no strand log-odds, or with a strand from another
-    /// phase set, are not counted, since the option does not affect them.
+    /// Read placements at a heterozygous site whose slot weights `phase_hets` changed by the read's
+    /// strand log-odds. Reads with no strand log-odds, or with a strand from another phase set, are
+    /// not counted, since `phase_hets` does not affect them.
     atomic<size_t> het_phase_tilted{0};
-    /// Under --anchors-strict-hets, placements that the sign of the strand log-odds moved off the
-    /// slot the allele match would have chosen.
+    /// With `strict_hets` on, placements that the sign of the strand log-odds moved off the slot
+    /// the allele match would have chosen.
     atomic<size_t> het_strict_moved{0};
 
     atomic<size_t> phase_checked{0};
@@ -212,38 +212,35 @@ struct AnchorSiteEvidence {
     size_t bytes() const;
 };
 
-/// Thresholds and switches, from the --anchors-* options.
+/// Thresholds and switches for the assembly anchors.
 struct AnchorParams {
     bool enabled = false;
-    /// Write anchors only at diploid heterozygous sites (--anchors-het-only). Homozygous sites and
-    /// haploid ones, nested haploid chains included, are left out, though they connect the reads
-    /// that cross them.
+    /// Write anchors only at diploid heterozygous sites. Homozygous sites and haploid ones, nested
+    /// haploid chains included, are left out, though they connect the reads that cross them.
     bool het_only = false;
 
     /// Write a slot's end anchor only where it holds at least this many reads that the slot's start
-    /// anchor does not (--anchors-end-new); 0 writes it always.
+    /// anchor does not; 0 writes it always.
     ///
     /// Both pins of a site divide the reads the same way, so an end anchor adds only another
     /// point, and if every read at it is also at the start anchor, it adds no link between reads.
     /// Which reads reach each pin depends on depth and read length, so the anchors written depend
     /// on them too.
     size_t end_pin_min_new = 0;
-    /// Write anchors only at sites with no child chains (--anchors-leaf-only).
+    /// Write anchors only at sites with no child chains.
     bool leaf_only = false;
     size_t min_reads = 2;
     double min_gqn = 0.0;
     double min_read_score = 0.0;
-    /// Keep reads whose best-fitting allele, over all candidate alleles, was not called
-    /// (--anchors-keep-off-call). Off by default, so that a read that fits neither called allele is
-    /// not placed on one.
+    /// Keep reads whose best-fitting allele, over all candidate alleles, was not called. Off by
+    /// default, so that a read that fits neither called allele is not placed on one.
     bool keep_off_call = false;
 
     /// Where this run's counters live. Not owned; the likelihood calculator counts into the same
     /// ones. Null means do not count.
     AnchorCounters* counters = nullptr;
 
-    /// Divide a homozygous site's reads between two slots by the sign of their strand log-odds
-    /// (--anchors-hom-split).
+    /// Divide a homozygous site's reads between two slots by the sign of their strand log-odds.
     ///
     /// A homozygous site's alleles say nothing about which strand a read came from, so its reads
     /// can be divided only by the heterozygous sites they also cross. Off by default, since a
@@ -251,8 +248,8 @@ struct AnchorParams {
     bool hom_split = false;
 
     /// Minimum size of a read's tempered strand log-odds for it to count as confidently placed
-    /// when deciding whether a homozygous site may be split (--split-min-q). 0.5 is a strand
-    /// probability of about 62%.
+    /// when deciding whether a homozygous site may be split. 0.5 is a strand probability of about
+    /// 62%.
     ///
     /// This decides whether the site is split, not which reads are kept: at a split site every
     /// read is placed, except one whose strand is from another phase set, and its confidence is
@@ -260,7 +257,7 @@ struct AnchorParams {
     double phase_min = 0.5;
 
     /// Minimum number of confidently placed reads on each strand before a homozygous site may be
-    /// split (--split-min-side). A site whose reads all point to one strand has not been divided.
+    /// split. A site whose reads all point to one strand has not been divided.
     ///
     /// A lower value splits more sites, which joins longer runs of anchors that each name a
     /// strand, but a run that joins across a phasing error puts the sequence after it on the wrong
@@ -270,7 +267,7 @@ struct AnchorParams {
     size_t phase_min_side = 10;
 
     /// At a heterozygous site, choose a read's slot using its strand log-odds as well as its
-    /// allele match (on unless --no-anchors-phase-hets).
+    /// allele match. On by default.
     ///
     /// The strand log-odds, computed leaving this site out, change the read's slot weights as
     /// `phase_aware_correction` does in re-genotyping. Without them each site places a read from
@@ -280,9 +277,8 @@ struct AnchorParams {
     bool phase_hets = true;
 
     /// At a heterozygous site, choose a read's slot by the sign of its strand log-odds alone,
-    /// ignoring the allele match (--anchors-strict-hets), as a comparison for `phase_hets`. A read
-    /// with no strand log-odds keeps the slot of its allele match, so both rules place the same
-    /// reads.
+    /// ignoring the allele match, as a comparison for `phase_hets`. A read with no strand log-odds
+    /// keeps the slot of its allele match, so both rules place the same reads.
     bool strict_hets = false;
 };
 
@@ -307,9 +303,9 @@ public:
         string snarl;
         /// Which slot of the chosen phased pair this anchor holds: slot i is field i of the
         /// record's `GT` at the same site ID, slot 0 the left allele and slot 1 the right. A
-        /// homozygote has one slot, 0, holding every read, unless --anchors-hom-split divides it.
-        /// A nested chain at ploidy 1 also has one slot, the parent's strand that carries it,
-        /// which the VCF writes as `a|.` or `.|a`, so its slot can be 1.
+        /// homozygote has one slot, 0, holding every read, unless `AnchorParams::hom_split`
+        /// divides it. A nested chain at ploidy 1 also has one slot, the parent's strand that
+        /// carries it, which the VCF writes as `a|.` or `.|a`, so its slot can be 1.
         int slot = 0;
         /// The candidate traversal the slot carries, as an index into the site's candidate
         /// traversals, not a VCF allele number.
@@ -348,7 +344,7 @@ private:
 /// where v_i are the allele-length weights, and its confidence is
 /// -10 log10(1 - max_i x_i / (sum_i x_i + e_r)). The e_r in the denominator bounds the
 /// confidence; for two alleles of equal length the bound is the heterozygous score ceiling,
-/// which --mismap-min sets.
+/// which the floor on e_r sets.
 ///
 /// `genotype` is phase-ordered. `haploid_slot` is the strand, 0 or 1, that a one-allele
 /// `genotype` sits on, and is ignored otherwise; the caller supplies it from the phasing.

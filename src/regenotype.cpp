@@ -215,8 +215,8 @@ void fit_calibration(const vector<PhaseSite>& sites, const unordered_set<size_t>
         bins.push_back({sum / (double)n, (double)agree / (double)n, n});
     }
     // The squared difference, weighted by bin size, between the predicted and observed agreement
-    // in each bin, for a given temper and ceiling. The ceiling is not fitted: `--regeno-ceiling`
-    // sets it, and the temper is fitted against it.
+    // in each bin, for a given temper and ceiling. The ceiling is not fitted:
+    // `RegenotypeParams::ceiling` sets it, and the temper is fitted against it.
     auto cost = [&](double tau, double ceil) {
         double acc = 0.0;
         for (const Bin& b : bins) {

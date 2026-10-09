@@ -304,8 +304,7 @@ void MultiPassCaller::phase_and_regenotype() {
     // pass chooses the genotypes from the result and reassesses every nested child, and read
     // phasing runs again on the new genotypes. Rounds stop when the correction moves no site's
     // direct call, or when the chosen genotypes stop changing, return to an earlier round's, or
-    // reach --regeno-passes rounds. With --regeno-passes 1 the correction is only computed and
-    // reported.
+    // reach `rescorer.passes()` rounds. With one pass the correction is only computed and reported.
     if (rescorer.enabled() && rescorer.passes() >= 2) {
         // Every state the rounds have reached, so that a cycle is recognised.
         RoundHistory history;

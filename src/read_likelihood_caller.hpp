@@ -101,8 +101,8 @@ public:
         /// traversals handed to update_vcf_info can be mapped back.
         vector<Traversal> scored_traversals;
 
-        /// Per-read anchor evidence, with --anchors-out; null otherwise. It depends on the
-        /// matrix, not on the ploidy, so when the linkage pass replaces this CallInfo with
+        /// Per-read anchor evidence, when anchors are written; null otherwise. It depends on
+        /// the matrix, not on the ploidy, so when the linkage pass replaces this CallInfo with
         /// `alt_ploidy_info` it must move it across.
         unique_ptr<AnchorSiteEvidence> anchor_evidence;
         /// Per-read phasing evidence, with read phasing and no anchors; null otherwise. Moved
@@ -110,7 +110,7 @@ public:
         unique_ptr<PhaseReadEvidence> phase_evidence;
 
         /// The per-read evidence that read phasing and re-genotyping need, from whichever of
-        /// the two fields above the site kept. Under --anchors-out the site keeps only
+        /// the two fields above the site kept. When anchors are written the site keeps only
         /// `anchor_evidence`, which is converted into `scratch`; `scratch` must then outlive
         /// the returned pointer. Null where the site kept neither, or has no reads or alleles.
         const PhaseReadEvidence* read_phasing_evidence(PhaseReadEvidence& scratch) const;
@@ -210,7 +210,7 @@ public:
 
     /**
      * Scale GQ by the explained share, the fraction of reads whose best allele is a
-     * called allele (on unless --no-share-quality).
+     * called allele. On by default.
      *
      * A read that fits an uncalled allele best fits the called genotype and its
      * runner-up about equally, so it barely changes GQ. The discount lowers GQ when
@@ -221,8 +221,7 @@ public:
 
     /**
      * Scale GQ by how far the site's read count is from what the call predicts, at
-     * records whose called alleles change length by at least `min_length` bp
-     * (--depth-quality):
+     * records whose called alleles change length by at least `min_length` bp:
      *
      *     GQ' = GQ * exp(-exponent * |ln DR|)
      *
@@ -241,15 +240,15 @@ public:
 
     /**
      * GQ for the called genotype `called`, given `gap`, the phred difference between the two
-     * best genotypes: `gap` multiplied by the explained share of `called`, unless
-     * --no-share-quality, and by `info.depth_discount`.
+     * best genotypes: `gap` multiplied by the explained share of `called`, when the share
+     * discount is on, and by `info.depth_discount`.
      */
     double discounted_gq(const ReadLikelihoodCallInfo& info, const vector<int>& called,
                          double gap) const;
 
     /**
      * The factor `discounted_gq` multiplies the gap by at the called genotype: `info`'s
-     * explained share, unless --no-share-quality, times `info.depth_discount`.
+     * explained share, when the share discount is on, times `info.depth_discount`.
      */
     double gq_factor(const ReadLikelihoodCallInfo& info) const;
 
@@ -261,8 +260,7 @@ public:
     void recompute_gq(ReadLikelihoodCallInfo& info) const;
 
     /**
-     * Set FILTER to `lowconf` on records whose GQN is below `threshold`
-     * (--min-confidence); 0 turns it off.
+     * Set FILTER to `lowconf` on records whose GQN is below `threshold`; 0 turns it off.
      *
      * GQN, unlike GQ, does not depend on depth or ploidy, so one threshold suits
      * every contig. Records are marked rather than dropped, because the linkage model
