@@ -10,6 +10,7 @@
 #include "panel_lookup.hpp"
 
 namespace vg {
+namespace multipass {
 
 using namespace std;
 
@@ -84,6 +85,7 @@ private:
     MosaicCounters counters;
 };
 
+}
 }
 
 #endif

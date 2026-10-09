@@ -8,6 +8,7 @@
 #include "vcf_record.hpp"
 
 namespace vg {
+namespace multipass {
 
 void GenotypeLinker::configure(LinkageCollector* collector, const PanelLookup* panel) {
     this->model = collector;
@@ -576,4 +577,5 @@ void GenotypeLinker::report() const {
     }
 }
 
+}
 }

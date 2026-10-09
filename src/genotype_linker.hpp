@@ -14,6 +14,7 @@
 #include "staged_site.hpp"
 
 namespace vg {
+namespace multipass {
 
 using namespace std;
 
@@ -181,6 +182,7 @@ private:
     size_t total_moved = 0;
 };
 
+}
 }
 
 #endif

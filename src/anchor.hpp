@@ -34,7 +34,9 @@
 
 namespace vg {
 
+namespace multipass {
 class ReadStrandTable;
+}
 
 using namespace std;
 
@@ -403,7 +405,7 @@ public:
     /// Safe to call from many threads, but not from inside a nested parallel region.
     void collect(const AnchorSiteEvidence& evidence, double explained_share,
                  const vector<int>& genotype, int haploid_slot, const string& site_name,
-                 bool is_leaf, double gqn, const ReadStrandTable& strands, size_t record_key);
+                 bool is_leaf, double gqn, const multipass::ReadStrandTable& strands, size_t record_key);
 
     /// Write the anchor file, naming `sample_name`, and report the counters. Does nothing unless
     /// anchors are being collected.

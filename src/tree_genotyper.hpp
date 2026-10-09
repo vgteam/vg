@@ -18,6 +18,7 @@
 #include "staged_site.hpp"
 
 namespace vg {
+namespace multipass {
 
 using namespace std;
 
@@ -117,6 +118,7 @@ private:
     Options options;
 };
 
+}
 }
 
 #endif

@@ -6,6 +6,7 @@
 #include "staged_site.hpp"
 
 namespace vg {
+namespace multipass {
 
 /// Total over the per-thread queues.
 template <typename Queues>
@@ -171,4 +172,5 @@ size_t StagedSiteTable::queued_count() const {
     return total_queued(queues);
 }
 
+}
 }

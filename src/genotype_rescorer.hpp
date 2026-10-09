@@ -10,6 +10,7 @@
 #include "staged_site.hpp"
 
 namespace vg {
+namespace multipass {
 
 using namespace std;
 
@@ -65,6 +66,7 @@ private:
     RegenotypeCounters counters;
 };
 
+}
 }
 
 #endif

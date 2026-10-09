@@ -20,6 +20,7 @@
 //#define debug
 
 namespace vg {
+namespace multipass {
 
 namespace {
 
@@ -718,4 +719,5 @@ void MosaicWriter::write(const vector<LinkageCollector::PhaseCall>& phasing,
          << counters.row_to_ref.load() << " rewritten as a reference substitution" << endl;
 }
 
+}
 }

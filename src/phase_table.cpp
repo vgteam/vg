@@ -3,6 +3,7 @@
 #include "phase_table.hpp"
 
 namespace vg {
+namespace multipass {
 
 unordered_map<size_t, size_t> PhaseTable::index() const {
     unordered_map<size_t, size_t> out;
@@ -122,4 +123,5 @@ size_t PhaseTable::swap_strands(const unordered_set<size_t>& flips, vector<Neste
     return moved;
 }
 
+}
 }

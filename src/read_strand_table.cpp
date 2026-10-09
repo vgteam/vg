@@ -3,6 +3,7 @@
 #include "read_strand_table.hpp"
 
 namespace vg {
+namespace multipass {
 
 void TemperFit::keep(const RegenotypeCounters& counters) {
     temper = counters.fitted_temper;
@@ -115,4 +116,5 @@ double ReadStrandTable::read_strand_log_odds(size_t record_key, std::string_view
     return calibrated_log_odds(value, lambda_temper, lambda_ceiling);
 }
 
+}
 }

@@ -10,6 +10,7 @@
 #include "site_values.hpp"
 
 namespace vg {
+namespace multipass {
 
 using namespace std;
 
@@ -38,6 +39,7 @@ private:
     const HandleGraph& graph;
 };
 
+}
 }
 
 #endif

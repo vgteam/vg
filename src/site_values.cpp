@@ -3,18 +3,6 @@
 #include <algorithm>
 
 namespace vg {
-
-const ChildChain* SiteChildren::entered_by(nid_t id, bool backward) const {
-    const pair<nid_t, bool> key(id, backward);
-    auto found = std::lower_bound(entries.begin(), entries.end(), key,
-                                  [](const pair<pair<nid_t, bool>, size_t>& entry,
-                                     const pair<nid_t, bool>& k) { return entry.first < k; });
-    if (found == entries.end() || found->first != key) {
-        return nullptr;
-    }
-    return &chains[found->second];
-}
-
 SiteBounds bounds_of(const HandleGraph& graph, const Snarl& snarl) {
     return SiteBounds{graph.get_handle(snarl.start().node_id(), snarl.start().backward()),
                       graph.get_handle(snarl.end().node_id(), snarl.end().backward())};
@@ -79,6 +67,19 @@ bool same_walk(const HandleGraph& graph, const SnarlTraversal& trav, const Trave
         }
     }
     return true;
+}
+
+namespace multipass {
+
+const ChildChain* SiteChildren::entered_by(nid_t id, bool backward) const {
+    const pair<nid_t, bool> key(id, backward);
+    auto found = std::lower_bound(entries.begin(), entries.end(), key,
+                                  [](const pair<pair<nid_t, bool>, size_t>& entry,
+                                     const pair<nid_t, bool>& k) { return entry.first < k; });
+    if (found == entries.end() || found->first != key) {
+        return nullptr;
+    }
+    return &chains[found->second];
 }
 
 SiteBounds oriented_bounds(const SnarlDecomposition& decomposition, const HandleGraph& graph,
@@ -160,4 +161,5 @@ ChildChain chain_of_site(const SnarlDecomposition& decomposition, const HandleGr
     return oriented_bounds(decomposition, graph, decomposition.get_parent(site));
 }
 
+}
 }

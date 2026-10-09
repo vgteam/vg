@@ -21,7 +21,7 @@ static unordered_map<nid_t, vector<int>> index_positions(const HandleGraph& grap
 }
 
 SymbolicAllele symbolic_allele(const HandleGraph& graph, const Traversal& walk,
-                               const SiteChildren& children,
+                               const multipass::SiteChildren& children,
                                vector<pair<int, int>>* out_visit_ranges) {
     SymbolicAllele out;
     if (out_visit_ranges != nullptr) {
@@ -37,7 +37,7 @@ SymbolicAllele symbolic_allele(const HandleGraph& graph, const Traversal& walk,
         // Only a child of this site may become a symbol. Comparing a chain's bounds with the
         // site's is not enough: a site that is itself in a longer chain would see that chain's
         // bounds and collapse its own interior into one symbol, making all its alleles equal.
-        const ChildChain* chain = children.entered_by(node, backward);
+        const multipass::ChildChain* chain = children.entered_by(node, backward);
         bool symbolised = false;
 
         if (chain != nullptr) {
@@ -95,7 +95,7 @@ SymbolicAllele symbolic_allele(const HandleGraph& graph, const Traversal& walk,
 }
 
 bool symbolically_equal(const HandleGraph& graph, const Traversal& a, const Traversal& b,
-                        const SiteChildren& children) {
+                        const multipass::SiteChildren& children) {
     return symbolic_allele(graph, a, children) == symbolic_allele(graph, b, children);
 }
 

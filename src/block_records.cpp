@@ -7,6 +7,7 @@
 //#define debug
 
 namespace vg {
+namespace multipass {
 
 // The names of the AtomizeRefusal reasons, in order. The initializer sets the
 // size, so that the check below fails when a name is missing as well as when one is extra.
@@ -701,4 +702,5 @@ int BlockRecordWriter::write(const PathPositionHandleGraph& graph, const SiteChi
     return added;
 }
 
+}
 }

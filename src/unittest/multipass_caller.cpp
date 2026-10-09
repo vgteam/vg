@@ -24,6 +24,8 @@
 namespace vg {
 namespace unittest {
 
+using namespace vg::multipass;
+
 /// An all-match alignment along the given nodes, read forward.
 static Alignment read_along(const HandleGraph& graph, const string& name,
                             const vector<nid_t>& nodes) {

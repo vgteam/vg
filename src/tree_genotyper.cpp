@@ -9,6 +9,7 @@
 //#define debug
 
 namespace vg {
+namespace multipass {
 
 void TreeGenotyper::configure(const Parts& parts, const Options& options) {
     this->parts = parts;
@@ -410,4 +411,5 @@ void TreeGenotyper::fill_tree_fields(const SiteView& view, const SiteChildren& c
     site.chain = parts.child_placer->chain_of(view.net);
 }
 
+}
 }

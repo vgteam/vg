@@ -4,6 +4,7 @@
 #include "read_likelihood_caller.hpp"
 
 namespace vg {
+namespace multipass {
 
 void ReadPhaser::configure(bool on, const ReadPhasingParams& params) {
     this->on = on;
@@ -131,4 +132,5 @@ void ReadPhaser::phase(
     }
 }
 
+}
 }

@@ -2344,7 +2344,7 @@ int main_call(int argc, char** argv) {
     unique_ptr<GraphCaller> graph_caller;
     unique_ptr<SnarlManagerDecomposition> multipass_sites;
     unique_ptr<VCFOutputCaller> multipass_output;
-    unique_ptr<MultiPassCaller> multipass_caller;
+    unique_ptr<multipass::MultiPassCaller> multipass_caller;
     unique_ptr<TraversalFinder> traversal_finder;
     unique_ptr<gbwt::GBWT> gbwt_index_up;
 
@@ -2426,7 +2426,7 @@ int main_call(int argc, char** argv) {
             // the loaded snarls gives it the same sites as every other caller.
             multipass_sites.reset(new SnarlManagerDecomposition(*snarl_manager, *graph));
             multipass_output.reset(new VCFOutputCaller(sample_name));
-            multipass_caller.reset(new MultiPassCaller(*dynamic_cast<PathPositionHandleGraph*>(graph),
+            multipass_caller.reset(new multipass::MultiPassCaller(*dynamic_cast<PathPositionHandleGraph*>(graph),
                                                        *read_likelihood_caller, *multipass_sites,
                                                        *multipass_output, sample_name,
                                                        *traversal_finder, ref_paths,
@@ -2756,7 +2756,7 @@ int main_call(int argc, char** argv) {
                 }
                 // The mosaic's rows name only the contig, so it also records the full names of
                 // the reference paths.
-                multipass_caller->set_mosaic_out(MosaicParams{
+                multipass_caller->set_mosaic_out(multipass::MosaicParams{
                     .path = mosaic_out,
                     .graph_name = graph_filename,
                     .haplotype_names = hap_names,

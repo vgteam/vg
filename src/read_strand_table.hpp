@@ -14,6 +14,7 @@
 #include "regenotype.hpp"
 
 namespace vg {
+namespace multipass {
 
 using namespace std;
 
@@ -98,6 +99,7 @@ protected:
     double lambda_ceiling = 1.0;
 };
 
+}
 }
 
 #endif

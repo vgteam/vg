@@ -13,6 +13,7 @@
 #include <vg/vg.pb.h>
 
 namespace vg {
+namespace multipass {
 
 using namespace std;
 
@@ -240,6 +241,7 @@ private:
     DescentCounters* counters = nullptr;
 };
 
+}
 }
 
 #endif

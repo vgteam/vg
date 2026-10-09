@@ -4,6 +4,7 @@
 #include "round_history.hpp"
 
 namespace vg {
+namespace multipass {
 
 RoundHistory::State RoundHistory::state(StagedSiteTable& sites, const LinkageCollector* model) {
     State out;
@@ -73,4 +74,5 @@ size_t RoundHistory::first_round_with(const State& state) const {
     return 0;
 }
 
+}
 }

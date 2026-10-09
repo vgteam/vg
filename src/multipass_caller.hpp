@@ -38,6 +38,7 @@
 #include "vcf_output_caller.hpp"
 
 namespace vg {
+namespace multipass {
 
 using namespace std;
 
@@ -358,6 +359,7 @@ private:
     TreeGenotyper tree_genotyper;
 };
 
+}
 }
 
 #endif

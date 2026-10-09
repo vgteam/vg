@@ -25,6 +25,8 @@
 namespace vg {
 namespace unittest {
 
+using namespace vg::multipass;
+
 using std::to_string;
 using way_in_t = pair<nid_t, bool>;
 

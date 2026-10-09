@@ -7,6 +7,7 @@
 #include "utility.hpp"
 
 namespace vg {
+namespace multipass {
 
 MultiPassCaller::MultiPassCaller(const PathPositionHandleGraph& graph,
                                  ReadLikelihoodSnarlCaller& genotyper,
@@ -686,4 +687,5 @@ int64_t MultiPassCaller::phase_record_genotype(size_t record_key,
     return (int64_t)phase.phase_set;
 }
 
+}
 }

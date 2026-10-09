@@ -11,6 +11,7 @@
 #include "staged_site.hpp"
 
 namespace vg {
+namespace multipass {
 
 using namespace std;
 
@@ -61,6 +62,7 @@ private:
     SiteReader reader;
 };
 
+}
 }
 
 #endif

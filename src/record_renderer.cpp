@@ -8,6 +8,7 @@
 #include "read_likelihood_caller.hpp"
 
 namespace vg {
+namespace multipass {
 
 void RecordRenderer::configure(SiteReader reader) {
     this->reader = std::move(reader);
@@ -181,4 +182,5 @@ void RecordRenderer::render(StagedSiteTable& staged, const PhaseTable& phases,
     }
 }
 
+}
 }

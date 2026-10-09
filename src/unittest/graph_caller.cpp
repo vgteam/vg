@@ -22,6 +22,8 @@
 namespace vg {
 namespace unittest {
 
+using namespace vg::multipass;
+
 using namespace std;
 
 TEST_CASE("The buffered record order is total, so two runs cannot disagree", "[graph_caller]") {

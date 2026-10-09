@@ -8,6 +8,7 @@
 #include "read_likelihood_caller.hpp"
 
 namespace vg {
+namespace multipass {
 
 void GenotypeRescorer::configure(bool on, const RegenotypeParams& params, size_t passes,
                                  const string& ledger) {
@@ -289,4 +290,5 @@ bool GenotypeRescorer::rescore(
     return moved > 0;
 }
 
+}
 }

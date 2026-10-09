@@ -6,6 +6,7 @@
 #include "site_scheduler.hpp"
 
 namespace vg {
+namespace multipass {
 
 SiteWalker::SiteWalker(const SnarlDecomposition& decomposition, const HandleGraph& graph) :
     decomposition(decomposition), graph(graph) {
@@ -58,4 +59,5 @@ void SiteWalker::walk(GraphCaller::RecurseType recurse_type, size_t batch_window
         });
 }
 
+}
 }

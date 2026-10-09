@@ -17,6 +17,8 @@
 namespace vg {
 namespace unittest {
 
+using namespace vg::multipass;
+
 using namespace std;
 
 /// A snarl from start to end, forward on both boundaries.

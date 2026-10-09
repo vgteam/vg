@@ -1029,7 +1029,7 @@ void AnchorCollector::configure(const string& path, const AnchorParams& params,
 void AnchorCollector::collect(const AnchorSiteEvidence& evidence, double explained_share,
                               const vector<int>& genotype, int haploid_slot,
                               const string& site_name, bool is_leaf, double gqn,
-                              const ReadStrandTable& strands, size_t record_key) {
+                              const multipass::ReadStrandTable& strands, size_t record_key) {
     if (path.empty() || writer == nullptr) {
         return;
     }

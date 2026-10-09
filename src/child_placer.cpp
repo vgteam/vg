@@ -7,6 +7,7 @@
 #include "symbolic_allele.hpp"
 
 namespace vg {
+namespace multipass {
 
 ChildPlacer::TraversalNodeIndex ChildPlacer::index_traversal_nodes(const HandleGraph& graph,
                                                                    const Traversal& walk) {
@@ -326,4 +327,5 @@ void ChildPlacer::place(const SiteView& site, const Nested& nested, size_t site_
     }
 }
 
+}
 }

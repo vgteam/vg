@@ -9,6 +9,10 @@
  * site's start bound to its end bound. A star allele, for a strand that does not cross the site,
  * is an empty walk. The sites nested in a site sit in chains, and `SiteChildren` holds what the
  * site's records need to know about them.
+ *
+ * The conversions between these values and `Snarl` and `SnarlTraversal` are in namespace vg; the
+ * caller's own types, and the functions that read them from a decomposition, are in
+ * vg::multipass.
  */
 
 #include <utility>
@@ -21,8 +25,33 @@
 #include <vg/vg.pb.h>
 
 namespace vg {
-
 using namespace std;
+
+/// The bounds of `snarl` in `graph`.
+SiteBounds bounds_of(const HandleGraph& graph, const Snarl& snarl);
+
+/// `site` as a Snarl, for the code that still takes one.
+Snarl snarl_of(const HandleGraph& graph, const SiteBounds& site);
+
+/// A SnarlTraversal of node visits as a walk.
+Traversal walk_of(const HandleGraph& graph, const SnarlTraversal& trav);
+
+/// `walk_of` for each traversal.
+vector<Traversal> walks_of(const HandleGraph& graph, const vector<SnarlTraversal>& travs);
+
+/// A walk as a SnarlTraversal of node visits, for the code that still takes one.
+SnarlTraversal snarl_traversal_of(const HandleGraph& graph, const Traversal& walk);
+
+/// `snarl_traversal_of` for each walk.
+vector<SnarlTraversal> snarl_traversals_of(const HandleGraph& graph,
+                                           const vector<Traversal>& walks);
+
+/// Whether a SnarlTraversal of node visits and a walk visit the same nodes in the same
+/// orientations.
+bool same_walk(const HandleGraph& graph, const SnarlTraversal& trav, const Traversal& walk);
+
+namespace multipass {
+
 
 /// A chain of sites nested in a site, by its bounds as `oriented_bounds` gives them. A chain of
 /// one site has that site's bounds. A symbolic allele names a chain by the node IDs of these
@@ -52,29 +81,6 @@ struct SiteChildren {
     /// or null when that enters no child site.
     const ChildChain* entered_by(nid_t id, bool backward) const;
 };
-
-/// The bounds of `snarl` in `graph`.
-SiteBounds bounds_of(const HandleGraph& graph, const Snarl& snarl);
-
-/// `site` as a Snarl, for the code that still takes one.
-Snarl snarl_of(const HandleGraph& graph, const SiteBounds& site);
-
-/// A SnarlTraversal of node visits as a walk.
-Traversal walk_of(const HandleGraph& graph, const SnarlTraversal& trav);
-
-/// `walk_of` for each traversal.
-vector<Traversal> walks_of(const HandleGraph& graph, const vector<SnarlTraversal>& travs);
-
-/// A walk as a SnarlTraversal of node visits, for the code that still takes one.
-SnarlTraversal snarl_traversal_of(const HandleGraph& graph, const Traversal& walk);
-
-/// `snarl_traversal_of` for each walk.
-vector<SnarlTraversal> snarl_traversals_of(const HandleGraph& graph,
-                                           const vector<Traversal>& walks);
-
-/// Whether a SnarlTraversal of node visits and a walk visit the same nodes in the same
-/// orientations.
-bool same_walk(const HandleGraph& graph, const SnarlTraversal& trav, const Traversal& walk);
 
 /// A site as the read-likelihood caller visits it: the site in `decomposition`, its bounds as the
 /// decomposition orients it, and the bounds of the sites enclosing it, innermost first.
@@ -114,6 +120,7 @@ vector<SiteBounds> enclosing_sites(const SnarlDecomposition& decomposition,
 ChildChain chain_of_site(const SnarlDecomposition& decomposition, const HandleGraph& graph,
                          const net_handle_t& site);
 
+}
 }
 
 #endif

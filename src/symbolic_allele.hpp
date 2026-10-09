@@ -69,12 +69,12 @@ using SymbolicAllele = vector<SymbolicStep>;
  * to the next step, since the chain shares it with its successor.
  */
 SymbolicAllele symbolic_allele(const HandleGraph& graph, const Traversal& walk,
-                               const SiteChildren& children,
+                               const multipass::SiteChildren& children,
                                vector<pair<int, int>>* out_visit_ranges = nullptr);
 
 /// True if the two walks take the same route through the site at this level of the hierarchy.
 bool symbolically_equal(const HandleGraph& graph, const Traversal& a, const Traversal& b,
-                        const SiteChildren& children);
+                        const multipass::SiteChildren& children);
 
 /**
  * One difference between two symbolic alleles: a half-open step range on each side.

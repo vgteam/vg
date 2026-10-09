@@ -9,6 +9,7 @@
 #include "linkage_model.hpp"
 
 namespace vg {
+namespace multipass {
 
 using namespace std;
 
@@ -82,6 +83,7 @@ private:
     unordered_map<size_t, PhaseCall> render_phases;
 };
 
+}
 }
 
 #endif

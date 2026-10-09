@@ -13,6 +13,7 @@
 #include "vcf_record.hpp"
 
 namespace vg {
+namespace multipass {
 
 using namespace std;
 
@@ -137,6 +138,7 @@ private:
     mutable AtomizeCounters counters;
 };
 
+}
 }
 
 #endif

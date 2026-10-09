@@ -14,6 +14,7 @@
 #include "snarl_caller.hpp"
 
 namespace vg {
+namespace multipass {
 
 using namespace std;
 
@@ -231,6 +232,7 @@ private:
     unordered_map<size_t, vector<size_t>> children;
 };
 
+}
 }
 
 #endif

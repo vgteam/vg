@@ -9,6 +9,7 @@
 #include "read_likelihood_caller.hpp"
 
 namespace vg {
+namespace multipass {
 
 using namespace std;
 
@@ -47,6 +48,7 @@ private:
     ReadLikelihoodSnarlCaller& genotyper;
 };
 
+}
 }
 
 #endif
