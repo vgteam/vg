@@ -9,7 +9,7 @@ PATH=../bin:$PATH # for vg
 # FORMAT field shifts every later one, which broke four assertions here that were not
 # testing field order at all -- one of them silently compared BL against a GQ threshold.
 
-plan tests 462
+plan tests 463
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -812,6 +812,12 @@ is $(grep -c "only applies to --read-likelihood" trav_norl.txt) "0" "an option t
 # Nested calling and its block records are part of the read-likelihood genotyper.
 vg call x.vg -k x.pack --nested -t 1 >/dev/null 2>nested_norl.txt
 is $(grep -c -- "--nested only applies to --read-likelihood" nested_norl.txt) "1" "--nested without --read-likelihood is refused"
+
+# The read-likelihood caller has no --bottom-up, -I, -G, -T or -v mode, so each is refused with it.
+vg call x.vg -k x.pack --read-likelihood --gam sim.gam --bottom-up -I -t 1 >/dev/null 2>rl_modes.txt
+is "$(grep -o -- "--read-likelihood cannot be used with .*" rl_modes.txt)" \
+   "--read-likelihood cannot be used with --bottom-up, -I/--chains" \
+   "--read-likelihood refuses the modes it does not have, naming each"
 
 # --anchors-hom-split splits a homozygous site by each read's phase across the OTHER sites it
 # crosses, and that log-odds comes from the read-phasing chain.  With no phasing,

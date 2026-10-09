@@ -412,8 +412,8 @@ and is described in [Read phasing](read-likelihood-read-phasing.md#read-phasing)
 strand, and so corrects each site's likelihoods, at the start of every round after the first (see
 [Rounds](#rounds)). Off-reference chains, and chains that a block record spells out, keep the
 likelihoods of the direct pass. It needs `--read-phasing` and, like it, is off by default and on
-under `--preset ont`. It cannot be combined with `--top-down` or `--bottom-up`: an explicit
-`--regenotype` with either is an error, and a preset's is turned off. The correction is described
+under `--preset ont`. It cannot be combined with `--top-down`: an explicit `--regenotype` with it
+is an error, and a preset's is turned off. The correction is described
 in [Re-genotyping from the phase](read-likelihood-read-phasing.md#re-genotyping-from-the-phase).
 
 ## Output
@@ -591,12 +591,11 @@ options change only quality fields and `FILTER`.
 
 #### Nesting tags
 
-`vg call` has three other ways of genotyping nested sites, chosen by general options that also work
-with `--read-likelihood`: `--all-snarls` genotypes every site on its own, `--top-down` genotypes
-children after their parents and takes a child's candidate alleles from its parent's genotype, and
-`--bottom-up` genotypes children before their parents. With any of them, and whenever
-[off-reference chains](#which-child-chains-are-genotyped) are genotyped, records carry vg's nesting
-INFO tags:
+`vg call` has two other ways of genotyping nested sites, chosen by general options that also work
+with `--read-likelihood`: `--all-snarls` genotypes every site on its own, and `--top-down` genotypes
+children after their parents and takes a child's candidate alleles from its parent's genotype. With
+either, and whenever [off-reference chains](#which-child-chains-are-genotyped) are genotyped,
+records carry vg's nesting INFO tags:
 
 - `INFO/LV` counts the record's enclosing sites that have records on the record's own contig.
 - `INFO/CH` counts the changes of contig on the way up from the record through the records of its
@@ -795,8 +794,9 @@ the Ploidy row, `--cluster` and `--cluster-min-len`. Its other options are rejec
 that modify `--anchors-out` (`--no-off-ref-nesting` among them), `--mosaic-out` and `--regenotype`
 are also rejected when those are not in use. Other general options used on this page, such as
 `--genotype-snarls`, `--sample`, `--snarls`, `--ref-path`, `--path-prefix`, `--ref-sample`,
-`--all-snarls`, `--top-down`, `--bottom-up`, `--translation` and `--gbz-translation`, are described
-by `vg call --help`.
+`--all-snarls`, `--top-down`, `--translation` and `--gbz-translation`, are described by
+`vg call --help`. `--read-likelihood` cannot be combined with `--bottom-up`, `--chains`, `--gaf`,
+`--traversals`, `--vcf` or `--legacy`.
 
 | Part | Options |
 |---|---|

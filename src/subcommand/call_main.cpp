@@ -1336,21 +1336,9 @@ int main_call(int argc, char** argv) {
         }
         atomize_blocks = false;
     }
-    if (atomize_blocks && (legacy || bottom_up || top_down)) {
+    if (atomize_blocks && top_down) {
         if (atomize_explicit) {
-            logger.error() << "--atomize-blocks needs the default calling path "
-                           << "(not --legacy, --bottom-up or --top-down)" << endl;
-        }
-        atomize_blocks = false;
-    }
-    // -I calls each piece of a chain as if it were a snarl. Only a piece holding a single snarl
-    // matches a snarl in the snarl manager, and nested calling, on which block emission depends,
-    // only works at those, so it would apply to only some sites.
-    if (atomize_blocks && call_chains) {
-        if (atomize_explicit) {
-            logger.error() << "--atomize-blocks cannot be combined with -I/--chains, which calls "
-                           << "pieces of chains; blocks would be written only at pieces that hold "
-                           << "a single snarl" << endl;
+            logger.error() << "--atomize-blocks cannot be combined with --top-down" << endl;
         }
         atomize_blocks = false;
     }
@@ -1622,8 +1610,8 @@ int main_call(int argc, char** argv) {
         refuse_phase_dependents("which --no-phased turns off");
     }
 
-    // --read-likelihood needs exactly one read source, and cannot be combined with the ratio or
-    // legacy support callers.
+    // --read-likelihood needs exactly one read source, and cannot be combined with the ratio
+    // support caller or with the calling modes the read-likelihood caller does not have.
     if (read_likelihood) {
         int read_source_count = (gam_filename.empty() ? 0 : 1) + (gaf_filename.empty() ? 0 : 1) +
                                 (gaf_base_filename.empty() ? 0 : 1);
@@ -1637,8 +1625,31 @@ int main_call(int argc, char** argv) {
         if (ratio_caller) {
             logger.error() << "--read-likelihood and -B/--bias-mode are mutually exclusive" << endl;
         }
+        vector<string> modes;
         if (legacy) {
-            logger.error() << "--read-likelihood cannot be used with --legacy" << endl;
+            modes.push_back("--legacy");
+        }
+        if (bottom_up) {
+            modes.push_back("--bottom-up");
+        }
+        if (call_chains) {
+            modes.push_back("-I/--chains");
+        }
+        if (gaf_output && !traversals_only) {
+            modes.push_back("-G/--gaf");
+        }
+        if (traversals_only) {
+            modes.push_back("-T/--traversals");
+        }
+        if (!vcf_filename.empty()) {
+            modes.push_back("-v/--vcf");
+        }
+        if (!modes.empty()) {
+            stringstream joined;
+            for (size_t i = 0; i < modes.size(); ++i) {
+                joined << (i ? ", " : "") << modes[i];
+            }
+            logger.error() << "--read-likelihood cannot be used with " << joined.str() << endl;
         }
     }
 
@@ -1646,7 +1657,7 @@ int main_call(int argc, char** argv) {
     // as -z does, rather than from read support. This needs no pack file, but it can only offer
     // alleles that some haplotype carries; --enumerate-support turns it off.
     if (read_likelihood && !gbz_paths && !enumerate_support && gbz_graph &&
-        gbwt_filename.empty() && vcf_filename.empty()) {
+        gbwt_filename.empty()) {
         // A GBZ may carry only reference paths, which would offer nothing but the reference
         // allele, so we only choose this automatically with at least two haplotypes. An
         // explicit -z uses the haplotypes regardless.
@@ -2315,15 +2326,6 @@ int main_call(int argc, char** argv) {
                            << "enumeration (-g/--gbwt or -z/--gbz); support-based enumeration needs "
                            << "a pack file" << endl;
         }
-        if (!vcf_filename.empty()) {
-            // VCFTraversalFinder prunes alt paths on support before its brute-force
-            // enumeration, so -v needs a pack file.
-            logger.error() << "-v/--vcf with --read-likelihood requires -k/--pack" << endl;
-        }
-        if (bottom_up) {
-            // NestedFlowCaller downcasts the support finder to a nested packed one.
-            logger.error() << "--bottom-up with --read-likelihood requires -k/--pack" << endl;
-        }
     }
 
     unique_ptr<AlignmentEmitter> alignment_emitter;
@@ -2499,23 +2501,18 @@ int main_call(int argc, char** argv) {
         }
         regenotype = false;
     }
-    // Re-genotyping happens in FlowCaller::phase_and_regenotype(). --bottom-up uses
-    // NestedFlowCaller, which does not have it. --top-down gives each child snarl candidate
-    // traversals derived from its parent's called genotype, so changing that genotype afterwards
-    // would leave the child genotyped against the wrong alleles. An explicit --regenotype is an
-    // error with either; one set by a preset is turned off.
-    if (regenotype && (top_down || bottom_up) && !regenotype_explicit) {
+    // --top-down gives each child snarl candidate traversals derived from its parent's called
+    // genotype, so re-genotyping, which can change that genotype afterwards, would leave the child
+    // genotyped against the wrong alleles. An explicit --regenotype with it is an error; one set by
+    // a preset is turned off.
+    if (regenotype && top_down && !regenotype_explicit) {
         regenotype = false;
     }
-    if (regenotype && (top_down || bottom_up)) {
-        cerr << "error [vg call]: --regenotype cannot be combined with "
-             << (top_down ? "--top-down" : "--bottom-up") << "; "
-             << (top_down
-                 ? "--top-down derives each child's candidate traversals from its parent's called"
-                   " genotype, so re-genotyping a parent would leave its children genotyped against"
-                   " alleles it no longer carries"
-                 : "--bottom-up uses a caller that cannot re-genotype")
-             << endl;
+    if (regenotype && top_down) {
+        cerr << "error [vg call]: --regenotype cannot be combined with --top-down; --top-down"
+             << " derives each child's candidate traversals from its parent's called genotype, so"
+             << " re-genotyping a parent would leave its children genotyped against alleles it no"
+             << " longer carries" << endl;
         return 1;
     }
     // Splitting homozygous sites, placing heterozygous reads by phase, and re-genotyping all use
@@ -2552,19 +2549,8 @@ int main_call(int argc, char** argv) {
             confidence_target->set_linkage_min_confidence(min_confidence);
         }
     }
-    if (nested_calling) {
-        VCFOutputCaller* nested_target = vcf_out;
-        if (nested_target == nullptr) {
-            if (nested_explicit) {
-                cerr << "error [vg call]: --nested needs a caller that emits VCF" << endl;
-                return 1;
-            }
-            nested_calling = false;
-        }
-    }
-    // Block emission splits up the records of nested calling, so it needs nested calling and a
-    // caller that writes VCF. The checks that depend only on the options were made before
-    // the graph was loaded.
+    // Block emission splits up the records of nested calling, so it needs nested calling. The
+    // checks that depend only on the options were made before the graph was loaded.
     if (atomize_blocks) {
         if (!nested_calling) {
             if (atomize_explicit) {
@@ -2574,40 +2560,13 @@ int main_call(int argc, char** argv) {
             }
             atomize_blocks = false;
         }
-        VCFOutputCaller* atomize_target =
-            atomize_blocks ? vcf_out : nullptr;
-        if (atomize_blocks && atomize_target == nullptr) {
-            if (atomize_explicit) {
-                cerr << "error [vg call]: --atomize-blocks needs a caller that emits VCF" << endl;
-                return 1;
-            }
-            atomize_blocks = false;
-        }
         if (atomize_blocks) {
-            atomize_target->set_atomize_blocks(true);
-        }
-    }
-
-    // Nested calling would apply to only some sites under -I, for the reason given for
-    // --atomize-blocks above. This check does not depend on VCF output, since -I is mostly used
-    // with GAF output.
-    if (nested_calling && call_chains) {
-        if (nested_explicit) {
-            cerr << "error [vg call]: --nested cannot be combined with -I/--chains, which calls"
-                 << " pieces of chains; nested calling would apply only at pieces that hold a"
-                 << " single snarl" << endl;
-            return 1;
-        }
-        nested_calling = false;
-        if (show_progress) {
-            logger.info() << "Nested calling is off under -I/--chains, which calls pieces of chains"
-                          << " rather than snarls" << endl;
+            vcf_out->set_atomize_blocks(true);
         }
     }
 
     if (nested_calling) {
-        VCFOutputCaller* nested_target = vcf_out;
-        nested_target->set_symbolic_collapsing(snarl_manager.get());
+        vcf_out->set_symbolic_collapsing(snarl_manager.get());
     }
 
     // Owned here because write_variants(), at the very end of main, consumes the collector.
