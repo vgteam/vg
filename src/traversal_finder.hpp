@@ -45,16 +45,35 @@ string graph_interval_to_string(const HandleGraph* graph, const handle_t& start_
 string path_interval_to_string(const PathHandleGraph* graph, const PathInterval& path_interval);
 
 /**
+ * Represents a strategy for finding traversals of a site given only its two
+ * bounds. A site is entered by reading its start handle and left by reading
+ * its end handle, as a Snarl's start and end Visits are oriented. Polymorphic
+ * base class/interface.
+ */
+class SiteTraversalFinder {
+public:
+    virtual ~SiteTraversalFinder() = default;
+
+    /**
+     * Return traversals of the site bounded by the given handles. Each
+     * traversal is a walk that starts with snarl_start and ends with
+     * snarl_end.
+     */
+    virtual vector<Traversal> find_traversals(const handle_t& snarl_start, const handle_t& snarl_end) = 0;
+};
+
+/**
  * Represents a strategy for finding traversals of (nested) sites. Polymorphic
  * base class/interface.
  */
-class TraversalFinder {
+class TraversalFinder : public SiteTraversalFinder {
 public:
     virtual ~TraversalFinder() = default;
-    
+
     virtual vector<SnarlTraversal> find_traversals(const Snarl& site) = 0;
 
-    // new, protobuf-free interface. hope is to eventually deprecate the old one.  for now it is only supported in a few places
+    /// Finders that can only work from a Snarl keep this default, which
+    /// fails.
     virtual vector<Traversal> find_traversals(const handle_t& snarl_start, const handle_t& snarl_end) {
         assert(false); return{};
     }
@@ -589,8 +608,6 @@ class FlowTraversalFinder : public TraversalFinder {
     
 protected:
     const HandleGraph& graph;
-    
-    SnarlManager& snarl_manager;
 
     /// The K-best traversals are returned
     size_t K;
@@ -604,8 +621,14 @@ protected:
     
 public:
     
-    // if path_names not empty, only those paths will be considered
     // if a traversal is found that exceeds max_traversal_length, then the search is called off
+    FlowTraversalFinder(const HandleGraph& graph,
+                        size_t K,
+                        function<double(handle_t)> node_weight_callback,
+                        function<double(edge_t)> edge_weight_callback,
+                        size_t max_traversal_length = numeric_limits<size_t>::max());
+
+    /// Same as above. The snarl manager is not used.
     FlowTraversalFinder(const HandleGraph& graph, SnarlManager& snarl_manager,
                         size_t K,
                         function<double(handle_t)> node_weight_callback,
@@ -620,11 +643,27 @@ public:
     virtual vector<SnarlTraversal> find_traversals(const Snarl& site);
 
     /**
+     * Return the K widest traversals through the site bounded by the given
+     * handles, in the same order as find_traversals(const Snarl&).
+     */
+    virtual vector<Traversal> find_traversals(const handle_t& snarl_start, const handle_t& snarl_end);
+
+    /**
      * Return the K widest traversals, along with their flows
      */
     virtual pair<vector<SnarlTraversal>, vector<double>> find_weighted_traversals(const Snarl& site,
                                                                                   bool greedy_avg = false,
                                                                                   const HandleGraph* overlay = nullptr);
+
+    /**
+     * Return the K widest traversals through the site bounded by the given
+     * handles, along with their flows. If an overlay is given, the search
+     * runs on it, and the handles and traversals are the overlay's.
+     */
+    virtual pair<vector<Traversal>, vector<double>> find_weighted_traversals(const handle_t& snarl_start,
+                                                                             const handle_t& snarl_end,
+                                                                             bool greedy_avg = false,
+                                                                             const HandleGraph* overlay = nullptr);
 
     /// Set K
     void setK(size_t k);
