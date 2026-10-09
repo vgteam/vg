@@ -55,12 +55,14 @@ using namespace std;
  *    call, when the chosen genotypes stop changing or return to an earlier round's, or at the
  *    round cap.
  * 3. The render builds each staged site's records once, from the genotype the last round chose
- *    (see `RecordRenderer`), and the anchors are written.
+ *    (see `RecordRenderer`).
+ * 4. The anchor file and the mosaic are written, and the passes are reported.
  *
- * It is not a `GraphCaller`: it walks the snarls itself, and its genotyper is not a `SnarlCaller`
- * that answers for one site at a time. It writes its records through a `VCFOutputCaller` it holds,
- * to which it adds its own header lines and record and writing steps. It holds the linkage model,
- * read phasing, block emission and the anchor and mosaic files, configured from call_main.
+ * It is not a `GraphCaller`: it walks the sites of a `SnarlDecomposition` itself, and its
+ * genotyper is not a `SnarlCaller` that answers for one site at a time. It writes its records
+ * through a `VCFOutputCaller` it holds, to which it adds its own header lines and record steps.
+ * It holds the linkage model, read phasing, block emission and the anchor and mosaic files,
+ * configured from call_main.
  */
 class MultiPassCaller {
 public:

@@ -47,8 +47,8 @@ struct SiteLocus {
  * its place along the parent, how many copies of it the sample has, and whether it exists at
  * all. Re-genotyping gives the model corrected likelihoods with `resync` and links again.
  *
- * Without a collector, nothing is filed or chosen, but `link` still revises the nested chains
- * from their parents' direct calls.
+ * Without a collector, nothing is filed or chosen, and each nested chain keeps the ploidy the
+ * direct pass gave it.
  */
 class GenotypeLinker {
 public:
