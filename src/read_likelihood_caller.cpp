@@ -94,19 +94,6 @@ void ReadLikelihoodSnarlCaller::set_min_confidence(double threshold) {
     this->min_confidence = threshold;
 }
 
-void ReadLikelihoodSnarlCaller::set_support_available(bool available) {
-    this->support_available = available;
-}
-
-function<bool(const SnarlTraversal&, int)> ReadLikelihoodSnarlCaller::get_skip_allele_fn() const {
-    if (support_available) {
-        // A pack file is present, so use the inherited pruning.
-        return SupportBasedSnarlCaller::get_skip_allele_fn();
-    }
-    // No real support to prune on. SnarlCaller::get_skip_allele_fn() would assert.
-    return [](const SnarlTraversal&, int) { return false; };
-}
-
 bool ReadLikelihoodSnarlCaller::traversals_equal(const SnarlTraversal& a,
                                                  const SnarlTraversal& b) {
     // The protobuf operator== also compares visits to child snarls, which a node-by-node
@@ -115,11 +102,9 @@ bool ReadLikelihoodSnarlCaller::traversals_equal(const SnarlTraversal& a,
 }
 
 pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> ReadLikelihoodSnarlCaller::genotype(
-    const Snarl& snarl, const vector<SnarlTraversal>& traversals, int ref_trav_idx, int ploidy,
-    const string& ref_path_name, pair<size_t, size_t> ref_range) {
-    auto called = genotype_at(snarl, traversals, ref_trav_idx, Ploidies{.ploidy = ploidy},
-                              ref_path_name, ref_range);
-    return make_pair(std::move(called.first), unique_ptr<CallInfo>(std::move(called.second)));
+    const Snarl&, const vector<SnarlTraversal>&, int, int, const string&, pair<size_t, size_t>) {
+    throw std::logic_error("ReadLikelihoodSnarlCaller::genotype is not used; MultiPassCaller "
+                           "genotypes through genotype_at");
 }
 
 pair<vector<int>, unique_ptr<ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo>>

@@ -184,7 +184,8 @@ public:
         const Snarl& snarl, const vector<SnarlTraversal>& traversals, int ref_trav_idx,
         const Ploidies& ploidies, const string& ref_path_name, pair<size_t, size_t> ref_range);
 
-    /// `genotype_at` with `ploidy` alone.
+    /// Throws. `SnarlCaller` requires it, but this genotyper's one user, MultiPassCaller, calls
+    /// `genotype_at`; no `GraphCaller` holds it.
     virtual pair<vector<int>, unique_ptr<CallInfo>> genotype(const Snarl& snarl,
                                                              const vector<SnarlTraversal>& traversals,
                                                              int ref_trav_idx,
@@ -200,21 +201,6 @@ public:
                                  vcflib::Variant& variant);
 
     virtual void update_vcf_header(string& header) const;
-
-    /**
-     * Skip no allele when read support is unavailable.
-     *
-     * Only the traversal finder of `vg call -v`, which enumerates the alleles of an
-     * input VCF, asks for this. The inherited version skips alleles whose read support
-     * is below a threshold, to keep that enumeration small at dense sites. Without a
-     * pack file the support finder reports zero everywhere, so it would skip every
-     * allele. With a pack file the inherited version is used.
-     */
-    virtual function<bool(const SnarlTraversal&, int iteration)> get_skip_allele_fn() const;
-
-    /// Tell the caller that its support finder reports nothing real, so anything
-    /// support-derived must be skipped rather than believed.
-    void set_support_available(bool available);
 
     /// Write the matrix for every site to this stream as TSV. Not owned.
     void set_likelihood_dump(ostream* dump_stream);
@@ -309,10 +295,6 @@ protected:
 
     /// Optional TSV dump of every site's matrix, for development.
     ostream* dump_stream = nullptr;
-
-    /// False when running without a pack file, so the support finder is a
-    /// NullTraversalSupportFinder and reports zero for everything.
-    bool support_available = true;
 
 
 

@@ -2274,9 +2274,6 @@ int main_call(int argc, char** argv) {
                 rl_caller->set_likelihood_dump(likelihood_dump.get());
             }
 
-            // Without a pack file the support finder reports zero for everything, so
-            // the caller must not prune alleles on support.
-            rl_caller->set_support_available(!support_free);
             rl_caller->set_share_discount(!no_share_quality);
             rl_caller->set_depth_quality(depth_quality);
             rl_caller->set_min_confidence(min_confidence);
