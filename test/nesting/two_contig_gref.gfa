@@ -1,0 +1,15 @@
+H	VN:Z:1.0	RS:Z:GRCh38
+S	1	CCCCCCCC
+S	2	GGGGGGGG
+S	3	TTTTTTTT
+S	5	AAAAAAAA
+S	6	ACACACAC
+P	GRCh38#0#chr1	1+,2+	*
+P	HG1#1#chr1	1+,3+,2+	*
+P	HG2#1#chr1	1+,2+	*
+P	GRCh38#0#chr2	5+,6+	*
+P	HG1#1#chr2	5+,6+	*
+L	1	+	2	+	0M
+L	1	+	3	+	0M
+L	3	+	2	+	0M
+L	5	+	6	+	0M

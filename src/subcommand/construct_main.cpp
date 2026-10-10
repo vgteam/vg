@@ -37,6 +37,7 @@ void help_construct(char** argv) {
          << "  -z, --region-size N    variants per region to parallelize [1024]" << endl
          << "  -t, --threads N        use N threads to construct graph [numCPUs]" << endl
          << "  -S, --handle-sv        include structural variants in construction of graph." << endl
+         << "                         (implies --flat-alts)" << endl
          << "  -I, --insertions FILE  a FASTA file containing insertion sequences "<< endl
          << "                         (referred to in VCF) to add to graph." << endl
          << "  -f, --flat-alts        don't chop up alternate alleles from input VCF" << endl
@@ -152,6 +153,7 @@ int main_construct(int argc, char** argv) {
 
         case 'S':
             constructor.do_svs = true;
+            constructor.flat = true;
             break;
 
         case 'I':

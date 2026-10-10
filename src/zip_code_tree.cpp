@@ -15,7 +15,7 @@ namespace vg {
 
 void ZipCodeTree::print_self(const vector<Seed>* seeds) const {
     tree_item_type_t last_type = CHAIN_START;
-    for (const tree_item_t item : zip_code_tree) {
+    for (const tree_item_t& item : zip_code_tree) {
         if (item.get_type() == SEED) {
             if (last_type == SEED) {
                 // need an extra space because no edges to do padding
@@ -1447,7 +1447,7 @@ auto ZipCodeTree::seed_iterator::operator++() -> seed_iterator& {
     if (cyclic_snarl_nestedness > 0) {
 #ifdef debug_parse
         std::cerr << "Reversing direction in cyclic snarl at seed "
-                  << current_item.get_value() << std::endl;
+                  << current_item().get_value() << std::endl;
 #endif
         // We're currently going right to left, which means we just finished
         // our first traversal starting from this seed. Need to also do a

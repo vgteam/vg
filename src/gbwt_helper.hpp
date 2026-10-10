@@ -5,6 +5,7 @@
  * Utility classes and functions for working with GBWT.
  */
 
+#include <unordered_set>
 #include <vector>
 
 #include "position.hpp"
@@ -266,6 +267,42 @@ void copy_reference_samples(const gbwt::GBWT& source, gbwt::GBWT& destination);
 void copy_reference_samples(const PathHandleGraph& source, gbwt::GBWT& destination);
 
 //------------------------------------------------------------------------------
+
+/// Append the nodes of `origin_fragment` onto `last_fragment`, joining the end
+/// of a haplotype back to its start. The two vectors must be distinct.
+///
+/// Linearizing a circular sequence drops a single adjacency, the one connecting
+/// the end of the sequence to its start. Appending the origin fragment onto the
+/// last fragment restores it. For an unfragmented haplotype the origin and the
+/// last fragment are the same path, so it is appended to itself.
+void append_wrap_fragment(gbwt::vector_type& last_fragment, const gbwt::vector_type& origin_fragment);
+
+/// Rebuild `source` into a new GBWT in which every haplotype on one of the named
+/// `contigs` has its origin (first) fragment appended onto its last fragment
+/// (see `append_wrap_fragment`), restoring the adjacency that linearization drops
+/// from a circular sequence. All other paths are copied verbatim, and the
+/// metadata and the reference sample tag are preserved.
+///
+/// Fragments are grouped into haplotypes using `gbwt::FragmentMap`, which groups
+/// by (sample, contig, phase) and orders fragments by their position along the
+/// contig. Every fragment of a haplotype therefore lies on the same contig, and
+/// wrapping affects only the last fragment. This means fragmented haplotypes are
+/// handled correctly: the wrap joins the true end back to the true start, rather
+/// than looping an interior fragment onto itself.
+///
+/// The origin fragment must contain contig position 0, identified by count 0.
+/// VCF-built GBWTs store a dense 0-based fragment identifier in the count field,
+/// while GFA W-line GBWTs store the genomic start offset, but in both cases the
+/// origin fragment has count 0. If a named contig has a haplotype whose origin
+/// fragment is missing (the start was truncated out of the graph), this is an
+/// error, as there is no origin node to wrap onto.
+///
+/// The tail of each wrapped haplotype is assumed to be the true contig end.
+/// A truncated end cannot be detected, because the metadata stores no path end
+/// coordinate (the GFA W-line end is recomputed as count + length when writing).
+/// If the end was truncated, the wrap edge connects the last remaining node to
+/// the origin.
+gbwt::GBWT wrap_haplotype_paths(const gbwt::GBWT& source, const std::unordered_set<std::string>& contigs);
 
 /// Transform the paths into a GBWT index. Primarily for testing.
 gbwt::GBWT get_gbwt(const std::vector<gbwt::vector_type>& paths);

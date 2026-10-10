@@ -1,0 +1,14 @@
+H	VN:Z:1.0
+S	1	AAAAAAAA
+S	2	CCCCCCCC
+S	3	GGGGGGGG
+S	4	TTTTTTTT
+S	5	ACACACAC
+P	x	2+,3+,5+	*
+P	a#1#y0	1+,2+,3+,5+	*
+P	a#2#y1	2+,4+,5+	*
+L	1	+	2	+	0M
+L	2	+	3	+	0M
+L	2	+	4	+	0M
+L	3	+	5	+	0M
+L	4	+	5	+	0M

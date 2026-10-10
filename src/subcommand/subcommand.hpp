@@ -39,7 +39,7 @@
  *         main_frobnicate);
  * 
  * All src/subcommand/{subcommand}_main.cpp files must pass the checks
- * (formatting etc.) in scripts/check_options.py as part of an automated test.
+ * (formatting etc.) in scripts/lint.py as part of an automated test.
  */
  
 #include <map>

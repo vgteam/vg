@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <vector>
 #include <list>
+#include <type_traits>
 #include <unordered_map>
 #include <algorithm>
 
@@ -119,6 +120,10 @@ namespace vg {
         // annotation interface
         // TODO: add List and Struct from https://github.com/protocolbuffers/protobuf/blob/master/src/google/protobuf/struct.proto
         enum anno_type_t {Null = 0, Double = 2, Bool = 3, String = 4};
+        /// Function to get the right tag to use to look for an annotation of a
+        /// particular type.
+        template<typename AnnotationType>
+        static anno_type_t anno_type_tag();
         void set_annotation(const string& annotation_name);
         void set_annotation(const string& annotation_name, double value);
         void set_annotation(const string& annotation_name, bool value);
@@ -135,6 +140,71 @@ namespace vg {
         vector<uint32_t> _start;
         map<string, pair<anno_type_t, void*>> _annotation;
     };
+
+    template<typename AnnotationType>
+    multipath_alignment_t::anno_type_t multipath_alignment_t::anno_type_tag() {
+        if constexpr (std::is_same<AnnotationType, bool>::value) {
+            return multipath_alignment_t::Bool;
+        } else if constexpr (std::is_arithmetic<AnnotationType>::value) {
+            return multipath_alignment_t::Double;
+        } else if constexpr (std::is_same<AnnotationType, std::string>::value) {
+            return multipath_alignment_t::String;
+        } else {
+            // On older GCC, static asserts get evaluated whether or not
+            // constexpr flow control actually reaches them. See
+            // https://stackoverflow.com/a/76534944 and the new example added
+            // in https://cplusplus.github.io/CWG/issues/2518.html.
+            //
+            // TODO: Once we drop GCC below 13 we can static_assert(false).
+            static_assert(std::is_same<AnnotationType, bool>::value ||
+                          std::is_arithmetic<AnnotationType>::value ||
+                          std::is_same<AnnotationType, std::string>::value,
+                          "Unimplemented annotation type");
+        }
+    }
+
+    // Overload the same annotation interface as is used with Protobuf types.
+
+    template<typename AnnotationType>
+    inline void set_annotation(multipath_alignment_t& annotated, const string& name, const AnnotationType& annotation) {
+        annotated.set_annotation(name, annotation);
+    }
+
+    template<typename AnnotationType>
+    inline void set_annotation(multipath_alignment_t* annotated, const string& name, const AnnotationType& annotation) {
+        set_annotation(*annotated, name, annotation);
+    }
+
+    inline void clear_annotation(multipath_alignment_t& annotated, const string& name) {
+        annotated.clear_annotation(name);
+    }
+
+    inline void clear_annotation(multipath_alignment_t* annotated, const string& name) {
+        clear_annotation(*annotated, name);
+    }
+
+    inline bool has_annotation(const multipath_alignment_t& annotated, const string& name) {
+        return annotated.has_annotation(name);
+    }
+
+    inline bool has_annotation(const multipath_alignment_t* annotated, const string& name) {
+        return has_annotation(*annotated, name);
+    }
+
+    template<typename AnnotationType>
+    inline AnnotationType get_annotation(const multipath_alignment_t& annotated, const string& name) {
+        auto anno = annotated.get_annotation(name);
+        auto wanted_tag = multipath_alignment_t::anno_type_tag<AnnotationType>();
+        if (anno.first != wanted_tag) {
+            throw std::invalid_argument("Cannot read annotation as " + std::string(typeid(AnnotationType).name()) + ": " + name);
+        }
+        return *((const AnnotationType*) anno.second);
+    }
+
+    template<typename AnnotationType>
+    inline AnnotationType get_annotation(const multipath_alignment_t* annotated, const string& name) {
+        return get_annotation<AnnotationType>(*annotated, name);
+    }
 
     string debug_string(const connection_t& connection);
     string debug_string(const subpath_t& subpath);

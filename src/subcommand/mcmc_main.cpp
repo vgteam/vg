@@ -29,6 +29,7 @@ using namespace vg::subcommand;
 void help_mcmc(char** argv) {
     cerr << "usage: " << argv[0] << " mcmc [options] multipath_alns.mgam graph.vg sites.snarls > graph_with_paths.vg" << endl
          << "Finds haplotypes based on reads using MCMC methods" << endl
+         << "DEPRECATED: known to have issues but not under development" << endl
          << endl
          << "basic options:" << endl
          << "  -i, --iteration-number INT  run mcmc_genotyper with INT iterations" << endl
@@ -260,6 +261,6 @@ int main_mcmc(int argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_mcmc("mcmc", "find haplotypes based on reads using MCMC methods", DEVELOPMENT, main_mcmc);
+static Subcommand vg_mcmc("mcmc", "find haplotypes based on reads using MCMC methods", DEPRECATED, main_mcmc);
 
 

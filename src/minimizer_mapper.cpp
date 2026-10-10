@@ -732,7 +732,7 @@ vector<Alignment> MinimizerMapper::map_from_extensions(Alignment& aln) {
             }
             // Could this cluster finish out a supplementary alignment?
             return (total_overlap <= 2 * max_supplementary_separation && 
-                    max<int64_t>(cluster_intervals.total_size() - total_overlap, 0) >= min_supplementary_read_coverage);
+                    max<int64_t>(cluster_intervals.total_size() - total_overlap, 0) >= min_supplementary_filter_size_proportion * min_supplementary_size);
         }, cluster_coverage_threshold, min_extensions, max_extensions, rng, [&](size_t cluster_num, size_t item_count, bool escaped_threshold) -> bool {
             // Handle sufficiently good clusters in descending coverage order
             
@@ -903,7 +903,7 @@ vector<Alignment> MinimizerMapper::map_from_extensions(Alignment& aln) {
             }
             // Could this cluster finish out a supplementary alignment?
             return (total_overlap <= 2 * max_supplementary_separation && 
-                    max<int64_t>(extension_intervals.total_size() - total_overlap, 0) >= min_supplementary_read_coverage);
+                    max<int64_t>(extension_intervals.total_size() - total_overlap, 0) >= min_supplementary_filter_size_proportion * min_supplementary_size);
         },
         extension_set_score_threshold, min_extension_sets, max_alignments, rng, [&](size_t extension_num, size_t item_count, bool escaped_threshold) -> bool {
             // This extension set is good enough.
@@ -1000,6 +1000,12 @@ vector<Alignment> MinimizerMapper::map_from_extensions(Alignment& aln) {
            
             // Have a function to process the best alignments we obtained
             auto observe_alignment = [&](Alignment& aln) {
+                
+                if (find_supplementaries) {
+                    auto interval = aligned_interval(aln);
+                    current_read_coverage.add(interval.first, interval.second);
+                }
+                
                 alignments.emplace_back(std::move(aln));
 
                 if (track_provenance) {
@@ -2797,14 +2803,15 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
             }
         }
         
-        //Annotate top pair with its fragment distance, properly-paired-ness, fragment length distrubution, and secondary scores
+        // Annotate top pair with its fragment distance, properly-paired-ness, fragment length distrubution, and secondary scores
         bool properly_paired = distances.front() == std::numeric_limits<int64_t>::max() ? false :
             (std::abs(distances.front()-fragment_length_distr.mean()) <= 6.0*fragment_length_distr.std_dev()) ;
         string distribution = "-I " + to_string(fragment_length_distr.mean()) + " -D " + to_string(fragment_length_distr.std_dev());
         for (auto r : {0, 1}) {
             set_annotation(mappings[r].front(), "fragment_length", distance_to_annotation(distances.front()));
             set_annotation(mappings[r].front(), "proper_pair", properly_paired);
-            set_annotation(mappings[r].front(),"fragment_length_distribution", distribution);
+            // GAM actually has a fragment_length_distribution field.
+            mappings[r].front().set_fragment_length_distribution(distribution);
             set_annotation(mappings[r].front(),"secondary_scores", scores);
         }
     }
@@ -3659,7 +3666,8 @@ MinimizerMapper::identify_supplementary_alignments(vector<std::array<vector<Alig
             auto& read_suppl_candidates = candidates[r];
 
             auto supplementary_idxs = identify_supplementaries(read_suppl_candidates, min_supplementary_read_coverage, 
-                                                               max_supplementary_separation, min_supplementary_score_fraction, 
+                                                               max_supplementary_separation, max_supplementary_overlap, 
+                                                               max_supplementary_uncovered_end, min_supplementary_score_fraction, 
                                                                min_supplementary_size, 0);
             
             if (!supplementary_idxs.empty()) {
@@ -3678,12 +3686,12 @@ MinimizerMapper::identify_supplementary_alignments(vector<std::array<vector<Alig
                 // Translate back from vector indexes to alignment indexes
                 auto& read_supplementaries = supplementaries[r];
                 for (auto i : supplementary_idxs) {
-                    if (i <= paired_suppl_source.size()) {
+                    if (i <= paired_suppl_source[r].size()) {
                         const auto& source = paired_alignments[paired_suppl_source[r][i - 1]][r];
                         read_supplementaries.push_back({source.fragment, source.alignment});
                     }
                     else {
-                        const auto& source = unpaired_alignments[unpaired_suppl_source[r][i - paired_suppl_source.size() - 1]];
+                        const auto& source = unpaired_alignments[unpaired_suppl_source[r][i - paired_suppl_source[r].size() - 1]];
                         read_supplementaries.push_back({source.fragment, source.alignment});
                     }
                 }
@@ -3802,7 +3810,8 @@ vector<Alignment> MinimizerMapper::identify_supplementary_alignments(vector<Alig
         }
 
         auto supplementary_idxs = identify_supplementaries(alignments, min_supplementary_read_coverage, 
-                                                           max_supplementary_separation, min_supplementary_score_fraction, 
+                                                           max_supplementary_separation, max_supplementary_overlap, 
+                                                           max_supplementary_uncovered_end, min_supplementary_score_fraction, 
                                                            min_supplementary_size, primary_idx);
 
         if (!supplementary_idxs.empty()) {

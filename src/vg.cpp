@@ -4442,8 +4442,8 @@ void VG::to_dot(ostream& out,
         // Work out what path symbols belong on what edges
         function<void(const Path&)> lambda = [this, &picts, &colors, &symbols_for_edge, &ascii_labels](const Path& path) {
             // Make up the path's label
-            string path_label = ascii_labels ? picts.hashed_char(path.name()) : picts.hashed(path.name());
-            string color = colors.hashed(path.name());
+            string path_label = ascii_labels ? picts.hashed_char(Paths::strip_subrange(path.name())) : picts.hashed(Paths::strip_subrange(path.name()));
+            string color = colors.hashed(Paths::strip_subrange(path.name()));
             for (int i = 0; i < path.mapping_size(); ++i) {
                 const Mapping& m1 = path.mapping(i);
                 if (i < path.mapping_size()-1) {
@@ -4674,8 +4674,8 @@ void VG::to_dot(ostream& out,
         function<void(const Path&)> lambda =
             [this,&pathid,&out,&picts,&colors,show_paths,walk_paths,show_mappings,&path_starts,&ascii_labels]
             (const Path& path) {
-            string path_label = ascii_labels ? picts.hashed_char(path.name()) : picts.hashed(path.name());
-            string color = colors.hashed(path.name());
+            string path_label = ascii_labels ? picts.hashed_char(Paths::strip_subrange(path.name())) : picts.hashed(Paths::strip_subrange(path.name()));
+            string color = colors.hashed(Paths::strip_subrange(path.name()));
             path_starts[path.name()] = pathid;
             if (show_paths) {
                 for (int i = 0; i < path.mapping_size(); ++i) {

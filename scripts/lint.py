@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Check that command line options are correctly registered.
+"""Check that options and subcommands are correctly registered.
 
-Run with scripts/check_options.py
+Run with scripts/lint.py
 
 ## Summary
 
@@ -13,121 +13,12 @@ There are a lot of rules; this script has *strong* opinions about how
 options should appear, though I've been flexible about valid
 variations. If something looks off, a detailed message will be
 printed to stdout. If that message doesn't make sense, something
-might've been ignored due to a wrong format, so check "Format".
+might've been ignored due to a wrong format. Check CONTRIBUTING.md.
 If it still doesn't make sense, ping @faithokamoto
 (if I'm still here) and/or open an issue on GitHub.
 
-## Checks
-
-### File as a whole
-
-The file is processed four times in an attempt to extract
-the four option sets: helptext, long_options[], getopt_long() string,
-and switch(c) block. If any of these processes run into completely
-unusable formatting, such as some cases of duplicate options that
-simply can't be stored in my data structures, a ValueError is raised
-and printed to stdout. No other checks are performed.
-
-If you get one of these errors, then, you might have to
-fix multiple things in the file before the script can run well.
-
-Checks performed on the *file as a whole*.
-
-1. The help options (-h, -?) must be present in the helptext,
-   getopt string, and the switch block, and must not take an
-   argument. In the switch block, they must exit/return/abort.
-   (It has at least one of the keywords in `NON_WORK_WORDS`)
-2. The default case in the switch block must exit/return/abort.
-3. All options in the getopt string must be in long_options[].
-4. All options in the switch block must be in long_options[].
-
-While long_options[], the getopt string, and the switch block
-must have the same option set, the helptext is allowed to be
-missing some options (e.g. deprecated/developer-only options).
-
-Also -? should appear only in the getopt string and the switch block,
-and not in long_options[] or the helptext.
-
-### Each option separately
-
-Longform options are pulled from the helptext and long_options[]
-
-1. All longform options must be in long_options[]
-2. The shortform option must be in the getopt string
-   (if not an ALL_CAPS variable name), and the switch block.
-3. The long_options[] entry must be either `no_argument`
-   or `required_argument`.
-4. The long_options[] entry must match the helptext entry, both
-    in whether it takes an argument and in its shortform, if the
-    latter is a single character (not ALL_CAPS variable name).
-5. If the longform option has a single-character shortform,
-   (i.e. not an ALL_CAPS variable name), it must be in the
-   getopt string, which must correctly indicate whether it
-   takes an argument via using a trailing colon.
-6. The long_options[] entry must match the switch block entry,
-   in whether it takes an argument.
-
-Note that only the first of these which fails will be printed,
-so if you see a message about a missing long_options[] entry,
-you may have to do multiple runs/fixes to see all the problems.
-
-### Subcommands all together
-
-All subcommand names which aren't skipped must appear in the
-autocomplete files (AUTOCOMP_FILES), and those files also can't
-have any subcommands which don't exist.
-
-Autocompleted subcommands detected via a line like
-    opts="name1 name2 etc."
-
-## Format
-
-- helptext: within the `help_<command>()` function,
-  options must be printed with `"  -<short>, --<long> <arg>  <desc>"`
-  (the description is ignored, and the shortform and argument are optional).
-  The longform option must be composed of alphanumeric characters
-  and hyphens, and the argument must be in all-caps.
-  In addition, there must be a "usage:" line somewhere.
-  
-  Option helptext is not allowed to be over 80 characters long,
-  and all descriptions must line up properly. If there are more
-  than 80 characters between the `"`s, but that's because you
-  have some long default value, just stick that bit on a new line
-  of code without changing the printed text. Check out
-  `filter_main.cpp`'s `--batch-size` for an example.
-
-- long_options[]: within the `long_options[]` array,
-  must be an array of `{"longform", arg_type, 0, shortform}`
-  where `arg_type` is either `no_argument` or `required_argument`.
-  The longform option must be a string, and the shortform
-  must be a single character (NOT a bare non-quoted integer)
-  or an ALL_CAPS variable name. Note that ALL_CAPS variables
-  must be before the long_options[] array as constexpr ints.
-
-  Shortforms may repeat, and the first longform is retained.
-  This is to allow longform aliases.
-
-- getopt_long() string: within the short option string,
-  a string of single-character shortform options.
-  If and only if a shortform option takes an argument,
-  it must be followed by a colon.
-
-- switch(c) block: within the switch block handling options,
-  each case must be of the form `case <shortform>:` or `default:`.
-  The shortform must be a single character or an ALL_CAPS variable name.
-  If the case takes an argument, it must use `optarg`.
-  If it *intentionally* doesn't work (e.g. is deprecated, calls `exit`)
-  it may or may not use `optarg`. Fallthroughs are handled.
-
-  An attempt is made to enforce the usage of `require_exists()`,
-  `ensure_writable()`, and `set_thread_count()`.
-
-For all checks, commented-out lines are ignored.
-(Though multiline comments aren't handled correctly.)
-
-In addition, the logic to figure out when we're inside of a block
-marked by {} assumes that there is only one curly brace of each
-type maximum per line. }} might compile but this script will complain.
+Note that you may need to do multiple rounds of fixes
+if later errors aren't checked because something earlier failed.,
 
 ## Attribution
 
@@ -146,15 +37,21 @@ SUBCMD_DIR = 'src/subcommand'
 """Where to search for subcommand files."""
 SUBCMD_END = '_main.cpp'
 """Suffix for subcommand files."""
-SKIP_FILES = {'test_main.cpp', 'help_main.cpp'}
-"""Files to skip in the consistency check."""
+SKIP_SUBCMDS = {'test', 'help'}
+"""Subcommands to skip in the consistency check."""
 AUTOCOMP_FILES = ['autocomp.bash', 'autocomplete.sh']
 """Where to double-check subcommand autocomplete existence."""
+MANPAGE_HEADER_FILE = 'doc/vgmanmd.desc.md'
+"""File with header added to the manpage."""
+MANPAGE_MAKER_FILE = 'doc/vgmanmd.py'
+"""Script that generates an updated manpage."""
 
 HELPTEXT_FUNCTION = r'void\shelp_\w+\s*\(char\*\* argv.*\) \{'
 """Regex to match the start of a helptext function."""
 HELP_DESC = 'print this help message to stderr and exit'
 """Expected description for the --help option."""
+VG_SUBCMD_REGEX = r'vg ([-\w]+)'
+"""REGEX to match `vg <subcommand>`, e.g. vg autoindex."""
 
 ANNOTATE_EXCEPTIONS = {'xg-name', 'bed-name'}
 """annotate_main.cpp lets these appear twice in helptext."""
@@ -504,7 +401,7 @@ def extract_long_options(text: str) -> Dict[str, OptionInfo]:
 
                 try:
                     # Check if shortform is a number
-                    shortform = int(shortform)
+                    int(shortform)
                     errors.append(f"--{longform} has int shortform {shortform} "
                                   "in long_options[]; use a char or ALL_CAPS "
                                   "variable instead")
@@ -824,9 +721,10 @@ def check_subcommand_file(filepath: str) -> bool:
         # Look up the longform option in the helptext, if it is there
         if longform in help_opts:
             cur_help = help_opts[longform]
-            for cur_error in cur_help.errors:
-                problem(f"{filepath} has error in helptext for --{longform}: "
-                        f"{cur_error}")
+            if cur_help.errors is not None:
+                for cur_error in cur_help.errors:
+                    problem(f"{filepath} has error in helptext for "
+                            f"--{longform}: {cur_error}")
         else:
             cur_help = OptionInfo()
 
@@ -838,23 +736,29 @@ def check_subcommand_file(filepath: str) -> bool:
         # Get the long_options[] entry, which is treated as truth
         cur_long = long_opts[longform]
         should_str = 'should' if cur_long.takes_argument else "shouldn't"
-        
-        # Check 2: this option appears in the getopt string & switch block
-        if len(cur_long.shortform) == 1 :
-            if cur_long.shortform not in getopt_opts:
-                problem(f"--{longform}'s -{cur_long.shortform} "
-                        f"should be in getopt string")
+
+        if cur_long.shortform is None:
+            problem(f"--{longform} has no shortform in long_options[] array. "
+                    "This is probably a problem with the checker script.")
+            continue
+        else: 
+            # Check 2: this option appears in the getopt string & switch block
+            if len(cur_long.shortform) == 1 :
+                if cur_long.shortform not in getopt_opts:
+                    problem(f"--{longform}'s -{cur_long.shortform} "
+                            f"should be in getopt string")
+                    continue
+                else:
+                    cur_getopt = getopt_opts.pop(cur_long.shortform)
+            if cur_long.shortform not in switch_opts:
+                problem(f"--{longform}'s -{cur_long.shortform} is "
+                        "not used in the switch block")
                 continue
             else:
-                cur_getopt = getopt_opts.pop(cur_long.shortform)
-        if cur_long.shortform not in switch_opts:
-            problem(f"--{longform}'s -{cur_long.shortform} is "
-                    "not used in the switch block")
-            continue
-        else:
-            cur_switch = switch_opts.pop(cur_long.shortform)
-            for e in cur_switch.errors:
-                problem(f"{e}")
+                cur_switch = switch_opts.pop(cur_long.shortform)
+                if cur_switch.errors is not None:
+                    for e in cur_switch.errors:
+                        problem(f"{e}")
 
         # Check 3: long_options uses only no_argument or required_argument
         if cur_long.takes_argument is None:
@@ -912,6 +816,29 @@ def check_subcommand_file(filepath: str) -> bool:
 
     return is_ok
 
+def is_subcommand_deprecated(filepath: str) -> bool:
+    """Check if a subcommand is deprecated.
+    
+    Deprecated subcommands has DEPRECATED in the
+    Subcommand declaration line.
+    
+    Parameters
+    ----------
+    filepath : str
+        The path to the file to check.
+
+    Returns
+    -------
+    bool
+        True if deprecated, otherwise False.
+    """
+
+    with open(filepath) as file:
+        for line in file:
+            if "Subcommand" in line and "DEPRECATED" in line:
+                return True
+    return False
+
 def check_autocomplete_file(filepath: str, subcommands_truth: Set[str]) -> bool:
     """Check whether the autocompleted subcommands match the real list.
     
@@ -939,12 +866,11 @@ def check_autocomplete_file(filepath: str, subcommands_truth: Set[str]) -> bool:
         Gross formatting issues, such as lacking an opts line.
     """
 
-    seen_opts = False
     with open(filepath) as file:
         for line in file:
             if "opts=" in line:
                 seen_opts = True
-                # Turn `opts="name1 name2 etc."` into `name1 name2 etc.``
+                # Turn `opts="name1 name2 etc."` into `name1 name2 etc.`
                 seen_cmds = line.strip().removeprefix('opts=').strip('"')
                 seen_set = set(seen_cmds.split())
 
@@ -954,27 +880,145 @@ def check_autocomplete_file(filepath: str, subcommands_truth: Set[str]) -> bool:
                 if seen_not_truth or truth_not_seen:
                     # Something's off. Complain.
                     for cmd in seen_not_truth:
-                        print(f"{filepath}: {cmd} doesn't actually exist")
+                        print(f"{filepath}: vg {cmd} doesn't actually exist")
                     for cmd in truth_not_seen:
-                        print(f"{filepath}: {cmd} exists but isn't here")
+                        print(f"{filepath}: vg {cmd} exists but isn't here")
                     return False
                 else:
                     return True
-    if not seen_opts:
-        raise ValueError(f'No opts="cmds" line found in {filepath}')
+    raise ValueError(f'No opts="cmds" line found in {filepath}')
+
+def check_manpage_header(filepath: str, subcommands_truth: Set[str]) -> bool:
+    """Check whether the manpage header includes all subcommands.
+    
+    Each subcommand must have a link linking to its section, i.e.
+        [`vg autoindex`](#autoindex)
+
+    Parameters
+    ----------
+    filepath : str
+        The path to the file to check.
+    subcommand_truth : Set[str]
+        The subcommands actually observed.
+
+    Returns
+    -------
+    bool
+        True if the file is OK, and False if it
+        contains problems.
+    """
+
+    ok_so_far = True
+
+    seen_set = set()
+    subcmd_pattern = re.compile(VG_SUBCMD_REGEX)
+
+    with open(filepath) as file:
+        for line in file:
+            # Does this line have a subcommand in it?
+            match = re.search(subcmd_pattern, line)
+            if match:
+                cur_cmd = match.group(1)
+                seen_set.add(cur_cmd)
+
+                correct_link = f'[`vg {cur_cmd}`](#{cur_cmd})'
+                if not correct_link in line:
+                    print(f'vg {cur_cmd} link should be formatted as '
+                          f'{correct_link} in {filepath}')
+                    ok_so_far = False
+
+    # What doesn't match?
+    seen_not_truth = seen_set - subcommands_truth
+    truth_not_seen = subcommands_truth - seen_set
+    if seen_not_truth or truth_not_seen:
+        # Something's off. Complain.
+        for cmd in seen_not_truth:
+            print(f"{filepath}: vg {cmd} doesn't actually exist "
+                   "or it's deprecated")
+        for cmd in truth_not_seen:
+            print(f"{filepath}: vg {cmd} exists but isn't here")
+        return False
+    else:
+        return ok_so_far
+
+def check_manpage_maker(filepath: str, subcommands_truth: Set[str]) -> bool:
+    """Check whether the manpage maker script includes all subcommands.
+    
+    Each subcommand must be in the "cmds" list, which starts `cmds =`.
+
+    Parameters
+    ----------
+    filepath : str
+        The path to the file to check.
+    subcommand_truth : Set[str]
+        The subcommands actually observed.
+
+    Returns
+    -------
+    bool
+        True if the file is OK, and False if it
+        contains problems.
+    
+    Raises
+    ------
+    ValueError
+        Gross formatting issues, such as lacking a "cmds" array.
+    """
+
+    with open(filepath) as file:
+        for line in file:
+            if "cmds = " in line:
+                # Turn `cmds = ['name1', 'name2', ...` into `name1 name2 etc.`
+                total_list = line.strip().removeprefix('cmds = ')
+                while not ']' in line:
+                    line = file.readline()
+                    total_list += line
+                seen_set = set(''.join([char for char in total_list
+                                        if not char in '[=\'",]']).split())
+
+                # What doesn't match?
+                seen_not_truth = seen_set - subcommands_truth
+                truth_not_seen = subcommands_truth - seen_set
+                if seen_not_truth or truth_not_seen:
+                    # Something's off. Complain.
+                    for cmd in seen_not_truth:
+                        print(f"{filepath}: vg {cmd} doesn't actually exist "
+                              "or it's deprecated")
+                    for cmd in truth_not_seen:
+                        print(f"{filepath}: vg {cmd} exists but isn't here")
+                    return False
+                else:
+                    return True
+    raise ValueError(f'No `cmds =` line found in {filepath}')
 
 if __name__ == "__main__":
     is_ok = True
-    subcmds_truth = set()
+    non_dep_subcmds = set()
+    deprecated_subcmds = set()
 
-    for base_name in os.listdir(SUBCMD_DIR):
-        if not base_name.endswith(SUBCMD_END) or base_name in SKIP_FILES:
+    for base_file_name in os.listdir(SUBCMD_DIR):
+        if not base_file_name.endswith(SUBCMD_END):
+            # Not a subcommand file
             continue
-        subcmds_truth.add(base_name.removesuffix(SUBCMD_END).replace('_', '-'))
-        full_name = os.path.join(SUBCMD_DIR, base_name)
-        is_ok = check_subcommand_file(full_name) and is_ok
-    
+
+        subcmd_name = base_file_name.removesuffix(SUBCMD_END).replace('_', '-')
+        full_file_name = os.path.join(SUBCMD_DIR, base_file_name)
+        if is_subcommand_deprecated(full_file_name):
+            deprecated_subcmds.add(subcmd_name)
+        else:
+            non_dep_subcmds.add(subcmd_name)
+
+        if subcmd_name in SKIP_SUBCMDS:
+            # We don't check the command-line options for this file
+            continue
+
+        is_ok = check_subcommand_file(full_file_name) and is_ok
+
+    all_subcmds = non_dep_subcmds | deprecated_subcmds
     for file_name in AUTOCOMP_FILES:
-        is_ok = check_autocomplete_file(file_name, subcmds_truth) and is_ok
+        is_ok = check_autocomplete_file(file_name, all_subcmds) and is_ok
+
+    is_ok = check_manpage_header(MANPAGE_HEADER_FILE, non_dep_subcmds) and is_ok
+    is_ok = check_manpage_maker(MANPAGE_MAKER_FILE, non_dep_subcmds) and is_ok
 
     sys.exit(0 if is_ok else 1)

@@ -21,6 +21,7 @@
 #include "../traversal_clusters.hpp"
 #include "../gref.hpp"
 #include "../integrated_snarl_finder.hpp"
+#include "../snarl_distance_index.hpp"
 #include "../io/save_handle_graph.hpp"
 #include <bdsg/overlays/overlay_helper.hpp>
 #include <vg/io/vpkg.hpp>
@@ -68,14 +69,15 @@ void help_paths(char** argv) {
          << "  -H, --haplotype-paths     select haplotype paths" << endl
          << "      --exclude-sample STR  exclude paths belonging to this sample" << endl
          << "graph reference computation:" << endl
-         << "  -u, --compute-gref        compute graph reference path cover" << endl
+         << "  -u, --compute-gref        compute graph reference path cover, written as" << endl
+         << "                            a gref_ copy of each reference path plus the" << endl
+         << "                            fragments hanging off it (GRCh38#0#chr1 gives" << endl
+         << "                            gref_GRCh38#0#chr1, gref_GRCh38#0#chr1_1_alt...)" << endl
          << "                            (use -Q to select reference paths)" << endl
          << "  -l, --min-gref-len N      minimum gref fragment length [50]" << endl
-         << "  -N, --gref-sample STR     create gref paths under a new sample" << endl
-         << "                            (copies base paths to new sample," << endl
-         << "                            then adds gref paths)." << endl
-         << "                            if unspecified, paths get added to target sample." << endl
-         << "      --gref-segs FILE      write gref segment table to FILE" << endl
+         << "      --gref-segs FILE      write a table of the gref fragments to FILE, one" << endl
+         << "                            row each, with a '#' header naming the columns." << endl
+         << "                            Columns 1-6 are a BED6 on the source haplotype" << endl
          << "configuration:" << endl
          << "  -o, --overlay             apply a ReferencePathOverlayHelper to the graph" << endl
          << "  -t, --threads N           number of threads to use [all available]" << endl
@@ -150,7 +152,6 @@ int main_paths(int argc, char** argv) {
     bool progress = false;
     bool compute_gref = false;
     int64_t min_gref_length = 50;
-    string gref_sample;
     string gref_segments_file;
     string exclude_sample;
 
@@ -199,7 +200,6 @@ int main_paths(int argc, char** argv) {
             // Gref options
             {"compute-gref", no_argument, 0, 'u'},
             {"min-gref-len", required_argument, 0, 'l'},
-            {"gref-sample", required_argument, 0, 'N'},
             {"gref-segs", required_argument, 0, OPT_GREF_SEGMENTS},
             {"exclude-sample", required_argument, 0, OPT_EXCLUDE_SAMPLE},
 
@@ -207,7 +207,7 @@ int main_paths(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "h?LXv:x:g:Q:VEMCFAS:drnaGRHp:coTq:t:ul:N:",
+        c = getopt_long (argc, argv, "h?LXv:x:g:Q:VEMCFAS:drnaGRHp:coTq:t:ul:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -349,10 +349,6 @@ int main_paths(int argc, char** argv) {
             min_gref_length = parse<int64_t>(optarg);
             break;
 
-        case 'N':
-            gref_sample = optarg;
-            break;
-
         case OPT_PROGRESS:
             progress = true;
             break;
@@ -486,9 +482,23 @@ int main_paths(int argc, char** argv) {
     
     // Handle gref computation before other operations
     if (compute_gref && graph) {
+        if (overlay) {
+            // The overlay wrapper is read-only, so -o would otherwise defeat
+            // --compute-gref and report it as a problem with the input file.
+            logger.error() << "--compute-gref cannot be combined with -o/--overlay,"
+                           << " which wraps the graph in a read-only overlay" << std::endl;
+            return 1;
+        }
         MutablePathMutableHandleGraph* mutable_graph = dynamic_cast<MutablePathMutableHandleGraph*>(graph);
         if (!mutable_graph) {
-            logger.error() << "graph cannot be modified for gref computation" << std::endl;
+            // --compute-gref writes new paths into the graph, so read-only formats
+            // (GBZ, XG) cannot be used directly no matter how they were loaded.
+            logger.error() << "--compute-gref writes paths into the graph, but " << graph_file
+                           << " is in a read-only format (such as GBZ or XG)." << std::endl
+                           << "         Convert it to a mutable format first, for example:"
+                           << std::endl
+                           << "           vg convert -p " << graph_file << " > graph.pg" << std::endl
+                           << "           vg paths -x graph.pg --compute-gref ..." << std::endl;
             return 1;
         }
 
@@ -496,8 +506,9 @@ int main_paths(int argc, char** argv) {
         unordered_set<path_handle_t> ref_paths;
         graph->for_each_path_handle([&](path_handle_t ph) {
             string path_name = graph->get_path_name(ph);
-            // Skip gref paths (they match prefixes but shouldn't be used as references)
-            if (GrefCover::is_gref_name(path_name)) {
+            // Skip anything already in the gref namespace: a previous cover is about to
+            // be cleared, and a gref path can never be the base of a new one.
+            if (GrefCover::is_gref_derived(path_name)) {
                 return;
             }
             if (path_name.compare(0, path_prefix.size(), path_prefix) == 0) {
@@ -513,29 +524,48 @@ int main_paths(int argc, char** argv) {
             return 1;
         }
 
-        // Compute snarls, biasing the cactus decomposition to root on the
-        // reference path endpoints (matching snarls_main.cpp).  Without this
-        // bias the snarl tree can root arbitrarily, producing backward-oriented
-        // top-level snarls that don't align with the reference.
+        // Weight the reference path endpoints so the decomposition roots its chains on them
+        // (matching snarls_main.cpp).  Without the bias the snarl tree roots arbitrarily and
+        // produces backward-oriented top-level snarls that do not align with the reference.
         std::unordered_map<nid_t, size_t> extra_node_weight;
-        constexpr size_t EXTRA_WEIGHT = 10000000000;
-        for (const path_handle_t& ph : ref_paths) {
-            if (!graph->is_empty(ph)) {
-                extra_node_weight[graph->get_id(graph->get_handle_of_step(graph->path_begin(ph)))] += EXTRA_WEIGHT;
-                extra_node_weight[graph->get_id(graph->get_handle_of_step(graph->path_back(ph)))] += EXTRA_WEIGHT;
+        {
+            constexpr size_t EXTRA_WEIGHT = 10000000000;
+            for (const path_handle_t& ph : ref_paths) {
+                if (!graph->is_empty(ph)) {
+                    extra_node_weight[graph->get_id(graph->get_handle_of_step(graph->path_begin(ph)))] += EXTRA_WEIGHT;
+                    extra_node_weight[graph->get_id(graph->get_handle_of_step(graph->path_back(ph)))] += EXTRA_WEIGHT;
+                }
             }
         }
-        IntegratedSnarlFinder finder(*graph, extra_node_weight);
-        SnarlManager snarl_manager(std::move(finder.find_snarls_parallel()));
+        // The decomposition the cover is mapped onto: a distance index built with no
+        // distances at all, which is exactly the snarl decomposition and nothing more.
+        // This is the API new code should use -- the protobuf SnarlManager is on its way
+        // out -- and on chrY it is also cheaper (27 s vs 38 s for `vg snarls -T`).
+        //
+        // The same reference-endpoint weight bias is handed to the finder here.  Without it
+        // IntegratedSnarlFinder picks its chain spine on topology alone, which on graphs
+        // like test/nesting/mnp.gfa runs the top-level chain through the *alt* allele and
+        // buries reference nodes inside top-level snarls.
+        bdsg::SnarlDistanceIndex distance_index;
+        {
+            auto start_time = std::chrono::steady_clock::now();
+            IntegratedSnarlFinder finder(*graph, extra_node_weight);
+            fill_in_distance_index(&distance_index, graph, &finder,
+                                   /*size_limit=*/0,
+                                   /*only_top_level_chain_distances=*/true);
+            if (progress) {
+                cerr << "[vg paths] built the snarl decomposition in "
+                     << std::chrono::duration<double>(
+                            std::chrono::steady_clock::now() - start_time).count()
+                     << " s" << endl;
+            }
+        }
 
         // Compute and apply gref cover
         GrefCover cover;
-        if (!gref_sample.empty()) {
-            cover.set_gref_sample(gref_sample);
-        }
         cover.set_verbose(progress);
         cover.clear(mutable_graph);
-        cover.compute(graph, &snarl_manager, ref_paths, min_gref_length);
+        cover.compute(graph, &distance_index, ref_paths, min_gref_length);
 
         // Write gref segment table if requested
         if (!gref_segments_file.empty()) {
@@ -568,7 +598,8 @@ int main_paths(int argc, char** argv) {
 
     if (extract_as_gam || extract_as_gaf) {
         // Open up a GAM/GAF output stream
-        aln_emitter = vg::io::get_non_hts_alignment_emitter("-", extract_as_gaf ? "GAF" : "GAM", {}, get_thread_count(),
+        aln_emitter = vg::io::get_non_hts_alignment_emitter("-", extract_as_gaf ? "GAF" : "GAM", {},
+                                                            vg::get_thread_count(),
                                                             graph);
     }
     

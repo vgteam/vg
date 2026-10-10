@@ -290,6 +290,9 @@ def merge_vcf_chunks(out_dir, path_name, path_size, chunks, overwrite):
         run("tabix -f -p vcf {}".format(vcf_path + ".gz"))
 
 def main(args):
+    print("THIS SCRIPT IS DEPRECATED. It has become out of date.")
+    print("Please use toil-vg call or DeepVariant instead.")
+    print("https://github.com/vgteam/vg/wiki/SV-Genotyping-and-variant-calling")
     
     options = parse_args(args)
 
