@@ -50,7 +50,7 @@ For more in-depth explanations of tools and workflows, see the [general wiki pag
     - [`vg annotate`](#annotate): annotate a graph or alignments.
     - [`vg circularize`](#circularize): connect head and tail nodes to circularize paths.
     - [`vg clip`](#clip): remove variation from a graph.
-    - [`vg combine`](#combine): merge graphs into a combined graph. Useful for per-chromosome graphs.
+    - [`vg combine`](#combine): merge graphs holding fragments of the same paths (e.g. chunks of one chromosome) into one graph.
     - [`vg mask`](#mask): N-mask regions of a graph.
     - [`vg mod`](#mod): filter, transform, and edit the graph.
     - [`vg gbwt`](#gbwt): manipulate GBWTs and associated indexes. [wiki page](https://github.com/vgteam/vg/wiki/VG-GBWT-Subcommand)

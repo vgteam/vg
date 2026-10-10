@@ -91,10 +91,11 @@ rm -f test.vg test.xg
 
 vg construct -m 1000 -r small/xy.fa -v small/xy2.vcf.gz -R x -C -a 2> /dev/null | vg view -j - | sed s/_alt/alt/g | vg view -Jv - >w.vg
 vg index -x w.xg w.vg
-cat w.vg | vg paths -d -v - > part1.tmp
 vg find -x w.xg -Q alt > part2.tmp
-is "$(vg combine -c part1.tmp part2.tmp | vg paths -L -v - | wc -l)" "$(vg view -j w.vg | jq -c '.path[] | select(.name | contains("alt"))' | wc -l)" "pattern based path extraction works"
-rm -f w.xg w.vg part1.tmp part2.tmp
+# vg find -Q emits paths without the nodes they visit, so the result only loads
+# as a raw message stream (vg view -c), not as a graph.
+is "$(vg view -c part2.tmp | jq -c '.path[].name' | wc -l)" "$(vg view -j w.vg | jq -c '.path[] | select(.name | contains("alt"))' | wc -l)" "pattern based path extraction works"
+rm -f w.xg w.vg part2.tmp
 
 vg construct -r tiny/tiny.fa -v tiny/tiny.vcf.gz >t.vg
 vg index -x t.xg t.vg
