@@ -61,6 +61,16 @@ std::vector<std::string>& split_delims(const std::string &s, const std::string& 
 std::vector<std::string> split_delims(const std::string &s, const std::string& delims,
                                       size_t max_cuts = numeric_limits<size_t>::max());
 
+/// Split a string at every character found in `delims`, keeping empty fields, so that "a,,b"
+/// gives "a", "", "b", and "" gives one empty field. Appends to `elems`. Unlike split_delims,
+/// field positions are preserved, as positional formats such as VCF need.
+std::vector<std::string>& split_delims_keep_empty(const std::string& s, const std::string& delims,
+                                                  std::vector<std::string>& elems);
+
+/// Join strings with `delim` between each pair: the inverse of split_delims_keep_empty with
+/// `delim` as its only delimiter, for parts that do not contain `delim`.
+std::string join_delim(const std::vector<std::string>& parts, char delim);
+
 /// Check if a string starts with another string
 bool starts_with(const std::string& value, const std::string& prefix);
 /// Check if a string ends with another string

@@ -1,47 +1,38 @@
 #ifndef VG_GRAPH_CALLER_HPP_INCLUDED
 #define VG_GRAPH_CALLER_HPP_INCLUDED
 
+#include <atomic>
 #include <iostream>
 #include <algorithm>
+#include <array>
 #include <functional>
 #include <cmath>
 #include <limits>
 #include <unordered_set>
 #include <tuple>
+#include <gbwt/cached_gbwt.h>
 #include "handle.hpp"
+#include "linkage_model.hpp"
 #include "snarls.hpp"
 #include "traversal_finder.hpp"
+#include "anchor.hpp"
+#include "read_phasing.hpp"
+#include "regenotype.hpp"
 #include "snarl_caller.hpp"
+#include "symbolic_allele.hpp"
 #include "region.hpp"
 #include "zstdutil.hpp"
 #include "vg/io/alignment_emitter.hpp"
 #include "gref.hpp"
+#include "vcf_genotype_likelihoods.hpp"
 
 namespace vg {
+
+
 
 using namespace std;
 
 using vg::io::AlignmentEmitter;
-
-/// Special marker value for star alleles in genotype vectors.
-/// A star allele (*) represents a haplotype that spans a nested site in the
-/// parent but doesn't have a defined traversal at the child level.
-constexpr int STAR_ALLELE_MARKER = -2;
-
-/// Special marker value for missing alleles in genotype vectors.
-/// Used when a parent allele doesn't traverse a child snarl and star_allele
-/// mode is disabled. Outputs as '.' in VCF to maintain consistent ploidy.
-constexpr int MISSING_ALLELE_MARKER = -1;
-
-/// A set of traversals through a child snarl that are consistent with
-/// a single parent allele. Multiple traversals can exist if the child
-/// has internal variation within a shared region.
-using TraversalSet = vector<SnarlTraversal>;
-
-/// One TraversalSet per parent allele (index matches parent genotype).
-/// For a diploid parent with genotype [0,1], element 0 contains traversals
-/// consistent with parent allele 0, element 1 with parent allele 1.
-using ChildTraversalSets = vector<TraversalSet>;
 
 /**
  * GraphCaller: Use the snarl decomposition to call snarls in a graph
@@ -56,14 +47,20 @@ public:
 
     virtual ~GraphCaller();
 
-    /// Run call_snarl() on every top-level snarl in the manager.
-    /// For any that return false, try the children, etc. (when recurse_on_fail true)
-    /// Snarls are processed in parallel
+    /// Run call_snarl() on every top-level snarl in the manager, in parallel. Then call it on
+    /// children, as `recurse_type` says: those of every snarl (RecurseAlways), those of snarls
+    /// whose call returned false (RecurseOnFail), or none (RecurseNever), and so on down.
+    ///
+    /// By default each snarl is its own parallel job. After set_snarl_batching(w), the top-level
+    /// snarls are grouped into batches instead: a batch holds the snarls whose lower boundary
+    /// node ID falls in one window of w IDs, [k*w, (k+1)*w) for some k, each batch is one job,
+    /// and a job calls its snarls in node-ID order. Children are still one job each, started in
+    /// node-ID order.
     virtual void call_top_level_snarls(const HandleGraph& graph, RecurseType recurse_type = RecurseOnFail);
 
-    /// For every chain, cut it up into pieces using max_edges and max_trivial to cap the size of each piece
-    /// then make a fake snarl for each chain piece and call it.  If a fake snarl fails to call,
-    /// It's child chains will be recursed on (if selected)_
+    /// For every chain, cut it up into pieces using max_edges and max_trivial to cap the size of
+    /// each piece then make a fake snarl for each chain piece and call it.  If a fake snarl fails
+    /// to call, It's child chains will be recursed on (if selected)_
     virtual void call_top_level_chains(const HandleGraph& graph,
                                        size_t max_edges,
                                        size_t max_trivial,
@@ -74,6 +71,12 @@ public:
 
     /// toggle progress messages
     void set_show_progress(bool show_progress);
+
+    /// Batch call_top_level_snarls' parallel jobs by windows of `window_size` node IDs (see
+    /// call_top_level_snarls), so that snarls with nearby node IDs are called together, which
+    /// suits a SnarlCaller that loads its reads a window of node IDs at a time. 0, the default,
+    /// gives one job per snarl.
+    void set_snarl_batching(size_t window_size);
 
 protected:
 
@@ -88,678 +91,39 @@ protected:
     /// Our snarls
     SnarlManager& snarl_manager;
 
+    /// See set_snarl_batching.
+    size_t snarl_batch_window = 0;
+
     /// Toggle progress messages
     bool show_progress;
 };
 
-/**
- * Helper class that vcf writers can inherit from to for some common code to output sorted VCF
- */
-class VCFOutputCaller {
-public:
-    VCFOutputCaller(const string& sample_name);
+static void flip_snarl(Snarl& snarl) {
+    Visit v = snarl.start();
+    *snarl.mutable_start() = reverse(snarl.end());
+    *snarl.mutable_end() = reverse(v);
+}
 
-    virtual ~VCFOutputCaller();
+/// Look a reference path up in one of the per-caller maps without inserting on a miss:
+/// `operator[]` inserts, and these maps are read from worker threads.
+static inline size_t ref_offset_of(const map<string, size_t>& offsets, const string& path) {
+    auto it = offsets.find(path);
+    return it != offsets.end() ? it->second : 0;
+}
+static inline int ref_ploidy_of(const map<string, int>& ploidies, const string& path) {
+    auto it = ploidies.find(path);
+    return it != ploidies.end() ? it->second : 0;
+}
 
-    /// Write the vcf header (version and contigs and basic info)
-    virtual string vcf_header(const PathHandleGraph& graph, const vector<string>& contigs,
-                              const vector<size_t>& contig_length_overrides) const;
 
-    /// Add a variant to our buffer
-    /// Returns false if the variant line length exceeds VCFOutputCaller::max_vcf_line_length
-    bool add_variant(vcflib::Variant& var) const;
 
-    /// Sort then write variants in the buffer
-    /// snarl_manager needed if include_nested is true
-    void write_variants(ostream& out_stream, const SnarlManager* snarl_manager = nullptr);
 
-    /// Run vcffixup from vcflib
-    void vcf_fixup(vcflib::Variant& var) const;
 
-    /// Add a translation map
-    void set_translation(const unordered_map<nid_t, pair<string, size_t>>* translation);
 
-    /// Assume writing nested snarls is enabled
-    void set_nested(bool nested);
 
-    /// Enable post-genotyping merging of near-identical called ALT alleles, so that a 1/2 call of
-    /// two effectively-identical alleles collapses to 1/1 with a single ALT.  Uses the same
-    /// similarity metric and the same core-length gate as "vg deconstruct -L/--cluster-min-len" (a
-    /// length-weighted Jaccard, except that a pure deletion is scored against the site -- see
-    /// weighted_traversal_similarity).  The gate is applied to the alleles each tool emits, and
-    /// those sets differ, so the two can disagree at a given site:
-    /// similarity is >= threshold to merge, and min_len > 0 restricts merging to sites whose
-    /// core length reaches min_len bp (see allele_core_length).
-    /// A threshold of 1.0 (the default) disables merging entirely.
-    void set_allele_merge(double threshold, int64_t min_len);
 
-    /// The set of reference contigs that actually have a record.  Reads the sort keys of the
-    /// output buffer, so it costs nothing (no decompression) and does not need the snarl tree.
-    /// Only meaningful once calling is finished and before write_variants() drains the buffer.
-    unordered_set<string> get_output_contigs() const;
 
-    /// Remove ##contig lines whose ID is not in keep, leaving every other line alone.
-    /// A reference contig that produced no record is not worth declaring: with a gref cover
-    /// most contigs are fragments, and on a human chromosome a third of them carry nothing.
-    string prune_header_contigs(const string& header, const unordered_set<string>& keep) const;
 
-protected:
-
-    /// add a traversal to the VCF info field in the format of a GFA W-line or GAF path
-    void add_allele_path_to_info(const HandleGraph* graph, vcflib::Variant& v, int allele,
-                                 const Traversal& trav, bool reversed, bool one_based) const;
-    /// legacy version of above
-    void add_allele_path_to_info(vcflib::Variant& v, int allele, const SnarlTraversal& trav, bool reversed, bool one_based) const;
-    
-    
-    /// convert a traversal into an allele string
-    string trav_string(const HandleGraph& graph, const SnarlTraversal& trav) const;
-
-    /// Convert a SnarlTraversal to the handle vector the clustering code works on.  Returns false
-    /// (leaving out_trav unspecified) if the traversal cannot be represented: fewer than two visits
-    /// (the "*" placeholder pushed for a star allele), or a visit carrying a child Snarl rather
-    /// than a node, which NestedFlowCaller produces via SnarlGraph::embed_snarl.  (LegacyCaller
-    /// expands its children into node visits in top_down_genotype, so it never reaches here.)
-    static bool snarl_traversal_to_handles(const HandleGraph& graph, const SnarlTraversal& trav,
-                                           Traversal& out_trav);
-
-    /// The CORE LENGTH of a variant: the length of the longest allele after stripping the prefix
-    /// and the suffix that every non-"*" allele shares.  This is the single definition of "how big
-    /// is this variant" behind --cluster-min-len in BOTH vg call and vg deconstruct.  It is
-    /// invariant to how much shared flanking context a caller keeps in its allele strings, which is
-    /// the point: vg call flattens down to an anchor base while vg deconstruct emits the whole
-    /// snarl interior, so a raw string length answers differently for the same variant.
-    /// Consequences, all intended:
-    ///   - the anchor base flatten_common_allele_ends must leave on every indel is a shared prefix,
-    ///     so it is stripped: a 49bp indel measures 49, not 50.
-    ///   - REF participates, so a pure deletion measures the deleted length.  A maximum over ALTs
-    ///     alone measures 1 for a deletion of any size.
-    ///   - "*" is a marker, not sequence, so it is excluded from both the affixes and the maximum.
-    ///     That also neutralizes flatten_common_allele_ends being a no-op whenever a "*" is
-    ///     present -- without -a because min_allele_len becomes 1 and max_flatten_len decrements to
-    ///     0, and with -a because "*" matches no base at the first offset compared.  Either way the
-    ///     un-flattened boundary sequence is common to every real allele, so it is stripped here.
-    /// Note this measures the SPAN of the variant, not the size of any one event inside it: a
-    /// haplotype differing from the reference at two bases 59bp apart has a core length of 60.
-    static int64_t allele_core_length(const vector<string>& alleles);
-
-    /// Merge near-identical called ALT alleles in an already-populated variant.  Must run AFTER
-    /// SnarlCaller::update_vcf_info and after flatten_common_allele_ends, so that the genotyper and
-    /// the allele-flattening both see the full pre-merge allele set: merging earlier drops the
-    /// absorbed allele's reads from AD/DP and from the Poisson caller's total_other_support term.
-    /// Rewrites the allele-indexed fields (alleles/alt, AT, AD, GL, GT, MAD) and records what was
-    /// merged in the MAT info field.  Returns true if anything merged.
-    bool merge_similar_alleles(const PathPositionHandleGraph& graph,
-                               const vector<SnarlTraversal>& site_traversals,
-                               vector<int>& site_genotype,
-                               const string& sample_name,
-                               vcflib::Variant& out_variant) const;
-
-    /// print a vcf variant
-    /// return value is taken from add_variant (see above)
-    bool emit_variant(const PathPositionHandleGraph& graph, SnarlCaller& snarl_caller,
-                      const Snarl& snarl, const vector<SnarlTraversal>& called_traversals,
-                      const vector<int>& genotype, int ref_trav_idx, const unique_ptr<SnarlCaller::CallInfo>& call_info,
-                      const string& ref_path_name, int ref_offset, bool genotype_snarls, int ploidy,
-                      function<string(const vector<SnarlTraversal>&, const vector<int>&, int, int, int)> trav_to_string = nullptr);
-
-    /// get the interval of a snarl from our reference path using the PathPositionHandleGraph interface
-    /// the bool is true if the snarl's backward on the path
-    /// first returned value -1 if no traversal found 
-    tuple<int64_t, int64_t, bool, step_handle_t, step_handle_t> get_ref_interval(const PathPositionHandleGraph& graph, const Snarl& snarl,
-                                                                                 const string& ref_path_name) const;
-
-    /// used for making gaf traversal names
-    pair<string, int64_t> get_ref_position(const PathPositionHandleGraph& graph, const Snarl& snarl, const string& ref_path_name,
-                                           int64_t ref_path_offset) const;
-
-    /// clean up the alleles to not share common prefixes / suffixes
-    /// if len_override given, just do that many bases without thinking
-    void flatten_common_allele_ends(vcflib::Variant& variant, bool backward, size_t len_override) const;
-
-    /// print a snarl in a consistent form like >3435<12222
-    /// if in_brackets set to true,  do (>3435<12222) instead (this is only used for nested caller)
-    // The nesting INFO headers (LV/CH/PS/RC/RS/RD), for both vg call and vg deconstruct.
-    //
-    // One definition on purpose.  These used to be written out verbatim in two places, and
-    // drifted: 54bfd0f2d corrected the CH description in graph_caller.cpp while deconstructor.cpp
-    // -- the copy deconstruct actually emits -- kept the text that commit's own message called
-    // false, so the released VCFs carried the wrong one.
-    static string nesting_info_headers();
-
-    string print_snarl(const HandleGraph* grpah, const handle_t& snarl_start, const handle_t& snarl_end, bool in_brackets = false) const;
-    /// legacy version of above
-    string print_snarl(const Snarl& snarl, bool in_brackets = false) const;
-    /// The same as above, but print the snarl as if its orientation has been flipped
-    string print_flipped_snarl(const Snarl& snarl, bool in_brackets = false) const;
-
-    /// do the opposite of above
-    /// So a string that looks like AACT(>12<17)TTT would invoke the callback three times with
-    /// ("AACT", Snarl), ("", Snarl(12,-17)), ("TTT", Snarl(12,-17))
-    /// The parameters are to be treated as unions:  A sequence fragment if non-empty, otherwise a snarl
-    void scan_snarl(const string& allele_string, function<void(const string&, Snarl&)> callback) const;
-
-    // update the PS and LV tags in the output buffer (called in write_variants if include_nested is true)
-    void update_nesting_info_tags(const SnarlManager* snarl_manager);
-    
-    /// output vcf
-    mutable vcflib::VariantCallFile output_vcf;
-
-    /// Sample name
-    string sample_name;
-
-    /// output buffers (1/thread) (for sorting)
-    /// variants stored as strings (and position key pairs) because vcflib::Variant in-memory struct so huge
-    mutable vector<vector<pair<pair<string, size_t>, string>>> output_variants;
-
-    /// Reference interval of a site that was visited but not emitted, because every traversal
-    /// through it was the reference (or absent) and so it had no variant to report.  Such a site
-    /// is invisible to the RC/RS/RD walk, which only sees sites that reached the VCF, and a record
-    /// nested under one would otherwise have no reference coordinate to point at.  Common in gref
-    /// graphs, where the parent of an island of non-reference sequence is often a large snarl that
-    /// only the reference and its own gref copy span.
-    ///
-    /// Keyed by snarl name as print_snarl() spells it, which is how record IDs and chrom_of_name
-    /// are keyed too.  One buffer per thread, like output_variants, merged in
-    /// update_nesting_info_tags().
-    struct SuppressedRef {
-        string chrom;
-        size_t pos;
-        size_t ref_len;
-    };
-    mutable vector<unordered_map<string, SuppressedRef>> suppressed_ref_info;
-
-    /// print up to this many uncalled alleles when doing ref-genotpes in -a mode
-    size_t max_uncalled_alleles = 5;
-
-    // optional node translation to apply to snarl names in variant IDs
-    const unordered_map<nid_t, pair<string, size_t>>* translation;
-
-    // need to write LV/PS info tags
-    bool include_nested;
-
-    // post-genotyping ALT merging (vg call -L / --cluster-min-len).  Deliberately NOT named
-    // cluster_threshold / cluster_min_allele_len: Deconstructor derives from this class and already
-    // declares both for its own pre-allele-string clustering, and -Wshadow is silent when a derived
-    // member shadows a base one.
-    double allele_merge_threshold = 1.0;
-    int64_t allele_merge_min_len = 0;
-
-    // prevent giant variants
-    static const int64_t max_vcf_line_length = 2000000000;
-};
-
-/**
- * Helper class for outputing snarl traversals as GAF
- */
-class GAFOutputCaller {
-public:
-    /// The emitter object is created and owned by external forces
-    GAFOutputCaller(AlignmentEmitter* emitter, const string& sample_name, const vector<string>& ref_paths,
-                    size_t trav_padding);
-    virtual ~GAFOutputCaller();
-
-    /// print the GAF traversals
-    void emit_gaf_traversals(const PathHandleGraph& graph, const string& snarl_name,
-                             const vector<SnarlTraversal>& travs,
-                             int64_t ref_trav_idx,
-                             const string& ref_path_name, int64_t ref_path_position,
-                             const TraversalSupportFinder* support_finder = nullptr);
-
-    /// print the GAF genotype
-    void emit_gaf_variant(const PathHandleGraph& graph, const string& snarl_name,
-                          const vector<SnarlTraversal>& travs,
-                          const vector<int>& genotype,
-                          int64_t ref_trav_idx,
-                          const string& ref_path_name, int64_t ref_path_position,
-                          const TraversalSupportFinder* support_finder = nullptr);
-    
-    /// pad a traversal with (first found) reference path, adding up to trav_padding to each side
-    SnarlTraversal pad_traversal(const PathHandleGraph& graph, const SnarlTraversal& trav) const;
-    
-protected:
-    
-    AlignmentEmitter* emitter;
-
-    /// Sample name
-    string gaf_sample_name;
-
-    /// Add padding from reference paths to traversals to make them at least this long
-    /// (only in emit_gaf_traversals(), not emit_gaf_variant)
-    size_t trav_padding = 0;
-
-    /// Reference paths are used to pad out traversals.  If there are none, then first path found is used
-    unordered_set<string> ref_paths;
-
-};
-
-/**
- * VCFGenotyper : Genotype variants in a given VCF file
- */
-class VCFGenotyper : public GraphCaller, public VCFOutputCaller, public GAFOutputCaller {
-public:
-    VCFGenotyper(const PathHandleGraph& graph,
-                 SnarlCaller& snarl_caller,
-                 SnarlManager& snarl_manager,
-                 vcflib::VariantCallFile& variant_file,
-                 const string& sample_name,
-                 const vector<string>& ref_paths,
-                 const vector<int>& ref_path_ploidies,
-                 FastaReference* ref_fasta,
-                 FastaReference* ins_fasta,
-                 AlignmentEmitter* aln_emitter,
-                 bool traversals_only,
-                 bool gaf_output,
-                 size_t trav_padding);
-
-    virtual ~VCFGenotyper();
-
-    virtual bool call_snarl(const Snarl& snarl);
-
-    virtual string vcf_header(const PathHandleGraph& graph, const vector<string>& contigs,
-                              const vector<size_t>& contig_length_overrides = {}) const;
-
-protected:
-
-    /// get path positions bounding a set of variants
-    tuple<string, size_t, size_t>  get_ref_positions(const vector<vcflib::Variant*>& variants) const;
-
-    /// munge out the contig lengths from the VCF header
-    virtual unordered_map<string, size_t> scan_contig_lengths() const;
-
-protected:
-
-    /// the graph
-    const PathHandleGraph& graph;
-
-    /// input VCF to genotype, must have been loaded etc elsewhere
-    vcflib::VariantCallFile& input_vcf;
-
-    /// traversal finder uses alt paths to map VCF alleles from input_vcf
-    /// back to traversals in the snarl
-    VCFTraversalFinder traversal_finder;
-
-    /// toggle whether to genotype or just output the traversals
-    bool traversals_only;
-
-    /// toggle whether to output vcf or gaf
-    bool gaf_output;
-
-    /// the ploidies
-    unordered_map<string, int> path_to_ploidy;
-};
-
-
-/**
- * LegacyCaller : Preserves (most of) the old vg call logic by using 
- * the RepresentativeTraversalFinder to recursively find traversals
- * through arbitrary sites.   
- */
-class LegacyCaller : public GraphCaller, public VCFOutputCaller {
-public:
-    LegacyCaller(const PathPositionHandleGraph& graph,
-                 SupportBasedSnarlCaller& snarl_caller,
-                 SnarlManager& snarl_manager,
-                 const string& sample_name,
-                 const vector<string>& ref_paths = {},
-                 const vector<size_t>& ref_path_offsets = {},
-                 const vector<int>& ref_path_ploidies = {});
-
-    virtual ~LegacyCaller();
-
-    virtual bool call_snarl(const Snarl& snarl);
-
-    virtual string vcf_header(const PathHandleGraph& graph, const vector<string>& contigs,
-                              const vector<size_t>& contig_length_overrides = {}) const;
-
-protected:
-
-    /// recursively genotype a snarl
-    /// todo: can this be pushed to a more generic class? 
-    pair<vector<SnarlTraversal>, vector<int>> top_down_genotype(const Snarl& snarl, TraversalFinder& trav_finder, int ploidy,
-                                                                const string& ref_path_name, pair<size_t, size_t> ref_interval) const;
-    
-    /// we need the reference traversal for VCF, but if the ref is not called, the above method won't find it. 
-    SnarlTraversal get_reference_traversal(const Snarl& snarl, TraversalFinder& trav_finder) const;
-
-    /// re-genotype output of top_down_genotype.  it may give slightly different results as
-    /// it's working with fully-defined traversals and can exactly determine lengths and supports
-    /// it will also make sure the reference traversal is in the beginning of the output
-    tuple<vector<SnarlTraversal>, vector<int>, unique_ptr<SnarlCaller::CallInfo>> re_genotype(const Snarl& snarl,
-                                                                                              TraversalFinder& trav_finder,
-                                                                                              const vector<SnarlTraversal>& in_traversals,
-                                                                                              const vector<int>& in_genotype,
-                                                                                              int ploidy,
-                                                                                              const string& ref_path_name,
-                                                                                              pair<size_t, size_t> ref_interval) const;
-
-    /// check if a site can be handled by the RepresentativeTraversalFinder
-    bool is_traversable(const Snarl& snarl);
-
-    /// look up a path index for a site and return its name too
-    pair<string, PathIndex*> find_index(const Snarl& snarl, const vector<PathIndex*> path_indexes) const;
-
-protected:
-
-    /// the graph
-    const PathPositionHandleGraph& graph;
-    /// non-vg inputs are converted into vg as-needed, at least until we get the
-    /// traversal finding ported
-    bool is_vg;
-
-    /// The old vg call traversal finder.  It is fairly efficient but daunting to maintain.
-    /// We keep it around until a better replacement is implemented.  It is *not* compatible
-    /// with the Handle Graph API because it relise on PathIndex.  We convert to VG as
-    /// needed in order to use it. 
-    RepresentativeTraversalFinder* traversal_finder;
-    /// Needed by above (only used when working on vg inputs -- generated on the fly otherwise)
-    vector<PathIndex*> path_indexes;
-
-    /// keep track of the reference paths
-    vector<string> ref_paths;
-
-    /// keep track of offsets in the reference paths
-    map<string, size_t> ref_offsets;
-
-    /// keep track of ploidies in the reference paths
-    map<string, int> ref_ploidies;
-
-    /// Tuning
-
-    /// How many nodes should we be willing to look at on our path back to the
-    /// primary path? Keep in mind we need to look at all valid paths (and all
-    /// combinations thereof) until we find a valid pair.
-    int max_search_depth = 1000;
-    /// How many search states should we allow on the DFS stack when searching
-    /// for traversals?
-    int max_search_width = 1000;
-    /// What's the maximum number of bubble path combinations we can explore
-    /// while finding one with maximum support?
-    size_t max_bubble_paths = 100;
-
-};
-
-/**
- * FlowCaller : Uses any traversals finder (ex, FlowTraversalFinder) to find
- * traversals, and calls those based on how much support they have.
- * Should work on any graph but will not
- * report cyclic traversals.  Supports nested calling when enabled with the
- * nested flag, recursively processing child snarls.
- * Designed to replace LegacyCaller, as it should miss fewer obviously
- * good traversals, and is not dependent on old protobuf-based structures.
- */
-class FlowCaller : public GraphCaller, public VCFOutputCaller, public GAFOutputCaller {
-public:
-    /// Original constructor for non-nested mode
-    FlowCaller(const PathPositionHandleGraph& graph,
-               SupportBasedSnarlCaller& snarl_caller,
-               SnarlManager& snarl_manager,
-               const string& sample_name,
-               TraversalFinder& traversal_finder,
-               const vector<string>& ref_paths,
-               const vector<size_t>& ref_path_offsets,
-               const vector<int>& ref_path_ploidies,
-               AlignmentEmitter* aln_emitter,
-               bool traversals_only,
-               bool gaf_output,
-               size_t trav_padding,
-               bool genotype_snarls,
-               const pair<size_t, size_t>& allele_length_range);
-
-    /// Extended constructor for nested mode with star alleles
-    FlowCaller(const PathPositionHandleGraph& graph,
-               SupportBasedSnarlCaller& snarl_caller,
-               SnarlManager& snarl_manager,
-               const string& sample_name,
-               TraversalFinder& traversal_finder,
-               const vector<string>& ref_paths,
-               const vector<size_t>& ref_path_offsets,
-               const vector<int>& ref_path_ploidies,
-               AlignmentEmitter* aln_emitter,
-               bool traversals_only,
-               bool gaf_output,
-               size_t trav_padding,
-               bool genotype_snarls,
-               const pair<size_t, size_t>& allele_length_range,
-               bool nested,
-               bool star_allele);
-
-    virtual ~FlowCaller();
-
-    virtual bool call_snarl(const Snarl& snarl);
-
-    virtual string vcf_header(const PathHandleGraph& graph, const vector<string>& contigs,
-                              const vector<size_t>& contig_length_overrides = {}) const;
-
-protected:
-
-    /// the graph
-    const PathPositionHandleGraph& graph;
-
-    /// the traversal finder
-    TraversalFinder& traversal_finder;
-
-    /// keep track of the reference paths
-    vector<string> ref_paths;
-    unordered_set<string> ref_path_set;
-
-    /// keep track of offsets in the reference paths
-    map<string, size_t> ref_offsets;
-    
-    /// keep traco of the ploidies (todo: just one map for all path stuff!!)
-    map<string, int> ref_ploidies;
-
-    /// until we support nested snarls, cap snarl size we attempt to process
-    size_t max_snarl_edges = 10000;
-
-    /// alignment emitter. if not null, traversals will be output here and
-    /// no genotyping will be done
-    AlignmentEmitter* alignment_emitter;
-
-    /// toggle whether to genotype or just output the traversals
-    bool traversals_only;
-
-    /// toggle whether to output vcf or gaf
-    bool gaf_output;
-
-    /// toggle whether to genotype every snarl
-    /// (by default, uncalled snarls are skipped, and coordinates are flattened
-    ///  out to minimize variant size -- this turns all that off)
-    bool genotype_snarls;
-
-    /// clamp calling to alleles of a given length range
-    /// more specifically, a snarl is only called if
-    /// 1) its largest allele is >= allele_length_range.first and
-    /// 2) all alleles are < allele_length_range.second
-    pair<size_t, size_t> allele_length_range;
-
-    /// --- Nested mode members ---
-
-    /// enable recursive calling of child snarls
-    bool nested = false;
-
-    /// use * alleles for spanning haplotypes that don't traverse nested sites
-    bool star_allele = false;
-
-    /// Internal implementation of call_snarl that accepts parent context for nested mode
-    /// When nested=true, this recursively calls children after processing the current snarl
-    /// @param parent_ref_path_name Reference path from parent (for off-reference snarls)
-    /// @param parent_ref_interval Reference interval from parent
-    /// @param parent_child_trav_sets If non-null, contains one TraversalSet per parent allele.
-    ///                               Each set contains all traversals through this child that are
-    ///                               consistent with that parent allele. The child genotypes by
-    ///                               picking the best pair (one from each set) based on read support.
-    bool call_snarl_internal(const Snarl& snarl,
-                             const string& parent_ref_path_name,
-                             pair<size_t, size_t> parent_ref_interval,
-                             const ChildTraversalSets* parent_child_trav_sets = nullptr);
-
-    /// Find all traversals through a child snarl that are consistent with a parent traversal.
-    /// "Consistent" means the child's entry/exit points match what's in the parent traversal.
-    /// Uses the traversal finder to enumerate all valid paths through the child.
-    /// @param parent_trav The parent traversal defining entry/exit constraints
-    /// @param child The child snarl to find traversals through
-    /// @return Set of traversals through child, empty if parent doesn't traverse child
-    TraversalSet find_child_traversal_set(const SnarlTraversal& parent_trav,
-                                          const Snarl& child) const;
-
-    /// Extract the portion of a parent traversal that spans a child snarl (single traversal).
-    /// This is a simpler version used when we only need one traversal from the parent.
-};
-
-class SnarlGraph;
-
-/**
- * NestedFlowCaller : DEPRECATED - Use FlowCaller with nested=true instead.
- *
- * Uses any traversals finder (ex, FlowTraversalFinder) to find
- * traversals, and calls those based on how much support they have.
- * Should work on any graph but will not report cyclic traversals.
- * This class is being replaced by FlowCaller's nested mode.
- */
-class NestedFlowCaller : public GraphCaller, public VCFOutputCaller, public GAFOutputCaller {
-public:
-    NestedFlowCaller(const PathPositionHandleGraph& graph,
-                     SupportBasedSnarlCaller& snarl_caller,
-                     SnarlManager& snarl_manager,
-                     const string& sample_name,
-                     TraversalFinder& traversal_finder,
-                     const vector<string>& ref_paths,
-                     const vector<size_t>& ref_path_offsets,
-                     const vector<int>& ref_path_ploidies,
-                     AlignmentEmitter* aln_emitter,
-                     bool traversals_only,
-                     bool gaf_output,
-                     size_t trav_padding,
-                     bool genotype_snarls);
-
-    virtual ~NestedFlowCaller();
-
-    virtual bool call_snarl(const Snarl& snarl);
-
-    virtual string vcf_header(const PathHandleGraph& graph, const vector<string>& contigs,
-                              const vector<size_t>& contig_length_overrides = {}) const;
-
-protected:
-
-    /// stuff we remember for each snarl call, to be used when genotyping its parent
-    struct CallRecord {
-        vector<SnarlTraversal> travs;
-        vector<pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>>> genotype_by_ploidy;
-        string ref_path_name;
-        pair<int64_t, int64_t> ref_path_interval;
-        int ref_trav_idx; // index of ref paths in CallRecord::travs
-    };
-    typedef map<Snarl, CallRecord, NestedCachedPackedTraversalSupportFinder::snarl_less> CallTable;
-
-    /// update the table of calls for each child snarl (and the input snarl)
-    bool call_snarl_recursive(const Snarl& managed_snarl, int ploidy,
-                              const string& parent_ref_path_name, pair<size_t, size_t> parent_ref_path_interval,
-                              CallTable& call_table);
-
-    /// emit the vcf of all reference-spanning snarls
-    /// The call_table needs to be completely resolved
-    bool emit_snarl_recursive(const Snarl& managed_snarl, int ploidy,
-                              CallTable& call_table);
-
-    /// transform the nested allele string from something like AAC<6_10>TTT to
-    /// a proper string by recursively resolving the nested snarls into alleles
-    string flatten_reference_allele(const string& nested_allele, const CallTable& call_table) const;
-    string flatten_alt_allele(const string& nested_allele, int allele, int ploidy, const CallTable& call_table) const;
-
-    /// the graph
-    const PathPositionHandleGraph& graph;
-
-    /// the traversal finder
-    TraversalFinder& traversal_finder;
-
-    /// keep track of the reference paths
-    vector<string> ref_paths;
-    unordered_set<string> ref_path_set;
-
-    /// keep track of offsets in the reference paths
-    map<string, size_t> ref_offsets;
-
-    /// keep traco of the ploidies (todo: just one map for all path stuff!!)
-    map<string, int> ref_ploidies;
-
-    /// until we support nested snarls, cap snarl size we attempt to process
-    size_t max_snarl_shallow_size = 50000;
-
-    /// alignment emitter. if not null, traversals will be output here and
-    /// no genotyping will be done
-    AlignmentEmitter* alignment_emitter;
-
-    /// toggle whether to genotype or just output the traversals
-    bool traversals_only;
-
-    /// toggle whether to output vcf or gaf
-    bool gaf_output;
-
-    /// toggle whether to genotype every snarl
-    /// (by default, uncalled snarls are skipped, and coordinates are flattened
-    ///  out to minimize variant size -- this turns all that off)
-    bool genotype_snarls;
-
-    /// a hook into the snarl_caller's nested support finder
-    NestedCachedPackedTraversalSupportFinder& nested_support_finder;
-};
-
-
-/** Simplification of a NetGraph that ignores chains.  It is designed only for
-    traversal finding.  Todo: generalize NestedFlowCaller to the point where we 
-    can remove this and use NetGraph instead */
-class SnarlGraph : virtual public HandleGraph {
-public:
-    // note: can only deal with one snarl "level" at a time
-    SnarlGraph(const HandleGraph* backing_graph, SnarlManager& snarl_manager, vector<const Snarl*> snarls);
-
-    // go from node to snarl (first val false if not a snarl)
-    pair<bool, handle_t> node_to_snarl(handle_t handle) const;
-
-    // go from edge to snarl (first val false if not a virtual edge)
-    tuple<bool, handle_t, edge_t> edge_to_snarl_edge(edge_t edge) const;
-
-    // replace a snarl node with an actual snarl in the traversal
-    void embed_snarl(Visit& visit);
-    void embed_snarls(SnarlTraversal& traversal);
-
-    // replace a refpath through the snarl with the actual snarl in the traversal
-    // todo: this is a bed of a hack
-    void embed_ref_path_snarls(SnarlTraversal& traversal);
-
-    ////////////////////////////////////////////////////////////////////////////
-    // Handle-based interface (which is all identical to backing graph)
-    ////////////////////////////////////////////////////////////////////////////
-    bool has_node(nid_t node_id) const;
-    handle_t get_handle(const nid_t& node_id, bool is_reverse = false) const;
-    nid_t get_id(const handle_t& handle) const;
-    bool get_is_reverse(const handle_t& handle) const;
-    handle_t flip(const handle_t& handle) const;
-    size_t get_length(const handle_t& handle) const;
-    std::string get_sequence(const handle_t& handle) const;    
-    size_t get_node_count() const;
-    nid_t min_node_id() const;
-    nid_t max_node_id() const;
-    
-protected:
-
-    bool for_each_handle_impl(const std::function<bool(const handle_t&)>& iteratee, bool parallel = false) const;
-    
-    /// this is the only function that's changed to do anything different from the backing graph:
-    /// it is changed to "pass through" snarls by pretending there are edges from into snarl starts out of ends and
-    /// vice versa.
-    bool follow_edges_impl(const handle_t& handle, bool go_left, const std::function<bool(const handle_t&)>& iteratee) const;    
-
-    /// the backing graph
-    const HandleGraph* backing_graph;
-
-    /// the snarl manager
-    SnarlManager& snarl_manager;
-
-    /// the snarls (indexed both ways).  flag is true for original orientation
-    unordered_map<handle_t, pair<handle_t, bool>> snarls;
-};
 
 
 }

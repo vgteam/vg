@@ -635,8 +635,10 @@ const deque<Chain>& SnarlManager::chains_of(const Snarl* snarl) const {
         return root_chains;
     }
     
-    // Otherwise, go look up the child chains of this snarl.
-    return record(snarl)->child_chains;
+    // Otherwise, go look up the child chains of this snarl. A snarl with no children has none.
+    static const deque<Chain> no_chains;
+    const SnarlRecord* rec = record(snarl);
+    return rec->child_chains ? *rec->child_chains : no_chains;
 }
     
 NetGraph SnarlManager::net_graph_of(const Snarl* snarl, const HandleGraph* graph, bool use_internal_connectivity) const {
@@ -783,6 +785,13 @@ void SnarlManager::for_each_snarl_unindexed(const function<void(const Snarl*)>& 
     }
 }
 
+void SnarlManager::for_each_snarl_unindexed_parallel(const function<void(const Snarl*)>& lambda) const {
+#pragma omp parallel for schedule(dynamic, 4096)
+    for (size_t i = 0; i < snarls.size(); ++i) {
+        lambda(unrecord(&snarls[i]));
+    }
+}
+
 const Snarl* SnarlManager::discrete_uniform_sample(minstd_rand0& random_engine)const{
     // have to set the seed to the random engine in the unit tests , pass the random engine 
 
@@ -906,6 +915,17 @@ const Snarl* SnarlManager::add_snarl(const Snarl& new_snarl) {
     return unrecord(new_record);
 }
 
+void SnarlManager::take_snarls(SnarlManager& other) {
+    for (SnarlRecord& other_record : other.snarls) {
+        // As in add_snarl, but the snarl is moved in: a Snarl is several messages, and copying
+        // them was most of the time it took to merge the managers of a graph's components.
+        snarls.emplace_back();
+        SnarlRecord* new_record = &snarls.back();
+        *new_record = std::move(other_record.snarl);
+        new_record->snarl_number = (size_t)snarls.size()-1;
+    }
+}
+
 void SnarlManager::finish() {
     // Build all the indexes from the snarls we were given
     build_indexes();
@@ -1024,17 +1044,27 @@ void SnarlManager::build_indexes() {
         }
     }
     
+    // Only look at snarls with children.
+    vector<SnarlRecord*> parents;
     for (SnarlRecord& rec : snarls) {
-        if (rec.children.empty()) {
-            // Only look at snarls with children.
-            continue;
+        if (!rec.children.empty()) {
+            parents.push_back(&rec);
         }
-        
-        // Compute the chains among the children
-        rec.child_chains = compute_chains(rec.children);
-        
-        // Build the back index from child snarl to containing chain
-        for (Chain& chain : rec.child_chains) {
+    }
+
+    // Compute the chains among each snarl's children. Each call reads only the indexes above,
+    // which are complete, and its result goes to its own snarl, so the snarls are done in
+    // parallel.
+#pragma omp parallel for schedule(dynamic, 64)
+    for (size_t i = 0; i < parents.size(); ++i) {
+        parents[i]->child_chains.reset(new deque<Chain>(compute_chains(parents[i]->children)));
+    }
+
+    // Build the back index from child snarl to containing chain, in the original order, so that
+    // a snarl two chains both reach gets the same chain as it would computed one at a time.
+    for (SnarlRecord* parent : parents) {
+        SnarlRecord& rec = *parent;
+        for (Chain& chain : *rec.child_chains) {
             for (size_t i = 0; i < chain.size(); i++) {
                 auto& oriented_snarl = chain[i];
                 
@@ -1056,6 +1086,27 @@ deque<Chain> SnarlManager::compute_chains(const vector<const Snarl*>& input_snar
         
     // We track the snarls we have seen in chain traversals so we only have to see each chain once.
     unordered_set<const Snarl*> seen;
+    seen.reserve(input_snarls.size());
+
+    // One step along a chain, as next_snarl() takes it, but without building Visit messages:
+    // from the managed snarl `here`, in orientation `backward`, the next snarl as manage() gives
+    // it and the orientation it is visited in, or nullptr at the end of the chain. A whole
+    // genome's top-level chains hold millions of snarls, and building two or three messages per
+    // step was most of the time spent here.
+    auto step_right = [&](const Snarl* here, bool backward) -> pair<const Snarl*, bool> {
+        const Snarl* next = backward ? snarl_sharing_start(here) : snarl_sharing_end(here);
+        if (next == nullptr) {
+            return make_pair(nullptr, false);
+        }
+        const bool next_backward = backward ? next->end().node_id() == here->start().node_id()
+                                            : next->start().node_id() != here->end().node_id();
+        return make_pair(manage(*next), next_backward);
+    };
+    // And one step the other way, as prev_snarl() takes it: reverse, step, reverse.
+    auto step_left = [&](const Snarl* here, bool backward) -> pair<const Snarl*, bool> {
+        pair<const Snarl*, bool> back = step_right(here, !backward);
+        return make_pair(back.first, !back.second);
+    };
         
     for (const Snarl* snarl : input_snarls) {
         // For every snarl in this snarl (or, if snarl is null, every top level snarl)
@@ -1071,34 +1122,31 @@ deque<Chain> SnarlManager::compute_chains(const vector<const Snarl*>& input_snar
         // Mark it as seen
         seen.insert(snarl);
             
-        // Make a visit to the child in forward orientation
-        Visit here;
-        transfer_boundary_info(*snarl, *here.mutable_snarl());
-        // The default is already not-backward, but we set it anyway
-        here.set_backward(false);
+        // Walk from the child in forward orientation
+        const Snarl* here = manage(*snarl);
         
-        for (Visit walk_left = prev_snarl(here);
-             walk_left.has_snarl() && !seen.count(manage(walk_left.snarl()));
-             walk_left = prev_snarl(walk_left)) {
+        for (pair<const Snarl*, bool> walk_left = step_left(here, false);
+             walk_left.first != nullptr && !seen.count(walk_left.first);
+             walk_left = step_left(walk_left.first, walk_left.second)) {
             
             // For everything in the chain left from here, until we hit the
             // end or come back to the start
              
             // Add it to the chain in the orientation we find it
-            chain.emplace_front(manage(walk_left.snarl()), walk_left.backward());
+            chain.emplace_front(walk_left.first, walk_left.second);
             // Mark it as seen
             seen.insert(chain.front().first);
         }
             
-        for (Visit walk_right = next_snarl(here);
-             walk_right.has_snarl() && !seen.count(manage(walk_right.snarl()));
-             walk_right = next_snarl(walk_right)) {
+        for (pair<const Snarl*, bool> walk_right = step_right(here, false);
+             walk_right.first != nullptr && !seen.count(walk_right.first);
+             walk_right = step_right(walk_right.first, walk_right.second)) {
                 
             // For everything in the chain right from here, until we hit the
             // end or come back to the start
             
             // Add it to the chain in the orientation we find it
-            chain.emplace_back(manage(walk_right.snarl()), walk_right.backward());
+            chain.emplace_back(walk_right.first, walk_right.second);
             // Mark it as seen
             seen.insert(chain.back().first);
         }
@@ -1120,7 +1168,7 @@ void SnarlManager::regularize() {
     cerr << "Regularizing snarls and chains" << endl;
 #endif
     
-    for_each_chain_parallel([&](const Chain* chain) {
+    auto regularize_chain = [&](const Chain* chain) {
         // For every chain
         
         // Make a list of snarls to flip
@@ -1198,8 +1246,30 @@ void SnarlManager::regularize() {
             cerr << "Flipped snarl to produce " << to_flip->start() << " " << to_flip->end() << endl;
 #endif
         }
-    });
+    };
     
+    // A chain's work touches only that chain and the snarls in it, so chains can go in any order.
+    // Run them as two flat loops rather than through for_each_chain_parallel(), which makes an
+    // OpenMP task per top-level snarl and enters two nested parallel regions per snarl: on a
+    // whole-genome graph that bookkeeping, not the work, took 24 minutes at 128 threads.
+    // Top-level chains go one per thread (a contig's backbone chain can hold millions of
+    // snarls); threads that finish move straight on to the child chains of every snarl.
+#pragma omp parallel
+    {
+#pragma omp for schedule(dynamic, 1) nowait
+        for (size_t i = 0; i < root_chains.size(); i++) {
+            regularize_chain(&root_chains[i]);
+        }
+#pragma omp for schedule(dynamic, 256)
+        for (size_t i = 0; i < snarls.size(); i++) {
+            if (!snarls[i].child_chains) {
+                continue;
+            }
+            for (const Chain& chain : *snarls[i].child_chains) {
+                regularize_chain(&chain);
+            }
+        }
+    }
 }
     
 pair<unordered_set<id_t>, unordered_set<edge_t> > SnarlManager::shallow_contents(const Snarl* snarl, const HandleGraph& graph,
@@ -1332,8 +1402,10 @@ pair<unordered_set<id_t>, unordered_set<edge_t> > SnarlManager::shallow_contents
     return to_return;
 }
     
-pair<unordered_set<id_t>, unordered_set<edge_t> > SnarlManager::deep_contents(const Snarl* snarl, const HandleGraph& graph,
-                                                                              bool include_boundary_nodes) const {
+pair<unordered_set<id_t>, unordered_set<edge_t> > site_contents(const HandleGraph& graph,
+                                                                 const handle_t& start,
+                                                                 const handle_t& end,
+                                                                 bool include_boundary_nodes) {
         
     pair<unordered_set<id_t>, unordered_set<edge_t> > to_return;
         
@@ -1342,8 +1414,8 @@ pair<unordered_set<id_t>, unordered_set<edge_t> > SnarlManager::deep_contents(co
     // initialize stack for DFS traversal of site
     vector<handle_t> stack;
 
-    handle_t start_node = graph.get_handle(snarl->start().node_id());
-    handle_t end_node = graph.get_handle(snarl->end().node_id());
+    handle_t start_node = graph.forward(start);
+    handle_t end_node = graph.forward(end);
         
     // mark the boundary nodes as already stacked so that paths will terminate on them
     already_stacked.insert(graph.get_id(start_node));
@@ -1356,13 +1428,13 @@ pair<unordered_set<id_t>, unordered_set<edge_t> > SnarlManager::deep_contents(co
     }
 
     // stack up the nodes one edge inside the snarl from the start
-    graph.follow_edges(start_node, snarl->start().backward(), [&](const handle_t& node) {            
+    graph.follow_edges(start_node, graph.get_is_reverse(start), [&](const handle_t& node) {            
 
             if (!already_stacked.count(graph.get_id(node))) {
                 stack.push_back(node);
                 already_stacked.insert(graph.get_id(node));
             }
-            if (snarl->start().backward()) {
+            if (graph.get_is_reverse(start)) {
                 to_return.second.insert(graph.edge_handle(node, start_node));
             } else {
                 to_return.second.insert(graph.edge_handle(start_node, node));
@@ -1370,20 +1442,21 @@ pair<unordered_set<id_t>, unordered_set<edge_t> > SnarlManager::deep_contents(co
         });
       
     // stack up the nodes one edge inside the snarl from the end
-    graph.follow_edges(end_node, !snarl->end().backward(), [&](const handle_t& node) {
+    graph.follow_edges(end_node, !graph.get_is_reverse(end), [&](const handle_t& node) {
             
             if (!already_stacked.count(graph.get_id(node))) {
                 stack.push_back(node);
                 already_stacked.insert(graph.get_id(node));
             }
-            if (snarl->end().backward()) {
+            if (graph.get_is_reverse(end)) {
                 to_return.second.insert(graph.edge_handle(end_node, node));
             } else {
                 to_return.second.insert(graph.edge_handle(node, end_node));
             }
         });
         
-    // traverse the snarl with DFS, skipping over any child snarls
+    // traverse the snarl with DFS, into child snarls as well, stopping only at this snarl's
+    // boundary nodes
     // do not pay attention to valid walks since we also want to discover any tips
     while (stack.size()) {
             
@@ -1414,6 +1487,13 @@ pair<unordered_set<id_t>, unordered_set<edge_t> > SnarlManager::deep_contents(co
     }
         
     return to_return;
+}
+    
+pair<unordered_set<id_t>, unordered_set<edge_t> > SnarlManager::deep_contents(const Snarl* snarl, const HandleGraph& graph,
+                                                                              bool include_boundary_nodes) const {
+    return site_contents(graph, graph.get_handle(snarl->start().node_id(), snarl->start().backward()),
+                         graph.get_handle(snarl->end().node_id(), snarl->end().backward()),
+                         include_boundary_nodes);
 }
     
 const Snarl* SnarlManager::manage(const Snarl& not_owned) const {

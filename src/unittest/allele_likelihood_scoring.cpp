@@ -1,0 +1,883 @@
+/// \file unittest/allele_likelihood_scoring.cpp
+///
+/// Unit tests for scoring reads against alleles from their existing graph
+/// alignment, on hand-built graphs with hand-built alignments.
+///
+/// These exist because the model tests in allele_likelihood.cpp deliberately use
+/// hand-built matrices, so they cannot see anything wrong with the scoring that
+/// *produces* those matrices. Two bugs got through exactly that gap: reverse
+/// strand reads failed to anchor and were scored against the wrong allele, and
+/// reads traversing a deletion edge were discarded as uninformative. Both are
+/// pinned below.
+///
+
+#include <vector>
+
+#include <bdsg/hash_graph.hpp>
+#include <bdsg/overlays/path_position_overlays.hpp>
+
+#include "allele_likelihood.hpp"
+#include "alignment_scorer.hpp"
+#include "catch.hpp"
+#include "site_read_source.hpp"
+#include "site_values.hpp"
+#include "snarls.hpp"
+#include "utility.hpp"
+
+namespace vg {
+namespace unittest {
+
+using namespace std;
+
+/// A site with a SNP and a deletion of the SNP-bearing node:
+///
+///        2 (T)
+///      /      \
+///   1 --- 3 (G) --- 4          and the deletion edge 1 -> 4
+///      \__________/
+///
+/// Node 1 and 4 are the snarl boundaries; 2 and 3 are the SNP alleles.
+struct SnpAndDeletionSite {
+    bdsg::HashGraph graph;
+    Snarl snarl;
+    vector<SnarlTraversal> traversals;   // ref (1,2,4), alt (1,3,4), deletion (1,4)
+    unique_ptr<SnarlManager> manager;
+
+    /// `tail` is node 4's sequence. It is a parameter only so a test can vary the
+    /// flank length while holding the variant fixed; every existing caller gets the
+    /// original graph.
+    SnpAndDeletionSite(const string& tail = "GGGGTTTT") {
+        handle_t h1 = graph.create_handle("AAAACCCC", 1);
+        handle_t h2 = graph.create_handle("T", 2);
+        handle_t h3 = graph.create_handle("G", 3);
+        handle_t h4 = graph.create_handle(tail, 4);
+
+        graph.create_edge(h1, h2);
+        graph.create_edge(h2, h4);
+        graph.create_edge(h1, h3);
+        graph.create_edge(h3, h4);
+        graph.create_edge(h1, h4);   // the deletion
+
+        snarl.mutable_start()->set_node_id(1);
+        snarl.mutable_end()->set_node_id(4);
+        snarl.set_type(ULTRABUBBLE);
+        snarl.set_start_end_reachable(true);
+
+        vector<Snarl> snarls{snarl};
+        manager.reset(new SnarlManager(snarls.begin(), snarls.end()));
+
+        vector<vector<nid_t>> allele_paths{{1, 2, 4}, {1, 3, 4}, {1, 4}};
+        traversals.resize(allele_paths.size());
+        for (size_t i = 0; i < allele_paths.size(); ++i) {
+            for (nid_t id : allele_paths[i]) {
+                Visit* v = traversals[i].add_visit();
+                v->set_node_id(id);
+                v->set_backward(false);
+            }
+        }
+    }
+};
+
+/// Build an all-match alignment over the given (node, is_reverse) steps.
+/// The read sequence is the concatenation of the visited node sequences, so every
+/// edit is a perfect match.
+static Alignment make_matching_alignment(const HandleGraph& graph, const string& name,
+                                         const vector<pair<nid_t, bool>>& steps) {
+    Alignment aln;
+    aln.set_name(name);
+    string seq;
+    for (auto& step : steps) {
+        string node_seq = graph.get_sequence(graph.get_handle(step.first, step.second));
+        Mapping* m = aln.mutable_path()->add_mapping();
+        m->mutable_position()->set_node_id(step.first);
+        m->mutable_position()->set_is_reverse(step.second);
+        m->mutable_position()->set_offset(0);
+        Edit* e = m->add_edit();
+        e->set_from_length(node_seq.size());
+        e->set_to_length(node_seq.size());
+        seq += node_seq;
+    }
+    aln.set_sequence(seq);
+    aln.set_quality(string(seq.size(), (char)30));
+    aln.set_mapping_quality(60);
+    return aln;
+}
+
+/// Run the calculator over one site with the given reads, at the given ploidy.
+///
+/// The matrix orders its rows by read name, so each read's name is prefixed with its position,
+/// zero-padded, and row r of the result is reads[r].
+///
+/// `optimal_pairing` selects how the pairing is chosen: false is greedy pairing, the default, and
+/// true is optimal pairing, which `--optimal-pairing` turns on. The invariants below must hold for
+/// both, since they are properties of the scoring model, not of how the pairing is searched for.
+///
+/// `insertion_nats` is --insertion-nats.
+template<typename Site>
+static AlleleReadLikelihoods score_site(Site& site, const vector<Alignment>& reads,
+                                        int ploidy = 2, bool optimal_pairing = false,
+                                        double insertion_nats = 0.0) {
+    InMemorySiteReadSource source;
+    for (size_t i = 0; i < reads.size(); ++i) {
+        Alignment named = reads[i];
+        string position = to_string(i);
+        named.set_name(string(6 - min<size_t>(6, position.size()), '0') + position + ":"
+                       + reads[i].name());
+        source.add(named);
+    }
+    QualAdjAlignmentScorer qual_scorer;
+    MatrixAlignmentScorer plain_scorer;
+    AlleleLikelihoodParams params;
+    params.optimal_pairing = optimal_pairing;
+    params.insertion_gap_nats = insertion_nats;
+    GraphAlignedAlleleLikelihoodCalculator calculator(site.graph, source, qual_scorer,
+                                                      plain_scorer, params);
+    return calculator.compute(bounds_of(site.graph, site.snarl),
+                              walks_of(site.graph, site.traversals),
+                              /* top-level: nothing encloses it */ {}, ploidy);
+}
+
+TEST_CASE("The depth rate is per haplotype, so it follows the site's ploidy",
+          "[allele_likelihood][scoring]") {
+    // The same reads over the same site, genotyped haploid and diploid. The window's
+    // read density is a property of the data and does not change; the *per-haplotype*
+    // rate does, by exactly the ploidy ratio, and lambda with it.
+    //
+    // The calculator must be told the site's own ploidy: with a fixed ploidy of 2, every haploid
+    // region would get a lambda wrong by a factor of two while the observed read count was right.
+    SnpAndDeletionSite site;
+    vector<Alignment> reads;
+    for (int i = 0; i < 12; ++i) {
+        reads.push_back(make_matching_alignment(site.graph, "r" + std::to_string(i),
+                                  {{(nid_t)1, false}, {(nid_t)2, false}, {(nid_t)4, false}}));
+    }
+
+    AlleleReadLikelihoods diploid = score_site(site, reads, 2);
+    AlleleReadLikelihoods haploid = score_site(site, reads, 1);
+
+    if (diploid.uses_depth_term()) {
+        vector<int> hom{0, 0};
+        double lambda_diploid = diploid.expected_reads(hom);
+        double lambda_haploid = haploid.expected_reads(hom);
+        REQUIRE(lambda_diploid > 0.0);
+        // Halving the ploidy doubles the per-haplotype rate, and lambda with it.
+        REQUIRE(lambda_haploid == Approx(2.0 * lambda_diploid));
+    }
+}
+
+TEST_CASE("A reverse-strand read scores the same as its forward equivalent",
+          "[allele_likelihood][scoring]") {
+    // Alleles impose a reading direction on the site, and a read aligned to the other strand visits
+    // the same nodes in the opposite orientation, so it must be flipped before its visits can be
+    // paired with an allele's.
+    SnpAndDeletionSite site;
+
+    Alignment forward = make_matching_alignment(site.graph, "fwd", {{1, false}, {2, false}, {4, false}});
+    // The same underlying fragment sequenced the other way round: the path runs
+    // backwards through the site and every step is flipped.
+    Alignment reverse = make_matching_alignment(site.graph, "rev", {{4, true}, {2, true}, {1, true}});
+
+    AlleleReadLikelihoods matrix = score_site(site, {forward, reverse});
+    REQUIRE(matrix.num_reads() == 2);
+
+    SECTION("both reads prefer the reference allele they actually traverse") {
+        for (size_t r = 0; r < matrix.num_reads(); ++r) {
+            REQUIRE(matrix.rel(r, 0) == Approx(1.0));
+            REQUIRE(matrix.rel(r, 1) < 1.0);
+        }
+    }
+
+    SECTION("the two reads are scored identically") {
+        for (size_t a = 0; a < matrix.num_alleles(); ++a) {
+            REQUIRE(matrix.rel(0, a) == Approx(matrix.rel(1, a)));
+        }
+    }
+
+    SECTION("so a matrix of one strand genotypes the same as a mix of both") {
+        AlleleReadLikelihoods fwd_only = score_site(site, {forward, forward});
+        REQUIRE(fwd_only.genotype_likelihood({0, 0}) == Approx(matrix.genotype_likelihood({0, 0})));
+        REQUIRE(fwd_only.genotype_likelihood({1, 1}) == Approx(matrix.genotype_likelihood({1, 1})));
+    }
+}
+
+TEST_CASE("A one-base indel costs the same whichever side carries it",
+          "[allele_likelihood][scoring]") {
+    // When the walk finds no later occurrence of a read node in the allele, the read node may be an
+    // insertion that the allele lacks, rather than a substitute for the allele's current node. If
+    // the walk consumed the allele node anyway, the read's later visit to it would find the allele
+    // used up and be charged a second time: the read (1,2,4) against the deletion allele (1,4)
+    // would score mismatch(T vs G) + gap(7) + gap(8), rather than one one-base gap.
+    //
+    // The invariant asserted here is direction symmetry, which needs no knowledge of
+    // gap_open or the log base: one inserted base and one deleted base are the same
+    // event seen from the two sides, so they must carry the same penalty.
+    SnpAndDeletionSite site;
+
+    // Read takes the SNP node; the deletion allele (index 2) lacks it -> 1 bp insertion.
+    Alignment spanning = make_matching_alignment(site.graph, "spanning",
+                                                 {{1, false}, {2, false}, {4, false}});
+    // Read skips it; the reference allele (index 0) carries it -> 1 bp deletion.
+    Alignment deleting = make_matching_alignment(site.graph, "deleting", {{1, false}, {4, false}});
+
+    AlleleReadLikelihoods matrix = score_site(site, {spanning, deleting});
+    REQUIRE(matrix.num_reads() == 2);
+
+    SECTION("each read matches its own allele exactly") {
+        REQUIRE(matrix.rel(0, 0) == Approx(1.0));   // spanning read vs reference
+        REQUIRE(matrix.rel(1, 2) == Approx(1.0));   // deleting read vs deletion
+    }
+
+    SECTION("the insertion costs a few score units, not tens") {
+        // Not a bare `> 0.0`: a double-charged gap gives a denormal around 1e-23, which prints as
+        // 0.0. 1e-10 is about 17 score units at 1.3833 nats per unit, far above what a one-base
+        // event can justify.
+        REQUIRE(matrix.rel(0, 2) > 1e-10);
+    }
+
+    SECTION("and costs within one match unit of the deletion, not the flank's length") {
+        // The two are not exactly equal: an inserted base exists in the read and could
+        // have been matched, so it forgoes `match` credit that a deleted base never had.
+        // That residual is one score unit and belongs to the score model, not the walk.
+        // What the walk must not do is charge the flank.
+        REQUIRE(matrix.rel(0, 2) < matrix.rel(1, 0));
+        REQUIRE(matrix.rel(0, 2) > 0.1 * matrix.rel(1, 0));
+    }
+
+    SECTION("and does not grow with the length of the flanking node") {
+        // Parameter-free: double charging would charge node 4's whole length twice, so the cost of a
+        // one-base insertion would grow with the flank. A walk that charges only the event does not
+        // depend on the flank's length.
+        SnpAndDeletionSite long_site("GGGGTTTT" + string(32, 'A'));
+        Alignment long_spanning = make_matching_alignment(
+            long_site.graph, "spanning", {{1, false}, {2, false}, {4, false}});
+        Alignment long_deleting = make_matching_alignment(
+            long_site.graph, "deleting", {{1, false}, {4, false}});
+        AlleleReadLikelihoods long_matrix = score_site(long_site, {long_spanning, long_deleting});
+
+        REQUIRE(long_matrix.rel(0, 2) == Approx(matrix.rel(0, 2)));
+        REQUIRE(long_matrix.rel(1, 0) == Approx(matrix.rel(1, 0)));
+    }
+
+    SECTION("equal-length substituted nodes are still charged as a substitution") {
+        // Regression guard for the fix itself: the discriminator must not divert the
+        // genuine substitution case, where the allele's node really is the read node's
+        // counterpart and consuming it is right.
+        Alignment other_snp = make_matching_alignment(site.graph, "othersnp",
+                                                      {{1, false}, {3, false}, {4, false}});
+        AlleleReadLikelihoods snp_matrix = score_site(site, {other_snp});
+        REQUIRE(snp_matrix.rel(0, 1) == Approx(1.0));   // its own allele
+        // One mismatched base against the other SNP allele, and both flanks still matched,
+        // so it must score well above the deletion allele, which differs by a whole node.
+        REQUIRE(snp_matrix.rel(0, 0) > snp_matrix.rel(0, 2));
+    }
+}
+
+/// A site with several alternative interior paths between two boundary nodes, and a
+/// configurable tail. Each allele is a list of interior node sequences; an empty list is a
+/// bypass. Node ids run in construction order and the tail is last.
+struct MultiAlleleSite {
+    bdsg::HashGraph graph;
+    Snarl snarl;
+    vector<SnarlTraversal> traversals;
+    unique_ptr<SnarlManager> manager;
+    vector<vector<pair<nid_t, bool>>> read_paths;
+
+    MultiAlleleSite(const vector<vector<string>>& alleles, const string& tail) {
+        handle_t head = graph.create_handle("AAAACCCC", 1);
+        nid_t next = 2;
+        vector<vector<nid_t>> interiors;
+        vector<handle_t> lasts;
+        for (const vector<string>& a : alleles) {
+            vector<nid_t> ids;
+            handle_t prev = head;
+            for (const string& seq : a) {
+                handle_t h = graph.create_handle(seq, next);
+                graph.create_edge(prev, h);
+                prev = h;
+                ids.push_back(next);
+                ++next;
+            }
+            interiors.push_back(ids);
+            lasts.push_back(prev);
+        }
+        nid_t tail_id = next;
+        handle_t tail_h = graph.create_handle(tail, tail_id);
+        for (handle_t l : lasts) {
+            graph.create_edge(l, tail_h);
+        }
+
+        snarl.mutable_start()->set_node_id(1);
+        snarl.mutable_end()->set_node_id(tail_id);
+        snarl.set_type(ULTRABUBBLE);
+        snarl.set_start_end_reachable(true);
+        vector<Snarl> snarls{snarl};
+        manager.reset(new SnarlManager(snarls.begin(), snarls.end()));
+
+        traversals.resize(alleles.size());
+        read_paths.resize(alleles.size());
+        for (size_t i = 0; i < alleles.size(); ++i) {
+            vector<nid_t> path{1};
+            path.insert(path.end(), interiors[i].begin(), interiors[i].end());
+            path.push_back(tail_id);
+            for (nid_t id : path) {
+                Visit* v = traversals[i].add_visit();
+                v->set_node_id(id);
+                v->set_backward(false);
+                read_paths[i].push_back({id, false});
+            }
+        }
+    }
+};
+
+TEST_CASE("Allele sequence between two anchors is charged, outside them is not",
+          "[allele_likelihood][scoring]") {
+    // Whether an allele node must be paid for depends on where it sits relative to the read's
+    // matched node visits, and getting that wrong is silent. A draft of this walk let the
+    // correspondence stop early and leave allele nodes unconsumed anywhere, so a read spanning
+    // a deletion scored the reference allele at rel = 1.0 -- preferring neither -- and the
+    // homozygous deletion stopped being callable at all. Nothing else in the suite caught it.
+    //
+    // Between two matched visits the allele's extra nodes are sequence the read skipped: a
+    // deletion, and charged. Before the first match or after the last they are simply beyond
+    // the read's window, and charging them would penalise a read for being short.
+    SnpAndDeletionSite site;
+
+    SECTION("an internal skip is a deletion and is charged") {
+        // Reads node 1 then node 4, skipping the SNP node the reference allele carries. Both
+        // flanks ARE anchors here, so node 2 is strictly internal.
+        Alignment deleting = make_matching_alignment(site.graph, "del", {{1, false}, {4, false}});
+        AlleleReadLikelihoods matrix = score_site(site, {deleting});
+        REQUIRE(matrix.rel(0, 2) == Approx(1.0));   // the deletion allele, matched exactly
+        REQUIRE(matrix.rel(0, 0) < 1.0);            // reference: one node deleted, charged
+        REQUIRE(matrix.rel(0, 1) < 1.0);
+    }
+
+    SECTION("and allele sequence past the last anchor is not") {
+        // Stops after the SNP node, so the reference allele's node 4 lies beyond the read's
+        // last anchor. That is outside the window and must cost nothing -- the reference
+        // allele has to stay a perfect fit. (A read touching only a boundary node is dropped
+        // as uninformative before it reaches scoring, so the read has to enter the site.)
+        Alignment partial = make_matching_alignment(site.graph, "partial",
+                                                    {{1, false}, {2, false}});
+        AlleleReadLikelihoods matrix = score_site(site, {partial});
+        REQUIRE(matrix.num_reads() == 1);
+        REQUIRE(matrix.rel(0, 0) == Approx(1.0));   // reference: node 4 unreached, not charged
+        REQUIRE(matrix.rel(0, 2) < 1.0);            // deletion allele lacks node 2: charged
+    }
+}
+
+TEST_CASE("No read's allele preference depends on the flank's length",
+          "[allele_likelihood][scoring]") {
+    // The same kind of property as the test above, across many configurations, since a greedy
+    // single-pass walk can choose a bad pairing in more than one way.
+    //
+    // The invariant: rel is normalised by each read's own best allele, and lengthening a
+    // node EVERY allele shares adds the same match credit to all of them. So no rel value
+    // may move. Any walk that charges shared flank against one allele and not another --
+    // breaks it.
+    const vector<vector<vector<string>>> configurations = {
+        {{"T"}, {"G"}},                          // SNP
+        {{"T"}, {}},                             // one-base insertion against a bypass
+        {{"T", "C"}, {}},                        // two adjacent inserted nodes
+        {{"T", "C"}, {"T"}},                     // one extra node beside a shared one
+        {{"TTTT"}, {"T"}},                       // unequal-length substituted nodes
+        {{"T", "C", "G"}, {"T", "G"}},           // an extra node in the middle
+        {{"T", "C"}, {"C", "T"}},                // same nodes, different order
+        {{}, {"A"}, {"AA"}, {"AAA"}},            // a homopolymer ladder, four alleles
+    };
+
+    for (size_t c = 0; c < configurations.size(); ++c) {
+        MultiAlleleSite shortf(configurations[c], "GGGGTTTT");
+        MultiAlleleSite longf(configurations[c], "GGGGTTTT" + string(40, 'A'));
+
+        vector<Alignment> short_reads, long_reads;
+        for (size_t i = 0; i < configurations[c].size(); ++i) {
+            short_reads.push_back(make_matching_alignment(
+                shortf.graph, "r" + std::to_string(i), shortf.read_paths[i]));
+            long_reads.push_back(make_matching_alignment(
+                longf.graph, "r" + std::to_string(i), longf.read_paths[i]));
+        }
+
+        InMemorySiteReadSource short_src, long_src;
+        for (const Alignment& a : short_reads) short_src.add(a);
+        for (const Alignment& a : long_reads) long_src.add(a);
+        QualAdjAlignmentScorer qs;
+        MatrixAlignmentScorer ps;
+        // Both pairings: greedy is the default and optimal is what --optimal-pairing selects.
+        for (bool optimal_pairing : {false, true}) {
+        AlleleLikelihoodParams params;
+        params.optimal_pairing = optimal_pairing;
+        GraphAlignedAlleleLikelihoodCalculator short_calc(shortf.graph, short_src, qs, ps, params);
+        GraphAlignedAlleleLikelihoodCalculator long_calc(longf.graph, long_src, qs, ps, params);
+        AlleleReadLikelihoods sm = short_calc.compute(
+            bounds_of(shortf.graph, shortf.snarl), walks_of(shortf.graph, shortf.traversals),
+            /* top-level: nothing encloses it */ {}, 2);
+        AlleleReadLikelihoods lm = long_calc.compute(
+            bounds_of(longf.graph, longf.snarl), walks_of(longf.graph, longf.traversals),
+            /* top-level: nothing encloses it */ {}, 2);
+
+        INFO("configuration " << c << (optimal_pairing ? " (--optimal-pairing)" : " (greedy)"));
+        REQUIRE(sm.num_reads() == lm.num_reads());
+        REQUIRE(sm.num_alleles() == lm.num_alleles());
+        for (size_t r = 0; r < sm.num_reads(); ++r) {
+            for (size_t a = 0; a < sm.num_alleles(); ++a) {
+                INFO("config " << c << " read " << r << " allele " << a
+                                << (optimal_pairing ? " (--optimal-pairing)" : " (greedy)"));
+                REQUIRE(sm.rel(r, a) == Approx(lm.rel(r, a)));
+            }
+        }
+        }
+    }
+}
+
+TEST_CASE("Every read is placeable against every allele, whatever the node layout",
+          "[allele_likelihood][scoring]") {
+    // An unplaceable read contributes -inf, which normalises to a relative likelihood of
+    // exactly 0 -- and 0 is indistinguishable from "scored, and hopeless". So a walk that
+    // cannot reach an allele at all fails silently: the genotype simply never considers it.
+    //
+    // Every defect in the walk's state machine has surfaced here first, and in several cases
+    // only here. Restricting which allele columns a read step may reach -- an optimisation
+    // tried and reverted -- produced exactly this, as did forbidding the transitions that let
+    // a read cross a deleted node. Neither moved any other assertion in this file.
+    //
+    // So: every read must reach every allele. A read may of course prefer one strongly, but a
+    // relative likelihood of 0 means the walk could not get there at all.
+    const vector<vector<vector<string>>> configurations = {
+        {{"T"}, {"G"}},                          // SNP
+        {{"T"}, {}},                             // one-base insertion against a bypass
+        {{"T", "C"}, {}},                        // two adjacent inserted nodes
+        {{"T", "C"}, {"T"}},                     // one extra node beside a shared one
+        {{"TTTT"}, {"T"}},                       // unequal-length substituted nodes
+        {{"T", "C", "G"}, {"T", "G"}},           // an extra node in the middle
+        {{"T", "C"}, {"C", "T"}},                // same nodes, different order
+        {{}, {"A"}, {"AA"}, {"AAA"}},            // a homopolymer ladder, four alleles
+        {{"ACGTACGTAC"}, {}},                    // a ten-base deletion to walk across
+        {{"AC", "GT", "AC", "GT"}, {"AC", "GT"}},// two nodes deleted from a run of four
+        {{"A", "C", "G", "T"}, {"T", "G", "C", "A"}},   // four nodes, reversed order
+    };
+
+    for (size_t c = 0; c < configurations.size(); ++c) {
+        MultiAlleleSite site(configurations[c], "GGGGTTTT");
+        vector<Alignment> reads;
+        for (size_t i = 0; i < configurations[c].size(); ++i) {
+            reads.push_back(make_matching_alignment(site.graph, "r" + std::to_string(i),
+                                                    site.read_paths[i]));
+        }
+        InMemorySiteReadSource src;
+        for (const Alignment& a : reads) src.add(a);
+        QualAdjAlignmentScorer qs;
+        MatrixAlignmentScorer ps;
+        for (bool optimal_pairing : {false, true}) {
+        AlleleLikelihoodParams params;
+        params.optimal_pairing = optimal_pairing;
+        GraphAlignedAlleleLikelihoodCalculator calc(site.graph, src, qs, ps, params);
+        AlleleReadLikelihoods m = calc.compute(
+            bounds_of(site.graph, site.snarl), walks_of(site.graph, site.traversals),
+            /* top-level: nothing encloses it */ {}, 2);
+
+        INFO("configuration " << c << (optimal_pairing ? " (--optimal-pairing)" : " (greedy)"));
+        REQUIRE(m.num_reads() == configurations[c].size());
+        for (size_t r = 0; r < m.num_reads(); ++r) {
+            // A read built to follow allele r's own path matches it exactly, so it is that
+            // read's best allele and rel is 1 by construction. If the bounds were to forbid
+            // the very pairing the read was built from, this is where it shows.
+            INFO("config " << c << " read " << r << " against its own allele");
+            REQUIRE(m.rel(r, r) == Approx(1.0));
+            for (size_t a = 0; a < m.num_alleles(); ++a) {
+                INFO("config " << c << " read " << r << " allele " << a
+                                << (optimal_pairing ? " (--optimal-pairing)" : " (greedy)"));
+                REQUIRE(m.rel(r, a) > 0.0);
+            }
+        }
+        }
+    }
+}
+
+TEST_CASE("Greedy pairing scores a run of unpaired read visits as one gap, as optimal pairing does",
+          "[allele_likelihood][scoring]") {
+    // With an edge from 2 to 3, a read can visit both SNP nodes. Against the deletion allele
+    // (1, 4), its visits to 2 and 3 are one run of unpaired visits after the pair on node 1, so
+    // one gap of two bases, whichever search finds the pairing.
+    SnpAndDeletionSite site;
+    site.graph.create_edge(site.graph.get_handle(2), site.graph.get_handle(3));
+    Alignment both = make_matching_alignment(site.graph, "both",
+                                             {{1, false}, {2, false}, {3, false}, {4, false}});
+    AlleleReadLikelihoods greedy = score_site(site, {both}, 2, false);
+    AlleleReadLikelihoods optimal = score_site(site, {both}, 2, true);
+    REQUIRE(greedy.num_reads() == 1);
+    REQUIRE(optimal.num_reads() == 1);
+    for (size_t a = 0; a < 3; ++a) {
+        INFO("allele " << a);
+        REQUIRE(greedy.rel(0, a) == Approx(optimal.rel(0, a)));
+    }
+}
+
+TEST_CASE("Optimal pairing keeps the indel invariants greedy pairing has",
+          "[allele_likelihood][scoring]") {
+    // --optimal-pairing changes how the pairing is searched for, not what a pairing costs, so the
+    // properties pinned for greedy pairing must survive it, such as the direction symmetry of a one-base
+    // indel, which is parameter-free.
+    SnpAndDeletionSite site;
+    Alignment spanning = make_matching_alignment(site.graph, "spanning",
+                                                 {{1, false}, {2, false}, {4, false}});
+    Alignment deleting = make_matching_alignment(site.graph, "deleting", {{1, false}, {4, false}});
+
+    AlleleReadLikelihoods greedy = score_site(site, {spanning, deleting}, 2, false);
+    AlleleReadLikelihoods exact = score_site(site, {spanning, deleting}, 2, true);
+
+    for (const auto& named :
+         {make_pair("greedy", &greedy), make_pair("--optimal-pairing", &exact)}) {
+        const AlleleReadLikelihoods& m = *named.second;
+        INFO(named.first);
+        // Each read matches its own allele exactly.
+        REQUIRE(m.rel(0, 0) == Approx(1.0));
+        REQUIRE(m.rel(1, 2) == Approx(1.0));
+        // A one-base insertion costs a few score units, not tens, and stays within one match
+        // unit of the one-base deletion: the same event seen from the two sides.
+        REQUIRE(m.rel(0, 2) > 1e-10);
+        REQUIRE(m.rel(0, 2) < m.rel(1, 0));
+        REQUIRE(m.rel(0, 2) > 0.1 * m.rel(1, 0));
+    }
+}
+
+/// A site whose two alleles are chains of one-base nodes, for pairing a long read against a long
+/// allele. Node 1 starts the site; then come `a` nodes, `b` nodes and `c` nodes, then the end
+/// node. Allele 0 skips the `b` nodes by an edge and allele 1 passes through them.
+struct LongChainSite {
+    bdsg::HashGraph graph;
+    Snarl snarl;
+    vector<SnarlTraversal> traversals;
+    unique_ptr<SnarlManager> manager;
+    vector<nid_t> skipping;     // allele 0's nodes
+
+    LongChainSite(size_t a, size_t b, size_t c) {
+        const string bases = "ACGT";
+        nid_t end = (nid_t)(a + b + c + 2);
+        for (nid_t id = 1; id <= end; ++id) {
+            graph.create_handle(string(1, bases[id % 4]), id);
+            if (id > 1) {
+                graph.create_edge(graph.get_handle(id - 1), graph.get_handle(id));
+            }
+        }
+        nid_t last_a = (nid_t)(a + 1), first_c = (nid_t)(a + b + 2);
+        graph.create_edge(graph.get_handle(last_a), graph.get_handle(first_c));
+
+        snarl.mutable_start()->set_node_id(1);
+        snarl.mutable_end()->set_node_id(end);
+        snarl.set_type(ULTRABUBBLE);
+        vector<Snarl> snarls{snarl};
+        manager.reset(new SnarlManager(snarls.begin(), snarls.end()));
+
+        traversals.resize(2);
+        for (nid_t id = 1; id <= end; ++id) {
+            bool in_b = id > last_a && id < first_c;
+            if (!in_b) {
+                skipping.push_back(id);
+            }
+            for (size_t t = 0; t < 2; ++t) {
+                if (t == 1 || !in_b) {
+                    Visit* v = traversals[t].add_visit();
+                    v->set_node_id(id);
+                    v->set_backward(false);
+                }
+            }
+        }
+    }
+};
+
+TEST_CASE("Banded optimal pairing keeps a long deletion's flanking pairs",
+          "[allele_likelihood][scoring]") {
+    // Read 0 lacks allele 1's `b` visits and read 1 has visits allele 0 lacks, more than the
+    // band's half-width. The band must still hold the deletion or insertion between the shared
+    // visits, so the best pairing is all pairs and one gap, which greedy pairing also finds.
+    for (size_t b : {70, 150}) {
+        INFO("indel visits " << b);
+        LongChainSite site(100, b, 100);
+        vector<pair<nid_t, bool>> skipping, passing;
+        for (nid_t id : site.skipping) {
+            skipping.emplace_back(id, false);
+        }
+        for (const Visit& v : site.traversals[1].visit()) {
+            passing.emplace_back(v.node_id(), false);
+        }
+        vector<Alignment> reads{make_matching_alignment(site.graph, "skipping", skipping),
+                                make_matching_alignment(site.graph, "passing", passing)};
+        AlleleReadLikelihoods greedy = score_site(site, reads, 2, false);
+        AlleleReadLikelihoods optimal = score_site(site, reads, 2, true);
+        REQUIRE(greedy.num_reads() == 2);
+        REQUIRE(optimal.num_reads() == 2);
+        REQUIRE(greedy.rel(0, 1) > 0.0);
+        REQUIRE(greedy.rel(1, 0) > 0.0);
+        REQUIRE(log(optimal.rel(0, 1)) == Approx(log(greedy.rel(0, 1))));
+        REQUIRE(log(optimal.rel(1, 0)) == Approx(log(greedy.rel(1, 0))));
+    }
+}
+
+TEST_CASE("An unpaired read visit with no bases is not a gap",
+          "[allele_likelihood][scoring]") {
+    // Node 2 lies between nodes 1 and 3. A read that deletes all of node 2 visits it with no
+    // bases. Against the allele that skips nodes 2 and 3, its only gap is node 3's ten bases,
+    // as for a read that skips node 2 altogether: the empty visit opens no gap and earns no
+    // --insertion-nats.
+    bdsg::HashGraph graph;
+    graph.create_handle("AAAACCCC", 1);
+    graph.create_handle("TTTTT", 2);
+    graph.create_handle("GATTACAGAT", 3);
+    graph.create_handle("GGGGTTTT", 4);
+    graph.create_edge(graph.get_handle(1), graph.get_handle(2));
+    graph.create_edge(graph.get_handle(2), graph.get_handle(3));
+    graph.create_edge(graph.get_handle(3), graph.get_handle(4));
+    graph.create_edge(graph.get_handle(1), graph.get_handle(3));
+    graph.create_edge(graph.get_handle(1), graph.get_handle(4));
+    struct {
+        bdsg::HashGraph& graph;
+        Snarl snarl;
+        vector<SnarlTraversal> traversals;
+        unique_ptr<SnarlManager> manager;
+    } site{graph, Snarl(), {}, nullptr};
+    site.snarl.mutable_start()->set_node_id(1);
+    site.snarl.mutable_end()->set_node_id(4);
+    site.snarl.set_type(ULTRABUBBLE);
+    vector<Snarl> snarls{site.snarl};
+    site.manager.reset(new SnarlManager(snarls.begin(), snarls.end()));
+    for (const vector<nid_t>& nodes : vector<vector<nid_t>>{{1, 2, 3, 4}, {1, 4}}) {
+        site.traversals.emplace_back();
+        for (nid_t id : nodes) {
+            Visit* v = site.traversals.back().add_visit();
+            v->set_node_id(id);
+            v->set_backward(false);
+        }
+    }
+
+    Alignment skipping = make_matching_alignment(graph, "skipping",
+                                                 {{1, false}, {3, false}, {4, false}});
+    Alignment empty_visit = make_matching_alignment(graph, "empty_visit",
+                                                    {{1, false}, {2, false}, {3, false}, {4, false}});
+    // Turn the visit to node 2 into a deletion of the whole node.
+    Mapping* deleted = empty_visit.mutable_path()->mutable_mapping(1);
+    deleted->mutable_edit(0)->set_to_length(0);
+    empty_visit.set_sequence(graph.get_sequence(graph.get_handle(1))
+                             + graph.get_sequence(graph.get_handle(3))
+                             + graph.get_sequence(graph.get_handle(4)));
+    empty_visit.set_quality(string(empty_visit.sequence().size(), (char)30));
+
+    for (bool optimal : {false, true}) {
+        INFO("optimal pairing " << optimal);
+        AlleleReadLikelihoods m = score_site(site, {skipping, empty_visit}, 2, optimal, 0.9);
+        REQUIRE(m.num_reads() == 2);
+        double skipping_ln = m.best_ln_likelihood(0) + log(m.rel(0, 1));
+        double empty_ln = m.best_ln_likelihood(1) + log(m.rel(1, 1));
+        REQUIRE(empty_ln == Approx(skipping_ln));
+    }
+}
+
+TEST_CASE("A read spanning a deletion is kept and prefers the deletion allele",
+          "[allele_likelihood][scoring]") {
+    // A read that crosses straight from one boundary node to the other touches no interior node,
+    // but it is the only direct evidence for the deletion allele, so it must be kept.
+    SnpAndDeletionSite site;
+
+    Alignment deletion_read =
+        make_matching_alignment(site.graph, "del", {{1, false}, {4, false}});
+
+    AlleleReadLikelihoods matrix = score_site(site, {deletion_read});
+
+    SECTION("it is not discarded") {
+        REQUIRE(matrix.num_reads() == 1);
+    }
+
+    SECTION("it prefers the deletion allele over both spanning alleles") {
+        REQUIRE(matrix.rel(0, 2) == Approx(1.0));
+        REQUIRE(matrix.rel(0, 0) < 1.0);
+        REQUIRE(matrix.rel(0, 1) < 1.0);
+    }
+
+    SECTION("and it makes the homozygous deletion the best genotype") {
+        auto scored = matrix.score_genotypes(2);
+        size_t best = 0;
+        for (size_t i = 1; i < scored.size(); ++i) {
+            if (scored[i].second > scored[best].second) {
+                best = i;
+            }
+        }
+        REQUIRE(scored[best].first == vector<int>({2, 2}));
+    }
+}
+
+TEST_CASE("A read entirely inside one boundary node is still dropped",
+          "[allele_likelihood][scoring]") {
+    // The counterpart to the test above: widening informativeness to include
+    // boundary-to-boundary reads must not accidentally admit reads that genuinely
+    // cannot discriminate. A read sitting inside a single boundary node uses no
+    // edge inside the site and touches no interior node, so every allele explains
+    // it identically.
+    SnpAndDeletionSite site;
+
+    Alignment inside_boundary = make_matching_alignment(site.graph, "flank", {{1, false}});
+
+    AlleleReadLikelihoods matrix = score_site(site, {inside_boundary});
+    REQUIRE(matrix.num_reads() == 0);
+}
+
+TEST_CASE("A read over the SNP discriminates between the two SNP alleles",
+          "[allele_likelihood][scoring]") {
+    SnpAndDeletionSite site;
+
+    Alignment ref_read = make_matching_alignment(site.graph, "ref", {{1, false}, {2, false}, {4, false}});
+    Alignment alt_read = make_matching_alignment(site.graph, "alt", {{1, false}, {3, false}, {4, false}});
+
+    AlleleReadLikelihoods matrix = score_site(site, {ref_read, alt_read});
+    REQUIRE(matrix.num_reads() == 2);
+
+    // Each read fits the allele it traverses best, and they disagree.
+    REQUIRE(matrix.rel(0, 0) == Approx(1.0));
+    REQUIRE(matrix.rel(0, 1) < 1.0);
+    REQUIRE(matrix.rel(1, 1) == Approx(1.0));
+    REQUIRE(matrix.rel(1, 0) < 1.0);
+
+    // One read each way is the textbook heterozygote.
+    auto scored = matrix.score_genotypes(2);
+    size_t best = 0;
+    for (size_t i = 1; i < scored.size(); ++i) {
+        if (scored[i].second > scored[best].second) {
+            best = i;
+        }
+    }
+    REQUIRE(scored[best].first == vector<int>({0, 1}));
+}
+
+TEST_CASE("Every allele is scored over the same span of read bases",
+          "[allele_likelihood][scoring]") {
+    // The window invariant. A read placeable over more bases on one allele than
+    // another must not gain from the length difference alone: bases an allele
+    // cannot place are charged, never omitted. Here the deletion allele cannot
+    // place the SNP base that the reference and alt alleles can.
+    SnpAndDeletionSite site;
+
+    Alignment ref_read = make_matching_alignment(site.graph, "ref", {{1, false}, {2, false}, {4, false}});
+    AlleleReadLikelihoods matrix = score_site(site, {ref_read});
+    REQUIRE(matrix.num_reads() == 1);
+
+    // The deletion allele must be penalised relative to the allele the read
+    // actually traverses, not rewarded for being shorter.
+    REQUIRE(matrix.rel(0, 0) == Approx(1.0));
+    REQUIRE(matrix.rel(0, 2) < 1.0);
+}
+
+/// Exposes the depth-rate window statistics for testing.
+class RateWindowProbe : public GraphAlignedAlleleLikelihoodCalculator {
+public:
+    using GraphAlignedAlleleLikelihoodCalculator::GraphAlignedAlleleLikelihoodCalculator;
+    pair<double, double> rate_and_length(const Snarl& snarl, nid_t site_node) const {
+        // The site is top-level, so no site encloses it.
+        WindowReadStats stats = local_read_stats(bounds_of(graph, snarl), {},
+                                                 {{site_node, site_node}});
+        return make_pair(stats.start_rate, stats.mean_read_length);
+    }
+};
+
+/// A reference chain of ten 40 bp nodes with an alternative to the fifth, laid out under the
+/// given node IDs: ids[0..9] are the reference nodes and ids[10] the alternative. Returns the
+/// depth-rate window statistics of the bubble around the fifth node, from reads that begin on
+/// every node, the alternative included.
+static pair<double, double> rate_under_numbering(const vector<nid_t>& ids, bool effective,
+                                                 bool positional = true) {
+    bdsg::HashGraph graph;
+    vector<handle_t> ref;
+    const string bases = "ACGT";
+    for (size_t i = 0; i < 10; ++i) {
+        string seq;
+        for (size_t j = 0; j < 40; ++j) {
+            seq.push_back(bases[(i * 7 + j * 3 + j / 5) % 4]);
+        }
+        ref.push_back(graph.create_handle(seq, ids[i]));
+        if (i > 0) {
+            graph.create_edge(ref[i - 1], ref[i]);
+        }
+    }
+    handle_t alt = graph.create_handle(string(40, 'T'), ids[10]);
+    graph.create_edge(ref[3], alt);
+    graph.create_edge(alt, ref[5]);
+    path_handle_t path = graph.create_path_handle("ref");
+    for (handle_t h : ref) {
+        graph.append_step(path, h);
+    }
+    bdsg::PositionOverlay positioned(&graph);
+
+    Snarl snarl;
+    snarl.mutable_start()->set_node_id(ids[3]);
+    snarl.mutable_end()->set_node_id(ids[5]);
+    snarl.set_type(ULTRABUBBLE);
+    snarl.set_start_end_reachable(true);
+
+    // Reads of several lengths, starting on each reference node and on the alternative; the
+    // insertion order is fixed by logical node, not by ID.
+    InMemorySiteReadSource source;
+    for (size_t i = 0; i < 11; ++i) {
+        for (size_t k = 0; k < 1 + i % 3; ++k) {
+            vector<pair<nid_t, bool>> steps{{ids[i], false}};
+            if (i != 9) {
+                steps.emplace_back(ids[i == 3 ? 10 : (i == 10 ? 5 : i + 1)], false);
+            }
+            Alignment aln = make_matching_alignment(positioned, "r" + std::to_string(i) + "_" +
+                                                    std::to_string(k), steps);
+            aln.set_mapping_quality(20 + 10 * (int)k);
+            source.add(aln);
+        }
+    }
+
+    QualAdjAlignmentScorer qual_scorer;
+    MatrixAlignmentScorer plain_scorer;
+    AlleleLikelihoodParams params;
+    params.depth_effective_reads = effective;
+    RateWindowProbe probe(positioned, source, qual_scorer, plain_scorer, params);
+    if (positional) {
+        probe.set_rate_reference(&positioned, {positioned.get_path_handle("ref")});
+    }
+    return probe.rate_and_length(snarl, ids[4]);
+}
+
+TEST_CASE("The depth rate does not depend on the node numbering",
+          "[allele_likelihood][scoring]") {
+    vector<nid_t> dense{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11};
+    // Shifted past a node-ID window and reversed, with the IDs spread over several windows, so
+    // that a window of consecutive IDs would hold different nodes.
+    vector<nid_t> renumbered;
+    for (size_t i = 0; i < 11; ++i) {
+        renumbered.push_back(100000 + (nid_t)(11 - i) * 1500);
+    }
+    // A permutation within one window, which would give an ID window the same nodes.
+    vector<nid_t> permuted{7, 3, 11, 1, 9, 5, 2, 10, 4, 8, 6};
+
+    for (bool effective : {true, false}) {
+        auto base = rate_under_numbering(dense, effective);
+        REQUIRE(base.first > 0.0);
+        REQUIRE(base.second > 0.0);
+        for (const auto& ids : {renumbered, permuted}) {
+            auto other = rate_under_numbering(ids, effective);
+            REQUIRE(other.first == Approx(base.first));
+            REQUIRE(other.second == Approx(base.second));
+        }
+    }
+
+    SECTION("Only reads beginning on reference nodes count, per reference base") {
+        // Reads counted whole: 1 + i % 3 reads begin on reference node i, for i in 0..9, and
+        // the window covers all ten 40 bp nodes. The alternative's reads and length are left out.
+        auto raw = rate_under_numbering(dense, false);
+        double starts = 0.0;
+        for (size_t i = 0; i < 10; ++i) {
+            starts += 1 + i % 3;
+        }
+        REQUIRE(raw.first == Approx(starts / 400.0));
+    }
+
+    SECTION("A node-ID window, used without reference positions, does depend on the numbering") {
+        auto dense_ids = rate_under_numbering(dense, false, false);
+        auto spread_ids = rate_under_numbering(renumbered, false, false);
+        REQUIRE(dense_ids.first != Approx(spread_ids.first));
+    }
+}
+
+}
+}

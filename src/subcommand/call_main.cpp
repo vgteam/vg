@@ -7,17 +7,28 @@
 #include <unistd.h>
 #include <getopt.h>
 #include <regex>
+#include <algorithm>
 #include <list>
 #include <fstream>
 
 #include "subcommand.hpp"
 #include "../path.hpp"
 #include "../graph_caller.hpp"
+#include "../flow_caller.hpp"
+#include "../legacy_caller.hpp"
+#include "../multipass_caller.hpp"
+#include "../snarl_manager_decomposition.hpp"
+#include "../nested_flow_caller.hpp"
+#include "../vcf_genotyper.hpp"
+#include "../vcf_output_caller.hpp"
 #include "../integrated_snarl_finder.hpp"
 #include "../xg.hpp"
 #include "../gbzgraph.hpp"
 #include "../gbwtgraph_helper.hpp"
 #include "../gref.hpp"
+#include "../traversal_clusters.hpp"
+#include "../read_likelihood_caller.hpp"
+#include "../site_read_source.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
 #include <bdsg/overlays/overlay_helper.hpp>
@@ -27,6 +38,73 @@ using namespace vg;
 using namespace vg::subcommand;
 
 const string DEFAULT_SAMPLE_NAME = "SAMPLE";
+
+// The default --read-window, in node IDs, for the two read sources that fetch reads by node-ID
+// window. The window size can change the order in which a site sees its reads, and so the last
+// digits of likelihoods summed over them.
+
+/// A GAM index query is a seek in an open file, so its window is narrow, to avoid fetching reads
+/// that no site needs.
+const size_t DEFAULT_GAM_INDEX_WINDOW = 256;
+/// A GAF-Base query runs a gbz-base subprocess, so its window is wide enough to serve many sites
+/// per query, and much wider than a long read's node-ID span, so that few reads are fetched twice
+/// by crossing a window boundary.
+const size_t DEFAULT_GAF_BASE_WINDOW = 16384;
+/// An indexed GAF query is a seek, but its window is as wide as GAF-Base's, so that the two fetch
+/// the same windows and few long reads are decoded twice by crossing a window boundary.
+const size_t DEFAULT_GAF_INDEX_WINDOW = 16384;
+
+/// Count the haplotypes that a graph's HAPLOTYPE-sense paths belong to. A haplotype is identified
+/// by its sample name and haplotype number, so one stored as several paths (one per contig or
+/// fragment) counts once. Reference and generic paths are not counted.
+///
+/// This is an upper bound on the number of distinct non-reference alleles that haplotype-based
+/// allele enumeration can offer at a site.
+static size_t count_panel_haplotypes(const PathHandleGraph& graph) {
+    set<pair<string, size_t>> haplotypes;
+    graph.for_each_path_of_sense(PathSense::HAPLOTYPE, [&](const path_handle_t& path) {
+        haplotypes.emplace(graph.get_sample_name(path), graph.get_haplotype(path));
+    });
+    return haplotypes.size();
+}
+
+/// One option that a --preset sets, written as on the command line. A switch has an empty value.
+struct PresetSetting {
+    const char* option;
+    const char* value;
+};
+
+/// The settings of each --preset. help_call lists them, and main_call applies each one whose option
+/// was not given explicitly, so the help cannot list a setting that is not applied.
+static const vector<pair<string, vector<PresetSetting>>> PRESETS = {
+    {"ont", {{"--read-phasing", ""}, {"--regenotype", ""}, {"--gap-open", "1"},
+             {"--gap-extend", "1"}, {"--mismap-min", "0.05"}, {"--read-min-mapq", "5"},
+             {"--insertion-nats", "0.9"}, {"--hp-prior", "20"}}},
+};
+
+/// Each preset's settings for the --preset help, wrapped at the help's description column.
+static string preset_help_lines() {
+    const string indent(28, ' ');
+    const size_t width = 80;
+    stringstream out;
+    for (const auto& preset : PRESETS) {
+        string line = indent + preset.first + ":";
+        for (const PresetSetting& setting : preset.second) {
+            string item = setting.option;
+            if (*setting.value != '\0') {
+                item += string(" ") + setting.value;
+            }
+            if (line.size() + 1 + item.size() > width) {
+                out << line << endl;
+                line = indent + item;
+            } else {
+                line += " " + item;
+            }
+        }
+        out << line << endl;
+    }
+    return out.str();
+}
 
 void help_call(char** argv) {
     cerr << "usage: " << argv[0] << " call [options] <graph> > output.vcf" << endl
@@ -41,6 +119,174 @@ void help_call(char** argv) {
          << "                            as opposed to probablistic model" << endl
          << "  -b, --het-bias M,N        homozygous alt/ref allele must have >= M/N times" << endl
          << "                            more support than the next best allele [6,6]" << endl
+         << "read-likelihood calling options (all need --read-likelihood):" << endl
+         << "      --read-likelihood     genotype from the likelihood of the reads under" << endl
+         << "                            each genotype, instead of from pack support" << endl
+         << "      --preset NAME         set options to values suited to a read type;" << endl
+         << "                            options given explicitly keep their values:" << endl
+         << preset_help_lines()
+         << "      --enumerate-support   take candidate alleles from read support, which" << endl
+         << "                            needs -k, rather than from the GBZ haplotypes" << endl
+         << "  read input (give one of --gam, --gaf-reads or --gaf-base; for many reads," << endl
+         << "  such as a whole genome, --gaf-reads with --gaf-index is recommended):" << endl
+         << "      --gam FILE            read alignments in GAM format" << endl
+         << "      --gaf-reads FILE      read alignments in GAF format, all loaded into" << endl
+         << "                            memory unless --gaf-index is given" << endl
+         << "      --gam-index FILE      index of --gam (from vg gamsort -i), to fetch" << endl
+         << "                            reads as sites need them instead of loading them" << endl
+         << "                            all" << endl
+         << "      --gaf-index FILE      tabix index of --gaf-reads, to fetch reads from the" << endl
+         << "                            GAF file itself as sites need them, with no" << endl
+         << "                            GAF-Base database or gbz-base. --gaf-reads must be" << endl
+         << "                            sorted (vg gamsort -G), compressed with bgzip and" << endl
+         << "                            indexed with tabix -p gaf" << endl
+         << "      --gaf-base FILE       GAF-Base database of read alignments, queried as" << endl
+         << "                            sites need them by running gbz-base, which must be" << endl
+         << "                            on the PATH" << endl
+         << "      --gbz-base FILE       graph for --gaf-base queries, as GBZ-Base or GBZ" << endl
+         << "                            [the input graph]" << endl
+         << "      --gaf-base-binary P   gbz-base executable to run [gbz-base]" << endl
+         << "      --read-window N       node-ID window for indexed read fetches" << endl
+         << "                            [16384 for --gaf-base and --gaf-index, 256 for" << endl
+         << "                            --gam-index]" << endl
+         << "      --read-min-mapq N     ignore reads with MAPQ below N [0]" << endl
+         << "  nested snarls:" << endl
+         << "      --nested              genotype nested snarls in records of their own," << endl
+         << "                            not as part of the enclosing snarl's alleles [on]" << endl
+         << "      --no-nested           report variation inside nested snarls as part of" << endl
+         << "                            the enclosing snarl's alleles" << endl
+         << "      --atomize-blocks      write one record per separate difference between" << endl
+         << "                            a called allele and the reference, rather than one" << endl
+         << "                            per snarl [on]" << endl
+         << "      --no-atomize-blocks   write one record per snarl" << endl
+         << "  read scoring:" << endl
+         << "      --gap-open N          gap-open penalty for scoring reads [6]" << endl
+         << "      --gap-extend N        gap-extension penalty for scoring reads [1]" << endl
+         << "      --insertion-nats X    add X nats to a read's log-likelihood for each gap" << endl
+         << "                            where the read has bases the allele lacks [0]" << endl
+         << "      --optimal-pairing     pair a read's node visits with an allele's" << endl
+         << "                            optimally, rather than greedily" << endl
+         << "      --no-optimal-pairing  pair them greedily (default)" << endl
+         << "      --no-mismap-term      do not model the chance that a read is mismapped" << endl
+         << "      --mismap-max P        cap on the mismapping probability derived from a" << endl
+         << "                            read's MAPQ [0.95]" << endl
+         << "      --mismap-min P        floor on any read's mismapping probability [0.02]" << endl
+         << "      --depth-term W        weight of the term ln P(read count | genotype) in" << endl
+         << "                            the likelihood; 0 disables it [0.1]" << endl
+         << "      --depth-count-raw     count each read as one in the read-count term," << endl
+         << "                            instead of as its chance of being correctly mapped" << endl
+         << "  linkage between sites:" << endl
+         << "      --linkage-weight W    weight of the linkage model, which favours runs of" << endl
+         << "                            genotypes that the -z/-g haplotypes carry; 0" << endl
+         << "                            disables it [2]" << endl
+         << "      --linkage-scale N     distance scale of linkage decay, in bp [10000]" << endl
+         << "      --linkage-prior F     exponent on the haplotypes' allele-frequency prior" << endl
+         << "                            [5]" << endl
+         << "      --hp-prior F          exponent used instead of --linkage-prior where an" << endl
+         << "                            allele differs from the reference only in the" << endl
+         << "                            length of a homopolymer run; 0 disables it [0]" << endl
+         << "      --hp-prior-run N      shortest homopolymer run for --hp-prior [11]" << endl
+         << "      --no-phased           write unphased genotypes, without FORMAT/PS" << endl
+         << "      --phased              write phased genotypes, failing if the linkage" << endl
+         << "                            model cannot run [on when the linkage model runs]" << endl
+         << "  read-based phasing (reliable heterozygous sites are joined into a phase" << endl
+         << "  chain by the reads they share; other sites are phased from the chain):" << endl
+         << "      --read-phasing        phase heterozygous sites with the reads that span" << endl
+         << "                            them, not only with the haplotypes" << endl
+         << "      --no-read-phasing     phase with the haplotypes only (default)" << endl
+         << "      --phase-min-q N       minimum mean read confidence (phred) for a site to" << endl
+         << "                            join the phase chain" << endl
+         << "                            [9.5, or 8.5 under --optimal-pairing]" << endl
+         << "      --phase-break N       break the phase chain where the reads linking two" << endl
+         << "                            neighbouring sites give under N log10 units of" << endl
+         << "                            evidence [20]" << endl
+         << "      --phase-relink N      sites of the chain used on each side of a break to" << endl
+         << "                            decide how to rejoin it [10]" << endl
+         << "      --phase-hang N        sites of the chain used to phase a site outside" << endl
+         << "                            it: the nearest N/2+1 on each side [4]" << endl
+         << "      --phase-prior N       weight, in log10 units, of the haplotypes' phase" << endl
+         << "                            when phasing a site that is not in the chain [3]" << endl
+         << "      --phase-cap N         maximum evidence, in log10 units, from the reads" << endl
+         << "                            linking two sites; 0 for no maximum [0]" << endl
+         << "      --phase-coherence F   minimum fraction of a site's reads that agree with" << endl
+         << "                            their phase at other sites, for the site to stay" << endl
+         << "                            in the phase chain; 0 disables the check [0.70]" << endl
+         << "      --phase-coh-rounds N  maximum rounds of removing incoherent sites from" << endl
+         << "                            the phase chain [2]" << endl
+         << "  re-genotyping (a read's strand log-odds, in nats, say which haplotype its" << endl
+         << "  other heterozygous sites place it on):" << endl
+         << "      --regenotype          re-genotype sites after phasing, weighting each" << endl
+         << "                            read toward the haplotype its other sites put it" << endl
+         << "                            on (needs --read-phasing)" << endl
+         << "      --no-regenotype       do not re-genotype sites (default)" << endl
+         << "      --regeno-temper N     scale on each read's strand log-odds; 0 leaves the" << endl
+         << "                            genotypes unchanged [fitted to the data]" << endl
+         << "      --regeno-passes N     rounds to run, each with one linkage pass," << endl
+         << "                            counting the first, which comes before any" << endl
+         << "                            re-genotyping; stops early if genotypes stop" << endl
+         << "                            changing. 1 only reports what re-genotyping" << endl
+         << "                            would change [2]" << endl
+         << "      --regeno-ceiling N    scale on how far a read's haplotype probability" << endl
+         << "                            may move from 1/2; 1 means no limit [1]" << endl
+         << "      --no-regeno-haploid   at a nested site that only one haplotype carries," << endl
+         << "                            do not down-weight reads whose strand log-odds" << endl
+         << "                            place them on the other haplotype" << endl
+         << "  anchors:" << endl
+         << "      --anchors-out FILE    write assembly anchors to FILE: the reads at each" << endl
+         << "                            genotyped snarl's boundaries, grouped by the" << endl
+         << "                            called allele they fit" << endl
+         << "      --anchors-het-only    write anchors only at heterozygous sites" << endl
+         << "      --anchors-leaf-only   write anchors only at leaf snarls" << endl
+         << "      --anchors-reads N     minimum reads per anchor [2]" << endl
+         << "      --anchors-min-gqn F   minimum site GQN for a site's anchors [0]" << endl
+         << "      --anchors-min-q F     minimum confidence (phred) of a read's placement" << endl
+         << "                            [0]" << endl
+         << "      --anchors-keep-off-call" << endl
+         << "                            keep reads whose best-fitting allele was not" << endl
+         << "                            called" << endl
+         << "      --anchors-end-new N   write a snarl's end anchor only if it has at least" << endl
+         << "                            N reads that its start anchor lacks [0]" << endl
+         << "      --anchors-hom-split   with --read-phasing, split the reads at a" << endl
+         << "                            homozygous site into two haplotypes by their" << endl
+         << "                            strand log-odds" << endl
+         << "      --split-min-q N       minimum |strand log-odds|, tempered, for a read" << endl
+         << "                            to count as confidently placed when splitting [0.5]" << endl
+         << "      --split-min-side N    confidently placed reads needed on each haplotype" << endl
+         << "                            to split a homozygous site [10]" << endl
+         << "      --no-anchors-phase-hets" << endl
+         << "                            place reads at a heterozygous site by allele" << endl
+         << "                            match alone, not also by strand log-odds" << endl
+         << "      --no-off-ref-nesting  do not genotype chains off the reference just to" << endl
+         << "                            write their anchors" << endl
+         << "  mosaic:" << endl
+         << "      --mosaic-out FILE     write the genome as a mosaic of the -z/-g" << endl
+         << "                            haplotypes to FILE (implies --phased)" << endl
+         << "      --mosaic-break-unexplained" << endl
+         << "                            end a mosaic segment where no haplotype explains" << endl
+         << "                            a stretch, instead of continuing the flanking one" << endl
+         << "      --no-mosaic-nested    ignore nested sites, following each enclosing" << endl
+         << "                            site's haplotype through its nested snarls" << endl
+         << "      --no-mosaic-patch-gaps" << endl
+         << "                            leave a gap where no haplotype can be followed," << endl
+         << "                            instead of filling it with the reference" << endl
+         << "  quality reporting (does not change genotypes):" << endl
+         << "      --no-share-quality    do not scale GQ by the fraction of reads the" << endl
+         << "                            called genotype explains (GQI is never scaled)" << endl
+         << "      --depth-quality A     scale GQ by exp(-A * |ln DR|) at records whose" << endl
+         << "                            alleles differ in length by 50 bp or more [0]" << endl
+         << "      --min-confidence X    set FILTER to lowconf on records with GQN below X;" << endl
+         << "                            0 disables it [0]" << endl
+         << "  debugging and evaluation:" << endl
+         << "      --dump-likelihoods F  write the per-site read/allele matrix to F as TSV" << endl
+         << "      --flat-mixture        weight a genotype's haplotypes equally, instead of" << endl
+         << "                            by the reads each is expected to produce" << endl
+         << "      --regeno-ledger FILE  write one line for each site that re-genotyping" << endl
+         << "                            changes" << endl
+         << "      --regeno-shuffle      randomize the sign of each read's strand log-odds" << endl
+         << "                            before re-genotyping" << endl
+         << "      --anchors-strict-hets" << endl
+         << "                            place reads at a heterozygous site by the sign of" << endl
+         << "                            their strand log-odds alone, ignoring allele match" << endl
          << "GAF options:" << endl
          << "  -G, --gaf                 output GAF genotypes instead of VCF" << endl
          << "  -T, --traversals          output all candidate traversals in GAF" << endl
@@ -52,10 +298,14 @@ void help_call(char** argv) {
          << "                            to construct input graph with -a)" << endl
          << "  -a, --genotype-snarls     genotype every snarl, including reference calls" << endl
          << "                            (use to compare multiple samples)" << endl
-         << "  -A, --all-snarls          call all snarls including nested (each independent)" << endl
+         << "  -A, --all-snarls          genotype every snarl, nested ones included, each" << endl
+         << "                            independently of the snarl it is nested in" << endl
+         << "      --max-snarl-edges N   call a snarl's children instead of the snarl when" << endl
+         << "                            it has more than N edges; 0 for no limit" << endl
+         << "                            [0 with --read-likelihood and -z/-g, else 10000]" << endl
          << "  -c, --min-length N        genotype only snarls with" << endl
          << "                            at least one traversal of length >= N" << endl
-         << "  -C, --max-length N        genotype only snarls where" << endl 
+         << "  -C, --max-length N        genotype only snarls where" << endl
          << "                            all traversals have length <= N" << endl
          << "  -f, --ref-fasta FILE      reference FASTA" << endl
          << "                            (required if VCF has symbolic deletions/inversions)" << endl
@@ -64,7 +314,8 @@ void help_call(char** argv) {
          << "  -r, --snarls FILE         snarls (from vg snarls) to avoid recomputing." << endl
          << "  -g, --gbwt FILE           only call genotypes present in given GBWT index" << endl
          << "  -z, --gbz                 only call genotypes present in GBZ index" << endl
-         << "                            (applies only if input graph is GBZ)" << endl
+         << "                            (applies only if input graph is GBZ; on by" << endl
+         << "                            default with --read-likelihood)" << endl
          << "  -N, --translation FILE    node ID translation (from vg gbwt --translation)" << endl
          << "                            to apply to snarl names in output" << endl
          << "  -O, --gbz-translation     use the ID translation from the input GBZ to" << endl
@@ -76,30 +327,30 @@ void help_call(char** argv) {
          << "  -o, --ref-offset N        offset in reference path (may repeat; 1 per path)" << endl
          << "  -l, --ref-length N        override reference length for output VCF contig" << endl
          << "  -d, --ploidy N            ploidy of sample. {1, 2} [2]" << endl
-         << "  -R, --ploidy-regex RULES  use this comma-separated list of colon-delimited" << endl
-         << "                            REGEX:PLOIDY rules to assign ploidies to contigs" << endl
-         << "                            not visited by the selected samples, or to all" << endl
-         << "                            contigs simulated from if no samples are used." << endl
-         << "                            Unmatched contigs get ploidy 2 (or that from -d)." << endl
-         << "      --top-down            top-down nested calling with genotype propagation" << endl
-         << "                            from parent to child snarls (writes LV/PS tags)" << endl
-         << "      --bottom-up           bottom-up nested calling with snarl merging" << endl
+         << "      --ploidy-bed FILE     BED of CHROM START END PLOIDY giving the ploidy of" << endl
+         << "                            each region, overriding -d and -R; CHROM is the" << endl
+         << "                            VCF contig name, and intervals must not overlap" << endl
+         << "  -R, --ploidy-regex RULES  comma-separated REGEX:PLOIDY rules, each giving" << endl
+         << "                            the ploidy of every reference path whose whole" << endl
+         << "                            name REGEX matches. The first matching rule wins," << endl
+         << "                            and unmatched paths get the ploidy from -d." << endl
+         << "      --top-down            genotype nested snarls after their parents, each" << endl
+         << "                            child's candidate alleles taken from its parent's" << endl
+         << "                            genotype" << endl
+         << "      --bottom-up           genotype nested snarls before their parents" << endl
          << "  -I, --chains              call chains instead of snarls (experimental)" << endl
          << "  -L, --cluster F           merge called alt alleles whose length-weighted" << endl
          << "                            similarity is >= F, so 1/2 of two effectively" << endl
          << "                            identical alleles becomes 1/1 [1.0; experimental]" << endl
-         << "      --cluster-min-len N   only apply -L merging at sites whose core length" << endl
-         << "                            -- the longest allele after stripping the prefix" << endl
-         << "                            and suffix common to all alleles -- is >= N bp" << endl
-         << "                            (0 = every site) [50]" << endl
-         << "                            in a nested run (-A/--top-down) a merged parent" << endl
-         << "                            disagrees with its own child records by design" << endl
+         << "      --cluster-min-len N   apply -L only at sites whose longest allele, less" << endl
+         << "                            the prefix and suffix all alleles share, is at" << endl
+         << "                            least N bp; 0 for every site [50]" << endl
          << "  -Y, --star-allele         use * alleles for spanning haplotypes" << endl
          << "                            (requires --top-down)" << endl
          << "      --progress            show progress" << endl
          << "  -t, --threads N           number of threads to use" << endl
          << "  -h, --help                print this help message to stderr and exit" << endl;
-}    
+}
 
 int main_call(int argc, char** argv) {
     Logger logger("vg call");
@@ -110,6 +361,24 @@ int main_call(int argc, char** argv) {
     string snarl_filename;
     string gbwt_filename;
     bool   gbz_paths = false;
+    bool   gbz_paths_explicit = false;
+    bool   enumerate_support = false;
+    // Phasing comes from the linkage model; see the check where that model is set up.
+    bool   phased_output = true;
+    bool   phased_explicit = false;
+    string mosaic_out;
+    string anchors_out;
+    bool no_off_ref_nesting = false;
+    AnchorParams anchor_params;
+    /// Counts of how the anchor code placed reads in this run.
+    AnchorCounters anchor_run_counters;
+    // Mosaic settings. Where no haplotype can be followed, fill the gap with the reference.
+    bool mosaic_patch_gaps = true;
+    // Include nested sites; if false, each strand follows its enclosing site's haplotype through
+    // nested snarls instead of switching haplotypes inside them.
+    bool mosaic_keep_nested = true;
+    // Where no haplotype explains a stretch, continue the flanking haplotype through it.
+    bool mosaic_connect_unexplained = true;
     string translation_file_name;
     bool   gbz_translation = false;
     string ref_fasta_filename;
@@ -131,6 +400,7 @@ int main_call(int argc, char** argv) {
     int ploidy = 2;
     // copied over from vg sim
     std::vector<std::pair<std::regex, size_t>> ploidy_rules;
+    string ploidy_bed_filename;
 
     bool traversals_only = false;
     bool gaf_output = false;
@@ -138,6 +408,11 @@ int main_call(int argc, char** argv) {
     bool genotype_snarls = false;
     bool top_down = false;
     bool bottom_up = false;
+    // Both on by default, and turned off below where they cannot apply.
+    bool atomize_blocks = true;
+    bool atomize_explicit = false;
+    bool nested_calling = true;
+    bool nested_explicit = false;
     bool call_chains = false;
     bool all_snarls = false;
     size_t min_allele_len = 0;
@@ -147,12 +422,71 @@ int main_call(int argc, char** argv) {
     // Nested calling option (for use with --top-down)
     bool star_allele = false;
 
-    // Post-genotyping alt-allele merging, mirroring vg deconstruct's -L/--cluster-min-len
+    // -L: after genotyping, merge called ALT alleles whose similarity is at least this.
     double cluster_threshold = 1.0;
-    // see the note in deconstruct_main.cpp: at 0 the similarity is dominated by sequence every
-    // allele shares, so -L merges small variants it should leave alone.  50 is the SV size cutoff.
+    // --cluster-min-len: the similarity counts sequence that all alleles share, so at a short site
+    // almost any two alleles look alike, so we merge only at sites at least this long. The default
+    // is the usual structural-variant size.
     int64_t cluster_min_allele_len = 50;
     bool cluster_min_len_set = false;
+
+    // Options for the read-likelihood genotyper (--read-likelihood).
+    bool read_likelihood = false;
+    string gam_filename;
+    string gaf_filename;
+    string dump_likelihoods_filename;
+    string gam_index_filename;
+    string gaf_index_filename;
+    string gaf_base_filename;
+    string gbz_base_filename;
+    string gaf_base_binary = "gbz-base";
+    // 0 means the read source's default; see the window defaults at the top of the file.
+    size_t read_window_size = 0;
+    bool no_mismap_term = false;
+    bool no_share_quality = false;
+    double depth_quality = 0.0;
+    // Gap penalties for scoring reads against alleles.
+    int gap_open = default_gap_open;
+    int gap_extend = default_gap_extension;
+    // Phase heterozygous sites with the reads, as well as with the haplotypes.
+    bool read_phasing = false;
+    bool read_phasing_explicit = false;
+    bool regenotype = false;
+    bool regenotype_explicit = false;
+    bool phase_hets_explicit = false;
+    RegenotypeParams regenotype_params;
+    // Linkage passes under --regenotype, one per round. The first chooses the genotypes; each
+    // later one follows a correction from the read phase and chooses them again.
+    size_t regenotype_passes = 2;
+    string regenotype_ledger;
+    ReadPhasingParams read_phasing_params;
+    // The preset is applied after all options are parsed. The *_explicit flags record which of its
+    // settings were given explicitly, and those keep their given values.
+    string preset;
+    double insertion_gap_nats = 0.0;
+    bool insertion_nats_explicit = false;
+    bool optimal_pairing = false;
+    bool optimal_pairing_explicit = false;
+    bool phase_min_q_explicit = false;
+    bool gap_open_explicit = false, gap_extend_explicit = false, mismap_min_explicit = false;
+    bool read_min_mapq_explicit = false;
+    double min_confidence = 0.0;
+    double linkage_weight = 2.0;
+    /// Whether --linkage-weight was given. Where the linkage model cannot run, an explicit weight
+    /// is an error, while the default weight is set to 0.
+    bool linkage_weight_explicit = false;
+    double linkage_scale = 10000.0;
+    double linkage_freq_prior = 5.0;
+    double hp_prior = 0.0;
+    bool hp_prior_explicit = false;
+    int hp_prior_run = 11;
+    bool flat_mixture = false;
+    double depth_weight = 0.1;
+    bool depth_count_raw = false;
+    double max_mismap_prob = 0.95;
+    double min_mismap_prob = 0.02;
+    // 0 keeps reads from aligners that give every read MAPQ 0.
+    int read_min_mapq = 0;
 
     // constants
     const size_t avg_trav_threshold = 50;
@@ -160,7 +494,11 @@ int main_call(int argc, char** argv) {
     const size_t min_depth_bin_width = 50;
     const size_t max_depth_bin_width = 50000000;
     const double depth_scale_fac = 1.5;
-    const size_t max_yens_traversals = traversals_only ? 100 : 50;
+    // Set after parsing, since it depends on -T.
+    size_t max_yens_traversals = 50;
+    // If not given, set after parsing, since the default depends on the traversal finder.
+    size_t max_snarl_edges_opt = 0;
+    bool max_snarl_edges_explicit = false;
     // used to merge up snarls from chains when generating traversals
     const size_t max_chain_edges = 1000; 
     const size_t max_chain_trivial_travs = 5;
@@ -169,12 +507,93 @@ int main_call(int argc, char** argv) {
     constexpr int OPT_CLUSTER_POST = 1003;
     constexpr int OPT_LEGACY = 1004;
     constexpr int OPT_BOTTOM_UP = 1005;
+    constexpr int OPT_ATOMIZE_BLOCKS = 1047;
+    constexpr int OPT_NO_ATOMIZE_BLOCKS = 1048;
     constexpr int OPT_TOP_DOWN = 1006;
+    constexpr int OPT_READ_LIKELIHOOD = 1007;
+    constexpr int OPT_GAM = 1008;
+    constexpr int OPT_GAF = 1009;
+    constexpr int OPT_DUMP_LIKELIHOODS = 1010;
+    constexpr int OPT_NO_MISMAP_TERM = 1011;
+    constexpr int OPT_READ_MIN_MAPQ = 1012;
+    constexpr int OPT_GAM_INDEX = 1013;
+    constexpr int OPT_READ_WINDOW = 1014;
+    constexpr int OPT_GAF_BASE = 1015;
+    constexpr int OPT_GBZ_BASE = 1016;
+    constexpr int OPT_GAF_BASE_BINARY = 1017;
+    constexpr int OPT_GAF_INDEX = 1112;
+    constexpr int OPT_MISMAP_MAX = 1019;
+    constexpr int OPT_MISMAP_MIN = 1020;
+    constexpr int OPT_INSERTION_GAP_NATS = 1091;
+    constexpr int OPT_OPTIMAL_PAIRING = 1092;
+    constexpr int OPT_ANCHORS_HOM_SPLIT = 1094;
+    constexpr int OPT_ANCHORS_PHASE_HETS = 1102;
+    constexpr int OPT_NO_ANCHORS_PHASE_HETS = 1103;
+    constexpr int OPT_ANCHORS_STRICT_HETS = 1104;
+    constexpr int OPT_ANCHORS_PHASE_MIN = 1095;
+    constexpr int OPT_ANCHORS_PHASE_MIN_SIDE = 1096;
+    constexpr int OPT_NO_OPTIMAL_PAIRING = 1093;
+    constexpr int OPT_NO_SHARE_QUALITY = 1021;
+    constexpr int OPT_FLAT_MIXTURE = 1023;
+    constexpr int OPT_MAX_SNARL_EDGES = 1109;
+    constexpr int OPT_HP_PRIOR = 1110;
+    constexpr int OPT_HP_PRIOR_RUN = 1111;
+    constexpr int OPT_DEPTH_TERM = 1025;
+    constexpr int OPT_DEPTH_COUNT_RAW = 1026;
+    constexpr int OPT_DEPTH_QUALITY = 1027;
+    constexpr int OPT_PRESET = 1072;
+    constexpr int OPT_GAP_OPEN = 1070;
+    constexpr int OPT_GAP_EXTEND = 1071;
+    constexpr int OPT_READ_PHASING = 1074;
+    constexpr int OPT_NO_READ_PHASING = 1081;
+    constexpr int OPT_PHASE_MIN_Q = 1075;
+    constexpr int OPT_PHASE_BREAK = 1076;
+    constexpr int OPT_PHASE_RELINK = 1077;
+    constexpr int OPT_PHASE_HANG = 1078;
+    constexpr int OPT_PHASE_PRIOR = 1079;
+    constexpr int OPT_PHASE_CAP = 1080;
+    constexpr int OPT_PHASE_COHERENCE = 1107;
+    constexpr int OPT_PHASE_COH_ROUNDS = 1108;
+    constexpr int OPT_REGENOTYPE = 1082;
+    constexpr int OPT_NO_REGENOTYPE = 1087;
+    constexpr int OPT_REGENO_CEILING = 1088;
+    constexpr int OPT_REGENO_HAPLOID = 1089;
+    constexpr int OPT_NO_REGENO_HAPLOID = 1090;
+    constexpr int OPT_REGENO_TEMPER = 1083;
+    constexpr int OPT_REGENO_PASSES = 1084;
+    constexpr int OPT_REGENO_SHUFFLE = 1085;
+    constexpr int OPT_REGENO_LEDGER = 1086;
+    constexpr int OPT_MIN_CONFIDENCE = 1042;
+    constexpr int OPT_PLOIDY_BED = 1043;
+    constexpr int OPT_NESTED = 1044;
+    constexpr int OPT_NO_NESTED = 1045;
+    constexpr int OPT_NO_OFF_REF_NESTING = 1101;
+    constexpr int OPT_NO_PHASED = 1046;
+    constexpr int OPT_LINKAGE_WEIGHT = 1028;
+    constexpr int OPT_LINKAGE_SCALE = 1030;
+    constexpr int OPT_LINKAGE_FREQ_PRIOR = 1031;
+    constexpr int OPT_ENUMERATE_SUPPORT = 1032;
+    constexpr int OPT_PHASED = 1033;
+    constexpr int OPT_MOSAIC_OUT = 1034;
+    constexpr int OPT_ANCHORS_OUT = 1060;
+    constexpr int OPT_ANCHORS_HET_ONLY = 1061;
+    constexpr int OPT_ANCHORS_LEAF_ONLY = 1062;
+    constexpr int OPT_ANCHORS_MIN_READS = 1063;
+    constexpr int OPT_ANCHORS_MIN_GQN = 1064;
+    constexpr int OPT_ANCHORS_MIN_SCORE = 1065;
+    constexpr int OPT_ANCHORS_KEEP_OFF_CALL = 1066;
+    constexpr int OPT_ANCHORS_END_PIN_MIN_NEW = 1067;
+    constexpr int OPT_NO_MOSAIC_PATCH = 1053;
+    constexpr int OPT_MOSAIC_PATCH = 1054;
+    constexpr int OPT_NO_MOSAIC_NESTED = 1055;
+    constexpr int OPT_MOSAIC_BREAK_UNEXPL = 1056;
     int c;
     optind = 2; // force optind past command positional argument
-    while (true) {
-
-        static const struct option long_options[] = {
+    // The long options, grouped by the subsystem they configure. The options of a subsystem other
+    // than "core" only have an effect when that subsystem is turned on, and we refuse them otherwise
+    // (see below). Every such subsystem is part of the read-likelihood genotyper.
+    const map<string, vector<struct option>> long_options_by_subsystem = {
+        {"core", {
             {"pack", required_argument, 0, 'k'},
             {"bias-mode", no_argument, 0, 'B'},
             {"baseline-error", required_argument, 0, 'e'},
@@ -187,7 +606,7 @@ int main_call(int argc, char** argv) {
             {"max-length", required_argument, 0, 'C'},
             {"ref-fasta", required_argument, 0, 'f'},
             {"ins-fasta", required_argument, 0, 'i'},
-            {"sample", required_argument, 0, 's'},            
+            {"sample", required_argument, 0, 's'},
             {"snarls", required_argument, 0, 'r'},
             {"gbwt", required_argument, 0, 'g'},
             {"gbz", no_argument, 0, 'z'},
@@ -195,39 +614,149 @@ int main_call(int argc, char** argv) {
             {"gbz-translation", no_argument, 0, 'O'},
             {"ref-path", required_argument, 0, 'p'},
             {"path-prefix", required_argument, 0, 'P'},
-            {"ref-sample", required_argument, 0, 'S'},            
+            {"ref-sample", required_argument, 0, 'S'},
             {"ref-offset", required_argument, 0, 'o'},
             {"ref-length", required_argument, 0, 'l'},
             {"ploidy", required_argument, 0, 'd'},
             {"ploidy-regex", required_argument, 0, 'R'},
+            {"ploidy-bed", required_argument, 0, OPT_PLOIDY_BED},
             {"gaf", no_argument, 0, 'G'},
             {"traversals", no_argument, 0, 'T'},
             {"trav-padding", required_argument, 0, 'M'},
             {"legacy", no_argument, 0, OPT_LEGACY},
             {"top-down", no_argument, 0, OPT_TOP_DOWN},
             {"bottom-up", no_argument, 0, OPT_BOTTOM_UP},
+            {"read-likelihood", no_argument, 0, OPT_READ_LIKELIHOOD},
+            {"max-snarl-edges", required_argument, 0, OPT_MAX_SNARL_EDGES},
             {"chains", no_argument, 0, 'I'},
             {"cluster", required_argument, 0, 'L'},
             {"cluster-min-len", required_argument, 0, OPT_CLUSTER_MIN_LEN},
-            // deprecated: shipped through v1.76 as an accepted no-op.  Kept accepted (and absent
-            // from the helptext, which check_options.py allows) so pipelines carrying it do not die
-            // on an unrecognized option.  Remove after one release.
+            // Accepted and ignored, and left out of the help, so that command lines that still
+            // pass it keep working.
             {"cluster-post", no_argument, 0, OPT_CLUSTER_POST},
             {"star-allele", no_argument, 0, 'Y'},
             {"threads", required_argument, 0, 't'},
-            {"progress", no_argument, 0, OPT_PROGRESS },
+            {"progress", no_argument, 0, OPT_PROGRESS},
             {"help", no_argument, 0, 'h'},
-            {0, 0, 0, 0}
-        };
+        }},
+        {"read-likelihood", {  // need --read-likelihood
+            {"no-phased", no_argument, 0, OPT_NO_PHASED},
+            {"gam", required_argument, 0, OPT_GAM},
+            {"gaf-reads", required_argument, 0, OPT_GAF},
+            {"dump-likelihoods", required_argument, 0, OPT_DUMP_LIKELIHOODS},
+            {"no-mismap-term", no_argument, 0, OPT_NO_MISMAP_TERM},
+            {"mismap-max", required_argument, 0, OPT_MISMAP_MAX},
+            {"mismap-min", required_argument, 0, OPT_MISMAP_MIN},
+            {"insertion-nats", required_argument, 0, OPT_INSERTION_GAP_NATS},
+            {"optimal-pairing", no_argument, 0, OPT_OPTIMAL_PAIRING},
+            {"no-optimal-pairing", no_argument, 0, OPT_NO_OPTIMAL_PAIRING},
+            {"no-share-quality", no_argument, 0, OPT_NO_SHARE_QUALITY},
+            {"flat-mixture", no_argument, 0, OPT_FLAT_MIXTURE},
+            {"depth-term", required_argument, 0, OPT_DEPTH_TERM},
+            {"depth-count-raw", no_argument, 0, OPT_DEPTH_COUNT_RAW},
+            {"depth-quality", required_argument, 0, OPT_DEPTH_QUALITY},
+            {"preset", required_argument, 0, OPT_PRESET},
+            {"gap-open", required_argument, 0, OPT_GAP_OPEN},
+            {"gap-extend", required_argument, 0, OPT_GAP_EXTEND},
+            {"read-phasing", no_argument, 0, OPT_READ_PHASING},
+            {"no-read-phasing", no_argument, 0, OPT_NO_READ_PHASING},
+            {"phase-min-q", required_argument, 0, OPT_PHASE_MIN_Q},
+            {"phase-break", required_argument, 0, OPT_PHASE_BREAK},
+            {"phase-relink", required_argument, 0, OPT_PHASE_RELINK},
+            {"phase-hang", required_argument, 0, OPT_PHASE_HANG},
+            {"phase-prior", required_argument, 0, OPT_PHASE_PRIOR},
+            {"phase-cap", required_argument, 0, OPT_PHASE_CAP},
+            {"phase-coherence", required_argument, 0, OPT_PHASE_COHERENCE},
+            {"phase-coh-rounds", required_argument, 0, OPT_PHASE_COH_ROUNDS},
+            {"regenotype", no_argument, 0, OPT_REGENOTYPE},
+            {"no-regenotype", no_argument, 0, OPT_NO_REGENOTYPE},
+            {"min-confidence", required_argument, 0, OPT_MIN_CONFIDENCE},
+            {"linkage-weight", required_argument, 0, OPT_LINKAGE_WEIGHT},
+            {"linkage-scale", required_argument, 0, OPT_LINKAGE_SCALE},
+            {"linkage-prior", required_argument, 0, OPT_LINKAGE_FREQ_PRIOR},
+            {"hp-prior", required_argument, 0, OPT_HP_PRIOR},
+            {"hp-prior-run", required_argument, 0, OPT_HP_PRIOR_RUN},
+            {"enumerate-support", no_argument, 0, OPT_ENUMERATE_SUPPORT},
+            {"nested", no_argument, 0, OPT_NESTED},
+            {"no-nested", no_argument, 0, OPT_NO_NESTED},
+            {"atomize-blocks", no_argument, 0, OPT_ATOMIZE_BLOCKS},
+            {"no-atomize-blocks", no_argument, 0, OPT_NO_ATOMIZE_BLOCKS},
+            {"phased", no_argument, 0, OPT_PHASED},
+            {"mosaic-out", required_argument, 0, OPT_MOSAIC_OUT},
+            {"anchors-out", required_argument, 0, OPT_ANCHORS_OUT},
+            {"read-min-mapq", required_argument, 0, OPT_READ_MIN_MAPQ},
+            {"gam-index", required_argument, 0, OPT_GAM_INDEX},
+            {"gaf-index", required_argument, 0, OPT_GAF_INDEX},
+            {"gaf-base", required_argument, 0, OPT_GAF_BASE},
+            {"gbz-base", required_argument, 0, OPT_GBZ_BASE},
+            {"gaf-base-binary", required_argument, 0, OPT_GAF_BASE_BINARY},
+            {"read-window", required_argument, 0, OPT_READ_WINDOW},
+        }},
+        {"anchors", {  // need --anchors-out
+            {"no-off-ref-nesting", no_argument, 0, OPT_NO_OFF_REF_NESTING},
+            {"anchors-hom-split", no_argument, 0, OPT_ANCHORS_HOM_SPLIT},
+            {"anchors-phase-hets", no_argument, 0, OPT_ANCHORS_PHASE_HETS},
+            {"no-anchors-phase-hets", no_argument, 0, OPT_NO_ANCHORS_PHASE_HETS},
+            {"anchors-strict-hets", no_argument, 0, OPT_ANCHORS_STRICT_HETS},
+            {"split-min-q", required_argument, 0, OPT_ANCHORS_PHASE_MIN},
+            {"split-min-side", required_argument, 0, OPT_ANCHORS_PHASE_MIN_SIDE},
+            {"anchors-het-only", no_argument, 0, OPT_ANCHORS_HET_ONLY},
+            {"anchors-leaf-only", no_argument, 0, OPT_ANCHORS_LEAF_ONLY},
+            {"anchors-reads", required_argument, 0, OPT_ANCHORS_MIN_READS},
+            {"anchors-min-gqn", required_argument, 0, OPT_ANCHORS_MIN_GQN},
+            {"anchors-min-q", required_argument, 0, OPT_ANCHORS_MIN_SCORE},
+            {"anchors-keep-off-call", no_argument, 0, OPT_ANCHORS_KEEP_OFF_CALL},
+            {"anchors-end-new", required_argument, 0, OPT_ANCHORS_END_PIN_MIN_NEW},
+        }},
+        {"mosaic", {  // need --mosaic-out
+            {"mosaic-patch-gaps", no_argument, 0, OPT_MOSAIC_PATCH},
+            {"no-mosaic-patch-gaps", no_argument, 0, OPT_NO_MOSAIC_PATCH},
+            {"no-mosaic-nested", no_argument, 0, OPT_NO_MOSAIC_NESTED},
+            {"mosaic-break-unexplained", no_argument, 0, OPT_MOSAIC_BREAK_UNEXPL},
+        }},
+        {"regenotype", {  // need --regenotype
+            {"regeno-ceiling", required_argument, 0, OPT_REGENO_CEILING},
+            {"regeno-haploid", no_argument, 0, OPT_REGENO_HAPLOID},
+            {"no-regeno-haploid", no_argument, 0, OPT_NO_REGENO_HAPLOID},
+            {"regeno-temper", required_argument, 0, OPT_REGENO_TEMPER},
+            {"regeno-passes", required_argument, 0, OPT_REGENO_PASSES},
+            {"regeno-shuffle", no_argument, 0, OPT_REGENO_SHUFFLE},
+            {"regeno-ledger", required_argument, 0, OPT_REGENO_LEDGER},
+        }},
+    };
+
+    // getopt_long takes a single array ending in an all-zero entry. We also record each option's
+    // name and subsystem by its `val`, which is unique.
+    vector<struct option> long_options;
+    unordered_map<int, string> option_name;
+    unordered_map<int, string> option_subsystem;
+    for (const auto& subsystem_and_options : long_options_by_subsystem) {
+        for (const struct option& o : subsystem_and_options.second) {
+            long_options.push_back(o);
+            option_name[o.val] = o.name;
+            option_subsystem[o.val] = subsystem_and_options.first;
+        }
+    }
+    long_options.push_back({0, 0, 0, 0});
+
+    // The options given, by `val`, in the order first given, for the subsystem check below.
+    vector<int> options_seen;
+
+    while (true) {
+
 
         int option_index = 0;
 
         c = getopt_long (argc, argv, "k:Be:b:m:v:aAc:C:f:i:s:r:g:zN:Op:P:S:o:l:d:R:GTM:IL:Yt:h?",
-                         long_options, &option_index);
+                         long_options.data(), &option_index);
 
         // Detect the end of the options.
         if (c == -1)
             break;
+
+        if (std::find(options_seen.begin(), options_seen.end(), c) == options_seen.end()) {
+            options_seen.push_back(c);
+        }
 
         switch (c)
         {
@@ -278,6 +807,54 @@ int main_call(int argc, char** argv) {
             break;
         case 'z':
             gbz_paths = true;
+            gbz_paths_explicit = true;
+            break;
+        case OPT_ENUMERATE_SUPPORT:
+            enumerate_support = true;
+            break;
+        case OPT_PHASED:
+            phased_output = true;
+            phased_explicit = true;
+            break;
+        case OPT_MOSAIC_BREAK_UNEXPL:
+            mosaic_connect_unexplained = false;
+            break;
+        case OPT_NO_MOSAIC_NESTED:
+            mosaic_keep_nested = false;
+            break;
+        case OPT_MOSAIC_PATCH:
+            mosaic_patch_gaps = true;
+            break;
+        case OPT_NO_MOSAIC_PATCH:
+            mosaic_patch_gaps = false;
+            break;
+        case OPT_ANCHORS_OUT:
+            anchors_out = optarg;
+            anchor_params.enabled = true;
+            break;
+        case OPT_ANCHORS_HET_ONLY:
+            anchor_params.het_only = true;
+            break;
+        case OPT_ANCHORS_LEAF_ONLY:
+            anchor_params.leaf_only = true;
+            break;
+        case OPT_ANCHORS_MIN_READS:
+            anchor_params.min_reads = parse<size_t>(optarg);
+            break;
+        case OPT_ANCHORS_MIN_GQN:
+            anchor_params.min_gqn = parse<double>(optarg);
+            break;
+        case OPT_ANCHORS_MIN_SCORE:
+            anchor_params.min_read_score = parse<double>(optarg);
+            break;
+        case OPT_ANCHORS_END_PIN_MIN_NEW:
+            anchor_params.end_pin_min_new = parse<size_t>(optarg);
+            break;
+        case OPT_ANCHORS_KEEP_OFF_CALL:
+            anchor_params.keep_off_call = true;
+            break;
+        case OPT_MOSAIC_OUT:
+            mosaic_out = optarg;
             break;
         case 'N':
             translation_file_name = require_exists(logger, optarg);
@@ -341,8 +918,259 @@ int main_call(int argc, char** argv) {
         case OPT_TOP_DOWN:
             top_down = true;
             break;
+        case OPT_ATOMIZE_BLOCKS:
+            atomize_blocks = true;
+            atomize_explicit = true;
+            break;
+        case OPT_NO_ATOMIZE_BLOCKS:
+            atomize_blocks = false;
+            atomize_explicit = true;
+            break;
         case OPT_BOTTOM_UP:
             bottom_up = true;
+            break;
+        case OPT_READ_LIKELIHOOD:
+            read_likelihood = true;
+            break;
+        case OPT_GAM:
+            gam_filename = require_exists(logger, optarg);
+            break;
+        case OPT_GAF:
+            gaf_filename = require_exists(logger, optarg);
+            break;
+        case OPT_DUMP_LIKELIHOODS:
+            dump_likelihoods_filename = ensure_writable(logger, optarg);
+            break;
+        case OPT_NO_MISMAP_TERM:
+            no_mismap_term = true;
+            break;
+        case OPT_FLAT_MIXTURE:
+            flat_mixture = true;
+            break;
+        case OPT_MAX_SNARL_EDGES:
+            max_snarl_edges_opt = parse<size_t>(optarg);
+            max_snarl_edges_explicit = true;
+            break;
+        case OPT_DEPTH_TERM:
+            depth_weight = parse<double>(optarg);
+            break;
+        case OPT_DEPTH_COUNT_RAW:
+            depth_count_raw = true;
+            break;
+        case OPT_PRESET:
+            preset = optarg;
+            break;
+        case OPT_GAP_OPEN:
+            gap_open_explicit = true;
+            gap_open = parse<int>(optarg);
+            if (gap_open < 1 || gap_open > 127) {
+                cerr << "error [vg call]: --gap-open must be between 1 and 127" << endl;
+                return 1;
+            }
+            break;
+        case OPT_READ_PHASING:
+            read_phasing = true;
+            read_phasing_explicit = true;
+            break;
+        case OPT_NO_READ_PHASING:
+            read_phasing = false;
+            read_phasing_explicit = true;
+            break;
+        case OPT_PHASE_MIN_Q:
+            read_phasing_params.reliability = parse<double>(optarg);
+            phase_min_q_explicit = true;
+            break;
+        case OPT_PHASE_BREAK:
+            read_phasing_params.break_threshold = parse<double>(optarg);
+            break;
+        case OPT_PHASE_RELINK:
+            read_phasing_params.relink = parse<size_t>(optarg);
+            break;
+        case OPT_PHASE_HANG:
+            read_phasing_params.hang = parse<size_t>(optarg);
+            break;
+        case OPT_PHASE_PRIOR:
+            read_phasing_params.panel_weight = parse<double>(optarg);
+            break;
+        case OPT_PHASE_CAP:
+            read_phasing_params.cap = parse<double>(optarg);
+            break;
+        case OPT_PHASE_COHERENCE:
+            read_phasing_params.coherence_min = parse<double>(optarg);
+            if (read_phasing_params.coherence_min < 0.0
+                || read_phasing_params.coherence_min > 1.0) {
+                cerr << "error [vg call]: --phase-coherence is a fraction in [0,1]" << endl;
+                return 1;
+            }
+            break;
+        case OPT_PHASE_COH_ROUNDS:
+            read_phasing_params.coherence_rounds = parse<size_t>(optarg);
+            if (read_phasing_params.coherence_rounds < 1) {
+                cerr << "error [vg call]: --phase-coh-rounds must be >= 1" << endl;
+                return 1;
+            }
+            break;
+        case OPT_REGENOTYPE:
+            regenotype = true;
+            regenotype_explicit = true;
+            break;
+        case OPT_NO_REGENOTYPE:
+            regenotype = false;
+            regenotype_explicit = true;
+            break;
+        case OPT_REGENO_TEMPER:
+            regenotype_params.temper = parse<double>(optarg);
+            if (regenotype_params.temper < 0) {
+                logger.error() << "--regeno-temper must be >= 0 (0 leaves the genotypes unchanged)"
+                               << endl;
+            }
+            break;
+        case OPT_REGENO_PASSES:
+            regenotype_passes = parse<size_t>(optarg);
+            if (regenotype_passes < 1 || regenotype_passes > 20) {
+                logger.error() << "--regeno-passes must be between 1 and 20" << endl;
+            }
+            break;
+        case OPT_REGENO_SHUFFLE:
+            regenotype_params.shuffle = true;
+            break;
+        case OPT_REGENO_CEILING:
+            regenotype_params.ceiling = parse<double>(optarg);
+            if (regenotype_params.ceiling <= 0.0 || regenotype_params.ceiling > 1.0) {
+                logger.error() << "--regeno-ceiling must be in (0, 1]; 1 means no limit" << endl;
+            }
+            break;
+        case OPT_REGENO_HAPLOID:
+            regenotype_params.haploid_include = true;
+            break;
+        case OPT_NO_REGENO_HAPLOID:
+            regenotype_params.haploid_include = false;
+            break;
+        case OPT_REGENO_LEDGER:
+            regenotype_ledger = optarg;
+            break;
+        case OPT_GAP_EXTEND:
+            gap_extend_explicit = true;
+            gap_extend = parse<int>(optarg);
+            if (gap_extend < 1 || gap_extend > 127) {
+                cerr << "error [vg call]: --gap-extend must be between 1 and 127" << endl;
+                return 1;
+            }
+            break;
+        case OPT_DEPTH_QUALITY:
+            depth_quality = parse<double>(optarg);
+            break;
+        case OPT_MIN_CONFIDENCE:
+            min_confidence = parse<double>(optarg);
+            break;
+        case OPT_PLOIDY_BED:
+            ploidy_bed_filename = require_exists(logger, optarg);
+            break;
+        case OPT_NESTED:
+            nested_calling = true;
+            nested_explicit = true;
+            break;
+        case OPT_NO_OFF_REF_NESTING:
+            no_off_ref_nesting = true;
+            break;
+        case OPT_NO_NESTED:
+            nested_calling = false;
+            nested_explicit = true;
+
+            break;
+        case OPT_NO_PHASED:
+            phased_output = false;
+            phased_explicit = true;
+            break;
+        case OPT_LINKAGE_WEIGHT:
+            linkage_weight = parse<double>(optarg);
+            linkage_weight_explicit = true;
+            break;
+        case OPT_LINKAGE_SCALE:
+            linkage_scale = parse<double>(optarg);
+            break;
+        case OPT_LINKAGE_FREQ_PRIOR:
+            linkage_freq_prior = parse<double>(optarg);
+            break;
+        case OPT_HP_PRIOR:
+            hp_prior = parse<double>(optarg);
+            hp_prior_explicit = true;
+            break;
+        case OPT_HP_PRIOR_RUN:
+            hp_prior_run = parse<int>(optarg);
+            break;
+        case OPT_NO_SHARE_QUALITY:
+            no_share_quality = true;
+            break;
+        case OPT_MISMAP_MAX:
+            max_mismap_prob = parse<double>(optarg);
+            break;
+        case OPT_MISMAP_MIN:
+            mismap_min_explicit = true;
+            min_mismap_prob = parse<double>(optarg);
+            break;
+        case OPT_INSERTION_GAP_NATS:
+            insertion_nats_explicit = true;
+            insertion_gap_nats = parse<double>(optarg);
+            break;
+        case OPT_OPTIMAL_PAIRING:
+            optimal_pairing_explicit = true;
+            optimal_pairing = true;
+            break;
+        case OPT_ANCHORS_HOM_SPLIT:
+            anchor_params.hom_split = true;
+            break;
+        case OPT_ANCHORS_PHASE_HETS:
+            anchor_params.phase_hets = true;
+            phase_hets_explicit = true;
+            break;
+        case OPT_NO_ANCHORS_PHASE_HETS:
+            anchor_params.phase_hets = false;
+            phase_hets_explicit = true;
+            break;
+        case OPT_ANCHORS_STRICT_HETS:
+            anchor_params.strict_hets = true;
+            phase_hets_explicit = true;
+            break;
+        case OPT_ANCHORS_PHASE_MIN:
+            anchor_params.phase_min = parse<double>(optarg);
+            if (anchor_params.phase_min < 0) {
+                cerr << "error [vg call]: --split-min-q must be at least 0" << endl;
+                return 1;
+            }
+            break;
+        case OPT_ANCHORS_PHASE_MIN_SIDE:
+            anchor_params.phase_min_side = parse<size_t>(optarg);
+            if (anchor_params.phase_min_side < 1) {
+                cerr << "error [vg call]: --split-min-side must be at least 1" << endl;
+                return 1;
+            }
+            break;
+        case OPT_NO_OPTIMAL_PAIRING:
+            optimal_pairing_explicit = true;
+            optimal_pairing = false;
+            break;
+        case OPT_READ_MIN_MAPQ:
+            read_min_mapq_explicit = true;
+            read_min_mapq = parse<int>(optarg);
+            break;
+        case OPT_GAM_INDEX:
+            gam_index_filename = require_exists(logger, optarg);
+            break;
+        case OPT_GAF_INDEX:
+            gaf_index_filename = require_exists(logger, optarg);
+            break;
+        case OPT_GAF_BASE:
+            gaf_base_filename = require_exists(logger, optarg);
+            break;
+        case OPT_GBZ_BASE:
+            gbz_base_filename = require_exists(logger, optarg);
+            break;
+        case OPT_GAF_BASE_BINARY:
+            gaf_base_binary = optarg;
+            break;
+        case OPT_READ_WINDOW:
+            read_window_size = parse<size_t>(optarg);
             break;
         case 'I':
             call_chains = true;
@@ -431,6 +1259,92 @@ int main_call(int argc, char** argv) {
         logger.error() << "-M option can only be used in conjunction with -T" << endl;
     }
 
+    // With -T the candidate traversals are themselves the output, and none of them has to be
+    // genotyped, so we can afford to look for more of them.
+    max_yens_traversals = traversals_only ? 100 : 50;
+
+    if (hp_prior < 0.0 || hp_prior_run < 1) {
+        cerr << "error [vg call]: --hp-prior takes a value >= 0, and --hp-prior-run a run of at least 1"
+             << endl;
+        return 1;
+    }
+    if (!preset.empty()) {
+        // A preset only sets the options that were not given explicitly. The values for `ont`
+        // were fitted to Oxford Nanopore reads.
+        auto chosen = std::find_if(PRESETS.begin(), PRESETS.end(),
+                                   [&](const pair<string, vector<PresetSetting>>& p) {
+                                       return p.first == preset;
+                                   });
+        if (chosen == PRESETS.end()) {
+            cerr << "error [vg call]: unknown --preset '" << preset << "'; known presets:";
+            for (size_t i = 0; i < PRESETS.size(); ++i) {
+                cerr << (i ? ", " : " ") << PRESETS[i].first;
+            }
+            cerr << endl;
+            return 1;
+        }
+        for (const PresetSetting& setting : chosen->second) {
+            const string option = setting.option;
+            const string value = setting.value;
+            if (option == "--read-phasing") {
+                if (!read_phasing_explicit) {
+                    read_phasing = true;
+                }
+            } else if (option == "--regenotype") {
+                if (!regenotype_explicit) {
+                    regenotype = true;
+                }
+            } else if (option == "--gap-open") {
+                if (!gap_open_explicit) {
+                    gap_open = parse<int>(value);
+                }
+            } else if (option == "--gap-extend") {
+                if (!gap_extend_explicit) {
+                    gap_extend = parse<int>(value);
+                }
+            } else if (option == "--mismap-min") {
+                if (!mismap_min_explicit) {
+                    min_mismap_prob = parse<double>(value);
+                }
+            } else if (option == "--read-min-mapq") {
+                if (!read_min_mapq_explicit) {
+                    read_min_mapq = parse<int>(value);
+                }
+            } else if (option == "--insertion-nats") {
+                if (!insertion_nats_explicit) {
+                    insertion_gap_nats = parse<double>(value);
+                }
+            } else if (option == "--hp-prior") {
+                if (!hp_prior_explicit) {
+                    hp_prior = parse<double>(value);
+                }
+            } else {
+                // Every option in PRESETS needs a branch here.
+                logger.error() << "--preset " << preset << " sets " << option
+                               << ", which has no preset handling" << endl;
+            }
+        }
+    }
+    // --atomize-blocks is on by default, so where it cannot apply we turn it off, and only an
+    // explicit --atomize-blocks is an error. These checks depend only on the options, so they run
+    // before the graph is loaded.
+    if (atomize_blocks && genotype_snarls) {
+        // -a writes the same records, one per snarl, whatever the sample, but block emission
+        // writes one record per difference in the called haplotypes.
+        if (atomize_explicit) {
+            logger.error() << "--atomize-blocks cannot be combined with -a/--genotype-snarls: "
+                           << "a block list depends on the called haplotypes, so the record set "
+                           << "would stop being sample-independent" << endl;
+        }
+        atomize_blocks = false;
+    }
+    if (atomize_blocks && top_down) {
+        if (atomize_explicit) {
+            logger.error() << "--atomize-blocks cannot be combined with --top-down" << endl;
+        }
+        atomize_blocks = false;
+    }
+
     if (!vcf_filename.empty() && genotype_snarls) {
         logger.error() << "-v and -a options cannot be used together" << endl;
     }
@@ -449,56 +1363,54 @@ int main_call(int argc, char** argv) {
         logger.error() << "-P cannot be used with -p" << endl;
     }
 
-    // -L/--cluster validation, deliberately ahead of the graph load below: it is all command-line
-    // state, and a typo'd "-L 5" should not cost a multi-gigabyte graph load before it is rejected.
-    // vg deconstruct clamps out-of-range values; we reject them, since -L 5 is a plausible typo for
-    // -L 0.5 and clamping would silently disable merging altogether.
+    // Check -L/--cluster before loading the graph, so that a mistake fails quickly. We reject a
+    // threshold outside [0, 1] rather than clamping it, since "-L 5" is probably a typo for
+    // "-L 0.5".
     if (cluster_threshold < 0.0 || cluster_threshold > 1.0 || std::isnan(cluster_threshold)) {
         logger.error() << "-L/--cluster threshold must be in range [0.0, 1.0]" << endl;
     }
-    // only for an explicit --cluster-min-len: the default is nonzero, so testing the value alone
-    // would warn on every run that does not pass -L
+    // Warn only when --cluster-min-len was given: its default is nonzero, so otherwise every run
+    // without -L would warn.
     if (cluster_min_len_set && cluster_min_allele_len > 0 && cluster_threshold >= 1.0) {
         logger.warn() << "--cluster-min-len has no effect without -L (cluster threshold < 1.0)" << endl;
     }
-    // -L merges in VCFOutputCaller::emit_variant, which these paths never reach: the VCF genotyper
-    // builds its records by hand and the GAF path has no VCF at all.
+    // -L merges alleles as VCFOutputCaller::emit_variant writes each record, and neither the VCF
+    // genotyper (-v) nor GAF output writes records through it.
     if (cluster_threshold < 1.0 && !vcf_filename.empty()) {
         logger.error() << "-L/--cluster cannot be used when genotyping a VCF (-v)" << endl;
     }
     if (cluster_threshold < 1.0 && (gaf_output || traversals_only)) {
         logger.error() << "-L/--cluster cannot be used with GAF output (-G/-T)" << endl;
     }
-    // the ratio caller's QUAL and its XADL/lowxadl describe a het that no longer exists after a merge
+    // The ratio caller's QUAL and lowxadl filter describe a heterozygous genotype that the merge
+    // would remove.
     if (cluster_threshold < 1.0 && ratio_caller) {
         logger.error() << "-L/--cluster cannot be used with the ratio caller (-B)" << endl;
     }
-    // NestedFlowCaller represents a child snarl as a Visit carrying a Snarl rather than a node, which
-    // the clusterer has no handle for, so the merge would be inert at exactly the nested sites
-    // --bottom-up exists for.  (Rejected on master too; the check has only moved ahead of the load.)
+    // --bottom-up's NestedFlowCaller writes a child snarl into its parent's allele as a Visit to the
+    // snarl rather than to a node. The merge cannot compare such alleles, so it would do nothing at
+    // nested sites.
     if (cluster_threshold < 1.0 && bottom_up) {
         logger.error() << "-L/--cluster cannot be used with --bottom-up mode" << endl;
     }
-    // -Y writes "*" in a child record to mean "an upstream deletion covers this site".  If the merge
-    // absorbs the parent allele that deletion came from, the "*" refers to nothing in the file.  That
-    // is a malformed record, not merely a lossy one -- unlike the nested case, which is allowed: in a
-    // nested run a merged parent deliberately disagrees with its own child records, the parent giving
-    // the collapsed view of a large variant and the children the precise one.  MAT records it.
+    // -Y writes "*" in a child record when a deletion in the parent's allele spans the child. If the
+    // merge removes that parent allele, the "*" refers to an allele that is not in the file. Without
+    // -Y, a merged parent record may disagree with its children's records, which we allow: the
+    // parent gives an approximate view of a large variant and the children the exact one, and
+    // INFO/MAT records the merge.
     if (cluster_threshold < 1.0 && star_allele) {
         logger.error() << "-L/--cluster cannot be used with -Y/--star-allele" << endl;
     }
-    // LegacyCaller has its own traversal finder and support model; -L has never been run through it
+    // -L is not supported by LegacyCaller, which has its own traversal finder and support model.
     if (cluster_threshold < 1.0 && legacy) {
         logger.error() << "-L/--cluster cannot be used with the legacy caller (--legacy)" << endl;
     }
-    // the merge needs two distinct called ALT alleles, which a haploid genotype can never have.
-    // -R/--ploidy-regex sets ploidy per contig and we cannot tell here which contigs will be
-    // called, so only -d is worth warning about.
+    // A merge needs two different called ALT alleles, which a haploid genotype cannot have. We warn
+    // only for -d 1, since we cannot tell here which contigs -R/--ploidy-regex makes haploid.
     if (cluster_threshold < 1.0 && ploidy == 1) {
         logger.warn() << "-L/--cluster has no effect at ploidy 1 (-d 1)" << endl;
     }
-    // NestedFlowCaller's Snarl-carrying Visits also break the GAF emitters: --bottom-up -T aborts in
-    // to_mapping, and --bottom-up -G emits a header and no records.
+    // The GAF writers (-G/-T) cannot write NestedFlowCaller's Visits to snarls either.
     if (bottom_up && (gaf_output || traversals_only)) {
         logger.error() << "--bottom-up cannot be used with GAF output (-G/-T)" << endl;
     }
@@ -519,7 +1431,8 @@ int main_call(int argc, char** argv) {
         if (gbz_paths) {
             if (show_progress) logger.info() << "Restricting search to GBZ haplotypes" << endl;
             gbwt_index = &gbz_graph->gbz.index;
-        } else {
+        } else if (!read_likelihood) {
+            // Under --read-likelihood, haplotype enumeration is chosen automatically below.
             logger.info() << "You can restrict the search to GBZ haplotypes, "
                           << "often to the benefict of speed and accuracy, with the -z option" << endl;
         }
@@ -610,6 +1523,216 @@ int main_call(int argc, char** argv) {
     }
     if (gbz_paths && !gbwt_filename.empty()) {
         logger.error() << "GBWT (-g) cannot be used with GBZ graph (-z): choose one or the other" << endl;
+    }
+
+    // Reported ahead of the subsystem check below, since it is an error whatever else is given.
+    if (!gam_index_filename.empty() && gam_filename.empty()) {
+        logger.error() << "--gam-index requires --gam" << endl;
+    }
+    if (!gaf_index_filename.empty() && gaf_filename.empty()) {
+        logger.error() << "--gaf-index requires --gaf-reads" << endl;
+    }
+
+    // Refuse options for a subsystem that is not turned on, since they would have no effect.
+    {
+        // Each check names the option that turns some subsystems on, and says whether they are
+        // on. The read-likelihood genotyper contains all the other subsystems, so its check
+        // covers them all.
+        struct SubsystemCheck {
+            const char* needs;
+            const char* preposition;    // joins the error message to `needs`
+            bool on;
+            set<string> subsystems;
+        };
+        const SubsystemCheck checks[] = {
+            {"--read-likelihood", "to", read_likelihood,
+             {"read-likelihood", "anchors", "mosaic", "regenotype"}},
+            {"--anchors-out", "with", !anchors_out.empty(), {"anchors"}},
+            {"--mosaic-out", "with", !mosaic_out.empty(), {"mosaic"}},
+            // A preset can turn --regenotype on and --no-read-phasing then turns it off again
+            // (below), so we check the value that will take effect.
+            {"--regenotype", "with", regenotype && read_phasing, {"regenotype"}},
+        };
+        for (const SubsystemCheck& check : checks) {
+            if (check.on) {
+                continue;
+            }
+            vector<string> offenders;
+            for (int val : options_seen) {
+                auto subsystem = option_subsystem.find(val);
+                if (subsystem != option_subsystem.end() && check.subsystems.count(subsystem->second)) {
+                    offenders.push_back("--" + option_name.at(val));
+                }
+            }
+            if (offenders.empty()) {
+                continue;
+            }
+            stringstream joined;
+            for (size_t i = 0; i < offenders.size(); ++i) {
+                joined << (i ? ", " : "") << offenders[i];
+            }
+            // logger.error() exits, so only the first failing check reports. We check
+            // --read-likelihood first, because the user has to add it before any of the other
+            // switches can take effect.
+            logger.error() << joined.str()
+                           << (offenders.size() == 1 ? " only applies " : " only apply ")
+                           << check.preposition << " " << check.needs
+                           << ", which was not given" << endl;
+        }
+    }
+
+    // Read phasing, re-genotyping and hom splitting all start from the phase the linkage model
+    // gives each site. Where there is no such phase, each is an error if given explicitly, and is
+    // turned off if a preset turned it on. `why` ends the error's sentence, saying why there is
+    // no phase.
+    auto refuse_phase_dependents = [&](const string& why) {
+        vector<string> offenders;
+        if (read_phasing && read_phasing_explicit) {
+            offenders.push_back("--read-phasing");
+        }
+        if (regenotype && regenotype_explicit) {
+            offenders.push_back("--regenotype");
+        }
+        if (anchor_params.hom_split) {
+            offenders.push_back("--anchors-hom-split");
+        }
+        if (!offenders.empty()) {
+            stringstream joined;
+            for (size_t i = 0; i < offenders.size(); ++i) {
+                joined << (i ? ", " : "") << offenders[i];
+            }
+            logger.error() << joined.str() << (offenders.size() == 1 ? " starts" : " start")
+                           << " from the phase the linkage model gives each site, " << why
+                           << endl;
+        }
+        read_phasing = false;
+        regenotype = false;
+    };
+    if (phased_explicit && !phased_output) {
+        refuse_phase_dependents("which --no-phased turns off");
+    }
+
+    // --read-likelihood needs exactly one read source, and cannot be combined with the ratio
+    // support caller or with the calling modes the read-likelihood caller does not have.
+    if (read_likelihood) {
+        int read_source_count = (gam_filename.empty() ? 0 : 1) + (gaf_filename.empty() ? 0 : 1) +
+                                (gaf_base_filename.empty() ? 0 : 1);
+        if (read_source_count == 0) {
+            logger.error() << "--read-likelihood requires reads: pass --gam, --gaf-reads, "
+                           << "or --gaf-base" << endl;
+        }
+        if (read_source_count > 1) {
+            logger.error() << "--gam, --gaf-reads, and --gaf-base are mutually exclusive" << endl;
+        }
+        if (ratio_caller) {
+            logger.error() << "--read-likelihood and -B/--bias-mode are mutually exclusive" << endl;
+        }
+        vector<string> modes;
+        if (legacy) {
+            modes.push_back("--legacy");
+        }
+        if (bottom_up) {
+            modes.push_back("--bottom-up");
+        }
+        if (call_chains) {
+            modes.push_back("-I/--chains");
+        }
+        if (gaf_output && !traversals_only) {
+            modes.push_back("-G/--gaf");
+        }
+        if (traversals_only) {
+            modes.push_back("-T/--traversals");
+        }
+        if (!vcf_filename.empty()) {
+            modes.push_back("-v/--vcf");
+        }
+        if (!modes.empty()) {
+            stringstream joined;
+            for (size_t i = 0; i < modes.size(); ++i) {
+                joined << (i ? ", " : "") << modes[i];
+            }
+            logger.error() << "--read-likelihood cannot be used with " << joined.str() << endl;
+        }
+    }
+
+    // Under --read-likelihood on a GBZ, take candidate alleles from the GBZ's haplotypes by default,
+    // as -z does, rather than from read support. This needs no pack file, but it can only offer
+    // alleles that some haplotype carries; --enumerate-support turns it off.
+    if (read_likelihood && !gbz_paths && !enumerate_support && gbz_graph &&
+        gbwt_filename.empty()) {
+        // A GBZ may carry only reference paths, which would offer nothing but the reference
+        // allele, so we only choose this automatically with at least two haplotypes. An
+        // explicit -z uses the haplotypes regardless.
+        size_t panel = count_panel_haplotypes(*gbz_graph);
+        if (panel >= 2) {
+            gbz_paths = true;
+            gbwt_index = &gbz_graph->gbz.index;
+            if (show_progress) {
+                logger.info() << "Enumerating alleles from the " << panel
+                              << " GBZ panel haplotypes (default under --read-likelihood; "
+                              << "--enumerate-support to enumerate from read support instead)"
+                              << endl;
+            }
+            if (!pack_filename.empty()) {
+                // Only support-based enumeration uses the pack file.
+                logger.warn() << "-k/--pack is unused when alleles come from the haplotype "
+                              << "panel; pass --enumerate-support to enumerate from read "
+                              << "support and use it" << endl;
+            }
+        } else {
+            logger.warn() << "GBZ carries " << panel << " panel haplotype(s), too few to "
+                             << "enumerate alleles from; falling back to support-based "
+                             << "enumeration, which needs -k/--pack" << endl;
+        }
+    }
+    if (enumerate_support && gbz_paths_explicit) {
+        logger.error() << "--enumerate-support and -z/--gbz select different allele "
+                       << "enumeration strategies: choose one or the other" << endl;
+    }
+    if (enumerate_support && !gbwt_filename.empty()) {
+        logger.error() << "--enumerate-support and -g/--gbwt select different allele "
+                       << "enumeration strategies: choose one or the other" << endl;
+    }
+
+    // The linkage model needs --read-likelihood, haplotypes to enumerate alleles from (-z or -g)
+    // and a positive --linkage-weight. This is checked before the likelihood calculator is built,
+    // so that it does not keep read-phasing evidence for nothing. A GBWT with too few haplotypes
+    // is found only once it is loaded, below.
+    const bool haplotypes_given = gbwt_index != nullptr || !gbwt_filename.empty();
+    if (!(read_likelihood && haplotypes_given && linkage_weight > 0.0)) {
+        refuse_phase_dependents("and the linkage model needs --read-likelihood, haplotype "
+                                "enumeration (-z or -g) and a --linkage-weight above 0");
+    }
+
+    if (max_mismap_prob <= 0.0 || max_mismap_prob >= 1.0) {
+        logger.error() << "--mismap-max must be in (0, 1)" << endl;
+    }
+    if (min_mismap_prob <= 0.0 || min_mismap_prob > max_mismap_prob) {
+        logger.error() << "--mismap-min must be in (0, --mismap-max]" << endl;
+    }
+    // --optimal-pairing also finds good pairings for the alleles a read did not come from, which
+    // lowers reads' confidence at heterozygous sites, so --phase-min-q has a lower default with it.
+    if (optimal_pairing && !phase_min_q_explicit) {
+        read_phasing_params.reliability = 8.5;
+    }
+    // Under read phasing, refuse a --phase-min-q above the heterozygous score ceiling,
+    // phred(e / (e + (1 - e) / 2)) for e = --mismap-min: the confidence of a read that fits one of
+    // two equal-length alleles perfectly and the other not at all. Sites whose alleles are of
+    // similar length cannot reach it, so read phasing would do almost nothing.
+    if (read_phasing) {
+        const double het_ceiling =
+            -10.0 * log10(min_mismap_prob / (min_mismap_prob + (1.0 - min_mismap_prob) / 2.0));
+        if (read_phasing_params.reliability > het_ceiling) {
+            logger.error() << "--phase-min-q " << read_phasing_params.reliability
+                           << " is above the heterozygous score ceiling of " << het_ceiling
+                           << " implied by --mismap-min " << min_mismap_prob
+                           << "; no site could be reliable" << endl;
+        }
+    }
+
+    // --gbz-base only configures --gaf-base queries.
+    if (!gbz_base_filename.empty() && gaf_base_filename.empty()) {
+        logger.error() << "--gbz-base requires --gaf-base" << endl;
     }
 
     // Validation: -A, --top-down, and --bottom-up are mutually exclusive
@@ -777,6 +1900,122 @@ int main_call(int argc, char** argv) {
                        << "Also see: https://github.com/vgteam/vg/wiki/Changing-References" << endl;
     }
 
+    // Whether to genotype off-reference chains: nested chains that the reference paths do not
+    // pass through. Their variants have no position on the reference, so they only get VCF records
+    // when a gref fragment path (see gref.hpp) gives them a contig of their own. Selecting such a
+    // path as a reference turns this on, as does --anchors-out (below). VG_CALL_NO_REF_NESTED
+    // turns it on without either, for testing.
+    bool off_ref_nesting = getenv("VG_CALL_NO_REF_NESTED") != nullptr;
+
+    for (const string& ref_path : ref_paths) {
+        // Only a fragment counts. The gref copy of a base contig is the reference under another
+        // name, and gives no chain a contig of its own.
+        if (GrefCover::is_gref_name(ref_path)) {
+            off_ref_nesting = true;
+            if (show_progress) {
+                logger.info() << "gref reference selected: descending into chains the reference "
+                              << "does not cross, and reporting them against their gref contig"
+                              << endl;
+            }
+            break;
+        }
+    }
+
+    // Off-reference chains have anchors even without VCF records, so --anchors-out turns their
+    // genotyping on unless --no-off-ref-nesting is given.
+    if (!anchors_out.empty() && !no_off_ref_nesting) {
+        off_ref_nesting = true;
+        if (show_progress) {
+            logger.info() << "anchors requested: descending into chains the reference does not "
+                          << "cross, which have no VCF record but do have anchors" << endl;
+        }
+    }
+
+    // For INFO/CH: how many levels of non-reference sequence each selected gref contig lies in,
+    // keyed by the contig name the VCF uses. A base contig is level 0, a fragment attached to the
+    // base reference is level 1, a fragment attached to a level-1 fragment is level 2, and so on.
+    // The cover's paths share no nodes, so a fragment's parent is the gref path that owns a node
+    // next to one of the fragment's ends.
+    map<string, int> gref_levels;
+    if (off_ref_nesting && graph != nullptr) {
+        auto gref_owner = [&](handle_t h) {
+            string owner;
+            graph->for_each_step_on_handle(h, [&](const step_handle_t& step) {
+                const string n = graph->get_path_name(graph->get_path_handle_of_step(step));
+                if (GrefCover::is_gref_derived(n)) {
+                    owner = n;
+                    return false;
+                }
+                return true;
+            });
+            return owner;
+        };
+        map<string, int> by_path;
+        unordered_set<string> in_progress;
+        std::function<int(const string&)> level_of = [&](const string& path_name) -> int {
+            if (!GrefCover::is_gref_name(path_name)) {
+                return 0;   // a base contig, or the gref copy of one
+            }
+            auto seen = by_path.find(path_name);
+            if (seen != by_path.end()) {
+                return seen->second;
+            }
+            if (!in_progress.insert(path_name).second) {
+                return 1;   // a cover is a tree, so this cannot happen; do not hang if it does
+            }
+            int level = 0;
+            if (graph->has_path(path_name)) {
+                const path_handle_t p = graph->get_path_handle(path_name);
+                if (!graph->is_empty(p)) {
+                    // Either end will do: a fragment is a maximal run of uncovered nodes, so both
+                    // of its neighbours are boundary nodes of the same enclosing snarl.
+                    for (bool left : {true, false}) {
+                        const handle_t end = graph->get_handle_of_step(
+                            left ? graph->path_begin(p) : graph->path_back(p));
+                        graph->follow_edges(end, left, [&](const handle_t& next) {
+                            const string owner = gref_owner(next);
+                            if (!owner.empty() && owner != path_name) {
+                                level = level_of(owner) + 1;
+                                return false;
+                            }
+                            return true;
+                        });
+                        if (level > 0) {
+                            break;
+                        }
+                    }
+                }
+            }
+            if (level == 0) {
+                // No neighbour is on another gref path, as when the neighbouring fragment was
+                // shorter than the minimum fragment length and was not written. It is still a
+                // fragment, so it is at least level 1.
+                level = 1;
+            }
+            in_progress.erase(path_name);
+            by_path[path_name] = level;
+            return level;
+        };
+        for (const string& ref_path : ref_paths) {
+            const int level = level_of(ref_path);
+            if (level > 0) {
+                const string locus = PathMetadata::parse_locus_name(ref_path);
+                gref_levels[locus != PathMetadata::NO_LOCUS_NAME ? locus : ref_path] = level;
+            }
+        }
+        if (show_progress && !gref_levels.empty()) {
+            map<int, size_t> hist;
+            for (const auto& kv : gref_levels) {
+                ++hist[kv.second];
+            }
+            auto& l = logger.info() << "gref nesting levels:";
+            for (const auto& kv : hist) {
+                l << " " << kv.first << ":" << kv.second;
+            }
+            l << endl;
+        }
+    }
+
     // build table of ploidys
     vector<int> ref_path_ploidies;
     // Paths which aren't REFERENCE/GENERIC sense that we want to call against
@@ -831,28 +2070,51 @@ int main_call(int argc, char** argv) {
             extra_node_weight[graph->get_id(graph->get_handle_of_step(graph->path_back(refpath_handle)))] += EXTRA_WEIGHT;
         }        
         IntegratedSnarlFinder finder(*graph, extra_node_weight);
-        if (show_progress) logger.info() << "Computed snarls" << endl;
+        // The decomposition happens in find_snarls_parallel(), so we report after it.
         snarl_manager = unique_ptr<SnarlManager>(new SnarlManager(std::move(finder.find_snarls_parallel())));
+        if (show_progress) logger.info() << "Computed snarls" << endl;
     }
     
     // Make a Packed Support Caller
     unique_ptr<SnarlCaller> snarl_caller;
+    // The read-likelihood genotyper, when `snarl_caller` is one.
+    ReadLikelihoodSnarlCaller* read_likelihood_caller = nullptr;
     vg::algorithms::BinnedDepthIndex depth_index;
 
     unique_ptr<Packer> packer;
     unique_ptr<TraversalSupportFinder> support_finder;
-    if (!pack_filename.empty()) {        
-        // Load our packed supports (they must have come from vg pack on graph)
-        packer = unique_ptr<Packer>(new Packer(graph));
-        if (show_progress) logger.info() << "Loading pack file " << pack_filename << endl;
-        packer->load_from_file(pack_filename);
-        if (show_progress) logger.info() << "Loaded pack file" << endl;
-        if (bottom_up) {
-            // Make a nested packed traversal support finder (required by NestedFlowCaller)
-            support_finder.reset(new NestedCachedPackedTraversalSupportFinder(*packer, *snarl_manager));
+    // Only used by --read-likelihood, but declared out here so they outlive the
+    // caller, which holds references to them.
+    unique_ptr<SiteReadSource> read_source;
+    unique_ptr<EditAlignmentScorer> qual_scorer;
+    unique_ptr<EditAlignmentScorer> plain_scorer;
+    unique_ptr<AlleleLikelihoodCalculator> likelihood_calculator;
+    unique_ptr<ofstream> likelihood_dump;
+    // The read-likelihood genotyper can run without a pack file if allele enumeration does not
+    // need support either: GBWTTraversalFinder enumerates from haplotypes and needs none, while
+    // FlowTraversalFinder works from node and edge support.
+    bool gbwt_enumeration = !gbwt_filename.empty() || gbz_paths;
+    bool support_free = read_likelihood && pack_filename.empty();
+
+    if (!pack_filename.empty() || support_free) {
+        if (support_free) {
+            // Nothing downstream consults support, so a finder that reports none stands in
+            // for a pack file.
+            support_finder.reset(new NullTraversalSupportFinder(*graph, *snarl_manager));
         } else {
-            // Make a packed traversal support finder (using cached version important for poisson caller)
-            support_finder.reset(new CachedPackedTraversalSupportFinder(*packer, *snarl_manager));
+            // Load our packed supports (they must have come from vg pack on graph)
+            packer = unique_ptr<Packer>(new Packer(graph));
+            if (show_progress) logger.info() << "Loading pack file " << pack_filename << endl;
+            packer->load_from_file(pack_filename);
+            if (show_progress) logger.info() << "Loaded pack file" << endl;
+            if (bottom_up) {
+                // Make a nested packed traversal support finder (required by NestedFlowCaller)
+                support_finder.reset(new NestedCachedPackedTraversalSupportFinder(*packer, *snarl_manager));
+            } else {
+                // Make a packed traversal support finder (using cached version important for
+                // poisson caller)
+                support_finder.reset(new CachedPackedTraversalSupportFinder(*packer, *snarl_manager));
+            }
         }
                 
         // need to use average support when genotyping as small differences in between sample and graph
@@ -866,7 +2128,160 @@ int main_call(int argc, char** argv) {
         
         SupportBasedSnarlCaller* packed_caller = nullptr;
 
-        if (ratio_caller == false) {
+        if (read_likelihood) {
+            // Read-likelihood genotyping. Support from a pack file, if given, is only used to
+            // enumerate candidate alleles.
+            if (show_progress) logger.info() << "Loading reads for read-level genotyping" << endl;
+
+            SiteReadFilter read_filter;
+            read_filter.min_mapq = read_min_mapq;
+
+            if (!gaf_base_filename.empty()) {
+                // GAF-Base: reads are fetched per window by running gbz-base, which resolves
+                // node IDs against --gbz-base or else the input graph. A GBZ-Base is read
+                // randomly, while a plain GBZ is loaded in full on every query.
+                string query_graph = gbz_base_filename.empty() ? graph_filename
+                                                               : gbz_base_filename;
+                if (read_window_size == 0) {
+                    read_window_size = DEFAULT_GAF_BASE_WINDOW;
+                }
+                // Four windows per thread, held in one cache that all threads share.
+                auto gaf_base_source = new GafBaseSiteReadSource(*graph, gaf_base_filename,
+                                                                 query_graph, read_filter,
+                                                                 read_window_size,
+                                                                 4 * (size_t)vg::get_thread_count(),
+                                                                 gaf_base_binary);
+                read_source.reset(gaf_base_source);
+                // Check the setup now, so that a missing binary or unreadable database is
+                // reported as a user error rather than as a crash.
+                try {
+                    gaf_base_source->check_setup();
+                } catch (const std::exception& e) {
+                    logger.error() << e.what() << endl;
+                }
+                if (show_progress) {
+                    logger.info() << "Using GAF-Base " << gaf_base_filename
+                                  << " queried against " << query_graph
+                                  << " via " << gaf_base_binary << endl;
+                    logger.info() << "GAF-Base: databases opened by gbz-base "
+                                  << (gaf_base_source->immutable_databases()
+                                      ? "as SQLite immutable URIs, without file locking"
+                                      : "as plain paths, with SQLite file locking (VG_GAFBASE_LOCKING=1)")
+                                  << endl;
+                    if (gbz_base_filename.empty()) {
+                        logger.info() << "Consider building a GBZ-Base ('gbz-base construct') and "
+                                      << "passing --gbz-base: a plain GBZ is reloaded on every query"
+                                      << endl;
+                    }
+                }
+            } else if (!gaf_index_filename.empty()) {
+                // Indexed GAF: reads are fetched as the sites need them, from the sorted GAF
+                // through its tabix index, in vg's own threads.
+                if (read_window_size == 0) {
+                    read_window_size = DEFAULT_GAF_INDEX_WINDOW;
+                }
+                // Four windows per thread, held in one cache that all threads share.
+                try {
+                    read_source.reset(new TabixGafSiteReadSource(*graph, gaf_filename,
+                                                                 gaf_index_filename, read_filter,
+                                                                 read_window_size,
+                                                                 4 * (size_t)vg::get_thread_count()));
+                } catch (const std::exception& e) {
+                    logger.error() << e.what() << endl;
+                }
+                if (show_progress) {
+                    logger.info() << "Using indexed GAF " << gaf_filename
+                                  << " with index " << gaf_index_filename << endl;
+                }
+            } else if (!gam_index_filename.empty()) {
+                // Indexed: reads are fetched as the sites need them, so memory is bounded by
+                // what the sites need rather than by the size of the read set.
+                if (read_window_size == 0) {
+                    read_window_size = DEFAULT_GAM_INDEX_WINDOW;
+                }
+                // Four windows per thread, held in one cache that all threads share.
+                read_source.reset(new IndexedGamSiteReadSource(gam_filename, gam_index_filename,
+                                                               read_filter, read_window_size,
+                                                               4 * (size_t)vg::get_thread_count()));
+                if (show_progress) {
+                    logger.info() << "Using indexed GAM " << gam_filename
+                                  << " with index " << gam_index_filename << endl;
+                }
+            } else {
+                auto in_memory_source = new InMemorySiteReadSource();
+                read_source.reset(in_memory_source);
+                if (!gam_filename.empty()) {
+                    in_memory_source->load_gam(gam_filename, read_filter);
+                } else {
+                    in_memory_source->load_gaf(*graph, gaf_filename, read_filter);
+                }
+                if (show_progress) {
+                    logger.info() << "Loaded " << in_memory_source->get_read_count()
+                                  << " reads (" << in_memory_source->get_filtered_count()
+                                  << " filtered out)" << endl;
+                }
+            }
+
+            // Two scorers: quality-adjusted for reads that have base qualities,
+            // plain for reads that do not. Picking per read avoids either
+            // fabricating qualities or mis-scoring.
+            qual_scorer.reset(new QualAdjAlignmentScorer(default_score_matrix,
+                                                        (int8_t)gap_open,
+                                                        (int8_t)gap_extend));
+            plain_scorer.reset(new MatrixAlignmentScorer(default_score_matrix,
+                                                        (int8_t)gap_open,
+                                                        (int8_t)gap_extend));
+
+            AlleleLikelihoodParams likelihood_params;
+            likelihood_params.use_mismap_term = !no_mismap_term;
+            likelihood_params.length_weighted_mixture = !flat_mixture;
+            likelihood_params.depth_weight = depth_weight;
+            likelihood_params.depth_effective_reads = !depth_count_raw;
+            likelihood_params.max_mismap_prob = max_mismap_prob;
+            likelihood_params.min_mismap_prob = min_mismap_prob;
+            likelihood_params.insertion_gap_nats = insertion_gap_nats;
+            likelihood_params.optimal_pairing = optimal_pairing;
+            likelihood_params.collect_anchors = anchor_params.enabled;
+            // The likelihood calculator and the anchor writer count into the same counters.
+            likelihood_params.anchor_counters = &anchor_run_counters;
+            anchor_params.counters = &anchor_run_counters;
+            likelihood_params.collect_read_phasing = read_phasing;
+
+            auto* graph_calculator = new GraphAlignedAlleleLikelihoodCalculator(
+                *graph, *read_source, *qual_scorer, *plain_scorer,
+                likelihood_params);
+            likelihood_calculator.reset(graph_calculator);
+            // Place the depth-rate windows on the reference paths, so that they do not depend
+            // on the node numbering. A graph without positions keeps node-ID windows.
+            if (auto* position_graph = dynamic_cast<PathPositionHandleGraph*>(graph)) {
+                vector<path_handle_t> rate_paths;
+                for (const string& ref_path : ref_paths) {
+                    if (position_graph->has_path(ref_path)) {
+                        rate_paths.push_back(position_graph->get_path_handle(ref_path));
+                    }
+                }
+                graph_calculator->set_rate_reference(position_graph, rate_paths);
+            }
+
+            auto rl_caller = new ReadLikelihoodSnarlCaller(*graph, *snarl_manager, *support_finder,
+                                                           *likelihood_calculator);
+
+            if (!dump_likelihoods_filename.empty()) {
+                likelihood_dump.reset(new ofstream(dump_likelihoods_filename));
+                if (!(*likelihood_dump)) {
+                    logger.error() << "could not open " << dump_likelihoods_filename
+                                   << " for writing" << endl;
+                }
+                rl_caller->set_likelihood_dump(likelihood_dump.get());
+            }
+
+            rl_caller->set_share_discount(!no_share_quality);
+            rl_caller->set_depth_quality(depth_quality);
+            rl_caller->set_min_confidence(min_confidence);
+
+            packed_caller = rl_caller;
+            read_likelihood_caller = rl_caller;
+        } else if (ratio_caller == false) {
             // Make a depth index
             if (show_progress) logger.info() << "Computing coverage statistics" << endl;
             depth_index = vg::algorithms::binned_packed_depth_index(*packer, ref_paths, min_depth_bin_width, max_depth_bin_width,
@@ -874,7 +2289,8 @@ int main_call(int argc, char** argv) {
             if (show_progress) logger.info() << "Computed coverage statistics" << endl;
             // Make a new-stype probablistic caller
             auto poisson_caller = new PoissonSupportSnarlCaller(*graph, *snarl_manager, *support_finder, depth_index,
-                                                                //todo: qualities need to be used better in conjunction with
+                                                                //todo: qualities need to be used
+                                                                //better in conjunction with
                                                                 //expected depth.
                                                                 //packer->has_qualities());
                                                                 false);
@@ -902,6 +2318,15 @@ int main_call(int argc, char** argv) {
         logger.error() << "pack file (-k) is required" << endl;
     }
 
+    // Guard the pack-free path: it is only sound where nothing consults support.
+    if (support_free) {
+        if (!gbwt_enumeration) {
+            logger.error() << "--read-likelihood without -k/--pack requires haplotype-based allele "
+                           << "enumeration (-g/--gbwt or -z/--gbz); support-based enumeration needs "
+                           << "a pack file" << endl;
+        }
+    }
+
     unique_ptr<AlignmentEmitter> alignment_emitter;
     if (gaf_output) {
         alignment_emitter = vg::io::get_non_hts_alignment_emitter("-", "GAF", {}, vg::get_thread_count(), graph);
@@ -914,7 +2339,12 @@ int main_call(int argc, char** argv) {
         }
     }
 
+    // Every run without --read-likelihood calls through a GraphCaller, and every run with it
+    // through a MultiPassCaller, which writes its records through `multipass_output`.
     unique_ptr<GraphCaller> graph_caller;
+    unique_ptr<SnarlManagerDecomposition> multipass_sites;
+    unique_ptr<VCFOutputCaller> multipass_output;
+    unique_ptr<multipass::MultiPassCaller> multipass_caller;
     unique_ptr<TraversalFinder> traversal_finder;
     unique_ptr<gbwt::GBWT> gbwt_index_up;
 
@@ -983,13 +2413,28 @@ int main_call(int argc, char** argv) {
             };
 
             // create the flow traversal finder
-            FlowTraversalFinder* flow_traversal_finder = new FlowTraversalFinder(*graph, *snarl_manager, max_yens_traversals,
+            // A site longer than the average support threshold is searched by average flow too.
+            FlowTraversalFinder* flow_traversal_finder = new FlowTraversalFinder(*graph, max_yens_traversals,
                                                                                  node_support, edge_support,
-                                                                                 max_allele_len);
+                                                                                 max_allele_len,
+                                                                                 avg_trav_threshold);
             traversal_finder = unique_ptr<TraversalFinder>(flow_traversal_finder);
         }
 
-        if (top_down) {
+        if (read_likelihood) {
+            // The caller reads the sites through the SnarlDecomposition interface. The adapter over
+            // the loaded snarls gives it the same sites as every other caller.
+            multipass_sites.reset(new SnarlManagerDecomposition(*snarl_manager, *graph));
+            multipass_output.reset(new VCFOutputCaller(sample_name));
+            multipass_caller.reset(new multipass::MultiPassCaller(*dynamic_cast<PathPositionHandleGraph*>(graph),
+                                                       *read_likelihood_caller, *multipass_sites,
+                                                       *multipass_output, sample_name,
+                                                       *traversal_finder, ref_paths,
+                                                       ref_path_offsets, ref_path_ploidies,
+                                                       genotype_snarls,
+                                                       make_pair(min_allele_len, max_allele_len),
+                                                       top_down, star_allele));
+        } else if (top_down) {
             // Use FlowCaller with nested mode enabled (top-down genotype propagation)
             graph_caller.reset(new FlowCaller(*dynamic_cast<PathPositionHandleGraph*>(graph),
                                               *dynamic_cast<SupportBasedSnarlCaller*>(snarl_caller.get()),
@@ -1031,14 +2476,314 @@ int main_call(int argc, char** argv) {
         }
     }
 
+    // By default, snarls have no size cap when the read-likelihood genotyper takes alleles from
+    // haplotypes. Everywhere else they are capped at 10000 edges, which keeps Yen's traversal
+    // search off very large snarls.
+    if (!max_snarl_edges_explicit) {
+        max_snarl_edges_opt = (read_likelihood && gbwt_enumeration) ? 0 : 10000;
+    }
+    // The constructors do not take the cap, so we set it on whichever caller was built.
+    if (FlowCaller* flow_caller = dynamic_cast<FlowCaller*>(graph_caller.get())) {
+        flow_caller->set_max_snarl_edges(max_snarl_edges_opt);
+    }
+    if (multipass_caller != nullptr) {
+        multipass_caller->set_max_snarl_edges(max_snarl_edges_opt);
+    }
+
+    // Where the records go, or null if the caller does not write VCF.
+    VCFOutputCaller* const vcf_out =
+        multipass_caller != nullptr ? multipass_output.get()
+                                    : dynamic_cast<VCFOutputCaller*>(graph_caller.get());
+
+    // Per-region ploidy, if given.
+    if (!ploidy_bed_filename.empty()) {
+        if (multipass_caller != nullptr) {
+            multipass_caller->set_ploidy_regions(PloidyRegions(ploidy_bed_filename));
+        } else if (vcf_out != nullptr) {
+            vcf_out->set_ploidy_regions(PloidyRegions(ploidy_bed_filename));
+        } else {
+            cerr << "error [vg call]: --ploidy-bed needs a caller that emits VCF" << endl;
+            return 1;
+        }
+    }
+
+    // Nested calling: a called traversal that takes the reference's route through a snarl,
+    // differing only inside nested snarls, is called as the reference allele, and the differences
+    // are called at the nested snarls. It is part of the read-likelihood genotyper, and on by
+    // default there.
+    if (!read_likelihood) {
+        nested_calling = false;
+    }
+    // An explicit --regenotype without read phasing is an error. One set by a preset is turned
+    // off, as with --preset ont --no-read-phasing.
+    if (regenotype && !read_phasing) {
+        if (regenotype_explicit) {
+            cerr << "error [vg call]: --regenotype needs --read-phasing, which gives each read"
+                 << " the strand log-odds it uses" << endl;
+            return 1;
+        }
+        regenotype = false;
+    }
+    // --top-down gives each child snarl candidate traversals derived from its parent's called
+    // genotype, so re-genotyping, which can change that genotype afterwards, would leave the child
+    // genotyped against the wrong alleles. An explicit --regenotype with it is an error; one set by
+    // a preset is turned off.
+    if (regenotype && top_down && !regenotype_explicit) {
+        regenotype = false;
+    }
+    if (regenotype && top_down) {
+        cerr << "error [vg call]: --regenotype cannot be combined with --top-down; --top-down"
+             << " derives each child's candidate traversals from its parent's called genotype, so"
+             << " re-genotyping a parent would leave its children genotyped against alleles it no"
+             << " longer carries" << endl;
+        return 1;
+    }
+    // Splitting homozygous sites, placing heterozygous reads by phase, and re-genotyping all use
+    // each read's strand log-odds, which read phasing computes.
+    if (anchor_params.hom_split && !read_phasing) {
+        cerr << "error [vg call]: --anchors-hom-split needs --read-phasing, which gives each read"
+             << " the strand log-odds the split uses" << endl;
+        return 1;
+    }
+    // Placing heterozygous reads by phase is on by default, and has no effect without read
+    // phasing, so we only refuse it when it was asked for.
+    if ((anchor_params.phase_hets || anchor_params.strict_hets) && phase_hets_explicit
+        && !read_phasing) {
+        cerr << "error [vg call]: --anchors-phase-hets / --anchors-strict-hets need --read-phasing,"
+             << " which gives each read the strand log-odds they use" << endl;
+        return 1;
+    }
+    // -A already calls every nested snarl as a snarl of its own, so with nested calling each would
+    // be called twice.
+    if (nested_calling && all_snarls) {
+        if (nested_explicit) {
+            cerr << "error [vg call]: -A/--all-snarls calls every snarl independently while"
+                 << " --nested calls children through their parent; they are alternatives, not a"
+                 << " combination" << endl;
+            return 1;
+        }
+        nested_calling = false;
+    }
+    if (multipass_caller != nullptr) {
+        // The linkage model can change a record's GQN, so the caller re-applies the lowconf
+        // filter with the same threshold.
+        multipass_caller->set_linkage_min_confidence(min_confidence);
+    }
+    // Block emission splits up the records of nested calling, so it needs nested calling. The
+    // checks that depend only on the options were made before the graph was loaded.
+    if (atomize_blocks) {
+        if (!nested_calling) {
+            if (atomize_explicit) {
+                cerr << "error [vg call]: --atomize-blocks needs nested calling (--nested), which is"
+                     << " on by default under --read-likelihood" << endl;
+                return 1;
+            }
+            atomize_blocks = false;
+        }
+        if (atomize_blocks) {
+            multipass_caller->set_atomize_blocks(true);
+        }
+    }
+
+    if (nested_calling) {
+        multipass_caller->set_nested_calling(true);
+    }
+
+    // Owned here, since the caller holds only a pointer to it.
+    unique_ptr<LinkageCollector> linkage_collector;
+    vector<size_t> linkage_sequence_to_haplotype;
+
     string header;
     if (!gaf_output) {
         // Init The VCF       
-        VCFOutputCaller* vcf_caller = dynamic_cast<VCFOutputCaller*>(graph_caller.get());
+        VCFOutputCaller* vcf_caller = vcf_out;
         assert(vcf_caller != nullptr);
-        // Make sure we get the LV/PS tags with -A, --top-down, or --bottom-up
-        vcf_caller->set_nested(all_snarls || top_down || bottom_up);
+        // Write the nesting INFO tags (such as LV and PS) with -A, --top-down or --bottom-up, and
+        // when off-reference chains are genotyped: a record on a gref fragment contig lies inside
+        // a non-reference allele, and only these tags say so.
+        vcf_caller->set_nested(all_snarls || top_down || bottom_up
+                               || off_ref_nesting);
+        if (multipass_caller != nullptr) {
+            multipass_caller->set_off_reference_nesting(off_ref_nesting);
+        }
+        vcf_caller->set_gref_levels(std::move(gref_levels));
         vcf_caller->set_translation(translation.get());
+
+        // The linkage model compares genotypes with the haplotypes (-z or -g), and uses the
+        // read-likelihood genotyper's likelihoods. Without both, the default weight is set to 0
+        // and an explicit weight is an error. This is decided first because phasing, the mosaic
+        // and nested calling depend on it.
+        if (linkage_weight > 0.0 && !(gbwt_index != nullptr && read_likelihood)) {
+            if (linkage_weight_explicit) {
+                cerr << "error [vg call]: --linkage-weight needs haplotype enumeration (-z or -g) "
+                     << "and --read-likelihood" << endl;
+                return 1;
+            }
+            linkage_weight = 0.0;
+        }
+        if (!anchors_out.empty() && !read_likelihood) {
+            // Anchors need the read-likelihood genotyper's per-read allele likelihoods.
+            logger.error() << "--anchors-out needs --read-likelihood, which computes the per-read "
+                           << "allele likelihoods the anchors are built from" << endl;
+        }
+        if (!mosaic_out.empty() && linkage_weight <= 0.0) {
+            // The mosaic is built from the linkage model's phasing.
+            logger.error() << "--mosaic-out needs the linkage model, which needs haplotype "
+                           << "enumeration (-z or -g) and --read-likelihood" << endl;
+        }
+        if (!mosaic_out.empty() && phased_explicit && !phased_output) {
+            // The mosaic is written from the phasing, so it cannot be written without it.
+            logger.error() << "--mosaic-out cannot be combined with --no-phased, because the mosaic "
+                           << "is written from the phasing" << endl;
+        }
+        if (phased_output && linkage_weight <= 0.0) {
+            // Phasing comes from the linkage model. Without it, an explicit --phased is an error,
+            // and the default is turned off.
+            if (phased_explicit) {
+                logger.error() << "--phased needs the linkage model, which needs haplotype "
+                               << "enumeration (-z or -g) and --read-likelihood" << endl;
+            }
+            phased_output = false;
+        }
+        if (nested_calling && linkage_weight > 0.0 && !phased_output) {
+            // Where the linkage model runs, a nested site's ploidy and strand come from its
+            // parent's phased genotype, so nested calling needs phasing. An explicit --nested is
+            // an error; the default is turned off.
+            if (nested_explicit) {
+                cerr << "error [vg call]: --nested needs --phased where the linkage model runs, "
+                     << "because a nested site's ploidy and strand come from its parent's phased "
+                     << "genotype" << endl;
+                return 1;
+            }
+            // Nested calling was turned on in the caller above, so it is turned off there too.
+            nested_calling = false;
+            multipass_caller->set_nested_calling(false);
+            if (show_progress) {
+                logger.info() << "Nested calling is off under --no-phased: a nested site's ploidy "
+                              << "and strand come from its parent's phased genotype" << endl;
+            }
+        }
+        if (linkage_weight > 0.0) {
+            // Map each GBWT sequence to the index of its haplotype in the panel. A haplotype is a
+            // (sample, phase) pair, and may be stored as several paths (one per contig or
+            // fragment), each with a sequence per orientation. They all get the same index, so a
+            // haplotype counts once.
+            const gbwt::Metadata& meta = gbwt_index->metadata;
+            // The samples that are not gref-derived; see below.
+            unordered_set<string> base_samples;
+            for (gbwt::size_type i = 0; i < meta.sample_names.size(); ++i) {
+                const string s = meta.sample(i);
+                if (!GrefCover::is_gref_derived(s)) {
+                    base_samples.insert(s);
+                }
+            }
+            map<pair<size_t, size_t>, size_t> hap_index;
+            linkage_sequence_to_haplotype.assign(gbwt_index->sequences(), 0);
+            for (gbwt::size_type path = 0; path < meta.paths(); ++path) {
+                const gbwt::PathName& name = meta.path(path);
+                // Leave gref cover paths out of the panel. The fragment paths all share one sample
+                // and phase, so they would form one haplotype stitched together from many donors.
+                // The gref copy of a base reference path is left out only if the base path's
+                // sample is also present, so that the reference is in the panel once. Sequences
+                // left out are mapped to WILDCARD; the vector's default of 0 would put them in
+                // haplotype 0.
+                const string path_sample = (size_t)name.sample < meta.sample_names.size()
+                                               ? meta.sample(name.sample) : string();
+                const string path_contig = (size_t)name.contig < meta.contig_names.size()
+                                               ? meta.contig(name.contig) : string();
+                const bool gref_fragment = GrefCover::is_gref_derived(path_sample)
+                                           && GrefCover::is_gref_name(path_contig);
+                const bool gref_shadowing_base =
+                    GrefCover::is_gref_derived(path_sample) && !gref_fragment
+                    && base_samples.count(path_sample.substr(GrefCover::gref_prefix.size())) > 0;
+                if (gref_fragment || gref_shadowing_base) {
+                    for (gbwt::size_type orientation = 0; orientation < 2; ++orientation) {
+                        gbwt::size_type seq = gbwt::Path::encode(path, orientation);
+                        if (seq < linkage_sequence_to_haplotype.size()) {
+                            linkage_sequence_to_haplotype[seq] = LinkageModel::WILDCARD;
+                        }
+                    }
+                    continue;
+                }
+                auto key = make_pair((size_t)name.sample, (size_t)name.phase);
+                auto found = hap_index.find(key);
+                size_t index;
+                if (found == hap_index.end()) {
+                    index = hap_index.size();
+                    hap_index[key] = index;
+                } else {
+                    index = found->second;
+                }
+                for (gbwt::size_type orientation = 0; orientation < 2; ++orientation) {
+                    gbwt::size_type seq = gbwt::Path::encode(path, orientation);
+                    if (seq < linkage_sequence_to_haplotype.size()) {
+                        linkage_sequence_to_haplotype[seq] = index;
+                    }
+                }
+            }
+            // The model's states are pairs of haplotypes, so it needs at least two.
+            if (hap_index.size() < 2) {
+                cerr << "warning [vg call]: linkage disabled -- the GBWT carries "
+                     << hap_index.size() << " haplotype(s) and the model needs at least 2" << endl;
+                linkage_weight = 0.0;
+                refuse_phase_dependents("and the linkage model needs at least 2 haplotypes");
+            } else {
+                // The default weight suits panels of tens of haplotypes, and does little on very
+                // small ones.
+                if (hap_index.size() < 8) {
+                    cerr << "warning [vg call]: linkage on a " << hap_index.size()
+                         << "-haplotype panel; the default --linkage-weight suits panels of tens of"
+                         << " haplotypes and does little on small ones (consider --linkage-weight 0)"
+                         << endl;
+                }
+                LinkageModel::Params linkage_params;
+                linkage_params.weight = linkage_weight;
+                linkage_params.scale = linkage_scale;
+                linkage_params.freq_prior = linkage_freq_prior;
+                linkage_params.hp_prior = hp_prior;
+                linkage_params.hp_prior_run = (size_t)hp_prior_run;
+                linkage_collector.reset(new LinkageCollector(linkage_params, hap_index.size()));
+                multipass_caller->set_linkage(linkage_collector.get(), gbwt_index,
+                                              &linkage_sequence_to_haplotype);
+                multipass_caller->set_emit_phasing(phased_output);
+                // Name each panel haplotype "sample#phase", for the mosaic.
+                vector<string> hap_names(hap_index.size());
+                for (const auto& kv : hap_index) {
+                    string sample = kv.first.first < meta.sample_names.size()
+                                        ? meta.sample(kv.first.first)
+                                        : string("sample") + std::to_string(kv.first.first);
+                    hap_names[kv.second] = sample + "#" + std::to_string(kv.first.second);
+                }
+                // The mosaic's rows name only the contig, so it also records the full names of
+                // the reference paths.
+                multipass_caller->set_mosaic_out(multipass::MosaicParams{
+                    .path = mosaic_out,
+                    .graph_name = graph_filename,
+                    .haplotype_names = hap_names,
+                    .reference_paths = ref_paths,
+                    .patch_gaps = mosaic_patch_gaps,
+                    .keep_nested = mosaic_keep_nested,
+                    .connect_unexplained = mosaic_connect_unexplained,
+                });
+            }
+            if (show_progress) {
+                logger.info() << "Linkage: " << hap_index.size() << " panel haplotypes over "
+                              << gbwt_index->sequences() << " GBWT sequences" << endl;
+            }
+        }
+        if (!anchors_out.empty()) {
+            // The anchor file names the read file, since its read offsets refer to those reads.
+            string reads_source = !gaf_base_filename.empty()
+                                      ? gaf_base_filename
+                                      : (!gaf_filename.empty() ? gaf_filename : gam_filename);
+            multipass_caller->set_anchors_out(anchors_out, anchor_params, graph_filename,
+                                              reads_source, min_mismap_prob);
+        }
+        if (multipass_caller != nullptr) {
+            multipass_caller->set_read_phasing(read_phasing, read_phasing_params);
+            multipass_caller->set_regenotype(regenotype, regenotype_params, regenotype_passes,
+                                             regenotype_ledger);
+        }
         // one call covers FlowCaller (both ctors, so plain vg call gets it too), NestedFlowCaller
         // and LegacyCaller, since the merge lives on the shared VCFOutputCaller base
         vcf_caller->set_allele_merge(cluster_threshold, cluster_min_allele_len);
@@ -1056,14 +2801,20 @@ int main_call(int argc, char** argv) {
                 header_ref_lengths.push_back(path_len.second);
             }
         }
-        header = vcf_caller->vcf_header(*graph, header_ref_paths, header_ref_lengths);
+        header = multipass_caller != nullptr
+                     ? multipass_caller->vcf_header(*graph, header_ref_paths, header_ref_lengths)
+                     : vcf_caller->vcf_header(*graph, header_ref_paths, header_ref_lengths);
     }
 
-    graph_caller->set_show_progress(show_progress);
+    if (multipass_caller != nullptr) {
+        multipass_caller->set_show_progress(show_progress);
+    } else {
+        graph_caller->set_show_progress(show_progress);
+    }
     
     // Call the graph
     // Determine recursion strategy based on mode:
-    // - top_down: FlowCaller handles recursion internally, so RecurseNever
+    // - top_down: the caller handles recursion internally, so RecurseNever
     // - all_snarls (-A): visit every snarl independently, so RecurseAlways
     // - default: only recurse into children of failed snarls, so RecurseOnFail
     GraphCaller::RecurseType recurse_type;
@@ -1075,7 +2826,31 @@ int main_call(int argc, char** argv) {
         recurse_type = GraphCaller::RecurseOnFail;
     }
 
-    if (!call_chains) {
+    // A read source that fetches reads by node-ID window works best when snarls are called in
+    // node-ID order, batched by its window, so that each fetched window serves many sites in a row.
+    if (dynamic_cast<WindowedSiteReadSource*>(read_source.get()) != nullptr) {
+        // Only --read-likelihood reads reads.
+        multipass_caller->set_snarl_batching(read_window_size);
+        if (show_progress) {
+            logger.info() << "Visiting snarls in node-ID order, window " << read_window_size << endl;
+        }
+    }
+
+    if (multipass_caller != nullptr) {
+        // Every pass, from the direct pass to the records and the anchors (see MultiPassCaller).
+        if (show_progress) logger.info() << "Calling top-level snarls" << endl;
+        multipass_caller->call(recurse_type, [&]() {
+            // The passes after the direct pass work from what it kept, not from reads: free the
+            // windows the read source still caches, before those passes reach the run's highest
+            // memory use.
+            if (auto* windowed = dynamic_cast<WindowedSiteReadSource*>(read_source.get())) {
+                size_t freed = windowed->drop_cached_windows();
+                if (show_progress) {
+                    logger.info() << "Freed the read cache: " << freed << " reads" << endl;
+                }
+            }
+        });
+    } else if (!call_chains) {
         // Call each snarl
         if (show_progress) logger.info() << "Calling top-level snarls" << endl;
         graph_caller->call_top_level_snarls(*graph, recurse_type);
@@ -1085,11 +2860,86 @@ int main_call(int argc, char** argv) {
         if (show_progress) logger.info() << "Calling top-level chains" << endl;
         graph_caller->call_top_level_chains(*graph, max_chain_edges, max_chain_trivial_travs, recurse_type);
     }
+
+    // Report how the windowed read source's fetches and cache performed.
+    if (show_progress) {
+        auto* windowed = dynamic_cast<WindowedSiteReadSource*>(read_source.get());
+        if (windowed != nullptr) {
+            size_t hits = windowed->get_cache_hits();
+            size_t misses = windowed->get_cache_misses();
+            size_t total = hits + misses;
+            auto* gaf_base = dynamic_cast<GafBaseSiteReadSource*>(windowed);
+            auto* tabix_gaf = dynamic_cast<TabixGafSiteReadSource*>(windowed);
+            const char* label = gaf_base != nullptr ? "GAF-Base: "
+                                : (tabix_gaf != nullptr ? "Indexed GAF: " : "Indexed GAM: ");
+            logger.info() << label
+                          << windowed->get_read_count() << " reads fetched, "
+                          << hits << "/" << total << " site queries served from cache"
+                          << (total > 0 ? " (" + std::to_string((int)(100.0 * hits / total)) + "%)" : "")
+                          << endl;
+            // Reads examined by site queries, against reads delivered to sites.
+            size_t seen = windowed->get_scanned_count();
+            size_t used = windowed->get_delivered_count();
+            logger.info() << label
+                          << seen << " read candidates examined, " << used << " delivered"
+                          << (seen > 0 ? " (" + std::to_string((int)(100.0 * used / seen)) + "%)" : "")
+                          << endl;
+            // Sites too big for one window are fetched uncached, by their exact node ranges.
+            logger.info() << label
+                          << windowed->get_straddle_count() << " site queries too wide for a "
+                          << "window, fetched uncached over " << windowed->get_straddle_wanted()
+                          << " node IDs (spanning " << windowed->get_straddle_nodes() << ")"
+                          << endl;
+            logger.info() << label
+                          << windowed->get_whole_fetches() << " windows fetched whole, holding "
+                          << windowed->get_whole_fetch_reads() << " reads" << endl;
+            if (gaf_base != nullptr) {
+                // Each query runs a subprocess, so this count largely determines run time.
+                logger.info() << "GAF-Base: " << gaf_base->get_query_count()
+                              << " subprocess queries" << endl;
+                // Alignments returned twice by one query, which would otherwise count twice.
+                logger.info() << "GAF-Base: " << gaf_base->get_duplicate_count()
+                              << " duplicate reads dropped" << endl;
+                // Where the query time went. File locking, for one, shows up as kernel time.
+                auto totals = gaf_base->get_query_totals();
+                double cpu = totals.child_user_s + totals.child_system_s;
+                logger.info() << "GAF-Base: threads waited " << totals.wait_s / 3600 << " h for "
+                              << totals.queries << " gbz-base queries, which used "
+                              << totals.child_user_s / 3600 << " h of CPU in their own code and "
+                              << totals.child_system_s / 3600 << " h in the kernel ("
+                              << (cpu > 0 ? (int)(100 * totals.child_system_s / cpu) : 0)
+                              << "%); parsing their " << totals.gaf_bytes / 1e9 << " GB of GAF took "
+                              << totals.parse_s / 3600 << " h" << endl;
+            }
+            if (tabix_gaf != nullptr) {
+                logger.info() << "Indexed GAF: " << tabix_gaf->get_query_count() << " index lookups; "
+                              << tabix_gaf->get_skipped_count() << " records overlapped a fetch's node "
+                              << "interval without touching its nodes; "
+                              << tabix_gaf->get_duplicate_count() << " duplicate reads dropped" << endl;
+                logger.info() << "Indexed GAF: of those records, " << tabix_gaf->get_unparsed_count()
+                              << " were dropped from their path text without being parsed; threads spent "
+                              << tabix_gaf->get_read_seconds() / 3600 << " h reading "
+                              << tabix_gaf->get_gaf_bytes() / 1e9 << " GB of GAF through the index and "
+                              << tabix_gaf->get_parse_seconds() / 3600 << " h parsing it" << endl;
+            }
+        }
+    }
+
+    if (show_progress) {
+        auto* graph_calculator =
+            dynamic_cast<GraphAlignedAlleleLikelihoodCalculator*>(likelihood_calculator.get());
+        if (graph_calculator != nullptr && graph_calculator->rate_id_fallbacks() > 0) {
+            logger.info() << graph_calculator->rate_id_fallbacks() << " sites had no reference "
+                          << "position for their depth-rate window and used a node-ID window"
+                          << endl;
+        }
+    }
+
     if (show_progress) logger.info() << "Calling complete" << endl;
 
     if (!gaf_output) {
         // Output VCF
-        VCFOutputCaller* vcf_caller = dynamic_cast<VCFOutputCaller*>(graph_caller.get());
+        VCFOutputCaller* vcf_caller = vcf_out;
         assert(vcf_caller != nullptr);
         // Prune here rather than where the header string was built: the contig set is only
         // known once calling is done, and write_variants below drains the buffer it reads.
@@ -1098,8 +2948,19 @@ int main_call(int argc, char** argv) {
         vcf_caller->write_variants(cout, snarl_manager.get());
         if (show_progress) logger.info() << "VCF complete" << endl;        
     }
-    
-    return 0;
+
+    // Everything is written. Freeing what calling built -- the graph, the snarls, every site's
+    // records and evidence -- takes minutes on a whole genome and changes nothing, so close what is
+    // still open and exit without it. exit() still runs the handlers registered for exit, such as
+    // the one that removes temporary files, and flushes C streams.
+    if (likelihood_dump) {
+        likelihood_dump->close();
+    }
+    // The GAF emitter (-G) holds its last batch of records until it is destroyed.
+    alignment_emitter.reset();
+    cout.flush();
+    cerr.flush();
+    exit(EXIT_SUCCESS);
 }
 
 // Register subcommand

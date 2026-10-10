@@ -185,6 +185,14 @@ vg test "Full-length bonus can hold down the left end" --section "left end is de
 Unit test files can also have helper functions which are called by the unit tests.
 For an example of this see `src/unittest/chain_items.cpp`.
 
+### Docs and comments
+
+`make lint` runs `scripts/lint_prose.py`, which checks the Markdown files in `doc/` and the comments
+in `src/` for a few phrasings that describe data only by what will later be made from it, such as
+"keep what the record will be built from". A reader cannot picture an object defined only by its
+later use. Say what the data is instead, and if the same idea comes up in several places, give it
+a name, or name its type.
+
 ### Subcommands
 
 Functionality within `vg` is split up over many subcommands, e.g. `vg convert` converts between file types.
@@ -253,6 +261,9 @@ In order to correctly set up a command-line option it must be put in four separa
     - `shortform` must be a single character (NOT a bare non-quoted integer) or an `ALL_CAPS` variable name.
     Note that `ALL_CAPS` variables must be before the `long_options[]` array as `constexpr int`s.
     Shortforms may repeat, and the first longform is retained. This is to allow longform aliases.
+    - The options may instead be grouped in a `std::map` from group name to `std::vector<struct option>`,
+    named `long_options_by_<something>`, with one entry per line as above and the map ending with `};`.
+    `vg call` groups its options by the subsystem they configure this way, and builds getopt's array from the groups.
 - **`getopt_long` string**: all options with a shortform must appear here. Order does not matter.
 Options which take an argument must have a `:` after their shortform.
 The `vg gamcompare` one is `"h?d:r:I:n:o:Ta:st:"`.

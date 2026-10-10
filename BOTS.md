@@ -73,3 +73,5 @@ The interfaces in libhandlegraph model a bidirected sequence graph (where nodes 
 ### Utilities
 - `reverse_complement(string)` → `string` in src/utility.hpp
 
+## Documentation
+- When writing or reviewing doc comments or design docs, follow `.claude/skills/explanatory-comments/SKILL.md`.
