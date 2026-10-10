@@ -2,7 +2,7 @@
 
 The latest version of this document is hosted at: <https://github.com/vgteam/vg/blob/master/doc/static/GAF.md>
 
-This document describes **version 1.0** of the [vg](https://github.com/vgteam/vg) interpretation of the Graph Alignment Format (GAF).
+This document describes **version 1.1** of the [vg](https://github.com/vgteam/vg) interpretation of the Graph Alignment Format (GAF).
 It is a superset of a subset of the [original GAF format](https://github.com/lh3/gfatools/blob/master/doc/rGFA.md).
 That format in turn is a superset of the [PAF format](https://github.com/lh3/miniasm/blob/master/PAF.md).
 Sequence names and optional fields follow conventions set in the [SAM format](https://samtools.github.io/hts-specs/SAMv1.pdf).
@@ -128,14 +128,16 @@ No tag can appear more than once on the same line, and the order of the optional
 
 Difference strings represent an edit script that transforms the given interval of the target path to the given interval of the query sequence.
 They are stored as an optional field `cs` of type `Z`.
-We support a subset of the operations defined for minimap2 difference strings.
+We support the following set of operations, which has diverged from the original set defined by minimap2.
 
 |Operation|Regex   |Description|
 |:-------:|:------:|:----------|
 |`:`      |`[0-9]+`|Number of matching bases|
 |`*`      |`[ACGTN][ACGTN]`|Mismatch as (target base, query base)|
+|`?`      |`[0-9]+`|Mismatch as the query base (since version 1.1)|
 |`+`      |`[ACGTN]+`|Insertion as the unaligned query bases|
 |`-`      |`[ACGTN]+`|Deletion as the unaligned target bases|
+|`!`      |`[0-9]+`|Deletion as the number of unaligned target bases|
 
 ### Other defined optional fields
 
@@ -181,3 +183,19 @@ Each fragment represents an alignment of a non-empty query interval to a non-emp
 Query interval (fields 3 and 4), target path (fields 6 to 9), and the difference string must be specific to each fragment.
 Alignment statistics (fields 10 to 12) may be inherited from the underlying alignment or be specific to each fragment.
 Fragments are identified by fragment indexes starting from `1`, stored as an optional field `fi` of type `i`.
+
+## Version history
+
+### GAF version 1.1
+
+**Since vg 1.??.0**
+
+Two new operations for difference strings.
+`?` is a mismatch with the query base only, and `!` is a deletion represented by its length.
+These operations allow converting other formats to GAF without using a reference graph.
+
+### GAF version 1.0
+
+**Since vg 1.70.0**
+
+Original version of this document.
