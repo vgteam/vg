@@ -338,9 +338,21 @@ bool TreeGenotyper::genotype_tree(const SiteView& view, const string& parent_ref
         }
         ChildPlacer::Nested with_edits;
         if (!held.empty()) {
-            with_edits = nested;
-            for (const HeldEdit& edit : held) {
-                with_edits.sites.push_back(edit.child);
+            // Each before the first child that starts after its node, so that the children are
+            // visited along the node IDs and each window's reads are still in memory when its
+            // edit sites are genotyped. `held` is sorted by node.
+            with_edits.children = nested.children;
+            size_t e = 0;
+            for (const ChildSite& child : nested.sites) {
+                const nid_t child_first = std::min(graph.get_id(child.bounds.start),
+                                                   graph.get_id(child.bounds.end));
+                for (; e < held.size() && held[e].candidate.node < child_first; ++e) {
+                    with_edits.sites.push_back(held[e].child);
+                }
+                with_edits.sites.push_back(child);
+            }
+            for (; e < held.size(); ++e) {
+                with_edits.sites.push_back(held[e].child);
             }
         }
         vector<bool> edit_placed(held.size(), false);
