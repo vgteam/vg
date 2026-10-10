@@ -121,14 +121,12 @@ public:
     /// Visit the off-panel candidates on the nodes `nodes`, which are sorted and free of
     /// duplicates, in order. A node's candidates are always all of them: reads not yet counted
     /// are fetched and counted first. Nothing is visited unless `count_edits` was called.
-    ///
-    /// Without `fetch_wide`, nodes that a site query would fetch uncached, as one too wide for
-    /// the source's cache, are not counted for this: nothing is visited and false is returned.
-    virtual bool for_each_edit_candidate(const vector<nid_t>& nodes,
-                                         const function<void(const EditCandidate&)>& iteratee,
-                                         bool fetch_wide = true) const {
-        return true;
-    }
+    virtual void for_each_edit_candidate(
+        const vector<nid_t>& nodes, const function<void(const EditCandidate&)>& iteratee) const {}
+
+    /// Are the reads on nodes `a` and `b` fetched together, so that a site query on one holds
+    /// the other's too? Always, where every read is in memory.
+    virtual bool fetched_together(nid_t a, nid_t b) const { return true; }
 
     /// Every off-panel candidate counted so far, sorted.
     virtual vector<EditCandidate> counted_edit_candidates() const { return {}; }
@@ -173,9 +171,8 @@ public:
 
     /// Every read is in memory, so all of them are counted at once, at the first query.
     void count_edits(const HandleGraph* graph, const EditCountParams& params);
-    bool for_each_edit_candidate(const vector<nid_t>& nodes,
-                                 const function<void(const EditCandidate&)>& iteratee,
-                                 bool fetch_wide = true) const;
+    void for_each_edit_candidate(const vector<nid_t>& nodes,
+                                 const function<void(const EditCandidate&)>& iteratee) const;
     vector<EditCandidate> counted_edit_candidates() const;
 
 private:
@@ -235,11 +232,15 @@ public:
 
     /// Each window's reads are counted the first time the window is fetched, before the fetch is
     /// published, and only on the window's own nodes, so each read base is counted once however
-    /// often its window is fetched. The candidates are kept for the whole run.
+    /// often its window is fetched. A site too wide for one window is fetched uncached, and its
+    /// reads are counted on its nodes that no fetch has counted, while they are in memory: a
+    /// node's candidates are the same whichever fetch counts them, since every read on the node
+    /// comes with it. The candidates are kept for the whole run.
     void count_edits(const HandleGraph* graph, const EditCountParams& params) final;
-    bool for_each_edit_candidate(const vector<nid_t>& nodes,
-                                 const function<void(const EditCandidate&)>& iteratee,
-                                 bool fetch_wide = true) const final;
+    void for_each_edit_candidate(const vector<nid_t>& nodes,
+                                 const function<void(const EditCandidate&)>& iteratee) const final;
+    /// When they lie in one window.
+    bool fetched_together(nid_t a, nid_t b) const final;
     vector<EditCandidate> counted_edit_candidates() const final;
 
     size_t get_filtered_count() const;
@@ -432,10 +433,18 @@ private:
     const HandleGraph* edit_graph = nullptr;
     EditCountParams edit_params;
     mutable unordered_map<size_t, vector<EditCandidate>> edits;
+    /// The nodes counted by the uncached fetches of sites too wide for one window, as merged
+    /// ranges, and their candidates, sorted.
+    mutable vector<pair<nid_t, nid_t>> span_counted;
+    mutable vector<EditCandidate> span_edits;
     /// The candidates of the window, fetching it if it has never been fetched.
     const vector<EditCandidate>& window_edits(size_t window) const;
+    /// Of the merged ranges, the nodes no fetch has counted yet, as merged ranges. Call holding
+    /// `cache_mutex`.
+    vector<pair<nid_t, nid_t>> uncounted(const vector<pair<nid_t, nid_t>>& merged) const;
 
-    /// Guards `cache`, `cache_clock`, `starts` and `edits`. Fetches run without it.
+    /// Guards `cache`, `cache_clock`, `starts`, `edits`, `span_counted` and `span_edits`. Fetches
+    /// run without it.
     mutable std::mutex cache_mutex;
     /// Signalled when a fetch finishes or fails.
     mutable std::condition_variable cache_filled;

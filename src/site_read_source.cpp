@@ -179,11 +179,9 @@ const vector<EditCandidate>& InMemorySiteReadSource::all_edits() const {
     return edits;
 }
 
-bool InMemorySiteReadSource::for_each_edit_candidate(
-    const vector<nid_t>& nodes, const function<void(const EditCandidate&)>& iteratee,
-    bool fetch_wide) const {
+void InMemorySiteReadSource::for_each_edit_candidate(
+    const vector<nid_t>& nodes, const function<void(const EditCandidate&)>& iteratee) const {
     for_each_candidate_on(all_edits(), nodes, iteratee);
-    return true;
 }
 
 vector<EditCandidate> InMemorySiteReadSource::counted_edit_candidates() const {
@@ -293,6 +291,14 @@ void WindowedSiteReadSource::for_each_read(
         straddle_wanted += wanted;
         size_t n_scanned = 0, n_delivered = 0;
         vector<pair<nid_t, nid_t>> merged = merge_ranges(ranges);
+        // Off-panel detection counts the reads on the site's nodes that no fetch has counted,
+        // which are kept for it once delivered.
+        vector<pair<nid_t, nid_t>> to_count;
+        if (edit_graph != nullptr) {
+            lock_guard<std::mutex> guard(cache_mutex);
+            to_count = uncounted(merged);
+        }
+        vector<Alignment> kept;
         fetch_span(ranges, [&](Alignment& aln) {
             ++n_scanned;
             if (touches(aln, merged)) {
@@ -302,10 +308,35 @@ void WindowedSiteReadSource::for_each_read(
                 SiteRead read;
                 read.aln = &aln;
                 iteratee(read);
+                if (!to_count.empty() && touches(aln, to_count)) {
+                    kept.push_back(std::move(aln));
+                }
             }
         });
         scanned += n_scanned;
         delivered += n_delivered;
+        if (!to_count.empty()) {
+            vector<EditCandidate> counted = count_snv_edits(
+                *edit_graph,
+                [&](const function<void(const Alignment&)>& visit) {
+                    for (const Alignment& aln : kept) {
+                        visit(aln);
+                    }
+                },
+                [&](nid_t node) { return in_ranges(node, to_count); }, edit_params);
+            kept.clear();
+            lock_guard<std::mutex> guard(cache_mutex);
+            // Another thread may have counted some of the nodes meanwhile, alike.
+            to_count.insert(to_count.end(), span_counted.begin(), span_counted.end());
+            span_counted = merge_ranges(std::move(to_count));
+            span_edits.insert(span_edits.end(), counted.begin(), counted.end());
+            std::sort(span_edits.begin(), span_edits.end());
+            span_edits.erase(std::unique(span_edits.begin(), span_edits.end(),
+                                         [](const EditCandidate& a, const EditCandidate& b) {
+                                             return !(a < b) && !(b < a);
+                                         }),
+                             span_edits.end());
+        }
         return;
     }
 
@@ -537,15 +568,28 @@ const vector<EditCandidate>& WindowedSiteReadSource::window_edits(size_t window)
     return edits.emplace(window, std::move(counted)).first->second;
 }
 
-bool WindowedSiteReadSource::for_each_edit_candidate(
-    const vector<nid_t>& nodes, const function<void(const EditCandidate&)>& iteratee,
-    bool fetch_wide) const {
-    if (edit_graph == nullptr || nodes.empty()) {
-        return true;
+vector<pair<nid_t, nid_t>>
+WindowedSiteReadSource::uncounted(const vector<pair<nid_t, nid_t>>& merged) const {
+    vector<pair<nid_t, nid_t>> left;
+    for (const auto& range : merged) {
+        for (nid_t id = range.first; id <= range.second; ++id) {
+            if (edits.count(window_of(id)) || in_ranges(id, span_counted)) {
+                continue;
+            }
+            if (!left.empty() && left.back().second + 1 == id) {
+                left.back().second = id;
+            } else {
+                left.emplace_back(id, id);
+            }
+        }
     }
-    if (!fetch_wide && window_of(nodes.front()) != window_of(nodes.back())) {
-        // A site this wide is fetched uncached, so its windows need not have been counted.
-        return false;
+    return left;
+}
+
+void WindowedSiteReadSource::for_each_edit_candidate(
+    const vector<nid_t>& nodes, const function<void(const EditCandidate&)>& iteratee) const {
+    if (edit_graph == nullptr) {
+        return;
     }
     size_t i = 0;
     while (i < nodes.size()) {
@@ -556,10 +600,33 @@ bool WindowedSiteReadSource::for_each_edit_candidate(
             ++j;
         }
         const vector<nid_t> in_window(nodes.begin() + i, nodes.begin() + j);
-        for_each_candidate_on(window_edits(window), in_window, iteratee);
         i = j;
+        // From a wide site's fetch where that counted them and the window was never counted, so
+        // that looking them up fetches nothing.
+        vector<EditCandidate> spanned;
+        bool from_span = false;
+        {
+            lock_guard<std::mutex> guard(cache_mutex);
+            if (!edits.count(window)) {
+                from_span = std::all_of(in_window.begin(), in_window.end(), [&](nid_t node) {
+                    return in_ranges(node, span_counted);
+                });
+                if (from_span) {
+                    EditCandidate probe;
+                    probe.node = in_window.front();
+                    for (auto it = std::lower_bound(span_edits.begin(), span_edits.end(), probe);
+                         it != span_edits.end() && it->node <= in_window.back(); ++it) {
+                        spanned.push_back(*it);
+                    }
+                }
+            }
+        }
+        for_each_candidate_on(from_span ? spanned : window_edits(window), in_window, iteratee);
     }
-    return true;
+}
+
+bool WindowedSiteReadSource::fetched_together(nid_t a, nid_t b) const {
+    return window_of(a) == window_of(b);
 }
 
 vector<EditCandidate> WindowedSiteReadSource::counted_edit_candidates() const {
@@ -568,7 +635,14 @@ vector<EditCandidate> WindowedSiteReadSource::counted_edit_candidates() const {
     for (const auto& window : edits) {
         all.insert(all.end(), window.second.begin(), window.second.end());
     }
+    // A node counted by a wide site's fetch and by its window's has the same candidates in both.
+    all.insert(all.end(), span_edits.begin(), span_edits.end());
     std::sort(all.begin(), all.end());
+    all.erase(std::unique(all.begin(), all.end(),
+                          [](const EditCandidate& a, const EditCandidate& b) {
+                              return !(a < b) && !(b < a);
+                          }),
+              all.end());
     return all;
 }
 

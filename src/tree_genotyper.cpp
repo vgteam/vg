@@ -21,37 +21,34 @@ bool TreeGenotyper::genotype(const SiteView& site) {
     const bool genotyped = genotype_tree(site, "", make_pair(0, 0), nullptr, -1, NestingPlacement());
     if (parts.edit_source != nullptr && site.enclosing.empty()) {
         // The edit sites on the chain nodes this site lies between, which no site holds, while
-        // their reads are in memory. A node between two sites is taken by the first to reach it.
-        // A site too wide for the read cache takes only the bound the walk is at, since fetching
-        // its far bound's window now, out of the walk's order, would fetch it again when the walk
-        // gets there; the site beyond that bound takes it.
+        // their reads are in memory: its own read query fetched both bounds. A node between two
+        // sites is taken by the first to reach it.
         const nid_t first = std::min(parts.graph->get_id(site.bounds.start),
                                      parts.graph->get_id(site.bounds.end));
         const nid_t last = std::max(parts.graph->get_id(site.bounds.start),
                                     parts.graph->get_id(site.bounds.end));
-        vector<EditCandidate> on_first;
-        parts.edit_source->for_each_edit_candidate(
-            {first}, [&](const EditCandidate& c) { on_first.push_back(c); });
-        genotype_free_edits(std::move(on_first));
-        // Then the far bound, and the nodes no site holds that run along the reference from
-        // either bound to the next site, through the trivial sites the walk does not visit, as
-        // far as they lie in the lower bound's window.
-        vector<nid_t> near;
+        vector<nid_t> bounds{first};
         if (last != first) {
-            near.push_back(last);
+            bounds.push_back(last);
         }
+        for (nid_t bound : bounds) {
+            vector<EditCandidate> on_bound;
+            parts.edit_source->for_each_edit_candidate(
+                {bound}, [&](const EditCandidate& c) { on_bound.push_back(c); });
+            genotype_free_edits(std::move(on_bound));
+        }
+        // Then the nodes no site holds that run along the reference from either bound to the
+        // next site, through the trivial sites the walk does not visit, as far as their reads come
+        // with the lower bound's.
+        vector<nid_t> near;
         for (nid_t bound : {first, last}) {
             free_nodes_along_reference(bound, near);
         }
         for (nid_t node : near) {
-            vector<EditCandidate> on_node;
-            if (node != first && parts.edit_source->for_each_edit_candidate(
-                    {std::min(first, node), std::max(first, node)},
-                    [&](const EditCandidate& c) {
-                        if (c.node == node) {
-                            on_node.push_back(c);
-                        }
-                    }, false)) {
+            if (node != first && node != last && parts.edit_source->fetched_together(first, node)) {
+                vector<EditCandidate> on_node;
+                parts.edit_source->for_each_edit_candidate(
+                    {node}, [&](const EditCandidate& c) { on_node.push_back(c); });
                 genotype_free_edits(std::move(on_node));
             }
         }
@@ -494,13 +491,12 @@ vector<TreeGenotyper::HeldEdit> TreeGenotyper::edits_held_by(const SiteView& vie
     vector<EditCandidate> found;
     const nid_t start = graph.get_id(bounds.start);
     const nid_t end = graph.get_id(bounds.end);
-    // Only where the site's own read query counted its window: a site too wide for the cache
-    // holds no edit site, which would otherwise fetch every window it spans whole.
+    // The site's own read query counted them.
     parts.edit_source->for_each_edit_candidate(nodes, [&](const EditCandidate& c) {
         if (c.node != start && c.node != end) {
             found.push_back(c);
         }
-    }, false);
+    });
     vector<HeldEdit> held;
     if (found.empty()) {
         return held;
