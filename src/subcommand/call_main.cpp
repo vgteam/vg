@@ -197,7 +197,7 @@ void help_call(char** argv) {
          << "  off-panel variants:" << endl
          << "      --off-panel           also call SNVs and indels of 1-49 bp that no graph" << endl
          << "                            walk spells, found as edits recurring in the reads" << endl
-         << "                            (experimental)" << endl
+         << "                            (experimental) [off]" << endl
          << "      --off-panel-dump F    write each off-panel candidate, with its read" << endl
          << "                            counts and what became of it, to F as TSV" << endl
          << "      --off-panel-bar B     call a candidate whose ALT is on >= K fragments" << endl
@@ -212,6 +212,7 @@ void help_call(char** argv) {
          << "                            more, from long reads' indels (the medoid read's" << endl
          << "                            insertion as the ALT) and short reads' clips" << endl
          << "                            (deletions only); one crossing a site is refused" << endl
+         << "                            [off]" << endl
          << "  read-based phasing (reliable heterozygous sites are joined into a phase" << endl
          << "  chain by the reads they share; other sites are phased from the chain):" << endl
          << "      --read-phasing        phase heterozygous sites with the reads that span" << endl

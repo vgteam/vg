@@ -816,6 +816,7 @@ void TreeGenotyper::genotype_edit_site(const HeldEdit& edit, const vector<SiteBo
         staged->set_call(std::move(call_info), score);
     }
     // A leaf, in the chain its node is in.
+    staged->off_panel = true;
     staged->leaf = true;
     staged->in_chain = true;
     staged->chain = edit.child.chain;

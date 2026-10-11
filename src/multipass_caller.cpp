@@ -313,6 +313,9 @@ VCFOutputCaller::SiteRecordSteps MultiPassCaller::record_steps(const StagedSite&
                                     vcflib::Variant& variant) {
         snarl_caller.write_vcf_fields(site_trav, site_genotype, site.call_info.get(), sample_name,
                                       variant);
+        if (site.off_panel) {
+            variant.infoFlags["OP"] = true;
+        }
     };
     // The linkage model gets the site whether or not it has a line. A parent written as the
     // reference still has two alleles, which differ only inside its children, and the children
@@ -375,6 +378,11 @@ void MultiPassCaller::install_header_steps() {
     };
     steps.info_header = [this]() {
         stringstream ss;
+        if (edit_source != nullptr) {
+            ss << "##INFO=<ID=OP,Number=0,Type=Flag,Description=\"Off-panel variant (--off-panel): "
+               << "the ALT is a change recurring in the reads that no walk of the graph spells, "
+               << "called at an edit site. Its ID starts with op\">" << endl;
+        }
         if (block_records.is_enabled()) {
             ss << "##INFO=<ID=SB,Number=2,Type=Integer,Description=\"Index and count of this "
                << "difference block within its snarl. A snarl is written as one record per "
