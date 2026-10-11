@@ -38,7 +38,8 @@ using namespace std;
 namespace {
 
 /// One hold of `SiteReadSource::hold_reads`: the reads a wide site's uncached fetch kept for the
-/// edit sites below it, and the nodes they were kept for, as merged ranges; and the read starts
+/// edit sites below it, and the nodes they were kept for, those of the candidates `bar` admits,
+/// as merged ranges; and the read starts
 /// on every node the fetch covered, tallied as a window's are, by node, then mapping quality.
 struct ReadHold {
     struct Start {
@@ -48,6 +49,7 @@ struct ReadHold {
         size_t bases = 0;
     };
     const void* source = nullptr;
+    EditCallBar bar;
     bool filled = false;
     vector<pair<nid_t, nid_t>> nodes;
     vector<Alignment> reads;
@@ -331,8 +333,8 @@ void WindowedSiteReadSource::for_each_read(
         // which are kept for it once delivered.
         vector<pair<nid_t, nid_t>> to_count;
         // The innermost hold on this thread, if this is the first wide fetch within it. It keeps
-        // the reads on the candidates' nodes: those counted before, known now, and those this
-        // fetch counts, known once it has. Each read keeps its place in the fetch, so that the
+        // the reads on the nodes of the candidates its bar admits, which alone become edit sites:
+        // those counted before, known now, and those this fetch counts, known once it has. Each read keeps its place in the fetch, so that the
         // held reads come in the order they came here.
         ReadHold* hold = !read_holds.empty() && read_holds.back().source == this
                                  && !read_holds.back().filled
@@ -343,7 +345,7 @@ void WindowedSiteReadSource::for_each_read(
             lock_guard<std::mutex> guard(cache_mutex);
             to_count = uncounted(merged);
             if (hold != nullptr) {
-                known = candidate_nodes(merged);
+                known = candidate_nodes(merged, hold->bar);
             }
         }
         vector<Alignment> kept;
@@ -388,6 +390,9 @@ void WindowedSiteReadSource::for_each_read(
             if (hold != nullptr) {
                 // The nodes of the candidates just counted, on the site, join those known.
                 for (const EditCandidate& c : counted) {
+                    if (!hold->bar.admits(c)) {
+                        continue;
+                    }
                     known.emplace_back(c.node, c.node);
                     for (nid_t node : c.walk) {
                         known.emplace_back(node, node);
@@ -676,10 +681,11 @@ const vector<EditCandidate>& WindowedSiteReadSource::window_edits(size_t window)
     return edits.emplace(window, std::move(counted)).first->second;
 }
 
-void WindowedSiteReadSource::hold_reads() const {
+void WindowedSiteReadSource::hold_reads(const EditCallBar& bar) const {
     if (edit_graph != nullptr) {
         read_holds.emplace_back();
         read_holds.back().source = this;
+        read_holds.back().bar = bar;
     }
 }
 
@@ -730,9 +736,12 @@ bool WindowedSiteReadSource::deliver_held(const vector<pair<nid_t, nid_t>>& rang
 }
 
 vector<pair<nid_t, nid_t>> WindowedSiteReadSource::candidate_nodes(
-    const vector<pair<nid_t, nid_t>>& merged) const {
+    const vector<pair<nid_t, nid_t>>& merged, const EditCallBar& bar) const {
     vector<pair<nid_t, nid_t>> found;
     auto add = [&](const EditCandidate& c) {
+        if (!bar.admits(c)) {
+            return;
+        }
         if (in_ranges(c.node, merged)) {
             found.emplace_back(c.node, c.node);
         }
