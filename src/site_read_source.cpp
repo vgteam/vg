@@ -38,12 +38,21 @@ using namespace std;
 namespace {
 
 /// One hold of `SiteReadSource::hold_reads`: the reads a wide site's uncached fetch kept for the
-/// edit sites below it, and the nodes they were kept for, as merged ranges.
+/// edit sites below it, and the nodes they were kept for, as merged ranges; and the read starts
+/// on every node the fetch covered, tallied as a window's are, by node, then mapping quality.
 struct ReadHold {
+    struct Start {
+        nid_t node = 0;
+        int32_t mapq = 0;
+        size_t reads = 0;
+        size_t bases = 0;
+    };
     const void* source = nullptr;
     bool filled = false;
     vector<pair<nid_t, nid_t>> nodes;
     vector<Alignment> reads;
+    vector<pair<nid_t, nid_t>> fetched;
+    vector<Start> starts;
 };
 
 /// This thread's holds, innermost last.
@@ -340,10 +349,18 @@ void WindowedSiteReadSource::for_each_read(
         vector<Alignment> kept;
         vector<size_t> kept_at;
         vector<pair<size_t, Alignment>> held;
+        vector<ReadHold::Start> starts;
         fetch_span(ranges, [&](Alignment& aln) {
             ++n_scanned;
             if (touches(aln, merged)) {
                 ++n_delivered;
+                if (hold != nullptr) {
+                    // The filter drops reads with no mappings.
+                    const nid_t first = aln.path().mapping(0).position().node_id();
+                    if (in_ranges(first, merged)) {
+                        starts.push_back({first, aln.mapping_quality(), 1, aln.sequence().size()});
+                    }
+                }
                 // Not indexed: this path serves the few sites too wide to cache, and an index for a
                 // read seen once would cost as much as the walk it saves.
                 SiteRead read;
@@ -409,6 +426,20 @@ void WindowedSiteReadSource::for_each_read(
                       });
             hold->filled = true;
             hold->nodes = std::move(known);
+            hold->fetched = merged;
+            std::sort(starts.begin(), starts.end(),
+                      [](const ReadHold::Start& a, const ReadHold::Start& b) {
+                          return a.node != b.node ? a.node < b.node : a.mapq < b.mapq;
+                      });
+            for (const ReadHold::Start& start : starts) {
+                if (!hold->starts.empty() && hold->starts.back().node == start.node
+                    && hold->starts.back().mapq == start.mapq) {
+                    hold->starts.back().reads += start.reads;
+                    hold->starts.back().bases += start.bases;
+                } else {
+                    hold->starts.push_back(start);
+                }
+            }
             hold->reads.reserve(held.size());
             for (auto& entry : held) {
                 hold->reads.push_back(std::move(entry.second));
@@ -814,6 +845,25 @@ vector<EditCandidate> WindowedSiteReadSource::counted_edit_candidates() const {
 void WindowedSiteReadSource::for_each_read_start(
     const vector<nid_t>& nodes,
     const function<void(int32_t mapq, size_t reads, size_t bases)>& iteratee) const {
+
+    // From a hold on this thread whose fetch covered every node, which tallied their starts as
+    // their windows would.
+    for (auto hold = read_holds.rbegin(); hold != read_holds.rend(); ++hold) {
+        if (hold->source != this || !hold->filled
+            || !std::all_of(nodes.begin(), nodes.end(),
+                            [&](nid_t node) { return in_ranges(node, hold->fetched); })) {
+            continue;
+        }
+        for (nid_t node : nodes) {
+            auto it = std::lower_bound(hold->starts.begin(), hold->starts.end(), node,
+                                       [](const ReadHold::Start& a, nid_t n) { return a.node < n; });
+            for (; it != hold->starts.end() && it->node == node; ++it) {
+                iteratee(it->mapq, it->reads, it->bases);
+            }
+        }
+        ++held_queries;
+        return;
+    }
 
     size_t i = 0;
     while (i < nodes.size()) {

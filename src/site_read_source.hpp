@@ -136,7 +136,8 @@ public:
     /// site too wide for its cache uncached, the first such fetch on the thread within the
     /// innermost hold keeps the reads on the nodes of the off-panel candidates it spans, and a
     /// query on the thread whose nodes are all among those is then answered from them, with no
-    /// fetch. Nothing is held unless `count_edits` was called.
+    /// fetch; it also tallies the read starts on every node it covers, which answer
+    /// `for_each_read_start` for those nodes. Nothing is held unless `count_edits` was called.
     virtual void hold_reads() const {}
     virtual void release_reads() const {}
 
@@ -253,7 +254,7 @@ public:
     vector<EditCandidate> counted_edit_candidates() const final;
     void hold_reads() const final;
     void release_reads() const final;
-    /// Site queries answered from held reads.
+    /// Site and read-start queries answered from held reads.
     size_t get_held_queries() const { return held_queries.load(); }
 
     size_t get_filtered_count() const;

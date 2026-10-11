@@ -3002,7 +3002,7 @@ int main_call(int argc, char** argv) {
                               << windowed->get_edit_fetches()
                               << " only to count a window's off-panel candidates; "
                               << windowed->get_held_queries()
-                              << " site queries were answered from reads held for edit sites"
+                              << " site and read-start queries were answered from reads held for edit sites"
                               << endl;
             }
             if (gaf_base != nullptr) {
