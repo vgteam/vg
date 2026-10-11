@@ -28,7 +28,31 @@ void TreeGenotyper::configure(const Parts& parts, const Options& options) {
     this->options = options;
 }
 
+namespace {
+
+/// Holds the read source's reads for the edit sites of one subtree while it is in scope (see
+/// `SiteReadSource::hold_reads`): a site too wide for the read cache keeps the reads on its
+/// candidates' nodes from its own fetch, and its edit sites are genotyped from them rather than
+/// by fetching their windows again.
+struct SubtreeReadHold {
+    const SiteReadSource* source;
+    explicit SubtreeReadHold(const SiteReadSource* source) : source(source) {
+        if (source != nullptr) {
+            source->hold_reads();
+        }
+    }
+    ~SubtreeReadHold() {
+        if (source != nullptr) {
+            source->release_reads();
+        }
+    }
+};
+
+} // namespace
+
 bool TreeGenotyper::genotype(const SiteView& site) {
+    // Its edit sites, and those of its bounds below, are genotyped while the hold has the reads.
+    SubtreeReadHold hold(parts.edit_source);
     // A top-level site has no parent context.
     const bool genotyped = genotype_tree(site, "", make_pair(0, 0), nullptr, -1, NestingPlacement());
     if (parts.edit_source != nullptr && site.enclosing.empty()) {
@@ -392,6 +416,7 @@ bool TreeGenotyper::genotype_tree(const SiteView& view, const string& parent_ref
                 }
                 // The other ploidy's answer is computed as well, so the linkage pass can change it
                 // later.
+                SubtreeReadHold hold(parts.edit_source);
                 genotype_tree(child.site, ref_path_name,
                               make_pair(get<0>(ref_interval), get<1>(ref_interval)), nullptr,
                               child.ploidy, child.placement);

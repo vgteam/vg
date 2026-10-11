@@ -3000,7 +3000,10 @@ int main_call(int argc, char** argv) {
                 logger.info() << label << windowed->get_refetches()
                               << " of the whole fetches were of a window the cache had dropped, and "
                               << windowed->get_edit_fetches()
-                              << " only to count a window's off-panel candidates" << endl;
+                              << " only to count a window's off-panel candidates; "
+                              << windowed->get_held_queries()
+                              << " site queries were answered from reads held for edit sites"
+                              << endl;
             }
             if (gaf_base != nullptr) {
                 // Each query runs a subprocess, so this count largely determines run time.

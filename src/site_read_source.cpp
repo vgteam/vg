@@ -1,10 +1,12 @@
 #include "site_read_source.hpp"
 
 #include <algorithm>
+#include <cassert>
 #include <cctype>
 #include <cerrno>
 #include <chrono>
 #include <cstring>
+#include <limits>
 #include <sstream>
 #include <unordered_set>
 
@@ -32,6 +34,27 @@ extern char** environ;
 namespace vg {
 
 using namespace std;
+
+namespace {
+
+/// One hold of `SiteReadSource::hold_reads`: the reads a wide site's uncached fetch kept for the
+/// edit sites below it, and the nodes they were kept for, as merged ranges.
+struct ReadHold {
+    const void* source = nullptr;
+    bool filled = false;
+    vector<pair<nid_t, nid_t>> nodes;
+    vector<Alignment> reads;
+};
+
+/// This thread's holds, innermost last.
+thread_local vector<ReadHold> read_holds;
+
+/// For a search of sorted candidates by node.
+bool candidate_node_below(const EditCandidate& c, nid_t node) {
+    return c.node < node;
+}
+
+} // namespace
 
 
 void SiteReadSource::for_each_read_start(
@@ -276,6 +299,10 @@ void WindowedSiteReadSource::for_each_read(
     size_t first_window = window_of(min_id);
     size_t last_window = window_of(max_id);
 
+    if (!read_holds.empty() && deliver_held(ranges, iteratee)) {
+        return;
+    }
+
     if (first_window != last_window) {
         // The site crosses a window boundary. Fetch its ranges directly rather than stitching
         // windows together: fetch_span emits each read once, and a region of unbounded size is not
@@ -294,11 +321,25 @@ void WindowedSiteReadSource::for_each_read(
         // Off-panel detection counts the reads on the site's nodes that no fetch has counted,
         // which are kept for it once delivered.
         vector<pair<nid_t, nid_t>> to_count;
+        // The innermost hold on this thread, if this is the first wide fetch within it. It keeps
+        // the reads on the candidates' nodes: those counted before, known now, and those this
+        // fetch counts, known once it has. Each read keeps its place in the fetch, so that the
+        // held reads come in the order they came here.
+        ReadHold* hold = !read_holds.empty() && read_holds.back().source == this
+                                 && !read_holds.back().filled
+                             ? &read_holds.back()
+                             : nullptr;
+        vector<pair<nid_t, nid_t>> known;
         if (edit_graph != nullptr) {
             lock_guard<std::mutex> guard(cache_mutex);
             to_count = uncounted(merged);
+            if (hold != nullptr) {
+                known = candidate_nodes(merged);
+            }
         }
         vector<Alignment> kept;
+        vector<size_t> kept_at;
+        vector<pair<size_t, Alignment>> held;
         fetch_span(ranges, [&](Alignment& aln) {
             ++n_scanned;
             if (touches(aln, merged)) {
@@ -309,7 +350,10 @@ void WindowedSiteReadSource::for_each_read(
                 read.aln = &aln;
                 iteratee(read);
                 if (!to_count.empty() && touches(aln, to_count)) {
+                    kept_at.push_back(n_delivered);
                     kept.push_back(std::move(aln));
+                } else if (!known.empty() && touches(aln, known)) {
+                    held.emplace_back(n_delivered, std::move(aln));
                 }
             }
         });
@@ -324,6 +368,27 @@ void WindowedSiteReadSource::for_each_read(
                     }
                 },
                 [&](nid_t node) { return in_ranges(node, to_count); }, edit_params);
+            if (hold != nullptr) {
+                // The nodes of the candidates just counted, on the site, join those known.
+                for (const EditCandidate& c : counted) {
+                    known.emplace_back(c.node, c.node);
+                    for (nid_t node : c.walk) {
+                        known.emplace_back(node, node);
+                    }
+                }
+                known.erase(std::remove_if(known.begin(), known.end(),
+                                           [&](const pair<nid_t, nid_t>& r) {
+                                               return r.first == r.second
+                                                      && !in_ranges(r.first, merged);
+                                           }),
+                            known.end());
+                known = merge_ranges(std::move(known));
+                for (size_t i = 0; i < kept.size(); ++i) {
+                    if (touches(kept[i], known)) {
+                        held.emplace_back(kept_at[i], std::move(kept[i]));
+                    }
+                }
+            }
             kept.clear();
             lock_guard<std::mutex> guard(cache_mutex);
             // Another thread may have counted some of the nodes meanwhile, alike.
@@ -336,6 +401,18 @@ void WindowedSiteReadSource::for_each_read(
                                              return !(a < b) && !(b < a);
                                          }),
                              span_edits.end());
+        }
+        if (hold != nullptr) {
+            std::sort(held.begin(), held.end(),
+                      [](const pair<size_t, Alignment>& a, const pair<size_t, Alignment>& b) {
+                          return a.first < b.first;
+                      });
+            hold->filled = true;
+            hold->nodes = std::move(known);
+            hold->reads.reserve(held.size());
+            for (auto& entry : held) {
+                hold->reads.push_back(std::move(entry.second));
+            }
         }
         return;
     }
@@ -568,6 +645,93 @@ const vector<EditCandidate>& WindowedSiteReadSource::window_edits(size_t window)
     return edits.emplace(window, std::move(counted)).first->second;
 }
 
+void WindowedSiteReadSource::hold_reads() const {
+    if (edit_graph != nullptr) {
+        read_holds.emplace_back();
+        read_holds.back().source = this;
+    }
+}
+
+void WindowedSiteReadSource::release_reads() const {
+    if (edit_graph != nullptr) {
+        assert(!read_holds.empty() && read_holds.back().source == this);
+        read_holds.pop_back();
+    }
+}
+
+bool WindowedSiteReadSource::deliver_held(const vector<pair<nid_t, nid_t>>& ranges,
+                                          const function<void(const SiteRead&)>& iteratee) const {
+    if (std::none_of(read_holds.begin(), read_holds.end(),
+                     [&](const ReadHold& hold) { return hold.source == this && hold.filled; })) {
+        return false;
+    }
+    const vector<pair<nid_t, nid_t>> merged = merge_ranges(ranges);
+    for (auto hold = read_holds.rbegin(); hold != read_holds.rend(); ++hold) {
+        if (hold->source != this || !hold->filled) {
+            continue;
+        }
+        // Every queried node lies on one of the hold's merged ranges, so every read on it was
+        // kept.
+        const bool covered =
+            std::all_of(merged.begin(), merged.end(), [&](const pair<nid_t, nid_t>& r) {
+                auto it = std::upper_bound(hold->nodes.begin(), hold->nodes.end(),
+                                           make_pair(r.first, numeric_limits<nid_t>::max()));
+                return it != hold->nodes.begin() && std::prev(it)->first <= r.first
+                       && r.second <= std::prev(it)->second;
+            });
+        if (!covered) {
+            continue;
+        }
+        size_t n_delivered = 0;
+        for (const Alignment& aln : hold->reads) {
+            if (touches(aln, merged)) {
+                SiteRead read;
+                read.aln = &aln;
+                iteratee(read);
+                ++n_delivered;
+            }
+        }
+        ++held_queries;
+        delivered += n_delivered;
+        return true;
+    }
+    return false;
+}
+
+vector<pair<nid_t, nid_t>> WindowedSiteReadSource::candidate_nodes(
+    const vector<pair<nid_t, nid_t>>& merged) const {
+    vector<pair<nid_t, nid_t>> found;
+    auto add = [&](const EditCandidate& c) {
+        if (in_ranges(c.node, merged)) {
+            found.emplace_back(c.node, c.node);
+        }
+        for (nid_t node : c.walk) {
+            if (in_ranges(node, merged)) {
+                found.emplace_back(node, node);
+            }
+        }
+    };
+    for (const auto& range : merged) {
+        for (auto it = std::lower_bound(span_edits.begin(), span_edits.end(), range.first,
+                                        candidate_node_below);
+             it != span_edits.end() && it->node <= range.second; ++it) {
+            add(*it);
+        }
+        for (size_t w = window_of(range.first); w <= window_of(range.second); ++w) {
+            auto counted = edits.find(w);
+            if (counted == edits.end()) {
+                continue;
+            }
+            for (const EditCandidate& c : counted->second) {
+                if (c.node >= range.first && c.node <= range.second) {
+                    add(c);
+                }
+            }
+        }
+    }
+    return merge_ranges(std::move(found));
+}
+
 vector<pair<nid_t, nid_t>>
 WindowedSiteReadSource::uncounted(const vector<pair<nid_t, nid_t>>& merged) const {
     vector<pair<nid_t, nid_t>> left;
@@ -612,9 +776,10 @@ void WindowedSiteReadSource::for_each_edit_candidate(
                     return in_ranges(node, span_counted);
                 });
                 if (from_span) {
-                    EditCandidate probe;
-                    probe.node = in_window.front();
-                    for (auto it = std::lower_bound(span_edits.begin(), span_edits.end(), probe);
+                    // By node alone: a probe compared field by field would sort after the node's
+                    // candidates at offset 0 of a lower kind or ALT, and skip them.
+                    for (auto it = std::lower_bound(span_edits.begin(), span_edits.end(),
+                                                    in_window.front(), candidate_node_below);
                          it != span_edits.end() && it->node <= in_window.back(); ++it) {
                         spanned.push_back(*it);
                     }

@@ -131,6 +131,15 @@ public:
     /// Every off-panel candidate counted so far, sorted.
     virtual vector<EditCandidate> counted_edit_candidates() const { return {}; }
 
+    /// Hold reads on this thread for the edit sites of a subtree, until the matching
+    /// `release_reads`. Holds nest, and are released innermost first. Where a source fetches a
+    /// site too wide for its cache uncached, the first such fetch on the thread within the
+    /// innermost hold keeps the reads on the nodes of the off-panel candidates it spans, and a
+    /// query on the thread whose nodes are all among those is then answered from them, with no
+    /// fetch. Nothing is held unless `count_edits` was called.
+    virtual void hold_reads() const {}
+    virtual void release_reads() const {}
+
 };
 
 /**
@@ -242,6 +251,10 @@ public:
     /// When they lie in one window.
     bool fetched_together(nid_t a, nid_t b) const final;
     vector<EditCandidate> counted_edit_candidates() const final;
+    void hold_reads() const final;
+    void release_reads() const final;
+    /// Site queries answered from held reads.
+    size_t get_held_queries() const { return held_queries.load(); }
 
     size_t get_filtered_count() const;
 
@@ -422,6 +435,7 @@ private:
     mutable atomic<size_t> whole_fetches{0};
     mutable atomic<size_t> refetches{0};
     mutable atomic<size_t> edit_fetches{0};
+    mutable atomic<size_t> held_queries{0};
     mutable atomic<size_t> whole_fetch_reads{0};
 
     /// Read-start tallies by window, added when a window is first fetched and kept for the
@@ -439,6 +453,13 @@ private:
     mutable vector<EditCandidate> span_edits;
     /// The candidates of the window, fetching it if it has never been fetched.
     const vector<EditCandidate>& window_edits(size_t window) const;
+    /// Answer the query from the innermost of this thread's filled holds whose nodes include all
+    /// of the ranges', if there is one.
+    bool deliver_held(const vector<pair<nid_t, nid_t>>& ranges,
+                      const function<void(const SiteRead&)>& iteratee) const;
+    /// The nodes of the candidates counted on `merged`'s nodes that lie on them, as merged
+    /// ranges. Call holding `cache_mutex`.
+    vector<pair<nid_t, nid_t>> candidate_nodes(const vector<pair<nid_t, nid_t>>& merged) const;
     /// Of the merged ranges, the nodes no fetch has counted yet, as merged ranges. Call holding
     /// `cache_mutex`.
     vector<pair<nid_t, nid_t>> uncounted(const vector<pair<nid_t, nid_t>>& merged) const;
