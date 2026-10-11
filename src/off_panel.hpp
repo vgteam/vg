@@ -21,6 +21,33 @@ namespace vg {
 
 using namespace std;
 
+/// The shortest indel counted as large: matched loosely, since the reads rarely spell it alike.
+constexpr uint32_t LARGE_INDEL_MIN_LENGTH = 50;
+
+/// How the reads are matched to an indel of `LARGE_INDEL_MIN_LENGTH` bases or more. Long reads show
+/// one as an indel inside the read, placed and sized a little differently by each read's errors;
+/// short reads mostly as clips where the read crosses a deletion's ends. A read's indels of the
+/// same kind near the breakpoint are summed, so that one the aligner split counts whole.
+struct LargeIndelParams {
+    /// The longest indel counted.
+    uint32_t max_length = 100000;
+    /// How far from the breakpoint, in bases, a read's indel or clip may lie and still match.
+    int64_t slop = 10;
+    /// How far, as a share of the length, a read's indel may differ in length and still match.
+    double length_ratio = 0.2;
+    /// A read is REF if it spans a breakpoint by at least this many aligned bases on each side,
+    /// with no clip and no matching indel there.
+    int64_t flank = 20;
+    /// The shortest clip counted, and the bases of it matched to the graph to find the far end
+    /// of the deletion it shows.
+    uint32_t min_clip = 20;
+    /// The longest deletion found from clips alone.
+    uint32_t max_clip_deletion = 10000;
+    /// A deletion found from clips alone, with no read holding it whole, needs this many
+    /// fragments clipped at each of its ends.
+    size_t min_fragments_per_end = 2;
+};
+
 /// The floors a candidate must pass to be kept, set low so that the call bar can be fitted from
 /// the dump.
 struct EditCountParams {
@@ -33,12 +60,15 @@ struct EditCountParams {
     size_t min_fragments = 3;
     /// The smallest share of the fragments covering the base that carry the ALT.
     double min_fraction = 0.15;
-    /// The longest indel counted.
+    /// The longest indel counted, unless `large_indels`.
     uint32_t max_indel_length = 49;
+    /// Whether to count indels of `LARGE_INDEL_MIN_LENGTH` bases or more, matched as `large` says.
+    bool large_indels = false;
+    LargeIndelParams large;
 };
 
 /// A change the reads make to a walk of the graph: a substitution, the node's base `ref` read as
-/// `alt` at one base of one node, or an insertion or deletion of up to 49 bases. The offset and the
+/// `alt` at one base of one node, or an insertion or deletion of any length. The offset and the
 /// bases are along the node's forward strand. Fragments are counted once however many of their
 /// reads cover the change, by read name, which mates share; a fragment whose reads disagree about
 /// it is counted in `discordant_fragments` and nowhere else.
@@ -47,7 +77,8 @@ struct EditCountParams {
 /// `offset` give its anchor, the base before it, so that an indel the aligner put anywhere in its
 /// repeat tract has one key. A read covering the anchor and the first base after the tract counts
 /// as the ALT if its one indel there is this one, as the REF if it has none there, and as other if
-/// it has another.
+/// it has another. A large indel (`is_large`) is matched loosely instead (`observe_large_indel`),
+/// and its ALT is one read's: for an insertion, the medoid of the reads that carry it.
 struct EditCandidate {
     nid_t node = 0;
     uint32_t offset = 0;
@@ -81,6 +112,11 @@ struct EditCandidate {
         return kind != 'S';
     }
 
+    /// Whether it is an indel of `LARGE_INDEL_MIN_LENGTH` bases or more.
+    bool is_large() const {
+        return is_indel() && sequence.size() >= LARGE_INDEL_MIN_LENGTH;
+    }
+
     bool operator<(const EditCandidate& other) const {
         if (node != other.node) return node < other.node;
         if (offset != other.offset) return offset < other.offset;
@@ -108,8 +144,16 @@ struct EditCallBar {
     /// No indel is called whose tract starts with a run of this many of one base or more; 0 for
     /// no limit, and 1 calls no indel.
     uint32_t indel_max_homopolymer = 0;
+    /// The same two bars for an indel of `LARGE_INDEL_MIN_LENGTH` bases or more, which no
+    /// homopolymer limit applies to.
+    size_t large_min_alt_fragments = 7;
+    double large_min_fraction = 0.25;
 
     bool admits(const EditCandidate& candidate) const {
+        if (candidate.is_large()) {
+            return candidate.alt_fragments >= large_min_alt_fragments
+                   && candidate.fraction() >= large_min_fraction;
+        }
         if (candidate.is_indel()) {
             return candidate.alt_fragments >= indel_min_alt_fragments
                    && candidate.fraction() >= indel_min_fraction
@@ -190,6 +234,10 @@ struct WalkAlignment {
         size_t length;
     };
     vector<Block> blocks;
+    /// The read bases inserted before the first aligned base and after the last: the read's
+    /// clips, where these mappings begin and end the read.
+    size_t clip_begin = 0;
+    size_t clip_end = 0;
 
     /// The read offset of the base aligned to walk base `x`, or -1 where none is.
     int64_t read_offset_at(int64_t x) const;
@@ -226,6 +274,20 @@ enum class IndelObservation { NONE, REF, ALT, OTHER };
 /// another. `touching`, if given, receives the indels touching the stretch.
 IndelObservation observe_indel(const WalkAlignment& aln, const WalkIndel& indel, int64_t after,
                                vector<const WalkIndel*>* touching = nullptr);
+
+/// What the left-aligned alignment `aln` says about the left-aligned indel `indel` of
+/// `LARGE_INDEL_MIN_LENGTH` bases or more, whose tract ends at walk base `after`, matched as
+/// `params` says. ALT if the read's indels of its kind within `slop` of the tract sum to its length
+/// within `length_ratio`, or, for a deletion, if the read is clipped by `min_clip` bases or more
+/// at either of its ends; REF if the read spans either end by `flank` bases each side with neither;
+/// OTHER if it spans one with something else; and NONE if it spans neither. The read reaches from
+/// walk base `reach_begin` to `reach_end`, which may lie past the bases `aln` covers where the
+/// read carries on beyond the walk. `by_clip`, if given, is set to 1 for an ALT that was a clip at
+/// the deletion's left end, 2 for one at its right end, and 0 otherwise.
+IndelObservation observe_large_indel(const WalkAlignment& aln, const WalkIndel& indel,
+                                     int64_t after, const LargeIndelParams& params,
+                                     int64_t reach_begin, int64_t reach_end,
+                                     int* by_clip = nullptr);
 
 /// Visit the candidates in `sorted`, as `count_edits` sorts them, that lie on the nodes
 /// `nodes`, which are sorted and free of duplicates.

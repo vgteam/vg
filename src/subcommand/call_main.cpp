@@ -208,6 +208,10 @@ void help_call(char** argv) {
          << "                            tract starts with a run of >= H of one base (H 0:" << endl
          << "                            no limit; 1: no indels), with B given as K,F,H" << endl
          << "                            [7,0.25,0]" << endl
+         << "      --off-panel-svs       also call insertions and deletions of 50 bp or" << endl
+         << "                            more, from long reads' indels (the medoid read's" << endl
+         << "                            insertion as the ALT) and short reads' clips" << endl
+         << "                            (deletions only); one crossing a site is refused" << endl
          << "  read-based phasing (reliable heterozygous sites are joined into a phase" << endl
          << "  chain by the reads they share; other sites are phased from the chain):" << endl
          << "      --read-phasing        phase heterozygous sites with the reads that span" << endl
@@ -482,6 +486,7 @@ int main_call(int argc, char** argv) {
     bool off_panel = false;
     string off_panel_dump;
     EditCallBar off_panel_bar;
+    bool off_panel_svs = false;
     ReadPhasingParams read_phasing_params;
     // The preset is applied after all options are parsed. The *_explicit flags record which of its
     // settings were given explicitly, and those keep their given values.
@@ -568,6 +573,7 @@ int main_call(int argc, char** argv) {
     constexpr int OPT_OFF_PANEL_DUMP = 1115;
     constexpr int OPT_OFF_PANEL_BAR = 1116;
     constexpr int OPT_OFF_PANEL_INDELS = 1117;
+    constexpr int OPT_OFF_PANEL_SVS = 1118;
     constexpr int OPT_DEPTH_TERM = 1025;
     constexpr int OPT_DEPTH_COUNT_RAW = 1026;
     constexpr int OPT_DEPTH_QUALITY = 1027;
@@ -728,6 +734,7 @@ int main_call(int argc, char** argv) {
             {"off-panel-dump", required_argument, 0, OPT_OFF_PANEL_DUMP},
             {"off-panel-bar", required_argument, 0, OPT_OFF_PANEL_BAR},
             {"off-panel-indels", required_argument, 0, OPT_OFF_PANEL_INDELS},
+            {"off-panel-svs", no_argument, 0, OPT_OFF_PANEL_SVS},
         }},
         {"anchors", {  // need --anchors-out
             {"no-off-ref-nesting", no_argument, 0, OPT_NO_OFF_REF_NESTING},
@@ -1091,6 +1098,9 @@ int main_call(int argc, char** argv) {
             break;
         case OPT_OFF_PANEL_DUMP:
             off_panel_dump = optarg;
+            break;
+        case OPT_OFF_PANEL_SVS:
+            off_panel_svs = true;
             break;
         case OPT_OFF_PANEL_BAR: {
             vector<string> parts = split_delims(optarg, ",");
@@ -2864,7 +2874,9 @@ int main_call(int argc, char** argv) {
             multipass_caller->set_read_phasing(read_phasing, read_phasing_params);
             if (off_panel) {
                 // The reads are counted as they are fetched, from the first site on.
-                read_source->count_edits(graph, EditCountParams());
+                EditCountParams count_params;
+                count_params.large_indels = off_panel_svs;
+                read_source->count_edits(graph, count_params);
                 multipass_caller->set_off_panel(read_source.get(), off_panel_dump, off_panel_bar);
             }
             multipass_caller->set_regenotype(regenotype, regenotype_params, regenotype_passes,

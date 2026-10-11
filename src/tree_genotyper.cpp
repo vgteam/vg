@@ -709,9 +709,9 @@ void TreeGenotyper::genotype_edit_site(const HeldEdit& edit, const vector<SiteBo
     const EditCandidate& c = edit.candidate;
     EditOutcome outcome = unplaced_outcome(c, top_level ? "top" : "nested");
     outcome.site = edit_site_id(c.node, c.offset, c.kind,
-                                c.kind == 'S' ? string(1, c.alt)
-                                : c.kind == 'I' ? c.sequence
-                                                : std::to_string(c.sequence.size()));
+                                c.kind == 'S'                      ? string(1, c.alt)
+                                : c.kind == 'I' && !c.is_large() ? c.sequence
+                                                                   : std::to_string(c.sequence.size()));
     const string& site_id = outcome.site;
     const size_t record_key = record_key_of(site_id);
 

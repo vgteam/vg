@@ -2,7 +2,10 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstring>
+#include <limits>
 #include <tuple>
+#include <unordered_map>
 #include <unordered_set>
 
 #include <map>
@@ -366,6 +369,39 @@ struct IndelObservationRow {
     }
 };
 
+/// What one read says about one key, by its fragment.
+struct Seen {
+    size_t key;
+    uint64_t fragment;
+    uint8_t observed;
+    bool operator<(const Seen& o) const {
+        return tie(key, fragment, observed) < tie(o.key, o.fragment, o.observed);
+    }
+};
+
+/// Count the fragments of `seen[i, end)`, sorted and all of one key, into `c`: each fragment once,
+/// as the class all its reads agree on, or as discordant.
+void count_fragments(const vector<Seen>& seen, size_t i, size_t end, EditCandidate& c) {
+    for (size_t f = i; f < end;) {
+        size_t g = f;
+        bool agree = true;
+        while (g < end && seen[g].fragment == seen[f].fragment) {
+            agree = agree && seen[g].observed == seen[f].observed;
+            ++g;
+        }
+        if (!agree) {
+            ++c.discordant_fragments;
+        } else if (seen[f].observed == (uint8_t)IndelObservation::ALT) {
+            ++c.alt_fragments;
+        } else if (seen[f].observed == (uint8_t)IndelObservation::REF) {
+            ++c.ref_fragments;
+        } else if (seen[f].observed == (uint8_t)IndelObservation::OTHER) {
+            ++c.other_fragments;
+        }
+        f = g;
+    }
+}
+
 /// Whether a walk of the graph from `walk`'s first handle to its last other than `walk` spells
 /// `alt`.
 bool spelled_by_other_walk(const HandleGraph& graph, const vector<handle_t>& walk,
@@ -393,12 +429,125 @@ bool spelled_by_other_walk(const HandleGraph& graph, const vector<handle_t>& wal
     return false;
 }
 
+/// Whether another walk of the graph spells the indel candidate `c`'s change, as a panel allele.
+bool spelled_by_panel(const HandleGraph& graph, const EditCandidate& c) {
+    vector<handle_t> handles;
+    string alt;
+    for (nid_t id : c.walk) {
+        handles.push_back(graph.get_handle(id));
+        alt += graph.get_sequence(handles.back());
+    }
+    if (c.kind == 'D') {
+        alt.erase(c.offset + 1, c.sequence.size());
+    } else {
+        alt.insert(c.offset + 1, c.sequence);
+    }
+    return spelled_by_other_walk(graph, handles, alt);
+}
+
+/// One read's indel of `LARGE_INDEL_MIN_LENGTH` bases or more, anchored on a node the count owns,
+/// with the walk from its anchor's node to that of the first base after its tract where the read
+/// reaches that far, forward (`walk` empty where it does not).
+struct LargeRow {
+    char kind;
+    nid_t node;
+    uint32_t offset;
+    uint32_t length;
+    uint64_t fragment;
+    string inserted;
+    vector<nid_t> walk;
+    uint32_t span;
+
+    bool operator<(const LargeRow& o) const {
+        return tie(kind, node, offset, length, fragment, inserted, span, walk)
+               < tie(o.kind, o.node, o.offset, o.length, o.fragment, o.inserted, o.span, o.walk);
+    }
+};
+
+/// One read's clip of `min_clip` bases or more: 'R' where it follows the read's last aligned base,
+/// at `node` and `offset`, and 'L' where it precedes its first; with the `min_clip` clipped bases
+/// nearest that base.
+struct ClipRow {
+    char side;
+    nid_t node;
+    uint32_t offset;
+    string seed;
+    uint64_t fragment;
+
+    bool operator<(const ClipRow& o) const {
+        return tie(side, node, offset, seed, fragment)
+               < tie(o.side, o.node, o.offset, o.seed, o.fragment);
+    }
+};
+
+string upper(string bases) {
+    for (char& b : bases) {
+        b = (char)toupper(b);
+    }
+    return bases;
+}
+
+/// File `indel`, one of `walk`'s of `LARGE_INDEL_MIN_LENGTH` bases or more, in `rows` if its anchor
+/// is on a node `owns` accepts, read forward.
+void add_large_row(const HandleGraph& graph, const ReadWalk& walk, const WalkIndel& indel,
+                   uint64_t fragment, const function<bool(nid_t)>& owns, vector<LargeRow>& rows) {
+    const int64_t anchor = indel.at - 1;
+    const size_t i = walk.mapping_at(anchor);
+    const handle_t h = walk.handles[i];
+    if (graph.get_is_reverse(h) || !owns(graph.get_id(h))) {
+        return;
+    }
+    LargeRow row{indel.deleted > 0 ? 'D' : 'I', graph.get_id(h),
+                 (uint32_t)(anchor - walk.node_start[i]), indel.length(), fragment,
+                 indel.inserted, {}, 0};
+    const int64_t after = tract_end(indel, walk.walked.end, walk.base_fn);
+    if (after < walk.walked.end && walk.walk_hash(i, walk.mapping_at(after)) != 0) {
+        for (size_t m = i; m <= walk.mapping_at(after); ++m) {
+            row.walk.push_back(graph.get_id(walk.handles[m]));
+        }
+        row.span = (uint32_t)(after - anchor);
+    }
+    rows.push_back(std::move(row));
+}
+
+/// File `walk`'s clips of `min_clip` bases or more in `rows`, where the aligned base beside each is
+/// on a node read forward.
+void add_clip_rows(const HandleGraph& graph, const ReadWalk& walk, uint64_t fragment,
+                   const LargeIndelParams& params, vector<ClipRow>& rows) {
+    const WalkAlignment& w = walk.walked;
+    if (w.blocks.empty()) {
+        return;
+    }
+    const string& sequence = walk.read->sequence();
+    if (w.clip_end >= params.min_clip) {
+        const size_t i = walk.mapping_at(w.end - 1);
+        const size_t from = w.blocks.back().read + w.blocks.back().length;
+        if (!graph.get_is_reverse(walk.handles[i]) && from + params.min_clip <= sequence.size()) {
+            rows.push_back(ClipRow{'R', graph.get_id(walk.handles[i]),
+                                   (uint32_t)(w.end - 1 - walk.node_start[i]),
+                                   upper(sequence.substr(from, params.min_clip)), fragment});
+        }
+    }
+    if (w.clip_begin >= params.min_clip) {
+        const size_t i = walk.mapping_at(w.begin);
+        const size_t to = w.blocks.front().read;
+        if (!graph.get_is_reverse(walk.handles[i]) && to >= params.min_clip
+            && to <= sequence.size()) {
+            rows.push_back(ClipRow{'L', graph.get_id(walk.handles[i]),
+                                   (uint32_t)(w.begin - walk.node_start[i]),
+                                   upper(sequence.substr(to - params.min_clip, params.min_clip)),
+                                   fragment});
+        }
+    }
+}
+
 /// The indels among `kept`'s candidates: counted as `count_snv_edits` counts substitutions, with
 /// the observation classes of `observe_indel`.
 vector<EditCandidate> count_indel_edits(
     const HandleGraph& graph,
     const function<void(const function<void(const Alignment&)>&)>& for_each_read,
-    const function<bool(nid_t)>& owns, const EditCountParams& params) {
+    const function<bool(nid_t)>& owns, const EditCountParams& params,
+    vector<LargeRow>* large_rows, vector<ClipRow>* clip_rows) {
 
     vector<EditCandidate> kept;
     std::hash<string> name_hash;
@@ -415,6 +564,11 @@ vector<EditCandidate> count_indel_edits(
         const uint64_t fragment = name_hash(aln.name());
         for (const WalkIndel& indel : walk.walked.indels) {
             const int64_t anchor = indel.at - 1;
+            if (large_rows != nullptr && anchor >= walk.walked.begin
+                && indel.length() >= LARGE_INDEL_MIN_LENGTH
+                && indel.length() <= params.large.max_length) {
+                add_large_row(graph, walk, indel, fragment, owns, *large_rows);
+            }
             if (anchor < walk.walked.begin || indel.length() > params.max_indel_length) {
                 continue;
             }
@@ -436,6 +590,9 @@ vector<EditCandidate> count_indel_edits(
                 }
             }
             rows.push_back(row);
+        }
+        if (clip_rows != nullptr) {
+            add_clip_rows(graph, walk, fragment, params.large, *clip_rows);
         }
     });
     if (rows.empty()) {
@@ -482,14 +639,6 @@ vector<EditCandidate> count_indel_edits(
 
     // What each read covering a key's anchor through the end of its tract, on the key's walk, says
     // about it, by fragment.
-    struct Seen {
-        size_t key;
-        uint64_t fragment;
-        uint8_t observed;
-        bool operator<(const Seen& o) const {
-            return tie(key, fragment, observed) < tie(o.key, o.fragment, o.observed);
-        }
-    };
     vector<Seen> seen;
     vector<EditCandidate> found(keys.size());
     vector<double> mapq_total(keys.size(), 0.0);
@@ -588,46 +737,502 @@ vector<EditCandidate> count_indel_edits(
             ++end;
         }
         EditCandidate& c = found[key];
-        for (size_t f = i; f < end;) {
-            size_t g = f;
-            bool agree = true;
-            while (g < end && seen[g].fragment == seen[f].fragment) {
-                agree = agree && seen[g].observed == seen[f].observed;
-                ++g;
-            }
-            if (!agree) {
-                ++c.discordant_fragments;
-            } else if (seen[f].observed == (uint8_t)IndelObservation::ALT) {
-                ++c.alt_fragments;
-            } else if (seen[f].observed == (uint8_t)IndelObservation::REF) {
-                ++c.ref_fragments;
-            } else if (seen[f].observed == (uint8_t)IndelObservation::OTHER) {
-                ++c.other_fragments;
-            }
-            f = g;
-        }
+        count_fragments(seen, i, end, c);
         i = end;
         if (c.walk.empty() || c.alt_fragments < params.min_fragments
             || c.fraction() < params.min_fraction) {
             continue;
         }
-        // Another walk of the graph spelling the same change is a panel allele.
-        vector<handle_t> handles;
-        string alt;
-        for (nid_t id : c.walk) {
-            handles.push_back(graph.get_handle(id));
-            alt += graph.get_sequence(handles.back());
-        }
-        if (c.kind == 'D') {
-            alt.erase(c.offset + 1, c.sequence.size());
-        } else {
-            alt.insert(c.offset + 1, c.sequence);
-        }
-        if (spelled_by_other_walk(graph, handles, alt)) {
+        if (spelled_by_panel(graph, c)) {
             continue;
         }
         c.mean_alt_mapq =
             mapq_count[key] == 0 ? 0.0f : (float)(mapq_total[key] / (double)mapq_count[key]);
+        kept.push_back(std::move(c));
+    }
+    return kept;
+}
+
+/// A large indel to count reads for: its anchor, kind, length and ALT, and the walk from its
+/// anchor's node to that of the first base after its tract, with where each node starts along it
+/// and its bases.
+struct LargeKey {
+    char kind = 'D';
+    nid_t node = 0;
+    uint32_t offset = 0;
+    uint32_t length = 0;
+    string inserted;
+    vector<nid_t> walk;
+    vector<int64_t> starts;
+    string spelling;
+    uint32_t span = 0;
+    /// The fragments that found it, and whether only clips did.
+    size_t support = 0;
+    bool clips_only = false;
+};
+
+/// The nodes met from `from`, read forward, going forward (or backward) along the only edge out of
+/// each node into a node with no other edge in, until they hold `limit` bases; in walk order.
+vector<handle_t> unbranched_walk(const HandleGraph& graph, handle_t from, bool forward,
+                                 size_t limit) {
+    vector<handle_t> out{from};
+    size_t total = graph.get_length(from);
+    handle_t at = from;
+    while (total < limit) {
+        size_t n = 0;
+        handle_t next = at;
+        graph.follow_edges(at, !forward, [&](const handle_t& h) {
+            next = h;
+            return ++n < 2;
+        });
+        if (n != 1 || graph.get_is_reverse(next) || graph.get_id(next) == graph.get_id(from)) {
+            break;
+        }
+        size_t in = 0;
+        graph.follow_edges(next, forward, [&](const handle_t&) { return ++in < 2; });
+        if (in != 1) {
+            break;
+        }
+        out.push_back(next);
+        total += graph.get_length(next);
+        at = next;
+    }
+    if (!forward) {
+        std::reverse(out.begin(), out.end());
+    }
+    return out;
+}
+
+/// The key for `indel`, given in the coordinates of the walk `nodes` read forward, once
+/// left-aligned along it; false if its tract runs off the walk's end.
+bool make_large_key(const HandleGraph& graph, const vector<nid_t>& nodes, WalkIndel indel,
+                    size_t support, bool clips_only, LargeKey& out) {
+    string spelling;
+    vector<int64_t> starts;
+    for (nid_t id : nodes) {
+        starts.push_back((int64_t)spelling.size());
+        spelling += graph.get_sequence(graph.get_handle(id));
+    }
+    spelling = upper(std::move(spelling));
+    const function<char(int64_t)> base = [&](int64_t x) { return spelling[x]; };
+    left_align(indel, 1, base);
+    const int64_t after = tract_end(indel, (int64_t)spelling.size(), base);
+    if (after >= (int64_t)spelling.size() || indel.at < 1) {
+        return false;
+    }
+    const int64_t anchor = indel.at - 1;
+    auto node_of = [&](int64_t x) {
+        return (size_t)(std::upper_bound(starts.begin(), starts.end(), x) - starts.begin()) - 1;
+    };
+    const size_t first = node_of(anchor);
+    const size_t last = node_of(after);
+    out = LargeKey();
+    out.kind = indel.deleted > 0 ? 'D' : 'I';
+    out.node = nodes[first];
+    out.offset = (uint32_t)(anchor - starts[first]);
+    out.length = indel.length();
+    out.inserted = indel.inserted;
+    out.walk.assign(nodes.begin() + first, nodes.begin() + last + 1);
+    for (size_t i = first; i <= last; ++i) {
+        out.starts.push_back(starts[i] - starts[first]);
+    }
+    const int64_t end = last + 1 < starts.size() ? starts[last + 1] : (int64_t)spelling.size();
+    out.spelling = spelling.substr(starts[first], end - starts[first]);
+    out.span = (uint32_t)(after - anchor);
+    out.support = support;
+    out.clips_only = clips_only;
+    return true;
+}
+
+/// The sorted 8-mer codes of `bases`, for a cheap distance between two reads' insertions.
+vector<uint32_t> kmer_profile(const string& bases) {
+    vector<uint32_t> out;
+    uint32_t code = 0;
+    size_t valid = 0;
+    for (char b : bases) {
+        const char* at = strchr("ACGT", b);
+        if (b == 0 || at == nullptr) {
+            valid = 0;
+            continue;
+        }
+        code = ((code << 2) | (uint32_t)(at - "ACGT")) & 0xFFFF;
+        if (++valid >= 8) {
+            out.push_back(code);
+        }
+    }
+    std::sort(out.begin(), out.end());
+    return out;
+}
+
+/// The size of the multiset difference of two sorted profiles, both ways.
+size_t profile_distance(const vector<uint32_t>& a, const vector<uint32_t>& b) {
+    size_t i = 0, j = 0, shared = 0;
+    while (i < a.size() && j < b.size()) {
+        if (a[i] < b[j]) {
+            ++i;
+        } else if (b[j] < a[i]) {
+            ++j;
+        } else {
+            ++shared;
+            ++i;
+            ++j;
+        }
+    }
+    return a.size() + b.size() - 2 * shared;
+}
+
+/// Where `key`'s anchor lies along `other`'s walk, if `other`'s walk holds its anchor's node, or
+/// `other`'s anchor along `key`'s, as a difference `key` minus `other`; false if neither does.
+bool anchor_difference(const LargeKey& key, const LargeKey& other, int64_t& difference) {
+    for (size_t j = 0; j < other.walk.size(); ++j) {
+        if (other.walk[j] == key.node) {
+            difference = other.starts[j] + key.offset - (int64_t)other.offset;
+            return true;
+        }
+    }
+    for (size_t j = 0; j < key.walk.size(); ++j) {
+        if (key.walk[j] == other.node) {
+            difference = (int64_t)key.offset - (key.starts[j] + other.offset);
+            return true;
+        }
+    }
+    return false;
+}
+
+/// The large indels among the reads `for_each_read` visits, from the rows the indel count filed:
+/// each read's own large indels (`large_rows`), clustered by anchor within `slop` and length within
+/// `length_ratio`, the medoid read's taken as the ALT; and deletions found from clips
+/// (`clip_rows`), whose clipped bases the graph spells further along. Each is then counted as
+/// `observe_large_indel` matches the reads to it.
+vector<EditCandidate> count_large_indel_edits(
+    const HandleGraph& graph,
+    const function<void(const function<void(const Alignment&)>&)>& for_each_read,
+    const function<bool(nid_t)>& owns, const EditCountParams& params,
+    vector<LargeRow> rows, vector<ClipRow> clips) {
+    const LargeIndelParams& large = params.large;
+    vector<LargeKey> keys;
+    auto fragments_of = [](vector<uint64_t> f) {
+        std::sort(f.begin(), f.end());
+        return (size_t)(std::unique(f.begin(), f.end()) - f.begin());
+    };
+
+    // The reads' own large indels: on one node, by anchor, then by length.
+    std::sort(rows.begin(), rows.end());
+    for (size_t i = 0; i < rows.size();) {
+        size_t j = i + 1;
+        while (j < rows.size() && rows[j].kind == rows[i].kind && rows[j].node == rows[i].node
+               && (int64_t)rows[j].offset - (int64_t)rows[j - 1].offset <= large.slop) {
+            ++j;
+        }
+        vector<size_t> by_length;
+        for (size_t k = i; k < j; ++k) {
+            by_length.push_back(k);
+        }
+        std::stable_sort(by_length.begin(), by_length.end(), [&](size_t a, size_t b) {
+            return rows[a].length < rows[b].length;
+        });
+        for (size_t a = 0; a < by_length.size();) {
+            size_t b = a + 1;
+            while (b < by_length.size()
+                   && (double)rows[by_length[b]].length
+                          <= (double)rows[by_length[b - 1]].length * (1.0 + large.length_ratio)) {
+                ++b;
+            }
+            vector<uint64_t> fragments;
+            vector<size_t> walked;
+            for (size_t k = a; k < b; ++k) {
+                fragments.push_back(rows[by_length[k]].fragment);
+                if (!rows[by_length[k]].walk.empty() && walked.size() < 40) {
+                    walked.push_back(by_length[k]);
+                }
+            }
+            const size_t support = fragments_of(std::move(fragments));
+            if (support >= params.min_fragments && !walked.empty()) {
+                // The medoid: the read whose indel is nearest all the others'.
+                vector<vector<uint32_t>> profiles;
+                if (rows[i].kind == 'I') {
+                    for (size_t k : walked) {
+                        profiles.push_back(kmer_profile(rows[k].inserted));
+                    }
+                }
+                size_t best = 0;
+                size_t best_total = numeric_limits<size_t>::max();
+                for (size_t x = 0; x < walked.size(); ++x) {
+                    size_t total = 0;
+                    for (size_t y = 0; y < walked.size(); ++y) {
+                        const LargeRow& p = rows[walked[x]];
+                        const LargeRow& q = rows[walked[y]];
+                        total += rows[i].kind == 'I'
+                                     ? profile_distance(profiles[x], profiles[y])
+                                     : (size_t)(std::abs((int64_t)p.offset - (int64_t)q.offset)
+                                                + std::abs((int64_t)p.length - (int64_t)q.length));
+                    }
+                    if (total < best_total) {
+                        best_total = total;
+                        best = x;
+                    }
+                }
+                const LargeRow& medoid = rows[walked[best]];
+                WalkIndel indel;
+                indel.at = (int64_t)medoid.offset + 1;
+                if (medoid.kind == 'D') {
+                    indel.deleted = medoid.length;
+                } else {
+                    indel.inserted = medoid.inserted;
+                }
+                LargeKey key;
+                if (make_large_key(graph, medoid.walk, indel, support, false, key)) {
+                    keys.push_back(std::move(key));
+                }
+            }
+            a = b;
+        }
+        i = j;
+    }
+
+    // Deletions from clips: each clip position many fragments share, with the clipped bases most
+    // of them carry, found again within `max_clip_deletion` along the graph past it.
+    std::sort(clips.begin(), clips.end());
+    for (size_t i = 0; i < clips.size();) {
+        size_t j = i;
+        while (j < clips.size() && clips[j].side == clips[i].side && clips[j].node == clips[i].node
+               && clips[j].offset == clips[i].offset) {
+            ++j;
+        }
+        size_t best_support = 0;
+        size_t best = i;
+        for (size_t k = i; k < j;) {
+            size_t l = k;
+            vector<uint64_t> fragments;
+            while (l < j && clips[l].seed == clips[k].seed) {
+                fragments.push_back(clips[l].fragment);
+                ++l;
+            }
+            const size_t support = fragments_of(std::move(fragments));
+            if (support > best_support) {
+                best_support = support;
+                best = k;
+            }
+            k = l;
+        }
+        const ClipRow& clip = clips[best];
+        i = j;
+        if (best_support < params.min_fragments) {
+            continue;
+        }
+        const handle_t h = graph.get_handle(clip.node);
+        const size_t seed = clip.seed.size();
+        const size_t reach = (size_t)large.max_clip_deletion + seed + 1;
+        vector<handle_t> handles;
+        vector<nid_t> nodes;
+        string spelling;
+        WalkIndel indel;
+        if (clip.side == 'R') {
+            handles = unbranched_walk(graph, h, true, clip.offset + reach);
+            for (const handle_t& n : handles) {
+                nodes.push_back(graph.get_id(n));
+                spelling += graph.get_sequence(n);
+            }
+            spelling = upper(std::move(spelling));
+            const size_t from = (size_t)clip.offset + 1 + LARGE_INDEL_MIN_LENGTH;
+            const size_t q = spelling.find(clip.seed, from);
+            if (q == string::npos || q - clip.offset - 1 > large.max_clip_deletion) {
+                continue;
+            }
+            indel.at = (int64_t)clip.offset + 1;
+            indel.deleted = (uint32_t)(q - clip.offset - 1);
+        } else {
+            handles = unbranched_walk(graph, h, false, reach + graph.get_length(h));
+            for (const handle_t& n : handles) {
+                nodes.push_back(graph.get_id(n));
+                spelling += graph.get_sequence(n);
+            }
+            spelling = upper(std::move(spelling));
+            const int64_t q = (int64_t)(spelling.size() - graph.get_length(h)) + clip.offset;
+            const int64_t last_start = q - (int64_t)LARGE_INDEL_MIN_LENGTH - (int64_t)seed;
+            if (last_start < 1) {
+                continue;
+            }
+            const size_t s = spelling.rfind(clip.seed, (size_t)last_start);
+            if (s == string::npos || s < 1
+                || q - (int64_t)(s + seed) > (int64_t)large.max_clip_deletion) {
+                continue;
+            }
+            indel.at = (int64_t)(s + seed);
+            indel.deleted = (uint32_t)(q - indel.at);
+        }
+        LargeKey key;
+        if (make_large_key(graph, nodes, indel, best_support, true, key)) {
+            keys.push_back(std::move(key));
+        }
+    }
+
+    // One key per change: the best supported of those matching, reads' own indels first.
+    vector<size_t> order(keys.size());
+    for (size_t k = 0; k < keys.size(); ++k) {
+        order[k] = k;
+    }
+    std::stable_sort(order.begin(), order.end(), [&](size_t a, size_t b) {
+        return tie(keys[a].clips_only, keys[b].support) < tie(keys[b].clips_only, keys[a].support);
+    });
+    vector<LargeKey> chosen;
+    for (size_t k : order) {
+        const LargeKey& key = keys[k];
+        bool duplicate = !owns(key.node);
+        for (size_t c = 0; c < chosen.size() && !duplicate; ++c) {
+            int64_t difference = 0;
+            const LargeKey& other = chosen[c];
+        // The tract lets either slide right this far.
+        const int64_t room = std::max<int64_t>(
+            0, (int64_t)other.span - 1 - (other.kind == 'D' ? (int64_t)other.length : 0));
+        duplicate = other.kind == key.kind && anchor_difference(key, other, difference)
+                    && std::abs(difference) <= large.slop + room
+                    && std::abs((double)key.length - (double)other.length)
+                           <= large.length_ratio * (double)other.length;
+        }
+        if (!duplicate) {
+            chosen.push_back(key);
+        }
+    }
+    keys = std::move(chosen);
+    std::sort(keys.begin(), keys.end(), [](const LargeKey& a, const LargeKey& b) {
+        return tie(a.node, a.offset, a.kind, a.length, a.inserted)
+               < tie(b.node, b.offset, b.kind, b.length, b.inserted);
+    });
+    vector<EditCandidate> kept;
+    if (keys.empty()) {
+        return kept;
+    }
+
+    // What each read on a key's walk says about it, by fragment.
+    unordered_map<nid_t, vector<pair<size_t, size_t>>> on_node;
+    for (size_t k = 0; k < keys.size(); ++k) {
+        for (size_t j = 0; j < keys[k].walk.size(); ++j) {
+            on_node[keys[k].walk[j]].emplace_back(k, j);
+        }
+    }
+    vector<Seen> seen;
+    // The fragments clipped at each end of a deletion, and those with it whole.
+    vector<vector<uint64_t>> clipped_left(keys.size()), clipped_right(keys.size());
+    vector<size_t> whole(keys.size(), 0);
+    vector<double> mapq_total(keys.size(), 0.0);
+    vector<size_t> mapq_count(keys.size(), 0);
+    ReadWalk walk(graph);
+    std::hash<string> name_hash;
+    vector<bool> done(keys.size(), false);
+    vector<size_t> touched;
+    for_each_read([&](const Alignment& aln) {
+        if (aln.mapping_quality() < params.min_mapq) {
+            return;
+        }
+        bool near = false;
+        for (const Mapping& m : aln.path().mapping()) {
+            if (on_node.count(m.position().node_id())) {
+                near = true;
+                break;
+            }
+        }
+        if (!near) {
+            return;
+        }
+        walk.load(aln);
+        const uint64_t fragment = name_hash(aln.name());
+        for (size_t k : touched) {
+            done[k] = false;
+        }
+        touched.clear();
+        for (size_t i = 0; i + 1 < walk.node_start.size(); ++i) {
+            const handle_t h = walk.handles[i];
+            auto found = on_node.find(graph.get_id(h));
+            if (found == on_node.end() || graph.get_is_reverse(h)) {
+                continue;
+            }
+            for (const pair<size_t, size_t>& entry : found->second) {
+                const size_t k = entry.first;
+                if (done[k]) {
+                    continue;
+                }
+                done[k] = true;
+                touched.push_back(k);
+                const LargeKey& key = keys[k];
+                // The read must take the key's walk wherever the two overlap.
+                bool agrees = true;
+                for (size_t t = 0; t < key.walk.size() && agrees; ++t) {
+                    const int64_t m = (int64_t)i + (int64_t)t - (int64_t)entry.second;
+                    if (m >= 0 && m + 1 < (int64_t)walk.node_start.size()) {
+                        agrees = walk.handles[m] == graph.get_handle(key.walk[t]);
+                    }
+                }
+                if (!agrees) {
+                    continue;
+                }
+                const int64_t anchor = walk.node_start[i] - key.starts[entry.second] + key.offset;
+                WalkIndel wanted;
+                wanted.at = anchor + 1;
+                if (key.kind == 'D') {
+                    wanted.deleted = key.length;
+                } else {
+                    wanted.inserted = key.inserted;
+                }
+                int clip = 0;
+                const IndelObservation observed =
+                    observe_large_indel(walk.walked, wanted, anchor + key.span, large,
+                                        walk.walked.begin, walk.walked.end, &clip);
+                if (observed == IndelObservation::NONE) {
+                    continue;
+                }
+                seen.push_back(Seen{k, fragment, (uint8_t)observed});
+                if (observed != IndelObservation::ALT) {
+                    continue;
+                }
+                if (clip == 1) {
+                    clipped_left[k].push_back(fragment);
+                } else if (clip == 2) {
+                    clipped_right[k].push_back(fragment);
+                } else {
+                    ++whole[k];
+                }
+                mapq_total[k] += aln.mapping_quality();
+                ++mapq_count[k];
+            }
+        }
+    });
+    std::sort(seen.begin(), seen.end());
+    for (size_t i = 0; i < seen.size();) {
+        const size_t k = seen[i].key;
+        size_t end = i;
+        while (end < seen.size() && seen[end].key == k) {
+            ++end;
+        }
+        const LargeKey& key = keys[k];
+        EditCandidate c;
+        count_fragments(seen, i, end, c);
+        i = end;
+        if (c.alt_fragments < params.min_fragments || c.fraction() < params.min_fraction) {
+            continue;
+        }
+        if (whole[k] == 0
+            && (fragments_of(clipped_left[k]) < large.min_fragments_per_end
+                || fragments_of(clipped_right[k]) < large.min_fragments_per_end)) {
+            continue;
+        }
+        c.node = key.node;
+        c.offset = key.offset;
+        c.kind = key.kind;
+        c.alt = 0;
+        c.ref = key.spelling[key.offset];
+        c.span = key.span;
+        c.sequence = key.kind == 'D' ? key.spelling.substr(key.offset + 1, key.length)
+                                     : key.inserted;
+        c.walk = key.walk;
+        for (size_t x = key.offset + 1; x < key.spelling.size() && key.spelling[x] == c.sequence[0];
+             ++x) {
+            ++c.homopolymer;
+        }
+        if (spelled_by_panel(graph, c)) {
+            continue;
+        }
+        c.mean_alt_mapq = mapq_count[k] == 0 ? 0.0f : (float)(mapq_total[k] / (double)mapq_count[k]);
         kept.push_back(std::move(c));
     }
     return kept;
@@ -640,7 +1245,19 @@ vector<EditCandidate> count_edits(
     const function<void(const function<void(const Alignment&)>&)>& for_each_read,
     const function<bool(nid_t)>& owns, const EditCountParams& params) {
     vector<EditCandidate> kept = count_snv_edits(graph, for_each_read, owns, params);
-    vector<EditCandidate> indels = count_indel_edits(graph, for_each_read, owns, params);
+    vector<LargeRow> large_rows;
+    vector<ClipRow> clip_rows;
+    vector<EditCandidate> indels =
+        count_indel_edits(graph, for_each_read, owns, params,
+                          params.large_indels ? &large_rows : nullptr,
+                          params.large_indels ? &clip_rows : nullptr);
+    if (params.large_indels) {
+        vector<EditCandidate> large = count_large_indel_edits(graph, for_each_read, owns, params,
+                                                              std::move(large_rows),
+                                                              std::move(clip_rows));
+        indels.insert(indels.end(), std::make_move_iterator(large.begin()),
+                      std::make_move_iterator(large.end()));
+    }
     if (!indels.empty()) {
         kept.insert(kept.end(), std::make_move_iterator(indels.begin()),
                     std::make_move_iterator(indels.end()));
@@ -670,11 +1287,14 @@ WalkAlignment walk_alignment(const vector<const Mapping*>& mappings,
     bool started = false;
     // Indels wait for an aligned base after them, so that a trailing clip is left out.
     vector<WalkIndel> pending;
+    size_t read_after_aligned = read_offset;
     auto aligned = [&](int64_t walk_pos, size_t length) {
         if (!started) {
             out.begin = walk_pos;
+            out.clip_begin = read_pos - read_offset;
             started = true;
         }
+        read_after_aligned = read_pos + length;
         for (WalkIndel& p : pending) {
             out.indels.push_back(std::move(p));
         }
@@ -735,6 +1355,9 @@ WalkAlignment walk_alignment(const vector<const Mapping*>& mappings,
                 read_pos += to;
             }
         }
+    }
+    if (started) {
+        out.clip_end = read_pos - read_after_aligned;
     }
     return out;
 }
@@ -812,6 +1435,69 @@ IndelObservation observe_indel(const WalkAlignment& aln, const WalkIndel& indel,
         return IndelObservation::REF;
     }
     return count == 1 && *only == indel ? IndelObservation::ALT : IndelObservation::OTHER;
+}
+
+IndelObservation observe_large_indel(const WalkAlignment& aln, const WalkIndel& indel,
+                                     int64_t after, const LargeIndelParams& params,
+                                     int64_t reach_begin, int64_t reach_end, int* by_clip) {
+    if (by_clip != nullptr) {
+        *by_clip = 0;
+    }
+    const bool deletion = indel.deleted > 0;
+    const int64_t length = (int64_t)indel.length();
+    // The change's two ends, the bases after the anchor and after the deleted bases, and how far
+    // its tract lets it slide right.
+    const int64_t left = indel.at;
+    const int64_t right = deletion ? indel.at + length : indel.at;
+    const int64_t room = std::max<int64_t>(0, after - right);
+    const int64_t lo = left - 1 - params.slop;
+    const int64_t hi = after + params.slop;
+    // The read's bases of the change's kind near it.
+    int64_t near = 0;
+    for (const WalkIndel& d : aln.indels) {
+        if (d.at > hi) {
+            break;
+        }
+        if (deletion && d.deleted > 0 && d.at + (int64_t)d.deleted >= lo) {
+            near += d.deleted;
+        } else if (!deletion && d.deleted == 0 && d.at >= lo) {
+            near += (int64_t)d.inserted.size();
+        }
+    }
+    const double tolerance = params.length_ratio * (double)length;
+    if (std::abs((double)(near - length)) <= tolerance) {
+        return IndelObservation::ALT;
+    }
+    const bool clip_before = aln.clip_end > 0 && aln.end >= lo && aln.end <= hi;
+    const bool clip_after = aln.clip_begin > 0 && aln.begin >= lo && aln.begin <= hi;
+    if (deletion) {
+        // Clipped where the read's aligned bases meet one end, the rest of the read being the
+        // bases past the other.
+        if (aln.clip_end >= params.min_clip && aln.end >= left - params.slop
+            && aln.end <= left + room + params.slop) {
+            if (by_clip != nullptr) {
+                *by_clip = 1;
+            }
+            return IndelObservation::ALT;
+        }
+        if (aln.clip_begin >= params.min_clip && aln.begin >= right - params.slop
+            && aln.begin <= right + room + params.slop) {
+            if (by_clip != nullptr) {
+                *by_clip = 2;
+            }
+            return IndelObservation::ALT;
+        }
+    }
+    auto spans = [&](int64_t from, int64_t to) {
+        return reach_begin <= from - params.flank && reach_end >= to + params.flank;
+    };
+    if (!spans(left, left + room) && !(deletion && spans(right, right + room))) {
+        return IndelObservation::NONE;
+    }
+    if ((double)near < tolerance && !clip_before && !clip_after) {
+        return IndelObservation::REF;
+    }
+    return IndelObservation::OTHER;
 }
 
 void EditOutcomes::add(EditOutcome&& outcome) {

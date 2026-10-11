@@ -1444,6 +1444,8 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
         // without.
         double ln_shown;
         double ln_hidden;
+        // Whether it is of `LARGE_INDEL_MIN_LENGTH` bases or more, and matched loosely.
+        bool large;
     };
     vector<IndelAllele> indel_alleles;
     vector<bool> is_indel_allele(traversals.size(), false);
@@ -1498,7 +1500,11 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
             if (entry.after >= (int64_t)walk_spelling.size()) {
                 continue;
             }
-            const double tract = (double)std::max<int64_t>(1, entry.after - entry.indel.at);
+            // A large indel's rate is that of an error the size of its repeat tract, not of
+            // its length.
+            entry.large = entry.indel.length() >= LARGE_INDEL_MIN_LENGTH;
+            const double tract = (double)std::max<int64_t>(
+                1, entry.after - entry.indel.at - (entry.large ? (int64_t)deleted : 0));
             const double insertion = std::min(0.5, params.indel_insertion_rate * tract);
             const double deletion = std::min(0.5, params.indel_deletion_rate * tract);
             entry.ln_shown = log(deleted > 0 ? deletion : insertion);
@@ -1757,11 +1763,15 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
             vector<int64_t> starts;
             bool follows = true;
             size_t previous = 0;
+            size_t first = 0;
             for (size_t j = 0; j < read_steps.size() && follows; ++j) {
                 auto found = walk_index.find(((int64_t)read_steps[j].node_id << 1)
                                              | (int64_t)read_steps[j].backward);
                 follows = found != walk_index.end() && (j == 0 || found->second == previous + 1);
                 if (follows) {
+                    if (j == 0) {
+                        first = found->second;
+                    }
                     previous = found->second;
                     mappings.push_back(read_steps[j].mapping);
                     starts.push_back(walk_starts[found->second]);
@@ -1771,18 +1781,48 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
                 WalkAlignment walked = walk_alignment(mappings, starts, read_steps.front().read_offset,
                                                       scored_aln->sequence());
                 left_align(walked, walk_base);
+                // Where the read carries on past the walk's ends, it reaches beyond them; its
+                // clips are those at the read's own ends.
+                const ReadStep& last = read_steps.back();
+                const bool starts_read = read_steps.front().read_offset == 0;
+                const bool ends_read =
+                    last.read_offset + last.read_length >= scored_aln->sequence().size();
+                if (!starts_read) {
+                    walked.clip_begin = 0;
+                }
+                if (!ends_read) {
+                    walked.clip_end = 0;
+                }
+                const int64_t reach_begin = !starts_read && first == 0 && walked.begin == 0
+                                                ? numeric_limits<int64_t>::min() / 4
+                                                : walked.begin;
+                const int64_t reach_end =
+                    !ends_read && previous + 1 == walk_starts.size() - 1
+                            && walked.end == (int64_t)walk_spelling.size()
+                        ? numeric_limits<int64_t>::max() / 4
+                        : walked.end;
                 for (const IndelAllele& entry : indel_alleles) {
                     if (!(row[entry.allele] > -numeric_limits<double>::infinity())) {
                         continue;
                     }
-                    const IndelObservation seen = observe_indel(walked, entry.indel, entry.after);
+                    int clip = 0;
+                    const IndelObservation seen =
+                        entry.large ? observe_large_indel(walked, entry.indel, entry.after,
+                                                          LargeIndelParams(), reach_begin,
+                                                          reach_end, &clip)
+                                    : observe_indel(walked, entry.indel, entry.after);
                     if (seen == IndelObservation::ALT) {
                         // The allele explains the read without its indel's gap, and the walk
-                        // explains it only by an error that shows the indel.
+                        // explains it only by an error that shows the indel. A read clipped at
+                        // the indel's end paid no gap.
                         const double fit =
-                            row[entry.allele]
-                            - log_base * (double)read_scorer.score_gap(entry.indel.length())
-                            - (entry.indel.deleted == 0 ? params.insertion_gap_nats : 0.0);
+                            clip != 0
+                                ? row[entry.allele]
+                                : row[entry.allele]
+                                      - log_base
+                                            * (double)read_scorer.score_gap(entry.indel.length())
+                                      - (entry.indel.deleted == 0 ? params.insertion_gap_nats
+                                                                  : 0.0);
                         row[entry.allele] = fit;
                         for (size_t b = 0; b < row.size(); ++b) {
                             if (!is_indel_allele[b] && row[b] > -numeric_limits<double>::infinity()) {
