@@ -149,6 +149,15 @@ void MultiPassCaller::write_edit_dump() const {
              << nested << " nested sites, " << unplaced << " left unplaced; " << staged
              << " staged with their ALT; " << tree_genotyper.edit_nodes_after_pass()
              << " nodes' top-level sites left to after the direct pass" << endl;
+        size_t indels = 0, indels_staged = 0;
+        for (const EditCandidate& c : edit_source->counted_edit_candidates()) {
+            indels += c.is_indel();
+        }
+        for (const EditOutcome& o : edit_outcomes->sorted()) {
+            indels_staged += o.staged && o.kind != 'S';
+        }
+        cerr << "[vg call] off-panel: " << indels << " of the candidates are indels; "
+             << indels_staged << " indels staged with their ALT" << endl;
     }
     if (edit_dump.empty()) {
         return;
@@ -159,7 +168,7 @@ void MultiPassCaller::write_edit_dump() const {
         return;
     }
     out << "#contig\tpos\tnode\toffset\tref\talt\talt_frags\tref_frags\tother_frags"
-           "\tdiscordant_frags\taf\tmean_alt_mapq\tplaced\tsite\tgt\tgq\tstaged\n";
+           "\tdiscordant_frags\taf\tmean_alt_mapq\tplaced\tsite\tgt\tgq\tstaged\thomopolymer\n";
     const vector<EditOutcome> outcomes =
         edit_outcomes != nullptr ? edit_outcomes->sorted() : vector<EditOutcome>();
     auto outcome = outcomes.begin();
@@ -171,16 +180,26 @@ void MultiPassCaller::write_edit_dump() const {
         } else {
             out << at.second;
         }
-        out << "\t" << c.node << "\t" << c.offset << "\t" << c.ref << "\t" << c.alt << "\t"
-            << c.alt_fragments << "\t" << c.ref_fragments << "\t" << c.other_fragments << "\t"
+        out << "\t" << c.node << "\t" << c.offset << "\t";
+        if (c.is_indel()) {
+            // As VCF writes an indel: from its anchor base.
+            out << c.ref << (c.kind == 'D' ? c.sequence : "") << "\t" << c.ref
+                << (c.kind == 'I' ? c.sequence : "");
+        } else {
+            out << c.ref << "\t" << c.alt;
+        }
+        out << "\t" << c.alt_fragments << "\t" << c.ref_fragments << "\t" << c.other_fragments << "\t"
             << c.discordant_fragments << "\t" << c.fraction() << "\t" << c.mean_alt_mapq;
         // The candidate's outcome, if the call bar admitted it.
         while (outcome != outcomes.end()
-               && tie(outcome->node, outcome->offset, outcome->alt) < tie(c.node, c.offset, c.alt)) {
+               && tie(outcome->node, outcome->offset, outcome->kind, outcome->alt,
+                      outcome->sequence)
+                      < tie(c.node, c.offset, c.kind, c.alt, c.sequence)) {
             ++outcome;
         }
         if (outcome != outcomes.end() && outcome->node == c.node && outcome->offset == c.offset
-            && outcome->alt == c.alt) {
+            && outcome->kind == c.kind && outcome->alt == c.alt
+            && outcome->sequence == c.sequence) {
             out << "\t" << outcome->placed << "\t" << (outcome->site.empty() ? "." : outcome->site)
                 << "\t";
             for (size_t i = 0; i < outcome->genotype.size(); ++i) {
@@ -193,7 +212,7 @@ void MultiPassCaller::write_edit_dump() const {
         } else {
             out << "\t" << (edit_bar.admits(c) ? "unplaced" : "below_bar") << "\t.\t.\t.\t0";
         }
-        out << "\n";
+        out << "\t" << c.homopolymer << "\n";
     }
 }
 
@@ -650,9 +669,11 @@ bool MultiPassCaller::spliced_allele(const StagedSite& site, int trav, int stran
         }
         bool turned = false;
         if (rep.inside_node) {
+            // Placed on the spliced walk below; here only which way the parent reads it.
             rep.begin = at_start->second;
             rep.end = rep.begin + 1;
-            turned = parent_walk[rep.begin] != rep.walk.front();
+            turned = graph.get_is_reverse(parent_walk[rep.begin])
+                     != graph.get_is_reverse(rep.walk.front());
         } else if (at_start->second <= at_end->second
                    && parent_walk[at_start->second] == rep.walk.front()) {
             rep.begin = at_start->second;
@@ -672,9 +693,6 @@ bool MultiPassCaller::spliced_allele(const StagedSite& site, int trav, int stran
             for (size_t i = 0; i < rep.walk.size(); ++i) {
                 rep.walk[i] = graph.flip(rep.walk[i]);
                 rep.steps[i] = reverse_complement(rep.steps[i]);
-            }
-            if (rep.inside_node && rep.walk.front() != parent_walk[rep.begin]) {
-                continue;
             }
         }
         replacements.push_back(std::move(rep));
@@ -725,27 +743,88 @@ bool MultiPassCaller::spliced_allele(const StagedSite& site, int trav, int stran
         steps.push_back(own != nullptr ? own->at(i) : graph.get_sequence(parent_walk[i]));
         ++i;
     }
+    // A child inside nodes changes the bases its allele differs from its nodes in, where the
+    // spliced walk first visits its first node and then the rest of its walk, read the way the
+    // spliced walk reads them. Each step's changes are made right to left, so that one that changes
+    // the length does not move the offsets of those before it.
+    struct StepEdit {
+        size_t step;
+        size_t at;
+        size_t removed;
+        string added;
+        size_t key;
+    };
+    vector<StepEdit> step_edits;
     for (const Replacement& edit : edits) {
-        // A child inside a node changes the bases its allele differs from the node in, at the
-        // node's first visit, read the way that visit reads it.
-        const handle_t node = edit.walk.front();
-        for (size_t i = 0; i < walk.size(); ++i) {
-            if (graph.get_id(walk[i]) != graph.get_id(node)) {
+        // Its walk, and the same read the other way, as the spliced walk may read it.
+        Traversal turned_walk;
+        StepSequences turned_steps;
+        for (size_t k = edit.walk.size(); k-- > 0;) {
+            turned_walk.push_back(graph.flip(edit.walk[k]));
+            turned_steps.push_back(reverse_complement(edit.steps[k]));
+        }
+        const Traversal* child_walk = nullptr;
+        const StepSequences* child_steps = nullptr;
+        size_t i = 0;
+        for (int way = 0; way < 2 && child_walk == nullptr; ++way) {
+            const Traversal& w = way == 0 ? edit.walk : turned_walk;
+            const nid_t first = graph.get_id(w.front());
+            i = 0;
+            while (i < walk.size() && graph.get_id(walk[i]) != first) {
+                ++i;
+            }
+            if (i + w.size() <= walk.size() && std::equal(w.begin(), w.end(), walk.begin() + i)) {
+                child_walk = &w;
+                child_steps = way == 0 ? &edit.steps : &turned_steps;
+            }
+        }
+        if (child_walk == nullptr) {
+            continue;
+        }
+        for (size_t k = 0; k < child_walk->size(); ++k) {
+            const string node_seq = graph.get_sequence(walk[i + k]);
+            const string& child_seq = (*child_steps)[k];
+            if (child_seq == node_seq) {
                 continue;
             }
-            const string child_seq = walk[i] == node ? edit.steps.front()
-                                                     : reverse_complement(edit.steps.front());
-            const string node_seq = graph.get_sequence(walk[i]);
-            string& spelled = steps[i];
-            if (child_seq.size() == node_seq.size() && spelled.size() == node_seq.size()) {
-                for (size_t b = 0; b < child_seq.size(); ++b) {
-                    if (child_seq[b] != node_seq[b] && spelled[b] != child_seq[b]) {
-                        spelled[b] = child_seq[b];
-                        changed = true;
-                    }
-                }
+            // The child's change on this node: its longest shared prefix and suffix aside.
+            size_t prefix = 0;
+            while (prefix < child_seq.size() && prefix < node_seq.size()
+                   && child_seq[prefix] == node_seq[prefix]) {
+                ++prefix;
             }
-            break;
+            size_t suffix = 0;
+            while (suffix < child_seq.size() - prefix && suffix < node_seq.size() - prefix
+                   && child_seq[child_seq.size() - 1 - suffix]
+                          == node_seq[node_seq.size() - 1 - suffix]) {
+                ++suffix;
+            }
+            step_edits.push_back(StepEdit{i + k, prefix, node_seq.size() - prefix - suffix,
+                                          child_seq.substr(prefix,
+                                                           child_seq.size() - prefix - suffix),
+                                          edit.key});
+        }
+    }
+    std::sort(step_edits.begin(), step_edits.end(), [](const StepEdit& a, const StepEdit& b) {
+        // Right to left; at one offset, a replacement before an insertion in front of it.
+        return std::tie(a.step, b.at, b.removed, a.key) < std::tie(b.step, a.at, a.removed, b.key);
+    });
+    for (size_t e = 0; e < step_edits.size(); ++e) {
+        const StepEdit& edit = step_edits[e];
+        // One already made to its right that it would overlap wins.
+        if (e > 0 && step_edits[e - 1].step == edit.step
+            && edit.at + edit.removed > step_edits[e - 1].at
+            && !(edit.removed == 0 && step_edits[e - 1].removed == 0
+                 && edit.at == step_edits[e - 1].at)) {
+            continue;
+        }
+        string& spelled = steps[edit.step];
+        if (edit.at + edit.removed > spelled.size()) {
+            continue;
+        }
+        if (spelled.compare(edit.at, edit.removed, edit.added) != 0) {
+            spelled.replace(edit.at, edit.removed, edit.added);
+            changed = true;
         }
     }
     if (!changed) {

@@ -116,6 +116,12 @@ private:
     /// The candidates the call bar admits, one per base: the ALT the most fragments carry.
     vector<EditCandidate> admitted(vector<EditCandidate> candidates) const;
 
+    /// The edit site of `c`, read the way `read_as` reads its node, into `out`. False for an
+    /// indel on a node read backward, for one whose walk leaves the site `where` holds its anchor
+    /// in, and for one whose walk a reference path reads only in part, backward or more than once.
+    bool edit_site_of(const EditCandidate& c, handle_t read_as, const NodePlacement& where,
+                      EditSite& out) const;
+
     /// The edit sites that the site `view`, genotyped as `bounds` with candidate walks `walks`,
     /// holds itself rather than through a child site, each read as the walks read its node,
     /// the reference walk `ref_trav_idx` first.

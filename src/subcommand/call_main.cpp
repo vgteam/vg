@@ -79,7 +79,8 @@ struct PresetSetting {
 static const vector<pair<string, vector<PresetSetting>>> PRESETS = {
     {"ont", {{"--read-phasing", ""}, {"--regenotype", ""}, {"--gap-open", "1"},
              {"--gap-extend", "1"}, {"--mismap-min", "0.05"}, {"--read-min-mapq", "5"},
-             {"--insertion-nats", "0.9"}, {"--hp-prior", "20"}}},
+             {"--insertion-nats", "0.9"}, {"--hp-prior", "20"},
+             {"--off-panel-indels", "7,0.25,5"}}},
 };
 
 /// Each preset's settings for the --preset help, wrapped at the help's description column.
@@ -194,13 +195,19 @@ void help_call(char** argv) {
          << "      --phased              write phased genotypes, failing if the linkage" << endl
          << "                            model cannot run [on when the linkage model runs]" << endl
          << "  off-panel variants:" << endl
-         << "      --off-panel           also call SNVs that no graph walk spells, found as" << endl
-         << "                            mismatches recurring in the reads (experimental)" << endl
+         << "      --off-panel           also call SNVs and indels of 1-49 bp that no graph" << endl
+         << "                            walk spells, found as edits recurring in the reads" << endl
+         << "                            (experimental)" << endl
          << "      --off-panel-dump F    write each off-panel candidate, with its read" << endl
          << "                            counts and what became of it, to F as TSV" << endl
          << "      --off-panel-bar B     call a candidate whose ALT is on >= K fragments" << endl
          << "                            and a fraction >= F of them, at GQ >= G, with B" << endl
          << "                            given as K,F,G [7,0.25,0]" << endl
+         << "      --off-panel-indels B  call an indel candidate whose ALT is on >= K" << endl
+         << "                            fragments and a fraction >= F of them, unless its" << endl
+         << "                            tract starts with a run of >= H of one base (H 0:" << endl
+         << "                            no limit; 1: no indels), with B given as K,F,H" << endl
+         << "                            [7,0.25,0]" << endl
          << "  read-based phasing (reliable heterozygous sites are joined into a phase" << endl
          << "  chain by the reads they share; other sites are phased from the chain):" << endl
          << "      --read-phasing        phase heterozygous sites with the reads that span" << endl
@@ -496,6 +503,7 @@ int main_call(int argc, char** argv) {
     double linkage_mutation = LinkageModel::Params().mutation;
     double hp_prior = 0.0;
     bool hp_prior_explicit = false;
+    bool off_panel_indels_explicit = false;
     int hp_prior_run = 11;
     bool flat_mixture = false;
     double depth_weight = 0.1;
@@ -559,6 +567,7 @@ int main_call(int argc, char** argv) {
     constexpr int OPT_OFF_PANEL = 1114;
     constexpr int OPT_OFF_PANEL_DUMP = 1115;
     constexpr int OPT_OFF_PANEL_BAR = 1116;
+    constexpr int OPT_OFF_PANEL_INDELS = 1117;
     constexpr int OPT_DEPTH_TERM = 1025;
     constexpr int OPT_DEPTH_COUNT_RAW = 1026;
     constexpr int OPT_DEPTH_QUALITY = 1027;
@@ -718,6 +727,7 @@ int main_call(int argc, char** argv) {
         {"off-panel", {  // need --off-panel
             {"off-panel-dump", required_argument, 0, OPT_OFF_PANEL_DUMP},
             {"off-panel-bar", required_argument, 0, OPT_OFF_PANEL_BAR},
+            {"off-panel-indels", required_argument, 0, OPT_OFF_PANEL_INDELS},
         }},
         {"anchors", {  // need --anchors-out
             {"no-off-ref-nesting", no_argument, 0, OPT_NO_OFF_REF_NESTING},
@@ -1092,6 +1102,17 @@ int main_call(int argc, char** argv) {
             off_panel_bar.min_gq = parse<double>(parts[2]);
             break;
         }
+        case OPT_OFF_PANEL_INDELS: {
+            off_panel_indels_explicit = true;
+            vector<string> parts = split_delims(optarg, ",");
+            if (parts.size() != 3) {
+                logger.error() << "--off-panel-indels takes K,F,H" << endl;
+            }
+            off_panel_bar.indel_min_alt_fragments = parse<size_t>(parts[0]);
+            off_panel_bar.indel_min_fraction = parse<double>(parts[1]);
+            off_panel_bar.indel_max_homopolymer = parse<uint32_t>(parts[2]);
+            break;
+        }
         case OPT_GAP_EXTEND:
             gap_extend_explicit = true;
             gap_extend = parse<int>(optarg);
@@ -1368,6 +1389,13 @@ int main_call(int argc, char** argv) {
             } else if (option == "--hp-prior") {
                 if (!hp_prior_explicit) {
                     hp_prior = parse<double>(value);
+                }
+            } else if (option == "--off-panel-indels") {
+                if (!off_panel_indels_explicit) {
+                    vector<string> parts = split_delims(value, ",");
+                    off_panel_bar.indel_min_alt_fragments = parse<size_t>(parts[0]);
+                    off_panel_bar.indel_min_fraction = parse<double>(parts[1]);
+                    off_panel_bar.indel_max_homopolymer = parse<uint32_t>(parts[2]);
                 }
             } else {
                 // Every option in PRESETS needs a branch here.

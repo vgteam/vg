@@ -100,6 +100,47 @@ EditSite snv_edit_site(const HandleGraph& graph, handle_t node, uint32_t offset,
     return site;
 }
 
+EditSite indel_edit_site(const HandleGraph& graph, const vector<nid_t>& walk, uint32_t offset,
+                         bool deletion, const string& sequence) {
+    EditSite site;
+    Traversal steps;
+    for (nid_t id : walk) {
+        steps.push_back(graph.get_handle(id));
+    }
+    site.bounds.start = steps.front();
+    site.bounds.end = steps.back();
+    site.bounds.inside_node = true;
+    site.bounds.offset = offset;
+    // The ALT along the walk, then cut back into the walk's steps: a deletion takes bases from
+    // each step it reaches, and an insertion goes into the anchor's step.
+    const size_t at = (size_t)offset + 1;
+    StepSequences spelled;
+    size_t start = 0;
+    for (const handle_t& h : steps) {
+        string seq = graph.get_sequence(h);
+        const size_t end = start + seq.size();
+        if (deletion) {
+            const size_t from = std::max(start, at);
+            const size_t to = std::min(end, at + sequence.size());
+            if (from < to) {
+                seq.erase(from - start, to - from);
+            }
+        } else if (at > start && at <= end) {
+            seq.insert(at - start, sequence);
+        }
+        spelled.push_back(std::move(seq));
+        start = end;
+    }
+    site.travs.assign(2, steps);
+    site.sequences.resize(2);
+    site.sequences[1] = std::move(spelled);
+    return site;
+}
+
+bool inside_one_node(const SiteBounds& site) {
+    return site.inside_node && site.start == site.end;
+}
+
 string edit_site_id(nid_t node, uint32_t offset, char kind, const string& alt) {
     return "op" + std::to_string(node) + "." + std::to_string(offset) + "." + kind + alt;
 }

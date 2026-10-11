@@ -167,7 +167,7 @@ const vector<EditCandidate>& InMemorySiteReadSource::all_edits() const {
         if (edit_graph == nullptr) {
             return;
         }
-        edits = count_snv_edits(
+        edits = vg::count_edits(
             *edit_graph,
             [&](const function<void(const Alignment&)>& visit) {
                 for (const Alignment& aln : reads) {
@@ -316,7 +316,7 @@ void WindowedSiteReadSource::for_each_read(
         scanned += n_scanned;
         delivered += n_delivered;
         if (!to_count.empty()) {
-            vector<EditCandidate> counted = count_snv_edits(
+            vector<EditCandidate> counted = vg::count_edits(
                 *edit_graph,
                 [&](const function<void(const Alignment&)>& visit) {
                     for (const Alignment& aln : kept) {
@@ -403,7 +403,7 @@ WindowedSiteReadSource::get_window(size_t window, bool& was_fetched) const {
     // into another window is fetched with that window too.
     vector<EditCandidate> window_candidates;
     if (!edits_counted) {
-        window_candidates = count_snv_edits(
+        window_candidates = vg::count_edits(
             *edit_graph,
             [&](const function<void(const Alignment&)>& visit) {
                 for (const Alignment& aln : entry->reads) {
@@ -556,7 +556,7 @@ const vector<EditCandidate>& WindowedSiteReadSource::window_edits(size_t window)
             return found->second;
         }
     }
-    vector<EditCandidate> counted = count_snv_edits(
+    vector<EditCandidate> counted = vg::count_edits(
         *edit_graph,
         [&](const function<void(const Alignment&)>& visit) {
             for (const Alignment& aln : entry->reads) {

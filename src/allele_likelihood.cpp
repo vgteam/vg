@@ -5,6 +5,7 @@
 #include <cmath>
 
 #include "alignment.hpp"
+#include "off_panel.hpp"
 #include "path.hpp"
 #include "statistics.hpp"
 
@@ -1388,13 +1389,19 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
         return builder.build();
     }
 
-    // Nodes making up the site, including its boundaries. A site inside a node is that node, and
-    // has no boundary node: its boundary sides are inside the node, so every read on the node
-    // tells its alleles apart, and the node's bases all count towards the depth term.
+    // Nodes making up the site, including its boundaries. A site inside nodes is the nodes its
+    // alleles walk, and has no boundary node: its boundary sides are inside its first and last
+    // nodes, so every read on them may tell its alleles apart, and their bases all count towards
+    // the depth term.
     unordered_set<nid_t> site_nodes;
     unordered_set<nid_t> boundary_nodes;
     if (site.inside_node) {
         site_nodes.insert(graph.get_id(site.start));
+        for (const Traversal& walk : traversals) {
+            for (const handle_t& h : walk) {
+                site_nodes.insert(graph.get_id(h));
+            }
+        }
     } else {
         auto contents = site_contents(graph, site.start, site.end, true);
         site_nodes.insert(contents.first.begin(), contents.first.end());
@@ -1423,6 +1430,88 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
     for (size_t a = 0; a < traversals.size(); ++a) {
         allele_steps.push_back(get_allele_steps(traversals[a], own_sequences(sequences, a)));
     }
+    // An allele whose step sequences differ from its walk's spelling by one indel, where every
+    // allele takes the same walk, is scored as its walk, and each read's row is then set by what
+    // the read says about the indel (`observe_indel`). Its spelling cannot be compared base by base
+    // with a read aligned to the walk once the two differ in length, and the aligner may have put
+    // the read's own copy of the indel anywhere in its repeat tract, on another node too.
+    struct IndelAllele {
+        size_t allele;
+        WalkIndel indel;
+        int64_t after;
+        // ln of the rate of the error that turns the walk's sequence into the read's, for a read
+        // with the indel, and of the one that turns the allele's into the read's, for a read
+        // without.
+        double ln_shown;
+        double ln_hidden;
+    };
+    vector<IndelAllele> indel_alleles;
+    vector<bool> is_indel_allele(traversals.size(), false);
+    // The walk's spelling, and where each of its steps starts in it.
+    string walk_spelling;
+    vector<int64_t> walk_starts;
+    unordered_map<int64_t, size_t> walk_index;
+    const function<char(int64_t)> walk_base = [&](int64_t x) { return walk_spelling[x]; };
+    if (site.inside_node && sequences != nullptr
+        && std::all_of(traversals.begin(), traversals.end(),
+                       [&](const Traversal& t) { return t == traversals.front(); })) {
+        for (size_t i = 0; i < traversals.front().size(); ++i) {
+            const handle_t& h = traversals.front()[i];
+            walk_starts.push_back((int64_t)walk_spelling.size());
+            walk_index[((int64_t)graph.get_id(h) << 1) | (int64_t)graph.get_is_reverse(h)] = i;
+            walk_spelling += graph.get_sequence(h);
+        }
+        walk_starts.push_back((int64_t)walk_spelling.size());
+        const function<char(int64_t)>& base = walk_base;
+        for (size_t a = 0; a < traversals.size(); ++a) {
+            const StepSequences* own = own_sequences(sequences, a);
+            if (own == nullptr) {
+                continue;
+            }
+            const string spelled = allele_sequence(graph, traversals[a], own);
+            if (spelled.size() == walk_spelling.size()) {
+                continue;
+            }
+            size_t prefix = 0;
+            const size_t shorter = std::min(spelled.size(), walk_spelling.size());
+            while (prefix < shorter && spelled[prefix] == walk_spelling[prefix]) {
+                ++prefix;
+            }
+            size_t suffix = 0;
+            while (suffix < shorter - prefix
+                   && spelled[spelled.size() - 1 - suffix]
+                          == walk_spelling[walk_spelling.size() - 1 - suffix]) {
+                ++suffix;
+            }
+            const size_t deleted = walk_spelling.size() - prefix - suffix;
+            const size_t inserted = spelled.size() - prefix - suffix;
+            if (deleted > 0 && inserted > 0) {
+                continue;
+            }
+            IndelAllele entry;
+            entry.allele = a;
+            entry.indel.at = (int64_t)prefix;
+            entry.indel.deleted = (uint32_t)deleted;
+            entry.indel.inserted = spelled.substr(prefix, inserted);
+            left_align(entry.indel, 1, base);
+            entry.after = tract_end(entry.indel, (int64_t)walk_spelling.size(), base);
+            if (entry.after >= (int64_t)walk_spelling.size()) {
+                continue;
+            }
+            const double tract = (double)std::max<int64_t>(1, entry.after - entry.indel.at);
+            const double insertion = std::min(0.5, params.indel_insertion_rate * tract);
+            const double deletion = std::min(0.5, params.indel_deletion_rate * tract);
+            entry.ln_shown = log(deleted > 0 ? deletion : insertion);
+            entry.ln_hidden = log(deleted > 0 ? insertion : deletion);
+            // Scored as its walk, and measured as its walk too: a read must cover the tract on
+            // either allele to tell them apart, so neither has bases of its own that only its
+            // reads cover, and the mixture weights are even.
+            allele_steps[a] = get_allele_steps(traversals[a], nullptr);
+            is_indel_allele[a] = true;
+            indel_alleles.push_back(std::move(entry));
+        }
+    }
+
     // Sorted once per allele, not once per (read, allele): the keys do not mention the read.
     vector<vector<int64_t>> allele_keys;
     allele_keys.reserve(allele_steps.size());
@@ -1550,9 +1639,12 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
     const bool end_backward = graph.get_is_reverse(site.end);
     int64_t start_pin = start_backward ? 0 : (int64_t)graph.get_length(site.start);
     int64_t end_pin = end_backward ? (int64_t)graph.get_length(site.end) : 0;
-    if (site.inside_node) {
+    if (inside_one_node(site)) {
         start_pin = start_backward ? (int64_t)site.offset + 1 : (int64_t)site.offset;
         end_pin = start_backward ? (int64_t)site.offset : (int64_t)site.offset + 1;
+    } else if (site.inside_node) {
+        // Inside several nodes: from its anchor base to the near side of its last node.
+        start_pin = start_backward ? (int64_t)site.offset + 1 : (int64_t)site.offset;
     }
     // Read phasing needs only the `rel` rows, without read names or positions. Built only when
     // anchors are not being written, since the anchor evidence already contains the rows.
@@ -1657,6 +1749,52 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
             // AlleleLikelihoodParams::insertion_gap_nats. It is zero by default.
             row[a] = placed ? log_base * (double)score + nat_adjust
                             : -numeric_limits<double>::infinity();
+        }
+
+        if (!indel_alleles.empty()) {
+            // The read along the site's walk, where it follows the walk.
+            vector<const Mapping*> mappings;
+            vector<int64_t> starts;
+            bool follows = true;
+            size_t previous = 0;
+            for (size_t j = 0; j < read_steps.size() && follows; ++j) {
+                auto found = walk_index.find(((int64_t)read_steps[j].node_id << 1)
+                                             | (int64_t)read_steps[j].backward);
+                follows = found != walk_index.end() && (j == 0 || found->second == previous + 1);
+                if (follows) {
+                    previous = found->second;
+                    mappings.push_back(read_steps[j].mapping);
+                    starts.push_back(walk_starts[found->second]);
+                }
+            }
+            if (follows && !mappings.empty()) {
+                WalkAlignment walked = walk_alignment(mappings, starts, read_steps.front().read_offset,
+                                                      scored_aln->sequence());
+                left_align(walked, walk_base);
+                for (const IndelAllele& entry : indel_alleles) {
+                    if (!(row[entry.allele] > -numeric_limits<double>::infinity())) {
+                        continue;
+                    }
+                    const IndelObservation seen = observe_indel(walked, entry.indel, entry.after);
+                    if (seen == IndelObservation::ALT) {
+                        // The allele explains the read without its indel's gap, and the walk
+                        // explains it only by an error that shows the indel.
+                        const double fit =
+                            row[entry.allele]
+                            - log_base * (double)read_scorer.score_gap(entry.indel.length())
+                            - (entry.indel.deleted == 0 ? params.insertion_gap_nats : 0.0);
+                        row[entry.allele] = fit;
+                        for (size_t b = 0; b < row.size(); ++b) {
+                            if (!is_indel_allele[b] && row[b] > -numeric_limits<double>::infinity()) {
+                                row[b] = fit + entry.ln_shown;
+                            }
+                        }
+                    } else if (seen == IndelObservation::REF) {
+                        // The allele explains it only by an error that hides the indel.
+                        row[entry.allele] += entry.ln_hidden;
+                    }
+                }
+            }
         }
 
         // MAPQ is a phred probability that the read is in the wrong place. vg's

@@ -113,8 +113,8 @@ public:
     /// the backend cannot cheaply say.
     virtual size_t get_read_count() const = 0;
 
-    /// Turn on off-panel detection (see `count_snv_edits`): from now on, the reads are counted
-    /// for substitutions on `graph`, which must outlive this, each read once, while they are in
+    /// Turn on off-panel detection (see `count_edits`): from now on, the reads are counted
+    /// for substitutions and indels on `graph`, which must outlive this, each read once, while they are in
     /// memory. Call before any query. A source that cannot count finds no candidates.
     virtual void count_edits(const HandleGraph* graph, const EditCountParams& params) {}
 

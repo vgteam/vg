@@ -11,6 +11,18 @@
 namespace vg {
 namespace multipass {
 
+/// The outcome of a candidate as it is placed, or why it is not, for the dump.
+static EditOutcome unplaced_outcome(const EditCandidate& c, const string& why) {
+    EditOutcome outcome;
+    outcome.node = c.node;
+    outcome.offset = c.offset;
+    outcome.alt = c.alt;
+    outcome.kind = c.kind;
+    outcome.sequence = c.sequence;
+    outcome.placed = why;
+    return outcome;
+}
+
 void TreeGenotyper::configure(const Parts& parts, const Options& options) {
     this->parts = parts;
     this->options = options;
@@ -367,7 +379,7 @@ bool TreeGenotyper::genotype_tree(const SiteView& view, const string& parent_ref
                 }
                 if (child.site.bounds.inside_node) {
                     for (size_t i = 0; i < held.size(); ++i) {
-                        if (held[i].child.bounds == child.site.bounds) {
+                        if (!edit_placed[i] && held[i].child.bounds == child.site.bounds) {
                             edit_placed[i] = true;
                             genotype_edit_site(held[i], child.site.enclosing, ref_path_name,
                                                make_pair(get<0>(ref_interval),
@@ -388,12 +400,7 @@ bool TreeGenotyper::genotype_tree(const SiteView& view, const string& parent_ref
             if (!edit_placed[i]) {
                 // Left out as any child would be: off the reference without off-reference
                 // descent, or crossed by no called allele without the linkage model.
-                EditOutcome outcome;
-                outcome.node = held[i].candidate.node;
-                outcome.offset = held[i].candidate.offset;
-                outcome.alt = held[i].candidate.alt;
-                outcome.placed = "not_placed";
-                parts.edit_outcomes->add(std::move(outcome));
+                parts.edit_outcomes->add(unplaced_outcome(held[i].candidate, "not_placed"));
             }
         }
     }
@@ -461,13 +468,15 @@ bool TreeGenotyper::genotype_tree(const SiteView& view, const string& parent_ref
 }
 
 vector<EditCandidate> TreeGenotyper::admitted(vector<EditCandidate> candidates) const {
-    // Sorted by node, offset and ALT, so each base's candidates are consecutive.
+    // Sorted by node, offset, kind and ALT, so each base's substitutions are consecutive, as are
+    // the indels anchored on it; one of each is kept.
     vector<EditCandidate> chosen;
     for (const EditCandidate& c : candidates) {
         if (!options.edit_bar.admits(c)) {
             continue;
         }
-        if (!chosen.empty() && chosen.back().node == c.node && chosen.back().offset == c.offset) {
+        if (!chosen.empty() && chosen.back().node == c.node && chosen.back().offset == c.offset
+            && chosen.back().is_indel() == c.is_indel()) {
             if (c.alt_fragments > chosen.back().alt_fragments) {
                 chosen.back() = c;
             }
@@ -476,6 +485,54 @@ vector<EditCandidate> TreeGenotyper::admitted(vector<EditCandidate> candidates) 
         chosen.push_back(c);
     }
     return chosen;
+}
+
+bool TreeGenotyper::edit_site_of(const EditCandidate& c, handle_t read_as,
+                                 const NodePlacement& where, EditSite& out) const {
+    const PathPositionHandleGraph& graph = *parts.graph;
+    if (!c.is_indel()) {
+        out = snv_edit_site(graph, read_as, c.offset, c.alt);
+        return true;
+    }
+    if (graph.get_is_reverse(read_as)) {
+        return false;
+    }
+    // Every node of its walk in the same site as its anchor.
+    for (nid_t id : c.walk) {
+        const NodePlacement other = parts.child_placer->placement_of(id);
+        if (other.enclosing.size() != where.enclosing.size()
+            || (!other.enclosing.empty() && other.enclosing.front() != where.enclosing.front())) {
+            return false;
+        }
+    }
+    // Its record is spelled along the walk and placed where a reference path reads the walk's
+    // first node, so a reference path must read the whole walk there, forward and once, or not
+    // read it at all.
+    size_t on_reference = 0;
+    int64_t expected = -1;
+    for (nid_t id : c.walk) {
+        const handle_t h = graph.get_handle(id);
+        size_t steps = 0;
+        int64_t position = -1;
+        graph.for_each_step_on_handle(h, [&](const step_handle_t& step) {
+            if (parts.ref_offsets->count(graph.get_path_name(graph.get_path_handle_of_step(step)))) {
+                ++steps;
+                position = graph.get_is_reverse(graph.get_handle_of_step(step))
+                               ? -2
+                               : (int64_t)graph.get_position_of_step(step);
+            }
+        });
+        if (steps > 1 || position == -2 || (expected >= 0 && steps == 1 && position != expected)) {
+            return false;
+        }
+        on_reference += steps;
+        expected = steps == 1 ? position + (int64_t)graph.get_length(h) : -1;
+    }
+    if (on_reference != 0 && on_reference != c.walk.size()) {
+        return false;
+    }
+    out = indel_edit_site(graph, c.walk, c.offset, c.kind == 'D', c.sequence);
+    return true;
 }
 
 /// The bounds `bounds` read the other way.
@@ -539,7 +596,10 @@ vector<TreeGenotyper::HeldEdit> TreeGenotyper::edits_held_by(const SiteView& vie
             }
         }
         HeldEdit edit;
-        edit.site = snv_edit_site(graph, read_as, c.offset, c.alt);
+        if (!edit_site_of(c, read_as, where, edit.site)) {
+            parts.edit_outcomes->add(unplaced_outcome(c, "walk_leaves_site"));
+            continue;
+        }
         edit.candidate = c;
         edit.child = ChildSite{view.net, edit.site.bounds, where.chain};
         held.push_back(std::move(edit));
@@ -627,7 +687,10 @@ void TreeGenotyper::genotype_free_edits(vector<EditCandidate> candidates) {
             return true;
         });
         HeldEdit edit;
-        edit.site = snv_edit_site(graph, read_as, c.offset, c.alt);
+        if (!edit_site_of(c, read_as, where, edit.site)) {
+            parts.edit_outcomes->add(unplaced_outcome(c, "walk_leaves_site"));
+            continue;
+        }
         edit.candidate = c;
         edit.child = ChildSite{where.site, edit.site.bounds, where.chain};
         genotype_edit_site(edit, {}, "", make_pair(0, 0), -1, NestingPlacement(), true);
@@ -643,13 +706,12 @@ void TreeGenotyper::genotype_edit_site(const HeldEdit& edit, const vector<SiteBo
     const SiteBounds& bounds = edit.site.bounds;
     const vector<Traversal>& walks = edit.site.travs;
     const AlleleSequences& sequences = edit.site.sequences;
-    EditOutcome outcome;
-    outcome.node = edit.candidate.node;
-    outcome.offset = edit.candidate.offset;
-    outcome.alt = edit.candidate.alt;
-    outcome.placed = top_level ? "top" : "nested";
-    outcome.site = edit_site_id(edit.candidate.node, edit.candidate.offset, 'S',
-                                string(1, edit.candidate.alt));
+    const EditCandidate& c = edit.candidate;
+    EditOutcome outcome = unplaced_outcome(c, top_level ? "top" : "nested");
+    outcome.site = edit_site_id(c.node, c.offset, c.kind,
+                                c.kind == 'S' ? string(1, c.alt)
+                                : c.kind == 'I' ? c.sequence
+                                                : std::to_string(c.sequence.size()));
     const string& site_id = outcome.site;
     const size_t record_key = record_key_of(site_id);
 
@@ -675,9 +737,12 @@ void TreeGenotyper::genotype_edit_site(const HeldEdit& edit, const vector<SiteBo
         }
         ref_path_name = parent_ref_path_name;
     }
+    size_t walk_length = 0;
+    for (const handle_t& h : walks.front()) {
+        walk_length += graph.get_length(h);
+    }
     const pair<size_t, size_t> ref_range =
-        no_ref_position ? parent_ref_interval
-                        : make_pair(node_start, node_start + graph.get_length(bounds.start));
+        no_ref_position ? parent_ref_interval : make_pair(node_start, node_start + walk_length);
     const int ref_offset = ref_offset_of(*parts.ref_offsets, ref_path_name);
     const int region_ploidy =
         parts.ploidy_regions->ploidy_at(ref_path_name, ref_range.first, ref_offset,

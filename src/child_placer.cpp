@@ -22,7 +22,7 @@ int ChildPlacer::crossings_of_child(const HandleGraph& graph, const TraversalNod
                                    const SiteBounds& child) {
     const nid_t start = graph.get_id(child.start);
     const nid_t end = graph.get_id(child.end);
-    if (child.inside_node) {
+    if (inside_one_node(child)) {
         // Each visit passes both of the node's sides.
         auto found = visits.find(start);
         return found == visits.end() ? 0 : (int)found->second.size();
@@ -63,7 +63,7 @@ int ChildPlacer::offset_of_child(const HandleGraph& graph, const Traversal& walk
                                  const SiteBounds& child) {
     const nid_t start = graph.get_id(child.start);
     const nid_t end = graph.get_id(child.end);
-    if (child.inside_node) {
+    if (inside_one_node(child)) {
         // One visit is a whole crossing.
         for (int i = 0; i < (int)walk.size(); ++i) {
             if (graph.get_id(walk[i]) == start) {
@@ -103,7 +103,7 @@ int64_t ChildPlacer::ChildOffsets::base_offset(const HandleGraph& graph,
     const nid_t end = graph.get_id(child.end);
     auto start_visits = visits_of.find(start);
     auto end_visits = visits_of.find(end);
-    if (child.inside_node) {
+    if (inside_one_node(child)) {
         // The first visit is a whole crossing, and the child starts at its base inside the node,
         // read the way this visit reads the node.
         if (start_visits == visits_of.end()) {
@@ -126,6 +126,12 @@ int64_t ChildPlacer::ChildOffsets::base_offset(const HandleGraph& graph,
         || std::upper_bound(closing->second.begin(), closing->second.end(), entry)
                == closing->second.end()) {
         return -1;
+    }
+    if (child.inside_node) {
+        // A child inside nodes starts at its base inside the first.
+        SiteBounds as_visited = child;
+        as_visited.start = (*walk)[entry];
+        return bases_before[entry] + (int64_t)bases_before_site(graph, as_visited);
     }
     return bases_before[entry];
 }

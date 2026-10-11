@@ -364,6 +364,15 @@ struct AlleleLikelihoodParams {
     /// converted to nats, so it can take fractional values.
     double insertion_gap_nats = 0.0;
 
+    /// The rates at which a read shows an insertion, or a deletion, that the sequence it was read
+    /// from lacks, per base of the repeat tract it shows it in. An allele whose step sequences
+    /// differ from its walk by one indel, as an off-panel indel's do, is scored with them: a read
+    /// covering the indel's tract and a base on each side counts for or against the allele by these
+    /// rates, and any other read for neither (see `observe_indel`). Measured on short reads; on long
+    /// reads the mismapping floor binds before them outside long homopolymers.
+    double indel_insertion_rate = 2.8e-5;
+    double indel_deletion_rate = 1.3e-5;
+
     /// Choose each read's pairing with an allele by optimal pairing rather than greedy
     /// pairing; see GraphAlignedAlleleLikelihoodCalculator.
     bool optimal_pairing = false;
