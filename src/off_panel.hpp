@@ -138,6 +138,13 @@ struct EditCallBar {
     double min_fraction = 0.25;
     /// The lowest GQ at which a site called with the ALT is staged.
     double min_gq = 0.0;
+    /// The highest depth ratio (DR: the reads at the site over the number its called genotype
+    /// predicts) at which a site called with the ALT is staged; 0 for no limit. A collapsed
+    /// repeat piles the reads of several copies onto one walk, and the edits that tell the copies
+    /// apart then look like variants. Fitted on chr20 outside the truth BED, where short reads'
+    /// centromeric candidates sit at several times the expected depth; no truth-matched candidate
+    /// inside the BED is above it.
+    double max_depth_ratio = 3.0;
     /// The same two bars for an indel.
     size_t indel_min_alt_fragments = 7;
     double indel_min_fraction = 0.25;
@@ -178,6 +185,8 @@ struct EditOutcome {
     string site;
     vector<int> genotype;
     double gq = 0.0;
+    /// The direct call's depth ratio, or -1 where it has none.
+    double depth_ratio = -1.0;
     /// Whether it was staged, to be phased and written like any other site.
     bool staged = false;
 };

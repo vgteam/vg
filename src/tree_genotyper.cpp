@@ -761,10 +761,14 @@ void TreeGenotyper::genotype_edit_site(const HeldEdit& edit, const vector<SiteBo
     unique_ptr<SnarlCaller::CallInfo> call_info(std::move(called.second));
     outcome.genotype = genotype;
     outcome.gq = score != nullptr ? score->gq : 0.0;
+    outcome.depth_ratio = score != nullptr ? score->depth_ratio : -1.0;
     const bool carries_alt = std::count(genotype.begin(), genotype.end(), 1) > 0;
+    const double max_dr = options.edit_bar.max_depth_ratio;
     if (score == nullptr || genotype.size() != (size_t)ploidy || !carries_alt
-        || outcome.gq < options.edit_bar.min_gq) {
-        // Called without its ALT, or not confidently: nothing to stage.
+        || outcome.gq < options.edit_bar.min_gq
+        || (max_dr > 0.0 && outcome.depth_ratio > max_dr)) {
+        // Called without its ALT, not confidently, or from more reads than the called genotype
+        // accounts for: nothing to stage.
         parts.edit_outcomes->add(std::move(outcome));
         return;
     }

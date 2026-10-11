@@ -201,8 +201,9 @@ void help_call(char** argv) {
          << "      --off-panel-dump F    write each off-panel candidate, with its read" << endl
          << "                            counts and what became of it, to F as TSV" << endl
          << "      --off-panel-bar B     call a candidate whose ALT is on >= K fragments" << endl
-         << "                            and a fraction >= F of them, at GQ >= G, with B" << endl
-         << "                            given as K,F,G [7,0.25,0]" << endl
+         << "                            and a fraction >= F of them, at GQ >= G and a" << endl
+         << "                            depth ratio (DR) <= D (D 0: no limit), with B" << endl
+         << "                            given as K,F,G[,D] [7,0.25,0,3]" << endl
          << "      --off-panel-indels B  call an indel candidate whose ALT is on >= K" << endl
          << "                            fragments and a fraction >= F of them, unless its" << endl
          << "                            tract starts with a run of >= H of one base (H 0:" << endl
@@ -1105,12 +1106,15 @@ int main_call(int argc, char** argv) {
             break;
         case OPT_OFF_PANEL_BAR: {
             vector<string> parts = split_delims(optarg, ",");
-            if (parts.size() != 3) {
-                logger.error() << "--off-panel-bar takes K,F,G" << endl;
+            if (parts.size() != 3 && parts.size() != 4) {
+                logger.error() << "--off-panel-bar takes K,F,G[,D]" << endl;
             }
             off_panel_bar.min_alt_fragments = parse<size_t>(parts[0]);
             off_panel_bar.min_fraction = parse<double>(parts[1]);
             off_panel_bar.min_gq = parse<double>(parts[2]);
+            if (parts.size() == 4) {
+                off_panel_bar.max_depth_ratio = parse<double>(parts[3]);
+            }
             break;
         }
         case OPT_OFF_PANEL_INDELS: {

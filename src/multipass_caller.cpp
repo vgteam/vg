@@ -168,7 +168,7 @@ void MultiPassCaller::write_edit_dump() const {
         return;
     }
     out << "#contig\tpos\tnode\toffset\tref\talt\talt_frags\tref_frags\tother_frags"
-           "\tdiscordant_frags\taf\tmean_alt_mapq\tplaced\tsite\tgt\tgq\tstaged\thomopolymer\n";
+           "\tdiscordant_frags\taf\tmean_alt_mapq\tplaced\tsite\tgt\tgq\tstaged\thomopolymer\tdr\n";
     const vector<EditOutcome> outcomes =
         edit_outcomes != nullptr ? edit_outcomes->sorted() : vector<EditOutcome>();
     auto outcome = outcomes.begin();
@@ -212,7 +212,15 @@ void MultiPassCaller::write_edit_dump() const {
         } else {
             out << "\t" << (edit_bar.admits(c) ? "unplaced" : "below_bar") << "\t.\t.\t.\t0";
         }
-        out << "\t" << c.homopolymer << "\n";
+        out << "\t" << c.homopolymer << "\t";
+        if (outcome != outcomes.end() && outcome->node == c.node && outcome->offset == c.offset
+            && outcome->kind == c.kind && outcome->alt == c.alt
+            && outcome->sequence == c.sequence && !outcome->genotype.empty()) {
+            out << outcome->depth_ratio;
+        } else {
+            out << ".";
+        }
+        out << "\n";
     }
 }
 
