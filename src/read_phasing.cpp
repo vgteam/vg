@@ -352,13 +352,23 @@ unordered_set<size_t> read_phase_flips(vector<PhaseSite>& sites, const ReadPhasi
         counters.breaks_no_reads += breaks_no_reads;
         counters.coherence_rounds_run = max(counters.coherence_rounds_run, rounds);
 
-        if (!rel.empty()) {
+        // Sites the panel does not order that no read links to the chain, in increasing order.
+        // Stage 5 orders them by their reads against the sites that are ordered, and then against
+        // each other.
+        vector<size_t> unlinked;
+        const size_t per_side = params.hang / 2 + 1;
+        if (rel.empty()) {
+            for (size_t t : unrel) {
+                if (!sites[begin + t].panel_ordered) {
+                    unlinked.push_back(t);
+                }
+            }
+        } else {
             // --- stage 4: hang the unreliable sites from the chain ---
             //
             // `rel` is in increasing order and holds no unreliable site, so the reliable sites
             // before `t` are rel[0, split) and those after it rel[split, end), found by binary
             // search rather than by walking `rel` for every unreliable site.
-            const size_t per_side = params.hang / 2 + 1;
             for (size_t t : unrel) {
                 double s = 0.0;
                 size_t used = 0;
@@ -397,7 +407,10 @@ unordered_set<size_t> read_phase_flips(vector<PhaseSite>& sites, const ReadPhasi
                     }
                     s += params.panel_weight * (o[nearest] == 0 ? 1.0 : -1.0);
                 }
-                if (used == 0) {
+                if (used == 0 && !sites[begin + t].panel_ordered) {
+                    // Left to stage 5, which counts it if no read orders it there either.
+                    unlinked.push_back(t);
+                } else if (used == 0) {
                     ++counters.hung_no_reads;
                 } else if (!sites[begin + t].panel_ordered) {
                     set_read_ordered[set_index].push_back(sites[begin + t].record_key);
@@ -406,6 +419,94 @@ unordered_set<size_t> read_phase_flips(vector<PhaseSite>& sites, const ReadPhasi
                 o[t] = s < 0.0 ? 1 : 0;
                 decided[t] = 1;
                 ++counters.hung;
+            }
+        }
+
+        if (!unlinked.empty()) {
+            // --- stage 5: order by reads the sites that neither the panel nor the chain orders ---
+            //
+            // Such a site, as where no panel haplotype reaches, may still share reads with a site
+            // whose order is known: a site of the chain beyond the nearest few, a site hung from
+            // the chain, or one this stage has already ordered. Each is linked, in increasing
+            // order, to the nearest such sites on each side. What is then left shares no read
+            // with any of them, and is ordered against the others left, the nearest before it,
+            // so that reads order each run of them among themselves. A run's first site keeps
+            // the order it came in with, which says nothing, and the run is ordered relative to
+            // it. A site left with no read to any other site stays unordered.
+            vector<char> is_unlinked(n, 0);
+            for (size_t t : unlinked) {
+                is_unlinked[t] = 1;
+            }
+            // Every other site is ordered, by the chain, by the panel, or by being hung.
+            vector<size_t> known;
+            known.reserve(n - unlinked.size());
+            for (size_t t = 0; t < n; ++t) {
+                if (!is_unlinked[t]) {
+                    known.push_back(t);
+                }
+            }
+            vector<char> ordered(n, 0);
+            double s = 0.0;
+            size_t used = 0;
+            auto link = [&](size_t t, size_t u) {
+                const double dv = phase_link(sites[begin + t], sites[begin + u], params.cap);
+                if (dv == 0.0) {
+                    return false;
+                }
+                const int pred = o[u] ^ (dv < 0.0 ? 1 : 0);
+                s += std::fabs(dv) * (pred == 0 ? 1.0 : -1.0);
+                ++used;
+                return true;
+            };
+            // Against the ordered sites. `done` holds the sites this pass has ordered, which all
+            // lie before `t`; the nearest before `t` are merged from it and `known`.
+            vector<size_t> done;
+            vector<size_t> left;
+            for (size_t t : unlinked) {
+                s = 0.0;
+                used = 0;
+                const size_t split = std::lower_bound(known.begin(), known.end(), t) - known.begin();
+                size_t a = split, b = done.size();
+                for (size_t k = 0; k < per_side && (a > 0 || b > 0); ++k) {
+                    if (b == 0 || (a > 0 && known[a - 1] > done[b - 1])) {
+                        link(t, known[--a]);
+                    } else {
+                        link(t, done[--b]);
+                    }
+                }
+                for (size_t k = split; k < known.size() && k - split < per_side; ++k) {
+                    link(t, known[k]);
+                }
+                if (used == 0) {
+                    left.push_back(t);
+                    continue;
+                }
+                o[t] = s < 0.0 ? 1 : 0;
+                decided[t] = 1;
+                ordered[t] = 1;
+                done.push_back(t);
+            }
+            // Against each other: the nearest before `t` of those left.
+            for (size_t i = 0; i < left.size(); ++i) {
+                const size_t t = left[i];
+                s = 0.0;
+                used = 0;
+                for (size_t k = 0; k < per_side && k < i; ++k) {
+                    const size_t u = left[i - 1 - k];
+                    if (link(t, u)) {
+                        ordered[u] = 1;
+                    }
+                }
+                o[t] = s < 0.0 ? 1 : 0;
+                decided[t] = 1;
+                ordered[t] = ordered[t] || used > 0;
+            }
+            for (size_t t : unlinked) {
+                if (ordered[t]) {
+                    set_read_ordered[set_index].push_back(sites[begin + t].record_key);
+                } else if (!rel.empty()) {
+                    ++counters.hung_no_reads;
+                }
             }
         }
 

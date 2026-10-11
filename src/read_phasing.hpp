@@ -93,7 +93,9 @@ struct PhaseSite {
     /// Whether the panel orders the site's pair. It does not where no panel haplotype tells the
     /// strands apart (`PhaseCall::order_arbitrary`), as for a heterozygote whose ALT no haplotype
     /// carries. Such a site gives no panel order to anything: it never joins the chain, whose
-    /// pieces fall back on the panel's order, and it is ordered by its reads alone.
+    /// pieces fall back on the panel's order, and it is ordered by its reads alone, against the
+    /// chain, against any site whose order is known, or, where none shares a read with it, against
+    /// the other sites ordered by reads alone.
     bool panel_ordered = true;
 };
 
