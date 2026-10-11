@@ -52,13 +52,35 @@ struct ReadHold {
     EditCallBar bar;
     bool filled = false;
     vector<pair<nid_t, nid_t>> nodes;
-    vector<Alignment> reads;
+    /// The reads in fetch order, serialized, which takes several times less memory than an
+    /// Alignment, most of all a long read's; and the nodes each visits, as merged ranges, so
+    /// that a read is parsed only to be delivered.
+    vector<string> reads;
+    vector<vector<pair<nid_t, nid_t>>> read_nodes;
+    /// The reads the last query delivered, parsed, by index: neighbouring edit sites share most
+    /// of their reads, and a long read is parsed once for all of them.
+    vector<pair<size_t, Alignment>> parsed;
     vector<pair<nid_t, nid_t>> fetched;
     vector<Start> starts;
 };
 
 /// This thread's holds, innermost last.
 thread_local vector<ReadHold> read_holds;
+
+/// Do two lists of merged ranges share a node?
+bool ranges_meet(const vector<pair<nid_t, nid_t>>& a, const vector<pair<nid_t, nid_t>>& b) {
+    size_t i = 0, j = 0;
+    while (i < a.size() && j < b.size()) {
+        if (a[i].second < b[j].first) {
+            ++i;
+        } else if (b[j].second < a[i].first) {
+            ++j;
+        } else {
+            return true;
+        }
+    }
+    return false;
+}
 
 /// For a search of sorted candidates by node.
 bool candidate_node_below(const EditCandidate& c, nid_t node) {
@@ -446,8 +468,16 @@ void WindowedSiteReadSource::for_each_read(
                 }
             }
             hold->reads.reserve(held.size());
+            hold->read_nodes.reserve(held.size());
             for (auto& entry : held) {
-                hold->reads.push_back(std::move(entry.second));
+                vector<pair<nid_t, nid_t>> visits;
+                for (const auto& mapping : entry.second.path().mapping()) {
+                    visits.emplace_back(mapping.position().node_id(), mapping.position().node_id());
+                }
+                hold->read_nodes.push_back(merge_ranges(std::move(visits)));
+                hold->reads.emplace_back();
+                entry.second.SerializeToString(&hold->reads.back());
+                entry.second = Alignment();
             }
         }
         return;
@@ -720,14 +750,27 @@ bool WindowedSiteReadSource::deliver_held(const vector<pair<nid_t, nid_t>>& rang
             continue;
         }
         size_t n_delivered = 0;
-        for (const Alignment& aln : hold->reads) {
-            if (touches(aln, merged)) {
+        vector<pair<size_t, Alignment>> previous = std::move(hold->parsed);
+        vector<pair<size_t, Alignment>> parsed;
+        auto last = previous.begin();
+        for (size_t i = 0; i < hold->reads.size(); ++i) {
+            if (ranges_meet(hold->read_nodes[i], merged)) {
+                while (last != previous.end() && last->first < i) {
+                    ++last;
+                }
+                if (last != previous.end() && last->first == i) {
+                    parsed.push_back(std::move(*last));
+                } else {
+                    parsed.emplace_back(i, Alignment());
+                    parsed.back().second.ParseFromString(hold->reads[i]);
+                }
                 SiteRead read;
-                read.aln = &aln;
+                read.aln = &parsed.back().second;
                 iteratee(read);
                 ++n_delivered;
             }
         }
+        hold->parsed = std::move(parsed);
         ++held_queries;
         delivered += n_delivered;
         return true;
