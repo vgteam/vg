@@ -108,7 +108,7 @@ static StrandEmission strand_emission(int allele, size_t n, double mutation, dou
     return s;
 }
 
-/// What the emission of a diploid site under mutation is built from. Strands are classed by
+/// The per-class terms of a diploid site's emission under mutation. Strands are classed by
 /// their haplotype's allele, with class 0 for a haplotype that does not pass through the site
 /// and class x + 1 for allele x, so a pair's emission depends only on its two classes.
 struct MutationTerms {

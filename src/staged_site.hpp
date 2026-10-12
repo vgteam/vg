@@ -46,8 +46,8 @@ struct StagedSite {
     size_t chain_key = 0;
     /// The site's level.
     uint8_t level = 0;
-    /// Whether the site is an edit site (`--off-panel`): its ALT is a change the reads make that
-    /// no walk of the graph spells. Its record carries INFO/OP.
+    /// Whether the site is an edit site, added by off-panel detection: its ALT is a change the
+    /// reads make that no walk of the graph spells. Its record carries INFO/OP.
     bool off_panel = false;
     /// See `NestingPlacement::parent_crossing`.
     uint64_t parent_crossing = 0;
