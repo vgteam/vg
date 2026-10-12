@@ -41,6 +41,17 @@ struct Observation {
     }
 };
 
+/// Whether every node the read's path visits is in the graph. A read aligned to a larger graph
+/// can leave this one; such a read cannot be walked, so it adds no off-panel evidence.
+bool path_in_graph(const HandleGraph& graph, const Alignment& aln) {
+    for (const Mapping& m : aln.path().mapping()) {
+        if (!graph.has_node(m.position().node_id())) {
+            return false;
+        }
+    }
+    return true;
+}
+
 /// Walk the read's aligned bases on the nodes `wanted` accepts, each of quality at least `min_q`,
 /// giving each one's node, forward offset and forward base (0 for a match).
 void for_each_aligned_base(const HandleGraph& graph, const Alignment& aln, int min_q,
@@ -50,7 +61,7 @@ void for_each_aligned_base(const HandleGraph& graph, const Alignment& aln, int m
     size_t read_pos = 0;
     for (const Mapping& m : aln.path().mapping()) {
         const nid_t node = m.position().node_id();
-        const bool take = wanted(node);
+        const bool take = wanted(node) && graph.has_node(node);
         const bool reverse = m.position().is_reverse();
         const size_t node_len = take ? graph.get_length(graph.get_handle(node)) : 0;
         size_t node_pos = (size_t)m.position().offset();
@@ -264,7 +275,12 @@ class ReadWalk {
 public:
     explicit ReadWalk(const HandleGraph& graph) : graph(graph) {}
 
-    void load(const Alignment& aln) {
+    /// Load the read's walk. Returns false, loading nothing, for a read whose path leaves the
+    /// graph.
+    bool load(const Alignment& aln) {
+        if (!path_in_graph(graph, aln)) {
+            return false;
+        }
         const Alignment* use = &aln;
         if (aln.path().mapping_size() > 0 && aln.path().mapping(0).position().is_reverse()) {
             flipped = reverse_complement_alignment(aln, [&](nid_t id) {
@@ -287,6 +303,7 @@ public:
         node_start.push_back(at);
         walked = walk_alignment(mappings, node_start, 0, use->sequence());
         left_align(walked, base_fn);
+        return true;
     }
 
     /// The mapping holding walk base `x`.
@@ -560,7 +577,9 @@ vector<EditCandidate> count_indel_edits(
         if (aln.mapping_quality() < params.min_mapq || !has_indel(aln)) {
             return;
         }
-        walk.load(aln);
+        if (!walk.load(aln)) {
+            return;
+        }
         const uint64_t fragment = name_hash(aln.name());
         for (const WalkIndel& indel : walk.walked.indels) {
             const int64_t anchor = indel.at - 1;
@@ -658,7 +677,9 @@ vector<EditCandidate> count_indel_edits(
         if (!near) {
             return;
         }
-        walk.load(aln);
+        if (!walk.load(aln)) {
+            return;
+        }
         const uint64_t fragment = name_hash(aln.name());
         for (size_t i = 0; i + 1 < walk.node_start.size(); ++i) {
             const handle_t h = walk.handles[i];
@@ -1020,6 +1041,9 @@ vector<EditCandidate> count_large_indel_edits(
         if (best_support < params.min_fragments) {
             continue;
         }
+        if (!graph.has_node(clip.node)) {
+            continue;
+        }
         const handle_t h = graph.get_handle(clip.node);
         const size_t seed = clip.seed.size();
         const size_t reach = (size_t)large.max_clip_deletion + seed + 1;
@@ -1135,7 +1159,9 @@ vector<EditCandidate> count_large_indel_edits(
         if (!near) {
             return;
         }
-        walk.load(aln);
+        if (!walk.load(aln)) {
+            return;
+        }
         const uint64_t fragment = name_hash(aln.name());
         for (size_t k : touched) {
             done[k] = false;
