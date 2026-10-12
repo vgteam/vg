@@ -197,7 +197,8 @@ void help_call(char** argv) {
          << "  off-panel variants:" << endl
          << "      --off-panel           also call SNVs and indels of 1-49 bp that no graph" << endl
          << "                            walk spells, found as edits recurring in the reads" << endl
-         << "                            (experimental) [off]" << endl
+         << "                            [on]" << endl
+         << "      --no-off-panel        do not call off-panel variants" << endl
          << "      --off-panel-dump F    write each off-panel candidate, with its read" << endl
          << "                            counts and what became of it, to F as TSV" << endl
          << "      --off-panel-bar B     call a candidate whose ALT is on >= K fragments" << endl
@@ -485,7 +486,7 @@ int main_call(int argc, char** argv) {
     size_t regenotype_passes = 2;
     string regenotype_ledger;
     // Off-panel detection, and where to write its candidates.
-    bool off_panel = false;
+    bool off_panel = true;
     string off_panel_dump;
     EditCallBar off_panel_bar;
     bool off_panel_svs = false;
@@ -576,6 +577,7 @@ int main_call(int argc, char** argv) {
     constexpr int OPT_OFF_PANEL_BAR = 1116;
     constexpr int OPT_OFF_PANEL_INDELS = 1117;
     constexpr int OPT_OFF_PANEL_SVS = 1118;
+    constexpr int OPT_NO_OFF_PANEL = 1119;
     constexpr int OPT_DEPTH_TERM = 1025;
     constexpr int OPT_DEPTH_COUNT_RAW = 1026;
     constexpr int OPT_DEPTH_QUALITY = 1027;
@@ -714,6 +716,7 @@ int main_call(int argc, char** argv) {
             {"linkage-prior", required_argument, 0, OPT_LINKAGE_FREQ_PRIOR},
             {"linkage-mutation", required_argument, 0, OPT_LINKAGE_MUTATION},
             {"off-panel", no_argument, 0, OPT_OFF_PANEL},
+            {"no-off-panel", no_argument, 0, OPT_NO_OFF_PANEL},
             {"hp-prior", required_argument, 0, OPT_HP_PRIOR},
             {"hp-prior-run", required_argument, 0, OPT_HP_PRIOR_RUN},
             {"enumerate-support", no_argument, 0, OPT_ENUMERATE_SUPPORT},
@@ -1097,6 +1100,9 @@ int main_call(int argc, char** argv) {
             break;
         case OPT_OFF_PANEL:
             off_panel = true;
+            break;
+        case OPT_NO_OFF_PANEL:
+            off_panel = false;
             break;
         case OPT_OFF_PANEL_DUMP:
             off_panel_dump = optarg;
