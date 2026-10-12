@@ -164,8 +164,14 @@ bool LegacyCaller::call_snarl(const Snarl& snarl) {
         int ploidy = ploidy_regions.ploidy_at(path_name, get<0>(ref_interval),
                                               ref_offset_of(ref_offsets, path_name),
                                               ref_ploidy_of(ref_ploidies, path_name));
-        std::tie(called_traversals, genotype) = top_down_genotype(snarl, *rep_trav_finder, ploidy,
-                                                                  path_name, make_pair(get<0>(ref_interval), get<1>(ref_interval)));
+        if (ploidy == 0) {
+            // The sample has no copy of this region: no record, and no children called in its
+            // place.
+            was_called = true;
+        } else {
+            std::tie(called_traversals, genotype) = top_down_genotype(snarl, *rep_trav_finder, ploidy,
+                                                                      path_name, make_pair(get<0>(ref_interval), get<1>(ref_interval)));
+        }
     
         if (!called_traversals.empty()) {
             // regenotype our top-level traversals now that we know they aren't nested, and we have a

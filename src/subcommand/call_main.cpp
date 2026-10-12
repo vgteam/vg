@@ -352,10 +352,14 @@ void help_call(char** argv) {
          << "                            (cannot use with -p or -P)" << endl
          << "  -o, --ref-offset N        offset in reference path (may repeat; 1 per path)" << endl
          << "  -l, --ref-length N        override reference length for output VCF contig" << endl
-         << "  -d, --ploidy N            ploidy of sample. {1, 2} [2]" << endl
-         << "      --ploidy-bed FILE     BED of CHROM START END PLOIDY giving the ploidy of" << endl
-         << "                            each region, overriding -d and -R; CHROM is the" << endl
-         << "                            VCF contig name, and intervals must not overlap" << endl
+         << "  -d, --ploidy N            ploidy wherever --ploidy-bed and -R give none" << endl
+         << "                            {1, 2} [2]" << endl
+         << "      --ploidy-bed FILE     the way to give the sample's ploidy: a BED of" << endl
+         << "                            CHROM START END PLOIDY, overriding -d and -R." << endl
+         << "                            CHROM is the VCF contig name, intervals must not" << endl
+         << "                            overlap, and ploidy 0 makes no calls. vg ships one" << endl
+         << "                            per assembly and sex in data/ploidy/, e.g." << endl
+         << "                            chm13v2.XY.ploidy.bed; pass it to every run" << endl
          << "  -R, --ploidy-regex RULES  comma-separated REGEX:PLOIDY rules, each giving" << endl
          << "                            the ploidy of every reference path whose whole" << endl
          << "                            name REGEX matches. The first matching rule wins," << endl

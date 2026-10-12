@@ -145,6 +145,12 @@ bool TreeGenotyper::genotype_tree(const SiteView& view, const string& parent_ref
                                         ref_offset_of(*parts.ref_offsets, ref_path_name),
                                         ref_ploidy_of(*parts.ref_ploidies, ref_path_name));
     int ploidy = ploidy_override >= 0 ? ploidy_override : region_ploidy;
+    if (ploidy == 0) {
+        // The sample has no copy of this region, so there is nothing to genotype and no record.
+        // Only a site whose ploidy comes from its region gets here: a parent always passes at
+        // least 1. Done, not failed, so that its children are not called in its place.
+        return true;
+    }
 
     // What both the parent-traversal-set branch and the top-level branch do with their genotype:
     // give it to the linkage model and stage it, so that `render_retained_records` writes its
@@ -774,6 +780,12 @@ void TreeGenotyper::genotype_edit_site(const HeldEdit& edit, const vector<SiteBo
         parts.ploidy_regions->ploidy_at(ref_path_name, ref_range.first, ref_offset,
                                         ref_ploidy_of(*parts.ref_ploidies, ref_path_name));
     const int ploidy = ploidy_override >= 0 ? ploidy_override : region_ploidy;
+    if (ploidy == 0) {
+        // The sample has no copy of this region, so the edit is not genotyped.
+        outcome.placed = "ploidy_zero";
+        parts.edit_outcomes->add(std::move(outcome));
+        return;
+    }
 
     Ploidies ploidies{.ploidy = ploidy};
     if (!top_level) {

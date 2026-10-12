@@ -545,7 +545,7 @@ Its inputs are:
    the rate is independent of how many non-reference nodes the window holds. Variation that the
    sample carries in the window still changes it: a deletion leaves reference bases on which no
    reads start. The counts are computed once per bucket and shared, and each site divides the read
-   rate by the ploidy of its region (set by `--ploidy`, `--ploidy-regex` or `--ploidy-bed`) to give
+   rate by the ploidy of its region (set by `--ploidy-bed`, `--ploidy` or `--ploidy-regex`) to give
    $\kappa$, a rate per haplotype. That is the site's own ploidy, except at a nested site that only
    some of its parent's alleles cross: the site is genotyped at a lower ploidy, but the window's
    reads come from every haplotype. When no read begins in the window, $\kappa = 0$, and the depth

@@ -186,7 +186,12 @@ bool NestedFlowCaller::call_snarl_recursive(const Snarl& managed_snarl, int max_
             max_ploidy = ploidy_regions.ploidy_at(ref_path_name, get<0>(ref_interval),
                                                   ref_offset_of(ref_offsets, ref_path_name),
                                                   ref_ploidy_of(ref_ploidies, ref_path_name));
-        }        
+            if (max_ploidy == 0) {
+                // The sample has no copy of this region: no genotype, so no record, and no
+                // children called. A nested site takes its ploidy from its parent instead.
+                return true;
+            }
+        }
     } else {
         // if we have no reference infromation, try to get it from the parent snarl
         gt_ref_path_name = parent_ref_path_name;

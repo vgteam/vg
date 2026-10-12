@@ -95,7 +95,8 @@ sites is described under [Passes and rounds](#passes-and-rounds), after the voca
 - **Ploidy.** A site's ploidy, $P$, is the number of the sample's haplotypes that pass through the
   site. Options set the ploidy of each contig or region, and a nested site's ploidy follows from its
   parent's genotype (see [Ploidy](#ploidy)). The ploidy options accept only 1 or 2, because the
-  linkage model, phasing and nested calling are built for at most two haplotypes. A nested site that
+  linkage model, phasing and nested calling are built for at most two haplotypes, and
+  `--ploidy-bed` also accepts 0 for a region the sample has no copy of. A nested site that
   none of its parent's alleles passes through has ploidy 0 (see
   [Which child chains are genotyped](#which-child-chains-are-genotyped)).
 - **Panel.** The haplotypes stored in the GBZ file's
@@ -294,14 +295,21 @@ haplotype enumeration, which does not use Yen's search, there is no limit by def
 
 ## Ploidy
 
-A site's ploidy comes from `--ploidy`. `--ploidy-regex` overrides it per contig, with a
-comma-separated list of `REGEX:PLOIDY` rules. For each reference path, the first rule whose regular
-expression matches the path's name applies. `--ploidy-bed` overrides both per region, with a BED
-file of `CHROM START END PLOIDY` lines. `CHROM` is spelled as in the output VCF. Intervals are
-0-based and half-open, and must not overlap. A site takes the ploidy of the interval that contains
-its position. A site outside every interval keeps the ploidy from `--ploidy` or `--ploidy-regex`.
-Every ploidy must be 1 or 2. A site that these options make haploid has a single allele as its
-`GT`.
+A site's ploidy comes from `--ploidy-bed`, a BED file of `CHROM START END PLOIDY` lines. `CHROM`
+is spelled as in the output VCF. Intervals are 0-based and half-open, and must not overlap. A site
+takes the ploidy of the interval that contains its position. A site outside every interval takes
+the ploidy from `--ploidy`, 2 by default, or from `--ploidy-regex`, a comma-separated list of
+`REGEX:PLOIDY` rules of which the first whose regular expression matches the reference path's name
+applies. Every ploidy must be 1 or 2, except that a `--ploidy-bed` interval may have ploidy 0: the
+sample has no copy of that region, so a site there is not genotyped and gets no record. A site at
+ploidy 1 has a single allele as its `GT`.
+
+vg ships one such file per reference assembly and sample sex, in `data/ploidy/` of the vg
+repository: `chm13v2`, `grch38`, `grch37.ucsc` and `grch37.b37`, each as `XY` and `XX`, for
+example `chm13v2.XY.ploidy.bed`. An `XY` file makes chrX haploid outside its pseudoautosomal
+regions and chrY and the mitochondrion haploid, and an `XX` file gives chrY ploidy 0 and makes the
+mitochondrion haploid. A contig with no line is diploid, so one file serves a whole-genome run and
+a run on any one contig alike, with no `--ploidy`.
 
 A nested site takes its ploidy from its parent's genotype instead (see
 [Which child chains are genotyped](#which-child-chains-are-genotyped)). The exception is a child of

@@ -9,7 +9,7 @@ PATH=../bin:$PATH # for vg
 # FORMAT field shifts every later one, which broke four assertions here that were not
 # testing field order at all -- one of them silently compared BL against a GQ threshold.
 
-plan tests 463
+plan tests 476
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -253,7 +253,25 @@ IN_WINDOW_DIP=$(awk -v c="${PB_CUT}" '$1 <= c && $2 ~ /[\/|]/' win_gts.txt | wc 
 is "${IN_WINDOW_DIP}" "0" "--ploidy-bed makes every call inside a haploid window haploid"
 OUT_WINDOW_HAP=$(awk -v c="${PB_CUT}" '$1 > c && $2 !~ /[\/|]/' win_gts.txt | wc -l | tr -d ' ')
 is "${OUT_WINDOW_HAP}" "0" "--ploidy-bed leaves calls outside the window at the -d ploidy"
-rm -f dip_gts.txt win_gts.txt window_ploidy.bed
+
+# A BED line covering the whole contig at ploidy 1 must call exactly as -d 1 does, since a ploidy
+# file replaces -d for haploid contigs such as chrY.
+printf '%s\t0\t1000000000\t1\n' "${PB_CONTIG}" > whole_ploidy.bed
+vg call HGSVC_rl.xg -k HGSVC_rl.pack --read-likelihood -d 1 --gam call/HGSVC_chr22_17119590_17880307.gam -t 1 2>/dev/null | grep -v "^#" > hap_d.txt
+vg call HGSVC_rl.xg -k HGSVC_rl.pack --read-likelihood --ploidy-bed whole_ploidy.bed --gam call/HGSVC_chr22_17119590_17880307.gam -t 1 2>/dev/null | grep -v "^#" > hap_bed.txt
+is $(awk '$10 !~ /[\/|]/' hap_d.txt | wc -l | awk '{print ($1>0)?1:0}') "1" "-d 1 makes haploid calls on the read-likelihood contig"
+is "$(md5sum < hap_bed.txt)" "$(md5sum < hap_d.txt)" "a whole-contig --ploidy-bed line of ploidy 1 calls exactly as -d 1"
+
+# Ploidy 0: the sample has no copy of the region, so no site there gets a record.
+printf '%s\t0\t%s\t0\n' "${PB_CONTIG}" "${PB_CUT}" > zero_window.bed
+vg call HGSVC_rl.xg -k HGSVC_rl.pack --read-likelihood --ploidy-bed zero_window.bed --gam call/HGSVC_chr22_17119590_17880307.gam -t 1 2>/dev/null | grep -v "^#" | cut -f2 > zero_pos.txt
+is $(awk -v c="${PB_CUT}" '$1 <= c' zero_pos.txt | wc -l | tr -d ' ') "0" "--ploidy-bed ploidy 0 leaves no record inside its window"
+is $(awk -v c="${PB_CUT}" '$1 > c' zero_pos.txt | wc -l | awk '{print ($1>0)?1:0}') "1" "--ploidy-bed ploidy 0 still calls outside its window"
+printf '%s\t0\t1000000000\t0\n' "${PB_CONTIG}" > zero_whole.bed
+vg call HGSVC_rl.xg -k HGSVC_rl.pack --read-likelihood --ploidy-bed zero_whole.bed --gam call/HGSVC_chr22_17119590_17880307.gam -t 1 > zero_whole.vcf 2>/dev/null
+is "$?" "0" "a read-likelihood run on a contig of ploidy 0 succeeds"
+is $(grep -vc "^#" zero_whole.vcf) "0" "a read-likelihood run on a contig of ploidy 0 writes no records"
+rm -f dip_gts.txt win_gts.txt window_ploidy.bed whole_ploidy.bed hap_d.txt hap_bed.txt zero_window.bed zero_pos.txt zero_whole.bed zero_whole.vcf
 
 # --read-likelihood without reads must fail loudly rather than genotype with none.
 vg call HGSVC_rl.xg -k HGSVC_rl.pack --read-likelihood -t 1 > /dev/null 2> rl_err.txt
@@ -2259,8 +2277,31 @@ vg call small_cluster_call.vg -k small_cluster_call.pack -p x 2>/dev/null > ploi
 is "$(grep -v '^#' ploidy_bed_elsewhere.vcf | md5sum | cut -f1 -d' ')" "$(grep -v '^#' ploidy_bed_none.vcf | md5sum | cut -f1 -d' ')" "a --ploidy-bed matching no called contig changes nothing"
 
 
+# The support-based callers: a whole-contig line of ploidy 1 is -d 1, and ploidy 0 makes no calls.
+printf 'x\t0\t1000000000\t1\n' > whole_x_ploidy.bed
+vg call small_cluster_call.vg -k small_cluster_call.pack -p x -d 1 2>/dev/null | grep -v '^#' > sb_hap_d.txt
+vg call small_cluster_call.vg -k small_cluster_call.pack -p x --ploidy-bed whole_x_ploidy.bed 2>/dev/null | grep -v '^#' > sb_hap_bed.txt
+is $(wc -l < sb_hap_d.txt | awk '{print ($1>0)?1:0}') "1" "-d 1 makes calls on the support-based contig"
+is "$(md5sum < sb_hap_bed.txt)" "$(md5sum < sb_hap_d.txt)" "a whole-contig --ploidy-bed line of ploidy 1 calls exactly as -d 1 without reads"
+printf 'x\t0\t1000000000\t0\n' > zero_x_ploidy.bed
+is $(vg call small_cluster_call.vg -k small_cluster_call.pack -p x --ploidy-bed zero_x_ploidy.bed 2>/dev/null | grep -vc '^#') "0" "ploidy 0 makes no support-based calls"
+is $(vg call small_cluster_call.vg -k small_cluster_call.pack -p x --bottom-up 2>/dev/null | grep -vc '^#' | awk '{print ($1>0)?1:0}') "1" "--bottom-up makes calls on the support-based contig"
+is $(vg call small_cluster_call.vg -k small_cluster_call.pack -p x --bottom-up --ploidy-bed zero_x_ploidy.bed 2>/dev/null | grep -vc '^#') "0" "ploidy 0 makes no --bottom-up calls"
+
+# The ploidy files vg ships parse, and leave a contig they do not name diploid and unchanged.
+SHIPPED=0
+SHIPPED_OK=0
+for PF in ../data/ploidy/*.ploidy.bed; do
+    SHIPPED=$((SHIPPED + 1))
+    vg call small_cluster_call.vg -k small_cluster_call.pack -p x --ploidy-bed "${PF}" 2>/dev/null | grep -v '^#' > shipped.txt
+    [ "${PIPESTATUS[0]}" = 0 ] && cmp -s shipped.txt <(grep -v '^#' ploidy_bed_none.vcf) && SHIPPED_OK=$((SHIPPED_OK + 1))
+done
+is "${SHIPPED}" "8" "vg ships XY and XX ploidy files for four assemblies"
+is "${SHIPPED_OK}" "${SHIPPED}" "every shipped ploidy file parses and leaves an unnamed contig as it was"
+
 rm -f bad_ploidy.bed overlap_ploidy.bed reversed_ploidy.bed elsewhere_ploidy.bed
-rm -f ploidy_bed_elsewhere.vcf ploidy_bed_none.vcf
+rm -f ploidy_bed_elsewhere.vcf ploidy_bed_none.vcf whole_x_ploidy.bed zero_x_ploidy.bed
+rm -f sb_hap_d.txt sb_hap_bed.txt shipped.txt
 # -G built a re-indexed traversal vector but kept the original reference index, then indexed the
 # small vector with it.
 vg call small_cluster_call.vg -k small_cluster_call.pack -p x -G > call_gaf.gaf 2>/dev/null

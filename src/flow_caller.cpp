@@ -113,6 +113,11 @@ bool FlowCaller::call_snarl_internal(const Snarl& managed_snarl,
     int ploidy = ploidy_regions.ploidy_at(ref_path_name, get<0>(ref_interval),
                                           ref_offset_of(ref_offsets, ref_path_name),
                                           ref_ploidy_of(ref_ploidies, ref_path_name));
+    if (ploidy == 0 && (parent_child_trav_sets == nullptr || parent_child_trav_sets->empty())) {
+        // The sample has no copy of this region: no record, and no children called in its place.
+        // A nested site takes its ploidy from its parent's traversal sets instead.
+        return true;
+    }
 
     if (traversals_only) {
         assert(gaf_output);

@@ -36,10 +36,11 @@ PloidyRegions::PloidyRegions(const string& bed_path) {
                  << " has a negative or reversed interval: " << line << endl;
             exit(1);
         }
-        // The callers support ploidy 1 and 2 only, so reject anything else here.
-        if (ploidy != 1 && ploidy != 2) {
+        // The callers genotype at ploidy 1 and 2 only, and skip a site at ploidy 0, so reject
+        // anything else here.
+        if (ploidy < 0 || ploidy > 2) {
             cerr << "error [vg call]: --ploidy-bed " << bed_path << " line " << line_number
-                 << " has ploidy " << ploidy << ", which must be 1 or 2" << endl;
+                 << " has ploidy " << ploidy << ", which must be 0, 1 or 2" << endl;
             exit(1);
         }
         if (start == end) {
