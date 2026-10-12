@@ -189,12 +189,13 @@ unordered_set<size_t> read_phase_flips(vector<PhaseSite>& sites, const ReadPhasi
         ++counters.chains;
         const size_t n = end - begin;
 
-        // Which sites may carry a link at all.
+        // Which sites may carry a link at all. A site the panel does not order is among them: its
+        // reads order it against the rest of the chain, and only the panel's frame is taken from
+        // the sites the panel does order (see the framing below).
         vector<size_t> rel;
         vector<size_t> unrel;
         for (size_t t = 0; t < n; ++t) {
-            if (sites[begin + t].reliability >= params.reliability
-                && sites[begin + t].panel_ordered) {
+            if (sites[begin + t].reliability >= params.reliability) {
                 rel.push_back(t);
             } else {
                 unrel.push_back(t);
@@ -215,20 +216,31 @@ unordered_set<size_t> read_phase_flips(vector<PhaseSite>& sites, const ReadPhasi
         size_t breaks = 0;
         size_t breaks_no_reads = 0;
         size_t rounds = 0;
+        // The last pass's pieces, as positions in `rel`, and for each piece whether reads relinked
+        // it to the piece before it.
+        vector<size_t> bounds;
+        vector<char> joined;
+        // The chain sites the panel orders, and those it does not that reads order, in increasing
+        // order, as the framing in the last pass found them.
+        vector<size_t> rel_panel;
+        vector<size_t> chain_read_ordered;
         for (size_t pass = 0; pass < max_pass && !rel.empty(); ++pass) {
             // --- stage 1: the chain of reliable sites, stepping over the rest ---
             vector<double> d(rel.size() > 0 ? rel.size() - 1 : 0, 0.0);
             for (size_t m = 0; m + 1 < rel.size(); ++m) {
                 d[m] = phase_link(sites[begin + rel[m]], sites[begin + rel[m + 1]], params.cap);
             }
-            vector<size_t> bounds;
+            bounds.clear();
             bounds.push_back(0);
             for (size_t m = 0; m + 1 < rel.size(); ++m) {
-                if (std::fabs(d[m]) < params.break_threshold) {
+                // A link no read makes is a break whatever the threshold, so that reads link the
+                // sites of every piece.
+                if (d[m] == 0.0 || std::fabs(d[m]) < params.break_threshold) {
                     bounds.push_back(m + 1);
                 }
             }
             bounds.push_back(rel.size());
+            joined.assign(bounds.size() - 1, 0);
             breaks = bounds.size() - 2;
             breaks_no_reads = 0;
 
@@ -267,14 +279,48 @@ unordered_set<size_t> read_phase_flips(vector<PhaseSite>& sites, const ReadPhasi
                 }
                 if (total == 0.0) {
                     ++breaks_no_reads;
-                    continue;                                  // the panel's frame stands
+                    continue;                                  // framed on the panel below
                 }
+                joined[b + 1] = 1;
                 const int x = total < 0.0 ? 1 : 0;
                 if (x ^ o[rel[ea - 1]] ^ o[rel[sb]]) {
                     for (size_t m = sb; m < eb; ++m) {
                         o[rel[m]] ^= 1;
                     }
                 }
+            }
+
+            // --- framing: put each run of pieces that reads join in the panel's order ---
+            //
+            // A run is a maximal series of pieces, each relinked by reads to the one before it.
+            // Reads fix the order of its sites relative to each other, and only the panel relates
+            // it to the runs either side, which no read reaches. So the run is turned as a whole to
+            // put its first site the panel orders in the panel's order, before stage 3 compares
+            // sites across runs. A run with no such site keeps the order its first site came in
+            // with, which says nothing.
+            rel_panel.clear();
+            chain_read_ordered.clear();
+            for (size_t b = 0; b + 1 < bounds.size();) {
+                size_t e = b + 1;
+                while (e + 1 < bounds.size() && joined[e]) {
+                    ++e;
+                }
+                const size_t m0 = bounds[b], m1 = bounds[e];   // the run is rel[m0, m1)
+                size_t first = m1;
+                for (size_t m = m0; m < m1; ++m) {
+                    if (sites[begin + rel[m]].panel_ordered) {
+                        first = min(first, m);
+                        rel_panel.push_back(rel[m]);
+                    } else if (m1 - m0 >= 2) {
+                        chain_read_ordered.push_back(sites[begin + rel[m]].record_key);
+                    }
+                }
+                if (first < m1 && o[rel[first]]) {
+                    for (size_t m = m0; m < m1; ++m) {
+                        o[rel[m]] ^= 1;
+                    }
+                }
+                b = e;
             }
 
             // --- stage 3: remove chain sites whose reads disagree with the rest of the chain ---
@@ -352,6 +398,12 @@ unordered_set<size_t> read_phase_flips(vector<PhaseSite>& sites, const ReadPhasi
         counters.breaks_no_reads += breaks_no_reads;
         counters.coherence_rounds_run = max(counters.coherence_rounds_run, rounds);
 
+        // A site the panel does not order is ordered by its reads if its run has another site,
+        // since every link inside a piece and every relink has reads; alone in a run, nothing
+        // orders it.
+        set_read_ordered[set_index].insert(set_read_ordered[set_index].end(),
+                                           chain_read_ordered.begin(), chain_read_ordered.end());
+
         // Sites the panel does not order that no read links to the chain, in increasing order.
         // Stage 5 orders them by their reads against the sites that are ordered, and then against
         // each other.
@@ -391,19 +443,22 @@ unordered_set<size_t> read_phase_flips(vector<PhaseSite>& sites, const ReadPhasi
                 for (size_t k = split; k < rel.size() && k - split < per_side; ++k) {
                     link(rel[k]);
                 }
-                if (params.panel_weight > 0.0 && !rel.empty() && sites[begin + t].panel_ordered) {
-                    // The panel says this site keeps the order it came in with, relative to its
-                    // neighbour's. Weak, and only decisive when the reads say nothing. The
-                    // nearest reliable site is on one side of `t` or the other; on a tie, the
-                    // one before it.
+                if (params.panel_weight > 0.0 && !rel_panel.empty()
+                    && sites[begin + t].panel_ordered) {
+                    // The panel says this site keeps the order it came in with, relative to the
+                    // nearest chain site the panel also orders. Weak, and only decisive when the
+                    // reads say nothing. That site is on one side of `t` or the other; on a tie,
+                    // the one before it.
+                    const size_t p = std::lower_bound(rel_panel.begin(), rel_panel.end(), t)
+                                     - rel_panel.begin();
                     size_t nearest;
-                    if (split == 0) {
-                        nearest = rel.front();
-                    } else if (split == rel.size()) {
-                        nearest = rel.back();
+                    if (p == 0) {
+                        nearest = rel_panel.front();
+                    } else if (p == rel_panel.size()) {
+                        nearest = rel_panel.back();
                     } else {
-                        nearest = t - rel[split - 1] <= rel[split] - t ? rel[split - 1]
-                                                                       : rel[split];
+                        nearest = t - rel_panel[p - 1] <= rel_panel[p] - t ? rel_panel[p - 1]
+                                                                           : rel_panel[p];
                     }
                     s += params.panel_weight * (o[nearest] == 0 ? 1.0 : -1.0);
                 }

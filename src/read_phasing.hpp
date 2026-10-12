@@ -92,10 +92,11 @@ struct PhaseSite {
     double reliability = 0.0;
     /// Whether the panel orders the site's pair. It does not where no panel haplotype tells the
     /// strands apart (`PhaseCall::order_arbitrary`), as for a heterozygote whose ALT no haplotype
-    /// carries. Such a site gives no panel order to anything: it never joins the chain, whose
-    /// pieces fall back on the panel's order, and it is ordered by its reads alone, against the
-    /// chain, against any site whose order is known, or, where none shares a read with it, against
-    /// the other sites ordered by reads alone.
+    /// carries. Such a site gives no panel order to anything. When reliable it joins the chain, but
+    /// each run of chain pieces that reads join takes the panel's order from its first site the
+    /// panel orders, and a hung site's panel vote refers to the nearest such chain site. It is ordered by its
+    /// reads alone: against the chain, against any site whose order is known, or, where none shares
+    /// a read with it, against the other sites ordered by reads alone.
     bool panel_ordered = true;
 };
 
@@ -183,8 +184,9 @@ double phase_link(const PhaseSite& a, const PhaseSite& b, double cap);
 /// site's rows are merged by `merge_mates`, in place, so a site built by hand is treated as
 /// `reduce_to_pair` would build it.
 ///
-/// Returns the record keys whose chosen pair should be swapped. A chain's first site keeps the
-/// panel's order, so with no read evidence nothing is swapped. Breaks are relinked from left to
+/// Returns the record keys whose chosen pair should be swapped. Each run of chain pieces that
+/// reads join keeps the panel's order at its first site the panel orders, so with no read evidence
+/// nothing is swapped. Breaks are relinked from left to
 /// right, each piece taking its orientation from the piece before it as that piece now stands. A
 /// hung site whose votes sum to exactly zero keeps the panel's order.
 ///

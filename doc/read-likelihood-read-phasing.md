@@ -101,17 +101,23 @@ every site after it, while a wrong decision for another site flips only that sit
 goes through four stages:
 
 1. **Phase chain.** The reliable sites of the phase set, in order of position, form its **phase
-   chain**, and each is linked to the next. The phase chain breaks wherever the size of a link is
-   below `--phase-break` $\log_{10}$ units, and the breaks divide it into **pieces**. The first site
-   of each piece keeps the panel's phase. Each later site of the piece is flipped relative to the
-   site before it when their link, taken in the panel's phases, is negative.
+   chain**, and each is linked to the next. The phase chain breaks wherever no read links two
+   neighbouring sites or the size of their link is below `--phase-break` $\log_{10}$ units, and the
+   breaks divide it into **pieces**. The first site of each piece keeps its phase. Each later site
+   of the piece is flipped relative to the site before it when their link, taken in the panel's
+   phases, is negative.
 2. **Relink.** At each break, read phasing decides from the links across it whether to flip the
    later piece. Take the last `--phase-relink` sites of the piece before the break and the first
    `--phase-relink` sites of the piece after it, or all of a piece's sites if it has fewer. Sum the
    links between every site on one side and every site on the other, each in the current phases. If
    the sum is negative, every site of the later piece is flipped. Otherwise, as when no read links
    the two sides, the later piece keeps the phases stage 1 gave it. Breaks are decided from left to
-   right, so each piece is oriented against the piece before it as that piece now stands.
+   right, so each piece is oriented against the piece before it as that piece now stands. A break
+   that no read links separates two **runs**: a run is a series of pieces, each linked by reads to
+   the one before it. Each time stage 2 is done, every site of a run is flipped if that is needed
+   for the panel's phase to be kept at the run's first site where the panel orders the two alleles
+   (see [Phasing from the panel](read-likelihood-linkage-model.md#phasing-from-the-panel)). A run
+   without such a site keeps the phases stages 1 and 2 gave it.
 3. **Coherence.** This stage removes phase-chain sites whose reads disagree with the rest of the
    phase chain. Take a read that spans two or more phase-chain sites, and one of those sites, $s$.
    The read's other phase-chain sites $t$ vote for the strand it came from. Strand 0 scores $\sum_t
@@ -131,8 +137,9 @@ goes through four stages:
    used, up to $\lfloor H/2 \rfloor + 1$ on each side, so that $H$, `--phase-hang`, is shared
    between the two sides. The link to each of them votes for the phase it implies, with a weight
    equal to its size. A further vote of weight `--phase-prior`, in the same $\log_{10}$ units,
-   keeps the site's phase relative to the nearest phase-chain site as the panel gave it: it
-   favours flipping the site if that site was flipped, and keeping its phase if not. The site
+   keeps the site's phase relative to the nearest phase-chain site where the panel orders the two
+   alleles, as the panel gave it: it favours flipping the site if that site was flipped, and keeping its phase
+   if not. The site
    takes the phase with the larger total vote, and a tie keeps the panel's phase.
 
 When read phasing flips a site, its alleles change strands, and so does every nested haploid chain

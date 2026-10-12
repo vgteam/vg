@@ -146,14 +146,15 @@ TEST_CASE("a hung site that no read links keeps the panel's order", "[read_phasi
 }
 
 TEST_CASE("reads order the sites the panel cannot that the chain does not reach", "[read_phasing]") {
-    // Chain sites 1 and 3 share no read with sites 10-13, which no panel haplotype orders. 13 shares
-    // reads with 4, which is hung from the chain by the panel's vote, and takes its order from it.
-    // 10 and 11 share reads only with each other, so they are ordered against each other, 11 the
-    // other way round from 10. 12 shares a read with nothing, and stays unordered.
+    // Chain sites 1 and 3 share no read with sites 10-13, which no panel haplotype orders and which
+    // are too unreliable to join the chain. 13 shares reads with 4, which is hung from the chain by
+    // the panel's vote, and takes its order from it. 10 and 11 share reads only with each other, so
+    // they are ordered against each other, 11 the other way round from 10. 12 shares a read with
+    // nothing, and stays unordered.
     vector<PhaseSite> sites{site(1, 100, 0), site(3, 300, 0),
                             site(4, 340, 0, 20, 1.0, 1000),
-                            site(10, 150, 0, 20, 12.0, 500), site(11, 250, 1, 20, 12.0, 500),
-                            site(12, 280, 0, 20, 12.0, 900), site(13, 320, 1, 20, 12.0, 1000)};
+                            site(10, 150, 0, 20, 1.0, 500), site(11, 250, 1, 20, 1.0, 500),
+                            site(12, 280, 0, 20, 1.0, 900), site(13, 320, 1, 20, 1.0, 1000)};
     for (PhaseSite& s : sites) {
         s.panel_ordered = s.record_key < 10;
     }
@@ -166,6 +167,46 @@ TEST_CASE("reads order the sites the panel cannot that the chain does not reach"
     REQUIRE(counters.hung_no_reads == 2);
     REQUIRE(read_ordered == unordered_set<size_t>{10, 11, 13});
     REQUIRE(flips == unordered_set<size_t>{11, 13});
+}
+
+TEST_CASE("a run of the chain takes the panel's order from its first site the panel orders", "[read_phasing]") {
+    // Two runs no read joins. Each starts with a reliable site the panel does not order, 10 and 11,
+    // whose reads put it the other way round from the panel sites after it. The panel sites keep
+    // the panel's order, and 10 and 11 are flipped to match them and count as ordered by reads.
+    vector<PhaseSite> sites{site(10, 100, 1), site(2, 200, 0), site(3, 300, 0),
+                            site(11, 400, 1, 20, 12.0, 500), site(4, 500, 0, 20, 12.0, 500)};
+    for (PhaseSite& s : sites) {
+        s.panel_ordered = s.record_key < 10;
+    }
+    ReadPhasingParams params;
+    ReadPhasingCounters counters;
+    unordered_set<size_t> read_ordered;
+    const auto flips = read_phase_flips(sites, params, counters, &read_ordered);
+    REQUIRE(counters.reliable == 5);
+    REQUIRE(counters.breaks_no_reads == 1);
+    REQUIRE(read_ordered == unordered_set<size_t>{10, 11});
+    REQUIRE(flips == unordered_set<size_t>{10, 11});
+}
+
+TEST_CASE("a chain site the panel does not order is ordered by reads only with company", "[read_phasing]") {
+    // 20 and 21, which the panel does not order, form a run of their own, so reads order 21
+    // against 20, but nothing orders the run as a whole. 22, alone in a run, is not ordered at all.
+    // 5, hung with no reads, takes the panel's vote relative to 2, the nearest chain site the
+    // panel orders, not relative to 21, which is nearer but whose order the panel did not give.
+    vector<PhaseSite> sites{site(2, 100, 0), site(20, 300, 0, 20, 12.0, 900),
+                            site(21, 310, 1, 20, 12.0, 900), site(5, 320, 0, 20, 1.0, 2000),
+                            site(22, 400, 0, 20, 12.0, 3000)};
+    for (PhaseSite& s : sites) {
+        s.panel_ordered = s.record_key < 10;
+    }
+    ReadPhasingParams params;
+    ReadPhasingCounters counters;
+    unordered_set<size_t> read_ordered;
+    const auto flips = read_phase_flips(sites, params, counters, &read_ordered);
+    REQUIRE(counters.hung == 1);
+    REQUIRE(counters.hung_no_reads == 1);
+    REQUIRE(read_ordered == unordered_set<size_t>{20, 21});
+    REQUIRE(flips == unordered_set<size_t>{21});
 }
 
 TEST_CASE("paired mates at one site are one read, the more confident mate", "[read_phasing]") {
