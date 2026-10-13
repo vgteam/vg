@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <atomic>
+#include <chrono>
 #include <cstdint>
 #include <functional>
 #include <iostream>
@@ -31,6 +32,9 @@ using namespace std;
  * By default each site is its own parallel job. With a batch window of w node IDs, the top-level
  * sites are grouped into batches instead: a batch holds the sites whose key falls in one window of
  * w IDs, [k*w, (k+1)*w) for some k, each batch is one job, and a job calls its sites in key order.
+ * A batch still running after `SPLIT_AFTER_SECONDS` hands its remaining sites out as tasks of
+ * `SPLIT_SITES` sites, which threads that have run out of batches take, so that one slow window
+ * does not leave the other threads idle.
  * Queued sites are still one job each, started in key order. A site's key is the lower of its two
  * boundary node IDs, so that key order puts sites with nearby node IDs next to each other.
  *
@@ -44,6 +48,11 @@ public:
     /// Calls one site. `queue` is the calling thread's list of sites to call next, to which the
     /// call adds the sites it wants called.
     using SiteCall = function<void(const Site& site, vector<Site>& queue)>;
+
+    /// How long a batch runs on its own thread before its remaining sites become tasks, and how
+    /// many sites a task holds.
+    static constexpr double SPLIT_AFTER_SECONDS = 5.0;
+    static constexpr size_t SPLIT_SITES = 16;
 
     /// `key` gives a site's key, and is needed only when `batch_window` is not 0.
     SiteScheduler(size_t batch_window, function<nid_t(const Site&)> key, SiteCall call) :
@@ -87,8 +96,29 @@ public:
 
 #pragma omp parallel for schedule(dynamic, 1)
         for (int w = 0; w < (int)windows.size(); ++w) {
-            for (size_t i = windows[w].first; i < windows[w].second; ++i) {
+            const auto batch_start = std::chrono::steady_clock::now();
+            const size_t end = windows[w].second;
+            size_t i = windows[w].first;
+            while (i < end) {
                 call_site(roots[i]);
+                ++i;
+                if (i < end && std::chrono::duration<double>(std::chrono::steady_clock::now()
+                                                             - batch_start).count()
+                                   > SPLIT_AFTER_SECONDS) {
+                    break;
+                }
+            }
+            if (i < end) {
+                // A slow batch: the rest of its sites become tasks. This thread runs them while it
+                // waits, and threads with no batch left take them too.
+                for (size_t first = i; first < end; first += SPLIT_SITES) {
+                    const size_t last = std::min(end, first + SPLIT_SITES);
+#pragma omp task firstprivate(first, last) shared(roots, call_site)
+                    for (size_t k = first; k < last; ++k) {
+                        call_site(roots[k]);
+                    }
+                }
+#pragma omp taskwait
             }
         }
     }
