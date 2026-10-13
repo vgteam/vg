@@ -286,6 +286,10 @@ void ChildPlacer::place(const SiteView& site, const Nested& nested, size_t site_
     for (const Traversal& t : travs) {
         trav_visits.push_back(index_traversal_nodes(*graph, t));
     }
+    // Each walk's base offsets, built the first time a child needs that walk: a child's offset is
+    // then a lookup rather than a walk from the start, which a snarl with thousands of children
+    // and long alleles paid once per child.
+    unordered_map<const Traversal*, ChildOffsets> walk_offsets;
     for (const ChildSite& child : nested.sites) {
         const SiteBounds& child_bounds = child.bounds;
         // A chain that no reference path passes through has no REF or POS for its records,
@@ -350,7 +354,8 @@ void ChildPlacer::place(const SiteView& site, const Nested& nested, size_t site_
         // the offset of its parent. Only an off-reference chain uses it, but it is computed
         // for every chain, so that offsets add up down the tree.
         next.parent_offset =
-            placement.parent_offset + offset_along_genotype(travs, genotype, child_bounds);
+            placement.parent_offset
+            + offset_along_genotype(*graph, travs, genotype, child_bounds, walk_offsets);
         next.reported_inline = child_reported_inline;
         next.chain_key = chain_key_of(*graph, out.chain);
         bool crossing_known = true;   // child_crossing_mask always sets it
