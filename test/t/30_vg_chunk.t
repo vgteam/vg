@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 42
+plan tests 46
 
 # Construct a graph with alt paths so we can make a GBWT and a GBZ
 vg construct -m 1000 -r small/x.fa -v small/x.vcf.gz -a >x.vg
@@ -138,8 +138,17 @@ vg chunk -x graph.gbz -p GRCh38#0#chr1:5-7 -c 1 >part.vg
 vg chunk -x part.vg -p GRCh38#0#chr1:5-7 -c 1 >subpart.vg
 is "$?" "0" "chunking the same base path range out of a chunk works"
 is "$(vg stats -l part.vg)" "$(vg stats -l subpart.vg)" "chunking the same base path range out of a chunk gets the same nodes"
+is "$(vg paths -L -H -x part.vg | wc -l)" "0" "chunking a GBZ leaves out haplotype paths by default"
+vg chunk -x graph.gbz -p GRCh38#0#chr1:5-7 -c 1 -H >part.vg
+is "$(vg paths -L -H -x part.vg | wc -l)" "3" "chunking a GBZ with -H keeps the haplotype paths"
 
-rm -f graph.gbz part.vg subpart.vg log.txt
+vg convert -g graphs/gfa_with_reference.gfa >graph.vg
+vg chunk -x graph.vg -p GRCh38#0#chr1:5-7 -c 1 >part.vg
+is "$(vg paths -L -H -x part.vg | wc -l)" "0" "chunking a non-GBZ graph leaves out haplotype paths by default"
+vg chunk -x graph.vg -p GRCh38#0#chr1:5-7 -c 1 -H >part.vg
+is "$(vg paths -L -H -x part.vg | wc -l)" "3" "chunking a non-GBZ graph with -H keeps the haplotype paths"
+
+rm -f graph.gbz graph.vg part.vg subpart.vg log.txt
 
 # GBZ chunking
 vg gbwt --graph-name graph.gbz --set-reference sample --gfa-input graphs/components_walks.gfa
