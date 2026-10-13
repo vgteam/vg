@@ -359,6 +359,16 @@ else
     FILTER=
 endif
 
+# Make remakes Automake Makefiles even in dry runs, which reruns configure.
+# So when dry-running, have Automake projects treat Makefile as up to date.
+# See https://stackoverflow.com/a/77055033
+# Detect a dry run as in https://stackoverflow.com/a/41303169
+ifneq (,$(findstring n,$(firstword -$(MAKEFLAGS))))
+    AUTOMAKE_MAKEFLAGS=--assume-old=Makefile Makefile "AM_MAKEFLAGS=--assume-old=Makefile Makefile"
+else
+    AUTOMAKE_MAKEFLAGS=
+endif
+
 STATIC_FLAGS=-static -static-libstdc++ -static-libgcc
 
 # These are put into libvg. Grab everything except main
@@ -882,7 +892,7 @@ $(INC_DIR)/dynamic/dynamic.hpp: $(DYNAMIC_DIR)/include/dynamic/*.hpp $(DYNAMIC_D
 
 $(INC_DIR)/sparsehash/sparse_hash_map: $(wildcard $(SPARSEHASH_DIR)/**/*.cc) $(wildcard $(SPARSEHASH_DIR)/**/*.h)
 	cd $(SPARSEHASH_DIR) && ./autogen.sh && LDFLAGS="$(LD_LIB_DIR_FLAGS) $(LDFLAGS)" ./configure --prefix=$(CWD) $(FILTER)
-	cd $(SPARSEHASH_DIR) && $(MAKE) src/sparsehash/internal/sparseconfig.h $(FILTER) && $(MAKE) install-data $(FILTER)
+	cd $(SPARSEHASH_DIR) && $(MAKE) $(AUTOMAKE_MAKEFLAGS) src/sparsehash/internal/sparseconfig.h $(FILTER) && $(MAKE) $(AUTOMAKE_MAKEFLAGS) install-data $(FILTER)
 
 $(INC_DIR)/sparsepp/spp.h: $(wildcard $(SPARSEPP_DIR)/sparsepp/*.h)
 	cp -r $(SPARSEPP_DIR)/sparsepp $(INC_DIR)/
@@ -954,15 +964,15 @@ $(LIB_DIR)/libdwfl_stacktrace.a: $(LIB_DIR)/libelf.a
 $(LIB_DIR)/libelf.a: $(ELFUTILS_DIR)/libebl/*.c $(ELFUTILS_DIR)/libebl/*.h $(ELFUTILS_DIR)/libdw/*.c $(ELFUTILS_DIR)/libdw/*.h $(ELFUTILS_DIR)/libelf/*.c $(ELFUTILS_DIR)/libelf/*.h $(ELFUTILS_DIR)/src/*.c $(ELFUTILS_DIR)/src/*.h $(LIB_DIR)/cleaned_old_elfutils_v004
 	cd $(CWD)/$(INC_DIR)/ && rm -Rf elfutils gelf.h libelf.h dwarf.h libdwflP.h libdwfl.h libebl.h libelf.h
 	cd $(ELFUTILS_DIR) && autoreconf -i -f && CFLAGS="-fPIC $(CFLAGS)" CXXFLAGS="-fPIC $(CXXFLAGS)" ./configure --enable-maintainer-mode --disable-libdebuginfod --disable-debuginfod --prefix=$(CWD) $(FILTER)
-	cd $(ELFUTILS_DIR)/libelf && $(MAKE) clean && CFLAGS="-fPIC $(CFLAGS)" CXXFLAGS="-fPIC $(CXXFLAGS)" $(MAKE) libelf.a $(FILTER)
-	cd $(ELFUTILS_DIR)/libebl && $(MAKE) clean && CFLAGS="-fPIC $(CFLAGS)" CXXFLAGS="-fPIC $(CXXFLAGS)" $(MAKE) libebl.a $(FILTER)
-	cd $(ELFUTILS_DIR)/libdwfl && $(MAKE) clean && CFLAGS="-fPIC $(CFLAGS)" CXXFLAGS="-fPIC $(CXXFLAGS)" $(MAKE) libdwfl.a $(FILTER)
-	cd $(ELFUTILS_DIR)/libdwfl_stacktrace && $(MAKE) clean && CFLAGS="-fPIC $(CFLAGS)" CXXFLAGS="-fPIC $(CXXFLAGS)" $(MAKE) libdwfl_stacktrace.a $(FILTER)
-	cd $(ELFUTILS_DIR)/libdwelf && $(MAKE) clean && CFLAGS="-fPIC $(CFLAGS)" CXXFLAGS="-fPIC $(CXXFLAGS)" $(MAKE) libdwelf.a $(FILTER)
-	cd $(ELFUTILS_DIR)/lib && $(MAKE) clean && CFLAGS="-fPIC $(CFLAGS)" CXXFLAGS="-fPIC $(CXXFLAGS)" $(MAKE) libeu.a $(FILTER)
-	cd $(ELFUTILS_DIR)/libcpu && $(MAKE) clean && CFLAGS="-fPIC $(CFLAGS)" CXXFLAGS="-fPIC $(CXXFLAGS)" $(MAKE) libcpu.a $(FILTER)
-	cd $(ELFUTILS_DIR)/backends && $(MAKE) clean CFLAGS="-fPIC $(CFLAGS)" CXXFLAGS="-fPIC $(CXXFLAGS)" && $(MAKE) libebl_backends.a $(FILTER)
-	cd $(ELFUTILS_DIR)/libdw && $(MAKE) clean CFLAGS="-fPIC $(CFLAGS)" CXXFLAGS="-fPIC $(CXXFLAGS)" && $(MAKE) libdw.a known-dwarf.h $(FILTER)
+	cd $(ELFUTILS_DIR)/libelf && $(MAKE) $(AUTOMAKE_MAKEFLAGS) clean && CFLAGS="-fPIC $(CFLAGS)" CXXFLAGS="-fPIC $(CXXFLAGS)" $(MAKE) $(AUTOMAKE_MAKEFLAGS) libelf.a $(FILTER)
+	cd $(ELFUTILS_DIR)/libebl && $(MAKE) $(AUTOMAKE_MAKEFLAGS) clean && CFLAGS="-fPIC $(CFLAGS)" CXXFLAGS="-fPIC $(CXXFLAGS)" $(MAKE) $(AUTOMAKE_MAKEFLAGS) libebl.a $(FILTER)
+	cd $(ELFUTILS_DIR)/libdwfl && $(MAKE) $(AUTOMAKE_MAKEFLAGS) clean && CFLAGS="-fPIC $(CFLAGS)" CXXFLAGS="-fPIC $(CXXFLAGS)" $(MAKE) $(AUTOMAKE_MAKEFLAGS) libdwfl.a $(FILTER)
+	cd $(ELFUTILS_DIR)/libdwfl_stacktrace && $(MAKE) $(AUTOMAKE_MAKEFLAGS) clean && CFLAGS="-fPIC $(CFLAGS)" CXXFLAGS="-fPIC $(CXXFLAGS)" $(MAKE) $(AUTOMAKE_MAKEFLAGS) libdwfl_stacktrace.a $(FILTER)
+	cd $(ELFUTILS_DIR)/libdwelf && $(MAKE) $(AUTOMAKE_MAKEFLAGS) clean && CFLAGS="-fPIC $(CFLAGS)" CXXFLAGS="-fPIC $(CXXFLAGS)" $(MAKE) $(AUTOMAKE_MAKEFLAGS) libdwelf.a $(FILTER)
+	cd $(ELFUTILS_DIR)/lib && $(MAKE) $(AUTOMAKE_MAKEFLAGS) clean && CFLAGS="-fPIC $(CFLAGS)" CXXFLAGS="-fPIC $(CXXFLAGS)" $(MAKE) $(AUTOMAKE_MAKEFLAGS) libeu.a $(FILTER)
+	cd $(ELFUTILS_DIR)/libcpu && $(MAKE) $(AUTOMAKE_MAKEFLAGS) clean && CFLAGS="-fPIC $(CFLAGS)" CXXFLAGS="-fPIC $(CXXFLAGS)" $(MAKE) $(AUTOMAKE_MAKEFLAGS) libcpu.a $(FILTER)
+	cd $(ELFUTILS_DIR)/backends && $(MAKE) $(AUTOMAKE_MAKEFLAGS) clean CFLAGS="-fPIC $(CFLAGS)" CXXFLAGS="-fPIC $(CXXFLAGS)" && $(MAKE) $(AUTOMAKE_MAKEFLAGS) libebl_backends.a $(FILTER)
+	cd $(ELFUTILS_DIR)/libdw && $(MAKE) $(AUTOMAKE_MAKEFLAGS) clean CFLAGS="-fPIC $(CFLAGS)" CXXFLAGS="-fPIC $(CXXFLAGS)" && $(MAKE) $(AUTOMAKE_MAKEFLAGS) libdw.a known-dwarf.h $(FILTER)
 	cd $(ELFUTILS_DIR) && mkdir -p $(CWD)/$(INC_DIR)/elfutils && cp libdw/known-dwarf.h libdw/libdw.h libebl/libebl.h libelf/elf-knowledge.h version.h libdwfl/libdwfl.h libdwelf/libdwelf.h $(CWD)/$(INC_DIR)/elfutils && cp libelf/gelf.h libelf/libelf.h libdw/dwarf.h $(CWD)/$(INC_DIR) && cp libebl/libebl.a libdw/libdw.a libdwfl/libdwfl.a libdwelf/libdwelf.a libelf/libelf.a lib/libeu.a libdwfl_stacktrace/libdwfl_stacktrace.a $(CWD)/$(LIB_DIR)/
 
 $(INC_DIR)/simde/x86/sse4.1.h: $(DOZEU_DIR)/simde/*.h $(DOZEU_DIR)/simde/x86/*.h
@@ -1242,7 +1252,7 @@ clean: clean-vcflib
 	cd $(DEP_DIR) && cd sha1 && $(MAKE) clean
 	cd $(DEP_DIR) && cd sdsl-lite && ./uninstall.sh || true
 	cd $(DEP_DIR) && cd sonLib && $(MAKE) clean
-	cd $(DEP_DIR) && cd sparsehash && $(MAKE) clean || true
+	cd $(DEP_DIR) && cd sparsehash && $(MAKE) $(AUTOMAKE_MAKEFLAGS) clean || true
 	cd $(DEP_DIR) && cd ssw && cd src && $(MAKE) clean
 	cd $(DEP_DIR) && cd structures && $(MAKE) clean
 	cd $(DEP_DIR) && cd sublinear-Li-Stephens && $(MAKE) clean
