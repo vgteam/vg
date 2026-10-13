@@ -371,12 +371,19 @@ endif
 
 STATIC_FLAGS=-static -static-libstdc++ -static-libgcc
 
+SRC = $(wildcard $(SRC_DIR)/*.cpp)
+ALGORITHMS_SRC = $(wildcard $(ALGORITHMS_SRC_DIR)/*.cpp)
+IO_SRC = $(wildcard $(IO_SRC_DIR)/*.cpp)
+SUBCOMMAND_SRC = $(wildcard $(SUBCOMMAND_SRC_DIR)/*.cpp)
+UNITTEST_SRC = $(wildcard $(UNITTEST_SRC_DIR)/*.cpp)
+UNITTEST_SUPPORT_SRC = $(wildcard $(UNITTEST_SUPPORT_SRC_DIR)/*.cpp)
+
 # These are put into libvg. Grab everything except main
-OBJ = $(filter-out $(OBJ_DIR)/main.o,$(patsubst $(SRC_DIR)/%.cpp,$(OBJ_DIR)/%.o,$(wildcard $(SRC_DIR)/*.cpp)))
+OBJ = $(filter-out $(OBJ_DIR)/main.o,$(patsubst $(SRC_DIR)/%.cpp,$(OBJ_DIR)/%.o,$(SRC)))
 SHARED_OBJ = $(patsubst $(OBJ_DIR)/%.o,$(SHARED_OBJ_DIR)/%.o,$(OBJ))
 
 # And all the algorithms
-ALGORITHMS_OBJ = $(patsubst $(ALGORITHMS_SRC_DIR)/%.cpp,$(ALGORITHMS_OBJ_DIR)/%.o,$(wildcard $(ALGORITHMS_SRC_DIR)/*.cpp))
+ALGORITHMS_OBJ = $(patsubst $(ALGORITHMS_SRC_DIR)/%.cpp,$(ALGORITHMS_OBJ_DIR)/%.o,$(ALGORITHMS_SRC))
 ALGORITHMS_SHARED_OBJ = $(patsubst $(ALGORITHMS_OBJ_DIR)/%.o,$(ALGORITHMS_SHARED_OBJ_DIR)/%.o,$(ALGORITHMS_OBJ))
 
 # These aren't put into libvg. They are linked into vg itself to communicate
@@ -385,22 +392,22 @@ ALGORITHMS_SHARED_OBJ = $(patsubst $(ALGORITHMS_OBJ_DIR)/%.o,$(ALGORITHMS_SHARED
 CONFIG_OBJ =
 
 # But always build all the IO logic
-IO_OBJ = $(patsubst $(IO_SRC_DIR)/%.cpp,$(IO_OBJ_DIR)/%.o,$(wildcard $(IO_SRC_DIR)/*.cpp))
+IO_OBJ = $(patsubst $(IO_SRC_DIR)/%.cpp,$(IO_OBJ_DIR)/%.o,$(IO_SRC))
 IO_SHARED_OBJ = $(patsubst $(IO_OBJ_DIR)/%.o,$(IO_SHARED_OBJ_DIR)/%.o,$(IO_OBJ))
 
 # These aren't put into libvg, but they provide subcommand implementations for the vg bianry
-SUBCOMMAND_OBJ = $(patsubst $(SUBCOMMAND_SRC_DIR)/%.cpp,$(SUBCOMMAND_OBJ_DIR)/%.o,$(wildcard $(SUBCOMMAND_SRC_DIR)/*.cpp))
+SUBCOMMAND_OBJ = $(patsubst $(SUBCOMMAND_SRC_DIR)/%.cpp,$(SUBCOMMAND_OBJ_DIR)/%.o,$(SUBCOMMAND_SRC))
 
 # These aren't put into libvg. But they do go into the main vg binary to power its self-test.
-UNITTEST_OBJ = $(patsubst $(UNITTEST_SRC_DIR)/%.cpp,$(UNITTEST_OBJ_DIR)/%.o,$(wildcard $(UNITTEST_SRC_DIR)/*.cpp))
+UNITTEST_OBJ = $(patsubst $(UNITTEST_SRC_DIR)/%.cpp,$(UNITTEST_OBJ_DIR)/%.o,$(UNITTEST_SRC))
 
 # These support the tests and go in the main vg binary and all the test binaries
-UNITTEST_SUPPORT_OBJ_COMMON = $(filter-out $(UNITTEST_SUPPORT_OBJ_DIR)/driver.o,$(patsubst $(UNITTEST_SUPPORT_SRC_DIR)/%.cpp,$(UNITTEST_SUPPORT_OBJ_DIR)/%.o,$(wildcard $(UNITTEST_SUPPORT_SRC_DIR)/*.cpp)))
+UNITTEST_SUPPORT_OBJ_COMMON = $(filter-out $(UNITTEST_SUPPORT_OBJ_DIR)/driver.o,$(patsubst $(UNITTEST_SUPPORT_SRC_DIR)/%.cpp,$(UNITTEST_SUPPORT_OBJ_DIR)/%.o,$(UNITTEST_SUPPORT_SRC)))
 # These are the ones that go in all the test binaries (including the test driver with main())
 UNITTEST_SUPPORT_OBJ = $(UNITTEST_SUPPORT_OBJ_DIR)/driver.o $(UNITTEST_SUPPORT_OBJ_COMMON)
 
 # These are per-test-suite binaries we can build faster
-UNITTEST_EXE = $(patsubst $(UNITTEST_SRC_DIR)/%.cpp,$(UNITTEST_BIN_DIR)/%,$(wildcard $(UNITTEST_SRC_DIR)/*.cpp))
+UNITTEST_EXE = $(patsubst $(UNITTEST_SRC_DIR)/%.cpp,$(UNITTEST_BIN_DIR)/%,$(UNITTEST_SRC))
 
 
 ELFUTILS_DIR:=deps/elfutils
@@ -608,7 +615,7 @@ deps: $(DEPS) $(LINK_DEPS) $(PRE_LINK_DEPS)
 # Record the compiler commands that building vg runs, for editors and linters.
 # The dry run needs the dependencies to really be built first.
 # Depend on the sources so that new source files get picked up.
-compile_commands.json: Makefile $(DEPS) $(LINK_DEPS) $(PRE_LINK_DEPS) $(wildcard $(SRC_DIR)/*.cpp $(ALGORITHMS_SRC_DIR)/*.cpp $(CONFIG_SRC_DIR)/*.cpp $(IO_SRC_DIR)/*.cpp $(SUBCOMMAND_SRC_DIR)/*.cpp $(UNITTEST_SRC_DIR)/*.cpp $(UNITTEST_SUPPORT_SRC_DIR)/*.cpp)
+compile_commands.json: Makefile $(DEPS) $(LINK_DEPS) $(PRE_LINK_DEPS) $(SRC) $(ALGORITHMS_SRC) $(IO_SRC) $(SUBCOMMAND_SRC) $(UNITTEST_SRC) $(UNITTEST_SUPPORT_SRC)
 	$(MAKE) --dry-run --always-make $(BIN_DIR)/$(EXE) >$(OBJ_DIR)/dry_run_build_log.txt
 	compiledb --overwrite --output $@ --parse $(OBJ_DIR)/dry_run_build_log.txt
 
