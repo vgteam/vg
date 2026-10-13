@@ -37,9 +37,10 @@ using namespace std;
 
 namespace {
 
-/// One hold of `SiteReadSource::hold_reads`: the reads a wide site's uncached fetch kept for the
-/// edit sites below it, and the nodes they were kept for, those of the candidates `bar` admits,
-/// as merged ranges; and the read starts
+/// One hold of `SiteReadSource::hold_reads`: the reads the fetch of a site too wide for one window
+/// kept for the sites below it; the nodes a query on which it answers, as merged ranges, which with
+/// off-panel detection are those of the candidates `bar` admits; the nodes the fetch covered, on
+/// which a query too wide for one window is answered too, if the hold is exact; and the read starts
 /// on every node the fetch covered, tallied as a window's are, by node, then mapping quality.
 struct ReadHold {
     struct Start {
@@ -51,35 +52,60 @@ struct ReadHold {
     const void* source = nullptr;
     EditCallBar bar;
     bool filled = false;
+    /// It keeps every read its fetch delivered, rather than only those on `nodes`: a fetch of the
+    /// site's own ranges keeps them all, for the sites below, which would fetch them again, while
+    /// one from cached windows leaves those sites to find the windows cached.
+    bool all_reads = false;
+    /// The fetch dropped no read for having the name and start of a read before it, so it kept
+    /// every read on the nodes it covered, as a fetch of some of them would.
+    bool exact = false;
     vector<pair<nid_t, nid_t>> nodes;
-    /// The reads in fetch order, serialized, which takes several times less memory than an
-    /// Alignment, most of all a long read's; and the nodes each visits, as merged ranges, so
-    /// that a read is parsed only to be delivered.
-    vector<string> reads;
-    vector<vector<pair<nid_t, nid_t>>> read_nodes;
-    /// The reads the last query delivered, parsed, by index: neighbouring edit sites share most
-    /// of their reads, and a long read is parsed once for all of them.
-    vector<pair<size_t, Alignment>> parsed;
     vector<pair<nid_t, nid_t>> fetched;
     vector<Start> starts;
+
+    /// The reads, parsed, in fetch order, with every mapping indexed by node and the read offset
+    /// before each, as a cached window's are: a site below asks for a few of thousands of held
+    /// reads, and is answered by binary search with its reads indexed, so that its work grows
+    /// with its own size rather than with the held reads'.
+    struct Visit {
+        nid_t node = 0;
+        uint32_t read = 0;
+        uint32_t mapping = 0;
+        bool operator<(const Visit& other) const {
+            if (node != other.node) return node < other.node;
+            if (read != other.read) return read < other.read;
+            return mapping < other.mapping;
+        }
+    };
+    vector<Alignment> alignments;
+    vector<Visit> visits;
+    vector<uint32_t> offsets;
+    vector<uint32_t> offset_start;
 };
 
 /// This thread's holds, innermost last.
 thread_local vector<ReadHold> read_holds;
 
-/// Do two lists of merged ranges share a node?
-bool ranges_meet(const vector<pair<nid_t, nid_t>>& a, const vector<pair<nid_t, nid_t>>& b) {
-    size_t i = 0, j = 0;
-    while (i < a.size() && j < b.size()) {
-        if (a[i].second < b[j].first) {
-            ++i;
-        } else if (b[j].second < a[i].first) {
-            ++j;
-        } else {
-            return true;
-        }
+/// Are all the nodes of the first merged ranges among those of the second?
+bool ranges_within(const vector<pair<nid_t, nid_t>>& inner, const vector<pair<nid_t, nid_t>>& outer) {
+    return std::all_of(inner.begin(), inner.end(), [&](const pair<nid_t, nid_t>& r) {
+        auto it = std::upper_bound(outer.begin(), outer.end(),
+                                   make_pair(r.first, numeric_limits<nid_t>::max()));
+        return it != outer.begin() && std::prev(it)->first <= r.first
+               && r.second <= std::prev(it)->second;
+    });
+}
+
+/// What a fetch tells reads apart by, since paired mates share a name: the name and where the
+/// read starts. A fetch passes on the first read with each, in file order.
+string name_and_start(const Alignment& aln) {
+    string key = aln.name();
+    if (aln.path().mapping_size() > 0) {
+        const Position& pos = aln.path().mapping(0).position();
+        key += "\t" + to_string(pos.node_id()) + "\t" + to_string(pos.offset()) +
+               (pos.is_reverse() ? "-" : "+");
     }
-    return false;
+    return key;
 }
 
 /// For a search of sorted candidates by node.
@@ -314,6 +340,12 @@ bool WindowedSiteReadSource::touches(const Alignment& aln,
     return false;
 }
 
+/// A query whose nodes lie in at most this many windows is answered from those windows, fetched
+/// whole and cached, rather than fetched uncached. Neighbouring sites need the same windows, so
+/// their reads are read once rather than once per site. A query over more windows is fetched by
+/// its own node ranges, which reads less than its windows would.
+static constexpr size_t WIDE_QUERY_MAX_WINDOWS = 16;
+
 void WindowedSiteReadSource::for_each_read(
     const vector<pair<nid_t, nid_t>>& ranges,
     const function<void(const SiteRead&)>& iteratee) const {
@@ -332,36 +364,38 @@ void WindowedSiteReadSource::for_each_read(
     size_t first_window = window_of(min_id);
     size_t last_window = window_of(max_id);
 
-    if (!read_holds.empty() && deliver_held(ranges, iteratee)) {
+    const bool wide = first_window != last_window;
+    if (!read_holds.empty() && deliver_held(ranges, wide, iteratee)) {
         return;
     }
 
-    if (first_window != last_window) {
-        // The site crosses a window boundary. Fetch its ranges directly rather than stitching
-        // windows together: fetch_span emits each read once, and a region of unbounded size is not
-        // worth caching. The ranges are passed as they are, rather than collapsed to one span,
-        // since a snarl's nodes can be spread thinly over a wide span of IDs.
-        ++cache_misses;
-        ++straddles;
-        straddle_nodes += (size_t)(max_id - min_id + 1);
-        size_t wanted = 0;
-        for (const auto& range : ranges) {
-            wanted += (size_t)(range.second - range.first + 1);
-        }
-        straddle_wanted += wanted;
-        size_t n_scanned = 0, n_delivered = 0;
+    if (wide) {
+        // The site crosses a window boundary, so it gets its reads by a fetch of its own. If its
+        // nodes lie in a few windows, the fetch takes them from those windows, fetched whole and
+        // cached as for a site inside one window, so that neighbouring sites read them once.
+        // Otherwise its ranges are fetched directly, since a region of unbounded size is not worth
+        // caching; they are passed as they are, rather than collapsed to one span, since a snarl's
+        // nodes can be spread thinly over a wide span of IDs. Either way the site gets the same
+        // reads in the same order.
         vector<pair<nid_t, nid_t>> merged = merge_ranges(ranges);
+        vector<size_t> windows;
+        const bool few = few_windows(merged, windows);
         // Off-panel detection counts the reads on the site's nodes that no fetch has counted,
         // which are kept for it once delivered.
         vector<pair<nid_t, nid_t>> to_count;
-        // The innermost hold on this thread, if this is the first wide fetch within it. It keeps
-        // the reads on the nodes of the candidates its bar admits, which alone become edit sites:
-        // those counted before, known now, and those this fetch counts, known once it has. Each read keeps its place in the fetch, so that the
-        // held reads come in the order they came here.
+        // The innermost hold on this thread, if this is the first such fetch within it. Each read
+        // keeps its place in the fetch, so that the held reads come in the order they came here.
+        // With off-panel detection it answers any query on the nodes of the candidates its bar
+        // admits, which alone become edit sites: those counted before, known now, and those this
+        // fetch counts, known once it has. A fetch of the site's own ranges keeps every read, for
+        // the sites below as wide, which would fetch them again; one from cached windows keeps only
+        // the reads on those nodes, or without off-panel detection fills no hold, since the sites
+        // below find the windows cached.
         ReadHold* hold = !read_holds.empty() && read_holds.back().source == this
                                  && !read_holds.back().filled
                              ? &read_holds.back()
                              : nullptr;
+        ReadHold* filling = few && edit_graph == nullptr ? nullptr : hold;
         vector<pair<nid_t, nid_t>> known;
         if (edit_graph != nullptr) {
             lock_guard<std::mutex> guard(cache_mutex);
@@ -370,34 +404,72 @@ void WindowedSiteReadSource::for_each_read(
                 known = candidate_nodes(merged, hold->bar);
             }
         }
+        bool keep_all = false;
+        size_t n_scanned = 0, n_delivered = 0;
         vector<Alignment> kept;
         vector<size_t> kept_at;
         vector<pair<size_t, Alignment>> held;
         vector<ReadHold::Start> starts;
-        fetch_span(ranges, [&](Alignment& aln) {
-            ++n_scanned;
-            if (touches(aln, merged)) {
-                ++n_delivered;
-                if (hold != nullptr) {
-                    // The filter drops reads with no mappings.
-                    const nid_t first = aln.path().mapping(0).position().node_id();
-                    if (in_ranges(first, merged)) {
-                        starts.push_back({first, aln.mapping_quality(), 1, aln.sequence().size()});
-                    }
-                }
-                // Not indexed: this path serves the few sites too wide to cache, and an index for a
-                // read seen once would cost as much as the walk it saves.
-                SiteRead read;
-                read.aln = &aln;
-                iteratee(read);
-                if (!to_count.empty() && touches(aln, to_count)) {
-                    kept_at.push_back(n_delivered);
-                    kept.push_back(std::move(aln));
-                } else if (!known.empty() && touches(aln, known)) {
-                    held.emplace_back(n_delivered, std::move(aln));
+        // Each read the site gets, with `owned` the same read where it may be moved from.
+        auto take = [&](const Alignment& aln, Alignment* owned) {
+            ++n_delivered;
+            if (filling != nullptr) {
+                // The filter drops reads with no mappings.
+                const nid_t first = aln.path().mapping(0).position().node_id();
+                if (in_ranges(first, merged)) {
+                    starts.push_back({first, aln.mapping_quality(), 1, aln.sequence().size()});
                 }
             }
-        });
+            // Not indexed: this path serves the few sites too wide for one window, and an index for
+            // a read seen once would cost as much as the walk it saves.
+            SiteRead read;
+            read.aln = &aln;
+            iteratee(read);
+            const bool count = !to_count.empty() && touches(aln, to_count);
+            const bool keep =
+                filling != nullptr && (keep_all || (!known.empty() && touches(aln, known)));
+            if (!count && !keep) {
+                return;
+            }
+            // Moved where the fetch's own copy may be taken, copied from a cached window.
+            Alignment taken = owned != nullptr ? Alignment(std::move(*owned)) : Alignment(aln);
+            if (count) {
+                kept_at.push_back(n_delivered);
+                kept.push_back(std::move(taken));
+            } else {
+                held.emplace_back(n_delivered, std::move(taken));
+            }
+        };
+        // The windows are fetched for this site alone, so they are not counted for off-panel
+        // candidates, nor their read starts tallied, until another query uses them.
+        size_t dropped = 0;
+        const bool from_windows =
+            few && for_each_window_read(merged, windows, false,
+                                        [&](const Alignment& aln) {
+                                            ++n_scanned;
+                                            take(aln, nullptr);
+                                        },
+                                        dropped);
+        if (from_windows) {
+            ++wide_from_windows;
+        } else {
+            filling = hold;
+            keep_all = true;
+            ++cache_misses;
+            ++straddles;
+            straddle_nodes += (size_t)(max_id - min_id + 1);
+            size_t wanted = 0;
+            for (const auto& range : ranges) {
+                wanted += (size_t)(range.second - range.first + 1);
+            }
+            straddle_wanted += wanted;
+            dropped = fetch_span_keyed(ranges, [&](Alignment& aln, uint64_t) {
+                ++n_scanned;
+                if (touches(aln, merged)) {
+                    take(aln, &aln);
+                }
+            });
+        }
         scanned += n_scanned;
         delivered += n_delivered;
         if (!to_count.empty()) {
@@ -409,10 +481,10 @@ void WindowedSiteReadSource::for_each_read(
                     }
                 },
                 [&](nid_t node) { return in_ranges(node, to_count); }, edit_params);
-            if (hold != nullptr) {
+            if (filling != nullptr) {
                 // The nodes of the candidates just counted, on the site, join those known.
                 for (const EditCandidate& c : counted) {
-                    if (!hold->bar.admits(c)) {
+                    if (!filling->bar.admits(c)) {
                         continue;
                     }
                     known.emplace_back(c.node, c.node);
@@ -427,11 +499,18 @@ void WindowedSiteReadSource::for_each_read(
                                            }),
                             known.end());
                 known = merge_ranges(std::move(known));
+                // Each list is in fetch order, so the two are merged rather than sorted.
+                const size_t first_kept = held.size();
                 for (size_t i = 0; i < kept.size(); ++i) {
-                    if (touches(kept[i], known)) {
+                    if (keep_all || touches(kept[i], known)) {
                         held.emplace_back(kept_at[i], std::move(kept[i]));
                     }
                 }
+                std::inplace_merge(held.begin(), held.begin() + first_kept, held.end(),
+                                   [](const pair<size_t, Alignment>& a,
+                                      const pair<size_t, Alignment>& b) {
+                                       return a.first < b.first;
+                                   });
             }
             kept.clear();
             lock_guard<std::mutex> guard(cache_mutex);
@@ -446,39 +525,48 @@ void WindowedSiteReadSource::for_each_read(
                                          }),
                              span_edits.end());
         }
-        if (hold != nullptr) {
-            std::sort(held.begin(), held.end(),
-                      [](const pair<size_t, Alignment>& a, const pair<size_t, Alignment>& b) {
-                          return a.first < b.first;
-                      });
-            hold->filled = true;
-            hold->nodes = std::move(known);
-            hold->fetched = merged;
+        if (filling != nullptr) {
+            filling->filled = true;
+            filling->all_reads = keep_all;
+            // A fetch that dropped a read for repeating an earlier read's name and start can lack a
+            // read that a fetch of fewer of its nodes, which the earlier read misses, delivers.
+            filling->exact = has_record_keys() && dropped == 0;
+            if (edit_graph != nullptr) {
+                filling->nodes = std::move(known);
+                filling->fetched = merged;
+            } else if (filling->exact) {
+                filling->fetched = merged;
+            }
             std::sort(starts.begin(), starts.end(),
                       [](const ReadHold::Start& a, const ReadHold::Start& b) {
                           return a.node != b.node ? a.node < b.node : a.mapq < b.mapq;
                       });
             for (const ReadHold::Start& start : starts) {
-                if (!hold->starts.empty() && hold->starts.back().node == start.node
-                    && hold->starts.back().mapq == start.mapq) {
-                    hold->starts.back().reads += start.reads;
-                    hold->starts.back().bases += start.bases;
+                if (!filling->starts.empty() && filling->starts.back().node == start.node
+                    && filling->starts.back().mapq == start.mapq) {
+                    filling->starts.back().reads += start.reads;
+                    filling->starts.back().bases += start.bases;
                 } else {
-                    hold->starts.push_back(start);
+                    filling->starts.push_back(start);
                 }
             }
-            hold->reads.reserve(held.size());
-            hold->read_nodes.reserve(held.size());
+            filling->alignments.reserve(held.size());
             for (auto& entry : held) {
-                vector<pair<nid_t, nid_t>> visits;
-                for (const auto& mapping : entry.second.path().mapping()) {
-                    visits.emplace_back(mapping.position().node_id(), mapping.position().node_id());
+                const uint32_t r = (uint32_t)filling->alignments.size();
+                filling->offset_start.push_back((uint32_t)filling->offsets.size());
+                uint32_t offset = 0;
+                const Path& path = entry.second.path();
+                for (int64_t i = 0; i < path.mapping_size(); ++i) {
+                    filling->visits.push_back(
+                        ReadHold::Visit{path.mapping(i).position().node_id(), r, (uint32_t)i});
+                    filling->offsets.push_back(offset);
+                    offset += (uint32_t)mapping_to_length(path.mapping(i));
                 }
-                hold->read_nodes.push_back(merge_ranges(std::move(visits)));
-                hold->reads.emplace_back();
-                entry.second.SerializeToString(&hold->reads.back());
-                entry.second = Alignment();
+                filling->offsets.push_back(offset);
+                filling->alignments.push_back(std::move(entry.second));
             }
+            filling->offset_start.push_back((uint32_t)filling->offsets.size());
+            std::sort(filling->visits.begin(), filling->visits.end());
         }
         return;
     }
@@ -496,8 +584,11 @@ void WindowedSiteReadSource::for_each_read(
 }
 
 shared_ptr<const WindowedSiteReadSource::CacheEntry>
-WindowedSiteReadSource::get_window(size_t window, bool& was_fetched) const {
+WindowedSiteReadSource::get_window(size_t window, bool& was_fetched, bool counted) const {
     was_fetched = false;
+    // A cached window that only sites too wide for one window have used, which leave it untallied
+    // and uncounted: this use tallies and counts it, as fetching it would have.
+    shared_ptr<const CacheEntry> found_entry;
     {
         unique_lock<std::mutex> lock(cache_mutex);
         while (true) {
@@ -509,7 +600,12 @@ WindowedSiteReadSource::get_window(size_t window, bool& was_fetched) const {
             }
             if (found->second.entry) {
                 found->second.last_use = ++cache_clock;
-                return found->second.entry;
+                if (!counted || (starts.count(window) > 0
+                                 && (edit_graph == nullptr || edits.count(window) > 0))) {
+                    return found->second.entry;
+                }
+                found_entry = found->second.entry;
+                break;
             }
             // Another thread is fetching it.
             cache_filled.wait(lock);
@@ -519,41 +615,61 @@ WindowedSiteReadSource::get_window(size_t window, bool& was_fetched) const {
     shared_ptr<CacheEntry> entry;
     bool tallied = false;
     bool edits_counted = true;
-    try {
-        entry = make_shared<CacheEntry>(load_window(window));
-        {
-            lock_guard<std::mutex> guard(cache_mutex);
-            tallied = starts.count(window) > 0;
-            edits_counted = edit_graph == nullptr || edits.count(window) > 0;
-        }
-    } catch (...) {
-        // Release the claim, so that a thread waiting on this window fetches it itself rather
-        // than waiting for ever.
+    if (found_entry) {
         lock_guard<std::mutex> guard(cache_mutex);
-        cache.erase(window);
-        cache_filled.notify_all();
-        throw;
+        tallied = starts.count(window) > 0;
+        edits_counted = edit_graph == nullptr || edits.count(window) > 0;
+    } else {
+        try {
+            entry = make_shared<CacheEntry>(load_window(window));
+            {
+                lock_guard<std::mutex> guard(cache_mutex);
+                tallied = starts.count(window) > 0;
+                edits_counted = edit_graph == nullptr || edits.count(window) > 0;
+            }
+        } catch (...) {
+            // Release the claim, so that a thread waiting on this window fetches it itself rather
+            // than waiting for ever.
+            lock_guard<std::mutex> guard(cache_mutex);
+            cache.erase(window);
+            cache_filled.notify_all();
+            throw;
+        }
+        if (tallied) {
+            ++refetches;
+        }
     }
-    if (tallied) {
-        ++refetches;
-    }
-    // Only this thread can be fetching the window now, so no other thread can tally it first.
+    const CacheEntry& reads = found_entry ? *found_entry : *entry;
+    // Only this thread can be fetching the window now, so no other thread can tally it first, but
+    // threads finding it cached untallied may tally it alike.
     vector<StartTally> tallies;
-    if (!tallied) {
-        tallies = tally_starts(*entry);
+    const bool tally = counted && !tallied;
+    if (tally) {
+        tallies = tally_starts(reads);
     }
     // Likewise the off-panel candidates, on the window's own nodes only, since a read that reaches
     // into another window is fetched with that window too.
     vector<EditCandidate> window_candidates;
-    if (!edits_counted) {
+    const bool count = counted && !edits_counted;
+    if (count) {
         window_candidates = vg::count_edits(
             *edit_graph,
             [&](const function<void(const Alignment&)>& visit) {
-                for (const Alignment& aln : entry->reads) {
+                for (const Alignment& aln : reads.reads) {
                     visit(aln);
                 }
             },
             [&](nid_t node) { return window_of(node) == window; }, edit_params);
+    }
+    if (found_entry) {
+        lock_guard<std::mutex> guard(cache_mutex);
+        if (tally) {
+            starts.emplace(window, std::move(tallies));
+        }
+        if (count) {
+            edits.emplace(window, std::move(window_candidates));
+        }
+        return found_entry;
     }
     was_fetched = true;
 
@@ -561,10 +677,10 @@ WindowedSiteReadSource::get_window(size_t window, bool& was_fetched) const {
     // window's reads takes long enough that other threads would queue on the lock.
     vector<shared_ptr<const CacheEntry>> dropped;
     lock_guard<std::mutex> guard(cache_mutex);
-    if (!tallied) {
+    if (tally) {
         starts.emplace(window, std::move(tallies));
     }
-    if (!edits_counted) {
+    if (count) {
         edits.emplace(window, std::move(window_candidates));
     }
     CacheSlot& slot = cache[window];
@@ -602,12 +718,13 @@ WindowedSiteReadSource::CacheEntry WindowedSiteReadSource::load_window(size_t wi
     entry.window = window;
     nid_t lo = (nid_t)(window * window_size);
     nid_t hi = lo + (nid_t)window_size - 1;
-    fetch_span({{lo, hi}}, [&](Alignment& aln) {
+    entry.dropped_repeats = fetch_span_keyed({{lo, hi}}, [&](Alignment& aln, uint64_t key) {
         // Take ownership rather than copy the alignment. fetch_span hands out a mutable reference
         // so that this can move from it; the backends reuse one Alignment per record and clear it
         // before the next.
         index_read(aln, (uint32_t)entry.reads.size(), entry);
         entry.reads.push_back(std::move(aln));
+        entry.keys.push_back(key);
     });
     entry.offset_start.push_back((uint32_t)entry.offsets.size());
     // Sorted once per fetch rather than per site query. There is one entry per mapping, so a read
@@ -712,21 +829,17 @@ const vector<EditCandidate>& WindowedSiteReadSource::window_edits(size_t window)
 }
 
 void WindowedSiteReadSource::hold_reads(const EditCallBar& bar) const {
-    if (edit_graph != nullptr) {
-        read_holds.emplace_back();
-        read_holds.back().source = this;
-        read_holds.back().bar = bar;
-    }
+    read_holds.emplace_back();
+    read_holds.back().source = this;
+    read_holds.back().bar = bar;
 }
 
 void WindowedSiteReadSource::release_reads() const {
-    if (edit_graph != nullptr) {
-        assert(!read_holds.empty() && read_holds.back().source == this);
-        read_holds.pop_back();
-    }
+    assert(!read_holds.empty() && read_holds.back().source == this);
+    read_holds.pop_back();
 }
 
-bool WindowedSiteReadSource::deliver_held(const vector<pair<nid_t, nid_t>>& ranges,
+bool WindowedSiteReadSource::deliver_held(const vector<pair<nid_t, nid_t>>& ranges, bool wide,
                                           const function<void(const SiteRead&)>& iteratee) const {
     if (std::none_of(read_holds.begin(), read_holds.end(),
                      [&](const ReadHold& hold) { return hold.source == this && hold.filled; })) {
@@ -738,40 +851,52 @@ bool WindowedSiteReadSource::deliver_held(const vector<pair<nid_t, nid_t>>& rang
             continue;
         }
         // Every queried node lies on one of the hold's merged ranges, so every read on it was
-        // kept.
-        const bool covered =
-            std::all_of(merged.begin(), merged.end(), [&](const pair<nid_t, nid_t>& r) {
-                auto it = std::upper_bound(hold->nodes.begin(), hold->nodes.end(),
-                                           make_pair(r.first, numeric_limits<nid_t>::max()));
-                return it != hold->nodes.begin() && std::prev(it)->first <= r.first
-                       && r.second <= std::prev(it)->second;
-            });
-        if (!covered) {
+        // kept. A query too wide for one window would get its reads by a fetch like the hold's,
+        // and gets the same reads from the hold if the hold's fetch covered its nodes and kept
+        // every read on them.
+        if (!ranges_within(merged, hold->nodes)
+            && !(wide && hold->all_reads && hold->exact && ranges_within(merged, hold->fetched))) {
             continue;
         }
-        size_t n_delivered = 0;
-        vector<pair<size_t, Alignment>> previous = std::move(hold->parsed);
-        vector<pair<size_t, Alignment>> parsed;
-        auto last = previous.begin();
-        for (size_t i = 0; i < hold->reads.size(); ++i) {
-            if (ranges_meet(hold->read_nodes[i], merged)) {
-                while (last != previous.end() && last->first < i) {
-                    ++last;
-                }
-                if (last != previous.end() && last->first == i) {
-                    parsed.push_back(std::move(*last));
-                } else {
-                    parsed.emplace_back(i, Alignment());
-                    parsed.back().second.ParseFromString(hold->reads[i]);
-                }
-                SiteRead read;
-                read.aln = &parsed.back().second;
-                iteratee(read);
-                ++n_delivered;
+        // As a cached window delivers: the held mappings on the queried nodes, by read, in fetch
+        // order, each read with the index of its mappings in the ranges.
+        vector<pair<uint32_t, uint32_t>> hits;
+        for (const auto& range : merged) {
+            ReadHold::Visit probe;
+            probe.node = range.first;
+            auto it = std::lower_bound(hold->visits.begin(), hold->visits.end(), probe);
+            for (; it != hold->visits.end() && it->node <= range.second; ++it) {
+                hits.emplace_back(it->read, it->mapping);
             }
         }
-        hold->parsed = std::move(parsed);
+        std::sort(hits.begin(), hits.end());
+        vector<uint32_t> mappings;
+        mappings.reserve(hits.size());
+        for (const auto& hit : hits) {
+            mappings.push_back(hit.second);
+        }
+        // The hold's buffers, taken before handing out reads: the caller's code runs in between.
+        const Alignment* alignments = hold->alignments.data();
+        const uint32_t* offsets = hold->offsets.data();
+        const uint32_t* offset_start = hold->offset_start.data();
+        size_t n_delivered = 0;
+        size_t i = 0;
+        while (i < hits.size()) {
+            size_t j = i;
+            while (j < hits.size() && hits[j].first == hits[i].first) {
+                ++j;
+            }
+            SiteRead read;
+            read.aln = &alignments[hits[i].first];
+            read.mappings = &mappings[i];
+            read.mapping_count = j - i;
+            read.read_offsets = &offsets[offset_start[hits[i].first]];
+            iteratee(read);
+            ++n_delivered;
+            i = j;
+        }
         ++held_queries;
+        scanned += hits.size();
         delivered += n_delivered;
         return true;
     }
@@ -899,8 +1024,10 @@ void WindowedSiteReadSource::for_each_read_start(
     const function<void(int32_t mapq, size_t reads, size_t bases)>& iteratee) const {
 
     // From a hold on this thread whose fetch covered every node, which tallied their starts as
-    // their windows would.
-    for (auto hold = read_holds.rbegin(); hold != read_holds.rend(); ++hold) {
+    // their windows would. Only with off-panel detection, whose holds always answered these: a
+    // window's tallies can differ from a hold's where a fetch drops a read for repeating an earlier
+    // read's name and start.
+    for (auto hold = read_holds.rbegin(); edit_graph != nullptr && hold != read_holds.rend(); ++hold) {
         if (hold->source != this || !hold->filled
             || !std::all_of(nodes.begin(), nodes.end(),
                             [&](nid_t node) { return in_ranges(node, hold->fetched); })) {
@@ -985,6 +1112,101 @@ void WindowedSiteReadSource::index_read(const Alignment& aln, uint32_t read_inde
     // One past the end, so a consumer can read where the last mapping finishes without
     // a special case.
     entry.offsets.push_back(offset);
+}
+
+bool WindowedSiteReadSource::few_windows(const vector<pair<nid_t, nid_t>>& merged,
+                                         vector<size_t>& windows) const {
+    // The windows' reads must be put back in file order, as a fetch of the ranges delivers them,
+    // so the backend must key them.
+    windows.clear();
+    if (!has_record_keys()) {
+        return false;
+    }
+    // Ascending, since the ranges are sorted and apart.
+    for (const auto& range : merged) {
+        size_t last = window_of(range.second);
+        size_t w = window_of(range.first);
+        if (!windows.empty() && w <= windows.back()) {
+            w = windows.back() + 1;
+        }
+        for (; w <= last; ++w) {
+            if (windows.size() == WIDE_QUERY_MAX_WINDOWS) {
+                windows.clear();
+                return false;
+            }
+            windows.push_back(w);
+        }
+    }
+    return true;
+}
+
+bool WindowedSiteReadSource::for_each_window_read(
+    const vector<pair<nid_t, nid_t>>& merged, const vector<size_t>& windows, bool counted,
+    const function<void(const Alignment&)>& iteratee, size_t& dropped) const {
+
+    // Held until the reads are delivered, even if the cache drops them meanwhile.
+    vector<shared_ptr<const CacheEntry>> entries;
+    entries.reserve(windows.size());
+    for (size_t w : windows) {
+        bool was_fetched = false;
+        entries.push_back(get_window(w, was_fetched, counted));
+        if (entries.back()->dropped_repeats > 0) {
+            // A read this window's fetch dropped, for repeating an earlier read that touches the
+            // window but not the ranges, is one that a fetch of the ranges delivers.
+            return false;
+        }
+    }
+
+    // Every read touching the ranges, from each window's node index. A read in several of the
+    // windows is the same record, with the same key, in each.
+    struct Hit {
+        uint64_t key;
+        uint32_t entry;
+        uint32_t read;
+    };
+    vector<Hit> hits;
+    vector<uint32_t> found;
+    for (uint32_t e = 0; e < (uint32_t)entries.size(); ++e) {
+        const CacheEntry& entry = *entries[e];
+        const nid_t lo = (nid_t)(entry.window * window_size);
+        const nid_t hi = lo + (nid_t)window_size - 1;
+        found.clear();
+        for (const auto& range : merged) {
+            if (range.second < lo || range.first > hi) {
+                continue;
+            }
+            IndexEntry probe{range.first, 0, 0};
+            auto it = std::lower_bound(entry.node_index.begin(), entry.node_index.end(), probe);
+            for (; it != entry.node_index.end() && it->node <= range.second; ++it) {
+                found.push_back(it->read);
+            }
+        }
+        std::sort(found.begin(), found.end());
+        found.erase(std::unique(found.begin(), found.end()), found.end());
+        for (uint32_t r : found) {
+            hits.push_back(Hit{entry.keys[r], e, r});
+        }
+    }
+    std::sort(hits.begin(), hits.end(), [](const Hit& a, const Hit& b) {
+        return a.key != b.key ? a.key < b.key : a.entry < b.entry;
+    });
+
+    // As an uncached fetch delivers them: in file order, once each, and only the first of reads
+    // sharing a name and a start.
+    unordered_set<string> seen;
+    dropped = 0;
+    for (size_t i = 0; i < hits.size(); ++i) {
+        if (i > 0 && hits[i].key == hits[i - 1].key) {
+            continue;
+        }
+        const Alignment& aln = entries[hits[i].entry]->reads[hits[i].read];
+        if (!seen.insert(name_and_start(aln)).second) {
+            ++dropped;
+            continue;
+        }
+        iteratee(aln);
+    }
+    return true;
 }
 
 void WindowedSiteReadSource::deliver(const CacheEntry& entry,
@@ -1699,6 +1921,14 @@ TabixGafSiteReadSource::ThreadState& TabixGafSiteReadSource::thread_state() cons
 
 void TabixGafSiteReadSource::fetch_span(const vector<pair<nid_t, nid_t>>& ranges,
                                         const function<void(Alignment&)>& iteratee) const {
+    fetch_span_keyed(ranges, [&](Alignment& aln, uint64_t) { iteratee(aln); });
+}
+
+size_t TabixGafSiteReadSource::fetch_span_keyed(
+    const vector<pair<nid_t, nid_t>>& ranges,
+    const function<void(Alignment&, uint64_t)>& iteratee) const {
+    // Reads dropped for having the name and start of a read before them.
+    size_t fetch_dropped = 0;
     // Fetches happen inside the OpenMP parallel region that visits the sites, which an exception
     // must not leave. A failed fetch also means a site cannot be scored, so report it and exit.
     try {
@@ -1733,7 +1963,7 @@ void TabixGafSiteReadSource::fetch_span(const vector<pair<nid_t, nid_t>>& ranges
         };
         // Takes the record as the reader's buffer holds it, and copies it into a string only to
         // parse it: most records the index returns are dropped unread.
-        auto handle_record = [&](const char* text, size_t length, bool may_touch) {
+        auto handle_record = [&](const char* text, size_t length, bool may_touch, uint64_t record_key) {
             if (gafkluge::is_gaf_header_line(text)) {
                 return;
             }
@@ -1758,17 +1988,12 @@ void TabixGafSiteReadSource::fetch_span(const vector<pair<nid_t, nid_t>>& ranges
                 return;
             }
             count_fetched();
-            string key = aln.name();
-            if (aln.path().mapping_size() > 0) {
-                const Position& pos = aln.path().mapping(0).position();
-                key += "\t" + to_string(pos.node_id()) + "\t" + to_string(pos.offset()) +
-                       (pos.is_reverse() ? "-" : "+");
-            }
-            if (!seen.insert(std::move(key)).second) {
+            if (!seen.insert(name_and_start(aln)).second) {
                 ++duplicates_dropped;
+                ++fetch_dropped;
                 return;
             }
-            iteratee(aln);
+            iteratee(aln, record_key);
         };
 
         // Records the index holds as [smallest node, largest node), and returns when that interval
@@ -1815,7 +2040,7 @@ void TabixGafSiteReadSource::fetch_span(const vector<pair<nid_t, nid_t>>& ranges
                                                 scan.may_touch ? string(line.s, line.l) : string(),
                                                 scan.may_touch});
                 } else {
-                    handle_record(line.s, line.l, scan.may_touch);
+                    handle_record(line.s, line.l, scan.may_touch, (uint64_t)itr->curr_off);
                 }
             }
             tbx_itr_destroy(itr);
@@ -1834,7 +2059,8 @@ void TabixGafSiteReadSource::fetch_span(const vector<pair<nid_t, nid_t>>& ranges
                 if (i > 0 && gathered[i].offset == gathered[i - 1].offset) {
                     continue;
                 }
-                handle_record(gathered[i].text.c_str(), gathered[i].text.size(), gathered[i].may_touch);
+                handle_record(gathered[i].text.c_str(), gathered[i].text.size(), gathered[i].may_touch,
+                              gathered[i].offset);
             }
         }
         read_us += fetch_read_us;
@@ -1846,6 +2072,7 @@ void TabixGafSiteReadSource::fetch_span(const vector<pair<nid_t, nid_t>>& ranges
         cerr << "error[vg::TabixGafSiteReadSource] " << e.what() << endl;
         exit(EXIT_FAILURE);
     }
+    return fetch_dropped;
 }
 
 }

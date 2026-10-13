@@ -67,6 +67,7 @@ void MultiPassCaller::call(GraphCaller::RecurseType recurse_type,
                 return output.print_snarl(&graph, site.start, site.end);
             },
             .edit_source = edit_source,
+            .read_source = read_source,
             .edit_outcomes = edit_outcomes.get(),
         },
         TreeGenotyper::Options{

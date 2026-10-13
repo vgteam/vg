@@ -131,14 +131,16 @@ public:
     /// Every off-panel candidate counted so far, sorted.
     virtual vector<EditCandidate> counted_edit_candidates() const { return {}; }
 
-    /// Hold reads on this thread for the edit sites of a subtree, until the matching
-    /// `release_reads`. Holds nest, and are released innermost first. Where a source fetches a
-    /// site too wide for its cache uncached, the first such fetch on the thread within the
-    /// innermost hold keeps the reads on the nodes of the off-panel candidates it spans that
-    /// `bar` admits, which are those that become edit sites, and a query on the thread whose
-    /// nodes are all among those is then answered from them, with no fetch; it also tallies the
-    /// read starts on every node it covers, which answer `for_each_read_start` for those nodes.
-    /// Nothing is held unless `count_edits` was called.
+    /// Hold reads on this thread for the sites of a subtree, until the matching
+    /// `release_reads`. Holds nest, and are released innermost first. Where a source gets the
+    /// reads of a site too wide for one cached window by a fetch of their own, the first such
+    /// fetch on the thread within the innermost hold keeps them, and tallies the read starts on
+    /// every node it covers, which answer `for_each_read_start` for those nodes. A query on the
+    /// thread whose nodes are all among the hold's is then answered from the kept reads, with no
+    /// fetch: the hold's nodes are every node the fetch covered, or once `count_edits` has been
+    /// called those of the off-panel candidates it spans that `bar` admits, which are those that
+    /// become edit sites. A query too wide for one window itself, which would be fetched the same
+    /// way, is answered from them whenever the fetch covered its nodes.
     virtual void hold_reads(const EditCallBar& bar) const {}
     virtual void release_reads() const {}
 
@@ -243,10 +245,13 @@ public:
 
     /// Each window's reads are counted the first time the window is fetched, before the fetch is
     /// published, and only on the window's own nodes, so each read base is counted once however
-    /// often its window is fetched. A site too wide for one window is fetched uncached, and its
-    /// reads are counted on its nodes that no fetch has counted, while they are in memory: a
-    /// node's candidates are the same whichever fetch counts them, since every read on the node
-    /// comes with it. The candidates are kept for the whole run.
+    /// often its window is fetched. A site too wide for one window gets its reads by a fetch of
+    /// its own, and they are counted on its nodes that no fetch has counted, while they are in
+    /// memory: a node's candidates are the same whichever fetch counts them, since every read on
+    /// the node comes with it. The candidates are kept for the whole run. A window fetched whole
+    /// only to give such a site its reads (see `for_each_read`) is not counted then, but by the
+    /// first other query to use it, so the windows counted, which hold the candidates
+    /// `counted_edit_candidates` lists, are the same whichever way such sites get their reads.
     void count_edits(const HandleGraph* graph, const EditCountParams& params) final;
     void for_each_edit_candidate(const vector<nid_t>& nodes,
                                  const function<void(const EditCandidate&)>& iteratee) const final;
@@ -277,6 +282,9 @@ public:
     /// Node IDs those sites actually asked about, as opposed to the span they were
     /// collapsed to. The gap between the two is over-fetching.
     size_t get_straddle_wanted() const;
+    /// Site queries across window boundaries that were answered from cached windows rather than
+    /// fetched uncached; not among the straddles.
+    size_t get_wide_from_windows() const { return wide_from_windows.load(); }
 
     /// Windows fetched whole, for sites or for read-start tallies, and the reads they held.
     size_t get_whole_fetches() const;
@@ -308,6 +316,18 @@ protected:
     /// window_size is in node IDs; cache_entries is how many windows the cache holds in all.
     WindowedSiteReadSource(const SiteReadFilter& filter, size_t window_size,
                            size_t cache_entries);
+
+    /// Like `fetch_span`, also giving each read a key: its position in the backend's file, the same
+    /// for a read whichever fetch returns it, so that reads several fetches returned can be put
+    /// back in file order, once each. Returns how many reads the fetch dropped as having the name
+    /// and start of a read before them. For a backend whose `has_record_keys` is false the keys
+    /// are all 0 and no dropped reads are reported.
+    virtual size_t fetch_span_keyed(const vector<pair<nid_t, nid_t>>& ranges,
+                                    const function<void(Alignment&, uint64_t)>& iteratee) const {
+        fetch_span(ranges, [&](Alignment& aln) { iteratee(aln, 0); });
+        return 0;
+    }
+    virtual bool has_record_keys() const { return false; }
 
     /// Visit every read with a mapping onto a node in any of the inclusive ranges,
     /// having applied the filter. Each read must be visited at most once. Must be safe
@@ -349,6 +369,10 @@ private:
     struct CacheEntry {
         size_t window = 0;
         vector<Alignment> reads;
+        /// Each read's key (see `fetch_span_keyed`), in step with `reads`.
+        vector<uint64_t> keys;
+        /// Reads the window's fetch dropped as having the name and start of a read before them.
+        size_t dropped_repeats = 0;
 
         /// Every mapping in the window, sorted by node ID, so that a site finds the reads it
         /// wants, and which of their mappings, by binary search rather than by testing each read.
@@ -372,8 +396,11 @@ private:
     /// The window's reads, from the cache or fetched now. A thread wanting a window that another
     /// thread is fetching waits for that fetch rather than fetching it again. Sets `was_fetched` if
     /// this call did the fetch. The entry stays valid while the caller holds it, even if the
-    /// cache drops it meanwhile.
-    shared_ptr<const CacheEntry> get_window(size_t window, bool& was_fetched) const;
+    /// cache drops it meanwhile. Unless `counted` is false, the window's read starts are tallied
+    /// and its off-panel candidates counted, if they have not been: a window fetched only to give
+    /// a site too wide for one window its reads is left as if it had never been fetched.
+    shared_ptr<const CacheEntry> get_window(size_t window, bool& was_fetched,
+                                            bool counted = true) const;
 
     /// Hand the entry's reads that touch the ranges to the caller, in the order they
     /// were fetched. Reads are found through the entry's node index, which lists a read
@@ -390,6 +417,22 @@ private:
 
     /// Fetch a whole window from the backend and index it.
     CacheEntry load_window(size_t window) const;
+
+    /// The windows holding the merged ranges' nodes, ascending, if there are few enough for a
+    /// query over them to be answered from them (see `WIDE_QUERY_MAX_WINDOWS`) and the backend
+    /// keys its reads; otherwise false.
+    bool few_windows(const vector<pair<nid_t, nid_t>>& merged, vector<size_t>& windows) const;
+
+    /// Visit the reads touching the merged ranges from `windows`, the windows holding their nodes,
+    /// fetched whole and cached like any other (`counted` as for `get_window`), as an uncached
+    /// fetch of the ranges would deliver them: in file order, each once, a read with the name and
+    /// start of one before it dropped, and counted in `dropped`. False, having visited nothing, if
+    /// one of the windows' own fetches dropped such a read: the window can then lack a read the
+    /// uncached fetch delivers.
+    bool for_each_window_read(const vector<pair<nid_t, nid_t>>& merged,
+                              const vector<size_t>& windows, bool counted,
+                              const function<void(const Alignment&)>& iteratee,
+                              size_t& dropped) const;
 
     /// Reads beginning on one node with one mapping quality: how many, and their total
     /// sequence length.
@@ -432,6 +475,8 @@ private:
     // Sites whose span crosses a window boundary, and the total ID span they asked for. These
     // bypass the cache.
     mutable atomic<size_t> straddles{0};
+    /// Queries across window boundaries answered from the windows' cached reads instead.
+    mutable atomic<size_t> wide_from_windows{0};
     mutable atomic<size_t> straddle_nodes{0};
     mutable atomic<size_t> straddle_wanted{0};
     mutable atomic<size_t> whole_fetches{0};
@@ -455,9 +500,9 @@ private:
     mutable vector<EditCandidate> span_edits;
     /// The candidates of the window, fetching it if it has never been fetched.
     const vector<EditCandidate>& window_edits(size_t window) const;
-    /// Answer the query from the innermost of this thread's filled holds whose nodes include all
-    /// of the ranges', if there is one.
-    bool deliver_held(const vector<pair<nid_t, nid_t>>& ranges,
+    /// Answer the query from the innermost of this thread's filled holds that can answer it (see
+    /// `hold_reads`), if there is one. `wide` says whether the query is too wide for one window.
+    bool deliver_held(const vector<pair<nid_t, nid_t>>& ranges, bool wide,
                       const function<void(const SiteRead&)>& iteratee) const;
     /// The nodes of the candidates `bar` admits counted on `merged`'s nodes that lie on them, as
     /// merged ranges. Call holding `cache_mutex`.
@@ -733,6 +778,12 @@ protected:
 
     void fetch_span(const vector<pair<nid_t, nid_t>>& ranges,
                     const function<void(Alignment&)>& iteratee) const;
+
+    /// The key is the record's virtual file offset after it was read: the same whichever lookup
+    /// reads the record, and increasing in file order.
+    size_t fetch_span_keyed(const vector<pair<nid_t, nid_t>>& ranges,
+                            const function<void(Alignment&, uint64_t)>& iteratee) const;
+    bool has_record_keys() const { return true; }
 
 private:
 

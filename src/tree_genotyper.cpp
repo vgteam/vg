@@ -30,11 +30,12 @@ void TreeGenotyper::configure(const Parts& parts, const Options& options) {
 
 namespace {
 
-/// Holds the read source's reads for the edit sites of one subtree while it is in scope (see
-/// `SiteReadSource::hold_reads`): a site too wide for the read cache keeps, from its own fetch,
-/// the reads on the nodes of the candidates the call bar admits, and its edit sites are genotyped
-/// from them rather than by fetching their windows again. The bar's depth-ratio limit applies to
-/// a genotyped edit site, so its reads are held whatever its depth.
+/// Holds the read source's reads for one subtree while it is in scope (see
+/// `SiteReadSource::hold_reads`): a site too wide for one window of the read cache keeps the reads
+/// of its own fetch, and the sites below it that are as wide are genotyped from them rather than by
+/// fetching them again. With off-panel detection so are the edit sites, on the nodes of the
+/// candidates the call bar admits; the bar's depth-ratio limit applies to a genotyped edit site, so
+/// its reads are held whatever its depth.
 struct SubtreeReadHold {
     const SiteReadSource* source;
     SubtreeReadHold(const SiteReadSource* source, const EditCallBar& bar) : source(source) {
@@ -52,8 +53,9 @@ struct SubtreeReadHold {
 } // namespace
 
 bool TreeGenotyper::genotype(const SiteView& site) {
-    // Its edit sites, and those of its bounds below, are genotyped while the hold has the reads.
-    SubtreeReadHold hold(parts.edit_source, options.edit_bar);
+    // The sites below it, edit sites among them, are genotyped while the hold has the reads.
+    SubtreeReadHold hold(parts.read_source != nullptr ? parts.read_source : parts.edit_source,
+                         options.edit_bar);
     // A top-level site has no parent context.
     const bool genotyped = genotype_tree(site, "", make_pair(0, 0), nullptr, -1, NestingPlacement());
     if (parts.edit_source != nullptr && site.enclosing.empty()) {

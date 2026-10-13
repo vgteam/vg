@@ -54,6 +54,9 @@ public:
         function<string(const SiteBounds& site)> site_id;
         /// Off-panel detection's candidates, or null when it is off.
         const SiteReadSource* edit_source = nullptr;
+        /// The source the sites' reads come from. A top-level site holds its reads there for the
+        /// sites below it (see `SiteReadSource::hold_reads`). Null for none.
+        const SiteReadSource* read_source = nullptr;
         /// What became of each candidate the call bar admits. Set when `edit_source` is.
         EditOutcomes* edit_outcomes = nullptr;
     };

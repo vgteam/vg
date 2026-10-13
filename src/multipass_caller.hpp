@@ -164,6 +164,12 @@ public:
         rescorer.configure(on, params, passes, ledger);
     }
 
+    /// The source the sites' reads come from, which can hold a wide site's reads for the sites
+    /// below it (see `SiteReadSource::hold_reads`).
+    void set_read_source(const SiteReadSource* reads) {
+        read_source = reads;
+    }
+
     /// Turn on off-panel detection: `reads` counts each read's substitutions as it fetches them
     /// (see `SiteReadSource::count_edits`). With a `dump` path, every candidate is written there
     /// at the end.
@@ -249,6 +255,8 @@ private:
     /// Configure the widgets of the passes with what they read from this caller.
     void install_widgets();
 
+    /// The sites' read source, or null when the caller has none of its own.
+    const SiteReadSource* read_source = nullptr;
     /// Off-panel detection's read source, or null when it is off, and where to write its dump.
     const SiteReadSource* edit_source = nullptr;
     string edit_dump;

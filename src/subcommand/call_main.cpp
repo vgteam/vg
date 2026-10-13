@@ -2894,6 +2894,7 @@ int main_call(int argc, char** argv) {
                 read_source->count_edits(graph, count_params);
                 multipass_caller->set_off_panel(read_source.get(), off_panel_dump, off_panel_bar);
             }
+            multipass_caller->set_read_source(read_source.get());
             multipass_caller->set_regenotype(regenotype, regenotype_params, regenotype_passes,
                                              regenotype_ledger);
         }
@@ -2997,7 +2998,11 @@ int main_call(int argc, char** argv) {
                           << seen << " read candidates examined, " << used << " delivered"
                           << (seen > 0 ? " (" + std::to_string((int)(100.0 * used / seen)) + "%)" : "")
                           << endl;
-            // Sites too big for one window are fetched uncached, by their exact node ranges.
+            // Sites across a few windows are served from those windows; wider ones are fetched
+            // uncached, by their exact node ranges.
+            logger.info() << label
+                          << windowed->get_wide_from_windows() << " site queries across windows "
+                          << "answered from the cached windows" << endl;
             logger.info() << label
                           << windowed->get_straddle_count() << " site queries too wide for a "
                           << "window, fetched uncached over " << windowed->get_straddle_wanted()
