@@ -7,6 +7,8 @@
 #include <algorithm>
 #include <stdexcept>
 
+#include <omp.h>
+
 namespace vg {
 
 using namespace std;
@@ -21,10 +23,21 @@ SnarlManagerDecomposition::SnarlManagerDecomposition(const SnarlManager& manager
     manager(manager), graph(graph), snarls_by_number(manager.num_snarls(), nullptr), hidden(manager.num_snarls(), false) {
 
     manager.for_each_snarl_unindexed([&](const Snarl* snarl) {
-        size_t number = manager.snarl_number(snarl);
-        snarls_by_number[number] = snarl;
-        hidden[number] = manager.is_trivial(snarl, graph);
+        snarls_by_number[manager.snarl_number(snarl)] = snarl;
     });
+    // Whether each is trivial reads its contents from the graph, and a whole genome has millions
+    // of snarls, so they are looked at on every thread, into bytes: threads cannot set neighbouring
+    // bits of a vector<bool>.
+    vector<uint8_t> trivial(snarls_by_number.size(), 0);
+#pragma omp parallel for schedule(dynamic, 1024)
+    for (size_t number = 0; number < snarls_by_number.size(); number++) {
+        if (snarls_by_number[number] != nullptr) {
+            trivial[number] = manager.is_trivial(snarls_by_number[number], graph);
+        }
+    }
+    for (size_t number = 0; number < trivial.size(); number++) {
+        hidden[number] = trivial[number];
+    }
 }
 
 net_handle_t SnarlManagerDecomposition::pack(NetType type, endpoint_t start, endpoint_t end, uint64_t payload) {
@@ -144,23 +157,39 @@ vector<nid_t> SnarlManagerDecomposition::trivial_chain_nodes(const Snarl* snarl)
 
 void SnarlManagerDecomposition::index_trivial_chains() const {
     call_once(trivial_chains_indexed, [&]() {
+        // Each snarl's trivial chains are found by reading its contents from the graph, on every
+        // thread, and filed in snarl order, so that a node two snarls list keeps the parent the
+        // later one gives it.
+        vector<vector<nid_t>> nodes_of(snarls_by_number.size());
+#pragma omp parallel for schedule(dynamic, 1024)
         for (size_t number = 0; number < snarls_by_number.size(); number++) {
-            if (hidden[number]) {
-                continue;
-            }
-            for (const nid_t& child : trivial_chain_nodes(snarls_by_number[number])) {
-                trivial_chain_parents[child] = snarls_by_number[number];
+            if (!hidden[number]) {
+                nodes_of[number] = trivial_chain_nodes(snarls_by_number[number]);
             }
         }
+        for (size_t number = 0; number < snarls_by_number.size(); number++) {
+            for (const nid_t& child : nodes_of[number]) {
+                trivial_chain_parents[child] = snarls_by_number[number];
+            }
+            vector<nid_t>().swap(nodes_of[number]);
+        }
+        // The nodes in no snarl that bound none, found on every thread; the index is only read
+        // meanwhile, and they are sorted afterwards.
+        vector<vector<nid_t>> roots_by_thread(omp_get_max_threads());
         graph.for_each_handle([&](const handle_t& handle) {
             nid_t child = graph.get_id(handle);
             if (!trivial_chain_parents.count(child) && manager.into_which_snarl(child, false) == nullptr &&
                 manager.into_which_snarl(child, true) == nullptr) {
+                roots_by_thread[omp_get_thread_num()].push_back(child);
+            }
+        }, true);
+        for (vector<nid_t>& roots : roots_by_thread) {
+            for (const nid_t& child : roots) {
                 // This node is in no snarl and bounds none.
                 trivial_chain_parents[child] = nullptr;
                 root_trivial_chain_nodes.push_back(child);
             }
-        });
+        }
         std::sort(root_trivial_chain_nodes.begin(), root_trivial_chain_nodes.end());
     });
 }

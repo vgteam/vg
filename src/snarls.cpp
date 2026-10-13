@@ -936,7 +936,10 @@ void SnarlManager::finish() {
 }
 
 const Snarl* SnarlManager::into_which_snarl(int64_t id, bool reverse) const {
-    return snarl_into.count(make_pair(id, reverse)) ? snarl_into.at(make_pair(id, reverse)) : nullptr;
+    // One lookup rather than a count and then an at: this is asked for every node of every snarl
+    // walked, millions of times on a whole genome.
+    auto found = snarl_into.find(make_pair(id, reverse));
+    return found == snarl_into.end() ? nullptr : found->second;
 }
     
 const Snarl* SnarlManager::into_which_snarl(const Visit& visit) const {
