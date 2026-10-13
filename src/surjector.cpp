@@ -4670,9 +4670,106 @@ using namespace std;
         }
     }
 
+    bool Surjector::anchor_has_nearby_repeat(
+        const string& sequence, const path_chunk_t& chunk,
+        const pair<step_handle_t, step_handle_t>& step_range) const {
+
+        if (max_slide <= 0) {
+            return false;
+        }
+
+        // Limit the search to twice the span without overflowing span * 2.
+        auto slide_limit = [&](size_t span) {
+            size_t limit = max_slide;
+            return span > limit / 2 ? limit : span * 2;
+        };
+        // Compare complete windows, excluding the original occurrence.
+        auto has_repeat = [&](const string& bases, size_t start,
+                              size_t span, size_t radius) {
+            assert(start <= bases.size());
+            assert(span <= bases.size() - start);
+            if (span == 0 || radius == 0) {
+                return false;
+            }
+            size_t left = min(radius, start);
+            size_t right = min(radius, bases.size() - start - span);
+            auto anchor_begin = bases.begin() + start;
+            auto anchor_end = anchor_begin + span;
+            for (size_t offset = start - left; offset <= start + right; ++offset) {
+                if (offset != start && std::equal(anchor_begin, anchor_end,
+                                                 bases.begin() + offset)) {
+                    return true;
+                }
+            }
+            return false;
+        };
+
+        // Search for another occurrence of the anchor's read sequence nearby.
+        size_t read_start = chunk.first.first - sequence.begin();
+        size_t read_span = chunk.first.second - chunk.first.first;
+        if (has_repeat(sequence, read_start, read_span, slide_limit(read_span))) {
+            return true;
+        }
+
+        // If no repeat found in the read, check the reference sequence covered by the anchor.
+        size_t ref_span = path_from_length(chunk.second);
+        size_t radius = slide_limit(ref_span);
+        if (ref_span == 0 || radius == 0) {
+            return false;
+        }
+        auto first_step = step_range.first;
+        auto first_handle = graph->get_handle_of_step(first_step);
+        auto path_handle = graph->get_path_handle_of_step(first_step);
+        const auto& first_pos = chunk.second.mapping(0).position();
+        bool reverse_relative_to_path =
+            first_pos.is_reverse() != graph->get_is_reverse(first_handle);
+        size_t step_start = graph->get_position_of_step(first_step);
+        size_t node_length = graph->get_length(first_handle);
+        size_t path_length = graph->get_path_length(path_handle);
+        size_t mapping_offset = first_pos.offset();
+        assert(mapping_offset <= node_length);
+
+        size_t anchor_start;
+        if (reverse_relative_to_path) {
+            size_t anchor_end = step_start + node_length - mapping_offset;
+            assert(ref_span <= anchor_end);
+            anchor_start = anchor_end - ref_span;
+        } else {
+            anchor_start = step_start + mapping_offset;
+        }
+        assert(anchor_start <= path_length);
+        assert(ref_span <= path_length - anchor_start);
+        size_t left = min(radius, anchor_start);
+        size_t right = min(radius, path_length - anchor_start - ref_span);
+        size_t window_start = anchor_start - left;
+        size_t window_length = left + ref_span + right;
+
+        // Extract the entire search window once, in forward path order.
+        string window;
+        window.reserve(window_length);
+        auto step = graph->get_step_at_position(path_handle, window_start);
+        size_t within_step = window_start - graph->get_position_of_step(step);
+        while (window.size() < window_length) {
+            // get_handle_of_step() is oriented as the path traverses this step.
+            auto handle = graph->get_handle_of_step(step);
+            string node_sequence = graph->get_sequence(handle);
+            size_t take = min(node_sequence.size() - within_step,
+                              window_length - window.size());
+            window.append(node_sequence, within_step, take);
+            within_step = 0;
+            if (window.size() < window_length) {
+                assert(graph->has_next_step(step));
+                step = graph->get_next_step(step);
+            }
+        }
+        return has_repeat(window, left, ref_span, radius);
+    }
+
     void Surjector::prune_and_trim_anchors(const string& sequence, vector<path_chunk_t>& path_chunks,
                                            vector<pair<step_handle_t, step_handle_t>>& step_ranges,
                                            size_t left_tail_length, size_t right_tail_length) const {
+
+        assert(path_chunks.size() == step_ranges.size());
 
         if (!prune_suspicious_anchors && !prune_tail_region_anchors && max_anchors > path_chunks.size()) {
             // the settings don't require us to prune anything here
@@ -4758,47 +4855,14 @@ using namespace std;
                     continue;
                 }
 
-                // Simple slide in either direction.
-                // Make sure to increase the slide range from the anchor size itself, in case we're looking at a partial repeat unit.
-                size_t slide_limit = std::min<size_t>(max_slide, (chunk.first.second - chunk.first.first) * 2);
-                for (int slide_distance = -(int)slide_limit; slide_distance < (int)slide_limit + 1; slide_distance++) {
-                    if (slide_distance == 0) {
-                        continue;
-                    }
-
-                    // Prune the anchor if we can shift by slide_distance and find it again
-                    
-                    auto current_start = chunk.first.first;
-                    auto current_end = chunk.first.second;
-
-                    // TODO: check if the anchor still equals the *target path* when slid by this distance.
-                    // For now we just check if the anchor still equals the *read* when slid by this distance.
-                    // So check that is fits in the read.
-                    size_t start_offset = current_start - sequence.begin();
-                    size_t remaining_until_end = sequence.end() - current_end;
-
-                    if ((slide_distance < 0 && start_offset < -slide_distance) || (slide_distance > 0 && remaining_until_end < slide_distance)) {
-                        // Slid window would be out of range. Skip it.
-                        continue;
-                    }
-                    
-                    // Construct the slid sequence iterators
-                    auto slid_start = current_start + slide_distance;
-                    auto slid_end = current_end + slide_distance;
-
-                    if (std::equal(current_start, current_end, slid_start, slid_end)) {
+                if (anchor_has_nearby_repeat(sequence, chunk, step_ranges[i])) {
 #ifdef debug_anchored_surject
-                        std::cerr << "anchor " << i << " (read[" << (chunk.first.first - sequence.begin()) << ":" << (chunk.first.second - sequence.begin()) << "]), seq " << string(current_start, current_end) << " pruned for existing again at offset " << slide_distance << " in read" << std::endl;
+                    cerr << "anchor " << i
+                         << " pruned for a nearby read or target-path repeat" << endl;
 #endif
-                        keep[i] = false;
-                        break;
-                    }
-                }
-                if (!keep[i]) {
-                    // Don't do the statistical checks if we're already not keeping the anchor.
+                    keep[i] = false;
                     continue;
                 }
-
 
                 // Low statistical complexity
                 if ((anchor_lengths[i] <= max_low_complexity_anchor_prune || chunk.first.second - chunk.first.first <= max_low_complexity_anchor_prune)) {
