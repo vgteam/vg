@@ -541,7 +541,7 @@ DEPS += $(INC_DIR)/mio/mmap.hpp
 DEPS += $(INC_DIR)/atomic_queue.h
 DEPS += $(LIB_DIR)/cleaned_old_elfutils_v004
 
-.PHONY: clean clean-tests get-deps deps lint test set-path objs static static-docker docs man version
+.PHONY: clean clean-tests get-deps deps lint test set-path objs static static-docker docs man version compile_commands.json
 
 # Aggregate all libvg deps, and exe deps other than libvg
 LIBVG_DEPS = $(OBJ) $(ALGORITHMS_OBJ) $(IO_OBJ) $(DEP_OBJ) $(DEPS)
@@ -604,6 +604,12 @@ get-deps:
 
 # And we have submodule deps to build
 deps: $(DEPS) $(LINK_DEPS) $(PRE_LINK_DEPS)
+
+# Record the compiler commands that building vg runs, for editors and linters.
+# The dry run needs the dependencies to really be built first.
+compile_commands.json: deps
+	$(MAKE) --dry-run --always-make $(BIN_DIR)/$(EXE) >$(OBJ_DIR)/dry_run_build_log.txt
+	compiledb --overwrite --output $@ --parse $(OBJ_DIR)/dry_run_build_log.txt
 
 lint: $(SRC_DIR)/*.cpp $(SRC_DIR)/*.hpp $(ALGORITHMS_SRC_DIR)/*.cpp $(ALGORITHMS_SRC_DIR)/*.hpp $(SUBCOMMAND_SRC_DIR)/*.cpp $(SUBCOMMAND_SRC_DIR)/*.hpp $(UNITTEST_SRC_DIR)/*.cpp $(UNITTEST_SRC_DIR)/*.hpp $(UNITTEST_SUPPORT_SRC_DIR)/*.cpp
 	scripts/lint.py 1>&2
