@@ -123,6 +123,105 @@ using namespace std;
     }
 
 
+    // Remove existing SA tags before rebuilding links for the new surjections.
+    void Surjector::clear_diploid_sa(Alignment& aln) {
+        if (!has_annotation(aln, "tags")) {
+            return;
+        }
+        const string tags = get_annotation<string>(aln, "tags");
+        string retained;
+        for (size_t start = 0; start < tags.size();) {
+            const size_t end = tags.find('\t', start);
+            const string tag = tags.substr(start, end == string::npos ? end : end - start);
+            if (tag.compare(0, 3, "SA:") != 0) {
+                if (!retained.empty()) retained += '\t';
+                retained += tag;
+            }
+            if (end == string::npos) break;
+            start = end + 1;
+        }
+        if (retained.empty()) clear_annotation(aln, "tags");
+        else set_annotation(aln, "tags", retained);
+    }
+
+    vector<Surjector::DiploidCandidate> Surjector::diploid_candidates(
+        const Alignment& source, const unordered_set<path_handle_t>& paths,
+        bool allow_negative_scores, bool preserve_deletions) const {
+        vector<DiploidCandidate> result;
+        if (source.path().mapping_size() == 0) return result;
+        vector<Alignment> surjected;
+        vector<tuple<string, int64_t, bool>> positions;
+        vector<vector<size_t>> groups;
+        surject_internal(&source, nullptr, &surjected, nullptr, paths, positions,
+                         allow_negative_scores, preserve_deletions, &groups);
+        set_refpos(surjected, positions);
+        if (annotate_with_graph_alignment) annotate_graph_cigar(surjected, source, positions);
+        const string source_path = source.path().SerializeAsString();
+        for (const auto& group : groups) {
+            if (surjected[group.front()].path().mapping_size() == 0) continue;
+            DiploidCandidate candidate;
+            candidate.source_path = source_path;
+            candidate.pieces.reserve(group.size());
+            candidate.positions.reserve(group.size());
+            for (size_t index : group) {
+                candidate.pieces.emplace_back(std::move(surjected[index]));
+                candidate.positions.push_back(positions[index]);
+            }
+            result.emplace_back(std::move(candidate));
+        }
+        return result;
+    }
+
+    optional<int64_t> Surjector::diploid_pair_span(const Alignment& first, const Alignment& second,
+                                                  int64_t maximum_fragment_length) const {
+        if (maximum_fragment_length < 0) throw invalid_argument("maximum fragment length must be nonnegative");
+        if (first.refpos_size() != 1 || second.refpos_size() != 1
+            || first.path().mapping_size() == 0 || second.path().mapping_size() == 0) return nullopt;
+        const auto& a = first.refpos(0);
+        const auto& b = second.refpos(0);
+        if (a.name().empty() || a.name() != b.name() || a.offset() < 0 || b.offset() < 0
+            || a.is_reverse() == b.is_reverse()) return nullopt;
+        const int64_t length1 = path_from_length(first.path());
+        const int64_t length2 = path_from_length(second.path());
+        if (length1 <= 0 || length2 <= 0
+            || length1 > numeric_limits<int64_t>::max() - a.offset()
+            || length2 > numeric_limits<int64_t>::max() - b.offset()) return nullopt;
+        if (!graph->has_path(a.name())) return nullopt;
+        const auto path_length = graph->get_path_length(graph->get_path_handle(a.name()));
+        int64_t offset1 = a.offset(), offset2 = b.offset();
+        const auto cigar1 = cigar_against_path(first, a.is_reverse(), offset1, path_length, 0);
+        const auto cigar2 = cigar_against_path(second, b.is_reverse(), offset2, path_length, 0);
+        const auto bounds1 = reference_bounds(offset1, cigar1);
+        const auto bounds2 = reference_bounds(offset2, cigar2);
+        if (bounds1.first < 0 || bounds2.first < 0
+            || bounds1.first >= bounds1.second || bounds2.first >= bounds2.second) return nullopt;
+        // Compare mapped 5-prime ends, permitting overlapping and contained mates.
+        if ((!a.is_reverse() && bounds1.first >= bounds2.second)
+            || (a.is_reverse() && bounds2.first >= bounds1.second)) return nullopt;
+        const int64_t span = max(bounds1.second, bounds2.second) - min(bounds1.first, bounds2.first);
+        if (maximum_fragment_length && span > maximum_fragment_length) return nullopt;
+        return span;
+    }
+
+    double Surjector::score_diploid_pair(const Alignment& first, const Alignment& second,
+                                         int64_t fragment_length,
+                                         const DiploidPairingParameters& parameters) const {
+        if (fragment_length <= 0) throw invalid_argument("fragment length must be positive");
+        double score = static_cast<double>(first.score()) + second.score();
+        if (parameters.fragment_model) {
+            const auto& model = *parameters.fragment_model;
+            if (!isfinite(model.mean) || model.mean < 0 || !isfinite(model.stddev) || model.stddev <= 0) {
+                throw invalid_argument("fragment model requires a finite nonnegative mean and positive standard deviation");
+            }
+            const double log_base = get_aligner(!first.quality().empty() || !second.quality().empty())->scorer->get_log_base();
+            if (!isfinite(log_base) || log_base <= 0) throw invalid_argument("invalid fragment score scale");
+            const double deviation = (fragment_length - model.mean) / model.stddev;
+            score -= 0.5 * deviation * deviation / log_base;
+            if (!isfinite(score)) throw invalid_argument("fragment score is not finite");
+        }
+        return score;
+    }
+
     vector<Alignment> Surjector::surject_diploid(const vector<Alignment>& placements,
                                                const unordered_set<path_handle_t>& paths,
                                                bool allow_negative_scores,
@@ -162,13 +261,7 @@ using namespace std;
 
         // Keep each candidate's primary alignment together with its supplementary pieces.
         // Only primary alignments compete when choosing between candidates.
-        struct Candidate {
-            vector<Alignment> pieces;
-            vector<tuple<string, int64_t, bool>> positions;
-            string source_path;
-            bool preferred = false;
-            int32_t haplotype_quality = 0;
-        };
+        using Candidate = DiploidCandidate;
         vector<Candidate> candidates;
         auto better = [](const Candidate& a, const Candidate& b) {
             if (a.pieces.front().score() != b.pieces.front().score()) {
@@ -195,26 +288,6 @@ using namespace std;
                 ordered_sources.push_back(&source);
             }
         }
-        // Remove existing SA tags before rebuilding links for the new surjections.
-        auto clear_sa = [](Alignment& aln) {
-            if (!has_annotation(aln, "tags")) {
-                return;
-            }
-            const string tags = get_annotation<string>(aln, "tags");
-            string retained;
-            for (size_t start = 0; start < tags.size();) {
-                const size_t end = tags.find('\t', start);
-                const string tag = tags.substr(start, end == string::npos ? end : end - start);
-                if (tag.compare(0, 3, "SA:") != 0) {
-                    if (!retained.empty()) retained += '\t';
-                    retained += tag;
-                }
-                if (end == string::npos) break;
-                start = end + 1;
-            }
-            if (retained.empty()) clear_annotation(aln, "tags");
-            else set_annotation(aln, "tags", retained);
-        };
         unordered_set<string> seen_paths;
         for (const auto* source_ptr : ordered_sources) {
             const auto& source = *source_ptr;
@@ -225,26 +298,9 @@ using namespace std;
             if (!seen_paths.insert(source_path).second) {
                 continue;
             }
-            vector<Alignment> surjected;
-            vector<tuple<string, int64_t, bool>> positions;
-            vector<vector<size_t>> groups;
-            surject_internal(&source, nullptr, &surjected, nullptr, paths, positions,
-                             allow_negative_scores, preserve_deletions, &groups);
-            set_refpos(surjected, positions);
-            if (annotate_with_graph_alignment) {
-                annotate_graph_cigar(surjected, source, positions);
-            }
             const size_t first_candidate = candidates.size();
-            for (const auto& group : groups) {
-                if (surjected[group.front()].path().mapping_size() == 0) {
-                    continue;
-                }
-                Candidate candidate;
-                candidate.source_path = source_path;
-                for (size_t index : group) {
-                    candidate.pieces.emplace_back(std::move(surjected[index]));
-                    candidate.positions.push_back(positions[index]);
-                }
+            auto projected = diploid_candidates(source, paths, allow_negative_scores, preserve_deletions);
+            for (auto& candidate : projected) {
                 candidates.emplace_back(std::move(candidate));
             }
             if (first_candidate == candidates.size()) {
@@ -266,7 +322,7 @@ using namespace std;
             unmapped.set_is_secondary(false);
             clear_annotation(unmapped, "diploid_haplotype_preferred");
             clear_annotation(unmapped, "diploid_haplotype_quality");
-            clear_sa(unmapped);
+            clear_diploid_sa(unmapped);
             set_annotation(unmapped, "diploid_source_mapping_quality", primary->mapping_quality());
             // Represent unmapped output with the empty reference position expected by HTS output.
             vector<Alignment> output{std::move(unmapped)};
@@ -291,13 +347,250 @@ using namespace std;
                 set_annotation(aln, "diploid_haplotype_preferred", candidate.preferred);
                 set_annotation(aln, "diploid_haplotype_quality", candidate.haplotype_quality);
                 set_annotation(aln, "diploid_source_mapping_quality", primary->mapping_quality());
-                clear_sa(aln);
+                clear_diploid_sa(aln);
             }
             // Rebuild SA links within each candidate after final mapping qualities are set.
             add_SA_tag(candidate.pieces, candidate.positions, *graph, preserve_deletions);
             for (auto& aln : candidate.pieces) {
                 output.emplace_back(std::move(aln));
             }
+        }
+        return output;
+    }
+
+    optional<int64_t> Surjector::diploid_fragment_length(const vector<DiploidPairCandidate>& candidates) const {
+        if (candidates.empty() || !candidates.front().compatible) return nullopt;
+        const auto& best = candidates.front();
+        if (best.first.size() != 1 || best.second.size() != 1) return nullopt;
+        for (const auto* mate : {&best.first.front(), &best.second.front()}) {
+            const auto source_quality = get_annotation<double>(*mate, "diploid_source_mapping_quality");
+            if (mate->mapping_quality() < min_diploid_fragment_mapping_quality
+                || source_quality < min_diploid_fragment_mapping_quality || source_quality == 255) return nullopt;
+        }
+        return diploid_pair_span(best.first.front(), best.second.front(), 0);
+    }
+
+    vector<Surjector::DiploidPairCandidate> Surjector::surject_diploid_paired(
+        const vector<pair<Alignment, Alignment>>& placements,
+        const unordered_set<path_handle_t>& paths,
+        const DiploidPairingParameters& parameters,
+        bool allow_negative_scores, bool preserve_deletions) const {
+        if (placements.empty()) return {};
+        if (parameters.maximum_fragment_length < 0 || max_diploid_mapping_quality < 0
+            || max_diploid_mapping_quality > 254) throw invalid_argument("invalid diploid pair quality or length limit");
+        if (parameters.fragment_model) {
+            const auto& model = *parameters.fragment_model;
+            if (!isfinite(model.mean) || model.mean < 0 || !isfinite(model.stddev) || model.stddev <= 0) {
+                throw invalid_argument("fragment model requires a finite nonnegative mean and positive standard deviation");
+            }
+        }
+        size_t primary_pair_index = placements.size();
+        for (size_t i = 0; i < placements.size(); ++i) {
+            const auto& first = placements[i].first;
+            const auto& second = placements[i].second;
+            if (!first.has_fragment_next() || first.has_fragment_prev()
+                || !second.has_fragment_prev() || second.has_fragment_next()
+                || first.fragment_next().name() != second.name()
+                || second.fragment_prev().name() != first.name()
+                || first.is_secondary() != second.is_secondary()) {
+                throw invalid_argument("diploid pairs require reciprocal mate-1/mate-2 links and consistent primary flags");
+            }
+            for (bool read1 : {true, false}) {
+                const auto& source = read1 ? first : second;
+                const auto& baseline = read1 ? placements.front().first : placements.front().second;
+                if (source.name().empty() || source.name() != baseline.name()
+                    || source.sequence() != baseline.sequence() || source.quality() != baseline.quality()
+                    || source.mapping_quality() < 0 || source.mapping_quality() > 255
+                    || source.supplementary_size() != 0 || is_supplementary(source)) {
+                    throw invalid_argument("invalid or inconsistent diploid mate placements (supplementary input is unsupported)");
+                }
+            }
+            if (!first.is_secondary()) {
+                if (primary_pair_index != placements.size()) throw invalid_argument("multiple primary diploid pairs");
+                primary_pair_index = i;
+            }
+        }
+        if (primary_pair_index == placements.size()) throw invalid_argument("missing primary diploid pair");
+        const auto& primary = placements[primary_pair_index];
+        const auto* mapq_calc = get_aligner(!primary.first.quality().empty() || !primary.second.quality().empty())->mapq_calc.get();
+        auto quality = [&](const vector<double>& scores) {
+            return scores.size() == 1 ? max_diploid_mapping_quality
+                : max<int32_t>(0, min(max_diploid_mapping_quality, mapq_calc->compute_first_mapping_quality(scores, false)));
+        };
+
+        // Own each projection once. Pair combinations store indices until final output,
+        // so building/scoring combinations does not copy Alignment protobufs.
+        struct SourcePairCandidates {
+            size_t source_pair_index;
+            vector<DiploidCandidate> first, second;
+        };
+        struct PairIndices {
+            size_t source, first, second;
+            double score;
+            int32_t haplotype_quality = 0;
+            bool preferred = false;
+        };
+        vector<SourcePairCandidates> sources;
+        vector<PairIndices> pairs;
+        optional<PairIndices> fallback;
+        auto mate_precedes = [](const DiploidCandidate& a, const DiploidCandidate& b) {
+            if (a.positions.front() != b.positions.front()) return a.positions.front() < b.positions.front();
+            return a.source_path < b.source_path;
+        };
+        auto better_pair = [&](const PairIndices& a, const PairIndices& b) {
+            if (a.score != b.score) return a.score > b.score;
+            const auto& af = sources[a.source].first[a.first];
+            const auto& bf = sources[b.source].first[b.first];
+            if (mate_precedes(af, bf)) return true;
+            if (mate_precedes(bf, af)) return false;
+            return mate_precedes(sources[a.source].second[a.second], sources[b.source].second[b.second]);
+        };
+        auto project = [&](const Alignment& source) {
+            auto result = diploid_candidates(source, paths, allow_negative_scores, preserve_deletions);
+            if (result.empty()) {
+                DiploidCandidate unmapped;
+                unmapped.source_path = source.path().SerializeAsString();
+                unmapped.pieces.push_back(make_null_alignment(source));
+                unmapped.positions.emplace_back("", -1, false);
+                set_refpos(unmapped.pieces, unmapped.positions);
+                result.emplace_back(std::move(unmapped));
+            }
+            return result;
+        };
+        vector<size_t> input_order{primary_pair_index};
+        for (size_t i = 0; i < placements.size(); ++i) if (i != primary_pair_index) input_order.push_back(i);
+        unordered_set<string> seen_pairs;
+        for (size_t source_pair_index : input_order) {
+            const auto& source = placements[source_pair_index];
+            string first_key = source.first.path().SerializeAsString();
+            string key = to_string(first_key.size()) + ":" + first_key + source.second.path().SerializeAsString();
+            if (!seen_pairs.insert(std::move(key)).second) continue;
+            const size_t source_index = sources.size();
+            sources.push_back({source_pair_index, project(source.first), project(source.second)});
+            const auto& projected = sources.back();
+            auto best_mate = [&](const vector<DiploidCandidate>& candidates) {
+                size_t best = 0;
+                for (size_t i = 1; i < candidates.size(); ++i) {
+                    const auto& a = candidates[i].pieces.front();
+                    const auto& b = candidates[best].pieces.front();
+                    // Never choose an unmapped candidate over a mapped negative-score one.
+                    const bool mapped_a = a.path().mapping_size() != 0;
+                    const bool mapped_b = b.path().mapping_size() != 0;
+                    if (mapped_a != mapped_b ? mapped_a :
+                        (a.score() > b.score() || (a.score() == b.score()
+                         && mate_precedes(candidates[i], candidates[best])))) best = i;
+                }
+                return best;
+            };
+            const size_t best1 = best_mate(projected.first), best2 = best_mate(projected.second);
+            PairIndices independent{source_index, best1, best2,
+                static_cast<double>(projected.first[best1].pieces.front().score()) + projected.second[best2].pieces.front().score()};
+            auto mapped_mates = [&](const PairIndices& pair) {
+                const auto& source = sources[pair.source];
+                return int(source.first[pair.first].pieces.front().path().mapping_size() != 0)
+                     + int(source.second[pair.second].pieces.front().path().mapping_size() != 0);
+            };
+            if (!fallback || mapped_mates(independent) > mapped_mates(*fallback)
+                || (mapped_mates(independent) == mapped_mates(*fallback) && better_pair(independent, *fallback))) {
+                fallback = independent;
+            }
+
+            // Only visit combinations on the same path with opposite orientation.
+            // Positional compatibility and the distance limit are checked before scoring.
+            unordered_map<pair<string, bool>, vector<size_t>> second_by_path;
+            for (size_t j = 0; j < projected.second.size(); ++j) {
+                const auto& aln = projected.second[j].pieces.front();
+                if (aln.path().mapping_size()) {
+                    const auto& pos = aln.refpos(0);
+                    second_by_path[{pos.name(), pos.is_reverse()}].push_back(j);
+                }
+            }
+            const size_t begin = pairs.size();
+            for (size_t i = 0; i < projected.first.size(); ++i) {
+                const auto& first = projected.first[i].pieces.front();
+                if (!first.path().mapping_size()) continue;
+                const auto& pos = first.refpos(0);
+                auto found = second_by_path.find({pos.name(), !pos.is_reverse()});
+                if (found == second_by_path.end()) continue;
+                for (size_t j : found->second) {
+                    const auto& second = projected.second[j].pieces.front();
+                    auto span = diploid_pair_span(first, second, parameters.maximum_fragment_length);
+                    if (!span) continue;
+                    pairs.push_back({source_index, i, j, score_diploid_pair(first, second, *span, parameters)});
+                }
+            }
+            if (pairs.size() != begin) {
+                size_t best = begin;
+                vector<double> scores;
+                for (size_t i = begin; i < pairs.size(); ++i) {
+                    if (better_pair(pairs[i], pairs[best])) best = i;
+                }
+                scores.push_back(pairs[best].score);
+                for (size_t i = begin; i < pairs.size(); ++i) if (i != best) scores.push_back(pairs[i].score);
+                const int32_t hq = quality(scores);
+                for (size_t i = begin; i < pairs.size(); ++i) pairs[i].haplotype_quality = hq;
+                pairs[best].preferred = true;
+            }
+        }
+        const bool compatible = !pairs.empty();
+        int32_t global_quality = 0;
+        if (compatible) {
+            stable_sort(pairs.begin(), pairs.end(), better_pair);
+            vector<double> scores;
+            for (const auto& pair : pairs) scores.push_back(pair.score);
+            global_quality = quality(scores);
+        } else {
+            pairs.push_back(*fallback);
+        }
+
+        vector<DiploidPairCandidate> output;
+        output.reserve(pairs.size());
+        for (const auto& selected : pairs) {
+            const auto& source = sources[selected.source];
+            const auto& first = source.first[selected.first];
+            const auto& second = source.second[selected.second];
+            DiploidPairCandidate result;
+            result.source_pair_index = source.source_pair_index;
+            result.score = selected.score;
+            result.compatible = compatible;
+            result.first = first.pieces;
+            result.second = second.pieces;
+            const bool secondary = !output.empty();
+            auto annotate_mate = [&](vector<Alignment>& pieces,
+                                     const vector<tuple<string, int64_t, bool>>& positions,
+                                     const Alignment& original_primary, const Alignment& mate, bool read1) {
+                int32_t mapq = global_quality;
+                if (original_primary.mapping_quality() != 255) mapq = min(mapq, original_primary.mapping_quality());
+                for (auto& aln : pieces) {
+                    aln.set_is_secondary(secondary);
+                    aln.set_mapping_quality(mapq);
+                    aln.set_read_paired(true);
+                    aln.clear_fragment_prev();
+                    aln.clear_fragment_next();
+                    auto* partner = read1 ? aln.mutable_fragment_next() : aln.mutable_fragment_prev();
+                    partner->set_name(mate.name());
+                    *partner->add_refpos() = mate.refpos(0);
+                    set_annotation(aln, "proper_pair", compatible);
+                    set_annotation(aln, "diploid_source_mapping_quality", original_primary.mapping_quality());
+                    clear_annotation(aln, "mate_info");
+                    if (is_supplementary(aln)) {
+                        const auto& pos = mate.refpos(0);
+                        set_annotation(aln, "mate_info", mate_info(pos.name(), pos.offset(), pos.is_reverse(), !read1));
+                    }
+                    clear_diploid_sa(aln);
+                    if (compatible) {
+                        set_annotation(aln, "diploid_haplotype_preferred", selected.preferred);
+                        set_annotation(aln, "diploid_haplotype_quality", selected.haplotype_quality);
+                    } else {
+                        clear_annotation(aln, "diploid_haplotype_preferred");
+                        clear_annotation(aln, "diploid_haplotype_quality");
+                    }
+                }
+                add_SA_tag(pieces, positions, *graph, preserve_deletions);
+            };
+            annotate_mate(result.first, first.positions, primary.first, second.pieces.front(), true);
+            annotate_mate(result.second, second.positions, primary.second, first.pieces.front(), false);
+            output.emplace_back(std::move(result));
         }
         return output;
     }

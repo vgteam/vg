@@ -24,6 +24,7 @@
 #include <vg/io/vpkg.hpp>
 #include "../utility.hpp"
 #include "../surjector.hpp"
+#include "../mapper.hpp"
 #include "../hts_alignment_emitter.hpp"
 #include "../multipath_alignment_emitter.hpp"
 #include "../crash.hpp"
@@ -48,6 +49,13 @@ void help_surject(char** argv) {
          << "                            HTSlib sequence dictionary or path list FILE" << endl
          << "  -n, --into-ref NAME       surject into this reference assembly" << endl
          << "  -d, --diploid-map NAME    jointly surject placements into a diploid assembly NAME" << endl
+         << "                            use -i for consecutive interleaved placement pairs" << endl
+         << "      --fragment-mean X    paired diploid fragment mean (requires --fragment-stdev)" << endl
+         << "      --fragment-stdev X   paired diploid fragment standard deviation" << endl
+         << "                            default: learn from confident pairs; otherwise score-only" << endl
+         << "      --fragment-sample-size N  confident pairs for learning [1000]" << endl
+         << "      --fragment-buffer-size N  buffered fragments before finalizing [10000]" << endl
+         << "                            also bounded to 64 MiB, except a single large group" << endl
          << "  -M, --multimap            include secondary alignments to all" << endl
          << "                            overlapping paths instead of just primary" << endl
          << "  -G, --gaf-input           input file is GAF instead of GAM" << endl
@@ -60,7 +68,8 @@ void help_surject(char** argv) {
          << "  -U, --force-unpaired      surject reads as unpaired even if they appear paired" << endl
          << "  -f, --max-frag-len N      reads with fragment lengths greater than N won't be" << endl
          << "                            marked properly paired in HTS formats." << endl
-         << "                            0 for unlimited. (default: unlimited)" << endl
+         << "                            0 for unlimited. (default: unlimited; paired diploid" << endl
+         << "                            uses mean + 6 stdev when a model is available)" << endl
          << "  -u, --supplementary       divide into supplementary alignments as necessary" << endl
          << "  -B, --left-align          attempt to left-align indels" << endl
          << "  -l, --subpath-local       let the multipath mapping surjection produce local" << endl
@@ -193,6 +202,10 @@ int main_surject(int argc, char** argv) {
 
     constexpr int OPT_NO_PRUNE_LOW_CPLX = 1000;
     constexpr int OPT_OFF_REF_POS = 1001;
+    constexpr int OPT_FRAGMENT_MEAN = 1002;
+    constexpr int OPT_FRAGMENT_STDEV = 1003;
+    constexpr int OPT_FRAGMENT_SAMPLES = 1004;
+    constexpr int OPT_FRAGMENT_BUFFER = 1005;
 
     if (argc == 2) {
         help_surject(argv);
@@ -210,6 +223,10 @@ int main_surject(int argc, char** argv) {
     bool interleaved = false;
     bool force_unpaired = false;
     std::optional<int32_t> max_frag_len;
+    optional<double> fragment_mean, fragment_stdev;
+    size_t fragment_sample_size = 1000;
+    size_t fragment_buffer_size = 10000;
+    bool fragment_learning_options = false;
     string sample_name;
     string read_group;
     int compress_level = 9;
@@ -260,6 +277,10 @@ int main_surject(int argc, char** argv) {
             {"sam-output", no_argument, 0, 's'},
             {"interleaved", no_argument, 0, 'i'},
             {"force-unpaired", no_argument, 0, 'U'},
+            {"fragment-mean", required_argument, 0, OPT_FRAGMENT_MEAN},
+            {"fragment-stdev", required_argument, 0, OPT_FRAGMENT_STDEV},
+            {"fragment-sample-size", required_argument, 0, OPT_FRAGMENT_SAMPLES},
+            {"fragment-buffer-size", required_argument, 0, OPT_FRAGMENT_BUFFER},
             {"max-frag-len", required_argument, 0, 'f'},
             {"supplementary", no_argument, 0, 'u'},
             {"off-ref-position", no_argument, 0, OPT_OFF_REF_POS},
@@ -361,6 +382,20 @@ int main_surject(int argc, char** argv) {
             force_unpaired = true;
             break;
 
+        case OPT_FRAGMENT_MEAN:
+            fragment_mean = parse<double>(optarg);
+            break;
+        case OPT_FRAGMENT_STDEV:
+            fragment_stdev = parse<double>(optarg);
+            break;
+        case OPT_FRAGMENT_SAMPLES:
+            fragment_sample_size = parse<size_t>(optarg);
+            fragment_learning_options = true;
+            break;
+        case OPT_FRAGMENT_BUFFER:
+            fragment_buffer_size = parse<size_t>(optarg);
+            fragment_learning_options = true;
+            break;
         case 'f':
             max_frag_len = parse<int32_t>(optarg);
             break;
@@ -471,15 +506,28 @@ int main_surject(int argc, char** argv) {
     }
 
     // Validate configuration
-    if (diploid_map && (input_format == "GAMP" || interleaved || force_unpaired)) {
-        logger.error() << "--diploid-map requires unpaired, name-grouped GAM/GAF input; "
-                       << "GAMP, --interleaved, and --force-unpaired are not supported." << endl;
+    if (diploid_map && (input_format == "GAMP" || force_unpaired)) {
+        logger.error() << "--diploid-map requires name-grouped GAM/GAF input; "
+                       << "GAMP and --force-unpaired are not supported." << endl;
+    }
+    if ((fragment_mean || fragment_stdev || fragment_learning_options) && !(diploid_map && interleaved)) {
+        logger.error() << "Fragment model options require --diploid-map and --interleaved." << endl;
+    }
+    if (fragment_mean.has_value() != fragment_stdev.has_value()
+        || (fragment_mean && (!isfinite(*fragment_mean) || *fragment_mean < 0))
+        || (fragment_stdev && (!isfinite(*fragment_stdev) || *fragment_stdev <= 0))
+        || fragment_sample_size < 2 || fragment_buffer_size == 0) {
+        logger.error() << "Supply both a finite nonnegative --fragment-mean and positive --fragment-stdev; "
+                       << "fragment sample size must be at least 2 and buffer size must be positive." << endl;
+    }
+    if (max_frag_len && *max_frag_len < 0) {
+        logger.error() << "--max-frag-len must be nonnegative." << endl;
     }
     if (!interleaved && max_frag_len.has_value()) {
         logger.error() << "-f/--max-frag-len can only be used with paired-end reads, "
                        << "but -i/--interleaved was not provided." << endl;
     }
-    if (interleaved && !max_frag_len.has_value()) {
+    if (interleaved && !diploid_map && !max_frag_len.has_value()) {
         // TODO: Once we get fragment distribution learning, this will be less of a problem. 
         logger.warn() << "Running in paired-end mode without -f/--max-frag-len. "
                       << "Reads will be assumed to be properly paired at any distance!" << endl
@@ -584,7 +632,7 @@ int main_surject(int argc, char** argv) {
         // We have an override
         surjector.max_subgraph_bases_per_read_base = *max_graph_scale;
     }
-    surjector.choose_band_padding = algorithms::pad_band_min_random_walk(1.0, 2000, 16);
+    surjector.choose_band_padding = vg::algorithms::pad_band_min_random_walk(1.0, 2000, 16);
     surjector.report_supplementary = report_supplementary;
     surjector.left_align = left_align;
     surjector.multimap_to_all_paths = multimap;
@@ -626,7 +674,96 @@ int main_surject(int argc, char** argv) {
             output_format, sequence_dictionary, thread_count, xgidx,
             ALIGNMENT_EMITTER_FLAG_HTS_RAW | (spliced * ALIGNMENT_EMITTER_FLAG_HTS_SPLICED));
 
-        if (diploid_map) {
+        if (diploid_map && interleaved) {
+            Surjector::DiploidPairingParameters pairing;
+            pairing.maximum_fragment_length = max_frag_len.value_or(0);
+            FragmentLengthDistribution distribution(fragment_sample_size, 1, 0.95);
+            bool model_ready = false;
+            size_t buffered_bytes = 0;
+            vector<vector<pair<Alignment, Alignment>>> buffered;
+            auto set_model = [&](double mean, double stdev) {
+                pairing.fragment_model = Surjector::DiploidFragmentModel{mean, stdev};
+                if (!max_frag_len) {
+                    pairing.maximum_fragment_length = static_cast<int64_t>(min<double>(
+                        numeric_limits<int32_t>::max(), ceil(mean + 6 * stdev)));
+                }
+            };
+            if (fragment_mean) {
+                distribution.force_parameters(*fragment_mean, *fragment_stdev);
+                set_model(distribution.mean(), distribution.std_dev());
+                model_ready = true;
+            }
+            auto emit_candidates = [&](vector<Surjector::DiploidPairCandidate>&& candidates) {
+                vector<pair<vector<Alignment>, vector<Alignment>>> alternatives;
+                alternatives.reserve(candidates.size());
+                for (auto& candidate : candidates) {
+                    alternatives.emplace_back(std::move(candidate.first), std::move(candidate.second));
+                }
+                emit_paired_group(*alignment_emitter, std::move(alternatives), pairing.maximum_fragment_length);
+                total_reads_surjected += 2;
+            };
+            auto finish_learning = [&]() {
+                if (distribution.curr_sample_size() >= 2 && isfinite(distribution.mean())
+                    && isfinite(distribution.std_dev())) {
+                    // Avoid a singular Gaussian for constant observed fragment lengths.
+                    set_model(distribution.mean(), max(1.0, distribution.std_dev()));
+                    logger.info() << "Learned diploid fragment mean " << pairing.fragment_model->mean
+                                  << ", stdev " << pairing.fragment_model->stddev << " from "
+                                  << distribution.curr_sample_size() << " pairs." << endl;
+                } else {
+                    logger.warn() << "Insufficient confident pairs to learn fragment lengths; "
+                                  << "using alignment scores only. Supply --fragment-mean and --fragment-stdev "
+                                  << "to use a fixed model." << endl;
+                }
+                model_ready = true;
+                for (auto& group : buffered) {
+                    emit_candidates(surjector.surject_diploid_paired(group, paths, pairing, subpath_global, spliced));
+                }
+                buffered.clear();
+                buffered_bytes = 0;
+            };
+            function<void(vector<pair<Alignment, Alignment>>&)> process_fragment = [&](vector<pair<Alignment, Alignment>>& group) {
+                try {
+                    const string name = group.front().first.name();
+                    set_crash_context(name);
+                    const size_t thread = omp_get_thread_num();
+                    watchdog->check_in(thread, name);
+                    for (auto& pair : group) {
+                        for (auto* aln : {&pair.first, &pair.second}) {
+                            if (input_format == "GAF") check_gaf_aln(*aln);
+                            if (validate) ensure_alignment_is_for_graph(logger, *aln, *xgidx);
+                            set_metadata(*aln);
+                        }
+                    }
+                    auto candidates = surjector.surject_diploid_paired(group, paths, pairing, subpath_global, spliced);
+                    if (model_ready) {
+                        emit_candidates(std::move(candidates));
+                    } else {
+                        // The grouped reader keeps callbacks serial until the model is frozen.
+                        // Train without a fragment score, avoiding circular selection by that score.
+                        auto length = surjector.diploid_fragment_length(candidates);
+                        if (length) distribution.register_fragment_length(*length);
+                        for (const auto& pair : group) buffered_bytes += pair.first.ByteSizeLong() + pair.second.ByteSizeLong();
+                        buffered.emplace_back(std::move(group));
+                        if (distribution.is_finalized() || buffered.size() >= fragment_buffer_size
+                            || buffered_bytes >= 64 * 1024 * 1024) finish_learning();
+                    }
+                    watchdog->check_out(thread);
+                    clear_crash_context();
+                } catch (const exception& ex) {
+                    report_exception(ex);
+                }
+            };
+            auto ready = [&]() { return model_ready; };
+            if (input_format == "GAM") {
+                get_input_file(file_name, [&](istream& in) {
+                    vg::io::gam_paired_grouped_for_each_parallel(in, process_fragment, ready);
+                });
+            } else {
+                vg::io::gaf_paired_grouped_for_each_parallel(*xgidx, file_name, process_fragment, ready);
+            }
+            if (!model_ready && !buffered.empty()) finish_learning();
+        } else if (diploid_map) {
             function<void(vector<Alignment>&)> process_read_placements = [&](vector<Alignment>& placements) {
                 try {
                     const string& name = placements.front().name();
