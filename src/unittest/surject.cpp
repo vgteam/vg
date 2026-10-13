@@ -50,6 +50,232 @@ static map<string, pair<char, string>> parse_sam_tags_for_test(const Alignment& 
 }
 
 
+// Construct one exact graph placement with MAPQ 37 and primary status.
+static Alignment diploid_test_placement(int64_t node_id, const string& sequence) {
+    Alignment aln;
+    aln.set_name("read");
+    aln.set_sequence(sequence);
+    aln.set_mapping_quality(37);
+    auto* mapping = aln.mutable_path()->add_mapping();
+    mapping->set_rank(1);
+    mapping->mutable_position()->set_node_id(node_id);
+    auto* edit = mapping->add_edit();
+    edit->set_from_length(sequence.size());
+    edit->set_to_length(sequence.size());
+    return aln;
+}
+
+TEST_CASE("Diploid selection compares graph placements deterministically", "[surject][diploid]") {
+    bdsg::HashGraph graph;
+    const string sequence = "ACGTTGCACTGATCGATGCA";
+    auto a = graph.create_handle(sequence);
+    auto b = graph.create_handle(sequence);
+    auto path_a = graph.create_path_handle("A");
+    auto path_b = graph.create_path_handle("B");
+    graph.append_step(path_a, a);
+    graph.append_step(path_b, b);
+    bdsg::PositionOverlay overlay(&graph);
+    TestSurjector surjector(&overlay);
+    surjector.prune_suspicious_anchors = false;
+    auto primary = diploid_test_placement(graph.get_id(b), sequence);
+    auto alternative = diploid_test_placement(graph.get_id(a), sequence);
+    alternative.set_is_secondary(true);
+    vector<Alignment> input{alternative, primary};
+    const auto original = input;
+
+    SECTION("Primary input need not be first and tied output is deterministic") {
+        auto output = surjector.surject_diploid(input, {path_a, path_b});
+        REQUIRE(output.size() == 2);
+        CHECK(input[0].SerializeAsString() == original[0].SerializeAsString());
+        CHECK(input[1].SerializeAsString() == original[1].SerializeAsString());
+        CHECK(output[0].refpos(0).name() == "A");
+        CHECK_FALSE(output[0].is_secondary());
+        CHECK(output[1].is_secondary());
+        for (const auto& aln : output) {
+            CHECK(get_annotation<double>(aln, "diploid_source_mapping_quality") == 37);
+            CHECK(get_annotation<bool>(aln, "diploid_haplotype_preferred"));
+            CHECK(aln.mapping_quality() == 3);
+        }
+        std::reverse(input.begin(), input.end());
+        auto reversed = surjector.surject_diploid(input, {path_b, path_a});
+        REQUIRE(reversed.size() == output.size());
+        for (size_t i = 0; i < output.size(); ++i) {
+            CHECK(reversed[i].refpos(0).name() == output[i].refpos(0).name());
+            CHECK(reversed[i].mapping_quality() == output[i].mapping_quality());
+        }
+    }
+    SECTION("A better mapped alternative becomes primary across graph placements") {
+        auto short_node = graph.create_handle(sequence.substr(0, 8));
+        auto short_path = graph.create_path_handle("short");
+        graph.append_step(short_path, short_node);
+        primary.clear_path();
+        auto* mapping = primary.mutable_path()->add_mapping();
+        mapping->set_rank(1);
+        mapping->mutable_position()->set_node_id(graph.get_id(short_node));
+        auto* edit = mapping->add_edit();
+        edit->set_from_length(8);
+        edit->set_to_length(8);
+        edit = mapping->add_edit();
+        edit->set_to_length(sequence.size() - 8);
+        edit->set_sequence(sequence.substr(8));
+        bdsg::PositionOverlay updated_overlay(&graph);
+        TestSurjector updated(&updated_overlay);
+        updated.prune_suspicious_anchors = false;
+        auto output = updated.surject_diploid({primary, alternative}, {short_path, path_a});
+        REQUIRE(output.size() == 2);
+        CHECK(output.front().refpos(0).name() == "A");
+        CHECK(output.front().score() > output.back().score());
+        CHECK_FALSE(output.front().is_secondary());
+        CHECK(output.back().is_secondary());
+        CHECK(output.front().mapping_quality() <= 37);
+    }
+}
+
+TEST_CASE("Diploid mapping quality respects known input confidence", "[surject][diploid]") {
+    bdsg::HashGraph graph;
+    const string sequence = "ACGTTGCACTGATCGATGCA";
+    auto b = graph.create_handle(sequence);
+    auto path_b = graph.create_path_handle("B");
+    graph.append_step(path_b, b);
+    bdsg::PositionOverlay overlay(&graph);
+    TestSurjector surjector(&overlay);
+    surjector.prune_suspicious_anchors = false;
+    auto primary = diploid_test_placement(graph.get_id(b), sequence);
+
+    SECTION("Original high MAPQ is preserved separately from computed quality") {
+        primary.set_mapping_quality(90);
+        auto output = surjector.surject_diploid({primary}, {path_b});
+        REQUIRE(output.size() == 1);
+        CHECK(output.front().mapping_quality() == 60);
+        CHECK(get_annotation<double>(output.front(), "diploid_source_mapping_quality") == 90);
+    }
+    SECTION("Unknown source MAPQ is not treated as a confidence cap") {
+        primary.set_mapping_quality(255);
+        surjector.max_diploid_mapping_quality = 42;
+        auto output = surjector.surject_diploid({primary}, {path_b});
+        REQUIRE(output.size() == 1);
+        CHECK(output.front().mapping_quality() == 42);
+        CHECK(get_annotation<double>(output.front(), "diploid_source_mapping_quality") == 255);
+    }
+    SECTION("Zero source MAPQ caps global confidence") {
+        primary.set_mapping_quality(0);
+        auto output = surjector.surject_diploid({primary}, {path_b});
+        REQUIRE(output.size() == 1);
+        CHECK(output.front().mapping_quality() == 0);
+    }
+}
+
+TEST_CASE("Diploid haplotype quality compares targets of one graph placement", "[surject][diploid]") {
+    bdsg::HashGraph graph;
+    const string sequence = "ACGTTGCACTGATCGATGCA";
+    auto b = graph.create_handle(sequence);
+    auto path_b = graph.create_path_handle("B");
+    graph.append_step(path_b, b);
+    auto primary = diploid_test_placement(graph.get_id(b), sequence);
+
+    auto other = graph.create_path_handle("C");
+    graph.append_step(other, b);
+    bdsg::PositionOverlay overlay(&graph);
+    TestSurjector surjector(&overlay);
+    surjector.prune_suspicious_anchors = false;
+    surjector.multimap_to_all_paths = false;
+    auto output = surjector.surject_diploid({primary}, {path_b, other});
+    REQUIRE(output.size() == 2);
+    CHECK(get_annotation<bool>(output[0], "diploid_haplotype_preferred"));
+    CHECK_FALSE(get_annotation<bool>(output[1], "diploid_haplotype_preferred"));
+    CHECK(output[0].refpos(0).name() == "B");
+    CHECK(output[1].refpos(0).name() == "C");
+    CHECK_FALSE(output[0].is_secondary());
+    CHECK(output[1].is_secondary());
+    for (const auto& aln : output) {
+        CHECK(get_annotation<double>(aln, "diploid_haplotype_quality") == 3);
+        CHECK(aln.mapping_quality() == 3);
+    }
+}
+
+TEST_CASE("Diploid reads without candidates retain unmapped metadata", "[surject][diploid]") {
+    bdsg::HashGraph graph;
+    const string sequence = "ACGTTGCACTGATCGATGCA";
+    auto a = graph.create_handle(sequence);
+    auto b = graph.create_handle(sequence);
+    auto path_a = graph.create_path_handle("A");
+    auto path_b = graph.create_path_handle("B");
+    graph.append_step(path_a, a);
+    graph.append_step(path_b, b);
+    bdsg::PositionOverlay overlay(&graph);
+    TestSurjector surjector(&overlay);
+    surjector.prune_suspicious_anchors = false;
+    auto primary = diploid_test_placement(graph.get_id(b), sequence);
+
+    set_annotation(primary, "tags", string("ZZ:Z:keep\tSA:Z:obsolete"));
+    unordered_set<path_handle_t> targets;
+    SECTION("No selected target paths") {
+        targets = {};
+    }
+    SECTION("Placement does not overlap the selected target") {
+        targets = {path_a};
+    }
+    SECTION("Input placement has an empty path") {
+        primary.clear_path();
+        targets = {path_a, path_b};
+    }
+    auto output = surjector.surject_diploid({primary}, targets);
+    REQUIRE(output.size() == 1);
+    REQUIRE(output.front().refpos_size() == 1);
+    CHECK(output.front().refpos(0).name().empty());
+    CHECK(output.front().refpos(0).offset() == -1);
+    CHECK_FALSE(output.front().refpos(0).is_reverse());
+    CHECK(output.front().path().mapping_size() == 0);
+    CHECK(output.front().mapping_quality() == 0);
+    CHECK(get_annotation<string>(output.front(), "tags") == "ZZ:Z:keep");
+    CHECK(get_annotation<double>(output.front(), "diploid_source_mapping_quality") == 37);
+}
+
+TEST_CASE("Diploid input requires compatible placements of one unpaired read", "[surject][diploid]") {
+    bdsg::HashGraph graph;
+    const string sequence = "ACGTTGCACTGATCGATGCA";
+    auto a = graph.create_handle(sequence);
+    auto b = graph.create_handle(sequence);
+    auto path_a = graph.create_path_handle("A");
+    auto path_b = graph.create_path_handle("B");
+    graph.append_step(path_a, a);
+    graph.append_step(path_b, b);
+    bdsg::PositionOverlay overlay(&graph);
+    TestSurjector surjector(&overlay);
+    surjector.prune_suspicious_anchors = false;
+    auto primary = diploid_test_placement(graph.get_id(b), sequence);
+    auto alternative = diploid_test_placement(graph.get_id(a), sequence);
+    alternative.set_is_secondary(true);
+
+    SECTION("Malformed groups are rejected") {
+        CHECK_THROWS_AS(surjector.surject_diploid({alternative}, {path_a}), invalid_argument);
+        alternative.set_is_secondary(false);
+        CHECK_THROWS_AS(surjector.surject_diploid({primary, alternative}, {path_a}), invalid_argument);
+        alternative.set_is_secondary(true);
+        alternative.set_name("different");
+        CHECK_THROWS_AS(surjector.surject_diploid({primary, alternative}, {path_a}), invalid_argument);
+        alternative = diploid_test_placement(graph.get_id(a), sequence);
+        alternative.set_is_secondary(true);
+        alternative.set_sequence("ACGT");
+        CHECK_THROWS_AS(surjector.surject_diploid({primary, alternative}, {path_a}), invalid_argument);
+        alternative = diploid_test_placement(graph.get_id(a), sequence);
+        alternative.set_is_secondary(true);
+        alternative.set_quality(string(sequence.size(), 30));
+        CHECK_THROWS_AS(surjector.surject_diploid({primary, alternative}, {path_a}), invalid_argument);
+    }
+    SECTION("Unsupported input relationships fail explicitly") {
+        auto paired = primary;
+        paired.mutable_fragment_next()->set_name("mate");
+        CHECK_THROWS_AS(surjector.surject_diploid({paired}, {path_b}), invalid_argument);
+        auto supplementary = primary;
+        set_annotation(supplementary, "supplementary", true);
+        CHECK_THROWS_AS(surjector.surject_diploid({supplementary}, {path_b}), invalid_argument);
+        auto embedded = primary;
+        embedded.add_supplementary();
+        CHECK_THROWS_AS(surjector.surject_diploid({embedded}, {path_b}), invalid_argument);
+    }
+}
+
 TEST_CASE("Surjection alternatives are classified by read interval",
           "[surject][interval-classification]") {
     bdsg::HashGraph graph;

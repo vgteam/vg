@@ -122,6 +122,186 @@ using namespace std;
         
     }
 
+
+    vector<Alignment> Surjector::surject_diploid(const vector<Alignment>& placements,
+                                               const unordered_set<path_handle_t>& paths,
+                                               bool allow_negative_scores,
+                                               bool preserve_deletions) const {
+        if (placements.empty()) {
+            return {};
+        }
+        if (max_diploid_mapping_quality < 0 || max_diploid_mapping_quality > 254) {
+            throw invalid_argument("diploid mapping quality cap must be between 0 and 254");
+        }
+        const Alignment* primary = nullptr;
+        for (const auto& source : placements) {
+            if (source.name().empty() || source.name() != placements.front().name()
+                || source.sequence() != placements.front().sequence()
+                || source.quality() != placements.front().quality()) {
+                throw invalid_argument("diploid placements must share a name, sequence, and qualities");
+            }
+            if (source.has_fragment_prev() || source.has_fragment_next()) {
+                throw invalid_argument("paired diploid placements are not supported yet");
+            }
+            if (source.supplementary_size() != 0 || is_supplementary(source)) {
+                throw invalid_argument("mapper-provided supplementary diploid input is not supported yet");
+            }
+            if (source.mapping_quality() < 0 || source.mapping_quality() > 255) {
+                throw invalid_argument("diploid input MAPQ must be between 0 and 255");
+            }
+            if (!source.is_secondary()) {
+                if (primary) {
+                    throw invalid_argument("diploid input must contain exactly one primary placement");
+                }
+                primary = &source;
+            }
+        }
+        if (!primary) {
+            throw invalid_argument("diploid input must contain exactly one primary placement");
+        }
+
+        // Keep each candidate's primary alignment together with its supplementary pieces.
+        // Only primary alignments compete when choosing between candidates.
+        struct Candidate {
+            vector<Alignment> pieces;
+            vector<tuple<string, int64_t, bool>> positions;
+            string source_path;
+            bool preferred = false;
+            int32_t haplotype_quality = 0;
+        };
+        vector<Candidate> candidates;
+        auto better = [](const Candidate& a, const Candidate& b) {
+            if (a.pieces.front().score() != b.pieces.front().score()) {
+                return a.pieces.front().score() > b.pieces.front().score();
+            }
+            if (a.positions.front() != b.positions.front()) {
+                return a.positions.front() < b.positions.front();
+            }
+            return a.source_path < b.source_path;
+        };
+        auto quality = [&](const vector<double>& scores) -> int32_t {
+            if (scores.size() == 1) {
+                return max_diploid_mapping_quality;
+            }
+            auto value = get_aligner(!primary->quality().empty())->mapq_calc
+                ->compute_first_mapping_quality(scores, false);
+            return max<int32_t>(0, min(max_diploid_mapping_quality, value));
+        };
+        // Visit the input primary first so deduplication keeps its metadata when
+        // multiple inputs describe the same graph path.
+        vector<const Alignment*> ordered_sources{primary};
+        for (const auto& source : placements) {
+            if (&source != primary) {
+                ordered_sources.push_back(&source);
+            }
+        }
+        // Remove existing SA tags before rebuilding links for the new surjections.
+        auto clear_sa = [](Alignment& aln) {
+            if (!has_annotation(aln, "tags")) {
+                return;
+            }
+            const string tags = get_annotation<string>(aln, "tags");
+            string retained;
+            for (size_t start = 0; start < tags.size();) {
+                const size_t end = tags.find('\t', start);
+                const string tag = tags.substr(start, end == string::npos ? end : end - start);
+                if (tag.compare(0, 3, "SA:") != 0) {
+                    if (!retained.empty()) retained += '\t';
+                    retained += tag;
+                }
+                if (end == string::npos) break;
+                start = end + 1;
+            }
+            if (retained.empty()) clear_annotation(aln, "tags");
+            else set_annotation(aln, "tags", retained);
+        };
+        unordered_set<string> seen_paths;
+        for (const auto* source_ptr : ordered_sources) {
+            const auto& source = *source_ptr;
+            if (source.path().mapping_size() == 0) {
+                continue;
+            }
+            const string source_path = source.path().SerializeAsString();
+            if (!seen_paths.insert(source_path).second) {
+                continue;
+            }
+            vector<Alignment> surjected;
+            vector<tuple<string, int64_t, bool>> positions;
+            vector<vector<size_t>> groups;
+            surject_internal(&source, nullptr, &surjected, nullptr, paths, positions,
+                             allow_negative_scores, preserve_deletions, &groups);
+            set_refpos(surjected, positions);
+            if (annotate_with_graph_alignment) {
+                annotate_graph_cigar(surjected, source, positions);
+            }
+            const size_t first_candidate = candidates.size();
+            for (const auto& group : groups) {
+                if (surjected[group.front()].path().mapping_size() == 0) {
+                    continue;
+                }
+                Candidate candidate;
+                candidate.source_path = source_path;
+                for (size_t index : group) {
+                    candidate.pieces.emplace_back(std::move(surjected[index]));
+                    candidate.positions.push_back(positions[index]);
+                }
+                candidates.emplace_back(std::move(candidate));
+            }
+            if (first_candidate == candidates.size()) {
+                continue;
+            }
+            stable_sort(candidates.begin() + first_candidate, candidates.end(), better);
+            vector<double> scores;
+            for (size_t i = first_candidate; i < candidates.size(); ++i) {
+                scores.push_back(candidates[i].pieces.front().score());
+            }
+            const int32_t hq = quality(scores);
+            candidates[first_candidate].preferred = true;
+            for (size_t i = first_candidate; i < candidates.size(); ++i) {
+                candidates[i].haplotype_quality = hq;
+            }
+        }
+        if (candidates.empty()) {
+            Alignment unmapped = make_null_alignment(*primary);
+            unmapped.set_is_secondary(false);
+            clear_annotation(unmapped, "diploid_haplotype_preferred");
+            clear_annotation(unmapped, "diploid_haplotype_quality");
+            clear_sa(unmapped);
+            set_annotation(unmapped, "diploid_source_mapping_quality", primary->mapping_quality());
+            // Represent unmapped output with the empty reference position expected by HTS output.
+            vector<Alignment> output{std::move(unmapped)};
+            set_refpos(output, {make_tuple(string(), int64_t(-1), false)});
+            return output;
+        }
+        stable_sort(candidates.begin(), candidates.end(), better);
+        vector<double> scores;
+        for (const auto& candidate : candidates) {
+            scores.push_back(candidate.pieces.front().score());
+        }
+        int32_t global_quality = quality(scores);
+        if (primary->mapping_quality() != 255) {
+            global_quality = min(global_quality, primary->mapping_quality());
+        }
+        vector<Alignment> output;
+        for (size_t i = 0; i < candidates.size(); ++i) {
+            auto& candidate = candidates[i];
+            for (auto& aln : candidate.pieces) {
+                aln.set_is_secondary(i != 0);
+                aln.set_mapping_quality(global_quality);
+                set_annotation(aln, "diploid_haplotype_preferred", candidate.preferred);
+                set_annotation(aln, "diploid_haplotype_quality", candidate.haplotype_quality);
+                set_annotation(aln, "diploid_source_mapping_quality", primary->mapping_quality());
+                clear_sa(aln);
+            }
+            // Rebuild SA links within each candidate after final mapping qualities are set.
+            add_SA_tag(candidate.pieces, candidate.positions, *graph, preserve_deletions);
+            for (auto& aln : candidate.pieces) {
+                output.emplace_back(std::move(aln));
+            }
+        }
+        return output;
+    }
+
     vector<Alignment> Surjector::surject(const Alignment& source, const unordered_set<path_handle_t>& paths,
                                          bool allow_negative_scores, bool preserve_deletions) const {
     
@@ -233,8 +413,10 @@ using namespace std;
                                      vector<Alignment>* alns_out, vector<multipath_alignment_t>* mp_alns_out,
                                      const unordered_set<path_handle_t>& paths,
                                      vector<tuple<string, int64_t, bool>>& positions_out,
-                                     bool allow_negative_scores, bool preserve_deletions) const {
+                                     bool allow_negative_scores, bool preserve_deletions,
+                                     vector<vector<size_t>>* candidate_groups) const {
 
+        assert(!candidate_groups || (source_aln && candidate_groups->empty()));
         // we need one and only one data type: Alignment or multipath_alignment_t
         assert(!(source_aln && source_mp_aln));
         assert((source_aln && alns_out) || (source_mp_aln && mp_alns_out));
@@ -518,7 +700,7 @@ using namespace std;
         
         // choose which path strands we will output
         vector<pair<path_handle_t, bool>> strands_to_output;
-        if (multimap_to_all_paths) {
+        if (multimap_to_all_paths || candidate_groups) {
             vector<tuple<int32_t, path_handle_t, bool>> path_strands;
             if (source_aln) {
                 // give each path strand the alignment score if it is primary or 0 if it is supplementary (to deprioritize)
@@ -605,6 +787,7 @@ using namespace std;
             
             // find the position along the path
             size_t num_suppls = source_aln ? aln_surjections[path_strand].size() : mp_aln_surjections[path_strand].size();
+            const size_t strand_group = candidate_groups ? candidate_groups->size() : 0;
             for (size_t j = 0; j < num_suppls; ++j) {
                 
                 // retrieve the first/last positions of the best alignment and the corresponding
@@ -617,6 +800,15 @@ using namespace std;
                     final_pos = final_position(surjection.first.path());
                     path_range = surjection.second;
                     alns_out->emplace_back(std::move(surjection.first));
+                    if (candidate_groups) {
+                        const size_t index = alns_out->size() - 1;
+                        if (j == 0 || !is_supplementary(alns_out->back())) {
+                            candidate_groups->push_back({index});
+                        } else {
+                            candidate_groups->at(strand_group).push_back(index);
+                        }
+                    }
+
                     
                     if (source_aln->is_secondary() || (i != 0 && !is_supplementary(alns_out->back()))) {
                         alns_out->back().set_is_secondary(true);
