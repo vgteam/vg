@@ -1243,6 +1243,7 @@ clean: clean-vcflib
 	$(RM) -r $(OBJ_DIR)
 	$(RM) -r $(INC_DIR)
 	$(RM) -r share/
+	cd $(DEP_DIR) && cd elfutils && $(MAKE) $(AUTOMAKE_MAKEFLAGS) clean || true
 	cd $(DEP_DIR) && cd gcsa2 && $(MAKE) clean
 	cd $(DEP_DIR) && cd gbwt && $(MAKE) clean
 	cd $(DEP_DIR) && cd gbwtgraph && $(MAKE) clean
