@@ -25,8 +25,294 @@ public:
     using Surjector::extract_overlapping_paths;
     using Surjector::filter_redundant_path_chunks;
     using Surjector::prune_and_trim_anchors;
+    using Surjector::choose_primary;
+    using Surjector::choose_primary_strand;
     
 };
+
+
+// Read individual SAM fields without assuming SA is the only tag.
+static map<string, pair<char, string>> parse_sam_tags_for_test(const Alignment& aln) {
+    map<string, pair<char, string>> tags;
+    if (has_annotation(aln, "tags")) {
+        istringstream input(get_annotation<string>(aln, "tags"));
+        string field;
+        while (input >> field) {
+            REQUIRE(field.size() >= 5);
+            REQUIRE(field[2] == ':');
+            REQUIRE(field[4] == ':');
+            REQUIRE(tags.emplace(field.substr(0, 2),
+                                 make_pair(field[3], field.substr(5))).second);
+        }
+    }
+    return tags;
+}
+
+
+TEST_CASE("Surjection alternatives are classified by read interval",
+          "[surject][interval-classification]") {
+    bdsg::HashGraph graph;
+    auto node = graph.create_handle(string(200, 'A'));
+    auto path = graph.create_path_handle("ref");
+    auto step = graph.append_step(path, node);
+    bdsg::PositionOverlay pos_graph(&graph);
+    TestSurjector surjector(&pos_graph);
+
+    vector<pair<Alignment, pair<step_handle_t, step_handle_t>>> candidates;
+    auto add_candidate = [&](const string& name, size_t begin, size_t end,
+                             int32_t score, size_t reference_begin) {
+        Alignment aln;
+        aln.set_name(name);
+        aln.set_sequence(string(100, 'A'));
+        aln.set_score(score);
+        auto* mapping = aln.mutable_path()->add_mapping();
+        mapping->set_rank(1);
+        mapping->mutable_position()->set_node_id(graph.get_id(node));
+        mapping->mutable_position()->set_offset(reference_begin);
+        if (begin != 0) {
+            auto* clip = mapping->add_edit();
+            clip->set_to_length(begin);
+            clip->set_sequence(string(begin, 'A'));
+        }
+        auto* match = mapping->add_edit();
+        match->set_from_length(end - begin);
+        match->set_to_length(end - begin);
+        if (end != 100) {
+            auto* clip = mapping->add_edit();
+            clip->set_to_length(100 - end);
+            clip->set_sequence(string(100 - end, 'A'));
+        }
+        candidates.emplace_back(aln, make_pair(step, step));
+    };
+
+    // The best candidate is deliberately not first. A and B overlap on
+    // the read; C covers the remaining read bases.
+    add_candidate("A", 0, 60, 40, 0);
+    add_candidate("B", 0, 60, 60, 100);
+    add_candidate("C", 60, 100, 30, 160);
+
+    auto by_name = [&]() {
+        map<string, Alignment> named;
+        for (const auto& candidate : candidates) {
+            REQUIRE(named.emplace(candidate.first.name(), candidate.first).second);
+        }
+        return named;
+    };
+
+    SECTION("Supplementary reporting retains the disjoint candidate") {
+        surjector.report_supplementary = true;
+        surjector.choose_primary(candidates);
+
+        REQUIRE(candidates.size() == 3);
+        CHECK(candidates[0].first.name() == "B");
+        CHECK(candidates[1].first.name() == "A");
+        CHECK(candidates[2].first.name() == "C");
+        const auto named = by_name();
+        CHECK_FALSE(named.at("B").is_secondary());
+        CHECK_FALSE(is_supplementary(named.at("B")));
+        CHECK(named.at("B").score() == 60);
+        CHECK(named.at("A").is_secondary());
+        CHECK_FALSE(is_supplementary(named.at("A")));
+        CHECK_FALSE(named.at("C").is_secondary());
+        CHECK(is_supplementary(named.at("C")));
+    }
+    SECTION("Without supplementary reporting the disjoint candidate is omitted") {
+        surjector.report_supplementary = false;
+        surjector.choose_primary(candidates);
+
+        REQUIRE(candidates.size() == 2);
+        CHECK(candidates[0].first.name() == "B");
+        CHECK(candidates[1].first.name() == "A");
+        const auto named = by_name();
+        CHECK_FALSE(named.at("B").is_secondary());
+        CHECK_FALSE(is_supplementary(named.at("B")));
+        CHECK(named.at("B").score() == 60);
+        CHECK(named.at("A").is_secondary());
+        CHECK_FALSE(is_supplementary(named.at("A")));
+        CHECK(named.count("C") == 0);
+    }
+}
+
+
+
+TEST_CASE("Primary strand selection ignores secondary alternatives",
+          "[surject][interval-classification][strand-scoring]") {
+    bdsg::HashGraph graph;
+    auto node = graph.create_handle(string(1000, 'A'));
+    auto path_a = graph.create_path_handle("A");
+    auto path_b = graph.create_path_handle("B");
+    auto step_a = graph.append_step(path_a, node);
+    auto step_b = graph.append_step(path_b, node);
+    bdsg::PositionOverlay pos_graph(&graph);
+    TestSurjector surjector(&pos_graph);
+    surjector.report_supplementary = true;
+
+    using Candidate = pair<Alignment, pair<step_handle_t, step_handle_t>>;
+    unordered_map<pair<path_handle_t, bool>, vector<Candidate>> candidates;
+    auto add_candidate = [&](path_handle_t path, step_handle_t step,
+                             size_t begin, size_t end, int32_t score,
+                             size_t reference_begin) {
+        Alignment aln;
+        aln.set_sequence(string(100, 'A'));
+        aln.set_score(score);
+        auto* mapping = aln.mutable_path()->add_mapping();
+        mapping->set_rank(1);
+        mapping->mutable_position()->set_node_id(graph.get_id(node));
+        mapping->mutable_position()->set_offset(reference_begin);
+        if (begin != 0) {
+            auto* clip = mapping->add_edit();
+            clip->set_to_length(begin);
+            clip->set_sequence(string(begin, 'A'));
+        }
+        auto* match = mapping->add_edit();
+        match->set_from_length(end - begin);
+        match->set_to_length(end - begin);
+        if (end != 100) {
+            auto* clip = mapping->add_edit();
+            clip->set_to_length(100 - end);
+            clip->set_sequence(string(100 - end, 'A'));
+        }
+        candidates[make_pair(path, false)].emplace_back(
+            aln, make_pair(step, step));
+    };
+
+    SECTION("A wins with 110 despite B having three score-105 placements") {
+        add_candidate(path_a, step_a, 0, 100, 110, 0);
+        add_candidate(path_b, step_b, 0, 100, 105, 0);
+        add_candidate(path_b, step_b, 0, 100, 105, 200);
+        add_candidate(path_b, step_b, 0, 100, 105, 400);
+        surjector.choose_primary(candidates.at(make_pair(path_a, false)));
+        surjector.choose_primary(candidates.at(make_pair(path_b, false)));
+
+        const auto& b = candidates.at(make_pair(path_b, false));
+        REQUIRE(b.size() == 3);
+        CHECK_FALSE(b[0].first.is_secondary());
+        CHECK_FALSE(is_supplementary(b[0].first));
+        CHECK(b[1].first.is_secondary());
+        CHECK_FALSE(is_supplementary(b[1].first));
+        CHECK(b[2].first.is_secondary());
+        CHECK_FALSE(is_supplementary(b[2].first));
+        CHECK(surjector.choose_primary_strand(candidates) == make_pair(path_a, false));
+    }
+    SECTION("B wins with disjoint scores 65 plus 45 against A's 105") {
+        add_candidate(path_a, step_a, 0, 100, 105, 0);
+        add_candidate(path_b, step_b, 0, 60, 65, 0);
+        add_candidate(path_b, step_b, 60, 100, 45, 200);
+        surjector.choose_primary(candidates.at(make_pair(path_a, false)));
+        surjector.choose_primary(candidates.at(make_pair(path_b, false)));
+
+        const auto& b = candidates.at(make_pair(path_b, false));
+        REQUIRE(b.size() == 2);
+        CHECK_FALSE(b[0].first.is_secondary());
+        CHECK_FALSE(is_supplementary(b[0].first));
+        CHECK(b[0].first.score() == 65);
+        CHECK_FALSE(b[1].first.is_secondary());
+        CHECK(is_supplementary(b[1].first));
+        CHECK(b[1].first.score() == 45);
+        CHECK(surjector.choose_primary_strand(candidates) == make_pair(path_b, false));
+    }
+}
+
+
+TEST_CASE("Secondary alternatives do not join the supplementary group",
+          "[surject][interval-classification]") {
+    bdsg::HashGraph graph;
+    auto left = graph.create_handle(string(60, 'A'));
+    auto right = graph.create_handle(string(40, 'C'));
+    auto spacer = graph.create_handle(string(200, 'G'));
+    graph.create_edge(left, right);
+    graph.create_edge(right, spacer);
+    graph.create_edge(spacer, right);
+    auto main_path = graph.create_path_handle("main");
+    graph.append_step(main_path, left);
+    auto repeat_path = graph.create_path_handle("repeat");
+    graph.append_step(repeat_path, right);
+    graph.append_step(repeat_path, spacer);
+    graph.append_step(repeat_path, right);
+    bdsg::PositionOverlay pos_graph(&graph);
+    Surjector surjector(&pos_graph);
+    surjector.report_supplementary = true;
+
+    Alignment read;
+    read.set_name("split-read");
+    read.set_sequence(string(60, 'A') + string(40, 'C'));
+    for (auto node : {left, right}) {
+        auto* mapping = read.mutable_path()->add_mapping();
+        mapping->set_rank(read.path().mapping_size());
+        mapping->mutable_position()->set_node_id(graph.get_id(node));
+        auto* edit = mapping->add_edit();
+        edit->set_from_length(graph.get_length(node));
+        edit->set_to_length(graph.get_length(node));
+    }
+
+    // Either repeat copy may win the tie. Verify that SA links use the
+    // selected copy's position, not the unused alternative's position.
+    auto check_pieces_and_links = [&](const vector<Alignment>& output) {
+        REQUIRE(output.size() == 3);
+        const Alignment* main = nullptr;
+        const Alignment* supplementary = nullptr;
+        const Alignment* alternative = nullptr;
+        for (const auto& aln : output) {
+            REQUIRE(aln.refpos_size() == 1);
+            CHECK_FALSE(aln.refpos(0).is_reverse());
+            if (aln.refpos(0).name() == "main") {
+                REQUIRE(main == nullptr);
+                main = &aln;
+            } else {
+                REQUIRE(aln.refpos(0).name() == "repeat");
+                if (is_supplementary(aln)) {
+                    REQUIRE(supplementary == nullptr);
+                    supplementary = &aln;
+                } else {
+                    REQUIRE(alternative == nullptr);
+                    alternative = &aln;
+                }
+            }
+        }
+        REQUIRE(main != nullptr);
+        REQUIRE(supplementary != nullptr);
+        REQUIRE(alternative != nullptr);
+        CHECK(main->refpos(0).offset() == 0);
+        CHECK_FALSE(is_supplementary(*main));
+
+        // The 40-base piece occurs at offsets 0 and 240 on the repeat path.
+        const auto chosen = supplementary->refpos(0).offset();
+        const auto unused = alternative->refpos(0).offset();
+        CHECK((chosen == 0 || chosen == 240));
+        CHECK((unused == 0 || unused == 240));
+        CHECK(chosen != unused);
+
+        const auto main_tags = parse_sam_tags_for_test(*main);
+        const auto supplementary_tags = parse_sam_tags_for_test(*supplementary);
+        const auto alternative_tags = parse_sam_tags_for_test(*alternative);
+        REQUIRE(main_tags.count("SA") == 1);
+        CHECK(main_tags.at("SA").first == 'Z');
+        CHECK(main_tags.at("SA").second
+              == "repeat," + to_string(chosen + 1) + ",+,60S40M,0,0;");
+        REQUIRE(supplementary_tags.count("SA") == 1);
+        CHECK(supplementary_tags.at("SA").first == 'Z');
+        CHECK(supplementary_tags.at("SA").second == "main,1,+,60M40S,0,0;");
+        CHECK(alternative_tags.count("SA") == 0);
+        return make_tuple(main, supplementary, alternative);
+    };
+
+    SECTION("Primary input produces a primary, a supplementary, and a secondary") {
+        read.set_is_secondary(false);
+        const auto output = surjector.surject(read, {main_path, repeat_path});
+        const auto pieces = check_pieces_and_links(output);
+        CHECK_FALSE(get<0>(pieces)->is_secondary());
+        CHECK_FALSE(get<1>(pieces)->is_secondary());
+        CHECK(get<2>(pieces)->is_secondary());
+    }
+    SECTION("Secondary input passes secondary status to all three outputs") {
+        read.set_is_secondary(true);
+        const auto output = surjector.surject(read, {main_path, repeat_path});
+        const auto pieces = check_pieces_and_links(output);
+        CHECK(get<0>(pieces)->is_secondary());
+        CHECK(get<1>(pieces)->is_secondary());
+        CHECK(get<2>(pieces)->is_secondary());
+    }
+}
 
 
 TEST_CASE("Mapper-declared tails control anchor pruning",
