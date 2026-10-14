@@ -57,40 +57,21 @@ using handlegraph::net_handle_t;
  * @note The view and a SnarlDistanceIndex differ in these ways:
  * - The view refuses unary snarls, whose end is their start reversed.
  * - The view's root holds every root chain directly. A distance index groups
- *   adjacent root chains under extra root snarls, which have no bounds and
- *   for which is_root() is true and canonical() gives the root.
+ *   adjacent root chains under extra root snarls, for which is_root() is
+ *   true and canonical() gives the root.
  * - Snarls are read as the manager reads them, which can be backward along
  *   their chain. A distance index reads every snarl along its chain.
- * - Snarls and chains that can reach a tip have tip traversals. A distance
- *   index gives chains none, because it copies a chain's tip traversals from
- *   its snarls before working them out, and it can miss a snarl's.
- * - Leaving a chain's traversal through a tip reaches nothing. A distance
- *   index leaves it through the chain's end bound.
+ * - Snarls and chains that can reach a tip have tip traversals.
  *
- * @note These behaviours copy a distance index. Each is marked with a TODO in
- * the code, because each looks like something both implementations should
- * change:
- * - TODO: A snarl with no children is hidden even when it is not an
- *   ultrabubble, such as one whose only edges turn around at a bound. Its
- *   chain is still crossable start-to-end, and its turnarounds do not let the
- *   chain turn around.
- * - TODO: A cyclic chain's end bound is its start bound's node read
- *   end-to-end (or start-to-start), not start-to-end.
- * - TODO: A chain can turn around at its start if any of its shown snarls
- *   can turn around at the side facing the chain's start, even when that
- *   snarl cannot be reached from the chain's start. The same goes for the
- *   chain's end.
- * - TODO: Flipping a cyclic chain's end bound, read end-to-end, gives it
- *   back, so going left from it goes the same way as going right.
- * - TODO: Only tip nodes count as tips. A dead end inside a child chain does
- *   not let a snarl reach a tip.
- * - TODO: A tip node's trivial chain has no tip traversals, so
- *   for_each_tippy_child() and for_each_traversal_start() find nothing at a
- *   tip that a snarl's tip traversal reaches.
- * - TODO: Going left from a chain node to the neighbouring chain node, the
- *   node reached is read the way the traversal reads, which is against the
- *   direction of travel. A distance index does this between nodes it packs
- *   into one record, which is most of the time.
+ * TODO: These behaviours copy a distance index, and should change once the
+ * distance index's [snarl_distance_interface] tests pass:
+ * - A snarl with no children is hidden.
+ * - A cyclic chain's end bound is its start bound's node read end-to-end
+ *   (or start-to-start).
+ * - A chain can turn around at its start if any of its shown snarls can turn
+ *   around at the side facing the chain's start.
+ * - Going left from a chain node to the neighbouring chain node, the node
+ *   reached is read the way the traversal reads.
  *
  * Methods that take a graph use it to read and make handles, so it must have
  * the manager's node IDs. follow_net_edges() ignores the graph it is given
