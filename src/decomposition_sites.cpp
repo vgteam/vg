@@ -31,7 +31,7 @@ vector<net_handle_t> top_level_sites(const SnarlDecomposition& decomposition) {
     return sites;
 }
 
-/// Return true if a chain holds at least one site.
+/// @brief Return true if a chain holds at least one site.
 static bool has_site(const SnarlDecomposition& decomposition, const net_handle_t& chain) {
     bool found = false;
     decomposition.for_each_child(chain, [&decomposition, &found](const net_handle_t& child) {

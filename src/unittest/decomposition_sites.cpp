@@ -1,30 +1,36 @@
 /// \file decomposition_sites.cpp
 ///
-/// Unit tests for the decomposition_sites functions, run on a
-/// SnarlManagerDecomposition and a SnarlDistanceIndex built from the same
-/// decomposition.
+/// Unit tests for the decomposition_sites functions, which must give the same
+/// sites on a SnarlManagerDecomposition and on a SnarlDistanceIndex built
+/// from the same decomposition.
 
 #include "catch.hpp"
 #include "../decomposition_sites.hpp"
 #include "../handle.hpp"
 #include "../vg.hpp"
 #include "../integrated_snarl_finder.hpp"
-#include "support/decomposition_pair.hpp"
+#include "support/decomposition_bench.hpp"
+#include "support/decomposition_comparison.hpp"
 #include "support/randomness.hpp"
 
-#include <algorithm>
-#include <format>
 #include <map>
+#include <string>
+#include <vector>
 
 namespace vg::unittest {
 
-using SiteDescriptions = map<string, string, less<>>;
-
-/// Check that each traversal of a site or chain that does not start or end
-/// at a tip has bounds that, read backward, are the bounds of its flip.
-static void check_bounds_laws(const SnarlDecomposition& decomposition, const HandleGraph& graph,
-                              const net_handle_t& site) {
-    decomposition.for_each_traversal(site, [&decomposition, &graph](const net_handle_t& traversal) {
+/**
+ * @brief Require that the bounds of a site's or chain's traversals agree with
+ * their flips.
+ *
+ * @post For each realizable traversal that starts and ends at bounds, the
+ * flipped traversal's start bound is the traversal's end bound read the
+ * other way, and its end bound is the traversal's start bound read the other
+ * way.
+ */
+static void require_flipped_bounds(const SnarlDecomposition& decomposition, const HandleGraph& graph,
+                                   const net_handle_t& net) {
+    decomposition.for_each_traversal(net, [&decomposition, &graph](const net_handle_t& traversal) {
         if (decomposition.starts_at_tip(traversal) || decomposition.ends_at_tip(traversal)) {
             return;
         }
@@ -35,134 +41,107 @@ static void check_bounds_laws(const SnarlDecomposition& decomposition, const Han
     });
 }
 
-/// Check the laws a site obeys with its traversals and with its child sites,
-/// and then check them for its child sites.
-static void check_site_laws(const SnarlDecomposition& decomposition, const HandleGraph& graph,
-                            const net_handle_t& site) {
-    check_bounds_laws(decomposition, graph, site);
+/**
+ * @brief Require that a site and every site under it fit together.
+ *
+ * @post The site, its child chains and the sites under it satisfy
+ * require_flipped_bounds().
+ * @post Each child site has the site as its parent, and is one deeper.
+ */
+static void require_site_subtree(const SnarlDecomposition& decomposition, const HandleGraph& graph,
+                                 const net_handle_t& site) {
+    TraversalLabeler labeler(decomposition, graph);
+    require_flipped_bounds(decomposition, graph, site);
     for (const net_handle_t& chain : child_chains(decomposition, site)) {
-        check_bounds_laws(decomposition, graph, chain);
+        require_flipped_bounds(decomposition, graph, chain);
         for (const net_handle_t& child : child_sites(decomposition, chain)) {
-            REQUIRE(bounds_key(decomposition, graph, parent_site(decomposition, child)) ==
-                    bounds_key(decomposition, graph, site));
+            REQUIRE(labeler.bounds_label(parent_site(decomposition, child)) == labeler.bounds_label(site));
             REQUIRE(depth(decomposition, child) == depth(decomposition, site) + 1);
-            check_site_laws(decomposition, graph, child);
+            require_site_subtree(decomposition, graph, child);
         }
     }
 }
 
-/// Check the laws every site obeys.
-static void check_laws(const SnarlDecomposition& decomposition, const HandleGraph& graph) {
+/**
+ * @brief Require that the sites of a decomposition fit together.
+ *
+ * @post Each top-level site has depth 0, has a parent for which is_root() is
+ * true, and satisfies require_site_subtree().
+ */
+static void require_site_tree(const SnarlDecomposition& decomposition, const HandleGraph& graph) {
     for (const net_handle_t& site : top_level_sites(decomposition)) {
         REQUIRE(depth(decomposition, site) == 0);
         REQUIRE(decomposition.is_root(parent_site(decomposition, site)));
-        check_site_laws(decomposition, graph, site);
+        require_site_subtree(decomposition, graph, site);
     }
 }
 
-/// Describe a site's depth, whether it is a leaf, its parent, and its child
-/// chains with their sites, ignoring orientation.
-static string describe_site(const SnarlDecomposition& decomposition, const HandleGraph& graph,
-                            const net_handle_t& site) {
+/// @brief A summary of one site's place in the tree of sites, in labels that
+/// compare between decompositions.
+struct SiteFacts {
+    size_t depth;
+    bool is_leaf;
+    /// @brief The bounds label of the parent site, or "root".
+    std::string parent;
+    /// @brief For each child chain, its bounds label and the bounds labels of
+    /// its sites in order.
+    std::vector<std::pair<std::string, std::vector<std::string>>> child_chains;
+
+    bool operator==(const SiteFacts& other) const = default;
+};
+
+/// @brief Sites of one decomposition, by bounds label.
+using SiteFactsByLabel = std::map<std::string, SiteFacts, std::less<>>;
+
+/// @brief Find the facts about a site and every site under it.
+static void collect_site_facts(const SnarlDecomposition& decomposition, const TraversalLabeler& labeler,
+                               const net_handle_t& site, SiteFactsByLabel& found) {
     net_handle_t parent = parent_site(decomposition, site);
-    string description = std::format("depth {}{} in {}", depth(decomposition, site),
-                                is_leaf(decomposition, site) ? " leaf" : "",
-                                decomposition.is_root(parent) ? "root" : bounds_key(decomposition, graph, parent));
-    vector<string> chains;
+    SiteFacts facts {depth(decomposition, site), is_leaf(decomposition, site),
+                     decomposition.is_root(parent) ? "root" : labeler.bounds_label(parent), {}};
     for (const net_handle_t& chain : child_chains(decomposition, site)) {
-        vector<string> children;
+        std::vector<std::string> sites;
         for (const net_handle_t& child : child_sites(decomposition, chain)) {
-            children.push_back(bounds_key(decomposition, graph, child));
+            sites.push_back(labeler.bounds_label(child));
+            collect_site_facts(decomposition, labeler, child, found);
         }
-        chains.push_back(std::format("{}({})", bounds_key(decomposition, graph, chain), unoriented_list(children)));
+        facts.child_chains.emplace_back(labeler.bounds_label(chain), sites);
     }
-    std::ranges::sort(chains);
-    for (const string& chain : chains) {
-        description += " " + chain;
-    }
-    return description;
+    std::ranges::sort(facts.child_chains);
+    found[labeler.bounds_label(site)] = facts;
 }
 
-/// Describe a site and every site nested in it, by bounds key.
-static void describe_nested_sites(const SnarlDecomposition& decomposition, const HandleGraph& graph,
-                                  const net_handle_t& site, SiteDescriptions& descriptions) {
-    descriptions[bounds_key(decomposition, graph, site)] = describe_site(decomposition, graph, site);
-    for (const net_handle_t& chain : child_chains(decomposition, site)) {
-        for (const net_handle_t& child : child_sites(decomposition, chain)) {
-            describe_nested_sites(decomposition, graph, child, descriptions);
-        }
-    }
-}
-
-/// Describe every site by bounds key, and list the top-level sites under the
-/// key "top level".
-static SiteDescriptions describe_sites(const SnarlDecomposition& decomposition, const HandleGraph& graph) {
-    SiteDescriptions descriptions;
-    vector<string> top_level;
+/// @brief Find the facts about every site of a decomposition.
+static SiteFactsByLabel all_site_facts(const SnarlDecomposition& decomposition, const HandleGraph& graph) {
+    TraversalLabeler labeler(decomposition, graph);
+    SiteFactsByLabel found;
     for (const net_handle_t& site : top_level_sites(decomposition)) {
-        top_level.push_back(bounds_key(decomposition, graph, site));
-        describe_nested_sites(decomposition, graph, site, descriptions);
+        collect_site_facts(decomposition, labeler, site, found);
     }
-    std::ranges::sort(top_level);
-    for (const string& key : top_level) {
-        descriptions["top level"] += key + " ";
-    }
-    return descriptions;
+    return found;
 }
 
-/// Count the snarls enclosing a snarl.
-static size_t ancestor_count(const SnarlManager& manager, const Snarl* snarl) {
-    size_t count = 0;
-    for (const Snarl* parent = manager.parent_of(snarl); parent != nullptr; parent = manager.parent_of(parent)) {
-        count++;
-    }
-    return count;
+/**
+ * @brief Require that the decomposition_sites functions say the same things
+ * on the bench's two decompositions.
+ *
+ * @post Both decompositions' sites fit together, as require_site_tree()
+ * checks.
+ * @post Both decompositions have the same sites, matched by bounds label,
+ * and each has the same depth, the same parent, whether it is a leaf, and
+ * the same child chains holding the same sites in the same order.
+ */
+static void require_same_sites(const DecompositionBench& bench) {
+    require_site_tree(bench.manager_view(), bench.graph());
+    require_site_tree(bench.distance_index(), bench.graph());
+    REQUIRE(all_site_facts(bench.manager_view(), bench.graph()) ==
+            all_site_facts(bench.distance_index(), bench.graph()));
 }
 
-/// Check the functions on the view for one of the manager's snarls
-/// against the manager's own answers.
-static void check_site_against_manager(const DecompositionPair& pair, const Snarl* snarl) {
-    net_handle_t site = pair.view.get_snarl_net(snarl);
-    SiteBounds bounds = site_bounds(pair.view, pair.graph, site);
-    REQUIRE(bounds.start == pair.graph.get_handle(snarl->start().node_id(), snarl->start().backward()));
-    REQUIRE(bounds.end == pair.graph.get_handle(snarl->end().node_id(), snarl->end().backward()));
-    REQUIRE(is_leaf(pair.view, site) == pair.manager.all_children_trivial(snarl, pair.graph));
-    REQUIRE(depth(pair.view, site) == ancestor_count(pair.manager, snarl));
-    net_handle_t parent = parent_site(pair.view, site);
-    if (pair.manager.parent_of(snarl) == nullptr) {
-        REQUIRE(pair.view.is_root(parent));
-    } else {
-        REQUIRE(pair.view.get_snarl(parent) == pair.manager.parent_of(snarl));
-    }
-}
+TEST_CASE("decomposition_sites gives the same sites on a SnarlManagerDecomposition and a distance index",
+          "[decomposition_sites]") {
 
-/// Check the functions on the view against the manager's own answers, for
-/// every snarl the view shows.
-static void check_against_manager(const DecompositionPair& pair) {
-    pair.manager.for_each_snarl_preorder([&pair](const Snarl* snarl) {
-        if (!pair.manager.is_trivial(snarl, pair.graph)) {
-            check_site_against_manager(pair, snarl);
-        }
-    });
-}
-
-/// Check the functions on the view against the manager, and against the
-/// distance index if the pair has no known difference. Return 1 if the
-/// distance index was compared and 0 otherwise.
-static size_t check_random_decomposition(const DecompositionPair& pair) {
-    check_against_manager(pair);
-    check_laws(pair.view, pair.graph);
-    if (pair.has_known_difference()) {
-        return 0;
-    }
-    check_laws(pair.distance_index, pair.graph);
-    REQUIRE(describe_sites(pair.view, pair.graph) == describe_sites(pair.distance_index, pair.graph));
-    return 1;
-}
-
-TEST_CASE("decomposition_sites gives the same sites on both implementations", "[decomposition_sites]") {
-
-    SECTION("Three nested snarls") {
+    SECTION("Three nested snarls give the same sites") {
         VG graph;
         Node* n1 = graph.create_node("GCA");
         Node* n2 = graph.create_node("T");
@@ -183,54 +162,105 @@ TEST_CASE("decomposition_sites gives the same sites on both implementations", "[
         graph.create_edge(n6, n7);
         graph.create_edge(n7, n8);
         IntegratedSnarlFinder finder(graph);
-        DecompositionPair pair(graph, finder);
-        check_against_manager(pair);
-        check_laws(pair.view, graph);
-        check_laws(pair.distance_index, graph);
-        SiteDescriptions sites = describe_sites(pair.view, graph);
-        REQUIRE(sites == describe_sites(pair.distance_index, graph));
-        REQUIRE(sites.at("top level") == "1+/8+ ");
-        REQUIRE(sites.at("1+/8+") == "depth 0 in root 2+/7+(2+/7+,)");
-        REQUIRE(sites.at("2+/7+") == "depth 1 in 1+/8+ 3+/5+(3+/5+,)");
-        REQUIRE(sites.at("3+/5+") == "depth 2 leaf in 2+/7+");
+        DecompositionBench bench(graph, finder);
+        require_same_sites(bench);
+
+        const SnarlManagerDecomposition& view = bench.manager_view();
+        TraversalLabeler labeler(view, graph);
+        vector<net_handle_t> top_level = top_level_sites(view);
+        REQUIRE(top_level.size() == 1);
+        REQUIRE(labeler.bounds_label(top_level[0]) == "1+/8+");
+        vector<net_handle_t> chains = child_chains(view, top_level[0]);
+        REQUIRE(chains.size() == 1);
+        vector<net_handle_t> middle = child_sites(view, chains[0]);
+        REQUIRE(middle.size() == 1);
+        REQUIRE(labeler.bounds_label(middle[0]) == "2+/7+");
+        REQUIRE(depth(view, middle[0]) == 1);
+        REQUIRE(!is_leaf(view, middle[0]));
+        vector<net_handle_t> inner = child_sites(view, child_chains(view, middle[0])[0]);
+        REQUIRE(inner.size() == 1);
+        REQUIRE(labeler.bounds_label(inner[0]) == "3+/5+");
+        REQUIRE(depth(view, inner[0]) == 2);
+        REQUIRE(is_leaf(view, inner[0]));
     }
 
-    SECTION("A snarl that can be turned around in") {
-        VG graph;
-        Node* n1 = graph.create_node("GCA");
-        Node* n2 = graph.create_node("T");
-        Node* n3 = graph.create_node("G");
-        graph.create_edge(n1, n2);
-        graph.create_edge(n2, n3);
-        // Turn around on the end of node 2
-        graph.create_edge(n2, n2, false, true);
-        IntegratedSnarlFinder finder(graph);
-        DecompositionPair pair(graph, finder);
-        vector<net_handle_t> sites = top_level_sites(pair.view);
-        REQUIRE(sites.size() == 1);
-        size_t turnarounds = 0;
-        pair.view.for_each_traversal(sites.front(), [&pair, &turnarounds](const net_handle_t& traversal) {
-            if (pair.view.starts_at(traversal) == pair.view.ends_at(traversal)) {
-                turnarounds++;
-            }
-        });
-        REQUIRE(turnarounds > 0);
-        check_laws(pair.view, graph);
-    }
-
-    SECTION("Random graphs") {
+    SECTION("Random graphs give the same sites") {
         std::default_random_engine generator(test_seed_source());
         for (double chain_flip_probability : {0.0, 0.5}) {
-            size_t compared = 0;
             for (size_t repeat = 0; repeat < 100; repeat++) {
-                RandomDecomposition random(generator, chain_flip_probability);
-                compared += check_random_decomposition(random.pair);
+                bdsg::HashGraph graph = random_flipped_graph(generator);
+                DecompositionBench bench(graph, fuzzed_decomposition(graph, chain_flip_probability, generator));
+                require_same_sites(bench);
             }
-            // Require that at least 50 of the 100 graphs had no known difference,
-            // and so were compared with the distance index.
-            REQUIRE(compared >= 50);
         }
     }
+}
+
+TEST_CASE("site_bounds reads in where a traversal starts and out where it ends", "[decomposition_sites]") {
+    VG graph;
+    Node* n1 = graph.create_node("GCA");
+    Node* n2 = graph.create_node("T");
+    Node* n3 = graph.create_node("G");
+    Node* n4 = graph.create_node("CTGA");
+    graph.create_edge(n1, n2);
+    graph.create_edge(n1, n3);
+    graph.create_edge(n2, n4);
+    graph.create_edge(n3, n4);
+    // Turn around on the end of node 2, so the snarl from node 1 to node 4
+    // can be entered and left at its start.
+    graph.create_edge(n2, n2, false, true);
+    IntegratedSnarlFinder finder(graph);
+    DecompositionBench bench(graph, finder);
+    const SnarlManagerDecomposition& view = bench.manager_view();
+    vector<net_handle_t> sites = top_level_sites(view);
+    REQUIRE(sites.size() == 1);
+    handle_t start = graph.get_handle(n1->id());
+    handle_t end = graph.get_handle(n4->id());
+    REQUIRE(site_bounds(view, graph, sites[0]) == SiteBounds {start, end});
+    REQUIRE(site_bounds(view, graph, view.flip(sites[0])) == SiteBounds {graph.flip(end), graph.flip(start)});
+    net_handle_t start_to_start = view.get_parent_traversal(view.get_bound(sites[0], false, true),
+                                                            view.get_bound(sites[0], false, false));
+    REQUIRE(view.starts_at(start_to_start) == SnarlDecomposition::START);
+    REQUIRE(view.ends_at(start_to_start) == SnarlDecomposition::START);
+    REQUIRE(site_bounds(view, graph, start_to_start) == SiteBounds {start, graph.flip(start)});
+    require_flipped_bounds(view, graph, sites[0]);
+}
+
+TEST_CASE("decomposition_sites follows the manager's snarl tree", "[decomposition_sites]") {
+    VG graph;
+    Node* n1 = graph.create_node("GCA");
+    Node* n2 = graph.create_node("T");
+    Node* n3 = graph.create_node("G");
+    Node* n4 = graph.create_node("CTGA");
+    Node* n5 = graph.create_node("GCA");
+    Node* n6 = graph.create_node("T");
+    graph.create_edge(n1, n2);
+    graph.create_edge(n1, n6);
+    graph.create_edge(n2, n3);
+    graph.create_edge(n2, n4);
+    graph.create_edge(n3, n5);
+    graph.create_edge(n4, n5);
+    graph.create_edge(n5, n6);
+    IntegratedSnarlFinder finder(graph);
+    SnarlManager manager = finder.find_snarls();
+    SnarlManagerDecomposition view(manager, graph);
+    manager.for_each_snarl_preorder([&manager, &view, &graph](const Snarl* snarl) {
+        if (manager.shallow_contents(snarl, graph, false).first.empty()) {
+            // The view hides snarls with no children.
+            return;
+        }
+        net_handle_t site = view.get_snarl_net(snarl);
+        REQUIRE(site_bounds(view, graph, site) ==
+                SiteBounds {graph.get_handle(snarl->start().node_id(), snarl->start().backward()),
+                            graph.get_handle(snarl->end().node_id(), snarl->end().backward())});
+        net_handle_t parent = parent_site(view, site);
+        if (manager.parent_of(snarl) == nullptr) {
+            REQUIRE(view.is_root(parent));
+        } else {
+            REQUIRE(view.get_snarl(parent) == manager.parent_of(snarl));
+        }
+        REQUIRE(is_leaf(view, site) == manager.all_children_trivial(snarl, graph));
+    });
 }
 
 }

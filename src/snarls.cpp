@@ -1105,6 +1105,18 @@ deque<Chain> SnarlManager::compute_chains(const vector<const Snarl*>& input_snar
             
         // Copy from the list into a vector
         to_return.emplace_back(chain.begin(), chain.end());
+
+        if (get_start_of(to_return.back()) == get_end_of(to_return.back())) {
+            // The walk left went all the way around a cyclic chain, and put
+            // the snarl we started from last. Start the chain at that snarl
+            // instead: the first of the chain's snarls that we were given.
+            // For snarls from a HandleGraphSnarlFinder, that is where the
+            // finder started the chain, which is where a SnarlDistanceIndex
+            // starts it.
+            Chain& cyclic = to_return.back();
+            std::rotate(cyclic.begin(), std::find(cyclic.begin(), cyclic.end(), make_pair(snarl, false)),
+                        cyclic.end());
+        }
     }
         
     return to_return;

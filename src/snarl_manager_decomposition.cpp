@@ -5,9 +5,12 @@
 #include "snarl_manager_decomposition.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cassert>
+#include <deque>
 #include <iterator>
 #include <stdexcept>
+#include <unordered_set>
 
 namespace vg {
 
@@ -18,28 +21,41 @@ namespace {
 using endpoint_t = handlegraph::SnarlDecomposition::endpoint_t;
 using enum handlegraph::SnarlDecomposition::endpoint_t;
 
-/**
- * What a net handle refers to.
+////////////////////////////////////////////////////////////////////////////
+// Net handle layout
+////////////////////////////////////////////////////////////////////////////
+
+/*
+ * A net handle is a 64-bit integer holding three fields, from the low bits
+ * up:
  *
- * The payload is the SnarlManager::snarl_number() of a snarl or a sentinel's
- * snarl, the snarl number of a chain's first snarl, and the node ID of a node
- * or a trivial chain.
+ * - The element type, a NetType, in TYPE_BITS bits.
+ * - The traversal: the endpoint where it starts and the endpoint where it
+ *   ends, each an endpoint_t in ENDPOINT_BITS bits.
+ * - The payload, which says which element of that type the handle is for:
+ *   - for a snarl, the snarl's SnarlManager::snarl_number();
+ *   - for a sentinel, the snarl number of the snarl it bounds;
+ *   - for a chain, the snarl number of the chain's first snarl;
+ *   - for a node or a trivial chain, the node ID;
+ *   - for the root, 0.
  *
- * A sentinel's start endpoint names its bound. Its end endpoint is the other
- * bound if the sentinel faces into the snarl, and the same bound if it faces
- * out.
+ * A sentinel's traversal says which bound it is and which way it faces: it
+ * starts at the endpoint of its bound, and ends at the other endpoint if it
+ * faces into the snarl, or at the same endpoint if it faces out.
  */
+
+/// @brief The type of net graph element a net handle is for.
 enum class NetType : uint64_t {
     ROOT = 0,
     SNARL,
     CHAIN,
+    /// @brief A chain holding a single free node.
     TRIVIAL_CHAIN,
     NODE,
+    /// @brief A snarl's bound, facing into or out of the snarl.
     SENTINEL
 };
 
-// A net handle packs the type in its low bits, then the start and end
-// endpoints of the traversal, then the payload.
 constexpr uint64_t TYPE_BITS = 3;
 constexpr uint64_t TYPE_MASK = (uint64_t{1} << TYPE_BITS) - 1;
 constexpr uint64_t ENDPOINT_BITS = 2;
@@ -50,6 +66,8 @@ constexpr uint64_t PAYLOAD_SHIFT = TYPE_BITS + 2 * ENDPOINT_BITS;
 static_assert(static_cast<uint64_t>(NetType::SENTINEL) <= TYPE_MASK);
 static_assert(static_cast<uint64_t>(TIP) <= ENDPOINT_MASK);
 
+/// @brief Pack the fields of a net handle.
+/// @pre The payload fits in the bits above the traversal.
 net_handle_t pack(NetType type, endpoint_t start, endpoint_t end, uint64_t payload) {
     assert(payload >> (64 - PAYLOAD_SHIFT) == 0);
     return handlegraph::as_net_handle((payload << PAYLOAD_SHIFT) |
@@ -58,84 +76,192 @@ net_handle_t pack(NetType type, endpoint_t start, endpoint_t end, uint64_t paylo
                                       static_cast<uint64_t>(type));
 }
 
+/// @brief Unpack the element type of a net handle.
 NetType type_of(const net_handle_t& net) {
     return static_cast<NetType>(handlegraph::as_integer(net) & TYPE_MASK);
 }
 
+/// @brief Unpack the endpoint where a net handle's traversal starts.
 endpoint_t start_of(const net_handle_t& net) {
     return static_cast<endpoint_t>((handlegraph::as_integer(net) >> START_SHIFT) & ENDPOINT_MASK);
 }
 
+/// @brief Unpack the endpoint where a net handle's traversal ends.
 endpoint_t end_of(const net_handle_t& net) {
     return static_cast<endpoint_t>((handlegraph::as_integer(net) >> END_SHIFT) & ENDPOINT_MASK);
 }
 
+/// @brief Unpack the payload of a net handle.
 uint64_t payload_of(const net_handle_t& net) {
     return handlegraph::as_integer(net) >> PAYLOAD_SHIFT;
 }
 
-/// Make a net handle to the same thing with a different traversal.
+/// @brief Make a net handle for the same element with a different traversal.
 net_handle_t with_traversal(const net_handle_t& net, endpoint_t start, endpoint_t end) {
     return pack(type_of(net), start, end, payload_of(net));
 }
 
-/// Swap START and END. Must not be given TIP.
+////////////////////////////////////////////////////////////////////////////
+// Traversals and handles
+////////////////////////////////////////////////////////////////////////////
+
+/// @brief Swap START and END.
+/// @pre The endpoint is not TIP.
 endpoint_t opposite(endpoint_t endpoint) {
+    assert(endpoint != TIP);
     return endpoint == START ? END : START;
 }
 
-/// Make a net handle to the same thing, traversed start-to-end if forward
-/// and end-to-start otherwise.
+/// @brief Make a net handle for the same element, traversed start-to-end if
+/// forward and end-to-start otherwise.
 net_handle_t directed(const net_handle_t& net, bool forward) {
     endpoint_t start = forward ? START : END;
     return with_traversal(net, start, opposite(start));
 }
 
+/// @brief Return true if a net handle's traversal is start-to-end.
 bool is_forward(const net_handle_t& net) {
     return start_of(net) == START && end_of(net) == END;
 }
 
+/// @brief Return true if a net handle's traversal is end-to-start.
 bool is_backward(const net_handle_t& net) {
     return start_of(net) == END && end_of(net) == START;
 }
 
+/// @brief Return true if a sentinel faces into its snarl.
 bool faces_in(const net_handle_t& sentinel) {
     return start_of(sentinel) != end_of(sentinel);
 }
 
-/// Get a node's net handle, read the way the handle reads.
+/// @brief Get a node's net handle, read the way the graph handle reads.
 net_handle_t node_net(const HandleGraph& graph, const handle_t& handle) {
     return directed(pack(NetType::NODE, START, END, graph.get_id(handle)), !graph.get_is_reverse(handle));
 }
 
+/// @brief Convert a Visit to a node into a graph handle.
 handle_t to_handle(const HandleGraph& graph, const Visit& visit) {
     return graph.get_handle(visit.node_id(), visit.backward());
 }
 
-/// The kinds of traversal a snarl or chain allows between its bounds.
-struct Reachability {
-    bool start_to_end;
-    bool start_to_start;
-    bool end_to_end;
-};
+////////////////////////////////////////////////////////////////////////////
+// Chains
+////////////////////////////////////////////////////////////////////////////
 
-Reachability reachability(const Snarl& snarl) {
-    return {snarl.start_end_reachable(), snarl.start_self_reachable(), snarl.end_self_reachable()};
+/// @brief Return true if a chain's last snarl leads back into its first chain
+/// node, read the same way.
+bool is_cyclic(const Chain& chain) {
+    return get_start_of(chain) == get_end_of(chain);
+}
+
+/// @brief Count a chain's distinct chain nodes: one more than its snarls, or
+/// as many as its snarls if it is cyclic.
+size_t chain_node_count(const Chain& chain) {
+    return is_cyclic(chain) ? chain.size() : chain.size() + 1;
+}
+
+/// @brief Get the position of a chain's end bound, which for a cyclic chain is
+/// its start bound at position 0.
+size_t last_position(const Chain& chain) {
+    return is_cyclic(chain) ? 0 : chain.size();
 }
 
 /**
- * Return true if a traversal that enters a chain through one endpoint can
- * leave through the same endpoint: it can cross each snarl it meets until
- * one snarl lets it turn around on the side it entered that snarl from.
- * Takes the chain's (snarl, backward) pairs in the order the traversal meets
- * them.
+ * @brief Get the chain node at a position, read along the chain.
+ *
+ * @param position A position up to chain.size(). For a cyclic chain,
+ * chain.size() gives the node at position 0 again.
+ */
+handle_t chain_node(const HandleGraph& graph, const Chain& chain, size_t position) {
+    if (position == chain.size()) {
+        return to_handle(graph, get_end_of(chain));
+    }
+    const auto& [snarl, backward] = chain[position];
+    return to_handle(graph, backward ? reverse(snarl->end()) : snarl->start());
+}
+
+/**
+ * @brief Get the rank of the snarl that a chain node reads into.
+ *
+ * @param is_reverse True if the node is read against the chain.
+ * @return The rank, or nullopt if the node is read out of the chain at one of
+ * its bounds.
+ */
+optional<size_t> snarl_ahead(const Chain& chain, size_t position, bool is_reverse) {
+    if (!is_reverse) {
+        return position < chain.size() ? optional<size_t>(position) : nullopt;
+    }
+    if (position > 0) {
+        return position - 1;
+    }
+    // Reading in reverse out of position 0 wraps around a cyclic chain.
+    return is_cyclic(chain) ? optional<size_t>(chain.size() - 1) : nullopt;
+}
+
+/**
+ * @brief Get the chain's endpoint that a chain node, read one way, enters
+ * the chain through.
+ *
+ * @param is_reverse True if the node is read against the chain.
+ * @return START for the start bound read along the chain, END for the end
+ * bound read in reverse, and nullopt otherwise.
+ */
+optional<endpoint_t> entry_endpoint(const Chain& chain, size_t position, bool is_reverse) {
+    if (!is_reverse && position == 0) {
+        return START;
+    }
+    if (is_reverse && position == last_position(chain)) {
+        return END;
+    }
+    return nullopt;
+}
+
+/**
+ * @brief Get the chain's endpoint that a chain node, read one way, leaves
+ * the chain through.
+ *
+ * @param is_reverse True if the node is read against the chain.
+ * @return END for the end bound read along the chain, START for the start
+ * bound read in reverse, and nullopt otherwise.
+ */
+optional<endpoint_t> exit_endpoint(const Chain& chain, size_t position, bool is_reverse) {
+    if (!is_reverse && position == last_position(chain)) {
+        return END;
+    }
+    if (is_reverse && position == 0) {
+        return START;
+    }
+    return nullopt;
+}
+
+/// @brief The ways a walk can pass through a chain, judged from its snarls'
+/// flags in the manager.
+struct ChainPassage {
+    /// @brief True if a walk can cross the chain from one bound to the other.
+    bool crosses;
+    /// @brief True if a walk entering at the start bound can leave there.
+    bool turns_at_start;
+    /// @brief True if a walk entering at the end bound can leave there.
+    bool turns_at_end;
+};
+
+/**
+ * @brief Return true if a walk that enters a chain at one bound can leave
+ * through the same bound.
+ *
+ * @details The walk crosses each snarl it meets until one lets it turn
+ * around on the side it entered that snarl from.
+ *
+ * @param begin The chain's (snarl, backward) pairs in the order the walk
+ * meets them.
+ * @param from_chain_start True if the walk enters at the chain's start bound.
  */
 template<std::input_iterator Iterator>
 bool can_turn_back(Iterator begin, Iterator end, bool from_chain_start) {
     for (Iterator it = begin; it != end; ++it) {
         const auto& [snarl, backward] = *it;
-        // The traversal enters the snarl's start if it and the snarl both go
-        // along the chain or both go against it.
+        // The walk enters the snarl's start if it and the snarl both go along
+        // the chain or both go against it.
         if (from_chain_start != backward ? snarl->start_self_reachable() : snarl->end_self_reachable()) {
             return true;
         }
@@ -146,7 +272,8 @@ bool can_turn_back(Iterator begin, Iterator end, bool from_chain_start) {
     return false;
 }
 
-Reachability reachability(const Chain& chain) {
+/// @brief Work out the ways a walk can pass through a chain.
+ChainPassage passage_through(const Chain& chain) {
     return {
         std::ranges::all_of(chain, [](const pair<const Snarl*, bool>& entry) {
             return entry.first->start_end_reachable();
@@ -156,157 +283,237 @@ Reachability reachability(const Chain& chain) {
     };
 }
 
-/// List the start and end of each traversal kind that a reachability allows.
-vector<pair<endpoint_t, endpoint_t>> traversal_kinds(const Reachability& reachable) {
-    vector<pair<endpoint_t, endpoint_t>> kinds;
-    if (reachable.start_to_end) {
-        kinds.emplace_back(START, END);
-        kinds.emplace_back(END, START);
-    }
-    if (reachable.start_to_start) {
-        kinds.emplace_back(START, START);
-    }
-    if (reachable.end_to_end) {
-        kinds.emplace_back(END, END);
-    }
-    return kinds;
+/// @brief Return true if a node has a dead end: a side with no edges on it.
+bool has_dead_end(const HandleGraph& graph, nid_t id) {
+    handle_t handle = graph.get_handle(id, false);
+    return graph.get_degree(handle, false) == 0 || graph.get_degree(handle, true) == 0;
 }
 
 }
 
 ////////////////////////////////////////////////////////////////////////////
-// ChainLayout
+// NodeDirectory
 ////////////////////////////////////////////////////////////////////////////
 
-SnarlManagerDecomposition::ChainLayout::ChainLayout(const SnarlManager& manager, const HandleGraph& graph) :
-    manager(manager), graph(graph) {
-}
-
-handle_t SnarlManagerDecomposition::ChainLayout::node(const Chain& chain, size_t index) const {
-    if (index == chain.size()) {
-        return to_handle(graph, get_end_of(chain));
-    }
-    // The node read into the snarl with this rank, going along the chain.
-    const auto& [snarl, backward] = chain[index];
-    return to_handle(graph, backward ? reverse(snarl->end()) : snarl->start());
-}
-
-bool SnarlManagerDecomposition::ChainLayout::is_cyclic(const Chain& chain) const {
-    return get_start_of(chain) == get_end_of(chain);
-}
-
-size_t SnarlManagerDecomposition::ChainLayout::node_count(const Chain& chain) const {
-    return is_cyclic(chain) ? chain.size() : chain.size() + 1;
-}
-
-size_t SnarlManagerDecomposition::ChainLayout::last_index(const Chain& chain) const {
-    return is_cyclic(chain) ? 0 : chain.size();
-}
-
-optional<SnarlManagerDecomposition::ChainLayout::Place>
-SnarlManagerDecomposition::ChainLayout::locate(const handle_t& handle) const {
-    for (bool flipped : {false, true}) {
-        handle_t probe = flipped ? graph.flip(handle) : handle;
-        const Snarl* into = manager.into_which_snarl(graph.get_id(probe), graph.get_is_reverse(probe));
-        if (into == nullptr) {
-            continue;
+SnarlManagerDecomposition::NodeDirectory::NodeDirectory(const SnarlManager& manager, const HandleGraph& graph) {
+    manager.for_each_chain([this, &manager, &graph](const Chain* chain) {
+        const Snarl* parent = manager.parent_of(chain->front().first);
+        for (size_t position = 0; position < chain_node_count(*chain); position++) {
+            handle_t node = chain_node(graph, *chain, position);
+            entries[graph.get_id(node)] = Entry {parent, ChainPosition {chain, position, graph.get_is_reverse(node)}};
         }
-        const Chain* chain = manager.chain_of(into);
-        size_t rank = manager.chain_rank_of(into);
-        // The probe reads into the snarl either through the node before it
-        // along the chain, or backward through the node after it.
-        bool probe_along = (probe == node(*chain, rank));
-        size_t index = probe_along ? rank : rank + 1;
-        if (index == node_count(*chain)) {
-            // In a cyclic chain the node after the last snarl is the first node.
-            index = 0;
-        }
-        return Place {chain, index, probe_along != flipped};
-    }
-    return nullopt;
-}
-
-optional<size_t> SnarlManagerDecomposition::ChainLayout::snarl_ahead(const Place& place) const {
-    const Chain& chain = *place.chain;
-    if (place.along) {
-        return place.index < chain.size() ? optional<size_t>(place.index) : nullopt;
-    }
-    if (place.index > 0) {
-        return place.index - 1;
-    }
-    // Reading backward out of the first node wraps around a cyclic chain.
-    return is_cyclic(chain) ? optional<size_t>(chain.size() - 1) : nullopt;
-}
-
-optional<endpoint_t> SnarlManagerDecomposition::ChainLayout::entry_endpoint(const Place& place) const {
-    if (place.along && place.index == 0) {
-        return START;
-    }
-    if (!place.along && place.index == last_index(*place.chain)) {
-        return END;
-    }
-    return nullopt;
-}
-
-optional<endpoint_t> SnarlManagerDecomposition::ChainLayout::exit_endpoint(const Place& place) const {
-    if (place.along && place.index == last_index(*place.chain)) {
-        return END;
-    }
-    if (!place.along && place.index == 0) {
-        return START;
-    }
-    return nullopt;
-}
-
-////////////////////////////////////////////////////////////////////////////
-// TrivialChains
-////////////////////////////////////////////////////////////////////////////
-
-SnarlManagerDecomposition::TrivialChains::TrivialChains(const SnarlManager& manager, const HandleGraph& graph) :
-    manager(manager), graph(graph) {
-}
-
-bool SnarlManagerDecomposition::TrivialChains::bounds_no_snarl(nid_t id) const {
-    return manager.into_which_snarl(id, false) == nullptr && manager.into_which_snarl(id, true) == nullptr;
-}
-
-vector<nid_t> SnarlManagerDecomposition::TrivialChains::nodes_in(const Snarl* parent) const {
-    if (parent == nullptr) {
-        index_parents();
-        return root_nodes;
-    }
-    vector<nid_t> nodes;
-    for (const id_t& id : manager.shallow_contents(parent, graph, false).first) {
-        if (bounds_no_snarl(id)) {
-            nodes.push_back(id);
-        }
-    }
-    std::ranges::sort(nodes);
-    return nodes;
-}
-
-void SnarlManagerDecomposition::TrivialChains::index_parents() const {
-    call_once(parents_indexed, [this]() {
-        manager.for_each_snarl_unindexed([this](const Snarl* snarl) {
-            for (const nid_t& id : nodes_in(snarl)) {
-                parents[id] = snarl;
-            }
-        });
-        graph.for_each_handle([this](const handle_t& handle) {
-            nid_t id = graph.get_id(handle);
-            if (!parents.contains(id) && bounds_no_snarl(id)) {
-                // This node is in no snarl and bounds none.
-                parents[id] = nullptr;
-                root_nodes.push_back(id);
-            }
-        });
-        std::ranges::sort(root_nodes);
     });
+    manager.for_each_snarl_unindexed([this, &manager, &graph](const Snarl* snarl) {
+        for (const id_t& id : manager.shallow_contents(snarl, graph, false).first) {
+            if (!entries.contains(id)) {
+                entries[id] = Entry {snarl, nullopt};
+                free_nodes_by_snarl[snarl].push_back(id);
+            }
+        }
+    });
+    graph.for_each_handle([this, &graph](const handle_t& handle) {
+        nid_t id = graph.get_id(handle);
+        if (!entries.contains(id)) {
+            entries[id] = Entry {nullptr, nullopt};
+            free_nodes_by_snarl[nullptr].push_back(id);
+        }
+    });
+    for (auto& [snarl, nodes] : free_nodes_by_snarl) {
+        std::ranges::sort(nodes);
+    }
 }
 
-const Snarl* SnarlManagerDecomposition::TrivialChains::parent_of(nid_t id) const {
-    index_parents();
-    return parents.at(id);
+optional<SnarlManagerDecomposition::ChainPosition>
+SnarlManagerDecomposition::NodeDirectory::chain_position(nid_t id) const {
+    return entries.at(id).chain_position;
+}
+
+const Snarl* SnarlManagerDecomposition::NodeDirectory::containing_snarl(nid_t id) const {
+    return entries.at(id).containing_snarl;
+}
+
+const vector<nid_t>& SnarlManagerDecomposition::NodeDirectory::free_nodes(const Snarl* snarl) const {
+    static const vector<nid_t> none;
+    auto found = free_nodes_by_snarl.find(snarl);
+    return found == free_nodes_by_snarl.end() ? none : found->second;
+}
+
+////////////////////////////////////////////////////////////////////////////
+// TraversalSet
+////////////////////////////////////////////////////////////////////////////
+
+void SnarlManagerDecomposition::TraversalSet::add(endpoint_t start, endpoint_t end) {
+    bits |= uint16_t{1} << (3 * start + end);
+}
+
+void SnarlManagerDecomposition::TraversalSet::add_both_ways(endpoint_t one, endpoint_t other) {
+    add(one, other);
+    add(other, one);
+}
+
+bool SnarlManagerDecomposition::TraversalSet::contains(endpoint_t start, endpoint_t end) const {
+    return (bits >> (3 * start + end)) & 1;
+}
+
+SnarlManagerDecomposition::TraversalSet
+SnarlManagerDecomposition::TraversalSet::for_chain(const vector<pair<TraversalSet, bool>>& shown_snarls) {
+    TraversalSet traversals;
+    if (std::ranges::all_of(shown_snarls, [](const pair<TraversalSet, bool>& entry) {
+            return entry.first.contains(START, END);
+        })) {
+        traversals.add_both_ways(START, END);
+    }
+    for (const auto& [snarl_traversals, backward] : shown_snarls) {
+        // The side of the snarl that faces the chain's start.
+        endpoint_t toward_start = backward ? END : START;
+        endpoint_t toward_end = opposite(toward_start);
+        // TODO: A distance index lets a chain turn around through any of its
+        // snarls, without checking that the snarl can be reached from the
+        // chain's bound, so we do too.
+        if (snarl_traversals.contains(toward_start, toward_start)) {
+            traversals.add(START, START);
+        }
+        if (snarl_traversals.contains(toward_end, toward_end)) {
+            traversals.add(END, END);
+        }
+    }
+    if (reaches_tip(shown_snarls, true)) {
+        traversals.add_both_ways(START, TIP);
+    }
+    if (reaches_tip(shown_snarls, false)) {
+        traversals.add_both_ways(END, TIP);
+    }
+    if (links_tips(shown_snarls)) {
+        traversals.add(TIP, TIP);
+    }
+    return traversals;
+}
+
+bool SnarlManagerDecomposition::TraversalSet::reaches_tip(const vector<pair<TraversalSet, bool>>& shown_snarls,
+                                                          bool from_start) {
+    for (size_t i = 0; i < shown_snarls.size(); i++) {
+        const auto& [snarl_traversals, backward] = shown_snarls[from_start ? i : shown_snarls.size() - 1 - i];
+        // The walk enters the snarl's start if it and the snarl both go along
+        // the chain or both go against it.
+        if (endpoint_t entered = (backward == from_start) ? END : START; snarl_traversals.contains(entered, TIP)) {
+            return true;
+        }
+        if (!snarl_traversals.contains(START, END)) {
+            return false;
+        }
+    }
+    return false;
+}
+
+bool SnarlManagerDecomposition::TraversalSet::links_tips(const vector<pair<TraversalSet, bool>>& shown_snarls) {
+    // True when a walk from a tip in an earlier snarl can reach the snarl
+    // being looked at, going along the chain.
+    // TODO: Walks that turn around between two tips are not found.
+    bool leaving_tip = false;
+    for (const auto& [snarl_traversals, backward] : shown_snarls) {
+        endpoint_t toward_start = backward ? END : START;
+        endpoint_t toward_end = opposite(toward_start);
+        if (snarl_traversals.contains(TIP, TIP) || (leaving_tip && snarl_traversals.contains(toward_start, TIP))) {
+            return true;
+        }
+        leaving_tip = snarl_traversals.contains(TIP, toward_end) ||
+            (leaving_tip && snarl_traversals.contains(START, END));
+    }
+    return false;
+}
+
+////////////////////////////////////////////////////////////////////////////
+// SnarlSurveyor
+////////////////////////////////////////////////////////////////////////////
+
+SnarlManagerDecomposition::SnarlSurveyor::SnarlSurveyor(const HandleGraph& graph, const NodeDirectory& directory) :
+    graph(graph), directory(directory) {
+}
+
+vector<handle_t> SnarlManagerDecomposition::SnarlSurveyor::exits_of_child(const handle_t& entering) const {
+    optional<ChainPosition> place = directory.chain_position(graph.get_id(entering));
+    if (!place) {
+        return {entering};
+    }
+    const Chain& chain = *place->chain;
+    optional<endpoint_t> entry = entry_endpoint(chain, place->position,
+                                                graph.get_is_reverse(entering) != place->is_reverse);
+    assert(entry.has_value());
+    ChainPassage passage = passage_through(chain);
+    handle_t start_out = graph.flip(chain_node(graph, chain, 0));
+    handle_t end_out = chain_node(graph, chain, chain.size());
+    vector<handle_t> exits;
+    if (passage.crosses) {
+        exits.push_back(*entry == START ? end_out : start_out);
+    }
+    if (*entry == START ? passage.turns_at_start : passage.turns_at_end) {
+        exits.push_back(*entry == START ? start_out : end_out);
+    }
+    return exits;
+}
+
+bool SnarlManagerDecomposition::SnarlSurveyor::reaches_tip(const Snarl* snarl, const vector<handle_t>& starts) const {
+    unordered_set<handle_t> seen(starts.begin(), starts.end());
+    deque<handle_t> to_leave(starts.begin(), starts.end());
+    while (!to_leave.empty()) {
+        handle_t here = to_leave.front();
+        to_leave.pop_front();
+        bool stopped = !graph.follow_edges(here, false, [this, snarl, &seen, &to_leave](const handle_t& next) {
+            nid_t id = graph.get_id(next);
+            if (id == snarl->start().node_id() || id == snarl->end().node_id()) {
+                // The walk leaves the snarl here.
+                return true;
+            }
+            if (!directory.chain_position(id) && has_dead_end(graph, id)) {
+                // Coming in through the side with an edge, a tip node's dead
+                // end is ahead.
+                return false;
+            }
+            for (const handle_t& exit : exits_of_child(next)) {
+                if (seen.insert(exit).second) {
+                    to_leave.push_back(exit);
+                }
+            }
+            return true;
+        });
+        if (stopped) {
+            return true;
+        }
+    }
+    return false;
+}
+
+SnarlManagerDecomposition::TraversalSet SnarlManagerDecomposition::SnarlSurveyor::survey(const Snarl* snarl) const {
+    TraversalSet traversals;
+    if (snarl->start_end_reachable()) {
+        traversals.add_both_ways(START, END);
+    }
+    if (snarl->start_self_reachable()) {
+        traversals.add(START, START);
+    }
+    if (snarl->end_self_reachable()) {
+        traversals.add(END, END);
+    }
+    if (reaches_tip(snarl, {to_handle(graph, snarl->start())})) {
+        traversals.add_both_ways(START, TIP);
+    }
+    if (reaches_tip(snarl, {graph.flip(to_handle(graph, snarl->end()))})) {
+        traversals.add_both_ways(END, TIP);
+    }
+    // A walk from a tip starts by reading a tip node away from its dead end.
+    vector<handle_t> from_tips;
+    for (const nid_t& id : directory.free_nodes(snarl)) {
+        for (bool is_reverse : {false, true}) {
+            handle_t handle = graph.get_handle(id, is_reverse);
+            if (graph.get_degree(handle, true) == 0 && graph.get_degree(handle, false) != 0) {
+                from_tips.push_back(handle);
+            }
+        }
+    }
+    if (!from_tips.empty() && reaches_tip(snarl, from_tips)) {
+        traversals.add(TIP, TIP);
+    }
+    return traversals;
 }
 
 ////////////////////////////////////////////////////////////////////////////
@@ -314,18 +521,40 @@ const Snarl* SnarlManagerDecomposition::TrivialChains::parent_of(nid_t id) const
 ////////////////////////////////////////////////////////////////////////////
 
 SnarlManagerDecomposition::SnarlManagerDecomposition(const SnarlManager& manager, const HandleGraph& graph) :
-    manager(manager), graph(graph), layout(manager, graph), trivial_chains(manager, graph),
-    snarls_by_number(manager.num_snarls(), nullptr), hidden(manager.num_snarls(), false) {
+    manager(manager), graph(graph), directory(manager, graph), snarls(manager.num_snarls()) {
 
     manager.for_each_snarl_unindexed([this](const Snarl* snarl) {
         if (snarl->start().node_id() == snarl->end().node_id() &&
             snarl->start().backward() != snarl->end().backward()) {
             throw invalid_argument("error: SnarlManagerDecomposition cannot present unary snarls");
         }
-        size_t number = this->manager.snarl_number(snarl);
-        snarls_by_number[number] = snarl;
-        hidden[number] = this->manager.is_trivial(snarl, this->graph);
+        SnarlRecord& record = snarls[this->manager.snarl_number(snarl)];
+        record.snarl = snarl;
+        // TODO: A distance index hides every snarl with no children, even one
+        // that is not an ultrabubble, so we do too.
+        record.hidden = this->manager.chains_of(snarl).empty() && directory.free_nodes(snarl).empty();
     });
+    SnarlSurveyor surveyor(graph, directory);
+    for (SnarlRecord& record : snarls) {
+        if (!record.hidden) {
+            record.traversals = surveyor.survey(record.snarl);
+        }
+    }
+    manager.for_each_chain([this](const Chain* chain) {
+        // TODO: A distance index treats every hidden snarl as crossable, with
+        // no turnarounds, so we look only at shown snarls.
+        vector<pair<TraversalSet, bool>> shown_snarls;
+        for (const auto& [snarl, backward] : *chain) {
+            if (const SnarlRecord& record = snarls[this->manager.snarl_number(snarl)]; !record.hidden) {
+                shown_snarls.emplace_back(record.traversals, backward);
+            }
+        }
+        chains[chain] = TraversalSet::for_chain(shown_snarls);
+    });
+}
+
+const SnarlManagerDecomposition::SnarlRecord& SnarlManagerDecomposition::record_of(const net_handle_t& net) const {
+    return snarls.at(payload_of(net));
 }
 
 net_handle_t SnarlManagerDecomposition::snarl_net(const Snarl* snarl, bool forward) const {
@@ -337,25 +566,22 @@ net_handle_t SnarlManagerDecomposition::chain_net(const Chain& chain) const {
 }
 
 const Chain& SnarlManagerDecomposition::chain_of_net(const net_handle_t& net) const {
-    return *manager.chain_of(snarls_by_number.at(payload_of(net)));
+    return *manager.chain_of(record_of(net).snarl);
 }
 
-net_handle_t SnarlManagerDecomposition::parent_snarl_net(const Snarl* parent) const {
-    return parent == nullptr ? get_root() : snarl_net(parent, true);
+net_handle_t SnarlManagerDecomposition::chain_node_net(const Chain& chain, size_t position, bool is_reverse) const {
+    if (position == chain_node_count(chain)) {
+        // TODO: A distance index reaches the start of a cyclic chain, going
+        // around the chain, as its end bound facing out, so we do too.
+        return get_bound(chain_net(chain), true, false);
+    }
+    handle_t node = chain_node(graph, chain, position);
+    return node_net(graph, is_reverse ? graph.flip(node) : node);
 }
 
-bool SnarlManagerDecomposition::is_hidden(const Snarl* snarl) const {
-    return hidden[manager.snarl_number(snarl)];
-}
-
-net_handle_t SnarlManagerDecomposition::chain_node_net(const Chain& chain, size_t index, bool along) const {
-    handle_t node = layout.node(chain, index);
-    return node_net(graph, along ? node : graph.flip(node));
-}
-
-net_handle_t SnarlManagerDecomposition::chain_snarl_net(const Chain& chain, size_t rank, bool along) const {
+net_handle_t SnarlManagerDecomposition::chain_snarl_net(const Chain& chain, size_t rank, bool is_reverse) const {
     const auto& [snarl, backward] = chain[rank];
-    return snarl_net(snarl, along != backward);
+    return snarl_net(snarl, is_reverse == backward);
 }
 
 vector<net_handle_t> SnarlManagerDecomposition::snarl_children(const Snarl* parent) const {
@@ -363,7 +589,7 @@ vector<net_handle_t> SnarlManagerDecomposition::snarl_children(const Snarl* pare
     for (const Chain& chain : manager.chains_of(parent)) {
         children.push_back(chain_net(chain));
     }
-    for (const nid_t& id : trivial_chains.nodes_in(parent)) {
+    for (const nid_t& id : directory.free_nodes(parent)) {
         children.push_back(pack(NetType::TRIVIAL_CHAIN, START, END, id));
     }
     return children;
@@ -373,20 +599,20 @@ vector<net_handle_t> SnarlManagerDecomposition::chain_children(const net_handle_
     const Chain& chain = chain_of_net(traversal);
     vector<net_handle_t> children;
     for (size_t rank = 0; rank < chain.size(); rank++) {
-        children.push_back(chain_node_net(chain, rank, true));
-        if (!is_hidden(chain[rank].first)) {
-            children.push_back(chain_snarl_net(chain, rank, true));
+        children.push_back(chain_node_net(chain, rank, false));
+        if (!snarls[manager.snarl_number(chain[rank].first)].hidden) {
+            children.push_back(chain_snarl_net(chain, rank, false));
         }
     }
-    if (!layout.is_cyclic(chain)) {
-        children.push_back(chain_node_net(chain, chain.size(), true));
+    if (!is_cyclic(chain)) {
+        children.push_back(chain_node_net(chain, chain.size(), false));
     }
 
     if (is_backward(traversal)) {
-        // Read the chain backward. A cyclic chain's list must still begin
-        // with node index 0, which is both its bounds.
+        // Read the chain in reverse. A cyclic chain's list must still begin
+        // with its position 0 node, which is both its bounds.
         std::ranges::reverse(children);
-        if (layout.is_cyclic(chain)) {
+        if (is_cyclic(chain)) {
             std::ranges::rotate(children, children.end() - 1);
         }
         for (net_handle_t& child : children) {
@@ -405,32 +631,35 @@ vector<net_handle_t> SnarlManagerDecomposition::chain_children(const net_handle_
 optional<net_handle_t> SnarlManagerDecomposition::next_in_chain(const net_handle_t& here) const {
     if (is_snarl(here)) {
         if (ends_at(here) == TIP) {
+            // The walk stops at the tip.
             return nullopt;
         }
         const Snarl* snarl = get_snarl(here);
         const Chain& chain = *manager.chain_of(snarl);
         size_t rank = manager.chain_rank_of(snarl);
-        // Leaving through the side that faces the chain's end goes along the
-        // chain, to the node after the snarl.
-        bool along = (ends_at(here) == ends_at(chain_snarl_net(chain, rank, true)));
-        return chain_node_net(chain, along ? rank + 1 : rank, along);
+        // Leaving through the snarl's side that faces the chain's start goes
+        // against the chain, to the chain node before the snarl.
+        bool is_reverse = (ends_at(here) == ends_at(chain_snarl_net(chain, rank, true)));
+        return chain_node_net(chain, is_reverse ? rank : rank + 1, is_reverse);
     }
 
-    optional<ChainLayout::Place> place = layout.locate(get_handle(here, &graph));
+    handle_t handle = get_handle(here, &graph);
+    optional<ChainPosition> place = directory.chain_position(graph.get_id(handle));
     if (!place) {
-        // A trivial chain has nothing beside its node.
-        return nullopt;
-    }
-    optional<size_t> rank = layout.snarl_ahead(*place);
-    if (!rank.has_value()) {
+        // A trivial chain's node has nothing beside it.
         return nullopt;
     }
     const Chain& chain = *place->chain;
-    if (is_hidden(chain[*rank].first)) {
-        // Step over a hidden snarl to the node on its other side.
-        return chain_node_net(chain, place->along ? *rank + 1 : *rank, place->along);
+    bool is_reverse = graph.get_is_reverse(handle) != place->is_reverse;
+    optional<size_t> rank = snarl_ahead(chain, place->position, is_reverse);
+    if (!rank.has_value()) {
+        return nullopt;
     }
-    return chain_snarl_net(chain, *rank, place->along);
+    if (snarls[manager.snarl_number(chain[*rank].first)].hidden) {
+        // Step over a hidden snarl to the chain node on its other side.
+        return chain_node_net(chain, is_reverse ? *rank : *rank + 1, is_reverse);
+    }
+    return chain_snarl_net(chain, *rank, is_reverse);
 }
 
 optional<net_handle_t> SnarlManagerDecomposition::sibling_entered_by(const handle_t& handle,
@@ -447,12 +676,14 @@ optional<net_handle_t> SnarlManagerDecomposition::sibling_entered_by(const handl
         // out of the snarl.
         assert(graph.get_id(handle) != parent->start().node_id() && graph.get_id(handle) != parent->end().node_id());
     }
-    optional<ChainLayout::Place> place = layout.locate(handle);
+    nid_t id = graph.get_id(handle);
+    optional<ChainPosition> place = directory.chain_position(id);
     if (!place) {
         // A trivial chain, entered the way the node is read.
-        return directed(pack(NetType::TRIVIAL_CHAIN, START, END, graph.get_id(handle)), !graph.get_is_reverse(handle));
+        return directed(pack(NetType::TRIVIAL_CHAIN, START, END, id), !graph.get_is_reverse(handle));
     }
-    optional<endpoint_t> entry = layout.entry_endpoint(*place);
+    bool is_reverse = graph.get_is_reverse(handle) != place->is_reverse;
+    optional<endpoint_t> entry = entry_endpoint(*place->chain, place->position, is_reverse);
     if (!entry) {
         // Only the chain's own snarls reach into its middle.
         return nullopt;
@@ -468,13 +699,13 @@ vector<net_handle_t> SnarlManagerDecomposition::siblings_ahead(const net_handle_
         if (!faces_in(here)) {
             return siblings;
         }
-        parent = get_snarl(here);
+        parent = record_of(here).snarl;
         exit = get_handle(here, &graph);
     } else {
         if (ends_at(here) == TIP) {
             return siblings;
         }
-        if (type_of(here) == NetType::CHAIN && layout.is_cyclic(chain_of_net(here))) {
+        if (type_of(here) == NetType::CHAIN && is_cyclic(chain_of_net(here))) {
             // Every edge on the node at a cyclic chain's bounds leads into the
             // chain's own snarls.
             return siblings;
@@ -492,14 +723,17 @@ vector<net_handle_t> SnarlManagerDecomposition::siblings_ahead(const net_handle_
 }
 
 net_handle_t SnarlManagerDecomposition::get_snarl_net(const Snarl* snarl) const {
+    if (snarls.at(manager.snarl_number(snarl)).hidden) {
+        throw invalid_argument("error: snarl is hidden from the decomposition");
+    }
     return snarl_net(snarl, true);
 }
 
 const Snarl* SnarlManagerDecomposition::get_snarl(const net_handle_t& net) const {
-    if (type_of(net) != NetType::SNARL && type_of(net) != NetType::SENTINEL) {
-        throw invalid_argument("error: net handle does not refer to a snarl");
+    if (type_of(net) != NetType::SNARL) {
+        throw invalid_argument("error: net handle is not for a snarl");
     }
-    return snarls_by_number.at(payload_of(net));
+    return record_of(net).snarl;
 }
 
 net_handle_t SnarlManagerDecomposition::get_root() const {
@@ -535,10 +769,10 @@ handle_t SnarlManagerDecomposition::get_handle(const net_handle_t& net, const Ha
     switch (type_of(net)) {
     case NODE:
     case TRIVIAL_CHAIN:
-        return handle_graph->get_handle(payload_of(net), starts_at(net) == END);
+        return handle_graph->get_handle(payload_of(net), ends_at(net) == START);
     case SENTINEL:
         {
-            const Snarl* snarl = get_snarl(net);
+            const Snarl* snarl = record_of(net).snarl;
             if (starts_at(net) == START) {
                 // The start bound's Visit reads into the snarl.
                 handle_t in = to_handle(*handle_graph, snarl->start());
@@ -575,18 +809,28 @@ net_handle_t SnarlManagerDecomposition::get_parent(const net_handle_t& child) co
         }
     case NODE:
         {
-            optional<ChainLayout::Place> place = layout.locate(get_handle(child, &graph));
+            optional<ChainPosition> place = directory.chain_position(payload_of(child));
             if (!place) {
                 // The node is a trivial chain by itself, traversed the way the
                 // node is.
                 return pack(TRIVIAL_CHAIN, starts_at(child), ends_at(child), payload_of(child));
             }
-            return directed(chain_net(*place->chain), place->along);
+            if (!is_forward(child) && !is_backward(child)) {
+                return chain_net(*place->chain);
+            }
+            bool is_reverse = graph.get_is_reverse(get_handle(child, &graph)) != place->is_reverse;
+            return directed(chain_net(*place->chain), !is_reverse);
         }
     case CHAIN:
-        return parent_snarl_net(manager.parent_of(chain_of_net(child).front().first));
+        {
+            const Snarl* parent = manager.parent_of(chain_of_net(child).front().first);
+            return parent == nullptr ? get_root() : snarl_net(parent, true);
+        }
     case TRIVIAL_CHAIN:
-        return parent_snarl_net(trivial_chains.parent_of(payload_of(child)));
+        {
+            const Snarl* parent = directory.containing_snarl(payload_of(child));
+            return parent == nullptr ? get_root() : snarl_net(parent, true);
+        }
     }
     throw invalid_argument("error: unknown net handle type");
 }
@@ -602,7 +846,15 @@ net_handle_t SnarlManagerDecomposition::get_bound(const net_handle_t& snarl, boo
     case CHAIN:
         {
             const Chain& chain = chain_of_net(snarl);
-            handle_t node = layout.node(chain, get_end ? chain.size() : 0);
+            if (get_end && is_cyclic(chain)) {
+                // TODO: A distance index gives a cyclic chain's end bound as
+                // its start bound's node read end-to-end, or start-to-start
+                // if the chain reads that node in reverse, so we do too.
+                endpoint_t out = ends_at(node_net(graph, chain_node(graph, chain, 0)));
+                endpoint_t end = face_in ? opposite(out) : out;
+                return pack(NODE, end, end, graph.get_id(chain_node(graph, chain, 0)));
+            }
+            handle_t node = chain_node(graph, chain, get_end ? chain.size() : 0);
             // Along the chain, the start node reads in and the end node reads
             // out.
             return node_net(graph, face_in == get_end ? graph.flip(node) : node);
@@ -633,19 +885,21 @@ net_handle_t SnarlManagerDecomposition::canonical(const net_handle_t& net) const
     case ROOT:
         return get_root();
     case SENTINEL:
-        // The bound facing in.
         return with_traversal(net, starts_at(net), opposite(starts_at(net)));
     default:
         {
-            // The first traversal that for_each_traversal_impl() lists, which
-            // is start-to-end whenever that is realizable, or start-to-end if
-            // none is.
-            net_handle_t found = with_traversal(net, START, END);
-            for_each_traversal_impl(net, [&found](const net_handle_t& traversal) {
-                found = traversal;
-                return false;
-            });
-            return found;
+            // Use the first realizable traversal in the order a distance
+            // index prefers.
+            static const array<pair<endpoint_t, endpoint_t>, 6> preferred {{
+                {START, END}, {START, TIP}, {END, TIP}, {START, START}, {END, END}, {TIP, TIP}
+            }};
+            TraversalSet realizable = traversals_of(net);
+            for (const auto& [start, end] : preferred) {
+                if (realizable.contains(start, end)) {
+                    return with_traversal(net, start, end);
+                }
+            }
+            return with_traversal(net, START, END);
         }
     }
 }
@@ -658,37 +912,54 @@ handlegraph::SnarlDecomposition::endpoint_t SnarlManagerDecomposition::ends_at(c
     return end_of(traversal);
 }
 
+pair<net_handle_t, endpoint_t> SnarlManagerDecomposition::traversal_bound(const net_handle_t& net, bool is_start) const {
+    using enum NetType;
+    switch (type_of(net)) {
+    case SENTINEL:
+        return {pack(SNARL, START, END, payload_of(net)), starts_at(net)};
+    case SNARL:
+    case CHAIN:
+    case TRIVIAL_CHAIN:
+        {
+            net_handle_t parent = get_parent(with_traversal(net, START, END));
+            if (is_root(parent)) {
+                throw invalid_argument("error: the root has no traversals that start or end at a child");
+            }
+            return {with_traversal(parent, START, END), TIP};
+        }
+    case NODE:
+        {
+            optional<ChainPosition> place = directory.chain_position(payload_of(net));
+            if (!place) {
+                // A free node's trivial chain is entered where the node's
+                // traversal starts and left where it ends.
+                return {pack(TRIVIAL_CHAIN, START, END, payload_of(net)), is_start ? starts_at(net) : ends_at(net)};
+            }
+            const Chain& chain = *place->chain;
+            bool is_reverse = graph.get_is_reverse(get_handle(net, &graph)) != place->is_reverse;
+            optional<endpoint_t> endpoint = is_start ? entry_endpoint(chain, place->position, is_reverse)
+                                                     : exit_endpoint(chain, place->position, is_reverse);
+            if (!endpoint) {
+                throw invalid_argument("error: node traversal does not read into or out of its chain at a bound");
+            }
+            return {chain_net(chain), *endpoint};
+        }
+    default:
+        throw invalid_argument("error: the root cannot start or end a traversal");
+    }
+}
+
 net_handle_t SnarlManagerDecomposition::get_parent_traversal(const net_handle_t& traversal_start,
                                                              const net_handle_t& traversal_end) const {
-    if (is_sentinel(traversal_start) && is_sentinel(traversal_end)) {
-        if (payload_of(traversal_end) != payload_of(traversal_start)) {
-            throw invalid_argument("error: traversal bounds are not sentinels of the same snarl");
-        }
-        return pack(NetType::SNARL, starts_at(traversal_start), starts_at(traversal_end), payload_of(traversal_start));
+    auto [start_parent, start] = traversal_bound(traversal_start, true);
+    auto [end_parent, end] = traversal_bound(traversal_end, false);
+    if (start_parent != end_parent) {
+        throw invalid_argument("error: traversal bounds are not in the same snarl or chain");
     }
-    if (!is_node(traversal_start) || !is_node(traversal_end)) {
-        throw invalid_argument("error: traversal bounds must be two sentinels or two nodes");
+    if (!traversals_of(start_parent).contains(start, end)) {
+        throw invalid_argument("error: traversal between the given bounds is not realizable");
     }
-    optional<ChainLayout::Place> start_place = layout.locate(get_handle(traversal_start, &graph));
-    if (!start_place) {
-        if (payload_of(traversal_end) != payload_of(traversal_start)) {
-            throw invalid_argument("error: traversal bounds are not in the same trivial chain");
-        }
-        // A trivial chain is entered the way its start bound reads and left
-        // the way its end bound reads.
-        return pack(NetType::TRIVIAL_CHAIN, starts_at(traversal_start), ends_at(traversal_end),
-                    payload_of(traversal_start));
-    }
-    optional<ChainLayout::Place> end_place = layout.locate(get_handle(traversal_end, &graph));
-    if (!end_place || end_place->chain != start_place->chain) {
-        throw invalid_argument("error: traversal bounds are not in the same chain");
-    }
-    optional<endpoint_t> entry = layout.entry_endpoint(*start_place);
-    optional<endpoint_t> exit = layout.exit_endpoint(*end_place);
-    if (!entry || !exit) {
-        throw invalid_argument("error: traversal bounds are not the bounds of their chain");
-    }
-    return with_traversal(chain_net(*start_place->chain), *entry, *exit);
+    return with_traversal(start_parent, start, end);
 }
 
 bool SnarlManagerDecomposition::for_each_child_impl(const net_handle_t& traversal,
@@ -709,30 +980,34 @@ bool SnarlManagerDecomposition::for_each_child_impl(const net_handle_t& traversa
     }
 }
 
-bool SnarlManagerDecomposition::for_each_traversal_impl(const net_handle_t& item,
-                                                        const function<bool(const net_handle_t&)>& iteratee) const {
-    vector<pair<endpoint_t, endpoint_t>> kinds;
+SnarlManagerDecomposition::TraversalSet SnarlManagerDecomposition::traversals_of(const net_handle_t& item) const {
+    TraversalSet traversals;
     using enum NetType;
     switch (type_of(item)) {
     case ROOT:
-        kinds.emplace_back(TIP, TIP);
+        traversals.add(TIP, TIP);
         break;
     case SENTINEL:
-        kinds.emplace_back(starts_at(item), ends_at(item));
+        traversals.add(starts_at(item), ends_at(item));
         break;
     case NODE:
     case TRIVIAL_CHAIN:
-        kinds = traversal_kinds({true, false, false});
+        traversals.add_both_ways(START, END);
         break;
     case SNARL:
-        kinds = traversal_kinds(reachability(*get_snarl(item)));
+        traversals = record_of(item).traversals;
         break;
     case CHAIN:
-        kinds = traversal_kinds(reachability(chain_of_net(item)));
+        traversals = chains.at(&chain_of_net(item));
         break;
     }
-    return std::ranges::all_of(kinds, [&item, &iteratee](const pair<endpoint_t, endpoint_t>& kind) {
-        return iteratee(with_traversal(item, kind.first, kind.second));
+    return traversals;
+}
+
+bool SnarlManagerDecomposition::for_each_traversal_impl(const net_handle_t& item,
+                                                        const function<bool(const net_handle_t&)>& iteratee) const {
+    return traversals_of(item).for_each([&item, &iteratee](endpoint_t start, endpoint_t end) {
+        return iteratee(with_traversal(item, start, end));
     });
 }
 
@@ -748,16 +1023,20 @@ bool SnarlManagerDecomposition::follow_net_edges_impl(const net_handle_t& here, 
     case SNARL:
         {
             optional<net_handle_t> next = next_in_chain(ahead);
-            return !next.has_value() || iteratee(*next);
+            if (!next.has_value()) {
+                return true;
+            }
+            if (go_left && is_node(here) && is_node(*next)) {
+                // TODO: A distance index reads a chain node it reaches by going
+                // left from a neighbouring chain node the way the traversal
+                // reads, so we do too.
+                return iteratee(flip(*next));
+            }
+            return iteratee(*next);
         }
     default:
         return std::ranges::all_of(siblings_ahead(ahead), iteratee);
     }
-}
-
-bool SnarlManagerDecomposition::for_each_tippy_child_impl(const net_handle_t&,
-                                                          const function<bool(const net_handle_t&)>&) const {
-    throw domain_error("error: the snarl manager does not record internal tips");
 }
 
 }

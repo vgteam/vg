@@ -4,12 +4,11 @@
 /** \file
  * Free functions for walking the sites of a snarl decomposition.
  *
- * A site is a snarl other than the root, so every site has a start bound and
- * an end bound. Each site sits in a chain, and its child chains hold its
- * child sites.
- *
- * A SnarlDistanceIndex can group root chains into root snarls, which have no
- * bounds. These functions do not support decompositions with root snarls.
+ * A site is a snarl in the decomposition, for which is_snarl() is true. Every
+ * site has a start bound and an end bound, sits in a chain, and holds child
+ * chains that hold its child sites. The root is not a site, and neither are
+ * the root snarls that a SnarlDistanceIndex groups root chains under, since
+ * is_root() is true for them.
  */
 
 #include <vector>
@@ -24,55 +23,71 @@ using handlegraph::net_handle_t;
 using handlegraph::SnarlDecomposition;
 
 /**
- * The two bounds of a site or chain, oriented the way a Snarl's start and
- * end Visits are: the start handle reads into it, and the end handle reads
- * out of it.
+ * @brief The two bounds of a site or chain, as graph handles that read in
+ * the direction of a traversal from one bound to the other.
  */
 struct SiteBounds {
+    /// @brief The handle reading into the site or chain at its start.
     handle_t start;
+    /// @brief The handle reading out of the site or chain at its end.
     handle_t end;
 
     bool operator==(const SiteBounds& other) const = default;
 };
 
 /**
- * Get the bounds of a traversal of a site or chain: the start handle reads
- * in through the bound the traversal starts at, and the end handle reads out
- * through the bound it ends at. Must not be called on the root, or on a
- * traversal that starts or ends at an internal tip.
+ * @brief Get the bounds of a traversal of a site or chain.
+ *
+ * @return The handle reading in through the bound where the traversal
+ * starts, and the handle reading out through the bound where it ends. For a
+ * traversal that starts and ends at the same bound, the two read the same
+ * node in opposite orientations.
+ *
+ * @pre The traversal neither starts nor ends at a tip, and is not of the
+ * root.
  */
 SiteBounds site_bounds(const SnarlDecomposition& decomposition, const HandleGraph& graph, const net_handle_t& net);
 
 /**
- * Get the sites in the chains of the root, in chain order, each read the way
- * its chain reads.
+ * @brief Get the sites in the root's chains.
+ *
+ * @post Sites come chain by chain, in the order each chain lists them, each
+ * read the way its chain reads.
  */
 std::vector<net_handle_t> top_level_sites(const SnarlDecomposition& decomposition);
 
 /**
- * Get the chains directly inside a site that hold at least one site.
+ * @brief Get the chains directly inside a site that hold at least one site.
  */
 std::vector<net_handle_t> child_chains(const SnarlDecomposition& decomposition, const net_handle_t& site);
 
 /**
- * Get the sites in a chain, in the order and orientation of the given
- * traversal of the chain.
+ * @brief Get the sites in a chain.
+ *
+ * @post For a start-to-end or end-to-start traversal of the chain, sites
+ * come in the order and orientation that the traversal reads them. For any
+ * other traversal, they come start-to-end, in an order the decomposition
+ * picks.
  */
 std::vector<net_handle_t> child_sites(const SnarlDecomposition& decomposition, const net_handle_t& chain);
 
 /**
- * Get the site that directly encloses a site, start-to-end, or a root handle
- * if the site is top-level.
+ * @brief Get the site that directly encloses a site.
+ *
+ * @return The enclosing site, start-to-end, or a net handle for which
+ * is_root() is true if the site is top-level.
  */
 net_handle_t parent_site(const SnarlDecomposition& decomposition, const net_handle_t& site);
 
 /**
- * Count the sites enclosing a site. A top-level site has depth 0.
+ * @brief Count the sites enclosing a site.
+ *
+ * @return 0 for a top-level site.
  */
 size_t depth(const SnarlDecomposition& decomposition, const net_handle_t& site);
 
 /**
- * Return true if a site has no child sites.
+ * @brief Return true if a site has no child sites.
  */
 bool is_leaf(const SnarlDecomposition& decomposition, const net_handle_t& site);
 

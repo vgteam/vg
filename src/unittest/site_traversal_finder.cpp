@@ -1,22 +1,26 @@
 /// \file site_traversal_finder.cpp
 ///
-/// Unit tests for SiteTraversalFinder: each finder's handle-pair version
-/// agrees with its Snarl version.
+/// Unit tests for the traversal finders that implement both TraversalFinder
+/// and SiteTraversalFinder.
+///
+/// PathTraversalFinder, GBWTTraversalFinder and FlowTraversalFinder each find
+/// a site's traversals given either a Snarl, through TraversalFinder, or the
+/// site's two bound handles, through SiteTraversalFinder. Both interfaces
+/// must give the same traversals for the same site.
 
 #include "catch.hpp"
 #include "../traversal_finder.hpp"
 #include "../integrated_snarl_finder.hpp"
 #include "../vg.hpp"
+#include "../gbwt_helper.hpp"
 #include "support/random_graph.hpp"
 #include "support/randomness.hpp"
-
-#include <gbwt/dynamic_gbwt.h>
 
 #include <format>
 
 namespace vg::unittest {
 
-/// Convert a SnarlTraversal to handles in the graph.
+/// @brief Convert a SnarlTraversal to the graph handles it visits.
 static Traversal to_traversal(const HandleGraph& graph, const SnarlTraversal& snarl_traversal) {
     Traversal traversal;
     for (const Visit& visit : snarl_traversal.visit()) {
@@ -25,8 +29,12 @@ static Traversal to_traversal(const HandleGraph& graph, const SnarlTraversal& sn
     return traversal;
 }
 
-/// Add a path that walks from the given handle along random edges, for at
-/// most the given number of steps.
+/**
+ * @brief Add a path that walks from a handle along randomly chosen edges.
+ *
+ * @details The path stops after the given number of steps, or earlier at a
+ * dead end.
+ */
 template<typename URNG>
 static void add_random_walk(MutablePathHandleGraph& graph, const string& name, handle_t here, size_t max_steps,
                             URNG& generator) {
@@ -45,36 +53,29 @@ static void add_random_walk(MutablePathHandleGraph& graph, const string& name, h
     }
 }
 
-/// Encode a handle as a GBWT node.
-static gbwt::vector_type::value_type gbwt_node(const HandleGraph& graph, const handle_t& handle) {
-    return static_cast<gbwt::vector_type::value_type>(gbwt::Node::encode(graph.get_id(handle),
-                                                                         graph.get_is_reverse(handle)));
-}
-
-/// Store every path in the graph in a GBWT, in both orientations.
+/// @brief Store every path in the graph in a GBWT, in both orientations.
 static gbwt::GBWT paths_gbwt(const PathHandleGraph& graph) {
-    gbwt::vector_type text;
-    graph.for_each_path_handle([&graph, &text](const path_handle_t& path) {
-        gbwt::vector_type thread;
-        graph.for_each_step_in_path(path, [&graph, &thread](const step_handle_t& step) {
-            thread.push_back(gbwt_node(graph, graph.get_handle_of_step(step)));
-        });
-        text.insert(text.end(), thread.begin(), thread.end());
-        text.push_back(static_cast<gbwt::vector_type::value_type>(gbwt::ENDMARKER));
-        for (auto it = thread.rbegin(); it != thread.rend(); ++it) {
-            text.push_back(static_cast<gbwt::vector_type::value_type>(gbwt::Node::reverse(*it)));
-        }
-        text.push_back(static_cast<gbwt::vector_type::value_type>(gbwt::ENDMARKER));
+    vector<gbwt::vector_type> paths;
+    graph.for_each_path_handle([&graph, &paths](const path_handle_t& path) {
+        paths.push_back(extract_as_gbwt_path(graph, graph.get_path_name(path)));
     });
-    gbwt::DynamicGBWT dynamic_gbwt;
-    dynamic_gbwt.insert(text, true);
-    return gbwt::GBWT(dynamic_gbwt);
+    return get_gbwt(paths);
 }
 
-/// Check that a finder's handle-pair version agrees with its Snarl version
-/// on the given site, and return how many traversals it found.
+/**
+ * @brief Require that a finder gives the same traversals of a site through
+ * both of its interfaces.
+ *
+ * @post Finding traversals of the site's two bound handles, through
+ * SiteTraversalFinder, gives the same traversals in the same order as
+ * finding traversals of the Snarl, through TraversalFinder.
+ * @post Each traversal is nonempty, starts with the site's start handle and
+ * ends with its end handle.
+ *
+ * @return The number of traversals found.
+ */
 template<typename Finder>
-static size_t check_versions_agree(Finder& finder, const HandleGraph& graph, const Snarl& site) {
+static size_t require_interfaces_agree(Finder& finder, const HandleGraph& graph, const Snarl& site) {
     handle_t start = graph.get_handle(site.start().node_id(), site.start().backward());
     handle_t end = graph.get_handle(site.end().node_id(), site.end().backward());
     vector<SnarlTraversal> by_snarl = finder.find_traversals(site);
@@ -89,9 +90,15 @@ static size_t check_versions_agree(Finder& finder, const HandleGraph& graph, con
     return by_handles.size();
 }
 
-/// Check that a FlowTraversalFinder's weighted handle-pair version agrees
-/// with its weighted Snarl version on the given site.
-static void check_weighted_versions_agree(FlowTraversalFinder& finder, const HandleGraph& graph, const Snarl& site) {
+/**
+ * @brief Require that a FlowTraversalFinder gives the same weighted
+ * traversals of a site through both of its interfaces.
+ *
+ * @post The weighted traversals found from the site's two bound handles are
+ * the same, with the same weights in the same order, as those found from the
+ * Snarl.
+ */
+static void require_weighted_interfaces_agree(FlowTraversalFinder& finder, const HandleGraph& graph, const Snarl& site) {
     handle_t start = graph.get_handle(site.start().node_id(), site.start().backward());
     handle_t end = graph.get_handle(site.end().node_id(), site.end().backward());
     auto [snarl_traversals, snarl_weights] = finder.find_weighted_traversals(site);
@@ -103,8 +110,8 @@ static void check_weighted_versions_agree(FlowTraversalFinder& finder, const Han
     }
 }
 
-/// Get a Snarl holding only the bounds of the given snarl, read forward or
-/// reversed.
+/// @brief Make a Snarl holding only a snarl's bounds, read the snarl's way or
+/// in reverse.
 static Snarl site_of(const Snarl& snarl, bool reversed) {
     Snarl site;
     *site.mutable_start() = reversed ? reverse(snarl.end()) : snarl.start();
@@ -112,7 +119,8 @@ static Snarl site_of(const Snarl& snarl, bool reversed) {
     return site;
 }
 
-TEST_CASE("Handle-pair and Snarl versions of each SiteTraversalFinder agree", "[site_traversal_finder]") {
+TEST_CASE("Traversal finders find the same traversals from a site's bound handles as from its Snarl",
+          "[site_traversal_finder]") {
 
     std::default_random_engine generator(test_seed_source());
 
@@ -147,10 +155,10 @@ TEST_CASE("Handle-pair and Snarl versions of each SiteTraversalFinder agree", "[
                                          &path_found, &gbwt_found, &flow_found](const Snarl* snarl) {
             for (bool reversed : {false, true}) {
                 Snarl site = site_of(*snarl, reversed);
-                path_found += check_versions_agree(path_finder, graph, site);
-                gbwt_found += check_versions_agree(gbwt_finder, graph, site);
-                flow_found += check_versions_agree(flow_finder, graph, site);
-                check_weighted_versions_agree(flow_finder, graph, site);
+                path_found += require_interfaces_agree(path_finder, graph, site);
+                gbwt_found += require_interfaces_agree(gbwt_finder, graph, site);
+                flow_found += require_interfaces_agree(flow_finder, graph, site);
+                require_weighted_interfaces_agree(flow_finder, graph, site);
             }
         });
     }
