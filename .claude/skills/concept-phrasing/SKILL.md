@@ -81,6 +81,10 @@ A reader takes in a sentence once, left to right, and should not have to go back
   Good: "The loan names the book, so check the loan first."
 - Put at most two words before a noun; move the rest into a clause after it. Bad: "the first unreturned renewed overdue loan". Good:
   "the first overdue loan that was renewed and is still out".
+- Avoid a verb whose past participle looks like its present tense ("read", "set", "put", "cut")
+  right after a noun. Bad: "/// Loans read from the old catalogue". Is that a command to read
+  them, or loans that were read? Say what the things are: "/// Loans that the old catalogue
+  recorded".
 - Use a term only after it is defined.
 
 ## Give each idea room

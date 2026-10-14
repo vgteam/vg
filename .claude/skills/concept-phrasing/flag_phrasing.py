@@ -35,7 +35,7 @@ SHAPES = [
     ("ellipsis", r"\b\w+'s\s*[.,;:)]"),
     ("ellipsis", r"\b(the|a)\s+(first|last|other|next|previous)\s+one's\b"),
     ("vague relation", r"\b(meets?|meeting|touch(es)?|sees?)\s+(it|them|the|a|an|each|its|their)\b"),
-    ("borrowed justification", r"\b(in the (same )?order|the way|where|as)\s+(\w+\s+){0,4}?(\w+\(\)|it|they)\s+(finds?|produces?|returns?|does|do|starts?|lists?)\b"),
+    ("borrowed justification", r"\b(in the (same )?order|the way|where|as)\s+(\w+\s+){0,4}?\w+\(\)\s+(finds?|produces?|returns?|does|do|starts?|lists?)\b"),
     ("borrowed justification", r"\b(to match|matching|matches|which is (also )?(what|where|how))\b"),
 ]
 
