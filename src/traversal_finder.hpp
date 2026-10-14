@@ -66,17 +66,11 @@ public:
  * Represents a strategy for finding traversals of (nested) sites. Polymorphic
  * base class/interface.
  */
-class TraversalFinder : public SiteTraversalFinder {
+class TraversalFinder {
 public:
     virtual ~TraversalFinder() = default;
-
+    
     virtual vector<SnarlTraversal> find_traversals(const Snarl& site) = 0;
-
-    /// Finders that can only work from a Snarl keep this default, which
-    /// fails.
-    virtual vector<Traversal> find_traversals(const handle_t& snarl_start, const handle_t& snarl_end) {
-        assert(false); return{};
-    }
 };
 
 class ExhaustiveTraversalFinder : public TraversalFinder {
@@ -227,7 +221,7 @@ class PathBasedTraversalFinder : public TraversalFinder{
  * path index.  It returns all traversals through a snarl that are contained
  * within paths in the graph.  It can also return a mapping from the traversals
  * to their paths*/
-class PathTraversalFinder : public TraversalFinder {
+class PathTraversalFinder : public TraversalFinder, public SiteTraversalFinder {
     
 protected:
     // our graph with indexed path positions
@@ -245,7 +239,7 @@ public:
      * Return all traversals through the site that are sub-paths of embedded paths in the graph
      */
     virtual vector<SnarlTraversal> find_traversals(const Snarl& site);
-    virtual vector<Traversal> find_traversals(const handle_t& snarl_start, const handle_t& snarl_end);
+    vector<Traversal> find_traversals(const handle_t& snarl_start, const handle_t& snarl_end) override;
 
     /**
     * Like above, but return the path steps for the for the traversal endpoints
@@ -604,7 +598,7 @@ protected:
  * snarls, so all traversals returned are explicit.  
  * It is possible that it will blow up on massive snarls, espeically for large Ks. 
  */ 
-class FlowTraversalFinder : public TraversalFinder {
+class FlowTraversalFinder : public TraversalFinder, public SiteTraversalFinder {
     
 protected:
     const HandleGraph& graph;
@@ -628,13 +622,6 @@ public:
                         function<double(edge_t)> edge_weight_callback,
                         size_t max_traversal_length = numeric_limits<size_t>::max());
 
-    /// Same as above. The snarl manager is not used.
-    FlowTraversalFinder(const HandleGraph& graph, SnarlManager& snarl_manager,
-                        size_t K,
-                        function<double(handle_t)> node_weight_callback,
-                        function<double(edge_t)> edge_weight_callback,
-                        size_t max_traversal_length = numeric_limits<size_t>::max());
-
     /**
      * Return the K widest (most flow) traversals through the site
      * The reference traversal will be returned first (regardless of its flow).
@@ -646,7 +633,7 @@ public:
      * Return the K widest traversals through the site bounded by the given
      * handles, in the same order as find_traversals(const Snarl&).
      */
-    virtual vector<Traversal> find_traversals(const handle_t& snarl_start, const handle_t& snarl_end);
+    vector<Traversal> find_traversals(const handle_t& snarl_start, const handle_t& snarl_end) override;
 
     /**
      * Return the K widest traversals, along with their flows
@@ -672,7 +659,7 @@ public:
 
 /** Rerturn all traversals of a snarl that correspond to haplotypes stored in a GBWT
  */
-class GBWTTraversalFinder : public TraversalFinder {
+class GBWTTraversalFinder : public TraversalFinder, public SiteTraversalFinder {
 
 protected:
     
@@ -688,7 +675,7 @@ public:
     /* Return a traversal for every gbwt thread through the snarl 
      */
     virtual vector<SnarlTraversal> find_traversals(const Snarl& site);
-    virtual vector<Traversal> find_traversals(const handle_t& snarl_start, const handle_t& snarl_end);
+    vector<Traversal> find_traversals(const handle_t& snarl_start, const handle_t& snarl_end) override;
 
     /** Return the traversals, paired with their path identifiers in the gbwt.  The traversals are 
      *  unique, but there can be more than one path along each one (hence the vector)

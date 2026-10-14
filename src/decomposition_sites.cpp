@@ -5,39 +5,47 @@
 
 #include "decomposition_sites.hpp"
 
+#include <algorithm>
+#include <iterator>
+
 namespace vg {
 
 using namespace std;
 
 SiteBounds site_bounds(const SnarlDecomposition& decomposition, const HandleGraph& graph, const net_handle_t& net) {
-    // The bounds ignore the traversal, so they come out start-to-end.
-    SiteBounds bounds {
-        decomposition.get_handle(decomposition.get_bound(net, false, true), &graph),
-        decomposition.get_handle(decomposition.get_bound(net, true, false), &graph)
+    // Read in through the bound the traversal starts at, and out through the
+    // bound it ends at.
+    bool starts_at_end = decomposition.starts_at(net) == SnarlDecomposition::END;
+    bool ends_at_end = decomposition.ends_at(net) == SnarlDecomposition::END;
+    return {
+        decomposition.get_handle(decomposition.get_bound(net, starts_at_end, true), &graph),
+        decomposition.get_handle(decomposition.get_bound(net, ends_at_end, false), &graph)
     };
-    if (decomposition.starts_at(net) == SnarlDecomposition::END) {
-        bounds = {graph.flip(bounds.end), graph.flip(bounds.start)};
-    }
-    return bounds;
 }
 
 vector<net_handle_t> top_level_sites(const SnarlDecomposition& decomposition) {
     vector<net_handle_t> sites;
-    decomposition.for_each_child(decomposition.get_root(), [&](const net_handle_t& chain) {
-        for (const net_handle_t& site : child_sites(decomposition, chain)) {
-            sites.push_back(site);
-        }
+    decomposition.for_each_child(decomposition.get_root(), [&decomposition, &sites](const net_handle_t& chain) {
+        std::ranges::copy(child_sites(decomposition, chain), back_inserter(sites));
     });
     return sites;
 }
 
+/// Return true if a chain holds at least one site.
+static bool has_site(const SnarlDecomposition& decomposition, const net_handle_t& chain) {
+    bool found = false;
+    decomposition.for_each_child(chain, [&decomposition, &found](const net_handle_t& child) {
+        found = decomposition.is_snarl(child);
+        // Stop at the first site.
+        return !found;
+    });
+    return found;
+}
+
 vector<net_handle_t> child_chains(const SnarlDecomposition& decomposition, const net_handle_t& site) {
     vector<net_handle_t> chains;
-    decomposition.for_each_child(site, [&](const net_handle_t& chain) {
-        bool has_site = !decomposition.for_each_child(chain, [&](const net_handle_t& child) {
-            return !decomposition.is_snarl(child);
-        });
-        if (has_site) {
+    decomposition.for_each_child(site, [&decomposition, &chains](const net_handle_t& chain) {
+        if (has_site(decomposition, chain)) {
             chains.push_back(chain);
         }
     });
@@ -46,7 +54,7 @@ vector<net_handle_t> child_chains(const SnarlDecomposition& decomposition, const
 
 vector<net_handle_t> child_sites(const SnarlDecomposition& decomposition, const net_handle_t& chain) {
     vector<net_handle_t> sites;
-    decomposition.for_each_child(chain, [&](const net_handle_t& child) {
+    decomposition.for_each_child(chain, [&decomposition, &sites](const net_handle_t& child) {
         if (decomposition.is_snarl(child)) {
             sites.push_back(child);
         }
