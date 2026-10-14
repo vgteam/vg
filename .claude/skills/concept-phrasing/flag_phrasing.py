@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
 Print comment lines changed since a base commit that may introduce an idea by negation, by a
-headless noun phrase, or by an unbounded quantifier, as described in SKILL.md next to this script.
+headless noun phrase, by an unbounded quantifier, by ellipsis, by a vague relation, or by
+borrowing another component's behaviour as a justification, as described in SKILL.md next to this script.
 
 Usage, from the repository root:
     python3 .claude/skills/concept-phrasing/flag_phrasing.py [BASE]
@@ -30,6 +31,12 @@ SHAPES = [
     ("unbounded quantifier", r"\b(every|all|any)\s+(comparison|check|law|test|difference|problem)s?\b"),
     ("unbounded quantifier", r"\bthe\s+known\s+\w+"),
     ("contract word", r"\bonce\b"),
+    ("ellipsis", r"\b(gives?|has|have|lists?|with)\s+(\w+\s+)?none\b"),
+    ("ellipsis", r"\b\w+'s\s*[.,;:)]"),
+    ("ellipsis", r"\b(the|a)\s+(first|last|other|next|previous)\s+one's\b"),
+    ("vague relation", r"\b(meets?|meeting|touch(es)?|sees?)\s+(it|them|the|a|an|each|its|their)\b"),
+    ("borrowed justification", r"\b(in the (same )?order|the way|where|as)\s+(\w+\s+){0,4}?(\w+\(\)|it|they)\s+(finds?|produces?|returns?|does|do|starts?|lists?)\b"),
+    ("borrowed justification", r"\b(to match|matching|matches|which is (also )?(what|where|how))\b"),
 ]
 
 COMMENT = re.compile(r"^\s*(?://+!?<?|/\*+|\*+/?)\s?(.*)$")
@@ -57,11 +64,20 @@ def changed_lines(base):
 def comment_runs(text):
     """Yield (line numbers, joined text, offsets) for each run of consecutive comment lines."""
     lines, parts, offsets, length = [], [], [], 0
+    in_block = False
     for number, line in enumerate(text.split("\n"), 1):
-        match = COMMENT.match(line)
-        if not match:
-            match = TRAILING.match(STRING.sub('""', line)) if "//" in line else None
-        body = match.group(1).strip() if match else ""
+        stripped = line.strip()
+        if in_block:
+            # Inside a /* */ block, every line is comment text, with or without a leading *.
+            body = re.sub(r"^\*+/?\s?", "", stripped).replace("*/", "").strip()
+            in_block = "*/" not in stripped
+        else:
+            match = COMMENT.match(line)
+            if not match:
+                match = TRAILING.match(STRING.sub('""', line)) if "//" in line else None
+            body = match.group(1).strip() if match else ""
+            in_block = stripped.startswith("/*") and "*/" not in stripped
+            body = body.replace("*/", "").strip()
         if body:
             lines.append(number)
             offsets.append(length)
