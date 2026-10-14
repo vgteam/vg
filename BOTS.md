@@ -73,3 +73,7 @@ The interfaces in libhandlegraph model a bidirected sequence graph (where nodes 
 ### Utilities
 - `reverse_complement(string)` → `string` in src/utility.hpp
 
+## Writing Code and Comments
+- When writing or reviewing doc comments, follow `.claude/skills/doc-comments/SKILL.md`.
+- When writing or reviewing comments, identifiers or test names, follow `.claude/skills/concept-phrasing/SKILL.md`.
+- When adding, splitting or reviewing classes and structs, follow `.claude/skills/class-identity/SKILL.md`.
