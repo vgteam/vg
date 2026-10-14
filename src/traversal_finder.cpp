@@ -3404,7 +3404,6 @@ vector<Traversal> FlowTraversalFinder::find_traversals(const handle_t& snarl_sta
 pair<vector<SnarlTraversal>, vector<double>> FlowTraversalFinder::find_weighted_traversals(const Snarl& site, bool greedy_avg,
                                                                                            const HandleGraph* overlay) {
 
-    // Make and read handles in the graph that the search runs on.
     const HandleGraph* use_graph = overlay != nullptr ? overlay : & graph;
     
     auto [handle_travs, weights] = find_weighted_traversals(

@@ -45,19 +45,17 @@ string graph_interval_to_string(const HandleGraph* graph, const handle_t& start_
 string path_interval_to_string(const PathHandleGraph* graph, const PathInterval& path_interval);
 
 /**
- * Represents a strategy for finding traversals of a site given only its two
- * bounds. A site is entered by reading its start handle and left by reading
- * its end handle, as a Snarl's start and end Visits are oriented. Polymorphic
- * base class/interface.
+ * @brief An interface for strategies that find traversals of a site from its
+ * two bound handles.
  */
 class SiteTraversalFinder {
 public:
     virtual ~SiteTraversalFinder() = default;
 
     /**
-     * Return traversals of the site bounded by the given handles. Each
-     * traversal is a walk that starts with snarl_start and ends with
-     * snarl_end.
+     * @brief Find traversals of the site between two bound handles.
+     *
+     * @return Walks that each start with snarl_start and end with snarl_end.
      */
     virtual vector<Traversal> find_traversals(const handle_t& snarl_start, const handle_t& snarl_end) = 0;
 };
@@ -601,6 +599,8 @@ protected:
 class FlowTraversalFinder : public TraversalFinder, public SiteTraversalFinder {
     
 protected:
+    /// @brief The graph to search, unless a search is given an overlay graph
+    /// to use instead.
     const HandleGraph& graph;
 
     /// The K-best traversals are returned
@@ -615,7 +615,17 @@ protected:
     
 public:
     
-    // if a traversal is found that exceeds max_traversal_length, then the search is called off
+    /**
+     * @brief Make a finder that searches a graph for the widest traversals.
+     *
+     * @param graph The graph to search. The finder keeps a reference to it,
+     * so it must outlive the finder.
+     * @param K The number of traversals to find for each site.
+     * @param node_weight_callback The flow through each node.
+     * @param edge_weight_callback The flow through each edge.
+     * @param max_traversal_length The length in bases, not counting the
+     * site's bounds, of a traversal that stops the search when found.
+     */
     FlowTraversalFinder(const HandleGraph& graph,
                         size_t K,
                         function<double(handle_t)> node_weight_callback,
@@ -623,29 +633,48 @@ public:
                         size_t max_traversal_length = numeric_limits<size_t>::max());
 
     /**
-     * Return the K widest (most flow) traversals through the site
-     * The reference traversal will be returned first (regardless of its flow).
-     * After, the traversals are listed in decreasing order
+     * @brief Find the K widest (most flow) traversals through a site.
+     *
+     * @return The traversals in the order yens_k_widest_paths() finds them.
      */
     virtual vector<SnarlTraversal> find_traversals(const Snarl& site);
 
     /**
-     * Return the K widest traversals through the site bounded by the given
-     * handles, in the same order as find_traversals(const Snarl&).
+     * @brief Find the K widest traversals through the site between two bound
+     * handles.
+     *
+     * @return The traversals, in the same order as find_traversals(const
+     * Snarl&) gives them for the same site.
      */
     vector<Traversal> find_traversals(const handle_t& snarl_start, const handle_t& snarl_end) override;
 
     /**
-     * Return the K widest traversals, along with their flows
+     * @brief Find the K widest traversals through a site, with their flows.
+     *
+     * @param greedy_avg True to search heuristically by the running average
+     * flow, which may miss the widest traversals, rather than by the
+     * smallest flow along each traversal.
+     * @param overlay A graph to search instead of the finder's graph, or null.
+     * @return The traversals, and the flow through each, in matching order.
      */
     virtual pair<vector<SnarlTraversal>, vector<double>> find_weighted_traversals(const Snarl& site,
                                                                                   bool greedy_avg = false,
                                                                                   const HandleGraph* overlay = nullptr);
 
     /**
-     * Return the K widest traversals through the site bounded by the given
-     * handles, along with their flows. If an overlay is given, the search
-     * runs on it, and the handles and traversals are the overlay's.
+     * @brief Find the K widest traversals through the site between two bound
+     * handles, with their flows.
+     *
+     * @param snarl_start The handle reading into the site at its start, from
+     * the graph that is searched.
+     * @param snarl_end The handle reading out of the site at its end, from
+     * the graph that is searched.
+     * @param greedy_avg True to search heuristically by the running average
+     * flow, which may miss the widest traversals, rather than by the
+     * smallest flow along each traversal.
+     * @param overlay A graph to search instead of the finder's graph, or null.
+     * @return The traversals, as handles in the graph that is searched, and
+     * the flow through each, in matching order.
      */
     virtual pair<vector<Traversal>, vector<double>> find_weighted_traversals(const handle_t& snarl_start,
                                                                              const handle_t& snarl_end,
