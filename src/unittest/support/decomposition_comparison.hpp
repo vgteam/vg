@@ -107,21 +107,18 @@ private:
  *   chain node, the chain node it reaches is matched whichever way it is
  *   read.
  *
- * TODO: A distance index lists a chain's children start-to-end for every
- * traversal of the chain, where the interface wants an end-to-start
- * traversal's children listed end-to-start. So the children of an
- * end-to-start traversal are worked out from the start-to-end traversal's
- * children, in both decompositions.
- *
- * TODO: Going left from a chain node to the neighbouring chain node, a
- * distance index reads the node it reaches the way the traversal reads, or
- * the way it travels, depending on how it packed the nodes into records.
- *
- * TODO: A distance index copies a chain's tip traversals from its snarls
- * before it works out the snarls' tip traversals, so its chains never have
- * any, and it can also leave out a snarl's traversal to a tip node that the
- * snarl's start reaches. So traversals that start or end at a tip are left
- * out.
+ * TODO: Remove each of these weakenings when the [snarl_distance_interface]
+ * test it names passes:
+ * - The children of an end-to-start chain traversal are worked out from the
+ *   start-to-end traversal's children ("A distance index lists an
+ *   end-to-start chain's children end-to-start").
+ * - Going left from a chain node, the chain node reached is matched whichever
+ *   way it is read ("Going left from a chain node reaches the traversals that
+ *   reach it going right").
+ * - Traversals that start or end at a tip are left out ("A distance index
+ *   gives a chain a start-to-tip traversal when its start reaches a tip" and
+ *   "A distance index gives a snarl a start-to-tip traversal when its start
+ *   reaches a tip").
  *
  * @param expected One decomposition.
  * @param actual The decomposition under test, which failure messages show
