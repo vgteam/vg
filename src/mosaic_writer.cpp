@@ -3,6 +3,8 @@
 #include <chrono>
 #include <cstdio>
 #include <limits>
+#include <numeric>
+#include <sstream>
 
 #include <omp.h>
 
@@ -28,8 +30,8 @@ namespace {
 /// established, so this limits a long run rather than a wrong-way search.
 const size_t WALK_LIMIT = 1u << 17;
 
-/// Finds and follows panel haplotypes in the GBWT, for one mosaic. The mosaic is written
-/// serially, so one position cache with no locking is enough, and it lives only for that mosaic.
+/// Finds and follows panel haplotypes in the GBWT, for one contig of a mosaic. Each contig is
+/// written by one thread with its own walker, so its caches need no locking.
 class PanelWalker {
 public:
     explicit PanelWalker(const PanelLookup& panel)
@@ -45,24 +47,52 @@ public:
         }
         // Finding a position costs a `locate` for each sequence in the node's range, far more
         // than an LF step, and the same (node, haplotype) is asked for repeatedly, so positions
-        // are cached.
-        const uint64_t key = ((uint64_t)node << 20) | (uint64_t)(hap & 0xFFFFF);
+        // are cached. A node's range is scanned once in all: a search goes on from where the last
+        // one at the node stopped, and caches every haplotype it passes at that haplotype's first
+        // position, which is the one a search for it would have returned.
+        const uint64_t key = position_key(node, hap);
         auto hit = position_cache.find(key);
         if (hit != position_cache.end()) {
             return hit->second;
         }
-        gbwt::SearchState state = index->find(node);
-        if (!state.empty()) {
-            for (gbwt::size_type i = state.range.first; i <= state.range.second; ++i) {
-                gbwt::size_type seq = index->locate(node, i);
-                if (seq < haplotype_of_sequence->size() && (*haplotype_of_sequence)[seq] == hap) {
-                    position_cache[key] = gbwt::edge_type(node, i);
-                    return gbwt::edge_type(node, i);
+        Scan& scan = scans[node];
+        if (!scan.started) {
+            gbwt::SearchState state = index->find(node);
+            scan.started = true;
+            scan.next = state.range.first;
+            scan.end = state.empty() ? state.range.first : state.range.second + 1;
+        }
+        while (scan.next < scan.end) {
+            const gbwt::edge_type here(node, scan.next++);
+            const gbwt::size_type seq = sequence_at(here);
+            if (seq < haplotype_of_sequence->size()) {
+                const size_t found = (*haplotype_of_sequence)[seq];
+                position_cache.emplace(position_key(node, found), here);
+                if (found == hap) {
+                    return here;
                 }
             }
         }
         position_cache[key] = gbwt::invalid_edge();
         return gbwt::invalid_edge();
+    }
+
+    /// The GBWT sequence at a position, as `locate` gives it, remembered: positions are compared
+    /// by sequence again and again, and most of them were located while a node was scanned.
+    gbwt::size_type sequence_at(gbwt::edge_type position) {
+        const bool cacheable = position.second < (1u << 24);
+        const uint64_t key = ((uint64_t)position.first << 24) | (uint64_t)position.second;
+        if (cacheable) {
+            auto hit = sequence_cache.find(key);
+            if (hit != sequence_cache.end()) {
+                return hit->second;
+            }
+        }
+        const gbwt::size_type seq = index->locate(position);
+        if (cacheable) {
+            sequence_cache.emplace(key, seq);
+        }
+        return seq;
     }
 
     /// Follow the haplotype at `start` to `to_node`, and report where it arrives.
@@ -115,17 +145,40 @@ public:
     }
 
 private:
+    static uint64_t position_key(gbwt::node_type node, size_t hap) {
+        return ((uint64_t)node << 20) | (uint64_t)(hap & 0xFFFFF);
+    }
+
+    /// How far a node's range has been scanned: offsets [next, end) are still to be located.
+    struct Scan {
+        bool started = false;
+        gbwt::size_type next = 0;
+        gbwt::size_type end = 0;
+    };
+
     const gbwt::GBWT* index;
     const vector<size_t>* haplotype_of_sequence;
     /// (oriented node, haplotype) -> GBWT position.
     unordered_map<uint64_t, gbwt::edge_type> position_cache;
+    /// Oriented node -> how far its range has been scanned.
+    unordered_map<gbwt::node_type, Scan> scans;
+    /// GBWT position -> its sequence.
+    unordered_map<uint64_t, gbwt::size_type> sequence_cache;
 };
+
+/// Write one contig's rows, sites [i, j) of `phasing`, both strands, to `out`, adding the rows
+/// written to `total_segments` and those that name no haplotype to `unexplained_segments`.
+/// A contig's rows depend only on its own sites, so contigs can be written independently;
+/// `reference_hap` is the reference's index in the panel, or NO_HAPLOTYPE.
+void write_contig(const vector<LinkageCollector::PhaseCall>& phasing, size_t i, size_t j,
+                  const PanelLookup& panel, size_t reference_hap, const MosaicParams& params,
+                  MosaicCounters& counters, ostream& out, size_t& total_segments,
+                  size_t& unexplained_segments);
 
 }
 
 void MosaicWriter::write(const vector<LinkageCollector::PhaseCall>& phasing,
                          const PanelLookup& panel, const string& sample_name) {
-    PanelWalker walk(panel);
     ofstream out(params.path);
     if (!out) {
         cerr << "error [vg call]: could not open " << params.path << " for the mosaic output"
@@ -202,39 +255,6 @@ void MosaicWriter::write(const vector<LinkageCollector::PhaseCall>& phasing,
     out << "#H\tcontig\tstrand\tfragment\tref_start\tref_end\tstart_node\tend_node"
         << "\thap_index\thaplotype\tsites\tgbwt_offset\n";
 
-    // The phasing is grouped by contig and in reference order. Each strand is written separately,
-    // and a switch on one strand ends only that strand's segment.
-    size_t i = 0;
-    size_t total_segments = 0;
-
-    // Emit sites [from, to] on one strand, all on haplotype `hap`, as one row per GBWT fragment.
-    //
-    // A row carries one GBWT position, from which the whole segment must be walkable, so a run is
-    // cut wherever the fragment under it changes. We resolve the positions at the run's two ends;
-    // only when they are on different fragments do we binary-search the sites for the boundary.
-    // This misses a haplotype that leaves a fragment and comes back to it within one run, which
-    // fragments of one path cannot do in reference order.
-    //
-    // What a strand holds at a site: its allele on a known haplotype (Carried); nothing, because it
-    // is the other strand of a nested ploidy-1 site (Empty); or sequence the panel cannot attribute
-    // to a haplotype (Unexplained). A run is cut where the kind changes, so each row has one.
-    enum class StrandKind { Carried, Empty, Unexplained };
-    auto strand_kind = [&](size_t t, int strand) -> StrandKind {
-        const size_t hap = strand == 0 ? phasing[t].hap_first : phasing[t].hap_second;
-        if (hap != LinkageModel::NO_HAPLOTYPE) {
-            return StrandKind::Carried;
-        }
-        if (phasing[t].nested_strand >= 0 && (int)phasing[t].nested_strand != strand) {
-            return StrandKind::Empty;
-        }
-        return StrandKind::Unexplained;
-    };
-    size_t unexplained_segments = 0;
-    // The sites this strand passes through, as indices into `phasing`, in reference order. A nested
-    // ploidy-1 chain is on one of its parent's strands; the other strand takes the parent's other
-    // allele, which bypasses the chain, so the site is not on that strand's walk and has no row
-    // there. `emit_span` and `emit_row` index into this list; `site()` maps back to `phasing`.
-    //
     // The reference's index in the panel, for filling a gap no haplotype can cross. Looked up by
     // name, since the index follows GBWT metadata order. `params.reference_paths` holds full path
     // names (CHM13#0#chr20) and the panel names haplotypes as sample#phase (CHM13#0), so the
@@ -265,6 +285,100 @@ void MosaicWriter::write(const vector<LinkageCollector::PhaseCall>& phasing,
                  : "is panel haplotype " + std::to_string(reference_hap))
          << endl;
 
+    // The phasing is grouped by contig and in reference order. Each strand is written separately,
+    // and a switch on one strand ends only that strand's segment.
+    // Each contig is written by one thread, with its own position cache, into a buffer of its own,
+    // and the buffers are written out in the phasing's order, so the file is as one pass writes it.
+    // Largest first, so that the longest contigs do not start last.
+    vector<pair<size_t, size_t>> contigs;
+    for (size_t i = 0; i < phasing.size();) {
+        size_t j = i;
+        while (j < phasing.size() && phasing[j].contig == phasing[i].contig) {
+            ++j;
+        }
+        contigs.emplace_back(i, j);
+        i = j;
+    }
+    vector<size_t> order(contigs.size());
+    std::iota(order.begin(), order.end(), 0);
+    std::stable_sort(order.begin(), order.end(), [&](size_t a, size_t b) {
+        return contigs[a].second - contigs[a].first > contigs[b].second - contigs[b].first;
+    });
+    vector<string> rows(contigs.size());
+    vector<size_t> segments(contigs.size(), 0), unexplained(contigs.size(), 0);
+#pragma omp parallel for schedule(dynamic, 1)
+    for (size_t k = 0; k < order.size(); ++k) {
+        const size_t c = order[k];
+        ostringstream contig_rows;
+        write_contig(phasing, contigs[c].first, contigs[c].second, panel, reference_hap, params,
+                     counters, contig_rows, segments[c], unexplained[c]);
+        rows[c] = contig_rows.str();
+    }
+    size_t total_segments = 0;
+    size_t unexplained_segments = 0;
+    for (size_t c = 0; c < contigs.size(); ++c) {
+        out << rows[c];
+        total_segments += segments[c];
+        unexplained_segments += unexplained[c];
+    }
+    cerr << "[vg call] mosaic: " << total_segments << " segments over " << phasing.size()
+         << " sites, written to " << params.path << endl;
+    // Empty and unexplained segments are reported separately. The unexplained count compares with
+    // the phasing report's.
+    cerr << "[vg call] mosaic: " << unexplained_segments
+         << " segments the panel cannot name a haplotype for" << endl;
+    // Segments naming a haplotype the graph does not carry across them, which a consumer has to
+    // patch or break at.
+    cerr << "[vg call] mosaic: " << counters.extended.load()
+         << " segment boundaries closed by extending right, " << counters.extended_left.load()
+         << " by extending left instead, " << counters.patched.load()
+         << " filled with the reference because neither haplotype could be carried across, "
+         << counters.gap_left.load() << " left as a gap" << endl;
+    cerr << "[vg call] mosaic: " << counters.nested_enter.load()
+         << " boundaries where the walk enters a child snarl, " << counters.nested_leave.load()
+         << " where it leaves one -- both stated at the CHILD's boundary node" << endl;
+    cerr << "[vg call] mosaic: " << counters.direction_broken.load()
+         << " rows walked against the carried direction, each standing alone (inversions)" << endl;
+    cerr << "[vg call] mosaic: " << counters.unwalkable.load()
+         << " segments name a haplotype the graph does not carry across them, of which "
+         << counters.head_clipped.load() << " are a clipped head whose remainder is walkable; "
+         << counters.row_to_ref.load() << " rewritten as a reference substitution" << endl;
+}
+
+namespace {
+
+void write_contig(const vector<LinkageCollector::PhaseCall>& phasing, size_t i, size_t j,
+                  const PanelLookup& panel, size_t reference_hap, const MosaicParams& params,
+                  MosaicCounters& counters, ostream& out, size_t& total_segments,
+                  size_t& unexplained_segments) {
+    PanelWalker walk(panel);
+
+    // Emit sites [from, to] on one strand, all on haplotype `hap`, as one row per GBWT fragment.
+    //
+    // A row carries one GBWT position, from which the whole segment must be walkable, so a run is
+    // cut wherever the fragment under it changes. We resolve the positions at the run's two ends;
+    // only when they are on different fragments do we binary-search the sites for the boundary.
+    // This misses a haplotype that leaves a fragment and comes back to it within one run, which
+    // fragments of one path cannot do in reference order.
+    //
+    // What a strand holds at a site: its allele on a known haplotype (Carried); nothing, because it
+    // is the other strand of a nested ploidy-1 site (Empty); or sequence the panel cannot attribute
+    // to a haplotype (Unexplained). A run is cut where the kind changes, so each row has one.
+    enum class StrandKind { Carried, Empty, Unexplained };
+    auto strand_kind = [&](size_t t, int strand) -> StrandKind {
+        const size_t hap = strand == 0 ? phasing[t].hap_first : phasing[t].hap_second;
+        if (hap != LinkageModel::NO_HAPLOTYPE) {
+            return StrandKind::Carried;
+        }
+        if (phasing[t].nested_strand >= 0 && (int)phasing[t].nested_strand != strand) {
+            return StrandKind::Empty;
+        }
+        return StrandKind::Unexplained;
+    };
+    // The sites this strand passes through, as indices into `phasing`, in reference order. A nested
+    // ploidy-1 chain is on one of its parent's strands; the other strand takes the parent's other
+    // allele, which bypasses the chain, so the site is not on that strand's walk and has no row
+    // there. `emit_span` and `emit_row` index into this list; `site()` maps back to `phasing`.
     const bool patch_gaps = params.patch_gaps;
     const bool keep_nested = params.keep_nested;
     const bool connect_unexplained = params.connect_unexplained;
@@ -344,7 +458,7 @@ void MosaicWriter::write(const vector<LinkageCollector::PhaseCall>& phasing,
                                                       ? gbwt::invalid_edge()
                                                       : walk.gbwt_position(next_start, nh2);
                     right = np != gbwt::invalid_edge()
-                            && walk.gbwt()->locate(np) == walk.gbwt()->locate(p)
+                            && walk.sequence_at(np) == walk.sequence_at(p)
                             && (entry == gbwt::invalid_edge() || entry.first == np.first);
                 }
                 if (entering) {
@@ -378,7 +492,7 @@ void MosaicWriter::write(const vector<LinkageCollector::PhaseCall>& phasing,
                         const gbwt::edge_type there = walk.gbwt_position(next_start, nh);
                         const gbwt::edge_type mine = walk.gbwt_position(b.end_node, hap);
                         if (here != gbwt::invalid_edge() && there != gbwt::invalid_edge()
-                            && walk.gbwt()->locate(here) == walk.gbwt()->locate(there)
+                            && walk.sequence_at(here) == walk.sequence_at(there)
                             && (mine == gbwt::invalid_edge() || mine.first == here.first)) {
                             pending_from_node = b.end_node;
                             pending_from_pos = here;
@@ -396,7 +510,7 @@ void MosaicWriter::write(const vector<LinkageCollector::PhaseCall>& phasing,
                             const gbwt::edge_type rr =
                                 walk.gbwt_position(next_start, reference_hap);
                             if (rl != gbwt::invalid_edge() && rr != gbwt::invalid_edge()
-                                && walk.gbwt()->locate(rl) == walk.gbwt()->locate(rr)) {
+                                && walk.sequence_at(rl) == walk.sequence_at(rr)) {
                                 patch_to = next_start;
                                 patch_pos = rl;
                                 patch_from_pos = b.position;
@@ -610,7 +724,7 @@ void MosaicWriter::write(const vector<LinkageCollector::PhaseCall>& phasing,
         }
         gbwt::edge_type end_pos = walk.gbwt_position(site(to).start_node, hap);
         if (end_pos == gbwt::invalid_edge()
-            || walk.gbwt()->locate(pos) == walk.gbwt()->locate(end_pos)) {
+            || walk.sequence_at(pos) == walk.sequence_at(end_pos)) {
             // Same fragment at both ends, or no way to tell. One row.
             emit_row(from, to, pos);
             return;
@@ -618,12 +732,12 @@ void MosaicWriter::write(const vector<LinkageCollector::PhaseCall>& phasing,
         // The fragment changes somewhere in (from, to]. Binary search for the last site still on
         // the starting fragment; a site the haplotype does not reach is treated as past the
         // boundary, which keeps the search monotone.
-        gbwt::size_type seq = walk.gbwt()->locate(pos);
+        gbwt::size_type seq = walk.sequence_at(pos);
         size_t lo = from, hi = to;
         while (hi - lo > 1) {
             size_t mid = lo + (hi - lo) / 2;
             gbwt::edge_type p = walk.gbwt_position(site(mid).start_node, hap);
-            if (p != gbwt::invalid_edge() && walk.gbwt()->locate(p) == seq) {
+            if (p != gbwt::invalid_edge() && walk.sequence_at(p) == seq) {
                 lo = mid;
             } else {
                 hi = mid;
@@ -633,90 +747,63 @@ void MosaicWriter::write(const vector<LinkageCollector::PhaseCall>& phasing,
         emit_span(hi, to, strand, hap, kind);
     };
 
-    while (i < phasing.size()) {
-        size_t j = i;
-        while (j < phasing.size() && phasing[j].contig == phasing[i].contig) {
-            ++j;
+    // One strand on a haploid chain, since a second would claim a copy the sample lacks. Taken
+    // over the whole run rather than from its first site, since a diploid contig can begin with
+    // a nested ploidy-1 site.
+    int strands = 1;
+    for (size_t t = i; t < j && strands == 1; ++t) {
+        if (phasing[t].ploidy != 1) {
+            strands = 2;
         }
-        // One strand on a haploid chain, since a second would claim a copy the sample lacks. Taken
-        // over the whole run rather than from its first site, since a diploid contig can begin with
-        // a nested ploidy-1 site.
-        int strands = 1;
-        for (size_t t = i; t < j && strands == 1; ++t) {
-            if (phasing[t].ploidy != 1) {
-                strands = 2;
-            }
-        }
-        for (int strand = 0; strand < strands; ++strand) {
-            pending_from_node = -1;
-            carry = gbwt::ENDMARKER;
-            fragment = 0;
-            // A site this strand does not traverse is not on its walk, so it is not in its list.
-            strand_sites.clear();
-            for (size_t t = i; t < j; ++t) {
-                if (strand_kind(t, strand) == StrandKind::Empty) {
-                    continue;
-                }
-                // A switch of haplotype inside a nested chain is real, but it follows the parent's
-                // route and a consumer counting recombinations may not want it. Dropping the nested
-                // sites merges the runs across them, so the walk follows the parent's haplotype
-                // through the child snarl. The header records which was done.
-                if (!keep_nested && phasing[t].level > 0) {
-                    continue;
-                }
-                // A stretch where no haplotype is named for the strand, as on a nested strand that
-                // could not be placed. By default the flanking haplotype is carried through,
-                // keeping the strand one path, at the cost of writing that haplotype's sequence
-                // across those sites rather than the called alleles. With `connect_unexplained`
-                // off, the hole is left.
-                if (connect_unexplained
-                    && strand_kind(t, strand) == StrandKind::Unexplained) {
-                    continue;
-                }
-                strand_sites.push_back(t);
-            }
-            size_t seg_start = 0;
-            for (size_t t = 0; t < strand_sites.size(); ++t) {
-                size_t hap = strand == 0 ? site(t).hap_first : site(t).hap_second;
-                StrandKind kind = strand_kind(strand_sites[t], strand);
-                bool last = (t + 1 == strand_sites.size());
-                // Cut where the kind changes too, so that each run has one.
-                bool changes = !last
-                               && ((strand == 0 ? site(t + 1).hap_first
-                                                : site(t + 1).hap_second) != hap
-                                   || strand_kind(strand_sites[t + 1], strand) != kind);
-                if (last || changes) {
-                    // One run of one haplotype, possibly over several GBWT fragments; emit_span
-                    // writes one row per fragment, so each row can be walked from its position.
-                    emit_span(seg_start, t, strand, hap, kind);
-                    seg_start = t + 1;
-                }
-            }
-        }
-        i = j;
     }
-    cerr << "[vg call] mosaic: " << total_segments << " segments over " << phasing.size()
-         << " sites, written to " << params.path << endl;
-    // Empty and unexplained segments are reported separately. The unexplained count compares with
-    // the phasing report's.
-    cerr << "[vg call] mosaic: " << unexplained_segments
-         << " segments the panel cannot name a haplotype for" << endl;
-    // Segments naming a haplotype the graph does not carry across them, which a consumer has to
-    // patch or break at.
-    cerr << "[vg call] mosaic: " << counters.extended.load()
-         << " segment boundaries closed by extending right, " << counters.extended_left.load()
-         << " by extending left instead, " << counters.patched.load()
-         << " filled with the reference because neither haplotype could be carried across, "
-         << counters.gap_left.load() << " left as a gap" << endl;
-    cerr << "[vg call] mosaic: " << counters.nested_enter.load()
-         << " boundaries where the walk enters a child snarl, " << counters.nested_leave.load()
-         << " where it leaves one -- both stated at the CHILD's boundary node" << endl;
-    cerr << "[vg call] mosaic: " << counters.direction_broken.load()
-         << " rows walked against the carried direction, each standing alone (inversions)" << endl;
-    cerr << "[vg call] mosaic: " << counters.unwalkable.load()
-         << " segments name a haplotype the graph does not carry across them, of which "
-         << counters.head_clipped.load() << " are a clipped head whose remainder is walkable; "
-         << counters.row_to_ref.load() << " rewritten as a reference substitution" << endl;
+    for (int strand = 0; strand < strands; ++strand) {
+        pending_from_node = -1;
+        carry = gbwt::ENDMARKER;
+        fragment = 0;
+        // A site this strand does not traverse is not on its walk, so it is not in its list.
+        strand_sites.clear();
+        for (size_t t = i; t < j; ++t) {
+            if (strand_kind(t, strand) == StrandKind::Empty) {
+                continue;
+            }
+            // A switch of haplotype inside a nested chain is real, but it follows the parent's
+            // route and a consumer counting recombinations may not want it. Dropping the nested
+            // sites merges the runs across them, so the walk follows the parent's haplotype
+            // through the child snarl. The header records which was done.
+            if (!keep_nested && phasing[t].level > 0) {
+                continue;
+            }
+            // A stretch where no haplotype is named for the strand, as on a nested strand that
+            // could not be placed. By default the flanking haplotype is carried through,
+            // keeping the strand one path, at the cost of writing that haplotype's sequence
+            // across those sites rather than the called alleles. With `connect_unexplained`
+            // off, the hole is left.
+            if (connect_unexplained
+                && strand_kind(t, strand) == StrandKind::Unexplained) {
+                continue;
+            }
+            strand_sites.push_back(t);
+        }
+        size_t seg_start = 0;
+        for (size_t t = 0; t < strand_sites.size(); ++t) {
+            size_t hap = strand == 0 ? site(t).hap_first : site(t).hap_second;
+            StrandKind kind = strand_kind(strand_sites[t], strand);
+            bool last = (t + 1 == strand_sites.size());
+            // Cut where the kind changes too, so that each run has one.
+            bool changes = !last
+                           && ((strand == 0 ? site(t + 1).hap_first
+                                            : site(t + 1).hap_second) != hap
+                               || strand_kind(strand_sites[t + 1], strand) != kind);
+            if (last || changes) {
+                // One run of one haplotype, possibly over several GBWT fragments; emit_span
+                // writes one row per fragment, so each row can be walked from its position.
+                emit_span(seg_start, t, strand, hap, kind);
+                seg_start = t + 1;
+            }
+        }
+    }
+}
+
 }
 
 }
