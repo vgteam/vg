@@ -70,7 +70,7 @@ static net_handle_t chain_of_node(const SnarlDistanceIndex& index, nid_t id) {
     return index.starts_at(chain) == SnarlDecomposition::START ? chain : index.flip(chain);
 }
 
-TEST_CASE("A distance index lists an end-to-start chain's children end-to-start",
+TEST_CASE("SnarlDistanceIndex for_each_child() of an END_START chain lists the end node first",
           "[snarl_distance_interface]") {
     // The chain is node 1, the snarl from 1 to 4, and node 4.
     bdsg::HashGraph graph;
@@ -93,7 +93,7 @@ TEST_CASE("A distance index lists an end-to-start chain's children end-to-start"
     REQUIRE(index.get_handle(children.back(), &graph) == graph.flip(n1));
 }
 
-TEST_CASE("A distance index gives a snarl a start-to-tip traversal when its start reaches a tip",
+TEST_CASE("SnarlDistanceIndex for_each_traversal() gives START_TIP for a snarl whose start reaches a tip node",
           "[snarl_distance_interface]") {
     // The snarl from 1 to 4 holds nodes 2, 3 and 5, and node 5 hangs off 3
     // with nothing after it. The test replays a decomposition written by
@@ -124,7 +124,7 @@ TEST_CASE("A distance index gives a snarl a start-to-tip traversal when its star
     REQUIRE(has_traversal(index, snarl, SnarlDecomposition::START, SnarlDecomposition::TIP));
 }
 
-TEST_CASE("A distance index gives a chain a start-to-tip traversal when its start reaches a tip",
+TEST_CASE("SnarlDistanceIndex for_each_traversal() gives START_TIP for a chain whose start reaches a tip in one of its snarls",
           "[snarl_distance_interface]") {
     // The chain is node 1, the snarl from 1 to 4, and node 4. In the snarl,
     // node 3 hangs off 1 with nothing after it. The test replays a
@@ -153,7 +153,7 @@ TEST_CASE("A distance index gives a chain a start-to-tip traversal when its star
     REQUIRE(has_traversal(index, chain, SnarlDecomposition::START, SnarlDecomposition::TIP));
 }
 
-TEST_CASE("A distance index gives a snarl a start-to-tip traversal through a child chain with a tip",
+TEST_CASE("SnarlDistanceIndex for_each_traversal() gives START_TIP for a snarl whose start reaches a tip in a child chain",
           "[snarl_distance_interface]") {
     // The snarl from 1 to 7 holds the chain of 2, the snarl from 2 to 5, and
     // 5. In that inner snarl, node 6 hangs off 3 with nothing after it. The
@@ -196,7 +196,7 @@ TEST_CASE("A distance index gives a snarl a start-to-tip traversal through a chi
     REQUIRE(has_traversal(index, outer_snarl, SnarlDecomposition::START, SnarlDecomposition::TIP));
 }
 
-TEST_CASE("A distance index gives a cyclic chain an end bound that is a node traversal",
+TEST_CASE("SnarlDistanceIndex get_bound() of a cyclic chain gives a START_END or END_START node traversal",
           "[snarl_distance_interface]") {
     // The chain goes from 1 through the snarl from 1 to 4 and back to 1.
     bdsg::HashGraph graph;
@@ -225,7 +225,7 @@ TEST_CASE("A distance index gives a cyclic chain an end bound that is a node tra
     }
 }
 
-TEST_CASE("A distance index lets a chain turn around at a self-loop between two of its nodes",
+TEST_CASE("SnarlDistanceIndex for_each_traversal() gives START_START for a chain with a self-loop in a trivial snarl",
           "[snarl_distance_interface]") {
     // The chain is node 1, the snarl from 1 to 4, node 4, and node 5. An
     // edge from the end of 4 back into the end of 4 lets a walk from the
@@ -249,7 +249,7 @@ TEST_CASE("A distance index lets a chain turn around at a self-loop between two 
     REQUIRE(has_traversal(index, chain, SnarlDecomposition::START, SnarlDecomposition::START));
 }
 
-TEST_CASE("Going left from a chain node gives the traversals that give it going right",
+TEST_CASE("SnarlDistanceIndex follow_net_edges() going left from a chain node undoes going right",
           "[snarl_distance_interface]") {
     // The chain is nodes 1, 2 and 3 in a row. A self-loop on the start side
     // of 2 makes the index store 2 in a different record from 1.
@@ -277,7 +277,7 @@ TEST_CASE("Going left from a chain node gives the traversals that give it going 
 }
 
 
-TEST_CASE("A distance index makes a trivial chain's traversal from its node's traversals",
+TEST_CASE("SnarlDistanceIndex get_parent_traversal() of a trivial chain's bounds gives the trivial chain START_END",
           "[snarl_distance_interface]") {
     // The snarl from 1 to 4 holds nodes 2 and 3, each a chain by itself.
     bdsg::HashGraph graph;
@@ -302,7 +302,7 @@ TEST_CASE("A distance index makes a trivial chain's traversal from its node's tr
 }
 
 
-TEST_CASE("get_parent() of a SnarlDistanceIndex sentinel gives its snarl START_END",
+TEST_CASE("SnarlDistanceIndex get_parent() of a sentinel gives its snarl START_END",
           "[snarl_distance_interface]") {
     // The snarl from 1 to 4 holds nodes 2 and 3.
     bdsg::HashGraph graph;
