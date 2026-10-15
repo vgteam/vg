@@ -384,9 +384,7 @@ bool SnarlManagerDecomposition::TraversalSurvey::Walker::enter_child(const handl
     optional<endpoint_t> entry = entry_endpoint(chain, place->position,
                                                 graph.get_is_reverse(entering) != place->is_reverse);
     if (!entry) {
-        // TODO: Only the chain's own snarls should lead into the middle of a
-        // chain. Is the decomposition wrong if this happens?
-        return false;
+        throw logic_error("error: an edge enters a chain between its bounds, so the snarl decomposition is broken");
     }
     const TraversalSet& traversals = survey.of_chain(&chain);
     handle_t start_out = graph.flip(chain_node(graph, chain, 0));
@@ -692,7 +690,7 @@ optional<net_handle_t> SnarlManagerDecomposition::next_in_chain(const net_handle
     return snarl_net((*place->chain)[*rank].first, !is_reverse);
 }
 
-optional<net_handle_t> SnarlManagerDecomposition::sibling_entered_by(const handle_t& handle,
+net_handle_t SnarlManagerDecomposition::sibling_entered_by(const handle_t& handle,
                                                                      const Snarl* parent) const {
     if (parent != nullptr) {
         if (handle == snarl_bound(parent, true)) {
@@ -711,9 +709,7 @@ optional<net_handle_t> SnarlManagerDecomposition::sibling_entered_by(const handl
     bool is_reverse = graph.get_is_reverse(handle) != place->is_reverse;
     optional<endpoint_t> entry = entry_endpoint(*place->chain, place->position, is_reverse);
     if (!entry) {
-        // TODO: Only the chain's own snarls should lead into the middle of a
-        // chain. Is the decomposition wrong if this happens?
-        return nullopt;
+        throw logic_error("error: an edge enters a chain between its bounds, so the snarl decomposition is broken");
     }
     return directed(chain_net(*place->chain), *entry == START);
 }
@@ -743,8 +739,7 @@ bool SnarlManagerDecomposition::for_each_sibling_ahead(const net_handle_t& here,
         exit = get_handle(get_bound(here, ends_at(here) == END, false), &graph);
     }
     return graph.follow_edges(exit, false, [&](const handle_t& next) {
-        optional<net_handle_t> sibling = sibling_entered_by(next, parent);
-        return !sibling || iteratee(*sibling);
+        return iteratee(sibling_entered_by(next, parent));
     });
 }
 
