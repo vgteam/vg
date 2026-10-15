@@ -400,6 +400,9 @@ private:
              * @return True if a walk entering the chain can end at a tip in it.
              *
              * @pre The chain has been surveyed.
+             * @throws std::logic_error If the handle enters a chain between
+             * its bounds, which a chain does not allow, so the decomposition
+             * is broken.
              */
             bool enter_child(const handle_t& entering, std::vector<handle_t>& exits) const;
 
@@ -485,10 +488,11 @@ private:
      *   enters at one of its bounds.
      * - The parent's bound sentinel facing out, if the handle leaves the
      *   parent.
-     * - nullopt, if the handle enters a chain at a chain node between its
-     *   bounds.
+     *
+     * @throws std::logic_error If the handle enters a chain between its
+     * bounds, which a chain does not allow, so the decomposition is broken.
      */
-    std::optional<net_handle_t> sibling_entered_by(const handle_t& handle, const Snarl* parent) const;
+    net_handle_t sibling_entered_by(const handle_t& handle, const Snarl* parent) const;
 
     /**
      * @brief Call a function on each sibling that a walk leaving a traversal
