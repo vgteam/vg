@@ -276,4 +276,29 @@ TEST_CASE("Going left from a chain node gives the traversals that give it going 
     }
 }
 
+
+TEST_CASE("A distance index makes a trivial chain's traversal from its node's traversals",
+          "[snarl_distance_interface]") {
+    // The snarl from 1 to 4 holds nodes 2 and 3, each a chain by itself.
+    bdsg::HashGraph graph;
+    handle_t n1 = graph.create_handle("A");
+    handle_t n2 = graph.create_handle("C");
+    handle_t n3 = graph.create_handle("G");
+    handle_t n4 = graph.create_handle("T");
+    graph.create_edge(n1, n2);
+    graph.create_edge(n1, n3);
+    graph.create_edge(n2, n4);
+    graph.create_edge(n3, n4);
+    SnarlDistanceIndex index;
+    index_graph(graph, index);
+
+    net_handle_t trivial_chain = index.get_parent(index.get_node_net_handle(graph.get_id(n2)));
+    REQUIRE(index.is_chain(trivial_chain));
+    net_handle_t forward = index.get_parent_traversal(index.get_bound(trivial_chain, false, true),
+                                                      index.get_bound(trivial_chain, true, false));
+    REQUIRE(index.starts_at(forward) == SnarlDecomposition::START);
+    REQUIRE(index.ends_at(forward) == SnarlDecomposition::END);
+    REQUIRE(index.canonical(forward) == index.canonical(trivial_chain));
+}
+
 }
