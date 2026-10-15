@@ -45,7 +45,7 @@ std::string element_name(const SnarlDecomposition& decomposition, const HandleGr
  *
  * @details The root is named `root`. A snarl's or the root's children are
  * sorted by name. A chain's children are in the order that a traversal of
- * the chain from one bound to the other passes them; of the two such orders,
+ * the chain from one bound to the other visits them; of the two such orders,
  * the one that sorts first is kept. A cyclic chain's children start at its
  * bound node in both orders.
  */

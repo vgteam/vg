@@ -355,7 +355,7 @@ SnarlManagerDecomposition::TraversalSurvey::of_chain(const Chain* chain) const {
 bool SnarlManagerDecomposition::TraversalSurvey::enter_child(const handle_t& entering, vector<handle_t>& exits) const {
     optional<ChainPosition> place = directory.chain_position(graph.get_id(entering));
     if (!place) {
-        // A walk passes straight through a free node.
+        // A walk visits a free node and leaves through its other side.
         exits.push_back(entering);
         return false;
     }
@@ -649,9 +649,10 @@ optional<net_handle_t> SnarlManagerDecomposition::next_in_chain(const net_handle
         }
         const Snarl* snarl = get_snarl(here);
         size_t rank = manager.chain_rank_of(snarl);
-        // Leaving a snarl through its end reaches the chain node after it,
-        // oriented forward along the chain, and leaving through its start
-        // reaches the chain node before it, oriented in reverse along the chain.
+        // Leaving a snarl through its end, a walk next visits the chain node
+        // after it, oriented forward along the chain. Leaving through its
+        // start, the walk next visits the chain node before it, oriented in
+        // reverse along the chain.
         bool is_reverse = ends_at(here) == START;
         return chain_node_net(*manager.chain_of(snarl), is_reverse ? rank : rank + 1, is_reverse);
     }
@@ -1035,8 +1036,8 @@ bool SnarlManagerDecomposition::follow_net_edges_impl(const net_handle_t& here, 
         return follow_right(here, iteratee);
     }
     // In a bidirected graph, a walk taken backward is a walk. So the
-    // traversals from which going right reaches here are the flips of those
-    // that going right from here's flip reaches.
+    // traversals from which going right gives here are the flips of those
+    // that going right from here's flip gives.
     return follow_right(flip(here), [this, &iteratee](const net_handle_t& reached) {
         return iteratee(flip(reached));
     });

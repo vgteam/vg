@@ -45,7 +45,9 @@ the thing is, positively.
    of its own first ("A book is returned at its return branch, which may differ from the branch
    that lent it."), then use it ("the return branch").
 7. **A new term for an existing convention.** If the code already says `is_overdue`, do not call
-   the same thing "late" in comments. To replace a code term that breaks one of these rules,
+   the same thing "late" in comments. The same goes for verbs: if the code has `check_out()`, a
+   borrower *checks out* a book, rather than taking or getting it. Many projects list their terms;
+   look for a glossary in the project's agent instructions (such as `BOTS.md` or `CLAUDE.md`). To replace a code term that breaks one of these rules,
    rename it in the code, at every use, and then use the new name in comments. When your task is
    limited to comments, keep the code term and add a `TODO:` suggesting the rename.
 8. **A word that already means something else here.** If "copy" means one physical book, do not
