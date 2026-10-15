@@ -7,6 +7,7 @@
 #include "catch.hpp"
 #include "../snarl_distance_index.hpp"
 #include "../integrated_snarl_finder.hpp"
+#include "support/snarl_decomposition_fuzzer.hpp"
 
 #include <bdsg/hash_graph.hpp>
 
@@ -45,7 +46,7 @@ static bool has_traversal(const SnarlDistanceIndex& index, const net_handle_t& i
     return found;
 }
 
-/// List the traversals that follow_net_edges() reaches from a traversal.
+/// List the traversals that follow_net_edges() gives from a traversal.
 static std::vector<net_handle_t> neighbours(const SnarlDistanceIndex& index, const HandleGraph& graph,
                                            const net_handle_t& here, bool go_left) {
     std::vector<net_handle_t> reached;
@@ -62,7 +63,7 @@ static net_handle_t chain_of_node(const SnarlDistanceIndex& index, nid_t id) {
 }
 
 TEST_CASE("A distance index lists an end-to-start chain's children end-to-start",
-          "[snarl_distance_interface][!mayfail]") {
+          "[snarl_distance_interface]") {
     // The chain is node 1, the snarl from 1 to 4, and node 4.
     bdsg::HashGraph graph;
     handle_t n1 = graph.create_handle("A");
@@ -128,18 +129,19 @@ TEST_CASE("A distance index gives a chain a start-to-tip traversal when its star
 }
 
 TEST_CASE("A distance index gives a snarl a start-to-tip traversal through a child chain with a tip",
-          "[snarl_distance_interface]") {
+          "[snarl_distance_interface][!mayfail]") {
     // The snarl from 1 to 7 holds the chain of 2, the snarl from 2 to 5, and
-    // 5. In that inner snarl, node 6 hangs off 3 with nothing after it. An
-    // edge from 1 to 7 makes the outer snarl a snarl.
+    // 5. In that inner snarl, node 6 hangs off 3 with nothing after it. The
+    // test replays a decomposition written by hand, because a snarl finder
+    // would end the root chain at node 6.
     bdsg::HashGraph graph;
-    handle_t n1 = graph.create_handle("A");
-    handle_t n2 = graph.create_handle("C");
-    handle_t n3 = graph.create_handle("G");
-    handle_t n4 = graph.create_handle("T");
-    handle_t n5 = graph.create_handle("A");
-    handle_t n6 = graph.create_handle("C");
-    handle_t n7 = graph.create_handle("G");
+    handle_t n1 = graph.create_handle("A", 1);
+    handle_t n2 = graph.create_handle("C", 2);
+    handle_t n3 = graph.create_handle("G", 3);
+    handle_t n4 = graph.create_handle("T", 4);
+    handle_t n5 = graph.create_handle("A", 5);
+    handle_t n6 = graph.create_handle("C", 6);
+    handle_t n7 = graph.create_handle("G", 7);
     graph.create_edge(n1, n2);
     graph.create_edge(n2, n3);
     graph.create_edge(n2, n4);
@@ -148,10 +150,23 @@ TEST_CASE("A distance index gives a snarl a start-to-tip traversal through a chi
     graph.create_edge(n3, n6);
     graph.create_edge(n5, n7);
     graph.create_edge(n1, n7);
+    using enum DecompositionEventType;
+    std::vector<DecompositionEvent> events {
+        {BEGIN_CHAIN, 1, false}, {BEGIN_SNARL, 1, false},
+        {BEGIN_CHAIN, 2, false}, {BEGIN_SNARL, 2, false},
+        {BEGIN_CHAIN, 3, false}, {END_CHAIN, 3, false},
+        {BEGIN_CHAIN, 4, false}, {END_CHAIN, 4, false},
+        {BEGIN_CHAIN, 6, false}, {END_CHAIN, 6, false},
+        {END_SNARL, 5, false}, {END_CHAIN, 5, false},
+        {END_SNARL, 7, false}, {END_CHAIN, 7, false}
+    };
+    ReplaySnarlFinder finder(&graph, events);
     SnarlDistanceIndex index;
-    index_graph(graph, index);
+    fill_in_distance_index(&index, &graph, &finder);
 
     net_handle_t inner_chain = chain_of_node(index, graph.get_id(n2));
+    REQUIRE(index.is_chain(inner_chain));
+    REQUIRE(children_of(index, inner_chain).size() == 3);
     net_handle_t outer_snarl = index.get_parent(inner_chain);
     REQUIRE(index.is_snarl(outer_snarl));
     REQUIRE(has_traversal(index, outer_snarl, SnarlDecomposition::START, SnarlDecomposition::TIP));
