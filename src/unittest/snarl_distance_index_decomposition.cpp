@@ -173,7 +173,7 @@ TEST_CASE("A distance index gives a snarl a start-to-tip traversal through a chi
 }
 
 TEST_CASE("A distance index gives a cyclic chain an end bound that is a node traversal",
-          "[snarl_distance_interface][!mayfail]") {
+          "[snarl_distance_interface]") {
     // The chain goes from 1 through the snarl from 1 to 4 and back to 1.
     bdsg::HashGraph graph;
     handle_t n1 = graph.create_handle("A");

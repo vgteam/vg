@@ -4852,7 +4852,9 @@ namespace vg {
                 });
                 net_handle_t chain_start_in_handle = distance_index.get_bound(top_chain_handle, false, true);
                 net_handle_t chain_end_out_handle = distance_index.get_bound(top_chain_handle, true, false);
-                REQUIRE(chain_start_in_handle != chain_end_out_handle);
+                // Both bounds of a looping chain are its first node, traversed
+                // the way the chain goes.
+                REQUIRE(chain_start_in_handle == chain_end_out_handle);
 
                 //Traverse start node in, to reach middle node going forward
                 bool found_next_node = false;
@@ -4894,7 +4896,7 @@ namespace vg {
                 });
                 net_handle_t chain_start_out_handle = distance_index.get_bound(top_chain_handle, false, false);
                 net_handle_t chain_end_in_handle = distance_index.get_bound(top_chain_handle, true, true);
-                REQUIRE(chain_end_in_handle != chain_start_out_handle);
+                REQUIRE(chain_end_in_handle == chain_start_out_handle);
 
                 //Traverse end node in, to reach middle node going backward
                 bool found_next_node = false;
