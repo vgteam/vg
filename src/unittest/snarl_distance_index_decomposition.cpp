@@ -125,7 +125,7 @@ TEST_CASE("A distance index gives a snarl a start-to-tip traversal when its star
 }
 
 TEST_CASE("A distance index gives a chain a start-to-tip traversal when its start reaches a tip",
-          "[snarl_distance_interface][!mayfail]") {
+          "[snarl_distance_interface]") {
     // The chain is node 1, the snarl from 1 to 4, and node 4. In the snarl,
     // node 3 hangs off 1 with nothing after it. The test replays a
     // decomposition written by hand, because a snarl finder would end the
@@ -154,7 +154,7 @@ TEST_CASE("A distance index gives a chain a start-to-tip traversal when its star
 }
 
 TEST_CASE("A distance index gives a snarl a start-to-tip traversal through a child chain with a tip",
-          "[snarl_distance_interface][!mayfail]") {
+          "[snarl_distance_interface]") {
     // The snarl from 1 to 7 holds the chain of 2, the snarl from 2 to 5, and
     // 5. In that inner snarl, node 6 hangs off 3 with nothing after it. The
     // test replays a decomposition written by hand, because a snarl finder
