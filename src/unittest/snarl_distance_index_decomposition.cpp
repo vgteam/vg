@@ -226,7 +226,7 @@ TEST_CASE("A distance index gives a cyclic chain an end bound that is a node tra
 }
 
 TEST_CASE("A distance index lets a chain turn around at a self-loop between two of its nodes",
-          "[snarl_distance_interface][!mayfail]") {
+          "[snarl_distance_interface]") {
     // The chain is node 1, the snarl from 1 to 4, node 4, and node 5. An
     // edge from the end of 4 back into the end of 4 lets a walk from the
     // chain's start cross the snarl, turn around, and leave by the start.
