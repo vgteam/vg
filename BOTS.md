@@ -3,6 +3,8 @@
 ## Building
 - New `.cpp` files auto-discovered
 - Build with `make -j8` or `make obj/whatever.o` to build just one .o.
+- Changing a dependency's source under `deps/` is slow: the Makefile cleans and rebuilds the dependency, copies its headers into `include/` again, and every object depends on the libraries, so all of vg recompiles. Incremental builds across projects are not possible yet. TODO: Make them possible, for example by copying headers with `rsync` so unchanged ones keep their times, and by making objects depend on the headers they include rather than on the libraries.
+  - Until then, to try a change to a library such as libbdsg: run `make` in the dependency's own directory, copy its `.a` into `lib/`, give the copy an old time with `touch -d`, delete `bin/vg`, and run `make` to relink.
 - You may be getting errors from `clangd`. If these errors seem spurious, stop and demand a `clangd` that works properly.
 
 ## Testing

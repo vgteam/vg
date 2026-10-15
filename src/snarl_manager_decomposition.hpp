@@ -185,11 +185,11 @@ protected:
     /**
      * @brief List the net graph elements next to a traversal.
      *
-     * @details Going right reaches each realizable traversal that starts
-     * where a walk leaving through this traversal's end enters an element.
-     * Going left reaches each traversal from which going right reaches this
-     * one.
-     * Going around a cyclic chain, a walk passes the chain's first chain node
+     * @details Going right gives each realizable traversal that a walk
+     * leaving through this traversal's end can visit next, starting where
+     * the walk enters it. Going left gives each traversal from which going
+     * right gives this one.
+     * Going around a cyclic chain, a walk visits the chain's first chain node
      * and goes on.
      *
      * @note Walks the graph the view was made with, and ignores handle_graph.
@@ -432,7 +432,7 @@ private:
      * @brief Call a function on each chain node and snarl of a chain.
      *
      * @details For a start-to-end or end-to-start traversal, children come in
-     * the order the traversal passes them, oriented the way it passes them. For any other
+     * the order the traversal visits them, oriented the way it visits them. For any other
      * traversal, they come in start-to-end order, each start-to-end.
      *
      * @return False if the function stopped the loop, and true otherwise.

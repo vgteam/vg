@@ -76,7 +76,7 @@ static string describe(const SnarlDecomposition& decomposition, const HandleGrap
     return element + " " + letter(decomposition.starts_at(traversal)) + letter(decomposition.ends_at(traversal));
 }
 
-/// List the net graph elements that follow_net_edges() reaches.
+/// List the traversals that follow_net_edges() gives.
 static vector<net_handle_t> neighbours(const SnarlDecomposition& decomposition, const HandleGraph& graph,
                                       const net_handle_t& here, bool go_left) {
     vector<net_handle_t> reached;
@@ -93,8 +93,8 @@ static vector<net_handle_t> neighbours(const SnarlDecomposition& decomposition, 
  * @post Flipping a traversal other than a sentinel swaps where it starts and
  * where it ends.
  * @post The traversal and its flip have the same canonical traversal.
- * @post Going left from the traversal reaches exactly the traversals from
- * which going right reaches it.
+ * @post Going left from the traversal gives exactly the traversals from
+ * which going right gives it.
  */
 static void require_traversal_laws(const SnarlDecomposition& decomposition, const HandleGraph& graph,
                                    const net_handle_t& traversal) {
@@ -451,7 +451,7 @@ TEST_CASE("A chain can turn around at a self-loop in a snarl with no children", 
     REQUIRE(view.starts_at(chain) == SnarlDecomposition::START);
     // A walk from the chain's start crosses the first snarl, turns around in
     // the second, and leaves by the chain's start. A walk from the chain's
-    // end reaches node 4 on the side away from the self-loop, so it cannot
+    // end enters node 4 on the side away from the self-loop, so it cannot
     // turn around.
     REQUIRE(traversal_kinds(view, chain) == vector<string> {"SS", "SE", "ES"});
 }
@@ -483,7 +483,8 @@ TEST_CASE("A cyclic chain lists its bound node once and leads back around to it"
     REQUIRE(view.get_bound(chain, false, true) == children.front());
     REQUIRE(view.get_bound(chain, true, false) == children.front());
 
-    // Leaving the last child forward along the chain reaches the first.
+    // Leaving the last child forward along the chain, a walk next visits the
+    // first child.
     REQUIRE(neighbours(view, graph, children.back(), false) == vector<net_handle_t> {children.front()});
 
     // Traversed in reverse, the chain still lists its bound node first.
