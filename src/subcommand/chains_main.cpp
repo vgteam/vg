@@ -14,6 +14,7 @@
 
 #include "../gbwt_helper.hpp"
 #include "../snarl_distance_index.hpp"
+#include "../follow_net_elements.hpp"
 #include "../snarls.hpp"
 
 #include <sdsl/int_vector.hpp>
@@ -251,7 +252,7 @@ net_handle_t follow_chain(const SnarlDistanceIndex& distance_index, const Handle
                           size_t chain_id, net_handle_t curr) {
     net_handle_t next = curr;
     size_t successors = 0;
-    distance_index.follow_net_edges(next, &graph, false, [&](const net_handle_t& child) {
+    follow_net_elements(distance_index, next, &graph, false, [&](const net_handle_t& child) {
         successors++;
         next = child;
     });

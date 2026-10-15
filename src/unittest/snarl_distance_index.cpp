@@ -1738,9 +1738,11 @@ namespace vg {
                         });
                     }
 
-                    // The start goes to the child chain and to the end, and the child chain
-                    // goes to the end.
-                    REQUIRE(edges.size() == 3);
+                    // The start goes to the child chain and to the end, and the child
+                    // chain goes to the end. The self-loop on the end of node 3 lets a
+                    // walk entering the child chain at its start leave there too, which
+                    // is a fourth edge.
+                    REQUIRE(edges.size() == 4);
                 }
             }
             
@@ -1989,9 +1991,11 @@ namespace vg {
                         });
                     }
 
-                    // The start goes to the child chain and to the end, and the child chain
-                    // goes to the end.
-                    REQUIRE(edges.size() == 3);
+                    // The start goes to the child chain and to the end, and the child
+                    // chain goes to the end. The self-loop on the start of node 4 lets a
+                    // walk entering the child chain at its end leave there too, which
+                    // is a fourth edge.
+                    REQUIRE(edges.size() == 4);
                 }
             }
             

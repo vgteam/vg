@@ -329,4 +329,34 @@ TEST_CASE("SnarlDistanceIndex get_parent() of a sentinel gives its snarl START_E
     }
 }
 
+
+TEST_CASE("SnarlDistanceIndex follow_net_edges() from a chain node gives each traversal of the next snarl from its start",
+          "[snarl_distance_interface]") {
+    // The chain is node 1, the snarl from 1 to 4, and node 4. In the snarl,
+    // an edge from the end of 2 into the end of 3 lets a walk from 1 turn
+    // around, so the snarl has START_END and START_START traversals.
+    bdsg::HashGraph graph;
+    handle_t n1 = graph.create_handle("A");
+    handle_t n2 = graph.create_handle("C");
+    handle_t n3 = graph.create_handle("G");
+    handle_t n4 = graph.create_handle("T");
+    graph.create_edge(n1, n2);
+    graph.create_edge(n1, n3);
+    graph.create_edge(n2, n4);
+    graph.create_edge(n3, n4);
+    graph.create_edge(n2, graph.flip(n3));
+    SnarlDistanceIndex index;
+    index_graph(graph, index);
+
+    net_handle_t chain = chain_of_node(index, graph.get_id(n1));
+    REQUIRE(index.get_handle(index.get_bound(chain, false, true), &graph) == n1);
+    std::vector<net_handle_t> reached = neighbours(index, graph, index.get_bound(chain, false, true), false);
+    REQUIRE(reached.size() == 2);
+    for (const net_handle_t& next : reached) {
+        REQUIRE(index.is_snarl(next));
+        REQUIRE(index.starts_at(next) == SnarlDecomposition::START);
+    }
+    REQUIRE(index.ends_at(reached[0]) != index.ends_at(reached[1]));
+}
+
 }
