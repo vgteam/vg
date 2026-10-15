@@ -301,4 +301,32 @@ TEST_CASE("A distance index makes a trivial chain's traversal from its node's tr
     REQUIRE(index.canonical(forward) == index.canonical(trivial_chain));
 }
 
+
+TEST_CASE("get_parent() of a SnarlDistanceIndex sentinel gives its snarl START_END",
+          "[snarl_distance_interface]") {
+    // The snarl from 1 to 4 holds nodes 2 and 3.
+    bdsg::HashGraph graph;
+    handle_t n1 = graph.create_handle("A");
+    handle_t n2 = graph.create_handle("C");
+    handle_t n3 = graph.create_handle("G");
+    handle_t n4 = graph.create_handle("T");
+    graph.create_edge(n1, n2);
+    graph.create_edge(n1, n3);
+    graph.create_edge(n2, n4);
+    graph.create_edge(n3, n4);
+    SnarlDistanceIndex index;
+    index_graph(graph, index);
+
+    net_handle_t snarl = index.get_parent(index.get_parent(index.get_node_net_handle(graph.get_id(n2))));
+    REQUIRE(index.is_snarl(snarl));
+    for (bool get_end : {false, true}) {
+        for (bool face_in : {false, true}) {
+            INFO("get_end " << get_end << ", face_in " << face_in);
+            net_handle_t parent = index.get_parent(index.get_bound(snarl, get_end, face_in));
+            REQUIRE(index.starts_at(parent) == SnarlDecomposition::START);
+            REQUIRE(index.ends_at(parent) == SnarlDecomposition::END);
+        }
+    }
+}
+
 }
