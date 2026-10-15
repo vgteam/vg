@@ -1,8 +1,8 @@
 /// \file snarl_distance_index_decomposition.cpp
 ///
-/// Unit tests that check SnarlDistanceIndex against the rules of the
-/// handlegraph::SnarlDecomposition interface, each on the smallest graph that
-/// shows a rule being broken.
+/// Unit tests that check SnarlDistanceIndex against rules of the
+/// handlegraph::SnarlDecomposition interface, each on a small graph built to
+/// test one rule.
 
 #include "catch.hpp"
 #include "../snarl_distance_index.hpp"
@@ -95,9 +95,10 @@ TEST_CASE("SnarlDistanceIndex for_each_child() of an END_START chain lists the e
 
 TEST_CASE("SnarlDistanceIndex for_each_traversal() gives START_TIP for a snarl whose start reaches a tip node",
           "[snarl_distance_interface]") {
-    // The snarl from 1 to 4 holds nodes 2, 3 and 5, and node 5 hangs off 3
-    // with nothing after it. The test replays a decomposition written by
-    // hand, because a snarl finder would end the root chain at node 5.
+    // The snarl from 1 to 4 holds nodes 2, 3 and 5. An edge joins the end of 3
+    // to node 5, and the end of 5 is a tip. The test replays a decomposition
+    // written by hand, because a snarl finder may make the tip node an end of
+    // the root chain.
     bdsg::HashGraph graph;
     handle_t n1 = graph.create_handle("A", 1);
     handle_t n2 = graph.create_handle("C", 2);
@@ -126,10 +127,10 @@ TEST_CASE("SnarlDistanceIndex for_each_traversal() gives START_TIP for a snarl w
 
 TEST_CASE("SnarlDistanceIndex for_each_traversal() gives START_TIP for a chain whose start reaches a tip in one of its snarls",
           "[snarl_distance_interface]") {
-    // The chain is node 1, the snarl from 1 to 4, and node 4. In the snarl,
-    // node 3 hangs off 1 with nothing after it. The test replays a
-    // decomposition written by hand, because a snarl finder would end the
-    // root chain at node 3.
+    // The chain is node 1, the snarl from 1 to 4, and node 4. In the snarl, an
+    // edge joins the end of 1 to node 3, and the end of 3 is a tip. The test
+    // replays a decomposition written by hand, because a snarl finder may make
+    // the tip node an end of the root chain.
     bdsg::HashGraph graph;
     handle_t n1 = graph.create_handle("A", 1);
     handle_t n2 = graph.create_handle("C", 2);
@@ -155,10 +156,11 @@ TEST_CASE("SnarlDistanceIndex for_each_traversal() gives START_TIP for a chain w
 
 TEST_CASE("SnarlDistanceIndex for_each_traversal() gives START_TIP for a snarl whose start reaches a tip in a child chain",
           "[snarl_distance_interface]") {
-    // The snarl from 1 to 7 holds the chain of 2, the snarl from 2 to 5, and
-    // 5. In that inner snarl, node 6 hangs off 3 with nothing after it. The
-    // test replays a decomposition written by hand, because a snarl finder
-    // would end the root chain at node 6.
+    // The snarl from 1 to 7 holds the chain of node 2, the snarl from 2 to 5,
+    // and node 5. In the snarl from 2 to 5, an edge joins the end of 3 to node
+    // 6, and the end of 6 is a tip. The test replays a decomposition written
+    // by hand, because a snarl finder may make the tip node an end of the root
+    // chain.
     bdsg::HashGraph graph;
     handle_t n1 = graph.create_handle("A", 1);
     handle_t n2 = graph.create_handle("C", 2);
@@ -198,7 +200,8 @@ TEST_CASE("SnarlDistanceIndex for_each_traversal() gives START_TIP for a snarl w
 
 TEST_CASE("SnarlDistanceIndex get_bound() of a cyclic chain gives a START_END or END_START node traversal",
           "[snarl_distance_interface]") {
-    // The chain goes from 1 through the snarl from 1 to 4 and back to 1.
+    // The chain is node 1, the snarl from 1 to 4, and node 4, and an edge
+    // from the end of 4 to the start of 1 makes the chain cyclic.
     bdsg::HashGraph graph;
     handle_t n1 = graph.create_handle("A");
     handle_t n2 = graph.create_handle("C");
@@ -225,11 +228,12 @@ TEST_CASE("SnarlDistanceIndex get_bound() of a cyclic chain gives a START_END or
     }
 }
 
-TEST_CASE("SnarlDistanceIndex for_each_traversal() gives START_START for a chain with a self-loop in a trivial snarl",
+TEST_CASE("SnarlDistanceIndex for_each_traversal() gives START_START for a chain with a self-loop in a childless snarl",
           "[snarl_distance_interface]") {
-    // The chain is node 1, the snarl from 1 to 4, node 4, and node 5. An
-    // edge from the end of 4 back into the end of 4 lets a walk from the
-    // chain's start cross the snarl, turn around, and leave by the start.
+    // The chain is node 1, the snarl from 1 to 4, node 4, a snarl with no
+    // children from 4 to 5, and node 5. An edge from the end of 4 back into
+    // the end of 4 lets a walk from the chain's start cross the snarl from 1
+    // to 4, turn around, and leave by the chain's start.
     bdsg::HashGraph graph;
     handle_t n1 = graph.create_handle("A");
     handle_t n2 = graph.create_handle("C");
@@ -249,10 +253,11 @@ TEST_CASE("SnarlDistanceIndex for_each_traversal() gives START_START for a chain
     REQUIRE(has_traversal(index, chain, SnarlDecomposition::START, SnarlDecomposition::START));
 }
 
-TEST_CASE("SnarlDistanceIndex follow_net_edges() going left from a chain node undoes going right",
+TEST_CASE("SnarlDistanceIndex follow_net_edges() going right undoes going left from a chain node",
           "[snarl_distance_interface]") {
-    // The chain is nodes 1, 2 and 3 in a row. A self-loop on the start side
-    // of 2 makes the index store 2 in a different record from 1.
+    // The chain is nodes 1, 2 and 3 in a row. An edge from the start of 2
+    // back into the start of 2 makes the index store 2 in a different record
+    // from 1.
     bdsg::HashGraph graph;
     handle_t n1 = graph.create_handle("A");
     handle_t n2 = graph.create_handle("C");

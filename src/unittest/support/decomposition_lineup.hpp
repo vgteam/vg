@@ -40,7 +40,8 @@ public:
      *
      * @param graph The graph that was decomposed. The implementations keep
      * references to it, so it must outlive the line-up.
-     * @param events The snarl finder's events, from capture_events().
+     * @param events The events of a snarl finder's decomposition of the
+     * graph, as capture_events() records them.
      */
     DecompositionLineup(const HandleGraph& graph, const std::vector<DecompositionEvent>& events);
 
@@ -61,7 +62,10 @@ public:
 
     /**
      * @brief Call a function on each implementation, with the name of its
-     * class, in the order the constructor builds them.
+     * class.
+     *
+     * @post Implementations come in the same order on each call, and in each
+     * line-up.
      */
     void for_each(const std::function<void(const std::string&, const SnarlDecomposition&)>& iteratee) const;
 
@@ -72,9 +76,9 @@ private:
         std::unique_ptr<SnarlDecomposition> decomposition;
     };
 
-    /// The SnarlManagers that SnarlManagerDecomposition entries present.
-    /// Each must stay at one address while its view exists, so they are
-    /// kept in a deque.
+    /// The SnarlManagers that the SnarlManagerDecomposition entries view.
+    /// Each view keeps a reference to its manager, and adding to the deque
+    /// never moves a manager.
     std::deque<SnarlManager> managers;
     /// The implementations, in the order the constructor builds them.
     std::vector<Entry> entries;
@@ -85,13 +89,13 @@ private:
  * reverse-complemented with probability 1/2.
  *
  * @details A node stored reverse-complemented has a reverse handle where the
- * original graph had a forward one. So snarls and chains in the result hold
- * some nodes forward and some in reverse.
+ * original graph had a forward one. So chains in the result have some nodes
+ * oriented forward along the chain and some in reverse along the chain.
  */
 bdsg::HashGraph random_flipped_graph(std::default_random_engine& generator);
 
 /**
- * @brief Record a decomposition of a graph in which chains are reversed at
+ * @brief Record a decomposition of a graph, with each chain reversed at
  * random.
  *
  * @details Runs an IntegratedSnarlFinder through a SnarlDecompositionFuzzer,
