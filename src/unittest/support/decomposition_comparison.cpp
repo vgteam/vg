@@ -41,15 +41,15 @@ static bool is_childless_snarl(const SnarlDecomposition& decomposition, const ne
  * @brief Add an element, and everything under it, to a tree shape.
  *
  * @param name The element's name in the shape.
- * @param element A start-to-end traversal of the element, or the root.
+ * @param element A traversal of a snarl or chain, or the root.
  */
 static void add_to_shape(const SnarlDecomposition& decomposition, const HandleGraph& graph,
                          const std::string& name, const net_handle_t& element, TreeShape& shape) {
     std::vector<std::string>& children = shape[name];
-    // Name each child, and add the children with children of their own.
+    // Name each child, and add each snarl and chain child to the shape.
     std::function<void(const net_handle_t&)> visit = [&](const net_handle_t& child) {
         if (decomposition.is_root(child)) {
-            // A grouping inside the root counts as part of the root.
+            // Replace the child with its own children.
             decomposition.for_each_child(child, visit);
             return;
         }

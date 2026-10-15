@@ -44,10 +44,7 @@ string traversal_to_string(const PathHandleGraph* graph, const Traversal& traver
 string graph_interval_to_string(const HandleGraph* graph, const handle_t& start_handle, const handle_t& end_handle);
 string path_interval_to_string(const PathHandleGraph* graph, const PathInterval& path_interval);
 
-/**
- * @brief An interface for strategies that find traversals of a site from its
- * two bound handles.
- */
+/// A strategy for finding traversals of a site from its two bound handles.
 class SiteTraversalFinder {
 public:
     virtual ~SiteTraversalFinder() = default;
@@ -55,6 +52,8 @@ public:
     /**
      * @brief Find traversals of the site between two bound handles.
      *
+     * @param snarl_start The site's start bound, oriented into the site.
+     * @param snarl_end The site's end bound, oriented out of the site.
      * @return Walks that each start with snarl_start and end with snarl_end.
      */
     virtual vector<Traversal> find_traversals(const handle_t& snarl_start, const handle_t& snarl_end) = 0;
@@ -599,8 +598,8 @@ protected:
 class FlowTraversalFinder : public TraversalFinder, public SiteTraversalFinder {
     
 protected:
-    /// @brief The graph to search, unless a search is given an overlay graph
-    /// to use instead.
+    /// The graph to search, unless a search is given an overlay graph to use
+    /// instead.
     const HandleGraph& graph;
 
     /// The K-best traversals are returned
@@ -620,11 +619,12 @@ public:
      *
      * @param graph The graph to search. The finder keeps a reference to it,
      * so it must outlive the finder.
-     * @param K The number of traversals to find for each site.
+     * @param K The most traversals to find for each site.
      * @param node_weight_callback The flow through each node.
      * @param edge_weight_callback The flow through each edge.
-     * @param max_traversal_length The length in bases, not counting the
-     * site's bounds, of a traversal that stops the search when found.
+     * @param max_traversal_length A length in bases. When a search finds a
+     * traversal longer than this, not counting the site's bounds, it stops
+     * and returns the traversals found so far, including that one.
      */
     FlowTraversalFinder(const HandleGraph& graph,
                         size_t K,
@@ -635,7 +635,7 @@ public:
     /**
      * @brief Find the K widest (most flow) traversals through a site.
      *
-     * @return The traversals in the order yens_k_widest_paths() finds them.
+     * @return The traversals, widest first.
      */
     virtual vector<SnarlTraversal> find_traversals(const Snarl& site);
 
@@ -643,8 +643,7 @@ public:
      * @brief Find the K widest traversals through the site between two bound
      * handles.
      *
-     * @return The traversals, in the same order as find_traversals(const
-     * Snarl&) gives them for the same site.
+     * @return The traversals, widest first.
      */
     vector<Traversal> find_traversals(const handle_t& snarl_start, const handle_t& snarl_end) override;
 
@@ -655,7 +654,11 @@ public:
      * flow, which may miss the widest traversals, rather than by the
      * smallest flow along each traversal.
      * @param overlay A graph to search instead of the finder's graph, or null.
-     * @return The traversals, and the flow through each, in matching order.
+     * @return The traversals, and a vector whose i-th entry is the flow
+     * through the i-th traversal. Without greedy_avg, the traversals come
+     * widest first. With greedy_avg, each flow is an average of the weights
+     * along the traversal, and a traversal can have more flow than the one
+     * before it.
      */
     virtual pair<vector<SnarlTraversal>, vector<double>> find_weighted_traversals(const Snarl& site,
                                                                                   bool greedy_avg = false,
@@ -665,16 +668,19 @@ public:
      * @brief Find the K widest traversals through the site between two bound
      * handles, with their flows.
      *
-     * @param snarl_start The handle reading into the site at its start, from
-     * the graph that is searched.
-     * @param snarl_end The handle reading out of the site at its end, from
-     * the graph that is searched.
+     * @param snarl_start The site's start bound, oriented into the site, as a
+     * handle in the graph that is searched.
+     * @param snarl_end The site's end bound, oriented out of the site, as a
+     * handle in the graph that is searched.
      * @param greedy_avg True to search heuristically by the running average
      * flow, which may miss the widest traversals, rather than by the
      * smallest flow along each traversal.
      * @param overlay A graph to search instead of the finder's graph, or null.
-     * @return The traversals, as handles in the graph that is searched, and
-     * the flow through each, in matching order.
+     * @return The traversals, as handles in the graph that is searched, and a
+     * vector whose i-th entry is the flow through the i-th traversal. Without
+     * greedy_avg, the traversals come widest first. With greedy_avg, each
+     * flow is an average of the weights along the traversal, and a traversal
+     * can have more flow than the one before it.
      */
     virtual pair<vector<Traversal>, vector<double>> find_weighted_traversals(const handle_t& snarl_start,
                                                                              const handle_t& snarl_end,

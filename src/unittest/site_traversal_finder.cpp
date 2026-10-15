@@ -20,7 +20,7 @@
 
 namespace vg::unittest {
 
-/// @brief Convert a SnarlTraversal to the graph handles it visits.
+/// Get the handles of the nodes that a SnarlTraversal visits, in order.
 static Traversal to_traversal(const HandleGraph& graph, const SnarlTraversal& snarl_traversal) {
     Traversal traversal;
     for (const Visit& visit : snarl_traversal.visit()) {
@@ -53,7 +53,7 @@ static void add_random_walk(MutablePathHandleGraph& graph, const string& name, h
     }
 }
 
-/// @brief Store every path in the graph in a GBWT, in both orientations.
+/// Store each path in the graph in a GBWT, in both orientations.
 static gbwt::GBWT paths_gbwt(const PathHandleGraph& graph) {
     vector<gbwt::vector_type> paths;
     graph.for_each_path_handle([&graph, &paths](const path_handle_t& path) {
@@ -66,13 +66,12 @@ static gbwt::GBWT paths_gbwt(const PathHandleGraph& graph) {
  * @brief Require that a finder gives the same traversals of a site through
  * both of its interfaces.
  *
+ * @return The number of traversals found.
  * @post Finding traversals of the site's two bound handles, through
  * SiteTraversalFinder, gives the same traversals in the same order as
  * finding traversals of the Snarl, through TraversalFinder.
  * @post Each traversal is nonempty, starts with the site's start handle and
  * ends with its end handle.
- *
- * @return The number of traversals found.
  */
 template<typename Finder>
 static size_t require_interfaces_agree(Finder& finder, const HandleGraph& graph, const Snarl& site) {
@@ -110,8 +109,8 @@ static void require_weighted_interfaces_agree(FlowTraversalFinder& finder, const
     }
 }
 
-/// @brief Make a Snarl holding only a snarl's bounds, read the snarl's way or
-/// in reverse.
+/// Make a Snarl that holds only the bounds of a snarl, oriented as in the
+/// snarl or, when reversed is true, in reverse.
 static Snarl site_of(const Snarl& snarl, bool reversed) {
     Snarl site;
     *site.mutable_start() = reversed ? reverse(snarl.end()) : snarl.start();
@@ -131,7 +130,8 @@ TEST_CASE("Traversal finders find the same traversals from a site's bound handle
         VG graph;
         small_random_graph(generator, &graph);
 
-        // Add haplotypes beside the reference path that random_graph made.
+        // Add paths that walk randomly from the start of the path that
+        // random_graph() made.
         handle_t first = graph.get_handle_of_step(graph.path_begin(graph.get_path_handle("path")));
         for (size_t i = 0; i < 3; i++) {
             add_random_walk(graph, std::format("walk{}", i), first, 2 * graph.get_node_count(), generator);
