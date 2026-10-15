@@ -354,7 +354,7 @@ TEST_CASE("SnarlManagerDecomposition keeps the SnarlDecomposition interface's la
 }
 
 TEST_CASE("SnarlDistanceIndex keeps the SnarlDecomposition interface's laws",
-          "[snarl_manager_decomposition][snarl_distance_interface][!mayfail]") {
+          "[snarl_manager_decomposition][snarl_distance_interface]") {
     require_laws_on_implementation("SnarlDistanceIndex");
 }
 

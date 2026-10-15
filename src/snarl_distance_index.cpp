@@ -6,6 +6,7 @@
 //#define debug_hub_label_storage
 
 #include "snarl_distance_index.hpp"
+#include "follow_net_elements.hpp"
 
 using namespace std;
 using namespace handlegraph;
@@ -2238,7 +2239,7 @@ void subgraph_in_distance_range_walk_across_chain (const SnarlDistanceIndex& dis
     bool finished_chain = false;
     bool added_nodes = false; //Did we start a search? if not, add the last node in the chain
     while (current_distance <= min_distance && !finished_chain) {
-        finished_chain = distance_index.follow_net_edges(current_node, super_graph, false, 
+        finished_chain = follow_net_elements(distance_index, current_node, super_graph, false, 
             [&](const net_handle_t& next) {
                 size_t next_length = distance_index.minimum_length(next);
                 //If the next child is a snarl, then the distance to loop in the snarl
@@ -2412,7 +2413,7 @@ void subgraph_containing_path_snarls(const SnarlDistanceIndex& distance_index, c
 
         add_descendants_to_subgraph(distance_index, current_child, subgraph);
         while (current_child != end_child) {
-            distance_index.follow_net_edges(current_child, graph, false, [&](const net_handle_t& next) {
+            follow_net_elements(distance_index, current_child, graph, false, [&](const net_handle_t& next) {
                 add_descendants_to_subgraph(distance_index, next, subgraph);
                 current_child = next;
 
