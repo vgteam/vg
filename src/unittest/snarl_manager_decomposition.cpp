@@ -358,7 +358,7 @@ TEST_CASE("SnarlDistanceIndex keeps the SnarlDecomposition interface's laws",
     require_laws_on_implementation("SnarlDistanceIndex");
 }
 
-TEST_CASE("SnarlManagerDecomposition shows each of the manager's snarls, oriented forward along its chain",
+TEST_CASE("SnarlManagerDecomposition get_snarl_net() gives every manager snarl oriented forward along its chain",
           "[snarl_manager_decomposition]") {
     VG graph;
     Node* n1 = graph.create_node("GCA");
@@ -404,7 +404,7 @@ TEST_CASE("SnarlManagerDecomposition shows each of the manager's snarls, oriente
     });
 }
 
-TEST_CASE("SnarlManagerDecomposition shows a snarl with no children between its bounds",
+TEST_CASE("SnarlManagerDecomposition for_each_child() of a chain lists a childless snarl between its bounds",
           "[snarl_manager_decomposition]") {
     VG graph;
     Node* n1 = graph.create_node("GCA");
@@ -427,7 +427,7 @@ TEST_CASE("SnarlManagerDecomposition shows a snarl with no children between its 
             vector<string> {"node 1", "snarl 1+/2+", "node 2", "snarl 2+/4+", "node 4", "snarl 4+/5+", "node 5"});
 }
 
-TEST_CASE("A chain can turn around at a self-loop in a snarl with no children", "[snarl_manager_decomposition]") {
+TEST_CASE("SnarlManagerDecomposition for_each_traversal() gives START_START for a chain with a self-loop in a childless snarl", "[snarl_manager_decomposition]") {
     // The chain is node 1, the snarl from 1 to 4, node 4, the snarl from 4 to
     // 5, and node 5. The snarl from 4 to 5 has no children, and an edge from
     // the end of 4 back into the end of 4.
@@ -456,7 +456,7 @@ TEST_CASE("A chain can turn around at a self-loop in a snarl with no children", 
     REQUIRE(traversal_kinds(view, chain) == vector<string> {"SS", "SE", "ES"});
 }
 
-TEST_CASE("A cyclic chain lists its bound node once and leads back around to it",
+TEST_CASE("SnarlManagerDecomposition lists a cyclic chain's bound node once and follows its last child back to it",
           "[snarl_manager_decomposition]") {
     VG graph;
     Node* n1 = graph.create_node("GCA");
@@ -501,7 +501,7 @@ TEST_CASE("A cyclic chain lists its bound node once and leads back around to it"
     }
 }
 
-TEST_CASE("A snarl whose start and end are the same node in the same orientation makes a cyclic chain by itself",
+TEST_CASE("SnarlManagerDecomposition makes a cyclic chain of one snarl whose start and end Visits are equal",
           "[snarl_manager_decomposition]") {
     bdsg::HashGraph graph;
     handle_t h1 = graph.create_handle("GCA", 1);
@@ -551,7 +551,7 @@ TEST_CASE("SnarlManagerDecomposition refuses a unary snarl", "[snarl_manager_dec
     REQUIRE_THROWS_AS(make_view(), std::invalid_argument);
 }
 
-TEST_CASE("get_parent_traversal refuses free node bounds that make no realizable traversal of one trivial chain",
+TEST_CASE("SnarlManagerDecomposition get_parent_traversal() refuses node bounds of two trivial chains or an unrealizable traversal",
           "[snarl_manager_decomposition]") {
     VG graph;
     Node* n1 = graph.create_node("GCA");
@@ -573,7 +573,7 @@ TEST_CASE("get_parent_traversal refuses free node bounds that make no realizable
     REQUIRE_THROWS_AS(view.get_parent_traversal(node2, view.flip(node2)), std::invalid_argument);
 }
 
-TEST_CASE("A snarl holding a tip node that its start reaches can be traversed from its start to the tip",
+TEST_CASE("SnarlManagerDecomposition for_each_traversal() gives START_TIP and TIP_START for a snarl whose start reaches a tip node",
           "[snarl_manager_decomposition]") {
     VG graph;
     Node* n1 = graph.create_node("GCA");
@@ -599,7 +599,7 @@ TEST_CASE("A snarl holding a tip node that its start reaches can be traversed fr
     REQUIRE(traversal_kinds(view, snarl) == vector<string> {"SE", "ST", "ES", "TS"});
     REQUIRE(traversal_kinds(view, chain) == vector<string> {"SE", "ST", "ES", "TS"});
 
-    SECTION("The snarl's tippy child is node 5's trivial chain, traversed away from the dead end") {
+    SECTION("for_each_tippy_child() of the snarl gives node 5's trivial chain END_START") {
         net_handle_t tip_chain = view.get_parent(view.get_net(graph.get_handle(n5->id(), true), &graph));
         vector<net_handle_t> tippy;
         view.for_each_tippy_child(snarl, [&tippy](const net_handle_t& child) {
@@ -611,7 +611,7 @@ TEST_CASE("A snarl holding a tip node that its start reaches can be traversed fr
         REQUIRE(view.ends_at(from_tip) == SnarlDecomposition::START);
     }
 
-    SECTION("Traversals to the tip can be made from the bounds and the children that hold the tip") {
+    SECTION("get_parent_traversal() makes START_TIP from the start bound and the tip node's trivial chain") {
         net_handle_t tip_chain = view.get_parent(view.get_net(graph.get_handle(n5->id()), &graph));
         net_handle_t to_tip = view.get_parent_traversal(view.get_bound(snarl, false, true), tip_chain);
         REQUIRE(to_tip == view.get_parent_traversal(view.get_bound(snarl, false, true), view.flip(tip_chain)));
@@ -624,7 +624,7 @@ TEST_CASE("A snarl holding a tip node that its start reaches can be traversed fr
                           std::invalid_argument);
     }
 
-    SECTION("A walk that stops at the tip goes no further along the chain") {
+    SECTION("follow_net_edges() gives nothing beyond a tip") {
         view.for_each_traversal(snarl, [&](const net_handle_t& traversal) {
             if (view.ends_at_tip(traversal)) {
                 REQUIRE(neighbours(view, graph, traversal, false).empty());
@@ -636,7 +636,7 @@ TEST_CASE("A snarl holding a tip node that its start reaches can be traversed fr
     }
 }
 
-TEST_CASE("A snarl can reach a tip inside a child chain", "[snarl_manager_decomposition]") {
+TEST_CASE("SnarlManagerDecomposition for_each_traversal() gives START_TIP for a snarl whose start reaches a tip in a child chain", "[snarl_manager_decomposition]") {
     // The snarl from 1 to 7 holds the chain of 2, the snarl from 2 to 5, and
     // 5. In that inner snarl, node 6 hangs off 3 with nothing after it. The
     // test builds the snarls by hand, because a snarl finder would end the

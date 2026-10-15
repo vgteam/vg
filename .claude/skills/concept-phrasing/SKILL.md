@@ -51,7 +51,9 @@ the thing is, positively.
    rename it in the code, at every use, and then use the new name in comments. When your task is
    limited to comments, keep the code term and add a `TODO:` suggesting the rename.
 8. **A word that already means something else here.** If "copy" means one physical book, do not
-   also use "copy" for a duplicated database record.
+   also use "copy" for a duplicated database record. Do not lend an everyday word a private meaning
+   either: a reader takes "the sweep", "a round" or "the barrier" in its ordinary sense and does
+   not know it names something. Give the idea a specific name, and define it.
 9. **An unbounded quantifier.** Bad: "every check", "all the rules", "the known problems". Name
    the members of the set, or the property they share.
 10. **A definition that is true of everything.** Bad: "a book that is on a shelf or on loan"
@@ -71,6 +73,14 @@ the thing is, positively.
 14. **A vague verb or metaphor for a relation.** Bad: "the loan meets the book", "the report sees
     every branch", "the borrower touches the catalogue". Say the concrete relation: which thing
     holds, reads, lends, contains or refers to which.
+
+## Use the domain's exact words
+
+Where the domain already names something exactly, use that name, not everyday words that point
+toward it. Bad: "the loan system makes a book's history from its loans". Good:
+"`history_of(book)` lists the book's `Loan` records, oldest first". In code, the exact words are
+usually the names of functions, types and constants: a test named "`check_out()` of a reference book
+throws `NotLendable`" says more than "Reference books can't be taken".
 
 ## Write sentences that parse on the first reading
 

@@ -48,8 +48,11 @@ property, and a failure names the unit and the property.
    for each that passes, remove the tag and the `TODO:`s.
 3. **Name tests by property.** Each `TEST_CASE` or `SECTION` name states something that ought to
    be true ("An empty cart costs nothing"), not a topic ("Empty carts") or a category ("Edge
-   cases"). A `TEST_CASE` whose sections state different properties names the unit and situation
-   they share ("A cart with one item").
+   cases"). Use the names of the calls and constants under test where they exist:
+   "`total()` of an empty cart is 0" says more than "An empty cart costs nothing". A `TEST_CASE`
+   whose sections state different properties names the unit and situation they share ("A cart
+   with one item"). Leave commas out of names, because Catch2 splits a name given on the command
+   line at its commas.
 4. **Use the interface under test as callers do.** Call its own methods and callbacks. A helper
    that turns results into strings or vectors to compare them needs a comment saying exactly what
    it compares and what it ignores.
