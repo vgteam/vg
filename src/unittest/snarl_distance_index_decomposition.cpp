@@ -225,8 +225,8 @@ TEST_CASE("A distance index lets a chain turn around at a self-loop between two 
     REQUIRE(has_traversal(index, chain, SnarlDecomposition::START, SnarlDecomposition::START));
 }
 
-TEST_CASE("Going left from a chain node reaches the traversals that reach it going right",
-          "[snarl_distance_interface][!mayfail]") {
+TEST_CASE("Going left from a chain node gives the traversals that give it going right",
+          "[snarl_distance_interface]") {
     // The chain is nodes 1, 2 and 3 in a row. A self-loop on the start side
     // of 2 makes the index store 2 in a different record from 1.
     bdsg::HashGraph graph;
