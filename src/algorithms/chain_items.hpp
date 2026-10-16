@@ -27,7 +27,6 @@
 #include "../handle.hpp"
 #include "../explainer.hpp"
 #include "../utility.hpp"
-#include "../multipath_alignment.hpp"
 
 #include <bdsg/hash_graph.hpp>
 #include <crash.hpp>
