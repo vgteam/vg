@@ -8,6 +8,8 @@
 #include "../snarl_distance_index.hpp"
 #include "../integrated_snarl_finder.hpp"
 #include "support/snarl_decomposition_fuzzer.hpp"
+#include "support/decomposition_lineup.hpp"
+#include "support/randomness.hpp"
 
 #include <bdsg/hash_graph.hpp>
 
@@ -362,6 +364,155 @@ TEST_CASE("SnarlDistanceIndex follow_net_edges() from a chain node gives each tr
         REQUIRE(index.starts_at(next) == SnarlDecomposition::START);
     }
     REQUIRE(index.ends_at(reached[0]) != index.ends_at(reached[1]));
+}
+
+
+/// Describe the realizable traversals of a net graph element, as the
+/// endpoints each starts and ends at.
+static std::vector<std::pair<SnarlDecomposition::endpoint_t, SnarlDecomposition::endpoint_t>>
+traversal_kinds(const SnarlDistanceIndex& index, const net_handle_t& item) {
+    std::vector<std::pair<SnarlDecomposition::endpoint_t, SnarlDecomposition::endpoint_t>> kinds;
+    index.for_each_traversal(item, [&](const net_handle_t& traversal) {
+        kinds.emplace_back(index.starts_at(traversal), index.ends_at(traversal));
+    });
+    return kinds;
+}
+
+/**
+ * Require that two distance indexes of one decomposition give the same
+ * realizable traversals for each element under a pair of elements.
+ *
+ * @post Each element has the same number of children in both, in the same
+ * order, with the same graph handle for each node.
+ * @post Each snarl, chain and node has the same realizable traversals in
+ * both.
+ */
+static void require_same_traversals(const SnarlDistanceIndex& expected, const net_handle_t& expected_item,
+                                    const SnarlDistanceIndex& actual, const net_handle_t& actual_item,
+                                    const HandleGraph& graph) {
+    if (!expected.is_root(expected_item)) {
+        INFO("Element " << expected.net_handle_as_string(expected_item));
+        REQUIRE(traversal_kinds(actual, actual_item) == traversal_kinds(expected, expected_item));
+    }
+    if (expected.is_node(expected_item)) {
+        REQUIRE(actual.get_handle(actual_item, &graph) == expected.get_handle(expected_item, &graph));
+        return;
+    }
+    std::vector<net_handle_t> expected_children = children_of(expected, expected_item);
+    std::vector<net_handle_t> actual_children = children_of(actual, actual_item);
+    REQUIRE(actual_children.size() == expected_children.size());
+    for (size_t i = 0; i < expected_children.size(); i++) {
+        require_same_traversals(expected, expected_children[i], actual, actual_children[i], graph);
+    }
+}
+
+/// Require that distance indexes built from one decomposition without stored
+/// distances, with a size limit that leaves snarls oversized, and with
+/// distances only for top-level chains, give the same traversals as one built
+/// with distances.
+static void require_traversals_without_distances(const HandleGraph& graph,
+                                                 const std::vector<DecompositionEvent>& events) {
+    SnarlDistanceIndex with_distances;
+    ReplaySnarlFinder finder(&graph, events);
+    fill_in_distance_index(&with_distances, &graph, &finder);
+    for (auto [size_limit, only_top_level] : {std::pair<size_t, bool>(0, false), std::pair<size_t, bool>(1, false),
+                                              std::pair<size_t, bool>(50000, true)}) {
+        INFO("Size limit " << size_limit << (only_top_level ? ", top-level chain distances only" : ""));
+        SnarlDistanceIndex index;
+        ReplaySnarlFinder replay(&graph, events);
+        fill_in_distance_index(&index, &graph, &replay, size_limit, only_top_level);
+        require_same_traversals(with_distances, with_distances.get_root(), index, index.get_root(), graph);
+    }
+}
+
+TEST_CASE("SnarlDistanceIndex for_each_traversal() gives the same traversals with or without stored distances",
+          "[snarl_distance_interface]") {
+    SECTION("The same traversals for snarls with tips and turnarounds") {
+        // The chain is node 1, the snarl from 1 to 4, node 4, and node 5. In
+        // the snarl, node 6 hangs off the end of 3 and the end of 6 is a tip,
+        // and an edge from the end of 2 into the end of 3 turns a walk around.
+        // An edge from the end of 4 back into the end of 4 is a self-loop.
+        bdsg::HashGraph graph;
+        handle_t n1 = graph.create_handle("A", 1);
+        handle_t n2 = graph.create_handle("C", 2);
+        handle_t n3 = graph.create_handle("G", 3);
+        handle_t n4 = graph.create_handle("T", 4);
+        handle_t n5 = graph.create_handle("A", 5);
+        handle_t n6 = graph.create_handle("C", 6);
+        graph.create_edge(n1, n2);
+        graph.create_edge(n1, n3);
+        graph.create_edge(n2, n4);
+        graph.create_edge(n3, n4);
+        graph.create_edge(n3, n6);
+        graph.create_edge(n2, graph.flip(n3));
+        graph.create_edge(n4, n5);
+        graph.create_edge(n4, graph.flip(n4));
+        using enum DecompositionEventType;
+        require_traversals_without_distances(graph, {
+            {BEGIN_CHAIN, 1, false}, {BEGIN_SNARL, 1, false},
+            {BEGIN_CHAIN, 2, false}, {END_CHAIN, 2, false},
+            {BEGIN_CHAIN, 3, false}, {END_CHAIN, 3, false},
+            {BEGIN_CHAIN, 6, false}, {END_CHAIN, 6, false},
+            {END_SNARL, 4, false}, {BEGIN_SNARL, 4, false}, {END_SNARL, 5, false},
+            {END_CHAIN, 5, false}
+        });
+    }
+
+    SECTION("The same traversals for a snarl with a tip in a child chain") {
+        // The snarl from 1 to 7 holds the chain of node 2, the snarl from 2 to
+        // 5, and node 5. In the snarl from 2 to 5, node 6 hangs off the end of
+        // 3, and the end of 6 is a tip.
+        bdsg::HashGraph graph;
+        handle_t n1 = graph.create_handle("A", 1);
+        handle_t n2 = graph.create_handle("C", 2);
+        handle_t n3 = graph.create_handle("G", 3);
+        handle_t n4 = graph.create_handle("T", 4);
+        handle_t n5 = graph.create_handle("A", 5);
+        handle_t n6 = graph.create_handle("C", 6);
+        handle_t n7 = graph.create_handle("G", 7);
+        graph.create_edge(n1, n2);
+        graph.create_edge(n2, n3);
+        graph.create_edge(n2, n4);
+        graph.create_edge(n3, n5);
+        graph.create_edge(n4, n5);
+        graph.create_edge(n3, n6);
+        graph.create_edge(n5, n7);
+        graph.create_edge(n1, n7);
+        using enum DecompositionEventType;
+        require_traversals_without_distances(graph, {
+            {BEGIN_CHAIN, 1, false}, {BEGIN_SNARL, 1, false},
+            {BEGIN_CHAIN, 2, false}, {BEGIN_SNARL, 2, false},
+            {BEGIN_CHAIN, 3, false}, {END_CHAIN, 3, false},
+            {BEGIN_CHAIN, 4, false}, {END_CHAIN, 4, false},
+            {BEGIN_CHAIN, 6, false}, {END_CHAIN, 6, false},
+            {END_SNARL, 5, false}, {END_CHAIN, 5, false},
+            {END_SNARL, 7, false}, {END_CHAIN, 7, false}
+        });
+    }
+
+    SECTION("The same traversals for a cyclic chain") {
+        // The chain goes from 1 through the snarl from 1 to 4, and back to 1.
+        bdsg::HashGraph graph;
+        handle_t n1 = graph.create_handle("A");
+        handle_t n2 = graph.create_handle("C");
+        handle_t n3 = graph.create_handle("G");
+        handle_t n4 = graph.create_handle("T");
+        graph.create_edge(n1, n2);
+        graph.create_edge(n1, n3);
+        graph.create_edge(n2, n4);
+        graph.create_edge(n3, n4);
+        graph.create_edge(n4, n1);
+        IntegratedSnarlFinder finder(graph);
+        require_traversals_without_distances(graph, capture_events(finder, graph));
+    }
+
+    SECTION("The same traversals for random graphs") {
+        std::default_random_engine generator(test_seed_source());
+        for (size_t repeat = 0; repeat < 100; repeat++) {
+            bdsg::HashGraph graph = random_flipped_graph(generator);
+            require_traversals_without_distances(graph, fuzzed_decomposition(graph, 0.5, generator));
+        }
+    }
 }
 
 }
