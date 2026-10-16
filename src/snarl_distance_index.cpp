@@ -89,12 +89,13 @@ void fill_in_distance_index(SnarlDistanceIndex* distance_index, const HandleGrap
  * bounds and tips, and an oversized snarl answers them from its hub labels.
  */
 static void set_snarl_tips(SnarlDistanceIndex::TemporaryDistanceIndex& temp_index,
-                           SnarlDistanceIndex::TemporaryDistanceIndex::TemporarySnarlRecord& temp_snarl_record) {
+                           SnarlDistanceIndex::TemporaryDistanceIndex::TemporarySnarlRecord& temp_snarl_record,
+                           size_t size_limit) {
     const size_t inf = std::numeric_limits<size_t>::max();
     // An oversized snarl keeps its distances in hub labels instead of in its
     // children's records. The hub labels number the start bound 0, the end
     // bound 1, and each child by its rank_in_parent.
-    bool oversized = !temp_snarl_record.hub_labels.empty();
+    bool oversized = size_limit != 0 && temp_snarl_record.node_count > size_limit;
     // Return true if a walk from the snarl's start, or its end, can enter a
     // child at its left side, or its right side. The child's record holds
     // that distance as stored_distance, unless the snarl is oversized.
@@ -136,6 +137,10 @@ static void set_snarl_tips(SnarlDistanceIndex::TemporaryDistanceIndex& temp_inde
             (from_right && bound_reaches(true, rank, rev, false, chain.distance_right_end));
         temp_snarl_record.tip_tip_connected |= chain.tip_tip_connected;
     }
+    if (temp_snarl_record.tip_tip_connected) {
+        // A child chain already has a walk from one tip to another.
+        return;
+    }
     // Find the children that hold a tip: tip nodes, and chains with a tip
     // inside or a dead end on a bound node. Name each by its rank_in_parent,
     // which is how the distances between children are keyed.
@@ -164,19 +169,21 @@ static void set_snarl_tips(SnarlDistanceIndex::TemporaryDistanceIndex& temp_inde
             for (size_t rank2 : tippy_ranks) {
                 for (bool rev1 : {false, true}) {
                     for (bool rev2 : {false, true}) {
-                        if (rank1 != rank2 &&
-                            promote_distance<size_t>(hhl_query(temp_snarl_record.hub_labels.begin(),
+                        if (promote_distance<size_t>(hhl_query(temp_snarl_record.hub_labels.begin(),
                                                                bgid(rank1, rev1, true), bgid(rank2, rev2, false))) != inf) {
                             temp_snarl_record.tip_tip_connected = true;
+                            return;
                         }
                     }
                 }
             }
         }
+        return;
     }
     for (const auto& [ranks, distance] : temp_snarl_record.distances) {
         if (tippy_ranks.count(ranks.first.first) && tippy_ranks.count(ranks.second.first)) {
             temp_snarl_record.tip_tip_connected = true;
+            return;
         }
     }
 }
@@ -747,7 +754,7 @@ SnarlDistanceIndex::TemporaryDistanceIndex make_temporary_distance_index(
 
                 //Fill in this snarl's distances, and then its tip flags
                 populate_snarl_index(temp_index, chain_child_index, size_limit, only_top_level_chain_distances, graph);
-                set_snarl_tips(temp_index, temp_snarl_record);
+                set_snarl_tips(temp_index, temp_snarl_record, size_limit);
 
                 bool new_component = temp_snarl_record.min_length == std::numeric_limits<size_t>::max();
                 if (new_component){
@@ -759,8 +766,10 @@ SnarlDistanceIndex::TemporaryDistanceIndex make_temporary_distance_index(
                     //If this snarl wasn't start-end connected, then we start 
                     //tracking the distance vectors here
 
-                    //Update the maximum distance
-                    temp_index.max_distance = std::max(temp_index.max_distance, temp_chain_record.max_prefix_sum.back());
+                    //Update the maximum distance, if the index stores chain distances
+                    if (size_limit != 0) {
+                        temp_index.max_distance = std::max(temp_index.max_distance, temp_chain_record.max_prefix_sum.back());
+                    }
 
                     temp_chain_record.prefix_sum.emplace_back(0);
                     temp_chain_record.max_prefix_sum.emplace_back(0);
@@ -985,9 +994,19 @@ SnarlDistanceIndex::TemporaryDistanceIndex make_temporary_distance_index(
 
         set_chain_tips(temp_index, temp_chain_record);
 
-        temp_index.max_distance = std::max(temp_index.max_distance, temp_chain_record.max_prefix_sum.back());
-        temp_index.max_distance = temp_chain_record.forward_loops.back() == std::numeric_limits<size_t>::max() ? temp_index.max_distance : std::max(temp_index.max_distance, temp_chain_record.forward_loops.back());
-        temp_index.max_distance = temp_chain_record.backward_loops.front() == std::numeric_limits<size_t>::max() ? temp_index.max_distance : std::max(temp_index.max_distance, temp_chain_record.backward_loops.front());
+        if (size_limit == 0) {
+            // The index stores no chain distances, so its record widths need
+            // only fit each node's length.
+            for (const SnarlDistanceIndex::temp_record_ref_t& child : temp_chain_record.children) {
+                if (child.first == SnarlDistanceIndex::TEMP_NODE) {
+                    temp_index.max_distance = std::max(temp_index.max_distance, temp_index.get_node(child).node_length);
+                }
+            }
+        } else {
+            temp_index.max_distance = std::max(temp_index.max_distance, temp_chain_record.max_prefix_sum.back());
+            temp_index.max_distance = temp_chain_record.forward_loops.back() == std::numeric_limits<size_t>::max() ? temp_index.max_distance : std::max(temp_index.max_distance, temp_chain_record.forward_loops.back());
+            temp_index.max_distance = temp_chain_record.backward_loops.front() == std::numeric_limits<size_t>::max() ? temp_index.max_distance : std::max(temp_index.max_distance, temp_chain_record.backward_loops.front());
+        }
         assert(temp_index.max_distance <= 2742664019);
 
     }
@@ -1021,7 +1040,8 @@ static void populate_distance_matrix_row(SnarlDistanceIndex::TemporaryDistanceIn
  * Only called for non-oversized snarls (size_limit == 0 || node_count <= size_limit);
  * oversized snarls go through populate_hub_labeling instead.
  * - Normal snarl: all rows
- * - size_limit == 0: no distances in index, so no rows
+ * - size_limit == 0: no distances in index, so only the boundary and tip rows
+ *   that the connectivity flags need, recorded as 0
  * - Top-level chain distances only: boundaries and tips only
  */
 static void populate_distance_matrix_if_needed(SnarlDistanceIndex::TemporaryDistanceIndex& temp_index, const SnarlDistanceIndex::temp_record_ref_t& snarl_index, SnarlDistanceIndex::TemporaryDistanceIndex::TemporarySnarlRecord& temp_snarl_record, const vector<SnarlDistanceIndex::temp_record_ref_t>& all_children, const HandleGraph* graph, size_t size_limit, bool only_top_level_chain_distances); 
@@ -1702,11 +1722,24 @@ void populate_distance_matrix_row(SnarlDistanceIndex::TemporaryDistanceIndex& te
                 pair<size_t, bool> next = next_is_boundary 
                     ? make_pair(next_rank, false) : make_pair(next_rank, next_rev);
 
-                // Without a size limit, distances are not stored in the index,
-                // but this snarl's rows run only from its bounds and tips, and
-                // their distances give the connectivity flags.
-                if (size_limit == 0 ||
-                    temp_snarl_record.node_count <= size_limit || start_is_boundary || next_is_boundary) {
+                // With a size limit of 0, the index stores no distances. Still
+                // record which bounds and tip children this row can get to, as
+                // 0, because the connectivity flags come from them. A 0 keeps
+                // the distances out of the index's record widths.
+                bool next_holds_tip = false;
+                if (size_limit == 0 && !next_is_boundary) {
+                    if (next_index.first == SnarlDistanceIndex::TEMP_NODE) {
+                        next_holds_tip = temp_index.get_node(next_index).is_tip;
+                    } else {
+                        const auto& next_chain = temp_index.get_chain(next_index);
+                        next_holds_tip = next_chain.start_tip_connected || next_chain.end_tip_connected ||
+                            temp_index.get_node(next_chain.children.front()).is_tip ||
+                            temp_index.get_node(next_chain.children.back()).is_tip;
+                    }
+                }
+                size_t recorded_distance = size_limit == 0 ? 0 : current_distance;
+                if (size_limit == 0 ? (start_is_boundary || next_is_boundary || next_holds_tip)
+                                    : (temp_snarl_record.node_count <= size_limit || start_is_boundary || next_is_boundary)) {
                     //If the snarl is too big, then we don't record distances between internal nodes
                     //If we are looking at all distances or we are looking at boundaries
                     bool added_new_distance = false;
@@ -1716,21 +1749,21 @@ void populate_distance_matrix_row(SnarlDistanceIndex::TemporaryDistanceIndex& te
                         //If it is between bounds of the snarl, then the snarl stores it
                         if (start_rank == 0 && next_rank == 0 && 
                             temp_snarl_record.distance_start_start == std::numeric_limits<size_t>::max()) {
-                            temp_snarl_record.distance_start_start = current_distance;
+                            temp_snarl_record.distance_start_start = recorded_distance;
 #ifdef debug_distance_indexing
                             cerr << "        set start start distance " << temp_snarl_record.distance_start_start << endl;
 #endif
                             added_new_distance = true;
                         } else if (start_rank == 1 && next_rank == 1 && 
                                    temp_snarl_record.distance_end_end == std::numeric_limits<size_t>::max()) {
-                            temp_snarl_record.distance_end_end = current_distance;
+                            temp_snarl_record.distance_end_end = recorded_distance;
 #ifdef debug_distance_indexing
                             cerr << "        set end end distance " << temp_snarl_record.distance_start_start << endl;
 #endif
                             added_new_distance = true;
                         } else if (((start_rank == 0 && next_rank == 1) || (start_rank == 1 && next_rank == 0))
                                     && temp_snarl_record.min_length == std::numeric_limits<size_t>::max()){
-                            temp_snarl_record.min_length = current_distance;
+                            temp_snarl_record.min_length = recorded_distance;
                             added_new_distance = true;
 
                         }
@@ -1741,19 +1774,19 @@ void populate_distance_matrix_row(SnarlDistanceIndex::TemporaryDistanceIndex& te
                             auto& temp_node_record = temp_index.get_node(next_index);
                             if (start_rank == 0 && !next_rev &&
                                     temp_node_record.distance_left_start == std::numeric_limits<size_t>::max()) {
-                                temp_node_record.distance_left_start = current_distance;
+                                temp_node_record.distance_left_start = recorded_distance;
                                 added_new_distance = true;
                             } else if (start_rank == 0 && next_rev &&
                                     temp_node_record.distance_right_start == std::numeric_limits<size_t>::max()) {
-                                temp_node_record.distance_right_start = current_distance;
+                                temp_node_record.distance_right_start = recorded_distance;
                                 added_new_distance = true; 
                             } else if (start_rank == 1 && !next_rev &&
                                     temp_node_record.distance_left_end == std::numeric_limits<size_t>::max()) {
-                                temp_node_record.distance_left_end = current_distance;
+                                temp_node_record.distance_left_end = recorded_distance;
                                 added_new_distance = true; 
                             } else if (start_rank == 1 && next_rev &&
                                     temp_node_record.distance_right_end == std::numeric_limits<size_t>::max()) {
-                                temp_node_record.distance_right_end = current_distance;
+                                temp_node_record.distance_right_end = recorded_distance;
                                 added_new_distance = true; 
                             }
                         }  else {
@@ -1761,19 +1794,19 @@ void populate_distance_matrix_row(SnarlDistanceIndex::TemporaryDistanceIndex& te
                             auto& temp_chain_record = temp_index.get_chain(next_index);
                             if (start_rank == 0 && !next_rev &&
                                     temp_chain_record.distance_left_start == std::numeric_limits<size_t>::max()) {
-                                temp_chain_record.distance_left_start = current_distance;
+                                temp_chain_record.distance_left_start = recorded_distance;
                                 added_new_distance = true;
                             } else if (start_rank == 0 && next_rev &&
                                     temp_chain_record.distance_right_start == std::numeric_limits<size_t>::max()) {
-                                temp_chain_record.distance_right_start = current_distance;
+                                temp_chain_record.distance_right_start = recorded_distance;
                                 added_new_distance = true; 
                             } else if (start_rank == 1 && !next_rev &&
                                     temp_chain_record.distance_left_end == std::numeric_limits<size_t>::max()) {
-                                temp_chain_record.distance_left_end = current_distance;
+                                temp_chain_record.distance_left_end = recorded_distance;
                                 added_new_distance = true; 
                             } else if (start_rank == 1 && next_rev &&
                                     temp_chain_record.distance_right_end == std::numeric_limits<size_t>::max()) {
-                                temp_chain_record.distance_right_end = current_distance;
+                                temp_chain_record.distance_right_end = recorded_distance;
                                 added_new_distance = true; 
                             }
                         }
@@ -1781,14 +1814,14 @@ void populate_distance_matrix_row(SnarlDistanceIndex::TemporaryDistanceIndex& te
                         //Otherwise the snarl stores it in its distance
                         //If the distance isn't from an internal node to a bound and we haven't stored the distance yet
 
-                        temp_snarl_record.distances[make_pair(start, next)] = current_distance;
+                        temp_snarl_record.distances[make_pair(start, next)] = recorded_distance;
                         added_new_distance = true;
 #ifdef debug_distance_indexing
                         cerr << "           Adding distance between ranks " << start.first << " " << start.second << " and " << next.first << " " << next.second << ": " << current_distance << endl;
 #endif
                     }
                     if (added_new_distance) {
-                        temp_snarl_record.max_distance = std::max(temp_snarl_record.max_distance, current_distance);
+                        temp_snarl_record.max_distance = std::max(temp_snarl_record.max_distance, recorded_distance);
                     }
                 }
 
