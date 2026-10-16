@@ -1,0 +1,11 @@
+# Ploidy of a female (XX) sample on T2T-CHM13v2.0: chrX diploid, so it has no line,
+# chrY absent (ploidy 0, no calls), and chrM haploid.
+#
+# CHROM START END PLOIDY, 0-based half-open, with CHROM spelled as in the output VCF. A position no
+# line covers is diploid. Ploidy 0 means the sample has no copy of the region, so vg makes no calls
+# there.
+#
+# Lengths: the CHM13v2.0 assembly (GCA_009914755.4); chrX also matches the CHM13#0#chrX path of
+# the HPRC graph.
+chrY	0	62460029	0
+chrM	0	16569	1

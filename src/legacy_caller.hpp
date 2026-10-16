@@ -1,21 +1,30 @@
 #ifndef VG_LEGACY_CALLER_HPP_INCLUDED
 #define VG_LEGACY_CALLER_HPP_INCLUDED
 
+#include <atomic>
 #include <iostream>
 #include <algorithm>
+#include <array>
 #include <functional>
 #include <cmath>
 #include <limits>
 #include <unordered_set>
 #include <tuple>
+#include <gbwt/cached_gbwt.h>
 #include "handle.hpp"
+#include "linkage_model.hpp"
 #include "snarls.hpp"
 #include "traversal_finder.hpp"
+#include "anchor.hpp"
+#include "read_phasing.hpp"
+#include "regenotype.hpp"
 #include "snarl_caller.hpp"
+#include "symbolic_allele.hpp"
 #include "region.hpp"
 #include "zstdutil.hpp"
 #include "vg/io/alignment_emitter.hpp"
 #include "gref.hpp"
+#include "vcf_genotype_likelihoods.hpp"
 #include "graph_caller.hpp"
 #include "vcf_output_caller.hpp"
 
@@ -53,7 +62,8 @@ protected:
     pair<vector<SnarlTraversal>, vector<int>> top_down_genotype(const Snarl& snarl, TraversalFinder& trav_finder, int ploidy,
                                                                 const string& ref_path_name, pair<size_t, size_t> ref_interval) const;
     
-    /// we need the reference traversal for VCF, but if the ref is not called, the above method won't find it. 
+    /// we need the reference traversal for VCF, but if the ref is not called, the above method
+    /// won't find it.
     SnarlTraversal get_reference_traversal(const Snarl& snarl, TraversalFinder& trav_finder) const;
 
     /// re-genotype output of top_down_genotype.  it may give slightly different results as

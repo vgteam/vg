@@ -1,8 +1,19 @@
+#include <atomic>
+#include <charconv>
+#include <chrono>
+#include <cstdio>
+#include <limits>
+
+#include <omp.h>
+
 #include "vcf_genotyper.hpp"
+#include "symbolic_allele.hpp"
+#include "read_likelihood_caller.hpp"
 #include "algorithms/expand_context.hpp"
 #include "annotation.hpp"
 #include "gref.hpp"
 #include "traversal_clusters.hpp"
+#include "utility.hpp"
 
 //#define debug
 
@@ -84,10 +95,22 @@ bool VCFGenotyper::call_snarl(const Snarl& snarl) {
             return true;
         }
         
+        // The contig's ploidy, or a per-region override's, at the first REF base: VCF POS is
+        // 1-based and the regions are 0-based. `find`, not `operator[]`, which inserts on a miss;
+        // this runs on worker threads.
+        auto contig_ploidy = path_to_ploidy.find(get<0>(ref_positions));
+        int ploidy = ploidy_regions.region_ploidy(
+            get<0>(ref_positions), get<1>(ref_positions) > 0 ? get<1>(ref_positions) - 1 : 0,
+            contig_ploidy != path_to_ploidy.end() ? contig_ploidy->second : 0);
+        if (ploidy == 0) {
+            // The sample has no copy of this region, so the variant is not genotyped.
+            return true;
+        }
+
         // use our support caller to choose our genotype (int traversal coordinates)
         vector<int> trav_genotype;
         unique_ptr<SnarlCaller::CallInfo> trav_call_info;
-        std::tie(trav_genotype, trav_call_info) = snarl_caller.genotype(snarl, travs, ref_trav_idx, path_to_ploidy[get<0>(ref_positions)],
+        std::tie(trav_genotype, trav_call_info) = snarl_caller.genotype(snarl, travs, ref_trav_idx, ploidy,
                                                                         get<0>(ref_positions),  make_pair(get<1>(ref_positions), get<2>(ref_positions)));
 
         assert(trav_genotype.size() <= 2);

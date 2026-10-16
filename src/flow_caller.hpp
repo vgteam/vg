@@ -9,6 +9,7 @@
 #include <unordered_set>
 #include <tuple>
 #include "handle.hpp"
+#include "candidate_finder.hpp"
 #include "snarls.hpp"
 #include "traversal_finder.hpp"
 #include "snarl_caller.hpp"
@@ -24,16 +25,6 @@ namespace vg {
 
 using namespace std;
 using vg::io::AlignmentEmitter;
-
-/// A set of traversals through a child snarl that are consistent with
-/// a single parent allele. Multiple traversals can exist if the child
-/// has internal variation within a shared region.
-using TraversalSet = vector<SnarlTraversal>;
-
-/// One TraversalSet per parent allele (index matches parent genotype).
-/// For a diploid parent with genotype [0,1], element 0 contains traversals
-/// consistent with parent allele 0, element 1 with parent allele 1.
-using ChildTraversalSets = vector<TraversalSet>;
 
 /**
  * FlowCaller : Uses any traversals finder (ex, FlowTraversalFinder) to find
@@ -87,6 +78,11 @@ public:
     virtual string vcf_header(const PathHandleGraph& graph, const vector<string>& contigs,
                               const vector<size_t>& contig_length_overrides = {}) const;
 
+    /// Do not genotype a snarl with more edges than this, including those of nested snarls.
+    /// `call_top_level_snarls` then genotypes the snarl's children as if they were top-level
+    /// snarls. Zero removes the limit, which is also the default.
+    void set_max_snarl_edges(size_t edges) { candidates.set_max_snarl_edges(edges); }
+
 protected:
 
     /// the graph
@@ -104,9 +100,6 @@ protected:
     
     /// keep traco of the ploidies (todo: just one map for all path stuff!!)
     map<string, int> ref_ploidies;
-
-    /// until we support nested snarls, cap snarl size we attempt to process
-    size_t max_snarl_edges = 10000;
 
     /// alignment emitter. if not null, traversals will be output here and
     /// no genotyping will be done
@@ -137,6 +130,10 @@ protected:
     /// use * alleles for spanning haplotypes that don't traverse nested sites
     bool star_allele = false;
 
+    /// Finds each site's reference path and candidate traversals. Declared after the members it
+    /// reads.
+    CandidateFinder candidates;
+
     /// Internal implementation of call_snarl that accepts parent context for nested mode
     /// When nested=true, this recursively calls children after processing the current snarl
     /// @param parent_ref_path_name Reference path from parent (for off-reference snarls)
@@ -150,17 +147,6 @@ protected:
                              pair<size_t, size_t> parent_ref_interval,
                              const ChildTraversalSets* parent_child_trav_sets = nullptr);
 
-    /// Find all traversals through a child snarl that are consistent with a parent traversal.
-    /// "Consistent" means the child's entry/exit points match what's in the parent traversal.
-    /// Uses the traversal finder to enumerate all valid paths through the child.
-    /// @param parent_trav The parent traversal defining entry/exit constraints
-    /// @param child The child snarl to find traversals through
-    /// @return Set of traversals through child, empty if parent doesn't traverse child
-    TraversalSet find_child_traversal_set(const SnarlTraversal& parent_trav,
-                                          const Snarl& child) const;
-
-    /// Extract the portion of a parent traversal that spans a child snarl (single traversal).
-    /// This is a simpler version used when we only need one traversal from the parent.
 };
 
 }

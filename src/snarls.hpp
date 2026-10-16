@@ -15,6 +15,7 @@
 #include <unordered_set>
 #include <fstream>
 #include <deque>
+#include <memory>
 #include <vg/io/protobuf_emitter.hpp>
 #include <vg/io/protobuf_iterator.hpp>
 #include "vg.hpp"
@@ -401,6 +402,15 @@ protected:
         
 };
     
+/// The nodes and edges of the site entered by reading `start` and left by reading `end`, as a
+/// Snarl's start and end Visits are oriented, including those inside its child sites, and its own
+/// two boundary nodes if `include_boundary_nodes`. A graph search from the bounds: it stops only at
+/// them, and finds tips as well as walks.
+pair<unordered_set<id_t>, unordered_set<edge_t> > site_contents(const HandleGraph& graph,
+                                                                 const handle_t& start,
+                                                                 const handle_t& end,
+                                                                 bool include_boundary_nodes);
+
 /**
  * A structure to keep track of the tree relationships between Snarls and perform utility algorithms
  * on them
@@ -446,8 +456,13 @@ public:
     /// let precomputed chains be added, because we want chain orientations
     /// relative to snarls to be deterministic given an order of snarls.
     /// Returns a pointer to the managed snarl copy.
-    /// Only this function may add in new Snarls.
+    /// Only this function and take_snarls() may add in new Snarls.
     const Snarl* add_snarl(const Snarl& new_snarl);
+
+    /// Add every snarl of `other`, in the order it stores them, as add_snarl() would, but moving
+    /// each one in rather than copying it. `other` is left holding empty snarls, and only
+    /// destroying it is safe afterwards. Like add_snarl(), this must come before finish().
+    void take_snarls(SnarlManager& other);
     
     /// Reverses the orientation of a managed snarl.
     void flip(const Snarl* snarl);
@@ -543,7 +558,7 @@ public:
                                                                        bool include_boundary_nodes) const;
         
     /// Returns the Nodes and Edges contained in this Snarl, including those in child Snarls (optionally
-    /// includes Snarl's own boundary Nodes)
+    /// includes Snarl's own boundary Nodes). Reads no state of the manager; see site_contents.
     pair<unordered_set<id_t>, unordered_set<edge_t> > deep_contents(const Snarl* snarl, const HandleGraph& graph,
                                                                     bool include_boundary_nodes) const;
         
@@ -592,6 +607,13 @@ public:
 
     /// Iterate over snarls as they are stored in deque<SnarlRecords>
     void for_each_snarl_unindexed(const function<void(const Snarl*)>& lambda) const;
+
+    /// Run the lambda on every snarl once, on several threads, as they are stored, so in no
+    /// particular order. Once finish() has run, every snarl is either at the top level or a child
+    /// of another snarl, so these are the snarls that for_each_snarl_preorder() visits. Unlike
+    /// for_each_snarl_parallel(), it opens no nested parallel regions, so the lambda can use
+    /// omp_get_thread_num() to keep per-thread results.
+    void for_each_snarl_unindexed_parallel(const function<void(const Snarl*)>& lambda) const;
         
     /// Given a Snarl that we don't own (like from a Visit), find the
     /// pointer to the managed copy of that Snarl.
@@ -632,8 +654,9 @@ private:
         /// SnarlRecord does not own its children.
         vector<const Snarl*> children;
         
-        /// This holds chains over the child snarls.
-        deque<Chain> child_chains;
+        /// This holds chains over the child snarls. It is allocated only for a snarl that has
+        /// children: even an empty deque allocates storage, and most snarls have no children.
+        unique_ptr<deque<Chain>> child_chains;
         
         /// This points to the parent SnarlRecord (as a snarl), or null if we
         /// are a root snarl or have not been told of our parent yet.
@@ -652,6 +675,12 @@ private:
         SnarlRecord& operator=(const Snarl& other) {
             // Just call the base assignment operator
             (*(Snarl*)this) = other;
+            return *this;
+        }
+
+        /// The same, taking the other snarl's contents instead of copying them
+        SnarlRecord& operator=(Snarl&& other) {
+            (*(Snarl*)this) = std::move(other);
             return *this;
         }
     };

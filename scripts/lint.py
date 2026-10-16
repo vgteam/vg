@@ -323,6 +323,11 @@ def extract_long_options(text: str) -> Dict[str, OptionInfo]:
     or `std::vector<struct option> long_options`
     and ending with `};`. (i.e. assuming no nested curly braces)
 
+    Options may instead be grouped in a map from group name to
+    `std::vector<struct option>`, named `long_options_by_<something>`,
+    with each group's entries on their own lines and the map ending
+    with `};`.
+
     Ignores lines with comments.
 
     Looks for: `{"longform", arg_type, 0, shortform}`
@@ -365,9 +370,11 @@ def extract_long_options(text: str) -> Dict[str, OptionInfo]:
     all_caps_values = set()
 
     for line in text.splitlines():
-        # Found start of long_options[]
+        # Found start of long_options[], or of a map from group name to
+        # a vector of options, named long_options_by_<something>
         if ('struct option long_options' in line
-            or 'std::vector<struct option> long_options' in line):
+            or 'std::vector<struct option> long_options' in line
+            or re.search(r'vector<struct option>>\s+long_options_by_\w+\s*=', line)):
             inside_longopts = True
         # End of long_options[]
         elif inside_longopts and '};' in line:
