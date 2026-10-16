@@ -137,7 +137,7 @@ We support the following set of operations, which has diverged from the original
 |`?`      |`[0-9]+`|Mismatch as the query base (since version 1.1)|
 |`+`      |`[ACGTN]+`|Insertion as the unaligned query bases|
 |`-`      |`[ACGTN]+`|Deletion as the unaligned target bases|
-|`!`      |`[0-9]+`|Deletion as the number of unaligned target bases|
+|`!`      |`[0-9]+`|Deletion as the number of unaligned target bases (since version 1.1)|
 
 ### Other defined optional fields
 
@@ -188,7 +188,7 @@ Fragments are identified by fragment indexes starting from `1`, stored as an opt
 
 ### GAF version 1.1
 
-**Since vg 1.??.0**
+**Since vg 1.78.0**
 
 Two new operations for difference strings.
 `?` is a mismatch with the query base only, and `!` is a deletion represented by its length.
