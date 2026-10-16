@@ -1875,6 +1875,17 @@ int main_call(int argc, char** argv) {
         }
     };
 
+    // -P and -S collect base path names, each once: the subpath step below matches the graph's paths
+    // to ref_paths by base name, so a subpath's own name (NAME[offset], as a gref fragment clipped by
+    // vg haplotypes is called) would never be found there.
+    unordered_set<string> selected_base_paths(ref_paths.begin(), ref_paths.end());
+    auto select_base_path = [&](const string& path_name) {
+        string base_name = Paths::strip_subrange(path_name);
+        if (selected_base_paths.insert(base_name).second) {
+            ref_paths.push_back(base_name);
+        }
+    };
+
     // Prefix given: find all paths matching it
     if (!ref_path_prefixes.empty()) {
         graph->for_each_path_of_sense({PathSense::REFERENCE, PathSense::GENERIC, PathSense::HAPLOTYPE}, [&](const path_handle_t& path_handle) {
@@ -1885,7 +1896,7 @@ int main_call(int argc, char** argv) {
             }
             for (auto& prefix : ref_path_prefixes) {
                 if (path_name.compare(0, prefix.size(), prefix) == 0) {
-                    ref_paths.push_back(path_name);
+                    select_base_path(path_name);
                     break;
                 }
             }
@@ -1900,7 +1911,7 @@ int main_call(int argc, char** argv) {
         graph->for_each_path_of_sample({ref_sample}, [&](path_handle_t path_handle) {
             const string& name = graph->get_path_name(path_handle);
             if (!Paths::is_alt(name)) {
-                ref_paths.push_back(name);
+                select_base_path(name);
             }
         });
         if (ref_paths.empty()) {
@@ -2014,8 +2025,9 @@ int main_call(int argc, char** argv) {
 
     for (const string& ref_path : ref_paths) {
         // Only a fragment counts. The gref copy of a base contig is the reference under another
-        // name, and gives no chain a contig of its own.
-        if (GrefCover::is_gref_name(ref_path)) {
+        // name, and gives no chain a contig of its own. A clipped fragment is a subpath, so its
+        // name ends in [offset].
+        if (GrefCover::is_gref_name(Paths::strip_subrange(ref_path))) {
             off_ref_nesting = true;
             if (show_progress) {
                 logger.info() << "gref reference selected: descending into chains the reference "
@@ -2058,8 +2070,8 @@ int main_call(int argc, char** argv) {
         map<string, int> by_path;
         unordered_set<string> in_progress;
         std::function<int(const string&)> level_of = [&](const string& path_name) -> int {
-            if (!GrefCover::is_gref_name(path_name)) {
-                return 0;   // a base contig, or the gref copy of one
+            if (!GrefCover::is_gref_name(Paths::strip_subrange(path_name))) {
+                return 0;   // a base contig, or the gref copy of one; a clipped fragment ends in [offset]
             }
             auto seen = by_path.find(path_name);
             if (seen != by_path.end()) {

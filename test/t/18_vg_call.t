@@ -9,7 +9,7 @@ PATH=../bin:$PATH # for vg
 # FORMAT field shifts every later one, which broke four assertions here that were not
 # testing field order at all -- one of them silently compared BL against a GQ threshold.
 
-plan tests 476
+plan tests 482
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -2184,6 +2184,49 @@ is "$(grep -c '^#reference' rlg.mosaic.tsv)" "1" "the mosaic header names the ba
 is "$(grep -c '^#gref-fragments' rlg.mosaic.tsv)" "1" "and counts the cover's fragments instead of listing every one"
 rm -f rlg.gfa rlg.gbz rlg.pg rlg.gref.pg rlg.gref.gfa rlg.gref.gbz rlg_sim.gfa rlg_sim.gbz \
       rlg.gam rlg_base.vcf rlg_gref.vcf rlg_gref.err rlg.mosaic.tsv
+
+# vg haplotypes --set-reference clips a gref fragment to the sampled haplotypes and names the piece
+# NAME[offset]. -S and -P must select it as -p does, by base name, and it must be called as the
+# whole fragment is. The same graph with the insertion's first 30 bp in a node of their own, which
+# the clipped fragment leaves out.
+C30=$(printf 'C%.0s' $(seq 30))
+{ printf "H\tVN:Z:1.1\n"
+  printf "S\t1\t$A20\nS\t2\t$C30\nS\t7\t$C30\nS\t3\tG\nS\t4\tT\nS\t5\t$A60\nS\t6\t$T20\n"
+  printf "L\t1\t+\t6\t+\t0M\nL\t1\t+\t2\t+\t0M\nL\t2\t+\t7\t+\t0M\nL\t7\t+\t3\t+\t0M\nL\t7\t+\t4\t+\t0M\n"
+  printf "L\t3\t+\t5\t+\t0M\nL\t4\t+\t5\t+\t0M\nL\t5\t+\t6\t+\t0M\n"
+  printf "P\tx#0#chr1\t1+,6+\t*\n"
+  printf "W\ts1\t0\tchr1\t0\t161\t>1>2>7>3>5>6\n"
+  printf "W\ts1\t1\tchr1\t0\t161\t>1>2>7>4>5>6\n"
+  printf "W\ts2\t0\tchr1\t0\t161\t>1>2>7>3>5>6\n"
+  printf "W\ts2\t1\tchr1\t0\t40\t>1>6\n"; } > clg.gfa
+vg gbwt -G clg.gfa --gbz-format -g clg.gbz --set-reference x 2>/dev/null
+vg convert -p clg.gbz > clg.pg 2>/dev/null
+vg paths --compute-gref -Q x --min-gref-len 1 -x clg.pg > clg.gref.pg 2>/dev/null
+vg convert -f clg.gref.pg > clg.gref.gfa 2>/dev/null
+vg gbwt -G clg.gref.gfa --gbz-format -g clg.gref.gbz 2>/dev/null
+awk -F'\t' 'BEGIN{OFS="\t"} $1=="W" && $2=="gref_x" && $4=="chr1_1_alt" {$5=30; $7=">7>3>5"} {print}' \
+    clg.gref.gfa > clg_clip.gfa
+vg gbwt -G clg_clip.gfa --gbz-format -g clg_clip.gbz 2>/dev/null
+cp clg.gref.gfa clg_sim.gfa
+printf 'W\tT\t0\tchr1\t0\t161\t>1>2>7>3>5>6\n' >> clg_sim.gfa
+printf 'W\tT\t1\tchr1\t0\t161\t>1>2>7>4>5>6\n' >> clg_sim.gfa
+vg gbwt -G clg_sim.gfa --gbz-format -g clg_sim.gbz 2>/dev/null
+vg sim -x clg_sim.gbz -n 300 -l 30 -a -s 11 --path "T#0#chr1#0" >  clg.gam 2>/dev/null
+vg sim -x clg_sim.gbz -n 300 -l 30 -a -s 13 --path "T#1#chr1#0" >> clg.gam 2>/dev/null
+is "$(vg paths -L -x clg_clip.gbz | grep -c 'chr1_1_alt\[30\]$')" "1" "the clipped gref fragment is a subpath at offset 30"
+vg call clg.gref.gbz --read-likelihood --mismap-max 0.7 --gam clg.gam -t 1 -s samp --phased \
+    -S gref_x > clg_whole.vcf 2>/dev/null
+vg call clg_clip.gbz --read-likelihood --mismap-max 0.7 --gam clg.gam -t 1 -s samp --phased \
+    -S gref_x --progress > clg_clip.vcf 2> clg_clip.err
+is "$?" "0" "-S selects a reference sample whose gref fragment is clipped"
+is "$(grep -v '^#' clg_clip.vcf | cut -f1-5,8)" "$(grep -v '^#' clg_whole.vcf | cut -f1-5,8)" "the clipped fragment is called as the whole one, at the whole fragment's coordinates"
+is "$(grep '^##contig' clg_clip.vcf)" "$(grep '^##contig' clg_whole.vcf)" "and declared with the whole fragment's length"
+is "$(grep -o 'gref nesting levels:.*' clg_clip.err)" "gref nesting levels: 1:1 2:1" "the clipped fragment keeps its nesting level, and the fragment inside it stays a level deeper"
+vg call clg_clip.gbz --read-likelihood --mismap-max 0.7 --gam clg.gam -t 1 -s samp --phased \
+    -P gref_x > clg_clip_P.vcf 2>/dev/null
+is "$(grep -v '^#' clg_clip_P.vcf | cut -f1-5)" "$(grep -v '^#' clg_whole.vcf | cut -f1-5)" "-P selects the clipped fragment too"
+rm -f clg.gfa clg.gbz clg.pg clg.gref.pg clg.gref.gfa clg.gref.gbz clg_clip.gfa clg_clip.gbz \
+      clg_sim.gfa clg_sim.gbz clg.gam clg_whole.vcf clg_clip.vcf clg_clip.err clg_clip_P.vcf
 
 # --bottom-up had zero coverage anywhere in the suite.  It aborted on any nested graph whose
 # reference traversal crosses a child snarl, because a child-snarl Visit carries no node.
