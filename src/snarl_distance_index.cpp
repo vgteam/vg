@@ -85,8 +85,9 @@ void fill_in_distance_index(SnarlDistanceIndex* distance_index, const HandleGrap
  * @pre populate_snarl_index() has filled in the snarl's distances, and the
  * tip flags of each of its child chains are set.
  *
- * TODO: The flags come from the distances, so a snarl whose distances are not
- * stored (with a size limit of 0, or an oversized snarl) gets no tip flags.
+ * A snarl whose distances are not stored, with a size limit of 0 or because it
+ * is oversized, still has distances from its bounds and tips, which is all
+ * this needs.
  */
 static void set_snarl_tips(SnarlDistanceIndex::TemporaryDistanceIndex& temp_index,
                            SnarlDistanceIndex::TemporaryDistanceIndex::TemporarySnarlRecord& temp_snarl_record) {
@@ -1316,6 +1317,32 @@ void populate_snarl_index(
         temp_snarl_record.distance_end_end = promote_distance<size_t>(hhl_query(temp_snarl_record.hub_labels.begin(), bgid(1, true, true), bgid(1, false, false)));
       }
       // TODO: Should this be here or should it be part of populate_hub_labeling()? Or its own function?
+
+      // Walk from the bounds and the tips, as a snarl without stored distances
+      // does, so the tip flags can be worked out from those walks' distances.
+      for (const SnarlDistanceIndex::temp_record_ref_t& start_index : all_children) {
+          bool is_internal_node = (start_index.first == SnarlDistanceIndex::TEMP_NODE &&
+                                   start_index.second != temp_snarl_record.start_node_id &&
+                                   start_index.second != temp_snarl_record.end_node_id) ||
+                                  (start_index.first == SnarlDistanceIndex::TEMP_CHAIN &&
+                                   temp_index.get_chain(start_index).is_trivial);
+          size_t start_rank = start_index.first == SnarlDistanceIndex::TEMP_NODE
+                  ? temp_index.get_node(start_index).rank_in_parent
+                  : temp_index.get_chain(start_index).rank_in_parent;
+          if (start_index.first == SnarlDistanceIndex::TEMP_NODE && start_index.second == temp_snarl_record.start_node_id) {
+              start_rank = 0;
+          } else if (start_index.first == SnarlDistanceIndex::TEMP_NODE && start_index.second == temp_snarl_record.end_node_id) {
+              start_rank = 1;
+          }
+          bool start_is_tip = start_index.first == SnarlDistanceIndex::TEMP_NODE
+                  ? temp_index.get_node(start_index).is_tip
+                  : temp_index.get_chain(start_index).is_tip;
+          if (temp_snarl_record.is_root_snarl || (!start_is_tip && start_rank != 0 && start_rank != 1)) {
+              continue;
+          }
+          populate_distance_matrix_row(temp_index, snarl_index, temp_snarl_record, start_index, graph, start_rank,
+                                       is_internal_node, 0);
+      }
     } else {
       if (size_limit == 0 || only_top_level_chain_distances) { 
         temp_snarl_record.include_distances = false;
@@ -1666,24 +1693,11 @@ void populate_distance_matrix_row(SnarlDistanceIndex::TemporaryDistanceIndex& te
                 pair<size_t, bool> next = next_is_boundary 
                     ? make_pair(next_rank, false) : make_pair(next_rank, next_rev);
 
-                if (size_limit == 0 && start_is_boundary && next_is_boundary) {
-                    // If not measuring distances, we need to use
-                    // distance_start_start and distance_end_end as
-                    // connectivity flags so we can still detect reversals
-                    // within chains and recognize regular snarls.
-                    if (start_rank == 0 && next_rank == 0) {
-                        temp_snarl_record.distance_start_start = 0;
-#ifdef debug_distance_indexing
-                        cerr << "        set loop indicator start start distance " << temp_snarl_record.distance_start_start << endl;
-#endif
-                    } else if (start_rank == 1 && next_rank == 1) {
-                        temp_snarl_record.distance_end_end = 0;
-#ifdef debug_distance_indexing
-                        cerr << "        set loop indicator end end distance " << temp_snarl_record.distance_start_start << endl;
-#endif
-                    }
-                } else if (size_limit != 0 &&
-                    (temp_snarl_record.node_count <= size_limit || start_is_boundary || next_is_boundary)) {
+                // Without a size limit, distances are not stored in the index,
+                // but this snarl's rows run only from its bounds and tips, and
+                // their distances give the connectivity flags.
+                if (size_limit == 0 ||
+                    temp_snarl_record.node_count <= size_limit || start_is_boundary || next_is_boundary) {
                     //If the snarl is too big, then we don't record distances between internal nodes
                     //If we are looking at all distances or we are looking at boundaries
                     bool added_new_distance = false;
