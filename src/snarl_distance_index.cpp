@@ -85,37 +85,56 @@ void fill_in_distance_index(SnarlDistanceIndex* distance_index, const HandleGrap
  * @pre populate_snarl_index() has filled in the snarl's distances, and the
  * tip flags of each of its child chains are set.
  *
- * A snarl whose distances are not stored, with a size limit of 0 or because it
- * is oversized, still has distances from its bounds and tips, which is all
- * this needs.
+ * A snarl without stored distances still has the distances of walks from its
+ * bounds and tips, and an oversized snarl answers them from its hub labels.
  */
 static void set_snarl_tips(SnarlDistanceIndex::TemporaryDistanceIndex& temp_index,
                            SnarlDistanceIndex::TemporaryDistanceIndex::TemporarySnarlRecord& temp_snarl_record) {
     const size_t inf = std::numeric_limits<size_t>::max();
+    // An oversized snarl keeps its distances in hub labels instead of in its
+    // children's records. The hub labels number the start bound 0, the end
+    // bound 1, and each child by its rank_in_parent.
+    bool oversized = !temp_snarl_record.hub_labels.empty();
+    // Return true if a walk from the snarl's start, or its end, can enter a
+    // child at its left side, or its right side. The child's record holds
+    // that distance as stored_distance, unless the snarl is oversized.
+    auto bound_reaches = [&](bool from_end, size_t rank, bool reversed_in_parent, bool left_side,
+                             size_t stored_distance) {
+        if (!oversized) {
+            return stored_distance != inf;
+        }
+        size_t from_port = from_end ? bgid(1, true, true) : bgid(0, false, true);
+        size_t to_port = bgid(rank, left_side ? reversed_in_parent : !reversed_in_parent, false);
+        return promote_distance<size_t>(hhl_query(temp_snarl_record.hub_labels.begin(), from_port, to_port)) != inf;
+    };
     for (const SnarlDistanceIndex::temp_record_ref_t& child : temp_snarl_record.children) {
         if (child.first == SnarlDistanceIndex::TEMP_NODE) {
-            const auto& temp_node_record = temp_index.get_node(child);
-            if (temp_node_record.is_tip) {
-                temp_snarl_record.start_tip_connected |= temp_node_record.distance_left_start != inf ||
-                                                         temp_node_record.distance_right_start != inf;
-                temp_snarl_record.end_tip_connected |= temp_node_record.distance_left_end != inf ||
-                                                       temp_node_record.distance_right_end != inf;
+            const auto& node = temp_index.get_node(child);
+            if (node.is_tip) {
+                size_t rank = node.rank_in_parent;
+                bool rev = node.reversed_in_parent;
+                temp_snarl_record.start_tip_connected |= bound_reaches(false, rank, rev, true, node.distance_left_start) ||
+                                                         bound_reaches(false, rank, rev, false, node.distance_right_start);
+                temp_snarl_record.end_tip_connected |= bound_reaches(true, rank, rev, true, node.distance_left_end) ||
+                                                       bound_reaches(true, rank, rev, false, node.distance_right_end);
             }
             continue;
         }
-        const auto& temp_chain_record = temp_index.get_chain(child);
+        const auto& chain = temp_index.get_chain(child);
         // A walk reaching the chain's left side enters it at its start, and
         // one reaching its right side enters it at its end.
-        bool crossable = temp_chain_record.min_length != inf;
-        bool from_left = temp_chain_record.start_tip_connected ||
-            (crossable && temp_index.get_node(temp_chain_record.children.back()).is_tip);
-        bool from_right = temp_chain_record.end_tip_connected ||
-            (crossable && temp_index.get_node(temp_chain_record.children.front()).is_tip);
-        temp_snarl_record.start_tip_connected |= (temp_chain_record.distance_left_start != inf && from_left) ||
-                                                 (temp_chain_record.distance_right_start != inf && from_right);
-        temp_snarl_record.end_tip_connected |= (temp_chain_record.distance_left_end != inf && from_left) ||
-                                               (temp_chain_record.distance_right_end != inf && from_right);
-        temp_snarl_record.tip_tip_connected |= temp_chain_record.tip_tip_connected;
+        bool crossable = chain.min_length != inf;
+        bool from_left = chain.start_tip_connected || (crossable && temp_index.get_node(chain.children.back()).is_tip);
+        bool from_right = chain.end_tip_connected || (crossable && temp_index.get_node(chain.children.front()).is_tip);
+        size_t rank = chain.rank_in_parent;
+        bool rev = chain.reversed_in_parent;
+        temp_snarl_record.start_tip_connected |=
+            (from_left && bound_reaches(false, rank, rev, true, chain.distance_left_start)) ||
+            (from_right && bound_reaches(false, rank, rev, false, chain.distance_right_start));
+        temp_snarl_record.end_tip_connected |=
+            (from_left && bound_reaches(true, rank, rev, true, chain.distance_left_end)) ||
+            (from_right && bound_reaches(true, rank, rev, false, chain.distance_right_end));
+        temp_snarl_record.tip_tip_connected |= chain.tip_tip_connected;
     }
     // Find the children that hold a tip: tip nodes, and chains with a tip
     // inside or a dead end on a bound node. Name each by its rank_in_parent,
@@ -140,6 +159,21 @@ static void set_snarl_tips(SnarlDistanceIndex::TemporaryDistanceIndex& temp_inde
     }
     // Two of them with a distance between them make a walk from one tip to
     // another.
+    if (oversized) {
+        for (size_t rank1 : tippy_ranks) {
+            for (size_t rank2 : tippy_ranks) {
+                for (bool rev1 : {false, true}) {
+                    for (bool rev2 : {false, true}) {
+                        if (rank1 != rank2 &&
+                            promote_distance<size_t>(hhl_query(temp_snarl_record.hub_labels.begin(),
+                                                               bgid(rank1, rev1, true), bgid(rank2, rev2, false))) != inf) {
+                            temp_snarl_record.tip_tip_connected = true;
+                        }
+                    }
+                }
+            }
+        }
+    }
     for (const auto& [ranks, distance] : temp_snarl_record.distances) {
         if (tippy_ranks.count(ranks.first.first) && tippy_ranks.count(ranks.second.first)) {
             temp_snarl_record.tip_tip_connected = true;
@@ -1318,31 +1352,6 @@ void populate_snarl_index(
       }
       // TODO: Should this be here or should it be part of populate_hub_labeling()? Or its own function?
 
-      // Walk from the bounds and the tips, as a snarl without stored distances
-      // does, so the tip flags can be worked out from those walks' distances.
-      for (const SnarlDistanceIndex::temp_record_ref_t& start_index : all_children) {
-          bool is_internal_node = (start_index.first == SnarlDistanceIndex::TEMP_NODE &&
-                                   start_index.second != temp_snarl_record.start_node_id &&
-                                   start_index.second != temp_snarl_record.end_node_id) ||
-                                  (start_index.first == SnarlDistanceIndex::TEMP_CHAIN &&
-                                   temp_index.get_chain(start_index).is_trivial);
-          size_t start_rank = start_index.first == SnarlDistanceIndex::TEMP_NODE
-                  ? temp_index.get_node(start_index).rank_in_parent
-                  : temp_index.get_chain(start_index).rank_in_parent;
-          if (start_index.first == SnarlDistanceIndex::TEMP_NODE && start_index.second == temp_snarl_record.start_node_id) {
-              start_rank = 0;
-          } else if (start_index.first == SnarlDistanceIndex::TEMP_NODE && start_index.second == temp_snarl_record.end_node_id) {
-              start_rank = 1;
-          }
-          bool start_is_tip = start_index.first == SnarlDistanceIndex::TEMP_NODE
-                  ? temp_index.get_node(start_index).is_tip
-                  : temp_index.get_chain(start_index).is_tip;
-          if (temp_snarl_record.is_root_snarl || (!start_is_tip && start_rank != 0 && start_rank != 1)) {
-              continue;
-          }
-          populate_distance_matrix_row(temp_index, snarl_index, temp_snarl_record, start_index, graph, start_rank,
-                                       is_internal_node, 0);
-      }
     } else {
       if (size_limit == 0 || only_top_level_chain_distances) { 
         temp_snarl_record.include_distances = false;
