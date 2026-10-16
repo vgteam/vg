@@ -1110,6 +1110,7 @@ namespace vg {
             }
             cerr << "Consider " << basis_size << " element traceback to " << basis.front() << " with penalty "
                  << basis_score_difference << endl;
+            cerr << "\t" << pb2json(multipath_aln.subpath(basis.front()).path()) << endl;
 #endif
             
             if (problem.prev_subpath[basis.front()] == -1) {
@@ -1191,8 +1192,7 @@ namespace vg {
         
     }
     
-    vector<Alignment> optimal_alignments_with_disjoint_subpaths(const multipath_alignment_t& multipath_aln, size_t count,
-                                                                vector<pair<uint32_t, uint32_t>>* alternatives) {
+    vector<Alignment> optimal_alignments_with_disjoint_subpaths(const multipath_alignment_t& multipath_aln, size_t count) {
         
 #ifdef debug_multiple_tracebacks
         cerr << "Computing top " << count << " alignments with disjoint subpaths" << endl;
@@ -1269,8 +1269,12 @@ namespace vg {
             }
         }
         
-        // Keep track of the penalty per subpath that is used in an alignment
-        vector<size_t> penalty_for_used_subpaths(multipath_aln.subpath_size(), numeric_limits<size_t>::max());
+        // Keep a bit vector of the subpaths that have been used, so we can reject
+        // them. TODO: We get the optimal alignment for each end, subject to
+        // the constraint, but any other subpath may be used in a suboptimal
+        // alignment for that subpath, and we may never see its optimal
+        // alignment.
+        vector<bool> subpath_is_used(multipath_aln.subpath_size(), false);
         
         while (!end_queue.empty() && to_return.size() < count) {
             // For each distinct ending subpath in the multipath
@@ -1284,14 +1288,13 @@ namespace vg {
             queue.push(end_queue.min());
             end_queue.pop_min();
             
-            if (penalty_for_used_subpaths[queue.min().second.front()] != numeric_limits<size_t>::max()) {
-                // We've visited this subpath before as part of a traceback
-                // (We try save possible ends greedily, i.e. if extending up
-                // by a single connection is score-negative, we avoid, even if
-                // extending by more than that ends up net positive)
+            if (subpath_is_used[queue.min().second.front()]) {
+                // We shouldn't ever have the place we want to trace back from already used, but if it is already used we don't want to use it.
+                
 #ifdef debug_multiple_tracebacks
                 cerr << "Skip " << queue.min().second.front() << " because it was already emitted in a previous traceback" << endl;
 #endif
+                
                 continue;
             }
             
@@ -1303,7 +1306,7 @@ namespace vg {
             // Seed with the end we are starting with.
             min_penalty_for_subpath[queue.min().second.front()] = queue.min().first;
             
-            // We also track visited-ness, so we don't query edges for the same thing twice.
+            // We also track visited-ness, so we don;t query edges for the same thing twice.
             // TODO: This is the world's most hacky Dijkstra and needs to be rewritten from the top with an understanding of what it is supposed to be doing.
             vector<bool> subpath_is_visited(multipath_aln.subpath_size(), false);
         
@@ -1325,10 +1328,18 @@ namespace vg {
                 }
                 cerr << "Consider " << basis_size << " element traceback to " << basis.front() << " with penalty "
                      << basis_score_difference << endl;
+                cerr << "\t" << pb2json(multipath_aln.subpath(basis.front()).path()) << endl;
 #endif
 
-                // We already used this start and can't use it again. We shouldn't get here
-                assert(penalty_for_used_subpaths[basis.front()] == numeric_limits<size_t>::max());
+                if (subpath_is_used[basis.front()]) {
+                    // We already used this start and can't use it again. Try something else.
+                    // TODO: This shouldn't happen; we are also catching this case on enqueue.
+#ifdef debug_multiple_tracebacks
+                    cerr << "Traceback reaches already used subpath; skip" << endl;
+#endif
+                    
+                    continue;
+                }
                 
                 if (subpath_is_visited[basis.front()]) {
                     // We already processed this; this must be a higher cost version of the same thing.
@@ -1364,29 +1375,8 @@ namespace vg {
 #endif
 
                     for (auto& subpath : basis) {
-                        // Record the penalty of all the subpaths
-                        penalty_for_used_subpaths[subpath] = min_penalty_for_subpath[subpath];
-                    }
-
-                    if (alternatives != nullptr) {
-                        while (!queue.empty() && queue.min().first == basis_score_difference) {
-                            // Save identically scoring alternatives
-                            // First two items in the other traceback (i.e. the alternate edge)
-                            vector<uint32_t> first_two;
-                            size_t i = 0;
-                            for (const auto& item : queue.min().second) {
-                                first_two.push_back(item);
-                                i++;
-                                if (i > 1) {
-                                    break;
-                                }
-                            }
-                            if (first_two.size() == 2) {
-                                // Yay, there were at least two items; we can save an edge
-                                alternatives->emplace_back(first_two[0], first_two[1]);
-                            }
-                            queue.pop_min();
-                        }
+                        // Record the used-ness of all the subpaths
+                        subpath_is_used[subpath] = true;
                     }
 
                     // Break out of this loop and try a different starting position
@@ -1400,19 +1390,23 @@ namespace vg {
                     
                     // To compute the additional score difference, we need to know what our optimal prefix score was.
                     auto& best_prefix_score = problem.prefix_score[here];
-
-                    // Things we might save in "alternatives" as (total penalty, predecessor)
-                    vector<pair<size_t, uint32_t>> possible_alternatives;
-                    // Penalty for the optimal predecessor
-                    size_t best_prev_total_penalty = numeric_limits<size_t>::max();
                     
                     for (auto& prev : prev_subpaths[here]) {
                         // For each candidate previous subpath
-
-                        // Compute the score of the optimal alignment ending at that predecessor
-                        // Score from source to predecessor + score of predecessor + score of edge to predecessor
+                        
+                        if (subpath_is_used[prev.first]) {
+                            // This subpath has already been used in an emitted alignment, so we can't use it.
+                            
+#ifdef debug_multiple_tracebacks
+                            cerr << "\tSkip " << prev << " which is already used" << endl;
+#endif
+                            
+                            continue;
+                        }
+                        
+                        // For each, compute the score of the optimal alignment ending at that predecessor
                         auto prev_opt_score = problem.prefix_score[prev.first] + multipath_aln.subpath(prev.first).score() + prev.second;
-
+                        
                         // What's the difference we would take if we went with this predecessor?
                         auto additional_penalty = best_prefix_score - prev_opt_score;
                         
@@ -1429,19 +1423,6 @@ namespace vg {
                             
                             continue;
                         }
-
-                        if (penalty_for_used_subpaths[prev.first] != numeric_limits<size_t>::max()) {
-                            // This subpath has already been used in an emitted alignment, so we can't use it.
-                            
-#ifdef debug_multiple_tracebacks
-                            cerr << "\tSkip " << prev.first << " which is already used" << endl;
-#endif
-                            // Remember that we could've taken this
-                            if (alternatives != nullptr && additional_penalty <= penalty_for_used_subpaths[prev.first]) {
-                                possible_alternatives.emplace_back(total_penalty, prev.first);
-                            }
-                            continue;
-                        }
                         
                         // Record that this is the cheapest we managed to get here
                         min_penalty_for_subpath[prev.first] = total_penalty;
@@ -1452,20 +1433,11 @@ namespace vg {
 #ifdef debug_multiple_tracebacks
                         cerr << "\tAugment with " << prev.first << " to penalty " << total_penalty << endl;
 #endif
-                        best_prev_total_penalty = std::min((size_t) total_penalty, best_prev_total_penalty);
                         
                         // Put them in the priority queue
                         queue.push(make_pair(total_penalty, extended_path));
                     }
                     
-                    if (alternatives != nullptr) {
-                        // Use any of those alternatives if they would actually help
-                        for (const auto& extra_edge : possible_alternatives) {
-                            if (extra_edge.first <= best_prev_total_penalty) {
-                                alternatives->emplace_back(extra_edge.second, here);
-                            }
-                        }
-                    }
                     
                 }
             }
@@ -1574,6 +1546,10 @@ namespace vg {
                 // Make sure to search in the orientation we are actually going
                 state.haplo_state = score_provider.incremental_find(make_position(pos.node_id(), !pos.is_reverse(), 0));
                 state.started = true;
+                
+#ifdef debug_multiple_tracebacks
+                cerr << "New haplotype search for " << pb2json(pos) << " finds " << state.size() << " matching haplotypes" << endl;
+#endif
             }
             
             // Otherwise we have already selected the last Mapping when we crossed the edge back into here.
