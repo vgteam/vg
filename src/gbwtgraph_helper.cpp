@@ -3,6 +3,8 @@
 #include "gbzgraph.hpp"
 
 #include <gbwtgraph/index.h>
+
+#include <omp.h>
 #include <vg/io/alignment_io.hpp>
 
 namespace vg {
@@ -316,6 +318,18 @@ void require_compatible_reference(
 
 //------------------------------------------------------------------------------
 
+size_t MinimizerIndexParameters::estimate_keys(size_t sequence_length) const {
+    if (this->expected_keys > 0) {
+        return this->expected_keys;
+    }
+    // Expected density of minimizers / closed syncmers in random sequence.
+    double density = (this->use_syncmers ? 2.0 / (this->k - this->w_or_s + 1) : 2.0 / (this->w_or_s + 1));
+    // Repeats and kmers shared between alleles make the number of distinct keys
+    // smaller. On HPRC chromosome graphs with k = 29, w = 11, it is ~0.84 * density
+    // * length. Bias the estimate low to avoid doubling the hash table.
+    return sequence_length * density * KEY_ESTIMATE_FACTOR;
+}
+
 std::string MinimizerIndexParameters::validate() const {
     if (this->k < 1 || this->k > gbwtgraph::DefaultMinimizerIndex::key_type::KMER_MAX_LENGTH) {
         return "k-mer length must be between 1 and " + std::to_string(gbwtgraph::DefaultMinimizerIndex::key_type::KMER_MAX_LENGTH);
@@ -575,9 +589,23 @@ gbwtgraph::DefaultMinimizerIndex build_minimizer_index(
     }
     std::string payload_str = MinimizerIndexParameters::payload_str(payload_type);
 
-    // Create an empty minimizer index.
+    // Create an empty minimizer index with a pre-sized hash table.
     std::vector<key_type> frequent_kmers = find_frequent_kmers(gbz, params);
     gbwtgraph::DefaultMinimizerIndex index(params.k, params.w_or_s, payload_size, params.use_syncmers);
+    std::vector<size_t> length_by_thread(omp_get_max_threads(), 0);
+    gbz.graph.for_each_handle([&](const handle_t& handle) {
+        length_by_thread[omp_get_thread_num()] += gbz.graph.get_length(handle);
+    }, true);
+    size_t sequence_length = 0;
+    for (size_t length : length_by_thread) {
+        sequence_length += length;
+    }
+    size_t expected_keys = params.estimate_keys(sequence_length);
+    index.reserve(expected_keys);
+    if (params.progress) {
+        logger.info() << "Expecting " << expected_keys << " keys in " << sequence_length << " bp of sequence; "
+                      << "initial hash table size " << index.cell_count() << std::endl;
+    }
     if (params.use_weighted_minimizers && !frequent_kmers.empty()) {
         index.add_frequent_kmers(frequent_kmers, params.iterations);
     }
