@@ -555,7 +555,7 @@ void chain_items_dp(vector<vector<TracedScore>>& chain_scores,
                                                     .set_shared_paths(here.anchor_paths());
         
         // Evaluate heuristic to preserve path flexibility without inflating actual scoring DP.
-        // Bonus = fraction of conserved paths * scoring.consistency_bonus.
+        // Bonus = fraction of conserved paths * scoring_scheme.consistency_bonus.
         // Bonus is 0 when recombination occurs (no shared paths).
         from_source_score.eval_bonus = 0;
         if (scoring_scheme.consistency_bonus > 0) {
@@ -678,6 +678,7 @@ void chain_items_traceback(const vector<vector<TracedScore>>& chain_scores,
                            vector<AltEdge>& alts,
                            const ChainScoringScheme& scoring_scheme,
                            size_t max_tracebacks) {
+    // We will fill this in with all the tracebacks, and then sort and truncate.
     tracebacks.reserve(chain_scores.size());
     alts.reserve(chain_scores.size());
     
@@ -692,10 +693,10 @@ void chain_items_traceback(const vector<vector<TracedScore>>& chain_scores,
     });
     
     // We don't want to use an item multiple times
-    vector<bool> is_used(chain_scores.size(), false);
+    vector<bool> item_is_used(chain_scores.size(), false);
     
     for (auto& trace_from : starts_in_score_order) {
-        // Save alt edges
+        // Save any alternative (non-optimal) edges tracing back from this point
         for (size_t alt_i = 1; alt_i < chain_scores[trace_from].size(); alt_i++) {
             if (chain_scores[trace_from][alt_i].source != TracedScore::nowhere()) {
                 alts.emplace_back(
@@ -703,7 +704,7 @@ void chain_items_traceback(const vector<vector<TracedScore>>& chain_scores,
                     chain_scores[trace_from].front().eval_score() - chain_scores[trace_from][alt_i].eval_score());
             }
         }
-        if (is_used[trace_from]) {
+        if (item_is_used[trace_from]) {
             // We can't trace back from here
             continue;
         }
@@ -724,10 +725,10 @@ void chain_items_traceback(const vector<vector<TracedScore>>& chain_scores,
             std::cerr << "\t\tanchor #" << here << ": " << to_chain[here] << std::endl;
 #endif
             // Mark here as used. Happens once per item, and so limits runtime.
-            is_used[here] = true;
+            item_is_used[here] = true;
             size_t next = chain_scores[here].front().source;
             if (next != TracedScore::nowhere()) {
-                if (is_used[next]) {
+                if (item_is_used[next]) {
                     // Save this extra edge we tried to use
                     alts.emplace_back(next, here, 0);
 
@@ -786,6 +787,7 @@ unordered_map<TailAnchor, vector<AltEdge>> filter_alt_edges(const VectorView<Anc
 #ifdef debug_chaining
             cerr << original_tracebacks[i].anchors[j] << " ";
 #endif
+            // Assign each anchor to the traceback it was originally in
             home_trace[original_tracebacks[i].anchors[j]] = make_pair(i, j);
         }
 #ifdef debug_chaining
@@ -795,6 +797,7 @@ unordered_map<TailAnchor, vector<AltEdge>> filter_alt_edges(const VectorView<Anc
 
     // Now check in on the extra edges.
     for (const auto& edge : alts) {
+        // If this edge connects anchors in two different tracebacks
         if (home_trace[edge.start_anchor].first != numeric_limits<size_t>::max() 
             && home_trace[edge.end_anchor].first != numeric_limits<size_t>::max()
             && home_trace[edge.start_anchor].first != home_trace[edge.end_anchor].first) {
@@ -877,6 +880,7 @@ void mark_rec_count(const VectorView<Anchor>& to_chain, vector<SparseAnchorChain
 vector<SparseAnchorChain> extend_tracebacks_with_alts(const vector<vector<TracedScore>>& chain_scores,
                                                       const vector<SparseAnchorChain>& original_tracebacks,
                                                       const unordered_map<TailAnchor, vector<AltEdge>> tail_edges) {
+    // The final traceback set we will return
     vector<SparseAnchorChain> optimal_tracebacks;
     // Any anchor which is used by multiple chains
     unordered_set<size_t> duplicated_anchors;
@@ -923,6 +927,7 @@ vector<SparseAnchorChain> extend_tracebacks_with_alts(const vector<vector<Traced
                         const auto& tied_in_anchors = original_tracebacks.at(tie_in.end_parent_id).anchors;
                         const auto& all_are_old = vector<bool>(tied_in_anchors.size() - tie_in.index_in_end, false);
                         // If using this extension would be positive
+                        // (this may fail if e.g. there is a large gap between chain pieces)
                         if (chain_scores[tied_in_anchors.back()].front().score 
                             > chain_scores[cur_extension.anchors.back()].front().score) {
 #ifdef debug_chaining
@@ -954,17 +959,24 @@ vector<SparseAnchorChain> extend_tracebacks_with_alts(const vector<vector<Traced
 
     // Score each traceback we got
     for (auto& cur_trace : optimal_tracebacks) {
+        // Set up as a new traceback
         cur_trace.chain_score = chain_scores[cur_trace.anchors.back()].front().score;
         cur_trace.is_anchor_shared = vector<bool>(cur_trace.anchors.size(), false);
+        // Walk backwards because our initial score is from the end of the traceback
         for (int anchor_i = cur_trace.anchors.size() - 1; anchor_i >= 0; anchor_i--) {
             size_t cur_anchor = cur_trace.anchors[anchor_i];
+
+            // Check if this particular anchor is duplicated
             if (duplicated_anchors.count(cur_anchor)) {
                 cur_trace.is_anchor_shared[anchor_i] = true;
                 cur_trace.has_duplicate_anchors = true;
             }
+
             // If we ever take a compromise, subtract that from our score
             if (anchor_i > 0 && chain_scores[cur_anchor].front().source != cur_trace.anchors[anchor_i-1]) {
                 int compromise = -chain_scores[cur_anchor].front().score;
+                // Hacky way to find the particular alt edge we took
+                // (in practice this works quick because there are few alts)
                 for (size_t alt_i = 1; alt_i < chain_scores[cur_anchor].size(); alt_i++) {
                     if (chain_scores[cur_anchor][alt_i].source == cur_trace.anchors[anchor_i-1]) {
                         compromise += chain_scores[cur_anchor][alt_i].score;
@@ -974,6 +986,7 @@ vector<SparseAnchorChain> extend_tracebacks_with_alts(const vector<vector<Traced
             }
         }
     }
+    
     return optimal_tracebacks;
 }
 
