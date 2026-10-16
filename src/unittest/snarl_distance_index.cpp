@@ -714,23 +714,28 @@ namespace vg {
                 });
                 handles.emplace_back(distance_index.get_bound(top_snarl, false, true));
                 handles.emplace_back(distance_index.get_bound(top_snarl, true, true));
-                unordered_set<pair<net_handle_t, net_handle_t>> edges;
+                // The edge from traversal left to traversal right is also the edge
+                // from flip(right) to flip(left). Key each edge by the smaller of
+                // these two pairs.
+                auto edge_key = [&](const net_handle_t& left, const net_handle_t& right) {
+                    return std::min(make_pair(as_integer(left), as_integer(right)),
+                                    make_pair(as_integer(distance_index.flip(right)), as_integer(distance_index.flip(left))));
+                };
+                std::set<pair<uint64_t, uint64_t>> edges;
                 for (net_handle_t& handle : handles) {
-                    // Go through the nodes we should have manually.
-                
-                    // Save all the edges off of each node
                     distance_index.follow_net_edges(handle, &graph, false, [&](const net_handle_t& other) {
-                        edges.insert(make_pair(handle, other));
+                        edges.insert(edge_key(handle, other));
                         return true;
                     });
                     distance_index.follow_net_edges(handle, &graph, true, [&](const net_handle_t& other) {
-                        edges.insert(make_pair(other, handle));
+                        edges.insert(edge_key(other, handle));
                         return true;
                     });
                 }
-                
-                //Double counting I think
-                REQUIRE(edges.size() == 6);
+
+                // Edges join the start bound to the child chain and to the end bound,
+                // and join the child chain to the end bound.
+                REQUIRE(edges.size() == 3);
             }
             SECTION("Get the ancestors of a single node") {
                 net_handle_t node6 = distance_index.get_net(graph.get_handle(n6->id(), false), &graph); 
@@ -1181,23 +1186,28 @@ namespace vg {
                 });
                 handles.emplace_back(distance_index.get_bound(top_snarl, false, true));
                 handles.emplace_back(distance_index.get_bound(top_snarl, true, true));
-                unordered_set<pair<net_handle_t, net_handle_t>> edges;
+                // The edge from traversal left to traversal right is also the edge
+                // from flip(right) to flip(left). Key each edge by the smaller of
+                // these two pairs.
+                auto edge_key = [&](const net_handle_t& left, const net_handle_t& right) {
+                    return std::min(make_pair(as_integer(left), as_integer(right)),
+                                    make_pair(as_integer(distance_index.flip(right)), as_integer(distance_index.flip(left))));
+                };
+                std::set<pair<uint64_t, uint64_t>> edges;
                 for (net_handle_t& handle : handles) {
-                    // Go through the nodes we should have manually.
-                
-                    // Save all the edges off of each node
                     distance_index.follow_net_edges(handle, &graph, false, [&](const net_handle_t& other) {
-                        edges.insert(make_pair(handle, other));
+                        edges.insert(edge_key(handle, other));
                         return true;
                     });
                     distance_index.follow_net_edges(handle, &graph, true, [&](const net_handle_t& other) {
-                        edges.insert(make_pair(other, handle));
+                        edges.insert(edge_key(other, handle));
                         return true;
                     });
                 }
-                
-                //Double counting I think
-                REQUIRE(edges.size() == 6);
+
+                // Edges join the start bound to the child chain and to the end bound,
+                // and join the child chain to the end bound.
+                REQUIRE(edges.size() == 3);
             }
             SECTION("Get the ancestors of a single node") {
                 net_handle_t node6 = distance_index.get_net(graph.get_handle(n6->id(), false), &graph); 
@@ -1697,7 +1707,7 @@ namespace vg {
 
                 }
                 
-                SECTION( "The top-level NetGraph has 3 edges" ) {
+                SECTION( "The top-level NetGraph has 4 edges" ) {
 
                     vector<net_handle_t> handles;
                     distance_index.for_each_child(top_snarl, [&](const net_handle_t& handle) {
@@ -1709,23 +1719,31 @@ namespace vg {
                     handles.emplace_back(distance_index.get_bound(top_snarl, false, true));
                     handles.emplace_back(distance_index.get_bound(top_snarl, true, true));
 
-                    unordered_set<pair<net_handle_t, net_handle_t>> edges;
+                    // The edge from traversal left to traversal right is also the edge
+                    // from flip(right) to flip(left). Key each edge by the smaller of
+                    // these two pairs.
+                    auto edge_key = [&](const net_handle_t& left, const net_handle_t& right) {
+                        return std::min(make_pair(as_integer(left), as_integer(right)),
+                                        make_pair(as_integer(distance_index.flip(right)), as_integer(distance_index.flip(left))));
+                    };
+                    std::set<pair<uint64_t, uint64_t>> edges;
                     for (net_handle_t& handle : handles) {
-                        // Go through the nodes we should have manually.
-                    
-                        // Save all the edges off of each node
                         distance_index.follow_net_edges(handle, &graph, false, [&](const net_handle_t& other) {
-                            edges.insert(make_pair(handle, other));
+                            edges.insert(edge_key(handle, other));
                             return true;
                         });
                         distance_index.follow_net_edges(handle, &graph, true, [&](const net_handle_t& other) {
-                            edges.insert(make_pair(other, handle));
+                            edges.insert(edge_key(other, handle));
                             return true;
                         });
                     }
-                    
-                    //Double counting I think
-                    REQUIRE(edges.size() == 6);
+
+                    // Edges join the start bound to the child chain and to the end
+                    // bound, and join the child chain to the end bound. The self-loop
+                    // on the end of node 3 lets a walk turn around in the child chain,
+                    // so a fourth edge joins the start bound to the child chain's
+                    // traversal from its start back to its start.
+                    REQUIRE(edges.size() == 4);
                 }
             }
             
@@ -1944,7 +1962,7 @@ namespace vg {
 
                 }
                 
-                SECTION( "The top-level NetGraph has 3 edges" ) {
+                SECTION( "The top-level NetGraph has 4 edges" ) {
                     vector<net_handle_t> handles;
                     distance_index.for_each_child(top_snarl, [&](const net_handle_t& handle) {
                         handles.emplace_back(handle);
@@ -1955,23 +1973,31 @@ namespace vg {
                     handles.emplace_back(distance_index.get_bound(top_snarl, false, true));
                     handles.emplace_back(distance_index.get_bound(top_snarl, true, true));
 
-                    unordered_set<pair<net_handle_t, net_handle_t>> edges;
+                    // The edge from traversal left to traversal right is also the edge
+                    // from flip(right) to flip(left). Key each edge by the smaller of
+                    // these two pairs.
+                    auto edge_key = [&](const net_handle_t& left, const net_handle_t& right) {
+                        return std::min(make_pair(as_integer(left), as_integer(right)),
+                                        make_pair(as_integer(distance_index.flip(right)), as_integer(distance_index.flip(left))));
+                    };
+                    std::set<pair<uint64_t, uint64_t>> edges;
                     for (net_handle_t& handle : handles) {
-                        // Go through the nodes we should have manually.
-                    
-                        // Save all the edges off of each node
                         distance_index.follow_net_edges(handle, &graph, false, [&](const net_handle_t& other) {
-                            edges.insert(make_pair(handle, other));
+                            edges.insert(edge_key(handle, other));
                             return true;
                         });
                         distance_index.follow_net_edges(handle, &graph, true, [&](const net_handle_t& other) {
-                            edges.insert(make_pair(other, handle));
+                            edges.insert(edge_key(other, handle));
                             return true;
                         });
                     }
-                    
-                    //Double counting I think
-                    REQUIRE(edges.size() == 6);
+
+                    // Edges join the start bound to the child chain and to the end
+                    // bound, and join the child chain to the end bound. The self-loop
+                    // on the start of node 4 lets a walk turn around in the child chain,
+                    // so a fourth edge joins the child chain's traversal from its end
+                    // back to its end to the end bound.
+                    REQUIRE(edges.size() == 4);
                 }
             }
             
@@ -4852,7 +4878,10 @@ namespace vg {
                 });
                 net_handle_t chain_start_in_handle = distance_index.get_bound(top_chain_handle, false, true);
                 net_handle_t chain_end_out_handle = distance_index.get_bound(top_chain_handle, true, false);
-                REQUIRE(chain_start_in_handle != chain_end_out_handle);
+                // A looping chain's first node is both its start bound and its
+                // end bound, so the start bound facing in is the end bound facing
+                // out.
+                REQUIRE(chain_start_in_handle == chain_end_out_handle);
 
                 //Traverse start node in, to reach middle node going forward
                 bool found_next_node = false;
@@ -4894,7 +4923,7 @@ namespace vg {
                 });
                 net_handle_t chain_start_out_handle = distance_index.get_bound(top_chain_handle, false, false);
                 net_handle_t chain_end_in_handle = distance_index.get_bound(top_chain_handle, true, true);
-                REQUIRE(chain_end_in_handle != chain_start_out_handle);
+                REQUIRE(chain_end_in_handle == chain_start_out_handle);
 
                 //Traverse end node in, to reach middle node going backward
                 bool found_next_node = false;
@@ -5340,11 +5369,14 @@ namespace vg {
                         REQUIRE((distance_index.starts_at(next) == SnarlDecomposition::END 
                               && distance_index.ends_at(next) == SnarlDecomposition::START));
                     });
-                    //And following it backwards finds the start
+                    //Going left finds the end-to-start traversal. A walk
+                    //along it leaves the chain's start, crosses the
+                    //self-loop on the start of node 1, and enters the
+                    //chain's start again.
                     distance_index.follow_net_edges(child, &graph, true, [&](const net_handle_t& next) {
                         REQUIRE(distance_index.is_chain(next));
-                        REQUIRE((distance_index.starts_at(next) == SnarlDecomposition::START 
-                              && distance_index.ends_at(next) == SnarlDecomposition::END));
+                        REQUIRE((distance_index.starts_at(next) == SnarlDecomposition::END 
+                              && distance_index.ends_at(next) == SnarlDecomposition::START));
                     });
 
                     //Flipping the handle to a end-start handle, we can find the start
@@ -5357,11 +5389,14 @@ namespace vg {
                         REQUIRE((distance_index.starts_at(next) == SnarlDecomposition::START 
                               && distance_index.ends_at(next) == SnarlDecomposition::END));
                     });
-                    //And the end by going backwards
+                    //Going left finds the start-to-end traversal. A walk
+                    //along it leaves the chain's end, crosses the self-loop
+                    //on the end of node 2, and enters the chain's end
+                    //again.
                     distance_index.follow_net_edges(flipped_child, &graph, true, [&](const net_handle_t& next) {
                         REQUIRE(distance_index.is_chain(next));
-                        REQUIRE((distance_index.starts_at(next) == SnarlDecomposition::END 
-                              && distance_index.ends_at(next) == SnarlDecomposition::START));
+                        REQUIRE((distance_index.starts_at(next) == SnarlDecomposition::START 
+                              && distance_index.ends_at(next) == SnarlDecomposition::END));
                     });
 
 

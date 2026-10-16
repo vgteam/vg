@@ -1105,6 +1105,16 @@ deque<Chain> SnarlManager::compute_chains(const vector<const Snarl*>& input_snar
             
         // Copy from the list into a vector
         to_return.emplace_back(chain.begin(), chain.end());
+
+        if (get_start_of(to_return.back()) == get_end_of(to_return.back())) {
+            // The walk left went all the way around a cyclic chain and put
+            // snarl last. Rotate the chain to start at snarl, so that a
+            // cyclic chain starts at its snarl that comes first in
+            // input_snarls.
+            Chain& cyclic = to_return.back();
+            std::rotate(cyclic.begin(), std::find(cyclic.begin(), cyclic.end(), make_pair(snarl, false)),
+                        cyclic.end());
+        }
     }
         
     return to_return;
