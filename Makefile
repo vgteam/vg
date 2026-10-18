@@ -977,7 +977,7 @@ $(LIB_DIR)/libdwfl_stacktrace.a: $(LIB_DIR)/libelf.a
 # them here however convenient they are.
 $(LIB_DIR)/libelf.a: $(ELFUTILS_DIR)/libebl/*.c $(ELFUTILS_DIR)/libebl/*.h $(ELFUTILS_DIR)/libdw/*.c $(ELFUTILS_DIR)/libdw/*.h $(ELFUTILS_DIR)/libelf/*.c $(ELFUTILS_DIR)/libelf/*.h $(ELFUTILS_DIR)/src/*.c $(ELFUTILS_DIR)/src/*.h $(LIB_DIR)/cleaned_old_elfutils_v004
 	cd $(CWD)/$(INC_DIR)/ && rm -Rf elfutils gelf.h libelf.h dwarf.h libdwflP.h libdwfl.h libebl.h libelf.h
-	cd $(ELFUTILS_DIR) && autoreconf -i -f && CFLAGS="-fPIC $(CFLAGS)" CXXFLAGS="-fPIC $(CXXFLAGS)" ./configure --enable-maintainer-mode --disable-libdebuginfod --disable-debuginfod --prefix=$(CWD) $(FILTER)
+	cd $(ELFUTILS_DIR) && autoreconf -i -f && CFLAGS="-fPIC -Wno-error=type-limits $(CFLAGS)" CXXFLAGS="-fPIC $(CXXFLAGS)" ./configure --enable-maintainer-mode --disable-libdebuginfod --disable-debuginfod --prefix=$(CWD) $(FILTER)
 	cd $(ELFUTILS_DIR)/libelf && $(MAKE) $(AUTOMAKE_MAKEFLAGS) clean && CFLAGS="-fPIC $(CFLAGS)" CXXFLAGS="-fPIC $(CXXFLAGS)" $(MAKE) $(AUTOMAKE_MAKEFLAGS) libelf.a $(FILTER)
 	cd $(ELFUTILS_DIR)/libebl && $(MAKE) $(AUTOMAKE_MAKEFLAGS) clean && CFLAGS="-fPIC $(CFLAGS)" CXXFLAGS="-fPIC $(CXXFLAGS)" $(MAKE) $(AUTOMAKE_MAKEFLAGS) libebl.a $(FILTER)
 	cd $(ELFUTILS_DIR)/libdwfl && $(MAKE) $(AUTOMAKE_MAKEFLAGS) clean && CFLAGS="-fPIC $(CFLAGS)" CXXFLAGS="-fPIC $(CXXFLAGS)" $(MAKE) $(AUTOMAKE_MAKEFLAGS) libdwfl.a $(FILTER)
