@@ -24,24 +24,14 @@ namespace vg::unittest {
 
 using endpoint_t = SnarlDecomposition::endpoint_t;
 
-/// List the children of a net graph element or the root, in the order
-/// for_each_child() gives them.
-static vector<net_handle_t> children_of(const SnarlDecomposition& decomposition, const net_handle_t& net) {
-    vector<net_handle_t> children;
-    decomposition.for_each_child(net, [&children](const net_handle_t& child) {
-        children.push_back(child);
-    });
-    return children;
-}
-
 /// Name the children of a net graph element or the root with element_name(),
 /// in the order for_each_child() gives them.
 static vector<string> child_names(const SnarlDecomposition& decomposition, const HandleGraph& graph,
                                   const net_handle_t& net) {
     vector<string> names;
-    for (const net_handle_t& child : children_of(decomposition, net)) {
+    decomposition.for_each_child(net, [&](const net_handle_t& child) {
         names.push_back(element_name(decomposition, graph, child));
-    }
+    });
     return names;
 }
 
@@ -84,62 +74,37 @@ static string describe(const SnarlDecomposition& decomposition, const HandleGrap
         endpoint_letter(decomposition.ends_at(traversal));
 }
 
-/// List the traversals that follow_net_edges() gives from a traversal.
-static vector<net_handle_t> adjacent_traversals(const SnarlDecomposition& decomposition, const HandleGraph& graph,
-                                               const net_handle_t& here, bool go_left) {
-    vector<net_handle_t> adjacent;
-    decomposition.follow_net_edges(here, &graph, go_left, [&adjacent](const net_handle_t& next) {
-        adjacent.push_back(next);
-    });
-    return adjacent;
-}
-
-/**
- * Require the SnarlDecomposition interface's laws about one traversal.
- *
- * @post Flipping the traversal twice gives it back.
- * @post Flipping a traversal of a net graph element swaps where it starts and
- * where it ends.
- * @post The traversal and its flip have the same canonical traversal.
- * @post For each traversal that going left gives, going right gives this
- * traversal back.
- * @post For each traversal that going right gives, going left gives this
- * traversal back.
- */
+/// Require the SnarlDecomposition interface's laws about one traversal.
 static void require_traversal_laws(const SnarlDecomposition& decomposition, const HandleGraph& graph,
                                    const net_handle_t& traversal) {
+    // Flipping the traversal twice gives it back.
     REQUIRE(decomposition.flip(decomposition.flip(traversal)) == traversal);
     if (!decomposition.is_sentinel(traversal)) {
+        // Flipping a traversal of a net graph element swaps where it starts
+        // and where it ends.
         REQUIRE(decomposition.starts_at(decomposition.flip(traversal)) == decomposition.ends_at(traversal));
         REQUIRE(decomposition.ends_at(decomposition.flip(traversal)) == decomposition.starts_at(traversal));
     }
+    // The traversal and its flip have the same canonical traversal.
     REQUIRE(decomposition.canonical(decomposition.flip(traversal)) == decomposition.canonical(traversal));
     INFO("Traversal: " << describe(decomposition, graph, traversal));
-    for (const net_handle_t& left : adjacent_traversals(decomposition, graph, traversal, true)) {
-        INFO("Going left gives: " << describe(decomposition, graph, left));
-        vector<net_handle_t> right = adjacent_traversals(decomposition, graph, left, false);
-        REQUIRE(std::ranges::find(right, traversal) != right.end());
-    }
-    for (const net_handle_t& right : adjacent_traversals(decomposition, graph, traversal, false)) {
-        INFO("Going right gives: " << describe(decomposition, graph, right));
-        vector<net_handle_t> left = adjacent_traversals(decomposition, graph, right, true);
-        REQUIRE(std::ranges::find(left, traversal) != left.end());
+    for (bool go_left : {true, false}) {
+        decomposition.follow_net_edges(traversal, &graph, go_left, [&](const net_handle_t& next) {
+            INFO("Going " << (go_left ? "left" : "right") << " gives: " << describe(decomposition, graph, next));
+            bool comes_back = false;
+            decomposition.follow_net_edges(next, &graph, !go_left, [&](const net_handle_t& back) {
+                comes_back = comes_back || back == traversal;
+            });
+            // Going the other way from each traversal that going one way
+            // gives leads back to this traversal.
+            REQUIRE(comes_back);
+        });
     }
 }
 
 /**
  * Require the SnarlDecomposition interface's laws about a snarl's or
  * chain's bounds.
- *
- * @post A snarl's bounds are sentinels.
- * @post starts_at() of a sentinel of the start bound is START, and of a
- * sentinel of the end bound is END, facing in or out.
- * @post get_parent() of each sentinel gives the snarl START_END.
- * @post A chain's bounds are node traversals that are START_END or
- * END_START.
- * @post If for_each_traversal() gives a START_END traversal of the snarl or
- * chain, get_parent_traversal() of the start bound facing in and the end
- * bound facing out gives the snarl or chain START_END.
  *
  * @param net A traversal of a snarl or chain.
  */
@@ -148,6 +113,8 @@ static void require_bound_laws(const SnarlDecomposition& decomposition, const ne
     if (std::ranges::find(kinds, "SE") != kinds.end()) {
         net_handle_t traversal = decomposition.get_parent_traversal(decomposition.get_bound(net, false, true),
                                                                     decomposition.get_bound(net, true, false));
+        // The start bound facing in and the end bound facing out make the
+        // snarl or chain START_END.
         REQUIRE(decomposition.starts_at(traversal) == SnarlDecomposition::START);
         REQUIRE(decomposition.ends_at(traversal) == SnarlDecomposition::END);
         REQUIRE(decomposition.canonical(traversal) == decomposition.canonical(net));
@@ -156,14 +123,20 @@ static void require_bound_laws(const SnarlDecomposition& decomposition, const ne
         for (bool face_in : {false, true}) {
             net_handle_t bound = decomposition.get_bound(net, get_end, face_in);
             if (decomposition.is_chain(net)) {
+                // A chain's bounds are node traversals that are START_END or
+                // END_START.
                 REQUIRE(decomposition.is_node(bound));
                 REQUIRE(decomposition.starts_at(bound) != decomposition.ends_at(bound));
                 continue;
             }
+            // A snarl's bounds are sentinels.
             REQUIRE(decomposition.is_sentinel(bound));
+            // A sentinel of the start bound starts at START, and a sentinel of
+            // the end bound at END, facing in or out.
             REQUIRE(decomposition.starts_at(bound) == (get_end ? SnarlDecomposition::END : SnarlDecomposition::START));
             REQUIRE(decomposition.starts_at(decomposition.flip(bound)) == decomposition.starts_at(bound));
             net_handle_t parent = decomposition.get_parent(bound);
+            // The parent of each sentinel is its snarl START_END.
             REQUIRE(decomposition.starts_at(parent) == SnarlDecomposition::START);
             REQUIRE(decomposition.ends_at(parent) == SnarlDecomposition::END);
             REQUIRE(decomposition.canonical(parent) == decomposition.canonical(net));
@@ -178,27 +151,17 @@ static void require_bound_laws(const SnarlDecomposition& decomposition, const ne
  * Check each child, and everything under each child that is a snarl or chain.
  *
  * @param parent The root, or a traversal of a snarl or chain.
- *
- * @post Each realizable traversal of each net graph element under the parent
- * keeps the laws that require_traversal_laws() lists.
- * @post Each snarl or chain under the parent keeps the laws that
- * require_bound_laws() lists.
- * @post get_parent() of a chain's child gives the chain traversal that
- * for_each_child() listed the child from.
- * @post get_parent() of a snarl's or the root's child gives a traversal with
- * the same canonical traversal as the snarl or root.
- * @post The canonical traversal of each net graph element under the parent is
- * one of its realizable traversals, if it has any.
- * @post for_each_child() of a flipped chain lists the chain's children in
- * reverse order, each flipped. A looping chain still lists its boundary node
- * first.
  */
 static void require_interface_laws(const SnarlDecomposition& decomposition, const HandleGraph& graph,
                                    const net_handle_t& parent) {
-    for (const net_handle_t& child : children_of(decomposition, parent)) {
+    decomposition.for_each_child(parent, [&](const net_handle_t& child) {
         if (decomposition.is_chain(parent)) {
+            // A chain's child has as its parent the chain traversal that
+            // listed it.
             REQUIRE(decomposition.get_parent(child) == parent);
         } else {
+            // A snarl's or the root's child has as its parent some traversal
+            // of the snarl or root.
             REQUIRE(decomposition.canonical(decomposition.get_parent(child)) == decomposition.canonical(parent));
         }
         bool has_traversals = false;
@@ -208,26 +171,34 @@ static void require_interface_laws(const SnarlDecomposition& decomposition, cons
             has_traversals = true;
             canonical_is_realizable = canonical_is_realizable || traversal == decomposition.canonical(child);
         });
+        // The canonical traversal is realizable, if any traversal is.
         REQUIRE(canonical_is_realizable == has_traversals);
         if (decomposition.is_snarl(child) || decomposition.is_chain(child)) {
             require_bound_laws(decomposition, child);
         }
         if (decomposition.is_chain(child)) {
-            vector<net_handle_t> expected = children_of(decomposition, child);
+            vector<net_handle_t> expected;
+            decomposition.for_each_child(child, [&](const net_handle_t& grandchild) {
+                expected.push_back(decomposition.flip(grandchild));
+            });
             std::ranges::reverse(expected);
-            for (net_handle_t& grandchild : expected) {
-                grandchild = decomposition.flip(grandchild);
-            }
             if (decomposition.get_handle(decomposition.get_bound(child, false, true), &graph) ==
                 decomposition.get_handle(decomposition.get_bound(child, true, false), &graph)) {
                 std::ranges::rotate(expected, expected.end() - 1);
             }
-            REQUIRE(children_of(decomposition, decomposition.flip(child)) == expected);
+            vector<net_handle_t> flipped_children;
+            decomposition.for_each_child(decomposition.flip(child), [&](const net_handle_t& grandchild) {
+                flipped_children.push_back(grandchild);
+            });
+            // The flipped chain lists the chain's children in reverse order,
+            // each flipped. A looping chain still lists its boundary node
+            // first.
+            REQUIRE(flipped_children == expected);
         }
         if (!decomposition.is_node(child)) {
             require_interface_laws(decomposition, graph, child);
         }
-    }
+    });
 }
 
 /// Make the small graphs that the law and comparison tests share, each named
@@ -340,28 +311,27 @@ TEST_CASE("tree_shape() is the same for each SnarlDecomposition implementation",
 }
 
 /**
- * Require the SnarlDecomposition interface's laws, as
- * require_interface_laws() lists them, on one implementation.
+ * Require the SnarlDecomposition interface's laws on one implementation.
  *
- * Checks the implementation in a DecompositionLineup for each of
- * example_graphs(), decomposed by IntegratedSnarlFinder, and for 200 graphs
- * from random_flipped_graph(), decomposed by fuzzed_decomposition(). The
- * random graphs are 100 with chain_flip_probability 0 and 100 with 0.5.
+ * Each implementation gets a test case of its own, so a failure names the
+ * implementation that broke a law. The example graphs hold the structures
+ * that the laws treat specially, such as looping chains and tips. The random
+ * graphs have nodes and snarls reversed in parent.
  *
  * @param implementation The class name that DecompositionLineup::for_each()
  * gives the implementation.
- *
- * @note A name that no implementation has checks nothing.
- *
- * TODO: Should a name that no implementation has fail the test instead?
  */
 static void require_laws_on_implementation(const string& implementation) {
     auto check = [&implementation](const DecompositionLineup& lineup, const HandleGraph& graph) {
+        bool found = false;
         lineup.for_each([&](const string& name, const SnarlDecomposition& decomposition) {
             if (name == implementation) {
+                found = true;
                 require_interface_laws(decomposition, graph, decomposition.get_root());
             }
         });
+        // The line-up has an implementation with the name.
+        REQUIRE(found);
     };
     for (const auto& [description, build] : example_graphs()) {
         INFO("Graph: " << description);
@@ -421,9 +391,10 @@ TEST_CASE("SnarlManagerDecomposition get_snarl_net() gives each manager snarl or
     SnarlManager manager = finder.find_snarls();
     SnarlManagerDecomposition view(manager, graph);
 
-    vector<net_handle_t> root_chains = children_of(view, view.get_root());
     REQUIRE(child_names(view, graph, view.get_root()) == vector<string> {"chain 1+/8+"});
-    REQUIRE(child_names(view, graph, root_chains[0]).size() == 3);
+    view.for_each_child(view.get_root(), [&](const net_handle_t& root_chain) {
+        REQUIRE(child_names(view, graph, root_chain).size() == 3);
+    });
 
     manager.for_each_snarl_preorder([&](const Snarl* snarl) {
         net_handle_t net = view.get_snarl_net(snarl);
@@ -433,10 +404,13 @@ TEST_CASE("SnarlManagerDecomposition get_snarl_net() gives each manager snarl or
         handle_t end = graph.get_handle(snarl->end().node_id(), snarl->end().backward());
         REQUIRE(view.get_handle(view.get_bound(net, false, true), &graph) == (is_reverse ? graph.flip(end) : start));
         REQUIRE(view.get_handle(view.get_bound(net, true, false), &graph) == (is_reverse ? graph.flip(start) : end));
+        bool listed = false;
+        view.for_each_child(view.get_parent(net), [&](const net_handle_t& sibling) {
+            listed = listed || sibling == net;
+        });
         // for_each_child() of the parent chain of the snarl lists the same
         // snarl traversal.
-        vector<net_handle_t> siblings = children_of(view, view.get_parent(net));
-        REQUIRE(std::ranges::find(siblings, net) != siblings.end());
+        REQUIRE(listed);
     });
 }
 
@@ -459,10 +433,13 @@ TEST_CASE("SnarlManagerDecomposition for_each_child() of a chain lists a childle
     SnarlManager manager = finder.find_snarls();
     SnarlManagerDecomposition view(manager, graph);
 
-    vector<net_handle_t> root_chains = children_of(view, view.get_root());
-    REQUIRE(root_chains.size() == 1);
-    REQUIRE(child_names(view, graph, root_chains[0]) ==
-            vector<string> {"node 1", "snarl 1+/2+", "node 2", "snarl 2+/4+", "node 4", "snarl 4+/5+", "node 5"});
+    size_t root_chain_count = 0;
+    view.for_each_child(view.get_root(), [&](const net_handle_t& root_chain) {
+        root_chain_count++;
+        REQUIRE(child_names(view, graph, root_chain) ==
+                vector<string> {"node 1", "snarl 1+/2+", "node 2", "snarl 2+/4+", "node 4", "snarl 4+/5+", "node 5"});
+    });
+    REQUIRE(root_chain_count == 1);
 }
 
 TEST_CASE("SnarlManagerDecomposition for_each_traversal() gives START_START for a chain with a self-loop in a childless snarl",
@@ -514,21 +491,35 @@ TEST_CASE("SnarlManagerDecomposition for_each_child() of a looping chain lists t
     SnarlManager manager = finder.find_snarls();
     SnarlManagerDecomposition view(manager, graph);
 
-    vector<net_handle_t> chains = children_of(view, view.get_root());
+    vector<net_handle_t> chains;
+    view.for_each_child(view.get_root(), [&chains](const net_handle_t& chain) {
+        chains.push_back(chain);
+    });
     REQUIRE(chains.size() == 1);
     const net_handle_t& chain = chains[0];
-    vector<net_handle_t> children = children_of(view, chain);
+    vector<net_handle_t> children;
+    view.for_each_child(chain, [&children](const net_handle_t& child) {
+        children.push_back(child);
+    });
     REQUIRE(children.size() == 4);
     // Both bounds are the first child, oriented forward along the chain.
     REQUIRE(view.get_bound(chain, false, true) == children.front());
     REQUIRE(view.get_bound(chain, true, false) == children.front());
 
+    vector<net_handle_t> after_last;
+    view.follow_net_edges(children.back(), &graph, false, [&after_last](const net_handle_t& next) {
+        after_last.push_back(next);
+    });
     // Leaving the last child forward along the chain, a walk next visits the
     // first child.
-    REQUIRE(adjacent_traversals(view, graph, children.back(), false) == vector<net_handle_t> {children.front()});
+    REQUIRE(after_last == vector<net_handle_t> {children.front()});
 
+    vector<net_handle_t> flipped_children;
+    view.for_each_child(view.flip(chain), [&flipped_children](const net_handle_t& child) {
+        flipped_children.push_back(child);
+    });
     // Traversed in reverse, the chain still lists its boundary node first.
-    REQUIRE(children_of(view, view.flip(chain)) ==
+    REQUIRE(flipped_children ==
             vector<net_handle_t> {view.flip(children[0]), view.flip(children[3]), view.flip(children[2]),
                                   view.flip(children[1])});
 
@@ -536,7 +527,11 @@ TEST_CASE("SnarlManagerDecomposition for_each_child() of a looping chain lists t
     // follow_net_edges() of the chain gives nothing in either direction.
     for (const net_handle_t& traversal : {chain, view.flip(chain)}) {
         for (bool go_left : {false, true}) {
-            REQUIRE(adjacent_traversals(view, graph, traversal, go_left).empty());
+            bool gave_any = false;
+            view.follow_net_edges(traversal, &graph, go_left, [&gave_any](const net_handle_t&) {
+                gave_any = true;
+            });
+            REQUIRE(!gave_any);
         }
     }
 }
@@ -663,10 +658,17 @@ TEST_CASE("SnarlManagerDecomposition for_each_traversal() gives START_TIP and TI
     SnarlManager manager = finder.find_snarls();
     SnarlManagerDecomposition view(manager, graph);
 
-    vector<net_handle_t> root_chains = children_of(view, view.get_root());
+    vector<net_handle_t> root_chains;
+    view.for_each_child(view.get_root(), [&root_chains](const net_handle_t& root_chain) {
+        root_chains.push_back(root_chain);
+    });
     REQUIRE(root_chains.size() == 1);
     const net_handle_t& chain = root_chains[0];
-    net_handle_t snarl = children_of(view, chain)[1];
+    vector<net_handle_t> chain_children;
+    view.for_each_child(chain, [&chain_children](const net_handle_t& child) {
+        chain_children.push_back(child);
+    });
+    net_handle_t snarl = chain_children[1];
     REQUIRE(view.is_snarl(snarl));
     REQUIRE(traversal_kinds(view, snarl) == vector<string> {"SE", "ST", "ES", "TS"});
     REQUIRE(traversal_kinds(view, chain) == vector<string> {"SE", "ST", "ES", "TS"});
@@ -700,11 +702,14 @@ TEST_CASE("SnarlManagerDecomposition for_each_traversal() gives START_TIP and TI
 
     SECTION("follow_net_edges() from the TIP end of a snarl traversal gives nothing") {
         view.for_each_traversal(snarl, [&](const net_handle_t& traversal) {
-            if (view.ends_at_tip(traversal)) {
-                REQUIRE(adjacent_traversals(view, graph, traversal, false).empty());
-            }
-            if (view.starts_at_tip(traversal)) {
-                REQUIRE(adjacent_traversals(view, graph, traversal, true).empty());
+            for (bool go_left : {false, true}) {
+                if (go_left ? view.starts_at_tip(traversal) : view.ends_at_tip(traversal)) {
+                    bool gave_any = false;
+                    view.follow_net_edges(traversal, &graph, go_left, [&gave_any](const net_handle_t&) {
+                        gave_any = true;
+                    });
+                    REQUIRE(!gave_any);
+                }
             }
         });
     }

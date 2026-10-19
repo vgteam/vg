@@ -39,16 +39,6 @@ static void index_events(const HandleGraph& graph, const std::vector<Decompositi
     fill_in_distance_index(&index, &graph, &finder);
 }
 
-/// List the children of a net graph element or the root, in the order
-/// for_each_child() gives them.
-static std::vector<net_handle_t> children_of(const SnarlDistanceIndex& index, const net_handle_t& parent) {
-    std::vector<net_handle_t> children;
-    index.for_each_child(parent, [&children](const net_handle_t& child) {
-        children.push_back(child);
-    });
-    return children;
-}
-
 /// Return true if for_each_traversal() gives a traversal of a net graph
 /// element that starts at one endpoint and ends at another.
 static bool has_traversal(const SnarlDistanceIndex& index, const net_handle_t& net, endpoint_t start,
@@ -58,16 +48,6 @@ static bool has_traversal(const SnarlDistanceIndex& index, const net_handle_t& n
         found |= index.starts_at(traversal) == start && index.ends_at(traversal) == end;
     });
     return found;
-}
-
-/// List the traversals that follow_net_edges() gives from a traversal.
-static std::vector<net_handle_t> adjacent_traversals(const SnarlDistanceIndex& index, const HandleGraph& graph,
-                                                    const net_handle_t& here, bool go_left) {
-    std::vector<net_handle_t> adjacent;
-    index.follow_net_edges(here, &graph, go_left, [&adjacent](const net_handle_t& next) {
-        adjacent.push_back(next);
-    });
-    return adjacent;
 }
 
 /// Get the start-to-end traversal of the chain that holds a node.
@@ -92,7 +72,10 @@ TEST_CASE("SnarlDistanceIndex for_each_child() of an END_START chain lists the e
     index_graph(graph, index);
 
     net_handle_t backward = index.flip(chain_of_node(index, graph.get_id(n1)));
-    std::vector<net_handle_t> children = children_of(index, backward);
+    std::vector<net_handle_t> children;
+    index.for_each_child(backward, [&children](const net_handle_t& child) {
+        children.push_back(child);
+    });
     REQUIRE(children.size() == 3);
     REQUIRE(index.is_node(children.front()));
     REQUIRE(index.get_handle(children.front(), &graph) == graph.flip(n4));
@@ -198,7 +181,11 @@ TEST_CASE("SnarlDistanceIndex for_each_traversal() gives START_TIP for a snarl w
 
     net_handle_t inner_chain = chain_of_node(index, graph.get_id(n2));
     REQUIRE(index.is_chain(inner_chain));
-    REQUIRE(children_of(index, inner_chain).size() == 3);
+    size_t child_count = 0;
+    index.for_each_child(inner_chain, [&child_count](const net_handle_t&) {
+        child_count++;
+    });
+    REQUIRE(child_count == 3);
     net_handle_t outer_snarl = index.get_parent(inner_chain);
     REQUIRE(index.is_snarl(outer_snarl));
     REQUIRE(has_traversal(index, outer_snarl, SnarlDecomposition::START, SnarlDecomposition::TIP));
@@ -275,16 +262,19 @@ TEST_CASE("SnarlDistanceIndex follow_net_edges() going right undoes going left f
     index_graph(graph, index);
 
     net_handle_t chain = chain_of_node(index, graph.get_id(n1));
-    for (const net_handle_t& child : children_of(index, chain)) {
+    index.for_each_child(chain, [&](const net_handle_t& child) {
         for (const net_handle_t& here : {child, index.flip(child)}) {
-            for (const net_handle_t& left : adjacent_traversals(index, graph, here, true)) {
+            index.follow_net_edges(here, &graph, true, [&](const net_handle_t& left) {
                 INFO("going left from " << index.net_handle_as_string(here) << " gives "
                      << index.net_handle_as_string(left));
-                std::vector<net_handle_t> right = adjacent_traversals(index, graph, left, false);
-                REQUIRE(std::find(right.begin(), right.end(), here) != right.end());
-            }
+                bool comes_back = false;
+                index.follow_net_edges(left, &graph, false, [&](const net_handle_t& right) {
+                    comes_back = comes_back || right == here;
+                });
+                REQUIRE(comes_back);
+            });
         }
-    }
+    });
 }
 
 
@@ -361,7 +351,10 @@ TEST_CASE("SnarlDistanceIndex follow_net_edges() from a chain node gives each tr
 
     net_handle_t chain = chain_of_node(index, graph.get_id(n1));
     REQUIRE(index.get_handle(index.get_bound(chain, false, true), &graph) == n1);
-    std::vector<net_handle_t> adjacent = adjacent_traversals(index, graph, index.get_bound(chain, false, true), false);
+    std::vector<net_handle_t> adjacent;
+    index.follow_net_edges(index.get_bound(chain, false, true), &graph, false, [&adjacent](const net_handle_t& next) {
+        adjacent.push_back(next);
+    });
     REQUIRE(adjacent.size() == 2);
     for (const net_handle_t& next : adjacent) {
         REQUIRE(index.is_snarl(next));
@@ -388,53 +381,47 @@ traversal_kinds(const SnarlDistanceIndex& index, const net_handle_t& net) {
  *
  * expected_item and actual_item are the same element, or the root, in each
  * index.
- *
- * @post Each snarl, chain and root has the same number of children in both
- * indexes, in the same order.
- * @post Each node has the same graph handle in both indexes.
- * @post Each net graph element has the same realizable traversals in both
- * indexes.
  */
 static void require_same_traversals(const SnarlDistanceIndex& expected, const net_handle_t& expected_item,
                                     const SnarlDistanceIndex& actual, const net_handle_t& actual_item,
                                     const HandleGraph& graph) {
     if (!expected.is_root(expected_item)) {
         INFO("Element " << expected.net_handle_as_string(expected_item));
+        // The element has the same realizable traversals in both indexes.
         REQUIRE(traversal_kinds(actual, actual_item) == traversal_kinds(expected, expected_item));
     }
     if (expected.is_node(expected_item)) {
+        // The node has the same graph handle in both indexes.
         REQUIRE(actual.get_handle(actual_item, &graph) == expected.get_handle(expected_item, &graph));
         return;
     }
-    std::vector<net_handle_t> expected_children = children_of(expected, expected_item);
-    std::vector<net_handle_t> actual_children = children_of(actual, actual_item);
+    std::vector<net_handle_t> expected_children;
+    expected.for_each_child(expected_item, [&expected_children](const net_handle_t& child) {
+        expected_children.push_back(child);
+    });
+    std::vector<net_handle_t> actual_children;
+    actual.for_each_child(actual_item, [&actual_children](const net_handle_t& child) {
+        actual_children.push_back(child);
+    });
+    // The snarl, chain or root has the same number of children in both
+    // indexes. The recursion compares them in order.
     REQUIRE(actual_children.size() == expected_children.size());
     for (size_t i = 0; i < expected_children.size(); i++) {
         require_same_traversals(expected, expected_children[i], actual, actual_children[i], graph);
     }
 }
 
-/// Require that distance indexes built from one decomposition without stored
-/// distances, with a size limit that leaves snarls oversized, and with
-/// distances only for top-level chains, give the same traversals as one built
-/// with distances.
-static void require_traversals_without_distances(const HandleGraph& graph,
-                                                 const std::vector<DecompositionEvent>& events) {
-    SnarlDistanceIndex with_distances;
-    ReplaySnarlFinder finder(&graph, events);
-    fill_in_distance_index(&with_distances, &graph, &finder);
-    for (auto [size_limit, only_top_level] : {std::pair<size_t, bool>(0, false), std::pair<size_t, bool>(1, false),
-                                              std::pair<size_t, bool>(50000, true)}) {
-        INFO("Size limit " << size_limit << (only_top_level ? ", top-level chain distances only" : ""));
-        SnarlDistanceIndex index;
-        ReplaySnarlFinder replay(&graph, events);
-        fill_in_distance_index(&index, &graph, &replay, size_limit, only_top_level);
-        require_same_traversals(with_distances, with_distances.get_root(), index, index.get_root(), graph);
-    }
-}
-
 TEST_CASE("SnarlDistanceIndex for_each_traversal() gives the same traversals with or without stored distances",
           "[snarl_distance_interface]") {
+    /// A graph and a decomposition of it, written as snarl finder events.
+    struct Decomposed {
+        bdsg::HashGraph graph;
+        std::vector<DecompositionEvent> events;
+    };
+    // Each section only fills this with the decompositions to compare.
+    std::vector<Decomposed> cases;
+    using enum DecompositionEventType;
+
     SECTION("The same traversals for snarls with tips and turnarounds") {
         // The chain is node 1, the snarl from 1 to 4, node 4, a snarl with no
         // children from 4 to 5, and node 5. In the snarl from 1 to 4, node 6
@@ -456,15 +443,14 @@ TEST_CASE("SnarlDistanceIndex for_each_traversal() gives the same traversals wit
         graph.create_edge(n2, graph.flip(n3));
         graph.create_edge(n4, n5);
         graph.create_edge(n4, graph.flip(n4));
-        using enum DecompositionEventType;
-        require_traversals_without_distances(graph, {
+        cases.push_back({std::move(graph), {
             {BEGIN_CHAIN, 1, false}, {BEGIN_SNARL, 1, false},
             {BEGIN_CHAIN, 2, false}, {END_CHAIN, 2, false},
             {BEGIN_CHAIN, 3, false}, {END_CHAIN, 3, false},
             {BEGIN_CHAIN, 6, false}, {END_CHAIN, 6, false},
             {END_SNARL, 4, false}, {BEGIN_SNARL, 4, false}, {END_SNARL, 5, false},
             {END_CHAIN, 5, false}
-        });
+        }});
     }
 
     SECTION("The same traversals for a snarl with a tip in a child chain") {
@@ -487,8 +473,7 @@ TEST_CASE("SnarlDistanceIndex for_each_traversal() gives the same traversals wit
         graph.create_edge(n3, n6);
         graph.create_edge(n5, n7);
         graph.create_edge(n1, n7);
-        using enum DecompositionEventType;
-        require_traversals_without_distances(graph, {
+        cases.push_back({std::move(graph), {
             {BEGIN_CHAIN, 1, false}, {BEGIN_SNARL, 1, false},
             {BEGIN_CHAIN, 2, false}, {BEGIN_SNARL, 2, false},
             {BEGIN_CHAIN, 3, false}, {END_CHAIN, 3, false},
@@ -496,7 +481,7 @@ TEST_CASE("SnarlDistanceIndex for_each_traversal() gives the same traversals wit
             {BEGIN_CHAIN, 6, false}, {END_CHAIN, 6, false},
             {END_SNARL, 5, false}, {END_CHAIN, 5, false},
             {END_SNARL, 7, false}, {END_CHAIN, 7, false}
-        });
+        }});
     }
 
     SECTION("The same traversals for a snarl with a walk between tips in two child chains") {
@@ -524,8 +509,7 @@ TEST_CASE("SnarlDistanceIndex for_each_traversal() gives the same traversals wit
         graph.create_edge(n5, n8);
         graph.create_edge(n7, n10);
         graph.create_edge(n4, n5);
-        using enum DecompositionEventType;
-        require_traversals_without_distances(graph, {
+        cases.push_back({std::move(graph), {
             {BEGIN_CHAIN, 1, false}, {BEGIN_SNARL, 1, false},
             {BEGIN_CHAIN, 2, false}, {BEGIN_SNARL, 2, false},
             {BEGIN_CHAIN, 3, false}, {END_CHAIN, 3, false},
@@ -534,7 +518,7 @@ TEST_CASE("SnarlDistanceIndex for_each_traversal() gives the same traversals wit
             {BEGIN_CHAIN, 8, false}, {END_CHAIN, 8, false},
             {END_SNARL, 7, false}, {END_CHAIN, 7, false},
             {END_SNARL, 10, false}, {END_CHAIN, 10, false}
-        });
+        }});
     }
 
     SECTION("The same traversals for a looping chain") {
@@ -551,14 +535,34 @@ TEST_CASE("SnarlDistanceIndex for_each_traversal() gives the same traversals wit
         graph.create_edge(n3, n4);
         graph.create_edge(n4, n1);
         IntegratedSnarlFinder finder(graph);
-        require_traversals_without_distances(graph, capture_events(finder, graph));
+        std::vector<DecompositionEvent> events = capture_events(finder, graph);
+        cases.push_back({std::move(graph), std::move(events)});
     }
 
     SECTION("The same traversals for random graphs") {
         std::default_random_engine generator(test_seed_source());
         for (size_t repeat = 0; repeat < 100; repeat++) {
             bdsg::HashGraph graph = random_flipped_graph(generator);
-            require_traversals_without_distances(graph, fuzzed_decomposition(graph, 0.5, generator));
+            std::vector<DecompositionEvent> events = fuzzed_decomposition(graph, 0.5, generator);
+            cases.push_back({std::move(graph), std::move(events)});
+        }
+    }
+
+    for (const Decomposed& decomposed : cases) {
+        const HandleGraph& graph = decomposed.graph;
+        SnarlDistanceIndex with_distances;
+        ReplaySnarlFinder finder(&graph, decomposed.events);
+        fill_in_distance_index(&with_distances, &graph, &finder);
+        // Compare indexes built without stored distances, with a size limit
+        // that leaves snarls oversized, and with distances only for top-level
+        // chains.
+        for (auto [size_limit, only_top_level] : {std::pair<size_t, bool>(0, false), std::pair<size_t, bool>(1, false),
+                                                  std::pair<size_t, bool>(50000, true)}) {
+            INFO("Size limit " << size_limit << (only_top_level ? ", top-level chain distances only" : ""));
+            SnarlDistanceIndex index;
+            ReplaySnarlFinder replay(&graph, decomposed.events);
+            fill_in_distance_index(&index, &graph, &replay, size_limit, only_top_level);
+            require_same_traversals(with_distances, with_distances.get_root(), index, index.get_root(), graph);
         }
     }
 }
