@@ -509,6 +509,18 @@ void GiraffeEngine::load(const GiraffeEnginePaths& paths, const GiraffeEngineCon
     if (config.max_multimaps > 0) {
         mapper->max_multimaps = config.max_multimaps;
     }
+    // MAPQ calibration overrides; no effect unless set. hifi multiplies raw
+    // scores by 0.001 with no length normalisation, so MAPQ grows with read
+    // length. A window rescales every score to that many bases first (upstream
+    // R10 uses scale 1, window 150).
+    if (const char* e = std::getenv("PANGENOME_MAPQ_SCORE_SCALE")) {
+        mapper->mapq_score_scale = std::stod(e);
+    }
+    if (const char* e = std::getenv("PANGENOME_MAPQ_SCORE_WINDOW")) {
+        mapper->mapq_score_window = static_cast<size_t>(std::stoul(e));
+    }
+    cerr << "[giraffe-engine] mapq_score_scale=" << mapper->mapq_score_scale
+         << " mapq_score_window=" << mapper->mapq_score_window << endl;
 
     auto assigner = make_unique<HaplotypeAssigner>(*gbz, *distance_index);
 
