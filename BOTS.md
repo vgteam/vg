@@ -83,7 +83,7 @@ Use these words, which the code already uses, in comments and names, without def
 A term here names its idea in sentences about that idea. The same word can mean something else in another context: its ordinary English sense, or a meaning that a module, class or function defines in its own comments. Leave a word alone where it is clear in its context, even if this list gives it another meaning.
 - A *handle* is a node in one *orientation*: forward or reverse. A handle reads the node's sequence in its orientation, and leaves the node through its right side. Say a handle is *oriented* forward or reverse. Flipping a handle gives the other orientation.
 - An *edge* joins a side of one node to a side of another.
-- A *Visit* is one step of a walk through the graph: a node, or a child snarl, in an orientation. A *SnarlTraversal* or *path* *visits* nodes and snarls; it does not "pass" or "reach" them.
+- A *visit* is one step of a walk through the graph: a node, or a child snarl, in an orientation. A traversal of a snarl, or a *path*, *visits* nodes and snarls; they does not "pass" or "reach" them. The capital Visit suggests the Protobuf `Visit` type, which can only be to nodes; the lower-case "visit" is preferred for the general concept. Generally paths are thought of as only visiting nodes, but in some contexts we might think of a path as visiting snarls or chains.
 - A *snarl* is a part of the graph between two *bounds*. Its start is oriented into the snarl and its end out of it. Snarls *contain* chains.
 - A *chain* is a run of snarls that share bounds, each snarl's end being the next one's start. Each node or snarl in a chain is forward or *reversed in parent* relative to the chain.
 - In a snarl decomposition, a *net handle* is one *traversal* of a snarl, chain or node: from its start, end or a *tip* to its start, end or a tip. A *sentinel* is a snarl's bound, facing into or out of the snarl. A traversal is *realizable* when a walk in the graph can make it.
@@ -105,32 +105,29 @@ A term here names its idea in sentences about that idea. The same word can mean 
 - *phase block*: A stretch of a contig over which a haplotype is phased, numbered so that a haplotype cut where phasing is unknown becomes several paths.
 - *subrange*: The 0-based, end-exclusive coordinates that a reference or generic path covers within a longer path that the graph does not hold in full.
 - *PanSN*: The naming scheme `sample#haplotype#contig` for paths in a pangenome.
-- *bubble*: The older, narrower term in the literature for a snarl: alternative routes between two nodes.
+- *bubble*: The older, narrower term in the literature for something like a snarl: alternative routes between two nodes.
 - *ultrabubble*: A snarl in which every walk from the start reaches the end without cycles or turning around.
 - *boundary node*: One of the two nodes whose sides delimit a snarl or chain; a snarl's start is oriented into it and its end out of it.
-- *bound*: The start or the end of a snarl or chain, as a boundary node traversal or, in a SnarlDecomposition, as a sentinel.
 - *trivial chain*: A chain that holds just one node, which is both of its bounds.
-- *trivial snarl*: A snarl with nothing inside it but an edge between its boundary nodes, implied by two consecutive nodes of a chain and usually left out of the snarl tree.
-- *unary snarl*: A snarl whose start and end are the same node in opposite orientations, so it hangs off one side of that node.
+- *trivial snarl*: A snarl with nothing inside it but an edge between its boundary nodes, implied by two consecutive nodes of a chain and often left out of the snarl tree.
+- *unary snarl*: A snarl whose start and end are the same node in opposite orientations, so it hangs off one side of that node. Eventually it was figured out that it is always possible to create a decomposition of a graph that did not use any unary snarls, and this is now the preferred approach.
 - *looping chain*: A chain whose first and last node are the same node, as on a circular chromosome.
 - *start-end connected*: Said of a snarl or chain that some walk inside it goes from its start to its end; the snarl decomposition can contain snarls and chains that are not.
 - *nesting*: The containment of snarls in chains and chains in snarls; a snarl contains a chain when it contains all the chain's nodes and snarls.
 - *snarl tree*: The tree of nested snarls and chains, with every node, snarl and chain of the graph as a vertex, alternating snarl levels and chain levels; also called the snarl decomposition.
 - *child*: A snarl or node that is a component of a chain, or a chain that a snarl contains directly; the snarl or chain is its parent.
 - *top-level chain*: A chain with no snarl around it, at the top of the snarl tree.
-- *root*: The top of a SnarlDecomposition: a snarl with undefined bounds that holds the top-level chains.
-- *netgraph*: The view of a snarl in which each child chain is replaced by a single node, since a chain, like a node, joins the rest of the graph at two sides.
-- *net graph element*: A snarl, chain or node in a snarl decomposition, as a thing that net handles are traversals of; an *element* for short.
-- *site*: A snarl, as a place where haplotypes differ, in code that finds walks through it or calls variants in it.
-- *SnarlTraversal*: A walk through a snarl as a list of Visits, from its start node to its end node, with no edits.
-- *SnarlManager*: vg's in-memory store of the snarls and chains found in a graph.
+- *root*: The top of a SnarlDecomposition. A snarl with undefined bounds that holds the top-level chains.
+- *netgraph*: The view of a snarl in which each child chain is seen as a single element, since a chain, like a node, joins the rest of the graph at two sides.
+- *net graph element*: A snarl, chain or node in a snarl decomposition. A thing that net handles are traversals of. An *element* for short.
+- *site*: A snarl. A place where haplotypes differ. Used in code that finds walks through it or calls variants in it.
 - *endpoint*: One end of a traversal: the start, the end, or a tip.
 - *canonical traversal*: The one realizable traversal that every net handle to the same snarl, chain or node maps to, for comparing net handles.
 - *distance index*: libbdsg's index of the snarl tree that also answers minimum-distance queries between positions.
 - *minimum distance*: The length of the shortest walk between two positions, counting one of them; the largest size_t value when no walk exists.
 - *depth*: The level of a chain in the snarl tree, with the root at 0 and top-level chains at 1; nodes and snarls take the depth of their parent chain.
-- *reversed in parent*: Said of a node or snarl that a start-to-end traversal of its chain crosses end to start.
-- *prefix sum*: For a node in a chain, the distance from the start of the chain to the start of the node.
+- *reversed in (its) parent (snarl/chain)*: Said of a node or snarl that a start-to-end traversal of its chain crosses end to start, or of a chain that is similarly situated relative to its parent snarl (when its parent snarl's structure suggests a coherent orientation for its contents).
+
 
 ### Module terms
 Some words mean something narrower, or something else, inside one module. In that module's code and comments, use the meaning given here.
@@ -147,8 +144,9 @@ Some words mean something narrower, or something else, inside one module. In tha
 - *length*: of a node, its sequence length; of a chain, the minimum length including its boundary nodes, counting a looping chain's shared node once; of a snarl, the minimum length without its boundary nodes.
 - *rank in parent*: the index of a child within its parent, used to find distances between children of a snarl.
 - *connected component number*: the number of a connected component of the graph; two root-level chains connected in the root share one.
-- *externally connected*: said of the endpoints of a child of the root that a walk outside the child joins.
-- *temporary index*: the description of one connected component's snarl tree from which the index is built.
+- *externally connected*: when two things in a snarl or chain are connected by a walk that goes out into the containing parent chain/snarl/root and then comes back.
+- *temporary index*: the mutable description of a snarl tree from which the index is built.
+- *prefix sum*: When computing distances, for a node in a chain, the distance from the start of the chain to the start of the node.
 
 ## Writing Classes and Functions
 - When adding, splitting or reviewing classes and structs, use the `class-identity` skill.
