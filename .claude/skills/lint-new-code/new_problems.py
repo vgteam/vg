@@ -1,18 +1,20 @@
 #!/usr/bin/env python3
 """
-Print the problems that extension-problems-cli found on lines a change added.
+Print the problems in an extension-problems-cli report that lie on lines a change added.
 
 Usage, from the repository root:
-    extension-problems-cli ... | python3 .claude/skills/lint-new-code/new_problems.py [BASE]
+    python3 .claude/skills/lint-new-code/new_problems.py [BASE] < REPORT.json
 
-Reads the tool's JSON output on standard input. BASE is the commit the change starts from, by
-default the merge base with origin/master; lines added since it, committed or not, count as
-new. Prints one line per problem as FILE:LINE:COLUMN: SEVERITY: MESSAGE [CODE], then the
-files the tool did not analyze, if any.
+BASE is the commit the change starts from, by default the merge base with origin/master. A line
+added since BASE is new, whether or not it is committed, and so is every line of a source file
+that git does not track yet.
 
-A problem with the size or shape of a whole class or function is reported at its first line,
-which a change that only grew it did not add. These STRUCTURE_RULES problems are printed for
-every changed file, in a section of their own.
+Print each new problem as FILE:LINE:COLUMN: SEVERITY: MESSAGE [CODE], then each file the tool
+did not analyze.
+
+The analyzer reports a problem with a whole class or function, such as too many methods, at the
+first line of the class or function. A change that only grew the class did not add that line,
+so print the problems of STRUCTURE_RULES for every changed file, in a section of their own.
 """
 
 import json
@@ -22,8 +24,8 @@ import subprocess
 import sys
 
 
-# Too many methods in a class, too complex a function, too deeply nested, too long a function
-# or lambda, too many parameters.
+# The rules that judge a whole class or function: too many methods, too high a cognitive
+# complexity, too deep nesting, too long a function or lambda, and too many parameters.
 STRUCTURE_RULES = {"cpp:S1448", "cpp:S3776", "cpp:S134", "cpp:S138", "cpp:S1188", "cpp:S107"}
 
 
@@ -41,7 +43,7 @@ def added_lines(base):
             start, count = re.match(r"@@ -\S+ \+(\d+)(?:,(\d+))? @@", line).groups()
             count = 1 if count is None else int(count)
             added.setdefault(path, set()).update(range(int(start), int(start) + count))
-    # A new file that is not yet added to git has every line new.
+    # Every line of a source file that git does not track yet is new.
     for path in git("ls-files", "--others", "--exclude-standard").split("\n"):
         if path and path.endswith((".cpp", ".hpp", ".h", ".cc")):
             with open(path, errors="replace") as f:
