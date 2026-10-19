@@ -172,41 +172,41 @@ size_t chain_node_count(const Chain& chain) {
     return is_looping(chain) ? chain.size() : chain.size() + 1;
 }
 
-/// Get the index of the end bound of a chain.
-size_t last_index(const Chain& chain) {
+/// Get the position of the end bound of a chain.
+size_t last_position(const Chain& chain) {
     return is_looping(chain) ? 0 : chain.size();
 }
 
 /**
- * Get the chain node at an index, oriented forward along the chain.
+ * Get the chain node at a position, oriented forward along the chain.
  *
- * @param index An index up to chain.size(). For a looping chain,
- * chain.size() gives the node at index 0 again.
+ * @param position A position up to chain.size(). For a looping chain,
+ * chain.size() gives the node at position 0 again.
  */
-handle_t chain_node(const HandleGraph& graph, const Chain& chain, size_t index) {
-    if (index == chain.size()) {
+handle_t chain_node(const HandleGraph& graph, const Chain& chain, size_t position) {
+    if (position == chain.size()) {
         return to_handle(graph, get_end_of(chain));
     }
-    const auto& [snarl, backward] = chain[index];
+    const auto& [snarl, backward] = chain[position];
     return to_handle(graph, backward ? reverse(snarl->end()) : snarl->start());
 }
 
 /**
  * Get the rank of the snarl that a walk enters on leaving a chain node.
  *
- * @param index The index of the chain node.
+ * @param position The position of the chain node.
  * @param is_reverse True if the walk goes in reverse along the chain.
  * @return The rank of the snarl in the chain, or nullopt if the walk leaves
  * the chain at one of its bounds.
  */
-optional<size_t> snarl_ahead(const Chain& chain, size_t index, bool is_reverse) {
+optional<size_t> snarl_ahead(const Chain& chain, size_t position, bool is_reverse) {
     if (!is_reverse) {
-        return index < chain.size() ? optional<size_t>(index) : nullopt;
+        return position < chain.size() ? optional<size_t>(position) : nullopt;
     }
-    if (index > 0) {
-        return index - 1;
+    if (position > 0) {
+        return position - 1;
     }
-    // Going in reverse from index 0, a walk on a looping chain enters the
+    // Going in reverse from position 0, a walk on a looping chain enters the
     // last snarl.
     return is_looping(chain) ? optional<size_t>(chain.size() - 1) : nullopt;
 }
@@ -215,17 +215,17 @@ optional<size_t> snarl_ahead(const Chain& chain, size_t index, bool is_reverse) 
  * Get the endpoint of a chain where a walk that visits a chain node enters
  * the chain.
  *
- * @param index The index of the chain node.
+ * @param position The position of the chain node.
  * @param is_reverse True if the walk goes in reverse along the chain.
  * @return START for a walk going forward along the chain from its start
  * bound, END for a walk going in reverse along the chain from its end bound,
  * and nullopt for a walk that enters the chain node from inside the chain.
  */
-optional<endpoint_t> entry_endpoint(const Chain& chain, size_t index, bool is_reverse) {
-    if (!is_reverse && index == 0) {
+optional<endpoint_t> entry_endpoint(const Chain& chain, size_t position, bool is_reverse) {
+    if (!is_reverse && position == 0) {
         return START;
     }
-    if (is_reverse && index == last_index(chain)) {
+    if (is_reverse && position == last_position(chain)) {
         return END;
     }
     return nullopt;
@@ -235,17 +235,17 @@ optional<endpoint_t> entry_endpoint(const Chain& chain, size_t index, bool is_re
  * Get the endpoint of a chain where a walk that visits a chain node leaves
  * the chain.
  *
- * @param index The index of the chain node.
+ * @param position The position of the chain node.
  * @param is_reverse True if the walk goes in reverse along the chain.
  * @return END for a walk going forward along the chain from its end bound,
  * START for a walk going in reverse along the chain from its start bound,
  * and nullopt for a walk that leaves the chain node into the chain.
  */
-optional<endpoint_t> exit_endpoint(const Chain& chain, size_t index, bool is_reverse) {
-    if (!is_reverse && index == last_index(chain)) {
+optional<endpoint_t> exit_endpoint(const Chain& chain, size_t position, bool is_reverse) {
+    if (!is_reverse && position == last_position(chain)) {
         return END;
     }
-    if (is_reverse && index == 0) {
+    if (is_reverse && position == 0) {
         return START;
     }
     return nullopt;
@@ -279,9 +279,9 @@ SnarlManagerDecomposition::NodeDirectory::NodeDirectory(const SnarlManager& mana
     // that is a free node.
     manager.for_each_chain([this, &manager, &graph](const Chain* chain) {
         const Snarl* parent = manager.parent_of(chain->front().first);
-        for (size_t index = 0; index < chain_node_count(*chain); index++) {
-            handle_t node = chain_node(graph, *chain, index);
-            entries[graph.get_id(node)] = Entry {parent, ChainPlace {chain, index, graph.get_is_reverse(node)}};
+        for (size_t position = 0; position < chain_node_count(*chain); position++) {
+            handle_t node = chain_node(graph, *chain, position);
+            entries[graph.get_id(node)] = Entry {parent, ChainPosition {chain, position, graph.get_is_reverse(node)}};
         }
     });
     // The shallow contents of a snarl are the chain nodes of its child
@@ -307,9 +307,9 @@ SnarlManagerDecomposition::NodeDirectory::NodeDirectory(const SnarlManager& mana
     }
 }
 
-optional<SnarlManagerDecomposition::ChainPlace>
-SnarlManagerDecomposition::NodeDirectory::chain_place(nid_t id) const {
-    return entries.at(id).chain_place;
+optional<SnarlManagerDecomposition::ChainPosition>
+SnarlManagerDecomposition::NodeDirectory::chain_position(nid_t id) const {
+    return entries.at(id).chain_position;
 }
 
 const Snarl* SnarlManagerDecomposition::NodeDirectory::containing_snarl(nid_t id) const {
@@ -377,14 +377,14 @@ SnarlManagerDecomposition::TraversalSurvey::Surveyor::Surveyor(const SnarlManage
 }
 
 bool SnarlManagerDecomposition::TraversalSurvey::Surveyor::enter_child(const handle_t& entering, vector<handle_t>& exits) const {
-    optional<ChainPlace> place = directory.chain_place(graph.get_id(entering));
+    optional<ChainPosition> place = directory.chain_position(graph.get_id(entering));
     if (!place) {
         // A walk visits a free node and leaves through its other side.
         exits.push_back(entering);
         return false;
     }
     const Chain& chain = *place->chain;
-    optional<endpoint_t> entry = entry_endpoint(chain, place->index,
+    optional<endpoint_t> entry = entry_endpoint(chain, place->position,
                                                 graph.get_is_reverse(entering) != place->is_reverse);
     if (!entry) {
         throw logic_error("error: an edge enters a chain between its bounds, so the snarl decomposition is broken");
@@ -454,40 +454,40 @@ SnarlManagerDecomposition::TraversalSurvey::Surveyor::walk_chain(const Chain& ch
     WalkEnds ends;
     set<pair<size_t, bool>> seen(starts.begin(), starts.end());
     deque<pair<size_t, bool>> to_leave(starts.begin(), starts.end());
-    auto go = [&seen, &to_leave](size_t index, bool is_reverse) {
-        if (seen.emplace(index, is_reverse).second) {
-            to_leave.emplace_back(index, is_reverse);
+    auto go = [&seen, &to_leave](size_t position, bool is_reverse) {
+        if (seen.emplace(position, is_reverse).second) {
+            to_leave.emplace_back(position, is_reverse);
         }
     };
     while (!to_leave.empty()) {
-        auto [index, is_reverse] = to_leave.front();
+        auto [position, is_reverse] = to_leave.front();
         to_leave.pop_front();
         if (!is_reverse) {
-            if (index == chain.size()) {
+            if (position == chain.size()) {
                 ends.end = true;
                 continue;
             }
             // Enter the snarl ahead at its start.
-            const TraversalSet& traversals = survey.of_snarl(chain[index].first);
+            const TraversalSet& traversals = survey.of_snarl(chain[position].first);
             if (traversals.contains(START, END)) {
-                go(index + 1, false);
+                go(position + 1, false);
             }
             if (traversals.contains(START, START)) {
-                go(index, true);
+                go(position, true);
             }
             ends.tip |= traversals.contains(START, TIP);
         } else {
-            if (index == 0) {
+            if (position == 0) {
                 ends.start = true;
                 continue;
             }
             // Enter the snarl behind at its end.
-            const TraversalSet& traversals = survey.of_snarl(chain[index - 1].first);
+            const TraversalSet& traversals = survey.of_snarl(chain[position - 1].first);
             if (traversals.contains(END, START)) {
-                go(index - 1, true);
+                go(position - 1, true);
             }
             if (traversals.contains(END, END)) {
-                go(index, false);
+                go(position, false);
             }
             ends.tip |= traversals.contains(END, TIP);
         }
@@ -613,8 +613,8 @@ const Chain& SnarlManagerDecomposition::chain_of_net(const net_handle_t& net) co
     return *manager.chain_of(snarls_by_number.at(payload_of(net)));
 }
 
-net_handle_t SnarlManagerDecomposition::chain_node_net(const Chain& chain, size_t index, bool is_reverse) const {
-    handle_t node = chain_node(graph, chain, index);
+net_handle_t SnarlManagerDecomposition::chain_node_net(const Chain& chain, size_t position, bool is_reverse) const {
+    handle_t node = chain_node(graph, chain, position);
     return node_net(graph, is_reverse ? graph.flip(node) : node);
 }
 
@@ -636,7 +636,7 @@ bool SnarlManagerDecomposition::for_each_snarl_child(const Snarl* parent,
 bool SnarlManagerDecomposition::for_each_chain_child(const net_handle_t& traversal,
                                                      const function<bool(const net_handle_t&)>& iteratee) const {
     const Chain& chain = chain_of_net(traversal);
-    // Number the children forward along the chain. The chain node with index
+    // Number the children forward along the chain. The chain node at position
     // i is child 2i, and the snarl after it is child 2i + 1. A looping chain
     // has no child after its last snarl, since that would be its first chain
     // node again.
@@ -687,13 +687,13 @@ optional<net_handle_t> SnarlManagerDecomposition::next_in_chain(const net_handle
     }
 
     handle_t handle = get_handle(here, &graph);
-    optional<ChainPlace> place = directory.chain_place(graph.get_id(handle));
+    optional<ChainPosition> place = directory.chain_position(graph.get_id(handle));
     if (!place) {
         // A free node is the only child of its trivial chain.
         return nullopt;
     }
     bool is_reverse = graph.get_is_reverse(handle) != place->is_reverse;
-    optional<size_t> rank = snarl_ahead(*place->chain, place->index, is_reverse);
+    optional<size_t> rank = snarl_ahead(*place->chain, place->position, is_reverse);
     if (!rank.has_value()) {
         return nullopt;
     }
@@ -713,14 +713,14 @@ net_handle_t SnarlManagerDecomposition::sibling_entered_by(const handle_t& handl
         }
     }
     nid_t id = graph.get_id(handle);
-    optional<ChainPlace> place = directory.chain_place(id);
+    optional<ChainPosition> place = directory.chain_position(id);
     if (!place) {
         // The handle enters the trivial chain of a free node, going the way
         // the handle is oriented.
         return directed(pack(NetType::TRIVIAL_CHAIN, START, END, id), !graph.get_is_reverse(handle));
     }
     bool is_reverse = graph.get_is_reverse(handle) != place->is_reverse;
-    optional<endpoint_t> entry = entry_endpoint(*place->chain, place->index, is_reverse);
+    optional<endpoint_t> entry = entry_endpoint(*place->chain, place->position, is_reverse);
     if (!entry) {
         throw logic_error("error: an edge enters a chain between its bounds, so the snarl decomposition is broken");
     }
@@ -866,7 +866,7 @@ net_handle_t SnarlManagerDecomposition::get_parent(const net_handle_t& child) co
         }
     case NODE:
         {
-            optional<ChainPlace> place = directory.chain_place(payload_of(child));
+            optional<ChainPosition> place = directory.chain_position(payload_of(child));
             if (!place) {
                 // A free node is the only child of its trivial chain, which
                 // goes the way the node traversal goes.
@@ -983,7 +983,7 @@ pair<net_handle_t, endpoint_t> SnarlManagerDecomposition::parent_endpoint(const 
         }
     case NODE:
         {
-            optional<ChainPlace> place = directory.chain_place(payload_of(net));
+            optional<ChainPosition> place = directory.chain_position(payload_of(net));
             if (!place) {
                 // A traversal of a free node enters its trivial chain where it
                 // starts, and leaves it where it ends.
@@ -991,8 +991,8 @@ pair<net_handle_t, endpoint_t> SnarlManagerDecomposition::parent_endpoint(const 
             }
             const Chain& chain = *place->chain;
             bool is_reverse = graph.get_is_reverse(get_handle(net, &graph)) != place->is_reverse;
-            optional<endpoint_t> endpoint = is_start ? entry_endpoint(chain, place->index, is_reverse)
-                                                     : exit_endpoint(chain, place->index, is_reverse);
+            optional<endpoint_t> endpoint = is_start ? entry_endpoint(chain, place->position, is_reverse)
+                                                     : exit_endpoint(chain, place->position, is_reverse);
             if (!endpoint) {
                 throw invalid_argument("error: node traversal does not enter or leave its chain at a bound");
             }

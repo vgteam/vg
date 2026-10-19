@@ -30,16 +30,16 @@ using handlegraph::net_handle_t;
  * The view describes chains in these terms:
  *
  * - A chain alternates *chain nodes* and snarls, starting and ending with a
- *   chain node. Each chain node has an *index* in its chain, counting from 0
+ *   chain node. Each chain node has a *position* in its chain, counting from 0
  *   at the chain's start bound. The snarl of rank i in the chain lies between
- *   the chain nodes with indexes i and i + 1.
+ *   the chain nodes at positions i and i + 1.
  * - Each snarl is oriented forward along its chain. Its start bound is the
  *   chain node before it, and its end bound is the chain node after it. So
  *   for a Snarl that is reversed in parent, the view's start bound is the
  *   Snarl's end() flipped, and the view's end bound is its start() flipped.
  * - In a looping chain, the last snarl leads back into the first chain node,
  *   in the same orientation. That node is both bounds of the chain, and is
- *   one child of the chain, with index 0.
+ *   one child of the chain, at position 0.
  * - Each node of the graph is either a chain node of one chain, or a *free
  *   node*. A free node is a trivial chain, directly in a snarl or in the
  *   root. The start-to-end traversal of the trivial chain visits the node in
@@ -212,12 +212,12 @@ protected:
 private:
 
     /// The place of a chain node in its chain.
-    struct ChainPlace {
+    struct ChainPosition {
         /// The chain, owned by the manager.
         const Chain* chain;
-        /// The index of the node in the chain. The bound node of a looping
-        /// chain has index 0.
-        size_t index;
+        /// The position of the node in the chain. The bound node of a looping
+        /// chain is at position 0.
+        size_t position;
         /// True if the node is reversed in parent.
         bool is_reverse;
     };
@@ -250,7 +250,7 @@ private:
          *
          * @pre The node is in the graph.
          */
-        std::optional<ChainPlace> chain_place(nid_t id) const;
+        std::optional<ChainPosition> chain_position(nid_t id) const;
 
         /**
          * Get the snarl that directly contains a node.
@@ -273,7 +273,7 @@ private:
             /// root.
             const Snarl* containing_snarl;
             /// The place of the node in its chain, or nullopt for a free node.
-            std::optional<ChainPlace> chain_place;
+            std::optional<ChainPosition> chain_position;
         };
 
         /// The entry for each node of the graph, by ID.
@@ -407,10 +407,10 @@ private:
             /**
              * Find where walks along a chain from some chain nodes can end.
              *
-             * @param starts The places to start. Each is the index of a chain
+             * @param starts The places to start. Each is the position of a chain
              * node, and true to leave that node going in reverse along the
              * chain, or false to leave it going forward along the chain.
-             * Here the end bound has index chain.size() even in a looping
+             * Here the end bound has position chain.size() even in a looping
              * chain, so that a walk going forward out of the last snarl
              * leaves the chain instead of going around again.
              *
@@ -479,9 +479,9 @@ private:
     net_handle_t chain_net(const Chain& chain) const;
     /// Get the chain that a chain's net handle is for.
     const Chain& chain_of_net(const net_handle_t& net) const;
-    /// Get the net handle for the chain node at an index, oriented in reverse
+    /// Get the net handle for the chain node at a position, oriented in reverse
     /// along the chain if is_reverse, and forward along it otherwise.
-    net_handle_t chain_node_net(const Chain& chain, size_t index, bool is_reverse) const;
+    net_handle_t chain_node_net(const Chain& chain, size_t position, bool is_reverse) const;
 
     /**
      * Call a function on each child of a snarl, or of the root if given null.
