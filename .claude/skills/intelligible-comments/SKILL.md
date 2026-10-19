@@ -38,23 +38,23 @@ the code.
 6. **Explain each representation once, where it is declared:** what an element,
    a bit or an index stands for. Later comments use it without explaining it
    again. 
-8. **Expect to find some bugs at the comment-writing stage.** Justifying code
+7. **Expect to find some bugs at the comment-writing stage.** Justifying code
    often turns up a precondition the code needs or a case it gets wrong. Put a
    precondition in the doc comment, and a bug in a `TODO:` that says what goes
    wrong, and tell the person you are working for. Do not word around it by
    saying that the function works in particular contrived circumstances, when
    the person you are working for probably wanted a solution for the general
    case.
-9. **When rewriting comments, decide what questions each block needs answered
+8. **When rewriting comments, decide what questions each block needs answered
    before you reread its old comment.** Treat the old comment as claims to
    check and facts you might have missed, not as text to reword. A reworded bad
    comment is still a bad comment. In particular, feel free to throw out
    irrelevant information.
-10. **Check the comments as an outline.** Read only the comments of a function,
-    top to bottom: they should say what it does and why, at one level of
-    abstraction, without the code. Then read the code without them: each
-    comment should tell the reader something not immediately obvious from the
-    code. Delete a comment that only restates its line.
+9. **Check the comments as an outline.** Read only the comments of a function,
+   top to bottom: they should say what it does and why, at one level of
+   abstraction, without the code. Then read the code without them: each
+   comment should tell the reader something not immediately obvious from the
+   code. Delete a comment that only restates its line.
 
 ## Write
 
