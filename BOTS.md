@@ -73,3 +73,5 @@ The interfaces in libhandlegraph model a bidirected sequence graph (where nodes 
 ### Utilities
 - `reverse_complement(string)` → `string` in src/utility.hpp
 
+## Writing Comments
+- Before finishing a task in which you wrote or changed code comments, use the `intelligible-comments` skill to rewrite them so that a programmer new to the code understands each one on one reading.
