@@ -1079,49 +1079,49 @@ bool SnarlManagerDecomposition::follow_net_edges_impl(const net_handle_t& here, 
     });
 }
 
-bool SnarlManagerDecomposition::for_each_traversal_from(const net_handle_t& child, endpoint_t start,
-                                                        const function<bool(const net_handle_t&)>& iteratee) const {
-    return traversals_of(child).for_each([&](endpoint_t from, endpoint_t to) {
-        return from != start || iteratee(with_traversal(child, from, to));
-    });
-}
-
-bool SnarlManagerDecomposition::for_each_tippy_snarl_child(const Snarl* parent,
-                                                           const function<bool(const net_handle_t&)>& iteratee) const {
-    for (const Chain& chain : manager.chains_of(parent)) {
-        net_handle_t child = chain_net(chain);
-        if (!for_each_traversal_from(child, TIP, iteratee)) {
-            return false;
-        }
-        if (left_is_dead_end(graph, chain_node(graph, chain, 0)) && !for_each_traversal_from(child, START, iteratee)) {
-            return false;
-        }
-        if (left_is_dead_end(graph, graph.flip(chain_node(graph, chain, chain.size()))) &&
-            !for_each_traversal_from(child, END, iteratee)) {
-            return false;
-        }
-    }
-    for (const nid_t& id : directory.free_nodes(parent)) {
-        for (bool is_reverse : {false, true}) {
-            if (left_is_dead_end(graph, graph.get_handle(id, is_reverse)) &&
-                !iteratee(directed(pack(NetType::TRIVIAL_CHAIN, START, END, id), !is_reverse))) {
-                return false;
-            }
-        }
-    }
-    return true;
-}
-
 bool SnarlManagerDecomposition::for_each_tippy_child_impl(const net_handle_t& parent,
                                                           const function<bool(const net_handle_t&)>& iteratee) const {
+    // Give each realizable traversal of a child that starts at an endpoint.
+    auto each_from = [&](const net_handle_t& child, endpoint_t start) {
+        return traversals_of(child).for_each([&](endpoint_t from, endpoint_t to) {
+            return from != start || iteratee(with_traversal(child, from, to));
+        });
+    };
     using enum NetType;
     switch (type_of(parent)) {
     case ROOT:
     case SNARL:
-        return for_each_tippy_snarl_child(is_root(parent) ? nullptr : get_snarl(parent), iteratee);
+    {
+        // A tip of the parent is a tip in a child chain, the outer side of a
+        // boundary node of a child chain with no edges on it, or a dead end on
+        // a free node.
+        const Snarl* snarl = is_root(parent) ? nullptr : get_snarl(parent);
+        for (const Chain& chain : manager.chains_of(snarl)) {
+            net_handle_t child = chain_net(chain);
+            if (!each_from(child, TIP)) {
+                return false;
+            }
+            if (left_is_dead_end(graph, chain_node(graph, chain, 0)) && !each_from(child, START)) {
+                return false;
+            }
+            if (left_is_dead_end(graph, graph.flip(chain_node(graph, chain, chain.size()))) &&
+                !each_from(child, END)) {
+                return false;
+            }
+        }
+        for (const nid_t& id : directory.free_nodes(snarl)) {
+            for (bool is_reverse : {false, true}) {
+                if (left_is_dead_end(graph, graph.get_handle(id, is_reverse)) &&
+                    !iteratee(directed(pack(TRIVIAL_CHAIN, START, END, id), !is_reverse))) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
     case CHAIN:
         for (const auto& [snarl, backward] : chain_of_net(parent)) {
-            if (!for_each_traversal_from(snarl_net(snarl, true), TIP, iteratee)) {
+            if (!each_from(snarl_net(snarl, true), TIP)) {
                 return false;
             }
         }

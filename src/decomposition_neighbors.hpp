@@ -19,12 +19,12 @@ namespace vg {
  * Call a function on one traversal of each neighboring net graph element of a
  * traversal.
  *
- * A neighboring element is one that follow_net_edges() gives a traversal of.
- * It can give several traversals of one element, such as one that crosses it,
- * one that turns around in it, and one that ends at a tip in it. Give the
- * traversal that crosses the element from one end to the other, if
- * follow_net_edges() gives one, and otherwise the first traversal it gives.
- * The elements come in an arbitrary order.
+ * Use this instead of follow_net_edges() when you want just one traversal of
+ * each next element, as when stepping along a chain. follow_net_edges() gives
+ * every realizable traversal of each next element: one that crosses it, one
+ * that turns around in it, one that ends at a tip in it. This gives the one
+ * that crosses the element if there is one, and otherwise the first one
+ * follow_net_edges() gives. The elements come in an arbitrary order.
  *
  * @param decomposition The snarl decomposition of graph.
  * @param here The traversal to step from.
@@ -37,18 +37,18 @@ namespace vg {
  */
 template<typename Iteratee>
 bool for_each_neighbor(const handlegraph::SnarlDecomposition& decomposition, const handlegraph::net_handle_t& here,
-                         const HandleGraph* graph, bool go_left, const Iteratee& iteratee);
+                       const HandleGraph* graph, bool go_left, const Iteratee& iteratee);
 
 /// Implement for_each_neighbor() for an iteratee that returns bool.
 bool for_each_neighbor_impl(const handlegraph::SnarlDecomposition& decomposition,
-                              const handlegraph::net_handle_t& here, const HandleGraph* graph, bool go_left,
-                              const std::function<bool(const handlegraph::net_handle_t&)>& iteratee);
+                            const handlegraph::net_handle_t& here, const HandleGraph* graph, bool go_left,
+                            const std::function<bool(const handlegraph::net_handle_t&)>& iteratee);
 
 template<typename Iteratee>
 bool for_each_neighbor(const handlegraph::SnarlDecomposition& decomposition, const handlegraph::net_handle_t& here,
-                         const HandleGraph* graph, bool go_left, const Iteratee& iteratee) {
+                       const HandleGraph* graph, bool go_left, const Iteratee& iteratee) {
     return for_each_neighbor_impl(decomposition, here, graph, go_left,
-                                    handlegraph::BoolReturningWrapper<Iteratee>::wrap(iteratee));
+                                  handlegraph::BoolReturningWrapper<Iteratee>::wrap(iteratee));
 }
 
 }

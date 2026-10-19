@@ -495,29 +495,6 @@ private:
     bool for_each_snarl_child(const Snarl* parent, const std::function<bool(const net_handle_t&)>& iteratee) const;
 
     /**
-     * Call a function on each realizable traversal of a child of a snarl, or
-     * of the root if given null, that starts at a tip of the parent.
-     *
-     * A tip of the parent is a tip in a child chain, the outer side of a
-     * bound of a child chain with no edges on it, or a dead end on a free
-     * node. Give the traversals of chains first, in the manager's order, then
-     * those of free nodes, in node ID order.
-     *
-     * @return False if the function stopped the loop, and true otherwise.
-     */
-    bool for_each_tippy_snarl_child(const Snarl* parent,
-                                    const std::function<bool(const net_handle_t&)>& iteratee) const;
-
-    /**
-     * Call a function on each realizable traversal of a child that starts at
-     * an endpoint.
-     *
-     * @return False if the function stopped the loop, and true otherwise.
-     */
-    bool for_each_traversal_from(const net_handle_t& child, endpoint_t start,
-                                 const std::function<bool(const net_handle_t&)>& iteratee) const;
-
-    /**
      * Call a function on each chain node and snarl of a chain.
      *
      * For a start-to-end or end-to-start traversal, give the children in the
