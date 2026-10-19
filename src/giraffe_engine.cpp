@@ -104,7 +104,7 @@ void apply_hifi_preset(MinimizerMapper& m) {
     m.rec_penalty = 2;
     m.rec_consistency_bonus = 12;
     m.chain_score_threshold = 234.0;
-    m.min_chains = 2;
+    m.target_alignment_attempts = 2;
     m.min_chain_score_per_base = 0.24;
     m.max_chains_per_tree = 3;
     m.max_min_chain_score = 46;
@@ -159,9 +159,10 @@ void apply_blat_preset(MinimizerMapper& m) {
     // blat: 0.05 — let noisy/partial matches survive.
     m.min_chain_score_per_base = 0.05;
     // BLAT: always try many chains, even when one dominates.
-    // hifi: min_chains=2. blat: 50, so paralog/cross-haplotype hits
+    // hifi: target_alignment_attempts=2 (upstream renamed it from
+    // min_chains). blat: 50, so paralog/cross-haplotype hits
     // surface even when one chain has a clear best score.
-    m.min_chains = 50;
+    m.target_alignment_attempts = 50;
     // BLAT: allow many chains per zipcode-tree cluster.
     // hifi: max_chains_per_tree=3. blat: 20 — tandem repeats and
     // high-copy gene families need more than 3 to produce all hits.

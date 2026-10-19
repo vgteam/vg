@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="C" # force a consistent sort order
 
-plan tests 93
+plan tests 95
 
 vg construct -r complex/c.fa -v complex/c.vcf.gz > c.vg
 cat <(vg view c.vg | grep ^S | sort) <(vg view c.vg | grep L | uniq | wc -l) <(vg paths -v c.vg -E) > c.info
@@ -156,7 +156,7 @@ S\t73367\tA
 S\t73271\tA
 S\t73289\tC
 S\t73317\tC\n" | vg convert -g - -p > soft.pg
-printf '{"annotation": {"fragment_length": 242, "fragment_length_distribution": "-I 561.110526 -D 141.152986", "mapq_applied_cap": 23.832780374978935, "mapq_extended_cap": 15, "mapq_uncapped": 10.325140756048304, "secondary_scores": [187.15265582416521, 182.4063994408188]}, "identity": 0.89682539682539686, "mapping_quality": 10, "name": "ERR903030.2067", "path": {"mapping": [{"edit": [{"from_length": 6, "to_length": 6}], "position": {"is_reverse": true, "node_id": "72943", "offset": "26"}}, {"edit": [{"from_length": 32, "to_length": 32}], "position": {"is_reverse": true, "node_id": "72942"}, "rank": "1"}, {"edit": [{"from_length": 23, "to_length": 23}], "position": {"is_reverse": true, "node_id": "73255"}, "rank": "2"}, {"edit": [{"from_length": 1, "to_length": 1}], "position": {"is_reverse": true, "node_id": "73271"}, "rank": "3"}, {"edit": [{"from_length": 8, "to_length": 8}], "position": {"is_reverse": true, "node_id": "72941"}, "rank": "4"}, {"edit": [{"from_length": 7, "to_length": 7}, {"from_length": 1, "sequence": "C", "to_length": 1}, {"from_length": 2, "to_length": 2}, {"from_length": 1, "sequence": "G", "to_length": 1}, {"from_length": 19, "to_length": 19}], "position": {"is_reverse": true, "node_id": "73333"}, "rank": "5"}, {"edit": [{"from_length": 1, "to_length": 1}], "position": {"is_reverse": true, "node_id": "72940"}, "rank": "6"}, {"edit": [{"from_length": 1, "to_length": 1}], "position": {"is_reverse": true, "node_id": "73289"}, "rank": "7"}, {"edit": [{"from_length": 6, "to_length": 6}], "position": {"is_reverse": true, "node_id": "73368"}, "rank": "8"}, {"edit": [{"from_length": 1, "sequence": "G", "to_length": 1}], "position": {"is_reverse": true, "node_id": "73367"}, "rank": "9"}, {"edit": [{"from_length": 6, "to_length": 6}], "position": {"is_reverse": true, "node_id": "73318"}, "rank": "10"}, {"edit": [{"from_length": 1, "to_length": 1}], "position": {"is_reverse": true, "node_id": "73317"}, "rank": "11"}, {"edit": [{"sequence": "GGGTGGCCTG", "to_length": 10}], "position": {"is_reverse": true, "node_id": "73317", "offset": "1"}, "rank": "12"}]}, "quality": "ISEhISEmJiUmJCYmJSYlJiYmJiYmJCYjJiYdIRsmIyUmJiYmJiElJg4PDx0PDyEkIhsYJCYiECQQJBAcGR0kHx0QGSQPJCImHSElHR0PJA4OGyQbIxwPIg0iHw8PGRwiIR0jAgICAgICAgICAgICAgICAgICAgICAgICAgIC", "sample_name": "HG00514_961a37c_gssw", "score": 106, "sequence": "GTCGCCTGGCCTGGTGACACGTGTGGAGGTCCTCGCCCACCAGAGGGGCCTGCTGAAGAGTTACCTGGCCTGGTGACCCGGGTGGAGGTCCTCGCCCACCGGAGGGGCGTGCTGAGGGGTGGCCTG"}' | vg view -JaG - > soft.gam
+printf '{"annotation": {"fragment_length": 242, "mapq_applied_cap": 23.832780374978935, "mapq_extended_cap": 15, "mapq_uncapped": 10.325140756048304, "secondary_scores": [187.15265582416521, 182.4063994408188]}, "identity": 0.89682539682539686, "mapping_quality": 10, "name": "ERR903030.2067", "path": {"mapping": [{"edit": [{"from_length": 6, "to_length": 6}], "position": {"is_reverse": true, "node_id": "72943", "offset": "26"}}, {"edit": [{"from_length": 32, "to_length": 32}], "position": {"is_reverse": true, "node_id": "72942"}, "rank": "1"}, {"edit": [{"from_length": 23, "to_length": 23}], "position": {"is_reverse": true, "node_id": "73255"}, "rank": "2"}, {"edit": [{"from_length": 1, "to_length": 1}], "position": {"is_reverse": true, "node_id": "73271"}, "rank": "3"}, {"edit": [{"from_length": 8, "to_length": 8}], "position": {"is_reverse": true, "node_id": "72941"}, "rank": "4"}, {"edit": [{"from_length": 7, "to_length": 7}, {"from_length": 1, "sequence": "C", "to_length": 1}, {"from_length": 2, "to_length": 2}, {"from_length": 1, "sequence": "G", "to_length": 1}, {"from_length": 19, "to_length": 19}], "position": {"is_reverse": true, "node_id": "73333"}, "rank": "5"}, {"edit": [{"from_length": 1, "to_length": 1}], "position": {"is_reverse": true, "node_id": "72940"}, "rank": "6"}, {"edit": [{"from_length": 1, "to_length": 1}], "position": {"is_reverse": true, "node_id": "73289"}, "rank": "7"}, {"edit": [{"from_length": 6, "to_length": 6}], "position": {"is_reverse": true, "node_id": "73368"}, "rank": "8"}, {"edit": [{"from_length": 1, "sequence": "G", "to_length": 1}], "position": {"is_reverse": true, "node_id": "73367"}, "rank": "9"}, {"edit": [{"from_length": 6, "to_length": 6}], "position": {"is_reverse": true, "node_id": "73318"}, "rank": "10"}, {"edit": [{"from_length": 1, "to_length": 1}], "position": {"is_reverse": true, "node_id": "73317"}, "rank": "11"}, {"edit": [{"sequence": "GGGTGGCCTG", "to_length": 10}], "position": {"is_reverse": true, "node_id": "73317", "offset": "1"}, "rank": "12"}]}, "quality": "ISEhISEmJiUmJCYmJSYlJiYmJiYmJCYjJiYdIRsmIyUmJiYmJiElJg4PDx0PDyEkIhsYJCYiECQQJBAcGR0kHx0QGSQPJCImHSElHR0PJA4OGyQbIxwPIg0iHw8PGRwiIR0jAgICAgICAgICAgICAgICAgICAgICAgICAgIC", "sample_name": "HG00514_961a37c_gssw", "score": 106, "sequence": "GTCGCCTGGCCTGGTGACACGTGTGGAGGTCCTCGCCCACCAGAGGGGCCTGCTGAAGAGTTACCTGGCCTGGTGACCCGGGTGGAGGTCCTCGCCCACCGGAGGGGCGTGCTGAGGGGTGGCCTG"}' | vg view -JaG - > soft.gam
 vg convert soft.pg -G soft.gam > soft.gaf
 vg view -a soft.gam | jq .sequence > gam.sequence
 vg convert soft.pg -F soft.gaf | vg view -a - | jq .sequence > gam2.sequence
@@ -171,7 +171,7 @@ rm -f soft.pg soft.gam soft.gaf gam.sequence gam2.sequence soft2.gaf
 
 printf "H\tVN:Z:1.0
 S\t91194329\tAGGAAGGAGAGGGAG\n" | vg convert -g - -p > floating-ins.pg
-printf '{"annotation": {"fragment_length": 1098, "fragment_length_distribution": "-I 542.973684 -D 141.206118", "mapq_applied_cap": 46.364361584299516, "mapq_extended_cap": "Infinity", "mapq_uncapped": 1.5051499783199018, "rescued": true, "secondary_scores": [99.415737573445895]}, "mapping_quality": 1, "name": "ERR903030.51990324", "path": {"mapping": [{"edit": [{"sequence": "GGGCACGGTGGCTCACAGCTGTCACCACNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN", "to_length": 126}], "position": {"is_reverse": true, "node_id": "91194329", "offset": "15"}, "rank": "1"}]}, "quality": "ISEhICEhJCIkJiYdJiUQJSYmHyMmIxAkJiICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIC", "sample_name": "HG00514_961a37c", "sequence": "GGGCACGGTGGCTCACAGCTGTCACCACNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN"}' | vg view -JaG - > floating-ins.gam
+printf '{"annotation": {"fragment_length": 1098, "mapq_applied_cap": 46.364361584299516, "mapq_extended_cap": "Infinity", "mapq_uncapped": 1.5051499783199018, "rescued": true, "secondary_scores": [99.415737573445895]}, "mapping_quality": 1, "name": "ERR903030.51990324", "path": {"mapping": [{"edit": [{"sequence": "GGGCACGGTGGCTCACAGCTGTCACCACNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN", "to_length": 126}], "position": {"is_reverse": true, "node_id": "91194329", "offset": "15"}, "rank": "1"}]}, "quality": "ISEhICEhJCIkJiYdJiUQJSYmHyMmIxAkJiICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIC", "sample_name": "HG00514_961a37c", "sequence": "GGGCACGGTGGCTCACAGCTGTCACCACNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN"}' | vg view -JaG - > floating-ins.gam
 vg convert floating-ins.pg -G floating-ins.gam > floating-ins.gaf
 vg view -a floating-ins.gam | jq .sequence > gam.sequence
 vg convert floating-ins.pg -F floating-ins.gaf | vg view -a - | jq .sequence > gam2.sequence
@@ -481,3 +481,20 @@ is $? 0 "GAF-GAM double roundtrip works on deletion problem case for chunked vg 
 vg validate ref.vg -a out2.gam
 is $? 0 "GAF-GAM double roundtrip works on deletion problem case for chunked vg output for long node (GAM check)"
 rm -f ref.fa query.fa ref.vg ref.gcsa out.gam out.gaf out2.gam out2.gaf
+
+# GAF version 1.1 support
+printf "H\tVN:1.1
+S\t1\tGAT
+S\t2\tTA
+S\t3\tCA
+S\t4\tGAT
+S\t5\tTA\n" > reference.gfa
+vg convert --gfa-in reference.gfa > reference.vg
+printf "read\t10\t0\t10\t+\t>1>2>3>4>5\t12\t0\t12\t9\t12\t60\tcs:Z::2?C:2!2:5\n" > v1.1.gaf
+printf "read\t10\t0\t10\t+\t>1>2>3>4>5\t12\t0\t12\t9\t12\t60\tcs:Z::2*TC:2-CA:5\n" > v1.0.gaf
+vg convert --gaf-to-gam v1.1.gaf reference.vg > read.gam
+is $? 0 "GAF version 1.1 can be converted to GAM"
+vg convert --gam-to-gaf read.gam reference.vg | grep -v "^@" > read.gaf
+cmp read.gaf v1.0.gaf
+is $? 0 "GAF version 1.1 was parsed correctly"
+rm -f reference.gfa reference.vg v1.1.gaf v1.0.gaf read.gam read.gaf

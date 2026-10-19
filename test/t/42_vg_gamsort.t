@@ -74,7 +74,7 @@ grep -v "^@" x.shuffled.gaf | sort > x.shuffled.gaf.lexicographic
 cmp x.gaf.lexicographic x.shuffled.gaf.lexicographic
 is "$?" "0" "Shuffling a GAF preserves read data"
 
-rm -f x.gaf x.gaf.header, x.gaf.no_header x.gaf.lexicographic
+rm -f x.gaf x.gaf.header x.gaf.no_header x.gaf.lexicographic
 rm -f x.sorted.gaf x.sorted.gaf.header x.sorted.gaf.lexicographic
 rm -f x.shuffled.gaf x.shuffled.gaf.lexicographic
 rm -f x.gbwt

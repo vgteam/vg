@@ -1,6 +1,7 @@
 #include "gaf_sorter.hpp"
 
 #include <chrono>
+#include <cmath>
 #include <deque>
 #include <fstream>
 #include <queue>
@@ -44,17 +45,28 @@ void GAFSorterRecord::set_key(key_type type) {
         std::uint32_t min_id = std::numeric_limits<std::uint32_t>::max();
         std::uint32_t max_id = 0;
         std::string_view path = this->get_field(PATH_FIELD);
-        size_t start = 1;
+        size_t start = 0;
         while (start < path.size()) {
+            bool is_reverse;
+            if (path[start] == '<') {
+                is_reverse = true;
+            } else if (path[start] == '>') {
+                is_reverse = false;
+            } else {
+                this->key = MISSING_KEY;
+                return;
+            }
+            start++;
             std::uint32_t id = 0;
             auto result = std::from_chars(path.data() + start, path.data() + path.size(), id);
             if (result.ec != std::errc()) {
                 this->key = MISSING_KEY;
                 return;
             }
+            id = gbwt::Node::encode(id, is_reverse);
             min_id = std::min(min_id, id);
             max_id = std::max(max_id, id);
-            start = (result.ptr - path.data()) + 1;
+            start = (result.ptr - path.data());
         }
         if (min_id == std::numeric_limits<std::uint32_t>::max()) {
             this->key = MISSING_KEY;
@@ -417,8 +429,16 @@ bool sort_gaf(const std::string& input_file, const std::string& output_file, con
         std::cerr << "Initial sort finished with " << total_records << " records in " << files.size() << " files" << std::endl;
     }
 
-    // Intermediate merges. If a worker thread fails, we break on join.
+    // Adjust merge width if necessary.
     size_t files_per_merge = std::max(params.files_per_merge, size_t(2));
+    if (params.two_merge_rounds && files.size() > files_per_merge * files_per_merge) {
+        files_per_merge = static_cast<size_t>(std::ceil(std::sqrt(files.size())));
+        if (params.progress) {
+            std::cerr << "Adjusting merge width to " << files_per_merge << std::endl;
+        }
+    }
+
+    // Intermediate merges. If a worker thread fails, we break on join.
     size_t round = 0;
     while (files.size() > files_per_merge) {
         if (params.progress) {

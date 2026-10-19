@@ -24,14 +24,18 @@ path_offset_collection_t nearest_offsets_in_paths(const PathPositionHandleGraph*
     // This is a map from path handle, to vector of offset and orientation pairs
     path_offset_collection_t return_val;
     
-    // use greater so that we traverse in ascending order of distance
-    structures::RankPairingHeap<pair<handle_t, bool>, int64_t, greater<int64_t>> queue;
+    // use greater so that we traverse in ascending order of distance; the direction and
+    // handle in the priority make every priority distinct, so the pop order doesn't
+    // depend on the heap's pointer-ordered internals
+    typedef tuple<int64_t, bool, uint64_t> priority_t;
+    structures::RankPairingHeap<pair<handle_t, bool>, priority_t, greater<priority_t>> queue;
     
     // add in the initial traversals in both directions from the start position
     // distances are measured to the left side of the node
     handle_t start = graph->get_handle(id(pos), is_rev(pos));
-    queue.push_or_reprioritize(make_pair(start, false), -offset(pos));
-    queue.push_or_reprioritize(make_pair(graph->flip(start), true), offset(pos) - graph->get_length(start));
+    handle_t start_flip = graph->flip(start);
+    queue.push_or_reprioritize(make_pair(start, false), priority_t(-offset(pos), false, handlegraph::as_integer(start)));
+    queue.push_or_reprioritize(make_pair(start_flip, true), priority_t(offset(pos) - graph->get_length(start), true, handlegraph::as_integer(start_flip)));
     
     while (!queue.empty()) {
         // get the queue that has the next shortest path
@@ -41,7 +45,7 @@ path_offset_collection_t nearest_offsets_in_paths(const PathPositionHandleGraph*
         // unpack this record
         handle_t here = trav.first.first;
         bool search_left = trav.first.second;
-        int64_t dist = trav.second;
+        int64_t dist = get<0>(trav.second);
         
 #ifdef debug_algorithms
         cerr << "traversing " << graph->get_id(here) << (graph->get_is_reverse(here) ? "-" : "+")
@@ -114,7 +118,7 @@ path_offset_collection_t nearest_offsets_in_paths(const PathPositionHandleGraph*
                 << " at dist " << dist_thru << endl;
 #endif
                 
-                queue.push_or_reprioritize(make_pair(next, search_left), dist_thru);
+                queue.push_or_reprioritize(make_pair(next, search_left), priority_t(dist_thru, search_left, handlegraph::as_integer(next)));
             });
         }
     }

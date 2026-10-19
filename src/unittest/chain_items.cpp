@@ -82,7 +82,7 @@ static pair<int, vector<size_t>> run_ziptree_iterator(const HashGraph& graph,
 
     // Make iterator for only the first tree
     // Seriously this is for test cases, only one tree at once
-    return algorithms::find_best_chain(anchors, distance_index, graph, 6, 1,
+    return algorithms::find_best_chain(anchors, distance_index, graph,
                                        algorithms::zip_tree_transition_iterator(seeds,
                                                                                 zip_forest.trees.front(),
                                                                                 std::numeric_limits<size_t>::max(),

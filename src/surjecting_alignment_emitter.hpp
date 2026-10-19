@@ -76,16 +76,6 @@ protected:
     /// AlignmentEmitter to emit to once done
     unique_ptr<AlignmentEmitter> backing;
     
-    /// Surject unpaired alignments in place.
-    void surject_alignments_in_place(vector<Alignment>& alns) const;
-    
-    /// Surject paired alignments in place and separate out supplementary alignments
-    void surject_paired_alignments_in_place(vector<Alignment>& alns1, vector<Alignment>& alns2,
-                                            vector<Alignment>& supplementary_alns) const;
-    
-    
-    
-    
 };
 
 }
