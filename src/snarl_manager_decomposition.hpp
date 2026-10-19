@@ -111,8 +111,8 @@ public:
      * Get the graph handle for a node, a trivial chain, or a sentinel.
      *
      * A trivial chain gives its node, oriented the way the traversal goes. A
-     * sentinel gives its bound node, oriented into the snarl if the sentinel
-     * faces in, and out of the snarl if the sentinel faces out.
+     * sentinel gives its boundary node, oriented into the snarl if the
+     * sentinel faces in, and out of the snarl if the sentinel faces out.
      *
      * @throws std::invalid_argument If the net handle is for a snarl, the
      * root, or a chain that holds a snarl.
@@ -122,7 +122,7 @@ public:
     net_handle_t get_parent(const net_handle_t& child) const override;
 
     /**
-     * Get a sentinel of a snarl, or a bound node of a chain.
+     * Get a sentinel of a snarl, or a boundary node of a chain.
      *
      * A looping chain gives its first chain node as both its start bound and
      * its end bound. That node is oriented forward along the chain when it
@@ -134,7 +134,7 @@ public:
     net_handle_t flip(const net_handle_t& net) const override;
 
     /**
-     * Get the canonical traversal of a snarl, chain or node.
+     * Get the canonical traversal of a net graph element.
      *
      * For a snarl, chain or node, pick the first realizable traversal among
      * start-to-end, start-to-tip, end-to-tip, start-to-start, end-to-end and
@@ -172,7 +172,7 @@ protected:
                              const std::function<bool(const net_handle_t&)>& iteratee) const override;
 
     /**
-     * Call a function on each realizable traversal of a snarl, chain or node.
+     * Call a function on each realizable traversal of a net graph element.
      *
      * Give them in this order: start-to-start, start-to-end, start-to-tip,
      * end-to-start, end-to-end, end-to-tip, tip-to-start, tip-to-end,
@@ -186,10 +186,10 @@ protected:
      * just after or just before a traversal.
      *
      * Going right, give each realizable traversal that starts where a walk
-     * leaving here through its end enters the next element. Going left, give
-     * each traversal from which going right gives here. In a looping chain,
-     * going right from the last snarl gives the first chain node, and going
-     * right from that node gives the first snarl.
+     * leaving here through its end enters the next net graph element. Going
+     * left, give each traversal from which going right gives here. In a
+     * looping chain, going right from the last snarl gives the first chain
+     * node, and going right from that node gives the first snarl.
      *
      * Walk the graph the view was made with, and ignore handle_graph.
      */
@@ -215,8 +215,8 @@ private:
     struct ChainPosition {
         /// The chain, owned by the manager.
         const Chain* chain;
-        /// The position of the node in the chain. The bound node of a looping
-        /// chain is at position 0.
+        /// The position of the node in the chain. The boundary node of a
+        /// looping chain is at position 0.
         size_t position;
         /// True if the node is reversed in parent.
         bool is_reverse;
@@ -283,7 +283,7 @@ private:
         std::unordered_map<const Snarl*, std::vector<nid_t>> free_nodes_by_snarl;
     };
 
-    /// A set of traversals of one snarl, chain or node, each named by the
+    /// A set of traversals of one net graph element, each named by the
     /// endpoints where it starts and ends.
     class TraversalSet {
     public:
@@ -422,13 +422,13 @@ private:
              * Find where a walk that enters a child chain or free node can
              * leave it.
              *
-             * @param entering A bound node of a chain, oriented into the
+             * @param entering A boundary node of a chain, oriented into the
              * chain, or a handle on a free node.
              * @param exits A list to add the exits of the child to. A walk
              * leaves the child through the right side of an exit. The exits of
-             * a chain are its bound nodes, oriented out of the chain, at each
-             * bound where a walk entering the chain can leave it. The one exit
-             * of a free node is the entering handle.
+             * a chain are its boundary nodes, oriented out of the chain, at
+             * each bound where a walk entering the chain can leave it. The one
+             * exit of a free node is the entering handle.
              * @return True if a walk entering the chain can end at a tip in
              * it.
              *
@@ -572,8 +572,8 @@ private:
                                 const std::function<bool(const net_handle_t&)>& iteratee) const;
 
     /**
-     * Call a function on each realizable traversal of an element that starts
-     * where a walk enters it.
+     * Call a function on each realizable traversal of a net graph element
+     * that starts where a walk enters it.
      *
      * @param entered A traversal of the element that starts where the walk
      * enters it.
@@ -586,7 +586,8 @@ private:
      * Call a function on each realizable traversal that a walk leaving a
      * traversal through its end can visit next.
      *
-     * Each traversal given starts where the walk enters its element.
+     * Each traversal given starts where the walk enters its net graph
+     * element.
      *
      * @return False if the function stopped the loop, and true otherwise.
      */
@@ -594,7 +595,7 @@ private:
 
     /**
      * Find the snarl or chain, and its endpoint, where a traversal of it can
-     * start or end at an element.
+     * start or end at a net graph element or sentinel.
      *
      * @param net One of:
      * - A sentinel facing into its snarl, if is_start, or out of it
@@ -613,7 +614,7 @@ private:
      */
     std::pair<net_handle_t, endpoint_t> parent_endpoint(const net_handle_t& net, bool is_start) const;
 
-    /// Get the realizable traversals of a snarl, chain or node. A sentinel's
+    /// Get the realizable traversals of a net graph element. A sentinel's
     /// only traversal is itself.
     TraversalSet traversals_of(const net_handle_t& item) const;
 

@@ -45,7 +45,7 @@ using enum handlegraph::SnarlDecomposition::endpoint_t;
  * it faces into the snarl, and at the same endpoint if it faces out.
  */
 
-/// What a net handle is a traversal of.
+/// The type of net graph element a net handle is for.
 enum class NetType : uint64_t {
     ROOT = 0,
     SNARL,
@@ -743,7 +743,7 @@ bool SnarlManagerDecomposition::for_each_sibling_ahead(const net_handle_t& here,
             return true;
         }
         if (type_of(here) == NetType::CHAIN && is_looping(chain_of_net(here))) {
-            // Every edge of the bound node of a looping chain leads into a
+            // Every edge of the boundary node of a looping chain leads into a
             // snarl of the chain.
             return true;
         }
@@ -905,8 +905,8 @@ net_handle_t SnarlManagerDecomposition::get_bound(const net_handle_t& snarl, boo
     case CHAIN:
         {
             const Chain& chain = chain_of_net(snarl);
-            // Oriented forward along the chain, the start bound node faces
-            // into the chain and the end bound node faces out of it.
+            // Oriented forward along the chain, the start boundary node faces
+            // into the chain and the end boundary node faces out of it.
             handle_t node = chain_node(graph, chain, get_end ? chain.size() : 0);
             return node_net(graph, face_in == get_end ? graph.flip(node) : node);
         }
@@ -947,8 +947,8 @@ net_handle_t SnarlManagerDecomposition::canonical(const net_handle_t& net) const
                     return with_traversal(net, start, end);
                 }
             }
-            // TODO: No traversal of this element is realizable, but the
-            // interface wants the canonical traversal to be realizable.
+            // TODO: No traversal of this net graph element is realizable, but
+            // the interface wants the canonical traversal to be realizable.
             return with_traversal(net, START, END);
         }
     }

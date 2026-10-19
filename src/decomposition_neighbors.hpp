@@ -2,8 +2,8 @@
 #define VG_DECOMPOSITION_NEIGHBORS_HPP_INCLUDED
 
 /** \file
- * Stepping from a traversal in a snarl decomposition to each snarl, chain or
- * node next to it.
+ * Stepping from a traversal in a snarl decomposition to each neighboring net
+ * graph element.
  */
 
 #include <functional>
@@ -16,22 +16,23 @@
 namespace vg {
 
 /**
- * Call a function on one traversal of each snarl, chain or node next to a
+ * Call a function on one traversal of each neighboring net graph element of a
  * traversal.
  *
- * follow_net_edges() can give several traversals of one neighbor, such as one
- * that crosses it, one that turns around in it, and one that ends at a tip in
- * it. Give the traversal that crosses the neighbor from one end to the other,
- * if follow_net_edges() gives one, and otherwise the first traversal it gives.
- * The neighbors come in an arbitrary order.
+ * A neighboring element is one that follow_net_edges() gives a traversal of.
+ * It can give several traversals of one element, such as one that crosses it,
+ * one that turns around in it, and one that ends at a tip in it. Give the
+ * traversal that crosses the element from one end to the other, if
+ * follow_net_edges() gives one, and otherwise the first traversal it gives.
+ * The elements come in an arbitrary order.
  *
  * @param decomposition The snarl decomposition of graph.
  * @param here The traversal to step from.
- * @param graph The graph whose edges join here to its neighbors.
+ * @param graph The graph whose edges join here to its neighboring elements.
  * @param go_left True to step out of the left side of the traversal, false
  * for the right side, as for follow_net_edges().
- * @param iteratee A function to call on the traversal of each neighbor, which
- * may return false to stop.
+ * @param iteratee A function to call on the traversal of each neighboring
+ * element, which may return false to stop.
  * @return False if the function stopped the loop, and true otherwise.
  */
 template<typename Iteratee>

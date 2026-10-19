@@ -1,6 +1,7 @@
 /// \file decomposition_neighbors.cpp
 ///
-/// Unit tests for for_each_neighbor().
+/// Unit tests for for_each_neighbor(), which gives one traversal of each
+/// neighboring net graph element.
 
 #include "catch.hpp"
 #include "../decomposition_neighbors.hpp"

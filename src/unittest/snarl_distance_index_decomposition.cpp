@@ -39,7 +39,8 @@ static void index_events(const HandleGraph& graph, const std::vector<Decompositi
     fill_in_distance_index(&index, &graph, &finder);
 }
 
-/// List the children that for_each_child() gives for a traversal, in its order.
+/// List the children of a net graph element or the root, in the order
+/// for_each_child() gives them.
 static std::vector<net_handle_t> children_of(const SnarlDistanceIndex& index, const net_handle_t& parent) {
     std::vector<net_handle_t> children;
     index.for_each_child(parent, [&children](const net_handle_t& child) {
@@ -48,8 +49,8 @@ static std::vector<net_handle_t> children_of(const SnarlDistanceIndex& index, co
     return children;
 }
 
-/// Return true if for_each_traversal() gives a traversal that starts at one
-/// endpoint and ends at another.
+/// Return true if for_each_traversal() gives a traversal of a net graph
+/// element that starts at one endpoint and ends at another.
 static bool has_traversal(const SnarlDistanceIndex& index, const net_handle_t& net, endpoint_t start,
                           endpoint_t end) {
     bool found = false;
@@ -98,7 +99,7 @@ TEST_CASE("SnarlDistanceIndex for_each_child() of an END_START chain lists the e
     REQUIRE(index.get_handle(children.back(), &graph) == graph.flip(n1));
 }
 
-TEST_CASE("SnarlDistanceIndex for_each_traversal() gives START_TIP for a snarl whose start connects to a tip",
+TEST_CASE("SnarlDistanceIndex for_each_traversal() gives START_TIP for a snarl with a walk from its start to a tip",
           "[snarl_distance_interface]") {
     // The snarl from 1 to 4 holds nodes 2, 3 and 5. An edge joins the end of 3
     // to node 5, and the end of 5 is a tip. The test replays a decomposition
@@ -130,7 +131,7 @@ TEST_CASE("SnarlDistanceIndex for_each_traversal() gives START_TIP for a snarl w
     REQUIRE(has_traversal(index, snarl, SnarlDecomposition::START, SnarlDecomposition::TIP));
 }
 
-TEST_CASE("SnarlDistanceIndex for_each_traversal() gives START_TIP for a chain whose start connects to a tip in one of its snarls",
+TEST_CASE("SnarlDistanceIndex for_each_traversal() gives START_TIP for a chain with a walk from its start to a tip in one of its snarls",
           "[snarl_distance_interface]") {
     // The chain is node 1, the snarl from 1 to 4, and node 4. In the snarl, an
     // edge joins the end of 1 to node 3, and the end of 3 is a tip. The test
@@ -159,7 +160,7 @@ TEST_CASE("SnarlDistanceIndex for_each_traversal() gives START_TIP for a chain w
     REQUIRE(has_traversal(index, chain, SnarlDecomposition::START, SnarlDecomposition::TIP));
 }
 
-TEST_CASE("SnarlDistanceIndex for_each_traversal() gives START_TIP for a snarl whose start connects to a tip in a child chain",
+TEST_CASE("SnarlDistanceIndex for_each_traversal() gives START_TIP for a snarl with a walk from its start to a tip in a child chain",
           "[snarl_distance_interface]") {
     // The snarl from 1 to 7 holds the chain of node 2, the snarl from 2 to 5,
     // and node 5. In the snarl from 2 to 5, an edge joins the end of 3 to node
@@ -370,8 +371,8 @@ TEST_CASE("SnarlDistanceIndex follow_net_edges() from a chain node gives each tr
 }
 
 
-/// List the start and end endpoints of each realizable traversal of a snarl,
-/// chain or node, in the order for_each_traversal() gives them.
+/// List the start and end endpoints of each realizable traversal of a net
+/// graph element, in the order for_each_traversal() gives them.
 static std::vector<std::pair<SnarlDecomposition::endpoint_t, SnarlDecomposition::endpoint_t>>
 traversal_kinds(const SnarlDistanceIndex& index, const net_handle_t& net) {
     std::vector<std::pair<SnarlDecomposition::endpoint_t, SnarlDecomposition::endpoint_t>> kinds;
@@ -382,17 +383,17 @@ traversal_kinds(const SnarlDistanceIndex& index, const net_handle_t& net) {
 }
 
 /**
- * Require that two distance indexes of one decomposition agree on a snarl,
- * chain, node or root and everything under it.
+ * Require that two distance indexes of one decomposition agree on a net graph
+ * element or the root, and on everything under it.
  *
- * expected_item and actual_item are the same snarl, chain, node or root, in
- * each index.
+ * expected_item and actual_item are the same element, or the root, in each
+ * index.
  *
  * @post Each snarl, chain and root has the same number of children in both
  * indexes, in the same order.
  * @post Each node has the same graph handle in both indexes.
- * @post Each snarl, chain and node has the same realizable traversals in
- * both indexes.
+ * @post Each net graph element has the same realizable traversals in both
+ * indexes.
  */
 static void require_same_traversals(const SnarlDistanceIndex& expected, const net_handle_t& expected_item,
                                     const SnarlDistanceIndex& actual, const net_handle_t& actual_item,

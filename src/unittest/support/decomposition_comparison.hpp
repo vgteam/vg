@@ -3,7 +3,7 @@
 
 /**
  * \file decomposition_comparison.hpp
- * Names for the snarls, chains and nodes of a snarl tree that every
+ * Names for the net graph elements of a snarl tree that every
  * SnarlDecomposition implementation shares, so tests can compare
  * implementations.
  */
@@ -22,9 +22,9 @@ using handlegraph::net_handle_t;
 using handlegraph::SnarlDecomposition;
 
 /**
- * Name a snarl, chain or node the same way in every implementation.
+ * Name a net graph element the same way in every implementation.
  *
- * Every traversal of one snarl, chain or node gets the same name. A node is
+ * Every traversal of one element gets the same name. A node is
  * named `node` and its ID, as in `node 3`.
  *
  * A snarl or chain is named `snarl` or `chain` and its bounds. The bounds are
@@ -33,7 +33,7 @@ using handlegraph::SnarlDecomposition;
  * to node 5 forward. Written from the other end, the same bounds are `5-/2-`.
  * The name uses whichever of the two sorts first.
  *
- * @param element Any traversal of a snarl, chain or node.
+ * @param element Any traversal of a net graph element.
  */
 std::string element_name(const SnarlDecomposition& decomposition, const HandleGraph& graph,
                          const net_handle_t& element);

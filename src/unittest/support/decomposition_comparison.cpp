@@ -1,6 +1,6 @@
 /**
  * \file decomposition_comparison.cpp
- * Names for the snarls, chains and nodes of a snarl tree that every
+ * Names for the net graph elements of a snarl tree that every
  * SnarlDecomposition implementation shares.
  */
 

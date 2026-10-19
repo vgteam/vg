@@ -24,7 +24,8 @@ namespace vg::unittest {
 
 using endpoint_t = SnarlDecomposition::endpoint_t;
 
-/// List the children that for_each_child() gives for a traversal, in its order.
+/// List the children of a net graph element or the root, in the order
+/// for_each_child() gives them.
 static vector<net_handle_t> children_of(const SnarlDecomposition& decomposition, const net_handle_t& net) {
     vector<net_handle_t> children;
     decomposition.for_each_child(net, [&children](const net_handle_t& child) {
@@ -33,7 +34,8 @@ static vector<net_handle_t> children_of(const SnarlDecomposition& decomposition,
     return children;
 }
 
-/// Name the children that for_each_child() gives for a traversal, in its order.
+/// Name the children of a net graph element or the root with element_name(),
+/// in the order for_each_child() gives them.
 static vector<string> child_names(const SnarlDecomposition& decomposition, const HandleGraph& graph,
                                   const net_handle_t& net) {
     vector<string> names;
@@ -48,7 +50,7 @@ static char endpoint_letter(endpoint_t endpoint) {
     return endpoint == SnarlDecomposition::START ? 'S' : endpoint == SnarlDecomposition::END ? 'E' : 'T';
 }
 
-/// Write each realizable traversal of a snarl, chain or node as the
+/// Write each realizable traversal of a net graph element as the
 /// endpoint_letter() of its start and of its end, in the order
 /// for_each_traversal() gives them.
 static vector<string> traversal_kinds(const SnarlDecomposition& decomposition, const net_handle_t& net) {
@@ -63,9 +65,9 @@ static vector<string> traversal_kinds(const SnarlDecomposition& decomposition, c
 /**
  * Describe a traversal for a failure message.
  *
- * The description is the element_name() of the snarl, chain or node, then
- * the endpoint_letter() of the start and of the end of the traversal. A root is named `root`, and a
- * sentinel is named `sentinel` and its graph handle.
+ * The description is the element_name() of the net graph element, then the
+ * endpoint_letter() of the start and of the end of the traversal. A root is
+ * named `root`, and a sentinel is named `sentinel` and its graph handle.
  */
 static string describe(const SnarlDecomposition& decomposition, const HandleGraph& graph,
                        const net_handle_t& traversal) {
@@ -96,8 +98,8 @@ static vector<net_handle_t> adjacent_traversals(const SnarlDecomposition& decomp
  * Require the SnarlDecomposition interface's laws about one traversal.
  *
  * @post Flipping the traversal twice gives it back.
- * @post Flipping a traversal of a snarl, chain or node swaps where it starts
- * and where it ends.
+ * @post Flipping a traversal of a net graph element swaps where it starts and
+ * where it ends.
  * @post The traversal and its flip have the same canonical traversal.
  * @post For each traversal that going left gives, going right gives this
  * traversal back.
@@ -177,16 +179,16 @@ static void require_bound_laws(const SnarlDecomposition& decomposition, const ne
  *
  * @param parent The root, or a traversal of a snarl or chain.
  *
- * @post Each realizable traversal of each snarl, chain or node under the
- * parent keeps the laws that require_traversal_laws() lists.
+ * @post Each realizable traversal of each net graph element under the parent
+ * keeps the laws that require_traversal_laws() lists.
  * @post Each snarl or chain under the parent keeps the laws that
  * require_bound_laws() lists.
  * @post get_parent() of a chain's child gives the chain traversal that
  * for_each_child() listed the child from.
  * @post get_parent() of a snarl's or the root's child gives a traversal with
  * the same canonical traversal as the snarl or root.
- * @post The canonical traversal of each snarl, chain or node under the parent
- * is one of its realizable traversals, if it has any.
+ * @post The canonical traversal of each net graph element under the parent is
+ * one of its realizable traversals, if it has any.
  * @post for_each_child() of a flipped chain lists the chain's children in
  * reverse order, each flipped. A looping chain still lists its boundary node
  * first.
@@ -640,7 +642,7 @@ TEST_CASE("SnarlManagerDecomposition get_parent_traversal() throws invalid_argum
     REQUIRE_THROWS_AS(view.get_parent_traversal(start_in, view.flip(end_out)), std::invalid_argument);
 }
 
-TEST_CASE("SnarlManagerDecomposition for_each_traversal() gives START_TIP and TIP_START for a snarl whose start connects to a tip",
+TEST_CASE("SnarlManagerDecomposition for_each_traversal() gives START_TIP and TIP_START for a snarl with a walk from its start to a tip",
           "[snarl_manager_decomposition]") {
     // The chain is node 1, the snarl from 1 to 4, and node 4. The snarl holds
     // nodes 2, 3 and 5.
@@ -708,7 +710,7 @@ TEST_CASE("SnarlManagerDecomposition for_each_traversal() gives START_TIP and TI
     }
 }
 
-TEST_CASE("SnarlManagerDecomposition for_each_traversal() gives START_TIP for a snarl whose start connects to a tip in a child chain",
+TEST_CASE("SnarlManagerDecomposition for_each_traversal() gives START_TIP for a snarl with a walk from its start to a tip in a child chain",
           "[snarl_manager_decomposition]") {
     // The snarl from 1 to 7 holds the chain of node 2, the snarl from 2 to 5,
     // and node 5. In the snarl from 2 to 5, an edge joins the end of 3 to node
