@@ -1040,8 +1040,12 @@ TEST_CASE("MinimizerMapper can make correct anchors from minimizers and their zi
                 //   0
                 REQUIRE(all_transitions.at(std::make_pair(0, 3)) == 0);
 
-                // We shouldn't see any extra transitions, like between overlapping anchors.
-                REQUIRE(all_transitions.size() == 4);
+                // Perfect overlap anchor transitions
+                REQUIRE(all_transitions.at(std::make_pair(0, 2)) == 0);
+                REQUIRE(all_transitions.at(std::make_pair(2, 3)) == 0);
+
+                // We shouldn't see any extra transitions.
+                REQUIRE(all_transitions.size() == 6);
             }
         }
     }
