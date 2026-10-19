@@ -24,7 +24,7 @@ namespace vg::unittest {
 
 using endpoint_t = SnarlDecomposition::endpoint_t;
 
-/// List the children of a net graph element, as for_each_child() gives them.
+/// List the children that for_each_child() gives for a traversal, in its order.
 static vector<net_handle_t> children_of(const SnarlDecomposition& decomposition, const net_handle_t& net) {
     vector<net_handle_t> children;
     decomposition.for_each_child(net, [&children](const net_handle_t& child) {
@@ -33,8 +33,7 @@ static vector<net_handle_t> children_of(const SnarlDecomposition& decomposition,
     return children;
 }
 
-/// Name the children of a net graph element with element_name(), in the
-/// order for_each_child() gives them.
+/// Name the children that for_each_child() gives for a traversal, in its order.
 static vector<string> child_names(const SnarlDecomposition& decomposition, const HandleGraph& graph,
                                   const net_handle_t& net) {
     vector<string> names;
@@ -44,28 +43,32 @@ static vector<string> child_names(const SnarlDecomposition& decomposition, const
     return names;
 }
 
-/// Write the realizable traversals of a net graph element, in the order
-/// for_each_traversal() gives them, each as two letters for the endpoints
-/// where it starts and ends: S for START, E for END and T for TIP.
+/// Write an endpoint as S for START, E for END or T for TIP.
+static char endpoint_letter(endpoint_t endpoint) {
+    return endpoint == SnarlDecomposition::START ? 'S' : endpoint == SnarlDecomposition::END ? 'E' : 'T';
+}
+
+/// Write each realizable traversal of a snarl, chain or node as the
+/// endpoint_letter() of its start and of its end, in the order
+/// for_each_traversal() gives them.
 static vector<string> traversal_kinds(const SnarlDecomposition& decomposition, const net_handle_t& net) {
-    auto letter = [](endpoint_t endpoint) {
-        return endpoint == SnarlDecomposition::START ? 'S' : endpoint == SnarlDecomposition::END ? 'E' : 'T';
-    };
     vector<string> kinds;
     decomposition.for_each_traversal(net, [&](const net_handle_t& traversal) {
-        kinds.push_back({letter(decomposition.starts_at(traversal)), letter(decomposition.ends_at(traversal))});
+        kinds.push_back({endpoint_letter(decomposition.starts_at(traversal)),
+                         endpoint_letter(decomposition.ends_at(traversal))});
     });
     return kinds;
 }
 
-/// Describe a traversal for a failure message: the name of its element
-/// (`root` for a root, and the graph handle for a sentinel), and the
-/// endpoints where it starts and ends.
+/**
+ * Describe a traversal for a failure message.
+ *
+ * The description is the element_name() of the snarl, chain or node, then
+ * the endpoint_letter() of the start and of the end of the traversal. A root is named `root`, and a
+ * sentinel is named `sentinel` and its graph handle.
+ */
 static string describe(const SnarlDecomposition& decomposition, const HandleGraph& graph,
                        const net_handle_t& traversal) {
-    auto letter = [](endpoint_t endpoint) {
-        return endpoint == SnarlDecomposition::START ? 'S' : endpoint == SnarlDecomposition::END ? 'E' : 'T';
-    };
     string element;
     if (decomposition.is_sentinel(traversal)) {
         handle_t handle = decomposition.get_handle(traversal, &graph);
@@ -75,29 +78,30 @@ static string describe(const SnarlDecomposition& decomposition, const HandleGrap
     } else {
         element = element_name(decomposition, graph, traversal);
     }
-    return element + " " + letter(decomposition.starts_at(traversal)) + letter(decomposition.ends_at(traversal));
+    return element + " " + endpoint_letter(decomposition.starts_at(traversal)) +
+        endpoint_letter(decomposition.ends_at(traversal));
 }
 
 /// List the traversals that follow_net_edges() gives from a traversal.
-static vector<net_handle_t> neighbours(const SnarlDecomposition& decomposition, const HandleGraph& graph,
-                                      const net_handle_t& here, bool go_left) {
-    vector<net_handle_t> reached;
-    decomposition.follow_net_edges(here, &graph, go_left, [&reached](const net_handle_t& next) {
-        reached.push_back(next);
+static vector<net_handle_t> adjacent_traversals(const SnarlDecomposition& decomposition, const HandleGraph& graph,
+                                               const net_handle_t& here, bool go_left) {
+    vector<net_handle_t> adjacent;
+    decomposition.follow_net_edges(here, &graph, go_left, [&adjacent](const net_handle_t& next) {
+        adjacent.push_back(next);
     });
-    return reached;
+    return adjacent;
 }
 
 /**
- * @brief Require the SnarlDecomposition interface's laws about one traversal.
+ * Require the SnarlDecomposition interface's laws about one traversal.
  *
  * @post Flipping the traversal twice gives it back.
  * @post Flipping a traversal of a snarl, chain or node swaps where it starts
  * and where it ends.
  * @post The traversal and its flip have the same canonical traversal.
- * @post Going right from each traversal that going left reaches gives this
+ * @post For each traversal that going left gives, going right gives this
  * traversal back.
- * @post Going left from each traversal that going right reaches gives this
+ * @post For each traversal that going right gives, going left gives this
  * traversal back.
  */
 static void require_traversal_laws(const SnarlDecomposition& decomposition, const HandleGraph& graph,
@@ -109,20 +113,20 @@ static void require_traversal_laws(const SnarlDecomposition& decomposition, cons
     }
     REQUIRE(decomposition.canonical(decomposition.flip(traversal)) == decomposition.canonical(traversal));
     INFO("Traversal: " << describe(decomposition, graph, traversal));
-    for (const net_handle_t& left : neighbours(decomposition, graph, traversal, true)) {
-        INFO("Going left reaches: " << describe(decomposition, graph, left));
-        vector<net_handle_t> right = neighbours(decomposition, graph, left, false);
+    for (const net_handle_t& left : adjacent_traversals(decomposition, graph, traversal, true)) {
+        INFO("Going left gives: " << describe(decomposition, graph, left));
+        vector<net_handle_t> right = adjacent_traversals(decomposition, graph, left, false);
         REQUIRE(std::ranges::find(right, traversal) != right.end());
     }
-    for (const net_handle_t& right : neighbours(decomposition, graph, traversal, false)) {
-        INFO("Going right reaches: " << describe(decomposition, graph, right));
-        vector<net_handle_t> left = neighbours(decomposition, graph, right, true);
+    for (const net_handle_t& right : adjacent_traversals(decomposition, graph, traversal, false)) {
+        INFO("Going right gives: " << describe(decomposition, graph, right));
+        vector<net_handle_t> left = adjacent_traversals(decomposition, graph, right, true);
         REQUIRE(std::ranges::find(left, traversal) != left.end());
     }
 }
 
 /**
- * @brief Require the SnarlDecomposition interface's laws about a snarl's or
+ * Require the SnarlDecomposition interface's laws about a snarl's or
  * chain's bounds.
  *
  * @post A snarl's bounds are sentinels.
@@ -166,27 +170,26 @@ static void require_bound_laws(const SnarlDecomposition& decomposition, const ne
 }
 
 /**
- * @brief Require the SnarlDecomposition interface's laws on the descendants
- * of a net graph element.
+ * Require the SnarlDecomposition interface's laws on everything under a snarl,
+ * chain or root.
  *
- * @details A descendant is a child of the element, or a descendant of a
- * child that is a snarl or chain.
+ * Check each child, and everything under each child that is a snarl or chain.
  *
  * @param parent The root, or a traversal of a snarl or chain.
  *
- * @post Each realizable traversal of each descendant keeps the laws that
- * require_traversal_laws() lists.
- * @post Each snarl or chain descendant keeps the laws that
+ * @post Each realizable traversal of each snarl, chain or node under the
+ * parent keeps the laws that require_traversal_laws() lists.
+ * @post Each snarl or chain under the parent keeps the laws that
  * require_bound_laws() lists.
  * @post get_parent() of a chain's child gives the chain traversal that
  * for_each_child() listed the child from.
  * @post get_parent() of a snarl's or the root's child gives a traversal with
  * the same canonical traversal as the snarl or root.
- * @post A descendant's canonical traversal is one of its realizable
- * traversals, if it has any.
+ * @post The canonical traversal of each snarl, chain or node under the parent
+ * is one of its realizable traversals, if it has any.
  * @post for_each_child() of a flipped chain lists the chain's children in
- * reverse order, each flipped. A cyclic chain, whose start and end bounds
- * are the same node, still lists that node first.
+ * reverse order, each flipped. A looping chain still lists its boundary node
+ * first.
  */
 static void require_interface_laws(const SnarlDecomposition& decomposition, const HandleGraph& graph,
                                    const net_handle_t& parent) {
@@ -270,7 +273,7 @@ static vector<pair<string, std::function<void(VG&)>>> example_graphs() {
             graph.create_edge(n2, n3);
             graph.create_edge(n2, n2, false, true);
         }},
-        {"a cyclic chain", [](VG& graph) {
+        {"a looping chain", [](VG& graph) {
             Node* n1 = graph.create_node("GCA");
             Node* n2 = graph.create_node("T");
             Node* n3 = graph.create_node("G");
@@ -281,7 +284,7 @@ static vector<pair<string, std::function<void(VG&)>>> example_graphs() {
             graph.create_edge(n3, n4);
             graph.create_edge(n4, n1);
         }},
-        {"a snarl holding a tip node", [](VG& graph) {
+        {"a snarl with a tip", [](VG& graph) {
             Node* n1 = graph.create_node("GCA");
             Node* n2 = graph.create_node("T");
             Node* n3 = graph.create_node("G");
@@ -335,10 +338,10 @@ TEST_CASE("tree_shape() is the same for each SnarlDecomposition implementation",
 }
 
 /**
- * @brief Require the SnarlDecomposition interface's laws, as
+ * Require the SnarlDecomposition interface's laws, as
  * require_interface_laws() lists them, on one implementation.
  *
- * @details Checks the implementation in a DecompositionLineup for each of
+ * Checks the implementation in a DecompositionLineup for each of
  * example_graphs(), decomposed by IntegratedSnarlFinder, and for 200 graphs
  * from random_flipped_graph(), decomposed by fuzzed_decomposition(). The
  * random graphs are 100 with chain_flip_probability 0 and 100 with 0.5.
@@ -347,6 +350,8 @@ TEST_CASE("tree_shape() is the same for each SnarlDecomposition implementation",
  * gives the implementation.
  *
  * @note A name that no implementation has checks nothing.
+ *
+ * TODO: Should a name that no implementation has fail the test instead?
  */
 static void require_laws_on_implementation(const string& implementation) {
     auto check = [&implementation](const DecompositionLineup& lineup, const HandleGraph& graph) {
@@ -384,6 +389,10 @@ TEST_CASE("SnarlDistanceIndex keeps the SnarlDecomposition interface's laws",
 
 TEST_CASE("SnarlManagerDecomposition get_snarl_net() gives each manager snarl oriented forward along its chain",
           "[snarl_manager_decomposition]") {
+    // The root chain is node 1, the snarl from 1 to 8, and node 8. The snarl
+    // from 1 to 8 holds the chain of node 2, the snarl from 2 to 7, and node 7.
+    // The snarl from 2 to 7 holds node 6 and the chain of node 3, the snarl
+    // from 3 to 5, and node 5.
     VG graph;
     Node* n1 = graph.create_node("GCA");
     Node* n2 = graph.create_node("T");
@@ -404,7 +413,7 @@ TEST_CASE("SnarlManagerDecomposition get_snarl_net() gives each manager snarl or
     graph.create_edge(n6, n7);
     graph.create_edge(n7, n8);
     std::default_random_engine generator(test_seed_source());
-    // Reverse some chains, so that some snarls are backward in their chains.
+    // Reverse some chains, so that some snarls are reversed in parent.
     IntegratedSnarlFinder base_finder(graph);
     SnarlDecompositionFuzzer finder(&graph, &base_finder, 0.5, generator);
     SnarlManager manager = finder.find_snarls();
@@ -417,20 +426,22 @@ TEST_CASE("SnarlManagerDecomposition get_snarl_net() gives each manager snarl or
     manager.for_each_snarl_preorder([&](const Snarl* snarl) {
         net_handle_t net = view.get_snarl_net(snarl);
         REQUIRE(view.get_snarl(net) == snarl);
-        bool backward = (*manager.chain_of(snarl))[manager.chain_rank_of(snarl)].second;
+        bool is_reverse = (*manager.chain_of(snarl))[manager.chain_rank_of(snarl)].second;
         handle_t start = graph.get_handle(snarl->start().node_id(), snarl->start().backward());
         handle_t end = graph.get_handle(snarl->end().node_id(), snarl->end().backward());
-        REQUIRE(view.get_handle(view.get_bound(net, false, true), &graph) == (backward ? graph.flip(end) : start));
-        REQUIRE(view.get_handle(view.get_bound(net, true, false), &graph) == (backward ? graph.flip(start) : end));
-        // for_each_child() of the snarl's parent chain lists the same snarl
-        // traversal.
+        REQUIRE(view.get_handle(view.get_bound(net, false, true), &graph) == (is_reverse ? graph.flip(end) : start));
+        REQUIRE(view.get_handle(view.get_bound(net, true, false), &graph) == (is_reverse ? graph.flip(start) : end));
+        // for_each_child() of the parent chain of the snarl lists the same
+        // snarl traversal.
         vector<net_handle_t> siblings = children_of(view, view.get_parent(net));
         REQUIRE(std::ranges::find(siblings, net) != siblings.end());
     });
 }
 
-TEST_CASE("SnarlManagerDecomposition for_each_child() of a chain lists a childless snarl between the snarl's bound nodes",
+TEST_CASE("SnarlManagerDecomposition for_each_child() of a chain lists a childless snarl between the snarl's boundary nodes",
           "[snarl_manager_decomposition]") {
+    // The chain is nodes 1, 2, 4 and 5, with a snarl between each two. The
+    // snarl from 2 to 4 holds node 3, and the other two are trivial snarls.
     VG graph;
     Node* n1 = graph.create_node("GCA");
     Node* n2 = graph.create_node("T");
@@ -452,7 +463,8 @@ TEST_CASE("SnarlManagerDecomposition for_each_child() of a chain lists a childle
             vector<string> {"node 1", "snarl 1+/2+", "node 2", "snarl 2+/4+", "node 4", "snarl 4+/5+", "node 5"});
 }
 
-TEST_CASE("SnarlManagerDecomposition for_each_traversal() gives START_START for a chain with a self-loop in a childless snarl", "[snarl_manager_decomposition]") {
+TEST_CASE("SnarlManagerDecomposition for_each_traversal() gives START_START for a chain with a self-loop in a childless snarl",
+          "[snarl_manager_decomposition]") {
     // The chain is node 1, the snarl from 1 to 4, node 4, the snarl from 4 to
     // 5, and node 5. The snarl from 4 to 5 has no children, and an edge from
     // the end of 4 back into the end of 4.
@@ -482,8 +494,10 @@ TEST_CASE("SnarlManagerDecomposition for_each_traversal() gives START_START for 
     REQUIRE(traversal_kinds(view, chain) == vector<string> {"SS", "SE", "ES"});
 }
 
-TEST_CASE("SnarlManagerDecomposition for_each_child() of a cyclic chain lists the bound node once and follow_net_edges() of the last child gives the bound node",
+TEST_CASE("SnarlManagerDecomposition for_each_child() of a looping chain lists the boundary node once and follow_net_edges() of the last child gives the boundary node",
           "[snarl_manager_decomposition]") {
+    // The chain is node 1, the snarl from 1 to 4, node 4, and the snarl from
+    // 4 back to 1, which has no children.
     VG graph;
     Node* n1 = graph.create_node("GCA");
     Node* n2 = graph.create_node("T");
@@ -502,8 +516,6 @@ TEST_CASE("SnarlManagerDecomposition for_each_child() of a cyclic chain lists th
     REQUIRE(chains.size() == 1);
     const net_handle_t& chain = chains[0];
     vector<net_handle_t> children = children_of(view, chain);
-    // The chain is node 1, the snarl from 1 to 4, node 4, and the snarl from
-    // 4 back to 1, which has no children.
     REQUIRE(children.size() == 4);
     // Both bounds are the first child, oriented forward along the chain.
     REQUIRE(view.get_bound(chain, false, true) == children.front());
@@ -511,24 +523,25 @@ TEST_CASE("SnarlManagerDecomposition for_each_child() of a cyclic chain lists th
 
     // Leaving the last child forward along the chain, a walk next visits the
     // first child.
-    REQUIRE(neighbours(view, graph, children.back(), false) == vector<net_handle_t> {children.front()});
+    REQUIRE(adjacent_traversals(view, graph, children.back(), false) == vector<net_handle_t> {children.front()});
 
-    // Traversed in reverse, the chain still lists its bound node first.
+    // Traversed in reverse, the chain still lists its boundary node first.
     REQUIRE(children_of(view, view.flip(chain)) ==
             vector<net_handle_t> {view.flip(children[0]), view.flip(children[3]), view.flip(children[2]),
                                   view.flip(children[1])});
 
-    // Each edge on the bound node is in one of the chain's snarls, so
+    // Each edge on the boundary node is in one of the snarls of the chain, so
     // follow_net_edges() of the chain gives nothing in either direction.
     for (const net_handle_t& traversal : {chain, view.flip(chain)}) {
         for (bool go_left : {false, true}) {
-            REQUIRE(neighbours(view, graph, traversal, go_left).empty());
+            REQUIRE(adjacent_traversals(view, graph, traversal, go_left).empty());
         }
     }
 }
 
-TEST_CASE("SnarlManagerDecomposition puts a snarl whose start() and end() Visits are equal in a cyclic chain of its own",
+TEST_CASE("SnarlManagerDecomposition puts a snarl whose start() and end() Visits are equal in a looping chain of its own",
           "[snarl_manager_decomposition]") {
+    // Nodes 2 and 3 each make a loop from the end of node 1 back to its start.
     bdsg::HashGraph graph;
     handle_t h1 = graph.create_handle("GCA", 1);
     handle_t h2 = graph.create_handle("T", 2);
@@ -580,6 +593,8 @@ TEST_CASE("SnarlManagerDecomposition constructor throws invalid_argument for a u
 
 TEST_CASE("SnarlManagerDecomposition get_parent_traversal() throws invalid_argument for nodes of two trivial chains or an unrealizable traversal",
           "[snarl_manager_decomposition]") {
+    // The chain is node 1, the snarl from 1 to 4, and node 4. The snarl holds
+    // nodes 2 and 3.
     VG graph;
     Node* n1 = graph.create_node("GCA");
     Node* n2 = graph.create_node("T");
@@ -602,6 +617,8 @@ TEST_CASE("SnarlManagerDecomposition get_parent_traversal() throws invalid_argum
 
 TEST_CASE("SnarlManagerDecomposition get_parent_traversal() throws invalid_argument for sentinels facing the wrong way",
           "[snarl_manager_decomposition]") {
+    // The chain is node 1, the snarl from 1 to 4, and node 4. The snarl holds
+    // nodes 2 and 3.
     VG graph;
     Node* n1 = graph.create_node("GCA");
     Node* n2 = graph.create_node("T");
@@ -623,8 +640,10 @@ TEST_CASE("SnarlManagerDecomposition get_parent_traversal() throws invalid_argum
     REQUIRE_THROWS_AS(view.get_parent_traversal(start_in, view.flip(end_out)), std::invalid_argument);
 }
 
-TEST_CASE("SnarlManagerDecomposition for_each_traversal() gives START_TIP and TIP_START for a snarl whose start reaches a tip node",
+TEST_CASE("SnarlManagerDecomposition for_each_traversal() gives START_TIP and TIP_START for a snarl whose start connects to a tip",
           "[snarl_manager_decomposition]") {
+    // The chain is node 1, the snarl from 1 to 4, and node 4. The snarl holds
+    // nodes 2, 3 and 5.
     VG graph;
     Node* n1 = graph.create_node("GCA");
     Node* n2 = graph.create_node("T");
@@ -636,7 +655,7 @@ TEST_CASE("SnarlManagerDecomposition for_each_traversal() gives START_TIP and TI
     graph.create_edge(n2, n4);
     graph.create_edge(n3, n4);
     // An edge joins the end of node 3 to node 5, and the end of node 5 is a
-    // dead end.
+    // tip.
     graph.create_edge(n3, n5);
     IntegratedSnarlFinder finder(graph);
     SnarlManager manager = finder.find_snarls();
@@ -664,7 +683,7 @@ TEST_CASE("SnarlManagerDecomposition for_each_traversal() gives START_TIP and TI
         REQUIRE(view.ends_at(from_tip) == SnarlDecomposition::START);
     }
 
-    SECTION("get_parent_traversal() gives START_TIP from the start bound and the tip node's trivial chain") {
+    SECTION("get_parent_traversal() gives START_TIP from the start bound and node 5's trivial chain") {
         net_handle_t tip_chain = view.get_parent(view.get_net(graph.get_handle(n5->id()), &graph));
         net_handle_t to_tip = view.get_parent_traversal(view.get_bound(snarl, false, true), tip_chain);
         REQUIRE(to_tip == view.get_parent_traversal(view.get_bound(snarl, false, true), view.flip(tip_chain)));
@@ -680,20 +699,21 @@ TEST_CASE("SnarlManagerDecomposition for_each_traversal() gives START_TIP and TI
     SECTION("follow_net_edges() from the TIP end of a snarl traversal gives nothing") {
         view.for_each_traversal(snarl, [&](const net_handle_t& traversal) {
             if (view.ends_at_tip(traversal)) {
-                REQUIRE(neighbours(view, graph, traversal, false).empty());
+                REQUIRE(adjacent_traversals(view, graph, traversal, false).empty());
             }
             if (view.starts_at_tip(traversal)) {
-                REQUIRE(neighbours(view, graph, traversal, true).empty());
+                REQUIRE(adjacent_traversals(view, graph, traversal, true).empty());
             }
         });
     }
 }
 
-TEST_CASE("SnarlManagerDecomposition for_each_traversal() gives START_TIP for a snarl whose start reaches a tip in a child chain", "[snarl_manager_decomposition]") {
+TEST_CASE("SnarlManagerDecomposition for_each_traversal() gives START_TIP for a snarl whose start connects to a tip in a child chain",
+          "[snarl_manager_decomposition]") {
     // The snarl from 1 to 7 holds the chain of node 2, the snarl from 2 to 5,
     // and node 5. In the snarl from 2 to 5, an edge joins the end of 3 to node
     // 6, and the end of 6 is a tip. The test builds the snarls by hand,
-    // because a snarl finder may make the tip node an end of the root chain.
+    // because a snarl finder may make node 6 an end of the root chain.
     bdsg::HashGraph graph;
     handle_t n1 = graph.create_handle("A", 1);
     handle_t n2 = graph.create_handle("C", 2);

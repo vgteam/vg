@@ -1,7 +1,7 @@
 /**
  * \file decomposition_comparison.cpp
- * Describes a SnarlDecomposition's snarl tree in names that any
- * implementation shares, so that tests can compare implementations.
+ * Names for the snarls, chains and nodes of a snarl tree that every
+ * SnarlDecomposition implementation shares.
  */
 
 #include "decomposition_comparison.hpp"
@@ -30,7 +30,7 @@ std::string element_name(const SnarlDecomposition& decomposition, const HandleGr
     return std::format("{} {}", decomposition.is_snarl(element) ? "snarl" : "chain", bound_pair);
 }
 
-/// Return true if a decomposition element is a snarl with no children.
+/// Return true if a traversal is of a snarl with no children.
 static bool is_childless_snarl(const SnarlDecomposition& decomposition, const net_handle_t& element) {
     return decomposition.is_snarl(element) && decomposition.for_each_child(element, [](const net_handle_t&) {
         return false;
@@ -38,9 +38,9 @@ static bool is_childless_snarl(const SnarlDecomposition& decomposition, const ne
 }
 
 /**
- * @brief Add an element, and everything under it, to a tree shape.
+ * Add a snarl, chain or root, and everything under it, to a tree shape.
  *
- * @param name The element's name in the shape.
+ * @param name The name of the element in the shape.
  * @param element A traversal of a snarl or chain, or the root.
  */
 static void add_to_shape(const SnarlDecomposition& decomposition, const HandleGraph& graph,
@@ -63,15 +63,17 @@ static void add_to_shape(const SnarlDecomposition& decomposition, const HandleGr
         }
     };
     if (decomposition.is_chain(element)) {
-        // List the children along a start-to-end traversal of the chain.
+        // List the children in the order a start-to-end traversal of the chain
+        // visits them, and also in the reverse order.
         net_handle_t forward = decomposition.get_parent(decomposition.get_bound(element, false, true));
         decomposition.for_each_child(forward, visit);
         std::vector<std::string> reversed(children.rbegin(), children.rend());
-        bool cyclic = decomposition.get_handle(decomposition.get_bound(element, false, true), &graph) ==
-            decomposition.get_handle(decomposition.get_bound(element, true, false), &graph);
-        if (cyclic && !reversed.empty()) {
-            // Start the reverse order at the bound node too.
-            std::rotate(reversed.begin(), reversed.end() - 1, reversed.end());
+        if (bool looping = decomposition.get_handle(decomposition.get_bound(element, false, true), &graph) ==
+                decomposition.get_handle(decomposition.get_bound(element, true, false), &graph);
+            looping && !reversed.empty()) {
+            // Start the reverse order at the boundary node too. A trivial chain
+            // also has one handle for both bounds, and its one child stays put.
+            std::ranges::rotate(reversed, reversed.end() - 1);
         }
         children = std::min(children, reversed);
     } else {

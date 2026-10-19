@@ -20,14 +20,14 @@ DecompositionLineup::DecompositionLineup(const HandleGraph& graph, const HandleG
 }
 
 DecompositionLineup::DecompositionLineup(const HandleGraph& graph, const std::vector<DecompositionEvent>& events) {
-    managers.push_back(ReplaySnarlFinder(&graph, events).find_snarls());
-    entries.push_back({"SnarlManagerDecomposition",
-                       std::make_unique<SnarlManagerDecomposition>(managers.back(), graph)});
+    managers.emplace_back(ReplaySnarlFinder(&graph, events).find_snarls());
+    entries.emplace_back("SnarlManagerDecomposition",
+                         std::make_unique<SnarlManagerDecomposition>(managers.back(), graph));
 
     auto index = std::make_unique<SnarlDistanceIndex>();
     ReplaySnarlFinder replay(&graph, events);
     fill_in_distance_index(index.get(), &graph, &replay);
-    entries.push_back({"SnarlDistanceIndex", std::move(index)});
+    entries.emplace_back("SnarlDistanceIndex", std::move(index));
 }
 
 void DecompositionLineup::for_each(

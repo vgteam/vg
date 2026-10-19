@@ -26,17 +26,17 @@ namespace vg::unittest {
 using handlegraph::SnarlDecomposition;
 
 /**
- * @brief A line-up of every SnarlDecomposition implementation, each built
+ * A line-up of every SnarlDecomposition implementation, each built
  * from the same recorded decomposition of a graph.
  *
- * @details Tests that run one check on each implementation loop over the
+ * Tests that run one check on each implementation loop over the
  * line-up with for_each(), so a new implementation needs only a new entry in
  * the constructor.
  */
 class DecompositionLineup {
 public:
     /**
-     * @brief Build each implementation from a recorded decomposition.
+     * Build each implementation from a recorded decomposition.
      *
      * @param graph The graph that was decomposed. The implementations keep
      * references to it, so it must outlive the line-up.
@@ -46,11 +46,11 @@ public:
     DecompositionLineup(const HandleGraph& graph, const std::vector<DecompositionEvent>& events);
 
     /**
-     * @brief Build each implementation from a snarl finder's decomposition.
+     * Build each implementation from a snarl finder's decomposition.
      *
-     * @details Runs the finder a single time and records its events, so that
-     * a finder that decomposes differently on each run gives every
-     * implementation the same decomposition.
+     * Run the finder once and record its events, so that every
+     * implementation gets the same decomposition from a finder that
+     * decomposes differently on each run.
      *
      * @param graph As for the other constructor.
      * @param finder The snarl finder to run.
@@ -61,7 +61,7 @@ public:
     DecompositionLineup& operator=(const DecompositionLineup& other) = delete;
 
     /**
-     * @brief Call a function on each implementation, with the name of its
+     * Call a function on each implementation, with the name of its
      * class.
      *
      * @post Implementations come in the same order on each call, and in each
@@ -85,21 +85,21 @@ private:
 };
 
 /**
- * @brief Make a small random graph, with each node stored
+ * Make a small random graph, with each node stored
  * reverse-complemented with probability 1/2.
  *
- * @details A node stored reverse-complemented has a reverse handle where the
+ * A node stored reverse-complemented has a reverse handle where the
  * original graph had a forward one. So chains in the result have some nodes
- * oriented forward along the chain and some in reverse along the chain.
+ * reversed in parent.
  */
 bdsg::HashGraph random_flipped_graph(std::default_random_engine& generator);
 
 /**
- * @brief Record a decomposition of a graph, with each chain reversed at
+ * Record a decomposition of a graph, with each chain reversed at
  * random.
  *
- * @details Runs an IntegratedSnarlFinder through a SnarlDecompositionFuzzer,
- * which reverses each chain with the given probability.
+ * Run an IntegratedSnarlFinder through a SnarlDecompositionFuzzer, which
+ * reverses each chain with the given probability.
  *
  * @return The finder's events.
  */

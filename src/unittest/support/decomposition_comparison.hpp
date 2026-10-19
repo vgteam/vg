@@ -3,8 +3,9 @@
 
 /**
  * \file decomposition_comparison.hpp
- * Comparing the snarl trees that two SnarlDecomposition implementations
- * present for one graph.
+ * Names for the snarls, chains and nodes of a snarl tree that every
+ * SnarlDecomposition implementation shares, so tests can compare
+ * implementations.
  */
 
 #include <map>
@@ -21,17 +22,16 @@ using handlegraph::net_handle_t;
 using handlegraph::SnarlDecomposition;
 
 /**
- * @brief Get a name for a snarl, chain or node, which is the same in each
- * implementation and for each traversal of the element.
+ * Name a snarl, chain or node the same way in every implementation.
  *
- * @details A node is named `node` and its ID, as in `node 3`.
+ * Every traversal of one snarl, chain or node gets the same name. A node is
+ * named `node` and its ID, as in `node 3`.
  *
- * A snarl or chain is named `snarl` or `chain` and its bound pair. The bound
- * pair is written as the handle of the start bound facing in, a slash, and
- * the handle of the end bound facing out, as in `2+/5+` for a snarl from
- * node 2 forward to node 5 forward. The same bounds written in the other
- * direction are `5-/2-`. The bound pair is whichever of these two sorts
- * first.
+ * A snarl or chain is named `snarl` or `chain` and its bounds. The bounds are
+ * written as the handle of the start bound facing in, a slash, and the handle
+ * of the end bound facing out, as in `2+/5+` for a snarl from node 2 forward
+ * to node 5 forward. Written from the other end, the same bounds are `5-/2-`.
+ * The name uses whichever of the two sorts first.
  *
  * @param element Any traversal of a snarl, chain or node.
  */
@@ -39,29 +39,28 @@ std::string element_name(const SnarlDecomposition& decomposition, const HandleGr
                          const net_handle_t& element);
 
 /**
- * @brief The shape of a snarl tree: the name of the root and of each snarl
- * and chain, mapped to the names of its children.
+ * The shape of a snarl tree, as a map from the name of the root and of each
+ * snarl and chain to the names of its children.
  *
- * @details The root is named `root`, and the other elements as
- * element_name() names them. A snarl's or the root's children are
- * sorted by name. A chain's children are in the order that a traversal of
- * the chain from one bound to the other visits them; of the two such orders,
- * the one that sorts first is kept. A cyclic chain's children start at its
- * bound node in both orders.
+ * The root is named `root`, and everything else as element_name() names it.
+ * The children of a snarl or of the root are sorted by name. The children of
+ * a chain are in the order that a traversal of the chain visits them. Of the
+ * two traversals, start-to-end and end-to-start, the map keeps the one whose
+ * list sorts first. The list for a looping chain starts at its boundary node
+ * in both orders.
  */
 using TreeShape = std::map<std::string, std::vector<std::string>>;
 
 /**
- * @brief Describe the shape of the snarl tree that a decomposition presents.
+ * Describe the shape of the snarl tree that a decomposition presents.
  *
- * @details A snarl with no children is left out, both as an element and as
- * a child of its chain, so that the shape of an implementation that presents
- * such snarls matches the shape of a SnarlDistanceIndex. The snarl's chain
- * then lists the snarl's two bounds next to each other.
+ * Snarls with no children are left out, as keys and as children of their
+ * chains, because a SnarlDistanceIndex does not present them. The chain of
+ * such a snarl lists the two boundary nodes of the snarl next to each other.
  *
- * A child for which is_root() is true, such as a root snarl that a
- * SnarlDistanceIndex groups root chains under, is replaced by its own
- * children.
+ * A child for which is_root() is true is replaced by its own children. A
+ * SnarlDistanceIndex groups connected top-level chains under such a root
+ * snarl.
  */
 TreeShape tree_shape(const SnarlDecomposition& decomposition, const HandleGraph& graph);
 

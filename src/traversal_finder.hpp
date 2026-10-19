@@ -44,16 +44,16 @@ string traversal_to_string(const PathHandleGraph* graph, const Traversal& traver
 string graph_interval_to_string(const HandleGraph* graph, const handle_t& start_handle, const handle_t& end_handle);
 string path_interval_to_string(const PathHandleGraph* graph, const PathInterval& path_interval);
 
-/// A strategy for finding traversals of a site from its two bound handles.
+/// A finder that lists walks through a site, given the handles of its bounds.
 class SiteTraversalFinder {
 public:
     virtual ~SiteTraversalFinder() = default;
 
     /**
-     * @brief Find traversals of the site between two bound handles.
+     * Find walks through the site between two bound handles.
      *
-     * @param snarl_start The site's start bound, oriented into the site.
-     * @param snarl_end The site's end bound, oriented out of the site.
+     * @param snarl_start The start bound of the site, oriented into the site.
+     * @param snarl_end The end bound of the site, oriented out of the site.
      * @return Walks that each start with snarl_start and end with snarl_end.
      */
     virtual vector<Traversal> find_traversals(const handle_t& snarl_start, const handle_t& snarl_end) = 0;
@@ -615,13 +615,13 @@ protected:
 public:
     
     /**
-     * @brief Make a finder that searches a graph for the widest traversals.
+     * Make a finder that searches a graph for the widest traversals.
      *
      * @param graph The graph to search. The finder keeps a reference to it,
      * so it must outlive the finder.
      * @param K The most traversals to find for each site.
-     * @param node_weight_callback The flow through each node.
-     * @param edge_weight_callback The flow through each edge.
+     * @param node_weight_callback A function giving the flow through a node.
+     * @param edge_weight_callback A function giving the flow through an edge.
      * @param max_traversal_length A length in bases. When a search finds a
      * traversal longer than this, not counting the site's bounds, it stops
      * and returns the traversals found so far, including that one.
@@ -633,14 +633,14 @@ public:
                         size_t max_traversal_length = numeric_limits<size_t>::max());
 
     /**
-     * @brief Find the K widest (most flow) traversals through a site.
+     * Find the K widest (most flow) traversals through a site.
      *
      * @return The traversals, widest first.
      */
     virtual vector<SnarlTraversal> find_traversals(const Snarl& site);
 
     /**
-     * @brief Find the K widest traversals through the site between two bound
+     * Find the K widest traversals through the site between two bound
      * handles.
      *
      * @return The traversals, widest first.
@@ -648,7 +648,7 @@ public:
     vector<Traversal> find_traversals(const handle_t& snarl_start, const handle_t& snarl_end) override;
 
     /**
-     * @brief Find the K widest traversals through a site, with their flows.
+     * Find the K widest traversals through a site, with their flows.
      *
      * @param greedy_avg True to search heuristically by the running average
      * flow, which may miss the widest traversals, rather than by the
@@ -665,13 +665,13 @@ public:
                                                                                   const HandleGraph* overlay = nullptr);
 
     /**
-     * @brief Find the K widest traversals through the site between two bound
+     * Find the K widest traversals through the site between two bound
      * handles, with their flows.
      *
-     * @param snarl_start The site's start bound, oriented into the site, as a
-     * handle in the graph that is searched.
-     * @param snarl_end The site's end bound, oriented out of the site, as a
-     * handle in the graph that is searched.
+     * @param snarl_start The start bound of the site, oriented into the site,
+     * as a handle in the graph that is searched.
+     * @param snarl_end The end bound of the site, oriented out of the site, as
+     * a handle in the graph that is searched.
      * @param greedy_avg True to search heuristically by the running average
      * flow, which may miss the widest traversals, rather than by the
      * smallest flow along each traversal.

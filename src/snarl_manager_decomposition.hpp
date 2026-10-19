@@ -3,8 +3,10 @@
 
 /** \file
  * The handlegraph::SnarlDecomposition interface over the snarls that a
- * SnarlManager holds, for code written against that interface, such as code
- * that also runs on a SnarlDistanceIndex.
+ * SnarlManager holds.
+ *
+ * Code written for the interface can run on a SnarlManager as well as on a
+ * SnarlDistanceIndex.
  */
 
 #include <handlegraph/snarl_decomposition.hpp>
@@ -22,47 +24,46 @@ namespace vg {
 using handlegraph::net_handle_t;
 
 /**
- * @brief A view of a SnarlManager's snarls through the SnarlDecomposition
- * interface.
+ * A view of the snarls and chains in a SnarlManager, through the
+ * SnarlDecomposition interface.
  *
- * @details The view shows each snarl and chain the manager holds, in these
- * terms:
+ * The view describes chains in these terms:
  *
  * - A chain alternates *chain nodes* and snarls, starting and ending with a
- *   chain node. Each chain node has a *position*, counted from 0 at the
- *   chain's start bound. The view orients each snarl forward along its chain:
- *   a snarl's start bound is the chain node before it, and its end bound is
- *   the chain node after it. Where the manager's Snarl is backward in its
- *   chain, its start() is the view's end bound.
- * - A *cyclic chain*'s last snarl leads back into its first chain node, in
- *   the same orientation. That node is both of the chain's bounds, and is one
- *   child of the chain.
+ *   chain node. Each chain node has an *index* in its chain, counting from 0
+ *   at the chain's start bound. The snarl of rank i in the chain lies between
+ *   the chain nodes with indexes i and i + 1.
+ * - Each snarl is oriented forward along its chain. Its start bound is the
+ *   chain node before it, and its end bound is the chain node after it. So
+ *   for a Snarl that is reversed in parent, the view's start bound is the
+ *   Snarl's end() flipped, and the view's end bound is its start() flipped.
+ * - In a looping chain, the last snarl leads back into the first chain node,
+ *   in the same orientation. That node is both bounds of the chain, and is
+ *   one child of the chain, with index 0.
  * - Each node of the graph is either a chain node of one chain, or a *free
- *   node*. A free node is directly in a snarl, or in the root, as a trivial
- *   chain of its own. The trivial chain's start-to-end traversal is the node
- *   oriented forward.
- * - A *dead end* is a side of a node with no edges. A *tip* of a snarl or
- *   chain is a dead end on a node inside it, other than its bound nodes. A
- *   traversal that starts or ends at a tip has TIP as that endpoint.
+ *   node*. A free node is a trivial chain, directly in a snarl or in the
+ *   root. The start-to-end traversal of the trivial chain visits the node in
+ *   its forward orientation.
  *
  * Methods that take a graph pointer use that graph to convert between
- * handles and node IDs, so it must have the same node IDs as the graph the
+ * handles and node IDs. So it must have the same node IDs as the graph the
  * view was made with.
  *
  * @note A SnarlDistanceIndex built from the same snarl finder presents the
- * same snarl tree, except that:
- * - The view's root holds each root chain directly. A distance index groups
- *   adjacent root chains under root snarls, for which is_root() is true.
+ * same snarl tree, with two differences:
+ * - The root of the view holds each top-level chain directly. A distance
+ *   index groups top-level chains under root snarls, for which is_root() is
+ *   true.
  * - The view shows snarls that have no children. A distance index shows the
  *   two bounds of such a snarl as neighbouring chain nodes.
  */
 class SnarlManagerDecomposition : public handlegraph::SnarlDecomposition {
 public:
     /**
-     * @brief Make a view of the snarls in a SnarlManager.
+     * Make a view of the snarls in a SnarlManager.
      *
-     * @details Finds which traversals of each snarl and chain are
-     * realizable, in time linear in the size of the graph.
+     * Walk the graph to find which traversals of each snarl and chain are
+     * realizable.
      *
      * @param manager The manager whose snarls to present. The view keeps a
      * reference to it, so it must outlive the view and must not change while
@@ -71,25 +72,24 @@ public:
      * reference to it, so it must outlive the view.
      *
      * @pre finish() has been called on the manager.
-     * @throws std::invalid_argument If the manager holds a unary snarl, whose
-     * end is its start reversed.
+     * @throws std::invalid_argument If the manager holds a unary snarl.
      */
     SnarlManagerDecomposition(const SnarlManager& manager, const HandleGraph& graph);
 
     ~SnarlManagerDecomposition() override = default;
 
     /**
-     * @brief Get the start-to-end traversal of a snarl.
+     * Get the start-to-end traversal of a snarl.
+     *
+     * For a Snarl that is reversed in parent, the traversal goes from the
+     * Snarl's end() to its start().
      *
      * @param snarl A snarl owned by the manager the view presents.
-     * @return The traversal from the snarl's start bound in the view to its
-     * end bound. When the Snarl is backward in its chain, this traversal goes
-     * from the Snarl's end() to its start().
      */
     net_handle_t get_snarl_net(const Snarl* snarl) const;
 
     /**
-     * @brief Get the manager's Snarl for a traversal of a snarl.
+     * Get the manager's Snarl for a traversal of a snarl.
      *
      * @throws std::invalid_argument If the net handle is not for a snarl.
      */
@@ -108,11 +108,11 @@ public:
     net_handle_t get_net(const handle_t& handle, const HandleGraph* handle_graph) const override;
 
     /**
-     * @brief Get the graph handle for a node, a trivial chain, or a sentinel.
+     * Get the graph handle for a node, a trivial chain, or a sentinel.
      *
-     * @details A trivial chain gives its node, oriented the way the traversal
-     * goes. A sentinel gives its bound node, oriented into the snarl if the
-     * sentinel faces in, and out of the snarl if the sentinel faces out.
+     * A trivial chain gives its node, oriented the way the traversal goes. A
+     * sentinel gives its bound node, oriented into the snarl if the sentinel
+     * faces in, and out of the snarl if the sentinel faces out.
      *
      * @throws std::invalid_argument If the net handle is for a snarl, the
      * root, or a chain that holds a snarl.
@@ -121,83 +121,118 @@ public:
 
     net_handle_t get_parent(const net_handle_t& child) const override;
 
-    /// Give a cyclic chain's first chain node as both its start bound and
-    /// its end bound. Facing into the chain at the start, or out of it at the
-    /// end, that node is oriented forward along the chain.
+    /**
+     * Get a sentinel of a snarl, or a bound node of a chain.
+     *
+     * A looping chain gives its first chain node as both its start bound and
+     * its end bound. That node is oriented forward along the chain when it
+     * faces into the chain at the start, or out of it at the end.
+     */
     net_handle_t get_bound(const net_handle_t& snarl, bool get_end, bool face_in) const override;
 
-    /// Flip a sentinel to the same bound facing the other way.
+    /// Flip a traversal, or turn a sentinel to face the other way.
     net_handle_t flip(const net_handle_t& net) const override;
 
-    /// Pick as the canonical traversal of a snarl, chain or node the first
-    /// realizable one of start-to-end, start-to-tip, end-to-tip,
-    /// start-to-start, end-to-end and tip-to-tip. Pick as the canonical
-    /// traversal of a sentinel its bound facing in.
-    /// TODO: An element with no realizable traversal gets start-to-end, but
-    /// the interface requires the canonical traversal to be realizable.
+    /**
+     * Get the canonical traversal of a snarl, chain or node.
+     *
+     * For a snarl, chain or node, pick the first realizable traversal among
+     * start-to-end, start-to-tip, end-to-tip, start-to-start, end-to-end and
+     * tip-to-tip. For a sentinel, pick its bound facing in.
+     *
+     * TODO: An element with no realizable traversal gets start-to-end, but
+     * the interface requires the canonical traversal to be realizable.
+     */
     net_handle_t canonical(const net_handle_t& net) const override;
 
     endpoint_t starts_at(const net_handle_t& traversal) const override;
     endpoint_t ends_at(const net_handle_t& traversal) const override;
 
-    /// Throw std::invalid_argument if the two arguments are in different
-    /// snarls or chains, or if their snarl or chain has no realizable
-    /// traversal from the first to the second.
+    /**
+     * Get the traversal of a snarl or chain from one of its children or bounds
+     * to another.
+     *
+     * @throws std::invalid_argument If the two arguments are in different
+     * snarls or chains, or if the traversal between them is not realizable.
+     */
     net_handle_t get_parent_traversal(const net_handle_t& traversal_start,
                                       const net_handle_t& traversal_end) const override;
 
 protected:
-    /// Give the children of a snarl, or of the root, in this order: its
-    /// chains, in the manager's order, then the trivial chains of its free
-    /// nodes, by node ID. Give the children of a chain, for a traversal other
-    /// than start-to-end and end-to-start, in order from the chain's start.
+    /**
+     * Call a function on each child of the root, a snarl, a chain or a
+     * trivial chain.
+     *
+     * The root or a snarl gives its chains in the manager's order, then the
+     * trivial chains of its free nodes in node ID order. A chain traversal
+     * other than start-to-end and end-to-start gives the children in order
+     * from the chain's start, each start-to-end.
+     */
     bool for_each_child_impl(const net_handle_t& traversal,
                              const std::function<bool(const net_handle_t&)>& iteratee) const override;
 
-    /// Give the realizable traversals in this order, skipping the others:
-    /// start-to-start, start-to-end, start-to-tip, end-to-start, end-to-end,
-    /// end-to-tip, tip-to-start, tip-to-end, tip-to-tip. Give a sentinel as
-    /// its own only traversal.
+    /**
+     * Call a function on each realizable traversal of a snarl, chain or node.
+     *
+     * Give them in this order: start-to-start, start-to-end, start-to-tip,
+     * end-to-start, end-to-end, end-to-tip, tip-to-start, tip-to-end,
+     * tip-to-tip. A sentinel is its own only traversal.
+     */
     bool for_each_traversal_impl(const net_handle_t& item,
                                  const std::function<bool(const net_handle_t&)>& iteratee) const override;
 
-    /// Going right, give each realizable traversal that a walk leaving
-    /// through this traversal's end can visit next, starting where the walk
-    /// enters it. Going left, give each traversal from which going right
-    /// gives this one.
-    /// In a cyclic chain, going right from the last snarl gives the first
-    /// chain node, and going right from that node gives the first snarl.
-    /// Walk the graph the view was made with, and ignore handle_graph.
+    /**
+     * Call a function on each realizable traversal that a walk can visit
+     * just after or just before a traversal.
+     *
+     * Going right, give each realizable traversal that starts where a walk
+     * leaving here through its end enters the next element. Going left, give
+     * each traversal from which going right gives here. In a looping chain,
+     * going right from the last snarl gives the first chain node, and going
+     * right from that node gives the first snarl.
+     *
+     * Walk the graph the view was made with, and ignore handle_graph.
+     */
     bool follow_net_edges_impl(const net_handle_t& here, const HandleGraph* handle_graph, bool go_left,
                                const std::function<bool(const net_handle_t&)>& iteratee) const override;
 
-    /// For a snarl or the root, give each traversal of a child chain that
-    /// starts at a tip of that chain, and each traversal of a child chain or
-    /// trivial chain that starts at a bound whose outer side is a dead end.
-    /// For a chain, give each traversal of a child snarl that starts at a tip
-    /// of that snarl. Give them in an arbitrary order.
+    /**
+     * Call a function on each realizable traversal of a child that starts at
+     * a tip of the parent.
+     *
+     * For the root or a snarl, give each traversal of a child chain that
+     * starts at a tip of that chain. Also give each traversal of a child
+     * chain or trivial chain that starts at a bound whose outer side is a
+     * dead end. For a chain, give each traversal of a child snarl that starts
+     * at a tip of that snarl. Give them in no particular order.
+     */
     bool for_each_tippy_child_impl(const net_handle_t& parent,
                                    const std::function<bool(const net_handle_t&)>& iteratee) const override;
 
 private:
 
     /// The place of a chain node in its chain.
-    struct ChainPosition {
+    struct ChainPlace {
         /// The chain, owned by the manager.
         const Chain* chain;
-        /// The node's position, from 0 at the chain's start bound.
-        /// Positions are less than chain_node_count(*chain).
-        size_t position;
-        /// True if the node's reverse orientation is forward along the chain.
+        /// The index of the node in the chain. The bound node of a looping
+        /// chain has index 0.
+        size_t index;
+        /// True if the node is reversed in parent.
         bool is_reverse;
     };
 
-    /// A directory that gives each node's chain position, if it is a chain
-    /// node, and the snarl that directly contains it.
+    /**
+     * A directory of where each node of a graph sits in the snarl tree.
+     *
+     * The directory gives each node's place in its chain, if it is a chain
+     * node, and the snarl that directly contains the node. It also lists the
+     * free nodes of each snarl.
+     */
     class NodeDirectory {
     public:
         /**
-         * @brief Find the place of each node of a graph.
+         * Find where each node of a graph sits in a manager's snarl tree.
          *
          * @param manager The manager whose chains and snarls hold the nodes.
          * The directory keeps pointers into it, so it must outlive the
@@ -209,36 +244,36 @@ private:
         NodeDirectory(const SnarlManager& manager, const HandleGraph& graph);
 
         /**
-         * @brief Get a node's place in its chain.
+         * Get the place of a node in its chain.
          *
          * @return The place, or nullopt for a free node.
          *
          * @pre The node is in the graph.
          */
-        std::optional<ChainPosition> chain_position(nid_t id) const;
+        std::optional<ChainPlace> chain_place(nid_t id) const;
 
         /**
-         * @brief Get the snarl that directly contains a node.
+         * Get the snarl that directly contains a node.
          *
-         * @return The snarl that contains the node's chain or trivial chain,
-         * or null for the root.
+         * @return The snarl that contains the chain or trivial chain of the
+         * node, or null for the root.
          *
          * @pre The node is in the graph.
          */
         const Snarl* containing_snarl(nid_t id) const;
 
-        /// Get the free nodes in a snarl, or in the root if given null, by
-        /// ID.
+        /// Get the free nodes in a snarl, or in the root if given null, in ID
+        /// order.
         const std::vector<nid_t>& free_nodes(const Snarl* snarl) const;
 
     private:
-        /// One node's place in the decomposition.
+        /// The place of one node in the snarl tree.
         struct Entry {
             /// The snarl that directly contains the node, or null for the
             /// root.
             const Snarl* containing_snarl;
-            /// The node's place in its chain, or nullopt for a free node.
-            std::optional<ChainPosition> chain_position;
+            /// The place of the node in its chain, or nullopt for a free node.
+            std::optional<ChainPlace> chain_place;
         };
 
         /// The entry for each node of the graph, by ID.
@@ -248,24 +283,25 @@ private:
         std::unordered_map<const Snarl*, std::vector<nid_t>> free_nodes_by_snarl;
     };
 
-    /// A set of traversal kinds, each named by the endpoints where it starts
-    /// and ends.
+    /// A set of traversals of one snarl, chain or node, each named by the
+    /// endpoints where it starts and ends.
     class TraversalSet {
     public:
-        /// Add the traversal kind from one endpoint to another.
+        /// Add the traversal from one endpoint to another.
         void add(endpoint_t start, endpoint_t end);
-        /// Return true if the set holds the traversal kind.
+        /// Return true if the set holds the traversal from one endpoint to
+        /// another.
         bool contains(endpoint_t start, endpoint_t end) const;
         /**
-         * @brief Call a function on each traversal kind in the set, until it
-         * returns false.
+         * Call a function on each traversal in the set, until it returns
+         * false.
+         *
+         * Give the traversals ordered by start endpoint, then by end
+         * endpoint, each in the order START, END, TIP.
          *
          * @param iteratee A function that takes the start and end endpoints,
          * and returns false to stop.
          * @return False if the function stopped the loop, and true otherwise.
-         *
-         * @post Kinds come ordered by start endpoint, then by end endpoint,
-         * each in the order START, END, TIP.
          */
         template<typename Iteratee>
         bool for_each(const Iteratee& iteratee) const {
@@ -280,183 +316,213 @@ private:
         }
 
     private:
-        /// One bit for each traversal kind, at index 3 * start + end, where
-        /// START, END and TIP are 0, 1 and 2.
+        /// One bit for each traversal, at index 3 * start + end, where START,
+        /// END and TIP are 0, 1 and 2.
         uint16_t bits = 0;
     };
 
     /**
-     * @brief A survey of the realizable traversals of each snarl and chain.
+     * A survey of the realizable traversals of each snarl and chain in a
+     * manager.
      *
-     * @details The constructor finds them by walking the graph. A walk
-     * through a snarl crosses each child chain, turns around in it, or stops
-     * at a tip in it, as the child chain's realizable traversals allow. A
-     * walk along a chain goes through each of its snarls as that snarl's
-     * realizable traversals allow. So the survey needs the traversals of
-     * each child before those of its parent.
+     * Each snarl is oriented forward along its chain. The constructor does
+     * the survey, and nothing changes it afterwards.
      */
     class TraversalSurvey {
     public:
         /**
-         * @brief Survey each snarl and chain in a manager.
+         * Survey each snarl and chain in a manager.
          *
          * @param manager The manager whose snarls and chains to survey.
          * @param graph The graph the snarls were found in.
-         * @param directory The places of the graph's nodes.
+         * @param directory The directory of the nodes of the graph.
          */
         TraversalSurvey(const SnarlManager& manager, const HandleGraph& graph, const NodeDirectory& directory);
 
-        /// Get the realizable traversals of a snarl, oriented forward along its
-        /// chain.
+        /// Get the realizable traversals of a snarl.
         const TraversalSet& of_snarl(const Snarl* snarl) const;
         /// Get the realizable traversals of a chain.
         const TraversalSet& of_chain(const Chain* chain) const;
 
     private:
         /**
-         * @brief A walker that finds where walks through a snarl or along a
-         * chain can end, from the traversals already surveyed for the
-         * snarl's or chain's children.
+         * A surveyor that finds the realizable traversals of one snarl or
+         * chain at a time, by walking the graph.
          *
-         * @details The survey's constructor makes one, and asks it about
-         * each snarl and chain, innermost first.
+         * In a snarl, a walk follows edges from node to node. It crosses each
+         * child chain, turns around in it, or stops at a tip in it, as the
+         * survey says the traversals of that chain allow. Along a chain, a
+         * walk goes through each snarl as the survey says the traversals of
+         * that snarl allow. So the surveyor must survey each child before its
+         * parent.
          */
-        class Walker {
+        class Surveyor {
         public:
             /**
-             * @brief Make a walker for one survey.
+             * Make a surveyor for one survey.
              *
-             * @details The walker keeps references to its arguments, which
-             * must outlive it.
+             * The surveyor keeps references to its arguments, which must
+             * outlive it.
              */
-            Walker(const SnarlManager& manager, const HandleGraph& graph, const NodeDirectory& directory,
-                   const TraversalSurvey& survey);
+            Surveyor(const SnarlManager& manager, const HandleGraph& graph, const NodeDirectory& directory,
+                     const TraversalSurvey& survey);
 
             /**
-             * @brief Find the realizable traversals of a snarl.
+             * Find the realizable traversals of a snarl.
              *
              * @pre Each chain in the snarl has been surveyed.
              */
             TraversalSet survey_snarl(const Snarl* snarl) const;
             /**
-             * @brief Find the realizable traversals of a chain.
+             * Find the realizable traversals of a chain.
              *
              * @pre Each snarl in the chain has been surveyed.
              */
             TraversalSet survey_chain(const Chain& chain) const;
 
         private:
-            /// The endpoints of a snarl or chain where a walk can end.
+            /// The places in a snarl or chain where a walk can end.
             struct WalkEnds {
-                /// True if the walk can leave through the start bound.
+                /// True if a walk can leave through the start bound.
                 bool start = false;
-                /// True if the walk can leave through the end bound.
+                /// True if a walk can leave through the end bound.
                 bool end = false;
-                /// True if the walk can end at a tip.
+                /// True if a walk can end at a tip.
                 bool tip = false;
             };
 
             /**
-             * @brief Walk through a snarl from some handles, and find where the
-             * walk can end.
+             * Find where walks through a snarl from some handles can end.
              *
-             * @param starts Handles in the snarl. The walk starts on each one,
-             * and leaves it through its right side. A start may be a bound of
-             * the snarl, oriented into the snarl.
-             * @return Whether the walk can leave the snarl through its start
-             * bound, whether it can leave through its end bound, and whether it
-             * can end at a tip in the snarl.
+             * A walk leaves a start through its right side, and goes on until
+             * it leaves the snarl through a bound or comes to a dead end.
+             *
+             * @param starts Handles on nodes in the snarl, or on bounds of the
+             * snarl oriented into it.
              *
              * @pre Each chain in the snarl has been surveyed.
              */
             WalkEnds walk_snarl(const Snarl* snarl, const std::vector<handle_t>& starts) const;
 
             /**
-             * @brief Walk along a chain from some chain nodes, and find where the
-             * walk can end.
+             * Find where walks along a chain from some chain nodes can end.
              *
-             * @param starts Places to start: each a chain node's position, and
-             * true to leave it going in reverse along the chain, or false to
-             * leave it going forward along the chain.
-             * @return Whether the walk can leave the chain through its start
-             * bound, whether it can leave through its end bound, and whether it
-             * can end at a tip in one of the chain's snarls.
+             * @param starts The places to start. Each is the index of a chain
+             * node, and true to leave that node going in reverse along the
+             * chain, or false to leave it going forward along the chain.
+             * Here the end bound has index chain.size() even in a looping
+             * chain, so that a walk going forward out of the last snarl
+             * leaves the chain instead of going around again.
              *
              * @pre Each snarl in the chain has been surveyed.
              */
             WalkEnds walk_chain(const Chain& chain, const std::vector<std::pair<size_t, bool>>& starts) const;
 
             /**
-             * @brief Find where a walk that enters a child chain or free node
-             * can leave it.
+             * Find where a walk that enters a child chain or free node can
+             * leave it.
              *
-             * @param entering A chain's bound node oriented into the chain, or a
-             * handle on a free node.
-             * @param exits A list to add the child's exits to. An exit is a
-             * handle that a walk leaves the child by, through the handle's right
-             * side. A chain's exits are its bound nodes, oriented out of the
-             * chain, at each bound where a walk entering the chain can leave it.
-             * A free node's one exit is the entering handle.
-             * @return True if a walk entering the chain can end at a tip in it.
+             * @param entering A bound node of a chain, oriented into the
+             * chain, or a handle on a free node.
+             * @param exits A list to add the exits of the child to. A walk
+             * leaves the child through the right side of an exit. The exits of
+             * a chain are its bound nodes, oriented out of the chain, at each
+             * bound where a walk entering the chain can leave it. The one exit
+             * of a free node is the entering handle.
+             * @return True if a walk entering the chain can end at a tip in
+             * it.
              *
              * @pre The chain has been surveyed.
-             * @throws std::logic_error If the handle enters a chain between
-             * its bounds, which a chain does not allow, so the decomposition
-             * is broken.
+             * @throws std::logic_error If the handle enters a chain between its
+             * bounds. A correct snarl decomposition has no edge that does.
              */
             bool enter_child(const handle_t& entering, std::vector<handle_t>& exits) const;
+
+            /**
+             * Add the traversals made by walks from the start and end bounds.
+             *
+             * Also add each traversal from a tip that is one of those
+             * traversals taken backward.
+             *
+             * @param from_start Where walks entering at the start bound can
+             * end.
+             * @param from_end Where walks entering at the end bound can end.
+             */
+            static void add_walks_from_bounds(TraversalSet& traversals, const WalkEnds& from_start,
+                                              const WalkEnds& from_end);
 
             /// The manager whose snarls and chains are surveyed.
             const SnarlManager& manager;
             /// The graph the snarls were found in.
             const HandleGraph& graph;
-            /// Tells the walker which chain, if any, each node is a chain node
-            /// of.
+            /// Tells the surveyor which chain, if any, each node is a chain
+            /// node of.
             const NodeDirectory& directory;
-            /// The survey being made, which holds the traversals of each child
-            /// already surveyed.
+            /// Tells the surveyor the traversals of each child already
+            /// surveyed.
             const TraversalSurvey& survey;
         };
 
-        /// The realizable traversals of each snarl, oriented forward along its
-        /// chain.
+        /// The realizable traversals of each snarl.
         std::unordered_map<const Snarl*, TraversalSet> snarls;
         /// The realizable traversals of each chain.
         std::unordered_map<const Chain*, TraversalSet> chains;
     };
 
-    /// Get a handle, in the view's graph, on a snarl's start bound oriented
-    /// into the snarl, or on its end bound oriented out of the snarl.
+    /// Get a snarl's start bound oriented into the snarl, or its end bound
+    /// oriented out of it, as a handle in the view's graph.
     handle_t snarl_bound(const Snarl* snarl, bool get_end) const;
     /// Get a snarl's net handle, start-to-end if forward and end-to-start
     /// otherwise.
     net_handle_t snarl_net(const Snarl* snarl, bool forward) const;
     /// Get a chain's start-to-end net handle.
     net_handle_t chain_net(const Chain& chain) const;
-    /// Get the chain that a chain net handle is for.
+    /// Get the chain that a chain's net handle is for.
     const Chain& chain_of_net(const net_handle_t& net) const;
-    /// Get the net handle for the chain node at a position, oriented in
-    /// reverse along the chain if is_reverse, and forward along it otherwise.
-    net_handle_t chain_node_net(const Chain& chain, size_t position, bool is_reverse) const;
+    /// Get the net handle for the chain node at an index, oriented in reverse
+    /// along the chain if is_reverse, and forward along it otherwise.
+    net_handle_t chain_node_net(const Chain& chain, size_t index, bool is_reverse) const;
 
     /**
-     * @brief Call a function on each child of a snarl, or of the root if
-     * given null.
+     * Call a function on each child of a snarl, or of the root if given null.
      *
-     * @details Gives each child start-to-end: first the snarl's chains, in
-     * the manager's order, then the trivial chains of its free nodes, by node
-     * ID.
+     * Give each child start-to-end. Give the chains of the snarl first, in
+     * the manager's order, then the trivial chains of its free nodes, in node
+     * ID order.
      *
      * @return False if the function stopped the loop, and true otherwise.
      */
     bool for_each_snarl_child(const Snarl* parent, const std::function<bool(const net_handle_t&)>& iteratee) const;
 
     /**
-     * @brief Call a function on each chain node and snarl of a chain.
+     * Call a function on each realizable traversal of a child of a snarl, or
+     * of the root if given null, that starts at a tip of the parent.
      *
-     * @details For a start-to-end or end-to-start traversal, children come in
-     * the order the traversal visits them, oriented the way it visits them. For
-     * other traversals, they come in order from the chain's start, each
+     * A tip of the parent is a tip in a child chain, the outer side of a
+     * bound of a child chain with no edges on it, or a dead end on a free
+     * node. Give the traversals of chains first, in the manager's order, then
+     * those of free nodes, in node ID order.
+     *
+     * @return False if the function stopped the loop, and true otherwise.
+     */
+    bool for_each_tippy_snarl_child(const Snarl* parent,
+                                    const std::function<bool(const net_handle_t&)>& iteratee) const;
+
+    /**
+     * Call a function on each realizable traversal of a child that starts at
+     * an endpoint.
+     *
+     * @return False if the function stopped the loop, and true otherwise.
+     */
+    bool for_each_traversal_from(const net_handle_t& child, endpoint_t start,
+                                 const std::function<bool(const net_handle_t&)>& iteratee) const;
+
+    /**
+     * Call a function on each chain node and snarl of a chain.
+     *
+     * For a start-to-end or end-to-start traversal, give the children in the
+     * order the traversal visits them, oriented the way it visits them. For
+     * other traversals, give them in order from the start of the chain, each
      * start-to-end.
      *
      * @return False if the function stopped the loop, and true otherwise.
@@ -465,43 +531,39 @@ private:
                               const std::function<bool(const net_handle_t&)>& iteratee) const;
 
     /**
-     * @brief Get the next child in a chain after a chain node or snarl.
+     * Get the next child in a chain after a chain node or snarl.
      *
      * @param here A start-to-end or end-to-start traversal of a node, or any
      * traversal of a snarl.
-     * @return
-     * - The chain node or snarl that a walk leaving through the end of here
-     *   enters, oriented the way the walk goes.
-     * - nullopt, when here ends at a tip, leaves its chain at a bound, or is
-     *   a free node.
+     * @return The chain node or snarl that a walk leaving here through its end
+     * enters, oriented the way the walk goes. Return nullopt when here ends at
+     * a tip, leaves its chain at a bound, or is a free node.
      */
     std::optional<net_handle_t> next_in_chain(const net_handle_t& here) const;
 
     /**
-     * @brief Get the child of a snarl or the root that a handle enters.
+     * Get the child of a snarl or the root that a handle enters.
      *
-     * @param handle A handle at the far end of an edge from one of the
-     * parent's children or from one of its bounds.
+     * @param handle A handle at the far end of an edge from a child or bound
+     * of the parent.
      * @param parent The snarl, or null for the root.
-     * @return
-     * - The traversal of the child chain or trivial chain that the handle
-     *   enters at one of its bounds.
-     * - The parent's bound sentinel facing out, if the handle leaves the
-     *   parent.
+     * @return The traversal of the child chain or trivial chain that the
+     * handle enters at one of its bounds. If the handle leaves the parent,
+     * return the parent's sentinel for that bound, facing out.
      *
      * @throws std::logic_error If the handle enters a chain between its
-     * bounds, which a chain does not allow, so the decomposition is broken.
+     * bounds. A correct snarl decomposition has no edge that does.
      */
     net_handle_t sibling_entered_by(const handle_t& handle, const Snarl* parent) const;
 
     /**
-     * @brief Call a function on each sibling that a walk leaving a traversal
-     * through its end enters.
+     * Call a function on each sibling that a walk leaving a traversal through
+     * its end enters.
      *
-     * @details A sibling is a chain or trivial chain in the same parent,
-     * given as its start-to-end or end-to-start traversal, or one of the
-     * parent's sentinels, facing out. A sentinel facing out, a cyclic chain,
-     * and a traversal that ends at a tip have no siblings ahead.
+     * A sibling is a chain or trivial chain in the same parent, given as its
+     * start-to-end or end-to-start traversal, or one of the parent's
+     * sentinels, facing out. A sentinel facing out, a looping chain, and a
+     * traversal that ends at a tip have no siblings ahead.
      *
      * @param here A traversal of a chain or trivial chain, or a sentinel.
      * @return False if the function stopped the loop, and true otherwise.
@@ -510,8 +572,8 @@ private:
                                 const std::function<bool(const net_handle_t&)>& iteratee) const;
 
     /**
-     * @brief Call a function on each realizable traversal of an element that
-     * starts where a walk enters it.
+     * Call a function on each realizable traversal of an element that starts
+     * where a walk enters it.
      *
      * @param entered A traversal of the element that starts where the walk
      * enters it.
@@ -521,21 +583,22 @@ private:
                                     const std::function<bool(const net_handle_t&)>& iteratee) const;
 
     /**
-     * @brief Call a function on each realizable traversal that a walk leaving
-     * a traversal through its end can visit next, starting where the walk
-     * enters it.
+     * Call a function on each realizable traversal that a walk leaving a
+     * traversal through its end can visit next.
+     *
+     * Each traversal given starts where the walk enters its element.
      *
      * @return False if the function stopped the loop, and true otherwise.
      */
     bool follow_right(const net_handle_t& here, const std::function<bool(const net_handle_t&)>& iteratee) const;
 
     /**
-     * @brief Find the snarl or chain whose traversal an element can start or
-     * end, and the endpoint of that snarl or chain.
+     * Find the snarl or chain, and its endpoint, where a traversal of it can
+     * start or end at an element.
      *
      * @param net One of:
      * - A sentinel facing into its snarl, if is_start, or out of it
-     *   otherwise. This gives the snarl and the sentinel's bound.
+     *   otherwise. This gives the snarl and the bound of the sentinel.
      * - A node traversal that enters its chain or trivial chain at a bound,
      *   if is_start, or leaves it at a bound otherwise. This gives the chain
      *   and that bound.
@@ -550,7 +613,7 @@ private:
      */
     std::pair<net_handle_t, endpoint_t> parent_endpoint(const net_handle_t& net, bool is_start) const;
 
-    /// Get the realizable traversals of a net graph element. A sentinel's
+    /// Get the realizable traversals of a snarl, chain or node. A sentinel's
     /// only traversal is itself.
     TraversalSet traversals_of(const net_handle_t& item) const;
 
@@ -558,9 +621,10 @@ private:
     const SnarlManager& manager;
     /// The graph the snarls were found in.
     const HandleGraph& graph;
-    /// The manager's snarls, by SnarlManager::snarl_number().
-    std::vector<const Snarl*> snarls;
-    /// Tells the view each node's chain position, and the snarl that
+    /// The manager's snarls, by SnarlManager::snarl_number(). Net handles for
+    /// snarls, sentinels and chains carry snarl numbers as their payloads.
+    std::vector<const Snarl*> snarls_by_number;
+    /// Tells the view each node's place in its chain, and the snarl that
     /// contains it.
     NodeDirectory directory;
     /// Tells the view which traversals of each snarl and chain are

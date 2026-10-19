@@ -4,9 +4,9 @@
 /// and SiteTraversalFinder.
 ///
 /// PathTraversalFinder, GBWTTraversalFinder and FlowTraversalFinder each find
-/// a site's traversals given either a Snarl, through TraversalFinder, or the
-/// site's two bound handles, through SiteTraversalFinder. Both interfaces
-/// must give the same traversals for the same site.
+/// the walks through a site given either a Snarl, through TraversalFinder, or
+/// the two bound handles of the site, through SiteTraversalFinder. Both
+/// interfaces must give the same walks for the same site.
 
 #include "catch.hpp"
 #include "../traversal_finder.hpp"
@@ -30,10 +30,9 @@ static Traversal to_traversal(const HandleGraph& graph, const SnarlTraversal& sn
 }
 
 /**
- * @brief Add a path that walks from a handle along randomly chosen edges.
+ * Add a path that walks from a handle along randomly chosen edges.
  *
- * @details The path stops after the given number of steps, or earlier at a
- * dead end.
+ * The path stops after max_steps steps, or earlier at a dead end.
  */
 template<typename URNG>
 static void add_random_walk(MutablePathHandleGraph& graph, const string& name, handle_t here, size_t max_steps,
@@ -63,15 +62,14 @@ static gbwt::GBWT paths_gbwt(const PathHandleGraph& graph) {
 }
 
 /**
- * @brief Require that a finder gives the same traversals of a site through
- * both of its interfaces.
+ * Require that a finder gives the same walks through a site from both of its
+ * interfaces.
  *
- * @return The number of traversals found.
- * @post Finding traversals of the site's two bound handles, through
- * SiteTraversalFinder, gives the same traversals in the same order as
- * finding traversals of the Snarl, through TraversalFinder.
- * @post Each traversal is nonempty, starts with the site's start handle and
- * ends with its end handle.
+ * The walks found from the bound handles must match those found from the
+ * Snarl, in the same order. Each walk must start with the start handle of
+ * the site and end with its end handle.
+ *
+ * @return The number of walks found.
  */
 template<typename Finder>
 static size_t require_interfaces_agree(Finder& finder, const HandleGraph& graph, const Snarl& site) {
@@ -90,12 +88,11 @@ static size_t require_interfaces_agree(Finder& finder, const HandleGraph& graph,
 }
 
 /**
- * @brief Require that a FlowTraversalFinder gives the same weighted
- * traversals of a site through both of its interfaces.
+ * Require that a FlowTraversalFinder gives the same weighted walks through a
+ * site from both of its interfaces.
  *
- * @post The weighted traversals found from the site's two bound handles are
- * the same, with the same weights in the same order, as those found from the
- * Snarl.
+ * The walks and flows found from the bound handles must match those found
+ * from the Snarl, in the same order.
  */
 static void require_weighted_interfaces_agree(FlowTraversalFinder& finder, const HandleGraph& graph, const Snarl& site) {
     handle_t start = graph.get_handle(site.start().node_id(), site.start().backward());
@@ -109,8 +106,13 @@ static void require_weighted_interfaces_agree(FlowTraversalFinder& finder, const
     }
 }
 
-/// Make a Snarl that holds only the bounds of a snarl, oriented as in the
-/// snarl or, when reversed is true, in reverse.
+/**
+ * Make a Snarl with the bounds of a snarl and no other fields.
+ *
+ * When reversed is true, the new start is the end of the snarl and the new
+ * end is its start, each flipped, so that finders search the snarl in
+ * reverse.
+ */
 static Snarl site_of(const Snarl& snarl, bool reversed) {
     Snarl site;
     *site.mutable_start() = reversed ? reverse(snarl.end()) : snarl.start();
@@ -118,6 +120,10 @@ static Snarl site_of(const Snarl& snarl, bool reversed) {
     return site;
 }
 
+// Each graph is a small random graph with the path that random_graph() makes
+// and three random walks as more paths, all also held in a GBWT. Every snarl is searched forward and
+// in reverse. Each finder must find the same walks from the bound handles as
+// from the Snarl, and must find some walk in some snarl.
 TEST_CASE("Traversal finders find the same traversals from a site's bound handles as from its Snarl",
           "[site_traversal_finder]") {
 
@@ -130,8 +136,7 @@ TEST_CASE("Traversal finders find the same traversals from a site's bound handle
         VG graph;
         small_random_graph(generator, &graph);
 
-        // Add paths that walk randomly from the start of the path that
-        // random_graph() made.
+        // Start the random walks where the path from random_graph() starts.
         handle_t first = graph.get_handle_of_step(graph.path_begin(graph.get_path_handle("path")));
         for (size_t i = 0; i < 3; i++) {
             add_random_walk(graph, std::format("walk{}", i), first, 2 * graph.get_node_count(), generator);
@@ -144,8 +149,11 @@ TEST_CASE("Traversal finders find the same traversals from a site's bound handle
         auto node_weight = [&graph](handle_t handle) {
             return static_cast<double>(graph.get_id(handle) % 5 + 1);
         };
-        auto edge_weight = [](edge_t) {
-            return 1.0;
+        // Vary edge weights too, because the width of a walk is its smallest
+        // node or edge weight, and equal edge weights would make all widths
+        // the same.
+        auto edge_weight = [&graph](edge_t edge) {
+            return static_cast<double>((graph.get_id(edge.first) + graph.get_id(edge.second)) % 3 + 1);
         };
         PathTraversalFinder path_finder(graph);
         GBWTTraversalFinder gbwt_finder(graph, gbwt_index);

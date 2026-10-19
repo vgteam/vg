@@ -19,10 +19,13 @@ namespace unittest {
 void random_graph(int64_t seq_size, int64_t variant_len, int64_t variant_count,
                   MutablePathMutableHandleGraph* graph);
 
-/// Make a random graph with random_graph(), choosing its sizes with a
-/// generator. The sequence is 50 to 300 bases long. The number of large
-/// variants is between 1 and the sequence length divided by 30. Their mean
-/// length is between 1 and the sequence length divided by 20.
+/**
+ * Make a random graph with random_graph(), choosing its sizes at random.
+ *
+ * The sequence is 50 to 300 bases long. The number of larger variants is
+ * between 1 and the sequence length divided by 30. Their mean length is
+ * between 1 and the sequence length divided by 20.
+ */
 template<typename URNG>
 void small_random_graph(URNG& generator, MutablePathMutableHandleGraph* graph) {
     int64_t bases = std::uniform_int_distribution<int64_t>(50, 300)(generator);

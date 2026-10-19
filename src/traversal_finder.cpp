@@ -3433,7 +3433,7 @@ pair<vector<Traversal>, vector<double>> FlowTraversalFinder::find_weighted_trave
 
     size_t max_path_length = max_traversal_length;
     if (max_path_length != numeric_limits<size_t>::max()) {
-        // want to exclude snarl endpoints from path length clamp
+        // Leave the bounds out of the length limit.
         max_path_length += use_graph->get_length(snarl_start) + use_graph->get_length(snarl_end);
     }
     

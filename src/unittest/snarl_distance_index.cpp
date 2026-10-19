@@ -36,6 +36,18 @@ namespace vg {
     // the ones that are just in vg, somehow.
     using vg::operator<<;
 
+    /**
+     * Key an edge of a snarl's netgraph the same way from either direction.
+     *
+     * The edge from traversal left to traversal right is also the edge from
+     * flip(right) to flip(left). The key is the smaller of these two pairs.
+     */
+    static pair<uint64_t, uint64_t> net_edge_key(const SnarlDistanceIndex& index, const net_handle_t& left,
+                                                 const net_handle_t& right) {
+        return std::min(make_pair(as_integer(left), as_integer(right)),
+                        make_pair(as_integer(index.flip(right)), as_integer(index.flip(left))));
+    }
+
 
     static pair<unordered_set<Node*>, unordered_set<Edge*> > pb_contents(
         VG& graph, const pair<unordered_set<id_t>, unordered_set<edge_t> >& contents) {
@@ -714,21 +726,14 @@ namespace vg {
                 });
                 handles.emplace_back(distance_index.get_bound(top_snarl, false, true));
                 handles.emplace_back(distance_index.get_bound(top_snarl, true, true));
-                // The edge from traversal left to traversal right is also the edge
-                // from flip(right) to flip(left). Key each edge by the smaller of
-                // these two pairs.
-                auto edge_key = [&](const net_handle_t& left, const net_handle_t& right) {
-                    return std::min(make_pair(as_integer(left), as_integer(right)),
-                                    make_pair(as_integer(distance_index.flip(right)), as_integer(distance_index.flip(left))));
-                };
                 std::set<pair<uint64_t, uint64_t>> edges;
                 for (net_handle_t& handle : handles) {
                     distance_index.follow_net_edges(handle, &graph, false, [&](const net_handle_t& other) {
-                        edges.insert(edge_key(handle, other));
+                        edges.insert(net_edge_key(distance_index, handle, other));
                         return true;
                     });
                     distance_index.follow_net_edges(handle, &graph, true, [&](const net_handle_t& other) {
-                        edges.insert(edge_key(other, handle));
+                        edges.insert(net_edge_key(distance_index, other, handle));
                         return true;
                     });
                 }
@@ -1186,21 +1191,14 @@ namespace vg {
                 });
                 handles.emplace_back(distance_index.get_bound(top_snarl, false, true));
                 handles.emplace_back(distance_index.get_bound(top_snarl, true, true));
-                // The edge from traversal left to traversal right is also the edge
-                // from flip(right) to flip(left). Key each edge by the smaller of
-                // these two pairs.
-                auto edge_key = [&](const net_handle_t& left, const net_handle_t& right) {
-                    return std::min(make_pair(as_integer(left), as_integer(right)),
-                                    make_pair(as_integer(distance_index.flip(right)), as_integer(distance_index.flip(left))));
-                };
                 std::set<pair<uint64_t, uint64_t>> edges;
                 for (net_handle_t& handle : handles) {
                     distance_index.follow_net_edges(handle, &graph, false, [&](const net_handle_t& other) {
-                        edges.insert(edge_key(handle, other));
+                        edges.insert(net_edge_key(distance_index, handle, other));
                         return true;
                     });
                     distance_index.follow_net_edges(handle, &graph, true, [&](const net_handle_t& other) {
-                        edges.insert(edge_key(other, handle));
+                        edges.insert(net_edge_key(distance_index, other, handle));
                         return true;
                     });
                 }
@@ -1719,21 +1717,14 @@ namespace vg {
                     handles.emplace_back(distance_index.get_bound(top_snarl, false, true));
                     handles.emplace_back(distance_index.get_bound(top_snarl, true, true));
 
-                    // The edge from traversal left to traversal right is also the edge
-                    // from flip(right) to flip(left). Key each edge by the smaller of
-                    // these two pairs.
-                    auto edge_key = [&](const net_handle_t& left, const net_handle_t& right) {
-                        return std::min(make_pair(as_integer(left), as_integer(right)),
-                                        make_pair(as_integer(distance_index.flip(right)), as_integer(distance_index.flip(left))));
-                    };
                     std::set<pair<uint64_t, uint64_t>> edges;
                     for (net_handle_t& handle : handles) {
                         distance_index.follow_net_edges(handle, &graph, false, [&](const net_handle_t& other) {
-                            edges.insert(edge_key(handle, other));
+                            edges.insert(net_edge_key(distance_index, handle, other));
                             return true;
                         });
                         distance_index.follow_net_edges(handle, &graph, true, [&](const net_handle_t& other) {
-                            edges.insert(edge_key(other, handle));
+                            edges.insert(net_edge_key(distance_index, other, handle));
                             return true;
                         });
                     }
@@ -1973,21 +1964,14 @@ namespace vg {
                     handles.emplace_back(distance_index.get_bound(top_snarl, false, true));
                     handles.emplace_back(distance_index.get_bound(top_snarl, true, true));
 
-                    // The edge from traversal left to traversal right is also the edge
-                    // from flip(right) to flip(left). Key each edge by the smaller of
-                    // these two pairs.
-                    auto edge_key = [&](const net_handle_t& left, const net_handle_t& right) {
-                        return std::min(make_pair(as_integer(left), as_integer(right)),
-                                        make_pair(as_integer(distance_index.flip(right)), as_integer(distance_index.flip(left))));
-                    };
                     std::set<pair<uint64_t, uint64_t>> edges;
                     for (net_handle_t& handle : handles) {
                         distance_index.follow_net_edges(handle, &graph, false, [&](const net_handle_t& other) {
-                            edges.insert(edge_key(handle, other));
+                            edges.insert(net_edge_key(distance_index, handle, other));
                             return true;
                         });
                         distance_index.follow_net_edges(handle, &graph, true, [&](const net_handle_t& other) {
-                            edges.insert(edge_key(other, handle));
+                            edges.insert(net_edge_key(distance_index, other, handle));
                             return true;
                         });
                     }
@@ -5369,10 +5353,10 @@ namespace vg {
                         REQUIRE((distance_index.starts_at(next) == SnarlDecomposition::END 
                               && distance_index.ends_at(next) == SnarlDecomposition::START));
                     });
-                    //Going left finds the end-to-start traversal. A walk
-                    //along it leaves the chain's start, crosses the
-                    //self-loop on the start of node 1, and enters the
-                    //chain's start again.
+                    //Going left gives the END_START traversal. A walk can
+                    //traverse the chain end to start, take the self-loop on
+                    //the start of node 1, and come back in at the start of
+                    //the chain.
                     distance_index.follow_net_edges(child, &graph, true, [&](const net_handle_t& next) {
                         REQUIRE(distance_index.is_chain(next));
                         REQUIRE((distance_index.starts_at(next) == SnarlDecomposition::END 
@@ -5389,10 +5373,10 @@ namespace vg {
                         REQUIRE((distance_index.starts_at(next) == SnarlDecomposition::START 
                               && distance_index.ends_at(next) == SnarlDecomposition::END));
                     });
-                    //Going left finds the start-to-end traversal. A walk
-                    //along it leaves the chain's end, crosses the self-loop
-                    //on the end of node 2, and enters the chain's end
-                    //again.
+                    //Going left gives the START_END traversal. A walk can
+                    //traverse the chain start to end, take the self-loop on
+                    //the end of node 2, and come back in at the end of the
+                    //chain.
                     distance_index.follow_net_edges(flipped_child, &graph, true, [&](const net_handle_t& next) {
                         REQUIRE(distance_index.is_chain(next));
                         REQUIRE((distance_index.starts_at(next) == SnarlDecomposition::START 
