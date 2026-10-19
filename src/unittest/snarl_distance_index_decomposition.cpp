@@ -498,8 +498,47 @@ TEST_CASE("SnarlDistanceIndex for_each_traversal() gives the same traversals wit
         });
     }
 
-    SECTION("The same traversals for a cyclic chain") {
-        // The chain goes from 1 through the snarl from 1 to 4, and back to 1.
+    SECTION("The same traversals for a snarl with a walk between tips in two child chains") {
+        // The snarl from 1 to 10 holds two chains. The first is node 2, the
+        // snarl from 2 to 4, and node 4. In it, node 3 enters the start of 4,
+        // and the start of 3 is a tip. The second is node 5, the snarl from 5
+        // to 7, and node 7. In it, the end of 5 enters node 8, and the end of
+        // 8 is a tip. An edge from the end of 4 to the start of 5 makes a walk
+        // from the tip of 3 to the tip of 8.
+        bdsg::HashGraph graph;
+        handle_t n1 = graph.create_handle("A", 1);
+        handle_t n2 = graph.create_handle("C", 2);
+        handle_t n3 = graph.create_handle("G", 3);
+        handle_t n4 = graph.create_handle("T", 4);
+        handle_t n5 = graph.create_handle("A", 5);
+        handle_t n7 = graph.create_handle("C", 7);
+        handle_t n8 = graph.create_handle("G", 8);
+        handle_t n10 = graph.create_handle("T", 10);
+        graph.create_edge(n1, n2);
+        graph.create_edge(n2, n4);
+        graph.create_edge(n3, n4);
+        graph.create_edge(n4, n10);
+        graph.create_edge(n1, n5);
+        graph.create_edge(n5, n7);
+        graph.create_edge(n5, n8);
+        graph.create_edge(n7, n10);
+        graph.create_edge(n4, n5);
+        using enum DecompositionEventType;
+        require_traversals_without_distances(graph, {
+            {BEGIN_CHAIN, 1, false}, {BEGIN_SNARL, 1, false},
+            {BEGIN_CHAIN, 2, false}, {BEGIN_SNARL, 2, false},
+            {BEGIN_CHAIN, 3, false}, {END_CHAIN, 3, false},
+            {END_SNARL, 4, false}, {END_CHAIN, 4, false},
+            {BEGIN_CHAIN, 5, false}, {BEGIN_SNARL, 5, false},
+            {BEGIN_CHAIN, 8, false}, {END_CHAIN, 8, false},
+            {END_SNARL, 7, false}, {END_CHAIN, 7, false},
+            {END_SNARL, 10, false}, {END_CHAIN, 10, false}
+        });
+    }
+
+    SECTION("The same traversals for a looping chain") {
+        // The chain is node 1, the snarl from 1 to 4, and node 4, and an edge
+        // from the end of 4 to the start of 1 closes the loop.
         bdsg::HashGraph graph;
         handle_t n1 = graph.create_handle("A");
         handle_t n2 = graph.create_handle("C");
