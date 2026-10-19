@@ -201,5 +201,10 @@ header:
  */
 ```
 
+Only use `@pre`/`@post`/`@throws`/`@note`/`@param` when justified. If the class
+is a mountain and the function is `int get_height() const;` then a simple
+comment with just a brief description of "Get the height of the mountain in
+meters" is perfectly fine.
+
 This format of brief and detailed descriptions also applies to class definition
 doc comments.
