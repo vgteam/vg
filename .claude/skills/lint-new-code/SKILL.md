@@ -62,10 +62,11 @@ fix what it finds there. Problems in code you did not touch belong to another ch
    operation that one sentence can explain, and name it for that operation. Dealing methods into
    two classes, or cutting a function into `step1()` and `step2()`, satisfies the analyzer and
    makes code nobody can picture, which is worse than the warning.
-8. **Suppress a warning only with a reason.** If no real part exists and the code cannot be made
-   simpler, or a rule conflicts with how the surrounding code is written, put `// NOSONAR` on
-   the reported line with a comment saying why, and tell the person you are working for. Without
-   the reason, the next reader cannot tell a judgment from a shortcut.
-9. **Run it again** after fixing, until your new code has no problems left but suppressed ones.
-   Then rewrite any comments you wrote or changed while fixing, as the `intelligible-comments`
-   skill says.
+8. **Never suppress a finding.** Leave out `// NOSONAR` and rule settings that turn findings off.
+   A finding you cannot fix stays in the report, so that a later change, or a better approach,
+   can still find it. When no real part exists and the code cannot be made simpler, or a rule
+   conflicts with how the surrounding code is written, leave the finding and tell the person you
+   are working for which findings remain, and why you did not fix each one.
+9. **Run it again** after fixing, until each finding in your code is fixed or on that list. Then
+   rewrite any comments you wrote or changed while fixing, as the `intelligible-comments` skill
+   says.

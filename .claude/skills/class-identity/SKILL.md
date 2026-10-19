@@ -63,8 +63,8 @@ knows, or where new code belongs.
 9. **Split along parts, not along method lists.** When a class is too big, or a linter counts too
    many methods, look for a real part of the machine that the big object can hand work to (a
    parser that hands tokenizing to a tokenizer). Dealing the methods into two piles makes two
-   things nobody can picture. If no real part exists, simplify the design, or suppress the
-   warning with a comment saying why.
+   things nobody can picture. If no real part exists, simplify the design, or leave the warning
+   and say why it remains.
 10. **A bundle is not a thing unless the bundle has a job.** Two objects with behaviour that are
    used together ("pair", "bundle", "context") do not make a class. Write a function that builds
    them and returns a `std::pair`, or takes them as arguments, or find the role the bundle plays.
