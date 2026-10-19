@@ -75,8 +75,8 @@ variables, indexes and cases leave the reader to rebuild them.
    `find_traversals()` does." Do not splice clauses with semicolons or colons.
 4. **Use only words the reader has:** the terms in the project's vocabulary, names in the code,
    and plain English in its ordinary sense. The vocabulary is a glossary in the project's agent
-   instructions, when they have one, with a list of module terms for words that mean something
-   narrower, or something else, inside one module.
+   instructions (in vg, the Terminology section of `BOTS.md`), with a list of module terms for
+   words that mean something narrower, or something else, inside one module.
    - Use a vocabulary term without defining it. The reader has the vocabulary; a definition in
      each comment only repeats it, and drifts from it.
    - In a module that has its own list, use a word in that module's sense.
