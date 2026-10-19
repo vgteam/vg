@@ -79,19 +79,21 @@ The interfaces in libhandlegraph model a bidirected sequence graph (where nodes 
 
 ## Terminology
 Use these words, which the code already uses, in comments and names, without defining them again. A synonym makes a reader look for a second idea.
+
+A term here names its idea in sentences about that idea. The same word can mean something else in another context: its ordinary English sense, or a meaning that a module, class or function defines in its own comments. Leave a word alone where it is clear in its context, even if this list gives it another meaning.
 - A *handle* (`handle_t`) is a node in one *orientation*: forward or reverse. A handle reads the node's sequence in its orientation, and leaves the node through its right side. Say a handle is *oriented* forward or reverse; `flip()` gives the other orientation.
 - An *edge* joins a side of one node to a side of another. `follow_edges()` gives the handles an edge leads to.
 - A *Visit* is one step of a walk through the graph: a node, or a child snarl, in an orientation. A *SnarlTraversal* or *path* *visits* nodes and snarls; it does not "pass" or "reach" them.
 - A *snarl* is a part of the graph between two *bounds*. Its `start()` Visit is oriented into the snarl and its `end()` Visit out of it. Snarls *contain* chains.
 - A *chain* is a run of snarls that share bounds, each snarl's end being the next one's start. Each node or snarl in a chain is forward or *reversed in parent* relative to the chain (`is_reversed_in_parent()`).
 - In a `SnarlDecomposition`, a *net handle* (`net_handle_t`) is one *traversal* of a snarl, chain or node: from its start, end or a *tip* to its start, end or a tip. A *sentinel* is a snarl's bound, facing into or out of the snarl. A traversal is *realizable* when a walk in the graph can make it.
-- A *dead end* is a side of a node with no edges. A *tip* is a dead end inside a snarl or chain.
+- A *dead end* is a side of a node with no edges. A *tip* is a dead end inside a snarl or chain. The outer sides of the boundary nodes of a snarl or chain are outside it, so a dead end there is not one of its tips, though it can be a tip of the parent.
 - *variation graph* (`HandleGraph`): A graph whose nodes carry DNA sequence and whose paths spell genomes, so that variants appear as alternative routes between shared sequence.
 - *bidirected graph* (`HandleGraph`): A graph in which each edge joins a side of one node to a side of another, so that a walk can read each node forward or reverse.
 - *node* (`nid_t`, `has_node()`, `get_length()`, `get_sequence()`): A piece of sequence in the graph, with an ID and two sides.
 - *node ID* (`nid_t`, `get_id()`, `min_node_id()`, `max_node_id()`): The integer that names a node.
 - *side* (`go_left`): One of the two ends of a node, left (its start) or right (its end), where edges attach.
-- *position* (`pos_t`, `offset_t`): A place in the graph: a node ID, an orientation and an offset into the node in that orientation.
+- *graph position* (`pos_t`, `offset_t`): A place in the graph: a node ID, an orientation and an offset into the node in that orientation. Call it a position for short where nothing else has one; other things, such as a node in a chain, have positions of their own.
 - *connected component* (`get_connected_component_number()`): A set of nodes that edges connect to each other and to nothing outside the set.
 - *path* (`path_handle_t`, `PathHandleGraph`, `get_path_name()`): A named walk through the graph that the graph stores, such as a reference chromosome or a haplotype.
 - *step* (`step_handle_t`, `get_next_step()`, `get_previous_step()`, `path_begin()`, `path_end()`): One visit of a path to a node, in an orientation.
@@ -118,6 +120,8 @@ Use these words, which the code already uses, in comments and names, without def
 - *top-level chain*: A chain with no snarl around it, at the top of the snarl tree.
 - *root* (`get_root()`, `is_root()`): The top of a SnarlDecomposition: a snarl with undefined bounds that holds the top-level chains.
 - *netgraph* (`directed_acyclic_net_graph`): The view of a snarl in which each child chain is replaced by a single node, since a chain, like a node, joins the rest of the graph at two sides.
+- *net graph element* (`net_handle_t`, `canonical()`): A snarl, chain or node in a snarl decomposition, as a thing that net handles are traversals of; an *element* for short.
+- *site* (`SiteTraversalFinder`, `traversal_finder.hpp`): A snarl, as a place where haplotypes differ, in code that finds walks through it or calls variants in it.
 - *SnarlTraversal* (`SnarlTraversal`): A walk through a snarl as a list of Visits, from its start node to its end node, with no edits.
 - *SnarlManager* (`SnarlManager`): vg's in-memory store of the snarls and chains found in a graph.
 - *endpoint* (`endpoint_t`, `START`, `END`, `TIP`, `starts_at()`, `ends_at()`): One end of a traversal: the start, the end, or a tip.

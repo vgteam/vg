@@ -86,9 +86,17 @@ the code.
    - Use a vocabulary term without defining it. The reader has the vocabulary;
      a definition in each comment only repeats it, and drifts from it.
    - In a module that has its own list, use a word in that module's sense.
-   - Treat a word that names a step, part or quantity, but is in neither list
-     and is not a name in the code, as a possible coinage ("the direct pass",
-     "the slot"). Replace it with a vocabulary term or a code name.
+   - Apply the vocabulary where a sentence is about the vocabulary's idea. A
+     word can mean something else in another context: its ordinary sense, or
+     a meaning that the surrounding class or module defines in its comments.
+     A step of an algorithm is still a step, even though the vocabulary uses
+     "step" for one visit of a path to a node. Do not rewrite a word
+     that is clear where it stands just because the vocabulary gives it another
+     meaning.
+   - Treat a word that names a step, part or quantity, but is in neither list,
+     is not a name in the code, and is not defined by the surrounding class or
+     module, as a possible coinage ("the direct pass", "the slot"). Replace it
+     with a vocabulary term or a code name.
    - When an idea is new and needs a name, propose the term and its definition
      for the vocabulary to the person you are working for, instead of defining
      it in a comment.
