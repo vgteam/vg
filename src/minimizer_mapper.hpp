@@ -390,10 +390,6 @@ class MinimizerMapper : public AlignerClient {
     static constexpr double default_softclip_penalty = 0.0;
     double softclip_penalty = default_softclip_penalty;
 
-    /// Should alignments be ranked by chain score instead of base-level score?
-    static constexpr bool default_sort_by_chain_score = false;
-    bool sort_by_chain_score = default_sort_by_chain_score;
-
     /// How much of an alignment needs to be from distinct nodes to be a distinct alignment?
     static constexpr double default_min_unique_node_fraction = 0.0;
     double min_unique_node_fraction = default_min_unique_node_fraction;
@@ -914,6 +910,17 @@ protected:
                               vector<double>& multiplicity_by_alignment,
                               LazyRNG& rng,
                               Funnel& funnel) const;
+    
+    /**
+     * Collect stats about the best chains for annotating the final alignment
+     */
+    void get_best_chain_stats(const Alignment& aln, const std::vector<Seed>& seeds,
+                              const VectorView<MinimizerMapper::Minimizer>& minimizers,
+                              const std::vector<algorithms::SparseAnchorChain>& chains,
+                              const vector<algorithms::Anchor>& seed_anchors,
+                              bool& best_chain_correct, double& best_chain_coverage, size_t& best_chain_longest_jump,
+                              double& best_chain_average_jump, size_t& best_chain_anchors, size_t& best_chain_anchor_length,
+                              Funnel& funnel) const ;
 
     void do_alignment_on_chains(const Alignment& aln,
                                 const std::vector<Seed>& seeds, 

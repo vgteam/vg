@@ -619,12 +619,6 @@ static std::unique_ptr<GroupedOptionGroup> get_options() {
         "penalize candidate alignment scores this many points per softclipped base",
         double_is_nonnegative
     );
-    chaining_opts.add_flag(
-        "sort-by-chain-score",
-        &MinimizerMapper::sort_by_chain_score,
-        MinimizerMapper::default_sort_by_chain_score,
-        "order alignment candidates by chain score instead of base-level score"
-    );
     chaining_opts.add_range(
         "min-unique-node-fraction",
         &MinimizerMapper::min_unique_node_fraction,

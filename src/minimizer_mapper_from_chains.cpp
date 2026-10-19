@@ -700,6 +700,12 @@ vector<Alignment> MinimizerMapper::map_from_chains(Alignment& aln) {
         dump_debug_chains(zip_code_forest, seeds, minimizers, seed_anchors, chains, this->path_graph, this->haplotype_positions);
     }
 
+    if (alignments.empty() && !chains.empty()) {
+        get_best_chain_stats(aln, seeds, minimizers, chains, seed_anchors, best_chain_correct,
+                             best_chain_coverage, best_chain_longest_jump, best_chain_average_jump,
+                             best_chain_anchors, best_chain_anchor_length, funnel);
+    }
+
     if (show_work) {
         #pragma omp critical (cerr)
         {
@@ -1651,6 +1657,58 @@ void MinimizerMapper::do_chaining_on_trees(const Alignment& aln, const ZipCodeFo
 
 }
 
+void MinimizerMapper::get_best_chain_stats(const Alignment& aln, const std::vector<Seed>& seeds,
+                                           const VectorView<MinimizerMapper::Minimizer>& minimizers,
+                                           const std::vector<algorithms::SparseAnchorChain>& chains,
+                                           const vector<algorithms::Anchor>& seed_anchors,
+                                           bool& best_chain_correct, double& best_chain_coverage, size_t& best_chain_longest_jump,
+                                           double& best_chain_average_jump, size_t& best_chain_anchors, size_t& best_chain_anchor_length,
+                                           Funnel& funnel) const {
+    // Find the best chain
+    algorithms::SparseAnchorChain best_chain;
+    best_chain.chain_score = 0;
+    size_t best_chain_i;
+    for (size_t i = 0; i < chains.size(); i++) {
+        if (chains.at(i).chain_score > best_chain.chain_score) {
+            // Friendship ended with old chain
+            best_chain = chains.at(i);
+            best_chain_i = i;
+        }
+    }
+    if (track_correctness) {
+        // We want to explicitly check if the best chain was correct, for looking at stats about it later.
+        if (funnel.is_correct(best_chain_i)) {
+            best_chain_correct = true;
+        }
+    }
+
+    // Find its coverage
+    best_chain_coverage = get_read_coverage(aln, std::vector<std::vector<size_t>> {best_chain.anchors}, seeds, minimizers);
+
+    // Find out how gappy it is. We can get the longest and the average distance maybe.
+    size_t best_chain_total_jump = 0;
+    for (size_t i = 1; i < best_chain.anchors.size(); i++) {
+        // Find the pair of anchors we go between
+        auto& left_anchor = seed_anchors.at(best_chain.anchors.at(i - 1));
+        auto& right_anchor = seed_anchors.at(best_chain.anchors.at(i));
+        // And get the distance between them in the read
+        size_t jump = right_anchor.read_start() - left_anchor.read_end();
+        // Max and add it in
+        best_chain_longest_jump = std::max(best_chain_longest_jump, jump);
+        best_chain_total_jump += jump;
+    }
+    best_chain_average_jump = best_chain.anchors.size() > 1 ? (double)best_chain_total_jump / (best_chain.anchors.size() - 1) : 0.0;
+
+    // Also count anchors in the chain
+    best_chain_anchors = best_chain.anchors.size();
+
+    // And total length of anchors in the chain
+    for (auto& item : best_chain.anchors) {
+        best_chain_anchor_length += seed_anchors.at(item).length();
+    }
+
+}
+
 void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::vector<Seed>& seeds, 
                                              const VectorView<MinimizerMapper::Minimizer>& minimizers,
                                              const vector<algorithms::Anchor>& seed_anchors,
@@ -1677,6 +1735,8 @@ void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::ve
     int chain_min_score = (int) (min_chain_score_per_base * aln.sequence().size());
     // Apply the max min chain score limit
     chain_min_score = std::min(chain_min_score, max_min_chain_score);
+
+    // Built a list of chain scores to feed into process_until_threshold_b
     vector<int> chain_scores;
     int best_chain_score = 0;
     size_t best_chain_score_source_tree;
@@ -1687,6 +1747,8 @@ void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::ve
         }
         chain_scores.emplace_back(cur_chain.chain_score);
     }
+
+    // Provide a small bump to things that come from different chains
     int min_unbumped_score = best_chain_score;
     for (size_t i = 0; i < chains.size(); i++) {
         if (chain_scores[i] >= chain_min_score && chain_scores[i] + different_tree_bonus >= best_chain_score) {
@@ -1767,6 +1829,7 @@ void MinimizerMapper::do_alignment_on_chains(const Alignment& aln, const std::ve
             // Calculate the MUNF for this alignment
             if (from_length_total > 0) {
                 double unique_node_fraction = (double)(from_length_total - from_length_from_used) / from_length_total;
+                // Sufficient uniqueness; treat as used
                 if (unique_node_fraction >= min_unique_node_fraction) {
                     total_kept++;
                     used_nodes.insert(cur_aln_nodes.begin(), cur_aln_nodes.end());
@@ -2943,36 +3006,20 @@ Alignment MinimizerMapper::do_base_level_alignment(
 
         // We have something to connect to! Make an alignment
         const algorithms::Anchor* next = &to_chain[*next_it];
-            
-#ifdef debug_base_level_alignment
-        if (show_work) {
-            #pragma omp critical (cerr)
-            {
-                cerr << log_name() << "Add current item " << *here_it << " of length " << (*here).length() << endl;
-            }
-        }
-#endif
-        
+
         // Make an alignment for the bases used in this item, and
         // concatenate it in.
         WFAAlignment here_alignment = this->to_wfa_alignment(*here, aln, &aligner);
-
-#ifdef debug_base_level_alignment
-        if (show_work) {
-            #pragma omp critical (cerr)
-            {
-                cerr << log_name() << "\tScore " << here_alignment.score << endl;
-            }
-        }
-#endif
-
         append_path(composed_path, here_alignment.to_path(this->gbwt_graph, aln.sequence()));
         composed_score += here_alignment.score;
-        
+
 #ifdef debug_base_level_alignment
         if (show_work) {
             #pragma omp critical (cerr)
             {
+                cerr << log_name() << "Added current item " << *here_it << " of length "
+                     << (*here).length() << " score " << here_alignment.score << endl;
+
                 cerr << log_name() << "Next connectable item " << *next_it
                     << " with overall index " << to_chain.backing_index(*next_it)
                     << " aligns " << (*next).read_start() << "-" << (*next).read_end()
