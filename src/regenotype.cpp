@@ -17,8 +17,8 @@ using std::log;
 using std::max;
 using std::min;
 
-/// The mixture, from a pair of unnormalised slot weights and the two alleles' relative
-/// likelihoods.
+/// Return the mixture of the two alleles' relative likelihoods under a pair of unnormalised slot
+/// weights.
 ///
 /// Both sides of the correction use this function, so at tau = 0, where `(s0, s1)` is
 /// `(w_0, w_1)`, the two sides are the same arithmetic on the same values and cancel exactly.
@@ -41,7 +41,9 @@ struct ReadTilt {
     bool positive = true;  ///< whether x >= 0, so which slot the factor multiplies
 };
 
-/// Depends on the read and not on the candidate genotype, so it is computed once per read.
+/// Return the weighting that strand log-odds `x` apply.
+///
+/// It depends on the read and not on the candidate genotype, so it is computed once per read.
 static inline ReadTilt read_tilt(double x) {
     ReadTilt t;
     // `-0.0 >= 0.0` is true and `fabs(-0.0)` is `0.0`, so a zero takes the same branch and factor
@@ -51,6 +53,8 @@ static inline ReadTilt read_tilt(double x) {
     return t;
 }
 
+/// Apply a read's weighting to the slot weights `w0` and `w1`, giving unnormalised weights `s0` and
+/// `s1`.
 static inline void tilted_weights(double w0, double w1, const ReadTilt& t, double& s0, double& s1) {
     if (t.positive) {
         s0 = w0;
@@ -59,6 +63,13 @@ static inline void tilted_weights(double w0, double w1, const ReadTilt& t, doubl
         s0 = w0 * t.factor;
         s1 = w1;
     }
+}
+
+/// Return the logistic function of `x`, computed so that it does not overflow.
+///
+/// At |x| in the hundreds, `exp(-x)` is infinite for negative x.
+static inline double stable_sigmoid(double x) {
+    return x >= 0.0 ? 1.0 / (1.0 + exp(-x)) : exp(x) / (1.0 + exp(x));
 }
 
 void merge_counters(const RegenotypeCounters& from, RegenotypeCounters& into) {
@@ -81,15 +92,19 @@ void merge_counters(const RegenotypeCounters& from, RegenotypeCounters& into) {
 double calibrated_log_odds(double lambda, double temper, double ceiling) {
     const double x = temper * lambda;
     if (!(x != 0.0)) {
-    // Exactly 0 at tau = 0, whatever the sign of Lambda (including -0.0).
+        // Return exactly 0 at tau = 0, whatever the sign of Lambda (including -0.0).
         return 0.0;
     }
-    const double c = ceiling >= 1.0 ? 1.0 : (ceiling <= 0.0 ? 0.0 : ceiling);
-    // sigmoid without the overflow: at |x| in the hundreds `exp(-x)` is inf on one side.
-    const double sig = x >= 0.0 ? 1.0 / (1.0 + exp(-x)) : exp(x) / (1.0 + exp(x));
+    double c = ceiling;
+    if (c >= 1.0) {
+        c = 1.0;
+    } else if (c <= 0.0) {
+        c = 0.0;
+    }
+    const double sig = stable_sigmoid(x);
     double p = c * sig + 0.5 * (1.0 - c);
-    // Kept away from 0 and 1: with c == 1 and tau * Lambda around 60, `p` rounds to 1 and the logit
-    // would be infinite.
+    // Keep `p` away from 0 and 1. With c == 1 and tau * Lambda around 60, `p` rounds to 1 and the
+    // logit would be infinite.
     const double eps = 1e-12;
     p = min(1.0 - eps, max(eps, p));
     return log(p / (1.0 - p));
@@ -113,8 +128,9 @@ void site_own_log_odds(const PhaseSite& site, bool flipped, unordered_map<uint64
     const double sign = flipped ? -1.0 : 1.0;
     for (size_t i = 0; i < site.read_key.size(); ++i) {
         const double l = sign * site_read_log_odds((double)site.q0[i], (double)site.c[i]);
-        // The site's rows hold one per read key (see `merge_mates`). Were a key repeated, the
-        // first row would be kept, as `accumulate_lambda` adds, so the subtraction still cancels.
+        // The site's rows hold one per read key (see `merge_mates`). If a key were repeated, we
+        // would keep its first row, which is also the one `accumulate_lambda` adds, so the
+        // subtraction would still cancel.
         out.emplace(site.read_key[i], l);
     }
 }
@@ -123,118 +139,155 @@ void accumulate_lambda(const vector<PhaseSite>& sites, const unordered_set<size_
                        LambdaTable& out, RegenotypeCounters& counters) {
     unordered_map<uint64_t, double> own;
     for (const PhaseSite& site : sites) {
-        site_own_log_odds(site, flipped.count(site.record_key) != 0, own);
-        for (const auto& kv : own) {
-            ReadLambda& rl = out[kv.first];
+        site_own_log_odds(site, flipped.contains(site.record_key), own);
+        for (const auto& [read, log_odds] : own) {
+            ReadLambda& rl = out[read];
             if (rl.sites == 0) {
                 rl.phase_set = site.phase_set;
             } else if (rl.phase_set != site.phase_set) {
                 // Two phase sets label their strands independently, so there is no sum to take.
                 rl.multi_phase_set = true;
             }
-            rl.lambda += kv.second;
+            rl.lambda += log_odds;
             ++rl.sites;
         }
     }
-    for (const auto& kv : out) {
+    for (const auto& [read, rl] : out) {
         ++counters.reads_with_lambda;
-        counters.reads_multi_phase_set += kv.second.multi_phase_set ? 1 : 0;
-        counters.reads_singleton += kv.second.sites <= 1 ? 1 : 0;
+        counters.reads_multi_phase_set += rl.multi_phase_set ? 1 : 0;
+        counters.reads_singleton += rl.sites <= 1 ? 1 : 0;
     }
+}
+
+namespace {
+
+/// One read at one site, where the read's other sites give it a strand and its allele here can
+/// check that strand.
+struct StrandCheck {
+    /// |Lambda| without this site, which predicts the strand.
+    double abs_loo;
+    /// Whether the allele here points to the strand Lambda points to.
+    bool agree;
+};
+
+/// Return every strand check from `sites`, sorted by `abs_loo` and then `agree`.
+///
+/// A whole genome has over 10^8 of them, so they are collected and sorted on several threads.
+/// Sorting on every field makes the result independent of the order they were collected in.
+vector<StrandCheck> collect_strand_checks(const vector<PhaseSite>& sites,
+                                          const unordered_set<size_t>& flipped,
+                                          const LambdaTable& lambda) {
+    vector<vector<StrandCheck>> collected(max(1, omp_get_max_threads()));
+#pragma omp parallel
+    {
+        vector<StrandCheck>& mine = collected[omp_get_thread_num()];
+        unordered_map<uint64_t, double> own;
+#pragma omp for schedule(dynamic, 1024)
+        for (const PhaseSite& site : sites) {
+            site_own_log_odds(site, flipped.contains(site.record_key), own);
+            for (const auto& [read, own_log_odds] : own) {
+                auto found = lambda.find(read);
+                if (found == lambda.end() || !read_strand_usable(found->second, site.phase_set)) {
+                    continue;
+                }
+                const double loo = found->second.lambda - own_log_odds;
+                if (!(fabs(loo) > 1e-9) || !(fabs(own_log_odds) > 1e-9)) {
+                    continue;
+                }
+                mine.push_back({fabs(loo), (loo > 0.0) == (own_log_odds > 0.0)});
+            }
+        }
+    }
+    size_t total = 0;
+    for (const vector<StrandCheck>& part : collected) {
+        total += part.size();
+    }
+    vector<StrandCheck> checks;
+    checks.reserve(total);
+    for (vector<StrandCheck>& part : collected) {
+        checks.insert(checks.end(), part.begin(), part.end());
+        vector<StrandCheck>().swap(part);
+    }
+    parallel_sort(checks.begin(), checks.end(), [](const StrandCheck& a, const StrandCheck& b) {
+        if (a.abs_loo != b.abs_loo) {
+            return a.abs_loo < b.abs_loo;
+        }
+        return (int)a.agree < (int)b.agree;
+    });
+    return checks;
+}
+
+/// A range of |Lambda| in the calibration table.
+struct CalibrationBin {
+    /// Mean |Lambda| of the bin's strand checks.
+    double mean_abs;
+    /// The fraction of the bin's strand checks that agree.
+    double observed;
+    /// The number of strand checks in the bin.
+    size_t n;
+};
+
+/// Group sorted strand checks into bins of equal count, so a long tail does not get one bin to
+/// itself.
+vector<CalibrationBin> bin_strand_checks(const vector<StrandCheck>& checks,
+                                         const RegenotypeParams& params) {
+    const size_t n_bins = max<size_t>(1, params.fit_bins);
+    const size_t per_bin = max<size_t>(params.fit_min_per_bin, checks.size() / n_bins);
+    vector<CalibrationBin> bins;
+    for (size_t start = 0; start < checks.size(); start += per_bin) {
+        const size_t stop = min(checks.size(), start + per_bin);
+        double sum = 0.0;
+        size_t agree = 0;
+        for (size_t i = start; i < stop; ++i) {
+            sum += checks[i].abs_loo;
+            agree += checks[i].agree ? 1 : 0;
+        }
+        const size_t n = stop - start;
+        bins.emplace_back(sum / (double)n, (double)agree / (double)n, n);
+    }
+    return bins;
+}
+
+/// Return the agreement a bin's mean |Lambda| predicts at temper `tau` and ceiling `ceil`.
+double predicted_agreement(const CalibrationBin& bin, double tau, double ceil) {
+    const double sig = stable_sigmoid(tau * bin.mean_abs);
+    return ceil * sig + 0.5 * (1.0 - ceil);
+}
+
+/// Return the squared difference between predicted and observed agreement, weighted by bin size
+/// and summed over the bins.
+double calibration_cost(const vector<CalibrationBin>& bins, double tau, double ceil) {
+    double acc = 0.0;
+    for (const CalibrationBin& b : bins) {
+        const double d = predicted_agreement(b, tau, ceil) - b.observed;
+        acc += (double)b.n * d * d;
+    }
+    return acc;
+}
+
 }
 
 void fit_calibration(const vector<PhaseSite>& sites, const unordered_set<size_t>& flipped,
                      const LambdaTable& lambda, const RegenotypeParams& params,
                      double& temper, double& ceiling, RegenotypeCounters& counters) {
-    // Every (read, site) pair where the read's other sites give a strand and its allele at this
-    // site can check it. `loo` is the prediction (leaving this site out), `own` the observation.
-    //
-    // A whole genome has over 10^8 of them. They are collected on several threads and sorted on
-    // several; they are sorted on everything they hold, so the sorted list, which is all that is
-    // read from them, does not depend on the order they were collected in.
-    struct Obs { double abs_loo; bool agree; };
-    vector<Obs> obs;
-    {
-        vector<vector<Obs>> collected(max(1, omp_get_max_threads()));
-#pragma omp parallel
-        {
-            vector<Obs>& mine = collected[omp_get_thread_num()];
-            unordered_map<uint64_t, double> own;
-#pragma omp for schedule(dynamic, 1024)
-            for (size_t i = 0; i < sites.size(); ++i) {
-                const PhaseSite& site = sites[i];
-                site_own_log_odds(site, flipped.count(site.record_key) != 0, own);
-                for (const auto& kv : own) {
-                    auto found = lambda.find(kv.first);
-                    if (found == lambda.end() || !read_strand_usable(found->second, site.phase_set)) {
-                        continue;
-                    }
-                    const double loo = found->second.lambda - kv.second;
-                    if (!(fabs(loo) > 1e-9) || !(fabs(kv.second) > 1e-9)) {
-                        continue;
-                    }
-                    mine.push_back({fabs(loo), (loo > 0.0) == (kv.second > 0.0)});
-                }
-            }
-        }
-        size_t total = 0;
-        for (const vector<Obs>& part : collected) {
-            total += part.size();
-        }
-        obs.reserve(total);
-        for (vector<Obs>& part : collected) {
-            obs.insert(obs.end(), part.begin(), part.end());
-            vector<Obs>().swap(part);
-        }
-    }
-    if (obs.size() < params.fit_min_per_bin) {
+    const vector<StrandCheck> checks = collect_strand_checks(sites, flipped, lambda);
+    if (checks.size() < params.fit_min_per_bin) {
         counters.fitted_temper = 0.0;
         counters.fitted_ceiling = 1.0;
         temper = 0.0;
         ceiling = 1.0;
         return;
     }
-    // Equal-count bins over |Lambda|, so a long tail does not get one bin to itself.
-    parallel_sort(obs.begin(), obs.end(), [](const Obs& a, const Obs& b) {
-        if (a.abs_loo != b.abs_loo) return a.abs_loo < b.abs_loo;
-        return (int)a.agree < (int)b.agree;
-    });
-    const size_t n_bins = max<size_t>(1, params.fit_bins);
-    const size_t per_bin = max<size_t>(params.fit_min_per_bin, obs.size() / n_bins);
-    struct Bin { double mean_abs; double observed; size_t n; };
-    vector<Bin> bins;
-    for (size_t start = 0; start < obs.size(); start += per_bin) {
-        const size_t stop = min(obs.size(), start + per_bin);
-        double sum = 0.0;
-        size_t agree = 0;
-        for (size_t i = start; i < stop; ++i) {
-            sum += obs[i].abs_loo;
-            agree += obs[i].agree ? 1 : 0;
-        }
-        const size_t n = stop - start;
-        bins.push_back({sum / (double)n, (double)agree / (double)n, n});
-    }
-    // The squared difference, weighted by bin size, between the predicted and observed agreement
-    // in each bin, for a given temper and ceiling. The ceiling is not fitted:
-    // `RegenotypeParams::ceiling` sets it, and the temper is fitted against it.
-    auto cost = [&](double tau, double ceil) {
-        double acc = 0.0;
-        for (const Bin& b : bins) {
-            const double x = tau * b.mean_abs;
-            const double sig = x >= 0.0 ? 1.0 / (1.0 + exp(-x)) : exp(x) / (1.0 + exp(x));
-            const double predicted = ceil * sig + 0.5 * (1.0 - ceil);
-            const double d = predicted - b.observed;
-            acc += (double)b.n * d * d;
-        }
-        return acc;
-    };
-    // A grid over the temper alone, in steps of 0.01, against the fixed ceiling.
+    const vector<CalibrationBin> bins = bin_strand_checks(checks, params);
+    // Search a grid over the temper alone, in steps of 0.01. `RegenotypeParams::ceiling` sets the
+    // ceiling.
     const double best_ceiling = min(1.0, params.ceiling);
-    double best = 0.0, best_cost = cost(0.0, best_ceiling);
+    double best = 0.0;
+    double best_cost = calibration_cost(bins, 0.0, best_ceiling);
     for (int i = 1; i <= 200; ++i) {
         const double tau = i * 0.01;
-        if (cost(tau, best_ceiling) < best_cost) {
-            best_cost = cost(tau, best_ceiling);
+        if (calibration_cost(bins, tau, best_ceiling) < best_cost) {
+            best_cost = calibration_cost(bins, tau, best_ceiling);
             best = tau;
         }
     }
@@ -242,12 +295,10 @@ void fit_calibration(const vector<PhaseSite>& sites, const unordered_set<size_t>
     counters.fit_observed.clear();
     counters.fit_predicted.clear();
     counters.fit_count.clear();
-    for (const Bin& b : bins) {
+    for (const CalibrationBin& b : bins) {
         counters.fit_abs_lambda.push_back(b.mean_abs);
         counters.fit_observed.push_back(b.observed);
-        const double sx = best * b.mean_abs;
-        const double sg = sx >= 0.0 ? 1.0 / (1.0 + exp(-sx)) : exp(sx) / (1.0 + exp(sx));
-        counters.fit_predicted.push_back(best_ceiling * sg + 0.5 * (1.0 - best_ceiling));
+        counters.fit_predicted.push_back(predicted_agreement(b, best, best_ceiling));
         counters.fit_count.push_back(b.n);
     }
     counters.fitted_temper = best;
@@ -263,8 +314,10 @@ bool read_strand_usable(const ReadLambda& read, size_t phase_set) {
     return phase_set == NO_PHASE_SET || read.phase_set == phase_set;
 }
 
-/// A read's strand log-odds leaving this site out, shared by both corrections. 0 for a read whose
-/// strand is not usable in `phase_set`.
+/// Fill `loo` with each read's strand log-odds leaving this site out, and return whether any is
+/// nonzero.
+///
+/// A read whose strand is not usable in `phase_set` gets 0.
 static bool read_loo(const PhaseReadEvidence& ev, const LambdaTable& lambda, size_t phase_set,
                      const unordered_map<uint64_t, double>& own, const RegenotypeParams& params,
                      vector<double>& loo) {
@@ -276,12 +329,11 @@ static bool read_loo(const PhaseReadEvidence& ev, const LambdaTable& lambda, siz
             continue;
         }
         double v = found->second.lambda;
-        auto mine = own.find(ev.read_key[r]);
-        if (mine != own.end()) {
+        if (auto mine = own.find(ev.read_key[r]); mine != own.end()) {
             v -= mine->second;
         }
         if (params.shuffle) {
-            // Sign taken from the read key, keeping |Lambda|, so that the phase information is
+            // Take the sign from the read key, keeping |Lambda|, so that the phase information is
             // removed deterministically.
             v = (ev.read_key[r] & 1ULL) ? -fabs(v) : fabs(v);
         }
@@ -291,6 +343,20 @@ static bool read_loo(const PhaseReadEvidence& ev, const LambdaTable& lambda, siz
         }
     }
     return any;
+}
+
+/// Return the genotype with the highest likelihood in `gl`, the first of any tie, or null if
+/// none is above negative infinity.
+static const vector<int>* best_genotype(const map<vector<int>, double>& gl) {
+    const vector<int>* best = nullptr;
+    double best_ll = -std::numeric_limits<double>::infinity();
+    for (const auto& [genotype, ll] : gl) {
+        if (ll > best_ll) {
+            best_ll = ll;
+            best = &genotype;
+        }
+    }
+    return best;
 }
 
 bool haploid_inclusion_correction(const PhaseReadEvidence& ev, const LambdaTable& lambda,
@@ -310,60 +376,113 @@ bool haploid_inclusion_correction(const PhaseReadEvidence& ev, const LambdaTable
 
     // Per read: how much of it belongs to this chain's strand. Capped at 1, so a read the phase
     // places here is whole and one placed on the other strand is discounted by its odds.
-    vector<double> incl(ev.num_reads(), 1.0);
+    vector incl(ev.num_reads(), 1.0);
     for (size_t r = 0; r < ev.num_reads(); ++r) {
         const double x = strand_sign * calibrated_log_odds(loo[r], temper, ceiling);
         incl[r] = x >= 0.0 ? 1.0 : exp(x);
     }
 
-    const vector<int>* before = nullptr;
-    double before_ll = -std::numeric_limits<double>::infinity();
-    for (const auto& kv : gl) {
-        if (kv.second > before_ll) {
-            before_ll = kv.second;
-            before = &kv.first;
-        }
-    }
+    const vector<int>* before = best_genotype(gl);
 
     size_t corrected = 0;
-    for (auto& kv : gl) {
-        const vector<int>& g = kv.first;
+    for (auto& [g, ll] : gl) {
         if (g.size() != 1) {
-            // This is the ploidy-1 space. A diploid entry here is not ours to touch.
+            // The inclusion correction applies only at ploidy 1.
             continue;
         }
         const int a = g[0];
         if (a < 0 || (size_t)a >= ev.n_alleles) {
             continue;
         }
-        double s_incl = 0.0, s_base = 0.0;
+        double s_incl = 0.0;
+        double s_base = 0.0;
         for (size_t r = 0; r < ev.num_reads(); ++r) {
-            const double e = (double)ev.mismap[r];
-            const double ra = (double)ev.rel_at(r, (size_t)a);
+            const double e = ev.mismap[r];
+            const double ra = ev.rel_at(r, (size_t)a);
             // `(1 - e) * incl * rel + e + (1 - e) * (1 - incl)`, written so that at incl == 1 it is
             // the same expression as the baseline term below, and the two cancel exactly.
             s_incl += log((1.0 - e) * (incl[r] * ra + 1.0 - incl[r]) + e);
             s_base += log((1.0 - e) * (1.0 * ra + 1.0 - 1.0) + e);
         }
-        kv.second += s_incl - s_base;
+        ll += s_incl - s_base;
         ++corrected;
     }
     if (corrected == 0) {
         return false;
     }
-    const vector<int>* after = nullptr;
-    double after_ll = -std::numeric_limits<double>::infinity();
-    for (const auto& kv : gl) {
-        if (kv.second > after_ll) {
-            after_ll = kv.second;
-            after = &kv.first;
-        }
-    }
-    if (before == nullptr || after == nullptr || *before == *after) {
+    if (const vector<int>* after = best_genotype(gl);
+        before == nullptr || after == nullptr || *before == *after) {
         return false;
     }
     ++counters.haploid_would_move;
     return true;
+}
+
+namespace {
+
+/// The read terms of one heterozygous genotype, summed over a site's reads, under three
+/// weightings.
+struct PairReadTerms {
+    /// With strand weights for allele `a` on strand 0.
+    double forward = 0.0;
+    /// With strand weights for allele `b` on strand 0.
+    double reverse = 0.0;
+    /// With the allele-length weights alone.
+    double unphased = 0.0;
+};
+
+/// Sum the read terms of heterozygous genotype {a, b} under each weighting.
+///
+/// `w` holds the allele-length weights of `a` and `b`, and `tilt` each read's weighting.
+PairReadTerms pair_read_terms(const PhaseReadEvidence& ev, const vector<ReadTilt>& tilt, int a,
+                              int b, const vector<double>& w) {
+    PairReadTerms terms;
+    for (size_t r = 0; r < ev.num_reads(); ++r) {
+        const double e = ev.mismap[r];
+        const double ra = ev.rel_at(r, (size_t)a);
+        const double rb = ev.rel_at(r, (size_t)b);
+
+        // All three mixtures take `ra` first and `rb` second, so they differ only in the weight
+        // each allele gets. At tau = 0 the three weight pairs are the same, so the same
+        // expression gives the same result and the correction is exactly zero.
+        //
+        // The reverse order puts allele `b` on strand 0, so its slot weights come back swapped
+        // and are passed swapped, which keeps `ra` first.
+        double s0;
+        double s1;
+        tilted_weights(w[0], w[1], tilt[r], s0, s1);
+        terms.forward += log((1.0 - e) * mixture_of(s0, s1, ra, rb) + e);
+        tilted_weights(w[1], w[0], tilt[r], s0, s1);
+        terms.reverse += log((1.0 - e) * mixture_of(s1, s0, ra, rb) + e);
+        terms.unphased += log((1.0 - e) * mixture_of(w[0], w[1], ra, rb) + e);
+    }
+    return terms;
+}
+
+/// Return whether every allele of `g` is the same.
+bool is_homozygous(const vector<int>& g) {
+    for (size_t i = 1; i < g.size(); ++i) {
+        if (g[i] != g[0]) {
+            return false;
+        }
+    }
+    return true;
+}
+
+/// Count, in `counters`, the kind of move from best genotype `before` to `after`.
+void count_move(const vector<int>& before, const vector<int>& after,
+                RegenotypeCounters& counters) {
+    const bool hom_before = is_homozygous(before);
+    const bool hom_after = is_homozygous(after);
+    if (hom_before && !hom_after) {
+        ++counters.moved_hom_to_het;
+    } else if (!hom_before && hom_after) {
+        ++counters.moved_het_to_hom;
+    } else if (!hom_before && !hom_after) {
+        ++counters.moved_het_to_het;
+    }
+}
+
 }
 
 bool phase_aware_correction(const PhaseReadEvidence& ev, const LambdaTable& lambda,
@@ -376,88 +495,58 @@ bool phase_aware_correction(const PhaseReadEvidence& ev, const LambdaTable& lamb
     }
     ++counters.sites_considered;
 
-    // For each read, the log-odds leaving this site out and the weighting they imply, computed
-    // once rather than once per candidate genotype.
+    // Compute each read's log-odds leaving this site out, and the weighting they imply, once
+    // rather than once per candidate genotype.
     vector<double> loo;
-    const bool any_opinion = read_loo(ev, lambda, phase_set, own, params, loo);
-    vector<ReadTilt> tilt(ev.num_reads());
-    if (!any_opinion) {
-        // No read here spans another site of its phase set, so the correction is zero. Checked
-        // before the weightings are computed, since on short reads this is the common case.
+    if (!read_loo(ev, lambda, phase_set, own, params, loo)) {
+        // No read here spans another site of its phase set, so the correction is zero.
         return false;
     }
+    vector<ReadTilt> tilt(ev.num_reads());
     for (size_t r = 0; r < ev.num_reads(); ++r) {
         tilt[r] = read_tilt(calibrated_log_odds(loo[r], temper, ceiling));
     }
 
-    // The direct pass's best genotype, to report whether the correction changes it.
-    const vector<int>* before = nullptr;
-    double before_ll = -std::numeric_limits<double>::infinity();
-    for (const auto& kv : gl) {
-        if (kv.second > before_ll) {
-            before_ll = kv.second;
-            before = &kv.first;
-        }
-    }
+    const vector<int>* before = best_genotype(gl);
 
     bool reversed_called = false;
     size_t corrected = 0;
-    for (auto& kv : gl) {
-        const vector<int>& g = kv.first;
+    for (auto& [g, ll] : gl) {
         if (g.size() != 2) {
             // Ploidy 1 has one slot, so `pi` is 1 and the correction is identically zero.
             continue;
         }
-        const int a = g[0], b = g[1];
+        const int a = g[0];
+        const int b = g[1];
         if (a == b) {
             // A homozygote's mixture is rel(r, a) whatever the weights are, so the correction is
-            // zero, and it is skipped rather than computed.
+            // zero.
             continue;
         }
         if (a < 0 || b < 0 || (size_t)a >= ev.n_alleles || (size_t)b >= ev.n_alleles) {
             continue;
         }
-        // Weights follow the allele, not the slot, so the uncorrected mixture does not change when
-        // the pair is reordered; otherwise the larger of the two orders would favour one for a
-        // reason unrelated to phase.
+        // Weights follow the allele, not the slot, so the unphased mixture does not change when
+        // the pair is reordered. Otherwise taking the larger of the two orders would favour one
+        // for a reason unrelated to phase.
         const vector<double> w = allele_length_weights(ev.allele_length, ev.n_alleles,
-                                                   ev.mean_read_length, ev.length_weighted,
-                                                   vector<int>{a, b});
+                                                       ev.mean_read_length, ev.length_weighted,
+                                                       vector<int>{a, b});
         if (w.size() != 2) {
             continue;
         }
-        double s_fwd = 0.0, s_rev = 0.0, s_w = 0.0;
-        for (size_t r = 0; r < ev.num_reads(); ++r) {
-            const double e = (double)ev.mismap[r];
-            const double ra = (double)ev.rel_at(r, (size_t)a);
-            const double rb = (double)ev.rel_at(r, (size_t)b);
-
-            // All three mixtures are evaluated with `ra` first and `rb` second, so they differ only
-            // in the weight each allele gets. At tau = 0 the three weight pairs are the same, so
-            // the same expression gives the same result and the correction is exactly zero.
-            //
-            // The reverse order puts allele `b` on strand 0, so its slot weights come back
-            // swapped and are passed swapped, which keeps `ra` first.
-            double s0, s1;
-            tilted_weights(w[0], w[1], tilt[r], s0, s1);
-            s_fwd += log((1.0 - e) * mixture_of(s0, s1, ra, rb) + e);
-            tilted_weights(w[1], w[0], tilt[r], s0, s1);
-            s_rev += log((1.0 - e) * mixture_of(s1, s0, ra, rb) + e);
-            s_w += log((1.0 - e) * mixture_of(w[0], w[1], ra, rb) + e);
-        }
-        const double correction = max(s_fwd, s_rev) - s_w;
-        // Only at the called genotype. At a site with several alleles most pairs are carried by no
-        // haplotype, and which order fits such a pair better means nothing.
-        // The forward order puts `a` on strand 0, so the chain's order is the forward one when
-        // it puts `a` there and the reverse one when it puts `b` there.
+        const PairReadTerms terms = pair_read_terms(ev, tilt, a, b, w);
+        const double correction = max(terms.forward, terms.reverse) - terms.unphased;
+        // Compare orders only at the called genotype. At a site with several alleles most pairs
+        // are carried by no haplotype, and which order fits such a pair better means nothing.
         if (before != nullptr && g == *before) {
             if (strand0_allele == a) {
-                reversed_called = s_rev > s_fwd;
+                reversed_called = terms.reverse > terms.forward;
             } else if (strand0_allele == b) {
-                reversed_called = s_fwd > s_rev;
+                reversed_called = terms.forward > terms.reverse;
             }
         }
-        kv.second += correction;
+        ll += correction;
         ++corrected;
     }
     if (corrected == 0) {
@@ -466,34 +555,12 @@ bool phase_aware_correction(const PhaseReadEvidence& ev, const LambdaTable& lamb
     ++counters.sites_corrected;
     counters.order_reversed += reversed_called ? 1 : 0;
 
-    const vector<int>* after = nullptr;
-    double after_ll = -std::numeric_limits<double>::infinity();
-    for (const auto& kv : gl) {
-        if (kv.second > after_ll) {
-            after_ll = kv.second;
-            after = &kv.first;
-        }
-    }
+    const vector<int>* after = best_genotype(gl);
     if (before == nullptr || after == nullptr || *before == *after) {
         return false;
     }
     ++counters.sites_would_move;
-    auto is_hom = [](const vector<int>& g) {
-        for (size_t i = 1; i < g.size(); ++i) {
-            if (g[i] != g[0]) {
-                return false;
-            }
-        }
-        return true;
-    };
-    const bool hom_before = is_hom(*before), hom_after = is_hom(*after);
-    if (hom_before && !hom_after) {
-        ++counters.moved_hom_to_het;
-    } else if (!hom_before && hom_after) {
-        ++counters.moved_het_to_hom;
-    } else if (!hom_before && !hom_after) {
-        ++counters.moved_het_to_het;
-    }
+    count_move(*before, *after, counters);
     return true;
 }
 

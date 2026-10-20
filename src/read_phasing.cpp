@@ -1,8 +1,8 @@
 #include "read_phasing.hpp"
 
 #include <algorithm>
-#include <array>
 #include <cmath>
+#include <numeric>
 #include <unordered_map>
 
 namespace vg {
@@ -11,7 +11,6 @@ using std::log10;
 using std::max;
 using std::min;
 using std::pair;
-using std::sort;
 using std::unordered_map;
 
 double read_confidence(float q0, float c) {
@@ -22,18 +21,15 @@ double read_confidence(float q0, float c) {
 void merge_mates(PhaseSite& site) {
     const size_t n = site.read_key.size();
     vector<size_t> order(n);
-    for (size_t i = 0; i < n; ++i) {
-        order[i] = i;
-    }
-    // By key, and within a key the preferred row first. Every tie is broken on the rows' values,
-    // so two rows that compare equal are identical and either may be kept.
-    sort(order.begin(), order.end(), [&](size_t x, size_t y) {
+    std::iota(order.begin(), order.end(), 0);
+    // Sort by key, and within a key put the preferred row first. Every tie is broken on the rows'
+    // values, so two rows that compare equal are identical and either may be kept.
+    std::ranges::sort(order, [&](size_t x, size_t y) {
         if (site.read_key[x] != site.read_key[y]) {
             return site.read_key[x] < site.read_key[y];
         }
         const double cx = read_confidence(site.q0[x], site.c[x]);
-        const double cy = read_confidence(site.q0[y], site.c[y]);
-        if (cx != cy) {
+        if (const double cy = read_confidence(site.q0[y], site.c[y]); cx != cy) {
             return cx > cy;
         }
         if (site.q0[x] != site.q0[y]) {
@@ -41,23 +37,23 @@ void merge_mates(PhaseSite& site) {
         }
         return site.c[x] > site.c[y];
     });
-    vector<uint64_t> k;
-    vector<float> q, pp;
-    k.reserve(n);
-    q.reserve(n);
-    pp.reserve(n);
-    for (size_t i = 0; i < n; ++i) {
-        const size_t r = order[i];
-        if (!k.empty() && k.back() == site.read_key[r]) {
+    vector<uint64_t> keys;
+    vector<float> q0s;
+    vector<float> cs;
+    keys.reserve(n);
+    q0s.reserve(n);
+    cs.reserve(n);
+    for (size_t r : order) {
+        if (!keys.empty() && keys.back() == site.read_key[r]) {
             continue;
         }
-        k.push_back(site.read_key[r]);
-        q.push_back(site.q0[r]);
-        pp.push_back(site.c[r]);
+        keys.push_back(site.read_key[r]);
+        q0s.push_back(site.q0[r]);
+        cs.push_back(site.c[r]);
     }
-    site.read_key.swap(k);
-    site.q0.swap(q);
-    site.c.swap(pp);
+    site.read_key.swap(keys);
+    site.q0.swap(q0s);
+    site.c.swap(cs);
 }
 
 PhaseSite reduce_to_pair(const PhaseReadEvidence& pe, size_t a0, size_t a1) {
@@ -67,7 +63,7 @@ PhaseSite reduce_to_pair(const PhaseReadEvidence& pe, size_t a0, size_t a1) {
         pe.allele_length, pe.n_alleles, pe.mean_read_length, pe.length_weighted,
         vector<int>{(int)a0, (int)a1});
     for (size_t r = 0; r < pe.num_reads(); ++r) {
-        const double e = (double)pe.mismap[r];
+        const double e = pe.mismap[r];
         const double r0 = (1.0 - e) * weight[0] * (double)pe.rel_at(r, a0);
         const double r1 = (1.0 - e) * weight[1] * (double)pe.rel_at(r, a1);
         const double inside = r0 + r1;
@@ -91,17 +87,19 @@ PhaseSite reduce_to_pair(const PhaseReadEvidence& pe, size_t a0, size_t a1) {
 }
 
 double phase_link(const PhaseSite& a, const PhaseSite& b, double cap) {
-    // Both read lists are sorted by key, one row per key, so this is a merge rather than a lookup
-    // per read.
+    // Both read lists are sorted by key, one row per key, so we merge them rather than look up
+    // each read.
     double total = 0.0;
-    size_t i = 0, j = 0;
+    size_t i = 0;
+    size_t j = 0;
     while (i < a.read_key.size() && j < b.read_key.size()) {
         if (a.read_key[i] < b.read_key[j]) {
             ++i;
         } else if (b.read_key[j] < a.read_key[i]) {
             ++j;
         } else {
-            const double qa = a.q0[i], qb = b.q0[j];
+            const double qa = a.q0[i];
+            const double qb = b.q0[j];
             // Probability that the read's two alleles lie on one strand in the current orders.
             // These sum to 1, so the ratio below needs no normalisation.
             const double same = qa * qb + (1.0 - qa) * (1.0 - qb);
@@ -110,8 +108,7 @@ double phase_link(const PhaseSite& a, const PhaseSite& b, double cap) {
             // so that one mismapped read cannot dominate the sum.
             const double pr = (double)a.c[i] * (double)b.c[j];
             const double cis = pr * same + (1.0 - pr) * 0.5;
-            const double trans = pr * diff + (1.0 - pr) * 0.5;
-            if (cis > 0.0 && trans > 0.0) {
+            if (const double trans = pr * diff + (1.0 - pr) * 0.5; cis > 0.0 && trans > 0.0) {
                 total += log10(cis / trans);
             }
             ++i;
@@ -124,6 +121,552 @@ double phase_link(const PhaseSite& a, const PhaseSite& b, double cap) {
     return total;
 }
 
+namespace {
+
+/// Add one phase set's counters into the totals for all phase sets.
+///
+/// `sites` is counted once for all phase sets, and `strands_rederived` belongs to the caller, so
+/// neither is added here.
+void add_phase_set_counters(const ReadPhasingCounters& from, ReadPhasingCounters& into) {
+    into.chains += from.chains;
+    into.reliable += from.reliable;
+    into.breaks += from.breaks;
+    into.breaks_no_reads += from.breaks_no_reads;
+    into.hung += from.hung;
+    into.hung_no_reads += from.hung_no_reads;
+    into.flipped += from.flipped;
+    into.demoted_incoherent += from.demoted_incoherent;
+    into.coherence_unconverged += from.coherence_unconverged;
+    into.coherence_rounds_run = max(into.coherence_rounds_run, from.coherence_rounds_run);
+}
+
+/// A tally of the links that vote on whether to flip one site.
+struct FlipVote {
+    /// Sum of the link sizes, in log10 units, positive for keeping the site's order and negative
+    /// for flipping it.
+    double total = 0.0;
+    /// How many links had any read.
+    size_t links = 0;
+
+    /// 1 to flip the site, 0 to keep its order. A tie keeps it.
+    int flip() const { return total < 0.0 ? 1 : 0; }
+};
+
+/// One read's view of one phase-chain site, for measuring coherence.
+struct ChainObservation {
+    /// Index of the site in the phase chain.
+    size_t chain_index;
+    double q0;
+    double c;
+};
+
+/**
+ * A phaser that decides which sites of one phase set to flip against the panel's order.
+ *
+ * It works through the stages described in read_phasing.hpp. Positions passed to its methods are
+ * offsets of sites in the phase set, which is sorted by position. Each site's flip is in `flip`,
+ * and holds only once `decided` is set for it.
+ */
+class PhaseSetPhaser {
+public:
+    /// Prepare to phase the `site_count` sites starting at `first_site`, adding what happens to
+    /// `set_counters`, and the record keys of the sites only reads order to `set_read_ordered`.
+    PhaseSetPhaser(const PhaseSite* first_site, size_t site_count,
+                   const ReadPhasingParams& phasing_params, ReadPhasingCounters& set_counters,
+                   vector<size_t>& set_read_ordered);
+
+    /// Decide every site's flip, and append the record keys of the flipped sites to `flipped`.
+    void phase(vector<size_t>& flipped);
+
+private:
+    const PhaseSite* first;
+    size_t n;
+    const ReadPhasingParams& params;
+    ReadPhasingCounters& counters;
+    /// Record keys of the sites the panel does not order whose reads ordered them.
+    vector<size_t>& read_ordered;
+
+    /// Nearest sites on each side that hanging a site links it to.
+    size_t per_side;
+
+    /// For each site, 1 to flip it against the panel's order.
+    vector<int> flip;
+    /// For each site, whether `flip` has been decided.
+    vector<char> decided;
+
+    /// The phase chain: the reliable sites not removed for low coherence, in increasing order.
+    vector<size_t> chain;
+    /// Every other site, in increasing order.
+    vector<size_t> unchained;
+    /// For each pair of neighbouring phase-chain sites, the size of their link.
+    vector<double> links;
+    /// Where the phase chain's pieces start, as indexes in `chain`, then `chain.size()`.
+    vector<size_t> bounds;
+    /// For each piece, whether reads relinked it to the piece before it.
+    vector<char> joined;
+    /// The phase-chain sites the panel orders, in increasing order.
+    vector<size_t> chain_panel_ordered;
+    /// Record keys of the phase-chain sites the panel does not order whose reads ordered them.
+    vector<size_t> chain_read_ordered;
+    /// Breaks in the phase chain as the last round of the coherence stage left it.
+    size_t breaks = 0;
+    /// Of those, the breaks no read links across.
+    size_t breaks_no_reads = 0;
+    /// Rounds of the coherence stage that removed sites.
+    size_t rounds = 0;
+
+    const PhaseSite& site(size_t t) const { return first[t]; }
+
+    /// Build the phase chain and decide its sites' flips, through every round of the coherence
+    /// stage.
+    void phase_chain();
+    /// Measure the links of the phase chain, break it into pieces, and orient each piece's sites
+    /// from its first.
+    void link_pieces();
+    /// Decide each break from the links across it, left to right, flipping the later piece if
+    /// they say so.
+    void relink_pieces();
+    /// Flip each run of pieces as a whole so that its first site the panel orders keeps the
+    /// panel's order.
+    void frame_runs();
+    /// Remove the phase-chain sites whose coherence is too low, and reset every flip. Return
+    /// whether any site was removed. `final_round` says this is the last round allowed.
+    bool remove_incoherent(bool final_round);
+    /// Count, for each phase-chain site, its reads that span another phase-chain site in `total`,
+    /// and those that agree with the strand those other sites give them in `agree`.
+    void count_agreeing_reads(vector<size_t>& agree, vector<size_t>& total) const;
+
+    /// Hang each site off the phase chain from its nearest phase-chain sites, and return the sites
+    /// the panel does not order that no read links to the chain, in increasing order.
+    vector<size_t> hang_unchained();
+    /// The nearest phase-chain site before or at `t` that the panel orders, or the one after it
+    /// if it is nearer. On a tie, the one before.
+    size_t nearest_panel_ordered(size_t t) const;
+
+    /// Order by reads the sites in `unlinked`, which neither the panel nor the phase chain
+    /// orders.
+    void order_unlinked(const vector<size_t>& unlinked);
+    /// Add to `vote` on flipping `t` the links to the nearest ordered sites on each side.
+    ///
+    /// The ordered sites are those in `known`, and those in `done`, which all lie before `t`. Both
+    /// are sorted.
+    void vote_from_ordered(size_t t, const vector<size_t>& known, const vector<size_t>& done,
+                           FlipVote& vote) const;
+
+    /// Add the link between sites `t` and `u` to `vote` on flipping `t`, given `u`'s flip.
+    /// Return whether any read made the link.
+    bool add_link_vote(size_t t, size_t u, FlipVote& vote) const;
+};
+
+PhaseSetPhaser::PhaseSetPhaser(const PhaseSite* first_site, size_t site_count,
+                               const ReadPhasingParams& phasing_params,
+                               ReadPhasingCounters& set_counters,
+                               vector<size_t>& set_read_ordered)
+    : first(first_site), n(site_count), params(phasing_params), counters(set_counters),
+      read_ordered(set_read_ordered), per_side(phasing_params.hang / 2 + 1), flip(site_count, 0),
+      decided(site_count, 0) {
+    // A site the panel does not order may join the phase chain too. Its reads order it against
+    // the rest of the chain, and `frame_runs` takes the panel's order only from sites the panel
+    // orders.
+    for (size_t t = 0; t < n; ++t) {
+        if (site(t).reliability >= params.reliability) {
+            chain.push_back(t);
+        } else {
+            unchained.push_back(t);
+        }
+    }
+}
+
+void PhaseSetPhaser::phase(vector<size_t>& flipped) {
+    ++counters.chains;
+    counters.reliable += chain.size();
+
+    phase_chain();
+    counters.breaks += breaks;
+    counters.breaks_no_reads += breaks_no_reads;
+    counters.coherence_rounds_run = max(counters.coherence_rounds_run, rounds);
+
+    // A phase-chain site the panel does not order is ordered by reads if its run has another
+    // site, since reads make every link inside a piece and every relink.
+    read_ordered.insert(read_ordered.end(), chain_read_ordered.begin(), chain_read_ordered.end());
+
+    vector<size_t> unlinked;
+    if (chain.empty()) {
+        for (size_t t : unchained) {
+            if (!site(t).panel_ordered) {
+                unlinked.push_back(t);
+            }
+        }
+    } else {
+        unlinked = hang_unchained();
+    }
+    if (!unlinked.empty()) {
+        order_unlinked(unlinked);
+    }
+
+    for (size_t t = 0; t < n; ++t) {
+        if (decided[t] && flip[t]) {
+            flipped.push_back(site(t).record_key);
+            ++counters.flipped;
+        }
+    }
+}
+
+void PhaseSetPhaser::phase_chain() {
+    // One round with the coherence stage off, and otherwise one round more than the coherence
+    // stage may remove sites in, so the last removal is followed by a fresh chain.
+    const size_t max_pass = params.coherence_min > 0.0
+                                ? max<size_t>(1, params.coherence_rounds) + 1
+                                : 1;
+    for (size_t pass = 0; pass < max_pass && !chain.empty(); ++pass) {
+        link_pieces();
+        relink_pieces();
+        frame_runs();
+        // The coherence stage is skipped in the last round, so that the chain it leaves is
+        // linked again before anything hangs from it.
+        if (pass + 1 >= max_pass || !remove_incoherent(pass + 2 == max_pass)) {
+            break;
+        }
+    }
+}
+
+void PhaseSetPhaser::link_pieces() {
+    links.assign(chain.empty() ? 0 : chain.size() - 1, 0.0);
+    for (size_t m = 0; m + 1 < chain.size(); ++m) {
+        links[m] = phase_link(site(chain[m]), site(chain[m + 1]), params.cap);
+    }
+    bounds.clear();
+    bounds.push_back(0);
+    for (size_t m = 0; m + 1 < chain.size(); ++m) {
+        // A link no read makes is a break whatever the threshold, so that reads link the sites of
+        // every piece.
+        if (links[m] == 0.0 || std::fabs(links[m]) < params.break_threshold) {
+            bounds.push_back(m + 1);
+        }
+    }
+    bounds.push_back(chain.size());
+    joined.assign(bounds.size() - 1, 0);
+    breaks = bounds.size() - 2;
+    breaks_no_reads = 0;
+
+    for (size_t b = 0; b + 1 < bounds.size(); ++b) {
+        const size_t piece_start = bounds[b];
+        const size_t piece_end = bounds[b + 1];
+        flip[chain[piece_start]] = 0;
+        decided[chain[piece_start]] = 1;
+        for (size_t m = piece_start; m + 1 < piece_end; ++m) {
+            flip[chain[m + 1]] = flip[chain[m]] ^ (links[m] < 0.0 ? 1 : 0);
+            decided[chain[m + 1]] = 1;
+        }
+    }
+}
+
+void PhaseSetPhaser::relink_pieces() {
+    // Piece A is chain[a_start, b_start) and piece B chain[b_start, b_end).
+    for (size_t b = 0; b + 2 < bounds.size(); ++b) {
+        const size_t b_start = bounds[b + 1];
+        const size_t b_end = bounds[b + 2];
+        const size_t a_first = b_start > params.relink ? b_start - params.relink : 0;
+        const size_t a_lo = max(bounds[b], a_first);
+        const size_t b_hi = min(b_end, b_start + params.relink);
+        // The question is the relative orientation of A's last site and B's first. Each link is
+        // referred back to those two sites through the flips inside each piece.
+        double total = 0.0;
+        for (size_t i = a_lo; i < b_start; ++i) {
+            for (size_t j = b_start; j < b_hi; ++j) {
+                const double dv = phase_link(site(chain[i]), site(chain[j]), params.cap);
+                if (dv == 0.0) {
+                    continue;
+                }
+                const int turned = (flip[chain[i]] ^ flip[chain[b_start - 1]])
+                                   ^ (flip[chain[j]] ^ flip[chain[b_start]]);
+                total += turned ? -dv : dv;
+            }
+        }
+        if (total == 0.0) {
+            // `frame_runs` orients B from the panel instead.
+            ++breaks_no_reads;
+            continue;
+        }
+        joined[b + 1] = 1;
+        const int x = total < 0.0 ? 1 : 0;
+        if (x ^ flip[chain[b_start - 1]] ^ flip[chain[b_start]]) {
+            for (size_t m = b_start; m < b_end; ++m) {
+                flip[chain[m]] ^= 1;
+            }
+        }
+    }
+}
+
+void PhaseSetPhaser::frame_runs() {
+    // Reads fix the order of a run's sites relative to each other, and only the panel relates the
+    // run to the runs either side. So we turn the run as a whole before the coherence stage
+    // compares sites across runs. A run with no site the panel orders keeps the order of its first
+    // site, which is arbitrary.
+    chain_panel_ordered.clear();
+    chain_read_ordered.clear();
+    for (size_t b = 0; b + 1 < bounds.size();) {
+        size_t e = b + 1;
+        while (e + 1 < bounds.size() && joined[e]) {
+            ++e;
+        }
+        // The run is chain[run_start, run_end).
+        const size_t run_start = bounds[b];
+        const size_t run_end = bounds[e];
+        size_t framing = run_end;
+        for (size_t m = run_start; m < run_end; ++m) {
+            if (site(chain[m]).panel_ordered) {
+                framing = min(framing, m);
+                chain_panel_ordered.push_back(chain[m]);
+            } else if (run_end - run_start >= 2) {
+                chain_read_ordered.push_back(site(chain[m]).record_key);
+            }
+        }
+        if (framing < run_end && flip[chain[framing]]) {
+            for (size_t m = run_start; m < run_end; ++m) {
+                flip[chain[m]] ^= 1;
+            }
+        }
+        b = e;
+    }
+}
+
+void PhaseSetPhaser::count_agreeing_reads(vector<size_t>& agree, vector<size_t>& total) const {
+    agree.assign(chain.size(), 0);
+    total.assign(chain.size(), 0);
+    unordered_map<uint64_t, vector<ChainObservation>> by_read;
+    for (size_t m = 0; m < chain.size(); ++m) {
+        const PhaseSite& st = site(chain[m]);
+        for (size_t i = 0; i < st.read_key.size(); ++i) {
+            by_read[st.read_key[i]].emplace_back(m, (double)st.q0[i], (double)st.c[i]);
+        }
+    }
+    for (const auto& [read, obs] : by_read) {
+        if (obs.size() < 2) {
+            // No other site to hold this one out against.
+            continue;
+        }
+        // Log10 likelihoods of the read coming from strand 0 and strand 1, from each site and in
+        // total, in the current flips.
+        double l0 = 0.0;
+        double l1 = 0.0;
+        vector<double> t0(obs.size());
+        vector<double> t1(obs.size());
+        for (size_t k = 0; k < obs.size(); ++k) {
+            const double p = obs[k].c;
+            const double q = flip[chain[obs[k].chain_index]] ? 1.0 - obs[k].q0 : obs[k].q0;
+            t0[k] = log10(p * q + (1.0 - p) * 0.5);
+            t1[k] = log10(p * (1.0 - q) + (1.0 - p) * 0.5);
+            l0 += t0[k];
+            l1 += t1[k];
+        }
+        for (size_t k = 0; k < obs.size(); ++k) {
+            const size_t m = obs[k].chain_index;
+            // The strand the read's other sites give it, leaving this site out.
+            const bool hap1 = (l1 - t1[k]) > (l0 - t0[k]);
+            const double q = flip[chain[m]] ? 1.0 - obs[k].q0 : obs[k].q0;
+            const bool says1 = q < 0.5;
+            ++total[m];
+            agree[m] += says1 == hap1 ? 1 : 0;
+        }
+    }
+}
+
+bool PhaseSetPhaser::remove_incoherent(bool final_round) {
+    if (params.coherence_min <= 0.0 || chain.size() < 3) {
+        return false;
+    }
+    vector<size_t> agree;
+    vector<size_t> total;
+    count_agreeing_reads(agree, total);
+    vector<size_t> keep;
+    vector<size_t> drop;
+    for (size_t m = 0; m < chain.size(); ++m) {
+        // A site needs at least ten counted reads before low coherence can remove it.
+        if (total[m] >= 10 && (double)agree[m] / (double)total[m] < params.coherence_min) {
+            drop.push_back(chain[m]);
+        } else {
+            keep.push_back(chain[m]);
+        }
+    }
+    if (drop.empty() || keep.size() < 2) {
+        return false;
+    }
+    counters.demoted_incoherent += drop.size();
+    ++rounds;
+    if (final_round) {
+        // Still removing sites in the last allowed round, so the chain has not converged.
+        ++counters.coherence_unconverged;
+    }
+    unchained.insert(unchained.end(), drop.begin(), drop.end());
+    std::ranges::sort(unchained);
+    chain.swap(keep);
+    std::ranges::fill(flip, 0);
+    std::ranges::fill(decided, 0);
+    return true;
+}
+
+bool PhaseSetPhaser::add_link_vote(size_t t, size_t u, FlipVote& vote) const {
+    const double dv = phase_link(site(t), site(u), params.cap);
+    if (dv == 0.0) {
+        return false;
+    }
+    const int pred = flip[u] ^ (dv < 0.0 ? 1 : 0);
+    vote.total += std::fabs(dv) * (pred == 0 ? 1.0 : -1.0);
+    ++vote.links;
+    return true;
+}
+
+size_t PhaseSetPhaser::nearest_panel_ordered(size_t t) const {
+    const auto after = std::ranges::lower_bound(chain_panel_ordered, t);
+    if (after == chain_panel_ordered.begin()) {
+        return chain_panel_ordered.front();
+    }
+    if (after == chain_panel_ordered.end()) {
+        return chain_panel_ordered.back();
+    }
+    const size_t before = *(after - 1);
+    return t - before <= *after - t ? before : *after;
+}
+
+vector<size_t> PhaseSetPhaser::hang_unchained() {
+    vector<size_t> unlinked;
+    for (size_t t : unchained) {
+        FlipVote vote;
+        // The phase-chain sites before `t` are chain[0, split) and those after it
+        // chain[split, end), since `chain` is sorted and does not hold `t`.
+        const size_t split = std::ranges::lower_bound(chain, t) - chain.begin();
+        // Link to the nearest phase-chain sites on both sides, nearest first, before `t` and then
+        // after it. A site near an end of the chain thus still hears from both sides.
+        for (size_t k = 0; k < per_side && k < split; ++k) {
+            add_link_vote(t, chain[split - 1 - k], vote);
+        }
+        for (size_t k = split; k < chain.size() && k - split < per_side; ++k) {
+            add_link_vote(t, chain[k], vote);
+        }
+        const bool panel_ordered = site(t).panel_ordered;
+        if (params.panel_weight > 0.0 && !chain_panel_ordered.empty() && panel_ordered) {
+            // The panel votes for keeping this site's order relative to the nearest phase-chain
+            // site the panel also orders. The vote is weak, and decides only when reads say
+            // nothing.
+            vote.total += params.panel_weight * (flip[nearest_panel_ordered(t)] == 0 ? 1.0 : -1.0);
+        }
+        if (vote.links == 0 && !panel_ordered) {
+            // `order_unlinked` counts it if no read orders it there either.
+            unlinked.push_back(t);
+        } else if (vote.links == 0) {
+            ++counters.hung_no_reads;
+        } else if (!panel_ordered) {
+            read_ordered.push_back(site(t).record_key);
+        }
+        flip[t] = vote.flip();
+        decided[t] = 1;
+        ++counters.hung;
+    }
+    return unlinked;
+}
+
+void PhaseSetPhaser::order_unlinked(const vector<size_t>& unlinked) {
+    // Such a site, as where no panel haplotype reaches, may still share reads with a site whose
+    // order is known: a phase-chain site beyond the nearest few, a hung site, or one ordered
+    // earlier here. We link each, in increasing order, to the nearest such sites on each side.
+    // Sites that share no read with any of them are then ordered against each other, each
+    // against the nearest before it, so that reads order each run of them among themselves.
+    vector<char> is_unlinked(n, 0);
+    for (size_t t : unlinked) {
+        is_unlinked[t] = 1;
+    }
+    // Every other site is ordered, by the phase chain, by the panel, or by being hung.
+    vector<size_t> known;
+    known.reserve(n - unlinked.size());
+    for (size_t t = 0; t < n; ++t) {
+        if (!is_unlinked[t]) {
+            known.push_back(t);
+        }
+    }
+    vector<char> ordered(n, 0);
+
+    // Order against the known sites. `done` holds the sites ordered here so far, which all lie
+    // before `t`, so the nearest sites before `t` are merged from it and `known`.
+    vector<size_t> done;
+    vector<size_t> left;
+    for (size_t t : unlinked) {
+        FlipVote vote;
+        vote_from_ordered(t, known, done, vote);
+        if (vote.links == 0) {
+            left.push_back(t);
+            continue;
+        }
+        flip[t] = vote.flip();
+        decided[t] = 1;
+        ordered[t] = 1;
+        done.push_back(t);
+    }
+
+    // Order the rest against each other. The first site of each run keeps its arbitrary order,
+    // and a site with no read to any other site stays unordered.
+    for (size_t i = 0; i < left.size(); ++i) {
+        const size_t t = left[i];
+        FlipVote vote;
+        for (size_t k = 0; k < per_side && k < i; ++k) {
+            const size_t u = left[i - 1 - k];
+            if (add_link_vote(t, u, vote)) {
+                ordered[u] = 1;
+            }
+        }
+        flip[t] = vote.flip();
+        decided[t] = 1;
+        ordered[t] = ordered[t] || vote.links > 0;
+    }
+
+    for (size_t t : unlinked) {
+        if (ordered[t]) {
+            read_ordered.push_back(site(t).record_key);
+        } else if (!chain.empty()) {
+            ++counters.hung_no_reads;
+        }
+    }
+}
+
+void PhaseSetPhaser::vote_from_ordered(size_t t, const vector<size_t>& known,
+                                       const vector<size_t>& done, FlipVote& vote) const {
+    // Merge the nearest sites before `t` from `known` and `done`, nearest first.
+    const size_t split = std::ranges::lower_bound(known, t) - known.begin();
+    size_t a = split;
+    size_t b = done.size();
+    size_t k = 0;
+    while (k < per_side && (a > 0 || b > 0)) {
+        if (b == 0 || (a > 0 && known[a - 1] > done[b - 1])) {
+            --a;
+            add_link_vote(t, known[a], vote);
+        } else {
+            --b;
+            add_link_vote(t, done[b], vote);
+        }
+        ++k;
+    }
+    for (size_t j = split; j < known.size() && j - split < per_side; ++j) {
+        add_link_vote(t, known[j], vote);
+    }
+}
+
+/// Return the [begin, end) ranges of `sites` that hold one phase set each. `sites` must be sorted
+/// by phase set.
+vector<pair<size_t, size_t>> phase_set_ranges(const vector<PhaseSite>& sites) {
+    vector<pair<size_t, size_t>> ranges;
+    for (size_t begin = 0; begin < sites.size();) {
+        size_t end = begin;
+        while (end < sites.size() && sites[end].phase_set == sites[begin].phase_set) {
+            ++end;
+        }
+        ranges.emplace_back(begin, end);
+        begin = end;
+    }
+    return ranges;
+}
+
+}
+
 unordered_set<size_t> read_phase_flips(vector<PhaseSite>& sites, const ReadPhasingParams& params,
                                        ReadPhasingCounters& counters,
                                        unordered_set<size_t>* read_ordered) {
@@ -131,10 +674,9 @@ unordered_set<size_t> read_phase_flips(vector<PhaseSite>& sites, const ReadPhasi
     if (sites.empty()) {
         return flips;
     }
-    // Phase is comparable only inside a phase set, so each phase set is worked on separately.
     // `record_key` breaks ties between sites at the same position, so that the order does not
     // depend on the order in which the sites arrived.
-    sort(sites.begin(), sites.end(), [](const PhaseSite& x, const PhaseSite& y) {
+    std::ranges::sort(sites, [](const PhaseSite& x, const PhaseSite& y) {
         if (x.phase_set != y.phase_set) {
             return x.phase_set < y.phase_set;
         }
@@ -143,33 +685,20 @@ unordered_set<size_t> read_phase_flips(vector<PhaseSite>& sites, const ReadPhasi
         }
         return x.record_key < y.record_key;
     });
-    // The merge in `phase_link` needs both sides ordered, and coherence needs a read to appear
-    // once per site. Done once here rather than per link, for each site on its own.
+    // `phase_link` merges two sites' rows, so it needs them sorted, and coherence needs each read
+    // once per site.
 #pragma omp parallel for schedule(dynamic, 1024)
-    for (size_t i = 0; i < sites.size(); ++i) {
-        merge_mates(sites[i]);
+    for (PhaseSite& site : sites) {
+        merge_mates(site);
     }
     counters.sites += sites.size();
 
-    // Each phase set is a range of `sites` and is worked on independently of every other one, so
-    // the phase sets are worked on in parallel, longest first. Each keeps its own counters and its
-    // own list of the sites whose chosen pair is to be swapped. Afterwards the counters are added
-    // up and the lists gathered in phase-set order, which gives what one loop over the phase sets,
-    // in order, gives.
-    vector<pair<size_t, size_t>> phase_sets;
-    for (size_t begin = 0; begin < sites.size();) {
-        size_t end = begin;
-        while (end < sites.size() && sites[end].phase_set == sites[begin].phase_set) {
-            ++end;
-        }
-        phase_sets.emplace_back(begin, end);
-        begin = end;
-    }
+    // Phase sets are independent, so we phase them in parallel, longest first. Each keeps its own
+    // counters and lists, which we gather in phase-set order afterwards.
+    const vector<pair<size_t, size_t>> phase_sets = phase_set_ranges(sites);
     vector<size_t> by_length(phase_sets.size());
-    for (size_t i = 0; i < by_length.size(); ++i) {
-        by_length[i] = i;
-    }
-    std::stable_sort(by_length.begin(), by_length.end(), [&](size_t x, size_t y) {
+    std::iota(by_length.begin(), by_length.end(), 0);
+    std::ranges::stable_sort(by_length, [&](size_t x, size_t y) {
         return phase_sets[x].second - phase_sets[x].first > phase_sets[y].second - phase_sets[y].first;
     });
     vector<ReadPhasingCounters> set_counters(phase_sets.size());
@@ -177,414 +706,16 @@ unordered_set<size_t> read_phase_flips(vector<PhaseSite>& sites, const ReadPhasi
     vector<vector<size_t>> set_read_ordered(phase_sets.size());
 
 #pragma omp parallel for schedule(dynamic, 1)
-    for (size_t rank = 0; rank < by_length.size(); ++rank) {
-        const size_t set_index = by_length[rank];
-        const size_t begin = phase_sets[set_index].first;
-        const size_t end = phase_sets[set_index].second;
-        // This phase set's own counters and list (see above). The name `counters` hides the
-        // function's parameter on purpose, so that the loop body below reads as it did when the
-        // phase sets were worked on one at a time.
-        ReadPhasingCounters& counters = set_counters[set_index];
-        vector<size_t>& flipped_keys = set_flips[set_index];
-        ++counters.chains;
-        const size_t n = end - begin;
-
-        // Which sites may carry a link at all. A site the panel does not order is among them: its
-        // reads order it against the rest of the chain, and only the panel's frame is taken from
-        // the sites the panel does order (see the framing below).
-        vector<size_t> rel;
-        vector<size_t> unrel;
-        for (size_t t = 0; t < n; ++t) {
-            if (sites[begin + t].reliability >= params.reliability) {
-                rel.push_back(t);
-            } else {
-                unrel.push_back(t);
-            }
-        }
-        counters.reliable += rel.size();
-
-        // `o[t] == 1` means "swap this site against the order the panel gave it". A chain's first
-        // reliable site is pinned at 0, so with no read evidence nothing moves.
-        vector<int> o(n, 0);
-        vector<char> decided(n, 0);
-
-        const size_t max_pass = params.coherence_min > 0.0
-                                    ? max<size_t>(1, params.coherence_rounds) + 1
-                                    : 1;
-        // Breaks in the chain as the last pass left it. A pass that demotes sites runs stages 1
-        // and 2 again, so only the last pass's breaks are counted.
-        size_t breaks = 0;
-        size_t breaks_no_reads = 0;
-        size_t rounds = 0;
-        // The last pass's pieces, as positions in `rel`, and for each piece whether reads relinked
-        // it to the piece before it.
-        vector<size_t> bounds;
-        vector<char> joined;
-        // The chain sites the panel orders, and those it does not that reads order, in increasing
-        // order, as the framing in the last pass found them.
-        vector<size_t> rel_panel;
-        vector<size_t> chain_read_ordered;
-        for (size_t pass = 0; pass < max_pass && !rel.empty(); ++pass) {
-            // --- stage 1: the chain of reliable sites, stepping over the rest ---
-            vector<double> d(rel.size() > 0 ? rel.size() - 1 : 0, 0.0);
-            for (size_t m = 0; m + 1 < rel.size(); ++m) {
-                d[m] = phase_link(sites[begin + rel[m]], sites[begin + rel[m + 1]], params.cap);
-            }
-            bounds.clear();
-            bounds.push_back(0);
-            for (size_t m = 0; m + 1 < rel.size(); ++m) {
-                // A link no read makes is a break whatever the threshold, so that reads link the
-                // sites of every piece.
-                if (d[m] == 0.0 || std::fabs(d[m]) < params.break_threshold) {
-                    bounds.push_back(m + 1);
-                }
-            }
-            bounds.push_back(rel.size());
-            joined.assign(bounds.size() - 1, 0);
-            breaks = bounds.size() - 2;
-            breaks_no_reads = 0;
-
-            for (size_t b = 0; b + 1 < bounds.size(); ++b) {
-                const size_t s0 = bounds[b], s1 = bounds[b + 1];
-                o[rel[s0]] = 0;
-                decided[rel[s0]] = 1;
-                for (size_t m = s0; m + 1 < s1; ++m) {
-                    o[rel[m + 1]] = o[rel[m]] ^ (d[m] < 0.0 ? 1 : 0);
-                    decided[rel[m + 1]] = 1;
-                }
-            }
-
-            // --- stage 2: relink the unbroken pieces of the chain ---
-            for (size_t b = 0; b + 2 < bounds.size(); ++b) {
-                const size_t ea = bounds[b + 1];              // one past A's last reliable site
-                const size_t sb = bounds[b + 1];              // B's first reliable site
-                const size_t eb = bounds[b + 2];
-                const size_t a_first = ea > params.relink ? ea - params.relink : 0;
-                const size_t a_lo = max(bounds[b], a_first);
-                const size_t b_hi = min(eb, sb + params.relink);
-                double total = 0.0;
-                for (size_t i = a_lo; i < ea; ++i) {
-                    for (size_t j = sb; j < b_hi; ++j) {
-                        const double dv =
-                            phase_link(sites[begin + rel[i]], sites[begin + rel[j]], params.cap);
-                        if (dv == 0.0) {
-                            continue;
-                        }
-                        // Referred back to the two blocks' own boundary sites, whose relative
-                        // orientation is what is being decided; each block's internal parity is
-                        // already chosen so it cancels out of the question.
-                        const int flip = (o[rel[i]] ^ o[rel[ea - 1]]) ^ (o[rel[j]] ^ o[rel[sb]]);
-                        total += flip ? -dv : dv;
-                    }
-                }
-                if (total == 0.0) {
-                    ++breaks_no_reads;
-                    continue;                                  // framed on the panel below
-                }
-                joined[b + 1] = 1;
-                const int x = total < 0.0 ? 1 : 0;
-                if (x ^ o[rel[ea - 1]] ^ o[rel[sb]]) {
-                    for (size_t m = sb; m < eb; ++m) {
-                        o[rel[m]] ^= 1;
-                    }
-                }
-            }
-
-            // --- framing: put each run of pieces that reads join in the panel's order ---
-            //
-            // A run is a maximal series of pieces, each relinked by reads to the one before it.
-            // Reads fix the order of its sites relative to each other, and only the panel relates
-            // it to the runs either side, which no read reaches. So the run is turned as a whole to
-            // put its first site the panel orders in the panel's order, before stage 3 compares
-            // sites across runs. A run with no such site keeps the order its first site came in
-            // with, which says nothing.
-            rel_panel.clear();
-            chain_read_ordered.clear();
-            for (size_t b = 0; b + 1 < bounds.size();) {
-                size_t e = b + 1;
-                while (e + 1 < bounds.size() && joined[e]) {
-                    ++e;
-                }
-                const size_t m0 = bounds[b], m1 = bounds[e];   // the run is rel[m0, m1)
-                size_t first = m1;
-                for (size_t m = m0; m < m1; ++m) {
-                    if (sites[begin + rel[m]].panel_ordered) {
-                        first = min(first, m);
-                        rel_panel.push_back(rel[m]);
-                    } else if (m1 - m0 >= 2) {
-                        chain_read_ordered.push_back(sites[begin + rel[m]].record_key);
-                    }
-                }
-                if (first < m1 && o[rel[first]]) {
-                    for (size_t m = m0; m < m1; ++m) {
-                        o[rel[m]] ^= 1;
-                    }
-                }
-                b = e;
-            }
-
-            // --- stage 3: remove chain sites whose reads disagree with the rest of the chain ---
-            //
-            // A site's coherence is the share of its reads whose allele here matches the strand
-            // their other chain sites imply. Each read's strand is computed with this site left
-            // out, so a site does not vote on itself.
-            if (params.coherence_min > 0.0 && pass + 1 < max_pass && rel.size() >= 3) {
-                unordered_map<uint64_t, vector<std::array<double, 3>>> by_read;
-                for (size_t m = 0; m < rel.size(); ++m) {
-                    const PhaseSite& st = sites[begin + rel[m]];
-                    for (size_t i = 0; i < st.read_key.size(); ++i) {
-                        by_read[st.read_key[i]].push_back(
-                            {(double)m, (double)st.q0[i], (double)st.c[i]});
-                    }
-                }
-                vector<size_t> ok(rel.size(), 0), tot(rel.size(), 0);
-                for (auto& kv : by_read) {
-                    auto& obs = kv.second;
-                    if (obs.size() < 2) {
-                        continue;   // no other site to be held out against
-                    }
-                    double l0 = 0.0, l1 = 0.0;
-                    vector<double> t0(obs.size()), t1(obs.size());
-                    for (size_t k = 0; k < obs.size(); ++k) {
-                        const size_t m = (size_t)obs[k][0];
-                        const double p = obs[k][2];
-                        const double q = o[rel[m]] ? 1.0 - obs[k][1] : obs[k][1];
-                        t0[k] = log10(p * q + (1.0 - p) * 0.5);
-                        t1[k] = log10(p * (1.0 - q) + (1.0 - p) * 0.5);
-                        l0 += t0[k];
-                        l1 += t1[k];
-                    }
-                    for (size_t k = 0; k < obs.size(); ++k) {
-                        const size_t m = (size_t)obs[k][0];
-                        const bool hap1 = (l1 - t1[k]) > (l0 - t0[k]);   // leave this site out
-                        const double q = o[rel[m]] ? 1.0 - obs[k][1] : obs[k][1];
-                        const bool says1 = q < 0.5;
-                        ++tot[m];
-                        if (says1 == hap1) {
-                            ++ok[m];
-                        }
-                    }
-                }
-                vector<size_t> keep, drop;
-                for (size_t m = 0; m < rel.size(); ++m) {
-                    // A site needs at least ten counted reads before low coherence can remove it.
-                    if (tot[m] >= 10 && (double)ok[m] / (double)tot[m] < params.coherence_min) {
-                        drop.push_back(rel[m]);
-                    } else {
-                        keep.push_back(rel[m]);
-                    }
-                }
-                if (!drop.empty() && keep.size() >= 2) {
-                    counters.demoted_incoherent += drop.size();
-                    ++rounds;
-                    if (pass + 2 == max_pass) {
-                        // Still removing sites in the last allowed round, so the chain is
-                        // reported as not converged.
-                        ++counters.coherence_unconverged;
-                    }
-                    for (size_t t : drop) {
-                        unrel.push_back(t);
-                    }
-                    sort(unrel.begin(), unrel.end());
-                    rel.swap(keep);
-                    std::fill(o.begin(), o.end(), 0);
-                    std::fill(decided.begin(), decided.end(), 0);
-                    continue;                    // re-run stages 1 and 2 on the surviving sites
-                }
-            }
-            break;                               // no demotion: one pass is all that is needed
-        }
-        counters.breaks += breaks;
-        counters.breaks_no_reads += breaks_no_reads;
-        counters.coherence_rounds_run = max(counters.coherence_rounds_run, rounds);
-
-        // A site the panel does not order is ordered by its reads if its run has another site,
-        // since every link inside a piece and every relink has reads; alone in a run, nothing
-        // orders it.
-        set_read_ordered[set_index].insert(set_read_ordered[set_index].end(),
-                                           chain_read_ordered.begin(), chain_read_ordered.end());
-
-        // Sites the panel does not order that no read links to the chain, in increasing order.
-        // Stage 5 orders them by their reads against the sites that are ordered, and then against
-        // each other.
-        vector<size_t> unlinked;
-        const size_t per_side = params.hang / 2 + 1;
-        if (rel.empty()) {
-            for (size_t t : unrel) {
-                if (!sites[begin + t].panel_ordered) {
-                    unlinked.push_back(t);
-                }
-            }
-        } else {
-            // --- stage 4: hang the unreliable sites from the chain ---
-            //
-            // `rel` is in increasing order and holds no unreliable site, so the reliable sites
-            // before `t` are rel[0, split) and those after it rel[split, end), found by binary
-            // search rather than by walking `rel` for every unreliable site.
-            for (size_t t : unrel) {
-                double s = 0.0;
-                size_t used = 0;
-                const size_t split = std::lower_bound(rel.begin(), rel.end(), t) - rel.begin();
-                auto link = [&](size_t u) {
-                    const double dv = phase_link(sites[begin + t], sites[begin + u], params.cap);
-                    if (dv == 0.0) {
-                        return;
-                    }
-                    const int pred = o[u] ^ (dv < 0.0 ? 1 : 0);
-                    s += std::fabs(dv) * (pred == 0 ? 1.0 : -1.0);
-                    ++used;
-                };
-                // Nearest reliable neighbours on both sides, nearest first, before `t` and then
-                // after it. `hang` is split between them rather than taken from one, so a site
-                // near a chain end is not decided one-sidedly.
-                for (size_t k = 0; k < per_side && k < split; ++k) {
-                    link(rel[split - 1 - k]);
-                }
-                for (size_t k = split; k < rel.size() && k - split < per_side; ++k) {
-                    link(rel[k]);
-                }
-                if (params.panel_weight > 0.0 && !rel_panel.empty()
-                    && sites[begin + t].panel_ordered) {
-                    // The panel says this site keeps the order it came in with, relative to the
-                    // nearest chain site the panel also orders. Weak, and only decisive when the
-                    // reads say nothing. That site is on one side of `t` or the other; on a tie,
-                    // the one before it.
-                    const size_t p = std::lower_bound(rel_panel.begin(), rel_panel.end(), t)
-                                     - rel_panel.begin();
-                    size_t nearest;
-                    if (p == 0) {
-                        nearest = rel_panel.front();
-                    } else if (p == rel_panel.size()) {
-                        nearest = rel_panel.back();
-                    } else {
-                        nearest = t - rel_panel[p - 1] <= rel_panel[p] - t ? rel_panel[p - 1]
-                                                                           : rel_panel[p];
-                    }
-                    s += params.panel_weight * (o[nearest] == 0 ? 1.0 : -1.0);
-                }
-                if (used == 0 && !sites[begin + t].panel_ordered) {
-                    // Left to stage 5, which counts it if no read orders it there either.
-                    unlinked.push_back(t);
-                } else if (used == 0) {
-                    ++counters.hung_no_reads;
-                } else if (!sites[begin + t].panel_ordered) {
-                    set_read_ordered[set_index].push_back(sites[begin + t].record_key);
-                }
-                // Flipped only on a vote against the panel's order; a tie keeps it.
-                o[t] = s < 0.0 ? 1 : 0;
-                decided[t] = 1;
-                ++counters.hung;
-            }
-        }
-
-        if (!unlinked.empty()) {
-            // --- stage 5: order by reads the sites that neither the panel nor the chain orders ---
-            //
-            // Such a site, as where no panel haplotype reaches, may still share reads with a site
-            // whose order is known: a site of the chain beyond the nearest few, a site hung from
-            // the chain, or one this stage has already ordered. Each is linked, in increasing
-            // order, to the nearest such sites on each side. What is then left shares no read
-            // with any of them, and is ordered against the others left, the nearest before it,
-            // so that reads order each run of them among themselves. A run's first site keeps
-            // the order it came in with, which says nothing, and the run is ordered relative to
-            // it. A site left with no read to any other site stays unordered.
-            vector<char> is_unlinked(n, 0);
-            for (size_t t : unlinked) {
-                is_unlinked[t] = 1;
-            }
-            // Every other site is ordered, by the chain, by the panel, or by being hung.
-            vector<size_t> known;
-            known.reserve(n - unlinked.size());
-            for (size_t t = 0; t < n; ++t) {
-                if (!is_unlinked[t]) {
-                    known.push_back(t);
-                }
-            }
-            vector<char> ordered(n, 0);
-            double s = 0.0;
-            size_t used = 0;
-            auto link = [&](size_t t, size_t u) {
-                const double dv = phase_link(sites[begin + t], sites[begin + u], params.cap);
-                if (dv == 0.0) {
-                    return false;
-                }
-                const int pred = o[u] ^ (dv < 0.0 ? 1 : 0);
-                s += std::fabs(dv) * (pred == 0 ? 1.0 : -1.0);
-                ++used;
-                return true;
-            };
-            // Against the ordered sites. `done` holds the sites this pass has ordered, which all
-            // lie before `t`; the nearest before `t` are merged from it and `known`.
-            vector<size_t> done;
-            vector<size_t> left;
-            for (size_t t : unlinked) {
-                s = 0.0;
-                used = 0;
-                const size_t split = std::lower_bound(known.begin(), known.end(), t) - known.begin();
-                size_t a = split, b = done.size();
-                for (size_t k = 0; k < per_side && (a > 0 || b > 0); ++k) {
-                    if (b == 0 || (a > 0 && known[a - 1] > done[b - 1])) {
-                        link(t, known[--a]);
-                    } else {
-                        link(t, done[--b]);
-                    }
-                }
-                for (size_t k = split; k < known.size() && k - split < per_side; ++k) {
-                    link(t, known[k]);
-                }
-                if (used == 0) {
-                    left.push_back(t);
-                    continue;
-                }
-                o[t] = s < 0.0 ? 1 : 0;
-                decided[t] = 1;
-                ordered[t] = 1;
-                done.push_back(t);
-            }
-            // Against each other: the nearest before `t` of those left.
-            for (size_t i = 0; i < left.size(); ++i) {
-                const size_t t = left[i];
-                s = 0.0;
-                used = 0;
-                for (size_t k = 0; k < per_side && k < i; ++k) {
-                    const size_t u = left[i - 1 - k];
-                    if (link(t, u)) {
-                        ordered[u] = 1;
-                    }
-                }
-                o[t] = s < 0.0 ? 1 : 0;
-                decided[t] = 1;
-                ordered[t] = ordered[t] || used > 0;
-            }
-            for (size_t t : unlinked) {
-                if (ordered[t]) {
-                    set_read_ordered[set_index].push_back(sites[begin + t].record_key);
-                } else if (!rel.empty()) {
-                    ++counters.hung_no_reads;
-                }
-            }
-        }
-
-        for (size_t t = 0; t < n; ++t) {
-            if (decided[t] && o[t]) {
-                flipped_keys.push_back(sites[begin + t].record_key);
-                ++counters.flipped;
-            }
-        }
+    for (size_t set_index : by_length) {
+        const auto [begin, end] = phase_sets[set_index];
+        PhaseSetPhaser phaser(sites.data() + begin, end - begin, params, set_counters[set_index],
+                              set_read_ordered[set_index]);
+        phaser.phase(set_flips[set_index]);
     }
 
     for (size_t i = 0; i < phase_sets.size(); ++i) {
-        const ReadPhasingCounters& c = set_counters[i];
-        counters.chains += c.chains;
-        counters.reliable += c.reliable;
-        counters.breaks += c.breaks;
-        counters.breaks_no_reads += c.breaks_no_reads;
-        counters.hung += c.hung;
-        counters.hung_no_reads += c.hung_no_reads;
-        counters.flipped += c.flipped;
-        counters.demoted_incoherent += c.demoted_incoherent;
-        counters.coherence_unconverged += c.coherence_unconverged;
-        counters.coherence_rounds_run = max(counters.coherence_rounds_run, c.coherence_rounds_run);
+        add_phase_set_counters(set_counters[i], counters);
+        // Insert one at a time, as the set's iteration order can depend on how it grew.
         for (size_t key : set_flips[i]) {
             flips.insert(key);
         }
@@ -598,15 +729,12 @@ unordered_set<size_t> read_phase_flips(vector<PhaseSite>& sites, const ReadPhasi
 vector<double> allele_length_weights(const vector<std::uint32_t>& allele_length, size_t n_alleles,
                                      float mean_read_length, bool length_weighted,
                                      const vector<int>& slot_allele) {
-    // Expected share of the site's reads per slot, from the alleles' full lengths: an allele of
-    // length L yields a read overlapping the site from L + R - 1 start positions. Flat when the
-    // lengths are unavailable or `length_weighted` is false.
     const size_t n_slots = slot_allele.size();
-    vector<double> weight(n_slots, n_slots ? 1.0 / (double)n_slots : 0.0);
+    vector weight(n_slots, n_slots ? 1.0 / (double)n_slots : 0.0);
     if (length_weighted && mean_read_length > 0.0
         && allele_length.size() == n_alleles && n_slots > 1) {
         double total = 0.0;
-        vector<double> raw(n_slots, 0.0);
+        vector raw(n_slots, 0.0);
         for (size_t i = 0; i < n_slots; ++i) {
             raw[i] = (double)allele_length[slot_allele[i]]
                      + (double)mean_read_length - 1.0;

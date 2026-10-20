@@ -1,6 +1,6 @@
 /// \file unittest/read_phasing.cpp
 ///
-/// Unit tests for the three-stage read-backed phase decision.
+/// Unit tests for read phasing, which decides from the reads which heterozygous sites to flip.
 ///
 /// Everything here is parity arithmetic over a chain: a sign error in one link flips every site
 /// after it, and nothing in the VCF looks unusual. These tests pin the convention.

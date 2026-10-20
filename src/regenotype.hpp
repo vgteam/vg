@@ -3,13 +3,13 @@
 
 /** \file regenotype.hpp
  *
- * Re-genotyping from the phase: once read phasing has ordered the heterozygous sites, a read that
- * spans other heterozygous sites shows which strand it came from, and that is used to correct each
- * site's genotype likelihoods.
+ * Re-genotyping from the phase: correct each site's genotype likelihoods with the strand each read
+ * came from.
  *
- * One site cannot tell which strand a read came from, so the site likelihood weights every read's
- * haplotypes by the same mixture weights. Here each read at a heterozygous genotype gets its own
- * weights instead, from the allele-length weights `v` (`allele_length_weights`):
+ * Once read phasing has ordered the heterozygous sites, a read that spans other heterozygous sites
+ * shows which strand it came from. One site alone cannot tell, so the site likelihood weights every
+ * read's haplotypes by the same mixture weights. Here each read at a heterozygous genotype gets its
+ * own weights instead, from the allele-length weights `v` (`allele_length_weights`):
  *
  *     pi_r^0 = v_0 e^{y_r} / (v_0 e^{y_r} + v_1),   pi_r^1 = 1 - pi_r^0
  *
@@ -19,10 +19,10 @@
  * depend on the weights, so its likelihood does not change.
  *
  * The correction is the read term with `pi` minus the read term with `v`, and it is added to the
- * likelihood the direct pass computed. Everything else in the direct pass's likelihood, such as the depth
- * term, is left as it was, so only `PhaseReadEvidence` has to be kept. The direct pass's own read term
- * used the mixture weights, which equal `v` when the two alleles have the same length. The method
- * is described in doc/read-likelihood-genotyping.md, under "Re-genotyping from the phase".
+ * likelihood the direct pass computed. The rest of that likelihood, such as the depth term, stays
+ * as it was, so only `PhaseReadEvidence` has to be kept. The direct pass's own read term used the
+ * mixture weights, which equal `v` when the two alleles have the same length. The method is
+ * described in doc/read-likelihood-read-phasing.md, under "Re-genotyping from the phase".
  */
 
 #include <cstddef>
@@ -47,122 +47,148 @@ using std::vector;
 /**
  * One read's accumulated evidence about which strand of its phase set it came from.
  *
- * Keyed by read alone rather than by (read, phase set): a read normally lies in one phase set.
- * Each phase set labels its strands independently, so a read's strand is usable only at a site of
- * the phase set it was found in (see `read_strand_usable`), and a read found in two phase sets is
- * usable nowhere.
+ * A read normally lies in one phase set, so this is kept per read. Each phase set labels its
+ * strands independently, so a read's strand is usable only at a site of the phase set it was found
+ * in (see `read_strand_usable`).
  */
 struct ReadLambda {
-    /// Natural-log odds of strand 0 against strand 1, with each site's contribution signed by
-    /// its chosen order.
+    /// Lambda, the natural-log odds of strand 0 against strand 1.
+    ///
+    /// Each site's contribution is signed by its chosen order.
     double lambda = 0.0;
     /// How many sites contributed.
     size_t sites = 0;
     /// The phase set the read was found in, as `PhaseSite::phase_set` names it.
     size_t phase_set = 0;
-    /// Seen in more than one phase set, so `lambda` mixes two unrelated strand labellings. Such a
-    /// read is given the site's own weights, as if it spanned no other site.
+    /// Whether the read was seen in more than one phase set.
+    ///
+    /// Then `lambda` mixes unrelated strand labellings, and the read's strand is usable nowhere.
     bool multi_phase_set = false;
 };
 
+/// Each read's `ReadLambda`, by read key.
 using LambdaTable = unordered_map<uint64_t, ReadLambda>;
 
 /// The phase set of a site that has none, because the linkage model did not phase it.
 constexpr size_t NO_PHASE_SET = std::numeric_limits<size_t>::max();
 
-/// Whether a read's strand can be used at a site of phase set `phase_set`: the read was found in
-/// one phase set, and it is this one. At a site with no phase set (`NO_PHASE_SET`), any read found
-/// in one phase set is usable. An unusable read is given the site's own weights, as if it spanned
-/// no other site.
+/// Return whether a read's strand can be used at a site of phase set `phase_set`.
+///
+/// It can when the read was found in one phase set, and that is `phase_set`. At a site with no
+/// phase set (`NO_PHASE_SET`), any read found in one phase set is usable. An unusable read is given
+/// the site's own weights, as if it spanned no other site.
 bool read_strand_usable(const ReadLambda& read, size_t phase_set);
 
+/// The settings of re-genotyping from the phase.
 struct RegenotypeParams {
-    /// The temper tau; 0 leaves the likelihoods unchanged, and a negative value means fit it (see
-    /// `fit_calibration`). Reads are not independent, so the summed strand log-odds overstate how
-    /// sure the strand is, and tau scales them down.
+    /// The temper tau, or a negative value to fit it (see `fit_calibration`).
+    ///
+    /// Reads are not independent, so the summed strand log-odds overstate how sure the strand is,
+    /// and tau scales them down. At 0 the likelihoods do not change.
     double temper = -1.0;
-    /// The ceiling c on a read's strand probability, in (0, 1]:
+    /// The ceiling c on a read's strand probability, in (0, 1].
+    ///
     /// `P(on strand 0) = c * sigmoid(tau * Lambda) + (1 - c) / 2`. A value below 1 keeps either
-    /// strand's probability further from 1; 1 turns the ceiling off. At tau = 0 the probability
-    /// is 1/2 whatever c is.
+    /// strand's probability further from 1, and 1 turns the ceiling off.
     double ceiling = 1.0;
-    /// At a nested chain at ploidy 1, make reads less informative when the phase places them on
-    /// the parent's other strand. On by default. The chain has one strand, so the mixture
-    /// correction does nothing there. See `haploid_inclusion_correction`.
+    /// Whether to correct nested chains at ploidy 1 (see `haploid_inclusion_correction`).
+    ///
+    /// The chain has one strand, so the mixture correction does nothing there.
     bool haploid_include = true;
-    /// Bins for the calibration fit, over |Lambda|.
+    /// The number of bins for the calibration fit, over |Lambda|.
     size_t fit_bins = 12;
-    /// The fewest observations the fit needs, and the fewest per bin: each bin holds the larger of
-    /// this and a `fit_bins`-th of the observations, except the last, which holds the remainder.
+    /// The fewest observations the fit needs, and the fewest per bin.
+    ///
+    /// Each bin holds the larger of this and a `fit_bins`-th of the observations, except the last,
+    /// which holds the remainder.
     size_t fit_min_per_bin = 200;
-    /// For testing: randomise the sign of each read's Lambda, keeping |Lambda|,
-    /// which removes the phase information and keeps the rest. The temper is fitted before the
+    /// Whether to randomise the sign of each read's Lambda, for testing.
+    ///
+    /// This removes the phase information and keeps |Lambda|. The temper is fitted before the
     /// signs are randomised, so the control tests a correction of the same strength with no phase
     /// information in it.
     bool shuffle = false;
 };
 
+/// A report of what re-genotyping did.
 struct RegenotypeCounters {
+    /// Reads with a Lambda.
     size_t reads_with_lambda = 0;
+    /// Reads seen in more than one phase set.
     size_t reads_multi_phase_set = 0;
-    /// Reads whose Lambda, leaving out the site itself, is zero because they span no other site
-    /// in the phase set. The correction does nothing for these.
+    /// Reads seen at only one site, which the correction does nothing for.
     size_t reads_singleton = 0;
+    /// Sites with reads and genotype likelihoods.
     size_t sites_considered = 0;
+    /// Sites whose likelihoods were corrected.
     size_t sites_corrected = 0;
     /// Sites whose corrected argmax names a different unordered genotype than the direct pass's.
     size_t sites_would_move = 0;
-    /// Of those, how many are homozygous-to-heterozygous and the reverse.
+    /// Of those, the moves from a homozygous to a heterozygous genotype.
     size_t moved_hom_to_het = 0;
+    /// Of those, the moves from a heterozygous to a homozygous genotype.
     size_t moved_het_to_hom = 0;
+    /// Of those, the moves from one heterozygous genotype to another.
     size_t moved_het_to_het = 0;
     /// Sites where the reads prefer the reversed order at the called genotype, so they disagree
     /// with the chain about this site's phase. Counted only at the called pair, since at a site
     /// with several alleles most candidate pairs are carried by no haplotype.
     size_t order_reversed = 0;
+    /// The temper the fit chose.
     double fitted_temper = 0.0;
+    /// The ceiling the fit used.
     double fitted_ceiling = 1.0;
-    /// Nested chains at ploidy 1 that the inclusion weight reached, and how many it moved.
+    /// Nested chains at ploidy 1 where some read's strand log-odds are nonzero.
     size_t haploid_sites = 0;
+    /// Of those, the chains whose best genotype the correction changed.
     size_t haploid_would_move = 0;
-    /// Calibration table: per |Lambda| bin, predicted and observed agreement with the chain.
-    vector<double> fit_abs_lambda, fit_predicted, fit_observed;
+    /// The mean |Lambda| of each bin of the calibration fit.
+    vector<double> fit_abs_lambda;
+    /// The agreement with the phase chain the fit predicts for each bin.
+    vector<double> fit_predicted;
+    /// The agreement with the phase chain observed in each bin.
+    vector<double> fit_observed;
+    /// The number of observations in each bin.
     vector<size_t> fit_count;
 };
 
-/// Add one thread's counters into another's. The calibration table is filled once, before the
-/// parallel region, so it is not merged.
+/// Add one thread's counters into another's.
+///
+/// The fit's results are filled once, before the threads start, so they are not added.
 void merge_counters(const RegenotypeCounters& from, RegenotypeCounters& into);
 
-/// One site's contribution to a read's strand log-odds, from its `q0` and `c` (see `PhaseSite`).
-/// It uses the same `c * x + (1 - c) / 2` form as `phase_link`, so a probably mismapped read
-/// contributes little.
+/// Return one site's contribution to a read's strand log-odds, from its `q0` and `c` (see
+/// `PhaseSite`).
+///
+/// A probably mismapped read contributes little.
 double site_read_log_odds(double q0, double c);
 
 /// Accumulate each read's Lambda over every site, into `out`.
 ///
-/// `flipped` is what `read_phase_flips` returned: a site in it has had its pair swapped, so its
-/// contribution enters with the opposite sign. Each site contributes once per read key, so paired
-/// mates count once (see `merge_mates`).
+/// `flipped` holds the record keys of the sites read phasing flipped, whose contributions enter
+/// with the opposite sign. Each site contributes once per read key, so paired mates count once.
 void accumulate_lambda(const vector<PhaseSite>& sites, const unordered_set<size_t>& flipped,
                        LambdaTable& out, RegenotypeCounters& counters);
 
-/// Fit the temper from the run's own data, against the given ceiling.
+/// Fit the temper from the run's own data, against the ceiling in `params`.
 ///
 /// Reads are grouped into bins by |Lambda|, and in each bin we measure how often the strand that
 /// Lambda points to agrees with the one the read's own allele points to. The temper is chosen so
-/// that the predicted agreement matches. The chain was built from these same reads, so the fit is
-/// somewhat optimistic; a non-negative `RegenotypeParams::temper` sets the temper directly instead.
+/// that the predicted agreement matches. The phase chain was built from these same reads, so the
+/// fit is somewhat optimistic.
+///
+/// With too few observations, the temper is 0 and the ceiling 1.
 void fit_calibration(const vector<PhaseSite>& sites, const unordered_set<size_t>& flipped,
                      const LambdaTable& lambda, const RegenotypeParams& params,
                      double& temper, double& ceiling, RegenotypeCounters& counters);
 
-/// A read's tempered strand log-odds, `logit(c * sigmoid(tau * Lambda) + (1 - c) / 2)`. It is 0
-/// at tau = 0 for every ceiling. The probability is kept away from 0 and 1, where the logit is
-/// infinite.
+/// Return a read's tempered strand log-odds.
+///
+/// This is `logit(c * sigmoid(tau * Lambda) + (1 - c) / 2)`, which is 0 at tau = 0 for every
+/// ceiling. The probability is kept away from 0 and 1, where the logit is infinite.
 double calibrated_log_odds(double lambda, double temper, double ceiling);
 
-/// The correction at a nested chain at ploidy 1, where the mixture correction is zero.
+/// Add the correction at a nested chain at ploidy 1 to its genotype likelihoods, in place.
 ///
 /// The chain sits on one of its parent's two strands, and reads from the other strand can reach
 /// it only as mismapped reads. `strand_sign` is +1 when the chain is on strand 0 of its phase set
@@ -173,9 +199,9 @@ double calibrated_log_odds(double lambda, double temper, double ceiling);
 ///     e_r'  = e_r + (1 - e_r)(1 - incl)
 ///     term  = (1 - e_r) * incl * rel(r, a) + e_r'
 ///
-/// `incl` is capped at 1 rather than being the read's probability of this strand, which would
-/// be 1/2 at tau = 0 and change the result; capped, the term is unchanged at tau = 0. A read that
-/// points to the other strand counts less for or against the allele.
+/// We cap `incl` at 1 so that the term is unchanged at tau = 0, where the read's probability of
+/// this strand would be 1/2. A read that points to the other strand counts less for or against the
+/// allele.
 ///
 /// Returns true if the corrected best genotype differs from the called one.
 bool haploid_inclusion_correction(const PhaseReadEvidence& evidence, const LambdaTable& lambda,
@@ -188,8 +214,8 @@ bool haploid_inclusion_correction(const PhaseReadEvidence& evidence, const Lambd
 /// Add the phase-aware correction to one site's genotype likelihoods, in place.
 ///
 /// `gl` is keyed by the sorted allele multiset, as `ReadLikelihoodCallInfo::genotype_lls` is.
-/// Both assignments of a heterozygote's alleles to the strands are scored and the larger
-/// correction kept, rather than summed over, so the phase information is not averaged away.
+/// Both assignments of a heterozygote's alleles to the strands are scored, and the larger
+/// correction is kept, so the phase information is not averaged away.
 ///
 /// `own` is this site's own per-read contribution to Lambda, signed as `accumulate_lambda`
 /// signed it, which is subtracted so that a site does not confirm its own genotype. Empty for a
@@ -208,8 +234,8 @@ bool phase_aware_correction(const PhaseReadEvidence& evidence, const LambdaTable
                             double ceiling, const RegenotypeParams& params,
                             map<vector<int>, double>& gl, RegenotypeCounters& counters);
 
-/// This site's per-read contribution to Lambda, signed as `accumulate_lambda` signed it, for
-/// subtracting from each read's total.
+/// Fill `out` with a site's contribution to each read's Lambda, signed as `accumulate_lambda`
+/// signs it, for subtracting from each read's total.
 void site_own_log_odds(const PhaseSite& site, bool flipped, unordered_map<uint64_t, double>& out);
 
 }

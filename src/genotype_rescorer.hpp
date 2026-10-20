@@ -3,70 +3,96 @@
 
 #include <functional>
 #include <string>
+#include <string_view>
 
 #include "regenotype.hpp"
 #include "phase_table.hpp"
 #include "read_strand_table.hpp"
 #include "staged_site.hpp"
 
-namespace vg {
-namespace multipass {
+namespace vg::multipass {
 
 using namespace std;
 
 /**
- * Re-genotyping from the phase (see regenotype.hpp): rewrites each staged site's genotype
- * likelihoods from the strand log-odds of its reads, which read phasing gives them, so that the
- * linkage pass can choose the genotypes again from the result.
+ * A rescorer that corrects each staged site's genotype likelihoods with the phase of its reads.
+ *
+ * Read phasing gives each read a strand log-odds. The rescorer rewrites each site's likelihoods
+ * from them (see regenotype.hpp), so that the linkage pass can choose the genotypes again.
  */
 class GenotypeRescorer {
 public:
-    /// Turn re-genotyping on or off, with `params`. `passes` is the most linkage passes; with 1
-    /// the correction is computed and reported but not applied. `ledger`, if not empty, is where
-    /// to write one line per site whose best genotype the correction changes.
-    void configure(bool on, const RegenotypeParams& params, size_t passes, const string& ledger);
+    /**
+     * Turn re-genotyping on or off, and set its parameters.
+     *
+     * @param passes The most linkage passes. With 1, the correction is computed and reported
+     * but not applied.
+     * @param ledger The file to write one line to for each site whose best genotype the
+     * correction changes, or empty for none.
+     */
+    void configure(bool enable, const RegenotypeParams& settings, size_t passes,
+                   std::string_view ledger);
 
-    /// Where to read what a staged site does not hold: the genotyper, which recomputes GQ, and a
-    /// site's ID, for the ledger. Needed before `rescore`.
-    void set_site_reader(SiteReader reader);
+    /// Set where to find the genotyper, which recomputes GQ. Call this before `rescore()`.
+    void set_site_reader(SiteReader site_reader);
 
-    /// Whether re-genotyping is on.
+    /// Return whether re-genotyping is on.
     bool enabled() const { return on; }
-    /// See `configure`.
+    /// Return the most linkage passes.
     size_t passes() const { return max_passes; }
+    /// Return the parameters of re-genotyping.
     const RegenotypeParams& params() const { return regenotype_params; }
 
-    /// The counters of the last `rescore`, which hold the temper and ceiling it used.
+    /// Return the counters of the last `rescore()`, which hold the temper and ceiling it used.
     const RegenotypeCounters& last_counters() const { return counters; }
 
-    /// Re-score every staged site's genotype likelihoods with the reads' phase, and report the
-    /// correction. `phases` and `strands` are as read phasing last left them, and `phase_set_id`
-    /// numbers a contig's phase set for the run. The temper is fitted on the first round and kept
-    /// in `fit` for the later ones.
-    ///
-    /// With more than one pass, the corrected likelihoods replace each site's own, always
-    /// corrected from the direct pass's, and GQ is recomputed from them where the best genotype
-    /// changed and is the direct pass's elsewhere. The answer at the other ploidy is corrected the
-    /// same way. With one pass, nothing is kept.
-    ///
-    /// Returns true if any site's corrected best genotype differs from its called one. Does
-    /// nothing, and returns false, when re-genotyping is off or `phases` is empty. The calibration
-    /// table is reported only with `show_calibration`.
+    /**
+     * Correct every staged site's genotype likelihoods with the phase of its reads, and report
+     * the correction.
+     *
+     * With more than one pass, the corrected likelihoods replace each site's own. Each round
+     * corrects the direct pass's likelihoods, and recomputes GQ where the best genotype changed.
+     * The answer at the other ploidy is corrected the same way. With one pass, the correction is
+     * thrown away.
+     *
+     * Re-genotyping that is off, or an empty `phases`, makes no correction.
+     *
+     * @param phases The phase, as read phasing last left it.
+     * @param strands The read evidence and strand swaps of read phasing.
+     * @param fit The temper fitted on the first round, kept for later rounds.
+     * @param phase_set_id Returns the run-wide ID of a phase set of a contig.
+     * @param show_calibration Whether to report the calibration table of the temper fit.
+     * @return Whether any site's corrected best genotype differs from its called one.
+     */
     bool rescore(StagedSiteTable& staged, const PhaseTable& phases, const ReadStrandTable& strands,
                  TemperFit& fit,
                  const function<size_t(const string& contig, size_t phase_set)>& phase_set_id,
                  bool show_calibration);
 
 private:
+    /// Set the temper and ceiling for this round, from the parameters, the earlier fit, or a
+    /// new fit.
+    void choose_temper(const vector<PhaseSite>& phase_sites,
+                       const unordered_set<size_t>& phase_flips, const LambdaTable& lambda,
+                       double& temper, double& ceiling);
+
+    /// Write what the last `rescore()` did to standard error.
+    void report(double temper, double ceiling, bool show_calibration) const;
+
+    /// Whether re-genotyping is on.
     bool on = false;
+    /// The parameters of re-genotyping.
     RegenotypeParams regenotype_params;
+    /// The most linkage passes.
     size_t max_passes = 2;
+    /// The ledger file, or empty for none.
     string ledger_path;
+    /// Finds the genotyper that recomputes GQ.
     SiteReader reader;
+    /// What the last `rescore()` did.
     RegenotypeCounters counters;
 };
 
-}
 }
 
 #endif

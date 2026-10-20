@@ -3,16 +3,15 @@
 
 #include "round_history.hpp"
 
-namespace vg {
-namespace multipass {
+namespace vg::multipass {
 
 RoundHistory::State RoundHistory::state(StagedSiteTable& sites, const LinkageCollector* model) {
     State out;
     if (model == nullptr) {
         return out;
     }
-    // Looked up on several threads, then filed in record order, so that the map is built exactly
-    // as one loop over the records builds it.
+    // Look up the choices on several threads, then file them in record order, so that every state
+    // is built by the same sequence of insertions and iterates in the same order.
     const vector<StagedSite*> records = sites.in_order();
     vector<size_t> keys(records.size());
     for (size_t i = 0; i < records.size(); ++i) {
@@ -30,14 +29,14 @@ RoundHistory::State RoundHistory::state(StagedSiteTable& sites, const LinkageCol
 }
 
 size_t RoundHistory::digest(const State& snap) {
-    // Each site is mixed in in the map's iteration order, so two equal states give the same digest
-    // when they were built alike. `state` builds every state the same way, in record order.
+    // Mix in the sites in the map's iteration order. Equal states then have equal digests only if
+    // they were built by the same insertions, which `state()` guarantees.
     size_t acc = snap.size() * 1000003ULL;
-    for (const auto& kv : snap) {
-        size_t h = kv.first;
-        h = h * 1000003ULL + (size_t)(kv.second[0] + 3);
-        h = h * 1000003ULL + (size_t)(kv.second[1] + 3);
-        h = h * 1000003ULL + (size_t)kv.second[2];
+    for (const auto& [key, choice] : snap) {
+        size_t h = key;
+        h = h * 1000003ULL + (size_t)(choice[0] + 3);
+        h = h * 1000003ULL + (size_t)(choice[1] + 3);
+        h = h * 1000003ULL + (size_t)choice[2];
         acc ^= h + 0x9e3779b97f4a7c15ULL + (acc << 6) + (acc >> 2);
     }
     return acc;
@@ -45,15 +44,14 @@ size_t RoundHistory::digest(const State& snap) {
 
 size_t RoundHistory::changed(const State& before, const State& after) {
     size_t moved = 0;
-    for (const auto& kv : after) {
-        auto found = before.find(kv.first);
-        if (found == before.end() || found->second != kv.second) {
+    for (const auto& [key, choice] : after) {
+        auto found = before.find(key);
+        if (found == before.end() || found->second != choice) {
             ++moved;
         }
     }
-    // A record that had a chosen answer and now has none has changed too.
-    for (const auto& kv : before) {
-        if (after.count(kv.first) == 0) {
+    for (const auto& [key, choice] : before) {
+        if (!after.contains(key)) {
             ++moved;
         }
     }
@@ -74,5 +72,4 @@ size_t RoundHistory::first_round_with(const State& state) const {
     return 0;
 }
 
-}
 }

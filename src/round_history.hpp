@@ -8,18 +8,16 @@
 #include "linkage_model.hpp"
 #include "staged_site.hpp"
 
-namespace vg {
-namespace multipass {
+namespace vg::multipass {
 
 using namespace std;
 
 /**
- * The states the re-genotyping rounds have reached, so that the rounds can tell whether they have
- * converged or are cycling.
+ * A log of the states that the re-genotyping rounds reach, for spotting convergence or a cycle.
  *
- * A state is every staged site's chosen genotype. The rounds can cycle: dropping and reinstating
- * a subtree is a discrete change, and the phase is a chain whose links move with the genotypes,
- * so no single quantity must increase.
+ * A state is the genotype chosen at every staged site. Rounds can cycle without converging,
+ * because dropping and reinstating a subtree is a discrete change and the phase between sites
+ * changes with the genotypes, so no single score has to improve each round.
  */
 class RoundHistory {
 public:
@@ -27,32 +25,33 @@ public:
     /// record key. A site the model chose nothing for is left out.
     using State = unordered_map<size_t, std::array<int, 3>>;
 
-    /// The state `model` has chosen for `sites`. Empty without a linkage model.
+    /// Return the state `model` has chosen for `sites`, or an empty state if `model` is null.
     static State state(StagedSiteTable& sites, const LinkageCollector* model);
 
-    /// How many sites have a different chosen pair or ploidy in `after` than in `before`, counting
-    /// a site that gained or lost a chosen answer as moved.
+    /// Count the sites whose chosen pair or ploidy differs between `before` and `after`.
+    ///
+    /// A site chosen in only one of the two states counts as changed.
     static size_t changed(const State& before, const State& after);
 
     /// Remember `state` as the next round's.
     void remember(const State& state);
 
-    /// The first remembered round that reached `state`, counting the first remembered state as
-    /// round 1, or 0 when none did.
+    /// Return the first remembered round that reached `state`, counting from 1, or 0 if none did.
+    ///
+    /// Rounds are compared by digest, so a digest collision reports a match that is not one.
     size_t first_round_with(const State& state) const;
 
-    /// How many rounds are remembered.
+    /// Return how many rounds are remembered.
     size_t rounds() const { return digests.size(); }
 
 private:
-    /// A digest of a state, built by visiting its sites in the map's own order.
+    /// Hash a state, visiting its sites in the map's iteration order.
     static size_t digest(const State& state);
 
     /// Each remembered round's digest, in order.
     vector<size_t> digests;
 };
 
-}
 }
 
 #endif

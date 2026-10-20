@@ -4,7 +4,7 @@
 ///
 /// The pin is a zero-length point between two positions, so everything here is off-by-one and
 /// strand arithmetic. These tests pin the convention; the check made while pins are resolved
-/// (`AnchorCounters::verify_failed`) catches errors on real data.
+/// (`AnchorPinCounters::verify_failed`) catches errors on real data.
 ///
 
 #include <fstream>
@@ -98,7 +98,7 @@ TEST_CASE("A forward read pins at the base before each junction", "[anchor]") {
     // single base at index 8 -- inside the site, which is where the entry pin's upstream side is.
     REQUIRE(e.offset == 8);
     REQUIRE(e.direction == 0);
-    REQUIRE(counters.verify_failed.load() == 0);
+    REQUIRE(counters.pins.verify_failed.load() == 0);
 }
 
 TEST_CASE("A reverse read pins on the same graph positions with strand 1", "[anchor]") {
@@ -123,7 +123,7 @@ TEST_CASE("A reverse read pins on the same graph positions with strand 1", "[anc
     // direction is LATER in this read, so the offset steps forward rather than back.
     REQUIRE(e.offset == 8);
     REQUIRE(e.direction == 1);
-    REQUIRE(counters.verify_failed.load() == 0);
+    REQUIRE(counters.pins.verify_failed.load() == 0);
 }
 
 TEST_CASE("A soft clip shifts the offset without moving the pin", "[anchor]") {
@@ -146,7 +146,7 @@ TEST_CASE("A soft clip shifts the offset without moving the pin", "[anchor]") {
     AnchorPlacement e = resolve_anchor_pin(SiteRead{&aln}, site.graph, 4, false, false, counters);
     REQUIRE(e.placed());
     REQUIRE(e.offset == 11);
-    REQUIRE(counters.verify_failed.load() == 0);
+    REQUIRE(counters.pins.verify_failed.load() == 0);
 }
 
 TEST_CASE("An insertion at the junction falls after the pin", "[anchor]") {
@@ -166,7 +166,7 @@ TEST_CASE("An insertion at the junction falls after the pin", "[anchor]") {
     // Node 4's first base is now at read index 11, but indices 9 and 10 consume no node base, so
     // the pin steps over them to node 2's base at 8 rather than reporting an inserted base.
     REQUIRE(e.offset == 8);
-    REQUIRE(counters.verify_failed.load() == 0);
+    REQUIRE(counters.pins.verify_failed.load() == 0);
 }
 
 TEST_CASE("A mismatch at the pin is still placeable and still verified", "[anchor]") {
@@ -190,8 +190,8 @@ TEST_CASE("A mismatch at the pin is still placeable and still verified", "[ancho
     REQUIRE(s.offset == 7);
     // The base legitimately differs from the graph, so the edit's own sequence is the reference the
     // invariant uses instead. It still checks the offset arithmetic.
-    REQUIRE(counters.verified.load() == 1);
-    REQUIRE(counters.verify_failed.load() == 0);
+    REQUIRE(counters.pins.verified.load() == 1);
+    REQUIRE(counters.pins.verify_failed.load() == 0);
 }
 
 TEST_CASE("A deletion over the pin's node base refuses the pin rather than walking back",
@@ -214,7 +214,7 @@ TEST_CASE("A deletion over the pin's node base refuses the pin rather than walki
     // Refused, NOT resolved to the previous base. On a 1 bp boundary node walking back would step
     // straight past the node and land on the neighbouring snarl's pin position.
     REQUIRE(!s.placed());
-    REQUIRE(counters.unaligned_base.load() == 1);
+    REQUIRE(counters.pins.unaligned_base.load() == 1);
 }
 
 TEST_CASE("A read that does not reach the junction is refused", "[anchor]") {
@@ -224,12 +224,12 @@ TEST_CASE("A read that does not reach the junction is refused", "[anchor]") {
     Alignment aln = matching_read(site.graph, "starts_here", {{4, false}});
     AnchorPlacement e = resolve_anchor_pin(SiteRead{&aln}, site.graph, 4, false, false, counters);
     REQUIRE(!e.placed());
-    REQUIRE(counters.no_neighbour.load() == 1);
+    REQUIRE(counters.pins.no_neighbour.load() == 1);
 
     // And a read that never visits the node at all.
     AnchorPlacement s = resolve_anchor_pin(SiteRead{&aln}, site.graph, 1, false, true, counters);
     REQUIRE(!s.placed());
-    REQUIRE(counters.no_visit.load() == 1);
+    REQUIRE(counters.pins.no_visit.load() == 1);
 }
 
 TEST_CASE("A read spanning the deletion edge lands both pins on one position", "[anchor]") {
@@ -268,7 +268,7 @@ TEST_CASE("A deleted node upstream of an entry pin refuses it, rather than stepp
     // where the snarl's own start pin sits. Reporting it would put one read position in two anchors,
     // which is the thing the pin geometry exists to prevent. So the pin is refused.
     REQUIRE(!e.placed());
-    REQUIRE(counters.no_neighbour.load() == 1);
+    REQUIRE(counters.pins.no_neighbour.load() == 1);
 
     // The start pin is unaffected: its reference base is inside its own node.
     AnchorPlacement s = resolve_anchor_pin(SiteRead{&aln}, site.graph, 1, false, true, counters);
@@ -292,7 +292,7 @@ TEST_CASE("An entry pin steps one node, not one aligned base", "[anchor]") {
     AnchorPlacement e = resolve_anchor_pin(SiteRead{&aln}, site.graph, 4, false, false, counters);
     REQUIRE(e.placed());
     REQUIRE(e.offset == 8);        // node 2's base, not index 11
-    REQUIRE(counters.verify_failed.load() == 0);
+    REQUIRE(counters.pins.verify_failed.load() == 0);
 }
 
 /// Evidence for one site with two alleles, `n` reads, each perfectly fitting allele `prefers[i]`.
@@ -792,7 +792,7 @@ TEST_CASE("A pin inside a node is resolved against the base before it or the bas
         e->set_to_length(2);
         aln.set_sequence("AAAAC" "CC" "T" "GGGGTTTT");
         REQUIRE(!resolve_anchor_pin(SiteRead{&aln}, site.graph, 1, false, false, counters, 5).placed());
-        REQUIRE(counters.unaligned_base.load() == 1);
+        REQUIRE(counters.pins.unaligned_base.load() == 1);
     }
     SECTION("a read starting at base 5 has no base before an entry pin there") {
         Mapping* first = aln.mutable_path()->mutable_mapping(0);
@@ -801,7 +801,7 @@ TEST_CASE("A pin inside a node is resolved against the base before it or the bas
         first->mutable_edit(0)->set_to_length(3);
         aln.set_sequence("CCC" "T" "GGGGTTTT");
         REQUIRE(!resolve_anchor_pin(SiteRead{&aln}, site.graph, 1, false, false, counters, 5).placed());
-        REQUIRE(counters.no_neighbour.load() == 1);
+        REQUIRE(counters.pins.no_neighbour.load() == 1);
     }
     SECTION("a read soft clipped before base 5 has no aligned base before an entry pin there") {
         Mapping* first = aln.mutable_path()->mutable_mapping(0);
@@ -815,9 +815,9 @@ TEST_CASE("A pin inside a node is resolved against the base before it or the bas
         match->set_to_length(3);
         aln.set_sequence("GG" "CCC" "T" "GGGGTTTT");
         REQUIRE(!resolve_anchor_pin(SiteRead{&aln}, site.graph, 1, false, false, counters, 5).placed());
-        REQUIRE(counters.no_neighbour.load() == 1);
+        REQUIRE(counters.pins.no_neighbour.load() == 1);
     }
-    REQUIRE(counters.verify_failed.load() == 0);
+    REQUIRE(counters.pins.verify_failed.load() == 0);
 }
 
 TEST_CASE("A placement names the alignment, which mates sharing a name do not share", "[anchor]") {
@@ -920,22 +920,22 @@ TEST_CASE("The writer keeps each read point in one anchor, a snarl's where it ha
                                          anchor_of(5, ">5>6", false, {{0, 1, 0, 9}})},
                                         1, writer);
         REQUIRE(rows == vector<string>{"op2.4.SA:1", ">5>6:1"});
-        REQUIRE(writer.placements_left_out == 1);
-        REQUIRE(writer.placements_written == 2);
+        REQUIRE(writer.tally().placements_left_out == 1);
+        REQUIRE(writer.tally().placements_written == 2);
     }
     SECTION("of two off-panel anchors, the first in the file keeps it") {
         const auto rows = write_anchors({anchor_of(3, "op3.0.SA", true, {{0, 1, 1, 10}}),
                                          anchor_of(2, "op2.4.SA", true, {{0, 1, 0, 9}})},
                                         1, writer);
         REQUIRE(rows == vector<string>{"op2.4.SA:1"});
-        REQUIRE(writer.anchors_left_out == 1);
+        REQUIRE(writer.tally().anchors_left_out == 1);
     }
     SECTION("another alignment of the read's name, as a mate is, is another read") {
         const auto rows = write_anchors({anchor_of(3, "op3.0.SA", true, {{0, 2, 1, 10}}),
                                          anchor_of(2, "op2.4.SA", true, {{0, 1, 0, 9}})},
                                         1, writer);
         REQUIRE(rows == vector<string>{"op2.4.SA:1", "op3.0.SA:1"});
-        REQUIRE(writer.placements_left_out == 0);
+        REQUIRE(writer.tally().placements_left_out == 0);
     }
     SECTION("an off-panel anchor left below the minimum reads is left out, and frees its points") {
         const auto rows = write_anchors({anchor_of(2, "op2.4.SA", true, {{0, 1, 0, 9}, {1, 1, 0, 30}}),
@@ -943,8 +943,8 @@ TEST_CASE("The writer keeps each read point in one anchor, a snarl's where it ha
                                          anchor_of(1, ">1>2", false, {{0, 1, 0, 9}, {3, 1, 0, 60}})},
                                         2, writer);
         REQUIRE(rows == vector<string>{">1>2:2", "op3.0.SA:2"});
-        REQUIRE(writer.placements_left_out == 1);
-        REQUIRE(writer.anchors_left_out == 1);
+        REQUIRE(writer.tally().placements_left_out == 1);
+        REQUIRE(writer.tally().anchors_left_out == 1);
     }
 }
 

@@ -1,4 +1,3 @@
-#include <deque>
 #include "linkage_model.hpp"
 
 #include <map>
@@ -9,21 +8,25 @@
 #include <algorithm>
 #include <cassert>
 #include <cmath>
-#include <limits>
+#include <format>
 #include <iostream>
+#include <limits>
+#include <numeric>
+#include <tuple>
 
 namespace vg {
 
 
-/// The distance in bp from a site at `prev` to the next site of its chain, at `next`.
+/// Return the distance in bp from a site at `prev` to the next site of its chain, at `next`, or
+/// the largest `size_t` where no distance is known.
 ///
-/// Two positions are differenced when they are measured the same way: both reference positions,
-/// or both unpositioned and so offsets along the same parent allele. The other pair that can be
-/// differenced is a positioned parent and the first child of its group: an unpositioned child's
-/// position is its parent's start plus its offset along the parent's allele, so the difference is
-/// that offset. Any other pair has no known distance, and gives SIZE_MAX, for which rho = 1 and
-/// the transition is uniform. A known distance is clamped at 1: `switch_probability` reads a gap of
-/// 0 as 1, and a negative one would wrap.
+/// Two positions measured the same way can be differenced. They are both reference positions, or
+/// both offsets along the same parent allele for unpositioned sites. A positioned parent and the
+/// unpositioned first child of its group can be differenced too, since the child's position is
+/// its parent's start plus its offset along the parent's allele.
+///
+/// An unknown distance makes rho 1, so the transition is uniform. A known distance is at least 1,
+/// since `switch_probability` reads a gap of 0 as 1 and a negative one would wrap.
 static inline size_t position_gap(size_t prev, bool prev_unpositioned, bool prev_is_parent,
                                   size_t next, bool next_unpositioned) {
     if (prev_unpositioned != next_unpositioned && !(prev_is_parent && next_unpositioned)) {
@@ -32,8 +35,10 @@ static inline size_t position_gap(size_t prev, bool prev_unpositioned, bool prev
     return next > prev ? next - prev : 1;
 }
 
-/// `position_gap` between two adjacent sites of a chain, once for each strand, since
-/// `transition_apply` takes a switch probability per strand; the two are always equal.
+/// Return the `position_gap` from site `prev` to the next site of its chain, once for each strand.
+///
+/// `transition_apply` takes a switch probability per strand, though the two gaps are always
+/// equal.
 static inline std::pair<size_t, size_t> site_gap(const LinkageModel::Site& prev,
                                                 const LinkageModel::Site& next) {
     const size_t d = position_gap(prev.position, prev.unpositioned, prev.group_parent,
@@ -52,14 +57,14 @@ double LinkageModel::switch_probability(size_t gap) const {
         return rho;
     }
     if (params.weight <= 0.0) {
-        // Uniform transitions: the chain forgets everything and the posterior is the emission.
+        // Transitions are uniform, so each site's posterior is its emission.
         return 1.0;
     }
     return min(max(pow(rho, params.weight), 1e-12), 1.0);
 }
 
-/// The allele a panel haplotype carries at a site, or -1 if it carries none there. An allele index
-/// out of range is treated as none rather than used.
+/// Return the allele panel haplotype `h` carries at a site, or -1 if it carries none there or
+/// names an allele out of range.
 static inline int allele_at(const LinkageModel::Site& site, size_t h, size_t n_hap) {
     if (h >= n_hap || h >= site.haplotype_allele.size()) {
         return -1;
@@ -68,9 +73,9 @@ static inline int allele_at(const LinkageModel::Site& site, size_t h, size_t n_h
     return (allele >= 0 && (size_t)allele < site.num_alleles) ? allele : -1;
 }
 
-/// One strand's distribution over a site's `n` alleles: P(allele i) = base + keep * [i == allele].
+/// One strand's distribution over a site's `n` alleles, as a uniform part plus a point mass.
 ///
-/// Under mutation (`Params::mutation`), a strand that copies a haplotype carrying `allele` keeps it
+/// P(allele i) = base + keep * [i == allele]. Under mutation (`Params::mutation`), a strand that copies a haplotype carrying `allele` keeps it
 /// with probability 1 - mutation, and takes each other allele with probability mutation / (n - 1).
 /// So `base` is mutation / (n - 1), and `keep` the rest. A strand whose haplotype does not pass
 /// through the site has no allele, and takes each allele with probability escape / n.
@@ -79,15 +84,21 @@ static inline int allele_at(const LinkageModel::Site& site, size_t h, size_t n_h
 /// four terms, each a likelihood summed over a row or over the whole table, so it costs O(1) per
 /// pair once the row sums are known (see `MutationTerms`).
 struct StrandEmission {
+    /// The probability of each allele from the uniform part.
     double base = 0.0;
+    /// The extra probability of `allele`.
     double keep = 0.0;
+    /// The allele of the haplotype the strand copies, or -1 for none.
     int allele = -1;
 
+    /// Return the probability that the strand carries allele `i`.
     double p(size_t i) const {
         return base + (allele >= 0 && (size_t)allele == i ? keep : 0.0);
     }
 };
 
+/// Return the distribution of a strand whose haplotype carries `allele`, or -1 for none, at a site
+/// with `n` alleles.
 static StrandEmission strand_emission(int allele, size_t n, double mutation, double escape) {
     StrandEmission s;
     if (n == 0) {
@@ -108,27 +119,33 @@ static StrandEmission strand_emission(int allele, size_t n, double mutation, dou
     return s;
 }
 
-/// The per-class terms of a diploid site's emission under mutation. Strands are classed by
-/// their haplotype's allele, with class 0 for a haplotype that does not pass through the site
-/// and class x + 1 for allele x, so a pair's emission depends only on its two classes.
+/// The per-class terms of a diploid site's emission under mutation.
+///
+/// Strands are classed by their haplotype's allele, with class 0 for a haplotype that does not
+/// pass through the site and class x + 1 for allele x. A pair's emission depends only on its two
+/// classes.
 struct MutationTerms {
+    /// The site's number of alleles.
     size_t n = 0;
-    /// Per class.
+    /// The allele distribution of a strand of each class.
     vector<StrandEmission> strand;
-    /// row[x] = sum over j of the likelihood of genotype (x, j), and total = sum over x of
-    /// row[x]: sums over ordered pairs, since each strand picks its allele separately.
+    /// At x, the sum over j of the likelihood of genotype (x, j). The sum is over ordered pairs,
+    /// since each strand picks its allele separately.
     vector<double> row;
+    /// The sum of `row`.
     double total = 0.0;
     /// P(reads | the pair of classes (cx, cy)), at cx * (n + 1) + cy.
     vector<double> table;
 
+    /// Return the emission of a pair of strands whose haplotypes carry alleles `ai` and `bi`, or
+    /// -1 for none.
     double emission(int ai, int bi) const {
         return table[(size_t)(ai + 1) * (n + 1) + (size_t)(bi + 1)];
     }
 };
 
-/// The terms for one diploid site, from its genotype likelihoods `per_genotype`, scaled as
-/// `build_emission` scales them.
+/// Return the terms for one diploid site with `n` alleles, from its genotype likelihoods
+/// `per_genotype`, scaled as `build_emission` scales them.
 static MutationTerms mutation_terms(size_t n, const vector<double>& per_genotype,
                                     double mutation, double escape) {
     MutationTerms mt;
@@ -145,9 +162,10 @@ static MutationTerms mutation_terms(size_t n, const vector<double>& per_genotype
         }
         mt.total += mt.row[i];
     }
-    // Summing P(i | x) P(j | y) L(i, j) over ordered (i, j), with P(i | x) = base_x + keep_x [i
-    // == x], gives four terms: base_x base_y total, base_x keep_y row[y], keep_x base_y row[x],
-    // and keep_x keep_y L(x, y). A strand with no allele has keep 0.
+    // Summing P(i | x) P(j | y) L(i, j) over ordered (i, j), with
+    // P(i | x) = base_x + keep_x [i == x], gives four terms. They are base_x base_y total,
+    // base_x keep_y row[y], keep_x base_y row[x], and keep_x keep_y L(x, y). A strand with no
+    // allele has keep 0.
     mt.table.assign((n + 1) * (n + 1), 0.0);
     for (size_t cx = 0; cx <= n; ++cx) {
         const StrandEmission& sx = mt.strand[cx];
@@ -171,66 +189,78 @@ static MutationTerms mutation_terms(size_t n, const vector<double>& per_genotype
     return mt;
 }
 
-/// The VCF allele a compact allele was written as, or -1 where it was not written as one.
-static inline int vcf_allele_of(const vector<int8_t>& allele_arena, size_t allele_offset,
-                                size_t num_alleles, size_t compact) {
-    if (compact >= num_alleles) {
-        return -1;
+/// Split a diploid genotype index into its alleles, with `i` <= `j`, inverting
+/// `LinkageModel::genotype_index`.
+static void genotype_alleles(size_t genotype, size_t& i, size_t& j) {
+    j = 0;
+    while (LinkageModel::genotype_index(0, j + 1) <= genotype) {
+        ++j;
     }
-    size_t at = allele_offset + compact;
-    return at < allele_arena.size() ? (int)allele_arena[at] : -1;
+    i = genotype - (j * (j + 1) / 2);
 }
 
-/// The VCF alleles of a chosen compact pair, through the site's traversal-to-allele map.
-///
-/// Where the map gives no allele for one of the pair, because it was not supplied yet or because
-/// the record wrote no ALT for that traversal, the called pair's alleles are used instead and
-/// `fell_back` is set; nothing determines the order of that pair.
-static inline void render_phase_pair(const vector<int8_t>& allele_arena, size_t allele_offset,
-                                     size_t num_alleles, size_t c_first, size_t c_second,
-                                     size_t called_i, size_t called_j,
-                                     int* out_first, int* out_second, bool* fell_back) {
-    const int v_first = vcf_allele_of(allele_arena, allele_offset, num_alleles, c_first);
-    const int v_second = vcf_allele_of(allele_arena, allele_offset, num_alleles, c_second);
-    if (v_first >= 0 && v_second >= 0) {
-        *out_first = v_first;
-        *out_second = v_second;
-        *fell_back = false;
-        return;
-    }
-    *out_first = vcf_allele_of(allele_arena, allele_offset, num_alleles, called_i);
-    *out_second = vcf_allele_of(allele_arena, allele_offset, num_alleles, called_j);
-    *fell_back = true;
+/// Return the genotype index of an allele pair at a ploidy: the allele itself at ploidy 1, and
+/// `LinkageModel::genotype_index` at ploidy 2.
+static size_t genotype_of(size_t ploidy, size_t i, size_t j) {
+    return ploidy == 1 ? i : LinkageModel::genotype_index(i, j);
 }
 
-/// What a parent's chosen traversals imply about one of its child chains, given the chain's
-/// crossing mask. The mask is indexed by candidate traversal, so it is tested against traversals,
-/// never against compact allele indices.
+/// Rescale a vector of non-negative messages to sum to 1, leaving an all-zero one as it is.
+static void rescale(vector<double>& v) {
+    double sum = 0.0;
+    for (double x : v) {
+        sum += x;
+    }
+    if (sum <= 0.0) {
+        sum = 1.0;
+    }
+    for (double& x : v) {
+        x /= sum;
+    }
+}
+
+/// The mask is indexed by candidate traversal, so it is tested against traversals, never against
+/// compact allele indices.
 LinkageCollector::Relation LinkageCollector::relate_to_parent(uint64_t crossing, int ta, int tb) {
     LinkageCollector::Relation r;
     if (ta < 0 || crossing == 0) {
-        return r;   // nothing chosen, or descent could not compute the mask
+        // Nothing was chosen, or descent could not compute the mask.
+        return r;
     }
     r.known = true;
     const bool first = ta < 64 && ((crossing >> ta) & 1);
     const bool second = tb >= 0 && tb < 64 && ((crossing >> tb) & 1);
     r.copies = (uint8_t)((int)first + (int)second);
-    r.carrying_trav = r.copies == 1 ? (first ? ta : tb) : (r.copies == 2 ? -2 : -1);
+    if (r.copies == 2) {
+        r.carrying_trav = -2;
+    } else if (r.copies == 1) {
+        r.carrying_trav = first ? ta : tb;
+    }
     return r;
 }
 
-static inline int traversal_of(const vector<uint16_t>& trav_arena, size_t trav_offset,
-                               size_t num_alleles, size_t compact) {
-    if (compact >= num_alleles) {
+int LinkageCollector::traversal_at(const Entry& e, size_t compact) const {
+    if (compact >= e.num_alleles) {
         return -1;
     }
-    size_t at = trav_offset + compact;
+    const size_t at = e.trav_offset + compact;
     return at < trav_arena.size() ? (int)trav_arena[at] : -1;
 }
 
-/// Relative P(reads | state) for every ordered pair of panel haplotypes, scaled so that the site's
-/// best genotype is 1. Each strand carries an allele drawn from its `StrandEmission`, and the
-/// emission sums the genotype likelihood over them.
+int LinkageCollector::vcf_allele_at(const Entry& e, size_t compact) const {
+    if (compact >= e.num_alleles) {
+        return -1;
+    }
+    const size_t at = e.allele_offset + compact;
+    return at < allele_arena.size() ? (int)allele_arena[at] : -1;
+}
+
+/// Fill `e` with the relative P(reads | state) of every ordered pair of panel haplotypes, at
+/// a * n_hap + b.
+///
+/// Each strand carries an allele drawn from its `StrandEmission`, and the emission sums the
+/// genotype likelihood over them. `per_genotype` gets the site's genotype likelihoods, scaled so
+/// that the best is 1.
 static void build_emission(const LinkageModel::Site& site, size_t n_hap, double escape,
                            double mutation, vector<double>& e, vector<double>& per_genotype) {
     const size_t m = n_hap;
@@ -260,14 +290,17 @@ static void build_emission(const LinkageModel::Site& site, size_t n_hap, double 
     }
 }
 
-/// One Li-Stephens step. T = (1-rho) I + (rho/m) 1, so the sum over previous ordered pairs
-/// collapses to four terms and the step is O(m^2) rather than O(m^4).
+/// Each strand's transition is T = (1-rho) I + (rho/m) 1. So the sum over previous ordered pairs
+/// collapses to four terms, and the step is O(m^2) rather than O(m^4).
 void transition_apply(const vector<double>& in, size_t m,
                       double rho_a, double rho_b, vector<double>& out) {
     // One switch probability per strand, since the strands switch independently.
-    double stay_a = 1.0 - rho_a, stay_b = 1.0 - rho_b;
-    double jump_a = rho_a / (double)m, jump_b = rho_b / (double)m;
-    vector<double> row(m, 0.0), col(m, 0.0);
+    const double stay_a = 1.0 - rho_a;
+    const double stay_b = 1.0 - rho_b;
+    const double jump_a = rho_a / (double)m;
+    const double jump_b = rho_b / (double)m;
+    vector row(m, 0.0);
+    vector col(m, 0.0);
     double total = 0.0;
     for (size_t a = 0; a < m; ++a) {
         for (size_t b = 0; b < m; ++b) {
@@ -294,8 +327,10 @@ namespace {
 
 const double NEG_INF = -numeric_limits<double>::infinity();
 
-/// Best two values along one axis, with both indices, for the leave-one-out maxima the
-/// max-product step needs. `stride` walks a row (1) or a column (m).
+/// The best two values along one axis of a table, with their indices.
+///
+/// The leave-one-out maximum of the axis at index i is `second` where i is `arg`, and `best`
+/// elsewhere.
 struct Top2 {
     double best = NEG_INF;
     double second = NEG_INF;
@@ -303,6 +338,8 @@ struct Top2 {
     size_t arg2 = 0;
 };
 
+/// Return the best two of the `n` values at `v`, `stride` apart. A stride of 1 walks a row of a
+/// table, and a stride of the row length walks a column.
 Top2 top2_of(const double* v, size_t n, size_t stride) {
     Top2 t;
     for (size_t i = 0; i < n; ++i) {
@@ -320,7 +357,7 @@ Top2 top2_of(const double* v, size_t n, size_t stride) {
     return t;
 }
 
-/// One Li-Stephens max-product step, with backpointers.
+/// One Li-Stephens max-product step over ordered pairs, from the previous site's log scores.
 ///
 /// A state is a pair (a, b): strand 0 copies haplotype a and strand 1 copies b. For strand x,
 /// S_x is the log probability of staying on the same haplotype, and J_x the log probability of
@@ -339,295 +376,204 @@ Top2 top2_of(const double* v, size_t n, size_t stride) {
 /// Every leave-one-out maximum comes from a top-2 along the relevant axis, so this stays O(m^2)
 /// like the forward step rather than O(m^4).
 ///
-/// In logs, unlike the forward pass: sum-product needs rescaling per site to avoid underflow,
-/// max-product does not, and in logs the stay-or-jump choice is a comparison of sums.
-void viterbi_step(const vector<double>& in, size_t m, double rho_a, double rho_b,
-                  const vector<double>& emission,
-                  vector<double>& out, vector<uint16_t>& back_a, vector<uint16_t>& back_b) {
-    // Per strand, as in `transition_apply`. The four candidates below are already the four
-    // stay/jump combinations, so each simply takes the coefficient belonging to its own axis; the
-    // leave-one-out maxima are per-axis already and do not change at all.
-    double stay_a = 1.0 - rho_a + rho_a / (double)m;
-    double stay_b = 1.0 - rho_b + rho_b / (double)m;
-    double jump_a = rho_a / (double)m;
-    double jump_b = rho_b / (double)m;
-    double S_0 = stay_a > 0.0 ? log(stay_a) : NEG_INF;
-    double S_1 = stay_b > 0.0 ? log(stay_b) : NEG_INF;
-    double J_0 = jump_a > 0.0 ? log(jump_a) : NEG_INF;
-    double J_1 = jump_b > 0.0 ? log(jump_b) : NEG_INF;
+/// The scores are logs, unlike the forward pass: sum-product needs rescaling per site to avoid
+/// underflow, max-product does not, and in logs the stay-or-jump choice is a comparison of sums.
+class MaxProductStep {
+public:
+    /// Prepare a step from the previous site's scores `in`, with `m` haplotypes per strand and a
+    /// switch probability per strand, as in `transition_apply`.
+    MaxProductStep(const vector<double>& in, size_t m, double rho_a, double rho_b)
+        : in(in), m(m) {
+        const double stay_a = 1.0 - rho_a + rho_a / (double)m;
+        const double stay_b = 1.0 - rho_b + rho_b / (double)m;
+        const double jump_a = rho_a / (double)m;
+        const double jump_b = rho_b / (double)m;
+        S_0 = stay_a > 0.0 ? log(stay_a) : NEG_INF;
+        S_1 = stay_b > 0.0 ? log(stay_b) : NEG_INF;
+        J_0 = jump_a > 0.0 ? log(jump_a) : NEG_INF;
+        J_1 = jump_b > 0.0 ? log(jump_b) : NEG_INF;
 
-    vector<Top2> rows(m), cols(m);
-    for (size_t a = 0; a < m; ++a) {
-        rows[a] = top2_of(&in[a * m], m, 1);
-    }
-    for (size_t b = 0; b < m; ++b) {
-        cols[b] = top2_of(&in[b], m, m);
-    }
-
-    // rowExcl[a * m + bp] = max over b != bp of in[a][b], with its argument.
-    vector<double> rowExcl(m * m);
-    vector<uint16_t> rowExclArg(m * m);
-    for (size_t a = 0; a < m; ++a) {
-        for (size_t bp = 0; bp < m; ++bp) {
-            bool hit = (rows[a].arg == bp);
-            rowExcl[a * m + bp] = hit ? rows[a].second : rows[a].best;
-            rowExclArg[a * m + bp] = (uint16_t)(hit ? rows[a].arg2 : rows[a].arg);
+        rows.resize(m);
+        cols.resize(m);
+        for (size_t a = 0; a < m; ++a) {
+            rows[a] = top2_of(&in[a * m], m, 1);
+        }
+        for (size_t b = 0; b < m; ++b) {
+            cols[b] = top2_of(&in[b], m, m);
+        }
+        row_excl.resize(m * m);
+        row_excl_arg.resize(m * m);
+        for (size_t a = 0; a < m; ++a) {
+            for (size_t bp = 0; bp < m; ++bp) {
+                const bool hit = (rows[a].arg == bp);
+                row_excl[a * m + bp] = hit ? rows[a].second : rows[a].best;
+                row_excl_arg[a * m + bp] = (uint16_t)(hit ? rows[a].arg2 : rows[a].arg);
+            }
         }
     }
 
-    out.assign(m * m, NEG_INF);
-    back_a.assign(m * m, 0);
-    back_b.assign(m * m, 0);
-
-    for (size_t bp = 0; bp < m; ++bp) {
-        // Both jumped: max over a != a' of rowExcl[a][bp]. One top-2 per arriving b'.
-        Top2 both = top2_of(&rowExcl[bp], m, m);
-        for (size_t ap = 0; ap < m; ++ap) {
-            double e = emission[ap * m + bp];
-            if (!(e > 0.0)) {
-                // An impossible state stays impossible. This is also how a constraint is applied:
-                // the caller zeroes the emission of every state that does not spell the required
-                // genotype, so those simply never become reachable.
-                continue;
-            }
-            double best = NEG_INF;
-            size_t ba = 0, bb = 0;
-
-            double c1 = in[ap * m + bp];
-            if (c1 > NEG_INF) {
-                double v = c1 + S_0 + S_1;
-                if (v > best) { best = v; ba = ap; bb = bp; }
-            }
-            double c2 = rowExcl[ap * m + bp];
-            if (c2 > NEG_INF) {
-                double v = c2 + S_0 + J_1;
-                if (v > best) { best = v; ba = ap; bb = rowExclArg[ap * m + bp]; }
-            }
-            bool chit = (cols[bp].arg == ap);
-            double c3 = chit ? cols[bp].second : cols[bp].best;
-            if (c3 > NEG_INF) {
-                double v = c3 + J_0 + S_1;
-                if (v > best) { best = v; ba = chit ? cols[bp].arg2 : cols[bp].arg; bb = bp; }
-            }
-            bool bhit = (both.arg == ap);
-            double c4 = bhit ? both.second : both.best;
-            if (c4 > NEG_INF) {
-                double v = c4 + J_0 + J_1;
-                if (v > best) {
-                    best = v;
-                    ba = bhit ? both.arg2 : both.arg;
-                    bb = rowExclArg[ba * m + bp];
+    /// Fill `out` with the next site's scores under its `emission`, and the backpointers with
+    /// each state's best predecessor.
+    void apply(const vector<double>& emission, vector<double>& out, vector<uint16_t>& back_a,
+               vector<uint16_t>& back_b) const {
+        out.assign(m * m, NEG_INF);
+        back_a.assign(m * m, 0);
+        back_b.assign(m * m, 0);
+        for (size_t bp = 0; bp < m; ++bp) {
+            // The both-moved maxima for every a' arriving at b' come from one top-2.
+            const Top2 both = top2_of(&row_excl[bp], m, m);
+            for (size_t ap = 0; ap < m; ++ap) {
+                const double e = emission[ap * m + bp];
+                if (!(e > 0.0)) {
+                    // An impossible state stays impossible. This is also how a constraint is
+                    // applied: the caller zeroes the emission of every state that does not spell
+                    // the required genotype.
+                    continue;
+                }
+                size_t ba = 0;
+                size_t bb = 0;
+                const double best = best_predecessor(ap, bp, both, ba, bb);
+                if (best > NEG_INF) {
+                    out[ap * m + bp] = best + log(e);
+                    back_a[ap * m + bp] = (uint16_t)ba;
+                    back_b[ap * m + bp] = (uint16_t)bb;
                 }
             }
-            if (best > NEG_INF) {
-                out[ap * m + bp] = best + log(e);
-                back_a[ap * m + bp] = (uint16_t)ba;
-                back_b[ap * m + bp] = (uint16_t)bb;
-            }
         }
     }
-}
+
+private:
+    /// Return the best score of a predecessor of state (ap, bp) plus its transition, and set
+    /// (ba, bb) to that predecessor. Earlier cases win ties.
+    double best_predecessor(size_t ap, size_t bp, const Top2& both, size_t& ba,
+                            size_t& bb) const {
+        double best = NEG_INF;
+        // Add the transition's two strand terms one at a time, in strand order.
+        auto consider = [&](double score, double strand_0, double strand_1, size_t a, size_t b) {
+            if (score > NEG_INF) {
+                const double v = score + strand_0 + strand_1;
+                if (v > best) {
+                    best = v;
+                    ba = a;
+                    bb = b;
+                }
+            }
+        };
+        // Both strands stayed.
+        consider(in[ap * m + bp], S_0, S_1, ap, bp);
+        // Strand 0 stayed.
+        consider(row_excl[ap * m + bp], S_0, J_1, ap, row_excl_arg[ap * m + bp]);
+        // Strand 1 stayed.
+        const bool col_hit = (cols[bp].arg == ap);
+        consider(col_hit ? cols[bp].second : cols[bp].best, J_0, S_1,
+                 col_hit ? cols[bp].arg2 : cols[bp].arg, bp);
+        // Both strands moved.
+        const bool both_hit = (both.arg == ap);
+        const size_t moved_a = both_hit ? both.arg2 : both.arg;
+        consider(both_hit ? both.second : both.best, J_0, J_1, moved_a,
+                 row_excl_arg[moved_a * m + bp]);
+        return best;
+    }
+
+    /// The previous site's scores, over ordered pairs at a * m + b.
+    const vector<double>& in;
+    /// Haplotypes per strand.
+    size_t m;
+    /// Log probabilities of staying (S) and of moving to one particular other haplotype (J), for
+    /// strand 0 and strand 1.
+    double S_0;
+    double S_1;
+    double J_0;
+    double J_1;
+    /// The best two scores in each row a and each column b of `in`.
+    vector<Top2> rows;
+    vector<Top2> cols;
+    /// At a * m + b', the maximum over b != b' of `in`(a, b).
+    vector<double> row_excl;
+    /// At a * m + b', the b that gives `row_excl` there.
+    vector<uint16_t> row_excl_arg;
+};
 
 }   // anonymous namespace
 
-/// One diploid site's posterior mass, added to the accumulators of `window_posteriors`.
-///
-/// Each state's mass g = alpha * beta is shared among the genotypes its strands could carry, in
-/// proportion to P(i | a) P(j | b) L(i, j). The four terms of that product (see `mutation_terms`)
-/// are kept apart, because the frequency prior treats them differently:
-/// - both strands keep their haplotypes' alleles: the genotype the pair spells, which goes to
-///   `known` and counts towards its multiplicity;
-/// - one strand keeps allele k and the other takes any allele: spread over (k, j) by likelihood,
-///   and rescaled by the number of k's carriers;
-/// - both take any allele: spread over every genotype by likelihood, unrescaled.
-///
-/// The uniform part of a strand's distribution includes its own allele, so a little of the mass
-/// of a pair that spells the genotype is counted in the second or third term rather than the first.
-/// That is at most mutation / (n - 1) of it.
-static void mutation_posterior(const LinkageModel::Site& site, const vector<double>& per_genotype,
-                               const vector<double>& alpha, const vector<double>& beta,
-                               size_t n_hap, size_t m, double mutation, double escape,
-                               const vector<size_t>& carriers, double freq_prior,
-                               vector<double>& known, vector<size_t>& multiplicity,
-                               vector<double>& wild) {
-    const size_t n = site.num_alleles;
-    if (n == 0) {
-        return;
-    }
-    const MutationTerms mt = mutation_terms(n, per_genotype, mutation, escape);
-    // Mass where one strand keeps allele k, and where both take any allele.
-    vector<double> kept(n, 0.0);
-    double free_mass = 0.0;
-    for (size_t a = 0; a < m; ++a) {
-        const int ai = allele_at(site, a, n_hap);
-        const StrandEmission& sa = mt.strand[(size_t)(ai + 1)];
-        for (size_t b = 0; b < m; ++b) {
-            const double g = alpha[a * m + b] * beta[a * m + b];
-            if (g <= 0.0) {
-                continue;
-            }
-            const int bi = allele_at(site, b, n_hap);
-            const StrandEmission& sb = mt.strand[(size_t)(bi + 1)];
-            const double e = mt.emission(ai, bi);
-            if (!(e > 0.0)) {
-                continue;
-            }
-            // g / e is the mass per unit of P(i | a) P(j | b) L(i, j).
-            const double w = g / e;
-            if (ai >= 0 && bi >= 0) {
-                const size_t idx = LinkageModel::genotype_index((size_t)ai, (size_t)bi);
-                known[idx] += w * sa.keep * sb.keep * per_genotype[idx];
-                multiplicity[idx] += 1;
-                kept[(size_t)ai] += w * sa.keep * sb.base;
-                kept[(size_t)bi] += w * sa.base * sb.keep;
-            } else if (ai >= 0) {
-                kept[(size_t)ai] += w * sa.keep * sb.base;
-            } else if (bi >= 0) {
-                kept[(size_t)bi] += w * sa.base * sb.keep;
-            }
-            free_mass += w * sa.base * sb.base;
-        }
-    }
-    for (size_t k = 0; k < n; ++k) {
-        if (kept[k] <= 0.0) {
-            continue;
-        }
-        double share = kept[k];
-        if (carriers[k] > 1) {
-            // At freq_prior 1 this changes nothing; above 1 it strengthens the prior.
-            share /= pow((double)carriers[k], 1.0 - freq_prior);
-        }
-        for (size_t j = 0; j < n; ++j) {
-            const size_t idx = LinkageModel::genotype_index(k, j);
-            wild[idx] += share * per_genotype[idx];
-        }
-    }
-    if (free_mass > 0.0) {
-        for (size_t j = 0; j < n; ++j) {
-            for (size_t i = 0; i <= j; ++i) {
-                // Over ordered pairs, so a heterozygote is reached twice.
-                const size_t idx = LinkageModel::genotype_index(i, j);
-                wild[idx] += free_mass * per_genotype[idx] * (i == j ? 1.0 : 2.0);
-            }
-        }
-    }
-}
-
-void LinkageModel::window_posteriors(const vector<Site>& sites, size_t from, size_t to,
-                                     vector<vector<double>>& out,
-                                     const vector<double>* alpha_in,
-                                     const vector<double>* beta_in,
-                                     size_t out_base) const {
-    size_t n = to - from;
-    if (n == 0) {
-        return;
-    }
+/// Return the most haplotypes any of sites [from, to) has an allele entry for, which is the number
+/// of states per strand that a window over them decodes with.
+static size_t panel_width(const vector<LinkageModel::Site>& sites, size_t from, size_t to) {
     size_t n_hap = 0;
     for (size_t t = from; t < to; ++t) {
         n_hap = max(n_hap, sites[t].haplotype_allele.size());
     }
-    size_t m = n_hap;
+    return n_hap;
+}
 
-    vector<vector<double>> emissions(n), per_genotype(n);
-    for (size_t t = 0; t < n; ++t) {
-        build_emission(sites[from + t], n_hap, params.escape, params.mutation, emissions[t],
-                       per_genotype[t]);
+/// Count how many of the first `n_hap` panel haplotypes carry each allele of a site.
+static vector<size_t> allele_carriers(const LinkageModel::Site& site, size_t n_hap) {
+    vector<size_t> carriers(site.num_alleles, 0);
+    for (size_t h = 0; h < n_hap && h < site.haplotype_allele.size(); ++h) {
+        const int allele = site.haplotype_allele[h];
+        if (allele >= 0 && (size_t)allele < site.num_alleles) {
+            carriers[(size_t)allele] += 1;
+        }
     }
+    return carriers;
+}
 
-    // Forward, rescaled every step. The scale factors are discarded: only the posterior is
-    // wanted here, never the chain's total likelihood.
-    vector<vector<double>> alpha(n);
-    {
-        // Uniform unless the caller handed in the message that reaches this window. Uniform says
-        // "nothing is known before here" -- true for a whole chain, false for a segment cut from one.
-        vector<double> a(m * m, 1.0 / (double)(m * m));
-        if (alpha_in != nullptr && alpha_in->size() == m * m) {
-            a = *alpha_in;
-        }
-        for (size_t k = 0; k < m * m; ++k) {
-            a[k] *= emissions[0][k];
-        }
-        double s = 0.0;
-        for (double v : a) {
-            s += v;
-        }
-        if (s <= 0.0) {
-            s = 1.0;
-        }
-        for (double& v : a) {
-            v /= s;
-        }
-        alpha[0] = a;
-    }
-    for (size_t t = 1; t < n; ++t) {
-        // The distance from the previous site; see `site_gap`.
-        const std::pair<size_t, size_t> gap = site_gap(sites[from + t - 1], sites[from + t]);
-        vector<double> moved;
-        // One switch probability per strand.
-        const double rho_a = switch_probability(gap.first);
-        const double rho_b = switch_probability(gap.second);
-        transition_apply(alpha[t - 1], m, rho_a, rho_b, moved);
-        double s = 0.0;
-        for (size_t k = 0; k < m * m; ++k) {
-            moved[k] *= emissions[t][k];
-            s += moved[k];
-        }
-        if (s <= 0.0) {
-            s = 1.0;
-        }
-        for (double& v : moved) {
-            v /= s;
-        }
-        alpha[t] = std::move(moved);
-    }
+/// A ledger of one diploid site's posterior mass per genotype, from which the site's posterior is
+/// read once every state's mass is added.
+///
+/// Each state's mass g = alpha * beta is shared among the genotypes its strands could carry, in
+/// proportion to P(i | a) P(j | b) L(i, j). The four terms of that product (see `mutation_terms`)
+/// are kept apart, because the frequency prior treats them differently:
+/// - Both strands keep their haplotypes' alleles. The mass goes to the genotype the pair spells,
+///   and counts towards its multiplicity.
+/// - One strand keeps allele k and the other takes any allele. The mass is spread over (k, j) by
+///   likelihood, and rescaled by the number of k's carriers.
+/// - Both take any allele. The mass is spread over every genotype by likelihood, unrescaled.
+///
+/// The uniform part of a strand's distribution includes its own allele, so a little of the mass
+/// of a pair that spells the genotype is counted in the second or third term rather than the first.
+/// That is at most mutation / (n - 1) of it.
+class DiploidSiteMass {
+public:
+    /// Start an empty ledger for a site with genotype likelihoods `per_genotype`, scaled as
+    /// `build_emission` scales them, decoded over `n_hap` haplotypes per strand.
+    DiploidSiteMass(const LinkageModel::Site& site, const vector<double>& per_genotype,
+                    size_t n_hap, double mutation, double escape)
+        : site(site), per_genotype(per_genotype), n_hap(n_hap),
+          mt(mutation_terms(site.num_alleles, per_genotype, mutation, escape)),
+          known(site.genotype_ln_likelihood.size(), 0.0),
+          multiplicity(site.genotype_ln_likelihood.size(), 0),
+          kept(site.num_alleles, 0.0) {}
 
-    // Backward, combining as we go so only one beta is held at a time.
-    vector<double> beta(m * m, 1.0);
-    if (beta_in != nullptr && beta_in->size() == m * m) {
-        beta = *beta_in;
-    }
-    for (size_t t = n; t-- > 0;) {
-        const Site& site = sites[from + t];
-        // A site's own exponent is bounded so that mass * multiplicity^(f - 1), with mass <= 1 and
-        // multiplicity <= n_hap^2, stays under e^690 and sums over genotypes cannot overflow --
-        // f 122 on 18 haplotypes, 60 on about 400.
-        const double freq_prior =
-            site.freq_prior >= 0.0
-                ? std::min(site.freq_prior,
-                           1.0 + 690.0 / std::log(std::max(4.0, (double)n_hap * (double)n_hap)))
-                : params.freq_prior;
-        vector<double>& post = out[from + t - out_base];
-        post.assign(site.genotype_ln_likelihood.size(), 0.0);
-        vector<size_t> multiplicity(site.genotype_ln_likelihood.size(), 0);
-
-        // Two accumulators. `known` is mass from states where both strands name an allele, which
-        // carries the multiplicity that the frequency prior rescales. `wild` is mass from states
-        // with an unknown allele, or from a mutation, which has no multiplicity.
-        vector<double> known(site.genotype_ln_likelihood.size(), 0.0);
-        vector<double> wild(site.genotype_ln_likelihood.size(), 0.0);
-        size_t n_alleles = site.num_alleles;
-
-        // Mass where one strand keeps its haplotype's allele k and the other takes any allele
-        // arises once for each haplotype that carries k, so the number of k's carriers acts as a
-        // frequency prior on it, and is rescaled like the multiplicity.
-        vector<size_t> carriers(n_alleles, 0);
-        for (size_t h = 0; h < n_hap && h < site.haplotype_allele.size(); ++h) {
-            int allele = site.haplotype_allele[h];
-            if (allele >= 0 && (size_t)allele < n_alleles) {
-                carriers[(size_t)allele] += 1;
+    /// Add the mass alpha * beta of every ordered pair of haplotypes.
+    void add_states(const vector<double>& alpha, const vector<double>& beta) {
+        const size_t n = site.num_alleles;
+        if (n == 0) {
+            return;
+        }
+        const size_t m = n_hap;
+        for (size_t a = 0; a < m; ++a) {
+            const int ai = allele_at(site, a, n_hap);
+            for (size_t b = 0; b < m; ++b) {
+                const double g = alpha[a * m + b] * beta[a * m + b];
+                if (g > 0.0) {
+                    add_state(ai, allele_at(site, b, n_hap), g);
+                }
             }
         }
+    }
 
-        mutation_posterior(site, per_genotype[t], alpha[t], beta, n_hap, m, params.mutation,
-                           params.escape, carriers, freq_prior, known, multiplicity, wild);
-
+    /// Write the site's posterior over genotypes to `post`, with the frequency exponent
+    /// `freq_prior` applied, or leave `post` empty where the site has no mass.
+    void posterior(double freq_prior, vector<double>& post) const {
+        const vector<double> wild = spread_wild_mass(freq_prior);
+        post.assign(site.genotype_ln_likelihood.size(), 0.0);
         // Rescale the known-known mass by multiplicity^(freq_prior - 1), the allele-frequency
         // prior.
         double total = 0.0;
         for (size_t idx = 0; idx < post.size(); ++idx) {
             double k = known[idx];
             if (multiplicity[idx] > 1) {
-                // As for the carriers above.
                 k /= pow((double)multiplicity[idx], 1.0 - freq_prior);
             }
             post[idx] = k + wild[idx];
@@ -640,45 +586,200 @@ void LinkageModel::window_posteriors(const vector<Site>& sites, size_t from, siz
         } else {
             post.clear();
         }
+    }
+
+private:
+    /// Add mass `g` of one state whose strands' haplotypes carry alleles `ai` and `bi`, or -1 for
+    /// none.
+    void add_state(int ai, int bi, double g) {
+        const StrandEmission& sa = mt.strand[(size_t)(ai + 1)];
+        const StrandEmission& sb = mt.strand[(size_t)(bi + 1)];
+        const double e = mt.emission(ai, bi);
+        if (!(e > 0.0)) {
+            return;
+        }
+        // g / e is the mass per unit of P(i | a) P(j | b) L(i, j).
+        const double w = g / e;
+        if (ai >= 0 && bi >= 0) {
+            const size_t idx = LinkageModel::genotype_index((size_t)ai, (size_t)bi);
+            known[idx] += w * sa.keep * sb.keep * per_genotype[idx];
+            multiplicity[idx] += 1;
+            kept[(size_t)ai] += w * sa.keep * sb.base;
+            kept[(size_t)bi] += w * sa.base * sb.keep;
+        } else if (ai >= 0) {
+            kept[(size_t)ai] += w * sa.keep * sb.base;
+        } else if (bi >= 0) {
+            kept[(size_t)bi] += w * sa.base * sb.keep;
+        }
+        free_mass += w * sa.base * sb.base;
+    }
+
+    /// Return the mass of each genotype in which at least one strand took any allele, spread by
+    /// likelihood.
+    vector<double> spread_wild_mass(double freq_prior) const {
+        const size_t n = site.num_alleles;
+        vector wild(site.genotype_ln_likelihood.size(), 0.0);
+        if (n == 0) {
+            return wild;
+        }
+        // Mass where one strand keeps its haplotype's allele k and the other takes any allele
+        // arises once for each haplotype that carries k. So the number of k's carriers acts as a
+        // frequency prior on it, and is rescaled like the multiplicity.
+        const vector<size_t> carriers = allele_carriers(site, n_hap);
+        for (size_t k = 0; k < n; ++k) {
+            if (kept[k] <= 0.0) {
+                continue;
+            }
+            double share = kept[k];
+            if (carriers[k] > 1) {
+                // At freq_prior 1 this changes nothing; above 1 it strengthens the prior.
+                share /= pow((double)carriers[k], 1.0 - freq_prior);
+            }
+            for (size_t j = 0; j < n; ++j) {
+                const size_t idx = LinkageModel::genotype_index(k, j);
+                wild[idx] += share * per_genotype[idx];
+            }
+        }
+        if (free_mass > 0.0) {
+            for (size_t j = 0; j < n; ++j) {
+                for (size_t i = 0; i <= j; ++i) {
+                    // Over ordered pairs, so a heterozygote is reached twice.
+                    const size_t idx = LinkageModel::genotype_index(i, j);
+                    wild[idx] += free_mass * per_genotype[idx] * (i == j ? 1.0 : 2.0);
+                }
+            }
+        }
+        return wild;
+    }
+
+    const LinkageModel::Site& site;
+    /// The site's genotype likelihoods, scaled so the best is 1.
+    const vector<double>& per_genotype;
+    size_t n_hap;
+    /// The site's emission terms, which give each strand's allele distribution.
+    MutationTerms mt;
+    /// Per genotype, the mass from states whose two strands keep their haplotypes' alleles.
+    vector<double> known;
+    /// Per genotype, how many ordered pairs of haplotypes spell it.
+    vector<size_t> multiplicity;
+    /// Per allele k, the mass from states where one strand keeps k and the other takes any allele.
+    vector<double> kept;
+    /// The mass from states where both strands take any allele.
+    double free_mass = 0.0;
+};
+
+/// Return the forward messages over ordered pairs for the sites from `from` on, one per entry of
+/// `emissions`, each rescaled to sum to 1.
+///
+/// The scale factors are discarded, since only posteriors are wanted, never the chain's total
+/// likelihood. The first site starts from `alpha_in` where it has m * m entries, and from the
+/// uniform distribution otherwise.
+static vector<vector<double>> pair_forward(const LinkageModel& model,
+                                           const vector<LinkageModel::Site>& sites, size_t from,
+                                           const vector<vector<double>>& emissions, size_t m,
+                                           const vector<double>* alpha_in) {
+    const size_t n = emissions.size();
+    vector<vector<double>> alpha(n);
+    vector a(m * m, 1.0 / (double)(m * m));
+    if (alpha_in != nullptr && alpha_in->size() == m * m) {
+        a = *alpha_in;
+    }
+    for (size_t k = 0; k < m * m; ++k) {
+        a[k] *= emissions[0][k];
+    }
+    rescale(a);
+    alpha[0] = a;
+    for (size_t t = 1; t < n; ++t) {
+        const auto [gap_a, gap_b] = site_gap(sites[from + t - 1], sites[from + t]);
+        vector<double> moved;
+        const double rho_a = model.switch_probability(gap_a);
+        const double rho_b = model.switch_probability(gap_b);
+        transition_apply(alpha[t - 1], m, rho_a, rho_b, moved);
+        for (size_t k = 0; k < m * m; ++k) {
+            moved[k] *= emissions[t][k];
+        }
+        rescale(moved);
+        alpha[t] = std::move(moved);
+    }
+    return alpha;
+}
+
+/// Return the backward message over ordered pairs at the site before `site`, from the message
+/// `beta` and the `emission` at `site`, rescaled to sum to 1.
+static vector<double> pair_backward_step(const LinkageModel& model,
+                                         const vector<LinkageModel::Site>& sites, size_t site,
+                                         const vector<double>& beta,
+                                         const vector<double>& emission, size_t m) {
+    const auto [gap_a, gap_b] = site_gap(sites[site - 1], sites[site]);
+    vector weighted(m * m, 0.0);
+    for (size_t k = 0; k < m * m; ++k) {
+        weighted[k] = beta[k] * emission[k];
+    }
+    vector<double> next;
+    const double rho_a = model.switch_probability(gap_a);
+    const double rho_b = model.switch_probability(gap_b);
+    transition_apply(weighted, m, rho_a, rho_b, next);
+    rescale(next);
+    return next;
+}
+
+void LinkageModel::window_posteriors(const vector<Site>& sites, size_t from, size_t to,
+                                     vector<vector<double>>& out,
+                                     const vector<double>* alpha_in,
+                                     const vector<double>* beta_in,
+                                     size_t out_base) const {
+    const size_t n = to - from;
+    if (n == 0) {
+        return;
+    }
+    const size_t n_hap = panel_width(sites, from, to);
+    const size_t m = n_hap;
+
+    vector<vector<double>> emissions(n);
+    vector<vector<double>> per_genotype(n);
+    for (size_t t = 0; t < n; ++t) {
+        build_emission(sites[from + t], n_hap, params.escape, params.mutation, emissions[t],
+                       per_genotype[t]);
+    }
+
+    const vector<vector<double>> alpha = pair_forward(*this, sites, from, emissions, m, alpha_in);
+
+    // Backward, combining as we go so only one beta is held at a time.
+    vector beta(m * m, 1.0);
+    if (beta_in != nullptr && beta_in->size() == m * m) {
+        beta = *beta_in;
+    }
+    for (size_t t = n; t-- > 0;) {
+        const Site& site = sites[from + t];
+        // A site's own exponent is bounded so that mass * multiplicity^(f - 1), with mass <= 1 and
+        // multiplicity <= n_hap^2, stays under e^690 and sums over genotypes cannot overflow.
+        // That bound is f 122 on 18 haplotypes, and 60 on about 400.
+        const double freq_prior =
+            site.freq_prior >= 0.0
+                ? std::min(site.freq_prior,
+                           1.0 + 690.0 / std::log(std::max(4.0, (double)n_hap * (double)n_hap)))
+                : params.freq_prior;
+        DiploidSiteMass mass(site, per_genotype[t], n_hap, params.mutation, params.escape);
+        mass.add_states(alpha[t], beta);
+        mass.posterior(freq_prior, out[from + t - out_base]);
 
         if (t == 0) {
             break;
         }
-        // The distance from the previous site; see `site_gap`.
-        const std::pair<size_t, size_t> gap = site_gap(sites[from + t - 1], sites[from + t]);
-        vector<double> weighted(m * m, 0.0);
-        for (size_t k = 0; k < m * m; ++k) {
-            weighted[k] = beta[k] * emissions[t][k];
-        }
-        vector<double> next;
-        const double rho_a = switch_probability(gap.first);
-        const double rho_b = switch_probability(gap.second);
-        transition_apply(weighted, m, rho_a, rho_b, next);
-        double s = 0.0;
-        for (double v : next) {
-            s += v;
-        }
-        if (s <= 0.0) {
-            s = 1.0;
-        }
-        for (double& v : next) {
-            v /= s;
-        }
-        beta = std::move(next);
+        beta = pair_backward_step(*this, sites, from + t, beta, emissions[t], m);
     }
 }
 
-/// Overlapping windows whose interiors are pasted together.
+/// Fill `out` with a per-site quantity over `n` sites, decoded in overlapping windows whose
+/// interiors are pasted together.
 ///
-/// This works for a per-site quantity: a site's posterior hardly depends on where a window edge
-/// fell, so windows can be decoded independently and their interiors kept. A path cannot be
-/// decoded this way; see `windowed_path`.
+/// A site's posterior hardly depends on where a window edge fell, so windows can be decoded
+/// independently and their interiors kept. `window(lo, hi, local)` fills `local` for `[lo, hi)`,
+/// indexed from `lo`.
 ///
-/// `window(lo, hi, local)` fills `local` for `[lo, hi)`, indexed from `lo`.
-///
-/// The windows do not depend on one another, so each is a task, decoded into a buffer of its own
-/// by whichever thread of the team is free, and keeps only its interior, which no other window
-/// writes. Outside a parallel region they run one after another on the calling thread.
+/// Each window is a task, decoded into a buffer of its own by whichever thread of the team is
+/// free, and keeps only its interior, which no other window writes. Outside a parallel region the
+/// tasks run one after another on the calling thread.
 template <typename T, typename Window>
 static void windowed_marginals(size_t n, size_t step, size_t margin, vector<T>& out,
                                Window window) {
@@ -701,15 +802,15 @@ static void windowed_marginals(size_t n, size_t step, size_t margin, vector<T>& 
     }
 }
 
-/// Overlapping windows chained by a pin.
+/// Fill `out` with a path over `n` sites, decoded in overlapping windows chained by a pin.
 ///
 /// Two windows decoded independently could choose different states where they meet, which would
-/// put a spurious switch at every window boundary. So each window after the first is pinned: the
-/// state at one index inside its leading margin is fixed to what the previous window chose there.
-/// The pin is in the margin, where the previous window's choice was made with context on both
-/// sides.
+/// put a spurious switch at every window boundary. So in each window after the first, the state
+/// at one index inside its leading margin is pinned to what the previous window chose there. The
+/// previous window chose that state with context on both sides.
 ///
 /// `window(lo, hi, pin_index, pin, local)` fills `local` for `[lo, hi)`, indexed from `lo`.
+/// `pin_index` is `(size_t)-1` for the first window.
 template <typename T, typename Window>
 static void windowed_path(size_t n, size_t step, size_t margin, vector<T>& out, Window window) {
     bool have_pin = false;
@@ -741,9 +842,9 @@ vector<vector<double>> LinkageModel::posteriors(const vector<Site>& sites, size_
     }
     windowed_marginals(sites.size(), max<size_t>(params.window, 1), params.margin, out,
                        [&](size_t lo, size_t hi, vector<vector<double>>& local) {
-                           // Only the window that actually begins the chain gets the entering
-                           // message; a later window's left end is an interior seam, and the
-                           // margin is what carries the chain across it.
+                           // Only the window that begins the chain gets the entering message. A
+                           // later window's left end is inside the chain, and its margin carries
+                           // the chain across.
                            const vector<double>* enter = lo == 0 ? alpha_in : nullptr;
                            if (ploidy == 1) {
                                window_haploid_posteriors(sites, lo, hi, local, enter, lo);
@@ -761,30 +862,25 @@ vector<LinkageModel::Phase> LinkageModel::phasing(const vector<Site>& sites,
     if (sites.empty()) {
         return out;
     }
-    size_t n = sites.size();
+    const size_t n = sites.size();
     if (ploidy == 1) {
-        // One strand, so the path is over single haplotypes and `second` names none. It is
-        // decoded into its own vector because the pin here is one haplotype rather than a pair.
-        vector<size_t> single(n, NO_HAPLOTYPE);
+        // One strand, so the path is over single haplotypes and `second` names none. Decode it
+        // into its own vector, since the pin here is one haplotype rather than a pair.
+        vector single(n, NO_HAPLOTYPE);
         windowed_path(n, max<size_t>(params.window, 1), params.margin, single,
                       [&](size_t lo, size_t hi, size_t pin_index, const size_t& pin,
                           vector<size_t>& local) {
-                          // Only the window that begins the chain, as in `posteriors`: a later
-                          // window's left end is an interior seam and the margin carries the chain
-                          // across it.
-                          window_haploid_phasing(sites, lo, hi, constraint, pin_index, pin, local,
-                                                 lo == 0 ? alpha_in : nullptr);
+                          // Only the window that begins the chain gets the entering message, as
+                          // in `posteriors`.
+                          local = window_haploid_phasing(sites, lo, hi, constraint, pin_index,
+                                                         pin, lo == 0 ? alpha_in : nullptr);
                       });
         for (size_t t = 0; t < n; ++t) {
             out[t].first = single[t];
         }
         return out;
     }
-    size_t n_hap = 0;
-    for (const Site& s : sites) {
-        n_hap = max(n_hap, s.haplotype_allele.size());
-    }
-    if (n_hap == 0) {
+    if (panel_width(sites, 0, n) == 0) {
         return out;
     }
 
@@ -796,123 +892,112 @@ vector<LinkageModel::Phase> LinkageModel::phasing(const vector<Site>& sites,
     return out;
 }
 
-void LinkageModel::window_phasing(const vector<Site>& sites, size_t from, size_t to,
-                                  const vector<size_t>& constraint,
-                                  size_t pin_index, const Phase& pin,
-                                  vector<Phase>& out) const {
-    size_t n = to - from;
-    out.assign(n, Phase{});
-    if (n == 0) {
-        return;
+/// Make every state of a site's emission impossible except `state`.
+///
+/// Where `state` is out of range, or is itself impossible, the emission is left alone, since
+/// pinning it would leave the site with no state to be in.
+static void pin_to_state(vector<double>& emission, size_t state) {
+    const double keep = state < emission.size() ? emission[state] : 0.0;
+    if (keep > 0.0) {
+        const size_t states = emission.size();
+        emission.assign(states, 0.0);
+        emission[state] = keep;
     }
-    size_t n_hap = 0;
-    for (size_t t = from; t < to; ++t) {
-        n_hap = max(n_hap, sites[t].haplotype_allele.size());
+}
+
+/// Replace a diploid site's emission over ordered pairs with the probability that each pair
+/// spells the genotype `want`.
+///
+/// Every state can carry the wanted genotype, by keeping or mutating each strand's allele. So each
+/// state takes the probability that its strands carry the genotype's alleles, in either order,
+/// times the genotype's likelihood in `per_genotype`.
+static void constrain_pair_emission(const LinkageModel::Site& site, size_t want, size_t n_hap,
+                                    const vector<double>& per_genotype,
+                                    const LinkageModel::Params& params,
+                                    vector<double>& emission) {
+    const size_t m = n_hap;
+    // Each strand's probability is of one allele, so split the genotype into its alleles.
+    size_t wi = 0;
+    size_t wj = 0;
+    genotype_alleles(want, wi, wj);
+
+    const size_t n_alleles = site.num_alleles;
+    vector<StrandEmission> strand(n_alleles + 1);
+    for (size_t c = 0; c <= n_alleles; ++c) {
+        strand[c] = strand_emission((int)c - 1, n_alleles, params.mutation, params.escape);
     }
-    size_t m = n_hap;
-
-    // Emissions, with the constraint folded in. Every state can carry the wanted genotype, by
-    // keeping or mutating each strand's allele, so each takes the probability that its strands
-    // carry it, in either order, times the genotype's likelihood. A pin below zeroes states, and
-    // the step's own "impossible stays impossible" test then does double duty.
-    vector<vector<double>> emissions(n), per_genotype(n);
-    for (size_t t = 0; t < n; ++t) {
-        const Site& site = sites[from + t];
-        build_emission(site, n_hap, params.escape, params.mutation, emissions[t], per_genotype[t]);
-        size_t want = (from + t) < constraint.size() ? constraint[from + t] : NO_CONSTRAINT;
-        if (want == NO_CONSTRAINT) {
-            continue;
-        }
-        // Decode the wanted genotype, since each strand's probability is of one allele.
-        size_t wj = 0;
-        while (genotype_index(0, wj + 1) <= want) {
-            ++wj;
-        }
-        size_t wi = want - (wj * (wj + 1) / 2);
-
-        const size_t n_alleles = site.num_alleles;
-        vector<StrandEmission> strand(n_alleles + 1);
-        for (size_t c = 0; c <= n_alleles; ++c) {
-            strand[c] = strand_emission((int)c - 1, n_alleles, params.mutation, params.escape);
-        }
-        const double l = want < per_genotype[t].size() ? per_genotype[t][want] : 0.0;
-        for (size_t a = 0; a < m; ++a) {
-            const StrandEmission& sa = strand[(size_t)(allele_at(site, a, n_hap) + 1)];
-            for (size_t b = 0; b < m; ++b) {
-                const StrandEmission& sb = strand[(size_t)(allele_at(site, b, n_hap) + 1)];
-                double p = sa.p(wi) * sb.p(wj);
-                if (wi != wj) {
-                    p += sa.p(wj) * sb.p(wi);
-                }
-                emissions[t][a * m + b] = p * l;
+    const double l = want < per_genotype.size() ? per_genotype[want] : 0.0;
+    for (size_t a = 0; a < m; ++a) {
+        const StrandEmission& sa = strand[(size_t)(allele_at(site, a, n_hap) + 1)];
+        for (size_t b = 0; b < m; ++b) {
+            const StrandEmission& sb = strand[(size_t)(allele_at(site, b, n_hap) + 1)];
+            double p = sa.p(wi) * sb.p(wj);
+            if (wi != wj) {
+                p += sa.p(wj) * sb.p(wi);
             }
+            emission[a * m + b] = p * l;
         }
     }
+}
 
-    // Per-site pins, for sites an earlier level already chosen. Same operation as the seam
-    // pin below -- zero every state but one -- applied wherever the site asks for it. A chosen
-    // site's phase is already in the VCF, so letting the path re-orient it here would decode this
-    // level's sites in a frame nothing else uses.
-    for (size_t t = 0; t < n; ++t) {
-        const Site& site = sites[from + t];
+/// Pin each site that asks for it to its pinned pair, by zeroing the emission of every other state.
+///
+/// The pinned sites are those an earlier level already chose. A chosen site's phase is already in
+/// the VCF, so letting the path re-orient it would decode this level's sites in a frame nothing
+/// else uses. `emissions[t]` belongs to site `from + t`.
+static void apply_site_pins(const vector<LinkageModel::Site>& sites, size_t from, size_t m,
+                            vector<vector<double>>& emissions, LinkageCounters& counters) {
+    for (size_t t = 0; t < emissions.size(); ++t) {
+        const LinkageModel::Site& site = sites[from + t];
         if (!site.pinned) {
             continue;
         }
-        const size_t pa = site.pin_first, pb = site.pin_second;
+        const size_t pa = site.pin_first;
+        const size_t pb = site.pin_second;
         if (pa >= m || pb >= m || emissions[t][pa * m + pb] <= 0.0) {
             // The pin names no haplotype on a strand, or the pinned pair cannot carry this site's
-            // constrained genotype, so pinning it would leave the site with no state to be in.
-            // Leave it only constrained, and count it: in
-            // a group whose only pinned site is its parent, a declined pin leaves the group free
-            // to swap its strands relative to the parent.
+            // constrained genotype. Leave the site only constrained, and count it. In a group
+            // whose only pinned site is its parent, a declined pin leaves the group free to swap
+            // its strands relative to the parent.
             ++counters.pin_declined;
             continue;
         }
         ++counters.pin_applied;
-        for (size_t a = 0; a < m; ++a) {
-            for (size_t b = 0; b < m; ++b) {
-                if (a != pa || b != pb) {
-                    emissions[t][a * m + b] = 0.0;
-                }
-            }
-        }
+        pin_to_state(emissions[t], pa * m + pb);
     }
+}
 
-    // Pin: every state but the pinned one becomes unreachable at that index. As for the per-site
-    // pins above, a pin that is impossible under this window's constraint is skipped, leaving the
-    // site only constrained. With margin 0 the pin index falls outside [from, to) and is skipped.
-    if (pin_index != (size_t)-1 && pin_index >= from && pin_index < to) {
-        size_t t = pin_index - from;
-        const size_t pa = pin.first, pb = pin.second;
-        double keep = (pa < m && pb < m) ? emissions[t][pa * m + pb] : 0.0;
-        if (keep > 0.0) {
-            emissions[t].assign(m * m, 0.0);
-            emissions[t][pa * m + pb] = keep;
-        }
-    }
-
-    vector<double> delta(m * m, NEG_INF);
+/// Return the most probable path of ordered pairs through a window, by max-product decoding.
+///
+/// `emissions[t]` is the emission of site `from + t` over ordered pairs, with `m` haplotypes per
+/// strand. Every site gets `NO_HAPLOTYPE` on both strands where no state is possible at the
+/// window's end.
+static vector<LinkageModel::Phase> pair_viterbi(const LinkageModel& model,
+                                                const vector<LinkageModel::Site>& sites,
+                                                size_t from,
+                                                const vector<vector<double>>& emissions, size_t m) {
+    const size_t n = emissions.size();
+    vector<LinkageModel::Phase> out(n);
+    vector delta(m * m, NEG_INF);
     for (size_t k = 0; k < m * m; ++k) {
         if (emissions[0][k] > 0.0) {
             delta[k] = -log((double)(m * m)) + log(emissions[0][k]);
         }
     }
-    vector<vector<uint16_t>> back_a(n), back_b(n);
+    // TODO: Backpointers are uint16_t, so a panel of more than 65536 haplotypes would wrap them.
+    // Nothing checks the panel size.
+    vector<vector<uint16_t>> back_a(n);
+    vector<vector<uint16_t>> back_b(n);
     for (size_t t = 1; t < n; ++t) {
-        // The distance from the previous site; see `site_gap`.
-        const std::pair<size_t, size_t> gap = site_gap(sites[from + t - 1], sites[from + t]);
+        const auto [gap_a, gap_b] = site_gap(sites[from + t - 1], sites[from + t]);
         vector<double> next;
-        const double rho_a = switch_probability(gap.first);
-        const double rho_b = switch_probability(gap.second);
-        viterbi_step(delta, m, rho_a, rho_b, emissions[t], next, back_a[t], back_b[t]);
-        bool any = false;
-        for (double v : next) {
-            if (v > NEG_INF) { any = true; break; }
-        }
-        if (!any) {
+        const double rho_a = model.switch_probability(gap_a);
+        const double rho_b = model.switch_probability(gap_b);
+        MaxProductStep(delta, m, rho_a, rho_b).apply(emissions[t], next, back_a[t], back_b[t]);
+        if (std::ranges::none_of(next, [](double v) { return v > NEG_INF; })) {
             // No state survives, which happens only where the chosen genotype has no likelihood.
-            // Restart the chain here rather than abandoning the window, so the rest of it is
-            // still phased; the discontinuity is visible as a switch on both strands.
+            // Restart the path here, so the rest of the window is still phased. The restart
+            // shows as a switch on both strands.
             for (size_t k = 0; k < m * m; ++k) {
                 next[k] = emissions[t][k] > 0.0 ? log(emissions[t][k]) : NEG_INF;
                 back_a[t][k] = (uint16_t)(k / m);
@@ -931,19 +1016,59 @@ void LinkageModel::window_phasing(const vector<Site>& sites, size_t from, size_t
         }
     }
     if (best == m * m) {
-        return;
+        return out;
     }
-    size_t a = best / m, b = best % m;
+    // Trace the backpointers from the best final state.
+    size_t a = best / m;
+    size_t b = best % m;
     for (size_t t = n; t-- > 0;) {
         out[t].first = a;
         out[t].second = b;
         if (t > 0) {
-            size_t pa = back_a[t][a * m + b];
-            size_t pb = back_b[t][a * m + b];
+            const size_t pa = back_a[t][a * m + b];
+            const size_t pb = back_b[t][a * m + b];
             a = pa;
             b = pb;
         }
     }
+    return out;
+}
+
+void LinkageModel::window_phasing(const vector<Site>& sites, size_t from, size_t to,
+                                  const vector<size_t>& constraint,
+                                  size_t pin_index, const Phase& pin,
+                                  vector<Phase>& out) const {
+    const size_t n = to - from;
+    out.assign(n, Phase{});
+    if (n == 0) {
+        return;
+    }
+    const size_t n_hap = panel_width(sites, from, to);
+    const size_t m = n_hap;
+
+    // Emissions, with the constraint folded in.
+    vector<vector<double>> emissions(n);
+    vector<vector<double>> per_genotype(n);
+    for (size_t t = 0; t < n; ++t) {
+        const Site& site = sites[from + t];
+        build_emission(site, n_hap, params.escape, params.mutation, emissions[t], per_genotype[t]);
+        const size_t want = (from + t) < constraint.size() ? constraint[from + t] : NO_CONSTRAINT;
+        if (want != NO_CONSTRAINT) {
+            constrain_pair_emission(site, want, n_hap, per_genotype[t], params, emissions[t]);
+        }
+    }
+
+    apply_site_pins(sites, from, m, emissions, counter_set);
+
+    // Pin the seam with the previous window, unless the pin is impossible under this window's
+    // constraint. With margin 0 the pin index falls outside [from, to) and is skipped.
+    if (pin_index != (size_t)-1 && pin_index >= from && pin_index < to) {
+        const size_t pa = pin.first;
+        const size_t pb = pin.second;
+        pin_to_state(emissions[pin_index - from], (pa < m && pb < m) ? pa * m + pb : m * m);
+    }
+
+    out = pair_viterbi(*this, sites, from, emissions, m);
 }
 
 
@@ -957,8 +1082,8 @@ void LinkageModel::haploid_emission(const Site& site, size_t n_hap, vector<doubl
     size_t m = n_hap;
     size_t n = site.num_alleles;
 
-    // Shift so the best allele is exp(0) = 1, as build_emission does for genotypes: it keeps the
-    // numbers in range without changing any ratio.
+    // Shift so the best allele is exp(0) = 1, as build_emission does for genotypes. This keeps
+    // the numbers in range without changing any ratio.
     double best = -numeric_limits<double>::infinity();
     for (double v : site.genotype_ln_likelihood) {
         if (std::isfinite(v)) {
@@ -976,8 +1101,8 @@ void LinkageModel::haploid_emission(const Site& site, size_t n_hap, vector<doubl
         sum += v;
     }
 
-    // Summed over the allele the strand carries, as the diploid emission does: base * (sum of the
-    // likelihoods) + keep * the likelihood of the haplotype's own allele.
+    // Sum over the allele the strand carries, as the diploid emission does. That gives
+    // base * (sum of the likelihoods) + keep * (the likelihood of the haplotype's own allele).
     e.assign(m, 0.0);
     for (size_t a = 0; a < m; ++a) {
         const int ai = allele_at(site, a, n_hap);
@@ -986,297 +1111,267 @@ void LinkageModel::haploid_emission(const Site& site, size_t n_hap, vector<doubl
     }
 }
 
-void LinkageModel::window_haploid_posteriors(const vector<Site>& sites, size_t from, size_t to,
-                                             vector<vector<double>>& out,
-                                             const vector<double>* alpha_in,
-                                             size_t out_base) const {
-    size_t n = to - from;
-    if (n == 0) {
-        return;
-    }
-    size_t n_hap = 0;
-    size_t n_alleles_max = 0;
-    for (size_t t = from; t < to; ++t) {
-        n_hap = max(n_hap, sites[t].haplotype_allele.size());
-        n_alleles_max = max(n_alleles_max, sites[t].num_alleles);
-    }
-    size_t m = n_hap;
-
-    vector<vector<double>> emissions(n), per_allele(n);
-    for (size_t t = 0; t < n; ++t) {
-        haploid_emission(sites[from + t], n_hap, emissions[t], per_allele[t]);
-    }
-
-    // Forward, rescaled every step; the scale factors are discarded, as in the diploid pass.
+/// Return the forward messages over single haplotypes for the sites from `from` on, one per entry
+/// of `emissions`, each rescaled to sum to 1.
+///
+/// The first site starts from `alpha_in` where it has `m` entries, and from the uniform
+/// distribution otherwise. Where a given message and the first site's reads disagree outright,
+/// so that every state the message allows has zero emission, the first site starts from its reads
+/// alone, as `single_viterbi` does.
+static vector<vector<double>> single_forward(const LinkageModel& model,
+                                             const vector<LinkageModel::Site>& sites, size_t from,
+                                             const vector<vector<double>>& emissions, size_t m,
+                                             const vector<double>* alpha_in) {
+    const size_t n = emissions.size();
     vector<vector<double>> alpha(n);
-    {
-        // Uniform unless the caller supplied the message entering the chain.
-        vector<double> a(m, 1.0 / (double)m);
-        if (alpha_in != nullptr && alpha_in->size() == m) {
-            a = *alpha_in;
-        }
-        double sum = 0.0;
-        for (size_t k = 0; k < m; ++k) {
-            a[k] *= emissions[0][k];
-            sum += a[k];
-        }
-        if (sum <= 0.0 && alpha_in != nullptr) {
-            // The message and the reads disagree outright: every state the message allows has
-            // zero emission. Start from the reads alone, as `window_haploid_phasing` does.
-            sum = 0.0;
-            for (size_t k = 0; k < m; ++k) {
-                a[k] = emissions[0][k] / (double)m;
-                sum += a[k];
-            }
-        }
-        if (sum <= 0.0) {
-            sum = 1.0;
-        }
-        for (double& v : a) {
-            v /= sum;
-        }
-        alpha[0] = a;
+    vector a(m, 1.0 / (double)m);
+    if (alpha_in != nullptr && alpha_in->size() == m) {
+        a = *alpha_in;
     }
+    double sum = 0.0;
+    for (size_t k = 0; k < m; ++k) {
+        a[k] *= emissions[0][k];
+        sum += a[k];
+    }
+    if (sum <= 0.0 && alpha_in != nullptr) {
+        for (size_t k = 0; k < m; ++k) {
+            a[k] = emissions[0][k] / (double)m;
+        }
+    }
+    rescale(a);
+    alpha[0] = a;
     for (size_t t = 1; t < n; ++t) {
-        // The distance from the previous site; see `site_gap`. One strand, so one distance.
-        const double rho = switch_probability(site_gap(sites[from + t - 1], sites[from + t]).first);
-        double stay = 1.0 - rho;
-        double jump = rho / (double)m;
+        // One strand, so one distance.
+        const double rho =
+            model.switch_probability(site_gap(sites[from + t - 1], sites[from + t]).first);
+        const double stay = 1.0 - rho;
+        const double jump = rho / (double)m;
         double total = 0.0;
         for (double v : alpha[t - 1]) {
             total += v;
         }
-        vector<double> next(m, 0.0);
-        double sum = 0.0;
+        vector next(m, 0.0);
         for (size_t k = 0; k < m; ++k) {
             next[k] = (stay * alpha[t - 1][k] + jump * total) * emissions[t][k];
-            sum += next[k];
         }
-        if (sum <= 0.0) {
-            sum = 1.0;
-        }
-        for (double& v : next) {
-            v /= sum;
-        }
+        rescale(next);
         alpha[t] = std::move(next);
     }
+    return alpha;
+}
 
-    // Backward, combined as we go so only one beta is held.
-    vector<double> beta(m, 1.0);
-    for (size_t t = n; t-- > 0;) {
-        const Site& site = sites[from + t];
-        const double freq_prior = site.freq_prior >= 0.0 ? site.freq_prior : params.freq_prior;
-        vector<double>& post = out[from + t - out_base];
-        post.assign(site.num_alleles, 0.0);
+/// Return the backward message over single haplotypes at the site before `site`, from the message
+/// `beta` and the `emission` at `site`, rescaled to sum to 1.
+static vector<double> single_backward_step(const LinkageModel& model,
+                                           const vector<LinkageModel::Site>& sites, size_t site,
+                                           const vector<double>& beta,
+                                           const vector<double>& emission, size_t m) {
+    const double rho = model.switch_probability(site_gap(sites[site - 1], sites[site]).first);
+    const double stay = 1.0 - rho;
+    const double jump = rho / (double)m;
+    vector<double> weighted(m);
+    double total_w = 0.0;
+    for (size_t k = 0; k < m; ++k) {
+        weighted[k] = beta[k] * emission[k];
+        total_w += weighted[k];
+    }
+    vector prev(m, 0.0);
+    for (size_t k = 0; k < m; ++k) {
+        prev[k] = stay * weighted[k] + jump * total_w;
+    }
+    rescale(prev);
+    return prev;
+}
 
-        // Allele multiplicity is the haploid analogue of the diploid pair count, and is divided
-        // out the same way so that freq_prior = 0 means what it says.
-        vector<size_t> carriers(site.num_alleles, 0);
-        for (size_t h = 0; h < n_hap && h < site.haplotype_allele.size(); ++h) {
-            int allele = site.haplotype_allele[h];
-            if (allele >= 0 && (size_t)allele < site.num_alleles) {
-                carriers[(size_t)allele] += 1;
-            }
+/// Write a haploid site's posterior over alleles to `post`, from the mass `state_mass[a]` =
+/// alpha * beta of each haplotype, or leave `post` empty where no state explains the site.
+///
+/// As in `DiploidSiteMass`, a state's mass is split by how its strand got its allele. The share
+/// where the strand keeps its haplotype's allele is known, and is rescaled by the allele's
+/// number of carriers, the haploid analogue of the diploid pair count, so that `freq_prior` 0
+/// means what it says. The uniform share is spread over the alleles by likelihood.
+static void single_site_posterior(const LinkageModel::Site& site, const vector<double>& emission,
+                                  const vector<double>& per_allele,
+                                  const vector<double>& state_mass, size_t n_hap,
+                                  const LinkageModel::Params& params, vector<double>& post) {
+    const size_t m = n_hap;
+    const double freq_prior = site.freq_prior >= 0.0 ? site.freq_prior : params.freq_prior;
+    post.assign(site.num_alleles, 0.0);
+    const vector<size_t> carriers = allele_carriers(site, n_hap);
+    vector known(site.num_alleles, 0.0);
+    vector wild(site.num_alleles, 0.0);
+    for (size_t a = 0; a < m; ++a) {
+        const double g = state_mass[a];
+        if (g <= 0.0 || !(emission[a] > 0.0)) {
+            continue;
         }
-        vector<double> known(site.num_alleles, 0.0), wild(site.num_alleles, 0.0);
-        for (size_t a = 0; a < m; ++a) {
-            double g = alpha[t][a] * beta[a];
-            if (g <= 0.0) {
-                continue;
-            }
-            int ai = allele_at(site, a, n_hap);
-            // As in the diploid pass: the share of the state's mass where the strand keeps its
-            // haplotype's allele is known, and the uniform share is spread by likelihood.
-            if (!(emissions[t][a] > 0.0)) {
-                continue;
-            }
-            const StrandEmission st =
-                strand_emission(ai, site.num_alleles, params.mutation, params.escape);
-            const double w = g / emissions[t][a];
-            if (ai >= 0) {
-                known[(size_t)ai] += w * st.keep * per_allele[t][(size_t)ai];
-            }
-            for (size_t k = 0; k < site.num_alleles; ++k) {
-                wild[k] += w * st.base * per_allele[t][k];
-            }
+        const int ai = allele_at(site, a, n_hap);
+        const StrandEmission st =
+            strand_emission(ai, site.num_alleles, params.mutation, params.escape);
+        const double w = g / emission[a];
+        if (ai >= 0) {
+            known[(size_t)ai] += w * st.keep * per_allele[(size_t)ai];
         }
-        double total = 0.0;
         for (size_t k = 0; k < site.num_alleles; ++k) {
-            double v = known[k];
-            if (carriers[k] > 1) {
-                v /= pow((double)carriers[k], 1.0 - freq_prior);
-            }
-            post[k] = v + wild[k];
-            total += post[k];
+            wild[k] += w * st.base * per_allele[k];
         }
-        if (total > 0.0) {
-            for (double& v : post) {
-                v /= total;
-            }
-        } else {
-            // No state explains the site, so there is no posterior, and the caller keeps the
-            // site's own call, as in the diploid pass.
-            post.clear();
+    }
+    double total = 0.0;
+    for (size_t k = 0; k < site.num_alleles; ++k) {
+        double v = known[k];
+        if (carriers[k] > 1) {
+            v /= pow((double)carriers[k], 1.0 - freq_prior);
         }
-
-        if (t == 0) {
-            break;
+        post[k] = v + wild[k];
+        total += post[k];
+    }
+    if (total > 0.0) {
+        for (double& v : post) {
+            v /= total;
         }
-        // The distance from the previous site; see `site_gap`. One strand, so one distance.
-        const double rho = switch_probability(site_gap(sites[from + t - 1], sites[from + t]).first);
-        double stay = 1.0 - rho;
-        double jump = rho / (double)m;
-        vector<double> weighted(m);
-        double total_w = 0.0;
-        for (size_t k = 0; k < m; ++k) {
-            weighted[k] = beta[k] * emissions[t][k];
-            total_w += weighted[k];
-        }
-        vector<double> prev(m, 0.0);
-        double sum = 0.0;
-        for (size_t k = 0; k < m; ++k) {
-            prev[k] = stay * weighted[k] + jump * total_w;
-            sum += prev[k];
-        }
-        if (sum <= 0.0) {
-            sum = 1.0;
-        }
-        for (double& v : prev) {
-            v /= sum;
-        }
-        beta = std::move(prev);
+    } else {
+        // The caller keeps the site's own call, as in the diploid pass.
+        post.clear();
     }
 }
 
-void LinkageModel::window_haploid_phasing(const vector<Site>& sites, size_t from, size_t to,
-                                          const vector<size_t>& constraint,
-                                          size_t pin_index, size_t pin,
-                                          vector<size_t>& out,
-                                          const vector<double>* alpha_in) const {
-    size_t n = to - from;
-    out.assign(n, NO_HAPLOTYPE);
+void LinkageModel::window_haploid_posteriors(const vector<Site>& sites, size_t from, size_t to,
+                                             vector<vector<double>>& out,
+                                             const vector<double>* alpha_in,
+                                             size_t out_base) const {
+    const size_t n = to - from;
     if (n == 0) {
         return;
     }
-    size_t n_hap = 0;
-    for (size_t t = from; t < to; ++t) {
-        n_hap = max(n_hap, sites[t].haplotype_allele.size());
-    }
-    size_t m = n_hap;
+    const size_t n_hap = panel_width(sites, from, to);
+    const size_t m = n_hap;
 
-    vector<vector<double>> emissions(n), per_allele(n);
+    vector<vector<double>> emissions(n);
+    vector<vector<double>> per_allele(n);
     for (size_t t = 0; t < n; ++t) {
-        const Site& site = sites[from + t];
-        haploid_emission(site, n_hap, emissions[t], per_allele[t]);
-        size_t want = (from + t) < constraint.size() ? constraint[from + t] : NO_CONSTRAINT;
-        if (want == NO_CONSTRAINT) {
-            continue;
-        }
-        // As in the diploid case: any state can carry the called allele, by keeping or mutating
-        // its own, so each takes the probability that it does times the allele's likelihood.
-        double e = want < per_allele[t].size() ? per_allele[t][want] : 0.0;
-        for (size_t a = 0; a < m; ++a) {
-            const int ai = allele_at(site, a, n_hap);
-            emissions[t][a] =
-                strand_emission(ai, site.num_alleles, params.mutation, params.escape).p(want) * e;
-        }
-    }
-    // As in the diploid caller: test before zeroing, and skip the pin outright when it names no
-    // haplotype or the pinned state cannot carry this window's constraint.
-    if (pin_index != (size_t)-1 && pin_index >= from && pin_index < to) {
-        size_t t = pin_index - from;
-        const size_t pa = pin;
-        double keep = pa < m ? emissions[t][pa] : 0.0;
-        if (keep > 0.0) {
-            emissions[t].assign(m, 0.0);
-            emissions[t][pa] = keep;
-        }
+        haploid_emission(sites[from + t], n_hap, emissions[t], per_allele[t]);
     }
 
-    const double NINF = -numeric_limits<double>::infinity();
-    vector<double> delta(m, NINF);
-    // The entering message, where there is one, multiplies the first site's emission, as a prior
-    // over the first state. The message is ignored when missing or of the wrong length for these
-    // states.
+    const vector<vector<double>> alpha =
+        single_forward(*this, sites, from, emissions, m, alpha_in);
+
+    // Backward, combined as we go so only one beta is held.
+    vector beta(m, 1.0);
+    for (size_t t = n; t-- > 0;) {
+        vector<double> state_mass(m);
+        for (size_t a = 0; a < m; ++a) {
+            state_mass[a] = alpha[t][a] * beta[a];
+        }
+        single_site_posterior(sites[from + t], emissions[t], per_allele[t], state_mass, n_hap,
+                              params, out[from + t - out_base]);
+        if (t == 0) {
+            break;
+        }
+        beta = single_backward_step(*this, sites, from + t, beta, emissions[t], m);
+    }
+}
+
+/// Return the log scores of a haploid max-product decode at its first site, from the site's
+/// `emission` and the entering message `alpha_in`.
+///
+/// The message multiplies the emission, as a prior over the first state, where it has `m`
+/// entries. Where every state the message allows has zero emission, the message and the reads
+/// disagree outright. Then the scores come from the reads alone. A decode with no live state
+/// would name no haplotype anywhere, which would say the panel cannot explain a strand that it
+/// explains once the parent's claim is dropped.
+static vector<double> single_viterbi_start(const vector<double>& emission, size_t m,
+                                           const vector<double>* alpha_in) {
+    vector delta(m, NEG_INF);
     const bool have_alpha = alpha_in != nullptr && alpha_in->size() == m;
     for (size_t k = 0; k < m; ++k) {
-        if (emissions[0][k] <= 0.0) {
+        if (emission[k] <= 0.0) {
             continue;
         }
         const double prior = have_alpha ? (*alpha_in)[k] : 1.0 / (double)m;
         if (prior > 0.0) {
-            delta[k] = log(prior) + log(emissions[0][k]);
+            delta[k] = log(prior) + log(emission[k]);
         }
     }
-    // Every state the message allows has a zero emission, so the message and the reads disagree
-    // outright. Fall back to the reads: a decode with no live state names no haplotype anywhere,
-    // which reports "the panel cannot explain this strand" for a strand the panel explains
-    // perfectly well once the parent's claim is dropped.
-    if (have_alpha) {
-        bool any = false;
-        for (size_t k = 0; k < m && !any; ++k) {
-            any = delta[k] > NINF;
-        }
-        if (!any) {
-            for (size_t k = 0; k < m; ++k) {
-                if (emissions[0][k] > 0.0) {
-                    delta[k] = -log((double)m) + log(emissions[0][k]);
-                }
+    if (have_alpha && std::ranges::none_of(delta, [](double v) { return v > NEG_INF; })) {
+        for (size_t k = 0; k < m; ++k) {
+            if (emission[k] > 0.0) {
+                delta[k] = -log((double)m) + log(emission[k]);
             }
         }
     }
+    return delta;
+}
+
+/// Return the log scores of a haploid max-product decode at the next site, from the scores
+/// `delta` at the previous one, a switch probability `rho` and the next site's `emission`. Set
+/// `back[k]` to the best predecessor of each state k.
+///
+/// With one strand, the reduction is the textbook one: stay on the same haplotype, or jump from
+/// whichever was best. The diploid step needs leave-one-out maxima only because its two strands
+/// share one delta.
+static vector<double> single_max_product_step(const vector<double>& delta, double rho,
+                                              const vector<double>& emission,
+                                              vector<uint16_t>& back) {
+    const size_t m = delta.size();
+    rho = min(max(rho, 1e-12), 1.0 - 1e-12);
+    const double S = log(1.0 - rho + rho / (double)m);
+    const double J = log(rho / (double)m);
+
+    size_t arg_best = 0;
+    double best_any = NEG_INF;
+    for (size_t k = 0; k < m; ++k) {
+        if (delta[k] > best_any) {
+            best_any = delta[k];
+            arg_best = k;
+        }
+    }
+    vector next(m, NEG_INF);
+    back.assign(m, 0);
+    for (size_t k = 0; k < m; ++k) {
+        if (!(emission[k] > 0.0)) {
+            continue;
+        }
+        const double stay = delta[k] > NEG_INF ? delta[k] + S : NEG_INF;
+        const double jump = best_any > NEG_INF ? best_any + J : NEG_INF;
+        if (stay >= jump && stay > NEG_INF) {
+            next[k] = stay + log(emission[k]);
+            back[k] = (uint16_t)k;
+        } else if (jump > NEG_INF) {
+            next[k] = jump + log(emission[k]);
+            back[k] = (uint16_t)arg_best;
+        }
+    }
+    if (std::ranges::none_of(next, [](double v) { return v > NEG_INF; })) {
+        // No state survives. Restart here, as in the diploid pass.
+        for (size_t k = 0; k < m; ++k) {
+            next[k] = emission[k] > 0.0 ? log(emission[k]) : NEG_INF;
+            back[k] = (uint16_t)k;
+        }
+    }
+    return next;
+}
+
+/// Return the most probable path of single haplotypes through a window, by max-product decoding,
+/// starting from the entering message `alpha_in` as `single_viterbi_start` describes.
+///
+/// `emissions[t]` is the emission of site `from + t` over `m` haplotypes. Every site gets
+/// `NO_HAPLOTYPE` where no state is possible at the window's end.
+static vector<size_t> single_viterbi(const LinkageModel& model,
+                                     const vector<LinkageModel::Site>& sites, size_t from,
+                                     const vector<vector<double>>& emissions, size_t m,
+                                     const vector<double>* alpha_in) {
+    const size_t n = emissions.size();
+    vector out(n, LinkageModel::NO_HAPLOTYPE);
+    vector<double> delta = single_viterbi_start(emissions[0], m, alpha_in);
     vector<vector<uint16_t>> back(n);
     for (size_t t = 1; t < n; ++t) {
-        // The distance from the previous site; see `site_gap`.
-        double rho = switch_probability(site_gap(sites[from + t - 1], sites[from + t]).first);
-        rho = min(max(rho, 1e-12), 1.0 - 1e-12);
-        double S = log(1.0 - rho + rho / (double)m);
-        double J = log(rho / (double)m);
-
-        // One strand, so the reduction is the textbook one: stay on the same haplotype, or jump
-        // from whichever was best. No leave-one-out maxima are needed -- that complication in the
-        // diploid step comes entirely from the two strands sharing one delta.
-        size_t arg_best = 0;
-        double best_any = NINF;
-        for (size_t k = 0; k < m; ++k) {
-            if (delta[k] > best_any) {
-                best_any = delta[k];
-                arg_best = k;
-            }
-        }
-        vector<double> next(m, NINF);
-        back[t].assign(m, 0);
-        for (size_t k = 0; k < m; ++k) {
-            if (!(emissions[t][k] > 0.0)) {
-                continue;
-            }
-            double stay = delta[k] > NINF ? delta[k] + S : NINF;
-            double jump = best_any > NINF ? best_any + J : NINF;
-            if (stay >= jump && stay > NINF) {
-                next[k] = stay + log(emissions[t][k]);
-                back[t][k] = (uint16_t)k;
-            } else if (jump > NINF) {
-                next[k] = jump + log(emissions[t][k]);
-                back[t][k] = (uint16_t)arg_best;
-            }
-        }
-        bool any = false;
-        for (double v : next) {
-            if (v > NINF) { any = true; break; }
-        }
-        if (!any) {
-            // No state survives, as in the diploid pass: restart here rather than abandoning the
-            // window.
-            for (size_t k = 0; k < m; ++k) {
-                next[k] = emissions[t][k] > 0.0 ? log(emissions[t][k]) : NINF;
-                back[t][k] = (uint16_t)k;
-            }
-        }
-        delta = std::move(next);
+        const double rho =
+            model.switch_probability(site_gap(sites[from + t - 1], sites[from + t]).first);
+        delta = single_max_product_step(delta, rho, emissions[t], back[t]);
     }
 
     size_t best = m;
-    double best_v = NINF;
+    double best_v = NEG_INF;
     for (size_t k = 0; k < m; ++k) {
         if (delta[k] > best_v) {
             best_v = delta[k];
@@ -1284,8 +1379,9 @@ void LinkageModel::window_haploid_phasing(const vector<Site>& sites, size_t from
         }
     }
     if (best == m) {
-        return;
+        return out;
     }
+    // Trace the backpointers from the best final state.
     size_t cur = best;
     for (size_t t = n; t-- > 0;) {
         out[t] = cur;
@@ -1293,18 +1389,53 @@ void LinkageModel::window_haploid_phasing(const vector<Site>& sites, size_t from
             cur = back[t][cur];
         }
     }
+    return out;
+}
+
+vector<size_t> LinkageModel::window_haploid_phasing(const vector<Site>& sites, size_t from,
+                                                    size_t to, const vector<size_t>& constraint,
+                                                    size_t pin_index, size_t pin,
+                                                    const vector<double>* alpha_in) const {
+    const size_t n = to - from;
+    if (n == 0) {
+        return {};
+    }
+    const size_t n_hap = panel_width(sites, from, to);
+    const size_t m = n_hap;
+
+    vector<vector<double>> emissions(n);
+    vector<vector<double>> per_allele(n);
+    for (size_t t = 0; t < n; ++t) {
+        const Site& site = sites[from + t];
+        haploid_emission(site, n_hap, emissions[t], per_allele[t]);
+        const size_t want = (from + t) < constraint.size() ? constraint[from + t] : NO_CONSTRAINT;
+        if (want == NO_CONSTRAINT) {
+            continue;
+        }
+        // As in the diploid case, any state can carry the called allele, by keeping or mutating
+        // its own. So each takes the probability that it does times the allele's likelihood.
+        const double e = want < per_allele[t].size() ? per_allele[t][want] : 0.0;
+        for (size_t a = 0; a < m; ++a) {
+            const int ai = allele_at(site, a, n_hap);
+            emissions[t][a] =
+                strand_emission(ai, site.num_alleles, params.mutation, params.escape).p(want) * e;
+        }
+    }
+    if (pin_index != (size_t)-1 && pin_index >= from && pin_index < to) {
+        pin_to_state(emissions[pin_index - from], pin < m ? pin : m);
+    }
+
+    return single_viterbi(*this, sites, from, emissions, m, alpha_in);
 }
 
 //------------------------------------------------------------------------------
 // LinkageCollector
 
-vector<int> LinkageCollector::compact_allele_space(
-        const map<vector<int>, double>& genotype_ln_likelihood,
-        const vector<int>& haplotype_traversal,
-        int called_trav_i, int called_trav_j) {
-    // Only the traversals that can matter: build_emission reads the likelihoods only at pairs of
-    // panel-carried alleles, and the constraint needs only the called pair. Leaving out the other
-    // candidates keeps the space and its likelihood vector small.
+vector<int> LinkageCollector::compact_allele_space(const vector<int>& haplotype_traversal,
+                                                   int called_trav_i, int called_trav_j) {
+    // Keep only the traversals that can matter, so that the space and its likelihood vector stay
+    // small. build_emission reads the likelihoods only at pairs of panel-carried alleles, and the
+    // constraint needs only the called pair.
     set<int> needed;
     if (called_trav_i >= 0) {
         needed.insert(called_trav_i);
@@ -1317,8 +1448,8 @@ vector<int> LinkageCollector::compact_allele_space(
             needed.insert(t);
         }
     }
-    // Sorted by candidate index, so the compact numbering is a function of the site alone and not of
-    // the order haplotypes happen to be visited in.
+    // Sort by candidate index, so the compact numbering is a function of the site alone and not
+    // of the order haplotypes happen to be visited in.
     return vector<int>(needed.begin(), needed.end());
 }
 
@@ -1327,39 +1458,79 @@ LinkageCollector::CompactSite LinkageCollector::compact_site(
         const vector<int>& haplotype_traversal,
         int called_trav_i, int called_trav_j, size_t ploidy) const {
     CompactSite cs;
-    cs.space = compact_allele_space(genotype_ln_likelihood, haplotype_traversal,
-                                    called_trav_i, called_trav_j);
+    cs.space = compact_allele_space(haplotype_traversal, called_trav_i, called_trav_j);
     if (cs.space.empty() || cs.space.size() > 127) {
         return cs;
     }
     cs.ci = cs.compact_of(called_trav_i);
     cs.cj = called_trav_j >= 0 ? cs.compact_of(called_trav_j) : cs.ci;
     if (cs.ci < 0 || cs.cj < 0) {
-        return cs;   // cannot happen: the called pair is in the space by construction
+        // The called pair is in the space by construction, so this cannot happen.
+        return cs;
     }
     const size_t k = cs.space.size();
     cs.site_ploidy = (ploidy == 1 ? 1 : 2);
     const size_t n_gt = cs.site_ploidy == 1 ? k : k * (k + 1) / 2;
     cs.gls.assign(n_gt, -numeric_limits<float>::infinity());
-    for (const auto& kv : genotype_ln_likelihood) {
-        if (kv.first.size() != cs.site_ploidy) {
+    for (const auto& [genotype, ln_likelihood] : genotype_ln_likelihood) {
+        if (genotype.size() != cs.site_ploidy) {
             continue;
         }
         if (cs.site_ploidy == 1) {
-            int a = cs.compact_of(kv.first[0]);
-            if (a >= 0) {
-                cs.gls[(size_t)a] = (float)kv.second;
+            if (const int a = cs.compact_of(genotype[0]); a >= 0) {
+                cs.gls[(size_t)a] = (float)ln_likelihood;
             }
             continue;
         }
-        int a = cs.compact_of(kv.first[0]);
-        int b = cs.compact_of(kv.first[1]);
+        const int a = cs.compact_of(genotype[0]);
+        const int b = cs.compact_of(genotype[1]);
         if (a >= 0 && b >= 0) {
-            cs.gls[LinkageModel::genotype_index((size_t)a, (size_t)b)] = (float)kv.second;
+            cs.gls[LinkageModel::genotype_index((size_t)a, (size_t)b)] = (float)ln_likelihood;
         }
     }
     cs.ok = true;
     return cs;
+}
+
+/// Return whether the allele `a` is the shorter allele `b` with 1-49 extra copies of one base
+/// inserted into a run of that base, where the run in `a` is at least `min_run` long or reaches
+/// an end of `a`.
+///
+/// A run that reaches an end of the allele continues into a boundary node made of this base,
+/// where the graph cut it. Its length is unknown, so it counts as long.
+static bool homopolymer_run_change(const string& a, const string& b, size_t min_run) {
+    if (a.size() <= b.size() || a.size() - b.size() > 49) {
+        return false;
+    }
+    size_t pre = 0;
+    while (pre < b.size() && a[pre] == b[pre]) {
+        ++pre;
+    }
+    size_t suf = 0;
+    while (suf < b.size() - pre && a[a.size() - 1 - suf] == b[b.size() - 1 - suf]) {
+        ++suf;
+    }
+    if (pre + suf != b.size()) {
+        // The alleles differ by more than an insertion.
+        return false;
+    }
+    // What `a` has and `b` lacks, once the shared flanks are gone.
+    const size_t lo = pre;
+    const size_t hi = a.size() - suf;
+    const char base = a[lo];
+    if (!std::all_of(a.begin() + lo, a.begin() + hi, [base](char c) { return c == base; })) {
+        return false;
+    }
+    // Measure the run the extra bases sit in, in the longer allele.
+    size_t start = lo;
+    while (start > 0 && a[start - 1] == base) {
+        --start;
+    }
+    size_t end = hi;
+    while (end < a.size() && a[end] == base) {
+        ++end;
+    }
+    return end - start >= min_run || start == 0 || end == a.size();
 }
 
 bool LinkageModel::run_length_site(const vector<string>& alleles, size_t min_run, size_t ref) {
@@ -1368,46 +1539,9 @@ bool LinkageModel::run_length_site(const vector<string>& alleles, size_t min_run
             if (ref < alleles.size() && x != ref && y != ref) {
                 continue;
             }
-            // `a` the longer of the pair; one ordering suffices, the other is its mirror.
-            const string& a = alleles[x];
-            const string& b = alleles[y];
-            if (a.size() <= b.size() || a.size() - b.size() > 49) {
-                continue;
-            }
-            size_t pre = 0;
-            while (pre < b.size() && a[pre] == b[pre]) {
-                ++pre;
-            }
-            size_t suf = 0;
-            while (suf < b.size() - pre && a[a.size() - 1 - suf] == b[b.size() - 1 - suf]) {
-                ++suf;
-            }
-            // What `a` has and `b` lacks, once the shared flanks are gone.
-            const size_t lo = pre;
-            const size_t hi = a.size() - suf;
-            if (pre + suf != b.size()) {
-                continue;  // they differ by more than an insertion
-            }
-            const char base = a[lo];
-            bool one_base = true;
-            for (size_t i = lo; i < hi && one_base; ++i) {
-                one_base = a[i] == base;
-            }
-            if (!one_base) {
-                continue;
-            }
-            // The run the extra bases sit in, measured in the longer allele.
-            size_t start = lo;
-            while (start > 0 && a[start - 1] == base) {
-                --start;
-            }
-            size_t end = hi;
-            while (end < a.size() && a[end] == base) {
-                ++end;
-            }
-            // Reaching an end of the allele means the run continues into a boundary node made of
-            // this base, where the graph cut it: its length is unknown, so it counts as long.
-            if (end - start >= min_run || start == 0 || end == a.size()) {
+            // Test with `x` as the longer allele. The other ordering is tested when y comes
+            // round as x.
+            if (homopolymer_run_change(alleles[x], alleles[y], min_run)) {
                 return true;
             }
         }
@@ -1427,48 +1561,34 @@ void LinkageCollector::record(const string& contig, size_t position,
     if (genotype_ln_likelihood.empty() || called_trav_i < 0) {
         return;
     }
-    // int8 in the panel arena caps a site at 127 alleles; one that exceeded it would lose linkage
-    // rather than be mis-linked, which is the safe direction. `ok` covers that and the two other
-    // ways a site cannot be described.
+    // A site that cannot be described, such as one with more alleles than the int8 panel arena
+    // can name, loses its linkage rather than being mis-linked.
     const CompactSite cs = compact_site(genotype_ln_likelihood, haplotype_traversal,
                                         called_trav_i, called_trav_j, ploidy);
     if (!cs.ok) {
         return;
     }
-    const vector<int>& space = cs.space;
-    const vector<float>& gls = cs.gls;
-    const size_t k = space.size();
-    const int ci = cs.ci, cj = cs.cj;
-    const size_t site_ploidy = cs.site_ploidy;
-    auto compact_of = [&](int trav) { return cs.compact_of(trav); };
 
-    lock_guard<std::mutex> guard(mutex);
+    std::scoped_lock guard(mutex);
 
-    uint32_t contig_id;
-    {
-        auto it = contig_index.find(contig);
-        if (it != contig_index.end()) {
-            contig_id = it->second;
-        } else {
-            contig_id = (uint32_t)contig_names.size();
-            contig_names.push_back(contig);
-            contig_index.emplace(contig, contig_id);
-        }
+    const auto [contig_at, new_contig] =
+        contig_index.try_emplace(contig, (uint32_t)contig_names.size());
+    if (new_contig) {
+        contig_names.push_back(contig);
     }
 
     Entry e;
     e.position = (uint32_t)position;
-    e.contig = contig_id;
-    e.num_alleles = (uint16_t)k;
-    e.called_i = (uint16_t)ci;
-    e.called_j = (uint16_t)cj;
+    e.contig = contig_at->second;
+    e.called_i = (uint16_t)cs.ci;
+    e.called_j = (uint16_t)cs.cj;
     e.record_key = record_key;
     e.explained_share = (float)direct.explained_share;
     e.gq_factor = (float)direct.gq_factor;
     e.achievable_gap = (float)direct.achievable_gap;
     e.start_node = start_node;
     e.end_node = end_node;
-    e.ploidy = (uint8_t)site_ploidy;
+    e.ploidy = (uint8_t)cs.site_ploidy;
     e.nested = ctx.nested;
     e.emitted = ctx.emitted;
     e.parent_record_key = ctx.parent_record_key;
@@ -1477,34 +1597,15 @@ void LinkageCollector::record(const string& contig, size_t position,
     e.chain_key = ctx.chain_key;
     e.level = (uint8_t)(ctx.level > 255 ? 255 : ctx.level);
     e.freq_prior = (float)ctx.freq_prior;
+    append_site_data(e, cs, haplotype_traversal, traversal_to_allele);
 
-    e.gl_offset = (uint32_t)gl_arena.size();
-    for (float v : gls) {
-        // float, not double: these are log-likelihood differences fed to an exp(), and the
-        // ratios that survive are nowhere near float's precision limit. It halves the arena.
-        gl_arena.push_back(v);
-    }
-    e.hap_offset = (uint32_t)hap_arena.size();
-    for (size_t h = 0; h < n_haplotypes; ++h) {
-        int trav = h < haplotype_traversal.size() ? haplotype_traversal[h] : -1;
-        int a = trav >= 0 ? compact_of(trav) : -1;
-        hap_arena.push_back(a >= 0 ? (int8_t)a : (int8_t)-1);
-    }
-    e.trav_offset = (uint32_t)trav_arena.size();
-    e.allele_offset = (uint32_t)allele_arena.size();
-    for (size_t i = 0; i < k; ++i) {
-        trav_arena.push_back((uint16_t)space[i]);
-        int allele = (size_t)space[i] < traversal_to_allele.size() ? traversal_to_allele[space[i]]
-                                                                   : -1;
-        allele_arena.push_back(allele >= 0 && allele < 127 ? (int8_t)allele : (int8_t)-1);
-    }
-    const uint32_t at = (uint32_t)entries.size();
+    const auto at = (uint32_t)entries.size();
     auto last = last_by_key.find(record_key);
     if (last == last_by_key.end()) {
         first_by_key[record_key] = at;
     } else {
-        // Counted before the append, while the chain still describes the existing entries. See
-        // `num_duplicate_live_keys`.
+        // Count a duplicate before the append, while the key's chain still describes the existing
+        // entries. See `num_duplicate_live_keys`.
         if (live_index(record_key) != NO_ENTRY) {
             ++duplicate_live_keys;
         }
@@ -1516,6 +1617,30 @@ void LinkageCollector::record(const string& contig, size_t position,
     }
     by_level[e.level].push_back(at);
     entries.push_back(e);
+}
+
+void LinkageCollector::append_site_data(Entry& e, const CompactSite& cs,
+                                        const vector<int>& haplotype_traversal,
+                                        const vector<int>& traversal_to_allele) {
+    e.gl_offset = (uint32_t)gl_arena.size();
+    for (float v : cs.gls) {
+        gl_arena.push_back(v);
+    }
+    e.hap_offset = (uint32_t)hap_arena.size();
+    for (size_t h = 0; h < n_haplotypes; ++h) {
+        const int trav = h < haplotype_traversal.size() ? haplotype_traversal[h] : -1;
+        const int a = trav >= 0 ? cs.compact_of(trav) : -1;
+        hap_arena.push_back(a >= 0 ? (int8_t)a : (int8_t)-1);
+    }
+    e.trav_offset = (uint32_t)trav_arena.size();
+    e.allele_offset = (uint32_t)allele_arena.size();
+    for (int trav : cs.space) {
+        trav_arena.push_back((uint16_t)trav);
+        const int allele =
+            (size_t)trav < traversal_to_allele.size() ? traversal_to_allele[trav] : -1;
+        allele_arena.push_back(allele >= 0 && allele < 127 ? (int8_t)allele : (int8_t)-1);
+    }
+    e.num_alleles = (uint16_t)cs.space.size();
 }
 
 uint32_t LinkageCollector::live_index(size_t record_key) const {
@@ -1532,7 +1657,9 @@ uint32_t LinkageCollector::live_index(size_t record_key) const {
 size_t LinkageCollector::num_sites_at(size_t level) const {
     size_t n = 0;
     for (const Entry& e : entries) {
-        n += (e.level == level && !e.retracted);
+        if (e.level == level && !e.retracted) {
+            ++n;
+        }
     }
     return n;
 }
@@ -1559,12 +1686,11 @@ size_t LinkageCollector::bytes() const {
 
 bool LinkageCollector::chosen_traversals(size_t record_key, int* first, int* second,
                                          size_t* ploidy) const {
-    lock_guard<std::mutex> guard(mutex);
-    const uint32_t found = live_index(record_key);
-    if (found != NO_ENTRY) {
+    std::scoped_lock guard(mutex);
+    if (const uint32_t found = live_index(record_key); found != NO_ENTRY) {
         const Entry& e = entries[found];
-        const int a = traversal_of(trav_arena, e.trav_offset, e.num_alleles, e.final_i);
-        const int b = traversal_of(trav_arena, e.trav_offset, e.num_alleles, e.final_j);
+        const int a = traversal_at(e, e.final_i);
+        const int b = traversal_at(e, e.final_j);
         if (a < 0 || b < 0) {
             return false;
         }
@@ -1579,7 +1705,7 @@ bool LinkageCollector::chosen_traversals(size_t record_key, int* first, int* sec
 void LinkageCollector::chosen_traversals_for(const vector<size_t>& record_keys,
                                              vector<std::array<int, 3>>& out,
                                              vector<char>& found) const {
-    lock_guard<std::mutex> guard(mutex);
+    std::scoped_lock guard(mutex);
     out.assign(record_keys.size(), {-1, -1, 0});
     found.assign(record_keys.size(), 0);
     // Each lookup only reads, and each writes its own slot.
@@ -1590,8 +1716,8 @@ void LinkageCollector::chosen_traversals_for(const vector<size_t>& record_keys,
             continue;
         }
         const Entry& e = entries[idx];
-        const int a = traversal_of(trav_arena, e.trav_offset, e.num_alleles, e.final_i);
-        const int b = traversal_of(trav_arena, e.trav_offset, e.num_alleles, e.final_j);
+        const int a = traversal_at(e, e.final_i);
+        const int b = traversal_at(e, e.final_j);
         if (a < 0 || b < 0) {
             continue;
         }
@@ -1601,7 +1727,7 @@ void LinkageCollector::chosen_traversals_for(const vector<size_t>& record_keys,
 }
 
 std::unordered_set<size_t> LinkageCollector::emitted_records() const {
-    lock_guard<std::mutex> guard(mutex);
+    std::scoped_lock guard(mutex);
     std::unordered_set<size_t> emitted;
     for (const Entry& e : entries) {
         if (!e.retracted && e.emitted) {
@@ -1613,19 +1739,17 @@ std::unordered_set<size_t> LinkageCollector::emitted_records() const {
 
 bool LinkageCollector::set_allele_map(size_t record_key,
                                      const vector<int>& traversal_to_allele, bool emitted) {
-    lock_guard<std::mutex> guard(mutex);
-    const uint32_t found = live_index(record_key);
-    if (found != NO_ENTRY) {
+    std::scoped_lock guard(mutex);
+    if (const uint32_t found = live_index(record_key); found != NO_ENTRY) {
         Entry& e = entries[found];
-        // Only ever set, never cleared: when every snarl is genotyped independently, nested ones
-        // included, a record can be rendered by more than one path, and an assignment would make
-        // the result depend on which thread took the mutex last.
+        // Only ever set `emitted`, never clear it. When every snarl is genotyped independently,
+        // nested ones included, a record can be rendered by more than one path, and an assignment
+        // would make the result depend on which thread took the mutex last.
         if (emitted && !e.emitted) {
             e.emitted = true;
         }
-        // The span already exists, filled with -1 by `record()`. Rewrite it in place rather than
-        // appending: the compact space has not changed, only what each of its alleles is called in
-        // the VCF, so there is nothing to re-point and no arena growth.
+        // Rewrite the span `record()` filled in place. The compact space has not changed, only
+        // what each of its alleles is called in the VCF.
         for (size_t c = 0; c < e.num_alleles; ++c) {
             const size_t at_trav = e.trav_offset + c;
             const size_t at_allele = e.allele_offset + c;
@@ -1644,17 +1768,17 @@ bool LinkageCollector::set_allele_map(size_t record_key,
 
 
 bool LinkageCollector::has_entry(size_t record_key) const {
-    lock_guard<std::mutex> guard(mutex);
+    std::scoped_lock guard(mutex);
     return live_index(record_key) != NO_ENTRY;
 }
 
 bool LinkageCollector::set_position(size_t record_key, size_t position) {
-    lock_guard<std::mutex> guard(mutex);
+    std::scoped_lock guard(mutex);
     const uint32_t found = live_index(record_key);
     if (found == NO_ENTRY) {
         return false;
     }
-    entries[found].position = position;
+    entries[found].position = (uint32_t)position;
     return true;
 }
 
@@ -1662,7 +1786,7 @@ bool LinkageCollector::rescore(size_t record_key,
                                const map<vector<int>, double>& genotype_ln_likelihood,
                                const vector<int>& haplotype_traversal,
                                int called_trav_i, int called_trav_j) {
-    lock_guard<std::mutex> guard(mutex);
+    std::scoped_lock guard(mutex);
     const uint32_t found = live_index(record_key);
     if (found == NO_ENTRY) {
         return false;
@@ -1673,236 +1797,142 @@ bool LinkageCollector::rescore(size_t record_key,
     if (!cs.ok) {
         return false;
     }
-    // Whether the compact allele space changed size. It can: the space is the panel-carried
-    // traversals plus the called pair, so moving the call onto or off an allele that no panel
-    // haplotype carries adds or removes one.
     bool same_space = cs.space.size() == e.num_alleles;
     for (size_t i = 0; same_space && i < cs.space.size(); ++i) {
         same_space = trav_arena[e.trav_offset + i] == (uint16_t)cs.space[i];
     }
-    const size_t n_gt = cs.gls.size();
     if (same_space) {
-        // In place. `gl_arena` stores no length -- a reader recomputes it from `num_alleles` --
-        // so this is only safe because the shape is provably unchanged.
-        const size_t expect = e.ploidy == 1 ? (size_t)e.num_alleles
-                                            : (size_t)e.num_alleles * ((size_t)e.num_alleles + 1) / 2;
-        if (n_gt != expect) {
+        // Overwrite the likelihoods in place. `gl_arena` stores no length, since a reader
+        // recomputes it from `num_alleles`, so this needs the shape to be unchanged.
+        if (const size_t expect = e.ploidy == 1
+                                      ? (size_t)e.num_alleles
+                                      : (size_t)e.num_alleles * ((size_t)e.num_alleles + 1) / 2;
+            cs.gls.size() != expect) {
             return false;
         }
-        for (size_t i = 0; i < n_gt; ++i) {
-            gl_arena[e.gl_offset + i] = cs.gls[i];
-        }
+        std::ranges::copy(cs.gls, gl_arena.begin() + e.gl_offset);
     } else {
-        // Appended, and the offsets moved to the new slice, since a slice of another width does
-        // not fit in place; the old slice is left unused, and every other entry's offsets stay
-        // valid. The fields that place the site in the snarl tree are not changed.
-        e.gl_offset = (uint32_t)gl_arena.size();
-        for (float v : cs.gls) {
-            gl_arena.push_back(v);
-        }
-        e.hap_offset = (uint32_t)hap_arena.size();
-        for (size_t h = 0; h < n_haplotypes; ++h) {
-            const int trav = h < haplotype_traversal.size() ? haplotype_traversal[h] : -1;
-            const int a = trav >= 0 ? cs.compact_of(trav) : -1;
-            hap_arena.push_back(a >= 0 ? (int8_t)a : (int8_t)-1);
-        }
-        e.trav_offset = (uint32_t)trav_arena.size();
-        e.allele_offset = (uint32_t)allele_arena.size();
-        for (size_t i = 0; i < cs.space.size(); ++i) {
-            trav_arena.push_back((uint16_t)cs.space[i]);
-            // No allele map yet; `set_allele_map` supplies it when the record is written.
-            allele_arena.push_back((int8_t)-1);
-        }
-        e.num_alleles = (uint16_t)cs.space.size();
+        // A slice of another width does not fit in place, so append new slices and leave the old
+        // ones unused. Every other entry's offsets stay valid. No allele map is known yet;
+        // `set_allele_map` supplies it when the record is written.
+        append_site_data(e, cs, haplotype_traversal, {});
     }
-    // The per-site call moves with the likelihoods. `final_*` is left alone: it is the decode's
-    // output and `resolve_level` resets it from `called_*` on its next pass, which is the
-    // pass this rescore exists to feed.
+    // The called pair is re-compacted with the new space. `final_*` is left alone, since
+    // `resolve_level` resets it from `called_*` before it decodes.
     e.called_i = (uint16_t)cs.ci;
     e.called_j = (uint16_t)cs.cj;
     return true;
 }
 
 bool LinkageCollector::retract(size_t record_key) {
-    lock_guard<std::mutex> guard(mutex);
+    std::scoped_lock guard(mutex);
     const uint32_t found = live_index(record_key);
     if (found == NO_ENTRY) {
         return false;
     }
     entries[found].retracted = true;
-    // A retracted site has no chosen genotype, so it is no longer moved.
+    // A key with no live entry has no chosen genotype, so it is no longer moved.
     if (live_index(record_key) == NO_ENTRY) {
         moved_quality_by_record.erase(record_key);
     }
     return true;
 }
 
-/// Translate the chosen compact pair into the traversal on each strand, against which crossing
-/// masks are tested, and the VCF allele on each strand, which is what the record writes.
-void LinkageCollector::finish_phase_call(PhaseCall& pc, const Entry& e) const {
-    const size_t c_first = pc.allele_first, c_second = pc.allele_second;
-    pc.trav_first = traversal_of(trav_arena, e.trav_offset, e.num_alleles, c_first);
-    pc.trav_second = traversal_of(trav_arena, e.trav_offset, e.num_alleles, c_second);
-    int v_first = -1, v_second = -1;
-    bool fell_back = false;
-    render_phase_pair(allele_arena, e.allele_offset, e.num_alleles, c_first, c_second,
-                      e.called_i, e.called_j, &v_first, &v_second, &fell_back);
-    pc.allele_first = v_first >= 0 ? (size_t)v_first : numeric_limits<size_t>::max();
-    pc.allele_second = v_second >= 0 ? (size_t)v_second : numeric_limits<size_t>::max();
-    if (fell_back) {
+void LinkageCollector::finish_phase_call(PhaseCall& pc, const Entry& e, size_t c_first,
+                                         size_t c_second) const {
+    pc.trav_first = traversal_at(e, c_first);
+    pc.trav_second = traversal_at(e, c_second);
+    int v_first = vcf_allele_at(e, c_first);
+    int v_second = vcf_allele_at(e, c_second);
+    if (v_first < 0 || v_second < 0) {
+        // The allele map names no VCF allele for one of the pair, because it was not supplied yet
+        // or because the record wrote no ALT for that traversal. Write the called pair instead,
+        // whose order nothing determined.
+        v_first = vcf_allele_at(e, e.called_i);
+        v_second = vcf_allele_at(e, e.called_j);
         pc.order_arbitrary = pc.order_arbitrary || (v_first != v_second);
     }
+    pc.allele_first = v_first >= 0 ? (size_t)v_first : numeric_limits<size_t>::max();
+    pc.allele_second = v_second >= 0 ? (size_t)v_second : numeric_limits<size_t>::max();
 }
 
 
-/// Which of its parent's two strands a nested chain at ploidy 1 sits on, or -1.
-///
-/// `carrying` is the parent candidate traversal that crosses the chain, from `relate_to_parent`.
-/// A nested parent at ploidy 1 is on one strand, so everything inside it is on that strand: its
-/// own `nested_strand` is the answer. A diploid parent names the strand by which of its two
-/// chosen traversals carries the chain. A haploid top-level parent has only one strand, so its
-/// children get -1 and are not written as `a|.`.
-static inline int nested_strand_of(int carrying, size_t parent_ploidy, int parent_trav_first,
-                                   int parent_trav_second, int parent_nested_strand) {
+int LinkageCollector::PinnedPhase::strand_carrying(int carrying) const {
     if (carrying < 0) {
         return -1;
     }
-    if (parent_ploidy == 1 && parent_nested_strand >= 0) {
-        return parent_trav_first == carrying ? parent_nested_strand : -1;
+    if (ploidy == 1 && nested_strand >= 0) {
+        // A nested parent at ploidy 1 is on one strand, so everything inside it is on that
+        // strand.
+        return trav_first == carrying ? nested_strand : -1;
     }
-    if (parent_ploidy == 2) {
-        if (parent_trav_first == carrying) {
+    if (ploidy == 2) {
+        if (trav_first == carrying) {
             return 0;
         }
-        if (parent_trav_second == carrying) {
+        if (trav_second == carrying) {
             return 1;
         }
     }
+    // A haploid top-level parent has only one strand, so its children are not written as `a|.`.
     return -1;
 }
 
-size_t LinkageCollector::resolve_level(
-        size_t level, bool last, vector<PhaseCall>* phasing_out) {
-    size_t moved = 0;
-    if (!model.active() || entries.empty()) {
-        return moved;
+LinkageCollector::Relation LinkageCollector::relation_to(const Entry& child,
+                                                         const Entry& parent) const {
+    const int ta = traversal_at(parent, parent.final_i);
+    const int tb = parent.ploidy == 2 ? traversal_at(parent, parent.final_j) : -1;
+    return relate_to_parent(child.parent_crossing, ta, tb);
+}
+
+size_t LinkageCollector::Entry::called_genotype() const {
+    return genotype_of(ploidy, called_i, called_j);
+}
+
+size_t LinkageCollector::Entry::chosen_genotype() const {
+    return genotype_of(ploidy, final_i, final_j);
+}
+
+bool LinkageCollector::before_in_position(size_t a, size_t b) const {
+    if (entries[a].position != entries[b].position) {
+        return entries[a].position < entries[b].position;
     }
+    return entries[a].record_key < entries[b].record_key;
+}
 
-    // For each site of an earlier level, by record key: the phase chosen for it, so that a
-    // clamped site can be pinned to it, and what `nested_strand_of` needs to place a child.
-    struct PinnedPhase {
-        size_t first;
-        size_t second;
-        int trav_first;
-        int trav_second;
-        size_t ploidy;
-        int nested_strand;
-        bool order_arbitrary;
-        size_t phase_set;
-    };
-
-    // This level's entries, in append order.
-    static const vector<uint32_t> no_entries;
-    const vector<uint32_t>& this_level =
-        level < by_level.size() ? by_level[level] : no_entries;
-
-    // The record keys this level looks up by: the parents of its live sites. Below the top level,
-    // every site of a chain that is not of this level is one of them. The lookups below are built
-    // over these keys only, so that their cost follows the level rather than the genome; scanned in
-    // the same order, they hold what a lookup over every key would hold for them.
-    unordered_set<size_t> parent_keys;
-    if (level > 0) {
-        for (uint32_t idx : this_level) {
-            if (!entries[idx].retracted) {
-                parent_keys.insert(entries[idx].parent_record_key);
-            }
-        }
-    }
-    // Whether an earlier level was phased, which decides whether this level is grouped by parent.
-    const bool have_pins = phasing_out != nullptr && level > 0 && !phasing_out->empty();
-    // Rebuilt from `phasing_out` on each call. It is not read incrementally, because the last call
-    // sorts `phasing_out` in place. A key's last PhaseCall wins.
+unordered_map<size_t, LinkageCollector::PinnedPhase>
+LinkageCollector::pinned_phases(const unordered_set<size_t>& parent_keys,
+                                const vector<PhaseCall>& phasing) {
     unordered_map<size_t, PinnedPhase> pinned_phase;
-    if (have_pins) {
-        pinned_phase.reserve(parent_keys.size() * 2);
-        for (const PhaseCall& pc : *phasing_out) {
-            if (parent_keys.count(pc.record_key) != 0) {
-                pinned_phase[pc.record_key] = PinnedPhase{pc.hap_first, pc.hap_second,
-                                                          pc.trav_first, pc.trav_second,
-                                                          pc.ploidy, (int)pc.nested_strand,
-                                                          pc.order_arbitrary, pc.phase_set};
-            }
+    pinned_phase.reserve(parent_keys.size() * 2);
+    for (const PhaseCall& pc : phasing) {
+        if (parent_keys.contains(pc.record_key)) {
+            pinned_phase[pc.record_key] = PinnedPhase{pc.hap_first, pc.hap_second,
+                                                      pc.trav_first, pc.trav_second,
+                                                      pc.ploidy, (int)pc.nested_strand,
+                                                      pc.order_arbitrary, pc.phase_set};
         }
     }
-    // Where a nested haploid chain sits, by record key, so the PhaseCall the chain loop emits can
-    // name it. Derived once where the parent's chosen pair is in hand, which is the only place
-    // both facts are available.
-    struct NestedPlacement {
-        int strand = -1;
-        bool order_arbitrary = false;   // the parent's: this strand IS that coin flip, one level down
-        // Whether the site may name a panel haplotype. Under a haploid parent there is one strand
-        // and the child sits on it. Under a diploid parent, `nested_strand_of` returns -1 when
-        // both chosen traversals carry the chain or when the chosen pair could not be read, and
-        // then no haplotype is named. (A parent carrying no copy cannot occur here, since the
-        // linkage pass retracts such a subtree first.) The two cases are counted separately.
-        bool nameable = true;
-    };
-    unordered_map<size_t, NestedPlacement> unified_strand;
+    return pinned_phase;
+}
 
-    // Default every site this pass considers to its own per-site call, so that whatever a chain or a
-    // direct pass fails to reach still has a coherent genotype for a later level to clamp. Overwritten
-    // below wherever something is actually chosen.
-    for (uint32_t idx : this_level) {
-        Entry& e = entries[idx];
-        e.final_i = e.called_i;
-        e.final_j = e.ploidy == 1 ? e.called_i : e.called_j;
-    }
-
+vector<LinkageCollector::DecodeChain>
+LinkageCollector::top_level_chains(const vector<uint32_t>& this_level) {
     // Group by contig, then sort by reference position. Node-ID order is close to reference order
-    // but not the same, and the transition probabilities depend on the distances. Only at the top
-    // level: below it every live site is nested and is grouped with its parent instead.
-    vector<vector<size_t>> by_contig;
-    if (level == 0) {
-        by_contig.resize(contig_names.size());
-        for (uint32_t i : this_level) {
-            if (entries[i].retracted) {
-                continue;   // the chosen parent does not carry the chain, so there is no site here
-            }
-            by_contig[entries[i].contig].push_back(i);
-        }
-    }
-
-    // A top-level linkage chain is a maximal run of one ploidy on one contig, since strands do not
-    // correspond across a ploidy change such as the boundary of a region with its own ploidy.
-    //
-    // For each chain, the message to condition it on (empty for none) and its phase set (SIZE_MAX
-    // to take it from the chain's first site). `deltas` owns the messages that `chain_context`
-    // points to, so it must outlive the decode below; it is a deque so that adding a message does
-    // not move the others.
-    std::deque<vector<double>> deltas;
-    vector<const vector<double>*> chain_context;
-    vector<size_t> chain_phase_set;
-
-    vector<vector<size_t>> chains;
-    for (auto& contig_indices : by_contig) {
-        if (contig_indices.empty()) {
+    // but not the same, and the transition probabilities depend on the distances.
+    vector<vector<size_t>> by_contig(contig_names.size());
+    for (uint32_t i : this_level) {
+        if (entries[i].retracted) {
             continue;
         }
-        // Position, then the site's own key. Sites arrive in whatever order the threads finished,
-        // and two records can share a position, so sorting on position alone leaves their relative
-        // order down to scheduling -- which would make the output depend on the thread count. The
-        // key is derived from the snarl ID, so it is a property of the site rather than of the run.
-        sort(contig_indices.begin(), contig_indices.end(), [&](size_t a, size_t b) {
-            if (entries[a].position != entries[b].position) {
-                return entries[a].position < entries[b].position;
-            }
-            return entries[a].record_key < entries[b].record_key;
-        });
-        // Sorted first, so that a run is contiguous in reference order. Nested sites are kept out of
-        // these runs and decoded afterwards with their parents, since a nested ploidy-1 site
-        // between diploid neighbours would otherwise split the run. A change of the contig's own
-        // ploidy still splits it. Every entry here is top level, since `by_contig` is built only
-        // at level 0.
+        by_contig[entries[i].contig].push_back(i);
+    }
+    // A top-level linkage chain is a maximal run of one ploidy on one contig, since strands do not
+    // correspond across a ploidy change such as the boundary of a region with its own ploidy.
+    vector<DecodeChain> chains;
+    for (vector<size_t>& contig_indices : by_contig) {
+        std::ranges::sort(contig_indices,
+                          [this](size_t a, size_t b) { return before_in_position(a, b); });
         size_t run_start = 0;
         while (run_start < contig_indices.size()) {
             size_t run_end = run_start + 1;
@@ -1911,582 +1941,519 @@ size_t LinkageCollector::resolve_level(
                           == entries[contig_indices[run_start]].ploidy) {
                 ++run_end;
             }
-            chains.emplace_back(contig_indices.begin() + run_start,
-                                contig_indices.begin() + run_end);
-            chain_context.push_back(nullptr);
-            chain_phase_set.push_back(numeric_limits<size_t>::max());
+            DecodeChain chain;
+            chain.sites.assign(contig_indices.begin() + run_start,
+                               contig_indices.begin() + run_end);
+            chains.push_back(std::move(chain));
             run_start = run_end;
         }
     }
+    return chains;
+}
 
-    // Sites and groups decoded per parent, for reporting.
-    size_t grouped_sites = 0, grouped_groups = 0;
-    // After level 0, each nested chain is decoded on its own, conditioned on its parent's
-    // chosen state, so the cost grows with the number of children rather than with the length of
-    // the contig. Sites within a chain are linked; two chains under the same parent have no
-    // transitions between them.
-    if (have_pins) {
-        // The live entry of each parent key; a key's last live entry wins.
-        unordered_map<size_t, size_t> index_of_key;
-        index_of_key.reserve(parent_keys.size() * 2);
-        for (size_t i = 0; i < entries.size(); ++i) {
-            if (!entries[i].retracted && parent_keys.count(entries[i].record_key) != 0) {
-                index_of_key[entries[i].record_key] = i;
-            }
-        }
-        // Sites grouped by (parent, chain, ploidy, carrying traversal); see `group_key`.
-        map<tuple<size_t, size_t, size_t, int>, vector<size_t>> by_parent;
-        // What the parent's chosen pair implies about a child, from `relate_to_parent`.
-        auto relate = [&](const Entry& child, const Entry& parent) {
-            const int ta = traversal_of(trav_arena, parent.trav_offset, parent.num_alleles,
-                                        parent.final_i);
-            const int tb = parent.ploidy == 2
-                               ? traversal_of(trav_arena, parent.trav_offset, parent.num_alleles,
-                                              parent.final_j)
-                               : -1;
-            return LinkageCollector::relate_to_parent(child.parent_crossing, ta, tb);
-        };
-
-        // (parent, chain), where the chain half is its boundary pair from the graph. A snarl the
-        // decomposition puts in no chain becomes its own group rather than being pooled with every
-        // other such snarl under this parent.
-        auto group_key = [&](const Entry& e, const Entry& parent) {
-            // The chain's boundary pair, from the graph.
-            const size_t chain = e.chain_key != 0
-                                     ? e.chain_key
-                                     : numeric_limits<size_t>::max() - e.record_key;
-            // Ploidy is part of the key. A group is decoded at one ploidy, taken from its first
-            // member, and a site decoded at the wrong ploidy would index past its likelihood
-            // vector. Children in one chain of one parent can differ in ploidy, since a child's
-            // ploidy is the number of the parent's chosen alleles that cross it.
-            //
-            // So is, at ploidy 1, the parent's chosen traversal that carries the site, which
-            // names the strand the site is on. A group is placed on one strand, and two sites of
-            // one chain can be carried by different strands of the parent.
-            const int carrying = e.ploidy == 1 ? relate(e, parent).carrying_trav : -1;
-            return make_tuple(e.parent_record_key, chain, e.ploidy, carrying);
-        };
-        // Group every live site of this level with its parent. A site that cannot be grouped
-        // is decoded alone. Groups are sorted afterwards on (position, record key), a total order,
-        // so membership does not depend on the order in which sites arrived.
-        vector<vector<size_t>> ungrouped;
-        for (uint32_t idx : this_level) {
-            const Entry& e = entries[idx];
-            if (e.retracted) {
-                continue;
-            }
-            auto par = index_of_key.find(e.parent_record_key);
-            if (e.parent_record_key == 0) {
-                ++model.counters.grp_no_parent;
-            } else if (par == index_of_key.end()) {
-                ++model.counters.grp_no_entry;
-            } else {
-                by_parent[group_key(e, entries[par->second])].push_back(idx);
-                continue;
-            }
-            // Decoded alone rather than dropped, so that it is still chosen and phased.
-            ++model.counters.grp_vetoed;
-            ungrouped.push_back(vector<size_t>{idx});
-        }
-        if (!by_parent.empty()) {
-            // The phase set a group belongs to is its parent's, never the group's own first site:
-            // a group is a unit of decoding, a phase block is a unit of meaning, and taking one
-            // from the other is what fragments the output. It is read off the parent's entry in
-            // `pinned_phase`.
-            vector<vector<size_t>> groups;
-            vector<const vector<double>*> gctx;
-            vector<size_t> gps;
-            for (auto& kv : by_parent) {
-                const size_t pidx = index_of_key[std::get<0>(kv.first)];
-                // The parent joins its group when their ploidies match, as for a haploid child of
-                // a haploid parent. A haploid child of a diploid parent is decoded without it, and
-                // the parent reaches the group through the entering message instead. Every member
-                // of the group has this ploidy, since it is part of the key.
-                const size_t group_ploidy =
-                    kv.second.empty() ? entries[pidx].ploidy : std::get<2>(kv.first);
-                const bool parent_in_group = entries[pidx].ploidy == group_ploidy;
-                vector<size_t> group;
-                if (parent_in_group) {
-                    group.push_back(pidx);
-                }
-                // A total order on (position, record key). A comparator that skips a key when
-                // either side lacks it is not a strict weak ordering, and std::sort with one is
-                // undefined.
-                sort(kv.second.begin(), kv.second.end(), [&](size_t a, size_t c) {
-                    const Entry& ea = entries[a];
-                    const Entry& ec = entries[c];
-                    if (ea.position != ec.position) {
-                        return ea.position < ec.position;
-                    }
-                    return ea.record_key < ec.record_key;
-                });
-                if (pinned_phase.count(entries[pidx].record_key) != 0) {
-                    ++model.counters.group_parent_pinned;
-                } else {
-                    // No PhaseCall for the parent, so nothing ties this group's orientation to it.
-                    ++model.counters.group_parent_unpinned;
-                }
-                group.insert(group.end(), kv.second.begin(), kv.second.end());
-                grouped_sites += group.size();
-                ++grouped_groups;
-                groups.push_back(std::move(group));
-                // The entering message, from the parent's chosen state, owned by `deltas`. A
-                // parent strand that names no haplotype gives no message.
-                const size_t m = n_haplotypes;
-                auto pin = pinned_phase.find(std::get<0>(kv.first));
-                if (pin == pinned_phase.end()) {
-                    gctx.push_back(nullptr);
-                } else if (group_ploidy == 1) {
-                    // One haplotype, not a pair: the group sits on one of the parent's strands, the
-                    // one `nested_strand_of` names. Every member is carried by the same parent
-                    // traversal, which is part of the group key, so the first member stands for
-                    // all. A haploid parent records its haplotype in the slot its own
-                    // `nested_strand` names, `hap_second` on strand 1 and `hap_first` otherwise,
-                    // and the other slot names none.
-                    const Entry& child = entries[kv.second.front()];
-                    const int carrying = relate(child, entries[pidx]).carrying_trav;
-                    const int strand = nested_strand_of(carrying, pin->second.ploidy,
-                                                        pin->second.trav_first,
-                                                        pin->second.trav_second,
-                                                        pin->second.nested_strand);
-                    const int slot = pin->second.ploidy == 1 ? pin->second.nested_strand : strand;
-                    const size_t hap = slot == 1 ? pin->second.second : pin->second.first;
-                    // Give no message where the parent's haplotype does not pass through the child,
-                    // since it names no allele there. A haploid parent has one haplotype, so the
-                    // child needs no strand of its own to find it.
-                    const bool have_hap = pin->second.ploidy == 1 || strand >= 0;
-                    bool traversed = have_hap && hap < n_haplotypes
-                                     && (int)hap_arena[child.hap_offset + hap] >= 0;
-                    if (traversed) {
-                        // A point mass at the parent's haplotype where the group starts at the
-                        // parent. A group without its parent starts at its first child, so the
-                        // haplotype is carried through one transition to it, which leaves the
-                        // child's reads free to overrule it.
-                        const double rho =
-                            parent_in_group
-                                ? 0.0
-                                : model.switch_probability(position_gap(
-                                      entries[pidx].position, entries[pidx].unpositioned, true,
-                                      child.position, child.unpositioned));
-                        deltas.emplace_back(m, rho / (double)m);
-                        deltas.back()[hap] += 1.0 - rho;
-                        gctx.push_back(&deltas.back());
-                    } else {
-                        gctx.push_back(nullptr);
-                    }
-                    for (size_t idx : kv.second) {
-                        unified_strand[entries[idx].record_key] = NestedPlacement{
-                            strand, strand >= 0 ? pin->second.order_arbitrary : false, have_hap};
-                    }
-                    if (strand >= 0) {
-                        model.counters.nest_strand += kv.second.size();
-                    } else if (have_hap) {
-                        model.counters.nest_one_hap += kv.second.size();
-                    } else if (carrying == -2) {
-                        model.counters.nest_both += kv.second.size();
-                    } else {
-                        model.counters.nest_unreadable += kv.second.size();
-                    }
-                } else if (pin->second.first >= m || pin->second.second >= m) {
-                    gctx.push_back(nullptr);
-                } else {
-                    deltas.emplace_back(m * m, 0.0);
-                    deltas.back()[pin->second.first * m + pin->second.second] = 1.0;
-                    gctx.push_back(&deltas.back());
-                }
-                gps.push_back(pin != pinned_phase.end() ? pin->second.phase_set
-                                                        : numeric_limits<size_t>::max());
-            }
-            chains.swap(groups);
-            chain_context.swap(gctx);
-            chain_phase_set.swap(gps);
-        }
-        // Sites that could not be grouped are kept, each as its own chain, so that they are still
-        // decoded and phased whether or not any other site of this level was grouped.
-        for (vector<size_t>& kc : ungrouped) {
-            chains.push_back(std::move(kc));
-            chain_context.push_back(nullptr);
-            chain_phase_set.push_back(numeric_limits<size_t>::max());
+vector<LinkageCollector::DecodeChain> LinkageCollector::parent_groups(
+        const vector<uint32_t>& this_level, const unordered_set<size_t>& parent_keys,
+        const unordered_map<size_t, PinnedPhase>& pinned_phase,
+        unordered_map<size_t, NestedPlacement>& placements, size_t& grouped_sites,
+        size_t& grouped_groups) {
+    // The live entry of each parent key; a key's last live entry wins.
+    unordered_map<size_t, size_t> index_of_key;
+    index_of_key.reserve(parent_keys.size() * 2);
+    for (size_t i = 0; i < entries.size(); ++i) {
+        if (!entries[i].retracted && parent_keys.contains(entries[i].record_key)) {
+            index_of_key[entries[i].record_key] = i;
         }
     }
 
-    // What decoding one chain gives the loop below, which applies it. A chain is decoded from
-    // what was fixed before this point -- the entries' likelihoods and called genotypes, the
-    // clamped sites' chosen ones, `pinned_phase` and the entering messages -- and from nothing a
-    // chain writes, so the chains are decoded in parallel. Their results are then applied one
-    // chain at a time, in chain order, so the entries, `moved_quality_by_record` and
-    // `phasing_out` come out exactly as one loop over the chains leaves them.
-    struct ChainDecode {
-        size_t live_here = 0;
-        size_t pinned_here = 0;
-        // The genotype each site ends up with, whether or not linkage moved it. This is what the
-        // phasing is constrained to: phasing the pre-linkage calls would describe a genotype set
-        // that never reaches the VCF.
-        vector<size_t> final_genotype;
-        // For each site of this level, the most probable genotype under its posterior and that
-        // probability; `no_posterior` where the posterior is empty.
-        vector<size_t> best;
-        vector<double> best_posterior;
-        // With phasing: the haplotypes the path chose, the alleles the panel gives them at each
-        // site (-1 where it names none), and the chain's phase set.
-        vector<LinkageModel::Phase> phase;
-        vector<int> allele_first;
-        vector<int> allele_second;
-        size_t phase_set = 0;
+    // A group is keyed by (parent record key, chain, ploidy, carrying traversal).
+    //
+    // The chain is its boundary pair from the graph. A snarl the decomposition puts in no chain
+    // becomes its own group rather than being pooled with every other such snarl under this
+    // parent.
+    //
+    // A group is decoded at one ploidy, and a site decoded at the wrong ploidy would index past
+    // its likelihood vector. Children in one chain of one parent can differ in ploidy, since a
+    // child's ploidy is the number of the parent's chosen alleles that cross it.
+    //
+    // At ploidy 1, the parent's chosen traversal that carries the site names the strand the site
+    // is on. A group is placed on one strand, and two sites of one chain can be carried by
+    // different strands of the parent.
+    using GroupKey = std::tuple<size_t, size_t, size_t, int>;
+    auto group_key = [&](const Entry& e, const Entry& parent) {
+        const size_t chain = e.chain_key != 0
+                                 ? e.chain_key
+                                 : numeric_limits<size_t>::max() - e.record_key;
+        const int carrying = e.ploidy == 1 ? relation_to(e, parent).carrying_trav : -1;
+        return GroupKey(e.parent_record_key, chain, e.ploidy, carrying);
     };
-    const size_t no_posterior = numeric_limits<size_t>::max();
-    vector<ChainDecode> decoded(chains.size());
-
-    // The longest chains are started first, so that the longest decode is not left until last.
-    vector<size_t> decode_order(chains.size());
-    for (size_t i = 0; i < decode_order.size(); ++i) {
-        decode_order[i] = i;
+    // Group every live site of this level with its parent. A site that cannot be grouped is
+    // decoded alone, so that it is still chosen and phased.
+    map<GroupKey, vector<size_t>> by_parent;
+    vector<DecodeChain> ungrouped;
+    for (uint32_t idx : this_level) {
+        const Entry& e = entries[idx];
+        if (e.retracted) {
+            continue;
+        }
+        auto par = index_of_key.find(e.parent_record_key);
+        if (e.parent_record_key == 0) {
+            ++model.counters().grp_no_parent;
+        } else if (par == index_of_key.end()) {
+            ++model.counters().grp_no_entry;
+        } else {
+            by_parent[group_key(e, entries[par->second])].push_back(idx);
+            continue;
+        }
+        ++model.counters().grp_vetoed;
+        DecodeChain alone;
+        alone.sites.push_back(idx);
+        ungrouped.push_back(std::move(alone));
     }
-    std::stable_sort(decode_order.begin(), decode_order.end(), [&](size_t a, size_t b) {
-        return chains[a].size() > chains[b].size();
-    });
 
+    vector<DecodeChain> chains;
+    for (auto& [key, members] : by_parent) {
+        const size_t parent = index_of_key[std::get<0>(key)];
+        chains.push_back(parent_group(parent, std::get<2>(key), members, pinned_phase,
+                                      placements));
+        grouped_sites += chains.back().sites.size();
+        ++grouped_groups;
+    }
+    for (DecodeChain& alone : ungrouped) {
+        chains.push_back(std::move(alone));
+    }
+    return chains;
+}
+
+LinkageCollector::DecodeChain LinkageCollector::parent_group(
+        size_t parent, size_t group_ploidy, vector<size_t>& members,
+        const unordered_map<size_t, PinnedPhase>& pinned_phase,
+        unordered_map<size_t, NestedPlacement>& placements) {
+    DecodeChain group;
+    // The parent joins its group when their ploidies match, as for a haploid child of a haploid
+    // parent. A haploid child of a diploid parent is decoded without it, and the parent reaches
+    // the group through the entering message instead.
+    const bool parent_in_group = entries[parent].ploidy == group_ploidy;
+    if (parent_in_group) {
+        group.sites.push_back(parent);
+    }
+    std::ranges::sort(members, [this](size_t a, size_t b) { return before_in_position(a, b); });
+    group.sites.insert(group.sites.end(), members.begin(), members.end());
+
+    const size_t parent_key = entries[parent].record_key;
+    auto pin = pinned_phase.find(parent_key);
+    if (pin == pinned_phase.end()) {
+        // No PhaseCall for the parent, so nothing ties this group's orientation to it.
+        ++model.counters().group_parent_unpinned;
+        return group;
+    }
+    ++model.counters().group_parent_pinned;
+    // The phase set a group belongs to is its parent's. A group is a unit of decoding and a phase
+    // block a unit of meaning, so taking the phase set from the group's own first site would
+    // fragment the output.
+    group.phase_set = pin->second.phase_set;
+
+    const size_t m = n_haplotypes;
+    if (group_ploidy == 1) {
+        group.entering = haploid_group_message(parent, parent_in_group, members, pin->second,
+                                               placements);
+    } else if (pin->second.first < m && pin->second.second < m) {
+        // A point mass at the parent's pair, which a parent strand naming no haplotype cannot
+        // give.
+        group.entering.assign(m * m, 0.0);
+        group.entering[pin->second.first * m + pin->second.second] = 1.0;
+    }
+    return group;
+}
+
+vector<double> LinkageCollector::haploid_group_message(
+        size_t parent, bool parent_in_group, const vector<size_t>& members,
+        const PinnedPhase& pin, unordered_map<size_t, NestedPlacement>& placements) {
+    // The group sits on the parent strand that `PinnedPhase::strand_carrying` names. Every member is carried
+    // by the same parent traversal, which is part of the group key, so the first member stands
+    // for all.
+    const Entry& child = entries[members.front()];
+    const int carrying = relation_to(child, entries[parent]).carrying_trav;
+    const int strand = pin.strand_carrying(carrying);
+    // A haploid parent records its haplotype in the slot its own `nested_strand` names:
+    // `hap_second` on strand 1 and `hap_first` otherwise.
+    const int slot = pin.ploidy == 1 ? pin.nested_strand : strand;
+    const size_t hap = slot == 1 ? pin.second : pin.first;
+    // A haploid parent has one haplotype, so the child needs no strand of its own to find it.
+    const bool have_hap = pin.ploidy == 1 || strand >= 0;
+
+    for (size_t idx : members) {
+        placements[entries[idx].record_key] =
+            NestedPlacement{strand, strand >= 0 ? pin.order_arbitrary : false, have_hap};
+    }
+    if (strand >= 0) {
+        model.counters().nest_strand += members.size();
+    } else if (have_hap) {
+        model.counters().nest_one_hap += members.size();
+    } else if (carrying == -2) {
+        model.counters().nest_both += members.size();
+    } else {
+        model.counters().nest_unreadable += members.size();
+    }
+
+    // Give no message where the parent's haplotype does not pass through the child, since it
+    // names no allele there.
+    const size_t m = n_haplotypes;
+    if (!(have_hap && hap < m && (int)hap_arena[child.hap_offset + hap] >= 0)) {
+        return {};
+    }
+    // A group that starts at its parent starts at the parent's haplotype, as a point mass. A group
+    // without its parent starts at its first child, so the haplotype is carried through one
+    // transition to it, which leaves the child's reads free to overrule it.
+    const double rho = parent_in_group
+                           ? 0.0
+                           : model.switch_probability(position_gap(
+                                 entries[parent].position, entries[parent].unpositioned, true,
+                                 child.position, child.unpositioned));
+    vector message(m, rho / (double)m);
+    message[hap] += 1.0 - rho;
+    return message;
+}
+
+vector<LinkageModel::Site> LinkageCollector::model_sites(
+        const vector<size_t>& indices, size_t level,
+        const unordered_map<size_t, PinnedPhase>& pinned_phase) const {
+    vector<LinkageModel::Site> sites;
+    sites.reserve(indices.size());
+    for (size_t k = 0; k < indices.size(); ++k) {
+        const Entry& e = entries[indices[k]];
+        LinkageModel::Site s;
+        s.position = e.position;
+        s.unpositioned = e.unpositioned;
+        s.num_alleles = e.num_alleles;
+        s.ploidy = e.ploidy;
+        s.freq_prior = e.freq_prior;
+        const size_t n_gt = e.ploidy == 1
+                                ? (size_t)e.num_alleles
+                                : (size_t)e.num_alleles * ((size_t)e.num_alleles + 1) / 2;
+        s.genotype_ln_likelihood.reserve(n_gt);
+        for (size_t g = 0; g < n_gt; ++g) {
+            s.genotype_ln_likelihood.push_back((double)gl_arena[e.gl_offset + g]);
+        }
+        s.haplotype_allele.reserve(n_haplotypes);
+        for (size_t h = 0; h < n_haplotypes; ++h) {
+            s.haplotype_allele.push_back((int)hap_arena[e.hap_offset + h]);
+        }
+        if (e.level < level) {
+            // Clamp the site with a point-mass emission at its chosen genotype. It still carries
+            // transition context for its neighbours, which is why it is in the chain at all, but
+            // cannot move. build_emission maps a non-finite entry to zero mass.
+            const size_t chosen = e.chosen_genotype();
+            for (size_t g = 0; g < s.genotype_ln_likelihood.size(); ++g) {
+                s.genotype_ln_likelihood[g] =
+                    (g == chosen) ? 0.0 : -numeric_limits<double>::infinity();
+            }
+            // The one clamped site of a group is its parent, held first.
+            s.group_parent = (k == 0);
+            if (auto pin = pinned_phase.find(e.record_key); pin != pinned_phase.end()) {
+                s.pinned = true;
+                s.pin_first = pin->second.first;
+                s.pin_second = pin->second.second;
+            }
+        }
+        sites.push_back(std::move(s));
+    }
+    return sites;
+}
+
+void LinkageCollector::choose_genotypes(const vector<size_t>& indices, size_t level,
+                                        const vector<vector<double>>& posteriors,
+                                        ChainDecode& d) const {
+    d.final_genotype.assign(indices.size(), LinkageModel::NO_CONSTRAINT);
+    d.best.assign(indices.size(), ChainDecode::NO_POSTERIOR);
+    d.best_posterior.assign(indices.size(), 0.0);
+    for (size_t t = 0; t < indices.size(); ++t) {
+        const Entry& e = entries[indices[t]];
+        const vector<double>& post = posteriors[t];
+        if (e.level < level) {
+            // Clamped. The site was chosen, reported and emitted at its own level, but the
+            // phasing is constrained to its genotype too.
+            d.final_genotype[t] = e.chosen_genotype();
+            continue;
+        }
+        if (post.empty()) {
+            d.final_genotype[t] = e.called_genotype();
+            continue;
+        }
+        size_t best = 0;
+        for (size_t g = 1; g < post.size(); ++g) {
+            if (post[g] > post[best]) {
+                best = g;
+            }
+        }
+        d.final_genotype[t] = best;
+        d.best[t] = best;
+        d.best_posterior[t] = post[best];
+    }
+}
+
+LinkageCollector::ChainDecode LinkageCollector::decode_chain(
+        const DecodeChain& chain, size_t level,
+        const unordered_map<size_t, PinnedPhase>& pinned_phase, bool phase) const {
+    ChainDecode d;
+    const vector<size_t>& indices = chain.sites;
+    if (indices.empty()) {
+        return d;
+    }
+    for (size_t idx : indices) {
+        if (entries[idx].level == level) {
+            ++d.live_here;
+        } else if (pinned_phase.contains(entries[idx].record_key)) {
+            ++d.pinned_here;
+        }
+    }
+    if (d.live_here == 0) {
+        // Every site is clamped, so there is nothing to decide.
+        return d;
+    }
+    // A one-site chain has nothing to link to, so the model cannot change its genotype. It is
+    // still phased, so that it appears in `phasing_out` and the mosaic.
+
+    const size_t chain_ploidy = entries[indices.front()].ploidy;
+    for (size_t idx : indices) {
+        assert(entries[idx].ploidy == chain_ploidy
+               && "a decode chain must be homogeneous in ploidy");
+    }
+
+    const vector<LinkageModel::Site> sites = model_sites(indices, level, pinned_phase);
+
+    // The entering message is over ordered pairs for a diploid group and over single haplotypes
+    // for a haploid one. Each decode ignores a message of the wrong size for its states.
+    const vector<double>* entering = chain.entering.empty() ? nullptr : &chain.entering;
+    vector<vector<double>> posteriors;
+    if (chain_ploidy == 1) {
+        posteriors = model.posteriors(sites, 1, entering);
+    } else if (entering != nullptr) {
+        model.segment_posteriors(sites, 0, sites.size(), entering, nullptr, posteriors);
+    } else {
+        posteriors = model.posteriors(sites, 2);
+    }
+    choose_genotypes(indices, level, posteriors, d);
+    vector<vector<double>>().swap(posteriors);
+
+    if (!phase) {
+        return d;
+    }
+    // Phase the genotypes each site ends up with. Phasing the pre-linkage calls would describe a
+    // genotype set that never reaches the VCF.
+    d.phase = model.phasing(sites, d.final_genotype, chain_ploidy, entering);
+    // One phase set per chain, named by its first site's position unless the chain has its
+    // parent's. The windows are pinned to each other, so the path is continuous across the chain.
+    d.phase_set = chain.phase_set != numeric_limits<size_t>::max() ? chain.phase_set
+                                                                    : sites.front().position;
+    // Read the alleles the path's haplotypes carry now, so that `sites` need not be kept until
+    // the results are applied.
+    d.allele_first.assign(d.phase.size(), -1);
+    d.allele_second.assign(d.phase.size(), -1);
+    for (size_t t = 0; t < indices.size() && t < d.phase.size(); ++t) {
+        const LinkageModel::Phase& ph = d.phase[t];
+        if (ph.first != LinkageModel::NO_HAPLOTYPE
+            && ph.first < sites[t].haplotype_allele.size()) {
+            d.allele_first[t] = sites[t].haplotype_allele[ph.first];
+        }
+        if (ph.second != LinkageModel::NO_HAPLOTYPE
+            && ph.second < sites[t].haplotype_allele.size()) {
+            d.allele_second[t] = sites[t].haplotype_allele[ph.second];
+        }
+    }
+    return d;
+}
+
+vector<LinkageCollector::ChainDecode> LinkageCollector::decode_chains(
+        const vector<DecodeChain>& chains, size_t level,
+        const unordered_map<size_t, PinnedPhase>& pinned_phase, bool phase) const {
+    // Each chain reads only what was fixed before decoding, so the chains are decoded in
+    // parallel. Start the longest first, so that the longest decode is not left until last.
+    vector<ChainDecode> decoded(chains.size());
+    vector<size_t> decode_order(chains.size());
+    std::iota(decode_order.begin(), decode_order.end(), 0);
+    std::ranges::stable_sort(decode_order, [&](size_t a, size_t b) {
+        return chains[a].sites.size() > chains[b].sites.size();
+    });
 #pragma omp parallel for schedule(dynamic, 1)
     for (size_t order_i = 0; order_i < decode_order.size(); ++order_i) {
         const size_t chain_i = decode_order[order_i];
-        const vector<size_t>& indices = chains[chain_i];
-        if (indices.empty()) {
+        decoded[chain_i] = decode_chain(chains[chain_i], level, pinned_phase, phase);
+    }
+    return decoded;
+}
+
+size_t LinkageCollector::apply_chosen_genotypes(const vector<size_t>& indices,
+                                                const ChainDecode& d, size_t level) {
+    size_t moved = 0;
+    for (size_t t = 0; t < indices.size(); ++t) {
+        Entry& e = entries[indices[t]];
+        if (e.level < level) {
+            // Clamped; it was applied at its own level.
             continue;
         }
-        ChainDecode& d = decoded[chain_i];
-        // Count the chain's sites of this level, and its pinned sites of earlier ones. A chain
-        // with none of this level's sites has nothing to decide, since all its sites are
-        // clamped, and is skipped.
-        for (size_t idx : indices) {
-            if (entries[idx].level == level) {
-                ++d.live_here;
-            } else if (pinned_phase.count(entries[idx].record_key) != 0) {
-                ++d.pinned_here;
-            }
-        }
-        if (d.live_here == 0) {
+        if (d.best[t] == ChainDecode::NO_POSTERIOR) {
+            moved_quality_by_record.erase(e.record_key);
             continue;
         }
-        // A one-site chain has nothing to link to, so the model cannot change its genotype, but it
-        // is still phased, so that it appears in `phasing_out` and the mosaic.
-
-        // Every site of a chain has the same ploidy, and this checks it, since a site decoded at
-        // the wrong ploidy would index past its likelihood vector.
-        size_t chain_ploidy = entries[indices.front()].ploidy;
-        for (size_t idx : indices) {
-            assert(entries[idx].ploidy == chain_ploidy
-                   && "a decode chain must be homogeneous in ploidy");
+        const size_t before = e.called_genotype();
+        const size_t best = d.best[t];
+        // At ploidy 1 the genotype index is the allele, and both slots carry it.
+        size_t i = best;
+        size_t j = best;
+        if (e.ploidy != 1) {
+            genotype_alleles(best, i, j);
         }
-
-        vector<LinkageModel::Site> sites;
-        sites.reserve(indices.size());
-        for (size_t k = 0; k < indices.size(); ++k) {
-            const size_t idx = indices[k];
-            const Entry& e = entries[idx];
-            LinkageModel::Site s;
-            s.position = e.position;
-            s.unpositioned = e.unpositioned;
-            s.num_alleles = e.num_alleles;
-            s.ploidy = e.ploidy;
-            s.freq_prior = e.freq_prior;
-            size_t n_gt = e.ploidy == 1
-                              ? (size_t)e.num_alleles
-                              : (size_t)e.num_alleles * ((size_t)e.num_alleles + 1) / 2;
-            s.genotype_ln_likelihood.reserve(n_gt);
-            for (size_t g = 0; g < n_gt; ++g) {
-                s.genotype_ln_likelihood.push_back((double)gl_arena[e.gl_offset + g]);
-            }
-            s.haplotype_allele.reserve(n_haplotypes);
-            for (size_t h = 0; h < n_haplotypes; ++h) {
-                s.haplotype_allele.push_back((int)hap_arena[e.hap_offset + h]);
-            }
-            if (e.level < level) {
-                // Clamped. A delta emission at the chosen genotype, so the site still carries
-                // transition context for its neighbours -- which is why it is in the chain at all --
-                // while being unable to move. build_emission maps a non-finite entry to zero mass,
-                // so this needs nothing from the model.
-                size_t chosen = e.ploidy == 1
-                                     ? (size_t)e.final_i
-                                     : LinkageModel::genotype_index(e.final_i, e.final_j);
-                for (size_t g = 0; g < s.genotype_ln_likelihood.size(); ++g) {
-                    s.genotype_ln_likelihood[g] = (g == chosen)
-                                                      ? 0.0
-                                                      : -numeric_limits<double>::infinity();
-                }
-                // The one clamped site of a group is its parent, held first.
-                s.group_parent = (k == 0);
-                auto pin = pinned_phase.find(e.record_key);
-                if (pin != pinned_phase.end()) {
-                    s.pinned = true;
-                    s.pin_first = pin->second.first;
-                    s.pin_second = pin->second.second;
-                }
-            }
-            sites.push_back(std::move(s));
-        }
-
-        vector<vector<double>> posteriors;
-        // The entering message, built from the parent's PhaseCall: over ordered pairs for a
-        // diploid group, over single haplotypes for a haploid one. Each decode ignores a
-        // message of the wrong size for its states, so it is passed without regard to ploidy.
-        const vector<double>* ctx =
-            chain_i < chain_context.size() ? chain_context[chain_i] : nullptr;
-        if (chain_ploidy == 1) {
-            posteriors = model.posteriors(sites, 1, ctx);
-        } else if (ctx != nullptr) {
-            // A child group, conditioned on its parent's chosen state.
-            model.segment_posteriors(sites, 0, sites.size(), ctx, nullptr, posteriors);
+        // A later level clamps the site here instead of reconsidering it, which makes a parent's
+        // genotype final before any of its children is called.
+        e.final_i = (uint16_t)i;
+        e.final_j = (uint16_t)j;
+        if (best != before) {
+            // Keep the posterior, since the record's GQ is computed from it.
+            MovedQuality& q = moved_quality_by_record[e.record_key];
+            q.posterior = d.best_posterior[t];
+            q.direct.explained_share = e.explained_share;
+            q.direct.gq_factor = e.gq_factor;
+            q.direct.achievable_gap = e.achievable_gap;
+            ++moved;
         } else {
-            posteriors = model.posteriors(sites, 2);
-        }
-
-        d.final_genotype.assign(indices.size(), LinkageModel::NO_CONSTRAINT);
-        d.best.assign(indices.size(), no_posterior);
-        d.best_posterior.assign(indices.size(), 0.0);
-        for (size_t t = 0; t < indices.size(); ++t) {
-            const Entry& e = entries[indices[t]];
-            const vector<double>& post = posteriors[t];
-            if (e.level < level) {
-                // Clamped: it was chosen, reported and emitted at its own level. Its genotype
-                // still has to reach `final_genotype`, because that is what the phasing below is
-                // constrained to, but it must not produce a second Change.
-                d.final_genotype[t] = e.ploidy == 1
-                                          ? (size_t)e.final_i
-                                          : LinkageModel::genotype_index(e.final_i, e.final_j);
-                continue;
-            }
-            if (post.empty()) {
-                d.final_genotype[t] = e.ploidy == 1
-                                          ? (size_t)e.called_i
-                                          : LinkageModel::genotype_index(e.called_i, e.called_j);
-                continue;
-            }
-            size_t best = 0;
-            for (size_t g = 1; g < post.size(); ++g) {
-                if (post[g] > post[best]) {
-                    best = g;
-                }
-            }
-            d.final_genotype[t] = best;
-            d.best[t] = best;
-            d.best_posterior[t] = post[best];
-        }
-        vector<vector<double>>().swap(posteriors);
-
-        if (phasing_out == nullptr) {
-            continue;
-        }
-        // At ploidy 1, `phasing` gives one haplotype per site. It gets the same message as the
-        // posteriors above.
-        d.phase = model.phasing(sites, d.final_genotype, chain_ploidy, ctx);
-        // One phase set per chain, named by its first site's position. The windows are pinned to
-        // each other, so the path is continuous across the whole chain.
-        d.phase_set = sites.empty() ? 0 : sites.front().position;
-        if (chain_i < chain_phase_set.size()
-            && chain_phase_set[chain_i] != numeric_limits<size_t>::max()) {
-            d.phase_set = chain_phase_set[chain_i];
-        }
-        // The alleles the path's haplotypes carry, read here so that `sites` need not be kept
-        // until the results are applied; -1 where a haplotype does not pass through the site.
-        d.allele_first.assign(d.phase.size(), -1);
-        d.allele_second.assign(d.phase.size(), -1);
-        for (size_t t = 0; t < indices.size() && t < d.phase.size(); ++t) {
-            const LinkageModel::Phase& ph = d.phase[t];
-            if (ph.first != LinkageModel::NO_HAPLOTYPE
-                && ph.first < sites[t].haplotype_allele.size()) {
-                d.allele_first[t] = sites[t].haplotype_allele[ph.first];
-            }
-            if (ph.second != LinkageModel::NO_HAPLOTYPE
-                && ph.second < sites[t].haplotype_allele.size()) {
-                d.allele_second[t] = sites[t].haplotype_allele[ph.second];
-            }
+            // The site is unmoved in this resolution, whatever an earlier linkage pass concluded.
+            moved_quality_by_record.erase(e.record_key);
         }
     }
+    return moved;
+}
 
-    // One line per chain below the top level, written in one piece once the chains' results are
-    // applied. A level can have tens of thousands of chains, and cerr writes each piece of each
-    // line as it comes, so writing them one at a time held the pass up whenever the log was slow
-    // to take them.
-    string chain_lines;
-    for (size_t chain_i = 0; chain_i < chains.size(); ++chain_i) {
-        const vector<size_t>& indices = chains[chain_i];
-        ChainDecode& d = decoded[chain_i];
-        if (indices.empty() || d.live_here == 0) {
-            continue;
-        }
-        if (level > 0) {
-            chain_lines += "[vg call] linkage level " + std::to_string(level) + ": chain decodes "
-                           + std::to_string(indices.size()) + " sites for "
-                           + std::to_string(d.live_here) + " of its own, "
-                           + std::to_string(d.pinned_here) + " pinned\n";
-        }
-
-        for (size_t t = 0; t < indices.size(); ++t) {
-            const Entry& e = entries[indices[t]];
-            if (e.level < level) {
-                continue;   // clamped; see the decode
-            }
-            if (d.best[t] == no_posterior) {
-                moved_quality_by_record.erase(e.record_key);
-                continue;
-            }
-            size_t before = e.ploidy == 1 ? (size_t)e.called_i
-                                          : LinkageModel::genotype_index(e.called_i, e.called_j);
-            const size_t best = d.best[t];
-            // Decode the genotype index back to its allele pair. At ploidy 1 the index *is* the
-            // allele, and both slots carry it so the change applies through the same path.
-            size_t i = best, j = best;
-            if (e.ploidy != 1) {
-                j = 0;
-                while (LinkageModel::genotype_index(0, j) <= best) {
-                    ++j;
-                }
-                --j;
-                i = best - (j * (j + 1) / 2);
-            }
-            // Chosen. A later level clamps the site here instead of reconsidering it, which is
-            // what makes a parent's genotype final before any of its children is called.
-            entries[indices[t]].final_i = (uint16_t)i;
-            entries[indices[t]].final_j = (uint16_t)j;
-            if (best != before) {
-                // Counted. The record is built later from `final_i`/`final_j`. The posterior is
-                // kept, since the record's GQ is computed from it.
-                MovedQuality& q = moved_quality_by_record[e.record_key];
-                q.posterior = d.best_posterior[t];
-                q.direct.explained_share = e.explained_share;
-                q.direct.gq_factor = e.gq_factor;
-                q.direct.achievable_gap = e.achievable_gap;
-                ++moved;
-            } else {
-                // Unmoved in this resolution, whatever an earlier linkage pass concluded.
-                moved_quality_by_record.erase(e.record_key);
-            }
-        }
-
-        if (phasing_out == nullptr) {
-            d = ChainDecode();
-            continue;
-        }
-        for (size_t t = 0; t < indices.size() && t < d.phase.size(); ++t) {
-            const Entry& e = entries[indices[t]];
-            if (e.level < level) {
-                continue;   // its PhaseCall was emitted, and pinned above, at its own level
-            }
-            const LinkageModel::Phase& ph = d.phase[t];
-            // Read the ordered allele pair off the haplotypes the path chose. Where neither
-            // haplotype's allele orders the pair, fall back to the genotype's own order -- the
-            // phase is then unsupported rather than wrong.
-            size_t want = d.final_genotype[t];
-            size_t i = want, j = want;
-            if (e.ploidy != 1) {
-                j = 0;
-                while (LinkageModel::genotype_index(0, j) <= want) {
-                    ++j;
-                }
-                --j;
-                i = want - (j * (j + 1) / 2);
-            }
-
-            const int a = d.allele_first[t];
-            const int b = d.allele_second[t];
-            PhaseCall pc;
-            pc.ploidy = e.ploidy;
-            pc.level = e.level;
-            // The strand of its parent that a nested ploidy-1 chain sits on, found earlier where the
-            // parent's chosen pair was at hand.
-            int nested_slot = -1;
-            bool nameable = true;
-            {
-                auto us = unified_strand.find(e.record_key);
-                if (us != unified_strand.end()) {
-                    pc.nested_strand = (int8_t)us->second.strand;
-                    nested_slot = us->second.strand;
-                    nameable = us->second.nameable;
-                    // The strand came off the parent's pair. If the panel did not determine that
-                    // pair's order, this strand is that coin flip one level down, and reporting it
-                    // as determined overstates what the panel said.
-                    pc.order_arbitrary = pc.order_arbitrary || us->second.order_arbitrary;
-                }
-            }
-            pc.record_key = e.record_key;
-            pc.contig = contig_names[e.contig];
-            pc.position = e.position;
-            // Fill the slot that `nested_strand` names, since the mosaic reads that slot and treats
-            // the other as empty.
-            if (!nameable) {
-                pc.hap_first = LinkageModel::NO_HAPLOTYPE;
-                pc.hap_second = LinkageModel::NO_HAPLOTYPE;
-            } else if (nested_slot == 1) {
-                pc.hap_first = LinkageModel::NO_HAPLOTYPE;
-                pc.hap_second = ph.first;
-            } else {
-                pc.hap_first = ph.first;
-                pc.hap_second = ph.second;
-            }
-            pc.start_node = e.start_node;
-            pc.end_node = e.end_node;
-            pc.phase_set = d.phase_set;
-            if (e.ploidy == 1) {
-                // One strand: the called allele sits on it, and the haplotype is whatever the
-                // path chose. There is no second slot to fill.
-                pc.allele_first = want;
-                pc.allele_second = want;
-            } else if (a >= 0 && b >= 0
-                       && LinkageModel::genotype_index((size_t)a, (size_t)b) == want) {
-                pc.allele_first = (size_t)a;
-                pc.allele_second = (size_t)b;
-            } else if (a >= 0 && a == b && i != j) {
-                // Both haplotypes carry the same allele, and a mutation gave one strand another.
-                // Either strand could have mutated, so nothing orders the pair, as below.
-                pc.allele_first = i;
-                pc.allele_second = j;
-                pc.order_arbitrary = true;
-            } else if (a >= 0 && ((size_t)a == i || (size_t)a == j)) {
-                pc.allele_first = (size_t)a;
-                pc.allele_second = ((size_t)a == i) ? j : i;
-            } else if (b >= 0 && ((size_t)b == i || (size_t)b == j)) {
-                pc.allele_second = (size_t)b;
-                pc.allele_first = ((size_t)b == i) ? j : i;
-            } else {
-                // Neither panel haplotype spells either called allele, so nothing orders the pair.
-                // Sorted order is written, which pairs allele_first with hap_first only by accident.
-                pc.allele_first = i;
-                pc.allele_second = j;
-                pc.order_arbitrary = (i != j);
-            }
-            // A strand whose haplotype carries another allele than the strand's: a mutation.
-            model.counters.mutated_strands += (size_t)(a >= 0 && (size_t)a != pc.allele_first)
-                                              + (size_t)(e.ploidy != 1 && b >= 0
-                                                         && (size_t)b != pc.allele_second);
-            finish_phase_call(pc, e);
-            phasing_out->push_back(pc);
-        }
-        // This chain's results are applied, so its decode is freed.
-        d = ChainDecode();
+/// Put a diploid site's chosen genotype `want` on strands, from the alleles `a` and `b` that the
+/// haplotypes the path chose carry there, or -1 for none. Set `pc.allele_first` and
+/// `pc.allele_second` to compact alleles.
+///
+/// Where neither haplotype's allele orders the pair, the genotype's own order is written and
+/// `pc.order_arbitrary` is set. The phase is then unsupported rather than wrong.
+static void order_on_strands(LinkageCollector::PhaseCall& pc, size_t want, int a, int b) {
+    size_t i = 0;
+    size_t j = 0;
+    genotype_alleles(want, i, j);
+    if (a >= 0 && b >= 0 && LinkageModel::genotype_index((size_t)a, (size_t)b) == want) {
+        pc.allele_first = (size_t)a;
+        pc.allele_second = (size_t)b;
+    } else if (a >= 0 && a == b && i != j) {
+        // Both haplotypes carry the same allele, and a mutation gave one strand another. Either
+        // strand could have mutated, so nothing orders the pair.
+        pc.allele_first = i;
+        pc.allele_second = j;
+        pc.order_arbitrary = true;
+    } else if (a >= 0 && ((size_t)a == i || (size_t)a == j)) {
+        pc.allele_first = (size_t)a;
+        pc.allele_second = ((size_t)a == i) ? j : i;
+    } else if (b >= 0 && ((size_t)b == i || (size_t)b == j)) {
+        pc.allele_second = (size_t)b;
+        pc.allele_first = ((size_t)b == i) ? j : i;
+    } else {
+        // Neither panel haplotype spells either called allele. Sorted order is written, which
+        // pairs allele_first with hap_first only by accident.
+        pc.allele_first = i;
+        pc.allele_second = j;
+        pc.order_arbitrary = (i != j);
     }
-    if (!chain_lines.empty()) {
-#pragma omp critical (cerr)
-        std::cerr << chain_lines << std::flush;
+}
+
+LinkageCollector::PhaseCall LinkageCollector::phase_call_for(
+        const Entry& e, const ChainDecode& d, size_t t,
+        const unordered_map<size_t, NestedPlacement>& placements) const {
+    const LinkageModel::Phase& ph = d.phase[t];
+    const size_t want = d.final_genotype[t];
+    const int a = d.allele_first[t];
+    const int b = d.allele_second[t];
+
+    PhaseCall pc;
+    pc.ploidy = e.ploidy;
+    pc.level = e.level;
+    pc.record_key = e.record_key;
+    pc.contig = contig_names[e.contig];
+    pc.position = e.position;
+    pc.start_node = e.start_node;
+    pc.end_node = e.end_node;
+    pc.phase_set = d.phase_set;
+
+    // The strand of its parent that a nested ploidy-1 site sits on.
+    auto found = placements.find(e.record_key);
+    const NestedPlacement placement = found != placements.end() ? found->second
+                                                                : NestedPlacement{};
+    pc.nested_strand = (int8_t)placement.strand;
+    pc.order_arbitrary = placement.order_arbitrary;
+    // Fill the slot that `nested_strand` names, since the mosaic reads that slot and treats the
+    // other as empty.
+    if (!placement.nameable) {
+        pc.hap_first = LinkageModel::NO_HAPLOTYPE;
+        pc.hap_second = LinkageModel::NO_HAPLOTYPE;
+    } else if (placement.strand == 1) {
+        pc.hap_first = LinkageModel::NO_HAPLOTYPE;
+        pc.hap_second = ph.first;
+    } else {
+        pc.hap_first = ph.first;
+        pc.hap_second = ph.second;
     }
 
-    if (level > 0 && (model.counters.pin_applied.load() + model.counters.pin_declined.load()) > 0) {
+    if (e.ploidy == 1) {
+        // The one strand carries the chosen allele.
+        pc.allele_first = want;
+        pc.allele_second = want;
+    } else {
+        order_on_strands(pc, want, a, b);
+    }
+    // A strand whose haplotype carries another allele than the strand's own is a mutation.
+    model.counters().mutated_strands += (size_t)(a >= 0 && (size_t)a != pc.allele_first)
+                                        + (size_t)(e.ploidy != 1 && b >= 0
+                                                   && (size_t)b != pc.allele_second);
+    finish_phase_call(pc, e, pc.allele_first, pc.allele_second);
+    return pc;
+}
+
+void LinkageCollector::append_phase_calls(
+        const vector<size_t>& indices, const ChainDecode& d, size_t level,
+        const unordered_map<size_t, NestedPlacement>& placements,
+        vector<PhaseCall>& phasing_out) const {
+    for (size_t t = 0; t < indices.size() && t < d.phase.size(); ++t) {
+        const Entry& e = entries[indices[t]];
+        if (e.level < level) {
+            // Its PhaseCall was emitted at its own level.
+            continue;
+        }
+        phasing_out.push_back(phase_call_for(e, d, t, placements));
+    }
+}
+
+unordered_set<size_t> LinkageCollector::parent_keys_of(const vector<uint32_t>& this_level) const {
+    unordered_set<size_t> parent_keys;
+    for (uint32_t idx : this_level) {
+        if (!entries[idx].retracted) {
+            parent_keys.insert(entries[idx].parent_record_key);
+        }
+    }
+    return parent_keys;
+}
+
+void LinkageCollector::report_level(size_t level, size_t grouped_sites,
+                                    size_t grouped_groups) const {
+    const LinkageCounters& c = model.counters();
+    if (level > 0 && (c.pin_applied.load() + c.pin_declined.load()) > 0) {
 #pragma omp critical (cerr)
         std::cerr << "[vg call] linkage level " << level << ": pins -- "
-                  << model.counters.pin_applied.load() << " applied, " << model.counters.pin_declined.load()
+                  << c.pin_applied.load() << " applied, " << c.pin_declined.load()
                   << " REFUSED (the pinned pair cannot spell the constrained genotype, so that"
                   << " site's orientation is free); groups whose parent was pinnable: "
-                  << model.counters.group_parent_pinned.load() << ", not pinnable: "
-                  << model.counters.group_parent_unpinned.load() << std::endl;
+                  << c.group_parent_pinned.load() << ", not pinnable: "
+                  << c.group_parent_unpinned.load() << std::endl;
     }
 
-    // Report only when something was declined.
+    // Report grouping only when something was declined.
     if (level > 0
-        && (model.counters.grp_no_parent.load() + model.counters.grp_no_entry.load() + model.counters.grp_vetoed.load()) > 0) {
+        && (c.grp_no_parent.load() + c.grp_no_entry.load() + c.grp_vetoed.load()) > 0) {
 #pragma omp critical (cerr)
         std::cerr << "[vg call] linkage level " << level << ": grouping declines so far -- "
-                  << model.counters.grp_no_parent.load() << " sites with no parent key, "
-                  << model.counters.grp_no_entry.load() << " whose parent has no live entry; "
-                  << model.counters.grp_vetoed.load() << " chains kept ungrouped in total" << std::endl;
+                  << c.grp_no_parent.load() << " sites with no parent key, "
+                  << c.grp_no_entry.load() << " whose parent has no live entry; "
+                  << c.grp_vetoed.load() << " chains kept ungrouped in total" << std::endl;
     }
 
     if (grouped_groups > 0) {
@@ -2497,36 +2464,111 @@ size_t LinkageCollector::resolve_level(
     }
 
     if (level > 0
-        && (model.counters.nest_strand.load() + model.counters.nest_one_hap.load() + model.counters.nest_both.load()
-            + model.counters.nest_unreadable.load()) > 0) {
+        && (c.nest_strand.load() + c.nest_one_hap.load() + c.nest_both.load()
+            + c.nest_unreadable.load()) > 0) {
 #pragma omp critical (cerr)
-        std::cerr << "[vg call] nested strands: " << model.counters.nest_strand.load()
-                  << " on one of a diploid parent's two strands, " << model.counters.nest_one_hap.load()
+        std::cerr << "[vg call] nested strands: " << c.nest_strand.load()
+                  << " on one of a diploid parent's two strands, " << c.nest_one_hap.load()
                   << " on a haploid parent's single haplotype (no strand to choose), "
-                  << model.counters.nest_both.load() << " carried on both parent strands, "
-                  << model.counters.nest_unreadable.load()
+                  << c.nest_both.load() << " carried on both parent strands, "
+                  << c.nest_unreadable.load()
                   << " whose parent's chosen pair could not be read -- the last two name no"
                   << " haplotype" << std::endl;
     }
+}
 
-    // Sort `phasing_out` into reference order. Nested sites were appended after all the chains, so
-    // it is not yet in order, and the mosaic writer reads it as one ordered pass. The key matches
-    // the chain sort: position, then the site's own key, so that the order does not depend on the
-    // threads.
+size_t LinkageCollector::resolve_level(size_t level, bool last, vector<PhaseCall>* phasing_out) {
+    if (!model.active() || entries.empty()) {
+        return 0;
+    }
+
+    // This level's entries, in append order.
+    static const vector<uint32_t> no_entries;
+    const vector<uint32_t>& this_level =
+        level < by_level.size() ? by_level[level] : no_entries;
+
+    // The lookups below are built over the parents' keys only, so that their cost follows the
+    // level rather than the genome.
+    const unordered_set<size_t> parent_keys =
+        level > 0 ? parent_keys_of(this_level) : unordered_set<size_t>();
+    // Below the top level, sites are grouped by parent only when an earlier level was phased.
+    const bool have_pins = phasing_out != nullptr && level > 0 && !phasing_out->empty();
+    // The phase of each parent, rebuilt from `phasing_out` on each call, since the last call sorts
+    // `phasing_out` in place.
+    unordered_map<size_t, PinnedPhase> pinned_phase;
+    if (have_pins) {
+        pinned_phase = pinned_phases(parent_keys, *phasing_out);
+    }
+
+    // Default every site of this level to its own call, so that a site no chain decodes still has
+    // a coherent genotype for a later level to clamp.
+    for (uint32_t idx : this_level) {
+        Entry& e = entries[idx];
+        e.final_i = e.called_i;
+        e.final_j = e.ploidy == 1 ? e.called_i : e.called_j;
+    }
+
+    // At the top level, decode each contig's linkage chains. Below it, decode each nested chain
+    // on its own, conditioned on its parent's chosen state, so the cost grows with the number of
+    // children rather than with the length of the contig.
+    unordered_map<size_t, NestedPlacement> placements;
+    size_t grouped_sites = 0;
+    size_t grouped_groups = 0;
+    vector<DecodeChain> chains;
+    if (level == 0) {
+        chains = top_level_chains(this_level);
+    } else if (have_pins) {
+        chains = parent_groups(this_level, parent_keys, pinned_phase, placements, grouped_sites,
+                               grouped_groups);
+    }
+
+    vector<ChainDecode> decoded =
+        decode_chains(chains, level, pinned_phase, phasing_out != nullptr);
+
+    // Apply the results one chain at a time, in chain order, so the entries,
+    // `moved_quality_by_record` and `phasing_out` do not depend on the threads. Write the
+    // per-chain lines to the log in one piece, since a level can have tens of thousands of chains.
+    size_t moved = 0;
+    string chain_lines;
+    for (size_t chain_i = 0; chain_i < chains.size(); ++chain_i) {
+        const vector<size_t>& indices = chains[chain_i].sites;
+        ChainDecode& d = decoded[chain_i];
+        if (indices.empty() || d.live_here == 0) {
+            continue;
+        }
+        if (level > 0) {
+            chain_lines += std::format(
+                "[vg call] linkage level {}: chain decodes {} sites for {} of its own, {} pinned\n",
+                level, indices.size(), d.live_here, d.pinned_here);
+        }
+        moved += apply_chosen_genotypes(indices, d, level);
+        if (phasing_out != nullptr) {
+            append_phase_calls(indices, d, level, placements, *phasing_out);
+        }
+        // Free the applied decode.
+        d = ChainDecode();
+    }
+    if (!chain_lines.empty()) {
+#pragma omp critical (cerr)
+        std::cerr << chain_lines << std::flush;
+    }
+    report_level(level, grouped_sites, grouped_groups);
+
     if (phasing_out != nullptr && last) {
-        // Stable: a site re-rendered at the linkage pass has two PhaseCalls with the same record key, and
-        // the readers keep the last one for a key, which must be the later level's.
-        // `phasing_out` is appended one level at a time, so a stable sort keeps it last.
-        std::stable_sort(phasing_out->begin(), phasing_out->end(),
-                  [](const PhaseCall& a, const PhaseCall& b) {
-                      if (a.contig != b.contig) {
-                          return a.contig < b.contig;
-                      }
-                      if (a.position != b.position) {
-                          return a.position < b.position;
-                      }
-                      return a.record_key < b.record_key;
-                  });
+        // Sort `phasing_out` into reference order for the mosaic writer, since nested sites were
+        // appended after their parents' chains. Sort stably, because a site re-rendered at the
+        // linkage pass has two PhaseCalls with the same record key. Readers keep the last one for
+        // a key, which must be the later level's, and `phasing_out` is appended one level at a
+        // time.
+        std::ranges::stable_sort(*phasing_out, [](const PhaseCall& a, const PhaseCall& b) {
+            if (a.contig != b.contig) {
+                return a.contig < b.contig;
+            }
+            if (a.position != b.position) {
+                return a.position < b.position;
+            }
+            return a.record_key < b.record_key;
+        });
     }
     return moved;
 }

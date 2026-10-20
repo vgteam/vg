@@ -2,8 +2,7 @@
 
 #include "phase_table.hpp"
 
-namespace vg {
-namespace multipass {
+namespace vg::multipass {
 
 unordered_map<size_t, size_t> PhaseTable::index() const {
     unordered_map<size_t, size_t> out;
@@ -14,15 +13,12 @@ unordered_map<size_t, size_t> PhaseTable::index() const {
 }
 
 void PhaseTable::freeze_for_render(bool keep) {
-    // Built from the calls the linkage pass accumulated, as read phasing left them. Sites with no
-    // line are included; they are simply never looked up.
     render_phases.clear();
     if (!keep) {
         return;
     }
     render_phases.reserve(phase_calls.size() * 2);
     for (const PhaseCall& pc : phase_calls) {
-        // Where a site has more than one PhaseCall, the last one written wins.
         render_phases[pc.record_key] = pc;
     }
 }
@@ -38,10 +34,9 @@ vector<int> PhaseTable::phase_ordered_genotype(size_t record_key,
     if (ordered.size() != 2) {
         return ordered;
     }
-    const auto found = render_phases.find(record_key);
-    // Only on an exact reversal. A PhaseCall that is not a permutation of the chosen pair is left
-    // alone, as `emit_variant` refuses to apply one. For a homozygote the swap changes nothing.
-    if (found != render_phases.end() && found->second.ploidy == 2
+    // A phase naming any other traversals is ignored, as `emit_variant` ignores it.
+    if (const auto found = render_phases.find(record_key);
+        found != render_phases.end() && found->second.ploidy == 2
         && found->second.trav_first == ordered[1]
         && found->second.trav_second == ordered[0]) {
         std::swap(ordered[0], ordered[1]);
@@ -56,12 +51,11 @@ int PhaseTable::haploid_slot(size_t record_key, const vector<int>& genotype) con
     const auto found = render_phases.find(record_key);
     if (found == render_phases.end() || found->second.ploidy != 1
         || found->second.nested_strand < 0) {
-        // No nested strand means a haploid locus, such as chrY or a region given ploidy 1, where
-        // slot 1 means nothing.
+        // A haploid site with no nested strand is on a haploid locus, such as chrY, and has
+        // just one strand.
         return 0;
     }
-    // Only where the phase names the allele chosen for this site, as `phase_ordered_genotype` and
-    // `emit_variant` require.
+    // A phase of another allele is ignored, as `emit_variant` ignores it.
     if (found->second.trav_first != genotype[0]) {
         return 0;
     }
@@ -69,10 +63,7 @@ int PhaseTable::haploid_slot(size_t record_key, const vector<int>& genotype) con
 }
 
 size_t PhaseTable::swap_strands(const unordered_set<size_t>& flips, vector<NestedLink> links) {
-    // Each site's call, the last one winning, as in `freeze_for_render`.
     const unordered_map<size_t, size_t> phase_index = index();
-    // The genotype is the same two traversals either way, so no call changes, only which strand
-    // carries which allele.
     for (size_t key : flips) {
         const auto found = phase_index.find(key);
         if (found == phase_index.end()) {
@@ -84,17 +75,15 @@ size_t PhaseTable::swap_strands(const unordered_set<size_t>& flips, vector<Neste
         std::swap(pc.hap_first, pc.hap_second);
     }
 
-    // A nested site's `nested_strand` was set from its parent's chosen pair when the linkage pass
-    // resolved its level, so swapping the parent leaves it naming the other strand. Sites are
-    // visited top-down by level, so a parent is done before its children, and each inverts
-    // its strand where the meaning of its parent's strand 0 changed:
-    //   * under a diploid parent, strand 0 is the parent's first allele, so it changed if the
-    //     parent was swapped;
-    //   * under a haploid parent, strand 0 is the grandparent's, so it changed if the parent's own
-    //     `nested_strand` inverted.
-    std::stable_sort(links.begin(), links.end(), [](const NestedLink& a, const NestedLink& b) {
+    // Move each nested site to its other strand where the meaning of its parent's strand 0
+    // changed. Under a diploid parent, strand 0 is the parent's first allele, which changed if
+    // the parent was swapped. Under a haploid parent, strand 0 is the grandparent's strand 0,
+    // which changed if the parent moved. Visit sites by level so a parent is done before its
+    // children.
+    std::ranges::stable_sort(links, [](const NestedLink& a, const NestedLink& b) {
         return a.level < b.level;
     });
+    // Whether each visited site's strand 0 changed meaning.
     std::unordered_map<size_t, bool> frame_flipped;
     frame_flipped.reserve(links.size() * 2);
     size_t moved = 0;
@@ -105,23 +94,20 @@ size_t PhaseTable::swap_strands(const unordered_set<size_t>& flips, vector<Neste
         }
         PhaseCall& pc = phase_calls[index->second];
         bool parent_flipped = false;
-        const auto at = frame_flipped.find(link.parent);
-        if (at != frame_flipped.end()) {
+        if (const auto at = frame_flipped.find(link.parent); at != frame_flipped.end()) {
             parent_flipped = at->second;
         }
         bool strand_moved = false;
         if (pc.nested_strand >= 0 && parent_flipped) {
             pc.nested_strand = pc.nested_strand == 0 ? 1 : 0;
-            // The haplotype is held in the slot `nested_strand` names, and the other slot names
-            // none, which the mosaic reads as an empty strand.
+            // The haplotype is held in the slot `nested_strand` names, so it moves too.
             std::swap(pc.hap_first, pc.hap_second);
             strand_moved = true;
             ++moved;
         }
-        frame_flipped[link.key] = pc.ploidy == 2 ? (flips.count(link.key) != 0) : strand_moved;
+        frame_flipped[link.key] = pc.ploidy == 2 ? flips.contains(link.key) : strand_moved;
     }
     return moved;
 }
 
-}
 }
