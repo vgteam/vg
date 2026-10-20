@@ -3923,8 +3923,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         init_out(outfile, output_name);
         
         SnarlDistanceIndex distance_index;
-        IntegratedSnarlFinder snarl_finder(graph);
-        fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+        fill_in_distance_index_by_component(&distance_index, &graph);
         distance_index.serialize(output_name);
         
         output_names.push_back(output_name);
@@ -4317,10 +4316,8 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
 
         string output_name = plan->output_filepath(*constructing.begin());
         SnarlDistanceIndex distance_index;
-        IntegratedSnarlFinder snarl_finder(gbz.graph);
         // Only do top level chains
-        fill_in_distance_index(&distance_index, &gbz.graph, &snarl_finder,
-                               50000, true);
+        fill_in_distance_index_by_component(&distance_index, &gbz.graph, {}, 50000, true);
         distance_index.serialize(output_name);
 
         output_names.push_back(output_name);

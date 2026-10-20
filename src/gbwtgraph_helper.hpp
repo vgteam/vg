@@ -145,6 +145,10 @@ struct MinimizerIndexParameters {
     /// Lower bound for `hash_table_width`.
     constexpr static size_t HASH_TABLE_MIN_WIDTH = 10;
 
+    /// Multiplier for the expected number of minimizers when estimating the
+    /// number of distinct keys.
+    constexpr static double KEY_ESTIMATE_FACTOR = 0.8;
+
     /// Upper bound for `hash_table_width`.
     constexpr static size_t HASH_TABLE_MAX_WIDTH = 36;
 
@@ -186,6 +190,10 @@ struct MinimizerIndexParameters {
 
     /// Initial hash table width (in bits) for kmer counting (0 = guess).
     size_t hash_table_width = 0;
+
+    /// Expected number of keys in the minimizer index (0 = estimate from the
+    /// total sequence length). Used for pre-sizing the hash table.
+    size_t expected_keys = 0;
 
     /// Print progress information during construction.
     bool progress = false;
@@ -232,6 +240,12 @@ struct MinimizerIndexParameters {
 
     /// Returns an error message if the parameters are invalid.
     std::string validate() const;
+
+    /// Returns `expected_keys` or estimates the number of distinct keys in a
+    /// minimizer index built from a graph with the given total sequence length.
+    /// The estimate is biased low, as an underestimate only costs a final
+    /// rehash, while an overestimate may double the size of the hash table.
+    size_t estimate_keys(size_t sequence_length) const;
 
     /// Returns a string representation of the payload type.
     /// This will be used as a tag value in the minimizer index.
