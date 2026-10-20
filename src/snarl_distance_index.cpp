@@ -1188,11 +1188,11 @@ void populate_hub_labeling(SnarlDistanceIndex::TemporaryDistanceIndex& temp_inde
   std::cerr << "=== End CHOverlay Dump ===" << std::endl;
 #endif
 
-  make_contraction_hierarchy(ov);
+  HubOrder order = contraction_hierarchy_order(ov);
 
   vector<vector<HubRecord>> labels; labels.resize(num_vertices(ov));
   vector<vector<HubRecord>> labels_rev; labels_rev.resize(num_vertices(ov)); 
-  create_labels(labels, labels_rev, ov);
+  create_labels(labels, labels_rev, ov, order);
 #ifdef debug_hub_label_storage
   std::cerr << "Hub labels unpacked:" << std::endl;
   for (const auto& node_list : {labels, labels_rev}) {
