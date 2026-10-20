@@ -361,6 +361,269 @@ void transition_apply(const std::vector<double>& in, size_t m, double rho_a, dou
                       std::vector<double>& out);
 
 /**
+ * A site translated into its compact allele space, with its genotype likelihoods.
+ *
+ * The compact allele space is the called pair plus every candidate traversal some panel haplotype
+ * carries. `LinkageCollector::compact_site` builds one for each site it records or re-scores.
+ */
+struct CompactSite {
+    /// Compact allele -> candidate traversal, sorted by candidate index, so the numbering is a
+    /// property of the site rather than of the order the genotypes arrived in.
+    vector<int> space;
+    /// Genotype likelihoods over the compact space, in `LinkageModel::genotype_index` layout.
+    vector<float> gls;
+    /// The called pair, compacted. Both are >= 0 whenever `ok`.
+    int ci = -1;
+    int cj = -1;
+    size_t site_ploidy = 0;
+    bool ok = false;
+
+    /// Candidate traversal -> compact allele, or -1, by binary search in `space`.
+    int compact_of(int trav) const {
+        auto it = std::ranges::lower_bound(space, trav);
+        return (it == space.end() || *it != trav) ? -1 : (int)(it - space.begin());
+    }
+};
+
+/**
+ * The packed store of the linkage collector's site entries, found by record key or by level.
+ *
+ * Each site is one fixed-size `Entry`. Its variable-length data, which is its likelihoods, the
+ * compact allele of each panel haplotype, and the traversal and VCF allele of each compact allele,
+ * lives in shared arrays (the arenas), where the entry holds offsets to its slices. Separate
+ * vectors per entry would cost more than the entry itself, and the whole genome's entries are held
+ * at once.
+ *
+ * Entries are only appended. A retracted entry stays in place and is skipped by lookups, since
+ * other entries hold offsets into the arenas. A slice is never moved or shrunk, so an entry's
+ * offsets stay valid. A record key can have several entries. Its *live* entry is the first one,
+ * in insertion order, that is not retracted.
+ *
+ * The table has no lock. Its owner serialises every write against every other access.
+ */
+class EntryTable {
+public:
+
+    /// No entry. Chain terminator for `Entry::next_same_key` and the miss value of `live_index`.
+    static constexpr uint32_t NO_ENTRY = (uint32_t)-1;
+
+    /// The compact record of one genotyped site.
+    ///
+    /// Fields are ordered to pack the record without padding, since the whole genome's entries are
+    /// held at once.
+    struct Entry {
+        uint32_t position = 0;
+        /// `LinkageCollector::SiteContext::freq_prior`. Placed in the padding before `chain_key`,
+        /// so it does not enlarge the entry.
+        float freq_prior = -1.0f;
+        /// `LinkageCollector::SiteContext::chain_key`: identifies the site's chain, so that sites
+        /// of different chains, which have no transitions between them, are kept apart.
+        size_t chain_key = 0;
+        /// The contig, as numbered by `contig_id`.
+        uint32_t contig = 0;
+        uint32_t gl_offset = 0;
+        uint32_t hap_offset = 0;
+        /// Offsets into `trav_arena` and `allele_arena`, which map each compact allele to its
+        /// candidate traversal and to the VCF allele it was written as.
+        ///
+        /// The model works in the compact allele space rather than in VCF alleles, because
+        /// symbolic collapsing can write two traversals as one VCF allele. A parent whose alleles
+        /// differ only inside a child chain is homozygous in the VCF but heterozygous here, and
+        /// only the second can phase the child. The VCF allele is -1 for a traversal that was not
+        /// written as one.
+        uint32_t trav_offset = 0;
+        uint32_t allele_offset = 0;
+        uint16_t num_alleles = 0;
+        /// The called pair, in compact alleles.
+        uint16_t called_i = 0;
+        uint16_t called_j = 0;
+        uint8_t ploidy = 2;
+        /// The level at which the linkage pass chooses this site's genotype. Where nothing
+        /// nests, every entry is 0 and one resolve chooses them all.
+        uint8_t level = 0;
+        /// Set by `retract`. The entry stays in place and is skipped.
+        bool retracted = false;
+        /// The chosen pair, in compact alleles, written when the site's level resolves, so that
+        /// later levels can clamp it.
+        uint16_t final_i = 0;
+        uint16_t final_j = 0;
+        /// Whether this site wrote a VCF line. Only then do its `allele_offset` entries mean
+        /// anything.
+        bool emitted = true;
+        /// This site has no reference position, so `position` is not used for distances. See
+        /// `LinkageCollector::SiteContext::unpositioned`.
+        bool unpositioned = false;
+        /// `LinkageCollector::SiteContext::nested`.
+        bool nested = false;
+        /// For a nested site, the record key of its parent site.
+        size_t parent_record_key = 0;
+        /// The crossing mask: one bit per parent candidate traversal, set where that traversal
+        /// crosses this child chain; 0 when descent could not tell. Placed after an 8-byte member
+        /// so that it needs no padding.
+        uint64_t parent_crossing = 0;
+        /// The `LinkageCollector::DirectQuality` the site was recorded with, as floats.
+        float explained_share = 1.0f;
+        float gq_factor = 1.0f;
+        float achievable_gap = 0.0f;
+        /// The next entry with the same record key, in insertion order, or NO_ENTRY. With
+        /// `first_by_key`, it lets a lookup by key follow a short list rather than scan every
+        /// entry. It fits in the padding before `record_key`.
+        uint32_t next_same_key = NO_ENTRY;
+        size_t record_key = 0;
+        /// The site's boundary nodes, for the mosaic output.
+        int64_t start_node = 0;
+        int64_t end_node = 0;
+
+        /// Return the genotype index of the called pair.
+        size_t called_genotype() const;
+        /// Return the genotype index of the chosen pair.
+        size_t chosen_genotype() const;
+    };
+
+    /// Make an empty table whose entries each name an allele for `num_haplotypes` panel
+    /// haplotypes.
+    explicit EntryTable(size_t num_haplotypes) : n_haplotypes(num_haplotypes) {}
+
+    /// Return how many panel haplotypes each entry names an allele for.
+    size_t panel_size() const { return n_haplotypes; }
+
+    /// Return the number of a contig, numbering it if it is new.
+    uint32_t contig_id(const string& contig);
+
+    /// Return the name of a contig numbered by `contig_id`.
+    const string& contig_name(uint32_t contig) const { return contig_names[contig]; }
+
+    /// Return how many contigs have been numbered. They are numbered from 0.
+    size_t num_contigs() const { return contig_names.size(); }
+
+    /// Append an entry for a site, with the site's data put in the arenas.
+    ///
+    /// Fill every field of `e` but the offsets and `num_alleles`, which this sets from `cs`.
+    /// `haplotype_traversal` gives the candidate traversal each panel haplotype carries, or -1.
+    /// `traversal_to_allele` maps candidate traversals to VCF alleles, and may be empty while no
+    /// line exists.
+    void add(Entry e, const CompactSite& cs, const vector<int>& haplotype_traversal,
+             const vector<int>& traversal_to_allele);
+
+    /// Replace the likelihoods and panel alleles of an entry with those of `cs`.
+    ///
+    /// Where the compact space is unchanged, overwrite the likelihoods in place. Otherwise append
+    /// new slices and point the entry at them, since a slice of another width does not fit, and
+    /// leave the VCF alleles unknown until `set_vcf_alleles`. Leave the called pair alone.
+    ///
+    /// @return False, changing nothing, where the space is unchanged but `cs` has the wrong number
+    /// of likelihoods for the entry's ploidy.
+    bool replace_site_data(Entry& e, const CompactSite& cs, const vector<int>& haplotype_traversal);
+
+    /// Rewrite the VCF allele of each compact allele of an entry from `traversal_to_allele`.
+    void set_vcf_alleles(const Entry& e, const vector<int>& traversal_to_allele);
+
+    /// Return the index of the live entry for a key, or NO_ENTRY.
+    uint32_t live_index(size_t record_key) const;
+
+    /// Mark the live entry for a key retracted.
+    ///
+    /// The key's next entry, if there is one, becomes live. Return false for a key with no live
+    /// entry.
+    bool retract(size_t record_key);
+
+    /// Return how many entries were added, including retracted ones.
+    size_t size() const { return entries.size(); }
+    bool empty() const { return entries.empty(); }
+
+    Entry& operator[](size_t i) { return entries[i]; }
+    const Entry& operator[](size_t i) const { return entries[i]; }
+
+    /// Iterate over every entry, retracted ones included, in the order they were added.
+    vector<Entry>::const_iterator begin() const { return entries.begin(); }
+    vector<Entry>::const_iterator end() const { return entries.end(); }
+
+    /// Return the indices of the entries of one level, retracted ones included, in the order they
+    /// were added.
+    const vector<uint32_t>& at_level(size_t level) const;
+
+    /// Return the candidate traversal that compact allele `compact` of an entry stands for, or -1.
+    int traversal_at(const Entry& e, size_t compact) const;
+
+    /// Return the VCF allele that compact allele `compact` of an entry was written as, or -1.
+    int vcf_allele_at(const Entry& e, size_t compact) const;
+
+    /// Return the log-likelihood of genotype `g` of an entry, in `LinkageModel::genotype_index`
+    /// layout.
+    float likelihood_at(const Entry& e, size_t g) const { return gl_arena[e.gl_offset + g]; }
+
+    /// Return the compact allele panel haplotype `h` carries at an entry, or -1 for none.
+    int8_t haplotype_allele(const Entry& e, size_t h) const { return hap_arena[e.hap_offset + h]; }
+
+    /// Return how many times `add` appended an entry under a key that already had a live entry.
+    ///
+    /// The second entry is not live, so it cannot be looked up or retracted, but it is still
+    /// walked.
+    size_t num_duplicate_live_keys() const { return duplicate_live_keys; }
+
+    /// Return the bytes held by the entries, the arenas and the key index, for reporting.
+    size_t bytes() const;
+
+private:
+
+    /// Append a site's likelihoods, panel alleles, traversals and VCF alleles to the arenas, and
+    /// point the entry's offsets and allele count at them.
+    void append_site_data(Entry& e, const CompactSite& cs, const vector<int>& haplotype_traversal,
+                          const vector<int>& traversal_to_allele);
+
+    size_t n_haplotypes;
+
+    vector<Entry> entries;
+    /// Entry indices by level, in the order the entries were appended, so that one level's
+    /// entries can be visited without a scan.
+    vector<vector<uint32_t>> by_level;
+    /// Per entry, its genotype log-likelihoods over its compact allele space, in
+    /// `LinkageModel::genotype_index` layout at its ploidy.
+    vector<float> gl_arena;
+    /// Per entry, the compact allele each panel haplotype carries, or -1 for none.
+    vector<int8_t> hap_arena;
+    /// Per compact allele, the candidate traversal index it stands for.
+    vector<uint16_t> trav_arena;
+    /// Per compact allele, the VCF allele it was emitted as, or -1 for none.
+    vector<int8_t> allele_arena;
+    /// Contig names, by contig number.
+    vector<string> contig_names;
+    /// Reverse of `contig_names`, so that numbering a contig does not scan it. A gRef cover can
+    /// give a run thousands of contigs.
+    unordered_map<string, uint32_t> contig_index;
+    /// Record key -> the first entry carrying it, so a lookup is a hash probe and a walk of that
+    /// key's chain.
+    std::unordered_map<size_t, uint32_t> first_by_key;
+    /// Record key -> the last entry carrying it, which makes appending O(1) rather than a walk.
+    std::unordered_map<size_t, uint32_t> last_by_key;
+    /// See `num_duplicate_live_keys`.
+    size_t duplicate_live_keys = 0;
+};
+
+/**
+ * A site's place on the reference, as a contig and an offset along it.
+ *
+ * The linkage model orders the sites of a contig by position, measures the gaps between them as
+ * differences of positions, and names each phase set (FORMAT/PS) by the position of its first
+ * site.
+ */
+struct SiteLocus {
+    /// The contig as the VCF names it.
+    ///
+    /// This is the locus of a PanSN path name, such as `chr20` for `CHM13#0#chr20`, or else the
+    /// whole path name.
+    string contig;
+    /// A 0-based offset along the contig.
+    ///
+    /// For a site the reference path visits, it is where the first boundary node of the site
+    /// starts on that path. It is not the POS of a record, which trimming the alleles can move.
+    /// For a site that no reference path visits, it is a stand-in, taken from the position of the
+    /// parent. The difference between a stand-in and another position is a distance only within
+    /// one chain, or to the parent of the chain.
+    size_t position = 0;
+};
+
+/**
  * A ledger of compact entries for the genotyped sites, which runs the linkage model over them.
  *
  * An entry holds only what the model needs, so that the whole genome's entries stay small. That
@@ -380,12 +643,12 @@ public:
     /// Make an empty collector for a panel of `num_haplotypes` haplotypes, whose model decodes
     /// with `params`.
     LinkageCollector(const LinkageModel::Params& params, size_t num_haplotypes)
-        : params(params), model(params), n_haplotypes(num_haplotypes) {}
+        : params(params), model(params), entries(num_haplotypes) {}
 
     /// Return how many panel haplotypes this collector was built for.
     ///
     /// This is the width of every per-haplotype row it hands out or takes in.
-    size_t panel_size() const { return n_haplotypes; }
+    size_t panel_size() const { return entries.panel_size(); }
 
     /// The quality inputs of the call a site was recorded with.
     ///
@@ -401,6 +664,21 @@ public:
         double achievable_gap = 0.0;
     };
 
+    /// The per-site genotyper's verdict: the called pair, its ploidy, and the quality inputs it
+    /// was written with.
+    ///
+    /// Alleles are candidate traversal indices.
+    struct DirectCall {
+        /// The first called allele.
+        int called_i = -1;
+        /// The second called allele, or `called_i` again at ploidy 1.
+        int called_j = -1;
+        /// The number of alleles in the call, 1 or 2.
+        size_t ploidy = 2;
+        /// The quality inputs of the call.
+        DirectQuality quality;
+    };
+
     /// The quality of a site whose genotype the model changed.
     struct MovedQuality {
         /// The posterior of the chosen genotype.
@@ -409,10 +687,14 @@ public:
         DirectQuality direct;
     };
 
-    /// Where a site sits in the snarl tree.
+    /// Where a site sits in the graph and in the snarl tree.
     ///
     /// Callers fill it with designated initialisers, so each field is named at the call site.
     struct SiteContext {
+        /// The ID of the start boundary node of the site (see `PhaseCall::start_node`).
+        int64_t start_node = 0;
+        /// The ID of the end boundary node of the site.
+        int64_t end_node = 0;
         /// Whether the site's chain has one copy, so that exactly one of the parent's alleles
         /// crosses it. Those are the called alleles when the direct pass records the site, and
         /// the chosen ones when the linkage pass does.
@@ -444,23 +726,23 @@ public:
         double freq_prior = -1.0;
     };
 
-    /// Record one genotyped site. Safe to call from several threads.
-    ///
-    /// Alleles are candidate traversal indices. `haplotype_traversal` has one entry per panel
-    /// haplotype, holding the candidate traversal it carries, or -1 where it does not visit the
-    /// site. `called_trav_i` and `called_trav_j` are the pair the per-site likelihood chose.
-    /// `traversal_to_allele` maps candidate traversals to the VCF alleles they were written as.
-    /// Pass it empty, with `ctx.emitted` false, while no line exists.
-    ///
-    /// A site that gets no line is still recorded, because its allele pair phases its children.
-    void record(const string& contig, size_t position,
+    /**
+     * Record one genotyped site. Safe to call from several threads.
+     *
+     * A site that gets no line is still recorded, because its allele pair phases its children.
+     * A site with no likelihoods or no first called allele is not recorded, and neither is one
+     * whose compact allele space cannot be described.
+     *
+     * @param genotype_ln_likelihood The likelihood of each genotype of candidate traversals.
+     * @param haplotype_traversal One entry per panel haplotype, holding the candidate traversal
+     * it carries, or -1 where it does not visit the site.
+     * @param traversal_to_allele Maps candidate traversals to the VCF alleles they were written
+     * as. Pass it empty, with `ctx.emitted` false, while no line exists.
+     */
+    void record(const SiteLocus& locus,
                 const map<vector<int>, double>& genotype_ln_likelihood,
-                const vector<int>& haplotype_traversal,
-                int called_trav_i, int called_trav_j,
-                const vector<int>& traversal_to_allele,
-                size_t record_key,
-                const DirectQuality& direct, size_t ploidy,
-                int64_t start_node, int64_t end_node,
+                const vector<int>& haplotype_traversal, const DirectCall& call,
+                const vector<int>& traversal_to_allele, size_t record_key,
                 const SiteContext& ctx);
 
     /// Return the compact allele space `record` builds for one site.
@@ -650,8 +932,8 @@ public:
     /// Return the highest level any recorded site belongs to.
     size_t max_level() const;
 
-    /// Return the bytes held by the collector, for reporting.
-    size_t bytes() const;
+    /// Return the bytes held by the collector's entries, for reporting.
+    size_t bytes() const { return entries.bytes(); }
 
     /// Return how many entries were recorded, including retracted ones.
     size_t num_sites() const { return entries.size(); }
@@ -661,7 +943,7 @@ public:
     /// A snarl recorded twice, or two snarls whose names hash alike, would do that. `retract` and
     /// every lookup reach only the first live entry for a key, so the second is decoded but cannot
     /// be replaced.
-    size_t num_duplicate_live_keys() const { return duplicate_live_keys; }
+    size_t num_duplicate_live_keys() const { return entries.num_duplicate_live_keys(); }
 
     /// Get the parameters of the model the collector runs.
     const LinkageModel::Params& model_params() const { return params; }
@@ -683,125 +965,23 @@ public:
 
 private:
 
-    /// No entry. Chain terminator for `next_same_key` and the miss value of `live_index`.
-    static constexpr uint32_t NO_ENTRY = (uint32_t)-1;
-
-    /// The compact record of one genotyped site.
-    ///
-    /// Fields are ordered to pack the record without padding, since the whole genome's entries are
-    /// held at once.
-    struct Entry {
-        uint32_t position = 0;
-        /// `SiteContext::freq_prior`. Placed in the padding before `chain_key`, so it does not
-        /// enlarge the entry.
-        float freq_prior = -1.0f;
-        /// `SiteContext::chain_key`: identifies the site's chain, so that sites of different
-        /// chains, which have no transitions between them, are kept apart.
-        size_t chain_key = 0;
-        uint32_t contig = 0;
-        uint32_t gl_offset = 0;
-        uint32_t hap_offset = 0;
-        /// Offsets into `trav_arena` and `allele_arena`, which map each compact allele to its
-        /// candidate traversal and to the VCF allele it was written as.
-        ///
-        /// The model works in the compact allele space rather than in VCF alleles, because
-        /// symbolic collapsing can write two traversals as one VCF allele. A parent whose alleles
-        /// differ only inside a child chain is homozygous in the VCF but heterozygous here, and
-        /// only the second can phase the child. The VCF allele is -1 for a traversal that was not
-        /// written as one.
-        uint32_t trav_offset = 0;
-        uint32_t allele_offset = 0;
-        uint16_t num_alleles = 0;
-        /// The called pair, in compact alleles.
-        uint16_t called_i = 0;
-        uint16_t called_j = 0;
-        uint8_t ploidy = 2;
-        /// The level at which the linkage pass chooses this site's genotype. Where nothing
-        /// nests, every entry is 0 and one resolve chooses them all.
-        uint8_t level = 0;
-        /// Set by `retract`. The entry stays in place and is skipped.
-        bool retracted = false;
-        /// The chosen pair, in compact alleles, written when the site's level resolves, so that
-        /// later levels can clamp it.
-        uint16_t final_i = 0;
-        uint16_t final_j = 0;
-        /// Whether this site wrote a VCF line. Only then do its `allele_offset` entries mean
-        /// anything.
-        bool emitted = true;
-        /// This site has no reference position, so `position` is not used for distances. See
-        /// `SiteContext::unpositioned`.
-        bool unpositioned = false;
-        /// `SiteContext::nested`.
-        bool nested = false;
-        /// For a nested site, the record key of its parent site.
-        size_t parent_record_key = 0;
-        /// The crossing mask: one bit per parent candidate traversal, set where that traversal
-        /// crosses this child chain; 0 when descent could not tell. Placed after an 8-byte member
-        /// so that it needs no padding.
-        uint64_t parent_crossing = 0;
-        /// The `DirectQuality` the site was recorded with, as floats.
-        float explained_share = 1.0f;
-        float gq_factor = 1.0f;
-        float achievable_gap = 0.0f;
-        /// The next entry with the same record key, in insertion order, or NO_ENTRY. With
-        /// `first_by_key`, it lets a lookup by key follow a short list rather than scan every
-        /// entry. It fits in the padding before `record_key`.
-        uint32_t next_same_key = NO_ENTRY;
-        size_t record_key = 0;
-        /// The site's boundary nodes, for the mosaic output.
-        int64_t start_node = 0;
-        int64_t end_node = 0;
-
-        /// Return the genotype index of the called pair.
-        size_t called_genotype() const;
-        /// Return the genotype index of the chosen pair.
-        size_t chosen_genotype() const;
-    };
+    /// The record of one site, as the table stores it.
+    using Entry = EntryTable::Entry;
 
     LinkageModel::Params params;
     /// Decodes the linkage chains and groups.
     LinkageModel model;
-    size_t n_haplotypes;
 
-    /// The entries. Their variable-length data lives in shared arrays (the arenas below) rather
-    /// than in vectors of their own, which would add more per entry than the entry itself.
-    vector<Entry> entries;
-    /// Entry indices by level, in the order the entries were appended, so that
-    /// `resolve_level(k)` visits only level k's entries.
-    vector<vector<uint32_t>> by_level;
-    /// Per entry, its genotype log-likelihoods over its compact allele space, in
-    /// `LinkageModel::genotype_index` layout at ploidy 2.
-    vector<float> gl_arena;
-    /// Per entry, the compact allele each panel haplotype carries, or -1 for none.
-    vector<int8_t> hap_arena;
-    /// Per compact allele, the candidate traversal index it stands for.
-    vector<uint16_t> trav_arena;
-    /// Per compact allele, the VCF allele it was emitted as, or -1 for none.
-    vector<int8_t> allele_arena;
-    vector<string> contig_names;
-    /// Reverse of `contig_names`, so that `record()` does not scan it. A gRef cover can give a run
-    /// thousands of contigs.
-    unordered_map<string, uint32_t> contig_index;
-    /// Record key -> the first entry carrying it, so a lookup is a hash probe and a walk of that
-    /// key's chain.
-    std::unordered_map<size_t, uint32_t> first_by_key;
-    /// Record key -> the last entry carrying it, which makes appending O(1) rather than a walk.
-    std::unordered_map<size_t, uint32_t> last_by_key;
-    /// See `num_duplicate_live_keys`.
-    size_t duplicate_live_keys = 0;
-
+    /// Holds every recorded site.
+    ///
+    /// `record`, `rescore`, `retract`, `set_allele_map`, `set_position`, `has_entry`,
+    /// `emitted_records` and the `chosen_traversals` lookups hold `mutex` while they use it, so
+    /// they can run on several threads at once. Every other method uses it without the lock, so it
+    /// must not run while any other method does.
+    EntryTable entries;
 
     /// See `moved_quality`.
     std::unordered_map<size_t, MovedQuality> moved_quality_by_record;
-
-    /// The first non-retracted entry with this key, or NO_ENTRY. Call with `mutex` held.
-    uint32_t live_index(size_t record_key) const;
-
-    /// The candidate traversal that compact allele `compact` of an entry stands for, or -1.
-    int traversal_at(const Entry& e, size_t compact) const;
-
-    /// The VCF allele that compact allele `compact` of an entry was written as, or -1.
-    int vcf_allele_at(const Entry& e, size_t compact) const;
 
     /// What the parent's chosen pair implies about a child's chain, by `relate_to_parent`.
     Relation relation_to(const Entry& child, const Entry& parent) const;
@@ -812,42 +992,12 @@ private:
     /// Crossing masks are tested against the traversals, and the record writes the VCF alleles.
     void finish_phase_call(PhaseCall& pc, const Entry& e, size_t c_first, size_t c_second) const;
 
-    /// The compact allele space of a site, with its genotype likelihoods translated into it. Built
-    /// by `record` and `rescore` alike, so that a re-scored site is described as a newly recorded
-    /// one would be.
-    struct CompactSite {
-        /// Compact allele -> candidate traversal, sorted by candidate index, so the numbering is a
-        /// property of the site rather than of the order the genotypes arrived in.
-        vector<int> space;
-        /// Genotype likelihoods over the compact space, in `LinkageModel::genotype_index` layout.
-        vector<float> gls;
-        /// The called pair, compacted. Both are >= 0 whenever `ok`.
-        int ci = -1;
-        int cj = -1;
-        size_t site_ploidy = 0;
-        bool ok = false;
-
-        /// Candidate traversal -> compact allele, or -1, by binary search in `space`.
-        int compact_of(int trav) const {
-            auto it = std::ranges::lower_bound(space, trav);
-            return (it == space.end() || *it != trav) ? -1 : (int)(it - space.begin());
-        }
-    };
-
     /// Build the compact space and translate the likelihoods into it. `ok` is false where the site
     /// cannot be described: no candidates, more than the 127 an int8 arena can name, or a called
     /// traversal that is not in the space.
     CompactSite compact_site(const map<vector<int>, double>& genotype_ln_likelihood,
                              const vector<int>& haplotype_traversal,
                              int called_trav_i, int called_trav_j, size_t ploidy) const;
-
-    /// Append a site's likelihoods, panel alleles, traversals and VCF alleles to the arenas, and
-    /// point the entry's offsets and allele count at them.
-    ///
-    /// `traversal_to_allele` maps candidate traversals to VCF alleles, and may be empty while no
-    /// line exists. Call with `mutex` held.
-    void append_site_data(Entry& e, const CompactSite& cs, const vector<int>& haplotype_traversal,
-                          const vector<int>& traversal_to_allele);
 
     //------------------------------------------------------------------------------
     // Resolving a level
@@ -1008,6 +1158,7 @@ private:
     /// Log what resolving `level` counted.
     void report_level(size_t level, size_t grouped_sites, size_t grouped_groups) const;
 
+    /// Serialises the methods that may run on several threads at once. See `entries`.
     mutable std::mutex mutex;
 };
 

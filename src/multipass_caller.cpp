@@ -10,8 +10,8 @@
 namespace vg::multipass {
 
 OffPanelLedger::OffPanelLedger(const PathPositionHandleGraph& graph,
-                               const map<string, size_t>& ref_offsets) :
-    graph(graph), ref_offsets(ref_offsets) {
+                               const ReferencePathTable& ref_paths) :
+    graph(graph), ref_paths(ref_paths) {
     // Nothing to do
 }
 
@@ -31,15 +31,14 @@ pair<string, int64_t> OffPanelLedger::reference_position(nid_t node, uint32_t of
     const handle_t handle = graph.get_handle(node);
     graph.for_each_step_on_handle(handle, [&](const step_handle_t& step) {
         const string path_name = graph.get_path_name(graph.get_path_handle_of_step(step));
-        const auto ref_offset = ref_offsets.find(path_name);
-        if (ref_offset == ref_offsets.end()) {
+        if (!ref_paths.contains(path_name)) {
             return true;
         }
         const size_t len = graph.get_length(handle);
         const bool reverse = graph.get_is_reverse(graph.get_handle_of_step(step));
         const int64_t along = (int64_t)graph.get_position_of_step(step)
                               + (int64_t)(reverse ? len - 1 - offset : offset)
-                              + ref_offset->second;
+                              + (int64_t)ref_paths.offset_of(path_name);
         string contig = PathMetadata::parse_locus_name(Paths::strip_subrange(path_name));
         found = make_pair(contig == PathMetadata::NO_LOCUS_NAME ? Paths::strip_subrange(path_name)
                                                                 : contig,
@@ -175,9 +174,7 @@ MultiPassCaller::MultiPassCaller(const PathPositionHandleGraph& graph,
                                  const SnarlDecomposition& decomposition,
                                  VCFOutputCaller& output, const string& sample_name,
                                  TraversalFinder& traversal_finder,
-                                 const vector<string>& ref_paths,
-                                 const vector<size_t>& ref_path_offsets,
-                                 const vector<int>& ref_path_ploidies, bool genotype_snarls,
+                                 ReferencePathTable ref_paths, bool genotype_snarls,
                                  const pair<size_t, size_t>& allele_length_range, bool top_down,
                                  bool star_allele) :
     graph(graph),
@@ -186,21 +183,16 @@ MultiPassCaller::MultiPassCaller(const PathPositionHandleGraph& graph,
     walker(decomposition, graph),
     output(output),
     sample_name(sample_name),
-    ref_paths(ref_paths),
+    ref_paths(std::move(ref_paths)),
     genotype_snarls(genotype_snarls),
     top_down(top_down),
     star_allele(star_allele),
     splicer(graph, phase_table),
-    off_panel(graph, ref_offsets),
-    candidates(graph, traversal_finder, ref_path_set, allele_length_range),
+    off_panel(graph, this->ref_paths),
+    candidates(graph, traversal_finder, this->ref_paths, allele_length_range),
     site_genotyper(genotyper),
     record_renderer(phase_table, read_strands, linker, anchor_collector)
 {
-    for (int i = 0; i < ref_paths.size(); ++i) {
-        ref_offsets[ref_paths[i]] = i < ref_path_offsets.size() ? ref_path_offsets[i] : 0;
-        ref_path_set.insert(ref_paths[i]);
-        ref_ploidies[ref_paths[i]] = i < ref_path_ploidies.size() ? ref_path_ploidies[i] : 2;
-    }
     install_header_steps();
     install_widgets();
 }
@@ -223,8 +215,7 @@ void MultiPassCaller::call(GraphCaller::RecurseType recurse_type,
             .child_placer = &child_placer,
             .descent_counters = &descent_counters,
             .ploidy_regions = &ploidy_regions,
-            .ref_offsets = &ref_offsets,
-            .ref_ploidies = &ref_ploidies,
+            .ref_paths = &ref_paths,
             .site_id = [this](const SiteBounds& site) {
                 return output.print_snarl(&graph, site.start, site.end);
             },
@@ -605,8 +596,8 @@ void MultiPassCaller::render_retained_records() {
             // SnarlTraversals.
             output.emit_variant(graph, snarl_caller, snarl_of(graph, site.bounds),
                                 snarl_traversals_of(graph, site.travs), genotype,
-                                site.ref_trav_idx, site.call_info, site.ref_path_name,
-                                site.ref_offset, genotype_snarls, site.ploidy,
+                                site.ref_trav_idx, site.call_info, site.reference.path_name,
+                                site.reference.offset, genotype_snarls, site.ploidy,
                                 record_steps(site, is_spliced ? &spliced : nullptr),
                                 // Each allele is spelled as the site holds it: by its step
                                 // sequences where it has them, or else by its walk.
@@ -632,8 +623,8 @@ void AlleleSplicer::index(StagedSiteTable& staged_sites, bool phasing) {
         return;
     }
     auto file = [&](const StagedSite& site) {
-        if (site.parent_record_key != 0 && !site.dropped) {
-            children[site.parent_record_key].push_back(&site);
+        if (site.placement.parent_record_key != 0 && !site.dropped) {
+            children[site.placement.parent_record_key].push_back(&site);
         }
     };
     for (size_t q = 0; q < staged_sites.queue_count(); ++q) {
@@ -967,11 +958,11 @@ size_t MultiPassCaller::rederive_reported_inline() {
             if (child.dropped) {
                 continue;
             }
-            const bool was = child.reported_inline;
-            child.reported_inline =
-                parent.reported_inline
+            const bool was = child.placement.reported_inline;
+            child.placement.reported_inline =
+                parent.placement.reported_inline
                 || (child.in_chain && block_records.chain_reported_inline(graph, ctx, child.chain));
-            if (was != child.reported_inline) {
+            if (was != child.placement.reported_inline) {
                 ++rederived;
             }
         }
@@ -1021,8 +1012,9 @@ static void measure_score(const SiteScore& rl, size_t& bytes, size_t& gls) {
 
 /// Add the memory that a staged site keeps to the totals.
 static void measure_staged(const StagedSite& rec, size_t& bytes, size_t& visits, size_t& gls) {
-    bytes += sizeof(StagedSite) + rec.ref_path_name.capacity()
-             + rec.genotype.capacity() * sizeof(int) + rec.panel_cache.capacity() * sizeof(int);
+    bytes += sizeof(StagedSite) + rec.reference.path_name.capacity()
+             + rec.genotype.capacity() * sizeof(int)
+             + (rec.panel_cache ? rec.panel_cache->capacity() * sizeof(int) : 0);
     bytes += rec.travs.capacity() * sizeof(Traversal);
     for (const Traversal& t : rec.travs) {
         visits += t.size();

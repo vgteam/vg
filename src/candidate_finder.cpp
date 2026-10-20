@@ -13,7 +13,21 @@ CandidateFinder::CandidateFinder(const PathPositionHandleGraph& graph,
                                  TraversalFinder& traversal_finder,
                                  const unordered_set<string>& ref_path_set,
                                  const pair<size_t, size_t>& allele_length_range) :
-    graph(graph), traversal_finder(traversal_finder), ref_path_set(ref_path_set),
+    graph(graph), traversal_finder(traversal_finder),
+    usable_path([&ref_path_set](const string& name) {
+        return ref_path_set.empty() || ref_path_set.contains(name);
+    }),
+    allele_length_range(allele_length_range) {
+}
+
+CandidateFinder::CandidateFinder(const PathPositionHandleGraph& graph,
+                                 TraversalFinder& traversal_finder,
+                                 const multipass::ReferencePathTable& ref_paths,
+                                 const pair<size_t, size_t>& allele_length_range) :
+    graph(graph), traversal_finder(traversal_finder),
+    usable_path([&ref_paths](const string& name) {
+        return ref_paths.empty() || ref_paths.contains(name);
+    }),
     allele_length_range(allele_length_range) {
 }
 
@@ -36,7 +50,7 @@ set<string> CandidateFinder::reference_paths_on(handle_t handle) const {
     set<string> names;
     graph.for_each_step_on_handle(handle, [&](step_handle_t step_handle) {
         string name = graph.get_path_name(graph.get_path_handle_of_step(step_handle));
-        if (!Paths::is_alt(name) && (ref_path_set.empty() || ref_path_set.count(name))) {
+        if (!Paths::is_alt(name) && usable_path(name)) {
             names.insert(name);
         }
         return true;

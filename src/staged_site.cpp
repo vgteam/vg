@@ -6,6 +6,7 @@
 #include <omp.h>
 
 #include "staged_site.hpp"
+#include "vcf_record.hpp"
 
 namespace vg::multipass {
 
@@ -17,6 +18,29 @@ static size_t total_queued(const Queues& queues) {
         n += queue.size();
     }
     return n;
+}
+
+/// Turn a path name and a position on it into a locus, clamping the position at 0.
+static SiteLocus locus_of(pair<string, int64_t> pos_info) {
+    if (const string locus = PathMetadata::parse_locus_name(pos_info.first);
+        locus != PathMetadata::NO_LOCUS_NAME) {
+        pos_info.first = locus;
+    }
+    return SiteLocus{pos_info.first, (size_t)max((int64_t)0, pos_info.second)};
+}
+
+SiteLocus ReferencePlacement::locus(const PathPositionHandleGraph& graph,
+                                    const SiteBounds& bounds) const {
+    if (no_reference) {
+        // `get_ref_position` would fail an assertion on a site the path does not visit.
+        return locus_of(make_pair(path_name, position_from_parent));
+    }
+    // Place a site inside a node at its own base, so that the sites inside one node are ordered
+    // and spaced. Its bounds read the node the way the reference path does.
+    pair<string, int64_t> position =
+        get_ref_position(graph, bounds.start, bounds.end, path_name, offset);
+    position.second += (int64_t)bases_before_site(graph, bounds);
+    return locus_of(position);
 }
 
 void StagedSite::set_call(unique_ptr<SnarlCaller::CallInfo> new_call, SiteScore* typed) {
@@ -38,11 +62,10 @@ unique_ptr<SiteScore> StagedSite::take_score() {
 }
 
 const vector<int>& StagedSite::panel_alleles(const PanelLookup& lookup) {
-    if (!panel_cached) {
+    if (!panel_cache) {
         panel_cache = lookup.alleles(travs, &sequences);
-        panel_cached = true;
     }
-    return panel_cache;
+    return *panel_cache;
 }
 
 void StagedSiteTable::start(size_t threads) {
@@ -73,7 +96,7 @@ vector<StagedSite>& StagedSiteTable::gather_nested() {
         children.clear();
         children.reserve(nested_sites.size() * 2);
         for (size_t i = 0; i < nested_sites.size(); ++i) {
-            children[nested_sites[i].parent_record_key].push_back(i);
+            children[nested_sites[i].placement.parent_record_key].push_back(i);
         }
     }
     return nested_sites;
@@ -101,11 +124,11 @@ unordered_map<size_t, StagedSite*> StagedSiteTable::by_key() {
 void StagedSiteTable::for_each_parent_top_down(
     const unordered_map<size_t, StagedSite*>& by_key,
     const function<void(const StagedSite& parent, const vector<size_t>& children)>& visit) const {
-    vector<pair<uint8_t, size_t>> parents;
+    vector<pair<size_t, size_t>> parents;
     parents.reserve(children.size());
     for (const auto& [parent_key, kids] : children) {
         if (auto parent = by_key.find(parent_key); parent != by_key.end()) {
-            parents.emplace_back(parent->second->level, parent_key);
+            parents.emplace_back(parent->second->placement.level, parent_key);
         }
     }
     std::ranges::sort(parents);
@@ -123,10 +146,10 @@ vector<StagedSite*> StagedSiteTable::in_order(bool with_off_reference) {
         }
     }
     for (StagedSite& site : nested_sites) {
-        if (site.dropped || site.reported_inline) {
+        if (site.dropped || site.placement.reported_inline) {
             continue;
         }
-        if (site.no_reference && !with_off_reference) {
+        if (site.reference.no_reference && !with_off_reference) {
             continue;
         }
         out.push_back(&site);
@@ -152,8 +175,8 @@ StagedSiteTable::HandOff StagedSiteTable::hand_off() {
         if (site.dropped) {
             continue;
         }
-        if (site.reported_inline || site.no_reference) {
-            if (site.reported_inline) {
+        if (site.placement.reported_inline || site.reference.no_reference) {
+            if (site.placement.reported_inline) {
                 ++out.inline_unrendered;
             } else {
                 ++out.no_ref_unrendered;
@@ -161,8 +184,7 @@ StagedSiteTable::HandOff StagedSiteTable::hand_off() {
             // Keep the site for its parent's record, which spells its chosen allele, and free its
             // scores and its kept panel alleles.
             site.set_call(nullptr, nullptr);
-            vector<int>().swap(site.panel_cache);
-            site.panel_cached = false;
+            site.panel_cache.reset();
             held_back.push_back(std::move(site));
             continue;
         }

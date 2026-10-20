@@ -177,11 +177,11 @@ private:
  */
 class OffPanelLedger {
 public:
-    /// Make a ledger that places candidates on `graph`, on the reference paths `ref_offsets`
-    /// names, shifted by their offsets.
+    /// Make a ledger that places candidates on `graph`, on the reference paths of `ref_paths`,
+    /// shifted by their offsets.
     ///
     /// Neither is owned.
-    OffPanelLedger(const PathPositionHandleGraph& graph, const map<string, size_t>& ref_offsets);
+    OffPanelLedger(const PathPositionHandleGraph& graph, const ReferencePathTable& ref_paths);
 
     /// Turn off-panel detection on, for the candidates `reads` counts.
     ///
@@ -228,8 +228,8 @@ private:
     pair<string, int64_t> reference_position(nid_t node, uint32_t offset) const;
 
     const PathPositionHandleGraph& graph;
-    /// The offset of each reference path, by name.
-    const map<string, size_t>& ref_offsets;
+    /// The reference paths the candidates are placed on.
+    const ReferencePathTable& ref_paths;
 
     /// The read source that counts the candidates, or null when detection is off.
     const SiteReadSource* candidate_source = nullptr;
@@ -268,16 +268,15 @@ public:
      * Make a caller of the sites of `graph`, as `decomposition` gives them.
      *
      * It genotypes each site with `genotyper`, from the candidate traversals `traversal_finder`
-     * gives. It writes the records through `output`, whose steps it sets. The reference paths,
-     * their offsets and ploidies, `genotype_snarls` and `allele_length_range` are as for
-     * `FlowCaller`. `top_down` and `star_allele` are as described at the members of the same
-     * names. Nothing is owned.
+     * gives. It writes the records through `output`, whose steps it sets, on the paths of
+     * `ref_paths`. `genotype_snarls` and `allele_length_range` are as for `FlowCaller`.
+     * `top_down` and `star_allele` are as described at the members of the same names. Nothing
+     * else is owned.
      */
     MultiPassCaller(const PathPositionHandleGraph& graph, ReadLikelihoodSnarlCaller& genotyper,
                     const SnarlDecomposition& decomposition, VCFOutputCaller& output,
                     const string& sample_name, TraversalFinder& traversal_finder,
-                    const vector<string>& ref_paths, const vector<size_t>& ref_path_offsets,
-                    const vector<int>& ref_path_ploidies, bool genotype_snarls,
+                    ReferencePathTable ref_paths, bool genotype_snarls,
                     const pair<size_t, size_t>& allele_length_range, bool top_down,
                     bool star_allele);
 
@@ -536,16 +535,8 @@ private:
     /// The sample the records are for.
     string sample_name;
 
-    /// The reference paths.
-    vector<string> ref_paths;
-    /// The reference paths, as a set.
-    unordered_set<string> ref_path_set;
-
-    /// The offset of each reference path.
-    map<string, size_t> ref_offsets;
-
-    /// The ploidy of each reference path.
-    map<string, int> ref_ploidies;
+    /// The reference paths, with their offsets and ploidies.
+    ReferencePathTable ref_paths;
 
     /// Whether to write every site.
     ///

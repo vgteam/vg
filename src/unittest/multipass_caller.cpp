@@ -65,7 +65,7 @@ static string call_vcf(const PathPositionHandleGraph& graph, SnarlManager& manag
     PathTraversalFinder traversal_finder(graph);
     VCFOutputCaller output("sample");
     MultiPassCaller caller(graph, genotyper, decomposition, output, "sample", traversal_finder,
-                           {"ref"}, {0}, {2}, false,
+                           ReferencePathTable({"ref"}, {0}, {2}), false,
                            make_pair((size_t)0, numeric_limits<size_t>::max()), false, false);
     caller.set_nested_calling(true);
     stringstream vcf;

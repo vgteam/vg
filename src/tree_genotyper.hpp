@@ -18,6 +18,7 @@
 #include "off_panel.hpp"
 #include "site_read_source.hpp"
 #include "ploidy_regions.hpp"
+#include "reference_path_table.hpp"
 #include "site_genotyper.hpp"
 #include "staged_site.hpp"
 
@@ -52,10 +53,8 @@ public:
         const ChildPlacer* child_placer = nullptr;
         DescentCounters* descent_counters = nullptr;
         const PloidyRegions* ploidy_regions = nullptr;
-        /// The offset of each reference path.
-        const map<string, size_t>* ref_offsets = nullptr;
-        /// The ploidy of each reference path.
-        const map<string, int>* ref_ploidies = nullptr;
+        /// The reference paths, with their offsets and ploidies.
+        const ReferencePathTable* ref_paths = nullptr;
         /// Makes the ID of the site with bounds `site`, as its records name it (see
         /// `StagedSite::id`).
         function<string(const SiteBounds& site)> site_id;
@@ -234,18 +233,16 @@ private:
     /// @return False if the site could not be genotyped.
     bool genotype_nested_chain(SiteCall& call);
 
-    /// File a nested chain in the linkage model, unless no called parent allele crosses it.
-    ///
-    /// @param position_from_parent The stand-in position of a chain with no reference position.
-    void record_nested_chain(SiteCall& call, const SiteScore* score,
-                             int64_t position_from_parent) const;
+    /// File the staged site of a nested chain in the linkage model, unless no called parent
+    /// allele crosses it.
+    void record_nested_chain(SiteCall& call) const;
 
     /// Genotype a top-level site at its region's ploidy, and record and stage it.
     ///
     /// @return False if the site could not be genotyped.
     bool genotype_top_level_site(SiteCall& call);
 
-    /// File a site in the linkage model, and stage it to go to a render queue.
+    /// Stage a site to go to a render queue, and file it in the linkage model.
     void record_and_stage(SiteCall& call, unique_ptr<SnarlCaller::CallInfo>& trav_call_info,
                           SiteScore* trav_score) const;
 
@@ -272,9 +269,10 @@ private:
     /// Genotype each child of a site against the traversals its called alleles allow.
     void descend_top_down(const SiteCall& call);
 
-    /// Give the staged site of `call`, if any, its traversals and tree fields, and file it.
+    /// Give the staged site of `call`, if any, its tree fields, and add it to the staged sites.
     ///
-    /// @pre The sites below have been genotyped, since they read the traversals.
+    /// @pre The sites below have been genotyped, since they read the traversals of the staged
+    /// site.
     void file_staged(SiteCall& call);
 
     /// Genotype one site at `ploidies`.
@@ -284,15 +282,16 @@ private:
         const SiteBounds& site, const vector<Traversal>& travs, int ref_trav_idx,
         const Ploidies& ploidies, const vector<SiteBounds>& enclosing, SiteScore*& score) const;
 
-    /// Make the `StagedSite` of a site from its genotype, moving `call_info` into it.
+    /// Make the `StagedSite` of a site from its walks and genotype, moving `call_info` into it.
     ///
-    /// Leave `travs` empty, because the sites below still read the traversals. The caller moves
-    /// them in once those sites are done.
+    /// The staged site is at the top level of the nesting tree until it is given a placement.
     unique_ptr<StagedSite> stage_render_record(const SiteBounds& bounds, const string& site_id,
-                                               const vector<int>& trav_genotype, int ref_trav_idx,
+                                               const vector<int>& trav_genotype,
+                                               vector<Traversal> travs, int ref_trav_idx,
                                                unique_ptr<SnarlCaller::CallInfo>& call_info,
-                                               SiteScore* score, const string& ref_path_name,
-                                               int64_t ref_offset, int ploidy) const;
+                                               SiteScore* score,
+                                               const ReferencePlacement& reference,
+                                               int ploidy) const;
 
     /// Give a staged site what it keeps of the decomposition.
     ///

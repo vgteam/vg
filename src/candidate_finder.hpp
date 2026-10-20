@@ -1,6 +1,7 @@
 #ifndef VG_CANDIDATE_FINDER_HPP_INCLUDED
 #define VG_CANDIDATE_FINDER_HPP_INCLUDED
 
+#include <functional>
 #include <limits>
 #include <set>
 #include <string>
@@ -10,6 +11,7 @@
 #include <vector>
 
 #include "handle.hpp"
+#include "reference_path_table.hpp"
 #include "snarls.hpp"
 #include "traversal_finder.hpp"
 
@@ -62,6 +64,15 @@ public:
     CandidateFinder(const PathPositionHandleGraph& graph,
                     TraversalFinder& traversal_finder,
                     const unordered_set<string>& ref_path_set,
+                    const pair<size_t, size_t>& allele_length_range);
+
+    /// Find candidates in `graph` with `traversal_finder`, on the reference paths in
+    /// `ref_paths`, or on all non-alt paths if it is empty.
+    ///
+    /// Skip sites as the constructor from a set of path names does. Nothing is owned.
+    CandidateFinder(const PathPositionHandleGraph& graph,
+                    TraversalFinder& traversal_finder,
+                    const multipass::ReferencePathTable& ref_paths,
                     const pair<size_t, size_t>& allele_length_range);
 
     /// Skip a site with more edges than this, including those of its nested sites.
@@ -119,7 +130,8 @@ private:
 
     const PathPositionHandleGraph& graph;
     TraversalFinder& traversal_finder;
-    const unordered_set<string>& ref_path_set;
+    /// Tests whether a non-alt path, by name, is one a site can be placed on.
+    function<bool(const string&)> usable_path;
     /// See set_max_snarl_edges.
     size_t max_snarl_edges = numeric_limits<size_t>::max();
     /// See the constructor.

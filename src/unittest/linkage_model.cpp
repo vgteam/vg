@@ -67,9 +67,17 @@ static void record_dense(LinkageCollector& c, const string& contig, size_t posit
     for (size_t i = 0; i < num_alleles; ++i) {
         ident[i] = (int)i;
     }
-    c.record(contig, position, gls, panel, (int)called_i, (int)called_j, ident, record_key,
-             LinkageCollector::DirectQuality{.explained_share = share}, ploidy, start_node, end_node,
+    c.record(SiteLocus{contig, position}, gls, panel,
+             LinkageCollector::DirectCall{
+                 .called_i = (int)called_i,
+                 .called_j = (int)called_j,
+                 .ploidy = ploidy,
+                 .quality = LinkageCollector::DirectQuality{.explained_share = share},
+             },
+             ident, record_key,
              LinkageCollector::SiteContext{
+                 .start_node = start_node,
+                 .end_node = end_node,
                  .nested = nested,
                  .parent_record_key = parent_record_key,
                  .parent_crossing = parent_crossing,
@@ -112,9 +120,13 @@ static bool respecify_dense(LinkageCollector& c, size_t record_key,
     if (c.has_entry(record_key)) {
         c.retract(record_key);
     }
-    c.record(contig, position, gls, panel, (int)called_i, (int)called_j, ident, record_key,
-             LinkageCollector::DirectQuality{}, ploidy, start_node, end_node,
+    c.record(SiteLocus{contig, position}, gls, panel,
+             LinkageCollector::DirectCall{
+                 .called_i = (int)called_i, .called_j = (int)called_j, .ploidy = ploidy},
+             ident, record_key,
              LinkageCollector::SiteContext{
+                 .start_node = start_node,
+                 .end_node = end_node,
                  .nested = nested,
                  .parent_record_key = parent_record_key,
                  .parent_crossing = parent_crossing,
@@ -355,6 +367,74 @@ TEST_CASE("The frequency prior is separable from linkage", "[linkage_model]") {
 }
 
 
+/// A biallelic diploid site in compact form, with candidate traversals 3 and 5.
+static CompactSite biallelic_compact(float ln_het) {
+    CompactSite cs;
+    cs.space = {3, 5};
+    cs.gls = {0.0f, ln_het, -10.0f};
+    cs.ci = 0;
+    cs.cj = 1;
+    cs.site_ploidy = 2;
+    cs.ok = true;
+    return cs;
+}
+
+TEST_CASE("An entry table finds each key's live entry and keeps every slice in place",
+          "[linkage_model]") {
+    EntryTable table(2);
+    EntryTable::Entry e;
+    e.record_key = 7;
+    e.contig = table.contig_id("chr1");
+    e.level = 1;
+    // Haplotype 0 carries traversal 5, and haplotype 1 does not visit the site.
+    table.add(e, biallelic_compact(-1.0f), {5, -1}, {0, 0, 0, 0, 0, 1});
+    table.add(e, biallelic_compact(-2.0f), {3, 3}, {});
+
+    REQUIRE(table.contig_id("chr1") == 0);
+    REQUIRE(table.contig_id("chr2") == 1);
+    REQUIRE(table.contig_name(1) == "chr2");
+    REQUIRE(table.size() == 2);
+    REQUIRE(table.at_level(1) == vector<uint32_t>{0, 1});
+    REQUIRE(table.at_level(5).empty());
+    // The second entry for key 7 is counted but not live.
+    REQUIRE(table.num_duplicate_live_keys() == 1);
+    REQUIRE(table.live_index(7) == 0);
+    REQUIRE(table.live_index(8) == EntryTable::NO_ENTRY);
+
+    const EntryTable::Entry& first = table[0];
+    REQUIRE(table.traversal_at(first, 1) == 5);
+    REQUIRE(table.traversal_at(first, 2) == -1);
+    REQUIRE(table.vcf_allele_at(first, 1) == 1);
+    REQUIRE(table.likelihood_at(first, 1) == -1.0f);
+    REQUIRE(table.haplotype_allele(first, 0) == 1);
+    REQUIRE(table.haplotype_allele(first, 1) == -1);
+    REQUIRE(table.vcf_allele_at(table[1], 1) == -1);
+
+    // An unchanged space is overwritten in place.
+    REQUIRE(table.replace_site_data(table[0], biallelic_compact(-3.0f), {5, -1}));
+    REQUIRE(table[0].gl_offset == 0);
+    REQUIRE(table.likelihood_at(table[0], 1) == -3.0f);
+
+    // A wider space gets new slices, and leaves the second entry's alone.
+    CompactSite wider = biallelic_compact(-4.0f);
+    wider.space = {3, 5, 6};
+    wider.gls = {0.0f, -4.0f, -9.0f, -9.0f, -9.0f, -9.0f};
+    REQUIRE(table.replace_site_data(table[0], wider, {6, -1}));
+    REQUIRE(table[0].num_alleles == 3);
+    REQUIRE(table.traversal_at(table[0], 2) == 6);
+    REQUIRE(table.haplotype_allele(table[0], 0) == 2);
+    REQUIRE(table.likelihood_at(table[1], 1) == -2.0f);
+    table.set_vcf_alleles(table[0], {0, 0, 0, 0, 0, 1, 2});
+    REQUIRE(table.vcf_allele_at(table[0], 2) == 2);
+
+    // Retracting the live entry makes the next one live, and then leaves none.
+    REQUIRE(table.retract(7));
+    REQUIRE(table.live_index(7) == 1);
+    REQUIRE(table.retract(7));
+    REQUIRE(table.live_index(7) == EntryTable::NO_ENTRY);
+    REQUIRE(!table.retract(7));
+}
+
 TEST_CASE("The collector keeps sites compactly and re-decides only what changed",
           "[linkage_model]") {
     // The compact form is the reason the two-phase design fits: keeping a CallInfo per site --
@@ -407,10 +487,15 @@ TEST_CASE("moved_quality describes the latest resolution alone", "[linkage_model
     // As in the test above: site 22 is flat and linked to the decisive site 11, so it moves.
     record_dense(collector, "chr1", 1000, 2, {-30.0, -30.0, 0.0}, {1, 1, 0, 0}, 1, 1, 11, 1.0);
     map<vector<int>, double> flat{{{0, 0}, 0.0}, {{0, 1}, -30.0}, {{1, 1}, 0.0}};
-    collector.record("chr1", 1100, flat, {1, 1, 0, 0}, 0, 0, {0, 1}, 22,
-                     LinkageCollector::DirectQuality{
-                         .explained_share = 0.75, .gq_factor = 0.5, .achievable_gap = 12.0},
-                     2, 0, 0, LinkageCollector::SiteContext{});
+    collector.record(SiteLocus{"chr1", 1100}, flat, {1, 1, 0, 0},
+                     LinkageCollector::DirectCall{
+                         .called_i = 0,
+                         .called_j = 0,
+                         .ploidy = 2,
+                         .quality = LinkageCollector::DirectQuality{
+                             .explained_share = 0.75, .gq_factor = 0.5, .achievable_gap = 12.0},
+                     },
+                     {0, 1}, 22, LinkageCollector::SiteContext{});
     REQUIRE(collector.resolve() == 1);
     REQUIRE(collector.moved_quality().count(11) == 0);
     REQUIRE(collector.moved_quality().count(22) == 1);
@@ -1704,9 +1789,10 @@ TEST_CASE("A site's exponent survives the collector into the decode", "[linkage_
         p.weight = 1.0;
         p.freq_prior = 1.0;
         LinkageCollector c(p, 4);
-        c.record("chr1", 1000, {{{0, 0}, -1.0}, {{0, 1}, 0.0}, {{1, 1}, -20.0}}, {0, 0, 0, 1}, 0, 1,
-                 {0, 1}, 11, LinkageCollector::DirectQuality{}, 2, 0, 0,
-                 LinkageCollector::SiteContext{.freq_prior = f});
+        c.record(SiteLocus{"chr1", 1000}, {{{0, 0}, -1.0}, {{0, 1}, 0.0}, {{1, 1}, -20.0}},
+                 {0, 0, 0, 1},
+                 LinkageCollector::DirectCall{.called_i = 0, .called_j = 1, .ploidy = 2},
+                 {0, 1}, 11, LinkageCollector::SiteContext{.freq_prior = f});
         REQUIRE(c.num_site_prior_entries() == (f >= 0.0 ? 1 : 0));
         c.resolve();
         int a = -1, b = -1;

@@ -107,7 +107,8 @@ static vector<PhaseTable::NestedLink> nested_links(
     vector<PhaseTable::NestedLink> links;
     staged.for_each([&](const StagedSite& rec) {
         if (!rec.dropped && phase_index.contains(rec.record_key)) {
-            links.emplace_back(rec.record_key, rec.parent_record_key, rec.level);
+            links.emplace_back(rec.record_key, rec.placement.parent_record_key,
+                               rec.placement.level);
         }
     });
     return links;

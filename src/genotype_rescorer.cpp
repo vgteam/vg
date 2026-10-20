@@ -251,11 +251,12 @@ void SiteCorrector::correct(StagedSite& rec) {
         const auto [called, called_ll] = best_genotype(before);
         const auto [proposed, proposed_ll] = best_genotype(target);
         std::ostringstream row;
-        row << rec.id << "\t" << rec.ref_path_name << "\t"
-            << rec.ref_offset << "\t" << rec.ploidy << "\t" << spell_genotype(called) << "\t"
+        row << rec.id << "\t" << rec.reference.path_name << "\t"
+            << rec.reference.offset << "\t" << rec.ploidy << "\t" << spell_genotype(called) << "\t"
             << spell_genotype(proposed) << "\t" << (proposed_ll - called_ll) << "\t"
             << pe->num_reads();
-        ledger_rows.emplace_back(rec.ref_path_name, (size_t)rec.ref_offset, rec.id, row.str());
+        ledger_rows.emplace_back(rec.reference.path_name, (size_t)rec.reference.offset, rec.id,
+                                 row.str());
     }
 }
 

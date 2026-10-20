@@ -240,22 +240,6 @@ LinkageCollector::Relation LinkageCollector::relate_to_parent(uint64_t crossing,
     return r;
 }
 
-int LinkageCollector::traversal_at(const Entry& e, size_t compact) const {
-    if (compact >= e.num_alleles) {
-        return -1;
-    }
-    const size_t at = e.trav_offset + compact;
-    return at < trav_arena.size() ? (int)trav_arena[at] : -1;
-}
-
-int LinkageCollector::vcf_allele_at(const Entry& e, size_t compact) const {
-    if (compact >= e.num_alleles) {
-        return -1;
-    }
-    const size_t at = e.allele_offset + compact;
-    return at < allele_arena.size() ? (int)allele_arena[at] : -1;
-}
-
 /// Fill `e` with the relative P(reads | state) of every ordered pair of panel haplotypes, at
 /// a * n_hap + b.
 ///
@@ -1440,6 +1424,166 @@ vector<size_t> LinkageModel::window_haploid_phasing(const vector<Site>& sites, s
 }
 
 //------------------------------------------------------------------------------
+// EntryTable
+
+size_t EntryTable::Entry::called_genotype() const {
+    return genotype_of(ploidy, called_i, called_j);
+}
+
+size_t EntryTable::Entry::chosen_genotype() const {
+    return genotype_of(ploidy, final_i, final_j);
+}
+
+uint32_t EntryTable::contig_id(const string& contig) {
+    const auto [contig_at, new_contig] =
+        contig_index.try_emplace(contig, (uint32_t)contig_names.size());
+    if (new_contig) {
+        contig_names.push_back(contig);
+    }
+    return contig_at->second;
+}
+
+void EntryTable::add(Entry e, const CompactSite& cs, const vector<int>& haplotype_traversal,
+                     const vector<int>& traversal_to_allele) {
+    append_site_data(e, cs, haplotype_traversal, traversal_to_allele);
+
+    const auto at = (uint32_t)entries.size();
+    const size_t record_key = e.record_key;
+    if (auto last = last_by_key.find(record_key); last == last_by_key.end()) {
+        first_by_key[record_key] = at;
+    } else {
+        // Count a duplicate before the append, while the key's chain still describes the existing
+        // entries. See `num_duplicate_live_keys`.
+        if (live_index(record_key) != NO_ENTRY) {
+            ++duplicate_live_keys;
+        }
+        entries[last->second].next_same_key = at;
+    }
+    last_by_key[record_key] = at;
+    if (e.level >= by_level.size()) {
+        by_level.resize((size_t)e.level + 1);
+    }
+    by_level[e.level].push_back(at);
+    entries.push_back(e);
+}
+
+void EntryTable::append_site_data(Entry& e, const CompactSite& cs,
+                                  const vector<int>& haplotype_traversal,
+                                  const vector<int>& traversal_to_allele) {
+    e.gl_offset = (uint32_t)gl_arena.size();
+    for (float v : cs.gls) {
+        gl_arena.push_back(v);
+    }
+    e.hap_offset = (uint32_t)hap_arena.size();
+    for (size_t h = 0; h < n_haplotypes; ++h) {
+        const int trav = h < haplotype_traversal.size() ? haplotype_traversal[h] : -1;
+        const int a = trav >= 0 ? cs.compact_of(trav) : -1;
+        hap_arena.push_back(a >= 0 ? (int8_t)a : (int8_t)-1);
+    }
+    e.trav_offset = (uint32_t)trav_arena.size();
+    e.allele_offset = (uint32_t)allele_arena.size();
+    for (int trav : cs.space) {
+        trav_arena.push_back((uint16_t)trav);
+        const int allele =
+            (size_t)trav < traversal_to_allele.size() ? traversal_to_allele[trav] : -1;
+        allele_arena.push_back(allele >= 0 && allele < 127 ? (int8_t)allele : (int8_t)-1);
+    }
+    e.num_alleles = (uint16_t)cs.space.size();
+}
+
+bool EntryTable::replace_site_data(Entry& e, const CompactSite& cs,
+                                   const vector<int>& haplotype_traversal) {
+    bool same_space = cs.space.size() == e.num_alleles;
+    for (size_t i = 0; same_space && i < cs.space.size(); ++i) {
+        same_space = trav_arena[e.trav_offset + i] == (uint16_t)cs.space[i];
+    }
+    if (same_space) {
+        // Overwrite the likelihoods in place. `gl_arena` stores no length, since a reader
+        // recomputes it from `num_alleles`, so this needs the shape to be unchanged.
+        if (const size_t expect = e.ploidy == 1
+                                      ? (size_t)e.num_alleles
+                                      : (size_t)e.num_alleles * ((size_t)e.num_alleles + 1) / 2;
+            cs.gls.size() != expect) {
+            return false;
+        }
+        std::ranges::copy(cs.gls, gl_arena.begin() + e.gl_offset);
+    } else {
+        // A slice of another width does not fit in place, so append new slices and leave the old
+        // ones unused. Every other entry's offsets stay valid. No allele map is known yet, and
+        // `set_vcf_alleles` supplies it when the record is written.
+        append_site_data(e, cs, haplotype_traversal, {});
+    }
+    return true;
+}
+
+void EntryTable::set_vcf_alleles(const Entry& e, const vector<int>& traversal_to_allele) {
+    // Rewrite the span `add` filled in place. The compact space has not changed, only what each
+    // of its alleles is called in the VCF.
+    for (size_t c = 0; c < e.num_alleles; ++c) {
+        const size_t at_trav = e.trav_offset + c;
+        const size_t at_allele = e.allele_offset + c;
+        if (at_trav >= trav_arena.size() || at_allele >= allele_arena.size()) {
+            break;
+        }
+        const size_t trav = trav_arena[at_trav];
+        const int allele = trav < traversal_to_allele.size() ? traversal_to_allele[trav] : -1;
+        allele_arena[at_allele] = allele >= 0 && allele < 127 ? (int8_t)allele : (int8_t)-1;
+    }
+}
+
+bool EntryTable::retract(size_t record_key) {
+    const uint32_t found = live_index(record_key);
+    if (found == NO_ENTRY) {
+        return false;
+    }
+    entries[found].retracted = true;
+    return true;
+}
+
+uint32_t EntryTable::live_index(size_t record_key) const {
+    auto it = first_by_key.find(record_key);
+    for (uint32_t i = it == first_by_key.end() ? NO_ENTRY : it->second;
+         i != NO_ENTRY; i = entries[i].next_same_key) {
+        if (!entries[i].retracted) {
+            return i;
+        }
+    }
+    return NO_ENTRY;
+}
+
+const vector<uint32_t>& EntryTable::at_level(size_t level) const {
+    static const vector<uint32_t> no_entries;
+    return level < by_level.size() ? by_level[level] : no_entries;
+}
+
+int EntryTable::traversal_at(const Entry& e, size_t compact) const {
+    if (compact >= e.num_alleles) {
+        return -1;
+    }
+    const size_t at = e.trav_offset + compact;
+    return at < trav_arena.size() ? (int)trav_arena[at] : -1;
+}
+
+int EntryTable::vcf_allele_at(const Entry& e, size_t compact) const {
+    if (compact >= e.num_alleles) {
+        return -1;
+    }
+    const size_t at = e.allele_offset + compact;
+    return at < allele_arena.size() ? (int)allele_arena[at] : -1;
+}
+
+size_t EntryTable::bytes() const {
+    // Every arena, and the key index, which costs two hash nodes per site.
+    return entries.size() * sizeof(Entry)
+           + gl_arena.size() * sizeof(float)
+           + hap_arena.size() * sizeof(int8_t)
+           + trav_arena.size() * sizeof(uint16_t)
+           + allele_arena.size() * sizeof(int8_t)
+           + (first_by_key.size() + last_by_key.size())
+                 * (sizeof(std::pair<const size_t, uint32_t>) + sizeof(void*));
+}
+
+//------------------------------------------------------------------------------
 // LinkageCollector
 
 vector<int> LinkageCollector::compact_allele_space(const vector<int>& haplotype_traversal,
@@ -1464,7 +1608,7 @@ vector<int> LinkageCollector::compact_allele_space(const vector<int>& haplotype_
     return vector<int>(needed.begin(), needed.end());
 }
 
-LinkageCollector::CompactSite LinkageCollector::compact_site(
+CompactSite LinkageCollector::compact_site(
         const map<vector<int>, double>& genotype_ln_likelihood,
         const vector<int>& haplotype_traversal,
         int called_trav_i, int called_trav_j, size_t ploidy) const {
@@ -1560,45 +1704,35 @@ bool LinkageModel::run_length_site(const vector<string>& alleles, size_t min_run
     return false;
 }
 
-void LinkageCollector::record(const string& contig, size_t position,
+void LinkageCollector::record(const SiteLocus& locus,
                               const map<vector<int>, double>& genotype_ln_likelihood,
-                              const vector<int>& haplotype_traversal,
-                              int called_trav_i, int called_trav_j,
-                              const vector<int>& traversal_to_allele,
-                              size_t record_key,
-                              const DirectQuality& direct, size_t ploidy,
-                              int64_t start_node, int64_t end_node,
+                              const vector<int>& haplotype_traversal, const DirectCall& call,
+                              const vector<int>& traversal_to_allele, size_t record_key,
                               const SiteContext& ctx) {
-    if (genotype_ln_likelihood.empty() || called_trav_i < 0) {
+    if (genotype_ln_likelihood.empty() || call.called_i < 0) {
         return;
     }
     // A site that cannot be described, such as one with more alleles than the int8 panel arena
     // can name, loses its linkage rather than being mis-linked.
     const CompactSite cs = compact_site(genotype_ln_likelihood, haplotype_traversal,
-                                        called_trav_i, called_trav_j, ploidy);
+                                        call.called_i, call.called_j, call.ploidy);
     if (!cs.ok) {
         return;
     }
 
     std::scoped_lock guard(mutex);
 
-    const auto [contig_at, new_contig] =
-        contig_index.try_emplace(contig, (uint32_t)contig_names.size());
-    if (new_contig) {
-        contig_names.push_back(contig);
-    }
-
     Entry e;
-    e.position = (uint32_t)position;
-    e.contig = contig_at->second;
+    e.position = (uint32_t)locus.position;
+    e.contig = entries.contig_id(locus.contig);
     e.called_i = (uint16_t)cs.ci;
     e.called_j = (uint16_t)cs.cj;
     e.record_key = record_key;
-    e.explained_share = (float)direct.explained_share;
-    e.gq_factor = (float)direct.gq_factor;
-    e.achievable_gap = (float)direct.achievable_gap;
-    e.start_node = start_node;
-    e.end_node = end_node;
+    e.explained_share = (float)call.quality.explained_share;
+    e.gq_factor = (float)call.quality.gq_factor;
+    e.achievable_gap = (float)call.quality.achievable_gap;
+    e.start_node = ctx.start_node;
+    e.end_node = ctx.end_node;
     e.ploidy = (uint8_t)cs.site_ploidy;
     e.nested = ctx.nested;
     e.emitted = ctx.emitted;
@@ -1608,61 +1742,7 @@ void LinkageCollector::record(const string& contig, size_t position,
     e.chain_key = ctx.chain_key;
     e.level = (uint8_t)(ctx.level > 255 ? 255 : ctx.level);
     e.freq_prior = (float)ctx.freq_prior;
-    append_site_data(e, cs, haplotype_traversal, traversal_to_allele);
-
-    const auto at = (uint32_t)entries.size();
-    auto last = last_by_key.find(record_key);
-    if (last == last_by_key.end()) {
-        first_by_key[record_key] = at;
-    } else {
-        // Count a duplicate before the append, while the key's chain still describes the existing
-        // entries. See `num_duplicate_live_keys`.
-        if (live_index(record_key) != NO_ENTRY) {
-            ++duplicate_live_keys;
-        }
-        entries[last->second].next_same_key = at;
-    }
-    last_by_key[record_key] = at;
-    if (e.level >= by_level.size()) {
-        by_level.resize((size_t)e.level + 1);
-    }
-    by_level[e.level].push_back(at);
-    entries.push_back(e);
-}
-
-void LinkageCollector::append_site_data(Entry& e, const CompactSite& cs,
-                                        const vector<int>& haplotype_traversal,
-                                        const vector<int>& traversal_to_allele) {
-    e.gl_offset = (uint32_t)gl_arena.size();
-    for (float v : cs.gls) {
-        gl_arena.push_back(v);
-    }
-    e.hap_offset = (uint32_t)hap_arena.size();
-    for (size_t h = 0; h < n_haplotypes; ++h) {
-        const int trav = h < haplotype_traversal.size() ? haplotype_traversal[h] : -1;
-        const int a = trav >= 0 ? cs.compact_of(trav) : -1;
-        hap_arena.push_back(a >= 0 ? (int8_t)a : (int8_t)-1);
-    }
-    e.trav_offset = (uint32_t)trav_arena.size();
-    e.allele_offset = (uint32_t)allele_arena.size();
-    for (int trav : cs.space) {
-        trav_arena.push_back((uint16_t)trav);
-        const int allele =
-            (size_t)trav < traversal_to_allele.size() ? traversal_to_allele[trav] : -1;
-        allele_arena.push_back(allele >= 0 && allele < 127 ? (int8_t)allele : (int8_t)-1);
-    }
-    e.num_alleles = (uint16_t)cs.space.size();
-}
-
-uint32_t LinkageCollector::live_index(size_t record_key) const {
-    auto it = first_by_key.find(record_key);
-    for (uint32_t i = it == first_by_key.end() ? NO_ENTRY : it->second;
-         i != NO_ENTRY; i = entries[i].next_same_key) {
-        if (!entries[i].retracted) {
-            return i;
-        }
-    }
-    return NO_ENTRY;
+    entries.add(e, cs, haplotype_traversal, traversal_to_allele);
 }
 
 size_t LinkageCollector::num_sites_at(size_t level) const {
@@ -1683,25 +1763,13 @@ size_t LinkageCollector::max_level() const {
     return g;
 }
 
-size_t LinkageCollector::bytes() const {
-    // Every arena, and the key index, which costs two hash nodes per site.
-    return entries.size() * sizeof(Entry)
-           + gl_arena.size() * sizeof(float)
-           + hap_arena.size() * sizeof(int8_t)
-           + trav_arena.size() * sizeof(uint16_t)
-           + allele_arena.size() * sizeof(int8_t)
-           + (first_by_key.size() + last_by_key.size())
-                 * (sizeof(std::pair<const size_t, uint32_t>) + sizeof(void*));
-}
-
-
 bool LinkageCollector::chosen_traversals(size_t record_key, int* first, int* second,
                                          size_t* ploidy) const {
     std::scoped_lock guard(mutex);
-    if (const uint32_t found = live_index(record_key); found != NO_ENTRY) {
+    if (const uint32_t found = entries.live_index(record_key); found != EntryTable::NO_ENTRY) {
         const Entry& e = entries[found];
-        const int a = traversal_at(e, e.final_i);
-        const int b = traversal_at(e, e.final_j);
+        const int a = entries.traversal_at(e, e.final_i);
+        const int b = entries.traversal_at(e, e.final_j);
         if (a < 0 || b < 0) {
             return false;
         }
@@ -1722,13 +1790,13 @@ void LinkageCollector::chosen_traversals_for(const vector<size_t>& record_keys,
     // Each lookup only reads, and each writes its own slot.
 #pragma omp parallel for schedule(dynamic, 4096)
     for (size_t i = 0; i < record_keys.size(); ++i) {
-        const uint32_t idx = live_index(record_keys[i]);
-        if (idx == NO_ENTRY) {
+        const uint32_t idx = entries.live_index(record_keys[i]);
+        if (idx == EntryTable::NO_ENTRY) {
             continue;
         }
         const Entry& e = entries[idx];
-        const int a = traversal_at(e, e.final_i);
-        const int b = traversal_at(e, e.final_j);
+        const int a = entries.traversal_at(e, e.final_i);
+        const int b = entries.traversal_at(e, e.final_j);
         if (a < 0 || b < 0) {
             continue;
         }
@@ -1751,7 +1819,7 @@ std::unordered_set<size_t> LinkageCollector::emitted_records() const {
 bool LinkageCollector::set_allele_map(size_t record_key,
                                      const vector<int>& traversal_to_allele, bool emitted) {
     std::scoped_lock guard(mutex);
-    if (const uint32_t found = live_index(record_key); found != NO_ENTRY) {
+    if (const uint32_t found = entries.live_index(record_key); found != EntryTable::NO_ENTRY) {
         Entry& e = entries[found];
         // Only ever set `emitted`, never clear it. When every snarl is genotyped independently,
         // nested ones included, a record can be rendered by more than one path, and an assignment
@@ -1759,34 +1827,21 @@ bool LinkageCollector::set_allele_map(size_t record_key,
         if (emitted && !e.emitted) {
             e.emitted = true;
         }
-        // Rewrite the span `record()` filled in place. The compact space has not changed, only
-        // what each of its alleles is called in the VCF.
-        for (size_t c = 0; c < e.num_alleles; ++c) {
-            const size_t at_trav = e.trav_offset + c;
-            const size_t at_allele = e.allele_offset + c;
-            if (at_trav >= trav_arena.size() || at_allele >= allele_arena.size()) {
-                break;
-            }
-            const size_t trav = trav_arena[at_trav];
-            const int allele = trav < traversal_to_allele.size() ? traversal_to_allele[trav] : -1;
-            allele_arena[at_allele] = allele >= 0 && allele < 127 ? (int8_t)allele : (int8_t)-1;
-        }
+        entries.set_vcf_alleles(e, traversal_to_allele);
         return true;
     }
     return false;
 }
 
-
-
 bool LinkageCollector::has_entry(size_t record_key) const {
     std::scoped_lock guard(mutex);
-    return live_index(record_key) != NO_ENTRY;
+    return entries.live_index(record_key) != EntryTable::NO_ENTRY;
 }
 
 bool LinkageCollector::set_position(size_t record_key, size_t position) {
     std::scoped_lock guard(mutex);
-    const uint32_t found = live_index(record_key);
-    if (found == NO_ENTRY) {
+    const uint32_t found = entries.live_index(record_key);
+    if (found == EntryTable::NO_ENTRY) {
         return false;
     }
     entries[found].position = (uint32_t)position;
@@ -1798,8 +1853,8 @@ bool LinkageCollector::rescore(size_t record_key,
                                const vector<int>& haplotype_traversal,
                                int called_trav_i, int called_trav_j) {
     std::scoped_lock guard(mutex);
-    const uint32_t found = live_index(record_key);
-    if (found == NO_ENTRY) {
+    const uint32_t found = entries.live_index(record_key);
+    if (found == EntryTable::NO_ENTRY) {
         return false;
     }
     Entry& e = entries[found];
@@ -1808,25 +1863,8 @@ bool LinkageCollector::rescore(size_t record_key,
     if (!cs.ok) {
         return false;
     }
-    bool same_space = cs.space.size() == e.num_alleles;
-    for (size_t i = 0; same_space && i < cs.space.size(); ++i) {
-        same_space = trav_arena[e.trav_offset + i] == (uint16_t)cs.space[i];
-    }
-    if (same_space) {
-        // Overwrite the likelihoods in place. `gl_arena` stores no length, since a reader
-        // recomputes it from `num_alleles`, so this needs the shape to be unchanged.
-        if (const size_t expect = e.ploidy == 1
-                                      ? (size_t)e.num_alleles
-                                      : (size_t)e.num_alleles * ((size_t)e.num_alleles + 1) / 2;
-            cs.gls.size() != expect) {
-            return false;
-        }
-        std::ranges::copy(cs.gls, gl_arena.begin() + e.gl_offset);
-    } else {
-        // A slice of another width does not fit in place, so append new slices and leave the old
-        // ones unused. Every other entry's offsets stay valid. No allele map is known yet;
-        // `set_allele_map` supplies it when the record is written.
-        append_site_data(e, cs, haplotype_traversal, {});
+    if (!entries.replace_site_data(e, cs, haplotype_traversal)) {
+        return false;
     }
     // The called pair is re-compacted with the new space. `final_*` is left alone, since
     // `resolve_level` resets it from `called_*` before it decodes.
@@ -1837,13 +1875,11 @@ bool LinkageCollector::rescore(size_t record_key,
 
 bool LinkageCollector::retract(size_t record_key) {
     std::scoped_lock guard(mutex);
-    const uint32_t found = live_index(record_key);
-    if (found == NO_ENTRY) {
+    if (!entries.retract(record_key)) {
         return false;
     }
-    entries[found].retracted = true;
     // A key with no live entry has no chosen genotype, so it is no longer moved.
-    if (live_index(record_key) == NO_ENTRY) {
+    if (entries.live_index(record_key) == EntryTable::NO_ENTRY) {
         moved_quality_by_record.erase(record_key);
     }
     return true;
@@ -1851,16 +1887,16 @@ bool LinkageCollector::retract(size_t record_key) {
 
 void LinkageCollector::finish_phase_call(PhaseCall& pc, const Entry& e, size_t c_first,
                                          size_t c_second) const {
-    pc.trav_first = traversal_at(e, c_first);
-    pc.trav_second = traversal_at(e, c_second);
-    int v_first = vcf_allele_at(e, c_first);
-    int v_second = vcf_allele_at(e, c_second);
+    pc.trav_first = entries.traversal_at(e, c_first);
+    pc.trav_second = entries.traversal_at(e, c_second);
+    int v_first = entries.vcf_allele_at(e, c_first);
+    int v_second = entries.vcf_allele_at(e, c_second);
     if (v_first < 0 || v_second < 0) {
         // The allele map names no VCF allele for one of the pair, because it was not supplied yet
         // or because the record wrote no ALT for that traversal. Write the called pair instead,
         // whose order nothing determined.
-        v_first = vcf_allele_at(e, e.called_i);
-        v_second = vcf_allele_at(e, e.called_j);
+        v_first = entries.vcf_allele_at(e, e.called_i);
+        v_second = entries.vcf_allele_at(e, e.called_j);
         pc.order_arbitrary = pc.order_arbitrary || (v_first != v_second);
     }
     pc.allele_first = v_first >= 0 ? (size_t)v_first : numeric_limits<size_t>::max();
@@ -1891,17 +1927,9 @@ int LinkageCollector::PinnedPhase::strand_carrying(int carrying) const {
 
 LinkageCollector::Relation LinkageCollector::relation_to(const Entry& child,
                                                          const Entry& parent) const {
-    const int ta = traversal_at(parent, parent.final_i);
-    const int tb = parent.ploidy == 2 ? traversal_at(parent, parent.final_j) : -1;
+    const int ta = entries.traversal_at(parent, parent.final_i);
+    const int tb = parent.ploidy == 2 ? entries.traversal_at(parent, parent.final_j) : -1;
     return relate_to_parent(child.parent_crossing, ta, tb);
-}
-
-size_t LinkageCollector::Entry::called_genotype() const {
-    return genotype_of(ploidy, called_i, called_j);
-}
-
-size_t LinkageCollector::Entry::chosen_genotype() const {
-    return genotype_of(ploidy, final_i, final_j);
 }
 
 bool LinkageCollector::before_in_position(size_t a, size_t b) const {
@@ -1931,7 +1959,7 @@ vector<LinkageCollector::DecodeChain>
 LinkageCollector::top_level_chains(const vector<uint32_t>& this_level) {
     // Group by contig, then sort by reference position. Node-ID order is close to reference order
     // but not the same, and the transition probabilities depend on the distances.
-    vector<vector<size_t>> by_contig(contig_names.size());
+    vector<vector<size_t>> by_contig(entries.num_contigs());
     for (uint32_t i : this_level) {
         if (entries[i].retracted) {
             continue;
@@ -2063,7 +2091,7 @@ LinkageCollector::DecodeChain LinkageCollector::parent_group(
     // fragment the output.
     group.phase_set = pin->second.phase_set;
 
-    const size_t m = n_haplotypes;
+    const size_t m = entries.panel_size();
     if (group_ploidy == 1) {
         group.entering = haploid_group_message(parent, parent_in_group, members, pin->second,
                                                placements);
@@ -2108,8 +2136,8 @@ vector<double> LinkageCollector::haploid_group_message(
 
     // Give no message where the parent's haplotype does not pass through the child, since it
     // names no allele there.
-    const size_t m = n_haplotypes;
-    if (!(have_hap && hap < m && (int)hap_arena[child.hap_offset + hap] >= 0)) {
+    const size_t m = entries.panel_size();
+    if (!(have_hap && hap < m && (int)entries.haplotype_allele(child, hap) >= 0)) {
         return {};
     }
     // A group that starts at its parent starts at the parent's haplotype, as a point mass. A group
@@ -2143,11 +2171,11 @@ vector<LinkageModel::Site> LinkageCollector::model_sites(
                                 : (size_t)e.num_alleles * ((size_t)e.num_alleles + 1) / 2;
         s.genotype_ln_likelihood.reserve(n_gt);
         for (size_t g = 0; g < n_gt; ++g) {
-            s.genotype_ln_likelihood.push_back((double)gl_arena[e.gl_offset + g]);
+            s.genotype_ln_likelihood.push_back((double)entries.likelihood_at(e, g));
         }
-        s.haplotype_allele.reserve(n_haplotypes);
-        for (size_t h = 0; h < n_haplotypes; ++h) {
-            s.haplotype_allele.push_back((int)hap_arena[e.hap_offset + h]);
+        s.haplotype_allele.reserve(entries.panel_size());
+        for (size_t h = 0; h < entries.panel_size(); ++h) {
+            s.haplotype_allele.push_back((int)entries.haplotype_allele(e, h));
         }
         if (e.level < level) {
             // Clamp the site with a point-mass emission at its chosen genotype. It still carries
@@ -2380,7 +2408,7 @@ LinkageCollector::PhaseCall LinkageCollector::phase_call_for(
     pc.ploidy = e.ploidy;
     pc.level = e.level;
     pc.record_key = e.record_key;
-    pc.contig = contig_names[e.contig];
+    pc.contig = entries.contig_name(e.contig);
     pc.position = e.position;
     pc.start_node = e.start_node;
     pc.end_node = e.end_node;
@@ -2494,9 +2522,7 @@ size_t LinkageCollector::resolve_level(size_t level, bool last, vector<PhaseCall
     }
 
     // This level's entries, in append order.
-    static const vector<uint32_t> no_entries;
-    const vector<uint32_t>& this_level =
-        level < by_level.size() ? by_level[level] : no_entries;
+    const vector<uint32_t>& this_level = entries.at_level(level);
 
     // The lookups below are built over the parents' keys only, so that their cost follows the
     // level rather than the genome.

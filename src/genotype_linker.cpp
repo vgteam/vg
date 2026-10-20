@@ -34,31 +34,6 @@ vector<int> GenotypeLinker::chosen_genotype(const StagedSite& rec) const {
     return genotype;
 }
 
-/// Turn a path name and a position on it into a locus, clamping the position at 0.
-static SiteLocus locus_of(pair<string, int64_t> pos_info) {
-    if (const string locus = PathMetadata::parse_locus_name(pos_info.first);
-        locus != PathMetadata::NO_LOCUS_NAME) {
-        pos_info.first = locus;
-    }
-    return SiteLocus{pos_info.first, (size_t)max((int64_t)0, pos_info.second)};
-}
-
-SiteLocus GenotypeLinker::site_locus(const SiteBounds& site, const string& ref_path_name,
-                                     int64_t ref_offset) const {
-    // Place a site inside a node at its own base, so that the sites inside one node are ordered
-    // and spaced. Its bounds read the node the way the reference path does.
-    pair<string, int64_t> position =
-        get_ref_position(*reader.graph, site.start, site.end, ref_path_name, ref_offset);
-    position.second += (int64_t)bases_before_site(*reader.graph, site);
-    return locus_of(position);
-}
-
-SiteLocus GenotypeLinker::off_reference_site_locus(const string& ref_path_name,
-                                                   int64_t stand_in_position) {
-    // `get_ref_position` would fail an assertion on a snarl the path does not visit.
-    return locus_of(make_pair(ref_path_name, stand_in_position));
-}
-
 /// Get the quality inputs of a direct call, which the model keeps for rewriting the record if
 /// it moves the genotype.
 ///
@@ -72,57 +47,46 @@ static LinkageCollector::DirectQuality direct_quality_of(const SiteGenotyper* ge
     };
 }
 
-bool GenotypeLinker::add(const SiteBounds& site, const vector<Traversal>& travs,
-                         const vector<int>& trav_genotype, const SiteScore* score,
-                         int ref_trav_idx, const string& ref_path_name, int64_t ref_offset,
-                         size_t record_key, const NestingPlacement& placement,
-                         bool no_reference, int64_t position_from_parent,
-                         vector<int>* panel_out, const AlleleSequences* sequences) const {
-    if (model == nullptr || score == nullptr) {
+bool GenotypeLinker::file(StagedSite& site, bool nested) const {
+    if (model == nullptr || site.score == nullptr) {
         return false;
     }
     // Accept what the emitter accepts, in traversal space: one or two alleles, none of them
     // missing or a star allele.
-    const size_t site_ploidy = trav_genotype.size();
+    const vector<int>& genotype = site.genotype;
+    const size_t site_ploidy = genotype.size();
     if (site_ploidy != 1 && site_ploidy != 2) {
         return false;
     }
-    for (int allele : trav_genotype) {
-        if (allele < 0) {
-            return false;
-        }
+    if (std::ranges::any_of(genotype, [](int allele) { return allele < 0; })) {
+        return false;
     }
-    const SiteLocus locus = no_reference
-                                ? off_reference_site_locus(ref_path_name, position_from_parent)
-                                : site_locus(site, ref_path_name, ref_offset);
-    const int called_i = trav_genotype[0];
-    const int called_j = site_ploidy > 1 ? trav_genotype[1] : called_i;
+    const NestingPlacement& placement = site.placement;
     // The written alleles are chosen when the record is built, and `set_allele_map` supplies the
     // allele map then.
     static const vector<int> no_allele_map;
-    vector<int> panel = lookup->alleles(travs, sequences);
     model->record(
-        locus.contig, locus.position,
-        score->genotype_lls,
-        panel,
-        called_i, called_j, no_allele_map,
-        record_key,
-        direct_quality_of(reader.genotyper, *score), site_ploidy,
-        (int64_t)reader.graph->get_id(site.start), (int64_t)reader.graph->get_id(site.end),
-        // A chain with two copies joins the diploid group of its parent, so it is not `nested`.
+        site.reference.locus(*reader.graph, site.bounds), site.score->genotype_lls,
+        site.panel_alleles(*lookup),
+        LinkageCollector::DirectCall{
+            .called_i = genotype[0],
+            .called_j = site_ploidy > 1 ? genotype[1] : genotype[0],
+            .ploidy = site_ploidy,
+            .quality = direct_quality_of(reader.genotyper, *site.score),
+        },
+        no_allele_map, site.record_key,
         LinkageCollector::SiteContext{
-            .nested = placement.one_copy,
+            .start_node = (int64_t)reader.graph->get_id(site.bounds.start),
+            .end_node = (int64_t)reader.graph->get_id(site.bounds.end),
+            .nested = nested,
             .parent_record_key = placement.parent_record_key,
             .parent_crossing = placement.parent_crossing,
             .level = placement.level,
             .emitted = false,
-            .unpositioned = no_reference,
+            .unpositioned = site.reference.no_reference,
             .chain_key = placement.chain_key,
-            .freq_prior = freq_prior(travs, sequences, ref_trav_idx),
+            .freq_prior = freq_prior(site.travs, &site.sequences, site.ref_trav_idx),
         });
-    if (panel_out != nullptr) {
-        *panel_out = std::move(panel);
-    }
     return true;
 }
 
@@ -225,7 +189,7 @@ GenotypeLinker::PassCounts GenotypeLinker::link(StagedSiteTable& sites, PhaseTab
             parent_phase_calls(pending, phases, level + 1);
         for (size_t i = 0; i < pending.size(); ++i) {
             const StagedSite& pr = pending[i];
-            if (pr.level == level + 1 && !pr.dropped) {
+            if (pr.placement.level == level + 1 && !pr.dropped) {
                 revise_chain(sites, i, record_by_key, chosen, child_offsets, counts);
             }
         }
@@ -242,8 +206,8 @@ unordered_map<size_t, const GenotypeLinker::PhaseCall*> GenotypeLinker::parent_p
     const vector<StagedSite>& pending, const PhaseTable& phases, size_t level) {
     unordered_set<size_t> parents;
     for (const StagedSite& pr : pending) {
-        if (pr.level == level) {
-            parents.insert(pr.parent_record_key);
+        if (pr.placement.level == level) {
+            parents.insert(pr.placement.parent_record_key);
         }
     }
     unordered_map<size_t, const PhaseCall*> chosen;
@@ -262,20 +226,20 @@ void GenotypeLinker::revise_chain(
     unordered_map<const Traversal*, ChildPlacer::ChildOffsets>& child_offsets,
     PassCounts& counts) {
     StagedSite& pr = sites.nested()[index];
-    const auto parent_record = record_by_key.find(pr.parent_record_key);
+    const auto parent_record = record_by_key.find(pr.placement.parent_record_key);
     const StagedSite* parent =
         parent_record != record_by_key.end() ? parent_record->second : nullptr;
     if (model != nullptr && parent != nullptr) {
         // The parent was placed when its own level was revised.
         place_chain(pr, *parent, child_offsets);
     }
-    if (!pr.crossing_known) {
+    if (!pr.placement.crossing_known) {
         // The parent has more candidate traversals than a 64-bit crossing mask can hold. Count the
         // chain and leave it as it is, since its mask does not mean that no allele crosses it.
         ++counts.crossing_unknown;
         return;
     }
-    if (pr.parent_crossing == 0) {
+    if (pr.placement.parent_crossing == 0) {
         // No candidate traversal of the parent crosses the chain, so the sample has no copy.
         ++counts.no_crossing;
         counts.retracted += drop_subtree(sites, index);
@@ -289,7 +253,7 @@ void GenotypeLinker::revise_chain(
         return;
     }
     const LinkageCollector::Relation rel = LinkageCollector::relate_to_parent(
-        pr.parent_crossing, chosen_first, chosen_second);
+        pr.placement.parent_crossing, chosen_first, chosen_second);
     const auto copies = (int)rel.copies;
     if (copies == 0) {
         counts.retracted += drop_subtree(sites, index);
@@ -310,7 +274,16 @@ void GenotypeLinker::revise_chain(
     }
     const bool had_entry = model != nullptr && model->has_entry(pr.record_key);
     if (pr.score != nullptr) {
-        refile(pr, had_entry, counts);
+        // Retract before filing, because `live_index` finds the first live entry for a key.
+        if (had_entry) {
+            model->retract(pr.record_key);
+        }
+        file(pr, pr.ploidy == 1);
+        if (had_entry && !model->has_entry(pr.record_key)) {
+            // `record` files nothing for a site whose compact allele space it cannot describe.
+            // The old entry stays retracted, and the record keeps its own call.
+            ++counts.unspecifiable;
+        }
     }
     if (had_entry) {
         ++counts.revised;
@@ -326,19 +299,17 @@ void GenotypeLinker::place_chain(
     StagedSite& pr, const StagedSite& parent,
     unordered_map<const Traversal*, ChildPlacer::ChildOffsets>& child_offsets) const {
     const size_t offset =
-        parent.chain_offset
+        parent.placement.parent_offset
         + ChildPlacer::offset_along_genotype(*reader.graph, parent.travs, chosen_genotype(parent),
                                              pr.bounds, child_offsets);
-    if (offset == pr.chain_offset) {
+    if (offset == pr.placement.parent_offset) {
         return;
     }
-    if (pr.no_reference) {
-        pr.position_from_parent += (int64_t)offset - (int64_t)pr.chain_offset;
-        model->set_position(
-            pr.record_key,
-            off_reference_site_locus(pr.ref_path_name, pr.position_from_parent).position);
+    if (pr.reference.no_reference) {
+        pr.reference.position_from_parent += (int64_t)offset - (int64_t)pr.placement.parent_offset;
+        model->set_position(pr.record_key, pr.reference.locus(*reader.graph, pr.bounds).position);
     }
-    pr.chain_offset = offset;
+    pr.placement.parent_offset = offset;
 }
 
 bool GenotypeLinker::chosen_pair_of_parent(const StagedSite& pr, const StagedSite* parent,
@@ -346,7 +317,7 @@ bool GenotypeLinker::chosen_pair_of_parent(const StagedSite& pr, const StagedSit
                                            int& first, int& second) const {
     first = -1;
     second = -1;
-    if (const auto found = chosen.find(pr.parent_record_key); found != chosen.end()) {
+    if (const auto found = chosen.find(pr.placement.parent_record_key); found != chosen.end()) {
         const PhaseCall& call = *found->second;
         first = call.trav_first;
         second = call.ploidy == 2 ? call.trav_second : -1;
@@ -372,7 +343,8 @@ bool GenotypeLinker::buildable(const StagedSite& pr) {
     }
     // `emit_variant` indexes `called_traversals[ref_trav_idx]` unchecked. A record with no
     // reference path is never emitted.
-    if (!pr.no_reference && (pr.ref_trav_idx < 0 || (size_t)pr.ref_trav_idx >= pr.travs.size())) {
+    if (!pr.reference.no_reference
+        && (pr.ref_trav_idx < 0 || (size_t)pr.ref_trav_idx >= pr.travs.size())) {
         return false;
     }
     if (pr.genotype.empty()) {
@@ -420,43 +392,6 @@ bool GenotypeLinker::adopt_ploidy(StagedSite& pr, int copies, PassCounts& counts
     return true;
 }
 
-void GenotypeLinker::refile(StagedSite& pr, bool had_entry, PassCounts& counts) {
-    const SiteScore& score = *pr.score;
-    const SiteLocus locus =
-        pr.no_reference ? off_reference_site_locus(pr.ref_path_name, pr.position_from_parent)
-                        : site_locus(pr.bounds, pr.ref_path_name, pr.ref_offset);
-    const int called_i = pr.genotype.empty() ? -1 : pr.genotype[0];
-    const int called_j = pr.genotype.size() > 1 ? pr.genotype[1] : called_i;
-    const vector<int>& panel = pr.panel_alleles(*lookup);
-    // The written alleles are not chosen yet, as in `add()`.
-    static const vector<int> no_allele_map;
-    // Retract before recording, because `live_index` finds the first live entry for a key.
-    if (had_entry) {
-        model->retract(pr.record_key);
-    }
-    model->record(
-        locus.contig, locus.position, score.genotype_lls, panel,
-        called_i, called_j, no_allele_map,
-        pr.record_key, direct_quality_of(reader.genotyper, score),
-        (size_t)pr.ploidy, reader.graph->get_id(pr.bounds.start),
-        reader.graph->get_id(pr.bounds.end),
-        LinkageCollector::SiteContext{
-            .nested = pr.ploidy == 1,
-            .parent_record_key = pr.parent_record_key,
-            .parent_crossing = pr.parent_crossing,
-            .level = pr.level,
-            .emitted = false,
-            .unpositioned = pr.no_reference,
-            .chain_key = pr.chain_key,
-            .freq_prior = freq_prior(pr.travs, &pr.sequences, pr.ref_trav_idx),
-        });
-    if (had_entry && !model->has_entry(pr.record_key)) {
-        // `record` files nothing for a site whose compact allele space it cannot describe. The
-        // old entry stays retracted, and the record keeps its own call.
-        ++counts.unspecifiable;
-    }
-}
-
 void GenotypeLinker::recompute_child_crossings(StagedSiteTable& sites,
                                                const StagedSite& pr) const {
     const vector<size_t>* kids = sites.children_of(pr.record_key);
@@ -472,9 +407,9 @@ void GenotypeLinker::recompute_child_crossings(StagedSiteTable& sites,
     for (size_t ci : *kids) {
         StagedSite& child = pending[ci];
         bool known = true;
-        child.parent_crossing =
+        child.placement.parent_crossing =
             ChildPlacer::child_crossing_mask(*reader.graph, pr_visits, child.bounds, &known);
-        child.crossing_known = known;
+        child.placement.crossing_known = known;
     }
 }
 

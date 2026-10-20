@@ -100,7 +100,7 @@ struct NestingPlacement {
      * it, plus the parent's own `parent_offset`. Added to the parent's reference start, it gives
      * an off-reference chain a position of its own. Then its sites are ordered as that traversal
      * visits them, and the distance between two of them is known. The linkage pass computes it
-     * again from the parent's chosen genotype (`StagedSite::chain_offset`).
+     * again from the parent's chosen genotype (`StagedSite::placement`).
      */
     size_t parent_offset = 0;
     /// Whether the chain is off the reference, and so may be genotyped with no line.

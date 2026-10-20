@@ -93,11 +93,11 @@ void RecordRenderer::collect_anchors(const StagedSite& rec, const vector<int>& g
         // per-read responsibilities to collect anchors from.
         return;
     }
-    anchors.collect(*score->anchor_evidence, score->explained_share,
-                    phases.phase_ordered_genotype(rec.record_key, genotype),
-                    phases.haploid_slot(rec.record_key, genotype), rec.id,
-                    anchors.wants_leaf_test() ? rec.leaf : true,
-                    anchor_gqn(rec, genotype, linker.collector()), strands, rec.record_key);
+    const AnchorCall call{phases.phase_ordered_genotype(rec.record_key, genotype),
+                          phases.haploid_slot(rec.record_key, genotype),
+                          anchor_gqn(rec, genotype, linker.collector()), score->explained_share};
+    anchors.collect(*score->anchor_evidence, call, rec.id,
+                    anchors.wants_leaf_test() ? rec.leaf : true, strands, rec.record_key);
 }
 
 void RecordRenderer::hand_off(StagedSiteTable& staged, bool show_progress) const {
@@ -112,7 +112,8 @@ void RecordRenderer::hand_off(StagedSiteTable& staged, bool show_progress) const
 #pragma omp parallel for schedule(dynamic, 256)
     for (size_t i = 0; i < pending.size(); ++i) {
         const StagedSite& pr = pending[i];
-        if (anchors.is_enabled() && !pr.dropped && (pr.reported_inline || pr.no_reference)) {
+        if (anchors.is_enabled() && !pr.dropped
+            && (pr.placement.reported_inline || pr.reference.no_reference)) {
             collect_anchors(pr, linker.chosen_genotype(pr));
         }
     }

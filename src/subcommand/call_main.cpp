@@ -2780,8 +2780,10 @@ int main_call(int argc, char** argv) {
             multipass_caller.reset(new multipass::MultiPassCaller(*dynamic_cast<PathPositionHandleGraph*>(graph),
                                                        *read_likelihood_caller, *multipass_sites,
                                                        *multipass_output, sample_name,
-                                                       *traversal_finder, ref_paths,
-                                                       ref_path_offsets, ref_path_ploidies,
+                                                       *traversal_finder,
+                                                       multipass::ReferencePathTable(
+                                                           ref_paths, ref_path_offsets,
+                                                           ref_path_ploidies),
                                                        genotype_snarls,
                                                        make_pair(min_allele_len, max_allele_len),
                                                        top_down, star_allele));

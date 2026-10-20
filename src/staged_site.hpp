@@ -5,10 +5,13 @@
 #include <deque>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <vector>
 
+#include "child_placer.hpp"
+#include "linkage_model.hpp"
 #include "panel_lookup.hpp"
 #include "site_genotyper.hpp"
 #include "site_tree.hpp"
@@ -18,6 +21,40 @@
 namespace vg::multipass {
 
 using namespace std;
+
+/**
+ * Where a site sits on the reference: on a named path at an offset, or, off the reference, at a
+ * stand-in position taken from its parent.
+ */
+struct ReferencePlacement {
+    /// The reference path the site is on.
+    ///
+    /// A site with `no_reference` takes the path of its nearest ancestor that a reference path
+    /// visits.
+    string path_name;
+    /// The offset added to positions on `path_name`.
+    int64_t offset = 0;
+    /// Whether no reference path visits the bounds of the site.
+    ///
+    /// Such a site has no REF or POS, so it gets no line. It is still genotyped and filed in the
+    /// linkage model.
+    bool no_reference = false;
+    /// For a site with `no_reference`, the position that stands in for its own.
+    ///
+    /// It is the reference start of the parent plus `NestingPlacement::parent_offset`.
+    int64_t position_from_parent = 0;
+
+    /**
+     * Get the locus the linkage model orders the site by.
+     *
+     * A site the reference path visits is placed where its first boundary node starts on the
+     * path, or at its own base for a site inside a node. A site with `no_reference` is placed at
+     * `position_from_parent`.
+     *
+     * @param bounds The bounds of the site, oriented forward along `path_name`.
+     */
+    SiteLocus locus(const PathPositionHandleGraph& graph, const SiteBounds& bounds) const;
+};
 
 /// The genotyping result of one site from the direct pass, kept until the render builds the
 /// site's records.
@@ -39,25 +76,27 @@ struct StagedSite {
     /// The hash of `id` (`vg::record_key_of`), which the tables that follow a site from pass to
     /// pass are keyed by.
     size_t record_key = 0;
-    /// The record key of the site this one is nested in, or 0 for a top-level site.
-    size_t parent_record_key = 0;
-    /// See `NestingPlacement::chain_key`.
-    size_t chain_key = 0;
-    /// The level of the site in nested descent (`NestingPlacement::level`), capped at 255.
-    uint8_t level = 0;
+    /**
+     * The place of the site in the nesting tree, or the default for a site staged as top level.
+     *
+     * Its `level` is capped at 255, the deepest level the linkage model has.
+     *
+     * The linkage pass revises some fields of a nested chain from the genotype chosen for its
+     * parent. It moves `parent_offset` to where the chain starts along that genotype, so that an
+     * off-reference chain is placed along an allele of it. It computes `parent_crossing` and
+     * `crossing_known` again for the children of a chain it revises or first files. Under the
+     * linkage model it decides `reported_inline` again, which holds back the line of the site as
+     * `reference.no_reference` does.
+     *
+     * Its `no_reference` says that an ancestor chain is off the reference, which can hold even
+     * when a reference path visits this site (see `reference`).
+     */
+    NestingPlacement placement;
     /// Whether off-panel detection added the site, as an edit site whose ALT no walk of the graph
     /// spells.
     ///
     /// Its record carries INFO/OP.
     bool off_panel = false;
-    /// See `NestingPlacement::parent_crossing`.
-    uint64_t parent_crossing = 0;
-    /// Whether `parent_crossing` is known.
-    ///
-    /// It is unknown when the parent has more than 64 candidate traversals, too many for the mask.
-    /// Then the linkage pass leaves the chain at the ploidy the direct pass gave it. The linkage
-    /// pass computes the mask again when it revises or first records the parent.
-    bool crossing_known = true;
 
     // The site in the graph.
 
@@ -88,26 +127,8 @@ struct StagedSite {
     /// as top level still has the sites around it here.
     vector<SiteBounds> enclosing;
 
-    // Where the site is on the reference.
-
-    /// The reference path the site is on.
-    string ref_path_name;
-    /// The offset added to positions on `ref_path_name`.
-    int64_t ref_offset = 0;
-    /// Whether the site has no reference path.
-    ///
-    /// Such a site has no REF or POS, so it gets no line. It is still genotyped and recorded in the
-    /// linkage model.
-    bool no_reference = false;
-    /// For a site with no reference path, the position that stands in for its own: the reference
-    /// start of its parent plus `chain_offset`.
-    int64_t position_from_parent = 0;
-    /// The `NestingPlacement::parent_offset` of this chain.
-    ///
-    /// The direct pass takes it from the parent's direct call. The linkage pass computes it again
-    /// from the parent's chosen genotype, so that an off-reference chain is placed along an allele
-    /// of that genotype.
-    size_t chain_offset = 0;
+    /// Where the site is on the reference.
+    ReferencePlacement reference;
 
     // The call of the direct pass, and what the linkage pass decided about it.
 
@@ -136,12 +157,6 @@ struct StagedSite {
     ///
     /// @pre `score` is not null.
     unique_ptr<SiteScore> take_score();
-    /// See `NestingPlacement::reported_inline`.
-    ///
-    /// Such a site gets no line, as for `no_reference`. The direct pass tests the parent's direct
-    /// call. Under the linkage model, the linkage pass tests again with the parent's chosen
-    /// genotype, which the parent's blocks are built from.
-    bool reported_inline = false;
     /// Whether the chosen genotype of the parent, or of an ancestor, leaves this chain out.
     ///
     /// The chain and its descendants are then absent from the sample, and are not revised or
@@ -154,10 +169,8 @@ struct StagedSite {
     /// The traversals do not change after the direct pass, so the answer is kept, which saves each
     /// re-genotyping round the GBWT lookups.
     const vector<int>& panel_alleles(const PanelLookup& lookup);
-    /// The kept answer of `panel_alleles`, if `panel_cached`. The direct pass can fill it first.
-    vector<int> panel_cache;
-    /// Whether `panel_cache` is filled.
-    bool panel_cached = false;
+    /// The kept answer of `panel_alleles`, once it is computed.
+    optional<vector<int>> panel_cache;
 };
 
 class StagedSiteTable;
@@ -279,9 +292,9 @@ public:
      * List the sites a pass reads, in the order every pass visits them.
      *
      * The order is the render queues in turn, then the gathered nested list. Leave out the nested
-     * sites that are `dropped` or `reported_inline`, which the hand-off will hold back, so that
-     * the list matches what is rendered. Both flags can change between linkage passes, so each
-     * call tests them again.
+     * sites that are `dropped` or `placement.reported_inline`, which the hand-off will hold back,
+     * so that the list matches what is rendered. Both flags can change between linkage passes, so
+     * each call tests them again.
      *
      * @param with_off_reference Include sites with no reference path. They get no line, but they
      * are genotyped, get anchors, and have a meaningful strand.
@@ -302,8 +315,8 @@ public:
     /// Move every nested site that gets a line of its own into the render queues, spread over them
     /// in turn.
     ///
-    /// Discard the `dropped` sites. Keep the `reported_inline` sites and those with no reference
-    /// path in `unrendered()`. Call it once, after the last linkage pass.
+    /// Discard the `dropped` sites. Keep the `placement.reported_inline` sites and those with no
+    /// reference path in `unrendered()`. Call it once, after the last linkage pass.
     HandOff hand_off();
 
     /// Count the render queues.

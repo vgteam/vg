@@ -18,33 +18,10 @@ namespace vg::multipass {
 using namespace std;
 
 /**
- * A site's place on the reference, as a contig and an offset along it.
- *
- * The linkage model orders the sites of a contig by position, measures the gaps between them as
- * differences of positions, and names each phase set (FORMAT/PS) by the position of its first
- * site.
- */
-struct SiteLocus {
-    /// The contig as the VCF names it.
-    ///
-    /// This is the locus of a PanSN path name, such as `chr20` for `CHM13#0#chr20`, or else the
-    /// whole path name.
-    string contig;
-    /// A 0-based offset along the contig.
-    ///
-    /// For a site the reference path visits, it is where the first boundary node of the site
-    /// starts on that path. It is not the POS of a record, which trimming the alleles can move.
-    /// For a site that no reference path visits, it is a stand-in (see
-    /// `GenotypeLinker::off_reference_site_locus()`). The difference between a stand-in and
-    /// another position is a distance only within one chain, or to the parent of the chain.
-    size_t position = 0;
-};
-
-/**
  * A linker that files the caller's sites in the linkage model and applies the model's choices.
  *
  * The linkage model (`LinkageCollector`) chooses genotypes jointly along runs of sites, from the
- * haplotype panel. The direct pass files each genotyped site with `add()`. The linkage pass,
+ * haplotype panel. The direct pass files each genotyped site with `file()`. The linkage pass,
  * `link()`, then has the model choose the genotypes one level of the snarl tree at a time,
  * parents before their children. After each level it revises each nested chain from the genotype
  * chosen for its parent: where the chain is along the parent, how many copies the sample has,
@@ -62,7 +39,7 @@ public:
     void configure(LinkageCollector* collector, const PanelLookup* panel);
 
     /// Set where to find the graph, the genotyper and the allele sequences. Call this before
-    /// `add()` or `link()`.
+    /// `file()` or `link()`.
     void set_site_reader(SiteReader site_reader);
 
     /// Return whether there is a linkage model.
@@ -71,49 +48,26 @@ public:
     /// Return the linkage model, or null.
     LinkageCollector* collector() const { return model; }
 
-    /// Find the locus of a site that the reference path `ref_path_name` visits.
-    ///
-    /// `ref_offset` is added to every position along the path, to place the path on its contig.
-    SiteLocus site_locus(const SiteBounds& site, const string& ref_path_name,
-                         int64_t ref_offset) const;
-
-    /// Make the locus of a site that no reference path visits.
-    ///
-    /// @param ref_path_name The reference path through the nearest ancestor of the site that a
-    /// reference path visits.
-    /// @param stand_in_position The position of that ancestor, plus how far along its allele the
-    /// chain of the site starts (`StagedSite::position_from_parent`).
-    static SiteLocus off_reference_site_locus(const string& ref_path_name,
-                                              int64_t stand_in_position);
-
     /**
-     * File a site in the linkage model as the direct pass genotypes it.
+     * File a staged site in the linkage model, with its genotype as the called pair.
      *
-     * The linkage pass reads the model before any record is written, so sites are filed when
-     * genotyped. `LinkageCollector::set_allele_map()` later supplies the written alleles. Only a
-     * read-likelihood call (`score` not null) of one or two alleles, none of them missing, is
-     * filed. This is safe to call from several threads.
+     * The direct pass files each site when it is genotyped, because the linkage pass reads the
+     * model before any record is written. `LinkageCollector::set_allele_map()` later supplies the
+     * written alleles. The linkage pass files a nested chain again when it revises the chain's
+     * ploidy.
      *
-     * @param record_key Names the site (see `StagedSite::record_key`).
-     * @param placement Places the site in the snarl tree.
-     * @param ref_path_name The reference path, as for `site_locus()`, or for a `no_reference`
-     * site as for `off_reference_site_locus()`.
-     * @param ref_offset The offset of the reference path, as for `site_locus()`. Unused for a
-     * `no_reference` site.
-     * @param no_reference Whether no reference path visits the site.
-     * @param position_from_parent The stand-in position of a `no_reference` site.
-     * @param panel_out If not null, receives the panel alleles of a filed site, so the staged
-     * site can keep them.
-     * @param sequences The step sequences of the alleles that their walks do not spell, or null
-     * for none.
+     * Only a read-likelihood call (`score` not null) of one or two alleles, none of them
+     * missing, is filed. Filing fills the site's `panel_cache`. This is safe to call from
+     * several threads on different sites. It adds an entry even where the key has a live one,
+     * so the linkage pass must retract the old entry first.
+     *
+     * @param nested Whether the site's chain has one copy (see
+     * `LinkageCollector::SiteContext::nested`). The direct pass gives
+     * `NestingPlacement::one_copy`, and the linkage pass a ploidy of 1. These differ for a
+     * haploid site at the top level.
      * @return Whether the site was filed.
      */
-    bool add(const SiteBounds& site, const vector<Traversal>& travs,
-             const vector<int>& trav_genotype, const SiteScore* score,
-             int ref_trav_idx, const string& ref_path_name, int64_t ref_offset, size_t record_key,
-             const NestingPlacement& placement, bool no_reference = false,
-             int64_t position_from_parent = 0, vector<int>* panel_out = nullptr,
-             const AlleleSequences* sequences = nullptr) const;
+    bool file(StagedSite& site, bool nested) const;
 
     /// Return the frequency exponent a site decodes with, or -1 for the model's own.
     ///
@@ -228,11 +182,6 @@ private:
     ///
     /// @return Whether the chain has an answer at that ploidy.
     static bool adopt_ploidy(StagedSite& pr, int copies, PassCounts& counts);
-
-    /// File a revised nested chain in the model again, retracting its old entry if `had_entry`.
-    ///
-    /// This is the way a site enters the model again, so it is filed as `add()` files it.
-    void refile(StagedSite& pr, bool had_entry, PassCounts& counts);
 
     /// Compute the crossing masks of the children of a chain again, from its traversals.
     void recompute_child_crossings(StagedSiteTable& sites, const StagedSite& pr) const;

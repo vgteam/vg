@@ -16,9 +16,8 @@ TEST_CASE("StagedSiteTable::hand_off frees the panel alleles of the sites it hol
     table.start(1);
 
     StagedSite site;
-    site.reported_inline = true;
-    site.panel_cache = {0, 1, -1, 1};
-    site.panel_cached = true;
+    site.placement.reported_inline = true;
+    site.panel_cache = vector<int>{0, 1, -1, 1};
     table.add_nested(std::move(site));
     table.gather_nested();
 
@@ -27,8 +26,7 @@ TEST_CASE("StagedSiteTable::hand_off frees the panel alleles of the sites it hol
     REQUIRE(table.unrendered().size() == 1);
 
     const StagedSite& held = table.unrendered().front();
-    REQUIRE(!held.panel_cached);
-    REQUIRE(held.panel_cache.capacity() == 0);
+    REQUIRE(!held.panel_cache);
 }
 
 }
