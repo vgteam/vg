@@ -65,10 +65,6 @@ static gbwt::GBWT paths_gbwt(const PathHandleGraph& graph) {
  * Require that a finder gives the same walks through a site from both of its
  * interfaces.
  *
- * The walks found from the bound handles must match those found from the
- * Snarl, in the same order. Each walk must start with the start handle of
- * the site and end with its end handle.
- *
  * @return The number of walks found.
  */
 template<typename Finder>
@@ -77,9 +73,12 @@ static size_t require_interfaces_agree(Finder& finder, const HandleGraph& graph,
     handle_t end = graph.get_handle(site.end().node_id(), site.end().backward());
     vector<SnarlTraversal> by_snarl = finder.find_traversals(site);
     vector<Traversal> by_handles = finder.find_traversals(start, end);
+    // The walks from the bound handles are the walks from the Snarl, in the
+    // same order.
     REQUIRE(by_handles.size() == by_snarl.size());
     for (size_t i = 0; i < by_handles.size(); i++) {
         REQUIRE(by_handles[i] == to_traversal(graph, by_snarl[i]));
+        // Each walk goes from the start handle of the site to its end handle.
         REQUIRE(!by_handles[i].empty());
         REQUIRE(by_handles[i].front() == start);
         REQUIRE(by_handles[i].back() == end);
@@ -87,18 +86,15 @@ static size_t require_interfaces_agree(Finder& finder, const HandleGraph& graph,
     return by_handles.size();
 }
 
-/**
- * Require that a FlowTraversalFinder gives the same weighted walks through a
- * site from both of its interfaces.
- *
- * The walks and flows found from the bound handles must match those found
- * from the Snarl, in the same order.
- */
+/// Require that a FlowTraversalFinder gives the same weighted walks through a
+/// site from both of its interfaces.
 static void require_weighted_interfaces_agree(FlowTraversalFinder& finder, const HandleGraph& graph, const Snarl& site) {
     handle_t start = graph.get_handle(site.start().node_id(), site.start().backward());
     handle_t end = graph.get_handle(site.end().node_id(), site.end().backward());
     auto [snarl_traversals, snarl_weights] = finder.find_weighted_traversals(site);
     auto [handle_traversals, handle_weights] = finder.find_weighted_traversals(start, end);
+    // The walks and flows from the bound handles are those from the Snarl, in
+    // the same order.
     REQUIRE(handle_weights == snarl_weights);
     REQUIRE(handle_traversals.size() == snarl_traversals.size());
     for (size_t i = 0; i < handle_traversals.size(); i++) {

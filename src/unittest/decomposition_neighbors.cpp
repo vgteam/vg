@@ -37,11 +37,11 @@ TEST_CASE("for_each_neighbor() from a chain node gives the next snarl once as ST
     SnarlManagerDecomposition view(manager, graph);
 
     net_handle_t node1 = view.get_net(n1, &graph);
-    std::vector<net_handle_t> edges;
+    std::vector<net_handle_t> adjacent;
     view.follow_net_edges(node1, &graph, false, [&](const net_handle_t& next) {
-        edges.push_back(next);
+        adjacent.push_back(next);
     });
-    REQUIRE(edges.size() == 2);
+    REQUIRE(adjacent.size() == 2);
 
     std::vector<net_handle_t> neighbors;
     for_each_neighbor(view, node1, &graph, false, [&](const net_handle_t& next) {

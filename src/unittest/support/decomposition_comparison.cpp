@@ -99,13 +99,8 @@ static void add_to_shape(const SnarlDecomposition& decomposition, const HandleGr
             std::ranges::sort(traversals);
             std::vector<std::string>& tippy = shape[child_name + " tippy children"];
             decomposition.for_each_tippy_child(child, [&](const net_handle_t& traversal) {
-                // TODO: SnarlManagerDecomposition also gives traversals that
-                // start at a dead end on a boundary node of the child, and
-                // SnarlDistanceIndex does not. Compare only what both give.
-                if (decomposition.starts_at_tip(traversal)) {
-                    tippy.push_back(element_name(decomposition, graph, traversal) + " " +
-                                    traversal_letters(decomposition, graph, traversal));
-                }
+                tippy.push_back(element_name(decomposition, graph, traversal) + " " +
+                                traversal_letters(decomposition, graph, traversal));
             });
             std::ranges::sort(tippy);
             add_to_shape(decomposition, graph, child_name, decomposition.canonical(child), shape);

@@ -738,13 +738,18 @@ TEST_CASE("SnarlManagerDecomposition for_each_traversal() gives START_TIP and TI
     REQUIRE(traversal_kinds(view, snarl) == vector<string> {"SE", "ST", "ES", "TS"});
     REQUIRE(traversal_kinds(view, chain) == vector<string> {"SE", "ST", "ES", "TS"});
 
-    SECTION("for_each_tippy_child() of the snarl gives node 5's trivial chain END_START") {
-        net_handle_t tip_chain = view.get_parent(view.get_net(graph.get_handle(n5->id(), true), &graph));
-        vector<net_handle_t> tippy;
-        view.for_each_tippy_child(snarl, [&tippy](const net_handle_t& child) {
-            tippy.push_back(child);
+    SECTION("for_each_tippy_child() of the snarl gives nothing") {
+        // The tip is on node 5, outside its trivial chain, so no child holds a
+        // tip inside it.
+        bool gave_any = false;
+        view.for_each_tippy_child(snarl, [&gave_any](const net_handle_t&) {
+            gave_any = true;
         });
-        REQUIRE(tippy == vector<net_handle_t> {tip_chain});
+        REQUIRE(!gave_any);
+    }
+
+    SECTION("get_parent_traversal() gives TIP_START from node 5's trivial chain and the start bound") {
+        net_handle_t tip_chain = view.get_parent(view.get_net(graph.get_handle(n5->id(), true), &graph));
         REQUIRE(view.starts_at(tip_chain) == SnarlDecomposition::END);
         REQUIRE(view.ends_at(tip_chain) == SnarlDecomposition::START);
         net_handle_t from_tip = view.get_parent_traversal(tip_chain, view.get_bound(snarl, false, false));

@@ -44,8 +44,8 @@ std::string element_name(const SnarlDecomposition& decomposition, const HandleGr
  * name of each snarl and chain followed by ` traversals`, its realizable
  * traversals, each as two letters S, E or T for where it starts and ends,
  * and under the name followed by ` tippy children`, the traversals that
- * for_each_tippy_child() gives that start at a tip, each as the name of its
- * element and its letters.
+ * for_each_tippy_child() gives, each as the name of its element and its
+ * letters.
  *
  * The root is named `root`, and everything else as element_name() names it.
  * The children of a snarl or of the root are sorted by name. The children of

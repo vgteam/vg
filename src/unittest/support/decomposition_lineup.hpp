@@ -38,8 +38,7 @@ public:
     /**
      * Build each implementation from a recorded decomposition.
      *
-     * @param graph The graph that was decomposed. The implementations keep
-     * references to it, so it must outlive the line-up.
+     * @param graph The graph that was decomposed.
      * @param events The events of a snarl finder's decomposition of the
      * graph, as capture_events() records them.
      */
@@ -64,7 +63,7 @@ public:
      * Call a function on each implementation, with the name of its
      * class.
      *
-     * @post Implementations come in the same order on each call, and in each
+     * The implementations come in the same order on each call, and in each
      * line-up.
      */
     void for_each(const std::function<void(const std::string&, const SnarlDecomposition&)>& iteratee) const;

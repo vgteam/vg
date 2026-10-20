@@ -668,16 +668,15 @@ public:
      * Find the K widest traversals through the site between two bound
      * handles, with their flows.
      *
-     * @param snarl_start The start bound of the site, oriented into the site,
-     * as a handle in the graph that is searched.
-     * @param snarl_end The end bound of the site, oriented out of the site, as
-     * a handle in the graph that is searched.
+     * @param snarl_start The start bound of the site, oriented into the site.
+     * @param snarl_end The end bound of the site, oriented out of the site.
      * @param greedy_avg True to search heuristically by the running average
      * flow, which may miss the widest traversals, rather than by the
      * smallest flow along each traversal.
      * @param overlay A graph to search instead of the finder's graph, or null.
-     * @return The traversals, as handles in the graph that is searched, and a
-     * vector whose i-th entry is the flow through the i-th traversal. Without
+     * If given, the bound handles must be in the overlay, and the traversals
+     * are returned as handles in it.
+     * @return The traversals, and a vector whose i-th entry is the flow through the i-th traversal. Without
      * greedy_avg, the traversals come widest first. With greedy_avg, each
      * flow is an average of the weights along the traversal, and a traversal
      * can have more flow than the one before it.

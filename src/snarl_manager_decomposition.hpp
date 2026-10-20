@@ -38,9 +38,10 @@ using handlegraph::net_handle_t;
  * Each node that is not a chain node is a free node. It is a trivial chain
  * whose start-to-end traversal visits the node forward.
  *
- * The view keeps references to the manager and the graph. Both must outlive
- * it, and the manager must not change. A graph passed to a method must have
- * the same node IDs as the graph the view was made with.
+ * The view keeps a reference to the manager, which must outlive it and must
+ * not change. It does not keep the graph. A graph passed to a method must have
+ * the same nodes and edges as the graph the view was made with, in any handle
+ * format.
  *
  * @note Unlike a SnarlDistanceIndex, the view puts top-level chains directly
  * in the root, and shows snarls that have no children.
@@ -49,6 +50,9 @@ class SnarlManagerDecomposition : public handlegraph::SnarlDecomposition {
 public:
     /**
      * Make a view of the snarls in a SnarlManager.
+     *
+     * Walk the graph to find which traversals of each snarl and chain are
+     * realizable.
      *
      * @pre finish() has been called on the manager.
      * @throws std::invalid_argument If the manager holds a unary snarl.
@@ -149,25 +153,14 @@ protected:
                                  const std::function<bool(const net_handle_t&)>& iteratee) const override;
 
     /**
-     * Call a function on each realizable traversal that a walk can visit
-     * just after or just before a traversal.
+     * Call a function on each realizable traversal that comes just after or
+     * just before a traversal in its parent.
      *
      * In a looping chain, going right from the last snarl gives the first
-     * chain node. Walk the graph the view was made with, and ignore
-     * handle_graph.
+     * chain node.
      */
     bool follow_net_edges_impl(const net_handle_t& here, const HandleGraph* handle_graph, bool go_left,
                                const std::function<bool(const net_handle_t&)>& iteratee) const override;
-
-    /**
-     * Call a function on each realizable traversal of a child that starts at
-     * a tip of the parent.
-     *
-     * In the root or a snarl, this includes traversals of a child that start
-     * at a bound whose outer side is a dead end.
-     */
-    bool for_each_tippy_child_impl(const net_handle_t& parent,
-                                   const std::function<bool(const net_handle_t&)>& iteratee) const override;
 
 private:
 
@@ -182,24 +175,26 @@ private:
         bool is_reverse;
     };
 
-    /// A directory of where each node of a graph sits in the snarl tree.
+    /**
+     * A directory of where each node of a graph sits in the snarl tree.
+     *
+     * The directory finds chain nodes through the manager's index of the
+     * snarls each node side leads into, and lists the free nodes itself.
+     */
     class NodeDirectory {
     public:
         /**
-         * Find where each node of a graph sits in a manager's snarl tree.
+         * Find the free nodes of a graph in a manager's snarl tree.
          *
-         * The directory keeps pointers into the manager, so it must outlive
+         * The directory keeps a reference to the manager, so it must outlive
          * the directory.
          *
          * @pre finish() has been called on the manager.
          */
         NodeDirectory(const SnarlManager& manager, const HandleGraph& graph);
 
-        /**
-         * Get the place of a node in its chain, or nullopt for a free node.
-         *
-         * @pre The node is in the graph.
-         */
+        /// Get the place of a node in its chain, or nullopt for a free node,
+        /// in constant time.
         std::optional<ChainPosition> chain_position(nid_t id) const;
 
         /**
@@ -214,17 +209,11 @@ private:
         const std::vector<nid_t>& free_nodes(const Snarl* snarl) const;
 
     private:
-        /// The place of one node in the snarl tree.
-        struct Entry {
-            /// The snarl that directly contains the node, or null for the
-            /// root.
-            const Snarl* containing_snarl;
-            /// The place of the node in its chain, or nullopt for a free node.
-            std::optional<ChainPosition> chain_position;
-        };
-
-        /// The entry for each node of the graph, by ID.
-        std::unordered_map<nid_t, Entry> entries;
+        /// The manager whose snarl tree the nodes sit in.
+        const SnarlManager& manager;
+        /// The snarl that directly contains each free node, or null for the
+        /// root.
+        std::unordered_map<nid_t, const Snarl*> free_node_snarls;
         /// The free nodes in each snarl that has any, and in the root under
         /// null. Each list is in ID order.
         std::unordered_map<const Snarl*, std::vector<nid_t>> free_nodes_by_snarl;
@@ -339,7 +328,7 @@ private:
              *
              * Each start is the position of a chain node, and true to leave it
              * going in reverse along the chain. Here the end bound has position
-             * chain.size() even in a looping chain. A walk that reaches a bound
+             * chain.size() even in a looping chain. A walk that comes to a bound
              * of a looping chain can leave there, and can also go on around the
              * loop, since its boundary node is both bounds.
              *
@@ -392,8 +381,10 @@ private:
     };
 
     /// Get a snarl's start bound oriented into the snarl, or its end bound
-    /// oriented out of it, as a handle in the view's graph.
-    handle_t snarl_bound(const Snarl* snarl, bool get_end) const;
+    /// oriented out of it.
+    Visit snarl_bound(const Snarl* snarl, bool get_end) const;
+    /// Get the manager's Snarl for a snarl number.
+    const Snarl* snarl_of_number(uint64_t number) const;
     /// Get a snarl's net handle, start-to-end if forward and end-to-start
     /// otherwise.
     net_handle_t snarl_net(const Snarl* snarl, bool forward) const;
@@ -432,32 +423,33 @@ private:
      * @throws std::logic_error If the handle enters a chain between its
      * bounds.
      */
-    net_handle_t sibling_entered_by(const handle_t& handle, const Snarl* parent) const;
+    net_handle_t sibling_entered_by(const HandleGraph& graph, const handle_t& handle, const Snarl* parent) const;
 
     /**
-     * Call a function on each sibling that a walk leaving a traversal through
-     * its end enters.
+     * Call a function on each sibling that an edge from the end of a traversal
+     * leads into.
      *
      * A sibling is a chain or trivial chain in the same parent, or a sentinel
      * of the parent facing out. A looping chain, a sentinel facing out, and a
      * traversal that ends at a tip have no siblings ahead.
      */
-    bool for_each_sibling_ahead(const net_handle_t& here,
+    bool for_each_sibling_ahead(const HandleGraph& graph, const net_handle_t& here,
                                 const std::function<bool(const net_handle_t&)>& iteratee) const;
 
-    /**
-     * Call a function on each realizable traversal of a net graph element
-     * that starts where a walk enters it.
-     *
-     * @param entered A traversal of the element that starts where the walk
-     * enters it.
-     */
-    bool for_each_traversal_entered(const net_handle_t& entered,
-                                    const std::function<bool(const net_handle_t&)>& iteratee) const;
+    /// Call a function on each realizable traversal of a net graph element
+    /// that starts at the given endpoint.
+    bool for_each_traversal_from(const net_handle_t& element, endpoint_t start,
+                                 const std::function<bool(const net_handle_t&)>& iteratee) const;
 
-    /// Call a function on each realizable traversal that a walk leaving a
-    /// traversal through its end can visit next.
-    bool follow_right(const net_handle_t& here, const std::function<bool(const net_handle_t&)>& iteratee) const;
+    /**
+     * Do follow_net_edges() going right.
+     *
+     * Find the net graph elements that edges from the end of here lead into,
+     * and give each realizable traversal of them that starts at the endpoint
+     * the edge leads into.
+     */
+    bool follow_right(const HandleGraph& graph, const net_handle_t& here,
+                      const std::function<bool(const net_handle_t&)>& iteratee) const;
 
     /**
      * Find the snarl or chain, and its endpoint, where a traversal of it can
@@ -484,11 +476,6 @@ private:
 
     /// The manager whose snarls the view presents.
     const SnarlManager& manager;
-    /// The graph the snarls were found in.
-    const HandleGraph& graph;
-    /// The manager's snarls, by SnarlManager::snarl_number(). Net handles for
-    /// snarls, sentinels and chains carry snarl numbers as their payloads.
-    std::vector<const Snarl*> snarls_by_number;
     /// Tells the view each node's place in its chain, and the snarl that
     /// contains it.
     NodeDirectory directory;
