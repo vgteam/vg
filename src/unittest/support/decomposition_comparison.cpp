@@ -7,14 +7,14 @@
 #include "decomposition_comparison.hpp"
 
 #include <algorithm>
-#include <format>
 #include <functional>
+#include <string>
 
 namespace vg::unittest {
 
 /// Write a graph handle as its node ID, then + if forward or - if reverse.
 static std::string handle_text(const HandleGraph& graph, const handle_t& handle) {
-    return std::format("{}{}", graph.get_id(handle), graph.get_is_reverse(handle) ? "-" : "+");
+    return std::to_string(graph.get_id(handle)) + (graph.get_is_reverse(handle) ? "-" : "+");
 }
 
 /**
@@ -32,10 +32,10 @@ static std::pair<std::string, std::string> bound_pairs(const SnarlDecomposition&
 std::string element_name(const SnarlDecomposition& decomposition, const HandleGraph& graph,
                          const net_handle_t& element) {
     if (decomposition.is_node(element)) {
-        return std::format("node {}", graph.get_id(decomposition.get_handle(element, &graph)));
+        return "node " + std::to_string(graph.get_id(decomposition.get_handle(element, &graph)));
     }
     auto [forward, flipped] = bound_pairs(decomposition, graph, element);
-    return std::format("{} {}", decomposition.is_snarl(element) ? "snarl" : "chain", std::min(forward, flipped));
+    return (decomposition.is_snarl(element) ? "snarl " : "chain ") + std::min(forward, flipped);
 }
 
 /**
