@@ -3424,24 +3424,23 @@ vector<Traversal> FlowTraversalFinder::find_traversals(const handle_t& snarl_sta
 pair<vector<SnarlTraversal>, vector<double>> FlowTraversalFinder::find_weighted_traversals(const Snarl& site, bool greedy_avg,
                                                                                            const HandleGraph* overlay) {
 
-    // option to use the overlay graph for the search
     const HandleGraph* use_graph = overlay != nullptr ? overlay : & graph;
     
-    pair<vector<Traversal>, vector<double>> weighted_travs = find_weighted_traversals(
+    auto [handle_travs, weights] = find_weighted_traversals(
         use_graph->get_handle(site.start().node_id(), site.start().backward()),
         use_graph->get_handle(site.end().node_id(), site.end().backward()),
         greedy_avg, overlay);
 
-    vector<SnarlTraversal> travs(weighted_travs.first.size());
-    for (size_t i = 0; i < weighted_travs.first.size(); ++i) {
-        for (const handle_t& h : weighted_travs.first[i]) {
+    vector<SnarlTraversal> travs(handle_travs.size());
+    for (size_t i = 0; i < handle_travs.size(); ++i) {
+        for (const handle_t& h : handle_travs[i]) {
             Visit* visit = travs[i].add_visit();
             visit->set_node_id(use_graph->get_id(h));
             visit->set_backward(use_graph->get_is_reverse(h));
         }
     }
 
-    return make_pair(travs, weighted_travs.second);
+    return make_pair(travs, weights);
 }
 
 pair<vector<Traversal>, vector<double>> FlowTraversalFinder::find_weighted_traversals(const handle_t& snarl_start,
@@ -3449,12 +3448,12 @@ pair<vector<Traversal>, vector<double>> FlowTraversalFinder::find_weighted_trave
                                                                                       bool greedy_avg,
                                                                                       const HandleGraph* overlay) {
 
-    // option to use the overlay graph for the search
+    // Search the overlay graph if one is given.
     const HandleGraph* use_graph = overlay != nullptr ? overlay : & graph;
 
     size_t max_path_length = max_traversal_length;
     if (max_path_length != numeric_limits<size_t>::max()) {
-        // want to exclude snarl endpoints from path length clamp
+        // Leave the bounds out of the length limit.
         max_path_length += use_graph->get_length(snarl_start) + use_graph->get_length(snarl_end);
     }
     
@@ -3469,9 +3468,9 @@ pair<vector<Traversal>, vector<double>> FlowTraversalFinder::find_weighted_trave
     vector<double> weights;
     weights.reserve(widest_paths.size());
 
-    for (auto& wp : widest_paths) {
-        weights.push_back(wp.first);
-        travs.emplace_back(std::move(wp.second));
+    for (auto& [weight, path] : widest_paths) {
+        weights.push_back(weight);
+        travs.emplace_back(std::move(path));
     }
 
     return make_pair(travs, weights);

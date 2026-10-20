@@ -21,6 +21,22 @@ SiteBounds site_bounds(const SnarlDecomposition& decomposition, const HandleGrap
     return bounds;
 }
 
+bool is_trivial_site(const SnarlDecomposition& decomposition, const net_handle_t& snarl) {
+    bool has_children = !decomposition.for_each_child(snarl, [](const net_handle_t&) {
+        return false;
+    });
+    if (has_children) {
+        return false;
+    }
+    // Every realizable traversal must cross the snarl.
+    return decomposition.for_each_traversal(snarl, [&](const net_handle_t& traversal) {
+        SnarlDecomposition::endpoint_t start = decomposition.starts_at(traversal);
+        SnarlDecomposition::endpoint_t end = decomposition.ends_at(traversal);
+        return (start == SnarlDecomposition::START && end == SnarlDecomposition::END) ||
+            (start == SnarlDecomposition::END && end == SnarlDecomposition::START);
+    });
+}
+
 vector<net_handle_t> top_level_sites(const SnarlDecomposition& decomposition) {
     vector<net_handle_t> sites;
     decomposition.for_each_child(decomposition.get_root(), [&](const net_handle_t& chain) {
@@ -35,7 +51,7 @@ vector<net_handle_t> child_chains(const SnarlDecomposition& decomposition, const
     vector<net_handle_t> chains;
     decomposition.for_each_child(site, [&](const net_handle_t& chain) {
         bool has_site = !decomposition.for_each_child(chain, [&](const net_handle_t& child) {
-            return !decomposition.is_snarl(child);
+            return !decomposition.is_snarl(child) || is_trivial_site(decomposition, child);
         });
         if (has_site) {
             chains.push_back(chain);
@@ -47,7 +63,7 @@ vector<net_handle_t> child_chains(const SnarlDecomposition& decomposition, const
 vector<net_handle_t> child_sites(const SnarlDecomposition& decomposition, const net_handle_t& chain) {
     vector<net_handle_t> sites;
     decomposition.for_each_child(chain, [&](const net_handle_t& child) {
-        if (decomposition.is_snarl(child)) {
+        if (decomposition.is_snarl(child) && !is_trivial_site(decomposition, child)) {
             sites.push_back(child);
         }
     });

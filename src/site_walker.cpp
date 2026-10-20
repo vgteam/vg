@@ -44,7 +44,8 @@ void SiteWalker::walk(GraphCaller::RecurseType recurse_type, size_t batch_window
                 }
             }
         },
-        // The decomposition shows no site that holds nothing to call.
+        // top_level_sites() and child_sites() leave out trivial snarls, which
+        // hold nothing to call.
         [](const net_handle_t&) { return false; },
         [&](const net_handle_t& site) {
             return call_site(SiteView{site, oriented_bounds(decomposition, graph, site),

@@ -186,7 +186,8 @@ SiteChildren site_children(const SnarlDecomposition& decomposition, const Handle
         decomposition.for_each_child(chain, [&](const net_handle_t& child) {
             if (decomposition.is_node(child)) {
                 nodes.push_back(decomposition.get_handle(child, &graph));
-            } else if (child_sites != nullptr && decomposition.is_snarl(child)) {
+            } else if (child_sites != nullptr && decomposition.is_snarl(child) &&
+                       !is_trivial_site(decomposition, child)) {
                 child_sites->push_back(
                     ChildSite{child, oriented_bounds(decomposition, graph, child), bounds});
             }

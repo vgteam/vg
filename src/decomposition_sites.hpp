@@ -4,10 +4,10 @@
 /** \file
  * Free functions for walking the sites of a snarl decomposition.
  *
- * A site is a snarl other than the root. The root is the only snarl without
- * bounding nodes, so these functions never ask for its bounds. Each site sits
- * in a chain, and its child chains hold its child sites. Nodes are never
- * sites.
+ * A site is a snarl other than the root that is not a trivial snarl. The
+ * root is the only snarl without bounding nodes, so these functions never ask
+ * for its bounds. Each site sits in a chain, and its child chains hold its
+ * child sites. Nodes are never sites.
  */
 
 #include <vector>
@@ -61,6 +61,15 @@ struct SiteBounds {
  * an internal tip.
  */
 SiteBounds site_bounds(const SnarlDecomposition& decomposition, const HandleGraph& graph, const net_handle_t& net);
+
+/**
+ * Return true if a snarl is a trivial snarl, which holds nothing to call.
+ *
+ * A trivial snarl has no children, and a walk can only cross it. It is the
+ * edge between two consecutive nodes of a chain. Some decompositions show
+ * trivial snarls and some leave them out.
+ */
+bool is_trivial_site(const SnarlDecomposition& decomposition, const net_handle_t& snarl);
 
 /**
  * Get the sites in the chains of the root, in chain order, each read the way

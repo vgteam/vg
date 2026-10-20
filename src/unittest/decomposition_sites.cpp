@@ -1,15 +1,16 @@
 /// \file decomposition_sites.cpp
 ///
-/// Unit tests for the decomposition_sites functions, run on a
-/// SnarlManagerDecomposition and a SnarlDistanceIndex built from the same
-/// decomposition.
+/// Unit tests for the decomposition_sites functions, run on each
+/// SnarlDecomposition implementation built from the same decomposition.
 
 #include "catch.hpp"
 #include "../decomposition_sites.hpp"
 #include "../handle.hpp"
 #include "../vg.hpp"
 #include "../integrated_snarl_finder.hpp"
-#include "support/decomposition_pair.hpp"
+#include "../snarl_manager_decomposition.hpp"
+#include "support/decomposition_lineup.hpp"
+#include "support/snarl_decomposition_fuzzer.hpp"
 #include "support/random_graph.hpp"
 #include "support/randomly_flipped_nodes.hpp"
 #include "support/randomness.hpp"
@@ -26,11 +27,16 @@ static string handle_string(const HandleGraph& graph, const handle_t& handle) {
     return to_string(graph.get_id(handle)) + (graph.get_is_reverse(handle) ? "-" : "+");
 }
 
+/// Describe a pair of bounds the same way whichever way they are read.
+static string bounds_key(const HandleGraph& graph, const handle_t& start, const handle_t& end) {
+    return min(handle_string(graph, start) + "/" + handle_string(graph, end),
+               handle_string(graph, graph.flip(end)) + "/" + handle_string(graph, graph.flip(start)));
+}
+
 /// Describe a site or chain by its bounds, whichever way it is read.
 static string site_key(const SnarlDecomposition& decomposition, const HandleGraph& graph, const net_handle_t& net) {
     SiteBounds bounds = site_bounds(decomposition, graph, net);
-    return min(handle_string(graph, bounds.start) + "/" + handle_string(graph, bounds.end),
-               handle_string(graph, graph.flip(bounds.end)) + "/" + handle_string(graph, graph.flip(bounds.start)));
+    return bounds_key(graph, bounds.start, bounds.end);
 }
 
 /// Describe every site through the decomposition_sites functions, by site
@@ -86,29 +92,66 @@ static map<string, string> describe_sites(const SnarlDecomposition& decompositio
     return descriptions;
 }
 
-/// Check the functions on the adapter against the manager's own answers.
-static void check_against_manager(const DecompositionPair& pair) {
-    pair.manager.for_each_snarl_preorder([&](const Snarl* snarl) {
-        if (pair.manager.is_trivial(snarl, pair.graph)) {
+/// Check the functions on a view of a manager against the manager's own
+/// answers.
+static void check_against_manager(const SnarlManager& manager, const SnarlManagerDecomposition& view,
+                                  const HandleGraph& graph) {
+    manager.for_each_snarl_preorder([&](const Snarl* snarl) {
+        if (manager.is_trivial(snarl, graph)) {
             return;
         }
-        net_handle_t site = pair.adapter.get_snarl_net(snarl);
-        SiteBounds bounds = site_bounds(pair.adapter, pair.graph, site);
-        REQUIRE(bounds.start == pair.graph.get_handle(snarl->start().node_id(), snarl->start().backward()));
-        REQUIRE(bounds.end == pair.graph.get_handle(snarl->end().node_id(), snarl->end().backward()));
-        REQUIRE(is_leaf(pair.adapter, site) == pair.manager.all_children_trivial(snarl, pair.graph));
+        net_handle_t site = view.get_snarl_net(snarl);
+        // The view orients the snarl forward along its chain, which may be
+        // the other way from the manager's Snarl.
+        REQUIRE(site_key(view, graph, site) ==
+                bounds_key(graph, graph.get_handle(snarl->start().node_id(), snarl->start().backward()),
+                           graph.get_handle(snarl->end().node_id(), snarl->end().backward())));
+        REQUIRE(is_leaf(view, site) == manager.all_children_trivial(snarl, graph));
         size_t enclosing = 0;
-        for (const Snarl* parent = pair.manager.parent_of(snarl); parent != nullptr; parent = pair.manager.parent_of(parent)) {
+        for (const Snarl* parent = manager.parent_of(snarl); parent != nullptr; parent = manager.parent_of(parent)) {
             enclosing++;
         }
-        REQUIRE(depth(pair.adapter, site) == enclosing);
-        net_handle_t parent = parent_site(pair.adapter, site);
-        if (pair.manager.parent_of(snarl) == nullptr) {
-            REQUIRE(pair.adapter.is_root(parent));
+        REQUIRE(depth(view, site) == enclosing);
+        net_handle_t parent = parent_site(view, site);
+        if (manager.parent_of(snarl) == nullptr) {
+            REQUIRE(view.is_root(parent));
         } else {
-            REQUIRE(pair.adapter.get_snarl(parent) == pair.manager.parent_of(snarl));
+            REQUIRE(view.get_snarl(parent) == manager.parent_of(snarl));
         }
     });
+}
+
+/// Return true if a manager holds a snarl with no nodes that is not an
+/// ultrabubble. SnarlManagerDecomposition shows such a snarl as a site, and
+/// SnarlDistanceIndex leaves out every snarl with no children.
+static bool has_known_difference(const SnarlManager& manager, const HandleGraph& graph) {
+    bool found = false;
+    manager.for_each_snarl_preorder([&](const Snarl* snarl) {
+        found = found || (snarl->type() != ULTRABUBBLE && manager.is_leaf(snarl) &&
+                          manager.shallow_contents(snarl, graph, false).first.empty());
+    });
+    return found;
+}
+
+/**
+ * Check the decomposition_sites functions on each implementation built from
+ * one decomposition.
+ *
+ * @return The descriptions of the sites from SnarlManagerDecomposition.
+ */
+static map<string, string> check_sites(const HandleGraph& graph, const vector<DecompositionEvent>& events,
+                                       bool compare_implementations) {
+    SnarlManager manager = ReplaySnarlFinder(&graph, events).find_snarls();
+    SnarlManagerDecomposition view(manager, graph);
+    check_against_manager(manager, view, graph);
+    map<string, string> sites = describe_sites(view, graph);
+    if (compare_implementations && !has_known_difference(manager, graph)) {
+        DecompositionLineup(graph, events).for_each([&](const string& name, const SnarlDecomposition& decomposition) {
+            INFO("Implementation: " << name);
+            REQUIRE(describe_sites(decomposition, graph) == sites);
+        });
+    }
+    return sites;
 }
 
 TEST_CASE("decomposition_sites gives the same sites on both implementations", "[decomposition_sites]") {
@@ -134,10 +177,7 @@ TEST_CASE("decomposition_sites gives the same sites on both implementations", "[
         graph.create_edge(n6, n7);
         graph.create_edge(n7, n8);
         IntegratedSnarlFinder finder(graph);
-        DecompositionPair pair(graph, finder);
-        check_against_manager(pair);
-        map<string, string> sites = describe_sites(pair.adapter, graph);
-        REQUIRE(sites == describe_sites(pair.distance_index, graph));
+        map<string, string> sites = check_sites(graph, capture_events(finder, graph), true);
         REQUIRE(sites.at("top level") == "1+/8+ ");
         REQUIRE(sites.at("1+/8+") == "depth 0 in root 2+/7+(2+/7+,)");
         REQUIRE(sites.at("2+/7+") == "depth 1 in 1+/8+ 3+/5+(3+/5+,)");
@@ -157,12 +197,10 @@ TEST_CASE("decomposition_sites gives the same sites on both implementations", "[
                 bdsg::HashGraph graph = randomly_flipped_nodes(base_graph, 0.5, generator);
                 IntegratedSnarlFinder base_finder(graph);
                 SnarlDecompositionFuzzer finder(&graph, &base_finder, chain_flip_probability, generator);
-                DecompositionPair pair(graph, finder);
-
-                check_against_manager(pair);
-                map<string, string> adapter_sites = describe_sites(pair.adapter, graph);
-                if (!pair.has_known_difference()) {
-                    REQUIRE(adapter_sites == describe_sites(pair.distance_index, graph));
+                vector<DecompositionEvent> events = capture_events(finder, graph);
+                check_sites(graph, events, true);
+                SnarlManager manager = ReplaySnarlFinder(&graph, events).find_snarls();
+                if (!has_known_difference(manager, graph)) {
                     compared++;
                 }
             }

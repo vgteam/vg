@@ -154,9 +154,9 @@ SiteBounds oriented_bounds(const SnarlDecomposition& decomposition, const Handle
 
 /// The children of the site `site` in `decomposition`, read by a caller that has the site as
 /// `as_called`: its oriented bounds, or those turned round. Every pair of consecutive nodes of a
-/// child chain has a site between them, which the decomposition may not show, as SnarlManager's
-/// adapter hides trivial snarls; both of that site's ways in are entries. If `child_sites` is
-/// given, the child sites the decomposition shows are added to it, in its order.
+/// child chain has a site between them, which the decomposition may show as a trivial snarl or
+/// leave out; both of that site's ways in are entries. If `child_sites` is given, the child sites
+/// other than trivial snarls are added to it, in the decomposition's order.
 SiteChildren site_children(const SnarlDecomposition& decomposition, const HandleGraph& graph,
                            const net_handle_t& site, const SiteBounds& as_called,
                            vector<ChildSite>* child_sites = nullptr);

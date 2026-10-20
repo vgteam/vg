@@ -2531,11 +2531,8 @@ int main_call(int argc, char** argv) {
 
             // create the flow traversal finder
             // A site longer than the average support threshold is searched by average flow too.
-            FlowTraversalFinder* flow_traversal_finder = new FlowTraversalFinder(*graph, max_yens_traversals,
-                                                                                 node_support, edge_support,
-                                                                                 max_allele_len,
-                                                                                 avg_trav_threshold);
-            traversal_finder = unique_ptr<TraversalFinder>(flow_traversal_finder);
+            traversal_finder = make_unique<FlowTraversalFinder>(*graph, max_yens_traversals, node_support, edge_support,
+                                                                max_allele_len, avg_trav_threshold);
         }
 
         if (read_likelihood) {
