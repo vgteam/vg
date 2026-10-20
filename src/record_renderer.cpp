@@ -7,30 +7,20 @@
 #include "record_renderer.hpp"
 #include "read_likelihood_caller.hpp"
 
-namespace vg {
-namespace multipass {
+namespace vg::multipass {
 
-void RecordRenderer::configure(SiteReader reader) {
-    this->reader = std::move(reader);
+void RecordRenderer::configure(SiteReader site_reader) {
+    this->reader = std::move(site_reader);
 }
 
-// The anchor gqn column for a staged site.
-//
-// `gq_fraction` was computed in the direct pass for the reads' best genotype, so on a record whose
-// genotype the linkage model changed, it describes the abandoned genotype. Such a record gets the
-// signed margin of its chosen genotype instead, as the VCF's GQN does (see
-// ReadLikelihoodSnarlCaller::rewrite_quality_for_chosen_genotype).
-//
-// Returns the direct pass's value when the model did not change the call; the recomputed signed margin
-// when it did; and NaN, written as ".", when it did but the margin cannot be recomputed.
 double RecordRenderer::anchor_gqn(const StagedSite& rec, const vector<int>& chosen,
                                   const LinkageCollector* model) {
-    const SiteScore* info = rec.score;
-    // The direct pass's value, with its "no gap to normalise" value (-1) turned into NaN, written as ".",
-    // so that it stays distinct from the signed range [-1, 1].
-    const double direct_value = (info == nullptr || info->gq_fraction < 0.0)
+    const SiteScore* score = rec.score;
+    // The value of the direct pass, with -1, which means there was no gap to normalise, turned
+    // into NaN, so that it stays apart from the signed range [-1, 1].
+    const double direct_value = (score == nullptr || score->gq_fraction < 0.0)
         ? std::numeric_limits<double>::quiet_NaN()
-        : info->gq_fraction;
+        : score->gq_fraction;
     const double blank = std::numeric_limits<double>::quiet_NaN();
     if (model == nullptr) {
         return direct_value;
@@ -38,49 +28,49 @@ double RecordRenderer::anchor_gqn(const StagedSite& rec, const vector<int>& chos
     const auto& moved = model->moved_quality();
     const auto found = moved.find(rec.record_key);
     if (found == moved.end()) {
-        return direct_value;   // linkage left the call alone, so the direct pass's value still holds
+        // The linkage model left the call alone, so the value of the direct pass still holds.
+        return direct_value;
     }
-    // The model changed the call, so the direct pass's value describes the wrong genotype, and any
-    // failure below gives NaN rather than falling back to it.
-    if (info == nullptr || info->genotype_lls.empty()) {
+    // The model changed the call, so the value of the direct pass describes the wrong genotype.
+    // Any failure below gives NaN.
+    if (score == nullptr || score->genotype_lls.empty()) {
         return blank;
     }
-    // The divisor and share the VCF's GQN uses (see
-    // ReadLikelihoodSnarlCaller::rewrite_quality_for_chosen_genotype), so that the two agree.
+    // Scale the margin as GQN in the VCF does, so that the two agree.
     const LinkageCollector::DirectQuality& direct = found->second.direct;
     if (!(direct.achievable_gap > 0.0)) {
-        return blank;   // no scale, and no honest pre-linkage value to fall back on
+        return blank;
     }
     const double achievable_phred = 10.0 * direct.achievable_gap / log(10.0);
 
-    // The chosen genotype, not rec.genotype, which is the direct pass's call before the linkage model:
-    // the reads prefer that call, so its margin would have the wrong sign.
+    // Use the chosen genotype. `rec.genotype` is the call of the direct pass, which the reads
+    // prefer, so its margin would have the wrong sign.
     vector<int> called = chosen;
-    sort(called.begin(), called.end());
-    const auto mine = info->genotype_lls.find(called);
-    if (mine == info->genotype_lls.end()) {
+    std::ranges::sort(called);
+    const auto mine = score->genotype_lls.find(called);
+    if (mine == score->genotype_lls.end()) {
         return blank;
     }
-    // Only genotypes over the written alleles, as the VCF's GL has: the reference traversal and
-    // the ones the chosen genotype names. A traversal with no ALT could otherwise beat the call.
+    // Compare only with genotypes over the written alleles, as GL in the VCF does. Those are the
+    // reference traversal and the traversals the chosen genotype names.
     set<int> emitted(called.begin(), called.end());
     if (rec.ref_trav_idx >= 0) {
         emitted.insert(rec.ref_trav_idx);
     }
     double best_other = -numeric_limits<double>::infinity();
-    for (const auto& entry : info->genotype_lls) {
-        if (entry.first == called) {
+    for (const auto& [other, ll] : score->genotype_lls) {
+        if (other == called) {
             continue;
         }
         bool all_emitted = true;
-        for (int a : entry.first) {
-            if (emitted.count(a) == 0) {
+        for (int a : other) {
+            if (!emitted.contains(a)) {
                 all_emitted = false;
                 break;
             }
         }
         if (all_emitted) {
-            best_other = max(best_other, entry.second);
+            best_other = max(best_other, ll);
         }
     }
     if (!std::isfinite(best_other)) {
@@ -98,13 +88,13 @@ void RecordRenderer::collect_anchors(const StagedSite& rec, const vector<int>& g
     if (rec.call_info == nullptr) {
         return;
     }
-    const SiteScore* info = rec.score;
-    if (info == nullptr || info->anchor_evidence == nullptr) {
-        // A genotype derived from a parent rather than scored here, or a run whose caller is not the
-        // read-likelihood one. There are no per-read responsibilities to partition on.
+    const SiteScore* score = rec.score;
+    if (score == nullptr || score->anchor_evidence == nullptr) {
+        // The genotype came from a parent, or the run uses another caller, so there are no
+        // per-read responsibilities to collect anchors from.
         return;
     }
-    anchors.collect(*info->anchor_evidence, info->explained_share,
+    anchors.collect(*score->anchor_evidence, score->explained_share,
                     phases.phase_ordered_genotype(rec.record_key, genotype),
                     phases.haploid_slot(rec.record_key, genotype), rec.id,
                     anchors.wants_leaf_test() ? rec.leaf : true,
@@ -118,10 +108,10 @@ void RecordRenderer::hand_off(StagedSiteTable& staged, const PhaseTable& phases,
         return;
     }
     const vector<StagedSite>& pending = staged.nested();
-    // A chain that gets no line still gets anchors: one whose variation an enclosing block's ALT
-    // already spells, and one with no reference path, so no REF or POS, whose anchors are placed by
-    // node ID. Each chain's anchors are its own and the anchor writer sorts every anchor before
-    // writing, so they are collected on several threads, before the chains are handed over.
+    // Collect anchors for the chains that get no line. Those are the chains whose variation the ALT
+    // of an enclosing block already spells, and the chains with no reference path, whose anchors
+    // are placed by node ID. The anchor writer sorts every anchor before writing, so the chains can
+    // be done on several threads.
 #pragma omp parallel for schedule(dynamic, 256)
     for (size_t i = 0; i < pending.size(); ++i) {
         const StagedSite& pr = pending[i];
@@ -130,11 +120,8 @@ void RecordRenderer::hand_off(StagedSiteTable& staged, const PhaseTable& phases,
                             *anchors);
         }
     }
-    // Hand every surviving chain to the render, so that nested and top-level records are written
-    // in one place from their chosen genotypes. A dropped chain is not handed over, since the
-    // sample has no copy of it. A chain an enclosing block's ALT spells, or one with no reference
-    // path, gets no line, since the render writes a line for every record it is given; its anchors
-    // were collected above.
+    // Hand the other chains to the render queues, so that nested and top-level records are
+    // written in one place from their chosen genotypes.
     const StagedSiteTable::HandOff held = staged.hand_off();
     if (held.inline_unrendered > 0 && show_progress) {
         cerr << "[vg call] block emission: " << held.inline_unrendered
@@ -151,8 +138,6 @@ void RecordRenderer::render(StagedSiteTable& staged, const PhaseTable& phases,
                             const ReadStrandTable& strands, const GenotypeLinker& linker,
                             AnchorCollector* anchors, const LineWriter& write_line,
                             bool show_progress, const function<void()>& before_lines) const {
-    // Every linkage pass is done, so the records move to the render, once, which also keeps their
-    // anchors from being collected twice.
     hand_off(staged, phases, strands, linker, anchors, show_progress);
     if (!staged.active()) {
         return;
@@ -160,19 +145,16 @@ void RecordRenderer::render(StagedSiteTable& staged, const PhaseTable& phases,
     if (before_lines) {
         before_lines();
     }
-    // The records are nested chains as well as top-level sites, and each carries its own nesting
-    // in its `StagedSite`.
     const size_t n_threads = staged.queue_count();
 #pragma omp parallel for schedule(dynamic, 1)
     for (size_t t = 0; t < n_threads; ++t) {
-        for (StagedSite& rec : staged.queue(t)) {
-            // The chosen pair, not the direct pass's. The ALT list, whether a line is written at
-            // all, QUAL, and the arity of AD, GL and GQI are all built from the genotype passed in,
-            // so they agree with the call.
+        for (const StagedSite& rec : staged.queue(t)) {
+            // Write the line from the genotype the linkage model chose, so that the ALT list, QUAL,
+            // AD, GL and GQI agree with the call. It stays sorted, since the line is built from its
+            // order, and the anchors put it in phase order themselves.
             vector<int> genotype = linker.chosen_genotype(rec);
-            // Before the line, whose writer passes the CallInfo on to update_vcf_info. The anchors
-            // are collected in phase order, while `genotype` itself stays sorted, since the line's
-            // ALT list, AD, GL and QUAL are built from its order.
+            // Collect the anchors before writing the line, which hands the site's CallInfo on to
+            // update_vcf_info.
             if (anchors != nullptr) {
                 collect_anchors(rec, genotype, phases, strands, linker.collector(), *anchors);
             }
@@ -185,5 +167,4 @@ void RecordRenderer::render(StagedSiteTable& staged, const PhaseTable& phases,
     }
 }
 
-}
 }

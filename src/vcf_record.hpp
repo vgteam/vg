@@ -27,14 +27,15 @@ namespace vg {
 
 using namespace std;
 
-/// Special marker value for star alleles in genotype vectors.
-/// A star allele (*) represents a haplotype that spans a nested site in the
-/// parent but doesn't have a defined traversal at the child level.
+/// The genotype entry for a star allele, written as "*".
+///
+/// It stands for a strand that visits the parent site but has no traversal of this child site.
 constexpr int STAR_ALLELE_MARKER = -2;
 
-/// Special marker value for missing alleles in genotype vectors.
-/// Used when a parent allele doesn't traverse a child snarl and star_allele
-/// mode is disabled. Outputs as '.' in VCF to maintain consistent ploidy.
+/// The genotype entry for a missing allele, written as ".".
+///
+/// It stands for a strand whose parent allele does not visit this child site, when star alleles
+/// are off. Writing "." keeps the genotype at its ploidy.
 constexpr int MISSING_ALLELE_MARKER = -1;
 
 /// For each node ID of a graph, the name of the node it was made from, and the node's offset in
@@ -45,46 +46,50 @@ using NodeTranslation = unordered_map<nid_t, pair<string, size_t>>;
 /// child site rather than to a node has node ID 0.
 using NodeVisit = pair<nid_t, bool>;
 
-/// The 1-based position on the base path of the base `along_path` bases into `ref_path_name`, a
-/// path that may name a subrange of its base path.
+/// Return the 1-based position on the base path of the base `along_path` bases into
+/// `ref_path_name`, a path that may name a subrange of its base path.
 int64_t base_path_position(const string& ref_path_name, int64_t along_path);
 
-/// The ID of a site's record: each boundary node as ">" or "<" (forward or backward) and its ID, or
-/// its name under `translation` if that is not null. With `in_brackets`, the ID is put in
-/// parentheses, as when it stands for a child site inside an allele.
+/// Return the ID of the record of a site.
+///
+/// The ID gives each boundary node as ">" or "<", for forward or reverse, and its ID, or its name
+/// under `translation` if that is not null. With `in_brackets`, the ID is put in parentheses, as
+/// when it stands for a child site inside an allele.
 string site_name(nid_t start_id, bool start_backward, nid_t end_id, bool end_backward,
                  const NodeTranslation* translation, bool in_brackets = false);
 
-/// The same, for the site with bounds `start` and `end`.
+/// Return the ID of the record of the site with bounds `start` and `end`.
 string site_name(const HandleGraph& graph, const handle_t& start, const handle_t& end,
                  const NodeTranslation* translation, bool in_brackets = false);
 
-/// The key that identifies a site's record from one pass of a caller to the next: a hash of the
-/// record's ID.
+/// Return the key that identifies the record of a site from one pass of a caller to the next.
+///
+/// The key is a hash of the ID of the record.
 size_t record_key_of(const string& site_id);
 
-/// The same, for the site with bounds `start` and `end`.
+/// Return the key of the record of the site with bounds `start` and `end`.
 size_t record_key_of(const HandleGraph& graph, const handle_t& start, const handle_t& end,
                      const NodeTranslation* translation);
 
-/// Where the site with bounds `start` and `end` lies on reference path `ref_path_name`: the
-/// positions of its two boundary nodes on the path, in path order, whether the site runs backward
-/// along the path, and the steps at those two positions. The positions are -1 if the path does not
-/// pass through the site from one boundary node to the other.
+/// Find where the site with bounds `start` and `end` lies on reference path `ref_path_name`.
+///
+/// Return the positions of its two boundary nodes on the path, in path order, whether the site
+/// runs backward along the path, and the steps at those two positions. The positions are -1 if
+/// the path does not go through the site from one boundary node to the other.
 tuple<int64_t, int64_t, bool, step_handle_t, step_handle_t> get_ref_interval(
     const PathPositionHandleGraph& graph, const handle_t& start, const handle_t& end,
     const string& ref_path_name);
 
-/// The base path of `ref_path_name`, and the 1-based position on it where the site with bounds
-/// `start` and `end` begins, `ref_path_offset` bases further on.
+/// Return the base path of `ref_path_name`, and the 1-based position on it where the site with
+/// bounds `start` and `end` begins, moved `ref_path_offset` bases further on.
 pair<string, int64_t> get_ref_position(const PathPositionHandleGraph& graph, const handle_t& start,
                                        const handle_t& end, const string& ref_path_name,
                                        int64_t ref_path_offset);
 
-/// The visits of a traversal, with node ID 0 for a visit to a child snarl.
+/// Return the visits of a traversal, with node ID 0 for a visit to a child snarl.
 vector<NodeVisit> visits_of(const SnarlTraversal& trav);
 
-/// The visits of a walk.
+/// Return the visits of a walk.
 vector<NodeVisit> visits_of(const HandleGraph& graph, const Traversal& walk);
 
 /// Write the nodes an allele visits into INFO/AT for allele number `allele`, as a walk in the form
@@ -94,37 +99,42 @@ vector<NodeVisit> visits_of(const HandleGraph& graph, const Traversal& walk);
 void add_allele_path_to_info(vcflib::Variant& v, int allele, const vector<NodeVisit>& visits,
                              bool reversed, const NodeTranslation* translation);
 
-/// The visits of an allele as handles, for clustering. False, leaving `walk` unspecified, if the
-/// allele cannot be given as handles: when it has fewer than two visits, as the placeholder for a
-/// "*" allele has, or a visit to a child site, which has no single handle.
+/// Put the visits of an allele into `walk` as handles, for clustering.
+///
+/// Return false, leaving `walk` unspecified, if the allele has fewer than two visits, as the
+/// placeholder for a "*" allele has, or has a visit to a child site, which has no single handle.
 bool visits_to_walk(const HandleGraph& graph, const vector<NodeVisit>& visits, Traversal& walk);
 
-/// The core length of a variant: the length of the longest allele after stripping the prefix and
-/// the suffix that every non-"*" allele shares. vg call and vg deconstruct both use it to decide
-/// whether a variant is long enough to have its alleles merged. It does not depend on how much
-/// shared flanking sequence a caller keeps in its alleles, which differs between the two. It follows
-/// that:
-///   - the anchor base that flatten_common_allele_ends leaves on every indel is a shared prefix,
-///     so it is stripped: a 49bp indel measures 49, not 50.
-///   - REF takes part, so a pure deletion measures the deleted length. A maximum over the ALTs
-///     alone would measure 1 for a deletion of any size.
-///   - "*" is a marker, not sequence, so it is left out of both the affixes and the maximum.
-///     flatten_common_allele_ends trims nothing from a record with a "*", and the boundary
-///     sequence it leaves there is common to every real allele, so it is stripped here.
-/// It measures the span of the variant, not the size of any one event inside it: a haplotype
-/// differing from the reference at two bases 59bp apart has a core length of 60.
+/**
+ * Return the core length of a variant.
+ *
+ * That is the length of the longest allele after stripping the prefix and the suffix that every
+ * allele other than "*" shares. vg call and vg deconstruct both use it to decide whether a variant
+ * is long enough to have its alleles merged. It does not depend on how much shared flanking
+ * sequence a caller keeps in its alleles, which differs between the two.
+ *
+ * The anchor base that flatten_common_allele_ends leaves on an indel is shared, so a 49bp indel
+ * measures 49. REF counts, so a pure deletion measures the deleted length. "*" is not sequence,
+ * so it counts toward neither the affixes nor the maximum.
+ *
+ * It measures the span of the variant: a haplotype that differs from the reference at two bases
+ * 59bp apart has a core length of 60.
+ */
 int64_t allele_core_length(const vector<string>& alleles);
 
-/// Merge near-identical called ALT alleles in an already populated variant. Must run after the
-/// caller's INFO and FORMAT fields are written and after flatten_common_allele_ends, so that both
-/// see every allele: merging earlier would drop the absorbed allele's reads from AD and DP.
-/// Rewrites the allele-indexed fields (alleles/alt, AT, AD, GL, GT, MAD) and records the merge in
-/// INFO/MAT. Returns true if anything merged.
-///
-/// `allele_walk` gives allele `a` of the `allele_count` alleles as handles, or returns false for an
-/// allele that is to be left alone. Alleles are merged when their walks are at least `threshold`
-/// similar, and only in a variant whose core length is at least `min_len`. `gl_layout` is the order
-/// in which the caller wrote GL, which cannot be recovered from the record.
+/**
+ * Merge near-identical called ALT alleles in a finished variant. Return true if any merged.
+ *
+ * Run it after the caller's INFO and FORMAT fields are written, and after
+ * flatten_common_allele_ends. Merging earlier would drop the reads of the absorbed allele from AD
+ * and DP. It rewrites the fields with an entry per allele (the alleles, AT, AD, GL, GT and MAD)
+ * and records the merge in INFO/MAT.
+ *
+ * `allele_walk` gives allele `a` of the `allele_count` alleles as handles, or returns false for an
+ * allele that is to be left alone. Alleles are merged when their walks are at least `threshold`
+ * similar, and only in a variant whose core length is at least `min_len`. `gl_layout` is the order
+ * in which the caller wrote GL, which cannot be recovered from the record.
+ */
 bool merge_similar_alleles(const PathPositionHandleGraph& graph, size_t allele_count,
                            const function<bool(size_t allele, Traversal& walk)>& allele_walk,
                            vector<int>& site_genotype, const string& sample_name,
@@ -219,13 +229,15 @@ struct SiteRecord {
     bool alleles_merged;
 };
 
-/// The ID of the site a record belongs to: a block record's ID without the "_<index>" that tells
-/// the site's block records apart, and any other record's ID unchanged.
+/// Return the ID of the site a record belongs to.
+///
+/// That is the ID of a block record without the "_<index>" that tells the block records of a site
+/// apart, or the ID of any other record unchanged.
 string block_site_name(const string& id);
 
-/// A nested ploidy-1 genotype: one allele on a named strand, with "." on the other, since the other
-/// strand carries nothing here, its parent allele having deleted the chain. Shared by a site record
-/// and its block records.
+/// Return the phased GT of a nested ploidy-1 site: `allele` on strand `strand`, and "." on the other.
+///
+/// The other strand carries nothing here, since its parent allele deletes the chain.
 string nested_strand_genotype(int allele, int strand);
 
 /// Build the record for a site. Traversals with the same sequence become one allele. Where the

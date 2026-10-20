@@ -7,10 +7,13 @@
  * later becomes an edit site (`edit_site_of`), genotyped, phased and written like any other site.
  */
 
+#include <compare>
 #include <cstdint>
 #include <functional>
 #include <ostream>
 #include <string>
+#include <string_view>
+#include <tuple>
 #include <vector>
 
 #include <vg/vg.pb.h>
@@ -128,20 +131,22 @@ struct EditCandidate {
         return is_indel() && sequence.size() >= LARGE_INDEL_MIN_LENGTH;
     }
 
-    bool operator<(const EditCandidate& other) const {
-        if (node != other.node) return node < other.node;
-        if (offset != other.offset) return offset < other.offset;
-        if (kind != other.kind) return kind < other.kind;
-        if (alt != other.alt) return alt < other.alt;
-        return sequence < other.sequence;
+    /// Order candidates by the change they make: by node, offset, kind, ALT base and sequence.
+    std::strong_ordering operator<=>(const EditCandidate& other) const {
+        return std::tie(node, offset, kind, alt, sequence)
+               <=> std::tie(other.node, other.offset, other.kind, other.alt, other.sequence);
+    }
+
+    /// Whether two candidates make the same change, whatever their counts.
+    bool operator==(const EditCandidate& other) const {
+        return (*this <=> other) == 0;
     }
 };
 
-/// The call bar: which candidates become edit sites, and which of those are staged once
-/// genotyped. Applied after the floors of `EditCountParams`. Fitted on chr20 at about 30x, short
-/// reads and ONT alike, from a dump taken with the floors as the bar: the F1 surface is flat in
-/// the fraction and the GQ, which the linkage model's own filtering makes redundant, and peaks at
-/// 7 fragments on both read types.
+/// The call bar: which candidates become edit sites, and which of those are staged once genotyped.
+///
+/// It applies after the floors of `EditCountParams`. The defaults were fitted on chr20 at about
+/// 30x, for short reads and ONT reads alike, from a dump taken with the floors as the bar.
 struct EditCallBar {
     /// The fewest fragments carrying the ALT.
     size_t min_alt_fragments = 7;
@@ -149,25 +154,29 @@ struct EditCallBar {
     double min_fraction = 0.25;
     /// The lowest GQ at which a site called with the ALT is staged.
     double min_gq = 0.0;
-    /// The highest depth ratio (DR: the reads at the site over the number its called genotype
-    /// predicts) at which a site called with the ALT is staged; 0 for no limit. A collapsed
-    /// repeat piles the reads of several copies onto one walk, and the edits that tell the copies
-    /// apart then look like variants. Fitted on chr20 outside the truth BED, where short reads'
-    /// centromeric candidates sit at several times the expected depth; no truth-matched candidate
-    /// inside the BED is above it.
+    /// The highest depth ratio (DR) at which a site called with the ALT is staged, or 0 for no
+    /// limit.
+    ///
+    /// DR is the number of reads at the site over the number its called genotype predicts. A
+    /// collapsed repeat piles the reads of several copies onto one walk, and the edits that tell
+    /// the copies apart then look like variants.
     double max_depth_ratio = 3.0;
-    /// The same two bars for an indel.
+    /// The fewest fragments carrying the ALT of an indel.
     size_t indel_min_alt_fragments = 7;
+    /// The smallest ALT fraction of an indel.
     double indel_min_fraction = 0.25;
     /// No indel is called whose tract starts with a run of this many of one base or more; 0 for
     /// no limit, and 1 calls no indel.
     uint32_t indel_max_homopolymer = 0;
-    /// The same two bars for an indel of `LARGE_INDEL_MIN_LENGTH` bases or more, which no
-    /// homopolymer limit applies to.
+    /// The fewest fragments carrying the ALT of an indel of `LARGE_INDEL_MIN_LENGTH` bases or more.
+    /// No homopolymer limit applies to such an indel.
     size_t large_min_alt_fragments = 7;
+    /// The smallest ALT fraction of an indel of `LARGE_INDEL_MIN_LENGTH` bases or more.
     double large_min_fraction = 0.25;
 
-    /// A merged change's ALTs passed it already.
+    /// Whether `candidate` clears the bar for its kind.
+    ///
+    /// A merged change always does, since each of its ALTs cleared it already.
     bool admits(const EditCandidate& candidate) const {
         if (candidate.kind == 'M') {
             return true;
@@ -206,10 +215,13 @@ struct EditOutcome {
     bool staged = false;
 };
 
-/// The outcomes, filed from the threads that genotyped them without a lock.
+/// A ledger of edit outcomes, which each OpenMP thread files into its own list, so that filing
+/// needs no lock.
 class EditOutcomes {
 public:
+    /// Make a ledger for thread numbers below `threads`.
     explicit EditOutcomes(size_t threads) : by_thread(threads) {}
+    /// File an outcome from the calling OpenMP thread.
     void add(EditOutcome&& outcome);
     /// Every outcome, by node, offset and ALT.
     vector<EditOutcome> sorted() const;
@@ -242,9 +254,7 @@ struct WalkIndel {
     uint32_t deleted = 0;
     string inserted;
 
-    bool operator==(const WalkIndel& other) const {
-        return at == other.at && deleted == other.deleted && inserted == other.inserted;
-    }
+    bool operator==(const WalkIndel& other) const = default;
     /// Its length.
     uint32_t length() const {
         return deleted > 0 ? deleted : (uint32_t)inserted.size();
@@ -281,7 +291,7 @@ struct WalkAlignment {
 /// indels are where the aligner put them; see `left_align`.
 WalkAlignment walk_alignment(const vector<const Mapping*>& mappings,
                              const vector<int64_t>& node_start, size_t read_offset,
-                             const string& sequence);
+                             string_view sequence);
 
 /// Move `indel` as far left as it stays the same change, keeping it at or after `floor`. `base(x)`
 /// is the walk's base at x.
