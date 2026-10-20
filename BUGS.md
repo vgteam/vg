@@ -12,8 +12,8 @@ branch merges. Rows marked TODO have a matching `TODO:` comment in the code.
 | 4 | `src/linkage_model.cpp` `pair_viterbi` | Backpointers are `uint16_t`, so a panel of more than 65536 haplotypes wraps them, and nothing checks the panel size. | phasing/linkage agent (TODO) | open |
 | 5 | `src/round_history.*` | Rounds are compared by a hash of the state, so a collision reports a cycle that is not one. Documented, not changed. | phasing agent | open |
 | 6 | `vg call --read-likelihood -r <snarls>` | `SnarlManagerDecomposition` now throws on unary snarls, which the old adapter showed. A CactusSnarlFinder snarl file would now fail. | merge of PR 5057 | open |
-| 7 | PR 4990 own files: `mosaic_writer.cpp`, `linkage_model.cpp`, `read_likelihood_caller.cpp`, `off_panel.cpp`, `site_values.cpp` | Use `<format>`/`std::format` or `using enum`, which GCC 10 (vg's minimum) lacks. CI would fail as PR 5057 did. | grep after PR 5057's CI fix | open |
-| 8 | merge branch | Merge `snarl-manager-decomposition` again to pick up its GCC 10 fix (daf7987e2). | PR 5057 CI | open |
+| ~~7~~ | ~~PR 4990 own files: `mosaic_writer.cpp`, `linkage_model.cpp`, `read_likelihood_caller.cpp`, `off_panel.cpp`, `site_values.cpp`~~ | ~~Use `<format>`/`std::format` or `using enum`, which GCC 10 (vg's minimum) lacks. CI would fail as PR 5057 did.~~ | ~~grep after PR 5057's CI fix~~ | fixed |
+| ~~8~~ | ~~merge branch~~ | ~~Merge `snarl-manager-decomposition` again to pick up its GCC 10 fix (daf7987e2).~~ | ~~PR 5057 CI~~ | fixed |
 | 9 | `src/vcf_record.cpp` `get_ref_interval` | The last step of the path is never compared, so a site whose end bound is the last step is not found. | records agent (TODO) | open |
 | 10 | `src/vcf_record.cpp` `get_ref_interval` | After one backward scan, later forward scans still look for the flipped end. | records agent (TODO) | open |
 | 11 | `flatten_common_allele_ends` | A `len_override` longer than the shortest allele reads past its end. | records agent (TODO) | open |

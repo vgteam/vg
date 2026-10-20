@@ -187,14 +187,13 @@ size_t strand_haplotype(const PhaseCall& call, int strand) {
 
 /// Return what strand 0 or 1 holds at a site.
 StrandKind strand_kind(const PhaseCall& call, int strand) {
-    using enum StrandKind;
     if (strand_haplotype(call, strand) != LinkageModel::NO_HAPLOTYPE) {
-        return Carried;
+        return StrandKind::Carried;
     }
     if (call.nested_strand >= 0 && (int)call.nested_strand != strand) {
-        return Empty;
+        return StrandKind::Empty;
     }
-    return Unexplained;
+    return StrandKind::Unexplained;
 }
 
 /**

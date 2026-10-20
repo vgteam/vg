@@ -2,7 +2,6 @@
 #include "utility.hpp"
 
 #include <algorithm>
-#include <format>
 
 namespace vg {
 SiteBounds bounds_of(const HandleGraph& graph, const Snarl& snarl) {
@@ -120,7 +119,7 @@ bool inside_one_node(const SiteBounds& site) {
 }
 
 string edit_site_id(nid_t node, uint32_t offset, char kind, const string& alt) {
-    return std::format("op{}.{}.{}{}", node, offset, kind, alt);
+    return "op" + std::to_string(node) + "." + std::to_string(offset) + "." + kind + alt;
 }
 
 string allele_sequence(const HandleGraph& graph, const Traversal& walk, const StepSequences* own) {

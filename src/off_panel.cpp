@@ -504,7 +504,6 @@ struct Seen {
 /// Count the fragments of `seen[i, end)`, sorted and all of one key, into `c`: each fragment once,
 /// as the class all its reads agree on, or as discordant.
 void count_fragments(const vector<Seen>& seen, size_t i, size_t end, EditCandidate& c) {
-    using enum IndelObservation;
     for (size_t f = i; f < end;) {
         size_t g = f;
         bool agree = true;
@@ -514,11 +513,11 @@ void count_fragments(const vector<Seen>& seen, size_t i, size_t end, EditCandida
         }
         if (!agree) {
             ++c.discordant_fragments;
-        } else if (seen[f].observed == (uint8_t)ALT) {
+        } else if (seen[f].observed == (uint8_t)IndelObservation::ALT) {
             ++c.alt_fragments;
-        } else if (seen[f].observed == (uint8_t)REF) {
+        } else if (seen[f].observed == (uint8_t)IndelObservation::REF) {
             ++c.ref_fragments;
-        } else if (seen[f].observed == (uint8_t)OTHER) {
+        } else if (seen[f].observed == (uint8_t)IndelObservation::OTHER) {
             ++c.other_fragments;
         }
         f = g;

@@ -8,7 +8,6 @@
 #include <algorithm>
 #include <cassert>
 #include <cmath>
-#include <format>
 #include <iostream>
 #include <limits>
 #include <numeric>
@@ -2537,9 +2536,9 @@ size_t LinkageCollector::resolve_level(size_t level, bool last, vector<PhaseCall
             continue;
         }
         if (level > 0) {
-            chain_lines += std::format(
-                "[vg call] linkage level {}: chain decodes {} sites for {} of its own, {} pinned\n",
-                level, indices.size(), d.live_here, d.pinned_here);
+            chain_lines += "[vg call] linkage level " + std::to_string(level) + ": chain decodes " +
+                std::to_string(indices.size()) + " sites for " + std::to_string(d.live_here) +
+                " of its own, " + std::to_string(d.pinned_here) + " pinned\n";
         }
         moved += apply_chosen_genotypes(indices, d, level);
         if (phasing_out != nullptr) {

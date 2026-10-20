@@ -1,8 +1,8 @@
 #include "read_likelihood_caller.hpp"
 
+#include <cstdio>
 #include <algorithm>
 #include <cmath>
-#include <format>
 #include <limits>
 #include <optional>
 #include <set>
@@ -12,6 +12,14 @@
 #include "utility.hpp"
 
 namespace vg {
+
+/// Write a number with a fixed number of digits after the decimal point, as
+/// printf's "%.*f" does.
+static std::string fixed_decimal(double value, int digits) {
+    char buffer[64];
+    snprintf(buffer, sizeof(buffer), "%.*f", digits, value);
+    return buffer;
+}
 
 
 using namespace std;
@@ -561,11 +569,11 @@ void ReadLikelihoodSnarlCaller::write_vcf_fields(const vector<int>& site_to_scor
     add_format(variant, sample_name, "DP", std::to_string(info->n_reads));
     // BL says whether the reads fit any allele, which GQ does not, so a filter can combine the
     // two.
-    add_format(variant, sample_name, "BL", std::format("{:.2f}", info->mean_best_ln));
+    add_format(variant, sample_name, "BL", fixed_decimal(info->mean_best_ln, 2));
     // Write DR whether or not the depth term is on.
     if (const double depth_ratio = written_depth_ratio(*info, site_to_scored, genotype);
         depth_ratio >= 0.0) {
-        add_format(variant, sample_name, "DR", std::format("{:.3f}", depth_ratio));
+        add_format(variant, sample_name, "DR", fixed_decimal(depth_ratio, 3));
     }
 
     // Write AD over the written alleles, rounded to integers. It need not sum to DP, since a read
@@ -600,7 +608,7 @@ void ReadLikelihoodSnarlCaller::write_vcf_fields(const vector<int>& site_to_scor
     add_format(variant, sample_name, "GQI", printed_quality(info->gq_undiscounted));
     // GQN is a fraction rather than a phred score, or "." where there was no gap to normalise.
     add_format(variant, sample_name, "GQN",
-               info->gq_fraction < 0.0 ? string(".") : std::format("{:.3f}", info->gq_fraction));
+               info->gq_fraction < 0.0 ? string(".") : fixed_decimal(info->gq_fraction, 3));
     // GP is in natural log, unlike GL, which the VCF specification puts in log10. The header says
     // so.
     add_format(variant, sample_name, "GP", std::to_string(info->posterior));
@@ -891,7 +899,7 @@ bool ReadLikelihoodSnarlCaller::rewrite_quality_for_chosen_genotype(
                                moved.direct.explained_share, gqn_new);
     }
     if (gqn) {
-        sample_fields["GQN"] = {gqn_known ? std::format("{:.3f}", gqn_new) : string(".")};
+        sample_fields["GQN"] = {gqn_known ? fixed_decimal(gqn_new, 3) : string(".")};
     }
     // The direct pass set `lowconf` from its own GQN. Decide it again from the recomputed GQN
     // where there is one, and clear it where there is not.
