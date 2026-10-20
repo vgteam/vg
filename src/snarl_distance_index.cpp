@@ -1565,9 +1565,10 @@ void populate_distance_matrix_if_needed(SnarlDistanceIndex::TemporaryDistanceInd
           //} 
 
         //traversal start is not a tip or a boundary node, and holds no tip
-        if (bool start_normal_child = (!start_is_tip && start_rank != 0 && start_rank != 1 &&
-                                       !holds_tip(temp_index, start_index));
-            (size_limit == 0 || only_top_level_chain_distances) && (temp_snarl_record.is_root_snarl || start_normal_child)) {
+        bool start_normal_child = (!start_is_tip && start_rank != 0 && start_rank != 1 &&
+                                   !holds_tip(temp_index, start_index));
+ 
+        if ( (size_limit == 0 || only_top_level_chain_distances) && (temp_snarl_record.is_root_snarl || start_normal_child)) {
             //We don't care about internal distances, and this child is a root child or a normal child.
             //The tip flags of the snarl still need the walks from its bounds and from each child that holds a tip.
             continue;

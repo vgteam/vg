@@ -17,17 +17,51 @@ static std::string handle_text(const HandleGraph& graph, const handle_t& handle)
     return std::format("{}{}", graph.get_id(handle), graph.get_is_reverse(handle) ? "-" : "+");
 }
 
+/**
+ * Write the bound pair of a snarl or chain both ways: from its start bound to
+ * its end bound, and from its end bound flipped to its start bound flipped.
+ */
+static std::pair<std::string, std::string> bound_pairs(const SnarlDecomposition& decomposition,
+                                                       const HandleGraph& graph, const net_handle_t& element) {
+    handle_t enter = decomposition.get_handle(decomposition.get_bound(element, false, true), &graph);
+    handle_t leave = decomposition.get_handle(decomposition.get_bound(element, true, false), &graph);
+    return {handle_text(graph, enter) + "/" + handle_text(graph, leave),
+            handle_text(graph, graph.flip(leave)) + "/" + handle_text(graph, graph.flip(enter))};
+}
+
 std::string element_name(const SnarlDecomposition& decomposition, const HandleGraph& graph,
                          const net_handle_t& element) {
     if (decomposition.is_node(element)) {
         return std::format("node {}", graph.get_id(decomposition.get_handle(element, &graph)));
     }
-    handle_t enter = decomposition.get_handle(decomposition.get_bound(element, false, true), &graph);
-    handle_t leave = decomposition.get_handle(decomposition.get_bound(element, true, false), &graph);
-    std::string bound_pair = std::min(handle_text(graph, enter) + "/" + handle_text(graph, leave),
-                                      handle_text(graph, graph.flip(leave)) + "/" +
-                                      handle_text(graph, graph.flip(enter)));
-    return std::format("{} {}", decomposition.is_snarl(element) ? "snarl" : "chain", bound_pair);
+    auto [forward, flipped] = bound_pairs(decomposition, graph, element);
+    return std::format("{} {}", decomposition.is_snarl(element) ? "snarl" : "chain", std::min(forward, flipped));
+}
+
+/**
+ * List the realizable traversals of a snarl or chain, each as two letters for
+ * where it starts and ends: S, E or T.
+ *
+ * The letters are relative to the bound pair in the element_name() of the
+ * element, so that implementations that orient the element differently give
+ * the same list. The list is sorted.
+ */
+static std::vector<std::string> traversal_letters(const SnarlDecomposition& decomposition, const HandleGraph& graph,
+                                                  const net_handle_t& element) {
+    auto [forward, flipped] = bound_pairs(decomposition, graph, element);
+    bool swap = flipped < forward;
+    auto letter = [&](SnarlDecomposition::endpoint_t endpoint) {
+        if (endpoint == SnarlDecomposition::TIP) {
+            return 'T';
+        }
+        return (endpoint == SnarlDecomposition::START) != swap ? 'S' : 'E';
+    };
+    std::vector<std::string> letters;
+    decomposition.for_each_traversal(element, [&](const net_handle_t& traversal) {
+        letters.push_back({letter(decomposition.starts_at(traversal)), letter(decomposition.ends_at(traversal))});
+    });
+    std::ranges::sort(letters);
+    return letters;
 }
 
 /// Return true if a traversal is of a snarl with no children.
@@ -59,6 +93,7 @@ static void add_to_shape(const SnarlDecomposition& decomposition, const HandleGr
         std::string child_name = element_name(decomposition, graph, child);
         children.push_back(child_name);
         if (!decomposition.is_node(child)) {
+            shape[child_name + " traversals"] = traversal_letters(decomposition, graph, child);
             add_to_shape(decomposition, graph, child_name, decomposition.canonical(child), shape);
         }
     };
