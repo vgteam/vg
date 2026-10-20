@@ -9331,14 +9331,14 @@ TEST_CASE("SnarlDistanceIndex for_each_traversal() gives START_TIP for a snarl w
     graph.create_edge(n2, n4);
     graph.create_edge(n3, n4);
     graph.create_edge(n3, n5);
-    using enum DecompositionEventType;
+    using Type = DecompositionEventType;
     SnarlDistanceIndex index;
     index_events(graph, {
-        {BEGIN_CHAIN, 1, false}, {BEGIN_SNARL, 1, false},
-        {BEGIN_CHAIN, 2, false}, {END_CHAIN, 2, false},
-        {BEGIN_CHAIN, 3, false}, {END_CHAIN, 3, false},
-        {BEGIN_CHAIN, 5, false}, {END_CHAIN, 5, false},
-        {END_SNARL, 4, false}, {END_CHAIN, 4, false}
+        {Type::BEGIN_CHAIN, 1, false}, {Type::BEGIN_SNARL, 1, false},
+        {Type::BEGIN_CHAIN, 2, false}, {Type::END_CHAIN, 2, false},
+        {Type::BEGIN_CHAIN, 3, false}, {Type::END_CHAIN, 3, false},
+        {Type::BEGIN_CHAIN, 5, false}, {Type::END_CHAIN, 5, false},
+        {Type::END_SNARL, 4, false}, {Type::END_CHAIN, 4, false}
     }, index);
 
     net_handle_t snarl = index.get_parent(index.get_parent(index.get_node_net_handle(graph.get_id(n2))));
@@ -9361,13 +9361,13 @@ TEST_CASE("SnarlDistanceIndex for_each_traversal() gives START_TIP for a chain w
     graph.create_edge(n1, n3);
     graph.create_edge(n2, n4);
     graph.create_edge(n1, n4);
-    using enum DecompositionEventType;
+    using Type = DecompositionEventType;
     SnarlDistanceIndex index;
     index_events(graph, {
-        {BEGIN_CHAIN, 1, false}, {BEGIN_SNARL, 1, false},
-        {BEGIN_CHAIN, 2, false}, {END_CHAIN, 2, false},
-        {BEGIN_CHAIN, 3, false}, {END_CHAIN, 3, false},
-        {END_SNARL, 4, false}, {END_CHAIN, 4, false}
+        {Type::BEGIN_CHAIN, 1, false}, {Type::BEGIN_SNARL, 1, false},
+        {Type::BEGIN_CHAIN, 2, false}, {Type::END_CHAIN, 2, false},
+        {Type::BEGIN_CHAIN, 3, false}, {Type::END_CHAIN, 3, false},
+        {Type::END_SNARL, 4, false}, {Type::END_CHAIN, 4, false}
     }, index);
 
     net_handle_t chain = chain_of_node(index, graph.get_id(n1));
@@ -9398,15 +9398,15 @@ TEST_CASE("SnarlDistanceIndex for_each_traversal() gives START_TIP for a snarl w
     graph.create_edge(n3, n6);
     graph.create_edge(n5, n7);
     graph.create_edge(n1, n7);
-    using enum DecompositionEventType;
+    using Type = DecompositionEventType;
     std::vector<DecompositionEvent> events {
-        {BEGIN_CHAIN, 1, false}, {BEGIN_SNARL, 1, false},
-        {BEGIN_CHAIN, 2, false}, {BEGIN_SNARL, 2, false},
-        {BEGIN_CHAIN, 3, false}, {END_CHAIN, 3, false},
-        {BEGIN_CHAIN, 4, false}, {END_CHAIN, 4, false},
-        {BEGIN_CHAIN, 6, false}, {END_CHAIN, 6, false},
-        {END_SNARL, 5, false}, {END_CHAIN, 5, false},
-        {END_SNARL, 7, false}, {END_CHAIN, 7, false}
+        {Type::BEGIN_CHAIN, 1, false}, {Type::BEGIN_SNARL, 1, false},
+        {Type::BEGIN_CHAIN, 2, false}, {Type::BEGIN_SNARL, 2, false},
+        {Type::BEGIN_CHAIN, 3, false}, {Type::END_CHAIN, 3, false},
+        {Type::BEGIN_CHAIN, 4, false}, {Type::END_CHAIN, 4, false},
+        {Type::BEGIN_CHAIN, 6, false}, {Type::END_CHAIN, 6, false},
+        {Type::END_SNARL, 5, false}, {Type::END_CHAIN, 5, false},
+        {Type::END_SNARL, 7, false}, {Type::END_CHAIN, 7, false}
     };
     SnarlDistanceIndex index;
     index_events(graph, events, index);
@@ -9652,7 +9652,7 @@ TEST_CASE("SnarlDistanceIndex for_each_traversal() gives the same traversals wit
     };
     // Each section only fills this with the decompositions to compare.
     std::vector<Decomposed> cases;
-    using enum DecompositionEventType;
+    using Type = DecompositionEventType;
 
     SECTION("The same traversals for snarls with tips and turnarounds") {
         // The chain is node 1, the snarl from 1 to 4, node 4, a snarl with no
@@ -9676,12 +9676,12 @@ TEST_CASE("SnarlDistanceIndex for_each_traversal() gives the same traversals wit
         graph.create_edge(n4, n5);
         graph.create_edge(n4, graph.flip(n4));
         cases.push_back({std::move(graph), {
-            {BEGIN_CHAIN, 1, false}, {BEGIN_SNARL, 1, false},
-            {BEGIN_CHAIN, 2, false}, {END_CHAIN, 2, false},
-            {BEGIN_CHAIN, 3, false}, {END_CHAIN, 3, false},
-            {BEGIN_CHAIN, 6, false}, {END_CHAIN, 6, false},
-            {END_SNARL, 4, false}, {BEGIN_SNARL, 4, false}, {END_SNARL, 5, false},
-            {END_CHAIN, 5, false}
+            {Type::BEGIN_CHAIN, 1, false}, {Type::BEGIN_SNARL, 1, false},
+            {Type::BEGIN_CHAIN, 2, false}, {Type::END_CHAIN, 2, false},
+            {Type::BEGIN_CHAIN, 3, false}, {Type::END_CHAIN, 3, false},
+            {Type::BEGIN_CHAIN, 6, false}, {Type::END_CHAIN, 6, false},
+            {Type::END_SNARL, 4, false}, {Type::BEGIN_SNARL, 4, false}, {Type::END_SNARL, 5, false},
+            {Type::END_CHAIN, 5, false}
         }});
     }
 
@@ -9706,13 +9706,13 @@ TEST_CASE("SnarlDistanceIndex for_each_traversal() gives the same traversals wit
         graph.create_edge(n5, n7);
         graph.create_edge(n1, n7);
         cases.push_back({std::move(graph), {
-            {BEGIN_CHAIN, 1, false}, {BEGIN_SNARL, 1, false},
-            {BEGIN_CHAIN, 2, false}, {BEGIN_SNARL, 2, false},
-            {BEGIN_CHAIN, 3, false}, {END_CHAIN, 3, false},
-            {BEGIN_CHAIN, 4, false}, {END_CHAIN, 4, false},
-            {BEGIN_CHAIN, 6, false}, {END_CHAIN, 6, false},
-            {END_SNARL, 5, false}, {END_CHAIN, 5, false},
-            {END_SNARL, 7, false}, {END_CHAIN, 7, false}
+            {Type::BEGIN_CHAIN, 1, false}, {Type::BEGIN_SNARL, 1, false},
+            {Type::BEGIN_CHAIN, 2, false}, {Type::BEGIN_SNARL, 2, false},
+            {Type::BEGIN_CHAIN, 3, false}, {Type::END_CHAIN, 3, false},
+            {Type::BEGIN_CHAIN, 4, false}, {Type::END_CHAIN, 4, false},
+            {Type::BEGIN_CHAIN, 6, false}, {Type::END_CHAIN, 6, false},
+            {Type::END_SNARL, 5, false}, {Type::END_CHAIN, 5, false},
+            {Type::END_SNARL, 7, false}, {Type::END_CHAIN, 7, false}
         }});
     }
 
@@ -9742,14 +9742,14 @@ TEST_CASE("SnarlDistanceIndex for_each_traversal() gives the same traversals wit
         graph.create_edge(n7, n10);
         graph.create_edge(n4, n5);
         cases.push_back({std::move(graph), {
-            {BEGIN_CHAIN, 1, false}, {BEGIN_SNARL, 1, false},
-            {BEGIN_CHAIN, 2, false}, {BEGIN_SNARL, 2, false},
-            {BEGIN_CHAIN, 3, false}, {END_CHAIN, 3, false},
-            {END_SNARL, 4, false}, {END_CHAIN, 4, false},
-            {BEGIN_CHAIN, 5, false}, {BEGIN_SNARL, 5, false},
-            {BEGIN_CHAIN, 8, false}, {END_CHAIN, 8, false},
-            {END_SNARL, 7, false}, {END_CHAIN, 7, false},
-            {END_SNARL, 10, false}, {END_CHAIN, 10, false}
+            {Type::BEGIN_CHAIN, 1, false}, {Type::BEGIN_SNARL, 1, false},
+            {Type::BEGIN_CHAIN, 2, false}, {Type::BEGIN_SNARL, 2, false},
+            {Type::BEGIN_CHAIN, 3, false}, {Type::END_CHAIN, 3, false},
+            {Type::END_SNARL, 4, false}, {Type::END_CHAIN, 4, false},
+            {Type::BEGIN_CHAIN, 5, false}, {Type::BEGIN_SNARL, 5, false},
+            {Type::BEGIN_CHAIN, 8, false}, {Type::END_CHAIN, 8, false},
+            {Type::END_SNARL, 7, false}, {Type::END_CHAIN, 7, false},
+            {Type::END_SNARL, 10, false}, {Type::END_CHAIN, 10, false}
         }});
     }
 

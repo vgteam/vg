@@ -16,7 +16,7 @@
 #include "support/random_graph.hpp"
 #include "support/randomness.hpp"
 
-#include <format>
+#include <string>
 
 namespace vg::unittest {
 
@@ -138,7 +138,7 @@ TEST_CASE("Traversal finders find the same traversals from a site's bound handle
         // Start the random walks where the path from random_graph() starts.
         handle_t first = graph.get_handle_of_step(graph.path_begin(graph.get_path_handle("path")));
         for (size_t i = 0; i < 3; i++) {
-            add_random_walk(graph, std::format("walk{}", i), first, 2 * graph.get_node_count(), generator);
+            add_random_walk(graph, "walk" + std::to_string(i), first, 2 * graph.get_node_count(), generator);
         }
         gbwt::GBWT gbwt_index = paths_gbwt(graph);
 

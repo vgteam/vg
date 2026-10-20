@@ -20,7 +20,9 @@ using namespace std;
 namespace {
 
 using endpoint_t = handlegraph::SnarlDecomposition::endpoint_t;
-using enum handlegraph::SnarlDecomposition::endpoint_t;
+constexpr endpoint_t START = handlegraph::SnarlDecomposition::START;
+constexpr endpoint_t END = handlegraph::SnarlDecomposition::END;
+constexpr endpoint_t TIP = handlegraph::SnarlDecomposition::TIP;
 
 ////////////////////////////////////////////////////////////////////////////
 // Net handle encoding
@@ -790,12 +792,11 @@ bool SnarlManagerDecomposition::follow_right(const HandleGraph& graph, const net
     auto each_traversal = [this, &iteratee](const net_handle_t& entered) {
         return for_each_traversal_from(entered, starts_at(entered), iteratee);
     };
-    using enum NetType;
     switch (type_of(here)) {
-    case ROOT:
+    case NetType::ROOT:
         return true;
-    case NODE:
-    case SNARL:
+    case NetType::NODE:
+    case NetType::SNARL:
         {
             optional<net_handle_t> next = next_in_chain(here);
             return !next || each_traversal(*next);
@@ -845,12 +846,11 @@ net_handle_t SnarlManagerDecomposition::get_net(const handle_t& handle, const Ha
 }
 
 handle_t SnarlManagerDecomposition::get_handle(const net_handle_t& net, const HandleGraph* handle_graph) const {
-    using enum NetType;
     switch (type_of(net)) {
-    case NODE:
-    case TRIVIAL_CHAIN:
+    case NetType::NODE:
+    case NetType::TRIVIAL_CHAIN:
         return handle_graph->get_handle(payload_of(net), ends_at(net) == START);
-    case SENTINEL:
+    case NetType::SENTINEL:
         {
             const Snarl* snarl = snarl_of_number(payload_of(net));
             // We have the start bound oriented into the snarl, or the end
@@ -868,26 +868,25 @@ handle_t SnarlManagerDecomposition::get_handle(const net_handle_t& net, const Ha
 }
 
 net_handle_t SnarlManagerDecomposition::get_parent(const net_handle_t& child) const {
-    using enum NetType;
     switch (type_of(child)) {
-    case ROOT:
+    case NetType::ROOT:
         throw invalid_argument("error: trying to find the parent of the root");
-    case SENTINEL:
-        return pack(SNARL, START, END, payload_of(child));
-    case SNARL:
+    case NetType::SENTINEL:
+        return pack(NetType::SNARL, START, END, payload_of(child));
+    case NetType::SNARL:
         {
             // A snarl is oriented forward along its chain, so the parent
             // traversal of the chain goes the same way as the snarl traversal.
             const Chain& chain = *manager.chain_of(get_snarl(child));
             return directed(chain_net(chain), !is_backward(child));
         }
-    case NODE:
+    case NetType::NODE:
         {
             optional<ChainPosition> place = directory.chain_position(payload_of(child));
             if (!place) {
                 // A free node is the only child of its trivial chain, which
                 // goes the way the node traversal goes.
-                return pack(TRIVIAL_CHAIN, starts_at(child), ends_at(child), payload_of(child));
+                return pack(NetType::TRIVIAL_CHAIN, starts_at(child), ends_at(child), payload_of(child));
             }
             if (!is_forward(child) && !is_backward(child)) {
                 // The interface gives the parent start-to-end when the child
@@ -897,12 +896,12 @@ net_handle_t SnarlManagerDecomposition::get_parent(const net_handle_t& child) co
             bool is_reverse = is_backward(child) != place->is_reverse;
             return directed(chain_net(*place->chain), !is_reverse);
         }
-    case CHAIN:
+    case NetType::CHAIN:
         {
             const Snarl* parent = manager.parent_of(chain_of_net(child).front().first);
             return parent == nullptr ? get_root() : snarl_net(parent, true);
         }
-    case TRIVIAL_CHAIN:
+    case NetType::TRIVIAL_CHAIN:
         {
             const Snarl* parent = directory.containing_snarl(payload_of(child));
             return parent == nullptr ? get_root() : snarl_net(parent, true);
@@ -912,14 +911,13 @@ net_handle_t SnarlManagerDecomposition::get_parent(const net_handle_t& child) co
 }
 
 net_handle_t SnarlManagerDecomposition::get_bound(const net_handle_t& snarl, bool get_end, bool face_in) const {
-    using enum NetType;
     switch (type_of(snarl)) {
-    case SNARL:
+    case NetType::SNARL:
         {
             endpoint_t bound = get_end ? END : START;
-            return pack(SENTINEL, bound, face_in ? opposite(bound) : bound, payload_of(snarl));
+            return pack(NetType::SENTINEL, bound, face_in ? opposite(bound) : bound, payload_of(snarl));
         }
-    case CHAIN:
+    case NetType::CHAIN:
         {
             const Chain& chain = chain_of_net(snarl);
             // Oriented forward along the chain, the start boundary node faces
@@ -927,11 +925,11 @@ net_handle_t SnarlManagerDecomposition::get_bound(const net_handle_t& snarl, boo
             Visit node = chain_node(chain, get_end ? chain.size() : 0);
             return node_net(node.node_id(), node.backward() != (face_in == get_end));
         }
-    case TRIVIAL_CHAIN:
+    case NetType::TRIVIAL_CHAIN:
         {
             return node_net(payload_of(snarl), face_in == get_end);
         }
-    case ROOT:
+    case NetType::ROOT:
         throw invalid_argument("error: trying to get the bounds of the root");
     default:
         throw invalid_argument("error: trying to get the bounds of a node or sentinel");
@@ -946,11 +944,10 @@ net_handle_t SnarlManagerDecomposition::flip(const net_handle_t& net) const {
 }
 
 net_handle_t SnarlManagerDecomposition::canonical(const net_handle_t& net) const {
-    using enum NetType;
     switch (type_of(net)) {
-    case ROOT:
+    case NetType::ROOT:
         return get_root();
-    case SENTINEL:
+    case NetType::SENTINEL:
         return with_traversal(net, starts_at(net), opposite(starts_at(net)));
     default:
         {
@@ -979,17 +976,16 @@ handlegraph::SnarlDecomposition::endpoint_t SnarlManagerDecomposition::ends_at(c
 }
 
 pair<net_handle_t, endpoint_t> SnarlManagerDecomposition::parent_endpoint(const net_handle_t& net, bool is_start) const {
-    using enum NetType;
     switch (type_of(net)) {
-    case SENTINEL:
+    case NetType::SENTINEL:
         if (faces_in(net) != is_start) {
             throw invalid_argument(is_start ? "error: a traversal cannot start at a sentinel facing out"
                                             : "error: a traversal cannot end at a sentinel facing in");
         }
-        return {pack(SNARL, START, END, payload_of(net)), starts_at(net)};
-    case SNARL:
-    case CHAIN:
-    case TRIVIAL_CHAIN:
+        return {pack(NetType::SNARL, START, END, payload_of(net)), starts_at(net)};
+    case NetType::SNARL:
+    case NetType::CHAIN:
+    case NetType::TRIVIAL_CHAIN:
         {
             net_handle_t parent = get_parent(with_traversal(net, START, END));
             if (is_root(parent)) {
@@ -997,13 +993,13 @@ pair<net_handle_t, endpoint_t> SnarlManagerDecomposition::parent_endpoint(const 
             }
             return {with_traversal(parent, START, END), TIP};
         }
-    case NODE:
+    case NetType::NODE:
         {
             optional<ChainPosition> place = directory.chain_position(payload_of(net));
             if (!place) {
                 // A traversal of a free node enters its trivial chain where it
                 // starts, and leaves it where it ends.
-                return {pack(TRIVIAL_CHAIN, START, END, payload_of(net)), is_start ? starts_at(net) : ends_at(net)};
+                return {pack(NetType::TRIVIAL_CHAIN, START, END, payload_of(net)), is_start ? starts_at(net) : ends_at(net)};
             }
             const Chain& chain = *place->chain;
             bool is_reverse = is_backward(net) != place->is_reverse;
@@ -1034,16 +1030,15 @@ net_handle_t SnarlManagerDecomposition::get_parent_traversal(const net_handle_t&
 
 bool SnarlManagerDecomposition::for_each_child_impl(const net_handle_t& traversal,
                                                     const function<bool(const net_handle_t&)>& iteratee) const {
-    using enum NetType;
     switch (type_of(traversal)) {
-    case ROOT:
+    case NetType::ROOT:
         return for_each_snarl_child(nullptr, iteratee);
-    case SNARL:
+    case NetType::SNARL:
         return for_each_snarl_child(get_snarl(traversal), iteratee);
-    case CHAIN:
+    case NetType::CHAIN:
         return for_each_chain_child(traversal, iteratee);
-    case TRIVIAL_CHAIN:
-        return iteratee(directed(pack(NODE, START, END, payload_of(traversal)), !is_backward(traversal)));
+    case NetType::TRIVIAL_CHAIN:
+        return iteratee(directed(pack(NetType::NODE, START, END, payload_of(traversal)), !is_backward(traversal)));
     default:
         // Nodes and sentinels have no children.
         return true;
@@ -1052,23 +1047,22 @@ bool SnarlManagerDecomposition::for_each_child_impl(const net_handle_t& traversa
 
 SnarlManagerDecomposition::TraversalSet SnarlManagerDecomposition::traversals_of(const net_handle_t& item) const {
     TraversalSet traversals;
-    using enum NetType;
     switch (type_of(item)) {
-    case ROOT:
+    case NetType::ROOT:
         traversals.add(TIP, TIP);
         break;
-    case SENTINEL:
+    case NetType::SENTINEL:
         traversals.add(starts_at(item), ends_at(item));
         break;
-    case NODE:
-    case TRIVIAL_CHAIN:
+    case NetType::NODE:
+    case NetType::TRIVIAL_CHAIN:
         traversals.add(START, END);
         traversals.add(END, START);
         break;
-    case SNARL:
+    case NetType::SNARL:
         traversals = survey.of_snarl(get_snarl(item));
         break;
-    case CHAIN:
+    case NetType::CHAIN:
         traversals = survey.of_chain(&chain_of_net(item));
         break;
     }
