@@ -146,13 +146,7 @@ static void fill_matrix_fields(const AlleleReadLikelihoods& matrix,
     info.n_reads = matrix.num_reads();
     info.scored_traversals.assign(traversals.begin(), traversals.end());
     if (matrix.has_depth_context()) {
-        info.depth_lengths.reserve(matrix.num_alleles());
-        for (size_t a = 0; a < matrix.num_alleles(); ++a) {
-            info.depth_lengths.push_back(matrix.traversal_length(a));
-        }
-        info.depth_rate = matrix.depth_rate_per_haplotype();
-        info.depth_read_length = matrix.depth_read_length_used();
-        info.depth_observed = matrix.observed_reads();
+        info.depth = matrix.depth_context();
     }
 }
 
@@ -165,10 +159,7 @@ static unique_ptr<ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo> copy_matrix
     copy->scored_traversals = info.scored_traversals;
     copy->allele_support = info.allele_support;
     copy->mean_best_ln = info.mean_best_ln;
-    copy->depth_lengths = info.depth_lengths;
-    copy->depth_rate = info.depth_rate;
-    copy->depth_read_length = info.depth_read_length;
-    copy->depth_observed = info.depth_observed;
+    copy->depth = info.depth;
     copy->ploidy = ploidy;
     return copy;
 }
@@ -178,8 +169,6 @@ ReadLikelihoodSnarlCaller::genotype_at(const SiteBounds& site,
                                        const vector<Traversal>& traversals, int ref_trav_idx,
                                        const Ploidies& ploidies,
                                        const vector<SiteBounds>& enclosing,
-                                       const string& /* ref_path_name */,
-                                       pair<size_t, size_t> /* ref_range */,
                                        const AlleleSequences* sequences) {
     const int ploidy = ploidies.ploidy;
     auto call_info = make_unique<ReadLikelihoodCallInfo>();
@@ -195,8 +184,8 @@ ReadLikelihoodSnarlCaller::genotype_at(const SiteBounds& site,
     fill_matrix_fields(matrix, traversals, *call_info);
     // The call info outlives the matrix, so the per-read evidence moves into it. Read phasing and
     // re-genotyping read it in the rounds, and the render builds the anchors from it.
-    call_info->anchor_evidence = std::move(matrix.anchor_evidence);
-    call_info->phase_evidence = std::move(matrix.phase_evidence);
+    call_info->anchor_evidence = matrix.take_anchor_evidence();
+    call_info->phase_evidence = matrix.take_phase_evidence();
 
     if (dump_stream != nullptr) {
         stringstream site_name;
@@ -380,19 +369,6 @@ double ReadLikelihoodSnarlCaller::depth_discount_of(const AlleleReadLikelihoods&
     return exp(-depth_quality * fabs(log(depth_ratio)));
 }
 
-double ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo::depth_ratio_of(
-        const vector<int>& scored_genotype) const {
-    if (depth_lengths.empty()) {
-        return -1.0;
-    }
-    // The arithmetic of AlleleReadLikelihoods::depth_ratio, so that the direct call gets back
-    // exactly the `depth_ratio` it was given.
-    double expected = AlleleReadLikelihoods::expected_reads_from(depth_lengths, depth_rate,
-                                                                 depth_read_length,
-                                                                 scored_genotype);
-    return expected > 0.0 ? depth_observed / expected : -1.0;
-}
-
 const PhaseReadEvidence* ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo::read_phasing_evidence(
         PhaseReadEvidence& scratch) const {
     const PhaseReadEvidence* pe = phase_evidence.get();
@@ -474,7 +450,7 @@ double written_depth_ratio(const ReadLikelihoodSnarlCaller::ReadLikelihoodCallIn
     }
     // Sort, as the direct call's genotype is, so that the sum runs in the same order.
     std::ranges::sort(scored_written);
-    const double written = info.depth_ratio_of(scored_written);
+    const double written = info.depth.ratio(scored_written);
     return written >= 0.0 ? written : info.depth_ratio;
 }
 

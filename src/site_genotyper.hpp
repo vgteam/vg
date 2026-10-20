@@ -41,8 +41,6 @@ public:
                                                       const vector<Traversal>& travs,
                                                       int ref_trav_idx, const Ploidies& ploidies,
                                                       const vector<SiteBounds>& enclosing,
-                                                      const string& ref_path_name,
-                                                      pair<size_t, size_t> ref_range,
                                                       const AlleleSequences* sequences
                                                       = nullptr) const;
 

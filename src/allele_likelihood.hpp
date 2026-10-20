@@ -39,6 +39,32 @@ namespace vg {
 using namespace std;
 
 /**
+ * A record of the reads seen at a site and of how many reads each of its genotypes predicts.
+ *
+ * A genotype G predicts lambda_G = rate * sum_{h in G} (T_h + R - 1) reads, where T_h is the
+ * length of allele h without the site's two boundary nodes and R is the read length. A copy kept
+ * after the matrix is gone can still give DR for a genotype other than the call.
+ */
+struct DepthContext {
+    /// T_h for each allele, in matrix column order.
+    ///
+    /// An allele past the end, or a negative marker, has T_h = 0.
+    vector<size_t> lengths;
+    /// The read starts per base per haplotype near the site.
+    double rate = 0.0;
+    /// The read length R.
+    double read_length = 0.0;
+    /// The read count N seen at the site, which need not be a whole number.
+    double observed = 0.0;
+
+    /// Return lambda_G, the number of reads the genotype predicts.
+    double expected_reads(const vector<int>& genotype) const;
+
+    /// Return N / lambda_G, or -1 where lambda_G is 0.
+    double ratio(const vector<int>& genotype) const;
+};
+
+/**
  * A matrix of the relative likelihood of each read of one site under each of its alleles.
  *
  * Each row belongs to a read and is divided by its own maximum, so every entry is in [0, 1] and
@@ -137,38 +163,29 @@ public:
      */
     void set_depth_context(vector<size_t> lengths, double rate, double read_length,
                            double weight, bool effective_count = true) {
-        this->traversal_lengths = std::move(lengths);
-        this->depth_rate = rate;
-        this->depth_read_length = read_length;
+        this->depth.lengths = std::move(lengths);
+        this->depth.rate = rate;
+        this->depth.read_length = read_length;
         this->depth_weight = weight;
         this->depth_effective = effective_count;
+        count_observed();
     }
 
     /// Return whether the depth term is on.
     bool uses_depth_term() const {
-        return depth_weight > 0.0 && depth_rate > 0.0 && !traversal_lengths.empty();
+        return depth_weight > 0.0 && depth.rate > 0.0 && !depth.lengths.empty();
     }
 
     /// Return the expected number of reads at this site under the genotype, lambda_G.
-    double expected_reads(const vector<int>& genotype) const;
-
-    /**
-     * Return lambda_G = rate * sum_{h in G} (T_h + R - 1) from the parts of a depth context.
-     *
-     * This serves a caller that keeps the parts after the matrix is gone. An allele outside
-     * `traversal_lengths`, such as a negative marker, has T_h = 0.
-     */
-    static double expected_reads_from(const vector<size_t>& traversal_lengths, double rate,
-                                      double read_length, const vector<int>& genotype);
+    double expected_reads(const vector<int>& genotype) const {
+        return depth.expected_reads(genotype);
+    }
 
     /// Return whether `set_depth_context` has supplied traversal lengths.
-    bool has_depth_context() const { return !traversal_lengths.empty(); }
+    bool has_depth_context() const { return !depth.lengths.empty(); }
 
-    /// Get the read-start rate per base per haplotype that `set_depth_context` was given.
-    double depth_rate_per_haplotype() const { return depth_rate; }
-
-    /// Get the mean read length R that `set_depth_context` was given.
-    double depth_read_length_used() const { return depth_read_length; }
+    /// Get the depth context, with N as `observed_reads` gives it.
+    const DepthContext& depth_context() const { return depth; }
 
     /**
      * Return the read count N that the depth term compares with lambda_G.
@@ -177,12 +194,12 @@ public:
      * not be a whole number, the depth term treats it with a continuous analogue of the Poisson
      * distribution over read counts n >= 0, using lgamma in place of ln n!.
      */
-    double observed_reads() const;
+    double observed_reads() const { return depth.observed; }
 
     /// Get the length T_h of an allele without the site's boundary nodes, or 0 if the depth
     /// context was not set or the index is out of range.
     size_t traversal_length(size_t allele) const {
-        return allele < traversal_lengths.size() ? traversal_lengths[allele] : 0;
+        return allele < depth.lengths.size() ? depth.lengths[allele] : 0;
     }
 
     /**
@@ -191,7 +208,7 @@ public:
      * It is -1 where lambda_G is 0, as it is when no read begins in the rate window. It is written
      * as the DR output field whether or not the depth term is on.
      */
-    double depth_ratio(const vector<int>& genotype) const;
+    double depth_ratio(const vector<int>& genotype) const { return depth.ratio(genotype); }
 
     /// Get the mean read length R of the mixture weights, which is also copied into the
     /// evidence kept for read phasing and anchors.
@@ -259,14 +276,30 @@ public:
     /// Write the matrix as TSV for debugging, with one line per read.
     void dump(ostream& out, const string& site_name) const;
 
-    /// The anchor evidence of the site, filled only when anchors are being written.
-    ///
-    /// The caller moves it into the CallInfo it keeps for the site.
-    unique_ptr<AnchorSiteEvidence> anchor_evidence;
+    /**
+     * Keep the anchor evidence of the site, and fill its rows from this matrix.
+     *
+     * The calculator attaches it only when anchors are being written.
+     *
+     * @pre `evidence` has one read for each row, in row order.
+     */
+    void attach_anchor_evidence(unique_ptr<AnchorSiteEvidence> evidence);
 
-    /// The read-phasing evidence of the site, filled only when read phasing is on and
-    /// `anchor_evidence` is not filled, since that holds the same rows.
-    unique_ptr<PhaseReadEvidence> phase_evidence;
+    /**
+     * Keep the read-phasing evidence of the site, and fill its rows from this matrix.
+     *
+     * The calculator attaches it only when read phasing is on and anchors are not being written,
+     * since the anchor evidence holds the same rows.
+     *
+     * @pre `evidence` has one read key for each row, in row order.
+     */
+    void attach_phase_evidence(unique_ptr<PhaseReadEvidence> evidence);
+
+    /// Give up the anchor evidence, or null if none was attached.
+    unique_ptr<AnchorSiteEvidence> take_anchor_evidence() { return std::move(anchor_evidence); }
+
+    /// Give up the read-phasing evidence, or null if none was attached.
+    unique_ptr<PhaseReadEvidence> take_phase_evidence() { return std::move(phase_evidence); }
 
     /// Fill the matrix, for `AlleleReadLikelihoodsBuilder`.
     void set_contents(size_t reads, size_t alleles, vector<double>&& rows,
@@ -288,6 +321,14 @@ private:
     /// Return the length X_h that weights haplotype `i` of the genotype in the mixture.
     double weighted_length(const vector<int>& genotype, size_t i) const;
 
+    /// Set N in `depth` from the reads and from whether they count as 1 - e_r.
+    void count_observed();
+
+    /// The anchor evidence of the site, or null.
+    unique_ptr<AnchorSiteEvidence> anchor_evidence;
+    /// The read-phasing evidence of the site, or null.
+    unique_ptr<PhaseReadEvidence> phase_evidence;
+
     /// The relative likelihoods, row major, n_reads * n_alleles, with a maximum of 1 in each row.
     vector<double> matrix;
     /// The mismapping probability e_r of each read.
@@ -295,16 +336,15 @@ private:
     /// The floor on e_r, used by `achievable_gap` only.
     double mismap_floor = 0.02;
     /// The expected number of the reads that came from this locus, sum_r (1 - e_r).
-    ///
-    /// It is kept because the depth term asks for it once per genotype.
     double effective_read_total = 0.0;
     vector<size_t> allele_lengths;
     vector<vector<size_t>> unique_lengths;
     double mean_read_length = 0.0;
-    vector<size_t> traversal_lengths;
-    double depth_rate = 0.0;
+    /// The depth context.
+    ///
+    /// Its N is `effective_read_total` under `depth_effective`, and `n_reads` otherwise.
+    DepthContext depth;
     bool depth_effective = true;
-    double depth_read_length = 0.0;
     double depth_weight = 0.0;
     vector<double> read_best_ln;
     vector<string> read_names;

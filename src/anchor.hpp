@@ -497,6 +497,22 @@ private:
 };
 
 /**
+ * A record of the phased call at a site and of the confidence that weights its anchors.
+ */
+struct AnchorCall {
+    /// The called alleles, in phase order.
+    vector<int> genotype;
+    /// The strand, 0 or 1, that a one-allele `genotype` sits on, from the phasing.
+    ///
+    /// It is ignored for other genotypes.
+    int haploid_slot = 0;
+    /// The value for the gqn column, or NaN where the site had no gap to normalise.
+    double gqn = 0.0;
+    /// The share of the site's reads the genotype explains, for the explained column.
+    double explained = 1.0;
+};
+
+/**
  * Turn one site's evidence and its chosen genotype into anchors.
  *
  * Each read goes to the slot of the called allele with the larger
@@ -522,14 +538,12 @@ private:
  *
  * A read's confidence is computed without the strand log-odds in every case.
  *
- * @param genotype The called alleles, in phase order.
- * @param haploid_slot The strand, 0 or 1, that a one-allele `genotype` sits on, from the phasing.
- * Ignored for other genotypes.
+ * @pre `params.counters` is not null.
+ *
  * @param out Where the anchors are appended.
  */
-void build_site_anchors(const AnchorSiteEvidence& evidence, const vector<int>& genotype,
-                        string_view snarl_id, double gqn, double explained, int haploid_slot,
-                        const AnchorParams& params, AnchorCounters& counters,
+void build_site_anchors(const AnchorSiteEvidence& evidence, const AnchorCall& call,
+                        string_view snarl_id, const AnchorParams& params,
                         vector<AnchorWriter::Anchor>& out,
                         const vector<double>* read_strand = nullptr);
 

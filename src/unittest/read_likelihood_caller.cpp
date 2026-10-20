@@ -128,8 +128,7 @@ Called call_site(CallerSite& site, const vector<Alignment>& reads,
                                      Ploidies{.ploidy = ploidy,
                                               .region_ploidy = region_ploidy,
                                               .also_score_other = also_score_other},
-                                     /* top-level: nothing encloses it */ {}, "",
-                                     {0, 0});
+                                     /* top-level: nothing encloses it */ {});
     Called out;
     out.genotype = result.first;
     out.info = result.second.get();
@@ -364,9 +363,8 @@ TEST_CASE("A nested site's depth rate is per haplotype of the region, not of the
 TEST_CASE("DR can be computed for a genotype other than the direct call",
           "[read_likelihood_caller]") {
     // The linkage model can write a genotype other than the direct call, and DR must then
-    // describe the written one. The CallInfo keeps each allele's length, the depth rate, the read
-    // length and the observed read count, from which `depth_ratio_of` computes DR for any
-    // genotype, and gives back exactly the direct call's DR for the direct call.
+    // describe the written one. The CallInfo keeps the depth context of the matrix, which gives DR
+    // for any genotype, and gives back exactly the direct call's DR for the direct call.
     CallerSite site;
     vector<Alignment> reads;
     for (int i = 0; i < 15; ++i) {
@@ -376,19 +374,19 @@ TEST_CASE("DR can be computed for a genotype other than the direct call",
     REQUIRE(called.info != nullptr);
     REQUIRE(called.genotype == vector<int>({1, 1}));
     REQUIRE(called.info->depth_ratio > 0.0);
-    REQUIRE(called.info->depth_ratio_of({1, 1}) == called.info->depth_ratio);
+    REQUIRE(called.info->depth.ratio({1, 1}) == called.info->depth_ratio);
 
     // Another genotype, against lambda's formula.
     const auto& info = *called.info;
-    REQUIRE(!info.depth_lengths.empty());
-    double lambda_01 = info.depth_rate * ((double)info.depth_lengths[0] + info.depth_read_length - 1.0
-                                          + (double)info.depth_lengths[1] + info.depth_read_length
-                                          - 1.0);
-    REQUIRE(info.depth_ratio_of({0, 1}) == Approx(info.depth_observed / lambda_01));
+    const DepthContext& depth = info.depth;
+    REQUIRE(!depth.lengths.empty());
+    double lambda_01 = depth.rate * ((double)depth.lengths[0] + depth.read_length - 1.0
+                                     + (double)depth.lengths[1] + depth.read_length - 1.0);
+    REQUIRE(info.depth.ratio({0, 1}) == Approx(depth.observed / lambda_01));
 
     // The alternate ploidy's CallInfo, which the linkage pass can promote, carries the same context.
     REQUIRE(info.alt_ploidy_info != nullptr);
-    REQUIRE(info.alt_ploidy_info->depth_ratio_of({1, 1}) == info.depth_ratio);
+    REQUIRE(info.alt_ploidy_info->depth.ratio({1, 1}) == info.depth_ratio);
 }
 
 TEST_CASE("Recomputed GQ takes the explained share of the new best genotype",
@@ -456,8 +454,7 @@ TEST_CASE("A record with a star allele still gets QUAL from the reference column
     auto result = caller.genotype_at(bounds_of(site.graph, site.snarl),
                                      walks_of(site.graph, site.traversals), 0,
                                      Ploidies{.ploidy = 1},
-                                     /* top-level: nothing encloses it */ {}, "",
-                                     {0, 0});
+                                     /* top-level: nothing encloses it */ {});
     REQUIRE(result.first == vector<int>({1}));
     const unique_ptr<SnarlCaller::CallInfo> call_info(std::move(result.second));
 

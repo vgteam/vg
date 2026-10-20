@@ -232,7 +232,7 @@ bool TreeGenotyper::genotype_in_parent_sets(SiteCall& call, const ChildTraversal
         std::tie(called_alleles, trav_call_info) = genotype_site(
             call.bounds, call.walks, call.site.ref_trav_idx,
             Ploidies{.ploidy = effective_ploidy, .region_ploidy = call.region_ploidy},
-            call.view.enclosing, call.site.ref_path_name, call.ref_range(), trav_score);
+            call.view.enclosing, trav_score);
         for (size_t j = 0; j < traversing_sets.size() && j < called_alleles.size(); ++j) {
             call.genotype[traversing_sets[j]] = called_alleles[j];
         }
@@ -265,7 +265,7 @@ bool TreeGenotyper::genotype_nested_chain(SiteCall& call) {
         call.bounds, call.walks, call.site.ref_trav_idx,
         Ploidies{.ploidy = call.ploidy, .region_ploidy = call.region_ploidy,
                  .also_score_other = true},
-        call.view.enclosing, call.site.ref_path_name, call.ref_range(), trav_score);
+        call.view.enclosing, trav_score);
     assert(call.genotype.empty() || call.genotype.size() == call.ploidy);
 
     const NestingPlacement& placement = call.placement;
@@ -329,7 +329,7 @@ bool TreeGenotyper::genotype_top_level_site(SiteCall& call) {
     SiteScore* trav_score = nullptr;
     std::tie(call.genotype, trav_call_info) = genotype_site(
         call.bounds, call.walks, call.site.ref_trav_idx, Ploidies{.ploidy = call.ploidy},
-        call.view.enclosing, call.site.ref_path_name, call.ref_range(), trav_score);
+        call.view.enclosing, trav_score);
     assert(call.genotype.empty() || call.genotype.size() == call.ploidy);
     record_and_stage(call, trav_call_info, trav_score);
     return call.genotype.size() == (size_t)call.ploidy;
@@ -848,8 +848,7 @@ void TreeGenotyper::genotype_edit_site(const HeldEdit& edit, const vector<SiteBo
         ploidies.region_ploidy = region_ploidy;
         ploidies.also_score_other = true;
     }
-    auto called = parts.genotyper->genotype(bounds, walks, 0, ploidies, enclosing, ref_path_name,
-                                            ref_range, &sequences);
+    auto called = parts.genotyper->genotype(bounds, walks, 0, ploidies, enclosing, &sequences);
     vector<int>& genotype = called.first;
     SiteScore* score = called.second.get();
     unique_ptr<SnarlCaller::CallInfo> call_info(std::move(called.second));
@@ -918,10 +917,8 @@ void TreeGenotyper::genotype_edit_site(const HeldEdit& edit, const vector<SiteBo
 
 pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> TreeGenotyper::genotype_site(
     const SiteBounds& site, const vector<Traversal>& travs, int ref_trav_idx,
-    const Ploidies& ploidies, const vector<SiteBounds>& enclosing, const string& ref_path_name,
-    pair<size_t, size_t> ref_range, SiteScore*& score) const {
-    auto called = parts.genotyper->genotype(site, travs, ref_trav_idx, ploidies, enclosing,
-                                            ref_path_name, ref_range);
+    const Ploidies& ploidies, const vector<SiteBounds>& enclosing, SiteScore*& score) const {
+    auto called = parts.genotyper->genotype(site, travs, ref_trav_idx, ploidies, enclosing);
     score = called.second.get();
     return make_pair(std::move(called.first),
                      unique_ptr<SnarlCaller::CallInfo>(std::move(called.second)));

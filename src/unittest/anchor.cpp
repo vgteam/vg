@@ -335,8 +335,9 @@ TEST_CASE("A coincident read is kept at one pin only", "[anchor]") {
     AnchorParams params;
     params.min_reads = 1;
     AnchorCounters counters;
+    params.counters = &counters;
     vector<AnchorWriter::Anchor> out;
-    build_site_anchors(ev, {0, 1}, ">1>4", 0.9, 1.0, 0, params, counters, out);
+    build_site_anchors(ev, AnchorCall{{0, 1}, 0, 0.9, 1.0}, ">1>4", params, out);
 
     REQUIRE(counters.coincident.load() == 4);
     // Only the two start anchors survive; every end anchor lost all its reads.
@@ -361,8 +362,9 @@ TEST_CASE("The two slots of a site partition the reads, and score is mismap-boun
     AnchorParams params;
     params.min_reads = 1;
     AnchorCounters counters;
+    params.counters = &counters;
     vector<AnchorWriter::Anchor> out;
-    build_site_anchors(ev, {0, 1}, ">1>4", 0.9, 1.0, 0, params, counters, out);
+    build_site_anchors(ev, AnchorCall{{0, 1}, 0, 0.9, 1.0}, ">1>4", params, out);
 
     REQUIRE(out.size() == 4);   // two slots at each of two pins
     size_t total = 0;
@@ -392,14 +394,15 @@ TEST_CASE("An end pin holding no reads of its own is dropped", "[anchor]") {
     AnchorParams params;
     params.min_reads = 1;
     AnchorCounters counters;
+    params.counters = &counters;
 
     vector<AnchorWriter::Anchor> out;
-    build_site_anchors(ev, {0, 1}, ">1>4", 0.9, 1.0, 0, params, counters, out);
+    build_site_anchors(ev, AnchorCall{{0, 1}, 0, 0.9, 1.0}, ">1>4", params, out);
     REQUIRE(out.size() == 4);            // two slots at each of two pins
 
     out.clear();
     params.end_pin_min_new = 1;
-    build_site_anchors(ev, {0, 1}, ">1>4", 0.9, 1.0, 0, params, counters, out);
+    build_site_anchors(ev, AnchorCall{{0, 1}, 0, 0.9, 1.0}, ">1>4", params, out);
     REQUIRE(out.size() == 2);            // two slots, start pin only
     for (const auto& anchor : out) {
         REQUIRE(anchor.node == ev.start_node);
@@ -425,9 +428,10 @@ TEST_CASE("An end pin reached by a read the start pin misses is kept", "[anchor]
     params.min_reads = 1;
     params.end_pin_min_new = 1;
     AnchorCounters counters;
+    params.counters = &counters;
 
     vector<AnchorWriter::Anchor> out;
-    build_site_anchors(ev, {0, 1}, ">1>4", 0.9, 1.0, 0, params, counters, out);
+    build_site_anchors(ev, AnchorCall{{0, 1}, 0, 0.9, 1.0}, ">1>4", params, out);
 
     // Read 3 sits in slot 1, so it is slot 1's end anchor that earns its place. Slot 0's end anchor
     // is entirely redundant and goes -- the decision is per slot, and a site-level one would have
@@ -447,7 +451,7 @@ TEST_CASE("An end pin reached by a read the start pin misses is kept", "[anchor]
     // carrying a whole anchor's worth of otherwise-redundant rows.
     out.clear();
     params.end_pin_min_new = 2;
-    build_site_anchors(ev, {0, 1}, ">1>4", 0.9, 1.0, 0, params, counters, out);
+    build_site_anchors(ev, AnchorCall{{0, 1}, 0, 0.9, 1.0}, ">1>4", params, out);
     REQUIRE(out.size() == 2);
 }
 
@@ -465,18 +469,19 @@ TEST_CASE("A homozygous site is emitted unless excluded", "[anchor]") {
 
     AnchorCounters counters;
     AnchorParams params;
+    params.counters = &counters;
     params.min_reads = 1;
     vector<AnchorWriter::Anchor> out;
     // By default a homozygous site still anchors: one anchor per pin, both slots collapsed into one.
     // It partitions nothing, but it links reads, and an anchor graph needs contiguity too.
-    build_site_anchors(ev, {0, 0}, ">1>4", 0.9, 1.0, 0, params, counters, out);
+    build_site_anchors(ev, AnchorCall{{0, 0}, 0, 0.9, 1.0}, ">1>4", params, out);
     REQUIRE(out.size() == 2);
     REQUIRE(out[0].slot == 0);
     REQUIRE(out[0].reads.size() == 4);
 
     out.clear();
     params.het_only = true;
-    build_site_anchors(ev, {0, 0}, ">1>4", 0.9, 1.0, 0, params, counters, out);
+    build_site_anchors(ev, AnchorCall{{0, 0}, 0, 0.9, 1.0}, ">1>4", params, out);
     REQUIRE(out.empty());
 }
 
@@ -499,6 +504,7 @@ TEST_CASE("A homozygous site splits by read phase only when both strands are sup
 
     AnchorCounters counters;
     AnchorParams params;
+    params.counters = &counters;
     params.min_reads = 1;
     params.hom_split = true;
     // Pinned, not inherited. The fixture has four reads, so the shipped default could never be met
@@ -510,7 +516,7 @@ TEST_CASE("A homozygous site splits by read phase only when both strands are sup
 
     SECTION("reads that lean both ways are split into two slots carrying the SAME allele") {
         vector<double> strand{+5.0, +5.0, -5.0, -5.0};
-        build_site_anchors(ev, {0, 0}, ">1>4", 0.9, 1.0, 0, params, counters, out, &strand);
+        build_site_anchors(ev, AnchorCall{{0, 0}, 0, 0.9, 1.0}, ">1>4", params, out, &strand);
         // Two pins x two slots.
         REQUIRE(out.size() == 4);
         size_t in_slot[2] = {0, 0};
@@ -527,7 +533,7 @@ TEST_CASE("A homozygous site splits by read phase only when both strands are sup
 
     SECTION("reads that all lean one way leave the site collapsed") {
         vector<double> strand{+5.0, +5.0, +5.0, +5.0};
-        build_site_anchors(ev, {0, 0}, ">1>4", 0.9, 1.0, 0, params, counters, out, &strand);
+        build_site_anchors(ev, AnchorCall{{0, 0}, 0, 0.9, 1.0}, ">1>4", params, out, &strand);
         REQUIRE(out.size() == 2);       // one anchor per pin, as without the flag
         REQUIRE(out[0].slot == 0);
         REQUIRE(out[0].reads.size() == 4);
@@ -535,7 +541,7 @@ TEST_CASE("A homozygous site splits by read phase only when both strands are sup
 
     SECTION("reads with no cross-site opinion leave the site collapsed") {
         vector<double> strand{0.0, 0.0, 0.0, 0.0};
-        build_site_anchors(ev, {0, 0}, ">1>4", 0.9, 1.0, 0, params, counters, out, &strand);
+        build_site_anchors(ev, AnchorCall{{0, 0}, 0, 0.9, 1.0}, ">1>4", params, out, &strand);
         REQUIRE(out.size() == 2);
         REQUIRE(out[0].reads.size() == 4);
     }
@@ -553,7 +559,7 @@ TEST_CASE("A homozygous site splits by read phase only when both strands are sup
         // The earlier all-zero section cannot catch any of this: there the site never splits.
         params.phase_min_side = 1;   // so three opinionated reads are enough to split
         vector<double> strand{+5.0, -5.0, +5.0, 0.0};
-        build_site_anchors(ev, {0, 0}, ">1>4", 0.9, 1.0, 0, params, counters, out, &strand);
+        build_site_anchors(ev, AnchorCall{{0, 0}, 0, 0.9, 1.0}, ">1>4", params, out, &strand);
         REQUIRE(out.size() == 4);
         size_t placed = 0;
         for (const AnchorWriter::Anchor& a : out) {
@@ -591,7 +597,7 @@ TEST_CASE("A homozygous site splits by read phase only when both strands are sup
         params.phase_min_side = 1;
         const double nan = std::numeric_limits<double>::quiet_NaN();
         vector<double> strand{+5.0, -5.0, +5.0, nan};
-        build_site_anchors(ev, {0, 0}, ">1>4", 0.9, 1.0, 0, params, counters, out, &strand);
+        build_site_anchors(ev, AnchorCall{{0, 0}, 0, 0.9, 1.0}, ">1>4", params, out, &strand);
         REQUIRE(out.size() == 4);
         size_t placed = 0;
         for (const AnchorWriter::Anchor& a : out) {
@@ -607,7 +613,7 @@ TEST_CASE("A homozygous site splits by read phase only when both strands are sup
         // At a site left collapsed no strand is used, so the same read is kept there.
         out.clear();
         vector<double> one_sided{+5.0, +5.0, +5.0, nan};
-        build_site_anchors(ev, {0, 0}, ">1>4", 0.9, 1.0, 0, params, counters, out, &one_sided);
+        build_site_anchors(ev, AnchorCall{{0, 0}, 0, 0.9, 1.0}, ">1>4", params, out, &one_sided);
         REQUIRE(out.size() == 2);
         REQUIRE(out[0].reads.size() == 4);
     }
@@ -615,7 +621,7 @@ TEST_CASE("A homozygous site splits by read phase only when both strands are sup
     SECTION("without the flag the same evidence stays collapsed") {
         vector<double> strand{+5.0, +5.0, -5.0, -5.0};
         params.hom_split = false;
-        build_site_anchors(ev, {0, 0}, ">1>4", 0.9, 1.0, 0, params, counters, out, &strand);
+        build_site_anchors(ev, AnchorCall{{0, 0}, 0, 0.9, 1.0}, ">1>4", params, out, &strand);
         REQUIRE(out.size() == 2);
         REQUIRE(out[0].reads.size() == 4);
     }
@@ -626,14 +632,14 @@ TEST_CASE("A homozygous site splits by read phase only when both strands are sup
         // --anchors-min-q and the reliability column mean on exactly the sites this feature adds.
         vector<AnchorWriter::Anchor> unsplit;
         params.hom_split = false;
-        build_site_anchors(ev, {0, 0}, ">1>4", 0.9, 1.0, 0, params, counters, unsplit);
+        build_site_anchors(ev, AnchorCall{{0, 0}, 0, 0.9, 1.0}, ">1>4", params, unsplit);
         REQUIRE(!unsplit.empty());
         const float want = unsplit[0].reads.at(0).score;
 
         out.clear();
         params.hom_split = true;
         vector<double> strand{+5.0, +5.0, -5.0, -5.0};
-        build_site_anchors(ev, {0, 0}, ">1>4", 0.9, 1.0, 0, params, counters, out, &strand);
+        build_site_anchors(ev, AnchorCall{{0, 0}, 0, 0.9, 1.0}, ">1>4", params, out, &strand);
         REQUIRE(!out.empty());
         REQUIRE(out[0].reads.at(0).score == Approx(want));
     }
@@ -656,9 +662,10 @@ TEST_CASE("A site's reliability is the mean score of the reads it emitted", "[an
 
     AnchorCounters counters;
     AnchorParams params;
+    params.counters = &counters;
     params.min_reads = 1;
     vector<AnchorWriter::Anchor> out;
-    build_site_anchors(ev, {0, 1}, ">1>4", 0.9, 1.0, 0, params, counters, out);
+    build_site_anchors(ev, AnchorCall{{0, 1}, 0, 0.9, 1.0}, ">1>4", params, out);
     REQUIRE(out.size() == 4);
 
     // Every row of the site agrees, and none is the "no reads" sentinel.
@@ -704,17 +711,18 @@ TEST_CASE("A nested haploid site takes the slot its strand names", "[anchor]") {
 
     AnchorCounters counters;
     AnchorParams params;
+    params.counters = &counters;
     params.min_reads = 1;
 
     vector<AnchorWriter::Anchor> out;
-    build_site_anchors(ev, {0}, ">1>4", 0.9, 1.0, 0, params, counters, out);
+    build_site_anchors(ev, AnchorCall{{0}, 0, 0.9, 1.0}, ">1>4", params, out);
     REQUIRE(out.size() == 2);            // one per pin
     REQUIRE(out[0].slot == 0);
     REQUIRE(out[1].slot == 0);
     REQUIRE(out[0].reads.size() == 4);   // the single slot holds every read either way
 
     out.clear();
-    build_site_anchors(ev, {0}, ">1>4", 0.9, 1.0, 1, params, counters, out);
+    build_site_anchors(ev, AnchorCall{{0}, 1, 0.9, 1.0}, ">1>4", params, out);
     REQUIRE(out.size() == 2);
     REQUIRE(out[0].slot == 1);
     REQUIRE(out[1].slot == 1);
@@ -726,7 +734,7 @@ TEST_CASE("A nested haploid site takes the slot its strand names", "[anchor]") {
     // slot 1 would hold nothing and `min_reads` would drop it before the slot could be checked.
     AnchorSiteEvidence split = two_allele_evidence({0, 0, 1, 1}, starts, ends);
     out.clear();
-    build_site_anchors(split, {0, 1}, ">1>4", 0.9, 1.0, 1, params, counters, out);
+    build_site_anchors(split, AnchorCall{{0, 1}, 1, 0.9, 1.0}, ">1>4", params, out);
     REQUIRE(out.size() == 4);
     int seen0 = 0, seen1 = 0;
     for (const AnchorWriter::Anchor& a : out) {
@@ -741,7 +749,7 @@ TEST_CASE("A nested haploid site takes the slot its strand names", "[anchor]") {
     // partitions nothing, which is the property that switch selects on. Only the slot changed.
     out.clear();
     params.het_only = true;
-    build_site_anchors(ev, {0}, ">1>4", 0.9, 1.0, 1, params, counters, out);
+    build_site_anchors(ev, AnchorCall{{0}, 1, 0.9, 1.0}, ">1>4", params, out);
     REQUIRE(out.empty());
 }
 
@@ -846,8 +854,9 @@ TEST_CASE("An off-panel site whose two pins are one point writes one anchor per 
     AnchorParams params;
     params.min_reads = 1;
     AnchorCounters counters;
+    params.counters = &counters;
     vector<AnchorWriter::Anchor> out;
-    build_site_anchors(ev, {0, 1}, "op7.2.IG", 0.9, 1.0, 0, params, counters, out);
+    build_site_anchors(ev, AnchorCall{{0, 1}, 0, 0.9, 1.0}, "op7.2.IG", params, out);
     REQUIRE(out.size() == 2);
     REQUIRE(counters.degenerate_site.load() == 1);
     for (const AnchorWriter::Anchor& a : out) {
@@ -857,7 +866,7 @@ TEST_CASE("An off-panel site whose two pins are one point writes one anchor per 
     // Pins at two points of one node are two anchors per slot.
     ev.end_pin = 4;
     out.clear();
-    build_site_anchors(ev, {0, 1}, "op7.3.SG", 0.9, 1.0, 0, params, counters, out);
+    build_site_anchors(ev, AnchorCall{{0, 1}, 0, 0.9, 1.0}, "op7.3.SG", params, out);
     REQUIRE(out.size() == 4);
 }
 

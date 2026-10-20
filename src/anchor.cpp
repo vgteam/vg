@@ -921,11 +921,13 @@ static vector<SlotAnchors> make_slot_anchors(const AnchorSiteEvidence& evidence,
     return slots;
 }
 
-void build_site_anchors(const AnchorSiteEvidence& evidence, const vector<int>& genotype,
-                        string_view snarl_id, double gqn, double explained, int haploid_slot,
-                        const AnchorParams& params, AnchorCounters& counters,
+void build_site_anchors(const AnchorSiteEvidence& evidence, const AnchorCall& call,
+                        string_view snarl_id, const AnchorParams& params,
                         vector<AnchorWriter::Anchor>& out,
                         const vector<double>* read_strand) {
+    const vector<int>& genotype = call.genotype;
+    const double gqn = call.gqn;
+    AnchorCounters& counters = *params.counters;
 
     if (genotype.empty() || evidence.reads.empty() || evidence.n_alleles == 0
         || !genotype_has_traversals(genotype, evidence.n_alleles)) {
@@ -954,7 +956,7 @@ void build_site_anchors(const AnchorSiteEvidence& evidence, const vector<int>& g
     // A homozygote's single slot is slot 0 and names no strand. A nested haploid site's single
     // slot is the strand the phasing gave it, which is 1 for a `.|a` site. Only 0 or 1 is
     // written, since a slot indexes a GT field.
-    const int base_slot = (genotype.size() == 1 && haploid_slot == 1) ? 1 : 0;
+    const int base_slot = (genotype.size() == 1 && call.haploid_slot == 1) ? 1 : 0;
 
     const vector<double> weight = allele_length_weights(
         evidence.allele_length, evidence.n_alleles, evidence.mean_read_length,
@@ -968,7 +970,7 @@ void build_site_anchors(const AnchorSiteEvidence& evidence, const vector<int>& g
     AnchorWriter::Anchor site_anchor;
     site_anchor.snarl = snarl_id;
     site_anchor.gqn = gqn;
-    site_anchor.explained = explained;
+    site_anchor.explained = call.explained;
     site_anchor.edit = evidence.inside_node;
     vector<SlotAnchors> slots = make_slot_anchors(evidence, slot_allele, base_slot, site_anchor);
 
@@ -1551,8 +1553,8 @@ void AnchorCollector::collect(const AnchorSiteEvidence& evidence, double explain
         }
     }
     vector<AnchorWriter::Anchor> anchors;
-    build_site_anchors(evidence, genotype, site_name, gqn, explained_share, haploid_slot, params,
-                       *params.counters, anchors,
+    build_site_anchors(evidence, AnchorCall{genotype, haploid_slot, gqn, explained_share},
+                       site_name, params, anchors,
                        (params.hom_split || params.phase_hets || params.strict_hets)
                            ? &read_strand : nullptr);
     // Check the strand log-odds only when splitting is on, and not when the heterozygous

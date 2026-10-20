@@ -14,6 +14,25 @@ namespace vg {
 using namespace std;
 
 ////////////////////////////////////////////////////////////////////////////////
+// DepthContext
+////////////////////////////////////////////////////////////////////////////////
+
+double DepthContext::expected_reads(const vector<int>& genotype) const {
+    double total = 0.0;
+    for (int allele : genotype) {
+        double len = (allele >= 0 && (size_t)allele < lengths.size())
+                         ? (double)lengths[allele] : 0.0;
+        total += len + read_length - 1.0;
+    }
+    return rate * total;
+}
+
+double DepthContext::ratio(const vector<int>& genotype) const {
+    double expected = expected_reads(genotype);
+    return expected > 0.0 ? observed / expected : -1.0;
+}
+
+////////////////////////////////////////////////////////////////////////////////
 // AlleleReadLikelihoods
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -31,6 +50,11 @@ void AlleleReadLikelihoods::set_contents(size_t reads, size_t alleles, vector<do
     for (double e : this->read_mismap_prob) {
         this->effective_read_total += 1.0 - e;
     }
+    count_observed();
+}
+
+void AlleleReadLikelihoods::count_observed() {
+    depth.observed = depth_effective ? effective_read_total : (double)n_reads;
 }
 
 double AlleleReadLikelihoods::rel(size_t r, size_t a) const {
@@ -45,30 +69,6 @@ double AlleleReadLikelihoods::best_ln_likelihood(size_t r) const {
     return read_best_ln.at(r);
 }
 
-double AlleleReadLikelihoods::expected_reads(const vector<int>& genotype) const {
-    return expected_reads_from(traversal_lengths, depth_rate, depth_read_length, genotype);
-}
-
-double AlleleReadLikelihoods::expected_reads_from(const vector<size_t>& traversal_lengths,
-                                                  double rate, double read_length,
-                                                  const vector<int>& genotype) {
-    double total = 0.0;
-    for (int allele : genotype) {
-        double len = (allele >= 0 && (size_t)allele < traversal_lengths.size())
-                         ? (double)traversal_lengths[allele] : 0.0;
-        total += len + read_length - 1.0;
-    }
-    return rate * total;
-}
-
-double AlleleReadLikelihoods::observed_reads() const {
-    return depth_effective ? effective_read_total : (double)n_reads;
-}
-
-double AlleleReadLikelihoods::depth_ratio(const vector<int>& genotype) const {
-    double expected = expected_reads(genotype);
-    return expected > 0.0 ? observed_reads() / expected : -1.0;
-}
 
 /// Return n ln(lambda) - lambda - ln Gamma(n + 1), the log likelihood of lambda expected reads
 /// when n reads are seen.
@@ -2191,6 +2191,16 @@ static void copy_rows(const AlleleReadLikelihoods& matrix, PhaseReadEvidence& ev
     }
 }
 
+void AlleleReadLikelihoods::attach_anchor_evidence(unique_ptr<AnchorSiteEvidence> evidence) {
+    copy_rows(*this, *evidence);
+    anchor_evidence = std::move(evidence);
+}
+
+void AlleleReadLikelihoods::attach_phase_evidence(unique_ptr<PhaseReadEvidence> evidence) {
+    copy_rows(*this, *evidence);
+    phase_evidence = std::move(evidence);
+}
+
 /**
  * Give `matrix` the evidence collected alongside its rows, in its row order.
  *
@@ -2205,15 +2215,13 @@ static void attach_evidence(AlleleReadLikelihoods& matrix, const vector<size_t>&
         if (anchor->reads.size() == order.size()) {
             put_in_row_order(anchor->reads, order);
         }
-        copy_rows(matrix, *anchor);
-        matrix.anchor_evidence = std::move(anchor);
+        matrix.attach_anchor_evidence(std::move(anchor));
     }
     if (phase != nullptr && phase->read_key.size() == order.size()) {
         put_in_row_order(phase->read_key, order);
     }
     if (phase != nullptr && phase->read_key.size() == matrix.num_reads()) {
-        copy_rows(matrix, *phase);
-        matrix.phase_evidence = std::move(phase);
+        matrix.attach_phase_evidence(std::move(phase));
     }
     // Otherwise drop the phasing evidence. Padding the keys would give every padded read the same
     // key, so they would be taken for one fragment at every site.

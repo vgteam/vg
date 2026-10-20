@@ -282,8 +282,7 @@ private:
     /// @param score Set to the score inside the returned call info.
     pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> genotype_site(
         const SiteBounds& site, const vector<Traversal>& travs, int ref_trav_idx,
-        const Ploidies& ploidies, const vector<SiteBounds>& enclosing,
-        const string& ref_path_name, pair<size_t, size_t> ref_range, SiteScore*& score) const;
+        const Ploidies& ploidies, const vector<SiteBounds>& enclosing, SiteScore*& score) const;
 
     /// Make the `StagedSite` of a site from its genotype, moving `call_info` into it.
     ///

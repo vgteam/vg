@@ -145,26 +145,16 @@ public:
         /// and the lengths of the called alleles, or negative if no read begins in the rate
         /// window.
         ///
-        /// DR is written from `depth_ratio_of` for the written genotype where that can be
-        /// computed, and from this otherwise.
+        /// DR is written from `depth` for the written genotype where that can be computed, and
+        /// from this otherwise.
         double depth_ratio = -1.0;
 
-        // The parts of the depth context of the matrix that DR needs for a genotype other than
-        // the direct call (see AlleleReadLikelihoods::set_depth_context).
-
-        /// T_h for each scored allele, in matrix column order, or empty where the depth context
-        /// was not set.
-        vector<size_t> depth_lengths;
-        /// The read-start rate per haplotype.
-        double depth_rate = 0.0;
-        /// The read length R.
-        double depth_read_length = 0.0;
-        /// The observed read count N.
-        double depth_observed = 0.0;
-
-        /// Get N / lambda_G for a genotype given as matrix columns, as `depth_ratio` is for the
-        /// direct call, or -1 where lambda_G is 0 or the depth context was not set.
-        double depth_ratio_of(const vector<int>& scored_genotype) const;
+        /// The depth context of the matrix, which gives DR for a genotype given as matrix
+        /// columns.
+        ///
+        /// Where the matrix had no depth context it is empty, with a rate of 0, so it gives a DR
+        /// of -1 for every genotype.
+        DepthContext depth;
 
         /// GQ before the explained share and the depth discount. Written as GQI.
         double gq_undiscounted = 0;
@@ -193,8 +183,6 @@ public:
      *
      * @param ref_trav_idx The index of the reference allele in `traversals`, or -1 for none.
      * @param enclosing The bounds of the sites enclosing `site`, innermost first.
-     * @param ref_path_name Unused.
-     * @param ref_range Unused.
      * @param sequences Sequences to spell alleles by, in place of their walks, if given.
      * @return The genotype, as a sorted multiset of indices into `traversals`, or empty if the
      * site cannot be genotyped. Also the score, which is never null.
@@ -202,7 +190,6 @@ public:
     pair<vector<int>, unique_ptr<ReadLikelihoodCallInfo>> genotype_at(
         const SiteBounds& site, const vector<Traversal>& traversals, int ref_trav_idx,
         const Ploidies& ploidies, const vector<SiteBounds>& enclosing,
-        const string& ref_path_name, pair<size_t, size_t> ref_range,
         const AlleleSequences* sequences = nullptr);
 
     /// Throw, because MultiPassCaller, the one user of this genotyper, calls `genotype_at`.
