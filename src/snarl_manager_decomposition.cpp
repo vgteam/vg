@@ -465,6 +465,9 @@ SnarlManagerDecomposition::TraversalSurvey::Surveyor::walk_chain(const Chain& ch
         if (!is_reverse) {
             if (position == chain.size()) {
                 ends.end = true;
+                if (is_looping(chain)) {
+                    go(0, false);
+                }
                 continue;
             }
             // Enter the snarl ahead at its start.
@@ -479,6 +482,9 @@ SnarlManagerDecomposition::TraversalSurvey::Surveyor::walk_chain(const Chain& ch
         } else {
             if (position == 0) {
                 ends.start = true;
+                if (is_looping(chain)) {
+                    go(chain.size(), true);
+                }
                 continue;
             }
             // Enter the snarl behind at its end.

@@ -39,29 +39,28 @@ std::string element_name(const SnarlDecomposition& decomposition, const HandleGr
 }
 
 /**
- * List the realizable traversals of a snarl or chain, each as two letters for
- * where it starts and ends: S, E or T.
+ * Write where a traversal starts and ends as two letters: S, E or T.
  *
  * The letters are relative to the bound pair in the element_name() of the
  * element, so that implementations that orient the element differently give
- * the same list. The list is sorted.
+ * the same letters. A node's letters are relative to its forward orientation.
  */
-static std::vector<std::string> traversal_letters(const SnarlDecomposition& decomposition, const HandleGraph& graph,
-                                                  const net_handle_t& element) {
-    auto [forward, flipped] = bound_pairs(decomposition, graph, element);
-    bool swap = flipped < forward;
+static std::string traversal_letters(const SnarlDecomposition& decomposition, const HandleGraph& graph,
+                                     const net_handle_t& traversal) {
+    bool swap;
+    if (decomposition.is_node(traversal)) {
+        swap = graph.get_is_reverse(decomposition.get_handle(decomposition.get_bound(traversal, false, true), &graph));
+    } else {
+        auto [forward, flipped] = bound_pairs(decomposition, graph, traversal);
+        swap = flipped < forward;
+    }
     auto letter = [&](SnarlDecomposition::endpoint_t endpoint) {
         if (endpoint == SnarlDecomposition::TIP) {
             return 'T';
         }
         return (endpoint == SnarlDecomposition::START) != swap ? 'S' : 'E';
     };
-    std::vector<std::string> letters;
-    decomposition.for_each_traversal(element, [&](const net_handle_t& traversal) {
-        letters.push_back({letter(decomposition.starts_at(traversal)), letter(decomposition.ends_at(traversal))});
-    });
-    std::ranges::sort(letters);
-    return letters;
+    return {letter(decomposition.starts_at(traversal)), letter(decomposition.ends_at(traversal))};
 }
 
 /// Return true if a traversal is of a snarl with no children.
@@ -93,7 +92,22 @@ static void add_to_shape(const SnarlDecomposition& decomposition, const HandleGr
         std::string child_name = element_name(decomposition, graph, child);
         children.push_back(child_name);
         if (!decomposition.is_node(child)) {
-            shape[child_name + " traversals"] = traversal_letters(decomposition, graph, child);
+            std::vector<std::string>& traversals = shape[child_name + " traversals"];
+            decomposition.for_each_traversal(child, [&](const net_handle_t& traversal) {
+                traversals.push_back(traversal_letters(decomposition, graph, traversal));
+            });
+            std::ranges::sort(traversals);
+            std::vector<std::string>& tippy = shape[child_name + " tippy children"];
+            decomposition.for_each_tippy_child(child, [&](const net_handle_t& traversal) {
+                // TODO: SnarlManagerDecomposition also gives traversals that
+                // start at a dead end on a boundary node of the child, and
+                // SnarlDistanceIndex does not. Compare only what both give.
+                if (decomposition.starts_at_tip(traversal)) {
+                    tippy.push_back(element_name(decomposition, graph, traversal) + " " +
+                                    traversal_letters(decomposition, graph, traversal));
+                }
+            });
+            std::ranges::sort(tippy);
             add_to_shape(decomposition, graph, child_name, decomposition.canonical(child), shape);
         }
     };

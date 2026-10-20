@@ -16,6 +16,7 @@
 #include <bdsg/hash_graph.hpp>
 
 #include <algorithm>
+#include <set>
 #include <functional>
 #include <string>
 #include <vector>
@@ -268,6 +269,59 @@ static vector<pair<string, std::function<void(VG&)>>> example_graphs() {
             graph.create_edge(n2, n4);
             graph.create_edge(n3, n4);
             graph.create_edge(n3, n5);
+        }},
+        {"a snarl with a walk from one tip to another", [](VG& graph) {
+            // The end of 3 and the end of 5 both enter the end of 6, so a walk
+            // from the start of 5 can go through 6 to the start of 6.
+            Node* n1 = graph.create_node("GCA");
+            Node* n2 = graph.create_node("T");
+            Node* n3 = graph.create_node("G");
+            Node* n4 = graph.create_node("CTGA");
+            Node* n5 = graph.create_node("A");
+            Node* n6 = graph.create_node("C");
+            graph.create_edge(n1, n2);
+            graph.create_edge(n1, n3);
+            graph.create_edge(n2, n4);
+            graph.create_edge(n3, n4);
+            graph.create_edge(n3, n6, false, true);
+            graph.create_edge(n5, n6, false, true);
+        }},
+        {"a looping chain with a turnaround and a tip on the far side", [](VG& graph) {
+            // A walk from the start of 1 can turn around through the end of 2
+            // and go around the loop, entering the snarl from 1 to 4 at its
+            // end. Only that way can it reach the tip at the start of 5.
+            Node* n1 = graph.create_node("GCA");
+            Node* n2 = graph.create_node("T");
+            Node* n3 = graph.create_node("G");
+            Node* n4 = graph.create_node("GG");
+            Node* n5 = graph.create_node("A");
+            graph.create_edge(n1, n2);
+            graph.create_edge(n1, n3);
+            graph.create_edge(n2, n4);
+            graph.create_edge(n3, n4);
+            graph.create_edge(n4, n1);
+            graph.create_edge(n1, n2, false, true);
+            graph.create_edge(n5, n3);
+        }},
+        {"a chain that a walk cannot cross with a tip past it", [](VG& graph) {
+            // Inside the snarl from 1 to 7, the chain from 2 to 4 holds a snarl
+            // that no walk crosses: 3 hangs off 2 and 5 hangs off 4. Node 6
+            // hangs off the end of 4, and the end of 6 is a tip.
+            Node* n1 = graph.create_node("GCA");
+            Node* n2 = graph.create_node("T");
+            Node* n3 = graph.create_node("G");
+            Node* n4 = graph.create_node("CTGA");
+            Node* n5 = graph.create_node("A");
+            Node* n6 = graph.create_node("C");
+            Node* n7 = graph.create_node("G");
+            graph.create_edge(n1, n2);
+            graph.create_edge(n2, n3);
+            graph.create_edge(n3, n3, false, true);
+            graph.create_edge(n5, n4);
+            graph.create_edge(n5, n5, true, false);
+            graph.create_edge(n4, n6);
+            graph.create_edge(n4, n7);
+            graph.create_edge(n1, n7);
         }}
     };
 }
@@ -281,8 +335,19 @@ static void require_same_tree_shapes(const DecompositionLineup& lineup, const Ha
         TreeShape shape = tree_shape(decomposition, graph);
         if (!first) {
             first = shape;
-        } else {
-            REQUIRE(shape == *first);
+            return;
+        }
+        // Compare entry by entry, so that a failure shows which differs.
+        set<string> keys;
+        for (const auto& [key, value] : shape) {
+            keys.insert(key);
+        }
+        for (const auto& [key, value] : *first) {
+            keys.insert(key);
+        }
+        for (const string& key : keys) {
+            INFO("Entry: " << key);
+            REQUIRE(shape[key] == (*first)[key]);
         }
     });
 }

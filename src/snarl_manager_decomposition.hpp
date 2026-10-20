@@ -339,8 +339,9 @@ private:
              *
              * Each start is the position of a chain node, and true to leave it
              * going in reverse along the chain. Here the end bound has position
-             * chain.size() even in a looping chain, so a walk going forward out
-             * of the last snarl leaves the chain.
+             * chain.size() even in a looping chain. A walk that reaches a bound
+             * of a looping chain can leave there, and can also go on around the
+             * loop, since its boundary node is both bounds.
              *
              * @pre Each snarl in the chain has been surveyed.
              */
