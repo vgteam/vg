@@ -95,9 +95,9 @@ bool VCFGenotyper::call_snarl(const Snarl& snarl) {
             return true;
         }
         
-        // The contig's ploidy, or a per-region override's, at the first REF base: VCF POS is
-        // 1-based and the regions are 0-based. `find`, not `operator[]`, which inserts on a miss;
-        // this runs on worker threads.
+        // Find the ploidy at the first REF base: that of a region covering it, or else the
+        // contig's. VCF POS is 1-based and the regions are 0-based. We use `find` because
+        // `operator[]` would insert into the map, from several threads.
         auto contig_ploidy = path_to_ploidy.find(get<0>(ref_positions));
         int ploidy = ploidy_regions.region_ploidy(
             get<0>(ref_positions), get<1>(ref_positions) > 0 ? get<1>(ref_positions) - 1 : 0,

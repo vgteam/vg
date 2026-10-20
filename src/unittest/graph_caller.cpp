@@ -131,14 +131,13 @@ TEST_CASE("offset_of_child reports where a walk enters a chain", "[graph_caller]
 }
 
 
-TEST_CASE("ChildOffsets gives base_offset_of_child's answer by lookup", "[graph_caller]") {
+TEST_CASE("ChildOffsets gives the bases before offset_of_child's entry", "[graph_caller]") {
     bdsg::HashGraph graph;
     add_numbered_nodes(graph);
     // A walk that revisits nodes.
     const Traversal t = make_walk(graph, {1, 2, 3, 2, 5, 6, 3, 7, 2, 9, 9});
 
-    // base_offset_of_child's definition: offset_of_child's entry, then the bases of the handles
-    // before it.
+    // Count the bases of the handles before the entry that offset_of_child gives.
     auto expected = [&](const SiteBounds& child) -> int64_t {
         const int entry = ChildPlacer::offset_of_child(graph, t, child);
         if (entry < 0) {

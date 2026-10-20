@@ -23,3 +23,4 @@ branch merges. Rows marked TODO have a matching `TODO:` comment in the code.
 | 15 | `src/site_scheduler.hpp` `SiteCallTally` | The "nested snarls" progress line prints the top-level count. | nested agent (TODO) | open |
 | 16 | `StagedSiteTable::hand_off` | `panel_cache.clear()` frees no memory, and leaves `panel_cached` true. | nested agent (TODO) | open |
 | 17 | `chain_key_of` | A hash, so two chains can share a key. | nested agent (TODO) | open |
+| 18 | `emit_variant` (vcf_output_caller) | Takes the reference offset as an `int`, while FlowCaller and NestedFlowCaller pass a `size_t`, so an offset of 2^31 or more comes out wrong. | callers agent (TODO) | open |

@@ -402,10 +402,13 @@ protected:
         
 };
     
-/// The nodes and edges of the site entered by reading `start` and left by reading `end`, as a
-/// Snarl's start and end Visits are oriented, including those inside its child sites, and its own
-/// two boundary nodes if `include_boundary_nodes`. A graph search from the bounds: it stops only at
-/// them, and finds tips as well as walks.
+/**
+ * Return the nodes and edges of a site, including those inside its child sites.
+ *
+ * The site is entered by reading `start` and left by reading `end`, as the start and end Visits
+ * of a Snarl are oriented. We search the graph from the bounds and stop only at them, so we find
+ * tips as well as walks. The two boundary nodes are included if `include_boundary_nodes` is set.
+ */
 pair<unordered_set<id_t>, unordered_set<edge_t> > site_contents(const HandleGraph& graph,
                                                                  const handle_t& start,
                                                                  const handle_t& end,
@@ -459,9 +462,10 @@ public:
     /// Only this function and take_snarls() may add in new Snarls.
     const Snarl* add_snarl(const Snarl& new_snarl);
 
-    /// Add every snarl of `other`, in the order it stores them, as add_snarl() would, but moving
-    /// each one in rather than copying it. `other` is left holding empty snarls, and only
-    /// destroying it is safe afterwards. Like add_snarl(), this must come before finish().
+    /// Move every snarl of `other` into this manager, as add_snarl() would copy them.
+    ///
+    /// The snarls are added in the order `other` stores them. Afterwards `other` holds empty
+    /// snarls, and can only be destroyed. Like add_snarl(), this must come before finish().
     void take_snarls(SnarlManager& other);
     
     /// Reverses the orientation of a managed snarl.
@@ -558,7 +562,7 @@ public:
                                                                        bool include_boundary_nodes) const;
         
     /// Returns the Nodes and Edges contained in this Snarl, including those in child Snarls (optionally
-    /// includes Snarl's own boundary Nodes). Reads no state of the manager; see site_contents.
+    /// includes Snarl's own boundary Nodes). This is site_contents for the bounds of the snarl.
     pair<unordered_set<id_t>, unordered_set<edge_t> > deep_contents(const Snarl* snarl, const HandleGraph& graph,
                                                                     bool include_boundary_nodes) const;
         
@@ -608,11 +612,11 @@ public:
     /// Iterate over snarls as they are stored in deque<SnarlRecords>
     void for_each_snarl_unindexed(const function<void(const Snarl*)>& lambda) const;
 
-    /// Run the lambda on every snarl once, on several threads, as they are stored, so in no
-    /// particular order. Once finish() has run, every snarl is either at the top level or a child
-    /// of another snarl, so these are the snarls that for_each_snarl_preorder() visits. Unlike
-    /// for_each_snarl_parallel(), it opens no nested parallel regions, so the lambda can use
-    /// omp_get_thread_num() to keep per-thread results.
+    /// Run the lambda on every snarl once, on several threads, in no particular order.
+    ///
+    /// After finish(), these are the snarls that for_each_snarl_preorder() visits. This opens no
+    /// nested parallel regions, so the lambda can use omp_get_thread_num() to keep per-thread
+    /// results.
     void for_each_snarl_unindexed_parallel(const function<void(const Snarl*)>& lambda) const;
         
     /// Given a Snarl that we don't own (like from a Visit), find the
@@ -654,8 +658,8 @@ private:
         /// SnarlRecord does not own its children.
         vector<const Snarl*> children;
         
-        /// This holds chains over the child snarls. It is allocated only for a snarl that has
-        /// children: even an empty deque allocates storage, and most snarls have no children.
+        /// The chains over the child snarls, or null for a snarl with no children. Most snarls
+        /// have no children, and an empty deque would still allocate storage.
         unique_ptr<deque<Chain>> child_chains;
         
         /// This points to the parent SnarlRecord (as a snarl), or null if we
@@ -678,7 +682,7 @@ private:
             return *this;
         }
 
-        /// The same, taking the other snarl's contents instead of copying them
+        /// Assign from a Snarl, moving its contents rather than copying them.
         SnarlRecord& operator=(Snarl&& other) {
             (*(Snarl*)this) = std::move(other);
             return *this;
@@ -741,6 +745,12 @@ private:
     ///
     /// Depends on the indexes from build_indexes() having been built.
     void regularize();
+
+    /// Orient a chain and its snarls so that the snarls agree with the chain, and at least half of
+    /// them go from a lower node ID to a higher one.
+    ///
+    /// This changes only the chain and its snarls, so chains can be done in parallel.
+    void regularize_chain(const Chain* chain);
         
     // Chain computation uses these pseudo-chain-traversal functions, which
     // walk around based on the snarl boundary index. This basically gets

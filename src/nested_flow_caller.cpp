@@ -187,8 +187,9 @@ bool NestedFlowCaller::call_snarl_recursive(const Snarl& managed_snarl, int max_
                                                   ref_offset_of(ref_offsets, ref_path_name),
                                                   ref_ploidy_of(ref_ploidies, ref_path_name));
             if (max_ploidy == 0) {
-                // The sample has no copy of this region: no genotype, so no record, and no
-                // children called. A nested site takes its ploidy from its parent instead.
+                // The sample has no copy of this region. So the site gets no genotype or record,
+                // and its children are not called. Only a site called without a parent gets
+                // here, since a nested site takes the ploidy of its parent.
                 return true;
             }
         }
@@ -290,8 +291,8 @@ bool NestedFlowCaller::call_snarl_recursive(const Snarl& managed_snarl, int max_
     }
     // store the reference traversal information, which could be empty
     record.ref_path_name = ref_path_name;
-    // The interval the ploidy above was decided over. emit_snarl_recursive derives the ploidy
-    // again from it, and indexes genotype_by_ploidy by that ploidy.
+    // Keep the interval that the ploidy was found for, so that emit_snarl_recursive finds the
+    // same ploidy, which genotype_by_ploidy is indexed by.
     record.ref_path_interval = make_pair((int64_t)gt_ref_interval.first,
                                          (int64_t)gt_ref_interval.second);
     record.ref_trav_idx = ref_trav_idx;
@@ -359,8 +360,8 @@ bool NestedFlowCaller::emit_snarl_recursive(const Snarl& managed_snarl, int ploi
     if (record.ref_trav_idx >= 0 && !record.genotype_by_ploidy.empty() && ploidy != 0) {
 
         if (ploidy < 0) {
-            // Must agree with the ploidy the genotype was decided at, since genotype_by_ploidy is
-            // indexed by it, so the record's own interval is used.
+            // Find the ploidy over the interval of the record, as call_snarl_recursive did, since
+            // genotype_by_ploidy is indexed by ploidy.
             ploidy = ploidy_regions.ploidy_at(record.ref_path_name, record.ref_path_interval.first,
                                               ref_offset_of(ref_offsets, record.ref_path_name),
                                               ref_ploidy_of(ref_ploidies, record.ref_path_name));
@@ -408,6 +409,8 @@ bool NestedFlowCaller::emit_snarl_recursive(const Snarl& managed_snarl, int ploi
         };
 
         if (!gaf_output) {
+            // TODO: emit_variant takes the reference offset as an int, so an offset of 2^31 or
+            // more comes out wrong.
             bool added = emit_variant(graph, snarl_caller, managed_snarl, record.travs, genotype.first, record.ref_trav_idx, genotype.second, record.ref_path_name,
                                  ref_offset_of(ref_offsets, record.ref_path_name), genotype_snarls, ploidy, trav_to_flat_string);
             if (!added) {

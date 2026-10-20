@@ -216,13 +216,14 @@ std::vector<std::string> split_delims(const std::string &s, const std::string& d
     return split_delims(s, delims, elems, max_cuts);
 }
 
-std::vector<std::string>& split_delims_keep_empty(const std::string& s, const std::string& delims,
+std::vector<std::string>& split_delims_keep_empty(std::string_view s, std::string_view delims,
                                                   std::vector<std::string>& elems) {
     size_t start = 0;
     while (true) {
         const size_t at = s.find_first_of(delims, start);
-        elems.push_back(s.substr(start, at == string::npos ? string::npos : at - start));
-        if (at == string::npos) {
+        elems.emplace_back(s.substr(start, at == std::string_view::npos ? std::string_view::npos
+                                                                         : at - start));
+        if (at == std::string_view::npos) {
             return elems;
         }
         start = at + 1;

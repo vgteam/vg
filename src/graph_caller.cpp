@@ -37,8 +37,7 @@ void GraphCaller::set_snarl_batching(size_t window_size) {
     snarl_batch_window = window_size;
 }
 
-/// Key a snarl by the lower of its two boundary node IDs, so that sorting on it puts snarls with
-/// nearby node IDs next to each other.
+/// Return the lower boundary node ID of a snarl, which batching sorts and groups snarls by.
 static nid_t snarl_node_key(const Snarl* snarl) {
     return min(snarl->start().node_id(), snarl->end().node_id());
 }
@@ -66,6 +65,24 @@ void GraphCaller::call_top_level_snarls(const HandleGraph& graph, RecurseType re
         });
 }
 
+/**
+ * Make a fake snarl spanning a chain, from the start of its first snarl to the end of its last.
+ *
+ * The fake snarl is not in the snarl manager, so nothing can look up its place in the snarl tree.
+ */
+static Snarl snarl_spanning_chain(const Chain& chain) {
+    Snarl fake_snarl;
+    *fake_snarl.mutable_start() = chain.front().second == true ? reverse(chain.front().first->end()) :
+        chain.front().first->start();
+    *fake_snarl.mutable_end() = chain.back().second == true ? reverse(chain.back().first->start()) :
+        chain.back().first->end();
+
+#ifdef debug
+    cerr << "calling fake snarl " << pb2json(fake_snarl) << endl;
+#endif
+    return fake_snarl;
+}
+
 void GraphCaller::call_top_level_chains(const HandleGraph& graph, size_t max_edges, size_t max_trivial, RecurseType recurse_type) {
     // Run the snarl caller on a chain. queue up the children if it fails
     auto process_chain = [&](const Chain& chain, vector<Chain>& thread_queue) {
@@ -80,25 +97,11 @@ void GraphCaller::call_top_level_chains(const HandleGraph& graph, size_t max_edg
         // Break up the chain
         vector<Chain> chain_pieces = break_chain(graph, chain, max_edges, max_trivial);
 
-        for (Chain& chain_piece : chain_pieces) {
-            // Make a fake snarl spanning the chain
-            // It is important to remember that along with not actually being a snarl,
-            // it's not managed by the snarl manager so functions looking into its nesting
-            // structure will not work
-            Snarl fake_snarl;
-            *fake_snarl.mutable_start() = chain_piece.front().second == true ? reverse(chain_piece.front().first->end()) :
-                chain_piece.front().first->start();
-            *fake_snarl.mutable_end() = chain_piece.back().second == true ? reverse(chain_piece.back().first->start()) :
-                chain_piece.back().first->end();
-
-#ifdef debug
-            cerr << "calling fake snarl " << pb2json(fake_snarl) << endl;
-#endif
-            
-            bool was_called = call_snarl(fake_snarl);
+        for (const Chain& chain_piece : chain_pieces) {
+            bool was_called = call_snarl(snarl_spanning_chain(chain_piece));
             if (recurse_type == RecurseAlways || (!was_called && recurse_type == RecurseOnFail)) {
-                for (pair<const Snarl*, bool> chain_link : chain_piece) {
-                    const deque<Chain>& child_chains = snarl_manager.chains_of(chain_link.first);
+                for (const auto& [child_snarl, backward] : chain_piece) {
+                    const deque<Chain>& child_chains = snarl_manager.chains_of(child_snarl);
                     thread_queue.insert(thread_queue.end(), child_chains.begin(), child_chains.end());
                 }
             }
@@ -117,7 +120,7 @@ void GraphCaller::call_top_level_chains(const HandleGraph& graph, size_t max_edg
     scheduler.call_queued();
 }
 
-vector<Chain> GraphCaller::break_chain(const HandleGraph& graph, const Chain& chain, size_t max_edges, size_t max_trivial) {
+vector<Chain> GraphCaller::break_chain(const HandleGraph& graph, const Chain& chain, size_t max_edges, size_t max_trivial) const {
     
     vector<Chain> chain_frags;
 

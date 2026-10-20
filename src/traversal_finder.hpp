@@ -612,12 +612,12 @@ protected:
     /// Call off the search as soon as a traversal of this length (bp) is encountered
     size_t max_traversal_length;
 
-    /// find_traversals searches a site with the greedy average-flow heuristic when the nodes
-    /// inside it total more than this many bp
+    /// The length in bp of the nodes inside a site above which find_traversals searches it with
+    /// the greedy average-flow heuristic.
     size_t greedy_avg_threshold;
 
-    /// Whether the nodes inside the site between `start` and `end`, not counting the two
-    /// boundary nodes, total more than greedy_avg_threshold bp.
+    /// Return whether the nodes inside the site from `start` to `end`, without its boundary
+    /// nodes, total more than greedy_avg_threshold bp.
     bool use_greedy_avg(const handle_t& start, const handle_t& end) const;
     
 public:
@@ -647,7 +647,7 @@ public:
     /**
      * Find the K widest (most flow) traversals through a site.
      *
-     * A site longer than greedy_avg_threshold is searched with the greedy
+     * We search a site longer than greedy_avg_threshold with the greedy
      * average-flow heuristic.
      *
      * @return The traversals, widest first.

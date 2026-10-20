@@ -92,8 +92,8 @@ bool VCFOutputCaller::add_variant(vcflib::Variant& var, size_t block) const {
     assert(ret == 0);
     // the Variant object is too big to keep in memory when there are many genotypes, so we
     // store it in a zstd-compressed string
-    output_variants[omp_get_thread_num()].push_back(
-        make_pair(BufferedRecordKey{var.sequenceName, (size_t)var.position, var.id, block}, dest));
+    output_variants[omp_get_thread_num()].emplace_back(
+        BufferedRecordKey{var.sequenceName, (size_t)var.position, var.id, block}, dest);
     return true;
 }
 
@@ -113,17 +113,16 @@ void VCFOutputCaller::write_variants(ostream& out_stream, const SiteTree* sites)
         update_nesting_info_tags(*sites);
     }
     vector<pair<BufferedRecordKey, string>> all_variants;
-    // Reserve once: doing it inside the loop below reallocates per thread buffer.
+    // Reserve room for every record at once, rather than growing for each buffer.
     size_t total_variants = 0;
     for (const auto& buf : output_variants) {
         total_variants += buf.size();
     }
     all_variants.reserve(total_variants);
-    // `buf` must not be const, since std::move() over const iterators copies, and the whole VCF is
-    // in memory here. Each buffer is freed as it is moved. This makes write_variants() usable only
-    // once.
+    // Move the records out of each buffer and free it. `buf` is not const, because moving from a
+    // const range copies, and the whole VCF is in memory here.
     for (auto& buf : output_variants) {
-        std::move(buf.begin(), buf.end(), std::back_inserter(all_variants));
+        std::ranges::move(buf, std::back_inserter(all_variants));
         buf.clear();
         buf.shrink_to_fit();
     }
@@ -133,9 +132,8 @@ void VCFOutputCaller::write_variants(ostream& out_stream, const SiteTree* sites)
                   return buffered_record_key_less(v1.first, v2.first);
               });
 
-    // Each record is decompressed on its own, so the records are decompressed on several threads,
-    // a batch at a time, and each batch is written in order. Only one batch of text is held at
-    // once.
+    // Decompress the records in parallel, a batch at a time, and write each batch in order. Only
+    // one batch of text is in memory at once.
     const size_t batch_records = 1 << 16;
     vector<string> lines;
     for (size_t batch_start = 0; batch_start < all_variants.size(); batch_start += batch_records) {
@@ -143,14 +141,13 @@ void VCFOutputCaller::write_variants(ostream& out_stream, const SiteTree* sites)
         lines.assign(batch_end - batch_start, string());
 #pragma omp parallel for schedule(dynamic, 256)
         for (size_t record_i = batch_start; record_i < batch_end; ++record_i) {
-            const auto& v = all_variants[record_i];
+            const string& compressed = all_variants[record_i].second;
             string& dest = lines[record_i - batch_start];
-            int ret = zstdutil::DecompressString(v.second, dest);
+            int ret = zstdutil::DecompressString(compressed, dest);
             assert(ret == 0);
         }
         for (const string& line : lines) {
-            // Not endl: flushing after every record made one write per record, millions on a whole
-            // genome. The stream is flushed before vg exits.
+            // endl would flush, making one write per record.
             out_stream << line << '\n';
         }
     }
@@ -160,7 +157,7 @@ void VCFOutputCaller::write_variants(ostream& out_stream, const SiteTree* sites)
 
 static int countAlts(vcflib::Variant& var, int alleleIndex) {
     int alts = 0;
-    for (map<string, map<string, vector<string> > >::iterator s = var.samples.begin(); s != var.samples.end(); ++s) {
+    for (auto s = var.samples.begin(); s != var.samples.end(); ++s) {
         map<string, vector<string> >& sample = s->second;
         map<string, vector<string> >::iterator gt = sample.find("GT");
         if (gt != sample.end()) {
@@ -177,7 +174,7 @@ static int countAlts(vcflib::Variant& var, int alleleIndex) {
 
 static int countAlleles(vcflib::Variant& var) {
     int alleles = 0;
-    for (map<string, map<string, vector<string> > >::iterator s = var.samples.begin(); s != var.samples.end(); ++s) {
+    for (auto s = var.samples.begin(); s != var.samples.end(); ++s) {
         map<string, vector<string> >& sample = s->second;
         map<string, vector<string> >::iterator gt = sample.find("GT");
         if (gt != sample.end()) {
@@ -196,7 +193,7 @@ static int countAlleles(vcflib::Variant& var) {
 // the file again and again
 static int countSamplesWithData(vcflib::Variant& var) {
     int samples_with_data = 0;
-    for (map<string, map<string, vector<string> > >::iterator s = var.samples.begin(); s != var.samples.end(); ++s) {
+    for (auto s = var.samples.begin(); s != var.samples.end(); ++s) {
         map<string, vector<string> >& sample = s->second;
         map<string, vector<string> >::iterator gt = sample.find("GT");
         bool has_data = false;
@@ -269,8 +266,8 @@ unordered_set<string> VCFOutputCaller::get_output_contigs() const {
     // The sort key is (sequenceName, position) (see add_variant), so the contig is right
     // there and nothing has to be decompressed.
     for (const auto& thread_buf : output_variants) {
-        for (const auto& output_variant_record : thread_buf) {
-            contigs.insert(output_variant_record.first.contig);
+        for (const auto& [key, record] : thread_buf) {
+            contigs.insert(key.contig);
         }
     }
     return contigs;
@@ -311,7 +308,7 @@ string VCFOutputCaller::prune_header_contigs(const string& header,
 }
 
 void VCFOutputCaller::add_allele_path_to_info(const HandleGraph* graph, vcflib::Variant& v, int allele, const Traversal& trav,
-                                              bool reversed, bool one_based) const {
+                                              bool reversed, bool /*one_based*/) const {
     vector<NodeVisit> visits;
     visits.reserve(trav.size());
     for (const handle_t& handle : trav) {
@@ -321,7 +318,7 @@ void VCFOutputCaller::add_allele_path_to_info(const HandleGraph* graph, vcflib::
 }
 
 void VCFOutputCaller::add_allele_path_to_info(vcflib::Variant& v, int allele, const SnarlTraversal& trav,
-                                              bool reversed, bool one_based) const {
+                                              bool reversed, bool /*one_based*/) const {
     vg::add_allele_path_to_info(v, allele, visits_of(trav), reversed, translation);
 }
 
@@ -339,6 +336,52 @@ string VCFOutputCaller::trav_string(const HandleGraph& graph, const SnarlTravers
 }
 
 
+namespace {
+
+/// Build the callbacks that build_site_record makes for a site, from a caller's record steps.
+///
+/// Without a `fill_info` step, the snarl caller's `update_vcf_info` fills the INFO and FORMAT
+/// fields. The callbacks refer to the arguments, so the arguments must outlive them.
+SiteHooks site_hooks_from_steps(const VCFOutputCaller::SiteRecordSteps& record_steps,
+                                const Snarl& snarl, const vector<SnarlTraversal>& called_traversals,
+                                int ref_trav_idx, SnarlCaller& snarl_caller,
+                                const unique_ptr<SnarlCaller::CallInfo>& call_info,
+                                const string& sample_name) {
+    SiteHooks hooks;
+    if (record_steps.same_as_reference) {
+        hooks.same_as_reference = [&record_steps, &snarl, &called_traversals, ref_trav_idx](int trav) {
+            return record_steps.same_as_reference(snarl, called_traversals, trav, ref_trav_idx);
+        };
+    }
+    if (record_steps.phase) {
+        hooks.phase = [&record_steps, &snarl](const vector<int>& site_genotype,
+                                              const map<int, int>& trav_to_allele, string& gt) {
+            return record_steps.phase(snarl, site_genotype, trav_to_allele, gt);
+        };
+    }
+    if (record_steps.fill_info) {
+        hooks.fill_info = record_steps.fill_info;
+    } else {
+        hooks.fill_info = [&snarl_caller, &snarl, &called_traversals, &call_info, &sample_name](
+                              const vector<int>& site_trav, const vector<int>& site_genotype,
+                              vcflib::Variant& variant) {
+            // A negative traversal number is the "*" allele, which gets an empty traversal.
+            vector<SnarlTraversal> site_traversals;
+            site_traversals.reserve(site_trav.size());
+            for (int trav : site_trav) {
+                site_traversals.push_back(trav >= 0 ? called_traversals[trav] : SnarlTraversal());
+            }
+            snarl_caller.update_vcf_info(snarl, site_traversals, site_genotype, call_info,
+                                         sample_name, variant);
+        };
+    }
+    hooks.gl_layout = record_steps.gl_layout ? record_steps.gl_layout(call_info.get())
+                                             : GLLayout::IMajor;
+    return hooks;
+}
+
+}
+
 RecordOptions VCFOutputCaller::record_options() const {
     return RecordOptions{
         .sample_name = sample_name,
@@ -353,7 +396,7 @@ bool VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCa
                                    const Snarl& snarl, const vector<SnarlTraversal>& called_traversals,
                                    const vector<int>& genotype, int ref_trav_idx, const unique_ptr<SnarlCaller::CallInfo>& call_info,
                                    const string& ref_path_name, int ref_offset, bool genotype_snarls, int ploidy,
-                                   function<string(const vector<SnarlTraversal>&, const vector<int>&, int, int, int)> trav_to_string) {
+                                   const function<string(const vector<SnarlTraversal>&, const vector<int>&, int, int, int)>& trav_to_string) {
     return emit_variant(graph, snarl_caller, snarl, called_traversals, genotype, ref_trav_idx,
                         call_info, ref_path_name, ref_offset, genotype_snarls, ploidy,
                         SiteRecordSteps(), trav_to_string);
@@ -397,35 +440,9 @@ bool VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCa
         return visits_of(called_traversals[trav]);
     };
 
-    SiteHooks hooks;
-    if (record_steps.same_as_reference) {
-        hooks.same_as_reference = [&](int trav) {
-            return record_steps.same_as_reference(snarl, called_traversals, trav, ref_trav_idx);
-        };
-    }
-    if (record_steps.phase) {
-        hooks.phase = [&](const vector<int>& site_genotype, const map<int, int>& trav_to_allele,
-                          string& gt) {
-            return record_steps.phase(snarl, site_genotype, trav_to_allele, gt);
-        };
-    }
-    if (record_steps.fill_info) {
-        hooks.fill_info = record_steps.fill_info;
-    } else {
-        hooks.fill_info = [&](const vector<int>& site_trav, const vector<int>& site_genotype,
-                              vcflib::Variant& variant) {
-            // The "*" placeholder is an empty traversal.
-            vector<SnarlTraversal> site_traversals;
-            site_traversals.reserve(site_trav.size());
-            for (int trav : site_trav) {
-                site_traversals.push_back(trav >= 0 ? called_traversals[trav] : SnarlTraversal());
-            }
-            snarl_caller.update_vcf_info(snarl, site_traversals, site_genotype, call_info,
-                                         sample_name, variant);
-        };
-    }
-    hooks.gl_layout = record_steps.gl_layout ? record_steps.gl_layout(call_info.get())
-                                             : GLLayout::IMajor;
+    const SiteHooks hooks = site_hooks_from_steps(record_steps, snarl, called_traversals,
+                                                  ref_trav_idx, snarl_caller, call_info,
+                                                  sample_name);
 
     const SiteToWrite site{
         .start = graph.get_handle(snarl.start().node_id(), snarl.start().backward()),
@@ -442,15 +459,16 @@ bool VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCa
     SiteRecord record = build_site_record(graph, site, alleles, hooks, record_options());
     vcflib::Variant& out_variant = record.variant;
 
-    // One record per difference block, where that changes the output. The site record above is
-    // finished, so the blocks take every field they do not redefine from it. -1 means the site was
-    // declined, and the site record below is written as it is.
+    // Let the caller write the site as difference blocks. The blocks take every field they do not
+    // redefine from the finished site record. A result of -1 means the caller declined, and we
+    // write the site record.
     if (record_steps.write_blocks) {
         const int block_lines = record_steps.write_blocks(graph, snarl, called_traversals, genotype,
                                                           ref_trav_idx, record, hooks.gl_layout,
                                                           genotype_snarls);
         if (block_lines >= 0) {
-            // There is no single line for this snarl, and each block numbers its own alleles.
+            // The site has no line of its own, and each block numbers its own alleles, so there is
+            // no allele map to report.
             if (record_steps.site_filed) {
                 record_steps.site_filed(snarl, map<int, int>(), 0, block_lines > 0);
             }
@@ -458,9 +476,8 @@ bool VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCa
         }
     }
 
-    // Whether this site wants a line. A pair of traversals differing from the reference only inside
-    // child chains is written as allele 0 and leaves `alt` empty; such a site has no line, but its
-    // children need it.
+    // Whether the site gets a line. A site whose called traversals differ from the reference only
+    // inside child chains has no ALT, and gets no line unless it is genotyped with -a.
     const bool wants_line = genotype_snarls || !out_variant.alt.empty();
     bool added = false;
     if (wants_line) {
@@ -469,8 +486,8 @@ bool VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCa
         }
         added = add_variant(out_variant);
     } else if (include_nested) {
-        // A site with nothing to report still knows where its children sit, so its reference
-        // interval is kept for their RC, RS and RD, as Deconstructor::deconstruct_site does.
+        // Keep the reference interval of a site with no line, for the RC, RS and RD of its
+        // children.
         suppressed_ref_info[omp_get_thread_num()][out_variant.id] =
             {out_variant.sequenceName, static_cast<size_t>(out_variant.position),
              out_variant.ref.length()};
@@ -485,8 +502,7 @@ bool VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCa
              << " with ID=" << out_variant.id << " because its line length of " << ss.str().length() << " exceeds vg's limit of "
              << VCFOutputCaller::max_vcf_line_length << endl;
     }
-    // True when the record has nothing to write, false only when add_variant refused a line; the
-    // linkage pass depends on the difference.
+    // Return false only when add_variant refused a line the site wanted.
     return wants_line ? added : true;
 }
 
@@ -553,7 +569,7 @@ string VCFOutputCaller::print_snarl(nid_t start_node_id, bool start_backward, ni
                      in_brackets);
 }
 
-void VCFOutputCaller::scan_snarl(const string& allele_string, function<void(const string&, Snarl&)> callback) const {
+void VCFOutputCaller::scan_snarl(const string& allele_string, const function<void(const string&, Snarl&)>& callback) const {
     int left = -1;
     int last = 0;
     Snarl snarl;
@@ -592,23 +608,221 @@ void VCFOutputCaller::scan_snarl(const string& allele_string, function<void(cons
     }
 }
 
+namespace {
+
+/// Hash a site's boundary visits.
+struct SiteEndsHash {
+    size_t operator()(const SiteEnds& e) const {
+        size_t h = std::hash<nid_t>()(e.start_id);
+        h ^= std::hash<nid_t>()(e.end_id) + 0x9e3779b97f4a7c15ULL + (h << 6) + (h >> 2);
+        return h ^ ((size_t)e.start_backward << 1) ^ (size_t)e.end_backward;
+    }
+};
+
+/// Compare two sites' boundary visits.
+struct SiteEndsEqual {
+    bool operator()(const SiteEnds& a, const SiteEnds& b) const {
+        return a.start_id == b.start_id && a.end_id == b.end_id
+               && a.start_backward == b.start_backward && a.end_backward == b.end_backward;
+    }
+};
+
+/// Table from the boundary visits of a site to the name of its record in the VCF.
+using NameOfEnds = unordered_map<SiteEnds, const string*, SiteEndsHash, SiteEndsEqual>;
+
+/// The fields of one buffered record that the nesting tags are computed from.
+struct NestingRecordFields {
+    /// The name of the record's site, the same for every difference block of the site.
+    string name;
+    string chrom;
+    /// The POS column, as text.
+    string pos;
+    size_t ref_len = 0;
+    /// Whether no ancestor of the site has a record.
+    bool top_level = false;
+};
+
+/// Return the name of a site's record: its own ID, or else its boundary visits as `site_name`
+/// prints them.
+string record_name_of_site(const SiteTree& sites, SiteTree::site_t site,
+                           const NodeTranslation* translation) {
+    if (const string* id = sites.id_of(site)) {
+        return *id;
+    }
+    const SiteEnds e = sites.ends_of(site);
+    return site_name(e.start_id, e.start_backward, e.end_id, e.end_backward, translation, false);
+}
+
+/// Return the name the record of a site has when the site is read in the other orientation.
+///
+/// A site with an ID has that name in both orientations.
+string flipped_record_name_of_site(const SiteTree& sites, SiteTree::site_t site,
+                                   const NodeTranslation* translation) {
+    if (const string* id = sites.id_of(site)) {
+        return *id;
+    }
+    const SiteEnds e = sites.ends_of(site);
+    return site_name(e.end_id, !e.end_backward, e.start_id, !e.start_backward, translation, false);
+}
+
+/// Read the boundary visits of a site back from an untranslated record name like ">12<17".
+///
+/// Return false for a name that printing the visits read from it would not give back, so that a
+/// name and a pair of visits correspond one to one.
+bool read_record_name_ends(const string& name, SiteEnds& ends) {
+    if (name.size() < 4 || (name[0] != '<' && name[0] != '>')) {
+        return false;
+    }
+    const size_t middle = name.find_first_of("<>", 1);
+    if (middle == string::npos || middle < 2 || middle + 1 >= name.size()) {
+        return false;
+    }
+    const char* text = name.data();
+    auto start = std::from_chars(text + 1, text + middle, ends.start_id);
+    auto end = std::from_chars(text + middle + 1, text + name.size(), ends.end_id);
+    if (start.ec != std::errc() || start.ptr != text + middle
+        || end.ec != std::errc() || end.ptr != text + name.size()) {
+        return false;
+    }
+    ends.start_backward = name[0] == '<';
+    ends.end_backward = name[middle] == '<';
+    return site_name(ends.start_id, ends.start_backward, ends.end_id, ends.end_backward, nullptr,
+                     false) == name;
+}
+
+/// Call `match` on each record name in `chrom_of_name` that an untranslated site has.
+///
+/// A site with an ID matches by its ID. Any other site matches by its boundary visits, first in
+/// its own orientation and then flipped, since a caller can write a site either way round.
+template<typename Match>
+void for_each_record_name_of_site(const SiteTree& sites, SiteTree::site_t site,
+                                  const unordered_map<string, uint32_t>& chrom_of_name,
+                                  const NameOfEnds& name_of_ends, Match&& match) {
+    if (const string* id = sites.id_of(site)) {
+        if (auto named = chrom_of_name.find(*id); named != chrom_of_name.end()) {
+            match(named->first);
+        }
+        return;
+    }
+    const SiteEnds e = sites.ends_of(site);
+    if (auto own = name_of_ends.find(e); own != name_of_ends.end()) {
+        match(*own->second);
+    }
+    if (auto flipped = name_of_ends.find(SiteEnds{e.end_id, !e.end_backward, e.start_id,
+                                                  !e.start_backward});
+        flipped != name_of_ends.end()) {
+        match(*flipped->second);
+    }
+}
+
+/// Map each record name in `chrom_of_name` to the untranslated site that has it.
+///
+/// Each name is read back into boundary visits once, and the sites are matched by their visits,
+/// which is much faster than printing both names of every site. Where two sites have one name,
+/// the name goes to the one that the preorder visits last.
+unordered_map<string, SiteTree::site_t>
+index_untranslated_sites_by_record_name(const SiteTree& sites,
+                                        const unordered_map<string, uint32_t>& chrom_of_name) {
+    unordered_map<string, SiteTree::site_t> name_to_snarl;
+    name_to_snarl.reserve(chrom_of_name.size());
+    NameOfEnds name_of_ends;
+    name_of_ends.reserve(chrom_of_name.size());
+    for (const auto& [name, chrom] : chrom_of_name) {
+        if (SiteEnds ends; read_record_name_ends(name, ends)) {
+            name_of_ends.try_emplace(ends, &name);
+        }
+    }
+    // Match the sites on several threads, each into a list of its own. The matches depend on the
+    // order of the sites only if two different sites match one name, and then we match again in
+    // preorder.
+    vector<vector<pair<const string*, SiteTree::site_t>>> found(max(1, omp_get_max_threads()));
+    sites.for_each_site([&](SiteTree::site_t snarl) {
+        auto& mine = found[omp_get_thread_num()];
+        for_each_record_name_of_site(sites, snarl, chrom_of_name, name_of_ends,
+                                     [&](const string& name) {
+            mine.emplace_back(&name, snarl);
+        });
+    }, false);
+    bool ambiguous = false;
+    for (const auto& thread_found : found) {
+        for (const auto& [name, snarl] : thread_found) {
+            auto [placed, inserted] = name_to_snarl.try_emplace(*name, snarl);
+            if (!inserted && placed->second != snarl) {
+                ambiguous = true;
+            }
+        }
+    }
+    if (ambiguous) {
+        name_to_snarl.clear();
+        sites.for_each_site([&](SiteTree::site_t snarl) {
+            for_each_record_name_of_site(sites, snarl, chrom_of_name, name_of_ends,
+                                         [&](const string& name) {
+                name_to_snarl[name] = snarl;
+            });
+        }, true);
+    }
+    return name_to_snarl;
+}
+
+/// Map each record name in `chrom_of_name` to the site that has it, under a node translation.
+///
+/// Translated names are not node IDs, so each site's names are printed and looked up.
+unordered_map<string, SiteTree::site_t>
+index_translated_sites_by_record_name(const SiteTree& sites,
+                                      const unordered_map<string, uint32_t>& chrom_of_name,
+                                      const NodeTranslation* translation) {
+    unordered_map<string, SiteTree::site_t> name_to_snarl;
+    name_to_snarl.reserve(chrom_of_name.size());
+    sites.for_each_site([&](SiteTree::site_t snarl) {
+        if (string snarl_name = record_name_of_site(sites, snarl, translation);
+            chrom_of_name.contains(snarl_name)) {
+            name_to_snarl[std::move(snarl_name)] = snarl;
+        }
+        if (string flipped_name = flipped_record_name_of_site(sites, snarl, translation);
+            chrom_of_name.contains(flipped_name)) {
+            name_to_snarl[std::move(flipped_name)] = snarl;
+        }
+    }, true);
+    return name_to_snarl;
+}
+
+/// Read the fields the nesting tags need from each buffered record, decompressing the buffers in
+/// parallel.
+///
+/// The result has one list per buffer, in the order of the buffer.
+vector<vector<NestingRecordFields>> read_nesting_record_fields(
+    const vector<vector<pair<VCFOutputCaller::BufferedRecordKey, string>>>& buffers) {
+    vector<vector<NestingRecordFields>> record_fields(buffers.size());
+#pragma omp parallel for schedule(dynamic, 1)
+    for (size_t b = 0; b < buffers.size(); ++b) {
+        vector<NestingRecordFields>& fields = record_fields[b];
+        fields.reserve(buffers[b].size());
+        string output_variant_string;
+        for (const auto& [key, compressed] : buffers[b]) {
+            output_variant_string.clear();
+            int ret = zstdutil::DecompressString(compressed, output_variant_string);
+            assert(ret == 0);
+            vector<string> toks = split_delims(output_variant_string, "\t", 5);
+            NestingRecordFields f;
+            f.name = block_site_name(toks[2]);
+            f.ref_len = toks[3].length();
+            f.chrom = std::move(toks[0]);
+            f.pos = std::move(toks[1]);
+            fields.push_back(std::move(f));
+        }
+    }
+    return record_fields;
+}
+
+}
+
 void VCFOutputCaller::update_nesting_info_tags(const SiteTree& sites) {
 
-    // A site's name as print_snarl spells it, and the name it has when read the other way. A site
-    // with an ID of its own has that name both ways.
     auto name_of = [&](SiteTree::site_t site) {
-        if (const string* id = sites.id_of(site)) {
-            return *id;
-        }
-        const SiteEnds e = sites.ends_of(site);
-        return print_snarl(e.start_id, e.start_backward, e.end_id, e.end_backward, false);
+        return record_name_of_site(sites, site, translation);
     };
     auto flipped_name_of = [&](SiteTree::site_t site) {
-        if (const string* id = sites.id_of(site)) {
-            return *id;
-        }
-        const SiteEnds e = sites.ends_of(site);
-        return print_snarl(e.end_id, !e.end_backward, e.start_id, !e.start_backward, false);
+        return flipped_record_name_of_site(sites, site, translation);
     };
 
     // Merge the per-thread suppressed-site intervals collected during calling.  These are sites
@@ -652,163 +866,21 @@ void VCFOutputCaller::update_nesting_info_tags(const SiteTree& sites) {
     // nesting/cyclic_ref_multiple_variants.gfa) -- but both occurrences are traversals of one
     // path, so they are on the same contig and it does not matter which one wins here.
     unordered_map<string, uint32_t> chrom_of_name;
-    // What passes 1 and 2 read from each record: its site's name, CHROM, POS and REF length. The
-    // records are decompressed once, in parallel, and the indexes are then filled in record
-    // order, as reading the records one by one fills them.
-    struct RecordFields {
-        string name;
-        string chrom;
-        string pos;
-        size_t ref_len = 0;
-        bool top_level = false;
-    };
-    vector<vector<RecordFields>> record_fields(output_variants.size());
-#pragma omp parallel for schedule(dynamic, 1)
-    for (size_t b = 0; b < output_variants.size(); ++b) {
-        vector<RecordFields>& fields = record_fields[b];
-        fields.reserve(output_variants[b].size());
-        string output_variant_string;
-        for (auto& output_variant_record : output_variants[b]) {
-            output_variant_string.clear();
-            int ret = zstdutil::DecompressString(output_variant_record.second, output_variant_string);
-            assert(ret == 0);
-            vector<string> toks = split_delims(output_variant_string, "\t", 5);
-            RecordFields f;
-            f.name = block_site_name(toks[2]);
-            f.ref_len = toks[3].length();
-            f.chrom = std::move(toks[0]);
-            f.pos = std::move(toks[1]);
-            fields.push_back(std::move(f));
-        }
-    }
-    for (const vector<RecordFields>& fields : record_fields) {
-        for (const RecordFields& f : fields) {
+    // The fields the indexes and the second pass read from each record, decompressed once.
+    vector<vector<NestingRecordFields>> record_fields = read_nesting_record_fields(output_variants);
+    // Fill the indexes in record order.
+    for (const vector<NestingRecordFields>& fields : record_fields) {
+        for (const NestingRecordFields& f : fields) {
             chrom_of_name.emplace(f.name, intern_chrom(f.chrom));
         }
     }
 
-    // index the snarl tree by name
-    //
-    // Only the names of sites in the VCF are ever looked up, so only they are indexed. The
-    // snarls are visited in the same order as for an index of every name, so a name that two
-    // snarls print goes to the same one.
-    unordered_map<string, SiteTree::site_t> name_to_snarl;
-    name_to_snarl.reserve(chrom_of_name.size());
-    if (translation == nullptr) {
-        // A name is the snarl's two boundary visits, so each VCF name is read back into its visits
-        // once, and every snarl of the graph is matched by its visits instead of by printing both
-        // its names, which meant tens of millions of names and a string-table lookup for each. A
-        // name is read back only if printing what was read gives the name again, so a name and a
-        // pair of visits correspond one to one, and a snarl matches a name exactly when it prints
-        // that name.
-        struct Ends {
-            nid_t start_id;
-            nid_t end_id;
-            bool start_backward;
-            bool end_backward;
-            bool operator==(const Ends& other) const {
-                return start_id == other.start_id && end_id == other.end_id
-                       && start_backward == other.start_backward
-                       && end_backward == other.end_backward;
-            }
-        };
-        struct EndsHash {
-            size_t operator()(const Ends& e) const {
-                size_t h = std::hash<nid_t>()(e.start_id);
-                h ^= std::hash<nid_t>()(e.end_id) + 0x9e3779b97f4a7c15ULL + (h << 6) + (h >> 2);
-                return h ^ ((size_t)e.start_backward << 1) ^ (size_t)e.end_backward;
-            }
-        };
-        auto read_ends = [&](const string& name, Ends& ends) -> bool {
-            if (name.size() < 4 || (name[0] != '<' && name[0] != '>')) {
-                return false;
-            }
-            const size_t middle = name.find_first_of("<>", 1);
-            if (middle == string::npos || middle < 2 || middle + 1 >= name.size()) {
-                return false;
-            }
-            const char* text = name.data();
-            auto start = std::from_chars(text + 1, text + middle, ends.start_id);
-            auto end = std::from_chars(text + middle + 1, text + name.size(), ends.end_id);
-            if (start.ec != std::errc() || start.ptr != text + middle
-                || end.ec != std::errc() || end.ptr != text + name.size()) {
-                return false;
-            }
-            ends.start_backward = name[0] == '<';
-            ends.end_backward = name[middle] == '<';
-            return print_snarl(ends.start_id, ends.start_backward, ends.end_id, ends.end_backward,
-                               false) == name;
-        };
-        unordered_map<Ends, const string*, EndsHash> name_of_ends;
-        name_of_ends.reserve(chrom_of_name.size());
-        for (const auto& kv : chrom_of_name) {
-            Ends ends;
-            if (read_ends(kv.first, ends)) {
-                name_of_ends.emplace(ends, &kv.first);
-            }
-        }
-        // The VCF names a snarl matches: its own, then its flipped one (as call sometimes messes
-        // with orientation).
-        auto for_each_match = [&](SiteTree::site_t snarl, const function<void(const string&)>& match) {
-            if (const string* id = sites.id_of(snarl)) {
-                auto named = chrom_of_name.find(*id);
-                if (named != chrom_of_name.end()) {
-                    match(named->first);
-                }
-                return;
-            }
-            const SiteEnds e = sites.ends_of(snarl);
-            auto own = name_of_ends.find(Ends{e.start_id, e.end_id, e.start_backward, e.end_backward});
-            if (own != name_of_ends.end()) {
-                match(*own->second);
-            }
-            auto flipped = name_of_ends.find(Ends{e.end_id, e.start_id, !e.end_backward,
-                                                  !e.start_backward});
-            if (flipped != name_of_ends.end()) {
-                match(*flipped->second);
-            }
-        };
-        // The snarls are matched on several threads, each into a list of its own. Only a name
-        // that two different snarls match could depend on the order the snarls are visited in;
-        // if there is one, the matches are made again in preorder, as they always were.
-        vector<vector<pair<const string*, SiteTree::site_t>>> found(max(1, omp_get_max_threads()));
-        sites.for_each_site([&](SiteTree::site_t snarl) {
-            auto& mine = found[omp_get_thread_num()];
-            for_each_match(snarl, [&](const string& name) {
-                mine.emplace_back(&name, snarl);
-            });
-        }, false);
-        bool ambiguous = false;
-        for (const auto& thread_found : found) {
-            for (const auto& name_and_snarl : thread_found) {
-                auto placed = name_to_snarl.emplace(*name_and_snarl.first, name_and_snarl.second);
-                if (!placed.second && placed.first->second != name_and_snarl.second) {
-                    ambiguous = true;
-                }
-            }
-        }
-        if (ambiguous) {
-            name_to_snarl.clear();
-            sites.for_each_site([&](SiteTree::site_t snarl) {
-                for_each_match(snarl, [&](const string& name) {
-                    name_to_snarl[name] = snarl;
-                });
-            }, true);
-        }
-    } else {
-        // Translated names are not node IDs, so they are printed and compared.
-        sites.for_each_site([&](SiteTree::site_t snarl) {
-                string snarl_name = name_of(snarl);
-                if (chrom_of_name.count(snarl_name) != 0) {
-                    name_to_snarl[std::move(snarl_name)] = snarl;
-                }
-                // also add a map from the flipped snarl (as call sometimes messes with orientation)
-                string flipped_name = flipped_name_of(snarl);
-                if (chrom_of_name.count(flipped_name) != 0) {
-                    name_to_snarl[std::move(flipped_name)] = snarl;
-                }
-            }, true);
-    }
+    // Index the sites by the names of their records. Only names in the VCF are looked up, so only
+    // they are indexed.
+    unordered_map<string, SiteTree::site_t> name_to_snarl =
+        translation == nullptr
+            ? index_untranslated_sites_by_record_name(sites, chrom_of_name)
+            : index_translated_sites_by_record_name(sites, chrom_of_name, translation);
 
     // pass 2) identify top-level snarls (those with no ancestors in VCF)
     // and store reference info only for them
@@ -826,38 +898,37 @@ void VCFOutputCaller::update_nesting_info_tags(const SiteTree& sites) {
     unordered_map<string, map<pair<string, size_t>, size_t>> top_level_ref_info;
 
     // Helper to check if a snarl is top-level (no ancestors in VCF)
-    auto is_top_level = [&](const string& name) -> bool {
+    auto is_top_level = [&](const string& name) {
         auto it = name_to_snarl.find(name);
         if (it == name_to_snarl.end()) return true; // not found, treat as top-level
         SiteTree::site_t snarl = it->second;
         while ((snarl = sites.parent_of(snarl))) {
             string cur_name = name_of(snarl);
             string flipped_name = flipped_name_of(snarl);
-            if (chrom_of_name.count(cur_name) || chrom_of_name.count(flipped_name)) {
+            if (chrom_of_name.contains(cur_name) || chrom_of_name.contains(flipped_name)) {
                 return false; // has ancestor in VCF
             }
         }
         return true; // no ancestors in VCF
     };
 
-    // Second pass through variants to extract ref info only for top-level snarls. Whether a
-    // record's site is top level depends only on the indexes above, so the records are tested in
-    // parallel; the ref info is then stored in record order.
+    // Find the records whose sites are top level, in parallel. Then store their reference
+    // intervals in record order.
 #pragma omp parallel for schedule(dynamic, 1)
     for (size_t b = 0; b < record_fields.size(); ++b) {
-        for (RecordFields& f : record_fields[b]) {
+        for (NestingRecordFields& f : record_fields[b]) {
             f.top_level = is_top_level(f.name);
         }
     }
-    for (const vector<RecordFields>& fields : record_fields) {
-        for (const RecordFields& f : fields) {
+    for (const vector<NestingRecordFields>& fields : record_fields) {
+        for (const NestingRecordFields& f : fields) {
             if (f.top_level) {
                 top_level_ref_info[f.name][make_pair(f.chrom, static_cast<size_t>(stoul(f.pos)))] =
                     f.ref_len;
             }
         }
     }
-    vector<vector<RecordFields>>().swap(record_fields);
+    vector<vector<NestingRecordFields>>().swap(record_fields);
 
     // determine the tags from the index
     //
@@ -901,10 +972,10 @@ void VCFOutputCaller::update_nesting_info_tags(const SiteTree& sites) {
             // flipped version too
             string flipped_name = flipped_name_of(snarl);
             const string* hit = nullptr;
-            if (chrom_of_name.count(cur_name)) {
+            if (chrom_of_name.contains(cur_name)) {
                 // only count snarls that are in the vcf
                 hit = &cur_name;
-            } else if (chrom_of_name.count(flipped_name)) {
+            } else if (chrom_of_name.contains(flipped_name)) {
                 // snarl is in vcf under flipped orientation
                 hit = &flipped_name;
             }
@@ -957,9 +1028,9 @@ void VCFOutputCaller::update_nesting_info_tags(const SiteTree& sites) {
             string output_variant_string;
             int ret = zstdutil::DecompressString(output_variant_record.second, output_variant_string);
             assert(ret == 0);
-            //string& output_variant_string = output_variant_record.second;
             vector<string> toks = split_delims(output_variant_string, "\t", 9);
-            // Keyed by the site, so that a block record gets its site's tags.
+            // Look the record up by the name of its site, so that a block record gets the tags of
+            // its site.
             const string name = block_site_name(toks[2]);
 
             auto [contig_level, contig_hops, parent_name, top_level_name, ref_chrom_name,
@@ -967,10 +1038,9 @@ void VCFOutputCaller::update_nesting_info_tags(const SiteTree& sites) {
             // LV is the level within this record's own reference contig, so that a gRef fragment's
             // records start at level 0 on their own contig.
             //
-            // CH counts the ancestors that have a record here, so it would be 0 for a record on a
-            // gRef fragment whose enclosing site wrote no line. The contig's gRef level, which
-            // equals the CH of every record on a fragment, is used as a floor. So CH >= 1 does not
-            // imply a parent record in the VCF, or PS.
+            // CH counts the ancestors with a record, which is 0 on a gRef fragment whose enclosing
+            // site has no line. So we use the gRef level of the contig as a floor for CH. Then
+            // CH >= 1 does not imply a parent record, or PS.
             size_t gref_level = 0;
             {
                 auto it = gref_levels.find(toks[0]);

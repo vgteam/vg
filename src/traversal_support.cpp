@@ -468,9 +468,6 @@ NullTraversalSupportFinder::NullTraversalSupportFinder(const HandleGraph& graph,
     TraversalSupportFinder(graph, snarl_manager) {
 }
 
-NullTraversalSupportFinder::~NullTraversalSupportFinder() {
-}
-
 Support NullTraversalSupportFinder::get_edge_support(const edge_t& edge) const {
     return Support();
 }

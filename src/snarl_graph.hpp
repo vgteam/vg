@@ -69,12 +69,12 @@ public:
     
 protected:
 
-    bool for_each_handle_impl(const std::function<bool(const handle_t&)>& iteratee, bool parallel = false) const;
+    bool for_each_handle_impl(const std::function<bool(const handle_t&)>& iteratee, bool parallel = false) const override;
     
     /// this is the only function that's changed to do anything different from the backing graph: it
     /// is changed to "pass through" snarls by pretending there are edges from into snarl starts out
     /// of ends and vice versa.
-    bool follow_edges_impl(const handle_t& handle, bool go_left, const std::function<bool(const handle_t&)>& iteratee) const;    
+    bool follow_edges_impl(const handle_t& handle, bool go_left, const std::function<bool(const handle_t&)>& iteratee) const override;
 
     /// the backing graph
     const HandleGraph* backing_graph;

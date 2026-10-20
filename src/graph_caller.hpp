@@ -47,15 +47,18 @@ public:
 
     virtual ~GraphCaller();
 
-    /// Run call_snarl() on every top-level snarl in the manager, in parallel. Then call it on
-    /// children, as `recurse_type` says: those of every snarl (RecurseAlways), those of snarls
-    /// whose call returned false (RecurseOnFail), or none (RecurseNever), and so on down.
-    ///
-    /// By default each snarl is its own parallel job. After set_snarl_batching(w), the top-level
-    /// snarls are grouped into batches instead: a batch holds the snarls whose lower boundary
-    /// node ID falls in one window of w IDs, [k*w, (k+1)*w) for some k, each batch is one job,
-    /// and a job calls its snarls in node-ID order. Children are still one job each, started in
-    /// node-ID order.
+    /**
+     * Run call_snarl() on every top-level snarl in the manager, in parallel, and then on children
+     * as `recurse_type` says.
+     *
+     * RecurseAlways calls the children of every snarl, RecurseOnFail the children of each snarl
+     * whose call returned false, and RecurseNever no children. Calling continues down the snarl
+     * tree the same way.
+     *
+     * Each snarl is its own parallel job, unless set_snarl_batching(w) was called. Then each job
+     * calls, in node-ID order, the top-level snarls whose lower boundary node ID is in one window
+     * [k*w, (k+1)*w). Children are always one job each, started in node-ID order.
+     */
     virtual void call_top_level_snarls(const HandleGraph& graph, RecurseType recurse_type = RecurseOnFail);
 
     /// For every chain, cut it up into pieces using max_edges and max_trivial to cap the size of
@@ -72,16 +75,17 @@ public:
     /// toggle progress messages
     void set_show_progress(bool show_progress);
 
-    /// Batch call_top_level_snarls' parallel jobs by windows of `window_size` node IDs (see
-    /// call_top_level_snarls), so that snarls with nearby node IDs are called together, which
-    /// suits a SnarlCaller that loads its reads a window of node IDs at a time. 0, the default,
-    /// gives one job per snarl.
+    /// Make call_top_level_snarls call top-level snarls in batches, by windows of `window_size`
+    /// node IDs.
+    ///
+    /// This suits a SnarlCaller that loads its reads one window of node IDs at a time. A size of
+    /// 0 gives one job per snarl.
     void set_snarl_batching(size_t window_size);
 
 protected:
 
     /// Break up a chain into bits that we want to call using size heuristics
-    vector<Chain> break_chain(const HandleGraph& graph, const Chain& chain, size_t max_edges, size_t max_trivial);
+    vector<Chain> break_chain(const HandleGraph& graph, const Chain& chain, size_t max_edges, size_t max_trivial) const;
     
 protected:
 
@@ -91,7 +95,8 @@ protected:
     /// Our snarls
     SnarlManager& snarl_manager;
 
-    /// See set_snarl_batching.
+    /// The width, in node IDs, of the windows that top-level snarls are batched by, or 0 for no
+    /// batching.
     size_t snarl_batch_window = 0;
 
     /// Toggle progress messages
@@ -104,12 +109,16 @@ static void flip_snarl(Snarl& snarl) {
     *snarl.mutable_end() = reverse(v);
 }
 
-/// Look a reference path up in one of the per-caller maps without inserting on a miss:
-/// `operator[]` inserts, and these maps are read from worker threads.
+/// Return the offset of a reference path, or 0 if `offsets` has none for it.
+///
+/// Unlike `operator[]`, this does not insert, so worker threads can share the map.
 static inline size_t ref_offset_of(const map<string, size_t>& offsets, const string& path) {
     auto it = offsets.find(path);
     return it != offsets.end() ? it->second : 0;
 }
+/// Return the ploidy of a reference path, or 0 if `ploidies` has none for it.
+///
+/// Unlike `operator[]`, this does not insert, so worker threads can share the map.
 static inline int ref_ploidy_of(const map<string, int>& ploidies, const string& path) {
     auto it = ploidies.find(path);
     return it != ploidies.end() ? it->second : 0;

@@ -159,14 +159,14 @@ bool LegacyCaller::call_snarl(const Snarl& snarl) {
         // these integers map the called traversals to their positions in the list of all traversals
         // of the top level snarl.  
         vector<int> genotype;
-        // `count` and `at`, not `operator[]`, which inserts on a missing key; these reads run on
-        // worker threads.
+        // Find the ploidy at the start of the site: that of a region covering it, or else the
+        // path's.
         int ploidy = ploidy_regions.ploidy_at(path_name, get<0>(ref_interval),
                                               ref_offset_of(ref_offsets, path_name),
                                               ref_ploidy_of(ref_ploidies, path_name));
         if (ploidy == 0) {
-            // The sample has no copy of this region: no record, and no children called in its
-            // place.
+            // The sample has no copy of this region. So the site gets no record, and its children
+            // are not called instead.
             was_called = true;
         } else {
             std::tie(called_traversals, genotype) = top_down_genotype(snarl, *rep_trav_finder, ploidy,

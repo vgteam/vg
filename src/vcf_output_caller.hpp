@@ -27,34 +27,36 @@ using namespace std;
 using vg::io::AlignmentEmitter;
 
 /**
- * Helper class that VCF writers can inherit from, for the common code to output sorted VCF.
+ * Writer of a sorted VCF, which variant callers inherit from or hold.
  *
- * A caller that holds one instead, such as MultiPassCaller, writes its records through
- * `emit_variant`, giving it the steps it adds to each record, and adds its own header lines with
- * `set_header_steps`.
+ * Callers add records from any thread, and the writer buffers them compressed. `write_variants`
+ * adds the nesting INFO tags, sorts the records and writes them. A caller that holds a writer,
+ * such as MultiPassCaller, passes its own callbacks to `emit_variant` and adds its header lines
+ * with `set_header_steps`.
  */
 class VCFOutputCaller {
 public:
-    /// Where a buffered VCF record sorts: by contig, POS, `id` (the ID column), then `block`.
-    /// Several records can share a contig and POS, such as a nested site and its parent, and
-    /// `std::sort` is not stable, so the output order is the same on every run only when a caller
-    /// gives the records at one position distinct (`id`, `block`) pairs.
+    /**
+     * The sort key of a buffered VCF record: contig, POS, ID, then block number.
+     *
+     * Several records can share a contig and POS, such as a nested site and its parent. The sort
+     * is not stable, so the output order is the same on every run only if the records at one POS
+     * differ in ID or block number.
+     */
     struct BufferedRecordKey {
         string contig;
         size_t position = 0;
+        /// The ID column.
         string id;
-        /// Which difference block of its snarl this record is; 0 for a record written for a
-        /// whole snarl. Two blocks of one snarl can land on the same POS, such as a deletion on
-        /// one strand next to an insertion on the other, and share an ID, so the block number
-        /// keeps the order total.
+        /// The number of the difference block of its snarl that the record holds, or 0 for a
+        /// record of a whole snarl. Two blocks of one snarl share an ID and can share a POS.
         size_t block = 0;
     };
 
-    /// Strict weak ordering on BufferedRecordKey. Public, so that a unit test can check the
-    /// ordering directly.
+    /// Order buffered record keys by contig, POS, ID, then block number.
     static bool buffered_record_key_less(const BufferedRecordKey& a, const BufferedRecordKey& b);
 
-    VCFOutputCaller(const string& sample_name);
+    explicit VCFOutputCaller(const string& sample_name);
 
     virtual ~VCFOutputCaller();
 
@@ -62,20 +64,31 @@ public:
     virtual string vcf_header(const PathHandleGraph& graph, const vector<string>& contigs,
                               const vector<size_t>& contig_length_overrides) const;
 
-    /// Add a variant to our buffer
-    /// Returns false if the variant line length exceeds VCFOutputCaller::max_vcf_line_length
+    /**
+     * Add a record to the output buffer, as difference block `block` of its site.
+     *
+     * @return false, without adding the record, if its line is longer than
+     * `max_vcf_line_length`.
+     */
     bool add_variant(vcflib::Variant& var, size_t block = 0) const;
 
-    /// Per-region ploidy overrides, which the callers read through `ploidy_regions`.
+    /// Set the ploidy of the regions of the reference that `regions` covers.
     void set_ploidy_regions(PloidyRegions regions) { ploidy_regions = std::move(regions); }
 
-    /// Write the buffered records. It adds the nesting INFO tags, sorts the records and writes
-    /// them. Usable once.
-    /// `snarl_manager` is needed if `include_nested` is true.
+    /**
+     * Write the buffered records, sorted, taking the nesting INFO tags from `snarl_manager`.
+     *
+     * This empties the buffer, so it can be called once. `snarl_manager` may be null if nested
+     * output is off.
+     */
     void write_variants(ostream& out_stream, const SnarlManager* snarl_manager = nullptr);
 
-    /// `write_variants`, with the nesting INFO tags read from the tree of sites `sites`, which is
-    /// needed if `include_nested` is true.
+    /**
+     * Write the buffered records, sorted, taking the nesting INFO tags from the tree of sites.
+     *
+     * This empties the buffer, so it can be called once. `sites` may be null if nested output is
+     * off.
+     */
     void write_variants(ostream& out_stream, const SiteTree* sites);
 
     /// Run vcffixup from vcflib
@@ -87,8 +100,9 @@ public:
     /// Assume writing nested snarls is enabled
     void set_nested(bool nested);
 
-    /// How deep in non-reference sequence each gRef contig sits, by contig name. INFO/CH is at
-    /// least this for a record on that contig.
+    /// Set the gRef nesting level of each gRef contig, by contig name.
+    ///
+    /// A record on one of these contigs gets at least its level as INFO/CH.
     void set_gref_levels(map<string, int> levels);
 
     /// Enable post-genotyping merging of near-identical called ALT alleles, so that a 1/2 call of
@@ -112,58 +126,65 @@ public:
     /// most contigs are fragments, and on a human chromosome a third of them carry nothing.
     string prune_header_contigs(const string& header, const unordered_set<string>& keep) const;
 
-    /// Steps added to writing a site record by a caller that needs them. Each is left empty when
-    /// not needed.
+    /// Callbacks that a caller adds to the writing of a site's record. Each is empty unless the
+    /// caller needs it.
     struct SiteRecordSteps {
-        /// The site's ID, which names its records. When null, the ID is printed from the
-        /// snarl's bounds.
+        /// The ID of the site's records, or null to print the ID from the snarl's bounds.
         const string* id = nullptr;
-        /// Whether called traversal `trav` is written as the reference allele, because it takes
-        /// the reference traversal's route through the site.
+        /// Return whether called traversal `trav` is written as the reference allele, because it
+        /// takes the reference traversal's route through the site.
         function<bool(const Snarl& site, const vector<SnarlTraversal>& travs, int trav,
                       int ref_trav_idx)> same_as_reference;
-        /// Counts the site before its record is built.
+        /// Count the site, before its record is built.
         function<void(const PathPositionHandleGraph& graph, const Snarl& site,
                       const vector<SnarlTraversal>& travs, const vector<int>& genotype,
                       int ref_trav_idx)> count_site;
-        /// Phases the record's genotype, as `SiteHooks::phase` does.
+        /// Phase the record's genotype, as `SiteHooks::phase` does.
         function<int64_t(const Snarl& site, const vector<int>& site_genotype,
                          const map<int, int>& trav_to_allele, string& gt)> phase;
-        /// The order in which the snarl caller wrote the GL of a call.
+        /// Return the order in which the snarl caller wrote the GL of a call.
         function<GLLayout(const SnarlCaller::CallInfo* call_info)> gl_layout;
-        /// Writes the site as several records. Returns the number of lines written, or -1 to have
+        /// Write the site as several records. Return the number of lines written, or -1 to have
         /// the site record written instead.
         function<int(const PathPositionHandleGraph& graph, const Snarl& site,
                      const vector<SnarlTraversal>& travs, const vector<int>& genotype,
                      int ref_trav_idx, const SiteRecord& record, GLLayout gl_layout,
                      bool genotype_snarls)> write_blocks;
-        /// Changes the finished site record just before it is added to the output.
+        /// Change the finished site record just before it is added to the output.
         function<void(vcflib::Variant& record)> finish_record;
-        /// Adds the caller's INFO and FORMAT fields, as `SiteHooks::fill_info` does, in place of
+        /// Add the caller's INFO and FORMAT fields, as `SiteHooks::fill_info` does, in place of
         /// the snarl caller's `update_vcf_info`.
         function<void(const vector<int>& site_trav, const vector<int>& site_genotype,
                       vcflib::Variant& variant)> fill_info;
-        /// Told, once the site is filed, the VCF allele of each of its `traversal_count`
-        /// traversals that is in its genotype, and whether the site has a line.
+        /// Take note of a site whose records are done. `trav_to_allele` gives the VCF allele of
+        /// each traversal in the genotype, out of `traversal_count` traversals. `has_line` says
+        /// whether the site got a line.
         function<void(const Snarl& site, const map<int, int>& trav_to_allele,
                       size_t traversal_count, bool has_line)> site_filed;
     };
 
-    /// Lines added to the header by a caller that needs them. Each is left empty when not needed.
+    /// Callbacks that add a caller's lines to the VCF header. Each is empty unless the caller
+    /// needs it.
     struct HeaderSteps {
-        /// FORMAT lines, written after the nesting INFO lines.
+        /// Return FORMAT lines, which go after the nesting INFO lines.
         function<string()> format_header;
-        /// INFO lines, written after the AT line.
+        /// Return INFO lines, which go after the AT line.
         function<string()> info_header;
     };
 
-    /// Use `steps` in `vcf_header`.
+    /// Add the lines from `steps` to the header that `vcf_header` writes.
     void set_header_steps(HeaderSteps steps) { header_steps = std::move(steps); }
 
-    /// Write the record for a site: build it with build_site_record, from the snarl's traversals
-    /// and the snarl caller's INFO and FORMAT fields, with `steps`, and add it to the output
-    /// buffer. `trav_to_string` spells an allele; when null, an allele is spelled by its
-    /// traversal's sequence. Returns false only when add_variant refused a line the site wanted.
+    /**
+     * Add the record for a called site to the output buffer.
+     *
+     * We build the record with build_site_record, from the called traversals and the snarl
+     * caller's INFO and FORMAT fields, and run the callbacks in `steps` along the way.
+     *
+     * @param trav_to_string Spells an allele. When null, an allele is spelled as the sequence of
+     * its traversal.
+     * @return false only if add_variant refused a line the site wanted.
+     */
     bool emit_variant(const PathPositionHandleGraph& graph, SnarlCaller& snarl_caller,
                       const Snarl& snarl, const vector<SnarlTraversal>& called_traversals,
                       const vector<int>& genotype, int ref_trav_idx, const unique_ptr<SnarlCaller::CallInfo>& call_info,
@@ -171,15 +192,19 @@ public:
                       const SiteRecordSteps& steps,
                       function<string(const vector<SnarlTraversal>&, const vector<int>&, int, int, int)> trav_to_string = nullptr);
 
-    /// `emit_variant` with no added steps.
+    /// Add the record for a called site to the output buffer, with no added callbacks.
     bool emit_variant(const PathPositionHandleGraph& graph, SnarlCaller& snarl_caller,
                       const Snarl& snarl, const vector<SnarlTraversal>& called_traversals,
                       const vector<int>& genotype, int ref_trav_idx, const unique_ptr<SnarlCaller::CallInfo>& call_info,
                       const string& ref_path_name, int ref_offset, bool genotype_snarls, int ploidy,
-                      function<string(const vector<SnarlTraversal>&, const vector<int>&, int, int, int)> trav_to_string = nullptr);
+                      const function<string(const vector<SnarlTraversal>&, const vector<int>&, int, int, int)>& trav_to_string = nullptr);
 
-    /// The header of a caller that genotypes with `snarl_caller`: the base header, GT,
-    /// `snarl_caller`'s own lines, FILTER, SAMPLE and the column line. Opens the output VCF with it.
+    /**
+     * Return the VCF header of a caller that genotypes with `snarl_caller`.
+     *
+     * The header has the base lines, GT, the lines of `snarl_caller`, FILTER, SAMPLE and the
+     * column line. We also open the output VCF with it.
+     */
     string snarl_caller_vcf_header(const PathHandleGraph& graph, const vector<string>& contigs,
                                    const vector<size_t>& contig_length_overrides,
                                    const SnarlCaller& snarl_caller) const;
@@ -191,14 +216,14 @@ public:
     string print_snarl(const Snarl& snarl, bool in_brackets = false) const;
     /// The same as above, but print the snarl as if its orientation has been flipped
     string print_flipped_snarl(const Snarl& snarl, bool in_brackets = false) const;
-    /// What the three above print, from the snarl's two boundary visits.
+    /// Print a snarl from its two boundary visits, as the other print_snarl overloads do.
     string print_snarl(nid_t start_id, bool start_backward, nid_t end_id, bool end_backward,
                        bool in_brackets) const;
 
     /// convert a traversal into an allele string
     string trav_string(const HandleGraph& graph, const SnarlTraversal& trav) const;
 
-    /// The node translation given to `set_translation`, or null.
+    /// Get the node translation given to `set_translation`, or null.
     const unordered_map<nid_t, pair<string, size_t>>* get_translation() const { return translation; }
 
 protected:
@@ -210,15 +235,15 @@ protected:
     void add_allele_path_to_info(vcflib::Variant& v, int allele, const SnarlTraversal& trav, bool reversed, bool one_based) const;
     
     
-    /// The core length of a variant, as `vg::allele_core_length` defines it.
+    /// Return the core length of a variant, as `vg::allele_core_length` defines it.
     static int64_t allele_core_length(const vector<string>& alleles) {
         return vg::allele_core_length(alleles);
     }
 
-    /// See set_header_steps.
+    /// The callbacks that add a caller's lines to the header.
     HeaderSteps header_steps;
 
-    /// The options build_site_record takes from this caller.
+    /// Return the options build_site_record takes from this caller.
     RecordOptions record_options() const;
 
     /// get the interval of a snarl from our reference path using the PathPositionHandleGraph interface
@@ -247,9 +272,10 @@ protected:
     /// So a string that looks like AACT(>12<17)TTT would invoke the callback three times with
     /// ("AACT", Snarl), ("", Snarl(12,-17)), ("TTT", Snarl(12,-17))
     /// The parameters are to be treated as unions:  A sequence fragment if non-empty, otherwise a snarl
-    void scan_snarl(const string& allele_string, function<void(const string&, Snarl&)> callback) const;
+    void scan_snarl(const string& allele_string, const function<void(const string&, Snarl&)>& callback) const;
 
-    // update the PS and LV tags in the output buffer (called in write_variants if include_nested is true)
+    /// Add the nesting INFO tags (LV, CH, PS, RC, RS, RD) to every buffered record, from the tree
+    /// of sites.
     void update_nesting_info_tags(const SiteTree& sites);
     
     /// output vcf
@@ -258,8 +284,8 @@ protected:
     /// Sample name
     string sample_name;
 
-    /// output buffers (1/thread) (for sorting) variants stored as strings (and position key pairs)
-    /// because vcflib::Variant in-memory struct so huge
+    /// The buffered records, one buffer per thread, each a sort key and the zstd-compressed line.
+    /// A vcflib::Variant is too big to keep in memory for every record.
     mutable vector<vector<pair<BufferedRecordKey, string>>> output_variants;
 
     /// Reference interval of a site that was visited but not emitted, because every traversal
@@ -282,7 +308,8 @@ protected:
     /// print up to this many uncalled alleles when doing ref-genotpes in -a mode
     size_t max_uncalled_alleles = 5;
 
-    /// Per-region ploidy overrides. Empty unless the run gave a BED of them.
+    /// The ploidy of regions of the reference, which overrides the ploidy of their paths. Empty
+    /// unless the run gave a BED file of them.
     PloidyRegions ploidy_regions;
 
     // optional node translation to apply to snarl names in variant IDs
@@ -290,8 +317,7 @@ protected:
 
     // need to write LV/PS info tags
     bool include_nested;
-    /// Contig name -> gRef nesting level, the least INFO/CH for that contig. Empty without a
-    /// cover.
+    /// The gRef nesting level of each gRef contig, by contig name. Empty without a gRef cover.
     map<string, int> gref_levels;
 
     // post-genotyping ALT merging (vg call -L / --cluster-min-len).  Deliberately NOT named

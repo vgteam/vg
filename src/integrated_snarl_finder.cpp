@@ -1868,11 +1868,41 @@ void IntegratedSnarlFinder::traverse_computed_decomposition(MergedAdjacencyGraph
     
 }
 
-/// The graph's weakly connected components, exactly as handlealgs::weakly_connected_components
-/// finds them: the same depth-first search, started from nodes in the graph's own order, so the
-/// components come in the same order and each component's node set is filled in the same order.
-/// The nodes already reached are marked in a flat array indexed by node ID instead of a hash set,
-/// whose lookups were most of the search's time on a large graph.
+/**
+ * Add to `component` every node that a depth-first search from `start` reaches.
+ *
+ * `traversed` marks the nodes reached by this and earlier searches, indexed by node ID minus
+ * `min_id`. The search does not enter nodes already marked.
+ */
+static void collect_weak_component(const HandleGraph* graph, handle_t start, nid_t min_id,
+                                   vector<bool>& traversed, unordered_set<id_t>& component) {
+    // The stack only holds locally forward handles
+    vector<handle_t> stack{graph->forward(start)};
+    while (!stack.empty()) {
+        handle_t here = stack.back();
+        stack.pop_back();
+        traversed[graph->get_id(here) - min_id] = true;
+        component.insert(graph->get_id(here));
+        auto handle_other = [&](const handle_t& other) {
+            handle_t other_forward = graph->forward(other);
+            if (!traversed[graph->get_id(other_forward) - min_id]) {
+                stack.push_back(other_forward);
+            }
+        };
+        // Look at edges in both directions
+        graph->follow_edges(here, false, handle_other);
+        graph->follow_edges(here, true, handle_other);
+    }
+}
+
+/**
+ * Return the weakly connected components of a graph, as handlealgs::weakly_connected_components
+ * does.
+ *
+ * We run the same depth-first search from nodes in the graph's own order, so the components, and
+ * the nodes in each, are inserted in the same order. We mark the nodes reached in an array indexed
+ * by node ID, which is much faster than the hash set that handlealgs uses.
+ */
 static vector<unordered_set<id_t>> weakly_connected_components_by_id(const HandleGraph* graph) {
     vector<unordered_set<id_t>> to_return;
     const nid_t min_id = graph->min_node_id();
@@ -1880,30 +1910,12 @@ static vector<unordered_set<id_t>> weakly_connected_components_by_id(const Handl
     vector<bool> traversed(max_id >= min_id ? (size_t)(max_id - min_id + 1) : 0, false);
 
     graph->for_each_handle([&](const handle_t& handle) {
-        // Only think about it in the forward orientation
-        handle_t forward = graph->forward(handle);
-        if (traversed[graph->get_id(forward) - min_id]) {
+        if (traversed[graph->get_id(handle) - min_id]) {
             // Already have this node, so don't start a search from it.
             return;
         }
-        // The stack only holds locally forward handles
-        vector<handle_t> stack{forward};
         to_return.emplace_back();
-        while (!stack.empty()) {
-            handle_t here = stack.back();
-            stack.pop_back();
-            traversed[graph->get_id(here) - min_id] = true;
-            to_return.back().insert(graph->get_id(here));
-            auto handle_other = [&](const handle_t& other) {
-                handle_t other_forward = graph->forward(other);
-                if (!traversed[graph->get_id(other_forward) - min_id]) {
-                    stack.push_back(other_forward);
-                }
-            };
-            // Look at edges in both directions
-            graph->follow_edges(here, false, handle_other);
-            graph->follow_edges(here, true, handle_other);
-        }
+        collect_weak_component(graph, handle, min_id, traversed, to_return.back());
     });
     return to_return;
 }
@@ -1929,9 +1941,8 @@ SnarlManager IntegratedSnarlFinder::find_snarls_parallel() {
             // delete our component graph overlay
             delete subgraph;
         }
-        // The component's node set is not needed past here. Freed now, by the thread that used
-        // it, rather than on one thread when this function returns: together the sets hold every
-        // node of the graph, one allocation each.
+        // Free the node set of the component now, on the thread that used it. Together the sets
+        // hold every node of the graph, which would otherwise be freed on one thread at the end.
         unordered_set<id_t>().swap(weak_components[i]);
     }
 
@@ -1944,7 +1955,7 @@ SnarlManager IntegratedSnarlFinder::find_snarls_parallel() {
     }
     for (size_t i = 0; i < snarl_managers.size(); ++i) {
         if (i != biggest_snarl_idx) {
-            // Moved, not copied: the other managers are only destroyed afterwards.
+            // Move the snarls, since the other managers are not used again.
             snarl_managers[biggest_snarl_idx].take_snarls(snarl_managers[i]);
         }
     }

@@ -73,14 +73,15 @@ public:
 
     virtual ~FlowCaller();
 
-    virtual bool call_snarl(const Snarl& snarl);
+    bool call_snarl(const Snarl& snarl) override;
 
-    virtual string vcf_header(const PathHandleGraph& graph, const vector<string>& contigs,
-                              const vector<size_t>& contig_length_overrides = {}) const;
+    string vcf_header(const PathHandleGraph& graph, const vector<string>& contigs,
+                      const vector<size_t>& contig_length_overrides = {}) const override;
 
-    /// Do not genotype a snarl with more edges than this, including those of nested snarls.
-    /// `call_top_level_snarls` then genotypes the snarl's children as if they were top-level
-    /// snarls. Zero removes the limit, which is also the default.
+    /// Skip snarls with more edges than this, counting those of nested snarls.
+    ///
+    /// `call_top_level_snarls` then calls the children of a skipped snarl as if they were
+    /// top-level snarls. Zero, the default, removes the limit.
     void set_max_snarl_edges(size_t edges) { candidates.set_max_snarl_edges(edges); }
 
 protected:
@@ -130,8 +131,8 @@ protected:
     /// use * alleles for spanning haplotypes that don't traverse nested sites
     bool star_allele = false;
 
-    /// Finds each site's reference path and candidate traversals. Declared after the members it
-    /// reads.
+    /// Finds the reference path and candidate traversals of each site. It is declared after the
+    /// members it reads, so that they are built first.
     CandidateFinder candidates;
 
     /// Internal implementation of call_snarl that accepts parent context for nested mode
@@ -147,6 +148,36 @@ protected:
                              pair<size_t, size_t> parent_ref_interval,
                              const ChildTraversalSets* parent_child_trav_sets = nullptr);
 
+    /**
+     * Genotype a nested site from the traversal sets that its parent's genotype gives it.
+     *
+     * We add the traversals of the sets to the candidates of the site, and genotype the strands
+     * whose set is not empty. The other strands get a star allele, or a missing one without
+     * `star_allele`.
+     *
+     * @param parent_sets One traversal set per strand of the parent's genotype.
+     * @param call_info Set to the snarl caller's information about the call, if it was asked for
+     * one.
+     * @return One allele per strand.
+     */
+    vector<int> genotype_from_parent_sets(CandidateFinder::Site& site,
+                                          const ChildTraversalSets& parent_sets,
+                                          unique_ptr<SnarlCaller::CallInfo>& call_info);
+
+    /// Write the record of a genotyped site, as VCF or as GAF.
+    ///
+    /// @return false only if the VCF writer refused the record.
+    bool emit_site(const CandidateFinder::Site& site, const vector<int>& genotype,
+                   const unique_ptr<SnarlCaller::CallInfo>& call_info, int ploidy);
+
+    /// Call each child of a genotyped site that an allele of the genotype visits, from the
+    /// traversals of the alleles.
+    void call_children(const CandidateFinder::Site& site, const vector<int>& genotype);
+
+    /// Return, for each strand of the genotype of a site, the traversals of `child` that agree
+    /// with the traversal of its allele. A star or missing allele gets an empty set.
+    ChildTraversalSets child_traversal_sets(const CandidateFinder::Site& site,
+                                            const vector<int>& genotype, const Snarl& child) const;
 };
 
 }

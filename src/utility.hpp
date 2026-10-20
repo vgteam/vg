@@ -2,6 +2,7 @@
 #define VG_UTILITY_HPP_INCLUDED
 
 #include <string>
+#include <string_view>
 #include <vector>
 #include <sstream>
 #include <omp.h>
@@ -61,14 +62,17 @@ std::vector<std::string>& split_delims(const std::string &s, const std::string& 
 std::vector<std::string> split_delims(const std::string &s, const std::string& delims,
                                       size_t max_cuts = numeric_limits<size_t>::max());
 
-/// Split a string at every character found in `delims`, keeping empty fields, so that "a,,b"
-/// gives "a", "", "b", and "" gives one empty field. Appends to `elems`. Unlike split_delims,
-/// field positions are preserved, as positional formats such as VCF need.
-std::vector<std::string>& split_delims_keep_empty(const std::string& s, const std::string& delims,
+/// Split a string at every character in `delims`, keeping empty fields, and append the fields to
+/// `elems`.
+///
+/// "a,,b" gives "a", "", "b", and "" gives one empty field. Fields keep their positions, as
+/// positional formats such as VCF need.
+std::vector<std::string>& split_delims_keep_empty(std::string_view s, std::string_view delims,
                                                   std::vector<std::string>& elems);
 
-/// Join strings with `delim` between each pair: the inverse of split_delims_keep_empty with
-/// `delim` as its only delimiter, for parts that do not contain `delim`.
+/// Join strings with `delim` between each pair.
+///
+/// This undoes split_delims_keep_empty with the one delimiter `delim`, if no part contains it.
 std::string join_delim(const std::vector<std::string>& parts, char delim);
 
 /// Check if a string starts with another string

@@ -595,13 +595,14 @@ pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> PoissonSupportSnarlCaller::
     }
 
     // expected depth from our coverage
-    auto depth_info = algorithms::get_depth_from_index(depth_index, ref_path_name, ref_range.first, ref_range.second);
-    double exp_depth = depth_info.first;
+    const auto [mean_depth, depth_std_err] =
+        algorithms::get_depth_from_index(depth_index, ref_path_name, ref_range.first, ref_range.second);
+    double exp_depth = mean_depth;
     assert(!isnan(exp_depth));
-    // variance/std-err can be nan when binsize < 2.  We just clamp it to 0.
-    // genotype_likelihood does not use this value: the line that would is commented out
-    // below, because with small bins the binned-coverage error is too large to be useful.
-    double depth_err = !isnan(depth_info.second) ? depth_info.second : 0.;
+    // The standard error is NaN for a bin of fewer than 2 values, so we clamp it to 0.
+    // genotype_likelihood does not use it, because with small bins the error of the binned
+    // coverage is too large to help.
+    double depth_err = !isnan(depth_std_err) ? depth_std_err : 0.;
 
     // Single pass: find best genotype AND compute GQ/posterior values
     vector<int> best_genotype;
