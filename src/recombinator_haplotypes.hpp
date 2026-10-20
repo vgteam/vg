@@ -16,6 +16,10 @@ namespace vg {
 
 //------------------------------------------------------------------------------
 
+// FIXME: Once we have determined that we sample the same haplotypes as with the
+// old uncompressed kmer presence matrix, we could drop the mapping between
+// the original order and the stored order and simply use the stored order
+// in `Subchain`. (The existing order is already arbitrary.)
 /**
  * A compressed binary matrix with haplotype sequences as rows and k-mers as columns.
  * Set bits indicate k-mers that are present in the corresponding sequence.
@@ -31,6 +35,8 @@ public:
     /// Default constructor that creates an empty k-mer presence matrix.
     KmerPresenceMatrix();
 
+    // FIXME: Once we reorder the sequences and drop the mapping, the constructor
+    // should take a `vector<sequence_type>&` argument and reorder it.
     /// Constructor from a given uncompressed matrix, where sequence `i` contains
     /// kmer `j` if and only if `matrix[i * num_kmers + j] == 1`.
     /// Throws `std::runtime_error` if the dimensions do not match.
@@ -203,8 +209,6 @@ private:
 
 // FIXME: version 7: each top-level chain should know the default scoring model for that chain
 
-// FIXME: version 7: use KmerPresenceMatrix
-// FIXME: tests
 /**
  * A representation of the haplotypes in a graph.
  *
@@ -222,20 +226,28 @@ private:
  * NOTE: This assumes that the top-level chains are linear, not cyclical.
  *
  * Versions:
- * * Version 6: Tags for storing metadata, such as graph names. Compatible with
- *   version 5.
+ *
+ * * Version 7: Work in progress.
+ *   Compressed kmer presence matrices, with faster haplotype scoring by
+ *   taking advantage of the compression.
+ *   Versions 5 and 6 can still be read.
+ *
+ * * Version 6: Tags for storing metadata, such as graph names. Version 5 can
+ *   still be read.
  *
  * * Version 5: Every path in the graph is assigned to a construction job.
  *   This allows including reference paths that do not visit any snarls in the
- *   sampled graph. Not compatible with earlier versions.
+ *   sampled graph. Earlier versions cannot be used anymore.
  *
  * * Version 4: Subchains can have fragmented haplotypes instead of a single
- *   GBWT sequence always crossing from start to end. Compatible with version 3.
+ *   GBWT sequence always crossing from start to end. Versions 1 to 3 can still
+ *   be read.
  *
- * * Version 3: Subchains use smaller integers when possible. Compatible with
- *   version 2.
+ * * Version 3: Subchains use smaller integers when possible. Versions 1 and 2
+ *   can still be read.
  *
- * * Version 2: Top-level chains include a contig name. Compatible with version 1.
+ * * Version 2: Top-level chains include a contig name. Versions 1 can still be
+ *   read.
  *
  * * Version 1: Initial version.
  */
@@ -268,7 +280,8 @@ public:
     /// Header of the serialized file.
     struct Header {
         constexpr static std::uint32_t MAGIC_NUMBER = 0x4C504148; // "HAPL"
-        constexpr static std::uint32_t VERSION = 6;
+        constexpr static std::uint32_t VERSION = 7;
+        // FIXME: description for version 7
         constexpr static std::uint32_t VERSION_WITH_TAGS = 6;
         constexpr static std::uint32_t MIN_VERSION = 5;
         constexpr static std::uint64_t DEFAULT_K = 29;
@@ -301,6 +314,7 @@ public:
     /// A more space-efficient representation of `sequence_type`.
     typedef std::pair<std::uint32_t, std::uint32_t> compact_sequence_type;
 
+    // FIXME: add a placeholder word for scoring model override
     /// Representation of a subchain.
     /// The subchain contains `num_sequences()` haplotype sequences and `num_kmers()` kmers.
     struct Subchain {
@@ -338,22 +352,22 @@ public:
         /// Sequences as (GBWT sequence id, offset in the relevant node).
         std::vector<compact_sequence_type> sequences;
 
-        // FIXME: compressed representation
         /// A bit vector marking the presence of kmers in the sequences.
         /// Sequence `i` contains kmer `j` if and only if `kmers_present[i * kmers.size() + j] == 1`.
-        sdsl::bit_vector kmers_present;
+        KmerPresenceMatrix kmers_present;
 
-        // FIXME: use the version in KmerPresenceMatrix
         /// Calls `callback(kmer_id, is_present)` for each kmer in the given sequence,
         /// ordered by their indices.
-        void for_each_kmer(size_t sequence, const std::function<void(size_t, bool)>& callback) const;
+        void for_each_kmer(size_t sequence, const std::function<void(size_t, bool)>& callback) const {
+            this->kmers_present.for_each_kmer(sequence, callback);
+        }
 
-        // FIXME: use the version in KmerPresenceMatrix
         /// Calls `callback(kmer_id, num_present)` for each kmer in the given sequences,
         /// ordered by their indices.
-        void for_each_kmer(size_t first, size_t second, const std::function<void(size_t, size_t)>& callback) const;
+        void for_each_kmer(size_t first, size_t second, const std::function<void(size_t, size_t)>& callback) const {
+            this->kmers_present.for_each_kmer(first, second, callback);
+        }
 
-        // FIXME: use the version in KmerPresenceMatrix
         /// Scores every haplotype in the subchain. The score of a haplotype is the sum of
         /// `kmer_score(kmer_id, is_present)` over all kmers, and it is reported by calling
         /// `haplotype_score(sequence, score)`.
@@ -361,7 +375,9 @@ public:
         void score_sequences(
             const std::function<double(size_t, bool)>& kmer_score,
             const std::function<void(size_t, double)>& haplotype_score
-        ) const;
+        ) const {
+            this->kmers_present.score_sequences(kmer_score, haplotype_score);
+        }
 
         /// Returns the number of haplotype sequences in the subchain.
         size_t num_sequences() const { return this->sequences.size(); }
@@ -369,16 +385,18 @@ public:
         /// Returns the number of kmers in the subchain.
         size_t num_kmers() const { return this->kmers.size(); }
 
-        // FIXME: use the version in KmerPresenceMatrix
         /// Returns the number of kmers present in the given sequence.
-        size_t num_present(size_t i) const;
+        size_t num_present(size_t i) const {
+            return this->kmers_present.get_num_present(i);
+        }
 
         /// Returns the size of the kmer presence matrix.
         size_t total_kmers() const { return this->kmers_present.size(); }
 
-        // FIXME: use the version in KmerPresenceMatrix
         /// Returns the total number of kmers present in the sequences.
-        size_t total_present() const;
+        size_t total_present() const {
+            return this->kmers_present.get_total_present();
+        }
 
         /// Returns the start node as a GBWTGraph handle.
         handle_t start_handle() const { return gbwtgraph::GBWTGraph::node_to_handle(this->start); }
@@ -416,7 +434,7 @@ public:
         /// Serializes the object to a stream in the Simple-SDS format.
         void simple_sds_serialize(std::ostream& out) const;
 
-        // FIXME: need to specify expected version
+        // FIXME: need to specify expected version and load older versions
         /// Loads the object from a stream in the Simple-SDS format.
         void simple_sds_load(std::istream& in);
 
@@ -424,6 +442,7 @@ public:
         size_t simple_sds_size() const;
     };
 
+    // FIXME: add a placeholder word for default scoring model
     /// Representation of a top-level chain.
     struct TopLevelChain {
         /// Offset in the child list of the root snarl.
@@ -441,7 +460,7 @@ public:
         /// Serializes the object to a stream in the Simple-SDS format.
         void simple_sds_serialize(std::ostream& out) const;
 
-        // FIXME: need to specify expected version
+        // FIXME: need to specify expected version and load older versions
         /// Loads the object from a stream in the Simple-SDS format.
         void simple_sds_load(std::istream& in);
 
@@ -489,6 +508,7 @@ public:
     /// Prints an error message and exits the program on failure.
     void serialize_to(const std::string& filename) const;
 
+    // FIXME: handle versions
     /// Loads the object from a stream in the Simple-SDS format.
     /// I/O errors can be detected by checking the stream state.
     /// Throws `sdsl::simple_sds::InvalidData` if data is unacceptable.

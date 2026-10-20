@@ -519,60 +519,6 @@ std::string Haplotypes::Subchain::to_string() const {
     return result;
 }
 
-// FIXME: kmers_present -> compressed representation
-void Haplotypes::Subchain::for_each_kmer(size_t sequence, const std::function<void(size_t, bool)>& callback) const {
-    size_t offset = sequence * this->kmers.size();
-    for (size_t kmer_id = 0; kmer_id < this->kmers.size(); kmer_id++) {
-        callback(kmer_id, this->kmers_present[offset + kmer_id]);
-    }
-}
-
-// FIXME: kmers_present -> compressed representation
-void Haplotypes::Subchain::for_each_kmer(size_t first, size_t second, const std::function<void(size_t, size_t)>& callback) const {
-    size_t first_offset = first * this->kmers.size();
-    size_t second_offset = second * this->kmers.size();
-    for (size_t kmer_id = 0; kmer_id < this->kmers.size(); kmer_id++) {
-        callback(kmer_id, this->kmers_present[first_offset + kmer_id] + this->kmers_present[second_offset + kmer_id]);
-    }
-}
-
-// FIXME: kmers_present -> compressed representation
-void Haplotypes::Subchain::score_sequences(
-    const std::function<double(size_t, bool)>& kmer_score,
-    const std::function<void(size_t, double)>& haplotype_score
-) const {
-    for (size_t sequence = 0; sequence < this->sequences.size(); sequence++) {
-        size_t offset = sequence * this->kmers.size();
-        double score = 0.0;
-        for (size_t kmer_id = 0; kmer_id < this->kmers.size(); kmer_id++) {
-            score += kmer_score(kmer_id, this->kmers_present[offset + kmer_id]);
-        }
-        haplotype_score(sequence, score);
-    }
-}
-
-// FIXME: kmers_present -> compressed representation
-size_t Haplotypes::Subchain::num_present(size_t i) const {
-    size_t result = 0;
-    size_t offset = i * this->kmers.size();
-    for (size_t kmer_id = 0; kmer_id < this->kmers.size(); kmer_id += 64) {
-        size_t bits = std::min(static_cast<size_t>(64), this->kmers.size() - kmer_id);
-        std::uint64_t word = this->kmers_present.get_int(offset + kmer_id, bits);
-        result += sdsl::bits::cnt(word);
-    }
-    return result;
-}
-
-// FIXME: kmers_present -> compressed representation
-size_t Haplotypes::Subchain::total_present() const {
-    size_t result = 0;
-    const std::uint64_t* data = this->kmers_present.data();
-    for (size_t bit_offset = 0; bit_offset < this->kmers_present.size(); bit_offset += 64) {
-        result += sdsl::bits::cnt(data[bit_offset / 64]);
-    }
-    return result;
-}
-
 size_t Haplotypes::Subchain::distance(const gbwtgraph::GBZ& gbz, size_t i) const {
     if (this->type != normal || i >= this->sequences.size()) {
         return 0;

@@ -51,7 +51,8 @@ Haplotypes::Subchain build_subchain(const std::vector<std::string>& rows, size_t
         result.sequences.push_back({ static_cast<std::uint32_t>(i), 0 });
     }
 
-    result.kmers_present = build_bitvector(rows, kmer_count);
+    sdsl::bit_vector buffer = build_bitvector(rows, kmer_count);
+    result.kmers_present = KmerPresenceMatrix(rows.size(), kmer_count, std::move(buffer), true);
 
     return result;
 }

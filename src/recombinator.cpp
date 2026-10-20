@@ -582,6 +582,7 @@ std::vector<std::string> generate_haplotype(
     return haplotype;
 }
 
+// FIXME: cache kmers that have been seen in the current subchain to avoid querying the larger minimizer index
 // Return the sorted set of kmers that are minimizers in the sequences and have a single
 // occurrence in the graph.
 std::vector<HaplotypePartitioner::kmer_type> take_unique_minimizers(
@@ -610,6 +611,7 @@ std::vector<HaplotypePartitioner::kmer_type> HaplotypePartitioner::unique_minimi
     return take_unique_minimizers(haplotype, this->minimizer_index);
 }
 
+// FIXME: use CachedGBWT?
 std::vector<HaplotypePartitioner::kmer_type> HaplotypePartitioner::unique_minimizers(sequence_type sequence, Subchain subchain, size_t& fragments) const {
     gbwt::edge_type pos(gbwt::ENDMARKER, 0);
     size_t start_max = std::numeric_limits<size_t>::max(), end_max = this->minimizer_index.k() - 1;
@@ -628,7 +630,6 @@ std::vector<HaplotypePartitioner::kmer_type> HaplotypePartitioner::unique_minimi
 
 //------------------------------------------------------------------------------
 
-// FIXME: kmers_present -> compressed representation
 // TODO: Return the number of skipped non-informative kmers.
 /*
   Take a set of sequences defined by the sorted set of kmers that are present.
@@ -639,8 +640,9 @@ std::vector<HaplotypePartitioner::kmer_type> HaplotypePartitioner::unique_minimi
 void present_kmers(const std::vector<std::vector<HaplotypePartitioner::kmer_type>>& sequences,
     std::vector<HaplotypePartitioner::kmer_type>& all_kmers,
     sdsl::int_vector<0>& kmer_counts,
-    sdsl::bit_vector& kmers_present) {
+    KmerPresenceMatrix& kmers_present) {
 
+    // FIXME: sorted array?
     // Build a map of distinct kmers. For each kmer, record the largest sequence
     // id containing the kmer and the number of sequences containing it.
     std::map<HaplotypePartitioner::kmer_type, std::pair<size_t, size_t>> present;
@@ -673,17 +675,18 @@ void present_kmers(const std::vector<std::vector<HaplotypePartitioner::kmer_type
         }
     }
 
-    // Transform the sequences into kmer presence bitvectors.
-    kmers_present = sdsl::bit_vector(sequences.size() * all_kmers.size());
+    // Transform the sequences into kmer presence bitvectors and compress them.
+    sdsl::bit_vector buffer = sdsl::bit_vector(sequences.size() * all_kmers.size());
     for (size_t i = 0; i < sequences.size(); i++) {
         size_t start = i * all_kmers.size();
         for (auto kmer : sequences[i]) {
             auto iter = present.find(kmer);
             if (iter->second.second < sequences.size()) {
-                kmers_present[start + iter->second.first] = 1;
+                buffer[start + iter->second.first] = 1;
             }
         }
     }
+    kmers_present = KmerPresenceMatrix(sequences.size(), all_kmers.size(), std::move(buffer), true);
 }
 
 void HaplotypePartitioner::build_subchains(const gbwtgraph::TopLevelChain& chain, Haplotypes::TopLevelChain& output, const Parameters& parameters) const {
@@ -736,7 +739,7 @@ void HaplotypePartitioner::build_subchains(const gbwtgraph::TopLevelChain& chain
             output.subchains.push_back({
                 iter->first.type,
                 gbwtgraph::GBWTGraph::handle_to_node(iter->first.start), gbwtgraph::GBWTGraph::handle_to_node(iter->first.end),
-                {}, sdsl::int_vector<0>(0, 0, 64), {}, sdsl::bit_vector()
+                {}, sdsl::int_vector<0>(0, 0, 64), {}, KmerPresenceMatrix()
             });
             Haplotypes::Subchain& subchain = output.subchains.back();
             std::vector<std::vector<kmer_type>> kmers_by_sequence;
@@ -776,7 +779,7 @@ void HaplotypePartitioner::build_subchains(const gbwtgraph::TopLevelChain& chain
         output.subchains.push_back({
             Haplotypes::Subchain::full_haplotype,
             gbwt::ENDMARKER, gbwt::ENDMARKER,
-            {}, sdsl::int_vector<0>(0, 0, 64), {}, sdsl::bit_vector()
+            {}, sdsl::int_vector<0>(0, 0, 64), {}, KmerPresenceMatrix()
         });
         Haplotypes::Subchain& subchain = output.subchains.back();
         gbwt::node_type node = gbwtgraph::GBWTGraph::handle_to_node(chain.handle);
