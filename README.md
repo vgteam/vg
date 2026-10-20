@@ -114,6 +114,8 @@ Note that vg can take anywhere from 10 minutes to more than an hour to compile d
 
 You can also produce a static binary with `make static`, assuming you have static versions of all the dependencies installed on your system.
 
+To let vg read `https://`, `s3://` and `gs://` paths through htslib, build with `make curl=on`. This needs the libcurl and OpenSSL development files (`libcurl4-openssl-dev` and `libssl-dev` on Ubuntu). If htslib is already built, run `make clean` first.
+
 #### Linux: Run
 
 Once vg is built, the binary will be at `bin/vg` inside the vg repository directory. You can run it with:

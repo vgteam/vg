@@ -284,6 +284,20 @@ ifeq ($(asan),on)
 	CXXFLAGS += -fsanitize=address -fno-omit-frame-pointer
 endif
 
+# Control variable for libcurl support in htslib
+# On the command line, you can `make curl=on` to let htslib open http(s)://,
+# s3:// and gs:// paths. This needs libcurl and libcrypto development files.
+# Changing it does not rebuild an already-built htslib.
+curl = off
+ifeq ($(curl),on)
+	HTSLIB_CURL_FLAGS := --enable-libcurl --enable-s3 --enable-gcs
+	# The static libhts.a needs libcurl, and libcrypto for signing S3 requests.
+	# TODO: A fully static `make static` would need `--static` here.
+	LD_STATIC_LIB_DEPS += $(shell $(PKG_CONFIG) --libs libcurl libcrypto)
+else
+	HTSLIB_CURL_FLAGS := --disable-libcurl --disable-s3 --disable-gcs
+endif
+
 # Control variable for mimalloc allocator
 # On the command line, you can `make mimalloc=on` if you want mimalloc.
 mimalloc = off
@@ -840,7 +854,7 @@ $(LIB_DIR)/libhts%a $(LIB_DIR)/pkgconfig/htslib%pc $(LIB_DIR)/libhts%$(SHARED_SU
 	rm -Rf $(CWD)/$(INC_DIR)/htslib $(CWD)/$(LIB_DIR)/libhts*
 	cd $(HTSLIB_DIR) && autoreconf -i && autoheader && autoconf || true
 	cd $(HTSLIB_DIR) && (./configure -n 2>&1 || true) | grep "build system type" | rev | cut -f1 -d' ' | rev >systype.txt
-	cd $(HTSLIB_DIR) && CFLAGS="-I$(CWD)/$(HTSLIB_DIR) -isystem $(CWD)/$(HTSLIB_DIR) -I$(CWD)/$(INC_DIR) $(CFLAGS)" LDFLAGS="$(LDFLAGS) -L$(CWD)/$(LIB_DIR) $(LD_UTIL_RPATH_FLAGS)" ./configure --with-libdeflate --disable-s3 --disable-gcs --disable-libcurl --disable-plugins --prefix=$(CWD) --host=$$(cat systype.txt) $(FILTER)
+	cd $(HTSLIB_DIR) && CFLAGS="-I$(CWD)/$(HTSLIB_DIR) -isystem $(CWD)/$(HTSLIB_DIR) -I$(CWD)/$(INC_DIR) $(CFLAGS)" LDFLAGS="$(LDFLAGS) -L$(CWD)/$(LIB_DIR) $(LD_UTIL_RPATH_FLAGS)" ./configure --with-libdeflate $(HTSLIB_CURL_FLAGS) --disable-plugins --prefix=$(CWD) --host=$$(cat systype.txt) $(FILTER)
 	cd $(HTSLIB_DIR) && $(MAKE) --assume-old=htscodecs.mk clean && $(MAKE) --assume-old=htscodecs.mk $(FILTER) && $(MAKE) --assume-old=htscodecs.mk install
 
 # Build and install tabixpp for vcflib.
