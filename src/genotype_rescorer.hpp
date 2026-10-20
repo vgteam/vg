@@ -59,7 +59,8 @@ public:
      *
      * @param phases The phase, as read phasing last left it.
      * @param strands The read evidence and strand swaps of read phasing.
-     * @param fit The temper fitted on the first round, kept for later rounds.
+     * @param fit The temper, its ceiling and its calibration table, fitted on the first round
+     *     and reused by the later ones.
      * @param phase_set_id Returns the run-wide ID of a phase set of a contig.
      * @param show_calibration Whether to report the calibration table of the temper fit.
      * @return Whether any site's corrected best genotype differs from its called one.
