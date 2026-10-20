@@ -1,6 +1,8 @@
 #include "utility.hpp"
 #include "statistics.hpp"
 
+#include <htslib/hfile.h>
+
 #include <set>
 #include <mutex>
 #include <dirent.h>
@@ -767,6 +769,15 @@ string require_exists(const Logger& logger, const string& filename) {
         logger.error() << "file \"" << filename << "\" does not exist" << endl;
     }
     return filename;
+}
+
+string require_exists_or_url(const Logger& logger, const string& filename) {
+    // htslib counts a name as remote if one of its handlers for network
+    // schemes, which only a build with libcurl has, would open it.
+    if (hisremote(filename.c_str())) {
+        return filename;
+    }
+    return require_exists(logger, filename);
 }
 
 string require_non_gzipped(const Logger& logger, const string& filename) {

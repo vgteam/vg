@@ -876,6 +876,13 @@ bool file_can_be_written(const string& filename);
 /// Uses file_exists() and is intended to be called when parsing arguments.
 string require_exists(const Logger& logger, const string& filename);
 
+/// Check if a file exists or is a URL htslib can open, and return its name (if
+/// so) or error.
+/// Use this instead of require_exists() for inputs read through htslib. Only a
+/// vg built with curl=on can open "https://", "s3://" and "gs://" URLs, so
+/// without it such a URL fails here as a missing file.
+string require_exists_or_url(const Logger& logger, const string& filename);
+
 /// Error if a file looks like it's gzipped.
 /// Checks the filename for ending with ".gz"; doesn't actually open it
 /// or check the magic number.
