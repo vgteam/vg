@@ -222,13 +222,10 @@ struct NodePlacement {
 NodePlacement placement_of_node(const SnarlDecomposition& decomposition, const HandleGraph& graph,
                                 nid_t id);
 
-/// Hash the node IDs of the bounds of `chain` into a key for telling it from the other chains
-/// under the same parent.
+/// Make a key that tells `chain` from every other chain of the decomposition.
 ///
-/// A trivial chain, of a node that bounds no site, has a key like any other chain.
-///
-/// TODO: Two chains can hash to the same key. Does anything that groups child sites by this key
-/// cope with that?
+/// The key is the ID of the chain's first node. A trivial chain, of a node that bounds no site,
+/// has a key like any other chain. A key is never 0, since node IDs start at 1.
 size_t chain_key_of(const HandleGraph& graph, const ChildChain& chain);
 
 }

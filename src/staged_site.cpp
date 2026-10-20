@@ -159,11 +159,10 @@ StagedSiteTable::HandOff StagedSiteTable::hand_off() {
                 ++out.no_ref_unrendered;
             }
             // Keep the site for its parent's record, which spells its chosen allele, and free its
-            // scores.
+            // scores and its kept panel alleles.
             site.set_call(nullptr, nullptr);
-            // TODO: clear() keeps the capacity, so this frees nothing, and panel_cached stays
-            // true, so panel_alleles() would now return nothing. Was this meant to free the cache?
-            site.panel_cache.clear();
+            vector<int>().swap(site.panel_cache);
+            site.panel_cached = false;
             held_back.push_back(std::move(site));
             continue;
         }

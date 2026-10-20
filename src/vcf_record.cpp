@@ -449,19 +449,20 @@ map<size_t, step_handle_t> path_steps_at(const PathPositionHandleGraph& graph,
 /// Walk the path from step `from`, backward along it if `backward` is set, to the first step that
 /// visits `target`, and put that step in `found`. Return false if no step does.
 ///
-/// TODO: The step at the end of the walk is never compared, so a site whose end is the last step
-/// of the path is not found. Is that right?
+/// Both `from` and the last step of the path in the direction of the walk are compared.
 bool find_step_along_path(const PathPositionHandleGraph& graph, step_handle_t from,
                           const handle_t& target, bool backward, step_handle_t& found) {
-    for (step_handle_t cur = from;
-         backward ? graph.has_previous_step(cur) : graph.has_next_step(cur);
-         cur = backward ? graph.get_previous_step(cur) : graph.get_next_step(cur)) {
+    step_handle_t cur = from;
+    while (true) {
         if (graph.get_handle_of_step(cur) == target) {
             found = cur;
             return true;
         }
+        if (backward ? !graph.has_previous_step(cur) : !graph.has_next_step(cur)) {
+            return false;
+        }
+        cur = backward ? graph.get_previous_step(cur) : graph.get_next_step(cur);
     }
-    return false;
 }
 
 }
@@ -488,25 +489,21 @@ tuple<int64_t, int64_t, bool, step_handle_t, step_handle_t> get_ref_interval(
         // The path visits a bound more than once, as on a cycle. Scan the path from each step at
         // the start for a step at the end.
         found_end = false;
-        handle_t end_handle = end;
         for (const auto& [position, step] : start_steps) {
             start_step = step;
             bool scan_backward = graph.get_is_reverse(graph.get_handle_of_step(start_step)) != graph.get_is_reverse(start);
-            if (scan_backward) {
-                // Going backward, we reach the end backward.
-                // TODO: A later forward scan still looks for the flipped end. Is that right?
-                end_handle = graph.flip(end);
-            }
+            // Going backward, we reach the end backward.
+            const handle_t end_handle = scan_backward ? graph.flip(end) : end;
             if (find_step_along_path(graph, start_step, end_handle, scan_backward, end_step)) {
                 found_end = true;
                 break;
             }
         }
     }
-    int64_t start_position = start_steps.begin()->first;
+    int64_t start_position = graph.get_position_of_step(start_step);
     step_handle_t out_start_step = start_step;
-    int64_t end_position = end_step == end_steps.begin()->second ? end_steps.begin()->first : graph.get_position_of_step(end_step);
-    step_handle_t out_end_step = end_step == end_steps.begin()->second ? end_steps.begin()->second : end_step;
+    int64_t end_position = graph.get_position_of_step(end_step);
+    step_handle_t out_end_step = end_step;
     bool backward = end_position < start_position;
 
     if (!found_end) {
@@ -548,11 +545,11 @@ void flatten_common_allele_ends(vcflib::Variant& variant, bool backward, size_t 
         return;
     }
 
-    // Trim at most `len_override` bases, or all but one base of the shortest allele.
-    // TODO: A `len_override` longer than the shortest allele reads past its end.
-    size_t max_flatten_len = len_override > 0 ? len_override : min_allele_len;
-    if (max_flatten_len == min_allele_len) {
-        --max_flatten_len;
+    // Trim at most `len_override` bases, and never more than all but one base of the shortest
+    // allele.
+    size_t max_flatten_len = min_allele_len - 1;
+    if (len_override > 0) {
+        max_flatten_len = std::min(max_flatten_len, len_override);
     }
 
     // Count the bases every allele shares at the end being trimmed, case-insensitively.

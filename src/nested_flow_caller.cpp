@@ -409,8 +409,6 @@ bool NestedFlowCaller::emit_snarl_recursive(const Snarl& managed_snarl, int ploi
         };
 
         if (!gaf_output) {
-            // TODO: emit_variant takes the reference offset as an int, so an offset of 2^31 or
-            // more comes out wrong.
             bool added = emit_variant(graph, snarl_caller, managed_snarl, record.travs, genotype.first, record.ref_trav_idx, genotype.second, record.ref_path_name,
                                  ref_offset_of(ref_offsets, record.ref_path_name), genotype_snarls, ploidy, trav_to_flat_string);
             if (!added) {

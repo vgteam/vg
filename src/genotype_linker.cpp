@@ -44,7 +44,7 @@ static SiteLocus locus_of(pair<string, int64_t> pos_info) {
 }
 
 SiteLocus GenotypeLinker::site_locus(const SiteBounds& site, const string& ref_path_name,
-                                     int ref_offset) const {
+                                     int64_t ref_offset) const {
     // Place a site inside a node at its own base, so that the sites inside one node are ordered
     // and spaced. Its bounds read the node the way the reference path does.
     pair<string, int64_t> position =
@@ -74,7 +74,7 @@ static LinkageCollector::DirectQuality direct_quality_of(const SiteGenotyper* ge
 
 bool GenotypeLinker::add(const SiteBounds& site, const vector<Traversal>& travs,
                          const vector<int>& trav_genotype, const SiteScore* score,
-                         int ref_trav_idx, const string& ref_path_name, int ref_offset,
+                         int ref_trav_idx, const string& ref_path_name, int64_t ref_offset,
                          size_t record_key, const NestingPlacement& placement,
                          bool no_reference, int64_t position_from_parent,
                          vector<int>* panel_out, const AlleleSequences* sequences) const {

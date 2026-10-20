@@ -271,7 +271,7 @@ bool TreeGenotyper::genotype_nested_chain(SiteCall& call) {
     const NestingPlacement& placement = call.placement;
     // The boundaries of a site that took its parent's interval are on no reference path.
     const bool no_ref_position = call.site.use_parent_interval;
-    const int ref_offset = ref_offset_of(*parts.ref_offsets, call.site.ref_path_name);
+    const int64_t ref_offset = ref_offset_of(*parts.ref_offsets, call.site.ref_path_name);
     // Stand in for the missing position with the parent's position, plus the chain's offset along
     // the parent.
     const int64_t position_from_parent =
@@ -295,7 +295,7 @@ bool TreeGenotyper::genotype_nested_chain(SiteCall& call) {
 void TreeGenotyper::record_nested_chain(SiteCall& call, const SiteScore* score,
                                         int64_t position_from_parent) const {
     const NestingPlacement& placement = call.placement;
-    const int ref_offset = ref_offset_of(*parts.ref_offsets, call.site.ref_path_name);
+    const int64_t ref_offset = ref_offset_of(*parts.ref_offsets, call.site.ref_path_name);
     if (call.site.use_parent_interval) {
         // The site has no reference position, so it is recorded but never written. This is
         // tested before retain_only, which would not record it.
@@ -338,7 +338,7 @@ bool TreeGenotyper::genotype_top_level_site(SiteCall& call) {
 void TreeGenotyper::record_and_stage(SiteCall& call,
                                      unique_ptr<SnarlCaller::CallInfo>& trav_call_info,
                                      SiteScore* trav_score) const {
-    const int ref_offset = ref_offset_of(*parts.ref_offsets, call.site.ref_path_name);
+    const int64_t ref_offset = ref_offset_of(*parts.ref_offsets, call.site.ref_path_name);
     call.panel_set = parts.linker->add(call.bounds, call.walks, call.genotype, trav_score,
                                        call.site.ref_trav_idx, call.site.ref_path_name,
                                        ref_offset, call.record_key, call.placement, false, 0,
@@ -831,7 +831,7 @@ void TreeGenotyper::genotype_edit_site(const HeldEdit& edit, const vector<SiteBo
     }
     const pair<size_t, size_t> ref_range =
         no_ref_position ? parent_ref_interval : make_pair(node_start, node_start + walk_length);
-    const int ref_offset = ref_offset_of(*parts.ref_offsets, ref_path_name);
+    const int64_t ref_offset = ref_offset_of(*parts.ref_offsets, ref_path_name);
     const int region_ploidy =
         parts.ploidy_regions->ploidy_at(ref_path_name, ref_range.first, ref_offset,
                                         ref_ploidy_of(*parts.ref_ploidies, ref_path_name));
@@ -931,7 +931,7 @@ unique_ptr<StagedSite> TreeGenotyper::stage_render_record(
         const SiteBounds& bounds, const string& site_id, const vector<int>& trav_genotype,
         int ref_trav_idx,
         unique_ptr<SnarlCaller::CallInfo>& call_info, SiteScore* score,
-        const string& ref_path_name, int ref_offset, int ploidy) const {
+        const string& ref_path_name, int64_t ref_offset, int ploidy) const {
     auto rec = std::make_unique<StagedSite>();
     rec->bounds = bounds;
     rec->ref_path_name = ref_path_name;

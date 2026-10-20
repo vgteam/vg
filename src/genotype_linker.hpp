@@ -75,7 +75,7 @@ public:
     ///
     /// `ref_offset` is added to every position along the path, to place the path on its contig.
     SiteLocus site_locus(const SiteBounds& site, const string& ref_path_name,
-                         int ref_offset) const;
+                         int64_t ref_offset) const;
 
     /// Make the locus of a site that no reference path visits.
     ///
@@ -110,7 +110,7 @@ public:
      */
     bool add(const SiteBounds& site, const vector<Traversal>& travs,
              const vector<int>& trav_genotype, const SiteScore* score,
-             int ref_trav_idx, const string& ref_path_name, int ref_offset, size_t record_key,
+             int ref_trav_idx, const string& ref_path_name, int64_t ref_offset, size_t record_key,
              const NestingPlacement& placement, bool no_reference = false,
              int64_t position_from_parent = 0, vector<int>* panel_out = nullptr,
              const AlleleSequences* sequences = nullptr) const;

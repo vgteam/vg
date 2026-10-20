@@ -258,6 +258,8 @@ public:
     /// holds its parent as its first site, pinned to the parent's pair. A ploidy-1 group under a
     /// diploid parent cannot hold the parent, which has another ploidy, so `alpha_in` carries the
     /// parent's state instead, as for `posteriors()`. `alpha_in` is used at ploidy 1 only.
+    ///
+    /// @throws runtime_error If `ploidy` is 2 and the sites name more than 65536 panel haplotypes.
     vector<Phase> phasing(const vector<Site>& sites, const vector<size_t>& constraint,
                           size_t ploidy = 2, const vector<double>* alpha_in = nullptr) const;
 
@@ -314,6 +316,8 @@ private:
     ///
     /// The state at `pin_index` is pinned to `pin`, so that consecutive windows join without a
     /// spurious switch between them. `pin_index` is `(size_t)-1` for no pin.
+    ///
+    /// @throws runtime_error If the window's sites name more than 65536 panel haplotypes.
     void window_phasing(const vector<Site>& sites, size_t from, size_t to,
                         const vector<size_t>& constraint,
                         size_t pin_index, const Phase& pin, vector<Phase>& out) const;
@@ -432,7 +436,8 @@ public:
         /// Whether the site has no reference position, so that `position` stands in for it, as
         /// described at `LinkageModel::Site::unpositioned`.
         bool unpositioned = false;
-        /// A hash of the chain's boundary nodes, which identifies the chain and groups its sites.
+        /// The ID of the start node of the chain the site is in, which identifies the chain and
+        /// groups its sites.
         size_t chain_key = 0;
         /// The site's frequency exponent, such as `Params::hp_prior` at a run-length site, or
         /// negative for the model's `freq_prior`.

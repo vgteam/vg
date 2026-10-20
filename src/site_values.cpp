@@ -263,9 +263,8 @@ NodePlacement placement_of_node(const SnarlDecomposition& decomposition, const H
 }
 
 size_t chain_key_of(const HandleGraph& graph, const ChildChain& chain) {
-    const nid_t first = graph.get_id(chain.start);
-    const nid_t second = graph.get_id(chain.end);
-    return (size_t)((uint64_t)first * 1000003ULL) ^ (size_t)(uint64_t)second;
+    // Every node is in exactly one chain, so the chain's first node names it alone.
+    return (size_t)graph.get_id(chain.start);
 }
 
 }

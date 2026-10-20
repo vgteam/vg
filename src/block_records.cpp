@@ -2,6 +2,7 @@
 #include <array>
 #include <limits>
 #include <optional>
+#include <stdexcept>
 
 #include "block_records.hpp"
 #include "utility.hpp"
@@ -106,6 +107,9 @@ public:
     ///
     /// If the alignment cannot be made, `refusal()` says why. An allele of a slot is spelled by
     /// its step sequences in `sequences`, where it has them.
+    ///
+    /// @throws std::out_of_range if an entry of `genotype` is neither an allele marker nor the
+    /// number of a traversal in `called_traversals`.
     SiteAlignment(const PathPositionHandleGraph& graph, const SiteChildren& children,
                   const vector<Traversal>& called_traversals, const vector<int>& genotype,
                   int ref_trav_idx, const AlleleSequences* sequences)
@@ -125,11 +129,12 @@ public:
         slots.resize(genotype.size());
         for (size_t s = 0; s < genotype.size(); ++s) {
             slots[s].trav = genotype[s];
+            if (genotype[s] >= 0 && (size_t)genotype[s] >= called_traversals.size()) {
+                throw std::out_of_range("genotype entry " + std::to_string(genotype[s])
+                                        + " names no called traversal");
+            }
             // A marker has nothing to align, and the reference matches itself everywhere.
-            // TODO: A traversal number past the end of `called_traversals` is skipped here, but
-            // the rest of the alignment then reads that traversal. Can it happen?
-            if (genotype[s] < 0 || (size_t)genotype[s] >= called_traversals.size()
-                || genotype[s] == ref_trav_idx) {
+            if (genotype[s] < 0 || genotype[s] == ref_trav_idx) {
                 continue;
             }
             slots[s].sym = symbolic_allele(graph, called_traversals[genotype[s]], children,

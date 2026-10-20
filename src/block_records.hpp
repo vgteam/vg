@@ -140,6 +140,9 @@ public:
      * redefine. A site whose alleles were merged is declined, since it then numbers its alleles
      * differently from `record.trav_to_allele`, and its blocks would spell the merged alleles
      * apart.
+     *
+     * @throws std::out_of_range if an entry of `genotype` is neither an allele marker nor the
+     * number of a traversal in `called_traversals`.
      */
     int write(const PathPositionHandleGraph& graph, const SiteChildren& children,
               const vector<Traversal>& called_traversals, const vector<int>& genotype,

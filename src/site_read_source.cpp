@@ -1141,12 +1141,14 @@ void WindowedSiteReadSource::for_each_read_start(
     const function<void(int32_t mapq, size_t reads, size_t bases)>& iteratee) const {
 
     // Answer from a hold on this thread whose fetch covered every node, since it tallied their
-    // starts as their windows would. Answer from holds only with off-panel detection. A window's
-    // tallies can differ from a hold's where either fetch drops a read for having the name and
-    // start of an earlier read.
-    // TODO: Holds filled with off-panel detection can differ from the windows in that way too.
-    // Should they answer?
-    for (auto hold = read_holds.rbegin(); edit_graph != nullptr && hold != read_holds.rend(); ++hold) {
+    // starts as their windows would.
+    //
+    // A backend may keep only the first of the reads sharing a name and a start. They all start
+    // on one node, so any fetch covering that node keeps one of them. The hold and the window
+    // then count the same number of reads there. They can differ in which read they keep, and so
+    // in its mapping quality and length, where the backend returns the reads in a different order
+    // for different nodes. Neither choice is more right.
+    for (auto hold = read_holds.rbegin(); hold != read_holds.rend(); ++hold) {
         if (hold->source != this || !hold->filled
             || !std::ranges::all_of(nodes, [&](nid_t node) { return in_ranges(node, hold->fetched); })) {
             continue;
@@ -1321,7 +1323,8 @@ void WindowedSiteReadSource::deliver(const CacheEntry& entry,
                                      const function<void(const SiteRead&)>& iteratee) const {
     // Use local buffers, since the iteratee is caller code that might query the source again.
     vector<pair<uint32_t, uint32_t>> hits;
-    for (const auto& [first, last] : ranges) {
+    // Merge the ranges, so that ranges that overlap find each index entry once.
+    for (const auto& [first, last] : merge_ranges(ranges)) {
         IndexEntry probe{first, 0, 0};
         auto it = std::ranges::lower_bound(entry.node_index, probe);
         for (; it != entry.node_index.end() && it->node <= last; ++it) {
@@ -1331,8 +1334,6 @@ void WindowedSiteReadSource::deliver(const CacheEntry& entry,
 
     // Sort by read, then by mapping, so reads are delivered in fetch order and each read's
     // mappings form an ascending run. There is one index entry per mapping.
-    // TODO: A mapping repeats if the caller's ranges overlap, since they are not merged here. Is
-    // that ruled out?
     std::ranges::sort(hits);
 
     const size_t n_delivered = deliver_hits(hits, entry.reads.data(), entry.offsets.data(),
@@ -1395,22 +1396,10 @@ IndexedGamSiteReadSource::IndexedGamSiteReadSource(const string& gam_filename,
     get_input_file(index_filename, [&](istream& in) {
         index->load(in);
     });
-
-    // Make one slot per thread, and open each thread's cursor when the thread first uses it.
-    threads.resize(max(1, get_thread_count()));
 }
 
 IndexedGamSiteReadSource::ThreadState& IndexedGamSiteReadSource::thread_state() const {
-    int tid = omp_get_thread_num();
-    if ((size_t)tid >= threads.size()) {
-        // TODO: Growing `threads` can move the ThreadState another thread is using, and the size
-        // check above races with it. Can a thread number reach get_thread_count()?
-#pragma omp critical (indexed_gam_threads)
-        if ((size_t)tid >= threads.size()) {
-            threads.resize(tid + 1);
-        }
-    }
-    ThreadState& state = threads[tid];
+    ThreadState& state = threads.mine();
     if (!state.cursor) {
         state.stream.reset(new ifstream(gam_filename));
         if (!*state.stream) {
@@ -1460,8 +1449,6 @@ GafBaseSiteReadSource::GafBaseSiteReadSource(const HandleGraph& graph,
       binary(binary),
       gbz_argument(gbz_filename),
       gaf_base_argument(gaf_base_filename) {
-
-    threads.resize(max(1, get_thread_count()));
 
     const char* locking = getenv("VG_GAFBASE_LOCKING");
     immutable = !(locking != nullptr && string(locking) == "1");
@@ -1530,24 +1517,15 @@ GafBaseSiteReadSource::~GafBaseSiteReadSource() {
     if (query_log != nullptr) {
         fclose(query_log);
     }
-    for (const ThreadState& state : threads) {
+    threads.for_each([](const ThreadState& state) {
         for (const string& path : state.gaf_paths) {
             temp_file::remove(path);
         }
-    }
+    });
 }
 
 GafBaseSiteReadSource::ThreadState& GafBaseSiteReadSource::thread_state() const {
-    int tid = omp_get_thread_num();
-    if ((size_t)tid >= threads.size()) {
-        // TODO: Growing `threads` can move the ThreadState another thread is using, and the size
-        // check above races with it. Can a thread number reach get_thread_count()?
-#pragma omp critical (gaf_base_threads)
-        if ((size_t)tid >= threads.size()) {
-            threads.resize(tid + 1);
-        }
-    }
-    return threads[tid];
+    return threads.mine();
 }
 
 const string& GafBaseSiteReadSource::gaf_path(ThreadState& state, size_t slot) const {
@@ -2091,33 +2069,21 @@ TabixGafSiteReadSource::TabixGafSiteReadSource(const HandleGraph& graph,
         throw runtime_error(gaf_filename + " cannot be read through an index: it must be the "
                             "sorted GAF compressed with bgzip");
     }
-
-    // Make one slot per thread, and open each thread's handle when the thread first uses it.
-    threads.resize(max(1, get_thread_count()));
 }
 
 TabixGafSiteReadSource::~TabixGafSiteReadSource() {
-    for (const ThreadState& state : threads) {
+    threads.for_each([](const ThreadState& state) {
         if (state.file != nullptr) {
             hts_close(state.file);
         }
-    }
+    });
     if (index != nullptr) {
         tbx_destroy(index);
     }
 }
 
 TabixGafSiteReadSource::ThreadState& TabixGafSiteReadSource::thread_state() const {
-    int tid = omp_get_thread_num();
-    if ((size_t)tid >= threads.size()) {
-        // TODO: Growing `threads` can move the ThreadState another thread is using, and the size
-        // check above races with it. Can a thread number reach get_thread_count()?
-#pragma omp critical (tabix_gaf_threads)
-        if ((size_t)tid >= threads.size()) {
-            threads.resize(tid + 1);
-        }
-    }
-    ThreadState& state = threads[tid];
+    ThreadState& state = threads.mine();
     if (state.file == nullptr) {
         state.file = hts_open(gaf_filename.c_str(), "r");
         if (state.file == nullptr) {

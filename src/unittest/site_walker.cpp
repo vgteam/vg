@@ -261,8 +261,7 @@ TEST_CASE("placement_of_node gives each node's chain and sites on both implement
             const ChildChain four = placement_of_node(*decomposition, graph, 4).chain;
             REQUIRE(graph.get_id(four.start) == 4);
             REQUIRE(graph.get_id(four.end) == 4);
-            const size_t expected_key = ((size_t)4 * 1000003) ^ (size_t)4;
-            REQUIRE(chain_key_of(graph, four) == expected_key);
+            REQUIRE(chain_key_of(graph, four) == 4);
             REQUIRE(chain_key_of(graph, four)
                     != chain_key_of(graph, placement_of_node(*decomposition, graph, 3).chain));
             REQUIRE(chain_key_of(graph, placement_of_node(*decomposition, graph, 6).chain)
@@ -301,6 +300,18 @@ TEST_CASE("placement_of_node gives each node's chain and sites on both implement
         REQUIRE(compared > 10);
         REQUIRE(nested > 0);
     }
+}
+
+TEST_CASE("chain_key_of gives different chains different keys", "[site_walker]") {
+    // Pick node IDs for two chains that a hash of both boundary IDs, first * 1000003 ^ last,
+    // would map to one key.
+    const nid_t first_end = 3;
+    const nid_t second_end = (1 * 1000003) ^ (2 * 1000003) ^ first_end;
+    REQUIRE(((1 * 1000003) ^ first_end) == ((2 * 1000003) ^ second_end));
+    bdsg::HashGraph graph;
+    const ChildChain first{graph.create_handle("A", 1), graph.create_handle("C", first_end)};
+    const ChildChain second{graph.create_handle("G", 2), graph.create_handle("T", second_end)};
+    REQUIRE(chain_key_of(graph, first) != chain_key_of(graph, second));
 }
 
 TEST_CASE("SiteWalker visits the same sites on both implementations", "[site_walker]") {

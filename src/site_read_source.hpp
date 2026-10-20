@@ -16,6 +16,7 @@
 #include <memory>
 #include <mutex>
 #include <string>
+#include <thread>
 #include <unordered_map>
 #include <vector>
 
@@ -686,6 +687,50 @@ private:
 };
 
 /**
+ * A locker for each thread, holding the resources a backend gives each thread, such as an open
+ * file that seeks.
+ *
+ * A thread gets its own `State` on its first call to `mine`, and keeps it for the life of the
+ * lockers. Lockers are keyed by system thread, not OpenMP thread number. Threads in different
+ * nested OpenMP teams can share a thread number, but each still needs a locker of its own.
+ */
+template<typename State>
+class PerThreadStates {
+public:
+
+    /// Return the calling thread's state, made at the thread's first call.
+    ///
+    /// The reference stays valid until the lockers are destroyed, while other threads add theirs.
+    State& mine() {
+        std::scoped_lock guard(mutex);
+        unique_ptr<State>& state = by_thread[std::this_thread::get_id()];
+        if (!state) {
+            state = make_unique<State>();
+        }
+        return *state;
+    }
+
+    /// Visit every thread's state.
+    ///
+    /// Call only when no thread is using its state, as when tearing down.
+    template<typename Visit>
+    void for_each(const Visit& visit) const {
+        for (const auto& entry : by_thread) {
+            visit(*entry.second);
+        }
+    }
+
+private:
+
+    /// Guards `by_thread`.
+    std::mutex mutex;
+    /// Each thread's state, by thread.
+    ///
+    /// The states are held by pointer, so adding a thread never moves one another thread is using.
+    unordered_map<std::thread::id, unique_ptr<State>> by_thread;
+};
+
+/**
  * Reads fetched on demand from a sorted GAM and its `.gai` index (`vg gamsort -i`), so memory is
  * bounded by what one window needs.
  *
@@ -728,8 +773,8 @@ private:
     string gam_filename;
     unique_ptr<GAMIndex> index;
 
-    /// Each thread's state, by OpenMP thread number.
-    mutable vector<ThreadState> threads;
+    /// Each thread's state.
+    mutable PerThreadStates<ThreadState> threads;
 };
 
 /**
@@ -921,8 +966,8 @@ private:
     /// A larger query is split into pieces run side by side.
     size_t max_query_nodes = argv_node_budget();
 
-    /// Each thread's state, by OpenMP thread number.
-    mutable vector<ThreadState> threads;
+    /// Each thread's state.
+    mutable PerThreadStates<ThreadState> threads;
     /// How many gbz-base processes were started.
     mutable atomic<size_t> queries{0};
     /// Reads a fetch returned more than once, identified by name and start, and dropped.
@@ -1023,8 +1068,8 @@ private:
     string gaf_filename;
     tbx_t* index = nullptr;
 
-    /// Each thread's state, by OpenMP thread number.
-    mutable vector<ThreadState> threads;
+    /// Each thread's state.
+    mutable PerThreadStates<ThreadState> threads;
     /// The counts and times the getters report.
     mutable atomic<size_t> queries{0};
     mutable atomic<size_t> skipped{0};

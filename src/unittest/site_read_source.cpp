@@ -23,6 +23,8 @@
 #include <tuple>
 #include <vector>
 
+#include <omp.h>
+
 #include "catch.hpp"
 #include "site_read_source.hpp"
 
@@ -75,6 +77,12 @@ public:
         held.push_back(aln);
     }
 
+    /// Give each read its place among the held reads as its key, as a backend with record keys
+    /// does.
+    void give_keys() {
+        keyed = true;
+    }
+
     /// Make the next fetch throw, as a backend whose query fails would.
     void fail_next_fetch() {
         fail_next = true;
@@ -96,6 +104,19 @@ protected:
 
     void fetch_span(const vector<pair<nid_t, nid_t>>& ranges,
                     const function<void(Alignment&)>& iteratee) const {
+        fetch_span_keyed(ranges, [&](Alignment& aln, uint64_t) { iteratee(aln); });
+    }
+
+    bool has_record_keys() const override {
+        return keyed;
+    }
+
+    /// Fetch as `fetch_span` does, keying each read by its place among the held reads once
+    /// `give_keys` is called.
+    ///
+    /// @return 0, since the fake drops no read.
+    size_t fetch_span_keyed(const vector<pair<nid_t, nid_t>>& ranges,
+                            const function<void(Alignment&, uint64_t)>& iteratee) const override {
         nid_t min_id = ranges.front().first;
         nid_t max_id = ranges.front().second;
         for (const auto& range : ranges) {
@@ -112,7 +133,8 @@ protected:
                 throw runtime_error("injected fetch failure");
             }
         }
-        for (const Alignment& aln : held) {
+        for (size_t i = 0; i < held.size(); ++i) {
+            const Alignment& aln = held[i];
             // A real backend returns a read touching the ranges anywhere along its path.
             bool in_range = false;
             for (const auto& mapping : aln.path().mapping()) {
@@ -133,16 +155,18 @@ protected:
                     // this were `iteratee(aln)` the second fetch of a window would
                     // return empty reads, which is what the repeat-fetch cases check.
                     Alignment owned = aln;
-                    iteratee(owned);
+                    iteratee(owned, keyed ? i : 0);
                 }
             }
         }
+        return 0;
     }
 
 private:
     vector<Alignment> held;
     mutable vector<pair<nid_t, nid_t>> fetches;
     mutable vector<vector<pair<nid_t, nid_t>>> fetch_ranges;
+    bool keyed = false;
     mutable bool fail_next = false;
     mutable std::mutex record_mutex;
 };
@@ -483,6 +507,92 @@ TEST_CASE("Threads wanting a window at the same time fetch it once", "[site_read
         REQUIRE(starts[i] == 2);
     }
     REQUIRE(windowed.get_fetches().size() == 2);
+}
+
+
+TEST_CASE("A read on overlapping ranges comes with each of its mappings once",
+          "[site_read_source]") {
+    // The ranges share node 11. A mapping listed twice would count its bases twice.
+    FakeWindowedSource windowed({}, 100);
+    windowed.add(read_on("a", {10, 11, 12}));
+
+    vector<vector<uint32_t>> mappings;
+    windowed.for_each_read({{10, 11}, {11, 12}}, [&](const SiteRead& read) {
+        REQUIRE(read.indexed());
+        mappings.emplace_back(read.mappings, read.mappings + read.mapping_count);
+    });
+
+    REQUIRE(mappings == vector<vector<uint32_t>>{{0, 1, 2}});
+}
+
+/// A hold on a source's reads on this thread, released when it goes out of scope, so that a
+/// failed check leaves no hold behind for later tests.
+struct ScopedHold {
+    const SiteReadSource& source;
+    ScopedHold(const SiteReadSource& source) : source(source) {
+        source.hold_reads(EditCallBar());
+    }
+    ~ScopedHold() {
+        source.release_reads();
+    }
+};
+
+TEST_CASE("Read starts on a held wide site's nodes come from the hold without off-panel detection",
+          "[site_read_source]") {
+    // The site covers more windows than a wide site takes from the cache, so its reads are
+    // fetched by its ranges and held. Every read on its nodes comes with that fetch, so the hold tallies
+    // their starts as their windows would, and no window is fetched for them.
+    vector<Alignment> reads{read_on("a", {5}), read_on("b", {5, 6}, 30),
+                            read_on("c", {250}), read_on("d", {4, 5})};
+    FakeWindowedSource windowed({}, 10);
+    FakeWindowedSource unheld({}, 10);
+    for (const Alignment& aln : reads) {
+        windowed.add(aln);
+        unheld.add(aln);
+    }
+    windowed.give_keys();
+    unheld.give_keys();
+
+    map<int32_t, pair<size_t, size_t>> counts;
+    {
+        ScopedHold hold(windowed);
+        REQUIRE(names_for(windowed, {{0, 299}}).size() == 4);
+        REQUIRE(windowed.get_fetches().size() == 1);
+        counts = starts_on(windowed, {5, 250});
+        REQUIRE(windowed.get_fetches().size() == 1);
+        REQUIRE(windowed.get_held_queries() == 1);
+    }
+
+    REQUIRE(counts == starts_on(unheld, {5, 250}));
+    REQUIRE(counts[60] == make_pair<size_t, size_t>(2, 2));
+    REQUIRE(counts[30] == make_pair<size_t, size_t>(1, 2));
+}
+
+TEST_CASE("Each thread's state stays put while other threads add theirs",
+          "[site_read_source]") {
+    // Each thread adds its state while the others use theirs.
+    PerThreadStates<int> states;
+    vector<int*> taken(16, nullptr);
+    vector<char> kept(16, false);
+    int team_size = 0;
+#pragma omp parallel num_threads(16)
+    {
+        const int me = omp_get_thread_num();
+#pragma omp single
+        team_size = omp_get_num_threads();
+        int& mine = states.mine();
+        mine = me;
+        taken[me] = &mine;
+#pragma omp barrier
+        kept[me] = &states.mine() == &mine && mine == me;
+    }
+
+    for (int i = 0; i < team_size; ++i) {
+        REQUIRE(kept[i]);
+        for (int j = 0; j < i; ++j) {
+            REQUIRE(taken[i] != taken[j]);
+        }
+    }
 }
 
 }

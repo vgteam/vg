@@ -200,12 +200,10 @@ public:
                 cerr << "[vg call]: Processed " << top_snarl_count << " top-level snarls" << endl;
             }
         } else {
-            ++nested_snarl_count;
-            if (nested_snarl_count % 100000 == 0) {
-                // TODO: This reports the top-level count where it means the nested count. Is
-                // that a bug?
+            std::int64_t counted = ++nested_snarl_count;
+            if (counted % 100000 == 0) {
 #pragma omp critical (cerr)
-                cerr << "[vg call]: Processed " << top_snarl_count << " nested snarls" << endl;
+                cerr << "[vg call]: Processed " << counted << " nested snarls" << endl;
             }
         }
     }

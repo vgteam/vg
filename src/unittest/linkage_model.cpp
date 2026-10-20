@@ -4,6 +4,7 @@
 /// catch harm rather than to confirm gain.
 
 #include <cmath>
+#include <stdexcept>
 #include <vector>
 
 #include "catch.hpp"
@@ -1030,6 +1031,39 @@ TEST_CASE("Haploid window seams do not manufacture switches", "[linkage_model]")
         switches += (path[t].first != path[t - 1].first);
     }
     REQUIRE(switches == 0);
+}
+
+TEST_CASE("Haploid phasing traces haplotypes past index 65535", "[linkage_model]") {
+    // Only the last haplotype carries the allele the reads want. Its index does not fit in 16
+    // bits, so a narrower backpointer would send the path to another haplotype.
+    LinkageModel::Params p;
+    p.freq_prior = 0.0;
+    p.weight = 2.0;
+    LinkageModel model(p);
+    const size_t n_hap = 65538;
+    vector<int> haps(n_hap, 0);
+    haps.back() = 1;
+    vector<LinkageModel::Site> sites;
+    for (size_t i = 0; i < 3; ++i) {
+        sites.push_back(haploid_site(1000 + i * 100, -20.0, 0.0, haps));
+    }
+    vector<size_t> free_all(sites.size(), LinkageModel::NO_CONSTRAINT);
+    auto path = model.phasing(sites, free_all, /*ploidy*/ 1);
+    REQUIRE(path.size() == sites.size());
+    for (const auto& phase : path) {
+        REQUIRE(phase.first == n_hap - 1);
+    }
+}
+
+TEST_CASE("Diploid phasing refuses a panel too wide for its backpointers", "[linkage_model]") {
+    LinkageModel::Params p;
+    p.freq_prior = 0.0;
+    p.weight = 2.0;
+    LinkageModel model(p);
+    vector<int> haps(65537, 0);
+    vector<LinkageModel::Site> sites{biallelic(1000, 0.0, -5.0, -10.0, haps),
+                                     biallelic(1100, 0.0, -5.0, -10.0, haps)};
+    REQUIRE_THROWS_AS(model.phasing(sites, unconstrained(sites.size())), runtime_error);
 }
 
 TEST_CASE("Phasing is deterministic", "[linkage_model]") {

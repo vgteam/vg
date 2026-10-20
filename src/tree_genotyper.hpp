@@ -293,7 +293,7 @@ private:
                                                const vector<int>& trav_genotype, int ref_trav_idx,
                                                unique_ptr<SnarlCaller::CallInfo>& call_info,
                                                SiteScore* score, const string& ref_path_name,
-                                               int ref_offset, int ploidy) const;
+                                               int64_t ref_offset, int ploidy) const;
 
     /// Give a staged site what it keeps of the decomposition.
     ///

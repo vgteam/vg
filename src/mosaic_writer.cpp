@@ -51,6 +51,9 @@ public:
         // are cached. A node's range is scanned once in all: a search goes on from where the last
         // one at the node stopped, and caches every haplotype it passes at that haplotype's first
         // position, which is the one a search for it would have returned.
+        if (hap >= POSITION_KEY_HAPLOTYPES) {
+            return search_uncached(node, hap);
+        }
         const uint64_t key = position_key(node, hap);
         if (auto hit = position_cache.find(key); hit != position_cache.end()) {
             return hit->second;
@@ -67,7 +70,9 @@ public:
             const gbwt::size_type seq = sequence_at(here);
             if (seq < haplotype_of_sequence->size()) {
                 const size_t found = (*haplotype_of_sequence)[seq];
-                position_cache.emplace(position_key(node, found), here);
+                if (found < POSITION_KEY_HAPLOTYPES) {
+                    position_cache.emplace(position_key(node, found), here);
+                }
                 if (found == hap) {
                     return here;
                 }
@@ -145,11 +150,35 @@ public:
     }
 
 private:
+    /// The number of haplotypes `position_key` can tell apart. Positions of later haplotypes are
+    /// not cached.
+    static constexpr size_t POSITION_KEY_HAPLOTYPES = (size_t)1 << 20;
+
     /// Return the key of a (node, haplotype) pair in `position_cache`.
-    // TODO: Haplotypes 2^20 apart share a key, so a panel with that many haplotypes would get
-    // another haplotype's cached position. Is a panel that large possible here?
+    ///
+    /// @pre `hap` is less than POSITION_KEY_HAPLOTYPES.
     static uint64_t position_key(gbwt::node_type node, size_t hap) {
-        return ((uint64_t)node << 20) | (uint64_t)(hap & 0xFFFFF);
+        return ((uint64_t)node << 20) | (uint64_t)hap;
+    }
+
+    /// Return the first position of `hap` at an oriented node, or invalid, scanning the whole
+    /// range of the node.
+    ///
+    /// A haplotype too large for `position_key` needs this. The incremental scan in
+    /// `position_at` would already have passed it without caching it.
+    gbwt::edge_type search_uncached(gbwt::node_type node, size_t hap) {
+        gbwt::SearchState state = index->find(node);
+        if (state.empty()) {
+            return gbwt::invalid_edge();
+        }
+        for (gbwt::size_type offset = state.range.first; offset <= state.range.second; ++offset) {
+            const gbwt::edge_type here(node, offset);
+            const gbwt::size_type seq = sequence_at(here);
+            if (seq < haplotype_of_sequence->size() && (*haplotype_of_sequence)[seq] == hap) {
+                return here;
+            }
+        }
+        return gbwt::invalid_edge();
     }
 
     /// How far a node's range has been scanned: offsets [next, end) are still to be located.

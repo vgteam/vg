@@ -3,6 +3,7 @@
 
 #include <array>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include "linkage_model.hpp"
@@ -37,19 +38,21 @@ public:
     void remember(const State& state);
 
     /// Return the first remembered round that reached `state`, counting from 1, or 0 if none did.
-    ///
-    /// Rounds are compared by digest, so a digest collision reports a match that is not one.
     size_t first_round_with(const State& state) const;
 
     /// Return how many rounds are remembered.
-    size_t rounds() const { return digests.size(); }
+    size_t rounds() const { return remembered.size(); }
 
 private:
-    /// Hash a state, visiting its sites in the map's iteration order.
-    static size_t digest(const State& state);
+    /// A state as its (record key, choice) entries sorted by record key, so that equal states
+    /// compare equal entry by entry and take less memory than a hash map.
+    using SortedState = vector<pair<size_t, std::array<int, 3>>>;
 
-    /// Each remembered round's digest, in order.
-    vector<size_t> digests;
+    /// Return `state` as a `SortedState`.
+    static SortedState sorted(const State& state);
+
+    /// Each remembered round's state, in order.
+    vector<SortedState> remembered;
 };
 
 }

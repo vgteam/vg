@@ -11,6 +11,8 @@
 #include <iostream>
 #include <limits>
 #include <numeric>
+#include <stdexcept>
+#include <string>
 #include <tuple>
 
 namespace vg {
@@ -966,6 +968,10 @@ static void apply_site_pins(const vector<LinkageModel::Site>& sites, size_t from
     }
 }
 
+/// The most haplotypes per strand that `pair_viterbi` can decode, since its backpointers are
+/// 16 bits.
+static constexpr size_t MAX_PAIR_PANEL = (size_t)numeric_limits<uint16_t>::max() + 1;
+
 /// Return the most probable path of ordered pairs through a window, by max-product decoding.
 ///
 /// `emissions[t]` is the emission of site `from + t` over ordered pairs, with `m` haplotypes per
@@ -983,8 +989,7 @@ static vector<LinkageModel::Phase> pair_viterbi(const LinkageModel& model,
             delta[k] = -log((double)(m * m)) + log(emissions[0][k]);
         }
     }
-    // TODO: Backpointers are uint16_t, so a panel of more than 65536 haplotypes would wrap them.
-    // Nothing checks the panel size.
+    // The backpointers name a haplotype in 16 bits. `window_phasing` refuses a wider panel.
     vector<vector<uint16_t>> back_a(n);
     vector<vector<uint16_t>> back_b(n);
     for (size_t t = 1; t < n; ++t) {
@@ -1044,6 +1049,13 @@ void LinkageModel::window_phasing(const vector<Site>& sites, size_t from, size_t
     }
     const size_t n_hap = panel_width(sites, from, to);
     const size_t m = n_hap;
+    if (m > MAX_PAIR_PANEL) {
+        // A wider panel would need at least 2^32 states per site, and its haplotype indices
+        // would not fit in the backpointers of `pair_viterbi`.
+        throw runtime_error("vg call: the diploid linkage model can phase against at most "
+                            + to_string(MAX_PAIR_PANEL) + " haplotypes, but the panel has "
+                            + to_string(m));
+    }
 
     // Emissions, with the constraint folded in.
     vector<vector<double>> emissions(n);
@@ -1310,7 +1322,7 @@ static vector<double> single_viterbi_start(const vector<double>& emission, size_
 /// share one delta.
 static vector<double> single_max_product_step(const vector<double>& delta, double rho,
                                               const vector<double>& emission,
-                                              vector<uint16_t>& back) {
+                                              vector<uint32_t>& back) {
     const size_t m = delta.size();
     rho = min(max(rho, 1e-12), 1.0 - 1e-12);
     const double S = log(1.0 - rho + rho / (double)m);
@@ -1334,17 +1346,17 @@ static vector<double> single_max_product_step(const vector<double>& delta, doubl
         const double jump = best_any > NEG_INF ? best_any + J : NEG_INF;
         if (stay >= jump && stay > NEG_INF) {
             next[k] = stay + log(emission[k]);
-            back[k] = (uint16_t)k;
+            back[k] = (uint32_t)k;
         } else if (jump > NEG_INF) {
             next[k] = jump + log(emission[k]);
-            back[k] = (uint16_t)arg_best;
+            back[k] = (uint32_t)arg_best;
         }
     }
     if (std::ranges::none_of(next, [](double v) { return v > NEG_INF; })) {
         // No state survives. Restart here, as in the diploid pass.
         for (size_t k = 0; k < m; ++k) {
             next[k] = emission[k] > 0.0 ? log(emission[k]) : NEG_INF;
-            back[k] = (uint16_t)k;
+            back[k] = (uint32_t)k;
         }
     }
     return next;
@@ -1362,7 +1374,7 @@ static vector<size_t> single_viterbi(const LinkageModel& model,
     const size_t n = emissions.size();
     vector out(n, LinkageModel::NO_HAPLOTYPE);
     vector<double> delta = single_viterbi_start(emissions[0], m, alpha_in);
-    vector<vector<uint16_t>> back(n);
+    vector<vector<uint32_t>> back(n);
     for (size_t t = 1; t < n; ++t) {
         const double rho =
             model.switch_probability(site_gap(sites[from + t - 1], sites[from + t]).first);

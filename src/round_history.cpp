@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <array>
 #include <unordered_map>
 
@@ -10,8 +11,7 @@ RoundHistory::State RoundHistory::state(StagedSiteTable& sites, const LinkageCol
     if (model == nullptr) {
         return out;
     }
-    // Look up the choices on several threads, then file them in record order, so that every state
-    // is built by the same sequence of insertions and iterates in the same order.
+    // Look up the choices on several threads, then file them.
     const vector<StagedSite*> records = sites.in_order();
     vector<size_t> keys(records.size());
     for (size_t i = 0; i < records.size(); ++i) {
@@ -28,18 +28,10 @@ RoundHistory::State RoundHistory::state(StagedSiteTable& sites, const LinkageCol
     return out;
 }
 
-size_t RoundHistory::digest(const State& snap) {
-    // Mix in the sites in the map's iteration order. Equal states then have equal digests only if
-    // they were built by the same insertions, which `state()` guarantees.
-    size_t acc = snap.size() * 1000003ULL;
-    for (const auto& [key, choice] : snap) {
-        size_t h = key;
-        h = h * 1000003ULL + (size_t)(choice[0] + 3);
-        h = h * 1000003ULL + (size_t)(choice[1] + 3);
-        h = h * 1000003ULL + (size_t)choice[2];
-        acc ^= h + 0x9e3779b97f4a7c15ULL + (acc << 6) + (acc >> 2);
-    }
-    return acc;
+RoundHistory::SortedState RoundHistory::sorted(const State& state) {
+    SortedState out(state.begin(), state.end());
+    std::ranges::sort(out, {}, &SortedState::value_type::first);
+    return out;
 }
 
 size_t RoundHistory::changed(const State& before, const State& after) {
@@ -59,13 +51,13 @@ size_t RoundHistory::changed(const State& before, const State& after) {
 }
 
 void RoundHistory::remember(const State& state) {
-    digests.push_back(digest(state));
+    remembered.push_back(sorted(state));
 }
 
 size_t RoundHistory::first_round_with(const State& state) const {
-    const size_t d = digest(state);
-    for (size_t i = 0; i < digests.size(); ++i) {
-        if (digests[i] == d) {
+    const SortedState wanted = sorted(state);
+    for (size_t i = 0; i < remembered.size(); ++i) {
+        if (remembered[i] == wanted) {
             return i + 1;
         }
     }

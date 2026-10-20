@@ -2767,7 +2767,14 @@ int main_call(int argc, char** argv) {
         if (read_likelihood) {
             // The caller reads the sites through the SnarlDecomposition interface. The adapter over
             // the loaded snarls gives it the same sites as every other caller.
-            multipass_sites.reset(new SnarlManagerDecomposition(*snarl_manager, *graph));
+            try {
+                multipass_sites.reset(new SnarlManagerDecomposition(*snarl_manager, *graph));
+            } catch (const std::invalid_argument&) {
+                // The view throws only on a unary snarl, which only the cactus snarl finder makes.
+                logger.error() << "the snarls include a unary snarl, which --read-likelihood cannot "
+                               << "call; find the snarls with vg snarls -A integrated, which makes none"
+                               << endl;
+            }
             multipass_output.reset(new VCFOutputCaller(sample_name));
             multipass_caller.reset(new multipass::MultiPassCaller(*dynamic_cast<PathPositionHandleGraph*>(graph),
                                                        *read_likelihood_caller, *multipass_sites,

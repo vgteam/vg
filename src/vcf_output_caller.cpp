@@ -395,7 +395,7 @@ RecordOptions VCFOutputCaller::record_options() const {
 bool VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCaller& snarl_caller,
                                    const Snarl& snarl, const vector<SnarlTraversal>& called_traversals,
                                    const vector<int>& genotype, int ref_trav_idx, const unique_ptr<SnarlCaller::CallInfo>& call_info,
-                                   const string& ref_path_name, int ref_offset, bool genotype_snarls, int ploidy,
+                                   const string& ref_path_name, int64_t ref_offset, bool genotype_snarls, int ploidy,
                                    const function<string(const vector<SnarlTraversal>&, const vector<int>&, int, int, int)>& trav_to_string) {
     return emit_variant(graph, snarl_caller, snarl, called_traversals, genotype, ref_trav_idx,
                         call_info, ref_path_name, ref_offset, genotype_snarls, ploidy,
@@ -405,7 +405,7 @@ bool VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCa
 bool VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCaller& snarl_caller,
                                    const Snarl& snarl, const vector<SnarlTraversal>& called_traversals,
                                    const vector<int>& genotype, int ref_trav_idx, const unique_ptr<SnarlCaller::CallInfo>& call_info,
-                                   const string& ref_path_name, int ref_offset, bool genotype_snarls, int ploidy,
+                                   const string& ref_path_name, int64_t ref_offset, bool genotype_snarls, int ploidy,
                                    const SiteRecordSteps& record_steps,
                                    function<string(const vector<SnarlTraversal>&, const vector<int>&, int, int, int)> trav_to_string) {
     

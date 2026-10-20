@@ -9,7 +9,7 @@ PATH=../bin:$PATH # for vg
 # FORMAT field shifts every later one, which broke four assertions here that were not
 # testing field order at all -- one of them silently compared BL against a GQ threshold.
 
-plan tests 493
+plan tests 494
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -3291,3 +3291,13 @@ is $(grep -v "^#" island_call.vcf | grep -c "RC=chr1_1_alt") 0 "call: no record 
 
 rm -f island_call.pg island_call.gam island_call.pack island_call.vcf
 
+# The cactus snarl finder makes a unary snarl for the loop off node 2 here, which the
+# read-likelihood caller refuses with a message saying how to find snarls it can call.
+printf 'H\tVN:Z:1.0\nS\t1\tACGTACGTAC\nS\t2\tGGGG\nS\t3\tTTTTACGTAC\nS\t4\tCCCC\nS\t5\tAAAA\nL\t1\t+\t2\t+\t0M\nL\t2\t+\t3\t+\t0M\nL\t2\t+\t4\t+\t0M\nL\t4\t+\t5\t+\t0M\nL\t5\t+\t4\t-\t0M\nP\tref\t1+,2+,3+\t*\n' > unary.gfa
+vg convert -g unary.gfa -p > unary.vg
+vg snarls -A cactus unary.vg > unary.snarls
+: > unary.gam
+vg pack -x unary.vg -g unary.gam -o unary.pack
+is "$(vg call unary.vg -r unary.snarls --read-likelihood --gam unary.gam -k unary.pack -s S 2>&1 >/dev/null | grep -c "vg snarls -A integrated")" 1 "call: --read-likelihood explains how to find snarls it can call when given a unary snarl"
+
+rm -f unary.gfa unary.vg unary.snarls unary.gam unary.pack

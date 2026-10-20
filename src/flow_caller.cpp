@@ -196,8 +196,6 @@ bool FlowCaller::emit_site(const CandidateFinder::Site& site, const vector<int>&
                            const unique_ptr<SnarlCaller::CallInfo>& call_info, int ploidy) {
     const size_t ref_offset = ref_offset_of(ref_offsets, site.ref_path_name);
     if (!gaf_output) {
-        // TODO: emit_variant takes the reference offset as an int, so an offset of 2^31 or more
-        // comes out wrong.
         return emit_variant(graph, snarl_caller, site.snarl, site.travs, genotype, site.ref_trav_idx,
                             call_info, site.ref_path_name, ref_offset, genotype_snarls, ploidy);
     }

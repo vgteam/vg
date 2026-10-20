@@ -93,7 +93,7 @@ struct StagedSite {
     /// The reference path the site is on.
     string ref_path_name;
     /// The offset added to positions on `ref_path_name`.
-    int ref_offset = 0;
+    int64_t ref_offset = 0;
     /// Whether the site has no reference path.
     ///
     /// Such a site has no REF or POS, so it gets no line. It is still genotyped and recorded in the

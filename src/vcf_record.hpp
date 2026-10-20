@@ -142,8 +142,8 @@ bool merge_similar_alleles(const PathPositionHandleGraph& graph, size_t allele_c
                            int64_t min_len);
 
 /// Trim the sequence every allele shares from the start of the alleles, or from the end if
-/// `backward` is set, leaving at least one base in each. If `len_override` is not 0, trim that many
-/// bases instead, without comparing them.
+/// `backward` is set, leaving at least one base in each. If `len_override` is not 0, trim at most
+/// that many bases.
 void flatten_common_allele_ends(vcflib::Variant& variant, bool backward, size_t len_override);
 
 /// What stays the same for every record a caller writes.
@@ -168,7 +168,7 @@ struct SiteToWrite {
     /// The reference path the record is placed on, which may name a subrange of its base path.
     const string& ref_path_name;
     /// Added to positions on the reference path.
-    int ref_offset;
+    int64_t ref_offset;
     /// The called genotype, as numbers of the site's traversals or as the allele markers. Empty
     /// when the site has no call.
     const vector<int>& genotype;
