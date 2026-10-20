@@ -5,8 +5,7 @@
 namespace vg::multipass {
 
 void TemperFit::keep(const RegenotypeCounters& counters) {
-    temper = counters.fitted_temper;
-    ceiling = counters.fitted_ceiling;
+    calibration = counters.calibration;
     abs_lambda = counters.fit_abs_lambda;
     observed = counters.fit_observed;
     predicted = counters.fit_predicted;
@@ -14,8 +13,7 @@ void TemperFit::keep(const RegenotypeCounters& counters) {
 }
 
 void TemperFit::restore(RegenotypeCounters& counters) const {
-    counters.fitted_temper = temper;
-    counters.fitted_ceiling = ceiling;
+    counters.calibration = calibration;
     counters.fit_abs_lambda = abs_lambda;
     counters.fit_observed = observed;
     counters.fit_predicted = predicted;
@@ -25,12 +23,11 @@ void TemperFit::restore(RegenotypeCounters& counters) const {
 void ReadStrandTable::build_lambda(
     const vector<PhaseCall>& calls,
     const function<size_t(const string& contig, size_t phase_set)>& phase_set_id,
-    double fitted_temper, double fitted_ceiling, const RegenotypeParams& params) {
+    const StrandCalibration& fitted, const RegenotypeParams& params) {
     lambda.clear();
     lambda_site.clear();
     lambda_phase_set.clear();
-    lambda_temper = 0.0;
-    lambda_ceiling = 1.0;
+    calibration = StrandCalibration();
     if (phase_sites.empty()) {
         return;
     }
@@ -44,25 +41,22 @@ void ReadStrandTable::build_lambda(
         lambda_phase_set[pc.record_key] = phase_set_id(pc.contig, pc.phase_set);
     }
     // The summed strand log-odds overstate how sure the strand is, so we temper them. Use the
-    // temper that re-genotyping fitted, if it ran, or else fit one here.
-    if (fitted_temper > 0.0) {
-        lambda_temper = fitted_temper;
-        lambda_ceiling = fitted_ceiling;
+    // calibration that re-genotyping used, if it ran, or else fit one here.
+    if (fitted.temper > 0.0) {
+        calibration = fitted;
     } else {
-        double temper = -1.0;
-        double ceiling = params.ceiling < 0.0 ? 1.0 : params.ceiling;
         RegenotypeCounters fit_scratch;
-        fit_calibration(phase_sites, phase_flips, lambda, params, temper, ceiling, fit_scratch);
-        if (fit_scratch.fitted_temper > 0.0) {
-            lambda_temper = fit_scratch.fitted_temper;
-            lambda_ceiling = fit_scratch.fitted_ceiling;
+        const StrandCalibration fit =
+            fit_calibration(phase_sites, phase_flips, lambda, params, fit_scratch);
+        if (fit.temper > 0.0) {
+            calibration = fit;
         }
     }
 }
 
 bool ReadStrandTable::site_own_strand_log_odds(size_t record_key,
                                                unordered_map<uint64_t, double>& out) const {
-    if (lambda.empty() || lambda_temper <= 0.0) {
+    if (lambda.empty() || calibration.temper <= 0.0) {
         return false;
     }
     const auto site = lambda_site.find(record_key);
@@ -75,7 +69,7 @@ bool ReadStrandTable::site_own_strand_log_odds(size_t record_key,
 
 double ReadStrandTable::read_strand_log_odds(size_t record_key, std::string_view read_name,
                                              const unordered_map<uint64_t, double>* site_own) const {
-    if (lambda.empty() || lambda_temper <= 0.0) {
+    if (lambda.empty() || calibration.temper <= 0.0) {
         return 0.0;
     }
     const auto key = (uint64_t)std::hash<std::string_view>{}(read_name);
@@ -113,7 +107,7 @@ double ReadStrandTable::read_strand_log_odds(size_t record_key, std::string_view
     if (sites == 0) {
         return 0.0;
     }
-    return calibrated_log_odds(value, lambda_temper, lambda_ceiling);
+    return calibration.log_odds(value);
 }
 
 }

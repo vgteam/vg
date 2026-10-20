@@ -25,8 +25,8 @@ using namespace std;
  * temper was fitted against, and the calibration table of the fit.
  */
 struct TemperFit {
-    double temper = 0.0;
-    double ceiling = 1.0;
+    /// The calibration the first round used.
+    StrandCalibration calibration;
     /// The |Lambda| of each bin of the calibration table.
     vector<double> abs_lambda;
     /// The observed agreement with the chain in each bin.
@@ -83,13 +83,12 @@ public:
      * @param calls The phase set of each site, as `PhaseCall`s, of which the last one for a
      * record wins.
      * @param phase_set_id Numbers a phase set, by its contig and its phase set in that contig.
-     * @param fitted_temper The temper fitted by re-genotyping, or 0 or less to fit one here under
-     * `params`.
-     * @param fitted_ceiling The ceiling that `fitted_temper` was fitted against.
+     * @param fitted The calibration re-genotyping used, or one with a temper of 0 or less to fit
+     * one here under `params`.
      */
     void build_lambda(const vector<PhaseCall>& calls,
                       const function<size_t(const string& contig, size_t phase_set)>& phase_set_id,
-                      double fitted_temper, double fitted_ceiling, const RegenotypeParams& params);
+                      const StrandCalibration& fitted, const RegenotypeParams& params);
 
     /**
      * Return the tempered strand log-odds of a read, leaving out the site `record_key`.
@@ -117,9 +116,12 @@ public:
      */
     bool site_own_strand_log_odds(size_t record_key, unordered_map<uint64_t, double>& out) const;
 
-protected:
+private:
+    /// The evidence of each diploid heterozygous site, reduced to its chosen pair.
     vector<PhaseSite> phase_sites;
+    /// The record keys of the sites whose chosen pair read phasing reversed.
     unordered_set<size_t> phase_flips;
+    /// The record keys of the sites that the reads ordered where the panel did not.
     unordered_set<size_t> ordered_by_reads;
 
     /// The strand log-odds of each read, from `build_lambda`, by hash of the read name.
@@ -137,12 +139,10 @@ protected:
     /// The strand of a read is usable only at sites of the phase set it was found in (see
     /// `read_strand_usable`).
     unordered_map<size_t, size_t> lambda_phase_set;
-    /// The temper of the strand log-odds, or 0 when no fit was possible.
+    /// The calibration of the strand log-odds, with temper 0 when no fit was possible.
     ///
-    /// At 0, the tempered strand log-odds of every read are 0, so no read counts as placed.
-    double lambda_temper = 0.0;
-    /// The ceiling that `lambda_temper` was fitted against.
-    double lambda_ceiling = 1.0;
+    /// At temper 0, the tempered strand log-odds of every read are 0, so no read counts as placed.
+    StrandCalibration calibration;
 };
 
 }

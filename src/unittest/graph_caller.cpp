@@ -7,6 +7,7 @@
 #include <cmath>
 #include <functional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include <bdsg/hash_graph.hpp>
@@ -288,46 +289,54 @@ TEST_CASE("The staged-site tree places each site under the sites enclosing it, o
 }
 
 
-/// Sets the tables the anchor path's strand lookup reads.
-class StrandLookup : public ReadStrandTable {
-public:
-    StrandLookup() {
-        lambda_temper = 1.0;
-        lambda_ceiling = 1.0;
-    }
-    void add_read(const string& name, size_t phase_set, bool multi) {
-        ReadLambda read;
-        read.lambda = 2.0;
-        read.sites = 1;
-        read.phase_set = phase_set;
-        read.multi_phase_set = multi;
-        lambda[(uint64_t)std::hash<string>{}(name)] = read;
-    }
-    void set_site_phase_set(size_t record_key, size_t phase_set) {
-        lambda_phase_set[record_key] = phase_set;
-    }
-};
-
 TEST_CASE("A strand from another phase set is NaN in the anchor path, and no strand is 0",
           "[graph_caller]") {
     // --anchors-hom-split drops a NaN read from a split site and places a 0 read by a coin, so the
     // two must stay distinct here; re-genotyping, which does not use this lookup, gives both 0.
-    StrandLookup caller;
-    caller.add_read("here", 7, false);
-    caller.add_read("elsewhere", 9, false);
-    caller.add_read("both", 7, true);
-    caller.set_site_phase_set(1, 7);
+    auto key = [](const string& name) { return (uint64_t)std::hash<std::string_view>{}(name); };
+    // Each read carries the allele in slot 0, so each site it is on points it to strand 0.
+    auto site = [&](size_t record_key, size_t phase_set, const vector<string>& reads) {
+        PhaseSite s;
+        s.record_key = record_key;
+        s.phase_set = phase_set;
+        for (const string& name : reads) {
+            s.read_key.push_back(key(name));
+            s.q0.push_back(0.9f);
+            s.c.push_back(1.0f);
+        }
+        return s;
+    };
+    ReadStrandTable strands;
+    // "here" is on two sites of phase set 7, "elsewhere" on one site of phase set 9, and "both" on
+    // one site of each.
+    strands.sites() = {site(10, 7, {"here", "both"}), site(11, 7, {"here"}),
+                       site(12, 9, {"elsewhere", "both"})};
+    // Site 1 is in phase set 7 and has no read evidence of its own. Site 2 has no phase set.
+    auto call = [](size_t record_key, size_t phase_set) {
+        ReadStrandTable::PhaseCall pc;
+        pc.record_key = record_key;
+        pc.phase_set = phase_set;
+        return pc;
+    };
+    strands.build_lambda({call(1, 7), call(12, 9)},
+                         [](const string&, size_t phase_set) { return phase_set; },
+                         StrandCalibration{1.0, 1.0}, RegenotypeParams());
 
-    const double here = caller.read_strand_log_odds(1, "here");
+    const double here = strands.read_strand_log_odds(1, "here");
     REQUIRE(std::isfinite(here));
     REQUIRE(here > 0.0);
-    REQUIRE(std::isnan(caller.read_strand_log_odds(1, "elsewhere")));
-    REQUIRE(std::isnan(caller.read_strand_log_odds(1, "both")));
-    REQUIRE(caller.read_strand_log_odds(1, "unseen") == 0.0);
+    REQUIRE(std::isnan(strands.read_strand_log_odds(1, "elsewhere")));
+    REQUIRE(std::isnan(strands.read_strand_log_odds(1, "both")));
+    REQUIRE(strands.read_strand_log_odds(1, "unseen") == 0.0);
 
     // A site with no phase set takes any read found in one phase set, but not one found in two.
-    REQUIRE(caller.read_strand_log_odds(2, "elsewhere") > 0.0);
-    REQUIRE(std::isnan(caller.read_strand_log_odds(2, "both")));
+    REQUIRE(strands.read_strand_log_odds(2, "elsewhere") > 0.0);
+    REQUIRE(std::isnan(strands.read_strand_log_odds(2, "both")));
+
+    // A site's own evidence is left out, so a read on no other site has no strand there.
+    REQUIRE(strands.read_strand_log_odds(10, "here") > 0.0);
+    REQUIRE(strands.read_strand_log_odds(10, "here") < here);
+    REQUIRE(strands.read_strand_log_odds(12, "elsewhere") == 0.0);
 }
 
 TEST_CASE("A parent's phase swap carries its nested strands and their haplotypes with it",

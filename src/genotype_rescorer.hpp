@@ -43,7 +43,7 @@ public:
     /// Return the parameters of re-genotyping.
     const RegenotypeParams& params() const { return regenotype_params; }
 
-    /// Return the counters of the last `rescore()`, which hold the temper and ceiling it used.
+    /// Return the counters of the last `rescore()`, which hold the calibration it used.
     const RegenotypeCounters& last_counters() const { return counters; }
 
     /**
@@ -70,14 +70,15 @@ public:
                  bool show_calibration);
 
 private:
-    /// Set the temper and ceiling for this round, from the parameters, the earlier fit, or a
-    /// new fit.
-    void choose_temper(const vector<PhaseSite>& phase_sites,
-                       const unordered_set<size_t>& phase_flips, const LambdaTable& lambda,
-                       double& temper, double& ceiling);
+    /// Return the calibration for this round, from the parameters, the earlier fit, or a new fit.
+    ///
+    /// The calibration is also stored in `counters`.
+    StrandCalibration choose_calibration(const vector<PhaseSite>& phase_sites,
+                                         const unordered_set<size_t>& phase_flips,
+                                         const LambdaTable& lambda);
 
-    /// Write what the last `rescore()` did to standard error.
-    void report(double temper, double ceiling, bool show_calibration) const;
+    /// Write what the last `rescore()` did, under `calibration`, to standard error.
+    void report(const StrandCalibration& calibration, bool show_calibration) const;
 
     /// Whether re-genotyping is on.
     bool on = false;

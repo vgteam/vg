@@ -149,8 +149,8 @@ struct CorrectionRound {
     /// The genotyper that recomputes GQ.
     const SiteGenotyper& genotyper;
     const RegenotypeParams& params;
-    double temper;
-    double ceiling;
+    /// The calibration of every read's strand log-odds.
+    StrandCalibration calibration;
     /// Whether the corrected likelihoods replace each site's own.
     ///
     /// When false, they are computed and counted, and then thrown away. `genotype_lls` is what
@@ -230,11 +230,11 @@ void SiteCorrector::correct(StagedSite& rec) {
     map<vector<int>, double>& target = round.keep ? score->genotype_lls : scratch;
     const bool site_moved =
         phase.haploid_strand != 0
-            ? haploid_inclusion_correction(*pe, round.lambda, phase.phase_set, own, round.temper,
-                                           round.ceiling, phase.haploid_strand, round.params,
+            ? haploid_inclusion_correction(*pe, round.lambda, phase.phase_set, own,
+                                           round.calibration, phase.haploid_strand, round.params,
                                            target, counters)
             : phase_aware_correction(*pe, round.lambda, phase.phase_set, phase.strand0_allele, own,
-                                     round.temper, round.ceiling, round.params, target, counters);
+                                     round.calibration, round.params, target, counters);
     if (round.keep && site_moved) {
         // Recompute GQ as the direct pass computes it. GQI and GQN stay, because the achievable
         // gap of GQN assumes the site's own mixture weights, not per-read ones.
@@ -264,7 +264,7 @@ void SiteCorrector::correct_other_ploidy(SiteScore& alt, const PhaseReadEvidence
     restore_direct_pass(alt, round.genotyper);
     RegenotypeCounters ignored;
     if (phase_aware_correction(evidence, round.lambda, phase.phase_set, phase.strand0_allele, own,
-                               round.temper, round.ceiling, round.params, alt.genotype_lls,
+                               round.calibration, round.params, alt.genotype_lls,
                                ignored)) {
         round.genotyper.recompute_gq(alt);
     }
@@ -284,25 +284,22 @@ void GenotypeRescorer::set_site_reader(SiteReader site_reader) {
     reader = std::move(site_reader);
 }
 
-void GenotypeRescorer::choose_temper(const vector<PhaseSite>& phase_sites,
-                                     const unordered_set<size_t>& phase_flips,
-                                     const LambdaTable& lambda, double& temper, double& ceiling) {
-    temper = regenotype_params.temper;
-    ceiling = regenotype_params.ceiling < 0.0 ? 1.0 : regenotype_params.ceiling;
-    if (temper < 0.0) {
-        // Fit the temper on the first round only. Fitting it again each round would feed each
-        // round's genotypes into the next fit.
-        if (counters.fitted_temper > 0.0) {
-            temper = counters.fitted_temper;
-            ceiling = counters.fitted_ceiling;
-        } else {
-            fit_calibration(phase_sites, phase_flips, lambda, regenotype_params, temper, ceiling,
-                            counters);
+StrandCalibration GenotypeRescorer::choose_calibration(const vector<PhaseSite>& phase_sites,
+                                                       const unordered_set<size_t>& phase_flips,
+                                                       const LambdaTable& lambda) {
+    const StrandCalibration given {
+        regenotype_params.temper,
+        regenotype_params.ceiling < 0.0 ? 1.0 : regenotype_params.ceiling};
+    if (given.temper < 0.0) {
+        // A negative temper asks for a fit. Fit on the first round only, because fitting again
+        // each round would feed each round's genotypes into the next fit.
+        if (counters.calibration.temper > 0.0) {
+            return counters.calibration;
         }
-    } else {
-        counters.fitted_temper = temper;
-        counters.fitted_ceiling = ceiling;
+        return fit_calibration(phase_sites, phase_flips, lambda, regenotype_params, counters);
     }
+    counters.calibration = given;
+    return given;
 }
 
 bool GenotypeRescorer::rescore(
@@ -316,7 +313,7 @@ bool GenotypeRescorer::rescore(
     const vector<PhaseSite>& phase_sites = strands.sites();
     const unordered_set<size_t>& phase_flips = strands.flips();
     // Reset the counters before `accumulate_lambda` counts reads into them, so that the report
-    // describes this round. Bring back the temper fitted on the first round.
+    // describes this round. Bring back the calibration fitted on the first round.
     counters = RegenotypeCounters();
     fit.restore(counters);
 
@@ -326,15 +323,13 @@ bool GenotypeRescorer::rescore(
     const unordered_map<size_t, SitePhase> site_phases = collect_site_phases(
         calls, phase_sites, phase_set_id, regenotype_params.haploid_include);
 
-    double temper;
-    double ceiling;
-    choose_temper(phase_sites, phase_flips, lambda, temper, ceiling);
+    const StrandCalibration calibration = choose_calibration(phase_sites, phase_flips, lambda);
     fit.keep(counters);
 
     ofstream ledger;
     const bool want_ledger = !ledger_path.empty();
     if (want_ledger) {
-        open_ledger(ledger, ledger_path, temper);
+        open_ledger(ledger, ledger_path, calibration.temper);
     }
 
     // Only the read-likelihood genotyper makes the scores corrected here.
@@ -342,7 +337,7 @@ bool GenotypeRescorer::rescore(
     size_t moved = 0;
     if (genotyper != nullptr) {
         const CorrectionRound round {lambda, site_phases, phase_flips, *genotyper,
-                                     regenotype_params, temper, ceiling, max_passes >= 2,
+                                     regenotype_params, calibration, max_passes >= 2,
                                      want_ledger};
         // Stride the records across one worker per queue, and merge the workers in queue order.
         const vector<StagedSite*> all_records = staged.in_order();
@@ -365,13 +360,14 @@ bool GenotypeRescorer::rescore(
         }
     }
 
-    report(temper, ceiling, show_calibration);
+    report(calibration, show_calibration);
     return moved > 0;
 }
 
-void GenotypeRescorer::report(double temper, double ceiling, bool show_calibration) const {
+void GenotypeRescorer::report(const StrandCalibration& calibration, bool show_calibration) const {
     const RegenotypeCounters& c = counters;
-    cerr << "[vg call] re-genotyping: temper " << temper << ", ceiling " << ceiling << ", "
+    cerr << "[vg call] re-genotyping: temper " << calibration.temper << ", ceiling "
+         << calibration.ceiling << ", "
          << c.reads_with_lambda
          << " reads carry a strand log-odds (" << c.reads_singleton
          << " span one site, so are inert; " << c.reads_multi_phase_set << " span two blocks), "

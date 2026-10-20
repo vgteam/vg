@@ -71,7 +71,8 @@ TEST_CASE("a temper of zero leaves every genotype likelihood bit-identical",
         LambdaTable lambda = confident(ev);
         map<vector<int>, double> gl = flat_gl();
         const map<vector<int>, double> before = gl;
-        phase_aware_correction(ev, lambda, 1, 0, {}, 0.0, 1.0, params, gl, counters);
+        phase_aware_correction(ev, lambda, 1, 0, {},
+                               StrandCalibration{0.0, 1.0}, params, gl, counters);
         for (const auto& kv : before) {
             REQUIRE(gl.at(kv.first) == kv.second);
         }
@@ -91,7 +92,8 @@ TEST_CASE("homozygous likelihoods never move, at any temper", "[regenotype]") {
     LambdaTable lambda = confident(ev);
     for (double tau : {0.25, 1.0, 50.0}) {
         map<vector<int>, double> gl = flat_gl();
-        phase_aware_correction(ev, lambda, 1, 0, {}, tau, 1.0, params, gl, counters);
+        phase_aware_correction(ev, lambda, 1, 0, {},
+                               StrandCalibration{tau, 1.0}, params, gl, counters);
         REQUIRE(gl.at({0, 0}) == -50.0);
         REQUIRE(gl.at({1, 1}) == -50.0);
         REQUIRE(gl.at({0, 1}) > -20.0);   // and the het does move
@@ -119,7 +121,7 @@ TEST_CASE("a read that spans nothing else contributes exactly nothing", "[regeno
     }
     map<vector<int>, double> gl = flat_gl();
     const map<vector<int>, double> before = gl;
-    phase_aware_correction(ev, lambda, 1, 0, {}, 2.0, 1.0, params, gl, counters);
+    phase_aware_correction(ev, lambda, 1, 0, {}, StrandCalibration{2.0, 1.0}, params, gl, counters);
     for (const auto& kv : before) {
         REQUIRE(gl.at(kv.first) == kv.second);
     }
@@ -246,7 +248,8 @@ TEST_CASE("the correction rewards a phase-coherent split and punishes an incoher
 
     LambdaTable coherent = confident(ev);
     map<vector<int>, double> gl_coherent = flat_gl();
-    phase_aware_correction(ev, coherent, 1, 0, {}, 1.0, 1.0, params, gl_coherent, counters);
+    phase_aware_correction(ev, coherent, 1, 0, {},
+                           StrandCalibration{1.0, 1.0}, params, gl_coherent, counters);
 
     // Same magnitudes, strand assignment uncorrelated with the allele carried.
     LambdaTable incoherent = confident(ev);
@@ -254,7 +257,8 @@ TEST_CASE("the correction rewards a phase-coherent split and punishes an incoher
         incoherent[ev.read_key[i]].lambda = ((i / 2) % 2 == 0) ? 4.0 : -4.0;
     }
     map<vector<int>, double> gl_incoherent = flat_gl();
-    phase_aware_correction(ev, incoherent, 1, 0, {}, 1.0, 1.0, params, gl_incoherent, counters);
+    phase_aware_correction(ev, incoherent, 1, 0, {},
+                           StrandCalibration{1.0, 1.0}, params, gl_incoherent, counters);
 
     const double het_gap_coherent = gl_coherent.at({0, 1}) - gl_coherent.at({0, 0});
     const double het_gap_incoherent = gl_incoherent.at({0, 1}) - gl_incoherent.at({0, 0});
@@ -270,7 +274,7 @@ TEST_CASE("the per-read escape is exactly nothing at temper 0, whatever the ceil
     // probability is 1/2 and its logit is 0.
     for (double c : {1.0, 0.99, 0.95, 0.5, 0.01}) {
         for (double lam : {0.0, 17.3, -1215.0, 1e9, -1e-9}) {
-            REQUIRE(calibrated_log_odds(lam, 0.0, c) == 0.0);
+            REQUIRE(StrandCalibration{0.0, c}.log_odds(lam) == 0.0);
         }
     }
 }
@@ -280,14 +284,14 @@ TEST_CASE("the per-read escape caps how confident a read may be", "[regenotype]"
     // a strand at odds of e^60, which the calibration says is wrong -- observed agreement there
     // is 0.973, not 1. The escape holds it to something the data supports.
     const double tau = 0.0498438;
-    const double wild = calibrated_log_odds(1215.0, tau, 1.0);
-    const double held = calibrated_log_odds(1215.0, tau, 0.95);
+    const double wild = StrandCalibration{tau, 1.0}.log_odds(1215.0);
+    const double held = StrandCalibration{tau, 0.95}.log_odds(1215.0);
     REQUIRE(wild > 20.0);
     REQUIRE(held < 5.0);
     REQUIRE(std::isfinite(wild));   // clamped off 1, or the logit is infinite
     // Monotone in the evidence, and still ordered the same way.
-    REQUIRE(calibrated_log_odds(102.0, tau, 0.95) < held);
-    REQUIRE(calibrated_log_odds(-1215.0, tau, 0.95) == Approx(-held).epsilon(1e-12));
+    REQUIRE(StrandCalibration{tau, 0.95}.log_odds(102.0) < held);
+    REQUIRE(StrandCalibration{tau, 0.95}.log_odds(-1215.0) == Approx(-held).epsilon(1e-12));
 }
 
 TEST_CASE("the haploid inclusion weight is the identity at temper 0", "[regenotype]") {
@@ -302,7 +306,8 @@ TEST_CASE("the haploid inclusion weight is the identity at temper 0", "[regenoty
     const map<vector<int>, double> before = gl;
     for (int sign : {1, -1}) {
         gl = before;
-        haploid_inclusion_correction(ev, lambda, 1, {}, 0.0, 0.95, sign, params, gl, counters);
+        haploid_inclusion_correction(ev, lambda, 1, {},
+                                     StrandCalibration{0.0, 0.95}, sign, params, gl, counters);
         for (const auto& kv : before) {
             REQUIRE(gl.at(kv.first) == kv.second);
         }
@@ -353,7 +358,8 @@ TEST_CASE("the haploid inclusion weight only removes evidence, never adds it", "
     map<vector<int>, double> gl = {{{0}, read_term(0)}, {{1}, read_term(1)}};
     const double gap_before = gl.at({0}) - gl.at({1});
     REQUIRE(std::abs(gap_before) > 10.0);   // and the alleles really are discriminated to start
-    haploid_inclusion_correction(ev, lambda, 1, {}, 1.0, 1.0, +1, params, gl, counters);
+    haploid_inclusion_correction(ev, lambda, 1, {},
+                                 StrandCalibration{1.0, 1.0}, +1, params, gl, counters);
     // Both alleles rise, since reads that do not belong here no longer count against them. The
     // correction is added to the direct pass's likelihood, so the result is not bounded above by zero.
     REQUIRE(gl.at({0}) > read_term(0));
@@ -373,7 +379,8 @@ TEST_CASE("the haploid inclusion weight only removes evidence, never adds it", "
     }
     map<vector<int>, double> kept = {{{0}, read_term(0)}, {{1}, read_term(1)}};
     const map<vector<int>, double> kept_before = kept;
-    haploid_inclusion_correction(ev, here, 1, {}, 1.0, 1.0, +1, params, kept, counters);
+    haploid_inclusion_correction(ev, here, 1, {},
+                                 StrandCalibration{1.0, 1.0}, +1, params, kept, counters);
     REQUIRE(kept.at({0}) == kept_before.at({0}));
     REQUIRE(kept.at({1}) == kept_before.at({1}));
 }
@@ -394,19 +401,23 @@ TEST_CASE("a read found in another phase set is not used", "[regenotype]") {
     }
     const map<vector<int>, double> before = {{{0}, -20.0}, {{1}, -35.0}};
     map<vector<int>, double> elsewhere = before;
-    haploid_inclusion_correction(ev, lambda, 1, {}, 1.0, 1.0, +1, params, elsewhere, counters);
+    haploid_inclusion_correction(ev, lambda, 1, {},
+                                 StrandCalibration{1.0, 1.0}, +1, params, elsewhere, counters);
     REQUIRE(elsewhere == before);
     map<vector<int>, double> here = before;
-    haploid_inclusion_correction(ev, lambda, 2, {}, 1.0, 1.0, +1, params, here, counters);
+    haploid_inclusion_correction(ev, lambda, 2, {},
+                                 StrandCalibration{1.0, 1.0}, +1, params, here, counters);
     REQUIRE(here != before);
     // A site with no phase set takes any read found in one phase set.
     map<vector<int>, double> unphased = before;
-    haploid_inclusion_correction(ev, lambda, NO_PHASE_SET, {}, 1.0, 1.0, +1, params, unphased,
+    haploid_inclusion_correction(ev, lambda, NO_PHASE_SET, {},
+                                 StrandCalibration{1.0, 1.0}, +1, params, unphased,
                                  counters);
     REQUIRE(unphased == here);
 
     map<vector<int>, double> gl = flat_gl();
-    phase_aware_correction(ev, confident(ev), 2, 0, {}, 1.0, 1.0, params, gl, counters);
+    phase_aware_correction(ev, confident(ev), 2, 0, {},
+                           StrandCalibration{1.0, 1.0}, params, gl, counters);
     REQUIRE(gl == flat_gl());
 }
 
@@ -424,8 +435,8 @@ TEST_CASE("a globally sign-flipped Lambda is invisible, and that is why these te
         kv.second.lambda = -kv.second.lambda;
     }
     map<vector<int>, double> a = flat_gl(), b = flat_gl();
-    phase_aware_correction(ev, normal, 1, 0, {}, 1.0, 1.0, params, a, counters);
-    phase_aware_correction(ev, flipped, 1, 0, {}, 1.0, 1.0, params, b, counters);
+    phase_aware_correction(ev, normal, 1, 0, {}, StrandCalibration{1.0, 1.0}, params, a, counters);
+    phase_aware_correction(ev, flipped, 1, 0, {}, StrandCalibration{1.0, 1.0}, params, b, counters);
     REQUIRE(a.at({0, 1}) == Approx(b.at({0, 1})).epsilon(1e-12));
 }
 
@@ -445,7 +456,8 @@ TEST_CASE("the reads' order is compared with the chain's order, not the sorted o
     auto reversed = [&](const LambdaTable& lambda, int strand0_allele) {
         RegenotypeCounters counters;
         map<vector<int>, double> gl = flat_gl();
-        phase_aware_correction(ev, lambda, 1, strand0_allele, {}, 1.0, 1.0, params, gl, counters);
+        phase_aware_correction(ev, lambda, 1, strand0_allele, {},
+                               StrandCalibration{1.0, 1.0}, params, gl, counters);
         REQUIRE(counters.sites_corrected == 1);
         return counters.order_reversed;
     };
@@ -462,15 +474,14 @@ TEST_CASE("the later rounds temper with the ceiling the first round fitted again
     // The first round fits the temper against the ceiling it was given, and the later rounds
     // reuse that fit rather than fitting again, so they must reuse the ceiling too.
     RegenotypeCounters first_round;
-    first_round.fitted_temper = 0.05;
-    first_round.fitted_ceiling = 0.9;
+    first_round.calibration = StrandCalibration{0.05, 0.9};
     multipass::TemperFit fit;
     fit.keep(first_round);
 
     RegenotypeCounters later_round;
     fit.restore(later_round);
-    REQUIRE(later_round.fitted_temper == 0.05);
-    REQUIRE(later_round.fitted_ceiling == 0.9);
+    REQUIRE(later_round.calibration.temper == 0.05);
+    REQUIRE(later_round.calibration.ceiling == 0.9);
 }
 
 }

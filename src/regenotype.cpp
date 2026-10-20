@@ -85,11 +85,11 @@ void merge_counters(const RegenotypeCounters& from, RegenotypeCounters& into) {
     into.order_reversed += from.order_reversed;
     into.haploid_sites += from.haploid_sites;
     into.haploid_would_move += from.haploid_would_move;
-    // `fitted_temper` and the calibration vectors describe the one fit done before the parallel
+    // `calibration` and the calibration table describe the one fit done before the parallel
     // region, so they are not added up.
 }
 
-double calibrated_log_odds(double lambda, double temper, double ceiling) {
+double StrandCalibration::log_odds(double lambda) const {
     const double x = temper * lambda;
     if (!(x != 0.0)) {
         // Return exactly 0 at tau = 0, whatever the sign of Lambda (including -0.0).
@@ -267,16 +267,13 @@ double calibration_cost(const vector<CalibrationBin>& bins, double tau, double c
 
 }
 
-void fit_calibration(const vector<PhaseSite>& sites, const unordered_set<size_t>& flipped,
-                     const LambdaTable& lambda, const RegenotypeParams& params,
-                     double& temper, double& ceiling, RegenotypeCounters& counters) {
+StrandCalibration fit_calibration(const vector<PhaseSite>& sites,
+                                  const unordered_set<size_t>& flipped, const LambdaTable& lambda,
+                                  const RegenotypeParams& params, RegenotypeCounters& counters) {
     const vector<StrandCheck> checks = collect_strand_checks(sites, flipped, lambda);
     if (checks.size() < params.fit_min_per_bin) {
-        counters.fitted_temper = 0.0;
-        counters.fitted_ceiling = 1.0;
-        temper = 0.0;
-        ceiling = 1.0;
-        return;
+        counters.calibration = StrandCalibration{0.0, 1.0};
+        return counters.calibration;
     }
     const vector<CalibrationBin> bins = bin_strand_checks(checks, params);
     // Search a grid over the temper alone, in steps of 0.01. `RegenotypeParams::ceiling` sets the
@@ -301,10 +298,8 @@ void fit_calibration(const vector<PhaseSite>& sites, const unordered_set<size_t>
         counters.fit_predicted.push_back(predicted_agreement(b, best, best_ceiling));
         counters.fit_count.push_back(b.n);
     }
-    counters.fitted_temper = best;
-    counters.fitted_ceiling = best_ceiling;
-    temper = best;
-    ceiling = best_ceiling;
+    counters.calibration = StrandCalibration{best, best_ceiling};
+    return counters.calibration;
 }
 
 bool read_strand_usable(const ReadLambda& read, size_t phase_set) {
@@ -361,8 +356,8 @@ static const vector<int>* best_genotype(const map<vector<int>, double>& gl) {
 
 bool haploid_inclusion_correction(const PhaseReadEvidence& ev, const LambdaTable& lambda,
                                   size_t phase_set,
-                                  const unordered_map<uint64_t, double>& own, double temper,
-                                  double ceiling, int strand_sign,
+                                  const unordered_map<uint64_t, double>& own,
+                                  const StrandCalibration& calibration, int strand_sign,
                                   const RegenotypeParams& params, map<vector<int>, double>& gl,
                                   RegenotypeCounters& counters) {
     if (gl.empty() || ev.n_alleles == 0 || ev.num_reads() == 0 || strand_sign == 0) {
@@ -378,7 +373,7 @@ bool haploid_inclusion_correction(const PhaseReadEvidence& ev, const LambdaTable
     // places here is whole and one placed on the other strand is discounted by its odds.
     vector incl(ev.num_reads(), 1.0);
     for (size_t r = 0; r < ev.num_reads(); ++r) {
-        const double x = strand_sign * calibrated_log_odds(loo[r], temper, ceiling);
+        const double x = strand_sign * calibration.log_odds(loo[r]);
         incl[r] = x >= 0.0 ? 1.0 : exp(x);
     }
 
@@ -487,8 +482,8 @@ void count_move(const vector<int>& before, const vector<int>& after,
 
 bool phase_aware_correction(const PhaseReadEvidence& ev, const LambdaTable& lambda,
                             size_t phase_set, int strand0_allele,
-                            const unordered_map<uint64_t, double>& own, double temper,
-                            double ceiling, const RegenotypeParams& params,
+                            const unordered_map<uint64_t, double>& own,
+                            const StrandCalibration& calibration, const RegenotypeParams& params,
                             map<vector<int>, double>& gl, RegenotypeCounters& counters) {
     if (gl.empty() || ev.n_alleles == 0 || ev.num_reads() == 0) {
         return false;
@@ -504,7 +499,7 @@ bool phase_aware_correction(const PhaseReadEvidence& ev, const LambdaTable& lamb
     }
     vector<ReadTilt> tilt(ev.num_reads());
     for (size_t r = 0; r < ev.num_reads(); ++r) {
-        tilt[r] = read_tilt(calibrated_log_odds(loo[r], temper, ceiling));
+        tilt[r] = read_tilt(calibration.log_odds(loo[r]));
     }
 
     const vector<int>* before = best_genotype(gl);

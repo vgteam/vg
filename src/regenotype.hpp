@@ -13,7 +13,7 @@
  *
  *     pi_r^0 = v_0 e^{y_r} / (v_0 e^{y_r} + v_1),   pi_r^1 = 1 - pi_r^0
  *
- * where `y_r` is the read's tempered strand log-odds (see `calibrated_log_odds`), computed from
+ * where `y_r` is the read's tempered strand log-odds (see `StrandCalibration`), computed from
  * the other sites the read spans in its phase set. At temper 0, and for a read that spans no other
  * site, `pi_r = v` and the read's correction is zero. A homozygous genotype's read term does not
  * depend on the weights, so its likelihood does not change.
@@ -110,6 +110,27 @@ struct RegenotypeParams {
     bool shuffle = false;
 };
 
+/**
+ * A StrandCalibration is the fitted curve that turns a read's summed strand log-odds into the
+ * log-odds it is believed at.
+ *
+ * The curve is `logit(c * sigmoid(tau * Lambda) + (1 - c) / 2)`, for temper tau and ceiling c.
+ * Reads are not independent, so the summed strand log-odds overstate how sure the strand is. The
+ * temper scales them down, and the ceiling keeps either strand's probability away from 1.
+ */
+struct StrandCalibration {
+    /// The temper tau. At 0 every read's log-odds are 0, so the strand of no read is known.
+    double temper = 0.0;
+    /// The ceiling c on a read's strand probability, in (0, 1]. At 1 there is no ceiling.
+    double ceiling = 1.0;
+
+    /// Return the log-odds a read with summed strand log-odds `lambda` is believed at.
+    ///
+    /// This is exactly 0 at temper 0, for every ceiling. The probability is kept away from 0 and 1,
+    /// where the logit is infinite.
+    double log_odds(double lambda) const;
+};
+
 /// A report of what re-genotyping did.
 struct RegenotypeCounters {
     /// Reads with a Lambda.
@@ -134,10 +155,8 @@ struct RegenotypeCounters {
     /// with the chain about this site's phase. Counted only at the called pair, since at a site
     /// with several alleles most candidate pairs are carried by no haplotype.
     size_t order_reversed = 0;
-    /// The temper the fit chose.
-    double fitted_temper = 0.0;
-    /// The ceiling the fit used.
-    double fitted_ceiling = 1.0;
+    /// The calibration the round used, which `fit_calibration` fills when it fits one.
+    StrandCalibration calibration;
     /// Nested chains at ploidy 1 where some read's strand log-odds are nonzero.
     size_t haploid_sites = 0;
     /// Of those, the chains whose best genotype the correction changed.
@@ -178,15 +197,12 @@ void accumulate_lambda(const vector<PhaseSite>& sites, const unordered_set<size_
 /// fit is somewhat optimistic.
 ///
 /// With too few observations, the temper is 0 and the ceiling 1.
-void fit_calibration(const vector<PhaseSite>& sites, const unordered_set<size_t>& flipped,
-                     const LambdaTable& lambda, const RegenotypeParams& params,
-                     double& temper, double& ceiling, RegenotypeCounters& counters);
-
-/// Return a read's tempered strand log-odds.
 ///
-/// This is `logit(c * sigmoid(tau * Lambda) + (1 - c) / 2)`, which is 0 at tau = 0 for every
-/// ceiling. The probability is kept away from 0 and 1, where the logit is infinite.
-double calibrated_log_odds(double lambda, double temper, double ceiling);
+/// The fitted calibration is returned and also stored in `counters.calibration`, next to the
+/// calibration table of the fit.
+StrandCalibration fit_calibration(const vector<PhaseSite>& sites,
+                                  const unordered_set<size_t>& flipped, const LambdaTable& lambda,
+                                  const RegenotypeParams& params, RegenotypeCounters& counters);
 
 /// Add the correction at a nested chain at ploidy 1 to its genotype likelihoods, in place.
 ///
@@ -195,7 +211,7 @@ double calibrated_log_odds(double lambda, double temper, double ceiling);
 /// `phase_set` and -1 on strand 1, so that a read's log-odds are for or against this chain. A read
 /// whose strand is not usable in `phase_set` (see `read_strand_usable`) is left unchanged:
 ///
-///     incl  = min(1, exp(x))          x = strand_sign * calibrated_log_odds(...)
+///     incl  = min(1, exp(x))          x = strand_sign * calibration.log_odds(...)
 ///     e_r'  = e_r + (1 - e_r)(1 - incl)
 ///     term  = (1 - e_r) * incl * rel(r, a) + e_r'
 ///
@@ -206,8 +222,8 @@ double calibrated_log_odds(double lambda, double temper, double ceiling);
 /// Returns true if the corrected best genotype differs from the called one.
 bool haploid_inclusion_correction(const PhaseReadEvidence& evidence, const LambdaTable& lambda,
                                   size_t phase_set,
-                                  const unordered_map<uint64_t, double>& own, double temper,
-                                  double ceiling, int strand_sign,
+                                  const unordered_map<uint64_t, double>& own,
+                                  const StrandCalibration& calibration, int strand_sign,
                                   const RegenotypeParams& params, map<vector<int>, double>& gl,
                                   RegenotypeCounters& counters);
 
@@ -230,8 +246,8 @@ bool haploid_inclusion_correction(const PhaseReadEvidence& evidence, const Lambd
 /// Returns true if the corrected best genotype differs from the called one.
 bool phase_aware_correction(const PhaseReadEvidence& evidence, const LambdaTable& lambda,
                             size_t phase_set, int strand0_allele,
-                            const unordered_map<uint64_t, double>& own, double temper,
-                            double ceiling, const RegenotypeParams& params,
+                            const unordered_map<uint64_t, double>& own,
+                            const StrandCalibration& calibration, const RegenotypeParams& params,
                             map<vector<int>, double>& gl, RegenotypeCounters& counters);
 
 /// Fill `out` with a site's contribution to each read's Lambda, signed as `accumulate_lambda`
