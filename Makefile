@@ -284,18 +284,30 @@ ifeq ($(asan),on)
 	CXXFLAGS += -fsanitize=address -fno-omit-frame-pointer
 endif
 
-# Control variable for libcurl support in htslib
-# On the command line, you can `make curl=on` to let htslib open http(s)://,
-# s3:// and gs:// paths. This needs libcurl and libcrypto development files.
-# Changing it does not rebuild an already-built htslib.
+# Control variables for networking support in htslib
 curl = off
+s3 = off
+ifeq ($(s3),on)
+    # We need libcurl to do S3
+    curl = on
+endif
 ifeq ($(curl),on)
-	HTSLIB_CURL_FLAGS := --enable-libcurl --enable-s3 --enable-gcs
-	# The static libhts.a needs libcurl, and libcrypto for signing S3 requests.
-	# TODO: A fully static `make static` would need `--static` here.
-	LD_STATIC_LIB_DEPS += $(shell $(PKG_CONFIG) --libs libcurl libcrypto)
+    # Build htslib with libcurl
+    HTSLIB_CURL_FLAGS := --enable-libcurl --enable-gcs
+    LD_STATIC_LIB_DEPS += $(shell $(PKG_CONFIG) --libs --static libcurl)
+
+    ifeq ($(s3),on)
+        # And also with S3 support, which needs libcrypto
+        HTSLIB_CURL_FLAGS += --enable-s3
+        LD_STATIC_LIB_DEPS += $(shell $(PKG_CONFIG) --libs --static libcrypto)
+    else
+        HTSLIB_CURL_FLAGS += --disable-s3
+    endif
 else
-	HTSLIB_CURL_FLAGS := --disable-libcurl --disable-s3 --disable-gcs
+    ifeq ($(s3),on)
+        unused := $(error "Error: htslib cannot be built with S3 support but not curl support")
+    endif
+    HTSLIB_CURL_FLAGS := --disable-libcurl --disable-s3 --disable-gcs
 endif
 
 # Control variable for mimalloc allocator

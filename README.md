@@ -114,8 +114,6 @@ Note that vg can take anywhere from 10 minutes to more than an hour to compile d
 
 You can also produce a static binary with `make static`, assuming you have static versions of all the dependencies installed on your system.
 
-To let vg read `https://`, `s3://` and `gs://` paths through htslib, build with `make curl=on`. This needs the libcurl and OpenSSL development files (`libcurl4-openssl-dev` and `libssl-dev` on Ubuntu). If htslib is already built, run `make clean` first.
-
 #### Linux: Run
 
 Once vg is built, the binary will be at `bin/vg` inside the vg repository directory. You can run it with:
@@ -212,6 +210,19 @@ So, after migrating to an ARM Mac using e.g. Apple's migration tools:
 If you still experience build problems after this, delete the whole checkout and check out the code again.
 
 Whether or not that helps, please then [open an issue](https://github.com/vgteam/vg/issues/new) so we can help fix the build.
+
+### Build Options
+The vg `Makefile` supports some build options.
+
+You can pass `jemalloc=off` on the command line to turn off the `jemalloc` allocator and use the system allocator.
+
+You can pass `mimalloc=on` to use the `mimalloc` allocator instead.
+
+You can pass `curl=on` to build htslib with networking support (which requires libcurl, which does Bad Things in static builds when they are taken to different machines).
+
+You can pass `s3=on` to build htslib with networking support *and* S3 support (which additionally requires libcrypto).
+
+Note that the vg build system won't know to *re*build htslib; if you want to change these settings, make sure to `rm lib/libhts.a` first.
 
 ## Usage
 

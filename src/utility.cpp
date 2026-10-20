@@ -772,9 +772,8 @@ string require_exists(const Logger& logger, const string& filename) {
 }
 
 string require_exists_or_url(const Logger& logger, const string& filename) {
-    // htslib counts a name as remote if one of its handlers for network
-    // schemes, which only a build with libcurl has, would open it.
     if (hisremote(filename.c_str())) {
+        // htslib knows how to open this as a URL.
         return filename;
     }
     return require_exists(logger, filename);
