@@ -5,8 +5,7 @@
 #include "decomposition_sites.hpp"
 #include "site_scheduler.hpp"
 
-namespace vg {
-namespace multipass {
+namespace vg::multipass {
 
 SiteWalker::SiteWalker(const SnarlDecomposition& decomposition, const HandleGraph& graph) :
     decomposition(decomposition), graph(graph) {
@@ -18,7 +17,7 @@ void SiteWalker::walk(GraphCaller::RecurseType recurse_type, size_t batch_window
     const vector<net_handle_t> top_level = top_level_sites(decomposition);
     walk_site_tree<net_handle_t>(
         batch_window,
-        // The lower of the two boundary node IDs, as for a snarl.
+        // Key a site by the lower of its two boundary node IDs.
         [&](const net_handle_t& site) {
             const SiteBounds bounds = oriented_bounds(decomposition, graph, site);
             return std::min(graph.get_id(bounds.start), graph.get_id(bounds.end));
@@ -44,8 +43,7 @@ void SiteWalker::walk(GraphCaller::RecurseType recurse_type, size_t batch_window
                 }
             }
         },
-        // top_level_sites() and child_sites() leave out trivial snarls, which
-        // hold nothing to call.
+        // Skip nothing, because top_level_sites() and child_sites() leave out trivial snarls.
         [](const net_handle_t&) { return false; },
         [&](const net_handle_t& site) {
             return call_site(SiteView{site, oriented_bounds(decomposition, graph, site),
@@ -60,5 +58,4 @@ void SiteWalker::walk(GraphCaller::RecurseType recurse_type, size_t batch_window
         });
 }
 
-}
 }

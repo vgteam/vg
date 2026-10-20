@@ -21,47 +21,56 @@
 #include "site_genotyper.hpp"
 #include "staged_site.hpp"
 
-namespace vg {
-namespace multipass {
+namespace vg::multipass {
 
 using namespace std;
 
 /**
- * The direct pass for one top-level site. It genotypes the site from its reads, gives it to the
- * linkage model and stages it, and then genotypes the sites below it: with nested calling, each
- * child chain its called alleles cross (see `ChildPlacer`); with top-down calling, each child
- * against the traversals its parent's called alleles allow. Each site below is staged in the same
- * way, and so on down. Records are built later, from the staged sites (see `RecordRenderer`).
+ * A genotyper that runs the direct pass on one top-level site and the sites below it.
+ *
+ * It genotypes the site from its reads, files it in the linkage model and stages it. Then it
+ * genotypes the sites below it in the same way, and so on down. With nested calling, those are
+ * the child chains that the called alleles cross (see `ChildPlacer`). With top-down calling, they
+ * are the children, each genotyped against the traversals its parent's called alleles allow.
  *
  * Several threads may genotype different top-level sites at once.
  */
 class TreeGenotyper {
 public:
-    /// What the genotyper reads and writes. None of it is owned.
+    /// The objects the genotyper reads and writes. None of them is owned.
     struct Parts {
         const PathPositionHandleGraph* graph = nullptr;
+        /// Finds the reference path and candidate traversals of each site.
         const CandidateFinder* candidates = nullptr;
+        /// Genotypes each site from its reads.
         const SiteGenotyper* genotyper = nullptr;
+        /// Files each site in the linkage model.
         const GenotypeLinker* linker = nullptr;
+        /// Holds the staged sites.
         StagedSiteTable* staged_sites = nullptr;
+        /// Lists the child chains to genotype under a site.
         const ChildPlacer* child_placer = nullptr;
         DescentCounters* descent_counters = nullptr;
         const PloidyRegions* ploidy_regions = nullptr;
-        /// The offset and ploidy of each reference path.
+        /// The offset of each reference path.
         const map<string, size_t>* ref_offsets = nullptr;
+        /// The ploidy of each reference path.
         const map<string, int>* ref_ploidies = nullptr;
-        /// The ID of the site with bounds `site`, as its records name it (see `StagedSite::id`).
+        /// Makes the ID of the site with bounds `site`, as its records name it (see
+        /// `StagedSite::id`).
         function<string(const SiteBounds& site)> site_id;
         /// Off-panel detection's candidates, or null when it is off.
         const SiteReadSource* edit_source = nullptr;
-        /// The source the sites' reads come from. A top-level site holds its reads there for the
-        /// sites below it (see `SiteReadSource::hold_reads`). Null for none.
+        /// The source the reads of the sites come from, or null for none.
+        ///
+        /// A top-level site holds its reads there for the sites below it (see
+        /// `SiteReadSource::hold_reads`).
         const SiteReadSource* read_source = nullptr;
         /// What became of each candidate the call bar admits. Set when `edit_source` is.
         EditOutcomes* edit_outcomes = nullptr;
     };
 
-    /// Which sites below a top-level site are genotyped.
+    /// The choices of which sites below a top-level site are genotyped.
     struct Options {
         /// Nested calling: genotype the child chains the called alleles cross.
         bool nested_calling = false;
@@ -78,106 +87,218 @@ public:
         EditCallBar edit_bar;
     };
 
+    /// Give the genotyper the objects it works with and its choices.
     void configure(const Parts& parts, const Options& options);
 
-    /// Genotype and stage the top-level site `site` and the sites below it. Returns false when
-    /// the site itself could not be genotyped, so that the walk can genotype its children as
-    /// top-level sites instead.
+    /**
+     * Genotype and stage the top-level site `site` and the sites below it.
+     *
+     * With off-panel detection, also genotype the edit sites that no site holds on the boundary
+     * nodes of the site and on the nodes along the reference beside it, while their reads are in
+     * memory.
+     *
+     * @return False if the site itself could not be genotyped, so that the walk can genotype its
+     * children as top-level sites instead.
+     */
     bool genotype(const SiteView& site);
 
-    /// Genotype and stage, as top-level sites, the edit sites of the off-panel candidates
-    /// `candidates` (sorted) that no site holds and that the direct pass did not reach: those
-    /// on a node that bounds no top-level site. A top-level site genotypes those on its two
-    /// boundary nodes, while their reads are in memory, and an edit site a site holds is one of
-    /// that site's children, genotyped and staged in its descent. Runs on several threads.
+    /**
+     * Genotype and stage the free edit sites that the direct pass did not reach, as top-level
+     * sites.
+     *
+     * A free edit site is the edit site of an off-panel candidate on a node that no site holds.
+     * The direct pass genotypes those near a top-level site (see `genotype`). This gets the rest.
+     * It runs on several threads.
+     *
+     * @param candidates The off-panel candidates, sorted.
+     */
     void genotype_top_level_edits(vector<EditCandidate> candidates);
 
-    /// How many nodes' top-level edit sites `genotype_top_level_edits` was left to genotype.
+    /// Count the nodes whose free edit sites `genotype_top_level_edits` genotyped.
     size_t edit_nodes_after_pass() const { return after_pass_nodes; }
 
 private:
-    /// An off-panel candidate's edit site, as a child of the site holding it.
+    /// The edit site of an off-panel candidate, as a child of the site holding it.
     struct HeldEdit {
         ChildSite child;
         EditSite site;
         EditCandidate candidate;
     };
 
-    /// Genotype and stage, as top-level sites, the edit sites of `candidates` (sorted) that no
-    /// site holds, unless their node's were already, and note their node as done.
+    struct SiteCall;
+
+    /// Genotype and stage, as top-level sites, the free edit sites of `candidates`, all on one
+    /// node, unless that node's were already done.
+    ///
+    /// @param candidates The off-panel candidates on one node, sorted.
     void genotype_free_edits(vector<EditCandidate> candidates);
 
-    /// The nodes whose free edit sites have been genotyped.
+    /// Guards `free_edit_nodes`.
     std::mutex free_edit_mutex;
+    /// The nodes whose free edit sites have been genotyped.
     unordered_set<nid_t> free_edit_nodes;
+    /// See `edit_nodes_after_pass()`.
     size_t after_pass_nodes = 0;
 
-    /// Append to `out` the nodes no site holds that run along a reference path from `bound`, in
-    /// either direction, until a node a site holds, at most a fixed number each way.
+    /// Append to `out` the nodes that no site holds along a reference path from `bound`.
+    ///
+    /// Go both ways, until a node a site holds, and at most a fixed number of nodes each way.
     void free_nodes_along_reference(nid_t bound, vector<nid_t>& out) const;
 
-    /// The candidates the call bar admits, one per base: the ALT the most fragments carry.
-    vector<EditCandidate> admitted(vector<EditCandidate> candidates) const;
+    /// Pick the candidates the call bar admits, one per base: the ALT the most fragments carry.
+    ///
+    /// @param candidates Sorted by node, offset, kind and ALT.
+    vector<EditCandidate> admitted(const vector<EditCandidate>& candidates) const;
 
-    /// The edit site of `c`, read the way `read_as` reads its node, into `out`. False for a change
-    /// whose walk has several nodes, or is an indel's, on a node read backward, for one whose walk
-    /// leaves the site `where` holds its node in, and for one whose walk a reference path reads
-    /// only in part, backward or more than once.
+    /// Return true if every node of the walk of `c` lies directly in the site `where` gives.
+    bool walk_in_one_site(const EditCandidate& c, const NodePlacement& where) const;
+
+    /// Return true if the reference reads the walk of `c` forward and once, or not at all.
+    bool reference_reads_whole_walk(const EditCandidate& c) const;
+
+    /**
+     * Make the edit site of `c` into `out`, read the way `read_as` reads its node.
+     *
+     * @param where The place of the node of `c`.
+     * @return False if the change has a walk of several nodes, or is an indel, and `read_as` is
+     * backward. Also false if the walk leaves the site that holds the node, or a reference path
+     * reads the walk only in part, backward, or more than once.
+     */
     bool edit_site_of(const EditCandidate& c, handle_t read_as, const NodePlacement& where,
                       EditSite& out) const;
 
-    /// The edit sites that the site `view`, genotyped as `bounds` with candidate walks `walks`,
-    /// holds itself rather than through a child site, each read as the walks read its node,
-    /// the reference walk `ref_trav_idx` first.
+    /**
+     * List the edit sites that a site holds itself, rather than through a child site.
+     *
+     * Read each one's node the way the walks of the site read it, preferring the reference walk.
+     *
+     * @param view The site.
+     * @param bounds The bounds the site was genotyped as.
+     * @param walks The candidate walks of the site.
+     * @param ref_trav_idx The index in `walks` of the reference walk.
+     */
     vector<HeldEdit> edits_held_by(const SiteView& view, const SiteBounds& bounds,
                                    const vector<Traversal>& walks, int ref_trav_idx) const;
 
-    /// Genotype one edit site and stage it if it is called with its ALT: as a top-level site
-    /// where `top_level`, and otherwise as a child placed at `placement` under a site on the
-    /// reference path `parent_ref_path_name` over `parent_ref_interval`, at `ploidy_override`.
+    /// Find the reference path through `node`, preferring `preferred`, and the position of the
+    /// node on it, into `node_start`.
+    ///
+    /// @return The path's name, or empty if no reference path visits the node.
+    string reference_through(handle_t node, const string& preferred, size_t& node_start) const;
+
+    /**
+     * Genotype one edit site, and stage it if it is called with its ALT.
+     *
+     * @param enclosing The bounds of the sites enclosing the edit site, innermost first.
+     * @param parent_ref_path_name The reference path of the parent, for a nested edit site.
+     * @param parent_ref_interval The interval of the parent on its reference path.
+     * @param ploidy_override If not negative, the ploidy to genotype at.
+     * @param placement The place of the edit site in the nesting tree.
+     * @param top_level Stage the site as a top-level site, rather than as a child.
+     */
     void genotype_edit_site(const HeldEdit& edit, const vector<SiteBounds>& enclosing,
                             const string& parent_ref_path_name,
                             pair<size_t, size_t> parent_ref_interval, int ploidy_override,
                             const NestingPlacement& placement, bool top_level);
 
-    /// Genotype and stage one site, then the sites below it.
-    /// @param parent_ref_path_name Reference path from parent (for off-reference snarls)
-    /// @param parent_ref_interval Reference interval from parent
-    /// @param parent_child_trav_sets If non-null, contains one TraversalSet per parent allele.
-    ///                               Each set contains all traversals through this child that are
-    ///                               consistent with that parent allele, and the child's genotype
-    ///                               takes one allele from each set. Top-down calling passes
-    ///                               them; nested calling passes null.
-    /// @param ploidy_override If >= 0, the ploidy to genotype this snarl at, instead of the
-    ///                        contig's or a per-region override's. Nested calling passes the
-    ///                        number of the parent's called alleles that cross the child, or the
-    ///                        parent's ploidy when none does.
-    /// @param placement Where the snarl sits in the nesting tree: the default for a top-level
-    ///                  snarl, and what `ChildPlacer::place` gave a child. A child in
-    ///                  top-down calling takes its parent's.
+    /**
+     * Genotype and stage one site, then the sites below it.
+     *
+     * @param parent_ref_path_name The reference path of the parent, which a site off the
+     * reference takes.
+     * @param parent_ref_interval The interval of the parent on its reference path.
+     * @param parent_child_trav_sets If not null, one set per parent allele of the traversals of
+     * this site that agree with that allele. The genotype takes one allele from each set.
+     * Top-down calling passes them.
+     * @param ploidy_override If not negative, the ploidy to genotype at, in place of the
+     * contig's or the region's. Nested calling passes the number of the parent's called alleles
+     * that cross the child, or the parent's ploidy when none does.
+     * @param placement The place of the site in the nesting tree. It is the default for a
+     * top-level site. A child in top-down calling takes its parent's.
+     * @return False if the site could not be genotyped.
+     */
     bool genotype_tree(const SiteView& view, const string& parent_ref_path_name,
                        pair<size_t, size_t> parent_ref_interval,
                        const ChildTraversalSets* parent_child_trav_sets, int ploidy_override,
                        const NestingPlacement& placement);
 
-    /// Genotype one site at `ploidies`. `score` is set to the score inside the returned call
-    /// info.
+    /// Genotype a site of top-down calling against its parent's traversal sets, and record and
+    /// stage it if it is on a reference path.
+    ///
+    /// @return False if the genotype does not have one allele per set.
+    bool genotype_in_parent_sets(SiteCall& call, const ChildTraversalSets& sets);
+
+    /// Genotype a nested chain at the ploidy its parent gives it, and record and stage it as its
+    /// placement says.
+    ///
+    /// @return False if the site could not be genotyped.
+    bool genotype_nested_chain(SiteCall& call);
+
+    /// File a nested chain in the linkage model, unless no called parent allele crosses it.
+    ///
+    /// @param position_from_parent The stand-in position of a chain with no reference position.
+    void record_nested_chain(SiteCall& call, const SiteScore* score,
+                             int64_t position_from_parent) const;
+
+    /// Genotype a top-level site at its region's ploidy, and record and stage it.
+    ///
+    /// @return False if the site could not be genotyped.
+    bool genotype_top_level_site(SiteCall& call);
+
+    /// File a site in the linkage model, and stage it to go to a render queue.
+    void record_and_stage(SiteCall& call, unique_ptr<SnarlCaller::CallInfo>& trav_call_info,
+                          SiteScore* trav_score) const;
+
+    /// Genotype the child chains that the called alleles of a site cross, and its held edit
+    /// sites.
+    void descend_nested(const SiteCall& call);
+
+    /// Merge the edit sites a site holds itself into the list of its child sites.
+    ///
+    /// Put each edit site before the first child site that starts after the node of the edit, so
+    /// that the children are visited along the node IDs. Then the reads of each window are still
+    /// in memory when its edit sites are genotyped.
+    ///
+    /// @pre `held` is sorted by node.
+    ChildPlacer::Nested with_held_edits(const ChildPlacer::Nested& nested,
+                                        const vector<HeldEdit>& held) const;
+
+    /// Genotype one child that `ChildPlacer::place` placed under the site of `call`.
+    ///
+    /// A child inside a node is one of the edit sites in `held`. Mark it in `edit_placed`.
+    void genotype_placed_child(const SiteCall& call, const ChildPlacer::Placed& child,
+                               const vector<HeldEdit>& held, vector<bool>& edit_placed);
+
+    /// Genotype each child of a site against the traversals its called alleles allow.
+    void descend_top_down(const SiteCall& call);
+
+    /// Give the staged site of `call`, if any, its traversals and tree fields, and file it.
+    ///
+    /// @pre The sites below have been genotyped, since they read the traversals.
+    void file_staged(SiteCall& call);
+
+    /// Genotype one site at `ploidies`.
+    ///
+    /// @param score Set to the score inside the returned call info.
     pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> genotype_site(
         const SiteBounds& site, const vector<Traversal>& travs, int ref_trav_idx,
         const Ploidies& ploidies, const vector<SiteBounds>& enclosing,
         const string& ref_path_name, pair<size_t, size_t> ref_range, SiteScore*& score) const;
 
-    /// Make a site's `StagedSite` from its genotype, moving `call_info` into it. `travs` is left
-    /// empty, because the sites below still read the traversals; the caller moves them in once
-    /// those are done.
+    /// Make the `StagedSite` of a site from its genotype, moving `call_info` into it.
+    ///
+    /// Leave `travs` empty, because the sites below still read the traversals. The caller moves
+    /// them in once those sites are done.
     unique_ptr<StagedSite> stage_render_record(const SiteBounds& bounds, const string& site_id,
                                                const vector<int>& trav_genotype, int ref_trav_idx,
                                                unique_ptr<SnarlCaller::CallInfo>& call_info,
                                                SiteScore* score, const string& ref_path_name,
                                                int ref_offset, int ploidy) const;
 
-    /// Give a staged site what it keeps of the decomposition: `children`, which `view`, the
-    /// site, holds, whether it is a leaf, its chain, and the sites enclosing it.
+    /// Give a staged site what it keeps of the decomposition.
+    ///
+    /// That is the `children` that `view` holds, whether it is a leaf, its chain, and the sites
+    /// enclosing it.
     void fill_tree_fields(const SiteView& view, const SiteChildren& children,
                           StagedSite& site) const;
 
@@ -185,7 +306,6 @@ private:
     Options options;
 };
 
-}
 }
 
 #endif

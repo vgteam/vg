@@ -4,10 +4,8 @@
 /** \file
  * Free functions for walking the sites of a snarl decomposition.
  *
- * A site is a snarl other than the root that is not a trivial snarl. The
- * root is the only snarl without bounding nodes, so these functions never ask
- * for its bounds. Each site sits in a chain, and its child chains hold its
- * child sites. Nodes are never sites.
+ * Here a site is any snarl other than the root and the trivial snarls. Each site sits in a chain,
+ * and its child chains hold its child sites.
  */
 
 #include <vector>
@@ -23,51 +21,39 @@ using handlegraph::net_handle_t;
 using handlegraph::SnarlDecomposition;
 
 /**
- * The two bounds of a site or chain, oriented as a Snarl's start and end
- * Visits are: the start handle reads into it, and the end handle reads out
- * of it.
+ * The two bounds of a site or chain, oriented like the start and end of a Snarl.
  *
- * A site lies between two boundary sides. Usually these are the sides of
- * `start` and `end` that face into the site, so the site lies between two
- * nodes, which may be one node, as in a cyclic chain. A site can instead lie
- * inside one node (`inside_node`). `start` and `end` are then that node,
- * read the same way, and the boundary sides are the sides of the base at
- * `offset`.
- * The decomposition never gives bounds inside a node.
+ * `start` reads into the site and `end` reads out of it. Most sites lie between the inward sides
+ * of `start` and `end`, which can be one node, as in a looping chain. A site made from an edit in
+ * the reads lies inside nodes instead (`inside_node`). Its boundaries then lie inside the nodes of
+ * `start` and `end`, and are not node sides. The decomposition gives only bounds between nodes.
  */
 struct SiteBounds {
     handle_t start;
     handle_t end;
-    /// Whether the site lies inside the node `start` and `end` both read.
+    /// Whether the site's boundaries lie inside the nodes of `start` and `end`.
     bool inside_node = false;
-    /// For a site inside a node, the offset of its first base along the node's forward strand,
-    /// whichever way `start` reads the node. 0 for any other site.
+    /// For a site inside nodes, the offset of its first base along the forward strand of the node
+    /// of `start`, whichever way `start` reads the node. 0 for any other site.
     uint32_t offset = 0;
 
-    inline bool operator==(const SiteBounds& other) const {
-        return start == other.start && end == other.end && inside_node == other.inside_node
-               && offset == other.offset;
-    }
-
-    inline bool operator!=(const SiteBounds& other) const {
-        return !(*this == other);
-    }
+    bool operator==(const SiteBounds& other) const = default;
 };
 
 /**
- * Get the bounds of a site or chain, read the way the net handle traverses
- * it: for an end-to-start traversal, the start is the end bound read inward.
- * Must not be called on the root, or on a traversal that starts or ends at
- * an internal tip.
+ * Get the bounds of a site or chain, read the way the net handle traverses it.
+ *
+ * For an end-to-start traversal, the start is the end bound read inward.
+ *
+ * @pre `net` is not the root, and does not start or end at a tip.
  */
 SiteBounds site_bounds(const SnarlDecomposition& decomposition, const HandleGraph& graph, const net_handle_t& net);
 
 /**
  * Return true if a snarl is a trivial snarl, which holds nothing to call.
  *
- * A trivial snarl has no children, and a walk can only cross it. It is the
- * edge between two consecutive nodes of a chain. Some decompositions show
- * trivial snarls and some leave them out.
+ * A snarl counts as trivial when it has no children and every realizable traversal of it goes
+ * from one bound to the other.
  */
 bool is_trivial_site(const SnarlDecomposition& decomposition, const net_handle_t& snarl);
 

@@ -4,9 +4,8 @@
 /** \file
  * The tree of nested sites that a VCF's nesting tags are computed from.
  *
- * A site is a region of the graph between two boundary nodes, and sites nest: a site can lie inside
- * another. The nesting tags of a record (LV, CH, PS, RC, RS and RD) describe where its site sits in
- * this tree relative to the sites of the other records.
+ * The nesting tags of a record (LV, CH, PS, RC, RS and RD) say where its site sits in this tree,
+ * relative to the sites of the other records.
  */
 
 #include <functional>
@@ -18,8 +17,7 @@ namespace vg {
 
 using namespace std;
 
-/// The two boundary visits of a site: the node it starts at and the node it ends at, each with
-/// whether the site reads it backward.
+/// The two boundary visits of a site, as node IDs and orientations.
 struct SiteEnds {
     nid_t start_id;
     bool start_backward;
@@ -27,27 +25,31 @@ struct SiteEnds {
     bool end_backward;
 };
 
-/// The sites of a graph, nested in one another. A site is an opaque pointer, valid while the tree
-/// exists.
+/// The sites of a graph, nested in one another.
+///
+/// A site is an opaque pointer, valid while the tree exists.
 class SiteTree {
 public:
     using site_t = const void*;
 
     virtual ~SiteTree() = default;
 
-    /// Call `visit` on every site. With `in_preorder`, the calls are on this thread and reach each
-    /// site before the sites inside it; otherwise they are on several threads, in any order.
+    /// Call `visit` on every site.
+    ///
+    /// With `in_preorder`, call it on this thread, on each site before the sites inside it.
+    /// Otherwise call it on several threads, in any order.
     virtual void for_each_site(const function<void(site_t)>& visit, bool in_preorder) const = 0;
 
-    /// The site that `site` lies directly inside, or null for a site at the top of the tree.
+    /// Get the site that `site` lies directly inside, or null for a site at the top of the tree.
     virtual site_t parent_of(site_t site) const = 0;
 
-    /// The boundary visits of `site`.
+    /// Get the boundary visits of `site`.
     virtual SiteEnds ends_of(site_t site) const = 0;
 
-    /// The ID of `site`'s records, where it is not printed from the site's boundary visits, or
-    /// null where it is, as for every site a decomposition holds. A site with an ID of its own is
-    /// matched to its records by that ID.
+    /// Get the ID that the records of `site` carry, or null if their ID is made from its boundary
+    /// visits.
+    ///
+    /// Records are matched to a site with an ID of its own by that ID.
     virtual const string* id_of(site_t site) const { return nullptr; }
 };
 

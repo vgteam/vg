@@ -25,20 +25,21 @@ namespace vg {
 using namespace std;
 
 /**
- * Calls the sites of a tree in parallel: first every top-level site, then the sites those calls
- * queued, then the sites those calls queued, and so on until none are queued. A call queues the
- * sites it wants called after it, usually its children.
+ * Calls the sites of a tree in parallel, a level at a time.
  *
- * By default each site is its own parallel job. With a batch window of w node IDs, the top-level
- * sites are grouped into batches instead: a batch holds the sites whose key falls in one window of
- * w IDs, [k*w, (k+1)*w) for some k, each batch is one job, and a job calls its sites in key order.
- * A batch still running after `SPLIT_AFTER_SECONDS` hands its remaining sites out as tasks of
- * `SPLIT_SITES` sites, which threads that have run out of batches take, so that one slow window
- * does not leave the other threads idle.
- * Queued sites are still one job each, started in key order. A site's key is the lower of its two
- * boundary node IDs, so that key order puts sites with nearby node IDs next to each other.
+ * First it calls every top-level site. Each call can queue sites to call after it, usually the
+ * site's children. Then it calls the queued sites, then the sites those calls queued, and so on
+ * until none are queued.
  *
- * `Site` names a site, and is cheap to copy.
+ * A site's key is the lower of its two boundary node IDs. Sorting by key puts sites with nearby
+ * node IDs next to each other.
+ *
+ * With a batch window of 0, each top-level site is its own parallel job. With a batch window of w
+ * node IDs, the top-level sites are grouped into batches instead. A batch holds the sites whose
+ * key falls in one window [k*w, (k+1)*w), and is one job, which calls its sites in key order.
+ * Queued sites are always one job each, started in key order when batching.
+ *
+ * `Site` names a site, and is copied into queues and batches.
  */
 template<typename Site>
 class SiteScheduler {
@@ -49,93 +50,57 @@ public:
     /// call adds the sites it wants called.
     using SiteCall = function<void(const Site& site, vector<Site>& queue)>;
 
-    /// How long a batch runs on its own thread before its remaining sites become tasks, and how
-    /// many sites a task holds.
+    /// Seconds a batch runs before it hands its remaining sites out as tasks.
+    ///
+    /// Threads that have run out of batches take the tasks, so one slow window does not leave the
+    /// other threads idle.
     static constexpr double SPLIT_AFTER_SECONDS = 5.0;
+    /// Number of sites in each task a slow batch hands out.
     static constexpr size_t SPLIT_SITES = 16;
 
+    /// Make a scheduler that calls each site with `call`.
+    ///
     /// `key` gives a site's key, and is needed only when `batch_window` is not 0.
     SiteScheduler(size_t batch_window, function<nid_t(const Site&)> key, SiteCall call) :
-        batch_window(batch_window), key(std::move(key)), call(std::move(call)),
-        queues(get_thread_count()) {
+        batch_window(batch_window), key(std::move(key)), call(std::move(call)) {
         // Nothing to do
     }
 
-    /// Call the top-level sites. Without batching they come from `for_each_parallel`, which calls
-    /// its function on several threads, one job per site; with batching they come from `for_each`.
+    /// Call the top-level sites.
+    ///
+    /// Without batching they come from `for_each_parallel`, which calls its function on several
+    /// threads, one job per site. With batching they come from `for_each`.
     void call_top_level(const SiteLister& for_each, const SiteLister& for_each_parallel) {
-        auto call_site = [&](const Site& site) {
-            call(site, queues[omp_get_thread_num()]);
-        };
         if (batch_window == 0) {
-            for_each_parallel(call_site);
+            for_each_parallel([this](const Site& site) {
+                call(site, queues[omp_get_thread_num()]);
+            });
             return;
         }
-        // Call in node-ID order, batched by window, so that sites with nearby node IDs are
-        // called together.
         vector<Site> roots;
-        for_each([&](const Site& site) {
+        for_each([&roots](const Site& site) {
             roots.push_back(site);
         });
         sort_by_key(roots);
-
-        // Split the sorted sites into runs that share a window, with one parallel job per run
-        // rather than per site.
-        vector<pair<size_t, size_t>> windows;
-        size_t begin = 0;
-        while (begin < roots.size()) {
-            size_t window = (size_t)(key(roots[begin]) / (nid_t)batch_window);
-            size_t end = begin + 1;
-            while (end < roots.size() &&
-                   (size_t)(key(roots[end]) / (nid_t)batch_window) == window) {
-                ++end;
-            }
-            windows.emplace_back(begin, end);
-            begin = end;
-        }
+        const vector<pair<size_t, size_t>> batches = batch_ranges(roots);
 
 #pragma omp parallel for schedule(dynamic, 1)
-        for (int w = 0; w < (int)windows.size(); ++w) {
-            const auto batch_start = std::chrono::steady_clock::now();
-            const size_t end = windows[w].second;
-            size_t i = windows[w].first;
-            while (i < end) {
-                call_site(roots[i]);
-                ++i;
-                if (i < end && std::chrono::duration<double>(std::chrono::steady_clock::now()
-                                                             - batch_start).count()
-                                   > SPLIT_AFTER_SECONDS) {
-                    break;
-                }
-            }
-            if (i < end) {
-                // A slow batch: the rest of its sites become tasks. This thread runs them while it
-                // waits, and threads with no batch left take them too.
-                for (size_t first = i; first < end; first += SPLIT_SITES) {
-                    const size_t last = std::min(end, first + SPLIT_SITES);
-#pragma omp task firstprivate(first, last) shared(roots, call_site)
-                    for (size_t k = first; k < last; ++k) {
-                        call_site(roots[k]);
-                    }
-                }
-#pragma omp taskwait
-            }
+        for (int b = 0; b < (int)batches.size(); ++b) {
+            call_batch(roots, batches[b].first, batches[b].second);
         }
     }
 
     /// Call the queued sites, a level at a time, until none are queued.
     void call_queued() {
-        while (!std::all_of(queues.begin(), queues.end(),
-                            [](const vector<Site>& site_vec) {return site_vec.empty();})) {
+        while (!std::ranges::all_of(queues, [](const vector<Site>& site_vec) {return site_vec.empty();})) {
             vector<Site> cur_queue;
             for (vector<Site>& thread_queue : queues) {
                 cur_queue.reserve(cur_queue.size() + thread_queue.size());
-                std::move(thread_queue.begin(), thread_queue.end(), std::back_inserter(cur_queue));
+                std::ranges::move(thread_queue, std::back_inserter(cur_queue));
                 thread_queue.clear();
             }
 
             if (batch_window > 0) {
-                // Keep queued sites in node-ID order too.
                 sort_by_key(cur_queue);
             }
 
@@ -147,42 +112,139 @@ public:
     }
 
 private:
-    /// Sort sites by key, so that sites with nearby node IDs are called one after another.
+    /// Sort sites by key.
     ///
-    /// Each site's key is read once, beforehand: reading it at every comparison followed a pointer
-    /// into each site's scattered record, millions of times for a whole genome's top-level sites.
-    /// The sort compares the same keys in the same sequence, so the result, including the order of
-    /// sites with equal keys, is the one sorting the sites themselves gives.
+    /// Each site's key is read once, beforehand, because reading a key can follow a pointer into a
+    /// scattered record. The sort compares the same keys in the same sequence as sorting the sites
+    /// themselves by key would, so it puts sites with equal keys in the same order too.
     void sort_by_key(vector<Site>& sites) const {
         vector<pair<nid_t, Site>> keyed(sites.size());
 #pragma omp parallel for schedule(static)
         for (size_t i = 0; i < sites.size(); ++i) {
             keyed[i] = make_pair(key(sites[i]), sites[i]);
         }
+        // std::ranges::sort may order equal keys differently, which would change the output.
         std::sort(keyed.begin(), keyed.end(),
                   [](const pair<nid_t, Site>& a, const pair<nid_t, Site>& b) {
                       return a.first < b.first;
                   });
-        for (size_t i = 0; i < sites.size(); ++i) {
-            sites[i] = keyed[i].second;
+        std::ranges::transform(keyed, sites.begin(),
+                               [](const pair<nid_t, Site>& keyed_site) { return keyed_site.second; });
+    }
+
+    /// Split sites sorted by key into batches, as [begin, end) index ranges, one per window.
+    vector<pair<size_t, size_t>> batch_ranges(const vector<Site>& sorted_sites) const {
+        vector<pair<size_t, size_t>> batches;
+        size_t begin = 0;
+        while (begin < sorted_sites.size()) {
+            const auto window = (size_t)(key(sorted_sites[begin]) / (nid_t)batch_window);
+            size_t end = begin + 1;
+            while (end < sorted_sites.size() &&
+                   (size_t)(key(sorted_sites[end]) / (nid_t)batch_window) == window) {
+                ++end;
+            }
+            batches.emplace_back(begin, end);
+            begin = end;
         }
+        return batches;
+    }
+
+    /// Call the sites in [begin, end) of `sites` in order, as one job.
+    ///
+    /// If the job runs longer than `SPLIT_AFTER_SECONDS`, hand its remaining sites out as tasks of
+    /// `SPLIT_SITES` sites, and wait for them. This thread runs tasks while it waits.
+    void call_batch(const vector<Site>& sites, size_t begin, size_t end) {
+        const auto batch_start = std::chrono::steady_clock::now();
+        size_t i = begin;
+        while (i < end) {
+            call(sites[i], queues[omp_get_thread_num()]);
+            ++i;
+            if (i < end && std::chrono::duration<double>(std::chrono::steady_clock::now()
+                                                         - batch_start).count()
+                               > SPLIT_AFTER_SECONDS) {
+                break;
+            }
+        }
+        for (size_t first = i; first < end; first += SPLIT_SITES) {
+            const size_t last = std::min(end, first + SPLIT_SITES);
+#pragma omp task firstprivate(first, last) shared(sites)
+            for (size_t k = first; k < last; ++k) {
+                call(sites[k], queues[omp_get_thread_num()]);
+            }
+        }
+#pragma omp taskwait
     }
 
     size_t batch_window;
     function<nid_t(const Site&)> key;
     SiteCall call;
     /// One queue per thread, of the sites to call at the next level.
-    vector<vector<Site>> queues;
+    vector<vector<Site>> queues = vector<vector<Site>>(get_thread_count());
 };
 
 /**
- * Walk a tree of sites as `vg call` does: call every top-level site in parallel, then the
- * children of every site (`recurse_always`), or of every site whose call returned false
- * (`recurse_on_fail`), and so on down, in the jobs a `SiteScheduler` with `batch_window` and `key`
- * gives. `for_each` and `for_each_parallel` list the top-level sites as
- * `SiteScheduler::call_top_level` wants them, `skip` says which sites are neither called nor
- * counted, `call` calls a site, and `add_children` appends a site's children to a queue. With
- * `show_progress`, reports the sites called to stderr.
+ * A tally of the sites a walk has called, which reports its progress to stderr.
+ *
+ * It counts top-level sites until `finish_top_level()`, and nested sites after. It reports every
+ * 100000th site of each kind, and each total when that kind is finished. It is safe to count from
+ * several threads.
+ */
+class SiteCallTally {
+public:
+    /// Count one site called.
+    void count() {
+        if (top_level) {
+            ++top_snarl_count;
+            if (top_snarl_count % 100000 == 0) {
+#pragma omp critical (cerr)
+                cerr << "[vg call]: Processed " << top_snarl_count << " top-level snarls" << endl;
+            }
+        } else {
+            ++nested_snarl_count;
+            if (nested_snarl_count % 100000 == 0) {
+                // TODO: This reports the top-level count where it means the nested count. Is
+                // that a bug?
+#pragma omp critical (cerr)
+                cerr << "[vg call]: Processed " << top_snarl_count << " nested snarls" << endl;
+            }
+        }
+    }
+
+    /// Report the top-level total, and count later sites as nested.
+    ///
+    /// No thread may be counting while this runs.
+    void finish_top_level() {
+        cerr << "[vg call]: Finished processing " << top_snarl_count << " top-level snarls" << endl;
+        top_level = false;
+    }
+
+    /// Report the nested total, if any nested sites were counted.
+    void finish_nested() const {
+        if (nested_snarl_count > 0) {
+            cerr << "[vg call]: Finished processing " << nested_snarl_count << " nested snarls" << endl;
+        }
+    }
+
+private:
+    std::atomic<std::int64_t> top_snarl_count{0};
+    std::atomic<std::int64_t> nested_snarl_count{0};
+    /// Whether sites counted now are top-level sites.
+    bool top_level = true;
+};
+
+/**
+ * Walk a tree of sites as `vg call` does.
+ *
+ * Call every top-level site in parallel, then the children of every site (`recurse_always`), or
+ * of every site whose call returned false (`recurse_on_fail`), and so on down. Run the calls in
+ * the jobs that a `SiteScheduler` with `batch_window` and `key` gives.
+ *
+ * @param for_each Lists the top-level sites on one thread, for batching.
+ * @param for_each_parallel Lists the top-level sites on several threads, without batching.
+ * @param skip Says which sites are neither called nor counted.
+ * @param call Calls a site, and returns false if it failed.
+ * @param add_children Appends a site's children to a queue.
+ * @param show_progress Report the sites called to stderr.
  */
 template<typename Site>
 void walk_site_tree(size_t batch_window, function<nid_t(const Site&)> key, bool recurse_always,
@@ -192,49 +254,29 @@ void walk_site_tree(size_t batch_window, function<nid_t(const Site&)> key, bool 
                     const function<bool(const Site&)>& skip,
                     const function<bool(const Site&)>& call,
                     const function<void(const Site&, vector<Site>&)>& add_children) {
-    std::atomic<std::int64_t> top_snarl_count(0);
-    std::atomic<std::int64_t> nested_snarl_count(0);
-    bool top_level = true;
+    SiteCallTally tally;
 
-    // Call a site, and queue its children if the recursion asks for them.
     auto process_site = [&](const Site& site, vector<Site>& thread_queue) {
         if (skip(site)) {
             return;
         }
-        bool was_called = call(site);
-        if (recurse_always || (!was_called && recurse_on_fail)) {
+        if (bool was_called = call(site); recurse_always || (!was_called && recurse_on_fail)) {
             add_children(site, thread_queue);
         }
         if (show_progress) {
-            if (top_level) {
-                ++top_snarl_count;
-                if (top_snarl_count % 100000 == 0) {
-#pragma omp critical (cerr)
-                    cerr << "[vg call]: Processed " << top_snarl_count << " top-level snarls" << endl;
-                }
-            } else {
-                ++nested_snarl_count;
-                if (nested_snarl_count % 100000 == 0) {
-#pragma omp critical (cerr)
-                    cerr << "[vg call]: Processed " << top_snarl_count << " nested snarls" << endl;
-                }
-            }
+            tally.count();
         }
     };
     SiteScheduler<Site> scheduler(batch_window, std::move(key), process_site);
 
-    // Start with the top-level sites.
     scheduler.call_top_level(for_each, for_each_parallel);
     if (show_progress) {
-        cerr << "[vg call]: Finished processing " << top_snarl_count << " top-level snarls" << endl;
+        tally.finish_top_level();
     }
 
-    top_level = false;
-
-    // Then the children the calls queued.
     scheduler.call_queued();
-    if (show_progress && nested_snarl_count > 0) {
-        cerr << "[vg call]: Finished processing " << nested_snarl_count << " nested snarls" << endl;
+    if (show_progress) {
+        tally.finish_nested();
     }
 }
 

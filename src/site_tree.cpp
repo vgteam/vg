@@ -23,7 +23,7 @@ SiteTree::site_t SnarlManagerSiteTree::parent_of(site_t site) const {
 }
 
 SiteEnds SnarlManagerSiteTree::ends_of(site_t site) const {
-    const Snarl* snarl = static_cast<const Snarl*>(site);
+    const auto* snarl = static_cast<const Snarl*>(site);
     return SiteEnds{snarl->start().node_id(), snarl->start().backward(), snarl->end().node_id(),
                     snarl->end().backward()};
 }

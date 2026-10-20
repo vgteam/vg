@@ -8,29 +8,35 @@
 
 #include "read_likelihood_caller.hpp"
 
-namespace vg {
-namespace multipass {
+namespace vg::multipass {
 
 using namespace std;
 
-/// One site's genotyping result from the reads: the likelihood of every genotype, at the site's
-/// ploidy and, where asked for, at the other, and everything the later passes and the record read.
+/// The genotyping result of one site from the reads.
+///
+/// It holds the likelihood of every genotype at the site's ploidy, and at the other ploidy where
+/// asked for, and everything the later passes and the VCF record need.
 using SiteScore = ReadLikelihoodSnarlCaller::ReadLikelihoodCallInfo;
 
 /**
- * Genotypes one site from the reads, with explicit ploidies, and returns its typed `SiteScore`,
- * so that the passes after the direct pass read the score without asking which genotyper made
- * it. It is the read-likelihood genotyper (`ReadLikelihoodSnarlCaller`), which it does not own.
+ * A genotyper of single sites from the reads, which gives each site a `SiteScore`.
+ *
+ * It is a view of a `ReadLikelihoodSnarlCaller`, which it does not own. It returns the score
+ * with its own type, so the passes of the multi-pass caller can read the score without casting.
  */
 class SiteGenotyper {
 public:
     explicit SiteGenotyper(ReadLikelihoodSnarlCaller& genotyper);
 
-    /// Genotype `site`, whose candidate alleles are the walks `travs`, the reference among them
-    /// at `ref_trav_idx`, at `ploidies`. An allele with step sequences in `sequences` is spelled
-    /// by them rather than by its walk. `enclosing` holds the bounds of the sites enclosing it,
-    /// innermost first. The genotype is a sorted multiset of indices into `travs`, empty where the
-    /// site cannot be genotyped. The score is never null.
+    /**
+     * Genotype `site` at `ploidies`, choosing among the alleles `travs`.
+     *
+     * @param ref_trav_idx The index of the reference allele in `travs`.
+     * @param enclosing The bounds of the sites enclosing `site`, innermost first.
+     * @param sequences Sequences to spell alleles by, in place of their walks, if given.
+     * @return The genotype, as a sorted multiset of indices into `travs`, or empty if the site
+     * cannot be genotyped. Also the score, which is never null.
+     */
     pair<vector<int>, unique_ptr<SiteScore>> genotype(const SiteBounds& site,
                                                       const vector<Traversal>& travs,
                                                       int ref_trav_idx, const Ploidies& ploidies,
@@ -40,18 +46,20 @@ public:
                                                       const AlleleSequences* sequences
                                                       = nullptr) const;
 
-    /// The factor GQ is the gap times, at the called genotype: the explained share, when the
-    /// share discount is on, times the depth discount.
+    /// Get the factor that GQ multiplies the likelihood gap by, at the called genotype.
+    ///
+    /// The gap is the phred difference between the two best genotypes. The factor is the depth
+    /// discount, times the explained share of the called genotype when the share discount is on.
     double gq_factor(const SiteScore& score) const;
 
     /// Recompute `score.gq` from `score.genotype_lls`, after something has changed them.
     void recompute_gq(SiteScore& score) const;
 
 private:
+    /// Does the genotyping.
     ReadLikelihoodSnarlCaller& genotyper;
 };
 
-}
 }
 
 #endif

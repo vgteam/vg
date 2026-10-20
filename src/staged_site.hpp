@@ -15,145 +15,169 @@
 #include "site_values.hpp"
 #include "snarl_caller.hpp"
 
-namespace vg {
-namespace multipass {
+namespace vg::multipass {
 
 using namespace std;
 
-/// A staged site: one site's genotyping result from the direct pass, kept until the render
-/// builds the site's records.
+/// The genotyping result of one site from the direct pass, kept until the render builds the
+/// site's records.
 ///
-/// A nested chain's ploidy depends on its parent's chosen genotype, which is known only after
-/// the direct pass, so the result is kept rather than computed again. The `CallInfo` has the
-/// answer at both ploidies (see `alt_ploidy_info`), so the record can be rendered at whichever
-/// ploidy the linkage pass gives the site.
+/// The ploidy of a nested chain depends on the genotype chosen for its parent, which is known only
+/// after the direct pass. So the result holds the answer at both ploidies (see
+/// `alt_ploidy_info`), and the render can write the record at whichever ploidy the linkage pass
+/// gives the site.
 ///
-/// The site is named by its record key alone. The fields that describe it in the graph, its
-/// bounds, its candidate walks and what it holds, are grouped apart from the rest.
+/// The passes find a site by its record key.
 struct StagedSite {
-    // Identity, and the site's place in the nesting tree.
+    // The name of the site, and its place in the nesting tree.
 
-    /// The site's ID, as its records name it: their VCF `ID`, without a block record's suffix. A
-    /// site the decomposition holds is named by its bounds (`vg::site_name`), but a site need not
-    /// be, so the ID is kept rather than printed again from the bounds.
+    /// The VCF `ID` of the site's records, without the suffix of a block record.
+    ///
+    /// A site the decomposition holds is named by its bounds (`vg::site_name`). Other sites have
+    /// IDs of their own.
     string id;
-    /// The hash of `id` (`vg::record_key_of`). The tables that follow a site from pass to pass are
-    /// keyed by it.
+    /// The hash of `id` (`vg::record_key_of`), which the tables that follow a site from pass to
+    /// pass are keyed by.
     size_t record_key = 0;
     /// The record key of the site this one is nested in, or 0 for a top-level site.
     size_t parent_record_key = 0;
     /// See `NestingPlacement::chain_key`.
     size_t chain_key = 0;
-    /// The site's level.
+    /// The level of the site in nested descent (`NestingPlacement::level`), capped at 255.
     uint8_t level = 0;
-    /// Whether the site is an edit site, added by off-panel detection: its ALT is a change the
-    /// reads make that no walk of the graph spells. Its record carries INFO/OP.
+    /// Whether off-panel detection added the site, as an edit site whose ALT no walk of the graph
+    /// spells.
+    ///
+    /// Its record carries INFO/OP.
     bool off_panel = false;
     /// See `NestingPlacement::parent_crossing`.
     uint64_t parent_crossing = 0;
-    /// False when the parent has more than 64 candidate traversals, too many for
-    /// `parent_crossing`. A 0 mask then means unknown, and the linkage pass leaves the chain at the
-    /// ploidy the direct pass gave it. The linkage pass computes the mask again when it revises
-    /// or first records the parent.
+    /// Whether `parent_crossing` is known.
+    ///
+    /// It is unknown when the parent has more than 64 candidate traversals, too many for the mask.
+    /// Then the linkage pass leaves the chain at the ploidy the direct pass gave it. The linkage
+    /// pass computes the mask again when it revises or first records the parent.
     bool crossing_known = true;
 
-    // The site in the graph: its bounds, its candidate walks, its child chains, and the chain it
-    // is in.
+    // The site in the graph.
 
-    /// Oriented forward along the reference path, which may be the decomposition's orientation
-    /// turned round.
+    /// The bounds of the site, oriented forward along the reference path.
+    ///
+    /// This may be the decomposition's orientation turned round.
     SiteBounds bounds;
+    /// The candidate alleles.
     vector<Traversal> travs;
-    /// The sequences of the alleles in `travs` that their walks do not spell; empty for a site
-    /// the decomposition holds.
+    /// The sequences of the alleles in `travs` that their walks do not spell.
     AlleleSequences sequences;
+    /// The index in `travs` of the reference allele.
     int ref_trav_idx = -1;
     /// The sites nested in this one, for its symbolic alleles.
     SiteChildren children;
     /// Whether the site has no child sites.
     bool leaf = true;
-    /// The chain the site is in, when the decomposition knows the site (`in_chain`). A nested
-    /// site's line is held back when its parent's blocks report its chain.
+    /// The chain the site is in, if `in_chain`.
+    ///
+    /// A nested site's line is held back when its parent's blocks report its chain.
     ChildChain chain;
+    /// Whether the decomposition knows the site, so that `chain` is set.
     bool in_chain = false;
-    /// The bounds of the sites enclosing this one, innermost first, as the decomposition orients
-    /// them (`SiteView::enclosing`). The nesting INFO tags place the site's records by them
-    /// (`StagedSiteTree`). They are the decomposition's, not the nesting placement's, so a site
-    /// walked as top level, as every site is when all sites are genotyped on their own, still has
-    /// the sites around it.
+    /// The bounds of the sites enclosing this one in the decomposition, innermost first
+    /// (`SiteView::enclosing`).
+    ///
+    /// The nesting INFO tags place the site's records by them (`StagedSiteTree`). A site genotyped
+    /// as top level still has the sites around it here.
     vector<SiteBounds> enclosing;
 
     // Where the site is on the reference.
 
+    /// The reference path the site is on.
     string ref_path_name;
+    /// The offset added to positions on `ref_path_name`.
     int ref_offset = 0;
-    /// This snarl has no reference path, so no line can be written for it, since REF and POS are
-    /// undefined. It is still genotyped and recorded in the linkage model.
+    /// Whether the site has no reference path.
+    ///
+    /// Such a site has no REF or POS, so it gets no line. It is still genotyped and recorded in the
+    /// linkage model.
     bool no_reference = false;
-    /// For a snarl with no reference path: its parent's reference start plus `chain_offset`,
-    /// standing in for the position it lacks.
+    /// For a site with no reference path, the position that stands in for its own: the reference
+    /// start of its parent plus `chain_offset`.
     int64_t position_from_parent = 0;
-    /// `NestingPlacement::parent_offset` for this chain. The direct pass takes it from the parent's
-    /// direct call, and the linkage pass computes it again from the parent's chosen genotype, so
-    /// that an off-reference chain is placed along an allele of its parent's chosen genotype.
+    /// The `NestingPlacement::parent_offset` of this chain.
+    ///
+    /// The direct pass takes it from the parent's direct call. The linkage pass computes it again
+    /// from the parent's chosen genotype, so that an off-reference chain is placed along an allele
+    /// of that genotype.
     size_t chain_offset = 0;
 
-    // The direct pass's call, and what the linkage pass decided about it.
+    // The call of the direct pass, and what the linkage pass decided about it.
 
-    /// The direct pass's genotype, before the linkage model, and its ploidy. A nested chain's
-    /// ploidy here is the number of the parent's called alleles that cross it, or the parent's
-    /// ploidy when none does; `score` also holds the answer at the other ploidy.
+    /// The genotype from the direct pass, before the linkage model.
     vector<int> genotype;
+    /// The ploidy of `genotype`.
+    ///
+    /// For a nested chain, it is the number of the parent's called alleles that cross the chain,
+    /// or the parent's ploidy when none does. `score` also holds the answer at the other ploidy.
     int ploidy = 2;
     /// The genotyper's call, which the record is written from.
     unique_ptr<SnarlCaller::CallInfo> call_info;
-    /// `call_info` as the read-likelihood genotyper's score, or null where another genotyper
-    /// called the site. `call_info` owns it, so the two are set together, by `set_call` or
-    /// `set_score`.
+    /// The object `call_info` holds, typed as a read-likelihood score, or null if another genotyper
+    /// called the site.
+    ///
+    /// `call_info` owns it, so `set_call` and `set_score` set the two together.
     SiteScore* score = nullptr;
 
-    /// Give the site the genotyper's call `info`, and `typed`, which is null or `info` as the
-    /// read-likelihood genotyper's score.
-    void set_call(unique_ptr<SnarlCaller::CallInfo> info, SiteScore* typed);
+    /// Give the site the genotyper's call `new_call`.
+    ///
+    /// `typed` is null or `new_call` as a read-likelihood score.
+    void set_call(unique_ptr<SnarlCaller::CallInfo> new_call, SiteScore* typed);
     /// Give the site a read-likelihood score as its call.
     void set_score(unique_ptr<SiteScore> typed);
-    /// Take the site's read-likelihood score out, leaving it no call. `score` must not be null.
+    /// Take the site's read-likelihood score out, leaving it no call.
+    ///
+    /// @pre `score` is not null.
     unique_ptr<SiteScore> take_score();
-    /// See `NestingPlacement::reported_inline`. Its line is held back, as for
-    /// `no_reference`. The direct pass tests the parent's direct call; under the linkage model the
-    /// linkage pass tests again with the parent's chosen genotype, which the parent's blocks are
-    /// built from.
+    /// See `NestingPlacement::reported_inline`.
+    ///
+    /// Such a site gets no line, as for `no_reference`. The direct pass tests the parent's direct
+    /// call. Under the linkage model, the linkage pass tests again with the parent's chosen
+    /// genotype, which the parent's blocks are built from.
     bool reported_inline = false;
-    /// Set when the parent's chosen genotype, or an ancestor's, does not carry this chain, so
-    /// the chain and its descendants do not exist in the sample and are not revised or
-    /// written. Each linkage pass decides it again, so a chain dropped in one pass can come
-    /// back in the next.
+    /// Whether the chosen genotype of the parent, or of an ancestor, leaves this chain out.
+    ///
+    /// The chain and its descendants are then absent from the sample, and are not revised or
+    /// written. Each linkage pass decides this again, so a chain dropped in one pass can come back
+    /// in the next.
     bool dropped = false;
 
-    /// `lookup.alleles(travs, &sequences)`, computed on the first call and kept: the traversals do not change
-    /// after the direct pass, and each re-genotyping round would otherwise repeat the GBWT
-    /// lookups. The direct pass can fill `panel_cache` first.
+    /// Get `lookup.alleles(travs, &sequences)`, computing it on the first call.
+    ///
+    /// The traversals do not change after the direct pass, so the answer is kept, which saves each
+    /// re-genotyping round the GBWT lookups.
     const vector<int>& panel_alleles(const PanelLookup& lookup);
+    /// The kept answer of `panel_alleles`, if `panel_cached`. The direct pass can fill it first.
     vector<int> panel_cache;
+    /// Whether `panel_cache` is filled.
     bool panel_cached = false;
 };
 
 class StagedSiteTable;
 
 /**
- * The staged sites as a `SiteTree`, from which the VCF's nesting INFO tags are computed. Each
- * staged site lies under the sites enclosing it, which it keeps itself
- * (`StagedSite::enclosing`), so that a site the decomposition does not hold is placed as one it
- * holds is. The tree holds the staged sites and every site enclosing one of them, and a site that
- * is both appears once.
+ * The staged sites, and the sites enclosing them, as a `SiteTree`.
  *
- * A site whose ID is printed from its bounds is matched to its records by its boundary visits, as
- * a decomposition's sites are; one with an ID of its own is matched by that ID (`id_of`).
+ * The VCF's nesting INFO tags are computed from it. Each staged site lies under the sites in its
+ * `StagedSite::enclosing`, so a site the decomposition does not hold is placed like one it holds.
+ * A site that is both staged and enclosing appears once.
+ *
+ * A site whose ID is made from its bounds is matched to its records by its boundary visits. A site
+ * with an ID of its own is matched by that ID (`id_of`).
  */
 class StagedSiteTree : public SiteTree {
 public:
-    /// The tree of the sites `sites` holds, in `graph`. `name` prints the ID of a site with the
-    /// given bounds, as the records of a site the decomposition holds are named. None is kept.
+    /// Make the tree of the sites `sites` holds, in `graph`.
+    ///
+    /// `name` makes the ID of a site from its bounds, as the records of a site the decomposition
+    /// holds are named. The tree keeps none of the arguments.
     StagedSiteTree(StagedSiteTable& sites, const HandleGraph& graph,
                    const function<string(const SiteBounds&)>& name);
 
@@ -163,6 +187,7 @@ public:
     const string* id_of(site_t site) const override;
 
 private:
+    /// One site of the tree.
     struct Node {
         SiteEnds ends;
         /// The site's ID where it is not printed from `ends`, or empty.
@@ -170,39 +195,44 @@ private:
         /// The site enclosing this one, or null.
         const Node* parent = nullptr;
     };
-    /// The sites, each after the site enclosing it, so that in this order the tree is visited in
-    /// preorder. A deque, so that a site's address does not move as sites are added.
+    /// The sites, each after the site enclosing it, so that this order is a preorder.
+    ///
+    /// It is a deque so that a site's address does not move as sites are added.
     deque<Node> nodes;
 };
 
-/// Where the passes read what a staged site does not hold, set once by the caller that stages
-/// the sites.
+/// The sources the passes read for what a staged site does not hold.
+///
+/// The caller that stages the sites sets them once.
 struct SiteReader {
     /// The graph the sites are in.
     const PathPositionHandleGraph* graph = nullptr;
     /// The read-likelihood genotyper that called the sites, or null where another genotyper did.
     const SiteGenotyper* genotyper = nullptr;
-    /// An allele's sequence: its step sequences when not null, or else its walk's.
+    /// Spells an allele, from its step sequences when not null, or else from its walk.
     function<string(const Traversal& walk, const StepSequences* own)> spell;
 };
 
 /**
- * Every staged site of a run, from the direct pass to the render.
+ * The table of every staged site of a run, from the direct pass to the render.
  *
- * The direct pass files each site from the thread that genotyped it, into that thread's own
- * list, so filing takes no lock. A top-level site, which the linkage pass will not revise, goes
- * to a render queue; a nested site goes to a nested list. The first linkage pass gathers the
- * nested lists into one, which every linkage pass then revises in place, and indexes it by
- * parent. Once the passes are done, `hand_off` moves each nested site that gets a line of its
- * own into the render queues, and the render builds each queue's records on one thread.
+ * The direct pass files each site into a list of the thread that genotyped it, so filing takes no
+ * lock. A top-level site, which the linkage pass will not revise, goes to a render queue. A nested
+ * site goes to a nested list.
+ *
+ * The first linkage pass gathers the nested lists into one, and indexes it by parent. Every
+ * linkage pass revises that list in place. Once the passes are done, `hand_off` moves each nested
+ * site that gets a line of its own into the render queues. The render builds the records of each
+ * queue on one thread.
  */
 class StagedSiteTable {
 public:
-    /// Start staging, with one render queue and one nested list per thread. Called before the
-    /// direct pass, since its threads file into these without a lock.
+    /// Start staging, with one render queue and one nested list per thread.
+    ///
+    /// Call it before the direct pass, whose threads file sites without a lock.
     void start(size_t threads);
 
-    /// Whether staging is on.
+    /// Return true if staging is on.
     bool active() const { return !queues.empty(); }
 
     /// File a top-level site into the calling thread's render queue.
@@ -211,47 +241,57 @@ public:
     /// File a nested site into the calling thread's nested list.
     void add_nested(StagedSite&& site);
 
-    /// Gather the threads' nested lists into one, and index it by parent if this added any site.
-    /// Returns the gathered list, whose indices stay fixed until `hand_off`. Each linkage pass
-    /// calls it; after the first, there is nothing left to gather.
+    /// Gather the nested lists of the threads into one, and index it by parent if this added any
+    /// site.
+    ///
+    /// Each linkage pass calls it. After the first, there is nothing left to gather.
+    ///
+    /// @return The gathered list, whose indices stay fixed until `hand_off`.
     vector<StagedSite>& gather_nested();
 
-    /// The gathered nested list.
+    /// Get the gathered nested list.
     vector<StagedSite>& nested() { return nested_sites; }
 
-    /// The indices in `nested()` of the sites whose parent is `parent_key`, or null when there
+    /// Get the indices in `nested()` of the sites whose parent is `parent_key`, or null when there
     /// are none.
     const vector<size_t>* children_of(size_t parent_key) const;
 
-    /// Whether any gathered nested site has been indexed.
+    /// Return true if any gathered nested site has been indexed.
     bool has_children() const { return !children.empty(); }
 
-    /// Every staged site by record key. Where a key is staged both in a render queue and in the
-    /// nested list, the render queue's site wins.
+    /// Index every staged site by record key.
+    ///
+    /// Where a key is staged both in a render queue and in the nested list, take the site in the
+    /// render queue.
     unordered_map<size_t, StagedSite*> by_key();
 
-    /// Visit each staged parent of a gathered nested site, with the indices of its children,
-    /// parents before their children: by the parent's level, then by its record key. `by_key`
-    /// is this table's `by_key()`.
+    /// Visit each staged parent of a gathered nested site, with the indices of its children.
+    ///
+    /// Visit parents before their children, by the parent's level, then by its record key.
+    ///
+    /// @param by_key This table's `by_key()`.
     void for_each_parent_top_down(
         const unordered_map<size_t, StagedSite*>& by_key,
         const function<void(const StagedSite& parent, const vector<size_t>& children)>& visit)
         const;
 
-    /// The sites a pass reads, in the order every pass visits them: the render queues in turn,
-    /// then the gathered nested list. Between a linkage pass and the hand-off it leaves out the
-    /// nested sites the hand-off will hold back, so that it matches what is rendered: a dropped
-    /// one, which the parent's chosen genotype does not carry, and a `reported_inline` one,
-    /// which an enclosing block's ALT spells. Both are tested on each call, since both can
-    /// change between linkage passes. With `with_off_reference`, sites with no reference path
-    /// are included: they cannot be rendered, having no REF or POS, but they are genotyped, get
-    /// anchors, and have a meaningful strand.
+    /**
+     * List the sites a pass reads, in the order every pass visits them.
+     *
+     * The order is the render queues in turn, then the gathered nested list. Leave out the nested
+     * sites that are `dropped` or `reported_inline`, which the hand-off will hold back, so that
+     * the list matches what is rendered. Both flags can change between linkage passes, so each
+     * call tests them again.
+     *
+     * @param with_off_reference Include sites with no reference path. They get no line, but they
+     * are genotyped, get anchors, and have a meaningful strand.
+     */
     vector<StagedSite*> in_order(bool with_off_reference = false);
 
     /// Visit every staged site, dropped or not, one at a time, in the order of `in_order`.
     void for_each(const function<void(StagedSite&)>& visit);
 
-    /// What `hand_off` held back.
+    /// The counts of sites that `hand_off` held back.
     struct HandOff {
         /// Nested sites an enclosing block's ALT spells.
         size_t inline_unrendered = 0;
@@ -259,28 +299,31 @@ public:
         size_t no_ref_unrendered = 0;
     };
 
-    /// Move every nested site that gets a line of its own into the render queues, spread over
-    /// them in turn, and discard the rest: a dropped site, which the sample does not carry, a
-    /// `reported_inline` one and one with no reference path. Called once, after the last
-    /// linkage pass.
+    /// Move every nested site that gets a line of its own into the render queues, spread over them
+    /// in turn.
+    ///
+    /// Discard the `dropped` sites. Keep the `reported_inline` sites and those with no reference
+    /// path in `unrendered()`. Call it once, after the last linkage pass.
     HandOff hand_off();
 
-    /// How many render queues there are.
+    /// Count the render queues.
     size_t queue_count() const { return queues.size(); }
 
-    /// Render queue `q`.
+    /// Get render queue `q`.
     vector<StagedSite>& queue(size_t q) { return queues[q]; }
 
-    /// How many sites the render queues hold.
+    /// Count the sites in the render queues.
     size_t queued_count() const;
-    /// The nested sites the hand-off kept from the render, with no line of their own: those an
-    /// enclosing block spells and those off the reference. Their parents' records spell their
-    /// chosen alleles. Each keeps its walks and genotype but not its scores.
+    /// Get the nested sites that `hand_off` kept out of the render queues.
+    ///
+    /// The records of their parents spell their chosen alleles. Each keeps its walks and genotype,
+    /// but not its scores.
     vector<StagedSite>& unrendered() { return held_back; }
     /// Free the sites the hand-off kept, once the render is done.
     void release_unrendered() { vector<StagedSite>().swap(held_back); }
 
 private:
+    /// See `unrendered()`.
     vector<StagedSite> held_back;
     /// The render queues, one per thread: the top-level sites, and after the hand-off also the
     /// nested ones that get a line of their own.
@@ -289,11 +332,11 @@ private:
     vector<vector<StagedSite>> nested_lists;
     /// The nested sites, gathered.
     vector<StagedSite> nested_sites;
-    /// Parent record key -> the indices in `nested_sites` of its children.
+    /// The indices in `nested_sites` of the children of each parent, by the record key of the
+    /// parent.
     unordered_map<size_t, vector<size_t>> children;
 };
 
-}
 }
 
 #endif

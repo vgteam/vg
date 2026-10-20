@@ -6,8 +6,7 @@
 #include "site_values.hpp"
 #include "symbolic_allele.hpp"
 
-namespace vg {
-namespace multipass {
+namespace vg::multipass {
 
 ChildPlacer::TraversalNodeIndex ChildPlacer::index_traversal_nodes(const HandleGraph& graph,
                                                                    const Traversal& walk) {
@@ -23,23 +22,23 @@ int ChildPlacer::crossings_of_child(const HandleGraph& graph, const TraversalNod
     const nid_t start = graph.get_id(child.start);
     const nid_t end = graph.get_id(child.end);
     if (inside_one_node(child)) {
-        // Each visit passes both of the node's sides.
+        // Each visit passes both of the child's boundaries.
         auto found = visits.find(start);
         return found == visits.end() ? 0 : (int)found->second.size();
     }
-    // Count crossings: an entry at one boundary followed by the other. Order matters: testing for
-    // the two boundaries separately would count a walk that touches both on unrelated excursions,
-    // as find_child_traversal_set does. Only visits to the two boundary nodes can change the
-    // state, so we walk their positions merged in ascending order. When both boundaries are the
-    // same node, one list plays both roles.
+    // A crossing is a visit to one boundary node followed by a visit to the other. Only visits to
+    // the two boundary nodes matter, so walk their positions merged in ascending order. When both
+    // boundaries are the same node, one list plays both roles.
     static const vector<int> none;
     auto s = visits.find(start);
     auto e = visits.find(end);
     const vector<int>& sp = (s == visits.end()) ? none : s->second;
     const vector<int>& ep = (e == visits.end() || end == start) ? none : e->second;
     int crossings = 0;
+    // The boundary node that would complete the current crossing, or 0 outside a crossing.
     nid_t open = 0;
-    size_t i = 0, j = 0;
+    size_t i = 0;
+    size_t j = 0;
     while (i < sp.size() || j < ep.size()) {
         nid_t node;
         if (j >= ep.size() || (i < sp.size() && sp[i] <= ep[j])) {
@@ -80,25 +79,26 @@ int ChildPlacer::offset_of_child(const HandleGraph& graph, const Traversal& walk
             open = (node == start) ? end : start;
             entry = i;
         } else if (open != 0 && node == open) {
-            return entry;   // first complete crossing, entry side
+            // Report the entry of the first complete crossing.
+            return entry;
         }
     }
     return -1;
 }
 
-ChildPlacer::ChildOffsets::ChildOffsets(const HandleGraph& graph, const Traversal& walk)
-    : walk(&walk) {
-    bases_before.assign(walk.size() + 1, 0);
-    for (int i = 0; i < (int)walk.size(); ++i) {
-        visits_of[graph.get_id(walk[i])].push_back(i);
-        bases_before[i + 1] = bases_before[i] + (int64_t)graph.get_length(walk[i]);
+ChildPlacer::ChildOffsets::ChildOffsets(const HandleGraph& graph, const Traversal& indexed)
+    : walk(&indexed) {
+    bases_before.assign(indexed.size() + 1, 0);
+    for (int i = 0; i < (int)indexed.size(); ++i) {
+        visits_of[graph.get_id(indexed[i])].push_back(i);
+        bases_before[i + 1] = bases_before[i] + (int64_t)graph.get_length(indexed[i]);
     }
 }
 
 int64_t ChildPlacer::ChildOffsets::base_offset(const HandleGraph& graph,
                                                const SiteBounds& child) const {
-    // `offset_of_child`'s rule: the entry is the first visit to either boundary node, and it counts
-    // only if the other boundary node is visited after it.
+    // Follow the rule of `offset_of_child`. The entry is the first visit to either boundary node,
+    // and it counts only if the other boundary node is visited after it.
     const nid_t start = graph.get_id(child.start);
     const nid_t end = graph.get_id(child.end);
     auto start_visits = visits_of.find(start);
@@ -121,10 +121,9 @@ int64_t ChildPlacer::ChildOffsets::base_offset(const HandleGraph& graph,
     if (entry == none) {
         return -1;
     }
-    const auto& closing = first_start <= first_end ? end_visits : start_visits;
-    if (closing == visits_of.end()
-        || std::upper_bound(closing->second.begin(), closing->second.end(), entry)
-               == closing->second.end()) {
+    if (const auto& closing = first_start <= first_end ? end_visits : start_visits;
+        closing == visits_of.end()
+        || std::ranges::upper_bound(closing->second, entry) == closing->second.end()) {
         return -1;
     }
     if (child.inside_node) {
@@ -146,7 +145,7 @@ size_t ChildPlacer::offset_along_genotype(
         const Traversal* walk = &travs[allele];
         auto found = offsets.find(walk);
         if (found == offsets.end()) {
-            found = offsets.emplace(walk, ChildOffsets(graph, *walk)).first;
+            found = offsets.try_emplace(walk, graph, *walk).first;
         }
         const int64_t within = found->second.base_offset(graph, child);
         if (within >= 0) {
@@ -162,10 +161,7 @@ uint64_t ChildPlacer::child_crossing_mask(const HandleGraph& graph,
     if (known != nullptr) {
         *known = true;
     }
-    // One bit per candidate walk, not per VCF allele, since the linkage model chooses a site's
-    // genotype as a pair of walks.
     if (visits.size() > 64) {
-        // Unknown rather than none: the mask cannot index this site's candidates.
         if (known != nullptr) {
             *known = false;
         }
@@ -180,39 +176,6 @@ uint64_t ChildPlacer::child_crossing_mask(const HandleGraph& graph,
     return mask;
 }
 
-int64_t ChildPlacer::base_offset_of_child(const Traversal& walk, const SiteBounds& child) const {
-    const int entry = ChildPlacer::offset_of_child(*graph, walk, child);
-    if (entry < 0) {
-        return -1;
-    }
-    int64_t bases = 0;
-    for (int i = 0; i < entry && i < (int)walk.size(); ++i) {
-        bases += (int64_t)graph->get_length(walk[i]);
-    }
-    if (child.inside_node) {
-        // The child starts at its base inside the node, read the way the walk reads the node.
-        SiteBounds as_visited = child;
-        as_visited.start = walk[entry];
-        bases += (int64_t)bases_before_site(*graph, as_visited);
-    }
-    return bases;
-}
-
-size_t ChildPlacer::offset_along_genotype(const vector<Traversal>& travs,
-                                          const vector<int>& genotype,
-                                          const SiteBounds& child) const {
-    for (int allele : genotype) {
-        if (allele < 0 || allele >= (int)travs.size()) {
-            continue;
-        }
-        const int64_t within = base_offset_of_child(travs[allele], child);
-        if (within >= 0) {
-            return (size_t)within;
-        }
-    }
-    return 0;
-}
-
 int ChildPlacer::child_ploidy(const vector<TraversalNodeIndex>& visits,
                               const vector<int>& genotype, const SiteBounds& child,
                               int cap) const {
@@ -221,28 +184,29 @@ int ChildPlacer::child_ploidy(const vector<TraversalNodeIndex>& visits,
 
     for (int allele : genotype) {
         if (allele < 0 || allele >= (int)visits.size()) {
-            continue;   // star or missing: that haplotype contributes no copy here
+            // A star or missing allele carries no copy.
+            continue;
         }
         int crossings = crossings_of_child(*graph, visits[allele], child);
         if (crossings > 1) {
             capped = true;
-            crossings = 1;   // a cycle or tandem duplication; see the header comment
+            crossings = 1;
         }
         copies += crossings;
     }
     if (capped) {
-        // Counted and reported once per run.
         ++counters->child_multi_crossing;
     }
     return min(copies, cap);
 }
 
-void ChildPlacer::configure(const HandleGraph* graph, const SnarlDecomposition* decomposition,
-                            const BlockRecordWriter* blocks, DescentCounters* counters) {
-    this->graph = graph;
-    this->decomposition = decomposition;
-    this->blocks = blocks;
-    this->counters = counters;
+void ChildPlacer::configure(const HandleGraph* new_graph,
+                            const SnarlDecomposition* new_decomposition,
+                            const BlockRecordWriter* new_blocks, DescentCounters* new_counters) {
+    graph = new_graph;
+    decomposition = new_decomposition;
+    blocks = new_blocks;
+    counters = new_counters;
 }
 
 ChildPlacer::Nested ChildPlacer::nested_in(const net_handle_t& site,
@@ -254,7 +218,7 @@ ChildPlacer::Nested ChildPlacer::nested_in(const net_handle_t& site,
 
 SiteView ChildPlacer::view_of(const SiteView& parent, const ChildSite& child) {
     SiteView view{child.net, child.bounds, {}};
-    // The sites enclosing the child: its parent, then those enclosing the parent.
+    // The sites enclosing the child are its parent, then those enclosing the parent.
     view.enclosing.reserve(parent.enclosing.size() + 1);
     view.enclosing.push_back(parent.bounds);
     view.enclosing.insert(view.enclosing.end(), parent.enclosing.begin(), parent.enclosing.end());
@@ -269,98 +233,89 @@ NodePlacement ChildPlacer::placement_of(nid_t id) const {
     return placement_of_node(*decomposition, *graph, id);
 }
 
-void ChildPlacer::place(const SiteView& site, const Nested& nested, size_t site_key,
-                        const vector<Traversal>& travs,
-                        const vector<int>& genotype, int ref_trav_idx, int ploidy,
-                        const NestingPlacement& placement, bool off_reference,
-                        bool keep_uncrossed, const function<void(const Placed& child)>& visit) const {
-    if (!nested.children.known) {
+bool ChildPlacer::reference_crosses(const Parent& parent,
+                                    const vector<TraversalNodeIndex>& visits,
+                                    const SiteBounds& child) const {
+    if (parent.ref_trav_idx < 0 || parent.ref_trav_idx >= (int)parent.travs.size()) {
+        // With no reference walk, there is nothing to test.
+        return true;
+    }
+    const vector<int> ref_only(1, parent.ref_trav_idx);
+    return child_ploidy(visits, ref_only, child, 1) != 0;
+}
+
+void ChildPlacer::place(const Parent& parent, bool off_reference, bool keep_uncrossed,
+                        const function<void(const Placed& child)>& visit) const {
+    if (!parent.nested.children.known) {
         return;
     }
-    // The child-independent parts of the exactly-once test, built once for this snarl.
-    const BlockRecordWriter::ChainInlineContext inline_ctx =
-        blocks->chain_inline_context(*graph, nested.children, travs, genotype, ref_trav_idx);
-    // Also once for this snarl: see TraversalNodeIndex.
+    const vector<Traversal>& travs = parent.travs;
+    const NestingPlacement& placement = parent.placement;
+    // Build once for the parent the parts of the test for an inline-reported chain that do not
+    // depend on the child.
+    const BlockRecordWriter::ChainInlineContext inline_ctx = blocks->chain_inline_context(
+        *graph, parent.nested.children, travs, parent.genotype, parent.ref_trav_idx);
     vector<TraversalNodeIndex> trav_visits;
     trav_visits.reserve(travs.size());
     for (const Traversal& t : travs) {
         trav_visits.push_back(index_traversal_nodes(*graph, t));
     }
-    // Each walk's base offsets, built the first time a child needs that walk: a child's offset is
-    // then a lookup rather than a walk from the start, which a snarl with thousands of children
-    // and long alleles paid once per child.
+    // Index the base offsets of each walk the first time a child needs that walk.
     unordered_map<const Traversal*, ChildOffsets> walk_offsets;
-    for (const ChildSite& child : nested.sites) {
+    for (const ChildSite& child : parent.nested.sites) {
         const SiteBounds& child_bounds = child.bounds;
-        // A chain that no reference path passes through has no REF or POS for its records,
-        // so it is skipped unless off-reference descent is on.
-        bool child_off_reference = false;
-        if (ref_trav_idx >= 0 && ref_trav_idx < (int)travs.size()) {
-            vector<int> ref_only(1, ref_trav_idx);
-            if (child_ploidy(trav_visits, ref_only, child_bounds, 1) == 0) {
-                // With off-reference descent, such a chain is genotyped and recorded but has
-                // no line.
-                if (!off_reference) {
-                    ++counters->skipped_no_ref;
-                    continue;
-                }
-                child_off_reference = true;
-                ++counters->off_reference;
+        // A chain the reference walk does not cross has no REF or POS for its records, so leave
+        // it out unless off-reference descent is on. Everything under a chain off the reference
+        // is off it too.
+        bool child_off_reference = placement.no_reference;
+        if (!reference_crosses(parent, trav_visits, child_bounds)) {
+            if (!off_reference) {
+                ++counters->skipped_no_ref;
+                continue;
             }
-        }
-        // Inherited: everything under a chain the reference does not cross is also off it.
-        if (placement.no_reference) {
             child_off_reference = true;
+            ++counters->off_reference;
         }
 
-        // The exactly-once test: under block emission, a chain that every called strand
-        // crosses only inside a difference block is already spelled by that block's ALT. It
-        // holds back the chain's line, not its descent, so the chain is still genotyped,
-        // recorded and phased. Inherited by chains inside it. Does nothing when block
-        // emission is off, or for a snarl whose projection has no symbols.
-        bool child_reported_inline =
+        // Under block emission, a difference block's ALT already spells a chain that every called
+        // strand crosses only inside that block. That holds back the chain's line, but the chain
+        // is still genotyped, filed and phased.
+        const bool child_reported_inline =
             placement.reported_inline
             || blocks->chain_reported_inline(*graph, inline_ctx, child.chain);
 
-        int copies = child_ploidy(trav_visits, genotype, child_bounds, ploidy);
+        const int copies = child_ploidy(trav_visits, parent.genotype, child_bounds, parent.ploidy);
         bool retain_only = placement.retain_only;
         if (copies <= 0) {
-            // No called allele reaches it yet. Visited anyway, while this window's reads are
-            // in memory, since the linkage model may move the parent onto an allele that
-            // does reach it. Nothing about it is written unless the linkage pass says so.
             ++counters->skipped_no_copy;
             if (!keep_uncrossed) {
-                // Without retention there is nothing to come back to. Without the linkage
-                // model nothing moves the parent after the direct pass, so the sample has no copy
-                // of this chain; the linkage pass, which has no chosen parent to read, would
-                // otherwise render it at the parent's ploidy.
+                // Without the linkage model nothing moves the parent after the direct pass, so
+                // the sample has no copy of this chain.
                 continue;
             }
+            // Genotype it anyway, while the reads of this window are in memory. Nothing about it
+            // is written unless the linkage pass says so.
             retain_only = true;
         }
 
         Placed out;
-        out.site = view_of(site, child);
+        out.site = view_of(parent.site, child);
         out.chain = child.chain;
-        // `copies` is zero only for a chain no called parent allele reaches, which is still
-        // genotyped; it then takes the parent's ploidy, the most copies a child can have.
-        out.ploidy = copies >= 1 ? copies : ploidy;
+        // A chain no called allele crosses takes the parent's ploidy, the most copies it can have.
+        out.ploidy = copies >= 1 ? copies : parent.ploidy;
         NestingPlacement& next = out.placement;
         next.one_copy = (copies == 1);
-        next.parent_record_key = site_key;
+        next.parent_record_key = parent.record_key;
         next.retain_only = retain_only;
         next.no_reference = child_off_reference;
-        // Where this child starts along the first called allele that reaches it, added to
-        // the offset of its parent. Only an off-reference chain uses it, but it is computed
-        // for every chain, so that offsets add up down the tree.
+        // Only an off-reference chain uses the offset, but compute it for every chain, so that
+        // offsets add up down the tree.
         next.parent_offset =
             placement.parent_offset
-            + offset_along_genotype(*graph, travs, genotype, child_bounds, walk_offsets);
+            + offset_along_genotype(*graph, travs, parent.genotype, child_bounds, walk_offsets);
         next.reported_inline = child_reported_inline;
         next.chain_key = chain_key_of(*graph, out.chain);
-        bool crossing_known = true;   // child_crossing_mask always sets it
-        // The mask is over this snarl's own candidate traversals, which exist whether or not
-        // a line was written.
+        bool crossing_known = true;
         next.parent_crossing =
             child_crossing_mask(*graph, trav_visits, child_bounds, &crossing_known);
         next.crossing_known = crossing_known;
@@ -369,5 +324,4 @@ void ChildPlacer::place(const SiteView& site, const Nested& nested, size_t site_
     }
 }
 
-}
 }

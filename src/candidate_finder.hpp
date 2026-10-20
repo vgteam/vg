@@ -2,6 +2,7 @@
 #define VG_CANDIDATE_FINDER_HPP_INCLUDED
 
 #include <limits>
+#include <set>
 #include <string>
 #include <tuple>
 #include <unordered_set>
@@ -16,20 +17,19 @@ namespace vg {
 
 using namespace std;
 
-/// A set of traversals through a child snarl that are consistent with
-/// a single parent allele. Multiple traversals can exist if the child
-/// has internal variation within a shared region.
+/// The traversals through a child snarl that agree with one parent allele.
+///
+/// There can be several if the child has variation of its own.
 using TraversalSet = vector<SnarlTraversal>;
 
-/// One TraversalSet per parent allele (index matches parent genotype).
-/// For a diploid parent with genotype [0,1], element 0 contains traversals
-/// consistent with parent allele 0, element 1 with parent allele 1.
+/// One TraversalSet per allele of a parent's genotype, in the order of the genotype.
 using ChildTraversalSets = vector<TraversalSet>;
 
 /**
- * Finds what a caller genotypes a site against: the reference path through the site, the site
- * oriented forward along it, and the site's candidate traversals with the reference traversal
- * among them. FlowCaller and TreeGenotyper both use it.
+ * A finder of what a caller genotypes a site against.
+ *
+ * It finds the reference path through the site, orients the site forward along it, and finds the
+ * site's candidate traversals with the reference traversal among them.
  */
 class CandidateFinder {
 public:
@@ -43,8 +43,10 @@ public:
         /// Where the site lies on `ref_path_name`, as `get_ref_interval` gives it, or the parent's
         /// interval when `use_parent_interval` is set.
         tuple<int64_t, int64_t, bool, step_handle_t, step_handle_t> ref_interval;
-        /// No reference path passes through both of the site's boundaries, so it takes its
-        /// parent's path and interval, and has no reference traversal of its own.
+        /// Whether the site takes its parent's path and interval, because no reference path
+        /// visits both of its boundaries.
+        ///
+        /// Such a site has no reference traversal of its own.
         bool use_parent_interval = false;
         /// The candidate traversals.
         vector<SnarlTraversal> travs;
@@ -53,42 +55,68 @@ public:
     };
 
     /// Find candidates in `graph` with `traversal_finder`, on the reference paths in
-    /// `ref_path_set` (all non-alt paths where it is empty). A site is skipped unless its longest
-    /// traversal is at least `allele_length_range.first` long and none is longer than
-    /// `allele_length_range.second`. Nothing is owned.
+    /// `ref_path_set`, or on all non-alt paths if it is empty.
+    ///
+    /// Skip a site unless its longest traversal is at least `allele_length_range.first` long and
+    /// none is longer than `allele_length_range.second`. Nothing is owned.
     CandidateFinder(const PathPositionHandleGraph& graph,
                     TraversalFinder& traversal_finder,
                     const unordered_set<string>& ref_path_set,
                     const pair<size_t, size_t>& allele_length_range);
 
-    /// Skip a site with more edges than this, including those of its nested sites. Zero removes
-    /// the limit, which is also the default.
+    /// Skip a site with more edges than this, including those of its nested sites.
+    ///
+    /// Zero removes the limit, which is also the default.
     void set_max_snarl_edges(size_t edges) {
         max_snarl_edges = edges ? edges : numeric_limits<size_t>::max();
     }
 
-    /// Fill `site` for `given_snarl`, oriented as its decomposition orients it. A site on no
-    /// reference path takes its parent's, `parent_ref_path_name` and `parent_ref_interval`, if it
-    /// has parent traversal sets (top-down calling) or `no_reference` allows it (off-reference
-    /// nested calling). Where it has parent traversal sets, the first traversal of the first
-    /// non-empty set stands in for its reference traversal. Returns false, with `site` partly
-    /// filled, when the site cannot be genotyped: it is one node, outside the graph, too big,
-    /// outside the allele length range, or on no usable reference path.
+    /**
+     * Fill `site` for `given_snarl`.
+     *
+     * A site on no reference path takes its parent's, `parent_ref_path_name` and
+     * `parent_ref_interval`, if it has parent traversal sets (top-down calling) or `no_reference`
+     * allows it (off-reference nested calling). With parent traversal sets, the first traversal
+     * of the first nonempty set stands in for its reference traversal.
+     *
+     * @return False, with `site` partly filled, if the site cannot be genotyped. That is when it
+     * is one node, outside the graph, too big, outside the allele length range, or on no usable
+     * reference path.
+     */
     bool find(const Snarl& given_snarl, const string& parent_ref_path_name,
               pair<size_t, size_t> parent_ref_interval,
               const ChildTraversalSets* parent_child_trav_sets, bool no_reference,
               Site& site) const;
 
-    /// Find all traversals through a child snarl that are consistent with a parent traversal.
-    /// "Consistent" means the child's entry/exit points match what's in the parent traversal.
-    /// Uses the traversal finder to enumerate all valid paths through the child.
-    /// @param parent_trav The parent traversal defining entry/exit constraints
-    /// @param child The child snarl to find traversals through
-    /// @return Set of traversals through child, empty if parent doesn't traverse child
+    /// Find the traversals through `child` that agree with the parent traversal `parent_trav`.
+    ///
+    /// @return Every traversal the traversal finder finds through `child`, if `parent_trav`
+    /// visits both of the child's boundary nodes, or else none.
     TraversalSet find_child_traversal_set(const SnarlTraversal& parent_trav,
                                           const Snarl& child) const;
 
 private:
+    /// Return true if the site between `start` and `end` has more edges than the cap.
+    bool too_big(handle_t start, handle_t end) const;
+
+    /// Get the names of the usable reference paths that visit `handle`, sorted.
+    set<string> reference_paths_on(handle_t handle) const;
+
+    /// Get the names of the usable reference paths that visit both `start` and `end`, sorted.
+    vector<string> common_reference_paths(handle_t start, handle_t end) const;
+
+    /// Trace the reference path through `snarl` over `ref_interval` into `ref_trav`.
+    ///
+    /// @param given_snarl The site as the caller gave it, for the warning.
+    /// @return False, after a warning, if the path ends before the end of the site.
+    bool reference_traversal(const Snarl& snarl,
+                             const tuple<int64_t, int64_t, bool, step_handle_t, step_handle_t>&
+                                 ref_interval,
+                             const Snarl& given_snarl, SnarlTraversal& ref_trav) const;
+
+    /// Return true if the longest of `travs` is within the allele length range.
+    bool in_allele_length_range(const vector<SnarlTraversal>& travs) const;
+
     const PathPositionHandleGraph& graph;
     TraversalFinder& traversal_finder;
     const unordered_set<string>& ref_path_set;

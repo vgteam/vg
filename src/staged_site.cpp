@@ -7,10 +7,9 @@
 
 #include "staged_site.hpp"
 
-namespace vg {
-namespace multipass {
+namespace vg::multipass {
 
-/// Total over the per-thread queues.
+/// Count the sites in all of the per-thread queues.
 template <typename Queues>
 static size_t total_queued(const Queues& queues) {
     size_t n = 0;
@@ -20,8 +19,8 @@ static size_t total_queued(const Queues& queues) {
     return n;
 }
 
-void StagedSite::set_call(unique_ptr<SnarlCaller::CallInfo> info, SiteScore* typed) {
-    call_info = std::move(info);
+void StagedSite::set_call(unique_ptr<SnarlCaller::CallInfo> new_call, SiteScore* typed) {
+    call_info = std::move(new_call);
     score = typed;
 }
 
@@ -47,7 +46,7 @@ const vector<int>& StagedSite::panel_alleles(const PanelLookup& lookup) {
 }
 
 void StagedSiteTable::start(size_t threads) {
-    // resize, not assign: StagedSite holds a unique_ptr, so it cannot be copied.
+    // Use resize, not assign, because StagedSite holds a unique_ptr, so it cannot be copied.
     nested_lists.clear();
     nested_lists.resize(max(threads, (size_t)1));
     queues.clear();
@@ -66,11 +65,11 @@ vector<StagedSite>& StagedSiteTable::gather_nested() {
     const size_t before = nested_sites.size();
     nested_sites.reserve(nested_sites.size() + total_queued(nested_lists));
     for (auto& list : nested_lists) {
-        std::move(list.begin(), list.end(), std::back_inserter(nested_sites));
+        std::ranges::move(list, std::back_inserter(nested_sites));
         list.clear();
     }
     if (nested_sites.size() != before) {
-        // Built from every gathered site, so that dropping a chain can drop everything under it.
+        // Index every gathered site, so that dropping a chain can drop everything under it.
         children.clear();
         children.reserve(nested_sites.size() * 2);
         for (size_t i = 0; i < nested_sites.size(); ++i) {
@@ -104,15 +103,14 @@ void StagedSiteTable::for_each_parent_top_down(
     const function<void(const StagedSite& parent, const vector<size_t>& children)>& visit) const {
     vector<pair<uint8_t, size_t>> parents;
     parents.reserve(children.size());
-    for (const auto& kv : children) {
-        auto parent = by_key.find(kv.first);
-        if (parent != by_key.end()) {
-            parents.emplace_back(parent->second->level, kv.first);
+    for (const auto& [parent_key, kids] : children) {
+        if (auto parent = by_key.find(parent_key); parent != by_key.end()) {
+            parents.emplace_back(parent->second->level, parent_key);
         }
     }
-    sort(parents.begin(), parents.end());
-    for (const pair<uint8_t, size_t>& level_key : parents) {
-        visit(*by_key.at(level_key.second), children.at(level_key.second));
+    std::ranges::sort(parents);
+    for (const auto& [level, parent_key] : parents) {
+        visit(*by_key.at(parent_key), children.at(parent_key));
     }
 }
 
@@ -160,8 +158,11 @@ StagedSiteTable::HandOff StagedSiteTable::hand_off() {
             } else {
                 ++out.no_ref_unrendered;
             }
-            // Kept for its parent's record, which spells its chosen allele, without its scores.
+            // Keep the site for its parent's record, which spells its chosen allele, and free its
+            // scores.
             site.set_call(nullptr, nullptr);
+            // TODO: clear() keeps the capacity, so this frees nothing, and panel_cached stays
+            // true, so panel_alleles() would now return nothing. Was this meant to free the cache?
             site.panel_cache.clear();
             held_back.push_back(std::move(site));
             continue;
@@ -180,8 +181,8 @@ size_t StagedSiteTable::queued_count() const {
 
 StagedSiteTree::StagedSiteTree(StagedSiteTable& sites, const HandleGraph& graph,
                                const function<string(const SiteBounds&)>& name) {
-    // A site named by its bounds is one node, however many staged sites it encloses and whether
-    // or not it was staged itself, so it is found by its bounds whichever way round they are read.
+    // Make one node for each site named by its bounds, however many staged sites it encloses and
+    // whether or not it was staged itself. Find it by its bounds, read either way round.
     using BoundsKey = tuple<uint64_t, uint64_t, bool>;
     auto key_of = [&](const SiteBounds& bounds) {
         const BoundsKey forward(handlegraph::as_integer(bounds.start),
@@ -197,16 +198,15 @@ StagedSiteTree::StagedSiteTree(StagedSiteTable& sites, const HandleGraph& graph,
     };
     map<BoundsKey, const Node*> by_bounds;
     auto node_for = [&](const SiteBounds& bounds, const Node* parent) {
-        auto found = by_bounds.find(key_of(bounds));
-        if (found != by_bounds.end()) {
+        if (auto found = by_bounds.find(key_of(bounds)); found != by_bounds.end()) {
             return found->second;
         }
-        nodes.push_back(Node{ends_of_bounds(bounds), string(), parent});
-        by_bounds.emplace(key_of(bounds), &nodes.back());
+        nodes.emplace_back(Node{ends_of_bounds(bounds), string(), parent});
+        by_bounds.try_emplace(key_of(bounds), &nodes.back());
         return (const Node*)&nodes.back();
     };
     sites.for_each([&](StagedSite& site) {
-        // The enclosing sites, outermost first, so that each is added after its own parent.
+        // Add the enclosing sites outermost first, so that each is added after its own parent.
         const Node* parent = nullptr;
         for (auto it = site.enclosing.rbegin(); it != site.enclosing.rend(); ++it) {
             parent = node_for(*it, parent);
@@ -214,7 +214,7 @@ StagedSiteTree::StagedSiteTree(StagedSiteTable& sites, const HandleGraph& graph,
         if (site.id == name(site.bounds)) {
             node_for(site.bounds, parent);
         } else {
-            nodes.push_back(Node{ends_of_bounds(site.bounds), site.id, parent});
+            nodes.emplace_back(Node{ends_of_bounds(site.bounds), site.id, parent});
         }
     });
 }
@@ -241,9 +241,8 @@ SiteEnds StagedSiteTree::ends_of(site_t site) const {
 }
 
 const string* StagedSiteTree::id_of(site_t site) const {
-    const Node* node = static_cast<const Node*>(site);
+    const auto* node = static_cast<const Node*>(site);
     return node->id.empty() ? nullptr : &node->id;
 }
 
-}
 }

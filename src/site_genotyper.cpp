@@ -1,7 +1,6 @@
 #include "site_genotyper.hpp"
 
-namespace vg {
-namespace multipass {
+namespace vg::multipass {
 
 SiteGenotyper::SiteGenotyper(ReadLikelihoodSnarlCaller& genotyper) : genotyper(genotyper) {
 }
@@ -22,5 +21,4 @@ void SiteGenotyper::recompute_gq(SiteScore& score) const {
     genotyper.recompute_gq(score);
 }
 
-}
 }

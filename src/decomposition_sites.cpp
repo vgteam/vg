@@ -10,7 +10,7 @@ namespace vg {
 using namespace std;
 
 SiteBounds site_bounds(const SnarlDecomposition& decomposition, const HandleGraph& graph, const net_handle_t& net) {
-    // The bounds ignore the traversal, so they come out start-to-end.
+    // get_bound() ignores the traversal, so these come out start-to-end.
     SiteBounds bounds {
         decomposition.get_handle(decomposition.get_bound(net, false, true), &graph),
         decomposition.get_handle(decomposition.get_bound(net, true, false), &graph)
@@ -22,13 +22,10 @@ SiteBounds site_bounds(const SnarlDecomposition& decomposition, const HandleGrap
 }
 
 bool is_trivial_site(const SnarlDecomposition& decomposition, const net_handle_t& snarl) {
-    bool has_children = !decomposition.for_each_child(snarl, [](const net_handle_t&) {
-        return false;
-    });
-    if (has_children) {
+    if (!decomposition.for_each_child(snarl, [](const net_handle_t&) { return false; })) {
+        // The iteration stopped at a child.
         return false;
     }
-    // Every realizable traversal must cross the snarl.
     return decomposition.for_each_traversal(snarl, [&](const net_handle_t& traversal) {
         SnarlDecomposition::endpoint_t start = decomposition.starts_at(traversal);
         SnarlDecomposition::endpoint_t end = decomposition.ends_at(traversal);

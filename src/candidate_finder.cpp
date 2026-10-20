@@ -17,7 +17,8 @@ CandidateFinder::CandidateFinder(const PathPositionHandleGraph& graph,
     allele_length_range(allele_length_range) {
 }
 
-/// Where `snarl` lies on `ref_path_name`, as `get_ref_interval` gives it for the snarl's bounds.
+/// Find where `snarl` lies on `ref_path_name`, as `get_ref_interval` gives it for the bounds of the
+/// snarl.
 static tuple<int64_t, int64_t, bool, step_handle_t, step_handle_t> ref_interval_of(
     const PathPositionHandleGraph& graph, const Snarl& snarl, const string& ref_path_name) {
     return get_ref_interval(graph, graph.get_handle(snarl.start().node_id(), snarl.start().backward()),
@@ -25,14 +26,149 @@ static tuple<int64_t, int64_t, bool, step_handle_t, step_handle_t> ref_interval_
                             ref_path_name);
 }
 
+bool CandidateFinder::too_big(handle_t start, handle_t end) const {
+    // Counting the edges walks the whole site, so skip it when there is no cap.
+    return max_snarl_edges != numeric_limits<size_t>::max()
+           && site_contents(graph, start, end, false).second.size() > max_snarl_edges;
+}
+
+set<string> CandidateFinder::reference_paths_on(handle_t handle) const {
+    set<string> names;
+    graph.for_each_step_on_handle(handle, [&](step_handle_t step_handle) {
+        string name = graph.get_path_name(graph.get_path_handle_of_step(step_handle));
+        if (!Paths::is_alt(name) && (ref_path_set.empty() || ref_path_set.count(name))) {
+            names.insert(name);
+        }
+        return true;
+    });
+    return names;
+}
+
+vector<string> CandidateFinder::common_reference_paths(handle_t start, handle_t end) const {
+    const set<string> start_path_names = reference_paths_on(start);
+    set<string> end_path_names;
+    if (!start_path_names.empty()) {
+        end_path_names = reference_paths_on(end);
+    }
+    // Take the full intersection, rather than the first common path, so that the choice from it
+    // does not depend on the order of iteration, which could change between implementations or
+    // runs.
+    vector<string> common_names;
+    std::set_intersection(start_path_names.begin(), start_path_names.end(),
+                          end_path_names.begin(), end_path_names.end(),
+                          std::back_inserter(common_names));
+    return common_names;
+}
+
+/// Choose the reference path to call a site on from the sorted, nonempty `common_names`.
+///
+/// Prefer the first path outside the gref namespace, or else the first path. A gref copy of the
+/// reference sorts before the path it was copied from (gref_x < x), so test the whole gref
+/// namespace, not just the fragment suffix.
+static string preferred_reference(const vector<string>& common_names) {
+    for (const string& name : common_names) {
+        if (!GrefCover::is_gref_derived(name)) {
+            return name;
+        }
+    }
+    return common_names.front();
+}
+
+bool CandidateFinder::reference_traversal(const Snarl& snarl,
+                                          const tuple<int64_t, int64_t, bool, step_handle_t,
+                                                      step_handle_t>& ref_interval,
+                                          const Snarl& given_snarl, SnarlTraversal& ref_trav) const {
+    step_handle_t cur_step = get<3>(ref_interval);
+    step_handle_t last_step = get<4>(ref_interval);
+    if (get<2>(ref_interval)) {
+        std::swap(cur_step, last_step);
+    }
+    const bool start_backwards =
+        snarl.start().backward() != graph.get_is_reverse(graph.get_handle_of_step(cur_step));
+
+    while (true) {
+        handle_t cur_handle = graph.get_handle_of_step(cur_step);
+        Visit* visit = ref_trav.add_visit();
+        visit->set_node_id(graph.get_id(cur_handle));
+        visit->set_backward(start_backwards ? !graph.get_is_reverse(cur_handle)
+                                            : graph.get_is_reverse(cur_handle));
+        if (graph.get_id(cur_handle) == snarl.end().node_id()) {
+            break;
+        }
+        const bool path_backward = get<2>(ref_interval);
+        if (path_backward ? !graph.has_previous_step(cur_step) : !graph.has_next_step(cur_step)) {
+            cerr << "Warning [vg call]: Unable, due to bug or corrupt path information, to trace "
+                    "reference path through snarl "
+                 << pb2json(given_snarl) << endl;
+            return false;
+        }
+        cur_step = path_backward ? graph.get_previous_step(cur_step) : graph.get_next_step(cur_step);
+    }
+    assert(ref_trav.visit(0) == snarl.start()
+           && ref_trav.visit(ref_trav.visit_size() - 1) == snarl.end());
+    return true;
+}
+
+bool CandidateFinder::in_allele_length_range(const vector<SnarlTraversal>& travs) const {
+    if (allele_length_range.first == 0
+        && allele_length_range.second == numeric_limits<size_t>::max()) {
+        return true;
+    }
+    size_t max_trav_len = 0;
+    for (const SnarlTraversal& trav : travs) {
+        // Count the interior nodes only.
+        size_t trav_len = 0;
+        for (size_t i = 1; i < trav.visit_size() - 1; ++i) {
+            trav_len += graph.get_length(graph.get_handle(trav.visit(i).node_id()));
+        }
+        max_trav_len = max(max_trav_len, trav_len);
+        if (max_trav_len > allele_length_range.second) {
+            return false;
+        }
+    }
+    return max_trav_len >= allele_length_range.first;
+}
+
+/**
+ * Choose the reference traversal of a site with no reference path of its own, adding it to
+ * `travs` if needed.
+ *
+ * The first traversal of the first nonempty parent set stands in. If no set names one, use
+ * `travs[0]`, with parent sets, or none, without them. That leaves a site of off-reference nested
+ * calling with no reference traversal, since `travs[0]` is the flow finder's best-supported
+ * traversal, and making it REF would bias the genotyper's tie-break toward it.
+ *
+ * @return The index in `travs` of the reference traversal, or -1 for none.
+ */
+static int stand_in_reference(vector<SnarlTraversal>& travs,
+                              const ChildTraversalSets* parent_child_trav_sets) {
+    if (parent_child_trav_sets == nullptr) {
+        return -1;
+    }
+    int ref_trav_idx = -1;
+    auto first_set = std::ranges::find_if(*parent_child_trav_sets,
+                                          [](const TraversalSet& tset) { return !tset.empty(); });
+    if (first_set != parent_child_trav_sets->end()) {
+        const SnarlTraversal& first_trav = first_set->front();
+        auto found = std::find(travs.begin(), travs.end(), first_trav);
+        if (found != travs.end()) {
+            ref_trav_idx = (int)(found - travs.begin());
+        } else if (first_trav.visit_size() > 0) {
+            ref_trav_idx = travs.size();
+            travs.push_back(first_trav);
+        }
+    }
+    if (ref_trav_idx < 0) {
+        ref_trav_idx = travs.empty() ? -1 : 0;
+    }
+    return ref_trav_idx;
+}
+
 bool CandidateFinder::find(const Snarl& given_snarl, const string& parent_ref_path_name,
                            pair<size_t, size_t> parent_ref_interval,
                            const ChildTraversalSets* parent_child_trav_sets, bool no_reference,
                            Site& site) const {
-    // todo: In order to experiment with merging consecutive snarls to make longer traversals,
-    // I am experimenting with sending "fake" snarls through this code.  So make a local
-    // copy to work on to do things like flip -- calling any snarl_manager code that
-    // wants a pointer will crash.
+    // Work on a copy, which can be flipped.
     site.snarl = given_snarl;
     Snarl& snarl = site.snarl;
 
@@ -43,240 +179,94 @@ bool CandidateFinder::find(const Snarl& given_snarl, const string& parent_ref_pa
 
     if (snarl.start().node_id() == snarl.end().node_id() ||
         !graph.has_node(snarl.start().node_id()) || !graph.has_node(snarl.end().node_id())) {
-        // can't call one-node or out-of graph snarls.
+        // A site of one node, or outside the graph, cannot be called.
         return false;
     }
 
     handle_t start_handle = graph.get_handle(snarl.start().node_id(), snarl.start().backward());
     handle_t end_handle = graph.get_handle(snarl.end().node_id(), snarl.end().backward());
-
-    // size cap needed as non-nested FlowCaller doesn't handle large snarls. Counting the edges
-    // walks the whole site, so it is skipped when there is no cap.
-    if (max_snarl_edges != numeric_limits<size_t>::max() &&
-        site_contents(graph, start_handle, end_handle, false).second.size() > max_snarl_edges) {
+    if (too_big(start_handle, end_handle)) {
         return false;
     }
 
-    // as we're writing to VCF, we need a reference path through the snarl.  we
-    // look it up directly from the graph, and abort if we can't find one
-    set<string> start_path_names;
-    graph.for_each_step_on_handle(start_handle, [&](step_handle_t step_handle) {
-            string name = graph.get_path_name(graph.get_path_handle_of_step(step_handle));
-            if (!Paths::is_alt(name) && (ref_path_set.empty() || ref_path_set.count(name))) {
-                start_path_names.insert(name);
-            }
-            return true;
-        });
-    
-    set<string> end_path_names;
-    if (!start_path_names.empty()) {
-        graph.for_each_step_on_handle(end_handle, [&](step_handle_t step_handle) {
-                string name = graph.get_path_name(graph.get_path_handle_of_step(step_handle));
-                if (!Paths::is_alt(name) && (ref_path_set.empty() || ref_path_set.count(name))) {                
-                    end_path_names.insert(name);
-                }
-                return true;
-            });
-    }
-    
-    // we do the full intersection (instead of more quickly finding the first common path)
-    // so that we always take the lexicographically lowest path, rather than depending
-    // on the order of iteration which could change between implementations / runs.
-    vector<string> common_names;
-    std::set_intersection(start_path_names.begin(), start_path_names.end(),
-                          end_path_names.begin(), end_path_names.end(),
-                          std::back_inserter(common_names));
-
-    if (common_names.empty()) {
-        // No reference path through snarl
-        // If we have parent context, we can still process using parent's ref path
-        // This test and the use_parent_interval test below must agree: otherwise get_ref_interval
-        // would be called with the parent's reference path, which does not visit this snarl's
-        // boundary nodes, and would assert.
-        if ((parent_child_trav_sets == nullptr && !no_reference)
-            || parent_ref_path_name.empty()) {
+    // A VCF record needs a reference path through the site.
+    const vector<string> common_names = common_reference_paths(start_handle, end_handle);
+    // A site with no reference path takes its parent's path and interval, with parent traversal
+    // sets or with `no_reference`. Otherwise get_ref_interval would be called with the parent's
+    // path, which does not visit this site's boundary nodes, and would assert.
+    site.use_parent_interval = common_names.empty();
+    if (site.use_parent_interval
+        && ((parent_child_trav_sets == nullptr && !no_reference) || parent_ref_path_name.empty())) {
 #ifdef debug
-            cerr << "  -> returning false: no common ref path and no parent context" << endl;
+        cerr << "  -> returning false: no common ref path and no parent context" << endl;
 #endif
-            return false;
-        }
-#ifdef debug
-        cerr << "  -> using parent ref path: " << parent_ref_path_name << endl;
-#endif
-    }
-
-    // Use parent's ref path if no direct path, otherwise prefer base reference over gref paths
-    string& ref_path_name = site.ref_path_name;
-    if (common_names.empty()) {
-        ref_path_name = parent_ref_path_name;
-    } else {
-        // Prefer base reference paths over derived gref paths.  Test the whole gref
-        // namespace, not just the fragment suffix: a gref copy of the reference sorts
-        // before the path it was copied from (gref_x < x).
-        // common_names is sorted, so we iterate to find first non-gref path
-        ref_path_name = common_names.front();  // default to first (lexicographically smallest)
-        for (const string& name : common_names) {
-            if (!GrefCover::is_gref_derived(name)) {
-                ref_path_name = name;
-                break;
-            }
-        }
-    }
-
-    // find the reference traversal and coordinates using the path position graph interface
-    tuple<int64_t, int64_t, bool, step_handle_t, step_handle_t>& ref_interval = site.ref_interval;
-    bool& use_parent_interval = site.use_parent_interval;
-    use_parent_interval = false;
-
-    if (common_names.empty()) {
-        // No direct reference path - use parent's interval and traversals directly
-        ref_interval = make_tuple(parent_ref_interval.first, parent_ref_interval.second, false, step_handle_t(), step_handle_t());
-        use_parent_interval = true;
-    } else {
-        ref_interval = ref_interval_of(graph, snarl, ref_path_name);
-        if (get<0>(ref_interval) == -1) {
-            // could not find reference path interval consistent with snarl due to orientation conflict
-            return false;
-        }
-        if (get<2>(ref_interval) == true) {
-            // calling code assumes snarl forward on reference
-            flip_snarl(snarl);
-            ref_interval = ref_interval_of(graph, snarl, ref_path_name);
-        }
+        return false;
     }
 
     SnarlTraversal ref_trav;
-
-    if (!use_parent_interval) {
-        // Build reference traversal from path steps
-        step_handle_t cur_step = get<3>(ref_interval);
-        step_handle_t last_step = get<4>(ref_interval);
-        if (get<2>(ref_interval)) {
-            std::swap(cur_step, last_step);
+    if (site.use_parent_interval) {
+        site.ref_path_name = parent_ref_path_name;
+        site.ref_interval = make_tuple(parent_ref_interval.first, parent_ref_interval.second, false,
+                                       step_handle_t(), step_handle_t());
+    } else {
+        site.ref_path_name = preferred_reference(common_names);
+        site.ref_interval = ref_interval_of(graph, snarl, site.ref_path_name);
+        if (get<0>(site.ref_interval) == -1) {
+            // The reference path's orientation conflicts with the site's.
+            return false;
         }
-        bool start_backwards = snarl.start().backward() != graph.get_is_reverse(graph.get_handle_of_step(cur_step));
-
-        while (true) {
-            handle_t cur_handle = graph.get_handle_of_step(cur_step);
-            Visit* visit = ref_trav.add_visit();
-            visit->set_node_id(graph.get_id(cur_handle));
-            visit->set_backward(start_backwards ? !graph.get_is_reverse(cur_handle) : graph.get_is_reverse(cur_handle));
-            if (graph.get_id(cur_handle) == snarl.end().node_id()) {
-                break;
-            } else if (get<2>(ref_interval) == true) {
-                if (!graph.has_previous_step(cur_step)) {
-                    cerr << "Warning [vg call]: Unable, due to bug or corrupt path information, to trace reference path through snarl " << pb2json(given_snarl) << endl;
-                    return false;
-                }
-                cur_step = graph.get_previous_step(cur_step);
-            } else {
-                if (!graph.has_next_step(cur_step)) {
-                    cerr << "Warning [vg call]: Unable, due to bug or corrupt path information, to trace reference path through snarl " << pb2json(given_snarl) << endl;
-                    return false;
-                }
-                cur_step = graph.get_next_step(cur_step);
-            }
-            // todo: we can compute flow at the same time
+        if (get<2>(site.ref_interval)) {
+            // Orient the site forward along the reference.
+            flip_snarl(snarl);
+            site.ref_interval = ref_interval_of(graph, snarl, site.ref_path_name);
         }
-        assert(ref_trav.visit(0) == snarl.start() && ref_trav.visit(ref_trav.visit_size() - 1) == snarl.end());
+        if (!reference_traversal(snarl, site.ref_interval, given_snarl, ref_trav)) {
+            return false;
+        }
     }
-    // If use_parent_interval, ref_trav stays empty - we'll use first parent traversal as pseudo-reference
 
     vector<SnarlTraversal>& travs = site.travs;
-    travs.clear();
     travs = traversal_finder.find_traversals(snarl);
-
     if (travs.empty()) {
         cerr << "Warning [vg call]: Unable, due to bug or corrupt graph, to search for any traversals through snarl " << pb2json(given_snarl) << endl;
         return false;
     }
 #ifdef debug
-    cerr << "  found " << travs.size() << " traversals, use_parent_interval=" << use_parent_interval << endl;
+    cerr << "  found " << travs.size() << " traversals, use_parent_interval=" << site.use_parent_interval << endl;
 #endif
 
-    // optional traversal length clamp can, ex, avoid trying to resolve a giant snarl    
-    if (allele_length_range.first > 0 || allele_length_range.second < numeric_limits<size_t>::max()) {
-        size_t max_trav_len = 0;
-        for (const SnarlTraversal & trav : travs) {
-            size_t trav_len = 0;
-            for (size_t i = 1; i < trav.visit_size() - 1; ++i) {
-                trav_len += graph.get_length(graph.get_handle(trav.visit(i).node_id()));
-            }
-            max_trav_len = max(max_trav_len, trav_len);
-            if (max_trav_len > allele_length_range.second) {
-                return false;
-            }
-        }
-        if (max_trav_len < allele_length_range.first) {
-            return false;
-        }
+    // The length range can keep a giant site from being resolved.
+    if (!in_allele_length_range(travs)) {
+        return false;
     }
 
-    // find the reference traversal in the list of results from the traversal finder
-    int& ref_trav_idx = site.ref_trav_idx;
-    ref_trav_idx = -1;
-
-    if (use_parent_interval) {
-        // No direct reference path - use first traversal from first non-empty set as pseudo-reference
-        if (parent_child_trav_sets != nullptr) {
-            for (const auto& tset : *parent_child_trav_sets) {
-                if (!tset.empty()) {
-                    const SnarlTraversal& first_trav = tset[0];
-                    for (int i = 0; i < travs.size() && ref_trav_idx < 0; ++i) {
-                        if (travs[i] == first_trav) {
-                            ref_trav_idx = i;
-                        }
-                    }
-                    if (ref_trav_idx < 0 && first_trav.visit_size() > 0) {
-                        ref_trav_idx = travs.size();
-                        travs.push_back(first_trav);
-                    }
-                    break;
-                }
-            }
-        }
-        // Left at -1 where no parent traversal set named a reference: travs[0] is the flow finder's
-        // best-supported traversal, and making it REF would bias the genotyper's tie-break toward
-        // it. The genotyper checks ref_trav_idx >= 0 before using it.
-        if (ref_trav_idx < 0 && parent_child_trav_sets != nullptr) {
-            ref_trav_idx = travs.empty() ? -1 : 0;
-        }
+    if (site.use_parent_interval) {
+        site.ref_trav_idx = stand_in_reference(travs, parent_child_trav_sets);
     } else {
-        for (int i = 0; i < travs.size() && ref_trav_idx < 0; ++i) {
-            // todo: is there a way to speed this up?
-            if (travs[i] == ref_trav) {
-                ref_trav_idx = i;
-            }
-        }
-
-        if (ref_trav_idx == -1) {
-            ref_trav_idx = travs.size();
-            // we didn't get the reference traversal from the finder, so we add it here
+        // Add the reference traversal if the finder did not find it.
+        auto found = std::find(travs.begin(), travs.end(), ref_trav);
+        site.ref_trav_idx = (int)(found - travs.begin());
+        if (found == travs.end()) {
             travs.push_back(ref_trav);
         }
     }
     return true;
 }
+
 TraversalSet CandidateFinder::find_child_traversal_set(const SnarlTraversal& parent_trav,
                                                         const Snarl& child) const {
-    // First, check if the parent traversal goes through this child snarl
-    // by finding the child's start and end nodes in the parent
-    nid_t child_start_id = child.start().node_id();
-    nid_t child_end_id = child.end().node_id();
-    bool found_start = false, found_end = false;
-
-    for (int i = 0; i < parent_trav.visit_size(); ++i) {
-        nid_t visit_id = parent_trav.visit(i).node_id();
-        if (visit_id == child_start_id) found_start = true;
-        if (visit_id == child_end_id) found_end = true;
+    // The parent traversal crosses the child if it visits both of the child's boundary nodes.
+    const nid_t child_start_id = child.start().node_id();
+    const nid_t child_end_id = child.end().node_id();
+    bool found_start = false;
+    bool found_end = false;
+    for (const Visit& visit : parent_trav.visit()) {
+        found_start = found_start || visit.node_id() == child_start_id;
+        found_end = found_end || visit.node_id() == child_end_id;
     }
-
-    // If parent doesn't traverse the child, return empty set (star allele case)
     if (!found_start || !found_end) {
         return TraversalSet();
     }
-
-    // Use the traversal finder to enumerate all traversals through the child
     return traversal_finder.find_traversals(child);
 }
 

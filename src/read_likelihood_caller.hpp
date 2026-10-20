@@ -23,43 +23,38 @@ namespace vg {
 
 using namespace std;
 
-/**
- * Genotypes a site by building its reads x alleles likelihood matrix and scoring
- * every genotype over the candidate alleles.
- *
- * ## Why this subclasses SupportBasedSnarlCaller
- *
- * The genotyping uses no read support. It derives from SupportBasedSnarlCaller
- * only because the graph callers reach their traversal finder's support through
- * that interface.
- *
- * ## Relationship to the VCF layer
- *
- * VCFOutputCaller::emit_variant merges alleles with the same sequence and drops
- * uncalled ones before calling update_vcf_info, so the traversal indices it passes
- * do not match the matrix. This caller keeps the traversals it scored in its
- * CallInfo and matches each remaining traversal to one of them node by node. A
- * record with an allele that matches none, such as the empty traversal of a star
- * allele, is written without GL, since GL needs an entry for every genotype.
- */
 /// The ploidies one site is genotyped with.
 struct Ploidies {
     /// The ploidy to genotype the site at.
     int ploidy = 2;
-    /// How many of the sample's haplotypes the region around the site holds, or 0 to take
-    /// `ploidy`. The depth term needs it: its rate is per haplotype, and the reads it is measured
-    /// from come from every haplotype in the region. Only a nested site needs it set, since a
-    /// nested site's ploidy counts only the parent alleles that cross it, where a top-level site's
-    /// ploidy is the region's.
+    /// The number of the sample's haplotypes in the region around the site, or 0 to take
+    /// `ploidy`.
+    ///
+    /// The depth term needs it, since its rate is per haplotype, and its reads come from every
+    /// haplotype in the region. Only a nested site needs it set, since a nested site's ploidy
+    /// counts only the parent alleles that cross it.
     int region_ploidy = 0;
-    /// Also score the site at the other ploidy (2 for ploidy 1, and 1 otherwise), filling
-    /// `alt_ploidy_best` and `alt_ploidy_info` where the site has more than one candidate allele.
-    /// The matrix is reused, since it does not depend on ploidy. Only a site in a nested chain
-    /// needs this, because its ploidy comes from its parent's genotype, which the linkage pass
-    /// chooses later. A top-level site's ploidy is fixed, so asking for it there only costs memory.
+    /// Whether to also score the site at the other ploidy, 2 for ploidy 1 and 1 otherwise.
+    ///
+    /// That fills `alt_ploidy_best` and `alt_ploidy_info` where the site has more than one
+    /// candidate allele, from the same matrix. Only a site in a nested chain needs it, because its
+    /// ploidy comes from its parent's genotype, which the linkage pass chooses later.
     bool also_score_other = false;
 };
 
+/**
+ * A genotyper that scores every genotype of a site from its reads x alleles likelihood matrix.
+ *
+ * The genotyping uses no read support. It derives from SupportBasedSnarlCaller only because the
+ * graph callers reach their traversal finder's support through that interface.
+ *
+ * VCFOutputCaller::emit_variant merges alleles with the same sequence and drops uncalled ones
+ * before calling update_vcf_info, so the traversal indices it passes do not match the matrix.
+ * This genotyper keeps the traversals it scored in its CallInfo, and matches each written
+ * traversal to one of them node by node. A record with an allele that matches none, such as the
+ * empty traversal of a star allele, is written without GL, since GL needs an entry for every
+ * genotype.
+ */
 class ReadLikelihoodSnarlCaller : public SupportBasedSnarlCaller {
 public:
 
@@ -67,155 +62,183 @@ public:
                               TraversalSupportFinder& support_finder,
                               AlleleLikelihoodCalculator& likelihood_calculator);
 
-    virtual ~ReadLikelihoodSnarlCaller();
+    ~ReadLikelihoodSnarlCaller() override;
 
+    /// The genotyping result of one site: the scores of its genotypes, and the fields the record
+    /// is written from.
     struct ReadLikelihoodCallInfo : public SnarlCaller::CallInfo {
-        virtual ~ReadLikelihoodCallInfo() = default;
+        ~ReadLikelihoodCallInfo() override = default;
 
-        /// Phred-scaled gap between the best and second-best genotype, times the discounts
+        /// The phred-scaled gap between the best and second-best genotypes, times the discounts
         /// (see `discounted_gq`). Written as GQ.
         double gq = 0;
-        /// ln posterior, under a uniform prior over genotypes, of the genotype with the
-        /// highest likelihood. Written as GP.
+        /// The ln posterior of the genotype with the highest likelihood, under a uniform prior
+        /// over genotypes. Written as GP.
         double posterior = 0;
         /// The number of reads in the site's matrix. Written as DP.
         size_t n_reads = 0;
         /// The ploidy this site was genotyped at.
         int ploidy = 2;
 
-        /// ln P(reads | G) for every genotype scored, keyed by the sorted allele
-        /// index multiset so the VCF layer can look up by remapped indices.
+        /// The ln P(reads | G) of every genotype scored, by the sorted multiset of its allele
+        /// indices.
         map<vector<int>, double> genotype_lls;
         /// The best genotype at the other ploidy (2 for a site genotyped at ploidy 1, and 1
         /// otherwise), as traversal indices. Empty unless requested with
         /// `Ploidies::also_score_other`.
         vector<int> alt_ploidy_best;
 
-        /// The whole call at the other ploidy, computed from the same matrix, so that the
-        /// site's record can be built at whichever ploidy the linkage pass gives it. Null unless
-        /// requested with `Ploidies::also_score_other`. Its ploidy-independent fields, such as
-        /// `scored_traversals` and `allele_support`, are copies of this one's.
+        /// The whole call at the other ploidy, from the same matrix, or null unless requested
+        /// with `Ploidies::also_score_other`.
+        ///
+        /// The site's record can then be built at whichever ploidy the linkage pass gives it. Its
+        /// fields that do not depend on ploidy, such as `scored_traversals` and
+        /// `allele_support`, are copies of this one's.
         unique_ptr<ReadLikelihoodCallInfo> alt_ploidy_info;
 
-        /// The walks that were scored, in matrix column order. Kept so the deduplicated
-        /// traversals handed to update_vcf_info can be mapped back.
+        /// The walks that were scored, in matrix column order.
+        ///
+        /// The deduplicated traversals handed to update_vcf_info are mapped back to them.
         vector<Traversal> scored_traversals;
 
-        /// Per-read anchor evidence, when anchors are written; null otherwise. It depends on
-        /// the matrix, not on the ploidy, so when the linkage pass replaces this CallInfo with
-        /// `alt_ploidy_info` it must move it across.
+        /// The per-read anchor evidence when anchors are written, or null.
+        ///
+        /// It depends on the matrix, not on the ploidy, so when the linkage pass replaces this
+        /// CallInfo with `alt_ploidy_info` it must move it across.
         unique_ptr<AnchorSiteEvidence> anchor_evidence;
-        /// Per-read phasing evidence, with read phasing and no anchors; null otherwise. Moved
-        /// across like `anchor_evidence`.
+        /// The per-read phasing evidence with read phasing and no anchors, or null.
+        ///
+        /// It is moved across like `anchor_evidence`.
         unique_ptr<PhaseReadEvidence> phase_evidence;
 
-        /// The per-read evidence that read phasing and re-genotyping need, from whichever of
-        /// the two fields above the site kept. When anchors are written the site keeps only
-        /// `anchor_evidence`, which is converted into `scratch`; `scratch` must then outlive
-        /// the returned pointer. Null where the site kept neither, or has no reads or alleles.
+        /// Get the per-read evidence that read phasing and re-genotyping need, or null where the
+        /// site kept none, or has no reads or alleles.
+        ///
+        /// When anchors are written the site keeps only `anchor_evidence`, which is converted
+        /// into `scratch`. Then `scratch` must outlive the returned pointer.
         const PhaseReadEvidence* read_phasing_evidence(PhaseReadEvidence& scratch) const;
 
-        /// `genotype_lls` as the direct pass computed them, before re-genotyping corrected them.
-        /// Saved at the first correction, and each later round of re-genotyping corrects
-        /// these rather than the previous round's values. Null until re-genotyping changes
-        /// the site.
+        /// The `genotype_lls` as the direct pass computed them, or null until re-genotyping
+        /// changes the site.
+        ///
+        /// They are saved at the first correction. Each later round of re-genotyping corrects
+        /// these, rather than the previous round's values.
         unique_ptr<map<vector<int>, double>> uncorrected_lls;
 
-        /// For each scored allele, in matrix column order, the number of reads that fit it
-        /// best. A read that fits several alleles equally well splits its count between
-        /// them.
+        /// The number of reads that fit each scored allele best, in matrix column order.
+        ///
+        /// A read that fits several alleles equally well splits its count between them.
         vector<double> allele_support;
 
-        /// Mean over reads of the best log-likelihood score any allele gave them, in nats,
-        /// the row divisor. It says whether the reads fit any allele here, where GQ says how
-        /// far apart the top two genotypes are. Written as BL.
+        /// The mean over reads of the best log-likelihood score any allele gave them, in nats.
+        /// Written as BL.
+        ///
+        /// It says whether the reads fit any allele here, where GQ says how far apart the top two
+        /// genotypes are.
         double mean_best_ln = 0;
 
-        /// Fraction of reads whose best-fitting allele is one of the called alleles,
-        /// derived from allele_support. 1.0 when the called genotype accounts for every
-        /// read at the site.
+        /// The fraction of reads whose best-fitting allele is one of the called alleles, from
+        /// `allele_support`.
         double explained_share = 1.0;
 
-        /// Observed reads over the number the called genotype predicts, from the local
-        /// rate and the lengths of the called alleles; 1.0 when the two agree. Negative where
-        /// no read begins in the rate window. DR is written from `depth_ratio_of` for the
-        /// written genotype where that can be computed, and from this otherwise.
+        /// The observed reads over the number the called genotype predicts, from the local rate
+        /// and the lengths of the called alleles, or negative if no read begins in the rate
+        /// window.
+        ///
+        /// DR is written from `depth_ratio_of` for the written genotype where that can be
+        /// computed, and from this otherwise.
         double depth_ratio = -1.0;
 
-        /// The parts of the matrix's depth context that DR needs for a genotype other than the
-        /// direct call: T_h for each scored allele, in matrix column order, the read-start rate
-        /// per haplotype, R and the observed count N (see AlleleReadLikelihoods::
-        /// set_depth_context). `depth_lengths` is empty where the depth context was not set.
+        // The parts of the depth context of the matrix that DR needs for a genotype other than
+        // the direct call (see AlleleReadLikelihoods::set_depth_context).
+
+        /// T_h for each scored allele, in matrix column order, or empty where the depth context
+        /// was not set.
         vector<size_t> depth_lengths;
+        /// The read-start rate per haplotype.
         double depth_rate = 0.0;
+        /// The read length R.
         double depth_read_length = 0.0;
+        /// The observed read count N.
         double depth_observed = 0.0;
 
-        /// N / lambda_G for a genotype given as matrix columns, as `depth_ratio` is for the
-        /// direct call; -1 where lambda_G is 0 or the depth context was not set.
+        /// Get N / lambda_G for a genotype given as matrix columns, as `depth_ratio` is for the
+        /// direct call, or -1 where lambda_G is 0 or the depth context was not set.
         double depth_ratio_of(const vector<int>& scored_genotype) const;
 
-        /// GQ before any discount, the explained share's or the depth discount. Written as GQI.
+        /// GQ before the explained share and the depth discount. Written as GQI.
         double gq_undiscounted = 0;
 
-        /// The factor the depth discount multiplies GQ by (see set_depth_quality); 1.0 where
+        /// The factor the depth discount multiplies GQ by (see set_depth_quality), or 1.0 where
         /// it does not apply.
         double depth_discount = 1.0;
 
         /// The ln-likelihood difference between the called genotype and the runner-up, as a
-        /// fraction of the largest difference the read term could give between the two (see
-        /// AlleleReadLikelihoods::achievable_gap), held at 1 or less and multiplied by the
-        /// explained share. In [0, 1], and comparable across depths and ploidies. Negative
-        /// when there was nothing to normalise (no reads, or only one possible genotype),
-        /// which is different from 0. Written as GQN, except on records whose genotype the
-        /// linkage model changed, which get a GQN of their own.
+        /// fraction of `achievable_gap`, capped at 1 and multiplied by the explained share.
+        ///
+        /// It is in [0, 1], and comparable across depths and ploidies. It is negative when there
+        /// was nothing to normalise, because there were no reads, or only one possible genotype.
+        /// Written as GQN, except on records whose genotype the linkage model changed, which get
+        /// a GQN of their own.
         double gq_fraction = -1.0;
 
-        /// The divisor of `gq_fraction`: the largest ln-likelihood difference the read term
-        /// could give between the called genotype and the runner-up (see
-        /// AlleleReadLikelihoods::achievable_gap), in nats. 0 where there is no runner-up.
+        /// The largest ln-likelihood difference the read term could give between the called
+        /// genotype and the runner-up (see AlleleReadLikelihoods::achievable_gap), in nats, or 0
+        /// where there is no runner-up.
         double achievable_gap = 0.0;
-
     };
 
-    /// Genotype the site `site`, whose candidate alleles are the walks `traversals`, at
-    /// `ploidies`. An allele with step sequences in `sequences` is spelled by them rather than by
-    /// its walk. `enclosing` holds the bounds of the sites enclosing it, innermost first. The
-    /// genotype is a multiset of indices into `traversals`, sorted; it is empty where the site
-    /// cannot be genotyped. The score is never null.
+    /**
+     * Genotype the site `site` at `ploidies`, choosing among the alleles `traversals`.
+     *
+     * @param ref_trav_idx The index of the reference allele in `traversals`, or -1 for none.
+     * @param enclosing The bounds of the sites enclosing `site`, innermost first.
+     * @param ref_path_name Unused.
+     * @param ref_range Unused.
+     * @param sequences Sequences to spell alleles by, in place of their walks, if given.
+     * @return The genotype, as a sorted multiset of indices into `traversals`, or empty if the
+     * site cannot be genotyped. Also the score, which is never null.
+     */
     pair<vector<int>, unique_ptr<ReadLikelihoodCallInfo>> genotype_at(
         const SiteBounds& site, const vector<Traversal>& traversals, int ref_trav_idx,
         const Ploidies& ploidies, const vector<SiteBounds>& enclosing,
         const string& ref_path_name, pair<size_t, size_t> ref_range,
         const AlleleSequences* sequences = nullptr);
 
-    /// Throws. `SnarlCaller` requires it, but this genotyper's one user, MultiPassCaller, calls
-    /// `genotype_at`; no `GraphCaller` holds it.
-    virtual pair<vector<int>, unique_ptr<CallInfo>> genotype(const Snarl& snarl,
-                                                             const vector<SnarlTraversal>& traversals,
-                                                             int ref_trav_idx,
-                                                             int ploidy,
-                                                             const string& ref_path_name,
-                                                             pair<size_t, size_t> ref_range);
+    /// Throw, because MultiPassCaller, the one user of this genotyper, calls `genotype_at`.
+    ///
+    /// `SnarlCaller` requires it.
+    pair<vector<int>, unique_ptr<CallInfo>> genotype(const Snarl& snarl,
+                                                     const vector<SnarlTraversal>& traversals,
+                                                     int ref_trav_idx,
+                                                     int ploidy,
+                                                     const string& ref_path_name,
+                                                     pair<size_t, size_t> ref_range) override;
 
     /// Write the record's fields from the scores, mapping each of the written `traversals` to
     /// the scored allele with the same walk (see `write_vcf_fields`).
-    virtual void update_vcf_info(const Snarl& snarl,
-                                 const vector<SnarlTraversal>& traversals,
-                                 const vector<int>& genotype,
-                                 const unique_ptr<CallInfo>& call_info,
-                                 const string& sample_name,
-                                 vcflib::Variant& variant);
+    void update_vcf_info(const Snarl& snarl,
+                         const vector<SnarlTraversal>& traversals,
+                         const vector<int>& genotype,
+                         const unique_ptr<CallInfo>& call_info,
+                         const string& sample_name,
+                         vcflib::Variant& variant) override;
 
-    /// Write the record's fields from the scores in `call_info`: DP, BL, DR, AD, GL and the rest.
-    /// `scored_allele` gives, for each written allele, the index of the scored allele it is, or
-    /// -1 for one that was not scored, such as a star allele. `genotype` is in written alleles.
-    /// Does nothing when `call_info` is not this genotyper's.
+    /**
+     * Write the record's fields from the scores in `call_info`: DP, BL, DR, AD, GL and the rest.
+     *
+     * Do nothing when `call_info` is not this genotyper's.
+     *
+     * @param scored_allele For each written allele, the index of the scored allele it is, or -1
+     * for one that was not scored, such as a star allele.
+     * @param genotype The genotype, in written alleles.
+     */
     void write_vcf_fields(const vector<int>& scored_allele, const vector<int>& genotype,
                           const CallInfo* call_info, const string& sample_name,
                           vcflib::Variant& variant) const;
 
-    virtual void update_vcf_header(string& header) const;
+    /// Add the header lines of the fields this genotyper writes.
+    void update_vcf_header(string& header) const override;
 
     /// Write the matrix for every site to this stream as TSV. Not owned.
     void set_likelihood_dump(ostream* dump_stream);
@@ -245,22 +268,26 @@ public:
     void set_depth_quality(double exponent, size_t min_length = 50);
 
     /**
-     * The explained share of the called genotype `called`: the fraction of the site's reads
+     * Get the explained share of the called genotype `called`, the fraction of the site's reads
      * whose best allele is one of its alleles.
      */
     static double explained_share(const ReadLikelihoodCallInfo& info, const vector<int>& called);
 
     /**
-     * GQ for the called genotype `called`, given `gap`, the phred difference between the two
-     * best genotypes: `gap` multiplied by the explained share of `called`, when the share
-     * discount is on, and by `info.depth_discount`.
+     * Get GQ for the called genotype `called`, given `gap`, the phred difference between the two
+     * best genotypes.
+     *
+     * That is `gap` times the explained share of `called`, when the share discount is on, times
+     * `info.depth_discount`.
      */
     double discounted_gq(const ReadLikelihoodCallInfo& info, const vector<int>& called,
                          double gap) const;
 
     /**
-     * The factor `discounted_gq` multiplies the gap by at the called genotype: `info`'s
-     * explained share, when the share discount is on, times `info.depth_discount`.
+     * Get the factor `discounted_gq` multiplies the gap by at the called genotype.
+     *
+     * That is the explained share of `info`, when the share discount is on, times
+     * `info.depth_discount`.
      */
     double gq_factor(const ReadLikelihoodCallInfo& info) const;
 
@@ -298,21 +325,42 @@ public:
                                                     const LinkageCollector::MovedQuality& moved,
                                                     double lowconf_threshold);
 
-protected:
+private:
+    /**
+     * Call the site at ploidy `ploidy` from its matrix, filling the ploidy-dependent fields of
+     * `info`.
+     *
+     * Break exact ties in favour of the all-reference genotype.
+     *
+     * @param ref_trav_idx The index of the reference allele, or -1 for none.
+     * @param trav_count The number of candidate alleles.
+     * @return The best genotype, or empty if no genotype was scored.
+     */
+    vector<int> call_at_ploidy(const AlleleReadLikelihoods& matrix, int ploidy, int ref_trav_idx,
+                               size_t trav_count, ReadLikelihoodCallInfo& info) const;
 
+    /**
+     * Get the depth discount of the called genotype `called`, or 1.0 where it does not apply.
+     *
+     * A call's size is the largest change in length of a called allele against the reference
+     * allele. The discount applies to calls of at least `depth_quality_min_length`.
+     */
+    double depth_discount_of(const AlleleReadLikelihoods& matrix, const vector<int>& called,
+                             int ref_trav_idx, double depth_ratio) const;
+
+    /// Builds the matrix of each site.
     AlleleLikelihoodCalculator& likelihood_calculator;
 
-    /// Optional TSV dump of every site's matrix, for development.
+    /// The stream to dump every site's matrix to as TSV, for development, or null.
     ostream* dump_stream = nullptr;
 
-
-
-    /// Whether GQ is scaled by the explained-read fraction. See set_share_discount.
+    /// Whether GQ is scaled by the explained share. See set_share_discount.
     bool share_discount = true;
 
-    /// Exponent on |ln DR| in the depth discount, and the smallest change in allele length
-    /// it applies to. Zero exponent disables. See set_depth_quality.
+    /// The exponent on |ln DR| in the depth discount, or 0 to turn it off. See
+    /// set_depth_quality.
     double depth_quality = 0.0;
+    /// The smallest change in allele length the depth discount applies to.
     size_t depth_quality_min_length = 50;
 
     /// GQN below which a record is marked lowconf. Zero disables. See set_min_confidence.

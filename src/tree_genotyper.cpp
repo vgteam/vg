@@ -8,10 +8,9 @@
 
 //#define debug
 
-namespace vg {
-namespace multipass {
+namespace vg::multipass {
 
-/// The outcome of a candidate as it is placed, or why it is not, for the dump.
+/// Make the outcome of a candidate for the dump, saying where it was placed, or why it was not.
 static EditOutcome unplaced_outcome(const EditCandidate& c, const string& why) {
     EditOutcome outcome;
     outcome.node = c.node;
@@ -30,14 +29,19 @@ void TreeGenotyper::configure(const Parts& parts, const Options& options) {
 
 namespace {
 
-/// Holds the read source's reads for one subtree while it is in scope (see
-/// `SiteReadSource::hold_reads`): a site too wide for one window of the read cache keeps the reads
-/// of its own fetch, and the sites below it that are as wide are genotyped from them rather than by
-/// fetching them again. With off-panel detection so are the edit sites, on the nodes of the
-/// candidates the call bar admits; the bar's depth-ratio limit applies to a genotyped edit site, so
-/// its reads are held whatever its depth.
+/**
+ * A hold on the reads of a read source for one subtree, while the hold is in scope (see
+ * `SiteReadSource::hold_reads`).
+ *
+ * A site too wide for one window of the read cache keeps the reads of its own fetch. The sites
+ * below it that are as wide are genotyped from them, rather than by fetching them again. With
+ * off-panel detection, so are the edit sites on the nodes of the candidates the call bar admits.
+ */
 struct SubtreeReadHold {
+    /// The source holding the reads, or null for none.
     const SiteReadSource* source;
+    SubtreeReadHold(const SubtreeReadHold&) = delete;
+    SubtreeReadHold& operator=(const SubtreeReadHold&) = delete;
     SubtreeReadHold(const SiteReadSource* source, const EditCallBar& bar) : source(source) {
         if (source != nullptr) {
             source->hold_reads(bar);
@@ -53,15 +57,13 @@ struct SubtreeReadHold {
 } // namespace
 
 bool TreeGenotyper::genotype(const SiteView& site) {
-    // The sites below it, edit sites among them, are genotyped while the hold has the reads.
+    // Genotype the sites below, edit sites among them, while the hold has the reads.
     SubtreeReadHold hold(parts.read_source != nullptr ? parts.read_source : parts.edit_source,
                          options.edit_bar);
-    // A top-level site has no parent context.
     const bool genotyped = genotype_tree(site, "", make_pair(0, 0), nullptr, -1, NestingPlacement());
     if (parts.edit_source != nullptr && site.enclosing.empty()) {
-        // The edit sites on the chain nodes this site lies between, which no site holds, while
-        // their reads are in memory: its own read query fetched both bounds. A node between two
-        // sites is taken by the first to reach it.
+        // Genotype the free edit sites on the boundary nodes of this site, whose reads its own read
+        // query fetched. The first site to reach a node between two sites takes it.
         const nid_t first = std::min(parts.graph->get_id(site.bounds.start),
                                      parts.graph->get_id(site.bounds.end));
         const nid_t last = std::max(parts.graph->get_id(site.bounds.start),
@@ -76,9 +78,8 @@ bool TreeGenotyper::genotype(const SiteView& site) {
                 {bound}, [&](const EditCandidate& c) { on_bound.push_back(c); });
             genotype_free_edits(std::move(on_bound));
         }
-        // Then the nodes no site holds that run along the reference from either bound to the
-        // next site, through the trivial sites the walk does not visit, as far as their reads come
-        // with the lower bound's.
+        // Then genotype those on the nodes that no site holds along the reference from either
+        // bound to the next site, as far as their reads come with the reads of the lower bound.
         vector<nid_t> near;
         for (nid_t bound : {first, last}) {
             free_nodes_along_reference(bound, near);
@@ -95,415 +96,384 @@ bool TreeGenotyper::genotype(const SiteView& site) {
     return genotyped;
 }
 
+/// One site as the direct pass genotypes it.
+///
+/// It holds the site's candidates, its genotype, and its staged site. The staged site waits here
+/// until the sites below have read the candidates, and then takes them.
+struct TreeGenotyper::SiteCall {
+    /// The site as the walk handed it over.
+    const SiteView& view;
+    /// The place of the site in the nesting tree.
+    const NestingPlacement& placement;
+    /// The site oriented along its reference path, and its candidate traversals.
+    CandidateFinder::Site site;
+    /// The bounds of `site`.
+    SiteBounds bounds;
+    /// The ID of the site's records (see `StagedSite::id`).
+    string id;
+    /// The record key of `id`.
+    size_t record_key = 0;
+    /// The sites nested in the site.
+    ChildPlacer::Nested nested;
+    /// The candidate traversals as walks, once the candidates are complete.
+    vector<Traversal> walks;
+    /// The ploidy of the region the site is in, from the contig or the region BED.
+    int region_ploidy = 0;
+    /// The ploidy the site is genotyped at.
+    int ploidy = 0;
+    /// The genotype, as indices into `walks`.
+    vector<int> genotype;
+    /// The panel alleles the linkage model looked up when it filed the site, if `panel_set`.
+    vector<int> panel;
+    /// Whether the linkage model filed the site and filled `panel`.
+    bool panel_set = false;
+    /// The staged site, or null if the site is not staged.
+    unique_ptr<StagedSite> staged;
+    /// Whether `staged` goes to the nested list rather than a render queue.
+    bool staged_nested = false;
+
+    /// Get where the site lies on its reference path, as a range of positions.
+    pair<size_t, size_t> ref_range() const {
+        return make_pair(get<0>(site.ref_interval), get<1>(site.ref_interval));
+    }
+};
+
 bool TreeGenotyper::genotype_tree(const SiteView& view, const string& parent_ref_path_name,
                                   pair<size_t, size_t> parent_ref_interval,
                                   const ChildTraversalSets* parent_child_trav_sets,
                                   int ploidy_override, const NestingPlacement& placement) {
-    // Staged in the nested branch below and completed after descent, which reads `travs`, since
-    // this record then takes ownership of them.
-    unique_ptr<StagedSite> pending_this;
-    // The panel alleles `GenotypeLinker::add` looked up for this snarl, if it filed the site. The staged
-    // record keeps them, so that re-genotyping does not look them up again; the record's
-    // traversals are this snarl's `travs`, which do not change after the site is recorded.
-    vector<int> site_panel;
-    bool site_panel_set = false;
-    // The same, for a snarl the linkage pass will not revise.
-    unique_ptr<StagedSite> render_this;
-
-    // The reference path, the site oriented along it, and its candidate traversals.
-    CandidateFinder::Site site;
     const PathPositionHandleGraph& graph = *parts.graph;
+    SiteCall call{view, placement};
     if (!parts.candidates->find(snarl_of(graph, view.bounds), parent_ref_path_name,
                                 parent_ref_interval, parent_child_trav_sets,
-                                placement.no_reference, site)) {
+                                placement.no_reference, call.site)) {
         return false;
     }
-    Snarl& snarl = site.snarl;
-    const string& ref_path_name = site.ref_path_name;
-    const tuple<int64_t, int64_t, bool, step_handle_t, step_handle_t>& ref_interval =
-        site.ref_interval;
-    const bool use_parent_interval = site.use_parent_interval;
-    vector<SnarlTraversal>& travs = site.travs;
-    int ref_trav_idx = site.ref_trav_idx;
-    // The site as plain values: its bounds, what it holds, and the sites around it. `walks` are
-    // `travs` as walks, filled once `travs` is complete.
-    const SiteBounds bounds = bounds_of(graph, snarl);
-    // The site's ID and record key, from its bounds as the candidate finder oriented them.
-    const string site_id = parts.site_id(bounds);
-    const size_t record_key = record_key_of(site_id);
-    const ChildPlacer::Nested nested = parts.child_placer->nested_in(view.net, bounds);
-    const SiteChildren& children = nested.children;
-    const vector<SiteBounds>& enclosing = view.enclosing;
-    vector<Traversal> walks;
+    call.bounds = bounds_of(graph, call.site.snarl);
+    // Name the site from its bounds as the candidate finder oriented them.
+    call.id = parts.site_id(call.bounds);
+    call.record_key = record_key_of(call.id);
+    call.nested = parts.child_placer->nested_in(view.net, call.bounds);
 
-    bool ret_val = true;
-    vector<int> trav_genotype;  // Declared outside block so we can pass to children
-
-    // A ploidy from the parent overrides the contig's or the region BED's: it is the number of the
-    // parent's called alleles that reach this child. The region's is still the number of the
-    // sample's haplotypes here, which the depth term needs.
-    const int region_ploidy =
-        parts.ploidy_regions->ploidy_at(ref_path_name, get<0>(ref_interval),
+    // A ploidy from the parent overrides the contig's or the region BED's. The region's is still
+    // the number of the sample's haplotypes here, which the depth term needs.
+    const string& ref_path_name = call.site.ref_path_name;
+    call.region_ploidy =
+        parts.ploidy_regions->ploidy_at(ref_path_name, get<0>(call.site.ref_interval),
                                         ref_offset_of(*parts.ref_offsets, ref_path_name),
                                         ref_ploidy_of(*parts.ref_ploidies, ref_path_name));
-    int ploidy = ploidy_override >= 0 ? ploidy_override : region_ploidy;
-    if (ploidy == 0) {
+    call.ploidy = ploidy_override >= 0 ? ploidy_override : call.region_ploidy;
+    if (call.ploidy == 0) {
         // The sample has no copy of this region, so there is nothing to genotype and no record.
-        // Only a site whose ploidy comes from its region gets here: a parent always passes at
-        // least 1. Done, not failed, so that its children are not called in its place.
+        // A parent always passes at least 1, so the ploidy came from the region. Report success,
+        // so that the walk does not call the children in the site's place.
         return true;
     }
 
-    // What both the parent-traversal-set branch and the top-level branch do with their genotype:
-    // give it to the linkage model and stage it, so that `render_retained_records` writes its
-    // record after the linkage pass. `trav_call_info` differs between the branches, so it is a
-    // parameter.
-    auto stage = [&](unique_ptr<SnarlCaller::CallInfo>& trav_call_info, SiteScore* trav_score) {
-        site_panel_set = parts.linker->add(bounds, walks, trav_genotype, trav_score, ref_trav_idx,
-                                           ref_path_name,
-                                           ref_offset_of(*parts.ref_offsets, ref_path_name),
-                                           record_key, placement, false, 0,
-                                           &site_panel);
-        render_this = stage_render_record(bounds, site_id, trav_genotype, ref_trav_idx,
-                                          trav_call_info, trav_score, ref_path_name,
-                                          ref_offset_of(*parts.ref_offsets, ref_path_name), ploidy);
-    };
-
+    bool genotyped;
     if (parent_child_trav_sets != nullptr && !parent_child_trav_sets->empty()) {
-        // Genotype using bounded search over traversal sets from parent
-        // Each set contains traversals consistent with one parent allele
-        ploidy = parent_child_trav_sets->size();
-
-        // Track which set each traversal index belongs to (for phase consistency)
-        // set_membership[i] = which parent allele set traversal i came from, or -1 if from finder
-        vector<int> set_membership(travs.size(), -1);
-
-        // Merge traversals from sets into travs, tracking membership
-
-        for (int set_idx = 0; set_idx < ploidy; ++set_idx) {
-            const TraversalSet& tset = (*parent_child_trav_sets)[set_idx];
-
-            if (tset.empty()) {
-                // Empty set means parent allele doesn't traverse this child (star allele)
-                continue;
-            }
-
-            // Add traversals from this set to travs (avoiding duplicates)
-            // Keep track of indices for this set
-            for (const SnarlTraversal& trav : tset) {
-                // Check if this traversal already exists in travs
-                int match_idx = -1;
-                for (int i = 0; i < travs.size() && match_idx < 0; ++i) {
-                    if (travs[i] == trav) {
-                        match_idx = i;
-                    }
-                }
-
-                if (match_idx < 0) {
-                    // New traversal - add it
-                    match_idx = travs.size();
-                    travs.push_back(trav);
-                    set_membership.push_back(set_idx);
-                } else if (set_membership[match_idx] < 0) {
-                    // Traversal was from finder, now claim it for this set
-                    set_membership[match_idx] = set_idx;
-                }
-                // Note: if already claimed by another set, that's fine (shared region)
-            }
-        }
-        walks = walks_of(graph, travs);
-
-        // Which parent haplotypes actually traverse this child? A parent allele with
-        // an empty traversal set skips the child entirely, and gets a star or
-        // missing allele rather than a genotype.
-        vector<int> traversing_sets;
-        for (int set_idx = 0; set_idx < ploidy; ++set_idx) {
-            if (!(*parent_child_trav_sets)[set_idx].empty()) {
-                traversing_sets.push_back(set_idx);
-            }
-        }
-
-        unique_ptr<SnarlCaller::CallInfo> trav_call_info;
-        SiteScore* trav_score = nullptr;
-        int marker = options.star_allele ? STAR_ALLELE_MARKER : MISSING_ALLELE_MARKER;
-
-        if (traversing_sets.empty()) {
-            // No parent allele traverses this child at all.
-            trav_genotype.assign(ploidy, marker);
-        } else {
-            // Genotype at the ploidy that passes through the site, not at the parent's ploidy, since
-            // a site only one strand reaches is not diploid. genotype() returns a sorted multiset, so
-            // the alleles are then placed on the strands that pass through.
-            int effective_ploidy = (int)traversing_sets.size();
-            vector<int> called_alleles;
-            std::tie(called_alleles, trav_call_info) = genotype_site(
-                bounds, walks, ref_trav_idx,
-                Ploidies{.ploidy = effective_ploidy, .region_ploidy = region_ploidy}, enclosing,
-                ref_path_name, make_pair(get<0>(ref_interval), get<1>(ref_interval)), trav_score);
-
-            // Scatter the called alleles back onto the traversing haplotypes,
-            // leaving the others as star/missing.
-            trav_genotype.assign(ploidy, marker);
-            for (size_t j = 0; j < traversing_sets.size() && j < called_alleles.size(); ++j) {
-                trav_genotype[traversing_sets[j]] = called_alleles[j];
-            }
-        }
-
-        // Staged only if the snarl is on a reference path.
-        if (!use_parent_interval) {
-            stage(trav_call_info, trav_score);
-        }
-
-        ret_val = trav_genotype.size() == ploidy;
+        genotyped = genotype_in_parent_sets(call, *parent_child_trav_sets);
     } else if (ploidy_override >= 0) {
-        // A nested chain, reached by descent, at the ploidy its parent implied. Only a nested chain
-        // can have its ploidy revised at the linkage pass, so only it needs the other ploidy's answer.
-        walks = walks_of(graph, travs);
-        unique_ptr<SnarlCaller::CallInfo> trav_call_info;
-        SiteScore* trav_score = nullptr;
-        std::tie(trav_genotype, trav_call_info) = genotype_site(
-            bounds, walks, ref_trav_idx,
-            Ploidies{.ploidy = ploidy, .region_ploidy = region_ploidy, .also_score_other = true},
-            enclosing, ref_path_name, make_pair(get<0>(ref_interval), get<1>(ref_interval)),
-            trav_score);
-
-        const bool retain_only = placement.retain_only;
-        // Whether this snarl's own boundaries are on no reference path, checked from the graph for
-        // each snarl.
-        const bool no_ref_position = use_parent_interval;
-
-        assert(trav_genotype.empty() || trav_genotype.size() == ploidy);
-        if (no_ref_position) {
-            // Genotyped and recorded, never written. Checked before retain_only, which does not
-            // record.
-            site_panel_set = parts.linker->add(
-                bounds, walks, trav_genotype, trav_score, ref_trav_idx, ref_path_name,
-                ref_offset_of(*parts.ref_offsets, ref_path_name), record_key,
-                placement, /*no_reference*/ true,
-                // The parent's position, as `get_ref_position` gives it from the interval
-                // `use_parent_interval` set, plus the chain's offset along its parent, as
-                // `StagedSite::position_from_parent` has it.
-                base_path_position(ref_path_name,
-                                   get<0>(ref_interval)
-                                       + ref_offset_of(*parts.ref_offsets, ref_path_name))
-                    + (int64_t)placement.parent_offset,
-                &site_panel);
-            ++parts.descent_counters->no_ref_recorded;
-            {
-                int copies = 0;
-                for (int a : trav_genotype) {
-                    copies += (a >= 0);
-                }
-                parts.descent_counters->no_ref_copies[copies < 3 ? copies : 2].fetch_add(1);
-            }
-        } else if (retain_only) {
-            // No called parent allele reaches this chain, so nothing about it is written yet. It is
-            // genotyped and kept, since the linkage model may still move the parent onto an allele
-            // that reaches it.
-        } else if (placement.reported_inline) {
-            // An enclosing block's ALT already spells this chain, so it gets no line, but it is
-            // genotyped and recorded, since its allele pair phases everything inside it. Checked
-            // after retain_only, which does not record.
-            site_panel_set = parts.linker->add(bounds, walks, trav_genotype, trav_score,
-                                               ref_trav_idx, ref_path_name,
-                                               ref_offset_of(*parts.ref_offsets, ref_path_name),
-                                               record_key, placement, false, 0,
-                                               &site_panel);
-        } else {
-            // Recorded here, and staged below, as at top level: the line is written after the
-            // linkage pass, from the chosen genotype. A retained chain, on the path above, is
-            // recorded only if the linkage pass later finds that the sample carries it.
-            site_panel_set = parts.linker->add(bounds, walks, trav_genotype, trav_score,
-                                               ref_trav_idx, ref_path_name,
-                                               ref_offset_of(*parts.ref_offsets, ref_path_name),
-                                               record_key, placement, false, 0,
-                                               &site_panel);
-        }
-
-        // Stage the nested site without its traversals: descent below still reads `travs` to find
-        // which children the called alleles reach, and they are moved in once descent is done.
-        pending_this.reset(new StagedSite());
-        pending_this->bounds = bounds;
-        fill_tree_fields(view, children, *pending_this);
-        pending_this->ref_path_name = ref_path_name;
-        pending_this->ref_offset = ref_offset_of(*parts.ref_offsets, ref_path_name);
-        pending_this->ref_trav_idx = ref_trav_idx;
-        pending_this->genotype = trav_genotype;
-        pending_this->ploidy = ploidy;
-        pending_this->id = site_id;
-        pending_this->record_key = record_key;
-        pending_this->parent_record_key = placement.parent_record_key;
-        pending_this->parent_crossing = placement.parent_crossing;
-        pending_this->chain_key = placement.chain_key;
-        pending_this->no_reference = no_ref_position;
-        pending_this->reported_inline = placement.reported_inline;
-        pending_this->position_from_parent =
-            no_ref_position
-                ? base_path_position(ref_path_name,
-                                     get<0>(ref_interval)
-                                         + ref_offset_of(*parts.ref_offsets, ref_path_name))
-                      + (int64_t)placement.parent_offset
-                : 0;
-        pending_this->chain_offset = placement.parent_offset;
-        pending_this->crossing_known = placement.crossing_known;
-        pending_this->level = (uint8_t)min(placement.level, (size_t)255);
-        pending_this->set_call(std::move(trav_call_info), trav_score);
-        ret_val = trav_genotype.size() == ploidy;
+        genotyped = genotype_nested_chain(call);
     } else {
-        // Top-level snarl or no parent context - genotype from scratch using support
-        walks = walks_of(graph, travs);
-        unique_ptr<SnarlCaller::CallInfo> trav_call_info;
-        SiteScore* trav_score = nullptr;
-        std::tie(trav_genotype, trav_call_info) = genotype_site(
-            bounds, walks, ref_trav_idx, Ploidies{.ploidy = ploidy}, enclosing, ref_path_name,
-            make_pair(get<0>(ref_interval), get<1>(ref_interval)), trav_score);
-
-        assert(trav_genotype.empty() || trav_genotype.size() == ploidy);
-
-        stage(trav_call_info, trav_score);
-
-        ret_val = trav_genotype.size() == ploidy;
+        genotyped = genotype_top_level_site(call);
     }
 
-    // Nested calling: descend into each child the called alleles reach, at the ploidy they reach
-    // it with.
-    //
-    // Descent does not depend on whether a line was written: a parent written as the reference
-    // still has children to call. Children are genotyped independently, with no parent traversal
-    // sets. Only a successful call descends, since a failed snarl has no genotype to take a child's
-    // ploidy from. RecurseOnFail calls the children of a failed top-level snarl as top-level
-    // snarls, but nothing does so for a failed nested snarl: its children are not called.
-    if (ret_val && options.nested_calling && !trav_genotype.empty() &&
-        parent_child_trav_sets == nullptr) {
-        // The off-panel candidates this site holds itself are children of it too, each in the
-        // chain its node is in, placed after the decomposition's children.
-        vector<HeldEdit> held;
-        if (parts.edit_source != nullptr) {
-            held = edits_held_by(view, bounds, walks, ref_trav_idx);
-        }
-        ChildPlacer::Nested with_edits;
-        if (!held.empty()) {
-            // Each before the first child that starts after its node, so that the children are
-            // visited along the node IDs and each window's reads are still in memory when its
-            // edit sites are genotyped. `held` is sorted by node.
-            with_edits.children = nested.children;
-            size_t e = 0;
-            for (const ChildSite& child : nested.sites) {
-                const nid_t child_first = std::min(graph.get_id(child.bounds.start),
-                                                   graph.get_id(child.bounds.end));
-                for (; e < held.size() && held[e].candidate.node < child_first; ++e) {
-                    with_edits.sites.push_back(held[e].child);
-                }
-                with_edits.sites.push_back(child);
-            }
-            for (; e < held.size(); ++e) {
-                with_edits.sites.push_back(held[e].child);
-            }
-        }
-        vector<bool> edit_placed(held.size(), false);
-        // A child no called allele reaches is kept only where the linkage pass can come back to
-        // it: with the linkage model.
-        parts.child_placer->place(
-            view, held.empty() ? nested : with_edits, record_key, walks, trav_genotype,
-            ref_trav_idx, ploidy, placement, options.off_reference, parts.linker->enabled(),
-            [&](const ChildPlacer::Placed& child) {
-                if (child.placement.level < 16) {
-                    ++parts.descent_counters->depth_hist[child.placement.level];
-                }
-                if (child.site.bounds.inside_node) {
-                    for (size_t i = 0; i < held.size(); ++i) {
-                        if (!edit_placed[i] && held[i].child.bounds == child.site.bounds) {
-                            edit_placed[i] = true;
-                            genotype_edit_site(held[i], child.site.enclosing, ref_path_name,
-                                               make_pair(get<0>(ref_interval),
-                                                         get<1>(ref_interval)),
-                                               child.ploidy, child.placement, false);
-                            break;
-                        }
-                    }
-                    return;
-                }
-                // The other ploidy's answer is computed as well, so the linkage pass can change it
-                // later.
-                SubtreeReadHold hold(parts.edit_source, options.edit_bar);
-                genotype_tree(child.site, ref_path_name,
-                              make_pair(get<0>(ref_interval), get<1>(ref_interval)), nullptr,
-                              child.ploidy, child.placement);
-            });
-        for (size_t i = 0; i < held.size(); ++i) {
-            if (!edit_placed[i]) {
-                // Left out as any child would be: off the reference without off-reference
-                // descent, or crossed by no called allele without the linkage model.
-                parts.edit_outcomes->add(unplaced_outcome(held[i].candidate, "not_placed"));
-            }
-        }
+    // Descend only from a successful call, since a failed site has no genotype to take a child's
+    // ploidy from. RecurseOnFail calls the children of a failed top-level site as top-level sites,
+    // but the children of a failed nested site are not called.
+    if (genotyped && options.nested_calling && !call.genotype.empty()
+        && parent_child_trav_sets == nullptr) {
+        descend_nested(call);
     }
-
-
-    // Top-down calling: genotype each child against the traversals its parent's called alleles
-    // allow.
-    if (options.top_down && !trav_genotype.empty() && children.known) {
-        for (const ChildSite& child : nested.sites) {
-            // Build ChildTraversalSets: one set per parent allele
-            // Each set contains all traversals through child consistent with that parent allele
-            ChildTraversalSets child_trav_sets;
-            bool any_real_traversals = false;
-
-            for (int allele_idx : trav_genotype) {
-                if (allele_idx >= 0 && allele_idx < travs.size()) {
-                    // Find all traversals through child consistent with this parent traversal
-                    TraversalSet tset = parts.candidates->find_child_traversal_set(
-                        travs[allele_idx], snarl_of(graph, child.bounds));
-                    if (!tset.empty()) {
-                        any_real_traversals = true;
-                    }
-                    child_trav_sets.push_back(std::move(tset));
-                } else {
-                    // Star/missing allele - pass empty set
-                    child_trav_sets.push_back(TraversalSet());
-                }
-            }
-
-            // If no genotyped alleles traverse the child, skip it
-            if (!any_real_traversals) {
-                continue;
-            }
-
-            // Recursively call child with traversal sets
-            genotype_tree(ChildPlacer::view_of(view, child), ref_path_name,
-                          make_pair(get<0>(ref_interval), get<1>(ref_interval)),
-                          &child_trav_sets, -1, placement);
-        }
+    if (options.top_down && !call.genotype.empty() && call.nested.children.known) {
+        descend_top_down(call);
     }
-
-    // Descent above and the top-down recursion, which builds each child's ChildTraversalSets
-    // from `travs`, are done, so the staged site can take the traversals. At most one of these
-    // is set.
-    if (pending_this != nullptr) {
-        pending_this->travs = std::move(walks);
-        if (site_panel_set) {
-            pending_this->panel_cache = std::move(site_panel);
-            pending_this->panel_cached = true;
-        }
-        parts.staged_sites->add_nested(std::move(*pending_this));
-        pending_this.reset();
-    } else if (render_this != nullptr) {
-        render_this->travs = std::move(walks);
-        fill_tree_fields(view, children, *render_this);
-        if (site_panel_set) {
-            render_this->panel_cache = std::move(site_panel);
-            render_this->panel_cached = true;
-        }
-        parts.staged_sites->add_top_level(std::move(*render_this));
-        render_this.reset();
-    }
-
-    return ret_val;
+    file_staged(call);
+    return genotyped;
 }
 
-vector<EditCandidate> TreeGenotyper::admitted(vector<EditCandidate> candidates) const {
-    // Sorted by node, offset, kind and ALT, so each base's substitutions are consecutive, as are
-    // the indels anchored on it; one of each is kept.
+/// Add each traversal in the parent's traversal sets that `travs` does not already hold.
+static void merge_parent_sets(vector<SnarlTraversal>& travs, const ChildTraversalSets& sets) {
+    for (const TraversalSet& tset : sets) {
+        for (const SnarlTraversal& trav : tset) {
+            if (std::find(travs.begin(), travs.end(), trav) == travs.end()) {
+                travs.push_back(trav);
+            }
+        }
+    }
+}
+
+bool TreeGenotyper::genotype_in_parent_sets(SiteCall& call, const ChildTraversalSets& sets) {
+    // The child has one strand per parent allele.
+    call.ploidy = sets.size();
+    merge_parent_sets(call.site.travs, sets);
+    call.walks = walks_of(*parts.graph, call.site.travs);
+
+    // A parent allele with an empty traversal set skips the child, and gets a star or missing
+    // allele rather than a genotype.
+    vector<int> traversing_sets;
+    for (int set_idx = 0; set_idx < call.ploidy; ++set_idx) {
+        if (!sets[set_idx].empty()) {
+            traversing_sets.push_back(set_idx);
+        }
+    }
+
+    unique_ptr<SnarlCaller::CallInfo> trav_call_info;
+    SiteScore* trav_score = nullptr;
+    const int marker = options.star_allele ? STAR_ALLELE_MARKER : MISSING_ALLELE_MARKER;
+    call.genotype.assign(call.ploidy, marker);
+    if (!traversing_sets.empty()) {
+        // Genotype at the number of strands that cross the site, since a site only one strand
+        // crosses is not diploid. Then put the called alleles, a sorted multiset, on those
+        // strands.
+        const auto effective_ploidy = (int)traversing_sets.size();
+        vector<int> called_alleles;
+        std::tie(called_alleles, trav_call_info) = genotype_site(
+            call.bounds, call.walks, call.site.ref_trav_idx,
+            Ploidies{.ploidy = effective_ploidy, .region_ploidy = call.region_ploidy},
+            call.view.enclosing, call.site.ref_path_name, call.ref_range(), trav_score);
+        for (size_t j = 0; j < traversing_sets.size() && j < called_alleles.size(); ++j) {
+            call.genotype[traversing_sets[j]] = called_alleles[j];
+        }
+    }
+
+    // Stage the site only if it is on a reference path.
+    if (!call.site.use_parent_interval) {
+        record_and_stage(call, trav_call_info, trav_score);
+    }
+    return call.genotype.size() == (size_t)call.ploidy;
+}
+
+/// Give a staged site its place in the nesting tree from `placement`.
+static void place_in_tree(StagedSite& staged, const NestingPlacement& placement) {
+    staged.parent_record_key = placement.parent_record_key;
+    staged.parent_crossing = placement.parent_crossing;
+    staged.chain_key = placement.chain_key;
+    staged.reported_inline = placement.reported_inline;
+    staged.chain_offset = placement.parent_offset;
+    staged.crossing_known = placement.crossing_known;
+    staged.level = (uint8_t)min(placement.level, (size_t)255);
+}
+
+bool TreeGenotyper::genotype_nested_chain(SiteCall& call) {
+    call.walks = walks_of(*parts.graph, call.site.travs);
+    unique_ptr<SnarlCaller::CallInfo> trav_call_info;
+    SiteScore* trav_score = nullptr;
+    // Score the other ploidy too, since the linkage pass can revise the ploidy of a nested chain.
+    std::tie(call.genotype, trav_call_info) = genotype_site(
+        call.bounds, call.walks, call.site.ref_trav_idx,
+        Ploidies{.ploidy = call.ploidy, .region_ploidy = call.region_ploidy,
+                 .also_score_other = true},
+        call.view.enclosing, call.site.ref_path_name, call.ref_range(), trav_score);
+    assert(call.genotype.empty() || call.genotype.size() == call.ploidy);
+
+    const NestingPlacement& placement = call.placement;
+    // The boundaries of a site that took its parent's interval are on no reference path.
+    const bool no_ref_position = call.site.use_parent_interval;
+    const int ref_offset = ref_offset_of(*parts.ref_offsets, call.site.ref_path_name);
+    // Stand in for the missing position with the parent's position, plus the chain's offset along
+    // the parent.
+    const int64_t position_from_parent =
+        no_ref_position ? base_path_position(call.site.ref_path_name,
+                                             get<0>(call.site.ref_interval) + ref_offset)
+                              + (int64_t)placement.parent_offset
+                        : 0;
+    record_nested_chain(call, trav_score, position_from_parent);
+
+    // Stage the site without its traversals, which descent still reads.
+    call.staged = stage_render_record(call.bounds, call.id, call.genotype,
+                                      call.site.ref_trav_idx, trav_call_info, trav_score,
+                                      call.site.ref_path_name, ref_offset, call.ploidy);
+    place_in_tree(*call.staged, placement);
+    call.staged->no_reference = no_ref_position;
+    call.staged->position_from_parent = position_from_parent;
+    call.staged_nested = true;
+    return call.genotype.size() == (size_t)call.ploidy;
+}
+
+void TreeGenotyper::record_nested_chain(SiteCall& call, const SiteScore* score,
+                                        int64_t position_from_parent) const {
+    const NestingPlacement& placement = call.placement;
+    const int ref_offset = ref_offset_of(*parts.ref_offsets, call.site.ref_path_name);
+    if (call.site.use_parent_interval) {
+        // The site has no reference position, so it is recorded but never written. This is
+        // tested before retain_only, which would not record it.
+        call.panel_set = parts.linker->add(call.bounds, call.walks, call.genotype, score,
+                                           call.site.ref_trav_idx, call.site.ref_path_name,
+                                           ref_offset, call.record_key, placement,
+                                           /*no_reference*/ true, position_from_parent,
+                                           &call.panel);
+        ++parts.descent_counters->no_ref_recorded;
+        int copies = 0;
+        for (int a : call.genotype) {
+            copies += a >= 0 ? 1 : 0;
+        }
+        parts.descent_counters->no_ref_copies[copies < 3 ? copies : 2].fetch_add(1);
+    } else if (!placement.retain_only) {
+        // Record the site. With `reported_inline`, an enclosing block's ALT already spells the
+        // chain, so it gets no line, but its allele pair still phases everything inside it.
+        // Otherwise the line is written after the linkage pass, from the chosen genotype.
+        call.panel_set = parts.linker->add(call.bounds, call.walks, call.genotype, score,
+                                           call.site.ref_trav_idx, call.site.ref_path_name,
+                                           ref_offset, call.record_key, placement, false, 0,
+                                           &call.panel);
+    }
+    // A retain_only chain is crossed by no called parent allele, so it is not recorded yet. It is
+    // kept, since the linkage model may still move the parent onto an allele that crosses it.
+}
+
+bool TreeGenotyper::genotype_top_level_site(SiteCall& call) {
+    call.walks = walks_of(*parts.graph, call.site.travs);
+    unique_ptr<SnarlCaller::CallInfo> trav_call_info;
+    SiteScore* trav_score = nullptr;
+    std::tie(call.genotype, trav_call_info) = genotype_site(
+        call.bounds, call.walks, call.site.ref_trav_idx, Ploidies{.ploidy = call.ploidy},
+        call.view.enclosing, call.site.ref_path_name, call.ref_range(), trav_score);
+    assert(call.genotype.empty() || call.genotype.size() == call.ploidy);
+    record_and_stage(call, trav_call_info, trav_score);
+    return call.genotype.size() == (size_t)call.ploidy;
+}
+
+void TreeGenotyper::record_and_stage(SiteCall& call,
+                                     unique_ptr<SnarlCaller::CallInfo>& trav_call_info,
+                                     SiteScore* trav_score) const {
+    const int ref_offset = ref_offset_of(*parts.ref_offsets, call.site.ref_path_name);
+    call.panel_set = parts.linker->add(call.bounds, call.walks, call.genotype, trav_score,
+                                       call.site.ref_trav_idx, call.site.ref_path_name,
+                                       ref_offset, call.record_key, call.placement, false, 0,
+                                       &call.panel);
+    call.staged = stage_render_record(call.bounds, call.id, call.genotype, call.site.ref_trav_idx,
+                                      trav_call_info, trav_score, call.site.ref_path_name,
+                                      ref_offset, call.ploidy);
+    call.staged_nested = false;
+}
+
+ChildPlacer::Nested TreeGenotyper::with_held_edits(const ChildPlacer::Nested& nested,
+                                                   const vector<HeldEdit>& held) const {
+    const PathPositionHandleGraph& graph = *parts.graph;
+    ChildPlacer::Nested out;
+    out.children = nested.children;
+    size_t e = 0;
+    for (const ChildSite& child : nested.sites) {
+        const nid_t child_first = std::min(graph.get_id(child.bounds.start),
+                                           graph.get_id(child.bounds.end));
+        for (; e < held.size() && held[e].candidate.node < child_first; ++e) {
+            out.sites.push_back(held[e].child);
+        }
+        out.sites.push_back(child);
+    }
+    for (; e < held.size(); ++e) {
+        out.sites.push_back(held[e].child);
+    }
+    return out;
+}
+
+void TreeGenotyper::descend_nested(const SiteCall& call) {
+    // The edit sites this site holds itself, rather than through a child site, are children of
+    // it too, each in the chain its node is in.
+    vector<HeldEdit> held;
+    if (parts.edit_source != nullptr) {
+        held = edits_held_by(call.view, call.bounds, call.walks, call.site.ref_trav_idx);
+    }
+    ChildPlacer::Nested with_edits;
+    if (!held.empty()) {
+        with_edits = with_held_edits(call.nested, held);
+    }
+    vector<bool> edit_placed(held.size(), false);
+    // Keep a child no called allele crosses only where the linkage pass can come back to it,
+    // which needs the linkage model.
+    const ChildPlacer::Parent parent{.site = call.view,
+                                     .nested = held.empty() ? call.nested : with_edits,
+                                     .record_key = call.record_key,
+                                     .travs = call.walks,
+                                     .genotype = call.genotype,
+                                     .ref_trav_idx = call.site.ref_trav_idx,
+                                     .ploidy = call.ploidy,
+                                     .placement = call.placement};
+    parts.child_placer->place(
+        parent, options.off_reference, parts.linker->enabled(),
+        [&](const ChildPlacer::Placed& child) {
+            genotype_placed_child(call, child, held, edit_placed);
+        });
+    for (size_t i = 0; i < held.size(); ++i) {
+        if (!edit_placed[i]) {
+            // The placer left the edit site out, as it would any child: off the reference without
+            // off-reference descent, or crossed by no called allele without the linkage model.
+            parts.edit_outcomes->add(unplaced_outcome(held[i].candidate, "not_placed"));
+        }
+    }
+}
+
+void TreeGenotyper::genotype_placed_child(const SiteCall& call, const ChildPlacer::Placed& child,
+                                          const vector<HeldEdit>& held,
+                                          vector<bool>& edit_placed) {
+    if (child.placement.level < 16) {
+        ++parts.descent_counters->depth_hist[child.placement.level];
+    }
+    if (child.site.bounds.inside_node) {
+        // The child is one of the held edit sites.
+        for (size_t i = 0; i < held.size(); ++i) {
+            if (!edit_placed[i] && held[i].child.bounds == child.site.bounds) {
+                edit_placed[i] = true;
+                genotype_edit_site(held[i], child.site.enclosing, call.site.ref_path_name,
+                                   call.ref_range(), child.ploidy, child.placement, false);
+                return;
+            }
+        }
+        return;
+    }
+    SubtreeReadHold hold(parts.edit_source, options.edit_bar);
+    genotype_tree(child.site, call.site.ref_path_name, call.ref_range(), nullptr, child.ploidy,
+                  child.placement);
+}
+
+void TreeGenotyper::descend_top_down(const SiteCall& call) {
+    const vector<SnarlTraversal>& travs = call.site.travs;
+    for (const ChildSite& child : call.nested.sites) {
+        // Find, for each parent allele, the traversals of the child that agree with it. A star
+        // or missing allele gets an empty set.
+        ChildTraversalSets child_trav_sets;
+        bool any_real_traversals = false;
+        for (int allele_idx : call.genotype) {
+            if (allele_idx >= 0 && allele_idx < travs.size()) {
+                TraversalSet tset = parts.candidates->find_child_traversal_set(
+                    travs[allele_idx], snarl_of(*parts.graph, child.bounds));
+                any_real_traversals = any_real_traversals || !tset.empty();
+                child_trav_sets.push_back(std::move(tset));
+            } else {
+                child_trav_sets.emplace_back();
+            }
+        }
+        if (any_real_traversals) {
+            genotype_tree(ChildPlacer::view_of(call.view, child), call.site.ref_path_name,
+                          call.ref_range(), &child_trav_sets, -1, call.placement);
+        }
+    }
+}
+
+void TreeGenotyper::file_staged(SiteCall& call) {
+    if (call.staged == nullptr) {
+        return;
+    }
+    // Descent is done, so the staged site can take the traversals.
+    call.staged->travs = std::move(call.walks);
+    fill_tree_fields(call.view, call.nested.children, *call.staged);
+    if (call.panel_set) {
+        call.staged->panel_cache = std::move(call.panel);
+        call.staged->panel_cached = true;
+    }
+    if (call.staged_nested) {
+        parts.staged_sites->add_nested(std::move(*call.staged));
+    } else {
+        parts.staged_sites->add_top_level(std::move(*call.staged));
+    }
+    call.staged.reset();
+}
+
+vector<EditCandidate> TreeGenotyper::admitted(const vector<EditCandidate>& candidates) const {
+    // The candidates of each base, substitutions and indels separately, are consecutive. Keep one
+    // of each.
     vector<EditCandidate> chosen;
     for (const EditCandidate& c : candidates) {
         if (!options.edit_bar.admits(c)) {
@@ -521,33 +491,35 @@ vector<EditCandidate> TreeGenotyper::admitted(vector<EditCandidate> candidates) 
     return chosen;
 }
 
-bool TreeGenotyper::edit_site_of(const EditCandidate& c, handle_t read_as,
-                                 const NodePlacement& where, EditSite& out) const {
-    const PathPositionHandleGraph& graph = *parts.graph;
-    // The ALTs along the node's forward strand, and how many bases from `at` on they replace.
-    vector<string> alts = c.kind == 'M'   ? c.alts
-                          : c.kind == 'S' ? vector<string>{string(1, c.alt)}
-                          : c.kind == 'I' ? vector<string>{c.sequence}
-                                          : vector<string>{""};
-    const size_t length = c.kind == 'M'   ? c.span
-                          : c.kind == 'S' ? 1
-                          : c.kind == 'D' ? c.sequence.size()
-                                          : 0;
-    if (c.kind == 'S' || (c.kind == 'M' && c.walk.size() == 1)) {
-        // Inside one node, read as `read_as` reads it.
-        const bool backward = graph.get_is_reverse(read_as);
-        for (string& alt : alts) {
-            alt = backward ? reverse_complement(alt) : alt;
-        }
-        out = edit_site(graph, {read_as}, backward ? c.offset + length - 1 : c.offset,
-                        backward ? graph.get_length(read_as) - c.offset - length : c.offset, length,
-                        alts);
-        return true;
+/// Get the ALTs of an edit candidate, along the forward strand of its node.
+static vector<string> alts_of(const EditCandidate& c) {
+    switch (c.kind) {
+    case 'M':
+        return c.alts;
+    case 'S':
+        return {string(1, c.alt)};
+    case 'I':
+        return {c.sequence};
+    default:
+        return {""};
     }
-    if (graph.get_is_reverse(read_as)) {
-        return false;
+}
+
+/// Count the bases that each ALT of an edit candidate replaces.
+static size_t replaced_length(const EditCandidate& c) {
+    switch (c.kind) {
+    case 'M':
+        return c.span;
+    case 'S':
+        return 1;
+    case 'D':
+        return c.sequence.size();
+    default:
+        return 0;
     }
-    // Every node of its walk in the same site as its anchor.
+}
+
+bool TreeGenotyper::walk_in_one_site(const EditCandidate& c, const NodePlacement& where) const {
     for (nid_t id : c.walk) {
         const NodePlacement other = parts.child_placer->placement_of(id);
         if (other.enclosing.size() != where.enclosing.size()
@@ -555,14 +527,19 @@ bool TreeGenotyper::edit_site_of(const EditCandidate& c, handle_t read_as,
             return false;
         }
     }
-    // Its record is spelled along the walk and placed where a reference path reads the walk's
-    // first node, so a reference path must read the whole walk there, forward and once, or not
-    // read it at all.
+    return true;
+}
+
+bool TreeGenotyper::reference_reads_whole_walk(const EditCandidate& c) const {
+    const PathPositionHandleGraph& graph = *parts.graph;
     size_t on_reference = 0;
+    // The position the next node must have on the reference, or -1 if the last node was not on
+    // it.
     int64_t expected = -1;
     for (nid_t id : c.walk) {
         const handle_t h = graph.get_handle(id);
         size_t steps = 0;
+        // The position of the node on the reference, or -2 if the reference reads it backward.
         int64_t position = -1;
         graph.for_each_step_on_handle(h, [&](const step_handle_t& step) {
             if (parts.ref_offsets->count(graph.get_path_name(graph.get_path_handle_of_step(step)))) {
@@ -578,7 +555,31 @@ bool TreeGenotyper::edit_site_of(const EditCandidate& c, handle_t read_as,
         on_reference += steps;
         expected = steps == 1 ? position + (int64_t)graph.get_length(h) : -1;
     }
-    if (on_reference != 0 && on_reference != c.walk.size()) {
+    return on_reference == 0 || on_reference == c.walk.size();
+}
+
+bool TreeGenotyper::edit_site_of(const EditCandidate& c, handle_t read_as,
+                                 const NodePlacement& where, EditSite& out) const {
+    const PathPositionHandleGraph& graph = *parts.graph;
+    vector<string> alts = alts_of(c);
+    const size_t length = replaced_length(c);
+    if (c.kind == 'S' || (c.kind == 'M' && c.walk.size() == 1)) {
+        // The edit lies inside one node. Read it as `read_as` reads the node.
+        const bool backward = graph.get_is_reverse(read_as);
+        for (string& alt : alts) {
+            alt = backward ? reverse_complement(alt) : alt;
+        }
+        out = edit_site(graph, {read_as}, backward ? c.offset + length - 1 : c.offset,
+                        backward ? graph.get_length(read_as) - c.offset - length : c.offset, length,
+                        alts);
+        return true;
+    }
+    if (graph.get_is_reverse(read_as)) {
+        return false;
+    }
+    // The record is spelled along the walk, and placed where a reference path reads the first
+    // node of the walk.
+    if (!walk_in_one_site(c, where) || !reference_reads_whole_walk(c)) {
         return false;
     }
     Traversal steps;
@@ -589,7 +590,37 @@ bool TreeGenotyper::edit_site_of(const EditCandidate& c, handle_t read_as,
     return true;
 }
 
-/// The bounds `bounds` read the other way.
+/// Find the handle a site's walks read node `node` by.
+///
+/// Prefer the reference walk, then the walks in order. If no walk visits the node, read it
+/// forward.
+static handle_t read_as_in_walks(const HandleGraph& graph, const vector<Traversal>& walks,
+                                 int ref_trav_idx, nid_t node) {
+    auto visit_in = [&](const Traversal& walk) -> const handle_t* {
+        for (const handle_t& h : walk) {
+            if (graph.get_id(h) == node) {
+                return &h;
+            }
+        }
+        return nullptr;
+    };
+    if (ref_trav_idx >= 0 && ref_trav_idx < (int)walks.size()) {
+        if (const handle_t* h = visit_in(walks[ref_trav_idx])) {
+            return *h;
+        }
+    }
+    for (size_t w = 0; w < walks.size(); ++w) {
+        if ((int)w == ref_trav_idx) {
+            continue;
+        }
+        if (const handle_t* h = visit_in(walks[w])) {
+            return *h;
+        }
+    }
+    return graph.get_handle(node);
+}
+
+/// Get the bounds `bounds` read the other way.
 static SiteBounds turned(const HandleGraph& graph, const SiteBounds& bounds) {
     SiteBounds out = bounds;
     out.start = graph.flip(bounds.end);
@@ -602,7 +633,7 @@ vector<TreeGenotyper::HeldEdit> TreeGenotyper::edits_held_by(const SiteView& vie
                                                              const vector<Traversal>& walks,
                                                              int ref_trav_idx) const {
     const PathPositionHandleGraph& graph = *parts.graph;
-    // The nodes the walks visit inside the site. Its own bounds are in its parent's chain.
+    // Collect the nodes the walks visit.
     vector<nid_t> nodes;
     for (const Traversal& walk : walks) {
         for (const handle_t& h : walk) {
@@ -614,7 +645,8 @@ vector<TreeGenotyper::HeldEdit> TreeGenotyper::edits_held_by(const SiteView& vie
     vector<EditCandidate> found;
     const nid_t start = graph.get_id(bounds.start);
     const nid_t end = graph.get_id(bounds.end);
-    // The site's own read query counted them.
+    // Leave out the candidates on the bounds, which are in the parent's chain. The site's own read
+    // query counted the rest.
     parts.edit_source->for_each_edit_candidate(nodes, [&](const EditCandidate& c) {
         if (c.node != start && c.node != end) {
             found.push_back(c);
@@ -625,32 +657,16 @@ vector<TreeGenotyper::HeldEdit> TreeGenotyper::edits_held_by(const SiteView& vie
         return held;
     }
     const SiteBounds view_turned = turned(graph, view.bounds);
-    for (const EditCandidate& c : admitted(std::move(found))) {
+    for (const EditCandidate& c : admitted(found)) {
         // Only the innermost site holding the node holds the edit.
         NodePlacement where = parts.child_placer->placement_of(c.node);
         if (where.enclosing.empty()
             || (where.enclosing.front() != view.bounds && where.enclosing.front() != view_turned)) {
             continue;
         }
-        // Read the node as the reference walk does, or else as the first walk that visits it.
-        handle_t read_as = graph.get_handle(c.node);
-        bool seen = false;
-        for (int pass = 0; pass < 2 && !seen; ++pass) {
-            for (size_t w = 0; w < walks.size() && !seen; ++w) {
-                if ((pass == 0) != ((int)w == ref_trav_idx)) {
-                    continue;
-                }
-                for (const handle_t& h : walks[w]) {
-                    if (graph.get_id(h) == c.node) {
-                        read_as = h;
-                        seen = true;
-                        break;
-                    }
-                }
-            }
-        }
         HeldEdit edit;
-        if (!edit_site_of(c, read_as, where, edit.site)) {
+        if (!edit_site_of(c, read_as_in_walks(graph, walks, ref_trav_idx, c.node), where,
+                          edit.site)) {
             parts.edit_outcomes->add(unplaced_outcome(c, "walk_leaves_site"));
             continue;
         }
@@ -663,7 +679,7 @@ vector<TreeGenotyper::HeldEdit> TreeGenotyper::edits_held_by(const SiteView& vie
 
 void TreeGenotyper::free_nodes_along_reference(nid_t bound, vector<nid_t>& out) const {
     const PathPositionHandleGraph& graph = *parts.graph;
-    // At most this many nodes each way, which bounds the work per site.
+    // Bound the work per site.
     const size_t limit = 64;
     graph.for_each_step_on_handle(graph.get_handle(bound), [&](const step_handle_t& step) {
         if (!parts.ref_offsets->count(graph.get_path_name(graph.get_path_handle_of_step(step)))) {
@@ -678,12 +694,14 @@ void TreeGenotyper::free_nodes_along_reference(nid_t bound, vector<nid_t>& out) 
                 at = forward ? graph.get_next_step(at) : graph.get_previous_step(at);
                 const nid_t node = graph.get_id(graph.get_handle_of_step(at));
                 if (!parts.child_placer->placement_of(node).enclosing.empty()) {
-                    break;   // into a site
+                    // A site holds the node.
+                    break;
                 }
                 out.push_back(node);
             }
         }
-        return false;   // one reference step is enough
+        // One reference step is enough.
+        return false;
     });
 }
 
@@ -694,9 +712,9 @@ void TreeGenotyper::genotype_top_level_edits(vector<EditCandidate> candidates) {
             left.push_back(std::move(c));
         }
     }
-    // By node, since each node's are genotyped together.
+    // Group the candidates by node, since each node's are genotyped together.
     vector<vector<EditCandidate>> by_node;
-    for (EditCandidate& c : admitted(std::move(left))) {
+    for (EditCandidate& c : admitted(left)) {
         if (by_node.empty() || by_node.back().front().node != c.node) {
             by_node.emplace_back();
         }
@@ -714,20 +732,20 @@ void TreeGenotyper::genotype_free_edits(vector<EditCandidate> candidates) {
         return;
     }
     {
-        // Once per node: a node starts one site, but the site may be visited again as the child
-        // of a failed site under RecurseOnFail.
-        std::lock_guard<std::mutex> lock(free_edit_mutex);
+        // Genotype each node's once. A site may be visited again as the child of a failed site
+        // under RecurseOnFail.
+        std::scoped_lock lock(free_edit_mutex);
         if (!free_edit_nodes.insert(candidates.front().node).second) {
             return;
         }
     }
     const PathPositionHandleGraph& graph = *parts.graph;
-    const vector<EditCandidate> chosen = admitted(std::move(candidates));
+    const vector<EditCandidate> chosen = admitted(candidates);
     for (size_t i = 0; i < chosen.size(); ++i) {
         const EditCandidate& c = chosen[i];
         NodePlacement where = parts.child_placer->placement_of(c.node);
         if (!where.enclosing.empty()) {
-            // A site holds it, so its descent placed it, if anything did.
+            // A site holds it, so that site's descent placed it, if anything did.
             continue;
         }
         // Read the node as a reference path does.
@@ -751,6 +769,35 @@ void TreeGenotyper::genotype_free_edits(vector<EditCandidate> candidates) {
     }
 }
 
+/// Get the ALT part of the ID of an edit candidate's site.
+///
+/// That is the base of a substitution, the inserted sequence of a small insertion, and the length
+/// of any other change.
+static string alt_label(const EditCandidate& c) {
+    if (c.kind == 'S') {
+        return string(1, c.alt);
+    }
+    if (c.kind == 'I' && !c.is_large()) {
+        return c.sequence;
+    }
+    return std::to_string(c.sequence.size());
+}
+
+string TreeGenotyper::reference_through(handle_t node, const string& preferred,
+                                        size_t& node_start) const {
+    const PathPositionHandleGraph& graph = *parts.graph;
+    string ref_path_name;
+    graph.for_each_step_on_handle(node, [&](const step_handle_t& step) {
+        const string name = graph.get_path_name(graph.get_path_handle_of_step(step));
+        if (parts.ref_offsets->count(name) && (ref_path_name.empty() || name == preferred)) {
+            ref_path_name = name;
+            node_start = graph.get_position_of_step(step);
+        }
+        return name != preferred;
+    });
+    return ref_path_name;
+}
+
 void TreeGenotyper::genotype_edit_site(const HeldEdit& edit, const vector<SiteBounds>& enclosing,
                                        const string& parent_ref_path_name,
                                        pair<size_t, size_t> parent_ref_interval,
@@ -762,26 +809,13 @@ void TreeGenotyper::genotype_edit_site(const HeldEdit& edit, const vector<SiteBo
     const AlleleSequences& sequences = edit.site.sequences;
     const EditCandidate& c = edit.candidate;
     EditOutcome outcome = unplaced_outcome(c, top_level ? "top" : "nested");
-    outcome.site = edit_site_id(c.node, c.offset, c.kind,
-                                c.kind == 'S'                      ? string(1, c.alt)
-                                : c.kind == 'I' && !c.is_large() ? c.sequence
-                                                                   : std::to_string(c.sequence.size()));
+    outcome.site = edit_site_id(c.node, c.offset, c.kind, alt_label(c));
     const string& site_id = outcome.site;
     const size_t record_key = record_key_of(site_id);
 
-    // The reference path through the node, preferring the parent's, and the node's interval on
-    // it. A node no reference path visits takes its parent's, as a snarl off the reference does.
-    string ref_path_name;
+    // A node no reference path visits takes its parent's path, as a site off the reference does.
     size_t node_start = 0;
-    graph.for_each_step_on_handle(bounds.start, [&](const step_handle_t& step) {
-        const string name = graph.get_path_name(graph.get_path_handle_of_step(step));
-        if (parts.ref_offsets->count(name)
-            && (ref_path_name.empty() || name == parent_ref_path_name)) {
-            ref_path_name = name;
-            node_start = graph.get_position_of_step(step);
-        }
-        return name != parent_ref_path_name;
-    });
+    string ref_path_name = reference_through(bounds.start, parent_ref_path_name, node_start);
     const bool no_ref_position = ref_path_name.empty() || placement.no_reference;
     if (ref_path_name.empty()) {
         if (top_level) {
@@ -828,8 +862,8 @@ void TreeGenotyper::genotype_edit_site(const HeldEdit& edit, const vector<SiteBo
     if (score == nullptr || genotype.size() != (size_t)ploidy || !carries_alt
         || outcome.gq < options.edit_bar.min_gq
         || (max_dr > 0.0 && outcome.depth_ratio > max_dr)) {
-        // Called without its ALT, not confidently, or from more reads than the called genotype
-        // accounts for: nothing to stage.
+        // Stage nothing for a call without its ALT, a call without confidence, or a call from
+        // more reads than the called genotype accounts for.
         parts.edit_outcomes->add(std::move(outcome));
         return;
     }
@@ -838,49 +872,31 @@ void TreeGenotyper::genotype_edit_site(const HeldEdit& edit, const vector<SiteBo
     vector<int> site_panel;
     bool site_panel_set = false;
     int64_t position_from_parent = 0;
-    unique_ptr<StagedSite> staged;
     if (top_level) {
         site_panel_set = parts.linker->add(bounds, walks, genotype, score, 0, ref_path_name,
                                            ref_offset, record_key, placement, false, 0,
                                            &site_panel, &sequences);
-        staged = stage_render_record(bounds, site_id, genotype, 0, call_info, score,
-                                     ref_path_name, ref_offset, ploidy);
-    } else {
-        // As a nested snarl is: recorded unless no called parent allele reaches it yet, and with
-        // a stand-in position where its node is off the reference.
-        if (no_ref_position) {
-            position_from_parent =
-                base_path_position(ref_path_name, parent_ref_interval.first + ref_offset)
-                + (int64_t)placement.parent_offset;
-            site_panel_set = parts.linker->add(bounds, walks, genotype, score, 0, ref_path_name,
-                                               ref_offset, record_key, placement, true,
-                                               position_from_parent, &site_panel, &sequences);
-        } else if (!placement.retain_only) {
-            site_panel_set = parts.linker->add(bounds, walks, genotype, score, 0, ref_path_name,
-                                               ref_offset, record_key, placement, false, 0,
-                                               &site_panel, &sequences);
-        }
-        staged.reset(new StagedSite());
-        staged->bounds = bounds;
-        staged->ref_path_name = ref_path_name;
-        staged->ref_offset = ref_offset;
-        staged->ref_trav_idx = 0;
-        staged->genotype = genotype;
-        staged->ploidy = ploidy;
-        staged->id = site_id;
-        staged->record_key = record_key;
-        staged->parent_record_key = placement.parent_record_key;
-        staged->parent_crossing = placement.parent_crossing;
-        staged->chain_key = placement.chain_key;
-        staged->no_reference = no_ref_position;
-        staged->reported_inline = placement.reported_inline;
-        staged->position_from_parent = position_from_parent;
-        staged->chain_offset = placement.parent_offset;
-        staged->crossing_known = placement.crossing_known;
-        staged->level = (uint8_t)min(placement.level, (size_t)255);
-        staged->set_call(std::move(call_info), score);
+    } else if (no_ref_position) {
+        // Record the site as a nested site with no reference position, at a stand-in position.
+        position_from_parent =
+            base_path_position(ref_path_name, parent_ref_interval.first + ref_offset)
+            + (int64_t)placement.parent_offset;
+        site_panel_set = parts.linker->add(bounds, walks, genotype, score, 0, ref_path_name,
+                                           ref_offset, record_key, placement, true,
+                                           position_from_parent, &site_panel, &sequences);
+    } else if (!placement.retain_only) {
+        site_panel_set = parts.linker->add(bounds, walks, genotype, score, 0, ref_path_name,
+                                           ref_offset, record_key, placement, false, 0,
+                                           &site_panel, &sequences);
     }
-    // A leaf, in the chain its node is in.
+    unique_ptr<StagedSite> staged = stage_render_record(bounds, site_id, genotype, 0, call_info,
+                                                        score, ref_path_name, ref_offset, ploidy);
+    if (!top_level) {
+        place_in_tree(*staged, placement);
+        staged->no_reference = no_ref_position;
+        staged->position_from_parent = position_from_parent;
+    }
+    // Make the edit site a leaf, in the chain its node is in.
     staged->off_panel = true;
     staged->leaf = true;
     staged->in_chain = true;
@@ -911,14 +927,12 @@ pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> TreeGenotyper::genotype_sit
                      unique_ptr<SnarlCaller::CallInfo>(std::move(called.second)));
 }
 
-// The CallInfo is kept because update_vcf_info reads it when the record is rendered, to map the
-// written alleles back to matrix columns, index GL and compute QUAL.
 unique_ptr<StagedSite> TreeGenotyper::stage_render_record(
         const SiteBounds& bounds, const string& site_id, const vector<int>& trav_genotype,
         int ref_trav_idx,
         unique_ptr<SnarlCaller::CallInfo>& call_info, SiteScore* score,
         const string& ref_path_name, int ref_offset, int ploidy) const {
-    unique_ptr<StagedSite> rec(new StagedSite());
+    auto rec = std::make_unique<StagedSite>();
     rec->bounds = bounds;
     rec->ref_path_name = ref_path_name;
     rec->ref_offset = ref_offset;
@@ -928,21 +942,21 @@ unique_ptr<StagedSite> TreeGenotyper::stage_render_record(
     rec->id = site_id;
     rec->record_key = record_key_of(site_id);
     rec->level = 0;
+    // Keep the call info, which the render reads to map the written alleles back to matrix
+    // columns, index GL and compute QUAL.
     rec->set_call(std::move(call_info), score);
-    // `travs` is not moved here: descent runs after the emit and reads `travs` to find which
-    // children the called alleles reach. The caller completes the record after descent.
     return rec;
 }
 
 void TreeGenotyper::fill_tree_fields(const SiteView& view, const SiteChildren& children,
                                      StagedSite& site) const {
     site.children = children;
-    // A site holds a child site wherever one of its child chains has two nodes.
+    // A site holds a child site wherever one of its child chains has two nodes, which makes an
+    // entry.
     site.leaf = children.entries.empty();
     site.in_chain = true;
     site.chain = parts.child_placer->chain_of(view.net);
     site.enclosing = view.enclosing;
 }
 
-}
 }
