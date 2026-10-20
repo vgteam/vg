@@ -1514,9 +1514,8 @@ static void check_phase_against_alleles(const vector<AnchorWriter::Anchor>& anch
     }
 }
 
-void AnchorCollector::collect(const AnchorSiteEvidence& evidence, double explained_share,
-                              const vector<int>& genotype, int haploid_slot,
-                              const string& site_name, bool is_leaf, double gqn,
+void AnchorCollector::collect(const AnchorSiteEvidence& evidence, const AnchorCall& call,
+                              const string& site_name, bool is_leaf,
                               const multipass::ReadStrandTable& strands, size_t record_key) {
     if (path.empty() || writer == nullptr) {
         return;
@@ -1538,6 +1537,7 @@ void AnchorCollector::collect(const AnchorSiteEvidence& evidence, double explain
         return strands.read_strand_log_odds(record_key, read_name,
                                             site_own_state == 1 ? &site_own : nullptr);
     };
+    const vector<int>& genotype = call.genotype;
     // Each read's strand log-odds, leaving out this site.
     vector<double> read_strand;
     // Fill it only where `build_site_anchors` reads it: at a diploid homozygote that may be split,
@@ -1553,8 +1553,7 @@ void AnchorCollector::collect(const AnchorSiteEvidence& evidence, double explain
         }
     }
     vector<AnchorWriter::Anchor> anchors;
-    build_site_anchors(evidence, AnchorCall{genotype, haploid_slot, gqn, explained_share},
-                       site_name, params, anchors,
+    build_site_anchors(evidence, call, site_name, params, anchors,
                        (params.hom_split || params.phase_hets || params.strict_hets)
                            ? &read_strand : nullptr);
     // Check the strand log-odds only when splitting is on, and not when the heterozygous

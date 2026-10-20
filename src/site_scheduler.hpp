@@ -231,43 +231,83 @@ private:
 };
 
 /**
- * Walk a tree of sites as `vg call` does.
+ * Which children of the sites in a forest a walk goes on to call.
+ */
+enum class RecurseType {
+    /// Call the children of each site whose call failed.
+    OnFail,
+    /// Call the children of every site.
+    Always,
+    /// Call only the top-level sites.
+    Never
+};
+
+/**
+ * A view of the nested sites of a graph, which lists the top-level sites and the children of each
+ * site.
  *
- * Call every top-level site in parallel, then the children of every site (`recurse_always`), or
- * of every site whose call returned false (`recurse_on_fail`), and so on down. Run the calls in
- * the jobs that a `SiteScheduler` with `batch_window` and `key` gives.
+ * Each top-level site is the root of one tree of sites.
  *
- * @param for_each Lists the top-level sites on one thread, for batching.
- * @param for_each_parallel Lists the top-level sites on several threads, without batching.
- * @param skip Says which sites are neither called nor counted.
+ * `Site` names a site, and is copied into queues and batches.
+ */
+template<typename Site>
+class SiteForest {
+public:
+    virtual ~SiteForest() = default;
+
+    /// Return the key of a site, the lower of its two boundary node IDs.
+    virtual nid_t key(const Site& site) const = 0;
+
+    /// Call `iteratee` on each top-level site, on this thread.
+    virtual void for_each_top(const function<void(const Site&)>& iteratee) const = 0;
+
+    /// Call `iteratee` on each top-level site, spread over the OpenMP threads.
+    virtual void for_each_top_parallel(const function<void(const Site&)>& iteratee) const = 0;
+
+    /// Return true if a site has nothing to call.
+    ///
+    /// A walk neither calls nor counts such a site, and does not go on to its children.
+    virtual bool is_trivial(const Site& site) const = 0;
+
+    /// Call `iteratee` on each child of a site.
+    virtual void for_each_child(const Site& site, const function<void(const Site&)>& iteratee) const = 0;
+};
+
+/**
+ * Walk a forest of sites as `vg call` does.
+ *
+ * Call every top-level site in parallel, then the children `recurse_type` asks for, and so on
+ * down. Run the calls in the jobs that a `SiteScheduler` with `batch_window` gives.
+ *
  * @param call Calls a site, and returns false if it failed.
- * @param add_children Appends a site's children to a queue.
  * @param show_progress Report the sites called to stderr.
  */
 template<typename Site>
-void walk_site_tree(size_t batch_window, function<nid_t(const Site&)> key, bool recurse_always,
-                    bool recurse_on_fail, bool show_progress,
-                    const typename SiteScheduler<Site>::SiteLister& for_each,
-                    const typename SiteScheduler<Site>::SiteLister& for_each_parallel,
-                    const function<bool(const Site&)>& skip,
-                    const function<bool(const Site&)>& call,
-                    const function<void(const Site&, vector<Site>&)>& add_children) {
+void walk_site_tree(const SiteForest<Site>& forest, RecurseType recurse_type, size_t batch_window,
+                    bool show_progress, const function<bool(const Site&)>& call) {
     SiteCallTally tally;
 
-    auto process_site = [&](const Site& site, vector<Site>& thread_queue) {
-        if (skip(site)) {
+    auto process_site = [&forest, &call, recurse_type, show_progress, &tally](
+                            const Site& site, vector<Site>& thread_queue) {
+        if (forest.is_trivial(site)) {
             return;
         }
-        if (bool was_called = call(site); recurse_always || (!was_called && recurse_on_fail)) {
-            add_children(site, thread_queue);
+        if (bool was_called = call(site);
+            recurse_type == RecurseType::Always || (!was_called && recurse_type == RecurseType::OnFail)) {
+            forest.for_each_child(site, [&thread_queue](const Site& child) {
+                thread_queue.push_back(child);
+            });
         }
         if (show_progress) {
             tally.count();
         }
     };
-    SiteScheduler<Site> scheduler(batch_window, std::move(key), process_site);
+    SiteScheduler<Site> scheduler(batch_window, [&forest](const Site& site) { return forest.key(site); },
+                                  process_site);
 
-    scheduler.call_top_level(for_each, for_each_parallel);
+    scheduler.call_top_level(
+        [&forest](const function<void(const Site&)>& iteratee) { forest.for_each_top(iteratee); },
+        [&forest](const function<void(const Site&)>& iteratee) { forest.for_each_top_parallel(iteratee); });
     if (show_progress) {
         tally.finish_top_level();
     }

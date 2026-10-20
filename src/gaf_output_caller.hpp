@@ -15,7 +15,6 @@
 #include "linkage_model.hpp"
 #include "snarls.hpp"
 #include "traversal_finder.hpp"
-#include "anchor.hpp"
 #include "read_phasing.hpp"
 #include "regenotype.hpp"
 #include "snarl_caller.hpp"

@@ -15,7 +15,6 @@
 #include "linkage_model.hpp"
 #include "snarls.hpp"
 #include "traversal_finder.hpp"
-#include "anchor.hpp"
 #include "read_phasing.hpp"
 #include "regenotype.hpp"
 #include "snarl_caller.hpp"
@@ -24,6 +23,7 @@
 #include "zstdutil.hpp"
 #include "vg/io/alignment_emitter.hpp"
 #include "gref.hpp"
+#include "site_scheduler.hpp"
 #include "vcf_genotype_likelihoods.hpp"
 
 namespace vg {
@@ -40,7 +40,10 @@ using vg::io::AlignmentEmitter;
 class GraphCaller {
 public:
 
-    enum RecurseType { RecurseOnFail, RecurseAlways, RecurseNever };
+    using RecurseType = vg::RecurseType;
+    static constexpr RecurseType RecurseOnFail = RecurseType::OnFail;
+    static constexpr RecurseType RecurseAlways = RecurseType::Always;
+    static constexpr RecurseType RecurseNever = RecurseType::Never;
    
     GraphCaller(SnarlCaller& snarl_caller,
                 SnarlManager& snarl_manager);

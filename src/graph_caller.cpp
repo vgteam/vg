@@ -37,31 +37,58 @@ void GraphCaller::set_snarl_batching(size_t window_size) {
     snarl_batch_window = window_size;
 }
 
-/// Return the lower boundary node ID of a snarl, which batching sorts and groups snarls by.
-static nid_t snarl_node_key(const Snarl* snarl) {
-    return min(snarl->start().node_id(), snarl->end().node_id());
+namespace {
+
+/**
+ * The forest of the snarls in a SnarlManager.
+ *
+ * Its trivial snarls are the ones the SnarlManager calls trivial in the graph.
+ */
+class SnarlManagerSiteForest : public SiteForest<const Snarl*> {
+public:
+    /// Show the snarls of `snarl_manager` over `graph`. Neither is owned.
+    SnarlManagerSiteForest(const SnarlManager& snarl_manager, const HandleGraph& graph) :
+        snarl_manager(snarl_manager), graph(graph) {
+    }
+
+    nid_t key(const Snarl* const& snarl) const override {
+        return min(snarl->start().node_id(), snarl->end().node_id());
+    }
+
+    void for_each_top(const function<void(const Snarl* const&)>& iteratee) const override {
+        snarl_manager.for_each_top_level_snarl([&iteratee](const Snarl* snarl) { iteratee(snarl); });
+    }
+
+    void for_each_top_parallel(const function<void(const Snarl* const&)>& iteratee) const override {
+        snarl_manager.for_each_top_level_snarl_parallel([&iteratee](const Snarl* snarl) { iteratee(snarl); });
+    }
+
+    bool is_trivial(const Snarl* const& snarl) const override {
+        return snarl_manager.is_trivial(snarl, graph);
+    }
+
+    void for_each_child(const Snarl* const& snarl,
+                        const function<void(const Snarl* const&)>& iteratee) const override {
+        for (const Snarl* child : snarl_manager.children_of(snarl)) {
+            iteratee(child);
+        }
+    }
+
+private:
+    const SnarlManager& snarl_manager;
+    const HandleGraph& graph;
+};
+
 }
 
 void GraphCaller::call_top_level_snarls(const HandleGraph& graph, RecurseType recurse_type) {
     walk_site_tree<const Snarl*>(
-        snarl_batch_window, snarl_node_key, recurse_type == RecurseAlways,
-        recurse_type == RecurseOnFail, show_progress,
-        [&](const function<void(const Snarl* const&)>& lambda) {
-            snarl_manager.for_each_top_level_snarl([&](const Snarl* snarl) { lambda(snarl); });
-        },
-        [&](const function<void(const Snarl* const&)>& lambda) {
-            snarl_manager.for_each_top_level_snarl_parallel([&](const Snarl* snarl) { lambda(snarl); });
-        },
-        [&](const Snarl* const& snarl) { return snarl_manager.is_trivial(snarl, graph); },
-        [&](const Snarl* const& snarl) {
+        SnarlManagerSiteForest(snarl_manager, graph), recurse_type, snarl_batch_window, show_progress,
+        [this](const Snarl* const& snarl) {
 #ifdef debug
             cerr << "GraphCaller running call_snarl on " << pb2json(*snarl) << endl;
 #endif
             return call_snarl(*snarl);
-        },
-        [&](const Snarl* const& snarl, vector<const Snarl*>& queue) {
-            const vector<const Snarl*>& children = snarl_manager.children_of(snarl);
-            queue.insert(queue.end(), children.begin(), children.end());
         });
 }
 

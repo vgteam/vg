@@ -587,17 +587,14 @@ public:
      * Safe to call from many threads, but not from inside a nested parallel region.
      *
      * @param evidence The reads' evidence the genotyper kept for the site.
-     * @param explained_share The share of the site's reads the genotype explains.
-     * @param genotype The called alleles, in phase order.
-     * @param haploid_slot The strand a one-allele genotype sits on.
+     * @param call The phased call at the site. A NaN `gqn` is written as `.`.
      * @param site_name Names the site in the file.
      * @param is_leaf Whether the site has no child sites. Used only when `wants_leaf_test`.
-     * @param gqn The value for the gqn column. NaN is written as `.`.
      * @param strands Gives each read's strand log-odds from the sites other than `record_key`.
      */
-    void collect(const AnchorSiteEvidence& evidence, double explained_share,
-                 const vector<int>& genotype, int haploid_slot, const string& site_name,
-                 bool is_leaf, double gqn, const multipass::ReadStrandTable& strands, size_t record_key);
+    void collect(const AnchorSiteEvidence& evidence, const AnchorCall& call,
+                 const string& site_name, bool is_leaf, const multipass::ReadStrandTable& strands,
+                 size_t record_key);
 
     /// Write the anchor file, naming `sample_name`, and report the counters. Do nothing unless
     /// anchors are being collected.
