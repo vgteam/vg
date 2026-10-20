@@ -42,6 +42,7 @@ include $(wildcard $(IO_OBJ_DIR)/*.d)
 include $(wildcard $(IO_SHARED_OBJ_DIR)/*.d)
 include $(wildcard $(SUBCOMMAND_OBJ_DIR)/*.d)
 include $(wildcard $(UNITTEST_OBJ_DIR)/*.d)
+include $(wildcard $(UNITTEST_SUPPORT_OBJ_DIR)/*.d)
 include $(wildcard $(UNITTEST_BIN_DIR)/*.d)
 include $(wildcard test/*.d)
 

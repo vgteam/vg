@@ -322,6 +322,28 @@ static vector<pair<string, std::function<void(VG&)>>> example_graphs() {
             graph.create_edge(n4, n6);
             graph.create_edge(n4, n7);
             graph.create_edge(n1, n7);
+        }},
+        {"a snarl with no realizable traversal", [](VG& graph) {
+            // Nodes 3 and 4 form a cycle that a walk enters through the start
+            // of 3 and never leaves. A walk from node 2 enters it, and so does
+            // a walk going backward from node 5, through 6 and an edge from
+            // the start of 6 to the start of 3. So no walk from either bound
+            // of the snarl from 2 to 6 gets to a bound or a tip. Long nodes 1
+            // and 7 on either side make the root chain run through 2 and 5.
+            Node* n1 = graph.create_node(string(100, 'A'));
+            Node* n2 = graph.create_node("C");
+            Node* n3 = graph.create_node("G");
+            Node* n4 = graph.create_node("T");
+            Node* n5 = graph.create_node("A");
+            Node* n6 = graph.create_node("C");
+            Node* n7 = graph.create_node(string(100, 'G'));
+            graph.create_edge(n1, n2);
+            graph.create_edge(n2, n3);
+            graph.create_edge(n3, n4);
+            graph.create_edge(n4, n3);
+            graph.create_edge(n6, n3, true, false);
+            graph.create_edge(n6, n5);
+            graph.create_edge(n5, n7);
         }}
     };
 }
@@ -399,17 +421,22 @@ static void require_laws_on_implementation(const string& implementation) {
         REQUIRE(found);
     };
     for (const auto& [description, build] : example_graphs()) {
-        INFO("Graph: " << description);
-        VG graph;
-        build(graph);
-        IntegratedSnarlFinder finder(graph);
-        check(DecompositionLineup(graph, finder), graph);
+        SECTION("The laws hold for " + description) {
+            VG graph;
+            build(graph);
+            IntegratedSnarlFinder finder(graph);
+            check(DecompositionLineup(graph, finder), graph);
+        }
     }
-    std::default_random_engine generator(test_seed_source());
     for (double chain_flip_probability : {0.0, 0.5}) {
-        for (size_t repeat = 0; repeat < 100; repeat++) {
-            bdsg::HashGraph graph = random_flipped_graph(generator);
-            check(DecompositionLineup(graph, fuzzed_decomposition(graph, chain_flip_probability, generator)), graph);
+        SECTION("The laws hold for random graphs with chain flip probability " +
+                std::to_string(chain_flip_probability)) {
+            std::default_random_engine generator(test_seed_source());
+            for (size_t repeat = 0; repeat < 100; repeat++) {
+                bdsg::HashGraph graph = random_flipped_graph(generator);
+                check(DecompositionLineup(graph, fuzzed_decomposition(graph, chain_flip_probability, generator)),
+                      graph);
+            }
         }
     }
 }

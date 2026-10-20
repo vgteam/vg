@@ -40,8 +40,7 @@ using handlegraph::net_handle_t;
  *
  * The view keeps a reference to the manager, which must outlive it and must
  * not change. It does not keep the graph. A graph passed to a method must have
- * the same nodes and edges as the graph the view was made with, in any handle
- * format.
+ * the same nodes and edges as the graph the view was made with.
  *
  * @note Unlike a SnarlDistanceIndex, the view puts top-level chains directly
  * in the root, and shows snarls that have no children.
@@ -114,7 +113,9 @@ public:
      * tip-to-tip. For a sentinel, pick its bound facing in.
      *
      * TODO: An element with no realizable traversal gets start-to-end, but
-     * the interface requires the canonical traversal to be realizable.
+     * the interface requires the canonical traversal to be realizable. Such
+     * elements exist: IntegratedSnarlFinder makes a snarl around a cycle that
+     * walks from both of its bounds fall into and never leave.
      */
     net_handle_t canonical(const net_handle_t& net) const override;
 
