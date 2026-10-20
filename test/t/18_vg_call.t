@@ -1474,9 +1474,10 @@ is $(grep -v "^#" chainblk.vcf | awk -F'\t' '$3 == ">3>6" && $5 == "T"' | wc -l 
    "and the chain's own record reports the second strand's route through it"
 
 # --- assembly anchors -------------------------------------------------------
-# An anchor is a zero-length pin at a snarl boundary, holding the reads that cross it partitioned
-# by which called allele they fit. The invariant that matters is that a pinned position in a read
-# appears in exactly one anchor; everything else here supports being able to believe that one.
+# An anchor is a zero-length pin at a snarl boundary, or beside an off-panel change, holding the
+# reads that cross it partitioned by which called allele they fit. The invariant that matters is
+# that a point of a read appears in at most one anchor; everything else here supports being able to
+# believe that one.
 vg call x.gbz --read-likelihood --gam sim.gam --anchors-out rl_anchors.tsv -t 1 \
     > rl_anchors.vcf 2> rl_anchors.err
 is "$?" "0" "--anchors-out produces output"
@@ -1489,10 +1490,10 @@ is "$(grep "^#" rl_anchors.tsv | cut -f1 | LC_ALL=C sort -u | paste -sd, -)" \
    "the anchor header uses exactly the documented set of keys"
 is $(grep -c "^A" rl_anchors.tsv | awk '{print ($1>0)?1:0}') "1" "it holds anchors"
 
-# THE guarantee. Two pins can only meet at one junction of a read's walk, and each (node, side) has
-# exactly one owning snarl, so a repeat here means the pin geometry is wrong.
-is $(awk -F'\t' '/^R/{print $2"\t"$3"\t"$4}' rl_anchors.tsv | sort | uniq -d | wc -l | tr -d ' ') "0" \
-   "no (read, strand, offset) is pinned by more than one anchor"
+# THE guarantee, keyed on the point of the read: the gap, the read bases before it, which is offset+1
+# on strand 0 and offset on strand 1, so one point crossed in opposite directions is one key.
+is $(awk -F'\t' '/^R/{g=($3==0)?$4+1:$4; print $2"\t"g}' rl_anchors.tsv | sort | uniq -d | wc -l | tr -d ' ') "0" \
+   "no (read, gap) is pinned by more than one anchor"
 
 # The allele column exists so a consumer can tell which candidate traversal a slot partitions to.
 # It is NOT the VCF ALT number and must never be read as one, so what is checked is the property
@@ -1506,9 +1507,10 @@ is $(awk -F'\t' '/^A/{k=$2"|"$3; n[k]++; a[k]=a[k]" "$5} END{for(i in n) if(n[i]
 is $(awk -F'\t' '/^A/{print $2}' rl_anchors.tsv | sort -c -n 2>&1 | wc -l | tr -d ' ') "0" \
    "anchors are written in node order"
 
-# A read may sit on only one side of a site's partition, or the partition means nothing.
-is $(awk -F'\t' 'BEGIN{k=""} /^A/{k=$2"|"$3} /^R/{print k"\t"$2}' rl_anchors.tsv \
-     | sort | uniq -d | wc -l | tr -d ' ') "0" \
+# A read may sit on only one side of a site's partition, or the partition means nothing. Keyed on
+# the site, since its two pins may lie on one node, and a read may be at both.
+is $(awk -F'\t' '/^A/{k=$3; s=$4} /^R/{print k"\t"$2"\t"s}' rl_anchors.tsv \
+     | sort -u | cut -f1,2 | uniq -d | wc -l | tr -d ' ') "0" \
    "the two slots of a site have disjoint read sets"
 
 # Every R row needs the A row above it, since it does not repeat the key.

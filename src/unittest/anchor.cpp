@@ -7,10 +7,13 @@
 /// (`AnchorCounters::verify_failed`) catches errors on real data.
 ///
 
+#include <fstream>
 #include <limits>
 #include <set>
+#include <sstream>
 #include <map>
 #include <string>
+#include <tuple>
 #include <vector>
 
 #include <bdsg/hash_graph.hpp>
@@ -740,6 +743,209 @@ TEST_CASE("A nested haploid site takes the slot its strand names", "[anchor]") {
     params.het_only = true;
     build_site_anchors(ev, {0}, ">1>4", 0.9, 1.0, 1, params, counters, out);
     REQUIRE(out.empty());
+}
+
+TEST_CASE("A pin inside a node is resolved against the base before it or the base after it",
+          "[anchor]") {
+    PinSite site;
+    AnchorCounters counters;
+    // Pin 5 of node 1 "AAAACCCC" lies between its bases 4 and 5.
+    Alignment aln = matching_read(site.graph, "fwd", {{1, false}, {2, false}, {4, false}});
+
+    SECTION("an exit pin against base 4 and an entry pin against base 5 meet at one point") {
+        AnchorPlacement s = resolve_anchor_pin(SiteRead{&aln}, site.graph, 1, false, true, counters, 5);
+        AnchorPlacement e = resolve_anchor_pin(SiteRead{&aln}, site.graph, 1, false, false, counters, 5);
+        REQUIRE(s.offset == 4);
+        REQUIRE(e.offset == 4);
+        REQUIRE(e.direction == 0);
+    }
+    SECTION("a reverse read crosses the entry pin on strand 1, after base 5 in the read") {
+        Alignment rev = matching_read(site.graph, "rev", {{4, true}, {2, true}, {1, true}});
+        // Node 1 reversed starts at read index 9, so its base b is at index 9 + 7 - b.
+        AnchorPlacement e = resolve_anchor_pin(SiteRead{&rev}, site.graph, 1, false, false, counters, 5);
+        REQUIRE(e.direction == 1);
+        REQUIRE(e.offset == 9 + 7 - 5 + 1);
+    }
+    SECTION("bases inserted before base 5 lie before an entry pin's point") {
+        Mapping* first = aln.mutable_path()->mutable_mapping(0);
+        first->clear_edit();
+        for (auto lengths : vector<pair<int, int>>{{5, 5}, {0, 2}, {3, 3}}) {
+            Edit* e = first->add_edit();
+            e->set_from_length(lengths.first);
+            e->set_to_length(lengths.second);
+            if (lengths.first == 0) {
+                e->set_sequence("GG");
+            }
+        }
+        aln.set_sequence("AAAAC" "GG" "CCC" "T" "GGGGTTTT");
+        AnchorPlacement e = resolve_anchor_pin(SiteRead{&aln}, site.graph, 1, false, false, counters, 5);
+        REQUIRE(e.offset == 6);
+    }
+    SECTION("a read deleting base 5 is not placed at an entry pin before it") {
+        Mapping* first = aln.mutable_path()->mutable_mapping(0);
+        first->mutable_edit(0)->set_from_length(5);
+        first->mutable_edit(0)->set_to_length(5);
+        Edit* e = first->add_edit();
+        e->set_from_length(1);
+        e = first->add_edit();
+        e->set_from_length(2);
+        e->set_to_length(2);
+        aln.set_sequence("AAAAC" "CC" "T" "GGGGTTTT");
+        REQUIRE(!resolve_anchor_pin(SiteRead{&aln}, site.graph, 1, false, false, counters, 5).placed());
+        REQUIRE(counters.unaligned_base.load() == 1);
+    }
+    SECTION("a read starting at base 5 has no base before an entry pin there") {
+        Mapping* first = aln.mutable_path()->mutable_mapping(0);
+        first->mutable_position()->set_offset(5);
+        first->mutable_edit(0)->set_from_length(3);
+        first->mutable_edit(0)->set_to_length(3);
+        aln.set_sequence("CCC" "T" "GGGGTTTT");
+        REQUIRE(!resolve_anchor_pin(SiteRead{&aln}, site.graph, 1, false, false, counters, 5).placed());
+        REQUIRE(counters.no_neighbour.load() == 1);
+    }
+    SECTION("a read soft clipped before base 5 has no aligned base before an entry pin there") {
+        Mapping* first = aln.mutable_path()->mutable_mapping(0);
+        first->mutable_position()->set_offset(5);
+        first->clear_edit();
+        Edit* clip = first->add_edit();
+        clip->set_to_length(2);
+        clip->set_sequence("GG");
+        Edit* match = first->add_edit();
+        match->set_from_length(3);
+        match->set_to_length(3);
+        aln.set_sequence("GG" "CCC" "T" "GGGGTTTT");
+        REQUIRE(!resolve_anchor_pin(SiteRead{&aln}, site.graph, 1, false, false, counters, 5).placed());
+        REQUIRE(counters.no_neighbour.load() == 1);
+    }
+    REQUIRE(counters.verify_failed.load() == 0);
+}
+
+TEST_CASE("A placement names the alignment, which mates sharing a name do not share", "[anchor]") {
+    PinSite site;
+    AnchorCounters counters;
+    Alignment one = matching_read(site.graph, "pair", {{1, false}, {2, false}, {4, false}});
+    Alignment other = matching_read(site.graph, "pair", {{4, true}, {2, true}, {1, true}});
+    const AnchorPlacement a = resolve_anchor_pin(SiteRead{&one}, site.graph, 1, false, true, counters);
+    const AnchorPlacement b = resolve_anchor_pin(SiteRead{&other}, site.graph, 1, false, true, counters);
+    REQUIRE(a.alignment != b.alignment);
+    REQUIRE(a.alignment == resolve_anchor_pin(SiteRead{&one}, site.graph, 4, false, false, counters).alignment);
+}
+
+TEST_CASE("An off-panel site whose two pins are one point writes one anchor per slot", "[anchor]") {
+    vector<AnchorPlacement> starts(4), ends(4);
+    for (int i = 0; i < 4; ++i) {
+        starts[i].offset = 10 + i;
+        ends[i].offset = 20 + i;
+    }
+    AnchorSiteEvidence ev = two_allele_evidence({0, 1, 0, 1}, starts, ends);
+    ev.inside_node = true;
+    ev.start_node = 7;
+    ev.end_node = 7;
+    ev.start_pin = 3;
+    ev.end_pin = 3;
+    AnchorParams params;
+    params.min_reads = 1;
+    AnchorCounters counters;
+    vector<AnchorWriter::Anchor> out;
+    build_site_anchors(ev, {0, 1}, "op7.2.IG", 0.9, 1.0, 0, params, counters, out);
+    REQUIRE(out.size() == 2);
+    REQUIRE(counters.degenerate_site.load() == 1);
+    for (const AnchorWriter::Anchor& a : out) {
+        REQUIRE(a.edit);
+        REQUIRE(a.pin == 3);
+    }
+    // Pins at two points of one node are two anchors per slot.
+    ev.end_pin = 4;
+    out.clear();
+    build_site_anchors(ev, {0, 1}, "op7.3.SG", 0.9, 1.0, 0, params, counters, out);
+    REQUIRE(out.size() == 4);
+}
+
+/// Write `anchors` with `min_reads`, and return each A row's site with the number of read rows under
+/// it, in file order.
+static vector<string> write_anchors(vector<AnchorWriter::Anchor> anchors, size_t min_reads,
+                                    AnchorWriter& writer) {
+    for (AnchorWriter::Anchor& a : anchors) {
+        writer.add(std::move(a));
+    }
+    const string path = temp_file::create();
+    AnchorParams params;
+    params.min_reads = min_reads;
+    REQUIRE(writer.write(path, "g", "s", "r", 0.01, params));
+    vector<pair<string, size_t>> rows;
+    ifstream in(path);
+    string line;
+    while (getline(in, line)) {
+        if (line[0] == 'A') {
+            istringstream fields(line);
+            string kind, node, snarl;
+            fields >> kind >> node >> snarl;
+            rows.emplace_back(snarl, 0);
+        } else if (line[0] == 'R') {
+            ++rows.back().second;
+        }
+    }
+    temp_file::remove(path);
+    vector<string> out;
+    for (const auto& row : rows) {
+        out.push_back(row.first + ":" + to_string(row.second));
+    }
+    return out;
+}
+
+/// An anchor at `node` of site `snarl`, with a read row for each (read, alignment, direction,
+/// offset).
+static AnchorWriter::Anchor anchor_of(nid_t node, const string& snarl, bool edit,
+                                      const vector<tuple<int, uint32_t, uint8_t, int64_t>>& rows) {
+    AnchorWriter::Anchor a;
+    a.node = node;
+    a.snarl = snarl;
+    a.edit = edit;
+    for (const auto& r : rows) {
+        AnchorWriter::ReadRow row;
+        row.read = read_names().intern("point" + to_string(get<0>(r)));
+        row.alignment = get<1>(r);
+        row.direction = get<2>(r);
+        row.offset = get<3>(r);
+        a.reads.push_back(row);
+    }
+    return a;
+}
+
+TEST_CASE("The writer keeps each read point in one anchor, a snarl's where it has one", "[anchor]") {
+    AnchorWriter writer(1);
+    // Strand 0 offset 9 and strand 1 offset 10 are both the point before base 10 of a read.
+    SECTION("a snarl's anchor keeps a point an off-panel anchor written before it holds") {
+        const auto rows = write_anchors({anchor_of(2, "op2.4.SA", true, {{0, 1, 1, 10}, {1, 1, 0, 50}}),
+                                         anchor_of(5, ">5>6", false, {{0, 1, 0, 9}})},
+                                        1, writer);
+        REQUIRE(rows == vector<string>{"op2.4.SA:1", ">5>6:1"});
+        REQUIRE(writer.placements_left_out == 1);
+        REQUIRE(writer.placements_written == 2);
+    }
+    SECTION("of two off-panel anchors, the first in the file keeps it") {
+        const auto rows = write_anchors({anchor_of(3, "op3.0.SA", true, {{0, 1, 1, 10}}),
+                                         anchor_of(2, "op2.4.SA", true, {{0, 1, 0, 9}})},
+                                        1, writer);
+        REQUIRE(rows == vector<string>{"op2.4.SA:1"});
+        REQUIRE(writer.anchors_left_out == 1);
+    }
+    SECTION("another alignment of the read's name, as a mate is, is another read") {
+        const auto rows = write_anchors({anchor_of(3, "op3.0.SA", true, {{0, 2, 1, 10}}),
+                                         anchor_of(2, "op2.4.SA", true, {{0, 1, 0, 9}})},
+                                        1, writer);
+        REQUIRE(rows == vector<string>{"op2.4.SA:1", "op3.0.SA:1"});
+        REQUIRE(writer.placements_left_out == 0);
+    }
+    SECTION("an off-panel anchor left below the minimum reads is left out, and frees its points") {
+        const auto rows = write_anchors({anchor_of(2, "op2.4.SA", true, {{0, 1, 0, 9}, {1, 1, 0, 30}}),
+                                         anchor_of(3, "op3.0.SA", true, {{1, 1, 0, 30}, {2, 1, 0, 40}}),
+                                         anchor_of(1, ">1>2", false, {{0, 1, 0, 9}, {3, 1, 0, 60}})},
+                                        2, writer);
+        REQUIRE(rows == vector<string>{">1>2:2", "op3.0.SA:2"});
+        REQUIRE(writer.placements_left_out == 1);
+        REQUIRE(writer.anchors_left_out == 1);
+    }
 }
 
 }

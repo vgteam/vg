@@ -8,7 +8,9 @@ assembler, since the offsets index into the reads as sequenced.
 
 Checks, in order of how badly a failure would mislead:
 
-  1. no (read, strand, offset) appears in more than one anchor -- a pinned position is unique;
+  1. no (read, gap) appears in more than one anchor -- a read point is pinned once. The gap is
+     the point's place in the read, the number of read bases before it: offset + 1 on strand 0,
+     and offset on strand 1, so that one point crossed in opposite directions has one key;
   2. every offset lies inside its read;
   3. A rows are ordered by node ID;
   4. the slots of one site have disjoint read sets;
@@ -22,11 +24,12 @@ warning rather than a failure, with the count, because the distinction matters -
 property of the read file, while a repeated position for one alignment is a bug in the pin geometry.
 Long reads are unpaired, so this does not arise there.
 
-**A shared name is only provable when the two alignments touch the same site**, though -- as a name in
-two slots of one site, or twice within one anchor. Mates that land on different sites share a name and
-are invisible to both proofs, so their position repeats look exactly like a geometry fault from inside
-the file. `--paired` says the read file has mates sharing names, which downgrades those to warnings.
-Leave it off for long reads, where a repeat really would be a bug.
+**A shared name is only provable when the two alignments touch the same site**, though -- twice
+within one anchor, or, under `--paired`, in two slots of one site. Mates that land on different
+sites share a name and are invisible to both proofs, so their position repeats look exactly like a
+geometry fault from inside the file. `--paired` says the read file has mates sharing names, which
+downgrades those to warnings. Leave it off for long reads, where a repeat, or a name in two slots
+of a site, really would be a bug.
 
 Reads may be given as FASTA or FASTQ, plain or gzipped. Without them, checks 1, 3, 4 and 5 still run
 -- which is most of the value -- and check 2 is skipped rather than silently passed.
@@ -107,11 +110,13 @@ def main():
 
     # First pass: which names are provably carried by more than one alignment?
     #
-    # Two independent proofs, and both are needed. A name in two different SLOTS of one site must
-    # belong to two reads. And a name twice within ONE anchor must too: vg walks a site's reads once
-    # and contributes at most one row per read per anchor, so a repeat there is a second alignment,
-    # not a second visit. Checking only the first proof misses every mate pair that lands on the same
-    # allele -- which is half of them, and exactly the half that then shows up as a position repeat.
+    # Two independent proofs. A name twice within ONE anchor belongs to two reads: vg walks a site's
+    # reads once and contributes at most one row per read per anchor, so a repeat there is a second
+    # alignment, not a second visit. And with --paired, a name in two different SLOTS of one site is
+    # taken to belong to two reads too. Without --paired that is not a proof but check 4 failing,
+    # since vg puts each read in one slot of a site. Checking only the slot proof would miss every
+    # mate pair that lands on the same allele -- which is half of them, and exactly the half that
+    # then shows up as a position repeat.
     shared_names = set()
     seen_slot = {}
     in_anchor = set()
@@ -128,9 +133,10 @@ def main():
                 if fields[1] in in_anchor:
                     shared_names.add(id_name.get(fields[1], fields[1]))
                 in_anchor.add(fields[1])
-                key = (current[0], current[1], fields[1])
+                # A site is its ID, the snarl column: its two pins can lie on different nodes.
+                key = (current[1], fields[1])
                 previous = seen_slot.get(key)
-                if previous is not None and previous != current[2]:
+                if args.paired and previous is not None and previous != current[2]:
                     shared_names.add(id_name.get(fields[1], fields[1]))
                 seen_slot[key] = current[2]
     del seen_slot, in_anchor
@@ -141,7 +147,7 @@ def main():
     current = None
     last_node = None
     seen_position = {}
-    site_reads = defaultdict(dict)     # (node, snarl) -> read -> slot
+    site_reads = defaultdict(dict)     # snarl -> read -> slot
     failures = []
     shared_hits = 0
     undetected_hits = 0
@@ -195,15 +201,15 @@ def main():
                 strand, offset = int(fields[2]), int(fields[3])
                 rows += 1
 
-                key = (name, strand, offset)
+                key = (name, offset + 1 if strand == 0 else offset)
                 if key in seen_position:
                     if name in shared_names:
                         shared_hits += 1
                     elif args.paired:
                         undetected_hits += 1
                     else:
-                        fail(f"line {lineno}: {name} strand {strand} offset {offset} is pinned by "
-                             f"{current} and already by {seen_position[key]}")
+                        fail(f"line {lineno}: {name} strand {strand} offset {offset}, gap {key[1]}, "
+                             f"is pinned by {current} and already by {seen_position[key]}")
                 else:
                     seen_position[key] = current
 
@@ -215,7 +221,7 @@ def main():
                         fail(f"line {lineno}: offset {offset} is outside {name}, which is "
                              f"{length} bp")
 
-                site = (current[0], current[1])
+                site = current[1]
                 previous = site_reads[site].get(name)
                 if previous is not None and previous != current[2] and name not in shared_names:
                     fail(f"line {lineno}: {name} is in both slot {previous} and slot {current[2]} "
@@ -226,7 +232,7 @@ def main():
 
     if version is None:
         fail("no #anchors-version header, so the format is unknown")
-    elif version != "8":
+    elif version != "9":
         # v3 and v4 are refused rather than tolerated: both have these columns and both get `slot`
         # wrong in a way that reads cleanly and joins wrongly. v3 wrote it in allele order for
         # every site; v4 fixed the diploid pair and still wrote 0 for both strands of a nested
@@ -236,9 +242,11 @@ def main():
         # "no gap to normalise" sentinel, so on the records the linkage layer moved -- the ones
         # carrying a 37.8% false-positive rate -- the signed value silently became "unknown". Same
         # columns, same widths, joins wrongly. v7 lacks the pin column, which v8 adds at the end
-        # of the A row so that an anchor inside a node can say where in it it lies.
-        fail(f"#anchors-version {version} is not the one this script understands (8)")
-    if version == "8" and not id_name:
+        # of the A row so that an anchor inside a node can say where in it it lies. v8 is refused
+        # because it does not keep a read point unique: an off-panel site could pin where a snarl
+        # or a touching off-panel change also pins, so check 1 would fail on it.
+        fail(f"#anchors-version {version} is not the one this script understands (9)")
+    if version == "9" and not id_name:
         fail("no #read table, but every version from 2 on interns every read name")
 
     if shared_names:

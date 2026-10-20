@@ -1454,6 +1454,10 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
     vector<int64_t> walk_starts;
     unordered_map<int64_t, size_t> walk_index;
     const function<char(int64_t)> walk_base = [&](int64_t x) { return walk_spelling[x]; };
+    // The walk bases [changed_lo, changed_hi) that the alleles change, an indel's whole repeat
+    // tract counting as changed.
+    int64_t changed_lo = numeric_limits<int64_t>::max();
+    int64_t changed_hi = -1;
     if (site.inside_node && sequences != nullptr
         && std::all_of(traversals.begin(), traversals.end(),
                        [&](const Traversal& t) { return t == traversals.front(); })) {
@@ -1471,7 +1475,7 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
                 continue;
             }
             const string spelled = allele_sequence(graph, traversals[a], own);
-            if (spelled.size() == walk_spelling.size()) {
+            if (spelled == walk_spelling) {
                 continue;
             }
             size_t prefix = 0;
@@ -1484,6 +1488,11 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
                    && spelled[spelled.size() - 1 - suffix]
                           == walk_spelling[walk_spelling.size() - 1 - suffix]) {
                 ++suffix;
+            }
+            changed_lo = std::min(changed_lo, (int64_t)prefix);
+            changed_hi = std::max(changed_hi, (int64_t)(walk_spelling.size() - suffix));
+            if (spelled.size() == walk_spelling.size()) {
+                continue;
             }
             const size_t deleted = walk_spelling.size() - prefix - suffix;
             const size_t inserted = spelled.size() - prefix - suffix;
@@ -1500,6 +1509,8 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
             if (entry.after >= (int64_t)walk_spelling.size()) {
                 continue;
             }
+            changed_lo = std::min(changed_lo, entry.indel.at);
+            changed_hi = std::max(changed_hi, entry.after);
             // A large indel's rate is that of an error the size of its repeat tract, not of
             // its length.
             entry.large = entry.indel.length() >= LARGE_INDEL_MIN_LENGTH;
@@ -1639,18 +1650,28 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
     // it kept rather than what was offered.
     unique_ptr<AnchorSiteEvidence> anchor_evidence;
     // Where the two pins lie in their nodes, along each node's forward strand: the start pin follows
-    // the start node and the end pin precedes the end node, in the site's direction, and a site
-    // inside a node pins on either side of its base.
-    const bool start_backward = graph.get_is_reverse(site.start);
-    const bool end_backward = graph.get_is_reverse(site.end);
-    int64_t start_pin = start_backward ? 0 : (int64_t)graph.get_length(site.start);
-    int64_t end_pin = end_backward ? (int64_t)graph.get_length(site.end) : 0;
-    if (inside_one_node(site)) {
-        start_pin = start_backward ? (int64_t)site.offset + 1 : (int64_t)site.offset;
-        end_pin = start_backward ? (int64_t)site.offset : (int64_t)site.offset + 1;
-    } else if (site.inside_node) {
-        // Inside several nodes: from its anchor base to the near side of its last node.
-        start_pin = start_backward ? (int64_t)site.offset + 1 : (int64_t)site.offset;
+    // the start node and the end pin precedes the end node, in the site's direction. A site inside
+    // nodes pins after the walk base before the bases its alleles change, and before the base after
+    // them, or after the last of them where they end the walk; where they are none, its two pins are
+    // one.
+    handle_t start_handle = site.start;
+    handle_t end_handle = site.end;
+    int64_t start_pin = graph.get_is_reverse(site.start) ? 0 : (int64_t)graph.get_length(site.start);
+    int64_t end_pin = graph.get_is_reverse(site.end) ? (int64_t)graph.get_length(site.end) : 0;
+    const bool end_exit = site.inside_node && changed_hi == (int64_t)walk_spelling.size();
+    if (site.inside_node && changed_lo <= changed_hi) {
+        // The pin at walk point `point`, on the step holding walk base `base`.
+        auto pin_at = [&](int64_t point, int64_t base, handle_t& handle) {
+            const size_t step = std::upper_bound(walk_starts.begin(), walk_starts.end(), base)
+                                - walk_starts.begin() - 1;
+            handle = traversals.front()[step];
+            const int64_t k = point - walk_starts[step];
+            return graph.get_is_reverse(handle) ? (int64_t)graph.get_length(handle) - k : k;
+        };
+        start_pin = pin_at(changed_lo, std::max<int64_t>(changed_lo - 1, 0), start_handle);
+        end_handle = start_handle;
+        end_pin = changed_lo == changed_hi ? start_pin
+                                           : pin_at(changed_hi, changed_hi - end_exit, end_handle);
     }
     // Read phasing needs only the `rel` rows, without read names or positions. Built only when
     // anchors are not being written, since the anchor evidence already contains the rows.
@@ -1663,8 +1684,8 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
     if (params.collect_anchors) {
         anchor_evidence = make_unique<AnchorSiteEvidence>();
         anchor_evidence->n_alleles = traversals.size();
-        anchor_evidence->start_node = graph.get_id(site.start);
-        anchor_evidence->end_node = graph.get_id(site.end);
+        anchor_evidence->start_node = graph.get_id(start_handle);
+        anchor_evidence->end_node = graph.get_id(end_handle);
         anchor_evidence->inside_node = site.inside_node;
         anchor_evidence->start_pin = (uint32_t)start_pin;
         anchor_evidence->end_pin = (uint32_t)end_pin;
@@ -1864,12 +1885,12 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
             AnchorRead record;
             record.read = read_names().intern(aln.name());
             record.mismap = (float)mismap;
-            record.start_pin = resolve_anchor_pin(read, graph, graph.get_id(site.start),
-                                                  graph.get_is_reverse(site.start), true,
+            record.start_pin = resolve_anchor_pin(read, graph, graph.get_id(start_handle),
+                                                  graph.get_is_reverse(start_handle), true,
                                                   anchor_pin_counters,
                                                   site.inside_node ? start_pin : -1);
-            record.end_pin = resolve_anchor_pin(read, graph, graph.get_id(site.end),
-                                                graph.get_is_reverse(site.end), false,
+            record.end_pin = resolve_anchor_pin(read, graph, graph.get_id(end_handle),
+                                                graph.get_is_reverse(end_handle), end_exit,
                                                 anchor_pin_counters,
                                                 site.inside_node ? end_pin : -1);
             anchor_evidence->reads.push_back(std::move(record));

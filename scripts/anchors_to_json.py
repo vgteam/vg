@@ -125,7 +125,7 @@ def main():
             elif not line.startswith("#"):
                 break
     if not id_name:
-        sys.exit(f"error: {args.anchors} has no #read table; expected an anchors-version 6 file")
+        sys.exit(f"error: {args.anchors} has no #read table, which every anchors file vg writes has")
 
     keep_nodes = None
     if args.nodes:

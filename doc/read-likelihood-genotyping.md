@@ -715,6 +715,19 @@ A **pin** is a point between two adjacent bases of the graph, with no sequence o
 has two. The **start pin** lies just after the site's start boundary node, where an allele's walk
 enters the interior. The **end pin** lies just before its end boundary node, where the walk leaves.
 
+An off-panel site, whose ID begins `op`, lies inside nodes, and its pins bracket the bases its
+alleles change: the start pin lies just after the last unchanged base before them, and the end pin
+just before the first unchanged base after them, an indel's whole repeat tract counting as changed.
+Where the changed bases end the site's walk, the end pin lies just after the last of them. An
+insertion with no repeat tract changes no base, and its one pin is the point where it goes.
+
+No point of a read alignment is in two anchors. A point of a read is the number of read bases
+before it, and two alignments of one read name, such as paired-end mates, are told apart. Where an
+off-panel site's anchor would hold a point that a snarl's anchor holds, or that an off-panel anchor
+earlier in the file holds, it leaves that read out, and an off-panel anchor left with fewer than
+`--anchors-reads` reads is not written. vg reports on standard error how many read placements
+and anchors it left out.
+
 A site's reads are divided among its **slots**. A slot is a strand, numbered as a field of `GT`:
 slot 0 the first allele, to the left of the `|`, and slot 1 the second. But a diploid site that is
 not phaseable pools both strands in one slot, 0, unless `--anchors-hom-split` divides its reads
@@ -764,19 +777,20 @@ name the columns of each kind of row, and the `#note` lines describe them.
 
 | `A` column | Meaning |
 |---|---|
-| `node` | the graph's ID of the pin's boundary node: the first node of `snarl` for the start pin, the second for the end pin. Under `--translation` or `--gbz-translation`, `snarl` names the translated segments, while `node` stays the graph's ID |
+| `node` | the graph's ID of the node the pin lies on. For a snarl it is the pin's boundary node: the first node of `snarl` for the start pin, the second for the end pin. Under `--translation` or `--gbz-translation`, `snarl` names the translated segments, while `node` stays the graph's ID |
 | `snarl` | the site's ID, as in the VCF `ID` column: its start and end boundary node IDs, each preceded by `>` or `<` for its orientation. It is also written for off-reference sites, which have no VCF record |
 | `slot` | the slot |
 | `allele` | the slot's allele, as its index in the site's list of candidate alleles rather than a VCF allele number. The list is not written, so the index serves to compare a site's slots |
 | `gqn` | the `GQN` that a whole-site record for the site would carry, moved or not; `.` where it has none |
 | `explained` | the site's explained share |
-| `reliability` | the site's anchor reliability |
+| `reliability` | the site's anchor reliability, counting the reads placed at an off-panel site before any was left out for a point another anchor holds |
+| `pin` | where the pin lies in `node`: the node's bases before it, along the node's forward strand |
 
 | `R` column | Meaning |
 |---|---|
 | `read_id` | the read's index in the `#read` lines; paired mates share a name, and so an index |
 | `strand` | the direction in which the read crosses the pin, not one of the sample's strands: 0 in the site's direction, 1 against it |
-| `offset` | the 0-based offset, in the read as sequenced, of the read's last base before the pin, reading in the site's direction |
+| `offset` | the 0-based offset, in the read as sequenced, of the read's last base before the pin, reading in the site's direction. The point of the read the pin is at follows that base on strand 0 and precedes it on strand 1, so it has `offset` + 1 read bases before it on strand 0 and `offset` on strand 1 |
 | `score` | the read's anchor confidence |
 
 #### Selecting sites and reads

@@ -49,7 +49,7 @@ void AnchorCounters::report(ostream& out) const {
                "then does not identify an alignment)";
     }
     if (degenerate_site.load() > 0) {
-        out << ", " << degenerate_site.load() << " sites whose two boundaries are one node";
+        out << ", " << degenerate_site.load() << " sites whose two pins are one point";
     }
     if (single_pin.load() > 0) {
         out << ", " << single_pin.load()
@@ -130,6 +130,11 @@ AnchorPlacement resolve_anchor_pin(const SiteRead& read, const HandleGraph& grap
     AnchorPlacement out;
     const Alignment& aln = *read.aln;
     const Path& path = aln.path();
+    if (path.mapping_size() > 0) {
+        const Position& first = path.mapping(0).position();
+        out.alignment = (uint32_t)(((uint64_t)first.node_id() * 0x9E3779B97F4A7C15ULL) >> 32)
+                        ^ (uint32_t)(first.offset() * 2 + first.is_reverse());
+    }
 
     // Find the pin node's mapping and where in the read it starts. The pin node is a boundary of
     // the site, so every visit to it is in the site's index when there is one. A read that visits
@@ -194,16 +199,13 @@ AnchorPlacement resolve_anchor_pin(const SiteRead& read, const HandleGraph& grap
     // The node base the pin is defined against, in node-forward coordinates.
     //   exit  (S) pin: the node's last base in the site's direction; the pin follows it.
     //   entry (E) pin: the node's first base in the site's direction; the pin precedes it.
-    if (pin >= 0) {
-        // A pin inside the node is resolved as an exit pin, against the base before it.
-        exit_pin = true;
-        const int64_t before = site_backward ? pin : pin - 1;
-        if (before < 0 || before >= (int64_t)node_len) {
-            ++counters.unaligned_base;
-            return out;
-        }
+    // A pin inside the node: the base before it in the site's direction, or after it.
+    const int64_t inside = (exit_pin != site_backward) ? pin - 1 : pin;
+    if (pin >= 0 && (inside < 0 || inside >= (int64_t)node_len)) {
+        ++counters.unaligned_base;
+        return out;
     }
-    const size_t q_fwd = pin >= 0 ? (size_t)(site_backward ? pin : pin - 1)
+    const size_t q_fwd = pin >= 0 ? (size_t)inside
                                   : exit_pin ? (site_backward ? 0 : node_len - 1)
                                              : (site_backward ? node_len - 1 : 0);
     // The same base in the orientation the read visits the node in, in which the mapping's offsets
@@ -269,6 +271,19 @@ AnchorPlacement resolve_anchor_pin(const SiteRead& read, const HandleGraph& grap
     if (exit_pin) {
         // The reference base is immediately upstream of the pin, which is what `offset` reports.
         out.offset = base_index;
+        return out;
+    }
+    if (pin >= 0) {
+        // An entry pin inside the node: the read base just upstream of the reference base. A read
+        // whose alignment begins (or ends) at the reference base, soft clipped or not, does not
+        // cross the pin.
+        const int64_t upstream = out.direction == 0 ? base_index - 1 : base_index + 1;
+        if (upstream < softclip_start(path)
+            || upstream >= (int64_t)aln.sequence().size() - softclip_end(path)) {
+            ++counters.no_neighbour;
+        } else {
+            out.offset = upstream;
+        }
         return out;
     }
 
@@ -449,10 +464,10 @@ void build_site_anchors(const AnchorSiteEvidence& evidence, const vector<int>& g
         evidence.allele_length, evidence.n_alleles, evidence.mean_read_length,
         evidence.length_weighted, slot_allele);
 
-    // Two anchors per slot: one at each pin. The end pin is skipped where the site's two boundaries
-    // are the same node, since the anchors would then be indistinguishable; a site inside one node
-    // instead has its pins on either side of its base.
-    bool degenerate = evidence.start_node == evidence.end_node && !evidence.inside_node;
+    // Two anchors per slot: one at each pin. The end pin is skipped where the two pins are one point,
+    // as for a snarl whose two boundaries are the same node, or an insertion with no repeat tract.
+    bool degenerate = evidence.start_node == evidence.end_node
+                      && (!evidence.inside_node || evidence.start_pin == evidence.end_pin);
     if (degenerate) {
         ++counters.degenerate_site;
     }
@@ -465,6 +480,7 @@ void build_site_anchors(const AnchorSiteEvidence& evidence, const vector<int>& g
         start_anchors[i].allele = slot_allele[i];
         start_anchors[i].gqn = gqn;
         start_anchors[i].explained = explained;
+        start_anchors[i].edit = evidence.inside_node;
         end_anchors[i] = start_anchors[i];
         end_anchors[i].node = evidence.end_node;
         end_anchors[i].pin = evidence.end_pin;
@@ -628,6 +644,7 @@ void build_site_anchors(const AnchorSiteEvidence& evidence, const vector<int>& g
 
         AnchorWriter::ReadRow row;
         row.read = read.read;
+        row.alignment = read.start_pin.alignment;
         row.score = (float)score;
 
         if (read.end_pin.placed() && !read.start_pin.placed()) {
@@ -720,16 +737,6 @@ size_t AnchorWriter::anchor_count() const {
     size_t total = 0;
     for (const auto& q : queues) {
         total += q.size();
-    }
-    return total;
-}
-
-size_t AnchorWriter::read_row_count() const {
-    size_t total = 0;
-    for (const auto& q : queues) {
-        for (const Anchor& a : q) {
-            total += a.reads.size();
-        }
     }
     return total;
 }
@@ -828,6 +835,59 @@ bool AnchorWriter::write(const string& path, const string& graph_name, const str
         return written_before(a, b, names_table);
     });
 
+    // No point of a read alignment in two anchors, the point being the read bases before it. In
+    // file order, an off-panel anchor leaves out a read whose point a snarl's anchor holds or an
+    // earlier off-panel anchor kept. Snarl anchors are not checked against one another: two snarls'
+    // pins face into their own snarls, so no read crosses one point at both.
+    using Point = pair<uint64_t, int64_t>;
+    auto point = [](const ReadRow& r) {
+        return Point(((uint64_t)r.read << 32) | r.alignment, r.direction == 0 ? r.offset + 1 : r.offset);
+    };
+    auto point_hash = [](const Point& p) {
+        return std::hash<uint64_t>{}(p.first ^ ((uint64_t)p.second * 0x9E3779B97F4A7C15ULL));
+    };
+    // 0 for a point no anchor holds yet, 1 for one a snarl's holds, 2 for one an off-panel one kept.
+    unordered_map<Point, uint8_t, decltype(point_hash)> held(1024, point_hash);
+    for (const Anchor& a : all) {
+        for (size_t i = 0; a.edit && i < a.reads.size(); ++i) {
+            held.emplace(point(a.reads[i]), 0);
+        }
+    }
+    for (const Anchor& a : all) {
+        for (size_t i = 0; !a.edit && !held.empty() && i < a.reads.size(); ++i) {
+            auto found = held.find(point(a.reads[i]));
+            if (found != held.end()) {
+                found->second = 1;
+            }
+        }
+    }
+    placements_left_out = 0;
+    for (Anchor& a : all) {
+        if (!a.edit) {
+            continue;
+        }
+        const size_t before = a.reads.size();
+        a.reads.erase(std::remove_if(a.reads.begin(), a.reads.end(),
+                                     [&](const ReadRow& r) { return held[point(r)] != 0; }),
+                      a.reads.end());
+        placements_left_out += before - a.reads.size();
+        if (a.reads.size() >= params.min_reads) {
+            for (const ReadRow& r : a.reads) {
+                held[point(r)] = 2;
+            }
+        }
+    }
+    const size_t anchors_before = all.size();
+    all.erase(std::remove_if(all.begin(), all.end(),
+                             [&](const Anchor& a) { return a.edit && a.reads.size() < params.min_reads; }),
+              all.end());
+    anchors_left_out = anchors_before - all.size();
+    anchors_written = all.size();
+    placements_written = 0;
+    for (const Anchor& a : all) {
+        placements_written += a.reads.size();
+    }
+
     // Intern the read names: each name is written once, in a table, and read rows refer to it by
     // index, since a read is usually placed at several anchors. Indices follow sorted-name order,
     // so that the file does not depend on thread scheduling and the table can be binary-searched.
@@ -882,7 +942,7 @@ bool AnchorWriter::write(const string& path, const string& graph_name, const str
         return false;
     }
     // The format version, raised whenever the columns or their meaning change.
-    out << "#anchors-version\t8\n";
+    out << "#anchors-version\t9\n";
     // Which vg wrote the file, since values can change between versions of vg while the format
     // version does not. Consumers skip unknown '#' lines.
     out << "#vg-version\t" << Version::get_version() << "\n";
@@ -915,8 +975,12 @@ bool AnchorWriter::write(const string& path, const string& graph_name, const str
                "chr20 ONT it agrees with the allele partition 94.7% of the time, so roughly one "
                "read in twenty is on the wrong strand. Equal alleles across two slots is the tell.\n";
     }
-    out << "#note\tan anchor is a zero-length pin at the junction between a snarl boundary node "
-           "and the site interior. There is no anchor sequence and no length.\n";
+    out << "#note\tan anchor is a zero-length pin at a point between two adjacent graph bases. A "
+           "snarl pins at the junctions between its boundary nodes and its interior. An off-panel "
+           "site (snarl column op...) pins around the bases its alleles change: after the last "
+           "unchanged base before them and before the first unchanged base after them, an indel's "
+           "whole repeat tract counting as changed. An insertion with no repeat tract changes no "
+           "base and has one pin. There is no anchor sequence and no length.\n";
     out << "#note\tnode is the graph's own node ID. snarl is the VCF ID, which -N or -O writes in "
            "translated segment names, so under them node is not one of the IDs in snarl.\n";
     out << "#note\tR rows name their read by an integer id into the #read table above them, which "
@@ -926,9 +990,13 @@ bool AnchorWriter::write(const string& path, const string& graph_name, const str
            "it precedes it. For the oriented read, use (read length - 1 - offset).\n";
     out << "#note\tR rows belong to the A row above them and do not repeat its key. The file is "
            "already ordered by node; do not sort it.\n";
-    out << "#note\tno (read, strand, offset) appears in more than one anchor -- for distinct "
-           "alignments. A read NAME shared by two alignments (paired-end mates share one) can "
-           "repeat a position; the shared_name counter reports how many such reads there were.\n";
+    out << "#note\tno read point is in two anchors. For an R row the point is gap = offset+1 on "
+           "strand 0 and offset on strand 1, the point between read[gap-1] and read[gap]. Where an "
+           "off-panel site and a snarl would hold one alignment's point, only the snarl's anchor "
+           "does; where two off-panel sites would, only the anchor written first does. vg reports "
+           "on stderr how many placements it left out. Two alignments of one read name (paired-end "
+           "mates, or a long read's supplementary alignments) share a read_id, so one read_id can "
+           "name one gap twice, once for each alignment.\n";
     out << "#note\tslot indexes the settled PHASED pair, so slot i is field i of that snarl's GT in "
         << "the VCF -- slot 0 the left allele, slot 1 the right. A homozygous site collapses to one "
         << "slot holding every read, and carries no haplotype information to join on\n";
@@ -966,11 +1034,13 @@ bool AnchorWriter::write(const string& path, const string& graph_name, const str
         << "9.5. It is low exactly where the reads cannot tell the site's alleles apart, which on "
         << "ONT means a 1 bp indel. Site-level, so it repeats across the site's rows. It is the "
         << "UNROUNDED mean, while the R rows it averages are written to one decimal, so "
-        << "re-deriving it from them lands within about 0.05 rather than exactly. From v6\n";
+        << "re-deriving it from them lands within about 0.05 rather than exactly. An off-panel "
+        << "site's reliability counts the reads it placed before the rule above removed any. From "
+        << "v6\n";
     out << "#reads-interned\t" << reads.size() << "\n";
     out << "#note\tpin is where the anchor lies in its node: the node's bases before it, along the "
-           "node's forward strand. A site between two nodes pins at a node end; a site inside one "
-           "node, as an off-panel SNV is, pins on either side of its base. From v8\n";
+           "node's forward strand. A snarl pins at a node end; an off-panel site can pin inside a "
+           "node. From v8\n";
     out << "#H\tA\tnode\tsnarl\tslot\tallele\tgqn\texplained\treliability\tpin\n";
     out << "#H\tR\tread_id\tstrand\toffset\tscore\n";
     for (size_t i = 0; i < names.size(); ++i) {
@@ -1142,13 +1212,14 @@ void AnchorCollector::write(const string& sample_name) {
     if (path.empty() || writer == nullptr) {
         return;
     }
-    size_t anchors = writer->anchor_count();
-    size_t rows = writer->read_row_count();
     if (!writer->write(path, graph_name, sample_name, reads_source, mismap_min, params)) {
         return;
     }
-    cerr << "[vg call] anchors: " << anchors << " written over " << rows
-         << " read placements to " << path << endl;
+    cerr << "[vg call] anchors: " << writer->anchors_written << " written over "
+         << writer->placements_written << " read placements to " << path << "; "
+         << writer->placements_left_out << " off-panel read placements left out because a "
+         << "snarl's anchor or an earlier off-panel anchor holds the same read point, and then "
+         << writer->anchors_left_out << " off-panel anchors below the minimum reads" << endl;
     if (params.counters != nullptr) {
         params.counters->report(cerr);
     }

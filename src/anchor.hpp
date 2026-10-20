@@ -57,6 +57,9 @@ struct AnchorPlacement {
     /// 0 when the read crosses the pin in the site's direction, 1 when against it. The anchor
     /// file writes it in its `strand` column.
     uint8_t direction = 0;
+    /// Tells apart the alignments of one read name, as paired-end mates are: a hash of where the
+    /// alignment starts.
+    uint32_t alignment = 0;
     bool placed() const { return offset >= 0; }
 };
 
@@ -83,7 +86,8 @@ struct AnchorCounters {
     atomic<size_t> coincident{0};
     /// Reads excluded because their best-fitting allele was not a called one.
     atomic<size_t> off_call{0};
-    /// Sites whose two boundary nodes are the same node. They get a start pin only.
+    /// Sites whose two pins are one point, as for a snarl whose two boundary nodes are the same node.
+    /// They get a start pin only.
     atomic<size_t> degenerate_site{0};
     /// End anchors suppressed because every read on them is also on their slot's start anchor.
     atomic<size_t> single_pin{0};
@@ -135,8 +139,9 @@ struct AnchorCounters {
  */
 ///
 /// A pin inside the node, as a site inside a node has, is given as `pin`: the node's bases before
-/// it along the node's forward strand. It is resolved as an exit pin is, against the node base just
-/// before it in the site's direction, and `exit_pin` is then ignored.
+/// it along the node's forward strand. An exit pin there is resolved against the node base just
+/// before it in the site's direction, and an entry pin against the one just after it, the read's
+/// base before that one, an inserted base too but not a soft-clipped one, being the offset.
 AnchorPlacement resolve_anchor_pin(const SiteRead& read, const HandleGraph& graph,
                                    nid_t node_id, bool site_backward, bool exit_pin,
                                    AnchorCounters& counters, int64_t pin = -1);
@@ -208,14 +213,14 @@ struct AnchorSiteEvidence {
     vector<uint32_t> allele_length;
     float mean_read_length = 0.0f;
     bool length_weighted = true;
+    /// The nodes the pins lie on, and where each pin lies in its node: the node's bases before it,
+    /// along the node's forward strand. The start pin follows its node and the end pin precedes its
+    /// node, read in the site's direction, unless the site lies inside nodes, as an off-panel site
+    /// does, whose pins bracket the bases its alleles change.
     nid_t start_node = 0;
     nid_t end_node = 0;
-    /// Where each pin lies in its node: the node's bases before it, along the node's forward
-    /// strand. The start pin follows its node and the end pin precedes its node, read in the site's
-    /// direction, unless the site lies inside one node, whose pins are on either side of its base.
     uint32_t start_pin = 0;
     uint32_t end_pin = 0;
-    /// Whether the site lies inside one node, so that its two pins are distinct places in it.
     bool inside_node = false;
 
     float rel_at(size_t read, size_t allele) const {
@@ -307,6 +312,8 @@ public:
     struct ReadRow {
         /// The read, as its index in read_names().
         uint32_t read = 0;
+        /// Which alignment of the read it is; see `AnchorPlacement::alignment`.
+        uint32_t alignment = 0;
         int64_t offset = -1;
         float score = 0.0f;
         uint8_t direction = 0;
@@ -331,6 +338,8 @@ public:
         /// counted once. The read rows give confidences to one decimal only, so it is written
         /// here as well. -1 where the site wrote no read.
         double reliability = -1.0;
+        /// Whether it is an off-panel site's, which lies inside nodes.
+        bool edit = false;
         vector<ReadRow> reads;
     };
 
@@ -340,11 +349,19 @@ public:
     void add(Anchor&& anchor);
 
     size_t anchor_count() const;
-    size_t read_row_count() const;
 
     /// Sort by (node, snarl, slot) and write. Returns false if the file could not be opened.
+    ///
+    /// No point of a read alignment is written in two anchors. An off-panel anchor leaves out a
+    /// read whose point a snarl's anchor holds, or an earlier off-panel anchor in the file, and is
+    /// then left out itself if it holds fewer than `params.min_reads` reads.
     bool write(const string& path, const string& graph_name, const string& sample,
                const string& reads_source, double mismap_min, const AnchorParams& params);
+
+    /// Set by `write`: the anchors and read placements written, and the off-panel read placements
+    /// and anchors left out.
+    size_t anchors_written = 0, placements_written = 0, placements_left_out = 0,
+           anchors_left_out = 0;
 
 private:
     vector<vector<Anchor>> queues;
