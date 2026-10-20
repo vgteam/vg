@@ -48,8 +48,10 @@ struct LargeIndelParams {
     size_t min_fragments_per_end = 2;
 };
 
+struct EditCallBar;
+
 /// The floors a candidate must pass to be kept, set low so that the call bar can be fitted from
-/// the dump.
+/// the dump. Where `bar` is set, the candidates it merges are dumped as their merged candidate.
 struct EditCountParams {
     /// Reads below this mapping quality are not counted.
     int min_mapq = 5;
@@ -65,6 +67,9 @@ struct EditCountParams {
     /// Whether to count indels of `LARGE_INDEL_MIN_LENGTH` bases or more, matched as `large` says.
     bool large_indels = false;
     LargeIndelParams large;
+    /// Where not null, the candidates on one node that it admits and whose changed bases touch are
+    /// merged into one, of kind 'M'.
+    const EditCallBar* bar = nullptr;
 };
 
 /// A change the reads make to a walk of the graph: a substitution, the node's base `ref` read as
@@ -79,21 +84,27 @@ struct EditCountParams {
 /// as the ALT if its one indel there is this one, as the REF if it has none there, and as other if
 /// it has another. A large indel (`is_large`) is matched loosely instead (`observe_large_indel`),
 /// and its ALT is one read's: for an insertion, the medoid of the reads that carry it.
+///
+/// A merged candidate (kind 'M') replaces the bases `sequence` from `offset` on along `walk` with
+/// each of its ALTs, which are what the reads spell there; see `count_edits`.
 struct EditCandidate {
     nid_t node = 0;
     uint32_t offset = 0;
     char ref = 'N';
     /// For a substitution, the base read; 0 for an indel.
     char alt = 'N';
-    /// 'S' for a substitution, 'D' for a deletion, 'I' for an insertion.
+    /// 'S' for a substitution, 'D' for a deletion, 'I' for an insertion, 'M' for a merged change.
     char kind = 'S';
-    /// For an indel, the bases it deletes or inserts, along the forward strand.
+    /// For an indel, the bases it deletes or inserts, along the forward strand; for a merged
+    /// change, the bases it replaces.
     string sequence;
+    /// For a merged change, its ALTs, along the forward strand.
+    vector<string> alts;
     /// For an indel, the nodes from the anchor's to that of the first base after the tract, each
     /// read forward: the walk its edit site takes.
     vector<nid_t> walk;
     /// For an indel, the bases from the anchor to the first base after the tract, the tract's
-    /// length plus 1.
+    /// length plus 1; for a merged change, the bases it replaces.
     uint32_t span = 0;
     /// For an indel, the length of the run of one base its tract starts with.
     uint32_t homopolymer = 0;
@@ -109,7 +120,7 @@ struct EditCandidate {
     double fraction() const;
 
     bool is_indel() const {
-        return kind != 'S';
+        return kind == 'D' || kind == 'I';
     }
 
     /// Whether it is an indel of `LARGE_INDEL_MIN_LENGTH` bases or more.
@@ -156,7 +167,11 @@ struct EditCallBar {
     size_t large_min_alt_fragments = 7;
     double large_min_fraction = 0.25;
 
+    /// A merged change's ALTs passed it already.
     bool admits(const EditCandidate& candidate) const {
+        if (candidate.kind == 'M') {
+            return true;
+        }
         if (candidate.is_large()) {
             return candidate.alt_fragments >= large_min_alt_fragments
                    && candidate.fraction() >= large_min_fraction;
@@ -208,6 +223,13 @@ private:
 /// take, and is left out. An indel is keyed on its anchor once left-aligned, and every read that
 /// covers the anchor is fetched with the anchor's node, so each window counts the indels anchored
 /// on its own nodes in full, wherever its reads first placed them.
+///
+/// With `params.bar`, the candidates on one node that it admits, large indels aside, whose changed
+/// bases touch or overlap are merged: a substitution changes its base, an indel its repeat tract.
+/// The ALTs are the spellings the reads on the longest of their walks give between the bases on
+/// either side, each admitted as a candidate of its own would be, and changing the length only
+/// with a walk base on each side. They are not merged where they are all indels at one anchor, or
+/// where one is in no ALT.
 vector<EditCandidate> count_edits(
     const HandleGraph& graph,
     const function<void(const function<void(const Alignment&)>&)>& for_each_read,

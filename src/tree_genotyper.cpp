@@ -524,8 +524,24 @@ vector<EditCandidate> TreeGenotyper::admitted(vector<EditCandidate> candidates) 
 bool TreeGenotyper::edit_site_of(const EditCandidate& c, handle_t read_as,
                                  const NodePlacement& where, EditSite& out) const {
     const PathPositionHandleGraph& graph = *parts.graph;
-    if (!c.is_indel()) {
-        out = snv_edit_site(graph, read_as, c.offset, c.alt);
+    // The ALTs along the node's forward strand, and how many bases from `at` on they replace.
+    vector<string> alts = c.kind == 'M'   ? c.alts
+                          : c.kind == 'S' ? vector<string>{string(1, c.alt)}
+                          : c.kind == 'I' ? vector<string>{c.sequence}
+                                          : vector<string>{""};
+    const size_t length = c.kind == 'M'   ? c.span
+                          : c.kind == 'S' ? 1
+                          : c.kind == 'D' ? c.sequence.size()
+                                          : 0;
+    if (c.kind == 'S' || (c.kind == 'M' && c.walk.size() == 1)) {
+        // Inside one node, read as `read_as` reads it.
+        const bool backward = graph.get_is_reverse(read_as);
+        for (string& alt : alts) {
+            alt = backward ? reverse_complement(alt) : alt;
+        }
+        out = edit_site(graph, {read_as}, backward ? c.offset + length - 1 : c.offset,
+                        backward ? graph.get_length(read_as) - c.offset - length : c.offset, length,
+                        alts);
         return true;
     }
     if (graph.get_is_reverse(read_as)) {
@@ -565,7 +581,11 @@ bool TreeGenotyper::edit_site_of(const EditCandidate& c, handle_t read_as,
     if (on_reference != 0 && on_reference != c.walk.size()) {
         return false;
     }
-    out = indel_edit_site(graph, c.walk, c.offset, c.kind == 'D', c.sequence);
+    Traversal steps;
+    for (nid_t id : c.walk) {
+        steps.push_back(graph.get_handle(id));
+    }
+    out = edit_site(graph, steps, c.offset, c.kind == 'M' ? c.offset : c.offset + 1, length, alts);
     return true;
 }
 
@@ -802,7 +822,8 @@ void TreeGenotyper::genotype_edit_site(const HeldEdit& edit, const vector<SiteBo
     outcome.genotype = genotype;
     outcome.gq = score != nullptr ? score->gq : 0.0;
     outcome.depth_ratio = score != nullptr ? score->depth_ratio : -1.0;
-    const bool carries_alt = std::count(genotype.begin(), genotype.end(), 1) > 0;
+    const bool carries_alt =
+        std::any_of(genotype.begin(), genotype.end(), [](int a) { return a > 0; });
     const double max_dr = options.edit_bar.max_depth_ratio;
     if (score == nullptr || genotype.size() != (size_t)ploidy || !carries_alt
         || outcome.gq < options.edit_bar.min_gq

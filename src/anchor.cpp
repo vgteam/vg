@@ -1040,7 +1040,12 @@ bool AnchorWriter::write(const string& path, const string& graph_name, const str
     out << "#reads-interned\t" << reads.size() << "\n";
     out << "#note\tpin is where the anchor lies in its node: the node's bases before it, along the "
            "node's forward strand. A snarl pins at a node end; an off-panel site can pin inside a "
-           "node. From v8\n";
+           "node. From v8. Off-panel changes on one node that the call bar admits, large indels "
+           "aside, whose changed bases touch or overlap are written as one site where the reads "
+           "spell alleles that carry each of them and they are not all indels at one anchor, with ID "
+           "op<node>.<offset>.M<length>: offset is its first changed base along the node's forward "
+           "strand, length the bases it replaces, and its ALTs are what the reads spell there. "
+           "From v9\n";
     out << "#H\tA\tnode\tsnarl\tslot\tallele\tgqn\texplained\treliability\tpin\n";
     out << "#H\tR\tread_id\tstrand\toffset\tscore\n";
     for (size_t i = 0; i < names.size(); ++i) {

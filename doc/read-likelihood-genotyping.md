@@ -720,6 +720,11 @@ alleles change: the start pin lies just after the last unchanged base before the
 just before the first unchanged base after them, an indel's whole repeat tract counting as changed.
 Where the changed bases end the site's walk, the end pin lies just after the last of them. An
 insertion with no repeat tract changes no base, and its one pin is the point where it goes.
+Off-panel changes on one node that the call bar admits, large indels aside, whose changed bases
+touch or overlap are one site where the reads spell alleles that carry each of them and they are not
+all indels at one anchor, with ID `op<node>.<offset>.M<length>`: `offset` is its first
+changed base along the node's forward strand and `length` the bases it replaces, and its ALTs are
+the spellings of those bases that enough reads give, as the call bar counts them.
 
 No point of a read alignment is in two anchors. A point of a read is the number of read bases
 before it, and two alignments of one read name, such as paired-end mates, are told apart. Where an

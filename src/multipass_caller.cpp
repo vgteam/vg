@@ -155,7 +155,7 @@ void MultiPassCaller::write_edit_dump() const {
             indels += c.is_indel();
         }
         for (const EditOutcome& o : edit_outcomes->sorted()) {
-            indels_staged += o.staged && o.kind != 'S';
+            indels_staged += o.staged && (o.kind == 'D' || o.kind == 'I');
         }
         cerr << "[vg call] off-panel: " << indels << " of the candidates are indels; "
              << indels_staged << " indels staged with their ALT" << endl;
@@ -186,6 +186,11 @@ void MultiPassCaller::write_edit_dump() const {
             // As VCF writes an indel: from its anchor base.
             out << c.ref << (c.kind == 'D' ? c.sequence : "") << "\t" << c.ref
                 << (c.kind == 'I' ? c.sequence : "");
+        } else if (c.kind == 'M') {
+            out << c.sequence << "\t";
+            for (size_t a = 0; a < c.alts.size(); ++a) {
+                out << (a > 0 ? "," : "") << c.alts[a];
+            }
         } else {
             out << c.ref << "\t" << c.alt;
         }

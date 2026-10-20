@@ -85,55 +85,33 @@ size_t bases_before_site(const HandleGraph& graph, const SiteBounds& site) {
                                             : site.offset;
 }
 
-EditSite snv_edit_site(const HandleGraph& graph, handle_t node, uint32_t offset, char alt) {
+EditSite edit_site(const HandleGraph& graph, const Traversal& steps, uint32_t offset, size_t at,
+                   size_t length, const vector<string>& alts) {
     EditSite site;
-    site.bounds.start = node;
-    site.bounds.end = node;
-    site.bounds.inside_node = true;
-    site.bounds.offset = offset;
-    site.travs.assign(2, Traversal{node});
-    string spelled = graph.get_sequence(node);
-    const bool backward = graph.get_is_reverse(node);
-    spelled[bases_before_site(graph, site.bounds)] = backward ? reverse_complement(alt) : alt;
-    site.sequences.resize(2);
-    site.sequences[1].push_back(std::move(spelled));
-    return site;
-}
-
-EditSite indel_edit_site(const HandleGraph& graph, const vector<nid_t>& walk, uint32_t offset,
-                         bool deletion, const string& sequence) {
-    EditSite site;
-    Traversal steps;
-    for (nid_t id : walk) {
-        steps.push_back(graph.get_handle(id));
-    }
     site.bounds.start = steps.front();
     site.bounds.end = steps.back();
     site.bounds.inside_node = true;
     site.bounds.offset = offset;
-    // The ALT along the walk, then cut back into the walk's steps: a deletion takes bases from
-    // each step it reaches, and an insertion goes into the anchor's step.
-    const size_t at = (size_t)offset + 1;
-    StepSequences spelled;
-    size_t start = 0;
-    for (const handle_t& h : steps) {
-        string seq = graph.get_sequence(h);
-        const size_t end = start + seq.size();
-        if (deletion) {
+    site.travs.assign(alts.size() + 1, steps);
+    site.sequences.resize(alts.size() + 1);
+    const size_t host = length > 0 ? at : at - 1;
+    for (size_t a = 0; a < alts.size(); ++a) {
+        size_t start = 0;
+        for (const handle_t& h : steps) {
+            string seq = graph.get_sequence(h);
+            const size_t end = start + seq.size();
             const size_t from = std::max(start, at);
-            const size_t to = std::min(end, at + sequence.size());
+            const size_t to = std::min(end, at + length);
             if (from < to) {
                 seq.erase(from - start, to - from);
             }
-        } else if (at > start && at <= end) {
-            seq.insert(at - start, sequence);
+            if (host >= start && host < end) {
+                seq.insert(at - start, alts[a]);
+            }
+            site.sequences[a + 1].push_back(std::move(seq));
+            start = end;
         }
-        spelled.push_back(std::move(seq));
-        start = end;
     }
-    site.travs.assign(2, steps);
-    site.sequences.resize(2);
-    site.sequences[1] = std::move(spelled);
     return site;
 }
 

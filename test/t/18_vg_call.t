@@ -9,7 +9,7 @@ PATH=../bin:$PATH # for vg
 # FORMAT field shifts every later one, which broke four assertions here that were not
 # testing field order at all -- one of them silently compared BL against a GQ threshold.
 
-plan tests 482
+plan tests 493
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -1516,6 +1516,111 @@ is $(awk -F'\t' '/^A/{k=$3; s=$4} /^R/{print k"\t"$2"\t"s}' rl_anchors.tsv \
 # Every R row needs the A row above it, since it does not repeat the key.
 is $(awk -F'\t' '/^[AR]/{if ($1=="A") seen=1; if ($1=="R" && !seen) bad++} END{print bad+0}' \
      rl_anchors.tsv) "0" "no read row precedes its anchor row"
+
+# Off-panel changes beside each other and beside a snarl's pins. The sample's haplotype A walks the
+# bubble's arm 3 and changes node 1 bases 20 and 21, which touch, and bases 30 and 32, one apart;
+# the last base of the bubble's start node 2, the first of its arm 3 and the first of its end node
+# 5; node 6's last base and node 7's first, across an edge; node 8 base 10, and inserts a G after
+# it; inserts an A inside node 7, where no repeat lets it move; and deletes one A of a run from node
+# 8's end into node 9. Its haplotype B walks arm 4 and changes node 1 base 21 alone, and node 9 base
+# 1, inside that run. Two reads of A delete node 2's last base and three delete node 1 bases 30 to
+# 32. The reads are written as alignments to this graph, with a mismatch edit for each changed base.
+rm -f opx.gfa opx.gbz opx.json opx.gam opx_t1.vcf opx_t1.tsv opx_t1.err opx_t4.vcf opx_t4.tsv
+python3 - <<'EOF'
+import json
+N = {1: "GATCCTGACGTTAGCATGCACTGTCAGCTAGTACGATCGA", 2: "TCGACTGAGCTTAGCATCGTACGACTGCAC",
+     3: "CAGTA", 4: "CTGTA", 5: "GTCAGCTAGCATGCAGTACTGACTCGATCG",
+     6: "ATCGTAGCTGACTAGCTAGTCGATCGTAGC", 7: "TGACTAGCATCGATGCTAGCTGACTGATCG",
+     8: "CTAGCATGCAACGTAGCTAGCTAGTCCAAA", 9: "AAGCTAGTCGATCGTAGCTAGCATCGATCG"}
+WA, WB = [1, 2, 3, 5, 6, 7, 8, 9], [1, 2, 4, 5, 6, 7, 8, 9]
+def alt(n, o, avoid=""):
+    return next(b for b in "GTCA" if b != N[n][o] and b not in avoid)
+SA = {(1, 21): alt(1, 21)}
+SA.update({(1, 20): alt(1, 20, SA[(1, 21)]), (1, 30): alt(1, 30), (1, 32): alt(1, 32),
+           (2, 29): alt(2, 29), (3, 0): alt(3, 0, "T"), (5, 0): alt(5, 0), (6, 29): alt(6, 29),
+           (7, 0): alt(7, 0), (8, 10): alt(8, 10, "G")})
+SB = {(1, 21): SA[(1, 21)], (9, 1): "T"}
+def units(walk, subs, dels, ins):
+    out = []
+    for n in walk:
+        for o, b in enumerate(N[n]):
+            out += [(n, None, c) for c in ins.get((n, o), "")]
+            out.append((n, o, None) if (n, o) in dels else (n, o, subs.get((n, o), b)))
+    return out
+def reads(name, u, starts, length=90):
+    based = [i for i, x in enumerate(u) if x[2] is not None]
+    for k, st in enumerate(starts):
+        if st + length > len(based) or None in (u[based[st]][1], u[based[st + length - 1]][1]):
+            continue
+        piece, maps, seq = u[based[st]:based[st + length - 1] + 1], [], ""
+        for n, o, b in piece:
+            if not maps or maps[-1]["position"]["node_id"] != str(n):
+                maps.append({"position": {"node_id": str(n), "offset": str(o or 0)}, "edit": []})
+            e = maps[-1]["edit"]
+            if o is None:
+                e.append({"from_length": 0, "to_length": 1, "sequence": b})
+            elif b is None:
+                e.append({"from_length": 1, "to_length": 0})
+            elif b != N[n][o]:
+                e.append({"from_length": 1, "to_length": 1, "sequence": b})
+            elif e and "sequence" not in e[-1] and e[-1]["to_length"] == e[-1]["from_length"]:
+                e[-1]["from_length"] += 1
+                e[-1]["to_length"] += 1
+            else:
+                e.append({"from_length": 1, "to_length": 1})
+            seq += b or ""
+        yield {"name": f"{name}{k}", "sequence": seq, "mapping_quality": 60,
+               "path": {"mapping": maps}}
+with open("opx.gfa", "w") as g:
+    g.write("H\tVN:Z:1.1\n" + "".join(f"S\t{k}\t{v}\n" for k, v in N.items()))
+    for a, b in [(1, 2), (2, 3), (2, 4), (3, 5), (4, 5), (5, 6), (6, 7), (7, 8), (8, 9)]:
+        g.write(f"L\t{a}\t+\t{b}\t+\t0M\n")
+    g.write("P\tGRCh#0#chr1\t" + ",".join(f"{n}+" for n in WA) + "\t*\n")
+    for h, w in (("p1\t0", WA), ("p1\t1", WB), ("p2\t0", WB)):
+        g.write(f"W\t{h}\tchr1\t0\t225\t" + "".join(f">{n}" for n in w) + "\n")
+ins, dels = {(8, 11): "G", (7, 15): "A"}, {(8, 27)}
+with open("opx.json", "w") as f:
+    for r in [*reads("a", units(WA, SA, dels, ins), range(0, 200, 2)),
+              *reads("b", units(WB, SB, set(), {}), range(1, 200, 2)),
+              *reads("d", units(WA, SA, dels | {(2, 29)}, ins), [10, 12]),
+              *reads("e", units(WA, SA, dels | {(1, 30), (1, 31), (1, 32)}, ins), [0, 2, 4])]:
+        f.write(json.dumps(r) + "\n")
+EOF
+vg gbwt -G opx.gfa --gbz-format -g opx.gbz --set-reference GRCh 2>/dev/null && vg view -JaG opx.json > opx.gam
+is "$?" "0" "the off-panel anchor fixture builds"
+vg call opx.gbz --read-likelihood --gam opx.gam -t 1 -s samp --anchors-out opx_t1.tsv > opx_t1.vcf 2> opx_t1.err
+is "$?" "0" "vg call runs on the off-panel anchor fixture"
+
+# Touching changes on one node are one site, written as one record. Its alleles are what the reads
+# spell, not every combination of the changes: haplotype A carries both substitutions and B the
+# second alone, so the record has those two ALTs and the sample one of each.
+is "$(awk -F'\t' '$3=="op1.20.M2"{split($5,a,","); split($10,g,":"); n=split(g[1],h,/[|\/]/);
+      print length($4), length(a), (n==2 && h[1]!=h[2] && h[1]>0 && h[2]>0) ? "het-alt" : g[1]}' opx_t1.vcf)" \
+   "2 2 het-alt" "touching substitutions are one record, with the two alleles the reads spell"
+is $(grep -v "^#" opx_t1.vcf | cut -f3 | grep -c "^op1\.2[01]\.S") "0" \
+   "and neither substitution has a record of its own"
+is "$(awk -F'\t' '$3=="op8.10.M1"{print length($5) - length($4)}' opx_t1.vcf)" "1" \
+   "a substitution and the insertion after it are one record, its ALT a base longer than its REF"
+is $(grep -v "^#" opx_t1.vcf | cut -f3 | grep -c "^op6\.29\.S\|^op7\.0\.S") "2" \
+   "substitutions either side of an edge, on two nodes, are two records"
+
+# The guarantee, on the cases it was written for: the e reads cross bases 30 and 32's sites at one
+# point, node 2's last base and the bubble pin at one point, and the deletion's tract ends where the
+# substitution inside it does. vg leaves an off-panel anchor's read out where another anchor holds
+# its point, and says how many.
+is $(awk -F'\t' '/^R/{g=($3==0)?$4+1:$4; print $2"\t"g}' opx_t1.tsv | sort | uniq -d | wc -l | tr -d ' ') "0" \
+   "beside touching changes and snarls, no (read, gap) is pinned twice"
+is $(grep -o "[0-9]* off-panel read placements left out" opx_t1.err | awk '{print ($1>0)}') "1" \
+   "and vg left out the off-panel placements whose points another anchor holds"
+# An insertion with no repeat tract changes no base, so its two pins are one point, written once.
+is "$(awk -F'\t' '/^A/ && $3 ~ /^op7\.14\.I/{print $4":"$9}' opx_t1.tsv | sort | uniq -c | awk '{print $1}' | sort -u)" "1" \
+   "an insertion with no tract has one anchor per slot"
+is "$(python3 ../scripts/check_anchors.py --anchors opx_t1.tsv 2>&1 | cut -c1-3)" "OK " \
+   "check_anchors.py accepts the fixture's anchors, version 9"
+vg call opx.gbz --read-likelihood --gam opx.gam -t 4 -s samp --anchors-out opx_t4.tsv > opx_t4.vcf 2>/dev/null
+is "$(cmp -s opx_t1.vcf opx_t4.vcf && cmp -s opx_t1.tsv opx_t4.tsv && echo same)" "same" \
+   "one thread or four give the same VCF and anchors"
+rm -f opx.gfa opx.gbz opx.json opx.gam opx_t1.vcf opx_t1.tsv opx_t1.err opx_t4.vcf opx_t4.tsv
 
 # Read-backed phasing. The fixture cannot exercise the DECISION -- `vg sim` reads carry no mapping
 # quality, so the mismapping escape sits at its maximum and every site's per-read confidence comes

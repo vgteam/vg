@@ -72,33 +72,31 @@ string allele_sequence(const HandleGraph& graph, const Traversal& walk, const St
 /// read the way `site.start` reads the node. 0 for any other site.
 size_t bases_before_site(const HandleGraph& graph, const SiteBounds& site);
 
-/// A site inside nodes whose alternate allele changes their bases from `site.offset` on: its
-/// bounds, its two alleles, REF then ALT, which both take the same walk, and the ALT's spelling,
-/// as step sequences. A substitution lies inside one node. An indel's walk runs from its anchor
-/// base's node to the node of the first base after its repeat tract, so the site holds every
-/// placement of the indel and a base on each side; the bounds are the walk's first and last
-/// handles.
+/// A site inside nodes whose alternate alleles change their bases: its bounds, its alleles, REF
+/// first, which all take the same walk, and the ALTs' spellings, as step sequences. A substitution
+/// lies inside one node. An indel's walk runs from its anchor base's node to the node of the first
+/// base after its repeat tract, so the site holds every placement of the indel and a base on each
+/// side; the bounds are the walk's first and last handles.
 struct EditSite {
     SiteBounds bounds;
     vector<Traversal> travs;
     AlleleSequences sequences;
 };
 
-/// The edit site that replaces the base at forward offset `offset` of the node `node` reads with
-/// `alt`, given along the node's forward strand. The site is read the way `node` reads the node.
-EditSite snv_edit_site(const HandleGraph& graph, handle_t node, uint32_t offset, char alt);
-
-/// The edit site of an indel along `walk`, nodes read forward: `sequence` deleted, or inserted,
-/// after the base at forward offset `offset` of the walk's first node, its anchor.
-EditSite indel_edit_site(const HandleGraph& graph, const vector<nid_t>& walk, uint32_t offset,
-                         bool deletion, const string& sequence);
+/// The edit site along `steps` whose ALTs `alts` each replace the `length` bases from `at` on,
+/// counted along the steps as they read their nodes; `offset` is the site's first base along its
+/// first node's forward strand. An ALT goes in the step holding the base at `at`, or for an
+/// insertion, the base before it, and the replaced bases are cut from the steps holding them.
+EditSite edit_site(const HandleGraph& graph, const Traversal& steps, uint32_t offset, size_t at,
+                   size_t length, const vector<string>& alts);
 
 /// Whether `site` lies inside one node.
 bool inside_one_node(const SiteBounds& site);
 
 /// The ID of an edit site: `op<node>.<offset>.<kind><alt>`, with the offset and the ALT along the
-/// node's forward strand. It has no `_`, which `block_site_name` cuts at, and does not read as a
-/// pair of boundary visits.
+/// node's forward strand. A merged change has kind `M` and gives the number of bases it replaces
+/// for its ALT. It has no `_`, which `block_site_name` cuts at, and does not read as a pair of
+/// boundary visits.
 string edit_site_id(nid_t node, uint32_t offset, char kind, const string& alt);
 
 namespace multipass {

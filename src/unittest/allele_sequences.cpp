@@ -115,7 +115,7 @@ TEST_CASE("An edit site changes one base inside a node, read either way along th
     const handle_t node = graph.get_handle(1);   // AAAA
 
     SECTION("Read forward, the ALT replaces the base at the forward offset") {
-        EditSite site = snv_edit_site(graph, node, 1, 'G');
+        EditSite site = edit_site(graph, {node}, 1, 1, 1, {"G"});
         REQUIRE(site.bounds.inside_node);
         REQUIRE(site.bounds.offset == 1);
         REQUIRE(site.travs.size() == 2);
@@ -126,7 +126,7 @@ TEST_CASE("An edit site changes one base inside a node, read either way along th
     }
 
     SECTION("Read backward, the ALT is complemented and the offset counted from the other end") {
-        EditSite site = snv_edit_site(graph, graph.flip(node), 1, 'G');
+        EditSite site = edit_site(graph, {graph.flip(node)}, 1, 2, 1, {"C"});
         REQUIRE(allele_sequence(graph, site.travs[0], own_sequences(&site.sequences, 0)) == "TTTT");
         REQUIRE(allele_sequence(graph, site.travs[1], own_sequences(&site.sequences, 1)) == "TTCT");
         REQUIRE(bases_before_site(graph, site.bounds) == 2);
@@ -134,6 +134,32 @@ TEST_CASE("An edit site changes one base inside a node, read either way along th
 
     SECTION("Its ID has no underscore and names the node, offset and ALT") {
         REQUIRE(edit_site_id(12, 3, 'S', "T") == "op12.3.ST");
+    }
+}
+
+TEST_CASE("An edit site's ALTs replace bases across its steps", "[allele_sequences][off_panel]") {
+    bdsg::HashGraph graph;
+    const handle_t h1 = graph.create_handle("CGTCAAA", 1);
+    const handle_t h2 = graph.create_handle("AAGTCCG", 2);
+    graph.create_edge(h1, h2);
+    auto spelled = [&](const EditSite& site, size_t allele) {
+        return allele_sequence(graph, site.travs[allele], own_sequences(&site.sequences, allele));
+    };
+
+    SECTION("an ALT of the replaced length is written in place, and several ALTs are alleles") {
+        const EditSite site = edit_site(graph, {h1}, 2, 2, 2, {"AG", "TT"});
+        REQUIRE(site.travs.size() == 3);
+        REQUIRE(spelled(site, 1) == "CGAGAAA");
+        REQUIRE(spelled(site, 2) == "CGTTAAA");
+    }
+    SECTION("a complex ALT goes in the step holding its first replaced base, cut from the others") {
+        const EditSite site = edit_site(graph, {h1, h2}, 5, 5, 3, {"T"});
+        REQUIRE(site.sequences[1] == StepSequences{"CGTCAT", "AGTCCG"});
+        REQUIRE(spelled(site, 0) == "CGTCAAAAAGTCCG");
+    }
+    SECTION("an insertion at a step's end goes in that step") {
+        const EditSite site = edit_site(graph, {h1, h2}, 6, 7, 0, {"GG"});
+        REQUIRE(site.sequences[1] == StepSequences{"CGTCAAAGG", "AAGTCCG"});
     }
 }
 

@@ -1264,6 +1264,172 @@ vector<EditCandidate> count_large_indel_edits(
     return kept;
 }
 
+/// Merge `kept`'s touching candidates, as `count_edits` says.
+void merge_touching(const HandleGraph& graph,
+                    const function<void(const function<void(const Alignment&)>&)>& for_each_read,
+                    const EditCountParams& params, vector<EditCandidate>& kept) {
+    // The changed bases [from, to) along each admitted candidate's node, by node.
+    vector<tuple<nid_t, uint32_t, uint32_t, size_t>> changes;
+    for (size_t i = 0; i < kept.size(); ++i) {
+        const EditCandidate& c = kept[i];
+        if (params.bar->admits(c) && !c.is_large()) {
+            const uint32_t from = c.kind == 'S' ? c.offset : c.offset + 1;
+            changes.emplace_back(c.node, from, c.kind == 'S' ? from + 1 : c.offset + c.span, i);
+        }
+    }
+    std::sort(changes.begin(), changes.end());
+    // Runs of them that touch, each with its bases [lo, hi) and the longest of its walks.
+    struct Group {
+        vector<size_t> members;
+        uint32_t lo;
+        uint32_t hi;
+        vector<nid_t> walk;
+    };
+    vector<Group> groups;
+    for (size_t i = 0, j = 0; i < changes.size(); i = j) {
+        Group g{{}, get<1>(changes[i]), get<2>(changes[i]), {get<0>(changes[i])}};
+        bool one_anchor = true;
+        for (; j < changes.size() && get<0>(changes[j]) == get<0>(changes[i])
+               && get<1>(changes[j]) <= g.hi;
+             ++j) {
+            const EditCandidate& c = kept[get<3>(changes[j])];
+            g.hi = std::max(g.hi, get<2>(changes[j]));
+            g.members.push_back(get<3>(changes[j]));
+            g.walk = c.walk.size() > g.walk.size() ? c.walk : g.walk;
+            one_anchor = one_anchor && c.is_indel() && c.offset == kept[g.members[0]].offset;
+        }
+        if (g.members.size() > 1 && g.hi > g.lo && !one_anchor) {
+            groups.push_back(std::move(g));
+        }
+    }
+    if (groups.empty()) {
+        return;
+    }
+
+    // What each read following a group's walk spells between the bases on either side of its
+    // bases, where it aligns both, by fragment.
+    vector<tuple<size_t, uint64_t, string>> spelled;
+    std::hash<string> name_hash;
+    ReadWalk walk(graph);
+    const int min_q = params.min_base_quality;
+    unordered_set<nid_t> nodes;
+    for (const Group& g : groups) {
+        nodes.insert(g.walk[0]);
+    }
+    for_each_read([&](const Alignment& aln) {
+        const auto& maps = aln.path().mapping();
+        if (aln.mapping_quality() < params.min_mapq
+            || std::none_of(maps.begin(), maps.end(),
+                            [&](const Mapping& m) { return nodes.count(m.position().node_id()); })
+            || !walk.load(aln)) {
+            return;
+        }
+        for (size_t i = 0; i < walk.handles.size(); ++i) {
+            const nid_t id = graph.get_id(walk.handles[i]);
+            for (size_t k = std::lower_bound(groups.begin(), groups.end(), id,
+                                             [](const Group& g, nid_t n) { return g.walk[0] < n; })
+                            - groups.begin();
+                 k < groups.size() && groups[k].walk[0] == id; ++k) {
+                const Group& g = groups[k];
+                bool follows = i + g.walk.size() <= walk.handles.size();
+                for (size_t s = 0; follows && s < g.walk.size(); ++s) {
+                    follows = walk.handles[i + s] == graph.get_handle(g.walk[s]);
+                }
+                const int64_t before = walk.node_start[i] + g.lo - 1;
+                const int64_t after = walk.node_start[i] + g.hi;
+                const int64_t r0 = follows ? walk.walked.read_offset_at(before) : -1;
+                const int64_t r1 = follows ? walk.walked.read_offset_at(after) : -1;
+                bool good = r0 >= 0 && r1 > r0 && walk.quality_ok(before, min_q)
+                            && walk.quality_ok(after, min_q);
+                for (size_t m : g.members) {
+                    good = good && (kept[m].kind != 'S'
+                                    || walk.quality_ok(walk.node_start[i] + kept[m].offset, min_q));
+                }
+                if (good) {
+                    spelled.emplace_back(k, name_hash(aln.name()),
+                                         upper(walk.read->sequence().substr(r0 + 1, r1 - r0 - 1)));
+                }
+            }
+        }
+    });
+    std::sort(spelled.begin(), spelled.end());
+    spelled.erase(std::unique(spelled.begin(), spelled.end()), spelled.end());
+
+    vector<EditCandidate> merged;
+    for (size_t i = 0, j = 0; i < spelled.size(); i = j) {
+        const Group& g = groups[get<0>(spelled[i])];
+        EditCandidate m;
+        // Each fragment counted once, under the spelling all its reads give, or as discordant.
+        map<string, uint32_t> fragments;
+        uint32_t total = 0;
+        for (size_t f = i; f < spelled.size() && get<0>(spelled[f]) == get<0>(spelled[i]); f = j) {
+            for (j = f + 1; j < spelled.size() && get<0>(spelled[j]) == get<0>(spelled[f])
+                            && get<1>(spelled[j]) == get<1>(spelled[f]);
+                 ++j) {
+            }
+            if (j > f + 1) {
+                ++m.discordant_fragments;
+            } else {
+                ++fragments[get<2>(spelled[f])];
+                ++total;
+            }
+        }
+        string bases;
+        for (nid_t id : g.walk) {
+            bases += graph.get_sequence(graph.get_handle(id));
+        }
+        m.node = g.walk[0];
+        m.offset = g.lo;
+        m.kind = 'M';
+        m.span = g.hi - g.lo;
+        m.walk = g.walk;
+        m.sequence = upper(bases.substr(g.lo, m.span));
+        m.ref_fragments = fragments.count(m.sequence) ? fragments[m.sequence] : 0;
+        for (const auto& spelling : fragments) {
+            // Admitted on the counts a candidate of its own would need, though not checked for a
+            // homopolymer, and changing the length only between two walk bases.
+            EditCandidate alone;
+            alone.kind = spelling.first.size() == m.span ? 'S' : 'I';
+            alone.alt_fragments = spelling.second;
+            alone.ref_fragments = m.ref_fragments;
+            alone.other_fragments = total - spelling.second - m.ref_fragments;
+            if (spelling.first != m.sequence && params.bar->admits(alone)
+                && (alone.kind == 'S' || (g.lo > 0 && g.hi < bases.size()))) {
+                m.alts.push_back(spelling.first);
+                m.alt_fragments += spelling.second;
+            }
+        }
+        m.other_fragments = total - m.ref_fragments - m.alt_fragments;
+        // Each candidate in some ALT: a substitution's base at its place from either end, an
+        // indel's length change.
+        bool carried = !m.alts.empty();
+        for (size_t c : g.members) {
+            const EditCandidate& e = kept[c];
+            const size_t left = e.offset - g.lo, right = g.hi - e.offset;
+            carried = carried && std::any_of(m.alts.begin(), m.alts.end(), [&](const string& a) {
+                return e.kind == 'S' ? (left < a.size() && a[left] == e.alt)
+                                           || (right <= a.size() && a[a.size() - right] == e.alt)
+                                     : (int64_t)a.size() - (int64_t)m.span
+                                           == (e.kind == 'I' ? 1 : -1) * (int64_t)e.sequence.size();
+            });
+            m.mean_alt_mapq = std::max(m.mean_alt_mapq, e.mean_alt_mapq);
+        }
+        if (carried) {
+            for (size_t c : g.members) {
+                kept[c].kind = 0;
+            }
+            merged.push_back(std::move(m));
+        }
+    }
+    // The merged candidates in place of their members, which are now of kind 0.
+    kept.erase(std::remove_if(kept.begin(), kept.end(),
+                              [](const EditCandidate& c) { return c.kind == 0; }),
+               kept.end());
+    kept.insert(kept.end(), std::make_move_iterator(merged.begin()),
+                std::make_move_iterator(merged.end()));
+    std::sort(kept.begin(), kept.end());
+}
+
 }
 
 vector<EditCandidate> count_edits(
@@ -1288,6 +1454,9 @@ vector<EditCandidate> count_edits(
         kept.insert(kept.end(), std::make_move_iterator(indels.begin()),
                     std::make_move_iterator(indels.end()));
         std::sort(kept.begin(), kept.end());
+    }
+    if (params.bar != nullptr) {
+        merge_touching(graph, for_each_read, params, kept);
     }
     return kept;
 }

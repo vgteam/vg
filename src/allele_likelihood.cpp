@@ -1378,6 +1378,29 @@ static size_t bases_not_shared(const string& a, const string& b) {
     return a.size() - prefix - suffix;
 }
 
+/// What it costs to align all of `read` to all of `allele`, at `scorer`'s match score less its
+/// mismatch score for a mismatch, and its one-base gap penalty for each base of a gap.
+static int32_t edit_cost(const string& read, const string& allele,
+                         const EditAlignmentScorer& scorer) {
+    const int32_t substitution = (int32_t)scorer.match + (int32_t)scorer.mismatch;
+    const int32_t gap = -scorer.score_gap(1);
+    vector<int32_t> cost(allele.size() + 1);
+    for (size_t j = 0; j <= allele.size(); ++j) {
+        cost[j] = gap * (int32_t)j;
+    }
+    for (size_t i = 1; i <= read.size(); ++i) {
+        int32_t diagonal = cost[0];
+        cost[0] = gap * (int32_t)i;
+        for (size_t j = 1; j <= allele.size(); ++j) {
+            const int32_t up = cost[j];
+            cost[j] = std::min({diagonal + (read[i - 1] == allele[j - 1] ? 0 : substitution),
+                                up + gap, cost[j - 1] + gap});
+            diagonal = up;
+        }
+    }
+    return cost[allele.size()];
+}
+
 AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
     const SiteBounds& site, const vector<Traversal>& traversals,
     const vector<SiteBounds>& enclosing, int region_ploidy, const AlleleSequences* sequences) {
@@ -1458,6 +1481,14 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
     // tract counting as changed.
     int64_t changed_lo = numeric_limits<int64_t>::max();
     int64_t changed_hi = -1;
+    // A site with an allele that both deletes and inserts, or with several of its own alleles of
+    // which one changes the length, is window scored: each allele is judged by what it costs to
+    // align a read's bases between the unchanged bases around the change to its own there,
+    // `window` by allele, and every allele is measured as its walk, as an indel allele is below.
+    bool window_scored = false;
+    bool resized = false;
+    size_t own_alleles = 0;
+    vector<string> window;
     if (site.inside_node && sequences != nullptr
         && std::all_of(traversals.begin(), traversals.end(),
                        [&](const Traversal& t) { return t == traversals.front(); })) {
@@ -1491,12 +1522,29 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
             }
             changed_lo = std::min(changed_lo, (int64_t)prefix);
             changed_hi = std::max(changed_hi, (int64_t)(walk_spelling.size() - suffix));
+            ++own_alleles;
             if (spelled.size() == walk_spelling.size()) {
                 continue;
             }
+            resized = true;
             const size_t deleted = walk_spelling.size() - prefix - suffix;
             const size_t inserted = spelled.size() - prefix - suffix;
             if (deleted > 0 && inserted > 0) {
+                // Its length change, wherever a read's aligner put it, lies in the repeat at one
+                // end of its change or the other, which the window takes in.
+                window_scored = true;
+                const size_t shift = std::min(deleted, inserted);
+                const size_t change = std::max(deleted, inserted) - shift;
+                for (const size_t at : {prefix, prefix + shift}) {
+                    WalkIndel moved;
+                    moved.at = (int64_t)at;
+                    moved.deleted = deleted > inserted ? (uint32_t)change : 0;
+                    moved.inserted = deleted > inserted ? "" : spelled.substr(at, change);
+                    left_align(moved, 1, base);
+                    changed_lo = std::min(changed_lo, moved.at);
+                    changed_hi = std::max(changed_hi,
+                                          tract_end(moved, (int64_t)walk_spelling.size(), base));
+                }
                 continue;
             }
             IndelAllele entry;
@@ -1526,6 +1574,19 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
             allele_steps[a] = get_allele_steps(traversals[a], nullptr);
             is_indel_allele[a] = true;
             indel_alleles.push_back(std::move(entry));
+        }
+        window_scored = window_scored || (resized && own_alleles > 1);
+        if (window_scored) {
+            indel_alleles.clear();
+            changed_hi = std::min(changed_hi, (int64_t)walk_spelling.size() - 1);
+            for (size_t a = 0; a < traversals.size(); ++a) {
+                allele_steps[a] = get_allele_steps(traversals[a], nullptr);
+                const string spelled =
+                    allele_sequence(graph, traversals[a], own_sequences(sequences, a));
+                // Every allele agrees with the walk outside the window.
+                window.push_back(spelled.substr(
+                    changed_lo, spelled.size() - (walk_spelling.size() - changed_hi) - changed_lo));
+            }
         }
     }
 
@@ -1778,7 +1839,7 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
                             : -numeric_limits<double>::infinity();
         }
 
-        if (!indel_alleles.empty()) {
+        if (!indel_alleles.empty() || window_scored) {
             // The read along the site's walk, where it follows the walk.
             vector<const Mapping*> mappings;
             vector<int64_t> starts;
@@ -1802,6 +1863,19 @@ AlleleReadLikelihoods GraphAlignedAlleleLikelihoodCalculator::compute(
                 WalkAlignment walked = walk_alignment(mappings, starts, read_steps.front().read_offset,
                                                       scored_aln->sequence());
                 left_align(walked, walk_base);
+                const int64_t r0 = window_scored ? walked.read_offset_at(changed_lo - 1) : -1;
+                const int64_t r1 = window_scored ? walked.read_offset_at(changed_hi) : -1;
+                if (r0 >= 0 && r1 > r0) {
+                    string bases = scored_aln->sequence().substr(r0 + 1, r1 - r0 - 1);
+                    for (char& b : bases) {
+                        b = (char)toupper(b);
+                    }
+                    // Taken from the read's score on the walk, which every allele shares here.
+                    for (size_t b = 0; b < row.size(); ++b) {
+                        row[b] -= plain_scorer.get_log_base()
+                                  * (double)edit_cost(bases, window[b], plain_scorer);
+                    }
+                }
                 // Where the read carries on past the walk's ends, it reaches beyond them; its
                 // clips are those at the read's own ends.
                 const ReadStep& last = read_steps.back();

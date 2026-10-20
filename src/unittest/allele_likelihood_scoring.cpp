@@ -11,6 +11,7 @@
 /// pinned below.
 ///
 
+#include <tuple>
 #include <vector>
 
 #include <bdsg/hash_graph.hpp>
@@ -796,6 +797,57 @@ TEST_CASE("An allele with step sequences is scored against them, though it share
                                                               walks, {}, 2);
         REQUIRE(walks_only.rel(1, 0) == Approx(walks_only.rel(1, 1)));
     }
+}
+
+TEST_CASE("A complex allele is judged on the read's bases between the unchanged ones around it",
+          "[allele_likelihood][scoring]") {
+    // GATCCTGA C GTTAGCATGCA with its C read as AA. The A before the C makes the change's length
+    // ambiguous, so it is judged between the G at 6 and the G at 9.
+    bdsg::HashGraph graph;
+    const handle_t node = graph.create_handle("GATCCTGACGTTAGCATGCA", 1);
+    const EditSite site = edit_site(graph, {node}, 8, 8, 1, {"AA"});
+    // A read along node 1 with the given (from, to, bases) edits, bases empty for a match.
+    auto read = [&](const string& name, const vector<tuple<int, int, string>>& edits) {
+        Alignment aln;
+        aln.set_name(name);
+        aln.set_mapping_quality(60);
+        Mapping* m = aln.mutable_path()->add_mapping();
+        m->mutable_position()->set_node_id(1);
+        string sequence;
+        size_t at = 0;
+        for (const auto& edit : edits) {
+            Edit* e = m->add_edit();
+            e->set_from_length(get<0>(edit));
+            e->set_to_length(get<1>(edit));
+            e->set_sequence(get<2>(edit));
+            sequence += get<2>(edit).empty() ? graph.get_sequence(node).substr(at, get<0>(edit))
+                                             : get<2>(edit);
+            at += get<0>(edit);
+        }
+        aln.set_sequence(sequence);
+        return aln;
+    };
+    InMemorySiteReadSource source;
+    source.add(read("000000:ref", {{20, 20, ""}}));
+    // The ALT written as a substitution then an insertion, and as an insertion then a substitution.
+    source.add(read("000001:a", {{8, 8, ""}, {1, 1, "A"}, {0, 1, "A"}, {11, 11, ""}}));
+    source.add(read("000002:b", {{8, 8, ""}, {0, 1, "A"}, {1, 1, "A"}, {11, 11, ""}}));
+    QualAdjAlignmentScorer qual_scorer;
+    MatrixAlignmentScorer plain_scorer;
+    AlleleLikelihoodParams params;
+    GraphAlignedAlleleLikelihoodCalculator calculator(graph, source, qual_scorer, plain_scorer,
+                                                      params);
+    AlleleReadLikelihoods matrix = calculator.compute(site.bounds, site.travs, {}, 2,
+                                                      &site.sequences);
+    REQUIRE(matrix.num_reads() == 3);
+    REQUIRE(matrix.rel(0, 0) == Approx(1.0));
+    REQUIRE(matrix.rel(0, 1) < 0.01);
+    REQUIRE(matrix.rel(1, 1) == Approx(1.0));
+    REQUIRE(matrix.rel(1, 0) < 0.01);
+    REQUIRE(matrix.rel(2, 0) == Approx(matrix.rel(1, 0)));
+    REQUIRE(matrix.rel(2, 1) == Approx(1.0));
+    // The best fit is still an alignment score: the reference read's, at no cost on the REF.
+    REQUIRE(matrix.best_ln_likelihood(0) > 0.0);
 }
 
 TEST_CASE("Every allele is scored over the same span of read bases",

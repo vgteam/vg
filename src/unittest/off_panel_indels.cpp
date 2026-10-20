@@ -213,7 +213,8 @@ TEST_CASE("An indel is counted under its left-aligned anchor, whichever window c
     }
     SECTION("its edit site deletes the first A of the run, inside node 1") {
         const EditCandidate c = count_on({1, 2, 3}).front();
-        const EditSite site = indel_edit_site(graph, c.walk, c.offset, true, c.sequence);
+        const EditSite site = edit_site(graph, {graph.get_handle(1), graph.get_handle(2)},
+                                        c.offset, c.offset + 1, c.sequence.size(), {""});
         REQUIRE(site.bounds.inside_node);
         REQUIRE(graph.get_id(site.bounds.start) == 1);
         REQUIRE(graph.get_id(site.bounds.end) == 2);

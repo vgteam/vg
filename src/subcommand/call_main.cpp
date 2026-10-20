@@ -2903,6 +2903,7 @@ int main_call(int argc, char** argv) {
                 // The reads are counted as they are fetched, from the first site on.
                 EditCountParams count_params;
                 count_params.large_indels = off_panel_svs;
+                count_params.bar = &off_panel_bar;
                 read_source->count_edits(graph, count_params);
                 multipass_caller->set_off_panel(read_source.get(), off_panel_dump, off_panel_bar);
             }
