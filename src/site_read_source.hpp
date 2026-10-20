@@ -32,9 +32,12 @@ namespace vg {
 
 using namespace std;
 
+struct GafRecordScan;
+
 /**
- * Which reads are used as evidence: those whose mapping quality reaches a minimum. Base qualities
- * filter nothing, since the scoring weighs each base by its own quality.
+ * The rule for which reads count as evidence.
+ *
+ * Base qualities filter nothing, since the scoring weighs each base by its own quality.
  */
 struct SiteReadFilter {
     /// Drop reads with mapping quality below this.
@@ -42,122 +45,143 @@ struct SiteReadFilter {
 };
 
 /**
- * A read handed to a site query, with an index of its mappings in the queried ranges, so that a
- * site's work grows with the read's overlap with the site rather than with the read's length,
- * which matters for long reads.
+ * A read handed to a site query, with an index of its mappings on the queried nodes.
  *
- * `mappings` and `read_offsets` may be null for a source that does not index, and consumers then
- * walk the alignment instead.
+ * With the index, the work of scoring a read at a site grows with the read's overlap with the
+ * site rather than with the read's length, which matters for long reads. A source that does not
+ * index leaves `mappings` and `read_offsets` null, and consumers then walk the alignment.
  */
 struct SiteRead {
     /// The alignment itself. Valid only for the duration of the callback.
     const Alignment* aln = nullptr;
 
-    /// Ascending indices of the mappings whose node lies in the queried ranges, or
-    /// null if this source does not index.
+    /// Ascending indices of the mappings whose node lies in the queried ranges, or null if this
+    /// source does not index.
     const uint32_t* mappings = nullptr;
+    /// How many indices `mappings` holds.
     size_t mapping_count = 0;
 
-    /// How many read bases come before each mapping, indexed by mapping index and one
-    /// longer than the path, or null if this source does not index.
+    /// How many read bases come before each mapping, by mapping index, or null if this source
+    /// does not index.
+    ///
+    /// It has one more entry than the path has mappings, so the end of the last mapping can be
+    /// read too.
     const uint32_t* read_offsets = nullptr;
 
-    /// Whether the index is present. Both halves are supplied together or not at all,
-    /// so consumers have one condition to branch on.
+    /// Whether the index is present.
+    ///
+    /// Sources supply both halves of the index or neither, so consumers have one condition to
+    /// branch on.
     bool indexed() const { return mappings != nullptr && read_offsets != nullptr; }
 };
 
 /**
  * Random-access source of read alignments by graph locality.
  *
- * Implementations must be safe for concurrent read access: GraphCaller visits
- * snarls on several threads at once, so several threads will be asking for
- * reads at different sites at the same time. Any loading or index building
- * must happen up front, before calling begins.
+ * Implementations must be safe for concurrent read access: GraphCaller visits snarls on several
+ * threads at once, so several threads ask for reads at different sites at the same time. Any
+ * loading or index building must happen up front, before calling begins.
  *
- * Reads are handed to a callback rather than returned in a vector so that
- * backends holding reads in memory do not have to copy every read for every
- * site, while backends that decode reads on demand can hand out a transient
- * reference. Sites are visited many times over a run, so this is the hot path.
+ * Reads are handed to a callback rather than returned in a vector. Then a backend holding reads in
+ * memory need not copy every read for every site, and a backend that decodes reads on demand can
+ * hand out a transient reference. Sites are visited many times over a run, so this is the hot path.
  */
 class SiteReadSource {
 public:
     virtual ~SiteReadSource() = default;
 
-    /// Visit every read with at least one mapping onto a node in any of the
-    /// given inclusive node ID ranges. Each read is visited at most once, even
-    /// if it touches several of the ranges. Must be safe to call concurrently.
+    /// Visit every read with at least one mapping onto a node in any of the given inclusive node ID
+    /// ranges.
+    ///
+    /// Each read is visited at most once, even if it touches several of the ranges. Must be safe
+    /// to call concurrently.
     virtual void for_each_read(const vector<pair<nid_t, nid_t>>& ranges,
                                const function<void(const SiteRead&)>& iteratee) const = 0;
 
-    /// The same, for consumers with no use for the index. Named differently rather than
-    /// overloaded, since a lambda converts to either `function` type.
+    /// Visit every read touching the ranges, as `for_each_read` does, without its index.
+    ///
+    /// This is named differently rather than overloaded, since a lambda converts to either
+    /// `function` type.
     void for_each_alignment(const vector<pair<nid_t, nid_t>>& ranges,
                             const function<void(const Alignment&)>& iteratee) const {
         for_each_read(ranges, [&](const SiteRead& read) { iteratee(*read.aln); });
     }
 
-
-    /// Visit the reads that begin on one of the nodes, meaning their first mapping is onto it.
-    /// `nodes` must be sorted and free of duplicates. Reads come in groups sharing a mapping
-    /// quality, as the group's size and its total sequence length. Neither the grouping nor the
-    /// order is fixed, so a caller must only add the groups up.
+    /// Visit the reads whose first mapping is onto one of the nodes, in groups.
+    ///
+    /// `nodes` must be sorted and free of duplicates. Each group shares a mapping quality, and
+    /// comes as its number of reads and their total sequence length. Neither the grouping nor the
+    /// order is fixed, so a caller can only add the groups up.
     ///
     /// The default fetches the reads touching the nodes and keeps those that begin on one.
-    /// WindowedSiteReadSource answers from per-window tallies instead.
     virtual void for_each_read_start(
         const vector<nid_t>& nodes,
         const function<void(int32_t mapq, size_t reads, size_t bases)>& iteratee) const;
 
-    /// How many reads this source holds or can see, for logging. May be 0 if
-    /// the backend cannot cheaply say.
+    /// Return how many reads this source holds or can see, for logging.
+    ///
+    /// May be 0 if the backend cannot cheaply say.
     virtual size_t get_read_count() const = 0;
 
-    /// Turn on off-panel detection (see `count_edits`): from now on, the reads are counted
-    /// for substitutions and indels on `graph`, which must outlive this, each read once, while they are in
-    /// memory. Call before any query. A source that cannot count finds no candidates.
-    virtual void count_edits(const HandleGraph* graph, const EditCountParams& params) {}
+    /// Turn on off-panel detection, counting the reads' substitutions and indels on `graph`.
+    ///
+    /// Each read is counted once, while it is in memory. `graph` must outlive this. Call before
+    /// any query.
+    virtual void count_edits(const HandleGraph* graph, const EditCountParams& params) {
+        // A source that cannot count edits finds no candidates.
+    }
 
-    /// Visit the off-panel candidates on the nodes `nodes`, which are sorted and free of
-    /// duplicates, in order. A node's candidates are always all of them: reads not yet counted
-    /// are fetched and counted first. Nothing is visited unless `count_edits` was called.
+    /// Visit the off-panel candidates on `nodes`, in order.
+    ///
+    /// `nodes` must be sorted and free of duplicates. A node's candidates come from all the reads
+    /// on it: reads not yet counted are fetched and counted first. Nothing is visited unless
+    /// `count_edits` was called.
     virtual void for_each_edit_candidate(
-        const vector<nid_t>& nodes, const function<void(const EditCandidate&)>& iteratee) const {}
+        const vector<nid_t>& nodes, const function<void(const EditCandidate&)>& iteratee) const {
+        // A source that cannot count edits has no candidates to visit.
+    }
 
-    /// Are the reads on nodes `a` and `b` fetched together, so that a site query on one holds
-    /// the other's too? Always, where every read is in memory.
+    /// Return whether a site query on node `a` also fetches the reads on node `b`.
+    ///
+    /// The default says yes, which is right where every read is in memory.
     virtual bool fetched_together(nid_t a, nid_t b) const { return true; }
 
-    /// Every off-panel candidate counted so far, sorted.
+    /// Return every off-panel candidate counted so far, sorted.
     virtual vector<EditCandidate> counted_edit_candidates() const { return {}; }
 
-    /// Hold reads on this thread for the sites of a subtree, until the matching
-    /// `release_reads`. Holds nest, and are released innermost first. Where a source gets the
-    /// reads of a site too wide for one cached window by a fetch of their own, the first such
-    /// fetch on the thread within the innermost hold keeps them, and tallies the read starts on
-    /// every node it covers, which answer `for_each_read_start` for those nodes. A query on the
-    /// thread whose nodes are all among the hold's is then answered from the kept reads, with no
-    /// fetch: the hold's nodes are every node the fetch covered, or once `count_edits` has been
-    /// called those of the off-panel candidates it spans that `bar` admits, which are those that
-    /// become edit sites. A query too wide for one window itself, which would be fetched the same
-    /// way, is answered from them whenever the fetch covered its nodes.
-    virtual void hold_reads(const EditCallBar& bar) const {}
-    virtual void release_reads() const {}
+    /// Start holding reads on this thread for the sites of a subtree, until the matching
+    /// `release_reads`.
+    ///
+    /// Holds nest, and are released innermost first. Within the innermost hold, the first fetch on
+    /// this thread for a site too wide for one cached window keeps reads for the sites below it.
+    /// Later queries on this thread are answered from the kept reads, with no fetch, when those
+    /// include every read on the queried nodes. Read-start queries are answered from them the
+    /// same way. With off-panel detection, the hold keeps at least the reads on the nodes of the
+    /// candidates `bar` admits, since those nodes become edit sites that are queried later.
+    ///
+    /// The default holds nothing.
+    virtual void hold_reads(const EditCallBar& bar) const {
+        // A source that keeps every read in memory has nothing to hold.
+    }
+
+    /// End the innermost hold on this thread, dropping its reads.
+    virtual void release_reads() const {
+        // A source that holds nothing has nothing to release.
+    }
 
 };
 
 /**
  * Reads held in memory, indexed by the node IDs they touch.
  *
- * Built in one pass over a GAM or GAF, with no index file. All the reads are held in memory, so
- * a whole-genome read set at ordinary depth will not fit; get_read_count() is logged so that the
+ * Built in one pass over a GAM or GAF, with no index file. All the reads are held in memory, so a
+ * whole-genome read set at ordinary depth will not fit. get_read_count() is logged so that the
  * size is visible.
  */
 class InMemorySiteReadSource : public SiteReadSource {
 public:
 
-    /// Which reads are eligible. Defined at namespace scope as SiteReadFilter;
-    /// aliased here for readability at call sites.
+    /// Which reads are eligible.
     using Filter = SiteReadFilter;
 
     InMemorySiteReadSource() = default;
@@ -165,47 +189,60 @@ public:
     /// Stream a GAM, retaining the reads that pass the filter.
     void load_gam(const string& filename, const Filter& filter = Filter());
 
-    /// Stream a GAF. Needs the graph to turn GAF into Alignments.
+    /// Stream a GAF, retaining the reads that pass the filter.
+    ///
+    /// The graph turns GAF records into Alignments.
     void load_gaf(const HandleGraph& graph, const string& filename, const Filter& filter = Filter());
 
-    /// Retain a single read directly, applying the same filter as loading would, so that a
-    /// source can be assembled without a file, as the unit tests do.
+    /// Retain a single read if it passes the filter, as loading would.
+    ///
+    /// This lets a source be assembled without a file.
     void add(const Alignment& aln, const Filter& filter = Filter());
 
-    /// Reads are delivered without an index: this source keeps every read for the whole run,
-    /// and an index would add several bytes per mapping to that.
+    /// Visit the reads touching the ranges, without an index of their mappings.
+    ///
+    /// This source keeps every read for the whole run, and an index would add several bytes per
+    /// mapping to that.
     void for_each_read(const vector<pair<nid_t, nid_t>>& ranges,
-                       const function<void(const SiteRead&)>& iteratee) const;
+                       const function<void(const SiteRead&)>& iteratee) const override;
 
-    size_t get_read_count() const;
+    size_t get_read_count() const override;
 
-    /// How many reads the filter rejected, for logging.
+    /// Return how many reads the filter rejected, for logging.
     size_t get_filtered_count() const;
 
+    /// Turn on off-panel detection.
+    ///
     /// Every read is in memory, so all of them are counted at once, at the first query.
-    void count_edits(const HandleGraph* graph, const EditCountParams& params);
+    void count_edits(const HandleGraph* graph, const EditCountParams& params) override;
     void for_each_edit_candidate(const vector<nid_t>& nodes,
-                                 const function<void(const EditCandidate&)>& iteratee) const;
-    vector<EditCandidate> counted_edit_candidates() const;
+                                 const function<void(const EditCandidate&)>& iteratee) const override;
+    vector<EditCandidate> counted_edit_candidates() const override;
 
 private:
 
-    /// Retain a read if it passes the filter, indexing it by every node it
-    /// touches. Not safe to call concurrently; loading is single-threaded.
+    /// Retain a read if it passes the filter, indexing it by every node it touches.
+    ///
+    /// Not safe to call concurrently.
     void add_read(const Alignment& aln, const Filter& filter);
 
-    /// The candidates of all the reads, counted once, at the first query.
+    /// Return the off-panel candidates of all the reads, counting them at the first call.
     const vector<EditCandidate>& all_edits() const;
+    /// The graph the reads are counted on, or null when off-panel detection is off.
     const HandleGraph* edit_graph = nullptr;
+    /// How the reads are counted.
     EditCountParams edit_params;
+    /// Set once `edits` is filled.
     mutable std::once_flag edits_counted;
+    /// The off-panel candidates of all the reads.
     mutable vector<EditCandidate> edits;
 
     /// The reads themselves, owned here and referenced by index below.
     vector<Alignment> reads;
 
-    /// Node ID to indices into `reads`. A read appears under every node it
-    /// touches, so a read spanning n nodes costs n entries.
+    /// The indices into `reads` of the reads touching each node, by node ID.
+    ///
+    /// A read appears under every node it touches, so a read spanning n nodes costs n entries.
     unordered_map<nid_t, vector<size_t>> reads_by_node;
 
     /// Reads rejected by the filter.
@@ -213,18 +250,25 @@ private:
 };
 
 /**
- * Base for on-demand sources: rounds each fetch out to fixed windows of consecutive node IDs and
- * keeps the most recently used windows in a cache that all threads share.
+ * Base for on-demand sources, which fetch reads in fixed windows of consecutive node IDs and keep
+ * the most recently used windows in a cache that all threads share.
  *
  * A backend query costs much more than one site's reads, because the backend over-fetches or
- * starts a process, so each window is fetched once and serves the sites inside it. That works
- * when sites are visited in node-ID order; see GraphCaller::set_snarl_batching. The cache is
- * shared because a thread also needs windows that other threads are working through, such as
- * those holding the reference nodes near its sites.
+ * starts a process. So each window is fetched once and serves the sites inside it. That works when
+ * sites are visited in node-ID order; see GraphCaller::set_snarl_batching. The cache is shared
+ * because a thread also needs windows that other threads are working through, such as those
+ * holding the reference nodes near its sites.
  *
- * Subclasses supply fetch_span() and its per-thread resources. The window arithmetic, the
- * cache, the handling of queries that cross a window boundary, and the narrowing of a window to
- * the requested ranges live here, so that all backends interpret a query the same way.
+ * A site whose nodes lie in more than one window is "wide". It gets its reads by a fetch of its
+ * own, from its windows or from the backend directly.
+ *
+ * With off-panel detection, each window's reads are counted for candidates on the window's own
+ * nodes, the first time a query other than a wide site's fetch uses the window. A wide site's fetch counts its nodes that no
+ * window has counted. Either way each node is counted once, from every read on it.
+ *
+ * Subclasses supply fetch_span() and its per-thread resources. The windowing, the cache, and the
+ * narrowing of a window's reads to the requested ranges live here, so that all backends interpret
+ * a query the same way.
  */
 class WindowedSiteReadSource : public SiteReadSource {
 public:
@@ -232,296 +276,418 @@ public:
     void for_each_read(const vector<pair<nid_t, nid_t>>& ranges,
                        const function<void(const SiteRead&)>& iteratee) const final;
 
-    /// Answered from tallies of each window's read starts. A window is tallied the first time
-    /// it is fetched whole, and the tallies are kept for the whole run, so a query fetches only
-    /// windows that have never been fetched whole.
+    /// Visit the read starts on the nodes, from tallies of each window's read starts.
+    ///
+    /// A window is tallied the first time a query other than a wide site's fetch uses it, and the
+    /// tallies are kept for the whole run. So a query fetches only windows that were never
+    /// tallied.
     void for_each_read_start(
         const vector<nid_t>& nodes,
         const function<void(int32_t mapq, size_t reads, size_t bases)>& iteratee) const final;
 
-    /// Reads actually fetched from the backend so far, across all threads. Not the
-    /// size of the read set, which an on-demand backend never knows.
-    size_t get_read_count() const;
+    /// Return how many reads have been fetched from the backend so far, across all threads.
+    ///
+    /// An on-demand backend never knows the size of the read set.
+    size_t get_read_count() const override;
 
-    /// Each window's reads are counted the first time the window is fetched, before the fetch is
-    /// published, and only on the window's own nodes, so each read base is counted once however
-    /// often its window is fetched. A site too wide for one window gets its reads by a fetch of
-    /// its own, and they are counted on its nodes that no fetch has counted, while they are in
-    /// memory: a node's candidates are the same whichever fetch counts them, since every read on
-    /// the node comes with it. The candidates are kept for the whole run. A window fetched whole
-    /// only to give such a site its reads (see `for_each_read`) is not counted then, but by the
-    /// first other query to use it, so the windows counted, which hold the candidates
-    /// `counted_edit_candidates` lists, are the same whichever way such sites get their reads.
+    /// Turn on off-panel detection.
+    ///
+    /// The candidates are kept for the whole run.
     void count_edits(const HandleGraph* graph, const EditCountParams& params) final;
     void for_each_edit_candidate(const vector<nid_t>& nodes,
                                  const function<void(const EditCandidate&)>& iteratee) const final;
-    /// When they lie in one window.
+    /// Return whether the two nodes lie in one window.
     bool fetched_together(nid_t a, nid_t b) const final;
     vector<EditCandidate> counted_edit_candidates() const final;
     void hold_reads(const EditCallBar& bar) const final;
     void release_reads() const final;
-    /// Site and read-start queries answered from held reads.
-    size_t get_held_queries() const { return held_queries.load(); }
 
+    /// Return how many site and read-start queries were answered from held reads.
+    size_t get_held_queries() const { return counters.held_queries.load(); }
+
+    /// Return how many reads the filter rejected.
     size_t get_filtered_count() const;
 
-    /// Queries served from the cache rather than the backend.
+    /// Return how many site queries inside one window found the window cached.
     size_t get_cache_hits() const;
+    /// Return how many site queries fetched from the backend.
     size_t get_cache_misses() const;
 
-    /// Index entries examined while answering site queries. A read can appear under several of
-    /// the nodes a site asks about, so the ratio of this to the reads delivered says how much of
-    /// the index a site reads again. Counted per site query.
+    /// Return how many index entries were examined while answering site queries.
+    ///
+    /// A read can appear under several of the nodes a site asks about, so the ratio of this to
+    /// `get_delivered_count` says how much of the index a site reads again.
     size_t get_scanned_count() const;
+    /// Return how many reads were handed to site queries.
     size_t get_delivered_count() const;
 
-    /// Site queries that crossed a window boundary and so were fetched uncached, and
-    /// the total node-ID span they covered.
+    /// Return how many wide site queries were fetched from the backend by their own ranges.
     size_t get_straddle_count() const;
+    /// Return the total node-ID span, from lowest to highest, of the wide sites fetched by their
+    /// own ranges.
     size_t get_straddle_nodes() const;
-    /// Node IDs those sites actually asked about, as opposed to the span they were
-    /// collapsed to. The gap between the two is over-fetching.
+    /// Return the total number of node IDs that the wide sites fetched by their own ranges asked
+    /// for.
     size_t get_straddle_wanted() const;
-    /// Site queries across window boundaries that were answered from cached windows rather than
-    /// fetched uncached; not among the straddles.
-    size_t get_wide_from_windows() const { return wide_from_windows.load(); }
+    /// Return how many wide site queries were answered from their windows.
+    size_t get_wide_from_windows() const { return counters.wide_from_windows.load(); }
 
-    /// Windows fetched whole, for sites or for read-start tallies, and the reads they held.
+    /// Return how many windows were fetched whole.
     size_t get_whole_fetches() const;
-    /// Of those, the fetches of a window fetched before, which the cache had dropped, and the
-    /// fetches made only to count a window's off-panel candidates.
-    size_t get_refetches() const { return refetches.load(); }
-    size_t get_edit_fetches() const { return edit_fetches.load(); }
+    /// Return how many whole-window fetches were of a window the cache had dropped.
+    size_t get_refetches() const { return counters.refetches.load(); }
+    /// Return how many whole-window fetches were made only to count a window's off-panel
+    /// candidates.
+    size_t get_edit_fetches() const { return counters.edit_fetches.load(); }
+    /// Return how many reads the whole-window fetches held.
     size_t get_whole_fetch_reads() const;
 
-    /// Drop every cached window and return how many reads they held. For when calling is done:
-    /// the cache would otherwise keep its windows until the source is destroyed, through the
-    /// passes that follow calling, when the run uses the most memory. A later query fetches its
-    /// window again.
+    /// Drop every cached window and return how many reads they held.
+    ///
+    /// Call this when calling is done. Otherwise the cache keeps its windows through the passes
+    /// that follow calling, when the run uses the most memory. A later query fetches its window
+    /// again.
     size_t drop_cached_windows();
 
-    /// The ranges sorted, with overlapping and adjacent ones merged: the same node IDs, in a form
-    /// that in_ranges and touches can search. A site can name tens of thousands of ranges.
+    /// Sort the ranges and merge overlapping and adjacent ones.
+    ///
+    /// The result covers the same node IDs, and can be searched by `in_ranges` and `touches`.
     static vector<pair<nid_t, nid_t>> merge_ranges(vector<pair<nid_t, nid_t>> ranges);
 
-    /// Is the node ID in one of the ranges? `ranges` must come from merge_ranges.
+    /// Return whether the node ID is in one of the ranges.
+    ///
+    /// @pre `ranges` comes from merge_ranges.
     static bool in_ranges(nid_t node_id, const vector<pair<nid_t, nid_t>>& ranges);
 
-    /// Does the read touch any node in the ranges? `ranges` must come from merge_ranges.
+    /// Return whether the read has a mapping onto a node in the ranges.
+    ///
+    /// @pre `ranges` comes from merge_ranges.
     static bool touches(const Alignment& aln, const vector<pair<nid_t, nid_t>>& ranges);
 
 
 protected:
 
-    /// window_size is in node IDs; cache_entries is how many windows the cache holds in all.
-    WindowedSiteReadSource(const SiteReadFilter& filter, size_t window_size,
-                           size_t cache_entries);
+    /// Make a source with windows of `window_nodes` node IDs, caching at most `max_cached_windows`
+    /// windows in all.
+    WindowedSiteReadSource(const SiteReadFilter& filter, size_t window_nodes,
+                           size_t max_cached_windows);
 
-    /// Like `fetch_span`, also giving each read a key: its position in the backend's file, the same
-    /// for a read whichever fetch returns it, so that reads several fetches returned can be put
-    /// back in file order, once each. Returns how many reads the fetch dropped as having the name
-    /// and start of a read before them. For a backend whose `has_record_keys` is false the keys
-    /// are all 0 and no dropped reads are reported.
+    /// Fetch as `fetch_span` does, also giving each read a key, and return how many reads the
+    /// fetch dropped for having the name and start of an earlier read.
+    ///
+    /// A read's key is its position in the backend's file. It is the same for a read whichever
+    /// fetch returns it, so reads from several fetches can be put back in file order, once each.
+    /// For a backend whose `has_record_keys` is false, the keys are all 0 and no dropped reads are
+    /// reported.
     virtual size_t fetch_span_keyed(const vector<pair<nid_t, nid_t>>& ranges,
                                     const function<void(Alignment&, uint64_t)>& iteratee) const {
         fetch_span(ranges, [&](Alignment& aln) { iteratee(aln, 0); });
         return 0;
     }
+    /// Return whether `fetch_span_keyed` gives reads real keys.
     virtual bool has_record_keys() const { return false; }
 
-    /// Visit every read with a mapping onto a node in any of the inclusive ranges,
-    /// having applied the filter. Each read must be visited at most once. Must be safe
-    /// to call concurrently: implementations own their per-thread resources.
+    /// Visit every read with a mapping onto a node in any of the inclusive ranges, having applied
+    /// the filter.
     ///
-    /// Ranges rather than one span, because a snarl's nodes can be spread thinly over a wide
-    /// span of IDs.
+    /// Each read must be visited at most once. Must be safe to call concurrently, so
+    /// implementations own their per-thread resources. This takes ranges rather than one span,
+    /// because a snarl's nodes can be spread thinly over a wide span of IDs.
     ///
-    /// The iteratee takes a mutable reference: the alignment handed over is the
-    /// backend's per-record scratch, and the caller may move from it.
+    /// The iteratee takes a mutable reference, so the caller may move from the alignment. It is
+    /// the backend's per-record scratch.
     virtual void fetch_span(const vector<pair<nid_t, nid_t>>& ranges,
                             const function<void(Alignment&)>& iteratee) const = 0;
 
-    /// Apply the filter, counting rejections. For subclasses to call on each
-    /// candidate read before handing it to fetch_span's iteratee.
+    /// Apply the filter to a read, counting a rejection.
+    ///
+    /// Subclasses call this on each candidate read before handing it to fetch_span's iteratee.
     bool passes_filter(const Alignment& aln) const;
 
-    /// Count a read as fetched. Separate from passes_filter so a subclass can decide
-    /// the order in which it filters and counts.
+    /// Count a read as fetched.
+    ///
+    /// This is separate from passes_filter so a subclass can decide the order in which it filters
+    /// and counts.
     void count_fetched() const;
-
-    SiteReadFilter filter;
 
 private:
 
-    /// One mapping of one read in a window, as the window's index holds it.
+    /// One mapping of one read in a window, as the window's node index holds it.
     struct IndexEntry {
         nid_t node = 0;
         uint32_t read = 0;
         uint32_t mapping = 0;
-        bool operator<(const IndexEntry& other) const {
-            if (node != other.node) return node < other.node;
-            if (read != other.read) return read < other.read;
-            return mapping < other.mapping;
-        }
+        /// Order by node, then read, then mapping.
+        auto operator<=>(const IndexEntry& other) const = default;
     };
 
-    /// One cached window fetch. Not changed once fetched, so threads read it without a lock.
+    /// The reads of one fetched window, with an index of their mappings.
+    ///
+    /// It is not changed once fetched, so threads read it without a lock.
     struct CacheEntry {
         size_t window = 0;
+        /// The reads touching the window's nodes, in the order the backend returned them.
         vector<Alignment> reads;
         /// Each read's key (see `fetch_span_keyed`), in step with `reads`.
         vector<uint64_t> keys;
-        /// Reads the window's fetch dropped as having the name and start of a read before them.
+        /// How many reads the window's fetch dropped for having the name and start of an earlier
+        /// read.
         size_t dropped_repeats = 0;
 
-        /// Every mapping in the window, sorted by node ID, so that a site finds the reads it
-        /// wants, and which of their mappings, by binary search rather than by testing each read.
-        /// Built once per fetch and used by every site in the window.
+        /// Every mapping in the window, sorted by node ID.
+        ///
+        /// A site finds the reads it wants, and which of their mappings, by binary search. Built
+        /// once per fetch and used by every site in the window.
         vector<IndexEntry> node_index;
 
-        /// Read offset before each mapping, for every read in the window end to end:
-        /// read r occupies `[offset_start[r], offset_start[r + 1])`, which is one entry
-        /// longer than its path so the last mapping's end is readable too.
+        /// The read offset before each mapping, for every read in the window end to end.
+        ///
+        /// Read r occupies `[offset_start[r], offset_start[r + 1])`. That is one entry longer than
+        /// its path, so the end of the last mapping is readable too.
         vector<uint32_t> offsets;
+        /// Where each read's run of `offsets` starts, and one more entry for the end of the last.
         vector<uint32_t> offset_start;
     };
 
-    /// A window in the cache. It has no entry while a thread is fetching it.
-    struct CacheSlot {
-        shared_ptr<const CacheEntry> entry;
-        /// When a query last used the window, for evicting the least recently used.
-        size_t last_use = 0;
+    /**
+     * A table of the fetched windows the source keeps, which drops the least recently used
+     * beyond its capacity.
+     *
+     * A thread claims a window before fetching it, so that other threads wanting the window wait
+     * for that fetch rather than fetching it again. A claimed window has a slot but no entry.
+     * Call every method holding the source's `cache_mutex`.
+     */
+    class WindowCache {
+    public:
+        /// Make a table holding at most `capacity` fetched windows.
+        explicit WindowCache(size_t capacity);
+
+        /// Return the window's entry, marking it used, or claim the window and return null.
+        ///
+        /// While another thread has the window claimed, this waits, releasing `lock`.
+        shared_ptr<const CacheEntry> find_or_claim(size_t window, unique_lock<std::mutex>& lock);
+
+        /// Give up a claim on a window whose fetch failed, so that a thread waiting for the window
+        /// fetches it itself.
+        void release_claim(size_t window);
+
+        /// Store the entry of a window this thread claimed, and drop the least recently used
+        /// windows beyond the capacity.
+        ///
+        /// The dropped entries are moved into `dropped`, for the caller to free after releasing
+        /// the lock. A thread still reading a dropped window keeps it alive through its own
+        /// pointer.
+        void store(size_t window, shared_ptr<const CacheEntry> entry,
+                   vector<shared_ptr<const CacheEntry>>& dropped);
+
+        /// Empty the table, returning the entries it held.
+        vector<shared_ptr<const CacheEntry>> take_all();
+
+    private:
+        /// A window in the table. It has no entry while a thread is fetching it.
+        struct Slot {
+            shared_ptr<const CacheEntry> entry;
+            /// When a query last used the window, as a value of `clock`.
+            size_t last_use = 0;
+        };
+
+        /// The most fetched windows the table holds.
+        size_t capacity;
+        /// The windows in the table, by window index.
+        unordered_map<size_t, Slot> slots;
+        /// The number of uses so far, which orders them for eviction.
+        size_t clock = 0;
+        /// Signalled when a claimed window is stored or released.
+        std::condition_variable filled;
     };
 
-    /// The window's reads, from the cache or fetched now. A thread wanting a window that another
-    /// thread is fetching waits for that fetch rather than fetching it again. Sets `was_fetched` if
-    /// this call did the fetch. The entry stays valid while the caller holds it, even if the
-    /// cache drops it meanwhile. Unless `counted` is false, the window's read starts are tallied
-    /// and its off-panel candidates counted, if they have not been: a window fetched only to give
-    /// a site too wide for one window its reads is left as if it had never been fetched.
+    /// Return the window's reads, from the cache or fetched now.
+    ///
+    /// Sets `was_fetched` if this call did the fetch. The entry stays valid while the caller holds
+    /// it, even if the cache drops it meanwhile.
+    ///
+    /// Unless `counted` is false, this tallies the window's read starts and counts its off-panel
+    /// candidates, if that has not been done. A wide site's fetch passes false, which leaves its
+    /// windows as if it had never fetched them.
     shared_ptr<const CacheEntry> get_window(size_t window, bool& was_fetched,
                                             bool counted = true) const;
 
-    /// Hand the entry's reads that touch the ranges to the caller, in the order they
-    /// were fetched. Reads are found through the entry's node index, which lists a read
-    /// under node n exactly when it has a mapping onto n.
+    /// Fetch a window this thread claimed, releasing the claim if the fetch throws.
+    shared_ptr<CacheEntry> load_claimed_window(size_t window) const;
+
+    /// Return whether the window's read starts are tallied and, with off-panel detection, its
+    /// candidates counted.
+    ///
+    /// Call holding `cache_mutex`.
+    bool summarized(size_t window) const;
+
+    /// Hand the entry's reads that touch the ranges to the caller, in the order they were fetched.
+    ///
+    /// Reads are found through the entry's node index.
     void deliver(const CacheEntry& entry,
                  const vector<pair<nid_t, nid_t>>& ranges,
                  const function<void(const SiteRead&)>& iteratee) const;
 
+    /// Hand a wide site's reads to the caller, from a fetch of its own.
+    ///
+    /// The reads come in file order, from the site's windows if there are few of them, or else
+    /// from the backend by the site's ranges. This fills the innermost hold on this thread, if it
+    /// is unfilled, and counts the site's nodes that no fetch has counted.
+    void deliver_wide(const vector<pair<nid_t, nid_t>>& ranges, nid_t min_id, nid_t max_id,
+                      const function<void(const SiteRead&)>& iteratee) const;
+
     /// Append this read's mappings to a window's index and its read-offset table.
     static void index_read(const Alignment& aln, uint32_t read_index, CacheEntry& entry);
 
-    /// Which window a node ID falls in.
+    /// Return which window a node ID falls in.
     size_t window_of(nid_t id) const;
 
     /// Fetch a whole window from the backend and index it.
     CacheEntry load_window(size_t window) const;
 
-    /// The windows holding the merged ranges' nodes, ascending, if there are few enough for a
-    /// query over them to be answered from them (see `WIDE_QUERY_MAX_WINDOWS`) and the backend
-    /// keys its reads; otherwise false.
+    /// Find the windows holding the merged ranges' nodes, ascending, and return whether a query
+    /// over them can be answered from them.
+    ///
+    /// That needs at most `WIDE_QUERY_MAX_WINDOWS` windows, and a backend that keys its reads.
     bool few_windows(const vector<pair<nid_t, nid_t>>& merged, vector<size_t>& windows) const;
 
-    /// Visit the reads touching the merged ranges from `windows`, the windows holding their nodes,
-    /// fetched whole and cached like any other (`counted` as for `get_window`), as an uncached
-    /// fetch of the ranges would deliver them: in file order, each once, a read with the name and
-    /// start of one before it dropped, and counted in `dropped`. False, having visited nothing, if
-    /// one of the windows' own fetches dropped such a read: the window can then lack a read the
-    /// uncached fetch delivers.
+    /// Visit the reads touching the merged ranges from the windows holding their nodes, as a fetch
+    /// of the ranges from the backend would deliver them.
+    ///
+    /// The windows are fetched whole and cached like any other, with `counted` as for
+    /// `get_window`. The reads come in file order, each once. A read with the name and start of an
+    /// earlier one is dropped and counted in `dropped`.
+    ///
+    /// @return false, having visited nothing, if one of the windows' own fetches dropped a read.
+    /// That window can then lack a read that the fetch by ranges delivers.
     bool for_each_window_read(const vector<pair<nid_t, nid_t>>& merged,
                               const vector<size_t>& windows, bool counted,
                               const function<void(const Alignment&)>& iteratee,
                               size_t& dropped) const;
 
-    /// Reads beginning on one node with one mapping quality: how many, and their total
-    /// sequence length.
+    /// The reads beginning on one node with one mapping quality.
     struct StartTally {
         nid_t node = 0;
         int32_t mapq = 0;
+        /// How many reads.
         size_t reads = 0;
+        /// Their total sequence length.
         size_t bases = 0;
     };
 
-    /// Tally the read starts of a fetched window, sorted by node, then mapping quality. A read
-    /// is tallied under the window holding its first node, though a window's fetch also returns
-    /// reads that begin in other windows, so each read is tallied once.
+    /// Tally the read starts of a fetched window, sorted by node, then mapping quality.
+    ///
+    /// A read is tallied under the window holding its first node. A window's fetch also returns
+    /// reads that begin in other windows, and those are left for their own windows.
     vector<StartTally> tally_starts(const CacheEntry& entry) const;
 
-    /// The window's read-start tallies, fetching the window if it has never been fetched. The
-    /// tallies are kept for the whole run and never changed, so the reference stays valid.
+    /// Return the window's read-start tallies, fetching the window if it was never tallied.
+    ///
+    /// The tallies are kept for the whole run and never changed, so the reference stays valid.
     const vector<StartTally>& window_starts(size_t window) const;
 
-    size_t window_size;
-    size_t cache_entries;
+    /// Count the off-panel candidates on the window's own nodes, in its reads.
+    ///
+    /// Every read on one of the window's nodes is among its reads.
+    vector<EditCandidate> count_window_edits(const CacheEntry& entry) const;
 
-    /// Cached windows by window index, holding at most cache_entries fetched windows.
-    /// unordered_map does not move its elements, so a reference to one stays valid while
-    /// others are added.
-    mutable unordered_map<size_t, CacheSlot> cache;
-    /// Counts cache uses, to order them for eviction.
-    mutable size_t cache_clock = 0;
-
-    mutable atomic<size_t> fetched{0};
-    mutable atomic<size_t> filtered{0};
-    mutable atomic<size_t> cache_hits{0};
-    mutable atomic<size_t> cache_misses{0};
-
-    // Added once per site query rather than once per read, to keep atomic increments off the
-    // per-read path.
-    mutable atomic<size_t> scanned{0};
-    mutable atomic<size_t> delivered{0};
-
-    // Sites whose span crosses a window boundary, and the total ID span they asked for. These
-    // bypass the cache.
-    mutable atomic<size_t> straddles{0};
-    /// Queries across window boundaries answered from the windows' cached reads instead.
-    mutable atomic<size_t> wide_from_windows{0};
-    mutable atomic<size_t> straddle_nodes{0};
-    mutable atomic<size_t> straddle_wanted{0};
-    mutable atomic<size_t> whole_fetches{0};
-    mutable atomic<size_t> refetches{0};
-    mutable atomic<size_t> edit_fetches{0};
-    mutable atomic<size_t> held_queries{0};
-    mutable atomic<size_t> whole_fetch_reads{0};
-
-    /// Read-start tallies by window, added when a window is first fetched and kept for the
-    /// whole run.
-    mutable unordered_map<size_t, vector<StartTally>> starts;
-
-    /// Off-panel detection: the graph the reads are counted on, or null when it is off, and the
-    /// candidates by window, added when a window is first fetched and kept for the whole run.
-    const HandleGraph* edit_graph = nullptr;
-    EditCountParams edit_params;
-    mutable unordered_map<size_t, vector<EditCandidate>> edits;
-    /// The nodes counted by the uncached fetches of sites too wide for one window, as merged
-    /// ranges, and their candidates, sorted.
-    mutable vector<pair<nid_t, nid_t>> span_counted;
-    mutable vector<EditCandidate> span_edits;
-    /// The candidates of the window, fetching it if it has never been fetched.
+    /// Return the candidates of the window, fetching it if it was never counted.
     const vector<EditCandidate>& window_edits(size_t window) const;
+
     /// Answer the query from the innermost of this thread's filled holds that can answer it (see
-    /// `hold_reads`), if there is one. `wide` says whether the query is too wide for one window.
+    /// `hold_reads`), and return whether there was one.
+    ///
+    /// `wide` says whether the query is too wide for one window.
     bool deliver_held(const vector<pair<nid_t, nid_t>>& ranges, bool wide,
                       const function<void(const SiteRead&)>& iteratee) const;
-    /// The nodes of the candidates `bar` admits counted on `merged`'s nodes that lie on them, as
-    /// merged ranges. Call holding `cache_mutex`.
+
+    /// Return, as merged ranges, the nodes in the merged ranges that are on a candidate `bar`
+    /// admits, among those counted so far.
+    ///
+    /// Call holding `cache_mutex`.
     vector<pair<nid_t, nid_t>> candidate_nodes(const vector<pair<nid_t, nid_t>>& merged,
                                                const EditCallBar& bar) const;
-    /// Of the merged ranges, the nodes no fetch has counted yet, as merged ranges. Call holding
-    /// `cache_mutex`.
+
+    /// Return, as merged ranges, the nodes in the merged ranges that no fetch has counted.
+    ///
+    /// Call holding `cache_mutex`.
     vector<pair<nid_t, nid_t>> uncounted(const vector<pair<nid_t, nid_t>>& merged) const;
 
-    /// Guards `cache`, `cache_clock`, `starts`, `edits`, `span_counted` and `span_edits`. Fetches
-    /// run without it.
+    /// Record the candidates a wide site's fetch counted on the nodes `counted_nodes`.
+    void record_span_edits(vector<pair<nid_t, nid_t>> counted_nodes,
+                           const vector<EditCandidate>& counted) const;
+
+    /// The tally of a source's fetches and queries, for logging.
+    struct FetchCounters {
+        /// Reads fetched from the backend.
+        atomic<size_t> fetched{0};
+        /// Reads rejected by the filter.
+        atomic<size_t> filtered{0};
+        /// Site queries inside one window that found it cached.
+        atomic<size_t> cache_hits{0};
+        /// Site queries that fetched from the backend.
+        atomic<size_t> cache_misses{0};
+        /// Index entries examined for site queries.
+        atomic<size_t> scanned{0};
+        /// Reads handed to site queries.
+        atomic<size_t> delivered{0};
+        /// Wide site queries fetched by their own ranges.
+        atomic<size_t> straddles{0};
+        /// Wide site queries answered from their windows.
+        atomic<size_t> wide_from_windows{0};
+        /// The total node-ID span of the wide sites fetched by their own ranges.
+        atomic<size_t> straddle_nodes{0};
+        /// The total number of node IDs those sites asked for.
+        atomic<size_t> straddle_wanted{0};
+        /// Windows fetched whole.
+        atomic<size_t> whole_fetches{0};
+        /// Whole-window fetches of a window tallied before, which the cache had dropped.
+        atomic<size_t> refetches{0};
+        /// Whole-window fetches made only to count a window's candidates.
+        atomic<size_t> edit_fetches{0};
+        /// Site and read-start queries answered from held reads.
+        atomic<size_t> held_queries{0};
+        /// Reads in the windows fetched whole.
+        atomic<size_t> whole_fetch_reads{0};
+    };
+
+    /// The rule for which fetched reads are kept.
+    SiteReadFilter filter;
+
+    /// How many node IDs each window holds.
+    size_t window_size;
+
+    /// The windows fetched and kept.
+    mutable WindowCache cache;
+
+    /// The counts reported by the getters.
+    mutable FetchCounters counters;
+
+    /// Read-start tallies by window, added when a window is first tallied and kept for the whole
+    /// run.
+    mutable unordered_map<size_t, vector<StartTally>> starts;
+
+    /// The graph the reads are counted on, or null when off-panel detection is off.
+    const HandleGraph* edit_graph = nullptr;
+    /// How the reads are counted.
+    EditCountParams edit_params;
+    /// The off-panel candidates by window, added when a window is first counted and kept for the
+    /// whole run.
+    mutable unordered_map<size_t, vector<EditCandidate>> edits;
+    /// The nodes counted by wide sites' fetches, as merged ranges.
+    mutable vector<pair<nid_t, nid_t>> span_counted;
+    /// The candidates on `span_counted`, sorted.
+    mutable vector<EditCandidate> span_edits;
+
+    /// Guards `cache`, `starts`, `edits`, `span_counted` and `span_edits`.
+    ///
+    /// Fetches run without it.
     mutable std::mutex cache_mutex;
-    /// Signalled when a fetch finishes or fails.
-    mutable std::condition_variable cache_filled;
 };
 
 /**
- * Reads fetched on demand from a sorted GAM and its `.gai` index (`vg gamsort -i`), so memory
- * is bounded by what one window needs.
+ * Reads fetched on demand from a sorted GAM and its `.gai` index (`vg gamsort -i`), so memory is
+ * bounded by what one window needs.
  *
  * Two properties of StreamIndex shape the implementation:
  *
@@ -534,8 +700,10 @@ private:
 class IndexedGamSiteReadSource : public WindowedSiteReadSource {
 public:
 
-    /// gam_filename must be sorted (`vg gamsort -i`). window_size is in node IDs, and
-    /// cache_entries is how many windows the cache shared by all threads holds.
+    /// Make a source over a GAM sorted by `vg gamsort -i`, and its index.
+    ///
+    /// window_size is in node IDs, and cache_entries is how many windows the cache shared by all
+    /// threads holds.
     IndexedGamSiteReadSource(const string& gam_filename, const string& index_filename,
                              const SiteReadFilter& filter = SiteReadFilter(),
                              size_t window_size = 256,
@@ -544,21 +712,23 @@ public:
 protected:
 
     void fetch_span(const vector<pair<nid_t, nid_t>>& ranges,
-                    const function<void(Alignment&)>& iteratee) const;
+                    const function<void(Alignment&)>& iteratee) const override;
 
 private:
 
-    /// Per-thread cursor. Mutable because fetch_span is logically const but seeks.
+    /// One thread's open GAM and the index cursor reading it.
     struct ThreadState {
         unique_ptr<ifstream> stream;
         unique_ptr<GAMIndex::cursor_t> cursor;
     };
 
+    /// Return this thread's state, opening its cursor on first use.
     ThreadState& thread_state() const;
 
     string gam_filename;
     unique_ptr<GAMIndex> index;
 
+    /// Each thread's state, by OpenMP thread number.
     mutable vector<ThreadState> threads;
 };
 
@@ -576,16 +746,18 @@ private:
 class GafBaseSiteReadSource : public WindowedSiteReadSource {
 public:
 
-    /// graph must outlive this, and must be the graph the alignments were made
-    /// against: it supplies node lengths and sequences to turn GAF back into
-    /// Alignments, and says which node IDs in a window actually exist.
+    /// Make a source over a GAF-Base database.
     ///
-    /// gbz_filename is a GBZ or a GBZ-Base (`gbz-base construct`). Prefer the
-    /// latter: a plain GBZ is loaded in full on every query, while a GBZ-Base is
-    /// random-access, and this issues many queries.
+    /// graph must outlive this, and must be the graph the alignments were made against. It
+    /// supplies node lengths and sequences to turn GAF back into Alignments, and says which node
+    /// IDs in a window exist.
     ///
-    /// window_size is in node IDs, and cache_entries is how many windows the cache shared by
-    /// all threads holds.
+    /// gbz_filename is a GBZ or a GBZ-Base (`gbz-base construct`). Prefer the latter: a plain GBZ
+    /// is loaded in full on every query, while a GBZ-Base is random-access, and this issues many
+    /// queries.
+    ///
+    /// window_size is in node IDs, and cache_entries is how many windows the cache shared by all
+    /// threads holds.
     GafBaseSiteReadSource(const HandleGraph& graph,
                           const string& gaf_base_filename,
                           const string& gbz_filename,
@@ -594,154 +766,185 @@ public:
                           size_t cache_entries = 2,
                           const string& binary = "gbz-base");
 
-    ~GafBaseSiteReadSource();
+    ~GafBaseSiteReadSource() override;
 
-    /// Subprocesses spawned. The number that matters for run time, since each one
-    /// costs milliseconds no matter how few reads it returns.
+    /// Return how many gbz-base processes were started.
+    ///
+    /// This is the number that matters for run time, since each one costs milliseconds no matter
+    /// how few reads it returns.
     size_t get_query_count() const;
 
-    /// Run one query up front to check the databases are readable and agree with the
-    /// graph, so a broken setup fails immediately rather than on the first snarl in
-    /// a worker thread. Throws with an actionable message on failure.
+    /// Return how many reads a fetch returned more than once and dropped.
+    ///
+    /// A split query returns a read that spans two of its pieces from both.
+    size_t get_duplicate_count() const { return duplicates_dropped.load(); }
+
+    /// Run one query up front, to check that the databases are readable and agree with the graph.
+    ///
+    /// A broken setup then fails immediately rather than on the first snarl in a worker thread.
+    /// Throws with an actionable message on failure.
     void check_setup() const;
 
-    /// Whether gbz-base is handed the databases as SQLite immutable URIs (see `immutable`).
+    /// Return whether gbz-base is handed the databases as SQLite immutable URIs (see `immutable`).
     bool immutable_databases() const { return immutable; }
 
-    /// Where the time of the gbz-base queries went, summed over every query so far: how long the
-    /// calling threads waited for their children, the CPU the children spent in their own code
-    /// (user) and in the kernel (system), and the time spent parsing the GAF they wrote. Collected
-    /// with wait4() and two clock reads per query, so it costs nothing measurable.
+    /// Where the time of the gbz-base queries went, summed over every query so far.
+    ///
+    /// It is collected with wait4() and two clock reads per query, so it costs nothing
+    /// measurable.
     struct QueryTotals {
         size_t queries = 0;
+        /// How long the calling threads waited for their children.
         double wait_s = 0;
+        /// The CPU time the children spent in their own code.
         double child_user_s = 0;
+        /// The CPU time the children spent in the kernel.
         double child_system_s = 0;
+        /// The time spent parsing the GAF the children wrote.
         double parse_s = 0;
+        /// The bytes of GAF the children wrote.
         size_t gaf_bytes = 0;
     };
+    /// Return where the time of the queries went so far.
     QueryTotals get_query_totals() const;
 
 private:
 
-    /// Per-thread GAF output files, one per query the thread can have in flight.
-    /// Reused across queries rather than created per query, since creating one is a
+    /// One thread's GAF output files, one per query the thread can have running.
+    ///
+    /// They are reused across queries rather than created per query, since creating one is a
     /// filesystem round trip.
     struct ThreadState {
         vector<string> gaf_paths;
     };
 
+    /// Return this thread's state.
     ThreadState& thread_state() const;
 
-    /// This thread's output file for the given in-flight slot, created on first use.
+    /// Return this thread's output file for the given query slot, created on first use.
     const string& gaf_path(ThreadState& state, size_t slot) const;
 
-    /// One `gbz-base query` child, spawned and not yet reaped.
+    /// One `gbz-base query` child, started and not yet reaped.
     struct PendingQuery {
         pid_t pid = 0;
-        /// By value, not a pointer into the thread's slot table: spawning a later slot
-        /// can grow that vector and move what a pointer was aimed at.
+        /// The child's GAF output file.
+        ///
+        /// It is held by value, since starting a query in a later slot can grow the thread's
+        /// vector of paths and move them.
         string gaf_path;
+        /// The file the child's stderr goes to.
         string err_path;
-        /// When the query started, for its wall time in `QueryTotals` and the per-query log.
+        /// When the query started, for its wall time in `QueryTotals` and the query log.
         std::chrono::steady_clock::time_point started;
+        /// When the query started, in seconds since the epoch, for the query log.
         double started_epoch = 0;
+        /// How many nodes the query asks for.
         size_t n_nodes = 0;
+        /// The first node the query asks for.
         nid_t first_node = 0;
+        /// The last node the query asks for.
         nid_t last_node = 0;
         /// FNV-1a over the node IDs, so the same node set fetched twice shows up in the log.
         uint64_t nodes_hash = 0;
     };
 
     void fetch_span(const vector<pair<nid_t, nid_t>>& ranges,
-                    const function<void(Alignment&)>& iteratee) const;
+                    const function<void(Alignment&)>& iteratee) const override;
 
-    /// Start `gbz-base query` for these node IDs, writing to this thread's slot-th
-    /// output file. Does not wait: the caller reaps it with reap_query, which is what
-    /// lets a query that has to be split run its pieces at the same time rather than
-    /// one after another. Throws if the child cannot be started.
+    /// Start `gbz-base query` for these node IDs, writing to this thread's output file for `slot`.
+    ///
+    /// This does not wait for the child. The caller reaps it with reap_query, so a query split in
+    /// pieces runs its pieces at the same time. Throws if the child cannot be started.
     PendingQuery spawn_query(ThreadState& state, size_t slot,
                              const vector<nid_t>& nodes) const;
 
-    /// Wait for a spawned query and parse the GAF it wrote, applying the filter.
+    /// Wait for a started query and parse the GAF it wrote, applying the filter.
+    ///
     /// Returns the number of records parsed. Throws if the child failed.
-    size_t reap_query(PendingQuery& pending,
+    size_t reap_query(const PendingQuery& pending,
                       const function<void(Alignment&)>& iteratee) const;
 
-    /// Spawn and reap in one step. Throws on failure.
+    /// Start a query and reap it. Throws on failure.
     size_t run_query(ThreadState& state, const vector<nid_t>& nodes,
                      const function<void(Alignment&)>& iteratee) const;
 
-    /// run_query, but reporting and exiting instead of throwing. For use during
-    /// calling, which happens inside an OpenMP parallel region.
+    /// Run a query, reporting an error and exiting instead of throwing.
+    ///
+    /// Calling happens inside an OpenMP parallel region, which an exception must not leave.
     void run_query_or_die(ThreadState& state, const vector<nid_t>& nodes,
                           const function<void(Alignment&)>& iteratee) const;
 
     const HandleGraph& graph;
     string gaf_base_filename;
     string gbz_filename;
+    /// The gbz-base executable, as a path or a name to look up on PATH.
     string binary;
 
+    /// Whether the databases are handed to gbz-base as SQLite immutable URIs.
+    ///
     /// SQLite takes a POSIX advisory lock on the database file around every read transaction, and
     /// gbz-base looks up each node of a query in a transaction of its own. With one gbz-base per
-    /// calling thread, all of those lock and unlock calls land on the same file, and on a whole
-    /// genome the kernel's bookkeeping for them took most of every query's time. vg only reads the
-    /// databases, so by default it hands them to gbz-base as SQLite immutable URIs, which take no
-    /// locks at all. Setting VG_GAFBASE_LOCKING=1 in the environment passes the plain paths instead.
+    /// calling thread, all of those lock and unlock calls land on the same file. On a whole genome
+    /// the kernel's bookkeeping for them took most of every query's time. vg only reads the
+    /// databases, so by default it hands them over as immutable URIs, which take no locks.
+    /// Setting VG_GAFBASE_LOCKING=1 in the environment passes the plain paths instead.
     bool immutable = true;
-    /// The database arguments gbz-base is given: the plain paths, or `file:<path>?immutable=1`.
+    /// The graph database argument gbz-base is given: the plain path, or `file:<path>?immutable=1`.
     string gbz_argument;
+    /// The GAF-Base database argument gbz-base is given, in the same form as `gbz_argument`.
     string gaf_base_argument;
-    /// `file:<absolute path>?immutable=1` for a SQLite database, or the path unchanged for any other
-    /// file, such as a plain GBZ given as the graph.
+    /// Return `file:<absolute path>?immutable=1` for a SQLite database, or the path unchanged for
+    /// any other file, such as a plain GBZ given as the graph.
     static string immutable_uri(const string& path);
 
-    /// QueryTotals, in microseconds.
+    /// The parts of QueryTotals, in microseconds or bytes.
     mutable atomic<uint64_t> wait_us{0};
     mutable atomic<uint64_t> child_user_us{0};
     mutable atomic<uint64_t> child_system_us{0};
     mutable atomic<uint64_t> parse_us{0};
     mutable atomic<uint64_t> gaf_bytes_total{0};
-    /// One line per query, written when VG_GAFBASE_QUERY_LOG names a file. The columns are in its
-    /// header line.
+    /// The query log, when VG_GAFBASE_QUERY_LOG names a file, or null.
+    ///
+    /// It has one line per query. The columns are named in its header line.
     FILE* query_log = nullptr;
+    /// Guards `query_log`.
     mutable std::mutex query_log_mutex;
 
-    /// The most node IDs one gbz-base command line can hold: a quarter of sysconf(_SC_ARG_MAX),
-    /// leaving room for the environment and the fixed arguments, over the bytes each node costs
-    /// ("-n" and its digits). Computed once.
+    /// Return the most node IDs one gbz-base command line can hold.
+    ///
+    /// That is a quarter of sysconf(_SC_ARG_MAX), leaving room for the environment and the fixed
+    /// arguments, over the bytes each node costs ("-n" and its digits). It is computed once.
     static size_t argv_node_budget();
 
-    /// Node IDs per gbz-base process. A larger query is split into pieces run side by side.
+    /// The most node IDs per gbz-base process.
+    ///
+    /// A larger query is split into pieces run side by side.
     size_t max_query_nodes = argv_node_budget();
 
+    /// Each thread's state, by OpenMP thread number.
     mutable vector<ThreadState> threads;
+    /// How many gbz-base processes were started.
     mutable atomic<size_t> queries{0};
-    /// Reads one query returned more than once, identified by name and start, and dropped. A
-    /// split query returns a read that spans two of its pieces from both.
+    /// Reads a fetch returned more than once, identified by name and start, and dropped.
     mutable atomic<size_t> duplicates_dropped{0};
-
-public:
-    /// See duplicates_dropped.
-    size_t get_duplicate_count() const { return duplicates_dropped.load(); }
-
-private:
 };
 
 /**
- * Reads fetched on demand from a bgzipped GAF sorted by node ID, through its tabix index
- * (`tabix -p gaf`, which indexes each record by the smallest and largest node ID on its path).
+ * Reads fetched on demand from a bgzipped GAF sorted by node ID, through its tabix index.
  *
- * The reads are read in vg's own threads: a query seeks to the compressed blocks holding the
- * records whose node interval overlaps it, so only those blocks are decompressed and only those
- * records parsed. A whole window costs one index lookup rather than a gbz-base process, and a read
- * is decoded only for the windows it touches. Reads come back in file order, as GAF-Base returns
- * them from the same sorted GAF.
+ * The index comes from `tabix -p gaf`, which indexes each record by the smallest and largest node
+ * ID on its path. The reads are read in vg's own threads. A query seeks to the compressed blocks
+ * holding the records whose node interval overlaps it, so only those blocks are decompressed and
+ * only those records parsed. A whole window costs one index lookup rather than a gbz-base process,
+ * and a read is decoded only for the windows it touches. Reads come back in file order, as
+ * GAF-Base returns them from the same sorted GAF.
  */
 class TabixGafSiteReadSource : public WindowedSiteReadSource {
 public:
 
-    /// graph must outlive this, and must be the graph the alignments were made against: it
+    /// Make a source over a sorted, bgzipped GAF and its tabix index.
+    ///
+    /// graph must outlive this, and must be the graph the alignments were made against. It
     /// supplies the node sequences that turn GAF back into Alignments. index_filename is the
     /// `.tbi` or `.csi` beside gaf_filename. window_size is in node IDs, and cache_entries is how
     /// many windows the cache shared by all threads holds.
@@ -752,53 +955,77 @@ public:
                            size_t window_size = 16384,
                            size_t cache_entries = 2);
 
-    ~TabixGafSiteReadSource();
+    ~TabixGafSiteReadSource() override;
 
-    /// Index lookups made: a fetch makes one per group of nearby node IDs it asks for.
+    /// Return how many index lookups were made.
+    ///
+    /// A fetch makes one per group of nearby node IDs it asks for.
     size_t get_query_count() const { return queries.load(); }
 
-    /// Records the index returned whose node interval overlaps a fetch's ranges but whose path
-    /// skips all of the ranges' nodes. They are dropped, most of them before being parsed (see
-    /// get_unparsed_count).
+    /// Return how many records were dropped because their path visits none of a fetch's nodes.
+    ///
+    /// The index returns such a record when its node interval overlaps the fetch's ranges. Most
+    /// of them are dropped before being parsed (see get_unparsed_count).
     size_t get_skipped_count() const { return skipped.load(); }
 
-    /// Reads one fetch returned more than once, identified by name and start, and dropped.
+    /// Return how many reads a fetch returned more than once and dropped.
+    ///
+    /// Reads are identified by name and start.
     size_t get_duplicate_count() const { return duplicates_dropped.load(); }
 
-    /// Of the skipped records, those dropped from their path text alone, before being parsed.
+    /// Return how many of the skipped records were dropped from their path text alone, before
+    /// being parsed.
     size_t get_unparsed_count() const { return unparsed.load(); }
 
-    /// Where the fetches' time went, summed over all threads: reading records through the index
-    /// (seeking and decompressing), and parsing them into Alignments; and the bytes of GAF read.
+    /// Return the time all threads spent reading records through the index, seeking and
+    /// decompressing.
     double get_read_seconds() const { return read_us.load() / 1e6; }
+    /// Return the time all threads spent parsing records into Alignments.
     double get_parse_seconds() const { return parse_us.load() / 1e6; }
+    /// Return the bytes of GAF read.
     size_t get_gaf_bytes() const { return gaf_bytes.load(); }
 
 protected:
 
     void fetch_span(const vector<pair<nid_t, nid_t>>& ranges,
-                    const function<void(Alignment&)>& iteratee) const;
+                    const function<void(Alignment&)>& iteratee) const override;
 
-    /// The key is the record's virtual file offset after it was read: the same whichever lookup
-    /// reads the record, and increasing in file order.
+    /// Fetch as `fetch_span` does, keying each read by its record's virtual file offset after it
+    /// was read.
+    ///
+    /// That offset is the same whichever lookup reads the record, and increases in file order.
     size_t fetch_span_keyed(const vector<pair<nid_t, nid_t>>& ranges,
-                            const function<void(Alignment&, uint64_t)>& iteratee) const;
-    bool has_record_keys() const { return true; }
+                            const function<void(Alignment&, uint64_t)>& iteratee) const override;
+    bool has_record_keys() const override { return true; }
 
 private:
 
-    /// Per-thread file handle. A handle seeks, so it cannot be shared; the index can.
+    /// One thread's handle on the GAF.
+    ///
+    /// A handle seeks, so it cannot be shared. The index can.
     struct ThreadState {
         htsFile* file = nullptr;
     };
 
+    /// Return this thread's state, opening its handle on first use.
     ThreadState& thread_state() const;
+
+    /// Read the records the index returns for one run of node IDs, handing each to `visit` with
+    /// the file offset the reader reached after it.
+    ///
+    /// `scan` notes, for each record, whether it may touch the fetch's ranges. Adds the time spent
+    /// reading to `read_time_us`. Throws if the index cannot be queried or the file cannot be read.
+    void for_each_record_in_run(htsFile* file, const pair<nid_t, nid_t>& run, GafRecordScan& scan,
+                                kstring_t& line, uint64_t& read_time_us,
+                                const function<void(const kstring_t&, uint64_t)>& visit) const;
 
     const HandleGraph& graph;
     string gaf_filename;
     tbx_t* index = nullptr;
 
+    /// Each thread's state, by OpenMP thread number.
     mutable vector<ThreadState> threads;
+    /// The counts and times the getters report.
     mutable atomic<size_t> queries{0};
     mutable atomic<size_t> skipped{0};
     mutable atomic<size_t> unparsed{0};

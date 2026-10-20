@@ -2,8 +2,7 @@
 
 #include "read_strand_table.hpp"
 
-namespace vg {
-namespace multipass {
+namespace vg::multipass {
 
 void TemperFit::keep(const RegenotypeCounters& counters) {
     temper = counters.fitted_temper;
@@ -23,8 +22,6 @@ void TemperFit::restore(RegenotypeCounters& counters) const {
     counters.fit_count = count;
 }
 
-// Built for the render rather than taken from re-genotyping, which may not have run and whose
-// table is built before the sites are final.
 void ReadStrandTable::build_lambda(
     const vector<PhaseCall>& calls,
     const function<size_t(const string& contig, size_t phase_set)>& phase_set_id,
@@ -42,12 +39,12 @@ void ReadStrandTable::build_lambda(
     for (const PhaseSite& site : phase_sites) {
         lambda_site[site.record_key] = &site;
     }
-    // The last PhaseCall written winning, as in `PhaseTable::freeze_for_render`.
+    // Let the last PhaseCall for a record win, as `PhaseTable::freeze_for_render` does.
     for (const PhaseCall& pc : calls) {
         lambda_phase_set[pc.record_key] = phase_set_id(pc.contig, pc.phase_set);
     }
-    // The summed strand log-odds overstate how sure the strand is, so they are tempered. Use the
-    // temper re-genotyping fitted, where it ran; otherwise fit one here.
+    // The summed strand log-odds overstate how sure the strand is, so we temper them. Use the
+    // temper that re-genotyping fitted, if it ran, or else fit one here.
     if (fitted_temper > 0.0) {
         lambda_temper = fitted_temper;
         lambda_ceiling = fitted_ceiling;
@@ -72,7 +69,7 @@ bool ReadStrandTable::site_own_strand_log_odds(size_t record_key,
     if (site == lambda_site.end()) {
         return false;
     }
-    site_own_log_odds(*site->second, phase_flips.count(record_key) != 0, out);
+    site_own_log_odds(*site->second, phase_flips.contains(record_key), out);
     return true;
 }
 
@@ -81,24 +78,25 @@ double ReadStrandTable::read_strand_log_odds(size_t record_key, std::string_view
     if (lambda.empty() || lambda_temper <= 0.0) {
         return 0.0;
     }
-    const uint64_t key = (uint64_t)std::hash<std::string_view>{}(read_name);
+    const auto key = (uint64_t)std::hash<std::string_view>{}(read_name);
     const auto found = lambda.find(key);
     const auto ps = lambda_phase_set.find(record_key);
     const size_t phase_set = ps != lambda_phase_set.end() ? ps->second : NO_PHASE_SET;
     if (found == lambda.end()) {
-        // The read reached no phased site.
+        // The read lies on no phased site.
         return 0.0;
     }
     if (!read_strand_usable(found->second, phase_set)) {
-        // The read has a strand, but in another phase set, whose strands do not correspond to
-        // this site's. NaN rather than 0, because a split homozygous site drops such a read but
-        // places one with no strand by a coin (see `build_site_anchors`).
+        // The strand of the read belongs to another phase set, which labels its strands
+        // independently of this site's phase set. Return NaN, because a split homozygous site
+        // drops such a read, but places a read with no strand by a coin (see
+        // `build_site_anchors`).
         return std::numeric_limits<double>::quiet_NaN();
     }
     double value = found->second.lambda;
     size_t sites = found->second.sites;
-    // Subtract this record's own contribution, so that a site is not judged by its own evidence;
-    // if it was the only one, there is nothing left.
+    // Subtract the contribution of this site, so that a site is not judged by its own evidence.
+    // Keep `built` in this scope, because `site_own` can point to it.
     unordered_map<uint64_t, double> built;
     if (site_own == nullptr && site_own_strand_log_odds(record_key, built)) {
         site_own = &built;
@@ -118,5 +116,4 @@ double ReadStrandTable::read_strand_log_odds(size_t record_key, std::string_view
     return calibrated_log_odds(value, lambda_temper, lambda_ceiling);
 }
 
-}
 }
