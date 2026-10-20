@@ -1197,14 +1197,6 @@ size_t WindowedSiteReadSource::drop_cached_windows() {
     return reads;
 }
 
-size_t WindowedSiteReadSource::get_whole_fetches() const {
-    return counters.whole_fetches.load();
-}
-
-size_t WindowedSiteReadSource::get_whole_fetch_reads() const {
-    return counters.whole_fetch_reads.load();
-}
-
 void WindowedSiteReadSource::index_read(const Alignment& aln, uint32_t read_index,
                                        CacheEntry& entry) {
     entry.offset_start.push_back((uint32_t)entry.offsets.size());
@@ -1348,36 +1340,24 @@ size_t WindowedSiteReadSource::get_read_count() const {
     return counters.fetched.load();
 }
 
-size_t WindowedSiteReadSource::get_filtered_count() const {
-    return counters.filtered.load();
-}
-
-size_t WindowedSiteReadSource::get_cache_hits() const {
-    return counters.cache_hits.load();
-}
-
-size_t WindowedSiteReadSource::get_cache_misses() const {
-    return counters.cache_misses.load();
-}
-
-size_t WindowedSiteReadSource::get_scanned_count() const {
-    return counters.scanned.load();
-}
-
-size_t WindowedSiteReadSource::get_delivered_count() const {
-    return counters.delivered.load();
-}
-
-size_t WindowedSiteReadSource::get_straddle_count() const {
-    return counters.straddles.load();
-}
-
-size_t WindowedSiteReadSource::get_straddle_nodes() const {
-    return counters.straddle_nodes.load();
-}
-
-size_t WindowedSiteReadSource::get_straddle_wanted() const {
-    return counters.straddle_wanted.load();
+WindowedSiteReadSource::FetchStats WindowedSiteReadSource::fetch_stats() const {
+    FetchStats stats;
+    stats.fetched = counters.fetched.load();
+    stats.filtered = counters.filtered.load();
+    stats.cache_hits = counters.cache_hits.load();
+    stats.cache_misses = counters.cache_misses.load();
+    stats.scanned = counters.scanned.load();
+    stats.delivered = counters.delivered.load();
+    stats.straddles = counters.straddles.load();
+    stats.wide_from_windows = counters.wide_from_windows.load();
+    stats.straddle_nodes = counters.straddle_nodes.load();
+    stats.straddle_wanted = counters.straddle_wanted.load();
+    stats.whole_fetches = counters.whole_fetches.load();
+    stats.refetches = counters.refetches.load();
+    stats.edit_fetches = counters.edit_fetches.load();
+    stats.held_queries = counters.held_queries.load();
+    stats.whole_fetch_reads = counters.whole_fetch_reads.load();
+    return stats;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

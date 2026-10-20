@@ -9,120 +9,37 @@
 
 namespace vg::multipass {
 
-MultiPassCaller::MultiPassCaller(const PathPositionHandleGraph& graph,
-                                 ReadLikelihoodSnarlCaller& genotyper,
-                                 const SnarlDecomposition& decomposition,
-                                 VCFOutputCaller& output, const string& sample_name,
-                                 TraversalFinder& traversal_finder,
-                                 const vector<string>& ref_paths,
-                                 const vector<size_t>& ref_path_offsets,
-                                 const vector<int>& ref_path_ploidies, bool genotype_snarls,
-                                 const pair<size_t, size_t>& allele_length_range, bool top_down,
-                                 bool star_allele) :
-    graph(graph),
-    snarl_caller(genotyper),
-    decomposition(decomposition),
-    walker(decomposition, graph),
-    output(output),
-    sample_name(sample_name),
-    ref_paths(ref_paths),
-    genotype_snarls(genotype_snarls),
-    top_down(top_down),
-    star_allele(star_allele),
-    splicer(graph, phase_table),
-    candidates(graph, traversal_finder, ref_path_set, allele_length_range),
-    site_genotyper(genotyper)
-{
-    for (int i = 0; i < ref_paths.size(); ++i) {
-        ref_offsets[ref_paths[i]] = i < ref_path_offsets.size() ? ref_path_offsets[i] : 0;
-        ref_path_set.insert(ref_paths[i]);
-        ref_ploidies[ref_paths[i]] = i < ref_path_ploidies.size() ? ref_path_ploidies[i] : 2;
-    }
-    install_header_steps();
-    install_widgets();
+OffPanelLedger::OffPanelLedger(const PathPositionHandleGraph& graph,
+                               const map<string, size_t>& ref_offsets) :
+    graph(graph), ref_offsets(ref_offsets) {
+    // Nothing to do
 }
 
-void MultiPassCaller::call(GraphCaller::RecurseType recurse_type,
-                           const function<void()>& after_direct_pass) {
-    // Sized here rather than inside the parallel region that writes it.
-    staged_sites.start(max((size_t)get_thread_count(), (size_t)omp_get_max_threads()));
-    if (edit_source != nullptr) {
-        edit_outcomes = std::make_unique<EditOutcomes>(
-            max((size_t)get_thread_count(), (size_t)omp_get_max_threads()));
-    }
-    // Configured here, once call_main has set nested calling and off-reference descent.
-    tree_genotyper.configure(
-        TreeGenotyper::Parts{
-            .graph = &graph,
-            .candidates = &candidates,
-            .genotyper = &site_genotyper,
-            .linker = &linker,
-            .staged_sites = &staged_sites,
-            .child_placer = &child_placer,
-            .descent_counters = &descent_counters,
-            .ploidy_regions = &ploidy_regions,
-            .ref_offsets = &ref_offsets,
-            .ref_ploidies = &ref_ploidies,
-            .site_id = [this](const SiteBounds& site) {
-                return output.print_snarl(&graph, site.start, site.end);
-            },
-            .edit_source = edit_source,
-            .read_source = read_source,
-            .edit_outcomes = edit_outcomes.get(),
-        },
-        TreeGenotyper::Options{
-            .nested_calling = nested_calling,
-            .off_reference = off_reference_nesting,
-            .top_down = top_down,
-            .star_allele = star_allele,
-            .edit_bar = edit_bar,
-        });
-
-    // The direct pass.
-    walker.walk(recurse_type, snarl_batch_window, show_progress,
-                [&](const SiteView& site) { return tree_genotyper.genotype(site); });
-    if (edit_source != nullptr) {
-        // The edit sites no site holds, from the windows the sites fetched. A window no site
-        // fetched holds no site, and is not fetched for its candidates alone.
-        tree_genotyper.genotype_top_level_edits(edit_source->counted_edit_candidates());
-    }
-    if (show_progress) {
-        report_descent_instrumentation();
-    }
-    after_direct_pass();
-
-    // Round 1's linkage pass, then read phasing and any further rounds, then the render.
-    run_linkage_pass();
-    phase_and_regenotype();
-    render_retained_records();
-    // Anchors are collected while records are built, so they are written afterwards. Does nothing
-    // unless anchors are on.
-    anchor_collector.write(sample_name);
-
-    // The reports, and the mosaic, need to know which sites have a line, so they come last.
-    finalise_linkage_outputs();
-    write_edit_dump();
-    if (phase_declined.load() > 0 || quality_declined.load() > 0) {
-        cerr << "[vg call] linkage: " << phase_declined.load()
-             << " phases refused by the record they were rendered onto, and "
-             << quality_declined.load() << " quality rewrites refused" << endl;
-    }
-    block_records.report();
+void OffPanelLedger::configure(const SiteReadSource* reads, string dump,
+                               const EditCallBar& bar) {
+    candidate_source = reads;
+    dump_path = std::move(dump);
+    call_bar = bar;
 }
 
-pair<string, int64_t> MultiPassCaller::reference_position(nid_t node, uint32_t offset) const {
+void OffPanelLedger::open(size_t threads) {
+    outcomes_filed = std::make_unique<EditOutcomes>(threads);
+}
+
+pair<string, int64_t> OffPanelLedger::reference_position(nid_t node, uint32_t offset) const {
     pair<string, int64_t> found;
     const handle_t handle = graph.get_handle(node);
     graph.for_each_step_on_handle(handle, [&](const step_handle_t& step) {
         const string path_name = graph.get_path_name(graph.get_path_handle_of_step(step));
-        if (!ref_path_set.count(path_name)) {
+        const auto ref_offset = ref_offsets.find(path_name);
+        if (ref_offset == ref_offsets.end()) {
             return true;
         }
         const size_t len = graph.get_length(handle);
         const bool reverse = graph.get_is_reverse(graph.get_handle_of_step(step));
         const int64_t along = (int64_t)graph.get_position_of_step(step)
                               + (int64_t)(reverse ? len - 1 - offset : offset)
-                              + ref_offset_of(ref_offsets, path_name);
+                              + ref_offset->second;
         string contig = PathMetadata::parse_locus_name(Paths::strip_subrange(path_name));
         found = make_pair(contig == PathMetadata::NO_LOCUS_NAME ? Paths::strip_subrange(path_name)
                                                                 : contig,
@@ -132,13 +49,13 @@ pair<string, int64_t> MultiPassCaller::reference_position(nid_t node, uint32_t o
     return found;
 }
 
-void MultiPassCaller::report_off_panel() const {
+void OffPanelLedger::report(size_t nodes_after_pass) const {
     size_t top = 0;
     size_t nested = 0;
     size_t staged = 0;
     size_t unplaced = 0;
     size_t indels_staged = 0;
-    for (const EditOutcome& o : edit_outcomes->sorted()) {
+    for (const EditOutcome& o : outcomes_filed->sorted()) {
         if (o.placed == "top") {
             ++top;
         } else if (o.placed == "nested") {
@@ -153,11 +70,11 @@ void MultiPassCaller::report_off_panel() const {
             }
         }
     }
-    const vector<EditCandidate>& candidates = edit_source->counted_edit_candidates();
+    const vector<EditCandidate>& candidates = candidate_source->counted_edit_candidates();
     cerr << "[vg call] off-panel: " << candidates.size()
          << " candidates counted; the call bar's genotyped as " << top << " top-level and "
          << nested << " nested sites, " << unplaced << " left unplaced; " << staged
-         << " staged with their ALT; " << tree_genotyper.edit_nodes_after_pass()
+         << " staged with their ALT; " << nodes_after_pass
          << " nodes' top-level sites left to after the direct pass" << endl;
     const auto indels = std::ranges::count_if(candidates,
                                               [](const EditCandidate& c) { return c.is_indel(); });
@@ -210,32 +127,32 @@ static void write_outcome_columns(ostream& out, const EditCandidate& c, const Ed
     }
 }
 
-void MultiPassCaller::write_edit_dump() const {
-    if (edit_source == nullptr) {
+void OffPanelLedger::write(size_t nodes_after_pass) const {
+    if (!is_enabled()) {
         return;
     }
-    report_off_panel();
-    if (edit_dump.empty()) {
+    report(nodes_after_pass);
+    if (dump_path.empty()) {
         return;
     }
-    ofstream out(edit_dump);
+    ofstream out(dump_path);
     if (!out) {
-        cerr << "error [vg call]: could not open " << edit_dump << " for the off-panel dump" << endl;
+        cerr << "error [vg call]: could not open " << dump_path << " for the off-panel dump" << endl;
         return;
     }
     out << "#contig\tpos\tnode\toffset\tref\talt\talt_frags\tref_frags\tother_frags"
            "\tdiscordant_frags\taf\tmean_alt_mapq\tplaced\tsite\tgt\tgq\tstaged\thomopolymer\tdr\n";
     const vector<EditOutcome> outcomes =
-        edit_outcomes != nullptr ? edit_outcomes->sorted() : vector<EditOutcome>();
+        outcomes_filed != nullptr ? outcomes_filed->sorted() : vector<EditOutcome>();
     // Walk the outcomes alongside the candidates, which are in the same order.
     auto outcome = outcomes.begin();
-    for (const EditCandidate& c : edit_source->counted_edit_candidates()) {
-        const pair<string, int64_t> at = reference_position(c.node, c.offset);
-        out << (at.first.empty() ? "." : at.first) << "\t";
-        if (at.first.empty()) {
+    for (const EditCandidate& c : candidate_source->counted_edit_candidates()) {
+        const auto [contig, position] = reference_position(c.node, c.offset);
+        out << (contig.empty() ? "." : contig) << "\t";
+        if (contig.empty()) {
             out << ".";
         } else {
-            out << at.second;
+            out << position;
         }
         out << "\t" << c.node << "\t" << c.offset << "\t";
         write_candidate_columns(out, c);
@@ -248,9 +165,111 @@ void MultiPassCaller::write_edit_dump() const {
         const bool has_outcome = outcome != outcomes.end() && outcome->node == c.node
                                  && outcome->offset == c.offset && outcome->kind == c.kind
                                  && outcome->alt == c.alt && outcome->sequence == c.sequence;
-        write_outcome_columns(out, c, has_outcome ? &*outcome : nullptr, edit_bar);
+        write_outcome_columns(out, c, has_outcome ? std::to_address(outcome) : nullptr, call_bar);
         out << "\n";
     }
+}
+
+MultiPassCaller::MultiPassCaller(const PathPositionHandleGraph& graph,
+                                 ReadLikelihoodSnarlCaller& genotyper,
+                                 const SnarlDecomposition& decomposition,
+                                 VCFOutputCaller& output, const string& sample_name,
+                                 TraversalFinder& traversal_finder,
+                                 const vector<string>& ref_paths,
+                                 const vector<size_t>& ref_path_offsets,
+                                 const vector<int>& ref_path_ploidies, bool genotype_snarls,
+                                 const pair<size_t, size_t>& allele_length_range, bool top_down,
+                                 bool star_allele) :
+    graph(graph),
+    snarl_caller(genotyper),
+    decomposition(decomposition),
+    walker(decomposition, graph),
+    output(output),
+    sample_name(sample_name),
+    ref_paths(ref_paths),
+    genotype_snarls(genotype_snarls),
+    top_down(top_down),
+    star_allele(star_allele),
+    splicer(graph, phase_table),
+    off_panel(graph, ref_offsets),
+    candidates(graph, traversal_finder, ref_path_set, allele_length_range),
+    site_genotyper(genotyper),
+    record_renderer(phase_table, read_strands, linker, anchor_collector)
+{
+    for (int i = 0; i < ref_paths.size(); ++i) {
+        ref_offsets[ref_paths[i]] = i < ref_path_offsets.size() ? ref_path_offsets[i] : 0;
+        ref_path_set.insert(ref_paths[i]);
+        ref_ploidies[ref_paths[i]] = i < ref_path_ploidies.size() ? ref_path_ploidies[i] : 2;
+    }
+    install_header_steps();
+    install_widgets();
+}
+
+void MultiPassCaller::call(GraphCaller::RecurseType recurse_type,
+                           const function<void()>& after_direct_pass) {
+    // Sized here rather than inside the parallel region that writes it.
+    staged_sites.start(max((size_t)get_thread_count(), (size_t)omp_get_max_threads()));
+    if (off_panel.is_enabled()) {
+        off_panel.open(max((size_t)get_thread_count(), (size_t)omp_get_max_threads()));
+    }
+    // Configured here, once call_main has set nested calling and off-reference descent.
+    tree_genotyper.configure(
+        TreeGenotyper::Parts{
+            .graph = &graph,
+            .candidates = &candidates,
+            .genotyper = &site_genotyper,
+            .linker = &linker,
+            .staged_sites = &staged_sites,
+            .child_placer = &child_placer,
+            .descent_counters = &descent_counters,
+            .ploidy_regions = &ploidy_regions,
+            .ref_offsets = &ref_offsets,
+            .ref_ploidies = &ref_ploidies,
+            .site_id = [this](const SiteBounds& site) {
+                return output.print_snarl(&graph, site.start, site.end);
+            },
+            .edit_source = off_panel.source(),
+            .read_source = read_source,
+            .edit_outcomes = off_panel.outcomes(),
+        },
+        TreeGenotyper::Options{
+            .nested_calling = nested_calling,
+            .off_reference = off_reference_nesting,
+            .top_down = top_down,
+            .star_allele = star_allele,
+            .edit_bar = off_panel.bar(),
+        });
+
+    // The direct pass.
+    walker.walk(recurse_type, snarl_batch_window, show_progress,
+                [&](const SiteView& site) { return tree_genotyper.genotype(site); });
+    if (off_panel.is_enabled()) {
+        // The edit sites no site holds, from the windows the sites fetched. A window no site
+        // fetched holds no site, and is not fetched for its candidates alone.
+        tree_genotyper.genotype_top_level_edits(off_panel.source()->counted_edit_candidates());
+    }
+    if (show_progress) {
+        report_descent_instrumentation();
+    }
+    after_direct_pass();
+
+    // Round 1's linkage pass, then read phasing and any further rounds, then the render.
+    run_linkage_pass();
+    phase_and_regenotype();
+    render_retained_records();
+    // Anchors are collected while records are built, so they are written afterwards. Does nothing
+    // unless anchors are on.
+    anchor_collector.write(sample_name);
+
+    // The reports, and the mosaic, need to know which sites have a line, so they come last.
+    finalise_linkage_outputs();
+    off_panel.write(tree_genotyper.edit_nodes_after_pass());
+    if (phase_declined.load() > 0 || quality_declined.load() > 0) {
+        cerr << "[vg call] linkage: " << phase_declined.load()
+             << " phases refused by the record they were rendered onto, and "
+             << quality_declined.load() << " quality rewrites refused" << endl;
+    }
+    block_records.report();
 }
 
 unique_ptr<SiteTree> MultiPassCaller::site_tree() {
@@ -438,7 +457,7 @@ void MultiPassCaller::install_header_steps() {
     };
     steps.info_header = [this]() {
         stringstream ss;
-        if (edit_source != nullptr) {
+        if (off_panel.is_enabled()) {
             ss << OP_HEADER_LINE << endl;
         }
         if (block_records.is_enabled()) {
@@ -460,7 +479,6 @@ void MultiPassCaller::install_widgets() {
     };
     linker.set_site_reader(reader);
     rescorer.set_site_reader(reader);
-    record_renderer.configure(reader);
     child_placer.configure(&graph, &decomposition, &block_records, &descent_counters);
 }
 
@@ -567,7 +585,7 @@ void MultiPassCaller::render_retained_records() {
     read_strands.build_lambda(
         phase_table.calls(),
         [&](const string& contig, size_t phase_set) { return phase_set_id(contig, phase_set); },
-        rescorer.last_counters().fitted_temper, rescorer.last_counters().fitted_ceiling,
+        rescorer.last_counters().calibration,
         rescorer.params());
     // The phase, before any record is built, so that each record is phased as it is rendered. Also
     // before the hand-off, which collects anchors for the records that get no line
@@ -575,8 +593,7 @@ void MultiPassCaller::render_retained_records() {
     // phasing ran, the phase table already carries its swaps.
     phase_table.freeze_for_render(emit_phasing);
     record_renderer.render(
-        staged_sites, phase_table, read_strands, linker,
-        anchor_collector.is_enabled() ? &anchor_collector : nullptr,
+        staged_sites,
         [&](const StagedSite& site, const vector<int>& genotype) {
             // A parent spells its children's chosen alleles.
             AlleleSplicer::SplicedAlleles spliced;

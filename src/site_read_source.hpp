@@ -303,45 +303,54 @@ public:
     void hold_reads(const EditCallBar& bar) const final;
     void release_reads() const final;
 
-    /// Return how many site and read-start queries were answered from held reads.
-    size_t get_held_queries() const { return counters.held_queries.load(); }
+    /**
+     * A tally of the fetches and queries of a windowed source, for logging.
+     *
+     * The source keeps one with atomic counts, which every thread adds to, and hands out a
+     * snapshot as a `FetchStats`.
+     */
+    template<typename Count>
+    struct FetchTally {
+        /// Reads fetched from the backend.
+        Count fetched{0};
+        /// Reads rejected by the filter.
+        Count filtered{0};
+        /// Site queries inside one window that found it cached.
+        Count cache_hits{0};
+        /// Site queries that fetched from the backend.
+        Count cache_misses{0};
+        /// Index entries examined for site queries.
+        ///
+        /// A read can appear under several of the nodes a site asks about, so the ratio of this to
+        /// `delivered` says how much of the index a site reads again.
+        Count scanned{0};
+        /// Reads handed to site queries.
+        Count delivered{0};
+        /// Wide site queries fetched from the backend by their own ranges.
+        Count straddles{0};
+        /// Wide site queries answered from their windows.
+        Count wide_from_windows{0};
+        /// The total node-ID span, from lowest to highest, of the wide sites fetched by their own
+        /// ranges.
+        Count straddle_nodes{0};
+        /// The total number of node IDs those sites asked for.
+        Count straddle_wanted{0};
+        /// Windows fetched whole.
+        Count whole_fetches{0};
+        /// Whole-window fetches of a window tallied before, which the cache had dropped.
+        Count refetches{0};
+        /// Whole-window fetches made only to count a window's off-panel candidates.
+        Count edit_fetches{0};
+        /// Site and read-start queries answered from held reads.
+        Count held_queries{0};
+        /// Reads in the windows fetched whole.
+        Count whole_fetch_reads{0};
+    };
+    /// A snapshot of the tally of a source's fetches and queries.
+    using FetchStats = FetchTally<size_t>;
 
-    /// Return how many reads the filter rejected.
-    size_t get_filtered_count() const;
-
-    /// Return how many site queries inside one window found the window cached.
-    size_t get_cache_hits() const;
-    /// Return how many site queries fetched from the backend.
-    size_t get_cache_misses() const;
-
-    /// Return how many index entries were examined while answering site queries.
-    ///
-    /// A read can appear under several of the nodes a site asks about, so the ratio of this to
-    /// `get_delivered_count` says how much of the index a site reads again.
-    size_t get_scanned_count() const;
-    /// Return how many reads were handed to site queries.
-    size_t get_delivered_count() const;
-
-    /// Return how many wide site queries were fetched from the backend by their own ranges.
-    size_t get_straddle_count() const;
-    /// Return the total node-ID span, from lowest to highest, of the wide sites fetched by their
-    /// own ranges.
-    size_t get_straddle_nodes() const;
-    /// Return the total number of node IDs that the wide sites fetched by their own ranges asked
-    /// for.
-    size_t get_straddle_wanted() const;
-    /// Return how many wide site queries were answered from their windows.
-    size_t get_wide_from_windows() const { return counters.wide_from_windows.load(); }
-
-    /// Return how many windows were fetched whole.
-    size_t get_whole_fetches() const;
-    /// Return how many whole-window fetches were of a window the cache had dropped.
-    size_t get_refetches() const { return counters.refetches.load(); }
-    /// Return how many whole-window fetches were made only to count a window's off-panel
-    /// candidates.
-    size_t get_edit_fetches() const { return counters.edit_fetches.load(); }
-    /// Return how many reads the whole-window fetches held.
-    size_t get_whole_fetch_reads() const;
+    /// Return a snapshot of the tally of the fetches and queries so far, across all threads.
+    FetchStats fetch_stats() const;
 
     /// Drop every cached window and return how many reads they held.
     ///
@@ -618,40 +627,6 @@ private:
     void record_span_edits(vector<pair<nid_t, nid_t>> counted_nodes,
                            const vector<EditCandidate>& counted) const;
 
-    /// The tally of a source's fetches and queries, for logging.
-    struct FetchCounters {
-        /// Reads fetched from the backend.
-        atomic<size_t> fetched{0};
-        /// Reads rejected by the filter.
-        atomic<size_t> filtered{0};
-        /// Site queries inside one window that found it cached.
-        atomic<size_t> cache_hits{0};
-        /// Site queries that fetched from the backend.
-        atomic<size_t> cache_misses{0};
-        /// Index entries examined for site queries.
-        atomic<size_t> scanned{0};
-        /// Reads handed to site queries.
-        atomic<size_t> delivered{0};
-        /// Wide site queries fetched by their own ranges.
-        atomic<size_t> straddles{0};
-        /// Wide site queries answered from their windows.
-        atomic<size_t> wide_from_windows{0};
-        /// The total node-ID span of the wide sites fetched by their own ranges.
-        atomic<size_t> straddle_nodes{0};
-        /// The total number of node IDs those sites asked for.
-        atomic<size_t> straddle_wanted{0};
-        /// Windows fetched whole.
-        atomic<size_t> whole_fetches{0};
-        /// Whole-window fetches of a window tallied before, which the cache had dropped.
-        atomic<size_t> refetches{0};
-        /// Whole-window fetches made only to count a window's candidates.
-        atomic<size_t> edit_fetches{0};
-        /// Site and read-start queries answered from held reads.
-        atomic<size_t> held_queries{0};
-        /// Reads in the windows fetched whole.
-        atomic<size_t> whole_fetch_reads{0};
-    };
-
     /// The rule for which fetched reads are kept.
     SiteReadFilter filter;
 
@@ -661,8 +636,8 @@ private:
     /// The windows fetched and kept.
     mutable WindowCache cache;
 
-    /// The counts reported by the getters.
-    mutable FetchCounters counters;
+    /// The tally of the fetches and queries, which `fetch_stats` reports.
+    mutable FetchTally<atomic<size_t>> counters;
 
     /// Read-start tallies by window, added when a window is first tallied and kept for the whole
     /// run.

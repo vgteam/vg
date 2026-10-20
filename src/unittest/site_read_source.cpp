@@ -215,8 +215,8 @@ TEST_CASE("A second query in the same window is served from the cache",
 
     // One fetch, two queries: the second was answered from the first's reads.
     REQUIRE(source.get_fetches().size() == 1);
-    REQUIRE(source.get_cache_hits() == 1);
-    REQUIRE(source.get_cache_misses() == 1);
+    REQUIRE(source.fetch_stats().cache_hits == 1);
+    REQUIRE(source.fetch_stats().cache_misses == 1);
 }
 
 TEST_CASE("A cache hit still returns the right reads, not the whole window",
@@ -228,7 +228,7 @@ TEST_CASE("A cache hit still returns the right reads, not the whole window",
     names_for(source, {{30, 31}});
     vector<string> names = names_for(source, {{40, 41}});
 
-    REQUIRE(source.get_cache_hits() == 1);
+    REQUIRE(source.fetch_stats().cache_hits == 1);
     REQUIRE(names.size() == 1);
     REQUIRE(names[0] == "b");
 }
@@ -243,8 +243,8 @@ TEST_CASE("Visiting windows in order fetches each exactly once", "[site_read_sou
     }
 
     REQUIRE(source.get_fetches().size() == 4);
-    REQUIRE(source.get_cache_misses() == 4);
-    REQUIRE(source.get_cache_hits() == 0);
+    REQUIRE(source.fetch_stats().cache_misses == 4);
+    REQUIRE(source.fetch_stats().cache_hits == 0);
 }
 
 TEST_CASE("Revisiting a window beyond the cache's depth refetches it",
@@ -278,7 +278,7 @@ TEST_CASE("A query straddling a window boundary fetches the exact span and does 
     REQUIRE(source.get_fetches()[0].second == 110);
     REQUIRE(names.size() == 2);
     // Counted as a miss, and nothing was cached, so a repeat costs another fetch.
-    REQUIRE(source.get_cache_hits() == 0);
+    REQUIRE(source.fetch_stats().cache_hits == 0);
     names_for(source, {{90, 110}});
     REQUIRE(source.get_fetches().size() == 2);
 }
@@ -316,7 +316,7 @@ TEST_CASE("A window with no reads is still cached, so it is not fetched twice",
     names_for(source, {{30, 40}});
 
     REQUIRE(source.get_fetches().size() == 1);
-    REQUIRE(source.get_cache_hits() == 1);
+    REQUIRE(source.fetch_stats().cache_hits == 1);
 }
 
 TEST_CASE("A read touching any node of a multi-node range is returned once",
@@ -375,7 +375,7 @@ TEST_CASE("The MAPQ filter is applied by the base class, not left to each backen
 
     REQUIRE(names.size() == 1);
     REQUIRE(names[0] == "q60");
-    REQUIRE(source.get_filtered_count() == 1);
+    REQUIRE(source.fetch_stats().filtered == 1);
     REQUIRE(source.get_read_count() == 1);
 }
 
@@ -560,7 +560,7 @@ TEST_CASE("Read starts on a held wide site's nodes come from the hold without of
         REQUIRE(windowed.get_fetches().size() == 1);
         counts = starts_on(windowed, {5, 250});
         REQUIRE(windowed.get_fetches().size() == 1);
-        REQUIRE(windowed.get_held_queries() == 1);
+        REQUIRE(windowed.fetch_stats().held_queries == 1);
     }
 
     REQUIRE(counts == starts_on(unheld, {5, 250}));

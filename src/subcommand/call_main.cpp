@@ -260,9 +260,10 @@ static unique_ptr<SiteReadSource> open_site_read_source(const PathHandleGraph& g
 /// Log how the fetches and the cache of a windowed read source performed.
 static void log_windowed_read_source_stats(const Logger& logger,
                                            const WindowedSiteReadSource& windowed, bool off_panel) {
-    size_t hits = windowed.get_cache_hits();
-    size_t misses = windowed.get_cache_misses();
-    size_t total = hits + misses;
+    const WindowedSiteReadSource::FetchStats stats = windowed.fetch_stats();
+    const size_t hits = stats.cache_hits;
+    const size_t misses = stats.cache_misses;
+    const size_t total = hits + misses;
     const auto* gaf_base = dynamic_cast<const GafBaseSiteReadSource*>(&windowed);
     const auto* tabix_gaf = dynamic_cast<const TabixGafSiteReadSource*>(&windowed);
     const char* label = "Indexed GAM: ";
@@ -272,13 +273,13 @@ static void log_windowed_read_source_stats(const Logger& logger,
         label = "Indexed GAF: ";
     }
     logger.info() << label
-                  << windowed.get_read_count() << " reads fetched, "
+                  << stats.fetched << " reads fetched, "
                   << hits << "/" << total << " site queries served from cache"
                   << (total > 0 ? " (" + std::to_string((int)(100.0 * hits / total)) + "%)" : "")
                   << endl;
     // Reads examined by site queries, against reads delivered to sites.
-    size_t seen = windowed.get_scanned_count();
-    size_t used = windowed.get_delivered_count();
+    const size_t seen = stats.scanned;
+    const size_t used = stats.delivered;
     logger.info() << label
                   << seen << " read candidates examined, " << used << " delivered"
                   << (seen > 0 ? " (" + std::to_string((int)(100.0 * used / seen)) + "%)" : "")
@@ -286,22 +287,22 @@ static void log_windowed_read_source_stats(const Logger& logger,
     // A site across a few windows is served from those windows. A wider one is fetched uncached,
     // by its exact node ranges.
     logger.info() << label
-                  << windowed.get_wide_from_windows() << " site queries across windows "
+                  << stats.wide_from_windows << " site queries across windows "
                   << "answered from the cached windows" << endl;
     logger.info() << label
-                  << windowed.get_straddle_count() << " site queries too wide for a "
-                  << "window, fetched uncached over " << windowed.get_straddle_wanted()
-                  << " node IDs (spanning " << windowed.get_straddle_nodes() << ")"
+                  << stats.straddles << " site queries too wide for a "
+                  << "window, fetched uncached over " << stats.straddle_wanted
+                  << " node IDs (spanning " << stats.straddle_nodes << ")"
                   << endl;
     logger.info() << label
-                  << windowed.get_whole_fetches() << " windows fetched whole, holding "
-                  << windowed.get_whole_fetch_reads() << " reads" << endl;
+                  << stats.whole_fetches << " windows fetched whole, holding "
+                  << stats.whole_fetch_reads << " reads" << endl;
     if (off_panel) {
-        logger.info() << label << windowed.get_refetches()
+        logger.info() << label << stats.refetches
                       << " of the whole fetches were of a window the cache had dropped, and "
-                      << windowed.get_edit_fetches()
+                      << stats.edit_fetches
                       << " only to count a window's off-panel candidates; "
-                      << windowed.get_held_queries()
+                      << stats.held_queries
                       << " site and read-start queries were answered from reads held for edit sites"
                       << endl;
     }

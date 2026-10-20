@@ -15,35 +15,45 @@ namespace vg::multipass {
 using namespace std;
 
 /**
- * A renderer that writes the record of each staged site once, from its chosen genotype.
+ * The writer that turns staged sites into records, reading phases, strands and chosen genotypes
+ * from the tables it was built with.
  *
- * It runs after every linkage pass and phasing round is done, and collects the anchors of each
- * site as it goes.
+ * It writes the record of each staged site once, from its chosen genotype. It runs after every
+ * linkage pass and phasing round is done, and collects the anchors of each site as it goes, if
+ * the anchor collector it was built with is enabled.
  */
 class RecordRenderer {
 public:
     /// Writes one staged site's records at `genotype`, through the caller that staged it.
     using LineWriter = function<void(const StagedSite& site, const vector<int>& genotype)>;
 
-    /// Set where to read the name of a site.
-    void configure(SiteReader site_reader);
+    /**
+     * Make a renderer that reads from the given tables and collects anchors into `anchors`.
+     *
+     * Nothing is owned. The tables are read only during `render`, so they can still be filled
+     * after construction.
+     *
+     * @param phases The phase of each site. It must be frozen for the render before `render`.
+     * @param strands The strand log-odds of each read, for the anchors.
+     * @param linker Gives the chosen genotype of each site.
+     * @param anchors Collects anchors during `render` if it is enabled then.
+     */
+    RecordRenderer(const PhaseTable& phases, const ReadStrandTable& strands,
+                   const GenotypeLinker& linker, AnchorCollector& anchors);
 
     /**
-     * Write the records of every staged site at the genotype `linker` chose.
+     * Write the records of every staged site at its chosen genotype.
      *
      * Every nested site that gets a line of its own goes to the render queues of `staged`, and
      * `write_line` writes the queued sites, one queue per thread. `before_lines`, if set, runs
      * once before the first line.
      *
-     * The anchors of each site go to `anchors`, unless it is null: just before its line, or for a
-     * nested site with no line, before the hand-off. `phases` must be frozen for the render, and
-     * `strands` must hold the strand log-odds of each read.
+     * Each site's anchors are collected just before its line, or, for a nested site with no line,
+     * before the hand-off.
      *
      * With `show_progress`, report what was held back and how many records were written.
      */
-    void render(StagedSiteTable& staged, const PhaseTable& phases, const ReadStrandTable& strands,
-                const GenotypeLinker& linker, AnchorCollector* anchors,
-                const LineWriter& write_line, bool show_progress,
+    void render(StagedSiteTable& staged, const LineWriter& write_line, bool show_progress,
                 const function<void()>& before_lines = nullptr) const;
 
 private:
@@ -51,9 +61,7 @@ private:
     ///
     /// A site with no reference position still gets anchors, since an anchor is placed by node ID.
     /// A site with no read evidence of its own gets none.
-    void collect_anchors(const StagedSite& site, const vector<int>& genotype,
-                         const PhaseTable& phases, const ReadStrandTable& strands,
-                         const LinkageCollector* model, AnchorCollector& anchors) const;
+    void collect_anchors(const StagedSite& site, const vector<int>& genotype) const;
 
     /// Return the value of the gqn column of the anchors of a site.
     ///
@@ -69,13 +77,16 @@ private:
     /// queues (see `StagedSiteTable::hand_off`).
     ///
     /// A dropped site, whose sample has no copy of it, gets neither.
-    void hand_off(StagedSiteTable& staged, const PhaseTable& phases,
-                  const ReadStrandTable& strands, const GenotypeLinker& linker,
-                  AnchorCollector* anchors, bool show_progress) const;
+    void hand_off(StagedSiteTable& staged, bool show_progress) const;
 
-    /// Where to read the name of a site.
-    /// TODO: Nothing reads this. Drop it and `configure`, with the call in multipass_caller.cpp?
-    SiteReader reader;
+    /// Gives the phase-ordered genotype and haploid slot of each site, for the anchors.
+    const PhaseTable& phases;
+    /// Gives each read's strand log-odds, for the anchors.
+    const ReadStrandTable& strands;
+    /// Gives the chosen genotype of each site, and the linkage model that chose it.
+    const GenotypeLinker& linker;
+    /// Collects the anchors of each site, when it is enabled.
+    AnchorCollector& anchors;
 };
 
 }

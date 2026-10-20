@@ -167,6 +167,81 @@ private:
 };
 
 /**
+ * The record of what became of each off-panel edit candidate, which writes the dump and the
+ * summary.
+ *
+ * The read source counts the candidates as it fetches reads. The direct pass files the outcome of
+ * each candidate the call bar admits, from whichever thread genotyped it. Once every record is
+ * written, the ledger reports the counts, and writes each candidate with its outcome to the dump,
+ * placed on the reference.
+ */
+class OffPanelLedger {
+public:
+    /// Make a ledger that places candidates on `graph`, on the reference paths `ref_offsets`
+    /// names, shifted by their offsets.
+    ///
+    /// Neither is owned.
+    OffPanelLedger(const PathPositionHandleGraph& graph, const map<string, size_t>& ref_offsets);
+
+    /// Turn off-panel detection on, for the candidates `reads` counts.
+    ///
+    /// `bar` decides which candidates become edit sites, and which edit sites are staged. With a
+    /// `dump` path, every candidate is written there at the end.
+    void configure(const SiteReadSource* reads, string dump, const EditCallBar& bar);
+
+    /// Return whether off-panel detection is on.
+    bool is_enabled() const { return candidate_source != nullptr; }
+
+    /// Start filing outcomes, from thread numbers below `threads`.
+    void open(size_t threads);
+
+    /// Get the read source that counts the candidates, or null when detection is off.
+    const SiteReadSource* source() const { return candidate_source; }
+
+    /// Get the call bar.
+    const EditCallBar& bar() const { return call_bar; }
+
+    /// Get the outcomes, for the direct pass to file into.
+    ///
+    /// @return Null before `open`.
+    EditOutcomes* outcomes() { return outcomes_filed.get(); }
+
+    /**
+     * Report what became of the candidates, and write every candidate to the dump, if there is
+     * one.
+     *
+     * Do nothing when detection is off.
+     *
+     * @param nodes_after_pass The number of nodes whose top-level edit sites were genotyped after
+     * the direct pass, for the report.
+     */
+    void write(size_t nodes_after_pass) const;
+
+private:
+    /// Report what became of the candidates.
+    void report(size_t nodes_after_pass) const;
+
+    /// Find where a node's base lies on the reference.
+    ///
+    /// @return The contig and the 1-based position of the base at forward offset `offset`, or an
+    /// empty contig when no reference path visits the node.
+    pair<string, int64_t> reference_position(nid_t node, uint32_t offset) const;
+
+    const PathPositionHandleGraph& graph;
+    /// The offset of each reference path, by name.
+    const map<string, size_t>& ref_offsets;
+
+    /// The read source that counts the candidates, or null when detection is off.
+    const SiteReadSource* candidate_source = nullptr;
+    /// Where to write the dump, or empty for nowhere.
+    string dump_path;
+    /// Which candidates become edit sites, and which edit sites are staged.
+    EditCallBar call_bar;
+    /// What became of each candidate the call bar admitted.
+    unique_ptr<EditOutcomes> outcomes_filed;
+};
+
+/**
  * The caller for every run that genotypes from read likelihoods.
  *
  * Its one method, `call`, runs the passes in order:
@@ -318,9 +393,7 @@ public:
     /// `SiteReadSource::count_edits`). With a `dump` path, every candidate is written there at the
     /// end.
     void set_off_panel(const SiteReadSource* reads, const string& dump, const EditCallBar& bar) {
-        edit_source = reads;
-        edit_dump = dump;
-        edit_bar = bar;
+        off_panel.configure(reads, dump, bar);
     }
 
     /// Set where and how to write the mosaic.
@@ -391,25 +464,6 @@ private:
 
     /// The read source of the sites, or null when the caller has none of its own.
     const SiteReadSource* read_source = nullptr;
-    /// The read source of off-panel detection, or null when it is off.
-    const SiteReadSource* edit_source = nullptr;
-    /// Where to write the off-panel dump, or empty for nowhere.
-    string edit_dump;
-    /// Which off-panel candidates become edit sites, and which edit sites are staged.
-    EditCallBar edit_bar;
-    /// What became of each candidate the call bar admitted, for the dump.
-    unique_ptr<EditOutcomes> edit_outcomes;
-    /// Report the off-panel counts, and write every off-panel candidate to `edit_dump`, if it is
-    /// set.
-    void write_edit_dump() const;
-    /// Report what became of the off-panel candidates.
-    void report_off_panel() const;
-    /// Find where a node's base lies on the reference.
-    ///
-    /// @return The contig and the 1-based position of the base at forward offset `offset`, or an
-    /// empty contig when no reference path visits the node.
-    pair<string, int64_t> reference_position(nid_t node, uint32_t offset) const;
-
     /// Report what nested descent did: the depth histogram, and how many children it skipped and
     /// why.
     ///
@@ -568,6 +622,10 @@ private:
     /// Collects the anchors and writes the anchor file, if one was asked for.
     AnchorCollector anchor_collector;
 
+    /// Records what became of each off-panel candidate, and writes the dump and the summary.
+    /// Declared after the reference offsets it reads.
+    OffPanelLedger off_panel;
+
     /// Finds each site's reference path and candidate traversals. Declared after the members it
     /// reads.
     CandidateFinder candidates;
@@ -592,7 +650,8 @@ private:
     /// The temper re-genotyping fitted in its first round.
     TemperFit temper_fit;
 
-    /// Builds the staged sites' records once the passes are done.
+    /// Builds the staged sites' records once the passes are done. Declared after the tables it
+    /// reads.
     RecordRenderer record_renderer;
 
     /// Lists the child chains nested descent genotypes under each site.

@@ -19,7 +19,7 @@ branch merges. Rows marked TODO have a matching `TODO:` comment in the code.
 | ~~11~~ | ~~`flatten_common_allele_ends`~~ | ~~A `len_override` longer than the shortest allele reads past its end.~~ | ~~records agent (TODO)~~ | fixed |
 | ~~12~~ | ~~`src/block_records.cpp` `SiteAlignment`~~ | ~~A genotype entry past the end of `called_traversals` is skipped, but later code still reads that traversal.~~ | ~~records agent (TODO)~~ | fixed |
 | ~~13~~ | ~~`src/mosaic_writer.cpp` `PanelWalker::position_key`~~ | ~~Keeps only 20 bits of the haplotype index, and `position_at` returns a cache hit without checking the haplotype, so with more than 2^20 haplotypes one haplotype gets another's position (crosstalk, not just contention). Latent for real panel sizes. Fix: skip the cache for haplotype indices that do not fit, as `sequence_at` does for offsets.~~ | ~~records agent (TODO)~~ | fixed |
-| 14 | `RecordRenderer::reader` | Never read; removing it and `configure` needs a change in `multipass_caller.cpp`. Clean-up, not a bug. | records agent (TODO) | open |
+| ~~14~~ | ~~`RecordRenderer::reader`~~ | ~~Never read; removing it and `configure` needs a change in `multipass_caller.cpp`. Clean-up, not a bug.~~ | ~~records agent (TODO)~~ | fixed |
 | ~~15~~ | ~~`src/site_scheduler.hpp` `SiteCallTally`~~ | ~~The "nested snarls" progress line prints the top-level count.~~ | ~~nested agent (TODO)~~ | fixed |
 | ~~16~~ | ~~`StagedSiteTable::hand_off`~~ | ~~`panel_cache.clear()` frees no memory, and leaves `panel_cached` true.~~ | ~~nested agent (TODO)~~ | fixed |
 | ~~17~~ | ~~`chain_key_of`~~ | ~~A hash, so two chains can share a key.~~ | ~~nested agent (TODO)~~ | fixed |

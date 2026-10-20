@@ -9,8 +9,10 @@
 
 namespace vg::multipass {
 
-void RecordRenderer::configure(SiteReader site_reader) {
-    this->reader = std::move(site_reader);
+RecordRenderer::RecordRenderer(const PhaseTable& phases, const ReadStrandTable& strands,
+                               const GenotypeLinker& linker, AnchorCollector& anchors) :
+    phases(phases), strands(strands), linker(linker), anchors(anchors) {
+    // Nothing to do
 }
 
 double RecordRenderer::anchor_gqn(const StagedSite& rec, const vector<int>& chosen,
@@ -81,10 +83,7 @@ double RecordRenderer::anchor_gqn(const StagedSite& rec, const vector<int>& chos
     return min(1.0, max(-1.0, margin_phred / achievable_phred * direct.explained_share));
 }
 
-void RecordRenderer::collect_anchors(const StagedSite& rec, const vector<int>& genotype,
-                                     const PhaseTable& phases, const ReadStrandTable& strands,
-                                     const LinkageCollector* model,
-                                     AnchorCollector& anchors) const {
+void RecordRenderer::collect_anchors(const StagedSite& rec, const vector<int>& genotype) const {
     if (rec.call_info == nullptr) {
         return;
     }
@@ -98,12 +97,10 @@ void RecordRenderer::collect_anchors(const StagedSite& rec, const vector<int>& g
                     phases.phase_ordered_genotype(rec.record_key, genotype),
                     phases.haploid_slot(rec.record_key, genotype), rec.id,
                     anchors.wants_leaf_test() ? rec.leaf : true,
-                    anchor_gqn(rec, genotype, model), strands, rec.record_key);
+                    anchor_gqn(rec, genotype, linker.collector()), strands, rec.record_key);
 }
 
-void RecordRenderer::hand_off(StagedSiteTable& staged, const PhaseTable& phases,
-                              const ReadStrandTable& strands, const GenotypeLinker& linker,
-                              AnchorCollector* anchors, bool show_progress) const {
+void RecordRenderer::hand_off(StagedSiteTable& staged, bool show_progress) const {
     if (!staged.active()) {
         return;
     }
@@ -115,9 +112,8 @@ void RecordRenderer::hand_off(StagedSiteTable& staged, const PhaseTable& phases,
 #pragma omp parallel for schedule(dynamic, 256)
     for (size_t i = 0; i < pending.size(); ++i) {
         const StagedSite& pr = pending[i];
-        if (anchors != nullptr && !pr.dropped && (pr.reported_inline || pr.no_reference)) {
-            collect_anchors(pr, linker.chosen_genotype(pr), phases, strands, linker.collector(),
-                            *anchors);
+        if (anchors.is_enabled() && !pr.dropped && (pr.reported_inline || pr.no_reference)) {
+            collect_anchors(pr, linker.chosen_genotype(pr));
         }
     }
     // Hand the other chains to the render queues, so that nested and top-level records are
@@ -134,11 +130,9 @@ void RecordRenderer::hand_off(StagedSiteTable& staged, const PhaseTable& phases,
     }
 }
 
-void RecordRenderer::render(StagedSiteTable& staged, const PhaseTable& phases,
-                            const ReadStrandTable& strands, const GenotypeLinker& linker,
-                            AnchorCollector* anchors, const LineWriter& write_line,
+void RecordRenderer::render(StagedSiteTable& staged, const LineWriter& write_line,
                             bool show_progress, const function<void()>& before_lines) const {
-    hand_off(staged, phases, strands, linker, anchors, show_progress);
+    hand_off(staged, show_progress);
     if (!staged.active()) {
         return;
     }
@@ -155,8 +149,8 @@ void RecordRenderer::render(StagedSiteTable& staged, const PhaseTable& phases,
             vector<int> genotype = linker.chosen_genotype(rec);
             // Collect the anchors before writing the line, which hands the site's CallInfo on to
             // update_vcf_info.
-            if (anchors != nullptr) {
-                collect_anchors(rec, genotype, phases, strands, linker.collector(), *anchors);
+            if (anchors.is_enabled()) {
+                collect_anchors(rec, genotype);
             }
             write_line(rec, genotype);
         }
