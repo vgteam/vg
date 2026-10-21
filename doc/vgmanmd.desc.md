@@ -23,6 +23,7 @@ For more in-depth explanations of tools and workflows, see the [general wiki pag
     - [`vg rna`](#rna): construct splicing graphs and pantranscriptomes. [wiki page](https://github.com/vgteam/vg/wiki/Transcriptomic-analyses). Also see [rpvg](https://github.com/jonassibbesen/rpvg) 
 - **Read mapping**
     - [`vg giraffe`](#giraffe): fast haplotype-aware short read alignment. [wiki page](https://github.com/vgteam/vg/wiki/Mapping-short-reads-with-Giraffe)
+    - [`vg giraffe-server`](#giraffe-server): load Giraffe indexes once and map or surject reads streamed on stdin.
     - [`vg map`](#map): MEM-based read alignment.
     - [`vg mpmap`](#mpmap): splice-aware multipath alignment of short reads. [wiki page](https://github.com/vgteam/vg/wiki/Multipath-alignments-and-vg-mpmap)
 - **Downstream analyses**
