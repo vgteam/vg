@@ -18,6 +18,7 @@ constexpr size_t Haplotypes::KFF_BLOCK_SIZE;
 
 constexpr std::uint32_t Haplotypes::Header::MAGIC_NUMBER;
 constexpr std::uint32_t Haplotypes::Header::VERSION;
+constexpr std::uint32_t Haplotypes::Header::COMPRESSED_VERSION;
 constexpr std::uint32_t Haplotypes::Header::VERSION_WITH_TAGS;
 constexpr std::uint32_t Haplotypes::Header::MIN_VERSION;
 constexpr std::uint64_t Haplotypes::Header::DEFAULT_K;
@@ -618,23 +619,21 @@ void load_subchain_header(Haplotypes::Subchain& subchain, std::istream& in) {
     }
 }
 
-// FIXME: also check individual dimensions
-void load_subchain_kmers_present(Haplotypes::Subchain& subchain, std::istream& in) {
-    subchain.kmers_present.simple_sds_load(in);
-    if (subchain.kmers_present.size() != subchain.kmers.size() * subchain.sequences.size()) {
-        throw sdsl::simple_sds::InvalidData("Invalid length for the kmer presence bitvector in subchain from " +
-            std::to_string(subchain.start) + " to " + std::to_string(subchain.end));
-    }
-}
-
-void Haplotypes::Subchain::simple_sds_load(std::istream& in) {
+void Haplotypes::Subchain::simple_sds_load(std::istream& in, std::uint32_t version) {
     load_subchain_header(*this, in);
 
     this->kmers = sdsl::simple_sds::load_vector<kmer_type>(in);
     this->kmer_counts.simple_sds_load(in);
     this->sequences = sdsl::simple_sds::load_vector<compact_sequence_type>(in);
 
-    load_subchain_kmers_present(*this, in);
+    if (version >= Header::COMPRESSED_VERSION) {
+        this->kmers_present.simple_sds_load(in);
+    } else {
+        // Use the uncompressed matrix directly.
+        sdsl::bit_vector matrix;
+        matrix.simple_sds_load(in);
+        this->kmers_present = KmerPresenceMatrix(this->sequences.size(), this->kmers.size(), std::move(matrix), false);
+    }
 }
 
 size_t Haplotypes::Subchain::simple_sds_size() const {
@@ -656,14 +655,14 @@ void Haplotypes::TopLevelChain::simple_sds_serialize(std::ostream& out) const {
     }
 }
 
-void Haplotypes::TopLevelChain::simple_sds_load(std::istream& in) {
+void Haplotypes::TopLevelChain::simple_sds_load(std::istream& in, std::uint32_t version) {
     this->offset = sdsl::simple_sds::load_value<size_t>(in);
     this->job_id = sdsl::simple_sds::load_value<size_t>(in);
     this->contig_name = sdsl::simple_sds::load_string(in);
     size_t subchain_count = sdsl::simple_sds::load_value<size_t>(in);
     this->subchains.resize(subchain_count);
     for (size_t i = 0; i < subchain_count; i++) {
-        this->subchains[i].simple_sds_load(in);
+        this->subchains[i].simple_sds_load(in, version);
     }
 }
 
@@ -715,7 +714,7 @@ void Haplotypes::simple_sds_load(std::istream& in) {
 
     this->chains.resize(this->header.top_level_chains);
     for (auto& chain : this->chains) {
-        chain.simple_sds_load(in);
+        chain.simple_sds_load(in, this->header.version);
     }
 
     // Update to the current version.

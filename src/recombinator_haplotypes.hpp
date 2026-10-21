@@ -98,6 +98,10 @@ public:
     /// Scores every sequence in the subchain. The score of a sequence is the sum of
     /// `(present : 1 : -1) * kmer.second` over `kmers`. It is reported by calling
     /// `sequence_score(sequence, score)` in an arbitrary order.
+    ///
+    /// NOTE: Because we reuse the score of a parent when scoring its children, the
+    /// scores are often different from what we would get by scoring each sequence
+    /// independently. This is due to numerical instability with floating point arithmetic.
     void score_sequences(
         const std::vector<std::pair<kmer_classification, double>>& kmers,
         const std::function<void(size_t, double)>& sequence_score
@@ -123,6 +127,7 @@ private:
     size_t num_sequences;
     size_t num_kmers;
 
+    // FIXME: this can be replaced with just parent_rank
     // This is a concatenation of three vectors of length `num_sequences`.
     // 1. sequence_to_rank: sequence index to rank in stored order
     // 2. rank_to_sequence: rank in stored order to sequence index
@@ -286,7 +291,7 @@ public:
     struct Header {
         constexpr static std::uint32_t MAGIC_NUMBER = 0x4C504148; // "HAPL"
         constexpr static std::uint32_t VERSION = 7;
-        // FIXME: description for version 7
+        constexpr static std::uint32_t COMPRESSED_VERSION = 7;
         constexpr static std::uint32_t VERSION_WITH_TAGS = 6;
         constexpr static std::uint32_t MIN_VERSION = 5;
         constexpr static std::uint64_t DEFAULT_K = 29;
@@ -357,8 +362,7 @@ public:
         /// Sequences as (GBWT sequence id, offset in the relevant node).
         std::vector<compact_sequence_type> sequences;
 
-        /// A bit vector marking the presence of kmers in the sequences.
-        /// Sequence `i` contains kmer `j` if and only if `kmers_present[i * kmers.size() + j] == 1`.
+        /// A matrix indicating which kmers are present in which sequences.
         KmerPresenceMatrix kmers_present;
 
         /// Calls `callback(kmer_id, is_present)` for each kmer in the given sequence,
@@ -441,9 +445,9 @@ public:
         /// Serializes the object to a stream in the Simple-SDS format.
         void simple_sds_serialize(std::ostream& out) const;
 
-        // FIXME: need to specify expected version and load older versions
         /// Loads the object from a stream in the Simple-SDS format.
-        void simple_sds_load(std::istream& in);
+        /// As there is no header, the expected version must be provided.
+        void simple_sds_load(std::istream& in, std::uint32_t version = Header::VERSION);
 
         /// Returns the size of the object in elements.
         size_t simple_sds_size() const;
@@ -467,9 +471,9 @@ public:
         /// Serializes the object to a stream in the Simple-SDS format.
         void simple_sds_serialize(std::ostream& out) const;
 
-        // FIXME: need to specify expected version and load older versions
         /// Loads the object from a stream in the Simple-SDS format.
-        void simple_sds_load(std::istream& in);
+        /// As there is no header, the expected version must be provided.
+        void simple_sds_load(std::istream& in, std::uint32_t version = Header::VERSION);
 
         /// Returns the size of the object in elements.
         size_t simple_sds_size() const;
@@ -515,7 +519,6 @@ public:
     /// Prints an error message and exits the program on failure.
     void serialize_to(const std::string& filename) const;
 
-    // FIXME: handle versions
     /// Loads the object from a stream in the Simple-SDS format.
     /// I/O errors can be detected by checking the stream state.
     /// Throws `sdsl::simple_sds::InvalidData` if data is unacceptable.
