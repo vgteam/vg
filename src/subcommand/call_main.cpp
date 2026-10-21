@@ -988,10 +988,8 @@ int main_call(int argc, char** argv) {
             };
 
             // create the flow traversal finder
-            FlowTraversalFinder* flow_traversal_finder = new FlowTraversalFinder(*graph, *snarl_manager, max_yens_traversals,
-                                                                                 node_support, edge_support,
-                                                                                 max_allele_len);
-            traversal_finder = unique_ptr<TraversalFinder>(flow_traversal_finder);
+            traversal_finder = make_unique<FlowTraversalFinder>(*graph, max_yens_traversals, node_support, edge_support,
+                                                                max_allele_len);
         }
 
         if (top_down) {
