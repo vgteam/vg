@@ -377,8 +377,9 @@ using namespace std;
         /// Return true if the anchor sequence occurs again at a start position
         /// within max_slide bases in the read or on its target path.
         ///
-        /// The read search uses the anchor's read span and the path search uses
-        /// its reference span to limit their respective search radii.
+        /// Search radius is min(max_slide, 2 * anchor span), measured in
+        /// read bases (query sequence) for the read search and reference
+        /// bases (target-path sequence) for the path search.
         bool anchor_has_nearby_repeat(
             const string& sequence, const path_chunk_t& chunk,
             const pair<step_handle_t, step_handle_t>& step_range) const;
