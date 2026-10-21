@@ -485,9 +485,10 @@ using namespace std;
         vector<pair<path_handle_t, bool>> 
         supplementary_cover(const unordered_map<pair<path_handle_t, bool>, vector<pair<AlnType, pair<step_handle_t, step_handle_t>>>>& surjections) const;
         
-        /// Select the path/strand with the best combined score from its local primary
-        /// and supplementary read segments, optionally restricted to among_strands.
-        /// Secondary alternatives contribute to neither the score nor the read-overlap penalty.
+        /// Select the path and orientation with the best combined score from its
+        /// local primary alignment and supplementary pieces.
+        /// If among_strands is provided, consider only the path/orientation pairs it contains.
+        /// Secondary alternatives contribute to neither the score nor the overlap penalty.
         template<class AlnType>
         pair<path_handle_t, bool> choose_primary_strand(const unordered_map<pair<path_handle_t, bool>, vector<pair<AlnType, pair<step_handle_t, step_handle_t>>>>& surjections,
                                                         const unordered_set<pair<path_handle_t, bool>>* among_strands = nullptr) const;
@@ -1207,7 +1208,8 @@ using namespace std;
         for (const auto& strand_surjection : strand_surjections) {            
             for (size_t i = 0; i < strand_surjection.second.size(); ++i) {
                 const auto& surjection = strand_surjection.second[i];
-                // Competing placements must not complete the chosen read cover.
+                // Use only local primary and supplementary alignments to cover the read;
+                // exclude secondary alternative placements.
                 if (get_is_secondary(surjection.first)) {
                     continue;
                 }

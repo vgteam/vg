@@ -31,7 +31,7 @@ public:
 };
 
 
-// Read individual SAM fields without assuming SA is the only tag.
+// Parse the alignment's stored SAM tags into a map from tag name to type and value.
 static map<string, pair<char, string>> parse_sam_tags_for_test(const Alignment& aln) {
     map<string, pair<char, string>> tags;
     if (has_annotation(aln, "tags")) {
