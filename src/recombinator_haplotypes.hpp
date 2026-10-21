@@ -95,17 +95,19 @@ public:
     /// ordered by their indices.
     void for_each_kmer(size_t sequence, const std::function<void(size_t, bool)>& callback) const;
 
-    // FIXME: replace with diploid_score
-    /// Calls `callback(kmer_index, num_present)` for each kmer in the given sequences,
-    /// ordered by their indices.
-    void for_each_kmer(size_t first, size_t second, const std::function<void(size_t, size_t)>& callback) const;
-
     /// Scores every sequence in the subchain. The score of a sequence is the sum of
     /// `(present : 1 : -1) * kmer.second` over `kmers`. It is reported by calling
     /// `sequence_score(sequence, score)` in an arbitrary order.
     void score_sequences(
         const std::vector<std::pair<kmer_classification, double>>& kmers,
         const std::function<void(size_t, double)>& sequence_score
+    ) const;
+
+    /// Scores a pair of sequences in the subchain. The score is the sum of
+    /// `1 - abs(expected - observed)` over the kmers.
+    std::int64_t diploid_score(
+        size_t first, size_t second,
+        const std::vector<std::pair<kmer_classification, double>>& kmers
     ) const;
 
     /// Serializes the object to a stream in the Simple-SDS format.
@@ -365,13 +367,6 @@ public:
             this->kmers_present.for_each_kmer(sequence, callback);
         }
 
-        // FIXME: replace with diploid_score
-        /// Calls `callback(kmer_id, num_present)` for each kmer in the given sequences,
-        /// ordered by their indices.
-        void for_each_kmer(size_t first, size_t second, const std::function<void(size_t, size_t)>& callback) const {
-            this->kmers_present.for_each_kmer(first, second, callback);
-        }
-
         /// Scores every sequence in the subchain. The score of a sequence is the sum of
         /// `(present : 1 : -1) * kmer.second` over `kmers`. It is reported by calling
         /// `sequence_score(sequence, score)` in an arbitrary order.
@@ -380,6 +375,15 @@ public:
             const std::function<void(size_t, double)>& haplotype_score
         ) const {
             this->kmers_present.score_sequences(kmers, haplotype_score);
+        }
+
+        /// Scores a pair of sequences in the subchain. The score is the sum of
+        /// `1 - abs(expected - observed)` over the kmers.
+        std::int64_t diploid_score(
+            size_t first, size_t second,
+            const std::vector<std::pair<KmerPresenceMatrix::kmer_classification, double>>& kmers
+        ) const {
+            return this->kmers_present.diploid_score(first, second, kmers);
         }
 
         /// Returns the number of haplotype sequences in the subchain.

@@ -2,6 +2,7 @@
 
 #include "kff.hpp"
 
+#include <array>
 #include <cmath>
 
 //#define debug_selected_haplotypes
@@ -282,17 +283,6 @@ void KmerPresenceMatrix::for_each_kmer(size_t sequence, const std::function<void
     }
 }
 
-void KmerPresenceMatrix::for_each_kmer(size_t first, size_t second, const std::function<void(size_t, size_t)>& callback) const {
-    Iterator first_iter(*this, first);
-    Iterator second_iter(*this, second);
-
-    while (!first_iter.end()) {
-        callback(first_iter.kmer_id, first_iter.is_present + second_iter.is_present);
-        ++first_iter;
-        ++second_iter;
-    }
-}
-
 void KmerPresenceMatrix::score_sequences(
     const std::vector<std::pair<KmerPresenceMatrix::kmer_classification, double>>& kmers,
     const std::function<void(size_t, double)>& sequence_score
@@ -327,6 +317,32 @@ void KmerPresenceMatrix::score_sequences(
     }
 }
 
+std::int64_t KmerPresenceMatrix::diploid_score(
+    size_t first, size_t second,
+    const std::vector<std::pair<KmerPresenceMatrix::kmer_classification, double>>& kmers
+) const {
+    // Accessed by `3 * classification + num_present`.
+    constexpr static std::array<std::int8_t, 12> SCORE_MATRIX {
+        1, 0, -1, // Absent
+        0, 1, 0,  // Heterozygous
+        -1, 0, 1, // Present
+        0, 0, 0,  // Frequent
+    };
+
+    Iterator first_iter(*this, first);
+    Iterator second_iter(*this, second);
+    std::int64_t score = 0;
+    while (!first_iter.end() && !second_iter.end()) {
+        size_t kmer_id = first_iter.kmer_id;
+        size_t num_present = first_iter.is_present + second_iter.is_present;
+        score += SCORE_MATRIX[3 * static_cast<size_t>(kmers[kmer_id].first) + num_present];
+        ++first_iter;
+        ++second_iter;
+    }
+
+    return score;
+}
+
 void KmerPresenceMatrix::simple_sds_serialize(std::ostream& out) const {
     // Since the dimensions are redundant, we do not store them.
     this->arrays.simple_sds_serialize(out);
@@ -351,21 +367,6 @@ void KmerPresenceMatrix::simple_sds_load(std::istream& in) {
     }
     if (this->parents.size() + this->children.size() != this->num_kmers * this->num_sequences) {
         throw sdsl::simple_sds::InvalidData("KmerPresenceMatrix: inconsistent matrix size");
-    }
-
-    // FIXME: is this too slow?
-    // The queries use the arrays for indexing into `parents` and `children` without
-    // further checks, so we validate the structure before trusting it.
-    for (size_t rank = 0; rank < this->num_sequences; rank++) {
-        size_t parent = this->parent_rank(rank);
-        size_t previous = (rank == 0 ? 0 : this->parent_rank(rank - 1));
-        if (rank == 0 ? parent != 0 : (parent != previous && parent != previous + 1)) {
-            throw sdsl::simple_sds::InvalidData("KmerPresenceMatrix: invalid parent ranks");
-        }
-        size_t sequence = this->rank_to_sequence(rank);
-        if (sequence >= this->num_sequences || this->sequence_to_rank(sequence) != rank) {
-            throw sdsl::simple_sds::InvalidData("KmerPresenceMatrix: invalid sequence order");
-        }
     }
     if (this->get_num_parents() * this->num_kmers != this->parents.size()) {
         throw sdsl::simple_sds::InvalidData("KmerPresenceMatrix: inconsistent number of parents");

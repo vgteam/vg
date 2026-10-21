@@ -85,6 +85,17 @@ std::vector<std::string> clustered_rows(
     return result;
 }
 
+// Gives an arbitrary classification for a kmer based on its index.
+KmerPresenceMatrix::kmer_classification kmer_class(size_t kmer_id) {
+    switch (kmer_id % 4) {
+        case 0: return KmerPresenceMatrix::kmer_classification::absent;
+        case 1: return KmerPresenceMatrix::kmer_classification::heterozygous;
+        case 2: return KmerPresenceMatrix::kmer_classification::present;
+        case 3: return KmerPresenceMatrix::kmer_classification::frequent;
+    }
+    return KmerPresenceMatrix::kmer_classification::absent;
+}
+
 // Arbitrary integer weights for the kmers. Integers are exact in `double`, so we can
 // compare the scores for equality even though the matrix may sum them in another order.
 double kmer_weight(size_t kmer_id) {
@@ -144,35 +155,35 @@ void check_queries(
         REQUIRE(calls == 0);
     }
 
-    // Iterating over the kmers in two sequences, including a sequence with itself.
+    // Kmers with arbitrary classifications and scores.
+    std::vector<std::pair<KmerPresenceMatrix::kmer_classification, double>> kmers;
+    for (size_t j = 0; j < num_kmers; j++) {
+        kmers.emplace_back(kmer_class(j), kmer_weight(j));
+    }
+
+    // Iterating over pairs of sequences and computing their diploid scores.
     for (size_t i = 0; i < rows.size(); i++) {
         for (size_t j = i; j < rows.size(); j++) {
-            std::vector<size_t> found;
-            matrix.for_each_kmer(i, j, [&](size_t kmer_id, size_t num_present) {
-                REQUIRE(kmer_id == found.size());
-                found.push_back(num_present);
-            });
-            if (found.size() != num_kmers) {
-                std::cerr << name << ": wrong number of kmers in sequences " << i << ", " << j << std::endl;
-            }
-            REQUIRE(found.size() == num_kmers);
+            std::int64_t score = matrix.diploid_score(i, j, kmers);
+            std::int64_t expected_score = 0;
             for (size_t kmer_id = 0; kmer_id < num_kmers; kmer_id++) {
-                size_t expected = (rows[i][kmer_id] == '1') + (rows[j][kmer_id] == '1');
-                if (found[kmer_id] != expected) {
-                    std::cerr << name << ": wrong count for kmer " << kmer_id
-                              << " in sequences " << i << ", " << j << std::endl;
+                std::int64_t num_present = (rows[i][kmer_id] == '1') + (rows[j][kmer_id] == '1');
+                if (kmers[kmer_id].first == KmerPresenceMatrix::absent) {
+                    expected_score += 1 - num_present;
+                } else if (kmers[kmer_id].first == KmerPresenceMatrix::heterozygous) {
+                    if (num_present == 1) {
+                        expected_score += 1;
+                    }
+                } else if (kmers[kmer_id].first == KmerPresenceMatrix::present) {
+                    expected_score += num_present - 1;
                 }
-                REQUIRE(found[kmer_id] == expected);
             }
+            REQUIRE(score == expected_score);
         }
     }
 
     // Scoring the sequences.
     {
-        std::vector<std::pair<KmerPresenceMatrix::kmer_classification, double>> kmers;
-        for (size_t j = 0; j < num_kmers; j++) {
-            kmers.emplace_back(KmerPresenceMatrix::kmer_classification::present, kmer_weight(j));
-        }
         std::vector<size_t> reported(rows.size(), 0);
         std::vector<double> scores(rows.size(), 0.0);
         matrix.score_sequences(

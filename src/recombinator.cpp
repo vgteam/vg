@@ -1639,30 +1639,12 @@ std::vector<std::pair<size_t, double>> select_diploid(
     std::int64_t best_score = std::numeric_limits<std::int64_t>::min();
     size_t best_left = 0, best_right = 0;
 
-    // FIXME: optimize. diploid_score(a, b, kmer_types) to avoid callbacks
-    // FIXME: use an explicit score matrix (kmer_type X num_present)
     // We now consider taking the same haplotype twice. If this is a bad subchain
     // and we sample extra fragments, the number of fragments will depend on
     // whether we take the same haplotype twice.
     for (size_t left = 0; left < candidates.size(); left++) {
         for (size_t right = left; right < candidates.size(); right++) {
-            std::int64_t score = 0;
-            subchain.for_each_kmer(candidates[left].first, candidates[right].first, [&](size_t kmer_id, size_t num_present) {
-                std::int64_t found = num_present;
-                switch (kmer_types[kmer_id].first) {
-                case KmerPresenceMatrix::absent:
-                    score += 1 - found; // +1 for 0, 0 for 1, -1 for 2
-                    break;
-                case KmerPresenceMatrix::heterozygous:
-                    score += (found == 1 ? 1 : 0);
-                    break;
-                case KmerPresenceMatrix::present:
-                    score += found - 1; // -1 for 0, 0 for 1, +1 for 2
-                    break;
-                default:
-                    break;
-                }
-            });
+            std::int64_t score = subchain.diploid_score(candidates[left].first, candidates[right].first, kmer_types);
             if (score > best_score) {
                 best_score = score;
                 best_left = left;
