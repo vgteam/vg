@@ -30,17 +30,24 @@ size_t minimum_nontrivial_distance(const SnarlDistanceIndex& distance_index, pos
 /// Maximum distance taking a pos instead of id/orientation/offset
 size_t maximum_distance(const SnarlDistanceIndex& distance_index, pos_t pos1, pos_t pos2); 
 
+/// How to order hubs when building hub labels for oversized snarls: by
+/// contraction hierarchy, or by SHP (significant-path based hub pushing).
+enum class HubOrdering { CH, SHP };
+
 /// Fill in the index
 /// size_limit is a limit on the number of nodes in a snarl, after which the index won't store pairwise distances
+/// hub_ordering picks how hub labels for those oversized snarls are ordered
 void fill_in_distance_index(SnarlDistanceIndex* distance_index, const HandleGraph* graph, const HandleGraphSnarlFinder* snarl_finder, 
-                            size_t size_limit = 50000, bool only_top_level_chain_distances = false, bool silence_warnings=true);
+                            size_t size_limit = 50000, bool only_top_level_chain_distances = false, bool silence_warnings=true,
+                            HubOrdering hub_ordering = HubOrdering::CH);
 
 /// Fill in the temporary snarl record with distances
 void populate_snarl_index(SnarlDistanceIndex::TemporaryDistanceIndex& temp_index, 
-    SnarlDistanceIndex::temp_record_ref_t snarl_index, size_t size_limit, bool only_top_level_chain_distances, const HandleGraph* graph) ;
+    SnarlDistanceIndex::temp_record_ref_t snarl_index, size_t size_limit, bool only_top_level_chain_distances, const HandleGraph* graph,
+    HubOrdering hub_ordering = HubOrdering::CH) ;
 
 SnarlDistanceIndex::TemporaryDistanceIndex make_temporary_distance_index(const HandleGraph* graph, const HandleGraphSnarlFinder* snarl_finder, 
-                                                                         size_t size_limit, bool only_top_level_chain_distances);
+                                                                         size_t size_limit, bool only_top_level_chain_distances, HubOrdering hub_ordering = HubOrdering::CH);
 
 /// Define wang_hash for net_handle_t's so that we can use a hash_map
 template<> struct wang_hash<handlegraph::net_handle_t> {

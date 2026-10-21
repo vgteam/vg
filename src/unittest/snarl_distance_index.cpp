@@ -6815,6 +6815,136 @@ namespace vg {
                 REQUIRE(!distance_index2.is_oversized_snarl(snarl));
             }
         }
+
+        TEST_CASE( "Tiny oversized snarl with SHP hub ordering", "[snarl_distance][hub_labeling]" ) {
+          VG graph;
+          handle_t n1 = graph.create_handle("GCA");
+          handle_t n2 = graph.create_handle("T");
+          handle_t n3 = graph.create_handle("G");
+          handle_t n4 = graph.create_handle("CTGA");
+
+          graph.create_edge(n1, n2);
+          graph.create_edge(n1, n3);
+          graph.create_edge(n2, n3);
+          graph.create_edge(n2, n4);
+          graph.create_edge(n3, n4);
+          IntegratedSnarlFinder snarl_finder(graph);
+          SnarlDistanceIndex distance_index;
+          fill_in_distance_index(&distance_index, &graph, &snarl_finder, 1, false, true, HubOrdering::SHP);
+
+          REQUIRE(distance_index.minimum_distance(2, false, 0, 3, false, 0, false, &graph) == 1);
+        }
+
+        TEST_CASE( "Oversized snarl with SHP hub ordering","[snarl_distance][hub_labeling]" ) {
+            VG graph;
+
+            Node* n1 = graph.create_node("GCA");
+            Node* n2 = graph.create_node("T");
+            Node* n3 = graph.create_node("G");
+            Node* n4 = graph.create_node("CTGA");
+            Node* n5 = graph.create_node("GCA");
+            Node* n6 = graph.create_node("G");
+            Node* n7 = graph.create_node("GCA");
+            Node* n8 = graph.create_node("T");
+            Node* n9 = graph.create_node("G");
+            Node* n10 = graph.create_node("CTGA");
+            Node* n11 = graph.create_node("GCA");
+            Node* n12 = graph.create_node("G");
+
+            graph.create_edge(n1, n2);
+            graph.create_edge(n1, n9);
+            graph.create_edge(n2, n3);
+            graph.create_edge(n2, n4);
+            graph.create_edge(n2, n8, false, true);
+            graph.create_edge(n3, n4);
+            graph.create_edge(n3, n5);
+            graph.create_edge(n4, n6);
+            graph.create_edge(n4, n7);
+            graph.create_edge(n5, n8);
+            graph.create_edge(n6, n8);
+            graph.create_edge(n7, n8);
+            graph.create_edge(n8, n9);
+            graph.create_edge(n9, n10);
+            graph.create_edge(n10, n11);
+            graph.create_edge(n10, n12);
+            graph.create_edge(n11, n12);
+
+            IntegratedSnarlFinder snarl_finder(graph);
+            SnarlDistanceIndex distance_index;
+            fill_in_distance_index(&distance_index, &graph, &snarl_finder, 3, false, true, HubOrdering::SHP);
+
+            net_handle_t node_1 = distance_index.get_node_net_handle(n1->id());
+            net_handle_t snarl;
+            distance_index.follow_net_edges(node_1, &graph, false, [&](const net_handle_t& other) {
+                snarl=other;
+                return false;
+            });
+            REQUIRE(distance_index.is_oversized_snarl(snarl));
+
+            REQUIRE(distance_index.minimum_distance(n1->id(), false, 0, n2->id(), false, 0, false, &graph) == 3);
+            REQUIRE(distance_index.minimum_distance(n1->id(), false, 0, n4->id(), false, 0, false, &graph) == 4);
+            REQUIRE(distance_index.minimum_distance(n1->id(), false, 0, n7->id(), false, 0,  false,&graph) == 8);
+            REQUIRE(distance_index.minimum_distance(n1->id(), false, 0, n8->id(), false, 0, false, &graph) == 8);
+            REQUIRE(distance_index.minimum_distance(n8->id(), false, 0, n2->id(), true,  0, false, &graph) == 1);
+        }
+
+        TEST_CASE( "SHP and CH hub orderings give the same distances", "[snarl_distance][hub_labeling]" ) {
+            std::default_random_engine generator(test_seed_source());
+
+            for (size_t repeat = 0; repeat < 50; repeat++) {
+                std::uniform_int_distribution<size_t> bases_dist(100, 500);
+                size_t bases = bases_dist(generator);
+                std::uniform_int_distribution<size_t> variant_bases_dist(1, bases/20);
+                size_t variant_bases = variant_bases_dist(generator);
+                std::uniform_int_distribution<size_t> variant_count_dist(1, bases/30);
+                size_t variant_count = variant_count_dist(generator);
+                std::uniform_real_distribution<double> flip_dist(0.0, 1.0);
+                double node_flip_fraction = flip_dist(generator);
+
+                // Keep the size limit small so that most snarls are oversized
+                // and get hub labels.
+                std::uniform_int_distribution<size_t> snarl_size_limit_dist(2, 20);
+                size_t size_limit = snarl_size_limit_dist(generator);
+
+                VG base_graph;
+                random_graph(bases, variant_bases, variant_count, &base_graph);
+                bdsg::HashGraph graph = randomly_flipped_nodes(base_graph, node_flip_fraction, generator);
+                IntegratedSnarlFinder snarl_finder(graph);
+
+                SnarlDistanceIndex ch_index;
+                fill_in_distance_index(&ch_index, &graph, &snarl_finder, size_limit, false, true, HubOrdering::CH);
+                SnarlDistanceIndex shp_index;
+                fill_in_distance_index(&shp_index, &graph, &snarl_finder, size_limit, false, true, HubOrdering::SHP);
+
+                std::uniform_int_distribution<id_t> random_node_ids(graph.min_node_id(), graph.max_node_id());
+                for (size_t repeat_positions = 0; repeat_positions < 200; repeat_positions++) {
+                    id_t node_id1 = 0;
+                    id_t node_id2 = 0;
+                    while (!graph.has_node(node_id1)) {
+                        node_id1 = random_node_ids(generator);
+                    }
+                    while (!graph.has_node(node_id2)) {
+                        node_id2 = random_node_ids(generator);
+                    }
+                    offset_t offset1 = std::uniform_int_distribution<int>(0, graph.get_length(graph.get_handle(node_id1)) - 1)(generator);
+                    offset_t offset2 = std::uniform_int_distribution<int>(0, graph.get_length(graph.get_handle(node_id2)) - 1)(generator);
+                    bool rev1 = std::uniform_int_distribution<int>(0, 1)(generator) == 0;
+                    bool rev2 = std::uniform_int_distribution<int>(0, 1)(generator) == 0;
+
+                    size_t ch_distance = ch_index.minimum_distance(node_id1, rev1, offset1, node_id2, rev2, offset2, false, &graph);
+                    size_t shp_distance = shp_index.minimum_distance(node_id1, rev1, offset1, node_id2, rev2, offset2, false, &graph);
+                    if (ch_distance != shp_distance) {
+                        cerr << "CH and SHP disagree with snarl size limit " << size_limit << endl;
+                        cerr << node_id1 << " " << (rev1 ? "rev" : "fd") << offset1 << " -> " << node_id2 << (rev2 ? "rev" : "fd") << offset2 << endl;
+                        cerr << "CH: " << ch_distance << " SHP: " << shp_distance << endl;
+                        cerr << "serializing graph to test_graph.vg" << endl;
+                        vg::io::save_handle_graph(&graph, "test_graph.vg");
+                    }
+                    REQUIRE(ch_distance == shp_distance);
+                }
+            }
+        }
+
         TEST_CASE( "Nested oversized snarl","[snarl_distance]" ) {
             VG graph;
          
@@ -8558,6 +8688,10 @@ namespace vg {
             // to 1, and bias graphs toward snarlier topologies so the hub-label
             // path actually has interior nodes to label.
 
+            // Run everything once for each way of ordering hubs.
+            HubOrdering hub_ordering = GENERATE(HubOrdering::CH, HubOrdering::SHP);
+            const char* hub_ordering_name = hub_ordering == HubOrdering::SHP ? "SHP" : "CH";
+
             std::default_random_engine generator(test_seed_source());
 
             for (size_t repeat = 0; repeat < 1000; repeat++) {
@@ -8595,7 +8729,7 @@ namespace vg {
 
                 // Build the index
                 SnarlDistanceIndex distance_index;
-                fill_in_distance_index(&distance_index, &graph, &finder, size_limit);
+                fill_in_distance_index(&distance_index, &graph, &finder, size_limit, false, true, hub_ordering);
 
                 //Make sure that the distance index found all the nodes
                 for (id_t id = graph.min_node_id() ; id <= graph.max_node_id() ; id++) {
@@ -8648,7 +8782,7 @@ namespace vg {
                         size_t snarl_distance = distance_index.minimum_distance(node_id1, rev1, offset1, node_id2, rev2, offset2, false, &graph, &traceback);
                         size_t max_distance = distance_index.maximum_distance(node_id1, rev1, offset1, node_id2, rev2, offset2);
                         if (snarl_distance != dijkstra_distance){
-                            cerr << "Failed random hub-label test" << endl;
+                            cerr << "Failed random hub-label test with " << hub_ordering_name << " hub ordering" << endl;
                             cerr << "Snarl size limit: " << size_limit << endl;
                             cerr << node_id1 << " " << (rev1 ? "rev" : "fd") << offset1 << " -> " << node_id2 <<  (rev2 ? "rev" : "fd") << offset2 << endl;
                             cerr << "guessed: " << snarl_distance << " actual: " << dijkstra_distance << endl;
@@ -8657,7 +8791,7 @@ namespace vg {
                             REQUIRE(false);
                         }
                         if (max_distance < snarl_distance){
-                            cerr << "Failed random hub-label test" << endl;
+                            cerr << "Failed random hub-label test with " << hub_ordering_name << " hub ordering" << endl;
                             cerr << node_id1 << " " << (rev1 ? "rev" : "fd") << offset1 << " -> " << node_id2 <<  (rev2 ? "rev" : "fd") << offset2 << endl;
                             cerr << "minimum: " << snarl_distance << " maximum: " << max_distance << endl;
                             cerr << "serializing graph to test_graph.vg" << endl;
@@ -8706,7 +8840,7 @@ namespace vg {
 
                         size_t snarl_distance = distance_index.minimum_distance(node_id1, rev1, offset1, node_id2, rev2, offset2, false, &graph);
                         if (snarl_distance != dijkstra_distance){
-                            cerr << "Failed random hub-label test" << endl;
+                            cerr << "Failed random hub-label test with " << hub_ordering_name << " hub ordering" << endl;
                             cerr << "Snarl size limit: " << size_limit << endl;
                             cerr << node_id1 << " " << (rev1 ? "rev" : "fd") << offset1 << " -> " << node_id2 <<  (rev2 ? "rev" : "fd") << offset2 << endl;
                             cerr << "guessed: " << snarl_distance << " actual: " << dijkstra_distance << endl;

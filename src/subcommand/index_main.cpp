@@ -71,6 +71,7 @@ void help_index(char** argv) {
                                      << "[" << DEFAULT_SNARL_LIMIT << "]" << endl
          << "                            if 0 then don't store distances, only the snarl tree" << endl
          << "      --no-nested-distance  only store distances along the top-level chain" << endl
+         << "      --hub-ordering NAME   order hubs for oversized snarl distances by ch or shp [ch]" << endl
          << "  -w, --upweight-node N     upweight the node with ID N to push it to be part" << endl
          << "                            of a top-level chain (may repeat)" << endl
          << "  -P, --path-prefix NAME    upweight tips of paths with given prefix to orient" << endl
@@ -90,6 +91,7 @@ int main_index(int argc, char** argv) {
     constexpr int OPT_RENAME_VARIANTS = 1001;
     constexpr int OPT_DISTANCE_SNARL_LIMIT = 1002;
     constexpr int OPT_DISTANCE_NESTING = 1003;
+    constexpr int OPT_DISTANCE_HUB_ORDERING = 1004;
 
     // Which indexes to build.
     bool build_xg = false, build_gcsa = false, build_dist = false;
@@ -121,6 +123,7 @@ int main_index(int argc, char** argv) {
     //Distance index
     size_t snarl_limit = DEFAULT_SNARL_LIMIT;
     bool only_top_level_chain_distances = false;
+    HubOrdering hub_ordering = HubOrdering::CH;
     std::unordered_map<nid_t, size_t> extra_node_weight;
     // We will put this amount of extra weight on upweighted nodes. It should
     // be longer than the maximum plausible distracting path or spurious bridge
@@ -181,6 +184,7 @@ int main_index(int argc, char** argv) {
             {"snarl-limit", required_argument, 0, OPT_DISTANCE_SNARL_LIMIT},
             {"dist-name", required_argument, 0, 'j'},
             {"no-nested-distance", no_argument, 0, OPT_DISTANCE_NESTING},
+            {"hub-ordering", required_argument, 0, OPT_DISTANCE_HUB_ORDERING},
             {"upweight-node", required_argument, 0, 'w'},
             {"path-prefix", required_argument, 0, 'P'},
             {0, 0, 0, 0}
@@ -284,6 +288,15 @@ int main_index(int argc, char** argv) {
             break;
         case OPT_DISTANCE_NESTING:
             only_top_level_chain_distances = true;
+            break;
+        case OPT_DISTANCE_HUB_ORDERING:
+            if (string(optarg) == "ch") {
+                hub_ordering = HubOrdering::CH;
+            } else if (string(optarg) == "shp") {
+                hub_ordering = HubOrdering::SHP;
+            } else {
+                logger.error() << "unknown hub ordering " << optarg << "; use ch or shp" << endl;
+            }
             break;
         case 'w':
             // We use += so you can repeat a node and make it even more
@@ -592,7 +605,7 @@ int main_index(int argc, char** argv) {
                 SnarlDistanceIndex distance_index;
 
                 //Fill it in
-                fill_in_distance_index(&distance_index, xg.get(), &snarl_finder, snarl_limit, only_top_level_chain_distances, false);
+                fill_in_distance_index(&distance_index, xg.get(), &snarl_finder, snarl_limit, only_top_level_chain_distances, false, hub_ordering);
                 // Save it
                 distance_index.serialize(dist_name);
             } else {
@@ -609,7 +622,7 @@ int main_index(int argc, char** argv) {
 
                     //Make a distance index and fill it in
                     SnarlDistanceIndex distance_index;
-                    fill_in_distance_index(&distance_index, &(gbz->graph), &snarl_finder, snarl_limit, only_top_level_chain_distances, false);
+                    fill_in_distance_index(&distance_index, &(gbz->graph), &snarl_finder, snarl_limit, only_top_level_chain_distances, false, hub_ordering);
                     // Save it
                     distance_index.serialize(dist_name);
                 } else if (get<1>(options)) {
@@ -622,7 +635,7 @@ int main_index(int argc, char** argv) {
 
                     //Make a distance index and fill it in
                     SnarlDistanceIndex distance_index;
-                    fill_in_distance_index(&distance_index, graph.get(), &snarl_finder, snarl_limit, only_top_level_chain_distances, false);
+                    fill_in_distance_index(&distance_index, graph.get(), &snarl_finder, snarl_limit, only_top_level_chain_distances, false, hub_ordering);
                     // Save it
                     distance_index.serialize(dist_name);
                 } else {
