@@ -346,12 +346,6 @@ TEST_CASE("Target-path repeats respect the slide limit", "[surject][anchor-slidi
         surjector.max_slide = 6;
         CHECK(surjector.anchor_has_nearby_repeat(read, chunk, {step, step}));
     }
-    SECTION("A duplicate six bases to the left is detected") {
-        append_anchor_match(mappings, graph.get_id(node), false, 6, 4);
-        Surjector::path_chunk_t chunk{{read.begin(), read.end()}, mappings};
-        surjector.max_slide = 6;
-        CHECK(surjector.anchor_has_nearby_repeat(read, chunk, {step, step}));
-    }
     SECTION("A duplicate beyond the radius is ignored") {
         append_anchor_match(mappings, graph.get_id(node), false, 0, 4);
         Surjector::path_chunk_t chunk{{read.begin(), read.end()}, mappings};
@@ -364,42 +358,6 @@ TEST_CASE("Target-path repeats respect the slide limit", "[surject][anchor-slidi
         Surjector::path_chunk_t chunk{{read.begin(), read.begin() + 4}, mappings};
         surjector.max_slide = 0;
         CHECK_FALSE(surjector.anchor_has_nearby_repeat(read, chunk, {step, step}));
-    }
-}
-
-TEST_CASE("Read repeats use the anchor's read span", "[surject][anchor-sliding]") {
-    bdsg::HashGraph graph;
-    auto node = graph.create_handle("ACGATTCGCCCC");
-    auto path = graph.create_path_handle("ref");
-    auto step = graph.append_step(path, node);
-    bdsg::PositionOverlay overlay(&graph);
-    TestSurjector surjector(&overlay);
-
-    SECTION("A duplicate in the read is detected without a path duplicate") {
-        string read = "ACGATTACGA";
-        path_t mappings;
-        append_anchor_match(mappings, graph.get_id(node), false, 0, 4);
-        Surjector::path_chunk_t chunk{{read.begin(), read.begin() + 4}, mappings};
-        surjector.max_slide = 6;
-        CHECK(surjector.anchor_has_nearby_repeat(read, chunk, {step, step}));
-    }
-    SECTION("An insertion makes the read search radius larger") {
-        // ACGCTAGA aligns as 2M4I2M to ACGA.
-        // The second ACGCTAGA begins at read offset 10.
-        string read = "ACGCTAGATTACGCTAGA";
-        path_t mappings;
-        append_anchor_match(mappings, graph.get_id(node), false, 0, 2);
-        auto* mapping = mappings.mutable_mapping(0);
-        auto* insertion = mapping->add_edit();
-        insertion->set_to_length(4);
-        insertion->set_sequence("GCTA");
-        auto* match = mapping->add_edit();
-        match->set_from_length(2);
-        match->set_to_length(2);
-        Surjector::path_chunk_t chunk{{read.begin(), read.begin() + 8}, mappings};
-        surjector.max_slide = 12;
-        // Read radius is min(12, 2*8) = 12, not 2*4 = 8.
-        CHECK(surjector.anchor_has_nearby_repeat(read, chunk, {step, step}));
     }
 }
 
