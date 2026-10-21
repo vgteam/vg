@@ -84,6 +84,7 @@ Inheritance diagram for handlegraph::SnarlDecomposition:</div>
   <img src="classhandlegraph_1_1SnarlDecomposition.png" usemap="#handlegraph::SnarlDecomposition_map" alt=""/>
   <map id="handlegraph::SnarlDecomposition_map" name="handlegraph::SnarlDecomposition_map">
 <area href="classhandlegraph_1_1BuildableSnarlDecomposition.html" alt="handlegraph::BuildableSnarlDecomposition" shape="rect" coords="0,56,253,80"/>
+<area href="classvg_1_1SnarlManagerDecomposition.html" alt="vg::SnarlManagerDecomposition" shape="rect" coords="263,56,516,80"/>
   </map>
 </div></div>
 <table class="memberdecls">
@@ -252,6 +253,8 @@ Protected Member Functions</h2></td></tr>
 </div><div class="memdoc">
 <p>Get a canonical traversal handle from any net handle. All handles to the same net graph element have the same canonical traversal. That canonical traversal must be realizable, and might not always be start-to-end or even consistently be the same kind of traversal for different snarls, chains, or nodes. Mostly useful to normalize for equality comparisons. </p>
 
+<p>Implemented in <a class="el" href="classvg_1_1SnarlManagerDecomposition.html#ac83a5ed8816b353fdfd5614f1273b2df">vg::SnarlManagerDecomposition</a>.</p>
+
 </div>
 </div>
 <a id="a4f345867fbee2cbcd283e5c0ed4f5920"></a>
@@ -278,6 +281,8 @@ Protected Member Functions</h2></td></tr>
 </table>
 </div><div class="memdoc">
 <p>Return the kind of location at which the given traversal ends. </p>
+
+<p>Implemented in <a class="el" href="classvg_1_1SnarlManagerDecomposition.html#a51275137dae88046642e20320422fa6d">vg::SnarlManagerDecomposition</a>.</p>
 
 </div>
 </div>
@@ -387,6 +392,8 @@ Protected Member Functions</h2></td></tr>
 </div><div class="memdoc">
 <p>Return a net handle to the same snarl/chain/node in the opposite orientation. No effect on tip-to-tip, start-to-start, or end-to-end net handles. Flips all the others. </p>
 
+<p>Implemented in <a class="el" href="classvg_1_1SnarlManagerDecomposition.html#a1f85e5cc8e698b17a0cc0fe6d307bc25">vg::SnarlManagerDecomposition</a>.</p>
+
 </div>
 </div>
 <a id="a038431d41747c9216de0ed827ce7e919"></a>
@@ -483,6 +490,8 @@ template&lt;typename Iteratee &gt; </div>
 </div><div class="memdoc">
 <p>Internal implementation for follow_net_edges. </p>
 
+<p>Implemented in <a class="el" href="classvg_1_1SnarlManagerDecomposition.html#ae09d2ec2917d2538933c12410b4be4db">vg::SnarlManagerDecomposition</a>.</p>
+
 </div>
 </div>
 <a id="a4790373e0405cc715b0116142aefc42e"></a>
@@ -551,6 +560,8 @@ template&lt;typename Iteratee &gt; </div>
 </table>
 </div><div class="memdoc">
 <p>Internal implementation for for_each_child. </p>
+
+<p>Implemented in <a class="el" href="classvg_1_1SnarlManagerDecomposition.html#a3d4fe57a0076a9858e35159ddda974a4">vg::SnarlManagerDecomposition</a>.</p>
 
 </div>
 </div>
@@ -758,6 +769,8 @@ template&lt;typename Iteratee &gt; </div>
 </div><div class="memdoc">
 <p>Internal implementation for for_each_traversal. </p>
 
+<p>Implemented in <a class="el" href="classvg_1_1SnarlManagerDecomposition.html#a61de11fb1eb3883b602fd556c22f011f">vg::SnarlManagerDecomposition</a>.</p>
+
 </div>
 </div>
 <a id="a0ccdbfddf02159200884e27ae34af0a8"></a>
@@ -872,6 +885,8 @@ template&lt;typename Iteratee &gt; </div>
 <p>Ignores traversal type.</p>
 <p>May not be called on traversals of individual nodes. </p>
 
+<p>Implemented in <a class="el" href="classvg_1_1SnarlManagerDecomposition.html#a7c086844d952380530a2cf121133e178">vg::SnarlManagerDecomposition</a>.</p>
+
 </div>
 </div>
 <a id="a4c500f039a8740ff6e771ddf4bf693ad"></a>
@@ -937,6 +952,8 @@ template&lt;typename Iteratee &gt; </div>
 </div><div class="memdoc">
 <p>For a net handle to a traversal of a single node, get the handle for that node in the orientation it is traversed. May not be called for other net handles. </p>
 
+<p>Implemented in <a class="el" href="classvg_1_1SnarlManagerDecomposition.html#a3aaa6a6d097a0f4d4e83dd215cc43726">vg::SnarlManagerDecomposition</a>.</p>
+
 </div>
 </div>
 <a id="a84b4951e1bf931d03539ac6e048fdb98"></a>
@@ -974,6 +991,8 @@ template&lt;typename Iteratee &gt; </div>
 </div><div class="memdoc">
 <p>Turn a handle to an oriented node into a net handle for a start-to-end or end-to-start traversal of the node, as appropriate. </p>
 
+<p>Implemented in <a class="el" href="classvg_1_1SnarlManagerDecomposition.html#a85f982d36b67f743aae27051c40f2c47">vg::SnarlManagerDecomposition</a>.</p>
+
 </div>
 </div>
 <a id="afb665da6af9e2ccfc10e6e667254b91d"></a>
@@ -1001,6 +1020,8 @@ template&lt;typename Iteratee &gt; </div>
 </div><div class="memdoc">
 <p>Get the parent snarl of a chain, or the parent chain of a snarl or node. If the child is start-to-end or end-to-start, and the parent is a chain, the chain comes out facing the same way, accounting for the relative orientation of the child snarl or node in the chain. Otherwise, everything is produced as start-to-end, even if that is not actually a realizable traversal of a snarl or chain. May not be called on the root snarl.</p>
 <p>Also works on snarl boundary sentinels. </p>
+
+<p>Implemented in <a class="el" href="classvg_1_1SnarlManagerDecomposition.html#a874b430fd956971e2cf51492daa2a445">vg::SnarlManagerDecomposition</a>.</p>
 
 </div>
 </div>
@@ -1041,6 +1062,8 @@ template&lt;typename Iteratee &gt; </div>
 <p>For a chain, either or both handles can also be a snarl containing tips, for a tip-to-start, tip-to-end, start-to-tip, end-to-tip, or tip-to-tip traversal. Similarly, for a snarl, either or both handles can be a chain in the snarl that contains internal tips, or that has no edges on the appropriate end.</p>
 <p>May only be called if a path actually exists between the given start and end. </p>
 
+<p>Implemented in <a class="el" href="classvg_1_1SnarlManagerDecomposition.html#a4731ce6de06e3f6aa185b98e1b7a80b6">vg::SnarlManagerDecomposition</a>.</p>
+
 </div>
 </div>
 <a id="af94fd9c82aaa2742123b25b0ec95311f"></a>
@@ -1066,6 +1089,8 @@ template&lt;typename Iteratee &gt; </div>
 </table>
 </div><div class="memdoc">
 <p>Get a net handle referring to a tip-to-tip traversal of the contents of the root snarl. TODO: Special handling for circular things in the root snarl? Circular traversal type? </p>
+
+<p>Implemented in <a class="el" href="classvg_1_1SnarlManagerDecomposition.html#a8c3d4adb649e2ca05dd744a69a08b111">vg::SnarlManagerDecomposition</a>.</p>
 
 </div>
 </div>
@@ -1122,6 +1147,8 @@ template&lt;typename Iteratee &gt; </div>
 </div><div class="memdoc">
 <p>Returns true if the given net handle refers to (a traversal of) a chain. </p>
 
+<p>Implemented in <a class="el" href="classvg_1_1SnarlManagerDecomposition.html#a62d2c4aae813db5605d9e1a3f6c91c89">vg::SnarlManagerDecomposition</a>.</p>
+
 </div>
 </div>
 <a id="a6f410ac594c7ed44a7cc9b6e44077900"></a>
@@ -1148,6 +1175,8 @@ template&lt;typename Iteratee &gt; </div>
 </table>
 </div><div class="memdoc">
 <p>Returns true if the given net handle refers to (a traversal of) a single node, and thus has a corresponding <a class="el" href="structhandlegraph_1_1handle__t.html" title="Represents a traversal of a node in a graph in a particular direction.">handle_t</a>. </p>
+
+<p>Implemented in <a class="el" href="classvg_1_1SnarlManagerDecomposition.html#ac59a1dbe01abc403540998a6ff3941d9">vg::SnarlManagerDecomposition</a>.</p>
 
 </div>
 </div>
@@ -1176,6 +1205,8 @@ template&lt;typename Iteratee &gt; </div>
 </div><div class="memdoc">
 <p>Return true if the given handle refers to (a traversal of) the root snarl, and false otherwise. </p>
 
+<p>Implemented in <a class="el" href="classvg_1_1SnarlManagerDecomposition.html#aa445bd18519075dec3ee4888da3118de">vg::SnarlManagerDecomposition</a>.</p>
+
 </div>
 </div>
 <a id="af3ce2079f249448a8c8a829daedd1678"></a>
@@ -1202,6 +1233,8 @@ template&lt;typename Iteratee &gt; </div>
 </table>
 </div><div class="memdoc">
 <p>Return true if the given net handle is a snarl bound sentinel (in either inward or outward orientation), and false otherwise. </p>
+
+<p>Implemented in <a class="el" href="classvg_1_1SnarlManagerDecomposition.html#a39305bfa1bea020f1bbfb70bc09da20f">vg::SnarlManagerDecomposition</a>.</p>
 
 </div>
 </div>
@@ -1230,6 +1263,8 @@ template&lt;typename Iteratee &gt; </div>
 </div><div class="memdoc">
 <p>Returns true if the given net handle refers to (a traversal of) a snarl. </p>
 
+<p>Implemented in <a class="el" href="classvg_1_1SnarlManagerDecomposition.html#a228787f5b7353b6062992cdfe7766d77">vg::SnarlManagerDecomposition</a>.</p>
+
 </div>
 </div>
 <a id="ac6bb78bc95acfd353ff8d6c44915e524"></a>
@@ -1256,6 +1291,8 @@ template&lt;typename Iteratee &gt; </div>
 </table>
 </div><div class="memdoc">
 <p>Return the kind of location at which the given traversal starts. </p>
+
+<p>Implemented in <a class="el" href="classvg_1_1SnarlManagerDecomposition.html#abf5f92bda42d5c3355bf5666ca528594">vg::SnarlManagerDecomposition</a>.</p>
 
 </div>
 </div>

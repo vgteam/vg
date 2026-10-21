@@ -208,8 +208,9 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:aa779c0eaea2403d9c36761243a7f9262"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlManager.html#aa779c0eaea2403d9c36761243a7f9262">snarl_number</a> (const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> *snarl) const</td></tr>
 <tr class="memdesc:aa779c0eaea2403d9c36761243a7f9262"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the snarl number from the SnarlRecord* member with given snarl.  <a href="classvg_1_1SnarlManager.html#aa779c0eaea2403d9c36761243a7f9262">More...</a><br /></td></tr>
 <tr class="separator:aa779c0eaea2403d9c36761243a7f9262"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:afdd078898493f277dc1aa5dc3dae5d56"><td class="memItemLeft" align="right" valign="top">const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlManager.html#afdd078898493f277dc1aa5dc3dae5d56">translate_snarl_num</a> (size_t snarl_num)</td></tr>
-<tr class="separator:afdd078898493f277dc1aa5dc3dae5d56"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab63b5787a08f2871b189bd028b27675b"><td class="memItemLeft" align="right" valign="top">const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlManager.html#ab63b5787a08f2871b189bd028b27675b">translate_snarl_num</a> (size_t snarl_num) const</td></tr>
+<tr class="memdesc:ab63b5787a08f2871b189bd028b27675b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the Snarl* for a snarl number, in constant time.  <a href="classvg_1_1SnarlManager.html#ab63b5787a08f2871b189bd028b27675b">More...</a><br /></td></tr>
+<tr class="separator:ab63b5787a08f2871b189bd028b27675b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-methods"></a>
 Private Member Functions</h2></td></tr>
@@ -1565,8 +1566,8 @@ template&lt;typename SnarlIterator &gt; </div>
 
 </div>
 </div>
-<a id="afdd078898493f277dc1aa5dc3dae5d56"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#afdd078898493f277dc1aa5dc3dae5d56">&#9670;&nbsp;</a></span>translate_snarl_num()</h2>
+<a id="ab63b5787a08f2871b189bd028b27675b"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ab63b5787a08f2871b189bd028b27675b">&#9670;&nbsp;</a></span>translate_snarl_num()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -1579,7 +1580,7 @@ template&lt;typename SnarlIterator &gt; </div>
           <td>(</td>
           <td class="paramtype">size_t&#160;</td>
           <td class="paramname"><em>snarl_num</em></td><td>)</td>
-          <td></td>
+          <td> const</td>
         </tr>
       </table>
   </td>
@@ -1588,6 +1589,8 @@ template&lt;typename SnarlIterator &gt; </div>
   </tr>
 </table>
 </div><div class="memdoc">
+
+<p>Get the Snarl* for a snarl number, in constant time. </p>
 
 </div>
 </div>

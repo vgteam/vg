@@ -548,6 +548,8 @@ Classes</h2></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlGraph.html">SnarlGraph</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlManagerDecomposition.html">SnarlManagerDecomposition</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlDistanceIndexClusterer.html">SnarlDistanceIndexClusterer</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlFinder.html">SnarlFinder</a></td></tr>
@@ -630,6 +632,9 @@ Classes</h2></td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1count__back__inserter.html">count_back_inserter</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1ParentGenotypeInfo.html">ParentGenotypeInfo</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SiteTraversalFinder.html">SiteTraversalFinder</a></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">A finder that lists walks through a site, given the handles of its bounds.  <a href="classvg_1_1SiteTraversalFinder.html#details">More...</a><br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1TraversalFinder.html">TraversalFinder</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -1372,6 +1377,14 @@ Functions</h2></td></tr>
 <tr class="memitem:a4373c1c1d20b8b00d1bb9b3e80986333"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a4373c1c1d20b8b00d1bb9b3e80986333">crash_unless_failed</a> (const char *condition_string, const char *file, int line, const char *function)</td></tr>
 <tr class="memdesc:a4373c1c1d20b8b00d1bb9b3e80986333"><td class="mdescLeft">&#160;</td><td class="mdescRight">crash_unless calls into this function for a real implementation, only when the condition has failed.  <a href="namespacevg.html#a4373c1c1d20b8b00d1bb9b3e80986333">More...</a><br /></td></tr>
 <tr class="separator:a4373c1c1d20b8b00d1bb9b3e80986333"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9acd14f8c8a9f88d6a75ce57620b9d46"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a9acd14f8c8a9f88d6a75ce57620b9d46">for_each_neighbor_impl</a> (const <a class="el" href="classhandlegraph_1_1SnarlDecomposition.html">SnarlDecomposition</a> &amp;decomposition, const <a class="el" href="structhandlegraph_1_1net__handle__t.html">net_handle_t</a> &amp;here, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph, bool go_left, const std::function&lt; bool(const <a class="el" href="structhandlegraph_1_1net__handle__t.html">net_handle_t</a> &amp;)&gt; &amp;iteratee)</td></tr>
+<tr class="separator:a9acd14f8c8a9f88d6a75ce57620b9d46"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a41174008284bc249b3f8fb1c8e7c13e3"><td class="memTemplParams" colspan="2">template&lt;typename Iteratee &gt; </td></tr>
+<tr class="memitem:a41174008284bc249b3f8fb1c8e7c13e3"><td class="memTemplItemLeft" align="right" valign="top">bool&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg.html#a41174008284bc249b3f8fb1c8e7c13e3">for_each_neighbor</a> (const <a class="el" href="classhandlegraph_1_1SnarlDecomposition.html">handlegraph::SnarlDecomposition</a> &amp;decomposition, const <a class="el" href="structhandlegraph_1_1net__handle__t.html">handlegraph::net_handle_t</a> &amp;here, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph, bool go_left, const Iteratee &amp;iteratee)</td></tr>
+<tr class="separator:a41174008284bc249b3f8fb1c8e7c13e3"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a59b210d36dec7a492d9c566018552adb"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a59b210d36dec7a492d9c566018552adb">for_each_neighbor_impl</a> (const <a class="el" href="classhandlegraph_1_1SnarlDecomposition.html">handlegraph::SnarlDecomposition</a> &amp;decomposition, const <a class="el" href="structhandlegraph_1_1net__handle__t.html">handlegraph::net_handle_t</a> &amp;here, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph, bool go_left, const std::function&lt; bool(const <a class="el" href="structhandlegraph_1_1net__handle__t.html">handlegraph::net_handle_t</a> &amp;)&gt; &amp;iteratee)</td></tr>
+<tr class="memdesc:a59b210d36dec7a492d9c566018552adb"><td class="mdescLeft">&#160;</td><td class="mdescRight">Implement <a class="el" href="namespacevg.html#a41174008284bc249b3f8fb1c8e7c13e3">for_each_neighbor()</a> for an iteratee that returns bool.  <a href="namespacevg.html#a59b210d36dec7a492d9c566018552adb">More...</a><br /></td></tr>
+<tr class="separator:a59b210d36dec7a492d9c566018552adb"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a3caa19999a88016c7aedf3fefb8ca69c"><td class="memItemLeft" align="right" valign="top">std::ostream &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a3caa19999a88016c7aedf3fefb8ca69c">operator&lt;&lt;</a> (std::ostream &amp;out, const <a class="el" href="classvg_1_1Funnel.html#a23e7fd0c49df53dd8a9e25934fe06c85">Funnel::State</a> &amp;state)</td></tr>
 <tr class="separator:a3caa19999a88016c7aedf3fefb8ca69c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a01d75b9f4caceab73edc37f61c160f0c"><td class="memItemLeft" align="right" valign="top">std::unique_ptr&lt; gbwt::GBWTBuilder &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a01d75b9f4caceab73edc37f61c160f0c">create_gbwt_builder</a> (const <a class="el" href="structvg_1_1GAFSorterFile.html">GAFSorterFile</a> &amp;output)</td></tr>
@@ -11516,6 +11529,161 @@ template&lt;typename Annotated &gt; </div>
       </table>
 </div><div class="memdoc">
 <p>Iterate over all the kmers in the graph, running lambda on each If the stop flag is included, stop execution if it ever evaluates to true </p>
+
+</div>
+</div>
+<a id="a41174008284bc249b3f8fb1c8e7c13e3"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a41174008284bc249b3f8fb1c8e7c13e3">&#9670;&nbsp;</a></span>for_each_neighbor()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;typename Iteratee &gt; </div>
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::for_each_neighbor </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1SnarlDecomposition.html">handlegraph::SnarlDecomposition</a> &amp;&#160;</td>
+          <td class="paramname"><em>decomposition</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1net__handle__t.html">handlegraph::net_handle_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>here</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>go_left</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const Iteratee &amp;&#160;</td>
+          <td class="paramname"><em>iteratee</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Call a function on one traversal of each neighboring net graph element of a traversal.</p>
+<p>Use this instead of follow_net_edges() when you want just one traversal of each next element, as when stepping along a chain. follow_net_edges() gives every realizable traversal of each next element: one that crosses it, one that turns around in it, one that ends at a tip in it. This gives the one that crosses the element if there is one, and otherwise the first one follow_net_edges() gives. The elements come in an arbitrary order.</p>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramname">decomposition</td><td>The snarl decomposition of graph. </td></tr>
+    <tr><td class="paramname">here</td><td>The traversal to step from. </td></tr>
+    <tr><td class="paramname">graph</td><td>The graph whose edges join here to its neighboring elements. </td></tr>
+    <tr><td class="paramname">go_left</td><td>True to step out of the left side of the traversal, false for the right side, as for follow_net_edges(). </td></tr>
+    <tr><td class="paramname">iteratee</td><td>A function to call on the traversal of each neighboring element, which may return false to stop. </td></tr>
+  </table>
+  </dd>
+</dl>
+<dl class="section return"><dt>Returns</dt><dd>False if the function stopped the loop, and true otherwise. </dd></dl>
+
+</div>
+</div>
+<a id="a59b210d36dec7a492d9c566018552adb"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a59b210d36dec7a492d9c566018552adb">&#9670;&nbsp;</a></span>for_each_neighbor_impl() <span class="overload">[1/2]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::for_each_neighbor_impl </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1SnarlDecomposition.html">handlegraph::SnarlDecomposition</a> &amp;&#160;</td>
+          <td class="paramname"><em>decomposition</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1net__handle__t.html">handlegraph::net_handle_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>here</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>go_left</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::function&lt; bool(const <a class="el" href="structhandlegraph_1_1net__handle__t.html">handlegraph::net_handle_t</a> &amp;)&gt; &amp;&#160;</td>
+          <td class="paramname"><em>iteratee</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Implement <a class="el" href="namespacevg.html#a41174008284bc249b3f8fb1c8e7c13e3">for_each_neighbor()</a> for an iteratee that returns bool. </p>
+
+</div>
+</div>
+<a id="a9acd14f8c8a9f88d6a75ce57620b9d46"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a9acd14f8c8a9f88d6a75ce57620b9d46">&#9670;&nbsp;</a></span>for_each_neighbor_impl() <span class="overload">[2/2]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::for_each_neighbor_impl </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1SnarlDecomposition.html">SnarlDecomposition</a> &amp;&#160;</td>
+          <td class="paramname"><em>decomposition</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1net__handle__t.html">net_handle_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>here</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>go_left</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::function&lt; bool(const <a class="el" href="structhandlegraph_1_1net__handle__t.html">net_handle_t</a> &amp;)&gt; &amp;&#160;</td>
+          <td class="paramname"><em>iteratee</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
 
 </div>
 </div>

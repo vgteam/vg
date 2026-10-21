@@ -83,6 +83,7 @@ Inheritance diagram for vg::PathTraversalFinder:</div>
   <img src="classvg_1_1PathTraversalFinder.png" usemap="#vg::PathTraversalFinder_map" alt=""/>
   <map id="vg::PathTraversalFinder_map" name="vg::PathTraversalFinder_map">
 <area href="classvg_1_1TraversalFinder.html" alt="vg::TraversalFinder" shape="rect" coords="0,0,148,24"/>
+<area href="classvg_1_1SiteTraversalFinder.html" title="A finder that lists walks through a site, given the handles of its bounds." alt="vg::SiteTraversalFinder" shape="rect" coords="158,0,306,24"/>
   </map>
 </div></div>
 <table class="memberdecls">
@@ -92,8 +93,8 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a49d66e050feec7374fb0d2ed3483b897"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a3da29145d1ed82d950bdeb895d3b3bf4"><td class="memItemLeft" align="right" valign="top">virtual vector&lt; <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PathTraversalFinder.html#a3da29145d1ed82d950bdeb895d3b3bf4">find_traversals</a> (const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;site)</td></tr>
 <tr class="separator:a3da29145d1ed82d950bdeb895d3b3bf4"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ab67194f7b0302ae860bb9e802d2ebfc8"><td class="memItemLeft" align="right" valign="top">virtual vector&lt; <a class="el" href="namespacevg.html#a4ea210eff71c5a1039378130f98de166">Traversal</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PathTraversalFinder.html#ab67194f7b0302ae860bb9e802d2ebfc8">find_traversals</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;snarl_start, const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;snarl_end)</td></tr>
-<tr class="separator:ab67194f7b0302ae860bb9e802d2ebfc8"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a318f564b1936ea75bb8cd8332d1e97b2"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="namespacevg.html#a4ea210eff71c5a1039378130f98de166">Traversal</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PathTraversalFinder.html#a318f564b1936ea75bb8cd8332d1e97b2">find_traversals</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;snarl_start, const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;snarl_end) override</td></tr>
+<tr class="separator:a318f564b1936ea75bb8cd8332d1e97b2"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a4adb802f78ec1893954d052156953541"><td class="memItemLeft" align="right" valign="top">virtual pair&lt; vector&lt; <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &gt;, vector&lt; <a class="el" href="namespacevg.html#ae8f438fe1484a4bcc51d06ad13058c9c">PathInterval</a> &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PathTraversalFinder.html#a4adb802f78ec1893954d052156953541">find_path_traversals</a> (const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;site)</td></tr>
 <tr class="separator:a4adb802f78ec1893954d052156953541"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a4e1ad0b033b6fb33991f70271a252749"><td class="memItemLeft" align="right" valign="top">virtual pair&lt; vector&lt; <a class="el" href="namespacevg.html#a4ea210eff71c5a1039378130f98de166">Traversal</a> &gt;, vector&lt; <a class="el" href="namespacevg.html#ae8f438fe1484a4bcc51d06ad13058c9c">PathInterval</a> &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PathTraversalFinder.html#a4e1ad0b033b6fb33991f70271a252749">find_path_traversals</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;snarl_start, const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;snarl_end)</td></tr>
@@ -101,6 +102,9 @@ Public Member Functions</h2></td></tr>
 <tr class="inherit_header pub_methods_classvg_1_1TraversalFinder"><td colspan="2" onclick="javascript:toggleInherit('pub_methods_classvg_1_1TraversalFinder')"><img src="closed.png" alt="-"/>&#160;Public Member Functions inherited from <a class="el" href="classvg_1_1TraversalFinder.html">vg::TraversalFinder</a></td></tr>
 <tr class="memitem:aa42ea2599b925f21244928ad5b997168 inherit pub_methods_classvg_1_1TraversalFinder"><td class="memItemLeft" align="right" valign="top">virtual&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1TraversalFinder.html#aa42ea2599b925f21244928ad5b997168">~TraversalFinder</a> ()=default</td></tr>
 <tr class="separator:aa42ea2599b925f21244928ad5b997168 inherit pub_methods_classvg_1_1TraversalFinder"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="inherit_header pub_methods_classvg_1_1SiteTraversalFinder"><td colspan="2" onclick="javascript:toggleInherit('pub_methods_classvg_1_1SiteTraversalFinder')"><img src="closed.png" alt="-"/>&#160;Public Member Functions inherited from <a class="el" href="classvg_1_1SiteTraversalFinder.html">vg::SiteTraversalFinder</a></td></tr>
+<tr class="memitem:a131a390168c5261f8cefc41aa3625675 inherit pub_methods_classvg_1_1SiteTraversalFinder"><td class="memItemLeft" align="right" valign="top">virtual&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SiteTraversalFinder.html#a131a390168c5261f8cefc41aa3625675">~SiteTraversalFinder</a> ()=default</td></tr>
+<tr class="separator:a131a390168c5261f8cefc41aa3625675 inherit pub_methods_classvg_1_1SiteTraversalFinder"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-attribs"></a>
 Protected Attributes</h2></td></tr>
@@ -204,8 +208,8 @@ Protected Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="ab67194f7b0302ae860bb9e802d2ebfc8"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ab67194f7b0302ae860bb9e802d2ebfc8">&#9670;&nbsp;</a></span>find_traversals() <span class="overload">[1/2]</span></h2>
+<a id="a318f564b1936ea75bb8cd8332d1e97b2"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a318f564b1936ea75bb8cd8332d1e97b2">&#9670;&nbsp;</a></span>find_traversals() <span class="overload">[1/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -233,12 +237,21 @@ Protected Attributes</h2></td></tr>
       </table>
   </td>
   <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
+<span class="mlabels"><span class="mlabel">override</span><span class="mlabel">virtual</span></span>  </td>
   </tr>
 </table>
 </div><div class="memdoc">
+<p>Find walks through the site between two bound handles.</p>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramname">snarl_start</td><td>The start bound of the site, oriented into the site. </td></tr>
+    <tr><td class="paramname">snarl_end</td><td>The end bound of the site, oriented out of the site. </td></tr>
+  </table>
+  </dd>
+</dl>
+<dl class="section return"><dt>Returns</dt><dd>Walks that each start with snarl_start and end with snarl_end. </dd></dl>
 
-<p>Reimplemented from <a class="el" href="classvg_1_1TraversalFinder.html#a41ed015cfd3f95104f530943e643e883">vg::TraversalFinder</a>.</p>
+<p>Implements <a class="el" href="classvg_1_1SiteTraversalFinder.html#ac31b24a4e93699615f83365e6f512d43">vg::SiteTraversalFinder</a>.</p>
 
 </div>
 </div>
