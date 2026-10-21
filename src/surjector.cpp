@@ -340,8 +340,7 @@ using namespace std;
         }
 #endif
         
-        // Read mapper-declared tail lengths. These coordinates are
-        // relative to the stored read sequence and independent of path orientation.
+        // Read mapper-declared tail lengths.
         // Missing annotations are interpreted as zero.
         size_t left_tail_length = 0, right_tail_length = 0;
         if (source_aln) {

@@ -289,11 +289,9 @@ is $(samtools view g.bam | grep "NR:Z:x:8+" | wc -l | sed 's/^[[:space:]]*//') "
 
 rm g.xg g.gcsa g.gcsa.lcp g.bam
 
-# The read takes the shortcut 1 -> 6 -> 5, skipping 80 C's of the reference path.
-# Node 3 copies node 1 and node 4 copies node 6, so the read also fits contiguously
-# on the reference at 3 -> 4 -> 5. The read marks its first 12 bases (node 1) as a tail.
-# Without pruning, the tail anchors to node 1 and is split off as a supplementary;
-# with pruning, the whole read is placed at 3 -> 4 -> 5.
+# The read's tail anchors far from the rest of the read, so surject splits it into
+# primary and supplementary records. --prune-tail-region drops that tail anchor,
+# letting the whole read align as one at the right location.
 vg surject -x surject/tail-pruning.gfa -p ref -t 1 -u -s surject/tail-pruning.gam > tail-baseline.sam || exit 1
 is "$(grep -v '^@' tail-baseline.sam | cut -f2-4,6 | sort -n)" "$(printf '0\tref\t105\t12S40M\n2048\tref\t1\t12M40S')" \
     "Without tail pruning, the misplaced tail is emitted separately"
