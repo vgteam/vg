@@ -169,12 +169,14 @@ void check_queries(
 
     // Scoring the sequences.
     {
+        std::vector<std::pair<KmerPresenceMatrix::kmer_classification, double>> kmers;
+        for (size_t j = 0; j < num_kmers; j++) {
+            kmers.emplace_back(KmerPresenceMatrix::kmer_classification::present, kmer_weight(j));
+        }
         std::vector<size_t> reported(rows.size(), 0);
         std::vector<double> scores(rows.size(), 0.0);
         matrix.score_sequences(
-            [](size_t kmer_id, bool is_present) -> double {
-                return (is_present ? 1.0 : -1.0) * kmer_weight(kmer_id);
-            },
+            kmers,
             [&](size_t sequence, double score) {
                 REQUIRE(sequence < rows.size());
                 reported[sequence]++;
@@ -406,16 +408,19 @@ TEST_CASE("Scoring the haplotypes in a subchain", "[haplotypes]") {
     };
     Haplotypes::Subchain subchain = build_subchain(matrix, 5);
 
-    // Arbitrary weights for the kmers.
-    std::vector<double> weights { 1.0, -2.0, 0.5, 3.0, -1.5 };
-    auto kmer_score = [&](size_t kmer_id, bool is_present) -> double {
-        return (is_present ? 1.0 : -1.0) * weights[kmer_id];
+    // Arbitrary weights for the kmers. (Presence does not matter.)
+    std::vector<std::pair<KmerPresenceMatrix::kmer_classification, double>> kmers {
+        { KmerPresenceMatrix::kmer_classification::present, 1.0 },
+        { KmerPresenceMatrix::kmer_classification::present, -2.0 },
+        { KmerPresenceMatrix::kmer_classification::present, 0.5 },
+        { KmerPresenceMatrix::kmer_classification::present, 3.0 },
+        { KmerPresenceMatrix::kmer_classification::present, -1.5 }
     };
 
     SECTION("every haplotype is scored once in order") {
         std::vector<double> scores;
         subchain.score_sequences(
-            kmer_score,
+            kmers,
             [&](size_t haplotype_id, double score) {
                 REQUIRE(haplotype_id == scores.size());
                 scores.push_back(score);
@@ -424,29 +429,19 @@ TEST_CASE("Scoring the haplotypes in a subchain", "[haplotypes]") {
         REQUIRE(scores.size() == subchain.sequences.size());
         for (size_t i = 0; i < scores.size(); i++) {
             double expected = 0.0;
-            for (size_t j = 0; j < weights.size(); j++) {
-                expected += (matrix[i][j] == '1' ? 1.0 : -1.0) * weights[j];
+            for (size_t j = 0; j < kmers.size(); j++) {
+                expected += (matrix[i][j] == '1' ? 1.0 : -1.0) * kmers[j].second;
             }
             REQUIRE(scores[i] == expected);
         }
     }
 
-    SECTION("every kmer of every haplotype is visited once") {
-        std::vector<size_t> visits(subchain.kmers.size(), 0);
-        subchain.score_sequences(
-            [&](size_t kmer_id, bool) -> double { visits[kmer_id]++; return 0.0; },
-            [&](size_t, double) {}
-        );
-        for (size_t kmer_id = 0; kmer_id < visits.size(); kmer_id++) {
-            REQUIRE(visits[kmer_id] == subchain.sequences.size());
-        }
-    }
-
     SECTION("no kmers") {
         Haplotypes::Subchain empty = build_subchain({ "", "", "" }, 0);
+        std::vector<std::pair<KmerPresenceMatrix::kmer_classification, double>> kmers;
         std::vector<double> scores;
         empty.score_sequences(
-            [&](size_t, bool) -> double { REQUIRE(false); return 1.0; },
+            kmers,
             [&](size_t haplotype_id, double score) {
                 REQUIRE(haplotype_id == scores.size());
                 scores.push_back(score);
@@ -462,7 +457,7 @@ TEST_CASE("Scoring the haplotypes in a subchain", "[haplotypes]") {
         Haplotypes::Subchain empty = build_subchain({}, 5);
         size_t calls = 0;
         empty.score_sequences(
-            [&](size_t, bool) -> double { REQUIRE(false); return 1.0; },
+            kmers, // We reuse the earlier kmers with actual scores.
             [&](size_t, double) { calls++; }
         );
         REQUIRE(calls == 0);

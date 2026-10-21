@@ -10,7 +10,6 @@
 #include "subcommand.hpp"
 
 #include "../recombinator.hpp"
-#include "../xg.hpp"
 #include "../zip_code.hpp"
 
 #include <gbwt/gbwt.h>
@@ -23,6 +22,8 @@
 #include <bdsg/hash_graph.hpp>
 #include <bdsg/packed_graph.hpp>
 #include <bdsg/snarl_distance_index.hpp>
+
+#include <xg.hpp>
 
 #include <fstream>
 #include <iostream>

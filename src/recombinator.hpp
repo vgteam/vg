@@ -418,9 +418,6 @@ public:
         std::vector<std::pair<size_t, double>> scores;
     };
 
-    /// Kmer classification.
-    enum kmer_presence { absent, heterozygous, present, frequent };
-
     const gbwtgraph::GBZ& gbz;
     const Haplotypes& haplotypes;
     gbwt::FragmentMap fragment_map;

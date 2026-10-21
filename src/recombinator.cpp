@@ -1550,7 +1550,7 @@ gbwt::GBWT Recombinator::generate_haplotypes(const std::string& kff_file, const 
 // Classify the kmers in the subchain according to the kmer counts and the
 // coverage. Return a vector of kmer types and their initial scores. Update the
 // statistics with the number of non-frequent kmers if necessary.
-std::vector<std::pair<Recombinator::kmer_presence, double>> classify_kmers(
+std::vector<std::pair<KmerPresenceMatrix::kmer_classification, double>> classify_kmers(
     const Haplotypes::Subchain& subchain,
     const hash_map<Haplotypes::Subchain::kmer_type, size_t>& kmer_counts,
     double coverage,
@@ -1565,7 +1565,7 @@ std::vector<std::pair<Recombinator::kmer_presence, double>> classify_kmers(
     // Determine the type of each kmer in the sample and the score for the kmer.
     // A haplotype with the kmer gets +1.0 * score, while a haplotype without it
     // gets -1.0 * score.
-    std::vector<std::pair<Recombinator::kmer_presence, double>> kmer_types;
+    std::vector<std::pair<KmerPresenceMatrix::kmer_classification, double>> kmer_types;
     size_t selected_kmers = 0;
     for (size_t kmer_id = 0; kmer_id < subchain.num_kmers(); kmer_id++) {
         double count = kmer_counts.at(subchain.kmers[kmer_id]);
@@ -1575,9 +1575,9 @@ std::vector<std::pair<Recombinator::kmer_presence, double>> classify_kmers(
             // while everything below it is contamination. Reward presence of
             // frequent kmers and penalize presence of all others.
             if (count >= homozygous_threshold) {
-                kmer_types.push_back({ Recombinator::present, 1.0 });
+                kmer_types.push_back({ KmerPresenceMatrix::present, 1.0 });
             } else {
-                kmer_types.push_back({ Recombinator::absent, -1.0 * parameters.absent_score });
+                kmer_types.push_back({ KmerPresenceMatrix::absent, -1.0 * parameters.absent_score });
             }
             selected_kmers++;
             break;
@@ -1591,27 +1591,27 @@ std::vector<std::pair<Recombinator::kmer_presence, double>> classify_kmers(
             // uninformative (like the frequent band): the selected haplotype
             // still emits that sequence, we just don't let it steer selection.
             if (count < absent_threshold) {
-                kmer_types.push_back({ Recombinator::absent, -1.0 * parameters.absent_score });
+                kmer_types.push_back({ KmerPresenceMatrix::absent, -1.0 * parameters.absent_score });
             } else if (count < heterozygous_threshold) {
-                kmer_types.push_back({ Recombinator::present, 1.0 });
+                kmer_types.push_back({ KmerPresenceMatrix::present, 1.0 });
             } else {
-                kmer_types.push_back({ Recombinator::frequent, 0.0 });
+                kmer_types.push_back({ KmerPresenceMatrix::frequent, 0.0 });
             }
             selected_kmers++;
             break;
         default:
             // Standard scoring model.
             if (count < absent_threshold) {
-                kmer_types.push_back({ Recombinator::absent, -1.0 * parameters.absent_score });
+                kmer_types.push_back({ KmerPresenceMatrix::absent, -1.0 * parameters.absent_score });
                 selected_kmers++;
             } else if (count < heterozygous_threshold) {
-                kmer_types.push_back({ Recombinator::heterozygous, 0.0 });
+                kmer_types.push_back({ KmerPresenceMatrix::heterozygous, 0.0 });
                 selected_kmers++;
             } else if (count < homozygous_threshold) {
-                kmer_types.push_back({ Recombinator::present, 1.0 });
+                kmer_types.push_back({ KmerPresenceMatrix::present, 1.0 });
                 selected_kmers++;
             } else {
-                kmer_types.push_back({ Recombinator::frequent, 0.0 });
+                kmer_types.push_back({ KmerPresenceMatrix::frequent, 0.0 });
             }
             break;
         }
@@ -1633,12 +1633,14 @@ std::vector<std::pair<size_t, double>> select_diploid(
     const gbwtgraph::GBZ& gbz,
     const Haplotypes::Subchain& subchain,
     const std::vector<std::pair<size_t, double>>& candidates,
-    const std::vector<std::pair<Recombinator::kmer_presence, double>>& kmer_types,
+    const std::vector<std::pair<KmerPresenceMatrix::kmer_classification, double>>& kmer_types,
     const Recombinator::Parameters& parameters
 ) {
     std::int64_t best_score = std::numeric_limits<std::int64_t>::min();
     size_t best_left = 0, best_right = 0;
 
+    // FIXME: optimize. diploid_score(a, b, kmer_types) to avoid callbacks
+    // FIXME: use an explicit score matrix (kmer_type X num_present)
     // We now consider taking the same haplotype twice. If this is a bad subchain
     // and we sample extra fragments, the number of fragments will depend on
     // whether we take the same haplotype twice.
@@ -1648,13 +1650,13 @@ std::vector<std::pair<size_t, double>> select_diploid(
             subchain.for_each_kmer(candidates[left].first, candidates[right].first, [&](size_t kmer_id, size_t num_present) {
                 std::int64_t found = num_present;
                 switch (kmer_types[kmer_id].first) {
-                case Recombinator::absent:
+                case KmerPresenceMatrix::absent:
                     score += 1 - found; // +1 for 0, 0 for 1, -1 for 2
                     break;
-                case Recombinator::heterozygous:
+                case KmerPresenceMatrix::heterozygous:
                     score += (found == 1 ? 1 : 0);
                     break;
-                case Recombinator::present:
+                case KmerPresenceMatrix::present:
                     score += found - 1; // -1 for 0, 0 for 1, +1 for 2
                     break;
                 default:
@@ -1704,7 +1706,7 @@ std::vector<std::pair<size_t, double>> select_haplotypes(
     const Recombinator::Parameters& parameters
 ) {
     // Classify the kmers.
-    std::vector<std::pair<Recombinator::kmer_presence, double>> kmer_types = classify_kmers(subchain, kmer_counts, coverage, statistics, parameters);
+    std::vector<std::pair<KmerPresenceMatrix::kmer_classification, double>> kmer_types = classify_kmers(subchain, kmer_counts, coverage, statistics, parameters);
 
     // Select the haplotypes greedily.
     std::vector<std::pair<size_t, double>> selected_haplotypes;
@@ -1724,10 +1726,7 @@ std::vector<std::pair<size_t, double>> select_haplotypes(
         // Score the haplotypes. We score all of them, as that is cheaper than
         // determining which ones are still relevant.
         subchain.score_sequences(
-            [&](size_t kmer_id, bool is_present) -> double {
-                double multiplier = -1.0 + 2.0 * is_present;
-                return multiplier * kmer_types[kmer_id].second;
-            },
+            kmer_types,
             [&](size_t haplotype_id, double score) {
                 scores[haplotype_id] = score;
             }
@@ -1765,10 +1764,10 @@ std::vector<std::pair<size_t, double>> select_haplotypes(
         // Adjust kmer scores based on the selected haplotype.
         subchain.for_each_kmer(selected_haplotypes.back().first, [&](size_t kmer_id, bool is_present) {
             switch (kmer_types[kmer_id].first) {
-            case Recombinator::heterozygous:
+            case KmerPresenceMatrix::heterozygous:
                 kmer_types[kmer_id].second += (is_present ? -1.0 : 1.0) * parameters.het_adjustment;
                 break;
-            case Recombinator::present:
+            case KmerPresenceMatrix::present:
                 if (is_present) {
                     kmer_types[kmer_id].second *= parameters.present_discount;
                 }

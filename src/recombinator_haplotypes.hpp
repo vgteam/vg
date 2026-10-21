@@ -32,6 +32,9 @@ namespace vg {
  */
 class KmerPresenceMatrix {
 public:
+    /// Kmer classification.
+    enum kmer_classification : size_t { absent = 0, heterozygous = 1, present = 2, frequent = 3 };
+
     /// Default constructor that creates an empty k-mer presence matrix.
     KmerPresenceMatrix();
 
@@ -92,16 +95,16 @@ public:
     /// ordered by their indices.
     void for_each_kmer(size_t sequence, const std::function<void(size_t, bool)>& callback) const;
 
+    // FIXME: replace with diploid_score
     /// Calls `callback(kmer_index, num_present)` for each kmer in the given sequences,
     /// ordered by their indices.
     void for_each_kmer(size_t first, size_t second, const std::function<void(size_t, size_t)>& callback) const;
 
     /// Scores every sequence in the subchain. The score of a sequence is the sum of
-    /// `kmer_score(kmer_index, is_present)` over all kmers, and it is reported by calling
-    /// `sequence_score(sequence, score)`.
-    /// Iteration order and the number of `kmer_score` calls are unspecified.
+    /// `(present : 1 : -1) * kmer.second` over `kmers`. It is reported by calling
+    /// `sequence_score(sequence, score)` in an arbitrary order.
     void score_sequences(
-        const std::function<double(size_t, bool)>& kmer_score,
+        const std::vector<std::pair<kmer_classification, double>>& kmers,
         const std::function<void(size_t, double)>& sequence_score
     ) const;
 
@@ -362,21 +365,21 @@ public:
             this->kmers_present.for_each_kmer(sequence, callback);
         }
 
+        // FIXME: replace with diploid_score
         /// Calls `callback(kmer_id, num_present)` for each kmer in the given sequences,
         /// ordered by their indices.
         void for_each_kmer(size_t first, size_t second, const std::function<void(size_t, size_t)>& callback) const {
             this->kmers_present.for_each_kmer(first, second, callback);
         }
 
-        /// Scores every haplotype in the subchain. The score of a haplotype is the sum of
-        /// `kmer_score(kmer_id, is_present)` over all kmers, and it is reported by calling
-        /// `haplotype_score(sequence, score)`.
-        /// Iteration order and the number of `kmer_score` calls are unspecified.
+        /// Scores every sequence in the subchain. The score of a sequence is the sum of
+        /// `(present : 1 : -1) * kmer.second` over `kmers`. It is reported by calling
+        /// `sequence_score(sequence, score)` in an arbitrary order.
         void score_sequences(
-            const std::function<double(size_t, bool)>& kmer_score,
+            const std::vector<std::pair<KmerPresenceMatrix::kmer_classification, double>>& kmers,
             const std::function<void(size_t, double)>& haplotype_score
         ) const {
-            this->kmers_present.score_sequences(kmer_score, haplotype_score);
+            this->kmers_present.score_sequences(kmers, haplotype_score);
         }
 
         /// Returns the number of haplotype sequences in the subchain.
