@@ -1,8 +1,19 @@
+#include <atomic>
+#include <charconv>
+#include <chrono>
+#include <cstdio>
+#include <limits>
+
+#include <omp.h>
+
 #include "legacy_caller.hpp"
+#include "symbolic_allele.hpp"
+#include "read_likelihood_caller.hpp"
 #include "algorithms/expand_context.hpp"
 #include "annotation.hpp"
 #include "gref.hpp"
 #include "traversal_clusters.hpp"
+#include "utility.hpp"
 
 //#define debug
 
@@ -124,8 +135,9 @@ bool LegacyCaller::call_snarl(const Snarl& snarl) {
                                                             support_cutoff,
                                                             get_path_index,
                                                             [&](id_t id) { return support_caller.get_support_finder().get_min_node_support(id);},
-                                                            // note: because our traversal finder and support caller have
-                                                            // different graphs, they can't share edge handles
+                                                            // note: because our traversal finder
+                                                            // and support caller have different
+                                                            // graphs, they can't share edge handles
                                                             [&](edge_t edge) { return support_caller.get_support_finder().get_edge_support(
                                                                     vg_graph.get_id(edge.first), vg_graph.get_is_reverse(edge.first),
                                                                     vg_graph.get_id(edge.second), vg_graph.get_is_reverse(edge.second));});
@@ -147,9 +159,19 @@ bool LegacyCaller::call_snarl(const Snarl& snarl) {
         // these integers map the called traversals to their positions in the list of all traversals
         // of the top level snarl.  
         vector<int> genotype;
-        int ploidy = ref_ploidies[path_name];
-        std::tie(called_traversals, genotype) = top_down_genotype(snarl, *rep_trav_finder, ploidy,
-                                                                  path_name, make_pair(get<0>(ref_interval), get<1>(ref_interval)));
+        // Find the ploidy at the start of the site: that of a region covering it, or else the
+        // path's.
+        int ploidy = ploidy_regions.ploidy_at(path_name, get<0>(ref_interval),
+                                              ref_offset_of(ref_offsets, path_name),
+                                              ref_ploidy_of(ref_ploidies, path_name));
+        if (ploidy == 0) {
+            // The sample has no copy of this region. So the site gets no record, and its children
+            // are not called instead.
+            was_called = true;
+        } else {
+            std::tie(called_traversals, genotype) = top_down_genotype(snarl, *rep_trav_finder, ploidy,
+                                                                      path_name, make_pair(get<0>(ref_interval), get<1>(ref_interval)));
+        }
     
         if (!called_traversals.empty()) {
             // regenotype our top-level traversals now that we know they aren't nested, and we have a

@@ -156,3 +156,6 @@ Some words mean something narrower, or something else, inside one module. In tha
 
 ## Writing Comments
 - Before finishing a task in which you wrote or changed code comments, use the `intelligible-comments` skill to rewrite them so that a programmer new to the code understands each one on one reading.
+
+## Documentation
+- When writing or reviewing doc comments or design docs, follow `.claude/skills/explanatory-comments/SKILL.md`. (Yes, there are two different skills for working on comments. This one is more about what ought to be explained, and how to organize ideas, rather than how to write them out in words.) 

@@ -1,8 +1,19 @@
+#include <atomic>
+#include <charconv>
+#include <chrono>
+#include <cstdio>
+#include <limits>
+
+#include <omp.h>
+
 #include "snarl_graph.hpp"
+#include "symbolic_allele.hpp"
+#include "read_likelihood_caller.hpp"
 #include "algorithms/expand_context.hpp"
 #include "annotation.hpp"
 #include "gref.hpp"
 #include "traversal_clusters.hpp"
+#include "utility.hpp"
 
 //#define debug
 
