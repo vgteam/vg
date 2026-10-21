@@ -2792,6 +2792,8 @@ Functions</h2></td></tr>
 <tr class="separator:a7fdef746ae26a61bfc61b084f9a23bad"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae3d9bf3e957f8aa367dde1d50dae7057"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ae3d9bf3e957f8aa367dde1d50dae7057">require_exists</a> (const <a class="el" href="classvg_1_1Logger.html">Logger</a> &amp;logger, const string &amp;filename)</td></tr>
 <tr class="separator:ae3d9bf3e957f8aa367dde1d50dae7057"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ad3c2913cc4eef7ecfd80f6314615558e"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ad3c2913cc4eef7ecfd80f6314615558e">require_exists_or_url</a> (const <a class="el" href="classvg_1_1Logger.html">Logger</a> &amp;logger, const string &amp;filename)</td></tr>
+<tr class="separator:ad3c2913cc4eef7ecfd80f6314615558e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a759ea048c45c4ba2f90f92d6564599bc"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a759ea048c45c4ba2f90f92d6564599bc">require_non_gzipped</a> (const <a class="el" href="classvg_1_1Logger.html">Logger</a> &amp;logger, const string &amp;filename)</td></tr>
 <tr class="separator:a759ea048c45c4ba2f90f92d6564599bc"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a9692e0ba7b4d25ac924605649669338c"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a9692e0ba7b4d25ac924605649669338c">ensure_writable</a> (const <a class="el" href="classvg_1_1Logger.html">Logger</a> &amp;logger, const string &amp;filename)</td></tr>
@@ -24002,6 +24004,35 @@ template&lt;class T1 , class T2 &gt; </div>
       </table>
 </div><div class="memdoc">
 <p>Check if a file exists and return its name (if so) or error. Uses <a class="el" href="namespacevg.html#abebdd1477a436020f3d3f8368d825054">file_exists()</a> and is intended to be called when parsing arguments. </p>
+
+</div>
+</div>
+<a id="ad3c2913cc4eef7ecfd80f6314615558e"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ad3c2913cc4eef7ecfd80f6314615558e">&#9670;&nbsp;</a></span>require_exists_or_url()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">string vg::require_exists_or_url </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1Logger.html">Logger</a> &amp;&#160;</td>
+          <td class="paramname"><em>logger</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>filename</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Check if a file exists or is a URL htslib can open, and return its name (if so) or error. </p>
 
 </div>
 </div>
