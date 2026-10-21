@@ -1,6 +1,8 @@
 #include "utility.hpp"
 #include "statistics.hpp"
 
+#include <htslib/hfile.h>
+
 #include <set>
 #include <mutex>
 #include <dirent.h>
@@ -767,6 +769,14 @@ string require_exists(const Logger& logger, const string& filename) {
         logger.error() << "file \"" << filename << "\" does not exist" << endl;
     }
     return filename;
+}
+
+string require_exists_or_url(const Logger& logger, const string& filename) {
+    if (hisremote(filename.c_str())) {
+        // htslib knows how to open this as a URL.
+        return filename;
+    }
+    return require_exists(logger, filename);
 }
 
 string require_non_gzipped(const Logger& logger, const string& filename) {
