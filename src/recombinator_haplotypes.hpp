@@ -16,10 +16,6 @@ namespace vg {
 
 //------------------------------------------------------------------------------
 
-// FIXME: Once we have determined that we sample the same haplotypes as with the
-// old uncompressed kmer presence matrix, we could drop the mapping between
-// the original order and the stored order and simply use the stored order
-// in `Subchain`. (The existing order is already arbitrary.)
 /**
  * A compressed binary matrix with haplotype sequences as rows and k-mers as columns.
  * Set bits indicate k-mers that are present in the corresponding sequence.
@@ -35,16 +31,30 @@ public:
     /// Kmer classification.
     enum kmer_classification : size_t { absent = 0, heterozygous = 1, present = 2, frequent = 3 };
 
+    /// A GBWT sequence as (sequence identifier, offset in a node).
+    typedef std::pair<gbwt::size_type, gbwt::size_type> sequence_type;
+
+    /// A more space-efficient representation of `sequence_type`.
+    typedef std::pair<std::uint32_t, std::uint32_t> compact_sequence_type;
+
     /// Default constructor that creates an empty k-mer presence matrix.
     KmerPresenceMatrix();
 
-    // FIXME: Once we reorder the sequences and drop the mapping, the constructor
-    // should take a `vector<sequence_type>&` argument and reorder it.
-    /// Constructor from a given uncompressed matrix, where sequence `i` contains
-    /// kmer `j` if and only if `matrix[i * num_kmers + j] == 1`.
+    /// Constructor that creates an uncompressed k-mer presence matrix
+    /// by taking ownership of the given matrix. See below for the
+    /// semantics of the matrix. Throws `std::runtime_error` if the
+    /// dimensions do not match.
+    KmerPresenceMatrix(size_t num_sequences, size_t num_kmers, sdsl::bit_vector&& matrix);
+
+    /// Constructor from a given uncompressed matrix, where sequence `i`
+    /// contains kmer `j` if and only if `matrix[i * num_kmers + j] == 1`.
     /// Throws `std::runtime_error` if the dimensions do not match.
-    /// Moves the matrix into the object when `compress` is `false`.
-    KmerPresenceMatrix(size_t num_sequences, size_t num_kmers, sdsl::bit_vector&& matrix, bool compress);
+    /// Reorders the sequences to `reordered_sequences` to match the
+    /// internal representation.
+    KmerPresenceMatrix(
+        const std::vector<sequence_type>& sequences, std::vector<compact_sequence_type>& reordered_sequences,
+        size_t num_kmers, const sdsl::bit_vector& matrix
+    );
 
     KmerPresenceMatrix(const KmerPresenceMatrix& other) = default;
     KmerPresenceMatrix(KmerPresenceMatrix&& other) noexcept = default;
@@ -58,7 +68,7 @@ public:
 
     /// Returns the size of the matrix (the number of cells in it).
     size_t size() const {
-        return this->num_sequences * this->num_kmers;
+        return this->parents.size() * this->num_kmers;
     }
 
     /// Returns `true` if the matrix is empty.
@@ -68,7 +78,7 @@ public:
 
     /// Returns the number of sequences (rows) in the matrix.
     size_t get_num_sequences() const {
-        return this->num_sequences;
+        return this->parents.size();
     }
 
     /// Returns the number of kmers (columns) in the matrix.
@@ -79,10 +89,10 @@ public:
     /// Returns the number of clusters, which is also the number of sequences
     /// stored explicitly as parents.
     size_t get_num_parents() const {
-        if (this->num_sequences == 0) {
+        if (this->parents.size() == 0) {
             return 0;
         }
-        return this->parent_rank(this->num_sequences - 1) + 1;
+        return this->parent(this->parents.size() - 1) + 1;
     }
 
     /// Returns the number of present kmers in the given sequence.
@@ -124,15 +134,10 @@ public:
     size_t simple_sds_size() const;
     
 private:
-    size_t num_sequences;
     size_t num_kmers;
 
-    // FIXME: this can be replaced with just parent_rank
-    // This is a concatenation of three vectors of length `num_sequences`.
-    // 1. sequence_to_rank: sequence index to rank in stored order
-    // 2. rank_to_sequence: rank in stored order to sequence index
-    // 3. parent_rank: overall rank to parent rank
-    sdsl::int_vector<> arrays;
+    // The rank of the parent of each sequence in `parents`.
+    sdsl::int_vector<> parent_rank;
 
     // Concatenated parent bitvectors for each cluster.
     sdsl::bit_vector parents;
@@ -140,24 +145,14 @@ private:
     // Concatenated child bitvectors for each cluster.
     sdsl::sd_vector<> children;
 
-    // Transforms the external sequence index to the internal rank in the stored order.
-    size_t sequence_to_rank(size_t sequence) const {
-        return this->arrays[sequence];
-    }
-
-    // Transforms the internal rank in the stored order to the external sequence index.
-    size_t rank_to_sequence(size_t rank) const {
-        return this->arrays[this->num_sequences + rank];
-    }
-
     // Transforms the overall rank into the rank of the parent in `parents`.
-    size_t parent_rank(size_t rank) const {
-        return this->arrays[2 * this->num_sequences + rank];
+    size_t parent(size_t rank) const {
+        return this->parent_rank[rank];
     }
 
     // Transforms the overall rank into the rank in `children`, assuming that this is a child.
     size_t child_rank(size_t rank) const {
-        return rank - this->parent_rank(rank) - 1;
+        return rank - this->parent(rank) - 1;
     }
 
     // The first sequence in a cluster is the parent that is stored explicitly.
@@ -165,7 +160,7 @@ private:
         if(rank == 0) {
             return true;
         }
-        return (this->parent_rank(rank) != this->parent_rank(rank - 1));
+        return (this->parent(rank) != this->parent(rank - 1));
     }
 
     // An iterator over all kmers in a sequence.
@@ -256,7 +251,7 @@ private:
  * * Version 3: Subchains use smaller integers when possible. Versions 1 and 2
  *   can still be read.
  *
- * * Version 2: Top-level chains include a contig name. Versions 1 can still be
+ * * Version 2: Top-level chains include a contig name. Version 1 can still be
  *   read.
  *
  * * Version 1: Initial version.
@@ -319,10 +314,10 @@ public:
     };
 
     /// A GBWT sequence as (sequence identifier, offset in a node).
-    typedef std::pair<gbwt::size_type, gbwt::size_type> sequence_type;
+    typedef KmerPresenceMatrix::sequence_type sequence_type;
 
     /// A more space-efficient representation of `sequence_type`.
-    typedef std::pair<std::uint32_t, std::uint32_t> compact_sequence_type;
+    typedef KmerPresenceMatrix::compact_sequence_type compact_sequence_type;
 
     // FIXME: add a placeholder word for scoring model override
     /// Representation of a subchain.
