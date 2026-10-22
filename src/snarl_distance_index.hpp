@@ -37,17 +37,19 @@ enum class HubOrdering {
     /// By SHP (significant-path based hub pushing), scoring vertices by degree.
     SHP,
     /// By SHP, picking the first hub and fallback hubs by descendants in
-    /// sampled shortest path trees instead of by degree.
+    /// sampled shortest path trees instead of by degree. As in Delling et
+    /// al., each hub's subtrees are removed from the trees once it is
+    /// chosen, and new trees are grown as the old ones shrink.
     SHP_SAMPLED,
-    /// By SHP, using descendants in sampled shortest path trees everywhere it
-    /// would use degree to pick a hub.
+    /// By SHP, using descendants in sampled shortest path trees, kept up to
+    /// date the same way, everywhere it would use degree to pick a hub.
     SHP_SAMPLED_ALL
 };
 
 /// Fill in the index
 /// size_limit is a limit on the number of nodes in a snarl, after which the index won't store pairwise distances
 /// hub_ordering picks how hub labels for those oversized snarls are ordered
-/// hub_samples is how many random roots the sampled SHP orderings use, in each direction
+/// hub_samples is how many random roots the sampled SHP orderings start with, in each direction
 void fill_in_distance_index(SnarlDistanceIndex* distance_index, const HandleGraph* graph, const HandleGraphSnarlFinder* snarl_finder, 
                             size_t size_limit = 50000, bool only_top_level_chain_distances = false, bool silence_warnings=true,
                             HubOrdering hub_ordering = HubOrdering::CH, size_t hub_samples = 32);
