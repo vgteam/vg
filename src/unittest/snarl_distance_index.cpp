@@ -8689,8 +8689,10 @@ namespace vg {
             // path actually has interior nodes to label.
 
             // Run everything once for each way of ordering hubs.
-            HubOrdering hub_ordering = GENERATE(HubOrdering::CH, HubOrdering::SHP);
-            const char* hub_ordering_name = hub_ordering == HubOrdering::SHP ? "SHP" : "CH";
+            HubOrdering hub_ordering = GENERATE(HubOrdering::CH, HubOrdering::SHP, HubOrdering::SHP_SAMPLED, HubOrdering::SHP_SAMPLED_ALL);
+            const char* hub_ordering_name = hub_ordering == HubOrdering::SHP ? "SHP"
+                : hub_ordering == HubOrdering::SHP_SAMPLED ? "SHP sampled"
+                : hub_ordering == HubOrdering::SHP_SAMPLED_ALL ? "SHP sampled all" : "CH";
 
             std::default_random_engine generator(test_seed_source());
 

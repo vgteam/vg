@@ -71,7 +71,9 @@ void help_index(char** argv) {
                                      << "[" << DEFAULT_SNARL_LIMIT << "]" << endl
          << "                            if 0 then don't store distances, only the snarl tree" << endl
          << "      --no-nested-distance  only store distances along the top-level chain" << endl
-         << "      --hub-ordering NAME   order hubs for oversized snarl distances by ch or shp [ch]" << endl
+         << "      --hub-ordering NAME   order hubs for oversized snarl distances by ch, shp," << endl
+         << "                            shp-sampled or shp-sampled-all [ch]" << endl
+         << "      --hub-samples N       random roots per direction for shp-sampled orderings [32]" << endl
          << "  -w, --upweight-node N     upweight the node with ID N to push it to be part" << endl
          << "                            of a top-level chain (may repeat)" << endl
          << "  -P, --path-prefix NAME    upweight tips of paths with given prefix to orient" << endl
@@ -92,6 +94,7 @@ int main_index(int argc, char** argv) {
     constexpr int OPT_DISTANCE_SNARL_LIMIT = 1002;
     constexpr int OPT_DISTANCE_NESTING = 1003;
     constexpr int OPT_DISTANCE_HUB_ORDERING = 1004;
+    constexpr int OPT_DISTANCE_HUB_SAMPLES = 1005;
 
     // Which indexes to build.
     bool build_xg = false, build_gcsa = false, build_dist = false;
@@ -124,6 +127,7 @@ int main_index(int argc, char** argv) {
     size_t snarl_limit = DEFAULT_SNARL_LIMIT;
     bool only_top_level_chain_distances = false;
     HubOrdering hub_ordering = HubOrdering::CH;
+    size_t hub_samples = 32;
     std::unordered_map<nid_t, size_t> extra_node_weight;
     // We will put this amount of extra weight on upweighted nodes. It should
     // be longer than the maximum plausible distracting path or spurious bridge
@@ -185,6 +189,7 @@ int main_index(int argc, char** argv) {
             {"dist-name", required_argument, 0, 'j'},
             {"no-nested-distance", no_argument, 0, OPT_DISTANCE_NESTING},
             {"hub-ordering", required_argument, 0, OPT_DISTANCE_HUB_ORDERING},
+            {"hub-samples", required_argument, 0, OPT_DISTANCE_HUB_SAMPLES},
             {"upweight-node", required_argument, 0, 'w'},
             {"path-prefix", required_argument, 0, 'P'},
             {0, 0, 0, 0}
@@ -294,9 +299,17 @@ int main_index(int argc, char** argv) {
                 hub_ordering = HubOrdering::CH;
             } else if (string(optarg) == "shp") {
                 hub_ordering = HubOrdering::SHP;
+            } else if (string(optarg) == "shp-sampled") {
+                hub_ordering = HubOrdering::SHP_SAMPLED;
+            } else if (string(optarg) == "shp-sampled-all") {
+                hub_ordering = HubOrdering::SHP_SAMPLED_ALL;
             } else {
-                logger.error() << "unknown hub ordering " << optarg << "; use ch or shp" << endl;
+                logger.error() << "unknown hub ordering " << optarg
+                               << "; use ch, shp, shp-sampled or shp-sampled-all" << endl;
             }
+            break;
+        case OPT_DISTANCE_HUB_SAMPLES:
+            hub_samples = parse<size_t>(optarg);
             break;
         case 'w':
             // We use += so you can repeat a node and make it even more
@@ -605,7 +618,7 @@ int main_index(int argc, char** argv) {
                 SnarlDistanceIndex distance_index;
 
                 //Fill it in
-                fill_in_distance_index(&distance_index, xg.get(), &snarl_finder, snarl_limit, only_top_level_chain_distances, false, hub_ordering);
+                fill_in_distance_index(&distance_index, xg.get(), &snarl_finder, snarl_limit, only_top_level_chain_distances, false, hub_ordering, hub_samples);
                 // Save it
                 distance_index.serialize(dist_name);
             } else {
@@ -622,7 +635,7 @@ int main_index(int argc, char** argv) {
 
                     //Make a distance index and fill it in
                     SnarlDistanceIndex distance_index;
-                    fill_in_distance_index(&distance_index, &(gbz->graph), &snarl_finder, snarl_limit, only_top_level_chain_distances, false, hub_ordering);
+                    fill_in_distance_index(&distance_index, &(gbz->graph), &snarl_finder, snarl_limit, only_top_level_chain_distances, false, hub_ordering, hub_samples);
                     // Save it
                     distance_index.serialize(dist_name);
                 } else if (get<1>(options)) {
@@ -635,7 +648,7 @@ int main_index(int argc, char** argv) {
 
                     //Make a distance index and fill it in
                     SnarlDistanceIndex distance_index;
-                    fill_in_distance_index(&distance_index, graph.get(), &snarl_finder, snarl_limit, only_top_level_chain_distances, false, hub_ordering);
+                    fill_in_distance_index(&distance_index, graph.get(), &snarl_finder, snarl_limit, only_top_level_chain_distances, false, hub_ordering, hub_samples);
                     // Save it
                     distance_index.serialize(dist_name);
                 } else {
