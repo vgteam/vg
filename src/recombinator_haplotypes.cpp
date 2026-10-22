@@ -153,13 +153,13 @@ KmerPresenceMatrix::KmerPresenceMatrix(
     this->parent_rank = sdsl::int_vector<0>(sequences.size(), 0, sdsl::bits::length((num_parents == 0 ? 0 : num_parents - 1)));
     reordered_sequences = std::vector<compact_sequence_type>(sequences.size());
     for (size_t cluster = 0; cluster < num_parents; cluster++) {
-        this->parent_rank[parent_of_cluster[cluster]] = cluster;
+        this->parent_rank[rank] = cluster;
         reordered_sequences[rank++] = compact_sequence_type{
             static_cast<std::uint32_t>(sequences[parent_of_cluster[cluster]].first),
             static_cast<std::uint32_t>(sequences[parent_of_cluster[cluster]].second)
         };
         for (size_t sequence : children_of_cluster[cluster]) {
-            this->parent_rank[sequence] = cluster;
+            this->parent_rank[rank] = cluster;
             reordered_sequences[rank++] = compact_sequence_type{
                 static_cast<std::uint32_t>(sequences[sequence].first),
                 static_cast<std::uint32_t>(sequences[sequence].second)
@@ -210,7 +210,7 @@ bool KmerPresenceMatrix::operator==(const KmerPresenceMatrix& other) const {
     if (this->num_kmers != other.num_kmers) {
         return false;
     }
-    if (this->parents != other.parents) {
+    if (this->parent_rank != other.parent_rank) {
         return false;
     }
     if (this->parents != other.parents) {

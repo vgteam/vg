@@ -34,6 +34,35 @@ sdsl::bit_vector build_bitvector(const std::vector<std::string>& rows, size_t nu
     return result;
 }
 
+// Sequence identifiers for the compressed constructor. Sequence `i` is `(i, i + 1)`.
+std::vector<KmerPresenceMatrix::sequence_type> sequence_ids(size_t num_sequences) {
+    std::vector<KmerPresenceMatrix::sequence_type> result;
+    for (size_t i = 0; i < num_sequences; i++) {
+        result.push_back({ i, i + 1 });
+    }
+    return result;
+}
+
+// Returns the rows in the order given by the reordered sequences, assuming that
+// the sequences were identified using `sequence_ids`. Checks that the reordering
+// is a permutation of the original sequences.
+std::vector<std::string> reorder_rows(
+    const std::vector<std::string>& rows,
+    const std::vector<KmerPresenceMatrix::compact_sequence_type>& reordered
+) {
+    REQUIRE(reordered.size() == rows.size());
+    std::vector<bool> seen(rows.size(), false);
+    std::vector<std::string> result;
+    for (auto sequence : reordered) {
+        REQUIRE(sequence.first < rows.size());
+        REQUIRE(sequence.second == sequence.first + 1);
+        REQUIRE(!seen[sequence.first]);
+        seen[sequence.first] = true;
+        result.push_back(rows[sequence.first]);
+    }
+    return result;
+}
+
 // TODO: Later tests may require the other fields as well.
 // Builds a `Subchain` with the given kmer presence matrix, given as a vector of
 // strings of '0' and '1' characters. Uses dummy values for the other fields.
@@ -47,12 +76,14 @@ Haplotypes::Subchain build_subchain(const std::vector<std::string>& rows, size_t
         result.kmers.push_back(kmer_id + 1);
     }
     result.kmer_counts = sdsl::int_vector<0>(kmer_count, 0, 64);
+    std::vector<KmerPresenceMatrix::sequence_type> sequences;
     for (size_t i = 0; i < rows.size(); i++) {
-        result.sequences.push_back({ static_cast<std::uint32_t>(i), 0 });
+        sequences.push_back({ i, 0 });
     }
 
+    // Sequence `i` in the subchain is row `result.sequences[i].first`.
     sdsl::bit_vector buffer = build_bitvector(rows, kmer_count);
-    result.kmers_present = KmerPresenceMatrix(rows.size(), kmer_count, std::move(buffer), true);
+    result.kmers_present = KmerPresenceMatrix(sequences, result.sequences, kmer_count, buffer);
 
     return result;
 }
@@ -209,12 +240,20 @@ void check_queries(
 }
 
 // Builds and returns a `KmerPresenceMatrix` from the rows. Checks queries, iterators,
-// and serialization.
+// and serialization. A compressed matrix reorders the sequences, and the queries are
+// checked against the rows in the stored order.
 KmerPresenceMatrix check_matrix(
     const std::string& name, const std::vector<std::string>& rows, size_t num_kmers, bool compress
 ) {
-    KmerPresenceMatrix matrix(rows.size(), num_kmers, build_bitvector(rows, num_kmers), compress);
-    check_queries(name, matrix, rows, num_kmers);
+    KmerPresenceMatrix matrix;
+    if (compress) {
+        std::vector<KmerPresenceMatrix::compact_sequence_type> reordered;
+        matrix = KmerPresenceMatrix(sequence_ids(rows.size()), reordered, num_kmers, build_bitvector(rows, num_kmers));
+        check_queries(name, matrix, reorder_rows(rows, reordered), num_kmers);
+    } else {
+        matrix = KmerPresenceMatrix(rows.size(), num_kmers, build_bitvector(rows, num_kmers));
+        check_queries(name, matrix, rows, num_kmers);
+    }
 
     std::stringstream stream;
     matrix.simple_sds_serialize(stream);
@@ -256,7 +295,14 @@ TEST_CASE("Empty kmer presence matrix", "[haplotypes]") {
         for (bool compress : { false, true }) {
             std::string name = base_name + (compress ? " (compressed)" : " (uncompressed)");
             // The number of kmers is normalized to 0, as it cannot be recovered.
-            KmerPresenceMatrix matrix(0, 5, sdsl::bit_vector(), compress);
+            KmerPresenceMatrix matrix;
+            if (compress) {
+                std::vector<KmerPresenceMatrix::compact_sequence_type> reordered(1);
+                matrix = KmerPresenceMatrix(sequence_ids(0), reordered, 5, sdsl::bit_vector());
+                REQUIRE(reordered.empty());
+            } else {
+                matrix = KmerPresenceMatrix(0, 5, sdsl::bit_vector());
+            }
             REQUIRE(matrix.get_num_kmers() == 0);
             check_queries(name, matrix, {}, 0);
         }
@@ -306,7 +352,7 @@ TEST_CASE("Compressed kmer presence matrix", "[haplotypes]") {
         KmerPresenceMatrix matrix = check_matrix("identical", rows, 128, true);
         REQUIRE(matrix.get_num_parents() == 1);
 
-        KmerPresenceMatrix uncompressed(rows.size(), 128, build_bitvector(rows, 128), false);
+        KmerPresenceMatrix uncompressed(rows.size(), 128, build_bitvector(rows, 128));
         REQUIRE(matrix.simple_sds_size() < uncompressed.simple_sds_size());
     }
 
@@ -315,7 +361,7 @@ TEST_CASE("Compressed kmer presence matrix", "[haplotypes]") {
         KmerPresenceMatrix matrix = check_matrix("clustered", rows, 256, true);
         REQUIRE(matrix.get_num_parents() == 3);
 
-        KmerPresenceMatrix uncompressed(rows.size(), 256, build_bitvector(rows, 256), false);
+        KmerPresenceMatrix uncompressed(rows.size(), 256, build_bitvector(rows, 256));
         REQUIRE(matrix.simple_sds_size() < uncompressed.simple_sds_size());
     }
 
@@ -364,29 +410,40 @@ TEST_CASE("Kmer presence matrix dimensions", "[haplotypes]") {
 }
 
 TEST_CASE("Invalid kmer presence matrix", "[haplotypes]") {
-    SECTION("wrong matrix size") {
-        for (bool compress : { false, true }) {
-            REQUIRE_THROWS_AS(
-                KmerPresenceMatrix(3, 5, sdsl::bit_vector(14, 0), compress),
-                std::runtime_error
-            );
-        }
+    SECTION("wrong matrix size (uncompressed)") {
+        REQUIRE_THROWS_AS(
+            KmerPresenceMatrix(3, 5, sdsl::bit_vector(14, 0)),
+            std::runtime_error
+        );
+    }
+
+    SECTION("wrong matrix size (compressed)") {
+        std::vector<KmerPresenceMatrix::compact_sequence_type> reordered;
+        REQUIRE_THROWS_AS(
+            KmerPresenceMatrix(sequence_ids(3), reordered, 5, sdsl::bit_vector(14, 0)),
+            std::runtime_error
+        );
     }
 }
 
 //------------------------------------------------------------------------------
 
 TEST_CASE("Iterating over the kmers in a sequence", "[haplotypes]") {
+    // The last two rows become children of the first two, which reorders the sequences.
     std::vector<std::string> matrix {
         "00000",
         "11111",
         "10110",
-        "01001"
+        "01001",
+        "10111",
+        "01000"
     };
     Haplotypes::Subchain subchain = build_subchain(matrix, 5);
 
     SECTION("every kmer is visited once in order") {
+        REQUIRE(subchain.sequences.size() == matrix.size());
         for (size_t i = 0; i < matrix.size(); i++) {
+            const std::string& row = matrix[subchain.sequences[i].first];
             std::vector<bool> found;
             subchain.for_each_kmer(i, [&](size_t kmer_id, bool is_present) {
                 REQUIRE(kmer_id == found.size());
@@ -394,7 +451,7 @@ TEST_CASE("Iterating over the kmers in a sequence", "[haplotypes]") {
             });
             REQUIRE(found.size() == subchain.kmers.size());
             for (size_t j = 0; j < found.size(); j++) {
-                bool should_be_present = (matrix[i][j] == '1');
+                bool should_be_present = (row[j] == '1');
                 REQUIRE(found[j] == should_be_present);
             }
         }
@@ -411,11 +468,14 @@ TEST_CASE("Iterating over the kmers in a sequence", "[haplotypes]") {
 }
 
 TEST_CASE("Scoring the haplotypes in a subchain", "[haplotypes]") {
+    // The last two rows become children of the first two, which reorders the sequences.
     std::vector<std::string> matrix {
         "00000",
         "11111",
         "10110",
-        "01001"
+        "01001",
+        "10111",
+        "01000"
     };
     Haplotypes::Subchain subchain = build_subchain(matrix, 5);
 
@@ -428,20 +488,23 @@ TEST_CASE("Scoring the haplotypes in a subchain", "[haplotypes]") {
         { KmerPresenceMatrix::kmer_classification::present, -1.5 }
     };
 
-    SECTION("every haplotype is scored once in order") {
-        std::vector<double> scores;
+    SECTION("every haplotype is scored once") {
+        std::vector<size_t> reported(subchain.sequences.size(), 0);
+        std::vector<double> scores(subchain.sequences.size(), 0.0);
         subchain.score_sequences(
             kmers,
             [&](size_t haplotype_id, double score) {
-                REQUIRE(haplotype_id == scores.size());
-                scores.push_back(score);
+                REQUIRE(haplotype_id < subchain.sequences.size());
+                reported[haplotype_id]++;
+                scores[haplotype_id] = score;
             }
         );
-        REQUIRE(scores.size() == subchain.sequences.size());
         for (size_t i = 0; i < scores.size(); i++) {
+            REQUIRE(reported[i] == 1);
+            const std::string& row = matrix[subchain.sequences[i].first];
             double expected = 0.0;
             for (size_t j = 0; j < kmers.size(); j++) {
-                expected += (matrix[i][j] == '1' ? 1.0 : -1.0) * kmers[j].second;
+                expected += (row[j] == '1' ? 1.0 : -1.0) * kmers[j].second;
             }
             REQUIRE(scores[i] == expected);
         }

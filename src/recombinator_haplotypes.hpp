@@ -68,7 +68,7 @@ public:
 
     /// Returns the size of the matrix (the number of cells in it).
     size_t size() const {
-        return this->parents.size() * this->num_kmers;
+        return this->parent_rank.size() * this->num_kmers;
     }
 
     /// Returns `true` if the matrix is empty.
@@ -78,7 +78,7 @@ public:
 
     /// Returns the number of sequences (rows) in the matrix.
     size_t get_num_sequences() const {
-        return this->parents.size();
+        return this->parent_rank.size();
     }
 
     /// Returns the number of kmers (columns) in the matrix.
@@ -89,10 +89,10 @@ public:
     /// Returns the number of clusters, which is also the number of sequences
     /// stored explicitly as parents.
     size_t get_num_parents() const {
-        if (this->parents.size() == 0) {
+        if (this->parent_rank.size() == 0) {
             return 0;
         }
-        return this->parent(this->parents.size() - 1) + 1;
+        return this->parent(this->parent_rank.size() - 1) + 1;
     }
 
     /// Returns the number of present kmers in the given sequence.
