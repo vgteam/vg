@@ -72,7 +72,7 @@ void fill_in_distance_index(SnarlDistanceIndex* distance_index, const HandleGrap
     distance_index->get_snarl_tree_records(indexes, graph);
 }
 SnarlDistanceIndex::TemporaryDistanceIndex make_temporary_distance_index(
-    const HandleGraph* graph, const HandleGraphSnarlFinder* snarl_finder, size_t size_limit, bool only_top_level_chain_distances, HubOrdering hub_ordering)  {
+    const HandleGraph* graph, const HandleGraphSnarlFinder* snarl_finder, size_t size_limit, bool only_top_level_chain_distances, HubOrdering hub_ordering, const OversizedSnarlCallback& on_oversized_snarl)  {
 
 #ifdef debug_distance_indexing
     cerr << "Creating new distance index for nodes between " << graph->min_node_id() << " and " << graph->max_node_id() << endl;
@@ -527,7 +527,7 @@ SnarlDistanceIndex::TemporaryDistanceIndex make_temporary_distance_index(
                         temp_index.get_snarl(chain_child_index);
 
                 //Fill in this snarl's distances
-                populate_snarl_index(temp_index, chain_child_index, size_limit, only_top_level_chain_distances, graph, hub_ordering);
+                populate_snarl_index(temp_index, chain_child_index, size_limit, only_top_level_chain_distances, graph, hub_ordering, on_oversized_snarl);
 
                 bool new_component = temp_snarl_record.min_length == std::numeric_limits<size_t>::max();
                 if (new_component){
@@ -776,7 +776,7 @@ SnarlDistanceIndex::TemporaryDistanceIndex make_temporary_distance_index(
     for (SnarlDistanceIndex::temp_record_ref_t& component_index : temp_index.components) {
         if (component_index.first == SnarlDistanceIndex::TEMP_SNARL) {
             SnarlDistanceIndex::TemporaryDistanceIndex::TemporarySnarlRecord& temp_snarl_record = temp_index.get_snarl(component_index);
-            populate_snarl_index(temp_index, component_index, size_limit, only_top_level_chain_distances, graph, hub_ordering);
+            populate_snarl_index(temp_index, component_index, size_limit, only_top_level_chain_distances, graph, hub_ordering, on_oversized_snarl);
             temp_snarl_record.min_length = std::numeric_limits<size_t>::max();
         }
     }
@@ -810,7 +810,7 @@ static void populate_distance_matrix_if_needed(SnarlDistanceIndex::TemporaryDist
  * - Builds the hub labels, ordering hubs as hub_ordering says
  * - Stores labels in temp_snarl_record
  */
-static void populate_hub_labeling(SnarlDistanceIndex::TemporaryDistanceIndex& temp_index, const SnarlDistanceIndex::temp_record_ref_t& snarl_index, SnarlDistanceIndex::TemporaryDistanceIndex::TemporarySnarlRecord& temp_snarl_record, const vector<SnarlDistanceIndex::temp_record_ref_t>& all_children, const HandleGraph* graph, HubOrdering hub_ordering);
+static void populate_hub_labeling(SnarlDistanceIndex::TemporaryDistanceIndex& temp_index, const SnarlDistanceIndex::temp_record_ref_t& snarl_index, SnarlDistanceIndex::TemporaryDistanceIndex::TemporarySnarlRecord& temp_snarl_record, const vector<SnarlDistanceIndex::temp_record_ref_t>& all_children, const HandleGraph* graph, HubOrdering hub_ordering, const OversizedSnarlCallback& on_oversized_snarl);
 
 /**
  * Determine if a snarl is regular or not.
@@ -834,7 +834,8 @@ static bool check_regularity(const SnarlDistanceIndex::TemporaryDistanceIndex& t
 void populate_snarl_index(
                 SnarlDistanceIndex::TemporaryDistanceIndex& temp_index,
                 SnarlDistanceIndex::temp_record_ref_t snarl_index, size_t size_limit,
-                bool only_top_level_chain_distances, const HandleGraph* graph, HubOrdering hub_ordering) {
+                bool only_top_level_chain_distances, const HandleGraph* graph, HubOrdering hub_ordering,
+                const OversizedSnarlCallback& on_oversized_snarl) {
 #ifdef debug_distance_indexing
     cerr << "Getting the distances for snarl " << temp_index.structure_start_end_as_string(snarl_index) << endl;
     assert(snarl_index.first == SnarlDistanceIndex::TEMP_SNARL);
@@ -1109,7 +1110,7 @@ void populate_snarl_index(
       temp_index.most_oversized_snarl_size = std::max(temp_index.most_oversized_snarl_size, temp_snarl_record.node_count);
       temp_index.use_oversized_snarls = true;
       temp_snarl_record.is_simple = false;
-      populate_hub_labeling(temp_index, snarl_index, temp_snarl_record, all_children, graph, hub_ordering);
+      populate_hub_labeling(temp_index, snarl_index, temp_snarl_record, all_children, graph, hub_ordering, on_oversized_snarl);
 
       if (!temp_snarl_record.is_root_snarl) {
         // We need to query the hub labeling to fill in min_length,
@@ -1178,8 +1179,11 @@ void populate_snarl_index(
     temp_index.max_bits = std::max(temp_index.max_bits, 22 + SnarlDistanceIndex::bit_width(temp_snarl_record.children.size()));   
 } 
 
-void populate_hub_labeling(SnarlDistanceIndex::TemporaryDistanceIndex& temp_index, const SnarlDistanceIndex::temp_record_ref_t& snarl_index, SnarlDistanceIndex::TemporaryDistanceIndex::TemporarySnarlRecord& temp_snarl_record, const vector<SnarlDistanceIndex::temp_record_ref_t>& all_children, const HandleGraph* graph, HubOrdering hub_ordering) {
+void populate_hub_labeling(SnarlDistanceIndex::TemporaryDistanceIndex& temp_index, const SnarlDistanceIndex::temp_record_ref_t& snarl_index, SnarlDistanceIndex::TemporaryDistanceIndex::TemporarySnarlRecord& temp_snarl_record, const vector<SnarlDistanceIndex::temp_record_ref_t>& all_children, const HandleGraph* graph, HubOrdering hub_ordering, const OversizedSnarlCallback& on_oversized_snarl) {
   CHOverlay ov = make_boost_graph(temp_index, snarl_index, temp_snarl_record, all_children, graph);
+  if (on_oversized_snarl) {
+    on_oversized_snarl(ov, temp_snarl_record);
+  }
 
 #ifdef debug_hub_label_build
   // Dump CHOverlay graph to stderr for debugging

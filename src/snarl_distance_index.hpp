@@ -34,6 +34,11 @@ size_t maximum_distance(const SnarlDistanceIndex& distance_index, pos_t pos1, po
 /// contraction hierarchy, or by SHP (significant-path based hub pushing).
 enum class HubOrdering { CH, SHP };
 
+/// Called with the hub labeling overlay of each oversized snarl as it is
+/// indexed, before its labels are built. Lets labeling methods be evaluated
+/// on real snarls without building a whole index.
+using OversizedSnarlCallback = std::function<void(const CHOverlay&, const SnarlDistanceIndex::TemporaryDistanceIndex::TemporarySnarlRecord&)>;
+
 /// Fill in the index
 /// size_limit is a limit on the number of nodes in a snarl, after which the index won't store pairwise distances
 /// hub_ordering picks how hub labels for those oversized snarls are ordered
@@ -44,10 +49,11 @@ void fill_in_distance_index(SnarlDistanceIndex* distance_index, const HandleGrap
 /// Fill in the temporary snarl record with distances
 void populate_snarl_index(SnarlDistanceIndex::TemporaryDistanceIndex& temp_index, 
     SnarlDistanceIndex::temp_record_ref_t snarl_index, size_t size_limit, bool only_top_level_chain_distances, const HandleGraph* graph,
-    HubOrdering hub_ordering = HubOrdering::CH) ;
+    HubOrdering hub_ordering = HubOrdering::CH, const OversizedSnarlCallback& on_oversized_snarl = nullptr) ;
 
 SnarlDistanceIndex::TemporaryDistanceIndex make_temporary_distance_index(const HandleGraph* graph, const HandleGraphSnarlFinder* snarl_finder, 
-                                                                         size_t size_limit, bool only_top_level_chain_distances, HubOrdering hub_ordering = HubOrdering::CH);
+                                                                         size_t size_limit, bool only_top_level_chain_distances, HubOrdering hub_ordering = HubOrdering::CH,
+                                                                         const OversizedSnarlCallback& on_oversized_snarl = nullptr);
 
 /// Define wang_hash for net_handle_t's so that we can use a hash_map
 template<> struct wang_hash<handlegraph::net_handle_t> {
