@@ -1,4 +1,5 @@
 #include "recombinator.hpp"
+#include "decomposition_neighbors.hpp"
 
 #include "gref.hpp"
 #include "kff.hpp"
@@ -619,7 +620,7 @@ bool HaplotypePartitioner::contains_reversals(handle_t handle) const {
 net_handle_t follow_chain(const SnarlDistanceIndex& distance_index, const gbwtgraph::GBZ& gbz, size_t chain_id, net_handle_t curr) {
     net_handle_t next = curr;
     size_t successors = 0;
-    distance_index.follow_net_edges(next, &gbz.graph, false, [&](const net_handle_t& child) {
+    for_each_neighbor(distance_index, next, &gbz.graph, false, [&](const net_handle_t& child) {
         successors++;
         next = child;
     });

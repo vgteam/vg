@@ -609,8 +609,8 @@ public:
         const SnarlRecord* record = SnarlManager::record(snarl);
         return record->snarl_number;
     }
-    //use the snarl number to access the Snarl*
-    inline const Snarl* translate_snarl_num(size_t snarl_num){
+    /// Get the Snarl* for a snarl number, in constant time.
+    inline const Snarl* translate_snarl_num(size_t snarl_num) const {
         return unrecord(&snarls.at(snarl_num));
     }
 

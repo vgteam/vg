@@ -876,6 +876,10 @@ bool file_can_be_written(const string& filename);
 /// Uses file_exists() and is intended to be called when parsing arguments.
 string require_exists(const Logger& logger, const string& filename);
 
+/// Check if a file exists or is a URL htslib can open, and return its name (if
+/// so) or error.
+string require_exists_or_url(const Logger& logger, const string& filename);
+
 /// Error if a file looks like it's gzipped.
 /// Checks the filename for ending with ".gz"; doesn't actually open it
 /// or check the magic number.

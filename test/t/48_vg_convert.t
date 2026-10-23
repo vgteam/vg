@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="C" # force a consistent sort order
 
-plan tests 93
+plan tests 95
 
 vg construct -r complex/c.fa -v complex/c.vcf.gz > c.vg
 cat <(vg view c.vg | grep ^S | sort) <(vg view c.vg | grep L | uniq | wc -l) <(vg paths -v c.vg -E) > c.info
@@ -481,3 +481,20 @@ is $? 0 "GAF-GAM double roundtrip works on deletion problem case for chunked vg 
 vg validate ref.vg -a out2.gam
 is $? 0 "GAF-GAM double roundtrip works on deletion problem case for chunked vg output for long node (GAM check)"
 rm -f ref.fa query.fa ref.vg ref.gcsa out.gam out.gaf out2.gam out2.gaf
+
+# GAF version 1.1 support
+printf "H\tVN:1.1
+S\t1\tGAT
+S\t2\tTA
+S\t3\tCA
+S\t4\tGAT
+S\t5\tTA\n" > reference.gfa
+vg convert --gfa-in reference.gfa > reference.vg
+printf "read\t10\t0\t10\t+\t>1>2>3>4>5\t12\t0\t12\t9\t12\t60\tcs:Z::2?C:2!2:5\n" > v1.1.gaf
+printf "read\t10\t0\t10\t+\t>1>2>3>4>5\t12\t0\t12\t9\t12\t60\tcs:Z::2*TC:2-CA:5\n" > v1.0.gaf
+vg convert --gaf-to-gam v1.1.gaf reference.vg > read.gam
+is $? 0 "GAF version 1.1 can be converted to GAM"
+vg convert --gam-to-gaf read.gam reference.vg | grep -v "^@" > read.gaf
+cmp read.gaf v1.0.gaf
+is $? 0 "GAF version 1.1 was parsed correctly"
+rm -f reference.gfa reference.vg v1.1.gaf v1.0.gaf read.gam read.gaf
