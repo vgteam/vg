@@ -347,6 +347,9 @@ public:
         /// Boundary nodes, or `gbwt::ENDMARKER` if not present.
         gbwt::node_type start, end;
 
+        /// Placeholder for a scoring model override.
+        size_t placeholder;
+
         /// A vector of distinct kmers. For each kmer, list the kmer itself and the number
         /// of sequences it appears in.
         std::vector<kmer_type> kmers;
@@ -448,7 +451,6 @@ public:
         size_t simple_sds_size() const;
     };
 
-    // FIXME: add a placeholder word for default scoring model
     /// Representation of a top-level chain.
     struct TopLevelChain {
         /// Offset in the child list of the root snarl.
@@ -456,6 +458,9 @@ public:
 
         /// GBWT construction job for this chain.
         size_t job_id;
+
+        /// Placeholder for the default scoring model.
+        size_t placeholder;
 
         /// Contig name corresponding to the chain.
         std::string contig_name;

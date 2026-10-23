@@ -594,13 +594,14 @@ void Haplotypes::Subchain::simple_sds_serialize(std::ostream& out) const {
     sdsl::simple_sds::serialize_value<std::uint64_t>(this->type, out);
     sdsl::simple_sds::serialize_value<gbwt::node_type>(this->start, out);
     sdsl::simple_sds::serialize_value<gbwt::node_type>(this->end, out);
+    sdsl::simple_sds::serialize_value<size_t>(this->placeholder, out);
     sdsl::simple_sds::serialize_vector(this->kmers, out);
     this->kmer_counts.simple_sds_serialize(out);
     sdsl::simple_sds::serialize_vector(this->sequences, out);
     this->kmers_present.simple_sds_serialize(out);
 }
 
-void load_subchain_header(Haplotypes::Subchain& subchain, std::istream& in) {
+void load_subchain_header(Haplotypes::Subchain& subchain, std::istream& in, std::uint32_t version) {
     std::uint64_t temp = sdsl::simple_sds::load_value<std::uint64_t>(in);
     switch (temp) {
     case Haplotypes::Subchain::normal: // Fall through.
@@ -623,10 +624,16 @@ void load_subchain_header(Haplotypes::Subchain& subchain, std::istream& in) {
     if ((subchain.end != gbwt::ENDMARKER) != should_have_end) {
         throw sdsl::simple_sds::InvalidData("Subchain end node " + std::to_string(subchain.end) + " does not match type" + std::to_string(temp));
     }
+
+    if (version >= Haplotypes::Header::COMPRESSED_VERSION) {
+        subchain.placeholder = sdsl::simple_sds::load_value<size_t>(in);
+    } else {
+        subchain.placeholder = 0; // Placeholder for the default scoring model.
+    }
 }
 
 void Haplotypes::Subchain::simple_sds_load(std::istream& in, std::uint32_t version) {
-    load_subchain_header(*this, in);
+    load_subchain_header(*this, in, version);
 
     this->kmers = sdsl::simple_sds::load_vector<kmer_type>(in);
     this->kmer_counts.simple_sds_load(in);
@@ -644,6 +651,7 @@ void Haplotypes::Subchain::simple_sds_load(std::istream& in, std::uint32_t versi
 
 size_t Haplotypes::Subchain::simple_sds_size() const {
     size_t result = sdsl::simple_sds::value_size<std::uint64_t>() + 2 * sdsl::simple_sds::value_size<gbwt::node_type>();
+    result += sdsl::simple_sds::value_size<size_t>(); // placeholder
     result += sdsl::simple_sds::vector_size(this->kmers);
     result += this->kmer_counts.simple_sds_size();
     result += sdsl::simple_sds::vector_size(this->sequences);
@@ -654,6 +662,7 @@ size_t Haplotypes::Subchain::simple_sds_size() const {
 void Haplotypes::TopLevelChain::simple_sds_serialize(std::ostream& out) const {
     sdsl::simple_sds::serialize_value<size_t>(this->offset, out);
     sdsl::simple_sds::serialize_value<size_t>(this->job_id, out);
+    sdsl::simple_sds::serialize_value<size_t>(this->placeholder, out);
     sdsl::simple_sds::serialize_string(this->contig_name, out);
     sdsl::simple_sds::serialize_value<size_t>(this->subchains.size(), out);
     for (auto& subchain : this->subchains) {
@@ -664,6 +673,11 @@ void Haplotypes::TopLevelChain::simple_sds_serialize(std::ostream& out) const {
 void Haplotypes::TopLevelChain::simple_sds_load(std::istream& in, std::uint32_t version) {
     this->offset = sdsl::simple_sds::load_value<size_t>(in);
     this->job_id = sdsl::simple_sds::load_value<size_t>(in);
+    if (version >= Header::COMPRESSED_VERSION) {
+        this->placeholder = sdsl::simple_sds::load_value<size_t>(in);
+    } else {
+        this->placeholder = 0; // Placeholder for the default scoring model.
+    }
     this->contig_name = sdsl::simple_sds::load_string(in);
     size_t subchain_count = sdsl::simple_sds::load_value<size_t>(in);
     this->subchains.resize(subchain_count);
@@ -673,7 +687,7 @@ void Haplotypes::TopLevelChain::simple_sds_load(std::istream& in, std::uint32_t 
 }
 
 size_t Haplotypes::TopLevelChain::simple_sds_size() const {
-    size_t result = 3 * sdsl::simple_sds::value_size<size_t>();
+    size_t result = 4 * sdsl::simple_sds::value_size<size_t>();
     result += sdsl::simple_sds::string_size(this->contig_name);
     for (auto& subchain : this->subchains) {
         result += subchain.simple_sds_size();

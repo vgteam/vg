@@ -108,6 +108,7 @@ Haplotypes HaplotypePartitioner::partition_haplotypes(const Parameters& paramete
     for (size_t chain_id = 0; chain_id < result.components(); chain_id++) {
         result.chains[chain_id].offset = chain_id;
         result.chains[chain_id].job_id = result.jobs(); // Not assigned to any job yet.
+        result.chains[chain_id].placeholder = 0; // Placeholder for the default scoring model.
         result.chains[chain_id].contig_name = "component_" + std::to_string(chain_id); // Placeholder name.
     }
 
@@ -775,6 +776,7 @@ void HaplotypePartitioner::build_subchains(const gbwtgraph::TopLevelChain& chain
             output.subchains.push_back({
                 iter->first.type,
                 gbwtgraph::GBWTGraph::handle_to_node(iter->first.start), gbwtgraph::GBWTGraph::handle_to_node(iter->first.end),
+                0, // placeholder
                 {}, sdsl::int_vector<0>(0, 0, 64), {}, KmerPresenceMatrix()
             });
             Haplotypes::Subchain& subchain = output.subchains.back();
@@ -816,6 +818,7 @@ void HaplotypePartitioner::build_subchains(const gbwtgraph::TopLevelChain& chain
         output.subchains.push_back({
             Haplotypes::Subchain::full_haplotype,
             gbwt::ENDMARKER, gbwt::ENDMARKER,
+            0, // placeholder
             {}, sdsl::int_vector<0>(0, 0, 64), {}, KmerPresenceMatrix()
         });
         Haplotypes::Subchain& subchain = output.subchains.back();
