@@ -2,13 +2,13 @@
 ///
 /// Unit tests for the windowing and caching shared by the on-demand read sources.
 ///
-/// The two on-demand backends -- indexed GAM and GAF-Base -- differ only in how they
-/// fetch a span of node IDs. Everything above that is shared, and everything above that
+/// The on-demand backends -- indexed GAM, indexed GAF and GAF-Base -- differ only in how
+/// they fetch a span of node IDs. Everything above that is shared, and everything above that
 /// is where the subtle mistakes live: a query that straddles a window boundary, a read
 /// returned by a window fetch that no site in the window actually wants, a cache that
 /// answers with the wrong window's reads. Those are tested here against a fake backend
 /// that records what was asked for, so they are tested without a GAM index, without a
-/// GAF-Base, and without the gbz-base binary.
+/// GAF-Base, and without the gaf-base binary.
 ///
 /// The point of the fake is that it can assert on *fetches*, which the real backends
 /// cannot cheaply be asked about: the tests below pin how many times the backend was
@@ -330,9 +330,9 @@ TEST_CASE("A read touching any node of a multi-node range is returned once",
 
 TEST_CASE("Paired mates sharing a read name are both kept", "[site_read_source]") {
     // Paired mates in GAF share a name, so de-duplication keyed on the name alone would drop one
-    // mate of every pair. The de-duplication that must get this right is in GafBaseSiteReadSource's
-    // split-query path, which needs the gbz-base binary; this checks the property it must keep: two
-    // same-named reads at different positions are two reads.
+    // mate of every pair. The de-duplication that must get this right is in each backend's fetch of
+    // several runs of node IDs, which needs a real index or the gaf-base binary; this checks the
+    // property it must keep: two same-named reads at different positions are two reads.
     FakeWindowedSource source({{"pair", 10}, {"pair", 20}}, 100);
 
     vector<string> names = names_for(source, {{10, 20}});

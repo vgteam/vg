@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <list>
 #include <fstream>
+#include <sstream>
 
 #include "subcommand.hpp"
 #include "../path.hpp"
@@ -46,9 +47,9 @@ const string DEFAULT_SAMPLE_NAME = "SAMPLE";
 /// A GAM index query is a seek in an open file, so its window is narrow, to avoid fetching reads
 /// that no site needs.
 const size_t DEFAULT_GAM_INDEX_WINDOW = 256;
-/// A GAF-Base query runs a gbz-base subprocess, so its window is wide, to serve many sites per
-/// query. It is also much wider than the node-ID span of a long read, so that few reads cross a
-/// window boundary and are fetched twice.
+/// A GAF-Base query decodes whole blocks of alignments in a gaf-base process, so its window is
+/// wide, to serve many sites per query. It is also much wider than the node-ID span of a long read,
+/// so that few reads cross a window boundary and are fetched twice.
 const size_t DEFAULT_GAF_BASE_WINDOW = 16384;
 /// An indexed GAF query is a seek, but its window is as wide as that of GAF-Base, so that the two
 /// fetch the same windows, and few long reads cross a window boundary and are decoded twice.
@@ -136,10 +137,8 @@ struct ReadInputOptions {
     string gaf_index;
     /// A GAF-Base database of reads (--gaf-base).
     string gaf_base;
-    /// The GBZ-Base that GAF-Base queries look node IDs up in (--gbz-base).
-    string gbz_base;
-    /// The gbz-base program, which answers GAF-Base queries (--gaf-base-binary).
-    string gaf_base_binary = "gbz-base";
+    /// The gaf-base program, which answers GAF-Base queries (--gaf-base-binary).
+    string gaf_base_binary = "gaf-base";
     /// The width, in node IDs, of the windows that reads are fetched by (--read-window), or 0 for
     /// the default of the read source.
     size_t window_size = 0;
@@ -177,45 +176,48 @@ static size_t default_read_window(const ReadInputOptions& reads) {
  * GAF-Base, an indexed GAF and an indexed GAM fetch reads as the sites need them, in windows of
  * `reads.window_size` node IDs. Otherwise every read is loaded into memory now. A source that
  * cannot be set up is a user error, which exits.
- *
- * @param graph_filename The input graph, which GAF-Base queries look node IDs up in without a
- * GBZ-Base.
  */
 static unique_ptr<SiteReadSource> open_site_read_source(const PathHandleGraph& graph,
-                                                        const string& graph_filename,
                                                         const ReadInputOptions& reads,
                                                         const SiteReadFilter& read_filter,
                                                         bool show_progress, const Logger& logger) {
     // Each windowed source keeps four windows per thread, in one cache that all threads share.
     const size_t cached_windows = 4 * (size_t)vg::get_thread_count();
     if (!reads.gaf_base.empty()) {
-        // A GBZ-Base is read randomly, while a plain GBZ is loaded in full on every query.
-        const string& query_graph = reads.gbz_base.empty() ? graph_filename : reads.gbz_base;
-        auto gaf_base_source = make_unique<GafBaseSiteReadSource>(graph, reads.gaf_base, query_graph,
-                                                                  read_filter, reads.window_size,
-                                                                  cached_windows,
-                                                                  reads.gaf_base_binary);
+        // Extra arguments for each gaf-base process, such as the sizes of its caches, separated by
+        // spaces. An environment variable while the right settings are being measured.
+        vector<string> batch_arguments;
+        if (const char* extra = getenv("VG_GAFBASE_BATCH_ARGS"); extra != nullptr) {
+            istringstream words(extra);
+            for (string word; words >> word;) {
+                batch_arguments.push_back(word);
+            }
+        }
+        unique_ptr<GafBaseSiteReadSource> gaf_base_source;
         // Check the setup now, so that a missing binary or unreadable database is reported as a
         // user error rather than as a crash.
         try {
+            gaf_base_source = make_unique<GafBaseSiteReadSource>(graph, reads.gaf_base, read_filter,
+                                                                 reads.window_size, cached_windows,
+                                                                 reads.gaf_base_binary,
+                                                                 batch_arguments);
             gaf_base_source->check_setup();
         } catch (const std::exception& e) {
             logger.error() << e.what() << endl;
         }
         if (show_progress) {
-            logger.info() << "Using GAF-Base " << reads.gaf_base
-                          << " queried against " << query_graph
-                          << " via " << reads.gaf_base_binary << endl;
-            logger.info() << "GAF-Base: databases opened by gbz-base "
-                          << (gaf_base_source->immutable_databases()
-                              ? "as SQLite immutable URIs, without file locking"
-                              : "as plain paths, with SQLite file locking (VG_GAFBASE_LOCKING=1)")
-                          << endl;
-            if (reads.gbz_base.empty()) {
-                logger.info() << "Consider building a GBZ-Base ('gbz-base construct') and "
-                              << "passing --gbz-base: a plain GBZ is reloaded on every query"
-                              << endl;
+            string extra;
+            for (const string& argument : batch_arguments) {
+                extra += " " + argument;
             }
+            logger.info() << "Using GAF-Base " << reads.gaf_base << " via '"
+                          << reads.gaf_base_binary << " batch" << extra << "', one process per thread"
+                          << endl;
+            logger.info() << "GAF-Base: database opened by gaf-base "
+                          << (gaf_base_source->immutable_database()
+                              ? "as a SQLite immutable URI, without file locking"
+                              : "as a plain path, with SQLite file locking (VG_GAFBASE_LOCKING=1)")
+                          << endl;
         }
         return gaf_base_source;
     }
@@ -307,22 +309,20 @@ static void log_windowed_read_source_stats(const Logger& logger,
                       << endl;
     }
     if (gaf_base != nullptr) {
-        // Each query runs a subprocess, so this count largely determines run time.
-        logger.info() << "GAF-Base: " << gaf_base->get_query_count()
-                      << " subprocess queries" << endl;
-        // Alignments that one query returned twice.
-        logger.info() << "GAF-Base: " << gaf_base->get_duplicate_count()
-                      << " duplicate reads dropped" << endl;
-        // Where the query time went. File locking, for one, shows up as kernel time.
         auto totals = gaf_base->get_query_totals();
-        double cpu = totals.child_user_s + totals.child_system_s;
-        logger.info() << "GAF-Base: threads waited " << totals.wait_s / 3600 << " h for "
-                      << totals.queries << " gbz-base queries, which used "
+        logger.info() << "GAF-Base: " << totals.processes << " gaf-base processes answered "
+                      << totals.queries << " queries; " << gaf_base->get_skipped_count()
+                      << " records lay between a fetch's ranges without touching its nodes; "
+                      << gaf_base->get_duplicate_count() << " duplicate reads dropped" << endl;
+        // Where the time went. The processes' CPU and memory are known once they have stopped.
+        constexpr double GIB = 1024.0 * 1024.0 * 1024.0;
+        logger.info() << "GAF-Base: threads waited " << totals.wait_s / 3600 << " h for answers and "
+                      << "spent " << totals.parse_s / 3600 << " h parsing their "
+                      << totals.gaf_bytes / 1e9 << " GB of GAF; the processes used "
                       << totals.child_user_s / 3600 << " h of CPU in their own code and "
-                      << totals.child_system_s / 3600 << " h in the kernel ("
-                      << (cpu > 0 ? (int)(100 * totals.child_system_s / cpu) : 0)
-                      << "%); parsing their " << totals.gaf_bytes / 1e9 << " GB of GAF took "
-                      << totals.parse_s / 3600 << " h" << endl;
+                      << totals.child_system_s / 3600 << " h in the kernel, and at most "
+                      << totals.child_max_rss / GIB << " GiB of memory each ("
+                      << totals.child_rss_sum / GIB << " GiB added up)" << endl;
     }
     if (tabix_gaf != nullptr) {
         logger.info() << "Indexed GAF: " << tabix_gaf->get_query_count() << " index lookups; "
@@ -581,15 +581,14 @@ void help_call(char** argv) {
          << "                            all" << endl
          << "      --gaf-index FILE      tabix index of --gaf-reads, to fetch reads from the" << endl
          << "                            GAF file itself as sites need them, with no" << endl
-         << "                            GAF-Base database or gbz-base. --gaf-reads must be" << endl
-         << "                            sorted (vg gamsort -G), compressed with bgzip and" << endl
+         << "                            GAF-Base database. --gaf-reads must be sorted" << endl
+         << "                            (vg gamsort -G), compressed with bgzip and" << endl
          << "                            indexed with tabix -p gaf" << endl
-         << "      --gaf-base FILE       GAF-Base database of read alignments, queried as" << endl
-         << "                            sites need them by running gbz-base, which must be" << endl
+         << "      --gaf-base FILE       GAF-Base database of read alignments (gaf-base" << endl
+         << "                            construct, from a sorted GAF), queried as sites" << endl
+         << "                            need them through gaf-base batch, which must be" << endl
          << "                            on the PATH" << endl
-         << "      --gbz-base FILE       graph for --gaf-base queries, as GBZ-Base or GBZ" << endl
-         << "                            [the input graph]" << endl
-         << "      --gaf-base-binary P   gbz-base executable to run [gbz-base]" << endl
+         << "      --gaf-base-binary P   gaf-base executable to run [gaf-base]" << endl
          << "      --read-window N       node-ID window for indexed read fetches" << endl
          << "                            [16384 for --gaf-base and --gaf-index, 256 for" << endl
          << "                            --gam-index]" << endl
@@ -992,7 +991,6 @@ int main_call(int argc, char** argv) {
     constexpr int OPT_GAM_INDEX = 1013;
     constexpr int OPT_READ_WINDOW = 1014;
     constexpr int OPT_GAF_BASE = 1015;
-    constexpr int OPT_GBZ_BASE = 1016;
     constexpr int OPT_GAF_BASE_BINARY = 1017;
     constexpr int OPT_GAF_INDEX = 1112;
     constexpr int OPT_MISMAP_MAX = 1019;
@@ -1171,7 +1169,6 @@ int main_call(int argc, char** argv) {
             {"gam-index", required_argument, nullptr, OPT_GAM_INDEX},
             {"gaf-index", required_argument, nullptr, OPT_GAF_INDEX},
             {"gaf-base", required_argument, nullptr, OPT_GAF_BASE},
-            {"gbz-base", required_argument, nullptr, OPT_GBZ_BASE},
             {"gaf-base-binary", required_argument, nullptr, OPT_GAF_BASE_BINARY},
             {"read-window", required_argument, nullptr, OPT_READ_WINDOW},
         }},
@@ -1688,9 +1685,6 @@ int main_call(int argc, char** argv) {
             break;
         case OPT_GAF_BASE:
             reads.gaf_base = require_exists(logger, optarg);
-            break;
-        case OPT_GBZ_BASE:
-            reads.gbz_base = require_exists(logger, optarg);
             break;
         case OPT_GAF_BASE_BINARY:
             reads.gaf_base_binary = optarg;
@@ -2214,11 +2208,6 @@ int main_call(int argc, char** argv) {
         }
     }
 
-    // --gbz-base only configures --gaf-base queries.
-    if (!reads.gbz_base.empty() && reads.gaf_base.empty()) {
-        logger.error() << "--gbz-base requires --gaf-base" << endl;
-    }
-
     // Validation: -A, --top-down, and --bottom-up are mutually exclusive
     if (int nested_mode_count = (all_snarls ? 1 : 0) + (top_down ? 1 : 0) + (bottom_up ? 1 : 0);
         nested_mode_count > 1) {
@@ -2567,8 +2556,7 @@ int main_call(int argc, char** argv) {
             if (reads.window_size == 0) {
                 reads.window_size = default_read_window(reads);
             }
-            read_source = open_site_read_source(*graph, graph_filename, reads, read_filter,
-                                                show_progress, logger);
+            read_source = open_site_read_source(*graph, reads, read_filter, show_progress, logger);
 
             // Two scorers: quality-adjusted for reads that have base qualities,
             // plain for reads that do not. Picking per read avoids either
@@ -3145,6 +3133,13 @@ int main_call(int argc, char** argv) {
                 size_t freed = windowed->drop_cached_windows();
                 if (show_progress) {
                     logger.info() << "Freed the read cache: " << freed << " reads" << endl;
+                }
+            }
+            // The gaf-base processes hold caches of their own, and no more reads are needed.
+            if (auto* gaf_base = dynamic_cast<GafBaseSiteReadSource*>(read_source.get())) {
+                gaf_base->stop_processes();
+                if (show_progress) {
+                    logger.info() << "Stopped the gaf-base processes" << endl;
                 }
             }
         });

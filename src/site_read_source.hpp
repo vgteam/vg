@@ -753,15 +753,23 @@ private:
 };
 
 /**
- * Reads fetched on demand from a GAF-Base database, by running `gbz-base query`.
+ * Reads fetched on demand from a GAF-Base database, through `gaf-base batch` processes.
  *
- * <https://github.com/jltsiren/gbz-base> stores alignments in SQLite and returns the reads that
- * overlap a set of nodes, without over-fetching. GAF-Base has no C API, and its file format may
- * change behind a version check, so we run its own binary rather than decode the format here.
- * This needs `gbz-base` at run time only when this source is used, and nothing at build time. The
- * binary writes GAF text, which is parsed, filtered, windowed and cached like the other sources.
+ * <https://github.com/jltsiren/gbz-base> stores the alignments of a sorted GAF in SQLite, in blocks
+ * of consecutive alignments. GAF-Base has no C API, and its file format may change behind a version
+ * check, so we run its own binary rather than decode the format here. This needs `gaf-base` at run
+ * time only when this source is used, and nothing at build time.
  *
- * Starting a process is slow, so this fetches one window of node IDs per process.
+ * `gaf-base batch` keeps the database open and answers one query after another. A query is a line
+ * with the first and last node ID of a range. The answer is the GAF line of each alignment with a
+ * node in the range, in database order, followed by an empty line. Each thread that fetches starts
+ * a process at its first fetch and keeps it, so a fetch costs a query rather than a process start.
+ * The GAF is parsed, filtered, windowed and cached like that of the other sources.
+ *
+ * With `--ids`, gaf-base tags each line with the database row of its block (`ri`) and its offset in
+ * the block (`ro`). The database keeps the order of the GAF it was built from, so this position
+ * keys the reads as the file offset does in TabixGafSiteReadSource: reads from several fetches can
+ * be put back in file order, once each.
  */
 class GafBaseSiteReadSource : public WindowedSiteReadSource {
 public:
@@ -769,184 +777,196 @@ public:
     /// Make a source over a GAF-Base database.
     ///
     /// graph must outlive this, and must be the graph the alignments were made against. It
-    /// supplies node lengths and sequences to turn GAF back into Alignments, and says which node
-    /// IDs in a window exist.
-    ///
-    /// gbz_filename is a GBZ or a GBZ-Base (`gbz-base construct`). Prefer the latter: a plain GBZ
-    /// is loaded in full on every query, while a GBZ-Base is random-access, and this issues many
-    /// queries.
-    ///
-    /// window_size is in node IDs, and cache_entries is how many windows the cache shared by all
-    /// threads holds.
+    /// supplies the node lengths and sequences that turn GAF back into Alignments, so the database
+    /// can be reference-based. window_size is in node IDs, and cache_entries is how many windows
+    /// the cache shared by all threads holds. binary is the gaf-base executable, as a path or a
+    /// name to look up on PATH. batch_arguments go on each process's command line, such as the
+    /// sizes of its caches.
     GafBaseSiteReadSource(const HandleGraph& graph,
                           const string& gaf_base_filename,
-                          const string& gbz_filename,
                           const SiteReadFilter& filter = SiteReadFilter(),
-                          size_t window_size = 256,
+                          size_t window_size = 16384,
                           size_t cache_entries = 2,
-                          const string& binary = "gbz-base");
+                          const string& binary = "gaf-base",
+                          const vector<string>& batch_arguments = {});
 
+    /// Stop the processes that are still running.
     ~GafBaseSiteReadSource() override;
 
-    /// Return how many gbz-base processes were started.
-    ///
-    /// This is the number that matters for run time, since each one costs milliseconds no matter
-    /// how few reads it returns.
-    size_t get_query_count() const;
-
-    /// Return how many reads a fetch returned more than once and dropped.
-    ///
-    /// A split query returns a read that spans two of its pieces from both.
-    size_t get_duplicate_count() const { return duplicates_dropped.load(); }
-
-    /// Run one query up front, to check that the databases are readable and agree with the graph.
+    /// Run one query up front, to check that the binary runs and can read the database.
     ///
     /// A broken setup then fails immediately rather than on the first snarl in a worker thread.
     /// Throws with an actionable message on failure.
     void check_setup() const;
 
-    /// Return whether gbz-base is handed the databases as SQLite immutable URIs (see `immutable`).
-    bool immutable_databases() const { return immutable; }
-
-    /// Where the time of the gbz-base queries went, summed over every query so far.
+    /// Stop every thread's process, adding its CPU time and peak memory to the totals.
     ///
-    /// It is collected with wait4() and two clock reads per query, so it costs nothing
-    /// measurable.
+    /// Each process holds caches, so call this once no more reads are needed. A later fetch starts
+    /// a new process. Must not run while a thread fetches.
+    void stop_processes();
+
+    /// Return whether gaf-base is handed the database as a SQLite immutable URI (see `immutable`).
+    bool immutable_database() const { return immutable; }
+
+    /// Where the time of the queries went, summed over every query so far.
     struct QueryTotals {
+        /// gaf-base processes started.
+        size_t processes = 0;
+        /// Queries answered, one per run of nearby node IDs fetched.
         size_t queries = 0;
-        /// How long the calling threads waited for their children.
+        /// How long the calling threads waited for answers to arrive.
         double wait_s = 0;
-        /// The CPU time the children spent in their own code.
-        double child_user_s = 0;
-        /// The CPU time the children spent in the kernel.
-        double child_system_s = 0;
-        /// The time spent parsing the GAF the children wrote.
+        /// The time spent parsing the answers into Alignments.
         double parse_s = 0;
-        /// The bytes of GAF the children wrote.
+        /// The bytes of GAF in the answers.
         size_t gaf_bytes = 0;
+        /// The CPU time the stopped processes spent in their own code.
+        double child_user_s = 0;
+        /// The CPU time the stopped processes spent in the kernel.
+        double child_system_s = 0;
+        /// The largest peak resident memory of one stopped process, in bytes.
+        size_t child_max_rss = 0;
+        /// The peak resident memories of the stopped processes, added up, in bytes.
+        size_t child_rss_sum = 0;
     };
+
     /// Return where the time of the queries went so far.
     QueryTotals get_query_totals() const;
 
-private:
-
-    /// One thread's GAF output files, one per query the thread can have running.
+    /// Return how many records were dropped because their path visits none of a fetch's nodes.
     ///
-    /// They are reused across queries rather than created per query, since creating one is a
-    /// filesystem round trip.
-    struct ThreadState {
-        vector<string> gaf_paths;
-    };
+    /// Nearby ranges of a fetch are asked for as one range, so the answer also holds the reads on
+    /// the node IDs between them.
+    size_t get_skipped_count() const { return skipped.load(); }
 
-    /// Return this thread's state.
-    ThreadState& thread_state() const;
+    /// Return how many reads a fetch returned more than once and dropped.
+    ///
+    /// Reads are identified by name and start, as in the other sources.
+    size_t get_duplicate_count() const { return duplicates_dropped.load(); }
 
-    /// Return this thread's output file for the given query slot, created on first use.
-    const string& gaf_path(ThreadState& state, size_t slot) const;
-
-    /// One `gbz-base query` child, started and not yet reaped.
-    struct PendingQuery {
-        pid_t pid = 0;
-        /// The child's GAF output file.
-        ///
-        /// It is held by value, since starting a query in a later slot can grow the thread's
-        /// vector of paths and move them.
-        string gaf_path;
-        /// The file the child's stderr goes to.
-        string err_path;
-        /// When the query started, for its wall time in `QueryTotals` and the query log.
-        std::chrono::steady_clock::time_point started;
-        /// When the query started, in seconds since the epoch, for the query log.
-        double started_epoch = 0;
-        /// How many nodes the query asks for.
-        size_t n_nodes = 0;
-        /// The first node the query asks for.
-        nid_t first_node = 0;
-        /// The last node the query asks for.
-        nid_t last_node = 0;
-        /// FNV-1a over the node IDs, so the same node set fetched twice shows up in the log.
-        uint64_t nodes_hash = 0;
-    };
+protected:
 
     void fetch_span(const vector<pair<nid_t, nid_t>>& ranges,
                     const function<void(Alignment&)>& iteratee) const override;
 
-    /// Start `gbz-base query` for these node IDs, writing to this thread's output file for `slot`.
+    /// Fetch as `fetch_span` does, keying each read by its position in the database.
     ///
-    /// This does not wait for the child. The caller reaps it with reap_query, so a query split in
-    /// pieces runs its pieces at the same time. Throws if the child cannot be started.
-    PendingQuery spawn_query(ThreadState& state, size_t slot,
-                             const vector<nid_t>& nodes) const;
+    /// The position is the same whichever query returns the read, and increases in file order.
+    size_t fetch_span_keyed(const vector<pair<nid_t, nid_t>>& ranges,
+                            const function<void(Alignment&, uint64_t)>& iteratee) const override;
+    bool has_record_keys() const override { return true; }
 
-    /// Wait for a started query and parse the GAF it wrote, applying the filter.
+private:
+
+    /// A running `gaf-base batch`, and the ends of the pipes vg talks to it through.
+    struct Process {
+        pid_t pid = 0;
+        /// Which process this is, counting from 0 in the order they were started.
+        size_t number = 0;
+        /// Where queries are written: a socket that is the process's stdin.
+        ///
+        /// A socket rather than a pipe, so that writing to a process that has died is an error
+        /// rather than a SIGPIPE, which would end vg without a word.
+        int query_fd = -1;
+        /// Where answers are read from: a pipe that is the process's stdout.
+        int answer_fd = -1;
+        /// The file the process's stderr goes to.
+        string err_path;
+        /// Whether `err_path` is kept when the process stops (see VG_GAFBASE_PROGRESS_DIR).
+        bool keep_err = false;
+        /// Answer bytes read and not yet handed out, in `buffer[begin, end)`.
+        vector<char> buffer;
+        size_t begin = 0;
+        size_t end = 0;
+        /// How far from `begin` the buffer is known to hold no newline.
+        size_t scanned = 0;
+    };
+
+    /// One thread's processes, started at the thread's first fetch.
     ///
-    /// Returns the number of records parsed. Throws if the child failed.
-    size_t reap_query(const PendingQuery& pending,
-                      const function<void(Alignment&)>& iteratee) const;
+    /// A fetch hands reads to its caller as they arrive, so the caller could start another fetch
+    /// on the thread before the first is answered in full. Each fetch in progress on the thread
+    /// uses a process of its own, so that their queries do not interleave. Usually there is one.
+    struct ThreadState {
+        vector<unique_ptr<Process>> processes;
+        /// How many fetches are in progress on the thread.
+        size_t depth = 0;
+    };
 
-    /// Start a query and reap it. Throws on failure.
-    size_t run_query(ThreadState& state, const vector<nid_t>& nodes,
-                     const function<void(Alignment&)>& iteratee) const;
+    /// Start a `gaf-base batch` on the database. Throws if it cannot be started.
+    unique_ptr<Process> start_process() const;
 
-    /// Run a query, reporting an error and exiting instead of throwing.
+    /// Ask the process for the alignments with a node from `first` to `last`, and hand each line of
+    /// the answer to `visit`, without its newline.
     ///
-    /// Calling happens inside an OpenMP parallel region, which an exception must not leave.
-    void run_query_or_die(ThreadState& state, const vector<nid_t>& nodes,
-                          const function<void(Alignment&)>& iteratee) const;
+    /// A line is valid only during its visit. Adds the time spent waiting for the answer to
+    /// `wait_time_us`. Throws if the process fails.
+    void query(Process& process, nid_t first, nid_t last, uint64_t& wait_time_us,
+               const function<void(const char*, size_t)>& visit) const;
+
+    /// Read the next line of an answer into `line` and `length`, without its newline, and return
+    /// false at end of file. Adds the time spent waiting for it to `wait_time_us`.
+    bool read_line(Process& process, const char*& line, size_t& length,
+                   uint64_t& wait_time_us) const;
+
+    /// Stop a process, adding its CPU time and peak memory to the totals. Return what went wrong,
+    /// or "" if it ended cleanly.
+    string stop_process(Process& process) const;
+
+    /// Return what the process wrote to stderr, to quote in an error.
+    static string process_errors(const Process& process);
 
     const HandleGraph& graph;
     string gaf_base_filename;
-    string gbz_filename;
-    /// The gbz-base executable, as a path or a name to look up on PATH.
+    /// The gaf-base executable, as a path or a name to look up on PATH.
     string binary;
+    /// Extra arguments for every process.
+    vector<string> batch_arguments;
+    /// Where each process's stderr is kept, with `-p` progress lines, when VG_GAFBASE_PROGRESS_DIR
+    /// names a directory; otherwise empty, and stderr goes to a temporary file.
+    string progress_dir;
 
-    /// Whether the databases are handed to gbz-base as SQLite immutable URIs.
+    /// Whether the database is handed to gaf-base as a SQLite immutable URI.
     ///
     /// SQLite takes a POSIX advisory lock on the database file around every read transaction, and
-    /// gbz-base looks up each node of a query in a transaction of its own. With one gbz-base per
-    /// calling thread, all of those lock and unlock calls land on the same file. On a whole genome
-    /// the kernel's bookkeeping for them took most of every query's time. vg only reads the
-    /// databases, so by default it hands them over as immutable URIs, which take no locks.
-    /// Setting VG_GAFBASE_LOCKING=1 in the environment passes the plain paths instead.
+    /// gaf-base looks up records in transactions of their own. With one process per calling thread,
+    /// all of those lock and unlock calls land on the same file, and the kernel's bookkeeping for
+    /// them took most of every query's time in the per-query gbz-base processes this source
+    /// replaced. vg only reads the database, so by default it hands it over as an immutable URI,
+    /// which takes no locks. Setting VG_GAFBASE_LOCKING=1 in the environment passes the plain path
+    /// instead.
     bool immutable = true;
-    /// The graph database argument gbz-base is given: the plain path, or `file:<path>?immutable=1`.
-    string gbz_argument;
-    /// The GAF-Base database argument gbz-base is given, in the same form as `gbz_argument`.
-    string gaf_base_argument;
+    /// The database argument gaf-base is given: the plain path, or `file:<path>?immutable=1`.
+    string database_argument;
     /// Return `file:<absolute path>?immutable=1` for a SQLite database, or the path unchanged for
-    /// any other file, such as a plain GBZ given as the graph.
+    /// any other file.
     static string immutable_uri(const string& path);
 
-    /// The parts of QueryTotals, in microseconds or bytes.
+    /// Each thread's process.
+    mutable PerThreadStates<ThreadState> threads;
+
+    /// The parts of QueryTotals, as counts, microseconds or bytes.
+    mutable atomic<size_t> processes{0};
+    mutable atomic<size_t> queries{0};
     mutable atomic<uint64_t> wait_us{0};
-    mutable atomic<uint64_t> child_user_us{0};
-    mutable atomic<uint64_t> child_system_us{0};
     mutable atomic<uint64_t> parse_us{0};
-    mutable atomic<uint64_t> gaf_bytes_total{0};
+    mutable atomic<uint64_t> gaf_bytes{0};
+    /// The parts of QueryTotals that come from stopped processes, guarded by `stopped_mutex`.
+    mutable uint64_t child_user_us = 0;
+    mutable uint64_t child_system_us = 0;
+    mutable size_t child_max_rss = 0;
+    mutable size_t child_rss_sum = 0;
+    mutable std::mutex stopped_mutex;
+
+    mutable atomic<size_t> skipped{0};
+    mutable atomic<size_t> duplicates_dropped{0};
+
     /// The query log, when VG_GAFBASE_QUERY_LOG names a file, or null.
     ///
     /// It has one line per query. The columns are named in its header line.
     FILE* query_log = nullptr;
     /// Guards `query_log`.
     mutable std::mutex query_log_mutex;
-
-    /// Return the most node IDs one gbz-base command line can hold.
-    ///
-    /// That is a quarter of sysconf(_SC_ARG_MAX), leaving room for the environment and the fixed
-    /// arguments, over the bytes each node costs ("-n" and its digits). It is computed once.
-    static size_t argv_node_budget();
-
-    /// The most node IDs per gbz-base process.
-    ///
-    /// A larger query is split into pieces run side by side.
-    size_t max_query_nodes = argv_node_budget();
-
-    /// Each thread's state.
-    mutable PerThreadStates<ThreadState> threads;
-    /// How many gbz-base processes were started.
-    mutable atomic<size_t> queries{0};
-    /// Reads a fetch returned more than once, identified by name and start, and dropped.
-    mutable atomic<size_t> duplicates_dropped{0};
 };
 
 /**
@@ -955,9 +975,9 @@ private:
  * The index comes from `tabix -p gaf`, which indexes each record by the smallest and largest node
  * ID on its path. The reads are read in vg's own threads. A query seeks to the compressed blocks
  * holding the records whose node interval overlaps it, so only those blocks are decompressed and
- * only those records parsed. A whole window costs one index lookup rather than a gbz-base process,
- * and a read is decoded only for the windows it touches. Reads come back in file order, as
- * GAF-Base returns them from the same sorted GAF.
+ * only those records parsed. A whole window costs one index lookup, and a read is decoded only for
+ * the windows it touches. Reads come back in file order, as GAF-Base returns them from a database
+ * built from the same sorted GAF.
  */
 class TabixGafSiteReadSource : public WindowedSiteReadSource {
 public:

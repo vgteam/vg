@@ -9,7 +9,7 @@ PATH=../bin:$PATH # for vg
 # FORMAT field shifts every later one, which broke four assertions here that were not
 # testing field order at all -- one of them silently compared BL against a GQ threshold.
 
-plan tests 494
+plan tests 499
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -799,10 +799,8 @@ vg call x.vg -k x.pack --gam-index sim.sorted.gam.gai -t 1 >/dev/null 2>gi_err.t
 is $(grep -c "requires --gam" gi_err.txt) "1" "--gam-index without --gam is refused"
 
 # GAF-Base read source. The flag validation and the missing-binary path are checked
-# unconditionally, since none of them ever runs gbz-base; the rest needs it installed.
-vg call x.vg -k x.pack --read-likelihood --gam sim.sorted.gam --gbz-base x.gbz -t 1 >/dev/null 2>gb_err.txt
-is $(grep -c "requires --gaf-base" gb_err.txt) "1" "--gbz-base without --gaf-base is refused"
-
+# unconditionally, since none of them ever runs gaf-base. The calls are checked through a stand-in
+# for gaf-base below, and through gaf-base itself when it is installed.
 # These three check flag VALIDATION, which happens after option parsing, so the path only has to
 # exist -- it is never opened.  It has to exist at all now because --gaf-base goes through
 # require_exists(), which rejects a missing file before any flag combination is considered.
@@ -974,41 +972,87 @@ is $(grep -c "only applies with" sub_regok.txt) "0" "the same option with --rege
 vg call x.vg -k x.pack --anchors-min-q 30 -t 1 >/dev/null 2>sub_outer.txt
 is $(grep -c "only applies to --read-likelihood" sub_outer.txt) "1" "with both switches missing the outer one is named"
 
-# A missing gbz-base is the user's setup, not a vg bug: it must be an error with a fix
+# A missing gaf-base is the user's setup, not a vg bug: it must be an error with a fix
 # in it, not a crash telling them to file an issue.
-vg call x.vg -k x.pack --read-likelihood --gaf-base gb_placeholder.db --gaf-base-binary /nonexistent/gbz-base -t 1 >/dev/null 2>gb_nobin.txt
-is $(grep -c "could not execute" gb_nobin.txt) "1" "a missing gbz-base binary is reported with a remedy"
-is $(grep -c "VG has crashed" gb_nobin.txt) "0" "a missing gbz-base binary is not reported as a vg crash"
+vg call x.vg -k x.pack --read-likelihood --gaf-base gb_placeholder.db --gaf-base-binary /nonexistent/gaf-base -t 1 >/dev/null 2>gb_nobin.txt
+is $(grep -c "could not execute" gb_nobin.txt) "1" "a missing gaf-base binary is reported with a remedy"
+is $(grep -c "VG has crashed" gb_nobin.txt) "0" "a missing gaf-base binary is not reported as a vg crash"
 rm -f gb_placeholder.db
 
-# The equivalence test: the same reads, reached through a database instead of held in
+# The equivalence tests: the same reads, reached through a database instead of held in
 # memory, must give the same calls. Compared against the in-memory *GAF* rather than the
 # GAM, because GAM->GAF is not itself lossless -- an insertion at a node boundary can be
 # attributed to either side, and the two formats disagree -- so comparing against the GAM
-# would be testing vg convert rather than this backend.
+# would be testing vg convert rather than this backend. A GAF-Base keeps the order of the GAF
+# it is built from, which must be sorted.
+vg convert -G sim.sorted.gam x.gbz 2>/dev/null | grep -v "^@" > sim.unsorted.gaf
+vg gamsort -G sim.unsorted.gaf > sim.gaf 2>/dev/null
+vg call x.vg -k x.pack --read-likelihood --gaf-reads sim.gaf -t 1 2>/dev/null > rl_gafmem.vcf
+
+# A stand-in for `gaf-base batch --ids`, so that the read source is checked without gaf-base. Its
+# "database" is the GAF itself, each line a block of its own. It answers each query line, the
+# first and last node ID of a range, with the lines touching the range in file order, tagged with
+# their position, and an empty line.
+cat > fake_gaf_base <<'EOF'
+#!/usr/bin/env bash
+db="${!#}"
+while IFS=$'\t' read -r first last && [ -n "$first" ]; do
+    awk -F'\t' -v first="$first" -v last="$last" '{
+        n = split($6, steps, /[<>]/)
+        for (i = 2; i <= n; i++) {
+            if (steps[i] + 0 >= first && steps[i] + 0 <= last) {
+                print $0 "\tri:i:" NR "\tro:i:0"
+                break
+            }
+        }
+    }' "$db"
+    echo
+done
+EOF
+chmod +x fake_gaf_base
+
+vg call x.vg -k x.pack --read-likelihood --gaf-base sim.gaf --gaf-base-binary ./fake_gaf_base -t 1 2>/dev/null > rl_fakebase.vcf
+is "$?" "0" "--gaf-base runs through a stand-in for gaf-base batch"
+diff <(grep -v "^#" rl_gafmem.vcf) <(grep -v "^#" rl_fakebase.vcf) >/dev/null
+is "$?" "0" "the GAF-Base read source produces identical calls to the in-memory one"
+
+# Several threads, each with its own process.
+vg call x.vg -k x.pack --read-likelihood --gaf-base sim.gaf --gaf-base-binary ./fake_gaf_base -t 4 2>/dev/null > rl_fakebase_t4.vcf
+diff <(grep -v "^#" rl_fakebase.vcf) <(grep -v "^#" rl_fakebase_t4.vcf) >/dev/null
+is "$?" "0" "GAF-Base calls do not depend on the thread count"
+
+# The window is a performance knob and must not change what is called. Narrow windows make sites
+# span windows, whose reads are merged by their position in the database.
+vg call x.vg -k x.pack --read-likelihood --gaf-base sim.gaf --gaf-base-binary ./fake_gaf_base --read-window 32 -t 1 2>/dev/null > rl_fakebase_w32.vcf
+diff <(grep -v "^#" rl_fakebase.vcf) <(grep -v "^#" rl_fakebase_w32.vcf) >/dev/null
+is "$?" "0" "GAF-Base calls do not depend on the read window size"
+
+# A gaf-base that fails is reported with what it said, and not as a vg crash.
+printf '#!/bin/sh\necho "no such database here" >&2\nexit 2\n' > dead_gaf_base
+chmod +x dead_gaf_base
+vg call x.vg -k x.pack --read-likelihood --gaf-base sim.gaf --gaf-base-binary ./dead_gaf_base -t 1 >/dev/null 2>gb_dead.txt
+is $(grep -c "no such database here" gb_dead.txt) "1" "a failing gaf-base is reported with its own message"
+is $(grep -c "VG has crashed" gb_dead.txt) "0" "a failing gaf-base is not reported as a vg crash"
+
+# The same through gaf-base itself, when it is installed.
 GAFBASE_NOTE=""
-if ! command -v gbz-base >/dev/null 2>&1 || ! command -v gaf-base >/dev/null 2>&1; then
-    GAFBASE_NOTE=" (skipped: gbz-base/gaf-base not on PATH)"
+if ! command -v gaf-base >/dev/null 2>&1; then
+    GAFBASE_NOTE=" (skipped: gaf-base not on PATH)"
 fi
 
 if [ -z "$GAFBASE_NOTE" ]; then
-    vg convert -G sim.sorted.gam x.gbz 2>/dev/null | grep -v "^@" > sim.gaf
-    gaf-base construct sim.gaf -r x.gbz -o sim.gaf.db --overwrite >/dev/null 2>&1
-    gbz-base construct x.gbz -o x.gbz.db >/dev/null 2>&1
+    gaf-base construct sim.gaf -o sim.gaf.db --overwrite >/dev/null 2>&1
 
-    vg call x.vg -k x.pack --read-likelihood --gaf-reads sim.gaf -t 1 2>/dev/null > rl_gafmem.vcf
-    vg call x.vg -k x.pack --read-likelihood --gaf-base sim.gaf.db --gbz-base x.gbz.db -t 1 2>/dev/null > rl_gafbase.vcf
+    vg call x.vg -k x.pack --read-likelihood --gaf-base sim.gaf.db -t 1 2>/dev/null > rl_gafbase.vcf
     GAFBASE_RAN="$?"
     diff <(grep -v "^#" rl_gafmem.vcf) <(grep -v "^#" rl_gafbase.vcf) >/dev/null
     GAFBASE_SAME="$?"
 
-    # Several threads, each with its own cache and output file.
-    vg call x.vg -k x.pack --read-likelihood --gaf-base sim.gaf.db --gbz-base x.gbz.db -t 4 2>/dev/null > rl_gafbase_t4.vcf
+    vg call x.vg -k x.pack --read-likelihood --gaf-base sim.gaf.db -t 4 2>/dev/null > rl_gafbase_t4.vcf
     diff <(grep -v "^#" rl_gafbase.vcf) <(grep -v "^#" rl_gafbase_t4.vcf) >/dev/null
     GAFBASE_THREADS="$?"
 
-    # The window is a performance knob and must not change what is called.
-    vg call x.vg -k x.pack --read-likelihood --gaf-base sim.gaf.db --gbz-base x.gbz.db --read-window 32 -t 1 2>/dev/null > rl_gafbase_w32.vcf
+    vg call x.vg -k x.pack --read-likelihood --gaf-base sim.gaf.db --read-window 32 -t 1 2>/dev/null > rl_gafbase_w32.vcf
     diff <(grep -v "^#" rl_gafbase.vcf) <(grep -v "^#" rl_gafbase_w32.vcf) >/dev/null
     GAFBASE_WINDOW="$?"
 else
@@ -1018,10 +1062,10 @@ else
     GAFBASE_WINDOW="0"
 fi
 
-is "$GAFBASE_RAN" "0" "--gaf-base runs$GAFBASE_NOTE"
-is "$GAFBASE_SAME" "0" "GAF-Base read source produces identical calls to the in-memory one$GAFBASE_NOTE"
-is "$GAFBASE_THREADS" "0" "GAF-Base calls do not depend on the thread count$GAFBASE_NOTE"
-is "$GAFBASE_WINDOW" "0" "GAF-Base calls do not depend on the read window size$GAFBASE_NOTE"
+is "$GAFBASE_RAN" "0" "--gaf-base runs with gaf-base$GAFBASE_NOTE"
+is "$GAFBASE_SAME" "0" "gaf-base produces identical calls to the in-memory GAF$GAFBASE_NOTE"
+is "$GAFBASE_THREADS" "0" "gaf-base calls do not depend on the thread count$GAFBASE_NOTE"
+is "$GAFBASE_WINDOW" "0" "gaf-base calls do not depend on the read window size$GAFBASE_NOTE"
 
 
 # --- nested calling: symbolic alleles and ploidy propagation ------------------
@@ -2032,7 +2076,7 @@ rm -f rl_anchors.tsv rl_anchors.vcf rl_anchors.err rl_anchors_hom.tsv rl_anchors
       rl_anchors_nopanel.tsv rl_anchors_sp.tsv rl_anchors_ph.tsv rl_anchors_ph.vcf \
       rl_phase_off.vcf rl_phase_on.vcf rl_phase_forced.vcf rl_phase_forced.err
 
-rm -f chainblk.gfa chainblk.gbz chainblk.gam chainblk.vcf nestblk.mosaic.tsv nestblk_mosaic.err nest_del.gam nest_del_lw0.vcf nest_del_link.vcf nest_hap_anchors.tsv nest_hap_anchors.vcf nestblk.gfa nestblk.gbz nestblk.gam nestblk.vcf nestdup.gfa nestdup.gbz nestdup.gam nestdup.vcf blkleaf.gfa blkleaf.gbz blkleaf.gam blkleaf.vcf blksame.gfa blksame.gbz blksame.gam blksame.vcf blksame.err blktwice.gfa blktwice.gbz blktwice.gam blktwice.vcf blktwice.err nest.gfa nest.gbz nest.gam nest_default.vcf nest_nested.vcf nest_hap.gam nest_hap.vcf nest_hap_err.txt nest_hap.mosaic.tsv x.vg x.gbz x.gbwt sim.gam x.pack call.vcf callg.vcf callz.vcf callg.6 callz.6 callrl_nopack.vcf callrl_nopack_z.vcf callrl_withpack.vcf nopack_err.txt sim.sorted.gam sim.sorted.gam.gai rl_inmem.vcf rl_indexed.vcf gi_err.txt gb_err.txt gb_excl.txt gb_norl.txt gb_nobin.txt sim.gaf sim.gaf.db x.gbz.db rl_gafmem.vcf rl_gafbase.vcf rl_gafbase_t4.vcf rl_gafbase_w32.vcf rl_autoz_full.vcf rl_autoz.vcf rl_explicit_z.vcf rl_support_full.vcf rl_support.vcf es_nopack.txt es_z.txt es_g.txt nopanel.vg nopanel.gbwt nopanel.gbz nopanel.pack nopanel_err.txt poisson_default.vcf poisson_z.vcf rl_phased.vcf rl_default.vcf rl_nophase.vcf rl_nopanel.vcf rl_nopanel_err.txt rl_unphased_gt.txt rl_phased_gt.txt rl_ph_err.txt rl_mosaic.tsv rl_mosaic2.tsv rl_hap.vcf rl_hap_mosaic.tsv
+rm -f chainblk.gfa chainblk.gbz chainblk.gam chainblk.vcf nestblk.mosaic.tsv nestblk_mosaic.err nest_del.gam nest_del_lw0.vcf nest_del_link.vcf nest_hap_anchors.tsv nest_hap_anchors.vcf nestblk.gfa nestblk.gbz nestblk.gam nestblk.vcf nestdup.gfa nestdup.gbz nestdup.gam nestdup.vcf blkleaf.gfa blkleaf.gbz blkleaf.gam blkleaf.vcf blksame.gfa blksame.gbz blksame.gam blksame.vcf blksame.err blktwice.gfa blktwice.gbz blktwice.gam blktwice.vcf blktwice.err nest.gfa nest.gbz nest.gam nest_default.vcf nest_nested.vcf nest_hap.gam nest_hap.vcf nest_hap_err.txt nest_hap.mosaic.tsv x.vg x.gbz x.gbwt sim.gam x.pack call.vcf callg.vcf callz.vcf callg.6 callz.6 callrl_nopack.vcf callrl_nopack_z.vcf callrl_withpack.vcf nopack_err.txt sim.sorted.gam sim.sorted.gam.gai rl_inmem.vcf rl_indexed.vcf gi_err.txt gb_excl.txt gb_norl.txt gb_nobin.txt gb_dead.txt sim.gaf sim.unsorted.gaf sim.gaf.db fake_gaf_base dead_gaf_base rl_gafmem.vcf rl_fakebase.vcf rl_fakebase_t4.vcf rl_fakebase_w32.vcf rl_gafbase.vcf rl_gafbase_t4.vcf rl_gafbase_w32.vcf rl_autoz_full.vcf rl_autoz.vcf rl_explicit_z.vcf rl_support_full.vcf rl_support.vcf es_nopack.txt es_z.txt es_g.txt nopanel.vg nopanel.gbwt nopanel.gbz nopanel.pack nopanel_err.txt poisson_default.vcf poisson_z.vcf rl_phased.vcf rl_default.vcf rl_nophase.vcf rl_nopanel.vcf rl_nopanel_err.txt rl_unphased_gt.txt rl_phased_gt.txt rl_ph_err.txt rl_mosaic.tsv rl_mosaic2.tsv rl_hap.vcf rl_hap_mosaic.tsv
 
 
 # subpath test

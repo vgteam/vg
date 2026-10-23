@@ -14,6 +14,7 @@
 #include <cstdlib>
 #include <fcntl.h>
 #include <spawn.h>
+#include <sys/socket.h>
 #include <sys/resource.h>
 #include <sys/stat.h>
 #include <sys/time.h>
@@ -28,7 +29,7 @@
 #include "path.hpp"
 #include "utility.hpp"
 
-/// The environment to hand a spawned gbz-base.
+/// The environment to hand a spawned gaf-base.
 ///
 /// It is declared rather than included because the header that provides it differs between
 /// platforms.
@@ -1412,385 +1413,6 @@ void IndexedGamSiteReadSource::fetch_span(const vector<pair<nid_t, nid_t>>& rang
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// GafBaseSiteReadSource
-////////////////////////////////////////////////////////////////////////////////
-
-GafBaseSiteReadSource::GafBaseSiteReadSource(const HandleGraph& graph,
-                                             const string& gaf_base_filename,
-                                             const string& gbz_filename,
-                                             const SiteReadFilter& filter,
-                                             size_t window_size,
-                                             size_t cache_entries,
-                                             const string& binary)
-    : WindowedSiteReadSource(filter, window_size, cache_entries),
-      graph(graph),
-      gaf_base_filename(gaf_base_filename),
-      gbz_filename(gbz_filename),
-      binary(binary),
-      gbz_argument(gbz_filename),
-      gaf_base_argument(gaf_base_filename) {
-
-    const char* locking = getenv("VG_GAFBASE_LOCKING");
-    immutable = !(locking != nullptr && string(locking) == "1");
-    if (immutable) {
-        gbz_argument = immutable_uri(gbz_filename);
-        gaf_base_argument = immutable_uri(gaf_base_filename);
-    }
-
-    const char* log_path = getenv("VG_GAFBASE_QUERY_LOG");
-    if (log_path != nullptr && *log_path != '\0') {
-        query_log = fopen(log_path, "w");
-        if (query_log == nullptr) {
-            throw runtime_error("cannot write VG_GAFBASE_QUERY_LOG " + string(log_path) + ": " +
-                                strerror(errno));
-        }
-        // Buffer by line, so the log is complete up to the last finished query however vg ends.
-        setvbuf(query_log, nullptr, _IOLBF, 0);
-        fprintf(query_log, "#start_epoch\twait_s\tuser_s\tsystem_s\tmax_rss_kb\texit\tn_nodes\t"
-                           "first_node\tlast_node\tgaf_bytes\tnodes_hash\tmode\tparse_s\t"
-                           "reads_parsed\tthread\n");
-    }
-}
-
-GafBaseSiteReadSource::QueryTotals GafBaseSiteReadSource::get_query_totals() const {
-    QueryTotals totals;
-    totals.queries = queries.load();
-    totals.wait_s = wait_us.load() / 1e6;
-    totals.child_user_s = child_user_us.load() / 1e6;
-    totals.child_system_s = child_system_us.load() / 1e6;
-    totals.parse_s = parse_us.load() / 1e6;
-    totals.gaf_bytes = gaf_bytes_total.load();
-    return totals;
-}
-
-string GafBaseSiteReadSource::immutable_uri(const string& path) {
-    // Only a SQLite database takes locks. gbz-base passes a database path straight to SQLite,
-    // which reads a `file:` name as a URI. Any other file, such as a plain GBZ given as the graph,
-    // keeps its path, since gbz-base recognises a GBZ by opening the file under the name it is
-    // given.
-    {
-        static constexpr array<char, 16> SQLITE_HEADER{'S', 'Q', 'L', 'i', 't', 'e', ' ', 'f',
-                                                       'o', 'r', 'm', 'a', 't', ' ', '3', '\0'};
-        array<char, 16> header{};
-        ifstream in(path, ios::binary);
-        if (!in.read(header.data(), header.size()) || header != SQLITE_HEADER) {
-            return path;
-        }
-    }
-    // realpath allocates its result with malloc, so it is released with free.
-    char* real = realpath(path.c_str(), nullptr);
-    if (real == nullptr) {
-        throw runtime_error("cannot resolve database path " + path + ": " + strerror(errno));
-    }
-    string absolute = real;
-    free(real);
-    if (absolute.find_first_of("?#%") != string::npos) {
-        // These characters would have to be escaped in a URI. Rather than get that subtly wrong,
-        // refuse, and say how to go back to plain paths.
-        throw runtime_error("database path " + absolute + " contains ?, # or %; set "
-                            "VG_GAFBASE_LOCKING=1 to give gbz-base the plain path");
-    }
-    return "file:" + absolute + "?immutable=1";
-}
-
-GafBaseSiteReadSource::~GafBaseSiteReadSource() {
-    if (query_log != nullptr) {
-        fclose(query_log);
-    }
-    threads.for_each([](const ThreadState& state) {
-        for (const string& path : state.gaf_paths) {
-            temp_file::remove(path);
-        }
-    });
-}
-
-GafBaseSiteReadSource::ThreadState& GafBaseSiteReadSource::thread_state() const {
-    return threads.mine();
-}
-
-const string& GafBaseSiteReadSource::gaf_path(ThreadState& state, size_t slot) const {
-    // temp_file::create holds a lock, so threads can create files at the same time.
-    while (state.gaf_paths.size() <= slot) {
-        state.gaf_paths.push_back(temp_file::create("vg-gafbase-reads-"));
-    }
-    return state.gaf_paths[slot];
-}
-
-size_t GafBaseSiteReadSource::argv_node_budget() {
-    static const size_t budget = [](){
-        long arg_max = sysconf(_SC_ARG_MAX);
-        if (arg_max <= 0) {
-            // Guess, since POSIX only guarantees 4096.
-            arg_max = 262144;
-        }
-        // Each node costs "-n" and the ID, each NUL-terminated. Node IDs here run to ten digits.
-        const size_t per_node = 3 + 11;
-        const size_t from_limit = (size_t)arg_max / 4 / per_node;
-        // Ask for at least 4096 and at most 65536 node IDs per child.
-        return min<size_t>(max<size_t>(4096, from_limit), 65536);
-    }();
-    return budget;
-}
-
-GafBaseSiteReadSource::PendingQuery GafBaseSiteReadSource::spawn_query(
-    ThreadState& state, size_t slot, const vector<nid_t>& nodes) const {
-
-    // Build argv. A context of 0 keeps the subgraph to the nodes we asked for, since the default
-    // context would pull in reads no site here wants. Asking for `overlapping` alignments returns
-    // each read whole. The default, `clipped`, can cut one read into several pieces, which would
-    // put one read in several rows of the likelihood matrix.
-    vector<string> args{binary, "query", gbz_argument};
-    args.reserve(args.size() + 2 * nodes.size() + 8);
-    for (nid_t node : nodes) {
-        args.emplace_back("-n");
-        args.push_back(to_string(node));
-    }
-    args.emplace_back("--context");
-    args.emplace_back("0");
-    args.emplace_back("--gaf-base");
-    args.push_back(gaf_base_argument);
-    args.emplace_back("--gaf-output");
-    args.push_back(gaf_path(state, slot));
-    args.emplace_back("--alignments");
-    args.emplace_back("overlapping");
-
-    vector<const char*> argv;
-    argv.reserve(args.size() + 1);
-    for (const string& arg : args) {
-        argv.push_back(arg.c_str());
-    }
-    argv.push_back(nullptr);
-
-    // Capture stderr so a failure can say why, rather than just reporting a code.
-    string err_path = gaf_path(state, slot) + ".err";
-
-    // Use posix_spawn rather than fork and exec. fork() in a process whose threads are allocating
-    // makes libc hold a lock around malloc, stalling the other threads. posix_spawn does not copy
-    // the address space, so there is no such lock, and no stdio buffers need flushing.
-    posix_spawn_file_actions_t actions;
-    if (posix_spawn_file_actions_init(&actions) != 0) {
-        throw runtime_error("posix_spawn_file_actions_init() failed: " + string(strerror(errno)));
-    }
-    // Discard the subgraph GFA that gbz-base writes to stdout. The reads go to the GAF output file.
-    posix_spawn_file_actions_addopen(&actions, STDOUT_FILENO, "/dev/null", O_WRONLY, 0);
-    posix_spawn_file_actions_addopen(&actions, STDERR_FILENO, err_path.c_str(),
-                                     O_WRONLY | O_CREAT | O_TRUNC, 0600);
-
-    PendingQuery pending;
-    pending.started = std::chrono::steady_clock::now();
-    {
-        struct timeval now;
-        gettimeofday(&now, nullptr);
-        pending.started_epoch = now.tv_sec + now.tv_usec / 1e6;
-    }
-
-    pid_t pid = 0;
-    // posix_spawnp does not modify argv, but its C signature cannot say so.
-    int spawn_err = posix_spawnp(&pid, binary.c_str(), &actions, nullptr,
-                                 const_cast<char* const*>(argv.data()), environ);
-    posix_spawn_file_actions_destroy(&actions);
-    if (spawn_err != 0) {
-        if (spawn_err == ENOENT) {
-            throw runtime_error("could not execute '" + binary + "'. Install gbz-base "
-                                "(https://github.com/jltsiren/gbz-base) and put it on your "
-                                "PATH, or pass --gaf-base-binary with its location.");
-        }
-        throw runtime_error("posix_spawnp() failed for " + binary + ": " + strerror(spawn_err));
-    }
-
-    ++queries;
-    pending.pid = pid;
-    pending.n_nodes = nodes.size();
-    pending.first_node = nodes.front();
-    pending.last_node = nodes.back();
-    uint64_t hash = 1469598103934665603ULL;
-    for (nid_t node : nodes) {
-        hash = (hash ^ (uint64_t)node) * 1099511628211ULL;
-    }
-    pending.nodes_hash = hash;
-    pending.gaf_path = gaf_path(state, slot);
-    pending.err_path = std::move(err_path);
-    return pending;
-}
-
-size_t GafBaseSiteReadSource::reap_query(const PendingQuery& pending,
-                                         const function<void(Alignment&)>& iteratee) const {
-    int child_stat = 0;
-    // Use wait4 rather than waitpid, since it also reports the child's CPU time.
-    struct rusage usage;
-    memset(&usage, 0, sizeof(usage));
-    while (wait4(pending.pid, &child_stat, 0, &usage) == -1) {
-        if (errno != EINTR) {
-            throw runtime_error("wait4() failed for " + binary + ": " + strerror(errno));
-        }
-    }
-    auto reaped = std::chrono::steady_clock::now();
-    const string& err_path = pending.err_path;
-
-    int ret = WIFEXITED(child_stat) ? WEXITSTATUS(child_stat) : -1;
-    if (ret != 0) {
-        string message;
-        {
-            ifstream err_in(err_path);
-            stringstream buffer;
-            buffer << err_in.rdbuf();
-            message = buffer.str();
-        }
-        unlink(err_path.c_str());
-        // posix_spawnp reports a missing binary as ENOENT, so an exit code of 127 here comes from
-        // gbz-base itself.
-        throw runtime_error(binary + " query failed with exit code " + to_string(ret) +
-                            (message.empty() ? "" : ": " + message));
-    }
-    unlink(err_path.c_str());
-
-    struct stat gaf_stat;
-    size_t gaf_bytes = stat(pending.gaf_path.c_str(), &gaf_stat) == 0 ? (size_t)gaf_stat.st_size : 0;
-
-    size_t parsed = 0;
-    vg::io::gaf_unpaired_for_each(graph, pending.gaf_path, [&](Alignment& aln) {
-        ++parsed;
-        if (!passes_filter(aln)) {
-            return;
-        }
-        count_fetched();
-        iteratee(aln);
-    });
-    auto parsed_at = std::chrono::steady_clock::now();
-
-    auto micros = [](auto d) {
-        return (uint64_t)std::chrono::duration_cast<std::chrono::microseconds>(d).count();
-    };
-    auto tv_micros = [](const struct timeval& tv) {
-        return (uint64_t)tv.tv_sec * 1000000 + (uint64_t)tv.tv_usec;
-    };
-    uint64_t waited = micros(reaped - pending.started);
-    // The iteratee runs inside the parse, so this is parsing plus whatever the caller does with
-    // each read.
-    uint64_t parsing = micros(parsed_at - reaped);
-    uint64_t user = tv_micros(usage.ru_utime);
-    uint64_t system = tv_micros(usage.ru_stime);
-    wait_us += waited;
-    parse_us += parsing;
-    child_user_us += user;
-    child_system_us += system;
-    gaf_bytes_total += gaf_bytes;
-    if (query_log != nullptr) {
-        std::scoped_lock lock(query_log_mutex);
-        fprintf(query_log, "%.6f\t%.3f\t%.3f\t%.3f\t%ld\t%d\t%zu\t%lld\t%lld\t%zu\t%016llx\t%s\t%.3f\t%zu\t%d\n",
-                pending.started_epoch, waited / 1e6, user / 1e6, system / 1e6, usage.ru_maxrss, ret,
-                pending.n_nodes, (long long)pending.first_node, (long long)pending.last_node, gaf_bytes,
-                (unsigned long long)pending.nodes_hash, immutable ? "immutable" : "locking",
-                parsing / 1e6, parsed, omp_get_thread_num());
-    }
-    return parsed;
-}
-
-size_t GafBaseSiteReadSource::run_query(ThreadState& state, const vector<nid_t>& nodes,
-                                        const function<void(Alignment&)>& iteratee) const {
-    if (nodes.empty()) {
-        return 0;
-    }
-    PendingQuery pending = spawn_query(state, 0, nodes);
-    return reap_query(pending, iteratee);
-}
-
-void GafBaseSiteReadSource::fetch_span(const vector<pair<nid_t, nid_t>>& ranges,
-                                       const function<void(Alignment&)>& iteratee) const {
-    // Ask only for node IDs that exist. ID space is not dense, and gbz-base is entitled to
-    // complain about a node that is not there.
-    vector<nid_t> nodes;
-    for (const auto& [first, last] : ranges) {
-        for (nid_t id = max<nid_t>(1, first); id <= last; ++id) {
-            if (graph.has_node(id)) {
-                nodes.push_back(id);
-            }
-        }
-    }
-    if (nodes.empty()) {
-        return;
-    }
-
-    ThreadState& state = thread_state();
-
-    // Drop reads returned more than once, whether or not the query was split. A repeated read
-    // would be a second row for the same alignment in the likelihood matrix.
-    auto deduped = [&](const function<void(Alignment&)>& emit) {
-        auto seen = make_shared<unordered_set<string>>();
-        return [&emit, seen, this](Alignment& aln) {
-            if (seen->insert(name_and_start(aln)).second) {
-                emit(aln);
-            } else {
-                ++duplicates_dropped;
-            }
-        };
-    };
-
-    if (nodes.size() <= max_query_nodes) {
-        run_query_or_die(state, nodes, deduped(iteratee));
-        return;
-    }
-
-    // There are too many nodes for one command line, so split the query and run the pieces at the
-    // same time. The work is mostly the children's, so waiting for each in turn would leave this
-    // thread idle. The pieces are reaped in order, so the order in which reads reach the caller
-    // does not depend on which child finishes first.
-    try {
-        vector<PendingQuery> pending;
-        for (size_t start = 0, slot = 0; start < nodes.size();
-             start += max_query_nodes, ++slot) {
-            size_t end = min(start + max_query_nodes, nodes.size());
-            vector<nid_t> chunk(nodes.begin() + start, nodes.begin() + end);
-            pending.push_back(spawn_query(state, slot, chunk));
-        }
-
-        // A read spanning two pieces comes back from both, so one filter for repeats spans every
-        // piece.
-        auto emit = deduped(iteratee);
-        for (const PendingQuery& query : pending) {
-            reap_query(query, emit);
-        }
-    } catch (const std::exception& e) {
-        // Calling happens inside an OpenMP parallel region, which an exception must not leave.
-        cerr << "error[vg::GafBaseSiteReadSource] " << e.what() << endl;
-        exit(EXIT_FAILURE);
-    }
-}
-
-void GafBaseSiteReadSource::run_query_or_die(ThreadState& state, const vector<nid_t>& nodes,
-                                             const function<void(Alignment&)>& iteratee) const {
-    // A failed query means this site cannot be scored correctly, so stop.
-    try {
-        run_query(state, nodes, iteratee);
-    } catch (const std::exception& e) {
-        cerr << "error[vg::GafBaseSiteReadSource] " << e.what() << endl;
-        exit(EXIT_FAILURE);
-    }
-}
-
-void GafBaseSiteReadSource::check_setup() const {
-    // Query the first node in the graph. A missing binary, an unreadable database or a mismatched
-    // graph fails here.
-    nid_t probe = 0;
-    graph.for_each_handle((function<bool(const handle_t&)>)[&](const handle_t& handle) {
-        probe = graph.get_id(handle);
-        return false;
-    });
-    if (probe == 0) {
-        return;
-    }
-
-    ThreadState& state = thread_state();
-    run_query(state, vector<nid_t>{probe}, [](const Alignment&) {
-        // Only whether the query runs matters.
-    });
-}
-
-size_t GafBaseSiteReadSource::get_query_count() const {
-    return queries.load();
-}
-
-////////////////////////////////////////////////////////////////////////////////
 // TabixGafSiteReadSource
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -1806,8 +1428,8 @@ struct GafRecordScan {
 
 namespace {
 
-/// The most node IDs between two ranges that are looked up in the index together, as gbz-base
-/// groups a query's nodes.
+/// The most node IDs between two ranges that are looked up together, in the tabix index or in one
+/// gaf-base query.
 ///
 /// A site whose nodes are scattered over a wide span of IDs then costs a few lookups rather than
 /// one per range, without reading every record in the whole span.
@@ -1956,18 +1578,23 @@ struct LineBuffer {
 };
 
 /**
- * A parser that turns the records of one tabix fetch into Alignments, and drops the records whose
+ * A parser that turns the GAF records of one fetch into Alignments, and drops the records whose
  * path visits none of the fetch's nodes.
  *
- * The index says only that a record's node interval overlaps the fetch. Its path can still step
- * over every node the fetch names, and gbz-base does not return such a read. Most such records are
- * dropped from what the reader saw on their path, without being parsed.
+ * A tabix index says only that a record's node interval overlaps the fetch, and gaf-base is asked
+ * for runs of nearby ranges as one range. Either way a record's path can step over every node the
+ * fetch names. Most such records are dropped from what the reader saw on their path, without being
+ * parsed.
  */
-class TabixRecordParser {
+class GafFetchParser {
 public:
     /// Make a parser for a fetch of the merged ranges, on the graph the reads were aligned to.
-    TabixRecordParser(const HandleGraph& graph, const vector<pair<nid_t, nid_t>>& merged)
-        : graph(graph), merged(merged) {}
+    ///
+    /// The optional fields named in `dropped_tags` are left out of the Alignments. They are
+    /// about where the backend keeps a record, not about the read.
+    GafFetchParser(const HandleGraph& graph, const vector<pair<nid_t, nid_t>>& merged,
+                   vector<string> dropped_tags = {})
+        : graph(graph), merged(merged), dropped_tags(std::move(dropped_tags)) {}
 
     /// Parse a record, and return its alignment, or null if the record is a header or visits none
     /// of the fetch's nodes.
@@ -1986,6 +1613,10 @@ public:
         }
         auto parse_start = std::chrono::steady_clock::now();
         gafkluge::parse_gaf_record(string(text, length), record);
+        for (const string& tag : dropped_tags) {
+            // An unknown tag would otherwise go into the Alignment's annotations.
+            record.opt_fields.erase(tag);
+        }
         vg::io::gaf_to_alignment(graph, record, aln);
         parse_us += micros_since(parse_start);
         if (!WindowedSiteReadSource::touches(aln, merged)) {
@@ -2005,6 +1636,8 @@ public:
 private:
     const HandleGraph& graph;
     const vector<pair<nid_t, nid_t>>& merged;
+    /// The optional fields left out of the Alignments.
+    vector<string> dropped_tags;
     /// The record being parsed.
     gafkluge::GafRecord record;
     /// The alignment of the last record parsed.
@@ -2121,7 +1754,7 @@ size_t TabixGafSiteReadSource::fetch_span_keyed(
         // Merge the ranges, to test records against by binary search, since a site can name tens
         // of thousands of ranges.
         const vector<pair<nid_t, nid_t>> merged = merge_ranges(ranges);
-        TabixRecordParser parser(graph, merged);
+        GafFetchParser parser(graph, merged);
 
         // Pass on each read once, as GafBaseSiteReadSource does.
         unordered_set<string> seen;
@@ -2193,6 +1826,624 @@ size_t TabixGafSiteReadSource::fetch_span_keyed(
         exit(EXIT_FAILURE);
     }
     return fetch_dropped;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// GafBaseSiteReadSource
+////////////////////////////////////////////////////////////////////////////////
+
+namespace {
+
+/// The tag `gaf-base batch --ids` puts on each line for the database row of the alignment's block.
+constexpr char GAF_BASE_ROW_TAG[] = "ri";
+/// The tag `gaf-base batch --ids` puts on each line for the alignment's offset in its block.
+constexpr char GAF_BASE_OFFSET_TAG[] = "ro";
+
+/// Return the value of the integer tag `tag` on a GAF line, or -1 if the line has none.
+///
+/// gaf-base writes its position tags last, so the search runs from the end of the line. A field
+/// holds no tab, so each tab starts a field.
+int64_t find_int_tag(const char* line, size_t length, const char* tag) {
+    for (size_t i = length; i-- > 0;) {
+        if (line[i] != '\t' || i + 6 > length) {
+            continue;
+        }
+        if (line[i + 1] == tag[0] && line[i + 2] == tag[1] && line[i + 3] == ':' && line[i + 4] == 'i'
+            && line[i + 5] == ':') {
+            int64_t value = 0;
+            size_t j = i + 6;
+            for (; j < length && j < i + 6 + 18 && isdigit((unsigned char)line[j]); ++j) {
+                value = value * 10 + (line[j] - '0');
+            }
+            return j > i + 6 ? value : -1;
+        }
+    }
+    return -1;
+}
+
+/// Return the key of a line from `gaf-base batch --ids`: the row of the alignment's block in the
+/// high 32 bits and its offset in the block in the low 32 bits.
+///
+/// Keys order lines as the database holds them, which is the order of the GAF it was built from.
+/// Throws if the line has no position.
+uint64_t gaf_base_record_key(const char* line, size_t length) {
+    const int64_t row = find_int_tag(line, length, GAF_BASE_ROW_TAG);
+    const int64_t offset = find_int_tag(line, length, GAF_BASE_OFFSET_TAG);
+    constexpr int64_t most = numeric_limits<uint32_t>::max();
+    if (row < 0 || offset < 0 || row > most || offset > most) {
+        throw runtime_error("gaf-base returned a line without its position in the database "
+                            "(the ri and ro tags of --ids): " + string(line, min<size_t>(length, 60)));
+    }
+    return ((uint64_t)row << 32) | (uint64_t)offset;
+}
+
+/// Return whether the path of a GAF line may visit a node in the merged ranges, from its text.
+///
+/// It is false only when every step of the path is a plain node ID outside the ranges.
+bool line_may_touch(const char* line, size_t length, const vector<pair<nid_t, nid_t>>& merged) {
+    const char* stop = line + length;
+    const char* path = find_path_column(line, stop);
+    if (path == nullptr) {
+        // Let the parser report the line.
+        return true;
+    }
+    const auto* path_end = (const char*)memchr(path, '\t', stop - path);
+    if (path_end == nullptr) {
+        path_end = stop;
+    }
+    NodeInterval interval;
+    bool may_touch = false;
+    if (!scan_plain_path(path, path_end, merged, interval, may_touch)) {
+        return true;
+    }
+    return may_touch;
+}
+
+/// Write all of `text` to a socket, and return false, with errno set, if that fails.
+///
+/// A socket whose other end has closed fails the write rather than raising SIGPIPE.
+bool send_all(int fd, const string& text) {
+#ifdef MSG_NOSIGNAL
+    const int flags = MSG_NOSIGNAL;
+#else
+    // The socket was set up with SO_NOSIGPIPE instead.
+    const int flags = 0;
+#endif
+    size_t sent = 0;
+    while (sent < text.size()) {
+        ssize_t n = send(fd, text.data() + sent, text.size() - sent, flags);
+        if (n < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            return false;
+        }
+        sent += (size_t)n;
+    }
+    return true;
+}
+
+/// Guards the making of the descriptors for a gaf-base process until the process has started.
+///
+/// They are made close-on-exec in a separate step, which is not atomic everywhere, so no other
+/// process may start in between and inherit them. A process that inherited the end of another's
+/// query socket would keep that process from ever seeing the end of its input.
+std::mutex spawn_mutex;
+
+/// Make a descriptor close in any process started from now on.
+void close_on_exec(int fd) {
+    fcntl(fd, F_SETFD, fcntl(fd, F_GETFD) | FD_CLOEXEC);
+}
+
+/// Count a fetch as in progress on its thread for as long as this exists (see
+/// GafBaseSiteReadSource::ThreadState).
+struct FetchDepth {
+    size_t& depth;
+    explicit FetchDepth(size_t& depth) : depth(depth) { ++depth; }
+    ~FetchDepth() { --depth; }
+};
+
+} // namespace
+
+GafBaseSiteReadSource::GafBaseSiteReadSource(const HandleGraph& graph,
+                                             const string& gaf_base_filename,
+                                             const SiteReadFilter& filter,
+                                             size_t window_size,
+                                             size_t cache_entries,
+                                             const string& binary,
+                                             const vector<string>& batch_arguments)
+    : WindowedSiteReadSource(filter, window_size, cache_entries),
+      graph(graph),
+      gaf_base_filename(gaf_base_filename),
+      binary(binary),
+      batch_arguments(batch_arguments),
+      database_argument(gaf_base_filename) {
+
+    const char* locking = getenv("VG_GAFBASE_LOCKING");
+    immutable = !(locking != nullptr && string(locking) == "1");
+    if (immutable) {
+        database_argument = immutable_uri(gaf_base_filename);
+    }
+
+    const char* progress = getenv("VG_GAFBASE_PROGRESS_DIR");
+    if (progress != nullptr && *progress != '\0') {
+        progress_dir = progress;
+    }
+
+    const char* log_path = getenv("VG_GAFBASE_QUERY_LOG");
+    if (log_path != nullptr && *log_path != '\0') {
+        query_log = fopen(log_path, "w");
+        if (query_log == nullptr) {
+            throw runtime_error("cannot write VG_GAFBASE_QUERY_LOG " + string(log_path) + ": " +
+                                strerror(errno));
+        }
+        // Buffer by line, so the log is complete up to the last finished query however vg ends.
+        setvbuf(query_log, nullptr, _IOLBF, 0);
+        fprintf(query_log, "#start_epoch\tprocess\tfirst_node\tlast_node\tlines\tgaf_bytes\twait_s\t"
+                           "total_s\n");
+    }
+}
+
+GafBaseSiteReadSource::~GafBaseSiteReadSource() {
+    stop_processes();
+    if (query_log != nullptr) {
+        fclose(query_log);
+    }
+}
+
+string GafBaseSiteReadSource::immutable_uri(const string& path) {
+    // Only a SQLite database takes locks. gaf-base passes the database argument straight to
+    // SQLite, which reads a `file:` name as a URI. Any other file keeps its path, so gaf-base can
+    // say what is wrong with it.
+    {
+        static constexpr array<char, 16> SQLITE_HEADER{'S', 'Q', 'L', 'i', 't', 'e', ' ', 'f',
+                                                       'o', 'r', 'm', 'a', 't', ' ', '3', '\0'};
+        array<char, 16> header{};
+        ifstream in(path, ios::binary);
+        if (!in.read(header.data(), header.size()) || header != SQLITE_HEADER) {
+            return path;
+        }
+    }
+    // realpath allocates its result with malloc, so it is released with free.
+    char* real = realpath(path.c_str(), nullptr);
+    if (real == nullptr) {
+        throw runtime_error("cannot resolve database path " + path + ": " + strerror(errno));
+    }
+    string absolute = real;
+    free(real);
+    if (absolute.find_first_of("?#%") != string::npos) {
+        // These characters would have to be escaped in a URI. Rather than get that subtly wrong,
+        // refuse, and say how to go back to plain paths.
+        throw runtime_error("database path " + absolute + " contains ?, # or %; set "
+                            "VG_GAFBASE_LOCKING=1 to give gaf-base the plain path");
+    }
+    return "file:" + absolute + "?immutable=1";
+}
+
+unique_ptr<GafBaseSiteReadSource::Process> GafBaseSiteReadSource::start_process() const {
+    auto process = make_unique<Process>();
+    process->number = processes++;
+    if (!progress_dir.empty()) {
+        process->err_path = progress_dir + "/gaf-base." + to_string(process->number) + ".log";
+        process->keep_err = true;
+    } else {
+        // temp_file::create holds a lock, so threads can create files at the same time.
+        process->err_path = temp_file::create("vg-gafbase-err-");
+    }
+
+    // --ids tags each line with its position in the database, which keys the reads.
+    vector<string> args{binary, "batch", "--ids"};
+    if (!progress_dir.empty()) {
+        args.emplace_back("--progress");
+    }
+    args.insert(args.end(), batch_arguments.begin(), batch_arguments.end());
+    args.push_back(database_argument);
+    vector<char*> argv;
+    argv.reserve(args.size() + 1);
+    for (string& arg : args) {
+        argv.push_back(arg.data());
+    }
+    argv.push_back(nullptr);
+
+    int query_sockets[2] = {-1, -1};
+    int answer_pipe[2] = {-1, -1};
+    pid_t pid = 0;
+    int spawn_err = 0;
+    {
+        std::scoped_lock guard(spawn_mutex);
+        if (socketpair(AF_UNIX, SOCK_STREAM, 0, query_sockets) != 0) {
+            throw runtime_error("cannot make a socket for gaf-base: " + string(strerror(errno)));
+        }
+        if (pipe(answer_pipe) != 0) {
+            int err = errno;
+            close(query_sockets[0]);
+            close(query_sockets[1]);
+            throw runtime_error("cannot make a pipe for gaf-base: " + string(strerror(err)));
+        }
+        for (int fd : {query_sockets[0], query_sockets[1], answer_pipe[0], answer_pipe[1]}) {
+            close_on_exec(fd);
+        }
+
+        // Use posix_spawn rather than fork and exec. fork() in a process whose threads are
+        // allocating makes libc hold a lock around malloc, stalling the other threads. posix_spawn
+        // does not copy the address space, so there is no such lock, and no stdio buffers need
+        // flushing. dup2 gives the process its ends without the close-on-exec flag.
+        posix_spawn_file_actions_t actions;
+        if (posix_spawn_file_actions_init(&actions) != 0) {
+            spawn_err = errno;
+        } else {
+            posix_spawn_file_actions_adddup2(&actions, query_sockets[1], STDIN_FILENO);
+            posix_spawn_file_actions_adddup2(&actions, answer_pipe[1], STDOUT_FILENO);
+            // Capture stderr so a failure can say why, rather than just reporting a code.
+            posix_spawn_file_actions_addopen(&actions, STDERR_FILENO, process->err_path.c_str(),
+                                             O_WRONLY | O_CREAT | O_TRUNC, 0600);
+            spawn_err = posix_spawnp(&pid, binary.c_str(), &actions, nullptr, argv.data(), environ);
+            posix_spawn_file_actions_destroy(&actions);
+        }
+    }
+    // The process has its own copies of its ends.
+    close(query_sockets[1]);
+    close(answer_pipe[1]);
+    if (spawn_err != 0) {
+        close(query_sockets[0]);
+        close(answer_pipe[0]);
+        if (!process->keep_err) {
+            temp_file::remove(process->err_path);
+        }
+        if (spawn_err == ENOENT) {
+            throw runtime_error("could not execute '" + binary + "'. Install gbz-base "
+                                "(https://github.com/jltsiren/gbz-base), which provides gaf-base, "
+                                "and put gaf-base on your PATH, or pass --gaf-base-binary with its "
+                                "location.");
+        }
+        throw runtime_error("posix_spawnp() failed for " + binary + ": " + strerror(spawn_err));
+    }
+#ifdef SO_NOSIGPIPE
+    // Where send() has no MSG_NOSIGNAL, the socket itself is set not to raise SIGPIPE.
+    int on = 1;
+    setsockopt(query_sockets[0], SOL_SOCKET, SO_NOSIGPIPE, &on, sizeof(on));
+#endif
+#ifdef F_SETPIPE_SZ
+    // A bigger pipe lets the process run further ahead of the parsing. Failing to grow it is fine.
+    fcntl(answer_pipe[0], F_SETPIPE_SZ, 1 << 20);
+#endif
+    process->pid = pid;
+    process->query_fd = query_sockets[0];
+    process->answer_fd = answer_pipe[0];
+    process->buffer.resize(1 << 20);
+    return process;
+}
+
+string GafBaseSiteReadSource::process_errors(const Process& process) {
+    string message;
+    {
+        ifstream err_in(process.err_path);
+        stringstream buffer;
+        buffer << err_in.rdbuf();
+        message = buffer.str();
+    }
+    // Keep the end, which says what failed, and drop the trailing newline.
+    constexpr size_t MOST = 2000;
+    if (message.size() > MOST) {
+        message = "..." + message.substr(message.size() - MOST);
+    }
+    while (!message.empty() && (message.back() == '\n' || message.back() == '\r')) {
+        message.pop_back();
+    }
+    return message;
+}
+
+string GafBaseSiteReadSource::stop_process(Process& process) const {
+    // The end of its input ends gaf-base batch, as an empty query would.
+    close(process.query_fd);
+    process.query_fd = -1;
+    // Read what it still writes, so it is not left blocked on a full pipe.
+    while (true) {
+        ssize_t got = read(process.answer_fd, process.buffer.data(), process.buffer.size());
+        if (got > 0 || (got < 0 && errno == EINTR)) {
+            continue;
+        }
+        break;
+    }
+    close(process.answer_fd);
+    process.answer_fd = -1;
+
+    int child_stat = 0;
+    // wait4 rather than waitpid, since it also reports the process's CPU time and peak memory.
+    struct rusage usage;
+    memset(&usage, 0, sizeof(usage));
+    while (wait4(process.pid, &child_stat, 0, &usage) == -1) {
+        if (errno != EINTR) {
+            return "wait4() failed for " + binary + ": " + strerror(errno);
+        }
+    }
+    auto tv_micros = [](const struct timeval& tv) {
+        return (uint64_t)tv.tv_sec * 1000000 + (uint64_t)tv.tv_usec;
+    };
+    // Linux reports ru_maxrss in KiB.
+    const size_t peak = (size_t)usage.ru_maxrss * 1024;
+    {
+        std::scoped_lock guard(stopped_mutex);
+        child_user_us += tv_micros(usage.ru_utime);
+        child_system_us += tv_micros(usage.ru_stime);
+        child_max_rss = max(child_max_rss, peak);
+        child_rss_sum += peak;
+    }
+
+    string problem;
+    if (!WIFEXITED(child_stat) || WEXITSTATUS(child_stat) != 0) {
+        string errors = process_errors(process);
+        problem = binary + " batch process " + to_string(process.number) + " ended with " +
+                  (WIFEXITED(child_stat) ? "exit code " + to_string(WEXITSTATUS(child_stat))
+                                         : "signal " + to_string(WTERMSIG(child_stat))) +
+                  (errors.empty() ? "" : ": " + errors);
+    }
+    if (!process.keep_err) {
+        temp_file::remove(process.err_path);
+    }
+    return problem;
+}
+
+void GafBaseSiteReadSource::stop_processes() {
+    threads.for_each([&](ThreadState& state) {
+        for (unique_ptr<Process>& process : state.processes) {
+            string problem = stop_process(*process);
+            if (!problem.empty()) {
+                // The reads it returned were all used, so this is worth a word but not a failure.
+                cerr << "warning[vg::GafBaseSiteReadSource] " << problem << endl;
+            }
+        }
+        state.processes.clear();
+    });
+}
+
+bool GafBaseSiteReadSource::read_line(Process& process, const char*& line, size_t& length,
+                                      uint64_t& wait_time_us) const {
+    while (true) {
+        char* data = process.buffer.data();
+        const auto* newline = (const char*)memchr(data + process.begin + process.scanned, '\n',
+                                                  process.end - process.begin - process.scanned);
+        if (newline != nullptr) {
+            line = data + process.begin;
+            length = (size_t)(newline - line);
+            process.begin += length + 1;
+            process.scanned = 0;
+            return true;
+        }
+        process.scanned = process.end - process.begin;
+        // Move the unfinished line to the front, and make room if it fills the buffer.
+        if (process.begin > 0) {
+            memmove(data, data + process.begin, process.end - process.begin);
+            process.end -= process.begin;
+            process.begin = 0;
+        }
+        if (process.end == process.buffer.size()) {
+            process.buffer.resize(process.buffer.size() * 2);
+            data = process.buffer.data();
+        }
+        auto wait_start = std::chrono::steady_clock::now();
+        ssize_t got = read(process.answer_fd, data + process.end, process.buffer.size() - process.end);
+        wait_time_us += micros_since(wait_start);
+        if (got < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            throw runtime_error("cannot read the answer of " + binary + ": " + strerror(errno));
+        }
+        if (got == 0) {
+            return false;
+        }
+        process.end += (size_t)got;
+    }
+}
+
+void GafBaseSiteReadSource::query(Process& process, nid_t first, nid_t last, uint64_t& wait_time_us,
+                                  const function<void(const char*, size_t)>& visit) const {
+    auto started = std::chrono::steady_clock::now();
+    // gaf-base reads node IDs as unsigned, and IDs start from 1.
+    first = max<nid_t>(0, first);
+    last = max<nid_t>(0, last);
+    const string request = to_string(first) + "\t" + to_string(last) + "\n";
+    const string where = "node IDs " + to_string(first) + "-" + to_string(last);
+    if (!send_all(process.query_fd, request)) {
+        string errors = process_errors(process);
+        throw runtime_error(binary + " batch stopped before a query for " + where + " (" +
+                            strerror(errno) + ")" + (errors.empty() ? "" : ": " + errors));
+    }
+    ++queries;
+
+    size_t lines = 0;
+    size_t bytes = 0;
+    uint64_t waited = 0;
+    const char* line = nullptr;
+    size_t length = 0;
+    while (true) {
+        if (!read_line(process, line, length, waited)) {
+            string errors = process_errors(process);
+            throw runtime_error(binary + " batch stopped in its answer for " + where +
+                                (errors.empty() ? "" : ": " + errors));
+        }
+        if (length == 0) {
+            // An empty line ends the answer.
+            break;
+        }
+        ++lines;
+        bytes += length + 1;
+        visit(line, length);
+    }
+    wait_time_us += waited;
+
+    if (query_log != nullptr) {
+        double total_s = micros_since(started) / 1e6;
+        struct timeval now;
+        gettimeofday(&now, nullptr);
+        double started_epoch = now.tv_sec + now.tv_usec / 1e6 - total_s;
+        std::scoped_lock lock(query_log_mutex);
+        fprintf(query_log, "%.6f\t%zu\t%lld\t%lld\t%zu\t%zu\t%.6f\t%.6f\n", started_epoch,
+                process.number, (long long)first, (long long)last, lines, bytes, waited / 1e6, total_s);
+    }
+}
+
+void GafBaseSiteReadSource::fetch_span(const vector<pair<nid_t, nid_t>>& ranges,
+                                       const function<void(Alignment&)>& iteratee) const {
+    fetch_span_keyed(ranges, [&](Alignment& aln, uint64_t) { iteratee(aln); });
+}
+
+size_t GafBaseSiteReadSource::fetch_span_keyed(
+    const vector<pair<nid_t, nid_t>>& ranges,
+    const function<void(Alignment&, uint64_t)>& iteratee) const {
+    // Reads dropped for having the name and start of an earlier read.
+    size_t fetch_dropped = 0;
+    // A fetch happens inside the OpenMP parallel region that visits the sites, which an exception
+    // must not leave. A failed fetch also means a site cannot be scored, so report it and exit.
+    try {
+        ThreadState& state = threads.mine();
+        if (state.depth == state.processes.size()) {
+            state.processes.push_back(start_process());
+        }
+        Process& process = *state.processes[state.depth];
+        FetchDepth in_fetch(state.depth);
+
+        // Merge the ranges, to test records against by binary search, since a site can name tens
+        // of thousands of ranges.
+        const vector<pair<nid_t, nid_t>> merged = merge_ranges(ranges);
+        // gaf-base's position tags say where the database keeps a read, not what the read is.
+        GafFetchParser parser(graph, merged, {GAF_BASE_ROW_TAG, GAF_BASE_OFFSET_TAG});
+
+        // Pass on each read once, as the tabix source does.
+        unordered_set<string> seen;
+        auto handle_record = [&](const char* text, size_t length, bool may_touch, uint64_t record_key) {
+            Alignment* aln = parser.parse(text, length, may_touch);
+            if (aln == nullptr || !passes_filter(*aln)) {
+                return;
+            }
+            count_fetched();
+            if (!seen.insert(name_and_start(*aln)).second) {
+                ++duplicates_dropped;
+                ++fetch_dropped;
+                return;
+            }
+            iteratee(*aln, record_key);
+        };
+
+        // Ask for each run of nearby node IDs once, as the tabix source looks each up once. With one
+        // run the reads arrive in file order and are handled as they come, while gaf-base decodes
+        // the next ones. With several, a read can come back for more than one run, and a later run
+        // can return a read that lies earlier in the file. So they are gathered with their keys,
+        // and handled in file order once all are in.
+        const vector<pair<nid_t, nid_t>> runs = nearby_runs(merged);
+        const bool gather = runs.size() > 1;
+        struct Gathered {
+            uint64_t key;
+            string text;
+            bool may_touch;
+        };
+        vector<Gathered> gathered;
+        uint64_t fetch_wait_us = 0;
+        size_t fetch_bytes = 0;
+        for (const auto& run : runs) {
+            // gaf-base returns the reads with a node anywhere in the run, which takes in the IDs
+            // between its ranges. A run of a single range needs no look at the paths.
+            auto range = std::ranges::lower_bound(merged, run.first, std::less<>(),
+                                                  &pair<nid_t, nid_t>::first);
+            const bool one_range = range != merged.end() && *range == run;
+            // The key of the last line of the answer, to check that the answer is in file order.
+            uint64_t last_key = 0;
+            bool any = false;
+            query(process, run.first, run.second, fetch_wait_us, [&](const char* line, size_t length) {
+                fetch_bytes += length + 1;
+                const uint64_t key = gaf_base_record_key(line, length);
+                const bool may_touch = one_range || line_may_touch(line, length, merged);
+                if (gather) {
+                    // Keep whole only a record that may touch the site. Keep the rest as their
+                    // key, to be counted once.
+                    gathered.push_back(Gathered{key, may_touch ? string(line, length) : string(),
+                                                may_touch});
+                } else {
+                    // gaf-base answers in the order of its index of node intervals, which is the
+                    // database's order only when it was built from a GAF sorted by that interval.
+                    // Reads handled as they come must be in file order, or the calls would depend
+                    // on how the windows fell.
+                    if (any && key <= last_key) {
+                        throw runtime_error("the GAF-Base " + gaf_base_filename + " returned reads "
+                                            "out of order: build it from a GAF sorted by "
+                                            "'vg gamsort -G' or 'gaf-base sort'");
+                    }
+                    last_key = key;
+                    any = true;
+                    handle_record(line, length, may_touch, key);
+                }
+            });
+        }
+
+        if (gather) {
+            std::ranges::sort(gathered, std::less<>(), &Gathered::key);
+            for (size_t i = 0; i < gathered.size(); ++i) {
+                if (i > 0 && gathered[i].key == gathered[i - 1].key) {
+                    continue;
+                }
+                handle_record(gathered[i].text.c_str(), gathered[i].text.size(), gathered[i].may_touch,
+                              gathered[i].key);
+            }
+        }
+        wait_us += fetch_wait_us;
+        parse_us += parser.parse_time_us();
+        gaf_bytes += fetch_bytes;
+        skipped += parser.skipped_count();
+    } catch (const std::exception& e) {
+        cerr << "error[vg::GafBaseSiteReadSource] " << e.what() << endl;
+        exit(EXIT_FAILURE);
+    }
+    return fetch_dropped;
+}
+
+void GafBaseSiteReadSource::check_setup() const {
+    // Query the first node in the graph. A missing binary, a gaf-base too old for `batch --ids` or
+    // an unreadable database fails here.
+    nid_t probe = 0;
+    graph.for_each_handle((function<bool(const handle_t&)>)[&](const handle_t& handle) {
+        probe = graph.get_id(handle);
+        return false;
+    });
+    if (probe == 0) {
+        return;
+    }
+
+    ThreadState& state = threads.mine();
+    if (state.processes.empty()) {
+        state.processes.push_back(start_process());
+    }
+    Process& process = *state.processes.front();
+    uint64_t waited = 0;
+    try {
+        query(process, probe, probe, waited, [](const char*, size_t) {
+            // Only whether the query runs matters.
+        });
+    } catch (const std::exception& e) {
+        string errors = process_errors(process);
+        if (errors.find("unrecognized subcommand") != string::npos
+            || errors.find("--ids") != string::npos) {
+            throw runtime_error(binary + " is too old: vg needs `gaf-base batch --ids`, in gbz-base "
+                                "from October 2026 (https://github.com/jltsiren/gbz-base). It said: " +
+                                errors);
+        }
+        throw;
+    }
+}
+
+GafBaseSiteReadSource::QueryTotals GafBaseSiteReadSource::get_query_totals() const {
+    QueryTotals totals;
+    totals.processes = processes.load();
+    totals.queries = queries.load();
+    totals.wait_s = wait_us.load() / 1e6;
+    totals.parse_s = parse_us.load() / 1e6;
+    totals.gaf_bytes = gaf_bytes.load();
+    std::scoped_lock guard(stopped_mutex);
+    totals.child_user_s = child_user_us / 1e6;
+    totals.child_system_s = child_system_us / 1e6;
+    totals.child_max_rss = child_max_rss;
+    totals.child_rss_sum = child_rss_sum;
+    return totals;
 }
 
 }
