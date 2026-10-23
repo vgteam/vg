@@ -192,7 +192,7 @@ is "${?}" "0" "mapping to manually-generated indexes and automatically-generated
 
 is "$(jq '.path' mapped1.json)" "$(jq '.path' mapped.sync.json)" "mapping with syncmers produces the same alignment as mapping with minimizers"
 
-rm -rf mapped1.gam mapped1.json mapped2.gam mapped2.json mapped.sync.gam mapped.sync.json
+rm -rf mapped1.gam mapped1.json mapped2.gam mapped2.json mapped.sync.gam mapped.sync.json x.sync
 
 vg giraffe x.fa x.vcf.gz -f small/x.fa_1.fastq > single.gam
 is "$(vg view -aj single.gam | jq -c 'select((.fragment_next | not) and (.fragment_prev | not))' | wc -l | sed 's/^[[:space:]]*//')" "1000" "unpaired reads lack cross-references"

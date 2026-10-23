@@ -109,6 +109,9 @@ void help_chunk(char** argv) {
          << "                                with haplotype frequencies for each chunk." << endl
          << "      --no-embedded-haplotypes  don't load haplotypes from the graph. It is" << endl
          << "                                possible to -T without any haplotypes available." << endl
+         << "  -H, --haplotype-paths         also include haplotype paths in graph chunks." << endl
+         << "                                Slow and memory-hungry on big graphs, since" << endl
+         << "                                every haplotype gets a position index." << endl
          << "  -f, --fully-contained         only return GAM alignments that are" << endl
          << "                                fully contained within chunk" << endl
          << "  -u, --cut-alignments          cut alignments to be fully within the chunk" << endl
@@ -144,6 +147,7 @@ int main_chunk(int argc, char** argv) {
     string node_ranges_file;
     bool trace = false;
     bool no_embedded_haplotypes = false;
+    bool haplotype_paths = false;
     bool fully_contained = false;
     bool cut_alignments = false;
     int n_chunks = 0;
@@ -187,6 +191,7 @@ int main_chunk(int argc, char** argv) {
             {"node-ranges", required_argument, 0, 'R'},
             {"trace", no_argument, 0, 'T'},
             {"no-embedded-haplotypes", no_argument, 0, OPT_NO_EMBEDDED_HAPLOTYPES},
+            {"haplotype-paths", no_argument, 0, 'H'},
             {"fully-contained", no_argument, 0, 'f'},
             {"cut-alignments", no_argument, 0, 'u'},
             {"threads", required_argument, 0, 't'},
@@ -203,7 +208,7 @@ int main_chunk(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "h?x:G:a:gFp:P:s:o:e:S:E:b:c:r:R:Tfut:n:l:m:CMO:",
+        c = getopt_long (argc, argv, "h?x:G:a:gFp:P:s:o:e:S:E:b:c:r:R:THfut:n:l:m:CMO:",
                          long_options, &option_index);
 
 
@@ -309,6 +314,10 @@ int main_chunk(int argc, char** argv) {
             
         case OPT_NO_EMBEDDED_HAPLOTYPES:
             no_embedded_haplotypes = true;
+            break;
+
+        case 'H':
+            haplotype_paths = true;
             break;
 
         case 'f':
@@ -465,7 +474,10 @@ int main_chunk(int argc, char** argv) {
         }
         
         path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(xg_file);
-        graph = overlay_helper.apply(path_handle_graph.get(), ensure_indexed);
+        // The chunker only copies indexed paths into the chunks, so haplotypes
+        // need to be indexed to come along. That builds a position index over
+        // every haplotype in the graph, which is expensive on big graphs.
+        graph = overlay_helper.apply(path_handle_graph.get(), haplotype_paths, ensure_indexed);
     }
 
     // Now load the haplotype data

@@ -61,6 +61,17 @@ Ideally you would at least write your own unit tests.
 
 New `.cpp` files will be auto-discovered by the build system.
 
+### Editor and linter support
+
+Tools like `clangd` need a `compile_commands.json` describing how each file is compiled. To make one, install [`compiledb`](https://github.com/nickdiego/compiledb) and then have the build generate it:
+
+```bash
+pipx install compiledb
+make compile_commands.json
+```
+
+This builds vg's dependencies, if needed, but not vg itself.
+
 ### Command-line unit tests
 
 We have a suite of Bash-TAP tests within `test/t/`. Run with `prove -v` for proper error handling.

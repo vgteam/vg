@@ -13,6 +13,11 @@
 #include "subcommand.hpp"
 #include "../path.hpp"
 #include "../graph_caller.hpp"
+#include "../flow_caller.hpp"
+#include "../legacy_caller.hpp"
+#include "../nested_flow_caller.hpp"
+#include "../vcf_genotyper.hpp"
+#include "../vcf_output_caller.hpp"
 #include "../integrated_snarl_finder.hpp"
 #include "../xg.hpp"
 #include "../gbzgraph.hpp"
@@ -822,8 +827,8 @@ int main_call(int argc, char** argv) {
         std::unordered_map<nid_t, size_t> extra_node_weight;
         constexpr size_t EXTRA_WEIGHT = 10000000000;
         for (const string& refpath_name : ref_paths) {
-            // Skip altpaths (they shouldn't influence snarl decomposition)
-            if (GrefCover::is_gref_name(refpath_name)) {
+            // Skip gref fragments, clipped or not (they shouldn't influence snarl decomposition)
+            if (GrefCover::is_gref_name(Paths::strip_subrange(refpath_name))) {
                 continue;
             }
             path_handle_t refpath_handle = graph->get_path_handle(refpath_name);
@@ -983,10 +988,8 @@ int main_call(int argc, char** argv) {
             };
 
             // create the flow traversal finder
-            FlowTraversalFinder* flow_traversal_finder = new FlowTraversalFinder(*graph, *snarl_manager, max_yens_traversals,
-                                                                                 node_support, edge_support,
-                                                                                 max_allele_len);
-            traversal_finder = unique_ptr<TraversalFinder>(flow_traversal_finder);
+            traversal_finder = make_unique<FlowTraversalFinder>(*graph, max_yens_traversals, node_support, edge_support,
+                                                                max_allele_len);
         }
 
         if (top_down) {
