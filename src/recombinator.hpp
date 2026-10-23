@@ -14,6 +14,7 @@
 
 #include <iostream>
 
+#include <gbwt/cached_gbwt.h>
 #include <gbwtgraph/algorithms.h>
 
 namespace vg {
@@ -166,18 +167,29 @@ private:
 
     // Return the sorted set of kmers that are minimizers in the sequence and have
     // a single occurrence in the graph.
-    std::vector<kmer_type> unique_minimizers(gbwt::size_type sequence_id) const;
+    std::vector<kmer_type> unique_minimizers(
+        gbwt::size_type sequence_id,
+        gbwt::CachedGBWT& cached_gbwt,
+        vg::hash_map<kmer_type, size_t>& kmer_cache
+    ) const;
 
     // Returns the sorted set of kmers that are minimizers in the sequence over the
     // subchain and have a single occurrence in the graph. If the sequence does not
     // reach the end of the subchain, this will try to continue with the next fragment(s).
+    //
+    // Because we likely traverse the same nodes and see the same minimizers in
+    // multiple haplotypes, we cache them at subchain level.
     //
     // Also reports the number of fragments that were used to generate the kmers.
     //
     // To avoid using kmers shared between all haplotypes in the subchain, and
     // potentially with neighboring subchains, this does not include kmers contained
     // entirely in the shared initial/final nodes.
-    std::vector<kmer_type> unique_minimizers(sequence_type sequence, Subchain subchain, size_t& fragments) const;
+    std::vector<kmer_type> unique_minimizers(
+        sequence_type sequence, Subchain subchain, size_t& fragments,
+        gbwt::CachedGBWT& cached_gbwt,
+        vg::hash_map<kmer_type, size_t>& kmer_cache
+    ) const;
 
     // Build subchains for a specific top-level chain.
     void build_subchains(const gbwtgraph::TopLevelChain& chain, Haplotypes::TopLevelChain& output, const Parameters& parameters) const;
