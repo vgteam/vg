@@ -30,6 +30,14 @@ constexpr size_t Recombinator::MIN_GREF_LENGTH;
 
 //------------------------------------------------------------------------------
 
+// Returns true if the path is a gref fragment (`gref_CHM13#0#chr1_7_alt`), even if it
+// has already been clipped (`gref_CHM13#0#chr1_7_alt[500]`).
+bool is_gref_fragment(const gbwtgraph::GBWTGraph& graph, path_handle_t path) {
+    return GrefCover::is_gref_derived(graph.get_path_name(path)) && GrefCover::is_gref_name(graph.get_locus_name(path));
+}
+
+//------------------------------------------------------------------------------
+
 HaplotypePartitioner::HaplotypePartitioner(
     const gbwtgraph::GBZ& gbz,
     const gbwt::FastLocate& r_index,
