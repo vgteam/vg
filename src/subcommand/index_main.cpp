@@ -73,8 +73,7 @@ void help_index(char** argv) {
          << "      --no-nested-distance  only store distances along the top-level chain" << endl
          << "      --hub-ordering NAME   order hubs for oversized snarl distances by ch, shp," << endl
          << "                            shp-sampled or shp-sampled-all [ch]" << endl
-         << "      --hub-samples N       random roots per direction that shp-sampled orderings" << endl
-         << "                            start with; more trees are grown as hubs are chosen [32]" << endl
+         << "      --hub-samples N       random roots per direction for shp-sampled orderings [32]" << endl
          << "  -w, --upweight-node N     upweight the node with ID N to push it to be part" << endl
          << "                            of a top-level chain (may repeat)" << endl
          << "  -P, --path-prefix NAME    upweight tips of paths with given prefix to orient" << endl
