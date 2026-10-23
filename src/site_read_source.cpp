@@ -2134,6 +2134,24 @@ string GafBaseSiteReadSource::process_errors(const Process& process) {
 }
 
 string GafBaseSiteReadSource::stop_process(Process& process) const {
+    // The peak memory of gaf-base, read while the process is still there. wait4's ru_maxrss would
+    // count vg's memory too: posix_spawn runs the new process in vg's address space until it
+    // starts gaf-base, and the kernel keeps the larger peak. VmHWM belongs to gaf-base's own
+    // address space. Where there is no /proc, it stays 0.
+    size_t peak = 0;
+    {
+        ifstream status("/proc/" + to_string(process.pid) + "/status");
+        for (string line; getline(status, line);) {
+            if (line.rfind("VmHWM:", 0) == 0) {
+                istringstream fields(line.substr(6));
+                size_t kib = 0;
+                fields >> kib;
+                peak = kib * 1024;
+                break;
+            }
+        }
+    }
+
     // The end of its input ends gaf-base batch, as an empty query would.
     close(process.query_fd);
     process.query_fd = -1;
@@ -2149,7 +2167,7 @@ string GafBaseSiteReadSource::stop_process(Process& process) const {
     process.answer_fd = -1;
 
     int child_stat = 0;
-    // wait4 rather than waitpid, since it also reports the process's CPU time and peak memory.
+    // wait4 rather than waitpid, since it also reports the process's CPU time.
     struct rusage usage;
     memset(&usage, 0, sizeof(usage));
     while (wait4(process.pid, &child_stat, 0, &usage) == -1) {
@@ -2160,8 +2178,6 @@ string GafBaseSiteReadSource::stop_process(Process& process) const {
     auto tv_micros = [](const struct timeval& tv) {
         return (uint64_t)tv.tv_sec * 1000000 + (uint64_t)tv.tv_usec;
     };
-    // Linux reports ru_maxrss in KiB.
-    const size_t peak = (size_t)usage.ru_maxrss * 1024;
     {
         std::scoped_lock guard(stopped_mutex);
         child_user_us += tv_micros(usage.ru_utime);
