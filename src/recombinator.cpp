@@ -173,6 +173,7 @@ Haplotypes HaplotypePartitioner::partition_haplotypes(const Parameters& paramete
     for (size_t job = 0; job < chains_by_job.size(); job++) {
         const std::vector<gbwtgraph::TopLevelChain>& chains = chains_by_job[job];
         size_t total_subchains = 0, total_kmers = 0;
+        size_t total_parents = 0, total_sequences = 0;
         for (auto& chain : chains) {
             try {
                 this->build_subchains(chain, result.chains[chain.offset], parameters);
@@ -183,6 +184,8 @@ Haplotypes HaplotypePartitioner::partition_haplotypes(const Parameters& paramete
             total_subchains += result.chains[chain.offset].subchains.size();
             for (auto& subchain : result.chains[chain.offset].subchains) {
                 total_kmers += subchain.num_kmers();
+                total_parents += subchain.kmers_present.get_num_parents();
+                total_sequences += subchain.num_sequences();
             }
         }
         #pragma omp critical
@@ -197,7 +200,8 @@ Haplotypes HaplotypePartitioner::partition_haplotypes(const Parameters& paramete
                     }
                     std::cerr << result.chains[chains[i].offset].contig_name;
                 }
-                std::cerr << "), " << total_subchains << " subchains, and " << total_kmers << " kmers" << std::endl;
+                std::cerr << "), " << total_subchains << " subchains, " << total_kmers << " kmers, and "
+                    << total_parents << " parents for " << total_sequences << " sequences" << std::endl;
             }
         }
     }
